@@ -1,0 +1,61 @@
+#
+#
+#       lispd example config file
+#
+#
+
+
+#
+#       deamon config
+#
+
+debug                = on 
+map-request-retries  = 2			# send 2 before giving up
+
+
+#
+#       LISP Config
+#
+
+# Encapsulated Map-Requests are sent to this map resolver
+map-resolver        = 128.223.156.23
+
+# Register to this map server
+map-server {
+        address	    = 128.223.156.35		# 128.223.156.35
+        key-type    = 0		                # cleartext
+        key	    = foo%bar
+	verify	    = off	                # on --> lig(self)
+	proxy-reply = on	                # ask ms to proxy reply
+}
+
+# Encapsulate packets for non-LISP sites to this Proxy-ETR
+proxy-etr           = 149.20.48.60
+
+# EID of the mobile node
+database-mapping {
+         eid-prefix = 153.16.254.1/32
+         interface  = eth0
+         priority   = 1 
+         weight     = 100
+}
+
+# Static cache entries
+static-map-cache {
+        eid-prefix  = 153.16.10.0/24
+        rloc        = 128.223.156.134
+        priority    = 1 
+        weight      = 100
+}
+
+# List of PITRs to SMR on handover
+proxy-itrs = {
+	203.181.249.172,
+	69.31.31.98,
+	85.184.2.22,
+	85.184.2.30,
+	149.20.48.60,
+	129.250.1.63,
+	193.162.145.46,
+	158.38.1.92
+}

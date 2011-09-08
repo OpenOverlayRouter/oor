@@ -1,0 +1,34 @@
+package "lispconf"
+version "0.1"
+
+# Add cache entry mode
+defmode "addmode" 
+modeoption "add-entry" a "Add a map cache or db entry" values="db","cache" default="db" mode="addmode" required
+modeoption "eid" e "EID in CIDR prefix notation <addr>/<len>" 
+	   string typestr="IP Address/Prefix Length" mode="addmode" required
+modeoption "rloc" r "RLOC as IP Address" 
+	   string typestr="IP Address" mode="addmode" required
+modeoption "priority" p "priority"
+	   int typestr="priority" mode="addmode" required
+modeoption "weight" w "weight"
+	   int typestr="weight" mode="addmode" required
+modeoption "ttl" t "Time-to-live in seconds"
+	   int typestr="Time" mode="addmode" optional
+
+# delete database entry mode
+defmode "delmode"
+
+
+# print entries mode
+defmode "printmode"
+modeoption "print" x "Print EID table" values="db","cache" default="cache" mode="printmode" optional
+modeoption "filter-prefix" f "EID prefix filter" 
+	   string typestr="IP Address Prefix" mode="printmode" optional
+
+defmode "listmode"
+modeoption "list" l "List EIDs or RLOCS" values="eids","rlocs" default="eids" mode="listmode" optional
+
+# Set transport source interface mode
+defmode "rlocmode"
+modeoption "interface" i "Specify a local interface as RLOC of LISP encapsulated packets" string typestr="Linux network interface device name" mode="rlocmode" optional
+

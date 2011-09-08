@@ -1,0 +1,52 @@
+#
+#	gengetops for lispd
+#
+#
+#	David Meyer
+#	dmm@1-4-5.net
+#	Fri Apr 16 13:52:49 2010
+#
+#	$Header: /home/dmm/lisp/lispd/RCS/lispd.ggo,v 1.4 2010/04/19 23:00:06 dmm Exp $
+#
+
+
+package "lispd"
+version "0.1.0"
+
+defmode "lispdconfig"
+
+modeoption "debug" d "Debuging output" mode="lispdconfig" optional
+
+modeoption "nodaemonize" n "Don't daemonize" mode="lispdconfig" optional
+
+modeoption "config-file" f "Alternate config file" 
+	    string typestr="config-file" mode="lispdconfig" optional
+
+modeoption "map-resolver" m "MR is the IPv{4,6} address or FQDN of the Map Resolver to use" 
+	    string typestr="MR" mode="lispdconfig" optional
+
+modeoption "map-server" s "MS is the IPv{4,6} address or FQDN of the Map Server to use" 
+	    string typestr="MS" mode="lispdconfig" optional
+
+modeoption "proxy-etr" e "PETR is the IPv{4,6} address or FQDN of the Proxy-ETR to use" 
+	    string typestr="PETR" mode="lispdconfig" optional
+
+modeoption "control_port" p "CP is the LISP control port (default: 4342)" 
+	    string typestr="CP" mode="lispdconfig" optional
+
+modeoption "map-request-retries" r "R is number of map-requests to send"
+	int typestr="R" mode="lispdconfig" optional
+
+
+# modeoption "inner-source-port" r "P is the inner source port for EMRs" 
+# 	    string typestr="P" mode="lispdconfig" optional
+# 
+# modeoption "inner-source-address" s "S is the inner source address for EMRs" 
+# 	    string typestr="S" mode="lispdconfig" optional
+# 
+# modeoption "map-request-timeout" t "T is the time to wait for map request to timeout" 
+# 	    int typestr="T" mode="lispdconfig" optional
+# 
+# modeoption "source-rloc" u "SR is the source RLOC to use for Map Reqests" 
+# 	    int typestr="SR" mode="lispdconfig" optional
+
