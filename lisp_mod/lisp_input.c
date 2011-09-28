@@ -33,8 +33,12 @@
 #include "linux/ip.h"
 #include "linux/udp.h"
 #include "linux/in_route.h"
+#include "linux/if_arp.h"
 #include "net/route.h"
 #include "net/ip.h"
+#include "net/ipv6.h"
+#include "net/ip6_route.h"
+#include "linux/ipv6.h"
 #include "net/icmp.h"
 #include "net/inet_ecn.h"
 #include "lisp_input.h"
@@ -129,6 +133,7 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
 			int (*okfunc)(struct sk_buff*))
 {
   struct iphdr *iph;
+  struct ipv6hdr *ip6;
   struct udphdr *udh;
   struct lisphdr *lisp_hdr;
   char   first_byte;
@@ -204,6 +209,7 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
       skb_reset_network_header(packet_buf);
       iph = ip_hdr(packet_buf);
 
+      if (iph->version == 4) {
 #ifdef DEBUG_PACKETS
       printk(KERN_INFO "   Inner packet src:%pI4 dst:%pI4, type: %d\n", &(iph->saddr),
              &(iph->daddr), iph->protocol);
@@ -224,6 +230,23 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
                   LISP_EID_INTERFACE);
       }
       return NF_ACCEPT;
+      } else if (iph->version == 6) {
+          ip6 = ipv6_hdr(packet_buf);
+          printk(KERN_INFO "   Inner packet src:%pI6 dst:%pI6, nexthdr: 0x%x\n",
+                 ip6->saddr.s6_addr, ip6->daddr.s6_addr, ip6->nexthdr);
+
+          IPCB(packet_buf)->flags = 0;
+          packet_buf->protocol = htons(ETH_P_IPV6);
+          packet_buf->pkt_type = PACKET_HOST;
+
+          packet_buf->dev = input_dev;
+          nf_reset(packet_buf);
+          netif_rx(packet_buf);
+
+          return NF_STOLEN;
+      } else {
+          return NF_ACCEPT; // Don't know what it is, let ip deal with it.
+      }
     }
 
 #ifdef DEBUG_PACKETS

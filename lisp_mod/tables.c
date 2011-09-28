@@ -260,6 +260,7 @@ int lookup_eid_db_v4_exact(int eid, int prefixlen, lisp_database_entry_t **entry
   result = patricia_search_exact(AF4_eid_db, &prefix);
   if (!result) {
     spin_unlock_bh(&table_lock);
+    *entry = NULL;
     return(0);
   }
 
@@ -289,6 +290,7 @@ int lookup_eid_db_v6_exact(lisp_addr_t eid_prefix, int prefixlen, lisp_database_
   result = patricia_search_exact(AF6_eid_db, &prefix);
   if (!result) {
     spin_unlock_bh(&table_lock);
+    *entry = NULL;
     return(0);
   }
 
@@ -375,7 +377,7 @@ void add_db_entry_locator(lisp_database_entry_t *db_entry,
      * Allocate a new locator
      */
       locator_entry  = kmem_cache_alloc(lisp_database_loctype, GFP_KERNEL);
-      printk(KERN_INFO "Allocating map-cache locator from %s\n",
+      printk(KERN_INFO "Allocating database locator from %s\n",
              kmem_cache_name(lisp_database_loctype));
       if (!locator_entry) {
           printk(KERN_INFO "Couldn't allocate from %s\n",
@@ -399,27 +401,38 @@ void add_db_entry_locator(lisp_database_entry_t *db_entry,
 }
 
 /*
- * add_eid_db_entry_v4()
+ * add_eid_db_entry()
  *
  * Add an EID/Locator mapping to the database for ipv4
  */
-void add_eid_db_entry_v4(lisp_db_add_msg_t *entry)
+void add_eid_db_entry(lisp_db_add_msg_t *entry)
 {
   patricia_node_t       *node;
   lisp_database_entry_t *db_entry;
   struct timeval         timestamp;
+  int afi = entry->eid_prefix.afi;
   int entry_exists = 0;
   int locator_idx;
 
-  printk(KERN_INFO " Adding database mapping: %pi4/%d\n",
-         &entry->eid_prefix.address.ip.s_addr,
-         entry->eid_prefix_length);
+  if (afi == AF_INET) {
+      printk(KERN_INFO " Adding database mapping: %pi4/%d\n",
+             &entry->eid_prefix.address.ip.s_addr,
+             entry->eid_prefix_length);
+      lookup_eid_db_v4_exact(entry->eid_prefix.address.ip.s_addr,
+                             entry->eid_prefix_length, &db_entry);
+
+  } else {
+      printk(KERN_INFO " Adding database mapping: %pi6/%d\n",
+             entry->eid_prefix.address.ipv6.s6_addr,
+             entry->eid_prefix_length);
+      lookup_eid_db_v6_exact(entry->eid_prefix,
+                             entry->eid_prefix_length, &db_entry);
+  }
 
   /*
    * Check for existing entry
    */
-  if (!lookup_eid_db_v4_exact(entry->eid_prefix.address.ip.s_addr,
-                              entry->eid_prefix_length, &db_entry)) {
+  if (!db_entry) {
 
       db_entry = kmem_cache_alloc(lisp_database, GFP_KERNEL);
       printk(KERN_INFO "Allocating new map-database entry from %s\n",
@@ -431,12 +444,15 @@ void add_eid_db_entry_v4(lisp_db_add_msg_t *entry)
       }
 
       memset(db_entry, 0, sizeof(lisp_database_entry_t));
-      db_entry->eid_prefix.address.ip.s_addr    = entry->eid_prefix.address.ip.s_addr;
+      if (afi == AF_INET) {
+          db_entry->eid_prefix.address.ip.s_addr = entry->eid_prefix.address.ip.s_addr;
+      } else {
+          memcpy(&db_entry->eid_prefix, &entry->eid_prefix, sizeof(lisp_addr_t));
+      }
       db_entry->eid_prefix_length       = entry->eid_prefix_length;
-      db_entry->eid_prefix.afi          = AF_INET;
+      db_entry->eid_prefix.afi          = afi;
       do_gettimeofday(&timestamp);
       db_entry->timestamp               = timestamp.tv_sec;
-
       printk(KERN_INFO "  Entry not found, creating new entry");
   } else {
       printk(KERN_INFO "  Existing entry found, replacing locator list");
@@ -464,9 +480,13 @@ void add_eid_db_entry_v4(lisp_db_add_msg_t *entry)
   /* Insert new prefix if not found */
   if (!entry_exists) {
       spin_lock_bh(&table_lock);
-      node = make_and_lookup_v4(AF4_eid_db, entry->eid_prefix.address.ip.s_addr,
-                                entry->eid_prefix_length);
-
+      if (afi == AF_INET) {
+          node = make_and_lookup_v4(AF4_eid_db, entry->eid_prefix.address.ip.s_addr,
+                                    entry->eid_prefix_length);
+      } else {
+          node = make_and_lookup_v6(AF6_eid_db, entry->eid_prefix.address.ipv6,
+                                    entry->eid_prefix_length);
+      }
       if (!node) {
           printk(KERN_INFO " Failed to allocate EID db tree node");
           spin_unlock_bh(&table_lock);
@@ -476,85 +496,6 @@ void add_eid_db_entry_v4(lisp_db_add_msg_t *entry)
       spin_unlock_bh(&table_lock);
   }
 }
-
-/*
- * add_eid_db_entry_v6()
- *
- * Add an EID/Locator mapping to the database for ipv6 eid
- */
-void add_eid_db_entry_v6(lisp_db_add_msg_t *entry)
-{
-    patricia_node_t       *node;
-    lisp_database_entry_t *db_entry;
-    struct timeval         timestamp;
-    int entry_exists = 0;
-    int locator_idx;
-
-    printk(KERN_INFO " Adding database mapping: %pi6/%d\n",
-           entry->eid_prefix.address.ipv6.s6_addr,
-           entry->eid_prefix_length);
-
-    /*
-     * Check for existing entry
-     */
-    if (!lookup_eid_db_v6_exact(entry->eid_prefix,
-                                entry->eid_prefix_length, &db_entry)) {
-
-      db_entry = kmem_cache_alloc(lisp_database, GFP_KERNEL);
-      printk(KERN_INFO "Allocating new map-database entry from %s\n",
-             kmem_cache_name(lisp_database));
-      if (!db_entry) {
-        printk(KERN_INFO "Couldn't allocate from %s\n",
-               kmem_cache_name(lisp_database));
-        return;               /* XXX: correct? */
-      }
-
-      memset(db_entry, 0, sizeof(lisp_database_entry_t));
-      memcpy(&db_entry->eid_prefix, &entry->eid_prefix, sizeof(lisp_addr_t));
-      db_entry->eid_prefix_length       = entry->eid_prefix_length;
-      db_entry->eid_prefix.afi          = AF_INET6;
-      do_gettimeofday(&timestamp);
-      db_entry->timestamp               = timestamp.tv_sec;
-
-      printk(KERN_INFO "  Entry not found, creating new entry");
-    } else {
-      printk(KERN_INFO "  Existing entry found, replacing locator list");
-      entry_exists = 1;
-    }
-
-    /*
-     * Add the locators
-     */
-    for (locator_idx = 0; locator_idx < MAX_LOCATORS; locator_idx++) {
-        if (locator_idx < entry->count) {
-            add_db_entry_locator(db_entry, (lisp_db_add_msg_loc_t *)entry->locators,
-                                 locator_idx);
-        } else if (db_entry->locator_list[locator_idx]) {
-
-            /*
-                 * Free old locators beyond what's current
-                 */
-            kmem_cache_free(lisp_database_loctype, db_entry->locator_list[locator_idx]);
-            db_entry->locator_list[locator_idx] = NULL;
-        }
-    }
-    db_entry->count                   = entry->count;
-
-    /* Insert new prefix if not found */
-    if (!entry_exists) {
-        spin_lock_bh(&table_lock);
-        node = make_and_lookup_v6(AF6_eid_db, entry->eid_prefix.address.ipv6, entry->eid_prefix_length);
-
-        if (!node) {
-            printk(KERN_INFO " Failed to allocate EID db tree node");
-            spin_unlock_bh(&table_lock);
-            return;
-        }
-        node->data = db_entry;
-        spin_unlock_bh(&table_lock);
-    }
-}
-
 
 /*
  * update_locator_hash_table()
@@ -781,28 +722,38 @@ void del_eid_cache_entry(lisp_addr_t eid,
 }
 
 /*
- * add_eid_cache_entry_v4()
+ * add_eid_cache_entry()
  *
  * Add an EID/locator mapping to the v4 map cache 
  */
-void add_eid_cache_entry_v4(lisp_eid_map_msg_t *entry)
+void add_eid_cache_entry(lisp_eid_map_msg_t *entry)
 {
   patricia_node_t       *node;
   lisp_map_cache_t      *map_entry;
   struct timeval         timestamp;
+  int                    afi = entry->eid_prefix.afi;
   int                    locator_idx = 0;
   int                    entry_exists = 0;
 
-  printk(KERN_INFO " Adding cache mapping: %pi4/%d\n",
-         &entry->eid_prefix,
-         entry->eid_prefix_length);
+  if (afi == AF_INET) {
+      printk(KERN_INFO " Adding cache mapping: %pi4/%d\n",
+             &entry->eid_prefix,
+             entry->eid_prefix_length);
+      lookup_eid_cache_v4_exact(entry->eid_prefix.address.ip.s_addr,
+                                entry->eid_prefix_length, &map_entry);
+  } else {
+      printk(KERN_INFO " Adding cache mapping: %pi6/%d\n",
+             entry->eid_prefix.address.ipv6.s6_addr,
+             entry->eid_prefix_length);
+      lookup_eid_cache_v6_exact(entry->eid_prefix,
+                                entry->eid_prefix_length, &map_entry);
+  }
 
   /*
    * Check for existing entry
    */
-  if (!lookup_eid_cache_v4_exact(entry->eid_prefix.address.ip.s_addr,
-				 entry->eid_prefix_length, &map_entry)) {
-      map_entry = kmem_cache_alloc(lisp_map_cache,GFP_KERNEL);
+  if (!map_entry) {
+      map_entry = kmem_cache_alloc(lisp_map_cache, GFP_KERNEL);
       printk(KERN_INFO "Allocating new map-cache entry from %s\n",
              kmem_cache_name(lisp_map_cache));
       if (!map_entry) {
@@ -812,9 +763,13 @@ void add_eid_cache_entry_v4(lisp_eid_map_msg_t *entry)
       }
 
       memset(map_entry, 0, sizeof(lisp_map_cache_t));
-      map_entry->eid_prefix.address.ip.s_addr    = entry->eid_prefix.address.ip.s_addr;
+      if (afi == AF_INET) {
+          map_entry->eid_prefix.address.ip.s_addr    = entry->eid_prefix.address.ip.s_addr;
+      } else {
+          memcpy(&map_entry->eid_prefix, &entry->eid_prefix, sizeof(lisp_addr_t));
+      }
       map_entry->eid_prefix_length               = entry->eid_prefix_length;
-      map_entry->eid_prefix.afi                  = AF_INET;
+      map_entry->eid_prefix.afi                  = afi;
       map_entry->how_learned                     = entry->how_learned;
       map_entry->ttl                             = entry->ttl;
       map_entry->sampling_interval               = entry->sampling_interval;
@@ -891,9 +846,13 @@ void add_eid_cache_entry_v4(lisp_eid_map_msg_t *entry)
   /* Insert new prefix if it doesn't exist */
   if (!entry_exists) {
       spin_lock_bh(&table_lock);
-      node = make_and_lookup_v4(AF4_eid_cache, entry->eid_prefix.address.ip.s_addr,
-                                entry->eid_prefix_length);
-
+      if (afi == AF_INET) {
+          node = make_and_lookup_v4(AF4_eid_cache, entry->eid_prefix.address.ip.s_addr,
+                                    entry->eid_prefix_length);
+      } else {
+          node = make_and_lookup_v6(AF6_eid_cache, entry->eid_prefix.address.ipv6,
+                                    entry->eid_prefix_length);
+      }
       if (!node) {
           printk(KERN_INFO " Failed to allocate EID tree node");
           spin_unlock_bh(&table_lock);
@@ -901,148 +860,6 @@ void add_eid_cache_entry_v4(lisp_eid_map_msg_t *entry)
       }
       node->data = map_entry;
       spin_unlock_bh(&table_lock);
-  }
-}
-
-/*
- * add_eid_cache_entry_v6()
- *
- * Add an EID/locator mapping to the v6 map cache. Needs updating to match v4 XXX
- */
-void add_eid_cache_entry_v6(lisp_eid_map_msg_t *entry)
-{
-  patricia_node_t        *node;
-  lisp_map_cache_t       *map_entry;
-  struct timeval          timestamp;
-  int                     locator_idx = 0;
-  int                     entry_exists = 0;
-
-  printk(KERN_INFO " Adding cache mapping: %pi6/%d\n",
-         entry->eid_prefix.address.ipv6.s6_addr,
-         entry->eid_prefix_length);
-
-  /*
-   * Check for existing entry
-   */
-  if (!lookup_eid_cache_v6_exact(entry->eid_prefix, 
-                 entry->eid_prefix_length, &map_entry)) {
-
-    map_entry = kmem_cache_alloc(lisp_map_cache, GFP_KERNEL);
-    printk(KERN_INFO "Allocating new map-cache entry from %s\n",
-	   kmem_cache_name(lisp_map_cache));
-    if (!map_entry) {
-      printk(KERN_INFO "Couldn't allocate from %s\n",
-	     kmem_cache_name(lisp_map_cache));
-      return;               /* XXX: correct? */
-    }
-    
-    memset(map_entry, 0, sizeof(lisp_map_cache_t));
-    memcpy(&map_entry->eid_prefix, &entry->eid_prefix, sizeof(lisp_addr_t));
-    map_entry->eid_prefix_length       = entry->eid_prefix_length;
-    map_entry->eid_prefix.afi          = AF_INET6;
-    map_entry->how_learned             = entry->how_learned;   
-    map_entry->ttl                     = entry->ttl;
-    map_entry->sampling_interval       = entry->sampling_interval;
-
-    /*
-     * If not static, start the timer
-     */
-    if (map_entry->how_learned) {
-      setup_timer(&map_entry->expiry_timer, &eid_entry_expiration, (unsigned long)map_entry);
-      mod_timer(&map_entry->expiry_timer, jiffies + map_entry->ttl * HZ);
-
-      // Jitter XXX
-    }
-
-    /*
-     * Start the sampling timer
-     */
-    if (entry->sampling_interval) {
-        setup_timer(&map_entry->probe_timer, &eid_entry_smr_sample, (unsigned long)map_entry);
-        mod_timer(&map_entry->probe_timer, jiffies + entry->sampling_interval * HZ * SECS_PER_MIN);
-    }
-    do_gettimeofday(&timestamp);
-    map_entry->timestamp               = timestamp.tv_sec;
-  
-    printk(KERN_INFO "  Entry not found, creating new entry");
-  } else {
-    printk(KERN_INFO "  Existing entry found, extending locator list");
-    entry_exists = 1;
-  } 
-
-  /*
-   * Create the locators list
-   */
-  // clear previous locators? XXX
-  // Negative cache entry?? XXX
-  if (!entry->count) {
-      map_entry->locators_present = 0;
-  } else {
-      map_entry->locators_present = 1;
-
-      for (locator_idx = 0; locator_idx < entry->count; locator_idx++) {
-          add_cache_entry_locator(map_entry, (lisp_eid_map_msg_loc_t *)entry->locators,
-                                  locator_idx);
-      }
-  }
-
-  map_entry->count                   = entry->count;
-  // Update LSBs??? XXX
-  // Update weight table XXX
-
-  /* Insert new entry if it doesn't exist */
-  if (!entry_exists) {
-      spin_lock_bh(&table_lock);
-      node = make_and_lookup_v6(AF6_eid_cache, entry->eid_prefix.address.ipv6,
-                                entry->eid_prefix_length);
-
-      if (!node) {
-          printk(KERN_INFO " Failed to allocate EID tree node");
-          spin_unlock_bh(&table_lock);
-          return;
-      }
-      node->data = map_entry;
-      spin_unlock_bh(&table_lock);
-  }
-}
-
-/*
- * add_eid_cache_entry()
- *
- * Dispatch to the appropriate routine for the given EID address family.
- */
-void add_eid_cache_entry(lisp_eid_map_msg_t *entry)
-{
-  switch (entry->eid_prefix.afi) {
-  case AF_INET:
-    add_eid_cache_entry_v4(entry);
-    break;
-  case AF_INET6:
-    add_eid_cache_entry_v6(entry);
-    break;
-  default:
-    printk(KERN_INFO " Unknown AF ");
-    break;
-  }
-}
-
-/*
- * add_eid_db_entry()
- *
- * Dispatch to the appropriate routine for the given EID address family.
- */
-void add_eid_db_entry(lisp_db_add_msg_t *entry)
-{
-  switch (entry->eid_prefix.afi) {
-  case AF_INET:
-    add_eid_db_entry_v4(entry);
-    break;
-  case AF_INET6:
-    add_eid_db_entry_v6(entry);
-    break;
-  default:
-    printk(KERN_INFO " Unknown AF ");
-    break;
   }
 }
 
