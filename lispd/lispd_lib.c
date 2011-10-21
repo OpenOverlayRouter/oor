@@ -301,16 +301,14 @@ lispd_addr_t *get_my_addr(if_name, afi)
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             memcpy((void *) &(addr->address.address),
-                   (void *)&(s4->sin_addr), sizeof(struct sockaddr_in));
+                   (void *)&(s4->sin_addr), sizeof(struct in_addr));
             addr->afi = (ifa->ifa_addr)->sa_family;
             freeifaddrs(ifaddr);
             return(addr);
         case AF_INET6:
             s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
             memcpy((void *) &(addr->address.address),
-                   (void *)&(s6->sin6_addr),
-
-                   sizeof(struct sockaddr_in6));
+                   (void *)&(s6->sin6_addr), sizeof(struct in6_addr));
             addr->afi = (ifa->ifa_addr)->sa_family;
             freeifaddrs(ifaddr);
             return(addr);
