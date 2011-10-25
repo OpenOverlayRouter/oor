@@ -476,9 +476,20 @@ int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst,
 
     if (opts.send_rec) {
     /* LJ: For now, IPv4 EIDs only. TODO IPv6 */
-        PATRICIA_WALK(AF4_database->head, node) {
+//Pranathi: 
+    PATRICIA_WALK(AF4_database->head, node) {
+            locator_chain = ((lispd_locator_chain_t *)(node->data));
+        } PATRICIA_WALK_END; 
+  
+     if(AF4_database->head == NULL)
+     {
+         PATRICIA_WALK(AF6_database->head, node) {
             locator_chain = ((lispd_locator_chain_t *)(node->data));
         } PATRICIA_WALK_END;
+
+      }
+
+
     }
 
     packet = build_map_reply_pkt(src, &destination, nonce, opts, locator_chain, &len);

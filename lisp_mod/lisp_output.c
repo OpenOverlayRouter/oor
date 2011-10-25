@@ -515,10 +515,7 @@ unsigned int lisp_output6(unsigned int hooknum,
   if (retval == 0 || !eid_entry->count) {
 
     printk(KERN_INFO "No EID mapping found, notifying lispd...\n");
-    /* PN testing
-     * cacheMiss crashes lispd
-     */
-    //send_cache_miss_notification(dst_addr, AF_INET6);
+    send_cache_miss_notification(dst_addr, AF_INET6);
     return NF_ACCEPT;  // What's the right thing to do here? XXX
   }
 

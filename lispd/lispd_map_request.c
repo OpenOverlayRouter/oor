@@ -28,6 +28,7 @@
  *    Vina Ermagan      <vermagan@cisco.com>
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Pranathi Mamidi   <pranathi.3961@gmail.com>
  *
  */
 
@@ -78,8 +79,8 @@
  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  *
- *  <source EID address>
- *  IRC = 0 --> one source rloc
+ *	<source EID address>
+ *	IRC = 0 --> one source rloc
  *      lisp_pkt_map_request_eid_prefix_record_t
  *      EID
  *
@@ -124,7 +125,8 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
     int                     udp_len             = 0;
     int                     map_request_msg_len = 0;
     int                     ip_header_len       = 0;
-    int                     my_addr_len         = 0;
+   //Pranathi : Changed the variable my_addr_len to my_itr_addr_len
+    int						my_itr_addr_len         = 0;
     int                     alen                = 0;
 
     eid_afi = get_lisp_afi(eid_prefix_afi, &eid_len);
@@ -138,41 +140,135 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
         return (0);
     }
 
-    if ((my_addr = get_my_addr(ctrl_iface->iface_name,lisp2inetafi(eid_afi))) == 0) { 
-        syslog(LOG_DAEMON,"can't find suitable source address (%s,%d)",
-               ctrl_iface->iface_name,lisp2inetafi(eid_afi));
-        return(0);
+  //Pranathi : my_addr -> This is for the source address in the inner header of the encapsulated Map-request msg
+  // For v4eid over v4 rloc , Inner header: v4 src rloc , v4 dest eid
+  // For v6eid over v4 rloc , Inner header: v6 src eid , v6 dest eid
+  // For v4eid over v6 rloc , Inner header: v4 src eid , v4 dest eid
+  // For v6eid over v6 rloc , Inner header: v6 src rloc , v6 dest eid
+ if(ctrl_iface->AF4_locators->head)
+ {
+   switch(eid_prefix_afi) {
+    case AF_INET:
+            if ((my_addr = get_my_addr(ctrl_iface->iface_name,lisp2inetafi(eid_afi))) == 0) { 
+               syslog(LOG_DAEMON,"can't find suitable source address (%s,%d)",
+                      ctrl_iface->iface_name,lisp2inetafi(eid_afi));
+            return(0);
+           }
+           break;
+
+    case AF_INET6:
+          if ((my_addr = get_my_addr("lmn0",lisp2inetafi(eid_afi))) == 0) {
+              syslog(LOG_DAEMON,"can't find suitable source address (%s,%d)",
+                     "lmn0",lisp2inetafi(eid_afi));
+          return(0);
+        }
+        break;
+    
+    default:
+       syslog(LOG_DAEMON, "Unknown EID address family:%d in build_map_request_pkt()",eid_prefix_afi);
+       return(0);
+   }
+
+ }
+
+ else if(ctrl_iface->AF6_locators->head)
+ {
+   switch(eid_prefix_afi) {
+    case AF_INET:
+          if ((my_addr = get_my_addr("lmn0",lisp2inetafi(eid_afi))) == 0) {
+              syslog(LOG_DAEMON,"can't find suitable source address (%s,%d)",
+                     "lmn0",lisp2inetafi(eid_afi));
+          return(0);
+        }
+        break;
+
+    case AF_INET6:
+         if ((my_addr = get_my_addr(ctrl_iface->iface_name,lisp2inetafi(eid_afi))) == 0) { 
+               syslog(LOG_DAEMON,"can't find suitable source address (%s,%d)",
+                      ctrl_iface->iface_name,lisp2inetafi(eid_afi));
+            return(0);
+           }
+           break;
+
+    default:
+        syslog(LOG_DAEMON,"Unknown EID address family:%d in build_map_request_pkt()",eid_prefix_afi);
+       return(0);
+   }
+ }
+else
+{
+ syslog(LOG_DAEMON,"Ctrl_iface : No v4/v6 locators");
+ return(0);
+
+}
+
+
+ 
+
+/*
+
+    if ((my_addr_len = get_addr_len(my_addr->afi)) == 0) { 
+	free(my_addr);
+	return (0);
     }
 
-    if ((my_addr_len = get_addr_len(my_addr->afi)) == 0) {
-    free(my_addr);
-    return (0);
-    }
+*/
+//Pranathi : since this is for obtaining itr rloc length , not eid
+	if(ctrl_iface->AF4_locators->head)
+	{
+	  if ((my_itr_addr_len = get_addr_len(AF_INET)) == 0) { 
+	  free(my_addr);
+	  return (0);
+         }
+        }
+        else if(ctrl_iface->AF6_locators->head)
+	{
+	  if ((my_itr_addr_len = get_addr_len(AF_INET6)) == 0) { 
+	  free(my_addr);
+	  return (0);
+         }
+        }
 
     if ((ip_header_len = get_ip_header_len(my_addr->afi)) == 0) {
-    free(my_addr);
-    return (0);
+	free(my_addr);
+	return (0);
     }
 
     /* 
      * caclulate sizes of interest
      */
 
-    map_request_msg_len = sizeof(lispd_pkt_map_request_t) + /* map request */
-    eid_len                                           + /* source eid */
-    sizeof(lispd_pkt_map_request_itr_rloc_t)          + /* IRC = 1 */
-    my_addr_len                                       + /* ITR RLOC */
-    sizeof(lispd_pkt_map_request_eid_prefix_record_t) + 
-        eid_len;                                            /* EID prefix */
+	map_request_msg_len = sizeof(lispd_pkt_map_request_t) + /* map request */
+	eid_len                                           + /* source eid */
+	sizeof(lispd_pkt_map_request_itr_rloc_t)          + /* IRC = 1 */
+	my_itr_addr_len                                      + /* ITR RLOC */
+	sizeof(lispd_pkt_map_request_eid_prefix_record_t) + 
+        eid_len;                                            /* EID prefix */ 
 
     udp_len = sizeof(struct udphdr) + map_request_msg_len;  /* udp header */
-    ip_len  = ip_header_len + udp_len;
-
-    if (encap) {
-        packet_len = sizeof(lispd_pkt_encapsulated_control_t) + ip_len;
-    } else {
-        packet_len = ip_len;
+  
+    //pranathi
+    if(eid_prefix_afi ==AF_INET)  // since total length
+    {
+        ip_len  = ip_header_len + udp_len;
+        if (encap) {
+          packet_len = sizeof(lispd_pkt_encapsulated_control_t) + ip_len;
+        } else {
+         packet_len = ip_len;
+        }
     }
+    if(eid_prefix_afi ==AF_INET6) // since payload length
+    {
+       ip_len  = udp_len;
+       if (encap) {
+        packet_len = sizeof(lispd_pkt_encapsulated_control_t) + ip_header_len + udp_len ;
+        } else {
+        packet_len = ip_header_len + udp_len;
+        }
+        
+     }
+    
+
 
     *len       = packet_len;                    /* return this */
 
@@ -192,8 +288,8 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
         /*
          * point cur_ptr at the start of the IP header
          */
-    cur_ptr = CO(ecm, sizeof(lispd_pkt_encapsulated_control_t));
-        iphptr = cur_ptr;                   /* save for ip checksum */
+	cur_ptr = CO(ecm, sizeof(lispd_pkt_encapsulated_control_t));
+        iphptr = cur_ptr;					/* save for ip checksum */
     } else {
         iphptr = (void *) packet;
     }
@@ -203,19 +299,19 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
          */
 
     if (encap) {
-    if ((udph = build_ip_header(iphptr, my_addr, eid_prefix, ip_len)) == 0) {
-        syslog(LOG_DAEMON, "Can't build IP header (unknown AFI %d)",
-                    my_addr->afi);
-            free(my_addr);
-        return (0);
+	if ((udph = build_ip_header(iphptr, my_addr, eid_prefix, ip_len)) == 0) {
+		syslog(LOG_DAEMON, "Can't build IP header (unknown AFI %d)",
+	                my_addr->afi);
+	        free(my_addr);
+		return (0);
         }
     } else {
         lispd2lisp(dest, &rloc);
-    if ((udph = build_ip_header(iphptr, my_addr, &rloc, ip_len)) == 0) {
-        syslog(LOG_DAEMON, "Can't build IP header (unknown AFI %d)",
-                    my_addr->afi);
-            free(my_addr);
-        return (0);
+	if ((udph = build_ip_header(iphptr, my_addr, &rloc, ip_len)) == 0) {
+		syslog(LOG_DAEMON, "Can't build IP header (unknown AFI %d)",
+	                my_addr->afi);
+	        free(my_addr);
+		return (0);
         }
     }
     
@@ -281,7 +377,7 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
             locator_chain = ((lispd_locator_chain_t *)(node->data));
         } PATRICIA_WALK_END;
     case AF_INET6:
-        PATRICIA_WALK(AF4_database->head, node) {
+        PATRICIA_WALK(AF6_database->head, node) {
             locator_chain = ((lispd_locator_chain_t *)(node->data));
         } PATRICIA_WALK_END;
     }
@@ -303,15 +399,34 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
     /*
      * now the ITR-RLOC (XXX: assumes only one)
      */
-
+//Pranathi
+ if(ctrl_iface->AF4_locators->head)  /* v4 RLOC*/
+ {
     itr_rloc = (lispd_pkt_map_request_itr_rloc_t *) CO(cur_ptr, alen);
-    itr_rloc->afi = htons(get_lisp_afi(my_addr->afi, NULL));
+    itr_rloc->afi = htons(get_lisp_afi(AF_INET, NULL));
     cur_ptr = CO(itr_rloc, sizeof(lispd_pkt_map_request_itr_rloc_t));
-    if ((alen = copy_addr(cur_ptr, (lisp_addr_t *) &(my_addr->address.address),
-            my_addr->afi, 0)) == 0) {
+      if ((alen = copy_addr(cur_ptr, (lisp_addr_t *) &((ctrl_iface->AF4_locators->head->db_entry->locator).address),
+			AF_INET, 0)) == 0) {
+
+    free(packet);
+    return (0);
+      } 
+ 
+ }
+
+ if(ctrl_iface->AF6_locators->head)  /*v6 RLOC*/
+  {
+    itr_rloc = (lispd_pkt_map_request_itr_rloc_t *) CO(cur_ptr, alen);
+   itr_rloc->afi = htons(get_lisp_afi(AF_INET6, NULL));
+    cur_ptr = CO(itr_rloc, sizeof(lispd_pkt_map_request_itr_rloc_t));
+   if ((alen = copy_addr(cur_ptr, (lisp_addr_t *) &((ctrl_iface->AF6_locators->head->db_entry->locator).address),
+			AF_INET6, 0)) == 0) {
+
     free(packet);
     return (0);
     }
+
+  }
 
     /* 
      *  finally, the requested EID prefix
@@ -407,7 +522,7 @@ send_map_request(packet, packet_len, resolver)
                 "send_map_request: nbytes (%d) != packet_len (%d)\n", 
                 nbytes, packet_len);
         close(s);
-    return (0);
+	return (0);
     }
 
     close(s);
@@ -593,9 +708,26 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
             }
         }
 
+
+                //Pranathi: Added this
+        if (iph->ip_v == IP6VERSION) {
+           
+            if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+                    return(0);
+            }
+
+            if (udpsum != 0) {
+                    syslog(LOG_DAEMON, " Map-Request:v6 UDP checksum failed.");
+                    return(0);
+
+            }
+        }
+
+
+
         /*
-     * Point msg at the start of the Map-Request payload.
-     */
+	 * Point msg at the start of the Map-Request payload.
+	 */
 
         len = ip_header_len + sizeof(struct udphdr);
         msg = (lispd_pkt_map_request_t *) CO(iph, len);

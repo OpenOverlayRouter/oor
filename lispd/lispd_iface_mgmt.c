@@ -28,6 +28,7 @@
  *    Vijay Subramanian <vijaynsu@cisco.com>
  *    Pere Monclus      <pmonclus@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Pranathi Mamidi   <pranathi.3961@gmail.com>
  *
  */
 
@@ -713,6 +714,7 @@ int delete_rloc (iface_elt, rloc)
     lispd_locator_chain_elt_t   *prev_elt       = NULL;
     char                        *eid            = NULL;
     int                         afi;
+    uint16_t                    eid_afi;
     char                        addr_str[MAX_INET_ADDRSTRLEN];
 
     /*
@@ -721,18 +723,53 @@ int delete_rloc (iface_elt, rloc)
      * XXX: Assume eid's afi == rloc's afi
      * Then, find the patricia node associated with the eid
      */
-    switch(rloc->afi) {
+
+    //Pranathi
+    if(rloc->afi  == AF_INET)
+{
+    eid_afi = iface_elt -> AF4_locators->head->db_entry->eid_prefix_afi;
+// Not handled: One RLOC having different address family eid's
+ switch(eid_afi)  
+{
         case AF_INET:
             eid   = strdup(iface_elt->AF4_eid_prefix);
-            prefix = ascii2prefix(rloc->afi, eid);
+            prefix = ascii2prefix(eid_afi, eid);
             node = patricia_search_exact(AF4_database, prefix);
             break;
         case AF_INET6:
             eid   = strdup(iface_elt->AF6_eid_prefix);
-            prefix = ascii2prefix(rloc->afi, eid);
+            prefix = ascii2prefix(eid_afi, eid);
             node = patricia_search_exact(AF6_database, prefix);
             break;
         default:
+            syslog(LOG_DAEMON, "delete_rloc(): Unknown eid AFI (%d)\n", eid_afi);
+            return (0);
+  }
+}
+
+else if(rloc->afi  == AF_INET6)
+{ 
+  eid_afi = iface_elt -> AF6_locators->head->db_entry->eid_prefix_afi;
+ switch(eid_afi)  
+ {
+        case AF_INET:
+            eid   = strdup(iface_elt->AF4_eid_prefix);
+            prefix = ascii2prefix(eid_afi , eid);
+            node = patricia_search_exact(AF4_database, prefix);
+            break;
+        case AF_INET6:
+            eid   = strdup(iface_elt->AF6_eid_prefix);
+            prefix = ascii2prefix(eid_afi, eid);
+            node = patricia_search_exact(AF6_database, prefix);
+            break;
+        default:
+            syslog(LOG_DAEMON, "delete_rloc(): Unknown eid AFI (%d)\n", eid_afi);
+            return (0);
+  }
+}
+
+else
+{
             syslog(LOG_DAEMON, "delete_rloc(): Unknown AFI (%d)\n", rloc->afi);
             return (0);
     }
@@ -844,24 +881,61 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc)
     int                         afi;
     char                        addr_str[MAX_INET_ADDRSTRLEN];
 
+//Pranathi
+uint16_t eid_afi;
     /*
      * First find the eid associated with this interface
      * How do we know which eid to use -- the v4 or v6 one?
      * XXX: Assume eid's afi == rloc's afi
      * Then, find the patricia node associated with the eid
      */
-    switch(rloc->afi) {
+   //Pranathi
+   if(rloc->afi  == AF_INET)
+{ 
+ eid_afi = iface_elt -> AF4_locators->head->db_entry->eid_prefix_afi;
+//Not handled: One RLOC associated with different address families eid's
+// Can be done by iterating AF4_locators->head .... ->next
+ switch(eid_afi)  
+ {
         case AF_INET:
             eid   = strdup(iface_elt->AF4_eid_prefix);
-            prefix = ascii2prefix(rloc->afi, eid);
+            prefix = ascii2prefix(eid_afi, eid);
             node = patricia_search_exact(AF4_database, prefix);
             break;
         case AF_INET6:
             eid   = strdup(iface_elt->AF6_eid_prefix);
-            prefix = ascii2prefix(rloc->afi, eid);
+            prefix = ascii2prefix(eid_afi, eid);
             node = patricia_search_exact(AF6_database, prefix);
             break;
         default:
+            syslog(LOG_DAEMON, "add_rloc(): Unknown eid AFI (%d)\n", eid_afi);
+            return (0);
+  }
+}
+
+else if(rloc->afi  == AF_INET6)
+{ 
+  eid_afi = iface_elt -> AF6_locators->head->db_entry->eid_prefix_afi;
+ switch(eid_afi)  
+ {
+        case AF_INET:
+            eid   = strdup(iface_elt->AF4_eid_prefix);
+            prefix = ascii2prefix(eid_afi , eid);
+            node = patricia_search_exact(AF4_database, prefix);
+            break;
+        case AF_INET6:
+            eid   = strdup(iface_elt->AF6_eid_prefix);
+            prefix = ascii2prefix(eid_afi, eid);
+            node = patricia_search_exact(AF6_database, prefix);
+            break;
+        default:
+            syslog(LOG_DAEMON, "add_rloc(): Unknown eid AFI (%d)\n", eid_afi);
+            return (0);
+  }
+}
+
+else
+{
             syslog(LOG_DAEMON, "add_rloc(): Unknown AFI (%d)\n", rloc->afi);
             return (0);
     }
@@ -1209,10 +1283,10 @@ int process_netlink_iface ()
                 }
 
                 /*
-         * We raise the metric for the new route, so the EID route
-         * is preferred and applications bind to the EID. We set a
-         * realm, to avoid recursive calling of this code due to
-         * re-adding the route.
+		 * We raise the metric for the new route, so the EID route
+		 * is preferred and applications bind to the EID. We set a
+		 * realm, to avoid recursive calling of this code due to
+		 * re-adding the route.
                  */
 
                 if(metric == 0) {
@@ -1245,16 +1319,21 @@ int process_netlink_iface ()
                  * Set the EID addr on the LISP-MN Iface
                  * Assume its the same family as the gateway family
                  */
-                eid_addr.afi = gateway.afi; 
-                switch (gateway.afi) {
-                    case AF_INET6:
-                        memcpy(&(eid_addr.address), 
-                            &(elt->AF6_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t)); 
-                        break;
-                    default:
-                        memcpy(&(eid_addr.address), 
+		//Pranathi
+               if(ctrl_iface->AF4_locators->head)
+               {
+                   eid_addr.afi = ctrl_iface -> AF4_locators->head->db_entry->eid_prefix_afi;
+                   memcpy(&(eid_addr.address), 
                             &(elt->AF4_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t)); 
-                }
+                    
+               }    
+              if(ctrl_iface->AF6_locators->head)
+               {
+                   eid_addr.afi = ctrl_iface-> AF6_locators->head->db_entry->eid_prefix_afi;
+                   memcpy(&(eid_addr.address), 
+                            &(elt->AF6_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t)); 
+                    
+               }    
 
                 if(!route_add(NULL, 0, NULL, 0, &eid_addr, 
                             if_nametoindex(LISP_MN_EID_IFACE_NAME),
