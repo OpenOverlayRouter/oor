@@ -14,7 +14,7 @@
 CC		= gcc
 GENGETOPT	= gengetopt
 CFLAGS		= -g -DDEBUG=3
-LIBS		= -lconfuse -lssl -lrt
+LIBS		= -lconfuse -lssl -lcrypto -lrt
 INC		= lispd.h
 MAKEFILE	= Makefile
 OBJS		= cmdline.o lispd.o lispd_config.o lispd_syslog.o	\
