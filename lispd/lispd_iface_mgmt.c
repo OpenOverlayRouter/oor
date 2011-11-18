@@ -141,21 +141,23 @@ static int addattr_l(n, maxlen, type, data, alen)
  * As a result of this function, the kernel will send a RTM_NEWROUTE
  * message for each of its routing entries
  */
-int dump_routing_table(table)
+int dump_routing_table(afi, table)
+    uint16_t afi;
     int table;
 {
 #ifdef DEBUG
     syslog(LOG_DAEMON, "RTNETLINK: ip route list table %d", table);
 #endif
-    return(route_mod(RTM_GETROUTE, NULL, 0, NULL, 0, NULL, NULL, table, 0));
+    return(route_mod(RTM_GETROUTE, afi, NULL, 0, NULL, 0, NULL, NULL, table, 0));
 }
 
 /*
  * This function deletes a specific route
  */
-static int route_del(src, src_plen, 
-        dst, dst_plen, 
+static int route_del(afi, src, src_plen,
+        dst, dst_plen,
         gateway, device_id, table)
+    uint16_t afi;
     lispd_addr_t *src;
     int src_plen;
     lispd_addr_t *dst;
@@ -177,7 +179,7 @@ static int route_del(src, src_plen,
     }
     syslog(LOG_DAEMON, "%s", buf);
 #endif
-    return (route_mod(RTM_DELROUTE, 
+    return (route_mod(RTM_DELROUTE, afi,
                 src, src_plen,
                 dst, dst_plen,
                 gateway, device_id, table, 0, 0));
@@ -187,9 +189,10 @@ static int route_del(src, src_plen,
 /* 
  * This function adds a specific route
  */
-int route_add(src, src_plen, 
+int route_add(afi, src, src_plen,
         dst, dst_plen, 
         gateway, device_id, table, metric, realm)
+    uint16_t afi;
     lispd_addr_t *src;
     int src_plen;
     lispd_addr_t *dst;
@@ -213,7 +216,7 @@ int route_add(src, src_plen,
     }
     syslog(LOG_DAEMON, "%s", buf);
 #endif
-    return (route_mod(RTM_NEWROUTE, 
+    return (route_mod(RTM_NEWROUTE, afi,
                 src, src_plen,
                 dst, dst_plen,
                 gateway, device_id, table, metric, realm));
@@ -224,18 +227,19 @@ int route_add(src, src_plen,
  * This function modifies (add/del) a route via
  * netlink
  */
-int route_mod(cmd, src, src_plen, dst, dst_plen, 
+int route_mod(cmd, afi, src, src_plen, dst, dst_plen,
         gateway, device_id, table, metric, realm)
-    int cmd;                    // add or del
-    lispd_addr_t *src;          // src address 
-    int src_plen;               // src addr prefix length
-    lispd_addr_t *dst;          // dst address
-    int dst_plen;               // dst addr prefix length
-    lispd_addr_t *gateway;      // gateway addr
-    int device_id;              // outgoing iface id
-    int table;                  // routing table number
-    int metric;                 // route metric (priority)
-    int realm;                  // route realm
+    int cmd;                    /* add or del */
+    uint16_t afi;               /* IPv4 or IPv6 routing table */
+    lispd_addr_t *src;          /* src address */
+    int src_plen;               /* src addr prefix length */
+    lispd_addr_t *dst;          /* dst address */
+    int dst_plen;               /* dst addr prefix length */
+    lispd_addr_t *gateway;      /* gateway addr */
+    int device_id;              /* outgoing iface id */
+    int table;                  /* routing table number */
+    int metric;                 /* route metric (priority) */
+    int realm;                  /* route realm */
 {
 
         reqmsg_t       req;
@@ -260,16 +264,16 @@ int route_mod(cmd, src, src_plen, dst, dst_plen,
         req.n.nlmsg_seq = ++nlh.seq;
         req.n.nlmsg_pid = getpid();
 
-        if (gateway) {
-            req.r.rtm_family =  gateway->afi;
-        }
-
         req.r.rtm_table = table;
         req.r.rtm_protocol = RTPROT_BOOT;
         req.r.rtm_scope = RT_SCOPE_UNIVERSE;
         req.r.rtm_type = RTN_UNICAST;
         req.r.rtm_src_len = src_plen;
         req.r.rtm_dst_len = dst_plen;
+        req.r.rtm_family = afi;
+
+        if (gateway)
+            req.r.rtm_family = gateway->afi;
 
         if(device_id)
                 addattr_l(&req.n, sizeof(req), RTA_OIF, &device_id, 
@@ -302,7 +306,7 @@ int route_mod(cmd, src, src_plen, dst, dst_plen,
         /* 
          * Send netlink msg to kernel
          */
-        if (!nlsock_talk(&req.n, 0, 0, NULL)) {
+        if (!nlsock_talk(&req.n)) {
             syslog (LOG_DAEMON, "nlsock_talk (route_mod()) failed\n");
             return (0);
         }
@@ -653,7 +657,7 @@ static int setup_source_routing(iface_name, src_rloc, gateway)
      * ip route add default via <gtw> dev <iface> table RT_TABLE_LISP_MN
      */
     int if_index = if_nametoindex(iface_name);
-    if (!route_add(NULL, 0, 
+    if (!route_add(0, NULL, 0,
                 NULL, 0, 
                 gateway, if_index, RT_TABLE_LISP_MN, 0, 0)) {
         syslog(LOG_DAEMON, "route_add (setup_source_routing()) failed\n");
@@ -690,7 +694,7 @@ static int delete_source_routing(iface_name, src_rloc, gateway)
      * delete the default gateway for this rule
      * ip route del default via <gtw> dev <iface> table RT_TABLE_LISP_MN
      */
-    if (!route_del(NULL, 0, 
+    if (!route_del(0, NULL, 0,
                 NULL, 0, gateway, if_index, RT_TABLE_LISP_MN)) {
         syslog(LOG_DAEMON, "route_del (delete_source_routing()) failed\n");
         return 0;
@@ -1283,21 +1287,21 @@ int process_netlink_iface ()
                 }
 
                 /*
-		 * We raise the metric for the new route, so the EID route
-		 * is preferred and applications bind to the EID. We set a
-		 * realm, to avoid recursive calling of this code due to
-		 * re-adding the route.
+                 * We raise the metric for the new route, so the EID route
+                 * is preferred and applications bind to the EID. We set a
+                 * realm, to avoid recursive calling of this code due to
+                 * re-adding the route.
                  */
 
                 if(metric == 0) {
                     syslog(LOG_DAEMON, "Raising metric of RLOC default route to 101 on %s",
                             elt->iface_name);
-                    if(!route_del(NULL, 0, NULL, 0, &gateway,
+                    if(!route_del(0, NULL, 0, NULL, 0, &gateway,
                                 if_nametoindex(elt->iface_name),
                                 RT_TABLE_MAIN)) {
                           syslog(LOG_DAEMON, "process_netlink(): route_del failed\n");
                     }
-                    if(!route_add(NULL, 0, NULL, 0, &gateway,
+                    if(!route_add(0, NULL, 0, NULL, 0, &gateway,
                                 if_nametoindex(elt->iface_name),
                                 RT_TABLE_MAIN, 101, 7)) {
                           syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
@@ -1312,14 +1316,27 @@ int process_netlink_iface ()
                         "process_netlink(): Setting %s as default gateway",
                         LISP_MN_EID_IFACE_NAME);
 
-                lispd_addr_t eid_addr;
-                memset (&eid_addr, 0, sizeof(lispd_addr_t));
+                if(!route_add(AF_INET, NULL, 0, NULL, 0, NULL,
+                            if_nametoindex(LISP_MN_EID_IFACE_NAME),
+                            RT_TABLE_MAIN, 0, 0)) {
+                      syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
+                }
+
+                if(!route_add(AF_INET6, NULL, 0, NULL, 0, NULL,
+                            if_nametoindex(LISP_MN_EID_IFACE_NAME),
+                            RT_TABLE_MAIN, 0, 0)) {
+                      syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
+                }
 
                 /*
                  * Set the EID addr on the LISP-MN Iface
                  * Assume its the same family as the gateway family
                  */
-		//Pranathi
+
+                lispd_addr_t eid_addr;
+                memset(&eid_addr, 0, sizeof(lispd_addr_t));
+
+               //Pranathi
                if(ctrl_iface->AF4_locators->head)
                {
                    eid_addr.afi = ctrl_iface -> AF4_locators->head->db_entry->eid_prefix_afi;
@@ -1333,13 +1350,7 @@ int process_netlink_iface ()
                    memcpy(&(eid_addr.address), 
                             &(elt->AF6_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t)); 
                     
-               }    
-
-                if(!route_add(NULL, 0, NULL, 0, &eid_addr, 
-                            if_nametoindex(LISP_MN_EID_IFACE_NAME),
-                            RT_TABLE_MAIN, 0, 0)) {
-                      syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
-                } 
+               }
 
                 /* 
                  * Remember the new gateway for future policy 
@@ -1631,7 +1642,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
          * Step 3:
          * Set the LISP EID interface as the default gateway/interface
          */
-        if(!route_add(NULL, 0, NULL, 0, eid_addr, if_index, RT_TABLE_MAIN, 0, 0)) {
+        if(!route_add(eid_addr->afi, NULL, 0, NULL, 0, NULL, if_index, RT_TABLE_MAIN, 0, 0)) {
             syslog(LOG_DAEMON, "route_add (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
@@ -1645,13 +1656,13 @@ static int lower_default_route_metric(void) {
     elt = find_active_ctrl_iface();
     syslog(LOG_DAEMON, "Lowering metric of default route to 0 on %s",
             elt->iface_name);
-    if(!route_del(NULL, 0, NULL, 0, &(elt->gateway),
+    if(!route_del(0, NULL, 0, NULL, 0, &(elt->gateway),
                 if_nametoindex(elt->iface_name),
                 RT_TABLE_MAIN)) {
           syslog(LOG_DAEMON, "process_netlink(): route_del failed\n");
           return 0;
     }
-    if(!route_add(NULL, 0, NULL, 0, &(elt->gateway),
+    if(!route_add(0, NULL, 0, NULL, 0, &(elt->gateway),
                 if_nametoindex(elt->iface_name),
                 RT_TABLE_MAIN, 0, 0)) {
           syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");

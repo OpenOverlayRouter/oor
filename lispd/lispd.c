@@ -288,7 +288,7 @@ int main(int argc, char **argv)
      *  Dump routing table so we can get the gateway address for source routing
      */
 
-    if (!dump_routing_table(RT_TABLE_MAIN))
+    if (!dump_routing_table(AF_INET, RT_TABLE_MAIN))
         syslog(LOG_INFO, "Dumping main routing table failed");
 
     /*
