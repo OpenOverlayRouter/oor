@@ -633,6 +633,7 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
 
     lisp_addr_t *src_eid_prefix;
     lisp_addr_t itr_rloc[32];
+    prefix_t eid_prefix;
     int itr_rloc_count = 0;
     int src_eid_afi;
     int itr_rloc_afi;
@@ -726,8 +727,8 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
 
 
         /*
-	 * Point msg at the start of the Map-Request payload.
-	 */
+         * Point msg at the start of the Map-Request payload
+         */
 
         len = ip_header_len + sizeof(struct udphdr);
         msg = (lispd_pkt_map_request_t *) CO(iph, len);
@@ -764,24 +765,7 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         return(0);
     }
 
-    if (msg->rloc_probe) {
-        opts.send_rec   = 1;
-        opts.rloc_probe = 1;
-        opts.echo_nonce = 0;
-        if(!build_and_send_map_reply_msg(&my_rloc, NULL, from, s, msg->nonce, opts)) {
-            syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send RLOC-probe reply");
-            return(0);
-        }
-        syslog(LOG_DAEMON, "Sent RLOC-probe reply");
-        return(1);
-    }
-
-    /*
-     * XXX: We assume a single IPv4 EID on the MN for now
-     * The code should checked which EID is asked for, look it up in the database
-     * and send reply if found
-     */
-    /* Iterate through ITR-RLOCs, send Map-Reply to the first IPv4 RLOC for now */
+    /* Get the array of ITR-RLOCs */
     itr_rloc_count = msg->additional_itr_rloc_count + 1;
     for (i = 0; i < itr_rloc_count; i++) {
         itr_rloc_afi = lisp2inetafi(ntohs(*(uint16_t *)cur_ptr));
@@ -789,19 +773,49 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         memcpy(&(itr_rloc[i].address), cur_ptr, get_addr_len(itr_rloc_afi));
         itr_rloc[i].afi = itr_rloc_afi;
         cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
-        if (itr_rloc_afi == AF_INET) {
-            opts.send_rec   = 1;
-            opts.rloc_probe = 0;
-            opts.echo_nonce = 0;
-            if(!build_and_send_map_reply_msg(&my_rloc, &(itr_rloc[i]), NULL, 0, msg->nonce, opts)) {
-                syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send map-reply");
-                return(0);
-            }
-            inet_ntop(itr_rloc_afi, &(itr_rloc[i].address), rloc_name, 128);
-            syslog(LOG_DAEMON, "Sent Map-Reply to %s", rloc_name);
-        }
     }
 
+    /* LJ: The spec says the following:
+     *         For this version of the protocol, a receiver MUST accept and
+     *         process Map-Requests that contain one or more records, but a
+     *         sender MUST only send Map-Requests containing one record.  Support
+     *         for requesting multiple EIDs in a single Map-Request message will
+     *         be specified in a future version of the protocol.
+     *      Since currently a compliant implementation will always ask for a single
+     *      record, we will implement support for more only when the protocol is
+     *      updated.
+     */
+
+    /* Get the requested EID prefix */
+    cur_ptr = CO(cur_ptr, sizeof(uint8_t));
+    eid_prefix.ref_count = 0;
+    eid_prefix.bitlen = *(uint8_t *)cur_ptr;
+    cur_ptr = CO(cur_ptr, sizeof(uint8_t));
+    eid_prefix.family = lisp2inetafi(ntohs(*(uint16_t *)cur_ptr));
+    cur_ptr = CO(cur_ptr, sizeof(uint16_t));
+    memcpy(&(eid_prefix.add), cur_ptr, get_addr_len(eid_prefix.family));
+
+    /* Set flags for Map-Reply */
+    opts.send_rec   = 1;
+    opts.rloc_probe = 0;
+    opts.echo_nonce = 0;
+
+    if (msg->rloc_probe) {
+        opts.rloc_probe = 1;
+        if(!build_and_send_map_reply_msg(&my_rloc, NULL, from, s, eid_prefix, msg->nonce, opts)) {
+            syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send RLOC-probe reply");
+            return(0);
+        }
+        syslog(LOG_DAEMON, "Sent RLOC-probe reply");
+        return(1);
+    }
+
+    if(!build_and_send_map_reply_msg(&my_rloc, &(itr_rloc[0]), NULL, 0, eid_prefix, msg->nonce, opts)) {
+        syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send map-reply");
+        return(0);
+    }
+    inet_ntop(itr_rloc[0].afi, &(itr_rloc[0].address), rloc_name, 128);
+    syslog(LOG_DAEMON, "Sent Map-Reply to %s", rloc_name);
     return(1);
 }
 
