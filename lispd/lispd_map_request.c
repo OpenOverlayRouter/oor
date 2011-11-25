@@ -104,21 +104,21 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
 
 {
 
-    struct udphdr               *udph;
-    lispd_addr_t                *my_addr;
-    lisp_addr_t                 rloc;
-    uint8_t                 *packet;
-    lispd_pkt_map_request_t         *mrp;
-    lispd_pkt_encapsulated_control_t        *ecm;
-    lispd_pkt_map_request_itr_rloc_t        *itr_rloc;
+    struct udphdr                               *udph;
+    lispd_addr_t                                *my_addr;
+    lisp_addr_t                                 rloc;
+    uint8_t                                     *packet;
+    lispd_pkt_map_request_t                     *mrp;
+    lispd_pkt_encapsulated_control_t            *ecm;
+    lispd_pkt_map_request_itr_rloc_t            *itr_rloc;
     lispd_pkt_map_request_eid_prefix_record_t   *eid;
-    patricia_node_t             *node;
-    lispd_locator_chain_t                       *locator_chain;
-    void                    *cur_ptr;
-    void                    *iphptr;    /* v4 or v6 */
+    patricia_node_t                             *node;
+    lispd_locator_chain_t                       *locator_chain = NULL;
+    void                                        *cur_ptr;
+    void                                        *iphptr;    /* v4 or v6 */
 
-    uint16_t                    udpsum               = 0;
-    uint16_t                    eid_afi             = 0;
+    uint16_t                udpsum              = 0;
+    uint16_t                eid_afi             = 0;
     int                     packet_len          = 0;
     int                     eid_len             = 0;
     int                     ip_len              = 0;
@@ -126,7 +126,7 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
     int                     map_request_msg_len = 0;
     int                     ip_header_len       = 0;
    //Pranathi : Changed the variable my_addr_len to my_itr_addr_len
-    int						my_itr_addr_len         = 0;
+    int                     my_itr_addr_len     = 0;
     int                     alen                = 0;
 
     eid_afi = get_lisp_afi(eid_prefix_afi, &eid_len);
