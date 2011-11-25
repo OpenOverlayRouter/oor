@@ -145,10 +145,11 @@ process_map_reply(packet)
 
     /*
      * Allocate memory for the new map cache entry, fill it in
+     * If we have a negative reply and we also have a Proxy-ETR
+     * configured, allocate memory for a locator
      */
     loc_count = record->locator_count;
-    /* Allocate memory for a locator in case we have a negative reply */
-    if (loc_count == 0)
+    if ((loc_count == 0) && (proxy_etrs))
         loc_count = 1;
     map_msg_len = sizeof(lisp_eid_map_msg_t) +
                   sizeof(lisp_eid_map_msg_loc_t) * loc_count;
