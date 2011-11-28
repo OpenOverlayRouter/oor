@@ -649,6 +649,7 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
     struct ip6_hdr *ip6h;
     struct udphdr *udph;
     int encap_afi;
+    uint16_t sport = LISP_CONTROL_PORT;
     uint16_t udpsum = 0;
     uint16_t ipsum = 0;
     int udp_len = 0;
@@ -684,8 +685,10 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
 
 #ifdef BSD
         udp_len = ntohs(udph->uh_ulen);
+        sport   = ntohs(udph->uh_sport);
 #else
         udp_len = ntohs(udph->len);
+        sport   = ntohs(udph->source);
 #endif
 
         /*
@@ -802,7 +805,8 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
 
     if (msg->rloc_probe) {
         opts.rloc_probe = 1;
-        if(!build_and_send_map_reply_msg(&my_rloc, NULL, from, s, eid_prefix, msg->nonce, opts)) {
+        if(!build_and_send_map_reply_msg(&my_rloc, NULL, 0,
+                    from, s, eid_prefix, msg->nonce, opts)) {
             syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send RLOC-probe reply");
             return(0);
         }
@@ -810,7 +814,8 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         return(1);
     }
 
-    if(!build_and_send_map_reply_msg(&my_rloc, &(itr_rloc[0]), NULL, 0, eid_prefix, msg->nonce, opts)) {
+    if(!build_and_send_map_reply_msg(&my_rloc, &(itr_rloc[0]), sport,
+                NULL, 0, eid_prefix, msg->nonce, opts)) {
         syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send map-reply");
         return(0);
     }

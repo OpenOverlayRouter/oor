@@ -322,8 +322,8 @@ void *build_mapping_record(rec, locator_chain, opts)
  *            should be shared as well
  */
 
-uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, prefix_t eid_prefix,
-        uint64_t nonce, map_reply_opts opts, int *len) {
+uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
+        prefix_t eid_prefix, uint64_t nonce, map_reply_opts opts, int *len) {
     lispd_addr_t source;
     uint8_t *packet;
     int packet_len = 0;
@@ -379,12 +379,12 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, prefix_t eid_pr
 
 #ifdef BSD
     udph->uh_sport = htons(LISP_CONTROL_PORT);
-    udph->uh_dport = htons(LISP_CONTROL_PORT);
+    udph->uh_dport = htons(dport);
     udph->uh_ulen  = htons(sizeof(struct udphdr) + map_reply_msg_len);
     udph->uh_sum   = 0;
 #else
     udph->source = htons(LISP_CONTROL_PORT);
-    udph->dest   = htons(LISP_CONTROL_PORT);
+    udph->dest   = htons(dport);
     udph->len    = htons(sizeof(struct udphdr) + map_reply_msg_len);
     udph->check  = 0;
 #endif
@@ -489,7 +489,7 @@ int send_raw_udp(struct sockaddr *dst, uint8_t *packet, int packet_len) {
  *
  */
 
-int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst,
+int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
         struct sockaddr *dst_sa, int s, prefix_t eid_prefix,
         uint64_t nonce, map_reply_opts opts) {
     lisp_addr_t destination;
@@ -526,7 +526,7 @@ int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst,
         memcpy((void *)&destination_sa, dst_sa, get_sockaddr_len(dst_sa->sa_family));
     }
 
-    packet = build_map_reply_pkt(src, &destination, eid_prefix, nonce, opts, &len);
+    packet = build_map_reply_pkt(src, &destination, dport, eid_prefix, nonce, opts, &len);
 
     /* Send the packet over a raw socket */
     if (!send_raw_udp((struct sockaddr *)&destination_sa, packet, len)) {
