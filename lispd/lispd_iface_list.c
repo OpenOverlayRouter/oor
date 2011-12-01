@@ -191,6 +191,10 @@ int update_iface_list (iface_name, eid_prefix,
         memset (elt->AF6_locators, 0, sizeof(db_entry_list));
         elt->iface_name     = strdup(iface_name);
 
+        add_item_to_iface_list (avail_phy_ifaces,elt);
+    }
+
+    if (eid_prefix) {
         afi = get_afi(eid_prefix);
         switch (afi) {
             case AF_INET6:
@@ -200,8 +204,6 @@ int update_iface_list (iface_name, eid_prefix,
                 if (!elt->AF4_eid_prefix) 
                     elt->AF4_eid_prefix = strdup(eid_prefix);
         }
-
-        add_item_to_iface_list (avail_phy_ifaces,elt);
     }
 
     elt->ready          = is_up;
