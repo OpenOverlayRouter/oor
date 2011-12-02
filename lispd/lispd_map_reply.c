@@ -518,12 +518,22 @@ int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dp
     }
 
     if (dst_sa == NULL) {
-        if (!inaddr2sockaddr(dst, (struct sockaddr *)&destination_sa, LISP_CONTROL_PORT)) {
+        if (!inaddr2sockaddr(dst, (struct sockaddr *)&destination_sa, dport)) {
             syslog(LOG_DAEMON, "build_and_send_map_reply_msg: inaddr2sockaddr failed");
             return(0);
         }
     } else {
         memcpy((void *)&destination_sa, dst_sa, get_sockaddr_len(dst_sa->sa_family));
+        switch(dst_sa->sa_family) {
+        case AF_INET:
+            dport = ntohs(((struct sockaddr_in *)dst_sa)->sin_port);
+            break;
+        case AF_INET6:
+            dport = ntohs(((struct sockaddr_in6 *)dst_sa)->sin6_port);
+            break;
+        default:
+            dport = LISP_CONTROL_PORT;
+        }
     }
 
     packet = build_map_reply_pkt(src, &destination, dport, eid_prefix, nonce, opts, &len);
