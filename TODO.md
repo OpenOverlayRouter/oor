@@ -7,6 +7,7 @@ Small issues
   * Clean up whitespaces where needed
   * Create man pages for lispd and lispconf
   * Check XXX comments in code and fix
+  * Create Debian/Ubuntu meta-packages to pull in build-deps (using equivs)
 
 High priority features
 ----------------------
