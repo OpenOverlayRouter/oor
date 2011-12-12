@@ -347,13 +347,13 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
     if (opts.send_rec) {
         switch (eid_prefix.family) {
         case AF_INET:
-            if (node = patricia_search_best(AF4_database, &eid_prefix));
+            if (node = patricia_search_best(AF4_database, &eid_prefix))
                 locator_chain_eid4 = ((lispd_locator_chain_t *)(node->data));
             if (locator_chain_eid4)
                 map_reply_msg_len += get_record_length(locator_chain_eid4);
             break;
         case AF_INET6:
-            if (node = patricia_search_best(AF6_database, &eid_prefix));
+            if (node = patricia_search_best(AF6_database, &eid_prefix))
                 locator_chain_eid6 = ((lispd_locator_chain_t *)(node->data));
             if (locator_chain_eid6)
                 map_reply_msg_len += get_record_length(locator_chain_eid6);
