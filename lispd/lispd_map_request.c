@@ -760,8 +760,9 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
                 return(0);
             }
             syslog(LOG_DAEMON, "Sent SMR triggered Map-Request for %s", eid_name);
-            /* We don't return here yet, because Map-Requests may have both
-             * SMR and RLOC probe bits set */
+            /* Return here only if RLOC probe bit is not set */
+            if (!msg->rloc_probe)
+                return(1);
         }
     }
 
