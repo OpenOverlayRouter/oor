@@ -122,7 +122,7 @@ iface_list_elt *search_iface_list (iface_name)
     char            *iface_name;
 {
     iface_list_elt  *item = avail_phy_ifaces->head;
-    while (item) { 
+    while (item) {
         if (!strcmp((item)->iface_name, iface_name)) 
             return item;
         item = item->next;
@@ -135,7 +135,7 @@ static void dump_iface_list (item)
     iface_list_elt *item;
 {
     syslog(LOG_DAEMON, "Interface list:");
-    while (item) { 
+    while (item) {
         syslog(LOG_DAEMON, "  %s %s %s %p %p %d\n",
                 item->iface_name, 
                 item->AF4_eid_prefix, item->AF6_eid_prefix,
@@ -200,6 +200,7 @@ int update_iface_list (iface_name, eid_prefix,
             case AF_INET6:
                 if (!elt->AF6_eid_prefix) 
                     elt->AF6_eid_prefix = strdup(eid_prefix);
+                break;
             default:
                 if (!elt->AF4_eid_prefix) 
                     elt->AF4_eid_prefix = strdup(eid_prefix);

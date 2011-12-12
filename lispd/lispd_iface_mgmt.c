@@ -706,11 +706,11 @@ static int delete_source_routing(iface_name, src_rloc, gateway)
  * This function deletes the rloc from lispd's
  * patricia tree database and updates interface list
  */
-int delete_rloc (iface_elt, rloc) 
+int delete_rloc (iface_elt, rloc, node)
     iface_list_elt    *iface_elt;
     lispd_addr_t      *rloc;
+    patricia_node_t   *node;
 {
-    patricia_node_t             *node           = NULL;
     lispd_locator_chain_t       *locator_chain  = NULL;
     lispd_db_entry_t            *db_entry       = NULL;
     prefix_t                    *prefix         = NULL;
@@ -728,55 +728,6 @@ int delete_rloc (iface_elt, rloc)
      * Then, find the patricia node associated with the eid
      */
 
-    //Pranathi
-    if(rloc->afi  == AF_INET)
-{
-    eid_afi = iface_elt -> AF4_locators->head->db_entry->eid_prefix_afi;
-// Not handled: One RLOC having different address family eid's
- switch(eid_afi)  
-{
-        case AF_INET:
-            eid   = strdup(iface_elt->AF4_eid_prefix);
-            prefix = ascii2prefix(eid_afi, eid);
-            node = patricia_search_exact(AF4_database, prefix);
-            break;
-        case AF_INET6:
-            eid   = strdup(iface_elt->AF6_eid_prefix);
-            prefix = ascii2prefix(eid_afi, eid);
-            node = patricia_search_exact(AF6_database, prefix);
-            break;
-        default:
-            syslog(LOG_DAEMON, "delete_rloc(): Unknown eid AFI (%d)\n", eid_afi);
-            return (0);
-  }
-}
-
-else if(rloc->afi  == AF_INET6)
-{ 
-  eid_afi = iface_elt -> AF6_locators->head->db_entry->eid_prefix_afi;
- switch(eid_afi)  
- {
-        case AF_INET:
-            eid   = strdup(iface_elt->AF4_eid_prefix);
-            prefix = ascii2prefix(eid_afi , eid);
-            node = patricia_search_exact(AF4_database, prefix);
-            break;
-        case AF_INET6:
-            eid   = strdup(iface_elt->AF6_eid_prefix);
-            prefix = ascii2prefix(eid_afi, eid);
-            node = patricia_search_exact(AF6_database, prefix);
-            break;
-        default:
-            syslog(LOG_DAEMON, "delete_rloc(): Unknown eid AFI (%d)\n", eid_afi);
-            return (0);
-  }
-}
-
-else
-{
-            syslog(LOG_DAEMON, "delete_rloc(): Unknown AFI (%d)\n", rloc->afi);
-            return (0);
-    }
 
     if (node == NULL) {
         syslog(LOG_DAEMON, "delete_rloc(): EID (%s) not found in database", eid);
@@ -870,18 +821,18 @@ else
     return(0);
 } 
 
-lispd_db_entry_t *add_rloc (iface_elt, rloc) 
+lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     iface_list_elt    *iface_elt;
     lispd_addr_t      *rloc;
+    patricia_node_t   *node;
+    char              *eid;
 {
-    patricia_node_t             *node           = NULL;
     lispd_locator_chain_t       *locator_chain  = NULL;
     lispd_db_entry_t            *db_entry       = NULL;
     prefix_t                    *prefix         = NULL;
     lispd_locator_chain_elt_t   *add_elt        = NULL;
     char                        *token          = NULL;
     db_entry_list_elt           *db_elt         = NULL;
-    char                        *eid            = NULL;
     int                         afi;
     char                        addr_str[MAX_INET_ADDRSTRLEN];
 
@@ -893,56 +844,6 @@ uint16_t eid_afi;
      * XXX: Assume eid's afi == rloc's afi
      * Then, find the patricia node associated with the eid
      */
-   //Pranathi
-   if(rloc->afi  == AF_INET)
-{ 
- eid_afi = iface_elt -> AF4_locators->head->db_entry->eid_prefix_afi;
-//Not handled: One RLOC associated with different address families eid's
-// Can be done by iterating AF4_locators->head .... ->next
- switch(eid_afi)  
- {
-        case AF_INET:
-            eid   = strdup(iface_elt->AF4_eid_prefix);
-            prefix = ascii2prefix(eid_afi, eid);
-            node = patricia_search_exact(AF4_database, prefix);
-            break;
-        case AF_INET6:
-            eid   = strdup(iface_elt->AF6_eid_prefix);
-            prefix = ascii2prefix(eid_afi, eid);
-            node = patricia_search_exact(AF6_database, prefix);
-            break;
-        default:
-            syslog(LOG_DAEMON, "add_rloc(): Unknown eid AFI (%d)\n", eid_afi);
-            return (0);
-  }
-}
-
-else if(rloc->afi  == AF_INET6)
-{ 
-  eid_afi = iface_elt -> AF6_locators->head->db_entry->eid_prefix_afi;
- switch(eid_afi)  
- {
-        case AF_INET:
-            eid   = strdup(iface_elt->AF4_eid_prefix);
-            prefix = ascii2prefix(eid_afi , eid);
-            node = patricia_search_exact(AF4_database, prefix);
-            break;
-        case AF_INET6:
-            eid   = strdup(iface_elt->AF6_eid_prefix);
-            prefix = ascii2prefix(eid_afi, eid);
-            node = patricia_search_exact(AF6_database, prefix);
-            break;
-        default:
-            syslog(LOG_DAEMON, "add_rloc(): Unknown eid AFI (%d)\n", eid_afi);
-            return (0);
-  }
-}
-
-else
-{
-            syslog(LOG_DAEMON, "add_rloc(): Unknown AFI (%d)\n", rloc->afi);
-            return (0);
-    }
 
     if (node == NULL) {
         syslog(LOG_DAEMON, "add_rloc(): EID (%s) not found in database", eid);
@@ -1168,6 +1069,9 @@ int process_netlink_iface ()
     char    iface_name[IFNAMSIZ];
     lispd_db_entry_t    *db_entry = NULL;
     iface_list_elt      *elt = NULL;
+    patricia_node_t             *node           = NULL;
+    prefix_t                    *prefix         = NULL;
+    char                        *eid            = NULL;
     lispd_addr_t    rloc;
     lispd_addr_t    gateway;
     int             metric = 0;
@@ -1251,7 +1155,35 @@ int process_netlink_iface ()
                     continue;
                 }
 
-                db_entry = add_rloc(elt, &rloc);
+                //Pranathi
+                if (elt->AF4_eid_prefix) {
+                    eid = strdup(elt->AF4_eid_prefix);
+                    prefix = ascii2prefix(AF_INET, eid);
+                    node = patricia_search_exact(AF4_database, prefix);
+                    db_entry = add_rloc(elt, &rloc, node, eid);
+                    sleep (2);
+#ifdef DEBUG
+                    syslog(LOG_DAEMON, "Updating RLOC in mapping database");
+#endif
+                    if(db_entry) {
+                        install_database_mapping(db_entry);
+                    }
+                }
+
+                if (elt->AF6_eid_prefix) {
+                    eid = strdup(elt->AF6_eid_prefix);
+                    prefix = ascii2prefix(AF_INET6, eid);
+                    node = patricia_search_exact(AF6_database, prefix);
+                    db_entry = add_rloc(elt, &rloc, node, eid);
+                    sleep (2);
+#ifdef DEBUG
+                    syslog(LOG_DAEMON, "Updating RLOC in mapping database");
+#endif
+                    if(db_entry) {
+                        install_database_mapping(db_entry);
+                    }
+                }
+
 
                 /* 
                  * Install the new RLOC in lisp_mod.
@@ -1269,14 +1201,13 @@ int process_netlink_iface ()
                  * the new address in lisp_mod.
                  * Else, seems to be a race condition?
                  */
-                sleep (2);
-#ifdef DEBUG
-                syslog(LOG_DAEMON, "Updating RLOC in mapping database");
-#endif
-                if(db_entry) {
-                    install_database_mapping(db_entry);
-                } 
+
                 set_rloc(&rloc);
+
+                if (ctrl_iface == NULL) {
+                    ctrl_iface = find_active_ctrl_iface();
+                }
+
                 break;
 
             case RTM_NEWROUTE:
@@ -1451,9 +1382,23 @@ int process_netlink_iface ()
                  * Delete the rloc from lispd's database
                  * and interface list
                  */
-                delete_rloc(elt, &rloc);
 
-                /* 
+                //Pranathi
+                if (elt->AF4_eid_prefix) {
+                    eid = strdup(elt->AF4_eid_prefix);
+                    prefix = ascii2prefix(AF_INET, eid);
+                    node = patricia_search_exact(AF4_database, prefix);
+                    delete_rloc(elt, &rloc, node);
+                }
+
+                if (elt->AF6_eid_prefix) {
+                    eid = strdup(elt->AF6_eid_prefix);
+                    prefix = ascii2prefix(AF_INET6, eid);
+                    node = patricia_search_exact(AF6_database, prefix);
+                    delete_rloc(elt, &rloc, node);
+                }
+
+                /*
                  * XXX:
                  * Delete rloc from lisp_mod via netlink.
                  * To do this, we need a new netlink msg 

@@ -376,10 +376,12 @@ else
         PATRICIA_WALK(AF4_database->head, node) {
             locator_chain = ((lispd_locator_chain_t *)(node->data));
         } PATRICIA_WALK_END;
+        break;
     case AF_INET6:
         PATRICIA_WALK(AF6_database->head, node) {
             locator_chain = ((lispd_locator_chain_t *)(node->data));
         } PATRICIA_WALK_END;
+        break;
     }
 
     cur_ptr = CO(mrp, sizeof(lispd_pkt_map_request_t));
