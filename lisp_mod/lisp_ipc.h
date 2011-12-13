@@ -98,7 +98,7 @@ typedef struct _lisp_cmd {
 
 /*
  * Convey the UDP ports to use for encapsulation
- * and controlto the kernel module. Sent by lispd.
+ * and control to the kernel module. Sent by lispd.
  */
 typedef struct {
     uint16_t data_port;
@@ -112,13 +112,26 @@ typedef struct _lisp_lookup_msg {
   int         all_entries;
 } lisp_lookup_msg_t;
 
+
+/*
+ * RLOC/ifindex mapping. if_index
+ * of zero indicates default/single RLOC
+ */
+typedef struct {
+    lisp_addr_t addr;
+    int if_index;
+} rloc_t;
+
 typedef struct _lisp_set_rloc_msg {
-  lisp_addr_t addr;
+    int count;
+    rloc_t rlocs[0];
 } lisp_set_rloc_msg_t;
 
-#define ACTION_DROP         0
-#define ACTION_FORWARD      1
-#define ACTION_SEND_MAP_REQ 2
+typedef enum {
+    ActionDrop = 0,
+    ActionForward,
+    ActionSendMapRequest
+} actions_e;
 
 /*
  * Locator portion of eid map msg
