@@ -78,6 +78,7 @@ process_map_reply(packet)
     lisp_addr_t                             *eid;
     lisp_addr_t                             *loc;
     int                                     eid_afi;
+    int                                     loc_afi;
     uint64_t                                nonce;
     int                                     loc_count;
     int                                     ret;
@@ -216,9 +217,10 @@ process_map_reply(packet)
          * Advance the ptrs for the next locator
          */
         if(i+1 < record->locator_count) {
-            if(eid_afi == AF_INET) { //ipv4: 4B
+            loc_afi = map_msg->locators[i].locator.afi;
+            if(loc_afi == AF_INET) { //ipv4: 4B
                 loc_pkt = (lispd_pkt_map_reply_locator_t *)CO(loc, sizeof(struct in_addr));
-            } else if(eid_afi == AF_INET6){ //ipv6: 16B
+            } else if(loc_afi == AF_INET6){ //ipv6: 16B
                 loc_pkt = (lispd_pkt_map_reply_locator_t *)CO(loc, sizeof(struct in6_addr));
             } else
                 return(0);
