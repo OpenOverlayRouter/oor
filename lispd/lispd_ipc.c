@@ -647,6 +647,33 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
             }
         }
     } PATRICIA_WALK_END;
+
+    PATRICIA_WALK(AF6_database->head, node) {
+        locator_chain = ((lispd_locator_chain_t *)(node->data));
+        if (locator_chain) {
+            for (i = 0; i < addr_list->count; i++) {
+                /* XXX LJ:
+                 * We send an SMR to each RLOC in the received list for our own
+                 * EID, since the below function fills the Source-EID field the
+                 * same as destination (the function should be extended).
+                 */
+                lisp2lispd(&(addr_list->addr_list[i]), &rloc);
+                /* Don't SMR PETRs (TODO need IPv6 support) */
+                if (addr_list->addr_list[i].afi == AF_INET &&
+                        addr_list->addr_list[i].address.ip.s_addr ==
+                        proxy_etrs->address->address.address.ip.s_addr)
+                    continue;
+                inet_ntop(rloc.afi, &(rloc.address.address), rloc_name, 128);
+                if (build_and_send_map_request_msg(&rloc,
+                        &(locator_chain->eid_prefix),
+                        locator_chain->eid_prefix_afi,
+                        (get_addr_len(locator_chain->eid_prefix_afi) * 8),
+                        locator_chain->eid_name,
+                        0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
+                    syslog(LOG_DAEMON, "SMR'ing %s", rloc_name);
+            }
+        }
+    } PATRICIA_WALK_END;
 }
 
 /*
