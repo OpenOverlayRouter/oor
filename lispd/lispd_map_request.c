@@ -140,6 +140,14 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_afi, eid_prefix_leng
         return (0);
     }
 
+    if (!encap) {
+        if ((my_addr = get_my_addr(ctrl_iface->iface_name, dest->afi)) == 0) {
+            syslog(LOG_DAEMON,"can't find suitable source address (%s,%d)",
+                   ctrl_iface->iface_name, dest->afi);
+            return(0);
+        }
+    } else {
+
   //Pranathi : my_addr -> This is for the source address in the inner header of the encapsulated Map-request msg
   // For v4eid over v4 rloc , Inner header: v4 src rloc , v4 dest eid
   // For v6eid over v4 rloc , Inner header: v6 src eid , v6 dest eid
@@ -201,7 +209,7 @@ else
  return(0);
 
 }
-
+}
 
  
 
