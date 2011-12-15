@@ -114,20 +114,51 @@ uint16_t udp_ipv4_checksum (buff,len,src,dest)
     return ((uint16_t)(~sum));
 }
 
-
-/*
- *	TBD 
- */
-
-uint16_t udp_ipv6_checksum (buff,len,src,dest)
-	const void	*buff;
-	unsigned int	len;
-	struct in6_addr src;
-	struct in6_addr dest;
+uint16_t udp_ipv6_checksum (ip6,up,len)
+        const struct ip6_hdr *ip6;
+        const struct udphdr *up;
+        unsigned int len;
 {
+    size_t i;
+    register const u_int16_t *sp;
+    uint32_t sum;
+    union {
+        struct {
+            struct in6_addr ph_src;
+            struct in6_addr ph_dst;
+            u_int32_t       ph_len;
+            u_int8_t        ph_zero[3];
+            u_int8_t        ph_nxt;
+        } ph;
+        u_int16_t pa[20];
+    } phu;
 
-    return (0);
+    /* pseudo-header */
+    memset(&phu, 0, sizeof(phu));
+    phu.ph.ph_src = ip6->ip6_src;
+    phu.ph.ph_dst = ip6->ip6_dst;
+    phu.ph.ph_len = htonl(len);
+    phu.ph.ph_nxt = IPPROTO_UDP;
+
+    sum = 0;
+    for (i = 0; i < sizeof(phu.pa) / sizeof(phu.pa[0]); i++)
+        sum += phu.pa[i];
+
+    sp = (const u_int16_t *)up;
+
+    for (i = 0; i < (len & ~1); i += 2)
+        sum += *sp++;
+
+    if (len & 1)
+        sum += htons((*(const u_int8_t *)sp) << 8);
+
+    while (sum > 0xffff)
+        sum = (sum & 0xffff) + (sum >> 16);
+    sum = ~sum & 0xffff;
+
+    return (sum);
 }
+
 
 /*
  *	upd_checksum
@@ -149,10 +180,7 @@ uint16_t udp_checksum (udph,udp_len,iphdr,afi)
 				 ((struct ip *)iphdr)->ip_src.s_addr,
 				 ((struct ip *)iphdr)->ip_dst.s_addr));
     case AF_INET6:
-	return(udp_ipv6_checksum(udph,
-				 udp_len,
-				 ((struct ip6_hdr *)iphdr)->ip6_src.s6_addr,
-				 ((struct ip6_hdr *)iphdr)->ip6_dst.s6_addr));
+        return(udp_ipv6_checksum(iphdr, udph, udp_len));
     default:
 	syslog(LOG_DAEMON, "udp_checksum: Unknown AFI");
 	return(-1);
