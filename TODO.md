@@ -3,7 +3,6 @@ Small issues
 
   * Add TTL support in the configuration file
   * When restarting the network, check if configuration actually changed befored sending SMRs
-  * When RLOC is changed with ifconfig without route changes no SMRs are sent
   * Clean up whitespaces where needed
   * Create man pages for lispd and lispconf
   * Check XXX comments in code and fix
