@@ -32,11 +32,19 @@ map-server {
 # Encapsulate packets for non-LISP sites to this Proxy-ETR
 proxy-etr           = 149.20.48.60
 
-# EID of the mobile node
+# IPv4 EID of the mobile node
 database-mapping {
          eid-prefix = 153.16.254.1/32
          interface  = eth0
          priority   = 1 
+         weight     = 100
+}
+
+# IPv6 EID of the mobile node
+database-mapping {
+         eid-prefix = 2610:d0:ffff:192::1/128
+         interface  = eth0
+         priority   = 1
          weight     = 100
 }
 
@@ -50,12 +58,13 @@ static-map-cache {
 
 # List of PITRs to SMR on handover
 proxy-itrs = {
-	203.181.249.172,
-	69.31.31.98,
-	85.184.2.22,
-	85.184.2.30,
-	149.20.48.60,
-	129.250.1.63,
-	193.162.145.46,
-	158.38.1.92
+	69.31.31.98,		# eqx-ash-pxtr
+	149.20.48.60,		# isc-pxtr
+	198.6.255.37,		# asp-pxtr
+	129.250.1.63,		# ntt-amer-pxtr
+	85.184.2.22,		# intouch-pxtr-1
+	85.184.2.30,		# intouch-pxtr-2
+	193.162.145.46,		# tdc-pxtr
+	158.38.1.92,		# uninett-pxtr
+	203.181.249.172		# apan-pxtr
 }
