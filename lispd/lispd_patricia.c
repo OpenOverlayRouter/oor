@@ -42,8 +42,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
 {
     struct in_addr  *sin;
     struct in6_addr *sin6;
-    int             bitlen;
-    prefix_t        *prefix;
+    prefix_t        *prefix = NULL;
     patricia_node_t *node;
 
     if ((node = malloc(sizeof(patricia_node_t))) == NULL) {

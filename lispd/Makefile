@@ -13,7 +13,7 @@
 
 CC		= gcc
 GENGETOPT	= gengetopt
-CFLAGS		= -g -DDEBUG=3
+CFLAGS		= -Wall -Wno-implicit-function-declaration -g -DDEBUG=3
 LIBS		= -lconfuse -lssl -lcrypto -lrt
 INC		= lispd.h
 MAKEFILE	= Makefile
@@ -35,7 +35,7 @@ cmdline.c: lispd.ggo
 	$(GENGETOPT) -i $<
 
 %.o: %.c $(DEPS) $(INC) $(MAKEFILE)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
 	rm -f *.o $(EXE) patricia/*.o cscope.out

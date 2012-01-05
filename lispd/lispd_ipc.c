@@ -41,7 +41,7 @@
  */
 
 /* TODO (LJ): lispd_db_entry_t should be updated to support multiple locators */
-install_database_mapping(db_entry)
+int install_database_mapping(db_entry)
     lispd_db_entry_t   *db_entry;
 {
 
@@ -98,7 +98,7 @@ install_database_mapping(db_entry)
  *
  */
 
-install_database_mappings_afi(tree)
+int install_database_mappings_afi(tree)
     patricia_tree_t *tree;
 {
     patricia_node_t     *node;
@@ -143,7 +143,7 @@ install_database_mappings_afi(tree)
  */
 
 
-install_database_mappings ()
+int install_database_mappings(void)
 {
 
     syslog(LOG_DAEMON, "Installing database-mappings:");
@@ -162,7 +162,7 @@ install_database_mappings ()
  *
  */
 
-install_map_cache_entries ()
+int install_map_cache_entries(void)
 {
     lispd_map_cache_t       *map_cache_entry;
     lispd_map_cache_entry_t *mc_entry;
@@ -223,7 +223,7 @@ install_map_cache_entries ()
  */
  
 /* TODO (LJ): lispd_map_cache_entry_t should be updated to support multiple locators */
-install_map_cache_entry(map_cache_entry)
+int install_map_cache_entry(map_cache_entry)
     lispd_map_cache_entry_t   *map_cache_entry;
 {
 
@@ -294,7 +294,6 @@ int send_eid_map_msg(lisp_eid_map_msg_t *map_msg, int map_msg_len)
     int                     cmd_length = 0;
     int                     retval     = 0;
     lisp_cmd_t              *cmd;
-    int i;
 
     cmd_length = sizeof(lisp_cmd_t) + map_msg_len;
 
@@ -362,7 +361,7 @@ int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix, uint16_t eid_pre
  *  set up the NETLINK socket and bind to it.
  */
 
-setup_netlink()
+int setup_netlink(void)
 {
     if ((netlink_fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_LISP)) <  0) 
     return(0);
@@ -383,7 +382,7 @@ setup_netlink()
     return(1);
 }
 
-send_command(lisp_cmd_t *cmd, int length)
+int send_command(lisp_cmd_t *cmd, int length)
 {
  
     struct nlmsghdr *nlh;
@@ -430,7 +429,7 @@ send_command(lisp_cmd_t *cmd, int length)
  */
 
 
-process_netlink_msg(){
+int process_netlink_msg(void) {
 
     struct nlmsghdr *nlh;
     struct iovec    iov;
@@ -529,6 +528,7 @@ int handle_LispCacheSample(lisp_cmd_t* cmd) {
                 return(0);
             break;
     }
+    return(1);
 }
 
 /*
@@ -567,6 +567,7 @@ int handle_LispProbeSample(lisp_cache_sample_msg_t *msg) {
                 0, 1, 0, 0, 0, 0, LISPD_INITIAL_PROBE_TIMEOUT, 0))
             syslog(LOG_DAEMON, "  RLOC probing locator %s", rloc_name);
     }
+    return(1);
 }
 
 /*
@@ -674,6 +675,7 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
             }
         }
     } PATRICIA_WALK_END;
+    return(1);
 }
 
 /*

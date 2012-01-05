@@ -471,7 +471,7 @@ else
  *
  */
 
-send_map_request(packet, packet_len, resolver)
+int send_map_request(packet, packet_len, resolver)
     uint8_t *packet;
     int packet_len;
     lispd_addr_t *resolver; 
@@ -480,7 +480,6 @@ send_map_request(packet, packet_len, resolver)
     struct sockaddr_in   map_resolver;
     int         s;      /*socket */
     int         nbytes = 0;
-    int         md_len = 0;
     struct sockaddr_in  ctrl_saddr;
 
     /* XXX: assume v4 transport */
@@ -547,7 +546,7 @@ send_map_request(packet, packet_len, resolver)
  *
  */
 
-build_and_send_map_request_msg(dest, eid_prefix, eid_prefix_afi,
+int build_and_send_map_request_msg(dest, eid_prefix, eid_prefix_afi,
         eid_prefix_length, eid_name, encap, probe, solicit_map_request,
         smr_invoked, islocal,retries,timeout,search)
     lispd_addr_t *dest;
@@ -568,7 +567,7 @@ build_and_send_map_request_msg(dest, eid_prefix, eid_prefix_afi,
     uint8_t *packet;
     uint64_t nonce;
     int      len;               /* return the length here */
-    datacache_elt_t *res_elt;
+    datacache_elt_t *res_elt = NULL;
     lisp_addr_t tmp;
     struct sockaddr_storage rloc;
     char rloc_name[128];
@@ -648,7 +647,6 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
     int src_eid_afi;
     int itr_rloc_afi;
     void *cur_ptr;
-    int alen = 0;
     int afi_len = 0;
     int ip_header_len = 0;
     int len = 0;

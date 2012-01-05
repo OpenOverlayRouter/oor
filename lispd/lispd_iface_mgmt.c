@@ -64,7 +64,6 @@ typedef struct _reqmsg_t {
 static int nlsock_talk(n)
         struct nlmsghdr *n;
 {
-    int status;
     struct sockaddr_nl nladdr;
 
     /* 
@@ -508,9 +507,9 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
                 break;
             case IFA_LABEL:
                 syslog(LOG_DAEMON, "Interface name: %s\n",
-                        (unsigned char *)RTA_DATA(rtAttr));
+                        (char *)RTA_DATA(rtAttr));
                 iface_elt = search_iface_list( 
-                        (unsigned char *)RTA_DATA(rtAttr));
+                        (char *)RTA_DATA(rtAttr));
                 break;
         }
     }
@@ -713,12 +712,9 @@ int delete_rloc (iface_elt, rloc, node)
 {
     lispd_locator_chain_t       *locator_chain  = NULL;
     lispd_db_entry_t            *db_entry       = NULL;
-    prefix_t                    *prefix         = NULL;
     lispd_locator_chain_elt_t   *del_elt        = NULL;
     lispd_locator_chain_elt_t   *prev_elt       = NULL;
     char                        *eid            = NULL;
-    int                         afi;
-    uint16_t                    eid_afi;
     char                        addr_str[MAX_INET_ADDRSTRLEN];
 
     /*
@@ -829,15 +825,12 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
 {
     lispd_locator_chain_t       *locator_chain  = NULL;
     lispd_db_entry_t            *db_entry       = NULL;
-    prefix_t                    *prefix         = NULL;
     lispd_locator_chain_elt_t   *add_elt        = NULL;
     char                        *token          = NULL;
     db_entry_list_elt           *db_elt         = NULL;
     int                         afi;
     char                        addr_str[MAX_INET_ADDRSTRLEN];
 
-//Pranathi
-uint16_t eid_afi;
     /*
      * First find the eid associated with this interface
      * How do we know which eid to use -- the v4 or v6 one?
@@ -1013,7 +1006,6 @@ void smr_pitrs(void) {
     lispd_locator_chain_t *locator_chain = NULL;
     lispd_addr_list_t *elt = proxy_itrs;
     char pitr_name[128];
-    int i;
 
     PATRICIA_WALK(AF4_database->head, node) {
         locator_chain = ((lispd_locator_chain_t *)(node->data));
@@ -1515,7 +1507,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
         int eid_prefix_len;
 {
 
-        struct in_addr ifa_broadcast;
+        /*struct in_addr ifa_broadcast;*/
         int if_index = if_nametoindex(eid_iface_name);
 
         /* 

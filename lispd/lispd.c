@@ -46,8 +46,9 @@
 #include <net/if.h>
 #include "lispd.h"
 
-void signal_handler();
-void callback_elt(datacache_elt_t *elt);
+void event_loop(void);
+void signal_handler(int);
+void callback_elt(datacache_elt_t *);
 
 /*
  *      global (more or less) vars
@@ -304,6 +305,7 @@ int main(int argc, char **argv)
     event_loop();
     syslog(LOG_INFO, "Exiting...");         /* event_loop returned bad */
     closelog();
+    return(0);
 }
 
 /*
@@ -312,7 +314,7 @@ int main(int argc, char **argv)
  *      should never return (in theory)
  */
 
-event_loop ()
+void event_loop(void)
 {
     int    max_fd;
     fd_set readfds;
@@ -370,7 +372,7 @@ void signal_handler(int sig) {
     switch(sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
-        syslog(LOG_WARNING, "Received SIGHUP signal.", LISPD);
+        syslog(LOG_WARNING, "Received SIGHUP signal.");
         break;
     case SIGTERM:
         /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */

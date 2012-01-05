@@ -41,19 +41,14 @@
  *
  */
 
-map_register(tree) 
+int map_register(tree)
     patricia_tree_t *tree;
 {
 
     lispd_map_server_list_t   *ms;
     lispd_pkt_map_register_t  *map_register_pkt; 
-    patricia_node_t       *node;
+    patricia_node_t           *node;
     lispd_locator_chain_t     *locator_chain;
-    lispd_locator_chain_elt_t *locator_chain_elt;
-    lispd_db_entry_t          *db_entry;
-    uint8_t           *packet;
-    int                packet_len = 0;
-    int                retval     = 0;
 
     if (!map_servers) {
     syslog(LOG_DAEMON, "No Map Servers conifgured!");
@@ -264,19 +259,17 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
  *
  */
 
-send_map_register(ms, mrp, mrp_len)
+int send_map_register(ms, mrp, mrp_len)
     lispd_map_server_list_t  *ms;
     lispd_pkt_map_register_t *mrp; 
     int              mrp_len;
 {
 
     lispd_addr_t        *addr;
-    struct sockaddr_in   map_server;
-    int         s;      /*socket */
-    int         nbytes;
-    int         md_len;
-    struct sockaddr_in  me;
-    struct sockaddr_in  from;
+    struct sockaddr_in  map_server;
+    int                 s;      /*socket */
+    int                 nbytes;
+    unsigned int        md_len;
     struct sockaddr_in  ctrl_saddr;
 
     /*
@@ -373,7 +366,7 @@ send_map_register(ms, mrp, mrp_len)
  *  the packet....
  */
 
-get_locator_length(locator_chain_elt) 
+int get_locator_length(locator_chain_elt)
     lispd_locator_chain_elt_t   *locator_chain_elt;
 {
 

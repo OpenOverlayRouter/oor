@@ -80,7 +80,7 @@
  *
  */
 
-build_receive_sockets()
+int build_receive_sockets(void)
 {
 
     struct protoent     *proto;
@@ -202,7 +202,7 @@ int get_afi(str)
  *      if supplied
  */
 
-copy_lisp_addr_t(a1,a2,afi,convert)
+int copy_lisp_addr_t(a1,a2,afi,convert)
      lisp_addr_t *a1;
      lisp_addr_t *a2;
      uint16_t     afi;
@@ -236,7 +236,7 @@ copy_lisp_addr_t(a1,a2,afi,convert)
  *      it convert != 0. Return the length or 0;
  */
 
-copy_addr(a1,a2,afi,convert)
+int copy_addr(a1,a2,afi,convert)
      void *a1;
      lisp_addr_t *a2;
      int  afi;
@@ -333,10 +333,6 @@ lispd_addr_t *lispd_get_address(host, addr, flags)
     unsigned int     *flags;
 {
     struct hostent      *hptr;
-    struct ifaddrs      *ifaddr;
-    struct ifaddrs      *ifa;
-    struct sockaddr_in  *s4;
-    struct sockaddr_in6 *s6;
 
     /* 
      * make sure this is clean
@@ -359,6 +355,7 @@ lispd_addr_t *lispd_get_address(host, addr, flags)
             *flags = STATIC_LOCATOR;
         return(addr);
     } 
+    return(NULL);
 }
 
 /*
@@ -371,7 +368,6 @@ lispd_addr_t *lispd_get_iface_address(ifacename, addr)
         char             *ifacename;
         lispd_addr_t     *addr;
 {
-    struct hostent      *hptr;
     struct ifaddrs      *ifaddr;
     struct ifaddrs      *ifa;
     struct sockaddr_in  *s4;
@@ -431,6 +427,7 @@ lispd_addr_t *lispd_get_iface_address(ifacename, addr)
             continue;                   /* XXX */
         }
     }
+    return(NULL);
 }
 
 /*
@@ -446,46 +443,10 @@ lispd_addr_t *lispd_get_iface_address(ifacename, addr)
  *
  */
 
-dump_database(tree, afi)
-        patricia_tree_t *tree;
-        int             afi;
-{
-    patricia_node_t             *node;
-    lispd_locator_chain_t       *locator_chain;
-    lispd_locator_chain_elt_t   *locator_chain_elt;
-    lispd_db_entry_t            *db_entry;
-
-    if (!tree) {
-        switch(afi) {
-        case AF_INET:
-            syslog(LOG_DAEMON, "No database for AF_INET");
-            return(0);
-        case AF_INET6:
-            syslog(LOG_DAEMON, "No database for AF_INET6");
-            return(0);
-        default:        
-            syslog(LOG_DAEMON, "Unknown database AFI (%d)", afi);
-            return(0);
-        }
-    }
-    syslog(LOG_DAEMON, "database:");
-    PATRICIA_WALK(tree->head, node) {
-        locator_chain     = ((lispd_locator_chain_t *)(node->data));
-        locator_chain_elt = locator_chain->head;
-        while (locator_chain_elt) {
-            db_entry = locator_chain_elt->db_entry;
-            dump_database_entry(db_entry);
-            locator_chain_elt = locator_chain_elt->next;
-        }
-    } PATRICIA_WALK_END;
-    return(1);
-}
-
-
-dump_database_entry(db_entry)
+void dump_database_entry(db_entry)
         lispd_db_entry_t *db_entry;
 {
-    int              afi; 
+    int              afi;
     char             eid[128];
     char             rloc[128];
     char             buf[128];
@@ -502,13 +463,48 @@ dump_database_entry(db_entry)
     syslog(LOG_DAEMON, " %s lisp %s/%d %s p %d w %d",
            (afi == AF_INET) ? "ip":"ipv6",
            eid,
-           db_entry->eid_prefix_length, 
+           db_entry->eid_prefix_length,
            buf,
            db_entry->priority,
            db_entry->weight);
 }
 
-dump_servers(list, list_name)
+void dump_database(tree, afi)
+        patricia_tree_t *tree;
+        int             afi;
+{
+    patricia_node_t             *node;
+    lispd_locator_chain_t       *locator_chain;
+    lispd_locator_chain_elt_t   *locator_chain_elt;
+    lispd_db_entry_t            *db_entry;
+
+    if (!tree) {
+        switch(afi) {
+        case AF_INET:
+            syslog(LOG_DAEMON, "No database for AF_INET");
+            return;
+        case AF_INET6:
+            syslog(LOG_DAEMON, "No database for AF_INET6");
+            return;
+        default:        
+            syslog(LOG_DAEMON, "Unknown database AFI (%d)", afi);
+            return;
+        }
+    }
+    syslog(LOG_DAEMON, "database:");
+    PATRICIA_WALK(tree->head, node) {
+        locator_chain     = ((lispd_locator_chain_t *)(node->data));
+        locator_chain_elt = locator_chain->head;
+        while (locator_chain_elt) {
+            db_entry = locator_chain_elt->db_entry;
+            dump_database_entry(db_entry);
+            locator_chain_elt = locator_chain_elt->next;
+        }
+    } PATRICIA_WALK_END;
+}
+
+
+void dump_servers(list, list_name)
     lispd_addr_list_t   *list;
     const char          *list_name;
 { 
@@ -518,7 +514,7 @@ dump_servers(list, list_name)
     char                buf[128];
 
     if (!list)
-        return(1);
+        return;
 
     syslog(LOG_DAEMON, "%s:", list_name);
 
@@ -532,26 +528,7 @@ dump_servers(list, list_name)
     }
 }
 
-dump_map_servers()
-{ 
-    int                     afi;
-    lispd_addr_t            *addr;
-    lispd_map_server_list_t *ms;
-    char                    buf[128];
-
-    if (!map_servers)
-        return(1);
-
-    syslog(LOG_DAEMON, "map-servers:");
-    ms = map_servers;
-
-    while (ms) {
-        dump_map_server(ms);
-        ms = ms->next;
-    }
-}
-
-dump_map_server(ms)
+void dump_map_server(ms)
     lispd_map_server_list_t *ms;
 {
     int                     afi;
@@ -567,7 +544,23 @@ dump_map_server(ms)
        ms->key);
 }
 
-dump_map_cache()
+void dump_map_servers(void)
+{
+    lispd_map_server_list_t *ms;
+
+    if (!map_servers)
+        return;
+
+    syslog(LOG_DAEMON, "map-servers:");
+    ms = map_servers;
+
+    while (ms) {
+        dump_map_server(ms);
+        ms = ms->next;
+    }
+}
+
+void dump_map_cache(void)
 {
     lispd_map_cache_t       *map_cache;
     lispd_map_cache_entry_t *map_cache_entry;
@@ -577,7 +570,7 @@ dump_map_cache()
     char             rloc[128];
 
     if (!lispd_map_cache)
-        return(1);
+        return;
 
     syslog(LOG_DAEMON, "map-cache:");
     map_cache = lispd_map_cache;
@@ -644,14 +637,14 @@ int isfqdn(char *s)
     return(dot);
 }
 
-dump_tree_elt(locator_chain)
+void dump_tree_elt(locator_chain)
     lispd_locator_chain_t *locator_chain;
 {
     syslog(LOG_DAEMON, " locator_chain->eid_name = %s",
            locator_chain->eid_name);
 }
 
-dump_tree(afi,tree)
+void dump_tree(afi,tree)
      int afi;
      patricia_tree_t *tree;
 
@@ -678,7 +671,7 @@ dump_tree(afi,tree)
     } PATRICIA_WALK_END;
 }
 
-debug_installed_database_entry(db_entry, locator_chain)
+void debug_installed_database_entry(db_entry, locator_chain)
     lispd_db_entry_t            *db_entry;
     lispd_locator_chain_t       *locator_chain;
 {
@@ -701,7 +694,7 @@ debug_installed_database_entry(db_entry, locator_chain)
        db_entry->weight);
 }
 
-print_hmac(hmac,len)
+void print_hmac(hmac,len)
      uchar *hmac;
      int len;
 {
@@ -723,7 +716,7 @@ print_hmac(hmac,len)
  *      Get the length while your at it
  */         
 
-get_lisp_afi(afi, len)
+int get_lisp_afi(afi, len)
      int        afi;
      int        *len;
 {
@@ -750,7 +743,7 @@ get_lisp_afi(afi, len)
  *
  */         
 
-lisp2inetafi(afi)
+int lisp2inetafi(afi)
      int        afi;
 {
     switch(afi) {
@@ -771,7 +764,7 @@ lisp2inetafi(afi)
  *      given afi, get the IP header length
  */
 
-get_ip_header_len(afi)  
+int get_ip_header_len(afi)
         int afi;
 {
     switch (afi) {                      /* == eid_afi */
@@ -790,7 +783,7 @@ get_ip_header_len(afi)
  *      given afi, get sockaddr len
  */
 
-get_sockaddr_len(afi)
+int get_sockaddr_len(afi)
         int afi;
 {
     switch (afi) {                      /* == eid_afi */
@@ -809,7 +802,7 @@ get_sockaddr_len(afi)
  *      given afi, get addr len
  */
 
-get_addr_len(afi)       
+int get_addr_len(afi)
         int afi;
 {
     switch (afi) {                      /* == eid_afi */
@@ -828,7 +821,7 @@ get_addr_len(afi)
  *      given afi, get prefix len
  */
 
-get_prefix_len(afi)
+int get_prefix_len(afi)
         int afi;
 {
     return(get_addr_len(afi) * 8);
@@ -920,7 +913,7 @@ uint64_t build_nonce(seed)
  * 
  * Print 64-bit nonce in 0x%08x-0x%08x format. 
  */ 
-lispd_print_nonce (nonce)
+void lispd_print_nonce (nonce)
      uint64_t nonce;
 { 
     uint32_t lower; 
@@ -1281,7 +1274,7 @@ uint16_t min_timeout(uint16_t a,uint16_t b) {
  *  is max_fd.
  */
 
-have_input(max_fd,readfds)
+int have_input(max_fd,readfds)
   int     max_fd;
   fd_set *readfds;
 {
@@ -1303,7 +1296,7 @@ have_input(max_fd,readfds)
  *  socket s with address family afi
  */
 
-process_lisp_msg(s, afi)
+int process_lisp_msg(s, afi)
      int    s;
      int    afi;
 {
@@ -1328,6 +1321,7 @@ process_lisp_msg(s, afi)
     default:
     return(0);
     }
+    return(1);
 }
 
 
@@ -1336,7 +1330,7 @@ process_lisp_msg(s, afi)
  *  Retrieve a mesage from socket s
  */
 
-retrieve_lisp_msg(s, packet, from, afi)
+int retrieve_lisp_msg(s, packet, from, afi)
      int    s;
      uint8_t    *packet;
      void   *from;
@@ -1346,8 +1340,8 @@ retrieve_lisp_msg(s, packet, from, afi)
 
     struct sockaddr_in  *s4;
     struct sockaddr_in6 *s6;
-    int         fromlen4 = sizeof(struct sockaddr_in);
-    int         fromlen6 = sizeof(struct sockaddr_in6);
+    socklen_t fromlen4 = sizeof(struct sockaddr_in);
+    socklen_t fromlen6 = sizeof(struct sockaddr_in6);
 
     switch(afi) {
     case AF_INET:
@@ -1432,6 +1426,7 @@ retrieve_lisp_msg(s, packet, from, afi)
     break;
     }
 #endif
+    return(1);
 }
 
     

@@ -18,10 +18,6 @@
  *
  */
 
-static char copyright[] =
-"This product includes software developed by the University of Michigan, Merit"
-"Network, Inc., and their contributors.";
-
 #include <assert.h> /* assert */
 #include <ctype.h> /* isdigit */
 #include <errno.h> /* errno */
@@ -960,7 +956,7 @@ lookup_then_remove (patricia_tree_t *tree, int afi, char *string)
 {
     patricia_node_t *node;
 
-    if (node = try_search_exact (tree, afi, string))
+    if ((node = try_search_exact (tree, afi, string)) != NULL)
         patricia_remove (tree, node);
 }
 

@@ -64,7 +64,7 @@
 #include "lispd_external.h"
 
 
-process_map_reply(packet)
+int process_map_reply(packet)
     uint8_t *packet;
 
 {
@@ -73,7 +73,6 @@ process_map_reply(packet)
     lispd_pkt_map_reply_locator_t           *loc_pkt;
     lisp_eid_map_msg_t                      *map_msg;
     int                                     map_msg_len;
-    datacache_elt_t                         *itr, *prev;
     datacache_elt_t                         *elt = NULL;
     lisp_addr_t                             *eid;
     lisp_addr_t                             *loc;
@@ -338,8 +337,6 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
     patricia_node_t *node = NULL;
     lispd_locator_chain_t *locator_chain_eid4 = NULL;
     lispd_locator_chain_t *locator_chain_eid6 = NULL;
-    lispd_locator_chain_elt_t *locator_chain_elt;
-    int eid_afi = 0;
 
     map_reply_msg_len = sizeof(lispd_pkt_map_reply_t);
     if ((iph_len = get_ip_header_len(src->afi)) == 0)
@@ -349,15 +346,17 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
     if (opts.send_rec) {
         switch (eid_prefix.family) {
         case AF_INET:
-            if (node = patricia_search_best(AF4_database, &eid_prefix))
+            node = patricia_search_best(AF4_database, &eid_prefix);
+            if (node != NULL)
                 locator_chain_eid4 = ((lispd_locator_chain_t *)(node->data));
-            if (locator_chain_eid4)
+            if (locator_chain_eid4 != NULL)
                 map_reply_msg_len += get_record_length(locator_chain_eid4);
             break;
         case AF_INET6:
-            if (node = patricia_search_best(AF6_database, &eid_prefix))
+            node = patricia_search_best(AF6_database, &eid_prefix);
+            if (node != NULL)
                 locator_chain_eid6 = ((lispd_locator_chain_t *)(node->data));
-            if (locator_chain_eid6)
+            if (locator_chain_eid6 != NULL)
                 map_reply_msg_len += get_record_length(locator_chain_eid6);
             break;
         default:
@@ -496,7 +495,6 @@ int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dp
         uint64_t nonce, map_reply_opts opts) {
     lisp_addr_t destination;
     struct sockaddr_storage destination_sa;
-    lispd_locator_chain_t *locator_chain = NULL;
     uint8_t *packet;
     int len = 0;
 

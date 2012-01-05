@@ -50,7 +50,7 @@
  *
  */
 
-handle_lispd_command_line(int argc, char **argv) 
+void handle_lispd_command_line(int argc, char **argv)
 {
     struct gengetopt_args_info args_info;
 
@@ -66,8 +66,6 @@ handle_lispd_command_line(int argc, char **argv)
     if (args_info.map_request_retries_given) {
         map_request_retries = args_info.map_request_retries_arg;
     }
-
-    return(0);
 }
 
 /*
@@ -83,7 +81,7 @@ handle_lispd_command_line(int argc, char **argv)
  *
  */
 
-handle_lispd_config_file() 
+int handle_lispd_config_file()
 {
     cfg_t           *cfg   = 0;
     unsigned int    i      = 0;
@@ -148,7 +146,8 @@ handle_lispd_config_file()
      *  lispd config options
      */
 
-    if (ret = cfg_getint(cfg, "map-request-retries"))
+    ret = cfg_getint(cfg, "map-request-retries");
+    if (ret != 0)
         map_request_retries = ret;
 
     cfg_getbool(cfg, "debug") ? (debug = 1) : (debug = 0); 
@@ -172,7 +171,7 @@ handle_lispd_config_file()
      *  handle proxy-etr config
      */
 
-    if (proxy_etr = cfg_getstr(cfg, "proxy-etr")) {
+    if ((proxy_etr = cfg_getstr(cfg, "proxy-etr")) != NULL) {
         if (!add_server(proxy_etr, &proxy_etrs))
             return(0); 
 #ifdef DEBUG
@@ -184,15 +183,14 @@ handle_lispd_config_file()
      *  handle proxy-itr config
      */
 
-    if (n = cfg_size(cfg, "proxy-itrs")) {
-        for(i = 0; i < n; i++) {
-            if (proxy_itr = cfg_getnstr(cfg, "proxy-itrs", i)) {
-                if (!add_server(proxy_itr, &proxy_itrs))
-                    continue;
+    n = cfg_size(cfg, "proxy-itrs");
+    for(i = 0; i < n; i++) {
+        if ((proxy_itr = cfg_getnstr(cfg, "proxy-itrs", i)) != NULL) {
+            if (!add_server(proxy_itr, &proxy_itrs))
+                continue;
 #ifdef DEBUG
-                syslog(LOG_DAEMON, "Added %s to proxy-itr list", proxy_itr);
+            syslog(LOG_DAEMON, "Added %s to proxy-itr list", proxy_itr);
 #endif
-            }
         }
     }
 
@@ -200,15 +198,14 @@ handle_lispd_config_file()
      *  handle database-mapping config
      */
 
-    if (n = cfg_size(cfg, "database-mapping")) {
-        for(i = 0; i < n; i++) {
-            cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
-            if (!add_database_mapping(dm)) {
-                syslog(LOG_DAEMON, "Can't add database-mapping %d (%s->%s)",
-                   i,
-                   cfg_getstr(dm, "eid-prefix"),
-                   cfg_getstr(dm, "interface"));
-            }
+    n = cfg_size(cfg, "database-mapping");
+    for(i = 0; i < n; i++) {
+        cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
+        if (!add_database_mapping(dm)) {
+            syslog(LOG_DAEMON, "Can't add database-mapping %d (%s->%s)",
+               i,
+               cfg_getstr(dm, "eid-prefix"),
+               cfg_getstr(dm, "interface"));
         }
     }
 
@@ -216,28 +213,27 @@ handle_lispd_config_file()
      *  handle map-server config
      */
 
-    if (n = cfg_size(cfg, "map-server")) {
-        for(i = 0; i < n; i++) {
-            cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-            if (!add_map_server(cfg_getstr(ms, "address"),
-                                    cfg_getint(ms, "key-type"),
-                    cfg_getstr(ms, "key"),
-                    (cfg_getbool(ms, "proxy-reply") ? 1:0),
-                    (cfg_getbool(ms, "verify")      ? 1:0)))
+    n = cfg_size(cfg, "map-server");
+    for(i = 0; i < n; i++) {
+        cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
+        if (!add_map_server(cfg_getstr(ms, "address"),
+                                cfg_getint(ms, "key-type"),
+                cfg_getstr(ms, "key"),
+                (cfg_getbool(ms, "proxy-reply") ? 1:0),
+                (cfg_getbool(ms, "verify")      ? 1:0)))
 
-                return(0);
+            return(0);
 #ifdef DEBUG
-            syslog(LOG_DAEMON, "Added %s to map-server list",
-                cfg_getstr(ms, "address"));
+        syslog(LOG_DAEMON, "Added %s to map-server list",
+            cfg_getstr(ms, "address"));
 #endif
-        }
     }
 
     /*
      *  handle static-map-cache config
      */
 
-    if (n = cfg_size(cfg, "static-map-cache")) {
+    n = cfg_size(cfg, "static-map-cache");
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
             if (!add_static_map_cache_entry(smc)) {
@@ -246,7 +242,6 @@ handle_lispd_config_file()
                cfg_getstr(smc, "eid-prefix"),
                cfg_getstr(smc, "rloc"));
         }
-    }
     }
 
 
@@ -270,11 +265,11 @@ handle_lispd_config_file()
  *  Get a single database mapping 
  *
  *  David Meyer <dmm@1-4-5.net>
- *      Preethi Natarajan <prenatar@cisco.com>
+ *  Preethi Natarajan <prenatar@cisco.com>
  *
  */
 
-add_database_mapping(dm)
+int add_database_mapping(dm)
      cfg_t      *dm;
 {
 
@@ -514,7 +509,7 @@ add_database_mapping(dm)
  *
  */
 
-add_static_map_cache_entry(smc)
+int add_static_map_cache_entry(smc)
      cfg_t  *smc;
 {
 
@@ -616,7 +611,7 @@ add_static_map_cache_entry(smc)
  *  add a map-resolver to the list
  */
 
-add_server(server, list)
+int add_server(server, list)
      char       *server;
      lispd_addr_list_t  **list;
 {
@@ -667,14 +662,13 @@ add_server(server, list)
  *  add_map_server to map_servers
  */
 
-add_map_server(map_server, key_type, key, proxy_reply,verify)
+int add_map_server(map_server, key_type, key, proxy_reply,verify)
      char   *map_server;
      int    key_type;
      char   *key;
      uint8_t    proxy_reply;
      uint8_t    verify;
 {
-    int              flags;
     lispd_addr_t        *addr;
     lispd_map_server_list_t *list_elt;
     struct hostent      *hptr;

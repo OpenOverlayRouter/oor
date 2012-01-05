@@ -31,7 +31,7 @@
 
 #include "lispd_external.h"
 
-set_up_syslog ()
+void set_up_syslog(void)
 {
 
     setlogmask(LOG_UPTO(LOG_INFO));
