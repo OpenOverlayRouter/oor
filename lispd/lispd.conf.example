@@ -62,8 +62,8 @@ proxy-itrs = {
 	149.20.48.60,		# isc-pxtr
 	198.6.255.37,		# asp-pxtr
 	129.250.1.63,		# ntt-amer-pxtr
-	85.184.2.22,		# intouch-pxtr-1
-	85.184.2.30,		# intouch-pxtr-2
+	217.8.98.33,		# intouch-pxtr-1
+	217.8.98.35,		# intouch-pxtr-2
 	193.162.145.46,		# tdc-pxtr
 	158.38.1.92,		# uninett-pxtr
 	203.181.249.172		# apan-pxtr
