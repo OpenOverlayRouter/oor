@@ -1199,9 +1199,9 @@ int search_datacache_entry_eid (eid_afi,eid_prefix,res_elt)
     }
 
     // EID not found
-    #ifdef DEBUG
-    syslog(LOG_INFO, "Entry not found in datacache- EID don't match");
-    #endif
+#if (DEBUG > 3)
+    syslog(LOG_INFO, "Entry not found in datacache: EID doesn't match");
+#endif
     return 0;
 }
 
@@ -1226,9 +1226,9 @@ int search_datacache_entry_nonce (nonce,res_elt)
     }
 
     // Nonce not found
-    #ifdef DEBUG
-    syslog(LOG_INFO, "Entry not found in datacache- nonce don't match");
-    #endif
+#if (DEBUG > 3)
+    syslog(LOG_INFO, "Entry not found in datacache: nonce doesn't match");
+#endif
     return 0;
 }
 
@@ -1379,27 +1379,32 @@ int retrieve_lisp_msg(s, packet, from, afi)
     switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
 #ifdef DEBUG
-    syslog(LOG_DAEMON, "Received a LISP Map-Reply message");
+        syslog(LOG_DAEMON, "Received a LISP Map-Reply message");
 #endif
         process_map_reply(packet);
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
 #ifdef DEBUG
-    syslog(LOG_DAEMON, "Received a LISP Encapsulated Map-Request message");
+        syslog(LOG_DAEMON, "Received a LISP Encapsulated Map-Request message");
 #endif
-    if(!process_map_request_msg(packet, s, from, afi))
-        return (0);
+        if(!process_map_request_msg(packet, s, from, afi))
+            return (0);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
 #ifdef DEBUG
-    syslog(LOG_DAEMON, "Received a LISP Map-Request message");
+        syslog(LOG_DAEMON, "Received a LISP Map-Request message");
 #endif
-    if(!process_map_request_msg(packet, s, from, afi))
-        return (0);
+        if(!process_map_request_msg(packet, s, from, afi))
+            return (0);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
-    case LISP_MAP_NOTIFY:       //Got Map-Notify, silently ignore
+    case LISP_MAP_NOTIFY:
+#ifdef DEBUG
+        syslog(LOG_DAEMON, "Received a LISP Map-Notify message");
+#endif
+        if(!process_map_notify(packet))
+            return(0);
         break;
     }
 #if (DEBUG > 3)

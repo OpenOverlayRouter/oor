@@ -77,7 +77,7 @@ extern  lispd_addr_list_t *proxy_etrs;
 extern  lispd_addr_list_t *proxy_itrs;
 extern  lispd_map_server_list_t *map_servers;
 extern  char            *config_file;
-extern  char                *map_resolver;
+extern  char            *map_resolver;
 extern  char            *map_server;
 extern  char            *proxy_etr;
 extern  char            *proxy_itr;
