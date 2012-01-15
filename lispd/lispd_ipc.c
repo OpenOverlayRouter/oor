@@ -481,6 +481,8 @@ int process_netlink_msg(void) {
             break;
         case LispMapCacheLookup:
             syslog(LOG_DAEMON, "Received LispMapCacheLookup NETLINK message");
+            if(!handle_LispMapCacheLookup(cmd))
+                return(0);
             break;
         case LispMapCacheRLOCList:
             syslog(LOG_DAEMON, "Received LispMapCacheRLOCList NETLINK message");
@@ -678,6 +680,47 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
     return(1);
 }
 
+
+int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
+    lisp_cache_response_msg_t *cache_entry;
+    lisp_cache_response_loc_t *locators = NULL;
+    lispd_addr_t rloc;
+    char rloc_name[128];
+    int i;
+
+    cache_entry = (lisp_cache_response_msg_t *) cmd->val;
+    locators    = cache_entry->locators;
+
+    /* XXX: LJ:
+     * Need support in build_and_send_map_request_msg() to explicitly select
+     * Source-EID, if we want to support several EIDs on the host. Also, need
+     * a mechanisms when performing SMR to specify for which EIDs
+     */
+    if (cache_entry->num_locators) {
+        for (i = 0; i < cache_entry->num_locators; i++) {
+            lisp2lispd(&(locators->locator), &rloc);
+            /* Don't SMR PETRs (TODO need IPv6 support) */
+            if (locators->locator.afi == AF_INET &&
+                    locators->locator.address.ip.s_addr ==
+                    proxy_etrs->address->address.address.ip.s_addr) {
+                locators++;
+                continue;
+            }
+            inet_ntop(rloc.afi, &(rloc.address.address), rloc_name, 128);
+            if (build_and_send_map_request_msg(&rloc,
+                    &(cache_entry->eid_prefix),
+                    cache_entry->eid_prefix.afi,
+                    (get_addr_len(cache_entry->eid_prefix.afi) * 8),
+                    NULL,
+                    0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
+                syslog(LOG_DAEMON, "SMR'ing %s", rloc_name);
+            locators++;
+        }
+        return(1);
+    }
+    return(0);
+}
+
 /*
  *  register the lispd process with the kernel
  */
@@ -703,15 +746,46 @@ int register_lispd_process(void) {
 
 
 /*
- *  ask for the list of RLOCs in map cache (for SMR)
+ *  ask for the full map cache (for SMR)
  */
 
 int get_map_cache_list() {
     int retval = 0;
     lisp_cmd_t *cmd;
+    lisp_lookup_msg_t lookup_msg;
+
+    if ((cmd = malloc(sizeof(lisp_cmd_t) + sizeof(lisp_lookup_msg_t))) == 0) {
+        syslog(LOG_DAEMON, "get_map_cache_list: malloc failed");
+        return(0);
+    }
+
+    memset(cmd, 0, sizeof(lisp_cmd_t));
+
+    cmd->type   = LispMapCacheLookup;
+    cmd->length = sizeof(lisp_lookup_msg_t);
+
+    memset((char *)&lookup_msg, 0, sizeof(lisp_lookup_msg_t));
+    lookup_msg.all_entries = 1;
+    lookup_msg.exact_match = 0;
+    memcpy(cmd->val, (char *)&lookup_msg, sizeof(lisp_lookup_msg_t));
+
+    retval = send_command(cmd, sizeof(lisp_cmd_t) + sizeof(lisp_lookup_msg_t));
+    syslog(LOG_DAEMON, "Asking for map cache to do SMR");
+    free(cmd);
+    return(retval);
+}
+
+
+/*
+ *  ask for the list of RLOCs in map cache (for SMR)
+ */
+
+int get_map_cache_rloc_list() {
+    int retval = 0;
+    lisp_cmd_t *cmd;
 
     if ((cmd = malloc(sizeof(lisp_cmd_t))) == 0) {
-        syslog(LOG_DAEMON, "get_map_cache_list: malloc failed");
+        syslog(LOG_DAEMON, "get_map_cache_rloc_list: malloc failed");
         return(0);
     }
 
