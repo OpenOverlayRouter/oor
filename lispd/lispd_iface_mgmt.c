@@ -147,7 +147,7 @@ int dump_routing_table(afi, table)
 #ifdef DEBUG
     syslog(LOG_DAEMON, "RTNETLINK: ip route list table %d", table);
 #endif
-    return(route_mod(RTM_GETROUTE, afi, NULL, 0, NULL, 0, NULL, NULL, table, 0));
+    return(route_mod(RTM_GETROUTE, afi, NULL, 0, NULL, 0, NULL, NULL, table, 0, 0));
 }
 
 /*

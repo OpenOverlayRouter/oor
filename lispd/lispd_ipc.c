@@ -45,7 +45,7 @@ int install_database_mapping(db_entry)
     lispd_db_entry_t   *db_entry;
 {
 
-    int                     cmd_length = 0;
+    size_t                  cmd_length = 0;
     int                     retval = 0;
     lisp_cmd_t              *cmd;
     lisp_db_add_msg_t       *map_msg;
@@ -56,7 +56,7 @@ int install_database_mapping(db_entry)
     cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_db_add_msg_t) +
                  sizeof(lisp_db_add_msg_loc_t) * loc_count;
 
-    if ((cmd = (lisp_cmd_t *) malloc(cmd_length)) < 0) {
+    if ((cmd = malloc(cmd_length)) < 0) {
         syslog (LOG_DAEMON, "install_database_mapping(): memory allocation error");
         return(0);
     }
@@ -227,7 +227,7 @@ int install_map_cache_entry(map_cache_entry)
     lispd_map_cache_entry_t   *map_cache_entry;
 {
 
-    int                     cmd_length = 0;
+    size_t                  cmd_length = 0;
     int                     retval     = 0;
     lisp_cmd_t              *cmd;
     lisp_eid_map_msg_t      *map_msg;
@@ -247,7 +247,7 @@ int install_map_cache_entry(map_cache_entry)
     cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_eid_map_msg_t) +
                  sizeof(lisp_eid_map_msg_loc_t) * loc_count;
 
-    if ((cmd = (lisp_cmd_t *) malloc(cmd_length)) < 0){
+    if ((cmd = malloc(cmd_length)) < 0){
         syslog (LOG_DAEMON, "install_map_cache_entry(): memory allocation error");
         return(0);
     }
@@ -291,13 +291,13 @@ int install_map_cache_entry(map_cache_entry)
 
 int send_eid_map_msg(lisp_eid_map_msg_t *map_msg, int map_msg_len)
 {
-    int                     cmd_length = 0;
+    size_t                  cmd_length = 0;
     int                     retval     = 0;
     lisp_cmd_t              *cmd;
 
     cmd_length = sizeof(lisp_cmd_t) + map_msg_len;
 
-    if ((cmd = (lisp_cmd_t *) malloc(cmd_length)) < 0){
+    if ((cmd = malloc(cmd_length)) < 0){
         syslog (LOG_DAEMON, "send_eid_map_msg(): memory allocation error");
         return(0);
     }
@@ -316,7 +316,7 @@ int send_eid_map_msg(lisp_eid_map_msg_t *map_msg, int map_msg_len)
 int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix, uint16_t eid_prefix_afi,
         uint8_t eid_prefix_length, lispd_addr_t *locator, int status_bits)
 {
-    int                     cmd_length  = 0;
+    size_t                  cmd_length  = 0;
     int                     retval      = 0;
     lisp_cmd_t              *cmd;
     lisp_cache_sample_msg_t *cache_sample_msg;
@@ -327,7 +327,7 @@ int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix, uint16_t eid_pre
     cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_cache_sample_msg_t) +
                  sizeof(lisp_addr_t) * loc_count;
 
-    if ((cmd = (lisp_cmd_t *) malloc(cmd_length)) < 0){
+    if ((cmd = malloc(cmd_length)) < 0){
         syslog (LOG_DAEMON, "update_map_cache_entry_rloc_status(): memory allocation error");
         return(0);
     }
@@ -382,15 +382,15 @@ int setup_netlink(void)
     return(1);
 }
 
-int send_command(lisp_cmd_t *cmd, int length)
+int send_command(lisp_cmd_t *cmd, size_t length)
 {
  
     struct nlmsghdr *nlh;
     struct iovec    iov;
     struct msghdr   kmsg;
-    int         retval = 0;
+    int             retval = 0;
 
-    if ((nlh = (struct nlmsghdr *) malloc(NLMSG_SPACE(MAX_MSG_LENGTH))) == 0) 
+    if ((nlh = malloc(NLMSG_SPACE(MAX_MSG_LENGTH))) == 0)
     return (0);
 
     /*
@@ -410,7 +410,7 @@ int send_command(lisp_cmd_t *cmd, int length)
 
     /* Fill in the NETLINK message payload */
 
-    memcpy(NLMSG_DATA(nlh), (char *)cmd, length);
+    memcpy(NLMSG_DATA(nlh), cmd, length);
   
     iov.iov_base     = (void *)nlh;
     iov.iov_len      = nlh->nlmsg_len;
@@ -437,7 +437,7 @@ int process_netlink_msg(void) {
     int         len = 0;
     lisp_cmd_t      *cmd;
 
-    if ((nlh = (struct nlmsghdr *) malloc(NLMSG_SPACE(MAX_MSG_LENGTH))) == 0)
+    if ((nlh = malloc(NLMSG_SPACE(MAX_MSG_LENGTH))) == 0)
     return (0);
 
     /*
@@ -807,13 +807,13 @@ int get_map_cache_rloc_list() {
 
 int set_rloc(lispd_addr_t *my_addr) {
     int                 retval = 0;
-    int                 cmd_length = 0;
+    size_t              cmd_length = 0;
     lisp_cmd_t          *cmd;
     lisp_set_rloc_msg_t *set_rloc_msg;
 
     cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_set_rloc_msg_t);
 
-    if ((cmd = (lisp_cmd_t *) malloc(cmd_length)) == 0) {
+    if ((cmd = malloc(cmd_length)) == 0) {
         syslog(LOG_DAEMON, "set_rloc: malloc failed");
         return(0);
     }
@@ -828,7 +828,7 @@ int set_rloc(lispd_addr_t *my_addr) {
     memcpy(&(set_rloc_msg->addr), &(my_addr->address), sizeof(lisp_addr_t));
     set_rloc_msg->addr.afi = my_addr->afi;
 
-    retval = send_command(cmd,cmd_length);
+    retval = send_command(cmd, cmd_length);
     syslog(LOG_DAEMON, "Updating RLOC in data plane");
     free(cmd);
     return(retval);

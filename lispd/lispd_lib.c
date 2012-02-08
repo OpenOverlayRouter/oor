@@ -404,6 +404,7 @@ lispd_addr_t *lispd_get_iface_address(ifacename, addr)
                         ifacename, 
                         inet_ntop(AF_INET, &(s4->sin_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
+                freeifaddrs(ifaddr);
                 return(addr);
             } else {
                 continue;
@@ -419,6 +420,7 @@ lispd_addr_t *lispd_get_iface_address(ifacename, addr)
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
+                freeifaddrs(ifaddr);
                 return(addr);
             } else {
                 continue;
@@ -427,6 +429,7 @@ lispd_addr_t *lispd_get_iface_address(ifacename, addr)
             continue;                   /* XXX */
         }
     }
+    freeifaddrs(ifaddr);
     return(NULL);
 }
 

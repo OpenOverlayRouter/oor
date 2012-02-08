@@ -256,6 +256,7 @@ int handle_lispd_config_file()
     dump_map_cache();
 #endif
 
+    cfg_free(cfg);
     return(0);
 }
 
@@ -492,6 +493,7 @@ int add_database_mapping(dm)
     if (ctrl_iface == NULL)
         ctrl_iface = find_active_ctrl_iface();
 
+    free(eid_pref_for_add_iface);
     free(rloc_ptr);
     return(1);
 }
