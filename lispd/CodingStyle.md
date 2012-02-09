@@ -1,5 +1,4 @@
-                         Coding style for lispd
-			 ======================
+# Coding style for lispd
 
 The purpose of a common coding style for a software project is first and
 foremost readability and maintainability, and consistent formatting rules go a
@@ -15,8 +14,7 @@ the key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
 described in RFC 2119.
 
 
-Indentation
------------
+## Indentation
 
 The code SHOULD be indented at 4 spaces, and 8 spaces (two indentation levels)
 SHOULD NOT be replaced by TAB characters. The only place for TABs is in
@@ -47,8 +45,7 @@ column:
 Whitespace SHOULD NOT be left at the end of lines, nor on empty lines.
 
 
-Linebreaks
-----------
+## Linebreaks
 
 Lines are RECOMMENDED to be less than 80 character long and MUST NOT be longer
 than 132 characters. When breaking long lines into several shorter ones,
@@ -56,8 +53,7 @@ syslog messages SHOULD NOT be broken, to facilitate the ability to grep for
 them.
 
 
-Braces
-------
+## Braces
 
 Braces SHOULD be placed K&R style: opening brace last on the line, closing
 brace first for non-function statement blocks (if, for, do, while, switch):
@@ -113,8 +109,7 @@ statement; in the latter case use braces in both branches:
     }
 
 
-Spaces
-------
+## Spaces
 
 The use of spaces depends (mostly) on function-versus-keyword usage.  Use a
 space after (most) keywords.  The notable exceptions are `sizeof`, `typeof`,
@@ -169,8 +164,7 @@ of patches, this may make later patches in the series fail by changing their
 context lines.
 
 
-Commenting
-----------
+## Commenting
 
 The C89 `/* ... */` style SHOULD be used for comments, and the C99-style
 `//...` SHOULD NOT.
