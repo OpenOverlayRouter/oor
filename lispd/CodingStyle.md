@@ -35,7 +35,7 @@ column:
     switch (condition) {
     case 'a':
         statement;
-	break;
+        break;
     case 'b':
     default:
         statement;
@@ -118,12 +118,15 @@ usually used with parentheses in Linux, although they are not required in the
 language, as in: `sizeof info` after `struct fileinfo info;` is declared).
 
 So use a space after these keywords:
+
     if, switch, case, for, do, while
-but not with sizeof, typeof, alignof, or __attribute__.  E.g.,
+
+but not with `sizeof`, `typeof`, `alignof`, or `__attribute__`.  E.g.,
+
     s = sizeof(struct file);
 
 Do not add spaces around (inside) parenthesized expressions.  This example is
-*bad*:
+_bad_:
 
     s = sizeof( struct file );
 
@@ -141,12 +144,15 @@ such as any of these:
     =  +  -  <  >  *  /  %  |  &  ^  <=  >=  ==  !=  ?  :
 
 but no space after unary operators:
+
     &  *  +  -  ~  !  sizeof  typeof  alignof  __attribute__  defined
 
 no space before the postfix increment & decrement unary operators:
+
     ++  --
 
 no space after the prefix increment & decrement unary operators:
+
     ++  --
 
 and no space around the `.` and `->` structure member operators.
