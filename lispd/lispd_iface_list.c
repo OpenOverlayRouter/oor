@@ -162,7 +162,7 @@ int update_iface_list (iface_name, eid_prefix,
 
     if (!avail_phy_ifaces) {
         /* first iface_list_elt */
-        if((avail_phy_ifaces = (iface_list *) malloc (sizeof(iface_list))) == NULL) {
+        if((avail_phy_ifaces = malloc (sizeof(iface_list))) == NULL) {
             syslog(LOG_DAEMON, "Can't malloc(sizeof(iface_list))\n");
             return (0);
         }
@@ -173,13 +173,13 @@ int update_iface_list (iface_name, eid_prefix,
 
     if (elt == NULL) {
         /* should create a new iface_list_elt */
-        if ((elt = (iface_list_elt *) malloc (sizeof(iface_list_elt))) == NULL) {
+        if ((elt = malloc (sizeof(iface_list_elt))) == NULL) {
             syslog(LOG_DAEMON, "Can't malloc(sizeof(iface_list_elt))\n");
             return (0);
         }
         memset (elt, 0, sizeof(iface_list_elt));
-        if (((elt->AF4_locators = (db_entry_list *)malloc (sizeof(db_entry_list))) == NULL) ||
-            ((elt->AF6_locators = (db_entry_list *)malloc (sizeof(db_entry_list))) == NULL)) {
+        if (((elt->AF4_locators = malloc (sizeof(db_entry_list))) == NULL) ||
+            ((elt->AF6_locators = malloc (sizeof(db_entry_list))) == NULL)) {
 
             syslog(LOG_DAEMON, "Can't malloc(sizeof(db_entry_list)\n");
             free(elt->AF4_locators);
@@ -215,7 +215,7 @@ int update_iface_list (iface_name, eid_prefix,
         /* No rloc available to add */
         return (1);
 
-    if ((db_elt = (db_entry_list_elt *) malloc (sizeof(db_entry_list_elt))) == NULL) {
+    if ((db_elt = malloc (sizeof(db_entry_list_elt))) == NULL) {
             syslog(LOG_DAEMON, "Can't malloc(sizeof(db_entry_list_elt))\n");
             return (0);
     }

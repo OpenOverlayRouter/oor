@@ -368,7 +368,7 @@ int add_database_mapping(dm)
         syslog(LOG_DAEMON, "setup_lisp_eid_iface (%s) failed\b", iface_name);
     } 
 
-    if ((rloc_ptr = (lispd_addr_t *) malloc(sizeof(lispd_addr_t))) == NULL) {
+    if ((rloc_ptr = malloc(sizeof(lispd_addr_t))) == NULL) {
         syslog(LOG_DAEMON,"malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
         return(0);
     }
@@ -380,8 +380,7 @@ int add_database_mapping(dm)
         return(0);
     }
 
-    if ((db_entry = (lispd_db_entry_t *)
-         malloc(sizeof(lispd_db_entry_t))) == NULL) {
+    if ((db_entry = malloc(sizeof(lispd_db_entry_t))) == NULL) {
         syslog(LOG_DAEMON,"malloc(sizeof(lispd_database_t)): %s", strerror(errno));
         return(0);
     }
@@ -528,14 +527,13 @@ int add_static_map_cache_entry(smc)
     int    priority     = cfg_getint(smc, "priority");
     int    weight       = cfg_getint(smc, "weight");
 
-    if ((rloc_ptr = (lispd_addr_t *) malloc(sizeof(lispd_addr_t))) == NULL) {
-    syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
-    return(0);
+    if ((rloc_ptr = malloc(sizeof(lispd_addr_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
+        return(0);
     }
-    if ((map_cache = (lispd_map_cache_t *)
-     malloc(sizeof(lispd_map_cache_t))) == NULL) {
-    syslog(LOG_DAEMON, "malloc(sizeof(lispd_map_cache_t)): %s", strerror(errno));
-    return(0);
+    if ((map_cache = malloc(sizeof(lispd_map_cache_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lispd_map_cache_t)): %s", strerror(errno));
+        return(0);
     }
     memset(rloc_ptr, 0,sizeof(lispd_addr_t));
     memset(map_cache,0,sizeof(lispd_map_cache_t));
@@ -622,9 +620,9 @@ int add_server(server, list)
     lispd_addr_t    *addr;
     lispd_addr_list_t  *list_elt;
  
-    if ((addr = (lispd_addr_t *) malloc(sizeof(lispd_addr_t))) == NULL) {
-    syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
-    return(0);
+    if ((addr = malloc(sizeof(lispd_addr_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
+        return(0);
     }
     memset(addr,0,sizeof(lispd_addr_t));
 
@@ -632,16 +630,15 @@ int add_server(server, list)
     addr->afi = afi;
 
     if (inet_pton(afi, server, &(addr->address.address)) != 1) {
-    syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
+        syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
         free(addr);
-    return(0);
+        return(0);
     }
 
-    if ((list_elt =
-     (lispd_addr_list_t *) malloc(sizeof(lispd_addr_list_t))) == NULL) {
-    syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_list_t)): %s", strerror(errno));
-    free(addr);
-    return(0);
+    if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_list_t)): %s", strerror(errno));
+        free(addr);
+        return(0);
     }
     memset(list_elt,0,sizeof(lispd_addr_list_t));
 
@@ -652,10 +649,10 @@ int add_server(server, list)
      */
 
     if (*list) {
-    list_elt->next = *list;
-    *list = list_elt;
+        list_elt->next = *list;
+        *list = list_elt;
     } else 
-    *list = list_elt;
+        *list = list_elt;
 
     return(1);
 }
@@ -675,9 +672,9 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
     lispd_map_server_list_t *list_elt;
     struct hostent      *hptr;
 
-    if ((addr = (lispd_addr_t *) malloc(sizeof(lispd_addr_t))) == NULL) {
-    syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
-    return(0);
+    if ((addr = malloc(sizeof(lispd_addr_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
+        return(0);
     }
 
     /*
@@ -688,22 +685,20 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
 
     if (((hptr = gethostbyname2(map_server,AF_INET))  == NULL) &&
     ((hptr = gethostbyname2(map_server,AF_INET6)) == NULL)) {
-    syslog(LOG_DAEMON,
-           "can gethostbyname2 for map_server (%s)", map_server);
+        syslog(LOG_DAEMON, "can gethostbyname2 for map_server (%s)", map_server);
         free(addr);
-    return(0);
+        return(0);
     }
 
     memcpy((void *) &(addr->address.address),
        (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
     addr->afi = hptr->h_addrtype;
 
-    if ((list_elt = (lispd_map_server_list_t *)
-     malloc(sizeof(lispd_map_server_list_t))) == NULL) {
-    sprintf(msg,"malloc(sizeof(lispd_map_server_list_t)) failed");
-    syslog(LOG_DAEMON, "%s", msg);
-    free(addr);
-    return(0);
+    if ((list_elt = malloc(sizeof(lispd_map_server_list_t))) == NULL) {
+        sprintf(msg,"malloc(sizeof(lispd_map_server_list_t)) failed");
+        syslog(LOG_DAEMON, "%s", msg);
+        free(addr);
+        return(0);
     }
 
     memset(list_elt,0,sizeof(lispd_map_server_list_t));

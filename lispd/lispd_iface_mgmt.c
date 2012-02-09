@@ -844,8 +844,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
         return(0);
     }
 
-    if ((db_entry = (lispd_db_entry_t *)
-        malloc(sizeof(lispd_db_entry_t))) == NULL) {
+    if ((db_entry = malloc(sizeof(lispd_db_entry_t))) == NULL) {
         syslog(LOG_DAEMON,"add_rloc(): malloc(sizeof(lispd_database_t)): %s", strerror(errno));
         free (eid);
         return(0);
@@ -979,7 +978,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     /* 
      * Update iface_elt with the new db_entry element
      */
-    if ((db_elt = (db_entry_list_elt *) malloc (sizeof(db_entry_list_elt))) == NULL) {
+    if ((db_elt = malloc (sizeof(db_entry_list_elt))) == NULL) {
         syslog(LOG_DAEMON, "add_rloc(): Can't malloc(sizeof(db_entry_list_elt))\n");
         free(eid);
         return (0);

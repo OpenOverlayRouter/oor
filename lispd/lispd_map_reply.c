@@ -153,7 +153,7 @@ int process_map_reply(packet)
         loc_count = 1;
     map_msg_len = sizeof(lisp_eid_map_msg_t) +
                   sizeof(lisp_eid_map_msg_loc_t) * loc_count;
-    if ((map_msg = (lisp_eid_map_msg_t *) malloc(map_msg_len)) == NULL) {
+    if ((map_msg = malloc(map_msg_len)) == NULL) {
         syslog(LOG_DAEMON, "process_map_reply(), malloc (map-cache entry): %s", strerror(errno));
         return(0);
     }

@@ -148,9 +148,9 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
                              * locators
                              */
 
-    if ((mrp = (lispd_pkt_map_register_t *) malloc(mrp_len)) == NULL) {
-    syslog(LOG_DAEMON, "malloc (map-register packet): %s", strerror(errno));
-    return(0);
+    if ((mrp = malloc(mrp_len)) == NULL) {
+        syslog(LOG_DAEMON, "malloc (map-register packet): %s", strerror(errno));
+        return(0);
     }
    
     /*

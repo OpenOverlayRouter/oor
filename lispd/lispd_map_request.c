@@ -280,7 +280,7 @@ else
 
     *len       = packet_len;                    /* return this */
 
-    if ((packet = (uint8_t *) malloc(packet_len)) == NULL) {
+    if ((packet = malloc(packet_len)) == NULL) {
         syslog(LOG_DAEMON, "malloc(packet_len): %s", strerror(errno));
         return (0);
     }
