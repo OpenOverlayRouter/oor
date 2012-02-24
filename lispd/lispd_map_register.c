@@ -84,7 +84,6 @@ int map_register(tree)
         } else if (ms->verify) {
             if (!build_and_send_map_request_msg(ms->address,
                             &(locator_chain->eid_prefix),
-                            locator_chain->eid_prefix_afi,
                             locator_chain->eid_prefix_length,
                             1,1,0,0,0,0,0,LISPD_INITIAL_MRQ_TIMEOUT,1))
 
@@ -134,7 +133,7 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
 
     /* get the length of the eid prefix and map to LISP_AFI types*/
     
-    eid_afi = get_lisp_afi(locator_chain->eid_prefix_afi, &afi_len);
+    eid_afi = get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
 
     /* compute space needed for the whole packet */
 
@@ -195,11 +194,10 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
     if ((len = copy_addr((void *)
              CO(mr,sizeof(lispd_pkt_mapping_record_t)),
              &(locator_chain->eid_prefix),
-             locator_chain->eid_prefix_afi,
              0)) == 0) {
     syslog(LOG_DAEMON, "eid prefix (%s) has an unknown afi (%d)",
            locator_chain->eid_name,
-           locator_chain->eid_prefix_afi);
+           locator_chain->eid_prefix.afi);
     return(0);
     }
     
@@ -220,7 +218,7 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
     loc_ptr->local       = 1;
     loc_ptr->probed      = 0;
     loc_ptr->reachable   = 1;       /* XXX should be computed */
-        loc_ptr->locator_afi = htons(get_lisp_afi(db_entry->locator_afi, &afi_len));
+        loc_ptr->locator_afi = htons(get_lisp_afi(db_entry->locator.afi, &afi_len));
 
     /*
          * skip over the mapping record locator, and copy the locator
@@ -231,11 +229,10 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
                  CO(loc_ptr,
                 sizeof(lispd_pkt_mapping_record_locator_t)),
                  &(db_entry->locator),
-                 db_entry->locator_afi,
                  0)) == 0) {
         syslog(LOG_DAEMON, "locator (%s) has an unknown afi (%d)",
            db_entry->locator_name,
-           db_entry->locator_afi);
+           db_entry->locator.afi);
         return(0);
     }
     /*
@@ -261,11 +258,11 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
 
 int send_map_register(ms, mrp, mrp_len)
     lispd_map_server_list_t  *ms;
-    lispd_pkt_map_register_t *mrp; 
-    int              mrp_len;
+    lispd_pkt_map_register_t *mrp;
+    int                      mrp_len;
 {
 
-    lispd_addr_t        *addr;
+    lisp_addr_t         *addr;
     struct sockaddr_in  map_server;
     int                 s;      /*socket */
     int                 nbytes;
@@ -331,7 +328,7 @@ int send_map_register(ms, mrp, mrp_len)
 
     addr                       = ms->address;
     map_server.sin_family      = AF_INET;
-    map_server.sin_addr.s_addr = addr->address.address.ip.s_addr;
+    map_server.sin_addr.s_addr = addr->address.ip.s_addr;
     map_server.sin_port        = htons(LISP_CONTROL_PORT);
 
     if ((nbytes = sendto(s,
@@ -373,7 +370,7 @@ int get_locator_length(locator_chain_elt)
     int sum = 0;
 
     while (locator_chain_elt) {
-    switch(locator_chain_elt->db_entry->locator_afi) {
+    switch(locator_chain_elt->db_entry->locator.afi) {
     case AF_INET:
         sum += sizeof(struct in_addr);
         break;
@@ -382,7 +379,7 @@ int get_locator_length(locator_chain_elt)
         break;
     default:
         syslog(LOG_DAEMON, "Uknown AFI (%d) for %s",
-           locator_chain_elt->db_entry->locator_afi,
+           locator_chain_elt->db_entry->locator.afi,
            locator_chain_elt->db_entry->locator_name);
     }
     locator_chain_elt = locator_chain_elt->next;

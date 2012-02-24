@@ -70,7 +70,7 @@ int install_database_mapping(db_entry)
     cmd->length = cmd_length - sizeof(lisp_cmd_t);
 
     memcpy(&(map_msg->eid_prefix), &(db_entry->eid_prefix), sizeof(lisp_addr_t));
-    map_msg->eid_prefix.afi    = db_entry->eid_prefix_afi;
+    map_msg->eid_prefix.afi    = db_entry->eid_prefix.afi;
     map_msg->eid_prefix_length = db_entry->eid_prefix_length;
     map_msg->count             = loc_count;
 
@@ -79,7 +79,7 @@ int install_database_mapping(db_entry)
         memcpy(map_msg_loc + i * sizeof(lisp_db_add_msg_loc_t),
                 &(db_entry->locator), sizeof(lisp_addr_t));
 
-        map_msg->locators[i].locator.afi = db_entry->locator_afi;
+        map_msg->locators[i].locator.afi = db_entry->locator.afi;
         map_msg->locators[i].priority    = db_entry->priority;
         map_msg->locators[i].weight      = db_entry->weight;
         map_msg->locators[i].mpriority   = db_entry->mpriority;
@@ -180,7 +180,7 @@ int install_map_cache_entries(void)
     map_cache_entry = lispd_map_cache;
     while (map_cache_entry) {
     mc_entry = &(map_cache_entry->map_cache_entry);
-    afi      = mc_entry->eid_prefix_afi;
+    afi      = mc_entry->eid_prefix.afi;
     inet_ntop(afi,
           &(mc_entry->eid_prefix.address),
           eid,
@@ -192,7 +192,7 @@ int install_map_cache_entries(void)
             mc_entry->locator_name);
         retval = 0;
     } else {
-        inet_ntop(mc_entry->locator_afi,
+        inet_ntop(mc_entry->locator.afi,
               &(mc_entry->locator.address),
               rloc, 128);
 #ifdef DEBUG
@@ -239,7 +239,7 @@ int install_map_cache_entry(map_cache_entry)
      *  Handle Negative Map_Reply
      */
     /* XXX (LJ): locator_afi 0 is not the way to properly check for Neg. MRep */
-    if(map_cache_entry->locator_afi == 0)
+    if(map_cache_entry->locator.afi == 0)
         loc_count = 0;
     else
         loc_count = 1;
@@ -261,7 +261,7 @@ int install_map_cache_entry(map_cache_entry)
     cmd->length = cmd_length - sizeof(lisp_cmd_t);
 
     memcpy(&(map_msg->eid_prefix), &(map_cache_entry->eid_prefix), sizeof(lisp_addr_t));
-    map_msg->eid_prefix.afi    = map_cache_entry->eid_prefix_afi;
+    map_msg->eid_prefix.afi    = map_cache_entry->eid_prefix.afi;
     map_msg->eid_prefix_length = map_cache_entry->eid_prefix_length;
     map_msg->count             = loc_count;
     map_msg->actions           = map_cache_entry->actions;
@@ -277,7 +277,7 @@ int install_map_cache_entry(map_cache_entry)
         memcpy(map_msg_loc + i * sizeof(lisp_eid_map_msg_loc_t),
                 &(map_cache_entry->locator), sizeof(lisp_addr_t));
 
-        map_msg->locators[i].locator.afi = map_cache_entry->locator_afi;
+        map_msg->locators[i].locator.afi = map_cache_entry->locator.afi;
         map_msg->locators[i].priority    = map_cache_entry->priority;
         map_msg->locators[i].weight      = map_cache_entry->weight;
         map_msg->locators[i].mpriority   = map_cache_entry->mpriority;
@@ -313,15 +313,14 @@ int send_eid_map_msg(lisp_eid_map_msg_t *map_msg, int map_msg_len)
     return(retval);
 }
 
-int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix, uint16_t eid_prefix_afi,
-        uint8_t eid_prefix_length, lispd_addr_t *locator, int status_bits)
+int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix,
+        uint8_t eid_prefix_length, lisp_addr_t *locator, int status_bits)
 {
     size_t                  cmd_length  = 0;
     int                     retval      = 0;
     lisp_cmd_t              *cmd;
     lisp_cache_sample_msg_t *cache_sample_msg;
     uint16_t                loc_count   = 1;
-    lisp_addr_t             rloc;
     int i;
 
     cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_cache_sample_msg_t) +
@@ -341,15 +340,14 @@ int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix, uint16_t eid_pre
 
     memcpy(&(cache_sample_msg->eid), eid_prefix, sizeof(lisp_addr_t));
     cache_sample_msg->reason            = ProbeSample;
-    cache_sample_msg->eid.afi           = eid_prefix_afi;
+    cache_sample_msg->eid.afi           = eid_prefix->afi;
     cache_sample_msg->eid_prefix_length = eid_prefix_length;
     cache_sample_msg->num_locators      = loc_count;
     cache_sample_msg->status_bits       = status_bits;
 
     for (i = 0; i < loc_count; i++) {
-        lispd2lisp(locator, &rloc);
         memcpy(&(cache_sample_msg->locators[i]),
-                &rloc, sizeof(lisp_addr_t));
+                locator, sizeof(lisp_addr_t));
     }
 
     retval = send_command(cmd, cmd_length + sizeof(lisp_cmd_t));
@@ -539,7 +537,6 @@ int handle_LispCacheSample(lisp_cmd_t* cmd) {
 
 int handle_LispProbeSample(lisp_cache_sample_msg_t *msg) {
     lisp_addr_t locator;
-    lispd_addr_t rloc;
     char eid_name[128];
     char rloc_name[128];
     int i;
@@ -555,15 +552,13 @@ int handle_LispProbeSample(lisp_cache_sample_msg_t *msg) {
     for (i = 0; i < msg->num_locators; i++) {
         /* XXX (LJ): Need checks for locator count/msg length */
         memcpy(&locator, &msg->locators[i], sizeof(lisp_addr_t));
-        lisp2lispd(&locator, &rloc);
         /* Don't RLOC probe our own locator (TODO need IPv6 support) */
         if (locator.afi == AF_INET &&
-                locator.address.ip.s_addr == source_rloc.address.address.ip.s_addr)
+                locator.address.ip.s_addr == source_rloc.address.ip.s_addr)
             continue;
-        inet_ntop(rloc.afi, &(rloc.address.address), rloc_name, 128);
-        if (build_and_send_map_request_msg(&rloc,
+        inet_ntop(locator.afi, &(locator.address), rloc_name, 128);
+        if (build_and_send_map_request_msg(&locator,
                 &(msg->eid),
-                msg->eid.afi,
                 msg->eid_prefix_length,
                 rloc_name,
                 0, 1, 0, 0, 0, 0, LISPD_INITIAL_PROBE_TIMEOUT, 0))
@@ -590,8 +585,7 @@ int handle_LispCacheMiss(lisp_cache_sample_msg_t *msg) {
  */
 
     if( !build_and_send_map_request_msg(map_resolvers->address,
-                                &(msg->eid).address,
-                                msg->eid.afi,
+                                &(msg->eid),
                                 (get_addr_len(msg->eid.afi) * 8),
                                 eid_name,
                                 1,
@@ -618,7 +612,7 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
     patricia_node_t *node;
     lispd_locator_chain_t *locator_chain = NULL;
     lisp_cache_address_list_t *addr_list;
-    lispd_addr_t rloc;
+    lisp_addr_t *rloc;
     char rloc_name[128];
     int i;
 
@@ -633,17 +627,16 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                  * EID, since the below function fills the Source-EID field the
                  * same as destination (the function should be extended).
                  */
-                lisp2lispd(&(addr_list->addr_list[i]), &rloc);
+                rloc = &(addr_list->addr_list[i]);
                 /* Don't SMR PETRs (TODO need IPv6 support) */
                 if (addr_list->addr_list[i].afi == AF_INET &&
                         addr_list->addr_list[i].address.ip.s_addr ==
-                        proxy_etrs->address->address.address.ip.s_addr)
+                        proxy_etrs->address->address.ip.s_addr)
                     continue;
-                inet_ntop(rloc.afi, &(rloc.address.address), rloc_name, 128);
-                if (build_and_send_map_request_msg(&rloc,
+                inet_ntop(rloc->afi, &(rloc->address), rloc_name, 128);
+                if (build_and_send_map_request_msg(rloc,
                         &(locator_chain->eid_prefix),
-                        locator_chain->eid_prefix_afi,
-                        (get_addr_len(locator_chain->eid_prefix_afi) * 8),
+                        (get_addr_len(locator_chain->eid_prefix.afi) * 8),
                         locator_chain->eid_name,
                         0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
                     syslog(LOG_DAEMON, "SMR'ing %s", rloc_name);
@@ -660,17 +653,16 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                  * EID, since the below function fills the Source-EID field the
                  * same as destination (the function should be extended).
                  */
-                lisp2lispd(&(addr_list->addr_list[i]), &rloc);
+                rloc = &(addr_list->addr_list[i]);
                 /* Don't SMR PETRs (TODO need IPv6 support) */
                 if (addr_list->addr_list[i].afi == AF_INET &&
                         addr_list->addr_list[i].address.ip.s_addr ==
-                        proxy_etrs->address->address.address.ip.s_addr)
+                        proxy_etrs->address->address.ip.s_addr)
                     continue;
-                inet_ntop(rloc.afi, &(rloc.address.address), rloc_name, 128);
+                inet_ntop(rloc->afi, &(rloc->address), rloc_name, 128);
                 if (build_and_send_map_request_msg(&rloc,
                         &(locator_chain->eid_prefix),
-                        locator_chain->eid_prefix_afi,
-                        (get_addr_len(locator_chain->eid_prefix_afi) * 8),
+                        (get_addr_len(locator_chain->eid_prefix.afi) * 8),
                         locator_chain->eid_name,
                         0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
                     syslog(LOG_DAEMON, "SMR'ing %s", rloc_name);
@@ -684,7 +676,6 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
 int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
     lisp_cache_response_msg_t *cache_entry;
     lisp_cache_response_loc_t *locators = NULL;
-    lispd_addr_t rloc;
     char rloc_name[128];
     int i;
 
@@ -698,18 +689,16 @@ int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
      */
     if (cache_entry->num_locators) {
         for (i = 0; i < cache_entry->num_locators; i++) {
-            lisp2lispd(&(locators->locator), &rloc);
             /* Don't SMR PETRs (TODO need IPv6 support) */
             if (locators->locator.afi == AF_INET &&
                     locators->locator.address.ip.s_addr ==
-                    proxy_etrs->address->address.address.ip.s_addr) {
+                    proxy_etrs->address->address.ip.s_addr) {
                 locators++;
                 continue;
             }
-            inet_ntop(rloc.afi, &(rloc.address.address), rloc_name, 128);
-            if (build_and_send_map_request_msg(&rloc,
+            inet_ntop(locators->locator.afi, &(locators->locator.address), rloc_name, 128);
+            if (build_and_send_map_request_msg(locators->locator,
                     &(cache_entry->eid_prefix),
-                    cache_entry->eid_prefix.afi,
                     (get_addr_len(cache_entry->eid_prefix.afi) * 8),
                     NULL,
                     0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
@@ -805,7 +794,7 @@ int get_map_cache_rloc_list() {
  *  update source RLOC in kernel module
  */
 
-int set_rloc(lispd_addr_t *my_addr) {
+int set_rloc(lisp_addr_t *my_addr) {
     int                 retval = 0;
     size_t              cmd_length = 0;
     lisp_cmd_t          *cmd;
@@ -825,36 +814,13 @@ int set_rloc(lispd_addr_t *my_addr) {
     cmd->type   = LispSetRLOC;
     cmd->length = sizeof(lisp_set_rloc_msg_t);
 
-    memcpy(&(set_rloc_msg->addr), &(my_addr->address), sizeof(lisp_addr_t));
-    set_rloc_msg->addr.afi = my_addr->afi;
+    memcpy(&(set_rloc_msg->addr), my_addr, sizeof(lisp_addr_t));
 
     retval = send_command(cmd, cmd_length);
     syslog(LOG_DAEMON, "Updating RLOC in data plane");
     free(cmd);
     return(retval);
 } 
-
-/* Temporary function, until we remove lispd_addr_t */
-int lisp2lispd(lisp_addr_t *src, lispd_addr_t *dst) {
-    if (src == NULL) return(0);
-    if (dst == NULL) return(0);
-
-    memset(dst, 0, sizeof(lispd_addr_t));
-    memcpy(&(dst->address), src, sizeof(lisp_addr_t));
-    dst->afi = src->afi;
-    return(1);
-}
-
-/* Temporary function, until we remove lispd_addr_t */
-int lispd2lisp(lispd_addr_t *src, lisp_addr_t *dst) {
-    if (src == NULL) return(0);
-    if (dst == NULL) return(0);
-
-    memset(dst, 0, sizeof(lisp_addr_t));
-    memcpy(dst, &(src->address), sizeof(lisp_addr_t));
-    dst->afi = src->afi;
-    return(1);
-}
 
 
 /*

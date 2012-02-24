@@ -38,12 +38,12 @@
 extern  uint64_t build_nonce(int seed);
 extern  struct udphdr *build_ip_header();
 extern  int get_afi(char * str);
-extern  lispd_addr_t *get_my_addr(char *if_name, int afi);
-extern  lispd_addr_t *lispd_get_address(char *host,
-                    lispd_addr_t *addr,
+extern  lisp_addr_t *get_my_addr(char *if_name, int afi);
+extern  lisp_addr_t *lispd_get_address(char *host,
+                    lisp_addr_t *addr,
                     uint32_t *flags);
-extern  lispd_addr_t *lispd_get_ifaceaddress(char *iface_name,
-                                        lispd_addr_t *addr);
+extern  lisp_addr_t *lispd_get_ifaceaddress(char *iface_name,
+                                        lisp_addr_t *addr);
 extern  uint8_t *build_map_request_pkt();
 extern int process_map_reply(uint8_t *packet);
 extern  lispd_pkt_map_register_t *build_map_register_pkt (lispd_locator_chain_t
@@ -95,7 +95,7 @@ extern  struct  sockaddr_nl dst_addr;
 extern  struct  sockaddr_nl src_addr;
 extern  nlsock_handle       nlh;
 extern  iface_list_elt      *ctrl_iface; 
-extern  lispd_addr_t        source_rloc;
+extern  lisp_addr_t         source_rloc;
 
 /*
  * Editor modelines

@@ -120,7 +120,7 @@ int     map_register_timer_fd           = 0;
  * are sent
  */
 iface_list_elt *ctrl_iface              = NULL;
-lispd_addr_t source_rloc;
+lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
 {
@@ -423,7 +423,7 @@ void callback_elt(elt)
 #ifdef  DEBUG
             syslog(LOG_INFO, "Expired RLOC probe, setting locator status DOWN");
 #endif
-            update_map_cache_entry_rloc_status(&elt->eid_prefix, elt->eid_prefix_afi,
+            update_map_cache_entry_rloc_status(&elt->eid_prefix,
                     elt->eid_prefix_length, &elt->dest, 0);
             delete_datacache_entry(elt);
             return;
@@ -444,7 +444,7 @@ void callback_elt(elt)
         strcat(mreq_type, "MRq");
     }
 
-    inet_ntop(elt->eid_prefix_afi, &(elt->eid_prefix).address,eid_name,128);
+    inet_ntop(elt->eid_prefix.afi, &(elt->eid_prefix).address,eid_name,128);
 
 #ifdef DEBUG
     syslog(LOG_INFO, "Retransmitting %s for %s/%d, retries: %d, timeout: %d",
@@ -453,7 +453,6 @@ void callback_elt(elt)
 
     build_and_send_map_request_msg(&elt->dest,
                                     &elt->eid_prefix,
-                                    elt->eid_prefix_afi,
                                     elt->eid_prefix_length,
                                     eid_name,
                                     elt->encap,

@@ -223,7 +223,7 @@ int update_iface_list (iface_name, eid_prefix,
     db_elt->db_entry    = db_entry;
     db_elt->next        = NULL;
 
-    switch (db_entry->locator_afi) {
+    switch (db_entry->locator.afi) {
         case AF_INET:
             add_item_to_db_entry_list(elt->AF4_locators, db_elt);
             break;

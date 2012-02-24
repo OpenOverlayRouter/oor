@@ -215,9 +215,7 @@
 typedef struct {
     lisp_addr_t     eid_prefix;
     uint16_t        eid_prefix_length;
-    uint16_t        eid_prefix_afi; 
     lisp_addr_t     locator;
-    uint16_t        locator_afi;
     uint8_t         locator_type:2;
     uint8_t         reserved:6;
     char *          locator_name;
@@ -230,10 +228,8 @@ typedef struct {
 typedef struct {
     lisp_addr_t     eid_prefix;
     uint8_t         eid_prefix_length;
-    uint16_t        eid_prefix_afi;
     lisp_addr_t     locator;
     char *          locator_name;
-    uint16_t        locator_afi;
     uint8_t         locator_type:2;
     uint8_t         reserved:5;
     uint8_t         how_learned:1;  /* 1 --> static */
@@ -265,27 +261,17 @@ typedef struct _lispd_map_cache_t {
 } lispd_map_cache_t;
 
 /*
- *  save the afi in the lispd_addr_t
- */
-
-typedef struct  {
-    lisp_addr_t address;
-    uint16_t    afi;
-} lispd_addr_t;
-
-
-/*
  *  generic list of addresses
  */
 
 typedef struct _lispd_addr_list_t {
-    lispd_addr_t                *address;
+    lisp_addr_t                 *address;
     struct _lispd_addr_list_t   *next;
 } lispd_addr_list_t;
 
 
 typedef struct _lispd_map_server_list_t {
-    lispd_addr_t                    *address;
+    lisp_addr_t                     *address;
     uint8_t                         key_type;
     char                            *key;
     uint8_t                         proxy_reply;
@@ -549,8 +535,7 @@ typedef struct {                        /* chain per eid-prefix/len/afi */
     ushort      locator_count;          /* number of mappings, 1 locator/per */
     lisp_addr_t eid_prefix;             /* eid_prefix for this chain */
     uint8_t     eid_prefix_length;      /* eid_prefix_length for this chain */
-    uint16_t    eid_prefix_afi;         /* eid_prefix_afi for this chain */
-    char        *eid_name;              /* eid_prefix_afi for this chain */
+    char        *eid_name;              /* eid in string format */
     uint8_t     has_dynamic_locators:1; /* append dynamic/fqdn to front */
     uint8_t     has_fqdn_locators:1;
     uint8_t     reserved:6; 
@@ -803,12 +788,11 @@ typedef struct lispd_pkt_map_reply_locator_t_ {
 // Modified by acabello
 typedef struct datacache_elt_t_ {
     uint64_t                nonce;
-    lispd_addr_t            dest;
+    lisp_addr_t             dest;
     uint8_t                 local:1;        /* is this a database entry? */
     uint8_t                 ttl:7;
     lisp_addr_t             eid_prefix;
     uint8_t                 eid_prefix_length;
-    uint16_t                eid_prefix_afi; 
     uint8_t                 probe:1; /* Is RLOC-probe? */
     uint8_t                 smr_invoked:1; /* Is SMR-invoked? */
     uint8_t                 retries; /* Number of retries */
@@ -868,15 +852,15 @@ typedef struct {
  * on multiple interfaces
  */
 typedef struct _iface_list_elt {
-    char    *iface_name;        // name of the physical interface
-    char    *AF4_eid_prefix;    // v4 eid associated with the iface
-    char    *AF6_eid_prefix;    // v6 eid associated with the iface
-    db_entry_list *AF4_locators;// list of v4 locators 
-    db_entry_list *AF6_locators;// list of v6 locators
-    int     ready;              // is the iface up and runing?
-    int     weight;             // weight & priority associated with the
-    int     priority;           // iface 
-    lispd_addr_t    gateway;    // gateway IP (v4/v6) for this iface
+    char            *iface_name;    // name of the physical interface
+    char            *AF4_eid_prefix;// v4 eid associated with the iface
+    char            *AF6_eid_prefix;// v6 eid associated with the iface
+    db_entry_list   *AF4_locators;  // list of v4 locators
+    db_entry_list   *AF6_locators;  // list of v6 locators
+    int             ready;          // is the iface up and runing?
+    int             weight;         // weight & priority associated with the
+    int             priority;       // iface
+    lisp_addr_t     gateway;        // gateway IP (v4/v6) for this iface
     struct _iface_list_elt *next;
 } iface_list_elt;
 

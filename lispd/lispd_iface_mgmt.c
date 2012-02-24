@@ -157,11 +157,11 @@ static int route_del(afi, src, src_plen,
         dst, dst_plen,
         gateway, device_id, table)
     uint16_t afi;
-    lispd_addr_t *src;
+    lisp_addr_t *src;
     int src_plen;
-    lispd_addr_t *dst;
+    lisp_addr_t *dst;
     int dst_plen;
-    lispd_addr_t *gateway;
+    lisp_addr_t *gateway;
     int device_id; 
     int table;
 {
@@ -192,11 +192,11 @@ int route_add(afi, src, src_plen,
         dst, dst_plen, 
         gateway, device_id, table, metric, realm)
     uint16_t afi;
-    lispd_addr_t *src;
+    lisp_addr_t *src;
     int src_plen;
-    lispd_addr_t *dst;
+    lisp_addr_t *dst;
     int dst_plen;
-    lispd_addr_t *gateway;
+    lisp_addr_t *gateway;
     int device_id; 
     int table;
     int metric;
@@ -230,11 +230,11 @@ int route_mod(cmd, afi, src, src_plen, dst, dst_plen,
         gateway, device_id, table, metric, realm)
     int cmd;                    /* add or del */
     uint16_t afi;               /* IPv4 or IPv6 routing table */
-    lispd_addr_t *src;          /* src address */
+    lisp_addr_t *src;           /* src address */
     int src_plen;               /* src addr prefix length */
-    lispd_addr_t *dst;          /* dst address */
+    lisp_addr_t *dst;           /* dst address */
     int dst_plen;               /* dst addr prefix length */
-    lispd_addr_t *gateway;      /* gateway addr */
+    lisp_addr_t *gateway;       /* gateway addr */
     int device_id;              /* outgoing iface id */
     int table;                  /* routing table number */
     int metric;                 /* route metric (priority) */
@@ -335,7 +335,7 @@ static void parse_nl_error(nlHdr)
  */
 static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
         struct nlmsghdr * nlHdr;
-        lispd_addr_t    * gateway;
+        lisp_addr_t     * gateway;
         int             * dev;
         int             * metric;
         int             * realm;
@@ -404,12 +404,12 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
                 gateway->afi = rt->rtm_family;
                 switch (gateway->afi) {
                     case AF_INET:
-                        memcpy(&(gateway->address.address), 
+                        memcpy(&(gateway->address),
                             (struct in_addr *)RTA_DATA(rtAttr),
                             sizeof(struct in_addr));
                         break;
                     case AF_INET6:
-                        memcpy(&(gateway->address.address),
+                        memcpy(&(gateway->address),
                             (struct in6_addr *)RTA_DATA(rtAttr),
                             sizeof(struct in6_addr));
                         break;
@@ -436,8 +436,8 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
  * netlink address messages
  */
 static iface_list_elt *parse_nl_addr(nlHdr, addr)
-        struct nlmsghdr * nlHdr;
-        lispd_addr_t    *addr;
+        struct nlmsghdr *nlHdr;
+        lisp_addr_t     *addr;
 
 {
     struct ifaddrmsg  *ifaddr;
@@ -494,12 +494,12 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
                 syslog(LOG_DAEMON, "Interface address: %s\n", tempBuf);
                 switch (addr->afi) {
                     case AF_INET:
-                        memcpy(&(addr->address.address), 
+                        memcpy(&(addr->address),
                             (struct in_addr *)RTA_DATA(rtAttr),
                             sizeof(struct in_addr));
                         break;
                     case AF_INET6:
-                        memcpy(&(addr->address.address),
+                        memcpy(&(addr->address),
                             (struct in6_addr *)RTA_DATA(rtAttr),
                             sizeof(struct in6_addr));
                         break;
@@ -527,9 +527,9 @@ static int rule_mod (if_index, cmd,
         uint8_t table;      // rule for which routing table?
         uint32_t priority;  // rule priority
         uint8_t type;       // type of route 
-        lispd_addr_t *src;  // src addr to match
+        lisp_addr_t *src;   // src addr to match
         int src_plen;       // src addr prefix length
-        lispd_addr_t *dst;  // dst addr to match
+        lisp_addr_t *dst;   // dst addr to match
         int dst_plen;       // dst addr prefix length
         int flags;          // flags, if any
 {
@@ -599,8 +599,8 @@ static int rule_mod (if_index, cmd,
  */
 static int rule_add(int if_index, uint8_t table,
          uint32_t priority, uint8_t type,
-         lispd_addr_t *src, int src_plen,
-         lispd_addr_t *dst, int dst_plen, int flags)
+         lisp_addr_t *src, int src_plen,
+         lisp_addr_t *dst, int dst_plen, int flags)
 {
 #ifdef DEBUG
     syslog(LOG_DAEMON, "RTNETLINK: ip rule add (...)");
@@ -616,8 +616,8 @@ static int rule_add(int if_index, uint8_t table,
  */
 static int rule_del(int if_index, uint8_t table,
          uint32_t priority, uint8_t type,
-         lispd_addr_t *src, int src_plen,
-         lispd_addr_t *dst, int dst_plen, int flags)
+         lisp_addr_t *src, int src_plen,
+         lisp_addr_t *dst, int dst_plen, int flags)
 {
 #ifdef DEBUG
     syslog(LOG_DAEMON, "RTNETLINK: ip rule del (...)");
@@ -633,8 +633,8 @@ static int rule_del(int if_index, uint8_t table,
  */
 static int setup_source_routing(iface_name, src_rloc, gateway)
     char *iface_name;       // outgoing interface
-    lispd_addr_t *src_rloc; // src address to match
-    lispd_addr_t *gateway;  // default gateway address
+    lisp_addr_t *src_rloc;  // src address to match
+    lisp_addr_t *gateway;   // default gateway address
 {
 
     /* 
@@ -670,8 +670,8 @@ static int setup_source_routing(iface_name, src_rloc, gateway)
  */
 static int delete_source_routing(iface_name, src_rloc, gateway)
     char *iface_name;       // outgoing interface
-    lispd_addr_t *src_rloc; // src address to match
-    lispd_addr_t *gateway;  // default gateway address
+    lisp_addr_t *src_rloc;  // src address to match
+    lisp_addr_t *gateway;   // default gateway address
 {
     int if_index = if_nametoindex(iface_name);
 
@@ -707,7 +707,7 @@ static int delete_source_routing(iface_name, src_rloc, gateway)
  */
 int delete_rloc (iface_elt, rloc, node)
     iface_list_elt    *iface_elt;
-    lispd_addr_t      *rloc;
+    lisp_addr_t       *rloc;
     patricia_node_t   *node;
 {
     lispd_locator_chain_t       *locator_chain  = NULL;
@@ -779,7 +779,7 @@ int delete_rloc (iface_elt, rloc, node)
             locator_chain->locator_count -= 1;
 
             syslog(LOG_DAEMON, "delete_rloc(): %s deleted from interface %s", 
-                    inet_ntop (db_entry->locator_afi,
+                    inet_ntop(db_entry->locator.afi,
                             &(db_entry->locator.address), addr_str, 
                             MAX_INET_ADDRSTRLEN),
                     iface_elt->iface_name);
@@ -811,7 +811,7 @@ int delete_rloc (iface_elt, rloc, node)
     /* we didn't find the locator */
     syslog(LOG_DAEMON, "delete_rloc(): %s not found in patricia tree\n",
              inet_ntop (rloc->afi,
-                     &(rloc->address.address), addr_str, 
+                     &(rloc->address), addr_str,
                      MAX_INET_ADDRSTRLEN));
     free(eid);
     return(0);
@@ -819,7 +819,7 @@ int delete_rloc (iface_elt, rloc, node)
 
 lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     iface_list_elt    *iface_elt;
-    lispd_addr_t      *rloc;
+    lisp_addr_t       *rloc;
     patricia_node_t   *node;
     char              *eid;
 {
@@ -855,10 +855,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
      * Fill up db_entry 
      */
     db_entry->locator_name = strdup(iface_elt->iface_name);
-    memcpy((void *) &(db_entry->locator.address),
-           (void *) &(rloc->address),
-           sizeof(lisp_addr_t));
-    db_entry->locator_afi = rloc->afi;
+    memcpy((void *) &(db_entry->locator), rloc, sizeof(lisp_addr_t));
 
     afi = get_afi(eid);
 
@@ -890,7 +887,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     }
 
     db_entry->eid_prefix_length = atoi(token);
-    db_entry->eid_prefix_afi    = afi;
+    db_entry->eid_prefix.afi    = afi;
 
     /* 
      * XXX: Assume priority and weight are 
@@ -929,10 +926,9 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
          */
         copy_lisp_addr_t(&(locator_chain->eid_prefix),
                          &(db_entry->eid_prefix),
-                         db_entry->eid_prefix_afi,
                          0);            
         locator_chain->eid_prefix_length    = db_entry->eid_prefix_length;
-        locator_chain->eid_prefix_afi       = db_entry->eid_prefix_afi;
+        locator_chain->eid_prefix.afi       = db_entry->eid_prefix.afi;
         locator_chain->eid_name             = strdup(eid);
         locator_chain->has_dynamic_locators = DYNAMIC_LOCATOR;
         locator_chain->timer                = DEFAULT_MAP_REGISTER_TIMEOUT;
@@ -970,7 +966,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     locator_chain->locator_count ++;
 
     syslog(LOG_DAEMON, "add_rloc(): %s added to interface %s", 
-                    inet_ntop (db_entry->locator_afi,
+                    inet_ntop (db_entry->locator.afi,
                             &(db_entry->locator.address), addr_str, 
                             MAX_INET_ADDRSTRLEN),
                     iface_elt->iface_name);
@@ -1010,11 +1006,10 @@ void smr_pitrs(void) {
         locator_chain = ((lispd_locator_chain_t *)(node->data));
         if (locator_chain) {
             while (elt) {
-                inet_ntop(elt->address->afi, &(elt->address->address.address), pitr_name, 128);
+                inet_ntop(elt->address->afi, &(elt->address->address), pitr_name, 128);
                 if (build_and_send_map_request_msg(elt->address,
                         &(locator_chain->eid_prefix),
-                        locator_chain->eid_prefix_afi,
-                        (get_addr_len(locator_chain->eid_prefix_afi) * 8),
+                        (get_addr_len(locator_chain->eid_prefix.afi) * 8),
                         locator_chain->eid_name,
                         0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
                     syslog(LOG_DAEMON, "SMR'ing %s", pitr_name);
@@ -1063,8 +1058,8 @@ int process_netlink_iface ()
     patricia_node_t             *node           = NULL;
     prefix_t                    *prefix         = NULL;
     char                        *eid            = NULL;
-    lispd_addr_t    rloc;
-    lispd_addr_t    gateway;
+    lisp_addr_t     rloc;
+    lisp_addr_t     gateway;
     int             metric = 0;
     int             realm = 0;
 
@@ -1087,10 +1082,10 @@ int process_netlink_iface ()
     nh = (struct nlmsghdr *)buffer;
     while (NLMSG_OK(nh, len)) {
 
-        memset (&rloc, 0, sizeof(lispd_addr_t));
+        memset (&rloc, 0, sizeof(lisp_addr_t));
         elt = NULL;
         iface = NULL;
-        memset (&gateway, 0, sizeof(lispd_addr_t));
+        memset (&gateway, 0, sizeof(lisp_addr_t));
 
         switch (nh->nlmsg_type) {
             case NLMSG_DONE:
@@ -1255,39 +1250,33 @@ int process_netlink_iface ()
                  * Assume its the same family as the gateway family
                  */
 
-                lispd_addr_t eid_addr;
-                memset(&eid_addr, 0, sizeof(lispd_addr_t));
+                lisp_addr_t eid_addr;
+                memset(&eid_addr, 0, sizeof(lisp_addr_t));
 
                //Pranathi
                if(ctrl_iface->AF4_locators->head)
                {
-                   eid_addr.afi = ctrl_iface -> AF4_locators->head->db_entry->eid_prefix_afi;
-                   memcpy(&(eid_addr.address), 
-                            &(elt->AF4_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t)); 
-                    
+                   memcpy(&eid_addr, &(elt->AF4_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t));
                }    
               if(ctrl_iface->AF6_locators->head)
                {
-                   eid_addr.afi = ctrl_iface-> AF6_locators->head->db_entry->eid_prefix_afi;
-                   memcpy(&(eid_addr.address), 
-                            &(elt->AF6_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t)); 
-                    
+                   memcpy(&eid_addr, &(elt->AF6_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t));
                }
 
                 /* 
                  * Remember the new gateway for future policy 
                  * routing updates
                  */
-                memset(&(elt->gateway), 0, sizeof(lispd_addr_t));
-                memcpy(&(elt->gateway), &gateway, sizeof(lispd_addr_t));
+                memset(&(elt->gateway), 0, sizeof(lisp_addr_t));
+                memcpy(&(elt->gateway), &gateway, sizeof(lisp_addr_t));
 
                 /* 
                  * setup policy routing for this interface using
                  * this gateway
                  */
                 syslog(LOG_DAEMON, "process_netlink(): Setup policy routing\n");
-                lispd_addr_t src_rloc;
-                memset (&src_rloc, 0, sizeof(lispd_addr_t));
+                lisp_addr_t src_rloc;
+                memset (&src_rloc, 0, sizeof(lisp_addr_t));
 
                 /*
                  * Assume src rloc afi == gateway's afi
@@ -1310,13 +1299,13 @@ int process_netlink_iface ()
                 db_entry = ((src_rloc.afi == AF_INET6) ? 
                      elt->AF6_locators->head->db_entry : 
                      elt->AF4_locators->head->db_entry);
-                memcpy(&(src_rloc.address), 
+                memcpy(&src_rloc,
                         &(db_entry->locator),
                         sizeof(lisp_addr_t));
 
-                setup_source_routing (elt->iface_name, 
+                setup_source_routing (elt->iface_name,
                     &src_rloc, &gateway);
-                memcpy(&source_rloc, &src_rloc, sizeof(lispd_addr_t));
+                memcpy(&source_rloc, &src_rloc, sizeof(lisp_addr_t));
 
                 /*
                  * Install the new src rloc/db_netry in lisp_mod
@@ -1408,7 +1397,7 @@ int process_netlink_iface ()
                     delete_source_routing(elt->iface_name, &rloc,
                             &(elt->gateway));
 
-                    memset(&elt->gateway, 0, sizeof(lispd_addr_t));
+                    memset(&elt->gateway, 0, sizeof(lisp_addr_t));
 
                 }
 
@@ -1502,7 +1491,7 @@ int lisp_eid_iface_config(iface_name, mtu)
 int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
 
         char *eid_iface_name;
-        lispd_addr_t *eid_addr;
+        lisp_addr_t *eid_addr;
         int eid_prefix_len;
 {
 

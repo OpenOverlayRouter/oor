@@ -274,7 +274,7 @@ int add_database_mapping(dm)
      cfg_t      *dm;
 {
 
-    lispd_addr_t                *rloc_ptr;
+    lisp_addr_t                 *rloc_ptr;
     char                        *token;
     char                        *eid;           /* save the eid_prefix here */
     int                         afi;
@@ -290,8 +290,8 @@ int add_database_mapping(dm)
     eid = eid_prefix;           /* save this for later */
 
     char *eid_pref_for_add_iface = strdup (eid_prefix);
-    lispd_addr_t eid_addr;
-    memset(&eid_addr, 0, sizeof(lispd_addr_t));
+    lisp_addr_t eid_addr;
+    memset(&eid_addr, 0, sizeof(lisp_addr_t));
     afi = get_afi(eid_prefix);  
     eid_addr.afi = afi;
 
@@ -368,11 +368,11 @@ int add_database_mapping(dm)
         syslog(LOG_DAEMON, "setup_lisp_eid_iface (%s) failed\b", iface_name);
     } 
 
-    if ((rloc_ptr = malloc(sizeof(lispd_addr_t))) == NULL) {
-        syslog(LOG_DAEMON,"malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
+    if ((rloc_ptr = malloc(sizeof(lisp_addr_t))) == NULL) {
+        syslog(LOG_DAEMON,"malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
         return(0);
     }
-    memset(rloc_ptr,0,sizeof(lispd_addr_t));
+    memset(rloc_ptr,0,sizeof(lisp_addr_t));
 
     if (!lispd_get_iface_address(iface_name,rloc_ptr)) {
         syslog(LOG_DAEMON, "Can't get address for %s", iface_name);
@@ -396,13 +396,13 @@ int add_database_mapping(dm)
     memcpy((void *) &(db_entry->locator.address),
            (void *) &(rloc_ptr->address),
            sizeof(lisp_addr_t));
-    db_entry->locator_afi = rloc_ptr->afi;
+    db_entry->locator.afi = rloc_ptr->afi;
 
     memcpy((void *) &(db_entry->eid_prefix.address),
            (void *) &(eid_addr.address),
            sizeof(lisp_addr_t));
     db_entry->eid_prefix_length = atoi(token);
-    db_entry->eid_prefix_afi    = afi;
+    db_entry->eid_prefix.afi    = afi;
 
     db_entry->priority          = priority;
     db_entry->weight            = weight;
@@ -427,10 +427,9 @@ int add_database_mapping(dm)
 
         copy_lisp_addr_t(&(locator_chain->eid_prefix),
                          &(db_entry->eid_prefix),
-                         db_entry->eid_prefix_afi,
                          0);            
         locator_chain->eid_prefix_length    = db_entry->eid_prefix_length;
-        locator_chain->eid_prefix_afi       = db_entry->eid_prefix_afi;
+        locator_chain->eid_prefix.afi       = db_entry->eid_prefix.afi;
         locator_chain->eid_name             = strdup(eid);
         locator_chain->has_dynamic_locators = DYNAMIC_LOCATOR;
         locator_chain->timer                = DEFAULT_MAP_REGISTER_TIMEOUT;
@@ -449,7 +448,7 @@ int add_database_mapping(dm)
 #if (DEBUG > 3)
     char x[128];
     memset(x,0,128);
-    inet_ntop(locator_chain->eid_prefix_afi,
+    inet_ntop(locator_chain->eid_prefix.afi,
               &(locator_chain->eid_prefix),
               x, 128);
     printf("add_database_mapping: locator_chain->eid_prefix = %s (0x%x)\n" ,x, locator_chain);
@@ -514,28 +513,28 @@ int add_static_map_cache_entry(smc)
      cfg_t  *smc;
 {
 
-    lispd_addr_t            *rloc_ptr;
+    lisp_addr_t             *rloc_ptr;
     lispd_map_cache_t       *map_cache;
-    lispd_map_cache_entry_t     *map_cache_entry;
+    lispd_map_cache_entry_t *map_cache_entry;
     
-    char            *token;
-    int             afi;
-    uint32_t            flags = 0;
+    char                    *token;
+    int                     afi;
+    uint32_t                flags = 0;
 
     char   *eid_prefix  = cfg_getstr(smc, "eid-prefix");
     char   *rloc        = cfg_getstr(smc, "rloc");
     int    priority     = cfg_getint(smc, "priority");
     int    weight       = cfg_getint(smc, "weight");
 
-    if ((rloc_ptr = malloc(sizeof(lispd_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
+    if ((rloc_ptr = malloc(sizeof(lisp_addr_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
         return(0);
     }
     if ((map_cache = malloc(sizeof(lispd_map_cache_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lispd_map_cache_t)): %s", strerror(errno));
         return(0);
     }
-    memset(rloc_ptr, 0,sizeof(lispd_addr_t));
+    memset(rloc_ptr, 0,sizeof(lisp_addr_t));
     memset(map_cache,0,sizeof(lispd_map_cache_t));
 
     map_cache_entry = &(map_cache->map_cache_entry);
@@ -550,10 +549,7 @@ int add_static_map_cache_entry(smc)
      *  store the locator address and afi
      */
 
-    memcpy((void *) &(map_cache_entry->locator.address),
-       (void *) &(rloc_ptr->address),
-       sizeof(lisp_addr_t));
-    map_cache_entry->locator_afi  = rloc_ptr->afi;
+    memcpy(&(map_cache_entry->locator), &rloc_ptr, sizeof(lisp_addr_t));
     map_cache_entry->ttl          = 255;    /*shouldn't matter */
     map_cache_entry->locator_name = strdup(rloc);
     map_cache_entry->locator_type = flags;
@@ -563,11 +559,11 @@ int add_static_map_cache_entry(smc)
     afi = get_afi(eid_prefix);
 
     if ((token = strtok(eid_prefix, "/")) == NULL) {
-    sprintf(msg,"eid prefix not of the form prefix/length ");
-    syslog(LOG_DAEMON, "%s", msg);
+        sprintf(msg,"eid prefix not of the form prefix/length ");
+        syslog(LOG_DAEMON, "%s", msg);
         free(rloc_ptr);
         free(map_cache);
-    return(0);
+        return(0);
     }
 
     /* 
@@ -575,10 +571,10 @@ int add_static_map_cache_entry(smc)
      */
 
     if (inet_pton(afi, token, &(map_cache_entry->eid_prefix.address)) != 1) {
-    syslog(LOG_DAEMON, "inet_pton: %s (%s)", strerror(errno), token);
+        syslog(LOG_DAEMON, "inet_pton: %s (%s)", strerror(errno), token);
         free(rloc_ptr);
         free(map_cache);
-    return(0);
+        return(0);
     }
 
     /*
@@ -586,14 +582,14 @@ int add_static_map_cache_entry(smc)
      */
 
     if ((token = strtok(NULL,"/")) == NULL) {
-    syslog(LOG_DAEMON,"strtok: %s", strerror(errno));
+        syslog(LOG_DAEMON,"strtok: %s", strerror(errno));
         free(rloc_ptr);
         free(map_cache);
-    return(0);
+        return(0);
     }
 
     map_cache_entry->eid_prefix_length = atoi(token);
-    map_cache_entry->eid_prefix_afi    = afi;
+    map_cache_entry->eid_prefix.afi    = afi;
     map_cache_entry->priority          = priority;
     map_cache_entry->weight            = weight;
 
@@ -616,20 +612,20 @@ int add_server(server, list)
      lispd_addr_list_t  **list;
 {
 
-    uint        afi;
-    lispd_addr_t    *addr;
-    lispd_addr_list_t  *list_elt;
+    uint                afi;
+    lisp_addr_t         *addr;
+    lispd_addr_list_t   *list_elt;
  
-    if ((addr = malloc(sizeof(lispd_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
+    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
         return(0);
     }
-    memset(addr,0,sizeof(lispd_addr_t));
+    memset(addr,0,sizeof(lisp_addr_t));
 
     afi = get_afi(server);
     addr->afi = afi;
 
-    if (inet_pton(afi, server, &(addr->address.address)) != 1) {
+    if (inet_pton(afi, server, &(addr->address)) != 1) {
         syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
         free(addr);
         return(0);
@@ -651,8 +647,9 @@ int add_server(server, list)
     if (*list) {
         list_elt->next = *list;
         *list = list_elt;
-    } else 
+    } else {
         *list = list_elt;
+    }
 
     return(1);
 }
@@ -662,18 +659,18 @@ int add_server(server, list)
  */
 
 int add_map_server(map_server, key_type, key, proxy_reply,verify)
-     char   *map_server;
-     int    key_type;
-     char   *key;
+     char       *map_server;
+     int        key_type;
+     char       *key;
      uint8_t    proxy_reply;
      uint8_t    verify;
 {
-    lispd_addr_t        *addr;
+    lisp_addr_t             *addr;
     lispd_map_server_list_t *list_elt;
-    struct hostent      *hptr;
+    struct hostent          *hptr;
 
-    if ((addr = malloc(sizeof(lispd_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_t)): %s", strerror(errno));
+    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
         return(0);
     }
 
@@ -681,7 +678,7 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
      *  make sure this is clean
      */
 
-    memset(addr,0,sizeof(lispd_addr_t));
+    memset(addr,0,sizeof(lisp_addr_t));
 
     if (((hptr = gethostbyname2(map_server,AF_INET))  == NULL) &&
     ((hptr = gethostbyname2(map_server,AF_INET6)) == NULL)) {
@@ -690,7 +687,7 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
         return(0);
     }
 
-    memcpy((void *) &(addr->address.address),
+    memcpy((void *) &(addr->address),
        (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
     addr->afi = hptr->h_addrtype;
 
@@ -705,7 +702,7 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
 
     list_elt->address     = addr;
     list_elt->key_type    = key_type;
-    list_elt->key     = strdup(key);
+    list_elt->key         = strdup(key);
     list_elt->verify      = verify;
     list_elt->proxy_reply = proxy_reply;
 
@@ -714,10 +711,11 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
      */
 
     if (map_servers) {
-    list_elt->next = map_servers;
-    map_servers = list_elt;
-    } else 
-    map_servers = list_elt;
+        list_elt->next = map_servers;
+        map_servers = list_elt;
+    } else {
+        map_servers = list_elt;
+    }
 
     return(1);
 }
