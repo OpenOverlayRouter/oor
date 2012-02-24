@@ -1,14 +1,13 @@
 CC=gcc
 GENGETOPT=gengetopt
-CFLAGS=-I../lisp_mod -g
+CFLAGS+=-I../lisp_mod -g
 DEPS = ../lisp_mod/lisp_ipc.h
 LIBS = -lm
-LDFLAGS = $(LIBS)
 OBJS = cmdline.o lispconf.o 
 PREFIX = /usr/local/sbin
 
 lispconf: $(OBJS)
-	gcc -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
 
 cmdline.c: lispconf.ggo
 	$(GENGETOPT) -i $<

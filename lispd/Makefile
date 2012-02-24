@@ -13,7 +13,7 @@
 
 CC		= gcc
 GENGETOPT	= gengetopt
-CFLAGS		= -Wall -Wno-implicit-function-declaration -g -DDEBUG=3
+CFLAGS		+= -Wall -Wno-implicit-function-declaration -g -DDEBUG=3
 LIBS		= -lconfuse -lssl -lcrypto -lrt
 INC		= lispd.h
 MAKEFILE	= Makefile
@@ -26,7 +26,7 @@ EXE		= lispd
 PREFIX		= /usr/local/sbin
 
 $(EXE): $(OBJS) 
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
 
 #
 #	gengetops generates this...
