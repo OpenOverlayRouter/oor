@@ -370,19 +370,20 @@ int get_locator_length(locator_chain_elt)
     int sum = 0;
 
     while (locator_chain_elt) {
-    switch(locator_chain_elt->db_entry->locator.afi) {
-    case AF_INET:
-        sum += sizeof(struct in_addr);
-        break;
-    case AF_INET6:
-        sum += sizeof(struct in6_addr);
-        break;
-    default:
-        syslog(LOG_DAEMON, "Uknown AFI (%d) for %s",
-           locator_chain_elt->db_entry->locator.afi,
-           locator_chain_elt->db_entry->locator_name);
-    }
-    locator_chain_elt = locator_chain_elt->next;
+        switch (locator_chain_elt->db_entry->locator.afi) {
+        case AF_INET:
+            sum += sizeof(struct in_addr);
+            break;
+        case AF_INET6:
+            sum += sizeof(struct in6_addr);
+            break;
+        default:
+            syslog(LOG_DAEMON, "Uknown AFI (%d) for %s",
+               locator_chain_elt->db_entry->locator.afi,
+               locator_chain_elt->db_entry->locator_name);
+            break;
+        }
+        locator_chain_elt = locator_chain_elt->next;
     }
     return(sum);
 }

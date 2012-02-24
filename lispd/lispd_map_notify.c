@@ -68,7 +68,7 @@ int process_map_notify(packet)
     {
         partial_map_notify_length1 = sizeof(lispd_pkt_mapping_record_t);
         eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
-        switch (eid_afi){
+        switch (eid_afi) {
         case AF_INET:
             partial_map_notify_length1 = partial_map_notify_length1 + sizeof(struct in_addr);
             break;
@@ -86,8 +86,7 @@ int process_map_notify(packet)
         {
             partial_map_notify_length2 = sizeof(lispd_pkt_mapping_record_locator_t);
             loc_afi = lisp2inetafi(ntohs(locator->locator_afi));
-            switch (loc_afi)
-            {
+            switch (loc_afi) {
             case AF_INET:
                 partial_map_notify_length2 = partial_map_notify_length2 + sizeof(struct in_addr);
                 break;

@@ -99,7 +99,7 @@ int process_map_reply(packet)
     eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
 
     if(record->locator_count > 0){
-    switch (eid_afi) {
+        switch (eid_afi) {
         case AF_INET: //ipv4: 4B
             loc_pkt = (lispd_pkt_map_reply_locator_t *)CO(eid, sizeof(struct in_addr));
             break;
@@ -109,9 +109,9 @@ int process_map_reply(packet)
         default:
             syslog (LOG_DAEMON, "process_map_reply(), unknown AFI");
             return (0);
-    }
+        }
 
-    loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_map_reply_locator_t));
+        loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_map_reply_locator_t));
     }
 
     /*
@@ -521,7 +521,7 @@ int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dp
         }
     } else {
         memcpy((void *)&destination_sa, dst_sa, get_sockaddr_len(dst_sa->sa_family));
-        switch(dst_sa->sa_family) {
+        switch (dst_sa->sa_family) {
         case AF_INET:
             dport = ntohs(((struct sockaddr_in *)dst_sa)->sin_port);
             break;
@@ -530,6 +530,7 @@ int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dp
             break;
         default:
             dport = LISP_CONTROL_PORT;
+            break;
         }
     }
 

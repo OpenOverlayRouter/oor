@@ -498,6 +498,7 @@ int process_netlink_msg(void) {
 #ifdef DEBUG
             syslog(LOG_DAEMON,"Received NETLINK message type %d", cmd->type);
 #endif
+            break;
     }
 
     free(nlh);

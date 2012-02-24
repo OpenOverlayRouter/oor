@@ -299,15 +299,16 @@ int add_database_mapping(dm)
      *  find or make the node correspoding to the eid_prefix/length 
      */
 
-    switch(afi) {
-    case        AF_INET:
+    switch (afi) {
+    case AF_INET:
         node = make_and_lookup(AF4_database, AF_INET, eid);
         break;
-    case        AF_INET6:
+    case AF_INET6:
         node = make_and_lookup(AF6_database, AF_INET6, eid);
         break;
     default:
         syslog(LOG_DAEMON, "Unknown AFI (%d) for %s", afi, eid);
+        break;
     }
 
     if (node == NULL) {

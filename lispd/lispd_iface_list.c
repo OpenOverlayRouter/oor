@@ -204,6 +204,7 @@ int update_iface_list (iface_name, eid_prefix,
             default:
                 if (!elt->AF4_eid_prefix) 
                     elt->AF4_eid_prefix = strdup(eid_prefix);
+                break;
         }
     }
 
@@ -232,7 +233,7 @@ int update_iface_list (iface_name, eid_prefix,
             break;
         default:
             syslog (LOG_DAEMON, "Unknown AFI; db_entry not added\n");
-
+            break;
     }
 
     dump_iface_list(avail_phy_ifaces->head);

@@ -208,7 +208,7 @@ int copy_lisp_addr_t(a1,a2,convert)
      int          convert;
 {
     a1->afi = a2->afi;
-    switch(a2->afi) {
+    switch (a2->afi) {
     case AF_INET:
         if (convert)
             a1->address.ip.s_addr = htonl(a2->address.ip.s_addr);
@@ -242,7 +242,7 @@ int copy_addr(a1,a2,convert)
      int convert;
 {
 
-    switch(a2->afi) {
+    switch (a2->afi) {
     case AF_INET:
         if (convert)
             ((struct in_addr *) a1)->s_addr = htonl(a2->address.ip.s_addr);
@@ -296,7 +296,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
             (ifa->ifa_addr->sa_family  != afi)  ||
             strcmp(ifa->ifa_name, if_name))
             continue;
-        switch(ifa->ifa_addr->sa_family) {
+        switch (ifa->ifa_addr->sa_family) {
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             memcpy((void *) &(addr->address),
@@ -392,7 +392,7 @@ lisp_addr_t *lispd_get_iface_address(ifacename, addr)
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if ((ifa->ifa_addr == NULL) || ((ifa->ifa_flags & IFF_UP) == 0))
             continue;
-        switch(ifa->ifa_addr->sa_family) {
+        switch (ifa->ifa_addr->sa_family) {
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             if (!strcmp(ifa->ifa_name, ifacename)) {
@@ -481,7 +481,7 @@ void dump_database(tree, afi)
     lispd_db_entry_t            *db_entry;
 
     if (!tree) {
-        switch(afi) {
+        switch (afi) {
         case AF_INET:
             syslog(LOG_DAEMON, "No database for AF_INET");
             return;
@@ -653,7 +653,7 @@ void dump_tree(afi,tree)
 {
     patricia_node_t *node;
    
-    switch(afi) {
+    switch (afi) {
     case AF_INET:
         printf("dump_tree for AF_INET\n");
         break;
@@ -723,7 +723,7 @@ int get_lisp_afi(afi, len)
      int        *len;
 {
 
-    switch(afi) {
+    switch (afi) {
     case AF_INET:
         if (len)
             *len = sizeof(struct in_addr);
@@ -748,7 +748,7 @@ int get_lisp_afi(afi, len)
 int lisp2inetafi(afi)
      int        afi;
 {
-    switch(afi) {
+    switch (afi) {
     case 0:
         return(0);
     case LISP_AFI_IP:
@@ -1303,21 +1303,21 @@ int process_lisp_msg(s, afi)
     struct sockaddr_in  s4;
     struct sockaddr_in6 s6;
 
-    switch(afi) {
+    switch (afi) {
     case AF_INET:
-    memset(&s4,0,sizeof(struct sockaddr_in));
+        memset(&s4,0,sizeof(struct sockaddr_in));
         if (!retrieve_lisp_msg(s, packet, &s4, afi))
-        return(0);
-    /* process it here */
-    break;
+            return(0);
+        /* process it here */
+        break;
     case AF_INET6:
-    memset(&s6,0,sizeof(struct sockaddr_in6));
+        memset(&s6,0,sizeof(struct sockaddr_in6));
         if (!retrieve_lisp_msg(s, packet, &s6, afi))
-        return(0);
-    /* process it here */
-    break;
+            return(0);
+        /* process it here */
+        break;
     default:
-    return(0);
+        return(0);
     }
     return(1);
 }
@@ -1341,34 +1341,26 @@ int retrieve_lisp_msg(s, packet, from, afi)
     socklen_t fromlen4 = sizeof(struct sockaddr_in);
     socklen_t fromlen6 = sizeof(struct sockaddr_in6);
 
-    switch(afi) {
+    switch (afi) {
     case AF_INET:
-    s4 = (struct sockaddr_in *) from;
-    if (recvfrom(s,
-             packet,
-             MAX_IP_PACKET,
-             0,
-             (struct sockaddr *) s4,
-             &fromlen4) < 0) {
-        syslog(LOG_DAEMON, "recvfrom (v4): %s", strerror(errno));
-        return(0);
-    }
-    break;
+        s4 = (struct sockaddr_in *) from;
+        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *) s4,
+                    &fromlen4) < 0) {
+            syslog(LOG_DAEMON, "recvfrom (v4): %s", strerror(errno));
+            return(0);
+        }
+        break;
     case AF_INET6:
-    s6 = (struct sockaddr_in6 *) from;
-    if (recvfrom(s,
-             packet,
-             MAX_IP_PACKET,
-             0,
-             (struct sockaddr *) s6,
-             &fromlen6) < 0) {
-        syslog(LOG_DAEMON, "recvfrom (v6): %s", strerror(errno));
-        return(0);
-    }
-    break;
+        s6 = (struct sockaddr_in6 *) from;
+        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *) s6,
+                    &fromlen6) < 0) {
+            syslog(LOG_DAEMON, "recvfrom (v6): %s", strerror(errno));
+            return(0);
+        }
+        break;
     default:
-    syslog(LOG_DAEMON, "retrieve_msg: Unknown afi %d", afi);
-    return(0);
+        syslog(LOG_DAEMON, "retrieve_msg: Unknown afi %d", afi);
+        return(0);
     }
 #if (DEBUG > 3)
     syslog(LOG_DAEMON, "Received a LISP control message");
@@ -1413,20 +1405,20 @@ int retrieve_lisp_msg(s, packet, from, afi)
 #if (DEBUG > 3)
     switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
     case LISP_MAP_REPLY:
-    printf("Got Map-Reply (%d)\n", afi);
-    break;
+        printf("Got Map-Reply (%d)\n", afi);
+        break;
     case LISP_MAP_REQUEST:
-    printf("Got Map-Request: Silently ignoring it (%d)\n", afi);
-    break;
+        printf("Got Map-Request: Silently ignoring it (%d)\n", afi);
+        break;
     case LISP_MAP_REGISTER:
-    printf("Got Map-Register: Silently ignoring it (%d)\n", afi);
-    break;
+        printf("Got Map-Register: Silently ignoring it (%d)\n", afi);
+        break;
     case LISP_MAP_NOTIFY:
-    printf("Got Map-Notify: Silently ignoring it (%d)\n", afi);
-    break;
+        printf("Got Map-Notify: Silently ignoring it (%d)\n", afi);
+        break;
     case LISP_ENCAP_CONTROL_TYPE:
-    printf("Got Encapsulated Control Message (%d)\n", afi);
-    break;
+        printf("Got Encapsulated Control Message (%d)\n", afi);
+        break;
     }
 #endif
     return(1);
@@ -1442,22 +1434,20 @@ int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t por
     ipv4 = (struct sockaddr_in *) sockaddr;
     ipv6 = (struct sockaddr_in6 *) sockaddr;
 
-    switch(inaddr->afi) {
-        case AF_INET:
-            ipv4->sin_family      = AF_INET;
-            ipv4->sin_port        = htons(port);
-            ipv4->sin_addr.s_addr = inaddr->address.ip.s_addr;
-            return(1);
-            break;
-        case AF_INET6:
-            ipv6->sin6_family      = AF_INET6;
-            ipv6->sin6_port        = htons(port);
-            memcpy(&(ipv6->sin6_addr), &(inaddr->address.ipv6), sizeof(struct in6_addr));
-            return(1);
-            break;
-        default:
-            syslog(LOG_DAEMON, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
-            return(0);
+    switch (inaddr->afi) {
+    case AF_INET:
+        ipv4->sin_family      = AF_INET;
+        ipv4->sin_port        = htons(port);
+        ipv4->sin_addr.s_addr = inaddr->address.ip.s_addr;
+        return(1);
+    case AF_INET6:
+        ipv6->sin6_family      = AF_INET6;
+        ipv6->sin6_port        = htons(port);
+        memcpy(&(ipv6->sin6_addr), &(inaddr->address.ipv6), sizeof(struct in6_addr));
+        return(1);
+    default:
+        syslog(LOG_DAEMON, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
+        return(0);
     }
 }
 
@@ -1471,7 +1461,7 @@ int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst) {
 
     dst->afi = src->sa_family;
 
-    switch(src->sa_family) {
+    switch (src->sa_family) {
     case AF_INET:
         dst->address.ip.s_addr = ((struct sockaddr_in *)src)->sin_addr.s_addr;
         break;

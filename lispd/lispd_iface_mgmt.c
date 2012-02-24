@@ -378,53 +378,52 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
     rtLen = RTM_PAYLOAD(nlHdr);
     for (; RTA_OK(rtAttr, rtLen); rtAttr = RTA_NEXT(rtAttr, rtLen)) {
         switch (rtAttr->rta_type) {
-            case RTA_OIF:
-                if_indextoname(*(int *)RTA_DATA(rtAttr), tempBuf);
-                syslog(LOG_DAEMON, "  Output interface: %s\n", tempBuf);
-                iface_elt = search_iface_list(tempBuf); 
-                if(dev)
-                    memcpy(dev, (int *)RTA_DATA(rtAttr), sizeof(int));
+        case RTA_OIF:
+            if_indextoname(*(int *)RTA_DATA(rtAttr), tempBuf);
+            syslog(LOG_DAEMON, "  Output interface: %s\n", tempBuf);
+            iface_elt = search_iface_list(tempBuf);
+            if(dev)
+                memcpy(dev, (int *)RTA_DATA(rtAttr), sizeof(int));
+            break;
+        case RTA_PRIORITY:
+            if(metric) {
+                memcpy(metric, (int *)RTA_DATA(rtAttr), sizeof(int));
+                syslog(LOG_DAEMON, "  Metric: %d\n", *metric);
+            }
+            break;
+        case RTA_FLOW:
+            if(realm) {
+                memcpy(realm, (int *)RTA_DATA(rtAttr), sizeof(int));
+                syslog(LOG_DAEMON, "  Realm: %d\n", *realm);
+            }
+            break;
+        case RTA_GATEWAY:
+            inet_ntop(rt->rtm_family, RTA_DATA(rtAttr), tempBuf,
+                    sizeof(tempBuf));
+            syslog(LOG_DAEMON, "  Gateway address: %s\n", tempBuf);
+            gateway->afi = rt->rtm_family;
+            switch (gateway->afi) {
+            case AF_INET:
+                memcpy(&(gateway->address),
+                    (struct in_addr *)RTA_DATA(rtAttr),
+                    sizeof(struct in_addr));
                 break;
-            case RTA_PRIORITY:
-                if(metric) {
-                    memcpy(metric, (int *)RTA_DATA(rtAttr), sizeof(int));
-                    syslog(LOG_DAEMON, "  Metric: %d\n", *metric);
-                }
+            case AF_INET6:
+                memcpy(&(gateway->address),
+                    (struct in6_addr *)RTA_DATA(rtAttr),
+                    sizeof(struct in6_addr));
                 break;
-            case RTA_FLOW:
-                if(realm) {
-                    memcpy(realm, (int *)RTA_DATA(rtAttr), sizeof(int));
-                    syslog(LOG_DAEMON, "  Realm: %d\n", *realm);
-                }
-                break;
-            case RTA_GATEWAY:
-                inet_ntop(rt->rtm_family, RTA_DATA(rtAttr), tempBuf,
-                        sizeof(tempBuf));
-                syslog(LOG_DAEMON, "  Gateway address: %s\n", tempBuf);
-                gateway->afi = rt->rtm_family;
-                switch (gateway->afi) {
-                    case AF_INET:
-                        memcpy(&(gateway->address),
-                            (struct in_addr *)RTA_DATA(rtAttr),
-                            sizeof(struct in_addr));
-                        break;
-                    case AF_INET6:
-                        memcpy(&(gateway->address),
-                            (struct in6_addr *)RTA_DATA(rtAttr),
-                            sizeof(struct in6_addr));
-                        break;
-                }
-                break;
-            case RTA_DST:
-                inet_ntop(rt->rtm_family, RTA_DATA(rtAttr), tempBuf,
-                        sizeof(tempBuf));
-                syslog(LOG_DAEMON, "  Destination address: %s\n", tempBuf);
-                /* We are only interested in default gateway changes */
-                syslog(LOG_DAEMON, "Not a default route, ignored...");
-                return NULL;
-                break;
+            }
+            break;
+        case RTA_DST:
+            inet_ntop(rt->rtm_family, RTA_DATA(rtAttr), tempBuf,
+                    sizeof(tempBuf));
+            syslog(LOG_DAEMON, "  Destination address: %s\n", tempBuf);
+            /* We are only interested in default gateway changes */
+            syslog(LOG_DAEMON, "Not a default route, ignored...");
+            return NULL;
+            break;
         }
-
     }
 
     return (iface_elt);
@@ -447,16 +446,16 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
     iface_list_elt  *iface_elt =   NULL;
         
     switch (nlHdr->nlmsg_type) {
-        case RTM_NEWADDR:
-            sprintf(tempBuf, "Parsing RTM_NEWADDR Message:\n");
-            break;
-        case RTM_DELADDR:
-            sprintf(tempBuf, "Parsing RTM_DELADDR Message:\n");
-            break;
-        default:
-            syslog(LOG_DAEMON, "parse_nl_addr(): Unknown Message Type\n\n");
-            return NULL;
-            break;
+    case RTM_NEWADDR:
+        sprintf(tempBuf, "Parsing RTM_NEWADDR Message:\n");
+        break;
+    case RTM_DELADDR:
+        sprintf(tempBuf, "Parsing RTM_DELADDR Message:\n");
+        break;
+    default:
+        syslog(LOG_DAEMON, "parse_nl_addr(): Unknown Message Type\n\n");
+        return NULL;
+        break;
     }
 
     ifaddr = (struct ifaddrmsg *)NLMSG_DATA(nlHdr);
@@ -473,44 +472,44 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
     rtLen = IFA_PAYLOAD(nlHdr);
     for (; RTA_OK(rtAttr, rtLen); rtAttr = RTA_NEXT(rtAttr, rtLen)) {
         switch (rtAttr->rta_type) {
-            case IFA_LOCAL:
-                inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
-                    sizeof(tempBuf));
-                syslog(LOG_DAEMON, "Local address: %s\n", tempBuf);
+        case IFA_LOCAL:
+            inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
+                sizeof(tempBuf));
+            syslog(LOG_DAEMON, "Local address: %s\n", tempBuf);
+            break;
+        case IFA_BROADCAST:
+            inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
+                sizeof(tempBuf));
+            syslog(LOG_DAEMON, "Broadcast address: %s\n", tempBuf);
+            break;
+        case IFA_ANYCAST:
+            inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
+                sizeof(tempBuf));
+            syslog(LOG_DAEMON, "Anycast address: %s\n", tempBuf);
+            break;
+        case IFA_ADDRESS:
+            inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
+                sizeof(tempBuf));
+            syslog(LOG_DAEMON, "Interface address: %s\n", tempBuf);
+            switch (addr->afi) {
+            case AF_INET:
+                memcpy(&(addr->address),
+                    (struct in_addr *)RTA_DATA(rtAttr),
+                    sizeof(struct in_addr));
                 break;
-            case IFA_BROADCAST:
-                inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
-                    sizeof(tempBuf));
-                syslog(LOG_DAEMON, "Broadcast address: %s\n", tempBuf);
+            case AF_INET6:
+                memcpy(&(addr->address),
+                    (struct in6_addr *)RTA_DATA(rtAttr),
+                    sizeof(struct in6_addr));
                 break;
-            case IFA_ANYCAST:
-                inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
-                    sizeof(tempBuf));
-                syslog(LOG_DAEMON, "Anycast address: %s\n", tempBuf);
-                break;
-            case IFA_ADDRESS:
-                inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
-                    sizeof(tempBuf));
-                syslog(LOG_DAEMON, "Interface address: %s\n", tempBuf);
-                switch (addr->afi) {
-                    case AF_INET:
-                        memcpy(&(addr->address),
-                            (struct in_addr *)RTA_DATA(rtAttr),
-                            sizeof(struct in_addr));
-                        break;
-                    case AF_INET6:
-                        memcpy(&(addr->address),
-                            (struct in6_addr *)RTA_DATA(rtAttr),
-                            sizeof(struct in6_addr));
-                        break;
-                }
-                break;
-            case IFA_LABEL:
-                syslog(LOG_DAEMON, "Interface name: %s\n",
-                        (char *)RTA_DATA(rtAttr));
-                iface_elt = search_iface_list( 
-                        (char *)RTA_DATA(rtAttr));
-                break;
+            }
+            break;
+        case IFA_LABEL:
+            syslog(LOG_DAEMON, "Interface name: %s\n",
+                    (char *)RTA_DATA(rtAttr));
+            iface_elt = search_iface_list(
+                    (char *)RTA_DATA(rtAttr));
+            break;
         }
     }
     return iface_elt;
@@ -788,13 +787,13 @@ int delete_rloc (iface_elt, rloc, node)
              * Update iface_elt by deleting the corresponding
              * db_entry from iface_elt
              */
-            switch(rloc->afi) {
-                case AF_INET:
-                    del_item_from_db_entry_list(iface_elt->AF4_locators, db_entry);
-                    break;
-                case AF_INET6:
-                    del_item_from_db_entry_list(iface_elt->AF6_locators, db_entry);
-                    break;
+            switch (rloc->afi) {
+            case AF_INET:
+                del_item_from_db_entry_list(iface_elt->AF4_locators, db_entry);
+                break;
+            case AF_INET6:
+                del_item_from_db_entry_list(iface_elt->AF6_locators, db_entry);
+                break;
             }
 
             free(db_entry);
@@ -983,13 +982,13 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     db_elt->db_entry    = db_entry;
     db_elt->next        = NULL;
     
-    switch(rloc->afi) {
-        case AF_INET:
-            add_item_to_db_entry_list(iface_elt->AF4_locators, db_elt);
-            break;
-        case AF_INET6:
-            add_item_to_db_entry_list(iface_elt->AF6_locators, db_elt);
-            break;
+    switch (rloc->afi) {
+    case AF_INET:
+        add_item_to_db_entry_list(iface_elt->AF4_locators, db_elt);
+        break;
+    case AF_INET6:
+        add_item_to_db_entry_list(iface_elt->AF6_locators, db_elt);
+        break;
     }
 
     return db_entry;

@@ -50,7 +50,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
         return(NULL);
     }
 
-    switch(afi) {
+    switch (afi) {
     case AF_INET:
         sin = (struct in_addr *) addr;
         if ((prefix = New_Prefix(AF_INET, sin, mask_len)) == NULL) {

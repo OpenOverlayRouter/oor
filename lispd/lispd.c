@@ -369,7 +369,7 @@ void event_loop(void)
  */
 
 void signal_handler(int sig) {
-    switch(sig) {
+    switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
         syslog(LOG_WARNING, "Received SIGHUP signal.");
