@@ -22,4 +22,4 @@ distclean: clean
 	rm -f cmdline.[ch]
 
 install: lispconf
-	mkdir -p $(PREFIX) && cp lispconf $(PREFIX)
+	mkdir -p $(DESTDIR)$(PREFIX) && cp lispconf $(DESTDIR)$(PREFIX)

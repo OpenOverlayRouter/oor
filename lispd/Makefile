@@ -44,7 +44,7 @@ distclean: clean
 	rm -f cmdline.[ch]
 
 install: $(EXE)
-	mkdir -p $(PREFIX) && cp $(EXE) $(PREFIX)
+	mkdir -p $(DESTDIR)$(PREFIX) && cp $(EXE) $(DESTDIR)$(PREFIX)
 
 tags:
 	cscope -R -b
