@@ -69,8 +69,8 @@ int process_map_reply(packet)
 
 {
     lispd_pkt_map_reply_t                   *mrp;
-    lispd_pkt_map_reply_eid_prefix_record_t *record;
-    lispd_pkt_map_reply_locator_t           *loc_pkt;
+    lispd_pkt_mapping_record_t              *record;
+    lispd_pkt_mapping_record_locator_t      *loc_pkt;
     lisp_eid_map_msg_t                      *map_msg;
     int                                     map_msg_len;
     datacache_elt_t                         *elt = NULL;
@@ -94,24 +94,24 @@ int process_map_reply(packet)
      * Assumption is Map Reply has only one record
      */
 
-    record = (lispd_pkt_map_reply_eid_prefix_record_t *)CO(mrp, sizeof(lispd_pkt_map_reply_t));
-    eid = (lisp_addr_t *)CO(record, sizeof(lispd_pkt_map_reply_eid_prefix_record_t));
+    record = (lispd_pkt_mapping_record_t *)CO(mrp, sizeof(lispd_pkt_map_reply_t));
+    eid = (lisp_addr_t *)CO(record, sizeof(lispd_pkt_mapping_record_t));
     eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
 
     if(record->locator_count > 0){
         switch (eid_afi) {
         case AF_INET: //ipv4: 4B
-            loc_pkt = (lispd_pkt_map_reply_locator_t *)CO(eid, sizeof(struct in_addr));
+            loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(eid, sizeof(struct in_addr));
             break;
         case AF_INET6: //ipv6: 16B
-            loc_pkt = (lispd_pkt_map_reply_locator_t *)CO(eid, sizeof(struct in6_addr));
+            loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(eid, sizeof(struct in6_addr));
             break;
         default:
             syslog (LOG_DAEMON, "process_map_reply(), unknown AFI");
             return (0);
         }
 
-        loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_map_reply_locator_t));
+        loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_mapping_record_locator_t));
     }
 
     /*
@@ -123,7 +123,7 @@ int process_map_reply(packet)
     lispd_print_nonce(nonce);
         return 0;
     }
-    if (!is_eid_included(elt,eid_afi,record->eid_prefix_mask_length,eid)) {
+    if (!is_eid_included(elt,eid_afi,record->eid_prefix_length,eid)) {
     syslog(LOG_DAEMON,"Map-Reply: EID does not match for MRp with nonce:\n");
     lispd_print_nonce(nonce);
         return 0;
@@ -162,11 +162,11 @@ int process_map_reply(packet)
 
     memcpy(&(map_msg->eid_prefix), eid, sizeof(lisp_addr_t));
     map_msg->eid_prefix.afi            = eid_afi;
-    map_msg->eid_prefix_length  = record->eid_prefix_mask_length;
+    map_msg->eid_prefix_length  = record->eid_prefix_length;
     map_msg->count              = loc_count;
-    map_msg->actions            = record->actions;
+    map_msg->actions            = record->action;
     map_msg->how_learned        = DYNAMIC_MAP_CACHE_ENTRY;      
-    map_msg->ttl                = ntohl(record->record_ttl);
+    map_msg->ttl                = ntohl(record->ttl);
     map_msg->sampling_interval  = RLOC_PROBING_INTERVAL;
 
 
@@ -209,8 +209,8 @@ int process_map_reply(packet)
         map_msg->locators[i].locator.afi = lisp2inetafi(ntohs(loc_pkt->locator_afi));
         map_msg->locators[i].priority = loc_pkt->priority;
         map_msg->locators[i].weight = loc_pkt->weight;
-        map_msg->locators[i].mpriority = loc_pkt->m_priority;
-        map_msg->locators[i].mweight = loc_pkt->m_weight;
+        map_msg->locators[i].mpriority = loc_pkt->mpriority;
+        map_msg->locators[i].mweight = loc_pkt->mweight;
 
         /*
          * Advance the ptrs for the next locator
@@ -218,12 +218,12 @@ int process_map_reply(packet)
         if(i+1 < record->locator_count) {
             loc_afi = map_msg->locators[i].locator.afi;
             if(loc_afi == AF_INET) { //ipv4: 4B
-                loc_pkt = (lispd_pkt_map_reply_locator_t *)CO(loc, sizeof(struct in_addr));
+                loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in_addr));
             } else if(loc_afi == AF_INET6){ //ipv6: 16B
-                loc_pkt = (lispd_pkt_map_reply_locator_t *)CO(loc, sizeof(struct in6_addr));
+                loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in6_addr));
             } else
                 return(0);
-            loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_map_reply_locator_t));
+            loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_mapping_record_locator_t));
         }
     }
 
@@ -250,19 +250,19 @@ int get_record_length(lispd_locator_chain_t *locator_chain) {
     loc_len = get_locator_length(locator_chain_elt);
     get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
 
-    return sizeof(lispd_pkt_map_reply_eid_prefix_record_t) + afi_len +
-           (locator_chain->locator_count * sizeof(lispd_pkt_map_reply_locator_t)) +
+    return sizeof(lispd_pkt_mapping_record_t) + afi_len +
+           (locator_chain->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
            loc_len;
 }
 
 void *build_mapping_record(rec, locator_chain, opts)
-    lispd_pkt_map_reply_eid_prefix_record_t *rec;
+    lispd_pkt_mapping_record_t              *rec;
     lispd_locator_chain_t                   *locator_chain;
     map_reply_opts                          opts;
 {
     int                                     eid_afi = 0;
     int                                     cpy_len = 0;
-    lispd_pkt_map_reply_locator_t           *loc_ptr;
+    lispd_pkt_mapping_record_locator_t      *loc_ptr;
     lispd_db_entry_t                        *db_entry;
     lispd_locator_chain_elt_t               *locator_chain_elt;
 
@@ -271,22 +271,23 @@ void *build_mapping_record(rec, locator_chain, opts)
 
     eid_afi = get_lisp_afi(locator_chain->eid_prefix.afi, NULL);
 
-    rec->record_ttl             = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
+    rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = locator_chain->locator_count;
-    rec->eid_prefix_mask_length = locator_chain->eid_prefix_length;
-    rec->actions                = 0;
+    rec->eid_prefix_length      = locator_chain->eid_prefix_length;
+    rec->action                 = 0;
     rec->authoritative          = 1;
-    rec->version_number         = 0;
+    rec->version_hi             = 0;
+    rec->version_low            = 0;
     rec->eid_prefix_afi         = htons(eid_afi);
 
     if ((cpy_len = copy_addr((void *) CO(rec,
-            sizeof(lispd_pkt_map_reply_eid_prefix_record_t)),
+            sizeof(lispd_pkt_mapping_record_t)),
             &(locator_chain->eid_prefix), 0)) == 0) {
         syslog(LOG_DAEMON, "build_map_reply_pkt: copy_addr failed");
     }
 
-    loc_ptr = (lispd_pkt_map_reply_locator_t *) CO(rec,
-         sizeof(lispd_pkt_map_reply_eid_prefix_record_t) + cpy_len);
+    loc_ptr = (lispd_pkt_mapping_record_locator_t *) CO(rec,
+         sizeof(lispd_pkt_mapping_record_t) + cpy_len);
 
     locator_chain_elt = locator_chain->head;
 
@@ -294,23 +295,23 @@ void *build_mapping_record(rec, locator_chain, opts)
         db_entry             = locator_chain_elt->db_entry;
         loc_ptr->priority    = db_entry->priority;
         loc_ptr->weight      = db_entry->weight;
-        loc_ptr->m_priority  = db_entry->mpriority;
-        loc_ptr->m_weight    = db_entry->mweight;
+        loc_ptr->mpriority   = db_entry->mpriority;
+        loc_ptr->mweight     = db_entry->mweight;
         loc_ptr->local       = 1;
         if (opts.rloc_probe)
-            loc_ptr->p       = 1;       /* XXX probed locator, should check addresses */
+            loc_ptr->probed  = 1;       /* XXX probed locator, should check addresses */
         loc_ptr->reachable   = 1;       /* XXX should be computed */
         loc_ptr->locator_afi = htons(get_lisp_afi(db_entry->locator.afi, NULL));
 
         if ((cpy_len = copy_addr((void *) CO(loc_ptr,
-                sizeof(lispd_pkt_map_reply_locator_t)), &(db_entry->locator), 0)) == 0) {
+                sizeof(lispd_pkt_mapping_record_locator_t)), &(db_entry->locator), 0)) == 0) {
             syslog(LOG_DAEMON, "build_mapping_record: copy_addr failed for locator %s",
                     db_entry->locator_name);
             return(0);
         }
 
-        loc_ptr = (lispd_pkt_map_reply_locator_t *)
-            CO(loc_ptr, (sizeof(lispd_pkt_map_reply_locator_t) + cpy_len));
+        loc_ptr = (lispd_pkt_mapping_record_locator_t *)
+            CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
         locator_chain_elt = locator_chain_elt->next;
     }
     return (void *)loc_ptr;
@@ -331,7 +332,7 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
     int udpsum = 0;
     lispd_pkt_map_reply_t *map_reply_msg;
     int map_reply_msg_len = 0;
-    lispd_pkt_map_reply_eid_prefix_record_t *mr_msg_eid, *next_rec;
+    lispd_pkt_mapping_record_t *mr_msg_eid, *next_rec;
     patricia_node_t *node = NULL;
     lispd_locator_chain_t *locator_chain_eid4 = NULL;
     lispd_locator_chain_t *locator_chain_eid6 = NULL;
@@ -402,7 +403,7 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
          * Optionally, we send Map Reply records. For RLOC Probing,
          * the language in the spec is SHOULD
          */
-        mr_msg_eid = (lispd_pkt_map_reply_eid_prefix_record_t *)
+        mr_msg_eid = (lispd_pkt_mapping_record_t *)
                      CO(map_reply_msg, sizeof(lispd_pkt_map_reply_t));
 
         if (locator_chain_eid4) {

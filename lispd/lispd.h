@@ -705,7 +705,6 @@ typedef struct lispd_pkt_map_request_eid_prefix_record_t_ {
 
 /*
  * Fixed size portion of the map reply.
- * map reply records follow.
  */
 typedef struct lispd_pkt_map_reply_t_ {
 #ifdef LITTLE_ENDIAN
@@ -725,61 +724,6 @@ typedef struct lispd_pkt_map_reply_t_ {
     uint64_t nonce;
 } PACKED lispd_pkt_map_reply_t;
 
-
-/*
- * Fixed size portion of the map reply record. Variable size EID
- * prefix address follows.
- */
-
-typedef struct lispd_pkt_map_reply_eid_prefix_record_t_ {
-    uint32_t record_ttl;
-    uint8_t locator_count;
-    uint8_t eid_prefix_mask_length;
-#ifdef LITTLE_ENDIAN
-    uint8_t reserved1:4;
-    uint8_t authoritative:1;
-    uint8_t actions:3;
-#else
-    uint8_t actions:3;
-    uint8_t authoritative:1;
-    uint8_t reserved1:4;
-#endif
-    uint8_t reserved2;
-#ifdef LITTLE_ENDIAN
-    uint16_t version_number:12;//is this OK?
-    uint16_t reserved3:4;
-#else
-    uint16_t reserved3:4;
-    uint16_t version_number:12;
-#endif
-    uint16_t eid_prefix_afi;
-
-} PACKED lispd_pkt_map_reply_eid_prefix_record_t;
-
-
-/*
- * Locator portion of map-reply
- */
-
-typedef struct lispd_pkt_map_reply_locator_t_ {
-    uint8_t priority;
-    uint8_t weight;
-    uint8_t m_priority;
-    uint8_t m_weight;
-    uint8_t unused_flags1;
-#ifdef LITTLE_ENDIAN
-    uint8_t reachable:1;
-    uint8_t p:1;
-    uint8_t local:1;
-    uint8_t unused_flags2:5;
-#else
-    uint8_t unused_flags2:5;
-    uint8_t local:1;
-    uint8_t p:1;
-    uint8_t reachable:1;
-#endif
-    uint16_t locator_afi;
-} PACKED lispd_pkt_map_reply_locator_t;
 
 /*
  *  essentially the data cache
