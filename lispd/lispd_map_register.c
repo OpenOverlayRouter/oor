@@ -106,57 +106,21 @@ int map_register(tree)
  *
  */
     
-lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
-    lispd_locator_chain_t *locator_chain;
+lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
+    lispd_locator_chain_t           *locator_chain;
 {
+    lispd_pkt_map_register_t        *mrp;
+    lispd_pkt_mapping_record_t      *mr;
+    int                             mrp_len = 0;
 
-    lispd_locator_chain_elt_t          *locator_chain_elt;
-    lispd_db_entry_t               *db_entry;
-    lispd_pkt_map_register_t           *mrp; 
-    lispd_pkt_mapping_record_t         *mr;
-    lispd_pkt_mapping_record_locator_t *loc_ptr;
-    int                 mrp_len    = 0;
-    int                 loc_len    = 0;
-    int                 len        = 0;
-    int                 eid_afi    = 0;
-    int                     afi_len    = 0;
-
-    /*
-     *  assume 1 recored with locator_chain->locator_count locators 
-     *
-     *  walk the locator_chain_elt to get the locators
-     *
-     */
-
-    locator_chain_elt = locator_chain->head;    
-    loc_len           = get_locator_length(locator_chain_elt);
-
-    /* get the length of the eid prefix and map to LISP_AFI types*/
-    
-    eid_afi = get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
-
-    /* compute space needed for the whole packet */
-
-    mrp_len = sizeof(lispd_pkt_map_register_t)      +
-    sizeof(lispd_pkt_mapping_record_t)          +   /* XXX 1 record */
-    afi_len                                     +   /* length of the eid prefix */
-    (locator_chain->locator_count               *   /* locator_count mapping records */
-    sizeof(lispd_pkt_mapping_record_locator_t)) +
-    loc_len;                    /* sum of the lengths of the 
-                                                         *locator_chain->locator_count 
-                             * locators
-                             */
+    mrp_len = sizeof(lispd_pkt_map_register_t) +
+              get_record_length(locator_chain);
 
     if ((mrp = malloc(mrp_len)) == NULL) {
-        syslog(LOG_DAEMON, "malloc (map-register packet): %s", strerror(errno));
-        return(0);
+        syslog(LOG_DAEMON, "build_map_register_pkt: malloc: %s", strerror(errno));
+        return(NULL);
     }
-   
-    /*
-     *  make sure this is clean
-     */
-
-    memset(mrp,0,mrp_len);
+    memset(mrp, 0, mrp_len);
     locator_chain->mrp_len = mrp_len;
 
     /*
@@ -176,76 +140,12 @@ lispd_pkt_map_register_t *build_map_register_pkt (locator_chain)
 
     /* skip over the fixed part,  assume one record (mr) */
 
-    mr                    = (lispd_pkt_mapping_record_t *)
-                         CO(mrp, sizeof(lispd_pkt_map_register_t));
-    mr->ttl           = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
-    mr->locator_count     = locator_chain->locator_count;
-    mr->eid_prefix_length = locator_chain->eid_prefix_length;
-    mr->authoritative     = 0;
-    mr->action            = 0;
-    mr->version_hi        = 0;
-    mr->version_low       = 0;
-    mr->eid_prefix_afi    = htons(eid_afi);
-    /*
-     * skip over the mapping record and put the eid prefix immediately
-     * following...
-     */
+    mr = (lispd_pkt_mapping_record_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
-    if ((len = copy_addr((void *)
-             CO(mr,sizeof(lispd_pkt_mapping_record_t)),
-             &(locator_chain->eid_prefix),
-             0)) == 0) {
-    syslog(LOG_DAEMON, "eid prefix (%s) has an unknown afi (%d)",
-           locator_chain->eid_name,
-           locator_chain->eid_prefix.afi);
-    return(0);
-    }
-    
-    /*
-     * skip over the fixed part and eid prefix, and build
-     * the locators  
-     */
-
-    loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-    CO(mr,(sizeof(lispd_pkt_mapping_record_t) + len));
-
-    while (locator_chain_elt) {
-    db_entry             = locator_chain_elt->db_entry;
-    loc_ptr->priority    = db_entry->priority;
-    loc_ptr->weight      = db_entry->weight;
-    loc_ptr->mpriority   = db_entry->mpriority;
-    loc_ptr->mweight     = db_entry->mweight;
-    loc_ptr->local       = 1;
-    loc_ptr->probed      = 0;
-    loc_ptr->reachable   = 1;       /* XXX should be computed */
-        loc_ptr->locator_afi = htons(get_lisp_afi(db_entry->locator.afi, &afi_len));
-
-    /*
-         * skip over the mapping record locator, and copy the locator
-     * to that address...
-         */
-     
-        if ((len = copy_addr((void *)
-                 CO(loc_ptr,
-                sizeof(lispd_pkt_mapping_record_locator_t)),
-                 &(db_entry->locator),
-                 0)) == 0) {
-        syslog(LOG_DAEMON, "locator (%s) has an unknown afi (%d)",
-           db_entry->locator_name,
-           db_entry->locator.afi);
-        return(0);
-    }
-    /*
-     * get the next locator in the chain and wind
-     * loc_ptr to the right place 
-         */
-
-    loc_ptr           = (lispd_pkt_mapping_record_locator_t *)
-        CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + len));
-
-        locator_chain_elt = locator_chain_elt->next;    
-    }
-    return(mrp);
+    if (build_mapping_record(mr, locator_chain, NULL))
+        return(mrp);
+    else
+        return(NULL);
 }
 
 

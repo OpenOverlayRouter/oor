@@ -258,7 +258,7 @@ int get_record_length(lispd_locator_chain_t *locator_chain) {
 void *build_mapping_record(rec, locator_chain, opts)
     lispd_pkt_mapping_record_t              *rec;
     lispd_locator_chain_t                   *locator_chain;
-    map_reply_opts                          opts;
+    map_reply_opts                          *opts;
 {
     int                                     eid_afi = 0;
     int                                     cpy_len = 0;
@@ -283,7 +283,8 @@ void *build_mapping_record(rec, locator_chain, opts)
     if ((cpy_len = copy_addr((void *) CO(rec,
             sizeof(lispd_pkt_mapping_record_t)),
             &(locator_chain->eid_prefix), 0)) == 0) {
-        syslog(LOG_DAEMON, "build_map_reply_pkt: copy_addr failed");
+        syslog(LOG_DAEMON, "build_mapping_record: copy_addr failed");
+        return(NULL);
     }
 
     loc_ptr = (lispd_pkt_mapping_record_locator_t *) CO(rec,
@@ -298,7 +299,7 @@ void *build_mapping_record(rec, locator_chain, opts)
         loc_ptr->mpriority   = db_entry->mpriority;
         loc_ptr->mweight     = db_entry->mweight;
         loc_ptr->local       = 1;
-        if (opts.rloc_probe)
+        if (opts && opts->rloc_probe)
             loc_ptr->probed  = 1;       /* XXX probed locator, should check addresses */
         loc_ptr->reachable   = 1;       /* XXX should be computed */
         loc_ptr->locator_afi = htons(get_lisp_afi(db_entry->locator.afi, NULL));
@@ -307,7 +308,7 @@ void *build_mapping_record(rec, locator_chain, opts)
                 sizeof(lispd_pkt_mapping_record_locator_t)), &(db_entry->locator), 0)) == 0) {
             syslog(LOG_DAEMON, "build_mapping_record: copy_addr failed for locator %s",
                     db_entry->locator_name);
-            return(0);
+            return(NULL);
         }
 
         loc_ptr = (lispd_pkt_mapping_record_locator_t *)
@@ -317,11 +318,6 @@ void *build_mapping_record(rec, locator_chain, opts)
     return (void *)loc_ptr;
 }
 
-/*
- * TODO (LJ): There should be a build_mapping_record() function, shared with
- *            the Map-Register code, and the appropriate structure in lispd.h
- *            should be shared as well
- */
 
 uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
         prefix_t eid_prefix, uint64_t nonce, map_reply_opts opts, int *len) {
@@ -407,7 +403,7 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
                      CO(map_reply_msg, sizeof(lispd_pkt_map_reply_t));
 
         if (locator_chain_eid4) {
-            next_rec = build_mapping_record(mr_msg_eid, locator_chain_eid4, opts);
+            next_rec = build_mapping_record(mr_msg_eid, locator_chain_eid4, &opts);
             if (next_rec) {
                 map_reply_msg->record_count++;
                 mr_msg_eid = next_rec;
@@ -415,7 +411,7 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
         }
 
         if (locator_chain_eid6) {
-            if (build_mapping_record(mr_msg_eid, locator_chain_eid6, opts))
+            if (build_mapping_record(mr_msg_eid, locator_chain_eid6, &opts))
                 map_reply_msg->record_count++;
         }
     }
