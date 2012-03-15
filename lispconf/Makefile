@@ -1,7 +1,7 @@
 CC=gcc
 GENGETOPT=gengetopt
-CFLAGS+=-I../lisp_mod -g
-DEPS = ../lisp_mod/lisp_ipc.h
+CFLAGS+=-I../lispd -g
+DEPS = ../lispd/lisp_ipc.h
 LIBS = -lm
 OBJS = cmdline.o lispconf.o 
 PREFIX = /usr/local/sbin

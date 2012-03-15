@@ -47,6 +47,8 @@
 #include "lisp_ipc.h"
 #include "cmdline.h"
 
+#define CO(addr,len) (((char *) addr + len))
+
 const int true = 1;
 const int false = 0;
 
@@ -100,90 +102,58 @@ int send_command(lisp_cmd_t *cmd, int length)
     return retval;
 }
 
+
+int install_map_cache_entry(lisp_addr_t eid, uint8_t prefixlen, lisp_addr_t rloc,
+                          uint32_t priority,
+                          uint32_t weight,
+                          uint32_t ttl)
+{
+    size_t                  cmd_length = 0;
+    int                     retval     = 0;
+    lisp_cmd_t              *cmd;
+    lisp_eid_map_msg_t      *map_msg;
+    lisp_eid_map_msg_loc_t  *map_msg_loc;
+    uint16_t                loc_count  = 1;
+    int i;
+
+    cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_eid_map_msg_t) +
+                 sizeof(lisp_eid_map_msg_loc_t) * loc_count;
+
+    if ((cmd = malloc(cmd_length)) < 0){
+        return -1;
+    }
+
+    memset((char *) cmd, 0, cmd_length);
+
+    map_msg     = (lisp_eid_map_msg_t *) CO(cmd, sizeof(lisp_cmd_t));
+    map_msg_loc = (lisp_eid_map_msg_loc_t *) CO(map_msg, sizeof(lisp_eid_map_msg_t));
+
+    cmd->type   = LispMapCacheAdd;
+    cmd->length = cmd_length - sizeof(lisp_cmd_t);
+
+    memcpy(&(map_msg->eid_prefix), &eid, sizeof(lisp_addr_t));
+    map_msg->eid_prefix.afi    = eid.afi;
+    map_msg->eid_prefix_length = prefixlen;
+    map_msg->count             = loc_count;
+    map_msg->ttl               = ttl;
+
+    /* XXX: code needs to be updated when lispd_map_cache_entry_t supports more locators */
+    for (i = 0; i < loc_count; i++) {
+        memcpy(map_msg_loc + i * sizeof(lisp_eid_map_msg_loc_t),
+                &rloc, sizeof(lisp_addr_t));
+
+        map_msg->locators[i].priority    = priority;
+        map_msg->locators[i].weight      = weight;
+        map_msg->locators[i].mpriority   = 0;
+        map_msg->locators[i].mweight     = 0;
+    }
+
+    retval = send_command(cmd, cmd_length + sizeof(lisp_cmd_t));
+    free(cmd);
+    return(retval);
+}
+
 #if 0
-/*
- * send_map_cache_msg_v4()
- * 
- * Send a single EID/RLOC mapping to the kernel module for the cache.
- * This could easily be expanded to send a list of lisp_cmd_t's
- * to the send_cmd function for multiple entries at once.
- * 
- * For ipv4.
- */
-int send_map_cache_msg_v4(uint32_t eid, uint8_t prefixlen, lisp_addr_t rloc,
-                          int rloc_afi,
-                          uint32_t priority,
-                          uint32_t weight,
-                          uint32_t ttl)
-{
-    lisp_eid_map_msg_t map_msg;
-    lisp_cmd_t        *cmd;
-    int cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_eid_map_msg_t);
-
-    cmd = (lisp_cmd_t *)malloc(cmd_length);
-    if (!cmd) {
-        return -1;
-    }
-
-    cmd->type = LispMapCacheAdd;
-    cmd->length = cmd_length;
-    memset((char *)&map_msg, 0, sizeof(lisp_eid_map_msg_t));
-    map_msg.eid_prefix.address.ip.s_addr = eid;
-    map_msg.eid_prefix_length = prefixlen;
-    map_msg.eid_afi = AF_INET;
-    memcpy(&map_msg.locator, &rloc, sizeof(lisp_addr_t));
-    map_msg.loc_afi = rloc_afi;
-    map_msg.priority = priority;
-    map_msg.weight = weight;
-    map_msg.ttl = ttl;
-    map_msg.how_learned = 0; // Static
-    memcpy(cmd->val, (char *)&map_msg, cmd->length);
-
-    return(send_command(cmd, cmd_length + sizeof(lisp_cmd_t)));
-}
-
-/*
- * send_map_cache_msg_v6()
- * 
- * Send a single EID/RLOC mapping to the kernel module for the cache.
- * This could easily be expanded to send a list of lisp_cmd_t's
- * to the send_cmd function for multiple entries at once.
- * 
- * For ipv6.
- */
-int send_map_cache_msg_v6(struct in6_addr prefix, uint8_t prefixlen, 
-                          lisp_addr_t rloc,
-                          int rloc_afi,
-                          uint32_t priority,
-                          uint32_t weight,
-                          uint32_t ttl)
-{
-    lisp_eid_map_msg_t map_msg;
-    lisp_cmd_t        *cmd;
-    int cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_eid_map_msg_t);
-
-    cmd = (lisp_cmd_t *)malloc(cmd_length);
-    if (!cmd) {
-        return -1;
-    }
-
-    cmd->type = LispMapCacheAdd;
-    cmd->length = cmd_length;
-    memset((char *)&map_msg, 0, sizeof(lisp_eid_map_msg_t));
-    memcpy(&map_msg.eid_prefix.address.ipv6, &prefix, sizeof(struct in6_addr));
-    map_msg.eid_prefix_length = prefixlen;
-    map_msg.eid_afi = AF_INET6;
-    memcpy(&map_msg.locator, &rloc, sizeof(lisp_addr_t));
-    map_msg.loc_afi = rloc_afi;
-    map_msg.priority = priority;
-    map_msg.weight = weight;
-    map_msg.ttl = ttl;
-    map_msg.how_learned = 0; // Static
-    memcpy(cmd->val, (char *)&map_msg, cmd->length);
-
-    return(send_command(cmd, cmd_length + sizeof(lisp_cmd_t)));
-}
-
 /*
  * send_map_db_msg_v6()
  * 
@@ -842,7 +812,6 @@ void add_entry(struct gengetopt_args_info *args_info)
     uint32_t priority;
     uint32_t weight;
     uint32_t ttl;
-    int      eid_af, rloc_af;
 
     /*
      * Parse the EID addr/prefix length first
@@ -851,7 +820,7 @@ void add_entry(struct gengetopt_args_info *args_info)
     /*
      * Detect address family
      */
-    eid_af = detect_af(args_info->eid_arg);
+    eid.afi = detect_af(args_info->eid_arg);
 
     token = strtok(args_info->eid_arg, "/");
     if (!token) {
@@ -859,8 +828,9 @@ void add_entry(struct gengetopt_args_info *args_info)
         exit(1);
     }
 
-    if (eid_af == AF_INET) {
-        inet_pton(eid_af, token, &eid4);
+    if (eid.afi == AF_INET) {
+        inet_pton(eid.afi, token, &eid4);
+        eid.address.ip.s_addr = eid4.s_addr;
         token = strtok(NULL, "/");
         plen = atoi(token);
         if (plen > 32 || plen < 1) {
@@ -868,7 +838,11 @@ void add_entry(struct gengetopt_args_info *args_info)
             exit(1);
         }
     } else {
-        inet_pton(eid_af, token, &eid6);
+        inet_pton(eid.afi, token, &eid6);
+        eid.address.ipv6.s6_addr32[0] = eid6.s6_addr32[0];
+        eid.address.ipv6.s6_addr32[1] = eid6.s6_addr32[1];
+        eid.address.ipv6.s6_addr32[2] = eid6.s6_addr32[2];
+        eid.address.ipv6.s6_addr32[3] = eid6.s6_addr32[3];
         token = strtok(NULL, "/");
         plen = atoi(token);
         if (plen > 128 || plen < 1) {
@@ -877,12 +851,12 @@ void add_entry(struct gengetopt_args_info *args_info)
         }
     }
 
-    rloc_af = detect_af(args_info->rloc_arg);
-    if (rloc_af == AF_INET) {
-        inet_pton(rloc_af, args_info->rloc_arg, &rloc4);
+    rloc.afi = detect_af(args_info->rloc_arg);
+    if (rloc.afi == AF_INET) {
+        inet_pton(rloc.afi, args_info->rloc_arg, &rloc4);
         rloc.address.ip.s_addr = rloc4.s_addr;
     } else {
-        inet_pton(rloc_af, args_info->rloc_arg, &rloc6);
+        inet_pton(rloc.afi, args_info->rloc_arg, &rloc6);
         // Investigate: couldn't get memcpy to work without crashing
         // elsewhere. XXX
         rloc.address.ipv6.s6_addr32[0] = rloc6.s6_addr32[0];
@@ -900,15 +874,9 @@ void add_entry(struct gengetopt_args_info *args_info)
      * Cache or database
      */
     if (!strncmp(args_info->add_entry_arg, "cache", strlen("cache"))) {
-        if (eid_af == AF_INET) {
-            //send_map_cache_msg_v4(eid4.s_addr, plen, rloc, rloc_af, priority,
-            //                      weight, ttl);
-        } else {
-            // send_map_cache_msg_v6(eid6, plen, rloc, rloc_af, priority,
-            //                      weight, ttl);
-        }
+        install_map_cache_entry(eid, plen, rloc, priority, weight, ttl);
     } else {
-        if (eid_af == AF_INET) {
+        if (eid.afi == AF_INET) {
           //  send_map_db_msg_v4(eid4.s_addr, plen, rloc, rloc_af, priority,
           //                     weight);
         } else {
