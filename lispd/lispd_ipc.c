@@ -698,7 +698,7 @@ int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
                 continue;
             }
             inet_ntop(locators->locator.afi, &(locators->locator.address), rloc_name, 128);
-            if (build_and_send_map_request_msg(locators->locator,
+            if (build_and_send_map_request_msg(&(locators->locator),
                     &(cache_entry->eid_prefix),
                     (get_addr_len(cache_entry->eid_prefix.afi) * 8),
                     NULL,
