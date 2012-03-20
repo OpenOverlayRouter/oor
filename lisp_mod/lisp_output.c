@@ -68,10 +68,38 @@ static inline uint16_t src_port_hash(struct iphdr *iph)
 
 static inline unsigned char output_hash_v4(unsigned int src_eid, unsigned int dst_eid)
 {
-    int hash;
+	uint32_t hash, aux_addr, i;
+	uint8_t byte;
 
-    hash = src_eid ^ dst_eid;
-    return ((((hash & 0xFFFF0000) << 16) ^ (hash & 0xFFFF)) % LOC_HASH_SIZE);
+	aux_addr = src_eid ^ dst_eid;
+	for(hash = i = 0; i < 4; ++i)
+	{
+		byte = aux_addr & 0xFF;
+		aux_addr = aux_addr >> 8;
+		hash += byte;
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return ( hash % LOC_HASH_SIZE);
+}
+
+static inline unsigned char output_hash_v6(struct in6_addr src_eid, struct in6_addr dst_eid)
+{
+	uint32_t hash, i;
+
+	for(hash = i = 0; i < 4; ++i)
+	{
+		hash += src_eid.in6_u.u6_addr8[i] ^ dst_eid.in6_u.u6_addr8[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return ( hash % LOC_HASH_SIZE);
 }
 
 void lisp_encap4(struct sk_buff *skb, int locator_addr,
@@ -475,6 +503,7 @@ unsigned int lisp_output6(unsigned int hooknum,
   lisp_map_cache_t *eid_entry;
   int retval;
   lisp_addr_t locator_addr;
+  unsigned char loc_index;
   ushort      loc_afi;
   lisp_addr_t dst_addr;
 
@@ -525,15 +554,16 @@ unsigned int lisp_output6(unsigned int hooknum,
   eid_entry->active_within_period = 1;
 
   /*
-   * Get the first locator for now... sync up with output4 to use hash XXX
+   * Hash to find the correct locator based on weight, priority, etc.
    */
-  if (!eid_entry->locator_list[0]) {
+  loc_index = eid_entry->locator_hash_table[output_hash_v6(iph->saddr, iph->daddr)];
+  if (!eid_entry->locator_list[loc_index]) {
     printk(KERN_INFO " No suitable locators.\n");
     return(NF_DROP);
   } else {
-      loc_afi = eid_entry->locator_list[0]->locator.afi;
-      memcpy(&locator_addr, &eid_entry->locator_list[0]->locator, sizeof(lisp_addr_t));
-    printk(KERN_INFO " Locator found.\n");
+      loc_afi = eid_entry->locator_list[loc_index]->locator.afi;
+      memcpy(&locator_addr, &eid_entry->locator_list[loc_index]->locator, sizeof(lisp_addr_t));
+      printk(KERN_INFO " Locator found.\n");
   }
   
   /* 
