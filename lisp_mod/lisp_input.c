@@ -64,14 +64,25 @@ const char echo_signature = 0x78; // First byte past udp header if lisp echo rep
  * lookup for every input packet to do this.
  */
 void check_locator_bits(struct lisphdr *lisp_hdr,
-                        struct iphdr *iph, int source)
+                        void *iph, int afi, int source)
 {
     int i, bitval, retval;
     lisp_map_cache_t *eid_entry;
     int packet_lsbs;
+    struct iphdr *ipheader;
+    struct ipv6hdr *ip6header;
+    lisp_addr_t src_addr;
 
     // Lookup the source in the map cache
-    retval = lookup_eid_cache_v4(iph->saddr, &eid_entry);
+    if ( afi == AF_INET){
+    	ipheader = (struct iphdr*)iph;
+    	retval = lookup_eid_cache_v4(ipheader->saddr, &eid_entry);
+    }
+    else {
+    	ip6header = (struct ipv6hdr*)iph;
+    	memcpy(src_addr.address.ipv6.s6_addr, ip6header->saddr.s6_addr, sizeof(lisp_addr_t));
+    	retval = lookup_eid_cache_v6(src_addr, &eid_entry);
+    }
 
     // No entry, what to do?? XXX
     if (retval == 0) {
@@ -216,7 +227,7 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
 #endif
 
       // Check the LSB's.
-      check_locator_bits(lisp_hdr, iph, source_locator);
+      check_locator_bits(lisp_hdr, iph, AF_INET, source_locator);
 
       eid_int = dev_get_by_name (&init_net, LISP_EID_INTERFACE);
       if (eid_int) {
@@ -232,8 +243,13 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
       return NF_ACCEPT;
       } else if (iph->version == 6) {
           ip6 = ipv6_hdr(packet_buf);
+#ifdef DEBUG_PACKETS
           printk(KERN_INFO "   Inner packet src:%pI6 dst:%pI6, nexthdr: 0x%x\n",
                  ip6->saddr.s6_addr, ip6->daddr.s6_addr, ip6->nexthdr);
+#endif
+
+	  // Check the LSB's.
+          check_locator_bits(lisp_hdr, ip6, AF_INET6, source_locator);
 
           IPCB(packet_buf)->flags = 0;
           packet_buf->protocol = htons(ETH_P_IPV6);
