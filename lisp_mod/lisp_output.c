@@ -130,6 +130,15 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
     printk(KERN_INFO "lisp_encap4: saddr for route lookup: %pI4\n",
                       &globals.my_rloc.address.ip.s_addr);
   {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
+    struct flowi fl;
+    fl.flowi_oif   = 0;
+    fl.flowi_tos   = RT_TOS(old_iph->tos);
+    fl.flowi_proto = IPPROTO_UDP;
+    fl.u.ip4.daddr = locator_addr;
+    fl.u.ip4.saddr = globals.my_rloc.address.ip.s_addr;
+    if (ip_route_output_key(&init_net, &fl.u.ip4)) {
+#else
     struct flowi fl = { .oif = 0,
 			.nl_u = { .ip4_u = 
 				  { .daddr = locator_addr,
@@ -137,6 +146,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
 				    .tos = RT_TOS(old_iph->tos) } },
 			.proto = IPPROTO_UDP };
     if (ip_route_output_key(&init_net, &rt, &fl)) {
+#endif
       printk(KERN_INFO "Route lookup for locator %pI4 failed\n", &locator_addr);
       /*
        * PN: Fix skb memory leaks
@@ -339,11 +349,25 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
    * the iptunnel6.c code.
    */
   {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
+    ipv6_addr_copy(&fl.u.ip6.daddr, &locator_addr.address.ipv6);
+#else
     ipv6_addr_copy(&fl.fl6_dst, &locator_addr.address.ipv6);
+#endif
     if (globals.my_rloc_af != AF_INET6) {
       printk(KERN_INFO "No AF_INET6 source rloc available\n");
       return;
     }
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
+    ipv6_addr_copy(&fl.u.ip6.saddr, &globals.my_rloc.address.ipv6);
+    fl.flowi_oif = 0;
+
+    fl.u.ip6.flowlabel = 0;
+    fl.flowi_proto = IPPROTO_UDP;
+  }
+
+  dst = ip6_route_output(&init_net, NULL, &fl.u.ip6);
+#else
     ipv6_addr_copy(&fl.fl6_src, &globals.my_rloc.address.ipv6);
     fl.oif = 0;
 
@@ -352,6 +376,7 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
   }
 
   dst = ip6_route_output(&init_net, NULL, &fl);
+#endif
 
   if (dst->error) {
     printk(KERN_INFO "  Failed v6 route lookup for RLOC\n");
@@ -469,8 +494,13 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
   ipv6_change_dsfield(iph, ~INET_ECN_MASK, dsfield);
   iph->hop_limit = 10; // XXX grab from inner header.
   iph->nexthdr = IPPROTO_UDP;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
+  ipv6_addr_copy(&iph->saddr, &fl.u.ip6.saddr);
+  ipv6_addr_copy(&iph->daddr, &fl.u.ip6.daddr);
+#else
   ipv6_addr_copy(&iph->saddr, &fl.fl6_src);
   ipv6_addr_copy(&iph->daddr, &fl.fl6_dst);
+#endif
   nf_reset(skb);
 
 #ifdef DEBUG_PACKETS
@@ -614,9 +644,15 @@ bool is_v4addr_local(struct iphdr *iph, struct sk_buff *packet_buf)
 #endif
 
     memset(&fl, 0, sizeof(fl));
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
+    fl.u.ip4.daddr = iph->daddr;
+    fl.flowi_tos = RTO_ONLINK;
+    if (ip_route_output_key(dev_net(packet_buf->dev), &fl.u.ip4))
+#else
     fl.fl4_dst = iph->daddr;
     fl.fl4_tos = RTO_ONLINK;
     if (ip_route_output_key(dev_net(packet_buf->dev), &rt, &fl))
+#endif
         return 0;
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
     dev = rt->dst.dev;
