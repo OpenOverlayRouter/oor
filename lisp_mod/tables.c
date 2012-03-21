@@ -378,10 +378,10 @@ void add_db_entry_locator(lisp_database_entry_t *db_entry,
      */
       locator_entry  = kmem_cache_alloc(lisp_database_loctype, GFP_KERNEL);
       printk(KERN_INFO "Allocating database locator from %s\n",
-             kmem_cache_name(lisp_database_loctype));
+             lisp_database_loctype->name);
       if (!locator_entry) {
           printk(KERN_INFO "Couldn't allocate from %s\n",
-                 kmem_cache_name(lisp_database_loctype));
+                 lisp_database_loctype->name);
           return;
       }
       db_entry->locator_list[index] = locator_entry;
@@ -436,10 +436,10 @@ void add_eid_db_entry(lisp_db_add_msg_t *entry)
 
       db_entry = kmem_cache_alloc(lisp_database, GFP_KERNEL);
       printk(KERN_INFO "Allocating new map-database entry from %s\n",
-             kmem_cache_name(lisp_database));
+             lisp_database->name);
       if (!db_entry) {
           printk(KERN_INFO "Couldn't allocate from %s\n",
-                 kmem_cache_name(lisp_database));
+                 lisp_database->name);
           return;               /* XXX: correct? */
       }
 
@@ -632,10 +632,10 @@ void add_cache_entry_locator(lisp_map_cache_t *cache_entry,
      */
       locator_entry  = kmem_cache_alloc(lisp_map_cache_loctype, GFP_KERNEL);
       printk(KERN_INFO "Allocating map-cache locator from %s\n",
-             kmem_cache_name(lisp_map_cache_loctype));
+             lisp_map_cache_loctype->name);
       if (!locator_entry) {
           printk(KERN_INFO "Couldn't allocate from %s\n",
-                 kmem_cache_name(lisp_map_cache_loctype));
+                 lisp_map_cache_loctype->name);
           return;
       }
       memset(locator_entry, 0, sizeof(lisp_map_cache_loc_t));
@@ -755,10 +755,10 @@ void add_eid_cache_entry(lisp_eid_map_msg_t *entry)
   if (!map_entry) {
       map_entry = kmem_cache_alloc(lisp_map_cache, GFP_KERNEL);
       printk(KERN_INFO "Allocating new map-cache entry from %s\n",
-             kmem_cache_name(lisp_map_cache));
+             lisp_map_cache->name);
       if (!map_entry) {
           printk(KERN_INFO "Couldn't allocate from %s\n",
-                 kmem_cache_name(lisp_map_cache));
+                 lisp_map_cache->name);
           return;               /* XXX: correct? */
       }
 
