@@ -137,7 +137,8 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
     fl.flowi_proto = IPPROTO_UDP;
     fl.u.ip4.daddr = locator_addr;
     fl.u.ip4.saddr = globals.my_rloc.address.ip.s_addr;
-    if (ip_route_output_key(&init_net, &fl.u.ip4)) {
+    rt = ip_route_output_key(&init_net, &fl.u.ip4);
+    if (rt == NULL) {
 #else
     struct flowi fl = { .oif = 0,
 			.nl_u = { .ip4_u = 
@@ -647,7 +648,8 @@ bool is_v4addr_local(struct iphdr *iph, struct sk_buff *packet_buf)
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
     fl.u.ip4.daddr = iph->daddr;
     fl.flowi_tos = RTO_ONLINK;
-    if (ip_route_output_key(dev_net(packet_buf->dev), &fl.u.ip4))
+    rt = ip_route_output_key(dev_net(packet_buf->dev), &fl.u.ip4);
+    if (rt == NULL)
 #else
     fl.fl4_dst = iph->daddr;
     fl.fl4_tos = RTO_ONLINK;
