@@ -74,6 +74,41 @@ static inline unsigned char output_hash_v4(unsigned int src_eid, unsigned int ds
     return ((((hash & 0xFFFF0000) << 16) ^ (hash & 0xFFFF)) % LOC_HASH_SIZE);
 }
 
+/*
+ * is_addrv4_local_eid
+ *
+ * Checks whether the source address in ip header corresponds to an EID assigned to
+ * the host.
+ */
+
+bool is_addrv4_local_eid(struct iphdr *iph){
+	int i;
+	for(i=0;i<globals.num_local_eid;i++){
+		if(iph->saddr==globals.local_eid_list[i].address.ip.s_addr){
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * is_addrv6_local_eid
+ *
+ * Checks whether the source address in ip header corresponds to an EID assigned to
+ * the host.
+ */
+
+bool is_addrv6_local_eid(struct ipv6hdr *iph){
+	int i;
+	for(i=0;i<globals.num_local_eid;i++){
+		if(!ipv6_addr_equal(&iph->saddr,&globals.local_eid_list[i].address.ipv6)){
+			return 1;
+		}
+	}
+	return 0;
+}
+
+
 void lisp_encap4(struct sk_buff *skb, int locator_addr,
 		 ushort inner_afi)
 {
@@ -489,6 +524,18 @@ unsigned int lisp_output6(unsigned int hooknum,
 #endif
 
   /*
+   * Check whether the packet should be encapsulated
+   */
+  if(globals.num_local_eid>0){
+	  if(!is_addrv6_local_eid(iph)){
+#ifdef DEBUG_PACKETS
+		  printk(KERN_INFO "       Packet src is not a local EID\n");
+#endif
+		  return NF_ACCEPT;
+	  }
+  }
+
+  /*
    * Sanity check the inner packet XXX
    */
 
@@ -636,6 +683,18 @@ unsigned int lisp_output4(unsigned int hooknum,
   }
 
   /*
+   * Check whether the packet should be encapsulated
+   */
+  if(globals.num_local_eid>0){
+	  if(!is_addrv4_local_eid(iph)){
+#ifdef DEBUG_PACKETS
+		  printk(KERN_INFO "       Packet src is not a local EID\n");
+#endif
+		  return NF_ACCEPT;
+	  }
+  }
+
+  /*
    * Don't encapsulate LISP control messages
    */
   if (iph->protocol == IPPROTO_UDP) {
@@ -731,3 +790,4 @@ unsigned int lisp_output4(unsigned int hooknum,
    */
   return NF_STOLEN;
 }
+

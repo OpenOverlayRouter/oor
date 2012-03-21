@@ -1570,6 +1570,17 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
             syslog(LOG_DAEMON, "route_add (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
+
+        /*
+         * Step 4:
+         * (when required) Inform The Kernel Module about the new EID
+         */
+#ifdef TESTLOCALEID
+        if(!add_local_eid(eid_addr)){
+        	syslog(LOG_DAEMON, "add_local_eid (setup_lisp_eid_iface()) failed\n");
+        	return 0;
+        }
+#endif
         syslog(LOG_DAEMON, "Configured LISP-MN EID interface\n");
         return 1;
 }

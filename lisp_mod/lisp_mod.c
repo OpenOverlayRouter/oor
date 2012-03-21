@@ -104,6 +104,7 @@ int teardown_netfilter_hooks(void)
 static int __init lisp_init (void)
 {
   int result = 0;
+  int i=0; //loop index
 
   printk(KERN_INFO "lisp_mod version %d.%d.%d starting up...\n",
          MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION);
@@ -137,6 +138,12 @@ static int __init lisp_init (void)
   memset(&globals.my_rloc, 0, sizeof(lisp_addr_t));
   globals.my_rloc_af = 0;
   globals.daemonPID = 0;          // 0 indicates unset
+
+  //initializing local eid control
+  globals.num_local_eid=0;
+  for(i=0; i<MAXLOCALEID; i++){
+	  memset(&globals.local_eid_list[i], 0, sizeof(lisp_addr_t));
+  }
 
   return 0;
 }

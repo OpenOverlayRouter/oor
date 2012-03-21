@@ -72,7 +72,8 @@ typedef enum {
   LispDaemonRegister = 13,
   LispTrafficMonStart = 14,
   LispSetUDPPorts = 15,
-  LispMaxType = LispSetUDPPorts
+  LispAddLocalEID = 16,
+  LispMaxType = LispAddLocalEID
 } lisp_msgtype_e;
 
 /* 
@@ -115,6 +116,10 @@ typedef struct _lisp_lookup_msg {
 typedef struct _lisp_set_rloc_msg {
   lisp_addr_t addr;
 } lisp_set_rloc_msg_t;
+
+typedef struct _lisp_add_local_eid_msg {
+  lisp_addr_t addr;
+} lisp_add_local_eid_msg_t;
 
 #define ACTION_DROP         0
 #define ACTION_FORWARD      1
