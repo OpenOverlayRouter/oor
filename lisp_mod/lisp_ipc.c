@@ -70,7 +70,8 @@ const struct ipc_handler_struct ipc_table[] = {
     { "Delete Database Entry", handle_map_db_delete },
     { "Register Daemon", handle_daemon_register },
     { "Start Traffic Monitor", handle_traffic_mon_start },
-    { "Set UDP Ports", handle_set_udp_ports }
+    { "Set UDP Ports", handle_set_udp_ports },
+    { "Add Local EID", handle_add_eid }
 };
 
 /*
@@ -996,6 +997,44 @@ void handle_daemon_register(lisp_cmd_t *cmd, int pid)
 void handle_no_action(lisp_cmd_t *cmd, int pid)
 {
     printk(KERN_INFO "  No action taken for this message type.");
+}
+
+
+/*
+ * handle_add_local_eid()
+ *
+ * Adds EID to the list of source eids to verify before encapsulating.
+ */
+void handle_add_eid(lisp_cmd_t *cmd, int pid)
+{
+	lisp_add_local_eid_msg_t *msg = (lisp_add_local_eid_msg_t *)cmd->val;
+	int index=0;
+	printk(KERN_INFO "Trying to add EID for data plane verification\n");
+	for(index=0;index<globals.num_local_eid;index++){
+		//compare address types
+		if (msg->addr.afi == globals.local_eid_list[index].afi) {
+			//compare addresses
+			if (msg->addr.afi == AF_INET) {
+				if(globals.local_eid_list[index].address.ip.s_addr==msg->addr.address.ip.s_addr){
+					//is in list at position index
+					break;
+				}
+			}
+			if (msg->addr.afi == AF_INET6) {
+				if(!ipv6_addr_equal(&(globals.local_eid_list[index].address.ipv6),&(msg->addr.address.ipv6))){
+					//is in list at position index
+					break;
+				}
+			}
+		}
+	}
+	if(index==globals.num_local_eid && index<MAXLOCALEID){
+		globals.local_eid_list[index]=msg->addr;
+		globals.num_local_eid++;
+		if (msg->addr.afi == AF_INET) {
+			printk(KERN_INFO "The EID is new: %pI4. Added to position %d\n", &(globals.local_eid_list[index].address.ip.s_addr),index);
+		}
+	}
 }
 
 /*

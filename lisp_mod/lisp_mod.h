@@ -37,6 +37,7 @@
 #include "linux/netfilter_ipv4.h"
 #include "linux/netlink.h"
 #include "net/net_namespace.h"
+#include "net/ipv6.h"
 #include "tables.h"
 #include "lisp_ipc.h"
 #include "lisp_ipc_kernel.h"
@@ -46,6 +47,7 @@
 #include "lib/patricia/patricia.h"
 
 #define NETLINK_LISP 20  /* XXX Temporary, needs to be in /usr/include/linux/netlink.h */
+#define MAXLOCALEID 10 /*Max number of local EIDs that lispmob handles*/
 
 typedef struct {
   struct sock *nl_socket;       /* Netlink socket */
@@ -58,5 +60,7 @@ typedef struct {
   ushort udp_encap_port;
   ushort udp_control_port;
   int   daemonPID; /* Process ID for lispd */
+  int num_local_eid;
+  lisp_addr_t local_eid_list[MAXLOCALEID];
 } lisp_globals;
 

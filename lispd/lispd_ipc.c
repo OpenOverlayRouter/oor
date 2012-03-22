@@ -823,6 +823,39 @@ int set_rloc(lisp_addr_t *my_addr) {
     return(retval);
 } 
 
+/*
+ *  add local EID to kernel module list
+ */
+
+int add_local_eid(lisp_addr_t *my_addr) {
+    int                 retval = 0;
+    size_t              cmd_length = 0;
+    lisp_cmd_t          *cmd;
+    lisp_add_local_eid_msg_t *add_eid_msg;
+
+    cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_add_local_eid_msg_t);
+
+    if ((cmd = malloc(cmd_length)) == 0) {
+        syslog(LOG_DAEMON, "add_local_eid: malloc failed");
+        return(0);
+    }
+
+    memset(cmd, 0, cmd_length);
+
+    add_eid_msg = (lisp_add_local_eid_msg_t *) CO(cmd, sizeof(lisp_cmd_t));
+
+    cmd->type   = LispAddLocalEID;
+    cmd->length = sizeof(lisp_add_local_eid_msg_t);
+
+    memcpy(&(add_eid_msg->addr), my_addr, sizeof(lisp_addr_t));
+
+    retval = send_command(cmd, cmd_length);
+    syslog(LOG_DAEMON, "Adding local EID to data plane list");
+    free(cmd);
+    return(retval);
+}
+
+
 
 /*
  * Editor modelines
