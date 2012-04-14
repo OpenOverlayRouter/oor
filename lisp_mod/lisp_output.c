@@ -351,16 +351,16 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
    */
   {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
-    ipv6_addr_copy(&fl.u.ip6.daddr, &locator_addr.address.ipv6);
+    memcpy(&fl.u.ip6.daddr, &locator_addr.address.ipv6, sizeof(struct in6_addr));
 #else
-    ipv6_addr_copy(&fl.fl6_dst, &locator_addr.address.ipv6);
+    memcpy(&fl.fl6_dst, &locator_addr.address.ipv6, sizeof(struct in6_addr));
 #endif
     if (globals.my_rloc_af != AF_INET6) {
       printk(KERN_INFO "No AF_INET6 source rloc available\n");
       return;
     }
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
-    ipv6_addr_copy(&fl.u.ip6.saddr, &globals.my_rloc.address.ipv6);
+    memcpy(&fl.u.ip6.saddr, &globals.my_rloc.address.ipv6, sizeof(struct in6_addr));
     fl.flowi_oif = 0;
 
     fl.u.ip6.flowlabel = 0;
@@ -369,7 +369,7 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
 
   dst = ip6_route_output(&init_net, NULL, &fl.u.ip6);
 #else
-    ipv6_addr_copy(&fl.fl6_src, &globals.my_rloc.address.ipv6);
+    memcpy(&fl.fl6_src, &globals.my_rloc.address.ipv6, sizeof(struct in6_addr));
     fl.oif = 0;
 
     fl.fl6_flowlabel = 0;
@@ -496,11 +496,11 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
   iph->hop_limit = 10; // XXX grab from inner header.
   iph->nexthdr = IPPROTO_UDP;
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
-  ipv6_addr_copy(&iph->saddr, &fl.u.ip6.saddr);
-  ipv6_addr_copy(&iph->daddr, &fl.u.ip6.daddr);
+  memcpy(&iph->saddr, &fl.u.ip6.saddr, sizeof(struct in6_addr));
+  memcpy(&iph->daddr, &fl.u.ip6.daddr, sizeof(struct in6_addr));
 #else
-  ipv6_addr_copy(&iph->saddr, &fl.fl6_src);
-  ipv6_addr_copy(&iph->daddr, &fl.fl6_dst);
+  memcpy(&iph->saddr, &fl.fl6_src, sizeof(struct in6_addr));
+  memcpy(&iph->daddr, &fl.fl6_dst, sizeof(struct in6_addr));
 #endif
   nf_reset(skb);
 
