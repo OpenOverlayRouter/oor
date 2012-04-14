@@ -627,33 +627,27 @@ unsigned int lisp_output6(unsigned int hooknum,
  * Perform a route lookup to determine if this address
  * belongs to us. See arp.c for comparable check.
  */
-bool is_v4addr_local(struct iphdr *iph, struct sk_buff *packet_buf)
+bool is_v4addr_local(struct iphdr *iph, const struct net_device *output_dev)
 {
     struct flowi fl;
     struct rtable *rt;
     struct net_device *dev;
 
-    /*
-     * XXX (LJ): Non-Android kernels seem to pass an sk_buff with a NULL dev member
-     *           Return false for now if that happens to avoid oops
-     */
-#ifdef NEW_KERNEL
-    if(packet_buf->dev == NULL) {
-          printk(KERN_INFO "packet_buf->dev is null pointer!");
+    if(output_dev == NULL) {
+          printk(KERN_DEBUG "output_dev is NULL!");
           return 0;
     }
-#endif
 
     memset(&fl, 0, sizeof(fl));
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
     fl.u.ip4.daddr = iph->daddr;
     fl.flowi_tos = RTO_ONLINK;
-    rt = ip_route_output_key(dev_net(packet_buf->dev), &fl.u.ip4);
+    rt = ip_route_output_key(dev_net(output_dev), &fl.u.ip4);
     if (IS_ERR(rt))
 #else
     fl.fl4_dst = iph->daddr;
     fl.fl4_tos = RTO_ONLINK;
-    if (ip_route_output_key(dev_net(packet_buf->dev), &rt, &fl))
+    if (ip_route_output_key(dev_net(output_dev), &rt, &fl))
 #endif
         return 0;
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
@@ -696,7 +690,7 @@ unsigned int lisp_output4(unsigned int hooknum,
   /*
    * Check for local destination, punt if so.
    */
-  if (is_v4addr_local(iph, packet_buf)) {
+  if (is_v4addr_local(iph, output_dev)) {
 #ifdef DEBUG_PACKETS
       printk(KERN_INFO "       Packet is locally destined.\n");
 #endif
