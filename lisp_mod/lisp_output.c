@@ -649,7 +649,7 @@ bool is_v4addr_local(struct iphdr *iph, struct sk_buff *packet_buf)
     fl.u.ip4.daddr = iph->daddr;
     fl.flowi_tos = RTO_ONLINK;
     rt = ip_route_output_key(dev_net(packet_buf->dev), &fl.u.ip4);
-    if (rt == NULL)
+    if (IS_ERR(rt))
 #else
     fl.fl4_dst = iph->daddr;
     fl.fl4_tos = RTO_ONLINK;
