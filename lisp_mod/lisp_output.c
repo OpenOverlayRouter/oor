@@ -138,7 +138,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
     fl.u.ip4.daddr = locator_addr;
     fl.u.ip4.saddr = globals.my_rloc.address.ip.s_addr;
     rt = ip_route_output_key(&init_net, &fl.u.ip4);
-    if (rt == NULL) {
+    if (IS_ERR(rt)) {
 #else
     struct flowi fl = { .oif = 0,
 			.nl_u = { .ip4_u = 
