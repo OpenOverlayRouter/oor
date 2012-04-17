@@ -550,7 +550,7 @@ int add_static_map_cache_entry(smc)
      *  store the locator address and afi
      */
 
-    memcpy(&(map_cache_entry->locator), &rloc_ptr, sizeof(lisp_addr_t));
+    memcpy(&(map_cache_entry->locator), rloc_ptr, sizeof(lisp_addr_t));
     map_cache_entry->ttl          = 255;    /*shouldn't matter */
     map_cache_entry->locator_name = strdup(rloc);
     map_cache_entry->locator_type = flags;

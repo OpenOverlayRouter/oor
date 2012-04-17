@@ -337,7 +337,7 @@ lisp_addr_t *lispd_get_address(host, addr, flags)
      * make sure this is clean
      */
 
-    memset(&addr, 0, sizeof(lisp_addr_t));
+    memset(addr, 0, sizeof(lisp_addr_t));
 
     /*
      *  check to see if hhost is either a FQDN of IPvX address.
