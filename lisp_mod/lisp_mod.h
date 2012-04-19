@@ -48,6 +48,7 @@
 
 #define NETLINK_LISP 20  /* XXX Temporary, needs to be in /usr/include/linux/netlink.h */
 #define MAXLOCALEID 10 /*Max number of local EIDs that lispmob handles*/
+#define IFINDEX_HASH_BITS 4
 
 typedef struct {
   struct sock *nl_socket;       /* Netlink socket */
@@ -55,12 +56,14 @@ typedef struct {
   struct nf_hook_ops netfilter_ops_out; /* Netfilter hook definition, output */
   struct nf_hook_ops netfilter_ops_out6; /* "" For ipv6 */
   int    always_encap;         /* Always LISP encapsulate? */
-  lisp_addr_t my_rloc; /* Locally generated packets source RLOC, set via command-line */
+  int    multiple_rlocs;       /* Use multiple RLOCs */
   ushort my_rloc_af;
   ushort udp_encap_port;
   ushort udp_control_port;
   int   daemonPID; /* Process ID for lispd */
   int num_local_eid;
   lisp_addr_t local_eid_list[MAXLOCALEID];
+  // RLOC to if_index table, used by lisp connection manager
+  rloc_map_entry_t *if_to_rloc_hash_table[1 << IFINDEX_HASH_BITS];
 } lisp_globals;
 

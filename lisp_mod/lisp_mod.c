@@ -68,6 +68,8 @@ int setup_netfilter_hooks(void)
   globals.netfilter_ops_out6.hooknum = NF_INET_LOCAL_OUT;
   globals.netfilter_ops_out6.priority = NF_IP_PRI_FIRST;
     
+  globals.multiple_rlocs = 0;
+
   globals.udp_control_port = LISP_CONTROL_PORT;
   globals.udp_encap_port   = LISP_ENCAP_PORT;
   nf_register_hook(&globals.netfilter_ops_in); 
@@ -135,8 +137,6 @@ static int __init lisp_init (void)
 #endif 
 
   globals.always_encap = 1;       // XXX temporary for testing
-  memset(&globals.my_rloc, 0, sizeof(lisp_addr_t));
-  globals.my_rloc_af = 0;
   globals.daemonPID = 0;          // 0 indicates unset
 
   //initializing local eid control

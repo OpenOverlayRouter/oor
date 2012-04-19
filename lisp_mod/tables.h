@@ -36,7 +36,9 @@
 #include "lib/patricia/patricia.h"
 #include "lisp_ipc.h"
 
-#define TRAFFIC_MON_PERIOD (15)
+#define TRAFFIC_MON_PERIOD (15) // in seconds
+
+#define IFINDEX_HASH_BITS 4
 
 /*
  * Table externs
@@ -123,6 +125,15 @@ typedef struct _lisp_database_entry_t {
 } lisp_database_entry_t;
 
 /*
+ * Interface index (ifindex) to RLOC mapping hash table
+ */
+typedef struct _rloc_map_entry_t {
+    int ifindex;
+    lisp_addr_t addr;
+    struct _rloc_map_entry_t *next;
+} rloc_map_entry_t;
+
+/*
  * Function declarations
  */
 void create_tables(void);
@@ -141,4 +152,6 @@ void start_traffic_monitor(void);
 void finish_traffic_monitor(unsigned long);
 void update_locator_set_by_msg(lisp_cache_sample_msg_t *);
 void clear_map_cache(lisp_cmd_t *cmd, int pid);
+void add_ifindex_to_rloc_mapping(int, lisp_addr_t *);
+//void del_if_index_to_rloc(int);
 void teardown_trees(void);

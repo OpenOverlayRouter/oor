@@ -62,7 +62,7 @@ const struct ipc_handler_struct ipc_table[] = {
     { "Map Cache RLOC List", handle_map_cache_list_request },
     { "Database Lookup", handle_map_db_lookup },
     { "Cache Sample", handle_cache_sample },
-    { "Set RLOC", handle_set_rloc },
+    { "Add RLOC", handle_set_rloc },
     { "Add Map Cache Entry", handle_map_cache_add },
     { "Delete Map Cache", handle_no_action },
     { "Map Cache Clear", clear_map_cache },
@@ -902,23 +902,30 @@ void handle_map_db_add(lisp_cmd_t *cmd, int length)
  */
 void handle_set_rloc(lisp_cmd_t *cmd, int pid)
 {
-  lisp_set_rloc_msg_t *msg = (lisp_set_rloc_msg_t *)cmd->val;
+    lisp_set_rloc_msg_t *msg = (lisp_set_rloc_msg_t *)cmd->val;
+    rloc_t *rloc;
+    int i;
 
-  if (msg->addr.afi == AF_INET) {
-    globals.my_rloc.address.ip.s_addr = msg->addr.address.ip.s_addr;
-    globals.my_rloc_af = msg->addr.afi;
-    printk(KERN_INFO "  Set to %pI4\n", &globals.my_rloc.address.ip.s_addr);
-  } else {
-    if (msg->addr.afi == AF_INET6) {
-      memcpy(globals.my_rloc.address.ipv6.s6_addr, 
-	     msg->addr.address.ipv6.s6_addr,
-	     sizeof(lisp_addr_t));
-      globals.my_rloc_af = msg->addr.afi;
-      printk(KERN_INFO "  Set to %pI6\n", globals.my_rloc.address.ipv6.s6_addr);
-    } else {
-      printk(KERN_INFO "Unknown AF %d in set rloc message\n", msg->addr.afi);
+    for (i = 0; i < msg->count; i++) {
+        rloc = &msg->rlocs[i];
+        add_ifindex_to_rloc_mapping(rloc->if_index,
+                                    &rloc->addr);
+
+        if (rloc->addr.afi == AF_INET) {
+            printk(KERN_INFO "  New RLOC Mapping %pI4 to %d\n",
+                   &rloc->addr.address.ip,
+                   rloc->if_index);
+        } else {
+            if (rloc->addr.afi == AF_INET6) {
+
+                printk(KERN_INFO "  New RLOC Mapping %pI4 to %d\n",
+                       rloc->addr.address.ipv6.s6_addr,
+                       rloc->if_index);
+            } else {
+                printk(KERN_INFO "Unknown AF %d in set rloc message\n", rloc->addr.afi);
+            }
+        }
     }
-  }
 }
 
 /*

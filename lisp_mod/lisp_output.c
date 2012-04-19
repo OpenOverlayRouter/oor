@@ -136,6 +136,25 @@ bool is_addrv6_local_eid(struct ipv6hdr *iph){
 	return 0;
 }
 
+uint32_t get_rloc_address_from_skb(struct sk_buff *skb)
+{
+    rloc_map_entry_t *entry;
+
+    entry = globals.if_to_rloc_hash_table[skb->mark & ((1<< IFINDEX_HASH_BITS) - 1)];
+
+    while (entry) {
+        if (entry->ifindex == skb->mark) {
+            break;
+        }
+        entry = entry->next;
+    }
+    if (!entry) {
+        return 0;
+    }
+
+    printk(KERN_INFO "  Using source RLOC %pi4 from ifindex: %d", &entry->addr.address.ip.s_addr, entry->ifindex);
+    return entry->addr.address.ip.s_addr;
+}
 
 void lisp_encap4(struct sk_buff *skb, int locator_addr,
 		 ushort inner_afi)
@@ -150,6 +169,20 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   uint32_t max_headroom;
   struct net_device *tdev; // Output device
   struct rtable *rt; // route to RLOC
+  uint32_t rloc = 0;
+
+  if (globals.multiple_rlocs) {
+      rloc = get_rloc_address_from_skb(skb);
+  } else {
+      if (globals.if_to_rloc_hash_table[0]) {
+          rloc = globals.if_to_rloc_hash_table[0]->addr.address.ip.s_addr;
+      }
+  }
+
+  if (!rloc) {
+      printk(KERN_INFO "Unable to determine source rloc for ifindex: %d", skb->mark);
+      return;
+  }
 
   /*
    * Painful: we have to do a routing check on our
@@ -163,7 +196,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
     * PN: Set correct saddr for route lookup
     */
     printk(KERN_INFO "lisp_encap4: saddr for route lookup: %pI4\n",
-                      &globals.my_rloc.address.ip.s_addr);
+                      &rloc);
   {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
     struct flowi fl;
@@ -178,7 +211,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
     struct flowi fl = { .oif = 0,
 			.nl_u = { .ip4_u = 
 				  { .daddr = locator_addr,
-				    .saddr = globals.my_rloc.address.ip.s_addr,
+                                    .saddr = rloc,
 				    .tos = RT_TOS(old_iph->tos) } },
 			.proto = IPPROTO_UDP };
     if (ip_route_output_key(&init_net, &rt, &fl)) {
@@ -296,10 +329,10 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   iph = (struct iphdr *)skb_push(skb, sizeof(struct iphdr));
   skb_reset_network_header(skb);
   memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
-  skb_dst_drop(skb);
-  skb_dst_set(skb, &rt->dst);
-#elif defined NEW_KERNEL
+  IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+                                IPSKB_REROUTED);
+
+#ifdef NEW_KERNEL
   skb_dst_drop(skb);
   skb_dst_set(skb, &rt->u.dst);
 #else
@@ -313,7 +346,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   iph->protocol = IPPROTO_UDP;
   iph->tos      = old_iph->tos; // Need something else too? XXX
   iph->daddr    = rt->rt_dst;
-  iph->saddr    = globals.my_rloc.address.ip.s_addr;
+  iph->saddr    = rloc;
   iph->ttl      = old_iph->ttl;
 
 #ifdef DEBUG_PACKETS
@@ -375,7 +408,14 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
   int    mtu;
   uint8_t dsfield;
   struct flowi fl;
+  lisp_addr_t *rloc = NULL;
   
+  if (globals.multiple_rlocs) {
+      //get_rloc_for_skb(rloc);
+  } else {
+      rloc = &globals.if_to_rloc_hash_table[0]->addr; // XXX should lock?
+  }
+
   /*
    * We have to do a routing check on our
    * proposed RLOC dstadr to determine the output
@@ -390,7 +430,7 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
 #else
     memcpy(&fl.fl6_dst, &locator_addr.address.ipv6, sizeof(struct in6_addr));
 #endif
-    if (globals.my_rloc_af != AF_INET6) {
+    if (rloc->afi != AF_INET6) {
       printk(KERN_INFO "No AF_INET6 source rloc available\n");
       return;
     }
@@ -632,7 +672,7 @@ unsigned int lisp_output6(unsigned int hooknum,
   eid_entry->active_within_period = 1;
 
   /*
-   * Hash to find the correct locator based on weight, priority, etc.
+   * Get the first locator for now... sync up with output4 to use hash XXX
    */
   loc_index = eid_entry->locator_hash_table[output_hash_v6(iph->saddr, iph->daddr)];
   if (!eid_entry->locator_list[loc_index]) {
@@ -815,7 +855,7 @@ unsigned int lisp_output4(unsigned int hooknum,
     printk(KERN_INFO "        No EID mapping found, notifying lispd...\n");
     miss_addr.address.ip.s_addr = iph->daddr;
     send_cache_miss_notification(miss_addr, AF_INET);
-    return NF_ACCEPT;  // What's the right thing to do here? XXX
+    return NF_DROP;  // Don't try to natively transmit without a cache entry
   }
 
   /*

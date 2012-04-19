@@ -57,6 +57,7 @@ patricia_tree_t *AF6_eid_db;
 // 3 locators --> 0000000....00000111
 int lsb_table[32 + 1];
 void build_lsb_table(void);
+void build_rloc_table(void);
 
 /*
  * create_tables
@@ -79,6 +80,7 @@ void create_tables(void)
   spin_lock_init(&table_lock);
 
   build_lsb_table();
+  build_rloc_table();
 }
 
 /*
@@ -96,6 +98,22 @@ void build_lsb_table(void)
         for (j = 0; j < i; j++) {
             lsb_table[i] |= 1 << j;
         }
+    }
+}
+
+/*
+ * build_rloc_table()
+ *
+ * Build an ifindex to rloc mapping hash table for
+ * advanced connection management.
+ */
+void build_rloc_table()
+{
+    int hashes = (1 << IFINDEX_HASH_BITS);
+    int i;
+
+    for (i = 0; i < hashes; i++) {
+        globals.if_to_rloc_hash_table[i] = NULL;
     }
 }
 
@@ -955,6 +973,59 @@ void update_locator_set_by_msg(lisp_cache_sample_msg_t *msg) {
         locator->state = loc_status;
     }
     update_locator_hash_table(map_entry);
+}
+
+/*
+ * add_ifindex_to_rloc_mapping
+ *
+ * Add an rloc to our interface to rloc map
+ */
+void add_ifindex_to_rloc_mapping(int ifindex, lisp_addr_t *rloc)
+{
+    int hash_index = ifindex & ((1 << IFINDEX_HASH_BITS) - 1);
+    rloc_map_entry_t *new_rloc;
+    rloc_map_entry_t *hash_head = globals.if_to_rloc_hash_table[hash_index];
+    int replace = 0;
+
+    new_rloc = hash_head;
+
+    // Check if we're replacing an existing index
+    while (new_rloc) {
+        if (new_rloc->ifindex == ifindex) {
+            replace = 1;
+            break;
+        }
+        new_rloc = new_rloc->next;
+    }
+
+    if (!replace) {
+        new_rloc = kmalloc(GFP_ATOMIC, sizeof(rloc_map_entry_t));
+
+        if (!new_rloc) {
+            printk(KERN_INFO "Unable to allocate new rloc table entry.");
+            return;
+        }
+        new_rloc->ifindex = ifindex;
+        memcpy(&new_rloc->addr, rloc, sizeof(lisp_addr_t));
+
+        if (!hash_head) {
+            globals.if_to_rloc_hash_table[hash_index] = new_rloc;
+            new_rloc->next = NULL;
+        } else {
+            new_rloc->next = hash_head;
+        }
+    } else {
+
+        // Just update the existing entry
+        new_rloc->ifindex = ifindex;
+        memcpy(&new_rloc->addr, rloc, sizeof(lisp_addr_t));
+    }
+
+    if (ifindex != 0) {
+
+        // Non-default ifindex implies we have multiple RLOCs
+        globals.multiple_rlocs = 1;
+    }
 }
 
 /*
