@@ -204,7 +204,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
     fl.flowi_tos   = RT_TOS(old_iph->tos);
     fl.flowi_proto = IPPROTO_UDP;
     fl.u.ip4.daddr = locator_addr;
-    fl.u.ip4.saddr = globals.my_rloc.address.ip.s_addr;
+    fl.u.ip4.saddr = rloc;
     rt = ip_route_output_key(&init_net, &fl.u.ip4);
     if (IS_ERR(rt)) {
 #else
@@ -331,8 +331,10 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
   IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
                                 IPSKB_REROUTED);
-
-#ifdef NEW_KERNEL
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
+  skb_dst_drop(skb);
+  skb_dst_set(skb, &rt->dst);
+#elif defined NEW_KERNEL
   skb_dst_drop(skb);
   skb_dst_set(skb, &rt->u.dst);
 #else
@@ -435,7 +437,7 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
       return;
     }
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
-    memcpy(&fl.u.ip6.saddr, &globals.my_rloc.address.ipv6, sizeof(struct in6_addr));
+    memcpy(&fl.u.ip6.saddr, &rloc->address.ipv6, sizeof(struct in6_addr));
     fl.flowi_oif = 0;
 
     fl.u.ip6.flowlabel = 0;
@@ -444,7 +446,7 @@ void lisp_encap6(struct sk_buff *skb, lisp_addr_t locator_addr,
 
   dst = ip6_route_output(&init_net, NULL, &fl.u.ip6);
 #else
-    memcpy(&fl.fl6_src, &globals.my_rloc.address.ipv6, sizeof(struct in6_addr));
+    memcpy(&fl.fl6_src, &rloc->address.ipv6, sizeof(struct in6_addr));
     fl.oif = 0;
 
     fl.fl6_flowlabel = 0;

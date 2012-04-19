@@ -128,6 +128,10 @@ typedef struct _lisp_set_rloc_msg {
     rloc_t rlocs[0];
 } lisp_set_rloc_msg_t;
 
+typedef struct _lisp_add_local_eid_msg {
+  lisp_addr_t addr;
+} lisp_add_local_eid_msg_t;
+
 typedef enum {
     ActionDrop = 0,
     ActionForward,
