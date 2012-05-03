@@ -56,17 +56,17 @@ int setup_netfilter_hooks(void)
   globals.netfilter_ops_in.hook     = lisp_input;
   globals.netfilter_ops_in.pf       = PF_INET;
   globals.netfilter_ops_in.hooknum  = NF_INET_PRE_ROUTING;
-  globals.netfilter_ops_in.priority = NF_IP_PRI_FIRST;
+  globals.netfilter_ops_in.priority = NF_IP_PRI_LAST;
 
   globals.netfilter_ops_out.hook    = lisp_output4;
   globals.netfilter_ops_out.pf      = PF_INET;
   globals.netfilter_ops_out.hooknum = NF_INET_LOCAL_OUT;
-  globals.netfilter_ops_out.priority = NF_IP_PRI_FIRST;
+  globals.netfilter_ops_out.priority = NF_IP_PRI_LAST;
 
   globals.netfilter_ops_out6.hook    = lisp_output6;
   globals.netfilter_ops_out6.pf      = PF_INET6;
   globals.netfilter_ops_out6.hooknum = NF_INET_LOCAL_OUT;
-  globals.netfilter_ops_out6.priority = NF_IP_PRI_FIRST;
+  globals.netfilter_ops_out6.priority = NF_IP_PRI_LAST;
     
   globals.multiple_rlocs = 0;
 

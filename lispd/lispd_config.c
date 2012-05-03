@@ -291,6 +291,7 @@ int add_database_mapping(dm)
 
     char *eid_pref_for_add_iface = strdup (eid_prefix);
     lisp_addr_t eid_addr;
+
     memset(&eid_addr, 0, sizeof(lisp_addr_t));
     afi = get_afi(eid_prefix);  
     eid_addr.afi = afi;
@@ -491,6 +492,27 @@ int add_database_mapping(dm)
      */
     if (ctrl_iface == NULL)
         ctrl_iface = find_active_ctrl_iface();
+#ifdef LISPMOBMH
+    /* We need a default rloc (iface) to use. As of now 
+     * we will use the same as the ctrl_iface */
+    if(ctrl_iface != NULL){
+       if (ctrl_iface->AF4_locators->head){
+		  if (ctrl_iface->AF4_locators->head->db_entry) {
+				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+				syslog(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
+		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+			}
+		}
+		else{
+			if (ctrl_iface->AF6_locators->head){
+			  if (ctrl_iface->AF6_locators->head->db_entry) {
+					set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+				}
+			}
+		}
+    }
+
+#endif
 
     free(eid_pref_for_add_iface);
     free(rloc_ptr);

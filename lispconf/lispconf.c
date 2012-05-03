@@ -781,11 +781,11 @@ int set_rloc_interface(struct gengetopt_args_info *args_info)
     }
 
     cmd->type = LispSetRLOC;
-    cmd->length = sizeof(lisp_set_rloc_msg_t);
+    cmd->length = sizeof(lisp_set_rloc_msg_t)+ sizeof(rloc_t);
     memset((char *)&rloc_msg, 0, sizeof(lisp_set_rloc_msg_t));
     rloc_msg = (lisp_set_rloc_msg_t *)cmd->val;
-    rloc_msg->addr.address.ip.s_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
-
+    rloc_msg->rlocs->addr.address.ip.s_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
+    rloc_msg->count=1;
     retval = send_command(cmd, cmd_length + sizeof(lisp_cmd_t));
 
     return retval;

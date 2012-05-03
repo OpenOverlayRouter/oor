@@ -144,6 +144,22 @@ static void dump_iface_list (item)
     }
 }
 
+
+/* get_rt_number
+ * Selects an appropriate routing table number.
+ * As of now is quite naive it goes to the last element in the table
+ * and picks rt_number+1.
+ */
+
+int get_rt_number()
+{
+	iface_list_elt *item=avail_phy_ifaces->tail;
+	if(item)
+		return item->rt_table_num+1;
+	return RT_TABLE_LISP_MN;
+}
+
+
 /*
  * Add/update iface_list_elt with the input parameters
  */
@@ -190,6 +206,11 @@ int update_iface_list (iface_name, eid_prefix,
         memset (elt->AF4_locators, 0, sizeof(db_entry_list));
         memset (elt->AF6_locators, 0, sizeof(db_entry_list));
         elt->iface_name     = strdup(iface_name);
+        //get a table number that we can use
+        elt->rt_table_num	= get_rt_number();
+#ifdef LISPMOBMH
+		elt->if_index = if_nametoindex(iface_name);
+#endif
 
         add_item_to_iface_list (avail_phy_ifaces,elt);
     }
@@ -239,6 +260,15 @@ int update_iface_list (iface_name, eid_prefix,
     dump_iface_list(avail_phy_ifaces->head);
 
     return (1);
+}
+
+
+/* 
+ * Function that allows iterating through interfaces from elsewhere
+ */
+iface_list_elt *get_first_iface_elt(){
+	iface_list_elt  *elt = avail_phy_ifaces->head;
+	return elt;
 }
 
 /*

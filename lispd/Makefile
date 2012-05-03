@@ -13,7 +13,7 @@
 
 CC		= gcc
 GENGETOPT	= gengetopt
-CFLAGS		+= -Wall -Wno-implicit-function-declaration -g -DDEBUG=3
+CFLAGS		+= -Wall -Wno-implicit-function-declaration -g -DDEBUG=3 -DTESTLOCALEID 
 LIBS		= -lconfuse -lssl -lcrypto -lrt
 INC		= lispd.h
 MAKEFILE	= Makefile
