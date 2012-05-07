@@ -113,13 +113,31 @@ typedef struct _lisp_lookup_msg {
   int         all_entries;
 } lisp_lookup_msg_t;
 
+/*#ifndef LISPMOBMH
 typedef struct _lisp_set_rloc_msg {
   lisp_addr_t addr;
 } lisp_set_rloc_msg_t;
 
+#else*/
+/*
+ * RLOC/ifindex mapping. if_index
+ * of zero indicates default/single RLOC
+ */
+typedef struct {
+    lisp_addr_t addr;
+    int if_index;
+} rloc_t;
+
+typedef struct _lisp_set_rloc_msg {
+    int count;
+    rloc_t rlocs[0];
+} lisp_set_rloc_msg_t;
+//#endif
+
 typedef struct _lisp_add_local_eid_msg {
   lisp_addr_t addr;
 } lisp_add_local_eid_msg_t;
+
 
 #define ACTION_DROP         0
 #define ACTION_FORWARD      1

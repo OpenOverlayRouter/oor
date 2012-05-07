@@ -60,6 +60,10 @@ extern  int update_iface_list(char *iface_name,
                                 int weight, int priority);
 extern  iface_list_elt *find_active_ctrl_iface ();
 extern  iface_list_elt *search_iface_list(char *iface_name);
+
+
+extern  iface_list_elt *get_first_iface_elt();
+
 extern  void add_item_to_db_entry_list(db_entry_list *dbl, 
                                         db_entry_list_elt *elt);
 extern  int del_item_from_db_entry_list(db_entry_list *dbl, 

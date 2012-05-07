@@ -794,15 +794,21 @@ int get_map_cache_rloc_list() {
 /*
  *  update source RLOC in kernel module
  */
-
-int set_rloc(lisp_addr_t *my_addr) {
+//#ifdef LISPMOBMH
+int set_rloc(lisp_addr_t *my_addr, int if_index) {
+//#else
+//int set_rloc(lisp_addr_t *my_addr) {
+//#endif
     int                 retval = 0;
     size_t              cmd_length = 0;
     lisp_cmd_t          *cmd;
     lisp_set_rloc_msg_t *set_rloc_msg;
-
-    cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_set_rloc_msg_t);
-
+//#ifdef LISPMOBMH
+	//rloc_t rloc2set;
+	cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_set_rloc_msg_t) + sizeof(rloc_t);
+//#else
+  //  cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_set_rloc_msg_t);
+//#endif
     if ((cmd = malloc(cmd_length)) == 0) {
         syslog(LOG_DAEMON, "set_rloc: malloc failed");
         return(0);
@@ -813,10 +819,18 @@ int set_rloc(lisp_addr_t *my_addr) {
     set_rloc_msg = (lisp_set_rloc_msg_t *) CO(cmd, sizeof(lisp_cmd_t));
 
     cmd->type   = LispSetRLOC;
-    cmd->length = sizeof(lisp_set_rloc_msg_t);
+//#ifdef LISPMOBMH
+    cmd->length = sizeof(lisp_set_rloc_msg_t) + sizeof(rloc_t);
 
-    memcpy(&(set_rloc_msg->addr), my_addr, sizeof(lisp_addr_t));
+	set_rloc_msg->count=1;
+    memcpy(&(set_rloc_msg->rlocs->addr), my_addr, sizeof(lisp_addr_t));
+    //set_rloc_msg->rlocs->addr.afi = my_addr->afi;
+    set_rloc_msg->rlocs->if_index=if_index;	
+//#else
+  //  cmd->length = sizeof(lisp_set_rloc_msg_t);
 
+   // memcpy(&(set_rloc_msg->addr), my_addr, sizeof(lisp_addr_t));
+//#endif
     retval = send_command(cmd, cmd_length);
     syslog(LOG_DAEMON, "Updating RLOC in data plane");
     free(cmd);

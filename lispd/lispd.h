@@ -208,6 +208,12 @@
  */
 #define MAX_INET_ADDRSTRLEN INET6_ADDRSTRLEN
 
+//mportoles - have to think wether this is the appropriate place
+/*
+ *  base RT number to use in multihomed policy routing scenarios
+ */
+#define RT_TABLE_LISP_MN            5
+
 /*
  *  lispd database entry
  */
@@ -804,6 +810,10 @@ typedef struct _iface_list_elt {
     int             ready;          // is the iface up and runing?
     int             weight;         // weight & priority associated with the
     int             priority;       // iface
+    int rt_table_num;			// num of the routing table to use for policy routing
+#ifdef LISPMOBMH
+    int if_index;
+#endif
     lisp_addr_t     gateway;        // gateway IP (v4/v6) for this iface
     struct _iface_list_elt *next;
 } iface_list_elt;

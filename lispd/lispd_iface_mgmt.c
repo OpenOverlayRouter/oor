@@ -626,29 +626,51 @@ static int rule_del(int if_index, uint8_t table,
             src, src_plen, dst, dst_plen, flags);
 }
 
+
+/* This function adds policy routing associated to an interface rloc.
+ * It is also used to decouple addition of policy rules from 
+ * the population of the table
+ */
+int setup_source_routing_policy(iface_name, src_rloc, rt_num)
+char *iface_name;       // outgoing interface
+lisp_addr_t *src_rloc; // src address to match
+int rt_num;
+{
+    /*
+     * Step 1:
+     * add the ip rule for the LISP_MN routing table
+     * ip rule add from <src_rloc> table <rt_num>
+	 * It does a priory preventive 'cleaning'
+	 */
+    if (!rule_del(0, rt_num, LISP_MN_IP_RULE_PRIORITY,
+            RTN_UNICAST, src_rloc,
+            ((src_rloc->afi == AF_INET6) ? 128 : 32),
+            NULL, 0, 0 )) {
+        syslog(LOG_DAEMON, "rule_del (setup_source_routing_policy()) failed\n");
+        return 0;
+    }
+    if (!rule_add(0, rt_num, LISP_MN_IP_RULE_PRIORITY,
+            RTN_UNICAST, src_rloc,
+            ((src_rloc->afi == AF_INET6) ? 128 : 32),
+            NULL, 0, 0 )) {
+        syslog(LOG_DAEMON, "rule_add (setup_source_routing_policy()) failed\n");
+        return 0;
+    }
+    return 1;
+}
+
+
 /*
  * This function configures source address based
  * policy routing in the kernel
  */
-static int setup_source_routing(iface_name, src_rloc, gateway)
+static int setup_source_routing(iface_name, src_rloc, gateway, rt_num)
     char *iface_name;       // outgoing interface
     lisp_addr_t *src_rloc;  // src address to match
     lisp_addr_t *gateway;   // default gateway address
+	int rt_num;				// routing table number
 {
-
-    /* 
-     * Step 1:
-     * add the ip rule for the LISP_MN routing table
-     * ip rule add from <src_rloc> table RT_TABLE_LISP_MN
-     */
-    if (!rule_add(0, RT_TABLE_LISP_MN, LISP_MN_IP_RULE_PRIORITY, 
-            RTN_UNICAST, src_rloc, 
-            ((src_rloc->afi == AF_INET6) ? 128 : 32),
-            NULL, 0, 0 )) {
-        syslog(LOG_DAEMON, "rule_add (setup_source_routing()) failed\n");
-        return 0;
-    }
-
+    //Step 1 moved to another function
     /*
      * Step 2:
      * add the default gateway for this rule
@@ -657,7 +679,7 @@ static int setup_source_routing(iface_name, src_rloc, gateway)
     int if_index = if_nametoindex(iface_name);
     if (!route_add(0, NULL, 0,
                 NULL, 0, 
-                gateway, if_index, RT_TABLE_LISP_MN, 0, 0)) {
+                gateway, if_index, rt_num, 0, 0)) {
         syslog(LOG_DAEMON, "route_add (setup_source_routing()) failed\n");
         return 0;
     }
@@ -667,10 +689,11 @@ static int setup_source_routing(iface_name, src_rloc, gateway)
 /* This function deletes the rule and default gateway
  * for a particular policy route
  */
-static int delete_source_routing(iface_name, src_rloc, gateway)
+static int delete_source_routing(iface_name, src_rloc, gateway,rt_num)
     char *iface_name;       // outgoing interface
     lisp_addr_t *src_rloc;  // src address to match
     lisp_addr_t *gateway;   // default gateway address
+	int rt_num;				// routing table number
 {
     int if_index = if_nametoindex(iface_name);
 
@@ -679,7 +702,7 @@ static int delete_source_routing(iface_name, src_rloc, gateway)
      * delete the ip rule for the LISP_MN routing table
      * ip rule del from <src_rloc> table RT_TABLE_LISP_MN
      */
-    if (!rule_del(0, RT_TABLE_LISP_MN, LISP_MN_IP_RULE_PRIORITY, 
+    if (!rule_del(0, rt_num, LISP_MN_IP_RULE_PRIORITY, 
             RTN_UNICAST, src_rloc, 
             ((src_rloc->afi == AF_INET6) ? 128 : 32), 
             NULL, 0, 0 )) {
@@ -693,7 +716,7 @@ static int delete_source_routing(iface_name, src_rloc, gateway)
      * ip route del default via <gtw> dev <iface> table RT_TABLE_LISP_MN
      */
     if (!route_del(0, NULL, 0,
-                NULL, 0, gateway, if_index, RT_TABLE_LISP_MN)) {
+                NULL, 0, gateway, if_index, rt_num)) {
         syslog(LOG_DAEMON, "route_del (delete_source_routing()) failed\n");
         return 0;
     }
@@ -1120,6 +1143,26 @@ int process_netlink_iface ()
                 
                 if (ctrl_iface == NULL) {
                   ctrl_iface = find_active_ctrl_iface ();
+#ifdef LISPMOBMH
+    				/* We need a default rloc (iface) to use. As of now 
+     				 * we will use the same as the ctrl_iface */
+    				if(ctrl_iface != NULL){
+       					if (ctrl_iface->AF4_locators->head){
+		  					if (ctrl_iface->AF4_locators->head->db_entry) {
+								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+							}
+						}
+						else{
+							if (ctrl_iface->AF6_locators->head){
+			  					if (ctrl_iface->AF6_locators->head->db_entry) {
+									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+								}
+							}
+						}
+    				}
+#endif
                 }
                 break;
 
@@ -1186,13 +1229,38 @@ int process_netlink_iface ()
                  * the new address in lisp_mod.
                  * Else, seems to be a race condition?
                  */
-
-                set_rloc(&rloc);
+#ifndef LISPMOBMH
+                set_rloc(&rloc,0);
+#else
+				set_rloc(&rloc,if_nametoindex(elt->iface_name));
+#endif
 
                 if (ctrl_iface == NULL) {
                     ctrl_iface = find_active_ctrl_iface();
+#ifdef LISPMOBMH
+    				/* We need a default rloc (iface) to use. As of now 
+     				 * we will use the same as the ctrl_iface */
+    				if(ctrl_iface != NULL){
+       					if (ctrl_iface->AF4_locators->head){
+		  					if (ctrl_iface->AF4_locators->head->db_entry) {
+								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+							}
+						}
+						else{
+							if (ctrl_iface->AF6_locators->head){
+			  					if (ctrl_iface->AF6_locators->head->db_entry) {
+									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+								}
+							}
+						}
+    				}
+#endif
                 }
-
+	        //adding source routing policy
+                setup_source_routing_policy(elt->iface_name,
+                    &rloc, elt->rt_table_num);
                 break;
 
             case RTM_NEWROUTE:
@@ -1302,8 +1370,15 @@ int process_netlink_iface ()
                         &(db_entry->locator),
                         sizeof(lisp_addr_t));
 
+		/* Policy routing is based on src address so should not be here
+		 * However, I would keep it for consistency until we fully control 
+		 * Netlink cases in multihomed scenarios
+		 */
+                setup_source_routing_policy(elt->iface_name,
+                    &src_rloc, elt->rt_table_num);
+
                 setup_source_routing (elt->iface_name,
-                    &src_rloc, &gateway);
+                    &src_rloc, &gateway, elt->rt_table_num);
                 memcpy(&source_rloc, &src_rloc, sizeof(lisp_addr_t));
 
                 /*
@@ -1312,15 +1387,39 @@ int process_netlink_iface ()
                  * during RTM_NEWADDR
                  */
                 install_database_mapping(db_entry);
-                set_rloc(&src_rloc);
+#ifndef LISPMOBMH
+                set_rloc(&src_rloc,0);
+#else
+				set_rloc(&src_rloc,if_nametoindex(elt->iface_name));
+#endif
 
                 /*
                  * Update control interface for lispd control messages
                  * if needed
                  */
-                if (ctrl_iface == NULL)
+                if (ctrl_iface == NULL){
                     ctrl_iface = find_active_ctrl_iface();
-
+#ifdef LISPMOBMH
+    				/* We need a default rloc (iface) to use. As of now 
+     				 * we will use the same as the ctrl_iface */
+    				if(ctrl_iface != NULL){
+       					if (ctrl_iface->AF4_locators->head){
+		  					if (ctrl_iface->AF4_locators->head->db_entry) {
+								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+							}
+						}
+						else{
+							if (ctrl_iface->AF6_locators->head){
+			  					if (ctrl_iface->AF6_locators->head->db_entry) {
+									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+								}
+							}
+						}
+    				}
+#endif
+				}
                 /*
                  * Map register the new RLOC
                  */
@@ -1394,7 +1493,7 @@ int process_netlink_iface ()
                 if (elt->gateway.afi)
                 {
                     delete_source_routing(elt->iface_name, &rloc,
-                            &(elt->gateway));
+                            &(elt->gateway),elt->rt_table_num);
 
                     memset(&elt->gateway, 0, sizeof(lisp_addr_t));
 
@@ -1406,6 +1505,26 @@ int process_netlink_iface ()
                 if (elt == ctrl_iface) {
                     ctrl_iface = NULL;
                     ctrl_iface = find_active_ctrl_iface();
+#ifdef LISPMOBMH
+    				/* We need a default rloc (iface) to use. As of now 
+     				 * we will use the same as the ctrl_iface */
+    				if(ctrl_iface != NULL){
+       					if (ctrl_iface->AF4_locators->head){
+		  					if (ctrl_iface->AF4_locators->head->db_entry) {
+								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+							}
+						}
+						else{
+							if (ctrl_iface->AF6_locators->head){
+			  					if (ctrl_iface->AF6_locators->head->db_entry) {
+									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+								}
+							}
+						}
+    				}
+#endif /*LISPMOBMH*/
                 }
                 break;
 
@@ -1613,6 +1732,10 @@ static int lower_default_route_metric(void) {
  */
 
 void exit_cleanup(void) {
+
+    /*Need iterator to remove state associated to each interface*/
+    iface_list_elt *list_iterator = NULL;
+
     /* Close timer file descriptors */
     close(map_register_timer_fd);
 
@@ -1627,7 +1750,22 @@ void exit_cleanup(void) {
     system("/sbin/modprobe -r lisp lisp_int");
 
     /* Remove source routing ip rule */
-    delete_source_routing(ctrl_iface, &source_rloc, NULL);
+    /* Need to iterate through multiple ifaces, in case of multihoming*/
+    //delete_source_routing(ctrl_iface, &source_rloc, NULL);
+    list_iterator=get_first_iface_elt();
+    while(list_iterator){
+    	if (list_iterator->AF4_locators->head) {
+    		if (list_iterator->AF4_locators->head->db_entry) {
+    			delete_source_routing(list_iterator, &(list_iterator->AF4_locators->head->db_entry->locator), NULL,list_iterator->rt_table_num);
+            }
+		}
+		if (list_iterator->AF6_locators->head) {
+                if (list_iterator->AF6_locators->head->db_entry) {
+				delete_source_routing(list_iterator, &(list_iterator->AF6_locators->head->db_entry->locator), NULL,list_iterator->rt_table_num);
+			}
+        }
+    	list_iterator=list_iterator->next;
+    }
 
     /* Lower metric on default route to 0 and remove realm */
     lower_default_route_metric();
