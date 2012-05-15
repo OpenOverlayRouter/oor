@@ -142,6 +142,12 @@
 #define DEFAULT_DATA_CACHE_TTL          60  /* seconds */
 #define DEFAULT_SELECT_TIMEOUT          1000/* ms */
 
+#ifdef LISPMOBMH
+#define DEFAULT_SMR_TIMEOUT           	2  /* MP: Sets the default value to send an SMR
+                                            * after an interface goes down
+                                            */
+#endif
+
 /*
  * LISP Types
  */

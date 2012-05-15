@@ -69,6 +69,10 @@ extern  void add_item_to_db_entry_list(db_entry_list *dbl,
 extern  int del_item_from_db_entry_list(db_entry_list *dbl, 
                                         lispd_db_entry_t *elt);
 
+#ifdef LISPMOBMH
+extern  void smr_pitrs(void);
+#endif
+
 
 extern  lispd_database_t  *lispd_database;
 extern  lispd_map_cache_t *lispd_map_cache;
@@ -95,6 +99,9 @@ extern  int         netlink_fd;
 extern  int         v6_receive_fd;
 extern  int         v4_receive_fd;
 extern  int         map_register_timer_fd;
+#ifdef LISPMOBMH
+extern  int			smr_timer_fd;
+#endif
 extern  struct  sockaddr_nl dst_addr;
 extern  struct  sockaddr_nl src_addr;
 extern  nlsock_handle       nlh;
