@@ -114,6 +114,10 @@ nlsock_handle nlh;
  *      timers (fds)
  */
 int     map_register_timer_fd           = 0;
+#ifdef LISPMOBMH
+/* timer to rate control smr's in multihoming scenarios */
+int 	smr_timer_fd					= 0;
+#endif
 
 /* 
  * Interface on which control messages
@@ -233,6 +237,14 @@ int main(int argc, char **argv)
     if ((map_register_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
         syslog(LOG_INFO, "Could not create periodic map register timer");
 
+#ifdef LISPMOBMH
+    if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
+        syslog(LOG_INFO, "Could not create the SMR timer controller");
+    /*Make sure the timer starts with coherent values*/
+    stop_smr_timeout();
+#endif
+
+
     /*
      *  see if we need to daemonize, and if so, do it
      */
@@ -329,6 +341,9 @@ void event_loop(void)
     max_fd = (max_fd > netlink_fd)           ? max_fd : netlink_fd;
     max_fd = (max_fd > nlh.fd)               ? max_fd : nlh.fd;
     max_fd = (max_fd > map_register_timer_fd)? max_fd : map_register_timer_fd;
+#ifdef LISPMOBMH
+    max_fd = (max_fd > smr_timer_fd)		 ? max_fd : smr_timer_fd;
+#endif
 
     // Modified by acabello
     prev=time(NULL);
@@ -340,6 +355,9 @@ void event_loop(void)
         FD_SET(netlink_fd,&readfds);
         FD_SET(nlh.fd, &readfds);
         FD_SET(map_register_timer_fd, &readfds);
+#ifdef LISPMOBMH
+        FD_SET(smr_timer_fd,&readfds);
+#endif
         if (have_input(max_fd,&readfds) == -1)
             break;                              /* news is bad */
         if (FD_ISSET(v4_receive_fd,&readfds))
@@ -352,6 +370,10 @@ void event_loop(void)
                 process_netlink_iface();
         if (FD_ISSET(map_register_timer_fd,&readfds))
                 periodic_map_register();
+#ifdef LISPMOBMH
+        if (FD_ISSET(smr_timer_fd,&readfds))
+                smr_on_timeout();
+#endif
         // Modified by acabello
         // Each second expire_datacache
         // This can be improved by using threading and timer_create()

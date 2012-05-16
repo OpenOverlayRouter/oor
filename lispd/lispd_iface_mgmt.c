@@ -1164,6 +1164,17 @@ int process_netlink_iface ()
     				}
 #endif
                 }
+
+#ifdef LISPMOBMH
+                if(elt->ready ==0 && ctrl_iface != NULL){
+                    /* Update MAP Register and trigger SMRs.
+                     * In case there are NO active interfaces this is not triggered.
+                     * LSB bits should indicate this (security concerns?)*/
+                    //start timeout to send smr
+                	start_smr_timeout();
+                }
+#endif
+
                 break;
 
             /*    
@@ -1420,6 +1431,10 @@ int process_netlink_iface ()
     				}
 #endif
 				}
+#ifdef LISPMOBMH
+                /*Stop any ongoing SMR clock*/
+                stop_smr_timeout();
+#endif
                 /*
                  * Map register the new RLOC
                  */
@@ -1429,6 +1444,7 @@ int process_netlink_iface ()
                  */
                 sleep (3);
                 syslog(LOG_DAEMON, "process_netlink_iface(): Map register\n");
+
 
                 start_periodic_map_register();
 

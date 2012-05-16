@@ -266,9 +266,7 @@ int send_map_register(ms, mrp, mrp_len)
 int get_locator_length(locator_chain_elt)
     lispd_locator_chain_elt_t   *locator_chain_elt;
 {
-
     int sum = 0;
-
     while (locator_chain_elt) {
         switch (locator_chain_elt->db_entry->locator.afi) {
         case AF_INET:
@@ -343,6 +341,70 @@ inline void periodic_map_register(void)
     if (!map_register(AF4_database))
         syslog(LOG_INFO, "Periodic AF_INET map register failed");
 }
+
+
+#ifdef LISPMOBMH
+/* Machinery to handle rate limited smrs when interfaces go up and down
+ * in dynamic multihomed scenarios.
+ */
+
+void start_smr_timeout(void)
+{
+    struct itimerspec interval;
+
+    if (timerfd_gettime(smr_timer_fd, &interval) == -1)
+            syslog(LOG_INFO, "timerfd_gettime: %s", strerror(errno));
+
+    if (interval.it_value.tv_sec == 0){
+    	/*Timer is disarmed. Start it*/
+
+    	interval.it_interval.tv_sec  = 0;
+    	interval.it_interval.tv_nsec = 0;
+    	interval.it_value.tv_sec     = DEFAULT_SMR_TIMEOUT;
+    	interval.it_value.tv_nsec    = 0;
+
+    	syslog(LOG_INFO, "Start timer to send an smr in %d seconds",
+    			DEFAULT_SMR_TIMEOUT);
+
+    	if (timerfd_settime(smr_timer_fd, 0, &interval, NULL) == -1)
+    		syslog(LOG_INFO, "timerfd_settime: %s", strerror(errno));
+    }
+}
+
+
+void stop_smr_timeout(void)
+{
+    struct itimerspec interval;
+
+    interval.it_interval.tv_sec  = 0;
+    interval.it_interval.tv_nsec = 0;
+    interval.it_value.tv_sec     = 0;
+    interval.it_value.tv_nsec    = 0;
+
+    syslog(LOG_INFO, "Clear timer to send smrs");
+
+    if (timerfd_settime(smr_timer_fd, 0, &interval, NULL) == -1)
+        syslog(LOG_INFO, "timerfd_settime: %s", strerror(errno));
+}
+
+
+inline void smr_on_timeout(void)
+{
+    ssize_t s;
+    uint64_t num_exp;
+
+    if((s = read(smr_timer_fd, &num_exp, sizeof(num_exp))) != sizeof(num_exp))
+        syslog(LOG_INFO, "read error (smr_on_timeout): %s", strerror(errno));
+    /*
+     * Trigger SMR to PITRs and the MN's peers
+     */
+    smr_pitrs();
+    get_map_cache_list();
+}
+#endif
+
+
+
 
 
 /*
