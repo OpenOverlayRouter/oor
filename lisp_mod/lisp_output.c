@@ -55,6 +55,8 @@
  */
 #define NEW_KERNEL
 
+#define LISP_EID_INTERFACE    "lmn0"
+
 extern lisp_globals globals;
 
 static inline uint16_t src_port_hash(struct iphdr *iph)
@@ -583,6 +585,24 @@ unsigned int lisp_output6(unsigned int hooknum,
          iph->saddr.s6_addr);
 #endif
 
+
+  /*
+   * Check for local destination, punt if so.
+   * AL: An equivalent function to is_v4addr_local has not been found.
+   *   : As the default route is through the interface lmn0, if the output interface is not lmn0 the packet
+   *   : has a local destination.
+   */
+
+  if (strcmp(output_dev->name,LISP_EID_INTERFACE)!=0)
+  {
+#ifdef DEBUG_PACKETS
+      printk(KERN_INFO "       Packet is locally destined.\n");
+#endif
+      return NF_ACCEPT;
+  }
+
+
+
   /*
    * Check whether the packet should be encapsulated
    */
@@ -594,6 +614,7 @@ unsigned int lisp_output6(unsigned int hooknum,
 		  return NF_ACCEPT;
 	  }
   }
+
 
   /*
    * Sanity check the inner packet XXX
