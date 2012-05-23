@@ -129,7 +129,7 @@ bool is_addrv4_local_eid(struct iphdr *iph){
 bool is_addrv6_local_eid(struct ipv6hdr *iph){
 	int i;
 	for(i=0;i<globals.num_local_eid;i++){
-		if(!ipv6_addr_equal(&iph->saddr,&globals.local_eid_list[i].address.ipv6)){
+		if(ipv6_addr_equal(&iph->saddr,&globals.local_eid_list[i].address.ipv6)){
 			return 1;
 		}
 	}
