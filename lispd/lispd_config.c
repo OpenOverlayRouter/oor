@@ -466,18 +466,11 @@ int add_database_mapping(dm)
     locator_chain_elt->locator_name  = db_entry->locator_name;
 
     /*
-     *  connect up the locator_chain and locator_chain_elt
+       connect up the locator_chain and locator_chain_elt sorted by RLOCs
      */
-    if (locator_chain->head == NULL) {
-        locator_chain->head = locator_chain_elt;
-        locator_chain->tail = locator_chain_elt;
-    } else {
-        locator_chain->tail->next = locator_chain_elt;
-        locator_chain->tail       = locator_chain_elt;
-    }
+    
+     add_locator_chain_elt (locator_chain, locator_chain_elt);
 
-    locator_chain->locator_count ++;
-       
     /* 
      * PN: Update interface information with the new rloc 
      * information

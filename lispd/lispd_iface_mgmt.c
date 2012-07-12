@@ -975,17 +975,10 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     add_elt->locator_name  = db_entry->locator_name;
 
     /*
-     *  connect up the locator_chain and locator_chain_elt
+     *  connect up the locator_chain and locator_chain_elt sorted by RLOCs
      */
-    if (locator_chain->head == NULL) {
-        locator_chain->head = add_elt;
-        locator_chain->tail = add_elt;
-    } else {
-        locator_chain->tail->next = add_elt;
-        locator_chain->tail       = add_elt;
-    }
 
-    locator_chain->locator_count ++;
+    add_locator_chain_elt (locator_chain, add_elt);
 
     syslog(LOG_DAEMON, "add_rloc(): %s added to interface %s", 
                     inet_ntop (db_entry->locator.afi,

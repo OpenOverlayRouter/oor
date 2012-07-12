@@ -673,6 +673,66 @@ void dump_tree(afi,tree)
     } PATRICIA_WALK_END;
 }
 
+
+/*
+ *  connect up the locator_chain and locator_chain_elt sorted by RLOC
+ */
+
+int add_locator_chain_elt(locator_chain, locator_chain_elt)
+    lispd_locator_chain_t       *locator_chain;
+    lispd_locator_chain_elt_t   *locator_chain_elt;
+{
+    lispd_locator_chain_elt_t   *aux_locator_chain_elt = NULL;
+    lispd_locator_chain_elt_t   *prev_aux_locator_chain_elt = NULL;
+    int find_bigger_rloc = 0;
+
+    if (locator_chain->head == NULL) {
+        locator_chain->head = locator_chain_elt;
+        locator_chain->tail = locator_chain_elt;
+    } else {
+        aux_locator_chain_elt = locator_chain->head;
+        while (aux_locator_chain_elt != NULL)
+        {
+            if (locator_chain_elt->db_entry->locator.afi == AF_INET){
+                if (aux_locator_chain_elt->db_entry->locator.afi == AF_INET6){
+                    find_bigger_rloc = 1;
+                    break;
+                }else {
+                    if (memcmp(&locator_chain_elt->db_entry->locator.address.ip,&aux_locator_chain_elt->db_entry->locator.address.ip,sizeof(struct in_addr))<0 )
+                    {
+                        find_bigger_rloc = 1;
+                        break;
+                    }
+                }
+            }else{
+                if (aux_locator_chain_elt->db_entry->locator.afi == AF_INET6){
+                    if (memcmp(&locator_chain_elt->db_entry->locator.address.ipv6,&aux_locator_chain_elt->db_entry->locator.address.ipv6,sizeof(struct in6_addr))<0){
+                        find_bigger_rloc = 1;
+                        break;
+                    }
+                }
+            }
+            prev_aux_locator_chain_elt = aux_locator_chain_elt;
+            aux_locator_chain_elt = aux_locator_chain_elt->next;
+        }
+        if (find_bigger_rloc == 1){
+            if (prev_aux_locator_chain_elt == NULL){
+                locator_chain_elt->next = aux_locator_chain_elt;
+                locator_chain->head = locator_chain_elt;
+            }else {
+                locator_chain_elt->next = aux_locator_chain_elt;
+                prev_aux_locator_chain_elt->next = locator_chain_elt;
+            }
+        }else{
+            locator_chain->tail->next = locator_chain_elt;
+            locator_chain->tail       = locator_chain_elt;
+        }
+    }
+    locator_chain->locator_count++;
+    return 1;
+}
+
+
 void debug_installed_database_entry(db_entry, locator_chain)
     lispd_db_entry_t            *db_entry;
     lispd_locator_chain_t       *locator_chain;
