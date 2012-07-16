@@ -54,6 +54,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
+#include <endian.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include "lisp_ipc.h"
@@ -71,6 +72,28 @@
 #define LISPD_EXPIRE_TIMEOUT        1  // Time interval in which events are expired
 #define LISPD_MAX_SMR_RETRANSMIT    2  // Maximum amount of SMR MRq retransmissions
 #define LISPD_MAX_PROBE_RETRANSMIT  1  // Maximum amount of RLOC probe MRq retransmissions
+
+/*
+ *  Determine endianness
+ */
+
+#if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
+#define BIG_ENDIANS  2
+#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN
+#define LITTLE_ENDIANS 1
+#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN
+#define BIG_ENDIANS  2
+#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN
+#define LITTLE_ENDIANS 1
+#elif defined(BYTE_ORDR) && BYTE_ORDER == BIG_ENDIAN
+#define BIG_ENDIANS  2
+#elif defined(BYTE_ORDER) && BYTE_ORDER == LITTLE_ENDIAN
+#define LITTLE_ENDIANS 1
+#elif defined(__386__)
+#define LITTLE_ENDIANS 1
+#else
+# error "Can't determine endianness"
+#endif
 
 
 /*
@@ -310,7 +333,7 @@ typedef struct lispd_pkt_mapping_record_t_ {
     uint32_t ttl;
     uint8_t locator_count;
     uint8_t eid_prefix_length;
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t reserved1:4;
     uint8_t authoritative:1;
     uint8_t action:3;
@@ -320,7 +343,7 @@ typedef struct lispd_pkt_mapping_record_t_ {
     uint8_t reserved1:4;
 #endif
     uint8_t reserved2;
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t version_hi:4;
     uint8_t reserved3:4;
 #else
@@ -343,7 +366,7 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
     uint8_t mpriority;
     uint8_t mweight;
     uint8_t unused1;
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t reachable:1;
     uint8_t probed:1;
     uint8_t local:1;
@@ -412,7 +435,7 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
  */
 
 typedef struct lispd_pkt_map_register_t_ {
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t  reserved1:3;
     uint8_t  proxy_reply:1;
     uint8_t  lisp_type:4;
@@ -422,12 +445,12 @@ typedef struct lispd_pkt_map_register_t_ {
     uint8_t  reserved1:3;
 #endif
     uint8_t reserved2;
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t map_notify:1;
     uint8_t reserved3:7;
 #else
     uint8_t reserved3:7;
-    uint8_t notify:1;
+    uint8_t map_notify:1;
 #endif
     uint8_t  record_count;
     uint64_t nonce;
@@ -470,7 +493,7 @@ typedef struct lispd_pkt_map_register_t_ {
  */
 
 typedef struct lispd_pkt_map_notify_t_ {
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t  reserved1:4;
     uint8_t  lisp_type:4;
 #else
@@ -554,7 +577,7 @@ typedef struct {                        /* chain per eid-prefix/len/afi */
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 typedef struct lispd_pkt_encapsulated_control_t_ {
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t reserved1:4;
     uint8_t type:4;
 #else
@@ -608,7 +631,7 @@ typedef struct lispd_pkt_encapsulated_control_t_ {
  * request records follow.
  */
 typedef struct lispd_pkt_map_request_t_ {
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t solicit_map_request:1;
     uint8_t rloc_probe:1;
     uint8_t map_data_present:1;
@@ -621,7 +644,7 @@ typedef struct lispd_pkt_map_request_t_ {
     uint8_t rloc_probe:1;
     uint8_t solicit_map_request:1;
 #endif
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t reserved1:6;
     uint8_t smr_invoked:1;
     uint8_t pitr:1;
@@ -630,7 +653,7 @@ typedef struct lispd_pkt_map_request_t_ {
     uint8_t smr_invoked:1;
     uint8_t reserved1:6;
 #endif
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t additional_itr_rloc_count:5;
     uint8_t reserved2:3;
 #else
@@ -707,7 +730,7 @@ typedef struct lispd_pkt_map_request_eid_prefix_record_t_ {
  * Fixed size portion of the map reply.
  */
 typedef struct lispd_pkt_map_reply_t_ {
-#ifdef LITTLE_ENDIAN
+#ifdef LITTLE_ENDIANS
     uint8_t reserved1:2;
     uint8_t echo_nonce:1;
     uint8_t rloc_probe:1;
