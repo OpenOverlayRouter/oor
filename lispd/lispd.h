@@ -194,6 +194,7 @@
 
 #define LISP_AFI_IP                     1
 #define LISP_AFI_IPV6                   2
+#define LISP_AFI_LCAF                   16387
 #define LISP_IP_MASK_LEN                32
 
 /*
@@ -243,6 +244,14 @@
  */
 #define RT_TABLE_LISP_MN            5
 
+/* Instance ID
+ * Only the low order 24 bits should be used
+ * Using signed integer, negative value means "don't send LCAF/IID field"
+ * resulting in a non-explicit default IID value of 0
+ */
+typedef int32_t lispd_iid_t;
+
+
 /*
  *  lispd database entry
  */
@@ -250,6 +259,7 @@
 typedef struct {
     lisp_addr_t     eid_prefix;
     uint16_t        eid_prefix_length;
+    lispd_iid_t     eid_iid;
     lisp_addr_t     locator;
     uint8_t         locator_type:2;
     uint8_t         reserved:6;
@@ -263,6 +273,7 @@ typedef struct {
 typedef struct {
     lisp_addr_t     eid_prefix;
     uint8_t         eid_prefix_length;
+    lispd_iid_t     eid_iid;
     lisp_addr_t     locator;
     char *          locator_name;
     uint8_t         locator_type:2;
@@ -570,6 +581,7 @@ typedef struct {                        /* chain per eid-prefix/len/afi */
     ushort      locator_count;          /* number of mappings, 1 locator/per */
     lisp_addr_t eid_prefix;             /* eid_prefix for this chain */
     uint8_t     eid_prefix_length;      /* eid_prefix_length for this chain */
+    lispd_iid_t iid;                    /* instance ID for the EID prefix */
     char        *eid_name;              /* eid in string format */
     uint8_t     has_dynamic_locators:1; /* append dynamic/fqdn to front */
     uint8_t     has_fqdn_locators:1;
@@ -758,6 +770,49 @@ typedef struct lispd_pkt_map_reply_t_ {
     uint8_t record_count;
     uint64_t nonce;
 } PACKED lispd_pkt_map_reply_t;
+
+
+/*
+ * LISP Canonical Address Format
+ *
+ *        0                   1                   2                   3
+ *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |           AFI = 16387         |    Rsvd1     |     Flags      |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |    Type       |     Rsvd2     |            Length             |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lispd_pkt_lcaf_t_ {
+    uint8_t  rsvd1;
+    uint8_t  flags;
+    uint8_t  type;
+    uint8_t  rsvd2;
+    uint16_t len;
+} PACKED lispd_pkt_lcaf_t;
+
+
+/*
+ * Instance ID
+ *
+ *         0                   1                   2                   3
+ *         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |           AFI = 16387         |    Rsvd1      |    Flags      |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |   Type = 2    | IID mask-len  |             4 + n             |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |                         Instance ID                           |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |              AFI = x          |         Address  ...          |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lispd_pkt_lcaf_iid_t_ {
+    lispd_iid_t iid;
+    uint16_t    afi;
+} PACKED lispd_pkt_lcaf_iid_t;
 
 
 /*

@@ -99,16 +99,18 @@ int handle_lispd_config_file()
 
     static cfg_opt_t db_mapping_opts[] = {
         CFG_STR("eid-prefix",           0, CFGF_NONE),
+        CFG_INT("iid",                 -1, CFGF_NONE),
         CFG_STR("interface",            0, CFGF_NONE),
-        CFG_INT("priority",             0, CFGF_NONE),
+        CFG_INT("priority",           255, CFGF_NONE),
         CFG_INT("weight",               0, CFGF_NONE),
         CFG_END()
     };
 
     static cfg_opt_t mc_mapping_opts[] = {
         CFG_STR("eid-prefix",           0, CFGF_NONE),
+        CFG_INT("iid",                 -1, CFGF_NONE),
         CFG_STR("rloc",                 0, CFGF_NONE),
-        CFG_INT("priority",             0, CFGF_NONE),
+        CFG_INT("priority",           255, CFGF_NONE),
         CFG_INT("weight",               0, CFGF_NONE),
         CFG_END()
     };
@@ -284,6 +286,7 @@ int add_database_mapping(dm)
     lispd_locator_chain_elt_t   *locator_chain_elt;
 
     char   *eid_prefix        = cfg_getstr(dm, "eid-prefix");
+    int    iid                = cfg_getint(dm, "iid");
     char   *iface_name        = cfg_getstr(dm, "interface");
     int    priority           = cfg_getint(dm, "priority");
     int    weight             = cfg_getint(dm, "weight");
@@ -405,9 +408,11 @@ int add_database_mapping(dm)
            sizeof(lisp_addr_t));
     db_entry->eid_prefix_length = atoi(token);
     db_entry->eid_prefix.afi    = afi;
+    db_entry->eid_iid           = iid;
 
     db_entry->priority          = priority;
     db_entry->weight            = weight;
+    /* We don't support multicast */
     db_entry->mpriority         = 255;
     db_entry->mweight           = 0;
 
@@ -432,6 +437,7 @@ int add_database_mapping(dm)
                          0);            
         locator_chain->eid_prefix_length    = db_entry->eid_prefix_length;
         locator_chain->eid_prefix.afi       = db_entry->eid_prefix.afi;
+        locator_chain->iid                  = db_entry->eid_iid;
         locator_chain->eid_name             = strdup(eid);
         locator_chain->has_dynamic_locators = DYNAMIC_LOCATOR;
         locator_chain->timer                = DEFAULT_MAP_REGISTER_TIMEOUT;
@@ -538,6 +544,7 @@ int add_static_map_cache_entry(smc)
     uint32_t                flags = 0;
 
     char   *eid_prefix  = cfg_getstr(smc, "eid-prefix");
+    int    iid          = cfg_getint(smc, "iid");
     char   *rloc        = cfg_getstr(smc, "rloc");
     int    priority     = cfg_getint(smc, "priority");
     int    weight       = cfg_getint(smc, "weight");
@@ -606,6 +613,7 @@ int add_static_map_cache_entry(smc)
 
     map_cache_entry->eid_prefix_length = atoi(token);
     map_cache_entry->eid_prefix.afi    = afi;
+    map_cache_entry->eid_iid           = iid;
     map_cache_entry->priority          = priority;
     map_cache_entry->weight            = weight;
 

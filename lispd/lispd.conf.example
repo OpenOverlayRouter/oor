@@ -35,6 +35,7 @@ proxy-etr           = 149.20.48.60
 # IPv4 EID of the mobile node
 database-mapping {
          eid-prefix = 153.16.254.1/32
+#         iid        = 0
          interface  = eth0
          priority   = 1 
          weight     = 100
@@ -43,6 +44,7 @@ database-mapping {
 # IPv6 EID of the mobile node
 database-mapping {
          eid-prefix = 2610:d0:ffff:192::1/128
+#         iid        = 223
          interface  = eth0
          priority   = 1
          weight     = 100
@@ -51,6 +53,7 @@ database-mapping {
 # Static cache entries
 static-map-cache {
         eid-prefix  = 153.16.10.0/24
+#        iid         = 1
         rloc        = 128.223.156.134
         priority    = 1 
         weight      = 100

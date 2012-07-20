@@ -243,12 +243,14 @@ int process_map_reply(packet)
 
 int get_record_length(lispd_locator_chain_t *locator_chain) {
     lispd_locator_chain_elt_t *locator_chain_elt;
-    int afi_len = 0;
-    int loc_len = 0;
+    int afi_len   = 0;
+    int loc_len   = 0;
+    int lcaf_len  = 0;
 #ifdef LISPMOBMH
     /*We have the loop here as it counts two vars*/
     int loc_count = 0;
-    iface_list_elt *elt=NULL;
+
+    iface_list_elt *elt = NULL;
 
     get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
     locator_chain_elt = locator_chain->head;
@@ -278,15 +280,17 @@ int get_record_length(lispd_locator_chain_t *locator_chain) {
     locator_chain_elt = locator_chain->head;
     loc_len = get_locator_length(locator_chain_elt);
     get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
+    if (locator_chain->iid >= 0)
+        lcaf_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
 
 #endif
 
 #ifdef LISPMOBMH
-    return sizeof(lispd_pkt_mapping_record_t) + afi_len +
+    return sizeof(lispd_pkt_mapping_record_t) + afi_len + lcaf_len +
            (loc_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
            loc_len;
 #else
-    return sizeof(lispd_pkt_mapping_record_t) + afi_len +
+    return sizeof(lispd_pkt_mapping_record_t) + afi_len + lcaf_len +
            (locator_chain->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
            loc_len;
 #endif
@@ -297,8 +301,11 @@ void *build_mapping_record(rec, locator_chain, opts)
     lispd_locator_chain_t                   *locator_chain;
     map_reply_opts                          *opts;
 {
-    int                                     eid_afi = 0;
-    int                                     cpy_len = 0;
+    int                                     eid_afi   = 0;
+    int                                     cpy_len   = 0;
+    lispd_pkt_lcaf_t                        *lcaf_ptr = NULL;
+    lispd_pkt_lcaf_iid_t                    *iid_ptr;
+    void                                    *eid_ptr;
     lispd_pkt_mapping_record_locator_t      *loc_ptr;
     lispd_db_entry_t                        *db_entry;
     lispd_locator_chain_elt_t               *locator_chain_elt;
@@ -318,17 +325,37 @@ void *build_mapping_record(rec, locator_chain, opts)
     rec->authoritative          = 1;
     rec->version_hi             = 0;
     rec->version_low            = 0;
-    rec->eid_prefix_afi         = htons(eid_afi);
 
-    if ((cpy_len = copy_addr((void *) CO(rec,
-            sizeof(lispd_pkt_mapping_record_t)),
-            &(locator_chain->eid_prefix), 0)) == 0) {
+    /* For negative IID values, we skip LCAF/IID field */
+    if (locator_chain->iid < 0) {
+        rec->eid_prefix_afi     = htons(eid_afi);
+
+        eid_ptr = CO(rec, sizeof(lispd_pkt_mapping_record_t));
+    } else {
+        rec->eid_prefix_afi     = htons(LISP_AFI_LCAF);
+
+        lcaf_ptr = (lispd_pkt_lcaf_t *) CO(rec, sizeof(lispd_pkt_mapping_record_t));
+        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
+        eid_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
+
+        lcaf_ptr->rsvd1 = 0;
+        lcaf_ptr->flags = 0;
+        lcaf_ptr->type  = 2;
+        lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
+
+        iid_ptr->iid = htonl(locator_chain->iid);
+        iid_ptr->afi = htons(eid_afi);
+    }
+
+    if ((cpy_len = copy_addr(eid_ptr, &(locator_chain->eid_prefix), 0)) == 0) {
         syslog(LOG_DAEMON, "build_mapping_record: copy_addr failed");
         return(NULL);
     }
 
-    loc_ptr = (lispd_pkt_mapping_record_locator_t *) CO(rec,
-         sizeof(lispd_pkt_mapping_record_t) + cpy_len);
+    if (lcaf_ptr)
+        lcaf_ptr->len = htons(sizeof(lispd_pkt_lcaf_iid_t) + cpy_len);
+
+    loc_ptr = (lispd_pkt_mapping_record_locator_t *) CO(eid_ptr, cpy_len);
 
     locator_chain_elt = locator_chain->head;
 
