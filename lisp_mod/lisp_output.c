@@ -43,6 +43,7 @@
 #include "net/inet_ecn.h"
 #include "net/dst.h"
 #include "net/tcp.h"
+#include "net/ip6_checksum.h"
 #include "lisp_mod.h"
 #include "lisp_output.h"
 #include "packettypes.h"
@@ -154,26 +155,6 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   struct net_device *tdev; // Output device
   struct rtable *rt; // route to RLOC
 
-
-  /*
-   * We recalculate the checksum of the TCP packets to be encapsulated
-   * Due to checksum offload the internal packets are sent with the wrong
-   * checksum
-   */
-
-  struct tcphdr *tcph;
-  int tcplen;
-
-  if (old_iph->protocol == IPPROTO_TCP) {
-      skb_pull(skb, sizeof(struct iphdr));
-      skb_reset_transport_header(skb);
-      tcph = tcp_hdr(skb);
-      tcph->check=0;
-      tcplen = skb->len;
-      tcph->check = tcp_v4_check(tcplen, old_iph->saddr, old_iph->daddr, csum_partial((char *)tcph, tcplen, 0));
-      skb_push(skb, sizeof(struct iphdr));
-      skb_reset_transport_header(skb);
-  }
 
   /*
    * Painful: we have to do a routing check on our
@@ -590,6 +571,7 @@ unsigned int lisp_output6(unsigned int hooknum,
 			  int (*okfunc)(struct sk_buff*))
 {
   struct ipv6hdr *iph;
+  struct tcphdr *tcph;
   lisp_map_cache_t *eid_entry;
   int retval;
   lisp_addr_t locator_addr;
@@ -687,17 +669,37 @@ unsigned int lisp_output6(unsigned int hooknum,
       printk(KERN_INFO " Locator found.\n");
   }
   
+  
+  /*
+   * We recalculate the checksum of the TCP packets to be encapsulated
+   * Due to checksum offload the internal packets are sent with the wrong
+   * checksum
+   */
+  
+  if (iph->nexthdr == IPPROTO_TCP) {
+      skb_pull(packet_buf, sizeof(struct ipv6hdr));
+      skb_reset_transport_header(packet_buf);
+      tcph = tcp_hdr(packet_buf);
+      tcph->check=0;
+      tcph->check = csum_ipv6_magic(&(iph->saddr), &(iph->daddr), packet_buf->len, IPPROTO_TCP, csum_partial((char *)tcph, packet_buf->len, 0));
+      skb_push(packet_buf, sizeof(struct ipv6hdr));
+      skb_reset_transport_header(packet_buf);
+  }
+  
   /* 
    * Prepend UDP, LISP, outer IP header
    */
   if (loc_afi == AF_INET) {
-      lisp_encap4(packet_buf, locator_addr.address.ip.s_addr,
-                  AF_INET6);
+      lisp_encap4(packet_buf, locator_addr.address.ip.s_addr,AF_INET6);
+#ifdef DEBUG_PACKETS
       printk(KERN_INFO "   Using locator address: %pI4\n", &locator_addr);
+#endif
   } else {
       if (loc_afi == AF_INET6) {
           lisp_encap6(packet_buf, locator_addr, AF_INET6);
+#ifdef DEBUG_PACKETS
           printk(KERN_INFO "   Using locator address: %pI6\n", locator_addr.address.ipv6.s6_addr);
+#endif
       }
   }
 
@@ -760,11 +762,13 @@ unsigned int lisp_output4(unsigned int hooknum,
 			  int (*okfunc)(struct sk_buff*))
 {
   struct iphdr *iph;
+  struct tcphdr *tcph;
   struct udphdr *udh;
   lisp_map_cache_t *eid_entry;
   int retval;
   int locator_addr;
   unsigned char loc_index;
+  ushort loc_afi;
   lisp_addr_t miss_addr;
 
   /* 
@@ -871,16 +875,46 @@ unsigned int lisp_output4(unsigned int hooknum,
    */
   loc_index = eid_entry->locator_hash_table[output_hash_v4(iph->saddr, iph->daddr)];
   if (eid_entry->locator_list[loc_index]) {
+      loc_afi = eid_entry->locator_list[loc_index]->locator.afi;
       locator_addr = eid_entry->locator_list[loc_index]->locator.address.ip.s_addr;
   } else {
       printk(KERN_INFO "    Invalid locator list!\n");
       return NF_ACCEPT;
   }
+  
+  
+  /*
+   * We recalculate the checksum of the TCP packets to be encapsulated
+   * Due to checksum offload the internal packets are sent with the wrong
+   * checksum
+   */
 
+   if (iph->protocol == IPPROTO_TCP) {
+       skb_pull(packet_buf, sizeof(struct iphdr));
+       skb_reset_transport_header(packet_buf);
+       tcph = tcp_hdr(packet_buf);
+       tcph->check=0;
+       tcph->check = tcp_v4_check(packet_buf->len, iph->saddr, iph->daddr, csum_partial((char *)tcph, packet_buf->len, 0));
+       skb_push(packet_buf, sizeof(struct iphdr));
+       skb_reset_transport_header(packet_buf);
+  }
+  
   /* 
    * Prepend UDP, LISP, outer IP header
    */
-  lisp_encap4(packet_buf, locator_addr, AF_INET);
+  if (loc_afi == AF_INET) {
+      lisp_encap4(packet_buf, locator_addr.address.ip.s_addr, AF_INET);
+#ifdef DEBUG_PACKETS
+      printk(KERN_INFO "   Using locator address: %pI4\n", &locator_addr);
+#endif      
+  } else {
+      if (loc_afi == AF_INET6) {
+          lisp_encap6(packet_buf, locator_addr, AF_INET);
+#ifdef DEBUG_PACKETS
+          printk(KERN_INFO "   Using locator address: %pI6\n", locator_addr.address.ipv6.s6_addr);
+#endif
+      }
+  }
 
   eid_entry->locator_list[loc_index]->data_packets_out++;
 
