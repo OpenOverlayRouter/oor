@@ -108,6 +108,8 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_length,
     uint8_t                                     *packet;
     lispd_pkt_map_request_t                     *mrp;
     lispd_pkt_encapsulated_control_t            *ecm;
+    lispd_pkt_lcaf_t                            *lcaf_ptr = NULL;
+    lispd_pkt_lcaf_iid_t                        *iid_ptr  = NULL;
     lispd_pkt_map_request_itr_rloc_t            *itr_rloc;
     lispd_pkt_map_request_eid_prefix_record_t   *eid;
     patricia_node_t                             *node;
@@ -251,6 +253,27 @@ else
 	sizeof(lispd_pkt_map_request_eid_prefix_record_t) + 
         eid_len;                                            /* EID prefix */ 
 
+
+    /*
+     * Get the Source EID early on, to see if have Instance ID,
+     * which influences packet length
+     */
+    switch (eid_prefix->afi) {
+    case AF_INET:
+        PATRICIA_WALK(AF4_database->head, node) {
+            locator_chain = ((lispd_locator_chain_t *)(node->data));
+        } PATRICIA_WALK_END;
+        break;
+    case AF_INET6:
+        PATRICIA_WALK(AF6_database->head, node) {
+            locator_chain = ((lispd_locator_chain_t *)(node->data));
+        } PATRICIA_WALK_END;
+        break;
+    }
+    if (locator_chain->iid >= 0)
+        map_request_msg_len += sizeof(lispd_pkt_lcaf_t) +
+                               sizeof(lispd_pkt_lcaf_iid_t);
+
     udp_len = sizeof(struct udphdr) + map_request_msg_len;  /* udp header */
   
     //pranathi
@@ -367,7 +390,6 @@ else
     mrp->record_count              = 1;     /* XXX: assume 1 record */
     mrp->nonce = build_nonce((unsigned int) time(NULL));
     *nonce                         = mrp->nonce;
-    mrp->source_eid_afi = htons(get_lisp_afi(eid_prefix->afi, NULL));
 
     /*
      * Source-EID address goes here.
@@ -376,20 +398,28 @@ else
      *  address goes, namely, CO(mrp,sizeof(lispd_pkt_map_request_t))
      */    
 
-    switch (eid_prefix->afi) {
-    case AF_INET:
-        PATRICIA_WALK(AF4_database->head, node) {
-            locator_chain = ((lispd_locator_chain_t *)(node->data));
-        } PATRICIA_WALK_END;
-        break;
-    case AF_INET6:
-        PATRICIA_WALK(AF6_database->head, node) {
-            locator_chain = ((lispd_locator_chain_t *)(node->data));
-        } PATRICIA_WALK_END;
-        break;
+    /* For negative IID values, we skip LCAF/IID field */
+    if (locator_chain->iid < 0) {
+        mrp->source_eid_afi = htons(get_lisp_afi(eid_prefix->afi, NULL));
+
+        cur_ptr = CO(mrp, sizeof(lispd_pkt_map_request_t));
+    } else {
+        mrp->source_eid_afi = htons(LISP_AFI_LCAF);
+
+        lcaf_ptr = (lispd_pkt_lcaf_t *) CO(mrp, sizeof(lispd_pkt_map_request_t));
+        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
+        cur_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
+
+        lcaf_ptr->rsvd1 = 0;
+        lcaf_ptr->flags = 0;
+        lcaf_ptr->type  = 2;
+        lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
+        lcaf_ptr->len   = get_addr_len(locator_chain->eid_prefix.afi);
+
+        iid_ptr->iid = htonl(locator_chain->iid);
+        iid_ptr->afi = htons(get_lisp_afi(eid_prefix->afi, NULL));
     }
 
-    cur_ptr = CO(mrp, sizeof(lispd_pkt_map_request_t));
     if (locator_chain) {
         if ((alen = copy_addr(cur_ptr, &(locator_chain->eid_prefix), 0)) == 0) {
             free(packet);
