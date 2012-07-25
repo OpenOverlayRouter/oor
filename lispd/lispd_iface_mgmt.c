@@ -1253,11 +1253,11 @@ int process_netlink_iface ()
                 memset(&eid_addr, 0, sizeof(lisp_addr_t));
 
                //Pranathi
-               if(ctrl_iface->AF4_locators->head)
+               if(elt->AF4_locators->head)
                {
                    memcpy(&eid_addr, &(elt->AF4_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t));
                }    
-              if(ctrl_iface->AF6_locators->head)
+               if(elt->AF6_locators->head)
                {
                    memcpy(&eid_addr, &(elt->AF6_locators->head->db_entry->eid_prefix), sizeof(lisp_addr_t));
                }
