@@ -301,11 +301,7 @@ void *build_mapping_record(rec, locator_chain, opts)
     lispd_locator_chain_t                   *locator_chain;
     map_reply_opts                          *opts;
 {
-    int                                     eid_afi   = 0;
-    int                                     cpy_len   = 0;
-    lispd_pkt_lcaf_t                        *lcaf_ptr = NULL;
-    lispd_pkt_lcaf_iid_t                    *iid_ptr;
-    void                                    *eid_ptr;
+    int                                     cpy_len = 0;
     lispd_pkt_mapping_record_locator_t      *loc_ptr;
     lispd_db_entry_t                        *db_entry;
     lispd_locator_chain_elt_t               *locator_chain_elt;
@@ -316,8 +312,6 @@ void *build_mapping_record(rec, locator_chain, opts)
     if ((rec == NULL) || (locator_chain == NULL))
         return NULL;
 
-    eid_afi = get_lisp_afi(locator_chain->eid_prefix.afi, NULL);
-
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = locator_chain->locator_count;
     rec->eid_prefix_length      = locator_chain->eid_prefix_length;
@@ -326,36 +320,11 @@ void *build_mapping_record(rec, locator_chain, opts)
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-    /* For negative IID values, we skip LCAF/IID field */
-    if (locator_chain->iid < 0) {
-        rec->eid_prefix_afi     = htons(eid_afi);
+    loc_ptr = (lispd_pkt_mapping_record_locator_t *)
+              pkt_fill_eid(&(rec->eid_prefix_afi), locator_chain);
 
-        eid_ptr = CO(rec, sizeof(lispd_pkt_mapping_record_t));
-    } else {
-        rec->eid_prefix_afi     = htons(LISP_AFI_LCAF);
-
-        lcaf_ptr = (lispd_pkt_lcaf_t *) CO(rec, sizeof(lispd_pkt_mapping_record_t));
-        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
-        eid_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
-
-        lcaf_ptr->rsvd1 = 0;
-        lcaf_ptr->flags = 0;
-        lcaf_ptr->type  = 2;
-        lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
-
-        iid_ptr->iid = htonl(locator_chain->iid);
-        iid_ptr->afi = htons(eid_afi);
-    }
-
-    if ((cpy_len = copy_addr(eid_ptr, &(locator_chain->eid_prefix), 0)) == 0) {
-        syslog(LOG_DAEMON, "build_mapping_record: copy_addr failed");
-        return(NULL);
-    }
-
-    if (lcaf_ptr)
-        lcaf_ptr->len = htons(sizeof(lispd_pkt_lcaf_iid_t) + cpy_len);
-
-    loc_ptr = (lispd_pkt_mapping_record_locator_t *) CO(eid_ptr, cpy_len);
+    if (loc_ptr == NULL)
+        return NULL;
 
     locator_chain_elt = locator_chain->head;
 

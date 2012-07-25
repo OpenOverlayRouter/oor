@@ -108,8 +108,6 @@ uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_length,
     uint8_t                                     *packet;
     lispd_pkt_map_request_t                     *mrp;
     lispd_pkt_encapsulated_control_t            *ecm;
-    lispd_pkt_lcaf_t                            *lcaf_ptr = NULL;
-    lispd_pkt_lcaf_iid_t                        *iid_ptr  = NULL;
     lispd_pkt_map_request_itr_rloc_t            *itr_rloc;
     lispd_pkt_map_request_eid_prefix_record_t   *eid;
     patricia_node_t                             *node;
@@ -395,42 +393,13 @@ else
      * Source-EID address goes here.
      *
      *  point cur_ptr at where the variable length Source-EID 
-     *  address goes, namely, CO(mrp,sizeof(lispd_pkt_map_request_t))
+     *  address goes
      */    
 
-    /* For negative IID values, we skip LCAF/IID field */
-    if (locator_chain->iid < 0) {
-        mrp->source_eid_afi = htons(get_lisp_afi(eid_prefix->afi, NULL));
-
-        cur_ptr = CO(mrp, sizeof(lispd_pkt_map_request_t));
-    } else {
-        mrp->source_eid_afi = htons(LISP_AFI_LCAF);
-
-        lcaf_ptr = (lispd_pkt_lcaf_t *) CO(mrp, sizeof(lispd_pkt_map_request_t));
-        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
-        cur_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
-
-        lcaf_ptr->rsvd1 = 0;
-        lcaf_ptr->flags = 0;
-        lcaf_ptr->type  = 2;
-        lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
-        lcaf_ptr->len   = get_addr_len(locator_chain->eid_prefix.afi);
-
-        iid_ptr->iid = htonl(locator_chain->iid);
-        iid_ptr->afi = htons(get_lisp_afi(eid_prefix->afi, NULL));
-    }
-
-    if (locator_chain) {
-        if ((alen = copy_addr(cur_ptr, &(locator_chain->eid_prefix), 0)) == 0) {
-            free(packet);
-            return (0);
-        }
-    } else {
-        /* XXX: Something went wrong before, we put the destination here for now */
-        if ((alen = copy_addr(cur_ptr, eid_prefix, 0)) == 0) {
-            free(packet);
-            return (0);
-        }
+    cur_ptr = pkt_fill_eid(&(mrp->source_eid_afi), locator_chain);
+    if (cur_ptr == NULL) {
+        syslog(LOG_DAEMON, "build_map_request_pkt: could not add Source EID");
+        return (0);
     }
 
     /*

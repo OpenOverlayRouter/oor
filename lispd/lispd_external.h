@@ -108,6 +108,9 @@ extern  nlsock_handle       nlh;
 extern  iface_list_elt      *ctrl_iface; 
 extern  lisp_addr_t         source_rloc;
 
+/* lisp_pkt_lib functions */
+extern void *pkt_fill_eid(void *offset, lispd_locator_chain_t *loc_chain);
+
 /*
  * Editor modelines
  *
