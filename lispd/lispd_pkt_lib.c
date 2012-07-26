@@ -31,9 +31,17 @@
 
 #include "lispd_external.h"
 
-extern void *pkt_fill_eid(offset, loc_chain)
+extern void *pkt_fill_eid_from_locator_chain(offset, loc_chain)
     void                    *offset;
     lispd_locator_chain_t   *loc_chain;
+{
+    return pkt_fill_eid(offset, &(loc_chain->eid_prefix), loc_chain->iid);
+}
+
+extern void *pkt_fill_eid(offset, eid, iid)
+    void                    *offset;
+    lisp_addr_t             *eid;
+    lispd_iid_t              iid;
 {
     uint16_t                *afi_ptr;
     lispd_pkt_lcaf_t        *lcaf_ptr;
@@ -42,10 +50,10 @@ extern void *pkt_fill_eid(offset, loc_chain)
     uint16_t                 eid_afi;
 
     afi_ptr = (uint16_t *)offset;
-    eid_afi = get_lisp_afi(loc_chain->eid_prefix.afi, NULL);
+    eid_afi = get_lisp_afi(eid->afi, NULL);
 
     /* For negative IID values, we skip LCAF/IID field */
-    if (loc_chain->iid < 0) {
+    if (iid < 0) {
         *afi_ptr = htons(eid_afi);
         eid_ptr  = CO(offset, sizeof(uint16_t));
     } else {
@@ -60,18 +68,18 @@ extern void *pkt_fill_eid(offset, loc_chain)
         lcaf_ptr->type  = 2;
         lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
         lcaf_ptr->len   = htons(sizeof(lispd_pkt_lcaf_iid_t) +
-                          get_addr_len(loc_chain->eid_prefix.afi));
+                          get_addr_len(eid->afi));
 
-        iid_ptr->iid = htonl(loc_chain->iid);
+        iid_ptr->iid = htonl(iid);
         iid_ptr->afi = htons(eid_afi);
     }
 
-    if ((copy_addr(eid_ptr, &(loc_chain->eid_prefix), 0)) == 0) {
+    if ((copy_addr(eid_ptr, eid, 0)) == 0) {
         syslog(LOG_DAEMON, "pkt_fill_eid: copy_addr failed");
         return NULL;
     }
 
-    return CO(eid_ptr, get_addr_len(loc_chain->eid_prefix.afi));
+    return CO(eid_ptr, get_addr_len(eid->afi));
 }
 
 /*

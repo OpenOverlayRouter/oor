@@ -268,9 +268,10 @@ else
         } PATRICIA_WALK_END;
         break;
     }
+    /* We add 2x the IID LCAF size, once for source EID, once for request */
     if (locator_chain->iid >= 0)
-        map_request_msg_len += sizeof(lispd_pkt_lcaf_t) +
-                               sizeof(lispd_pkt_lcaf_iid_t);
+        map_request_msg_len += 2 * sizeof(lispd_pkt_lcaf_t) +
+                               2 * sizeof(lispd_pkt_lcaf_iid_t);
 
     udp_len = sizeof(struct udphdr) + map_request_msg_len;  /* udp header */
   
@@ -396,7 +397,7 @@ else
      *  address goes
      */    
 
-    cur_ptr = pkt_fill_eid(&(mrp->source_eid_afi), locator_chain);
+    cur_ptr = pkt_fill_eid_from_locator_chain(&(mrp->source_eid_afi), locator_chain);
     if (cur_ptr == NULL) {
         syslog(LOG_DAEMON, "build_map_request_pkt: could not add Source EID");
         return (0);
@@ -440,10 +441,8 @@ else
 
     eid = (lispd_pkt_map_request_eid_prefix_record_t *) CO(cur_ptr, alen);
     eid->eid_prefix_mask_length = eid_prefix_length;
-    eid->eid_prefix_afi = htons(get_lisp_afi(eid_prefix->afi, NULL));
-    cur_ptr = CO(eid, sizeof(lispd_pkt_map_request_eid_prefix_record_t));
-    if (copy_addr(cur_ptr,              /* EID */
-    eid_prefix, 0) == 0) {
+    cur_ptr = pkt_fill_eid(&(eid->eid_prefix_afi), eid_prefix, locator_chain->iid);
+    if (cur_ptr == NULL) {
         free(packet);
         return (0);
     }

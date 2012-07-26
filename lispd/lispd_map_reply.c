@@ -71,6 +71,7 @@ int process_map_reply(packet)
     lispd_pkt_map_reply_t                   *mrp;
     lispd_pkt_mapping_record_t              *record;
     lispd_pkt_mapping_record_locator_t      *loc_pkt;
+    lispd_pkt_lcaf_iid_t                    *lcaf_iid;
     lisp_eid_map_msg_t                      *map_msg;
     int                                     map_msg_len;
     datacache_elt_t                         *elt = NULL;
@@ -97,6 +98,16 @@ int process_map_reply(packet)
     record = (lispd_pkt_mapping_record_t *)CO(mrp, sizeof(lispd_pkt_map_reply_t));
     eid = (lisp_addr_t *)CO(record, sizeof(lispd_pkt_mapping_record_t));
     eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
+
+    /* XXX:  If we have LCAF, just assume it's Instance ID, jump over
+     *       and get the EID
+     * TODO: Proper LCAF handling on receipt
+     */
+    if (eid_afi < 0) {
+        lcaf_iid = (lispd_pkt_lcaf_iid_t *)CO(eid, sizeof(lispd_pkt_lcaf_t));
+        eid_afi  = lisp2inetafi(ntohs(lcaf_iid->afi));
+        eid      = (lisp_addr_t *)CO(lcaf_iid, sizeof(lispd_pkt_lcaf_iid_t));
+    }
 
     if(record->locator_count > 0){
         switch (eid_afi) {
@@ -321,7 +332,7 @@ void *build_mapping_record(rec, locator_chain, opts)
     rec->version_low            = 0;
 
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-              pkt_fill_eid(&(rec->eid_prefix_afi), locator_chain);
+              pkt_fill_eid_from_locator_chain(&(rec->eid_prefix_afi), locator_chain);
 
     if (loc_ptr == NULL)
         return NULL;

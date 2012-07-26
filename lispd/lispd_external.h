@@ -109,7 +109,8 @@ extern  iface_list_elt      *ctrl_iface;
 extern  lisp_addr_t         source_rloc;
 
 /* lisp_pkt_lib functions */
-extern void *pkt_fill_eid(void *offset, lispd_locator_chain_t *loc_chain);
+extern void *pkt_fill_eid_from_locator_chain(void *offset, lispd_locator_chain_t *loc_chain);
+extern void *pkt_fill_eid(void *offset, lisp_addr_t *eid, lispd_iid_t iid);
 
 /*
  * Editor modelines

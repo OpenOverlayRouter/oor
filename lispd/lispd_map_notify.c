@@ -45,6 +45,7 @@ int process_map_notify(packet)
     lispd_pkt_map_notify_t              *mn;
     lispd_pkt_mapping_record_t          *record;
     lispd_pkt_mapping_record_locator_t  *locator;
+    lispd_pkt_lcaf_iid_t                *lcaf_iid;
 
     int                                 eid_afi;
     int                                 loc_afi;
@@ -68,12 +69,25 @@ int process_map_notify(packet)
     {
         partial_map_notify_length1 = sizeof(lispd_pkt_mapping_record_t);
         eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
+
+        /* XXX:  If we have LCAF, just assume it's Instance ID, jump over
+         *       and get the EID
+         * TODO: Proper LCAF handling on receipt
+         */
+        if (eid_afi < 0) {
+            partial_map_notify_length1 += sizeof(lispd_pkt_lcaf_t);
+            lcaf_iid = (lispd_pkt_lcaf_iid_t *)
+                       CO(record, partial_map_notify_length1);
+            eid_afi  = lisp2inetafi(ntohs(lcaf_iid->afi));
+            partial_map_notify_length1 += sizeof(lispd_pkt_lcaf_iid_t);
+        }
+
         switch (eid_afi) {
         case AF_INET:
-            partial_map_notify_length1 = partial_map_notify_length1 + sizeof(struct in_addr);
+            partial_map_notify_length1 += sizeof(struct in_addr);
             break;
         case AF_INET6:
-            partial_map_notify_length1 = partial_map_notify_length1 + sizeof(struct in6_addr);
+            partial_map_notify_length1 += sizeof(struct in6_addr);
             break;
         default:
             syslog(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d) - EID", record->eid_prefix_afi);

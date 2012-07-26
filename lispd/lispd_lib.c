@@ -815,6 +815,8 @@ int lisp2inetafi(afi)
         return(AF_INET);
     case LISP_AFI_IPV6:
         return(AF_INET6);
+    case LISP_AFI_LCAF:
+        return(-1);
     default:
         syslog(LOG_DAEMON, "lisp2inetafi: unknown AFI (%d)", afi);
         return(0);
