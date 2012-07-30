@@ -42,7 +42,6 @@
 #include "net/ip6_route.h"
 #include "net/inet_ecn.h"
 #include "net/dst.h"
-#include "net/tcp.h"
 #include "lisp_mod.h"
 #include "lisp_output.h"
 #include "packettypes.h"
@@ -185,27 +184,6 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   if (!rloc) {
       printk(KERN_INFO "Unable to determine source rloc for ifindex: %d", skb->mark);
       return;
-  }
-
-
-  /*
-   * We recalculate the checksum of the TCP packets to be encapsulated
-   * Due to checksum offload the internal packets are sent with the wrong
-   * checksum
-   */
-
-  struct tcphdr *tcph;
-  int tcplen;
-
-  if (old_iph->protocol == IPPROTO_TCP) {
-      skb_pull(skb, sizeof(struct iphdr));
-      skb_reset_transport_header(skb);
-      tcph = tcp_hdr(skb);
-      tcph->check=0;
-      tcplen = skb->len;
-      tcph->check = tcp_v4_check(tcplen, old_iph->saddr, old_iph->daddr, csum_partial((char *)tcph, tcplen, 0));
-      skb_push(skb, sizeof(struct iphdr));
-      skb_reset_transport_header(skb);
   }
 
   /*
