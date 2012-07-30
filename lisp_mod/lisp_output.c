@@ -945,15 +945,15 @@ unsigned int lisp_output4(unsigned int hooknum,
    * Prepend UDP, LISP, outer IP header
    */
   if (loc_afi == AF_INET) {
-      lisp_encap4(packet_buf, locator_addr, AF_INET);
+      lisp_encap4(packet_buf, locator_addr.address.ip.s_addr, AF_INET);
 #ifdef DEBUG_PACKETS
       printk(KERN_INFO "   Using locator address: %pI4\n", &locator_addr);
 #endif      
   } else {
       if (loc_afi == AF_INET6) {
-          lisp_encap6(packet_buf, eid_entry->locator_list[loc_index]->locator, AF_INET);
+          lisp_encap6(packet_buf, locator_addr, AF_INET);
 #ifdef DEBUG_PACKETS
-          printk(KERN_INFO "   Using locator address: %pI6\n", eid_entry->locator_list[loc_index]->locator.address.ipv6.s6_addr);
+          printk(KERN_INFO "   Using locator address: %pI6\n", locator_addr.address.ipv6.s6_addr);
 #endif
       }
   }
