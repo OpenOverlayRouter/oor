@@ -252,126 +252,6 @@ int process_map_reply(packet)
     return(0);
 }
 
-int get_record_length(lispd_locator_chain_t *locator_chain) {
-    lispd_locator_chain_elt_t *locator_chain_elt;
-    int afi_len   = 0;
-    int loc_len   = 0;
-    int lcaf_len  = 0;
-#ifdef LISPMOBMH
-    /*We have the loop here as it counts two vars*/
-    int loc_count = 0;
-
-    iface_list_elt *elt = NULL;
-
-    get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
-    locator_chain_elt = locator_chain->head;
-
-    while (locator_chain_elt) {
-    	elt = search_iface_list(locator_chain_elt->db_entry->locator_name);
-    	if(elt!=NULL && elt->ready){
-    		switch (locator_chain_elt->db_entry->locator.afi) {
-    		case AF_INET:
-    			loc_len += sizeof(struct in_addr);
-    			loc_count++;
-    			break;
-    		case AF_INET6:
-    			loc_len += sizeof(struct in6_addr);
-    			loc_count++;
-    			break;
-    		default:
-    			syslog(LOG_DAEMON, "Uknown AFI (%d) for %s",
-    					locator_chain_elt->db_entry->locator.afi,
-    					locator_chain_elt->db_entry->locator_name);
-    			break;
-    		}
-    	}
-    	locator_chain_elt = locator_chain_elt->next;
-    }
-#else
-    locator_chain_elt = locator_chain->head;
-    loc_len = get_locator_length(locator_chain_elt);
-    get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
-    if (locator_chain->iid >= 0)
-        lcaf_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
-
-#endif
-
-#ifdef LISPMOBMH
-    return sizeof(lispd_pkt_mapping_record_t) + afi_len + lcaf_len +
-           (loc_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
-           loc_len;
-#else
-    return sizeof(lispd_pkt_mapping_record_t) + afi_len + lcaf_len +
-           (locator_chain->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
-           loc_len;
-#endif
-}
-
-void *build_mapping_record(rec, locator_chain, opts)
-    lispd_pkt_mapping_record_t              *rec;
-    lispd_locator_chain_t                   *locator_chain;
-    map_reply_opts                          *opts;
-{
-    int                                     cpy_len = 0;
-    lispd_pkt_mapping_record_locator_t      *loc_ptr;
-    lispd_db_entry_t                        *db_entry;
-    lispd_locator_chain_elt_t               *locator_chain_elt;
-#ifdef LISPMOBMH
-    iface_list_elt *elt=NULL;
-#endif
-
-    if ((rec == NULL) || (locator_chain == NULL))
-        return NULL;
-
-    rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
-    rec->locator_count          = locator_chain->locator_count;
-    rec->eid_prefix_length      = locator_chain->eid_prefix_length;
-    rec->action                 = 0;
-    rec->authoritative          = 1;
-    rec->version_hi             = 0;
-    rec->version_low            = 0;
-
-    loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-              pkt_fill_eid_from_locator_chain(&(rec->eid_prefix_afi), locator_chain);
-
-    if (loc_ptr == NULL)
-        return NULL;
-
-    locator_chain_elt = locator_chain->head;
-
-    while (locator_chain_elt) {
-        db_entry             = locator_chain_elt->db_entry;
-#ifdef LISPMOBMH
-        elt = search_iface_list(db_entry->locator_name);
-        if(elt!=NULL && elt->ready){
-#endif
-        loc_ptr->priority    = db_entry->priority;
-        loc_ptr->weight      = db_entry->weight;
-        loc_ptr->mpriority   = db_entry->mpriority;
-        loc_ptr->mweight     = db_entry->mweight;
-        loc_ptr->local       = 1;
-        if (opts && opts->rloc_probe)
-            loc_ptr->probed  = 1;       /* XXX probed locator, should check addresses */
-        loc_ptr->reachable   = 1;       /* XXX should be computed */
-        loc_ptr->locator_afi = htons(get_lisp_afi(db_entry->locator.afi, NULL));
-
-        if ((cpy_len = copy_addr((void *) CO(loc_ptr,
-                sizeof(lispd_pkt_mapping_record_locator_t)), &(db_entry->locator), 0)) == 0) {
-            syslog(LOG_DAEMON, "build_mapping_record: copy_addr failed for locator %s",
-                    db_entry->locator_name);
-            return(NULL);
-        }
-
-        loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-            CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
-#ifdef LISPMOBMH
-        }
-#endif
-        locator_chain_elt = locator_chain_elt->next;
-    }
-    return (void *)loc_ptr;
-}
-
 
 uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
         prefix_t eid_prefix, uint64_t nonce, map_reply_opts opts, int *len) {
@@ -399,14 +279,14 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
             if (node != NULL)
                 locator_chain_eid4 = ((lispd_locator_chain_t *)(node->data));
             if (locator_chain_eid4 != NULL)
-                map_reply_msg_len += get_record_length(locator_chain_eid4);
+                map_reply_msg_len += pkt_get_mapping_record_length(locator_chain_eid4);
             break;
         case AF_INET6:
             node = patricia_search_best(AF6_database, &eid_prefix);
             if (node != NULL)
                 locator_chain_eid6 = ((lispd_locator_chain_t *)(node->data));
             if (locator_chain_eid6 != NULL)
-                map_reply_msg_len += get_record_length(locator_chain_eid6);
+                map_reply_msg_len += pkt_get_mapping_record_length(locator_chain_eid6);
             break;
         default:
             syslog(LOG_DAEMON, "build_map_reply_pkt: Unsupported EID prefix AFI: %d",
@@ -457,7 +337,7 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
                      CO(map_reply_msg, sizeof(lispd_pkt_map_reply_t));
 
         if (locator_chain_eid4) {
-            next_rec = build_mapping_record(mr_msg_eid, locator_chain_eid4, &opts);
+            next_rec = pkt_fill_mapping_record(mr_msg_eid, locator_chain_eid4, &opts);
             if (next_rec) {
                 map_reply_msg->record_count++;
                 mr_msg_eid = next_rec;
@@ -465,7 +345,7 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
         }
 
         if (locator_chain_eid6) {
-            if (build_mapping_record(mr_msg_eid, locator_chain_eid6, &opts))
+            if (pkt_fill_mapping_record(mr_msg_eid, locator_chain_eid6, &opts))
                 map_reply_msg->record_count++;
         }
     }

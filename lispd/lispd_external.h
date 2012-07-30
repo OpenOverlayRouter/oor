@@ -108,9 +108,17 @@ extern  nlsock_handle       nlh;
 extern  iface_list_elt      *ctrl_iface; 
 extern  lisp_addr_t         source_rloc;
 
+extern int   get_record_length(lispd_locator_chain_t *locator_chain);
+extern void *build_mapping_record(lispd_pkt_mapping_record_t *rec,
+                                     lispd_locator_chain_t *locator_chain,
+                                     map_reply_opts *opts);
 /* lisp_pkt_lib functions */
+extern int   pkt_get_mapping_record_length(lispd_locator_chain_t *locator_chain);
 extern void *pkt_fill_eid_from_locator_chain(void *offset, lispd_locator_chain_t *loc_chain);
 extern void *pkt_fill_eid(void *offset, lisp_addr_t *eid, lispd_iid_t iid);
+extern void *pkt_fill_mapping_record(lispd_pkt_mapping_record_t *rec,
+                                     lispd_locator_chain_t *locator_chain,
+                                     map_reply_opts *opts);
 
 /*
  * Editor modelines

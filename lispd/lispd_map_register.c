@@ -114,7 +114,7 @@ lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
     int                             mrp_len = 0;
 
     mrp_len = sizeof(lispd_pkt_map_register_t) +
-              get_record_length(locator_chain);
+              pkt_get_mapping_record_length(locator_chain);
 
     if ((mrp = malloc(mrp_len)) == NULL) {
         syslog(LOG_DAEMON, "build_map_register_pkt: malloc: %s", strerror(errno));
@@ -142,7 +142,7 @@ lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
 
     mr = (lispd_pkt_mapping_record_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
-    if (build_mapping_record(mr, locator_chain, NULL))
+    if (pkt_fill_mapping_record(mr, locator_chain, NULL))
         return(mrp);
     else
         return(NULL);
