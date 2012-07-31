@@ -137,6 +137,7 @@ static int __init lisp_init (void)
 #endif 
 
   globals.always_encap = 1;       // XXX temporary for testing
+  globals.my_rloc_af = 0;
   globals.daemonPID = 0;          // 0 indicates unset
 
   //initializing local eid control

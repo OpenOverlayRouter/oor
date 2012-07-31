@@ -148,7 +148,8 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
   struct udphdr *udh;
   struct lisphdr *lisp_hdr;
   char   first_byte;
-  int source_locator;
+  int    source_locator;
+  int    pkt_instance;
   /*
    * PN: net_device corresponding to LISP_EID_INTERFACE
    */
@@ -209,10 +210,20 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
 #ifdef DEBUG_PACKETS
       printk(KERN_INFO "   LISP packet received: dest %d, len: %d\n", ntohs(udh->dest),
 	     ntohs(udh->len));
-      printk(KERN_INFO "       rflags: %d, e: %d, l: %d, n: %d, lsb: 0x%x",
+      printk(KERN_INFO "       rflags: %d, e: %d, l: %d, n: %d, i: %d, id/lsb: 0x%x",
              lisp_hdr->rflags, lisp_hdr->echo_nonce, lisp_hdr->lsb,
-             lisp_hdr->nonce_present, lisp_hdr->lsb_bits);
+             lisp_hdr->nonce_present, lisp_hdr->instance_id, ntohl(lisp_hdr->lsb_bits));
 #endif
+
+        if (globals.use_instance_id) {
+            pkt_instance = ntohl(lisp_hdr->lsb_bits);
+            pkt_instance = pkt_instance >> 8;
+
+            if (pkt_instance != globals.instance_id) {
+                printk(KERN_INFO "  Packet instance ID does not match configured value, dropping.");
+                return(NF_DROP);
+            }
+        }
 
       // Decapsulate
       skb_pull(packet_buf, sizeof(struct lisphdr));

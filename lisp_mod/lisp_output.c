@@ -62,7 +62,7 @@ extern lisp_globals globals;
 static inline uint16_t src_port_hash(struct iphdr *iph)
 {
   uint16_t result = 0;
-  
+
   // Simple rotated XOR hash of src and dst
   result = (iph->saddr << 4) ^ (iph->saddr >> 28) ^ iph->saddr ^ iph->daddr;
   return result;
@@ -289,7 +289,6 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   /* 
    * Construct and add the LISP header
    */
-  skb->transport_header = skb->network_header;
   lisph = (struct lisphdr *)(skb_push(skb, sizeof(struct lisphdr)));
   skb_reset_transport_header(skb);
 
@@ -298,21 +297,29 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   // Single LSB for now, and set it to ON
   lisph->lsb = 1;
   lisph->lsb_bits = htonl(0x1);
+
+  /*
+   * Using instance ID? Or it in.
+   */
+  if (globals.use_instance_id) {
+      lisph->instance_id = 1;
+      lisph->lsb_bits |= htonl(globals.instance_id << 8);
+  }
+
   lisph->nonce_present = 1;
   lisph->nonce[0] = net_random() & 0xFF;
   lisph->nonce[1] = net_random() & 0xFF;
   lisph->nonce[2] = net_random() & 0xFF;
 
 #ifdef DEBUG_PACKETS
-  printk(KERN_INFO "          rflags: %d, e: %d, l: %d, n: %d, lsb: 0x%x",
+  printk(KERN_INFO "          rflags: %d, e: %d, l: %d, n: %d, i: %d, id/lsb: 0x%x",
              lisph->rflags, lisph->echo_nonce, lisph->lsb,
-             lisph->nonce_present, lisph->lsb_bits);
+             lisph->nonce_present, lisph->instance_id, ntohl(lisph->lsb_bits));
 #endif
 
   /* 
    * Construct and add the udp header
    */ 
-  skb->transport_header = skb->network_header;
   udh = (struct udphdr *)(skb_push(skb, sizeof(struct udphdr)));
   skb_reset_transport_header(skb);
 
@@ -328,6 +335,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
   /*
    * Construct and add the outer ip header
    */
+  skb->transport_header = skb->network_header;
   iph = (struct iphdr *)skb_push(skb, sizeof(struct iphdr));
   skb_reset_network_header(skb);
   memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
@@ -367,8 +375,7 @@ void lisp_encap4(struct sk_buff *skb, int locator_addr,
    * This is the same work that the tunnel code does
    */
   pkt_len = skb->len - skb_transport_offset(skb);
-  
-  skb->ip_summed = CHECKSUM_NONE;
+
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
   ip_select_ident(iph, &rt->dst, NULL);
 #else

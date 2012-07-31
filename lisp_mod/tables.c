@@ -33,7 +33,7 @@
 #include "lisp_mod.h"
 
 #define SECS_PER_MIN 60
-#define DEBUG_HASHES
+//#define DEBUG_HASHES
 
 /*
  * Import symbols

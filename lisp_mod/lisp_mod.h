@@ -60,6 +60,8 @@ typedef struct {
   ushort my_rloc_af;
   ushort udp_encap_port;
   ushort udp_control_port;
+  unsigned int instance_id;
+  int   use_instance_id;
   int   daemonPID; /* Process ID for lispd */
   int num_local_eid;
   lisp_addr_t local_eid_list[MAXLOCALEID];
