@@ -284,6 +284,9 @@ int add_database_mapping(dm)
     lispd_db_entry_t            *db_entry;
     lispd_locator_chain_t       *locator_chain;
     lispd_locator_chain_elt_t   *locator_chain_elt;
+    lisp_set_instance_msg_t     iid_msg;
+    int                         iid_msg_len;
+    int                         ret;
 
     char   *eid_prefix        = cfg_getstr(dm, "eid-prefix");
     int    iid                = cfg_getint(dm, "iid");
@@ -291,6 +294,23 @@ int add_database_mapping(dm)
     int    priority           = cfg_getint(dm, "priority");
     int    weight             = cfg_getint(dm, "weight");
     eid = eid_prefix;           /* save this for later */
+
+    if (iid > MAX_IID) {
+        syslog (LOG_DAEMON, "Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        iid = -1;
+    }
+
+    if (iid >= 0) {
+        iid_msg.enable = 1;
+        iid_msg.id     = iid;
+        iid_msg_len    = sizeof(lisp_set_instance_msg_t);
+
+        ret = send_set_instance_msg(&iid_msg, iid_msg_len);
+
+        if (ret < 0) {
+            syslog (LOG_DAEMON, "Setting Instance ID to %d failed; ret=%d", iid, ret);
+        }
+    }
 
     char *eid_pref_for_add_iface = strdup (eid_prefix);
     lisp_addr_t eid_addr;
@@ -548,6 +568,11 @@ int add_static_map_cache_entry(smc)
     char   *rloc        = cfg_getstr(smc, "rloc");
     int    priority     = cfg_getint(smc, "priority");
     int    weight       = cfg_getint(smc, "weight");
+
+    if (iid > MAX_IID) {
+        syslog (LOG_DAEMON, "Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        iid = -1;
+    }
 
     if ((rloc_ptr = malloc(sizeof(lisp_addr_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));

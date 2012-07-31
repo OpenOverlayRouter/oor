@@ -251,6 +251,8 @@
  */
 typedef int32_t lispd_iid_t;
 
+#define MAX_IID 16777215
+
 
 /*
  *  lispd database entry

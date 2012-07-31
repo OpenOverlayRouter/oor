@@ -355,6 +355,30 @@ int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix,
     return(retval);
 }
 
+int send_set_instance_msg(lisp_set_instance_msg_t *iid_msg, int iid_msg_len)
+{
+    size_t                  cmd_length = 0;
+    int                     retval     = 0;
+    lisp_cmd_t              *cmd;
+
+    cmd_length = sizeof(lisp_cmd_t) + iid_msg_len;
+
+    if ((cmd = malloc(cmd_length)) < 0){
+        syslog (LOG_DAEMON, "send_set_instance_msg(): memory allocation error");
+        return(0);
+    }
+
+    memset((char *) cmd, 0, cmd_length);
+
+    cmd->type   = LispSetInstanceID;
+    cmd->length = iid_msg_len;
+    memcpy((void *)(cmd->val), iid_msg, iid_msg_len);
+
+    retval = send_command(cmd, cmd_length);
+    free(cmd);
+    return(retval);
+}
+
 /*
  *  set up the NETLINK socket and bind to it.
  */
