@@ -1,10 +1,23 @@
 DIRS = lisp_int lisp_mod lispd lispconf
+BUILDDIRS = $(DIRS:%=build-%)
+INSTALLDIRS = $(DIRS:%=install-%)
+CLEANDIRS = $(DIRS:%=clean-%)
 
-all:
-	for d in $(DIRS); do (cd $$d; make); done
+all: $(BUILDDIRS)
+$(DIRS): $(BUILDDIRS)
+$(BUILDDIRS):
+	$(MAKE) -C $(@:build-%=%)
 
-clean:
-	for d in $(DIRS); do (cd $$d; make clean); done
+install: $(INSTALLDIRS) all
+$(INSTALLDIRS):
+	$(MAKE) -C $(@:install-%=%) install
 
-install:
-	for d in $(DIRS); do (cd $$d; make install); done
+clean: $(CLEANDIRS)
+$(CLEANDIRS):
+	$(MAKE) -C $(@:clean-%=%) clean
+
+.PHONY: subdirs $(DIRS)
+.PHONY: subdirs $(BUILDDIRS)
+.PHONY: subdirs $(INSTALLDIRS)
+.PHONY: subdirs $(CLEANDIRS)
+.PHONY: all install clean
