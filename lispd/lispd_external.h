@@ -119,6 +119,7 @@ extern void *pkt_fill_eid(void *offset, lisp_addr_t *eid, lispd_iid_t iid);
 extern void *pkt_fill_mapping_record(lispd_pkt_mapping_record_t *rec,
                                      lispd_locator_chain_t *locator_chain,
                                      map_reply_opts *opts);
+extern void *pkt_read_eid(void *offset, lisp_addr_t **eid, int *eid_afi, lispd_iid_t *iid);
 
 /*
  * Editor modelines

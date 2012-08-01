@@ -32,19 +32,6 @@
 #include "lispd_external.h"
 
 
-/* Temporary entries not to break existing code */
-extern int get_record_length(lispd_locator_chain_t *locator_chain) {
-    return pkt_get_mapping_record_length(locator_chain);
-}
-extern void *build_mapping_record(rec, locator_chain, opts)
-    lispd_pkt_mapping_record_t              *rec;
-    lispd_locator_chain_t                   *locator_chain;
-    map_reply_opts                          *opts;
-{
-    return pkt_fill_mapping_record(rec, locator_chain, opts);
-}
-
-
 extern int pkt_get_mapping_record_length(lispd_locator_chain_t *locator_chain) {
     lispd_locator_chain_elt_t *locator_chain_elt;
     int afi_len   = 0;
@@ -203,7 +190,7 @@ extern void *pkt_fill_mapping_record(rec, locator_chain, opts)
 
         if ((cpy_len = copy_addr((void *) CO(loc_ptr,
                 sizeof(lispd_pkt_mapping_record_locator_t)), &(db_entry->locator), 0)) == 0) {
-            syslog(LOG_DAEMON, "build_mapping_record: copy_addr failed for locator %s",
+            syslog(LOG_DAEMON, "pkt_fill_mapping_record: copy_addr failed for locator %s",
                     db_entry->locator_name);
             return(NULL);
         }
@@ -216,6 +203,67 @@ extern void *pkt_fill_mapping_record(rec, locator_chain, opts)
         locator_chain_elt = locator_chain_elt->next;
     }
     return (void *)loc_ptr;
+}
+
+
+/*
+ * Packet parsing functions
+ *
+ * Return value is the offset where packet parsing should continue
+ */
+
+extern void *pkt_read_eid(offset, eid, eid_afi, iid)
+    void                    *offset;
+    lisp_addr_t            **eid;
+    int                     *eid_afi;
+    lispd_iid_t             *iid;
+{
+    void                    *cur_ptr;
+    uint16_t                 lisp_afi;
+    lispd_pkt_lcaf_t        *lcaf_ptr;
+    lispd_pkt_lcaf_iid_t    *iid_ptr;
+
+    cur_ptr  = offset;
+    lisp_afi = ntohs(*(uint16_t *)cur_ptr);
+    cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
+
+    if (lisp_afi == LISP_AFI_LCAF) {
+        lcaf_ptr = (lispd_pkt_lcaf_t *)cur_ptr;
+        cur_ptr  = CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
+
+        /* If the LCAF is IID, read data, else jump over it */
+        if (lcaf_ptr->type == LCAF_IID) {
+            iid_ptr  = (lispd_pkt_lcaf_iid_t *)cur_ptr;
+            *iid     = ntohl(iid_ptr->iid);
+            lisp_afi = ntohs(iid_ptr->afi);
+            *eid_afi = lisp2inetafi(lisp_afi);
+            cur_ptr  = (void *)CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
+            *eid     = (lisp_addr_t *)cur_ptr;
+        } else {
+            cur_ptr  = CO(cur_ptr, ntohs(lcaf_ptr->len));
+            *eid     = NULL;
+            *eid_afi = -1;
+            *iid     = -1;
+        }
+    } else {
+        *eid     = (lisp_addr_t *)cur_ptr;
+        *eid_afi = lisp2inetafi(lisp_afi);
+        *iid     = -1;
+    }
+
+    return cur_ptr;
+}
+
+/* Temporary entries not to break existing code */
+extern int get_record_length(lispd_locator_chain_t *locator_chain) {
+    return pkt_get_mapping_record_length(locator_chain);
+}
+extern void *build_mapping_record(rec, locator_chain, opts)
+    lispd_pkt_mapping_record_t              *rec;
+    lispd_locator_chain_t                   *locator_chain;
+    map_reply_opts                          *opts;
+{
+    return pkt_fill_mapping_record(rec, locator_chain, opts);
 }
 
 

@@ -71,13 +71,13 @@ int process_map_reply(packet)
     lispd_pkt_map_reply_t                   *mrp;
     lispd_pkt_mapping_record_t              *record;
     lispd_pkt_mapping_record_locator_t      *loc_pkt;
-    lispd_pkt_lcaf_iid_t                    *lcaf_iid;
     lisp_eid_map_msg_t                      *map_msg;
     int                                     map_msg_len;
     datacache_elt_t                         *elt = NULL;
-    lisp_addr_t                             *eid;
+    lisp_addr_t                             *eid = NULL;
     lisp_addr_t                             *loc;
     int                                     eid_afi;
+    lispd_iid_t                             eid_iid;
     int                                     loc_afi;
     uint64_t                                nonce;
     int                                     loc_count;
@@ -96,17 +96,11 @@ int process_map_reply(packet)
      */
 
     record = (lispd_pkt_mapping_record_t *)CO(mrp, sizeof(lispd_pkt_map_reply_t));
-    eid = (lisp_addr_t *)CO(record, sizeof(lispd_pkt_mapping_record_t));
-    eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
+    pkt_read_eid(&(record->eid_prefix_afi), &eid, &eid_afi, &eid_iid);
 
-    /* XXX:  If we have LCAF, just assume it's Instance ID, jump over
-     *       and get the EID
-     * TODO: Proper LCAF handling on receipt
-     */
-    if (eid_afi < 0) {
-        lcaf_iid = (lispd_pkt_lcaf_iid_t *)CO(eid, sizeof(lispd_pkt_lcaf_t));
-        eid_afi  = lisp2inetafi(ntohs(lcaf_iid->afi));
-        eid      = (lisp_addr_t *)CO(lcaf_iid, sizeof(lispd_pkt_lcaf_iid_t));
+    if (eid == NULL) {
+        syslog (LOG_DAEMON, "process_map_reply(), unable to parse EID");
+        return(0);
     }
 
     if(record->locator_count > 0){

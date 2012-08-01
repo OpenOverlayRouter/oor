@@ -191,11 +191,32 @@
 #define LISP_ACTION_DROP                2
 #define LISP_ACTION_SEND_MAP_REQUEST    3
 
+/*
+ * LISP AFI codes
+ */
 
 #define LISP_AFI_IP                     1
 #define LISP_AFI_IPV6                   2
 #define LISP_AFI_LCAF                   16387
+
 #define LISP_IP_MASK_LEN                32
+
+/*
+ * LCAF types
+ */
+
+#define LCAF_NULL           0
+#define LCAF_AFI_LIST       1
+#define LCAF_IID            2
+#define LCAF_ASN            3
+#define LCAF_APP_DATA       4
+#define LCAF_GEO            5
+#define LCAF_OKEY           6
+#define LCAF_NATT           7
+#define LCAF_NONCE_LOC      8
+#define LCAF_MCAST_INFO     9
+#define LCAF_EXPL_LOC_PATH  10
+#define LCAF_SEC_KEY        11
 
 /*
  *  locator_types
