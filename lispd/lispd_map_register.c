@@ -135,7 +135,7 @@ lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
     mrp->map_notify       = 1;              /* TODO conf item */
     mrp->nonce            = 0;
     mrp->record_count     = 1;              /* XXX  > 1 ? */
-    mrp->key_id           = 0;              /* XXX not sure */
+    mrp->key_id           = htons(1);       /* XXX not sure */
     mrp->auth_data_len    = htons(LISP_SHA1_AUTH_DATA_LEN);
 
     /* skip over the fixed part,  assume one record (mr) */
