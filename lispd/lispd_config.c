@@ -179,6 +179,9 @@ int handle_lispd_config_file()
 #ifdef DEBUG
         syslog(LOG_DAEMON, "Added %s to proxy-etr list", proxy_etr);
 #endif
+    } else {
+        syslog(LOG_DAEMON, "Warning: No Proxy-ETR defined. Packets to non-LISP destinations will be forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        sleep(1);
     }
 
     /*
