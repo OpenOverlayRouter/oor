@@ -1,0 +1,14 @@
+# Object files
+*.o
+
+# Vi(m) swap files
+.*.swp
+
+# CScope file
+cscope.out
+
+# Compiled executable
+lispd
+
+# Local configuration file
+lispd.conf

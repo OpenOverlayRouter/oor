@@ -1,0 +1,8 @@
+# Object files
+*.o
+
+# Vi(m) swap files
+.*.swp
+
+# Compiled executable
+lispconf

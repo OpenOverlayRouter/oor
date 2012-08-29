@@ -1,0 +1,8 @@
+# Vi(m) swap files
+.*.swp
+
+# Compiled executables
+udp_echo_server
+udp_echo_client
+tcp_echo_server
+tcp_echo_client
