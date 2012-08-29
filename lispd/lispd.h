@@ -493,9 +493,11 @@ typedef struct lispd_pkt_map_register_t_ {
     uint8_t reserved2;
 #ifdef LITTLE_ENDIANS
     uint8_t map_notify:1;
-    uint8_t reserved3:7;
+    uint8_t lisp_mn:1;
+    uint8_t reserved3:6;
 #else
-    uint8_t reserved3:7;
+    uint8_t reserved3:6;
+    uint8_t lisp_mn:1;
     uint8_t map_notify:1;
 #endif
     uint8_t  record_count;
