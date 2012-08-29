@@ -654,7 +654,7 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                  */
                 rloc = &(addr_list->addr_list[i]);
                 /* Don't SMR PETRs (TODO need IPv6 support) */
-                if (addr_list->addr_list[i].afi == AF_INET &&
+                if (proxy_etrs && addr_list->addr_list[i].afi == AF_INET &&
                         addr_list->addr_list[i].address.ip.s_addr ==
                         proxy_etrs->address->address.ip.s_addr)
                     continue;
@@ -680,7 +680,7 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                  */
                 rloc = &(addr_list->addr_list[i]);
                 /* Don't SMR PETRs (TODO need IPv6 support) */
-                if (addr_list->addr_list[i].afi == AF_INET &&
+                if (proxy_etrs && addr_list->addr_list[i].afi == AF_INET &&
                         addr_list->addr_list[i].address.ip.s_addr ==
                         proxy_etrs->address->address.ip.s_addr)
                     continue;
