@@ -132,7 +132,6 @@ lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
      */
 
     mrp->lisp_type        = LISP_MAP_REGISTER;
-    mrp->lisp_mn          = 1;              /* Undocumented?; For NX-OS 'sh lisp site x' */
     mrp->map_notify       = 1;              /* TODO conf item */
     mrp->nonce            = 0;
     mrp->record_count     = 1;              /* XXX  > 1 ? */
