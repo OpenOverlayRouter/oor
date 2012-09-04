@@ -11,6 +11,8 @@ all:
 .PHONY: clean
 clean:
 	make -I $(INCLUDE_DIR) -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+
+distclean: clean
 	rm -f cscope.out
 
 install: $(obj-m)

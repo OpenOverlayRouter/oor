@@ -38,10 +38,10 @@ cmdline.c: lispd.ggo
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o $(EXE) patricia/*.o cscope.out
+	rm -f *.o $(EXE) patricia/*.o
 
 distclean: clean
-	rm -f cmdline.[ch]
+	rm -f cmdline.[ch] cscope.out
 
 install: $(EXE)
 	mkdir -p $(DESTDIR)$(PREFIX) && cp $(EXE) $(DESTDIR)$(PREFIX)
