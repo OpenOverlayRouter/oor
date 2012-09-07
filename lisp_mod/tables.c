@@ -999,7 +999,7 @@ void add_ifindex_to_rloc_mapping(int ifindex, lisp_addr_t *rloc)
     }
 
     if (!replace) {
-        new_rloc = kmalloc(GFP_ATOMIC, sizeof(rloc_map_entry_t));
+        new_rloc = kmalloc(sizeof(rloc_map_entry_t), GFP_ATOMIC);
 
         if (!new_rloc) {
             printk(KERN_INFO "Unable to allocate new rloc table entry.");
