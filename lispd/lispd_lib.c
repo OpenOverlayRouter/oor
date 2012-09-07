@@ -1072,6 +1072,7 @@ int build_datacache_entry(dest,
     }
     else {
     syslog(LOG_DAEMON,"Unknown AFI (build_datacache_entry): %d", elt->dest.afi);
+    free(elt);
     return 0;
     }
 

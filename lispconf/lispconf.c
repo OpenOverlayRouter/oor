@@ -455,6 +455,7 @@ int process_list_responses(void)
                         perror("inet_ntop (eid)");
                         exit(-1);
                     }
+                    printf("%s\n", formatted_eid);
                     break;
                 case AF_INET6:
                     if ((formatted_eid = (char *)  inet_ntop(AF_INET6,
@@ -464,13 +465,13 @@ int process_list_responses(void)
                         perror("inet_ntop (eid)");
                         exit(-1);
                     }
+                    printf("%s\n", formatted_eid);
                     break;
                 default:
                     printf("Unknown AFI %d in address list entry", addr_list->addr_list[i].afi);
                     printf("First byte of address was %d", addr_list->addr_list[i].address.ip.s_addr);
                     break;
                 }
-                printf("%s\n", formatted_eid);
             }
         } else {
             printf("Unexpected message type from kernel %d\n", cmd->type);

@@ -785,7 +785,7 @@ int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
                     }
                     petr_iterator = petr_iterator->next;
                 } while (petr_iterator);
-                {
+                if (is_petr_addr) {
                     locators++;
                     continue;
                 }

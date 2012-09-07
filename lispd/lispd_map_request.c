@@ -267,7 +267,17 @@ else
             locator_chain = ((lispd_locator_chain_t *)(node->data));
         } PATRICIA_WALK_END;
         break;
+    default:
+        free(my_addr);
+        return(0);
     }
+
+    if (!locator_chain) {
+        syslog(LOG_DAEMON, "build_map_request_pkt: can't get source EID");
+        free(my_addr);
+        return(0);
+    }
+
     /* We add 2x the IID LCAF size, once for source EID, once for request */
     if (locator_chain->iid >= 0)
         map_request_msg_len += 2 * sizeof(lispd_pkt_lcaf_t) +

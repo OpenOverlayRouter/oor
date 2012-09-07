@@ -55,6 +55,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
         sin = (struct in_addr *) addr;
         if ((prefix = New_Prefix(AF_INET, sin, mask_len)) == NULL) {
             syslog(LOG_DAEMON, "couldn't alocate prefix_t for AF_INET");
+            free(node);
             return(NULL);
         }
         node = patricia_lookup(AF4_database, prefix);
@@ -63,6 +64,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
         sin6   = (struct in6_addr *) addr;
         if ((prefix = New_Prefix(AF_INET6, sin6, mask_len)) == NULL) {
             syslog(LOG_DAEMON, "couldn't alocate prefix_t for AF_INET6");
+            free(node);
             return(NULL);
         }
         node   = patricia_lookup(AF6_database, prefix);

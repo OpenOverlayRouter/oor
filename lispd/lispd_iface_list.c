@@ -254,6 +254,7 @@ int update_iface_list (iface_name, eid_prefix,
             break;
         default:
             syslog (LOG_DAEMON, "Unknown AFI; db_entry not added\n");
+            free(db_elt);
             break;
     }
 

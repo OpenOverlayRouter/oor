@@ -939,6 +939,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
             syslog(LOG_DAEMON, "Can't malloc(sizeof(lispd_locator_chain_t))");
             free(db_entry);
             free(eid);
+            free(add_elt);
             return(0);
         }
         memset(locator_chain,0,sizeof(lispd_locator_chain_t));
@@ -1004,6 +1005,9 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
         break;
     case AF_INET6:
         add_item_to_db_entry_list(iface_elt->AF6_locators, db_elt);
+        break;
+    default:
+        free(db_elt);
         break;
     }
 

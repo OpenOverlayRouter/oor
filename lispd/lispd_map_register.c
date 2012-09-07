@@ -142,10 +142,12 @@ lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
 
     mr = (lispd_pkt_mapping_record_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
-    if (pkt_fill_mapping_record(mr, locator_chain, NULL))
+    if (pkt_fill_mapping_record(mr, locator_chain, NULL)) {
         return(mrp);
-    else
+    } else {
+        free(mrp);
         return(NULL);
+    }
 }
 
 
@@ -187,7 +189,6 @@ int send_map_register(ms, mrp, mrp_len)
           (uchar *) mrp->auth_data,
           &md_len)) {
     syslog(LOG_DAEMON, "HMAC failed for map-register");
-        free(mrp);
     return(0);
     }    
 

@@ -345,7 +345,7 @@ int add_database_mapping(dm)
         break;
     default:
         syslog(LOG_DAEMON, "Unknown AFI (%d) for %s", afi, eid);
-        break;
+        return(0);
     }
 
     if (node == NULL) {
@@ -420,6 +420,7 @@ int add_database_mapping(dm)
 
     if ((db_entry = malloc(sizeof(lispd_db_entry_t))) == NULL) {
         syslog(LOG_DAEMON,"malloc(sizeof(lispd_database_t)): %s", strerror(errno));
+        free(rloc_ptr);
         return(0);
     }
 
@@ -593,6 +594,7 @@ int add_static_map_cache_entry(smc)
     }
     if ((map_cache = malloc(sizeof(lispd_map_cache_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lispd_map_cache_t)): %s", strerror(errno));
+        free(rloc_ptr);
         return(0);
     }
     memset(rloc_ptr, 0,sizeof(lisp_addr_t));
@@ -797,8 +799,6 @@ int add_proxy_etr_entry(petr, petr_list)
     lisp_addr_t                     *address;
     lispd_weighted_addr_list_t      *petr_unit;
 
-    char                    *token;
-    int                     afi;
     uint32_t                flags = 0;
 
     char   *addr        = cfg_getstr(petr, "address");
@@ -821,6 +821,7 @@ int add_proxy_etr_entry(petr, petr_list)
     }
     if ((petr_unit = malloc(sizeof(lispd_weighted_addr_list_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lispd_weighted_addr_list_t)): %s", strerror(errno));
+        free(address);
         return(0);
     }
     memset(address, 0,sizeof(lisp_addr_t));
