@@ -191,8 +191,7 @@ void send_cache_miss_notification(lisp_addr_t addr, short af)
   err = netlink_unicast(globals.nl_socket, skb, globals.daemonPID, 
 			MSG_DONTWAIT);
   if (err < 0) {
-    printk(KERN_INFO "Error sending to lispd. Clearing PID.\n");
-    globals.daemonPID = 0;
+    printk(KERN_INFO "send_cache_miss_notification: error sending to lispd");
   }
   return;
 }
@@ -270,8 +269,7 @@ void send_cache_sample_notification(lisp_map_cache_t *entry, sample_reason_e rea
   err = netlink_unicast(globals.nl_socket, skb, globals.daemonPID,
                         MSG_DONTWAIT);
   if (err < 0) {
-    printk(KERN_INFO "Error sending to lispd. Clearing PID.\n");
-    globals.daemonPID = 0;
+    printk(KERN_INFO "send_cache_sample_notification: error sending to lispd");
   }
   return;
 }
@@ -546,8 +544,7 @@ void handle_map_cache_lookup(lisp_cmd_t *cmd, int pid)
          eidlist->count = *count;
          err = netlink_unicast(globals.nl_socket, *skb, dstpid, MSG_DONTWAIT);
          if (err < 0) {
-             printk(KERN_INFO "Error sending to lispd. Clearing PID.\n");
-             globals.daemonPID = 0;
+             printk(KERN_INFO "build_eid_list_entry: error sending to lispd");
              return false;
          }
 
@@ -586,8 +583,7 @@ void handle_map_cache_lookup(lisp_cmd_t *cmd, int pid)
              rloclist->count = *count;
              err = netlink_unicast(globals.nl_socket, *skb, dstpid, MSG_DONTWAIT);
              if (err < 0) {
-                 printk(KERN_INFO "Error sending to lispd. Clearing PID.\n");
-                 globals.daemonPID = 0;
+                 printk(KERN_INFO "build_rloc_list_entry: error sending to lispd");
                  return false;
              }
 
@@ -702,8 +698,7 @@ void send_map_cache_list(int dstpid, uint16_t request_type,
         cmd->length = sizeof(lisp_cache_address_list_t) + sizeof(lisp_addr_t) * (addr_count);
         err = netlink_unicast(globals.nl_socket, skb, dstpid, MSG_DONTWAIT);
         if (err < 0) {
-            printk(KERN_INFO "Error sending to lispd. Clearing PID.\n");
-            globals.daemonPID = 0;
+            printk(KERN_INFO "send_map_cache_list: error sending to lispd");
             return;
         }
     }
