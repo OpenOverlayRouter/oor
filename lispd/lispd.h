@@ -339,6 +339,18 @@ typedef struct _lispd_addr_list_t {
 } lispd_addr_list_t;
 
 
+/*
+ *  generic list of addresses with priority and weight
+ */
+
+typedef struct _lispd_weighted_addr_list_t {
+    lisp_addr_t                         *address;
+    uint8_t                             priority;
+    uint8_t                             weight;
+    struct _lispd_weighted_addr_list_t  *next;
+} lispd_weighted_addr_list_t;
+
+
 typedef struct _lispd_map_server_list_t {
     lisp_addr_t                     *address;
     uint8_t                         key_type;

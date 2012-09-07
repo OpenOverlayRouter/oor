@@ -30,7 +30,11 @@ map-server {
 }
 
 # Encapsulate packets for non-LISP sites to this Proxy-ETR
-proxy-etr           = 149.20.48.60
+proxy-etr {
+	address     = 149.20.48.60
+	priority    = 1
+	weight      = 100
+}
 
 # IPv4 EID of the mobile node
 database-mapping {

@@ -72,6 +72,7 @@ int process_map_reply(packet)
     lispd_pkt_mapping_record_t              *record;
     lispd_pkt_mapping_record_locator_t      *loc_pkt;
     lisp_eid_map_msg_t                      *map_msg;
+    lispd_weighted_addr_list_t              *petr_iterator;
     int                                     map_msg_len;
     datacache_elt_t                         *elt = NULL;
     lisp_addr_t                             *eid = NULL;
@@ -150,12 +151,18 @@ int process_map_reply(packet)
 
     /*
      * Allocate memory for the new map cache entry, fill it in
-     * If we have a negative reply and we also have a Proxy-ETR
-     * configured, allocate memory for a locator
+     * If we have a negative reply and we also have Proxy-ETRs
+     * configured, allocate memory for a locator for each Proxy-ETR
      */
     loc_count = record->locator_count;
-    if ((loc_count == 0) && (proxy_etrs))
-        loc_count = 1;
+    if ((loc_count == 0) && (proxy_etrs)) {
+        petr_iterator = proxy_etrs;
+        do {
+            loc_count++;
+            petr_iterator = petr_iterator->next;
+        }
+        while (petr_iterator);
+    }
     map_msg_len = sizeof(lisp_eid_map_msg_t) +
                   sizeof(lisp_eid_map_msg_loc_t) * loc_count;
     if ((map_msg = malloc(map_msg_len)) == NULL) {
@@ -177,24 +184,40 @@ int process_map_reply(packet)
 
     /*
      * VE:   If there are none -> negative map reply.
-	 * LJ:   We add the first PETR in the list as locator
-     * TODO: We should iterate list, and adjust weights accordingly
+	 * LJ:   We add the PETRs in the list as locators
 	 */
     if((record->locator_count) == 0) {
         if (proxy_etrs) {
             /* Don't RLOC probe PETRs */
             map_msg->sampling_interval = 0;
-            /* Fill in locator data */
-            memcpy(&(map_msg->locators[0].locator.address), &(proxy_etrs->address->address), sizeof(lisp_addr_t));
-            map_msg->locators[0].locator.afi = proxy_etrs->address->afi;
-            map_msg->locators[0].priority = 1;
-            map_msg->locators[0].weight = 100;
-            map_msg->locators[0].mpriority = 255;
-            map_msg->locators[0].mweight = 100;
+            petr_iterator = proxy_etrs;
+            for(i = 0; i < loc_count; i++) {
+                memcpy(&(map_msg->locators[i].locator.address), &(petr_iterator->address->address), sizeof(lisp_addr_t));
+                map_msg->locators[i].locator.afi = petr_iterator->address->afi;
+                map_msg->locators[i].priority = petr_iterator->priority;
+                map_msg->locators[i].weight = petr_iterator->weight;
+                map_msg->locators[i].mpriority = 255;
+                map_msg->locators[i].mweight = 100;
 
+                /*
+                 * Advance the ptrs for the next locator
+                 */
+                if(i+1 < record->locator_count) {
+                    loc_afi = map_msg->locators[i].locator.afi;
+                    if(loc_afi == AF_INET) { //ipv4: 4B
+                        loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in_addr));
+                    } else if(loc_afi == AF_INET6){ //ipv6: 16B
+                        loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in6_addr));
+                    } else
+                        return(0);
+                    loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_mapping_record_locator_t));
+                }
+
+                petr_iterator = petr_iterator->next;
+            }
             ret = send_eid_map_msg(map_msg, map_msg_len);
 #ifdef     DEBUG
-            syslog (LOG_DAEMON, "Installed 'negative' map cache entry using PETR as the locator");
+            syslog (LOG_DAEMON, "Installed 'negative' map cache entry using PETR(s) as the locators");
 #endif
             if (ret < 0) {
                 syslog (LOG_DAEMON, "Installing 'negative' map cache entry failed; ret=%d", ret);

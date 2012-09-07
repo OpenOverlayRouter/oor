@@ -115,15 +115,22 @@ int handle_lispd_config_file()
         CFG_END()
     };
 
+    static cfg_opt_t petr_mapping_opts[] = {
+            CFG_STR("address",              0, CFGF_NONE),
+            CFG_INT("priority",           255, CFGF_NONE),
+            CFG_INT("weight",               0, CFGF_NONE),
+            CFG_END()
+    };
+
     cfg_opt_t opts[] = {
         CFG_SEC("database-mapping",     db_mapping_opts, CFGF_MULTI),
         CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
         CFG_SEC("map-server",           map_server_opts, CFGF_MULTI),
+        CFG_SEC("proxy-etr",            petr_mapping_opts, CFGF_MULTI),
         CFG_INT("map-request-retries",  0, CFGF_NONE),
         CFG_INT("control-port",         0, CFGF_NONE),
         CFG_BOOL("debug",               cfg_false, CFGF_NONE),
         CFG_STR("map-resolver",         0, CFGF_NONE),
-        CFG_STR("proxy-etr",            0, CFGF_NONE),
         CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
         CFG_END()
     };
@@ -173,15 +180,18 @@ int handle_lispd_config_file()
      *  handle proxy-etr config
      */
 
-    if ((proxy_etr = cfg_getstr(cfg, "proxy-etr")) != NULL) {
-        if (!add_server(proxy_etr, &proxy_etrs))
-            return(0); 
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Added %s to proxy-etr list", proxy_etr);
-#endif
-    } else {
-        syslog(LOG_DAEMON, "Warning: No Proxy-ETR defined. Packets to non-LISP destinations will be forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-        sleep(1);
+
+    n = cfg_size(cfg, "proxy-etr");
+    for(i = 0; i < n; i++) {
+        cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
+        if (!add_proxy_etr_entry(petr, &proxy_etrs)) {
+            syslog(LOG_DAEMON, "Can't add proxy-etr %d (%s)", i, cfg_getstr(petr, "address"));
+        }
+    }
+
+    if (!proxy_etrs){
+        syslog(LOG_DAEMON, "WARNING: No Proxy-ETR defined. Packets to non-LISP destinations will be forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        sleep(3);
     }
 
     /*
@@ -768,6 +778,77 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
     } else {
         map_servers = list_elt;
     }
+
+    return(1);
+}
+
+/*
+ *  add_proxy_etr_entry --
+ *
+ *  Add a proxy-etr entry
+ *
+ */
+
+int add_proxy_etr_entry(petr, petr_list)
+    cfg_t  *petr;
+    lispd_weighted_addr_list_t      **petr_list;
+{
+
+    lisp_addr_t                     *address;
+    lispd_weighted_addr_list_t      *petr_unit;
+
+    char                    *token;
+    int                     afi;
+    uint32_t                flags = 0;
+
+    char   *addr        = cfg_getstr(petr, "address");
+    int    priority     = cfg_getint(petr, "priority");
+    int    weight       = cfg_getint(petr, "weight");
+
+    if (priority > 255 || priority < 0) {
+        syslog (LOG_DAEMON, "WARNING: Priority %d out of range [0..255]", priority);
+        return (0);
+    }
+
+    if (weight > 100 || weight < 0) {
+        syslog (LOG_DAEMON, "WARNING: Weight %d out of range [0..100]", priority);
+        return (0);
+    }
+
+    if ((address = malloc(sizeof(lisp_addr_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
+        return(0);
+    }
+    if ((petr_unit = malloc(sizeof(lispd_weighted_addr_list_t))) == NULL) {
+        syslog(LOG_DAEMON, "malloc(sizeof(lispd_weighted_addr_list_t)): %s", strerror(errno));
+        return(0);
+    }
+    memset(address, 0,sizeof(lisp_addr_t));
+    memset(petr_unit,0,sizeof(lispd_weighted_addr_list_t));
+
+    if (!lispd_get_address(addr,address,&flags)) {
+        free(address);
+        free(petr_unit);
+    return(0);
+    }
+    petr_unit->address      = address;
+    petr_unit->priority     = priority;
+    petr_unit->weight       = weight;
+
+    /*
+     * hook this one to the front of the list
+     */
+
+    if (*petr_list) {
+        petr_unit->next = *petr_list;
+        *petr_list = petr_unit;
+    } else {
+        *petr_list = petr_unit;
+    }
+
+#ifdef DEBUG
+        syslog(LOG_DAEMON, "Added %s to proxy-etr list", addr);
+#endif
 
     return(1);
 }

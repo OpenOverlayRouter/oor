@@ -81,8 +81,8 @@ extern  patricia_tree_t   *AF6_database;
 extern  datacache_t   *datacache;
 
 extern  lispd_addr_list_t *map_resolvers;
-extern  lispd_addr_list_t *proxy_etrs;
 extern  lispd_addr_list_t *proxy_itrs;
+extern  lispd_weighted_addr_list_t *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
 extern  char            *config_file;
 extern  char            *map_resolver;

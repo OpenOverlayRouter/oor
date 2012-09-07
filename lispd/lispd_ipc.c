@@ -637,10 +637,11 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
     patricia_node_t *node;
     lispd_locator_chain_t *locator_chain = NULL;
     lisp_cache_address_list_t *addr_list;
+    lispd_weighted_addr_list_t *petr_iterator;
     lisp_addr_t *rloc;
     char rloc_name[128];
     int i;
-
+    uint8_t is_petr_addr;
     addr_list = (lisp_cache_address_list_t *) cmd->val;
 
     PATRICIA_WALK(AF4_database->head, node) {
@@ -653,11 +654,33 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                  * same as destination (the function should be extended).
                  */
                 rloc = &(addr_list->addr_list[i]);
-                /* Don't SMR PETRs (TODO need IPv6 support) */
-                if (proxy_etrs && addr_list->addr_list[i].afi == AF_INET &&
-                        addr_list->addr_list[i].address.ip.s_addr ==
-                        proxy_etrs->address->address.ip.s_addr)
-                    continue;
+                /* Don't SMR PETRs */
+                if (proxy_etrs) {
+                    is_petr_addr = 0;
+                    petr_iterator = proxy_etrs;
+                    do {
+                        if (addr_list->addr_list[i].afi == petr_iterator->address->afi) {
+                            if (addr_list->addr_list[i].afi == AF_INET) {
+                                if (addr_list->addr_list[i].address.ip.s_addr ==
+                                        petr_iterator->address->address.ip.s_addr) {
+                                    is_petr_addr = 1;
+                                    break;
+                                }
+                            } else {
+                                if (memcmp(&(addr_list->addr_list[i].address.ipv6),
+                                        &(petr_iterator->address->address.ipv6),
+                                        sizeof(struct in6_addr)) == 0){
+                                    is_petr_addr = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        petr_iterator = petr_iterator->next;
+                    } while (petr_iterator);
+                    if (is_petr_addr)
+                        continue;
+                }
+
                 inet_ntop(rloc->afi, &(rloc->address), rloc_name, 128);
                 if (build_and_send_map_request_msg(rloc,
                         &(locator_chain->eid_prefix),
@@ -679,11 +702,33 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                  * same as destination (the function should be extended).
                  */
                 rloc = &(addr_list->addr_list[i]);
-                /* Don't SMR PETRs (TODO need IPv6 support) */
-                if (proxy_etrs && addr_list->addr_list[i].afi == AF_INET &&
-                        addr_list->addr_list[i].address.ip.s_addr ==
-                        proxy_etrs->address->address.ip.s_addr)
-                    continue;
+                /* Don't SMR PETRs */
+                if (proxy_etrs) {
+                    is_petr_addr = 0;
+                    petr_iterator = proxy_etrs;
+                    do {
+                        if (addr_list->addr_list[i].afi == petr_iterator->address->afi) {
+                            if (addr_list->addr_list[i].afi == AF_INET) {
+                                if (addr_list->addr_list[i].address.ip.s_addr ==
+                                        petr_iterator->address->address.ip.s_addr) {
+                                    is_petr_addr = 1;
+                                    break;
+                                }
+                            } else {
+                                if (memcmp(&(addr_list->addr_list[i].address.ipv6),
+                                        &(petr_iterator->address->address.ipv6),
+                                        sizeof(struct in6_addr)) == 0){
+                                    is_petr_addr = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        petr_iterator = petr_iterator->next;
+                    } while (petr_iterator);
+                    if (is_petr_addr)
+                        continue;
+                }
+
                 inet_ntop(rloc->afi, &(rloc->address), rloc_name, 128);
                 if (build_and_send_map_request_msg(&rloc,
                         &(locator_chain->eid_prefix),
@@ -701,7 +746,9 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
 int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
     lisp_cache_response_msg_t *cache_entry;
     lisp_cache_response_loc_t *locators = NULL;
+    lispd_weighted_addr_list_t *petr_iterator;
     char rloc_name[128];
+    uint8_t is_petr_addr;
     int i;
 
     cache_entry = (lisp_cache_response_msg_t *) cmd->val;
@@ -714,13 +761,36 @@ int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
      */
     if (cache_entry->num_locators) {
         for (i = 0; i < cache_entry->num_locators; i++) {
-            /* Don't SMR PETRs (TODO need IPv6 support) */
-            if (locators->locator.afi == AF_INET &&
-                    locators->locator.address.ip.s_addr ==
-                    proxy_etrs->address->address.ip.s_addr) {
-                locators++;
-                continue;
+
+            /* Don't SMR PETRs */
+            if (proxy_etrs){
+                is_petr_addr = 0;
+                petr_iterator = proxy_etrs;
+                do {
+                    if (locators->locator.afi == petr_iterator->address->afi) {
+                        if (locators->locator.afi == AF_INET) {
+                            if (locators->locator.address.ip.s_addr ==
+                                    petr_iterator->address->address.ip.s_addr) {
+                                is_petr_addr = 1;
+                                break;
+                            }
+                        } else {
+                            if (memcmp(&(locators->locator.address.ipv6),
+                                    &(petr_iterator->address->address.ipv6),
+                                    sizeof(struct in6_addr)) == 0){
+                                is_petr_addr = 1;
+                                break;
+                            }
+                        }
+                    }
+                    petr_iterator = petr_iterator->next;
+                } while (petr_iterator);
+                {
+                    locators++;
+                    continue;
+                }
             }
+
             inet_ntop(locators->locator.afi, &(locators->locator.address), rloc_name, 128);
             if (build_and_send_map_request_msg(&(locators->locator),
                     &(cache_entry->eid_prefix),

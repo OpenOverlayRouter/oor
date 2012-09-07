@@ -530,6 +530,31 @@ void dump_servers(list, list_name)
     }
 }
 
+
+void dump_proxy_etrs(list, list_name)
+    lispd_weighted_addr_list_t  *list;
+    const char                  *list_name;
+{
+    lisp_addr_t                  *addr     = 0;
+    lispd_weighted_addr_list_t   *iterator = 0;
+    int                 afi;
+    char                buf[128];
+
+    if (!list)
+        return;
+
+    syslog(LOG_DAEMON, "%s:", list_name);
+
+    iterator = list;
+    while (iterator) {
+        addr = iterator->address;
+        afi = addr->afi;
+        inet_ntop(afi, &(addr->address), buf, sizeof(buf));
+        syslog(LOG_DAEMON," %s priority: %d  weight: %d", buf, iterator->priority, iterator->weight);
+        iterator = iterator->next;
+    }
+}
+
 void dump_map_server(ms)
     lispd_map_server_list_t *ms;
 {
