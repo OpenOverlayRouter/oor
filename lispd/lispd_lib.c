@@ -831,7 +831,7 @@ int get_lisp_afi(afi, len)
  */         
 
 int lisp2inetafi(afi)
-     int        afi;
+     uint16_t   afi;
 {
     switch (afi) {
     case 0:

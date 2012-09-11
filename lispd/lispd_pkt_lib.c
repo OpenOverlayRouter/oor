@@ -239,16 +239,22 @@ extern void *pkt_read_eid(offset, eid, eid_afi, iid)
             *eid_afi = lisp2inetafi(lisp_afi);
             cur_ptr  = (void *)CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
             *eid     = (lisp_addr_t *)cur_ptr;
+            return CO(cur_ptr, get_addr_len(*eid_afi));
         } else {
             cur_ptr  = CO(cur_ptr, ntohs(lcaf_ptr->len));
             *eid     = NULL;
             *eid_afi = -1;
             *iid     = -1;
         }
+    } else if (lisp_afi == 0) {
+        *eid     = NULL;
+        *eid_afi = -1;
+        *iid     = -1;
     } else {
         *eid     = (lisp_addr_t *)cur_ptr;
         *eid_afi = lisp2inetafi(lisp_afi);
         *iid     = -1;
+        return CO(cur_ptr, get_addr_len(*eid_afi));
     }
 
     return cur_ptr;

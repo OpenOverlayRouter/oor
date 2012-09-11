@@ -639,12 +639,16 @@ int build_and_send_map_request_msg(dest, eid_prefix,
 
 int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int afi) {
 
+    lisp_addr_t *tmp_eid;
     lisp_addr_t src_eid_prefix;
+    lispd_iid_t src_eid_iid;
     lisp_addr_t itr_rloc[32];
     prefix_t eid_prefix;
+    lispd_iid_t eid_iid;
     int itr_rloc_count = 0;
     int src_eid_afi;
     int itr_rloc_afi;
+    int eid_prefix_afi;
     void *cur_ptr;
     int afi_len = 0;
     int ip_header_len = 0;
@@ -748,15 +752,13 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         return(0); //we should never reach this return()
 
     /* Source EID is optional in general, but required for SMRs */
-    src_eid_afi = lisp2inetafi(ntohs(msg->source_eid_afi));
-    cur_ptr = CO((void *)msg, sizeof(lispd_pkt_map_request_t));
-    if (src_eid_afi != 0) {
+    cur_ptr = pkt_read_eid(&(msg->source_eid_afi), &tmp_eid, &src_eid_afi, &src_eid_iid);
+    /* TODO: Should check first if IID is the same as we are in */
+    if (tmp_eid) {
         memset(&src_eid_prefix, 0, sizeof(lisp_addr_t));
-        memcpy(&(src_eid_prefix.address), cur_ptr, get_addr_len(src_eid_afi));
+        memcpy(&(src_eid_prefix.address), tmp_eid, get_addr_len(src_eid_afi));
         src_eid_prefix.afi = src_eid_afi;
         inet_ntop(src_eid_afi, &(src_eid_prefix.address), eid_name, 128);
-        afi_len = (get_prefix_len(src_eid_afi));
-        cur_ptr = CO(cur_ptr, get_addr_len(src_eid_afi));
 
         if (msg->solicit_map_request) {
             if(!build_and_send_map_request_msg(map_resolvers->address,
@@ -798,9 +800,9 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
     eid_prefix.ref_count = 0;
     eid_prefix.bitlen = *(uint8_t *)cur_ptr;
     cur_ptr = CO(cur_ptr, sizeof(uint8_t));
-    eid_prefix.family = lisp2inetafi(ntohs(*(uint16_t *)cur_ptr));
-    cur_ptr = CO(cur_ptr, sizeof(uint16_t));
-    memcpy(&(eid_prefix.add), cur_ptr, get_addr_len(eid_prefix.family));
+    cur_ptr = pkt_read_eid(cur_ptr, &tmp_eid, &eid_prefix_afi, &eid_iid);
+    eid_prefix.family = eid_prefix_afi;
+    memcpy(&(eid_prefix.add), tmp_eid, get_addr_len(eid_prefix.family));
 
     /* Set flags for Map-Reply */
     opts.send_rec   = 1;
