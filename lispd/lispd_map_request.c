@@ -759,6 +759,7 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         memcpy(&(src_eid_prefix.address), tmp_eid, get_addr_len(src_eid_afi));
         src_eid_prefix.afi = src_eid_afi;
         inet_ntop(src_eid_afi, &(src_eid_prefix.address), eid_name, 128);
+        afi_len = (get_prefix_len(src_eid_afi));
 
         if (msg->solicit_map_request) {
             if(!build_and_send_map_request_msg(map_resolvers->address,
