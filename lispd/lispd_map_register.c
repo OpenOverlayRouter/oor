@@ -328,7 +328,7 @@ void stop_periodic_map_register(void)
 }
 
 
-inline void periodic_map_register(void)
+void periodic_map_register(void)
 {
     ssize_t s;
     uint64_t num_exp;

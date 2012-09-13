@@ -586,7 +586,7 @@ int build_and_send_map_request_msg(dest, eid_prefix,
 
     packet = build_map_request_pkt(dest, eid_prefix, eid_prefix_length,
             &len, &nonce, encap, probe, solicit_map_request,
-            smr_invoked, islocal,retries);
+            smr_invoked, islocal);
 
 
     if (!packet) {

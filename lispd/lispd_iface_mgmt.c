@@ -584,7 +584,7 @@ static int rule_mod (if_index, cmd,
     /*
      * Send the netlink message to kernel 
      */
-    if (!nlsock_talk(n, 0, 0, NULL)) {
+    if (!nlsock_talk(n)) {
         syslog (LOG_DAEMON, "nlsock_talk (rule_mod()) failed\n");
         return (0);
     }
@@ -1680,7 +1680,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
         /*
          * Send the netlink message to kernel 
          */
-        if (!nlsock_talk(&raddr.n, 0, 0, NULL)) {
+        if (!nlsock_talk(&raddr.n)) {
             syslog(LOG_DAEMON, "nlsock_talk (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
@@ -1769,12 +1769,18 @@ void exit_cleanup(void) {
     while(list_iterator){
     	if (list_iterator->AF4_locators->head) {
     		if (list_iterator->AF4_locators->head->db_entry) {
-    			delete_source_routing(list_iterator, &(list_iterator->AF4_locators->head->db_entry->locator), NULL,list_iterator->rt_table_num);
+                delete_source_routing(list_iterator->iface_name,
+                        &(list_iterator->AF4_locators->head->db_entry->locator),
+                        NULL,
+                        list_iterator->rt_table_num);
             }
 		}
 		if (list_iterator->AF6_locators->head) {
                 if (list_iterator->AF6_locators->head->db_entry) {
-				delete_source_routing(list_iterator, &(list_iterator->AF6_locators->head->db_entry->locator), NULL,list_iterator->rt_table_num);
+                delete_source_routing(list_iterator->iface_name,
+                        &(list_iterator->AF6_locators->head->db_entry->locator),
+                        NULL,
+                        list_iterator->rt_table_num);
 			}
         }
     	list_iterator=list_iterator->next;
