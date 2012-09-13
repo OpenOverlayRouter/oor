@@ -1,4 +1,6 @@
+ifndef CC
 CC=gcc
+endif
 GENGETOPT=gengetopt
 CFLAGS+=-I../lispd -g
 DEPS = ../lispd/lisp_ipc.h
