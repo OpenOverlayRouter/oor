@@ -55,7 +55,7 @@ void handle_lispd_command_line(int argc, char **argv)
     struct gengetopt_args_info args_info;
 
     if (cmdline_parser(argc, argv, &args_info) != 0) 
-        exit(0);
+        exit(EXIT_FAILURE);
 
     if (args_info.nodaemonize_given) {
         daemonize = 0;
@@ -143,11 +143,14 @@ int handle_lispd_config_file()
     ret = cfg_parse(cfg, config_file);
 
     if (ret == CFG_FILE_ERROR) {
-        syslog(LOG_DAEMON, "Couldn't find config file (%s)", config_file);
-        return 1;
+        syslog(LOG_DAEMON, "Couldn't find config file %s, exiting...", config_file);
+        exit(EXIT_FAILURE);
     } else if(ret == CFG_PARSE_ERROR) {
-        syslog(LOG_DAEMON, "Parse error (%s)", config_file);
-        return 2;
+        syslog(LOG_DAEMON, "NOTE: Version 0.2.4 changed the format of the 'proxy-etr' element.");
+        syslog(LOG_DAEMON, "      Check the 'lispd.conf.example' file for an example entry in");
+        syslog(LOG_DAEMON, "      the new format.");
+        syslog(LOG_DAEMON, "Parse error in file %s, exiting...", config_file);
+        exit(EXIT_FAILURE);
     }
 
     
