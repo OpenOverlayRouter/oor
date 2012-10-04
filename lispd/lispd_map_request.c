@@ -86,7 +86,14 @@
  *
  */
 
+#include "cksum.h"
 #include "lispd_external.h"
+#include "lispd_lib.h"
+#include "lispd_map_reply.h"
+#include "lispd_map_request.h"
+#include "lispd_pkt_lib.h"
+#include "patricia/patricia.h"
+#include <time.h>
 
 uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_length,
         len, nonce, encap, probe, solicit_map_request, smr_invoked, islocal)
@@ -576,7 +583,7 @@ int build_and_send_map_request_msg(dest, eid_prefix,
     char rloc_name[128];
 
     if (search) {
-        if (search_datacache_entry_eid(eid_prefix, res_elt)) {
+        if (search_datacache_entry_eid(eid_prefix, &res_elt)) {
             // We have already sent a Map-Request towards this destination
             // We should wait until the ongoing Map-Request expires to re-send
             // another one
@@ -704,9 +711,8 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         /*
      * Verify the checksums.
      */
-
         if (iph->ip_v == IPVERSION) {
-            ipsum = ip_checksum(iph, ip_header_len);
+            ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
             if (ipsum != 0) {
                 syslog(LOG_DAEMON, " Map-Request: IP checksum failed.");
             }

@@ -36,6 +36,8 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "lispd_external.h"
+#include "lispd_lib.h"
+#include "lispd_map_notify.h"
 
 
 int process_map_notify(packet)

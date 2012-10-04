@@ -28,11 +28,19 @@
  *
  */
 
+#include "lispd_pkt_lib.h"
+#include "lispd_lib.h"
+#include "lispd_map_register.h"
 
-#include "lispd_external.h"
+
+int get_locator_length(lispd_locator_chain_elt_t   *locator_chain_elt);
+void *build_mapping_record(
+    lispd_pkt_mapping_record_t              *rec,
+    lispd_locator_chain_t                   *locator_chain,
+    map_reply_opts                          *opts);
 
 
-extern int pkt_get_mapping_record_length(lispd_locator_chain_t *locator_chain) {
+int pkt_get_mapping_record_length(lispd_locator_chain_t *locator_chain) {
     lispd_locator_chain_elt_t *locator_chain_elt;
     int afi_len   = 0;
     int loc_len   = 0;
@@ -87,15 +95,48 @@ extern int pkt_get_mapping_record_length(lispd_locator_chain_t *locator_chain) {
 #endif
 }
 
+/*
+ *  get_locator_chain_length
+ *
+ *  Compute the sum of the lengths of the locators
+ *  in the chain so we can allocate a chunk of memory for
+ *  the packet....
+ */
 
-extern void *pkt_fill_eid_from_locator_chain(offset, loc_chain)
+int get_locator_length(locator_chain_elt)
+    lispd_locator_chain_elt_t   *locator_chain_elt;
+{
+    int sum = 0;
+    while (locator_chain_elt) {
+        switch (locator_chain_elt->db_entry->locator.afi) {
+        case AF_INET:
+            sum += sizeof(struct in_addr);
+            break;
+        case AF_INET6:
+            sum += sizeof(struct in6_addr);
+            break;
+        default:
+            syslog(LOG_DAEMON, "Uknown AFI (%d) for %s",
+               locator_chain_elt->db_entry->locator.afi,
+               locator_chain_elt->db_entry->locator_name);
+            break;
+        }
+        locator_chain_elt = locator_chain_elt->next;
+    }
+    return(sum);
+}
+
+
+
+
+void *pkt_fill_eid_from_locator_chain(offset, loc_chain)
     void                    *offset;
     lispd_locator_chain_t   *loc_chain;
 {
     return pkt_fill_eid(offset, &(loc_chain->eid_prefix), loc_chain->iid);
 }
 
-extern void *pkt_fill_eid(offset, eid, iid)
+void *pkt_fill_eid(offset, eid, iid)
     void                    *offset;
     lisp_addr_t             *eid;
     lispd_iid_t              iid;
@@ -140,7 +181,7 @@ extern void *pkt_fill_eid(offset, eid, iid)
 }
 
 
-extern void *pkt_fill_mapping_record(rec, locator_chain, opts)
+void *pkt_fill_mapping_record(rec, locator_chain, opts)
     lispd_pkt_mapping_record_t              *rec;
     lispd_locator_chain_t                   *locator_chain;
     map_reply_opts                          *opts;
@@ -212,7 +253,7 @@ extern void *pkt_fill_mapping_record(rec, locator_chain, opts)
  * Return value is the offset where packet parsing should continue
  */
 
-extern void *pkt_read_eid(offset, eid, eid_afi, iid)
+void *pkt_read_eid(offset, eid, eid_afi, iid)
     void                    *offset;
     lisp_addr_t            **eid;
     int                     *eid_afi;
@@ -261,10 +302,10 @@ extern void *pkt_read_eid(offset, eid, eid_afi, iid)
 }
 
 /* Temporary entries not to break existing code */
-extern int get_record_length(lispd_locator_chain_t *locator_chain) {
+int get_record_length(lispd_locator_chain_t *locator_chain) {
     return pkt_get_mapping_record_length(locator_chain);
 }
-extern void *build_mapping_record(rec, locator_chain, opts)
+void *build_mapping_record(rec, locator_chain, opts)
     lispd_pkt_mapping_record_t              *rec;
     lispd_locator_chain_t                   *locator_chain;
     map_reply_opts                          *opts;

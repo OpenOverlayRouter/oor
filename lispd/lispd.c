@@ -31,6 +31,7 @@
  *
  */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
@@ -41,14 +42,25 @@
 #include <inttypes.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/timerfd.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include "lispd.h"
+#include "lispd_config.h"
+#include "lispd_ipc.h"
+#include "lispd_iface_mgmt.h"
+#include "lispd_lib.h"
+#include "lispd_map_register.h"
+#include "lispd_map_request.h"
+#include "lispd_timers.h"
+
 
 void event_loop(void);
 void signal_handler(int);
+int build_timers_event_socket();
 void callback_elt(datacache_elt_t *);
+int process_timer_signal();
 
 /*
  *      global (more or less) vars
@@ -113,7 +125,10 @@ nlsock_handle nlh;
 /*
  *      timers (fds)
  */
-int     map_register_timer_fd           = 0;
+
+static int signal_pipe[2]; // We don't have signalfd in bionic, fake it.
+int     timers_fd                       = 0;
+
 #ifdef LISPMOBMH
 /* timer to rate control smr's in multihoming scenarios */
 int 	smr_timer_fd					= 0;
@@ -160,7 +175,10 @@ int main(int argc, char **argv)
 
     set_up_syslog();
 
-    /*
+
+
+
+     /*
      *  Unload/load LISP kernel modules
      */
 
@@ -170,7 +188,7 @@ int main(int argc, char **argv)
         syslog(LOG_DAEMON, "Loading the 'lisp' kernel module failed! Exiting...");
         exit(EXIT_FAILURE);
     }
-    syslog(LOG_DAEMON, "Loaded the 'lisp' kernel module");
+    syslog(LOG_INFO, "Loaded the 'lisp' kernel module");
     sleep(1);
 
     if (system("/sbin/modprobe lisp_int")) {
@@ -234,8 +252,12 @@ int main(int argc, char **argv)
      *  create timers
      */
 
-    if ((map_register_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
-        syslog(LOG_INFO, "Could not create periodic map register timer");
+    if (build_timers_event_socket() == 0)
+    {
+        syslog(LOG_ERR, " Error programing the timer signal. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+    init_timers();
 
 #ifdef LISPMOBMH
     if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
@@ -307,12 +329,8 @@ int main(int argc, char **argv)
     /*
      *  Register to the Map-Server(s)
      */
+    map_register (NULL,NULL);
 
-    if (!map_register(AF6_database))
-        syslog(LOG_INFO, "Could not map register AF_INET6 with Map Servers");
-
-    if (!map_register(AF4_database))
-        syslog(LOG_INFO, "Could not map register AF_INET with Map Servers");
 
     event_loop();
     syslog(LOG_INFO, "Exiting...");         /* event_loop returned bad */
@@ -340,11 +358,10 @@ void event_loop(void)
     max_fd = (v4_receive_fd > v6_receive_fd) ? v4_receive_fd : v6_receive_fd;
     max_fd = (max_fd > netlink_fd)           ? max_fd : netlink_fd;
     max_fd = (max_fd > nlh.fd)               ? max_fd : nlh.fd;
-    max_fd = (max_fd > map_register_timer_fd)? max_fd : map_register_timer_fd;
+    max_fd = (max_fd > timers_fd)            ? max_fd : timers_fd;
 #ifdef LISPMOBMH
     max_fd = (max_fd > smr_timer_fd)		 ? max_fd : smr_timer_fd;
 #endif
-
     // Modified by acabello
     prev=time(NULL);
 
@@ -354,7 +371,7 @@ void event_loop(void)
         FD_SET(v6_receive_fd,&readfds);
         FD_SET(netlink_fd,&readfds);
         FD_SET(nlh.fd, &readfds);
-        FD_SET(map_register_timer_fd, &readfds);
+        FD_SET(timers_fd, &readfds);
 #ifdef LISPMOBMH
         FD_SET(smr_timer_fd,&readfds);
 #endif
@@ -367,9 +384,9 @@ void event_loop(void)
         if (FD_ISSET(netlink_fd,&readfds))
             process_netlink_msg();
         if (FD_ISSET(nlh.fd,&readfds)) 
-                process_netlink_iface();
-        if (FD_ISSET(map_register_timer_fd,&readfds))
-                periodic_map_register();
+            process_netlink_iface();
+        if (FD_ISSET(timers_fd,&readfds))
+            process_timer_signal();
 #ifdef LISPMOBMH
         if (FD_ISSET(smr_timer_fd,&readfds))
                 smr_on_timeout();
@@ -410,6 +427,81 @@ void signal_handler(int sig) {
         syslog(LOG_WARNING,"Unhandled signal (%d)", sig);
         exit(EXIT_FAILURE);
     }
+}
+
+
+
+int process_timer_signal()
+{
+    int sig;
+    int  bytes;
+
+    bytes = read(timers_fd, &sig, sizeof(sig));
+
+    if (bytes != sizeof(sig)) {
+        syslog(LOG_WARNING, "process_event_signal(): nothing to read");
+        return(-1);
+    }
+
+    if (sig == SIGRTMIN) {
+        handle_timers();
+    }
+    return(0);
+}
+
+
+
+/*
+ * event_sig_handler
+ *
+ * Forward signal to the fd for handling in the event loop
+ */
+static void event_sig_handler(int sig)
+{
+    if (write(signal_pipe[1], &sig, sizeof(sig)) != sizeof(sig)) {
+        syslog(LOG_ERR, "write signal %d: %s", sig, strerror(errno));
+    }
+}
+
+
+/*
+ * build_timer_event_socket
+ *
+ * Set up the event handler socket. This is
+ * used to serialize events like timer expirations that
+ * we would rather deal with synchronously. This avoids
+ * having to deal with all sorts of locking and multithreading
+ * nonsense.
+ */
+int build_timers_event_socket()
+{
+    int flags;
+    struct sigaction sa;
+
+    if (pipe(signal_pipe) == -1) {
+        syslog(LOG_ERR, "signal pipe setup failed %s", strerror(errno));
+        return 0;
+    }
+    timers_fd = signal_pipe[0];
+
+    if ((flags = fcntl(timers_fd, F_GETFL, 0)) == -1) {
+        syslog(LOG_ERR, "fcntl() F_GETFL failed %s", strerror(errno));
+        return 0;
+    }
+    if (fcntl(timers_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        syslog(LOG_ERR, "fcntl() set O_NONBLOCK failed %s", strerror(errno));
+        return 0;
+    }
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = event_sig_handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+
+    if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
+        syslog(LOG_ERR, "sigaction() failed %s", strerror(errno));
+    }
+    return(1);
 }
 
 

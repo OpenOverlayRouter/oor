@@ -1,5 +1,5 @@
 /*
- * lisp_ipc.h
+ * lispd_ipc.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Defines the message structure for lisp ipc messages.
@@ -40,6 +40,7 @@
 #include <linux/in6.h>
 #endif /* KERNEL */
 
+
 /*
  * Constants
  */
@@ -77,16 +78,6 @@ typedef enum {
   LispMaxType = LispAddLocalEID
 } lisp_msgtype_e;
 
-/* 
- * Lisp address structure
- */
-typedef struct {
-  union {
-    struct in_addr ip;
-    struct in6_addr ipv6;
-  } address;
-  int afi;
-} lisp_addr_t;
 
 /*
  * Top level LISP message type, 
@@ -299,3 +290,58 @@ typedef struct {
   int         status_bits;       /* Bitfield filled by lispd when sending back to kernel */
   lisp_addr_t locators[0];
 } lisp_cache_sample_msg_t;
+
+/*
+ *  set up the NETLINK socket and bind to it.
+ */
+int setup_netlink_iface();
+
+/*
+ *  Receive NETLINK message from kernel module.
+ */
+int process_netlink_msg(void);
+
+
+/*
+ *  Install a single database mapping entry in the kernel
+ */
+
+int install_database_mapping(lispd_db_entry_t   *db_entry);
+
+
+/*
+ *  Install a single database mapping entry in the kernel
+ */
+int install_database_mappings(void);
+
+/*
+ *  Install static map-cache entries into the kernel
+ */
+int install_map_cache_entries(void);
+
+int send_eid_map_msg(lisp_eid_map_msg_t *map_msg, int map_msg_len);
+
+int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix,
+        uint8_t eid_prefix_length, lisp_addr_t *locator, int status_bits);
+
+int send_set_instance_msg(lisp_set_instance_msg_t *iid_msg, int iid_msg_len);
+
+/*
+ *  set up the NETLINK socket and bind to it.
+ */
+int setup_netlink(void);
+
+/*
+ *  register the lispd process with the kernel
+ */
+int register_lispd_process(void);
+
+/*
+ *  ask for the full map cache (for SMR)
+ */
+int get_map_cache_list();
+
+/*
+ *  add local EID to kernel module list
+ */
+int add_local_eid(lisp_addr_t *my_addr);

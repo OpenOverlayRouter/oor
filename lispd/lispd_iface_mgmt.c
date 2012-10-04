@@ -32,30 +32,10 @@
  *
  */
 
+#include "lispd_iface_mgmt.h"
 #include "lispd_external.h"
 
-#define BUF_SIZE                    512
-#define RT_TABLE_LISP_MN            5
-#define LISP_MN_EID_IFACE_MTU       1300
-#define LISP_MN_IP_RULE_PRIORITY    1
 
-typedef struct _reqaddr_t {
-    struct nlmsghdr n;
-    struct ifaddrmsg r;
-    char buf [BUF_SIZE];
-} reqaddr_t;
-
-typedef     struct _reqinfo_t {
-    struct nlmsghdr     n;
-    struct ifinfomsg    r;
-    char            buf[BUF_SIZE];
-} reqinfo_t;
-
-typedef struct _reqmsg_t {
-    struct nlmsghdr     n;
-    struct rtmsg        r;
-    char            buf[BUF_SIZE];
-} reqmsg_t;
 
 /*
  * This function sends a netlink message
@@ -103,8 +83,6 @@ static int nlsock_talk(n)
     return 1;
 }
 
-#define NLMSG_TAIL(nmsg) \
-        ((struct rtattr *)(((void * )(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
 /* 
  * This function populates the tail of a netlink msg
@@ -1443,7 +1421,7 @@ int process_netlink_iface ()
                 syslog(LOG_DAEMON, "process_netlink_iface(): Map register\n");
 
 
-                start_periodic_map_register();
+                map_register(NULL,NULL);
 
                 /*
                  * Trigger SMR to PITRs and the MN's peers
@@ -1613,8 +1591,8 @@ int lisp_eid_iface_config(iface_name, mtu)
 
 }
 
-/* 
- * This function configures the lisp eid interface (ex: lmn0) 
+/*
+ * This function configures the lisp eid interface (ex: lmn0)
  * 1. Configures the iface with eid addr
  * 2. Brings up the interface and sets the mtu
  * 3. Configures the interface as the default gw
@@ -1629,7 +1607,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
         /*struct in_addr ifa_broadcast;*/
         int if_index = if_nametoindex(eid_iface_name);
 
-        /* 
+        /*
          * Step 1:
          * Configure the interface with appropriate parameters
          * such as EID addr, local addr, broadcast addr etc
@@ -1641,15 +1619,15 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
         raddr.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
         raddr.n.nlmsg_seq = ++nlh.seq;
         raddr.n.nlmsg_pid = getpid();
-        raddr.r.ifa_flags = IFA_F_PERMANENT; 
-        raddr.r.ifa_scope = RT_SCOPE_UNIVERSE; 
+        raddr.r.ifa_flags = IFA_F_PERMANENT;
+        raddr.r.ifa_scope = RT_SCOPE_UNIVERSE;
         raddr.r.ifa_index = if_index;
         raddr.r.ifa_prefixlen = eid_prefix_len;
         raddr.r.ifa_family = eid_addr->afi;
 
-        int attr_size = ((eid_addr->afi == AF_INET6) ? 
+        int attr_size = ((eid_addr->afi == AF_INET6) ?
                 sizeof(struct in6_addr) : sizeof(struct in_addr));
-        
+
         if (!addattr_l(&(raddr.n), sizeof(raddr), IFA_ADDRESS,
                       &(eid_addr->address), attr_size)) {
                 syslog(LOG_DAEMON, "addattr_l(IFA_ADDRESS) failed \n");
@@ -1678,23 +1656,23 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
 
 
         /*
-         * Send the netlink message to kernel 
+         * Send the netlink message to kernel
          */
         if (!nlsock_talk(&raddr.n)) {
             syslog(LOG_DAEMON, "nlsock_talk (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
 
-        /* Step 2: 
+        /* Step 2:
          * Configure the LISP EID interface:
          */
-        if (!lisp_eid_iface_config(eid_iface_name, 
+        if (!lisp_eid_iface_config(eid_iface_name,
                     LISP_MN_EID_IFACE_MTU)) {
             syslog(LOG_DAEMON, "lisp_eid_iface_config (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
 
-        /* 
+        /*
          * Step 3:
          * Set the LISP EID interface as the default gateway/interface
          */
@@ -1709,8 +1687,8 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
          */
 #ifdef TESTLOCALEID
         if(!add_local_eid(eid_addr)){
-        	syslog(LOG_DAEMON, "add_local_eid (setup_lisp_eid_iface()) failed\n");
-        	return 0;
+            syslog(LOG_DAEMON, "add_local_eid (setup_lisp_eid_iface()) failed\n");
+            return 0;
         }
 #endif
         syslog(LOG_DAEMON, "Configured LISP-MN EID interface\n");
@@ -1750,7 +1728,7 @@ void exit_cleanup(void) {
     iface_list_elt *list_iterator = NULL;
 
     /* Close timer file descriptors */
-    close(map_register_timer_fd);
+    close(timers_fd);
 
     /* Close receive sockets */
     close(v6_receive_fd);

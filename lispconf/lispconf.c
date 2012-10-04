@@ -44,7 +44,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <linux/netlink.h>
-#include "lisp_ipc.h"
+#include "lispd_ipc.h"
 #include "cmdline.h"
 
 #define CO(addr,len) (((char *) addr + len))

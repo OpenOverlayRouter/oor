@@ -30,6 +30,8 @@
  *
  */
 
+#pragma once
+
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
@@ -50,14 +52,12 @@
 #include <syslog.h>
 #include <sys/param.h>
 #include <sys/socket.h>
-#include <time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <time.h>
 #include <endian.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include "lisp_ipc.h"
+#include "lispd_syslog.h"
 #include "patricia/patricia.h"
 
 /*
@@ -276,6 +276,40 @@ typedef int32_t lispd_iid_t;
 
 
 /*
+ * Lisp address structure
+ */
+typedef struct {
+  union {
+    struct in_addr ip;
+    struct in6_addr ipv6;
+  } address;
+  int afi;
+} lisp_addr_t;
+
+
+/*
+ *  generic list of addresses
+ */
+
+typedef struct _lispd_addr_list_t {
+    lisp_addr_t                 *address;
+    struct _lispd_addr_list_t   *next;
+} lispd_addr_list_t;
+
+
+/*
+ *  generic list of addresses with priority and weight
+ */
+
+typedef struct _lispd_weighted_addr_list_t {
+    lisp_addr_t                         *address;
+    uint8_t                             priority;
+    uint8_t                             weight;
+    struct _lispd_weighted_addr_list_t  *next;
+} lispd_weighted_addr_list_t;
+
+
+/*
  *  lispd database entry
  */
 
@@ -328,27 +362,6 @@ typedef struct _lispd_map_cache_t {
     lispd_map_cache_entry_t     map_cache_entry;
     struct _lispd_map_cache_t   *next;
 } lispd_map_cache_t;
-
-/*
- *  generic list of addresses
- */
-
-typedef struct _lispd_addr_list_t {
-    lisp_addr_t                 *address;
-    struct _lispd_addr_list_t   *next;
-} lispd_addr_list_t;
-
-
-/*
- *  generic list of addresses with priority and weight
- */
-
-typedef struct _lispd_weighted_addr_list_t {
-    lisp_addr_t                         *address;
-    uint8_t                             priority;
-    uint8_t                             weight;
-    struct _lispd_weighted_addr_list_t  *next;
-} lispd_weighted_addr_list_t;
 
 
 typedef struct _lispd_map_server_list_t {

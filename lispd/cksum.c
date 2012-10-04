@@ -29,7 +29,8 @@
  *
  */
 
-#include "lispd.h"
+#include "cksum.h"
+
 
 uint16_t ip_checksum(buffer, size) 
     uint16_t *buffer;

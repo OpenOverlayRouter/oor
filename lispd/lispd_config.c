@@ -35,6 +35,25 @@
 #include "cmdline.h"
 #include "confuse.h"
 #include "lispd_external.h"
+#include "lispd_iface_list.h"
+#include "lispd_iface_mgmt.h"
+#include "lispd_ipc.h"
+#include "lispd_lib.h"
+
+
+
+int add_database_mapping(cfg_t *dm);
+int add_map_server(
+     char       *map_server,
+     int        key_type,
+     char       *key,
+     uint8_t    proxy_reply,
+     uint8_t    verify);
+int add_proxy_etr_entry(cfg_t *petr, lispd_weighted_addr_list_t **petr_list);
+int add_server(char *server, lispd_addr_list_t  **list);
+int add_static_map_cache_entry(cfg_t  *smc);
+
+
 
 
 /*

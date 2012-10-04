@@ -29,7 +29,7 @@
  *
  */
 
-#include "lispd.h"
+#include "lispd_iface_list.h"
 
 iface_list  *avail_phy_ifaces = NULL;
 

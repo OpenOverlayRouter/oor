@@ -31,6 +31,8 @@
  *
  */
 
+#include "lispd.h"
+#include "lispd_ipc.h"
 #include "lispd_external.h"
 
 /*

@@ -35,66 +35,96 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "lispd_external.h"
+#include "lispd_map_register.h"
+#include "lispd_map_request.h"
+#include "lispd_pkt_lib.h"
+#include "patricia/patricia.h"
+
+
+
+
+lispd_pkt_map_register_t *build_map_register_pkt(lispd_locator_chain_t *locator_chain);
+int send_map_register(lispd_map_server_list_t *ms, lispd_pkt_map_register_t *mrp, int mrp_len);
+
 
 /*
  *  map_server_register (tree)
  *
  */
 
-int map_register(tree)
-    patricia_tree_t *tree;
-{
+timer *map_register_timer = NULL;
 
+/*
+ * Timer and arg parameters are not used but must be defined to be consistent
+ * with timer call back function.
+ */
+int map_register(timer *t, void *arg)
+{
+    patricia_tree_t           *all_afi_dbs[2] = { AF4_database, AF6_database };
+    patricia_tree_t           *tree = NULL;
     lispd_map_server_list_t   *ms;
     lispd_pkt_map_register_t  *map_register_pkt; 
     patricia_node_t           *node;
     lispd_locator_chain_t     *locator_chain;
+    int                       afi_count = 0;
+
+    /*
+     * Configure timer to send the next map register.
+     */
+    if (!map_register_timer) {
+        map_register_timer = create_timer("Map register");
+    }
+    start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register, NULL);
+
 
     if (!map_servers) {
-    syslog(LOG_DAEMON, "No Map Servers conifgured!");
-    return(0);
-    }
-
-    if (!tree)
-    return(0);
-
-    PATRICIA_WALK(tree->head, node) {
-    locator_chain = ((lispd_locator_chain_t *)(node->data));
-        if (locator_chain) {
-        if ((map_register_pkt =
-         build_map_register_pkt(locator_chain)) == NULL) {
-        syslog(LOG_DAEMON, "Couldn't build map register packet");
+        syslog(LOG_DAEMON, "No Map Servers conifgured!");
         return(0);
-        }
-
-        /*
-         *  for each map server, send a register, and if verify
-         *  send a map-request for our eid prefix
-         */
-
-        ms = map_servers;
-
-        while (ms) {
-        if (!send_map_register(ms,
-                       map_register_pkt,
-                       locator_chain->mrp_len)) {
-            syslog(LOG_DAEMON,
-               "Couldn't send map-register for %s",
-               locator_chain->eid_name);
-        } else if (ms->verify) {
-            if (!build_and_send_map_request_msg(ms->address,
-                            &(locator_chain->eid_prefix),
-                            locator_chain->eid_prefix_length,
-                            1,1,0,0,0,0,0,LISPD_INITIAL_MRQ_TIMEOUT,1))
-
-
-            syslog(LOG_DAEMON,"map_register:couldn't build/send map_request");
-        }
-        ms = ms->next;
-        }
-        free(map_register_pkt);
     }
-    } PATRICIA_WALK_END;
+
+    while (afi_count < 2) {
+        tree = all_afi_dbs[afi_count];
+        if (!tree)
+            continue;
+        PATRICIA_WALK(tree->head, node) {
+            locator_chain = ((lispd_locator_chain_t *)(node->data));
+            if (locator_chain) {
+                if ((map_register_pkt =
+                        build_map_register_pkt(locator_chain)) == NULL) {
+                    syslog(LOG_DAEMON, "Couldn't build map register packet");
+                    return(0);
+                }
+
+                /*
+                 *  for each map server, send a register, and if verify
+                 *  send a map-request for our eid prefix
+                 */
+
+                ms = map_servers;
+
+                while (ms) {
+                    if (!send_map_register(ms,
+                            map_register_pkt,
+                            locator_chain->mrp_len)) {
+                        syslog(LOG_DAEMON,
+                                "Couldn't send map-register for %s",
+                                locator_chain->eid_name);
+                    } else if (ms->verify) {
+                        if (!build_and_send_map_request_msg(ms->address,
+                                &(locator_chain->eid_prefix),
+                                locator_chain->eid_prefix_length,
+                                1,1,0,0,0,0,0,LISPD_INITIAL_MRQ_TIMEOUT,1))
+
+
+                            syslog(LOG_DAEMON,"map_register:couldn't build/send map_request");
+                    }
+                    ms = ms->next;
+                }
+                free(map_register_pkt);
+            }
+        } PATRICIA_WALK_END;
+        afi_count++;
+    }
     return(1);
 }
 
@@ -253,94 +283,6 @@ int send_map_register(ms, mrp, mrp_len)
 
     close(s);
     return(1);
-}
-
-
-/*
- *  get_locator_chain_length
- *
- *  Compute the sum of the lengths of the locators 
- *  in the chain so we can allocate a chunk of memory for 
- *  the packet....
- */
-
-int get_locator_length(locator_chain_elt)
-    lispd_locator_chain_elt_t   *locator_chain_elt;
-{
-    int sum = 0;
-    while (locator_chain_elt) {
-        switch (locator_chain_elt->db_entry->locator.afi) {
-        case AF_INET:
-            sum += sizeof(struct in_addr);
-            break;
-        case AF_INET6:
-            sum += sizeof(struct in6_addr);
-            break;
-        default:
-            syslog(LOG_DAEMON, "Uknown AFI (%d) for %s",
-               locator_chain_elt->db_entry->locator.afi,
-               locator_chain_elt->db_entry->locator_name);
-            break;
-        }
-        locator_chain_elt = locator_chain_elt->next;
-    }
-    return(sum);
-}
-
-
-void start_periodic_map_register(void)
-{
-    struct itimerspec interval;
-
-    interval.it_interval.tv_sec  = MAP_REGISTER_INTERVAL;
-    interval.it_interval.tv_nsec = 0;
-    interval.it_value.tv_sec     = 1;
-    interval.it_value.tv_nsec    = 0;
-
-    if (!map_register(AF6_database))
-        syslog(LOG_INFO, "Could not map register AF_INET6 with Map Servers");
-
-    if (!map_register(AF4_database))
-        syslog(LOG_INFO, "Could not map register AF_INET with Map Servers");
-
-    syslog(LOG_INFO, "Starting timer to send map register every %d seconds",
-            MAP_REGISTER_INTERVAL);
-
-    if (timerfd_settime(map_register_timer_fd, 0, &interval, NULL) == -1)
-        syslog(LOG_INFO, "timerfd_settime: %s", strerror(errno));
-}
-
-
-void stop_periodic_map_register(void)
-{
-    struct itimerspec interval;
-
-    interval.it_interval.tv_sec  = 0;
-    interval.it_interval.tv_nsec = 0;
-    interval.it_value.tv_sec     = 0;
-    interval.it_value.tv_nsec    = 0;
-
-    syslog(LOG_INFO, "Stopping timer to send map register every %d seconds",
-            MAP_REGISTER_INTERVAL);
-
-    if (timerfd_settime(map_register_timer_fd, 0, &interval, NULL) == -1)
-        syslog(LOG_INFO, "timerfd_settime: %s", strerror(errno));
-}
-
-
-void periodic_map_register(void)
-{
-    ssize_t s;
-    uint64_t num_exp;
-
-    if((s = read(map_register_timer_fd, &num_exp, sizeof(num_exp))) != sizeof(num_exp))
-        syslog(LOG_INFO, "read (periodic_map_register): %s", strerror(errno));
-
-    if (!map_register(AF6_database))
-        syslog(LOG_INFO, "Periodic AF_INET6 map register failed");
-
-    if (!map_register(AF4_database))
-        syslog(LOG_INFO, "Periodic AF_INET map register failed");
 }
 
 
