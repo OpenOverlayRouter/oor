@@ -24,7 +24,7 @@ OBJS		= cmdline.o lispd.o lispd_config.o lispd_syslog.o	\
 		  patricia/patricia.o lispd_map_request.o cksum.o	\
 		  lispd_patricia.o lispd_map_reply.o lispd_iface_mgmt.o	\
 		  lispd_iface_list.o lispd_map_notify.o lispd_pkt_lib.o \
-		  lispd_timers.o
+		  lispd_timers.o lispd_tun.o
 EXE		= lispd
 PREFIX		= /usr/local/sbin
 

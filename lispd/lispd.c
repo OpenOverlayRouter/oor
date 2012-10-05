@@ -54,6 +54,7 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_timers.h"
+#include "lispd_tun.h"
 
 
 void event_loop(void);
@@ -326,13 +327,40 @@ int main(int argc, char **argv)
     if (!dump_routing_table(AF_INET, RT_TABLE_MAIN))
         syslog(LOG_INFO, "Dumping main routing table failed");
 
+    
+    
+    syslog(LOG_INFO, "*************** Creating tun interface... ***************");
+    
+    const char *tun_dev_name = "lisp_tun";
+    const unsigned int tun_receive_size = 2048; // Should probably tune to match largest MTU
+    int tun_mtu = 1500; // XXX: 1500 ok for ethernet interfaces. Check MTU for others
+
+    int tun_receive_fd;
+    int tun_ifindex;
+    char *tun_receive_buf;
+    
+    
+    create_tun(tun_dev_name,
+		      tun_receive_size,
+		      tun_mtu,
+		      &tun_receive_fd,
+		      &tun_ifindex,
+		      &tun_receive_buf);
+    
+    
+    
+    tun_set_v4_eid(get_main_eid(AF4_database),tun_dev_name);
+    
+    
+    syslog(LOG_INFO, "*************** Created tun interface *****************");
     /*
      *  Register to the Map-Server(s)
      */
     map_register (NULL,NULL);
 
 
-    event_loop();
+    //event_loop();
+    while(1);
     syslog(LOG_INFO, "Exiting...");         /* event_loop returned bad */
     closelog();
     return(0);

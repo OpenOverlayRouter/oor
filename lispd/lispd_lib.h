@@ -257,3 +257,5 @@ int retrieve_lisp_msg(int s, uint8_t *packet, void *from, int afi);
 int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t port);
 
 int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst);
+
+lisp_addr_t get_main_eid(patricia_tree_t *database);

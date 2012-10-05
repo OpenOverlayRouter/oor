@@ -1629,6 +1629,21 @@ int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst) {
     return(0);
 }
 
+//modified by arnatal
+lisp_addr_t get_main_eid(patricia_tree_t *database){
+    lisp_addr_t               eid;
+    patricia_node_t           *node;
+    lispd_locator_chain_t     *locator_chain;
+  
+    PATRICIA_WALK(database->head, node) {
+        locator_chain = ((lispd_locator_chain_t *)(node->data));
+	eid = locator_chain->eid_prefix;
+    } PATRICIA_WALK_END;
+	    
+    return eid;
+}
+
+
 
 /*
  * Editor modelines
