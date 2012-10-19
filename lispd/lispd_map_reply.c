@@ -60,216 +60,180 @@
  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
+#include <time.h>
 #include "cksum.h"
+#include "lispd_afi.h"
 #include "lispd_external.h"
 #include "lispd_ipc.h"
 #include "lispd_lib.h"
+#include "lispd_local_db.h"
+#include "lispd_map_cache_db.h"
 #include "lispd_map_reply.h"
 #include "lispd_pkt_lib.h"
 
-int process_map_reply(packet)
-    uint8_t *packet;
+int process_map_reply_record(char **cur_ptr, uint64_t nonce);
+int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier);
 
+/*
+ *
+ *
+ * Inicialitzar TIMERS
+ * MEemoria quan paquet no es processa bé
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+
+
+
+int process_map_reply(char *packet)
 {
-    lispd_pkt_map_reply_t                   *mrp;
-    lispd_pkt_mapping_record_t              *record;
-    lispd_pkt_mapping_record_locator_t      *loc_pkt;
-    lisp_eid_map_msg_t                      *map_msg;
-    lispd_weighted_addr_list_t              *petr_iterator;
-    int                                     map_msg_len;
-    datacache_elt_t                         *elt = NULL;
-    lisp_addr_t                             *eid = NULL;
-    lisp_addr_t                             *loc;
-    int                                     eid_afi;
-    lispd_iid_t                             eid_iid;
-    int                                     loc_afi;
-    uint64_t                                nonce;
-    int                                     loc_count;
-    int                                     ret;
-    int                                     i;
+    lispd_pkt_map_reply_t       *mrp;
+    uint64_t                    nonce;
+    uint8_t                     rloc_probe;
+    int                         record_count;
+    int                         ctr;
+
 
     mrp = (lispd_pkt_map_reply_t *)packet;
     nonce = mrp->nonce;
+    record_count = mrp->record_count;
+    rloc_probe = mrp->rloc_probe;
+
+    // XXX RLOC- PROBE
 
     /*
-     * Advance ptrs to point to their corresponding locations
-     * within the incoming packet
      *
-     * VE:
-     * Assumption is Map Reply has only one record
+     *
+     *
+     * RLOC PROBING
+     *
+     *
+     *
      */
-
-    record = (lispd_pkt_mapping_record_t *)CO(mrp, sizeof(lispd_pkt_map_reply_t));
-    pkt_read_eid(&(record->eid_prefix_afi), &eid, &eid_afi, &eid_iid);
-
-    if (eid == NULL) {
-        syslog (LOG_DAEMON, "process_map_reply(), unable to parse EID");
-        return(0);
+    packet = CO(packet, sizeof(lispd_pkt_map_reply_t));
+    for (ctr=0;ctr<record_count;ctr++){
+        if ((process_map_reply_record(&packet,nonce))==BAD)
+            return (BAD);
     }
 
-    if(record->locator_count > 0){
-        switch (eid_afi) {
-        case AF_INET: //ipv4: 4B
-            loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(eid, sizeof(struct in_addr));
-            break;
-        case AF_INET6: //ipv6: 16B
-            loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(eid, sizeof(struct in6_addr));
-            break;
-        default:
-            syslog (LOG_DAEMON, "process_map_reply(), unknown AFI");
-            return (0);
+    return TRUE;
+}
+
+
+int process_map_reply_record(char **cur_ptr, uint64_t nonce)
+{
+    lispd_pkt_mapping_record_t              *record;
+    lispd_identifier_elt                    identifier;
+    lispd_map_cache_entry                   *cache_entry;
+    int                                     loc_ctr;
+    int                                     ctr;
+
+    record = (lispd_pkt_mapping_record_t *)cur_ptr;
+    init_identifier(&identifier);
+    *cur_ptr = (char *)&(record->eid_prefix_afi);
+    if (!pkt_process_eid_afi(cur_ptr,&identifier))
+        return BAD;
+    identifier.eid_prefix_length = record->eid_prefix_length;
+
+    /*
+     * Check if the map replay corresponds to a not active map cache
+     */
+
+    cache_entry = lookup_nonce_in_no_active_map_caches(identifier.eid_prefix.afi, nonce);
+
+
+    if (cache_entry){
+        if (cache_entry->identifier.iid != identifier.iid){
+            syslog(LOG_DEBUG,"  Instance ID of the map reply don't match");
+            return (BAD);
         }
-
-        loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_mapping_record_locator_t));
-    }
-
-    /*
-     * Search datacache for the corresponding entry
-     */
-    // Modified by acabello
-    if (!search_datacache_entry_nonce(nonce,&elt)) {
-    syslog(LOG_DAEMON,"Map-Reply: Datacache not found for nonce:\n");
-    lispd_print_nonce(nonce);
-        return 0;
-    }
-    if (!is_eid_included(elt,record->eid_prefix_length,eid)) {
-    syslog(LOG_DAEMON,"Map-Reply: EID does not match for MRp with nonce:\n");
-    lispd_print_nonce(nonce);
-        return 0;
-    }
-
-    /*
-     * Check for rloc probing bit?
-     * Can calculate RTT if we want to know
-     */
-    if (mrp->rloc_probe) {
-        syslog(LOG_DAEMON, "  RLOC probe reply, setting locator status UP");
-        update_map_cache_entry_rloc_status(&elt->eid_prefix,
-                elt->eid_prefix_length, &elt->dest, 1);
-        delete_datacache_entry(elt);
-        return 0;
-    }
-
-    delete_datacache_entry(elt);
-
-    /*
-     * Allocate memory for the new map cache entry, fill it in
-     * If we have a negative reply and we also have Proxy-ETRs
-     * configured, allocate memory for a locator for each Proxy-ETR
-     */
-    loc_count = record->locator_count;
-    if ((loc_count == 0) && (proxy_etrs)) {
-        petr_iterator = proxy_etrs;
-        do {
-            loc_count++;
-            petr_iterator = petr_iterator->next;
-        }
-        while (petr_iterator);
-    }
-    map_msg_len = sizeof(lisp_eid_map_msg_t) +
-                  sizeof(lisp_eid_map_msg_loc_t) * loc_count;
-    if ((map_msg = malloc(map_msg_len)) == NULL) {
-        syslog(LOG_DAEMON, "process_map_reply(), malloc (map-cache entry): %s", strerror(errno));
-        return(0);
-    }
-
-    memset(map_msg, 0, sizeof(lisp_eid_map_msg_t));
-
-    memcpy(&(map_msg->eid_prefix), eid, sizeof(lisp_addr_t));
-    map_msg->eid_prefix.afi            = eid_afi;
-    map_msg->eid_prefix_length  = record->eid_prefix_length;
-    map_msg->count              = loc_count;
-    map_msg->actions            = record->action;
-    map_msg->how_learned        = DYNAMIC_MAP_CACHE_ENTRY;      
-    map_msg->ttl                = ntohl(record->ttl);
-    map_msg->sampling_interval  = RLOC_PROBING_INTERVAL;
-
-
-    /*
-     * VE:   If there are none -> negative map reply.
-	 * LJ:   We add the PETRs in the list as locators
-	 */
-    if((record->locator_count) == 0) {
-        if (proxy_etrs) {
-            /* Don't RLOC probe PETRs */
-            map_msg->sampling_interval = 0;
-            petr_iterator = proxy_etrs;
-            for(i = 0; i < loc_count; i++) {
-                memcpy(&(map_msg->locators[i].locator.address), &(petr_iterator->address->address), sizeof(lisp_addr_t));
-                map_msg->locators[i].locator.afi = petr_iterator->address->afi;
-                map_msg->locators[i].priority = petr_iterator->priority;
-                map_msg->locators[i].weight = petr_iterator->weight;
-                map_msg->locators[i].mpriority = 255;
-                map_msg->locators[i].mweight = 100;
-
-                /*
-                 * Advance the ptrs for the next locator
-                 */
-                if(i+1 < record->locator_count) {
-                    loc_afi = map_msg->locators[i].locator.afi;
-                    if(loc_afi == AF_INET) { //ipv4: 4B
-                        loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in_addr));
-                    } else if(loc_afi == AF_INET6){ //ipv6: 16B
-                        loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in6_addr));
-                    } else
-                        return(0);
-                    loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_mapping_record_locator_t));
-                }
-
-                petr_iterator = petr_iterator->next;
-            }
-            ret = send_eid_map_msg(map_msg, map_msg_len);
-#ifdef     DEBUG
-            syslog (LOG_DAEMON, "Installed 'negative' map cache entry using PETR(s) as the locators");
-#endif
-            if (ret < 0) {
-                syslog (LOG_DAEMON, "Installing 'negative' map cache entry failed; ret=%d", ret);
-            }
-
-            free(map_msg);
-            map_msg = NULL;
-            return(0);
-        }
-    }
-
-    /*
-     * Loop through locators if there is more than one provided.
-     */
-    for(i = 0; i < record->locator_count; i++) {
-        memcpy(&(map_msg->locators[i].locator.address), loc, sizeof(struct in6_addr));
-        map_msg->locators[i].locator.afi = lisp2inetafi(ntohs(loc_pkt->locator_afi));
-        map_msg->locators[i].priority = loc_pkt->priority;
-        map_msg->locators[i].weight = loc_pkt->weight;
-        map_msg->locators[i].mpriority = loc_pkt->mpriority;
-        map_msg->locators[i].mweight = loc_pkt->mweight;
-
         /*
-         * Advance the ptrs for the next locator
+         * If the eid prefix of the received map reply doesn't match the map cache entry to be activated,
+         * we remove the entry from the database and store it again with the correct value.
          */
-        if(i+1 < record->locator_count) {
-            loc_afi = map_msg->locators[i].locator.afi;
-            if(loc_afi == AF_INET) { //ipv4: 4B
-                loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in_addr));
-            } else if(loc_afi == AF_INET6){ //ipv6: 16B
-                loc_pkt = (lispd_pkt_mapping_record_locator_t *)CO(loc, sizeof(struct in6_addr));
-            } else
-                return(0);
-            loc = (lisp_addr_t *)CO(loc_pkt, sizeof(lispd_pkt_mapping_record_locator_t));
+        if (cache_entry->identifier.eid_prefix_length != identifier.eid_prefix_length){
+            if (change_eid_prefix_in_db(identifier.eid_prefix, identifier.eid_prefix_length, cache_entry) == BAD)
+                return (BAD);
         }
+        cache_entry->active = 1;
+        stop_timer(cache_entry->request_retry_timer);
+        syslog(LOG_DEBUG,"  Activating map cache entry %s/%d",
+                            get_char_from_lisp_addr_t(identifier.eid_prefix),identifier.eid_prefix_length);
     }
-
-    ret = send_eid_map_msg(map_msg, map_msg_len);
-
-#ifdef DEBUG
-    syslog(LOG_DAEMON, "Installed map cache entry");
-#endif
-    if (ret < 0) {
-        syslog(LOG_DAEMON, "Installing map cache entry failed; ret=%d", ret);
+    /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
+    else {
+        /* Serch map cache entry exist*/
+        if (!lookup_eid_cache_exact(identifier.eid_prefix,identifier.eid_prefix_length,&cache_entry)){
+            syslog(LOG_DEBUG,"  No map cache entry found for %s/%d",
+                    get_char_from_lisp_addr_t(identifier.eid_prefix),identifier.eid_prefix_length);
+            return BAD;
+        }
+        /* Check the found map cache entry contain the nonce of the map reply*/
+        if (check_nonce(cache_entry,nonce)==BAD){
+            syslog(LOG_ERR,"  Map-Reply: Map Cache entry not found for nonce:");
+            lispd_print_nonce(nonce);
+            return BAD;
+        }
+        /* Check instane id. If the entry doesn't use instane id, its value is 0 */
+        if (cache_entry->identifier.iid != identifier.iid){
+            syslog(LOG_DEBUG,"  Instance ID of the map reply don't match");
+            return (BAD);
+        }
+        syslog(LOG_DEBUG,"  Existing map cache entry found, replacing locator list");
+        free_locator_list(cache_entry->identifier.head_locators_list);
+        cache_entry->identifier.head_locators_list = NULL;
     }
+    cache_entry->identifier.locator_count = record->locator_count;
+    cache_entry->actions = record->action;
+    cache_entry->ttl = record->ttl;
+    cache_entry->active_witin_period = 1;
+    gettimeofday(&(cache_entry->timestamp), NULL);
 
-    free(map_msg);
-    map_msg = NULL;
-    return(0);
+    /* Generate the locators */
+    loc_ctr = 0;
+    for (ctr=0 ; ctr < identifier.locator_count ; ctr++){
+        if ((process_map_reply_locator (cur_ptr, &(cache_entry->identifier))) == GOOD)
+            loc_ctr++;
+    }
+    identifier.locator_count = loc_ctr;
+    return TRUE;
+}
+
+int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
+{
+    lispd_pkt_mapping_record_locator_t  *pkt_locator;
+    lispd_locator_elt                   *locator;
+    char                                *cur_ptr;
+
+    cur_ptr = *offset;
+    pkt_locator = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
+
+    cur_ptr = (char *)&(pkt_locator->locator_afi);
+
+    locator = make_and_add_locator (identifier);
+    if (pkt_process_rloc_afi(&cur_ptr, locator) == BAD)
+        return (BAD);
+
+
+    locator->locator_type = DYNAMIC_LOCATOR;
+    locator->priority = pkt_locator->priority;
+    locator->weight = pkt_locator->weight;
+    locator->mpriority = pkt_locator->mpriority;
+    locator->mweight = pkt_locator->mweight;
+    if (pkt_locator->reachable)
+        locator->state = UP;
+    else
+        locator->state = DOWN;
+    locator->data_packets_in = 0;
+    locator->data_packets_out = 0;
+
+    return GOOD;
 }
 
 
@@ -380,7 +344,6 @@ uint8_t *build_map_reply_pkt(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
     *len = packet_len;
     return(packet);
 }
-
 
 /*
  * build_and_send_map_reply_msg()

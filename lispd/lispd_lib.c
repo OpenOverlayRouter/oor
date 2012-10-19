@@ -849,6 +849,22 @@ void print_hmac(hmac,len)
     }
     printf("\n");
 }
+
+char *get_char_from_lisp_addr_t (lisp_addr_t addr)
+{
+    char * address;
+    switch (addr.afi){
+    case AF_INET:
+        inet_ntop(AF_INET, &(addr.address.ip), address, INET_ADDRSTRLEN);
+        return address;
+    case AF_INET6:
+        inet_ntop(AF_INET6, &(addr.address.ipv6), address, INET6_ADDRSTRLEN);
+        return address;
+    default:
+        return NULL;
+
+    }
+}
      
      
 /*
