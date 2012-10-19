@@ -147,6 +147,12 @@
 
 #define GOOD                1
 #define BAD                 0
+#define TRUE                1
+#define FALSE               0
+#define UP                  1
+#define DOWN                0
+
+
 #define MAX_IP_PACKET       4096
 #define MIN_EPHEMERAL_PORT  32768
 #define MAX_EPHEMERAL_PORT  65535

@@ -202,18 +202,19 @@ void stop_timer(timer *tptr)
     }
 
     next = tptr->links.next;
-    if (next) {
-           prev = tptr->links.prev;
-           next->prev = prev;
-           prev->next = next;
-           tptr->links.next = NULL;
-           tptr->links.prev = NULL;
+    prev = tptr->links.prev;
+    if (next)
+        next->prev = prev;
+    if (prev)
+        prev->next = next;
+    tptr->links.next = NULL;
+    tptr->links.prev = NULL;
 
-           /*
-            * Update stats
-            */
-           timer_wheel.running_timers--;
-       }
+    /*
+     * Update stats
+     */
+    if (next || prev)
+        timer_wheel.running_timers--;
 }
 
 /*

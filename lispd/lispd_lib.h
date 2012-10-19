@@ -176,6 +176,12 @@ uint64_t build_nonce(int seed);
  */
 void lispd_print_nonce (uint64_t nonce);
 
+/*
+ * Return lisp_addr_t in a char format;
+ */
+
+char *get_char_from_lisp_addr_t (lisp_addr_t addr);
+
 
 /*
  *      API functions of datacache entries (updated acabello)
