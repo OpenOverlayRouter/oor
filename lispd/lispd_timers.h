@@ -15,6 +15,8 @@
 
 #define RLOC_PROBE_CHECK_INTERVAL 1 // 1 second
 
+#define EXPIRE_MAP_CACHE "Expire map cache"
+
 typedef struct _timer_links {
     struct _timer_links *prev;
     struct _timer_links *next;

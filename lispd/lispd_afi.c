@@ -26,7 +26,7 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Albert López      <alopez@ac.upc.edu>
  *
  */
 
@@ -72,11 +72,16 @@ int pkt_process_eid_afi(char  **offset,
                 return BAD;
             break;
         default:
+            identifier->eid_prefix.afi = -1;
             syslog(LOG_ERR,"  unknown LCAF type %d in EID", lcaf_ptr->type);
             return BAD;
         }
         break;
+    case 0:
+        identifier->eid_prefix.afi = 0;
+        return BAD;
     default:
+        identifier->eid_prefix.afi = -1;
         syslog(LOG_ERR,"  unknown AFI type %d in EID", lisp_afi);
         return BAD;
     }

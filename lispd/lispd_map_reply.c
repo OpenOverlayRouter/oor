@@ -131,7 +131,6 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
     lispd_pkt_mapping_record_t              *record;
     lispd_identifier_elt                    identifier;
     lispd_map_cache_entry                   *cache_entry;
-    int                                     loc_ctr;
     int                                     ctr;
 
     record = (lispd_pkt_mapping_record_t *)cur_ptr;
@@ -175,19 +174,22 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
             return BAD;
         }
         /* Check the found map cache entry contain the nonce of the map reply*/
-        if (check_nonce(cache_entry,nonce)==BAD){
+        if (check_nonce(cache_entry->nonces,nonce)==BAD){
             syslog(LOG_ERR,"  Map-Reply: Map Cache entry not found for nonce:");
             lispd_print_nonce(nonce);
             return BAD;
         }
+        cache_entry->nonces = NULL;
         /* Check instane id. If the entry doesn't use instane id, its value is 0 */
         if (cache_entry->identifier.iid != identifier.iid){
             syslog(LOG_DEBUG,"  Instance ID of the map reply don't match");
             return (BAD);
         }
         syslog(LOG_DEBUG,"  Existing map cache entry found, replacing locator list");
-        free_locator_list(cache_entry->identifier.head_locators_list);
-        cache_entry->identifier.head_locators_list = NULL;
+        free_locator_list(cache_entry->identifier.head_v4_locators_list);
+        free_locator_list(cache_entry->identifier.head_v6_locators_list);
+        cache_entry->identifier.head_v4_locators_list = NULL;
+        cache_entry->identifier.head_v6_locators_list = NULL;
     }
     cache_entry->identifier.locator_count = record->locator_count;
     cache_entry->actions = record->action;
@@ -196,12 +198,31 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
     gettimeofday(&(cache_entry->timestamp), NULL);
 
     /* Generate the locators */
-    loc_ctr = 0;
     for (ctr=0 ; ctr < identifier.locator_count ; ctr++){
-        if ((process_map_reply_locator (cur_ptr, &(cache_entry->identifier))) == GOOD)
-            loc_ctr++;
+        if ((process_map_reply_locator (cur_ptr, &(cache_entry->identifier))) == BAD)
+            return(BAD);
     }
-    identifier.locator_count = loc_ctr;
+    /* Reprogramming timers */
+    if (!cache_entry->expiry_cache_timer)
+        cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE);
+    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl, eid_entry_expiration,
+                     (void *)cache_entry);
+
+    /*
+     *
+     *
+     *
+     * XXX alopez
+     *
+     * Programar els timers
+     * Recalcular locator_hash_table
+     *
+     *
+     *
+     *
+     */
+
+
     return TRUE;
 }
 
@@ -226,12 +247,7 @@ int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
     locator->weight = pkt_locator->weight;
     locator->mpriority = pkt_locator->mpriority;
     locator->mweight = pkt_locator->mweight;
-    if (pkt_locator->reachable)
-        locator->state = UP;
-    else
-        locator->state = DOWN;
-    locator->data_packets_in = 0;
-    locator->data_packets_out = 0;
+    locator->state = pkt_locator->reachable;
 
     return GOOD;
 }

@@ -32,14 +32,8 @@
 #include "lispd_map_cache_db.h"
 #include "lispd_lib.h"
 #include "patricia/patricia.h"
+#include <math.h>
 
-
-/*
- *  Patricia tree based databases
- */
-
-patricia_tree_t *AF4_eid_cache           = NULL;
-patricia_tree_t *AF6_eid_cache           = NULL;
 
 // A populated count to bit table for lsb setup.
 // This is for when we assume all locators are
@@ -51,7 +45,7 @@ void build_lsb_table(void);
 /*
  * create_tables
  */
-void map_cache_init(void)
+void map_cache_init()
 {
   syslog(LOG_INFO,  " Creating map cache...");
 
@@ -78,6 +72,7 @@ void build_lsb_table(void)
         }
     }
 }
+
 
 /*
  *  Add a map cache entry to the database.
@@ -131,10 +126,42 @@ int add_map_cache_entry(lispd_map_cache_entry *entry)
                 get_char_from_lisp_addr_t(eid_prefix),eid_prefix_length);
         return (BAD);
     }
-
-
 }
 
+/*
+ * Create a map cache entry and save it in the database
+ */
+
+lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl)
+{
+    lispd_map_cache_entry *map_cache_entry;
+    /* Create map cache entry */
+    if ((map_cache_entry = malloc(sizeof(lispd_map_cache_entry))) == NULL) {
+        syslog(LOG_ERR,"malloc(sizeof(lispd_map_cache_entry)): %s", strerror(errno));
+        return(NULL);
+    }
+    memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
+    init_identifier(&(map_cache_entry->identifier));
+    map_cache_entry->identifier.eid_prefix = eid_prefix;
+    map_cache_entry->identifier.eid_prefix_length = eid_prefix_length;
+    map_cache_entry->active_witin_period = FALSE;
+    map_cache_entry->probe_left = 0;
+    map_cache_entry->how_learned = how_learned;
+    map_cache_entry->ttl = ttl;
+    if (how_learned == DYNAMIC_MAP_CACHE_ENTRY){
+        map_cache_entry->active = NO_ACTIVE;
+    }
+    else{
+        map_cache_entry->active = ACTIVE;
+    }
+    /* Add entry to the data base */
+    if (add_map_cache_entry (map_cache_entry)==BAD){
+        free(map_cache_entry);
+        return (NULL);
+    }
+    gettimeofday(&(map_cache_entry->timestamp), NULL);
+    return (map_cache_entry);
+}
 
 
 /*
@@ -221,7 +248,7 @@ int lookup_eid_cache(lisp_addr_t eid, lispd_map_cache_entry **entry)
 {
   patricia_node_t *node;
   if (!lookup_eid_cache_node(eid,&node))
-      return(BAD);
+      return(ERR_DB);
   *entry = (lispd_map_cache_entry *)(node->data);
   return(GOOD);
 }
@@ -243,19 +270,6 @@ int lookup_eid_cache_exact(lisp_addr_t eid, int prefixlen, lispd_map_cache_entry
 }
 
 
-int check_nonce(lispd_map_cache_entry   *entry, uint64_t nonce){
-    int i,j;
-    for (i=0;i<entry->nonces->retransmits;i++){
-        if (entry->nonces->nonce[i] == nonce){
-            for (j=0;j<entry->nonces->retransmits;j++)
-                entry->nonces->nonce[j] = 0;
-            entry->nonces->retransmits = 0;
-            return (GOOD);
-        }
-    }
-    return (BAD);
-}
-
 
 /*
  * Lookup if there is a no active cache entry with the provided nonce and return it
@@ -274,7 +288,7 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(int eid_afi, uint64_
 
     PATRICIA_WALK(tree->head, node) {
         entry = ((lispd_map_cache_entry *)(node->data));
-        if (!entry->active && check_nonce(entry,nonce))
+        if (!entry->active && check_nonce(entry->nonces,nonce))
             return (entry);
     } PATRICIA_WALK_END;
 
@@ -287,13 +301,13 @@ void free_lispd_map_cache_entry(lispd_map_cache_entry *entry){
     /*
      * Free the locators list
      */
-    free_locator_list(entry->identifier.head_locators_list);
-    entry->identifier.head_locators_list = NULL;
+    free_locator_list(entry->identifier.head_v4_locators_list);
+    free_locator_list(entry->identifier.head_v6_locators_list);
 
     /*
      * Free the entry
      */
-    if (entry->how_learned) {
+    if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
         if (entry->expiry_cache_timer){
             stop_timer(entry->expiry_cache_timer);
             free (entry->expiry_cache_timer);
@@ -307,9 +321,14 @@ void free_lispd_map_cache_entry(lispd_map_cache_entry *entry){
             free (entry->smr_timer);
         }
     }
+
     if (entry->probe_timer){
         stop_timer(entry->probe_timer);
         free(entry->probe_timer);
+    }
+
+    if (entry->nonces){
+        free(entry->nonces);
     }
 
     free(entry);
@@ -390,3 +409,83 @@ void eid_entry_expiration(timer *t, void *arg)
 
 
 
+/*
+ * format_uptime
+ *
+ * Create a string in HH:MM:ss format given a number of seconds
+ */
+void format_uptime(int seconds, char *buffer)
+{
+    double hours = seconds / 3600.0;
+    int    wholehours = floor(hours);
+    double    frachours = hours - wholehours;
+    double minutes = frachours * 60.0;
+    int   wholemins = floor(minutes);
+    double   fracmins = minutes - wholemins;
+    int   new_seconds = fracmins * 60.0;
+
+    sprintf(buffer, "%02d:%02d:%02d", wholehours, wholemins, new_seconds);
+}
+
+
+
+/*
+ * dump_map_cache
+ */
+void dump_map_cache()
+{
+	patricia_tree_t 	*dbs [2] = {AF4_eid_cache, AF6_eid_cache};
+    char 				buf[256], buf2[256];
+    struct 				timeval uptime;
+    struct 				timeval expiretime;
+    int					ctr, ctr1;
+
+    patricia_node_t             *node;
+    lispd_map_cache_entry       *entry;
+    lispd_locators_list         *locator_iterator_array[];
+    lispd_locators_list         *locator_iterator;
+    lispd_locator_elt           *locator;
+
+    printf("LISP Mapping Cache\n\n");
+
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+    	PATRICIA_WALK(dbs[ctr]->head, node) {
+    		entry = ((lispd_map_cache_entry *)(node->data));
+    		printf("%s/%d (IID = %d), ", get_char_from_lisp_addr_t(entry->identifier.eid_prefix),
+    				entry->identifier.eid_prefix_length, entry->identifier.iid);
+    		gettimeofday(&uptime, NULL);
+    		uptime.tv_sec = uptime.tv_sec - entry->timestamp;
+    		format_uptime(uptime.tv_sec, buf);
+    		expiretime.tv_sec = (entry->ttl * 60) - uptime.tv_sec;
+    		if (expiretime.tv_sec > 0)
+    			format_uptime(expiretime.tv_sec, buf2);
+    		printf("uptime: %s, expires: %s, via ", buf, expiretime.tv_sec > 0 ? buf2 : "EXPIRED");
+
+    		if (entry->how_learned == STATIC_LOCATOR)
+    			printf("static\n");
+    		else
+    			printf("map-reply\n");
+
+    		if (entry->identifier.locator_count > 0){
+    			printf("       Locator     State    Priority/Weight  Data In/Out\n");
+    			locator_iterator_array[0] = entry->identifier.head_v4_locators_list;
+    			locator_iterator_array[1] = entry->identifier.head_v6_locators_list;
+    			// Loop through the locators and print each
+    			for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){
+    			    locator_iterator = locator_iterator_array[ctr1];
+    			    while (locator_iterator != NULL) {
+    			        locator = locator_iterator->locator;
+    			        printf(" %15s ", get_char_from_lisp_addr_t(locator->locator_addr));
+    			        printf(" %5s ", locator->state ? "Up" : "Down");
+    			        printf("         %3d/%-3d ", locator->priority, locator->weight);
+    			        printf("      %5d/%-5d\n", locator->data_packets_in,
+    			                locator->data_packets_out);
+    			        locator_iterator = locator_iterator->next;
+    			    }
+    			}
+    			printf("\n");
+    		}
+
+    	} PATRICIA_WALK_END;
+    }
+}

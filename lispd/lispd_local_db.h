@@ -30,11 +30,7 @@
 #pragma once
 
 #include "lispd.h"
-
-typedef struct {
-    uint8_t     retransmits;
-    uint64_t    nonce[LISPD_MAX_PROBE_RETRANSMIT];
-}nonces_list;
+#include "lispd_nonce.h"
 
 
 /*
@@ -50,7 +46,7 @@ typedef struct lispd_locator_elt_ {
     uint8_t                     state:2;    /* UP , DOWN */
     uint32_t                    data_packets_in;
     uint32_t                    data_packets_out;
-    nonces_list          *rloc_probing_nonces;
+    nonces_list          		*rloc_probing_nonces;
 }lispd_locator_elt;
 
 
@@ -71,8 +67,10 @@ typedef struct lispd_identifier_elt_ {
     uint8_t                         eid_prefix_length;
     uint32_t                        iid;
     uint16_t                        locator_count;
-    lispd_locators_list             *head_locators_list;
-    lispd_locator_elt               *locator_has_table[100]; /* Used to do traffic balancing between RLOCs*/
+    lispd_locators_list             *head_v4_locators_list;
+    lispd_locators_list             *head_v6_locators_list;
+    lispd_locator_elt               *v4_locator_has_table[100]; /* Used to do traffic balancing between RLOCs*/
+    lispd_locator_elt               *v6_locator_has_table[100]; /* Used to do traffic balancing between RLOCs*/
 } lispd_identifier_elt;
 
 
@@ -82,11 +80,40 @@ typedef struct lispd_identifier_elt_ {
 
 void init_identifier (lispd_identifier_elt *identifier);
 
+
 /*
- * Generets a empty locator element and add it to locators list
+ * Creates an identifier and add it into the database
  */
 
-lispd_locator_elt   *make_and_add_locator (lispd_identifier_elt *identifier);
+lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
+        uint8_t                                     eid_prefix_length,
+        int                                         iid);
+
+
+/*
+ * Generets a locator element and add it to locators list
+ */
+
+lispd_locator_elt   *new_locator (
+		lispd_identifier_elt 		*identifier,
+		lisp_addr_t                 locator_addr,
+		uint8_t                     locator_type,
+		uint8_t                     priority,
+		uint8_t                     weight,
+		uint8_t                     mpriority,
+		uint8_t                     mweight,
+		uint8_t                     state    /* UP , DOWN */
+		);
+
+
+/*
+ * del_identifier_entry()
+ *
+ * Delete an EID mapping from the data base
+ */
+void del_identifier_entry(lisp_addr_t eid,
+        int prefixlen);
+
 
 /*
  * Free memory of lispd_locator_list
@@ -94,3 +121,18 @@ lispd_locator_elt   *make_and_add_locator (lispd_identifier_elt *identifier);
 void free_locator_list(lispd_locators_list *list);
 
 
+/*
+ * lookup_eid_in_db
+ *
+ * Look up a given ipv4 eid in the database, returning true and
+ * filling in the entry pointer if found, or false if not found.
+ */
+int lookup_eid_in_db(lisp_addr_t eid, lispd_identifier_elt **identifier);
+
+/*
+ * lookup_eid_in_db
+ *
+ * Look up a given ipv4 eid in the database, returning true and
+ * filling in the entry pointer if found the exact entry, or false if not found.
+ */
+int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_identifier_elt **identifier);

@@ -305,13 +305,6 @@ int process_netlink_msg(void);
 /*
  *  Install a single database mapping entry in the kernel
  */
-
-int install_database_mapping(lispd_db_entry_t   *db_entry);
-
-
-/*
- *  Install a single database mapping entry in the kernel
- */
 int install_database_mappings(void);
 
 /*

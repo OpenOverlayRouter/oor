@@ -78,8 +78,8 @@ int map_register(timer *t, void *arg)
 
 
     if (!map_servers) {
-        syslog(LOG_DAEMON, "No Map Servers conifgured!");
-        return(0);
+        syslog(LOG_CRIT, "No Map Servers conifgured!");
+        return(BAD);
     }
 
     while (afi_count < 2) {
@@ -341,8 +341,7 @@ inline void smr_on_timeout(void)
     /*
      * Trigger SMR to PITRs and the MN's peers
      */
-    smr_pitrs();
-    get_map_cache_list();
+    init_smr();
 }
 #endif
 

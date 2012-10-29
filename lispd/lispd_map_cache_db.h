@@ -33,6 +33,16 @@
 #include "lispd_local_db.h"
 #include "lispd_timers.h"
 
+
+/*
+ *  Patricia tree based databases
+ */
+
+patricia_tree_t *AF4_eid_cache           = NULL;
+patricia_tree_t *AF6_eid_cache           = NULL;
+
+
+
 /*
  * Map cache entry
  */
@@ -55,6 +65,18 @@ typedef struct lispd_map_cache_entry_ {
 
 
 /*
+ * create_tables
+ */
+void map_cache_init();
+
+
+/*
+ * Create a map cache entry and save it in the database
+ */
+
+lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+
+/*
  * lookup_eid_cache_exact()
  *
  * Find an exact match for a prefix/prefixlen if possible
@@ -63,11 +85,19 @@ int lookup_eid_cache_exact(lisp_addr_t eid, int prefixlen, lispd_map_cache_entry
 
 
 /*
+ * lookup_eid_cache_v4()
+ *
+ * Look up a given ipv4 eid in the cache, returning true and
+ * filling in the entry pointer if found, or false if not found.
+ */
+int lookup_eid_cache(lisp_addr_t eid, lispd_map_cache_entry **entry);
+
+/*
  * Return true if nonce is found in the map cahce entry
  */
 
 
-int check_nonce(lispd_map_cache_entry   *entry, uint64_t nonce);
+int check_nonce(nonces_list   *nonces, uint64_t nonce);
 
 /*
  * Lookup if there is a no active cache entry with the provided nonce and return it
@@ -84,3 +114,10 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(int eid_afi, uint64_
 int change_eid_prefix_in_db(lisp_addr_t         new_eid_prefix,
         int                                     new_eid_prefix_length,
         lispd_map_cache_entry                   *cache_entry);
+
+void eid_entry_expiration(timer *t, void *arg);
+
+
+void dump_map_cache();
+
+

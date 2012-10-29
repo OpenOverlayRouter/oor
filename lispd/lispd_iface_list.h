@@ -26,12 +26,65 @@
  * Written or modified by:
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Albert López      <alopez@ac.upc.edu>
  *
  */
 
 #pragma once
 
 #include "lispd.h"
+#include "lispd_local_db.h"
+
+/*
+ * Interface structure
+ */
+typedef struct lispd_iface_elt_ {
+    char                        *iface_name;
+    uint8_t                     status:1;
+    lispd_locators_list         *head_locator_list;
+}lispd_iface_elt;
+
+
+/*
+ * List of interfaces
+ */
+typedef struct lispd_iface_list_elt_ {
+    lispd_iface_elt                  *iface;
+    struct lispd_iface_list_elt_     *next;
+}lispd_iface_list_elt;
+
+
+
+/*
+ * Return the interface if it already exists. If it doesn't exist,
+ * create and add an interface element to the list of interfaces.
+ */
+
+lispd_iface_elt *add_interface(char *iface_name);
+
+
+
+
+/*
+ * Look up an interface based in the iface_name.
+ * Return the iface element if it is found or NULL if not.
+ */
+
+lispd_iface_elt *get_interface(char *iface_name);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
  * Add a new db_entry_list_elt to the head of a db_entry_list
@@ -48,15 +101,6 @@ int del_item_from_db_entry_list (db_entry_list *list, lispd_db_entry_t  *item);
  */
 iface_list_elt *search_iface_list (char *iface_name);
 
-/*
- * Add/update iface_list_elt with the input parameters
- */
-int update_iface_list (
-    char *iface_name, char *eid_prefix,
-    lispd_db_entry_t  *db_entry,
-    int is_up,
-    int weight,
-    int priority);
 
 /*
  * Function that allows iterating through interfaces from elsewhere

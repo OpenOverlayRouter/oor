@@ -444,7 +444,7 @@ int update_arg(void *field, char **orig_field,
     }
     break;
   default:
-    break;
+    ;
   };
 
   /* store the original value */
@@ -461,7 +461,6 @@ int update_arg(void *field, char **orig_field,
         *orig_field = gengetopt_strdup (value);
       }
     }
-    break;
   };
 
   return 0; /* OK */
@@ -503,12 +502,14 @@ cmdline_parser_internal (
   
   int override;
   int initialize;
+  int check_required;
   int check_ambiguity;
   
   package_name = argv[0];
   
   override = params->override;
   initialize = params->initialize;
+  check_required = params->check_required;
   check_ambiguity = params->check_ambiguity;
 
   if (initialize)
@@ -668,7 +669,6 @@ cmdline_parser_internal (
         default:	/* bug: option not considered.  */
           fprintf (stderr, "%s: option unknown: %c%s\n", CMDLINE_PARSER_PACKAGE, c, (additional_error ? additional_error : ""));
           abort ();
-          break;
         } /* switch */
     } /* while */
 

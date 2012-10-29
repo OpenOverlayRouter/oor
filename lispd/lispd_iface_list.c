@@ -30,8 +30,141 @@
  */
 
 #include "lispd_iface_list.h"
+#include <string.h>
+
 
 iface_list  *avail_phy_ifaces = NULL;
+
+lispd_iface_list_elt *head_interface_list = NULL;
+
+
+lispd_iface_elt *add_interface(char *iface_name,
+        int priority_v4,
+        int weight_v4,
+        int priority_v6,
+        int weight_v6)
+{
+    lispd_iface_list_elt *iface_list, *aux_iface_list;
+    lispd_iface_elt *iface;
+    lisp_addr_t *rloc_addr_v4 = NULL;
+    lisp_addr_t *rloc_addr_v6 = NULL;
+
+    /* Search if the interface already exist and return it */
+    if ((iface = get_interface(iface_name))!=NULL)
+        return iface;
+    /* Creating the new interface*/
+    if ((iface_list = malloc(sizeof(lispd_iface_list_elt)))==NULL){
+        syslog(LOG_CRIT,"Unable to allocate memory for iface_list_elt: %s", strerror(errno));
+        return(NULL);
+    }
+    if ((iface = malloc(sizeof(lispd_iface_elt)))==NULL){
+        syslog(LOG_CRIT,"Unable to allocate memory for iface_elt: %s", strerror(errno));
+        free(iface_list);
+        return(NULL);
+    }
+    iface->iface_name = iface_name;
+    iface->status = UP;
+    iface->head_locator_list = NULL;
+    iface_list->iface = iface;
+    iface_list->next = NULL;
+
+    /* Add iface to the list */
+    if (!head_interface_list){
+        head_interface_list = iface_list;
+    }else {
+        aux_iface_list = head_interface_list;
+        while (aux_iface_list->next)
+           aux_iface_list = aux_iface_list->next;
+        aux_iface_list->next = iface_list;
+    }
+    /* Get address and create locators */
+    if (priority_v4 != -1 && weight_v4 != -1)
+        rloc_addr_v4 = lispd_get_iface_address(iface_name, rloc_addr_v4, AF_INET);
+    if (priority_v6 != -1 && weight_v6 != -1)
+        rloc_addr_v4 = lispd_get_iface_address(iface_name, rloc_addr_v4, AF_INET);
+
+
+    return iface;
+}
+
+/*
+ * Look up an interface based in the iface_name.
+ * Return the iface element if it is found or NULL if not.
+ */
+
+lispd_iface_elt *get_interface(char *iface_name)
+{
+    lispd_iface_list_elt *iface_list;
+    lispd_iface_elt *iface;
+    if (!head_interface_list)
+        return NULL;
+    iface_list = head_interface_list;
+    while (!iface_list){
+        if (strcmp (iface_list->iface->iface_name , iface_name) == 0)
+            return iface_list->iface;
+        iface_list = iface_list->next;
+    }
+    return NULL;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
  * Add a new iface_list_elt to the 
@@ -130,7 +263,7 @@ iface_list_elt *search_iface_list (iface_name)
     return (NULL);
 }
 
-
+/* TODO alopez : It will probably disapear */
 static void dump_iface_list (item)
     iface_list_elt *item;
 {
@@ -157,110 +290,6 @@ int get_rt_number()
 	if(item)
 		return item->rt_table_num+1;
 	return RT_TABLE_LISP_MN;
-}
-
-
-/*
- * Add/update iface_list_elt with the input parameters
- */
-int update_iface_list (iface_name, eid_prefix, 
-        db_entry, is_up, priority, weight)
-    char *iface_name;
-    char *eid_prefix;
-    lispd_db_entry_t  *db_entry;
-    int is_up;
-    int weight;
-    int priority;
-{
-    iface_list_elt *elt = NULL;
-    db_entry_list_elt *db_elt   = NULL;
-    int afi;
-
-    if (!avail_phy_ifaces) {
-        /* first iface_list_elt */
-        if((avail_phy_ifaces = malloc (sizeof(iface_list))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(iface_list))\n");
-            return (0);
-        }
-        memset (avail_phy_ifaces, 0, sizeof(iface_list));
-    }
-
-    elt = search_iface_list (iface_name);
-
-    if (elt == NULL) {
-        /* should create a new iface_list_elt */
-        if ((elt = malloc (sizeof(iface_list_elt))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(iface_list_elt))\n");
-            return (0);
-        }
-        memset (elt, 0, sizeof(iface_list_elt));
-        if (((elt->AF4_locators = malloc (sizeof(db_entry_list))) == NULL) ||
-            ((elt->AF6_locators = malloc (sizeof(db_entry_list))) == NULL)) {
-
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(db_entry_list)\n");
-            free(elt->AF4_locators);
-            free(elt->AF6_locators);
-            free(elt);
-            return (0);
-        }
-        memset (elt->AF4_locators, 0, sizeof(db_entry_list));
-        memset (elt->AF6_locators, 0, sizeof(db_entry_list));
-        elt->iface_name     = strdup(iface_name);
-        //get a table number that we can use
-        elt->rt_table_num	= get_rt_number();
-#ifdef LISPMOBMH
-		elt->if_index = if_nametoindex(iface_name);
-#endif
-
-        add_item_to_iface_list (avail_phy_ifaces,elt);
-    }
-
-    if (eid_prefix) {
-        afi = get_afi(eid_prefix);
-        switch (afi) {
-            case AF_INET6:
-                if (!elt->AF6_eid_prefix) 
-                    elt->AF6_eid_prefix = strdup(eid_prefix);
-                break;
-            default:
-                if (!elt->AF4_eid_prefix) 
-                    elt->AF4_eid_prefix = strdup(eid_prefix);
-                break;
-        }
-    }
-
-    elt->ready          = is_up;
-    elt->weight         = weight;
-    elt->priority       = priority;
-
-    if (db_entry == NULL)
-        /* No rloc available to add */
-        return (1);
-
-    if ((db_elt = malloc (sizeof(db_entry_list_elt))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(db_entry_list_elt))\n");
-            return (0);
-    }
-    memset (db_elt, 0, sizeof(db_entry_list_elt));
-    db_elt->db_entry    = db_entry;
-    db_elt->next        = NULL;
-
-    switch (db_entry->locator.afi) {
-        case AF_INET:
-            add_item_to_db_entry_list(elt->AF4_locators, db_elt);
-            break;
-        case AF_INET6:
-            add_item_to_db_entry_list(elt->AF6_locators, db_elt);
-            break;
-        default:
-            syslog (LOG_DAEMON, "Unknown AFI; db_entry not added\n");
-            free(db_elt);
-            break;
-    }
-
-    dump_iface_list(avail_phy_ifaces->head);
-
-    return (1);
 }
 
 

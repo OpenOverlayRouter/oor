@@ -70,8 +70,10 @@
 #define LISPD_INITIAL_PROBE_TIMEOUT 1  // Initial expiration timer for the first MRq RLOC probe
 #define LISPD_MAX_MRQ_TIMEOUT       32 // Max expiration timer for the subsequent MRq
 #define LISPD_EXPIRE_TIMEOUT        1  // Time interval in which events are expired
+#define LISPD_MAX_MR_RETRANSMIT     2  // Maximum amount of Map Request retransmissions
 #define LISPD_MAX_SMR_RETRANSMIT    2  // Maximum amount of SMR MRq retransmissions
 #define LISPD_MAX_PROBE_RETRANSMIT  1  // Maximum amount of RLOC probe MRq retransmissions
+#define LISPD_MAX_NONCES_LIST       3  // Positions of nonces vec. Max of LISPD_MAX_XX_RETRANSMIT + 1
 
 /*
  *  Determine endianness
@@ -145,8 +147,19 @@
 #define PACKED          __attribute__ ((__packed__))
 #define uchar           u_char
 
+int err;
 #define GOOD                1
 #define BAD                 0
+#define ERR_CTR_IFACE       0
+#define ERR_SRC_ADDR        0
+#define ERR_AFI             0
+#define ERR_DB              0
+#define ERR_MALLOC          0
+
+
+
+
+
 #define TRUE                1
 #define FALSE               0
 #define UP                  1
@@ -232,6 +245,7 @@
 #define DYNAMIC_LOCATOR                 1
 #define FQDN_LOCATOR                    2
 #define PETR_LOCATOR                    3
+#define LOCAL_LOCATOR                   4
 
 /*
  *  map-cache entry types (how_learned)
@@ -239,6 +253,12 @@
 
 #define STATIC_MAP_CACHE_ENTRY          0
 #define DYNAMIC_MAP_CACHE_ENTRY         1
+
+/*
+ *  map-cache entry activated  (received map reply)
+ */
+#define NO_ACTIVE                       0
+#define ACTIVE                          1
 
 /*
  *  for map-register auth data...
@@ -279,6 +299,10 @@
 typedef int32_t lispd_iid_t;
 
 #define MAX_IID 16777215
+
+#define MAX_PRIORITY 0
+#define MIN_PRIORITY 254
+#define UNUSED_RLOC_PRIORITY 255
 
 
 /*
