@@ -27,7 +27,8 @@
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
-#pragma once
+#ifndef LISPD_LOCAL_DB_H_
+#define LISPD_LOCAL_DB_H_
 
 #include "lispd.h"
 #include "lispd_nonce.h"
@@ -37,17 +38,24 @@
  * Locator information
  */
 typedef struct lispd_locator_elt_ {
-    lisp_addr_t                 locator_addr;
+    lisp_addr_t                 *locator_addr;
+    uint8_t                     *state;    /* UP , DOWN */
     uint8_t                     locator_type:2;
     uint8_t                     priority;
     uint8_t                     weight;
     uint8_t                     mpriority;
     uint8_t                     mweight;
-    uint8_t                     state:2;    /* UP , DOWN */
     uint32_t                    data_packets_in;
     uint32_t                    data_packets_out;
     nonces_list          		*rloc_probing_nonces;
 }lispd_locator_elt;
+
+
+/*
+ * Initialize databases
+ */
+
+int db_init(void);
 
 
 /*
@@ -73,6 +81,15 @@ typedef struct lispd_identifier_elt_ {
     lispd_locator_elt               *v6_locator_has_table[100]; /* Used to do traffic balancing between RLOCs*/
 } lispd_identifier_elt;
 
+/*
+ * list of identifiers.
+ */
+typedef struct lispd_identifiers_list_ {
+	lispd_identifier_elt        	*identifier;
+    struct lispd_identifiers_list_ 	*next;
+} lispd_identifiers_list;
+
+
 
 /*
  * Initialize lispd_identifier_elt with default parameters
@@ -91,18 +108,19 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
 
 
 /*
- * Generets a locator element and add it to locators list
+ * Generets a locator element and add it to locators list.
+ * The locator address and the state must be initialized before calling this function.
  */
 
 lispd_locator_elt   *new_locator (
 		lispd_identifier_elt 		*identifier,
-		lisp_addr_t                 locator_addr,
+		lisp_addr_t                 *locator_addr,
+		uint8_t                     *state,    /* UP , DOWN */
 		uint8_t                     locator_type,
 		uint8_t                     priority,
 		uint8_t                     weight,
 		uint8_t                     mpriority,
-		uint8_t                     mweight,
-		uint8_t                     state    /* UP , DOWN */
+		uint8_t                     mweight
 		);
 
 
@@ -136,3 +154,10 @@ int lookup_eid_in_db(lisp_addr_t eid, lispd_identifier_elt **identifier);
  * filling in the entry pointer if found the exact entry, or false if not found.
  */
 int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_identifier_elt **identifier);
+
+/*
+ * dump local identifier list
+ */
+void dump_local_eids();
+
+#endif /*LISPD_LOCAL_DB_H_*/

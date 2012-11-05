@@ -86,7 +86,10 @@
  *      EID
  *
  */
-#pragma once
+#ifndef LISPD_MAP_REQUEST_H_
+#define LISPD_MAP_REQUEST_H_
+
+
 #include "lispd.h"
 #include "lispd_map_cache_db.h"
 
@@ -112,3 +115,5 @@ int build_and_send_map_request_msg(
  *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
  */
 int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int afi);
+
+#endif /*LISPD_MAP_REQUEST_H_*/

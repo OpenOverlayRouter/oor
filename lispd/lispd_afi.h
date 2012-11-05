@@ -29,7 +29,8 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  *
  */
-
+#ifndef LISPD_AFI_H_
+#define LISPD_AFI_H_
 
 #include "lispd.h"
 #include "lispd_local_db.h"
@@ -44,4 +45,4 @@ int pkt_process_eid_afi(char  **offset, lispd_identifier_elt *identifier);
  */
 int pkt_process_rloc_afi(char  **offset, lispd_locator_elt *locator);
 
-
+#endif /*LISPD_AFI_H_*/

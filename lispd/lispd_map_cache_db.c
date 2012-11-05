@@ -34,6 +34,14 @@
 #include "patricia/patricia.h"
 #include <math.h>
 
+/*
+ *  Patricia tree based databases
+ */
+
+patricia_tree_t *AF4_eid_cache           = NULL;
+patricia_tree_t *AF6_eid_cache           = NULL;
+
+
 
 // A populated count to bit table for lsb setup.
 // This is for when we assume all locators are
@@ -59,6 +67,17 @@ void map_cache_init()
   // XXX Replace with mutex // XXX Replace with mutex spin_lock_init(&table_lock);
 
   build_lsb_table();
+}
+
+/*
+ * Return map cache data base
+ */
+patricia_tree_t* get_map_cache_db(int afi)
+{
+    if (afi == AF_INET)
+        return AF4_eid_cache;
+    else
+        return AF6_eid_cache;
 }
 
 void build_lsb_table(void)
@@ -442,7 +461,7 @@ void dump_map_cache()
 
     patricia_node_t             *node;
     lispd_map_cache_entry       *entry;
-    lispd_locators_list         *locator_iterator_array[];
+    lispd_locators_list         *locator_iterator_array[2];
     lispd_locators_list         *locator_iterator;
     lispd_locator_elt           *locator;
 
@@ -475,7 +494,7 @@ void dump_map_cache()
     			    locator_iterator = locator_iterator_array[ctr1];
     			    while (locator_iterator != NULL) {
     			        locator = locator_iterator->locator;
-    			        printf(" %15s ", get_char_from_lisp_addr_t(locator->locator_addr));
+    			        printf(" %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
     			        printf(" %5s ", locator->state ? "Up" : "Down");
     			        printf("         %3d/%-3d ", locator->priority, locator->weight);
     			        printf("      %5d/%-5d\n", locator->data_packets_in,

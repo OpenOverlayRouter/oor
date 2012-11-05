@@ -28,7 +28,10 @@
  *    Preethi Natarajan <prenatar@cisco.com>
  *
  */
-#pragma once
+
+#ifndef CKSUM_H_
+#define CKSUM_H_
+
 #include "lispd.h"
 
 uint16_t ip_checksum(uint16_t *buffer,int size);
@@ -42,3 +45,5 @@ uint16_t udp_checksum (
      int       udp_len,
      void      *iphdr,
      int       afi);
+
+#endif /* CKSUM_H_ */

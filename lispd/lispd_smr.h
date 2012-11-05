@@ -27,7 +27,10 @@
  *    Albert López       <alopez@ac.upc.edu>
  *
  */
+#ifndef LISPD_SMR_H_
+#define LISPD_SMR_H_
 
+#include "lispd_timers.h"
 
 /*
  * Send a solicit map request for each proxy itr and rlocs of all eids of the map cahce
@@ -39,3 +42,5 @@ void init_smr();
  * no receive answer.
  */
 void solicit_map_request_reply(timer *t, void *arg);
+
+#endif /*LISPD_SMR_H_*/

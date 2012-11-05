@@ -51,6 +51,8 @@
 #include "lispd_ipc.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_lib.h"
+#include "lispd_local_db.h"
+#include "lispd_map_cache_db.h"
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_timers.h"
@@ -218,6 +220,7 @@ int main(int argc, char **argv)
     AF4_database  = New_Patricia(sizeof(struct in_addr)  * 8);
     AF6_database  = New_Patricia(sizeof(struct in6_addr) * 8);
 
+    db_init();
     map_cache_init();
 
 
@@ -238,6 +241,10 @@ int main(int argc, char **argv)
 
 
     dump_map_cache();
+
+    dump_local_eids();
+
+    dump_iface_list();
     exit(1);
 
 

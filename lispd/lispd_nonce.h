@@ -28,9 +28,12 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
+#ifndef LISPD_NONCE_H_
+#define LISPD_NONCE_H_
+
 #include "lispd.h"
 
-typedef struct {
+typedef struct{
     uint8_t     retransmits;
     uint64_t    nonce[LISPD_MAX_NONCES_LIST];
 }nonces_list;
@@ -61,3 +64,5 @@ int check_nonce(nonces_list   *nonces, uint64_t nonce);
  * Print 64-bit nonce in 0x%08x-0x%08x format.
  */
 void lispd_print_nonce (uint64_t nonce);
+
+#endif /* LISPD_NONCE_H_ */

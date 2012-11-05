@@ -28,7 +28,8 @@
  *
  */
 
-#pragma once
+#ifndef LISPD_PKT_LIB_H_
+#define LISPD_PKT_LIB_H_
 
 #include "lispd.h"
 
@@ -49,4 +50,4 @@ void *pkt_read_eid(
     int                     *eid_afi,
     lispd_iid_t             *iid);
 
-
+#endif /*LISPD_PKT_LIB_H_*/

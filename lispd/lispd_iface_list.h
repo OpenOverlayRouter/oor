@@ -30,7 +30,8 @@
  *
  */
 
-#pragma once
+#ifndef LISPD_IFACE_LIST_H_
+#define LISPD_IFACE_LIST_H_
 
 #include "lispd.h"
 #include "lispd_local_db.h"
@@ -40,10 +41,12 @@
  */
 typedef struct lispd_iface_elt_ {
     char                        *iface_name;
-    uint8_t                     status:1;
-    lispd_locators_list         *head_locator_list;
+    uint8_t                     status;
+    lisp_addr_t                 *ipv4_address;
+    lisp_addr_t                 *ipv6_address;
+    lispd_identifiers_list      *head_v4_identifiers_list;
+    lispd_identifiers_list      *head_v6_identifiers_list;
 }lispd_iface_elt;
-
 
 /*
  * List of interfaces
@@ -74,9 +77,12 @@ lispd_iface_elt *get_interface(char *iface_name);
 
 
 
+/*
+ * Add the identifier to the list of identifiers of the interface according to the afi.
+ * The identifier is added just one time
+ */
 
-
-
+int add_identifier_to_interface (lispd_iface_elt *interface, lispd_identifier_elt *identifier, int afi);
 
 
 
@@ -112,3 +118,12 @@ iface_list_elt *get_first_iface_elt();
  * with a v4 or v6 locator
  */
 iface_list_elt *find_active_ctrl_iface();
+
+
+/*
+ * Print the interfaces and locators of the lisp node
+ */
+
+void dump_iface_list();
+
+#endif /*LISPD_IFACE_LIST_H_*/

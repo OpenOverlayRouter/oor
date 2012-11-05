@@ -28,7 +28,12 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
+
+
+#include <netinet/in.h>
+#include "lispd_lib.h"
 #include "lispd_local_db.h"
+#include "lispd_map_cache_db.h"
 #include "patricia/patricia.h"
 
 
@@ -198,13 +203,12 @@ int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node)
 int lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length, patricia_node_t **node)
 {
   prefix_t prefix;
-
   switch(eid.afi) {
         case AF_INET:
             prefix.family = AF_INET;
             prefix.bitlen = eid_prefix_length;
             prefix.ref_count = 0;
-            prefix.add.sin.s_addr = eid.address.ip.s_addr;
+            memcpy (&(prefix.add.sin), &(eid.address.ip), sizeof(struct in_addr));
             *node = patricia_search_exact(EIDv4_database, &prefix);
             break;
         case AF_INET6:
@@ -218,7 +222,7 @@ int lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length, patricia_node_
             break;
     }
 
-  if (!node)
+  if (!*node)
   {
       syslog (LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
       return(BAD);
@@ -256,13 +260,11 @@ int lookup_eid_in_db(lisp_addr_t eid, lispd_identifier_elt **identifier)
 int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_identifier_elt **identifier)
 {
   patricia_node_t *result;
-
   if (lookup_eid_exact_node(eid_prefix,eid_prefix_length, &result)!=GOOD)
   {
       syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid_prefix));
       return(BAD);
   }
-
   *identifier = (lispd_identifier_elt *)(result->data);
 
   return(TRUE);
@@ -275,85 +277,132 @@ int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_
 
 lispd_locator_elt   *new_locator (
 		lispd_identifier_elt 		*identifier,
-		lisp_addr_t                 locator_addr,
+		lisp_addr_t                 *locator_addr,
+		uint8_t                     *state,    /* UP , DOWN */
 		uint8_t                     locator_type,
 		uint8_t                     priority,
 		uint8_t                     weight,
 		uint8_t                     mpriority,
-		uint8_t                     mweight,
-		uint8_t                     state    /* UP , DOWN */
+		uint8_t                     mweight
 		)
 {
-        lispd_locators_list *locator_list, *aux_locator_list, *aux1_locator_list;
-        lispd_locator_elt *locator;
+	lispd_locators_list 	*locator_list, *aux_locator_list_prev, *aux_locator_list_next;
+	lispd_locator_elt 		*locator;
+	int 					cmp;
 
-        if ((locator_list = malloc(sizeof(lispd_locators_list))) == NULL) {
-            syslog(LOG_ERR, "can't allocate lispd_locator_list");
-            return(NULL);
-        }
-        if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
-            syslog(LOG_ERR, "can't allocate lispd_locator_elt");
-            free(locator_list);
-            return(NULL);
-        }
-        /* Add the locator into the list*/
-        if (locator_addr.afi == AF_INET)
-        {
-            if (locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
-                if (identifier->head_v4_locators_list == NULL){
-                    identifier->head_v4_locators_list = locator_list;
-                }else{
-                    aux_locator_list = NULL;
-                    aux1_locator_list = identifier->head_v4_locators_list;
-                    while (aux1_locator_list->next){
-                        if (locator_addr.address.ip < aux1_locator_list->locator->locator_addr.address.ip){
+	if ((locator_list = malloc(sizeof(lispd_locators_list))) == NULL) {
+		syslog(LOG_ERR, "can't allocate lispd_locator_list");
+		return(NULL);
+	}
+	if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
+		syslog(LOG_ERR, "can't allocate lispd_locator_elt");
+		free(locator_list);
+		return(NULL);
+	}
 
-                        }
+	locator_list->next = NULL;
+	locator_list->locator = locator;
+	/* Initialize locator */
+	locator->locator_addr = locator_addr;
+	locator->locator_type = locator_type;
+	locator->priority = priority;
+	locator->weight = weight;
+	locator->mpriority = mpriority;
+	locator->mweight = mweight;
+	locator->data_packets_in = 0;
+	locator->data_packets_out = 0;
+	locator->rloc_probing_nonces = NULL;
+	locator->state = state;
 
-                        aux_locator_list = aux_locator_list->next;
-                    }
 
-                    aux_locator_list->next = locator_list;
-                }
-            }else{
-                if (identifier->head_v4_locators_list == NULL){
-                    identifier->head_v4_locators_list = locator_list;
-                }else{
-                    aux_locator_list = identifier->head_v4_locators_list;
-                    while (aux_locator_list->next)
-                        aux_locator_list = aux_locator_list->next;
-                    aux_locator_list->next = locator_list;
-                }
-            }
-        }else if (AF_INET6){
-            if (locator_addr.afi == AF_INET)
-            {
-                if (identifier->head_v6_locators_list == NULL){
-                    identifier->head_v6_locators_list = locator_list;
-                }else{
-                    aux_locator_list = identifier->head_v6_locators_list;
-                    while (aux_locator_list->next)
-                        aux_locator_list = aux_locator_list->next;
-                    aux_locator_list->next = locator_list;
-                }
-            }
-        }
+	/* Add the locator into the list*/
+	if (locator_addr->afi == AF_INET)
+	{
+		if (locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
+			if (identifier->head_v4_locators_list == NULL){
+				identifier->head_v4_locators_list = locator_list;
+			}else{
+				aux_locator_list_prev = NULL;
+				aux_locator_list_next = identifier->head_v4_locators_list;
+				while (aux_locator_list_next){
+					cmp = memcmp(&(locator_addr->address.ip),&(aux_locator_list_next->locator->locator_addr->address.ip),sizeof(struct in_addr));
+					if (cmp < 0)
+						break;
+					if (cmp == 0){
+						syslog (LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
+								get_char_from_lisp_addr_t(*locator_addr),
+								get_char_from_lisp_addr_t(identifier->eid_prefix),
+								identifier->eid_prefix_length);
+						free (locator_list);
+						free (locator);
+						return (aux_locator_list_next->locator);
+					}
+					aux_locator_list_prev = aux_locator_list_next;
+					aux_locator_list_next = aux_locator_list_next->next;
+				}
+				if (aux_locator_list_prev == NULL){
+					locator_list->next = aux_locator_list_next;
+					identifier->head_v4_locators_list = locator_list;
+				}else{
+					aux_locator_list_prev->next = locator_list;
+					locator_list->next = aux_locator_list_next;
+				}
+			}
+		}else{
+			if (identifier->head_v4_locators_list == NULL){
+				identifier->head_v4_locators_list = locator_list;
+			}else{
+				aux_locator_list_prev = identifier->head_v4_locators_list;
+				while (aux_locator_list_prev->next)
+					aux_locator_list_prev = aux_locator_list_prev->next;
+				aux_locator_list_prev->next = locator_list;
+			}
+		}
+	}else if (AF_INET6){
+		if (locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
+			if (identifier->head_v6_locators_list == NULL){
+				identifier->head_v6_locators_list = locator_list;
+			}else{
+				aux_locator_list_prev = NULL;
+				aux_locator_list_next = identifier->head_v6_locators_list;
+				while (aux_locator_list_next){
+					cmp = memcmp(&(locator_addr->address.ipv6),&(aux_locator_list_next->locator->locator_addr->address.ipv6),sizeof(struct in6_addr));
+					if (cmp < 0)
+						break;
+					if (cmp == 0){
+						syslog (LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
+								get_char_from_lisp_addr_t(*locator_addr),
+								get_char_from_lisp_addr_t(identifier->eid_prefix),
+								identifier->eid_prefix_length);
+						free (locator_list);
+						free (locator);
+						return (aux_locator_list_next->locator);
+					}
+					aux_locator_list_prev = aux_locator_list_next;
+					aux_locator_list_next = aux_locator_list_next->next;
+				}
+				if (aux_locator_list_prev == NULL){
+					locator_list->next = aux_locator_list_next;
+					identifier->head_v6_locators_list = locator_list;
+				}else{
+					aux_locator_list_prev->next = locator_list;
+					locator_list->next = aux_locator_list_next;
+				}
+			}
+		}else{
+			if (identifier->head_v6_locators_list == NULL){
+				identifier->head_v6_locators_list = locator_list;
+			}else{
+				aux_locator_list_prev = identifier->head_v6_locators_list;
+				while (aux_locator_list_prev->next)
+					aux_locator_list_prev = aux_locator_list_prev->next;
+				aux_locator_list_prev->next = locator_list;
+			}
+		}
+	}
+	identifier->locator_count++;
 
-        locator_list->next = NULL;
-        locator_list->locator = locator;
-        /* Initialize locator */
-        locator->locator_addr = locator_addr;
-        locator->locator_type = locator_type;
-        locator->priority = priority;
-        locator->weight = weight;
-        locator->mpriority = mpriority;
-        locator->mweight = mweight;
-        locator->data_packets_in = 0;
-        locator->data_packets_out = 0;
-        locator->rloc_probing_nonces = NULL;
-
-        identifier->locator_count++;
-        return (locator);
+	return (locator);
 }
 
 
@@ -381,7 +430,7 @@ void del_identifier_entry(lisp_addr_t eid,
     /*
      * Remove the entry from the trie
      */
-    entry = (lispd_map_cache_entry *)(result->data);
+    entry = (lispd_identifier_elt *)(result->data);
     if (eid.afi==AF_INET)
         patricia_remove(EIDv4_database, result);
     else
@@ -405,10 +454,61 @@ void free_locator_list(lispd_locators_list *list){
     {
         if (locator_list->locator->rloc_probing_nonces)
             free (locator_list->locator->rloc_probing_nonces);
+        free (locator_list->locator->locator_addr);
+        free (locator_list->locator->state);
         free (locator_list->locator);
         aux_locator_list = locator_list;
         locator_list = locator_list->next;
         free (aux_locator_list);
+    }
+}
+
+
+/*
+ * dump local identifier list
+ */
+void dump_local_eids()
+{
+    patricia_tree_t     *dbs [2] = {EIDv4_database, EIDv6_database};
+    int                 ctr, ctr1;
+
+    patricia_node_t             *node;
+    lispd_identifier_elt        *entry;
+    lispd_locators_list         *locator_iterator_array[2];
+    lispd_locators_list         *locator_iterator;
+    lispd_locator_elt           *locator;
+
+    printf("LISP Local EIDs\n\n");
+
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        PATRICIA_WALK(dbs[ctr]->head, node) {
+            entry = ((lispd_identifier_elt *)(node->data));
+            printf("%s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(entry->eid_prefix),
+                    entry->eid_prefix_length, entry->iid);
+
+            if (entry->locator_count > 0){
+                printf("       Locator               State    Priority/Weight\n");
+                locator_iterator_array[0] = entry->head_v4_locators_list;
+                locator_iterator_array[1] = entry->head_v6_locators_list;
+                // Loop through the locators and print each
+
+                printf("------>>>----- %d\n",entry->locator_count);
+                for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){
+                    locator_iterator = locator_iterator_array[ctr1];
+                    while (locator_iterator != NULL) {
+                        locator = locator_iterator->locator;
+                        printf(" %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+                        if (locator->locator_addr->afi == AF_INET)
+                            printf(" %15s ", locator->state ? "Up" : "Down");
+                        else
+                            printf(" %5s ", locator->state ? "Up" : "Down");
+                        printf("         %3d/%-3d \n", locator->priority, locator->weight);
+                        locator_iterator = locator_iterator->next;
+                    }
+                }
+                printf("\n");
+            }
+        } PATRICIA_WALK_END;
     }
 }
 

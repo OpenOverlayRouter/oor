@@ -92,6 +92,7 @@
 #include "lispd_lib.h"
 #include "lispd_map_reply.h"
 #include "lispd_map_request.h"
+#include "lispd_nonce.h"
 #include "lispd_pkt_lib.h"
 #include "patricia/patricia.h"
 #include <time.h>

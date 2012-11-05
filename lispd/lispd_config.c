@@ -120,20 +120,20 @@ int handle_lispd_config_file()
 
     static cfg_opt_t db_mapping_opts[] = {
         CFG_STR("eid-prefix",           0, CFGF_NONE),
-        CFG_INT("iid",                 -1, CFGF_NONE),
+        CFG_INT("iid",                  0, CFGF_NONE),
         CFG_STR("interface",            0, CFGF_NONE),
-        CFG_INT("priority_v4",        255, CFGF_NONE),
+        CFG_INT("priority_v4",          0, CFGF_NONE),
         CFG_INT("weight_v4",            0, CFGF_NONE),
-        CFG_INT("priority_v6",        255, CFGF_NONE),
+        CFG_INT("priority_v6",          0, CFGF_NONE),
         CFG_INT("weight_v6",            0, CFGF_NONE),
         CFG_END()
     };
 
     static cfg_opt_t mc_mapping_opts[] = {
         CFG_STR("eid-prefix",           0, CFGF_NONE),
-        CFG_INT("iid",                 -1, CFGF_NONE),
+        CFG_INT("iid",                  0, CFGF_NONE),
         CFG_STR("rloc",                 0, CFGF_NONE),
-        CFG_INT("priority",           255, CFGF_NONE),
+        CFG_INT("priority",             0, CFGF_NONE),
         CFG_INT("weight",               0, CFGF_NONE),
         CFG_END()
     };
@@ -278,7 +278,7 @@ int handle_lispd_config_file()
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
             if (!add_static_map_cache_entry(smc)) {
-        syslog(LOG_DAEMON,"Can't add static-map-cache %d (%s->%s)",
+        syslog(LOG_DAEMON,"Can't add static-map-cache %d (EID:%s -> RLOC:%s)",
                i,
                cfg_getstr(smc, "eid-prefix"),
                cfg_getstr(smc, "rloc"));
@@ -316,10 +316,11 @@ int add_database_mapping(dm)
 {
     lispd_identifier_elt        *identifier;
     lispd_iface_elt             *interface;
+    lispd_locator_elt			*locator_v4;
+    lispd_locator_elt			*locator_v6;
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
     int                         eid_prefix_length;
-    uint8_t                     is_new_identifier;
-
+    uint8_t						is_new_identifier;
 
     char   *eid               = cfg_getstr(dm, "eid-prefix");
     int    iid                = cfg_getint(dm, "iid");
@@ -340,6 +341,12 @@ int add_database_mapping(dm)
         priority_v4 = MIN_PRIORITY;
     }
 
+    if (priority_v6 < MAX_PRIORITY || priority_v6 > UNUSED_RLOC_PRIORITY) {
+        syslog (LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+                priority_v6, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
+        priority_v6 = MIN_PRIORITY;
+    }
+
     if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
         syslog (LOG_ERR, "Configuration file: Error parsing EID address ... Ignoring identifier");
         return BAD;
@@ -354,7 +361,6 @@ int add_database_mapping(dm)
     /*
      * Lookup if the identifier exists. If not, a new identifier is created.
      */
-
     if (lookup_eid_exact_in_db(eid_prefix,eid_prefix_length,&identifier)==BAD)
     {
         identifier = new_identifier(eid_prefix,eid_prefix_length,iid);
@@ -365,7 +371,7 @@ int add_database_mapping(dm)
         is_new_identifier = TRUE;
     }else{
         if (identifier->iid != iid){
-            syslog (LOG_ERR,"Same identifier with differnt iid. This configuration is not supported..."
+            syslog (LOG_ERR,"Same identifier with different iid. This configuration is not supported..."
                     "Ignoring identifier.");
             return BAD;
         }
@@ -374,12 +380,27 @@ int add_database_mapping(dm)
     /*
      * Add the new interface.
      */
-    interface = add_interface (iface_name,priority_v4,weight_v4,priority_v6,weight_v6);
+    /* Check if the interface already exists. If not, add it*/
+    if ((interface=get_interface(iface_name))==NULL)
+    	interface = add_interface (iface_name);
+
+
     /* If we couldn't add the interface and the identifier is new, we remove it. */
     if (interface == NULL){
         if (is_new_identifier){
             del_identifier_entry (identifier->eid_prefix, identifier->eid_prefix_length);
         }
+    }
+
+    /* XXX Process when the new locator could not be allocated */
+    if (priority_v4 > 0){
+        if ((err = add_identifier_to_interface (interface, identifier,AF_INET)) == GOOD){
+            locator_v4 = new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
+        }
+    }
+    if (priority_v6 > 0){
+        if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
+            locator_v6 = new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
     }
 
     /* 
@@ -389,19 +410,19 @@ int add_database_mapping(dm)
      * each EID requires its own LISP-MN interface and 
      * one of the interfaces will be the default one.
      */
-    if (!setup_lisp_eid_iface(LISP_MN_EID_IFACE_NAME, 
+/*    if (!setup_lisp_eid_iface(LISP_MN_EID_IFACE_NAME,
                 &(identifier->eid_prefix),
                 identifier->eid_prefix_length)) {
         syslog(LOG_ERR, "setup_lisp_eid_iface (%s) failed\b", iface_name);
         return (BAD);
     } 
-
+*/
 
     /* 
      * PN: Find an active interface for lispd control messages
      */
-    if (ctrl_iface == NULL)
-        ctrl_iface = find_active_ctrl_iface();
+  /*  if (ctrl_iface == NULL)
+        ctrl_iface = find_active_ctrl_iface();*/
 #ifdef LISPMOBMH
     /* We need a default rloc (iface) to use. As of now 
      * we will use the same as the ctrl_iface */
@@ -445,9 +466,9 @@ int add_static_map_cache_entry(smc)
     lispd_map_cache_entry    *map_cache_entry;
     lispd_locator_elt        *locator;
     lisp_addr_t              eid_prefix;
-    lisp_addr_t              rloc_addr;
-    uint8_t                  eid_prefix_length;
-    uint32_t                 flags = 0;
+    lisp_addr_t              *rloc_addr;
+    int                      eid_prefix_length;
+    uint8_t                  *state = 0;
 
     char   *eid         = cfg_getstr(smc, "eid-prefix");
     char   *rloc        = cfg_getstr(smc, "rloc");
@@ -475,27 +496,40 @@ int add_static_map_cache_entry(smc)
         return BAD;
     }
 
-    if (get_lisp_addr_from_char(rloc,&rloc_addr) == BAD){
-        syslog (LOG_ERR, "Configuration file: Error parsing RLOC address ... Ignoring static map cache entry");
-        return BAD;
-    }
     map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
     if (map_cache_entry == NULL)
         return (BAD);
 
+    if((rloc_addr = malloc(sizeof(lisp_addr_t))) == NULL){
+        syslog(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate lisp_addr_t for rloc address");
+        return (ERR_MALLOC);
+    }
+    if((state = malloc(sizeof(uint8_t))) == NULL){
+        syslog(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate uint8_t for status");
+        return (ERR_MALLOC);
+    }
+
+    if (get_lisp_addr_from_char(rloc,rloc_addr) == BAD){
+        syslog (LOG_ERR, "Configuration file: Error parsing RLOC address ... Ignoring static map cache entry");
+        return BAD;
+    }
+
+    *state = UP;
 
     map_cache_entry->identifier.iid = iid;
 
     locator = new_locator(&(map_cache_entry->identifier),
     		rloc_addr,
+    		state,
     		STATIC_LOCATOR,
     		priority,
     		weight,
     		255,
-    		0,
-    		UP);
-
-    return(GOOD);
+    		0);
+    if (locator)
+        return(GOOD);
+    else
+        return (BAD);
 }
 
 /*

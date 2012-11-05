@@ -32,7 +32,8 @@
  *
  */
 
-#pragma once
+#ifndef LISPD_IFACE_MGMT_H_
+#define LISPD_IFACE_MGMT_H_
 
 #include "lispd.h"
 
@@ -68,8 +69,6 @@ typedef struct _reqmsg_t {
  */
 int dump_routing_table(uint16_t afi, int table);
 
-void smr_pitrs(void);
-
 int setup_netlink_iface ();
 
 int process_netlink_iface ();
@@ -86,6 +85,8 @@ int setup_lisp_eid_iface(char *eid_iface_name, lisp_addr_t *eid_addr, int eid_pr
  *  remove lisp modules (and restore network settings)
  */
 void exit_cleanup(void);
+
+#endif /*LISPD_IFACE_MGMT_H_*/
 
 
 

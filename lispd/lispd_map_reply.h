@@ -60,10 +60,14 @@
  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-#pragma once
+#ifndef LISPD_MAP_REPLY_H_
+#define LISPD_MAP_REPLY_H_
+
 #include "lispd.h"
 
 int process_map_reply(char *packet);
 int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dport,
         struct sockaddr *dst_sa, int s, prefix_t eid_prefix,
         uint64_t nonce, map_reply_opts opts);
+
+#endif /*LISPD_MAP_REPLY_H_*/

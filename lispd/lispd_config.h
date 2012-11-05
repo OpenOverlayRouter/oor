@@ -32,9 +32,8 @@
  *
  */
 
-#pragma once
-
-
+#ifndef LISPD_CONFIG_H_
+#define LISPD_CONFIG_H_
 /*
  *  Get command line args and set up whatever is needed
  */
@@ -44,3 +43,5 @@ void handle_lispd_command_line(int argc, char **argv);
  *  Parse config file and set up whatever is needed
  */
 int handle_lispd_config_file();
+
+#endif /*LISPD_CONFIG_H_*/

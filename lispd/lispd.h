@@ -30,7 +30,8 @@
  *
  */
 
-#pragma once
+#ifndef LISPD_H_
+#define LISPD_H_
 
 #include <arpa/inet.h>
 #include <ctype.h>
@@ -155,6 +156,7 @@ int err;
 #define ERR_AFI             0
 #define ERR_DB              0
 #define ERR_MALLOC          0
+#define ERR_EXIST			-5
 
 
 
@@ -1006,6 +1008,7 @@ typedef struct {
     uint8_t echo_nonce;     // set Echo-nonce bit
 } map_reply_opts;
 
+#endif /*LISPD_H_*/
 
 /*
  * Editor modelines

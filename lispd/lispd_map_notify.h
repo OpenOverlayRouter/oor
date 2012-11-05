@@ -31,6 +31,9 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#pragma once
+#ifndef LISPD_MAP_NOTIFY_H_
+#define LISPD_MAP_NOTIFY_H_
 
 int process_map_notify(uint8_t *packet);
+
+#endif /*LISPD_MAP_NOTIFY_H_*/

@@ -28,7 +28,9 @@
  *    Preethi Natarajan <prenatar@cisco.com>
  *
  */
-#pragma once
+#ifndef LISPD_SYSLOG_H_
+#define LISPD_SYSLOG_H_
 
 void set_up_syslog(void);
 
+#endif /*LISPD_SYSLOG_H_*/

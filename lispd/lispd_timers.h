@@ -8,7 +8,8 @@
  * Author: Chris White
  * Copyright 2010 Cisco Systems, Inc.
  */
-#pragma once
+#ifndef LISPD_TIMERS_H_
+#define LISPD_TIMERS_H_
 
 #include <signal.h>
 #include <time.h>
@@ -40,3 +41,5 @@ void     start_timer(timer *, int, timer_callback,
                    void *);
 void     stop_timer(timer *);
 void     handle_timers(void);
+
+#endif /*LISPD_TIMERS_H_*/

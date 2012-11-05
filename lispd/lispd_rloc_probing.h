@@ -29,3 +29,8 @@
  *    Albert López      <alopez@ac.upc.edu>
  *
  */
+
+#ifndef LISPD_RLOC_PROBING_H_
+#define LISPD_RLOC_PROBING_H_
+
+#endif /*LISPD_RLOC_PROBING_H_*/

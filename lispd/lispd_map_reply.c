@@ -105,7 +105,7 @@ int process_map_reply(char *packet)
     record_count = mrp->record_count;
     rloc_probe = mrp->rloc_probe;
 
-    // XXX RLOC- PROBE
+    // XXX alopez RLOC- PROBE
 
     /*
      *
@@ -229,7 +229,9 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
 int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
 {
     lispd_pkt_mapping_record_locator_t  *pkt_locator;
-    lispd_locator_elt                   *locator;
+    lispd_locator_elt                   aux_locator;
+    lisp_addr_t                         *locator_addr;
+    uint8_t								*state;
     char                                *cur_ptr;
 
     cur_ptr = *offset;
@@ -237,19 +239,26 @@ int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
 
     cur_ptr = (char *)&(pkt_locator->locator_afi);
 
-    locator = make_and_add_locator (identifier);
-    if (pkt_process_rloc_afi(&cur_ptr, locator) == BAD)
+
+    if (pkt_process_rloc_afi(&cur_ptr, &aux_locator) == BAD)
         return (BAD);
+    if((locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
+    	syslog(LOG_ERR,"pkt_process_rloc_afi: Couldn't allocate lisp_addr_t");
+    	return (ERR_MALLOC);
+    }
+    if((state = malloc(sizeof(uint8_t))) == NULL){
+    	syslog(LOG_ERR,"pkt_process_rloc_afi: Couldn't allocate uint8_t");
+    	return (ERR_MALLOC);
+    }
 
-
-    locator->locator_type = DYNAMIC_LOCATOR;
-    locator->priority = pkt_locator->priority;
-    locator->weight = pkt_locator->weight;
-    locator->mpriority = pkt_locator->mpriority;
-    locator->mweight = pkt_locator->mweight;
-    locator->state = pkt_locator->reachable;
-
-    return GOOD;
+    copy_lisp_addr_t(locator_addr, &(aux_locator.locator_addr), FALSE);
+    *state = pkt_locator->reachable;
+    new_locator (identifier, locator_addr, DYNAMIC_LOCATOR,
+            pkt_locator->priority, pkt_locator->weight,
+            pkt_locator->mpriority, pkt_locator->mweight,
+            state);
+    *offset = cur_ptr;
+    return (GOOD);
 }
 
 

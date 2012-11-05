@@ -27,20 +27,13 @@
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
-#pragma once
+#ifndef LISPD_MAP_CACAHE_DB_H_
+#define LISPD_MAP_CACAHE_DB_H_
+
 
 #include "lispd.h"
 #include "lispd_local_db.h"
 #include "lispd_timers.h"
-
-
-/*
- *  Patricia tree based databases
- */
-
-patricia_tree_t *AF4_eid_cache           = NULL;
-patricia_tree_t *AF6_eid_cache           = NULL;
-
 
 
 /*
@@ -69,6 +62,10 @@ typedef struct lispd_map_cache_entry_ {
  */
 void map_cache_init();
 
+/*
+ * Return map cache data base
+ */
+patricia_tree_t* get_map_cache_db(int afi);
 
 /*
  * Create a map cache entry and save it in the database
@@ -92,12 +89,6 @@ int lookup_eid_cache_exact(lisp_addr_t eid, int prefixlen, lispd_map_cache_entry
  */
 int lookup_eid_cache(lisp_addr_t eid, lispd_map_cache_entry **entry);
 
-/*
- * Return true if nonce is found in the map cahce entry
- */
-
-
-int check_nonce(nonces_list   *nonces, uint64_t nonce);
 
 /*
  * Lookup if there is a no active cache entry with the provided nonce and return it
@@ -121,3 +112,4 @@ void eid_entry_expiration(timer *t, void *arg);
 void dump_map_cache();
 
 
+#endif /*LISPD_MAP_CACAHE_DB_H_*/

@@ -30,7 +30,8 @@
  *
  */
 
-#pragma once
+#ifndef LISPD_LIB_H_
+#define LISPD_LIB_H_
 
 #include "lispd.h"
 
@@ -178,13 +179,21 @@ char *get_char_from_lisp_addr_t (lisp_addr_t addr);
 
 int get_lisp_addr_from_char (char *address, lisp_addr_t *lisp_addr);
 
-
+/*
+ * Compare two lisp_addr_t.
+ * Returns:
+ * 			-1: If they are from different afi
+ * 			 0: Both address are the same
+ * 			 1: Addr1 is bigger than addr2
+ * 			 2: Addr2 is bigger than addr1
+ */
+int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2);
 /*
  * Parse address and fill lisp_addr and mask.
  * Return GOOD if no error has been found
  */
 
-int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, uint8_t *mask);
+int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask);
 
 
 /*
@@ -256,3 +265,5 @@ int retrieve_lisp_msg(int s, uint8_t *packet, void *from, int afi);
 int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t port);
 
 int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst);
+
+#endif /*LISPD_LIB_H_*/

@@ -34,6 +34,7 @@
 
 #include "lispd_iface_mgmt.h"
 #include "lispd_external.h"
+#include "lispd_smr.h"
 
 
 

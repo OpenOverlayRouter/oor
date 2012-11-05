@@ -852,14 +852,40 @@ int get_lisp_addr_from_char (char *address, lisp_addr_t *lisp_addr)
 }
 
 /*
+ * Compare two lisp_addr_t.
+ * Returns:
+ * 			-1: If they are from different afi
+ * 			 0: Both address are the same
+ * 			 1: Addr1 is bigger than addr2
+ * 			 2: Addr2 is bigger than addr1
+ */
+int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2)
+{
+	int cmp;
+	if (addr1->afi != addr2->afi)
+		return -1;
+	if (addr1->afi == AF_INET)
+		cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
+	else if (addr1->afi == AF_INET6)
+			cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
+	else
+		return -1;
+	if (cmp == 0)
+		return 0;
+	else if (cmp > 0)
+		return 1;
+	else
+		return 2;
+}
+
+/*
  * Parse address and fill lisp_addr and mask.
  * Return GOOD if no error has been found
  */
 
-int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, uint8_t *mask)
+int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask)
 {
     char                     *token;
-
     if ((token = strtok(address, "/")) == NULL) {
         syslog(LOG_ERR, "Prefix not of the form prefix/length: %s",address);
         return(BAD);

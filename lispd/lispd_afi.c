@@ -102,13 +102,13 @@ int pkt_process_rloc_afi(char  **offset,
     cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
     switch(lisp_afi) {
     case LISP_AFI_IP:
-        locator->locator_addr.address.ip.s_addr = ntohs(*(uint32_t *)cur_ptr);
-        locator->locator_addr.afi = AF_INET;
+        locator->locator_addr->address.ip.s_addr = ntohs(*(uint32_t *)cur_ptr);
+        locator->locator_addr->afi = AF_INET;
         cur_ptr  = CO(cur_ptr, sizeof(struct in_addr));
         break;
     case LISP_AFI_IPV6:
-        memcpy(&(locator->locator_addr.address.ipv6),cur_ptr,sizeof(struct in6_addr));
-        locator->locator_addr.afi = AF_INET6;
+        memcpy(&(locator->locator_addr->address.ipv6),cur_ptr,sizeof(struct in6_addr));
+        locator->locator_addr->afi = AF_INET6;
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
