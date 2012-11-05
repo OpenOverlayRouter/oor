@@ -59,6 +59,8 @@
 #include "lispd_external.h"
 
 
+int isfqdn(char *s);
+
 /*
  *      build_receive_sockets
  *
@@ -335,7 +337,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
 
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc (get_my_addr): %s", strerror(errno));
-        return(0);
+        return(NULL);
     }
 
     memset(addr, 0, sizeof(lisp_addr_t));
@@ -343,7 +345,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
     if (getifaddrs(&ifaddr) !=0) {
         syslog(LOG_DAEMON, "getifaddrs(get_my_addr): %s", strerror(errno));
         free(addr);
-        return(0);
+        return(NULL);
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
@@ -373,7 +375,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
     }
     free(addr);
     freeifaddrs(ifaddr);
-    return(0);                          /* no luck */
+    return(NULL);                          /* no luck */
 }
 
 /*
@@ -382,7 +384,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
  *      return lisp_addr_t for host/FQDN or 0 if none
  */
 
-lisp_addr_t *lispd_get_address(host, addr, flags)
+int lispd_get_address(host, addr, flags)
     char             *host;
     lisp_addr_t      *addr;
     unsigned int     *flags;
@@ -408,9 +410,9 @@ lisp_addr_t *lispd_get_address(host, addr, flags)
             *flags = FQDN_LOCATOR;      
         else 
             *flags = STATIC_LOCATOR;
-        return(addr);
+        return(GOOD);
     } 
-    return(NULL);
+    return(BAD);
 }
 
 /*
@@ -419,9 +421,10 @@ lisp_addr_t *lispd_get_address(host, addr, flags)
  *  return lisp_addr_t for the interface, 0 if none
  */
 
-lisp_addr_t *lispd_get_iface_address(ifacename, addr)
+lisp_addr_t *lispd_get_iface_address(ifacename, addr, afi)
     char                *ifacename;
     lisp_addr_t         *addr;
+    int                 afi;
 {
     struct ifaddrs      *ifaddr;
     struct ifaddrs      *ifa;
@@ -446,7 +449,7 @@ lisp_addr_t *lispd_get_iface_address(ifacename, addr)
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if ((ifa->ifa_addr == NULL) || ((ifa->ifa_flags & IFF_UP) == 0))
+        if ((ifa->ifa_addr == NULL) || ((ifa->ifa_flags & IFF_UP) == 0) || (ifa->ifa_addr->sa_family != afi))
             continue;
         switch (ifa->ifa_addr->sa_family) {
         case AF_INET:
@@ -643,46 +646,6 @@ void dump_map_servers(void)
     }
 }
 
-void dump_map_cache(void)
-{
-    lispd_map_cache_t       *map_cache;
-    lispd_map_cache_entry_t *map_cache_entry;
-    int              afi; 
-    unsigned int     ttl; 
-    char             eid[128];
-    char             rloc[128];
-
-    if (!lispd_map_cache)
-        return;
-
-    syslog(LOG_DAEMON, "map-cache:");
-    map_cache = lispd_map_cache;
-
-    while (map_cache) {
-        map_cache_entry = &(map_cache->map_cache_entry);
-        afi = map_cache_entry->eid_prefix.afi;
-        ttl = map_cache_entry->ttl;
-        inet_ntop(afi,
-                  &(map_cache_entry->eid_prefix.address),
-                  eid,
-                  128);
-        inet_ntop(map_cache_entry->locator.afi,
-                  &(map_cache_entry->locator.address),
-                  rloc, 128);
-        syslog(LOG_DAEMON," %s lisp %s/%d %s p %d w %d ttl %d (%s)",
-           (afi == AF_INET) ? "ip":"ipv6",
-           eid,
-           map_cache_entry->eid_prefix_length, 
-           rloc,
-           map_cache_entry->priority,
-           map_cache_entry->weight,
-           ttl,
-           (map_cache_entry->how_learned == STATIC_MAP_CACHE_ENTRY)
-           ? "static" : "dynamic");
-        map_cache = map_cache->next;
-    }
-}
-
 
 /* 
  *      isfqdn(char *s)
@@ -849,6 +812,100 @@ void print_hmac(hmac,len)
     }
     printf("\n");
 }
+
+char *get_char_from_lisp_addr_t (lisp_addr_t addr)
+{
+    static char address[INET6_ADDRSTRLEN];
+    switch (addr.afi){
+    case AF_INET:
+        inet_ntop(AF_INET, &(addr.address), address, INET_ADDRSTRLEN);
+        return address;
+    case AF_INET6:
+        inet_ntop(AF_INET6, &(addr.address.ipv6), address, INET6_ADDRSTRLEN);
+        return address;
+    default:
+        return NULL;
+    }
+}
+
+/*
+ * Fill lisp_addr with the address.
+ * Return GOOD if no error has been found
+ */
+
+int get_lisp_addr_from_char (char *address, lisp_addr_t *lisp_addr)
+{
+    lisp_addr->afi = get_afi(address);
+    switch (lisp_addr->afi){
+    case AF_INET:
+        if (inet_pton(AF_INET,address,&(lisp_addr->address.ip))==1)
+            return GOOD;
+        else
+            return BAD;
+    case AF_INET6:
+        if (inet_pton(AF_INET6,address,&(lisp_addr->address.ipv6))==1)
+            return GOOD;
+        else
+            return BAD;
+    }
+    return BAD;
+}
+
+/*
+ * Compare two lisp_addr_t.
+ * Returns:
+ * 			-1: If they are from different afi
+ * 			 0: Both address are the same
+ * 			 1: Addr1 is bigger than addr2
+ * 			 2: Addr2 is bigger than addr1
+ */
+int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2)
+{
+	int cmp;
+	if (addr1->afi != addr2->afi)
+		return -1;
+	if (addr1->afi == AF_INET)
+		cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
+	else if (addr1->afi == AF_INET6)
+			cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
+	else
+		return -1;
+	if (cmp == 0)
+		return 0;
+	else if (cmp > 0)
+		return 1;
+	else
+		return 2;
+}
+
+/*
+ * Parse address and fill lisp_addr and mask.
+ * Return GOOD if no error has been found
+ */
+
+int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask)
+{
+    char                     *token;
+    if ((token = strtok(address, "/")) == NULL) {
+        syslog(LOG_ERR, "Prefix not of the form prefix/length: %s",address);
+        return(BAD);
+    }
+    if (get_lisp_addr_from_char(token,lisp_addr)==BAD)
+        return (BAD);
+    if ((token = strtok(NULL,"/")) == NULL) {
+        syslog(LOG_ERR,"strtok: %s", strerror(errno));
+        return(BAD);
+    }
+    *mask = atoi(token);
+    if (lisp_addr->afi == AF_INET) {
+        if (*mask < 1 || *mask > 32)
+            return BAD;
+    }else {
+        if (*mask < 1 || *mask > 128)
+            return BAD;
+    }
+    return GOOD;
+}
      
      
 /*
@@ -919,7 +976,7 @@ int get_ip_header_len(afi)
         return(sizeof(struct ip6_hdr));
     default:
         syslog(LOG_DAEMON, "get_ip_header_len: unknown AFI (%d)", afi);
-        return(0);
+        return(ERR_AFI);
     }
 }
 
@@ -957,7 +1014,7 @@ int get_addr_len(afi)
         return(sizeof(struct in6_addr));
     default:
         syslog(LOG_DAEMON, "get_addr_len: unknown AFI (%d)", afi);
-        return(0);
+        return(ERR_AFI);
     }
 }
 
@@ -1018,56 +1075,7 @@ struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
     return(udph);
 }
 
-/*
- *      requires librt
- */
 
-uint64_t build_nonce(seed)
-     int        seed;
-{
-
-    uint64_t            nonce; 
-    uint32_t            nonce_lower;
-    uint32_t            nonce_upper; 
-    struct timespec     ts; 
- 
-    /* 
-     * Put nanosecond clock in lower 32-bits and put an XOR of the nanosecond 
-     * clock with the seond clock in the upper 32-bits. 
-     */ 
-
-    clock_gettime(CLOCK_MONOTONIC,&ts); 
-    nonce_lower = ts.tv_nsec; 
-    nonce_upper = ts.tv_sec ^ htonl(nonce_lower); 
- 
-    /* 
-     * OR in a caller provided seed to the low-order 32-bits. 
-     */ 
-    nonce_lower |= seed; 
- 
-    /* 
-     * Return 64-bit nonce. 
-     */ 
-    nonce = nonce_upper; 
-    nonce = (nonce << 32) | nonce_lower; 
-    return(nonce); 
-} 
- 
-/* 
- * lisp_print_nonce 
- * 
- * Print 64-bit nonce in 0x%08x-0x%08x format. 
- */ 
-void lispd_print_nonce (nonce)
-     uint64_t nonce;
-{ 
-    uint32_t lower; 
-    uint32_t upper; 
- 
-    lower = nonce & 0xffffffff; 
-    upper = (nonce >> 32) & 0xffffffff; 
-    syslog(LOG_DAEMON,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower)); 
-} 
  
 /*
  *      API functions of datacache entries (updated acabello)
@@ -1347,60 +1355,6 @@ int search_datacache_entry_eid(eid_prefix, res_elt)
     return 0;
 }
 
-// Modified by acabello
-// Search a datacache entry based on nonce and returns it in res_elt
-int search_datacache_entry_nonce (nonce,res_elt)
-    uint64_t nonce;
-    datacache_elt_t **res_elt;
-{
-
-
-    datacache_elt_t *elt;
-
-    elt=datacache->head;
-    while(elt!=NULL) {
-        if (elt->nonce==nonce) {
-            // Nonce match
-            *res_elt=elt;
-            return 1;
-        }
-        elt=elt->next;
-    }
-
-    // Nonce not found
-#if (DEBUG > 3)
-    syslog(LOG_INFO, "Entry not found in datacache: nonce doesn't match");
-#endif
-    return 0;
-}
-
-// Modified by acabello
-// Deletes a datacache entry
-int init_datacache(cbk)
-    void (*cbk)(datacache_elt_t*);
-{
-
-
-    if ((datacache = malloc(sizeof(datacache_t))) == NULL){
-        syslog(LOG_DAEMON, "malloc (datacache): %s", strerror(errno));
-        return(1);
-    }
-        memset (datacache, 0, sizeof(datacache_t));
-
-    datacache->head=NULL;
-    datacache->tail=NULL;
-
-    if ((datacache->timer_datacache = malloc(sizeof(timer_datacache_t))) == NULL){
-        syslog(LOG_DAEMON, "malloc (timer_datacache): %s", strerror(errno));
-        return(1);
-    }
-
-    datacache->timer_datacache->callback=cbk;
-    datacache->timer_datacache->head=NULL;
-    datacache->timer_datacache->tail=NULL;
-
-    return(1);
-}
 
 /*
  *  Auxiliary definitions

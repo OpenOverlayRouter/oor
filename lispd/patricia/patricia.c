@@ -430,11 +430,9 @@ patricia_search_exact (patricia_tree_t *patricia, prefix_t *prefix)
     patricia_node_t *node;
     u_char *addr;
     u_int bitlen;
-
     assert (patricia);
     assert (prefix);
-    assert (prefix->bitlen <= patricia->maxbits);
-
+    assert (prefix->bitlen <= patricia->maxbits);;
     if (patricia->head == NULL)
 	return (NULL);
 

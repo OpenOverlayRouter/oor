@@ -1,5 +1,5 @@
 /*
- * lispd_config.h
+ * lispd_afi.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Handle lispd command line and config file
@@ -26,22 +26,23 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Albert Lopez      <alopez@ac.upc.edu>
  *
  */
+#ifndef LISPD_AFI_H_
+#define LISPD_AFI_H_
 
-#ifndef LISPD_CONFIG_H_
-#define LISPD_CONFIG_H_
-/*
- *  Get command line args and set up whatever is needed
- */
-void handle_lispd_command_line(int argc, char **argv);
+#include "lispd.h"
+#include "lispd_local_db.h"
 
 /*
- *  Parse config file and set up whatever is needed
+ * Reads the address information from the packet and fill the lispd_identifier_elt element
  */
-int handle_lispd_config_file();
+int pkt_process_eid_afi(char  **offset, lispd_identifier_elt *identifier);
 
-#endif /*LISPD_CONFIG_H_*/
+/*
+ * Reads the address information from the packet and fill the lispd_locator_elt element
+ */
+int pkt_process_rloc_afi(char  **offset, lispd_locator_elt *locator);
+
+#endif /*LISPD_AFI_H_*/

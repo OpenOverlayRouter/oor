@@ -30,8 +30,11 @@
  *    Lorand Jakab      <ljakab@ac.upc.edu>
  *
  */
-#pragma once
+#ifndef LISPD_MAP_REGISTER_H_
+#define LISPD_MAP_REGISTER_H_
 
 #include "lispd_timers.h"
 
 int map_register(timer *t, void *arg);
+
+#endif /*LISPD_MAP_REGISTER_H_*/

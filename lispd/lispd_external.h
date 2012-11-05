@@ -30,7 +30,8 @@
  *
  */
 
-#pragma once
+#ifndef LISPD_EXTERNAL_H_
+#define LISPD_EXTERNAL_H_
 
 #include "lispd.h"
 
@@ -68,6 +69,8 @@ extern  struct  sockaddr_nl src_addr;
 extern  nlsock_handle       nlh;
 extern  iface_list_elt      *ctrl_iface; 
 extern  lisp_addr_t         source_rloc;
+
+#endif /*LISPD_EXTERNAL_H_*/
 
 /*
  * Editor modelines

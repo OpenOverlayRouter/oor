@@ -30,7 +30,8 @@
  *
  */
 
-#pragma once
+#ifndef LISPD_LIB_H_
+#define LISPD_LIB_H_
 
 #include "lispd.h"
 
@@ -95,14 +96,14 @@ int copy_addr(void *a1, lisp_addr_t *a2, int convert);
 lisp_addr_t *get_my_addr(char *if_name, int afi);
 
 /*
- *      return lisp_addr_t for host/FQDN or 0 if none
+ *      return GOOD if addr contain a  lisp_addr_t for host/FQDN or BAD if none
  */
-lisp_addr_t *lispd_get_address(char *host, lisp_addr_t *addr, unsigned int *flags);
+int lispd_get_address(char *host, lisp_addr_t *addr, unsigned int *flags);
 
 /*
  *  return lisp_addr_t for the interface, 0 if none
  */
-lisp_addr_t *lispd_get_iface_address(char *ifacename, lisp_addr_t *addr);
+lisp_addr_t *lispd_get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
 
 void dump_database(patricia_tree_t *tree,int afi);
 
@@ -112,7 +113,6 @@ void dump_map_server(lispd_map_server_list_t *ms);
 
 void dump_map_servers(void);
 
-void dump_map_cache(void);
 
 void dump_tree(int afi, patricia_tree_t *tree);
 
@@ -165,16 +165,35 @@ struct udphdr *build_ip_header(
         lisp_addr_t           *eid_prefix,
         int                   ip_len);
 
-/*
- *      requires librt
- */
-uint64_t build_nonce(int seed);
-
 
 /*
- * Print 64-bit nonce in 0x%08x-0x%08x format.
+ * Return lisp_addr_t in a char format;
  */
-void lispd_print_nonce (uint64_t nonce);
+
+char *get_char_from_lisp_addr_t (lisp_addr_t addr);
+
+/*
+ * Fill lisp_addr with the address.
+ * Return GOOD if no error has been found
+ */
+
+int get_lisp_addr_from_char (char *address, lisp_addr_t *lisp_addr);
+
+/*
+ * Compare two lisp_addr_t.
+ * Returns:
+ * 			-1: If they are from different afi
+ * 			 0: Both address are the same
+ * 			 1: Addr1 is bigger than addr2
+ * 			 2: Addr2 is bigger than addr1
+ */
+int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2);
+/*
+ * Parse address and fill lisp_addr and mask.
+ * Return GOOD if no error has been found
+ */
+
+int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask);
 
 
 /*
@@ -221,17 +240,6 @@ int search_datacache_entry_eid(lisp_addr_t* eid_prefix, datacache_elt_t **res_el
 
 
 /*
- * Search a datacache entry based on nonce and returns it in res_elt
- */
-int search_datacache_entry_nonce (uint64_t nonce,datacache_elt_t ** res_elt);
-
-
-/*
- * Deletes a datacache entry
- */
-int init_datacache( void (*cbk)(datacache_elt_t*));
-
-/*
  *  Auxiliary definitions
  */
 uint16_t min_timeout(uint16_t a,uint16_t b);
@@ -258,4 +266,8 @@ int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t por
 
 int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst);
 
+
 lisp_addr_t get_main_eid(patricia_tree_t *database);
+
+#endif /*LISPD_LIB_H_*/
+

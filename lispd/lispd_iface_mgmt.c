@@ -34,6 +34,7 @@
 
 #include "lispd_iface_mgmt.h"
 #include "lispd_external.h"
+#include "lispd_smr.h"
 
 
 
@@ -993,29 +994,6 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
 
 }
 
-void smr_pitrs(void) {
-    patricia_node_t *node;
-    lispd_locator_chain_t *locator_chain = NULL;
-    lispd_addr_list_t *elt = proxy_itrs;
-    char pitr_name[128];
-
-    PATRICIA_WALK(AF4_database->head, node) {
-        locator_chain = ((lispd_locator_chain_t *)(node->data));
-        if (locator_chain) {
-            while (elt) {
-                inet_ntop(elt->address->afi, &(elt->address->address), pitr_name, 128);
-                if (build_and_send_map_request_msg(elt->address,
-                        &(locator_chain->eid_prefix),
-                        (get_addr_len(locator_chain->eid_prefix.afi) * 8),
-                        locator_chain->eid_name,
-                        0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
-                    syslog(LOG_DAEMON, "SMR'ing %s", pitr_name);
-                elt = elt->next;
-            }
-        }
-    } PATRICIA_WALK_END;
-}
-
 int setup_netlink_iface ()
 {
     struct sockaddr_nl addr;
@@ -1176,12 +1154,6 @@ int process_netlink_iface ()
                     node = patricia_search_exact(AF4_database, prefix);
                     db_entry = add_rloc(elt, &rloc, node, eid);
                     sleep (2);
-#ifdef DEBUG
-                    syslog(LOG_DAEMON, "Updating RLOC in mapping database");
-#endif
-                    if(db_entry) {
-                        install_database_mapping(db_entry);
-                    }
                 }
 
                 if (elt->AF6_eid_prefix) {
@@ -1190,12 +1162,6 @@ int process_netlink_iface ()
                     node = patricia_search_exact(AF6_database, prefix);
                     db_entry = add_rloc(elt, &rloc, node, eid);
                     sleep (2);
-#ifdef DEBUG
-                    syslog(LOG_DAEMON, "Updating RLOC in mapping database");
-#endif
-                    if(db_entry) {
-                        install_database_mapping(db_entry);
-                    }
                 }
 
 
@@ -1367,12 +1333,6 @@ int process_netlink_iface ()
                     &src_rloc, &gateway, elt->rt_table_num);
                 memcpy(&source_rloc, &src_rloc, sizeof(lisp_addr_t));
 
-                /*
-                 * Install the new src rloc/db_netry in lisp_mod
-                 * NOTE: the rloc might've already been installed
-                 * during RTM_NEWADDR
-                 */
-                install_database_mapping(db_entry);
 #ifndef LISPMOBMH
                 set_rloc(&src_rloc,0);
 #else
@@ -1426,8 +1386,7 @@ int process_netlink_iface ()
                 /*
                  * Trigger SMR to PITRs and the MN's peers
                  */
-                smr_pitrs();
-                get_map_cache_list();
+                init_smr();
 
                 break; 
 

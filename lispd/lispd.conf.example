@@ -47,11 +47,13 @@ database-mapping {
 
 # IPv6 EID of the mobile node
 database-mapping {
-         eid-prefix = 2610:d0:ffff:192::1/128
-#         iid        = 223
-         interface  = eth0
-         priority   = 1
-         weight     = 100
+         eid-prefix 	= 2610:d0:ffff:192::1/128
+#         iid        	= 223
+         interface  	= eth0
+         priority_v4	= 1
+         weight_v4     	= 100
+         priority_v6	= 1
+         weight_v6     	= 100
 }
 
 # Static cache entries

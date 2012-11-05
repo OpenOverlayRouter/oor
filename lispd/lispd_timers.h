@@ -8,12 +8,15 @@
  * Author: Chris White
  * Copyright 2010 Cisco Systems, Inc.
  */
-#pragma once
+#ifndef LISPD_TIMERS_H_
+#define LISPD_TIMERS_H_
 
 #include <signal.h>
 #include <time.h>
 
 #define RLOC_PROBE_CHECK_INTERVAL 1 // 1 second
+
+#define EXPIRE_MAP_CACHE "Expire map cache"
 
 typedef struct _timer_links {
     struct _timer_links *prev;
@@ -38,3 +41,5 @@ void     start_timer(timer *, int, timer_callback,
                    void *);
 void     stop_timer(timer *);
 void     handle_timers(void);
+
+#endif /*LISPD_TIMERS_H_*/

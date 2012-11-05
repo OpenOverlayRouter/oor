@@ -1,10 +1,8 @@
 /*
- * lispd_config.h
+ * lispd_smr.h
  *
  * This file is part of LISP Mobile Node Implementation.
- * Handle lispd command line and config file
- * Parse command line args using gengetopt.
- * Handle config file with libconfuse.
+ * Write a message to /var/log/syslog
  *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
@@ -26,22 +24,23 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Albert López       <alopez@ac.upc.edu>
  *
  */
+#ifndef LISPD_SMR_H_
+#define LISPD_SMR_H_
 
-#ifndef LISPD_CONFIG_H_
-#define LISPD_CONFIG_H_
-/*
- *  Get command line args and set up whatever is needed
- */
-void handle_lispd_command_line(int argc, char **argv);
+#include "lispd_timers.h"
 
 /*
- *  Parse config file and set up whatever is needed
+ * Send a solicit map request for each proxy itr and rlocs of all eids of the map cahce
  */
-int handle_lispd_config_file();
+void init_smr();
 
-#endif /*LISPD_CONFIG_H_*/
+/*
+ * Send a map request smr invoked and reprogram the timer to retransmit in case
+ * no receive answer.
+ */
+void solicit_map_request_reply(timer *t, void *arg);
+
+#endif /*LISPD_SMR_H_*/

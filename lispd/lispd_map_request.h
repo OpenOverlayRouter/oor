@@ -86,8 +86,13 @@
  *      EID
  *
  */
-#pragma once
+#ifndef LISPD_MAP_REQUEST_H_
+#define LISPD_MAP_REQUEST_H_
+
+
 #include "lispd.h"
+#include "lispd_map_cache_db.h"
+
 
 int send_map_request(uint8_t *packet, int packet_len, lisp_addr_t *resolver);
 
@@ -95,21 +100,20 @@ int send_map_request(uint8_t *packet, int packet_len, lisp_addr_t *resolver);
  *  Put a wrapper around build_map_request_pkt and send_map_request
  */
 int build_and_send_map_request_msg(
-    lisp_addr_t *dest,
-    lisp_addr_t *eid_prefix,
-    uint8_t eid_prefix_length,
-    char *eid_name,
-    uint8_t encap,                  /* "boolean" */
-    uint8_t probe,                  /* "boolean" */
-    uint8_t solicit_map_request,    /* "boolean" */
-    uint8_t smr_invoked,            /* "boolean" */
-    uint8_t islocal,                /* "boolean" */
-    uint8_t retries,
-    uint16_t timeout,
-    uint8_t search);
+        lispd_map_cache_entry *map_cache_entry,
+        lisp_addr_t *dest,
+        uint8_t encap,                  /* "boolean" */
+        uint8_t probe,                  /* "boolean" */
+        uint8_t solicit_map_request,    /* "boolean" */
+        uint8_t smr_invoked,            /* "boolean" */
+        uint64_t *nonce
+);
+
 
 /*
  *  Receive a Map_request message and process based on control bits
  *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
  */
 int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int afi);
+
+#endif /*LISPD_MAP_REQUEST_H_*/

@@ -78,8 +78,8 @@ int map_register(timer *t, void *arg)
 
 
     if (!map_servers) {
-        syslog(LOG_DAEMON, "No Map Servers conifgured!");
-        return(0);
+        syslog(LOG_CRIT, "No Map Servers conifgured!");
+        return(BAD);
     }
 
     while (afi_count < 2) {
@@ -110,13 +110,13 @@ int map_register(timer *t, void *arg)
                                 "Couldn't send map-register for %s",
                                 locator_chain->eid_name);
                     } else if (ms->verify) {
-                        if (!build_and_send_map_request_msg(ms->address,
+                       /* if (!build_and_send_map_request_msg(ms->address,
                                 &(locator_chain->eid_prefix),
                                 locator_chain->eid_prefix_length,
                                 1,1,0,0,0,0,0,LISPD_INITIAL_MRQ_TIMEOUT,1))
 
 
-                            syslog(LOG_DAEMON,"map_register:couldn't build/send map_request");
+                            syslog(LOG_DAEMON,"map_register:couldn't build/send map_request");*/
                     }
                     ms = ms->next;
                 }
@@ -341,8 +341,7 @@ inline void smr_on_timeout(void)
     /*
      * Trigger SMR to PITRs and the MN's peers
      */
-    smr_pitrs();
-    get_map_cache_list();
+    init_smr();
 }
 #endif
 

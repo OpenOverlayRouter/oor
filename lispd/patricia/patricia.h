@@ -87,6 +87,7 @@ void Clear_Patricia (patricia_tree_t *patricia, void_fn_t func);
 void Destroy_Patricia (patricia_tree_t *patricia, void_fn_t func);
 void patricia_process (patricia_tree_t *patricia, void_fn_t func);
 prefix_t *New_Prefix(int family, void *dest, int bitlen);
+void Deref_Prefix (prefix_t * prefix);
 /* { from demo.c */
 
 prefix_t *

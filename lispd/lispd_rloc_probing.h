@@ -1,5 +1,5 @@
 /*
- * lispd_config.h
+ * lispd_rloc_probing.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Handle lispd command line and config file
@@ -26,22 +26,11 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Albert López      <alopez@ac.upc.edu>
  *
  */
 
-#ifndef LISPD_CONFIG_H_
-#define LISPD_CONFIG_H_
-/*
- *  Get command line args and set up whatever is needed
- */
-void handle_lispd_command_line(int argc, char **argv);
+#ifndef LISPD_RLOC_PROBING_H_
+#define LISPD_RLOC_PROBING_H_
 
-/*
- *  Parse config file and set up whatever is needed
- */
-int handle_lispd_config_file();
-
-#endif /*LISPD_CONFIG_H_*/
+#endif /*LISPD_RLOC_PROBING_H_*/

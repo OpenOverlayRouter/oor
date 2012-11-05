@@ -1,10 +1,9 @@
 /*
- * lispd_config.h
+ * lispd_nonce.h
  *
  * This file is part of LISP Mobile Node Implementation.
- * Handle lispd command line and config file
- * Parse command line args using gengetopt.
- * Handle config file with libconfuse.
+ * Send registration messages for each database mapping to
+ * configured map-servers.
  *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
@@ -26,22 +25,44 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
- *
+ *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#ifndef LISPD_CONFIG_H_
-#define LISPD_CONFIG_H_
+#ifndef LISPD_NONCE_H_
+#define LISPD_NONCE_H_
+
+#include "lispd.h"
+
+typedef struct{
+    uint8_t     retransmits;
+    uint64_t    nonce[LISPD_MAX_NONCES_LIST];
+}nonces_list;
+
+
+
 /*
- *  Get command line args and set up whatever is needed
+ *      Generates a nonce random number
+ *      requires librt
  */
-void handle_lispd_command_line(int argc, char **argv);
+
+uint64_t build_nonce(int seed);
+
 
 /*
- *  Parse config file and set up whatever is needed
+ * Create and reserve space for a nonces_lits structure
  */
-int handle_lispd_config_file();
+nonces_list *new_nonces_list();
 
-#endif /*LISPD_CONFIG_H_*/
+/*
+ * Return true if nonce is found in the nonces list
+ */
+
+int check_nonce(nonces_list   *nonces, uint64_t nonce);
+
+
+/*
+ * Print 64-bit nonce in 0x%08x-0x%08x format.
+ */
+void lispd_print_nonce (uint64_t nonce);
+
+#endif /* LISPD_NONCE_H_ */
