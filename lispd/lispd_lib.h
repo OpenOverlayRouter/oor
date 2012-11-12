@@ -267,7 +267,5 @@ int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t por
 int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst);
 
 
-lisp_addr_t get_main_eid(patricia_tree_t *database);
-
 #endif /*LISPD_LIB_H_*/
 

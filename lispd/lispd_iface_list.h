@@ -46,6 +46,8 @@ typedef struct lispd_iface_elt_ {
     lisp_addr_t                 *ipv6_address;
     lispd_identifiers_list      *head_v4_identifiers_list;
     lispd_identifiers_list      *head_v6_identifiers_list;
+    int                         out_socket_v4;
+    int                         out_socket_v6;
 }lispd_iface_elt;
 
 /*
@@ -125,5 +127,10 @@ iface_list_elt *find_active_ctrl_iface();
  */
 
 void dump_iface_list();
+
+
+void open_iface_binded_sockets();
+
+lispd_iface_elt *get_output_iface();
 
 #endif /*LISPD_IFACE_LIST_H_*/

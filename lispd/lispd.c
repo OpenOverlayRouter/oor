@@ -57,11 +57,14 @@
 #include "lispd_map_request.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
+#include "lispd_input.h"
+#include "lispd_output.h"
+#include "lispd_iface_list.h"
 
 #include "lispd_map_cache_db.h"
 
 
-void event_loop(void);
+void event_loop();
 void signal_handler(int);
 int build_timers_event_socket();
 int process_timer_signal();
@@ -126,6 +129,7 @@ fd_set  readfds;
 struct  sockaddr_nl dst_addr;
 struct  sockaddr_nl src_addr;
 nlsock_handle nlh;
+
 /*
  *      timers (fds)
  */
@@ -246,7 +250,7 @@ int main(int argc, char **argv)
     dump_local_eids();
 
     dump_iface_list();
-    exit(1);
+    //exit(1);
 
 
 
@@ -257,87 +261,98 @@ int main(int argc, char **argv)
     if (build_receive_sockets() == 0) 
         exit(EXIT_FAILURE);
 
-    /*
-     *  create timers
-     */
-
-    if (build_timers_event_socket() == 0)
-    {
-        syslog(LOG_ERR, " Error programing the timer signal. Exiting...");
-        exit(EXIT_FAILURE);
-    }
-    init_timers();
-
-#ifdef LISPMOBMH
-    if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
-        syslog(LOG_INFO, "Could not create the SMR timer controller");
-    /*Make sure the timer starts with coherent values*/
-    stop_smr_timeout();
-#endif
-
-
-    /*
-     *  see if we need to daemonize, and if so, do it
-     */
-
-    if (daemonize) {
-        syslog(LOG_INFO, "Starting the daemonizing process");
-        if ((pid = fork()) < 0) {
-            exit(EXIT_FAILURE);
-        } 
-        umask(0);
-        if (pid > 0)
-            exit(EXIT_SUCCESS);
-        if ((sid = setsid()) < 0)
-            exit(EXIT_FAILURE);
-        if ((chdir("/")) < 0)
-            exit(EXIT_FAILURE);
-        close(STDIN_FILENO);
-        close(STDOUT_FILENO);
-        close(STDERR_FILENO);
-    }
-
-    /*
-     *  Dump routing table so we can get the gateway address for source routing
-     */
-
-    if (!dump_routing_table(AF_INET, RT_TABLE_MAIN))
-        syslog(LOG_INFO, "Dumping main routing table failed");
+//     /*
+//      *  create timers
+//      */
+// 
+//     if (build_timers_event_socket() == 0)
+//     {
+//         syslog(LOG_ERR, " Error programing the timer signal. Exiting...");
+//         exit(EXIT_FAILURE);
+//     }
+//     init_timers();
+// 
+// #ifdef LISPMOBMH
+//     if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
+//         syslog(LOG_INFO, "Could not create the SMR timer controller");
+//     /*Make sure the timer starts with coherent values*/
+//     stop_smr_timeout();
+// #endif
+// 
+// 
+//     /*
+//      *  see if we need to daemonize, and if so, do it
+//      */
+// 
+//     if (daemonize) {
+//         syslog(LOG_INFO, "Starting the daemonizing process");
+//         if ((pid = fork()) < 0) {
+//             exit(EXIT_FAILURE);
+//         } 
+//         umask(0);
+//         if (pid > 0)
+//             exit(EXIT_SUCCESS);
+//         if ((sid = setsid()) < 0)
+//             exit(EXIT_FAILURE);
+//         if ((chdir("/")) < 0)
+//             exit(EXIT_FAILURE);
+//         close(STDIN_FILENO);
+//         close(STDOUT_FILENO);
+//         close(STDERR_FILENO);
+//     }
+// 
+//     /*
+//      *  Dump routing table so we can get the gateway address for source routing
+//      */
+// 
+//     if (!dump_routing_table(AF_INET, RT_TABLE_MAIN))
+//         syslog(LOG_INFO, "Dumping main routing table failed");
 
     
     
     syslog(LOG_INFO, "*************** Creating tun interface... ***************");
-    
-    const char *tun_dev_name = "lisp_tun";
-    const unsigned int tun_receive_size = 2048; // Should probably tune to match largest MTU
-    int tun_mtu = 1500; // XXX: 1500 ok for ethernet interfaces. Check MTU for others
 
-    int tun_receive_fd;
-    int tun_ifindex;
-    char *tun_receive_buf;
+    //char *device = "eth0";
+    char *tun_dev_name = TUN_IFACE_NAME;
+ 
     
     
     create_tun(tun_dev_name,
-		      tun_receive_size,
-		      tun_mtu,
-		      &tun_receive_fd,
-		      &tun_ifindex,
-		      &tun_receive_buf);
+                TUN_RECEIVE_SIZE,
+                TUN_MTU,
+                &tun_receive_fd,
+                &tun_ifindex,
+                &tun_receive_buf);
     
     
+    tun_bring_up_iface_v4_eid(get_main_eid(AF_INET),tun_dev_name);
+
+    tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
+
+    install_default_route(tun_ifindex,AF_INET);
+    install_default_route(tun_ifindex,AF_INET6);
+
+    open_iface_binded_sockets();
+
+
     
-    tun_set_v4_eid(get_main_eid(AF4_database),tun_dev_name);
     
+    //data_out_socket = open_device_binded_raw_socket(device,AF_INET);
+    //open_device_binded_raw_socket(device,AF_INET6);
+
     
     syslog(LOG_INFO, "*************** Created tun interface *****************");
+
+    
     /*
      *  Register to the Map-Server(s)
      */
 
-   /* map_register (NULL,NULL);
+    //map_register (NULL,NULL);
 
 
-    event_loop();*/
+    event_loop();
+
 
     syslog(LOG_INFO, "Exiting...");         /* event_loop returned bad */
     closelog();
@@ -350,62 +365,132 @@ int main(int argc, char **argv)
  *      should never return (in theory)
  */
 
-void event_loop(void)
+void event_loop()
 {
     int    max_fd;
     fd_set readfds;
-    time_t curr,prev; //Modified by acabello
-
+    int    retval;
+    
     /*
-     *  calculate the max_fd for select. Is there a better way
-     *  to do this?
+     *  calculate the max_fd for select.
      */
-
-    max_fd = (v4_receive_fd > v6_receive_fd) ? v4_receive_fd : v6_receive_fd;
-    max_fd = (max_fd > netlink_fd)           ? max_fd : netlink_fd;
-    max_fd = (max_fd > nlh.fd)               ? max_fd : nlh.fd;
-    max_fd = (max_fd > timers_fd)            ? max_fd : timers_fd;
-#ifdef LISPMOBMH
-    max_fd = (max_fd > smr_timer_fd)		 ? max_fd : smr_timer_fd;
-#endif
-    // Modified by acabello
-    prev=time(NULL);
-
-    for (EVER) {
+    
+    max_fd = v4_receive_fd;
+    max_fd = (max_fd > tun_receive_fd)       ? max_fd : tun_receive_fd;
+    for (;;) {
+        
         FD_ZERO(&readfds);
-        FD_SET(v4_receive_fd,&readfds);
-        FD_SET(v6_receive_fd,&readfds);
-        FD_SET(netlink_fd,&readfds);
-        FD_SET(nlh.fd, &readfds);
-        FD_SET(timers_fd, &readfds);
-#ifdef LISPMOBMH
-        FD_SET(smr_timer_fd,&readfds);
-#endif
-        if (have_input(max_fd,&readfds) == -1)
-            break;                              /* news is bad */
-        if (FD_ISSET(v4_receive_fd,&readfds))
-            process_lisp_msg(v4_receive_fd, AF_INET);
-        if (FD_ISSET(v6_receive_fd,&readfds))
-            process_lisp_msg(v6_receive_fd, AF_INET6);
-        if (FD_ISSET(netlink_fd,&readfds))
-            process_netlink_msg();
-        if (FD_ISSET(nlh.fd,&readfds)) 
-            process_netlink_iface();
-        if (FD_ISSET(timers_fd,&readfds))
-            process_timer_signal();
-#ifdef LISPMOBMH
-        if (FD_ISSET(smr_timer_fd,&readfds))
-                smr_on_timeout();
-#endif
-        // Modified by acabello
-        // Each second expire_datacache
-        // This can be improved by using threading and timer_create()
-        curr=time(NULL);
-        if ((curr-prev)>LISPD_EXPIRE_TIMEOUT) {
-                expire_datacache();
-                prev=time(NULL);
-            }
+        FD_SET(tun_receive_fd, &readfds);
+        FD_SET(v4_receive_fd, &readfds);
+        
+        retval = have_input(max_fd, &readfds);
+        if (retval == -1) {
+            break;           /* doom */
+        }
+        if (retval == 0) {
+            continue;        /* interrupted */
+        }
+        
+        if (FD_ISSET(v4_receive_fd, &readfds)) {
+            //process_input_packet(v4_receive_fd, tun_receive_fd);
+        }
+        if (FD_ISSET(tun_receive_fd, &readfds)) {
+            printf("Recieved something in the tun buffer\n");
+            process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
+        }
     }
+/*
+    max_fd = v4_receive_fd;
+    max_fd = (max_fd > signal_fd)            ? max_fd : signal_fd;
+    max_fd = (max_fd > rtnetlink_fd)         ? max_fd : rtnetlink_fd;
+    max_fd = (max_fd > tun_receive_fd)       ? max_fd : tun_receive_fd;
+    for (EVER) {
+        
+        FD_ZERO(&readfds);
+        FD_SET(v4_receive_fd, &readfds);
+        FD_SET(signal_fd, &readfds);
+        FD_SET(rtnetlink_fd, &readfds);
+        FD_SET(tun_receive_fd, &readfds);
+        
+        retval = have_input(max_fd, &readfds);
+        if (retval == -1) {
+            break;           // doom 
+        }
+        if (retval == 0) {
+            continue;        // interrupted 
+        }
+        
+        if (FD_ISSET(v4_receive_fd, &readfds)) {
+            process_lisp_msg(v4_receive_fd, AF_INET);
+        }
+        if (FD_ISSET(signal_fd, &readfds)) {
+            process_event_signal();
+        }
+        if (FD_ISSET(rtnetlink_fd, &readfds)) {
+            process_interface_notification();
+        }
+        if (FD_ISSET(tun_receive_fd, &readfds)) {
+            tuntap_process_output_packet();
+        }
+    }
+*/
+    
+    
+//     int    max_fd;
+//     fd_set readfds;
+//     time_t curr,prev; //Modified by acabello
+// 
+//     
+//     /*
+//      *  calculate the max_fd for select. Is there a better way
+//      *  to do this?
+//      */
+//     max_fd = (v4_receive_fd > v6_receive_fd) ? v4_receive_fd : v6_receive_fd;
+//     max_fd = (max_fd > netlink_fd)           ? max_fd : netlink_fd;
+//     max_fd = (max_fd > nlh.fd)               ? max_fd : nlh.fd;
+//     max_fd = (max_fd > timers_fd)            ? max_fd : timers_fd;
+// #ifdef LISPMOBMH
+//     max_fd = (max_fd > smr_timer_fd)		 ? max_fd : smr_timer_fd;
+// #endif
+//     // Modified by acabello
+//     prev=time(NULL);
+// 
+//     for (EVER) {
+//         FD_ZERO(&readfds);
+//         FD_SET(v4_receive_fd,&readfds);
+//         FD_SET(v6_receive_fd,&readfds);
+//         FD_SET(netlink_fd,&readfds);
+//         FD_SET(nlh.fd, &readfds);
+//         FD_SET(timers_fd, &readfds);
+// #ifdef LISPMOBMH
+//         FD_SET(smr_timer_fd,&readfds);
+// #endif
+//         if (have_input(max_fd,&readfds) == -1)
+//             break;                              /* news is bad */
+//         if (FD_ISSET(v4_receive_fd,&readfds))
+//             process_lisp_msg(v4_receive_fd, AF_INET);
+//         if (FD_ISSET(v6_receive_fd,&readfds))
+//             process_lisp_msg(v6_receive_fd, AF_INET6);
+//         if (FD_ISSET(netlink_fd,&readfds))
+//             process_netlink_msg();
+//         if (FD_ISSET(nlh.fd,&readfds)) 
+//             process_netlink_iface();
+//         if (FD_ISSET(timers_fd,&readfds))
+//             process_timer_signal();
+// #ifdef LISPMOBMH
+//         if (FD_ISSET(smr_timer_fd,&readfds))
+//                 smr_on_timeout();
+// #endif
+//         // Modified by acabello
+//         // Each second expire_datacache
+//         // This can be improved by using threading and timer_create()
+//         curr=time(NULL);
+//         if ((curr-prev)>LISPD_EXPIRE_TIMEOUT) {
+//                 expire_datacache();
+//                 prev=time(NULL);
+//             }
+//     }
+
 }
 
 /*

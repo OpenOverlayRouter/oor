@@ -150,63 +150,6 @@ lispd_iface_elt *get_interface(char *iface_name)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /*
  * Add a new iface_list_elt to the 
  * tail of an iface_list
@@ -410,13 +353,82 @@ void dump_iface_list()
 }
 
 
+int open_device_binded_raw_socket(char *device, int afi){
+    
+    //char *device = OUTPUT_IFACE;
+    
+    int device_len;
+    
+    int s;
+    int tr = 1;
+    
+    
+    
+    printf("Init...\n");
+    
+    
+    printf("Creating socket...\n");
+    
+    if ((s = socket(afi, SOCK_RAW, IPPROTO_RAW)) < 0) {
+        syslog(LOG_DAEMON, "open_raw_socket: socket creation failed %s", strerror(errno));
+        return (BAD);
+    }
+    
+    printf("Set reuse addr sckt opt...\n");
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
+        syslog(LOG_DAEMON, "open_raw_socket: socket option reuse %s", strerror(errno));
+        close(s);
+        return (BAD);
+    }
+    
+    printf("Set bindtodevice option...\n");
+    // bind a socket to a device name (might not work on all systems):
+    device_len = strlen(device);
+    if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
+        syslog(LOG_DAEMON, "open_raw_socket: socket option device %s", strerror(errno));
+        close(s);
+        return (BAD);
+    }
+
+    printf("Socket out v4 created: %d\n",s);
+    
+    return s;
+    
+}
 
 
+void open_iface_binded_sockets(){
+
+    lispd_iface_elt *iface;
+    
+    lispd_iface_list_elt *iface_list_elt;
+
+    
+    iface_list_elt = head_interface_list;
+    
+    do {
+        
+        iface = iface_list_elt->iface;
+
+        iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+        iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        
+        iface_list_elt = iface_list_elt->next;
+        
+    }while (iface_list_elt != NULL);
+    
+}
 
 
+lispd_iface_elt *get_output_iface(){
+    lispd_iface_elt *iface;
 
+    do {
+        
+    }while(iface->ready);
 
-
+    return head_interface_list->iface;
+}
 
 /*
  * Editor modelines

@@ -202,6 +202,7 @@ int err;
 #define LISP_MAP_NOTIFY                 4
 #define LISP_ENCAP_CONTROL_TYPE         8
 #define LISP_CONTROL_PORT               4342
+#define LISP_DATA_PORT                  4341
 
 /*
  *  Map Reply action codes

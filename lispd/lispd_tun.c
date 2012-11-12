@@ -1,3 +1,34 @@
+/*
+ * lispd_tun.c
+ *
+ * This file is part of LISP Mobile Node Implementation.
+ *
+ * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Based on code from Chris White <chris@logicalelegance.com>
+ * 
+ * Written or modified by:
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ */
+
+
 #include "lispd_tun.h"
 
 
@@ -23,7 +54,7 @@ int create_tun(char *tun_dev_name,
     /* open the clone device */
     if( (*tun_receive_fd = open(clonedev, O_RDWR)) < 0 ) {
         syslog(LOG_DAEMON, "TUN/TAP: Failed to open clone device");
-        return(0);
+        return(BAD);
     }
 
     memset(&ifr, 0, sizeof(ifr));
@@ -35,7 +66,7 @@ int create_tun(char *tun_dev_name,
     if ((err = ioctl(*tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
         close(*tun_receive_fd);
         syslog(LOG_DAEMON, "TUN/TAP: Failed to create tunnel interface, errno: %d.", errno);
-        return(0);
+        return(BAD);
     }
 
     // get the ifindex for the tun/tap
@@ -44,7 +75,7 @@ int create_tun(char *tun_dev_name,
         close(*tun_receive_fd);
         close(tmpsocket);
         syslog(LOG_DAEMON, "TUN/TAP: unable to determine ifindex for tunnel interface, errno: %d.", errno);
-        return(0);
+        return(BAD);
     } else {
         syslog(LOG_DAEMON, "TUN/TAP ifindex is: %d", ifr.ifr_ifindex);
         *tun_ifindex = ifr.ifr_ifindex;
@@ -54,7 +85,7 @@ int create_tun(char *tun_dev_name,
         if ((err = ioctl(tmpsocket, SIOCSIFMTU, &ifr)) < 0) {
             close(tmpsocket);
             syslog(LOG_DAEMON, "TUN/TAP: unable to set interface MTU to %d, errno: %d.", tun_mtu, errno);
-            return(0);
+            return(BAD);
         } else {
             syslog(LOG_DAEMON, "TUN/TAP mtu set to %d", tun_mtu);
         }
@@ -68,36 +99,34 @@ int create_tun(char *tun_dev_name,
     syslog(LOG_DAEMON, "tunnel fd at creation is %d", *tun_receive_fd);
 
     /*
-    
-    if (!tuntap_set_eids()) {
-        return(FALSE);
-    }
-
     if (!tuntap_install_default_routes()) {
         return(FALSE);
     }*/
     
-    return(1);
+    return(GOOD);
 }
 
 
 
 /*
- * tuntap_set_v4_eid
+ * tun_bring_up_iface_v4_eid
  *
- * Assign an ipv4 EID to the TUN/TAP interface
+ * Bring up and assign an ipv4 EID to the TUN/TAP interface
  */
-int tun_set_v4_eid(lisp_addr_t eid_address_v4,
-		      char *tun_dev_name)
+int tun_bring_up_iface_v4_eid(lisp_addr_t eid_address_v4,
+                              char *tun_dev_name)
 {
     struct ifreq ifr;
     struct sockaddr_in *sp;
     int    netsock, err;
 
+
+    //printf("LISP address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
+    
     netsock = socket(eid_address_v4.afi, SOCK_DGRAM, 0);
     if (netsock < 0) {
         syslog(LOG_DAEMON, "assign: socket() %s", strerror(errno));
-        return(0);
+        return(BAD);
     }
 
     /*
@@ -114,33 +143,33 @@ int tun_set_v4_eid(lisp_addr_t eid_address_v4,
     if ((err = ioctl(netsock, SIOCSIFADDR, &ifr)) < 0) {
         syslog(LOG_DAEMON, "TUN/TAP could not set EID on tun device, errno %d.",
                 errno);
-        return(0);
+        return(BAD);
     }
     sp->sin_addr.s_addr = 0xFFFFFFFF;
     if ((err = ioctl(netsock, SIOCSIFNETMASK, &ifr)) < 0) {
         syslog(LOG_DAEMON, "TUN/TAP could not set netmask on tun device, errno %d",
                 errno);
-        return(0);
+        return(BAD);
     }
     ifr.ifr_flags |= IFF_UP | IFF_RUNNING; // Bring it up
 
     if ((err = ioctl(netsock, SIOCSIFFLAGS, &ifr)) < 0) {
         syslog(LOG_DAEMON, "TUN/TAP could not bring up tun device, errno %d.",
                 errno);
-        return(0);
+        return(BAD);
     }
     close(netsock);
-    return(1);
+    return(GOOD);
 }
 
 /*
- * tuntap_set_v6_eid()
+ * tun_add_v6_eid_to_iface()
  *
- * Assign an ipv6 EID to the TUN/TAP interface
+ * Add an ipv6 EID to the TUN/TAP interface
  */
-int tun_set_v6_eid(lisp_addr_t eid_address_v6,
-		      char *tun_dev_name,
-		      int tun_ifindex)
+int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
+                            char *tun_dev_name,
+                            int tun_ifindex)
 {
     struct rtattr       *rta;
     struct ifaddrmsg    *ifa;
@@ -152,8 +181,8 @@ int tun_set_v6_eid(lisp_addr_t eid_address_v6,
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
     if (sockfd < 0) {
-        syslog(LOG_DAEMON, "Failed to connect to netlink socket for install_host_route()");
-        return(0);
+        syslog(LOG_DAEMON, "Failed to connect to netlink socket for tun_add_v6_eid_to_iface()");
+        return(BAD);
     }
 
     /*
@@ -181,15 +210,101 @@ int tun_set_v6_eid(lisp_addr_t eid_address_v6,
     retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
 
     if (retval < 0) {
-        syslog(LOG_DAEMON, "tuntap_set_v6_eid: send() failed %s", strerror(errno));
+        syslog(LOG_DAEMON, "tun_add_v6_eid_to_iface: send() failed %s", strerror(errno));
         close(sockfd);
-        return(0);
+        return(BAD);
     }
 
     syslog(LOG_DAEMON, "added ipv6 EID to TUN interface.");
     close(sockfd);
-    return(1);
+    return(GOOD);
 }
+
+
+
+
+int install_default_route(int tun_ifindex, int afi)
+{
+    struct nlmsghdr *nlh;
+    struct rtmsg    *rtm;
+    struct rtattr  *rta;
+    int             rta_len = 0;
+    char   sndbuf[4096];
+    //char   addr_buf[128];
+    //char   addr_buf2[128];
+    int    retval;
+    int    sockfd;
+    int    oif_index;
+    
+    sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    
+    if (sockfd < 0) {
+        syslog(LOG_DAEMON, "Failed to connect to netlink socket for install_default_route()");
+        return(FALSE);
+    }
+    
+    /*
+     * Build the command
+     */
+    memset(sndbuf, 0, 4096);
+    
+    nlh = (struct nlmsghdr *)sndbuf;
+    rtm = (struct rtmsg *)(sndbuf + sizeof(struct nlmsghdr));
+    
+    rta_len = sizeof(struct rtmsg);
+    
+    /*
+     * Add the destination
+     */
+    rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
+    rta->rta_type = RTA_DST;
+    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
+    
+    // Address is already zeroed
+    rta_len += rta->rta_len;
+    
+    /*
+     * Add the outgoing interface
+     */
+    rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
+    rta->rta_type = RTA_OIF;
+    rta->rta_len = sizeof(struct rtattr) + sizeof(int); // if_index
+    
+   
+    oif_index = tun_ifindex;
+    
+    memcpy(((char *)rta) + sizeof(struct rtattr), &oif_index,
+           sizeof(int));
+    rta_len += rta->rta_len;
+    
+    nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
+    nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
+    nlh->nlmsg_type =  RTM_NEWROUTE;
+    
+    rtm->rtm_family    = afi;
+    rtm->rtm_table     = RT_TABLE_MAIN;
+    
+    rtm->rtm_protocol  = RTPROT_BOOT;
+    rtm->rtm_scope     = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type      = RTN_UNICAST;
+    
+    rtm->rtm_dst_len   = 0;
+    
+    retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
+    
+    if (retval < 0) {
+        syslog(LOG_DAEMON, "install_default_route: send() failed %s", strerror(errno));
+        close(sockfd);
+        return(FALSE);
+    }
+    syslog(LOG_DAEMON, "Installed default route via TUN device");
+    close(sockfd);
+    return(TRUE);
+}
+
+
+
+
 
 /*
  * Editor modelines

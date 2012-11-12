@@ -160,4 +160,7 @@ int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_
  */
 void dump_local_eids();
 
+
+lisp_addr_t get_main_eid(int afi);
+
 #endif /*LISPD_LOCAL_DB_H_*/
