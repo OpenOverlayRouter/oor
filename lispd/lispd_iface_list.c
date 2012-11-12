@@ -276,35 +276,27 @@ iface_list_elt *get_first_iface_elt(){
  * Function returns an active (up and running) physical interface
  * with a v4 or v6 locator
  */
-iface_list_elt *find_active_ctrl_iface()
+lispd_iface_elt *find_active_ctrl_iface()
 {
-    iface_list_elt  *temp = avail_phy_ifaces->head;
-    char x[128];
+    lispd_iface_list_elt    *iface_list = head_interface_list;
+    lispd_iface_elt         *iface;
 
-    while (temp) {
-        if (temp->ready) {
-            if (temp->AF4_locators->head) {
-                if (temp->AF4_locators->head->db_entry) {
-                    syslog(LOG_DAEMON, "Interface for ctrl msgs: %s, v4 rloc: %s\n", 
-                        temp->iface_name,
-                        inet_ntop(AF_INET, 
-                            &(temp->AF4_locators->head->db_entry->locator), 
-                            x, 128));
-                    return temp;
-                }
+    while (iface_list) {
+        iface = iface_list->iface;
+        if (iface->status) {
+            if (iface->ipv4_address){
+                syslog(LOG_INFO, "Interface for ctrl msgs: %s, v4 rloc: %s\n",
+                        iface->iface_name,
+                        get_char_from_lisp_addr_t(*(iface->ipv4_address)));
             }
-            if (temp->AF6_locators->head) {
-                if (temp->AF6_locators->head->db_entry) {
-                    syslog(LOG_DAEMON, "Interface for ctrl msgs: %s, v6 rloc: %s\n", 
-                        temp->iface_name,
-                        inet_ntop(AF_INET6, 
-                            &(temp->AF6_locators->head->db_entry->locator), 
-                            x, 128));
-                    return temp;
-                }
+            if (iface->ipv6_address){
+                syslog(LOG_INFO, "Interface for ctrl msgs: %s, v6 rloc: %s\n",
+                        iface->iface_name,
+                        get_char_from_lisp_addr_t(*(iface->ipv6_address)));
             }
+            return iface;
         }
-        temp = temp->next;
+        iface_list = iface_list->next;
 
     }
     syslog(LOG_DAEMON, "Cannot find interface for control messages\n");
@@ -425,7 +417,7 @@ lispd_iface_elt *get_output_iface(){
 
     do {
         
-    }while(iface->ready);
+    }while(iface->status);
 
     return head_interface_list->iface;
 }

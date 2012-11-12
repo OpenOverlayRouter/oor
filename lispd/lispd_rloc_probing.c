@@ -41,7 +41,7 @@
 void rloc_probing(timer *t, void *arg)
 {
     lispd_map_cache_entry   *map_cache_entry = (lispd_map_cache_entry *)arg;
-    lispd_identifier_elt    *identifier = &(map_cache_entry->identifier);
+    lispd_identifier_elt    *identifier = map_cache_entry->identifier;
     lispd_locators_list 	*locators_lists[2];
     lispd_locators_list     *locators;
     lispd_locator_elt       *locator;
@@ -69,8 +69,9 @@ void rloc_probing(timer *t, void *arg)
     			if (!locator->rloc_probing_nonces){
     				// XXX alopez: REPROGRAMAR
     			}
-    			if ((err=build_and_send_map_request_msg(map_cache_entry,
-    					&(locator->locator_addr), 0, 1, 0, 0,
+    			if ((err=build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+    			        map_cache_entry->identifier->eid_prefix_length,
+    					locator->locator_addr, 0, 1, 0, 0,
     					&(locator->rloc_probing_nonces->nonce[0])))!= GOOD){
     				// TODO Actions according to the error
     			}
@@ -102,8 +103,9 @@ void rloc_probing(timer *t, void *arg)
     			}
     			/* No Map Reply Probe received -> Retransmit Map Request Probe */
     			if (locator->rloc_probing_nonces->retransmits -1 < LISPD_MAX_PROBE_RETRANSMIT){
-    				if ((err=build_and_send_map_request_msg(map_cache_entry,
-    						&(locator->locator_addr), 0, 1, 0, 0,
+    				if ((err=build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+                            map_cache_entry->identifier->eid_prefix_length,
+    						locator->locator_addr, 0, 1, 0, 0,
     						&(locator->rloc_probing_nonces->nonce[0])))!= GOOD){
     					// TODO Actions according to the error
     				}

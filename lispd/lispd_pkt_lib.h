@@ -32,16 +32,16 @@
 #define LISPD_PKT_LIB_H_
 
 #include "lispd.h"
+#include "lispd_local_db.h"
 
-int pkt_get_mapping_record_length(lispd_locator_chain_t *locator_chain);
+int pkt_get_mapping_record_length(lispd_identifier_elt *identifier);
 
-void *pkt_fill_eid_from_locator_chain(void *offset, lispd_locator_chain_t *loc_chain);
 
-void *pkt_fill_eid(void *offset, lisp_addr_t *eid, lispd_iid_t iid);
+void *pkt_fill_eid(void *offset, lispd_identifier_elt *identifier);
 
 void *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
-    lispd_locator_chain_t                   *locator_chain,
+    lispd_identifier_elt                    *identifier,
     map_reply_opts                          *opts);
 
 void *pkt_read_eid(
@@ -49,5 +49,14 @@ void *pkt_read_eid(
     lisp_addr_t            **eid,
     int                     *eid_afi,
     lispd_iid_t             *iid);
+/*
+ * Send a ipv4 control packet to the destination address
+ */
+int send_ctrl_ipv4_packet(lisp_addr_t *destination, void *packet, int packet_len);
+
+/*
+ * Send a ipv6 control packet to the destination address
+ */
+int send_ctrl_ipv6_packet(lisp_addr_t *destination, void *packet, int packet_len);
 
 #endif /*LISPD_PKT_LIB_H_*/

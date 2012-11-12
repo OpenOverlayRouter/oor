@@ -38,6 +38,8 @@
 
 /*
  * Interface structure
+ * locator address (rloc) is linked to the interface address. If changes the address of the interface
+ * , the locator address change automatically
  */
 typedef struct lispd_iface_elt_ {
     char                        *iface_name;
@@ -119,7 +121,7 @@ iface_list_elt *get_first_iface_elt();
  * Function returns an active (up and running) physical interface
  * with a v4 or v6 locator
  */
-iface_list_elt *find_active_ctrl_iface();
+lispd_iface_elt *find_active_ctrl_iface();
 
 
 /*

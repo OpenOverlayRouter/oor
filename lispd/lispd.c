@@ -49,6 +49,7 @@
 #include "lispd.h"
 #include "lispd_config.h"
 #include "lispd_ipc.h"
+#include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
@@ -146,7 +147,7 @@ int 	smr_timer_fd					= 0;
  * Interface on which control messages
  * are sent
  */
-iface_list_elt *ctrl_iface              = NULL;
+lispd_iface_elt *ctrl_iface              = NULL;
 lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
@@ -245,6 +246,7 @@ int main(int argc, char **argv)
 
 
 
+
     dump_map_cache();
 
     dump_local_eids();
@@ -260,6 +262,7 @@ int main(int argc, char **argv)
 
     if (build_receive_sockets() == 0) 
         exit(EXIT_FAILURE);
+
 
 //     /*
 //      *  create timers
@@ -344,6 +347,7 @@ int main(int argc, char **argv)
     syslog(LOG_INFO, "*************** Created tun interface *****************");
 
     
+
     /*
      *  Register to the Map-Server(s)
      */

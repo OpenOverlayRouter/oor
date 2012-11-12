@@ -32,7 +32,6 @@
 
 #include <netinet/in.h>
 #include "lispd_lib.h"
-#include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
 #include "patricia/patricia.h"
 
@@ -69,11 +68,20 @@ int db_init(void) {
     return(GOOD);
 }
 
+patricia_tree_t* get_local_db(int afi)
+{
+    if (afi == AF_INET)
+        return EIDv4_database;
+    else
+        return EIDv6_database;
+}
+
+
 void init_identifier (lispd_identifier_elt *identifier)
 {
 	int i = 0;
 	identifier->eid_prefix.afi = -1;
-    identifier->iid = 0;
+    identifier->iid = -1;
     identifier->locator_count = 0;
     identifier->head_v4_locators_list = NULL;
     identifier->head_v6_locators_list = NULL;
@@ -444,7 +452,8 @@ void del_identifier_entry(lisp_addr_t eid,
  * Free memory of lispd_locator_list
  */
 
-void free_locator_list(lispd_locators_list *list){
+void free_locator_list(lispd_locators_list *list)
+{
     lispd_locators_list  * locator_list, *aux_locator_list;
     /*
      * Free the locators
@@ -463,6 +472,16 @@ void free_locator_list(lispd_locators_list *list){
     }
 }
 
+void free_lispd_identifier_elt(lispd_identifier_elt *identifier)
+{
+    /*
+     * Free the locators list
+     */
+    free_locator_list(identifier->head_v4_locators_list);
+    free_locator_list(identifier->head_v6_locators_list);
+    free(identifier);
+
+}
 
 /*
  * dump local identifier list
@@ -492,7 +511,6 @@ void dump_local_eids()
                 locator_iterator_array[1] = entry->head_v6_locators_list;
                 // Loop through the locators and print each
 
-                printf("------>>>----- %d\n",entry->locator_count);
                 for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){
                     locator_iterator = locator_iterator_array[ctr1];
                     while (locator_iterator != NULL) {

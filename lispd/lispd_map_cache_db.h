@@ -40,7 +40,7 @@
  * Map cache entry
  */
 typedef struct lispd_map_cache_entry_ {
-    lispd_identifier_elt        identifier;
+    lispd_identifier_elt        *identifier;
     uint8_t                     how_learned:2;
     uint8_t                     actions:2;
     uint8_t                     active:1;   /* TRUE if we have received a map reply for this entry */

@@ -59,6 +59,11 @@ int db_init(void);
 
 
 /*
+ * Returns the local data base according ton afi
+ */
+patricia_tree_t* get_local_db(int afi);
+
+/*
  * list of locators.
  */
 typedef struct lispd_locators_list_ {
@@ -73,7 +78,7 @@ typedef struct lispd_locators_list_ {
 typedef struct lispd_identifier_elt_ {
     lisp_addr_t                     eid_prefix;
     uint8_t                         eid_prefix_length;
-    uint32_t                        iid;
+    int                             iid;
     uint16_t                        locator_count;
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
@@ -138,6 +143,10 @@ void del_identifier_entry(lisp_addr_t eid,
  */
 void free_locator_list(lispd_locators_list *list);
 
+/*
+ * Free memory of lispd_identifier_elt
+ */
+void free_lispd_identifier_elt(lispd_identifier_elt *identifier);
 
 /*
  * lookup_eid_in_db
