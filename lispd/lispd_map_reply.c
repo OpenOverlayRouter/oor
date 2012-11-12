@@ -148,7 +148,7 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
 
 
     if (cache_entry){
-        if (cache_entry->identifier.iid != identifier.iid){
+        if (cache_entry->identifier->iid != identifier.iid){
             syslog(LOG_DEBUG,"  Instance ID of the map reply don't match");
             return (BAD);
         }
@@ -156,7 +156,7 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
          * If the eid prefix of the received map reply doesn't match the map cache entry to be activated,
          * we remove the entry from the database and store it again with the correct value.
          */
-        if (cache_entry->identifier.eid_prefix_length != identifier.eid_prefix_length){
+        if (cache_entry->identifier->eid_prefix_length != identifier.eid_prefix_length){
             if (change_eid_prefix_in_db(identifier.eid_prefix, identifier.eid_prefix_length, cache_entry) == BAD)
                 return (BAD);
         }
@@ -181,17 +181,17 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
         }
         cache_entry->nonces = NULL;
         /* Check instane id. If the entry doesn't use instane id, its value is 0 */
-        if (cache_entry->identifier.iid != identifier.iid){
+        if (cache_entry->identifier->iid != identifier.iid){
             syslog(LOG_DEBUG,"  Instance ID of the map reply don't match");
             return (BAD);
         }
         syslog(LOG_DEBUG,"  Existing map cache entry found, replacing locator list");
-        free_locator_list(cache_entry->identifier.head_v4_locators_list);
-        free_locator_list(cache_entry->identifier.head_v6_locators_list);
-        cache_entry->identifier.head_v4_locators_list = NULL;
-        cache_entry->identifier.head_v6_locators_list = NULL;
+        free_locator_list(cache_entry->identifier->head_v4_locators_list);
+        free_locator_list(cache_entry->identifier->head_v6_locators_list);
+        cache_entry->identifier->head_v4_locators_list = NULL;
+        cache_entry->identifier->head_v6_locators_list = NULL;
     }
-    cache_entry->identifier.locator_count = record->locator_count;
+    cache_entry->identifier->locator_count = record->locator_count;
     cache_entry->actions = record->action;
     cache_entry->ttl = record->ttl;
     cache_entry->active_witin_period = 1;
@@ -199,7 +199,7 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
 
     /* Generate the locators */
     for (ctr=0 ; ctr < identifier.locator_count ; ctr++){
-        if ((process_map_reply_locator (cur_ptr, &(cache_entry->identifier))) == BAD)
+        if ((process_map_reply_locator (cur_ptr, cache_entry->identifier)) == BAD)
             return(BAD);
     }
     /* Reprogramming timers */
@@ -251,7 +251,7 @@ int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
     	return (ERR_MALLOC);
     }
 
-    copy_lisp_addr_t(locator_addr, &(aux_locator.locator_addr), FALSE);
+    copy_lisp_addr_t(locator_addr, aux_locator.locator_addr, FALSE);
     *state = pkt_locator->reachable;
     new_locator (identifier, locator_addr, DYNAMIC_LOCATOR,
             pkt_locator->priority, pkt_locator->weight,

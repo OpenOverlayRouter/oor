@@ -120,7 +120,7 @@ int handle_lispd_config_file()
 
     static cfg_opt_t db_mapping_opts[] = {
         CFG_STR("eid-prefix",           0, CFGF_NONE),
-        CFG_INT("iid",                  0, CFGF_NONE),
+        CFG_INT("iid",                  -1, CFGF_NONE),
         CFG_STR("interface",            0, CFGF_NONE),
         CFG_INT("priority_v4",          0, CFGF_NONE),
         CFG_INT("weight_v4",            0, CFGF_NONE),
@@ -332,7 +332,7 @@ int add_database_mapping(dm)
 
     if (iid > MAX_IID || iid < 0) {
         syslog (LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
-        iid = 0;
+        iid = -1;
     }
 
     if (priority_v4 < MAX_PRIORITY || priority_v4 > UNUSED_RLOC_PRIORITY) {
@@ -421,8 +421,8 @@ int add_database_mapping(dm)
     /* 
      * PN: Find an active interface for lispd control messages
      */
-  /*  if (ctrl_iface == NULL)
-        ctrl_iface = find_active_ctrl_iface();*/
+    if (ctrl_iface == NULL)
+        ctrl_iface = find_active_ctrl_iface();
 #ifdef LISPMOBMH
     /* We need a default rloc (iface) to use. As of now 
      * we will use the same as the ctrl_iface */
@@ -516,9 +516,9 @@ int add_static_map_cache_entry(smc)
 
     *state = UP;
 
-    map_cache_entry->identifier.iid = iid;
+    map_cache_entry->identifier->iid = iid;
 
-    locator = new_locator(&(map_cache_entry->identifier),
+    locator = new_locator(map_cache_entry->identifier,
     		rloc_addr,
     		state,
     		STATIC_LOCATOR,

@@ -89,6 +89,7 @@
 #include "cksum.h"
 #include "lispd_afi.h"
 #include "lispd_external.h"
+#include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "lispd_map_reply.h"
 #include "lispd_map_request.h"
@@ -138,7 +139,7 @@ uint8_t smr_invoked;
     eid_afi = get_lisp_afi(eid_prefix->afi, &eid_len);
 
     /* my_addr must have same afi as requested EID */
-    if (!(ctrl_iface) || !(ctrl_iface->AF4_locators->head)) {
+    if (!(ctrl_iface)) {
         /* 
          * No physical interface available for control messages
          */
@@ -159,7 +160,7 @@ uint8_t smr_invoked;
         // For v6eid over v4 rloc , Inner header: v6 src eid , v6 dest eid
         // For v4eid over v6 rloc , Inner header: v4 src eid , v4 dest eid
         // For v6eid over v6 rloc , Inner header: v6 src rloc , v6 dest eid
-        if(ctrl_iface->AF4_locators->head)
+        if(ctrl_iface->ipv4_address && ctrl_iface->head_v4_identifiers_list)
         {
             switch(eid_prefix->afi) {
             case AF_INET:
@@ -185,7 +186,7 @@ uint8_t smr_invoked;
 
         }
 
-        else if(ctrl_iface->AF6_locators->head)
+        else if(ctrl_iface->ipv6_address && ctrl_iface->head_v6_identifiers_list)
         {
             switch(eid_prefix->afi) {
             case AF_INET:
@@ -218,7 +219,7 @@ uint8_t smr_invoked;
     }
 
     //Pranathi : since this is for obtaining itr rloc length , not eid
-    if(ctrl_iface->AF4_locators->head)
+    if(ctrl_iface->ipv4_address && ctrl_iface->head_v4_identifiers_list)
     {
         if ((my_itr_addr_len = get_addr_len(AF_INET)) < GOOD) {
             err = my_itr_addr_len;
@@ -226,7 +227,7 @@ uint8_t smr_invoked;
             return (err);
         }
     }
-    else if(ctrl_iface->AF6_locators->head)
+    else if(ctrl_iface->ipv6_address && ctrl_iface->head_v6_identifiers_list)
     {
         if ((my_itr_addr_len = get_addr_len(AF_INET6)) < GOOD) {
             err = my_itr_addr_len;
@@ -408,7 +409,8 @@ uint8_t smr_invoked;
      *  address goes
      */    
 
-    cur_ptr = pkt_fill_eid_from_locator_chain(&(mrp->source_eid_afi), locator_chain);
+    // XXX alopez
+    //cur_ptr = pkt_fill_eid_from_locator_chain(&(mrp->source_eid_afi), locator_chain);
     if (cur_ptr == NULL) {
         syslog(LOG_DAEMON, "build_map_request_pkt: could not add Source EID");
         return (0);
@@ -418,27 +420,24 @@ uint8_t smr_invoked;
      * now the ITR-RLOC (XXX: assumes only one)
      */
     //Pranathi
-    if(ctrl_iface->AF4_locators->head)  /* v4 RLOC*/
+    if(ctrl_iface->ipv4_address && ctrl_iface->head_v4_identifiers_list)  /* v4 RLOC*/
     {
         itr_rloc = (lispd_pkt_map_request_itr_rloc_t *) CO(cur_ptr, alen);
         itr_rloc->afi = htons(get_lisp_afi(AF_INET, NULL));
         cur_ptr = CO(itr_rloc, sizeof(lispd_pkt_map_request_itr_rloc_t));
-        if ((alen = copy_addr(cur_ptr, (lisp_addr_t *)
-                &((ctrl_iface->AF4_locators->head->db_entry->locator).address), 0)) == 0) {
-
+        if ((alen = copy_addr(cur_ptr, ctrl_iface->ipv4_address, 0)) == 0) {
             free(packet);
             return (0);
         }
 
     }
 
-    if(ctrl_iface->AF6_locators->head)  /*v6 RLOC*/
+    if(ctrl_iface->ipv6_address && ctrl_iface->head_v6_identifiers_list)  /*v6 RLOC*/
     {
         itr_rloc = (lispd_pkt_map_request_itr_rloc_t *) CO(cur_ptr, alen);
         itr_rloc->afi = htons(get_lisp_afi(AF_INET6, NULL));
         cur_ptr = CO(itr_rloc, sizeof(lispd_pkt_map_request_itr_rloc_t));
-        if ((alen = copy_addr(cur_ptr, (lisp_addr_t *)
-                &((ctrl_iface->AF6_locators->head->db_entry->locator).address), 0)) == 0) {
+        if ((alen = copy_addr(cur_ptr, ctrl_iface->ipv6_address, 0)) == 0) {
 
             free(packet);
             return (0);
@@ -452,7 +451,8 @@ uint8_t smr_invoked;
 
     eid = (lispd_pkt_map_request_eid_prefix_record_t *) CO(cur_ptr, alen);
     eid->eid_prefix_mask_length = eid_prefix_length;
-    cur_ptr = pkt_fill_eid(&(eid->eid_prefix_afi), eid_prefix, locator_chain->iid);
+    // XXX to be done
+    //cur_ptr = pkt_fill_eid(&(eid->eid_prefix_afi), eid_prefix, locator_chain->iid);
     if (cur_ptr == NULL) {
         free(packet);
         return (0);
@@ -499,7 +499,7 @@ lisp_addr_t *resolver;
      * PN: Bind the UDP socket to a valid rloc on the ctrl_iface
      * (assume v4 transport)
      */
-    if (!(ctrl_iface) || !(ctrl_iface->AF4_locators->head)) {
+    if (!(ctrl_iface)) {
         /* 
          * No physical interface available for control messages
          */
@@ -510,7 +510,7 @@ lisp_addr_t *resolver;
     memset((char *) &ctrl_saddr, 0, sizeof(struct sockaddr_in));
     ctrl_saddr.sin_family       = AF_INET;
     ctrl_saddr.sin_port         = htons(INADDR_ANY);
-    ctrl_saddr.sin_addr.s_addr  = (ctrl_iface->AF4_locators->head->db_entry->locator).address.ip.s_addr;
+    ctrl_saddr.sin_addr.s_addr  = ctrl_iface->ipv4_address->address.ip.s_addr;
 
     if (bind(s, (struct sockaddr *)&ctrl_saddr, sizeof(struct sockaddr_in)) < 0) {
         syslog(LOG_DAEMON, "bind (send_map_request): %s", strerror(errno));
@@ -552,17 +552,15 @@ lisp_addr_t *resolver;
  *
  */
 
-int build_and_send_map_request_msg(map_cache_entry,
-        dest, encap, probe, solicit_map_request,
-        smr_invoked, nonce)
-lispd_map_cache_entry *map_cache_entry;
-lisp_addr_t *dest;
-uint8_t encap;                  /* "boolean" */
-uint8_t probe;                  /* "boolean" */
-uint8_t solicit_map_request;    /* "boolean" */
-uint8_t smr_invoked;            /* "boolean" */
-uint64_t *nonce;
-
+int build_and_send_map_request_msg(
+        lisp_addr_t     *eid_prefix,
+        uint8_t         eid_prefix_length,
+        lisp_addr_t     *dst_rloc_addr,
+        uint8_t         encap,
+        uint8_t         probe,
+        uint8_t         solicit_map_request,
+        uint8_t         smr_invoked,
+        uint64_t        *nonce)
 {
 
     uint8_t *packet;
@@ -571,38 +569,35 @@ uint64_t *nonce;
     struct sockaddr_storage rloc;
 
 
-    packet = build_map_request_pkt(dest,
-            map_cache_entry->identifier.eid_prefix,
-            map_cache_entry->identifier.eid_prefix_length,
+    packet = build_map_request_pkt(dst_rloc_addr,
+            eid_prefix,
+            eid_prefix_length,
             &len, nonce, encap, probe, solicit_map_request,
             smr_invoked);
 
-
-
-
     if (!packet) {
         syslog(LOG_DAEMON, "Could not build map-request packet for %s/%d",
-                get_char_from_lisp_addr_t(map_cache_entry->identifier.eid_prefix),
-                map_cache_entry->identifier.eid_prefix_length);
+                get_char_from_lisp_addr_t(*eid_prefix),
+                eid_prefix_length);
         return (BAD);
     }
 
     if (encap) {
-        if (!send_map_request(packet, len, dest)) {
+        if (!send_map_request(packet, len, dst_rloc_addr)) {
             syslog(LOG_DAEMON, "Could not send encapsulated map-request for %s/%d",
-                    get_char_from_lisp_addr_t(map_cache_entry->identifier.eid_prefix),
-                    map_cache_entry->identifier.eid_prefix_length);
+                    get_char_from_lisp_addr_t(*eid_prefix),
+                    eid_prefix_length);
             return (BAD);
         }
     }
     else {
-        if (!inaddr2sockaddr(dest, (struct sockaddr *)&rloc, LISP_CONTROL_PORT)) {
+        if (!inaddr2sockaddr(dst_rloc_addr, (struct sockaddr *)&rloc, LISP_CONTROL_PORT)) {
             syslog(LOG_DAEMON, "inaddr2sockaddr: conversion failed");
             return(BAD);
         }
         if (!send_raw_udp((struct sockaddr *)&rloc, packet, len)) {
             syslog(LOG_DAEMON, "Could not send map-request to %s",
-                    get_char_from_lisp_addr_t(*dest));
+                    get_char_from_lisp_addr_t(*dst_rloc_addr));
             return (BAD);
         }
     }
@@ -832,7 +827,8 @@ void send_map_request_miss(timer *t, void *arg)
 
     if (nonces->retransmits - 1 < LISPD_MAX_MR_RETRANSMIT ){
 
-        if (build_and_send_map_request_msg(map_cache_entry,
+        if (build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+                map_cache_entry->identifier->eid_prefix_length,
                 map_resolvers->address, 1, 0, 0, 0, &nonces->nonce[nonces->retransmits])== BAD){
             start_timer(map_cache_entry->request_retry_timer, LISPD_INITIAL_MRQ_TIMEOUT,
                     send_map_request_miss, (void *)map_cache_entry);
@@ -846,12 +842,12 @@ void send_map_request_miss(timer *t, void *arg)
                 send_map_request_miss, (void *)map_cache_entry);
 
     }else{
-        del_eid_cache_entry(map_cache_entry->identifier.eid_prefix,
-                map_cache_entry->identifier.eid_prefix_length);
+        del_eid_cache_entry(map_cache_entry->identifier->eid_prefix,
+                map_cache_entry->identifier->eid_prefix_length);
 
         syslog (LOG_DEBUG,"No Map Reply fot EID %s/%d. Removing map cache entry ...",
-                get_char_from_lisp_addr_t(map_cache_entry->identifier.eid_prefix),
-                map_cache_entry->identifier.eid_prefix_length);
+                get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
+                map_cache_entry->identifier->eid_prefix_length);
     }
 }
 

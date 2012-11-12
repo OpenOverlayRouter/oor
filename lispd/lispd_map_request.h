@@ -100,14 +100,14 @@ int send_map_request(uint8_t *packet, int packet_len, lisp_addr_t *resolver);
  *  Put a wrapper around build_map_request_pkt and send_map_request
  */
 int build_and_send_map_request_msg(
-        lispd_map_cache_entry *map_cache_entry,
-        lisp_addr_t *dest,
-        uint8_t encap,                  /* "boolean" */
-        uint8_t probe,                  /* "boolean" */
-        uint8_t solicit_map_request,    /* "boolean" */
-        uint8_t smr_invoked,            /* "boolean" */
-        uint64_t *nonce
-);
+        lisp_addr_t     *eid_prefix,
+        uint8_t         eid_prefix_length,
+        lisp_addr_t     *dst_rloc_addr,
+        uint8_t         encap,
+        uint8_t         probe,
+        uint8_t         solicit_map_request,
+        uint8_t         smr_invoked,
+        uint64_t        *nonce);
 
 
 /*

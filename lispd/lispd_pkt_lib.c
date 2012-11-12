@@ -30,85 +30,64 @@
 
 #include "lispd_pkt_lib.h"
 #include "lispd_lib.h"
+#include "lispd_local_db.h"
 #include "lispd_map_register.h"
+#include "lispd_external.h"
+
+/*
+ *  get_locator_chain_length
+ *
+ *  Compute the sum of the lengths of the locators
+ *  so we can allocate  memory for the packet....
+ */
+int get_locator_length(lispd_locators_list *locators_list);
+
+/*
+ *  get_identifier_length
+ *
+ *  Compute the lengths of the identifier to be use in a record
+ *  so we can allocate  memory for the packet....
+ */
+
+int get_identifier_length(lispd_identifier_elt *identifier);
 
 
-int get_locator_length(lispd_locator_chain_elt_t   *locator_chain_elt);
-void *build_mapping_record(
-    lispd_pkt_mapping_record_t              *rec,
-    lispd_locator_chain_t                   *locator_chain,
-    map_reply_opts                          *opts);
 
 
-int pkt_get_mapping_record_length(lispd_locator_chain_t *locator_chain) {
-    lispd_locator_chain_elt_t *locator_chain_elt;
-    int afi_len   = 0;
-    int loc_len   = 0;
-    int lcaf_len  = 0;
-#ifdef LISPMOBMH
-    /*We have the loop here as it counts two vars*/
-    int loc_count = 0;
+int pkt_get_mapping_record_length(lispd_identifier_elt *identifier) {
+    lispd_locators_list *locators_list[2] = {
+            identifier->head_v4_locators_list,
+            identifier->head_v6_locators_list};
+    int length          = 0;
+    int loc_length      = 0;
+    int eid_length      = 0;
+    int ctr;
 
-    iface_list_elt *elt = NULL;
-
-    get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
-    locator_chain_elt = locator_chain->head;
-
-    while (locator_chain_elt) {
-        elt = search_iface_list(locator_chain_elt->db_entry->locator_name);
-        if(elt!=NULL && elt->ready){
-            switch (locator_chain_elt->db_entry->locator.afi) {
-            case AF_INET:
-                loc_len += sizeof(struct in_addr);
-                loc_count++;
-                break;
-            case AF_INET6:
-                loc_len += sizeof(struct in6_addr);
-                loc_count++;
-                break;
-            default:
-                syslog(LOG_DAEMON, "Unknown AFI (%d) for %s",
-                        locator_chain_elt->db_entry->locator.afi,
-                        locator_chain_elt->db_entry->locator_name);
-                break;
-            }
-        }
-        locator_chain_elt = locator_chain_elt->next;
+    for (ctr = 0 ; ctr < 2 ; ctr ++){
+        if (locators_list[ctr] == NULL)
+            continue;
+        loc_length += get_locator_length(locators_list[ctr]);
     }
-#else
-    locator_chain_elt = locator_chain->head;
-    loc_len = get_locator_length(locator_chain_elt);
-    get_lisp_afi(locator_chain->eid_prefix.afi, &afi_len);
-#endif
-    if (locator_chain->iid >= 0)
-        lcaf_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
+    eid_length = get_identifier_length(identifier);
+    length = sizeof(lispd_pkt_mapping_record_t) + eid_length +
+            (identifier->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
+            loc_length;
 
-
-#ifdef LISPMOBMH
-    return sizeof(lispd_pkt_mapping_record_t) + afi_len + lcaf_len +
-           (loc_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
-           loc_len;
-#else
-    return sizeof(lispd_pkt_mapping_record_t) + afi_len + lcaf_len +
-           (locator_chain->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
-           loc_len;
-#endif
+    return length;
 }
 
 /*
  *  get_locator_chain_length
  *
  *  Compute the sum of the lengths of the locators
- *  in the chain so we can allocate a chunk of memory for
- *  the packet....
+ *  so we can allocate  memory for the packet....
  */
 
-int get_locator_length(locator_chain_elt)
-    lispd_locator_chain_elt_t   *locator_chain_elt;
+int get_locator_length(lispd_locators_list *locators_list)
 {
     int sum = 0;
-    while (locator_chain_elt) {
-        switch (locator_chain_elt->db_entry->locator.afi) {
+    while (locators_list) {
+        switch (locators_list->locator->locator_addr->afi) {
         case AF_INET:
             sum += sizeof(struct in_addr);
             break;
@@ -116,47 +95,62 @@ int get_locator_length(locator_chain_elt)
             sum += sizeof(struct in6_addr);
             break;
         default:
-            syslog(LOG_DAEMON, "Uknown AFI (%d) for %s",
-               locator_chain_elt->db_entry->locator.afi,
-               locator_chain_elt->db_entry->locator_name);
+            /* It should never happen*/
+            syslog(LOG_ERR, "get_locator_length: Uknown AFI (%d) - It should never happen",
+               locators_list->locator->locator_addr->afi);
             break;
         }
-        locator_chain_elt = locator_chain_elt->next;
+        locators_list = locators_list->next;
     }
     return(sum);
 }
 
+/*
+ *  get_identifier_length
+ *
+ *  Compute the lengths of the identifier to be use in a record
+ *  so we can allocate  memory for the packet....
+ */
 
 
-
-void *pkt_fill_eid_from_locator_chain(offset, loc_chain)
-    void                    *offset;
-    lispd_locator_chain_t   *loc_chain;
+int get_identifier_length(lispd_identifier_elt *identifier)
 {
-    return pkt_fill_eid(offset, &(loc_chain->eid_prefix), loc_chain->iid);
+    int ident_len = 0;
+    switch (identifier->eid_prefix.afi) {
+    case AF_INET:
+        ident_len += sizeof(struct in_addr);
+        break;
+    case AF_INET6:
+        ident_len += sizeof(struct in6_addr);
+        break;
+    default:
+        break;
+    }
+
+    if (identifier->iid >= 0)
+        ident_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
+
+    return ident_len;
 }
 
-void *pkt_fill_eid(offset, eid, iid)
-    void                    *offset;
-    lisp_addr_t             *eid;
-    lispd_iid_t              iid;
+void *pkt_fill_eid(void         *offset,
+        lispd_identifier_elt    *identifier)
 {
     uint16_t                *afi_ptr;
     lispd_pkt_lcaf_t        *lcaf_ptr;
     lispd_pkt_lcaf_iid_t    *iid_ptr;
     void                    *eid_ptr;
-    uint16_t                 eid_afi;
+    int                     eid_addr_len;
 
     afi_ptr = (uint16_t *)offset;
-    eid_afi = get_lisp_afi(eid->afi, NULL);
+    eid_addr_len = get_addr_len(identifier->eid_prefix.afi);
 
     /* For negative IID values, we skip LCAF/IID field */
-    if (iid < 0) {
-        *afi_ptr = htons(eid_afi);
+    if (identifier->iid < 0) {
+        *afi_ptr = htons(get_lisp_afi(identifier->eid_prefix.afi, NULL));
         eid_ptr  = CO(offset, sizeof(uint16_t));
     } else {
         *afi_ptr = htons(LISP_AFI_LCAF);
-
         lcaf_ptr = (lispd_pkt_lcaf_t *) CO(offset, sizeof(uint16_t));
         iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
         eid_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
@@ -165,83 +159,85 @@ void *pkt_fill_eid(offset, eid, iid)
         lcaf_ptr->flags = 0;
         lcaf_ptr->type  = 2;
         lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
-        lcaf_ptr->len   = htons(sizeof(lispd_pkt_lcaf_iid_t) +
-                          get_addr_len(eid->afi));
+        lcaf_ptr->len   = htons(sizeof(lispd_pkt_lcaf_iid_t) + eid_addr_len);
 
-        iid_ptr->iid = htonl(iid);
-        iid_ptr->afi = htons(eid_afi);
+        iid_ptr->iid = htonl(identifier->iid);
+        iid_ptr->afi = htons(identifier->eid_prefix.afi);
     }
 
-    if ((copy_addr(eid_ptr, eid, 0)) == 0) {
+    if ((copy_addr(eid_ptr,&(identifier->eid_prefix), 0)) == 0) {
         syslog(LOG_DAEMON, "pkt_fill_eid: copy_addr failed");
         return NULL;
     }
 
-    return CO(eid_ptr, get_addr_len(eid->afi));
+    return CO(eid_ptr, eid_addr_len);
 }
 
 
-void *pkt_fill_mapping_record(rec, locator_chain, opts)
+void *pkt_fill_mapping_record(rec, identifier, opts)
     lispd_pkt_mapping_record_t              *rec;
-    lispd_locator_chain_t                   *locator_chain;
+    lispd_identifier_elt                    *identifier;
     map_reply_opts                          *opts;
 {
     int                                     cpy_len = 0;
     lispd_pkt_mapping_record_locator_t      *loc_ptr;
-    lispd_db_entry_t                        *db_entry;
-    lispd_locator_chain_elt_t               *locator_chain_elt;
+    lispd_locators_list                     *locators_list[2];
+    lispd_locator_elt                       *locator;
+    int                                     ctr = 0;
 #ifdef LISPMOBMH
     iface_list_elt *elt=NULL;
 #endif
 
-    if ((rec == NULL) || (locator_chain == NULL))
+    if ((rec == NULL) || (identifier == NULL))
         return NULL;
 
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
-    rec->locator_count          = locator_chain->locator_count;
-    rec->eid_prefix_length      = locator_chain->eid_prefix_length;
+    rec->locator_count          = identifier->locator_count;
+    rec->eid_prefix_length      = identifier->eid_prefix_length;
     rec->action                 = 0;
     rec->authoritative          = 1;
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-              pkt_fill_eid_from_locator_chain(&(rec->eid_prefix_afi), locator_chain);
+                pkt_fill_eid(&(rec->eid_prefix_afi), identifier);
 
     if (loc_ptr == NULL)
         return NULL;
 
-    locator_chain_elt = locator_chain->head;
-
-    while (locator_chain_elt) {
-        db_entry             = locator_chain_elt->db_entry;
+    locators_list[0] = identifier->head_v4_locators_list;
+    locators_list[1] = identifier->head_v6_locators_list;
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        while (locators_list[ctr]) {
+            locator             = locators_list[ctr]->locator;
 #ifdef LISPMOBMH
-        elt = search_iface_list(db_entry->locator_name);
-        if(elt!=NULL && elt->ready){
+            elt = search_iface_list(db_entry->locator_name);
+            if(elt!=NULL && elt->ready){
 #endif
-        loc_ptr->priority    = db_entry->priority;
-        loc_ptr->weight      = db_entry->weight;
-        loc_ptr->mpriority   = db_entry->mpriority;
-        loc_ptr->mweight     = db_entry->mweight;
-        loc_ptr->local       = 1;
-        if (opts && opts->rloc_probe)
-            loc_ptr->probed  = 1;       /* XXX probed locator, should check addresses */
-        loc_ptr->reachable   = 1;       /* XXX should be computed */
-        loc_ptr->locator_afi = htons(get_lisp_afi(db_entry->locator.afi, NULL));
+                loc_ptr->priority    = locator->priority;
+                loc_ptr->weight      = locator->weight;
+                loc_ptr->mpriority   = locator->mpriority;
+                loc_ptr->mweight     = locator->mweight;
+                loc_ptr->local       = 1;
+                if (opts && opts->rloc_probe)
+                    loc_ptr->probed  = 1;       /* XXX probed locator, should check addresses */
+                loc_ptr->reachable   = locator->state && 1;
+                loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
 
-        if ((cpy_len = copy_addr((void *) CO(loc_ptr,
-                sizeof(lispd_pkt_mapping_record_locator_t)), &(db_entry->locator), 0)) == 0) {
-            syslog(LOG_DAEMON, "pkt_fill_mapping_record: copy_addr failed for locator %s",
-                    db_entry->locator_name);
-            return(NULL);
-        }
+                if ((cpy_len = copy_addr((void *) CO(loc_ptr,
+                        sizeof(lispd_pkt_mapping_record_locator_t)), locator->locator_addr, 0)) == 0) {
+                    syslog(LOG_DAEMON, "pkt_fill_mapping_record: copy_addr failed for locator %s",
+                            get_char_from_lisp_addr_t(*(locator->locator_addr)));
+                    return(NULL);
+                }
 
-        loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-            CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
+                loc_ptr = (lispd_pkt_mapping_record_locator_t *)
+                    CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
 #ifdef LISPMOBMH
-        }
+            }
 #endif
-        locator_chain_elt = locator_chain_elt->next;
+            locators_list[ctr] = locators_list[ctr]->next;
+        }
     }
     return (void *)loc_ptr;
 }
@@ -301,16 +297,136 @@ void *pkt_read_eid(offset, eid, eid_afi, iid)
     return cur_ptr;
 }
 
-/* Temporary entries not to break existing code */
-int get_record_length(lispd_locator_chain_t *locator_chain) {
-    return pkt_get_mapping_record_length(locator_chain);
-}
-void *build_mapping_record(rec, locator_chain, opts)
-    lispd_pkt_mapping_record_t              *rec;
-    lispd_locator_chain_t                   *locator_chain;
-    map_reply_opts                          *opts;
+int send_ctrl_ipv4_packet(lisp_addr_t *destination, void *packet, int packet_len)
 {
-    return pkt_fill_mapping_record(rec, locator_chain, opts);
+    int                 s;      /*socket */
+    int                 nbytes;
+    struct sockaddr_in  dst;
+    struct sockaddr_in  src;
+
+
+    if ((s = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) < 0) {
+        syslog(LOG_DAEMON, "socket (send_map_register): %s", strerror(errno));
+        return(BAD);
+    }
+
+    /*
+     * PN: Bind the UDP socket to a valid rloc on the ctrl_iface
+     */
+    if (!(ctrl_iface)) {
+        /* No physical interface available for control messages */
+        syslog(LOG_DAEMON, "(send_map_register): Unable to find valid physical interface\n");
+        return (BAD);
+    }
+    else if (!(ctrl_iface->ipv4_address)){
+        syslog(LOG_DAEMON, "(send_map_register): Control interface doesn't have an IPv4 address\n");
+        return (BAD);
+    }
+    memset((char *) &src, 0, sizeof(struct sockaddr_in));
+    src.sin_family       = AF_INET;
+    src.sin_port         = htons(INADDR_ANY);
+    src.sin_addr.s_addr  = ctrl_iface->ipv4_address->address.ip.s_addr;
+
+    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
+        syslog(LOG_DAEMON, "bind (send_map_register): %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    memset((char *) &dst, 0, sizeof(struct sockaddr_in));
+
+    dst.sin_family      = AF_INET;
+    dst.sin_addr.s_addr = destination->address.ip.s_addr;
+    dst.sin_port        = htons(LISP_CONTROL_PORT);
+
+    if ((nbytes = sendto(s,
+            (const void *) packet,
+            packet_len,
+            0,
+            (struct sockaddr *)&dst,
+            sizeof(struct sockaddr))) < 0) {
+        syslog(LOG_DEBUG,"sendto (send_ctrl_ipv4_packet): %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    if (nbytes != packet_len) {
+        syslog(LOG_WARNING,
+                "send_ctrl_ipv4_packet: nbytes (%d) != packet (%d)\n",
+                nbytes, packet_len);
+        close(s);
+        return(BAD);
+    }
+
+    close(s);
+    return (GOOD);
+}
+
+
+int send_ctrl_ipv6_packet(lisp_addr_t *destination, void *packet, int packet_len)
+{
+    int                 s;      /*socket */
+    int                 nbytes;
+    struct sockaddr_in6  dst;
+    struct sockaddr_in6  src;
+
+
+    if ((s = socket(AF_INET6,SOCK_DGRAM,IPPROTO_UDP)) < 0) {
+        syslog(LOG_DAEMON, "socket (send_map_register): %s", strerror(errno));
+        return(BAD);
+    }
+
+    /*
+     * PN: Bind the UDP socket to a valid rloc on the ctrl_iface
+     */
+    if (!(ctrl_iface)) {
+        /* No physical interface available for control messages */
+        syslog(LOG_DAEMON, "(send_map_register): Unable to find valid physical interface\n");
+        return (BAD);
+    }
+    else if (!(ctrl_iface->ipv6_address)){
+        syslog(LOG_DAEMON, "(send_map_register): Control interface doesn't have an IPv4 address\n");
+        return (BAD);
+    }
+    memset((char *) &src, 0, sizeof(struct sockaddr_in));
+    src.sin6_family       = AF_INET6;
+    src.sin6_port         = htons(INADDR_ANY);
+    memcpy(&src.sin6_addr,&(ctrl_iface->ipv6_address->address.ipv6),sizeof(struct in6_addr));
+
+    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
+        syslog(LOG_DAEMON, "bind (send_map_register): %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    memset((char *) &dst, 0, sizeof(struct sockaddr_in));
+
+    dst.sin6_family      = AF_INET6;
+    dst.sin6_port        = htons(LISP_CONTROL_PORT);
+    memcpy(&dst.sin6_addr,&(destination->address.ipv6),sizeof(struct in6_addr));
+
+
+    if ((nbytes = sendto(s,
+            (const void *) packet,
+            packet_len,
+            0,
+            (struct sockaddr *)&dst,
+            sizeof(struct sockaddr))) < 0) {
+        syslog(LOG_DEBUG,"sendto (send_ctrl_ipv6_packet): %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    if (nbytes != packet_len) {
+        syslog(LOG_WARNING,
+                "send_ctrl_ipv6_packet: nbytes (%d) != packet_len (%d)\n",
+                nbytes, packet_len);
+        close(s);
+        return(BAD);
+    }
+
+    close(s);
+    return (GOOD);
 }
 
 

@@ -58,19 +58,20 @@ void init_smr()
     for (ctr = 0 ; ctr < 2 ; ctr++){ /*For IPv4 and IPv6 EIDs */
         PATRICIA_WALK(dbs[ctr]->head, node) {
         	map_cache_entry = ((lispd_map_cache_entry *)(node->data));
-        	locators_lists[0] = map_cache_entry->identifier.head_v4_locators_list;
-        	locators_lists[1] = map_cache_entry->identifier.head_v6_locators_list;
+        	locators_lists[0] = map_cache_entry->identifier->head_v4_locators_list;
+        	locators_lists[1] = map_cache_entry->identifier->head_v6_locators_list;
         	for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For IPv4 and IPv6 RLOCs */
         		if (map_cache_entry->active && locators_lists[ctr1] != NULL){
         			locator_iterator = locators_lists[ctr1];
         			while (locator_iterator){
         				locator = locator_iterator->locator;
-        				if (build_and_send_map_request_msg(map_cache_entry,
+        				if (build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+                                map_cache_entry->identifier->eid_prefix_length,
         						locator->locator_addr,0,0,1,0,&nonce)==GOOD)
         					syslog(LOG_INFO, "SMR'ing RLOC %s for EID %s/%d",
         							get_char_from_lisp_addr_t(*(locator->locator_addr)),
-        							get_char_from_lisp_addr_t(map_cache_entry->identifier.eid_prefix),
-        							map_cache_entry->identifier.eid_prefix_length);
+        							get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
+        							map_cache_entry->identifier->eid_prefix_length);
         				locator_iterator = locator_iterator->next;
 
         			}
@@ -120,7 +121,8 @@ void solicit_map_request_reply(timer *t, void *arg)
     }
     if (nonces->retransmits - 1 < LISPD_MAX_SMR_RETRANSMIT ){
 
-        if((err = build_and_send_map_request_msg(map_cache_entry, map_resolvers->address,1, 0, 0, 1,
+        if((err = build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+                map_cache_entry->identifier->eid_prefix_length, map_resolvers->address,1, 0, 0, 1,
                 &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
             syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send SMR triggered Map-Request");
             /* TODO process error */
@@ -138,8 +140,8 @@ void solicit_map_request_reply(timer *t, void *arg)
         free(map_cache_entry->smr_timer);
         map_cache_entry->smr_timer = NULL;
         syslog (LOG_DEBUG,"SMR process: No Map Reply fot EID %s/%d. Ignoring solicit map request ...",
-                get_char_from_lisp_addr_t(map_cache_entry->identifier.eid_prefix),
-                map_cache_entry->identifier.eid_prefix_length);
+                get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
+                map_cache_entry->identifier->eid_prefix_length);
     }
 }
 

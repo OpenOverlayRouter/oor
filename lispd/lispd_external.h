@@ -34,6 +34,7 @@
 #define LISPD_EXTERNAL_H_
 
 #include "lispd.h"
+#include "lispd_iface_list.h"
 
 
 extern  lispd_database_t  *lispd_database;
@@ -67,7 +68,7 @@ extern  int			smr_timer_fd;
 extern  struct  sockaddr_nl dst_addr;
 extern  struct  sockaddr_nl src_addr;
 extern  nlsock_handle       nlh;
-extern  iface_list_elt      *ctrl_iface; 
+extern  lispd_iface_elt      *ctrl_iface;
 extern  lisp_addr_t         source_rloc;
 
 #endif /*LISPD_EXTERNAL_H_*/

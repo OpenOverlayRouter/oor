@@ -130,7 +130,7 @@ void debug_installed_database_entry(lispd_db_entry_t *db_entry, lispd_locator_ch
  *
  *      Get the length while your at it
  */
-int get_lisp_afi(int afi, int *len);
+uint16_t get_lisp_afi(int afi, int *len);
 
 /*
  *      Map from Internet LISP AFI -> INET AFI

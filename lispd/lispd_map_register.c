@@ -38,13 +38,14 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_pkt_lib.h"
+#include "lispd_local_db.h"
 #include "patricia/patricia.h"
 
 
 
 
-lispd_pkt_map_register_t *build_map_register_pkt(lispd_locator_chain_t *locator_chain);
-int send_map_register(lispd_map_server_list_t *ms, lispd_pkt_map_register_t *mrp, int mrp_len);
+lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifier, int *mrp_len);
+int send_map_register(lisp_addr_t *ms_address, lispd_pkt_map_register_t *mrp, int mrp_len);
 
 
 /*
@@ -60,13 +61,81 @@ timer *map_register_timer = NULL;
  */
 int map_register(timer *t, void *arg)
 {
-    patricia_tree_t           *all_afi_dbs[2] = { AF4_database, AF6_database };
+    patricia_tree_t           *dbs[2];
     patricia_tree_t           *tree = NULL;
     lispd_map_server_list_t   *ms;
     lispd_pkt_map_register_t  *map_register_pkt; 
     patricia_node_t           *node;
-    lispd_locator_chain_t     *locator_chain;
-    int                       afi_count = 0;
+    lispd_identifier_elt      *identifier_elt;
+    int                       mrp_len = 0;
+    int                       ctr = 0;
+    uint64_t                  *nonce;
+    uint32_t                  md_len;
+
+    dbs[0] = get_local_db(AF_INET);
+    dbs[1] = get_local_db(AF_INET6);
+
+    if (!map_servers) {
+        syslog(LOG_CRIT, "No Map Servers conifgured!");
+        return(BAD);
+    }
+
+    for (ctr = 0 ; ctr < 2 ; ctr++) {
+        tree = dbs[ctr];
+        if (!tree)
+            continue;
+        PATRICIA_WALK(tree->head, node) {
+            identifier_elt = ((lispd_identifier_elt *)(node->data));
+            if (identifier_elt) {
+                if ((map_register_pkt =
+                        build_map_register_pkt(identifier_elt, &mrp_len)) == NULL) {
+                    syslog(LOG_DAEMON, "Couldn't build map register packet");
+                    return(BAD);
+                }
+
+                 //  for each map server, send a register, and if verify
+                 //  send a map-request for our eid prefix
+
+                ms = map_servers;
+
+                while (ms) {
+
+                    /*
+                     * Fill in proxy_reply and compute the HMAC with SHA-1.
+                     */
+
+                    map_register_pkt->proxy_reply = ms->proxy_reply;
+                    memset(map_register_pkt->auth_data,0,LISP_SHA1_AUTH_DATA_LEN);   /* make sure */
+
+                    if (!HMAC((const EVP_MD *) EVP_sha1(),
+                            (const void *) ms->key,
+                            strlen(ms->key),
+                            (uchar *) map_register_pkt,
+                            mrp_len,
+                            (uchar *) map_register_pkt->auth_data,
+                            &md_len)) {
+                        syslog(LOG_DAEMON, "HMAC failed for map-register");
+                        return(0);
+                    }
+
+                    /* Send the map register */
+
+                    if (!send_map_register(ms->address,map_register_pkt,mrp_len)) {
+                        syslog(LOG_DAEMON, "Couldn't send map-register for %s",
+                                get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                    } else if (ms->verify) {
+                        if (!build_and_send_map_request_msg(&(identifier_elt->eid_prefix),
+                                identifier_elt->eid_prefix_length,
+                                ms->address,1,1,0,0,nonce))
+                            syslog(LOG_DAEMON,"map_register:couldn't build/send map_request");
+                    }
+                    ms = ms->next;
+                }
+
+                free(map_register_pkt);
+            }
+        } PATRICIA_WALK_END;
+    }
 
     /*
      * Configure timer to send the next map register.
@@ -76,56 +145,7 @@ int map_register(timer *t, void *arg)
     }
     start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register, NULL);
 
-
-    if (!map_servers) {
-        syslog(LOG_CRIT, "No Map Servers conifgured!");
-        return(BAD);
-    }
-
-    while (afi_count < 2) {
-        tree = all_afi_dbs[afi_count];
-        if (!tree)
-            continue;
-        PATRICIA_WALK(tree->head, node) {
-            locator_chain = ((lispd_locator_chain_t *)(node->data));
-            if (locator_chain) {
-                if ((map_register_pkt =
-                        build_map_register_pkt(locator_chain)) == NULL) {
-                    syslog(LOG_DAEMON, "Couldn't build map register packet");
-                    return(0);
-                }
-
-                /*
-                 *  for each map server, send a register, and if verify
-                 *  send a map-request for our eid prefix
-                 */
-
-                ms = map_servers;
-
-                while (ms) {
-                    if (!send_map_register(ms,
-                            map_register_pkt,
-                            locator_chain->mrp_len)) {
-                        syslog(LOG_DAEMON,
-                                "Couldn't send map-register for %s",
-                                locator_chain->eid_name);
-                    } else if (ms->verify) {
-                       /* if (!build_and_send_map_request_msg(ms->address,
-                                &(locator_chain->eid_prefix),
-                                locator_chain->eid_prefix_length,
-                                1,1,0,0,0,0,0,LISPD_INITIAL_MRQ_TIMEOUT,1))
-
-
-                            syslog(LOG_DAEMON,"map_register:couldn't build/send map_request");*/
-                    }
-                    ms = ms->next;
-                }
-                free(map_register_pkt);
-            }
-        } PATRICIA_WALK_END;
-        afi_count++;
-    }
-    return(1);
+    return(GOOD);
 }
 
 
@@ -135,23 +155,20 @@ int map_register(timer *t, void *arg)
  *  Build the map-register
  *
  */
-    
-lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
-    lispd_locator_chain_t           *locator_chain;
+
+lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifier, int *mrp_len)
 {
-    lispd_pkt_map_register_t        *mrp;
-    lispd_pkt_mapping_record_t      *mr;
-    int                             mrp_len = 0;
+    lispd_pkt_map_register_t *mrp;
+    lispd_pkt_mapping_record_t *mr;
 
-    mrp_len = sizeof(lispd_pkt_map_register_t) +
-              pkt_get_mapping_record_length(locator_chain);
+    *mrp_len = sizeof(lispd_pkt_map_register_t) +
+              pkt_get_mapping_record_length(identifier);
 
-    if ((mrp = malloc(mrp_len)) == NULL) {
-        syslog(LOG_DAEMON, "build_map_register_pkt: malloc: %s", strerror(errno));
+    if ((mrp = malloc(*mrp_len)) == NULL) {
+        syslog(LOG_ERR, "build_map_register_pkt: malloc: %s", strerror(errno));
         return(NULL);
     }
-    memset(mrp, 0, mrp_len);
-    locator_chain->mrp_len = mrp_len;
+    memset(mrp, 0, *mrp_len);
 
     /*
      *  build the packet
@@ -164,15 +181,16 @@ lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
     mrp->lisp_type        = LISP_MAP_REGISTER;
     mrp->map_notify       = 1;              /* TODO conf item */
     mrp->nonce            = 0;
-    mrp->record_count     = 1;              /* XXX  > 1 ? */
+    mrp->record_count     = identifier->locator_count;
     mrp->key_id           = htons(1);       /* XXX not sure */
     mrp->auth_data_len    = htons(LISP_SHA1_AUTH_DATA_LEN);
+
 
     /* skip over the fixed part,  assume one record (mr) */
 
     mr = (lispd_pkt_mapping_record_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
-    if (pkt_fill_mapping_record(mr, locator_chain, NULL)) {
+    if (pkt_fill_mapping_record(mr, identifier, NULL)) {
         return(mrp);
     } else {
         free(mrp);
@@ -183,106 +201,14 @@ lispd_pkt_map_register_t *build_map_register_pkt(locator_chain)
 
 /*
  *  send_map_register
- *
- *  Assumes IPv4 transport for map-registers
- *
  */
 
-int send_map_register(ms, mrp, mrp_len)
-    lispd_map_server_list_t  *ms;
-    lispd_pkt_map_register_t *mrp;
-    int                      mrp_len;
+int send_map_register(lisp_addr_t *ms_address, lispd_pkt_map_register_t *mrp, int mrp_len)
 {
-
-    lisp_addr_t         *addr;
-    struct sockaddr_in  map_server;
-    int                 s;      /*socket */
-    int                 nbytes;
-    unsigned int        md_len;
-    struct sockaddr_in  ctrl_saddr;
-
-    /*
-     * Fill in proxy_reply and compute the HMAC with SHA-1. Have to 
-     * do this here since we need to know which map-server (since it 
-     * has the proxy_reply bit)
-     *
-     */
-
-    mrp->proxy_reply = ms->proxy_reply;
-    memset(mrp->auth_data,0,LISP_SHA1_AUTH_DATA_LEN);   /* make sure */
-
-    if (!HMAC((const EVP_MD *) EVP_sha1(), 
-          (const void *) ms->key,
-          strlen(ms->key),
-          (uchar *) mrp,
-          mrp_len,
-          (uchar *) mrp->auth_data,
-          &md_len)) {
-    syslog(LOG_DAEMON, "HMAC failed for map-register");
-    return(0);
-    }    
-
-    /* 
-     * ok, now go send it...
-     */
-
-    if ((s = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) < 0) {
-    syslog(LOG_DAEMON, "socket (send_map_register): %s", strerror(errno));
-    return(0);
-    }
-
-    /*
-     * PN: Bind the UDP socket to a valid rloc on the ctrl_iface
-     * (assume v4 transport)
-     */
-    if (!(ctrl_iface) || !(ctrl_iface->AF4_locators->head)) {
-
-        /* 
-         * No physical interface available for control messages
-         */
-
-        syslog(LOG_DAEMON, "(send_map_register): Unable to find valid physical interface\n");
-        return (0);
-    }
-    memset((char *) &ctrl_saddr, 0, sizeof(struct sockaddr_in));
-    ctrl_saddr.sin_family       = AF_INET;
-    ctrl_saddr.sin_port         = htons(INADDR_ANY);
-    ctrl_saddr.sin_addr.s_addr  = (ctrl_iface->AF4_locators->head->db_entry->locator).address.ip.s_addr;
-
-    if (bind(s, (struct sockaddr *)&ctrl_saddr, sizeof(struct sockaddr_in)) < 0) {
-        syslog(LOG_DAEMON, "bind (send_map_register): %s", strerror(errno));
-        close(s);
-        return(0);
-    }
-
-    memset((char *) &map_server, 0, sizeof(map_server));
-
-    addr                       = ms->address;
-    map_server.sin_family      = AF_INET;
-    map_server.sin_addr.s_addr = addr->address.ip.s_addr;
-    map_server.sin_port        = htons(LISP_CONTROL_PORT);
-
-    if ((nbytes = sendto(s,
-             (const void *) mrp,
-             mrp_len,
-             0,
-             (struct sockaddr *)&map_server,
-             sizeof(struct sockaddr))) < 0) {
-    syslog(LOG_DAEMON,"sendto (send_map_register): %s", strerror(errno));
-    close(s);
-    return(0);
-    }
-
-    if (nbytes != mrp_len) {
-    syslog(LOG_DAEMON,
-        "send_map_register: nbytes (%d) != mrp_len (%d)\n",
-        nbytes, mrp_len);
-    close(s);
-    return(0);
-    }
-
-    close(s);
-    return(1);
+    if (ms_address->afi == AF_INET)
+        return(send_ctrl_ipv4_packet(ms_address,(void *)mrp,mrp_len));
+    else
+        return(send_ctrl_ipv6_packet(ms_address,(void *)mrp,mrp_len));
 }
 
 

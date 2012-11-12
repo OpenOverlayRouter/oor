@@ -916,7 +916,7 @@ int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int
  *      Get the length while your at it
  */         
 
-int get_lisp_afi(afi, len)
+uint16_t get_lisp_afi(afi, len)
      int        afi;
      int        *len;
 {
@@ -925,14 +925,14 @@ int get_lisp_afi(afi, len)
     case AF_INET:
         if (len)
             *len = sizeof(struct in_addr);
-        return(LISP_AFI_IP);
+        return((uint16_t)LISP_AFI_IP);
     case AF_INET6:
         if (len)
             *len = sizeof(struct in6_addr);
-        return(LISP_AFI_IPV6);
+        return((uint16_t)LISP_AFI_IPV6);
     default:
         syslog(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d)", afi);
-        return(0);
+        return(BAD);
     }
 }
 

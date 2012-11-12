@@ -49,6 +49,7 @@
 #include "lispd.h"
 #include "lispd_config.h"
 #include "lispd_ipc.h"
+#include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
@@ -141,7 +142,7 @@ int 	smr_timer_fd					= 0;
  * Interface on which control messages
  * are sent
  */
-iface_list_elt *ctrl_iface              = NULL;
+lispd_iface_elt *ctrl_iface              = NULL;
 lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
@@ -239,16 +240,6 @@ int main(int argc, char **argv)
     handle_lispd_config_file();
 
 
-
-    dump_map_cache();
-
-    dump_local_eids();
-
-    dump_iface_list();
-    exit(1);
-
-
-
     /*
      * now build the v4/v6 receive sockets
      */
@@ -266,6 +257,32 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
     init_timers();
+
+
+
+
+
+
+
+
+    map_register (NULL,NULL);
+    exit(1);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #ifdef LISPMOBMH
     if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
