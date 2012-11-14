@@ -181,7 +181,7 @@ lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifie
     mrp->lisp_type        = LISP_MAP_REGISTER;
     mrp->map_notify       = 1;              /* TODO conf item */
     mrp->nonce            = 0;
-    mrp->record_count     = identifier->locator_count;
+    mrp->record_count     = 1;				/* XXX Just supported one record per map register */
     mrp->key_id           = htons(1);       /* XXX not sure */
     mrp->auth_data_len    = htons(LISP_SHA1_AUTH_DATA_LEN);
 

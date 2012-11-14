@@ -394,12 +394,24 @@ int add_database_mapping(dm)
 
     /* XXX Process when the new locator could not be allocated */
     if (priority_v4 > 0){
+    	if (!interface->ipv4_address){
+    		syslog(LOG_ERR,"ERROR: IPv4 locator can not be added to the EID %s/%d. Interface %s doesn't have IPv4 address",
+    				get_char_from_lisp_addr_t(identifier->eid_prefix),identifier->eid_prefix_length,
+    				interface->iface_name);
+    		return (BAD);
+    	}
         if ((err = add_identifier_to_interface (interface, identifier,AF_INET)) == GOOD){
             locator_v4 = new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
         }
     }
     if (priority_v6 > 0){
-        if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
+    	if (!interface->ipv6_address){
+    		syslog(LOG_ERR,"ERROR: IPv6 locator can not be added to the EID %s/%d. Interface %s doesn't have IPv6 address",
+    				get_char_from_lisp_addr_t(identifier->eid_prefix),identifier->eid_prefix_length,
+    				interface->iface_name);
+    		return (BAD);
+    	}
+    	if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
             locator_v6 = new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
     }
 
