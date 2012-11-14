@@ -297,7 +297,7 @@ void *pkt_read_eid(offset, eid, eid_afi, iid)
     return cur_ptr;
 }
 
-int send_ctrl_ipv4_packet(lisp_addr_t *destination, void *packet, int packet_len)
+int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t dst_port, void *packet, int packet_len)
 {
     int                 s;      /*socket */
     int                 nbytes;
@@ -324,7 +324,10 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, void *packet, int packet_len
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
     src.sin_family       = AF_INET;
-    src.sin_port         = htons(INADDR_ANY);
+    if (src_port == 0)
+    	src.sin_port         = htons(INADDR_ANY);
+    else
+    	src.sin_port         = htons(src_port);
     src.sin_addr.s_addr  = ctrl_iface->ipv4_address->address.ip.s_addr;
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
@@ -337,8 +340,10 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, void *packet, int packet_len
 
     dst.sin_family      = AF_INET;
     dst.sin_addr.s_addr = destination->address.ip.s_addr;
-    dst.sin_port        = htons(LISP_CONTROL_PORT);
-
+    if (dst_port == 0)
+    	dst.sin_port         = htons(INADDR_ANY);
+    else
+    	dst.sin_port         = htons(dst_port);
     if ((nbytes = sendto(s,
             (const void *) packet,
             packet_len,
@@ -363,7 +368,7 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, void *packet, int packet_len
 }
 
 
-int send_ctrl_ipv6_packet(lisp_addr_t *destination, void *packet, int packet_len)
+int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t dst_port, void *packet, int packet_len)
 {
     int                 s;      /*socket */
     int                 nbytes;
@@ -390,7 +395,10 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, void *packet, int packet_len
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
     src.sin6_family       = AF_INET6;
-    src.sin6_port         = htons(INADDR_ANY);
+    if (src_port == 0)
+    	src.sin6_port         = htons(INADDR_ANY);
+    else
+    	src.sin6_port         = htons(src_port);
     memcpy(&src.sin6_addr,&(ctrl_iface->ipv6_address->address.ipv6),sizeof(struct in6_addr));
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
@@ -402,7 +410,10 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, void *packet, int packet_len
     memset((char *) &dst, 0, sizeof(struct sockaddr_in));
 
     dst.sin6_family      = AF_INET6;
-    dst.sin6_port        = htons(LISP_CONTROL_PORT);
+    if (dst_port == 0)
+    	dst.sin6_port         = htons(INADDR_ANY);
+    else
+    	dst.sin6_port         = htons(dst_port);
     memcpy(&dst.sin6_addr,&(destination->address.ipv6),sizeof(struct in6_addr));
 
 

@@ -405,6 +405,24 @@ typedef struct _lispd_map_server_list_t {
     struct _lispd_map_server_list_t *next;
 } lispd_map_server_list_t;
 
+/*
+ * Map Request Record
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    / |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
+ *  Rec +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    \ |                       EID-prefix  ...                         |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+/*
+ * Fixed portion of the request record. EID prefix address follow.
+ */
+
+typedef struct lispd_pkt_request_record_t_ {
+    uint8_t reserved;
+    uint8_t eid_prefix_length;
+    uint16_t eid_prefix_afi;
+} PACKED lispd_pkt_request_record_t;
 
 
 /*
@@ -482,6 +500,10 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
 #endif
     uint16_t locator_afi;
 } PACKED lispd_pkt_mapping_record_locator_t;
+
+
+
+
 
 /*
  * Map-Registers have an authentication header before the UDP header.

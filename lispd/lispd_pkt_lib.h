@@ -52,11 +52,11 @@ void *pkt_read_eid(
 /*
  * Send a ipv4 control packet to the destination address
  */
-int send_ctrl_ipv4_packet(lisp_addr_t *destination, void *packet, int packet_len);
+int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t dst_port, void *packet, int packet_len);
 
 /*
  * Send a ipv6 control packet to the destination address
  */
-int send_ctrl_ipv6_packet(lisp_addr_t *destination, void *packet, int packet_len);
+int send_ctrl_ipv6_packet(lisp_addr_t *destination,uint16_t src_port, uint16_t dst_port, void *packet, int packet_len);
 
 #endif /*LISPD_PKT_LIB_H_*/

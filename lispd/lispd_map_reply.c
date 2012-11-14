@@ -133,7 +133,7 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
     lispd_map_cache_entry                   *cache_entry;
     int                                     ctr;
 
-    record = (lispd_pkt_mapping_record_t *)cur_ptr;
+    record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
     init_identifier(&identifier);
     *cur_ptr = (char *)&(record->eid_prefix_afi);
     if (!pkt_process_eid_afi(cur_ptr,&identifier))
@@ -235,7 +235,7 @@ int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
     char                                *cur_ptr;
 
     cur_ptr = *offset;
-    pkt_locator = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
+    pkt_locator = (lispd_pkt_mapping_record_locator_t *)(*cur_ptr);
 
     cur_ptr = (char *)&(pkt_locator->locator_afi);
 
@@ -385,12 +385,12 @@ int build_and_send_map_reply_msg(lisp_addr_t *src, lisp_addr_t *dst, uint16_t dp
 
     if (src == NULL) {
         syslog(LOG_DAEMON, "build_and_send_map_reply_msg: no source address");
-        return(0);
+        return(BAD);
     }
 
     if (dst == NULL && dst_sa == NULL) {
         syslog(LOG_DAEMON, "build_and_send_map_reply_msg: no destination address");
-        return(0);
+        return(BAD);
     }
 
     if (dst == NULL) {

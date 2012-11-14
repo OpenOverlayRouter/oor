@@ -74,6 +74,14 @@ patricia_tree_t* get_map_cache_db(int afi);
 lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
 
 /*
+ * del_eid_cache_entry()
+ *
+ * Delete an EID mapping from the cache
+ */
+void del_eid_cache_entry(lisp_addr_t eid, int prefixlen);
+
+
+/*
  * lookup_eid_cache_exact()
  *
  * Find an exact match for a prefix/prefixlen if possible

@@ -206,9 +206,9 @@ lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifie
 int send_map_register(lisp_addr_t *ms_address, lispd_pkt_map_register_t *mrp, int mrp_len)
 {
     if (ms_address->afi == AF_INET)
-        return(send_ctrl_ipv4_packet(ms_address,(void *)mrp,mrp_len));
+        return(send_ctrl_ipv4_packet(ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len));
     else
-        return(send_ctrl_ipv6_packet(ms_address,(void *)mrp,mrp_len));
+        return(send_ctrl_ipv6_packet(ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len));
 }
 
 

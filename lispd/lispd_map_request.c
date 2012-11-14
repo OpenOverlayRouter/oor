@@ -91,25 +91,34 @@
 #include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
+#include "lispd_map_cache_db.h"
 #include "lispd_map_reply.h"
 #include "lispd_map_request.h"
 #include "lispd_nonce.h"
 #include "lispd_pkt_lib.h"
+#include "lispd_smr.h"
 #include "patricia/patricia.h"
 #include <time.h>
 
-uint8_t *build_map_request_pkt(dest, eid_prefix, eid_prefix_length,
-        len, nonce, encap, probe, solicit_map_request, smr_invoked)
-lisp_addr_t *dest;
-lisp_addr_t *eid_prefix;
-uint8_t eid_prefix_length;
-int *len; /* return length here */
-uint64_t                 *nonce;            /* return nonce here */
-uint8_t encap;
-uint8_t probe;
-uint8_t solicit_map_request; /* boolean really */
-uint8_t smr_invoked;
 
+/*
+ * Process record and send Map Reply
+ */
+
+int process_map_request_record(char **cur_ptr, lisp_addr_t dst_rloc, uint16_t dst_port, uint8_t rloc_probe);
+
+
+
+uint8_t *build_map_request_pkt(
+		lisp_addr_t 	*dest,
+		lisp_addr_t 	*eid_prefix,
+		uint8_t 		eid_prefix_length,
+		int 			*len, /* return length here */
+		uint64_t        *nonce,            /* return nonce here */
+		uint8_t 		encap,
+		uint8_t 		probe,
+		uint8_t 		solicit_map_request, /* boolean really */
+		uint8_t 		smr_invoked)
 {
 
     struct udphdr                               *udph;
@@ -224,7 +233,7 @@ uint8_t smr_invoked;
         if ((my_itr_addr_len = get_addr_len(AF_INET)) < GOOD) {
             err = my_itr_addr_len;
             free(my_addr);
-            return (err);
+            return (NULL);
         }
     }
     else if(ctrl_iface->ipv6_address && ctrl_iface->head_v6_identifiers_list)
@@ -232,14 +241,14 @@ uint8_t smr_invoked;
         if ((my_itr_addr_len = get_addr_len(AF_INET6)) < GOOD) {
             err = my_itr_addr_len;
             free(my_addr);
-            return (err);
+            return (NULL);
         }
     }
 
     if ((ip_header_len = get_ip_header_len(my_addr->afi)) < GOOD) {
         err = ip_header_len;
         free(my_addr);
-        return (err);
+        return (NULL);
     }
 
     /* 
@@ -565,7 +574,6 @@ int build_and_send_map_request_msg(
 
     uint8_t *packet;
     int      len;               /* return the length here */
-    datacache_elt_t *res_elt = NULL;
     struct sockaddr_storage rloc;
 
 
@@ -609,8 +617,6 @@ int build_and_send_map_request_msg(
  *  Receive a Map_request message and process based on control bits
  *
  *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
- *
- *
  */
 
 int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int afi) {
@@ -618,29 +624,20 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
     lispd_identifier_elt source_identifier;
     lispd_map_cache_entry *map_cache_entry;
     lisp_addr_t itr_rloc[32];
-    lisp_addr_t *tmp_eid;
-    prefix_t eid_prefix;
-    lispd_iid_t eid_iid;
     int itr_rloc_count = 0;
-    int src_eid_afi;
     int itr_rloc_afi;
-    int eid_prefix_afi;
     char *cur_ptr;
-    int afi_len = 0;
     int ip_header_len = 0;
     int len = 0;
-    char eid_name[128];
-    char rloc_name[128];
     lispd_pkt_map_request_t *msg;
     struct ip *iph;
     struct ip6_hdr *ip6h;
     struct udphdr *udph;
     int encap_afi;
-    uint16_t sport = LISP_CONTROL_PORT;
     uint16_t udpsum = 0;
     uint16_t ipsum = 0;
     int udp_len = 0;
-    map_reply_opts opts;
+    uint16_t sport;
     int i;
 
     if (((lispd_pkt_encapsulated_control_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
@@ -653,20 +650,19 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
 
         switch (iph->ip_v) {
         case IPVERSION:
-            ip_header_len = (iph->ip_hl) * 4;
+            ip_header_len = sizeof(struct ip);
             udph = (struct udphdr *) CO(iph, ip_header_len);
             encap_afi = AF_INET;
             break;
         case IP6VERSION:
             ip6h = (struct ip6_hdr *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-            if ((ip_header_len = get_ip_header_len(AF_INET6)) == 0)
-                return(0);
+            ip_header_len = sizeof(struct ip6_hdr);
             udph = (struct udphdr *) CO(ip6h, ip_header_len);
             encap_afi = AF_INET6;
             break;
         default:
             syslog(LOG_DAEMON, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
-            return(0);
+            return(BAD);
         }
 
 #ifdef BSD
@@ -685,34 +681,26 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
             if (ipsum != 0) {
                 syslog(LOG_DAEMON, " Map-Request: IP checksum failed.");
             }
-
             if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-                return(0);
+                return(BAD);
             }
-
             if (udpsum != 0) {
                 syslog(LOG_DAEMON, " Map-Request: UDP checksum failed.");
-                return(0);
-
+                return(BAD);
             }
         }
-
 
         //Pranathi: Added this
         if (iph->ip_v == IP6VERSION) {
 
             if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-                return(0);
+                return(BAD);
             }
-
             if (udpsum != 0) {
                 syslog(LOG_DAEMON, " Map-Request:v6 UDP checksum failed.");
-                return(0);
-
+                return(BAD);
             }
         }
-
-
 
         /*
          * Point msg at the start of the Map-Request payload
@@ -728,25 +716,34 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
 
     /* Source EID is optional in general, but required for SMRs */
     init_identifier(&source_identifier);
-    cur_ptr = &(msg->source_eid_afi);
+    cur_ptr = (char *)&(msg->source_eid_afi);
     if (pkt_process_eid_afi(&cur_ptr, &source_identifier)==BAD){
         if (source_identifier.eid_prefix.afi == -1)
             return BAD;
     }
 
+    /* Process Solicit Map Request */
 
     if (source_identifier.eid_prefix.afi != 0 && msg->solicit_map_request) {
-        /* TODO: Should check first if IID is the same as we are in */
         /*
          * Lookup the map cache entry that match with the source identifier of the message
          */
         if ((err = lookup_eid_cache(source_identifier.eid_prefix, &map_cache_entry)) != GOOD)
             return BAD;
         /*
-         * Only accept a solicit map request for an identifier ->If node has more than one
-         * locator, it probably will receivce a solicit map request for each one.  Only the
-         * first one is considered.
-         * If nonces is different of null, we have already received a solicit map request
+         * Check IID of the received Solicit Map Request match the IID of the map cache
+         */
+        if (map_cache_entry->identifier->iid != source_identifier.iid){
+        	syslog(LOG_INFO,"The IID of the received Solicit Map Request doesn't match the IID of "
+        			"the entry in the map cache");
+        	return BAD;
+        }
+
+        /*
+         * Only accept a solicit map request for an identifier ->If node which generates the message
+         * has more than one locator, it probably will generate a solicit map request for each one.
+         * Only the first one is considered.
+         * If map_cache_entry->nonces is different of null, we have already received a solicit map request
          */
         if (map_cache_entry->nonces == NULL)
             solicit_map_request_reply(NULL,(void *)map_cache_entry);
@@ -766,51 +763,70 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
     }
 
-    /* LJ: The spec says the following:
-     *         For this version of the protocol, a receiver MUST accept and
-     *         process Map-Requests that contain one or more records, but a
-     *         sender MUST only send Map-Requests containing one record.  Support
-     *         for requesting multiple EIDs in a single Map-Request message will
-     *         be specified in a future version of the protocol.
-     *      Since currently a compliant implementation will always ask for a single
-     *      record, we will implement support for more only when the protocol is
-     *      updated.
-     */
-
-    /* Get the requested EID prefix */
-    cur_ptr = CO(cur_ptr, sizeof(uint8_t));
-    eid_prefix.ref_count = 0;
-    eid_prefix.bitlen = *(uint8_t *)cur_ptr;
-    cur_ptr = CO(cur_ptr, sizeof(uint8_t));
-    cur_ptr = pkt_read_eid(cur_ptr, &tmp_eid, &eid_prefix_afi, &eid_iid);
-    eid_prefix.family = eid_prefix_afi;
-    memcpy(&(eid_prefix.add), tmp_eid, get_addr_len(eid_prefix.family));
-
-    /* Set flags for Map-Reply */
-    opts.send_rec   = 1;
-    opts.rloc_probe = 0;
-    opts.echo_nonce = 0;
-
-    if (msg->rloc_probe) {
-        opts.rloc_probe = 1;
-        if(!build_and_send_map_reply_msg(&source_rloc, NULL, 0,
-                from, s, eid_prefix, msg->nonce, opts)) {
-            syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send RLOC-probe reply");
-            return(0);
-        }
-        syslog(LOG_DAEMON, "Sent RLOC-probe reply");
-        return(1);
+    /* Process record and send Map Reply for each one */
+    for (i = 0; i < msg->record_count; i++) {
+    	process_map_request_record(&cur_ptr, itr_rloc[0], sport, msg->rloc_probe);
     }
-
-    if(!build_and_send_map_reply_msg(&source_rloc, &(itr_rloc[0]), sport,
-            NULL, 0, eid_prefix, msg->nonce, opts)) {
-        syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send map-reply");
-        return(0);
-    }
-    inet_ntop(itr_rloc[0].afi, &(itr_rloc[0].address), rloc_name, 128);
-    syslog(LOG_DAEMON, "Sent Map-Reply to %s", rloc_name);
-    return(1);
+    return(GOOD);
 }
+
+/*
+ * Process record and send Map Reply
+ */
+
+int process_map_request_record(char **cur_ptr, lisp_addr_t dst_rloc, uint16_t dst_port, uint8_t rloc_probe)
+{
+	lispd_pkt_request_record_t *record;
+	lispd_identifier_elt requested_identifier;
+	lispd_identifier_elt *identifier;
+	map_reply_opts opts;
+
+	/* Get the requested EID prefix */
+	record = (lispd_pkt_request_record_t *)*cur_ptr;
+	init_identifier(&requested_identifier);
+	*cur_ptr = (char *)&(record->eid_prefix_afi);
+	if ((err=pkt_process_eid_afi(cur_ptr, &requested_identifier))!=GOOD){
+		syslog(LOG_WARNING,"WARNING: Requested EID could not be processed");
+		return (err);
+	}
+	requested_identifier.eid_prefix_length = record->eid_prefix_length;
+
+	/* Check the existence of the requested EID */
+	/* XXX aloepz: We don't use prefix mask and use by default 32 or 128*/
+	if (!lookup_eid_in_db(requested_identifier.eid_prefix, &identifier)){
+		syslog(LOG_WARNING,"The requested EID doesn't belong to this node: %s/%d",
+				get_char_from_lisp_addr_t(requested_identifier.eid_prefix),
+				requested_identifier.eid_prefix_length);
+		return (BAD);
+	}
+
+
+	/* Set flags for Map-Reply */
+	opts.send_rec   = 1;
+	opts.echo_nonce = 0;
+	opts.rloc_probe = rloc_probe;
+
+
+	if (rloc_probe) {
+		if(!build_and_send_map_reply_msg(&source_rloc, NULL, 0,
+				from, s, eid_prefix, msg->nonce, opts)) {
+			syslog(LOG_ERR, "process_map_request_msg: couldn't build/send RLOC-probe reply");
+			return(BAD);
+		}
+		syslog(LOG_INFO, "Sent RLOC-probe reply");
+		return(GOOD);
+	}
+
+	if(!build_and_send_map_reply_msg(&source_rloc, &(itr_rloc[0]), sport,
+			NULL, 0, eid_prefix, msg->nonce, opts)) {
+		syslog(LOG_ERR, "process_map_request_msg: couldn't build/send map-reply");
+		return(BAD);
+	}
+	syslog(LOG_DAEMON, "Sent Map-Reply to %s", get_char_from_lisp_addr_t(dst_rloc));
+
+	return (GOOD);
+}
+
 
 void send_map_request_miss(timer *t, void *arg)
 {
