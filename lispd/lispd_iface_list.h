@@ -135,4 +135,8 @@ void open_iface_binded_sockets();
 
 lispd_iface_elt *get_output_iface();
 
+lispd_iface_elt *get_default_output_iface(int afi);
+
+void set_default_output_ifaces();
+
 #endif /*LISPD_IFACE_LIST_H_*/

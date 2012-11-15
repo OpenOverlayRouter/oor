@@ -38,6 +38,9 @@ iface_list  *avail_phy_ifaces = NULL;
 
 lispd_iface_list_elt *head_interface_list = NULL;
 
+lispd_iface_elt *default_out_iface_v4;
+lispd_iface_elt *default_out_iface_v6;
+
 
 lispd_iface_elt *add_interface(char *iface_name)
 {
@@ -411,15 +414,67 @@ void open_iface_binded_sockets(){
     
 }
 
+/* Search the iface list for the first UP iface that has an 'afi' address*/
 
-lispd_iface_elt *get_output_iface(){
+lispd_iface_elt *get_output_iface(int afi){
+
+    lispd_iface_elt *iface;
+    lispd_iface_list_elt *iface_list_elt;
+
+    iface_list_elt = head_interface_list;
+
+    iface = NULL;
+    
+    switch (afi){
+        case AF_INET:
+            while ((iface_list_elt!=NULL)
+                && (iface_list_elt->iface->ipv4_address!=NULL)
+                && (iface_list_elt->iface->status == UP)) {
+
+                iface = iface_list_elt->iface;
+                iface_list_elt = iface_list_elt->next;
+            }
+            break;
+        case AF_INET6:
+            while ((iface_list_elt!=NULL)
+                && (iface_list_elt->iface->ipv6_address!=NULL)
+                && (iface_list_elt->iface->status == UP)) {
+
+                iface = iface_list_elt->iface;
+                iface_list_elt = iface_list_elt->next;
+            }
+            break;
+        default:
+            syslog(LOG_ERR, "get_output_iface: unknown afi %d",afi);
+    }
+
+    return iface;
+}
+
+lispd_iface_elt *get_default_output_iface(int afi){
+
     lispd_iface_elt *iface;
 
-    do {
-        
-    }while(iface->status);
+    switch (afi){
+        case AF_INET:
+            iface = default_out_iface_v4;
+            break;
+        case AF_INET6:
+            iface = default_out_iface_v6;
+            break;
+        default:
+            //arnatal TODO: syslog
+            iface = NULL;
+    }
 
-    return head_interface_list->iface;
+    return iface;
+}
+
+void set_default_output_ifaces(){
+
+    default_out_iface_v4 = get_output_iface(AF_INET);
+    default_out_iface_v6 = get_output_iface(AF_INET6);
+
 }
 
 /*

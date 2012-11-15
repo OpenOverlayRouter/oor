@@ -307,6 +307,28 @@ typedef int32_t lispd_iid_t;
 #define MIN_PRIORITY 254
 #define UNUSED_RLOC_PRIORITY 255
 
+/* LISP data packet header */
+
+typedef struct lisphdr {
+    #ifdef __LITTLE_ENDIAN_BITFIELD
+    uint8_t rflags:3;
+    uint8_t instance_id:1;
+    uint8_t map_version:1;
+    uint8_t echo_nonce:1;
+    uint8_t lsb:1;
+    uint8_t nonce_present:1;
+    #else
+    uint8_t nonce_present:1;
+    uint8_t lsb:1;
+    uint8_t echo_nonce:1;
+    uint8_t map_version:1;
+    uint8_t instance_id:1;
+    uint8_t rflags:3;
+    #endif
+    uint8_t nonce[3];
+    uint32_t lsb_bits;
+} lisphdr_t;
+
 
 /*
  * Lisp address structure

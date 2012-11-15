@@ -337,7 +337,7 @@ int main(int argc, char **argv)
 
     open_iface_binded_sockets();
 
-
+    set_default_output_ifaces();
     
     
     //data_out_socket = open_device_binded_raw_socket(device,AF_INET);
