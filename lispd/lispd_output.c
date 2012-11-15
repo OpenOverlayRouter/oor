@@ -345,20 +345,12 @@ void process_output_packet ( int fd, char *tun_receive_buf, unsigned int tun_rec
     
     printf ( "In tuntap_process_output_packet\n" );
     
-    
-    iph = ( struct iphdr * ) tun_receive_buf;
-    
-    if (iph->version == 4){
         
-        lisp_output4 ( tun_receive_buf, nread );
-    }else{
-        // arnatal TODO: support IPv6
-        syslog(LOG_DEBUG,"IPv6 Packet received: %s\n",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(tun_receive_buf)));
-    }
+    lisp_output ( tun_receive_buf, nread );
 }
 
 
-int lisp_output4 ( char *original_packet, int original_packet_length ) {
+int lisp_output ( char *original_packet, int original_packet_length ) {
     lispd_iface_elt *iface;
     
     char *encap_packet;
@@ -378,7 +370,7 @@ int lisp_output4 ( char *original_packet, int original_packet_length ) {
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
     syslog(LOG_DEBUG,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
     
-    encap_afi = original_dst_addr.afi;
+    encap_afi = original_dst_addr.afi; //arnatal TODO: how tho choose encapsulation api?
     
     //arnatal XXX TODO check if this works
     map_cache_query_result = lookup_eid_cache(original_dst_addr,&entry);
