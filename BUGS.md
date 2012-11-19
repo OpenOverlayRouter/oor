@@ -7,3 +7,4 @@ Known Bugs
   * Sometime a Map-Register is sent on SMRs (not due ifdown) but afterwards. Should be sent before
   * Once an SMR is sent, Wireshark detects Map-Register and Map-Reply packets as "malformed"
   * LSBs are harcoded to 1
+  * XEN kernel not supported
