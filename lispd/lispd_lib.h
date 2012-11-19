@@ -266,4 +266,6 @@ int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t por
 
 int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst);
 
+
 #endif /*LISPD_LIB_H_*/
+

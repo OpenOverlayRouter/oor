@@ -12,3 +12,6 @@ lispd
 
 # Local configuration file
 lispd.conf
+
+#temp kate files
+*~

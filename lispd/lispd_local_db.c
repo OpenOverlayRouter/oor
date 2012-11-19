@@ -530,4 +530,26 @@ void dump_local_eids()
     }
 }
 
+//modified by arnatal
+lisp_addr_t get_main_eid(int afi){
+    lisp_addr_t               eid;
+    patricia_node_t           *node;
+    lispd_identifier_elt        *entry;
+    patricia_tree_t *database;
 
+    switch (afi){
+        case AF_INET:
+            database = EIDv4_database;
+            break;
+        case AF_INET6:
+            database = EIDv6_database;
+            break;
+    }
+    
+    PATRICIA_WALK(database->head, node) {
+        entry = ((lispd_identifier_elt *)(node->data));
+        eid = entry->eid_prefix;
+    } PATRICIA_WALK_END;
+    
+    return eid;
+}

@@ -41,6 +41,8 @@
 #endif /* KERNEL */
 
 
+#include "lispd.h"
+
 /*
  * Constants
  */
