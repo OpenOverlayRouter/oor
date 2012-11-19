@@ -574,7 +574,7 @@ int build_and_send_map_request_msg(
 
     uint8_t *packet;
     int      len;               /* return the length here */
-    struct sockaddr_storage rloc;
+    //struct sockaddr_storage rloc;
 
 
     packet = build_map_request_pkt(dst_rloc_addr,
@@ -762,7 +762,7 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
         itr_rloc[i].afi = itr_rloc_afi;
         cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
     }
-
+    /* TODO alopez: We send first RLOC. We should check ip version and reachability */
     /* Process record and send Map Reply for each one */
     for (i = 0; i < msg->record_count; i++) {
     	process_map_request_record(&cur_ptr, itr_rloc[0], sport, msg->rloc_probe);

@@ -93,6 +93,26 @@
 #include "lispd.h"
 #include "lispd_map_cache_db.h"
 
+/*
+ * Map Request Record
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    / |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
+ *  Rec +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    \ |                       EID-prefix  ...                         |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+/*
+ * Fixed portion of the request record. EID prefix address follow.
+ */
+
+typedef struct lispd_pkt_request_record_t_ {
+    uint8_t reserved;
+    uint8_t eid_prefix_length;
+    uint16_t eid_prefix_afi;
+} PACKED lispd_pkt_request_record_t;
+
+
 
 int send_map_request(uint8_t *packet, int packet_len, lisp_addr_t *resolver);
 
