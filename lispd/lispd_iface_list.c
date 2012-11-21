@@ -416,7 +416,7 @@ void open_iface_binded_sockets(){
 
 /* Search the iface list for the first UP iface that has an 'afi' address*/
 
-lispd_iface_elt *get_output_iface(int afi){
+lispd_iface_elt *get_any_output_iface(int afi){
 
     lispd_iface_elt *iface;
     lispd_iface_list_elt *iface_list_elt;
@@ -472,9 +472,27 @@ lispd_iface_elt *get_default_output_iface(int afi){
 
 void set_default_output_ifaces(){
 
-    default_out_iface_v4 = get_output_iface(AF_INET);
-    default_out_iface_v6 = get_output_iface(AF_INET6);
+    default_out_iface_v4 = get_any_output_iface(AF_INET);
+    default_out_iface_v6 = get_any_output_iface(AF_INET6);
 
+}
+
+
+lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi){
+    
+    lisp_addr_t *addr;
+    
+    switch(afi){
+        case AF_INET:
+            addr = iface->ipv4_address;
+            break;
+        case AF_INET6:
+            addr = iface->ipv6_address;
+            break;
+    }
+    
+    return addr;
+    
 }
 
 /*

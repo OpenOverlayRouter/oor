@@ -336,10 +336,71 @@ lisp_addr_t *get_proxy_etr(int afi){
     return petr;
 }
 
+lisp_addr_t *get_default_locator_addr(lispd_map_cache_entry *entry, int afi){
+
+    lisp_addr_t *addr;
+    
+    switch(afi){ 
+        case AF_INET:
+            addr = entry->identifier->head_v4_locators_list->locator->locator_addr;
+            break;
+        case AF_INET6:
+            addr = entry->identifier->head_v6_locators_list->locator->locator_addr;
+            break;
+    }
+    
+    return addr;
+}
+
+
+int is_lisp_packet(char *packet, int packet_length){
+
+    struct iphdr *iph;
+    struct ip6_hdr *ip6h;
+    int ipXh_len;
+    int lvl4proto;
+    struct udphdr *udh;
+    
+    iph = (struct iphdr *) packet;
+    
+    if (iph->version == 4 ) {
+        lvl4proto = iph->protocol;
+        ipXh_len = sizeof(struct iphdr);
+        
+    } else {
+        ip6h = (struct ip6_hdr *) packet;
+        lvl4proto = ip6h->ip6_nxt; //arnatal XXX: Supposing no extra headers
+        ipXh_len = sizeof(struct ip6_hdr);
+
+    }
+    /*
+     * Don't encapsulate LISP messages
+     */
+    
+    if (lvl4proto != IPPROTO_UDP) {
+        return FALSE;
+    }
+
+    udh = (struct udphdr *)packet + ipXh_len;
+        
+    /*
+     * If either of the udp ports are the control port or data, allow
+     * to go out natively. This is a quick way around the
+     * route filter which rewrites the EID as the source address.
+     */
+    if ((ntohs(udh->dest) != LISP_CONTROL_PORT) &&
+        (ntohs(udh->source) != LISP_CONTROL_PORT) &&
+        (ntohs(udh->source) != LISP_DATA_PORT) &&
+        (ntohs(udh->dest) != LISP_DATA_PORT) ) {
+
+        return FALSE;
+        }
+
+    return TRUE;
+    }
 
 void process_output_packet ( int fd, char *tun_receive_buf, unsigned int tun_receive_size ) {
     int nread;
-    struct iphdr *iph;
     
     nread = read ( fd, tun_receive_buf, tun_receive_size );
     
@@ -361,17 +422,26 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     lisp_addr_t original_dst_addr;
     lispd_map_cache_entry *entry;
     
-    int encap_afi;
-    
+    int default_encap_afi;
+
+
     
     //arnatal: TODO: Check if local -> Do not encapsulate
-    //arnatal: TODO: Check if lisp packet (control or already encapsulated)
+    
     
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
     syslog(LOG_DEBUG,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
     
-    encap_afi = original_dst_addr.afi; //arnatal TODO: how tho choose encapsulation api?
-    
+    default_encap_afi = original_dst_addr.afi; //arnatal TODO: Choose proper encapsulation afi
+
+
+    if (is_lisp_packet(original_packet,original_packet_length) == TRUE){
+        return (fordward_native(get_default_output_iface(default_encap_afi),
+                                original_packet,
+                                original_packet_length));
+    }
+
+
     //arnatal XXX TODO check if this works
     map_cache_query_result = lookup_eid_cache(original_dst_addr,&entry);
     
@@ -385,38 +455,30 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     if ((map_cache_query_result != GOOD) || (entry->active == NO_ACTIVE)){ /* There is no entry or is not active*/
         
         /* Try to fordward to petr*/
-        if (fordward_to_petr(get_default_output_iface(encap_afi), /* Use afi of original dst for encapsulation */
-            original_packet,
-            original_packet_length,
-            encap_afi) != GOOD){
+        if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
+                             original_packet,
+                             original_packet_length,
+                             default_encap_afi) != GOOD){
             /* If error, fordward native*/
-            fordward_native(get_default_output_iface(encap_afi),
-                original_packet,
-                original_packet_length);
+            return (fordward_native(get_default_output_iface(default_encap_afi),
+                                    original_packet,
+                                    original_packet_length));
             }
             return GOOD;
     }
     
     /* There is an entry in the map cache */
     
-    iface = get_default_output_iface(encap_afi);
+    iface = get_default_output_iface(default_encap_afi);
     
-    
-    switch(encap_afi){ //arnatal XXX: is this necessary? Maybe changing the names of head_vX_locator_list, etc...
-        case AF_INET:
-            outer_dst_addr = entry->identifier->head_v4_locators_list->locator->locator_addr;
-            outer_src_addr = iface->ipv4_address;
-            break;
-        case AF_INET6:
-            outer_dst_addr = entry->identifier->head_v6_locators_list->locator->locator_addr;
-            outer_src_addr = iface->ipv6_address;
-            break;
-    }
-    
+
+    outer_src_addr = get_iface_address(iface,default_encap_afi);
+    outer_dst_addr = get_default_locator_addr(entry,default_encap_afi);
+        
     
     encapsulate_packet(original_packet,
                        original_packet_length,
-                       encap_afi,
+                       default_encap_afi,
                        outer_src_addr,
                        outer_dst_addr,
                        LISP_DATA_PORT,
@@ -428,7 +490,6 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     send_by_raw_socket (iface,encap_packet,encap_packet_size);
     
     free (encap_packet);
-    free (original_packet);
     
     return GOOD;
 }

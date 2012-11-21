@@ -223,7 +223,7 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
 
 
 
-int install_default_route(int tun_ifindex, int afi)
+int install_default_route(int tun_ifindex, int afi) //XXX: check for IPv6
 {
     struct nlmsghdr *nlh;
     struct rtmsg    *rtm;
