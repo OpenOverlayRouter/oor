@@ -82,8 +82,15 @@ typedef struct lispd_identifier_elt_ {
     uint16_t                        locator_count;
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
-    lispd_locator_elt               *v4_locator_has_table[100]; /* Used to do traffic balancing between RLOCs*/
-    lispd_locator_elt               *v6_locator_has_table[100]; /* Used to do traffic balancing between RLOCs*/
+    /*
+     * Used to do traffic balancing between RLOCs
+     *  v4_locator_hash_table: If we just have IPv4 RLOCs
+     *  v6_locator_hash_table: If we just hace IPv6 RLOCs
+     *  locator_hash_table: If we have IPv4 & IPv6 RLOCs
+     */
+    lispd_locator_elt               *v4_locator_hash_table[20]; /* Used to do traffic balancing between RLOCs.*/
+    lispd_locator_elt               *v6_locator_hash_table[20]; /* Used to do traffic balancing between RLOCs*/
+    lispd_locator_elt               *locator_hash_table[20];
 } lispd_identifier_elt;
 
 /*

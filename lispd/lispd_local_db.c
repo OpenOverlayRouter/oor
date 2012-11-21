@@ -85,10 +85,12 @@ void init_identifier (lispd_identifier_elt *identifier)
     identifier->locator_count = 0;
     identifier->head_v4_locators_list = NULL;
     identifier->head_v6_locators_list = NULL;
-    for (i = 0 ; i < 100 ; i++)
-    	identifier->v4_locator_has_table[i] = NULL;
-    for (i = 0 ; i < 100 ; i++)
-        identifier->v6_locator_has_table[i] = NULL;
+    for (i = 0 ; i < 20 ; i++)
+    	identifier->v4_locator_hash_table[i] = NULL;
+    for (i = 0 ; i < 20 ; i++)
+        identifier->v6_locator_hash_table[i] = NULL;
+    for (i = 0 ; i < 20 ; i++)
+        identifier->locator_hash_table[i] = NULL;
 }
 
 
@@ -165,10 +167,12 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
     identifier->iid = iid;
     identifier->head_v4_locators_list = NULL;
     identifier->head_v6_locators_list = NULL;
-    for (i = 0 ; i < 100 ; i++)
-            identifier->v4_locator_has_table[i] = NULL;
-    for (i = 0 ; i < 100 ; i++)
-            identifier->v6_locator_has_table[i] = NULL;
+    for (i = 0 ; i < 20 ; i++)
+            identifier->v4_locator_hash_table[i] = NULL;
+    for (i = 0 ; i < 20 ; i++)
+            identifier->v6_locator_hash_table[i] = NULL;
+    for (i = 0 ; i < 20 ; i++)
+            identifier->locator_hash_table[i] = NULL;
 
     /*Add identifier to the data base */
     if (add_identifier(identifier)!=GOOD)
@@ -271,7 +275,7 @@ int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_
   if (lookup_eid_exact_node(eid_prefix,eid_prefix_length, &result)!=GOOD)
   {
       syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid_prefix));
-      return(BAD);
+      return(FALSE);
   }
   *identifier = (lispd_identifier_elt *)(result->data);
 

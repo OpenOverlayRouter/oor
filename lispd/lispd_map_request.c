@@ -105,8 +105,13 @@
  * Process record and send Map Reply
  */
 
-int process_map_request_record(char **cur_ptr, lisp_addr_t dst_rloc, uint16_t dst_port, uint8_t rloc_probe);
-
+int process_map_request_record(
+        char **cur_ptr,
+        lisp_addr_t src_rloc,
+        lisp_addr_t dst_rloc,
+        uint16_t dst_port,
+        uint8_t rloc_probe,
+        uint64_t nonce);
 
 
 uint8_t *build_map_request_pkt(
@@ -147,14 +152,13 @@ uint8_t *build_map_request_pkt(
 
     eid_afi = get_lisp_afi(eid_prefix->afi, &eid_len);
 
-    /* my_addr must have same afi as requested EID */
+
+
+    /*
     if (!(ctrl_iface)) {
-        /* 
-         * No physical interface available for control messages
-         */
         syslog(LOG_DAEMON, "(build_map_request_pkt): Unable to find valid physical interface\n");
         return (ERR_CTR_IFACE);
-    }
+    }*/
 
     if (!encap) {
         if ((my_addr = get_my_addr(ctrl_iface->iface_name, dest->afi)) == NULL) {
@@ -573,7 +577,7 @@ int build_and_send_map_request_msg(
 {
 
     uint8_t *packet;
-    int      len;               /* return the length here */
+    int      mrp_len;               /* return the length here */
     //struct sockaddr_storage rloc;
 
 
@@ -639,6 +643,8 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
     int udp_len = 0;
     uint16_t sport;
     int i;
+
+    /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
 
     if (((lispd_pkt_encapsulated_control_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
 
@@ -722,7 +728,7 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
             return BAD;
     }
 
-    /* Process Solicit Map Request */
+    /* If packet is a Solicit Map Request, process it */
 
     if (source_identifier.eid_prefix.afi != 0 && msg->solicit_map_request) {
         /*
@@ -765,7 +771,7 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
     /* TODO alopez: We send first RLOC. We should check ip version and reachability */
     /* Process record and send Map Reply for each one */
     for (i = 0; i < msg->record_count; i++) {
-    	process_map_request_record(&cur_ptr, itr_rloc[0], sport, msg->rloc_probe);
+    	process_map_request_record(&cur_ptr, itr_rloc[0], sport, msg->rloc_probe, msg->nonce);
     }
     return(GOOD);
 }
@@ -774,7 +780,13 @@ int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int a
  * Process record and send Map Reply
  */
 
-int process_map_request_record(char **cur_ptr, lisp_addr_t dst_rloc, uint16_t dst_port, uint8_t rloc_probe)
+int process_map_request_record(
+        char **cur_ptr,
+        lisp_addr_t src_rloc,
+        lisp_addr_t dst_rloc,
+        uint16_t dst_port,
+        uint8_t rloc_probe,
+        uint64_t nonce)
 {
 	lispd_pkt_request_record_t *record;
 	lispd_identifier_elt requested_identifier;
@@ -807,9 +819,18 @@ int process_map_request_record(char **cur_ptr, lisp_addr_t dst_rloc, uint16_t ds
 	opts.rloc_probe = rloc_probe;
 
 
+	/*
+	 *  lispd_identifier_elt *requested_identifier,
+        lisp_addr_t *dst_rloc,
+        uint16_t dport,
+        uint64_t nonce,
+        map_reply_opts opts);
+	 *
+	 */
+
+
 	if (rloc_probe) {
-		if(!build_and_send_map_reply_msg(&source_rloc, NULL, 0,
-				from, s, eid_prefix, msg->nonce, opts)) {
+		if(!build_and_send_map_reply_msg(identifier, &dst_rloc, dst_port, nonce, opts)) {
 			syslog(LOG_ERR, "process_map_request_msg: couldn't build/send RLOC-probe reply");
 			return(BAD);
 		}

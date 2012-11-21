@@ -174,10 +174,10 @@ void *pkt_fill_eid(void         *offset,
 }
 
 
-void *pkt_fill_mapping_record(rec, identifier, opts)
+void *pkt_fill_mapping_record(rec, identifier, probed_rloc)
     lispd_pkt_mapping_record_t              *rec;
     lispd_identifier_elt                    *identifier;
-    map_reply_opts                          *opts;
+    lisp_addr_t                             *probed_rloc;
 {
     int                                     cpy_len = 0;
     lispd_pkt_mapping_record_locator_t      *loc_ptr;
@@ -219,7 +219,7 @@ void *pkt_fill_mapping_record(rec, identifier, opts)
                 loc_ptr->mpriority   = locator->mpriority;
                 loc_ptr->mweight     = locator->mweight;
                 loc_ptr->local       = 1;
-                if (opts && opts->rloc_probe)
+                if (probed_rloc && compare_lisp_addr_t(locator->locator_addr,probed_rloc)==0)
                     loc_ptr->probed  = 1;       /* XXX probed locator, should check addresses */
                 loc_ptr->reachable   = locator->state && 1;
                 loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
@@ -306,7 +306,7 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
 
 
     if ((s = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) < 0) {
-        syslog(LOG_DAEMON, "socket (send_map_register): %s", strerror(errno));
+        syslog(LOG_ERR, "socket (send_ctrl_ipv4_packet): %s", strerror(errno));
         return(BAD);
     }
 
@@ -315,11 +315,11 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
      */
     if (!(ctrl_iface)) {
         /* No physical interface available for control messages */
-        syslog(LOG_DAEMON, "(send_map_register): Unable to find valid physical interface\n");
+        syslog(LOG_ERR, "(send_ctrl_ipv4_packet): Unable to find valid physical interface\n");
         return (BAD);
     }
     else if (!(ctrl_iface->ipv4_address)){
-        syslog(LOG_DAEMON, "(send_map_register): Control interface doesn't have an IPv4 address\n");
+        syslog(LOG_ERR, "(send_ctrl_ipv4_packet): Control interface doesn't have an IPv4 address\n");
         return (BAD);
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
@@ -331,7 +331,7 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     src.sin_addr.s_addr  = ctrl_iface->ipv4_address->address.ip.s_addr;
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
-        syslog(LOG_DAEMON, "bind (send_map_register): %s", strerror(errno));
+        syslog(LOG_ERR, "bind (send_ctrl_ipv4_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
@@ -350,13 +350,13 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
             0,
             (struct sockaddr *)&dst,
             sizeof(struct sockaddr))) < 0) {
-        syslog(LOG_DEBUG,"sendto (send_ctrl_ipv4_packet): %s", strerror(errno));
+        syslog(LOG_ERR,"sendto (send_ctrl_ipv4_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
 
     if (nbytes != packet_len) {
-        syslog(LOG_WARNING,
+        syslog(LOG_ERR,
                 "send_ctrl_ipv4_packet: nbytes (%d) != packet (%d)\n",
                 nbytes, packet_len);
         close(s);
@@ -377,7 +377,7 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
 
 
     if ((s = socket(AF_INET6,SOCK_DGRAM,IPPROTO_UDP)) < 0) {
-        syslog(LOG_DAEMON, "socket (send_map_register): %s", strerror(errno));
+        syslog(LOG_ERR, "socket (send_ctrl_ipv6_packet): %s", strerror(errno));
         return(BAD);
     }
 
@@ -386,11 +386,11 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
      */
     if (!(ctrl_iface)) {
         /* No physical interface available for control messages */
-        syslog(LOG_DAEMON, "(send_map_register): Unable to find valid physical interface\n");
+        syslog(LOG_ERR, "(send_ctrl_ipv6_packet): Unable to find valid physical interface\n");
         return (BAD);
     }
     else if (!(ctrl_iface->ipv6_address)){
-        syslog(LOG_DAEMON, "(send_map_register): Control interface doesn't have an IPv4 address\n");
+        syslog(LOG_ERR, "(send_ctrl_ipv6_packet): Control interface doesn't have an IPv4 address\n");
         return (BAD);
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
@@ -402,7 +402,7 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     memcpy(&src.sin6_addr,&(ctrl_iface->ipv6_address->address.ipv6),sizeof(struct in6_addr));
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
-        syslog(LOG_DAEMON, "bind (send_map_register): %s", strerror(errno));
+        syslog(LOG_ERR, "bind (send_ctrl_ipv6_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
@@ -423,13 +423,13 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
             0,
             (struct sockaddr *)&dst,
             sizeof(struct sockaddr))) < 0) {
-        syslog(LOG_DEBUG,"sendto (send_ctrl_ipv6_packet): %s", strerror(errno));
+        syslog(LOG_ERR,"sendto (send_ctrl_ipv6_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
 
     if (nbytes != packet_len) {
-        syslog(LOG_WARNING,
+        syslog(LOG_ERR,
                 "send_ctrl_ipv6_packet: nbytes (%d) != packet_len (%d)\n",
                 nbytes, packet_len);
         close(s);

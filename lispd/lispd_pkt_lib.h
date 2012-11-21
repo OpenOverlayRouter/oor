@@ -42,7 +42,7 @@ void *pkt_fill_eid(void *offset, lispd_identifier_elt *identifier);
 void *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
     lispd_identifier_elt                    *identifier,
-    map_reply_opts                          *opts);
+    lisp_addr_t                             *probed_rloc);
 
 void *pkt_read_eid(
     void                    *offset,
