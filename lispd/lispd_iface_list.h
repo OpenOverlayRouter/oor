@@ -35,6 +35,7 @@
 
 #include "lispd.h"
 #include "lispd_local_db.h"
+#include "lispd_sockets.h"
 
 /*
  * Interface structure

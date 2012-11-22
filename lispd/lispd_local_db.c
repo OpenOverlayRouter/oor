@@ -184,6 +184,7 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
 int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node)
 {
   prefix_t prefix;
+  *node=NULL;
 
   switch(eid.afi) {
         case AF_INET:
@@ -204,7 +205,7 @@ int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node)
             break;
     }
 
-  if (!node)
+  if (*node==NULL)
   {
       syslog (LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
       return(BAD);

@@ -26,7 +26,7 @@
  {
      uint8_t                 packet[4096];
      int                     recv_len;
-     int                     fromlen4 = sizeof(struct sockaddr_in);
+     socklen_t                     fromlen4 = sizeof(struct sockaddr_in);
      struct sockaddr_in      s4;
      
      printf("tuntap_process_input_packet\n");
