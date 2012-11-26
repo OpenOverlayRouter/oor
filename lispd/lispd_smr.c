@@ -107,7 +107,7 @@ void init_smr()
     } PATRICIA_WALK_END;
 }*/
 
-void solicit_map_request_reply(timer *t, void *arg)
+int solicit_map_request_reply(timer *t, void *arg)
 {
     lispd_map_cache_entry *map_cache_entry = (lispd_map_cache_entry *)arg;
     nonces_list *nonces = map_cache_entry->nonces;
@@ -115,7 +115,7 @@ void solicit_map_request_reply(timer *t, void *arg)
         nonces = new_nonces_list();
         if (nonces==NULL){
             syslog (LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
-            return;
+            return (BAD);
         }
         map_cache_entry->nonces = nonces;
     }
@@ -124,7 +124,7 @@ void solicit_map_request_reply(timer *t, void *arg)
        /* if((err = build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
                 map_cache_entry->identifier->eid_prefix_length, map_resolvers->address,1, 0, 0, 1,
                 &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
-            syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send SMR triggered Map-Request");
+            syslog(LOG_DAEMON, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
             // TODO process error
         }*/
         nonces->retransmits ++;
@@ -132,7 +132,7 @@ void solicit_map_request_reply(timer *t, void *arg)
         if (map_cache_entry->smr_timer == NULL)
             map_cache_entry->smr_timer = create_timer ("SMR RETRY");
         start_timer(map_cache_entry->smr_timer, LISPD_INITIAL_SMR_TIMEOUT,
-                solicit_map_request_reply, (void *)map_cache_entry);
+                (timer_callback)solicit_map_request_reply, (void *)map_cache_entry);
 
     }else{
         free(map_cache_entry->nonces);
@@ -143,5 +143,6 @@ void solicit_map_request_reply(timer *t, void *arg)
                 get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
                 map_cache_entry->identifier->eid_prefix_length);
     }
+    return (GOOD);
 }
 

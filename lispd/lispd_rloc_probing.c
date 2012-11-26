@@ -38,7 +38,7 @@
  *
  */
 
-void rloc_probing(timer *t, void *arg)
+int rloc_probing(timer *t, void *arg)
 {
     lispd_map_cache_entry   *map_cache_entry = (lispd_map_cache_entry *)arg;
     lispd_identifier_elt    *identifier = map_cache_entry->identifier;
@@ -126,11 +126,10 @@ void rloc_probing(timer *t, void *arg)
      */
     if (map_cache_entry->probe_left > 0){
         start_timer(map_cache_entry->probe_timer, LISPD_INITIAL_PROBE_TIMEOUT,
-                        rloc_probing, (void *)map_cache_entry);
+                        (timer_callback)rloc_probing, (void *)map_cache_entry);
     }else{
         start_timer(map_cache_entry->probe_timer, RLOC_PROBING_INTERVAL,
-                        rloc_probing, (void *)map_cache_entry);
+                        (timer_callback)rloc_probing, (void *)map_cache_entry);
     }
-
-
+    return (GOOD);
 }

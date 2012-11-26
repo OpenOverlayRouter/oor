@@ -65,7 +65,7 @@
 
 #include "lispd.h"
 
-int process_map_reply(char *packet);
+int process_map_reply(uint8_t *packet);
 
 int build_and_send_map_reply_msg(
         lispd_identifier_elt *requested_identifier,

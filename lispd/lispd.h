@@ -109,7 +109,7 @@
  *
  */
 
-#define CO(addr,len) (((char *) addr + len))
+#define CO(addr,len) (((uint8_t *) addr + len))
 
 
 /*

@@ -32,17 +32,12 @@
 
 #include "lispd_afi.h"
 
-int pkt_process_eid_afi(char  **offset,
-        lispd_identifier_elt *identifier);
 
-int pkt_process_rloc_afi(char  **offset,
-        lispd_locator_elt *locator);
-
-int pkt_process_eid_afi(char  **offset,
+int pkt_process_eid_afi(uint8_t  **offset,
         lispd_identifier_elt *identifier)
 {
 
-    char                    *cur_ptr;
+    uint8_t                 *cur_ptr;
     lispd_pkt_lcaf_t        *lcaf_ptr;
     uint16_t                 lisp_afi;
 
@@ -91,10 +86,10 @@ int pkt_process_eid_afi(char  **offset,
 
 
 
-int pkt_process_rloc_afi(char  **offset,
+int pkt_process_rloc_afi(uint8_t  **offset,
         lispd_locator_elt *locator)
 {
-    char                    *cur_ptr;
+    uint8_t                  *cur_ptr;
     uint16_t                 lisp_afi;
 
     cur_ptr  = *offset;

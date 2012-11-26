@@ -254,6 +254,6 @@ void handle_timers(void)
             callback = tptr->cb;
             (*callback)(tptr, tptr->cb_argument);
         }
-        tptr = next;
+        tptr = (timer *)next;
     }
 }

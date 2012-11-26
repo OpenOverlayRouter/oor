@@ -54,6 +54,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <linux/netlink.h>
+#include "cksum.h"
 #include "lispd_lib.h"
 #include "lispd_external.h"
 #include "lispd_map_request.h"
@@ -1057,7 +1058,7 @@ struct udphdr *build_ip_header(
         iph->ip_src.s_addr = src_addr->address.ip.s_addr;
         iph->ip_dst.s_addr = dst_addr->address.ip.s_addr;
         iph->ip_sum        = 0;
-        iph->ip_sum        = ip_checksum(iph, sizeof(struct ip));
+        iph->ip_sum        = ip_checksum((uint16_t *)cur_ptr, sizeof(struct ip));
 
         udph              = (struct udphdr *) CO(iph,sizeof(struct ip));
         break;
@@ -1490,14 +1491,14 @@ int retrieve_lisp_msg(s, packet, from, afi)
 #ifdef DEBUG
         syslog(LOG_DAEMON, "Received a LISP Encapsulated Map-Request message");
 #endif
-        if(!process_map_request_msg(packet, s, from, afi))
+        if(!process_map_request_msg(packet, NULL)) // XXX alopez: Null should be set to local RLOC
             return (0);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
 #ifdef DEBUG
         syslog(LOG_DAEMON, "Received a LISP Map-Request message");
 #endif
-        if(!process_map_request_msg(packet, s, from, afi))
+        if(!process_map_request_msg(packet, NULL))// XXX alopez: Null should be set to local RLOC
             return (0);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore

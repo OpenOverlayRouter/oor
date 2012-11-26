@@ -115,7 +115,7 @@ int map_register(timer *t, void *arg)
                             (uchar *) map_register_pkt->auth_data,
                             &md_len)) {
                         syslog(LOG_DAEMON, "HMAC failed for map-register");
-                        return(0);
+                        return(BAD);
                     }
 
                     /* Send the map register */

@@ -107,7 +107,7 @@
  */
 
 int process_map_request_record(
-        char **cur_ptr,
+        uint8_t **cur_ptr,
         lisp_addr_t *src_rloc,
         lisp_addr_t *dst_rloc,
         uint16_t dst_port,
@@ -160,7 +160,7 @@ int add_encap_headers(
      lisp_addr_t *remote_rloc;
      int itr_rloc_count = 0;
      int itr_rloc_afi;
-     char *cur_ptr;
+     uint8_t *cur_ptr;
      int ip_header_len = 0;
      int len = 0;
      lispd_pkt_map_request_t *msg;
@@ -252,7 +252,7 @@ int add_encap_headers(
 
      /* Source EID is optional in general, but required for SMRs */
      init_identifier(&source_identifier);
-     cur_ptr = (char *)&(msg->source_eid_afi);
+     cur_ptr = (uint8_t *)&(msg->source_eid_afi);
      if (pkt_process_eid_afi(&cur_ptr, &source_identifier)==BAD){
          if (source_identifier.eid_prefix.afi == -1)
              return BAD;
@@ -297,7 +297,7 @@ int add_encap_headers(
          memcpy(&(itr_rloc[i].address), cur_ptr, get_addr_len(itr_rloc_afi));
          itr_rloc[i].afi = itr_rloc_afi;
          cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
-         if (!remote_rloc &&  itr_rloc[i].afi == local_rloc->afi){
+         if (!remote_rloc ){ // XXX alopez: Uncoment this when support src address: &&  itr_rloc[i].afi == local_rloc->afi){
              remote_rloc = &itr_rloc[i];
          }
      }
@@ -315,7 +315,7 @@ int add_encap_headers(
   */
 
  int process_map_request_record(
-         char **cur_ptr,
+         uint8_t **cur_ptr,
          lisp_addr_t *local_rloc,
          lisp_addr_t *remote_rloc,
          uint16_t dst_port,
@@ -330,7 +330,7 @@ int add_encap_headers(
      /* Get the requested EID prefix */
      record = (lispd_pkt_request_record_t *)*cur_ptr;
      init_identifier(&requested_identifier);
-     *cur_ptr = (char *)&(record->eid_prefix_afi);
+     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
      if ((err=pkt_process_eid_afi(cur_ptr, &requested_identifier))!=GOOD){
          syslog(LOG_WARNING,"WARNING: Requested EID could not be processed");
          return (err);

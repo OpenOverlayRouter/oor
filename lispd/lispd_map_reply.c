@@ -71,8 +71,8 @@
 #include "lispd_map_reply.h"
 #include "lispd_pkt_lib.h"
 
-int process_map_reply_record(char **cur_ptr, uint64_t nonce);
-int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier);
+int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce);
+int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifier);
 uint8_t *build_map_reply_pkt(
         lispd_identifier_elt *identifier,
         lisp_addr_t *probed_rloc,
@@ -97,11 +97,11 @@ uint8_t *build_map_reply_pkt(
 
 
 
-int process_map_reply(char *packet)
+int process_map_reply(uint8_t *packet)
 {
     lispd_pkt_map_reply_t       *mrp;
     uint64_t                    nonce;
-    uint8_t                     rloc_probe;
+    //uint8_t                     rloc_probe;
     int                         record_count;
     int                         ctr;
 
@@ -109,19 +109,10 @@ int process_map_reply(char *packet)
     mrp = (lispd_pkt_map_reply_t *)packet;
     nonce = mrp->nonce;
     record_count = mrp->record_count;
-    rloc_probe = mrp->rloc_probe;
+    //rloc_probe = mrp->rloc_probe;
 
     // XXX alopez RLOC- PROBE
 
-    /*
-     *
-     *
-     *
-     * RLOC PROBING
-     *
-     *
-     *
-     */
     packet = CO(packet, sizeof(lispd_pkt_map_reply_t));
     for (ctr=0;ctr<record_count;ctr++){
         if ((process_map_reply_record(&packet,nonce))==BAD)
@@ -132,7 +123,7 @@ int process_map_reply(char *packet)
 }
 
 
-int process_map_reply_record(char **cur_ptr, uint64_t nonce)
+int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 {
     lispd_pkt_mapping_record_t              *record;
     lispd_identifier_elt                    identifier;
@@ -141,7 +132,7 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
 
     record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
     init_identifier(&identifier);
-    *cur_ptr = (char *)&(record->eid_prefix_afi);
+    *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
     if (!pkt_process_eid_afi(cur_ptr,&identifier))
         return BAD;
     identifier.eid_prefix_length = record->eid_prefix_length;
@@ -211,7 +202,7 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
     /* Reprogramming timers */
     if (!cache_entry->expiry_cache_timer)
         cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE);
-    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl, eid_entry_expiration,
+    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl, (timer_callback)eid_entry_expiration,
                      (void *)cache_entry);
 
     /*
@@ -232,18 +223,18 @@ int process_map_reply_record(char **cur_ptr, uint64_t nonce)
     return TRUE;
 }
 
-int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
+int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifier)
 {
     lispd_pkt_mapping_record_locator_t  *pkt_locator;
     lispd_locator_elt                   aux_locator;
     lisp_addr_t                         *locator_addr;
     uint8_t								*state;
-    char                                *cur_ptr;
+    uint8_t                             *cur_ptr;
 
     cur_ptr = *offset;
     pkt_locator = (lispd_pkt_mapping_record_locator_t *)(cur_ptr);
 
-    cur_ptr = (char *)&(pkt_locator->locator_afi);
+    cur_ptr = (uint8_t *)&(pkt_locator->locator_afi);
 
 
     if (pkt_process_rloc_afi(&cur_ptr, &aux_locator) == BAD)
