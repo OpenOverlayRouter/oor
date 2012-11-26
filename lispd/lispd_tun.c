@@ -122,7 +122,7 @@ int tun_bring_up_iface_v4_eid(lisp_addr_t eid_address_v4,
     int    err = 0;
 
 
-    //printf("LISP address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
+    printf("LISP address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
     
     netsock = socket(eid_address_v4.afi, SOCK_DGRAM, 0);
     if (netsock < 0) {

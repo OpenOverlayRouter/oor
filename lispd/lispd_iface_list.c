@@ -432,7 +432,9 @@ lispd_iface_elt *get_default_output_iface(int afi){
 void set_default_output_ifaces(){
 
     default_out_iface_v4 = get_any_output_iface(AF_INET);
+    printf("Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
+    printf("Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
 
 }
 

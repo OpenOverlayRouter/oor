@@ -434,7 +434,7 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
 
 
     
-    //arnatal: Check if local -> Do not encapsulate
+    //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
     
     

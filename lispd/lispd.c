@@ -260,10 +260,10 @@ int main(int argc, char **argv)
      * now build the v4/v6 receive sockets
      */
 
-    if (build_receive_sockets() == 0) 
-        exit(EXIT_FAILURE);
-
-
+//     if (build_receive_sockets() == 0) 
+//         exit(EXIT_FAILURE);
+// 
+// 
 //     /*
 //      *  create timers
 //      */
@@ -346,8 +346,12 @@ int main(int argc, char **argv)
     
     syslog(LOG_INFO, "*************** Created tun interface *****************");
 
+    printf("socket data lisp input (pre): %d\n",v4_receive_fd);
     
+    v4_receive_fd = open_data_input_socket(AF_INET);
 
+    printf("socket data lisp input: %d\n",v4_receive_fd);
+    
     /*
      *  Register to the Map-Server(s)
      */
@@ -396,7 +400,8 @@ void event_loop()
         }
         
         if (FD_ISSET(v4_receive_fd, &readfds)) {
-            //process_input_packet(v4_receive_fd, tun_receive_fd);
+            printf("Recieved something in the input buffer (4341)\n");
+            process_input_packet(v4_receive_fd, tun_receive_fd);
         }
         if (FD_ISSET(tun_receive_fd, &readfds)) {
             printf("Recieved something in the tun buffer\n");

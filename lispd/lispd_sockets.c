@@ -74,15 +74,17 @@ int open_udp_socket(int afi){
         syslog(LOG_DAEMON, "getprotobyname: %s", strerror(errno));
         return(BAD);
     }
-    
+     
     /*
      *  build the v4_receive_fd, and make the port reusable
      */
+
     
     if ((sock = socket(afi,SOCK_DGRAM,proto->p_proto)) < 0) {
-        syslog(LOG_DAEMON, "socket (v4): %s", strerror(errno));
+        syslog(LOG_DAEMON, "socket: %s", strerror(errno));
         return(BAD);
     }
+    printf("socket at creation: %d\n",sock);
     
     if (setsockopt(sock,
                    SOL_SOCKET,
@@ -96,20 +98,68 @@ int open_udp_socket(int afi){
 
     return sock;
 }
-
-int open_control_input_socket(int afi){
+int open_input_socket(int afi, int port){
 
     struct sockaddr_in  sock_addr_v4;
     struct sockaddr_in6 sock_addr_v6;
     struct sockaddr     *sock_addr;
     int                 sock_addr_len;
+    
+    
+    
+    int sock;
+    
+    
+    sock = open_udp_socket(afi);
+    
+    if(sock == BAD){
+        return BAD;
+    }
+    
+    switch (afi){
+        case AF_INET:
+            memset(&sock_addr_v4,0,sizeof(sock_addr_v4));           /* be sure */
+            sock_addr_v4.sin_port        = htons(port);
+            sock_addr_v4.sin_family      = AF_INET;
+            sock_addr_v4.sin_addr.s_addr = INADDR_ANY;
+            
+            sock_addr = (struct sockaddr *) &sock_addr_v4;
+            sock_addr_len = sizeof(sock_addr_v4);
+            break;
+            
+        case AF_INET6:
+            memset(&sock_addr_v6,0,sizeof(sock_addr_v6));                   /* be sure */
+            sock_addr_v6.sin6_family   = AF_INET6;
+            sock_addr_v6.sin6_port     = htons(port);
+            sock_addr_v6.sin6_addr     = in6addr_any;
+            
+            sock_addr = (struct sockaddr *) &sock_addr_v6;
+            sock_addr_len = sizeof(sock_addr_v6);
+            break;
+            
+        default:
+            return BAD;
+    }
+    
+    
+    if (bind(sock,sock_addr, sock_addr_len) == -1) {
+        syslog(LOG_DAEMON, "bind input socket: %s", strerror(errno));
+        return(BAD);
+    }
+    
+    return sock;
+    
+}
+
+
+int open_control_input_socket(int afi){
 
     const int on=1;
     
     int sock;
     
 
-    sock = open_udp_socket(afi);
+    sock = open_input_socket(afi,LISP_CONTROL_PORT);
 
     if(sock == BAD){
         return BAD;
@@ -117,44 +167,40 @@ int open_control_input_socket(int afi){
 
     switch (afi){
         case AF_INET:
-            memset(&sock_addr_v4,0,sizeof(sock_addr_v4));           /* be sure */
-            sock_addr_v4.sin_port        = htons(LISP_CONTROL_PORT);
-            sock_addr_v4.sin_family      = AF_INET;
-            sock_addr_v4.sin_addr.s_addr = INADDR_ANY;
-
+            
             /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
             if(setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on))< 0){
                 syslog(LOG_DAEMON, "setsockopt IP_PKTINFO: %s", strerror(errno));
             }
             
-            sock_addr = (struct sockaddr *) &sock_addr_v4;
-            sock_addr_len = sizeof(sock_addr_v4);
         break;
 
         case AF_INET6:
-            memset(&sock_addr_v6,0,sizeof(sock_addr_v6));                   /* be sure */
-            sock_addr_v6.sin6_family   = AF_INET6;
-            sock_addr_v6.sin6_port     = htons(LISP_CONTROL_PORT);
-            sock_addr_v6.sin6_addr     = in6addr_any;
 
             /* IPV6_RECVPKTINFO is requiered to get later the IPv6 destination address of incoming control packets*/
             if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) < 0){
                 syslog(LOG_DAEMON, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
             }
 
-            sock_addr = (struct sockaddr *) &sock_addr_v6;
-            sock_addr_len = sizeof(sock_addr_v6);
         break;
 
         default:
             return BAD;
     }
-
     
-    if (bind(sock,sock_addr, sock_addr_len) == -1) {
-        syslog(LOG_DAEMON, "bind control input socket: %s", strerror(errno));
-        return(BAD);
-    }    
+    return sock;
+}
+
+
+int open_data_input_socket(int afi){
+    
+    int sock;
+    
+    sock = open_input_socket(afi,LISP_DATA_PORT);
+
+    if(sock == BAD){
+        return BAD;
+    }
     
     return sock;
 }
