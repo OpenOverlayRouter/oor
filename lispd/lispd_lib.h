@@ -161,8 +161,8 @@ int get_prefix_len(int afi);
 
 struct udphdr *build_ip_header(
         void                  *cur_ptr,
-        lisp_addr_t           *my_addr,
-        lisp_addr_t           *eid_prefix,
+        lisp_addr_t           *src_addr,
+        lisp_addr_t           *dst_addr,
         int                   ip_len);
 
 

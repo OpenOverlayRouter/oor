@@ -274,22 +274,30 @@ int process_map_reply_locator(char  **offset, lispd_identifier_elt *identifier)
  *
  */
 
-int build_and_send_map_reply_msg(lispd_identifier_elt *requested_identifier,
-        lisp_addr_t *dst_rloc, uint16_t dport, uint64_t nonce, map_reply_opts opts,
-        lisp_addr_t *probed_rloc) {
+int build_and_send_map_reply_msg(
+        lispd_identifier_elt *requested_identifier,
+        lisp_addr_t *local_rloc,
+        lisp_addr_t *remote_rloc,
+        uint16_t dport,
+        uint64_t nonce,
+        map_reply_opts opts)
+{
 
     uint8_t *packet;
     int packet_len = 0;
     int result;
 
     /* Build the packet */
-    packet = build_map_reply_pkt(requested_identifier, probed_rloc, opts, nonce, &packet_len);
+    if (opts.rloc_probe)
+        packet = build_map_reply_pkt(requested_identifier, local_rloc, opts, nonce, &packet_len);
+    else
+        packet = build_map_reply_pkt(requested_identifier, NULL, opts, nonce, &packet_len);
 
     /* Send the packet */
-    if (dst_rloc->afi == AF_INET)
-        result = send_ctrl_ipv4_packet(dst_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
+    if (remote_rloc->afi == AF_INET)
+        result = send_ctrl_ipv4_packet(remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
     else
-        result = send_ctrl_ipv6_packet(dst_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
+        result = send_ctrl_ipv6_packet(remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
 
     free(packet);
 

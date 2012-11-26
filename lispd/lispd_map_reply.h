@@ -69,10 +69,10 @@ int process_map_reply(char *packet);
 
 int build_and_send_map_reply_msg(
         lispd_identifier_elt *requested_identifier,
-        lisp_addr_t *dst_rloc,
+        lisp_addr_t *local_rloc,
+        lisp_addr_t *remote_rloc,
         uint16_t dport,
         uint64_t nonce,
-        map_reply_opts opts,
-        lisp_addr_t *probed_rloc);
+        map_reply_opts opts);
 
 #endif /*LISPD_MAP_REPLY_H_*/

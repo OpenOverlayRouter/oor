@@ -59,4 +59,24 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
  */
 int send_ctrl_ipv6_packet(lisp_addr_t *destination,uint16_t src_port, uint16_t dst_port, void *packet, int packet_len);
 
+/*
+ *  get_identifier_length
+ *
+ *  Compute the lengths of the identifier to be use in a record
+ *  so we can allocate  memory for the packet....
+ */
+
+int get_identifier_length(lispd_identifier_elt *identifier);
+
+
+/*
+ *  get_up_locator_length
+ *
+ *  Compute the sum of the lengths of the locators that has the status up
+ *  so we can allocate  memory for the packet....
+ *  Loc_count return the number of UP locators.
+ */
+
+int get_up_locator_length(lispd_locators_list *locators_list, int *loc_count);
+
 #endif /*LISPD_PKT_LIB_H_*/

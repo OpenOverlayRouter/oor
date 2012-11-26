@@ -113,8 +113,16 @@ typedef struct lispd_pkt_request_record_t_ {
 } PACKED lispd_pkt_request_record_t;
 
 
+/*
+ * Struct used to pass the arguments to the call_back function of a
+ * map request miss
+ */
 
-int send_map_request(uint8_t *packet, int packet_len, lisp_addr_t *resolver);
+typedef struct _timer_map_request_argument{
+    lispd_map_cache_entry *map_cache_entry;
+    lisp_addr_t *src_eid;
+} timer_map_request_argument;
+
 
 /*
  *  Put a wrapper around build_map_request_pkt and send_map_request
@@ -122,6 +130,7 @@ int send_map_request(uint8_t *packet, int packet_len, lisp_addr_t *resolver);
 int build_and_send_map_request_msg(
         lisp_addr_t     *eid_prefix,
         uint8_t         eid_prefix_length,
+        lisp_addr_t     *src_eid,
         lisp_addr_t     *dst_rloc_addr,
         uint8_t         encap,
         uint8_t         probe,
@@ -134,6 +143,6 @@ int build_and_send_map_request_msg(
  *  Receive a Map_request message and process based on control bits
  *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
  */
-int process_map_request_msg(uint8_t *packet, int s, struct sockaddr *from, int afi);
+int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc);
 
 #endif /*LISPD_MAP_REQUEST_H_*/

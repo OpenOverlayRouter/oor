@@ -65,14 +65,14 @@ void init_smr()
         			locator_iterator = locators_lists[ctr1];
         			while (locator_iterator){
         				locator = locator_iterator->locator;
-        				if (build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+        			/*	if (build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
                                 map_cache_entry->identifier->eid_prefix_length,
         						locator->locator_addr,0,0,1,0,&nonce)==GOOD)
         					syslog(LOG_INFO, "SMR'ing RLOC %s for EID %s/%d",
         							get_char_from_lisp_addr_t(*(locator->locator_addr)),
         							get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
         							map_cache_entry->identifier->eid_prefix_length);
-        				locator_iterator = locator_iterator->next;
+        				locator_iterator = locator_iterator->next;*/
 
         			}
         		}
@@ -121,12 +121,12 @@ void solicit_map_request_reply(timer *t, void *arg)
     }
     if (nonces->retransmits - 1 < LISPD_MAX_SMR_RETRANSMIT ){
 
-        if((err = build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+       /* if((err = build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
                 map_cache_entry->identifier->eid_prefix_length, map_resolvers->address,1, 0, 0, 1,
                 &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
             syslog(LOG_DAEMON, "process_map_request_msg: couldn't build/send SMR triggered Map-Request");
-            /* TODO process error */
-        }
+            // TODO process error
+        }*/
         nonces->retransmits ++;
         /* Reprograming timer*/
         if (map_cache_entry->smr_timer == NULL)

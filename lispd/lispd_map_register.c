@@ -35,6 +35,7 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "lispd_external.h"
+#include "lispd_lib.h"
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_pkt_lib.h"
@@ -69,7 +70,6 @@ int map_register(timer *t, void *arg)
     lispd_identifier_elt      *identifier_elt;
     int                       mrp_len = 0;
     int                       ctr = 0;
-    uint64_t                  *nonce;
     uint32_t                  md_len;
 
     dbs[0] = get_local_db(AF_INET);
@@ -121,13 +121,7 @@ int map_register(timer *t, void *arg)
                     /* Send the map register */
 
                     if (!send_map_register(ms->address,map_register_pkt,mrp_len)) {
-                        syslog(LOG_DAEMON, "Couldn't send map-register for %s",
-                                get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
-                    } else if (ms->verify) {
-                        if (!build_and_send_map_request_msg(&(identifier_elt->eid_prefix),
-                                identifier_elt->eid_prefix_length,
-                                ms->address,1,1,0,0,nonce))
-                            syslog(LOG_DAEMON,"map_register:couldn't build/send map_request");
+                        syslog(LOG_DAEMON, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
                     }
                     ms = ms->next;
                 }

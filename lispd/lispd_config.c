@@ -316,8 +316,6 @@ int add_database_mapping(dm)
 {
     lispd_identifier_elt        *identifier;
     lispd_iface_elt             *interface;
-    lispd_locator_elt			*locator_v4;
-    lispd_locator_elt			*locator_v6;
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
     int                         eid_prefix_length;
     uint8_t						is_new_identifier;
@@ -401,7 +399,7 @@ int add_database_mapping(dm)
     		return (BAD);
     	}
         if ((err = add_identifier_to_interface (interface, identifier,AF_INET)) == GOOD){
-            locator_v4 = new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
+            new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
         }
     }
     if (priority_v6 > 0){
@@ -412,7 +410,7 @@ int add_database_mapping(dm)
     		return (BAD);
     	}
     	if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
-            locator_v6 = new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
+            new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
     }
 
     /* 

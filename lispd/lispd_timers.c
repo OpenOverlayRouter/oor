@@ -49,12 +49,12 @@ timer_t create_wheel_timer(void)
     timerspec.it_value.tv_sec = TimerTickInterval;
     timerspec.it_interval.tv_nsec = 0;
     timerspec.it_interval.tv_sec = TimerTickInterval;
-    syslog(LOG_ERR, "Master wheel tick timer %d set for %d seconds",
-           tid, timerspec.it_value.tv_sec);
+    syslog(LOG_ERR, "Master wheel tick timer %lu set for %lu seconds",
+           (long)tid, (long)timerspec.it_value.tv_sec);
 
     if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
-        syslog(LOG_INFO, "timer start failed for %d %s",
-               tid, strerror(errno));
+        syslog(LOG_INFO, "timer start failed for %lu %s",
+               (long)tid, strerror(errno));
         return (timer_t)0;
     }
     return(tid);

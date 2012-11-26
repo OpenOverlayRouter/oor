@@ -55,8 +55,12 @@
 #include <unistd.h>
 #include <linux/netlink.h>
 #include "lispd_lib.h"
-#include "patricia/patricia.h"
 #include "lispd_external.h"
+#include "lispd_map_request.h"
+#include "lispd_map_reply.h"
+#include "lispd_map_notify.h"
+#include "patricia/patricia.h"
+
 
 
 int isfqdn(char *s);
@@ -1029,17 +1033,17 @@ int get_prefix_len(afi)
     return(get_addr_len(afi) * 8);
 }
 
-struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
-        void                  *cur_ptr;
-        lisp_addr_t           *my_addr;
-        lisp_addr_t           *eid_prefix;
-        int                   ip_len;
+struct udphdr *build_ip_header(
+        void                  *cur_ptr,
+        lisp_addr_t           *src_addr,
+        lisp_addr_t           *dst_addr,
+        int                   ip_len)
 {
     struct ip      *iph;
     struct ip6_hdr *ip6h;
     struct udphdr  *udph;
 
-    switch (my_addr->afi) {
+    switch (src_addr->afi) {
     case AF_INET:
         iph                = (struct ip *) cur_ptr;
         iph->ip_hl         = 5;
@@ -1050,9 +1054,11 @@ struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
         iph->ip_off        = 0;
         iph->ip_ttl        = 255;
         iph->ip_p          = IPPROTO_UDP;
-        iph->ip_sum        = 0;         
-        iph->ip_src.s_addr = my_addr->address.ip.s_addr;
-        iph->ip_dst.s_addr = eid_prefix->address.ip.s_addr; 
+        iph->ip_src.s_addr = src_addr->address.ip.s_addr;
+        iph->ip_dst.s_addr = dst_addr->address.ip.s_addr;
+        iph->ip_sum        = 0;
+        iph->ip_sum        = ip_checksum(iph, sizeof(struct ip));
+
         udph              = (struct udphdr *) CO(iph,sizeof(struct ip));
         break;
     case AF_INET6:
@@ -1062,10 +1068,10 @@ struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
         ip6h->ip6_nxt  = IPPROTO_UDP;
         ip6h->ip6_plen = htons(ip_len);
         memcpy(ip6h->ip6_src.s6_addr,
-               my_addr->address.ipv6.s6_addr,
+               src_addr->address.ipv6.s6_addr,
                sizeof(struct in6_addr));
         memcpy(ip6h->ip6_dst.s6_addr,
-               eid_prefix->address.ipv6.s6_addr,
+                dst_addr->address.ipv6.s6_addr,
                sizeof(struct in6_addr));
         udph = (struct udphdr *) CO(ip6h,sizeof(struct ip6_hdr));
         break;

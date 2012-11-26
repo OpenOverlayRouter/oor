@@ -35,23 +35,12 @@
 #include "lispd_external.h"
 
 /*
- *  get_locator_chain_length
+ *  get_locator_length
  *
  *  Compute the sum of the lengths of the locators
  *  so we can allocate  memory for the packet....
  */
 int get_locator_length(lispd_locators_list *locators_list);
-
-/*
- *  get_identifier_length
- *
- *  Compute the lengths of the identifier to be use in a record
- *  so we can allocate  memory for the packet....
- */
-
-int get_identifier_length(lispd_identifier_elt *identifier);
-
-
 
 
 int pkt_get_mapping_record_length(lispd_identifier_elt *identifier) {
@@ -76,8 +65,9 @@ int pkt_get_mapping_record_length(lispd_identifier_elt *identifier) {
     return length;
 }
 
+
 /*
- *  get_locator_chain_length
+ *  get_locator_length
  *
  *  Compute the sum of the lengths of the locators
  *  so we can allocate  memory for the packet....
@@ -104,6 +94,46 @@ int get_locator_length(lispd_locators_list *locators_list)
     }
     return(sum);
 }
+
+/*
+ *  get_up_locator_length
+ *
+ *  Compute the sum of the lengths of the locators that has the status up
+ *  so we can allocate  memory for the packet....
+ */
+
+int get_up_locator_length(lispd_locators_list *locators_list, int *loc_count)
+{
+    int sum = 0;
+    int counter = 0;
+    while (locators_list) {
+        if (*(locators_list->locator->state)== DOWN){
+            locators_list = locators_list->next;
+            continue;
+        }
+
+        switch (locators_list->locator->locator_addr->afi) {
+        case AF_INET:
+            sum += sizeof(struct in_addr);
+            counter++;
+            break;
+        case AF_INET6:
+            sum += sizeof(struct in6_addr);
+            counter++;
+            break;
+        default:
+            /* It should never happen*/
+            syslog(LOG_ERR, "get_locator_length: Uknown AFI (%d) - It should never happen",
+               locators_list->locator->locator_addr->afi);
+            break;
+        }
+        locators_list = locators_list->next;
+    }
+    *loc_count = counter;
+    return(sum);
+}
+
+
 
 /*
  *  get_identifier_length

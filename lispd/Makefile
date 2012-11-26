@@ -15,7 +15,7 @@ ifndef CC
 CC		= gcc
 endif
 GENGETOPT	= gengetopt
-CFLAGS		+= -Wall -Wno-implicit-function-declaration -g -DDEBUG=3 -DTESTLOCALEID 
+CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID 
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 INC		= lispd.h
 MAKEFILE	= Makefile

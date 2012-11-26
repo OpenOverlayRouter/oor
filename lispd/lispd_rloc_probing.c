@@ -71,6 +71,7 @@ void rloc_probing(timer *t, void *arg)
     			}
     			if ((err=build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
     			        map_cache_entry->identifier->eid_prefix_length,
+    			        NULL,
     					locator->locator_addr, 0, 1, 0, 0,
     					&(locator->rloc_probing_nonces->nonce[0])))!= GOOD){
     				// TODO Actions according to the error
@@ -103,12 +104,12 @@ void rloc_probing(timer *t, void *arg)
     			}
     			/* No Map Reply Probe received -> Retransmit Map Request Probe */
     			if (locator->rloc_probing_nonces->retransmits -1 < LISPD_MAX_PROBE_RETRANSMIT){
-    				if ((err=build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
+    			/*	if ((err=build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
                             map_cache_entry->identifier->eid_prefix_length,
     						locator->locator_addr, 0, 1, 0, 0,
     						&(locator->rloc_probing_nonces->nonce[0])))!= GOOD){
     					// TODO Actions according to the error
-    				}
+    				}*/
     			}else { /* No Map Reply Probe received for any Map Request Probe */
     				locator->state = DOWN;
     				free (locator->rloc_probing_nonces);
