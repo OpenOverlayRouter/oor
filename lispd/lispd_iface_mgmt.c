@@ -1690,8 +1690,10 @@ void exit_cleanup(void) {
     close(timers_fd);
 
     /* Close receive sockets */
-    close(v6_receive_fd);
-    close(v4_receive_fd);
+    close(ipv4_data_input_fd);
+    close(ipv6_data_input_fd);
+    close(ipv4_control_input_fd);
+    close(ipv6_control_input_fd);
 
     /* Close LISP netlink socket */
     close(netlink_fd);

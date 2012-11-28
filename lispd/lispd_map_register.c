@@ -205,7 +205,6 @@ int send_map_register(lisp_addr_t *ms_address, lispd_pkt_map_register_t *mrp, in
     else
         result = send_ctrl_ipv6_packet(ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
 
-    free (mrp);
     return result;
 }
 

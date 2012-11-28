@@ -120,7 +120,7 @@ typedef struct lispd_pkt_request_record_t_ {
 
 typedef struct _timer_map_request_argument{
     lispd_map_cache_entry *map_cache_entry;
-    lisp_addr_t *src_eid;
+    lisp_addr_t src_eid;
 } timer_map_request_argument;
 
 
@@ -144,5 +144,16 @@ int build_and_send_map_request_msg(
  *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
  */
 int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc);
+
+
+/*
+ *  process Map_Request Message
+ *  Receive a Map_request message and process based on control bits
+ *
+ *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
+ */
+
+
+int send_map_request_miss(timer *t, void *arg);
 
 #endif /*LISPD_MAP_REQUEST_H_*/

@@ -254,7 +254,7 @@ int have_input(int max_fd,fd_set *readfds);
  *  Process a LISP protocol message sitting on
  *  socket s with address family afi
  */
-int process_lisp_msg(int s, int afi);
+int process_lisp_ctr_msg(int s, int afi);
 
 /*
  *  Retrieve a mesage from socket s

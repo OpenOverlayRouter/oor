@@ -488,7 +488,7 @@ uint8_t *build_map_request_pkt(
     mrp = (lispd_pkt_map_request_t *)cur_ptr;
 
     mrp->type                      = LISP_MAP_REQUEST;
-    mrp->authoritative             = 1;
+    mrp->authoritative             = 0;
     mrp->map_data_present          = 1;
 
     if (probe)
@@ -506,7 +506,7 @@ uint8_t *build_map_request_pkt(
     else
         mrp->smr_invoked           = 0;
 
-    mrp->additional_itr_rloc_count = 0;     /* To be filled later  (0 --> 1)  */
+    mrp->additional_itr_rloc_count = 0;     /* To be filled later  */
     mrp->record_count              = 1;     /* XXX: assume 1 record */
     mrp->nonce = build_nonce((unsigned int) time(NULL));
     *nonce                         = mrp->nonce;
@@ -535,7 +535,7 @@ uint8_t *build_map_request_pkt(
             locators_list[ctr] = locators_list[ctr]->next;
         }
     }
-    mrp->additional_itr_rloc_count = locators_ctr;
+    mrp->additional_itr_rloc_count = locators_ctr - 1; /* IRC = 0 --> 1 ITR-RLOC */
 
     /* Requested EID record */
     request_eid_record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
@@ -684,8 +684,8 @@ int get_emr_overhead_length (int afi)
 
 int send_map_request_miss(timer *t, void *arg)
 {
-    timer_map_request_argument *argment = (timer_map_request_argument *)arg;
-    lispd_map_cache_entry *map_cache_entry = argment->map_cache_entry;
+    timer_map_request_argument *argument = (timer_map_request_argument *)arg;
+    lispd_map_cache_entry *map_cache_entry = argument->map_cache_entry;
     nonces_list *nonces = map_cache_entry->nonces;
     if (nonces == NULL){
         nonces = new_nonces_list();
@@ -698,33 +698,42 @@ int send_map_request_miss(timer *t, void *arg)
 
     if (nonces->retransmits - 1 < LISPD_MAX_MR_RETRANSMIT ){
 
+        if (map_cache_entry->request_retry_timer == NULL){
+            map_cache_entry->request_retry_timer = create_timer ("MAP REQUEST RETRY");
+        }
+
+        if (nonces->retransmits > 1){
+            syslog (LOG_DEBUG,"Retransmiting Map Request for EID: %s",
+                    get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix));
+        }
+
         if ((build_and_send_map_request_msg(
                 &(map_cache_entry->identifier->eid_prefix),
                 map_cache_entry->identifier->eid_prefix_length,
-                argment->src_eid,
+                &(argument->src_eid),
                 map_resolvers->address,
                 1,
                 0,
                 0,
                 0,
                 &nonces->nonce[nonces->retransmits]))==BAD){
+
             start_timer(map_cache_entry->request_retry_timer, LISPD_INITIAL_MRQ_TIMEOUT,
-                    send_map_request_miss, (void *)map_cache_entry);
+                    send_map_request_miss, (void *)argument);
         }
 
         nonces->retransmits ++;
-        if (map_cache_entry->request_retry_timer == NULL)
-            map_cache_entry->request_retry_timer = create_timer ("MAP REQUEST RETRY");
         start_timer(map_cache_entry->request_retry_timer, LISPD_INITIAL_MRQ_TIMEOUT,
-                send_map_request_miss, (void *)map_cache_entry);
+                send_map_request_miss, (void *)argument);
 
     }else{
+        syslog (LOG_DEBUG,"No Map Reply fot EID %s/%d after %d retries. Removing map cache entry ...",
+                        get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
+                        map_cache_entry->identifier->eid_prefix_length,
+                        nonces->retransmits -1);
         del_eid_cache_entry(map_cache_entry->identifier->eid_prefix,
                 map_cache_entry->identifier->eid_prefix_length);
 
-        syslog (LOG_DEBUG,"No Map Reply fot EID %s/%d. Removing map cache entry ...",
-                get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
-                map_cache_entry->identifier->eid_prefix_length);
     }
     return GOOD;
 }

@@ -105,15 +105,15 @@ int build_receive_sockets(void)
     }
 
     /*
-     *  build the v4_receive_fd, and make the port reusable
+     *  build the ipv4_data_input_fd, and make the port reusable
      */
 
-    if ((v4_receive_fd = socket(AF_INET,SOCK_DGRAM,proto->p_proto)) < 0) {
+    if ((ipv4_data_input_fd = socket(AF_INET,SOCK_DGRAM,proto->p_proto)) < 0) {
         syslog(LOG_DAEMON, "socket (v4): %s", strerror(errno));
         return(0);
     }
 
-    if (setsockopt(v4_receive_fd,
+    if (setsockopt(ipv4_data_input_fd,
                    SOL_SOCKET,
                    SO_REUSEADDR,
                    &tr,
@@ -123,7 +123,7 @@ int build_receive_sockets(void)
     }
 
 /*
-    if (setsockopt(v4_receive_fd,
+    if (setsockopt(ipv4_data_input_fd,
                    SOL_SOCKET,
                    SO_BINDTODEVICE,
                    &(ctrl_iface->iface_name),
@@ -136,7 +136,7 @@ int build_receive_sockets(void)
     v4.sin_family      = AF_INET;
     v4.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(v4_receive_fd,(struct sockaddr *) &v4, sizeof(v4)) == -1) {
+    if (bind(ipv4_data_input_fd,(struct sockaddr *) &v4, sizeof(v4)) == -1) {
         syslog(LOG_DAEMON, "bind (v4): %s", strerror(errno));
         return(0);
     }
@@ -145,12 +145,12 @@ int build_receive_sockets(void)
      *  build the v6_receive_fd, and make the port reusable
      */
 
-    if ((v6_receive_fd = socket(AF_INET6,SOCK_DGRAM,proto->p_proto)) < 0) {
+    if ((ipv6_data_input_fd = socket(AF_INET6,SOCK_DGRAM,proto->p_proto)) < 0) {
         syslog(LOG_DAEMON, "socket (v6): %s", strerror(errno));
         return(0);
     }
 
-    if (setsockopt(v6_receive_fd,
+    if (setsockopt(ipv6_data_input_fd,
                    SOL_SOCKET,
                    SO_REUSEADDR,
                    &tr,
@@ -174,7 +174,7 @@ int build_receive_sockets(void)
     v6.sin6_port     = htons(LISP_CONTROL_PORT);
     v6.sin6_addr     = in6addr_any;
 
-    if (bind(v6_receive_fd,(struct sockaddr *) &v6, sizeof(v6)) == -1) {
+    if (bind(ipv6_data_input_fd,(struct sockaddr *) &v6, sizeof(v6)) == -1) {
         syslog(LOG_DAEMON, "bind (v6): %s", strerror(errno));
         return(0);
     }
@@ -1394,148 +1394,78 @@ int have_input(max_fd,readfds)
             }
             else {
                 syslog(LOG_DAEMON, "select: %s", strerror(errno));
-                return(0);
+                return(BAD);
             }
         }else{
             break;
         }
     }
-    return(1);
+    return(GOOD);
 }
+
 
 /*
  *  Process a LISP protocol message sitting on 
  *  socket s with address family afi
  */
 
-int process_lisp_msg(s, afi)
-     int    s;
-     int    afi;
+int process_lisp_ctr_msg(int s, int afi)
 {
 
     uint8_t         packet[MAX_IP_PACKET];
     struct sockaddr_in  s4;
     struct sockaddr_in6 s6;
-
-    switch (afi) {
-    case AF_INET:
-        memset(&s4,0,sizeof(struct sockaddr_in));
-        if (!retrieve_lisp_msg(s, packet, &s4, afi))
-            return(0);
-        /* process it here */
-        break;
-    case AF_INET6:
-        memset(&s6,0,sizeof(struct sockaddr_in6));
-        if (!retrieve_lisp_msg(s, packet, &s6, afi))
-            return(0);
-        /* process it here */
-        break;
-    default:
-        return(0);
-    }
-    return(1);
-}
-
-
-
-/*
- *  Retrieve a mesage from socket s
- */
-
-int retrieve_lisp_msg(s, packet, from, afi)
-     int    s;
-     uint8_t    *packet;
-     void   *from;
-     int    afi;
-    
-{
-
-    struct sockaddr_in  *s4;
-    struct sockaddr_in6 *s6;
     socklen_t fromlen4 = sizeof(struct sockaddr_in);
     socklen_t fromlen6 = sizeof(struct sockaddr_in6);
 
     switch (afi) {
     case AF_INET:
-        s4 = (struct sockaddr_in *) from;
-        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *) s4,
+
+        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s4,
                     &fromlen4) < 0) {
-            syslog(LOG_DAEMON, "recvfrom (v4): %s", strerror(errno));
-            return(0);
+            syslog(LOG_WARNING, "recvfrom (v4): %s", strerror(errno));
+            return(BAD);
         }
         break;
     case AF_INET6:
-        s6 = (struct sockaddr_in6 *) from;
-        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *) s6,
+        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s6,
                     &fromlen6) < 0) {
-            syslog(LOG_DAEMON, "recvfrom (v6): %s", strerror(errno));
-            return(0);
+            syslog(LOG_WARNING, "recvfrom (v6): %s", strerror(errno));
+            return(BAD);
         }
         break;
     default:
-        syslog(LOG_DAEMON, "retrieve_msg: Unknown afi %d", afi);
-        return(0);
+        syslog(LOG_WARNING, "retrieve_msg: Unknown afi %d", afi);
+        return(BAD);
     }
-#if (DEBUG > 3)
-    syslog(LOG_DAEMON, "Received a LISP control message");
-#endif
+    syslog(LOG_DEBUG, "Received a LISP control message");
 
     switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Map-Reply message");
-#endif
+        syslog(LOG_DEBUG, "Received a LISP Map-Reply message");
         process_map_reply(packet);
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Encapsulated Map-Request message");
-#endif
+        syslog(LOG_DEBUG, "Received a LISP Encapsulated Map-Request message");
         if(!process_map_request_msg(packet, NULL)) // XXX alopez: Null should be set to local RLOC
-            return (0);
+            return (BAD);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Map-Request message");
-#endif
+        syslog(LOG_DEBUG, "Received a LISP Map-Request message");
         if(!process_map_request_msg(packet, NULL))// XXX alopez: Null should be set to local RLOC
-            return (0);
+            return (BAD);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Map-Notify message");
-#endif
+        syslog(LOG_DEBUG, "Received a LISP Map-Notify message");
         if(!process_map_notify(packet))
-            return(0);
+            return(BAD);
         break;
     }
-#if (DEBUG > 3)
-    syslog(LOG_DAEMON, "Completed processing a LISP control message");
-#endif
+    syslog(LOG_DEBUG, "Completed processing a LISP control message");
 
-
-#if (DEBUG > 3)
-    switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
-    case LISP_MAP_REPLY:
-        printf("Got Map-Reply (%d)\n", afi);
-        break;
-    case LISP_MAP_REQUEST:
-        printf("Got Map-Request: Silently ignoring it (%d)\n", afi);
-        break;
-    case LISP_MAP_REGISTER:
-        printf("Got Map-Register: Silently ignoring it (%d)\n", afi);
-        break;
-    case LISP_MAP_NOTIFY:
-        printf("Got Map-Notify: Silently ignoring it (%d)\n", afi);
-        break;
-    case LISP_ENCAP_CONTROL_TYPE:
-        printf("Got Encapsulated Control Message (%d)\n", afi);
-        break;
-    }
-#endif
-    return(1);
+    return(GOOD);
 }
 
     

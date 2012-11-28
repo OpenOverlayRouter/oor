@@ -123,8 +123,10 @@ pid_t  sid                              = 0;
 /*
  *      sockets (fds)
  */
-int     v6_receive_fd                   = 0;
-int     v4_receive_fd                   = 0;
+int     ipv4_data_input_fd            = 0;
+int     ipv6_data_input_fd            = 0;
+int     ipv4_control_input_fd           = 0;
+int     ipv6_control_input_fd           = 0;
 int     netlink_fd                      = 0;
 fd_set  readfds;
 struct  sockaddr_nl dst_addr;
@@ -156,16 +158,16 @@ int main(int argc, char **argv)
     /*
      *  Check for superuser privileges
      */
-/*
+
     if (geteuid()) {
         printf("Running %s requires superuser privileges! Exiting...\n", LISPD);
         exit(EXIT_FAILURE);
-    }*/
+    }
 
     /*
      *  Initialize the random number generator
      */
-     
+
     iseed = (unsigned int) time (NULL);
     srandom(iseed);
 
@@ -185,28 +187,6 @@ int main(int argc, char **argv)
     set_up_syslog();
 
 
-
-
-     /*
-     *  Unload/load LISP kernel modules
-     */
-/*
-    system("/sbin/modprobe -r lisp lisp_int");
-
-    if (system("/sbin/modprobe lisp")) {
-        syslog(LOG_DAEMON, "Loading the 'lisp' kernel module failed! Exiting...");
-        exit(EXIT_FAILURE);
-    }
-    syslog(LOG_INFO, "Loaded the 'lisp' kernel module");
-    sleep(1);
-
-    if (system("/sbin/modprobe lisp_int")) {
-        syslog(LOG_DAEMON, "Loading the 'lisp_int' kernel module failed! Exiting...");
-        exit(EXIT_FAILURE);
-    }
-    syslog(LOG_DAEMON, "Loaded the 'lisp_int' kernel module");
-    sleep(1);
-*/
     /*
      *  Setup LISP and routing netlink sockets
      */
@@ -223,13 +203,19 @@ int main(int argc, char **argv)
      *  set up databases
      */
 
-    AF4_database  = New_Patricia(sizeof(struct in_addr)  * 8);
-    AF6_database  = New_Patricia(sizeof(struct in6_addr) * 8);
-
     db_init();
     map_cache_init();
 
+    /*
+     *  create timers
+     */
 
+    if (build_timers_event_socket() == 0)
+    {
+        syslog(LOG_ERR, " Error programing the timer signal. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+    init_timers();
 
     /*
      *  Parse command line options
@@ -252,46 +238,34 @@ int main(int argc, char **argv)
     dump_local_eids();
 
     dump_iface_list();
-    //exit(1);
-
-
 
     /*
      * now build the v4/v6 receive sockets
      */
 
-    if (build_receive_sockets() == 0) 
-        exit(EXIT_FAILURE);
-
-
-//     /*
-//      *  create timers
-//      */
-// 
-//     if (build_timers_event_socket() == 0)
-//     {
-//         syslog(LOG_ERR, " Error programing the timer signal. Exiting...");
+//     if (build_receive_sockets() == 0)
 //         exit(EXIT_FAILURE);
-//     }
-//     init_timers();
-// 
+//
+//
+//
+//
 // #ifdef LISPMOBMH
 //     if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
 //         syslog(LOG_INFO, "Could not create the SMR timer controller");
 //     /*Make sure the timer starts with coherent values*/
 //     stop_smr_timeout();
 // #endif
-// 
-// 
+//
+//
 //     /*
 //      *  see if we need to daemonize, and if so, do it
 //      */
-// 
+//
 //     if (daemonize) {
 //         syslog(LOG_INFO, "Starting the daemonizing process");
 //         if ((pid = fork()) < 0) {
 //             exit(EXIT_FAILURE);
-//         } 
+//         }
 //         umask(0);
 //         if (pid > 0)
 //             exit(EXIT_SUCCESS);
@@ -303,31 +277,31 @@ int main(int argc, char **argv)
 //         close(STDOUT_FILENO);
 //         close(STDERR_FILENO);
 //     }
-// 
+//
 //     /*
 //      *  Dump routing table so we can get the gateway address for source routing
 //      */
-// 
+//
 //     if (!dump_routing_table(AF_INET, RT_TABLE_MAIN))
 //         syslog(LOG_INFO, "Dumping main routing table failed");
+//
 
-    
-    
+
     syslog(LOG_INFO, "*************** Creating tun interface... ***************");
 
     //char *device = "eth0";
     char *tun_dev_name = TUN_IFACE_NAME;
- 
-    
-    
+
+
+
     create_tun(tun_dev_name,
                 TUN_RECEIVE_SIZE,
                 TUN_MTU,
                 &tun_receive_fd,
                 &tun_ifindex,
                 &tun_receive_buf);
-    
-    
+
+
     tun_bring_up_iface_v4_eid(get_main_eid(AF_INET),tun_dev_name);
 
     tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
@@ -338,25 +312,28 @@ int main(int argc, char **argv)
     open_iface_binded_sockets();
 
     set_default_output_ifaces();
-    
-    
+
+
     //data_out_socket = open_device_binded_raw_socket(device,AF_INET);
     //open_device_binded_raw_socket(device,AF_INET6);
 
-    
+
     syslog(LOG_INFO, "*************** Created tun interface *****************");
 
-    
+    ipv4_control_input_fd = open_control_input_socket(AF_INET);
+    printf("socket control lisp input: %d\n",ipv4_control_input_fd);
+
+    ipv4_data_input_fd = open_data_input_socket(AF_INET);
+    printf("socket data lisp input: %d\n",ipv4_data_input_fd);
+
 
     /*
      *  Register to the Map-Server(s)
      */
 
-    //map_register (NULL,NULL);
-
+    map_register (NULL,NULL);
 
     event_loop();
-
 
     syslog(LOG_INFO, "Exiting...");         /* event_loop returned bad */
     closelog();
@@ -379,65 +356,43 @@ void event_loop()
      *  calculate the max_fd for select.
      */
     
-    max_fd = v4_receive_fd;
-    max_fd = (max_fd > tun_receive_fd)       ? max_fd : tun_receive_fd;
+    max_fd = ipv4_data_input_fd;
+    max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
+    max_fd = (max_fd > tun_receive_fd)          ? max_fd : tun_receive_fd;
+    max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
     for (;;) {
         
         FD_ZERO(&readfds);
         FD_SET(tun_receive_fd, &readfds);
-        FD_SET(v4_receive_fd, &readfds);
+        FD_SET(ipv4_data_input_fd, &readfds);
+        FD_SET(ipv4_control_input_fd, &readfds);
+        FD_SET(timers_fd, &readfds);
         
         retval = have_input(max_fd, &readfds);
         if (retval == -1) {
             break;           /* doom */
         }
-        if (retval == 0) {
+        if (retval == BAD) {
             continue;        /* interrupted */
         }
         
-        if (FD_ISSET(v4_receive_fd, &readfds)) {
-            //process_input_packet(v4_receive_fd, tun_receive_fd);
+        if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
+            printf("Recieved packet in the data input buffer (4341)\n");
+            process_input_packet(ipv4_data_input_fd, tun_receive_fd);
+        }
+        if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
+            printf("Recieved packet in the control input buffer (4342)\n");
+            process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
         }
         if (FD_ISSET(tun_receive_fd, &readfds)) {
-            printf("Recieved something in the tun buffer\n");
+            printf("Recieved packet in the tun buffer\n");
             process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
         }
-    }
-/*
-    max_fd = v4_receive_fd;
-    max_fd = (max_fd > signal_fd)            ? max_fd : signal_fd;
-    max_fd = (max_fd > rtnetlink_fd)         ? max_fd : rtnetlink_fd;
-    max_fd = (max_fd > tun_receive_fd)       ? max_fd : tun_receive_fd;
-    for (EVER) {
-        
-        FD_ZERO(&readfds);
-        FD_SET(v4_receive_fd, &readfds);
-        FD_SET(signal_fd, &readfds);
-        FD_SET(rtnetlink_fd, &readfds);
-        FD_SET(tun_receive_fd, &readfds);
-        
-        retval = have_input(max_fd, &readfds);
-        if (retval == -1) {
-            break;           // doom 
-        }
-        if (retval == 0) {
-            continue;        // interrupted 
-        }
-        
-        if (FD_ISSET(v4_receive_fd, &readfds)) {
-            process_lisp_msg(v4_receive_fd, AF_INET);
-        }
-        if (FD_ISSET(signal_fd, &readfds)) {
-            process_event_signal();
-        }
-        if (FD_ISSET(rtnetlink_fd, &readfds)) {
-            process_interface_notification();
-        }
-        if (FD_ISSET(tun_receive_fd, &readfds)) {
-            tuntap_process_output_packet();
+        if (FD_ISSET(timers_fd,&readfds)){
+            process_timer_signal();
         }
     }
-*/
+
     
     
 //     int    max_fd;
@@ -449,7 +404,7 @@ void event_loop()
 //      *  calculate the max_fd for select. Is there a better way
 //      *  to do this?
 //      */
-//     max_fd = (v4_receive_fd > v6_receive_fd) ? v4_receive_fd : v6_receive_fd;
+//     max_fd = (ipv4_data_input_fd > ipv6_data_input_fd) ? ipv4_data_input_fd : ipv6_data_input_fd;
 //     max_fd = (max_fd > netlink_fd)           ? max_fd : netlink_fd;
 //     max_fd = (max_fd > nlh.fd)               ? max_fd : nlh.fd;
 //     max_fd = (max_fd > timers_fd)            ? max_fd : timers_fd;
@@ -461,8 +416,8 @@ void event_loop()
 // 
 //     for (EVER) {
 //         FD_ZERO(&readfds);
-//         FD_SET(v4_receive_fd,&readfds);
-//         FD_SET(v6_receive_fd,&readfds);
+//         FD_SET(ipv4_data_input_fd,&readfds);
+//         FD_SET(ipv6_data_input_fd,&readfds);
 //         FD_SET(netlink_fd,&readfds);
 //         FD_SET(nlh.fd, &readfds);
 //         FD_SET(timers_fd, &readfds);
@@ -471,10 +426,10 @@ void event_loop()
 // #endif
 //         if (have_input(max_fd,&readfds) == -1)
 //             break;                              /* news is bad */
-//         if (FD_ISSET(v4_receive_fd,&readfds))
-//             process_lisp_msg(v4_receive_fd, AF_INET);
-//         if (FD_ISSET(v6_receive_fd,&readfds))
-//             process_lisp_msg(v6_receive_fd, AF_INET6);
+//         if (FD_ISSET(ipv4_data_input_fd,&readfds))
+//             process_lisp_msg(ipv4_data_input_fd, AF_INET);
+//         if (FD_ISSET(ipv6_data_input_fd,&readfds))
+//             process_lisp_msg(ipv6_data_input_fd, AF_INET6);
 //         if (FD_ISSET(netlink_fd,&readfds))
 //             process_netlink_msg();
 //         if (FD_ISSET(nlh.fd,&readfds)) 

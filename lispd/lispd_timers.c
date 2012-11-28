@@ -49,12 +49,12 @@ timer_t create_wheel_timer(void)
     timerspec.it_value.tv_sec = TimerTickInterval;
     timerspec.it_interval.tv_nsec = 0;
     timerspec.it_interval.tv_sec = TimerTickInterval;
-    syslog(LOG_ERR, "Master wheel tick timer %lu set for %lu seconds",
-           (long)tid, (long)timerspec.it_value.tv_sec);
+    /*syslog(LOG_ERR, "Master wheel tick timer %d set for %d seconds",
+           tid, timerspec.it_value.tv_sec);*/
 
     if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
-        syslog(LOG_INFO, "timer start failed for %lu %s",
-               (long)tid, strerror(errno));
+       /* syslog(LOG_INFO, "timer start failed for %d %s",
+               tid, strerror(errno));*/
         return (timer_t)0;
     }
     return(tid);
@@ -73,7 +73,7 @@ int init_timers()
 
     if (create_wheel_timer() == 0) {
         syslog(LOG_INFO, "Failed to set up lispd timers.");
-        return(0);
+        return(BAD);
     }
 
     timer_wheel.num_spokes = WheelSize;
@@ -88,7 +88,7 @@ int init_timers()
         spoke->prev = spoke;
         spoke++;
     }
-    return(1);
+    return(GOOD);
 }
 
 /*
@@ -98,7 +98,7 @@ int init_timers()
  */
 timer *create_timer(char *name)
 {
-    timer *new_timer = (timer *)malloc(sizeof(timer));
+    timer *new_timer = malloc(sizeof(timer));
     memset(new_timer, 0, sizeof(timer));
     strncpy(new_timer->name, name, 64);
     return(new_timer);

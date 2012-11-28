@@ -348,48 +348,7 @@ void dump_iface_list()
 }
 
 
-int open_device_binded_raw_socket(char *device, int afi){
-    
-    //char *device = OUTPUT_IFACE;
-    
-    int device_len;
-    
-    int s;
-    int tr = 1;
-    
-    
-    
-    printf("Init...\n");
-    
-    
-    printf("Creating socket...\n");
-    
-    if ((s = socket(afi, SOCK_RAW, IPPROTO_RAW)) < 0) {
-        syslog(LOG_DAEMON, "open_raw_socket: socket creation failed %s", strerror(errno));
-        return (BAD);
-    }
-    
-    printf("Set reuse addr sckt opt...\n");
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
-        syslog(LOG_DAEMON, "open_raw_socket: socket option reuse %s", strerror(errno));
-        close(s);
-        return (BAD);
-    }
-    
-    printf("Set bindtodevice option...\n");
-    // bind a socket to a device name (might not work on all systems):
-    device_len = strlen(device);
-    if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
-        syslog(LOG_DAEMON, "open_raw_socket: socket option device %s", strerror(errno));
-        close(s);
-        return (BAD);
-    }
 
-    printf("Socket out v4 created: %d\n",s);
-    
-    return s;
-    
-}
 
 
 void open_iface_binded_sockets(){
@@ -416,7 +375,7 @@ void open_iface_binded_sockets(){
 
 /* Search the iface list for the first UP iface that has an 'afi' address*/
 
-lispd_iface_elt *get_output_iface(int afi){
+lispd_iface_elt *get_any_output_iface(int afi){
 
     lispd_iface_elt *iface;
     lispd_iface_list_elt *iface_list_elt;
@@ -446,6 +405,7 @@ lispd_iface_elt *get_output_iface(int afi){
             break;
         default:
             syslog(LOG_ERR, "get_output_iface: unknown afi %d",afi);
+            break;
     }
 
     return iface;
@@ -465,6 +425,7 @@ lispd_iface_elt *get_default_output_iface(int afi){
         default:
             //arnatal TODO: syslog
             iface = NULL;
+            break;
     }
 
     return iface;
@@ -472,9 +433,29 @@ lispd_iface_elt *get_default_output_iface(int afi){
 
 void set_default_output_ifaces(){
 
-    default_out_iface_v4 = get_output_iface(AF_INET);
-    default_out_iface_v6 = get_output_iface(AF_INET6);
+    default_out_iface_v4 = get_any_output_iface(AF_INET);
+    printf("Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+    default_out_iface_v6 = get_any_output_iface(AF_INET6);
+    printf("Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
 
+}
+
+
+lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi){
+    
+    lisp_addr_t *addr;
+    
+    switch(afi){
+        case AF_INET:
+            addr = iface->ipv4_address;
+            break;
+        case AF_INET6:
+            addr = iface->ipv6_address;
+            break;
+    }
+    
+    return addr;
+    
 }
 
 /*

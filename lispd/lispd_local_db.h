@@ -139,21 +139,24 @@ lispd_locator_elt   *new_locator (
 /*
  * del_identifier_entry()
  *
- * Delete an EID mapping from the data base
+ * Delete an EID mapping from the data base. We indicate if it is local or not
  */
 void del_identifier_entry(lisp_addr_t eid,
-        int prefixlen);
+        int prefixlen,
+        uint8_t local_identifier);
 
 
 /*
- * Free memory of lispd_locator_list
+ * Free memory of lispd_locator_list. If it's a local locator, we don't remove
+ * the address as it can be used for other locators of other EIDs
  */
-void free_locator_list(lispd_locators_list *list);
+
+void free_locator_list(lispd_locators_list *list, uint8_t local_locator);
 
 /*
- * Free memory of lispd_identifier_elt
+ * Free memory of lispd_identifier_elt. We indicate if the identifier is local or remote
  */
-void free_lispd_identifier_elt(lispd_identifier_elt *identifier);
+void free_lispd_identifier_elt(lispd_identifier_elt *identifier, uint8_t local_identifier);
 
 /*
  * lookup_eid_in_db

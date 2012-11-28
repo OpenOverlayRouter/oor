@@ -386,12 +386,12 @@ int add_database_mapping(dm)
     /* If we couldn't add the interface and the identifier is new, we remove it. */
     if (interface == NULL){
         if (is_new_identifier){
-            del_identifier_entry (identifier->eid_prefix, identifier->eid_prefix_length);
+            del_identifier_entry (identifier->eid_prefix, identifier->eid_prefix_length, TRUE);
         }
     }
 
     /* XXX Process when the new locator could not be allocated */
-    if (priority_v4 > 0){
+    if (priority_v4 >= 0){
     	if (!interface->ipv4_address){
     		syslog(LOG_ERR,"ERROR: IPv4 locator can not be added to the EID %s/%d. Interface %s doesn't have IPv4 address",
     				get_char_from_lisp_addr_t(identifier->eid_prefix),identifier->eid_prefix_length,
@@ -402,7 +402,7 @@ int add_database_mapping(dm)
             new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
         }
     }
-    if (priority_v6 > 0){
+    if (priority_v6 >= 0){
     	if (!interface->ipv6_address){
     		syslog(LOG_ERR,"ERROR: IPv6 locator can not be added to the EID %s/%d. Interface %s doesn't have IPv6 address",
     				get_char_from_lisp_addr_t(identifier->eid_prefix),identifier->eid_prefix_length,

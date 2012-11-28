@@ -184,6 +184,7 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
 int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node)
 {
   prefix_t prefix;
+  *node=NULL;
 
   switch(eid.afi) {
         case AF_INET:
@@ -204,7 +205,7 @@ int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node)
             break;
     }
 
-  if (!node)
+  if (*node==NULL)
   {
       syslog (LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
       return(BAD);
@@ -427,7 +428,8 @@ lispd_locator_elt   *new_locator (
  * Delete an EID mapping from the data base
  */
 void del_identifier_entry(lisp_addr_t eid,
-        int prefixlen)
+        int prefixlen,
+        uint8_t local_identifier)
 {
     lispd_identifier_elt *entry;
     patricia_node_t      *result;
@@ -447,16 +449,17 @@ void del_identifier_entry(lisp_addr_t eid,
         patricia_remove(EIDv4_database, result);
     else
         patricia_remove(EIDv6_database, result);
-    free_locator_list(entry->head_v4_locators_list);
-    free_locator_list(entry->head_v6_locators_list);
+    free_locator_list(entry->head_v4_locators_list, local_identifier);
+    free_locator_list(entry->head_v6_locators_list, local_identifier);
     free(entry);
 }
 
 /*
- * Free memory of lispd_locator_list
+ * Free memory of lispd_locator_list. If it's a local locator, we don't remove
+ * the address as it can be used for other locators of other EIDs
  */
 
-void free_locator_list(lispd_locators_list *list)
+void free_locator_list(lispd_locators_list *list, uint8_t local_locator)
 {
     lispd_locators_list  * locator_list, *aux_locator_list;
     /*
@@ -467,8 +470,10 @@ void free_locator_list(lispd_locators_list *list)
     {
         if (locator_list->locator->rloc_probing_nonces)
             free (locator_list->locator->rloc_probing_nonces);
-        free (locator_list->locator->locator_addr);
-        free (locator_list->locator->state);
+        if (local_locator == FALSE){
+            free (locator_list->locator->locator_addr);
+            free (locator_list->locator->state);
+        }
         free (locator_list->locator);
         aux_locator_list = locator_list;
         locator_list = locator_list->next;
@@ -476,13 +481,16 @@ void free_locator_list(lispd_locators_list *list)
     }
 }
 
-void free_lispd_identifier_elt(lispd_identifier_elt *identifier)
+/*
+ * Free memory of lispd_identifier_elt. We indicate if the identifier is local or remote
+ */
+void free_lispd_identifier_elt(lispd_identifier_elt *identifier, uint8_t local_identifier)
 {
     /*
      * Free the locators list
      */
-    free_locator_list(identifier->head_v4_locators_list);
-    free_locator_list(identifier->head_v6_locators_list);
+    free_locator_list(identifier->head_v4_locators_list, local_identifier);
+    free_locator_list(identifier->head_v6_locators_list, local_identifier);
     free(identifier);
 
 }

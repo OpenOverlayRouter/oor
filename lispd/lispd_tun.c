@@ -116,12 +116,13 @@ int create_tun(char *tun_dev_name,
 int tun_bring_up_iface_v4_eid(lisp_addr_t eid_address_v4,
                               char *tun_dev_name)
 {
-    struct ifreq ifr;
-    struct sockaddr_in *sp;
-    int    netsock, err;
+    struct ifreq ifr; //arnatal: XXX how to initialize?
+    struct sockaddr_in *sp = NULL;
+    int    netsock = 0;
+    int    err = 0;
 
 
-    //printf("LISP address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
+    printf("LISP address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
     
     netsock = socket(eid_address_v4.afi, SOCK_DGRAM, 0);
     if (netsock < 0) {
@@ -171,12 +172,12 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
                             char *tun_dev_name,
                             int tun_ifindex)
 {
-    struct rtattr       *rta;
-    struct ifaddrmsg    *ifa;
-    struct nlmsghdr     *nlh;
+    struct rtattr       *rta = NULL;
+    struct ifaddrmsg    *ifa = NULL;
+    struct nlmsghdr     *nlh = NULL;
     char                 sndbuf[4096];
-    int                  retval;
-    int                  sockfd;
+    int                  retval = 0;
+    int                  sockfd = 0;
 
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
@@ -223,12 +224,12 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
 
 
 
-int install_default_route(int tun_ifindex, int afi)
+int install_default_route(int tun_ifindex, int afi) //XXX: check for IPv6
 {
     struct nlmsghdr *nlh;
     struct rtmsg    *rtm;
     struct rtattr  *rta;
-    int             rta_len = 0;
+    int    rta_len = 0;
     char   sndbuf[4096];
     //char   addr_buf[128];
     //char   addr_buf2[128];
@@ -291,7 +292,7 @@ int install_default_route(int tun_ifindex, int afi)
     rtm->rtm_dst_len   = 0;
     
     retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
-    
+
     if (retval < 0) {
         syslog(LOG_DAEMON, "install_default_route: send() failed %s", strerror(errno));
         close(sockfd);

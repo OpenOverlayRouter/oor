@@ -105,7 +105,6 @@ int process_map_reply(uint8_t *packet)
     int                         record_count;
     int                         ctr;
 
-
     mrp = (lispd_pkt_map_reply_t *)packet;
     nonce = mrp->nonce;
     record_count = mrp->record_count;
@@ -119,6 +118,7 @@ int process_map_reply(uint8_t *packet)
             return (BAD);
     }
 
+    dump_map_cache();
     return TRUE;
 }
 
@@ -136,6 +136,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     if (!pkt_process_eid_afi(cur_ptr,&identifier))
         return BAD;
     identifier.eid_prefix_length = record->eid_prefix_length;
+
 
     /*
      * Check if the map replay corresponds to a not active map cache
@@ -183,28 +184,29 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
             return (BAD);
         }
         syslog(LOG_DEBUG,"  Existing map cache entry found, replacing locator list");
-        free_locator_list(cache_entry->identifier->head_v4_locators_list);
-        free_locator_list(cache_entry->identifier->head_v6_locators_list);
+        free_locator_list(cache_entry->identifier->head_v4_locators_list, FALSE);
+        free_locator_list(cache_entry->identifier->head_v6_locators_list, FALSE);
         cache_entry->identifier->head_v4_locators_list = NULL;
         cache_entry->identifier->head_v6_locators_list = NULL;
     }
     cache_entry->identifier->locator_count = record->locator_count;
     cache_entry->actions = record->action;
-    cache_entry->ttl = record->ttl;
+    cache_entry->ttl = ntohl(record->ttl);
     cache_entry->active_witin_period = 1;
-    gettimeofday(&(cache_entry->timestamp), NULL);
+    cache_entry->timestamp = time(NULL);
+
 
     /* Generate the locators */
-    for (ctr=0 ; ctr < identifier.locator_count ; ctr++){
+    for (ctr=0 ; ctr < record->locator_count ; ctr++){
         if ((process_map_reply_locator (cur_ptr, cache_entry->identifier)) == BAD)
             return(BAD);
     }
     /* Reprogramming timers */
-    if (!cache_entry->expiry_cache_timer)
+    if (!cache_entry->expiry_cache_timer){
         cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE);
+    }
     start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl, (timer_callback)eid_entry_expiration,
                      (void *)cache_entry);
-
     /*
      *
      *
@@ -227,6 +229,7 @@ int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifie
 {
     lispd_pkt_mapping_record_locator_t  *pkt_locator;
     lispd_locator_elt                   aux_locator;
+    lisp_addr_t                         aux_locator_addr;
     lisp_addr_t                         *locator_addr;
     uint8_t								*state;
     uint8_t                             *cur_ptr;
@@ -236,9 +239,12 @@ int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifie
 
     cur_ptr = (uint8_t *)&(pkt_locator->locator_afi);
 
-
+    /* Get the locator address from the packet */
+    // lispd_locator_elt->locator_addr is a pointer without reserved memory. We init here
+    aux_locator.locator_addr = &aux_locator_addr;
     if (pkt_process_rloc_afi(&cur_ptr, &aux_locator) == BAD)
         return (BAD);
+
     if((locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
     	syslog(LOG_ERR,"pkt_process_rloc_afi: Couldn't allocate lisp_addr_t");
     	return (ERR_MALLOC);

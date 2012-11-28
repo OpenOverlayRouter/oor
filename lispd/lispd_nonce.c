@@ -29,7 +29,7 @@
  */
 
 #include "lispd_nonce.h"
-#include "time.h"
+#include <time.h>
 
 
 /*

@@ -59,8 +59,10 @@ extern  int             debug;
 extern  int             daemonize;
 
 extern  int         netlink_fd;
-extern  int         v6_receive_fd;
-extern  int         v4_receive_fd;
+extern  int         ipv6_data_input_fd;
+extern  int         ipv4_data_input_fd;
+extern  int         ipv6_control_input_fd;
+extern  int         ipv4_control_input_fd;
 extern  int         timers_fd;
 #ifdef LISPMOBMH
 extern  int			smr_timer_fd;

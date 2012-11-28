@@ -47,7 +47,8 @@ int pkt_process_eid_afi(uint8_t  **offset,
     cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
     switch(lisp_afi) {
     case LISP_AFI_IP:
-        identifier->eid_prefix.address.ip.s_addr = ntohs(*(uint32_t *)cur_ptr);
+        memcpy(&(identifier->eid_prefix.address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
+        //identifier->eid_prefix.address.ip.s_addr = ntohl(*(uint32_t *)cur_ptr);
         identifier->eid_prefix.afi = AF_INET;
         cur_ptr  = CO(cur_ptr, sizeof(struct in_addr));
         break;
@@ -61,7 +62,7 @@ int pkt_process_eid_afi(uint8_t  **offset,
         cur_ptr  = CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
         switch(lcaf_ptr->type) {
         case LCAF_IID:
-            identifier->iid = ntohs(*(uint32_t *)cur_ptr);
+            identifier->iid = ntohl(*(uint32_t *)cur_ptr);
             cur_ptr = CO(lcaf_ptr, sizeof(identifier->iid));
             if (!pkt_process_eid_afi (&cur_ptr, identifier))
                 return BAD;
@@ -97,7 +98,7 @@ int pkt_process_rloc_afi(uint8_t  **offset,
     cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
     switch(lisp_afi) {
     case LISP_AFI_IP:
-        locator->locator_addr->address.ip.s_addr = ntohs(*(uint32_t *)cur_ptr);
+        memcpy(&(locator->locator_addr->address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
         locator->locator_addr->afi = AF_INET;
         cur_ptr  = CO(cur_ptr, sizeof(struct in_addr));
         break;
