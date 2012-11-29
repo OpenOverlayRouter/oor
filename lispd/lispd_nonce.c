@@ -87,6 +87,8 @@ nonces_list *new_nonces_list()
 
 int check_nonce(nonces_list   *nonces, uint64_t nonce){
     int i;
+    if (nonces == NULL)
+        return (BAD);
     for (i=0;i<nonces->retransmits;i++){
         if (nonces->nonce[i] == nonce){
             free(nonces);
