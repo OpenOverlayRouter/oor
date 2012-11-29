@@ -1417,6 +1417,7 @@ int process_lisp_ctr_msg(int s, int afi)
     struct sockaddr_in6 s6;
     socklen_t fromlen4 = sizeof(struct sockaddr_in);
     socklen_t fromlen6 = sizeof(struct sockaddr_in6);
+    lisp_addr_t *local_rloc = NULL;
 
     switch (afi) {
     case AF_INET:
@@ -1447,12 +1448,16 @@ int process_lisp_ctr_msg(int s, int afi)
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
         syslog(LOG_DEBUG, "Received a LISP Encapsulated Map-Request message");
-        if(!process_map_request_msg(packet, NULL)) // XXX alopez: Null should be set to local RLOC
+        // XXX alopez: local_rloc shoul be get from packet
+        local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
+        if(!process_map_request_msg(packet, local_rloc))
             return (BAD);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
         syslog(LOG_DEBUG, "Received a LISP Map-Request message");
-        if(!process_map_request_msg(packet, NULL))// XXX alopez: Null should be set to local RLOC
+        // XXX alopez: local_rloc shoul be get from packet
+        local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
+        if(!process_map_request_msg(packet, local_rloc))
             return (BAD);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore

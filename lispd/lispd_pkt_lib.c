@@ -33,6 +33,7 @@
 #include "lispd_local_db.h"
 #include "lispd_map_register.h"
 #include "lispd_external.h"
+#include "lispd_sockets.h"
 
 /*
  *  get_locator_length
@@ -335,10 +336,11 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     struct sockaddr_in  src;
 
 
-    if ((s = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) < 0) {
+    if ((s = open_udp_socket(AF_INET)) < 0) {
         syslog(LOG_ERR, "socket (send_ctrl_ipv4_packet): %s", strerror(errno));
         return(BAD);
     }
+
 
     /*
      * PN: Bind the UDP socket to a valid rloc on the ctrl_iface
@@ -354,11 +356,10 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
     src.sin_family       = AF_INET;
-    if (src_port == 0)
-    	src.sin_port         = htons(INADDR_ANY);
-    else
-    	src.sin_port         = htons(src_port);
+    src.sin_port         = htons(LISP_CONTROL_PORT);
     src.sin_addr.s_addr  = ctrl_iface->ipv4_address->address.ip.s_addr;
+    static char address[INET6_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(src.sin_addr), address, INET_ADDRSTRLEN);
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
         syslog(LOG_ERR, "bind (send_ctrl_ipv4_packet): %s", strerror(errno));
@@ -371,7 +372,7 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     dst.sin_family      = AF_INET;
     dst.sin_addr.s_addr = destination->address.ip.s_addr;
     if (dst_port == 0)
-    	dst.sin_port         = htons(INADDR_ANY);
+    	dst.sin_port         = htons(LISP_CONTROL_PORT);
     else
     	dst.sin_port         = htons(dst_port);
     if ((nbytes = sendto(s,
@@ -406,7 +407,7 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     struct sockaddr_in6  src;
 
 
-    if ((s = socket(AF_INET6,SOCK_DGRAM,IPPROTO_UDP)) < 0) {
+    if ((s = open_udp_socket(AF_INET6)) < 0) {
         syslog(LOG_ERR, "socket (send_ctrl_ipv6_packet): %s", strerror(errno));
         return(BAD);
     }
@@ -431,7 +432,7 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     	src.sin6_port         = htons(src_port);
     memcpy(&src.sin6_addr,&(ctrl_iface->ipv6_address->address.ipv6),sizeof(struct in6_addr));
 
-    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
+    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in6)) < 0) {
         syslog(LOG_ERR, "bind (send_ctrl_ipv6_packet): %s", strerror(errno));
         close(s);
         return(BAD);

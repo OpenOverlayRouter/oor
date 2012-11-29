@@ -85,15 +85,15 @@ int open_udp_socket(int afi){
         return(BAD);
     }
     printf("socket at creation: %d\n",sock);
-    
+
     if (setsockopt(sock,
-                   SOL_SOCKET,
-                   SO_REUSEADDR,
-                   &tr,
-                   sizeof(int)) == -1) {
+            SOL_SOCKET,
+            SO_REUSEADDR,
+            &tr,
+            sizeof(int)) == -1) {
         syslog(LOG_DAEMON, "setsockopt SO_REUSEADDR: %s", strerror(errno));
-    
-    return(BAD);
+
+        return(BAD);
     }
 
     return sock;

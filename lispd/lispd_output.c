@@ -355,16 +355,16 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid){
 }
 
 lisp_addr_t *get_proxy_etr(int afi){
-
-    lisp_addr_t * petr;
-    
+    lispd_weighted_addr_list_t *petr_list_elt;
     if(proxy_etrs!=NULL){
-        petr = proxy_etrs->address;
-    }else{
-        petr = NULL;
+        petr_list_elt = proxy_etrs;
+        while (proxy_etrs!=NULL){
+            if (petr_list_elt->address->afi == afi)
+                return petr_list_elt->address;
+            petr_list_elt = petr_list_elt->next;
+        }
     }
-
-    return petr;
+    return NULL;
 }
 
 lisp_addr_t *get_default_locator_addr(lispd_map_cache_entry *entry, int afi){
@@ -484,8 +484,8 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
         original_src_addr = extract_src_addr_from_packet(original_packet);
         handle_map_cache_miss(&original_dst_addr, &original_src_addr);
     }
-    
-    if ((map_cache_query_result != GOOD) || (entry->active == NO_ACTIVE)){ /* There is no entry or is not active*/
+    /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
+    if ((map_cache_query_result != GOOD) || (entry->active == NO_ACTIVE) || (entry->identifier->locator_count == 0) ){ /* There is no entry or is not active*/
         
         /* Try to fordward to petr*/
         if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */

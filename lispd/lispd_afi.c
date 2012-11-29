@@ -73,9 +73,9 @@ int pkt_process_eid_afi(uint8_t  **offset,
             return BAD;
         }
         break;
-    case 0:
+    case LISP_AFI_NO_EID:
         identifier->eid_prefix.afi = 0;
-        return BAD;
+        break;
     default:
         identifier->eid_prefix.afi = -1;
         syslog(LOG_ERR,"  unknown AFI type %d in EID", lisp_afi);

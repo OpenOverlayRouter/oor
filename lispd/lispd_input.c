@@ -10,7 +10,6 @@
      
      //source_sock    = (struct sockaddr_in *)source;
      
-     printf("$$$$$$$$$$$$$$$$$$$    lisp_input\n");
      
      //iph = (struct iphdr *)((char *)packet_buf + sizeof(struct iphdr));
 

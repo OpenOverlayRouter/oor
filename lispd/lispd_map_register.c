@@ -121,8 +121,12 @@ int map_register(timer *t, void *arg)
                     /* Send the map register */
 
                     if (!send_map_register(ms->address,map_register_pkt,mrp_len)) {
-                        syslog(LOG_DAEMON, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                        syslog(LOG_DEBUG, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
                     }
+                    syslog(LOG_DEBUG, "Sent map register for %s/%d to maps server %s",
+                            get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
+                            identifier_elt->eid_prefix_length,
+                            get_char_from_lisp_addr_t(*(ms->address)));
                     ms = ms->next;
                 }
 

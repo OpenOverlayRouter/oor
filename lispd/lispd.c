@@ -377,15 +377,15 @@ void event_loop()
         }
         
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-            printf("Recieved packet in the data input buffer (4341)\n");
+            //printf("Recieved packet in the data input buffer (4341)\n");
             process_input_packet(ipv4_data_input_fd, tun_receive_fd);
         }
         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-            printf("Recieved packet in the control input buffer (4342)\n");
+            //printf("Recieved packet in the control input buffer (4342)\n");
             process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
         }
         if (FD_ISSET(tun_receive_fd, &readfds)) {
-            printf("Recieved packet in the tun buffer\n");
+            //printf("Recieved packet in the tun buffer\n");
             process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
         }
         if (FD_ISSET(timers_fd,&readfds)){

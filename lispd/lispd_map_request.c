@@ -155,24 +155,24 @@ int add_encap_headers(
  int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc) {
 
      lispd_identifier_elt source_identifier;
-     lispd_map_cache_entry *map_cache_entry;
+     lispd_map_cache_entry *map_cache_entry     = NULL;
      lisp_addr_t itr_rloc[32];
-     lisp_addr_t *remote_rloc;
-     int itr_rloc_count = 0;
-     int itr_rloc_afi;
-     uint8_t *cur_ptr;
-     int ip_header_len = 0;
-     int len = 0;
-     lispd_pkt_map_request_t *msg;
-     struct ip *iph;
-     struct ip6_hdr *ip6h;
-     struct udphdr *udph;
-     int encap_afi;
-     uint16_t udpsum = 0;
-     uint16_t ipsum = 0;
-     int udp_len = 0;
-     uint16_t sport;
-     int i;
+     lisp_addr_t *remote_rloc                   = NULL;
+     int itr_rloc_count                         = 0;
+     int itr_rloc_afi                           = 0;
+     uint8_t *cur_ptr                           = NULL;
+     int ip_header_len                          = 0;
+     int len                                    = 0;
+     lispd_pkt_map_request_t *msg               = NULL;
+     struct ip *iph                             = NULL;
+     struct ip6_hdr *ip6h                       = NULL;
+     struct udphdr *udph                        = NULL;
+     int encap_afi                              = 0;
+     uint16_t udpsum                            = 0;
+     uint16_t ipsum                             = 0;
+     int udp_len                                = 0;
+     uint16_t sport                             = 0;
+     int i                                      = 0;
 
      /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
 
@@ -253,10 +253,8 @@ int add_encap_headers(
      /* Source EID is optional in general, but required for SMRs */
      init_identifier(&source_identifier);
      cur_ptr = (uint8_t *)&(msg->source_eid_afi);
-     if (pkt_process_eid_afi(&cur_ptr, &source_identifier)==BAD){
-         if (source_identifier.eid_prefix.afi == -1)
-             return BAD;
-     }
+     if (pkt_process_eid_afi(&cur_ptr, &source_identifier)==BAD)
+         return BAD;
 
      /* If packet is a Solicit Map Request, process it */
 
@@ -297,9 +295,9 @@ int add_encap_headers(
          memcpy(&(itr_rloc[i].address), cur_ptr, get_addr_len(itr_rloc_afi));
          itr_rloc[i].afi = itr_rloc_afi;
          cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
-         if (!remote_rloc ){ // XXX alopez: Uncoment this when support src address: &&  itr_rloc[i].afi == local_rloc->afi){
-             remote_rloc = &itr_rloc[i];
-         }
+         ///if (!remote_rloc ){ // XXX alopez: Uncoment this when support src address: &&  itr_rloc[i].afi == local_rloc->afi){
+            // remote_rloc = &itr_rloc[i];
+         //}
      }
      if (!remote_rloc)
          remote_rloc = &itr_rloc[0];
@@ -351,6 +349,7 @@ int add_encap_headers(
      opts.send_rec   = 1;
      opts.echo_nonce = 0;
      opts.rloc_probe = rloc_probe;
+
 
      err = build_and_send_map_reply_msg(identifier, local_rloc, remote_rloc, dst_port, nonce, opts);
      if (rloc_probe){

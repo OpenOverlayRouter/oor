@@ -37,3 +37,5 @@ int open_device_binded_raw_socket(char *device, int afi);
 int open_data_input_socket(int afi);
 
 int open_control_input_socket(int afi);
+
+int open_udp_socket(int afi);

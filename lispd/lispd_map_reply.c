@@ -205,7 +205,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     if (!cache_entry->expiry_cache_timer){
         cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE);
     }
-    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl, (timer_callback)eid_entry_expiration,
+    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)eid_entry_expiration,
                      (void *)cache_entry);
     /*
      *
@@ -331,7 +331,7 @@ uint8_t *build_map_reply_pkt(lispd_identifier_elt *identifier,
         map_reply_msg->rloc_probe = 1;
     if (opts.echo_nonce)
         map_reply_msg->echo_nonce = 1;
-    map_reply_msg->record_count = 0;
+    map_reply_msg->record_count = 1;
     map_reply_msg->nonce = nonce;
 
 

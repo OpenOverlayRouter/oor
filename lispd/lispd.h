@@ -217,6 +217,7 @@ int err;
  * LISP AFI codes
  */
 
+#define LISP_AFI_NO_EID                 0
 #define LISP_AFI_IP                     1
 #define LISP_AFI_IPV6                   2
 #define LISP_AFI_LCAF                   16387
