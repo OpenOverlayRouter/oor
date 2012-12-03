@@ -224,7 +224,7 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
 
 
 
-int install_tun_route_v4(int tun_ifindex, lisp_addr_t *addr, int prefix_len) 
+int add_route_v4(uint32_t tun_ifindex, lisp_addr_t *addr, lisp_addr_t *gw, uint32_t prefix_len, uint32_t metric)
 {
     struct nlmsghdr *nlh;
     struct rtmsg    *rtm;
@@ -241,7 +241,7 @@ int install_tun_route_v4(int tun_ifindex, lisp_addr_t *addr, int prefix_len)
     
     if (sockfd < 0) {
         syslog(LOG_DAEMON, "Failed to connect to netlink socket for install_default_route()");
-        return(FALSE);
+        return(BAD);
     }
     
     /*
@@ -262,33 +262,44 @@ int install_tun_route_v4(int tun_ifindex, lisp_addr_t *addr, int prefix_len)
     rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
     memcpy(((char *)rta) + sizeof(struct rtattr), &addr->address.ip, sizeof(struct in_addr));
     rta_len += rta->rta_len;
-    /*
-    struct in_addr addr;
-    addr.s_addr = 0x80000000;
-    memcpy(((char *)rta) + sizeof(struct rtattr), &addr, sizeof(struct in_addr));
-    */
-    //inet_pton(AF_INET, "128.0.0.0", ((char *)rta) + sizeof(struct rtattr));
-
-  
     
     /*
      * Add the outgoing interface
      */
     rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
     rta->rta_type = RTA_OIF;
-    rta->rta_len = sizeof(struct rtattr) + sizeof(int); // if_index
-    memcpy(((char *)rta) + sizeof(struct rtattr), &tun_ifindex, sizeof(int));
+    rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t); // if_index
+    memcpy(((char *)rta) + sizeof(struct rtattr), &tun_ifindex, sizeof(uint32_t));
+    rta_len += rta->rta_len;
+
+    /*
+     * Add the gateway
+     */
+    
+    rta = (struct rtattr *) (((char *)rta) + rta->rta_len);
+    rta->rta_type = RTA_GATEWAY;
+    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
+    memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address.ip, sizeof(struct in_addr));
+    //inet_pton(AF_INET, "192.168.2.1", ((char *)rta) + sizeof(struct rtattr));
+    rta_len += rta->rta_len;
+
+    
+    /* Add the route metric */
+    
+    rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
+    //rta->rta_type = RTA_METRICS;
+    rta->rta_type = RTA_PRIORITY; /* This is the actual atr type to set the metric... */
+    rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t);
+    memcpy(((char *)rta) + sizeof(struct rtattr), &metric, sizeof(uint32_t));
     rta_len += rta->rta_len;
     
     nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
-    //nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
-    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
+    nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
     nlh->nlmsg_type =  RTM_NEWROUTE;
     
     rtm->rtm_family    = AF_INET;
     rtm->rtm_table     = RT_TABLE_MAIN;
-    
-    //rtm->rtm_protocol  = RTPROT_BOOT;
+
     rtm->rtm_protocol  = RTPROT_STATIC;
     rtm->rtm_scope     = RT_SCOPE_UNIVERSE;
     rtm->rtm_type      = RTN_UNICAST;
@@ -303,11 +314,11 @@ int install_tun_route_v4(int tun_ifindex, lisp_addr_t *addr, int prefix_len)
     if (retval < 0) {
         syslog(LOG_DAEMON, "install_default_route: send() failed %s", strerror(errno));
         close(sockfd);
-        return(FALSE);
+        return(BAD);
     }
     syslog(LOG_DAEMON, "Installed default route via TUN device");
     close(sockfd);
-    return(TRUE);
+    return(GOOD);
 }
 
 

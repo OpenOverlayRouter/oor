@@ -307,14 +307,20 @@ int main(int argc, char **argv)
     //tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
 
     lisp_addr_t addr;
-    int prefix_len;
+    lisp_addr_t gw;
+    uint32_t prefix_len;
+    uint32_t metric;
+    
 
     prefix_len = 1;
-
+    metric = 0;
+    get_lisp_addr_from_char("0.0.0.0",&gw);
+    
     get_lisp_addr_from_char("0.0.0.0",&addr);
-    install_tun_route_v4(tun_ifindex,&addr,prefix_len);
+    add_route_v4(tun_ifindex,&addr,&gw,prefix_len,metric);
+
     get_lisp_addr_from_char("128.0.0.0",&addr);
-    install_tun_route_v4(tun_ifindex,&addr,prefix_len);
+    add_route_v4(tun_ifindex,&addr,&gw,prefix_len,metric);
     
     //install_default_route(tun_ifindex,AF_INET6);
 
