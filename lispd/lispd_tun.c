@@ -224,7 +224,7 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
 
 
 
-int install_default_route(int tun_ifindex, int afi) //XXX: check for IPv6
+int install_tun_route_v4(int tun_ifindex, lisp_addr_t *addr, int prefix_len) 
 {
     struct nlmsghdr *nlh;
     struct rtmsg    *rtm;
@@ -235,7 +235,7 @@ int install_default_route(int tun_ifindex, int afi) //XXX: check for IPv6
     //char   addr_buf2[128];
     int    retval;
     int    sockfd;
-    int    oif_index;
+    //int    oif_index;
     
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
     
@@ -260,9 +260,16 @@ int install_default_route(int tun_ifindex, int afi) //XXX: check for IPv6
     rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
     rta->rta_type = RTA_DST;
     rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-    
-    // Address is already zeroed
+    memcpy(((char *)rta) + sizeof(struct rtattr), &addr->address.ip, sizeof(struct in_addr));
     rta_len += rta->rta_len;
+    /*
+    struct in_addr addr;
+    addr.s_addr = 0x80000000;
+    memcpy(((char *)rta) + sizeof(struct rtattr), &addr, sizeof(struct in_addr));
+    */
+    //inet_pton(AF_INET, "128.0.0.0", ((char *)rta) + sizeof(struct rtattr));
+
+  
     
     /*
      * Add the outgoing interface
@@ -270,26 +277,26 @@ int install_default_route(int tun_ifindex, int afi) //XXX: check for IPv6
     rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
     rta->rta_type = RTA_OIF;
     rta->rta_len = sizeof(struct rtattr) + sizeof(int); // if_index
-    
-   
-    oif_index = tun_ifindex;
-    
-    memcpy(((char *)rta) + sizeof(struct rtattr), &oif_index,
-           sizeof(int));
+    memcpy(((char *)rta) + sizeof(struct rtattr), &tun_ifindex, sizeof(int));
     rta_len += rta->rta_len;
     
     nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
-    nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
+    //nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
+    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
     nlh->nlmsg_type =  RTM_NEWROUTE;
     
-    rtm->rtm_family    = afi;
+    rtm->rtm_family    = AF_INET;
     rtm->rtm_table     = RT_TABLE_MAIN;
     
-    rtm->rtm_protocol  = RTPROT_BOOT;
+    //rtm->rtm_protocol  = RTPROT_BOOT;
+    rtm->rtm_protocol  = RTPROT_STATIC;
     rtm->rtm_scope     = RT_SCOPE_UNIVERSE;
     rtm->rtm_type      = RTN_UNICAST;
+    rtm->rtm_src_len   = 0;
+    rtm->rtm_tos       = 0;
     
-    rtm->rtm_dst_len   = 0;
+    rtm->rtm_dst_len   = prefix_len;
+
     
     retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
 
@@ -302,7 +309,6 @@ int install_default_route(int tun_ifindex, int afi) //XXX: check for IPv6
     close(sockfd);
     return(TRUE);
 }
-
 
 
 

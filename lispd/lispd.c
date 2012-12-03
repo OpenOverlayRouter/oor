@@ -304,10 +304,19 @@ int main(int argc, char **argv)
 
     tun_bring_up_iface_v4_eid(get_main_eid(AF_INET),tun_dev_name);
 
-    tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
+    //tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
 
-    install_default_route(tun_ifindex,AF_INET);
-    install_default_route(tun_ifindex,AF_INET6);
+    lisp_addr_t addr;
+    int prefix_len;
+
+    prefix_len = 1;
+
+    get_lisp_addr_from_char("0.0.0.0",&addr);
+    install_tun_route_v4(tun_ifindex,&addr,prefix_len);
+    get_lisp_addr_from_char("128.0.0.0",&addr);
+    install_tun_route_v4(tun_ifindex,&addr,prefix_len);
+    
+    //install_default_route(tun_ifindex,AF_INET6);
 
     open_iface_binded_sockets();
 

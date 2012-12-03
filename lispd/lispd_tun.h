@@ -71,7 +71,7 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
                    char *tun_dev_name,
                    int tun_ifindex);
 
-int install_default_route(int tun_ifindex, int afi);
+int install_tun_route_v4(int tun_ifindex, lisp_addr_t *addr, int prefix_len);
 
 //void process_input_packet(int fd, int tun_receive_fd);
 
