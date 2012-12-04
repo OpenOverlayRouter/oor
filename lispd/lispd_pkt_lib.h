@@ -79,4 +79,5 @@ int get_identifier_length(lispd_identifier_elt *identifier);
 
 int get_up_locator_length(lispd_locators_list *locators_list, int *loc_count);
 
+
 #endif /*LISPD_PKT_LIB_H_*/

@@ -247,7 +247,7 @@ int lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length, patricia_node_
 /*
  * lookup_eid_in_db
  *
- * Look up a given ipv4 eid in the database, returning true and
+ * Look up a given eid in the database, returning true and
  * filling in the entry pointer if found, or false if not found.
  */
 int lookup_eid_in_db(lisp_addr_t eid, lispd_identifier_elt **identifier)
@@ -267,7 +267,7 @@ int lookup_eid_in_db(lisp_addr_t eid, lispd_identifier_elt **identifier)
 /*
  * lookup_eid_in_db
  *
- * Look up a given ipv4 eid in the database, returning true and
+ * Look up a given eid in the database, returning true and
  * filling in the entry pointer if found the exact entry, or false if not found.
  */
 int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_identifier_elt **identifier)

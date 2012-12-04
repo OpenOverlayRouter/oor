@@ -1090,27 +1090,27 @@ int process_netlink_iface ()
                     elt->ready = 1;
                 else {
                     elt->ready = 0;
-                    if (elt == ctrl_iface) 
-                        ctrl_iface = NULL;
+                    if (elt == default_ctrl_iface_v4)
+                        default_ctrl_iface_v4 = NULL;
                 }
                 
-                if (ctrl_iface == NULL) {
-                  ctrl_iface = find_active_ctrl_iface ();
+                if (default_ctrl_iface_v4 == NULL) {
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
-     				 * we will use the same as the ctrl_iface */
-    				if(ctrl_iface != NULL){
-       					if (ctrl_iface->AF4_locators->head){
-		  					if (ctrl_iface->AF4_locators->head->db_entry) {
-								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+     				 * we will use the same as the default_ctrl_iface_v4 */
+    				if(default_ctrl_iface_v4 != NULL){
+       					if (default_ctrl_iface_v4->AF4_locators->head){
+		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
+								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
 								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
-		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
 						else{
-							if (ctrl_iface->AF6_locators->head){
-			  					if (ctrl_iface->AF6_locators->head->db_entry) {
-									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+							if (default_ctrl_iface_v4->AF6_locators->head){
+			  					if (default_ctrl_iface_v4->AF6_locators->head->db_entry) {
+									set_rloc(&(default_ctrl_iface_v4->AF6_locators->head->db_entry->locator),0);
 								}
 							}
 						}
@@ -1119,7 +1119,7 @@ int process_netlink_iface ()
                 }
 
 #ifdef LISPMOBMH
-                if(elt->ready ==0 && ctrl_iface != NULL){
+                if(elt->ready ==0 && default_ctrl_iface_v4 != NULL){
                     /* Update MAP Register and trigger SMRs.
                      * In case there are NO active interfaces this is not triggered.
                      * LSB bits should indicate this (security concerns?)*/
@@ -1187,23 +1187,23 @@ int process_netlink_iface ()
 				set_rloc(&rloc,if_nametoindex(elt->iface_name));
 #endif
 
-                if (ctrl_iface == NULL) {
-                    ctrl_iface = find_active_ctrl_iface();
+                if (default_ctrl_iface_v4 == NULL) {
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
-     				 * we will use the same as the ctrl_iface */
-    				if(ctrl_iface != NULL){
-       					if (ctrl_iface->AF4_locators->head){
-		  					if (ctrl_iface->AF4_locators->head->db_entry) {
-								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+     				 * we will use the same as the default_ctrl_iface_v4 */
+    				if(default_ctrl_iface_v4 != NULL){
+       					if (default_ctrl_iface_v4->AF4_locators->head){
+		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
+								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
 								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
-		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
 						else{
-							if (ctrl_iface->AF6_locators->head){
-			  					if (ctrl_iface->AF6_locators->head->db_entry) {
-									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+							if (default_ctrl_iface_v4->AF6_locators->head){
+			  					if (default_ctrl_iface_v4->AF6_locators->head->db_entry) {
+									set_rloc(&(default_ctrl_iface_v4->AF6_locators->head->db_entry->locator),0);
 								}
 							}
 						}
@@ -1343,23 +1343,23 @@ int process_netlink_iface ()
                  * Update control interface for lispd control messages
                  * if needed
                  */
-                if (ctrl_iface == NULL){
-                    ctrl_iface = find_active_ctrl_iface();
+                if (default_ctrl_iface_v4 == NULL){
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
-     				 * we will use the same as the ctrl_iface */
-    				if(ctrl_iface != NULL){
-       					if (ctrl_iface->AF4_locators->head){
-		  					if (ctrl_iface->AF4_locators->head->db_entry) {
-								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+     				 * we will use the same as the default_ctrl_iface_v4 */
+    				if(default_ctrl_iface_v4 != NULL){
+       					if (default_ctrl_iface_v4->AF4_locators->head){
+		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
+								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
 								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
-		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
 						else{
-							if (ctrl_iface->AF6_locators->head){
-			  					if (ctrl_iface->AF6_locators->head->db_entry) {
-									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+							if (default_ctrl_iface_v4->AF6_locators->head){
+			  					if (default_ctrl_iface_v4->AF6_locators->head->db_entry) {
+									set_rloc(&(default_ctrl_iface_v4->AF6_locators->head->db_entry->locator),0);
 								}
 							}
 						}
@@ -1450,26 +1450,26 @@ int process_netlink_iface ()
                 }
 
                 /*
-                 * Update ctrl_iface if needed
+                 * Update default_ctrl_iface_v4 if needed
                  */
-                if (elt == ctrl_iface) {
-                    ctrl_iface = NULL;
-                    ctrl_iface = find_active_ctrl_iface();
+                if (elt == default_ctrl_iface_v4) {
+                    default_ctrl_iface_v4 = NULL;
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
-     				 * we will use the same as the ctrl_iface */
-    				if(ctrl_iface != NULL){
-       					if (ctrl_iface->AF4_locators->head){
-		  					if (ctrl_iface->AF4_locators->head->db_entry) {
-								set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+     				 * we will use the same as the default_ctrl_iface_v4 */
+    				if(default_ctrl_iface_v4 != NULL){
+       					if (default_ctrl_iface_v4->AF4_locators->head){
+		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
+								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
 								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
-		             			&(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
 						else{
-							if (ctrl_iface->AF6_locators->head){
-			  					if (ctrl_iface->AF6_locators->head->db_entry) {
-									set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+							if (default_ctrl_iface_v4->AF6_locators->head){
+			  					if (default_ctrl_iface_v4->AF6_locators->head->db_entry) {
+									set_rloc(&(default_ctrl_iface_v4->AF6_locators->head->db_entry->locator),0);
 								}
 							}
 						}
@@ -1656,8 +1656,8 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
 
 static int lower_default_route_metric(void) {
     iface_list_elt *elt;
-
-    elt = find_active_ctrl_iface();
+    set_default_ctrl_ifaces();
+    elt = default_ctrl_iface_v4;
     syslog(LOG_DAEMON, "Lowering metric of default route to 0 on %s",
             elt->iface_name);
     if(!route_del(0, NULL, 0, NULL, 0, &(elt->gateway),
@@ -1675,67 +1675,7 @@ static int lower_default_route_metric(void) {
     return 1;
 }
 
-/*
- *  exit_cleanup()
- *
- *  remove lisp modules (and restore network settings)
- */
 
-void exit_cleanup(void) {
-
-    /*Need iterator to remove state associated to each interface*/
-    iface_list_elt *list_iterator = NULL;
-
-    /* Close timer file descriptors */
-    close(timers_fd);
-
-    /* Close receive sockets */
-    close(ipv4_data_input_fd);
-    close(ipv6_data_input_fd);
-    close(ipv4_control_input_fd);
-    close(ipv6_control_input_fd);
-
-    /* Close LISP netlink socket */
-    close(netlink_fd);
-
-    /* Remove lisp modules */
-    system("/sbin/modprobe -r lisp lisp_int");
-
-    /* Remove source routing ip rule */
-    /* Need to iterate through multiple ifaces, in case of multihoming*/
-    //delete_source_routing(ctrl_iface, &source_rloc, NULL);
-    list_iterator=get_first_iface_elt();
-    while(list_iterator){
-    	if (list_iterator->AF4_locators->head) {
-    		if (list_iterator->AF4_locators->head->db_entry) {
-                delete_source_routing(list_iterator->iface_name,
-                        &(list_iterator->AF4_locators->head->db_entry->locator),
-                        NULL,
-                        list_iterator->rt_table_num);
-            }
-		}
-		if (list_iterator->AF6_locators->head) {
-                if (list_iterator->AF6_locators->head->db_entry) {
-                delete_source_routing(list_iterator->iface_name,
-                        &(list_iterator->AF6_locators->head->db_entry->locator),
-                        NULL,
-                        list_iterator->rt_table_num);
-			}
-        }
-    	list_iterator=list_iterator->next;
-    }
-
-    /* Lower metric on default route to 0 and remove realm */
-    lower_default_route_metric();
-
-    /* Close routing netlink socket */
-    close(nlh.fd);
-
-    /* Close syslog */
-    closelog();
-
-    exit(EXIT_SUCCESS);
-}
 
 
 /*

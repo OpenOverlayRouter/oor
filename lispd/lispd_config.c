@@ -328,7 +328,7 @@ int add_database_mapping(dm)
     int    priority_v6        = cfg_getint(dm, "priority_v6");
     int    weight_v6          = cfg_getint(dm, "weight_v6");
 
-    if (iid > MAX_IID || iid < 0) {
+    if (iid > MAX_IID || iid < -1) {
         syslog (LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
         iid = -1;
     }
@@ -391,24 +391,12 @@ int add_database_mapping(dm)
     }
 
     /* XXX Process when the new locator could not be allocated */
-    if (priority_v4 >= 0){
-    	if (!interface->ipv4_address){
-    		syslog(LOG_ERR,"ERROR: IPv4 locator can not be added to the EID %s/%d. Interface %s doesn't have IPv4 address",
-    				get_char_from_lisp_addr_t(identifier->eid_prefix),identifier->eid_prefix_length,
-    				interface->iface_name);
-    		return (BAD);
-    	}
+    if (interface->ipv4_address && priority_v4 >= 0){
         if ((err = add_identifier_to_interface (interface, identifier,AF_INET)) == GOOD){
             new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
         }
     }
-    if (priority_v6 >= 0){
-    	if (!interface->ipv6_address){
-    		syslog(LOG_ERR,"ERROR: IPv6 locator can not be added to the EID %s/%d. Interface %s doesn't have IPv6 address",
-    				get_char_from_lisp_addr_t(identifier->eid_prefix),identifier->eid_prefix_length,
-    				interface->iface_name);
-    		return (BAD);
-    	}
+    if (interface->ipv6_address  && priority_v6 >= 0){
     	if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
             new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
     }
@@ -431,29 +419,29 @@ int add_database_mapping(dm)
     /* 
      * PN: Find an active interface for lispd control messages
      */
-    if (ctrl_iface == NULL)
-        ctrl_iface = find_active_ctrl_iface();
-#ifdef LISPMOBMH
-    /* We need a default rloc (iface) to use. As of now 
-     * we will use the same as the ctrl_iface */
-    if(ctrl_iface != NULL){
-       if (ctrl_iface->AF4_locators->head){
-		  if (ctrl_iface->AF4_locators->head->db_entry) {
-				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
-				syslog(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
-		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
-			}
-		}
-		else{
-			if (ctrl_iface->AF6_locators->head){
-			  if (ctrl_iface->AF6_locators->head->db_entry) {
-					set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
-				}
-			}
-		}
-    }
+    if (default_ctrl_iface_v4 == NULL || default_ctrl_iface_v6 == NULL)
+        set_default_ctrl_ifaces();
+//#ifdef LISPMOBMH
+//    /* We need a default rloc (iface) to use. As of now
+//     * we will use the same as the ctrl_iface */
+//    if(ctrl_iface != NULL){
+//       if (ctrl_iface->AF4_locators->head){
+//		  if (ctrl_iface->AF4_locators->head->db_entry) {
+//				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+//				syslog(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
+//		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+//			}
+//		}
+//		else{
+//			if (ctrl_iface->AF6_locators->head){
+//			  if (ctrl_iface->AF6_locators->head->db_entry) {
+//					set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+//				}
+//			}
+//		}
+//    }
+//#endif
 
-#endif
     return(GOOD);
 }
 
