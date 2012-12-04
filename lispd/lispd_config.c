@@ -42,7 +42,7 @@
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
 
-#include "lispd_uci.h"
+#include "uci.h"
 
 int add_database_mapping(char   *eid,
                          int    iid,
