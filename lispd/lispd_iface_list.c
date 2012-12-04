@@ -29,6 +29,7 @@
  *
  */
 
+#include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include <string.h>
@@ -74,7 +75,7 @@ lispd_iface_elt *add_interface(char *iface_name)
     strcpy(iface->iface_name, iface_name);
     iface->status = UP;
     iface->ipv4_address = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
-    iface->ipv6_address = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+    iface->ipv6_address = NULL;//lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
     iface->head_v4_identifiers_list = NULL;
     iface->head_v6_identifiers_list = NULL;
     iface_list->iface = iface;
@@ -275,36 +276,6 @@ iface_list_elt *get_first_iface_elt(){
 	return elt;
 }
 
-/*
- * Function returns an active (up and running) physical interface
- * with a v4 or v6 locator
- */
-lispd_iface_elt *find_active_ctrl_iface()
-{
-    lispd_iface_list_elt    *iface_list = head_interface_list;
-    lispd_iface_elt         *iface;
-
-    while (iface_list) {
-        iface = iface_list->iface;
-        if (iface->status) {
-            if (iface->ipv4_address){
-                syslog(LOG_INFO, "Interface for ctrl msgs: %s, v4 rloc: %s\n",
-                        iface->iface_name,
-                        get_char_from_lisp_addr_t(*(iface->ipv4_address)));
-            }
-            if (iface->ipv6_address){
-                syslog(LOG_INFO, "Interface for ctrl msgs: %s, v6 rloc: %s\n",
-                        iface->iface_name,
-                        get_char_from_lisp_addr_t(*(iface->ipv6_address)));
-            }
-            return iface;
-        }
-        iface_list = iface_list->next;
-
-    }
-    syslog(LOG_DAEMON, "Cannot find interface for control messages\n");
-    return NULL;
-}
 
 /*
  * Print the interfaces and locators of the lisp node
@@ -438,6 +409,7 @@ lispd_iface_elt *get_default_output_iface(int afi){
 void set_default_output_ifaces(){
 
     default_out_iface_v4 = get_any_output_iface(AF_INET);
+
     if (default_out_iface_v4 != NULL) {
         printf("Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
     }
@@ -446,7 +418,6 @@ void set_default_output_ifaces(){
     if (default_out_iface_v6 != NULL) {
         printf("Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
     }
-
 }
 
 

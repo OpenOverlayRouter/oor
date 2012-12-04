@@ -64,7 +64,6 @@
 int build_receive_sockets(void);
 
 
-int send_raw_udp(struct sockaddr *dst, uint8_t *packet, int packet_len);
 
 
 /*

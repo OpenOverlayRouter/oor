@@ -145,15 +145,17 @@ int     timers_fd                       = 0;
 int 	smr_timer_fd					= 0;
 #endif
 
-/* 
+/*
  * Interface on which control messages
  * are sent
  */
-lispd_iface_elt *ctrl_iface              = NULL;
+lispd_iface_elt *default_ctrl_iface_v4  = NULL;
+lispd_iface_elt *default_ctrl_iface_v6  = NULL;
 lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
 {
+    lisp_addr_t tun_addr;
 
     /*
      *  Check for superuser privileges
@@ -301,8 +303,11 @@ int main(int argc, char **argv)
                 &tun_ifindex,
                 &tun_receive_buf);
 
+    tun_addr = get_main_eid(AF_INET);
+    //tun_addr.afi = AF_INET;
+    //inet_aton("127.0.0.127", &tun_addr.address);
 
-    tun_bring_up_iface_v4_eid(get_main_eid(AF_INET),tun_dev_name);
+    tun_bring_up_iface_v4_eid(tun_addr,tun_dev_name);
 
     //tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
 
@@ -584,6 +589,34 @@ int build_timers_event_socket()
     }
     return(1);
 }
+
+/*
+ *  exit_cleanup()
+ *
+ *  remove lisp modules (and restore network settings)
+ */
+
+void exit_cleanup(void) {
+
+    /*Need iterator to remove state associated to each interface*/
+    iface_list_elt *list_iterator = NULL;
+
+    /* Close timer file descriptors */
+    close(timers_fd);
+
+    /* Close receive sockets */
+    close(tun_receive_fd);
+    close(ipv4_data_input_fd);
+    //close(ipv6_data_input_fd);
+    close(ipv4_control_input_fd);
+    //close(ipv6_control_input_fd);
+
+    /* Close syslog */
+    closelog();
+
+    exit(EXIT_SUCCESS);
+}
+
 
 
 

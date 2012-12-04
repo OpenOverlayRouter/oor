@@ -379,7 +379,7 @@ lisp_addr_t *get_default_locator_addr(lispd_map_cache_entry *entry, int afi){
             addr = entry->identifier->head_v6_locators_list->locator->locator_addr;
             break;
     }
-    
+
     return addr;
 }
 
@@ -391,13 +391,13 @@ int is_lisp_packet(char *packet, int packet_length){
     int ipXh_len = 0;
     int lvl4proto = 0;
     struct udphdr *udh = NULL;
-    
+
     iph = (struct iphdr *) packet;
-    
+
     if (iph->version == 4 ) {
         lvl4proto = iph->protocol;
         ipXh_len = sizeof(struct iphdr);
-        
+
     } else {
         ip6h = (struct ip6_hdr *) packet;
         lvl4proto = ip6h->ip6_nxt; //arnatal XXX: Supposing no extra headers
@@ -407,28 +407,28 @@ int is_lisp_packet(char *packet, int packet_length){
     /*
      * Don't encapsulate LISP messages
      */
-    
+
     if (lvl4proto != IPPROTO_UDP) {
         return FALSE;
     }
 
     udh = (struct udphdr *)(packet + ipXh_len);
-        
+
     /*
      * If either of the udp ports are the control port or data, allow
      * to go out natively. This is a quick way around the
      * route filter which rewrites the EID as the source address.
      */
     if ((ntohs(udh->dest) != LISP_CONTROL_PORT) &&
-        (ntohs(udh->source) != LISP_CONTROL_PORT) &&
-        (ntohs(udh->source) != LISP_DATA_PORT) &&
-        (ntohs(udh->dest) != LISP_DATA_PORT) ) {
+            (ntohs(udh->source) != LISP_CONTROL_PORT) &&
+            (ntohs(udh->source) != LISP_DATA_PORT) &&
+            (ntohs(udh->dest) != LISP_DATA_PORT) ) {
 
         return FALSE;
-        }
+    }
 
     return TRUE;
-    }
+}
 
 
 
@@ -453,7 +453,9 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
     
     
+    original_src_addr = extract_src_addr_from_packet(original_packet);
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
+
     syslog(LOG_DEBUG,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
     
     default_encap_afi = original_dst_addr.afi; //arnatal TODO: Choose proper encapsulation afi
@@ -474,6 +476,13 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
                                 original_packet_length));
     }
 
+    /* If received packet doesn't have a source EID, forward it natively */
+    if (lookup_eid_in_db (original_src_addr, NULL)!= GOOD){
+        return (fordward_native(get_default_output_iface(default_encap_afi),
+                                           original_packet,
+                                           original_packet_length));
+    }
+
 
     //arnatal XXX TODO TODO check if this works
     map_cache_query_result = lookup_eid_cache(original_dst_addr,&entry);
@@ -481,7 +490,6 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     //arnatal TODO TODO: check if this is the correct error type
     if (map_cache_query_result == ERR_DB){ /* There is no entry in the map cache */
         syslog(LOG_INFO, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(original_dst_addr));
-        original_src_addr = extract_src_addr_from_packet(original_packet);
         handle_map_cache_miss(&original_dst_addr, &original_src_addr);
     }
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */

@@ -118,11 +118,6 @@ iface_list_elt *search_iface_list (char *iface_name);
  */
 iface_list_elt *get_first_iface_elt();
 
-/*
- * Function returns an active (up and running) physical interface
- * with a v4 or v6 locator
- */
-lispd_iface_elt *find_active_ctrl_iface();
 
 
 /*
@@ -139,6 +134,11 @@ lispd_iface_elt *get_any_output_iface();
 lispd_iface_elt *get_default_output_iface(int afi);
 
 void set_default_output_ifaces();
+
+/*
+ * Init the default interfaces to send control packets
+ */
+void set_default_ctrl_ifaces();
 
 lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi);
 

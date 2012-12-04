@@ -81,10 +81,6 @@ int process_netlink_iface ();
  */
 int setup_lisp_eid_iface(char *eid_iface_name, lisp_addr_t *eid_addr, int eid_prefix_len);
 
-/*
- *  remove lisp modules (and restore network settings)
- */
-void exit_cleanup(void);
 
 #endif /*LISPD_IFACE_MGMT_H_*/
 

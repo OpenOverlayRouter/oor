@@ -183,58 +183,6 @@ int build_receive_sockets(void)
 }
   
 
-int send_raw_udp(struct sockaddr *dst, uint8_t *packet, int packet_len) {
-    struct ifreq ifr;
-    int s, nbytes, one = 1;
-
-    if ((s = socket(dst->sa_family, SOCK_RAW, IPPROTO_UDP)) < 0) {
-        syslog(LOG_DAEMON, "send_raw_udp: socket: %s", strerror(errno));
-        syslog(LOG_DAEMON, "AFI: %d", dst->sa_family);
-        return(0);
-    }
-
-    /*
-     * By default, raw sockets create the IP header automatically, with operating
-     * system defaults and the protocol number specified in the socket() function
-     * call. If IP header values need to be customized, the socket option
-     * IP_HDRINCL must be set and the header built manually.
-     */
-    if (setsockopt(s, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one)) == -1) {
-        syslog(LOG_DAEMON, "send_raw_udp: setsockopt IP_HDRINCL: %s", strerror(errno));
-        close(s);
-        return(0);
-    }
-
-    /* XXX (LJ): Even with source routing set up, the packet leaves on lmn0, unless
-     *           we specificly ask for the output device to be the control interface
-     */
-    memset(&ifr, 0, sizeof(ifr));
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ctrl_iface->iface_name);
-    if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) == -1) {
-        syslog(LOG_DAEMON, "send_raw_udp: setsockopt SO_BINDTODEVICE: %s", strerror(errno));
-        close(s);
-        return(0);
-    }
-
-    if ((nbytes = sendto(s, (const void *) packet, packet_len, 0,
-                    dst, sizeof(struct sockaddr))) < 0) {
-        syslog(LOG_DAEMON, "send_raw_udp: sendto: %s", strerror(errno));
-        close(s);
-        return (0);
-    }
-
-    if (nbytes != packet_len) {
-        syslog(LOG_DAEMON, "send_raw_udp: nbytes (%d) != packet_len (%d)\n",
-                nbytes, packet_len);
-        close(s);
-        return (0);
-    }
-
-    close(s);
-    free(packet);
-    return (1);
-}
-
 /*
  *      get_afi
  *

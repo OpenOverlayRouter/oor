@@ -336,6 +336,7 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     struct sockaddr_in  src;
 
 
+
     if ((s = open_udp_socket(AF_INET)) < 0) {
         syslog(LOG_ERR, "socket (send_ctrl_ipv4_packet): %s", strerror(errno));
         return(BAD);
@@ -345,19 +346,19 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     /*
      * PN: Bind the UDP socket to a valid rloc on the ctrl_iface
      */
-    if (!(ctrl_iface)) {
+    if (default_ctrl_iface_v4 == NULL) {
         /* No physical interface available for control messages */
         syslog(LOG_ERR, "(send_ctrl_ipv4_packet): Unable to find valid physical interface\n");
         return (BAD);
     }
-    else if (!(ctrl_iface->ipv4_address)){
+    else if (!(default_ctrl_iface_v4->ipv4_address)){
         syslog(LOG_ERR, "(send_ctrl_ipv4_packet): Control interface doesn't have an IPv4 address\n");
         return (BAD);
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
     src.sin_family       = AF_INET;
     src.sin_port         = htons(LISP_CONTROL_PORT);
-    src.sin_addr.s_addr  = ctrl_iface->ipv4_address->address.ip.s_addr;
+    src.sin_addr.s_addr  = default_ctrl_iface_v4->ipv4_address->address.ip.s_addr;
     static char address[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET, &(src.sin_addr), address, INET_ADDRSTRLEN);
 
@@ -415,12 +416,12 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     /*
      * PN: Bind the UDP socket to a valid rloc on the ctrl_iface
      */
-    if (!(ctrl_iface)) {
+    if (!(default_ctrl_iface_v6)) {
         /* No physical interface available for control messages */
         syslog(LOG_ERR, "(send_ctrl_ipv6_packet): Unable to find valid physical interface\n");
         return (BAD);
     }
-    else if (!(ctrl_iface->ipv6_address)){
+    else if (!(default_ctrl_iface_v6->ipv6_address)){
         syslog(LOG_ERR, "(send_ctrl_ipv6_packet): Control interface doesn't have an IPv4 address\n");
         return (BAD);
     }
@@ -430,7 +431,7 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     	src.sin6_port         = htons(INADDR_ANY);
     else
     	src.sin6_port         = htons(src_port);
-    memcpy(&src.sin6_addr,&(ctrl_iface->ipv6_address->address.ipv6),sizeof(struct in6_addr));
+    memcpy(&src.sin6_addr,&(default_ctrl_iface_v6->ipv6_address->address.ipv6),sizeof(struct in6_addr));
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in6)) < 0) {
         syslog(LOG_ERR, "bind (send_ctrl_ipv6_packet): %s", strerror(errno));
