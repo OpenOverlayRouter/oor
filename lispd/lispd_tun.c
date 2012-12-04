@@ -221,10 +221,22 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
     return(GOOD);
 }
 
+/* 
+ * ifindex:     Output interface
+ * dest:        Destination address
+ * gw:          Gateway
+ * prefix_len:  Destination address mask (/n)
+ * metric:      Route metric
+ * 
+ */
 
 
-
-int add_route_v4(uint32_t tun_ifindex, lisp_addr_t *addr, lisp_addr_t *gw, uint32_t prefix_len, uint32_t metric)
+int add_route_v4(uint32_t ifindex,
+                 lisp_addr_t *dest,
+                 lisp_addr_t *src,
+                 lisp_addr_t *gw,
+                 uint32_t prefix_len,
+                 uint32_t metric)
 {
     struct nlmsghdr *nlh;
     struct rtmsg    *rtm;
@@ -260,7 +272,16 @@ int add_route_v4(uint32_t tun_ifindex, lisp_addr_t *addr, lisp_addr_t *gw, uint3
     rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
     rta->rta_type = RTA_DST;
     rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-    memcpy(((char *)rta) + sizeof(struct rtattr), &addr->address.ip, sizeof(struct in_addr));
+    memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address.ip, sizeof(struct in_addr));
+    rta_len += rta->rta_len;
+
+    /*
+     * Add src address for the route
+     */
+    rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
+    rta->rta_type = RTA_SRC;
+    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
+    memcpy(((char *)rta) + sizeof(struct rtattr), &src->address.ip, sizeof(struct in_addr));
     rta_len += rta->rta_len;
     
     /*
@@ -269,7 +290,7 @@ int add_route_v4(uint32_t tun_ifindex, lisp_addr_t *addr, lisp_addr_t *gw, uint3
     rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
     rta->rta_type = RTA_OIF;
     rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t); // if_index
-    memcpy(((char *)rta) + sizeof(struct rtattr), &tun_ifindex, sizeof(uint32_t));
+    memcpy(((char *)rta) + sizeof(struct rtattr), &ifindex, sizeof(uint32_t));
     rta_len += rta->rta_len;
 
     /*
