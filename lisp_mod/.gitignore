@@ -1,9 +1,0 @@
-*.o
-.*.ko.cmd
-.*.o.cmd
-.tmp_versions
-Module.symvers
-*.ko
-*.mod.*
-modules.order
-cscope.out
