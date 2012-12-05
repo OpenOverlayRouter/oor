@@ -31,6 +31,8 @@
  *
  */
 
+#include "lispd.h"
+#include "lispd_ipc.h"
 #include "lispd_external.h"
 
 /*
@@ -41,6 +43,7 @@
  */
 
 /* TODO (LJ): lispd_db_entry_t should be updated to support multiple locators */
+//
 int install_database_mapping(db_entry)
     lispd_db_entry_t   *db_entry;
 {
@@ -97,7 +100,7 @@ int install_database_mapping(db_entry)
  *  Install per_afi database mappings into the kernel
  *
  */
-
+//
 int install_database_mappings_afi(tree)
     patricia_tree_t *tree;
 {
@@ -142,7 +145,7 @@ int install_database_mappings_afi(tree)
  *
  */
 
-
+//
 int install_database_mappings(void)
 {
 
@@ -161,7 +164,7 @@ int install_database_mappings(void)
  *  Install static map-cache entries into the kernel
  *
  */
-
+//
 int install_map_cache_entries(void)
 {
     lispd_map_cache_t       *map_cache_entry;
@@ -221,7 +224,7 @@ int install_map_cache_entries(void)
  *  Install a single map_cache entry in the kernel
  *
  */
- 
+//
 /* TODO (LJ): lispd_map_cache_entry_t should be updated to support multiple locators */
 int install_map_cache_entry(map_cache_entry)
     lispd_map_cache_entry_t   *map_cache_entry;
@@ -312,7 +315,7 @@ int send_eid_map_msg(lisp_eid_map_msg_t *map_msg, int map_msg_len)
     free(cmd);
     return(retval);
 }
-
+//
 int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix,
         uint8_t eid_prefix_length, lisp_addr_t *locator, int status_bits)
 {
@@ -355,54 +358,6 @@ int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix,
     return(retval);
 }
 
-int send_set_instance_msg(lisp_set_instance_msg_t *iid_msg, int iid_msg_len)
-{
-    size_t                  cmd_length = 0;
-    int                     retval     = 0;
-    lisp_cmd_t              *cmd;
-
-    cmd_length = sizeof(lisp_cmd_t) + iid_msg_len;
-
-    if ((cmd = malloc(cmd_length)) < 0){
-        syslog (LOG_DAEMON, "send_set_instance_msg(): memory allocation error");
-        return(0);
-    }
-
-    memset((char *) cmd, 0, cmd_length);
-
-    cmd->type   = LispSetInstanceID;
-    cmd->length = iid_msg_len;
-    memcpy((void *)(cmd->val), iid_msg, iid_msg_len);
-
-    retval = send_command(cmd, cmd_length);
-    free(cmd);
-    return(retval);
-}
-
-/*
- *  set up the NETLINK socket and bind to it.
- */
-
-int setup_netlink(void)
-{
-    if ((netlink_fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_LISP)) <  0) 
-    return(0);
-
-    memset(&src_addr, 0, sizeof(src_addr));
-    src_addr.nl_family = AF_NETLINK;
-    src_addr.nl_pid    = getpid();       /* self pid */
-    src_addr.nl_groups = 0;              /* not in mcast groups */
-
-    if (bind(netlink_fd,
-         (struct sockaddr *) &src_addr, sizeof(src_addr)) == -1) 
-    return(0);
-
-    memset(&dst_addr, 0, sizeof(dst_addr));
-    dst_addr.nl_family = AF_NETLINK;
-    dst_addr.nl_pid    = 0;              /* For Linux Kernel */
-    dst_addr.nl_groups = 0;              /* unicast */
-    return(1);
-}
 
 int send_command(lisp_cmd_t *cmd, size_t length)
 {
@@ -860,29 +815,6 @@ int get_map_cache_list() {
 }
 
 
-/*
- *  ask for the list of RLOCs in map cache (for SMR)
- */
-
-int get_map_cache_rloc_list() {
-    int retval = 0;
-    lisp_cmd_t *cmd;
-
-    if ((cmd = malloc(sizeof(lisp_cmd_t))) == 0) {
-        syslog(LOG_DAEMON, "get_map_cache_rloc_list: malloc failed");
-        return(0);
-    }
-
-    memset(cmd, 0, sizeof(lisp_cmd_t));
-
-    cmd->type   = LispMapCacheRLOCList;
-    cmd->length = 0;
-
-    retval = send_command(cmd, sizeof(lisp_cmd_t));
-    syslog(LOG_DAEMON, "Asking for RLOC list to do SMR");
-    free(cmd);
-    return(retval);
-}
 
 
 /*

@@ -29,15 +29,136 @@
  *
  */
 
-#include "lispd.h"
+#include "lispd_external.h"
+#include "lispd_iface_list.h"
+#include "lispd_lib.h"
+#include <string.h>
+
 
 iface_list  *avail_phy_ifaces = NULL;
+
+lispd_iface_list_elt *head_interface_list = NULL;
+
+lispd_iface_elt *default_out_iface_v4;
+lispd_iface_elt *default_out_iface_v6;
+
+
+lispd_iface_elt *add_interface(char *iface_name)
+{
+    lispd_iface_list_elt *iface_list, *aux_iface_list;
+    lispd_iface_elt *iface;
+
+    /* Creating the new interface*/
+    if ((iface_list = malloc(sizeof(lispd_iface_list_elt)))==NULL){
+        syslog(LOG_CRIT,"add_interface: Unable to allocate memory for iface_list_elt: %s", strerror(errno));
+        return(NULL);
+    }
+    if ((iface = malloc(sizeof(lispd_iface_elt)))==NULL){
+        syslog(LOG_CRIT,"add_interface: Unable to allocate memory for iface_elt: %s", strerror(errno));
+        free(iface_list);
+        return(NULL);
+    }
+    if ((iface->ipv4_address = malloc(sizeof(lisp_addr_t)))==NULL){
+    	syslog(LOG_CRIT,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+    	free(iface_list);
+    	free(iface);
+    	return(NULL);
+    }
+    if ((iface->ipv6_address = malloc(sizeof(lisp_addr_t)))==NULL){
+    	syslog(LOG_CRIT,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+    	free(iface_list);
+    	free(iface->ipv4_address);
+    	free(iface);
+    	return(NULL);
+    }
+    iface->iface_name = malloc(strlen(iface_name) + 1);   // XXX Must free elsewhere
+    strcpy(iface->iface_name, iface_name);
+    iface->status = UP;
+    iface->ipv4_address = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
+    iface->ipv6_address = NULL;//lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+    iface->head_v4_identifiers_list = NULL;
+    iface->head_v6_identifiers_list = NULL;
+    iface_list->iface = iface;
+    iface_list->next = NULL;
+
+    /* Add iface to the list */
+    if (!head_interface_list){
+        head_interface_list = iface_list;
+    }else {
+        aux_iface_list = head_interface_list;
+        while (aux_iface_list->next)
+           aux_iface_list = aux_iface_list->next;
+        aux_iface_list->next = iface_list;
+    }
+    return iface;
+}
+
+/*
+ * Add the identifier to the list of identifiers of the interface according to the afi.
+ * The identifier is added just one time
+ */
+
+int add_identifier_to_interface (lispd_iface_elt *interface, lispd_identifier_elt *identifier, int afi)
+{
+	lispd_identifiers_list *identifiers_list, *aux_identifiers_list;
+
+
+	if ((identifiers_list = malloc(sizeof(lispd_identifiers_list)))==NULL){
+		syslog(LOG_ERR,"add_identifier_to_interface: couldn't allocate memory for lispd_identifiers_list");
+		return (ERR_MALLOC);
+	}
+	identifiers_list->identifier=identifier;
+	identifiers_list->next = NULL;
+
+	if ( afi == AF_INET ){
+		if (interface->head_v4_identifiers_list == NULL){
+			interface->head_v4_identifiers_list = identifiers_list;
+			return (GOOD);
+		}
+		aux_identifiers_list = interface->head_v4_identifiers_list;
+	}
+	else{
+		if (interface->head_v6_identifiers_list == NULL){
+			interface->head_v6_identifiers_list = identifiers_list;
+			return (GOOD);
+		}
+		aux_identifiers_list = interface->head_v6_identifiers_list;
+	}
+	while (aux_identifiers_list->next && aux_identifiers_list->identifier != identifier){
+		aux_identifiers_list = aux_identifiers_list->next;
+	}
+	if (aux_identifiers_list->identifier == identifier)
+		return (ERR_EXIST);
+	aux_identifiers_list->next = identifiers_list;
+	return (GOOD);
+}
+
+/*
+ * Look up an interface based in the iface_name.
+ * Return the iface element if it is found or NULL if not.
+ */
+
+lispd_iface_elt *get_interface(char *iface_name)
+{
+    lispd_iface_list_elt *iface_list;
+    if (!head_interface_list)
+        return NULL;
+    iface_list = head_interface_list;
+    while (iface_list){
+        if (strcmp (iface_list->iface->iface_name , iface_name) == 0)
+            return iface_list->iface;
+        iface_list = iface_list->next;
+    }
+    return NULL;
+}
+
+
 
 /*
  * Add a new iface_list_elt to the 
  * tail of an iface_list
  */
-static void add_item_to_iface_list (list, item) 
+void add_item_to_iface_list (list, item)
     iface_list      *list;
     iface_list_elt  *item;
 {
@@ -131,19 +252,6 @@ iface_list_elt *search_iface_list (iface_name)
 }
 
 
-static void dump_iface_list (item)
-    iface_list_elt *item;
-{
-    syslog(LOG_DAEMON, "Interface list:");
-    while (item) {
-        syslog(LOG_DAEMON, "  %s %s %s %p %p %d\n",
-                item->iface_name, 
-                item->AF4_eid_prefix, item->AF6_eid_prefix,
-                item->AF4_locators, item->AF6_locators, item->ready); 
-        item = item->next; 
-    }
-}
-
 
 /* get_rt_number
  * Selects an appropriate routing table number.
@@ -160,110 +268,6 @@ int get_rt_number()
 }
 
 
-/*
- * Add/update iface_list_elt with the input parameters
- */
-int update_iface_list (iface_name, eid_prefix, 
-        db_entry, is_up, priority, weight)
-    char *iface_name;
-    char *eid_prefix;
-    lispd_db_entry_t  *db_entry;
-    int is_up;
-    int weight;
-    int priority;
-{
-    iface_list_elt *elt = NULL;
-    db_entry_list_elt *db_elt   = NULL;
-    int afi;
-
-    if (!avail_phy_ifaces) {
-        /* first iface_list_elt */
-        if((avail_phy_ifaces = malloc (sizeof(iface_list))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(iface_list))\n");
-            return (0);
-        }
-        memset (avail_phy_ifaces, 0, sizeof(iface_list));
-    }
-
-    elt = search_iface_list (iface_name);
-
-    if (elt == NULL) {
-        /* should create a new iface_list_elt */
-        if ((elt = malloc (sizeof(iface_list_elt))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(iface_list_elt))\n");
-            return (0);
-        }
-        memset (elt, 0, sizeof(iface_list_elt));
-        if (((elt->AF4_locators = malloc (sizeof(db_entry_list))) == NULL) ||
-            ((elt->AF6_locators = malloc (sizeof(db_entry_list))) == NULL)) {
-
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(db_entry_list)\n");
-            free(elt->AF4_locators);
-            free(elt->AF6_locators);
-            free(elt);
-            return (0);
-        }
-        memset (elt->AF4_locators, 0, sizeof(db_entry_list));
-        memset (elt->AF6_locators, 0, sizeof(db_entry_list));
-        elt->iface_name     = strdup(iface_name);
-        //get a table number that we can use
-        elt->rt_table_num	= get_rt_number();
-#ifdef LISPMOBMH
-		elt->if_index = if_nametoindex(iface_name);
-#endif
-
-        add_item_to_iface_list (avail_phy_ifaces,elt);
-    }
-
-    if (eid_prefix) {
-        afi = get_afi(eid_prefix);
-        switch (afi) {
-            case AF_INET6:
-                if (!elt->AF6_eid_prefix) 
-                    elt->AF6_eid_prefix = strdup(eid_prefix);
-                break;
-            default:
-                if (!elt->AF4_eid_prefix) 
-                    elt->AF4_eid_prefix = strdup(eid_prefix);
-                break;
-        }
-    }
-
-    elt->ready          = is_up;
-    elt->weight         = weight;
-    elt->priority       = priority;
-
-    if (db_entry == NULL)
-        /* No rloc available to add */
-        return (1);
-
-    if ((db_elt = malloc (sizeof(db_entry_list_elt))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(db_entry_list_elt))\n");
-            return (0);
-    }
-    memset (db_elt, 0, sizeof(db_entry_list_elt));
-    db_elt->db_entry    = db_entry;
-    db_elt->next        = NULL;
-
-    switch (db_entry->locator.afi) {
-        case AF_INET:
-            add_item_to_db_entry_list(elt->AF4_locators, db_elt);
-            break;
-        case AF_INET6:
-            add_item_to_db_entry_list(elt->AF6_locators, db_elt);
-            break;
-        default:
-            syslog (LOG_DAEMON, "Unknown AFI; db_entry not added\n");
-            free(db_elt);
-            break;
-    }
-
-    dump_iface_list(avail_phy_ifaces->head);
-
-    return (1);
-}
-
-
 /* 
  * Function that allows iterating through interfaces from elsewhere
  */
@@ -272,45 +276,181 @@ iface_list_elt *get_first_iface_elt(){
 	return elt;
 }
 
-/*
- * Function returns an active (up and running) physical interface
- * with a v4 or v6 locator
- */
-iface_list_elt *find_active_ctrl_iface()
-{
-    iface_list_elt  *temp = avail_phy_ifaces->head;
-    char x[128];
 
-    while (temp) {
-        if (temp->ready) {
-            if (temp->AF4_locators->head) {
-                if (temp->AF4_locators->head->db_entry) {
-                    syslog(LOG_DAEMON, "Interface for ctrl msgs: %s, v4 rloc: %s\n", 
-                        temp->iface_name,
-                        inet_ntop(AF_INET, 
-                            &(temp->AF4_locators->head->db_entry->locator), 
-                            x, 128));
-                    return temp;
-                }
-            }
-            if (temp->AF6_locators->head) {
-                if (temp->AF6_locators->head->db_entry) {
-                    syslog(LOG_DAEMON, "Interface for ctrl msgs: %s, v6 rloc: %s\n", 
-                        temp->iface_name,
-                        inet_ntop(AF_INET6, 
-                            &(temp->AF6_locators->head->db_entry->locator), 
-                            x, 128));
-                    return temp;
-                }
+/*
+ * Print the interfaces and locators of the lisp node
+ */
+
+void dump_iface_list()
+{
+
+    lispd_iface_list_elt     *interface_list = head_interface_list;
+    lispd_identifiers_list   *identifier_list;
+
+    if (head_interface_list == NULL)
+        return;
+
+    printf("LISP Interfaces List\n\n");
+
+    while (interface_list){
+        printf ("== %s   (%s)==\n",interface_list->iface->iface_name, interface_list->iface->status ? "Up" : "Down");
+        if (interface_list->iface->ipv4_address){
+            printf ("  IPv4 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv4_address)));
+            printf ("    -- LIST identifiers -- \n");
+            identifier_list = interface_list->iface->head_v4_identifiers_list;
+            while (identifier_list){
+                printf("    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
+                        identifier_list->identifier->eid_prefix_length);
+                identifier_list = identifier_list->next;
             }
         }
-        temp = temp->next;
-
+        if (interface_list->iface->ipv6_address){
+            printf ("  IPv6 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv6_address)));
+            printf ("    -- LIST identifiers -- \n");
+            identifier_list = interface_list->iface->head_v6_identifiers_list;
+            while (identifier_list){
+                printf("    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
+                        identifier_list->identifier->eid_prefix_length);
+                identifier_list = identifier_list->next;
+            }
+        }
+        interface_list = interface_list->next;
     }
-    syslog(LOG_DAEMON, "Cannot find interface for control messages\n");
-    return NULL;
 }
 
+
+
+
+
+void open_iface_binded_sockets(){
+
+    lispd_iface_elt *iface;
+    
+    lispd_iface_list_elt *iface_list_elt;
+
+    
+    iface_list_elt = head_interface_list;
+    
+    do {
+        
+        iface = iface_list_elt->iface;
+
+        if(iface->ipv4_address!=NULL){
+            iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+        }
+        if(iface->ipv6_address!=NULL){
+            iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        }
+        
+        iface_list_elt = iface_list_elt->next;
+        
+    }while (iface_list_elt != NULL);
+    
+}
+
+/* Search the iface list for the first UP iface that has an 'afi' address*/
+
+lispd_iface_elt *get_any_output_iface(int afi){
+
+    lispd_iface_elt *iface;
+    lispd_iface_list_elt *iface_list_elt;
+
+    iface_list_elt = head_interface_list;
+
+    iface = NULL;
+    
+    switch (afi){
+        case AF_INET:
+            while ((iface_list_elt!=NULL)
+                && (iface_list_elt->iface->ipv4_address!=NULL)
+                && (iface_list_elt->iface->status == UP)) {
+
+                iface = iface_list_elt->iface;
+                iface_list_elt = iface_list_elt->next;
+            }
+            break;
+        case AF_INET6:
+            while ((iface_list_elt!=NULL)
+                && (iface_list_elt->iface->ipv6_address!=NULL)
+                && (iface_list_elt->iface->status == UP)) {
+
+                iface = iface_list_elt->iface;
+                iface_list_elt = iface_list_elt->next;
+            }
+            break;
+        default:
+            syslog(LOG_ERR, "get_output_iface: unknown afi %d",afi);
+            break;
+    }
+
+    return iface;
+}
+
+lispd_iface_elt *get_default_output_iface(int afi){
+
+    lispd_iface_elt *iface;
+
+    switch (afi){
+        case AF_INET:
+            iface = default_out_iface_v4;
+            break;
+        case AF_INET6:
+            iface = default_out_iface_v6;
+            break;
+        default:
+            //arnatal TODO: syslog
+            iface = NULL;
+            break;
+    }
+
+    return iface;
+}
+
+void set_default_output_ifaces(){
+
+    default_out_iface_v4 = get_any_output_iface(AF_INET);
+
+    if (default_out_iface_v4 != NULL) {
+        printf("Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+    }
+    
+    default_out_iface_v6 = get_any_output_iface(AF_INET6);
+    if (default_out_iface_v6 != NULL) {
+        printf("Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
+    }
+}
+
+void set_default_ctrl_ifaces(){
+
+    default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
+
+    if (default_ctrl_iface_v4 != NULL) {
+        printf("Default IPv4 control iface %s\n",default_ctrl_iface_v4->iface_name);
+    }
+
+    default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
+    if (default_ctrl_iface_v6 != NULL) {
+        printf("Default IPv6 control iface %s\n",default_ctrl_iface_v6->iface_name);
+    }
+}
+
+
+lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi){
+    
+    lisp_addr_t *addr;
+    
+    switch(afi){
+        case AF_INET:
+            addr = iface->ipv4_address;
+            break;
+        case AF_INET6:
+            addr = iface->ipv6_address;
+            break;
+    }
+    
+    return addr;
+    
+}
 
 /*
  * Editor modelines

@@ -30,6 +30,9 @@
  *
  */
 
+#ifndef LISPD_H_
+#define LISPD_H_
+
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
@@ -50,14 +53,12 @@
 #include <syslog.h>
 #include <sys/param.h>
 #include <sys/socket.h>
-#include <time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <time.h>
 #include <endian.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include "lisp_ipc.h"
+#include "lispd_syslog.h"
 #include "patricia/patricia.h"
 
 /*
@@ -70,8 +71,10 @@
 #define LISPD_INITIAL_PROBE_TIMEOUT 1  // Initial expiration timer for the first MRq RLOC probe
 #define LISPD_MAX_MRQ_TIMEOUT       32 // Max expiration timer for the subsequent MRq
 #define LISPD_EXPIRE_TIMEOUT        1  // Time interval in which events are expired
+#define LISPD_MAX_MR_RETRANSMIT     2  // Maximum amount of Map Request retransmissions
 #define LISPD_MAX_SMR_RETRANSMIT    2  // Maximum amount of SMR MRq retransmissions
 #define LISPD_MAX_PROBE_RETRANSMIT  1  // Maximum amount of RLOC probe MRq retransmissions
+#define LISPD_MAX_NONCES_LIST       3  // Positions of nonces vec. Max of LISPD_MAX_XX_RETRANSMIT + 1
 
 /*
  *  Determine endianness
@@ -96,6 +99,12 @@
 #endif
 
 
+
+/*
+ * Constants
+ */
+#define MAX_MSG_LENGTH 1024  /* Max total message size. */
+
 /*
  *  CO --
  *
@@ -106,7 +115,7 @@
  *
  */
 
-#define CO(addr,len) (((char *) addr + len))
+#define CO(addr,len) (((uint8_t *) addr + len))
 
 
 /*
@@ -145,8 +154,26 @@
 #define PACKED          __attribute__ ((__packed__))
 #define uchar           u_char
 
+int err;
 #define GOOD                1
 #define BAD                 0
+#define ERR_CTR_IFACE       0
+#define ERR_SRC_ADDR        0
+#define ERR_AFI             0
+#define ERR_DB              0
+#define ERR_MALLOC          0
+#define ERR_EXIST			-5
+
+
+
+
+
+#define TRUE                1
+#define FALSE               0
+#define UP                  1
+#define DOWN                0
+
+
 #define MAX_IP_PACKET       4096
 #define MIN_EPHEMERAL_PORT  32768
 #define MAX_EPHEMERAL_PORT  65535
@@ -181,6 +208,7 @@
 #define LISP_MAP_NOTIFY                 4
 #define LISP_ENCAP_CONTROL_TYPE         8
 #define LISP_CONTROL_PORT               4342
+#define LISP_DATA_PORT                  4341
 
 /*
  *  Map Reply action codes
@@ -195,6 +223,7 @@
  * LISP AFI codes
  */
 
+#define LISP_AFI_NO_EID                 0
 #define LISP_AFI_IP                     1
 #define LISP_AFI_IPV6                   2
 #define LISP_AFI_LCAF                   16387
@@ -226,6 +255,7 @@
 #define DYNAMIC_LOCATOR                 1
 #define FQDN_LOCATOR                    2
 #define PETR_LOCATOR                    3
+#define LOCAL_LOCATOR                   4
 
 /*
  *  map-cache entry types (how_learned)
@@ -233,6 +263,12 @@
 
 #define STATIC_MAP_CACHE_ENTRY          0
 #define DYNAMIC_MAP_CACHE_ENTRY         1
+
+/*
+ *  map-cache entry activated  (received map reply)
+ */
+#define NO_ACTIVE                       0
+#define ACTIVE                          1
 
 /*
  *  for map-register auth data...
@@ -273,6 +309,66 @@
 typedef int32_t lispd_iid_t;
 
 #define MAX_IID 16777215
+
+#define MAX_PRIORITY 0
+#define MIN_PRIORITY 254
+#define UNUSED_RLOC_PRIORITY 255
+
+/* LISP data packet header */
+
+typedef struct lisphdr {
+    #ifdef __LITTLE_ENDIAN_BITFIELD
+    uint8_t rflags:3;
+    uint8_t instance_id:1;
+    uint8_t map_version:1;
+    uint8_t echo_nonce:1;
+    uint8_t lsb:1;
+    uint8_t nonce_present:1;
+    #else
+    uint8_t nonce_present:1;
+    uint8_t lsb:1;
+    uint8_t echo_nonce:1;
+    uint8_t map_version:1;
+    uint8_t instance_id:1;
+    uint8_t rflags:3;
+    #endif
+    uint8_t nonce[3];
+    uint32_t lsb_bits;
+} lisphdr_t;
+
+
+/*
+ * Lisp address structure
+ */
+typedef struct {
+  union {
+    struct in_addr ip;
+    struct in6_addr ipv6;
+  } address;
+  int afi;
+} lisp_addr_t;
+
+
+/*
+ *  generic list of addresses
+ */
+
+typedef struct _lispd_addr_list_t {
+    lisp_addr_t                 *address;
+    struct _lispd_addr_list_t   *next;
+} lispd_addr_list_t;
+
+
+/*
+ *  generic list of addresses with priority and weight
+ */
+
+typedef struct _lispd_weighted_addr_list_t {
+    lisp_addr_t                         *address;
+    uint8_t                             priority;
+    uint8_t                             weight;
+    struct _lispd_weighted_addr_list_t  *next;
+} lispd_weighted_addr_list_t;
 
 
 /*
@@ -329,27 +425,6 @@ typedef struct _lispd_map_cache_t {
     struct _lispd_map_cache_t   *next;
 } lispd_map_cache_t;
 
-/*
- *  generic list of addresses
- */
-
-typedef struct _lispd_addr_list_t {
-    lisp_addr_t                 *address;
-    struct _lispd_addr_list_t   *next;
-} lispd_addr_list_t;
-
-
-/*
- *  generic list of addresses with priority and weight
- */
-
-typedef struct _lispd_weighted_addr_list_t {
-    lisp_addr_t                         *address;
-    uint8_t                             priority;
-    uint8_t                             weight;
-    struct _lispd_weighted_addr_list_t  *next;
-} lispd_weighted_addr_list_t;
-
 
 typedef struct _lispd_map_server_list_t {
     lisp_addr_t                     *address;
@@ -359,6 +434,7 @@ typedef struct _lispd_map_server_list_t {
     uint8_t                         verify;
     struct _lispd_map_server_list_t *next;
 } lispd_map_server_list_t;
+
 
 
 
@@ -438,6 +514,10 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
     uint16_t locator_afi;
 } PACKED lispd_pkt_mapping_record_locator_t;
 
+
+
+
+
 /*
  * Map-Registers have an authentication header before the UDP header.
  *
@@ -508,7 +588,7 @@ typedef struct lispd_pkt_map_register_t_ {
     uint8_t reserved3:7;
 #else
     uint8_t reserved3:7;
-    uint8_t notify:1;
+    uint8_t map_notify:1;
 #endif
     uint8_t  record_count;
     uint64_t nonce;
@@ -632,16 +712,18 @@ typedef struct {                        /* chain per eid-prefix/len/afi */
  * header of the encapsulated LISP control message.
  *
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |                   Reserved                            |
+ *    |Type=8 |S|                 Reserved                            |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 typedef struct lispd_pkt_encapsulated_control_t_ {
 #ifdef LITTLE_ENDIANS
-    uint8_t reserved1:4;
+    uint8_t reserved1:3;
+    uint8_t security_flag:1;
     uint8_t type:4;
 #else
     uint8_t type:4;
-    uint8_t reserved1:4;
+    uint8_t security_flag:1;
+    uint8_t reserved1:3;
 #endif
     uint8_t reserved2[3];
 } PACKED lispd_pkt_encapsulated_control_t;
@@ -963,6 +1045,7 @@ typedef struct {
     uint8_t echo_nonce;     // set Echo-nonce bit
 } map_reply_opts;
 
+#endif /*LISPD_H_*/
 
 /*
  * Editor modelines

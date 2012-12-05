@@ -46,14 +46,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 #include <sys/ioctl.h>
 #include <syslog.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "linux/netlink.h"
+#include <linux/netlink.h>
+#include "cksum.h"
+#include "lispd_lib.h"
 #include "lispd_external.h"
+#include "lispd_map_request.h"
+#include "lispd_map_reply.h"
+#include "lispd_map_notify.h"
+#include "patricia/patricia.h"
+
+
+
+int isfqdn(char *s);
 
 /*
  *      build_receive_sockets
@@ -94,15 +105,15 @@ int build_receive_sockets(void)
     }
 
     /*
-     *  build the v4_receive_fd, and make the port reusable
+     *  build the ipv4_data_input_fd, and make the port reusable
      */
 
-    if ((v4_receive_fd = socket(AF_INET,SOCK_DGRAM,proto->p_proto)) < 0) {
+    if ((ipv4_data_input_fd = socket(AF_INET,SOCK_DGRAM,proto->p_proto)) < 0) {
         syslog(LOG_DAEMON, "socket (v4): %s", strerror(errno));
         return(0);
     }
 
-    if (setsockopt(v4_receive_fd,
+    if (setsockopt(ipv4_data_input_fd,
                    SOL_SOCKET,
                    SO_REUSEADDR,
                    &tr,
@@ -112,7 +123,7 @@ int build_receive_sockets(void)
     }
 
 /*
-    if (setsockopt(v4_receive_fd,
+    if (setsockopt(ipv4_data_input_fd,
                    SOL_SOCKET,
                    SO_BINDTODEVICE,
                    &(ctrl_iface->iface_name),
@@ -125,7 +136,7 @@ int build_receive_sockets(void)
     v4.sin_family      = AF_INET;
     v4.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(v4_receive_fd,(struct sockaddr *) &v4, sizeof(v4)) == -1) {
+    if (bind(ipv4_data_input_fd,(struct sockaddr *) &v4, sizeof(v4)) == -1) {
         syslog(LOG_DAEMON, "bind (v4): %s", strerror(errno));
         return(0);
     }
@@ -134,12 +145,12 @@ int build_receive_sockets(void)
      *  build the v6_receive_fd, and make the port reusable
      */
 
-    if ((v6_receive_fd = socket(AF_INET6,SOCK_DGRAM,proto->p_proto)) < 0) {
+    if ((ipv6_data_input_fd = socket(AF_INET6,SOCK_DGRAM,proto->p_proto)) < 0) {
         syslog(LOG_DAEMON, "socket (v6): %s", strerror(errno));
         return(0);
     }
 
-    if (setsockopt(v6_receive_fd,
+    if (setsockopt(ipv6_data_input_fd,
                    SOL_SOCKET,
                    SO_REUSEADDR,
                    &tr,
@@ -163,7 +174,7 @@ int build_receive_sockets(void)
     v6.sin6_port     = htons(LISP_CONTROL_PORT);
     v6.sin6_addr     = in6addr_any;
 
-    if (bind(v6_receive_fd,(struct sockaddr *) &v6, sizeof(v6)) == -1) {
+    if (bind(ipv6_data_input_fd,(struct sockaddr *) &v6, sizeof(v6)) == -1) {
         syslog(LOG_DAEMON, "bind (v6): %s", strerror(errno));
         return(0);
     }
@@ -279,7 +290,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
 
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc (get_my_addr): %s", strerror(errno));
-        return(0);
+        return(NULL);
     }
 
     memset(addr, 0, sizeof(lisp_addr_t));
@@ -287,7 +298,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
     if (getifaddrs(&ifaddr) !=0) {
         syslog(LOG_DAEMON, "getifaddrs(get_my_addr): %s", strerror(errno));
         free(addr);
-        return(0);
+        return(NULL);
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
@@ -317,7 +328,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
     }
     free(addr);
     freeifaddrs(ifaddr);
-    return(0);                          /* no luck */
+    return(NULL);                          /* no luck */
 }
 
 /*
@@ -326,7 +337,7 @@ lisp_addr_t *get_my_addr(if_name, afi)
  *      return lisp_addr_t for host/FQDN or 0 if none
  */
 
-lisp_addr_t *lispd_get_address(host, addr, flags)
+int lispd_get_address(host, addr, flags)
     char             *host;
     lisp_addr_t      *addr;
     unsigned int     *flags;
@@ -352,9 +363,9 @@ lisp_addr_t *lispd_get_address(host, addr, flags)
             *flags = FQDN_LOCATOR;      
         else 
             *flags = STATIC_LOCATOR;
-        return(addr);
+        return(GOOD);
     } 
-    return(NULL);
+    return(BAD);
 }
 
 /*
@@ -363,9 +374,10 @@ lisp_addr_t *lispd_get_address(host, addr, flags)
  *  return lisp_addr_t for the interface, 0 if none
  */
 
-lisp_addr_t *lispd_get_iface_address(ifacename, addr)
+lisp_addr_t *lispd_get_iface_address(ifacename, addr, afi)
     char                *ifacename;
     lisp_addr_t         *addr;
+    int                 afi;
 {
     struct ifaddrs      *ifaddr;
     struct ifaddrs      *ifa;
@@ -390,7 +402,7 @@ lisp_addr_t *lispd_get_iface_address(ifacename, addr)
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if ((ifa->ifa_addr == NULL) || ((ifa->ifa_flags & IFF_UP) == 0))
+        if ((ifa->ifa_addr == NULL) || ((ifa->ifa_flags & IFF_UP) == 0) || (ifa->ifa_addr->sa_family != afi))
             continue;
         switch (ifa->ifa_addr->sa_family) {
         case AF_INET:
@@ -587,46 +599,6 @@ void dump_map_servers(void)
     }
 }
 
-void dump_map_cache(void)
-{
-    lispd_map_cache_t       *map_cache;
-    lispd_map_cache_entry_t *map_cache_entry;
-    int              afi; 
-    unsigned int     ttl; 
-    char             eid[128];
-    char             rloc[128];
-
-    if (!lispd_map_cache)
-        return;
-
-    syslog(LOG_DAEMON, "map-cache:");
-    map_cache = lispd_map_cache;
-
-    while (map_cache) {
-        map_cache_entry = &(map_cache->map_cache_entry);
-        afi = map_cache_entry->eid_prefix.afi;
-        ttl = map_cache_entry->ttl;
-        inet_ntop(afi,
-                  &(map_cache_entry->eid_prefix.address),
-                  eid,
-                  128);
-        inet_ntop(map_cache_entry->locator.afi,
-                  &(map_cache_entry->locator.address),
-                  rloc, 128);
-        syslog(LOG_DAEMON," %s lisp %s/%d %s p %d w %d ttl %d (%s)",
-           (afi == AF_INET) ? "ip":"ipv6",
-           eid,
-           map_cache_entry->eid_prefix_length, 
-           rloc,
-           map_cache_entry->priority,
-           map_cache_entry->weight,
-           ttl,
-           (map_cache_entry->how_learned == STATIC_MAP_CACHE_ENTRY)
-           ? "static" : "dynamic");
-        map_cache = map_cache->next;
-    }
-}
-
 
 /* 
  *      isfqdn(char *s)
@@ -793,6 +765,100 @@ void print_hmac(hmac,len)
     }
     printf("\n");
 }
+
+char *get_char_from_lisp_addr_t (lisp_addr_t addr)
+{
+    static char address[INET6_ADDRSTRLEN];
+    switch (addr.afi){
+    case AF_INET:
+        inet_ntop(AF_INET, &(addr.address), address, INET_ADDRSTRLEN);
+        return address;
+    case AF_INET6:
+        inet_ntop(AF_INET6, &(addr.address.ipv6), address, INET6_ADDRSTRLEN);
+        return address;
+    default:
+        return NULL;
+    }
+}
+
+/*
+ * Fill lisp_addr with the address.
+ * Return GOOD if no error has been found
+ */
+
+int get_lisp_addr_from_char (char *address, lisp_addr_t *lisp_addr)
+{
+    lisp_addr->afi = get_afi(address);
+    switch (lisp_addr->afi){
+    case AF_INET:
+        if (inet_pton(AF_INET,address,&(lisp_addr->address.ip))==1)
+            return GOOD;
+        else
+            return BAD;
+    case AF_INET6:
+        if (inet_pton(AF_INET6,address,&(lisp_addr->address.ipv6))==1)
+            return GOOD;
+        else
+            return BAD;
+    }
+    return BAD;
+}
+
+/*
+ * Compare two lisp_addr_t.
+ * Returns:
+ * 			-1: If they are from different afi
+ * 			 0: Both address are the same
+ * 			 1: Addr1 is bigger than addr2
+ * 			 2: Addr2 is bigger than addr1
+ */
+int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2)
+{
+	int cmp;
+	if (addr1->afi != addr2->afi)
+		return -1;
+	if (addr1->afi == AF_INET)
+		cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
+	else if (addr1->afi == AF_INET6)
+			cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
+	else
+		return -1;
+	if (cmp == 0)
+		return 0;
+	else if (cmp > 0)
+		return 1;
+	else
+		return 2;
+}
+
+/*
+ * Parse address and fill lisp_addr and mask.
+ * Return GOOD if no error has been found
+ */
+
+int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask)
+{
+    char                     *token;
+    if ((token = strtok(address, "/")) == NULL) {
+        syslog(LOG_ERR, "Prefix not of the form prefix/length: %s",address);
+        return(BAD);
+    }
+    if (get_lisp_addr_from_char(token,lisp_addr)==BAD)
+        return (BAD);
+    if ((token = strtok(NULL,"/")) == NULL) {
+        syslog(LOG_ERR,"strtok: %s", strerror(errno));
+        return(BAD);
+    }
+    *mask = atoi(token);
+    if (lisp_addr->afi == AF_INET) {
+        if (*mask < 1 || *mask > 32)
+            return BAD;
+    }else {
+        if (*mask < 1 || *mask > 128)
+            return BAD;
+    }
+    return GOOD;
+}
      
      
 /*
@@ -803,7 +869,7 @@ void print_hmac(hmac,len)
  *      Get the length while your at it
  */         
 
-int get_lisp_afi(afi, len)
+uint16_t get_lisp_afi(afi, len)
      int        afi;
      int        *len;
 {
@@ -812,14 +878,14 @@ int get_lisp_afi(afi, len)
     case AF_INET:
         if (len)
             *len = sizeof(struct in_addr);
-        return(LISP_AFI_IP);
+        return((uint16_t)LISP_AFI_IP);
     case AF_INET6:
         if (len)
             *len = sizeof(struct in6_addr);
-        return(LISP_AFI_IPV6);
+        return((uint16_t)LISP_AFI_IPV6);
     default:
         syslog(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d)", afi);
-        return(0);
+        return(BAD);
     }
 }
 
@@ -863,7 +929,7 @@ int get_ip_header_len(afi)
         return(sizeof(struct ip6_hdr));
     default:
         syslog(LOG_DAEMON, "get_ip_header_len: unknown AFI (%d)", afi);
-        return(0);
+        return(ERR_AFI);
     }
 }
 
@@ -901,7 +967,7 @@ int get_addr_len(afi)
         return(sizeof(struct in6_addr));
     default:
         syslog(LOG_DAEMON, "get_addr_len: unknown AFI (%d)", afi);
-        return(0);
+        return(ERR_AFI);
     }
 }
 
@@ -916,17 +982,17 @@ int get_prefix_len(afi)
     return(get_addr_len(afi) * 8);
 }
 
-struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
-        void                  *cur_ptr;
-        lisp_addr_t           *my_addr;
-        lisp_addr_t           *eid_prefix;
-        int                   ip_len;
+struct udphdr *build_ip_header(
+        void                  *cur_ptr,
+        lisp_addr_t           *src_addr,
+        lisp_addr_t           *dst_addr,
+        int                   ip_len)
 {
     struct ip      *iph;
     struct ip6_hdr *ip6h;
     struct udphdr  *udph;
 
-    switch (my_addr->afi) {
+    switch (src_addr->afi) {
     case AF_INET:
         iph                = (struct ip *) cur_ptr;
         iph->ip_hl         = 5;
@@ -937,9 +1003,11 @@ struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
         iph->ip_off        = 0;
         iph->ip_ttl        = 255;
         iph->ip_p          = IPPROTO_UDP;
-        iph->ip_sum        = 0;         
-        iph->ip_src.s_addr = my_addr->address.ip.s_addr;
-        iph->ip_dst.s_addr = eid_prefix->address.ip.s_addr; 
+        iph->ip_src.s_addr = src_addr->address.ip.s_addr;
+        iph->ip_dst.s_addr = dst_addr->address.ip.s_addr;
+        iph->ip_sum        = 0;
+        iph->ip_sum        = ip_checksum((uint16_t *)cur_ptr, sizeof(struct ip));
+
         udph              = (struct udphdr *) CO(iph,sizeof(struct ip));
         break;
     case AF_INET6:
@@ -949,10 +1017,10 @@ struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
         ip6h->ip6_nxt  = IPPROTO_UDP;
         ip6h->ip6_plen = htons(ip_len);
         memcpy(ip6h->ip6_src.s6_addr,
-               my_addr->address.ipv6.s6_addr,
+               src_addr->address.ipv6.s6_addr,
                sizeof(struct in6_addr));
         memcpy(ip6h->ip6_dst.s6_addr,
-               eid_prefix->address.ipv6.s6_addr,
+                dst_addr->address.ipv6.s6_addr,
                sizeof(struct in6_addr));
         udph = (struct udphdr *) CO(ip6h,sizeof(struct ip6_hdr));
         break;
@@ -962,56 +1030,7 @@ struct udphdr *build_ip_header(cur_ptr,my_addr,eid_prefix, ip_len)
     return(udph);
 }
 
-/*
- *      requires librt
- */
 
-uint64_t build_nonce(seed)
-     int        seed;
-{
-
-    uint64_t            nonce; 
-    uint32_t            nonce_lower;
-    uint32_t            nonce_upper; 
-    struct timespec     ts; 
- 
-    /* 
-     * Put nanosecond clock in lower 32-bits and put an XOR of the nanosecond 
-     * clock with the seond clock in the upper 32-bits. 
-     */ 
-
-    clock_gettime(CLOCK_MONOTONIC,&ts); 
-    nonce_lower = ts.tv_nsec; 
-    nonce_upper = ts.tv_sec ^ htonl(nonce_lower); 
- 
-    /* 
-     * OR in a caller provided seed to the low-order 32-bits. 
-     */ 
-    nonce_lower |= seed; 
- 
-    /* 
-     * Return 64-bit nonce. 
-     */ 
-    nonce = nonce_upper; 
-    nonce = (nonce << 32) | nonce_lower; 
-    return(nonce); 
-} 
- 
-/* 
- * lisp_print_nonce 
- * 
- * Print 64-bit nonce in 0x%08x-0x%08x format. 
- */ 
-void lispd_print_nonce (nonce)
-     uint64_t nonce;
-{ 
-    uint32_t lower; 
-    uint32_t upper; 
- 
-    lower = nonce & 0xffffffff; 
-    upper = (nonce >> 32) & 0xffffffff; 
-    syslog(LOG_DAEMON,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower)); 
-} 
  
 /*
  *      API functions of datacache entries (updated acabello)
@@ -1291,60 +1310,6 @@ int search_datacache_entry_eid(eid_prefix, res_elt)
     return 0;
 }
 
-// Modified by acabello
-// Search a datacache entry based on nonce and returns it in res_elt
-int search_datacache_entry_nonce (nonce,res_elt)
-    uint64_t nonce;
-    datacache_elt_t **res_elt;
-{
-
-
-    datacache_elt_t *elt;
-
-    elt=datacache->head;
-    while(elt!=NULL) {
-        if (elt->nonce==nonce) {
-            // Nonce match
-            *res_elt=elt;
-            return 1;
-        }
-        elt=elt->next;
-    }
-
-    // Nonce not found
-#if (DEBUG > 3)
-    syslog(LOG_INFO, "Entry not found in datacache: nonce doesn't match");
-#endif
-    return 0;
-}
-
-// Modified by acabello
-// Deletes a datacache entry
-int init_datacache(cbk)
-    void (*cbk)(datacache_elt_t*);
-{
-
-
-    if ((datacache = malloc(sizeof(datacache_t))) == NULL){
-        syslog(LOG_DAEMON, "malloc (datacache): %s", strerror(errno));
-        return(1);
-    }
-        memset (datacache, 0, sizeof(datacache_t));
-
-    datacache->head=NULL;
-    datacache->tail=NULL;
-
-    if ((datacache->timer_datacache = malloc(sizeof(timer_datacache_t))) == NULL){
-        syslog(LOG_DAEMON, "malloc (timer_datacache): %s", strerror(errno));
-        return(1);
-    }
-
-    datacache->timer_datacache->callback=cbk;
-    datacache->timer_datacache->head=NULL;
-    datacache->timer_datacache->tail=NULL;
-
-    return(1);
-}
 
 /*
  *  Auxiliary definitions
@@ -1361,155 +1326,99 @@ uint16_t min_timeout(uint16_t a,uint16_t b) {
  */
 
 int have_input(max_fd,readfds)
-  int     max_fd;
-  fd_set *readfds;
+    int     max_fd;
+    fd_set *readfds;
 {
-
     struct timeval tv;
-
     tv.tv_sec  = 0;
     tv.tv_usec = DEFAULT_SELECT_TIMEOUT;
 
-    if (select(max_fd+1,readfds,NULL,NULL,&tv) == -1) {
-    syslog(LOG_DAEMON, "select: %s", strerror(errno));
-    return(0);
-    } 
-    return(1);
+    while (1)
+    {
+
+        if (select(max_fd+1,readfds,NULL,NULL,&tv) == -1) {
+            if (errno == EINTR){
+                continue;
+            }
+            else {
+                syslog(LOG_DAEMON, "select: %s", strerror(errno));
+                return(BAD);
+            }
+        }else{
+            break;
+        }
+    }
+    return(GOOD);
 }
+
 
 /*
  *  Process a LISP protocol message sitting on 
  *  socket s with address family afi
  */
 
-int process_lisp_msg(s, afi)
-     int    s;
-     int    afi;
+int process_lisp_ctr_msg(int s, int afi)
 {
 
     uint8_t         packet[MAX_IP_PACKET];
     struct sockaddr_in  s4;
     struct sockaddr_in6 s6;
-
-    switch (afi) {
-    case AF_INET:
-        memset(&s4,0,sizeof(struct sockaddr_in));
-        if (!retrieve_lisp_msg(s, packet, &s4, afi))
-            return(0);
-        /* process it here */
-        break;
-    case AF_INET6:
-        memset(&s6,0,sizeof(struct sockaddr_in6));
-        if (!retrieve_lisp_msg(s, packet, &s6, afi))
-            return(0);
-        /* process it here */
-        break;
-    default:
-        return(0);
-    }
-    return(1);
-}
-
-
-
-/*
- *  Retrieve a mesage from socket s
- */
-
-int retrieve_lisp_msg(s, packet, from, afi)
-     int    s;
-     uint8_t    *packet;
-     void   *from;
-     int    afi;
-    
-{
-
-    struct sockaddr_in  *s4;
-    struct sockaddr_in6 *s6;
     socklen_t fromlen4 = sizeof(struct sockaddr_in);
     socklen_t fromlen6 = sizeof(struct sockaddr_in6);
+    lisp_addr_t *local_rloc = NULL;
 
     switch (afi) {
     case AF_INET:
-        s4 = (struct sockaddr_in *) from;
-        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *) s4,
+
+        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s4,
                     &fromlen4) < 0) {
-            syslog(LOG_DAEMON, "recvfrom (v4): %s", strerror(errno));
-            return(0);
+            syslog(LOG_WARNING, "recvfrom (v4): %s", strerror(errno));
+            return(BAD);
         }
         break;
     case AF_INET6:
-        s6 = (struct sockaddr_in6 *) from;
-        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *) s6,
+        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s6,
                     &fromlen6) < 0) {
-            syslog(LOG_DAEMON, "recvfrom (v6): %s", strerror(errno));
-            return(0);
+            syslog(LOG_WARNING, "recvfrom (v6): %s", strerror(errno));
+            return(BAD);
         }
         break;
     default:
-        syslog(LOG_DAEMON, "retrieve_msg: Unknown afi %d", afi);
-        return(0);
+        syslog(LOG_WARNING, "retrieve_msg: Unknown afi %d", afi);
+        return(BAD);
     }
-#if (DEBUG > 3)
-    syslog(LOG_DAEMON, "Received a LISP control message");
-#endif
+    syslog(LOG_DEBUG, "Received a LISP control message");
 
     switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Map-Reply message");
-#endif
+        syslog(LOG_DEBUG, "Received a LISP Map-Reply message");
         process_map_reply(packet);
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Encapsulated Map-Request message");
-#endif
-        if(!process_map_request_msg(packet, s, from, afi))
-            return (0);
+        syslog(LOG_DEBUG, "Received a LISP Encapsulated Map-Request message");
+        // XXX alopez: local_rloc shoul be get from packet
+        local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
+        if(!process_map_request_msg(packet, local_rloc))
+            return (BAD);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Map-Request message");
-#endif
-        if(!process_map_request_msg(packet, s, from, afi))
-            return (0);
+        syslog(LOG_DEBUG, "Received a LISP Map-Request message");
+        // XXX alopez: local_rloc shoul be get from packet
+        local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
+        if(!process_map_request_msg(packet, local_rloc))
+            return (BAD);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
-#ifdef DEBUG
-        syslog(LOG_DAEMON, "Received a LISP Map-Notify message");
-#endif
+        syslog(LOG_DEBUG, "Received a LISP Map-Notify message");
         if(!process_map_notify(packet))
-            return(0);
+            return(BAD);
         break;
     }
-#if (DEBUG > 3)
-    syslog(LOG_DAEMON, "Completed processing a LISP control message");
-#endif
+    syslog(LOG_DEBUG, "Completed processing a LISP control message");
 
-
-#if (DEBUG > 3)
-    switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
-    case LISP_MAP_REPLY:
-        printf("Got Map-Reply (%d)\n", afi);
-        break;
-    case LISP_MAP_REQUEST:
-        printf("Got Map-Request: Silently ignoring it (%d)\n", afi);
-        break;
-    case LISP_MAP_REGISTER:
-        printf("Got Map-Register: Silently ignoring it (%d)\n", afi);
-        break;
-    case LISP_MAP_NOTIFY:
-        printf("Got Map-Notify: Silently ignoring it (%d)\n", afi);
-        break;
-    case LISP_ENCAP_CONTROL_TYPE:
-        printf("Got Encapsulated Control Message (%d)\n", afi);
-        break;
-    }
-#endif
-    return(1);
+    return(GOOD);
 }
 
     
@@ -1563,6 +1472,9 @@ int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst) {
     }
     return(0);
 }
+
+
+
 
 
 /*

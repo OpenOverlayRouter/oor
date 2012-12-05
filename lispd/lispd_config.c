@@ -35,6 +35,49 @@
 #include "cmdline.h"
 #include "confuse.h"
 #include "lispd_external.h"
+#include "lispd_iface_list.h"
+#include "lispd_iface_mgmt.h"
+#include "lispd_ipc.h"
+#include "lispd_lib.h"
+#include "lispd_local_db.h"
+#include "lispd_map_cache_db.h"
+
+
+
+#ifdef OPENWRT
+#include <uci.h>
+#endif
+
+
+int add_database_mapping(char   *eid,
+                         int    iid,
+                         char   *iface_name,
+                         int    priority_v4,
+                         int    weight_v4,
+                         int    priority_v6,
+                         int    weight_v6);
+
+int add_map_server(
+     char       *map_server,
+     int        key_type,
+     char       *key,
+     uint8_t    proxy_reply,
+     uint8_t    verify);
+
+int add_proxy_etr_entry(char   *addr,
+                        int    priority,
+                        int    weight,
+                        lispd_weighted_addr_list_t      **petr_list);
+
+int add_server(char *server, lispd_addr_list_t  **list);
+
+int add_static_map_cache_entry(char   *eid,
+                               char   *rloc,
+                               int    priority,
+                               int    weight,
+                               int    iid);
+
+
 
 
 /*
@@ -99,18 +142,20 @@ int handle_lispd_config_file()
 
     static cfg_opt_t db_mapping_opts[] = {
         CFG_STR("eid-prefix",           0, CFGF_NONE),
-        CFG_INT("iid",                 -1, CFGF_NONE),
+        CFG_INT("iid",                  -1, CFGF_NONE),
         CFG_STR("interface",            0, CFGF_NONE),
-        CFG_INT("priority",           255, CFGF_NONE),
-        CFG_INT("weight",               0, CFGF_NONE),
+        CFG_INT("priority_v4",          0, CFGF_NONE),
+        CFG_INT("weight_v4",            0, CFGF_NONE),
+        CFG_INT("priority_v6",          0, CFGF_NONE),
+        CFG_INT("weight_v6",            0, CFGF_NONE),
         CFG_END()
     };
 
     static cfg_opt_t mc_mapping_opts[] = {
         CFG_STR("eid-prefix",           0, CFGF_NONE),
-        CFG_INT("iid",                 -1, CFGF_NONE),
+        CFG_INT("iid",                  0, CFGF_NONE),
         CFG_STR("rloc",                 0, CFGF_NONE),
-        CFG_INT("priority",           255, CFGF_NONE),
+        CFG_INT("priority",             0, CFGF_NONE),
         CFG_INT("weight",               0, CFGF_NONE),
         CFG_END()
     };
@@ -187,7 +232,12 @@ int handle_lispd_config_file()
     n = cfg_size(cfg, "proxy-etr");
     for(i = 0; i < n; i++) {
         cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
-        if (!add_proxy_etr_entry(petr, &proxy_etrs)) {
+        if (!add_proxy_etr_entry(cfg_getstr(petr, "address"),
+                                 cfg_getint(petr, "priority"),
+                                 cfg_getint(petr, "weight"),
+                                 &proxy_etrs)
+            
+        ) {
             syslog(LOG_DAEMON, "Can't add proxy-etr %d (%s)", i, cfg_getstr(petr, "address"));
         }
     }
@@ -219,7 +269,16 @@ int handle_lispd_config_file()
     n = cfg_size(cfg, "database-mapping");
     for(i = 0; i < n; i++) {
         cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
-        if (!add_database_mapping(dm)) {
+        if (!add_database_mapping(cfg_getstr(dm, "eid-prefix"),
+                                  cfg_getint(dm, "iid"),
+                                  cfg_getstr(dm, "interface"),
+                                  cfg_getint(dm, "priority_v4"),
+                                  cfg_getint(dm, "weight_v4"),
+                                  cfg_getint(dm, "priority_v6"),
+                                  cfg_getint(dm, "weight_v6")
+        )
+            
+        ) {
             syslog(LOG_DAEMON, "Can't add database-mapping %d (%s->%s)",
                i,
                cfg_getstr(dm, "eid-prefix"),
@@ -254,8 +313,14 @@ int handle_lispd_config_file()
     n = cfg_size(cfg, "static-map-cache");
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-            if (!add_static_map_cache_entry(smc)) {
-        syslog(LOG_DAEMON,"Can't add static-map-cache %d (%s->%s)",
+        if (!add_static_map_cache_entry(cfg_getstr(smc, "eid-prefix"),
+                                        cfg_getstr(smc, "rloc"),
+                                        cfg_getint(smc, "priority"),
+                                        cfg_getint(smc, "weight"),
+                                        cfg_getint(smc, "iid"))
+                
+            ) {
+        syslog(LOG_DAEMON,"Can't add static-map-cache %d (EID:%s -> RLOC:%s)",
                i,
                cfg_getstr(smc, "eid-prefix"),
                cfg_getstr(smc, "rloc"));
@@ -278,6 +343,217 @@ int handle_lispd_config_file()
     return(0);
 }
 
+
+#ifdef OPENWRT
+
+
+int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_file) {
+
+    
+    struct uci_context *ctx = NULL;
+    struct uci_package *pck = NULL;
+    struct uci_section *s = NULL;
+    struct uci_element *e = NULL;
+    
+    const char* uci_debug = NULL;
+    int         uci_retries = 0;
+    const char* uci_address = NULL;
+    int         uci_key_type = 0;
+    const char* uci_key = NULL;
+    int         uci_verify = 0;
+    int         uci_proxy_reply = 0;
+    int         uci_priority_v4 = 0;
+    int         uci_weigth_v4 = 0;
+    int         uci_priority_v6 = 0;
+    int         uci_weigth_v6 = 0;
+    const char* uci_interface = NULL;
+    int         uci_iid = 0;
+    const char* uci_rloc = NULL;
+    const char* uci_eid_prefix = NULL;
+
+    //arnatal TODO XXX: check errors for the whole function
+    
+
+    
+    ctx = uci_alloc_context();
+    
+    if (ctx == NULL) {
+        syslog(LOG_DAEMON, "Could not create UCI context");
+        exit(EXIT_FAILURE);
+    }
+    
+    uci_set_confdir(ctx, uci_conf_dir);
+    
+    printf("Conf dir: %s\n",ctx->confdir);
+    
+    uci_load(ctx,uci_conf_file,&pck);
+
+    if (pck == NULL) {
+        syslog(LOG_DAEMON, "Could not load conf file: %s",uci_conf_file);
+        uci_free_context(ctx);
+        exit(EXIT_FAILURE);
+    }
+    
+    
+    printf("package uci: %s\n",pck->ctx->confdir);
+    
+    
+    uci_foreach_element(&pck->sections, e) {
+        uci_debug = NULL;
+        uci_retries = 0;
+ 
+        uci_address = NULL;
+        uci_key_type = 0;
+        uci_key = NULL;
+        uci_verify = 0;
+        uci_proxy_reply = 0;
+        uci_priority_v4 = 0;
+        uci_weigth_v4 = 0;
+        uci_priority_v6 = 0;
+        uci_weigth_v6 = 0;
+        uci_iid = 0;
+        uci_interface = NULL;
+        uci_rloc = NULL;
+        uci_eid_prefix = NULL;
+        
+        s = uci_to_section(e);
+        
+        if (strcmp(s->type, "daemon") == 0){
+            
+            uci_debug = uci_lookup_option_string(ctx, s, "debug");
+            
+            if (strcmp(uci_debug, "on") == 0){
+                debug = TRUE;
+            }else{
+                debug = FALSE;
+            }
+
+            uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
+            
+            if (uci_retries != 0){
+                map_request_retries = uci_retries;
+            }
+
+            printf("---------- retries2: %d\n",uci_retries);
+        }
+
+        
+        if (strcmp(s->type, "map-resolver") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+
+            if (add_server((char *)uci_address, &map_resolvers) != GOOD){
+                //message
+                return(BAD);
+            }
+        }
+
+        
+        if (strcmp(s->type, "map-server") == 0){
+            
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            uci_key_type = strtol(uci_lookup_option_string(ctx, s, "key-type"),NULL,10);
+            uci_key = uci_lookup_option_string(ctx, s, "key");
+
+            if (strcmp(uci_lookup_option_string(ctx, s, "proxy-reply"), "on") == 0){
+                uci_proxy_reply = TRUE;
+            }else{
+                uci_proxy_reply = FALSE;
+            }
+
+            if (strcmp(uci_lookup_option_string(ctx, s, "verify"), "on") == 0){
+                uci_verify = TRUE;
+            }else{
+                uci_verify = FALSE;
+            }
+            
+            if (add_map_server((char *)uci_address,
+                               uci_key_type,
+                               (char *)uci_key,
+                               uci_proxy_reply,
+                               uci_verify) != GOOD ){
+                //message
+                return (BAD);
+            }
+        }
+
+        
+        if (strcmp(s->type, "proxy-etr") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
+            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
+
+            if (add_proxy_etr_entry((char *)uci_address,
+                                    uci_priority_v4,
+                                    uci_weigth_v4,
+                                    &proxy_etrs) != GOOD ){
+                //message
+                return (BAD);
+                }
+        }
+
+        
+        if (strcmp(s->type, "database-mapping") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid-prefix");
+            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
+            uci_interface = uci_lookup_option_string(ctx, s, "interface");
+            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority-v4"),NULL,10);
+            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight-v4"),NULL,10);
+            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, s, "priority-v6"),NULL,10);
+            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, s, "weight-v6"),NULL,10);
+            
+            if (add_database_mapping((char *)uci_eid_prefix,
+                                     uci_iid,
+                                     (char *)uci_interface,
+                                     uci_priority_v4,
+                                     uci_weigth_v4,
+                                     uci_priority_v6,
+                                     uci_weigth_v6) != GOOD ){
+                //message
+                return (BAD);
+                }
+        }
+
+
+
+
+
+
+
+//         if (strcmp(s->type, "map-server") == 0){
+//             printf("---------- map-server\n");
+//             
+//             uci_debug = uci_lookup_option_string(ctx, s, "address");
+//             
+//             printf("Map-Server Address: %s\n",uci_debug);
+//     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    }
+    
+    
+    uci_free_context(ctx);
+    
+    return(GOOD);
+    
+}
+
+#endif
+
+
+
+
 /*
  *  add_database_mapping
  *
@@ -288,271 +564,140 @@ int handle_lispd_config_file()
  *
  */
 
-int add_database_mapping(dm)
-     cfg_t      *dm;
+int add_database_mapping(char   *eid,
+                         int    iid,
+                         char   *iface_name,
+                         int    priority_v4,
+                         int    weight_v4,
+                         int    priority_v6,
+                         int    weight_v6)
+
 {
+    lispd_identifier_elt        *identifier;
+    lispd_iface_elt             *interface;
+    lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
+    int                         eid_prefix_length;
+    uint8_t                     is_new_identifier;
 
-    lisp_addr_t                 *rloc_ptr;
-    char                        *token;
-    char                        *eid;           /* save the eid_prefix here */
-    int                         afi;
-    patricia_node_t             *node;
-    lispd_db_entry_t            *db_entry;
-    lispd_locator_chain_t       *locator_chain;
-    lispd_locator_chain_elt_t   *locator_chain_elt;
-    lisp_set_instance_msg_t     iid_msg;
-    int                         iid_msg_len;
-    int                         ret;
-
-    char   *eid_prefix        = cfg_getstr(dm, "eid-prefix");
-    int    iid                = cfg_getint(dm, "iid");
-    char   *iface_name        = cfg_getstr(dm, "interface");
-    int    priority           = cfg_getint(dm, "priority");
-    int    weight             = cfg_getint(dm, "weight");
-    eid = eid_prefix;           /* save this for later */
-
-    if (iid > MAX_IID) {
-        syslog (LOG_DAEMON, "Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+    if (iid > MAX_IID || iid < -1) {
+        syslog (LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
         iid = -1;
     }
 
-    if (iid >= 0) {
-        iid_msg.enable = 1;
-        iid_msg.id     = iid;
-        iid_msg_len    = sizeof(lisp_set_instance_msg_t);
+    if (priority_v4 < MAX_PRIORITY || priority_v4 > UNUSED_RLOC_PRIORITY) {
+        syslog (LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+                priority_v4, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
+        priority_v4 = MIN_PRIORITY;
+    }
 
-        ret = send_set_instance_msg(&iid_msg, iid_msg_len);
+    if (priority_v6 < MAX_PRIORITY || priority_v6 > UNUSED_RLOC_PRIORITY) {
+        syslog (LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+                priority_v6, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
+        priority_v6 = MIN_PRIORITY;
+    }
 
-        if (ret < 0) {
-            syslog (LOG_DAEMON, "Setting Instance ID to %d failed; ret=%d", iid, ret);
+    if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
+        syslog (LOG_ERR, "Configuration file: Error parsing EID address ... Ignoring identifier");
+        return BAD;
+    }
+
+
+    if (if_nametoindex(iface_name) == 0) {
+        syslog(LOG_ERR, "Configuration file: Invalid interface: %s ... Ignoring identifier", iface_name);
+        return (ERR_CTR_IFACE);
+    }
+
+    /*
+     * Lookup if the identifier exists. If not, a new identifier is created.
+     */
+    identifier = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
+    if (identifier == NULL)
+    {
+        identifier = new_identifier(eid_prefix,eid_prefix_length,iid);
+        if (identifier == NULL){
+            syslog (LOG_ERR,"Configuration file: Identifier %s could not be added",eid);
+            return BAD;
+        }
+        is_new_identifier = TRUE;
+    }else{
+        if (identifier->iid != iid){
+            syslog (LOG_ERR,"Same identifier with different iid. This configuration is not supported..."
+                    "Ignoring identifier.");
+            return BAD;
+        }
+        is_new_identifier = FALSE;
+    }
+    /*
+     * Add the new interface.
+     */
+    /* Check if the interface already exists. If not, add it*/
+    if ((interface=get_interface(iface_name))==NULL)
+    	interface = add_interface (iface_name);
+
+
+    /* If we couldn't add the interface and the identifier is new, we remove it. */
+    if (interface == NULL){
+        if (is_new_identifier){
+            del_identifier_entry (identifier->eid_prefix, identifier->eid_prefix_length, TRUE);
         }
     }
 
-    char *eid_pref_for_add_iface = strdup (eid_prefix);
-    lisp_addr_t eid_addr;
-
-    memset(&eid_addr, 0, sizeof(lisp_addr_t));
-    afi = get_afi(eid_prefix);  
-    eid_addr.afi = afi;
-
-    /*
-     *  find or make the node correspoding to the eid_prefix/length 
-     */
-
-    switch (afi) {
-    case AF_INET:
-        node = make_and_lookup(AF4_database, AF_INET, eid);
-        break;
-    case AF_INET6:
-        node = make_and_lookup(AF6_database, AF_INET6, eid);
-        break;
-    default:
-        syslog(LOG_DAEMON, "Unknown AFI (%d) for %s", afi, eid);
-        return(0);
+    /* XXX Process when the new locator could not be allocated */
+    if (interface->ipv4_address && priority_v4 >= 0){
+        if ((err = add_identifier_to_interface (interface, identifier,AF_INET)) == GOOD){
+            new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
+        }
     }
-
-    if (node == NULL) {
-        syslog(LOG_DAEMON, "Couldn't allocate patricia node");
-        return(0);
-    }
-
-    if (if_nametoindex(iface_name) == 0) {
-        syslog(LOG_DAEMON, "Invalid interface: %s\n", iface_name);
-        return (0);
+    if (interface->ipv6_address  && priority_v6 >= 0){
+    	if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
+            new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
     }
 
     /* 
-     * PN: Add this physical interface to the list of tracked
-     * interfaces (for iface management purposes).
-     * In case of multiple physical interfaces per EID,
-     * each physical interface must be added via update_iface_list()
-     */
-    if (!update_iface_list (iface_name, eid, NULL, 
-                1, priority, weight)) {
-        syslog(LOG_DAEMON, "add_iface (%s) failed\b", iface_name);
-        return(0);
-    } 
-
-    if ((token = strtok(eid_prefix, "/")) == NULL) {
-        syslog(LOG_DAEMON,"eid prefix not of the form prefix/length");
-        return(0);
-    }
-
-    /* 
-     *  get the EID prefix into the right place/format
-     */
-
-    if (inet_pton(afi, token, &eid_addr.address) != 1) {
-        syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
-        return(0);
-    }
-
-    /*
-     *  get the prefix length into token
-     */
-
-    if ((token = strtok(NULL,"/")) == NULL) {
-        syslog(LOG_DAEMON, "strtok: %s", strerror(errno));
-        return(0);
-    }
-
-    /* 
-     * PN: Setup the LISP-MN interface (ex: lmn0) for this EID.
+     * PN: Setup the LISP-MN interface (ex: lisp_tun0) for this EID.
      * Assume single EID/LISP-MN interface per MN for now.
      * Multiple EIDs per MN is a possibility in the future; then
      * each EID requires its own LISP-MN interface and 
      * one of the interfaces will be the default one.
      */
-    if (!setup_lisp_eid_iface(LISP_MN_EID_IFACE_NAME, 
-                &eid_addr,
-                atoi (token))) {
-        syslog(LOG_DAEMON, "setup_lisp_eid_iface (%s) failed\b", iface_name);
+/*    if (!setup_lisp_eid_iface(LISP_MN_EID_IFACE_NAME,
+                &(identifier->eid_prefix),
+                identifier->eid_prefix_length)) {
+        syslog(LOG_ERR, "setup_lisp_eid_iface (%s) failed\b", iface_name);
+        return (BAD);
     } 
-
-    if ((rloc_ptr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        syslog(LOG_DAEMON,"malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
-        return(0);
-    }
-    memset(rloc_ptr,0,sizeof(lisp_addr_t));
-
-    if (!lispd_get_iface_address(iface_name,rloc_ptr)) {
-        syslog(LOG_DAEMON, "Can't get address for %s", iface_name);
-        free(rloc_ptr);
-        return(0);
-    }
-
-    if ((db_entry = malloc(sizeof(lispd_db_entry_t))) == NULL) {
-        syslog(LOG_DAEMON,"malloc(sizeof(lispd_database_t)): %s", strerror(errno));
-        free(rloc_ptr);
-        return(0);
-    }
-
-    memset(db_entry,0,sizeof(lispd_db_entry_t));
-
-    db_entry->locator_name = strdup(iface_name);        /* save the name */
-
-    /*
-     *  store the locator address and afi
-     */
-
-    memcpy((void *) &(db_entry->locator.address),
-           (void *) &(rloc_ptr->address),
-           sizeof(lisp_addr_t));
-    db_entry->locator.afi = rloc_ptr->afi;
-
-    memcpy((void *) &(db_entry->eid_prefix.address),
-           (void *) &(eid_addr.address),
-           sizeof(lisp_addr_t));
-    db_entry->eid_prefix_length = atoi(token);
-    db_entry->eid_prefix.afi    = afi;
-    db_entry->eid_iid           = iid;
-
-    db_entry->priority          = priority;
-    db_entry->weight            = weight;
-    /* We don't support multicast */
-    db_entry->mpriority         = 255;
-    db_entry->mweight           = 0;
-
-    if (node->data == NULL) {           /* its a new node */
-        if ((locator_chain = malloc(sizeof(lispd_locator_chain_t))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(lispd_locator_chain_t))");
-            free(rloc_ptr);
-            free(db_entry);
-            free(eid);
-            return(0);
-        }
-        memset(locator_chain,0,sizeof(lispd_locator_chain_t));
-
-        node->data = (lispd_locator_chain_t *) locator_chain;   /* set up chain */
-
-        /*
-         *      put the eid_prefix information into the locator_chain
-         */
-
-        copy_lisp_addr_t(&(locator_chain->eid_prefix),
-                         &(db_entry->eid_prefix),
-                         0);            
-        locator_chain->eid_prefix_length    = db_entry->eid_prefix_length;
-        locator_chain->eid_prefix.afi       = db_entry->eid_prefix.afi;
-        locator_chain->iid                  = db_entry->eid_iid;
-        locator_chain->eid_name             = strdup(eid);
-        locator_chain->has_dynamic_locators = DYNAMIC_LOCATOR;
-        locator_chain->timer                = DEFAULT_MAP_REGISTER_TIMEOUT;
-    } else {                            /* there's an existing locator_chain */
-        locator_chain = (lispd_locator_chain_t *) node->data;   /* have one */
-    }
-
-    if ((locator_chain_elt = malloc(sizeof(lispd_locator_chain_elt_t))) == NULL) {
-        syslog(LOG_DAEMON, "Can't malloc(sizeof(lispd_locator_chain_elt_t))");
-        free(rloc_ptr);
-        free(db_entry);
-        free(eid);
-        return(0);
-    }
-
-#if (DEBUG > 3)
-    char x[128];
-    memset(x,0,128);
-    inet_ntop(locator_chain->eid_prefix.afi,
-              &(locator_chain->eid_prefix),
-              x, 128);
-    printf("add_database_mapping: locator_chain->eid_prefix = %s (0x%x)\n" ,x, locator_chain);
-#endif
-
-    memset(locator_chain_elt, 0, sizeof(lispd_locator_chain_elt_t));
-
-    /*
-     *  link up db_entry
-     */
-
-    locator_chain_elt->db_entry      = db_entry;  
-    locator_chain_elt->locator_name  = db_entry->locator_name;
-
-    /*
-       connect up the locator_chain and locator_chain_elt sorted by RLOCs
-     */
-    
-     add_locator_chain_elt (locator_chain, locator_chain_elt);
-
-    /* 
-     * PN: Update interface information with the new rloc 
-     * information
-     */
-    if (!update_iface_list (iface_name, eid_pref_for_add_iface, 
-                db_entry, 1, priority, weight)) {
-        syslog(LOG_DAEMON, "update_iface_list: (%s) failed\b", iface_name);
-    }
+*/
 
     /* 
      * PN: Find an active interface for lispd control messages
      */
-    if (ctrl_iface == NULL)
-        ctrl_iface = find_active_ctrl_iface();
-#ifdef LISPMOBMH
-    /* We need a default rloc (iface) to use. As of now 
-     * we will use the same as the ctrl_iface */
-    if(ctrl_iface != NULL){
-       if (ctrl_iface->AF4_locators->head){
-		  if (ctrl_iface->AF4_locators->head->db_entry) {
-				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
-				syslog(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
-		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
-			}
-		}
-		else{
-			if (ctrl_iface->AF6_locators->head){
-			  if (ctrl_iface->AF6_locators->head->db_entry) {
-					set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
-				}
-			}
-		}
+    if (default_ctrl_iface_v4 == NULL || default_ctrl_iface_v6 == NULL){
+        set_default_ctrl_ifaces();
     }
 
-#endif
+    
+//#ifdef LISPMOBMH
+//    /* We need a default rloc (iface) to use. As of now
+//     * we will use the same as the ctrl_iface */
+//    if(ctrl_iface != NULL){
+//       if (ctrl_iface->AF4_locators->head){
+//		  if (ctrl_iface->AF4_locators->head->db_entry) {
+//				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
+//				syslog(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
+//		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
+//			}
+//		}
+//		else{
+//			if (ctrl_iface->AF6_locators->head){
+//			  if (ctrl_iface->AF6_locators->head->db_entry) {
+//					set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
+//				}
+//			}
+//		}
+//    }
+//#endif
 
-    free(eid_pref_for_add_iface);
-    free(rloc_ptr);
-    return(1);
+    return(GOOD);
 }
 
 /*
@@ -568,115 +713,80 @@ int add_database_mapping(dm)
  *
  */
 
-int add_static_map_cache_entry(smc)
-     cfg_t  *smc;
+int add_static_map_cache_entry(char   *eid,
+                               char   *rloc,
+                               int    priority,
+                               int    weight,
+                               int    iid)
 {
+    lispd_map_cache_entry    *map_cache_entry;
+    lispd_locator_elt        *locator;
+    lisp_addr_t              eid_prefix;
+    lisp_addr_t              *rloc_addr;
+    int                      eid_prefix_length;
+    uint8_t                  *state = 0;
 
-    lisp_addr_t             *rloc_ptr;
-    lispd_map_cache_t       *map_cache;
-    lispd_map_cache_entry_t *map_cache_entry;
-    
-    char                    *token;
-    int                     afi;
-    uint32_t                flags = 0;
-
-    char   *eid_prefix  = cfg_getstr(smc, "eid-prefix");
-    int    iid          = cfg_getint(smc, "iid");
-    char   *rloc        = cfg_getstr(smc, "rloc");
-    int    priority     = cfg_getint(smc, "priority");
-    int    weight       = cfg_getint(smc, "weight");
 
     if (iid > MAX_IID) {
-        syslog (LOG_DAEMON, "Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
-        iid = -1;
+        syslog (LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        iid = 0;
     }
 
-    if ((rloc_ptr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
-        return(0);
-    }
-    if ((map_cache = malloc(sizeof(lispd_map_cache_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lispd_map_cache_t)): %s", strerror(errno));
-        free(rloc_ptr);
-        return(0);
-    }
-    memset(rloc_ptr, 0,sizeof(lisp_addr_t));
-    memset(map_cache,0,sizeof(lispd_map_cache_t));
+    if (iid < 0)
+    	iid = 0;
 
-    map_cache_entry = &(map_cache->map_cache_entry);
-
-    if (!lispd_get_address(rloc,rloc_ptr,&flags)) {
-        free(rloc_ptr);
-        free(map_cache);
-    return(0);
+    if (priority < MAX_PRIORITY || priority > UNUSED_RLOC_PRIORITY) {
+        syslog (LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+                priority, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
+        priority = MIN_PRIORITY;
     }
 
-    /*
-     *  store the locator address and afi
-     */
-
-    memcpy(&(map_cache_entry->locator), rloc_ptr, sizeof(lisp_addr_t));
-    map_cache_entry->ttl          = 255;    /*shouldn't matter */
-    map_cache_entry->locator_name = strdup(rloc);
-    map_cache_entry->locator_type = flags;
-
-    map_cache_entry->how_learned  = STATIC_MAP_CACHE_ENTRY;
-
-    afi = get_afi(eid_prefix);
-
-    if ((token = strtok(eid_prefix, "/")) == NULL) {
-        sprintf(msg,"eid prefix not of the form prefix/length ");
-        syslog(LOG_DAEMON, "%s", msg);
-        free(rloc_ptr);
-        free(map_cache);
-        return(0);
+    if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
+        syslog (LOG_ERR, "Configuration file: Error parsing RLOC address ...Ignoring static map cache entry");
+        return BAD;
     }
 
-    /* 
-     *  get the EID prefix into the right place/format
-     */
+    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
+    if (map_cache_entry == NULL)
+        return (BAD);
 
-    if (inet_pton(afi, token, &(map_cache_entry->eid_prefix.address)) != 1) {
-        syslog(LOG_DAEMON, "inet_pton: %s (%s)", strerror(errno), token);
-        free(rloc_ptr);
-        free(map_cache);
-        return(0);
+    if((rloc_addr = malloc(sizeof(lisp_addr_t))) == NULL){
+        syslog(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate lisp_addr_t for rloc address");
+        return (ERR_MALLOC);
+    }
+    if((state = malloc(sizeof(uint8_t))) == NULL){
+        syslog(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate uint8_t for status");
+        return (ERR_MALLOC);
     }
 
-    /*
-     *  get the prefix length into token
-     */
-
-    if ((token = strtok(NULL,"/")) == NULL) {
-        syslog(LOG_DAEMON,"strtok: %s", strerror(errno));
-        free(rloc_ptr);
-        free(map_cache);
-        return(0);
+    if (get_lisp_addr_from_char(rloc,rloc_addr) == BAD){
+        syslog (LOG_ERR, "Configuration file: Error parsing RLOC address ... Ignoring static map cache entry");
+        return BAD;
     }
 
-    map_cache_entry->eid_prefix_length = atoi(token);
-    map_cache_entry->eid_prefix.afi    = afi;
-    map_cache_entry->eid_iid           = iid;
-    map_cache_entry->priority          = priority;
-    map_cache_entry->weight            = weight;
+    *state = UP;
 
-    if (lispd_database) 
-    map_cache->next = lispd_map_cache;
+    map_cache_entry->identifier->iid = iid;
+
+    locator = new_locator(map_cache_entry->identifier,
+    		rloc_addr,
+    		state,
+    		STATIC_LOCATOR,
+    		priority,
+    		weight,
+    		255,
+    		0);
+    if (locator)
+        return(GOOD);
     else
-    map_cache->next = NULL;
-    lispd_map_cache = map_cache;
-
-    free(rloc_ptr);
-    return(1);
+        return (BAD);
 }
 
 /*
  *  add a map-resolver to the list
  */
 
-int add_server(server, list)
-     char       *server;
-     lispd_addr_list_t  **list;
+int add_server(char *server, lispd_addr_list_t  **list)
 {
 
     uint                afi;
@@ -685,7 +795,7 @@ int add_server(server, list)
  
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
-        return(0);
+        return(BAD);
     }
     memset(addr,0,sizeof(lisp_addr_t));
 
@@ -695,13 +805,13 @@ int add_server(server, list)
     if (inet_pton(afi, server, &(addr->address)) != 1) {
         syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
         free(addr);
-        return(0);
+        return(BAD);
     }
 
     if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_list_t)): %s", strerror(errno));
         free(addr);
-        return(0);
+        return(BAD);
     }
     memset(list_elt,0,sizeof(lispd_addr_list_t));
 
@@ -718,19 +828,19 @@ int add_server(server, list)
         *list = list_elt;
     }
 
-    return(1);
+    return(GOOD);
 }
 
 /*
  *  add_map_server to map_servers
  */
 
-int add_map_server(map_server, key_type, key, proxy_reply,verify)
-     char       *map_server;
-     int        key_type;
-     char       *key;
-     uint8_t    proxy_reply;
-     uint8_t    verify;
+int add_map_server(char         *map_server,
+                   int          key_type,
+                   char         *key,
+                   uint8_t      proxy_reply,
+                   uint8_t      verify)
+
 {
     lisp_addr_t             *addr;
     lispd_map_server_list_t *list_elt;
@@ -794,19 +904,16 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
  *
  */
 
-int add_proxy_etr_entry(petr, petr_list)
-    cfg_t  *petr;
-    lispd_weighted_addr_list_t      **petr_list;
+int add_proxy_etr_entry(char   *addr,
+                        int    priority,
+                        int    weight,
+                        lispd_weighted_addr_list_t      **petr_list)
 {
 
     lisp_addr_t                     *address;
     lispd_weighted_addr_list_t      *petr_unit;
 
     uint32_t                flags = 0;
-
-    char   *addr        = cfg_getstr(petr, "address");
-    int    priority     = cfg_getint(petr, "priority");
-    int    weight       = cfg_getint(petr, "weight");
 
     if (priority > 255 || priority < 0) {
         syslog (LOG_DAEMON, "WARNING: Priority %d out of range [0..255]", priority);
@@ -830,7 +937,7 @@ int add_proxy_etr_entry(petr, petr_list)
     memset(address, 0,sizeof(lisp_addr_t));
     memset(petr_unit,0,sizeof(lispd_weighted_addr_list_t));
 
-    if (!lispd_get_address(addr,address,&flags)) {
+    if (lispd_get_address(addr,address,&flags)==BAD) {
         free(address);
         free(petr_unit);
     return(0);
@@ -864,3 +971,4 @@ int add_proxy_etr_entry(petr, petr_list)
  * vi: set shiftwidth=4 tabstop=4 expandtab:
  * :indentSize=4:tabSize=4:noTabs=true:
  */
+
