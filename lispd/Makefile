@@ -20,6 +20,7 @@ CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID
 #CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID -DOPENWRT
 
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
+#LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
 INC		= lispd.h
 MAKEFILE	= Makefile
 OBJS		= cmdline.o lispd.o lispd_config.o lispd_syslog.o	\

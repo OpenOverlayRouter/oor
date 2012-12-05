@@ -42,7 +42,7 @@
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
 
-
+#define OPENWRT
 
 #ifdef OPENWRT
 #include <uci.h>
@@ -72,10 +72,10 @@ int add_proxy_etr_entry(char   *addr,
 int add_server(char *server, lispd_addr_list_t  **list);
 
 int add_static_map_cache_entry(char   *eid,
+                               int    iid,
                                char   *rloc,
                                int    priority,
-                               int    weight,
-                               int    iid);
+                               int    weight);
 
 
 
@@ -314,10 +314,10 @@ int handle_lispd_config_file()
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
         if (!add_static_map_cache_entry(cfg_getstr(smc, "eid-prefix"),
+                                        cfg_getint(smc, "iid"),
                                         cfg_getstr(smc, "rloc"),
                                         cfg_getint(smc, "priority"),
-                                        cfg_getint(smc, "weight"),
-                                        cfg_getint(smc, "iid"))
+                                        cfg_getint(smc, "weight"))
                 
             ) {
         syslog(LOG_DAEMON,"Can't add static-map-cache %d (EID:%s -> RLOC:%s)",
@@ -366,6 +366,8 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
     int         uci_weigth_v4 = 0;
     int         uci_priority_v6 = 0;
     int         uci_weigth_v6 = 0;
+    int         uci_priority = 0;
+    int         uci_weigth = 0;
     const char* uci_interface = NULL;
     int         uci_iid = 0;
     const char* uci_rloc = NULL;
@@ -390,6 +392,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
 
     if (pck == NULL) {
         syslog(LOG_DAEMON, "Could not load conf file: %s",uci_conf_file);
+        uci_perror(ctx,"Error while loading packet ");
         uci_free_context(ctx);
         exit(EXIT_FAILURE);
     }
@@ -411,6 +414,8 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
         uci_weigth_v4 = 0;
         uci_priority_v6 = 0;
         uci_weigth_v6 = 0;
+        uci_priority = 0;
+        uci_weigth = 0;
         uci_iid = 0;
         uci_interface = NULL;
         uci_rloc = NULL;
@@ -435,6 +440,8 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
             }
 
             printf("---------- retries2: %d\n",uci_retries);
+
+            continue;
         }
 
         
@@ -445,16 +452,18 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 //message
                 return(BAD);
             }
+            printf("map-resolver %s\n",uci_address);
+            continue;
         }
 
         
         if (strcmp(s->type, "map-server") == 0){
             
             uci_address = uci_lookup_option_string(ctx, s, "address");
-            uci_key_type = strtol(uci_lookup_option_string(ctx, s, "key-type"),NULL,10);
+            uci_key_type = strtol(uci_lookup_option_string(ctx, s, "key_type"),NULL,10);
             uci_key = uci_lookup_option_string(ctx, s, "key");
 
-            if (strcmp(uci_lookup_option_string(ctx, s, "proxy-reply"), "on") == 0){
+            if (strcmp(uci_lookup_option_string(ctx, s, "proxy_reply"), "on") == 0){
                 uci_proxy_reply = TRUE;
             }else{
                 uci_proxy_reply = FALSE;
@@ -474,32 +483,37 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 //message
                 return (BAD);
             }
+            printf("map-server %s\n",uci_address);
+            continue;
         }
 
         
         if (strcmp(s->type, "proxy-etr") == 0){
             uci_address = uci_lookup_option_string(ctx, s, "address");
-            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
-            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
+            uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
 
             if (add_proxy_etr_entry((char *)uci_address,
-                                    uci_priority_v4,
-                                    uci_weigth_v4,
+                                    uci_priority,
+                                    uci_weigth,
                                     &proxy_etrs) != GOOD ){
                 //message
-                return (BAD);
-                }
+                
+            }
+            
+            printf("proxy-etr %s\n",uci_address);
+            continue;
         }
 
-        
+
         if (strcmp(s->type, "database-mapping") == 0){
-            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid-prefix");
+            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
             uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
             uci_interface = uci_lookup_option_string(ctx, s, "interface");
-            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority-v4"),NULL,10);
-            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight-v4"),NULL,10);
-            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, s, "priority-v6"),NULL,10);
-            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, s, "weight-v6"),NULL,10);
+            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority_v4"),NULL,10);
+            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight_v4"),NULL,10);
+            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, s, "priority_v6"),NULL,10);
+            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, s, "weight_v6"),NULL,10);
             
             if (add_database_mapping((char *)uci_eid_prefix,
                                      uci_iid,
@@ -509,35 +523,46 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                                      uci_priority_v6,
                                      uci_weigth_v6) != GOOD ){
                 //message
-                return (BAD);
-                }
+                
+            }
+
+            printf("database-mapping %s\n",uci_eid_prefix);
+            continue;
         }
 
 
+        if (strcmp(s->type, "static-map-cache") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
+            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
+            uci_rloc = uci_lookup_option_string(ctx, s, "rloc");
+            uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
+            
+            if (add_static_map_cache_entry((char *)uci_eid_prefix,
+                                            uci_iid,
+                                            (char *)uci_rloc,
+                                            uci_priority,
+                                            uci_weigth) != GOOD ){
+                //message
+               
+            }
+
+            printf("static-map-cache %s\n",uci_eid_prefix);
+            continue;
+        }
 
 
+        if (strcmp(s->type, "proxy-itr") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            
+            if (add_server((char *)uci_address, &proxy_itrs) != GOOD){
+                //message
+                
+            }
 
-
-
-//         if (strcmp(s->type, "map-server") == 0){
-//             printf("---------- map-server\n");
-//             
-//             uci_debug = uci_lookup_option_string(ctx, s, "address");
-//             
-//             printf("Map-Server Address: %s\n",uci_debug);
-//     }
-
-
-
-
-
-
-
-
-
-
-
-
+            printf("proxy-itr %s\n",uci_address);
+            continue;
+        }
 
         
     }
@@ -714,10 +739,10 @@ int add_database_mapping(char   *eid,
  */
 
 int add_static_map_cache_entry(char   *eid,
+                               int    iid,
                                char   *rloc,
                                int    priority,
-                               int    weight,
-                               int    iid)
+                               int    weight)
 {
     lispd_map_cache_entry    *map_cache_entry;
     lispd_locator_elt        *locator;
