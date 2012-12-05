@@ -42,18 +42,35 @@
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
 
+#include "uci.h"
 
+int add_database_mapping(char   *eid,
+                         int    iid,
+                         char   *iface_name,
+                         int    priority_v4,
+                         int    weight_v4,
+                         int    priority_v6,
+                         int    weight_v6);
 
-int add_database_mapping(cfg_t *dm);
 int add_map_server(
      char       *map_server,
      int        key_type,
      char       *key,
      uint8_t    proxy_reply,
      uint8_t    verify);
-int add_proxy_etr_entry(cfg_t *petr, lispd_weighted_addr_list_t **petr_list);
+
+int add_proxy_etr_entry(char   *addr,
+                        int    priority,
+                        int    weight,
+                        lispd_weighted_addr_list_t      **petr_list);
+
 int add_server(char *server, lispd_addr_list_t  **list);
-int add_static_map_cache_entry(cfg_t  *smc);
+
+int add_static_map_cache_entry(char   *eid,
+                               char   *rloc,
+                               int    priority,
+                               int    weight,
+                               int    iid);
 
 
 
@@ -210,7 +227,12 @@ int handle_lispd_config_file()
     n = cfg_size(cfg, "proxy-etr");
     for(i = 0; i < n; i++) {
         cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
-        if (!add_proxy_etr_entry(petr, &proxy_etrs)) {
+        if (!add_proxy_etr_entry(cfg_getstr(petr, "address"),
+                                 cfg_getint(petr, "priority"),
+                                 cfg_getint(petr, "weight"),
+                                 &proxy_etrs)
+            
+        ) {
             syslog(LOG_DAEMON, "Can't add proxy-etr %d (%s)", i, cfg_getstr(petr, "address"));
         }
     }
@@ -242,7 +264,16 @@ int handle_lispd_config_file()
     n = cfg_size(cfg, "database-mapping");
     for(i = 0; i < n; i++) {
         cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
-        if (!add_database_mapping(dm)) {
+        if (!add_database_mapping(cfg_getstr(dm, "eid-prefix"),
+                                  cfg_getint(dm, "iid"),
+                                  cfg_getstr(dm, "interface"),
+                                  cfg_getint(dm, "priority_v4"),
+                                  cfg_getint(dm, "weight_v4"),
+                                  cfg_getint(dm, "priority_v6"),
+                                  cfg_getint(dm, "weight_v6")
+        )
+            
+        ) {
             syslog(LOG_DAEMON, "Can't add database-mapping %d (%s->%s)",
                i,
                cfg_getstr(dm, "eid-prefix"),
@@ -277,7 +308,13 @@ int handle_lispd_config_file()
     n = cfg_size(cfg, "static-map-cache");
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-            if (!add_static_map_cache_entry(smc)) {
+        if (!add_static_map_cache_entry(cfg_getstr(smc, "eid-prefix"),
+                                        cfg_getstr(smc, "rloc"),
+                                        cfg_getint(smc, "priority"),
+                                        cfg_getint(smc, "weight"),
+                                        cfg_getint(smc, "iid"))
+                
+            ) {
         syslog(LOG_DAEMON,"Can't add static-map-cache %d (EID:%s -> RLOC:%s)",
                i,
                cfg_getstr(smc, "eid-prefix"),
@@ -301,6 +338,61 @@ int handle_lispd_config_file()
     return(0);
 }
 
+
+
+
+int handle_uci_lispd_config_file() {
+
+
+    
+    
+    struct uci_context *ctx = uci_alloc_context();
+    
+    uci_set_confdir(ctx, "/etc/config");
+    
+    printf("Conf dir: %s\n",ctx->confdir);
+    
+    struct uci_package *package;
+    
+    //uci_load(uci_context,"lispd",&package);
+    
+    uci_load(ctx,"lispd",&package);
+    
+    printf("package uci: %s\n",package->ctx->confdir);
+    
+    struct uci_element *e;
+    
+    const char* param;
+    
+    struct uci_section *s;
+    
+    uci_foreach_element(&package->sections, e) {
+        s = uci_to_section(e);
+        
+        if (strcmp(s->type, "map-server") == 0){
+            printf("---------- map-server\n");
+            
+            param = uci_lookup_option_string(ctx, s, "address");
+            
+            printf("Map-Server Address: %s\n",param);
+        }
+    }
+    
+    
+    uci_free_context(ctx);
+    
+    
+    
+
+    
+    return(GOOD);
+    
+}
+
+
+
+
+
 /*
  *  add_database_mapping
  *
@@ -311,22 +403,20 @@ int handle_lispd_config_file()
  *
  */
 
-int add_database_mapping(dm)
-     cfg_t      *dm;
+int add_database_mapping(char   *eid,
+                         int    iid,
+                         char   *iface_name,
+                         int    priority_v4,
+                         int    weight_v4,
+                         int    priority_v6,
+                         int    weight_v6)
+
 {
     lispd_identifier_elt        *identifier;
     lispd_iface_elt             *interface;
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
     int                         eid_prefix_length;
-    uint8_t						is_new_identifier;
-
-    char   *eid               = cfg_getstr(dm, "eid-prefix");
-    int    iid                = cfg_getint(dm, "iid");
-    char   *iface_name        = cfg_getstr(dm, "interface");
-    int    priority_v4        = cfg_getint(dm, "priority_v4");
-    int    weight_v4          = cfg_getint(dm, "weight_v4");
-    int    priority_v6        = cfg_getint(dm, "priority_v6");
-    int    weight_v6          = cfg_getint(dm, "weight_v6");
+    uint8_t                     is_new_identifier;
 
     if (iid > MAX_IID || iid < -1) {
         syslog (LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
@@ -420,8 +510,11 @@ int add_database_mapping(dm)
     /* 
      * PN: Find an active interface for lispd control messages
      */
-    if (default_ctrl_iface_v4 == NULL || default_ctrl_iface_v6 == NULL)
-        set_default_ctrl_ifaces();
+//    if (default_ctrl_iface_v4 == NULL || default_ctrl_iface_v6 == NULL)
+//        set_default_ctrl_ifaces();
+
+
+    
 //#ifdef LISPMOBMH
 //    /* We need a default rloc (iface) to use. As of now
 //     * we will use the same as the ctrl_iface */
@@ -459,8 +552,11 @@ int add_database_mapping(dm)
  *
  */
 
-int add_static_map_cache_entry(smc)
-     cfg_t  *smc;
+int add_static_map_cache_entry(char   *eid,
+                               char   *rloc,
+                               int    priority,
+                               int    weight,
+                               int    iid)
 {
     lispd_map_cache_entry    *map_cache_entry;
     lispd_locator_elt        *locator;
@@ -468,12 +564,6 @@ int add_static_map_cache_entry(smc)
     lisp_addr_t              *rloc_addr;
     int                      eid_prefix_length;
     uint8_t                  *state = 0;
-
-    char   *eid         = cfg_getstr(smc, "eid-prefix");
-    char   *rloc        = cfg_getstr(smc, "rloc");
-    int    priority     = cfg_getint(smc, "priority");
-    int    weight       = cfg_getint(smc, "weight");
-    int    iid          = cfg_getint(smc, "iid");
 
 
     if (iid > MAX_IID) {
@@ -535,9 +625,7 @@ int add_static_map_cache_entry(smc)
  *  add a map-resolver to the list
  */
 
-int add_server(server, list)
-     char       *server;
-     lispd_addr_list_t  **list;
+int add_server(char *server, lispd_addr_list_t  **list)
 {
 
     uint                afi;
@@ -586,12 +674,12 @@ int add_server(server, list)
  *  add_map_server to map_servers
  */
 
-int add_map_server(map_server, key_type, key, proxy_reply,verify)
-     char       *map_server;
-     int        key_type;
-     char       *key;
-     uint8_t    proxy_reply;
-     uint8_t    verify;
+int add_map_server(char         *map_server,
+                   int          key_type,
+                   char         *key,
+                   uint8_t      proxy_reply,
+                   uint8_t      verify)
+
 {
     lisp_addr_t             *addr;
     lispd_map_server_list_t *list_elt;
@@ -655,19 +743,16 @@ int add_map_server(map_server, key_type, key, proxy_reply,verify)
  *
  */
 
-int add_proxy_etr_entry(petr, petr_list)
-    cfg_t  *petr;
-    lispd_weighted_addr_list_t      **petr_list;
+int add_proxy_etr_entry(char   *addr,
+                        int    priority,
+                        int    weight,
+                        lispd_weighted_addr_list_t      **petr_list)
 {
 
     lisp_addr_t                     *address;
     lispd_weighted_addr_list_t      *petr_unit;
 
     uint32_t                flags = 0;
-
-    char   *addr        = cfg_getstr(petr, "address");
-    int    priority     = cfg_getint(petr, "priority");
-    int    weight       = cfg_getint(petr, "weight");
 
     if (priority > 255 || priority < 0) {
         syslog (LOG_DAEMON, "WARNING: Priority %d out of range [0..255]", priority);

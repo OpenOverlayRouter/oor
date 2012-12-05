@@ -335,8 +335,12 @@ void open_iface_binded_sockets(){
         
         iface = iface_list_elt->iface;
 
-        iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
-        iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        if(iface->ipv4_address!=NULL){
+            iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+        }
+        if(iface->ipv6_address!=NULL){
+            iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        }
         
         iface_list_elt = iface_list_elt->next;
         
@@ -405,23 +409,15 @@ lispd_iface_elt *get_default_output_iface(int afi){
 void set_default_output_ifaces(){
 
     default_out_iface_v4 = get_any_output_iface(AF_INET);
-    if (default_out_iface_v4 != NULL)
-        syslog(LOG_DEBUG,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+
+    if (default_out_iface_v4 != NULL) {
+        printf("Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+    }
+    
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
-    if (default_out_iface_v6 != NULL)
-        syslog(LOG_DEBUG,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
-}
-
-void set_default_ctrl_ifaces(){
-
-    printf ("********* %p\n\n\n\n\n",default_ctrl_iface_v4);
-    default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
-    printf ("********* %p\n",default_ctrl_iface_v4);
-    if (default_out_iface_v4 != NULL)
-        syslog(LOG_DEBUG,"Default IPv4 control iface %s\n",default_out_iface_v4->iface_name);
-    default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
-    if (default_out_iface_v6 != NULL)
-        syslog(LOG_DEBUG,"Default IPv6 control iface %s\n",default_out_iface_v6->iface_name);
+    if (default_out_iface_v6 != NULL) {
+        printf("Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
+    }
 }
 
 
