@@ -319,7 +319,7 @@ int main(int argc, char **argv)
     
 
     prefix_len = 1;
-    metric = 0;
+    metric = 3;
     get_lisp_addr_from_char("0.0.0.0",&gw);
     get_lisp_addr_from_char("0.0.0.0",&src);
 

@@ -510,9 +510,9 @@ int add_database_mapping(char   *eid,
     /* 
      * PN: Find an active interface for lispd control messages
      */
-//    if (default_ctrl_iface_v4 == NULL || default_ctrl_iface_v6 == NULL)
-//        set_default_ctrl_ifaces();
-
+    if (default_ctrl_iface_v4 == NULL || default_ctrl_iface_v6 == NULL){
+        set_default_ctrl_ifaces();
+    }
 
     
 //#ifdef LISPMOBMH

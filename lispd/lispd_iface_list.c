@@ -420,6 +420,20 @@ void set_default_output_ifaces(){
     }
 }
 
+void set_default_ctrl_ifaces(){
+
+    default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
+
+    if (default_ctrl_iface_v4 != NULL) {
+        printf("Default IPv4 control iface %s\n",default_ctrl_iface_v4->iface_name);
+    }
+
+    default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
+    if (default_ctrl_iface_v6 != NULL) {
+        printf("Default IPv6 control iface %s\n",default_ctrl_iface_v6->iface_name);
+    }
+}
+
 
 lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi){
     

@@ -277,11 +277,11 @@ int add_route_v4(uint32_t ifindex,
     /*
      * Add src address for the route
      */
-    rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
-    rta->rta_type = RTA_SRC;
-    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-    memcpy(((char *)rta) + sizeof(struct rtattr), &src->address.ip, sizeof(struct in_addr));
-    rta_len += rta->rta_len;
+//    rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
+//    rta->rta_type = RTA_SRC;
+//    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
+//    memcpy(((char *)rta) + sizeof(struct rtattr), &src->address.ip, sizeof(struct in_addr));
+//    rta_len += rta->rta_len;
     
     /*
      * Add the outgoing interface

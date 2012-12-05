@@ -1095,7 +1095,7 @@ int process_netlink_iface ()
                 }
                 
                 if (default_ctrl_iface_v4 == NULL) {
-//                    set_default_ctrl_ifaces();
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
      				 * we will use the same as the default_ctrl_iface_v4 */
@@ -1188,7 +1188,7 @@ int process_netlink_iface ()
 #endif
 
                 if (default_ctrl_iface_v4 == NULL) {
-//                    set_default_ctrl_ifaces();
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
      				 * we will use the same as the default_ctrl_iface_v4 */
@@ -1344,7 +1344,7 @@ int process_netlink_iface ()
                  * if needed
                  */
                 if (default_ctrl_iface_v4 == NULL){
-//                    set_default_ctrl_ifaces();
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
      				 * we will use the same as the default_ctrl_iface_v4 */
@@ -1454,7 +1454,7 @@ int process_netlink_iface ()
                  */
                 if (elt == default_ctrl_iface_v4) {
                     default_ctrl_iface_v4 = NULL;
-//                    set_default_ctrl_ifaces();
+                    set_default_ctrl_ifaces();
 #ifdef LISPMOBMH
     				/* We need a default rloc (iface) to use. As of now 
      				 * we will use the same as the default_ctrl_iface_v4 */
@@ -1656,7 +1656,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
 
 static int lower_default_route_metric(void) {
     iface_list_elt *elt;
-//    set_default_ctrl_ifaces();
+    set_default_ctrl_ifaces();
     elt = default_ctrl_iface_v4;
     syslog(LOG_DAEMON, "Lowering metric of default route to 0 on %s",
             elt->iface_name);
