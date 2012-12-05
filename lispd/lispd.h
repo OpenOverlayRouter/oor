@@ -99,6 +99,12 @@
 #endif
 
 
+
+/*
+ * Constants
+ */
+#define MAX_MSG_LENGTH 1024  /* Max total message size. */
+
 /*
  *  CO --
  *

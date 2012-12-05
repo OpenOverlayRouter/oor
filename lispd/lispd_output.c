@@ -477,7 +477,7 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     }
 
     /* If received packet doesn't have a source EID, forward it natively */
-    if (lookup_eid_in_db (original_src_addr, NULL)!= GOOD){
+    if (lookup_eid_in_db (original_src_addr) == NULL){
         return (fordward_native(get_default_output_iface(default_encap_afi),
                                            original_packet,
                                            original_packet_length));

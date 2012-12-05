@@ -359,7 +359,8 @@ int add_database_mapping(dm)
     /*
      * Lookup if the identifier exists. If not, a new identifier is created.
      */
-    if (lookup_eid_exact_in_db(eid_prefix,eid_prefix_length,&identifier)==BAD)
+    identifier = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
+    if (identifier == NULL)
     {
         identifier = new_identifier(eid_prefix,eid_prefix_length,iid);
         if (identifier == NULL){

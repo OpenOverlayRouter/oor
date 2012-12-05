@@ -161,18 +161,18 @@ void free_lispd_identifier_elt(lispd_identifier_elt *identifier, uint8_t local_i
 /*
  * lookup_eid_in_db
  *
- * Look up a given eid in the database, returning true and
- * filling in the entry pointer if found, or false if not found.
+ * Look up a given eid in the database, returning the
+ * lispd_identifier_elt of this EID if it exists or NULL.
  */
-int lookup_eid_in_db(lisp_addr_t eid, lispd_identifier_elt **identifier);
+lispd_identifier_elt *lookup_eid_in_db(lisp_addr_t eid);
 
 /*
  * lookup_eid_in_db
  *
- * Look up a given ipv4 eid in the database, returning true and
- * filling in the entry pointer if found the exact entry, or false if not found.
+ *  Look up a given eid in the database, returning the
+ * lispd_identifier_elt containing the exact EID if it exists or NULL.
  */
-int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_identifier_elt **identifier);
+lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length);
 
 /*
  * dump local identifier list

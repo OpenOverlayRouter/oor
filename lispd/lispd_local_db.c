@@ -247,40 +247,40 @@ int lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length, patricia_node_
 /*
  * lookup_eid_in_db
  *
- * Look up a given eid in the database, returning true and
- * filling in the entry pointer if found, or false if not found.
+ * Look up a given eid in the database, returning the
+ * lispd_identifier_elt of this EID if it exists or NULL.
  */
-int lookup_eid_in_db(lisp_addr_t eid, lispd_identifier_elt **identifier)
+lispd_identifier_elt *lookup_eid_in_db(lisp_addr_t eid)
 {
-  patricia_node_t *result;
+    lispd_identifier_elt *identifier;
+    patricia_node_t *result;
 
-  if (lookup_eid_node(eid,&result)!=GOOD){
-      syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid));
-      return(BAD);
-  }
-
-  *identifier = (lispd_identifier_elt *)(result->data);
-
-  return(TRUE);
+    if (lookup_eid_node(eid,&result)!=GOOD){
+        syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid));
+        return(NULL);
+    }
+    identifier = (lispd_identifier_elt *)(result->data);
+    return(identifier);
 }
 
 /*
  * lookup_eid_in_db
  *
- * Look up a given eid in the database, returning true and
- * filling in the entry pointer if found the exact entry, or false if not found.
+ *  Look up a given eid in the database, returning the
+ * lispd_identifier_elt containing the exact EID if it exists or NULL.
  */
-int lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length, lispd_identifier_elt **identifier)
+lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length)
 {
-  patricia_node_t *result;
-  if (lookup_eid_exact_node(eid_prefix,eid_prefix_length, &result)!=GOOD)
-  {
-      syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid_prefix));
-      return(FALSE);
-  }
-  *identifier = (lispd_identifier_elt *)(result->data);
+    lispd_identifier_elt *identifier;
+    patricia_node_t *result;
+    if (lookup_eid_exact_node(eid_prefix,eid_prefix_length, &result)!=GOOD)
+    {
+        syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid_prefix));
+        return(NULL);
+    }
+    identifier = (lispd_identifier_elt *)(result->data);
 
-  return(TRUE);
+    return(identifier);
 }
 
 

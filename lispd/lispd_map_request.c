@@ -337,7 +337,8 @@ int add_encap_headers(
 
      /* Check the existence of the requested EID */
      /* XXX aloepz: We don't use prefix mask and use by default 32 or 128*/
-     if (!lookup_eid_in_db(requested_identifier.eid_prefix, &identifier)){
+     identifier = lookup_eid_in_db(requested_identifier.eid_prefix);
+     if (!identifier){
          syslog(LOG_WARNING,"The requested EID doesn't belong to this node: %s/%d",
                  get_char_from_lisp_addr_t(requested_identifier.eid_prefix),
                  requested_identifier.eid_prefix_length);
@@ -457,7 +458,8 @@ uint8_t *build_map_request_pkt(
     lispd_locator_elt   *locator;
 
     /* Lookup the local EID prefix from where we generate the message */
-    if (lookup_eid_in_db(*src_eid, &src_identifier)!=GOOD){
+    src_identifier = lookup_eid_in_db(*src_eid);
+    if (!src_identifier){
         syslog(LOG_ERR,"build_map_request_pkt: Source EID address not found in local data base - %s -",
                 get_char_from_lisp_addr_t(*src_eid));
         return (NULL);
