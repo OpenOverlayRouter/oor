@@ -230,7 +230,17 @@ int main(int argc, char **argv)
      *  Now do the config file
      */
 
+#ifdef OPENWRT
+
+    handle_uci_lispd_config_file("/etc/config", "lispd");
+
+#else
+
     handle_lispd_config_file();
+
+#endif
+    
+    
 
 
 

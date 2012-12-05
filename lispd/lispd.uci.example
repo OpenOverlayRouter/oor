@@ -1,0 +1,74 @@
+#
+#       lispd example config file
+#
+package 'lispd'
+
+config 'daemon'
+	option	'debug'	'on'
+	option	'map_request_retries'	'2'
+        
+# Encapsulated Map-Requests are sent to this map resolver    
+config 'map-resolver'
+        option   'address'      '128.223.156.23'
+
+# Register to this map server
+config 'map-server'
+        option   'address'      '128.223.156.35'
+        option   'key-type'     '1'
+        option   'key'      'foo%bar'
+        option   'verify'     'off'
+        option   'proxy-reply'     'on'
+
+# Encapsulate packets for non-LISP sites to this Proxy-ETR
+config 'proxy-etr'
+        option   'address'      '149.20.48.60'
+        option   'priority'     '1'
+        option   'weight'      '100'     
+
+# IPv4 EID of the mobile node        
+config 'database-mapping'
+        option   'eid-prefix'      '153.16.254.1/32'
+#        option   'iid'     '0'
+        option   'interface'      'eth0'
+        option   'priority-v4'     '1'
+        option   'weight-v4'      '100' 
+	option   'priority-v6'     '1'
+        option   'weight-v6'      '100' 
+
+# IPv6 EID of the mobile node        
+config 'database-mapping'
+        option   'eid-prefix'      '2610:d0:ffff:192::1/128'
+#        option   'iid'     '223'
+        option   'interface'      'eth0'
+        option   'priority-v4'     '1'
+        option   'weight-v4'      '100' 
+	option   'priority-v6'     '1'
+        option   'weight-v6'      '100' 
+
+# Static cache entries      
+config 'static-map-cache'
+        option   'eid-prefix'      '153.16.10.0/24'
+#        option   'iid'     '1'
+        option   'rloc'      '128.223.156.134'
+        option   'priority'     '1'
+        option   'weight'      '100'
+
+# List of PITRs to SMR on handover        
+config 'proxy-itrs'
+        list   'address'      '69.31.31.98'
+        list   'address'      '149.20.48.60'
+        list   'address'      '198.6.255.37'
+        list   'address'      '129.250.1.63'
+        
+# List of PITRs to SMR on handover        
+config 'proxy-itr'
+        option   'address'      '69.31.31.98'	# eqx-ash-pxtr
+
+config 'proxy-itr'
+        option   'address'      '149.20.48.60'	# isc-pxtr
+
+config 'proxy-itr'
+        option   'address'      '198.6.255.37'	# asp-pxtr
+
+config 'proxy-itr'
+        option   'address'      '129.250.1.63'	# ntt-amer-pxtr

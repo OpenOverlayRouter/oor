@@ -17,6 +17,7 @@ endif
 GENGETOPT	= gengetopt
 
 CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID
+#CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID -DOPENWRT
 
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 INC		= lispd.h
