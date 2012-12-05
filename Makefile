@@ -1,4 +1,4 @@
-DIRS = lisp_int lisp_mod lispd lispconf
+DIRS = lispd
 BUILDDIRS = $(DIRS:%=build-%)
 INSTALLDIRS = $(DIRS:%=install-%)
 CLEANDIRS = $(DIRS:%=clean-%)
