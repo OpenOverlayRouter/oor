@@ -18,7 +18,7 @@ GENGETOPT	= gengetopt
 
 CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID
 
-LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
+LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 INC		= lispd.h
 MAKEFILE	= Makefile
 OBJS		= cmdline.o lispd.o lispd_config.o lispd_syslog.o	\
