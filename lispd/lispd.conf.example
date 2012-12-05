@@ -41,8 +41,10 @@ database-mapping {
          eid-prefix = 153.16.254.1/32
 #         iid        = 0
          interface  = eth0
-         priority   = 1 
-         weight     = 100
+         priority_v4	= 1
+         weight_v4     	= 100
+         priority_v6	= 1
+         weight_v6     	= 100
 }
 
 # IPv6 EID of the mobile node

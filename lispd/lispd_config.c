@@ -42,7 +42,11 @@
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
 
-#include "uci.h"
+
+
+#ifdef OPENWRT
+#include <uci.h>
+#endif
 
 int add_database_mapping(char   *eid,
                          int    iid,
@@ -339,57 +343,210 @@ int handle_lispd_config_file()
 }
 
 
+#ifdef OPENWRT
 
+int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_file) {
+    
+    struct uci_context *ctx = NULL;
+    struct uci_package *pck = NULL;
+    struct uci_section *s = NULL;
+    struct uci_element *e = NULL;
+    
+    const char* uci_debug = NULL;
+    int         uci_retries = 0;
+    const char* uci_address = NULL;
+    int         uci_key_type = 0;
+    const char* uci_key = NULL;
+    int         uci_verify = 0;
+    int         uci_proxy_reply = 0;
+    int         uci_priority_v4 = 0;
+    int         uci_weigth_v4 = 0;
+    int         uci_priority_v6 = 0;
+    int         uci_weigth_v6 = 0;
+    const char* uci_interface = NULL;
+    int         uci_iid = 0;
+    const char* uci_rloc = NULL;
+    const char* uci_eid_prefix = NULL;
 
-int handle_uci_lispd_config_file() {
-
+    //arnatal TODO XXX: check errors for the whole function
+    
 
     
+    ctx = uci_alloc_context();
     
-    struct uci_context *ctx = uci_alloc_context();
+    if (ctx == NULL) {
+        syslog(LOG_DAEMON, "Could not create UCI context");
+        exit(EXIT_FAILURE);
+    }
     
-    uci_set_confdir(ctx, "/etc/config");
+    uci_set_confdir(ctx, uci_conf_dir);
     
     printf("Conf dir: %s\n",ctx->confdir);
     
-    struct uci_package *package;
+    uci_load(ctx,uci_conf_file,&pck);
+
+    if (pck == NULL) {
+        syslog(LOG_DAEMON, "Could not load conf file: %s",uci_conf_file);
+        uci_free_context(ctx);
+        exit(EXIT_FAILURE);
+    }
     
-    //uci_load(uci_context,"lispd",&package);
     
-    uci_load(ctx,"lispd",&package);
+    printf("package uci: %s\n",pck->ctx->confdir);
     
-    printf("package uci: %s\n",package->ctx->confdir);
     
-    struct uci_element *e;
-    
-    const char* param;
-    
-    struct uci_section *s;
-    
-    uci_foreach_element(&package->sections, e) {
+    uci_foreach_element(&pck->sections, e) {
+        uci_debug = NULL;
+        uci_retries = 0;
+ 
+        uci_address = NULL;
+        uci_key_type = 0;
+        uci_key = NULL;
+        uci_verify = 0;
+        uci_proxy_reply = 0;
+        uci_priority_v4 = 0;
+        uci_weigth_v4 = 0;
+        uci_priority_v6 = 0;
+        uci_weigth_v6 = 0;
+        uci_iid = 0;
+        uci_interface = NULL;
+        uci_rloc = NULL;
+        uci_eid_prefix = NULL;
+        
         s = uci_to_section(e);
         
-        if (strcmp(s->type, "map-server") == 0){
-            printf("---------- map-server\n");
+        if (strcmp(s->type, "daemon") == 0){
             
-            param = uci_lookup_option_string(ctx, s, "address");
+            uci_debug = uci_lookup_option_string(ctx, s, "debug");
             
-            printf("Map-Server Address: %s\n",param);
+            if (strcmp(uci_debug, "on") == 0){
+                debug = TRUE;
+            }else{
+                debug = FALSE;
+            }
+
+            uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
+            
+            if (uci_retries != 0){
+                map_request_retries = uci_retries;
+            }
+
+            printf("---------- retries2: %d\n",uci_retries);
         }
+
+        
+        if (strcmp(s->type, "map-resolver") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+
+            if (add_server((char *)uci_address, &map_resolvers) != GOOD){
+                //message
+                return(BAD);
+            }
+        }
+
+        
+        if (strcmp(s->type, "map-server") == 0){
+            
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            uci_key_type = strtol(uci_lookup_option_string(ctx, s, "key-type"),NULL,10);
+            uci_key = uci_lookup_option_string(ctx, s, "key");
+
+            if (strcmp(uci_lookup_option_string(ctx, s, "proxy-reply"), "on") == 0){
+                uci_proxy_reply = TRUE;
+            }else{
+                uci_proxy_reply = FALSE;
+            }
+
+            if (strcmp(uci_lookup_option_string(ctx, s, "verify"), "on") == 0){
+                uci_verify = TRUE;
+            }else{
+                uci_verify = FALSE;
+            }
+            
+            if (add_map_server((char *)uci_address,
+                               uci_key_type,
+                               (char *)uci_key,
+                               uci_proxy_reply,
+                               uci_verify) != GOOD ){
+                //message
+                return (BAD);
+            }
+        }
+
+        
+        if (strcmp(s->type, "proxy-etr") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
+            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
+
+            if (add_proxy_etr_entry((char *)uci_address,
+                                    uci_priority_v4,
+                                    uci_weigth_v4,
+                                    &proxy_etrs) != GOOD ){
+                //message
+                return (BAD);
+                }
+        }
+
+        
+        if (strcmp(s->type, "database-mapping") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid-prefix");
+            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
+            uci_interface = uci_lookup_option_string(ctx, s, "interface");
+            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority-v4"),NULL,10);
+            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight-v4"),NULL,10);
+            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, s, "priority-v6"),NULL,10);
+            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, s, "weight-v6"),NULL,10);
+            
+            if (add_database_mapping((char *)uci_eid_prefix,
+                                     uci_iid,
+                                     (char *)uci_interface,
+                                     uci_priority_v4,
+                                     uci_weigth_v4,
+                                     uci_priority_v6,
+                                     uci_weigth_v6) != GOOD ){
+                //message
+                return (BAD);
+                }
+        }
+
+
+
+
+
+
+
+//         if (strcmp(s->type, "map-server") == 0){
+//             printf("---------- map-server\n");
+//             
+//             uci_debug = uci_lookup_option_string(ctx, s, "address");
+//             
+//             printf("Map-Server Address: %s\n",uci_debug);
+//     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
     }
     
     
     uci_free_context(ctx);
     
-    
-    
-
-    
     return(GOOD);
     
 }
 
-
+#endif
 
 
 
@@ -633,7 +790,7 @@ int add_server(char *server, lispd_addr_list_t  **list)
  
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
-        return(0);
+        return(BAD);
     }
     memset(addr,0,sizeof(lisp_addr_t));
 
@@ -643,13 +800,13 @@ int add_server(char *server, lispd_addr_list_t  **list)
     if (inet_pton(afi, server, &(addr->address)) != 1) {
         syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
         free(addr);
-        return(0);
+        return(BAD);
     }
 
     if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
         syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_list_t)): %s", strerror(errno));
         free(addr);
-        return(0);
+        return(BAD);
     }
     memset(list_elt,0,sizeof(lispd_addr_list_t));
 
@@ -666,7 +823,7 @@ int add_server(char *server, lispd_addr_list_t  **list)
         *list = list_elt;
     }
 
-    return(1);
+    return(GOOD);
 }
 
 /*
@@ -809,3 +966,4 @@ int add_proxy_etr_entry(char   *addr,
  * vi: set shiftwidth=4 tabstop=4 expandtab:
  * :indentSize=4:tabSize=4:noTabs=true:
  */
+
