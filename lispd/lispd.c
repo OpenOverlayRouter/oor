@@ -303,9 +303,9 @@ int main(int argc, char **argv)
                 &tun_ifindex,
                 &tun_receive_buf);
 
-    tun_addr = get_main_eid(AF_INET);
-    //tun_addr.afi = AF_INET;
-    //inet_aton("127.0.0.127", &tun_addr.address);
+    //tun_addr = get_main_eid(AF_INET);
+    tun_addr.afi = AF_INET;
+    inet_aton("127.0.0.127", &tun_addr.address);
 
     tun_bring_up_iface_v4_eid(tun_addr,tun_dev_name);
 
