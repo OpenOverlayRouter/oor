@@ -1,9 +1,9 @@
 /*
- * lispd_syslog.c
+ * lispd_log.h
  *
  * This file is part of LISP Mobile Node Implementation.
- * Write a message to /var/log/syslog 
- * 
+ * Write log messages
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -26,30 +26,16 @@
  * Written or modified by:
  *    David Meyer       <dmm@cisco.com>
  *    Preethi Natarajan <prenatar@cisco.com>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
 
-#include "lispd_external.h"
+#ifndef LISPD_LOG_H_
+#define LISPD_LOG_H_
 
-void set_up_syslog(void)
-{
+void set_up_syslog(void);
 
-    setlogmask(LOG_UPTO(LOG_INFO));
-    openlog(LISPD, LOG_CONS, LOG_USER);
- 
-    if (!daemonize) {           /* print it to the user if not a daemon */
-        setlogmask(LOG_UPTO(LOG_DEBUG));
-        openlog(LISPD, LOG_CONS | LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_USER);
-    }
-
-    syslog(LOG_INFO, "Starting up...");
-
-}
+void lispd_log_msg(int log_level, const char *format, ...);
 
 
-/*
- * Editor modelines
- *
- * vi: set shiftwidth=4 tabstop=4 expandtab:
- * :indentSize=4:tabSize=4:noTabs=true:
- */
+#endif /*LISPD_LOG_H_*/

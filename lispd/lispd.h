@@ -58,7 +58,7 @@
 #include <endian.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include "lispd_syslog.h"
+#include "lispd_log.h"
 #include "patricia/patricia.h"
 
 /*

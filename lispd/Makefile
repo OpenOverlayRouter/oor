@@ -23,7 +23,7 @@ LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 #LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
 INC		= lispd.h
 MAKEFILE	= Makefile
-OBJS		= cmdline.o lispd.o lispd_config.o lispd_syslog.o	\
+OBJS		= cmdline.o lispd.o lispd_config.o lispd_log.o	\
 		  lispd_lib.o lispd_map_register.o		\
 		  patricia/patricia.o cksum.o lispd_map_request.o	\
 		  lispd_map_reply.o \
