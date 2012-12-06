@@ -69,6 +69,7 @@ void event_loop();
 void signal_handler(int);
 int build_timers_event_socket();
 int process_timer_signal();
+void exit_cleanup(void);
 
 /*
  *      global (more or less) vars
@@ -314,16 +315,15 @@ int main(int argc, char **argv)
                 &tun_receive_buf);
 
     //tun_addr = get_main_eid(AF_INET);
-    tun_addr.afi = AF_INET;
-    inet_aton("127.0.0.127", &tun_addr.address);
+    get_lisp_addr_from_char("127.0.0.127",&tun_addr);
 
     tun_bring_up_iface_v4_eid(tun_addr,tun_dev_name);
 
     //tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
 
     lisp_addr_t dest;
-    lisp_addr_t src;
-    lisp_addr_t gw;
+    //lisp_addr_t src;
+    //lisp_addr_t gw;
     uint32_t prefix_len;
     uint32_t metric;
     
@@ -609,7 +609,7 @@ int build_timers_event_socket()
 void exit_cleanup(void) {
 
     /*Need iterator to remove state associated to each interface*/
-    iface_list_elt *list_iterator = NULL;
+    //iface_list_elt *list_iterator = NULL;
 
     /* Close timer file descriptors */
     close(timers_fd);

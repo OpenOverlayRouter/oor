@@ -145,4 +145,9 @@ do { \
         } \
     } while (0)
 
+/* prefix_toa
+*/
+char *prefix_toa (prefix_t * prefix);
+/* Defined to avoid implicit function warnings */
+    
 #endif /* _PATRICIA_H */

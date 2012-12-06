@@ -8,6 +8,7 @@
  * Copyright 2012 Cisco Systems, Inc.
  */
 #include <signal.h>
+#include <sys/time.h>
 
 #include "lispd.h"
 #include "lispd_timers.h"

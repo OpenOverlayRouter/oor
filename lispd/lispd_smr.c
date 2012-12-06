@@ -43,12 +43,12 @@ void init_smr()
     patricia_tree_t     *dbs [2];
     lispd_locators_list *locators_lists[2];
     int                 ctr,ctr1;
-    uint64_t			nonce;
+    //uint64_t            nonce;
 
     patricia_node_t             *node;
     lispd_map_cache_entry       *map_cache_entry;
     lispd_locators_list         *locator_iterator;
-    lispd_locator_elt           *locator;
+    //lispd_locator_elt           *locator;
 
     dbs[0] = get_map_cache_db(AF_INET);
     dbs[1] = get_map_cache_db(AF_INET6);
@@ -64,7 +64,7 @@ void init_smr()
         		if (map_cache_entry->active && locators_lists[ctr1] != NULL){
         			locator_iterator = locators_lists[ctr1];
         			while (locator_iterator){
-        				locator = locator_iterator->locator;
+        			//	locator = locator_iterator->locator;
         			/*	if (build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
                                 map_cache_entry->identifier->eid_prefix_length,
         						locator->locator_addr,0,0,1,0,&nonce)==GOOD)
