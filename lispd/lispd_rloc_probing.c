@@ -62,7 +62,7 @@ int rloc_probing(timer *t, void *arg)
     			locator = locators->locator;
     			if (locator->rloc_probing_nonces != NULL){
     				// XXX alopez: It should never arrive here. Remove once tested
-    				syslog (LOG_ERR,"First RLOC Probing -> rloc_probing_nonces not null");
+    				lispd_log_msg(LOG_ERR,"First RLOC Probing -> rloc_probing_nonces not null");
     				exit(1);
     			}
     			locator->rloc_probing_nonces = new_nonces_list();
@@ -82,7 +82,7 @@ int rloc_probing(timer *t, void *arg)
     	}
     	// XXX alopez: Removed once tested
     	if (loc_ctr != identifier->locator_count){
-    		syslog(LOG_CRIT, "The number of locators (%d) is different from the number indicated by "
+    		lispd_log_msg(LOG_CRIT, "The number of locators (%d) is different from the number indicated by "
     				"locator_count (%d) ",loc_ctr, identifier->locator_count);
     		exit(1);
     	}

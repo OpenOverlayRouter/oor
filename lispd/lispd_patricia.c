@@ -46,7 +46,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
     patricia_node_t *node;
 
     if ((node = malloc(sizeof(patricia_node_t))) == NULL) {
-        syslog(LOG_DAEMON, "can't allocate patrica_node_t");
+        lispd_log_msg(LOG_DAEMON, "can't allocate patrica_node_t");
         return(NULL);
     }
 
@@ -54,7 +54,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
     case AF_INET:
         sin = (struct in_addr *) addr;
         if ((prefix = New_Prefix(AF_INET, sin, mask_len)) == NULL) {
-            syslog(LOG_DAEMON, "couldn't alocate prefix_t for AF_INET");
+            lispd_log_msg(LOG_DAEMON, "couldn't alocate prefix_t for AF_INET");
             free(node);
             return(NULL);
         }
@@ -63,7 +63,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
     case AF_INET6:
         sin6   = (struct in6_addr *) addr;
         if ((prefix = New_Prefix(AF_INET6, sin6, mask_len)) == NULL) {
-            syslog(LOG_DAEMON, "couldn't alocate prefix_t for AF_INET6");
+            lispd_log_msg(LOG_DAEMON, "couldn't alocate prefix_t for AF_INET6");
             free(node);
             return(NULL);
         }
@@ -72,7 +72,7 @@ patricia_node_t *make_and_lookup_network(afi,addr,mask_len)
     default:
         free(node);
         free(prefix);
-        syslog(LOG_DAEMON, "Unknown afi (%d) when allocating prefix_t", afi);
+        lispd_log_msg(LOG_DAEMON, "Unknown afi (%d) when allocating prefix_t", afi);
         return (NULL);
     }
     Deref_Prefix (prefix);

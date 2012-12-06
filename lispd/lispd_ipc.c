@@ -60,7 +60,7 @@ int install_database_mapping(db_entry)
                  sizeof(lisp_db_add_msg_loc_t) * loc_count;
 
     if ((cmd = malloc(cmd_length)) < 0) {
-        syslog (LOG_DAEMON, "install_database_mapping(): memory allocation error");
+        lispd_log_msg(LOG_DAEMON, "install_database_mapping(): memory allocation error");
         return(0);
     }
 
@@ -120,7 +120,7 @@ int install_database_mappings_afi(tree)
     while (locator_chain_elt) {
         db_entry = locator_chain_elt->db_entry;
         if (install_database_mapping(db_entry) < 0) {
-        syslog(LOG_DAEMON,
+        lispd_log_msg(LOG_DAEMON,
                "  Could not install database mapping %s/%d->%s",
                locator_chain->eid_name,
                locator_chain->eid_prefix_length,
@@ -149,7 +149,7 @@ int install_database_mappings_afi(tree)
 int install_database_mappings(void)
 {
 
-    syslog(LOG_DAEMON, "Installing database-mappings:");
+    lispd_log_msg(LOG_DAEMON, "Installing database-mappings:");
     if (!install_database_mappings_afi(AF4_database))
     return(0);
     if (!install_database_mappings_afi(AF6_database))
@@ -178,7 +178,7 @@ int install_map_cache_entries(void)
     if (!lispd_map_cache)
     return(0);
 
-    syslog(LOG_DAEMON, "installing static map-cache entries:");
+    lispd_log_msg(LOG_DAEMON, "installing static map-cache entries:");
 
     map_cache_entry = lispd_map_cache;
     while (map_cache_entry) {
@@ -189,7 +189,7 @@ int install_map_cache_entries(void)
           eid,
           128);
     if (install_map_cache_entry(mc_entry) < 0) {
-        syslog(LOG_DAEMON, " Could not install map-cache entry %s/%d->%s",
+        lispd_log_msg(LOG_DAEMON, " Could not install map-cache entry %s/%d->%s",
             eid,
             mc_entry->eid_prefix_length,
             mc_entry->locator_name);
@@ -203,7 +203,7 @@ int install_map_cache_entries(void)
         sprintf(buf, "%s", rloc);
         else
         sprintf(buf, "%s (%s)", mc_entry->locator_name, rloc);
-        syslog(LOG_DAEMON, " installed %s lisp %s/%d %s p %d w %d",
+        lispd_log_msg(LOG_DAEMON, " installed %s lisp %s/%d %s p %d w %d",
             (afi == AF_INET) ? "ip":"ipv6",
             eid,
             mc_entry->eid_prefix_length, 
@@ -251,7 +251,7 @@ int install_map_cache_entry(map_cache_entry)
                  sizeof(lisp_eid_map_msg_loc_t) * loc_count;
 
     if ((cmd = malloc(cmd_length)) < 0){
-        syslog (LOG_DAEMON, "install_map_cache_entry(): memory allocation error");
+        lispd_log_msg(LOG_DAEMON, "install_map_cache_entry(): memory allocation error");
         return(0);
     }
 
@@ -301,7 +301,7 @@ int send_eid_map_msg(lisp_eid_map_msg_t *map_msg, int map_msg_len)
     cmd_length = sizeof(lisp_cmd_t) + map_msg_len;
 
     if ((cmd = malloc(cmd_length)) < 0){
-        syslog (LOG_DAEMON, "send_eid_map_msg(): memory allocation error");
+        lispd_log_msg(LOG_DAEMON, "send_eid_map_msg(): memory allocation error");
         return(0);
     }
 
@@ -330,7 +330,7 @@ int update_map_cache_entry_rloc_status(lisp_addr_t *eid_prefix,
                  sizeof(lisp_addr_t) * loc_count;
 
     if ((cmd = malloc(cmd_length)) < 0){
-        syslog (LOG_DAEMON, "update_map_cache_entry_rloc_status(): memory allocation error");
+        lispd_log_msg(LOG_DAEMON, "update_map_cache_entry_rloc_status(): memory allocation error");
         return(0);
     }
 
@@ -441,7 +441,7 @@ int process_netlink_msg(void) {
      */
 
     if ( (len = recvmsg(netlink_fd, &kmsg, 0)) <=0 ){
-        syslog(LOG_DAEMON, " Could not receive NETLINK message , len is %d, NLMSG_OK is %d, flags = %d",len,NLMSG_OK(nlh,len),kmsg.msg_flags);
+        lispd_log_msg(LOG_DAEMON, " Could not receive NETLINK message , len is %d, NLMSG_OK is %d, flags = %d",len,NLMSG_OK(nlh,len),kmsg.msg_flags);
         fflush(stderr);
         return (0);
     }
@@ -454,20 +454,20 @@ int process_netlink_msg(void) {
 
     switch (cmd->type) {
         case LispOk:
-            syslog(LOG_DAEMON, "Received LispOk NETLINK message");
+            lispd_log_msg(LOG_DAEMON, "Received LispOk NETLINK message");
             break;
         case LispMapCacheLookup:
-            syslog(LOG_DAEMON, "Received LispMapCacheLookup NETLINK message");
+            lispd_log_msg(LOG_DAEMON, "Received LispMapCacheLookup NETLINK message");
             if(!handle_LispMapCacheLookup(cmd))
                 return(0);
             break;
         case LispMapCacheRLOCList:
-            syslog(LOG_DAEMON, "Received LispMapCacheRLOCList NETLINK message");
+            lispd_log_msg(LOG_DAEMON, "Received LispMapCacheRLOCList NETLINK message");
             if(!handle_LispMapCacheRLOCList(cmd))
                 return(0);
             break;
         case LispDatabaseLookup:
-            syslog(LOG_DAEMON, "Received LispDatabaseLookup NETLINK message");
+            lispd_log_msg(LOG_DAEMON, "Received LispDatabaseLookup NETLINK message");
             break;
         case LispCacheSample:
             if(!handle_LispCacheSample(cmd))
@@ -475,7 +475,7 @@ int process_netlink_msg(void) {
             break;
         default:
 #ifdef DEBUG
-            syslog(LOG_DAEMON,"Received NETLINK message type %d", cmd->type);
+            lispd_log_msg(LOG_DAEMON,"Received NETLINK message type %d", cmd->type);
 #endif
             break;
     }
@@ -495,15 +495,15 @@ int handle_LispCacheSample(lisp_cmd_t* cmd) {
 
     switch (msg->reason) {
         case ProbeSample:
-            syslog(LOG_DAEMON, "Received LispCacheSample (ProbeSample) NETLINK message");
+            lispd_log_msg(LOG_DAEMON, "Received LispCacheSample (ProbeSample) NETLINK message");
             if(!handle_LispProbeSample(msg))
                 return(0);
             break;
         case SMRSample:
-            syslog(LOG_DAEMON, "Received LispCacheSample (SMRSample) NETLINK message");
+            lispd_log_msg(LOG_DAEMON, "Received LispCacheSample (SMRSample) NETLINK message");
             break;
         case CacheMiss:
-            syslog(LOG_DAEMON, "Received LispCacheSample (CacheMiss) NETLINK message");
+            lispd_log_msg(LOG_DAEMON, "Received LispCacheSample (CacheMiss) NETLINK message");
             if(!handle_LispCacheMiss(msg))
                 return(0);
             break;
@@ -523,7 +523,7 @@ int handle_LispProbeSample(lisp_cache_sample_msg_t *msg) {
 
     inet_ntop(msg->eid.afi, &((msg->eid).address), eid_name, 128);
 #ifdef DEBUG
-    syslog(LOG_DAEMON,"  EID: %s/%d", eid_name, msg->eid_prefix_length);
+    lispd_log_msg(LOG_DAEMON,"  EID: %s/%d", eid_name, msg->eid_prefix_length);
 #endif
 
     if (msg->num_locators == 0)
@@ -542,7 +542,7 @@ int handle_LispProbeSample(lisp_cache_sample_msg_t *msg) {
                 msg->eid_prefix_length,
                 rloc_name,
                 0, 1, 0, 0, 0, 0, LISPD_INITIAL_PROBE_TIMEOUT, 0))
-            syslog(LOG_DAEMON, "  RLOC probing locator %s", rloc_name);
+            lispd_log_msg(LOG_DAEMON, "  RLOC probing locator %s", rloc_name);
     }
     return(1);
 }
@@ -556,7 +556,7 @@ int handle_LispCacheMiss(lisp_cache_sample_msg_t *msg) {
 
     inet_ntop(msg->eid.afi, &((msg->eid).address), eid_name, 128);
 #ifdef DEBUG
-    syslog(LOG_DAEMON,"  EID: %s", eid_name);
+    lispd_log_msg(LOG_DAEMON,"  EID: %s", eid_name);
 #endif
 
 /*
@@ -576,12 +576,12 @@ int handle_LispCacheMiss(lisp_cache_sample_msg_t *msg) {
                                 0,
                                 LISPD_INITIAL_MRQ_TIMEOUT,
                                 1) ){
-        syslog(LOG_DAEMON,"LispCacheMiss : couldn't build/send map_request");
+        lispd_log_msg(LOG_DAEMON,"LispCacheMiss : couldn't build/send map_request");
         return (0);
 
     }
 #ifdef DEBUG
-        syslog(LOG_DAEMON, "Sent Map-Request for %s", eid_name);
+        lispd_log_msg(LOG_DAEMON, "Sent Map-Request for %s", eid_name);
 #endif
     return (1);
 
@@ -642,7 +642,7 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                         (get_addr_len(locator_chain->eid_prefix.afi) * 8),
                         locator_chain->eid_name,
                         0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
-                    syslog(LOG_DAEMON, "SMR'ing %s", rloc_name);
+                    lispd_log_msg(LOG_DAEMON, "SMR'ing %s", rloc_name);
             }
         }
     } PATRICIA_WALK_END;
@@ -690,7 +690,7 @@ int handle_LispMapCacheRLOCList(lisp_cmd_t *cmd) {
                         (get_addr_len(locator_chain->eid_prefix.afi) * 8),
                         locator_chain->eid_name,
                         0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
-                    syslog(LOG_DAEMON, "SMR'ing %s", rloc_name);
+                    lispd_log_msg(LOG_DAEMON, "SMR'ing %s", rloc_name);
             }
         }
     } PATRICIA_WALK_END;
@@ -752,7 +752,7 @@ int handle_LispMapCacheLookup(lisp_cmd_t *cmd) {
                     (get_addr_len(cache_entry->eid_prefix.afi) * 8),
                     NULL,
                     0, 0, 1, 0, 0, 0, LISPD_INITIAL_MRQ_TIMEOUT, 0))
-                syslog(LOG_DAEMON, "SMR'ing %s", rloc_name);
+                lispd_log_msg(LOG_DAEMON, "SMR'ing %s", rloc_name);
             locators++;
         }
         return(1);
@@ -769,7 +769,7 @@ int register_lispd_process(void) {
     lisp_cmd_t *cmd;
 
     if ((cmd = malloc(sizeof(lisp_cmd_t))) == 0) {
-        syslog(LOG_DAEMON, "register_lispd_process: malloc failed");
+        lispd_log_msg(LOG_DAEMON, "register_lispd_process: malloc failed");
         return(0);
     }
 
@@ -794,7 +794,7 @@ int get_map_cache_list() {
     lisp_lookup_msg_t lookup_msg;
 
     if ((cmd = malloc(sizeof(lisp_cmd_t) + sizeof(lisp_lookup_msg_t))) == 0) {
-        syslog(LOG_DAEMON, "get_map_cache_list: malloc failed");
+        lispd_log_msg(LOG_DAEMON, "get_map_cache_list: malloc failed");
         return(0);
     }
 
@@ -809,7 +809,7 @@ int get_map_cache_list() {
     memcpy(cmd->val, (char *)&lookup_msg, sizeof(lisp_lookup_msg_t));
 
     retval = send_command(cmd, sizeof(lisp_cmd_t) + sizeof(lisp_lookup_msg_t));
-    syslog(LOG_DAEMON, "Asking for map cache to do SMR");
+    lispd_log_msg(LOG_DAEMON, "Asking for map cache to do SMR");
     free(cmd);
     return(retval);
 }
@@ -836,7 +836,7 @@ int set_rloc(lisp_addr_t *my_addr, int if_index) {
   //  cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_set_rloc_msg_t);
 //#endif
     if ((cmd = malloc(cmd_length)) == 0) {
-        syslog(LOG_DAEMON, "set_rloc: malloc failed");
+        lispd_log_msg(LOG_DAEMON, "set_rloc: malloc failed");
         return(0);
     }
 
@@ -858,7 +858,7 @@ int set_rloc(lisp_addr_t *my_addr, int if_index) {
    // memcpy(&(set_rloc_msg->addr), my_addr, sizeof(lisp_addr_t));
 //#endif
     retval = send_command(cmd, cmd_length);
-    syslog(LOG_DAEMON, "Updating RLOC in data plane");
+    lispd_log_msg(LOG_DAEMON, "Updating RLOC in data plane");
     free(cmd);
     return(retval);
 } 
@@ -876,7 +876,7 @@ int add_local_eid(lisp_addr_t *my_addr) {
     cmd_length = sizeof(lisp_cmd_t) + sizeof(lisp_add_local_eid_msg_t);
 
     if ((cmd = malloc(cmd_length)) == 0) {
-        syslog(LOG_DAEMON, "add_local_eid: malloc failed");
+        lispd_log_msg(LOG_DAEMON, "add_local_eid: malloc failed");
         return(0);
     }
 
@@ -890,7 +890,7 @@ int add_local_eid(lisp_addr_t *my_addr) {
     memcpy(&(add_eid_msg->addr), my_addr, sizeof(lisp_addr_t));
 
     retval = send_command(cmd, cmd_length);
-    syslog(LOG_DAEMON, "Adding local EID to data plane list");
+    lispd_log_msg(LOG_DAEMON, "Adding local EID to data plane list");
     free(cmd);
     return(retval);
 }

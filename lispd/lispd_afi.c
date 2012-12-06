@@ -69,7 +69,7 @@ int pkt_process_eid_afi(uint8_t  **offset,
             break;
         default:
             identifier->eid_prefix.afi = -1;
-            syslog(LOG_ERR,"  unknown LCAF type %d in EID", lcaf_ptr->type);
+            lispd_log_msg(LOG_ERR,"  unknown LCAF type %d in EID", lcaf_ptr->type);
             return BAD;
         }
         break;
@@ -78,7 +78,7 @@ int pkt_process_eid_afi(uint8_t  **offset,
         break;
     default:
         identifier->eid_prefix.afi = -1;
-        syslog(LOG_ERR,"  unknown AFI type %d in EID", lisp_afi);
+        lispd_log_msg(LOG_ERR,"  unknown AFI type %d in EID", lisp_afi);
         return BAD;
     }
     *offset = cur_ptr;
@@ -108,10 +108,10 @@ int pkt_process_rloc_afi(uint8_t  **offset,
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
-        syslog(LOG_ERR,"  LCAF address is not supported in locators");
+        lispd_log_msg(LOG_ERR,"  LCAF address is not supported in locators");
         return BAD;
     default:
-        syslog(LOG_ERR,"  unknown AFI type %d in locator", lisp_afi);
+        lispd_log_msg(LOG_ERR,"  unknown AFI type %d in locator", lisp_afi);
         return BAD;
     }
     *offset = cur_ptr;

@@ -25,7 +25,7 @@
      }
      
      if (ret==-1){
-         printf ("write: %s\n ", strerror(errno));
+        lispd_log_msg(LOG_DEBUG,"write: %s\n ", strerror(errno));
          
      }
      
@@ -38,12 +38,12 @@
      socklen_t               fromlen4 = sizeof(struct sockaddr_in);
      struct sockaddr_in      s4;
      
-     printf("tuntap_process_input_packet\n");
+    lispd_log_msg(LOG_DEBUG,"tuntap_process_input_packet\n");
      
      memset(&s4, 0, sizeof(struct sockaddr_in));
      
      if ((recv_len = recvfrom(fd, packet, 4096, 0,(struct sockaddr *) &s4, &fromlen4)) < 0)
-         printf ("recvfrom (v4): %s", strerror(errno));
+        lispd_log_msg(LOG_DEBUG,"recvfrom (v4): %s", strerror(errno));
      else
          lisp_input((char *)packet, recv_len, &s4, tun_receive_fd);
      

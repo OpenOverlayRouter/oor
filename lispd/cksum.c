@@ -183,7 +183,7 @@ int	   afi;
     case AF_INET6:
         return(udp_ipv6_checksum(iphdr, udph, udp_len));
     default:
-        syslog(LOG_DAEMON, "udp_checksum: Unknown AFI");
+        lispd_log_msg(LOG_DAEMON, "udp_checksum: Unknown AFI");
         return(-1);
     }
 }

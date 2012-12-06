@@ -29,9 +29,16 @@
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
+#pragma once
 
 #ifndef LISPD_LOG_H_
 #define LISPD_LOG_H_
+
+#include "lispd.h"
+
+#include <syslog.h>
+#include <stdarg.h>
+
 
 void set_up_syslog(void);
 

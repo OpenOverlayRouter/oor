@@ -50,22 +50,22 @@ lispd_iface_elt *add_interface(char *iface_name)
 
     /* Creating the new interface*/
     if ((iface_list = malloc(sizeof(lispd_iface_list_elt)))==NULL){
-        syslog(LOG_CRIT,"add_interface: Unable to allocate memory for iface_list_elt: %s", strerror(errno));
+        lispd_log_msg(LOG_CRIT,"add_interface: Unable to allocate memory for iface_list_elt: %s", strerror(errno));
         return(NULL);
     }
     if ((iface = malloc(sizeof(lispd_iface_elt)))==NULL){
-        syslog(LOG_CRIT,"add_interface: Unable to allocate memory for iface_elt: %s", strerror(errno));
+        lispd_log_msg(LOG_CRIT,"add_interface: Unable to allocate memory for iface_elt: %s", strerror(errno));
         free(iface_list);
         return(NULL);
     }
     if ((iface->ipv4_address = malloc(sizeof(lisp_addr_t)))==NULL){
-    	syslog(LOG_CRIT,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+    	lispd_log_msg(LOG_CRIT,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
     	free(iface);
     	return(NULL);
     }
     if ((iface->ipv6_address = malloc(sizeof(lisp_addr_t)))==NULL){
-    	syslog(LOG_CRIT,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+    	lispd_log_msg(LOG_CRIT,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
     	free(iface->ipv4_address);
     	free(iface);
@@ -104,7 +104,7 @@ int add_identifier_to_interface (lispd_iface_elt *interface, lispd_identifier_el
 
 
 	if ((identifiers_list = malloc(sizeof(lispd_identifiers_list)))==NULL){
-		syslog(LOG_ERR,"add_identifier_to_interface: couldn't allocate memory for lispd_identifiers_list");
+		lispd_log_msg(LOG_ERR,"add_identifier_to_interface: couldn't allocate memory for lispd_identifiers_list");
 		return (ERR_MALLOC);
 	}
 	identifiers_list->identifier=identifier;
@@ -290,26 +290,26 @@ void dump_iface_list()
     if (head_interface_list == NULL)
         return;
 
-    printf("LISP Interfaces List\n\n");
+   lispd_log_msg(LOG_DEBUG,"LISP Interfaces List\n\n");
 
     while (interface_list){
-        printf ("== %s   (%s)==\n",interface_list->iface->iface_name, interface_list->iface->status ? "Up" : "Down");
+       lispd_log_msg(LOG_DEBUG,"== %s   (%s)==\n",interface_list->iface->iface_name, interface_list->iface->status ? "Up" : "Down");
         if (interface_list->iface->ipv4_address){
-            printf ("  IPv4 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv4_address)));
-            printf ("    -- LIST identifiers -- \n");
+           lispd_log_msg(LOG_DEBUG,"  IPv4 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv4_address)));
+           lispd_log_msg(LOG_DEBUG,"    -- LIST identifiers -- \n");
             identifier_list = interface_list->iface->head_v4_identifiers_list;
             while (identifier_list){
-                printf("    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
+               lispd_log_msg(LOG_DEBUG,"    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
                         identifier_list->identifier->eid_prefix_length);
                 identifier_list = identifier_list->next;
             }
         }
         if (interface_list->iface->ipv6_address){
-            printf ("  IPv6 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv6_address)));
-            printf ("    -- LIST identifiers -- \n");
+           lispd_log_msg(LOG_DEBUG,"  IPv6 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv6_address)));
+           lispd_log_msg(LOG_DEBUG,"    -- LIST identifiers -- \n");
             identifier_list = interface_list->iface->head_v6_identifiers_list;
             while (identifier_list){
-                printf("    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
+               lispd_log_msg(LOG_DEBUG,"    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
                         identifier_list->identifier->eid_prefix_length);
                 identifier_list = identifier_list->next;
             }
@@ -379,7 +379,7 @@ lispd_iface_elt *get_any_output_iface(int afi){
             }
             break;
         default:
-            syslog(LOG_ERR, "get_output_iface: unknown afi %d",afi);
+            lispd_log_msg(LOG_ERR, "get_output_iface: unknown afi %d",afi);
             break;
     }
 
@@ -411,12 +411,12 @@ void set_default_output_ifaces(){
     default_out_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_out_iface_v4 != NULL) {
-        printf("Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+       lispd_log_msg(LOG_DEBUG,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
     }
     
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_out_iface_v6 != NULL) {
-        printf("Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
+       lispd_log_msg(LOG_DEBUG,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
     }
 }
 
@@ -425,12 +425,12 @@ void set_default_ctrl_ifaces(){
     default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_ctrl_iface_v4 != NULL) {
-        printf("Default IPv4 control iface %s\n",default_ctrl_iface_v4->iface_name);
+       lispd_log_msg(LOG_DEBUG,"Default IPv4 control iface %s\n",default_ctrl_iface_v4->iface_name);
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_ctrl_iface_v6 != NULL) {
-        printf("Default IPv6 control iface %s\n",default_ctrl_iface_v6->iface_name);
+       lispd_log_msg(LOG_DEBUG,"Default IPv6 control iface %s\n",default_ctrl_iface_v6->iface_name);
     }
 }
 

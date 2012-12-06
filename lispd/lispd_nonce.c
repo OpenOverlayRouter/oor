@@ -73,7 +73,7 @@ nonces_list *new_nonces_list()
 {
     nonces_list *nonces;
     if ((nonces = malloc(sizeof(nonces_list))) == NULL) {
-        syslog(LOG_DEBUG, "new_nonces_list: error allocating memory -> %s",
+        lispd_log_msg(LOG_DEBUG, "new_nonces_list: error allocating memory -> %s",
                 strerror(errno));
         return NULL;
     }
@@ -112,5 +112,5 @@ void lispd_print_nonce (nonce)
 
     lower = nonce & 0xffffffff;
     upper = (nonce >> 32) & 0xffffffff;
-    syslog(LOG_DAEMON,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
+    lispd_log_msg(LOG_DAEMON,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
 }

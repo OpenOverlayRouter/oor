@@ -53,7 +53,7 @@ void init_smr()
     dbs[0] = get_map_cache_db(AF_INET);
     dbs[1] = get_map_cache_db(AF_INET6);
 
-    printf("LISP Mapping Cache\n\n");
+   lispd_log_msg(LOG_DEBUG,"LISP Mapping Cache\n\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){ /*For IPv4 and IPv6 EIDs */
         PATRICIA_WALK(dbs[ctr]->head, node) {
@@ -68,7 +68,7 @@ void init_smr()
         			/*	if (build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
                                 map_cache_entry->identifier->eid_prefix_length,
         						locator->locator_addr,0,0,1,0,&nonce)==GOOD)
-        					syslog(LOG_INFO, "SMR'ing RLOC %s for EID %s/%d",
+        					lispd_log_msg(LOG_INFO, "SMR'ing RLOC %s for EID %s/%d",
         							get_char_from_lisp_addr_t(*(locator->locator_addr)),
         							get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
         							map_cache_entry->identifier->eid_prefix_length);
@@ -100,7 +100,7 @@ void init_smr()
                         (get_addr_len(locator_chain->eid_prefix.afi) * 8),
                         locator_chain->eid_name,
                         0, 0, 1, 0, &nonce))
-                    syslog(LOG_DAEMON, "SMR'ing %s", get_char_from_lisp_addr_t(elt->address));
+                    lispd_log_msg(LOG_DAEMON, "SMR'ing %s", get_char_from_lisp_addr_t(elt->address));
                 elt = elt->next;
             }
         }
@@ -114,7 +114,7 @@ int solicit_map_request_reply(timer *t, void *arg)
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
-            syslog (LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
+            lispd_log_msg(LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
             return (BAD);
         }
         map_cache_entry->nonces = nonces;
@@ -124,7 +124,7 @@ int solicit_map_request_reply(timer *t, void *arg)
        /* if((err = build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
                 map_cache_entry->identifier->eid_prefix_length, map_resolvers->address,1, 0, 0, 1,
                 &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
-            syslog(LOG_DAEMON, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
+            lispd_log_msg(LOG_DAEMON, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
             // TODO process error
         }*/
         nonces->retransmits ++;
@@ -139,7 +139,7 @@ int solicit_map_request_reply(timer *t, void *arg)
         map_cache_entry->nonces = NULL;
         free(map_cache_entry->smr_timer);
         map_cache_entry->smr_timer = NULL;
-        syslog (LOG_DEBUG,"SMR process: No Map Reply fot EID %s/%d. Ignoring solicit map request ...",
+        lispd_log_msg(LOG_DEBUG,"SMR process: No Map Reply fot EID %s/%d. Ignoring solicit map request ...",
                 get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
                 map_cache_entry->identifier->eid_prefix_length);
     }

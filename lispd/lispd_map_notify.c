@@ -92,7 +92,7 @@ int process_map_notify(packet)
             partial_map_notify_length1 += sizeof(struct in6_addr);
             break;
         default:
-            syslog(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d) - EID", record->eid_prefix_afi);
+            lispd_log_msg(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d) - EID", record->eid_prefix_afi);
             return(0);
         }
 
@@ -110,7 +110,7 @@ int process_map_notify(packet)
                 partial_map_notify_length2 = partial_map_notify_length2 + sizeof(struct in6_addr);
                 break;
             default:
-                syslog(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d) - Locator", htons(locator->locator_afi));
+                lispd_log_msg(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d) - Locator", htons(locator->locator_afi));
                 return(0);
             }
             locator = (lispd_pkt_mapping_record_locator_t *)CO(locator, partial_map_notify_length2);
@@ -133,13 +133,13 @@ int process_map_notify(packet)
             map_notify_length,
             (uchar *) mn->auth_data,
             &md_len)) {
-        syslog(LOG_DAEMON, "HMAC failed for Map-Notify");
+        lispd_log_msg(LOG_DAEMON, "HMAC failed for Map-Notify");
         return(0);
     }
     if ((strncmp((char *)mn->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0)
-        syslog(LOG_DAEMON, "Map-Notify message confirms correct registration");
+        lispd_log_msg(LOG_DAEMON, "Map-Notify message confirms correct registration");
     else
-        syslog(LOG_DAEMON, "Map-Notify message is invalid");
+        lispd_log_msg(LOG_DAEMON, "Map-Notify message is invalid");
     return(1);
 }
 

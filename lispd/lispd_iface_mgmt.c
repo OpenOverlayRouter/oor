@@ -76,7 +76,7 @@ static int nlsock_talk(n)
     };
 
     if(sendmsg(nlh.fd, &msg, 0) < 0) {
-        syslog (LOG_DAEMON, "sendmsg (nlsock_talk()) failed: %s\n",
+        lispd_log_msg(LOG_DAEMON, "sendmsg (nlsock_talk()) failed: %s\n",
                 strerror(errno));
         return 0;
     }
@@ -101,7 +101,7 @@ static int addattr_l(n, maxlen, type, data, alen)
     struct rtattr *rta;
 
     if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen) {
-        syslog(LOG_DAEMON, "Align issue (addattr_l): netlink msg buf too small for data\n");
+        lispd_log_msg(LOG_DAEMON, "Align issue (addattr_l): netlink msg buf too small for data\n");
         return 0;
     }
                 
@@ -124,7 +124,7 @@ int dump_routing_table(afi, table)
     int table;
 {
 #ifdef DEBUG
-    syslog(LOG_DAEMON, "RTNETLINK: ip route list table %d", table);
+    lispd_log_msg(LOG_DAEMON, "RTNETLINK: ip route list table %d", table);
 #endif
     return(route_mod(RTM_GETROUTE, afi, NULL, 0, NULL, 0, NULL, NULL, table, 0, 0));
 }
@@ -155,7 +155,7 @@ static int route_del(afi, src, src_plen,
         sprintf(tmp, " table %d", table);
         strcat(buf, tmp);
     }
-    syslog(LOG_DAEMON, "%s", buf);
+    lispd_log_msg(LOG_DAEMON, "%s", buf);
 #endif
     return (route_mod(RTM_DELROUTE, afi,
                 src, src_plen,
@@ -192,7 +192,7 @@ int route_add(afi, src, src_plen,
         sprintf(tmp, " table %d", table);
         strcat(buf, tmp);
     }
-    syslog(LOG_DAEMON, "%s", buf);
+    lispd_log_msg(LOG_DAEMON, "%s", buf);
 #endif
     return (route_mod(RTM_NEWROUTE, afi,
                 src, src_plen,
@@ -285,7 +285,7 @@ int route_mod(cmd, afi, src, src_plen, dst, dst_plen,
          * Send netlink msg to kernel
          */
         if (!nlsock_talk(&req.n)) {
-            syslog (LOG_DAEMON, "nlsock_talk (route_mod()) failed\n");
+            lispd_log_msg(LOG_DAEMON, "nlsock_talk (route_mod()) failed\n");
             return (0);
         }
 
@@ -304,7 +304,7 @@ static void parse_nl_error(nlHdr)
 #ifndef DEBUG
     if(nlErr->error)
 #endif
-        syslog(LOG_DAEMON, "RTNETLINK answers: %s\n",
+        lispd_log_msg(LOG_DAEMON, "RTNETLINK answers: %s\n",
                 strerror(-nlErr->error));
 }
 
@@ -334,13 +334,13 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
             sprintf(tempBuf, "Parsing RTM_DELROUTE Message:\n");
             break;
         default:
-            syslog(LOG_DAEMON,"parse_nl_route(): Unknown message type\n");
+            lispd_log_msg(LOG_DAEMON,"parse_nl_route(): Unknown message type\n");
             return (NULL);
     }
 
     rt = (struct rtmsg *)NLMSG_DATA(nlHdr);
     if ((rt->rtm_family != AF_INET) && (rt->rtm_family != AF_INET6)) {
-        syslog(LOG_DAEMON, "parse_nl_route: Unknown adddress family\n");
+        lispd_log_msg(LOG_DAEMON, "parse_nl_route: Unknown adddress family\n");
         return NULL;
     }
 
@@ -351,7 +351,7 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
          */
         return NULL;
     }
-    syslog(LOG_DAEMON,"%s", tempBuf);
+    lispd_log_msg(LOG_DAEMON,"%s", tempBuf);
 
     rtAttr = (struct rtattr *)RTM_RTA(rt);
     rtLen = RTM_PAYLOAD(nlHdr);
@@ -359,7 +359,7 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
         switch (rtAttr->rta_type) {
         case RTA_OIF:
             if_indextoname(*(int *)RTA_DATA(rtAttr), tempBuf);
-            syslog(LOG_DAEMON, "  Output interface: %s\n", tempBuf);
+            lispd_log_msg(LOG_DAEMON, "  Output interface: %s\n", tempBuf);
             iface_elt = search_iface_list(tempBuf);
             if(dev)
                 memcpy(dev, (int *)RTA_DATA(rtAttr), sizeof(int));
@@ -367,19 +367,19 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
         case RTA_PRIORITY:
             if(metric) {
                 memcpy(metric, (int *)RTA_DATA(rtAttr), sizeof(int));
-                syslog(LOG_DAEMON, "  Metric: %d\n", *metric);
+                lispd_log_msg(LOG_DAEMON, "  Metric: %d\n", *metric);
             }
             break;
         case RTA_FLOW:
             if(realm) {
                 memcpy(realm, (int *)RTA_DATA(rtAttr), sizeof(int));
-                syslog(LOG_DAEMON, "  Realm: %d\n", *realm);
+                lispd_log_msg(LOG_DAEMON, "  Realm: %d\n", *realm);
             }
             break;
         case RTA_GATEWAY:
             inet_ntop(rt->rtm_family, RTA_DATA(rtAttr), tempBuf,
                     sizeof(tempBuf));
-            syslog(LOG_DAEMON, "  Gateway address: %s\n", tempBuf);
+            lispd_log_msg(LOG_DAEMON, "  Gateway address: %s\n", tempBuf);
             gateway->afi = rt->rtm_family;
             switch (gateway->afi) {
             case AF_INET:
@@ -397,9 +397,9 @@ static iface_list_elt *parse_nl_route (nlHdr, gateway, dev, metric, realm)
         case RTA_DST:
             inet_ntop(rt->rtm_family, RTA_DATA(rtAttr), tempBuf,
                     sizeof(tempBuf));
-            syslog(LOG_DAEMON, "  Destination address: %s\n", tempBuf);
+            lispd_log_msg(LOG_DAEMON, "  Destination address: %s\n", tempBuf);
             /* We are only interested in default gateway changes */
-            syslog(LOG_DAEMON, "Not a default route, ignored...");
+            lispd_log_msg(LOG_DAEMON, "Not a default route, ignored...");
             return NULL;
             break;
         }
@@ -432,7 +432,7 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
         sprintf(tempBuf, "Parsing RTM_DELADDR Message:\n");
         break;
     default:
-        syslog(LOG_DAEMON, "parse_nl_addr(): Unknown Message Type\n\n");
+        lispd_log_msg(LOG_DAEMON, "parse_nl_addr(): Unknown Message Type\n\n");
         return NULL;
         break;
     }
@@ -440,10 +440,10 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
     ifaddr = (struct ifaddrmsg *)NLMSG_DATA(nlHdr);
     if ((ifaddr->ifa_family != AF_INET) &&
         (ifaddr->ifa_family != AF_INET6)) {
-        syslog(LOG_DAEMON, "parse_nl_addr(): Unknown address family\n");
+        lispd_log_msg(LOG_DAEMON, "parse_nl_addr(): Unknown address family\n");
         return NULL;
     }
-    syslog(LOG_DAEMON, "%s", tempBuf);
+    lispd_log_msg(LOG_DAEMON, "%s", tempBuf);
 
     addr->afi = ifaddr->ifa_family;
 
@@ -454,22 +454,22 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
         case IFA_LOCAL:
             inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
                 sizeof(tempBuf));
-            syslog(LOG_DAEMON, "Local address: %s\n", tempBuf);
+            lispd_log_msg(LOG_DAEMON, "Local address: %s\n", tempBuf);
             break;
         case IFA_BROADCAST:
             inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
                 sizeof(tempBuf));
-            syslog(LOG_DAEMON, "Broadcast address: %s\n", tempBuf);
+            lispd_log_msg(LOG_DAEMON, "Broadcast address: %s\n", tempBuf);
             break;
         case IFA_ANYCAST:
             inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
                 sizeof(tempBuf));
-            syslog(LOG_DAEMON, "Anycast address: %s\n", tempBuf);
+            lispd_log_msg(LOG_DAEMON, "Anycast address: %s\n", tempBuf);
             break;
         case IFA_ADDRESS:
             inet_ntop(addr->afi, RTA_DATA(rtAttr), tempBuf,
                 sizeof(tempBuf));
-            syslog(LOG_DAEMON, "Interface address: %s\n", tempBuf);
+            lispd_log_msg(LOG_DAEMON, "Interface address: %s\n", tempBuf);
             switch (addr->afi) {
             case AF_INET:
                 memcpy(&(addr->address),
@@ -484,7 +484,7 @@ static iface_list_elt *parse_nl_addr(nlHdr, addr)
             }
             break;
         case IFA_LABEL:
-            syslog(LOG_DAEMON, "Interface name: %s\n",
+            lispd_log_msg(LOG_DAEMON, "Interface name: %s\n",
                     (char *)RTA_DATA(rtAttr));
             iface_elt = search_iface_list(
                     (char *)RTA_DATA(rtAttr));
@@ -564,7 +564,7 @@ static int rule_mod (if_index, cmd,
      * Send the netlink message to kernel 
      */
     if (!nlsock_talk(n)) {
-        syslog (LOG_DAEMON, "nlsock_talk (rule_mod()) failed\n");
+        lispd_log_msg(LOG_DAEMON, "nlsock_talk (rule_mod()) failed\n");
         return (0);
     }
      
@@ -581,7 +581,7 @@ static int rule_add(int if_index, uint8_t table,
          lisp_addr_t *dst, int dst_plen, int flags)
 {
 #ifdef DEBUG
-    syslog(LOG_DAEMON, "RTNETLINK: ip rule add (...)");
+    lispd_log_msg(LOG_DAEMON, "RTNETLINK: ip rule add (...)");
 #endif
     return rule_mod(if_index, RTM_NEWRULE, table,
             priority, type,
@@ -598,7 +598,7 @@ static int rule_del(int if_index, uint8_t table,
          lisp_addr_t *dst, int dst_plen, int flags)
 {
 #ifdef DEBUG
-    syslog(LOG_DAEMON, "RTNETLINK: ip rule del (...)");
+    lispd_log_msg(LOG_DAEMON, "RTNETLINK: ip rule del (...)");
 #endif
     return rule_mod(if_index, RTM_DELRULE, table,
             priority, type,
@@ -625,14 +625,14 @@ int rt_num;
             RTN_UNICAST, src_rloc,
             ((src_rloc->afi == AF_INET6) ? 128 : 32),
             NULL, 0, 0 )) {
-        syslog(LOG_DAEMON, "rule_del (setup_source_routing_policy()) failed\n");
+        lispd_log_msg(LOG_DAEMON, "rule_del (setup_source_routing_policy()) failed\n");
         return 0;
     }
     if (!rule_add(0, rt_num, LISP_MN_IP_RULE_PRIORITY,
             RTN_UNICAST, src_rloc,
             ((src_rloc->afi == AF_INET6) ? 128 : 32),
             NULL, 0, 0 )) {
-        syslog(LOG_DAEMON, "rule_add (setup_source_routing_policy()) failed\n");
+        lispd_log_msg(LOG_DAEMON, "rule_add (setup_source_routing_policy()) failed\n");
         return 0;
     }
     return 1;
@@ -659,7 +659,7 @@ static int setup_source_routing(iface_name, src_rloc, gateway, rt_num)
     if (!route_add(0, NULL, 0,
                 NULL, 0, 
                 gateway, if_index, rt_num, 0, 0)) {
-        syslog(LOG_DAEMON, "route_add (setup_source_routing()) failed\n");
+        lispd_log_msg(LOG_DAEMON, "route_add (setup_source_routing()) failed\n");
         return 0;
     }
     return 1;
@@ -685,7 +685,7 @@ static int delete_source_routing(iface_name, src_rloc, gateway,rt_num)
             RTN_UNICAST, src_rloc, 
             ((src_rloc->afi == AF_INET6) ? 128 : 32), 
             NULL, 0, 0 )) {
-        syslog(LOG_DAEMON, "rule_del (delete_source_routing()) failed\n");
+        lispd_log_msg(LOG_DAEMON, "rule_del (delete_source_routing()) failed\n");
         return 0;
     }
 
@@ -696,7 +696,7 @@ static int delete_source_routing(iface_name, src_rloc, gateway,rt_num)
      */
     if (!route_del(0, NULL, 0,
                 NULL, 0, gateway, if_index, rt_num)) {
-        syslog(LOG_DAEMON, "route_del (delete_source_routing()) failed\n");
+        lispd_log_msg(LOG_DAEMON, "route_del (delete_source_routing()) failed\n");
         return 0;
     }
     return 1;
@@ -727,13 +727,13 @@ int delete_rloc (iface_elt, rloc, node)
 
 
     if (node == NULL) {
-        syslog(LOG_DAEMON, "delete_rloc(): EID (%s) not found in database", eid);
+        lispd_log_msg(LOG_DAEMON, "delete_rloc(): EID (%s) not found in database", eid);
         free(eid);
         return(0);
     }
 
     if (node->data == NULL) {           
-        syslog(LOG_DAEMON, "delete_rloc(): NULL locator chain for eid (%s)\n", eid);
+        lispd_log_msg(LOG_DAEMON, "delete_rloc(): NULL locator chain for eid (%s)\n", eid);
         free(eid);
         return(0);
     }
@@ -779,7 +779,7 @@ int delete_rloc (iface_elt, rloc, node)
             }
             locator_chain->locator_count -= 1;
 
-            syslog(LOG_DAEMON, "delete_rloc(): %s deleted from interface %s", 
+            lispd_log_msg(LOG_DAEMON, "delete_rloc(): %s deleted from interface %s", 
                     inet_ntop(db_entry->locator.afi,
                             &(db_entry->locator.address), addr_str, 
                             MAX_INET_ADDRSTRLEN),
@@ -810,7 +810,7 @@ int delete_rloc (iface_elt, rloc, node)
     }
 
     /* we didn't find the locator */
-    syslog(LOG_DAEMON, "delete_rloc(): %s not found in patricia tree\n",
+    lispd_log_msg(LOG_DAEMON, "delete_rloc(): %s not found in patricia tree\n",
              inet_ntop (rloc->afi,
                      &(rloc->address), addr_str,
                      MAX_INET_ADDRSTRLEN));
@@ -840,13 +840,13 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
      */
 
     if (node == NULL) {
-        syslog(LOG_DAEMON, "add_rloc(): EID (%s) not found in database", eid);
+        lispd_log_msg(LOG_DAEMON, "add_rloc(): EID (%s) not found in database", eid);
         free(eid);
         return(0);
     }
 
     if ((db_entry = malloc(sizeof(lispd_db_entry_t))) == NULL) {
-        syslog(LOG_DAEMON,"add_rloc(): malloc(sizeof(lispd_database_t)): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON,"add_rloc(): malloc(sizeof(lispd_database_t)): %s", strerror(errno));
         free (eid);
         return(0);
     }
@@ -861,7 +861,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
     afi = get_afi(eid);
 
     if ((token = strtok(eid, "/")) == NULL) {
-        syslog(LOG_DAEMON,"eid prefix not of the form prefix/length");
+        lispd_log_msg(LOG_DAEMON,"eid prefix not of the form prefix/length");
         free (eid);
         free(db_entry);
         return(0);
@@ -871,7 +871,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
      *  get the EID prefix into the right place/format
      */
     if (inet_pton(afi, token, &(db_entry->eid_prefix.address)) != 1) {
-        syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "inet_pton: %s", strerror(errno));
         free(db_entry);
         free (eid);
         return(0);
@@ -881,7 +881,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
      *  get the prefix length into token
      */
     if ((token = strtok(NULL,"/")) == NULL) {
-        syslog(LOG_DAEMON, "strtok: %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "strtok: %s", strerror(errno));
         free(db_entry);
         free (eid);
         return(0);
@@ -901,7 +901,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
      *  link up db_entry into the patricia tree
      */
     if ((add_elt = malloc(sizeof(lispd_locator_chain_elt_t))) == NULL) {
-        syslog(LOG_DAEMON, "add_rloc(): Can't malloc(sizeof(lispd_locator_chain_elt_t)): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "add_rloc(): Can't malloc(sizeof(lispd_locator_chain_elt_t)): %s", strerror(errno));
         free(db_entry);
         free(eid);
         return(0);
@@ -915,7 +915,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
          * Setup node->data
          */
         if ((locator_chain = malloc(sizeof(lispd_locator_chain_t))) == NULL) {
-            syslog(LOG_DAEMON, "Can't malloc(sizeof(lispd_locator_chain_t))");
+            lispd_log_msg(LOG_DAEMON, "Can't malloc(sizeof(lispd_locator_chain_t))");
             free(db_entry);
             free(eid);
             free(add_elt);
@@ -943,7 +943,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
      * Setup a new locator_chain_elt for this rloc
      */
     if ((add_elt = malloc(sizeof(lispd_locator_chain_elt_t))) == NULL) {
-        syslog(LOG_DAEMON, 
+        lispd_log_msg(LOG_DAEMON, 
                 "add_rloc(): Can't malloc(sizeof(lispd_locator_chain_elt_t)): %s", 
                 strerror(errno));
         free(db_entry);
@@ -960,7 +960,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
 
     add_locator_chain_elt (locator_chain, add_elt);
 
-    syslog(LOG_DAEMON, "add_rloc(): %s added to interface %s", 
+    lispd_log_msg(LOG_DAEMON, "add_rloc(): %s added to interface %s", 
                     inet_ntop (db_entry->locator.afi,
                             &(db_entry->locator.address), addr_str, 
                             MAX_INET_ADDRSTRLEN),
@@ -970,7 +970,7 @@ lispd_db_entry_t *add_rloc (iface_elt, rloc, node, eid)
      * Update iface_elt with the new db_entry element
      */
     if ((db_elt = malloc (sizeof(db_entry_list_elt))) == NULL) {
-        syslog(LOG_DAEMON, "add_rloc(): Can't malloc(sizeof(db_entry_list_elt))\n");
+        lispd_log_msg(LOG_DAEMON, "add_rloc(): Can't malloc(sizeof(db_entry_list_elt))\n");
         free(eid);
         return (0);
     }
@@ -1010,7 +1010,7 @@ int setup_netlink_iface ()
 
     if (bind(nlh.fd,
         (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        syslog(LOG_DAEMON, 
+        lispd_log_msg(LOG_DAEMON, 
                 "bind (setup_netlink_iface()) failed: %s\n", strerror(errno));
         return (0);
     }
@@ -1050,7 +1050,7 @@ int process_netlink_iface ()
 
     len = recvmsg(nlh.fd, &msg, 0);
     if (len < 0) {
-        syslog (LOG_DAEMON, "process_netlink(): Error reading netlink message (%d)", len);
+        lispd_log_msg(LOG_DAEMON, "process_netlink(): Error reading netlink message (%d)", len);
         return (0);
     }
 
@@ -1078,7 +1078,7 @@ int process_netlink_iface ()
                     nh = NLMSG_NEXT(nh, len);
                     continue;
                 }
-                syslog (LOG_DAEMON, "process_netlink(): RTM_NEWLINK on %s\n", iface_name);
+                lispd_log_msg(LOG_DAEMON, "process_netlink(): RTM_NEWLINK on %s\n", iface_name);
 
                 /* 
                  * Update interface status
@@ -1103,7 +1103,7 @@ int process_netlink_iface ()
        					if (default_ctrl_iface_v4->AF4_locators->head){
 		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
 								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
-								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+								lispd_log_msg(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
 		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
@@ -1136,7 +1136,7 @@ int process_netlink_iface ()
             /* case RTM_DELLINK:
                 iface   =   NLMSG_DATA(nh);
                 if_indextoname(iface->ifi_index, iface_name);
-                syslog (LOG_DAEMON, "RTM_DELLINK on %s\n", iface_name);
+                lispd_log_msg(LOG_DAEMON, "RTM_DELLINK on %s\n", iface_name);
                 break;
             */
 
@@ -1196,7 +1196,7 @@ int process_netlink_iface ()
        					if (default_ctrl_iface_v4->AF4_locators->head){
 		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
 								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
-								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+								lispd_log_msg(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
 		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
@@ -1230,17 +1230,17 @@ int process_netlink_iface ()
                  */
 
                 if(metric == 0) {
-                    syslog(LOG_DAEMON, "Raising metric of RLOC default route to 101 on %s",
+                    lispd_log_msg(LOG_DAEMON, "Raising metric of RLOC default route to 101 on %s",
                             elt->iface_name);
                     if(!route_del(0, NULL, 0, NULL, 0, &gateway,
                                 if_nametoindex(elt->iface_name),
                                 RT_TABLE_MAIN)) {
-                          syslog(LOG_DAEMON, "process_netlink(): route_del failed\n");
+                          lispd_log_msg(LOG_DAEMON, "process_netlink(): route_del failed\n");
                     }
                     if(!route_add(0, NULL, 0, NULL, 0, &gateway,
                                 if_nametoindex(elt->iface_name),
                                 RT_TABLE_MAIN, 101, 7)) {
-                          syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
+                          lispd_log_msg(LOG_DAEMON, "process_netlink(): route_add failed\n");
                     }
                 }
 
@@ -1248,20 +1248,20 @@ int process_netlink_iface ()
                  * Make sure LISP-MN eid iface is still the default
                  * gateway
                  */
-                syslog(LOG_DAEMON, 
+                lispd_log_msg(LOG_DAEMON, 
                         "process_netlink(): Setting %s as default gateway",
                         LISP_MN_EID_IFACE_NAME);
 
                 if(!route_add(AF_INET, NULL, 0, NULL, 0, NULL,
                             if_nametoindex(LISP_MN_EID_IFACE_NAME),
                             RT_TABLE_MAIN, 0, 0)) {
-                      syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
+                      lispd_log_msg(LOG_DAEMON, "process_netlink(): route_add failed\n");
                 }
 
                 if(!route_add(AF_INET6, NULL, 0, NULL, 0, NULL,
                             if_nametoindex(LISP_MN_EID_IFACE_NAME),
                             RT_TABLE_MAIN, 0, 0)) {
-                      syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
+                      lispd_log_msg(LOG_DAEMON, "process_netlink(): route_add failed\n");
                 }
 
                 /*
@@ -1293,7 +1293,7 @@ int process_netlink_iface ()
                  * setup policy routing for this interface using
                  * this gateway
                  */
-                syslog(LOG_DAEMON, "process_netlink(): Setup policy routing\n");
+                lispd_log_msg(LOG_DAEMON, "process_netlink(): Setup policy routing\n");
                 lisp_addr_t src_rloc;
                 memset (&src_rloc, 0, sizeof(lisp_addr_t));
 
@@ -1352,7 +1352,7 @@ int process_netlink_iface ()
        					if (default_ctrl_iface_v4->AF4_locators->head){
 		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
 								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
-								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+								lispd_log_msg(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
 		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
@@ -1378,7 +1378,7 @@ int process_netlink_iface ()
                  * Otherwise seems like a race condition?
                  */
                 sleep (3);
-                syslog(LOG_DAEMON, "process_netlink_iface(): Map register\n");
+                lispd_log_msg(LOG_DAEMON, "process_netlink_iface(): Map register\n");
 
 
                 map_register(NULL,NULL);
@@ -1462,7 +1462,7 @@ int process_netlink_iface ()
        					if (default_ctrl_iface_v4->AF4_locators->head){
 		  					if (default_ctrl_iface_v4->AF4_locators->head->db_entry) {
 								set_rloc(&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator),0);
-								syslog(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
+								lispd_log_msg(LOG_DAEMON,"Mapping RLOC %pI4 to iface %d\n",
 		             			&(default_ctrl_iface_v4->AF4_locators->head->db_entry->locator.address.ip),0);
 							}
 						}
@@ -1479,7 +1479,7 @@ int process_netlink_iface ()
                 break;
 
             default:
-                printf("arrived at default\n");
+               lispd_log_msg(LOG_DEBUG,"arrived at default\n");
                 break;
         }
 
@@ -1506,7 +1506,7 @@ int lisp_eid_iface_config(iface_name, mtu)
     memset (&ifr, 0, sizeof(struct ifreq));
 
     if ((sd = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
-        syslog(LOG_DAEMON, "socket (iface_config): %s", 
+        lispd_log_msg(LOG_DAEMON, "socket (iface_config): %s", 
                 strerror(errno));
         return 0;
     }
@@ -1514,7 +1514,7 @@ int lisp_eid_iface_config(iface_name, mtu)
     strcpy(ifr.ifr_name, iface_name);
         
     if ((rc = ioctl(sd, SIOCGIFFLAGS, &ifr)) < 0) {
-        syslog(LOG_DAEMON, "ioctl SIOCGIFFLAGS (iface_config): %s", 
+        lispd_log_msg(LOG_DAEMON, "ioctl SIOCGIFFLAGS (iface_config): %s", 
                 strerror(errno));
         close(sd);
         return 0;
@@ -1527,7 +1527,7 @@ int lisp_eid_iface_config(iface_name, mtu)
         ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
 
         if ((rc = ioctl(sd, SIOCSIFFLAGS, &ifr)) < 0) {
-            syslog(LOG_DAEMON, "ioctl SIOCSIFFLAGS (iface_config): %s", 
+            lispd_log_msg(LOG_DAEMON, "ioctl SIOCSIFFLAGS (iface_config): %s", 
                 strerror(errno));
             close(sd);
             return 0;
@@ -1539,7 +1539,7 @@ int lisp_eid_iface_config(iface_name, mtu)
      */
     ifr.ifr_mtu = mtu;
     if ((rc = ioctl(sd, SIOCSIFMTU, &ifr)) < 0) {
-        syslog(LOG_DAEMON, "ioctl SIOCSIFMTU (iface_config): %s", 
+        lispd_log_msg(LOG_DAEMON, "ioctl SIOCSIFMTU (iface_config): %s", 
                 strerror(errno));
         close(sd);
         return 0;
@@ -1589,7 +1589,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
 
         if (!addattr_l(&(raddr.n), sizeof(raddr), IFA_ADDRESS,
                       &(eid_addr->address), attr_size)) {
-                syslog(LOG_DAEMON, "addattr_l(IFA_ADDRESS) failed \n");
+                lispd_log_msg(LOG_DAEMON, "addattr_l(IFA_ADDRESS) failed \n");
                 return 0;
         }
 
@@ -1598,7 +1598,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
          */
         if (!addattr_l(&(raddr.n), sizeof(raddr), IFA_LOCAL,
                       &(eid_addr->address), attr_size)) {
-                syslog(LOG_DAEMON, "addattr_l(IFA_LOCAL) failed\n");
+                lispd_log_msg(LOG_DAEMON, "addattr_l(IFA_LOCAL) failed\n");
                 return 0;
         }
 
@@ -1609,7 +1609,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
         if (addattr_l(&raddr.n, sizeof(raddr), IFA_BROADCAST,
                       &ifa_broadcast.s_addr,
                       sizeof(ifa_broadcast.s_addr)) < 0) {
-                syslog(LOG_DAEMON, "addattr_l(IFA_BROADCAST) failed\n");
+                lispd_log_msg(LOG_DAEMON, "addattr_l(IFA_BROADCAST) failed\n");
                 return 0;
         } */
 
@@ -1618,7 +1618,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
          * Send the netlink message to kernel
          */
         if (!nlsock_talk(&raddr.n)) {
-            syslog(LOG_DAEMON, "nlsock_talk (setup_lisp_eid_iface()) failed\n");
+            lispd_log_msg(LOG_DAEMON, "nlsock_talk (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
 
@@ -1627,7 +1627,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
          */
         if (!lisp_eid_iface_config(eid_iface_name,
                     LISP_MN_EID_IFACE_MTU)) {
-            syslog(LOG_DAEMON, "lisp_eid_iface_config (setup_lisp_eid_iface()) failed\n");
+            lispd_log_msg(LOG_DAEMON, "lisp_eid_iface_config (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
 
@@ -1636,7 +1636,7 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
          * Set the LISP EID interface as the default gateway/interface
          */
         if(!route_add(eid_addr->afi, NULL, 0, NULL, 0, NULL, if_index, RT_TABLE_MAIN, 0, 0)) {
-            syslog(LOG_DAEMON, "route_add (setup_lisp_eid_iface()) failed\n");
+            lispd_log_msg(LOG_DAEMON, "route_add (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
 
@@ -1646,11 +1646,11 @@ int setup_lisp_eid_iface(eid_iface_name, eid_addr, eid_prefix_len)
          */
 #ifdef TESTLOCALEID
         if(!add_local_eid(eid_addr)){
-            syslog(LOG_DAEMON, "add_local_eid (setup_lisp_eid_iface()) failed\n");
+            lispd_log_msg(LOG_DAEMON, "add_local_eid (setup_lisp_eid_iface()) failed\n");
             return 0;
         }
 #endif
-        syslog(LOG_DAEMON, "Configured LISP-MN EID interface\n");
+        lispd_log_msg(LOG_DAEMON, "Configured LISP-MN EID interface\n");
         return 1;
 }
 
@@ -1658,18 +1658,18 @@ static int lower_default_route_metric(void) {
     iface_list_elt *elt;
     set_default_ctrl_ifaces();
     elt = default_ctrl_iface_v4;
-    syslog(LOG_DAEMON, "Lowering metric of default route to 0 on %s",
+    lispd_log_msg(LOG_DAEMON, "Lowering metric of default route to 0 on %s",
             elt->iface_name);
     if(!route_del(0, NULL, 0, NULL, 0, &(elt->gateway),
                 if_nametoindex(elt->iface_name),
                 RT_TABLE_MAIN)) {
-          syslog(LOG_DAEMON, "process_netlink(): route_del failed\n");
+          lispd_log_msg(LOG_DAEMON, "process_netlink(): route_del failed\n");
           return 0;
     }
     if(!route_add(0, NULL, 0, NULL, 0, &(elt->gateway),
                 if_nametoindex(elt->iface_name),
                 RT_TABLE_MAIN, 0, 0)) {
-          syslog(LOG_DAEMON, "process_netlink(): route_add failed\n");
+          lispd_log_msg(LOG_DAEMON, "process_netlink(): route_add failed\n");
           return 0;
     }
     return 1;

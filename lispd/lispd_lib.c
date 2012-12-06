@@ -100,7 +100,7 @@ int build_receive_sockets(void)
     int                 tr = 1;
     
     if ((proto = getprotobyname("UDP")) == NULL) {
-        syslog(LOG_DAEMON, "getprotobyname: %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "getprotobyname: %s", strerror(errno));
         return(0);
     }
 
@@ -109,7 +109,7 @@ int build_receive_sockets(void)
      */
 
     if ((ipv4_data_input_fd = socket(AF_INET,SOCK_DGRAM,proto->p_proto)) < 0) {
-        syslog(LOG_DAEMON, "socket (v4): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "socket (v4): %s", strerror(errno));
         return(0);
     }
 
@@ -118,7 +118,7 @@ int build_receive_sockets(void)
                    SO_REUSEADDR,
                    &tr,
                    sizeof(int)) == -1) {
-        syslog(LOG_DAEMON, "setsockopt SO_REUSEADDR (v4): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "setsockopt SO_REUSEADDR (v4): %s", strerror(errno));
         return(0);
     }
 
@@ -128,7 +128,7 @@ int build_receive_sockets(void)
                    SO_BINDTODEVICE,
                    &(ctrl_iface->iface_name),
                    sizeof(int)) == -1) {
-        syslog(LOG_DAEMON, "setsockopt SO_BINDTODEVICE (v4): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "setsockopt SO_BINDTODEVICE (v4): %s", strerror(errno));
     }
 */
     memset(&v4,0,sizeof(v4));           /* be sure */
@@ -137,7 +137,7 @@ int build_receive_sockets(void)
     v4.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(ipv4_data_input_fd,(struct sockaddr *) &v4, sizeof(v4)) == -1) {
-        syslog(LOG_DAEMON, "bind (v4): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "bind (v4): %s", strerror(errno));
         return(0);
     }
 
@@ -146,7 +146,7 @@ int build_receive_sockets(void)
      */
 
     if ((ipv6_data_input_fd = socket(AF_INET6,SOCK_DGRAM,proto->p_proto)) < 0) {
-        syslog(LOG_DAEMON, "socket (v6): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "socket (v6): %s", strerror(errno));
         return(0);
     }
 
@@ -155,7 +155,7 @@ int build_receive_sockets(void)
                    SO_REUSEADDR,
                    &tr,
                    sizeof(int)) == -1) {
-        syslog(LOG_DAEMON, "setsockopt SO_REUSEADDR (v6): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "setsockopt SO_REUSEADDR (v6): %s", strerror(errno));
         return(0);
     }
 
@@ -165,7 +165,7 @@ int build_receive_sockets(void)
                    SO_BINDTODEVICE,
                    &(ctrl_iface->iface_name),
                    sizeof(int)) == -1) {
-        syslog(LOG_DAEMON, "setsockopt SO_BINDTODEVICE (v6): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "setsockopt SO_BINDTODEVICE (v6): %s", strerror(errno));
     }
 */
 
@@ -175,7 +175,7 @@ int build_receive_sockets(void)
     v6.sin6_addr     = in6addr_any;
 
     if (bind(ipv6_data_input_fd,(struct sockaddr *) &v6, sizeof(v6)) == -1) {
-        syslog(LOG_DAEMON, "bind (v6): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "bind (v6): %s", strerror(errno));
         return(0);
     }
  
@@ -232,7 +232,7 @@ int copy_lisp_addr_t(a1,a2,convert)
                sizeof(struct in6_addr));
         break;
     default:
-        syslog(LOG_DAEMON, "copy_lisp_addr_t: Unknown AFI (%d)", a2->afi);
+        lispd_log_msg(LOG_DAEMON, "copy_lisp_addr_t: Unknown AFI (%d)", a2->afi);
         return(0);
     }
     return(1);
@@ -266,7 +266,7 @@ int copy_addr(a1,a2,convert)
                sizeof(struct in6_addr));
         return(sizeof(struct in6_addr));
     default:
-        syslog(LOG_DAEMON, "copy_addr: Unknown AFI (%d)", a2->afi);
+        lispd_log_msg(LOG_DAEMON, "copy_addr: Unknown AFI (%d)", a2->afi);
         return(0);
     }
 }
@@ -289,14 +289,14 @@ lisp_addr_t *get_my_addr(if_name, afi)
     struct sockaddr_in6 *s6;
 
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc (get_my_addr): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "malloc (get_my_addr): %s", strerror(errno));
         return(NULL);
     }
 
     memset(addr, 0, sizeof(lisp_addr_t));
 
     if (getifaddrs(&ifaddr) !=0) {
-        syslog(LOG_DAEMON, "getifaddrs(get_my_addr): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "getifaddrs(get_my_addr): %s", strerror(errno));
         free(addr);
         return(NULL);
     }
@@ -396,7 +396,7 @@ lisp_addr_t *lispd_get_iface_address(ifacename, addr, afi)
      */
 
     if (getifaddrs(&ifaddr) !=0) {
-        syslog(LOG_DAEMON,
+        lispd_log_msg(LOG_DAEMON,
                "getifaddrs(get_interface_addr): %s", strerror(errno));
         return(0);
     }
@@ -411,7 +411,7 @@ lisp_addr_t *lispd_get_iface_address(ifacename, addr, afi)
                 memcpy((void *) &(addr->address),
                        (void *)&(s4->sin_addr), sizeof(struct in_addr));
                 addr->afi = AF_INET;
-                syslog(LOG_DAEMON, "MN's IPv4 RLOC from interface (%s): %s \n",
+                lispd_log_msg(LOG_DAEMON, "MN's IPv4 RLOC from interface (%s): %s \n",
                         ifacename, 
                         inet_ntop(AF_INET, &(s4->sin_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
@@ -427,7 +427,7 @@ lisp_addr_t *lispd_get_iface_address(ifacename, addr, afi)
                        (void *)&(s6->sin6_addr),
                        sizeof(struct in6_addr));
                 addr->afi = AF_INET6;
-                syslog(LOG_DAEMON, "MN's IPv6 RLOC from interface (%s): %s\n",
+                lispd_log_msg(LOG_DAEMON, "MN's IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
@@ -474,7 +474,7 @@ void dump_database_entry(db_entry)
               &(db_entry->locator.address),
               rloc, 128);
     sprintf(buf, "%s (%s)", db_entry->locator_name, rloc);
-    syslog(LOG_DAEMON, " %s lisp %s/%d %s p %d w %d",
+    lispd_log_msg(LOG_DAEMON, " %s lisp %s/%d %s p %d w %d",
            (afi == AF_INET) ? "ip":"ipv6",
            eid,
            db_entry->eid_prefix_length,
@@ -495,17 +495,17 @@ void dump_database(tree, afi)
     if (!tree) {
         switch (afi) {
         case AF_INET:
-            syslog(LOG_DAEMON, "No database for AF_INET");
+            lispd_log_msg(LOG_DAEMON, "No database for AF_INET");
             return;
         case AF_INET6:
-            syslog(LOG_DAEMON, "No database for AF_INET6");
+            lispd_log_msg(LOG_DAEMON, "No database for AF_INET6");
             return;
         default:        
-            syslog(LOG_DAEMON, "Unknown database AFI (%d)", afi);
+            lispd_log_msg(LOG_DAEMON, "Unknown database AFI (%d)", afi);
             return;
         }
     }
-    syslog(LOG_DAEMON, "database:");
+    lispd_log_msg(LOG_DAEMON, "database:");
     PATRICIA_WALK(tree->head, node) {
         locator_chain     = ((lispd_locator_chain_t *)(node->data));
         locator_chain_elt = locator_chain->head;
@@ -530,14 +530,14 @@ void dump_servers(list, list_name)
     if (!list)
         return;
 
-    syslog(LOG_DAEMON, "%s:", list_name);
+    lispd_log_msg(LOG_DAEMON, "%s:", list_name);
 
     iterator = list;
     while (iterator) {
         addr = iterator->address;
         afi = addr->afi;
         inet_ntop(afi, &(addr->address), buf, sizeof(buf));
-        syslog(LOG_DAEMON," %s", buf);
+        lispd_log_msg(LOG_DAEMON," %s", buf);
         iterator = iterator->next;
     }
 }
@@ -555,14 +555,14 @@ void dump_proxy_etrs(list, list_name)
     if (!list)
         return;
 
-    syslog(LOG_DAEMON, "%s:", list_name);
+    lispd_log_msg(LOG_DAEMON, "%s:", list_name);
 
     iterator = list;
     while (iterator) {
         addr = iterator->address;
         afi = addr->afi;
         inet_ntop(afi, &(addr->address), buf, sizeof(buf));
-        syslog(LOG_DAEMON," %s priority: %d  weight: %d", buf, iterator->priority, iterator->weight);
+        lispd_log_msg(LOG_DAEMON," %s priority: %d  weight: %d", buf, iterator->priority, iterator->weight);
         iterator = iterator->next;
     }
 }
@@ -577,7 +577,7 @@ void dump_map_server(ms)
     addr = ms->address;
     afi = addr->afi;
     inet_ntop(afi, &(addr->address), buf, sizeof(buf));
-    syslog(LOG_DAEMON, " %s key-type: %d key: %s",
+    lispd_log_msg(LOG_DAEMON, " %s key-type: %d key: %s",
        buf,
        ms->key_type,
        ms->key);
@@ -590,7 +590,7 @@ void dump_map_servers(void)
     if (!map_servers)
         return;
 
-    syslog(LOG_DAEMON, "map-servers:");
+    lispd_log_msg(LOG_DAEMON, "map-servers:");
     ms = map_servers;
 
     while (ms) {
@@ -639,7 +639,7 @@ int isfqdn(char *s)
 void dump_tree_elt(locator_chain)
     lispd_locator_chain_t *locator_chain;
 {
-    syslog(LOG_DAEMON, " locator_chain->eid_name = %s",
+    lispd_log_msg(LOG_DAEMON, " locator_chain->eid_name = %s",
            locator_chain->eid_name);
 }
 
@@ -652,17 +652,17 @@ void dump_tree(afi,tree)
    
     switch (afi) {
     case AF_INET:
-        printf("dump_tree for AF_INET\n");
+       lispd_log_msg(LOG_DEBUG,"dump_tree for AF_INET\n");
         break;
     case AF_INET6:
-        printf("dump_tree for AF_INET6\n");
+       lispd_log_msg(LOG_DEBUG,"dump_tree for AF_INET6\n");
         break;
     }
 
     PATRICIA_WALK(tree->head, node) {
-        printf("node: %s/%d\n", 
+       lispd_log_msg(LOG_DEBUG,"node: %s/%d\n", 
                prefix_toa(node->prefix), node->prefix->bitlen);
-        printf("dump_tree:\t%s (%d)\n",
+       lispd_log_msg(LOG_DEBUG,"dump_tree:\t%s (%d)\n",
                ((lispd_locator_chain_t *)(node->data))->eid_name,
                ((lispd_locator_chain_t *)(node->data))->locator_count);
         dump_tree_elt((lispd_locator_chain_t *)(node->data));
@@ -745,7 +745,7 @@ void debug_installed_database_entry(db_entry, locator_chain)
         sprintf(buf, "%s", rloc);
     else
         sprintf(buf, "%s (%s)", db_entry->locator_name, rloc);
-    syslog(LOG_DAEMON, "  Installed %s lisp %s %s p %d w %d",
+    lispd_log_msg(LOG_DAEMON, "  Installed %s lisp %s %s p %d w %d",
        (locator_chain->eid_prefix.afi == AF_INET) ? "ip":"ipv6",
        locator_chain->eid_name,
        buf,
@@ -761,9 +761,9 @@ void print_hmac(hmac,len)
     int i;
 
     for (i = 0; i < len; i += 4) {
-        printf("i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
+       lispd_log_msg(LOG_DEBUG,"i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
     }
-    printf("\n");
+   lispd_log_msg(LOG_DEBUG,"\n");
 }
 
 char *get_char_from_lisp_addr_t (lisp_addr_t addr)
@@ -840,13 +840,13 @@ int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int
 {
     char                     *token;
     if ((token = strtok(address, "/")) == NULL) {
-        syslog(LOG_ERR, "Prefix not of the form prefix/length: %s",address);
+        lispd_log_msg(LOG_ERR, "Prefix not of the form prefix/length: %s",address);
         return(BAD);
     }
     if (get_lisp_addr_from_char(token,lisp_addr)==BAD)
         return (BAD);
     if ((token = strtok(NULL,"/")) == NULL) {
-        syslog(LOG_ERR,"strtok: %s", strerror(errno));
+        lispd_log_msg(LOG_ERR,"strtok: %s", strerror(errno));
         return(BAD);
     }
     *mask = atoi(token);
@@ -884,7 +884,7 @@ uint16_t get_lisp_afi(afi, len)
             *len = sizeof(struct in6_addr);
         return((uint16_t)LISP_AFI_IPV6);
     default:
-        syslog(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d)", afi);
+        lispd_log_msg(LOG_DAEMON, "get_lisp_afi: unknown AFI (%d)", afi);
         return(BAD);
     }
 }
@@ -909,7 +909,7 @@ int lisp2inetafi(afi)
     case LISP_AFI_LCAF:
         return(-1);
     default:
-        syslog(LOG_DAEMON, "lisp2inetafi: unknown AFI (%d)", afi);
+        lispd_log_msg(LOG_DAEMON, "lisp2inetafi: unknown AFI (%d)", afi);
         return(0);
     }
 }
@@ -928,7 +928,7 @@ int get_ip_header_len(afi)
     case AF_INET6:
         return(sizeof(struct ip6_hdr));
     default:
-        syslog(LOG_DAEMON, "get_ip_header_len: unknown AFI (%d)", afi);
+        lispd_log_msg(LOG_DAEMON, "get_ip_header_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -947,7 +947,7 @@ int get_sockaddr_len(afi)
     case AF_INET6:
         return(sizeof(struct sockaddr_in6));
     default:
-        syslog(LOG_DAEMON, "get_sockaddr_len: unknown AFI (%d)", afi);
+        lispd_log_msg(LOG_DAEMON, "get_sockaddr_len: unknown AFI (%d)", afi);
         return(0);
     }
 }
@@ -966,7 +966,7 @@ int get_addr_len(afi)
     case AF_INET6:
         return(sizeof(struct in6_addr));
     default:
-        syslog(LOG_DAEMON, "get_addr_len: unknown AFI (%d)", afi);
+        lispd_log_msg(LOG_DAEMON, "get_addr_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -1067,7 +1067,7 @@ int build_datacache_entry(dest,
     timer_rec_t *prev_rec;
 
     if ((elt = malloc(sizeof(datacache_elt_t))) == NULL) {
-        syslog(LOG_DAEMON,
+        lispd_log_msg(LOG_DAEMON,
            "malloc (build_datacache_entry): %s", strerror(errno));
         return(0);
     }
@@ -1090,7 +1090,7 @@ int build_datacache_entry(dest,
     memcpy((void*)&(elt->dest.address),(void*) &(dest->address),sizeof(struct sockaddr_in6));
     }
     else {
-    syslog(LOG_DAEMON,"Unknown AFI (build_datacache_entry): %d", elt->dest.afi);
+    lispd_log_msg(LOG_DAEMON,"Unknown AFI (build_datacache_entry): %d", elt->dest.afi);
     free(elt);
     return 0;
     }
@@ -1116,7 +1116,7 @@ int build_datacache_entry(dest,
     /* insert new nonce into ordered list of timers */
 
     if ((timer_rec = malloc(sizeof(timer_rec_t))) == NULL) {
-        syslog(LOG_DAEMON,
+        lispd_log_msg(LOG_DAEMON,
            "malloc (build_datacache_entry): %s", strerror(errno));
         return(0);
     }
@@ -1305,7 +1305,7 @@ int search_datacache_entry_eid(eid_prefix, res_elt)
 
     // EID not found
 #if (DEBUG > 3)
-    syslog(LOG_INFO, "Entry not found in datacache: EID doesn't match");
+    lispd_log_msg(LOG_INFO, "Entry not found in datacache: EID doesn't match");
 #endif
     return 0;
 }
@@ -1341,7 +1341,7 @@ int have_input(max_fd,readfds)
                 continue;
             }
             else {
-                syslog(LOG_DAEMON, "select: %s", strerror(errno));
+                lispd_log_msg(LOG_DAEMON, "select: %s", strerror(errno));
                 return(BAD);
             }
         }else{
@@ -1372,37 +1372,37 @@ int process_lisp_ctr_msg(int s, int afi)
 
         if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s4,
                     &fromlen4) < 0) {
-            syslog(LOG_WARNING, "recvfrom (v4): %s", strerror(errno));
+            lispd_log_msg(LOG_WARNING, "recvfrom (v4): %s", strerror(errno));
             return(BAD);
         }
         break;
     case AF_INET6:
         if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s6,
                     &fromlen6) < 0) {
-            syslog(LOG_WARNING, "recvfrom (v6): %s", strerror(errno));
+            lispd_log_msg(LOG_WARNING, "recvfrom (v6): %s", strerror(errno));
             return(BAD);
         }
         break;
     default:
-        syslog(LOG_WARNING, "retrieve_msg: Unknown afi %d", afi);
+        lispd_log_msg(LOG_WARNING, "retrieve_msg: Unknown afi %d", afi);
         return(BAD);
     }
-    syslog(LOG_DEBUG, "Received a LISP control message");
+    lispd_log_msg(LOG_DEBUG, "Received a LISP control message");
 
     switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
-        syslog(LOG_DEBUG, "Received a LISP Map-Reply message");
+        lispd_log_msg(LOG_DEBUG, "Received a LISP Map-Reply message");
         process_map_reply(packet);
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-        syslog(LOG_DEBUG, "Received a LISP Encapsulated Map-Request message");
+        lispd_log_msg(LOG_DEBUG, "Received a LISP Encapsulated Map-Request message");
         // XXX alopez: local_rloc shoul be get from packet
         local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
         if(!process_map_request_msg(packet, local_rloc))
             return (BAD);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
-        syslog(LOG_DEBUG, "Received a LISP Map-Request message");
+        lispd_log_msg(LOG_DEBUG, "Received a LISP Map-Request message");
         // XXX alopez: local_rloc shoul be get from packet
         local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
         if(!process_map_request_msg(packet, local_rloc))
@@ -1411,12 +1411,12 @@ int process_lisp_ctr_msg(int s, int afi)
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
-        syslog(LOG_DEBUG, "Received a LISP Map-Notify message");
+        lispd_log_msg(LOG_DEBUG, "Received a LISP Map-Notify message");
         if(!process_map_notify(packet))
             return(BAD);
         break;
     }
-    syslog(LOG_DEBUG, "Completed processing a LISP control message");
+    lispd_log_msg(LOG_DEBUG, "Completed processing a LISP control message");
 
     return(GOOD);
 }
@@ -1443,15 +1443,15 @@ int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t por
         memcpy(&(ipv6->sin6_addr), &(inaddr->address.ipv6), sizeof(struct in6_addr));
         return(1);
     default:
-        syslog(LOG_DAEMON, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
+        lispd_log_msg(LOG_DAEMON, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
         return(0);
     }
 }
 
 int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst) {
-    if (src == NULL) syslog(LOG_DAEMON, "sockaddr NULL");
+    if (src == NULL) lispd_log_msg(LOG_DAEMON, "sockaddr NULL");
     if (src == NULL) return(-1);
-    if (dst == NULL) syslog(LOG_DAEMON, "lisp NULL");
+    if (dst == NULL) lispd_log_msg(LOG_DAEMON, "lisp NULL");
     if (dst == NULL) return(-1);
 
     memset(dst, 0, sizeof(lisp_addr_t));
@@ -1467,7 +1467,7 @@ int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst) {
                 sizeof(struct in6_addr));
         break;
     default:
-        syslog(LOG_DAEMON, "sockaddr2lisp: unknown AFI (%d)", src->sa_family);
+        lispd_log_msg(LOG_DAEMON, "sockaddr2lisp: unknown AFI (%d)", src->sa_family);
         return(-1);
     }
     return(0);

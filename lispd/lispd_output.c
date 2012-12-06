@@ -133,7 +133,7 @@ int encapsulate_packet(char *original_packet,
     new_packet = (char *) malloc (original_packet_length + extra_headers_size);
 
     if (new_packet == NULL){
-        syslog(LOG_ERR, "Can not IPv4 encap packet ");
+        lispd_log_msg(LOG_ERR, "Can not IPv4 encap packet ");
         return BAD;
     }
 
@@ -204,7 +204,7 @@ int send_by_raw_socket ( lispd_iface_elt *iface, char *packet_buf, int pckt_leng
                       dst_addr_len );
 
     if ( nbytes != pckt_length ) {
-        syslog ( LOG_DAEMON, "send_by_raw_socket: send failed %s", strerror ( errno ) );
+        lispd_log_msg( LOG_DAEMON, "send_by_raw_socket: send failed %s", strerror ( errno ) );
         return ( BAD );
     }
 
@@ -216,7 +216,7 @@ int fordward_native( lispd_iface_elt *iface, char *packet_buf, int pckt_length )
 
     int ret;
     
-    syslog(LOG_INFO, "Fordwarding native for destination %s",
+    lispd_log_msg(LOG_INFO, "Fordwarding native for destination %s",
                         get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
     if(send_by_raw_socket(iface,packet_buf,pckt_length) != GOOD){
@@ -240,11 +240,11 @@ int fordward_to_petr(lispd_iface_elt *iface, char *original_packet, int original
     petr = get_proxy_etr(afi); 
     
     if (petr == NULL){
-        syslog(LOG_ERR, "Proxy-etr not found");
+        lispd_log_msg(LOG_ERR, "Proxy-etr not found");
         return BAD;
     }
 
-    syslog(LOG_DEBUG, "Proxy-etr found: %s",get_char_from_lisp_addr_t(*petr));
+    lispd_log_msg(LOG_DEBUG, "Proxy-etr found: %s",get_char_from_lisp_addr_t(*petr));
     
     switch (afi){
         case AF_INET:
@@ -273,7 +273,7 @@ int fordward_to_petr(lispd_iface_elt *iface, char *original_packet, int original
         return BAD;
     }
 
-    syslog(LOG_INFO, "Fordwarded eid %s to petr",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
+    lispd_log_msg(LOG_INFO, "Fordwarded eid %s to petr",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
     free (encap_packet );
     
     return GOOD;
@@ -332,7 +332,7 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid){
     timer_map_request_argument *arguments;
 
     if ((arguments = malloc(sizeof(timer_map_request_argument)))==NULL){
-        syslog(LOG_DEBUG,"handle_map_cache_miss: Can't allocate timer_map_request_argument -"
+        lispd_log_msg(LOG_DEBUG,"handle_map_cache_miss: Can't allocate timer_map_request_argument -"
                 "malloc: %s",strerror(errno));
         return (ERR_MALLOC);
     }
@@ -456,7 +456,7 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     original_src_addr = extract_src_addr_from_packet(original_packet);
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
 
-    syslog(LOG_DEBUG,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
+    lispd_log_msg(LOG_DEBUG,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
     
     default_encap_afi = original_dst_addr.afi; //arnatal TODO: Choose proper encapsulation afi
 
@@ -489,7 +489,7 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     
     //arnatal TODO TODO: check if this is the correct error type
     if (map_cache_query_result == ERR_DB){ /* There is no entry in the map cache */
-        syslog(LOG_INFO, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(original_dst_addr));
+        lispd_log_msg(LOG_INFO, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(original_dst_addr));
         handle_map_cache_miss(&original_dst_addr, &original_src_addr);
     }
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */

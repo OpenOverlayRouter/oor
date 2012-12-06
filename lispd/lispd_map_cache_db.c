@@ -55,14 +55,14 @@ void build_lsb_table(void);
  */
 void map_cache_init()
 {
-  syslog(LOG_INFO,  " Creating map cache...");
+  lispd_log_msg(LOG_INFO,  " Creating map cache...");
 
   AF4_eid_cache = New_Patricia(sizeof(struct in_addr) * 8);
   AF6_eid_cache = New_Patricia(sizeof(struct in6_addr) * 8);
 
 
   if (!AF4_eid_cache || !AF6_eid_cache)
-      syslog(LOG_ERR,  "FAILED to create Map Cache.");
+      lispd_log_msg(LOG_ERR,  "FAILED to create Map Cache.");
 
   // XXX Replace with mutex // XXX Replace with mutex spin_lock_init(&table_lock);
 
@@ -109,14 +109,14 @@ int add_map_cache_entry(lispd_map_cache_entry *entry)
     eid_prefix_length = entry->identifier->eid_prefix_length;
 
     if ((node = malloc(sizeof(patricia_node_t))) == NULL) {
-        syslog(LOG_ERR, "can't allocate patrica_node_t");
+        lispd_log_msg(LOG_ERR, "can't allocate patrica_node_t");
         return(BAD);
     }
 
     switch(eid_prefix.afi) {
     case AF_INET:
         if ((prefix = New_Prefix(AF_INET, &(eid_prefix.address.ip), eid_prefix_length)) == NULL) {
-            syslog(LOG_ERR, "couldn't alocate prefix_t for AF_INET");
+            lispd_log_msg(LOG_ERR, "couldn't alocate prefix_t for AF_INET");
             free(node);
             return(BAD);
         }
@@ -124,7 +124,7 @@ int add_map_cache_entry(lispd_map_cache_entry *entry)
         break;
     case AF_INET6:
         if ((prefix = New_Prefix(AF_INET6, &(eid_prefix.address.ipv6), eid_prefix_length)) == NULL) {
-            syslog(LOG_ERR, "couldn't alocate prefix_t for AF_INET6");
+            lispd_log_msg(LOG_ERR, "couldn't alocate prefix_t for AF_INET6");
             free(node);
             return(BAD);
         }
@@ -132,21 +132,21 @@ int add_map_cache_entry(lispd_map_cache_entry *entry)
         break;
     default:
         free(node);
-        syslog(LOG_ERR, "Unknown afi (%d) when allocating prefix_t", eid_prefix.afi);
+        lispd_log_msg(LOG_ERR, "Unknown afi (%d) when allocating prefix_t", eid_prefix.afi);
         return(BAD);
     }
     Deref_Prefix(prefix);
     if (node->data != NULL){            /* its a new node */
 
         lispd_map_cache_entry *entry2 = (lispd_map_cache_entry *)node->data;
-        syslog(LOG_ERR, "1WARNING: Map cache entry (%s/%d) already installed in the data base",
+        lispd_log_msg(LOG_ERR, "1WARNING: Map cache entry (%s/%d) already installed in the data base",
                 get_char_from_lisp_addr_t(entry2->identifier->eid_prefix),entry2->identifier->eid_prefix_length);
-        syslog(LOG_ERR, "WARNING: Map cache entry (%s/%d) already installed in the data base",
+        lispd_log_msg(LOG_ERR, "WARNING: Map cache entry (%s/%d) already installed in the data base",
                 get_char_from_lisp_addr_t(eid_prefix),eid_prefix_length);
         return (BAD);
     }
     node->data = (lispd_map_cache_entry *) entry;
-    syslog(LOG_DEBUG, "Added map cache entry for EID: %s/%d",
+    lispd_log_msg(LOG_DEBUG, "Added map cache entry for EID: %s/%d",
             get_char_from_lisp_addr_t(entry->identifier->eid_prefix),eid_prefix_length);
     return (GOOD);
 }
@@ -160,12 +160,12 @@ lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_pref
     lispd_map_cache_entry *map_cache_entry;
     /* Create map cache entry */
     if ((map_cache_entry = malloc(sizeof(lispd_map_cache_entry))) == NULL) {
-        syslog(LOG_ERR,"malloc(sizeof(lispd_map_cache_entry)): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR,"malloc(sizeof(lispd_map_cache_entry)): %s", strerror(errno));
         return(NULL);
     }
     memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
     if ((map_cache_entry->identifier = malloc(sizeof(lispd_identifier_elt))) == NULL) {
-        syslog(LOG_ERR,"malloc(sizeof(lispd_identifier_elt)): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR,"malloc(sizeof(lispd_identifier_elt)): %s", strerror(errno));
         free (map_cache_entry);
         return(NULL);
     }
@@ -231,7 +231,7 @@ int lookup_eid_cache_node(lisp_addr_t eid, patricia_node_t **node)
 
   if (*node==NULL)
   {
-      syslog (LOG_DEBUG, "The entry %s is not found in the map cache", get_char_from_lisp_addr_t(eid));
+      lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the map cache", get_char_from_lisp_addr_t(eid));
       return(BAD);
   }
   return(GOOD);
@@ -267,7 +267,7 @@ int lookup_eid_cache_exact_node(lisp_addr_t eid, int prefixlen, patricia_node_t 
 
     if (!node)
     {
-        syslog (LOG_DEBUG, "The entry %s/%d is not found in the map cache", get_char_from_lisp_addr_t(eid),prefixlen);
+        lispd_log_msg(LOG_DEBUG, "The entry %s/%d is not found in the map cache", get_char_from_lisp_addr_t(eid),prefixlen);
         return(BAD);
     }
 
@@ -379,10 +379,10 @@ void del_eid_cache_entry(lisp_addr_t eid,
     patricia_node_t      *result;
 
     if (!lookup_eid_cache_exact_node(eid, prefixlen, &result)){
-        syslog(LOG_ERR,"   Unable to locate cache entry %s/%d for deletion",get_char_from_lisp_addr_t(eid),prefixlen);
+        lispd_log_msg(LOG_ERR,"   Unable to locate cache entry %s/%d for deletion",get_char_from_lisp_addr_t(eid),prefixlen);
         return;
     } else {
-        syslog(LOG_DEBUG,"   Deleting map cache EID entry %s/%d", get_char_from_lisp_addr_t(eid),prefixlen);
+        lispd_log_msg(LOG_DEBUG,"   Deleting map cache EID entry %s/%d", get_char_from_lisp_addr_t(eid),prefixlen);
     }
 
     /*
@@ -418,7 +418,7 @@ int change_eid_prefix_in_db(lisp_addr_t         new_eid_prefix,
 
     if ((err=add_map_cache_entry(cache_entry))!= GOOD){
         /*XXX  if the process doesn't finish correctly, the map cache entry is released */
-        syslog(LOG_ERR,"************-------------*************-----------------***********");
+        lispd_log_msg(LOG_ERR,"************-------------*************-----------------***********");
         free_lispd_map_cache_entry(cache_entry);
         return (BAD);
     }
@@ -435,7 +435,7 @@ void eid_entry_expiration(timer *t, void *arg)
 {
     lispd_map_cache_entry *entry = (lispd_map_cache_entry *)arg;
 
-    syslog (LOG_DEBUG,"Got expiration for EID %s/%d", get_char_from_lisp_addr_t(entry->identifier->eid_prefix),
+    lispd_log_msg(LOG_DEBUG,"Got expiration for EID %s/%d", get_char_from_lisp_addr_t(entry->identifier->eid_prefix),
             entry->identifier->eid_prefix_length);
     del_eid_cache_entry(entry->identifier->eid_prefix, entry->identifier->eid_prefix_length);
 }
@@ -479,12 +479,12 @@ void dump_map_cache()
     lispd_locators_list         *locator_iterator;
     lispd_locator_elt           *locator;
 
-    printf("LISP Mapping Cache\n\n");
+   lispd_log_msg(LOG_DEBUG,"LISP Mapping Cache\n\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){
     	PATRICIA_WALK(dbs[ctr]->head, node) {
     		entry = ((lispd_map_cache_entry *)(node->data));
-    		printf("%s/%d (IID = %d), ", get_char_from_lisp_addr_t(entry->identifier->eid_prefix),
+    		lispd_log_msg(LOG_DEBUG,"%s/%d (IID = %d), ", get_char_from_lisp_addr_t(entry->identifier->eid_prefix),
     				entry->identifier->eid_prefix_length, entry->identifier->iid);
     		uptime = time(NULL);
     		uptime = uptime - entry->timestamp;
@@ -493,17 +493,17 @@ void dump_map_cache()
     		if (expiretime > 0)
     		    strftime(buf2, 20, "%H:%M:%S", localtime(&expiretime));
 
-    		printf("uptime: %s, expires: %s, via ", buf, expiretime > 0 ? buf2 : "EXPIRED");
+    		lispd_log_msg(LOG_DEBUG,"uptime: %s, expires: %s, via ", buf, expiretime > 0 ? buf2 : "EXPIRED");
 
     		if (entry->how_learned == STATIC_LOCATOR)
-    			printf("static ");
+    			lispd_log_msg(LOG_DEBUG,"static ");
     		else
-    			printf("map-reply ");
-    		printf("active: %s\n", entry->active == TRUE ? "Yes" : "No");
+    			lispd_log_msg(LOG_DEBUG,"map-reply ");
+    		lispd_log_msg(LOG_DEBUG,"active: %s\n", entry->active == TRUE ? "Yes" : "No");
 
 
     		if (entry->identifier->locator_count > 0){
-    			printf("       Locator     State    Priority/Weight  Data In/Out  %d\n",entry->identifier->locator_count);
+    			lispd_log_msg(LOG_DEBUG,"       Locator     State    Priority/Weight  Data In/Out  %d\n",entry->identifier->locator_count);
     			locator_iterator_array[0] = entry->identifier->head_v4_locators_list;
     			locator_iterator_array[1] = entry->identifier->head_v6_locators_list;
     			// Loop through the locators and print each
@@ -511,15 +511,15 @@ void dump_map_cache()
     			    locator_iterator = locator_iterator_array[ctr1];
     			    while (locator_iterator != NULL) {
     			        locator = locator_iterator->locator;
-    			        printf(" %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
-    			        printf(" %5s ", locator->state ? "Up" : "Down");
-    			        printf("         %3d/%-3d ", locator->priority, locator->weight);
-    			        printf("      %5d/%-5d\n", locator->data_packets_in,
+    			       lispd_log_msg(LOG_DEBUG," %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+    			       lispd_log_msg(LOG_DEBUG," %5s ", locator->state ? "Up" : "Down");
+    			       lispd_log_msg(LOG_DEBUG,"         %3d/%-3d ", locator->priority, locator->weight);
+    			       lispd_log_msg(LOG_DEBUG,"      %5d/%-5d\n", locator->data_packets_in,
     			                locator->data_packets_out);
     			        locator_iterator = locator_iterator->next;
     			    }
     			}
-    			printf("\n");
+    			lispd_log_msg(LOG_DEBUG,"\n");
     		}
 
     	} PATRICIA_WALK_END;

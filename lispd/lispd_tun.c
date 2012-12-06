@@ -53,7 +53,7 @@ int create_tun(char *tun_dev_name,
 
     /* open the clone device */
     if( (*tun_receive_fd = open(clonedev, O_RDWR)) < 0 ) {
-        syslog(LOG_DAEMON, "TUN/TAP: Failed to open clone device");
+        lispd_log_msg(LOG_DAEMON, "TUN/TAP: Failed to open clone device");
         return(BAD);
     }
 
@@ -65,7 +65,7 @@ int create_tun(char *tun_dev_name,
     // try to create the device
     if ((err = ioctl(*tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
         close(*tun_receive_fd);
-        syslog(LOG_DAEMON, "TUN/TAP: Failed to create tunnel interface, errno: %d.", errno);
+        lispd_log_msg(LOG_DAEMON, "TUN/TAP: Failed to create tunnel interface, errno: %d.", errno);
         return(BAD);
     }
 
@@ -74,20 +74,20 @@ int create_tun(char *tun_dev_name,
     if ((err = ioctl(tmpsocket, SIOCGIFINDEX, (void *)&ifr)) < 0) {
         close(*tun_receive_fd);
         close(tmpsocket);
-        syslog(LOG_DAEMON, "TUN/TAP: unable to determine ifindex for tunnel interface, errno: %d.", errno);
+        lispd_log_msg(LOG_DAEMON, "TUN/TAP: unable to determine ifindex for tunnel interface, errno: %d.", errno);
         return(BAD);
     } else {
-        syslog(LOG_DAEMON, "TUN/TAP ifindex is: %d", ifr.ifr_ifindex);
+        lispd_log_msg(LOG_DAEMON, "TUN/TAP ifindex is: %d", ifr.ifr_ifindex);
         *tun_ifindex = ifr.ifr_ifindex;
 
         // Set the MTU to the configured MTU
         ifr.ifr_ifru.ifru_mtu = tun_mtu;
         if ((err = ioctl(tmpsocket, SIOCSIFMTU, &ifr)) < 0) {
             close(tmpsocket);
-            syslog(LOG_DAEMON, "TUN/TAP: unable to set interface MTU to %d, errno: %d.", tun_mtu, errno);
+            lispd_log_msg(LOG_DAEMON, "TUN/TAP: unable to set interface MTU to %d, errno: %d.", tun_mtu, errno);
             return(BAD);
         } else {
-            syslog(LOG_DAEMON, "TUN/TAP mtu set to %d", tun_mtu);
+            lispd_log_msg(LOG_DAEMON, "TUN/TAP mtu set to %d", tun_mtu);
         }
     }
 
@@ -96,7 +96,7 @@ int create_tun(char *tun_dev_name,
     *tun_receive_buf = (char *)malloc(tun_receive_size);
     /* this is the special file descriptor that the caller will use to talk
      * with the virtual interface */
-    syslog(LOG_DAEMON, "tunnel fd at creation is %d", *tun_receive_fd);
+    lispd_log_msg(LOG_DAEMON, "tunnel fd at creation is %d", *tun_receive_fd);
 
     /*
     if (!tuntap_install_default_routes()) {
@@ -121,11 +121,11 @@ int tun_bring_up_iface_v4_eid(lisp_addr_t eid_address_v4,
     int    netsock = 0;
     int    err = 0;
 
-    printf("LISP address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
+   lispd_log_msg(LOG_DEBUG,"LISP address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
     
     netsock = socket(eid_address_v4.afi, SOCK_DGRAM, 0);
     if (netsock < 0) {
-        syslog(LOG_DAEMON, "assign: socket() %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "assign: socket() %s", strerror(errno));
         return(BAD);
     }
 
@@ -141,20 +141,20 @@ int tun_bring_up_iface_v4_eid(lisp_addr_t eid_address_v4,
     // Set the address
 
     if ((err = ioctl(netsock, SIOCSIFADDR, &ifr)) < 0) {
-        syslog(LOG_DAEMON, "TUN/TAP could not set EID on tun device, errno %d.",
+        lispd_log_msg(LOG_DAEMON, "TUN/TAP could not set EID on tun device, errno %d.",
                 errno);
         return(BAD);
     }
     sp->sin_addr.s_addr = 0xFFFFFFFF;
     if ((err = ioctl(netsock, SIOCSIFNETMASK, &ifr)) < 0) {
-        syslog(LOG_DAEMON, "TUN/TAP could not set netmask on tun device, errno %d",
+        lispd_log_msg(LOG_DAEMON, "TUN/TAP could not set netmask on tun device, errno %d",
                 errno);
         return(BAD);
     }
     ifr.ifr_flags |= IFF_UP | IFF_RUNNING; // Bring it up
 
     if ((err = ioctl(netsock, SIOCSIFFLAGS, &ifr)) < 0) {
-        syslog(LOG_DAEMON, "TUN/TAP could not bring up tun device, errno %d.",
+        lispd_log_msg(LOG_DAEMON, "TUN/TAP could not bring up tun device, errno %d.",
                 errno);
         return(BAD);
     }
@@ -181,7 +181,7 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
     if (sockfd < 0) {
-        syslog(LOG_DAEMON, "Failed to connect to netlink socket for tun_add_v6_eid_to_iface()");
+        lispd_log_msg(LOG_DAEMON, "Failed to connect to netlink socket for tun_add_v6_eid_to_iface()");
         return(BAD);
     }
 
@@ -210,12 +210,12 @@ int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
     retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
 
     if (retval < 0) {
-        syslog(LOG_DAEMON, "tun_add_v6_eid_to_iface: send() failed %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "tun_add_v6_eid_to_iface: send() failed %s", strerror(errno));
         close(sockfd);
         return(BAD);
     }
 
-    syslog(LOG_DAEMON, "added ipv6 EID to TUN interface.");
+    lispd_log_msg(LOG_DAEMON, "added ipv6 EID to TUN interface.");
     close(sockfd);
     return(GOOD);
 }
@@ -248,7 +248,7 @@ int add_route_v4(uint32_t ifindex,
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
     
     if (sockfd < 0) {
-        syslog(LOG_DAEMON, "Failed to connect to netlink socket for install_default_route()");
+        lispd_log_msg(LOG_DAEMON, "Failed to connect to netlink socket for install_default_route()");
         return(BAD);
     }
     
@@ -333,11 +333,11 @@ int add_route_v4(uint32_t ifindex,
     retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
 
     if (retval < 0) {
-        syslog(LOG_DAEMON, "install_default_route: send() failed %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "install_default_route: send() failed %s", strerror(errno));
         close(sockfd);
         return(BAD);
     }
-    syslog(LOG_DAEMON, "Installed default route via TUN device");
+    lispd_log_msg(LOG_DAEMON, "Installed default route via TUN device");
     close(sockfd);
     return(GOOD);
 }

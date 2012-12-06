@@ -30,9 +30,9 @@
  *
  */
 
+#include "lispd_log.h"
 #include "lispd_external.h"
-#include <syslog.h>
-#include <stdarg.h>
+
 
 void set_up_syslog(void)
 {
@@ -45,8 +45,8 @@ void set_up_syslog(void)
         openlog(LISPD, LOG_CONS | LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_USER);
     }
 
-    syslog(LOG_INFO, "Starting up...");
-
+    lispd_log_msg(LOG_INFO, "Starting up...");
+ 
 }
 
 // For reference purpose
@@ -103,6 +103,11 @@ void lispd_log_msg(int log_level, const char *format, ...)
             case LOG_DEBUG:
                 log_name = "DEBUG";
                 break;
+            case LOG_DAEMON:
+                log_name = "DAEMON";
+                break;
+            default:
+                log_name = "LOG";
         }
 
         printf("%s: ",log_name);

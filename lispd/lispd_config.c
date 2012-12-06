@@ -188,13 +188,13 @@ int handle_lispd_config_file()
     ret = cfg_parse(cfg, config_file);
 
     if (ret == CFG_FILE_ERROR) {
-        syslog(LOG_DAEMON, "Couldn't find config file %s, exiting...", config_file);
+        lispd_log_msg(LOG_DAEMON, "Couldn't find config file %s, exiting...", config_file);
         exit(EXIT_FAILURE);
     } else if(ret == CFG_PARSE_ERROR) {
-        syslog(LOG_DAEMON, "NOTE: Version 0.2.4 changed the format of the 'proxy-etr' element.");
-        syslog(LOG_DAEMON, "      Check the 'lispd.conf.example' file for an example entry in");
-        syslog(LOG_DAEMON, "      the new format.");
-        syslog(LOG_DAEMON, "Parse error in file %s, exiting...", config_file);
+        lispd_log_msg(LOG_DAEMON, "NOTE: Version 0.2.4 changed the format of the 'proxy-etr' element.");
+        lispd_log_msg(LOG_DAEMON, "      Check the 'lispd.conf.example' file for an example entry in");
+        lispd_log_msg(LOG_DAEMON, "      the new format.");
+        lispd_log_msg(LOG_DAEMON, "Parse error in file %s, exiting...", config_file);
         exit(EXIT_FAILURE);
     }
 
@@ -221,7 +221,7 @@ int handle_lispd_config_file()
     if (!add_server(map_resolver, &map_resolvers))
         return(0); 
 #ifdef DEBUG
-    syslog(LOG_DAEMON, "Added %s to map-resolver list", map_resolver);
+    lispd_log_msg(LOG_DAEMON, "Added %s to map-resolver list", map_resolver);
 #endif
 
     /*
@@ -238,12 +238,12 @@ int handle_lispd_config_file()
                                  &proxy_etrs)
             
         ) {
-            syslog(LOG_DAEMON, "Can't add proxy-etr %d (%s)", i, cfg_getstr(petr, "address"));
+            lispd_log_msg(LOG_DAEMON, "Can't add proxy-etr %d (%s)", i, cfg_getstr(petr, "address"));
         }
     }
 
     if (!proxy_etrs){
-        syslog(LOG_DAEMON, "WARNING: No Proxy-ETR defined. Packets to non-LISP destinations will be forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        lispd_log_msg(LOG_DAEMON, "WARNING: No Proxy-ETR defined. Packets to non-LISP destinations will be forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
         sleep(3);
     }
 
@@ -257,7 +257,7 @@ int handle_lispd_config_file()
             if (!add_server(proxy_itr, &proxy_itrs))
                 continue;
 #ifdef DEBUG
-            syslog(LOG_DAEMON, "Added %s to proxy-itr list", proxy_itr);
+            lispd_log_msg(LOG_DAEMON, "Added %s to proxy-itr list", proxy_itr);
 #endif
         }
     }
@@ -279,7 +279,7 @@ int handle_lispd_config_file()
         )
             
         ) {
-            syslog(LOG_DAEMON, "Can't add database-mapping %d (%s->%s)",
+            lispd_log_msg(LOG_DAEMON, "Can't add database-mapping %d (%s->%s)",
                i,
                cfg_getstr(dm, "eid-prefix"),
                cfg_getstr(dm, "interface"));
@@ -301,7 +301,7 @@ int handle_lispd_config_file()
 
             return(0);
 #ifdef DEBUG
-        syslog(LOG_DAEMON, "Added %s to map-server list",
+        lispd_log_msg(LOG_DAEMON, "Added %s to map-server list",
             cfg_getstr(ms, "address"));
 #endif
     }
@@ -320,7 +320,7 @@ int handle_lispd_config_file()
                                         cfg_getint(smc, "weight"))
                 
             ) {
-        syslog(LOG_DAEMON,"Can't add static-map-cache %d (EID:%s -> RLOC:%s)",
+        lispd_log_msg(LOG_DAEMON,"Can't add static-map-cache %d (EID:%s -> RLOC:%s)",
                i,
                cfg_getstr(smc, "eid-prefix"),
                cfg_getstr(smc, "rloc"));
@@ -380,25 +380,25 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
     ctx = uci_alloc_context();
     
     if (ctx == NULL) {
-        syslog(LOG_DAEMON, "Could not create UCI context");
+        lispd_log_msg(LOG_DAEMON, "Could not create UCI context");
         exit(EXIT_FAILURE);
     }
     
     uci_set_confdir(ctx, uci_conf_dir);
     
-    printf("Conf dir: %s\n",ctx->confdir);
+   lispd_log_msg(LOG_DEBUG,"Conf dir: %s\n",ctx->confdir);
     
     uci_load(ctx,uci_conf_file,&pck);
 
     if (pck == NULL) {
-        syslog(LOG_DAEMON, "Could not load conf file: %s",uci_conf_file);
+        lispd_log_msg(LOG_DAEMON, "Could not load conf file: %s",uci_conf_file);
         uci_perror(ctx,"Error while loading packet ");
         uci_free_context(ctx);
         exit(EXIT_FAILURE);
     }
     
     
-    printf("package uci: %s\n",pck->ctx->confdir);
+   lispd_log_msg(LOG_DEBUG,"package uci: %s\n",pck->ctx->confdir);
     
     
     uci_foreach_element(&pck->sections, e) {
@@ -439,7 +439,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 map_request_retries = uci_retries;
             }
 
-            printf("---------- retries2: %d\n",uci_retries);
+           lispd_log_msg(LOG_DEBUG,"---------- retries2: %d\n",uci_retries);
 
             continue;
         }
@@ -452,7 +452,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 //message
                 return(BAD);
             }
-            printf("map-resolver %s\n",uci_address);
+           lispd_log_msg(LOG_DEBUG,"map-resolver %s\n",uci_address);
             continue;
         }
 
@@ -483,7 +483,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 //message
                 return (BAD);
             }
-            printf("map-server %s\n",uci_address);
+           lispd_log_msg(LOG_DEBUG,"map-server %s\n",uci_address);
             continue;
         }
 
@@ -501,7 +501,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 
             }
             
-            printf("proxy-etr %s\n",uci_address);
+           lispd_log_msg(LOG_DEBUG,"proxy-etr %s\n",uci_address);
             continue;
         }
 
@@ -526,7 +526,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 
             }
 
-            printf("database-mapping %s\n",uci_eid_prefix);
+           lispd_log_msg(LOG_DEBUG,"database-mapping %s\n",uci_eid_prefix);
             continue;
         }
 
@@ -547,7 +547,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                
             }
 
-            printf("static-map-cache %s\n",uci_eid_prefix);
+           lispd_log_msg(LOG_DEBUG,"static-map-cache %s\n",uci_eid_prefix);
             continue;
         }
 
@@ -560,7 +560,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 
             }
 
-            printf("proxy-itr %s\n",uci_address);
+           lispd_log_msg(LOG_DEBUG,"proxy-itr %s\n",uci_address);
             continue;
         }
 
@@ -605,30 +605,30 @@ int add_database_mapping(char   *eid,
     uint8_t                     is_new_identifier;
 
     if (iid > MAX_IID || iid < -1) {
-        syslog (LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        lispd_log_msg(LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
         iid = -1;
     }
 
     if (priority_v4 < MAX_PRIORITY || priority_v4 > UNUSED_RLOC_PRIORITY) {
-        syslog (LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+        lispd_log_msg(LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
                 priority_v4, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
         priority_v4 = MIN_PRIORITY;
     }
 
     if (priority_v6 < MAX_PRIORITY || priority_v6 > UNUSED_RLOC_PRIORITY) {
-        syslog (LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+        lispd_log_msg(LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
                 priority_v6, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
         priority_v6 = MIN_PRIORITY;
     }
 
     if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
-        syslog (LOG_ERR, "Configuration file: Error parsing EID address ... Ignoring identifier");
+        lispd_log_msg(LOG_ERR, "Configuration file: Error parsing EID address ... Ignoring identifier");
         return BAD;
     }
 
 
     if (if_nametoindex(iface_name) == 0) {
-        syslog(LOG_ERR, "Configuration file: Invalid interface: %s ... Ignoring identifier", iface_name);
+        lispd_log_msg(LOG_ERR, "Configuration file: Invalid interface: %s ... Ignoring identifier", iface_name);
         return (ERR_CTR_IFACE);
     }
 
@@ -640,13 +640,13 @@ int add_database_mapping(char   *eid,
     {
         identifier = new_identifier(eid_prefix,eid_prefix_length,iid);
         if (identifier == NULL){
-            syslog (LOG_ERR,"Configuration file: Identifier %s could not be added",eid);
+            lispd_log_msg(LOG_ERR,"Configuration file: Identifier %s could not be added",eid);
             return BAD;
         }
         is_new_identifier = TRUE;
     }else{
         if (identifier->iid != iid){
-            syslog (LOG_ERR,"Same identifier with different iid. This configuration is not supported..."
+            lispd_log_msg(LOG_ERR,"Same identifier with different iid. This configuration is not supported..."
                     "Ignoring identifier.");
             return BAD;
         }
@@ -688,7 +688,7 @@ int add_database_mapping(char   *eid,
 /*    if (!setup_lisp_eid_iface(LISP_MN_EID_IFACE_NAME,
                 &(identifier->eid_prefix),
                 identifier->eid_prefix_length)) {
-        syslog(LOG_ERR, "setup_lisp_eid_iface (%s) failed\b", iface_name);
+        lispd_log_msg(LOG_ERR, "setup_lisp_eid_iface (%s) failed\b", iface_name);
         return (BAD);
     } 
 */
@@ -708,7 +708,7 @@ int add_database_mapping(char   *eid,
 //       if (ctrl_iface->AF4_locators->head){
 //		  if (ctrl_iface->AF4_locators->head->db_entry) {
 //				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
-//				syslog(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
+//				lispd_log_msg(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
 //		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
 //			}
 //		}
@@ -753,7 +753,7 @@ int add_static_map_cache_entry(char   *eid,
 
 
     if (iid > MAX_IID) {
-        syslog (LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        lispd_log_msg(LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
         iid = 0;
     }
 
@@ -761,13 +761,13 @@ int add_static_map_cache_entry(char   *eid,
     	iid = 0;
 
     if (priority < MAX_PRIORITY || priority > UNUSED_RLOC_PRIORITY) {
-        syslog (LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+        lispd_log_msg(LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
                 priority, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
         priority = MIN_PRIORITY;
     }
 
     if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
-        syslog (LOG_ERR, "Configuration file: Error parsing RLOC address ...Ignoring static map cache entry");
+        lispd_log_msg(LOG_ERR, "Configuration file: Error parsing RLOC address ...Ignoring static map cache entry");
         return BAD;
     }
 
@@ -776,16 +776,16 @@ int add_static_map_cache_entry(char   *eid,
         return (BAD);
 
     if((rloc_addr = malloc(sizeof(lisp_addr_t))) == NULL){
-        syslog(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate lisp_addr_t for rloc address");
+        lispd_log_msg(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate lisp_addr_t for rloc address");
         return (ERR_MALLOC);
     }
     if((state = malloc(sizeof(uint8_t))) == NULL){
-        syslog(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate uint8_t for status");
+        lispd_log_msg(LOG_ERR,"add_static_map_cache_entry: Couldn't allocate uint8_t for status");
         return (ERR_MALLOC);
     }
 
     if (get_lisp_addr_from_char(rloc,rloc_addr) == BAD){
-        syslog (LOG_ERR, "Configuration file: Error parsing RLOC address ... Ignoring static map cache entry");
+        lispd_log_msg(LOG_ERR, "Configuration file: Error parsing RLOC address ... Ignoring static map cache entry");
         return BAD;
     }
 
@@ -819,7 +819,7 @@ int add_server(char *server, lispd_addr_list_t  **list)
     lispd_addr_list_t   *list_elt;
  
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
         return(BAD);
     }
     memset(addr,0,sizeof(lisp_addr_t));
@@ -828,13 +828,13 @@ int add_server(char *server, lispd_addr_list_t  **list)
     addr->afi = afi;
 
     if (inet_pton(afi, server, &(addr->address)) != 1) {
-        syslog(LOG_DAEMON, "inet_pton: %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "inet_pton: %s", strerror(errno));
         free(addr);
         return(BAD);
     }
 
     if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lispd_addr_list_t)): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "malloc(sizeof(lispd_addr_list_t)): %s", strerror(errno));
         free(addr);
         return(BAD);
     }
@@ -872,7 +872,7 @@ int add_map_server(char         *map_server,
     struct hostent          *hptr;
 
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
         return(0);
     }
 
@@ -884,7 +884,7 @@ int add_map_server(char         *map_server,
 
     if (((hptr = gethostbyname2(map_server,AF_INET))  == NULL) &&
     ((hptr = gethostbyname2(map_server,AF_INET6)) == NULL)) {
-        syslog(LOG_DAEMON, "can gethostbyname2 for map_server (%s)", map_server);
+        lispd_log_msg(LOG_DAEMON, "can gethostbyname2 for map_server (%s)", map_server);
         free(addr);
         return(0);
     }
@@ -895,7 +895,7 @@ int add_map_server(char         *map_server,
 
     if ((list_elt = malloc(sizeof(lispd_map_server_list_t))) == NULL) {
         sprintf(msg,"malloc(sizeof(lispd_map_server_list_t)) failed");
-        syslog(LOG_DAEMON, "%s", msg);
+        lispd_log_msg(LOG_DAEMON, "%s", msg);
         free(addr);
         return(0);
     }
@@ -941,21 +941,21 @@ int add_proxy_etr_entry(char   *addr,
     uint32_t                flags = 0;
 
     if (priority > 255 || priority < 0) {
-        syslog (LOG_DAEMON, "WARNING: Priority %d out of range [0..255]", priority);
+        lispd_log_msg(LOG_DAEMON, "WARNING: Priority %d out of range [0..255]", priority);
         return (0);
     }
 
     if (weight > 100 || weight < 0) {
-        syslog (LOG_DAEMON, "WARNING: Weight %d out of range [0..100]", priority);
+        lispd_log_msg(LOG_DAEMON, "WARNING: Weight %d out of range [0..100]", priority);
         return (0);
     }
 
     if ((address = malloc(sizeof(lisp_addr_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "malloc(sizeof(lisp_addr_t)): %s", strerror(errno));
         return(0);
     }
     if ((petr_unit = malloc(sizeof(lispd_weighted_addr_list_t))) == NULL) {
-        syslog(LOG_DAEMON, "malloc(sizeof(lispd_weighted_addr_list_t)): %s", strerror(errno));
+        lispd_log_msg(LOG_DAEMON, "malloc(sizeof(lispd_weighted_addr_list_t)): %s", strerror(errno));
         free(address);
         return(0);
     }
@@ -983,7 +983,7 @@ int add_proxy_etr_entry(char   *addr,
     }
 
 #ifdef DEBUG
-        syslog(LOG_DAEMON, "Added %s to proxy-etr list", addr);
+        lispd_log_msg(LOG_DAEMON, "Added %s to proxy-etr list", addr);
 #endif
 
     return(1);

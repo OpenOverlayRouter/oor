@@ -76,7 +76,7 @@ int map_register(timer *t, void *arg)
     dbs[1] = get_local_db(AF_INET6);
 
     if (!map_servers) {
-        syslog(LOG_CRIT, "No Map Servers conifgured!");
+        lispd_log_msg(LOG_CRIT, "No Map Servers conifgured!");
         return(BAD);
     }
 
@@ -89,7 +89,7 @@ int map_register(timer *t, void *arg)
             if (identifier_elt) {
                 if ((map_register_pkt =
                         build_map_register_pkt(identifier_elt, &mrp_len)) == NULL) {
-                    syslog(LOG_DAEMON, "Couldn't build map register packet");
+                    lispd_log_msg(LOG_DAEMON, "Couldn't build map register packet");
                     return(BAD);
                 }
 
@@ -114,16 +114,16 @@ int map_register(timer *t, void *arg)
                             mrp_len,
                             (uchar *) map_register_pkt->auth_data,
                             &md_len)) {
-                        syslog(LOG_DAEMON, "HMAC failed for map-register");
+                        lispd_log_msg(LOG_DAEMON, "HMAC failed for map-register");
                         return(BAD);
                     }
 
                     /* Send the map register */
 
                     if (!send_map_register(ms->address,map_register_pkt,mrp_len)) {
-                        syslog(LOG_DEBUG, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                        lispd_log_msg(LOG_DEBUG, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
                     }
-                    syslog(LOG_DEBUG, "Sent map register for %s/%d to maps server %s",
+                    lispd_log_msg(LOG_DEBUG, "Sent map register for %s/%d to maps server %s",
                             get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
                             identifier_elt->eid_prefix_length,
                             get_char_from_lisp_addr_t(*(ms->address)));
@@ -163,7 +163,7 @@ lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifie
               pkt_get_mapping_record_length(identifier);
 
     if ((mrp = malloc(*mrp_len)) == NULL) {
-        syslog(LOG_ERR, "build_map_register_pkt: malloc: %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "build_map_register_pkt: malloc: %s", strerror(errno));
         return(NULL);
     }
     memset(mrp, 0, *mrp_len);
@@ -223,7 +223,7 @@ void start_smr_timeout(void)
     struct itimerspec interval;
 
     if (timerfd_gettime(smr_timer_fd, &interval) == -1)
-            syslog(LOG_INFO, "timerfd_gettime: %s", strerror(errno));
+            lispd_log_msg(LOG_INFO, "timerfd_gettime: %s", strerror(errno));
 
     if (interval.it_value.tv_sec == 0){
     	/*Timer is disarmed. Start it*/
@@ -233,11 +233,11 @@ void start_smr_timeout(void)
     	interval.it_value.tv_sec     = DEFAULT_SMR_TIMEOUT;
     	interval.it_value.tv_nsec    = 0;
 
-    	syslog(LOG_INFO, "Start timer to send an smr in %d seconds",
+    	lispd_log_msg(LOG_INFO, "Start timer to send an smr in %d seconds",
     			DEFAULT_SMR_TIMEOUT);
 
     	if (timerfd_settime(smr_timer_fd, 0, &interval, NULL) == -1)
-    		syslog(LOG_INFO, "timerfd_settime: %s", strerror(errno));
+    		lispd_log_msg(LOG_INFO, "timerfd_settime: %s", strerror(errno));
     }
 }
 
@@ -251,10 +251,10 @@ void stop_smr_timeout(void)
     interval.it_value.tv_sec     = 0;
     interval.it_value.tv_nsec    = 0;
 
-    syslog(LOG_INFO, "Clear timer to send smrs");
+    lispd_log_msg(LOG_INFO, "Clear timer to send smrs");
 
     if (timerfd_settime(smr_timer_fd, 0, &interval, NULL) == -1)
-        syslog(LOG_INFO, "timerfd_settime: %s", strerror(errno));
+        lispd_log_msg(LOG_INFO, "timerfd_settime: %s", strerror(errno));
 }
 
 
@@ -264,7 +264,7 @@ inline void smr_on_timeout(void)
     uint64_t num_exp;
 
     if((s = read(smr_timer_fd, &num_exp, sizeof(num_exp))) != sizeof(num_exp))
-        syslog(LOG_INFO, "read error (smr_on_timeout): %s", strerror(errno));
+        lispd_log_msg(LOG_INFO, "read error (smr_on_timeout): %s", strerror(errno));
     /*
      * Trigger SMR to PITRs and the MN's peers
      */

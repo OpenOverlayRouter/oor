@@ -87,7 +87,7 @@ int get_locator_length(lispd_locators_list *locators_list)
             break;
         default:
             /* It should never happen*/
-            syslog(LOG_ERR, "get_locator_length: Uknown AFI (%d) - It should never happen",
+            lispd_log_msg(LOG_ERR, "get_locator_length: Uknown AFI (%d) - It should never happen",
                locators_list->locator->locator_addr->afi);
             break;
         }
@@ -124,7 +124,7 @@ int get_up_locator_length(lispd_locators_list *locators_list, int *loc_count)
             break;
         default:
             /* It should never happen*/
-            syslog(LOG_ERR, "get_locator_length: Uknown AFI (%d) - It should never happen",
+            lispd_log_msg(LOG_ERR, "get_locator_length: Uknown AFI (%d) - It should never happen",
                locators_list->locator->locator_addr->afi);
             break;
         }
@@ -197,7 +197,7 @@ void *pkt_fill_eid(void         *offset,
     }
 
     if ((copy_addr(eid_ptr,&(identifier->eid_prefix), 0)) == 0) {
-        syslog(LOG_DAEMON, "pkt_fill_eid: copy_addr failed");
+        lispd_log_msg(LOG_DAEMON, "pkt_fill_eid: copy_addr failed");
         return NULL;
     }
 
@@ -257,7 +257,7 @@ void *pkt_fill_mapping_record(rec, identifier, probed_rloc)
 
                 if ((cpy_len = copy_addr((void *) CO(loc_ptr,
                         sizeof(lispd_pkt_mapping_record_locator_t)), locator->locator_addr, 0)) == 0) {
-                    syslog(LOG_DAEMON, "pkt_fill_mapping_record: copy_addr failed for locator %s",
+                    lispd_log_msg(LOG_DAEMON, "pkt_fill_mapping_record: copy_addr failed for locator %s",
                             get_char_from_lisp_addr_t(*(locator->locator_addr)));
                     return(NULL);
                 }
@@ -338,7 +338,7 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
 
 
     if ((s = open_udp_socket(AF_INET)) < 0) {
-        syslog(LOG_ERR, "socket (send_ctrl_ipv4_packet): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "socket (send_ctrl_ipv4_packet): %s", strerror(errno));
         return(BAD);
     }
 
@@ -348,11 +348,11 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
      */
     if (default_ctrl_iface_v4 == NULL) {
         /* No physical interface available for control messages */
-        syslog(LOG_ERR, "(send_ctrl_ipv4_packet): Unable to find valid physical interface\n");
+        lispd_log_msg(LOG_ERR, "(send_ctrl_ipv4_packet): Unable to find valid physical interface\n");
         return (BAD);
     }
     else if (!(default_ctrl_iface_v4->ipv4_address)){
-        syslog(LOG_ERR, "(send_ctrl_ipv4_packet): Control interface doesn't have an IPv4 address\n");
+        lispd_log_msg(LOG_ERR, "(send_ctrl_ipv4_packet): Control interface doesn't have an IPv4 address\n");
         return (BAD);
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
@@ -363,7 +363,7 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     inet_ntop(AF_INET, &(src.sin_addr), address, INET_ADDRSTRLEN);
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
-        syslog(LOG_ERR, "bind (send_ctrl_ipv4_packet): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "bind (send_ctrl_ipv4_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
@@ -382,13 +382,13 @@ int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
             0,
             (struct sockaddr *)&dst,
             sizeof(struct sockaddr))) < 0) {
-        syslog(LOG_ERR,"sendto (send_ctrl_ipv4_packet): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR,"sendto (send_ctrl_ipv4_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
 
     if (nbytes != packet_len) {
-        syslog(LOG_ERR,
+        lispd_log_msg(LOG_ERR,
                 "send_ctrl_ipv4_packet: nbytes (%d) != packet (%d)\n",
                 nbytes, packet_len);
         close(s);
@@ -409,7 +409,7 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
 
 
     if ((s = open_udp_socket(AF_INET6)) < 0) {
-        syslog(LOG_ERR, "socket (send_ctrl_ipv6_packet): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "socket (send_ctrl_ipv6_packet): %s", strerror(errno));
         return(BAD);
     }
 
@@ -418,11 +418,11 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
      */
     if (!(default_ctrl_iface_v6)) {
         /* No physical interface available for control messages */
-        syslog(LOG_ERR, "(send_ctrl_ipv6_packet): Unable to find valid physical interface\n");
+        lispd_log_msg(LOG_ERR, "(send_ctrl_ipv6_packet): Unable to find valid physical interface\n");
         return (BAD);
     }
     else if (!(default_ctrl_iface_v6->ipv6_address)){
-        syslog(LOG_ERR, "(send_ctrl_ipv6_packet): Control interface doesn't have an IPv4 address\n");
+        lispd_log_msg(LOG_ERR, "(send_ctrl_ipv6_packet): Control interface doesn't have an IPv4 address\n");
         return (BAD);
     }
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
@@ -434,7 +434,7 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
     memcpy(&src.sin6_addr,&(default_ctrl_iface_v6->ipv6_address->address.ipv6),sizeof(struct in6_addr));
 
     if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in6)) < 0) {
-        syslog(LOG_ERR, "bind (send_ctrl_ipv6_packet): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "bind (send_ctrl_ipv6_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
@@ -455,13 +455,13 @@ int send_ctrl_ipv6_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t 
             0,
             (struct sockaddr *)&dst,
             sizeof(struct sockaddr))) < 0) {
-        syslog(LOG_ERR,"sendto (send_ctrl_ipv6_packet): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR,"sendto (send_ctrl_ipv6_packet): %s", strerror(errno));
         close(s);
         return(BAD);
     }
 
     if (nbytes != packet_len) {
-        syslog(LOG_ERR,
+        lispd_log_msg(LOG_ERR,
                 "send_ctrl_ipv6_packet: nbytes (%d) != packet_len (%d)\n",
                 nbytes, packet_len);
         close(s);

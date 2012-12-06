@@ -196,11 +196,11 @@ int main(int argc, char **argv)
 /*
 
     if (!setup_netlink_iface()) {
-        syslog(LOG_DAEMON, "Can't set up netlink socket for interface events");
+        lispd_log_msg(LOG_DAEMON, "Can't set up netlink socket for interface events");
         exit(EXIT_FAILURE);
     }
 */
-    syslog(LOG_DAEMON, "Netlink sockets created");
+    lispd_log_msg(LOG_DAEMON, "Netlink sockets created");
 
     /*
      *  set up databases
@@ -215,7 +215,7 @@ int main(int argc, char **argv)
 
     if (build_timers_event_socket() == 0)
     {
-        syslog(LOG_ERR, " Error programing the timer signal. Exiting...");
+        lispd_log_msg(LOG_ERR, " Error programing the timer signal. Exiting...");
         exit(EXIT_FAILURE);
     }
     init_timers();
@@ -264,7 +264,7 @@ int main(int argc, char **argv)
 //
 // #ifdef LISPMOBMH
 //     if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
-//         syslog(LOG_INFO, "Could not create the SMR timer controller");
+//         lispd_log_msg(LOG_INFO, "Could not create the SMR timer controller");
 //     /*Make sure the timer starts with coherent values*/
 //     stop_smr_timeout();
 // #endif
@@ -275,7 +275,7 @@ int main(int argc, char **argv)
 //      */
 //
 //     if (daemonize) {
-//         syslog(LOG_INFO, "Starting the daemonizing process");
+//         lispd_log_msg(LOG_INFO, "Starting the daemonizing process");
 //         if ((pid = fork()) < 0) {
 //             exit(EXIT_FAILURE);
 //         }
@@ -296,11 +296,11 @@ int main(int argc, char **argv)
 //      */
 //
 //     if (!dump_routing_table(AF_INET, RT_TABLE_MAIN))
-//         syslog(LOG_INFO, "Dumping main routing table failed");
+//         lispd_log_msg(LOG_INFO, "Dumping main routing table failed");
 //
 
 
-    syslog(LOG_INFO, "*************** Creating tun interface... ***************");
+    lispd_log_msg(LOG_INFO, "*************** Creating tun interface... ***************");
 
     //char *device = "eth0";
     char *tun_dev_name = TUN_IFACE_NAME;
@@ -364,13 +364,13 @@ int main(int argc, char **argv)
     //open_device_binded_raw_socket(device,AF_INET6);
 
 
-    syslog(LOG_INFO, "*************** Created tun interface *****************");
+    lispd_log_msg(LOG_INFO, "*************** Created tun interface *****************");
 
     ipv4_control_input_fd = open_control_input_socket(AF_INET);
-    printf("socket control lisp input: %d\n",ipv4_control_input_fd);
+   lispd_log_msg(LOG_DEBUG,"socket control lisp input: %d\n",ipv4_control_input_fd);
 
     ipv4_data_input_fd = open_data_input_socket(AF_INET);
-    printf("socket data lisp input: %d\n",ipv4_data_input_fd);
+   lispd_log_msg(LOG_DEBUG,"socket data lisp input: %d\n",ipv4_data_input_fd);
 
     
     /*
@@ -381,7 +381,7 @@ int main(int argc, char **argv)
 
     event_loop();
 
-    syslog(LOG_INFO, "Exiting...");         /* event_loop returned bad */
+    lispd_log_msg(LOG_INFO, "Exiting...");         /* event_loop returned bad */
     closelog();
     return(0);
 }
@@ -423,15 +423,15 @@ void event_loop()
         }
         
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-            //printf("Recieved packet in the data input buffer (4341)\n");
+            //lispd_log_msg(LOG_DEBUG,"Recieved packet in the data input buffer (4341)\n");
             process_input_packet(ipv4_data_input_fd, tun_receive_fd);
         }
         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-            //printf("Recieved packet in the control input buffer (4342)\n");
+            //lispd_log_msg(LOG_DEBUG,"Recieved packet in the control input buffer (4342)\n");
             process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
         }
         if (FD_ISSET(tun_receive_fd, &readfds)) {
-            //printf("Recieved packet in the tun buffer\n");
+            //lispd_log_msg(LOG_DEBUG,"Recieved packet in the tun buffer\n");
             process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
         }
         if (FD_ISSET(timers_fd,&readfds)){
@@ -507,20 +507,20 @@ void signal_handler(int sig) {
     switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
-        syslog(LOG_WARNING, "Received SIGHUP signal.");
+        lispd_log_msg(LOG_WARNING, "Received SIGHUP signal.");
         break;
     case SIGTERM:
         /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
-        syslog(LOG_WARNING, "Received SIGTERM signal. Cleaning up...");
+        lispd_log_msg(LOG_WARNING, "Received SIGTERM signal. Cleaning up...");
         exit_cleanup();
         break;
     case SIGINT:
         /* SIGINT is sent by pressing Ctrl-C. Exit cleanly */
-        syslog(LOG_WARNING, "Terminal interrupt. Cleaning up...");
+        lispd_log_msg(LOG_WARNING, "Terminal interrupt. Cleaning up...");
         exit_cleanup();
         break;
     default:
-        syslog(LOG_WARNING,"Unhandled signal (%d)", sig);
+        lispd_log_msg(LOG_WARNING,"Unhandled signal (%d)", sig);
         exit(EXIT_FAILURE);
     }
 }
@@ -535,7 +535,7 @@ int process_timer_signal()
     bytes = read(timers_fd, &sig, sizeof(sig));
 
     if (bytes != sizeof(sig)) {
-        syslog(LOG_WARNING, "process_event_signal(): nothing to read");
+        lispd_log_msg(LOG_WARNING, "process_event_signal(): nothing to read");
         return(-1);
     }
 
@@ -555,7 +555,7 @@ int process_timer_signal()
 static void event_sig_handler(int sig)
 {
     if (write(signal_pipe[1], &sig, sizeof(sig)) != sizeof(sig)) {
-        syslog(LOG_ERR, "write signal %d: %s", sig, strerror(errno));
+        lispd_log_msg(LOG_ERR, "write signal %d: %s", sig, strerror(errno));
     }
 }
 
@@ -575,17 +575,17 @@ int build_timers_event_socket()
     struct sigaction sa;
 
     if (pipe(signal_pipe) == -1) {
-        syslog(LOG_ERR, "signal pipe setup failed %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "signal pipe setup failed %s", strerror(errno));
         return 0;
     }
     timers_fd = signal_pipe[0];
 
     if ((flags = fcntl(timers_fd, F_GETFL, 0)) == -1) {
-        syslog(LOG_ERR, "fcntl() F_GETFL failed %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "fcntl() F_GETFL failed %s", strerror(errno));
         return 0;
     }
     if (fcntl(timers_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        syslog(LOG_ERR, "fcntl() set O_NONBLOCK failed %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "fcntl() set O_NONBLOCK failed %s", strerror(errno));
         return 0;
     }
 
@@ -595,7 +595,7 @@ int build_timers_event_socket()
     sigemptyset(&sa.sa_mask);
 
     if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
-        syslog(LOG_ERR, "sigaction() failed %s", strerror(errno));
+        lispd_log_msg(LOG_ERR, "sigaction() failed %s", strerror(errno));
     }
     return(1);
 }

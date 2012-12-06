@@ -197,7 +197,7 @@ int add_encap_headers(
              encap_afi = AF_INET6;
              break;
          default:
-             syslog(LOG_DAEMON, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
+             lispd_log_msg(LOG_DAEMON, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
              return(BAD);
          }
 
@@ -215,13 +215,13 @@ int add_encap_headers(
          if (iph->ip_v == IPVERSION) {
              ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
              if (ipsum != 0) {
-                 syslog(LOG_DAEMON, " Map-Request: IP checksum failed.");
+                 lispd_log_msg(LOG_DAEMON, " Map-Request: IP checksum failed.");
              }
              if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
                  return(BAD);
              }
              if (udpsum != 0) {
-                 syslog(LOG_DAEMON, " Map-Request: UDP checksum failed.");
+                 lispd_log_msg(LOG_DAEMON, " Map-Request: UDP checksum failed.");
                  return(BAD);
              }
          }
@@ -233,7 +233,7 @@ int add_encap_headers(
                  return(BAD);
              }
              if (udpsum != 0) {
-                 syslog(LOG_DAEMON, " Map-Request:v6 UDP checksum failed.");
+                 lispd_log_msg(LOG_DAEMON, " Map-Request:v6 UDP checksum failed.");
                  return(BAD);
              }
          }
@@ -268,7 +268,7 @@ int add_encap_headers(
           * Check IID of the received Solicit Map Request match the IID of the map cache
           */
          if (map_cache_entry->identifier->iid != source_identifier.iid){
-             syslog(LOG_INFO,"The IID of the received Solicit Map Request doesn't match the IID of "
+             lispd_log_msg(LOG_INFO,"The IID of the received Solicit Map Request doesn't match the IID of "
                      "the entry in the map cache");
              return BAD;
          }
@@ -330,7 +330,7 @@ int add_encap_headers(
      init_identifier(&requested_identifier);
      *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
      if ((err=pkt_process_eid_afi(cur_ptr, &requested_identifier))!=GOOD){
-         syslog(LOG_WARNING,"WARNING: Requested EID could not be processed");
+         lispd_log_msg(LOG_WARNING,"WARNING: Requested EID could not be processed");
          return (err);
      }
      requested_identifier.eid_prefix_length = record->eid_prefix_length;
@@ -339,7 +339,7 @@ int add_encap_headers(
      /* XXX aloepz: We don't use prefix mask and use by default 32 or 128*/
      identifier = lookup_eid_in_db(requested_identifier.eid_prefix);
      if (!identifier){
-         syslog(LOG_WARNING,"The requested EID doesn't belong to this node: %s/%d",
+         lispd_log_msg(LOG_WARNING,"The requested EID doesn't belong to this node: %s/%d",
                  get_char_from_lisp_addr_t(requested_identifier.eid_prefix),
                  requested_identifier.eid_prefix_length);
          return (BAD);
@@ -355,16 +355,16 @@ int add_encap_headers(
      err = build_and_send_map_reply_msg(identifier, local_rloc, remote_rloc, dst_port, nonce, opts);
      if (rloc_probe){
          if (err == GOOD){
-             syslog(LOG_INFO, "Sent RLOC-probe reply to %s", get_char_from_lisp_addr_t(*remote_rloc));
+             lispd_log_msg(LOG_INFO, "Sent RLOC-probe reply to %s", get_char_from_lisp_addr_t(*remote_rloc));
          }else {
-             syslog(LOG_ERR, "process_map_request_msg: couldn't build/send RLOC-probe reply");
+             lispd_log_msg(LOG_ERR, "process_map_request_msg: couldn't build/send RLOC-probe reply");
              return(BAD);
          }
      }else {
          if (err == GOOD){
-             syslog(LOG_INFO, "Sent Map reply to %s", get_char_from_lisp_addr_t(*remote_rloc));
+             lispd_log_msg(LOG_INFO, "Sent Map reply to %s", get_char_from_lisp_addr_t(*remote_rloc));
          }else {
-             syslog(LOG_ERR, "process_map_request_msg: couldn't build/send map-reply");
+             lispd_log_msg(LOG_ERR, "process_map_request_msg: couldn't build/send map-reply");
              return(BAD);
          }
      }
@@ -407,7 +407,7 @@ int build_and_send_map_request_msg(
             nonce);
 
     if (!packet) {
-        syslog(LOG_DAEMON, "Could not build map-request packet for %s/%d",
+        lispd_log_msg(LOG_DAEMON, "Could not build map-request packet for %s/%d",
                 get_char_from_lisp_addr_t(*eid_prefix),
                 eid_prefix_length);
         return (BAD);
@@ -460,7 +460,7 @@ uint8_t *build_map_request_pkt(
     /* Lookup the local EID prefix from where we generate the message */
     src_identifier = lookup_eid_in_db(*src_eid);
     if (!src_identifier){
-        syslog(LOG_ERR,"build_map_request_pkt: Source EID address not found in local data base - %s -",
+        lispd_log_msg(LOG_ERR,"build_map_request_pkt: Source EID address not found in local data base - %s -",
                 get_char_from_lisp_addr_t(*src_eid));
         return (NULL);
     }
@@ -474,7 +474,7 @@ uint8_t *build_map_request_pkt(
     *len = map_request_msg_len + encap_overhead_len;
 
     if ((packet = malloc(*len)) == NULL){
-        syslog(LOG_ERR,"build_map_request_pkt: malloc(packet_len): %s", strerror(errno));
+        lispd_log_msg(LOG_ERR,"build_map_request_pkt: malloc(packet_len): %s", strerror(errno));
         return (NULL);
     }
     memset(packet, 0, *len);
@@ -547,7 +547,7 @@ uint8_t *build_map_request_pkt(
     cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),&aux_identifier);
     /* Map-Reply Record */
     if ((pkt_fill_mapping_record(cur_ptr, src_identifier, NULL))== NULL) {
-        syslog(LOG_ERR,"build_map_request_pkt: Couldn't buil map reply record for map request. "
+        lispd_log_msg(LOG_ERR,"build_map_request_pkt: Couldn't buil map reply record for map request. "
                 "Map Request will not be send");
         free(packet);
         return(NULL);
@@ -600,7 +600,7 @@ int add_encap_headers(uint8_t *packet, lisp_addr_t *src_eid, lisp_addr_t *remote
     /* Build the internal IP header */
     iphptr = CO(ecm,sizeof(lispd_pkt_encapsulated_control_t));
     if ((udph = build_ip_header(iphptr, src_eid, remote_eid, ip_len)) == 0) {
-        syslog(LOG_ERR, "Can't build IP header (unknown AFI %d)",src_eid->afi);
+        lispd_log_msg(LOG_ERR, "Can't build IP header (unknown AFI %d)",src_eid->afi);
         return (BAD);
     }
 
@@ -691,7 +691,7 @@ int send_map_request_miss(timer *t, void *arg)
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
-            syslog (LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
+            lispd_log_msg(LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
             return BAD;
         }
         map_cache_entry->nonces = nonces;
@@ -704,7 +704,7 @@ int send_map_request_miss(timer *t, void *arg)
         }
 
         if (nonces->retransmits > 1){
-            syslog (LOG_DEBUG,"Retransmiting Map Request for EID: %s",
+            lispd_log_msg(LOG_DEBUG,"Retransmiting Map Request for EID: %s",
                     get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix));
         }
 
@@ -728,7 +728,7 @@ int send_map_request_miss(timer *t, void *arg)
                 send_map_request_miss, (void *)argument);
 
     }else{
-        syslog (LOG_DEBUG,"No Map Reply fot EID %s/%d after %d retries. Removing map cache entry ...",
+        lispd_log_msg(LOG_DEBUG,"No Map Reply fot EID %s/%d after %d retries. Removing map cache entry ...",
                         get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
                         map_cache_entry->identifier->eid_prefix_length,
                         nonces->retransmits -1);

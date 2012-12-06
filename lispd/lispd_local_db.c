@@ -62,7 +62,7 @@ int db_init(void) {
     EIDv6_database  = New_Patricia(sizeof(struct in6_addr) * 8);
 
     if (!EIDv4_database || !EIDv6_database) {
-        syslog(LOG_CRIT, "malloc (database): %s", strerror(errno));
+        lispd_log_msg(LOG_CRIT, "malloc (database): %s", strerror(errno));
         return(BAD);
     }
     return(GOOD);
@@ -109,14 +109,14 @@ int add_identifier(lispd_identifier_elt *identifier)
     eid_prefix_length = identifier->eid_prefix_length;
 
     if ((node = malloc(sizeof(patricia_node_t))) == NULL) {
-        syslog(LOG_ERR, "caouldn't allocate patrica_node_t");
+        lispd_log_msg(LOG_ERR, "caouldn't allocate patrica_node_t");
         return(BAD);
     }
 
     switch(eid_prefix.afi) {
     case AF_INET:
         if ((prefix = New_Prefix(AF_INET, &(eid_prefix.address.ip), eid_prefix_length)) == NULL) {
-            syslog(LOG_ERR, "couldn't alocate prefix_t for AF_INET");
+            lispd_log_msg(LOG_ERR, "couldn't alocate prefix_t for AF_INET");
             free(node);
             return(BAD);
         }
@@ -124,7 +124,7 @@ int add_identifier(lispd_identifier_elt *identifier)
         break;
     case AF_INET6:
         if ((prefix = New_Prefix(AF_INET6, &(eid_prefix.address.ipv6), eid_prefix_length)) == NULL) {
-            syslog(LOG_ERR, "couldn't alocate prefix_t for AF_INET6");
+            lispd_log_msg(LOG_ERR, "couldn't alocate prefix_t for AF_INET6");
             free(node);
             return(BAD);
         }
@@ -132,7 +132,7 @@ int add_identifier(lispd_identifier_elt *identifier)
         break;
     default:
         free(node);
-        syslog(LOG_ERR, "Unknown afi (%d) when allocating prefix_t", eid_prefix.afi);
+        lispd_log_msg(LOG_ERR, "Unknown afi (%d) when allocating prefix_t", eid_prefix.afi);
         return(ERR_AFI);
     }
     Deref_Prefix(prefix);
@@ -141,7 +141,7 @@ int add_identifier(lispd_identifier_elt *identifier)
         node->data = (lispd_identifier_elt *) identifier;
         return (GOOD);
     }else{
-        syslog(LOG_ERR, "WARNING: Identifier entry (%s/%d) already installed in the data base",
+        lispd_log_msg(LOG_ERR, "WARNING: Identifier entry (%s/%d) already installed in the data base",
                 get_char_from_lisp_addr_t(eid_prefix),eid_prefix_length);
         return (BAD);
     }
@@ -159,7 +159,7 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
     int i;
 
     if ((identifier=malloc(sizeof(lispd_identifier_elt)))==NULL){
-        syslog (LOG_ERR,"Couldn't allocate memory for lispd_identifier_elt");
+        lispd_log_msg(LOG_ERR,"Couldn't allocate memory for lispd_identifier_elt");
         return (NULL);
     }
     identifier->eid_prefix =  eid_prefix;
@@ -207,7 +207,7 @@ int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node)
 
   if (*node==NULL)
   {
-      syslog (LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
+      lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
       return(BAD);
   }
   return(GOOD);
@@ -237,7 +237,7 @@ int lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length, patricia_node_
 
   if (!*node)
   {
-      syslog (LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
+      lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
       return(BAD);
   }
   return(GOOD);
@@ -256,7 +256,7 @@ lispd_identifier_elt *lookup_eid_in_db(lisp_addr_t eid)
     patricia_node_t *result;
 
     if (lookup_eid_node(eid,&result)!=GOOD){
-        syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid));
+        lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid));
         return(NULL);
     }
     identifier = (lispd_identifier_elt *)(result->data);
@@ -275,7 +275,7 @@ lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_pre
     patricia_node_t *result;
     if (lookup_eid_exact_node(eid_prefix,eid_prefix_length, &result)!=GOOD)
     {
-        syslog (LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid_prefix));
+        lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid_prefix));
         return(NULL);
     }
     identifier = (lispd_identifier_elt *)(result->data);
@@ -304,11 +304,11 @@ lispd_locator_elt   *new_locator (
 	int 					cmp;
 
 	if ((locator_list = malloc(sizeof(lispd_locators_list))) == NULL) {
-		syslog(LOG_ERR, "can't allocate lispd_locator_list");
+		lispd_log_msg(LOG_ERR, "can't allocate lispd_locator_list");
 		return(NULL);
 	}
 	if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
-		syslog(LOG_ERR, "can't allocate lispd_locator_elt");
+		lispd_log_msg(LOG_ERR, "can't allocate lispd_locator_elt");
 		free(locator_list);
 		return(NULL);
 	}
@@ -342,7 +342,7 @@ lispd_locator_elt   *new_locator (
 					if (cmp < 0)
 						break;
 					if (cmp == 0){
-						syslog (LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
+						lispd_log_msg(LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
 								get_char_from_lisp_addr_t(*locator_addr),
 								get_char_from_lisp_addr_t(identifier->eid_prefix),
 								identifier->eid_prefix_length);
@@ -383,7 +383,7 @@ lispd_locator_elt   *new_locator (
 					if (cmp < 0)
 						break;
 					if (cmp == 0){
-						syslog (LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
+						lispd_log_msg(LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
 								get_char_from_lisp_addr_t(*locator_addr),
 								get_char_from_lisp_addr_t(identifier->eid_prefix),
 								identifier->eid_prefix_length);
@@ -435,10 +435,10 @@ void del_identifier_entry(lisp_addr_t eid,
     patricia_node_t      *result;
 
     if (!lookup_eid_exact_node(eid, prefixlen, &result)){
-        syslog(LOG_ERR,"   Unable to locate eid entry %s/%d for deletion",get_char_from_lisp_addr_t(eid),prefixlen);
+        lispd_log_msg(LOG_ERR,"   Unable to locate eid entry %s/%d for deletion",get_char_from_lisp_addr_t(eid),prefixlen);
         return;
     } else {
-        syslog(LOG_DEBUG,"   Deleting EID entry %s/%d", get_char_from_lisp_addr_t(eid),prefixlen);
+        lispd_log_msg(LOG_DEBUG,"   Deleting EID entry %s/%d", get_char_from_lisp_addr_t(eid),prefixlen);
     }
 
     /*
@@ -509,16 +509,16 @@ void dump_local_eids()
     lispd_locators_list         *locator_iterator;
     lispd_locator_elt           *locator;
 
-    printf("LISP Local EIDs\n\n");
+   lispd_log_msg(LOG_DEBUG,"LISP Local EIDs\n\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){
         PATRICIA_WALK(dbs[ctr]->head, node) {
             entry = ((lispd_identifier_elt *)(node->data));
-            printf("%s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(entry->eid_prefix),
+           lispd_log_msg(LOG_DEBUG,"%s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(entry->eid_prefix),
                     entry->eid_prefix_length, entry->iid);
 
             if (entry->locator_count > 0){
-                printf("       Locator               State    Priority/Weight\n");
+               lispd_log_msg(LOG_DEBUG,"       Locator               State    Priority/Weight\n");
                 locator_iterator_array[0] = entry->head_v4_locators_list;
                 locator_iterator_array[1] = entry->head_v6_locators_list;
                 // Loop through the locators and print each
@@ -527,16 +527,16 @@ void dump_local_eids()
                     locator_iterator = locator_iterator_array[ctr1];
                     while (locator_iterator != NULL) {
                         locator = locator_iterator->locator;
-                        printf(" %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+                       lispd_log_msg(LOG_DEBUG," %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
                         if (locator->locator_addr->afi == AF_INET)
-                            printf(" %15s ", locator->state ? "Up" : "Down");
+                           lispd_log_msg(LOG_DEBUG," %15s ", locator->state ? "Up" : "Down");
                         else
-                            printf(" %5s ", locator->state ? "Up" : "Down");
-                        printf("         %3d/%-3d \n", locator->priority, locator->weight);
+                           lispd_log_msg(LOG_DEBUG," %5s ", locator->state ? "Up" : "Down");
+                       lispd_log_msg(LOG_DEBUG,"         %3d/%-3d \n", locator->priority, locator->weight);
                         locator_iterator = locator_iterator->next;
                     }
                 }
-                printf("\n");
+               lispd_log_msg(LOG_DEBUG,"\n");
             }
         } PATRICIA_WALK_END;
     }
