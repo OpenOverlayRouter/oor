@@ -1,5 +1,5 @@
 /*
- * lispd_tun.c
+ * lispd_sockets.c
  *
  * This file is part of LISP Mobile Node Implementation.
  *

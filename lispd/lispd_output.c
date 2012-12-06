@@ -1,3 +1,34 @@
+/*
+ * lispd_output.c
+ *
+ * This file is part of LISP Mobile Node Implementation.
+ *
+ * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Written or modified by:
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ */
+
+
+
+
 #include "lispd_map_request.h"
 #include "lispd_output.h"
 
@@ -484,10 +515,9 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     }
 
 
-    //arnatal XXX TODO TODO check if this works
     map_cache_query_result = lookup_eid_cache(original_dst_addr,&entry);
     
-    //arnatal TODO TODO: check if this is the correct error type
+    //arnatal XXX: is this the correct error type?
     if (map_cache_query_result == ERR_DB){ /* There is no entry in the map cache */
         lispd_log_msg(LOG_INFO, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(original_dst_addr));
         handle_map_cache_miss(&original_dst_addr, &original_src_addr);

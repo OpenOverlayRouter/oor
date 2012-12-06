@@ -28,6 +28,7 @@
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Albert Cabellos   <acabello@ac.upc.edu>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
 
@@ -187,7 +188,8 @@ int main(int argc, char **argv)
      *  set up syslog now, checking to see if we're daemonizing...
      */
 
-    set_up_syslog();
+    //No longer used with the new log system
+    //set_up_syslog();
 
 
     /*
@@ -200,7 +202,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 */
-    lispd_log_msg(LOG_DAEMON, "Netlink sockets created");
+    //lispd_log_msg(LOG_DAEMON, "Netlink sockets created");
 
     /*
      *  set up databases
