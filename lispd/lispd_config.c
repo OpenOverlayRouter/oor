@@ -42,7 +42,7 @@
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
 
-#define OPENWRT
+
 
 #ifdef OPENWRT
 #include <uci.h>

@@ -242,11 +242,8 @@ int add_route_v4(uint32_t ifindex,
     struct rtattr  *rta;
     int    rta_len = 0;
     char   sndbuf[4096];
-    //char   addr_buf[128];
-    //char   addr_buf2[128];
     int    retval;
     int    sockfd;
-    //int    oif_index;
     
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
     
@@ -277,11 +274,13 @@ int add_route_v4(uint32_t ifindex,
     /*
      * Add src address for the route
      */
-//    rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
-//    rta->rta_type = RTA_SRC;
-//    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-//    memcpy(((char *)rta) + sizeof(struct rtattr), &src->address.ip, sizeof(struct in_addr));
-//    rta_len += rta->rta_len;
+    if (src != NULL){
+        rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
+        rta->rta_type = RTA_PREFSRC;
+        rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
+        memcpy(((char *)rta) + sizeof(struct rtattr), &src->address.ip, sizeof(struct in_addr));
+        rta_len += rta->rta_len;
+    }
     
     /*
      * Add the outgoing interface
@@ -295,13 +294,15 @@ int add_route_v4(uint32_t ifindex,
     /*
      * Add the gateway
      */
-    
-    rta = (struct rtattr *) (((char *)rta) + rta->rta_len);
-    rta->rta_type = RTA_GATEWAY;
-    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-    memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address.ip, sizeof(struct in_addr));
-    //inet_pton(AF_INET, "192.168.2.1", ((char *)rta) + sizeof(struct rtattr));
-    rta_len += rta->rta_len;
+
+    if (gw != NULL){
+        rta = (struct rtattr *) (((char *)rta) + rta->rta_len);
+        rta->rta_type = RTA_GATEWAY;
+        rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
+        memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address.ip, sizeof(struct in_addr));
+        //inet_pton(AF_INET, "192.168.2.1", ((char *)rta) + sizeof(struct rtattr));
+        rta_len += rta->rta_len;
+    }
 
     
     /* Add the route metric */

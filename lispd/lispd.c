@@ -330,16 +330,16 @@ int main(int argc, char **argv)
 
     prefix_len = 1;
     metric = 3;
-    get_lisp_addr_from_char("0.0.0.0",&gw);
-    get_lisp_addr_from_char("0.0.0.0",&src);
+    //get_lisp_addr_from_char("0.0.0.0",&gw);
+    //get_lisp_addr_from_char("0.0.0.0",&src);
 
     
     get_lisp_addr_from_char("0.0.0.0",&dest);
     
     add_route_v4(tun_ifindex,
                  &dest,
-                 &src,
-                 &gw,
+                 NULL,
+                 NULL,
                  prefix_len,
                  metric);
 
@@ -348,8 +348,8 @@ int main(int argc, char **argv)
     
     add_route_v4(tun_ifindex,
                  &dest,
-                 &src,
-                 &gw,
+                 NULL,
+                 NULL,
                  prefix_len,
                  metric);
     
