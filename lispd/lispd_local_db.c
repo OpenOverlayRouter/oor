@@ -165,6 +165,7 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
     identifier->eid_prefix =  eid_prefix;
     identifier->eid_prefix_length = eid_prefix_length;
     identifier->iid = iid;
+    identifier->locator_count = 0;
     identifier->head_v4_locators_list = NULL;
     identifier->head_v6_locators_list = NULL;
     for (i = 0 ; i < 20 ; i++)

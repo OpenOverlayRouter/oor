@@ -316,8 +316,14 @@ int main(int argc, char **argv)
                 &tun_ifindex,
                 &tun_receive_buf);
 
-    //tun_addr = get_main_eid(AF_INET);
+
+    /* Assign address to the tun0 interface */
+
+#ifdef OPENWRT
     get_lisp_addr_from_char("127.0.0.127",&tun_addr);
+#else
+    tun_addr = get_main_eid(AF_INET);
+#endif
 
     tun_bring_up_iface_v4_eid(tun_addr,tun_dev_name);
 
