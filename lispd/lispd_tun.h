@@ -53,8 +53,6 @@ int tun_receive_fd;
 int tun_ifindex;
 char *tun_receive_buf;
 
-int data_out_socket;
-
 
 
 int create_tun(char *tun_dev_name,

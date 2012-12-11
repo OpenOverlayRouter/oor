@@ -649,63 +649,6 @@ typedef struct lispd_pkt_map_notify_t_ {
 
 
 
-/*
- *  new lisp database layout
- *
- *
- *  lispd_database {AF4_database,AF6_database}
- *    |
- *    | try_search_exact(AFn_database, AF_n, prefix/len);
- *    |
- *    v  
- * patricia_node_t   patricia_node_t ...   patricia_node_t
- *    |                  |                        |
- *    |  data            | data                   | data  data contains a 
- *    |                  |                        |       locator_chain_t
- *    |                  v                        v       per afi eid/n 
- *    v             tail                            
- * locator_chain_t--------------------------------------+   
- *    |                                                 |
- *    | head                                            |
- *    |                                                 |
- *    v                 next                      next  v
- *  locator_chain_elt_t ----> locator_chain_elt_t ----> .... 
- *    | |                     |                         |
- *    | | locator             |                         |
- *    | |                     |                         |
- *    | +--> locator_t        |                         |
- *    |                       |                         |
- *    | db_entry              | db_entry                | db_entry
- *    |                       |                         |
- *    v                       v                         v
- *  db_entry_t           db_entry_t                db_entry_t
- *
- *
- *
- */
-
-typedef struct lispd_locator_chain_elt_t_ {
-    lispd_db_entry_t                    *db_entry;
-    char                                *locator_name;
-    struct lispd_locator_chain_elt_t_   *next;
-} lispd_locator_chain_elt_t;
-
-
-typedef struct {                        /* chain per eid-prefix/len/afi */
-    int         mrp_len;                /* map register packet length */
-    uint32_t    timer;                  /* send map_register w timer expires */
-    ushort      locator_count;          /* number of mappings, 1 locator/per */
-    lisp_addr_t eid_prefix;             /* eid_prefix for this chain */
-    uint8_t     eid_prefix_length;      /* eid_prefix_length for this chain */
-    lispd_iid_t iid;                    /* instance ID for the EID prefix */
-    char        *eid_name;              /* eid in string format */
-    uint8_t     has_dynamic_locators:1; /* append dynamic/fqdn to front */
-    uint8_t     has_fqdn_locators:1;
-    uint8_t     reserved:6; 
-    lispd_locator_chain_elt_t *head;    /* first entry in chain */
-    lispd_locator_chain_elt_t *tail;    /* last entry in chain */
-} lispd_locator_chain_t;
-
 
 
 /*

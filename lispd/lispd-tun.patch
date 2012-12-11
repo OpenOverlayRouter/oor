@@ -1,0 +1,10 @@
+19,20c19
+< CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID
+< #CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID -DOPENWRT
+---
+> CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID -DOPENWRT
+22,23c21
+< LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
+< #LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
+---
+> LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci

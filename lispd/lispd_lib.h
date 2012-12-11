@@ -113,17 +113,6 @@ void dump_map_server(lispd_map_server_list_t *ms);
 void dump_map_servers(void);
 
 
-void dump_tree(int afi, patricia_tree_t *tree);
-
-/*
- *  connect up the locator_chain and locator_chain_elt sorted by RLOC
- */
-int add_locator_chain_elt(
-    lispd_locator_chain_t       *locator_chain,
-    lispd_locator_chain_elt_t   *locator_chain_elt);
-
-void debug_installed_database_entry(lispd_db_entry_t *db_entry, lispd_locator_chain_t *locator_chain);
-
 /*
  *      Map from Internet AFI -> LISP_AFI
  *
@@ -193,49 +182,6 @@ int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2);
  */
 
 int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask);
-
-
-/*
- *      API functions of datacache entries (updated acabello)
- */
-
-/*
- * Build new datacache entry and insert timer into ordered list of timers
- */
-int build_datacache_entry(
-        lisp_addr_t  *dest,
-        lisp_addr_t  *eid_prefix,
-        uint8_t      eid_prefix_length,
-        uint64_t     nonce,
-        uint8_t      islocal,
-        uint8_t      probe,
-        uint8_t      smr_invoked,
-        uint8_t      retries,
-        uint16_t     timeout,
-        uint8_t      encap);
-
-/*
- * Timeout expired entries and trigger appropriate actions
- */
-void expire_datacache();
-
-/*
- *  Deletes a datacache entry
- */
-void delete_datacache_entry(datacache_elt_t *elt);
-
-/*
- * Check if address is included into another address
- */
-int is_eid_included(
-    datacache_elt_t* elt,
-    int eid_prefix_mask_length,
-    lisp_addr_t *eid);
-
-/*
- * Search a datacache entry based on EID prefix and returns it in res_elt
- */
-int search_datacache_entry_eid(lisp_addr_t* eid_prefix, datacache_elt_t **res_elt);
 
 
 /*

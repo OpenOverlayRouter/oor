@@ -64,7 +64,6 @@
 #include "cksum.h"
 #include "lispd_afi.h"
 #include "lispd_external.h"
-#include "lispd_ipc.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"

@@ -7,6 +7,7 @@
  * Author: Chris White
  * Copyright 2012 Cisco Systems, Inc.
  */
+#include <fcntl.h>
 #include <signal.h>
 #include <sys/time.h>
 
@@ -24,6 +25,11 @@ struct {
     int      running_timers;
     int      expirations;
 } timer_wheel;
+
+void     handle_timers(void);
+
+static int signal_pipe[2]; // We don't have signalfd in bionic, fake it.
+
 
 /*
  * create_timer_wheel()
@@ -257,4 +263,79 @@ void handle_timers(void)
         }
         tptr = (timer *)next;
     }
+}
+
+
+
+int process_timer_signal(int timers_fd)
+{
+    int sig;
+    int  bytes;
+
+    bytes = read(timers_fd, &sig, sizeof(sig));
+
+    if (bytes != sizeof(sig)) {
+        lispd_log_msg(LOG_WARNING, "process_event_signal(): nothing to read");
+        return(-1);
+    }
+
+    if (sig == SIGRTMIN) {
+        handle_timers();
+    }
+    return(0);
+}
+
+
+
+/*
+ * event_sig_handler
+ *
+ * Forward signal to the fd for handling in the event loop
+ */
+static void event_sig_handler(int sig)
+{
+    if (write(signal_pipe[1], &sig, sizeof(sig)) != sizeof(sig)) {
+        lispd_log_msg(LOG_ERR, "write signal %d: %s", sig, strerror(errno));
+    }
+}
+
+
+/*
+ * build_timer_event_socket
+ *
+ * Set up the event handler socket. This is
+ * used to serialize events like timer expirations that
+ * we would rather deal with synchronously. This avoids
+ * having to deal with all sorts of locking and multithreading
+ * nonsense.
+ */
+int build_timers_event_socket(int *timers_fd)
+{
+    int flags;
+    struct sigaction sa;
+
+    if (pipe(signal_pipe) == -1) {
+        lispd_log_msg(LOG_ERR, "signal pipe setup failed %s", strerror(errno));
+        return (BAD);
+    }
+    *timers_fd = signal_pipe[0];
+
+    if ((flags = fcntl(*timers_fd, F_GETFL, 0)) == -1) {
+        lispd_log_msg(LOG_ERR, "fcntl() F_GETFL failed %s", strerror(errno));
+        return (BAD);
+    }
+    if (fcntl(*timers_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        lispd_log_msg(LOG_ERR, "fcntl() set O_NONBLOCK failed %s", strerror(errno));
+        return (BAD);
+    }
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = event_sig_handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+
+    if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
+        lispd_log_msg(LOG_ERR, "sigaction() failed %s", strerror(errno));
+    }
+    return(GOOD);
 }

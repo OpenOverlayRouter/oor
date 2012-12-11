@@ -31,7 +31,7 @@ extern "C" {
 
 #ifndef CMDLINE_PARSER_VERSION
 /** @brief the program version */
-#define CMDLINE_PARSER_VERSION "0.1.0"
+#define CMDLINE_PARSER_VERSION "0.3.0"
 #endif
 
 /** @brief Where the command line options are stored */
@@ -40,36 +40,16 @@ struct gengetopt_args_info
   const char *help_help; /**< @brief Print help and exit help description.  */
   const char *version_help; /**< @brief Print version and exit help description.  */
   const char *debug_help; /**< @brief Debuging output help description.  */
-  const char *nodaemonize_help; /**< @brief Don't daemonize help description.  */
+  const char *daemonize_help; /**< @brief Daemonize lispd help description.  */
   char * config_file_arg;	/**< @brief Alternate config file.  */
   char * config_file_orig;	/**< @brief Alternate config file original value given at command line.  */
   const char *config_file_help; /**< @brief Alternate config file help description.  */
-  char * map_resolver_arg;	/**< @brief MR is the IPv{4,6} address or FQDN of the Map Resolver to use.  */
-  char * map_resolver_orig;	/**< @brief MR is the IPv{4,6} address or FQDN of the Map Resolver to use original value given at command line.  */
-  const char *map_resolver_help; /**< @brief MR is the IPv{4,6} address or FQDN of the Map Resolver to use help description.  */
-  char * map_server_arg;	/**< @brief MS is the IPv{4,6} address or FQDN of the Map Server to use.  */
-  char * map_server_orig;	/**< @brief MS is the IPv{4,6} address or FQDN of the Map Server to use original value given at command line.  */
-  const char *map_server_help; /**< @brief MS is the IPv{4,6} address or FQDN of the Map Server to use help description.  */
-  char * proxy_etr_arg;	/**< @brief PETR is the IPv{4,6} address or FQDN of the Proxy-ETR to use.  */
-  char * proxy_etr_orig;	/**< @brief PETR is the IPv{4,6} address or FQDN of the Proxy-ETR to use original value given at command line.  */
-  const char *proxy_etr_help; /**< @brief PETR is the IPv{4,6} address or FQDN of the Proxy-ETR to use help description.  */
-  char * control_port_arg;	/**< @brief CP is the LISP control port (default: 4342).  */
-  char * control_port_orig;	/**< @brief CP is the LISP control port (default: 4342) original value given at command line.  */
-  const char *control_port_help; /**< @brief CP is the LISP control port (default: 4342) help description.  */
-  int map_request_retries_arg;	/**< @brief R is number of map-requests to send.  */
-  char * map_request_retries_orig;	/**< @brief R is number of map-requests to send original value given at command line.  */
-  const char *map_request_retries_help; /**< @brief R is number of map-requests to send help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
   unsigned int debug_given ;	/**< @brief Whether debug was given.  */
-  unsigned int nodaemonize_given ;	/**< @brief Whether nodaemonize was given.  */
+  unsigned int daemonize_given ;	/**< @brief Whether daemonize was given.  */
   unsigned int config_file_given ;	/**< @brief Whether config-file was given.  */
-  unsigned int map_resolver_given ;	/**< @brief Whether map-resolver was given.  */
-  unsigned int map_server_given ;	/**< @brief Whether map-server was given.  */
-  unsigned int proxy_etr_given ;	/**< @brief Whether proxy-etr was given.  */
-  unsigned int control_port_given ;	/**< @brief Whether control_port was given.  */
-  unsigned int map_request_retries_given ;	/**< @brief Whether map-request-retries was given.  */
 
   int lispdconfig_mode_counter; /**< @brief Counter for mode lispdconfig */
 } ;

@@ -42,6 +42,18 @@ timer   *create_timer(char *);
 void     start_timer(timer *, int, timer_callback,
                    void *);
 void     stop_timer(timer *);
-void     handle_timers(void);
+
+int process_timer_signal();
+
+/*
+ * build_timer_event_socket
+ *
+ * Set up the event handler socket. This is
+ * used to serialize events like timer expirations that
+ * we would rather deal with synchronously. This avoids
+ * having to deal with all sorts of locking and multithreading
+ * nonsense.
+ */
+int build_timers_event_socket(int *timers_fd);
 
 #endif /*LISPD_TIMERS_H_*/

@@ -36,19 +36,13 @@ const char *gengetopt_args_info_help[] = {
   "  -V, --version                 Print version and exit",
   "\n Mode: lispdconfig",
   "  -d, --debug                   Debuging output",
-  "  -n, --nodaemonize             Don't daemonize",
+  "  -D, --daemonize               Daemonize lispd",
   "  -f, --config-file=config-file Alternate config file",
-  "  -m, --map-resolver=MR         MR is the IPv{4,6} address or FQDN of the Map \n                                  Resolver to use",
-  "  -s, --map-server=MS           MS is the IPv{4,6} address or FQDN of the Map \n                                  Server to use",
-  "  -e, --proxy-etr=PETR          PETR is the IPv{4,6} address or FQDN of the \n                                  Proxy-ETR to use",
-  "  -p, --control_port=CP         CP is the LISP control port (default: 4342)",
-  "  -r, --map-request-retries=R   R is number of map-requests to send",
     0
 };
 
 typedef enum {ARG_NO
   , ARG_STRING
-  , ARG_INT
 } cmdline_parser_arg_type;
 
 static
@@ -70,13 +64,8 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->help_given = 0 ;
   args_info->version_given = 0 ;
   args_info->debug_given = 0 ;
-  args_info->nodaemonize_given = 0 ;
+  args_info->daemonize_given = 0 ;
   args_info->config_file_given = 0 ;
-  args_info->map_resolver_given = 0 ;
-  args_info->map_server_given = 0 ;
-  args_info->proxy_etr_given = 0 ;
-  args_info->control_port_given = 0 ;
-  args_info->map_request_retries_given = 0 ;
   args_info->lispdconfig_mode_counter = 0 ;
 }
 
@@ -86,15 +75,6 @@ void clear_args (struct gengetopt_args_info *args_info)
   FIX_UNUSED (args_info);
   args_info->config_file_arg = NULL;
   args_info->config_file_orig = NULL;
-  args_info->map_resolver_arg = NULL;
-  args_info->map_resolver_orig = NULL;
-  args_info->map_server_arg = NULL;
-  args_info->map_server_orig = NULL;
-  args_info->proxy_etr_arg = NULL;
-  args_info->proxy_etr_orig = NULL;
-  args_info->control_port_arg = NULL;
-  args_info->control_port_orig = NULL;
-  args_info->map_request_retries_orig = NULL;
   
 }
 
@@ -106,13 +86,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->help_help = gengetopt_args_info_help[0] ;
   args_info->version_help = gengetopt_args_info_help[1] ;
   args_info->debug_help = gengetopt_args_info_help[3] ;
-  args_info->nodaemonize_help = gengetopt_args_info_help[4] ;
+  args_info->daemonize_help = gengetopt_args_info_help[4] ;
   args_info->config_file_help = gengetopt_args_info_help[5] ;
-  args_info->map_resolver_help = gengetopt_args_info_help[6] ;
-  args_info->map_server_help = gengetopt_args_info_help[7] ;
-  args_info->proxy_etr_help = gengetopt_args_info_help[8] ;
-  args_info->control_port_help = gengetopt_args_info_help[9] ;
-  args_info->map_request_retries_help = gengetopt_args_info_help[10] ;
   
 }
 
@@ -195,15 +170,6 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
 
   free_string_field (&(args_info->config_file_arg));
   free_string_field (&(args_info->config_file_orig));
-  free_string_field (&(args_info->map_resolver_arg));
-  free_string_field (&(args_info->map_resolver_orig));
-  free_string_field (&(args_info->map_server_arg));
-  free_string_field (&(args_info->map_server_orig));
-  free_string_field (&(args_info->proxy_etr_arg));
-  free_string_field (&(args_info->proxy_etr_orig));
-  free_string_field (&(args_info->control_port_arg));
-  free_string_field (&(args_info->control_port_orig));
-  free_string_field (&(args_info->map_request_retries_orig));
   
   
 
@@ -240,20 +206,10 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "version", 0, 0 );
   if (args_info->debug_given)
     write_into_file(outfile, "debug", 0, 0 );
-  if (args_info->nodaemonize_given)
-    write_into_file(outfile, "nodaemonize", 0, 0 );
+  if (args_info->daemonize_given)
+    write_into_file(outfile, "daemonize", 0, 0 );
   if (args_info->config_file_given)
     write_into_file(outfile, "config-file", args_info->config_file_orig, 0);
-  if (args_info->map_resolver_given)
-    write_into_file(outfile, "map-resolver", args_info->map_resolver_orig, 0);
-  if (args_info->map_server_given)
-    write_into_file(outfile, "map-server", args_info->map_server_orig, 0);
-  if (args_info->proxy_etr_given)
-    write_into_file(outfile, "proxy-etr", args_info->proxy_etr_orig, 0);
-  if (args_info->control_port_given)
-    write_into_file(outfile, "control_port", args_info->control_port_orig, 0);
-  if (args_info->map_request_retries_given)
-    write_into_file(outfile, "map-request-retries", args_info->map_request_retries_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -386,13 +342,11 @@ int update_arg(void *field, char **orig_field,
                const char *long_opt, char short_opt,
                const char *additional_error)
 {
-  char *stop_char = 0;
   const char *val = value;
   int found;
   char **string_field;
   FIX_UNUSED (field);
 
-  stop_char = 0;
   found = 0;
 
   if (!multiple_option && prev_given && (*prev_given || (check_ambiguity && *field_given)))
@@ -420,9 +374,6 @@ int update_arg(void *field, char **orig_field,
     val = possible_values[found];
 
   switch(arg_type) {
-  case ARG_INT:
-    if (val) *((int *)field) = strtol (val, &stop_char, 0);
-    break;
   case ARG_STRING:
     if (val) {
       string_field = (char **)field;
@@ -435,17 +386,6 @@ int update_arg(void *field, char **orig_field,
     break;
   };
 
-  /* check numeric conversion */
-  switch(arg_type) {
-  case ARG_INT:
-    if (val && !(stop_char && *stop_char == '\0')) {
-      fprintf(stderr, "%s: invalid numeric value: %s\n", package_name, val);
-      return 1; /* failure */
-    }
-    break;
-  default:
-    ;
-  };
 
   /* store the original value */
   switch(arg_type) {
@@ -466,29 +406,29 @@ int update_arg(void *field, char **orig_field,
   return 0; /* OK */
 }
 
-// Warning: defined but not used
-// static int check_modes(
-//   int given1[], const char *options1[],
-//                        int given2[], const char *options2[])
-// {
-//   int i = 0, j = 0, errors = 0;
-//   
-//   while (given1[i] >= 0) {
-//     if (given1[i]) {
-//       while (given2[j] >= 0) {
-//         if (given2[j]) {
-//           ++errors;
-//           fprintf(stderr, "%s: option %s conflicts with option %s\n",
-//                   package_name, options1[i], options2[j]);
-//         }
-//         ++j;
-//       }
-//     }
-//     ++i;
-//   }
-//   
-//   return errors;
-// }
+
+//static int check_modes(
+//  int given1[], const char *options1[],
+//                       int given2[], const char *options2[])
+//{
+//  int i = 0, j = 0, errors = 0;
+//
+//  while (given1[i] >= 0) {
+//    if (given1[i]) {
+//      while (given2[j] >= 0) {
+//        if (given2[j]) {
+//          ++errors;
+//          fprintf(stderr, "%s: option %s conflicts with option %s\n",
+//                  package_name, options1[i], options2[j]);
+//        }
+//        ++j;
+//      }
+//    }
+//    ++i;
+//  }
+//
+//  return errors;
+//}
 
 int
 cmdline_parser_internal (
@@ -502,14 +442,12 @@ cmdline_parser_internal (
   
   int override;
   int initialize;
-  //int check_required;
   int check_ambiguity;
   
   package_name = argv[0];
   
   override = params->override;
   initialize = params->initialize;
-  //check_required = params->check_required;
   check_ambiguity = params->check_ambiguity;
 
   if (initialize)
@@ -530,17 +468,12 @@ cmdline_parser_internal (
         { "help",	0, NULL, 'h' },
         { "version",	0, NULL, 'V' },
         { "debug",	0, NULL, 'd' },
-        { "nodaemonize",	0, NULL, 'n' },
+        { "daemonize",	0, NULL, 'D' },
         { "config-file",	1, NULL, 'f' },
-        { "map-resolver",	1, NULL, 'm' },
-        { "map-server",	1, NULL, 's' },
-        { "proxy-etr",	1, NULL, 'e' },
-        { "control_port",	1, NULL, 'p' },
-        { "map-request-retries",	1, NULL, 'r' },
         { 0,  0, 0, 0 }
       };
 
-      c = getopt_long (argc, argv, "hVdnf:m:s:e:p:r:", long_options, &option_index);
+      c = getopt_long (argc, argv, "hVdDf:", long_options, &option_index);
 
       if (c == -1) break;	/* Exit from `while (1)' loop.  */
 
@@ -569,15 +502,15 @@ cmdline_parser_internal (
             goto failure;
         
           break;
-        case 'n':	/* Don't daemonize.  */
+        case 'D':	/* Daemonize lispd.  */
           args_info->lispdconfig_mode_counter += 1;
         
         
           if (update_arg( 0 , 
-               0 , &(args_info->nodaemonize_given),
-              &(local_args_info.nodaemonize_given), optarg, 0, 0, ARG_NO,
+               0 , &(args_info->daemonize_given),
+              &(local_args_info.daemonize_given), optarg, 0, 0, ARG_NO,
               check_ambiguity, override, 0, 0,
-              "nodaemonize", 'n',
+              "daemonize", 'D',
               additional_error))
             goto failure;
         
@@ -591,71 +524,6 @@ cmdline_parser_internal (
               &(local_args_info.config_file_given), optarg, 0, 0, ARG_STRING,
               check_ambiguity, override, 0, 0,
               "config-file", 'f',
-              additional_error))
-            goto failure;
-        
-          break;
-        case 'm':	/* MR is the IPv{4,6} address or FQDN of the Map Resolver to use.  */
-          args_info->lispdconfig_mode_counter += 1;
-        
-        
-          if (update_arg( (void *)&(args_info->map_resolver_arg), 
-               &(args_info->map_resolver_orig), &(args_info->map_resolver_given),
-              &(local_args_info.map_resolver_given), optarg, 0, 0, ARG_STRING,
-              check_ambiguity, override, 0, 0,
-              "map-resolver", 'm',
-              additional_error))
-            goto failure;
-        
-          break;
-        case 's':	/* MS is the IPv{4,6} address or FQDN of the Map Server to use.  */
-          args_info->lispdconfig_mode_counter += 1;
-        
-        
-          if (update_arg( (void *)&(args_info->map_server_arg), 
-               &(args_info->map_server_orig), &(args_info->map_server_given),
-              &(local_args_info.map_server_given), optarg, 0, 0, ARG_STRING,
-              check_ambiguity, override, 0, 0,
-              "map-server", 's',
-              additional_error))
-            goto failure;
-        
-          break;
-        case 'e':	/* PETR is the IPv{4,6} address or FQDN of the Proxy-ETR to use.  */
-          args_info->lispdconfig_mode_counter += 1;
-        
-        
-          if (update_arg( (void *)&(args_info->proxy_etr_arg), 
-               &(args_info->proxy_etr_orig), &(args_info->proxy_etr_given),
-              &(local_args_info.proxy_etr_given), optarg, 0, 0, ARG_STRING,
-              check_ambiguity, override, 0, 0,
-              "proxy-etr", 'e',
-              additional_error))
-            goto failure;
-        
-          break;
-        case 'p':	/* CP is the LISP control port (default: 4342).  */
-          args_info->lispdconfig_mode_counter += 1;
-        
-        
-          if (update_arg( (void *)&(args_info->control_port_arg), 
-               &(args_info->control_port_orig), &(args_info->control_port_given),
-              &(local_args_info.control_port_given), optarg, 0, 0, ARG_STRING,
-              check_ambiguity, override, 0, 0,
-              "control_port", 'p',
-              additional_error))
-            goto failure;
-        
-          break;
-        case 'r':	/* R is number of map-requests to send.  */
-          args_info->lispdconfig_mode_counter += 1;
-        
-        
-          if (update_arg( (void *)&(args_info->map_request_retries_arg), 
-               &(args_info->map_request_retries_orig), &(args_info->map_request_retries_given),
-              &(local_args_info.map_request_retries_given), optarg, 0, 0, ARG_INT,
-              check_ambiguity, override, 0, 0,
-              "map-request-retries", 'r',
               additional_error))
             goto failure;
         

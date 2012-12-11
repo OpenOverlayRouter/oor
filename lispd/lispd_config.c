@@ -37,8 +37,6 @@
 #include "confuse.h"
 #include "lispd_external.h"
 #include "lispd_iface_list.h"
-#include "lispd_iface_mgmt.h"
-#include "lispd_ipc.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
@@ -101,14 +99,11 @@ void handle_lispd_command_line(int argc, char **argv)
     if (cmdline_parser(argc, argv, &args_info) != 0) 
         exit(EXIT_FAILURE);
 
-    if (args_info.nodaemonize_given) {
-        daemonize = 0;
+    if (args_info.daemonize_given) {
+        daemonize = TRUE;
     }
     if (args_info.config_file_given) {
         config_file = strdup(args_info.config_file_arg);
-    }
-    if (args_info.map_request_retries_given) {
-        map_request_retries = args_info.map_request_retries_arg;
     }
 }
 
@@ -330,9 +325,8 @@ int handle_lispd_config_file()
 
 
 #if (DEBUG > 3)
-    dump_tree(AF_INET,AF4_database);
-    dump_tree(AF_INET6,AF6_database);
-    dump_database();
+    dump_local_eids();
+    dump_map_cache();
     dump_map_servers();
     dump_servers(map_resolvers, "map-resolvers");
     dump_servers(proxy_etrs, "proxy-etrs");
@@ -677,28 +671,6 @@ int add_database_mapping(char   *eid,
     if (interface->ipv6_address  && priority_v6 >= 0){
     	if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
             new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
-    }
-
-    /* 
-     * PN: Setup the LISP-MN interface (ex: lisp_tun0) for this EID.
-     * Assume single EID/LISP-MN interface per MN for now.
-     * Multiple EIDs per MN is a possibility in the future; then
-     * each EID requires its own LISP-MN interface and 
-     * one of the interfaces will be the default one.
-     */
-/*    if (!setup_lisp_eid_iface(LISP_MN_EID_IFACE_NAME,
-                &(identifier->eid_prefix),
-                identifier->eid_prefix_length)) {
-        lispd_log_msg(LOG_ERR, "setup_lisp_eid_iface (%s) failed\b", iface_name);
-        return (BAD);
-    } 
-*/
-
-    /* 
-     * PN: Find an active interface for lispd control messages
-     */
-    if (default_ctrl_iface_v4 == NULL || default_ctrl_iface_v6 == NULL){
-        set_default_ctrl_ifaces();
     }
 
     

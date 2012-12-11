@@ -37,11 +37,6 @@
 #include "lispd_iface_list.h"
 
 
-extern  lispd_database_t  *lispd_database;
-extern  lispd_map_cache_t *lispd_map_cache;
-extern  patricia_tree_t   *AF4_database;
-extern  patricia_tree_t   *AF6_database;
-extern  datacache_t   *datacache;
 
 extern  lispd_addr_list_t *map_resolvers;
 extern  lispd_addr_list_t *proxy_itrs;

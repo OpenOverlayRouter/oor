@@ -48,9 +48,9 @@ patricia_tree_t *EIDv6_database           = NULL;
  */
 int add_identifier(lispd_identifier_elt *identifier);
 
-int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node);
+patricia_node_t *lookup_eid_node(lisp_addr_t eid);
 
-int lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length, patricia_node_t **node);
+patricia_node_t *lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length);
 
 
 /*
@@ -79,14 +79,14 @@ patricia_tree_t* get_local_db(int afi)
 
 void init_identifier (lispd_identifier_elt *identifier)
 {
-	int i = 0;
-	identifier->eid_prefix.afi = -1;
+    int i = 0;
+    identifier->eid_prefix.afi = -1;
     identifier->iid = -1;
     identifier->locator_count = 0;
     identifier->head_v4_locators_list = NULL;
     identifier->head_v6_locators_list = NULL;
     for (i = 0 ; i < 20 ; i++)
-    	identifier->v4_locator_hash_table[i] = NULL;
+        identifier->v4_locator_hash_table[i] = NULL;
     for (i = 0 ; i < 20 ; i++)
         identifier->v6_locator_hash_table[i] = NULL;
     for (i = 0 ; i < 20 ; i++)
@@ -169,11 +169,11 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
     identifier->head_v4_locators_list = NULL;
     identifier->head_v6_locators_list = NULL;
     for (i = 0 ; i < 20 ; i++)
-            identifier->v4_locator_hash_table[i] = NULL;
+        identifier->v4_locator_hash_table[i] = NULL;
     for (i = 0 ; i < 20 ; i++)
-            identifier->v6_locator_hash_table[i] = NULL;
+        identifier->v6_locator_hash_table[i] = NULL;
     for (i = 0 ; i < 20 ; i++)
-            identifier->locator_hash_table[i] = NULL;
+        identifier->locator_hash_table[i] = NULL;
 
     /*Add identifier to the data base */
     if (add_identifier(identifier)!=GOOD)
@@ -182,66 +182,63 @@ lispd_identifier_elt *new_identifier(lisp_addr_t    eid_prefix,
 }
 
 
-int lookup_eid_node(lisp_addr_t eid, patricia_node_t **node)
+patricia_node_t *lookup_eid_node(lisp_addr_t eid)
 {
-  prefix_t prefix;
-  *node=NULL;
+    patricia_node_t *node = NULL;
+    prefix_t prefix;
 
-  switch(eid.afi) {
-        case AF_INET:
-            prefix.family = AF_INET;
-            prefix.bitlen = 32;
-            prefix.ref_count = 0;
-            prefix.add.sin.s_addr = eid.address.ip.s_addr;
-            *node = patricia_search_best(EIDv4_database, &prefix);
-            break;
-        case AF_INET6:
-            prefix.family = AF_INET6;
-            prefix.bitlen = 128;
-            prefix.ref_count = 0;
-            memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-            *node = patricia_search_best(EIDv6_database, &prefix);
-            break;
-        default:
-            break;
+    switch(eid.afi) {
+    case AF_INET:
+        prefix.family = AF_INET;
+        prefix.bitlen = 32;
+        prefix.ref_count = 0;
+        prefix.add.sin.s_addr = eid.address.ip.s_addr;
+        node = patricia_search_best(EIDv4_database, &prefix);
+        break;
+    case AF_INET6:
+        prefix.family = AF_INET6;
+        prefix.bitlen = 128;
+        prefix.ref_count = 0;
+        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
+        node = patricia_search_best(EIDv6_database, &prefix);
+        break;
+    default:
+        break;
     }
 
-  if (*node==NULL)
-  {
-      lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
-      return(BAD);
-  }
-  return(GOOD);
+    if ( node==NULL ){
+        lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
+    }
+    return(node);
 }
 
-int lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length, patricia_node_t **node)
+patricia_node_t *lookup_eid_exact_node(lisp_addr_t eid, int eid_prefix_length)
 {
-  prefix_t prefix;
-  switch(eid.afi) {
-        case AF_INET:
-            prefix.family = AF_INET;
-            prefix.bitlen = eid_prefix_length;
-            prefix.ref_count = 0;
-            memcpy (&(prefix.add.sin), &(eid.address.ip), sizeof(struct in_addr));
-            *node = patricia_search_exact(EIDv4_database, &prefix);
-            break;
-        case AF_INET6:
-            prefix.family = AF_INET6;
-            prefix.bitlen = eid_prefix_length;
-            prefix.ref_count = 0;
-            memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-            *node = patricia_search_exact(EIDv6_database, &prefix);
-            break;
-        default:
-            break;
+    patricia_node_t *node = NULL;
+    prefix_t prefix;
+    switch(eid.afi) {
+    case AF_INET:
+        prefix.family = AF_INET;
+        prefix.bitlen = eid_prefix_length;
+        prefix.ref_count = 0;
+        memcpy (&(prefix.add.sin), &(eid.address.ip), sizeof(struct in_addr));
+        node = patricia_search_exact(EIDv4_database, &prefix);
+        break;
+    case AF_INET6:
+        prefix.family = AF_INET6;
+        prefix.bitlen = eid_prefix_length;
+        prefix.ref_count = 0;
+        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
+        node = patricia_search_exact(EIDv6_database, &prefix);
+        break;
+    default:
+        break;
     }
 
-  if (!*node)
-  {
-      lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
-      return(BAD);
-  }
-  return(GOOD);
+    if (node == NULL){
+        lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
+    }
+    return(node);
 }
 
 
@@ -256,7 +253,8 @@ lispd_identifier_elt *lookup_eid_in_db(lisp_addr_t eid)
     lispd_identifier_elt *identifier;
     patricia_node_t *result;
 
-    if (lookup_eid_node(eid,&result)!=GOOD){
+    result = lookup_eid_node(eid);
+    if (result == NULL){
         lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid));
         return(NULL);
     }
@@ -274,7 +272,8 @@ lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_pre
 {
     lispd_identifier_elt *identifier;
     patricia_node_t *result;
-    if (lookup_eid_exact_node(eid_prefix,eid_prefix_length, &result)!=GOOD)
+    result = lookup_eid_exact_node(eid_prefix,eid_prefix_length);
+    if (result == NULL)
     {
         lispd_log_msg(LOG_DEBUG, "The entry %s is not found in the local data base.", get_char_from_lisp_addr_t(eid_prefix));
         return(NULL);
@@ -290,133 +289,133 @@ lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_pre
  */
 
 lispd_locator_elt   *new_locator (
-		lispd_identifier_elt 		*identifier,
-		lisp_addr_t                 *locator_addr,
-		uint8_t                     *state,    /* UP , DOWN */
-		uint8_t                     locator_type,
-		uint8_t                     priority,
-		uint8_t                     weight,
-		uint8_t                     mpriority,
-		uint8_t                     mweight
-		)
+        lispd_identifier_elt 		*identifier,
+        lisp_addr_t                 *locator_addr,
+        uint8_t                     *state,    /* UP , DOWN */
+        uint8_t                     locator_type,
+        uint8_t                     priority,
+        uint8_t                     weight,
+        uint8_t                     mpriority,
+        uint8_t                     mweight
+)
 {
-	lispd_locators_list 	*locator_list, *aux_locator_list_prev, *aux_locator_list_next;
-	lispd_locator_elt 		*locator;
-	int 					cmp;
+    lispd_locators_list 	*locator_list, *aux_locator_list_prev, *aux_locator_list_next;
+    lispd_locator_elt 		*locator;
+    int 					cmp;
 
-	if ((locator_list = malloc(sizeof(lispd_locators_list))) == NULL) {
-		lispd_log_msg(LOG_ERR, "can't allocate lispd_locator_list");
-		return(NULL);
-	}
-	if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
-		lispd_log_msg(LOG_ERR, "can't allocate lispd_locator_elt");
-		free(locator_list);
-		return(NULL);
-	}
+    if ((locator_list = malloc(sizeof(lispd_locators_list))) == NULL) {
+        lispd_log_msg(LOG_ERR, "can't allocate lispd_locator_list");
+        return(NULL);
+    }
+    if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
+        lispd_log_msg(LOG_ERR, "can't allocate lispd_locator_elt");
+        free(locator_list);
+        return(NULL);
+    }
 
-	locator_list->next = NULL;
-	locator_list->locator = locator;
-	/* Initialize locator */
-	locator->locator_addr = locator_addr;
-	locator->locator_type = locator_type;
-	locator->priority = priority;
-	locator->weight = weight;
-	locator->mpriority = mpriority;
-	locator->mweight = mweight;
-	locator->data_packets_in = 0;
-	locator->data_packets_out = 0;
-	locator->rloc_probing_nonces = NULL;
-	locator->state = state;
+    locator_list->next = NULL;
+    locator_list->locator = locator;
+    /* Initialize locator */
+    locator->locator_addr = locator_addr;
+    locator->locator_type = locator_type;
+    locator->priority = priority;
+    locator->weight = weight;
+    locator->mpriority = mpriority;
+    locator->mweight = mweight;
+    locator->data_packets_in = 0;
+    locator->data_packets_out = 0;
+    locator->rloc_probing_nonces = NULL;
+    locator->state = state;
 
 
-	/* Add the locator into the list*/
-	if (locator_addr->afi == AF_INET)
-	{
-		if (locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
-			if (identifier->head_v4_locators_list == NULL){
-				identifier->head_v4_locators_list = locator_list;
-			}else{
-				aux_locator_list_prev = NULL;
-				aux_locator_list_next = identifier->head_v4_locators_list;
-				while (aux_locator_list_next){
-					cmp = memcmp(&(locator_addr->address.ip),&(aux_locator_list_next->locator->locator_addr->address.ip),sizeof(struct in_addr));
-					if (cmp < 0)
-						break;
-					if (cmp == 0){
-						lispd_log_msg(LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
-								get_char_from_lisp_addr_t(*locator_addr),
-								get_char_from_lisp_addr_t(identifier->eid_prefix),
-								identifier->eid_prefix_length);
-						free (locator_list);
-						free (locator);
-						return (aux_locator_list_next->locator);
-					}
-					aux_locator_list_prev = aux_locator_list_next;
-					aux_locator_list_next = aux_locator_list_next->next;
-				}
-				if (aux_locator_list_prev == NULL){
-					locator_list->next = aux_locator_list_next;
-					identifier->head_v4_locators_list = locator_list;
-				}else{
-					aux_locator_list_prev->next = locator_list;
-					locator_list->next = aux_locator_list_next;
-				}
-			}
-		}else{
-			if (identifier->head_v4_locators_list == NULL){
-				identifier->head_v4_locators_list = locator_list;
-			}else{
-				aux_locator_list_prev = identifier->head_v4_locators_list;
-				while (aux_locator_list_prev->next)
-					aux_locator_list_prev = aux_locator_list_prev->next;
-				aux_locator_list_prev->next = locator_list;
-			}
-		}
-	}else if (AF_INET6){
-		if (locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
-			if (identifier->head_v6_locators_list == NULL){
-				identifier->head_v6_locators_list = locator_list;
-			}else{
-				aux_locator_list_prev = NULL;
-				aux_locator_list_next = identifier->head_v6_locators_list;
-				while (aux_locator_list_next){
-					cmp = memcmp(&(locator_addr->address.ipv6),&(aux_locator_list_next->locator->locator_addr->address.ipv6),sizeof(struct in6_addr));
-					if (cmp < 0)
-						break;
-					if (cmp == 0){
-						lispd_log_msg(LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
-								get_char_from_lisp_addr_t(*locator_addr),
-								get_char_from_lisp_addr_t(identifier->eid_prefix),
-								identifier->eid_prefix_length);
-						free (locator_list);
-						free (locator);
-						return (aux_locator_list_next->locator);
-					}
-					aux_locator_list_prev = aux_locator_list_next;
-					aux_locator_list_next = aux_locator_list_next->next;
-				}
-				if (aux_locator_list_prev == NULL){
-					locator_list->next = aux_locator_list_next;
-					identifier->head_v6_locators_list = locator_list;
-				}else{
-					aux_locator_list_prev->next = locator_list;
-					locator_list->next = aux_locator_list_next;
-				}
-			}
-		}else{
-			if (identifier->head_v6_locators_list == NULL){
-				identifier->head_v6_locators_list = locator_list;
-			}else{
-				aux_locator_list_prev = identifier->head_v6_locators_list;
-				while (aux_locator_list_prev->next)
-					aux_locator_list_prev = aux_locator_list_prev->next;
-				aux_locator_list_prev->next = locator_list;
-			}
-		}
-	}
-	identifier->locator_count++;
+    /* Add the locator into the list*/
+    if (locator_addr->afi == AF_INET)
+    {
+        if (locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
+            if (identifier->head_v4_locators_list == NULL){
+                identifier->head_v4_locators_list = locator_list;
+            }else{
+                aux_locator_list_prev = NULL;
+                aux_locator_list_next = identifier->head_v4_locators_list;
+                while (aux_locator_list_next){
+                    cmp = memcmp(&(locator_addr->address.ip),&(aux_locator_list_next->locator->locator_addr->address.ip),sizeof(struct in_addr));
+                    if (cmp < 0)
+                        break;
+                    if (cmp == 0){
+                        lispd_log_msg(LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
+                                get_char_from_lisp_addr_t(*locator_addr),
+                                get_char_from_lisp_addr_t(identifier->eid_prefix),
+                                identifier->eid_prefix_length);
+                        free (locator_list);
+                        free (locator);
+                        return (aux_locator_list_next->locator);
+                    }
+                    aux_locator_list_prev = aux_locator_list_next;
+                    aux_locator_list_next = aux_locator_list_next->next;
+                }
+                if (aux_locator_list_prev == NULL){
+                    locator_list->next = aux_locator_list_next;
+                    identifier->head_v4_locators_list = locator_list;
+                }else{
+                    aux_locator_list_prev->next = locator_list;
+                    locator_list->next = aux_locator_list_next;
+                }
+            }
+        }else{
+            if (identifier->head_v4_locators_list == NULL){
+                identifier->head_v4_locators_list = locator_list;
+            }else{
+                aux_locator_list_prev = identifier->head_v4_locators_list;
+                while (aux_locator_list_prev->next)
+                    aux_locator_list_prev = aux_locator_list_prev->next;
+                aux_locator_list_prev->next = locator_list;
+            }
+        }
+    }else if (AF_INET6){
+        if (locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
+            if (identifier->head_v6_locators_list == NULL){
+                identifier->head_v6_locators_list = locator_list;
+            }else{
+                aux_locator_list_prev = NULL;
+                aux_locator_list_next = identifier->head_v6_locators_list;
+                while (aux_locator_list_next){
+                    cmp = memcmp(&(locator_addr->address.ipv6),&(aux_locator_list_next->locator->locator_addr->address.ipv6),sizeof(struct in6_addr));
+                    if (cmp < 0)
+                        break;
+                    if (cmp == 0){
+                        lispd_log_msg(LOG_WARNING, "The locator %s already exists in the identifier %s/%d",
+                                get_char_from_lisp_addr_t(*locator_addr),
+                                get_char_from_lisp_addr_t(identifier->eid_prefix),
+                                identifier->eid_prefix_length);
+                        free (locator_list);
+                        free (locator);
+                        return (aux_locator_list_next->locator);
+                    }
+                    aux_locator_list_prev = aux_locator_list_next;
+                    aux_locator_list_next = aux_locator_list_next->next;
+                }
+                if (aux_locator_list_prev == NULL){
+                    locator_list->next = aux_locator_list_next;
+                    identifier->head_v6_locators_list = locator_list;
+                }else{
+                    aux_locator_list_prev->next = locator_list;
+                    locator_list->next = aux_locator_list_next;
+                }
+            }
+        }else{
+            if (identifier->head_v6_locators_list == NULL){
+                identifier->head_v6_locators_list = locator_list;
+            }else{
+                aux_locator_list_prev = identifier->head_v6_locators_list;
+                while (aux_locator_list_prev->next)
+                    aux_locator_list_prev = aux_locator_list_prev->next;
+                aux_locator_list_prev->next = locator_list;
+            }
+        }
+    }
+    identifier->locator_count++;
 
-	return (locator);
+    return (locator);
 }
 
 
@@ -434,8 +433,8 @@ void del_identifier_entry(lisp_addr_t eid,
 {
     lispd_identifier_elt *entry;
     patricia_node_t      *result;
-
-    if (!lookup_eid_exact_node(eid, prefixlen, &result)){
+    result = lookup_eid_exact_node(eid, prefixlen);
+    if (result == NULL){
         lispd_log_msg(LOG_ERR,"   Unable to locate eid entry %s/%d for deletion",get_char_from_lisp_addr_t(eid),prefixlen);
         return;
     } else {
@@ -510,16 +509,16 @@ void dump_local_eids()
     lispd_locators_list         *locator_iterator;
     lispd_locator_elt           *locator;
 
-   lispd_log_msg(LOG_DEBUG,"LISP Local EIDs\n\n");
+    lispd_log_msg(LOG_DEBUG,"LISP Local EIDs\n\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){
         PATRICIA_WALK(dbs[ctr]->head, node) {
             entry = ((lispd_identifier_elt *)(node->data));
-           lispd_log_msg(LOG_DEBUG,"%s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(entry->eid_prefix),
+            lispd_log_msg(LOG_DEBUG,"%s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(entry->eid_prefix),
                     entry->eid_prefix_length, entry->iid);
 
             if (entry->locator_count > 0){
-               lispd_log_msg(LOG_DEBUG,"       Locator               State    Priority/Weight\n");
+                lispd_log_msg(LOG_DEBUG,"       Locator               State    Priority/Weight\n");
                 locator_iterator_array[0] = entry->head_v4_locators_list;
                 locator_iterator_array[1] = entry->head_v6_locators_list;
                 // Loop through the locators and print each
@@ -528,16 +527,16 @@ void dump_local_eids()
                     locator_iterator = locator_iterator_array[ctr1];
                     while (locator_iterator != NULL) {
                         locator = locator_iterator->locator;
-                       lispd_log_msg(LOG_DEBUG," %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+                        lispd_log_msg(LOG_DEBUG," %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
                         if (locator->locator_addr->afi == AF_INET)
-                           lispd_log_msg(LOG_DEBUG," %15s ", locator->state ? "Up" : "Down");
+                            lispd_log_msg(LOG_DEBUG," %15s ", locator->state ? "Up" : "Down");
                         else
-                           lispd_log_msg(LOG_DEBUG," %5s ", locator->state ? "Up" : "Down");
-                       lispd_log_msg(LOG_DEBUG,"         %3d/%-3d \n", locator->priority, locator->weight);
+                            lispd_log_msg(LOG_DEBUG," %5s ", locator->state ? "Up" : "Down");
+                        lispd_log_msg(LOG_DEBUG,"         %3d/%-3d \n", locator->priority, locator->weight);
                         locator_iterator = locator_iterator->next;
                     }
                 }
-               lispd_log_msg(LOG_DEBUG,"\n");
+                lispd_log_msg(LOG_DEBUG,"\n");
             }
         } PATRICIA_WALK_END;
     }
@@ -551,18 +550,18 @@ lisp_addr_t get_main_eid(int afi){
     patricia_tree_t *database;
 
     switch (afi){
-        case AF_INET:
-            database = EIDv4_database;
-            break;
-        case AF_INET6:
-            database = EIDv6_database;
-            break;
+    case AF_INET:
+        database = EIDv4_database;
+        break;
+    case AF_INET6:
+        database = EIDv6_database;
+        break;
     }
-    
+
     PATRICIA_WALK(database->head, node) {
         entry = ((lispd_identifier_elt *)(node->data));
         eid = entry->eid_prefix;
     } PATRICIA_WALK_END;
-    
+
     return eid;
 }
