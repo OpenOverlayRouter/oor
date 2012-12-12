@@ -434,8 +434,6 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
                 map_request_retries = uci_retries;
             }
 
-           lispd_log_msg(LOG_DEBUG,"---------- retries2: %d\n",uci_retries);
-
             continue;
         }
 

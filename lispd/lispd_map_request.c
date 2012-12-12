@@ -418,6 +418,12 @@ int build_and_send_map_request_msg(
     else
         result = send_ctrl_ipv6_packet(dst_rloc_addr,0,LISP_CONTROL_PORT,(void *)packet,mrp_len);
 
+    if (result == GOOD){
+        lispd_log_msg(LOG_DEBUG, "Sent Map-Request packet for %s/%d",
+                        get_char_from_lisp_addr_t(*eid_prefix),
+                        eid_prefix_length);
+    }
+
     free (packet);
 
 

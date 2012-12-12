@@ -207,6 +207,11 @@ int send_by_raw_socket ( lispd_iface_elt *iface, char *packet_buf, int pckt_leng
     struct iphdr *iph;
     int nbytes;
 
+    if (!iface){
+        lispd_log_msg(LOG_WARNING, "No output interface found");
+        return BAD;
+    }
+
 
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
 
@@ -247,6 +252,11 @@ int fordward_native( lispd_iface_elt *iface, char *packet_buf, int pckt_length )
 
     int ret;
     
+    if (!iface){
+        lispd_log_msg(LOG_WARNING, "No output interface found");
+        return BAD;
+    }
+
     lispd_log_msg(LOG_INFO, "Fordwarding native for destination %s",
                         get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
@@ -267,9 +277,14 @@ int fordward_to_petr(lispd_iface_elt *iface, char *original_packet, int original
     lisp_addr_t *outer_src_addr;
     char *encap_packet;
     int  encap_packet_size;
-    
+
+    if (!iface){
+        lispd_log_msg(LOG_WARNING, "No output interface found");
+        return BAD;
+    }
+
     petr = get_proxy_etr(afi); 
-    
+
     if (petr == NULL){
         lispd_log_msg(LOG_ERR, "Proxy-etr not found");
         return BAD;

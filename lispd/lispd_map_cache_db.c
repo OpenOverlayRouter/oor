@@ -418,7 +418,6 @@ int change_eid_prefix_in_db(lisp_addr_t         new_eid_prefix,
 
     if ((err=add_map_cache_entry(cache_entry))!= GOOD){
         /*XXX  if the process doesn't finish correctly, the map cache entry is released */
-        lispd_log_msg(LOG_ERR,"************-------------*************-----------------***********");
         free_lispd_map_cache_entry(cache_entry);
         return (BAD);
     }

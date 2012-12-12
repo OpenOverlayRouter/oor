@@ -308,11 +308,6 @@ int main(int argc, char **argv)
             prefix_len,
             metric);
 
-    /*
-     * Generate binded socket for each rloc
-     */
-
-    open_iface_binded_sockets();
 
     /*
      * Select the defoult rlocs for output data packets and output control packets

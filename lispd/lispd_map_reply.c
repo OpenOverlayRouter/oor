@@ -295,6 +295,12 @@ int build_and_send_map_reply_msg(
     else
         result = send_ctrl_ipv6_packet(remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
 
+    if (result == GOOD){
+        lispd_log_msg(LOG_DEBUG, "Sent Map-Reply packet for %s/%d",
+                get_char_from_lisp_addr_t(requested_identifier->eid_prefix),
+                requested_identifier->eid_prefix_length);
+    }
+
     free(packet);
 
     if (result != GOOD){
