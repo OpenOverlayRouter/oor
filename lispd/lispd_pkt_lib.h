@@ -44,11 +44,6 @@ void *pkt_fill_mapping_record(
     lispd_identifier_elt                    *identifier,
     lisp_addr_t                             *probed_rloc);
 
-void *pkt_read_eid(
-    void                    *offset,
-    lisp_addr_t            **eid,
-    int                     *eid_afi,
-    lispd_iid_t             *iid);
 /*
  * Send a ipv4 control packet to the destination address
  */

@@ -63,6 +63,6 @@ int check_nonce(nonces_list   *nonces, uint64_t nonce);
 /*
  * Print 64-bit nonce in 0x%08x-0x%08x format.
  */
-void lispd_print_nonce (uint64_t nonce);
+void lispd_print_nonce (uint64_t nonce, int log_level);
 
 #endif /* LISPD_NONCE_H_ */

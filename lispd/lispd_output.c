@@ -36,10 +36,12 @@
 
 
 
-void add_ipv4_header ( char *position,
-                 char *original_packet_position,
-                 lisp_addr_t *src_addr,
-                 lisp_addr_t *dst_addr) {
+void add_ipv4_header (
+        char            *position,
+        char            *original_packet_position,
+        lisp_addr_t     *src_addr,
+        lisp_addr_t     *dst_addr)
+{
 
 
     struct iphdr *iph;
@@ -80,10 +82,12 @@ void add_ipv4_header ( char *position,
 
 }
 
-void add_udp_header(char *position,
-              int length,
-              int src_port,
-              int dst_port){
+void add_udp_header(
+        char    *position,
+        int     length,
+        int     src_port,
+        int     dst_port)
+{
 
     struct udphdr *udh;
 
@@ -105,8 +109,10 @@ void add_udp_header(char *position,
 
 }
 
-void add_lisp_header(char *position,
-                     int iid){
+void add_lisp_header(
+        char    *position,
+        int     iid)
+{
 
     struct lisphdr *lisphdr;
 
@@ -127,18 +133,18 @@ void add_lisp_header(char *position,
 
 }
 
-int encapsulate_packet(char *original_packet,
-                    int original_packet_length,
-                    int encap_afi,
-                    lisp_addr_t *src_addr,
-                    lisp_addr_t *dst_addr,
-                    int src_port,
-                    int dst_port,
-                    int iid,
-                    char **encap_packet,
-                    int  *encap_packet_size){
-
-
+int encapsulate_packet(
+        char        *original_packet,
+        int         original_packet_length,
+        int         encap_afi,
+        lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr,
+        int         src_port,
+        int         dst_port,
+        int         iid,
+        char        **encap_packet,
+        int         *encap_packet_size)
+{
     int extra_headers_size = 0;
     char *new_packet = NULL;
 
@@ -162,10 +168,9 @@ int encapsulate_packet(char *original_packet,
     extra_headers_size = iphdr_len + udphdr_len + lisphdr_len;
 
     new_packet = (char *) malloc (original_packet_length + extra_headers_size);
-
     if (new_packet == NULL){
-        lispd_log_msg(LOG_ERR, "Can not IPv4 encap packet ");
-        return BAD;
+        lispd_log_msg(LISP_LOG_WARNING, "encapsulate_packet: Unable to allocate memory for encapsulated packet: %s", strerror(errno));
+        return (BAD);
     }
 
     memset(new_packet,0,original_packet_length+extra_headers_size);
@@ -191,12 +196,16 @@ int encapsulate_packet(char *original_packet,
     *encap_packet = new_packet;
     *encap_packet_size = extra_headers_size + original_packet_length;
 
-    return GOOD;
+    return (GOOD);
 }
 
 
 
-int send_by_raw_socket ( lispd_iface_elt *iface, char *packet_buf, int pckt_length ) {
+int send_by_raw_socket (
+        lispd_iface_elt     *iface,
+        char                *packet_buf,
+        int                 pckt_length )
+{
 
     int socket;
 
@@ -208,13 +217,10 @@ int send_by_raw_socket ( lispd_iface_elt *iface, char *packet_buf, int pckt_leng
     int nbytes;
 
     if (!iface){
-        lispd_log_msg(LOG_WARNING, "No output interface found");
-        return BAD;
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_by_raw_socket: No output interface found");
+        return (BAD);
     }
-
-
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
-
 
     iph = ( struct iphdr * ) packet_buf;
 
@@ -228,7 +234,7 @@ int send_by_raw_socket ( lispd_iface_elt *iface, char *packet_buf, int pckt_leng
         dst_addr_len = sizeof ( struct sockaddr_in );
         socket = iface->out_socket_v4;
     } else {
-        return GOOD;
+        return (GOOD);
         //arnatal TODO: write IPv6 support
     }
 
@@ -240,24 +246,28 @@ int send_by_raw_socket ( lispd_iface_elt *iface, char *packet_buf, int pckt_leng
                       dst_addr_len );
 
     if ( nbytes != pckt_length ) {
-        lispd_log_msg( LOG_DAEMON, "send_by_raw_socket: send failed %s", strerror ( errno ) );
-        return ( BAD );
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_by_raw_socket: send failed %s", strerror ( errno ) );
+        return (BAD);
     }
 
-    return GOOD;
+    return (GOOD);
 
 }
 
-int fordward_native( lispd_iface_elt *iface, char *packet_buf, int pckt_length ){
+int fordward_native(
+        lispd_iface_elt *iface,
+        char            *packet_buf,
+        int             pckt_length )
+{
 
     int ret;
     
     if (!iface){
-        lispd_log_msg(LOG_WARNING, "No output interface found");
-        return BAD;
+        lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface found");
+        return (BAD);
     }
 
-    lispd_log_msg(LOG_INFO, "Fordwarding native for destination %s",
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
                         get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
     if(send_by_raw_socket(iface,packet_buf,pckt_length) != GOOD){
@@ -266,31 +276,33 @@ int fordward_native( lispd_iface_elt *iface, char *packet_buf, int pckt_length )
         ret = GOOD;
     }
     
-    return ret;
+    return (ret);
     
 }
 
 
-int fordward_to_petr(lispd_iface_elt *iface, char *original_packet, int original_packet_length, int afi){
-
+int fordward_to_petr(
+        lispd_iface_elt *iface,
+        char            *original_packet,
+        int             original_packet_length,
+        int             afi)
+{
     lisp_addr_t *petr;
     lisp_addr_t *outer_src_addr;
     char *encap_packet;
     int  encap_packet_size;
 
     if (!iface){
-        lispd_log_msg(LOG_WARNING, "No output interface found");
-        return BAD;
+        lispd_log_msg(LISP_LOG_ERR, "fordward_to_petr: No output interface found");
+        return (BAD);
     }
 
     petr = get_proxy_etr(afi); 
 
     if (petr == NULL){
-        lispd_log_msg(LOG_ERR, "Proxy-etr not found");
-        return BAD;
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Proxy-etr not found");
+        return (BAD);
     }
-
-    lispd_log_msg(LOG_DEBUG, "Proxy-etr found: %s",get_char_from_lisp_addr_t(*petr));
     
     switch (afi){
         case AF_INET:
@@ -311,21 +323,22 @@ int fordward_to_petr(lispd_iface_elt *iface, char *original_packet, int original
                             0,
                             &encap_packet,
                             &encap_packet_size) != GOOD){
-        return BAD;
+        return (BAD);
     }
     
     if (send_by_raw_socket (iface,encap_packet,encap_packet_size ) != GOOD){
         free (encap_packet );
-        return BAD;
+        return (BAD);
     }
 
-    lispd_log_msg(LOG_INFO, "Fordwarded eid %s to petr",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarded eid %s to petr",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
     free (encap_packet );
     
-    return GOOD;
+    return (GOOD);
 }
 
-lisp_addr_t extract_dst_addr_from_packet ( char *packet ) {
+lisp_addr_t extract_dst_addr_from_packet ( char *packet )
+{
     lisp_addr_t addr;
     struct iphdr *iph;
     struct ip6_hdr *ip6h;
@@ -345,11 +358,12 @@ lisp_addr_t extract_dst_addr_from_packet ( char *packet ) {
 
     //arnatal TODO: check errors (afi unsupported)
 
-    return addr;
+    return (addr);
 }
 
 
-lisp_addr_t extract_src_addr_from_packet ( char *packet ) {
+lisp_addr_t extract_src_addr_from_packet ( char *packet )
+{
     lisp_addr_t addr;
     struct iphdr *iph;
     struct ip6_hdr *ip6h;
@@ -369,17 +383,20 @@ lisp_addr_t extract_src_addr_from_packet ( char *packet ) {
     
     //arnatal TODO: check errors (afi unsupported)
     
-    return addr;
+    return (addr);
 }
 
-int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid){
+int handle_map_cache_miss(
+        lisp_addr_t *requested_eid,
+        lisp_addr_t *src_eid)
+{
 
     lispd_map_cache_entry *entry;
     timer_map_request_argument *arguments;
 
     if ((arguments = malloc(sizeof(timer_map_request_argument)))==NULL){
-        lispd_log_msg(LOG_DEBUG,"handle_map_cache_miss: Can't allocate timer_map_request_argument -"
-                "malloc: %s",strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING,"handle_map_cache_miss: Unable to allocate memory for timer_map_request_argument: %s",
+                strerror(errno));
         return (ERR_MALLOC);
     }
 
@@ -395,12 +412,13 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid){
     arguments->src_eid = *src_eid;
 
     if ((err=send_map_request_miss(NULL, (void *)arguments))!=GOOD)
-        return BAD;
+        return (BAD);
 
-    return GOOD;
+    return (GOOD);
 }
 
-lisp_addr_t *get_proxy_etr(int afi){
+lisp_addr_t *get_proxy_etr(int afi)
+{
     lispd_weighted_addr_list_t *petr_list_elt;
     if(proxy_etrs!=NULL){
         petr_list_elt = proxy_etrs;
@@ -410,10 +428,13 @@ lisp_addr_t *get_proxy_etr(int afi){
             petr_list_elt = petr_list_elt->next;
         }
     }
-    return NULL;
+    return (NULL);
 }
 
-lisp_addr_t *get_default_locator_addr(lispd_map_cache_entry *entry, int afi){
+lisp_addr_t *get_default_locator_addr(
+        lispd_map_cache_entry   *entry,
+        int                     afi)
+{
 
     lisp_addr_t *addr;
     
@@ -426,11 +447,14 @@ lisp_addr_t *get_default_locator_addr(lispd_map_cache_entry *entry, int afi){
             break;
     }
 
-    return addr;
+    return (addr);
 }
 
 
-int is_lisp_packet(char *packet, int packet_length){
+int is_lisp_packet(
+        char    *packet,
+        int     packet_length)
+{
 
     struct iphdr *iph = NULL;
     struct ip6_hdr *ip6h = NULL;
@@ -455,7 +479,7 @@ int is_lisp_packet(char *packet, int packet_length){
      */
 
     if (lvl4proto != IPPROTO_UDP) {
-        return FALSE;
+        return (FALSE);
     }
 
     udh = (struct udphdr *)(packet + ipXh_len);
@@ -470,16 +494,19 @@ int is_lisp_packet(char *packet, int packet_length){
             (ntohs(udh->source) != LISP_DATA_PORT) &&
             (ntohs(udh->dest) != LISP_DATA_PORT) ) {
 
-        return FALSE;
+        return (FALSE);
     }
 
-    return TRUE;
+    return (TRUE);
 }
 
 
 
 
-int lisp_output ( char *original_packet, int original_packet_length ) {
+int lisp_output (
+        char    *original_packet,
+        int     original_packet_length )
+{
     lispd_iface_elt *iface;
     
     char *encap_packet = NULL;
@@ -493,8 +520,6 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     
     int default_encap_afi = 0;
 
-
-    
     //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
     
@@ -502,7 +527,7 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     original_src_addr = extract_src_addr_from_packet(original_packet);
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
 
-    lispd_log_msg(LOG_DEBUG,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
+    lispd_log_msg(LISP_LOG_DEBUG_3,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
     
     default_encap_afi = original_dst_addr.afi; //arnatal TODO: Choose proper encapsulation afi
 
@@ -534,7 +559,7 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     
     //arnatal XXX: is this the correct error type?
     if (map_cache_query_result == ERR_DB){ /* There is no entry in the map cache */
-        lispd_log_msg(LOG_INFO, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(original_dst_addr));
+        lispd_log_msg(LISP_LOG_DEBUG_1, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(original_dst_addr));
         handle_map_cache_miss(&original_dst_addr, &original_src_addr);
     }
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
@@ -550,7 +575,7 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
                                     original_packet,
                                     original_packet_length));
             }
-            return GOOD;
+            return (GOOD);
     }
     
     /* There is an entry in the map cache */
@@ -577,10 +602,14 @@ int lisp_output ( char *original_packet, int original_packet_length ) {
     
     free (encap_packet);
     
-    return GOOD;
+    return (GOOD);
 }
 
-void process_output_packet ( int fd, char *tun_receive_buf, unsigned int tun_receive_size ) {
+void process_output_packet (
+        int             fd,
+        char            *tun_receive_buf,
+        unsigned int    tun_receive_size )
+{
     int nread;
     
     nread = read ( fd, tun_receive_buf, tun_receive_size );

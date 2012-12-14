@@ -437,7 +437,7 @@ int change_eid_prefix_in_db(
 
     if ((err=add_map_cache_entry(cache_entry))!= GOOD){
         /*XXX  if the process doesn't finish correctly, the map cache entry is released */
-        lispd_log_msg(LISP_LOG_DEBUG_2,"change_eid_prefix_in_db: Couldn't change EID prefix of the unactive "
+        lispd_log_msg(LISP_LOG_DEBUG_2,"change_eid_prefix_in_db: Couldn't change EID prefix of the inactive "
                 "map cahce entry (%s/%d -> %s/%d). Releasing it",
                 get_char_from_lisp_addr_t(old_eid_prefix),
                 old_eid_prefix_length,

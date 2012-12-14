@@ -79,22 +79,6 @@ uint8_t *build_map_reply_pkt(
         uint64_t nonce,
         int *map_reply_msg_len);
 
-/*
- *
- * XXX alopez
- * Inicialitzar TIMERS
- * MEemoria quan paquet no es processa bé
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-
 
 int process_map_reply(uint8_t *packet)
 {
@@ -113,12 +97,14 @@ int process_map_reply(uint8_t *packet)
 
     packet = CO(packet, sizeof(lispd_pkt_map_reply_t));
     for (ctr=0;ctr<record_count;ctr++){
-        if ((process_map_reply_record(&packet,nonce))==BAD)
+        if ((process_map_reply_record(&packet,nonce))==BAD){
             return (BAD);
+        }
     }
-    if (is_loggable(LISP_LOG_DEBUG_3))
+    if (is_loggable(LISP_LOG_DEBUG_3)){
         dump_map_cache(LISP_LOG_DEBUG_3);
-    return TRUE;
+    }
+    return (TRUE);
 }
 
 
@@ -132,8 +118,10 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
     init_identifier(&identifier);
     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
-    if (!pkt_process_eid_afi(cur_ptr,&identifier))
-        return BAD;
+    if (!pkt_process_eid_afi(cur_ptr,&identifier)){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Error processing the identifier of the map reply record");
+        return (BAD);
+    }
     identifier.eid_prefix_length = record->eid_prefix_length;
 
 
@@ -146,12 +134,12 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 
     if (cache_entry){
         if (cache_entry->identifier->iid != identifier.iid){
-            lispd_log_msg(LOG_DEBUG,"  Instance ID of the map reply don't match");
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the inactive map cache entry");
             return (BAD);
         }
         /*
-         * If the eid prefix of the received map reply doesn't match the map cache entry to be activated,
-         * we remove the entry from the database and store it again with the correct value.
+         * If the eid prefix of the received map reply doesn't match the inactive map cache entry (x.x.x.x/32 or x:x:x:x:x:x:x:x/128),then
+         * we remove the inactie entry from the database and store it again with the correct eix prefix (for instance /24).
          */
         if (cache_entry->identifier->eid_prefix_length != identifier.eid_prefix_length){
             if (change_eid_prefix_in_db(identifier.eid_prefix, identifier.eid_prefix_length, cache_entry) == BAD)
@@ -159,30 +147,31 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         }
         cache_entry->active = 1;
         stop_timer(cache_entry->request_retry_timer);
-        lispd_log_msg(LOG_DEBUG,"  Activating map cache entry %s/%d",
+        lispd_log_msg(LISP_LOG_DEBUG_2,"  Activating map cache entry %s/%d",
                             get_char_from_lisp_addr_t(identifier.eid_prefix),identifier.eid_prefix_length);
     }
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
     else {
         /* Serch map cache entry exist*/
         if (!lookup_eid_cache_exact(identifier.eid_prefix,identifier.eid_prefix_length,&cache_entry)){
-            lispd_log_msg(LOG_DEBUG,"  No map cache entry found for %s/%d",
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  No map cache entry found for %s/%d",
                     get_char_from_lisp_addr_t(identifier.eid_prefix),identifier.eid_prefix_length);
             return BAD;
         }
         /* Check the found map cache entry contain the nonce of the map reply*/
         if (check_nonce(cache_entry->nonces,nonce)==BAD){
-            lispd_log_msg(LOG_ERR,"  Map-Reply: Map Cache entry not found for nonce:");
-            lispd_print_nonce(nonce);
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  The nonce of the Map-Reply doesn't match the nonce of the generated Map-Request. Discarding message ...");
             return BAD;
         }
         cache_entry->nonces = NULL;
         /* Check instane id. If the entry doesn't use instane id, its value is 0 */
         if (cache_entry->identifier->iid != identifier.iid){
-            lispd_log_msg(LOG_DEBUG,"  Instance ID of the map reply don't match");
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the map cache entry");
             return (BAD);
         }
-        lispd_log_msg(LOG_DEBUG,"  Existing map cache entry found, replacing locator list");
+        lispd_log_msg(LISP_LOG_DEBUG_2,"  A map cache entry already exists for %s/%d, replacing locators list of this entry",
+                get_char_from_lisp_addr_t(cache_entry->identifier->eid_prefix),
+                cache_entry->identifier->eid_prefix_length);
         free_locator_list(cache_entry->identifier->head_v4_locators_list, FALSE);
         free_locator_list(cache_entry->identifier->head_v6_locators_list, FALSE);
         cache_entry->identifier->head_v4_locators_list = NULL;
@@ -224,7 +213,9 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     return TRUE;
 }
 
-int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifier)
+int process_map_reply_locator(
+        uint8_t                 **offset,
+        lispd_identifier_elt    *identifier)
 {
     lispd_pkt_mapping_record_locator_t  *pkt_locator;
     lispd_locator_elt                   aux_locator;
@@ -245,11 +236,11 @@ int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifie
         return (BAD);
 
     if((locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
-    	lispd_log_msg(LOG_ERR,"pkt_process_rloc_afi: Couldn't allocate lisp_addr_t");
+    	lispd_log_msg(LISP_LOG_WARNING,"process_map_reply_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	return (ERR_MALLOC);
     }
     if((state = malloc(sizeof(uint8_t))) == NULL){
-    	lispd_log_msg(LOG_ERR,"pkt_process_rloc_afi: Couldn't allocate uint8_t");
+    	lispd_log_msg(LISP_LOG_WARNING,"process_map_reply_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
     	return (ERR_MALLOC);
     }
 
@@ -296,7 +287,7 @@ int build_and_send_map_reply_msg(
         result = send_ctrl_ipv6_packet(remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
 
     if (result == GOOD){
-        lispd_log_msg(LOG_DEBUG, "Sent Map-Reply packet for %s/%d",
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d",
                 get_char_from_lisp_addr_t(requested_identifier->eid_prefix),
                 requested_identifier->eid_prefix_length);
     }
@@ -304,7 +295,7 @@ int build_and_send_map_reply_msg(
     free(packet);
 
     if (result != GOOD){
-        lispd_log_msg(LOG_DAEMON, "Could not send Map-Reply!");
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't send Map-Reply!");
         return (BAD);
     }
     return (GOOD);
@@ -323,9 +314,9 @@ uint8_t *build_map_reply_pkt(lispd_identifier_elt *identifier,
             pkt_get_mapping_record_length(identifier);
 
     if ((packet = malloc(*map_reply_msg_len)) == NULL) {
-        lispd_log_msg(LOG_DAEMON, "build_map_reply_pkt: malloc(%d) %s",
+        lispd_log_msg(LOG_DAEMON, "build_map_reply_pkt: Unable to allocate memory for  Map Reply message(%d) %s",
                 *map_reply_msg_len, strerror(errno));
-        return(0);
+        return(ERR_MALLOC);
     }
     memset(packet, 0, *map_reply_msg_len);
 

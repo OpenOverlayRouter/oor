@@ -36,8 +36,7 @@
  *      requires librt
  */
 
-uint64_t build_nonce(seed)
-     int        seed;
+uint64_t build_nonce(int seed)
 {
 
     uint64_t            nonce;
@@ -73,19 +72,20 @@ nonces_list *new_nonces_list()
 {
     nonces_list *nonces;
     if ((nonces = malloc(sizeof(nonces_list))) == NULL) {
-        lispd_log_msg(LOG_DEBUG, "new_nonces_list: error allocating memory -> %s",
-                strerror(errno));
-        return NULL;
+        lispd_log_msg(LISP_LOG_WARNING, "new_nonces_list: Unable to allocate memory for nonces_list: %s", strerror(errno));
+        return (NULL);
     }
     nonces->retransmits = 0;
-    return nonces;
+    return (nonces);
 }
 
 /*
  * Return true if nonce is found in the nonces list
  */
 
-int check_nonce(nonces_list   *nonces, uint64_t nonce){
+int check_nonce(
+        nonces_list     *nonces,
+        uint64_t        nonce){
     int i;
     if (nonces == NULL)
         return (BAD);
@@ -104,13 +104,14 @@ int check_nonce(nonces_list   *nonces, uint64_t nonce){
  *
  * Print 64-bit nonce in 0x%08x-0x%08x format.
  */
-void lispd_print_nonce (nonce)
-     uint64_t nonce;
+void lispd_print_nonce (
+        uint64_t    nonce,
+        int         log_level)
 {
     uint32_t lower;
     uint32_t upper;
 
     lower = nonce & 0xffffffff;
     upper = (nonce >> 32) & 0xffffffff;
-    lispd_log_msg(LOG_DAEMON,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
+    lispd_log_msg(log_level,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
 }
