@@ -88,7 +88,7 @@ char    *map_resolver                   = NULL;
 char    *map_server                     = NULL;
 char    *proxy_etr                      = NULL;
 char    *proxy_itr                      = NULL;
-int      debug                          = FALSE;
+int      debug_level                    = 0;
 int      daemonize                      = FALSE;
 int      map_request_retries            = DEFAULT_MAP_REQUEST_RETRIES;
 int      control_port                   = LISP_CONTROL_PORT;
@@ -128,8 +128,7 @@ int 	smr_timer_fd					= 0;
  * Interface on which control messages
  * are sent
  */
-lispd_iface_elt *default_ctrl_iface_v4  = NULL;
-lispd_iface_elt *default_ctrl_iface_v6  = NULL;
+
 lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
@@ -198,22 +197,16 @@ int main(int argc, char **argv)
      */
 
 #ifdef OPENWRT
-
     if (config_file == NULL){
         config_file = "/etc/config/lispd";
     }
-
     handle_uci_lispd_config_file(config_file);
-
 #else
-
     if (config_file == NULL){
         config_file = "/etc/lispd.conf";
     }
     handle_lispd_config_file(config_file);
-
 #endif
-
 
     /*
      *  see if we need to daemonize, and if so, do it

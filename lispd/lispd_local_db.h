@@ -55,7 +55,7 @@ typedef struct lispd_locator_elt_ {
  * Initialize databases
  */
 
-int db_init(void);
+void db_init(void);
 
 
 /*
@@ -174,10 +174,17 @@ lispd_identifier_elt *lookup_eid_in_db(lisp_addr_t eid);
  */
 lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length);
 
+
+/*
+ * dump local identifier
+ */
+void dump_identifier(lispd_identifier_elt *identifier, int log_level);
+
+
 /*
  * dump local identifier list
  */
-void dump_local_eids();
+void dump_local_eids(int log_level);
 
 
 lisp_addr_t get_main_eid(int afi);

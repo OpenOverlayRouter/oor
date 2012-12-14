@@ -34,12 +34,16 @@ extern "C" {
 #define CMDLINE_PARSER_VERSION "0.3.0"
 #endif
 
+enum enum_debug { debug__NULL = -1, debug_arg_0 = 0, debug_arg_1, debug_arg_2, debug_arg_3 };
+
 /** @brief Where the command line options are stored */
 struct gengetopt_args_info
 {
   const char *help_help; /**< @brief Print help and exit help description.  */
   const char *version_help; /**< @brief Print version and exit help description.  */
-  const char *debug_help; /**< @brief Debuging output help description.  */
+  enum enum_debug debug_arg;	/**< @brief Debuging output [0..3].  */
+  char * debug_orig;	/**< @brief Debuging output [0..3] original value given at command line.  */
+  const char *debug_help; /**< @brief Debuging output [0..3] help description.  */
   const char *daemonize_help; /**< @brief Daemonize lispd help description.  */
   char * config_file_arg;	/**< @brief Alternate config file.  */
   char * config_file_orig;	/**< @brief Alternate config file original value given at command line.  */
@@ -172,6 +176,8 @@ void cmdline_parser_free (struct gengetopt_args_info *args_info);
  */
 int cmdline_parser_required (struct gengetopt_args_info *args_info,
   const char *prog_name);
+
+extern const char *cmdline_parser_debug_values[];  /**< @brief Possible values for debug. */
 
 
 #ifdef __cplusplus

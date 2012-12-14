@@ -36,13 +36,25 @@
 
 #include "lispd.h"
 
-#include <syslog.h>
-#include <stdarg.h>
+
+// If these set of defines is modified, check the function is_loggable()
+
+#define LISP_LOG_CRIT        1       /* critical conditions -> Exit program */
+#define LISP_LOG_ERR         2       /* error conditions -> Not exit but should be considered by user */
+#define LISP_LOG_WARNING     3       /* warning conditions -> Low level errors. Program doesn't finish */
+#define LISP_LOG_INFO        4       /* informational -> Initial configuration, SMRs, interface change status*/
+#define LISP_LOG_DEBUG_1     5       /* low debug-level messages -> Control message */
+#define LISP_LOG_DEBUG_2     6       /* medium debug-level messages -> Errors in received packets. Wrong AFI, ...  */
+#define LISP_LOG_DEBUG_3     7       /* high debug-level messages -> Log for each received or generated packet */
 
 
-void set_up_syslog(void);
+void lispd_log_msg(int lisp_log_level, const char *format, ...);
 
-void lispd_log_msg(int log_level, const char *format, ...);
+/*
+ * True if log_level is enough to print results
+ */
+
+int is_loggable (int log_level);
 
 
 #endif /*LISPD_LOG_H_*/

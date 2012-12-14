@@ -91,40 +91,11 @@ int add_identifier_to_interface (lispd_iface_elt *interface, lispd_identifier_el
 
 
 
-
-
-
-
-
-
-/*
- * Add a new db_entry_list_elt to the head of a db_entry_list
- */
-void add_item_to_db_entry_list (db_entry_list *list, db_entry_list_elt  *item);
-
-/*
- * Delete db_entry_list_elt from db_entry_list
- */
-int del_item_from_db_entry_list (db_entry_list *list, lispd_db_entry_t  *item);
-
-/*
- * Search iface_list for an iface_list_elt with a particular interface name
- */
-iface_list_elt *search_iface_list (char *iface_name);
-
-
-/*
- * Function that allows iterating through interfaces from elsewhere
- */
-iface_list_elt *get_first_iface_elt();
-
-
-
 /*
  * Print the interfaces and locators of the lisp node
  */
 
-void dump_iface_list();
+void dump_iface_list(int log_level);
 
 
 void open_iface_binded_sockets();

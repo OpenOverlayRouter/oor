@@ -30,51 +30,45 @@
 #include "lispd_input.h"
 
 
- void lisp_input(char *packet_buf, int length, void *source, int tun_receive_fd)
- {
-     int ret;
-     struct lisphdr *lisp_hdr;
-     struct iphdr *iph;
-     //struct sockaddr_in *source_sock;
-     
-     //source_sock    = (struct sockaddr_in *)source;
-     
-     
-     //iph = (struct iphdr *)((char *)packet_buf + sizeof(struct iphdr));
+void lisp_input(
+        char    *packet_buf,
+        int     length,
+        void    *source,
+        int     tun_receive_fd)
+{
+    int ret;
+    struct lisphdr *lisp_hdr;
+    struct iphdr *iph;
 
+    lisp_hdr = (struct lisphdr *)packet_buf;
 
-     lisp_hdr = (struct lisphdr *)packet_buf;
+    iph = (struct iphdr *)((char *)lisp_hdr + sizeof(struct lisphdr));
 
-     iph = (struct iphdr *)((char *)lisp_hdr + sizeof(struct lisphdr));
-     
-     if (iph->version == 4) {
-     
-         ret = write(tun_receive_fd, iph, length - sizeof(struct lisphdr));
-     
-     }
-     
-     if (ret==-1){
-        lispd_log_msg(LOG_DEBUG,"write: %s\n ", strerror(errno));
-         
-     }
-     
- }
- 
- void process_input_packet(int fd, int tun_receive_fd)
- {
-     uint8_t                 packet[4096];
-     int                     recv_len;
-     socklen_t               fromlen4 = sizeof(struct sockaddr_in);
-     struct sockaddr_in      s4;
-     
-    lispd_log_msg(LOG_DEBUG,"tuntap_process_input_packet\n");
-     
-     memset(&s4, 0, sizeof(struct sockaddr_in));
-     
-     if ((recv_len = recvfrom(fd, packet, 4096, 0,(struct sockaddr *) &s4, &fromlen4)) < 0)
-        lispd_log_msg(LOG_DEBUG,"recvfrom (v4): %s", strerror(errno));
-     else
-         lisp_input((char *)packet, recv_len, &s4, tun_receive_fd);
-     
- }
- 
+    if (iph->version == 4) {
+        ret = write(tun_receive_fd, iph, length - sizeof(struct lisphdr));
+    }
+
+    if (ret==-1){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
+    }
+}
+
+void process_input_packet(
+        int fd,
+        int tun_receive_fd)
+{
+    uint8_t                 packet[4096];
+    int                     recv_len;
+    socklen_t               fromlen4 = sizeof(struct sockaddr_in);
+    struct sockaddr_in      s4;
+
+    lispd_log_msg(LISP_LOG_DEBUG_3,"process_input_packet: tuntap_process_input_packet\n");
+
+    memset(&s4, 0, sizeof(struct sockaddr_in));
+
+    if ((recv_len = recvfrom(fd, packet, 4096, 0,(struct sockaddr *) &s4, &fromlen4)) < 0)
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_input_packet: recvfrom (v4) error: %s", strerror(errno));
+    else
+        lisp_input((char *)packet, recv_len, &s4, tun_receive_fd);
+}
+
