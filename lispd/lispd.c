@@ -83,7 +83,7 @@ lispd_addr_list_t          *map_resolvers  = 0;
 lispd_addr_list_t          *proxy_itrs  = 0;
 lispd_weighted_addr_list_t *proxy_etrs  = 0;
 lispd_map_server_list_t    *map_servers = 0;
-char    *config_file                    = "/etc/lispd.conf";
+char    *config_file                    = NULL;
 char    *map_resolver                   = NULL;
 char    *map_server                     = NULL;
 char    *proxy_etr                      = NULL;
@@ -191,9 +191,15 @@ int main(int argc, char **argv)
      */
 
 #ifdef OPENWRT
-    handle_uci_lispd_config_file("/etc/config", "lispd");
+    if (config_file == NULL){
+        config_file = "/etc/config/lispd";
+    }
+    handle_uci_lispd_config_file(config_file);
 #else
-    handle_lispd_config_file();
+    if (config_file == NULL){
+        config_file = "/etc/lispd.conf";
+    }
+    handle_lispd_config_file(config_file);
 #endif
 
     /*

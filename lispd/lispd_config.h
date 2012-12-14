@@ -43,11 +43,11 @@ void handle_lispd_command_line(int argc, char **argv);
 /*
  *  Parse config file and set up whatever is needed
  */
-int handle_lispd_config_file();
+int handle_lispd_config_file(char * lispdconf_conf_file);
 
 #ifdef OPENWRT
 
-int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_file);
+int handle_uci_lispd_config_file(char *uci_conf_file_path);
 
 #endif
 

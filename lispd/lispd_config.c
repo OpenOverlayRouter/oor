@@ -45,6 +45,8 @@
 
 #ifdef OPENWRT
 #include <uci.h>
+#include <libgen.h>
+#include <string.h>
 #endif
 
 
@@ -132,7 +134,7 @@ void handle_lispd_command_line(
  *
  */
 
-int handle_lispd_config_file()
+int handle_lispd_config_file(char * lispdconf_conf_file)
 {
     cfg_t           *cfg   = 0;
     unsigned int    i      = 0;
@@ -193,7 +195,7 @@ int handle_lispd_config_file()
      */
 
     cfg = cfg_init(opts, CFGF_NOCASE);
-    ret = cfg_parse(cfg, config_file);
+    ret = cfg_parse(cfg, lispdconf_conf_file);
 
     if (ret == CFG_FILE_ERROR) {
         lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", config_file);
@@ -377,19 +379,17 @@ int handle_lispd_config_file()
     return(GOOD);
 }
 
-
 #ifdef OPENWRT
 
 
-int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_file) {
+int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
 
     struct uci_context *ctx = NULL;
     struct uci_package *pck = NULL;
     struct uci_section *s = NULL;
     struct uci_element *e = NULL;
-
-    const char* uci_debug = NULL;
+    int         uci_debug = 0;
     int         uci_retries = 0;
     const char* uci_address = NULL;
     int         uci_key_type = 0;
@@ -407,6 +407,9 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
     const char* uci_rloc = NULL;
     const char* uci_eid_prefix = NULL;
 
+    char *uci_conf_dir;
+    char *uci_conf_file;
+
     //arnatal TODO XXX: check errors for the whole function
 
 
@@ -418,8 +421,12 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
         exit(EXIT_FAILURE);
     }
 
+    uci_conf_dir = dirname(strdup(uci_conf_file_path));
+    uci_conf_file = basename(strdup(uci_conf_file_path));
+    
+    
     uci_set_confdir(ctx, uci_conf_dir);
-
+    
     lispd_log_msg(LISP_LOG_DEBUG_1,"Conf dir: %s\n",ctx->confdir);
 
     uci_load(ctx,uci_conf_file,&pck);
@@ -458,14 +465,10 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
         s = uci_to_section(e);
 
         if (strcmp(s->type, "daemon") == 0){
+            
+            uci_debug = strtol(uci_lookup_option_string(ctx, s, "debug"),NULL,10);
 
-            uci_debug = uci_lookup_option_string(ctx, s, "debug");
-
-            if (strcmp(uci_debug, "on") == 0){
-                debug = TRUE;
-            }else{
-                debug = FALSE;
-            }
+            debug = uci_debug;
 
             uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
 
