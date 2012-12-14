@@ -582,7 +582,7 @@ void dump_local_eids(int log_level)
     lispd_identifier_elt        *entry;
 
 
-    lispd_log_msg(LOG_DEBUG,"*** LISP Local EIDs ***\n\n");
+    lispd_log_msg(log_level,"*** LISP Local EIDs ***\n\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){
         PATRICIA_WALK(dbs[ctr]->head, node) {

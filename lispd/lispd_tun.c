@@ -107,7 +107,7 @@ int create_tun(
 
     /* this is the special file descriptor that the caller will use to talk
      * with the virtual interface */
-    lispd_log_msg(LOG_DAEMON, "tunnel fd at creation is %d", *tun_receive_fd);
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Tunnel fd at creation is %d", *tun_receive_fd);
 
     /*
     if (!tuntap_install_default_routes()) {

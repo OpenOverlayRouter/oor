@@ -66,122 +66,7 @@
 
 int isfqdn(char *s);
 
-/*
- *      build_receive_sockets
- *
- *      Set up the receive sockets. Note that if you use a 
- *      a random port, which is used as  the source port used 
- *      in the inner UDP header of the encapsulated 
- *      map-request. If proxy-reply on, you will receive map-replies
- *      destined to this port (i.e., the destination port). e.g.,
- *
- *      No. Time     Source         Destination     Protocol Info
- *      97  5.704114 128.223.156.23 128.223.156.117 LISP     Map-Reply
- *      ...
- *      Internet Protocol, Src: 128.223.156.23 (128.223.156.23), Dst: 128.223.156.117 (128.223.156.117)
- *      User Datagram Protocol, Src Port: lisp-control (4342), Dst Port: 48849 (48849)
- *      Locator/ID Separation Protocol
- *
- *      In this case, 48849 was the random source port I put in the 
- *      inner UDP header source port in the encapsulated map-request 
- *      which was sent to to the map-server at 128.223.156.23. 
- *
- *      So we'll just use src port == dest port == 4342. Note that you
- *      need to setsockopt SO_REUSEADDR or you'll get bind: address in use. 
- *
- */
 
-int build_receive_sockets(void)
-{
-
-    struct protoent     *proto;
-    struct sockaddr_in  v4;
-    struct sockaddr_in6 v6;
-    int                 tr = 1;
-    
-    if ((proto = getprotobyname("UDP")) == NULL) {
-        lispd_log_msg(LOG_DAEMON, "getprotobyname: %s", strerror(errno));
-        return(BAD);
-    }
-
-    /*
-     *  build the ipv4_data_input_fd, and make the port reusable
-     */
-
-    if ((ipv4_data_input_fd = socket(AF_INET,SOCK_DGRAM,proto->p_proto)) < 0) {
-        lispd_log_msg(LOG_DAEMON, "socket (v4): %s", strerror(errno));
-        return(BAD);
-    }
-
-    if (setsockopt(ipv4_data_input_fd,
-                   SOL_SOCKET,
-                   SO_REUSEADDR,
-                   &tr,
-                   sizeof(int)) == -1) {
-        lispd_log_msg(LOG_DAEMON, "setsockopt SO_REUSEADDR (v4): %s", strerror(errno));
-        return(BAD);
-    }
-
-/*
-    if (setsockopt(ipv4_data_input_fd,
-                   SOL_SOCKET,
-                   SO_BINDTODEVICE,
-                   &(ctrl_iface->iface_name),
-                   sizeof(int)) == -1) {
-        lispd_log_msg(LOG_DAEMON, "setsockopt SO_BINDTODEVICE (v4): %s", strerror(errno));
-    }
-*/
-    memset(&v4,0,sizeof(v4));           /* be sure */
-    v4.sin_port        = htons(LISP_CONTROL_PORT);
-    v4.sin_family      = AF_INET;
-    v4.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(ipv4_data_input_fd,(struct sockaddr *) &v4, sizeof(v4)) == -1) {
-        lispd_log_msg(LOG_DAEMON, "bind (v4): %s", strerror(errno));
-        return(BAD);
-    }
-
-    /*
-     *  build the v6_receive_fd, and make the port reusable
-     */
-
-    if ((ipv6_data_input_fd = socket(AF_INET6,SOCK_DGRAM,proto->p_proto)) < 0) {
-        lispd_log_msg(LOG_DAEMON, "socket (v6): %s", strerror(errno));
-        return(BAD);
-    }
-
-    if (setsockopt(ipv6_data_input_fd,
-                   SOL_SOCKET,
-                   SO_REUSEADDR,
-                   &tr,
-                   sizeof(int)) == -1) {
-        lispd_log_msg(LOG_DAEMON, "setsockopt SO_REUSEADDR (v6): %s", strerror(errno));
-        return(BAD);
-    }
-
-/*
-    if (setsockopt(v6_receive_fd,
-                   SOL_SOCKET,
-                   SO_BINDTODEVICE,
-                   &(ctrl_iface->iface_name),
-                   sizeof(int)) == -1) {
-        lispd_log_msg(LOG_DAEMON, "setsockopt SO_BINDTODEVICE (v6): %s", strerror(errno));
-    }
-*/
-
-    memset(&v6,0,sizeof(v6));                   /* be sure */
-    v6.sin6_family   = AF_INET6;
-    v6.sin6_port     = htons(LISP_CONTROL_PORT);
-    v6.sin6_addr     = in6addr_any;
-
-    if (bind(ipv6_data_input_fd,(struct sockaddr *) &v6, sizeof(v6)) == -1) {
-        lispd_log_msg(LOG_DAEMON, "bind (v6): %s", strerror(errno));
-        return(BAD);
-    }
- 
-    return(GOOD);
-}
-  
 
 /*
  *      get_afi
@@ -265,69 +150,9 @@ int copy_addr(
                sizeof(struct in6_addr));
         return(sizeof(struct in6_addr));
     default:
-        lispd_log_msg(LOG_DAEMON, "copy_addr: Unknown AFI (%d)", a2->afi);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "copy_addr: Unknown AFI (%d)", a2->afi);
         return(ERR_AFI);
     }
-}
-
-
-/*
- *      find a useable source address with AFI = afi
- */
- 
-/* TODO (LJ): To avoid memory leaks, the lisp_addr_t should be allocated
- *            by caller and a pointer passed as parameter. Update calls! */
-lisp_addr_t *get_my_addr(if_name, afi)
-     char       *if_name;
-     int        afi;
-{
-    lisp_addr_t         *addr;
-    struct ifaddrs      *ifaddr;
-    struct ifaddrs      *ifa;
-    struct sockaddr_in  *s4;
-    struct sockaddr_in6 *s6;
-
-    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LOG_DAEMON, "malloc (get_my_addr): %s", strerror(errno));
-        return(NULL);
-    }
-
-    memset(addr, 0, sizeof(lisp_addr_t));
-
-    if (getifaddrs(&ifaddr) !=0) {
-        lispd_log_msg(LOG_DAEMON, "getifaddrs(get_my_addr): %s", strerror(errno));
-        free(addr);
-        return(NULL);
-    }
-
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if ((ifa->ifa_addr             == NULL) ||
-            ((ifa->ifa_flags & IFF_UP) == 0)    ||
-            (ifa->ifa_addr->sa_family  != afi)  ||
-            strcmp(ifa->ifa_name, if_name))
-            continue;
-        switch (ifa->ifa_addr->sa_family) {
-        case AF_INET:
-            s4 = (struct sockaddr_in *)(ifa->ifa_addr);
-            memcpy((void *) &(addr->address),
-                   (void *)&(s4->sin_addr), sizeof(struct in_addr));
-            addr->afi = (ifa->ifa_addr)->sa_family;
-            freeifaddrs(ifaddr);
-            return(addr);
-        case AF_INET6:
-            s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
-            memcpy((void *) &(addr->address),
-                   (void *)&(s6->sin6_addr), sizeof(struct in6_addr));
-            addr->afi = (ifa->ifa_addr)->sa_family;
-            freeifaddrs(ifaddr);
-            return(addr);
-        default:
-            continue;                   /* keep looking */
-        }
-    }
-    free(addr);
-    freeifaddrs(ifaddr);
-    return(NULL);                          /* no luck */
 }
 
 /*
@@ -487,7 +312,7 @@ void dump_proxy_etrs(int log_level)
     if (!proxy_etrs)
         return;
 
-    lispd_log_msg(LOG_DAEMON, "*** Proxy ETRs List ***");
+    lispd_log_msg(log_level, "*** Proxy ETRs List ***");
 
     iterator = proxy_etrs;
     while (iterator) {
@@ -560,9 +385,9 @@ void print_hmac(
     int i;
 
     for (i = 0; i < len; i += 4) {
-        lispd_log_msg(LOG_DEBUG,"i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
+        lispd_log_msg(LISP_LOG_DEBUG_3,"i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
     }
-    lispd_log_msg(LOG_DEBUG,"\n");
+    lispd_log_msg(LISP_LOG_DEBUG_3,"\n");
 }
 
 /*
@@ -738,7 +563,7 @@ int get_ip_header_len(int afi)
     case AF_INET6:
         return(sizeof(struct ip6_hdr));
     default:
-        lispd_log_msg(LOG_DAEMON, "get_ip_header_len: unknown AFI (%d)", afi);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "get_ip_header_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -756,7 +581,7 @@ int get_sockaddr_len(int afi)
     case AF_INET6:
         return(sizeof(struct sockaddr_in6));
     default:
-        lispd_log_msg(LOG_DAEMON, "get_sockaddr_len: unknown AFI (%d)", afi);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "get_sockaddr_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -774,7 +599,7 @@ int get_addr_len(int afi)
     case AF_INET6:
         return(sizeof(struct in6_addr));
     default:
-        lispd_log_msg(LOG_DAEMON, "get_addr_len: unknown AFI (%d)", afi);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "get_addr_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }

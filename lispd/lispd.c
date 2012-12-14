@@ -280,7 +280,7 @@ int main(int argc, char **argv)
 
     event_loop();
 
-    lispd_log_msg(LOG_INFO, "Exiting...");         /* event_loop returned bad */
+    lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
     closelog();
     return(0);
 }
@@ -349,20 +349,20 @@ void signal_handler(int sig) {
     switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
-        lispd_log_msg(LOG_WARNING, "Received SIGHUP signal.");
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received SIGHUP signal.");
         break;
     case SIGTERM:
         /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
-        lispd_log_msg(LOG_WARNING, "Received SIGTERM signal. Cleaning up...");
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received SIGTERM signal. Cleaning up...");
         exit_cleanup();
         break;
     case SIGINT:
         /* SIGINT is sent by pressing Ctrl-C. Exit cleanly */
-        lispd_log_msg(LOG_WARNING, "Terminal interrupt. Cleaning up...");
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Terminal interrupt. Cleaning up...");
         exit_cleanup();
         break;
     default:
-        lispd_log_msg(LOG_WARNING,"Unhandled signal (%d)", sig);
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Unhandled signal (%d)", sig);
         exit(EXIT_FAILURE);
     }
 }

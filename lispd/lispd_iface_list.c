@@ -256,7 +256,7 @@ lispd_iface_elt *get_any_output_iface(int afi)
             }
             break;
         default:
-            lispd_log_msg(LOG_ERR, "get_output_iface: unknown afi %d",afi);
+            lispd_log_msg(LISP_LOG_DEBUG_2, "get_output_iface: unknown afi %d",afi);
             break;
     }
 

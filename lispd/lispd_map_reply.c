@@ -314,7 +314,7 @@ uint8_t *build_map_reply_pkt(lispd_identifier_elt *identifier,
             pkt_get_mapping_record_length(identifier);
 
     if ((packet = malloc(*map_reply_msg_len)) == NULL) {
-        lispd_log_msg(LOG_DAEMON, "build_map_reply_pkt: Unable to allocate memory for  Map Reply message(%d) %s",
+        lispd_log_msg(LISP_LOG_WARNING, "build_map_reply_pkt: Unable to allocate memory for  Map Reply message(%d) %s",
                 *map_reply_msg_len, strerror(errno));
         return(ERR_MALLOC);
     }

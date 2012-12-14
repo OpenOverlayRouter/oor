@@ -37,36 +37,6 @@
 
 
 /*
- *      build_receive_sockets
- *
- *      Set up the receive sockets. Note that if you use a
- *      a random port, which is used as  the source port used
- *      in the inner UDP header of the encapsulated
- *      map-request. If proxy-reply on, you will receive map-replies
- *      destined to this port (i.e., the destination port). e.g.,
- *
- *      No. Time     Source         Destination     Protocol Info
- *      97  5.704114 128.223.156.23 128.223.156.117 LISP     Map-Reply
- *      ...
- *      Internet Protocol, Src: 128.223.156.23 (128.223.156.23), Dst: 128.223.156.117 (128.223.156.117)
- *      User Datagram Protocol, Src Port: lisp-control (4342), Dst Port: 48849 (48849)
- *      Locator/ID Separation Protocol
- *
- *      In this case, 48849 was the random source port I put in the
- *      inner UDP header source port in the encapsulated map-request
- *      which was sent to to the map-server at 128.223.156.23.
- *
- *      So we'll just use src port == dest port == 4342. Note that you
- *      need to setsockopt SO_REUSEADDR or you'll get bind: address in use.
- *
- */
-
-int build_receive_sockets(void);
-
-
-
-
-/*
  *      Assume if there's a colon in str that its an IPv6
  *      address. Otherwise its v4.
  */
@@ -90,9 +60,6 @@ int copy_addr(void *a1, lisp_addr_t *a2, int convert);
  *      find a useable source address with AFI = afi
  */
 
-/* TODO (LJ): To avoid memory leaks, the lisp_addr_t should be allocated
- *            by caller and a pointer passed as parameter. Update calls! */
-lisp_addr_t *get_my_addr(char *if_name, int afi);
 
 /*
  *      return GOOD if addr contain a  lisp_addr_t for host/FQDN or BAD if none

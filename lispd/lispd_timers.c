@@ -57,12 +57,11 @@ timer_t create_wheel_timer(void)
     timerspec.it_value.tv_sec = TimerTickInterval;
     timerspec.it_interval.tv_nsec = 0;
     timerspec.it_interval.tv_sec = TimerTickInterval;
-    /*lispd_log_msg(LOG_ERR, "Master wheel tick timer %d set for %d seconds",
-           tid, timerspec.it_value.tv_sec);*/
+
 
     if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
-       /* lispd_log_msg(LOG_INFO, "timer start failed for %d %s",
-               tid, strerror(errno));*/
+        lispd_log_msg(LISP_LOG_DEBUG_2, "create_wheel_timer: timer start failed for %d %s",
+               tid, strerror(errno));
         return (timer_t)0;
     }
     return(tid);
