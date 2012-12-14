@@ -37,11 +37,17 @@ typedef struct _timer {
 
 
 
-int      init_timers();
-timer   *create_timer(char *);
-void     start_timer(timer *, int, timer_callback,
-                   void *);
-void     stop_timer(timer *);
+int init_timers();
+
+timer *create_timer(char *);
+
+void start_timer(
+    timer               *tptr,
+    int                 seconds_to_expiry,
+    timer_callback      cb,
+    void                *cb_arg);
+
+void stop_timer(timer *);
 
 int process_timer_signal();
 

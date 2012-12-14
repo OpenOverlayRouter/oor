@@ -32,7 +32,9 @@
 #include "lispd.h"
 
 
-int open_device_binded_raw_socket(char *device, int afi);
+int open_device_binded_raw_socket(
+    char *device,
+    int afi);
 
 int open_data_input_socket(int afi);
 

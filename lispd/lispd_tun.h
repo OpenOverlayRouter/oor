@@ -55,27 +55,29 @@ char *tun_receive_buf;
 
 
 
-int create_tun(char *tun_dev_name,
-               unsigned int tun_receive_size,
-               int tun_mtu,
-               int *tun_receive_fd,
-               int *tun_ifindex,
-               char **tun_receive_buf);
+int create_tun(
+    char                *tun_dev_name,
+    unsigned int        tun_receive_size,
+    int                 tun_mtu,
+    int                 *tun_receive_fd,
+    int                 *tun_ifindex,
+    char                **tun_receive_buf);
 
-int tun_bring_up_iface_v4_eid(lisp_addr_t eid_address_v4,
-                   char *tun_dev_name);
+int tun_bring_up_iface_v4_eid(
+    lisp_addr_t         eid_address_v4,
+    char                *tun_dev_name);
 
-int tun_add_v6_eid_to_iface(lisp_addr_t eid_address_v6,
-                   char *tun_dev_name,
-                   int tun_ifindex);
+int tun_add_v6_eid_to_iface(
+    lisp_addr_t         eid_address_v6,
+    char                *tun_dev_name,
+    int                 tun_ifindex);
 
-int add_route_v4(uint32_t ifindex,
-                 lisp_addr_t *dest,
-                 lisp_addr_t *src,
-                 lisp_addr_t *gw,
-                 uint32_t prefix_len,
-                 uint32_t metric);
+int add_route_v4(
+    uint32_t            ifindex,
+    lisp_addr_t         *dest,
+    lisp_addr_t         *src,
+    lisp_addr_t         *gw,
+    uint32_t            prefix_len,
+    uint32_t            metric);
 
-//void process_input_packet(int fd, int tun_receive_fd);
-
-//void process_output_packet(int fd, char *tun_receive_buf, unsigned int tun_receive_size);
+int set_tun_default_route_v4(int tun_ifindex);
