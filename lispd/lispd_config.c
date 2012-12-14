@@ -45,6 +45,8 @@
 
 #ifdef OPENWRT
 #include <uci.h>
+#include <libgen.h>
+#include <string.h>
 #endif
 
 
@@ -120,7 +122,7 @@ void handle_lispd_command_line(int argc, char **argv)
  *
  */
 
-int handle_lispd_config_file()
+int handle_lispd_config_file(char * lispdconf_conf_file)
 {
     cfg_t           *cfg   = 0;
     unsigned int    i      = 0;
@@ -181,16 +183,16 @@ int handle_lispd_config_file()
      */
 
     cfg = cfg_init(opts, CFGF_NOCASE);
-    ret = cfg_parse(cfg, config_file);
+    ret = cfg_parse(cfg, lispdconf_conf_file);
 
     if (ret == CFG_FILE_ERROR) {
-        lispd_log_msg(LOG_DAEMON, "Couldn't find config file %s, exiting...", config_file);
+        lispd_log_msg(LOG_DAEMON, "Couldn't find config file %s, exiting...", lispdconf_conf_file);
         exit(EXIT_FAILURE);
     } else if(ret == CFG_PARSE_ERROR) {
         lispd_log_msg(LOG_DAEMON, "NOTE: Version 0.2.4 changed the format of the 'proxy-etr' element.");
         lispd_log_msg(LOG_DAEMON, "      Check the 'lispd.conf.example' file for an example entry in");
         lispd_log_msg(LOG_DAEMON, "      the new format.");
-        lispd_log_msg(LOG_DAEMON, "Parse error in file %s, exiting...", config_file);
+        lispd_log_msg(LOG_DAEMON, "Parse error in file %s, exiting...", lispdconf_conf_file);
         exit(EXIT_FAILURE);
     }
 
@@ -338,11 +340,10 @@ int handle_lispd_config_file()
     return(0);
 }
 
-
 #ifdef OPENWRT
 
 
-int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_file) {
+int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     
     struct uci_context *ctx = NULL;
@@ -350,7 +351,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
     struct uci_section *s = NULL;
     struct uci_element *e = NULL;
     
-    const char* uci_debug = NULL;
+    int         uci_debug = 0;
     int         uci_retries = 0;
     const char* uci_address = NULL;
     int         uci_key_type = 0;
@@ -368,6 +369,9 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
     const char* uci_rloc = NULL;
     const char* uci_eid_prefix = NULL;
 
+    char *uci_conf_dir;
+    char *uci_conf_file;
+
     //arnatal TODO XXX: check errors for the whole function
     
 
@@ -378,10 +382,14 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
         lispd_log_msg(LOG_DAEMON, "Could not create UCI context");
         exit(EXIT_FAILURE);
     }
+
+    uci_conf_dir = dirname(strdup(uci_conf_file_path));
+    uci_conf_file = basename(strdup(uci_conf_file_path));
+    
     
     uci_set_confdir(ctx, uci_conf_dir);
     
-   lispd_log_msg(LOG_DEBUG,"Conf dir: %s\n",ctx->confdir);
+    lispd_log_msg(LOG_DEBUG,"Conf dir: %s\n",ctx->confdir);
     
     uci_load(ctx,uci_conf_file,&pck);
 
@@ -397,7 +405,7 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
     
     
     uci_foreach_element(&pck->sections, e) {
-        uci_debug = NULL;
+        uci_debug = 0;
         uci_retries = 0;
  
         uci_address = NULL;
@@ -420,13 +428,9 @@ int handle_uci_lispd_config_file(const char *uci_conf_dir, const char *uci_conf_
         
         if (strcmp(s->type, "daemon") == 0){
             
-            uci_debug = uci_lookup_option_string(ctx, s, "debug");
-            
-            if (strcmp(uci_debug, "on") == 0){
-                debug = TRUE;
-            }else{
-                debug = FALSE;
-            }
+            uci_debug = strtol(uci_lookup_option_string(ctx, s, "debug"),NULL,10);
+
+            debug = uci_debug;
 
             uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
             
