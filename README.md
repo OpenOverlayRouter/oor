@@ -195,20 +195,22 @@ to enable routing specific operation, and with -luci, to link with UCI
 
 The basic requisites and configuration still applies for the router mode, 
 but there are a few requirements that are specific for this mode. Follow 
-the general information for LISPmob, with this exceptions:
+the general information for LISPmob, with these exceptions:
 
-    - An EID /30 (at least) prefix is required instead of a /32 one. This 
-    prefix should be used as the network prefix for the subnet where the 
-    hosts behind the router are allocated. Assign it to an interface and 
-    configure it as you would do for a normal network prefix (static 
-    configuration, DHCP, etc...). No EID is used for the 'lispTun0' interface 
-    in router mode (a local address is automatically used by LISPmob instead).
+    - An EID /30 (at least) prefix is required instead of a /32 one. 
+    This prefix should be used as the network prefix for the subnet 
+    where the hosts behind the router are allocated. Assign it to an 
+    interface and configure it as you would do for a normal network 
+    prefix (static configuration, DHCP, etc...). No EID is used for 
+    the 'lispTun0' interface in router mode (a local address is 
+    automatically used by LISPmob instead).
 
     - The configuration is performed through the OpenWRT standard 
-    configuration tool UCI, instead of using 'lispd.conf' file. Either 
-    configure the UCI file manually in '/etc/config/lispd' (by default), 
-    use the UCI CLI application, or use the web interface (if available). The 
-    configuration fields are analogue to those on the 'lispd.conf' file.
+    configuration tool UCI, instead of using 'lispd.conf' file. 
+    Either configure the UCI file manually in '/etc/config/lispd' 
+    (by default), use the UCI CLI application, or use the web 
+    interface (if available). The configuration fields are analogue 
+    to those on the 'lispd.conf' file.
 
     - Prior to launch LISPmob on router mode make sure that rp_filter 
     kernel network parameter is disabled. Is disabled by default in 
