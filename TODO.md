@@ -13,7 +13,6 @@ High priority features
 
   * NAT traversal
   * Map-Server authentication framework
-  * Merge lisp_int into lisp_mod, avoid hardcoded information
   * Create binary package repositories for major distros
     * PPA for Ubuntu
     * MeeGo ?
@@ -28,7 +27,6 @@ Advanced features
 
   * Multiple EIDs
   * Multihoming (handle priorities and weights)
-  * Generalize code as xTR use, integrate with wireless router distros
   * Integrate wih NetworkManager
   * Integrate wih Connection Manager
   * Performance optimizations:
