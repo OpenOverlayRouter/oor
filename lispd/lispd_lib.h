@@ -106,11 +106,11 @@ lisp_addr_t *lispd_get_iface_address(char *ifacename, lisp_addr_t *addr, int afi
 
 void dump_database(patricia_tree_t *tree,int afi);
 
-void dump_servers(lispd_addr_list_t *list, const char *list_name);
+void dump_servers(lispd_addr_list_t *list, const char *list_name, int log_level);
 
-void dump_map_server(lispd_map_server_list_t *ms);
+void dump_proxy_etrs(int log_level);
 
-void dump_map_servers(void);
+void dump_map_servers(int log_level);
 
 
 /*
@@ -184,10 +184,6 @@ int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2);
 int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask);
 
 
-/*
- *  Auxiliary definitions
- */
-uint16_t min_timeout(uint16_t a,uint16_t b);
 
 /*
  *  select from among readfds, the largest of which
@@ -209,7 +205,6 @@ int retrieve_lisp_msg(int s, uint8_t *packet, void *from, int afi);
 
 int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t port);
 
-int sockaddr2lisp(struct sockaddr *src, lisp_addr_t *dst);
 
 
 #endif /*LISPD_LIB_H_*/

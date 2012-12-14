@@ -45,8 +45,13 @@
 
 
 
-lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifier, int *mrp_len);
-int send_map_register(lisp_addr_t *ms_address, lispd_pkt_map_register_t *mrp, int mrp_len);
+lispd_pkt_map_register_t *build_map_register_pkt(
+        lispd_identifier_elt    *identifier,
+        int                     *mrp_len);
+int send_map_register(
+        lisp_addr_t                 *ms_address,
+        lispd_pkt_map_register_t    *mrp,
+        int                         mrp_len);
 
 
 /*
@@ -60,7 +65,9 @@ timer *map_register_timer = NULL;
  * Timer and arg parameters are not used but must be defined to be consistent
  * with timer call back function.
  */
-int map_register(timer *t, void *arg)
+int map_register(
+        timer   *t,
+        void    *arg)
 {
     patricia_tree_t           *dbs[2];
     patricia_tree_t           *tree = NULL;
@@ -76,8 +83,8 @@ int map_register(timer *t, void *arg)
     dbs[1] = get_local_db(AF_INET6);
 
     if (!map_servers) {
-        lispd_log_msg(LOG_CRIT, "No Map Servers conifgured!");
-        return(BAD);
+        lispd_log_msg(LISP_LOG_CRIT, "map_register: No Map Servers conifgured!");
+        exit(EXIT_FAILURE);
     }
 
     for (ctr = 0 ; ctr < 2 ; ctr++) {
@@ -89,7 +96,7 @@ int map_register(timer *t, void *arg)
             if (identifier_elt) {
                 if ((map_register_pkt =
                         build_map_register_pkt(identifier_elt, &mrp_len)) == NULL) {
-                    lispd_log_msg(LOG_DAEMON, "Couldn't build map register packet");
+                    lispd_log_msg(LISP_LOG_DEBUG_1, "map_register: Couldn't build map register packet");
                     return(BAD);
                 }
 
@@ -114,16 +121,16 @@ int map_register(timer *t, void *arg)
                             mrp_len,
                             (uchar *) map_register_pkt->auth_data,
                             &md_len)) {
-                        lispd_log_msg(LOG_DAEMON, "HMAC failed for map-register");
+                        lispd_log_msg(LISP_LOG_DEBUG_1, "HMAC failed for map-register");
                         return(BAD);
                     }
 
                     /* Send the map register */
 
                     if (!send_map_register(ms->address,map_register_pkt,mrp_len)) {
-                        lispd_log_msg(LOG_DEBUG, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
                     }
-                    lispd_log_msg(LOG_DEBUG, "Sent map register for %s/%d to maps server %s",
+                    lispd_log_msg(LISP_LOG_DEBUG_1, "Sent map register for %s/%d to maps server %s",
                             get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
                             identifier_elt->eid_prefix_length,
                             get_char_from_lisp_addr_t(*(ms->address)));
@@ -142,7 +149,10 @@ int map_register(timer *t, void *arg)
         map_register_timer = create_timer("Map register");
     }
     start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register, NULL);
-
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed map register for %s/%d in %d seconds",
+                                get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
+                                identifier_elt->eid_prefix_length,
+                                MAP_REGISTER_INTERVAL);
     return(GOOD);
 }
 
@@ -154,7 +164,9 @@ int map_register(timer *t, void *arg)
  *
  */
 
-lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifier, int *mrp_len)
+lispd_pkt_map_register_t *build_map_register_pkt(
+        lispd_identifier_elt    *identifier,
+        int                     *mrp_len)
 {
     lispd_pkt_map_register_t *mrp;
     lispd_pkt_mapping_record_t *mr;
@@ -163,7 +175,7 @@ lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifie
               pkt_get_mapping_record_length(identifier);
 
     if ((mrp = malloc(*mrp_len)) == NULL) {
-        lispd_log_msg(LOG_ERR, "build_map_register_pkt: malloc: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING, "build_map_register_pkt: Unable to allocate memory for Map Register packet: %s", strerror(errno));
         return(NULL);
     }
     memset(mrp, 0, *mrp_len);
@@ -201,7 +213,10 @@ lispd_pkt_map_register_t *build_map_register_pkt(lispd_identifier_elt *identifie
  *  send_map_register
  */
 
-int send_map_register(lisp_addr_t *ms_address, lispd_pkt_map_register_t *mrp, int mrp_len)
+int send_map_register(
+        lisp_addr_t                 *ms_address,
+        lispd_pkt_map_register_t    *mrp,
+        int                         mrp_len)
 {
     int result;
     if (ms_address->afi == AF_INET)

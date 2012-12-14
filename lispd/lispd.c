@@ -88,7 +88,7 @@ char    *map_resolver                   = NULL;
 char    *map_server                     = NULL;
 char    *proxy_etr                      = NULL;
 char    *proxy_itr                      = NULL;
-int      debug                          = FALSE;
+int      debug_level                    = 0;
 int      daemonize                      = FALSE;
 int      map_request_retries            = DEFAULT_MAP_REQUEST_RETRIES;
 int      control_port                   = LISP_CONTROL_PORT;
@@ -128,8 +128,7 @@ int 	smr_timer_fd					= 0;
  * Interface on which control messages
  * are sent
  */
-lispd_iface_elt *default_ctrl_iface_v4  = NULL;
-lispd_iface_elt *default_ctrl_iface_v6  = NULL;
+
 lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
@@ -192,33 +191,11 @@ int main(int argc, char **argv)
      */
 
 #ifdef OPENWRT
-
     handle_uci_lispd_config_file("/etc/config", "lispd");
-
 #else
-
     handle_lispd_config_file();
-
 #endif
 
-    /*
-     * now build the v4/v6 receive sockets
-     */
-
-    //     if (build_receive_sockets() == 0)
-    //         exit(EXIT_FAILURE);
-    //
-    //
-    //
-    //
-    // #ifdef LISPMOBMH
-    //     if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
-    //         lispd_log_msg(LOG_INFO, "Could not create the SMR timer controller");
-    //     /*Make sure the timer starts with coherent values*/
-    //     stop_smr_timeout();
-    // #endif
-    //
-    //
     /*
      *  see if we need to daemonize, and if so, do it
      */
@@ -245,6 +222,7 @@ int main(int argc, char **argv)
      */
 
     lispd_log_msg(LOG_INFO, "*************** Creating tun interface... ***************");
+    lispd_log_msg(LOG_DEBUG, "*************** Creating tun interface... ***************");
 
     char *tun_dev_name = TUN_IFACE_NAME;
 

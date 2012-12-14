@@ -116,8 +116,8 @@ int process_map_reply(uint8_t *packet)
         if ((process_map_reply_record(&packet,nonce))==BAD)
             return (BAD);
     }
-
-    dump_map_cache();
+    if (is_loggable(LISP_LOG_DEBUG_3))
+        dump_map_cache(LISP_LOG_DEBUG_3);
     return TRUE;
 }
 

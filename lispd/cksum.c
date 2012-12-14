@@ -32,9 +32,9 @@
 #include "cksum.h"
 
 
-uint16_t ip_checksum(buffer, size) 
-    uint16_t *buffer;
-    int      size; 
+uint16_t ip_checksum(
+    uint16_t *buffer,
+    int      size)
 {
     uint32_t cksum = 0;
     
@@ -69,11 +69,11 @@ uint16_t ip_checksum(buffer, size)
  *
  */
 
-uint16_t udp_ipv4_checksum (buff,len,src,dest)
-	const void	*buff;
-	unsigned int	len;
-	in_addr_t	src;
-	in_addr_t	dest;
+uint16_t udp_ipv4_checksum (
+	const void	    *buff,
+	unsigned int	len,
+	in_addr_t	    src,
+	in_addr_t	    dest)
 {
 
     const uint16_t *buf	   = buff;
@@ -115,10 +115,10 @@ uint16_t udp_ipv4_checksum (buff,len,src,dest)
     return ((uint16_t)(~sum));
 }
 
-uint16_t udp_ipv6_checksum (ip6,up,len)
-        const struct ip6_hdr *ip6;
-        const struct udphdr *up;
-        unsigned int len;
+uint16_t udp_ipv6_checksum (
+        const struct ip6_hdr    *ip6,
+        const struct udphdr     *up,
+        unsigned int            len)
 {
     size_t i;
     register const u_int16_t *sp;
@@ -168,11 +168,11 @@ uint16_t udp_ipv6_checksum (ip6,up,len)
  *
  */
 
-uint16_t udp_checksum (udph,udp_len,iphdr,afi)
-struct udphdr *udph;
-int	   udp_len;
-void	   *iphdr;
-int	   afi;
+uint16_t udp_checksum (
+        struct udphdr   *udph,
+        int	            udp_len,
+        void	        *iphdr,
+        int	            afi)
 {
     switch (afi) {
     case AF_INET:
@@ -183,7 +183,7 @@ int	   afi;
     case AF_INET6:
         return(udp_ipv6_checksum(iphdr, udph, udp_len));
     default:
-        lispd_log_msg(LOG_DAEMON, "udp_checksum: Unknown AFI");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "udp_checksum: Unknown AFI");
         return(-1);
     }
 }

@@ -1,0 +1,17 @@
+--- a/lispd/Makefile
++++ b/lispd/Makefile
+@@ -16,11 +16,9 @@ CC           = gcc
+ endif
+ GENGETOPT      = gengetopt
+ 
+-CFLAGS         += -Wall -g -DDEBUG=3 -DTESTLOCALEID
+-#CFLAGS                += -Wall -g -DDEBUG=3 -DTESTLOCALEID -DOPENWRT
++CFLAGS         += -Wall -g -DDEBUG=3 -DTESTLOCALEID -DOPENWRT
+ 
+-LIBS           = -lconfuse -lssl -lcrypto -lrt -lm
+-#LIBS          = -lconfuse -lssl -lcrypto -lrt -lm -luci
++LIBS           = -lconfuse -lssl -lcrypto -lrt -lm -luci
+ INC            = lispd.h
+ MAKEFILE       = Makefile
+ OBJS           = cmdline.o lispd.o lispd_config.o lispd_log.o  \
+

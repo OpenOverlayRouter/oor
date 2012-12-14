@@ -15,8 +15,10 @@ version "0.3.0"
 
 defmode "lispdconfig"
 
-modeoption "debug" d "Debuging output" mode="lispdconfig" optional
-
+modeoption "debug" d "Debuging output [0..3]"
+	#int mode="lispdconfig" optional 
+		int values="0","1","2","3" enum mode="lispdconfig" optional
+		
 modeoption "daemonize" D "Daemonize lispd" mode="lispdconfig" optional
 
 modeoption "config-file" f "Alternate config file" 

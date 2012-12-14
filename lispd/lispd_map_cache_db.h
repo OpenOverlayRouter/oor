@@ -117,7 +117,7 @@ int change_eid_prefix_in_db(lisp_addr_t         new_eid_prefix,
 void eid_entry_expiration(timer *t, void *arg);
 
 
-void dump_map_cache();
+void dump_map_cache(int log_level);
 
 
 #endif /*LISPD_MAP_CACAHE_DB_H_*/

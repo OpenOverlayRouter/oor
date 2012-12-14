@@ -50,7 +50,7 @@ extern  char            *proxy_itr;
 extern  char            msg[];
 extern  int             map_request_retries;
 extern  int             control_port;
-extern  int             debug;
+extern  int             debug_level;
 extern  int             daemonize;
 
 extern  int         netlink_fd;

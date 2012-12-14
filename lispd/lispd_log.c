@@ -32,93 +32,104 @@
 
 #include "lispd_log.h"
 #include "lispd_external.h"
+#include <syslog.h>
+#include <stdarg.h>
+
+inline void lispd_log(
+        int         log_level,
+        char        *log_name,
+        const char  *format,
+        va_list     args);
 
 
-void set_up_syslog(void)
-{
-
-    setlogmask(LOG_UPTO(LOG_INFO));
-    openlog(LISPD, LOG_CONS, LOG_USER);
- 
-    if (!daemonize) {           /* print it to the user if not a daemon */
-        setlogmask(LOG_UPTO(LOG_DEBUG));
-        openlog(LISPD, LOG_CONS | LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_USER);
-    }
-
-    lispd_log_msg(LOG_INFO, "Starting up...");
- 
-}
-
-// For reference purpose
-//
-// #define LOG_EMERG       0       /* system is unusable */
-// #define LOG_ALERT       1       /* action must be taken immediately */
-// #define LOG_CRIT        2       /* critical conditions */
-// #define LOG_ERR         3       /* error conditions */
-// #define LOG_WARNING     4       /* warning conditions */
-// #define LOG_NOTICE      5       /* normal but significant condition */
-// #define LOG_INFO        6       /* informational */
-// #define LOG_DEBUG       7       /* debug-level messages */
-
-
-
-void lispd_log_msg(int log_level, const char *format, ...)
+void lispd_log_msg(
+        int lisp_log_level, const char *format, ...)
 {
     va_list args;
     char *log_name; /* To store the log level in string format for printf output */
-    
+    int log_level;
 
-    
+
     va_start (args, format);
 
-
-    if (daemonize == TRUE){     /* syslog output */
-        
-        vsyslog(log_level,format,args);
-        
-    }else{                      /* printf output */
-
-        switch (log_level){
-            case LOG_EMERG:
-                log_name = "EMERG";
-                break;
-            case LOG_ALERT:
-                log_name = "ALERT";
-                break;
-            case LOG_CRIT:
-                log_name = "CRIT";
-                break;
-            case LOG_ERR:
-                log_name = "ERR";
-                break;
-            case LOG_WARNING:
-                log_name = "WARNING";
-                break;
-            case LOG_NOTICE:
-                log_name = "NOTICE";
-                break;
-            case LOG_INFO:
-                log_name = "INFO";
-                break;
-            case LOG_DEBUG:
-                log_name = "DEBUG";
-                break;
-            case LOG_DAEMON:
-                log_name = "DAEMON";
-                break;
-            default:
-                log_name = "LOG";
+    switch (lisp_log_level){
+    case LISP_LOG_CRIT:
+        log_name = "CRIT";
+        log_level = LOG_CRIT;
+        lispd_log(log_level, log_name, format, args);
+        break;
+    case LISP_LOG_ERR:
+        log_name = "ERR";
+        log_level = LOG_ERR;
+        lispd_log(log_level, log_name, format, args);
+        break;
+    case LISP_LOG_WARNING:
+        log_name = "WARNING";
+        log_level = LOG_WARNING;
+        lispd_log(log_level, log_name, format, args);
+        break;
+    case LISP_LOG_INFO:
+        log_name = "INFO";
+        log_level = LOG_INFO;
+        lispd_log(log_level, log_name, format, args);
+        break;
+    case LISP_LOG_DEBUG_1:
+        if (debug_level > 0){
+            log_name = "DEBUG";
+            log_level = LOG_DEBUG;
+            lispd_log(log_level, log_name, format, args);
         }
-
-        printf("%s: ",log_name);
-        vfprintf(stdout,format,args);
-        printf("\n");
-        
+        break;
+    case LISP_LOG_DEBUG_2:
+        if (debug_level > 1){
+            log_name = "DEBUG-2";
+            log_level = LOG_DEBUG;
+            lispd_log(log_level, log_name, format, args);
+        }
+        break;
+    case LISP_LOG_DEBUG_3:
+        if (debug_level > 2){
+            log_name = "DEBUG-3";
+            log_level = LOG_DEBUG;
+            lispd_log(log_level, log_name, format, args);
+        }
+        break;
+    default:
+        log_name = "LOG";
+        log_level = LOG_INFO;
+        lispd_log(log_level, log_name, format, args);
+        break;
     }
 
     va_end (args);
 }
 
+inline void lispd_log(
+        int         log_level,
+        char        *log_name,
+        const char  *format,
+        va_list     args)
+{
+    if (daemonize){
+        vsyslog(log_level,format,args);
+    }else{
+        printf("%s: ",log_name);
+        vfprintf(stdout,format,args);
+        printf("\n");
+    }
+}
+
+/*
+ * True if log_level is enough to print results
+ */
+
+int is_loggable (int log_level){
+    if (log_level < LISP_LOG_DEBUG_1)
+        return (TRUE);
+    else if (log_level <= LISP_LOG_INFO + debug_level)
+        return (TRUE);
+    return (FALSE);
+}
 
 /*
  * Editor modelines

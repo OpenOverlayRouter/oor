@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+
+START=30
+STOP=80
+
+
+start() {
+        echo "Stopping previous lispd process ..."
+        killall lispd &> /dev/null
+        echo "Starting lispd ..."
+        /usr/sbin/lispd -D
+}
+
+stop() {
+        echo "Stopping lispd ..."
+        killall lispd
+}
