@@ -60,6 +60,7 @@
 #include "lispd_input.h"
 #include "lispd_output.h"
 #include "lispd_iface_list.h"
+#include "lispd_log.h"
 
 #include "lispd_map_cache_db.h"
 
@@ -134,11 +135,6 @@ lisp_addr_t source_rloc;
 int main(int argc, char **argv) 
 {
     lisp_addr_t tun_addr;
-    lisp_addr_t dest;
-    lisp_addr_t src;
-    lisp_addr_t gw;
-    uint32_t prefix_len = 0;
-    uint32_t metric = 0;
     char *tun_dev_name = TUN_IFACE_NAME;
 
     /*
@@ -180,7 +176,7 @@ int main(int argc, char **argv)
 
     if (build_timers_event_socket(&timers_fd) == 0)
     {
-        lispd_log_msg(LOG_ERR, " Error programing the timer signal. Exiting...");
+        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
         exit(EXIT_FAILURE);
     }
     init_timers();
@@ -213,7 +209,7 @@ int main(int argc, char **argv)
      */
 
     if (daemonize) {
-        lispd_log_msg(LOG_INFO, "Starting the daemonizing process");
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
             exit(EXIT_FAILURE);
         }
@@ -257,34 +253,10 @@ int main(int argc, char **argv)
      * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
      */
 
-    prefix_len = 1;
-    metric = 0;
-    get_lisp_addr_from_char("0.0.0.0",&gw);
-    get_lisp_addr_from_char("0.0.0.0",&src);
-
-
-    get_lisp_addr_from_char("0.0.0.0",&dest);
-
-    add_route_v4(tun_ifindex,
-            &dest,
-            NULL,
-            NULL,
-            prefix_len,
-            metric);
-
-
-    get_lisp_addr_from_char("128.0.0.0",&dest);
-
-    add_route_v4(tun_ifindex,
-            &dest,
-            NULL,
-            NULL,
-            prefix_len,
-            metric);
-
+    set_tun_default_route_v4(tun_ifindex);
 
     /*
-     * Select the defoult rlocs for output data packets and output control packets
+     * Select the default rlocs for output data packets and output control packets
      */
 
     set_default_output_ifaces();
@@ -292,7 +264,7 @@ int main(int argc, char **argv)
     set_default_ctrl_ifaces();
 
     /*
-     * Generate reveive sockets for control (4342) and data port (4341)
+     * Generate receive sockets for control (4342) and data port (4341)
      */
 
     ipv4_control_input_fd = open_control_input_socket(AF_INET);
@@ -350,18 +322,19 @@ void event_loop()
         }
         
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-            //lispd_log_msg(LOG_DEBUG,"Recieved packet in the data input buffer (4341)\n");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved packet in the data input buffer (4341)");
             process_input_packet(ipv4_data_input_fd, tun_receive_fd);
         }
         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-            //lispd_log_msg(LOG_DEBUG,"Recieved packet in the control input buffer (4342)\n");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved packet in the control input buffer (4342)");
             process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
         }
         if (FD_ISSET(tun_receive_fd, &readfds)) {
-            //lispd_log_msg(LOG_DEBUG,"Recieved packet in the tun buffer\n");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved packet in the tun buffer");
             process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
         }
         if (FD_ISSET(timers_fd,&readfds)){
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved something in the timer fd");
             process_timer_signal(timers_fd);
         }
     }

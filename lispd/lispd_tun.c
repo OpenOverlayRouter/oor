@@ -30,6 +30,7 @@
 
 
 #include "lispd_tun.h"
+#include "lispd_log.h"
 
 
 int create_tun(
@@ -352,7 +353,47 @@ int add_route_v4(
     return(GOOD);
 }
 
+int set_tun_default_route_v4(int tun_ifindex)
+{
 
+    /*
+     * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
+     */
+
+    lisp_addr_t dest;
+    lisp_addr_t src;
+    lisp_addr_t gw;
+    uint32_t prefix_len = 0;
+    uint32_t metric = 0;
+
+    prefix_len = 1;
+    metric = 0;
+    
+    get_lisp_addr_from_char("0.0.0.0",&gw);
+    get_lisp_addr_from_char("0.0.0.0",&src);
+
+
+    get_lisp_addr_from_char("0.0.0.0",&dest);
+
+    add_route_v4(tun_ifindex,
+            &dest,
+            NULL,
+            NULL,
+            prefix_len,
+            metric);
+
+
+    get_lisp_addr_from_char("128.0.0.0",&dest);
+
+    add_route_v4(tun_ifindex,
+            &dest,
+            NULL,
+            NULL,
+            prefix_len,
+            metric);
+
+    return(GOOD);
+}
 
 
 /*

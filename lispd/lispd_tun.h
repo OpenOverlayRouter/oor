@@ -80,6 +80,4 @@ int add_route_v4(
     uint32_t            prefix_len,
     uint32_t            metric);
 
-//void process_input_packet(int fd, int tun_receive_fd);
-
-//void process_output_packet(int fd, char *tun_receive_buf, unsigned int tun_receive_size);
+int set_tun_default_route_v4(int tun_ifindex);

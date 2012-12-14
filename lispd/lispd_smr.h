@@ -41,6 +41,8 @@ void init_smr();
  * Send a map request smr invoked and reprogram the timer to retransmit in case
  * no receive answer.
  */
-int solicit_map_request_reply(timer *t, void *arg);
+int solicit_map_request_reply(
+    timer *t,
+    void *arg);
 
 #endif /*LISPD_SMR_H_*/

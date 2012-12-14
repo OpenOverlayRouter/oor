@@ -13,6 +13,7 @@
 
 #include "lispd.h"
 #include "lispd_timers.h"
+#include "lispd_log.h"
 
 const int TimerTickInterval = 1;  // Seconds
 const int WheelSize = 4096;       // Good for a little over an hour
@@ -48,7 +49,7 @@ timer_t create_wheel_timer(void)
     sev.sigev_value.sival_ptr = &tid;
     if (timer_create(CLOCK_REALTIME, &sev, &tid) == -1)
     {
-        lispd_log_msg(LOG_INFO, "timer_create(): %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_DEBUG_1, "timer_create(): %s", strerror(errno));
         return (timer_t)0;
     }
 
@@ -76,10 +77,10 @@ int init_timers()
     int i = 0;
     timer_links *spoke;
 
-    lispd_log_msg(LOG_INFO, "Initializing lispd timers...");
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Initializing lispd timers...");
 
     if (create_wheel_timer() == 0) {
-        lispd_log_msg(LOG_INFO, "Failed to set up lispd timers.");
+        lispd_log_msg(LISP_LOG_INFO, "Failed to set up lispd timers.");
         return(BAD);
     }
 
@@ -162,8 +163,11 @@ void insert_timer(timer *tptr)
  * and arguments. Returns a pointer to the new timer, which must be kept
  * to stop the timer later if desired.
  */
-void start_timer(timer *tptr, int seconds_to_expiry, timer_callback cb,
-                 void *cb_arg)
+void start_timer(
+    timer               *tptr,
+    int                 seconds_to_expiry,
+    timer_callback      cb,
+    void                *cb_arg)
 {
     timer_links *next, *prev;
 
@@ -270,12 +274,12 @@ void handle_timers(void)
 int process_timer_signal(int timers_fd)
 {
     int sig;
-    int  bytes;
+    int bytes;
 
     bytes = read(timers_fd, &sig, sizeof(sig));
 
     if (bytes != sizeof(sig)) {
-        lispd_log_msg(LOG_WARNING, "process_event_signal(): nothing to read");
+        lispd_log_msg(LISP_LOG_WARNING, "process_event_signal(): nothing to read");
         return(-1);
     }
 
@@ -295,7 +299,7 @@ int process_timer_signal(int timers_fd)
 static void event_sig_handler(int sig)
 {
     if (write(signal_pipe[1], &sig, sizeof(sig)) != sizeof(sig)) {
-        lispd_log_msg(LOG_ERR, "write signal %d: %s", sig, strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING, "write signal %d: %s", sig, strerror(errno));
     }
 }
 
@@ -315,17 +319,17 @@ int build_timers_event_socket(int *timers_fd)
     struct sigaction sa;
 
     if (pipe(signal_pipe) == -1) {
-        lispd_log_msg(LOG_ERR, "signal pipe setup failed %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "build_timers_event_socket: signal pipe setup failed %s", strerror(errno));
         return (BAD);
     }
     *timers_fd = signal_pipe[0];
 
     if ((flags = fcntl(*timers_fd, F_GETFL, 0)) == -1) {
-        lispd_log_msg(LOG_ERR, "fcntl() F_GETFL failed %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "build_timers_event_socket: fcntl() F_GETFL failed %s", strerror(errno));
         return (BAD);
     }
     if (fcntl(*timers_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        lispd_log_msg(LOG_ERR, "fcntl() set O_NONBLOCK failed %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "build_timers_event_socket: fcntl() set O_NONBLOCK failed %s", strerror(errno));
         return (BAD);
     }
 
@@ -335,7 +339,7 @@ int build_timers_event_socket(int *timers_fd)
     sigemptyset(&sa.sa_mask);
 
     if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
-        lispd_log_msg(LOG_ERR, "sigaction() failed %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "build_timers_event_socket: sigaction() failed %s", strerror(errno));
     }
     return(GOOD);
 }

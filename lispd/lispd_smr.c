@@ -32,6 +32,7 @@
 #include "lispd_map_request.h"
 #include "lispd_smr.h"
 #include "lispd_external.h"
+#include "lispd_log.h"
 
 //void smr_pitrs();
 
@@ -53,7 +54,7 @@ void init_smr()
     dbs[0] = get_map_cache_db(AF_INET);
     dbs[1] = get_map_cache_db(AF_INET6);
 
-   lispd_log_msg(LOG_DEBUG,"LISP Mapping Cache\n\n");
+   lispd_log_msg(LISP_LOG_DEBUG_1,"LISP Mapping Cache\n\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){ /*For IPv4 and IPv6 EIDs */
         PATRICIA_WALK(dbs[ctr]->head, node) {
@@ -107,14 +108,16 @@ void init_smr()
     } PATRICIA_WALK_END;
 }*/
 
-int solicit_map_request_reply(timer *t, void *arg)
+int solicit_map_request_reply(
+    timer *t,
+    void *arg)
 {
     lispd_map_cache_entry *map_cache_entry = (lispd_map_cache_entry *)arg;
     nonces_list *nonces = map_cache_entry->nonces;
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
-            lispd_log_msg(LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
+            lispd_log_msg(LISP_LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
             return (BAD);
         }
         map_cache_entry->nonces = nonces;
@@ -139,7 +142,7 @@ int solicit_map_request_reply(timer *t, void *arg)
         map_cache_entry->nonces = NULL;
         free(map_cache_entry->smr_timer);
         map_cache_entry->smr_timer = NULL;
-        lispd_log_msg(LOG_DEBUG,"SMR process: No Map Reply fot EID %s/%d. Ignoring solicit map request ...",
+        lispd_log_msg(LISP_LOG_DEBUG_1,"SMR process: No Map Reply fot EID %s/%d. Ignoring solicit map request ...",
                 get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
                 map_cache_entry->identifier->eid_prefix_length);
     }
