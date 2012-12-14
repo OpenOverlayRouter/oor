@@ -135,6 +135,12 @@ lisp_addr_t source_rloc;
 int main(int argc, char **argv) 
 {
     lisp_addr_t tun_addr;
+    lisp_addr_t dest;
+    lisp_addr_t src;
+    lisp_addr_t gw;
+    uint32_t prefix_len = 0;
+    uint32_t metric = 0;
+    char *tun_dev_name = TUN_IFACE_NAME;
 
     /*
      *  Check for superuser privileges
@@ -208,24 +214,7 @@ int main(int argc, char **argv)
 
 #endif
 
-    /*
-     * now build the v4/v6 receive sockets
-     */
 
-    //     if (build_receive_sockets() == 0)
-    //         exit(EXIT_FAILURE);
-    //
-    //
-    //
-    //
-    // #ifdef LISPMOBMH
-    //     if ((smr_timer_fd = timerfd_create(CLOCK_REALTIME, 0)) == -1)
-    //         lispd_log_msg(LOG_INFO, "Could not create the SMR timer controller");
-    //     /*Make sure the timer starts with coherent values*/
-    //     stop_smr_timeout();
-    // #endif
-    //
-    //
     /*
      *  see if we need to daemonize, and if so, do it
      */
@@ -248,14 +237,8 @@ int main(int argc, char **argv)
     }
 
     /*
-     * Create tun0 interface
+     * Create tun interface
      */
-
-    lispd_log_msg(LOG_INFO, "*************** Creating tun interface... ***************");
-
-    char *tun_dev_name = TUN_IFACE_NAME;
-
-
 
     create_tun(tun_dev_name,
             TUN_RECEIVE_SIZE,
@@ -266,32 +249,23 @@ int main(int argc, char **argv)
 
 
     /*
-     * Assign address to the tun0 interface
+     * Assign address to the tun interface
      */
 
 #ifdef OPENWRT
-    get_lisp_addr_from_char("127.0.0.127",&tun_addr);
+    get_lisp_addr_from_char(TUN_LOCAL_ADDR,&tun_addr);
 #else
     tun_addr = get_main_eid(AF_INET);
 #endif
 
     tun_bring_up_iface_v4_eid(tun_addr,tun_dev_name);
 
-    //tun_add_v6_eid_to_iface(get_main_eid(AF_INET6),tun_dev_name,tun_ifindex);
-
     /*
      * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
      */
 
-    lisp_addr_t dest;
-    lisp_addr_t src;
-    lisp_addr_t gw;
-    uint32_t prefix_len;
-    uint32_t metric;
-
-
     prefix_len = 1;
-    metric = 3;
+    metric = 0;
     get_lisp_addr_from_char("0.0.0.0",&gw);
     get_lisp_addr_from_char("0.0.0.0",&src);
 
@@ -324,18 +298,13 @@ int main(int argc, char **argv)
 
     set_default_ctrl_ifaces();
 
-
-    lispd_log_msg(LOG_INFO, "*************** Created tun interface *****************");
-
     /*
      * Generate reveive sockets for control (4342) and data port (4341)
      */
 
     ipv4_control_input_fd = open_control_input_socket(AF_INET);
-    lispd_log_msg(LOG_DEBUG,"socket control lisp input: %d\n",ipv4_control_input_fd);
 
     ipv4_data_input_fd = open_data_input_socket(AF_INET);
-    lispd_log_msg(LOG_DEBUG,"socket data lisp input: %d\n",ipv4_data_input_fd);
 
 
     /*
@@ -435,13 +404,10 @@ void signal_handler(int sig) {
 /*
  *  exit_cleanup()
  *
- *  remove lisp modules (and restore network settings)
+ *  Close opened sockets and file descriptors
  */
 
 void exit_cleanup(void) {
-
-    /*Need iterator to remove state associated to each interface*/
-    //iface_list_elt *list_iterator = NULL;
 
     /* Close timer file descriptors */
     close(timers_fd);
@@ -449,12 +415,9 @@ void exit_cleanup(void) {
     /* Close receive sockets */
     close(tun_receive_fd);
     close(ipv4_data_input_fd);
-    //close(ipv6_data_input_fd);
     close(ipv4_control_input_fd);
-    //close(ipv6_control_input_fd);
 
     /* Close syslog */
-    closelog();
 
     exit(EXIT_SUCCESS);
 }

@@ -302,6 +302,14 @@ int err;
  */
 #define RT_TABLE_LISP_MN            5
 
+/* Local OpenWRT tun IPv4 address
+ *
+ * Local IPv4 address for tun interface when running on OpenWRT
+ */
+
+#define TUN_LOCAL_ADDR "127.0.0.127"
+
+
 /* Instance ID
  * Only the low order 24 bits should be used
  * Using signed integer, negative value means "don't send LCAF/IID field"
