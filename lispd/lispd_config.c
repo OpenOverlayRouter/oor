@@ -468,7 +468,14 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
             
             uci_debug = strtol(uci_lookup_option_string(ctx, s, "debug"),NULL,10);
 
-            debug = uci_debug;
+            if (debug_level == -1){
+                if (uci_debug > 0)
+                    debug_level = uci_debug;
+                else
+                    debug_level = 0;
+                if (debug_level > 3)
+                    debug_level = 3;
+            }
 
             uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
 
@@ -620,12 +627,12 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     dump_local_eids(LISP_LOG_INFO);
-    if (is_loggable()){
+    if (is_loggable(LISP_LOG_DEBUG_1)){
         dump_map_cache(LISP_LOG_DEBUG_1);
     }
     dump_map_servers(LISP_LOG_INFO);
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_INFO);
-    dump_servers(proxy_etrs, "Proxy-ETRs", LISP_LOG_INFO);
+    dump_proxy_etrs(LISP_LOG_INFO);
     dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_INFO);
 
     uci_free_context(ctx);
