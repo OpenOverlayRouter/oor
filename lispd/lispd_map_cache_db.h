@@ -35,6 +35,20 @@
 #include "lispd_local_db.h"
 #include "lispd_timers.h"
 
+/*
+ *  map-cache entry types (how_learned)
+ */
+
+#define STATIC_MAP_CACHE_ENTRY          0
+#define DYNAMIC_MAP_CACHE_ENTRY         1
+
+/*
+ *  map-cache entry activated  (received map reply)
+ */
+#define NO_ACTIVE                       0
+#define ACTIVE                          1
+
+
 
 /*
  * Map cache entry

@@ -55,6 +55,7 @@
 #include <unistd.h>
 #include <linux/netlink.h>
 #include "cksum.h"
+#include "lispd_afi.h"
 #include "lispd_lib.h"
 #include "lispd_external.h"
 #include "lispd_map_request.h"

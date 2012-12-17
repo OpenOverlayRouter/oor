@@ -35,6 +35,7 @@
 
 #include "cmdline.h"
 #include "confuse.h"
+#include "lispd_afi.h"
 #include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"

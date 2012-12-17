@@ -28,6 +28,7 @@
  *
  */
 
+#include "lispd_afi.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"

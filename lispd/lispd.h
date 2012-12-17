@@ -101,10 +101,7 @@
 
 
 
-/*
- * Constants
- */
-#define MAX_MSG_LENGTH 1024  /* Max total message size. */
+
 
 /*
  *  CO --
@@ -145,7 +142,6 @@
 #define EVER            ;;
 #define LISPD           "lispd"
 #define PID_FILE        "/var/run/lispd.pid"
-#define MAX_IP_PACKET   4096
 
 /*
  *  misc parameters
@@ -176,11 +172,10 @@ int err;
 
 
 #define MAX_IP_PACKET       4096
-#define MIN_EPHEMERAL_PORT  32768
-#define MAX_EPHEMERAL_PORT  65535
+
 
 #define DEFAULT_MAP_REQUEST_RETRIES     3
-#define DEFAULT_MAP_REGISTER_TIMEOUT    10  /* PN: expected to be in minutes; however, 
+#define DEFAULT_MAP_REGISTER_TIMEOUT    10  /* PN: expected to be in minutes; however,
                                              * lisp_mod treats this as seconds instead of
                                              * minutes
                                              */
@@ -211,42 +206,8 @@ int err;
 #define LISP_CONTROL_PORT               4342
 #define LISP_DATA_PORT                  4341
 
-/*
- *  Map Reply action codes
- */
 
-#define LISP_ACTION_NO_ACTION           0
-#define LISP_ACTION_FORWARD             1
-#define LISP_ACTION_DROP                2
-#define LISP_ACTION_SEND_MAP_REQUEST    3
 
-/*
- * LISP AFI codes
- */
-
-#define LISP_AFI_NO_EID                 0
-#define LISP_AFI_IP                     1
-#define LISP_AFI_IPV6                   2
-#define LISP_AFI_LCAF                   16387
-
-#define LISP_IP_MASK_LEN                32
-
-/*
- * LCAF types
- */
-
-#define LCAF_NULL           0
-#define LCAF_AFI_LIST       1
-#define LCAF_IID            2
-#define LCAF_ASN            3
-#define LCAF_APP_DATA       4
-#define LCAF_GEO            5
-#define LCAF_OKEY           6
-#define LCAF_NATT           7
-#define LCAF_NONCE_LOC      8
-#define LCAF_MCAST_INFO     9
-#define LCAF_EXPL_LOC_PATH  10
-#define LCAF_SEC_KEY        11
 
 /*
  *  locator_types
@@ -258,24 +219,9 @@ int err;
 #define PETR_LOCATOR                    3
 #define LOCAL_LOCATOR                   4
 
-/*
- *  map-cache entry types (how_learned)
- */
 
-#define STATIC_MAP_CACHE_ENTRY          0
-#define DYNAMIC_MAP_CACHE_ENTRY         1
 
-/*
- *  map-cache entry activated  (received map reply)
- */
-#define NO_ACTIVE                       0
-#define ACTIVE                          1
 
-/*
- *  for map-register auth data...
- */
-
-#define LISP_SHA1_AUTH_DATA_LEN         20
 
 /*
  * Netlink mcast groups lispd is interested in
@@ -286,38 +232,12 @@ int err;
                                                 | RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE )
 */
 
-/*
- * LISP-MN EID interface name(s)
- */
-#define LISP_MN_EID_IFACE_NAME          "lmn0"
 
 /*
  * Maximum length (in bytes) of an IP address
  */
 #define MAX_INET_ADDRSTRLEN INET6_ADDRSTRLEN
 
-//mportoles - have to think wether this is the appropriate place
-/*
- *  base RT number to use in multihomed policy routing scenarios
- */
-#define RT_TABLE_LISP_MN            5
-
-/* Local OpenWRT tun IPv4 address
- *
- * Local IPv4 address for tun interface when running on OpenWRT
- */
-
-#define TUN_LOCAL_ADDR "127.0.0.127"
-
-
-/* Instance ID
- * Only the low order 24 bits should be used
- * Using signed integer, negative value means "don't send LCAF/IID field"
- * resulting in a non-explicit default IID value of 0
- */
-typedef int32_t lispd_iid_t;
-
-#define MAX_IID 16777215
 
 #define MAX_PRIORITY 0
 #define MIN_PRIORITY 254
@@ -380,60 +300,6 @@ typedef struct _lispd_weighted_addr_list_t {
 } lispd_weighted_addr_list_t;
 
 
-/*
- *  lispd database entry
- */
-
-typedef struct {
-    lisp_addr_t     eid_prefix;
-    uint16_t        eid_prefix_length;
-    lispd_iid_t     eid_iid;
-    lisp_addr_t     locator;
-    uint8_t         locator_type:2;
-    uint8_t         reserved:6;
-    char *          locator_name;
-    uint8_t         priority;
-    uint8_t         weight;
-    uint8_t         mpriority;
-    uint8_t         mweight;
-} lispd_db_entry_t;
-
-typedef struct {
-    lisp_addr_t     eid_prefix;
-    uint8_t         eid_prefix_length;
-    lispd_iid_t     eid_iid;
-    lisp_addr_t     locator;
-    char *          locator_name;
-    uint8_t         locator_type:2;
-    uint8_t         reserved:5;
-    uint8_t         how_learned:1;  /* 1 --> static */
-    uint8_t         priority;
-    uint8_t         weight;
-    uint8_t         mpriority;
-    uint8_t         mweight;
-    uint32_t        ttl;    
-    uint8_t         actions;
-} lispd_map_cache_entry_t;
-
-
-/*
- *  lispd's local database
- */
-
-typedef struct _lispd_database_t {
-    lispd_db_entry_t            db_entry;
-    struct _lispd_database_t    *next;
-} lispd_database_t;
-
-/*
- *  map-cache, static or otherwise
- */
-
-typedef struct _lispd_map_cache_t {
-    lispd_map_cache_entry_t     map_cache_entry;
-    struct _lispd_map_cache_t   *next;
-} lispd_map_cache_t;
-
 
 typedef struct _lispd_map_server_list_t {
     lisp_addr_t                     *address;
@@ -444,7 +310,11 @@ typedef struct _lispd_map_server_list_t {
     struct _lispd_map_server_list_t *next;
 } lispd_map_server_list_t;
 
+/*
+ *  for map-register auth data...
+ */
 
+#define LISP_SHA1_AUTH_DATA_LEN         20
 
 
 /*
@@ -525,366 +395,6 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
 
 
 
-
-
-/*
- * Map-Registers have an authentication header before the UDP header.
- *
- *        0                   1                   2                   3
- *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=3 |P|            Reserved               |M| Record Count  |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |                         Nonce . . .                           |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |                         . . . Nonce                           |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |            Key ID             |  Authentication Data Length   |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       ~                     Authentication Data                       ~
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |                       Mapping Records ...                     |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-
-
-/*
- * Map-Register Message Format
- *
- *        0                   1                   2                   3
- *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=3 |P|            Reserved               |M| Record Count  |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |                         Nonce . . .                           |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |                         . . . Nonce                           |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |            Key ID             |  Authentication Data Length   |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       ~                     Authentication Data                       ~
- *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |   |                          Record  TTL                          |
- *   |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   R   | Locator Count | EID mask-len  | ACT |A|      Reserved         |
- *   e   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   c   | Rsvd  |  Map-Version Number   |        EID-prefix-AFI         |
- *   o   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   r   |                          EID-prefix                           |
- *   d   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |  /|    Priority   |    Weight     |  M Priority   |   M Weight    |
- *   | L +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   | o |        Unused Flags     |L|p|R|           Loc-AFI             |
- *   | c +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |  \|                             Locator                           |
- *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct lispd_pkt_map_register_t_ {
-#ifdef LITTLE_ENDIANS
-    uint8_t  reserved1:3;
-    uint8_t  proxy_reply:1;
-    uint8_t  lisp_type:4;
-#else
-    uint8_t  lisp_type:4;
-    uint8_t  proxy_reply:1;
-    uint8_t  reserved1:3;
-#endif
-    uint8_t reserved2;
-#ifdef LITTLE_ENDIANS
-    uint8_t map_notify:1;
-    uint8_t reserved3:7;
-#else
-    uint8_t reserved3:7;
-    uint8_t map_notify:1;
-#endif
-    uint8_t  record_count;
-    uint64_t nonce;
-    uint16_t key_id;
-    uint16_t auth_data_len;
-    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
-} PACKED lispd_pkt_map_register_t;
-
-
-/*
- * Map-Notify Message Format
- *
- *        0                   1                   2                   3
- *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=4 |              Reserved                 | Record Count  |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |                         Nonce . . .                           |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |                         . . . Nonce                           |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |            Key ID             |  Authentication Data Length   |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       ~                     Authentication Data                       ~
- *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |   |                          Record  TTL                          |
- *   |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   R   | Locator Count | EID mask-len  | ACT |A|      Reserved         |
- *   e   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   c   | Rsvd  |  Map-Version Number   |        EID-prefix-AFI         |
- *   o   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   r   |                          EID-prefix                           |
- *   d   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |  /|    Priority   |    Weight     |  M Priority   |   M Weight    |
- *   | L +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   | o |        Unused Flags     |L|p|R|           Loc-AFI             |
- *   | c +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |  \|                             Locator                           |
- *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct lispd_pkt_map_notify_t_ {
-#ifdef LITTLE_ENDIANS
-    uint8_t  reserved1:4;
-    uint8_t  lisp_type:4;
-#else
-    uint8_t  lisp_type:4;
-    uint8_t  reserved1:4;
-#endif
-    uint16_t reserved2;
-    uint8_t  record_count;
-    uint64_t nonce;
-    uint16_t key_id;
-    uint16_t auth_data_len;
-    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
-} PACKED lispd_pkt_map_notify_t;
-
-
-
-
-
-/*
- * Encapsulated control message header. This is followed by the IP
- * header of the encapsulated LISP control message.
- *
- *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |S|                 Reserved                            |
- *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-typedef struct lispd_pkt_encapsulated_control_t_ {
-#ifdef LITTLE_ENDIANS
-    uint8_t reserved1:3;
-    uint8_t security_flag:1;
-    uint8_t type:4;
-#else
-    uint8_t type:4;
-    uint8_t security_flag:1;
-    uint8_t reserved1:3;
-#endif
-    uint8_t reserved2[3];
-} PACKED lispd_pkt_encapsulated_control_t;
-
-/*
- * Map-Request Message Format
- *
- *       0                   1                   2                   3
- *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |Type=1 |A|M|P|S|p|s|    Reserved     |   IRC   | Record Count  |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                         Nonce . . .                           |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                         . . . Nonce                           |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |         Source-EID-AFI        |   Source EID Address  ...     |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |         ITR-RLOC-AFI 1        |    ITR-RLOC Address 1  ...    |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                              ...                              |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |         ITR-RLOC-AFI n        |    ITR-RLOC Address n  ...    |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    / |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
- *  Rec +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    \ |                       EID-prefix  ...                         |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                   Map-Reply Record  ...                       |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                     Mapping Protocol Data                     |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-/*
- * Use the nonce to calculate the source port for a map request
- * message.
- */
-#define LISP_PKT_MAP_REQUEST_UDP_SPORT(Nonce) (0xf000 | (Nonce & 0xfff))
-
-#define LISP_PKT_MAP_REQUEST_TTL 32
-
-/*
- * Fixed size portion of the map request. Variable size source EID
- * address, originating ITR RLOC AFIs and addresses and then map
- * request records follow.
- */
-typedef struct lispd_pkt_map_request_t_ {
-#ifdef LITTLE_ENDIANS
-    uint8_t solicit_map_request:1;
-    uint8_t rloc_probe:1;
-    uint8_t map_data_present:1;
-    uint8_t authoritative:1;
-    uint8_t type:4;
-#else
-    uint8_t type:4;
-    uint8_t authoritative:1;
-    uint8_t map_data_present:1;
-    uint8_t rloc_probe:1;
-    uint8_t solicit_map_request:1;
-#endif
-#ifdef LITTLE_ENDIANS
-    uint8_t reserved1:6;
-    uint8_t smr_invoked:1;
-    uint8_t pitr:1;
-#else
-    uint8_t pitr:1;
-    uint8_t smr_invoked:1;
-    uint8_t reserved1:6;
-#endif
-#ifdef LITTLE_ENDIANS
-    uint8_t additional_itr_rloc_count:5;
-    uint8_t reserved2:3;
-#else
-    uint8_t reserved2:3;
-    uint8_t additional_itr_rloc_count:5;
-#endif
-    uint8_t record_count;
-    uint64_t nonce;
-    uint16_t source_eid_afi;
-} PACKED lispd_pkt_map_request_t;
-
-/*
- * The IRC value above is set to one less than the number of ITR-RLOC
- * fields (an IRC of zero means one ITR-RLOC). In 5 bits we can encode
- * the number 15 which means we can have up to 16 ITR-RLOCs.
- */
-#define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
-
-/*
- * Fixed size portion of map request ITR RLOC.
- */
-typedef struct lispd_pkt_map_request_itr_rloc_t_ {
-    uint16_t afi;
-    /*    uint8_t address[0]; */
-} PACKED lispd_pkt_map_request_itr_rloc_t;
-
-/*
- * Fixed size portion of the map request record. Variable size EID
- * prefix address follows.
- */
-typedef struct lispd_pkt_map_request_eid_prefix_record_t_ {
-    uint8_t reserved;
-    uint8_t eid_prefix_mask_length;
-    uint16_t eid_prefix_afi;
-} PACKED lispd_pkt_map_request_eid_prefix_record_t;
-
-
-/*
- * Map-Reply Message Format
- *
- *       0                   1                   2                   3
- *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |Type=2 |P|E|           Reserved                | Record Count  |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                         Nonce . . .                           |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                         . . . Nonce                           |
- *  +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |   |                          Record  TTL                          |
- *  |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  R   | Locator Count | EID mask-len  | ACT |A|      Reserved         |
- *  e   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  c   | Rsvd  |  Map-Version Number   |            EID-AFI            |
- *  o   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  r   |                          EID-prefix                           |
- *  d   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |  /|    Priority   |    Weight     |  M Priority   |   M Weight    |
- *  | L +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  | o |        Unused Flags     |L|p|R|           Loc-AFI             |
- *  | c +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |  \|                            Locator                            |
- *  +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                     Mapping Protocol Data                     |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-/*
- * Use the nonce to calculate the source port for a map request
- * message.
- */
-
-/*
- * Fixed size portion of the map reply.
- */
-typedef struct lispd_pkt_map_reply_t_ {
-#ifdef LITTLE_ENDIANS
-    uint8_t reserved1:2;
-    uint8_t echo_nonce:1;
-    uint8_t rloc_probe:1;
-    uint8_t type:4;
-#else
-    uint8_t type:4;
-    uint8_t rloc_probe:1;
-    uint8_t echo_nonce:1;
-    uint8_t reserved1:2;
-#endif
-    uint8_t reserved2;
-    uint8_t reserved3;
-    uint8_t record_count;
-    uint64_t nonce;
-} PACKED lispd_pkt_map_reply_t;
-
-
-/*
- * LISP Canonical Address Format
- *
- *        0                   1                   2                   3
- *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |           AFI = 16387         |    Rsvd1     |     Flags      |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |    Type       |     Rsvd2     |            Length             |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct lispd_pkt_lcaf_t_ {
-    uint8_t  rsvd1;
-    uint8_t  flags;
-    uint8_t  type;
-    uint8_t  rsvd2;
-    uint16_t len;
-} PACKED lispd_pkt_lcaf_t;
-
-
-/*
- * Instance ID
- *
- *         0                   1                   2                   3
- *         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |           AFI = 16387         |    Rsvd1      |    Flags      |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |   Type = 2    | IID mask-len  |             4 + n             |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |                         Instance ID                           |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |              AFI = x          |         Address  ...          |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct lispd_pkt_lcaf_iid_t_ {
-    lispd_iid_t iid;
-    uint16_t    afi;
-} PACKED lispd_pkt_lcaf_iid_t;
-
-
-
 /*
  * Structure to simplify netlink processing
  */
@@ -894,14 +404,6 @@ typedef struct nlsock_handle
     uint32_t    seq;      // netlink message seq number
 } nlsock_handle;
 
-/*
- * Structure to set Map Reply options
- */
-typedef struct {
-    uint8_t send_rec;       // send a Map Reply record as well
-    uint8_t rloc_probe;     // set RLOC probe bit
-    uint8_t echo_nonce;     // set Echo-nonce bit
-} map_reply_opts;
 
 #endif /*LISPD_H_*/
 

@@ -35,6 +35,89 @@
 #include "lispd.h"
 #include "lispd_local_db.h"
 
+
+/*
+ * LISP AFI codes
+ */
+
+#define LISP_AFI_NO_EID                 0
+#define LISP_AFI_IP                     1
+#define LISP_AFI_IPV6                   2
+#define LISP_AFI_LCAF                   16387
+
+
+/*
+ * LCAF types
+ */
+
+#define LCAF_NULL           0
+#define LCAF_AFI_LIST       1
+#define LCAF_IID            2
+#define LCAF_ASN            3
+#define LCAF_APP_DATA       4
+#define LCAF_GEO            5
+#define LCAF_OKEY           6
+#define LCAF_NATT           7
+#define LCAF_NONCE_LOC      8
+#define LCAF_MCAST_INFO     9
+#define LCAF_EXPL_LOC_PATH  10
+#define LCAF_SEC_KEY        11
+
+
+#define MAX_IID 16777215
+
+/*
+ * LISP Canonical Address Format
+ *
+ *        0                   1                   2                   3
+ *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |           AFI = 16387         |    Rsvd1     |     Flags      |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |    Type       |     Rsvd2     |            Length             |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lispd_pkt_lcaf_t_ {
+    uint8_t  rsvd1;
+    uint8_t  flags;
+    uint8_t  type;
+    uint8_t  rsvd2;
+    uint16_t len;
+} PACKED lispd_pkt_lcaf_t;
+
+
+/* Instance ID
+ * Only the low order 24 bits should be used
+ * Using signed integer, negative value means "don't send LCAF/IID field"
+ * resulting in a non-explicit default IID value of 0
+ */
+typedef int32_t lispd_iid_t;
+
+/*
+ * Instance ID
+ *
+ *         0                   1                   2                   3
+ *         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |           AFI = 16387         |    Rsvd1      |    Flags      |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |   Type = 2    | IID mask-len  |             4 + n             |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |                         Instance ID                           |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |              AFI = x          |         Address  ...          |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lispd_pkt_lcaf_iid_t_ {
+    lispd_iid_t iid;
+    uint16_t    afi;
+} PACKED lispd_pkt_lcaf_iid_t;
+
+
+
+
 /*
  * Reads the address information from the packet and fill the lispd_identifier_elt element
  */

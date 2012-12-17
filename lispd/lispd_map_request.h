@@ -32,66 +32,118 @@
  *
  */
 
-
-/*
- *  Send this packet on UDP 4342
- *
- *
- * Encapsulated control message header. This is followed by the IP
- * header of the encapsulated LISP control message.
- *
- *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |                   Reserved                            |
- *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- *
- *  Next is the inner IP header, either struct ip6_hdr or struct
- *  iphdr.
- *
- *  This is follwed by a UDP header, random source port, 4342
- *  dest port.
- *
- *  Followed by a struct lisp_pkt_map_request_t:
- *
- * Map-Request Message Format
- *
- *       0                   1                   2                   3
- *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |Type=1 |A|M|P|S|      Reserved       |   IRC   | Record Count  |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                         Nonce . . .                           |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                         . . . Nonce                           |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |         Source-EID-AFI        |    Source EID Address  ...    |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |         ITR-RLOC-AFI 1        |    ITR-RLOC Address 1  ...    |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |         ITR-RLOC-AFI n        |    ITR-RLOC Address n  ...    |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    / |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
- *  Rec +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    \ |                        EID-prefix ...                         |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                      Mappping Record ...                      |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |                     Mapping Protocol Data                     |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- *
- *  <source EID address>
- *  IRC = 0 --> one source rloc
- *      lisp_pkt_map_request_eid_prefix_record_t
- *      EID
- *
- */
 #ifndef LISPD_MAP_REQUEST_H_
 #define LISPD_MAP_REQUEST_H_
 
 
 #include "lispd.h"
 #include "lispd_map_cache_db.h"
+
+/*
+ * Encapsulated control message header. This is followed by the IP
+ * header of the encapsulated LISP control message.
+ *
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |Type=8 |S|                 Reserved                            |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+typedef struct lispd_pkt_encapsulated_control_t_ {
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved1:3;
+    uint8_t security_flag:1;
+    uint8_t type:4;
+#else
+    uint8_t type:4;
+    uint8_t security_flag:1;
+    uint8_t reserved1:3;
+#endif
+    uint8_t reserved2[3];
+} PACKED lispd_pkt_encapsulated_control_t;
+
+
+/*
+ * Map-Request Message Format
+ *
+ *       0                   1                   2                   3
+ *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |Type=1 |A|M|P|S|p|s|    Reserved     |   IRC   | Record Count  |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |                         Nonce . . .                           |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |                         . . . Nonce                           |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |         Source-EID-AFI        |   Source EID Address  ...     |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |         ITR-RLOC-AFI 1        |    ITR-RLOC Address 1  ...    |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |                              ...                              |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |         ITR-RLOC-AFI n        |    ITR-RLOC Address n  ...    |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    / |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
+ *  Rec +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    \ |                       EID-prefix  ...                         |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |                   Map-Reply Record  ...                       |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |                     Mapping Protocol Data                     |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+
+/*
+ * Fixed size portion of the map request. Variable size source EID
+ * address, originating ITR RLOC AFIs and addresses and then map
+ * request records follow.
+ */
+typedef struct lispd_pkt_map_request_t_ {
+#ifdef LITTLE_ENDIANS
+    uint8_t solicit_map_request:1;
+    uint8_t rloc_probe:1;
+    uint8_t map_data_present:1;
+    uint8_t authoritative:1;
+    uint8_t type:4;
+#else
+    uint8_t type:4;
+    uint8_t authoritative:1;
+    uint8_t map_data_present:1;
+    uint8_t rloc_probe:1;
+    uint8_t solicit_map_request:1;
+#endif
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved1:6;
+    uint8_t smr_invoked:1;
+    uint8_t pitr:1;
+#else
+    uint8_t pitr:1;
+    uint8_t smr_invoked:1;
+    uint8_t reserved1:6;
+#endif
+#ifdef LITTLE_ENDIANS
+    uint8_t additional_itr_rloc_count:5;
+    uint8_t reserved2:3;
+#else
+    uint8_t reserved2:3;
+    uint8_t additional_itr_rloc_count:5;
+#endif
+    uint8_t record_count;
+    uint64_t nonce;
+    uint16_t source_eid_afi;
+} PACKED lispd_pkt_map_request_t;
+
+
+
+/*
+ * Fixed size portion of map request ITR RLOC.
+ */
+typedef struct lispd_pkt_map_request_itr_rloc_t_ {
+    uint16_t afi;
+    /*    uint8_t address[0]; */
+} PACKED lispd_pkt_map_request_itr_rloc_t;
+
+
+
 
 /*
  * Map Request Record
@@ -106,11 +158,29 @@
  * Fixed portion of the request record. EID prefix address follow.
  */
 
-typedef struct lispd_pkt_request_record_t_ {
+typedef struct lispd_pkt_map_request_eid_prefix_record_t_ {
     uint8_t reserved;
     uint8_t eid_prefix_length;
     uint16_t eid_prefix_afi;
-} PACKED lispd_pkt_request_record_t;
+} PACKED lispd_pkt_map_request_eid_prefix_record_t;
+
+
+
+/*
+ * Use the nonce to calculate the source port for a map request
+ * message.
+ */
+#define LISP_PKT_MAP_REQUEST_UDP_SPORT(Nonce) (0xf000 | (Nonce & 0xfff))
+
+#define LISP_PKT_MAP_REQUEST_TTL 32
+
+
+/*
+ * The IRC value above is set to one less than the number of ITR-RLOC
+ * fields (an IRC of zero means one ITR-RLOC). In 5 bits we can encode
+ * the number 15 which means we can have up to 16 ITR-RLOCs.
+ */
+#define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
 
 
 /*

@@ -322,13 +322,13 @@ int add_encap_headers(
          uint8_t rloc_probe,
          uint64_t nonce)
  {
-     lispd_pkt_request_record_t *record;
+     lispd_pkt_map_request_eid_prefix_record_t *record;
      lispd_identifier_elt requested_identifier;
      lispd_identifier_elt *identifier;
      map_reply_opts opts;
 
      /* Get the requested EID prefix */
-     record = (lispd_pkt_request_record_t *)*cur_ptr;
+     record = (lispd_pkt_map_request_eid_prefix_record_t *)*cur_ptr;
      init_identifier(&requested_identifier);
      *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
      if ((err=pkt_process_eid_afi(cur_ptr, &requested_identifier))!=GOOD){
@@ -548,7 +548,7 @@ uint8_t *build_map_request_pkt(
 
     /* Requested EID record */
     request_eid_record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
-    request_eid_record->eid_prefix_mask_length = requested_eid_prefix_length;
+    request_eid_record->eid_prefix_length = requested_eid_prefix_length;
 
     aux_identifier.eid_prefix = *requested_eid_prefix;
     aux_identifier.iid = src_identifier->iid;

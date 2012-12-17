@@ -30,8 +30,23 @@
  *
  */
 
+
+#ifndef LISPD_MAP_REPLY_H_
+#define LISPD_MAP_REPLY_H_
+
+#include "lispd.h"
+
 /*
- * Map-Reply Message Format from lisp draft-ietf-lisp-08
+ *  Map Reply action codes
+ */
+
+#define LISP_ACTION_NO_ACTION           0
+#define LISP_ACTION_FORWARD             1
+#define LISP_ACTION_DROP                2
+#define LISP_ACTION_SEND_MAP_REQUEST    3
+
+/*
+ * Map-Reply Message Format
  *
  *       0                   1                   2                   3
  *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -60,10 +75,40 @@
  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-#ifndef LISPD_MAP_REPLY_H_
-#define LISPD_MAP_REPLY_H_
 
-#include "lispd.h"
+/*
+ * Fixed size portion of the map reply.
+ */
+typedef struct lispd_pkt_map_reply_t_ {
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved1:2;
+    uint8_t echo_nonce:1;
+    uint8_t rloc_probe:1;
+    uint8_t type:4;
+#else
+    uint8_t type:4;
+    uint8_t rloc_probe:1;
+    uint8_t echo_nonce:1;
+    uint8_t reserved1:2;
+#endif
+    uint8_t reserved2;
+    uint8_t reserved3;
+    uint8_t record_count;
+    uint64_t nonce;
+} PACKED lispd_pkt_map_reply_t;
+
+
+/*
+ * Structure to set Map Reply options
+ */
+typedef struct {
+    uint8_t send_rec;       // send a Map Reply record as well
+    uint8_t rloc_probe;     // set RLOC probe bit
+    uint8_t echo_nonce;     // set Echo-nonce bit
+} map_reply_opts;
+
+
+
 
 int process_map_reply(uint8_t *packet);
 

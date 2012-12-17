@@ -46,6 +46,12 @@
 
 #define TUN_MTU                 1450 // Less than the Ethernet default (1500) for precaution
 
+/* Local OpenWRT tun IPv4 address
+ *
+ * Local IPv4 address for tun interface when running on OpenWRT
+ */
+
+#define TUN_LOCAL_ADDR "127.0.0.127"
 
 /* Tun MN variables */
 

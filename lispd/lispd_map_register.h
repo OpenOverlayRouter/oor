@@ -33,7 +33,89 @@
 #ifndef LISPD_MAP_REGISTER_H_
 #define LISPD_MAP_REGISTER_H_
 
+#include "lispd.h"
 #include "lispd_timers.h"
+
+
+/*
+ * Map-Registers have an authentication header before the UDP header.
+ *
+ *        0                   1                   2                   3
+ *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |Type=3 |P|            Reserved               |M| Record Count  |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |                         Nonce . . .                           |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |                         . . . Nonce                           |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |            Key ID             |  Authentication Data Length   |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       ~                     Authentication Data                       ~
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |                       Mapping Records ...                     |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+
+
+/*
+ * Map-Register Message Format
+ *
+ *        0                   1                   2                   3
+ *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |Type=3 |P|            Reserved               |M| Record Count  |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |                         Nonce . . .                           |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |                         . . . Nonce                           |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |            Key ID             |  Authentication Data Length   |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       ~                     Authentication Data                       ~
+ *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   |                          Record  TTL                          |
+ *   |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   R   | Locator Count | EID mask-len  | ACT |A|      Reserved         |
+ *   e   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   c   | Rsvd  |  Map-Version Number   |        EID-prefix-AFI         |
+ *   o   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   r   |                          EID-prefix                           |
+ *   d   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |  /|    Priority   |    Weight     |  M Priority   |   M Weight    |
+ *   | L +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   | o |        Unused Flags     |L|p|R|           Loc-AFI             |
+ *   | c +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |  \|                             Locator                           |
+ *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lispd_pkt_map_register_t_ {
+#ifdef LITTLE_ENDIANS
+    uint8_t  reserved1:3;
+    uint8_t  proxy_reply:1;
+    uint8_t  lisp_type:4;
+#else
+    uint8_t  lisp_type:4;
+    uint8_t  proxy_reply:1;
+    uint8_t  reserved1:3;
+#endif
+    uint8_t reserved2;
+#ifdef LITTLE_ENDIANS
+    uint8_t map_notify:1;
+    uint8_t reserved3:7;
+#else
+    uint8_t reserved3:7;
+    uint8_t map_notify:1;
+#endif
+    uint8_t  record_count;
+    uint64_t nonce;
+    uint16_t key_id;
+    uint16_t auth_data_len;
+    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
+} PACKED lispd_pkt_map_register_t;
+
 
 int map_register(timer *t, void *arg);
 
