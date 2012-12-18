@@ -155,7 +155,8 @@ int add_encap_headers(
 
  int process_map_request_msg(
          uint8_t        *packet,
-         lisp_addr_t    *local_rloc) {
+         lisp_addr_t    *local_rloc,
+         uint16_t          dst_port) {
 
      lispd_identifier_elt source_identifier;
      lispd_map_cache_entry *map_cache_entry     = NULL;
@@ -174,7 +175,7 @@ int add_encap_headers(
      uint16_t udpsum                            = 0;
      uint16_t ipsum                             = 0;
      int udp_len                                = 0;
-     uint16_t sport                             = 0;
+     //uint16_t sport                             = 0;
      int i                                      = 0;
 
      /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
@@ -203,14 +204,14 @@ int add_encap_headers(
              lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
              return(BAD);
          }
-
  #ifdef BSD
          udp_len = ntohs(udph->uh_ulen);
-         sport   = ntohs(udph->uh_sport);
+        // sport   = ntohs(udph->uh_sport);
  #else
          udp_len = ntohs(udph->len);
-         sport   = ntohs(udph->source);
+        // sport   = ntohs(udph->source);
  #endif
+
 
          /*
           * Verify the checksums.
@@ -306,7 +307,7 @@ int add_encap_headers(
          remote_rloc = &itr_rloc[0];
      /* Process record and send Map Reply for each one */
      for (i = 0; i < msg->record_count; i++) {
-         process_map_request_record(&cur_ptr, local_rloc, remote_rloc, sport, msg->rloc_probe, msg->nonce);
+         process_map_request_record(&cur_ptr, local_rloc, remote_rloc, dst_port, msg->rloc_probe, msg->nonce);
      }
      return(GOOD);
  }
@@ -353,7 +354,6 @@ int add_encap_headers(
      opts.send_rec   = 1;
      opts.echo_nonce = 0;
      opts.rloc_probe = rloc_probe;
-
 
      err = build_and_send_map_reply_msg(identifier, local_rloc, remote_rloc, dst_port, nonce, opts);
      if (rloc_probe){

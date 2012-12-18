@@ -212,7 +212,7 @@ int open_data_input_socket(int afi){
 
 /*
  * Send a ipv4 packet over a udp datagram to the destination address
- * If the selected port is 0, then a random port is used.
+ * If the src port is 0, then a random port is used.
  */
 
 int send_udp_ipv4_packet(
@@ -276,7 +276,7 @@ int send_udp_ipv4_packet(
 
 /*
  * Send a ipv6 packet over a udp datagram to the destination address
- * If the selected port is 0, then a random port is used.
+ * If the src port is 0, then a random port is used.
  */
 
 int send_udp_ipv6_packet(

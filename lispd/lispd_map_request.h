@@ -213,7 +213,7 @@ int build_and_send_map_request_msg(
  *  Receive a Map_request message and process based on control bits
  *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
  */
-int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc);
+int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc, uint16_t remote_port);
 
 
 /*
