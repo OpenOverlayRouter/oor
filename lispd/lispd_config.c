@@ -203,7 +203,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         exit(EXIT_FAILURE);
     } else if(ret == CFG_PARSE_ERROR) {
         lispd_log_msg(LISP_LOG_INFO, "There was an error parsin the config file \n"
-                "Rerun with debug enabled (lispd -D [0..3]) to see more details\n");
+                "Rerun with debug enabled (lispd -d [0..3]) to see more details\n");
         lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting...", config_file);
         exit(EXIT_FAILURE);
     }
