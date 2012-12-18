@@ -226,6 +226,15 @@ int main(int argc, char **argv)
     }
 
     /*
+     * Select the default rlocs for output data packets and output control packets
+     */
+
+    set_default_output_ifaces();
+
+    set_default_ctrl_ifaces();
+
+
+    /*
      * Create tun interface
      */
 
@@ -255,13 +264,6 @@ int main(int argc, char **argv)
 
     set_tun_default_route_v4(tun_ifindex);
 
-    /*
-     * Select the default rlocs for output data packets and output control packets
-     */
-
-    set_default_output_ifaces();
-
-    set_default_ctrl_ifaces();
 
     /*
      * Generate receive sockets for control (4342) and data port (4341)

@@ -528,7 +528,6 @@ int lisp_output (
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
-    
     default_encap_afi = original_dst_addr.afi; //arnatal TODO: Choose proper encapsulation afi
 
     /* No complete IPv6 support yet */

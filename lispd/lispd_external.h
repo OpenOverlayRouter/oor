@@ -68,6 +68,8 @@ extern  nlsock_handle       nlh;
 extern  lisp_addr_t         source_rloc;
 extern lispd_iface_elt *default_ctrl_iface_v4 ;
 extern lispd_iface_elt *default_ctrl_iface_v6;
+extern lispd_iface_elt *default_out_iface_v4;
+extern lispd_iface_elt *default_out_iface_v6;
 
 #endif /*LISPD_EXTERNAL_H_*/
 
