@@ -397,15 +397,20 @@ void print_hmac(
 
 char *get_char_from_lisp_addr_t (lisp_addr_t addr)
 {
-    static char address[INET6_ADDRSTRLEN];
+    static char address[5][INET6_ADDRSTRLEN];
+    static unsigned int i; //XXX Too much memory allocation for this, but standard syntax
+
+    /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
+    i++;
+    i = i % 5;
 
     switch (addr.afi){
     case AF_INET:
-        inet_ntop(AF_INET, &(addr.address), address, INET_ADDRSTRLEN);
-        return (address);
+        inet_ntop(AF_INET, &(addr.address), address[i], INET_ADDRSTRLEN);
+        return (address[i]);
     case AF_INET6:
-        inet_ntop(AF_INET6, &(addr.address.ipv6), address, INET6_ADDRSTRLEN);
-        return (address);
+        inet_ntop(AF_INET6, &(addr.address.ipv6), address[i], INET6_ADDRSTRLEN);
+        return (address[i]);
     default:
         return (NULL);
     }

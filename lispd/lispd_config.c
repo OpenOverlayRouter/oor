@@ -202,9 +202,8 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", config_file);
         exit(EXIT_FAILURE);
     } else if(ret == CFG_PARSE_ERROR) {
-        lispd_log_msg(LISP_LOG_INFO, "NOTE: Version 0.2.4 changed the format of the 'proxy-etr' element. \n"
-                "      Check the 'lispd.conf.example' file for an example entry in\n"
-                "      the new format.");
+        lispd_log_msg(LISP_LOG_INFO, "There was an error parsin the config file \n"
+                "Rerun with debug enabled (lispd -d [0..3]) to see more details\n");
         lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting...", config_file);
         exit(EXIT_FAILURE);
     }
@@ -309,7 +308,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             lispd_log_msg(LISP_LOG_ERR, "Can't add database-mapping %s. Discarded ...",
                     cfg_getstr(dm, "eid-prefix"));
         }else{
-            lispd_log_msg(LISP_LOG_ERR, "Added identifier %s in the database.",
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Added identifier %s in the database.",
                     cfg_getstr(dm, "eid-prefix"));
         }
 
@@ -359,22 +358,22 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
 
     if (debug_level == 1){
-        lispd_log_msg (LISP_LOG_INFO, "Log levet: Low debug");
+        lispd_log_msg (LISP_LOG_INFO, "Log level: Low debug");
     }else if (debug_level == 2){
-        lispd_log_msg (LISP_LOG_INFO, "Log levet: Medium debug");
+        lispd_log_msg (LISP_LOG_INFO, "Log level: Medium debug");
     }else if (debug_level == 3){
-        lispd_log_msg (LISP_LOG_INFO, "Log levet: High Debug ");
+        lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug ");
     }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_eids(LISP_LOG_INFO);
+    dump_local_eids(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
         dump_map_cache(LISP_LOG_DEBUG_1);
     }
-    dump_map_servers(LISP_LOG_INFO);
-    dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_INFO);
-    dump_proxy_etrs(LISP_LOG_INFO);
-    dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_INFO);
+    dump_map_servers(LISP_LOG_DEBUG_1);
+    dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
+    dump_proxy_etrs(LISP_LOG_DEBUG_1);
+    dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_DEBUG_1);
 
     cfg_free(cfg);
     return(GOOD);
