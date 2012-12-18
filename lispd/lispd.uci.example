@@ -4,7 +4,7 @@
 package 'lispd'
 
 config 'daemon'
-        option  'debug'                 'on'
+        option  'debug'                 '0'
         option  'map_request_retries'   '2'
 
 # Encapsulated Map-Requests are sent to this map resolver    
