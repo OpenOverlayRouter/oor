@@ -213,10 +213,15 @@ the general information for LISPmob, with these exceptions:
     to those on the 'lispd.conf' file.
 
     - Prior to launch LISPmob on router mode make sure that rp_filter 
-    kernel network parameter is disabled. Is disabled by default in 
+    kernel network parameter is disabled. It is disabled by default in 
     OpenWRT, but enabled in Ubuntu for instance. Check it with 
     "sysctl net.ipv4.conf.all.rp_filter", disable it with 
     "sysctl net.ipv4.conf.all.rp_filter=0"
+    
+    - Make sure too that IP forwarding is enabled in the router. It 
+    should be enabled by default in OpenWRT. Check it again with 
+    sysctl "sysctl net.ipv4.ip_forward", enable it the same way
+    "sysctl net.ipv4.ip_forward=1"
 
 
 Contact
