@@ -31,6 +31,7 @@
 
 #include "lispd_map_request.h"
 #include "lispd_output.h"
+#include "lispd_sockets.h"
 
 
 
@@ -199,61 +200,6 @@ int encapsulate_packet(
     return (GOOD);
 }
 
-
-
-int send_by_raw_socket (
-        lispd_iface_elt     *iface,
-        char                *packet_buf,
-        int                 pckt_length )
-{
-
-    int socket;
-
-    struct sockaddr *dst_addr;
-    int dst_addr_len;
-    struct sockaddr_in dst_addr4;
-    //struct sockaddr_in6 dst_addr6;
-    struct iphdr *iph;
-    int nbytes;
-
-    if (!iface){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_by_raw_socket: No output interface found");
-        return (BAD);
-    }
-    memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
-
-    iph = ( struct iphdr * ) packet_buf;
-
-    if ( iph->version == 4 ) {
-        memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
-        dst_addr4.sin_family = AF_INET;
-        dst_addr4.sin_port = htons ( LISP_DATA_PORT );
-        dst_addr4.sin_addr.s_addr = iph->daddr;
-
-        dst_addr = ( struct sockaddr * ) &dst_addr4;
-        dst_addr_len = sizeof ( struct sockaddr_in );
-        socket = iface->out_socket_v4;
-    } else {
-        return (GOOD);
-        //arnatal TODO: write IPv6 support
-    }
-
-    nbytes = sendto ( socket,
-                      ( const void * ) packet_buf,
-                      pckt_length,
-                      0,
-                      dst_addr,
-                      dst_addr_len );
-
-    if ( nbytes != pckt_length ) {
-        lispd_log_msg( LISP_LOG_DEBUG_2, "send_by_raw_socket: send failed %s", strerror ( errno ) );
-        return (BAD);
-    }
-
-    return (GOOD);
-
-}
-
 int fordward_native(
         lispd_iface_elt *iface,
         char            *packet_buf,
@@ -270,7 +216,7 @@ int fordward_native(
     lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
                         get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
-    if(send_by_raw_socket(iface,packet_buf,pckt_length) != GOOD){
+    if(send_raw_packet(iface,packet_buf,pckt_length) != GOOD){
         ret = BAD;
     }else{
         ret = GOOD;
@@ -326,7 +272,7 @@ int fordward_to_petr(
         return (BAD);
     }
     
-    if (send_by_raw_socket (iface,encap_packet,encap_packet_size ) != GOOD){
+    if (send_raw_packet (iface,encap_packet,encap_packet_size ) != GOOD){
         free (encap_packet );
         return (BAD);
     }
@@ -597,7 +543,7 @@ int lisp_output (
                        &encap_packet,
                        &encap_packet_size);
     
-    send_by_raw_socket (iface,encap_packet,encap_packet_size);
+    send_raw_packet (iface,encap_packet,encap_packet_size);
     
     free (encap_packet);
     

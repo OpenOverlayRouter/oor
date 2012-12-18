@@ -36,10 +36,11 @@
 #include <openssl/evp.h>
 #include "lispd_external.h"
 #include "lispd_lib.h"
+#include "lispd_local_db.h"
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_pkt_lib.h"
-#include "lispd_local_db.h"
+#include "lispd_sockets.h"
 #include "patricia/patricia.h"
 
 
@@ -220,9 +221,9 @@ int send_map_register(
 {
     int result;
     if (ms_address->afi == AF_INET)
-        result = send_ctrl_ipv4_packet(ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
+        result = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
     else
-        result = send_ctrl_ipv6_packet(ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
+        result = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
 
     return result;
 }

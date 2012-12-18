@@ -50,29 +50,22 @@
 #include "lispd.h"
 #include "lispd_config.h"
 #include "lispd_iface_list.h"
+#include "lispd_input.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
+#include "lispd_log.h"
 #include "lispd_map_cache_db.h"
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
+#include "lispd_output.h"
+#include "lispd_sockets.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
-#include "lispd_input.h"
-#include "lispd_output.h"
-#include "lispd_iface_list.h"
-#include "lispd_log.h"
-
-#include "lispd_map_cache_db.h"
 
 
 void event_loop();
 void signal_handler(int);
 void exit_cleanup(void);
-
-/*
- *      global (more or less) vars
- *
- */
 
 
 

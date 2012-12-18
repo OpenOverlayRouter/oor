@@ -97,6 +97,7 @@
 #include "lispd_nonce.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_smr.h"
+#include "lispd_sockets.h"
 #include "patricia/patricia.h"
 #include <time.h>
 
@@ -416,9 +417,9 @@ int build_and_send_map_request_msg(
     }
 
     if (dst_rloc_addr->afi == AF_INET)
-        result = send_ctrl_ipv4_packet(dst_rloc_addr,0,LISP_CONTROL_PORT,(void *)packet,mrp_len);
+        result = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,dst_rloc_addr,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)packet,mrp_len);
     else
-        result = send_ctrl_ipv6_packet(dst_rloc_addr,0,LISP_CONTROL_PORT,(void *)packet,mrp_len);
+        result = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,dst_rloc_addr,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)packet,mrp_len);
 
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d",

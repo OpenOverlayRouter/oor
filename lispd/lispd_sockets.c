@@ -211,6 +211,194 @@ int open_data_input_socket(int afi){
 }
 
 /*
+ * Send a ipv4 packet over a udp datagram to the destination address
+ * If the selected port is 0, then a random port is used.
+ */
+
+int send_udp_ipv4_packet(
+        lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr,
+        uint16_t    src_port,
+        uint16_t    dst_port,
+        void        *packet,
+        int         packet_len)
+{
+    int                 s;      /*socket */
+    int                 nbytes;
+    struct sockaddr_in  dst;
+    struct sockaddr_in  src;
+
+    if ((s = open_udp_socket(AF_INET)) < 0) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: socket: %s", strerror(errno));
+        return(BAD);
+    }
+
+    memset((char *) &src, 0, sizeof(struct sockaddr_in));
+    src.sin_family       = AF_INET;
+    src.sin_port         = htons(src_port);
+    src.sin_addr.s_addr  = src_addr->address.ip.s_addr;
+    static char address[INET6_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(src.sin_addr), address, INET_ADDRSTRLEN);
+
+    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: bind: %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    memset((char *) &dst, 0, sizeof(struct sockaddr_in));
+
+    dst.sin_family      = AF_INET;
+    dst.sin_addr.s_addr = dst_addr->address.ip.s_addr;
+    dst.sin_port        = htons(dst_port);
+    if ((nbytes = sendto(s,
+            (const void *) packet,
+            packet_len,
+            0,
+            (struct sockaddr *)&dst,
+            sizeof(struct sockaddr))) < 0) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: sendto: %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    if (nbytes != packet_len) {
+        lispd_log_msg(LISP_LOG_DEBUG_2,
+                "send_udp_ipv4_packet: nbytes (%d) != packet (%d)\n",
+                nbytes, packet_len);
+        close(s);
+        return(BAD);
+    }
+
+    close(s);
+    return (GOOD);
+}
+
+/*
+ * Send a ipv6 packet over a udp datagram to the destination address
+ * If the selected port is 0, then a random port is used.
+ */
+
+int send_udp_ipv6_packet(
+        lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr,
+        uint16_t    src_port,
+        uint16_t    dst_port,
+        void        *packet,
+        int         packet_len)
+{
+    int                 s;      /*socket */
+    int                 nbytes;
+    struct sockaddr_in6  dst;
+    struct sockaddr_in6  src;
+
+
+    if ((s = open_udp_socket(AF_INET6)) < 0) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: socket: %s", strerror(errno));
+        return(BAD);
+    }
+    memset((char *) &src, 0, sizeof(struct sockaddr_in));
+    src.sin6_family       = AF_INET6;
+    src.sin6_port         = htons(src_port);
+    memcpy(&src.sin6_addr,&(src_addr->address.ipv6),sizeof(struct in6_addr));
+
+    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in6)) < 0) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: bind: %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    memset((char *) &dst, 0, sizeof(struct sockaddr_in));
+
+    dst.sin6_family      = AF_INET6;
+    dst.sin6_port        = htons(dst_port);
+    memcpy(&dst.sin6_addr,&(dst_addr->address.ipv6),sizeof(struct in6_addr));
+
+
+    if ((nbytes = sendto(s,
+            (const void *) packet,
+            packet_len,
+            0,
+            (struct sockaddr *)&dst,
+            sizeof(struct sockaddr))) < 0) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: sendto: %s", strerror(errno));
+        close(s);
+        return(BAD);
+    }
+
+    if (nbytes != packet_len) {
+        lispd_log_msg(LISP_LOG_DEBUG_2,
+                "send_udp_ipv6_packet: nbytes (%d) != packet (%d)\n",
+                nbytes, packet_len);
+        close(s);
+        return(BAD);
+    }
+
+    close(s);
+    return (GOOD);
+}
+
+/*
+ * Sends a raw packet through the specified interface
+ */
+
+int send_raw_packet (
+        lispd_iface_elt     *iface,
+        char                *packet_buf,
+        int                 pckt_length )
+{
+
+    int socket;
+
+    struct sockaddr *dst_addr;
+    int dst_addr_len;
+    struct sockaddr_in dst_addr4;
+    //struct sockaddr_in6 dst_addr6;
+    struct iphdr *iph;
+    int nbytes;
+
+    if (!iface){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_raw_packet: No output interface found");
+        return (BAD);
+    }
+    memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
+
+    iph = ( struct iphdr * ) packet_buf;
+
+    if ( iph->version == 4 ) {
+        memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
+        dst_addr4.sin_family = AF_INET;
+        dst_addr4.sin_port = htons ( LISP_DATA_PORT );
+        dst_addr4.sin_addr.s_addr = iph->daddr;
+
+        dst_addr = ( struct sockaddr * ) &dst_addr4;
+        dst_addr_len = sizeof ( struct sockaddr_in );
+        socket = iface->out_socket_v4;
+    } else {
+        return (GOOD);
+        //arnatal TODO: write IPv6 support
+    }
+
+    nbytes = sendto ( socket,
+                      ( const void * ) packet_buf,
+                      pckt_length,
+                      0,
+                      dst_addr,
+                      dst_addr_len );
+
+    if ( nbytes != pckt_length ) {
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_raw_packet: send failed %s", strerror ( errno ) );
+        return (BAD);
+    }
+
+    return (GOOD);
+
+}
+
+
+
+
+/*
 
 lisp_addr_t receive_packet_on_udp_socket_with_dst_addr(int sock, char *packet, int packet_len){
 

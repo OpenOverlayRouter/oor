@@ -69,6 +69,7 @@
 #include "lispd_map_cache_db.h"
 #include "lispd_map_reply.h"
 #include "lispd_pkt_lib.h"
+#include "lispd_sockets.h"
 
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce);
 int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifier);
@@ -282,9 +283,9 @@ int build_and_send_map_reply_msg(
 
     /* Send the packet */
     if (remote_rloc->afi == AF_INET)
-        result = send_ctrl_ipv4_packet(remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
+        result = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
     else
-        result = send_ctrl_ipv6_packet(remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
+        result = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
 
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d",
