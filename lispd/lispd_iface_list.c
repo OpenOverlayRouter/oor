@@ -32,6 +32,7 @@
 #include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
+#include "lispd_sockets.h"
 #include <string.h>
 
 

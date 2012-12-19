@@ -28,10 +28,9 @@
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  */
 
-
-#include "lispd_tun.h"
+#include "lispd_external.h"
 #include "lispd_log.h"
-
+#include "lispd_tun.h"
 
 int create_tun(
     char                *tun_dev_name,
@@ -361,7 +360,7 @@ int set_tun_default_route_v4(int tun_ifindex)
      */
 
     lisp_addr_t dest;
-    lisp_addr_t src;
+    lisp_addr_t *src = NULL;
     lisp_addr_t gw;
     uint32_t prefix_len = 0;
     uint32_t metric = 0;
@@ -370,14 +369,18 @@ int set_tun_default_route_v4(int tun_ifindex)
     metric = 0;
     
     get_lisp_addr_from_char("0.0.0.0",&gw);
-    get_lisp_addr_from_char("0.0.0.0",&src);
 
+#ifdef OPENWRT
+    if (default_out_iface_v4 != NULL){
+        src = default_out_iface_v4->ipv4_address;
+    }
+#endif
 
     get_lisp_addr_from_char("0.0.0.0",&dest);
 
     add_route_v4(tun_ifindex,
             &dest,
-            NULL,
+            src,
             NULL,
             prefix_len,
             metric);
@@ -387,7 +390,7 @@ int set_tun_default_route_v4(int tun_ifindex)
 
     add_route_v4(tun_ifindex,
             &dest,
-            NULL,
+            src,
             NULL,
             prefix_len,
             metric);

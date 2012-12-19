@@ -45,16 +45,6 @@ void *pkt_fill_mapping_record(
     lisp_addr_t                             *probed_rloc);
 
 /*
- * Send a ipv4 control packet to the destination address
- */
-int send_ctrl_ipv4_packet(lisp_addr_t *destination, uint16_t src_port, uint16_t dst_port, void *packet, int packet_len);
-
-/*
- * Send a ipv6 control packet to the destination address
- */
-int send_ctrl_ipv6_packet(lisp_addr_t *destination,uint16_t src_port, uint16_t dst_port, void *packet, int packet_len);
-
-/*
  *  get_identifier_length
  *
  *  Compute the lengths of the identifier to be use in a record

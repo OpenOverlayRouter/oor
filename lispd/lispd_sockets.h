@@ -30,6 +30,7 @@
 
 
 #include "lispd.h"
+#include "lispd_iface_list.h"
 
 
 int open_device_binded_raw_socket(
@@ -41,3 +42,40 @@ int open_data_input_socket(int afi);
 int open_control_input_socket(int afi);
 
 int open_udp_socket(int afi);
+
+/*
+ * Send a ipv4 packet over a udp datagram to the destination address
+ * If the selected port is 0, then a random port is used.
+ */
+
+int send_udp_ipv4_packet(
+        lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr,
+        uint16_t    src_port,
+        uint16_t    dst_port,
+        void        *packet,
+        int         packet_len);
+
+
+
+/*
+ * Send a ipv6 packet over a udp datagram to the destination address
+ * If the selected port is 0, then a random port is used.
+ */
+
+int send_udp_ipv6_packet(
+        lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr,
+        uint16_t    src_port,
+        uint16_t    dst_port,
+        void        *packet,
+        int         packet_len);
+
+/*
+ * Sends a raw packet through the specified interface
+ */
+
+int send_raw_packet (
+        lispd_iface_elt     *iface,
+        char                *packet_buf,
+        int                 pckt_length );
