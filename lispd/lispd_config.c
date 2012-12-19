@@ -147,7 +147,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     int         uci_priority = 0;
     int         uci_weigth = 0;
     const char* uci_interface = NULL;
-    int         uci_iid = 0;
+    int         uci_iid = -1;
     const char* uci_rloc = NULL;
     const char* uci_eid_prefix = NULL;
     
@@ -200,7 +200,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         uci_weigth_v6 = 0;
         uci_priority = 0;
         uci_weigth = 0;
-        uci_iid = 0;
+        uci_iid = -1;
         uci_interface = NULL;
         uci_rloc = NULL;
         uci_eid_prefix = NULL;
@@ -285,7 +285,6 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         
         if (strcmp(s->type, "database-mapping") == 0){
             uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
-            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
             uci_interface = uci_lookup_option_string(ctx, s, "interface");
             uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority_v4"),NULL,10);
             uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight_v4"),NULL,10);
@@ -311,7 +310,6 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         
         if (strcmp(s->type, "static-map-cache") == 0){
             uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
-            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
             uci_rloc = uci_lookup_option_string(ctx, s, "rloc");
             uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
             uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
@@ -421,7 +419,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     static cfg_opt_t mc_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                  0, CFGF_NONE),
+            CFG_INT("iid",                  -1, CFGF_NONE),
             CFG_STR("rloc",                 0, CFGF_NONE),
             CFG_INT("priority",             0, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
