@@ -122,6 +122,274 @@ void handle_lispd_command_line(
     }
 }
 
+
+#ifdef OPENWRT
+/* Compiling for OpenWRT */
+
+/* UCI parsing function (for OpenWRT) */
+
+int handle_uci_lispd_config_file(char *uci_conf_file_path) {
+    
+    
+    struct uci_context *ctx = NULL;
+    struct uci_package *pck = NULL;
+    struct uci_section *s = NULL;
+    struct uci_element *e = NULL;
+    int         uci_debug = 0;
+    int         uci_retries = 0;
+    const char* uci_address = NULL;
+    int         uci_key_type = 0;
+    const char* uci_key = NULL;
+    int         uci_verify = 0;
+    int         uci_proxy_reply = 0;
+    int         uci_priority_v4 = 0;
+    int         uci_weigth_v4 = 0;
+    int         uci_priority_v6 = 0;
+    int         uci_weigth_v6 = 0;
+    int         uci_priority = 0;
+    int         uci_weigth = 0;
+    const char* uci_interface = NULL;
+    int         uci_iid = 0;
+    const char* uci_rloc = NULL;
+    const char* uci_eid_prefix = NULL;
+    
+    char *uci_conf_dir;
+    char *uci_conf_file;
+    
+    //arnatal TODO XXX: check errors for the whole function
+    
+    
+    
+    ctx = uci_alloc_context();
+    
+    if (ctx == NULL) {
+        lispd_log_msg(LISP_LOG_CRIT, "Could not create UCI context. Exiting ...");
+        exit(EXIT_FAILURE);
+    }
+    
+    uci_conf_dir = dirname(strdup(uci_conf_file_path));
+    uci_conf_file = basename(strdup(uci_conf_file_path));
+    
+    
+    uci_set_confdir(ctx, uci_conf_dir);
+    
+    lispd_log_msg(LISP_LOG_DEBUG_1,"Conf dir: %s\n",ctx->confdir);
+    
+    uci_load(ctx,uci_conf_file,&pck);
+    
+    if (pck == NULL) {
+        lispd_log_msg(LISP_LOG_CRIT, "Could not load conf file: %s. Exiting ...",uci_conf_file);
+        uci_perror(ctx,"Error while loading packet ");
+        uci_free_context(ctx);
+        exit(EXIT_FAILURE);
+    }
+    
+    
+    lispd_log_msg(LISP_LOG_DEBUG_3,"package uci: %s\n",pck->ctx->confdir);
+    
+    
+    uci_foreach_element(&pck->sections, e) {
+        uci_debug = 0;
+        uci_retries = 0;
+        
+        uci_address = NULL;
+        uci_key_type = 0;
+        uci_key = NULL;
+        uci_verify = 0;
+        uci_proxy_reply = 0;
+        uci_priority_v4 = 0;
+        uci_weigth_v4 = 0;
+        uci_priority_v6 = 0;
+        uci_weigth_v6 = 0;
+        uci_priority = 0;
+        uci_weigth = 0;
+        uci_iid = 0;
+        uci_interface = NULL;
+        uci_rloc = NULL;
+        uci_eid_prefix = NULL;
+        
+        s = uci_to_section(e);
+        
+        if (strcmp(s->type, "daemon") == 0){
+            
+            uci_debug = strtol(uci_lookup_option_string(ctx, s, "debug"),NULL,10);
+            
+            if (debug_level == -1){
+                if (uci_debug > 0)
+                    debug_level = uci_debug;
+                else
+                    debug_level = 0;
+                if (debug_level > 3)
+                    debug_level = 3;
+            }
+            
+            uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
+            
+            if (uci_retries != 0){
+                map_request_retries = uci_retries;
+            }
+            
+            continue;
+        }
+        
+        
+        if (strcmp(s->type, "map-resolver") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            
+            if (add_server((char *)uci_address, &map_resolvers) != GOOD){
+                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver. Exiting...",uci_address);
+                exit(EXIT_FAILURE);
+            }
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-resolver list", uci_address);
+            continue;
+        }
+        
+        
+        if (strcmp(s->type, "map-server") == 0){
+            
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            uci_key_type = strtol(uci_lookup_option_string(ctx, s, "key_type"),NULL,10);
+            uci_key = uci_lookup_option_string(ctx, s, "key");
+            
+            if (strcmp(uci_lookup_option_string(ctx, s, "proxy_reply"), "on") == 0){
+                uci_proxy_reply = TRUE;
+            }else{
+                uci_proxy_reply = FALSE;
+            }
+            
+            if (strcmp(uci_lookup_option_string(ctx, s, "verify"), "on") == 0){
+                uci_verify = TRUE;
+            }else{
+                uci_verify = FALSE;
+            }
+            
+            if (add_map_server((char *)uci_address,
+                uci_key_type,
+                (char *)uci_key,
+                               uci_proxy_reply,
+                               uci_verify) != GOOD ){
+                lispd_log_msg(LISP_LOG_CRIT, "Can't add %s Map Server. Exiting...", uci_address);
+            exit(EXIT_FAILURE);
+                               }
+                               lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-server list", uci_address);
+                               continue;
+        }
+        
+        
+        if (strcmp(s->type, "proxy-etr") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
+            
+            if (add_proxy_etr_entry((char *)uci_address,
+                uci_priority,
+                uci_weigth,
+                &proxy_etrs) != GOOD ){
+                lispd_log_msg(LISP_LOG_ERR, "Can't add proxy-etr %s", uci_address);
+                }else{
+                    lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to proxy-etr list", uci_address);
+                }
+                continue;
+        }
+        
+        
+        if (strcmp(s->type, "database-mapping") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
+            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
+            uci_interface = uci_lookup_option_string(ctx, s, "interface");
+            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority_v4"),NULL,10);
+            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight_v4"),NULL,10);
+            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, s, "priority_v6"),NULL,10);
+            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, s, "weight_v6"),NULL,10);
+            
+            if (add_database_mapping((char *)uci_eid_prefix,
+                uci_iid,
+                (char *)uci_interface,
+                                     uci_priority_v4,
+                                     uci_weigth_v4,
+                                     uci_priority_v6,
+                                     uci_weigth_v6) != GOOD ){
+                lispd_log_msg(LISP_LOG_ERR, "Can't add database-mapping %s. Discarded ...",
+                              uci_eid_prefix);
+                                     }else{
+                                         lispd_log_msg(LISP_LOG_ERR, "Added identifier %s in the database.",
+                                         uci_eid_prefix);
+                                     }
+                                     continue;
+        }
+        
+        
+        if (strcmp(s->type, "static-map-cache") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
+            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
+            uci_rloc = uci_lookup_option_string(ctx, s, "rloc");
+            uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
+            
+            if (add_static_map_cache_entry((char *)uci_eid_prefix,
+                uci_iid,
+                (char *)uci_rloc,
+                                           uci_priority,
+                                           uci_weigth) != GOOD ){
+                lispd_log_msg(LISP_LOG_WARNING,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
+                              uci_eid_prefix,
+                              uci_rloc);
+                
+                                           }else{
+                                               lispd_log_msg(LISP_LOG_DEBUG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
+                                               uci_eid_prefix,
+                                               uci_rloc);
+                                           }
+                                           continue;
+        }
+        
+        
+        if (strcmp(s->type, "proxy-itr") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            
+            if (add_server((char *)uci_address, &proxy_itrs) != GOOD){
+                lispd_log_msg(LISP_LOG_ERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
+            }else{
+                lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to proxy-itr list", uci_address);
+            }
+            continue;
+        }
+        
+    }
+    
+    if (!proxy_etrs){
+        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+        "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        sleep(3);
+    }
+    
+    if (debug_level == 1){
+        lispd_log_msg (LISP_LOG_INFO, "Log levet: Low debug");
+    }else if (debug_level == 2){
+        lispd_log_msg (LISP_LOG_INFO, "Log levet: Medium debug");
+    }else if (debug_level == 3){
+        lispd_log_msg (LISP_LOG_INFO, "Log levet: High Debug ");
+    }
+    
+    lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
+    dump_local_eids(LISP_LOG_INFO);
+    if (is_loggable(LISP_LOG_DEBUG_1)){
+        dump_map_cache(LISP_LOG_DEBUG_1);
+    }
+    dump_map_servers(LISP_LOG_INFO);
+    dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_INFO);
+    dump_proxy_etrs(LISP_LOG_INFO);
+    dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_INFO);
+    
+    uci_free_context(ctx);
+    
+    return(GOOD);
+}
+
+#else
+/* OPENWRT is not defined */
+
+
 /*
  *  handle_lispd_config_file --
  *
@@ -201,10 +469,8 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     if (ret == CFG_FILE_ERROR) {
         lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", config_file);
         exit(EXIT_FAILURE);
-    } else if(ret == CFG_PARSE_ERROR) {
-        lispd_log_msg(LISP_LOG_INFO, "There was an error parsin the config file \n"
-                "Rerun with debug enabled (lispd -D [0..3]) to see more details\n");
-        lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting...", config_file);
+    } else if(ret == CFG_PARSE_ERROR) {;
+        lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting. Check conf file (see lispd.conf.example)", config_file);
         exit(EXIT_FAILURE);
     }
 
@@ -379,268 +645,10 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     return(GOOD);
 }
 
-#ifdef OPENWRT
 
-
-int handle_uci_lispd_config_file(char *uci_conf_file_path) {
-
-
-    struct uci_context *ctx = NULL;
-    struct uci_package *pck = NULL;
-    struct uci_section *s = NULL;
-    struct uci_element *e = NULL;
-    int         uci_debug = 0;
-    int         uci_retries = 0;
-    const char* uci_address = NULL;
-    int         uci_key_type = 0;
-    const char* uci_key = NULL;
-    int         uci_verify = 0;
-    int         uci_proxy_reply = 0;
-    int         uci_priority_v4 = 0;
-    int         uci_weigth_v4 = 0;
-    int         uci_priority_v6 = 0;
-    int         uci_weigth_v6 = 0;
-    int         uci_priority = 0;
-    int         uci_weigth = 0;
-    const char* uci_interface = NULL;
-    int         uci_iid = 0;
-    const char* uci_rloc = NULL;
-    const char* uci_eid_prefix = NULL;
-
-    char *uci_conf_dir;
-    char *uci_conf_file;
-
-    //arnatal TODO XXX: check errors for the whole function
-
-
-
-    ctx = uci_alloc_context();
-
-    if (ctx == NULL) {
-        lispd_log_msg(LISP_LOG_CRIT, "Could not create UCI context. Exiting ...");
-        exit(EXIT_FAILURE);
-    }
-
-    uci_conf_dir = dirname(strdup(uci_conf_file_path));
-    uci_conf_file = basename(strdup(uci_conf_file_path));
-    
-    
-    uci_set_confdir(ctx, uci_conf_dir);
-    
-    lispd_log_msg(LISP_LOG_DEBUG_1,"Conf dir: %s\n",ctx->confdir);
-
-    uci_load(ctx,uci_conf_file,&pck);
-
-    if (pck == NULL) {
-        lispd_log_msg(LISP_LOG_CRIT, "Could not load conf file: %s. Exiting ...",uci_conf_file);
-        uci_perror(ctx,"Error while loading packet ");
-        uci_free_context(ctx);
-        exit(EXIT_FAILURE);
-    }
-
-
-    lispd_log_msg(LISP_LOG_DEBUG_3,"package uci: %s\n",pck->ctx->confdir);
-
-
-    uci_foreach_element(&pck->sections, e) {
-        uci_debug = 0;
-        uci_retries = 0;
-
-        uci_address = NULL;
-        uci_key_type = 0;
-        uci_key = NULL;
-        uci_verify = 0;
-        uci_proxy_reply = 0;
-        uci_priority_v4 = 0;
-        uci_weigth_v4 = 0;
-        uci_priority_v6 = 0;
-        uci_weigth_v6 = 0;
-        uci_priority = 0;
-        uci_weigth = 0;
-        uci_iid = 0;
-        uci_interface = NULL;
-        uci_rloc = NULL;
-        uci_eid_prefix = NULL;
-
-        s = uci_to_section(e);
-
-        if (strcmp(s->type, "daemon") == 0){
-            
-            uci_debug = strtol(uci_lookup_option_string(ctx, s, "debug"),NULL,10);
-
-            if (debug_level == -1){
-                if (uci_debug > 0)
-                    debug_level = uci_debug;
-                else
-                    debug_level = 0;
-                if (debug_level > 3)
-                    debug_level = 3;
-            }
-
-            uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
-
-            if (uci_retries != 0){
-                map_request_retries = uci_retries;
-            }
-
-            continue;
-        }
-
-
-        if (strcmp(s->type, "map-resolver") == 0){
-            uci_address = uci_lookup_option_string(ctx, s, "address");
-
-            if (add_server((char *)uci_address, &map_resolvers) != GOOD){
-                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver. Exiting...",uci_address);
-                exit(EXIT_FAILURE);
-            }
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-resolver list", uci_address);
-            continue;
-        }
-
-
-        if (strcmp(s->type, "map-server") == 0){
-
-            uci_address = uci_lookup_option_string(ctx, s, "address");
-            uci_key_type = strtol(uci_lookup_option_string(ctx, s, "key_type"),NULL,10);
-            uci_key = uci_lookup_option_string(ctx, s, "key");
-
-            if (strcmp(uci_lookup_option_string(ctx, s, "proxy_reply"), "on") == 0){
-                uci_proxy_reply = TRUE;
-            }else{
-                uci_proxy_reply = FALSE;
-            }
-
-            if (strcmp(uci_lookup_option_string(ctx, s, "verify"), "on") == 0){
-                uci_verify = TRUE;
-            }else{
-                uci_verify = FALSE;
-            }
-
-            if (add_map_server((char *)uci_address,
-                    uci_key_type,
-                    (char *)uci_key,
-                    uci_proxy_reply,
-                    uci_verify) != GOOD ){
-                lispd_log_msg(LISP_LOG_CRIT, "Can't add %s Map Server. Exiting...", uci_address);
-                exit(EXIT_FAILURE);
-            }
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-server list", uci_address);
-            continue;
-        }
-
-
-        if (strcmp(s->type, "proxy-etr") == 0){
-            uci_address = uci_lookup_option_string(ctx, s, "address");
-            uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
-            uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
-
-            if (add_proxy_etr_entry((char *)uci_address,
-                    uci_priority,
-                    uci_weigth,
-                    &proxy_etrs) != GOOD ){
-                lispd_log_msg(LISP_LOG_ERR, "Can't add proxy-etr %s", uci_address);
-            }else{
-                lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to proxy-etr list", uci_address);
-            }
-            continue;
-        }
-
-
-        if (strcmp(s->type, "database-mapping") == 0){
-            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
-            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
-            uci_interface = uci_lookup_option_string(ctx, s, "interface");
-            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, s, "priority_v4"),NULL,10);
-            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, s, "weight_v4"),NULL,10);
-            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, s, "priority_v6"),NULL,10);
-            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, s, "weight_v6"),NULL,10);
-
-            if (add_database_mapping((char *)uci_eid_prefix,
-                    uci_iid,
-                    (char *)uci_interface,
-                    uci_priority_v4,
-                    uci_weigth_v4,
-                    uci_priority_v6,
-                    uci_weigth_v6) != GOOD ){
-                lispd_log_msg(LISP_LOG_ERR, "Can't add database-mapping %s. Discarded ...",
-                        uci_eid_prefix);
-            }else{
-                lispd_log_msg(LISP_LOG_ERR, "Added identifier %s in the database.",
-                        uci_eid_prefix);
-            }
-            continue;
-        }
-
-
-        if (strcmp(s->type, "static-map-cache") == 0){
-            uci_eid_prefix = uci_lookup_option_string(ctx, s, "eid_prefix");
-            uci_iid = strtol(uci_lookup_option_string(ctx, s, "iid"),NULL,10);
-            uci_rloc = uci_lookup_option_string(ctx, s, "rloc");
-            uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
-            uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
-
-            if (add_static_map_cache_entry((char *)uci_eid_prefix,
-                    uci_iid,
-                    (char *)uci_rloc,
-                    uci_priority,
-                    uci_weigth) != GOOD ){
-                lispd_log_msg(LISP_LOG_WARNING,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
-                        uci_eid_prefix,
-                        uci_rloc);
-
-            }else{
-                lispd_log_msg(LISP_LOG_DEBUG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
-                        uci_eid_prefix,
-                        uci_rloc);
-            }
-            continue;
-        }
-
-
-        if (strcmp(s->type, "proxy-itr") == 0){
-            uci_address = uci_lookup_option_string(ctx, s, "address");
-
-            if (add_server((char *)uci_address, &proxy_itrs) != GOOD){
-                lispd_log_msg(LISP_LOG_ERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
-            }else{
-                lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to proxy-itr list", uci_address);
-            }
-            continue;
-        }
-
-    }
-
-    if (!proxy_etrs){
-        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
-                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-        sleep(3);
-    }
-
-    if (debug_level == 1){
-        lispd_log_msg (LISP_LOG_INFO, "Log levet: Low debug");
-    }else if (debug_level == 2){
-        lispd_log_msg (LISP_LOG_INFO, "Log levet: Medium debug");
-    }else if (debug_level == 3){
-        lispd_log_msg (LISP_LOG_INFO, "Log levet: High Debug ");
-    }
-
-    lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_eids(LISP_LOG_INFO);
-    if (is_loggable(LISP_LOG_DEBUG_1)){
-        dump_map_cache(LISP_LOG_DEBUG_1);
-    }
-    dump_map_servers(LISP_LOG_INFO);
-    dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_INFO);
-    dump_proxy_etrs(LISP_LOG_INFO);
-    dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_INFO);
-
-    uci_free_context(ctx);
-
-    return(GOOD);
-}
 
 #endif
+/* ifdef OPENWRT*/
 
 
 /*
