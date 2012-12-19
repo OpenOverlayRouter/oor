@@ -119,7 +119,8 @@ void add_lisp_header(
 
     lisphdr = (struct lisphdr *) position;
 
-    lisphdr->instance_id = iid;
+    lisphdr->instance_id = 0;
+    //lisphdr->instance_id = iid; //XXX iid not supported yet
 
     /* arnatal TODO: support for the rest of values*/
     lisphdr->echo_nonce = 0;
@@ -539,7 +540,8 @@ int lisp_output (
                        outer_dst_addr,
                        LISP_DATA_PORT,
                        LISP_DATA_PORT,
-                       entry->identifier->iid,
+                       //entry->identifier->iid, //XXX iid not supported yet
+                       0,
                        &encap_packet,
                        &encap_packet_size);
     
