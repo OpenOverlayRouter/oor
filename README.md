@@ -18,8 +18,8 @@ other Unix-like operating systems.
 Please note that version 0.3 introduces major changes in the code architecture
 and branch 0.3 is considered experimental. Not all features present in previous
 versions are in 0.3 yet. See section "Version 0.3" below for more details.
-For a more featured (but frozen) version use latest 0.2.x (currently 0.2.4)
-and refer to the README file there.
+For a more featured (but frozen) version use latest code in 'release-0.2' branch 
+(currently 0.2.4) and refer to the README file there.
 
 In version 0.3 the code was generalized and now it not only serves to MNs,
 but also can be used in a domestic router (OpenWRT) to provide LISP routing
