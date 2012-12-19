@@ -306,7 +306,6 @@ typedef struct _lispd_map_server_list_t {
     uint8_t                         key_type;
     char                            *key;
     uint8_t                         proxy_reply;
-    uint8_t                         verify;
     struct _lispd_map_server_list_t *next;
 } lispd_map_server_list_t;
 

@@ -64,8 +64,7 @@ int add_map_server(
         char       *map_server,
         int        key_type,
         char       *key,
-        uint8_t    proxy_reply,
-        uint8_t    verify);
+        uint8_t    proxy_reply);
 
 int add_proxy_etr_entry(
         char   *addr,
@@ -140,7 +139,6 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     const char* uci_address = NULL;
     int         uci_key_type = 0;
     const char* uci_key = NULL;
-    int         uci_verify = 0;
     int         uci_proxy_reply = 0;
     int         uci_priority_v4 = 0;
     int         uci_weigth_v4 = 0;
@@ -195,7 +193,6 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         uci_address = NULL;
         uci_key_type = 0;
         uci_key = NULL;
-        uci_verify = 0;
         uci_proxy_reply = 0;
         uci_priority_v4 = 0;
         uci_weigth_v4 = 0;
@@ -257,17 +254,10 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
                 uci_proxy_reply = FALSE;
             }
             
-            if (strcmp(uci_lookup_option_string(ctx, s, "verify"), "on") == 0){
-                uci_verify = TRUE;
-            }else{
-                uci_verify = FALSE;
-            }
-            
             if (add_map_server((char *)uci_address,
-                uci_key_type,
-                (char *)uci_key,
-                               uci_proxy_reply,
-                               uci_verify) != GOOD ){
+                               uci_key_type,
+                               (char *)uci_key,
+                               uci_proxy_reply) != GOOD ){
                 lispd_log_msg(LISP_LOG_CRIT, "Can't add %s Map Server. Exiting...", uci_address);
             exit(EXIT_FAILURE);
                                }
@@ -415,7 +405,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_INT("key-type",     0, CFGF_NONE),
             CFG_STR("key",          0, CFGF_NONE),
             CFG_BOOL("proxy-reply", cfg_false, CFGF_NONE),
-            CFG_BOOL("verify",      cfg_false, CFGF_NONE),
             CFG_END()
     };
 
@@ -590,8 +579,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         if (!add_map_server(cfg_getstr(ms, "address"),
                 cfg_getint(ms, "key-type"),
                 cfg_getstr(ms, "key"),
-                (cfg_getbool(ms, "proxy-reply") ? 1:0),
-                (cfg_getbool(ms, "verify")      ? 1:0))){
+                (cfg_getbool(ms, "proxy-reply") ? 1:0))){
             lispd_log_msg(LISP_LOG_CRIT, "Can't add %s Map Server. Exiting...",cfg_getstr(ms, "address"));
             exit(EXIT_FAILURE);
         }
@@ -918,8 +906,7 @@ int add_map_server(
         char         *map_server,
         int          key_type,
         char         *key,
-        uint8_t      proxy_reply,
-        uint8_t      verify)
+        uint8_t      proxy_reply)
 
 {
     lisp_addr_t             *addr;
@@ -960,7 +947,6 @@ int add_map_server(
     list_elt->address     = addr;
     list_elt->key_type    = key_type;
     list_elt->key         = strdup(key);
-    list_elt->verify      = verify;
     list_elt->proxy_reply = proxy_reply;
 
     /*

@@ -16,7 +16,6 @@ config 'map-server'
         option   'address'              '128.223.156.35'
         option   'key_type'             '1'
         option   'key'                  'foo%bar'
-        option   'verify'               'off'
         option   'proxy_reply'          'on'
 
 # Encapsulate packets for non-LISP sites to this Proxy-ETR
