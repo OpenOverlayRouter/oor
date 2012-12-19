@@ -302,7 +302,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
                 lispd_log_msg(LISP_LOG_ERR, "Can't add database-mapping %s. Discarded ...",
                               uci_eid_prefix);
                                      }else{
-                                         lispd_log_msg(LISP_LOG_ERR, "Added identifier %s in the database.",
+                                         lispd_log_msg(LISP_LOG_DEBUG_1, "Added identifier %s in the database.",
                                          uci_eid_prefix);
                                      }
                                      continue;
@@ -362,14 +362,14 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     }
     
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_eids(LISP_LOG_INFO);
+    dump_local_eids(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
         dump_map_cache(LISP_LOG_DEBUG_1);
     }
-    dump_map_servers(LISP_LOG_INFO);
-    dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_INFO);
-    dump_proxy_etrs(LISP_LOG_INFO);
-    dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_INFO);
+    dump_map_servers(LISP_LOG_DEBUG_1);
+    dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
+    dump_proxy_etrs(LISP_LOG_DEBUG_1);
+    dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_DEBUG_1);
     
     uci_free_context(ctx);
     
