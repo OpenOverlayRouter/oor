@@ -273,6 +273,8 @@ int main(int argc, char **argv)
 
     map_register (NULL,NULL);
 
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob: 'lispd' started...");
+    
     event_loop();
 
     lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
