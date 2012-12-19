@@ -4,7 +4,7 @@
 package 'lispd'
 
 config 'daemon'
-        option  'debug'                 '0'
+        option  'debug'                 '0'  # Debug levels [0..3]
         option  'map_request_retries'   '2'
 
 # Encapsulated Map-Requests are sent to this map resolver    
@@ -27,27 +27,15 @@ config 'proxy-etr'
 # IPv4 EID of the mobile node        
 config 'database-mapping'
         option   'eid_prefix'           '153.16.254.1/32'
-        option   'iid'                  '-1'
         option   'interface'            'eth0'
         option   'priority_v4'          '1'
         option   'weight_v4'            '100' 
-		option   'priority_v6'          '1'
-        option   'weight_v6'            '100' 
-
-# IPv6 EID of the mobile node        
-config 'database-mapping'
-        option   'eid_prefix'           '2610:d0:ffff:192::1/128'
-        option   'iid'                  '-1'
-        option   'interface'            'eth0'
-        option   'priority_v4'          '1'
-        option   'weight_v4'            '100' 
-		option   'priority_v6'          '1'
+	option   'priority_v6'          '1'
         option   'weight_v6'            '100' 
 
 # Static cache entries      
 config 'static-map-cache'
         option   'eid_prefix'           '153.16.10.0/24'
-        option   'iid'                  '-1'
         option   'rloc'                 '128.223.156.134'
         option   'priority'             '1'
         option   'weight'               '100'
