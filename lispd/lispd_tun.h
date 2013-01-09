@@ -51,7 +51,8 @@
  * Local IPv4 address for tun interface when running on OpenWRT
  */
 
-#define TUN_LOCAL_ADDR "127.0.0.127"
+#define TUN_LOCAL_V4_ADDR "127.0.0.127"
+#define TUN_LOCAL_V6_ADDR "fe80::1"
 
 /* Tun MN variables */
 
@@ -75,8 +76,7 @@ int tun_bring_up_iface_v4_eid(
 
 int tun_add_v6_eid_to_iface(
     lisp_addr_t         eid_address_v6,
-    char                *tun_dev_name,
-    int                 tun_ifindex);
+    char                *tun_dev_name);
 
 int add_route_v4(
     uint32_t            ifindex,

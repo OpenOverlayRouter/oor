@@ -507,11 +507,11 @@ void free_lispd_identifier_elt(
 }
 
 //modified by arnatal
-lisp_addr_t get_main_eid(int afi){
-    lisp_addr_t               eid;
-    patricia_node_t           *node;
-    lispd_identifier_elt        *entry;
-    patricia_tree_t *database;
+lisp_addr_t *get_main_eid(int afi){
+    lisp_addr_t                 *eid        = NULL;
+    patricia_node_t             *node       = NULL;
+    lispd_identifier_elt        *entry      = NULL;
+    patricia_tree_t             *database   = NULL;
 
     switch (afi){
     case AF_INET:
@@ -524,7 +524,7 @@ lisp_addr_t get_main_eid(int afi){
 
     PATRICIA_WALK(database->head, node) {
         entry = ((lispd_identifier_elt *)(node->data));
-        eid = entry->eid_prefix;
+        eid = &(entry->eid_prefix);
     } PATRICIA_WALK_END;
 
     return (eid);

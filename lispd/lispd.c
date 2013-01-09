@@ -127,7 +127,8 @@ lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
 {
-    lisp_addr_t tun_addr;
+    lisp_addr_t *tun_v4_addr;
+    lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
 
     /*
@@ -244,12 +245,18 @@ int main(int argc, char **argv)
      */
 
 #ifdef OPENWRT
-    get_lisp_addr_from_char(TUN_LOCAL_ADDR,&tun_addr);
+    get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+    get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
 #else
-    tun_addr = get_main_eid(AF_INET);
+    tun_v4_addr = get_main_eid(AF_INET);
+    tun_v6_addr = get_main_eid(AF_INET6);
 #endif
-
-    tun_bring_up_iface_v4_eid(tun_addr,tun_dev_name);
+    if (tun_v4_addr != NULL){
+        tun_bring_up_iface_v4_eid(*tun_v4_addr,tun_dev_name);
+    }
+    if (tun_v6_addr != NULL){
+        tun_add_v6_eid_to_iface(*tun_v6_addr,tun_dev_name);
+    }
 
     /*
      * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface

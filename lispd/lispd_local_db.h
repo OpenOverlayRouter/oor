@@ -187,6 +187,6 @@ void dump_identifier(lispd_identifier_elt *identifier, int log_level);
 void dump_local_eids(int log_level);
 
 
-lisp_addr_t get_main_eid(int afi);
+lisp_addr_t *get_main_eid(int afi);
 
 #endif /*LISPD_LOCAL_DB_H_*/

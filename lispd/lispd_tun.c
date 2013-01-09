@@ -177,15 +177,17 @@ int tun_bring_up_iface_v4_eid(
  */
 int tun_add_v6_eid_to_iface(
     lisp_addr_t         eid_address_v6,
-    char                *tun_dev_name,
-    int                 tun_ifindex)
+    char                *tun_dev_name)
 {
     struct rtattr       *rta = NULL;
     struct ifaddrmsg    *ifa = NULL;
     struct nlmsghdr     *nlh = NULL;
-    char                 sndbuf[4096];
-    int                  retval = 0;
-    int                  sockfd = 0;
+    char                sndbuf[4096];
+    int                 retval = 0;
+    int                 sockfd = 0;
+    int                 tun_ifindex = 0;
+
+    tun_ifindex = if_nametoindex (tun_dev_name);
 
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
@@ -195,8 +197,8 @@ int tun_add_v6_eid_to_iface(
     }
 
     /*
-         * Build the command
-         */
+     * Build the command
+     */
     memset(sndbuf, 0, 4096);
     nlh = (struct nlmsghdr *)sndbuf;
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg) + sizeof(struct rtattr) +
