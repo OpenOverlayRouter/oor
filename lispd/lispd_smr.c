@@ -123,20 +123,17 @@ int solicit_map_request_reply(
         map_cache_entry->nonces = nonces;
     }
     if (nonces->retransmits - 1 < LISPD_MAX_SMR_RETRANSMIT ){
-
-       /* if((err = build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
-                map_cache_entry->identifier->eid_prefix_length, map_resolvers->address,1, 0, 0, 1,
+        if((err = build_and_send_map_request_msg(map_cache_entry->identifier, NULL, map_resolvers->address,1, 0, 0, 1,
                 &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
-            lispd_log_msg(LOG_DAEMON, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
+            lispd_log_msg(LISP_LOG_DEBUG_1, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
             // TODO process error
-        }*/
+        }
         nonces->retransmits ++;
         /* Reprograming timer*/
         if (map_cache_entry->smr_timer == NULL)
             map_cache_entry->smr_timer = create_timer ("SMR RETRY");
         start_timer(map_cache_entry->smr_timer, LISPD_INITIAL_SMR_TIMEOUT,
                 (timer_callback)solicit_map_request_reply, (void *)map_cache_entry);
-
     }else{
         free(map_cache_entry->nonces);
         map_cache_entry->nonces = NULL;

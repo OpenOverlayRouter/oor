@@ -165,6 +165,10 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
             return BAD;
         }
         cache_entry->nonces = NULL;
+        /* Stop timer of Map Requests retransmits */
+        if (cache_entry->smr_timer != NULL){
+            stop_timer(cache_entry->smr_timer);
+        }
         /* Check instane id. If the entry doesn't use instane id, its value is 0 */
         if (cache_entry->identifier->iid != identifier.iid){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the map cache entry");

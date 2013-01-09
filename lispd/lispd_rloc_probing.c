@@ -71,8 +71,7 @@ int rloc_probing(
     			if (!locator->rloc_probing_nonces){
     				// XXX alopez: REPROGRAMAR
     			}
-    			if ((err=build_and_send_map_request_msg(&(map_cache_entry->identifier->eid_prefix),
-    			        map_cache_entry->identifier->eid_prefix_length,
+    			if ((err=build_and_send_map_request_msg(map_cache_entry->identifier,
     			        NULL,
     					locator->locator_addr, 0, 1, 0, 0,
     					&(locator->rloc_probing_nonces->nonce[0])))!= GOOD){
