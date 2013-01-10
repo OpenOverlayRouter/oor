@@ -61,6 +61,7 @@
 #include "lispd_map_request.h"
 #include "lispd_map_reply.h"
 #include "lispd_map_notify.h"
+#include "lispd_sockets.h"
 #include "patricia/patricia.h"
 
 
@@ -707,40 +708,18 @@ int have_input(
  */
 
 int process_lisp_ctr_msg(
-        int s,
+        int sock,
         int afi)
 {
 
     uint8_t             packet[MAX_IP_PACKET];
-    struct sockaddr_in  s4;
-    struct sockaddr_in6 s6;
-    socklen_t           fromlen4 = sizeof(struct sockaddr_in);
-    socklen_t           fromlen6 = sizeof(struct sockaddr_in6);
-    lisp_addr_t         *local_rloc = NULL;
-    short               dst_port;
+    lisp_addr_t         local_rloc;
+    uint16_t            remote_port;
 
-    switch (afi) {
-    case AF_INET:
-
-        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s4,
-                    &fromlen4) < 0) {
-            lispd_log_msg(LISP_LOG_WARNING, "process_lisp_ctr_msg: recvfrom (v4) error: %s", strerror(errno));
-            return(BAD);
-        }
-        dst_port = ntohs(s4.sin_port);
-        break;
-    case AF_INET6:
-        if (recvfrom(s, packet, MAX_IP_PACKET, 0, (struct sockaddr *)&s6,
-                    &fromlen6) < 0) {
-            lispd_log_msg(LISP_LOG_WARNING, "process_lisp_ctr_msg: recvfrom (v6) error: %s", strerror(errno));
-            return(BAD);
-        }
-        dst_port = ntohs(s6.sin6_port);
-        break;
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_lisp_ctr_msg: retrieve_msg: Unknown afi %d", afi);
-        return(BAD);
+    if  ( get_packet (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
+        return BAD;
     }
+
     lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
 
     switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
@@ -750,16 +729,12 @@ int process_lisp_ctr_msg(
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Encapsulated Map-Request message");
-        // XXX alopez: local_rloc shoul be get from packet
-        local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
-        if(!process_map_request_msg(packet, local_rloc, dst_port))
+        if(!process_map_request_msg(packet, &local_rloc, remote_port))
             return (BAD);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Request message");
-        // XXX alopez: local_rloc shoul be get from packet
-        local_rloc = (get_default_output_iface(AF_INET))->ipv4_address;
-        if(!process_map_request_msg(packet, local_rloc, dst_port))
+        if(!process_map_request_msg(packet, &local_rloc, remote_port))
             return (BAD);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore

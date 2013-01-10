@@ -16,8 +16,8 @@ CC		= gcc
 endif
 GENGETOPT	= gengetopt
 
-CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID
-#CFLAGS		+= -Wall -g -DDEBUG=3 -DTESTLOCALEID -DOPENWRT
+CFLAGS		+= -Wall -g -DDEBUG=3 
+#CFLAGS		+= -Wall -g -DDEBUG=3 -DOPENWRT
 
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 #LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci

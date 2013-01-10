@@ -1,5 +1,5 @@
 /*
- * lispd_sockets.c
+ * lispd_sockets.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
@@ -24,13 +24,24 @@
  *
  * Written or modified by:
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Albert López <alopez@ac.upc.edu>
  */
 
-#pragma once
+#ifndef LISPD_SOCKETS_H_
+#define LISPD_SOCKETS_H_
 
+/* Define _GNU_SOURCE in order to use in6_pktinfo (get destinatio address of received ctrl packets*/
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #include "lispd.h"
 #include "lispd_iface_list.h"
+
+union control_data {
+    struct cmsghdr cmsg;
+    u_char data[CMSG_SPACE(sizeof(struct in_pktinfo))];
+};
 
 
 int open_device_binded_raw_socket(
@@ -79,3 +90,16 @@ int send_raw_packet (
         lispd_iface_elt     *iface,
         char                *packet_buf,
         int                 pckt_length );
+
+/*
+ * Get a packet from the socket. It also returns the destination addres and source port of the packet
+ */
+
+int get_packet (
+        int             sock,
+        int             afi,
+        uint8_t         *packet,
+        lisp_addr_t     *local_rloc,
+        uint16_t        *remote_port);
+
+#endif /*LISPD_SOCKETS_H_*/

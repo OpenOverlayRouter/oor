@@ -396,29 +396,66 @@ int send_raw_packet (
 }
 
 
+int get_packet (
+        int             sock,
+        int             afi,
+        uint8_t         *packet,
+        lisp_addr_t     *local_rloc,
+        uint16_t        *remote_port)
+{
+    struct sockaddr_in  s4;
+    struct sockaddr_in6 s6;
+    struct msghdr       msg;
+    struct iovec        iov[1];
+    union control_data  cmsg;
+    struct cmsghdr      *cmsgptr;
+    int                 nbytes;
 
+    iov[0].iov_base = packet;
+    iov[0].iov_len = MAX_IP_PACKET;
 
-/*
+    memset(&msg, 0, sizeof msg);
+    msg.msg_iov = iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = &cmsg;
+    msg.msg_controllen = sizeof cmsg;
+    if (afi == AF_INET){
+        msg.msg_name = &s4;
+        msg.msg_namelen = sizeof (struct sockaddr_in);
+    }else{
+        msg.msg_name = &s6;
+        msg.msg_namelen = sizeof (struct sockaddr_in6);
+    }
 
-lisp_addr_t receive_packet_on_udp_socket_with_dst_addr(int sock, char *packet, int packet_len){
+    nbytes = recvmsg(sock, &msg, 0);
+    if (nbytes == -1) {
+        perror("recvfrom");
+        lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
+        return (BAD);
+    }
 
-    int bytes_received;
-    struct sockaddr_in6 from;
-    struct iovec iovec[1];
-    struct msghdr msg;
-    char msg_control[1024];
-    
-    iovec[0].iov_base = packet;
-    iovec[0].iov_len = packet_len;
-    
-    msg.msg_name = &from;
-    msg.msg_namelen = sizeof(from);
-    msg.msg_iov = iovec;
-    msg.msg_iovlen = sizeof(iovec) / sizeof(*iovec);
-    msg.msg_control = msg_control;
-    msg.msg_controllen = sizeof(msg_control);
-    msg.msg_flags = 0;
-    bytes_received = recvmsg(sock, &msg, 0);
-    
+    if (afi == AF_INET){
+        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+            if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_PKTINFO) {
+                local_rloc->afi = AF_INET;
+                local_rloc->address.ip = ((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr;
+                break;
+            }
+        }
+
+        *remote_port = ntohs(s4.sin_port);
+    }else {
+        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+            if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO) {
+                local_rloc->afi = AF_INET6;
+                memcpy(&(local_rloc->address.ipv6.s6_addr),
+                        &(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr),
+                        sizeof(struct in6_addr));
+                break;
+            }
+        }
+        *remote_port = ntohs(s6.sin6_port);
+    }
+
+    return (GOOD);
 }
-*/
