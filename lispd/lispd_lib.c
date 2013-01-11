@@ -157,6 +157,67 @@ int copy_addr(
     }
 }
 
+inline void copy_lisp_addr_V4(lisp_addr_t *dest,
+                              lisp_addr_t *orig){
+
+    dest->address.ip.s_addr = orig->address.ip.s_addr;
+    dest->afi = orig->afi;
+}
+
+inline void copy_lisp_addr_V6(lisp_addr_t *dest,
+                              lisp_addr_t *orig){
+
+    memcpy((dest->address.ipv6.s6_addr),
+           orig->address.ipv6.s6_addr,
+           sizeof(struct in6_addr));
+
+    dest->afi = orig->afi;
+}
+
+void copy_lisp_addr(lisp_addr_t *dest,
+                    lisp_addr_t *orig){
+    switch (orig->afi){
+        case AF_INET:
+            copy_lisp_addr_V4(dest,orig);
+            break;
+        case AF_INET6:
+            copy_lisp_addr_V6(dest,orig);
+            break;
+        default:
+            //TODO default case?
+            break;
+    }
+}
+
+inline void memcopy_lisp_addr_V4(void *dest,
+                                 lisp_addr_t *orig){
+
+    ((struct in_addr *) dest)->s_addr = orig->address.ip.s_addr;
+}
+
+inline void memcopy_lisp_addr_V6(void *dest,
+                                 lisp_addr_t *orig){
+
+    memcpy(dest,
+           orig->address.ipv6.s6_addr,
+           sizeof(struct in6_addr));
+}
+
+void memcopy_lisp_addr(void *dest,
+                       lisp_addr_t *orig){
+    switch (orig->afi){
+        case AF_INET:
+            memcopy_lisp_addr_V4(dest,orig);
+            break;
+        case AF_INET6:
+            memcopy_lisp_addr_V6(dest,orig);
+            break;
+        default:
+            //TODO default case?
+            break;
+    }
+}
+
 /*
  *      lispd_get_address
  *

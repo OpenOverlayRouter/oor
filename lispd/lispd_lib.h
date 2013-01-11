@@ -173,6 +173,24 @@ int retrieve_lisp_msg(int s, uint8_t *packet, void *from, int afi);
 int inaddr2sockaddr(lisp_addr_t *inaddr, struct sockaddr *sockaddr, uint16_t port);
 
 
+inline void copy_lisp_addr_V4(lisp_addr_t *dest,
+                              lisp_addr_t *orig);
+
+inline void copy_lisp_addr_V6(lisp_addr_t *dest,
+                              lisp_addr_t *orig);
+
+void copy_lisp_addr(lisp_addr_t *dest,
+                    lisp_addr_t *orig);
+
+inline void memcopy_lisp_addr_V4(void *dest,
+                                 lisp_addr_t *orig);
+
+inline void memcopy_lisp_addr_V6(void *dest,
+                                 lisp_addr_t *orig);
+
+void memcopy_lisp_addr(void *dest,
+                       lisp_addr_t *orig);
+
 
 #endif /*LISPD_LIB_H_*/
 
