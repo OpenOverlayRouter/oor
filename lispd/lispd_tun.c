@@ -95,6 +95,7 @@ int create_tun(
         }
     }
 
+
     close(tmpsocket);
 
     *tun_receive_buf = (char *)malloc(tun_receive_size);
@@ -116,67 +117,65 @@ int create_tun(
     return(GOOD);
 }
 
-
-
 /*
- * tun_bring_up_iface_v4_eid
+ * tun_bring_up_iface()
  *
- * Bring up and assign an ipv4 EID to the TUN/TAP interface
+ * Bring up interface
  */
-int tun_bring_up_iface_v4_eid(
-    lisp_addr_t         eid_address_v4,
-    char                *tun_dev_name)
+int tun_bring_up_iface(char *tun_dev_name)
 {
-    struct ifreq ifr; //arnatal: XXX how to initialize?
-    struct sockaddr_in *sp = NULL;
-    int    netsock = 0;
-    int    err = 0;
+    struct ifinfomsg    *ifi = NULL;
+    struct nlmsghdr     *nlh = NULL;
+    char                sndbuf[4096];
+    int                 retval = 0;
+    int                 sockfd = 0;
+    int                 tun_ifindex = 0;
 
-   lispd_log_msg(LISP_LOG_DEBUG_1,"LISP EID v4 address %s\n",get_char_from_lisp_addr_t(eid_address_v4));
-    
-    netsock = socket(eid_address_v4.afi, SOCK_DGRAM, 0);
-    if (netsock < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "tun_bring_up_iface_v4_eid assign: socket() %s", strerror(errno));
+    tun_ifindex = if_nametoindex (tun_dev_name);
+
+    sockfd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+
+    if (sockfd < 0) {
+        lispd_log_msg(LISP_LOG_ERR, "tun_add_eid_to_iface: Failed to connect to netlink socket");
         return(BAD);
     }
 
     /*
-     * Fill in the request
+     * Build the command
      */
-    strcpy(ifr.ifr_name, tun_dev_name);
+    memset(sndbuf, 0, 4096);
+    nlh = (struct nlmsghdr *)sndbuf;
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+    nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
+    nlh->nlmsg_type = RTM_SETLINK;
 
-    sp = (struct sockaddr_in *)&ifr.ifr_addr;
-    sp->sin_family = eid_address_v4.afi;
-    sp->sin_addr = eid_address_v4.address.ip;
+    ifi = (struct ifinfomsg *)(sndbuf + sizeof(struct nlmsghdr));
+    ifi->ifi_family = AF_UNSPEC;
+    ifi->ifi_type = IFLA_UNSPEC;
+    ifi->ifi_index = tun_ifindex;
+    ifi->ifi_flags = IFF_UP | IFF_RUNNING; // Bring it up
+    ifi->ifi_change = 0xFFFFFFFF;
 
-    // Set the address
+    retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
 
-    if ((err = ioctl(netsock, SIOCSIFADDR, &ifr)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "TUN/TAP could not set EID on tun device, errno %d.", errno);
+    if (retval < 0) {
+        lispd_log_msg(LISP_LOG_ERR, "tun_bring_up_iface: send() failed %s", strerror(errno));
+        close(sockfd);
         return(BAD);
     }
-    sp->sin_addr.s_addr = 0xFFFFFFFF;
-    if ((err = ioctl(netsock, SIOCSIFNETMASK, &ifr)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "TUN/TAP could not set netmask on tun device, errno %d", errno);
-        return(BAD);
-    }
-    ifr.ifr_flags |= IFF_UP | IFF_RUNNING; // Bring it up
 
-    if ((err = ioctl(netsock, SIOCSIFFLAGS, &ifr)) < 0) {
-        lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP could not bring up tun device, errno %d.", errno);
-        exit(EXIT_FAILURE);
-    }
-    close(netsock);
+    lispd_log_msg(LISP_LOG_DEBUG_1, "TUN interface UP.");
+    close(sockfd);
     return(GOOD);
 }
 
 /*
- * tun_add_v6_eid_to_iface()
+ * tun_add_eid_to_iface()
  *
- * Add an ipv6 EID to the TUN/TAP interface
+ * Add an EID to the TUN/TAP interface
  */
-int tun_add_v6_eid_to_iface(
-    lisp_addr_t         eid_address_v6,
+int tun_add_eid_to_iface(
+    lisp_addr_t         eid_address,
     char                *tun_dev_name)
 {
     struct rtattr       *rta = NULL;
@@ -187,13 +186,24 @@ int tun_add_v6_eid_to_iface(
     int                 sockfd = 0;
     int                 tun_ifindex = 0;
 
+    int                 addr_size = 0;
+    int                 prefix_length = 0;
+
     tun_ifindex = if_nametoindex (tun_dev_name);
 
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
     if (sockfd < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "Failed to connect to netlink socket for tun_add_v6_eid_to_iface()");
+        lispd_log_msg(LISP_LOG_ERR, "tun_add_eid_to_iface: Failed to connect to netlink socket");
         return(BAD);
+    }
+
+    if (eid_address.afi == AF_INET){
+        addr_size = sizeof(struct in_addr);
+        prefix_length = 32;
+    }else {
+        addr_size = sizeof(struct in6_addr);
+        prefix_length = 128;
     }
 
     /*
@@ -201,35 +211,35 @@ int tun_add_v6_eid_to_iface(
      */
     memset(sndbuf, 0, 4096);
     nlh = (struct nlmsghdr *)sndbuf;
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg) + sizeof(struct rtattr) +
-                                  sizeof(struct in6_addr));
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg) + sizeof(struct rtattr) + addr_size);
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE;
     nlh->nlmsg_type = RTM_NEWADDR;
     ifa = (struct ifaddrmsg *)(sndbuf + sizeof(struct nlmsghdr));
 
-    ifa->ifa_prefixlen = 128;
-    ifa->ifa_family = AF_INET6;
+    ifa->ifa_prefixlen = prefix_length;
+    ifa->ifa_family = eid_address.afi;
     ifa->ifa_index  = tun_ifindex;
     ifa->ifa_scope = RT_SCOPE_HOST;
+    ifa->ifa_flags |= IFF_UP | IFF_RUNNING; // Bring it up
     rta = (struct rtattr *)(sndbuf + sizeof(struct nlmsghdr) + sizeof(struct ifaddrmsg));
     rta->rta_type = IFA_LOCAL;
 
-    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in6_addr);
-    memcpy(((char *)rta) + sizeof(struct rtattr), eid_address_v6.address.ipv6.s6_addr,
-           sizeof(struct in6_addr));
+    rta->rta_len = sizeof(struct rtattr) + addr_size;
+    memcopy_lisp_addr((void *)((char *)rta + sizeof(struct rtattr)),&eid_address);
 
     retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
 
     if (retval < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "tun_add_v6_eid_to_iface: send() failed %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "tun_add_eid_to_iface: send() failed %s", strerror(errno));
         close(sockfd);
         return(BAD);
     }
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "added ipv6 EID to TUN interface.");
+    lispd_log_msg(LISP_LOG_DEBUG_1, "added %s EID to TUN interface.",get_char_from_lisp_addr_t(eid_address));
     close(sockfd);
     return(GOOD);
 }
+
 
 /* 
  * ifindex:     Output interface

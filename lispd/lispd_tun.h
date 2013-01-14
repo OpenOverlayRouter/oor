@@ -70,8 +70,21 @@ int create_tun(
     int                 *tun_ifindex,
     char                **tun_receive_buf);
 
-int tun_bring_up_iface_v4_eid(
-    lisp_addr_t         eid_address_v4,
+
+/*
+ * tun_bring_up_iface()
+ *
+ * Bring up interface
+ */
+int tun_bring_up_iface(char *tun_dev_name);
+
+/*
+ * tun_add_eid_to_iface()
+ *
+ * Add an EID to the TUN/TAP interface
+ */
+int tun_add_eid_to_iface(
+    lisp_addr_t         eid_address,
     char                *tun_dev_name);
 
 int tun_add_v6_eid_to_iface(
