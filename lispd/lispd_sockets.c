@@ -256,7 +256,7 @@ int send_udp_ipv4_packet(
             packet_len,
             0,
             (struct sockaddr *)&dst,
-            sizeof(struct sockaddr))) < 0) {
+            sizeof(struct sockaddr_in))) < 0) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: sendto: %s", strerror(errno));
         close(s);
         return(BAD);
@@ -320,7 +320,7 @@ int send_udp_ipv6_packet(
             packet_len,
             0,
             (struct sockaddr *)&dst,
-            sizeof(struct sockaddr))) < 0) {
+            sizeof(struct sockaddr_in6))) < 0) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: sendto: %s", strerror(errno));
         close(s);
         return(BAD);

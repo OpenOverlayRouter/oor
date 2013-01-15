@@ -219,11 +219,11 @@ int tun_add_eid_to_iface(
     ifa->ifa_prefixlen = prefix_length;
     ifa->ifa_family = eid_address.afi;
     ifa->ifa_index  = tun_ifindex;
-    ifa->ifa_scope = RT_SCOPE_HOST;
-    ifa->ifa_flags |= IFF_UP | IFF_RUNNING; // Bring it up
+    ifa->ifa_scope = RT_SCOPE_UNIVERSE;
+    ifa->ifa_flags = 0; // Bring it up
+
     rta = (struct rtattr *)(sndbuf + sizeof(struct nlmsghdr) + sizeof(struct ifaddrmsg));
     rta->rta_type = IFA_LOCAL;
-
     rta->rta_len = sizeof(struct rtattr) + addr_size;
     memcopy_lisp_addr((void *)((char *)rta + sizeof(struct rtattr)),&eid_address);
 

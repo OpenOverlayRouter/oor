@@ -82,7 +82,7 @@ lispd_iface_elt *add_interface(char *iface_name)
     }else {
         iface->out_socket_v4 = -1;
     }
-    iface->ipv6_address = NULL;//lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+    iface->ipv6_address = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
     if (iface->ipv6_address != NULL){
         iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
     }else {
@@ -239,20 +239,22 @@ lispd_iface_elt *get_any_output_iface(int afi)
     
     switch (afi){
         case AF_INET:
-            while ((iface_list_elt!=NULL)
-                && (iface_list_elt->iface->ipv4_address!=NULL)
-                && (iface_list_elt->iface->status == UP)) {
-
-                iface = iface_list_elt->iface;
+            while (iface_list_elt!=NULL){
+                if ((iface_list_elt->iface->ipv4_address!=NULL)
+                        && (iface_list_elt->iface->status == UP)) {
+                    iface = iface_list_elt->iface;
+                    break;
+                }
                 iface_list_elt = iface_list_elt->next;
             }
             break;
         case AF_INET6:
-            while ((iface_list_elt!=NULL)
-                && (iface_list_elt->iface->ipv6_address!=NULL)
-                && (iface_list_elt->iface->status == UP)) {
-
-                iface = iface_list_elt->iface;
+            while (iface_list_elt!=NULL){
+                if ((iface_list_elt->iface->ipv6_address!=NULL)
+                        && (iface_list_elt->iface->status == UP)) {
+                    iface = iface_list_elt->iface;
+                    break;
+                }
                 iface_list_elt = iface_list_elt->next;
             }
             break;
@@ -307,7 +309,6 @@ void set_default_output_ifaces()
 
 void set_default_ctrl_ifaces()
 {
-
     default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_ctrl_iface_v4 != NULL) {
@@ -318,6 +319,7 @@ void set_default_ctrl_ifaces()
     if (default_ctrl_iface_v6 != NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s\n",default_ctrl_iface_v6->iface_name);
     }
+
     // XXX alopez If no output interface found exit --> To be modified when iface management implemented
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6){
         lispd_log_msg(LISP_LOG_CRIT,"No default control interface. Exiting ...");
