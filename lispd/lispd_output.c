@@ -38,48 +38,58 @@
 
 
 void add_ipv4_header (
-        char            *position,
-        char            *original_packet_position,
-        lisp_addr_t     *src_addr,
-        lisp_addr_t     *dst_addr)
+    char            *position,
+    char            *original_packet_position,
+    int             ip_payload_length,
+    lisp_addr_t     *src_addr,
+    lisp_addr_t     *dst_addr)
 {
-
-
-    struct iphdr *iph;
-    struct iphdr *inner_iph;
-
-
+    
+    
+    struct iphdr *iph = NULL;
+    struct iphdr *inner_iph = NULL;
+    struct ip6_hdr *inner_ip6h = NULL;
+    
+    uint8_t tos = 0;
+    uint8_t ttl = 0;
+    
+    
+    inner_iph = (struct iphdr *) original_packet_position;
+    
+    /* We SHOULD copy ttl and tos fields from the inner packet to the encapsulated one */
+    
+    if (inner_iph->version == 4 ) {
+        tos = inner_iph->tos;
+        ttl = inner_iph->ttl;
+        
+    } else {
+        inner_ip6h = (struct ip6_hdr *) original_packet_position;
+        ttl = inner_ip6h->ip6_hops; /* ttl = Hops limit in IPv6 */
+        
+        //tos = (inner_ip6h->ip6_flow & 0x0ff00000) >> 20;  /* 4 bits version, 8 bits Traffic Class, 20 bits flow-ID */
+        tos = IPV6_GET_TC(*inner_ip6h); /* tos = Traffic class field in IPv6 */
+    }
+    
     /*
      * Construct and add the outer ip header
      */
 
-    iph = ( struct iphdr * ) position;
-    inner_iph = ( struct iphdr * ) original_packet_position;
-
-
-    //arnatal TODO: check inner ip header version to proper copy tos and ttl fields
-
+    iph = (struct iphdr *) position;
+            
     iph->version  = 4;
-    iph->ihl      = sizeof ( struct iphdr ) >>2;
+    //iph->ihl      = sizeof ( struct iphdr ) >>2;
+    iph->ihl      = 5; /* Minimal IPv4 header */
+    iph->tos      = tos;
+    iph->tot_len  = htons(ip_payload_length);
     iph->frag_off = 0;   // XXX recompute above, use method in 5.4.1 of draft
+    iph->ttl      = ttl;
     iph->protocol = IPPROTO_UDP;
-
-    iph->tos      = inner_iph->tos;
-
+    iph->check    = 0; //Computed by the NIC (checksum offloading)
     iph->daddr    = dst_addr->address.ip.s_addr;
     iph->saddr    = src_addr->address.ip.s_addr;
+            
 
-    iph->ttl      = inner_iph->ttl;
-
-
-    //arnatal XXX: Checksum?
-
-    //iph->check = ip_checksum((uint16_t*) iph, sizeof(struct iphdr));
-
-    //if ((udpsum = udp_checksum(udh, pckt_length - iph_len, packet_buf, AF_INET)) == -1) {
-    //    return (0);
-    //}
-    //udh->check = udpsum;
+    
 
 }
 
@@ -188,7 +198,11 @@ int encapsulate_packet(
     
     switch (encap_afi){
         case AF_INET:
-            add_ipv4_header((char *)(new_packet),original_packet,src_addr,dst_addr);
+            add_ipv4_header(new_packet,
+                          original_packet,
+                          original_packet_length+lisphdr_len+udphdr_len,
+                          src_addr,
+                          dst_addr);
             break;
         case AF_INET6:
             //arnatal TODO: write IPv6 support
@@ -475,15 +489,16 @@ int lisp_output (
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
-    default_encap_afi = original_dst_addr.afi; //arnatal TODO: Choose proper encapsulation afi
+
+    default_encap_afi = AF_INET; //TODO Support IPv6 RLOCs
 
     /* No complete IPv6 support yet */
 
-    if (default_encap_afi == AF_INET6){
-        return (fordward_native(get_default_output_iface(default_encap_afi),
-                                original_packet,
-                                original_packet_length));
-    }
+//     if (default_encap_afi == AF_INET6){
+//         return (fordward_native(get_default_output_iface(default_encap_afi),
+//                                 original_packet,
+//                                 original_packet_length));
+//     }
 
     /* If already LISP packet, do not encapsulate again */
     
@@ -510,7 +525,7 @@ int lisp_output (
     }
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
     if ((map_cache_query_result != GOOD) || (entry->active == NO_ACTIVE) || (entry->identifier->locator_count == 0) ){ /* There is no entry or is not active*/
-        
+
         /* Try to fordward to petr*/
         if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
                              original_packet,
@@ -538,7 +553,7 @@ int lisp_output (
                        default_encap_afi,
                        outer_src_addr,
                        outer_dst_addr,
-                       LISP_DATA_PORT,
+                       LISP_DATA_PORT, //TODO: UDP src port based on hash?
                        LISP_DATA_PORT,
                        //entry->identifier->iid, //XXX iid not supported yet
                        0,
