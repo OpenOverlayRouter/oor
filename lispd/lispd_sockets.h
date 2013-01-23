@@ -37,6 +37,7 @@
 
 #include "lispd.h"
 #include "lispd_iface_list.h"
+#include "lispd_lib.h"
 
 union control_data {
     struct cmsghdr cmsg;
@@ -95,11 +96,19 @@ int send_raw_packet (
  * Get a packet from the socket. It also returns the destination addres and source port of the packet
  */
 
-int get_packet (
+int get_control_packet (
         int             sock,
         int             afi,
         uint8_t         *packet,
         lisp_addr_t     *local_rloc,
         uint16_t        *remote_port);
+
+int get_data_packet (
+    int             sock,
+    int             afi,
+    uint8_t         *packet,
+    int             *length,
+    uint8_t         *ttl,
+    uint8_t         *tos);
 
 #endif /*LISPD_SOCKETS_H_*/

@@ -29,46 +29,64 @@
 
 #include "lispd_input.h"
 
-
-void lisp_input(
-        char    *packet_buf,
-        int     length,
-        void    *source,
-        int     tun_receive_fd)
+void process_input_packet(int fd,
+                          int tun_receive_fd)
 {
-    int ret;
-    struct lisphdr *lisp_hdr;
-    struct iphdr *iph;
+    uint8_t             *packet = NULL;
+    int                 length = 0;
+    uint8_t             ttl = 0;
+    uint8_t             tos = 0;
 
-    lisp_hdr = (struct lisphdr *)packet_buf;
+    struct lisphdr      *lisp_hdr = NULL;
+    struct iphdr        *iph = NULL;
+    struct ip6_hdr      *ip6h = NULL;
 
-    iph = (struct iphdr *)((char *)lisp_hdr + sizeof(struct lisphdr));
-
-    if (iph->version == 4) {
-        ret = write(tun_receive_fd, iph, length - sizeof(struct lisphdr));
-    }
-
-    if (ret==-1){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
-    }
-}
-
-void process_input_packet(
-        int fd,
-        int tun_receive_fd)
-{
-    uint8_t                 packet[4096];
-    int                     recv_len;
-    socklen_t               fromlen4 = sizeof(struct sockaddr_in);
-    struct sockaddr_in      s4;
-
+    
     lispd_log_msg(LISP_LOG_DEBUG_3,"process_input_packet: tuntap_process_input_packet\n");
 
-    memset(&s4, 0, sizeof(struct sockaddr_in));
+    if ((packet = (uint8_t *) malloc(MAX_IP_PACKET))==NULL){
+        lispd_log_msg(LISP_LOG_ERR,"process_input_packet: Couldn't allocate space for packet: %s", strerror(errno));
+        return;
+    }
 
-    if ((recv_len = recvfrom(fd, packet, 4096, 0,(struct sockaddr *) &s4, &fromlen4)) < 0)
-        lispd_log_msg(LISP_LOG_DEBUG_2,"process_input_packet: recvfrom (v4) error: %s", strerror(errno));
-    else
-        lisp_input((char *)packet, recv_len, &s4, tun_receive_fd);
+    memset(packet,0,MAX_IP_PACKET);
+    
+    if (get_data_packet (fd,
+                         AF_INET,
+                         packet,
+                         &length,
+                         &ttl,
+                         &tos) == BAD){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_input_packet: get_data_packet error: %s", strerror(errno));
+        free(packet);
+        return;
+    }
+
+    lisp_hdr = (struct lisphdr *)packet;
+    
+    iph = (struct iphdr *)((char *)lisp_hdr + sizeof(struct lisphdr));
+    
+    if (iph->version == 4) {
+        
+        iph->ttl = ttl;
+        iph->tos = tos;
+
+        /* We need to recompute the checksum since we have changed the TTL and TOS header fields */
+        iph->check = 0; /* New checksum must be computed with the checksum header field with 0s */
+        iph->check = ip_checksum((uint16_t*) iph, sizeof(struct iphdr));
+        
+    }else{
+        ip6h = ( struct ip6_hdr *) iph;
+        
+        ip6h->ip6_hops = ttl; /* ttl = Hops limit in IPv6 */
+        
+        IPV6_SET_TC(ip6h,tos); /* tos = Traffic class field in IPv6 */
+    }
+
+    if ((write(tun_receive_fd, iph, length - sizeof(struct lisphdr))) < 0){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
+    }
+    
+    free(packet);
 }
 

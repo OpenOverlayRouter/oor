@@ -200,11 +200,35 @@ int open_control_input_socket(int afi){
 int open_data_input_socket(int afi){
     
     int sock;
+    const int on=1;
     
     sock = open_input_socket(afi,LISP_DATA_PORT);
 
     if(sock == BAD){
         return(BAD);
+    }
+
+    switch (afi){
+        case AF_INET:
+            
+            /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
+            if(setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on))< 0){
+                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTOS: %s", strerror(errno));
+            }
+
+            /* IP_RECVTTL is requiered to get later the IPv4 original TTL */
+            if(setsockopt(sock, IPPROTO_IP, IP_RECVTTL, &on, sizeof(on))< 0){
+                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTTL: %s", strerror(errno));
+            }
+            
+            break;
+            
+        case AF_INET6:
+            
+            //TODO IPv6 equivalents
+            
+        default:
+            return(BAD);
     }
     
     return(sock);
@@ -396,7 +420,7 @@ int send_raw_packet (
 }
 
 
-int get_packet (
+int get_control_packet (
         int             sock,
         int             afi,
         uint8_t         *packet,
@@ -457,5 +481,70 @@ int get_packet (
         *remote_port = ntohs(s6.sin6_port);
     }
 
+    return (GOOD);
+}
+
+
+int get_data_packet (
+    int             sock,
+    int             afi,
+    uint8_t         *packet,
+    int             *length,
+    uint8_t         *ttl,
+    uint8_t         *tos)
+{
+    struct sockaddr_in  s4;
+    struct sockaddr_in6 s6;
+    struct msghdr       msg;
+    struct iovec        iov[1];
+    union  control_data  cmsg;
+    struct cmsghdr      *cmsgptr;
+    int                 nbytes;
+    
+    iov[0].iov_base = packet;
+    iov[0].iov_len = MAX_IP_PACKET;
+    
+    memset(&msg, 0, sizeof msg);
+    msg.msg_iov = iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = &cmsg;
+    msg.msg_controllen = sizeof cmsg*2; /* Allocate enought space (Here 2 cmsg blocks [TTL and TOS]) */
+    if (afi == AF_INET){
+        msg.msg_name = &s4;
+        msg.msg_namelen = sizeof (struct sockaddr_in);
+    }else{
+        msg.msg_name = &s6;
+        msg.msg_namelen = sizeof (struct sockaddr_in6);
+    }
+    
+    nbytes = recvmsg(sock, &msg, 0);
+    if (nbytes == -1) {
+        perror("recvfrom");
+        lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
+        return (BAD);
+    }
+
+    *length = nbytes;
+    
+    if (afi == AF_INET){
+        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+
+            printf("CMSG_LEVEL: %d , CMSG_TYPE: %d \n",cmsgptr->cmsg_level,cmsgptr->cmsg_type);
+            
+            if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_TTL) {
+                *ttl = *((uint8_t *)CMSG_DATA(cmsgptr));
+                printf("TTL on cmsgptr: %d\n",*ttl);
+            }
+
+            if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_TOS) {
+                *tos = *((uint8_t *)CMSG_DATA(cmsgptr));
+                printf("TOS on cmsgptr: %d\n",*tos);
+            }
+        }
+
+    }else {
+        //TODO IPv6 support
+    }
+    
     return (GOOD);
 }

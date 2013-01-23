@@ -35,7 +35,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
-#include "lispd.h" 
+#include "lispd.h"
+#include "lispd_sockets.h"
+#include "cksum.h"
+#include "lispd_output.h"
 
 
 void process_input_packet(int fd, int tun_receive_fd);
