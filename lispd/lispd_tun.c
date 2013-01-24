@@ -241,17 +241,17 @@ int tun_add_eid_to_iface(
 }
 
 
-/* 
+/*
  * ifindex:     Output interface
  * dest:        Destination address
  * gw:          Gateway
  * prefix_len:  Destination address mask (/n)
  * metric:      Route metric
- * 
+ *
  */
 
 
-int add_route_v4(
+int add_route(
     uint32_t            ifindex,
     lisp_addr_t         *dest,
     lisp_addr_t         *src,
@@ -259,38 +259,49 @@ int add_route_v4(
     uint32_t            prefix_len,
     uint32_t            metric)
 {
-    struct nlmsghdr *nlh;
-    struct rtmsg    *rtm;
-    struct rtattr  *rta;
-    int    rta_len = 0;
+    struct nlmsghdr *nlh    = NULL;
+    struct rtmsg    *rtm    = NULL;
+    struct rtattr   *rta    = NULL;
     char   sndbuf[4096];
-    int    retval;
-    int    sockfd;
-    
+    int    rta_len          = 0;
+    int    retval           = 0;
+    int    sockfd           = 0;
+    int    afi              = 0;
+    int    addr_size        = 0;
+
+    afi = dest->afi;
+    if (afi == AF_INET){
+        addr_size = sizeof(struct in_addr);
+    }
+    else{
+        addr_size = sizeof(struct in6_addr);
+    }
+
+
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-    
+
     if (sockfd < 0) {
         lispd_log_msg(LISP_LOG_CRIT, "Failed to connect to netlink socket for install_default_route()");
         exit(EXIT_FAILURE);
     }
-    
+
     /*
      * Build the command
      */
     memset(sndbuf, 0, 4096);
-    
+
     nlh = (struct nlmsghdr *)sndbuf;
     rtm = (struct rtmsg *)(sndbuf + sizeof(struct nlmsghdr));
-    
+
     rta_len = sizeof(struct rtmsg);
-    
+
     /*
      * Add the destination
      */
     rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
     rta->rta_type = RTA_DST;
-    rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-    memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address.ip, sizeof(struct in_addr));
+    rta->rta_len = sizeof(struct rtattr) + addr_size;
+    memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address, addr_size);
     rta_len += rta->rta_len;
 
     /*
@@ -299,11 +310,11 @@ int add_route_v4(
     if (src != NULL){
         rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
         rta->rta_type = RTA_PREFSRC;
-        rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-        memcpy(((char *)rta) + sizeof(struct rtattr), &src->address.ip, sizeof(struct in_addr));
+        rta->rta_len = sizeof(struct rtattr) + addr_size;
+        memcpy(((char *)rta) + sizeof(struct rtattr), &src->address, addr_size);
         rta_len += rta->rta_len;
     }
-    
+
     /*
      * Add the outgoing interface
      */
@@ -320,27 +331,26 @@ int add_route_v4(
     if (gw != NULL){
         rta = (struct rtattr *) (((char *)rta) + rta->rta_len);
         rta->rta_type = RTA_GATEWAY;
-        rta->rta_len = sizeof(struct rtattr) + sizeof(struct in_addr);
-        memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address.ip, sizeof(struct in_addr));
-        //inet_pton(AF_INET, "192.168.2.1", ((char *)rta) + sizeof(struct rtattr));
+        rta->rta_len = sizeof(struct rtattr) + addr_size;
+        memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address, addr_size);
         rta_len += rta->rta_len;
     }
 
-    
+
     /* Add the route metric */
-    
+
     rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
     //rta->rta_type = RTA_METRICS;
     rta->rta_type = RTA_PRIORITY; /* This is the actual atr type to set the metric... */
     rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t);
     memcpy(((char *)rta) + sizeof(struct rtattr), &metric, sizeof(uint32_t));
     rta_len += rta->rta_len;
-    
+
     nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
     nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
     nlh->nlmsg_type =  RTM_NEWROUTE;
-    
-    rtm->rtm_family    = AF_INET;
+
+    rtm->rtm_family    = afi;
     rtm->rtm_table     = RT_TABLE_MAIN;
 
     rtm->rtm_protocol  = RTPROT_STATIC;
@@ -348,10 +358,10 @@ int add_route_v4(
     rtm->rtm_type      = RTN_UNICAST;
     rtm->rtm_src_len   = 0;
     rtm->rtm_tos       = 0;
-    
+
     rtm->rtm_dst_len   = prefix_len;
 
-    
+
     retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
 
     if (retval < 0) {
@@ -390,7 +400,7 @@ int set_tun_default_route_v4(int tun_ifindex)
 
     get_lisp_addr_from_char("0.0.0.0",&dest);
 
-    add_route_v4(tun_ifindex,
+    add_route(tun_ifindex,
             &dest,
             src,
             NULL,
@@ -400,7 +410,54 @@ int set_tun_default_route_v4(int tun_ifindex)
 
     get_lisp_addr_from_char("128.0.0.0",&dest);
 
-    add_route_v4(tun_ifindex,
+    add_route(tun_ifindex,
+            &dest,
+            src,
+            NULL,
+            prefix_len,
+            metric);
+
+    return(GOOD);
+}
+
+
+int set_tun_default_route_v6(int tun_ifindex)
+{
+
+    /*
+     * Assign route to ::/1 and 8000::/1 via tun interface
+     */
+
+    lisp_addr_t dest;
+    lisp_addr_t *src = NULL;
+    lisp_addr_t gw;
+    uint32_t prefix_len = 0;
+    uint32_t metric = 0;
+
+    prefix_len = 1;
+    metric = 512;
+
+    get_lisp_addr_from_char("::",&gw);
+
+#ifdef OPENWRT
+    if (default_out_iface_v6 != NULL){
+        src = default_out_iface_v6->ipv6_address;
+    }
+#endif
+
+    get_lisp_addr_from_char("::",&dest);
+
+    add_route(tun_ifindex,
+            &dest,
+            src,
+            NULL,
+            prefix_len,
+            metric);
+
+
+    get_lisp_addr_from_char("8000::",&dest);
+
+    add_route(tun_ifindex,
             &dest,
             src,
             NULL,
