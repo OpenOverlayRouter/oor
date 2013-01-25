@@ -392,7 +392,7 @@ int set_tun_default_route_v4(int tun_ifindex)
     
     get_lisp_addr_from_char("0.0.0.0",&gw);
 
-#ifdef OPENWRT
+#ifdef ROUTER
     if (default_out_iface_v4 != NULL){
         src = default_out_iface_v4->ipv4_address;
     }

@@ -11,16 +11,31 @@
 #
 
 
+
 ifndef CC
 CC		= gcc
 endif
 GENGETOPT	= gengetopt
+ERROR		= false
 
-CFLAGS		+= -Wall -g -DDEBUG=3 
-#CFLAGS		+= -Wall -g -DDEBUG=3 -DOPENWRT
 
+ifeq "$(platform)" ""
+CFLAGS		+= -Wall -g 
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
-#LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
+else
+ifeq "$(platform)" "router"
+CFLAGS		+= -Wall -g -DROUTER
+LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
+else
+ifeq "$(platform)" "openwrt"
+CFLAGS		+= -Wall -g -DROUTER -DOPENWRT
+LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
+else
+ERROR		= true
+endif
+endif
+endif
+
 INC		= lispd.h
 MAKEFILE	= Makefile
 OBJS		= cmdline.o lispd.o lispd_config.o lispd_log.o	\
@@ -45,6 +60,9 @@ cmdline.c: lispd.ggo
 	$(GENGETOPT) -i $<
 
 %.o: %.c $(DEPS) $(INC) $(MAKEFILE)
+ifeq "$(ERROR)" "true"
+		$(error  Invalid value of platform parameter)
+endif
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
@@ -58,3 +76,4 @@ install: $(EXE)
 
 tags:
 	cscope -R -b
+
