@@ -439,7 +439,7 @@ int set_tun_default_route_v6(int tun_ifindex)
 
     get_lisp_addr_from_char("::",&gw);
 
-#ifdef OPENWRT
+#ifdef ROUTER
     if (default_out_iface_v6 != NULL){
         src = default_out_iface_v6->ipv6_address;
     }

@@ -52,7 +52,7 @@
  */
 
 #define TUN_LOCAL_V4_ADDR "127.0.0.127"
-#define TUN_LOCAL_V6_ADDR "fe80::1"
+#define TUN_LOCAL_V6_ADDR "::127"
 
 /* Tun MN variables */
 
