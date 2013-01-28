@@ -39,16 +39,26 @@ int open_device_binded_raw_socket(
     int device_len;
     
     int s;
-    int tr = 1;
+    int on = 1;
     
-    
-    if ((s = socket(afi, SOCK_RAW, IPPROTO_RAW)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
-        return (BAD);
+
+    switch (afi){
+        case AF_INET:
+            if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                return (BAD);
+            }
+            break;
+        case AF_INET6:
+            if ((s = socket(AF_INET6, SOCK_RAW,IPPROTO_RAW)) < 0) {
+                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                return (BAD);
+            }
+            break;
     }
     
     
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
         lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
         close(s);
         return (BAD);
@@ -366,58 +376,313 @@ int send_udp_ipv6_packet(
  * Sends a raw packet through the specified interface
  */
 
-int send_raw_packet (
-        lispd_iface_elt     *iface,
-        char                *packet_buf,
-        int                 pckt_length )
+int send_ipv4_packet (
+        int     sock,
+        char    *packet,
+        int     packet_length )
 {
-
-    int socket;
+    //TODO remove old code. Optimize for IPv4 only
 
     struct sockaddr *dst_addr;
     int dst_addr_len;
     struct sockaddr_in dst_addr4;
-    //struct sockaddr_in6 dst_addr6;
+    struct sockaddr_in6 dst_addr6;
     struct iphdr *iph;
+    struct ip6_hdr *ip6h;
     int nbytes;
 
-    if (!iface){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_raw_packet: No output interface found");
-        return (BAD);
-    }
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
 
-    iph = ( struct iphdr * ) packet_buf;
 
-    if ( iph->version == 4 ) {
-        memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
-        dst_addr4.sin_family = AF_INET;
-        dst_addr4.sin_port = htons ( LISP_DATA_PORT );
-        dst_addr4.sin_addr.s_addr = iph->daddr;
+    iph = ( struct iphdr * ) packet;
 
-        dst_addr = ( struct sockaddr * ) &dst_addr4;
-        dst_addr_len = sizeof ( struct sockaddr_in );
-        socket = iface->out_socket_v4;
-    } else {
-        return (GOOD);
-        //arnatal TODO: write IPv6 support
+    switch(iph->version){
+
+        case 4:
+
+            memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
+            dst_addr4.sin_family = AF_INET;
+            //dst_addr4.sin_port = htons ( LISP_DATA_PORT );
+            dst_addr4.sin_addr.s_addr = iph->daddr;
+
+            dst_addr = ( struct sockaddr * ) &dst_addr4;
+            dst_addr_len = sizeof ( struct sockaddr_in );
+            break;
+        case 6:
+
+            ip6h = (struct ip6_hdr *) packet;
+            
+            memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
+            dst_addr6.sin6_family = AF_INET6;
+            //dst_addr6.sin6_port = htons ( LISP_DATA_PORT );
+            //memcpy(&(dst_addr6.sin6_addr),&(ip6h->ip6_dst),32);
+            dst_addr6.sin6_addr = ip6h->ip6_dst;
+            
+            dst_addr = ( struct sockaddr * ) &dst_addr6;
+            dst_addr_len = sizeof ( struct sockaddr_in6 );
+            
+            break;
     }
+    
 
-    nbytes = sendto ( socket,
-                      ( const void * ) packet_buf,
-                      pckt_length,
+
+
+    nbytes = sendto ( sock,
+                      ( const void * ) packet,
+                      packet_length,
                       0,
                       dst_addr,
                       dst_addr_len );
 
-    if ( nbytes != pckt_length ) {
-        lispd_log_msg( LISP_LOG_DEBUG_2, "send_raw_packet: send failed %s", strerror ( errno ) );
+    if ( nbytes != packet_length ) {
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_ipv4_packet: send failed %s", strerror ( errno ) );
         return (BAD);
     }
 
     return (GOOD);
 
 }
+
+
+int send_ipv6_packet (
+    int     sock,
+    char    *packet,
+    int     packet_length ){
+
+
+    int cmsglen, hoplimit;
+    struct sockaddr_in6 src;
+    struct sockaddr_in6 dst;
+    struct msghdr msghdr;
+    struct cmsghdr *cmsghdr;
+    struct iovec iov[2];
+    void *tmp;
+    struct ip6_hdr *ip6h = NULL;
+    uint8_t *unheaded_packet;
+    int unheaded_packet_length;
+
+    char *target, *source;
+    struct addrinfo hints, *res;
+    int status;
+    int srclen;
+
+    printf("Entering send_ipv6_packet function\n");
+
+    printf("Trying to send from %s to %s\n",get_char_from_lisp_addr_t(extract_src_addr_from_packet(packet)),
+                                            get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet)));
+
+
+    tmp = (char *) malloc (40 * sizeof (char));
+    if (tmp != NULL) {
+        source = tmp;
+    }
+    else {
+        fprintf (stderr, "ERROR: Cannot allocate memory for array 'source'.\n");
+        exit (EXIT_FAILURE);
+    }
+    memset (source, 0, 40 * sizeof (char));
+
+    tmp = (char *) malloc (40 * sizeof (char));
+    if (tmp != NULL) {
+        target = tmp;
+    }
+    else {
+        fprintf (stderr, "ERROR: Cannot allocate memory for array 'target'.\n");
+        exit (EXIT_FAILURE);
+    }
+    memset (target, 0, 40 * sizeof (char));
+
+    // Source IPv6 address: you need to fill this out
+    strcpy (source, "2001:40b0:7500:15:2::2");
+    
+    // Destination URL or IPv6 address
+    strcpy (target, "2a00:1450:4003:802::1013");
+    
+    // Fill out hints for getaddrinfo().
+    memset (&hints, 0, sizeof (struct addrinfo));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = hints.ai_flags | AI_CANONNAME;
+    
+    // Resolve source using getaddrinfo().
+    if ((status = getaddrinfo (source, NULL, &hints, &res)) != 0) {
+        fprintf (stderr, "getaddrinfo() failed: %s\n", gai_strerror (status));
+        return (EXIT_FAILURE);
+    }
+    memcpy (&src, res->ai_addr, res->ai_addrlen);
+    srclen = res->ai_addrlen;
+    freeaddrinfo (res);
+    
+    // Resolve target using getaddrinfo().
+    if ((status = getaddrinfo (target, NULL, &hints, &res)) != 0) {
+        fprintf (stderr, "getaddrinfo() failed: %s\n", gai_strerror (status));
+        return (EXIT_FAILURE);
+    }
+    memcpy (&dst, res->ai_addr, res->ai_addrlen);
+    freeaddrinfo (res);
+
+
+    
+//     dst.sin6_addr = (ip6h->ip6_dst);
+//     dst.sin6_family = AF_INET6;
+//     dst.sin6_flowinfo = 0;
+//     dst.sin6_port = htons(LISP_DATA_PORT);
+    //dst.sin6_scope_id = if_nametoindex("eth0");
+
+    ip6h = (struct ip6_hdr *) packet;
+
+    ip6h->ip6_hops = 23;
+    
+    unheaded_packet = (uint8_t *) packet; //(uint8_t *) packet + sizeof(struct ip6_hdr);
+    unheaded_packet_length = packet_length; //- sizeof(struct ip6_hdr);
+    //unheaded_packet = (uint8_t *) packet + sizeof(struct ip6_hdr);
+    //unheaded_packet_length = packet_length- sizeof(struct ip6_hdr);
+    
+    // Compose the msghdr structure.
+    memset (&msghdr, 0, sizeof (msghdr));
+    msghdr.msg_name = &dst;             // pointer to socket address structure
+    msghdr.msg_namelen = sizeof (dst);  // size of socket address structure
+    
+    memset (&iov, 0, sizeof (iov));
+    iov[0].iov_base = (unsigned char *) unheaded_packet;
+    iov[0].iov_len = unheaded_packet_length;
+    msghdr.msg_iov = iov;   // scatter/gather array
+    msghdr.msg_iovlen = 1;  // number of elements in scatter/gather array
+    
+    // Tell msghdr we're adding cmsghdr data to change hop limit.
+    // Allocate some memory for our cmsghdr data.
+    cmsglen = CMSG_SPACE (sizeof (int));
+    tmp = (unsigned char *) malloc (cmsglen * sizeof (unsigned char));
+    if (tmp != NULL) {
+        msghdr.msg_control = tmp;
+        
+    }
+
+    else {
+        fprintf (stderr, "ERROR: Cannot allocate memory for array 'msghdr.msg_control'.\n");
+        exit (EXIT_FAILURE);
+    }
+    memset (msghdr.msg_control, 0, cmsglen);
+    msghdr.msg_controllen = cmsglen;
+
+    // Change hop limit to 255.
+//     hoplimit = 255;
+//     cmsghdr = CMSG_FIRSTHDR (&msghdr);
+//     cmsghdr->cmsg_level = IPPROTO_IPV6;
+//     cmsghdr->cmsg_type = IPV6_HOPLIMIT;  // We want to change hop limit
+//     cmsghdr->cmsg_len = CMSG_LEN (sizeof (int));
+//     *((int *) CMSG_DATA (cmsghdr)) = hoplimit;
+
+    hoplimit = 255;
+    cmsghdr = CMSG_FIRSTHDR (&msghdr);
+    cmsghdr->cmsg_level = IPPROTO_IPV6;
+    cmsghdr->cmsg_type = IPV6_HOPLIMIT;  // We want to change hop limit
+    cmsghdr->cmsg_len = CMSG_LEN (sizeof (int));
+    *((int *) CMSG_DATA (cmsghdr)) = hoplimit;
+
+    // Bind the socket descriptor to the source address.
+//     if (bind (sock, (struct sockaddr *) &src, srclen) != 0) {
+//         fprintf (stderr, "Failed to bind the socket descriptor to the source address.\n");
+//         exit (EXIT_FAILURE);
+//     }
+    
+    // Send packet.
+//     if (sendmsg (sock, &msghdr, 0) < 0) {
+//         perror ("sendmsg() failed ");
+//         exit (EXIT_FAILURE);
+//     }
+
+    int nbytes;
+    
+    
+    nbytes = sendto ( sock ,
+                      ( const void * ) packet,
+                      packet_length,
+                      0,
+                      &dst,
+                      sizeof(dst) );
+    
+    if ( nbytes != packet_length ) {
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_ipv4_packet: send failed %s", strerror ( errno ) );
+        return (BAD);
+    }
+    
+//     src_addr_ptr = get_iface_address(get_default_output_iface(AF_INET6),AF_INET6);
+//     src_addr = *src_addr_ptr;
+//     printf("Default output src_addr %s\n",get_char_from_lisp_addr_t(src_addr));
+// 
+//     //src_addr = extract_src_addr_from_packet(packet);
+// 
+//     src.sin6_addr = (src_addr_ptr->address.ipv6);
+//     src.sin6_family = AF_INET6;
+//     src.sin6_flowinfo = 0;
+//     src.sin6_port = htons(LISP_DATA_PORT);
+//     //src.sin6_scope_id = if_nametoindex("eth0");
+//     
+//     // Bind the socket descriptor to the source address.
+//     if (bind (socket, (struct sockaddr *) &src, sizeof(struct sockaddr_in6)) != 0) {
+//         lispd_log_msg(LISP_LOG_WARNING, "binding socket ipv6 send %s", strerror(errno));
+//         exit (EXIT_FAILURE);
+//     }
+// 
+//     // Send packet.
+// //     if (sendmsg (socket, &msghdr, 0) < 0) {
+// //         perror ("sendmsg() failed ");
+// //         exit (EXIT_FAILURE);
+// //     }
+// 
+//     if (sendto (socket, unheaded_packet,unheaded_packet_length,0,(struct sockaddr *) &dst,sizeof(struct sockaddr_in6)) < 0) {
+//         perror ("sendmsg() failed ");
+//         exit (EXIT_FAILURE);
+//     }
+
+
+    return (GOOD);
+}
+
+
+int send_ip_packet (
+    lispd_iface_elt     *iface,
+    char                *packet_buf,
+    int                 pckt_length )
+{
+
+    int socket;
+    struct iphdr *iph;
+    int ret;
+    
+    if (!iface){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_ip_packet: No output interface found");
+        return (BAD);
+    }
+    
+    iph = ( struct iphdr * ) packet_buf;
+    
+    switch (iph->version){
+
+        case 4:
+            //TODO arnatal check if socket exists (if IPvN supportted)
+            socket = iface->out_socket_v4;
+            ret = send_ipv4_packet(socket,packet_buf,pckt_length);
+            break;
+            
+        case 6:
+            //TODO arnatal check if socket exists (if IPvN supportted)
+            socket = iface->out_socket_v6;
+            ret = send_ipv4_packet(socket,packet_buf,pckt_length);
+            break;
+            
+        default:
+            break;
+    }
+
+
+
+    
+    return (ret);
+}
+
+
 
 
 int get_control_packet (

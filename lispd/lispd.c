@@ -83,6 +83,7 @@ char    *map_server                     = NULL;
 char    *proxy_etr                      = NULL;
 char    *proxy_itr                      = NULL;
 int      debug_level                    = 0;
+int      default_rloc_afi               = -1;
 int      daemonize                      = FALSE;
 int      map_request_retries            = DEFAULT_MAP_REQUEST_RETRIES;
 int      control_port                   = LISP_CONTROL_PORT;

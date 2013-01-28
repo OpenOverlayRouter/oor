@@ -35,6 +35,7 @@ extern "C" {
 #endif
 
 enum enum_debug { debug__NULL = -1, debug_arg_0 = 0, debug_arg_1, debug_arg_2, debug_arg_3 };
+enum enum_afi { afi__NULL = -1, afi_arg_4 = 0, afi_arg_6 };
 
 /** @brief Where the command line options are stored */
 struct gengetopt_args_info
@@ -44,6 +45,9 @@ struct gengetopt_args_info
   enum enum_debug debug_arg;	/**< @brief Debuging output [0..3].  */
   char * debug_orig;	/**< @brief Debuging output [0..3] original value given at command line.  */
   const char *debug_help; /**< @brief Debuging output [0..3] help description.  */
+  enum enum_afi afi_arg;	/**< @brief Default RLOCs afi [4,6].  */
+  char * afi_orig;	/**< @brief Default RLOCs afi [4,6] original value given at command line.  */
+  const char *afi_help; /**< @brief Default RLOCs afi [4,6] help description.  */
   const char *daemonize_help; /**< @brief Daemonize lispd help description.  */
   char * config_file_arg;	/**< @brief Alternate config file.  */
   char * config_file_orig;	/**< @brief Alternate config file original value given at command line.  */
@@ -52,6 +56,7 @@ struct gengetopt_args_info
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
   unsigned int debug_given ;	/**< @brief Whether debug was given.  */
+  unsigned int afi_given ;	/**< @brief Whether afi was given.  */
   unsigned int daemonize_given ;	/**< @brief Whether daemonize was given.  */
   unsigned int config_file_given ;	/**< @brief Whether config-file was given.  */
 
@@ -178,6 +183,7 @@ int cmdline_parser_required (struct gengetopt_args_info *args_info,
   const char *prog_name);
 
 extern const char *cmdline_parser_debug_values[];  /**< @brief Possible values for debug. */
+extern const char *cmdline_parser_afi_values[];  /**< @brief Possible values for afi. */
 
 
 #ifdef __cplusplus

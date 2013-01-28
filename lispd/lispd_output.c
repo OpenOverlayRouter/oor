@@ -37,7 +37,7 @@
 
 
 
-void add_ipv4_header (
+void add_ip_header (
     char            *position,
     char            *original_packet_position,
     int             ip_payload_length,
@@ -48,6 +48,7 @@ void add_ipv4_header (
     
     struct iphdr *iph = NULL;
     struct iphdr *inner_iph = NULL;
+    struct ip6_hdr *ip6h = NULL;
     struct ip6_hdr *inner_ip6h = NULL;
     
     uint8_t tos = 0;
@@ -74,21 +75,40 @@ void add_ipv4_header (
      * Construct and add the outer ip header
      */
 
-    iph = (struct iphdr *) position;
-            
-    iph->version  = 4;
-    //iph->ihl      = sizeof ( struct iphdr ) >>2;
-    iph->ihl      = 5; /* Minimal IPv4 header */
-    iph->tos      = tos;
-    iph->tot_len  = htons(ip_payload_length);
-    iph->frag_off = 0;   // XXX recompute above, use method in 5.4.1 of draft
-    iph->ttl      = ttl;
-    iph->protocol = IPPROTO_UDP;
-    iph->check    = 0; //Computed by the NIC (checksum offloading)
-    iph->daddr    = dst_addr->address.ip.s_addr;
-    iph->saddr    = src_addr->address.ip.s_addr;
-            
+    switch (dst_addr->afi){
+        case AF_INET:
 
+            iph = (struct iphdr *) position;
+
+            iph->version  = 4;
+            //iph->ihl      = sizeof ( struct iphdr ) >>2;
+            iph->ihl      = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
+            iph->tos      = tos;
+            iph->tot_len  = htons(ip_payload_length);
+            iph->frag_off = 0;   // XXX recompute above, use method in 5.4.1 of draft
+            iph->ttl      = ttl;
+            iph->protocol = IPPROTO_UDP;
+            iph->check    = 0; //Computed by the NIC (checksum offloading)
+            iph->daddr    = dst_addr->address.ip.s_addr;
+            iph->saddr    = src_addr->address.ip.s_addr;
+            break;
+
+        case AF_INET6:
+            
+            ip6h = ( struct ip6_hdr *) position;
+            IPV6_SET_VERSION(ip6h, 6);
+            IPV6_SET_TC(ip6h,tos);
+            IPV6_SET_FLOW_LABEL(ip6h,0);
+            ip6h->ip6_plen = htons(ip_payload_length);
+            ip6h->ip6_nxt = IPPROTO_UDP;
+            ip6h->ip6_hops = ttl;
+            memcopy_lisp_addr(&(ip6h->ip6_dst),dst_addr);
+            memcopy_lisp_addr(&(ip6h->ip6_src),src_addr);
+
+            break;
+        default:
+            break;
+    }
     
 
 }
@@ -169,7 +189,7 @@ int encapsulate_packet(
             iphdr_len = sizeof(struct iphdr);
             break;
         case AF_INET6:
-            //arnatal TODO: write IPv6 support
+            iphdr_len = sizeof(struct ip6_hdr);
             break;
     }
     
@@ -196,18 +216,23 @@ int encapsulate_packet(
     add_udp_header((char *)(new_packet + iphdr_len),original_packet_length+lisphdr_len,src_port,dst_port);
 
     
-    switch (encap_afi){
-        case AF_INET:
-            add_ipv4_header(new_packet,
-                          original_packet,
-                          original_packet_length+lisphdr_len+udphdr_len,
-                          src_addr,
-                          dst_addr);
-            break;
-        case AF_INET6:
-            //arnatal TODO: write IPv6 support
-            break;
-    }
+//     switch (encap_afi){
+//         case AF_INET:
+//             add_ip_header(new_packet,
+//                           original_packet,
+//                           original_packet_length+lisphdr_len+udphdr_len,
+//                           src_addr,
+//                           dst_addr);
+//             break;
+//         case AF_INET6:
+//             //arnatal TODO: write IPv6 support
+//             break;
+//     }
+    add_ip_header(new_packet,
+                  original_packet,
+                  original_packet_length+lisphdr_len+udphdr_len,
+                  src_addr,
+                  dst_addr);
 
     *encap_packet = new_packet;
     *encap_packet_size = extra_headers_size + original_packet_length;
@@ -215,13 +240,35 @@ int encapsulate_packet(
     return (GOOD);
 }
 
-int fordward_native(
-        lispd_iface_elt *iface,
+
+int get_afi_from_packet(uint8_t *packet){
+    int afi;
+    struct iphdr *iph;
+    
+    iph = (struct iphdr *) packet;
+    
+    switch (iph->version){
+        case 4:
+            afi = AF_INET;
+            break;
+        case 6:
+            afi = AF_INET6;
+            break;
+    }
+    
+    return (afi);
+}
+
+
+int forward_native(
         char            *packet_buf,
         int             pckt_length )
 {
 
     int ret;
+    lispd_iface_elt *iface;
+
+    iface = get_default_output_iface(get_afi_from_packet((uint8_t *)packet_buf));
     
     if (!iface){
         lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface found");
@@ -231,7 +278,7 @@ int fordward_native(
     lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
                         get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
-    if(send_raw_packet(iface,packet_buf,pckt_length) != GOOD){
+    if(send_ip_packet(iface,packet_buf,pckt_length) != GOOD){
         ret = BAD;
     }else{
         ret = GOOD;
@@ -270,7 +317,7 @@ int fordward_to_petr(
             outer_src_addr = iface->ipv4_address;
             break;
         case AF_INET6:
-            //arnatal TODO: write IPv6 support
+            outer_src_addr = iface->ipv6_address;
             break;
     }
 
@@ -287,7 +334,7 @@ int fordward_to_petr(
         return (BAD);
     }
     
-    if (send_raw_packet (iface,encap_packet,encap_packet_size ) != GOOD){
+    if (send_ip_packet (iface,encap_packet,encap_packet_size ) != GOOD){
         free (encap_packet );
         return (BAD);
     }
@@ -462,8 +509,6 @@ int is_lisp_packet(
 }
 
 
-
-
 int lisp_output (
         char    *original_packet,
         int     original_packet_length )
@@ -480,6 +525,7 @@ int lisp_output (
     lispd_map_cache_entry *entry = NULL;
     
     int default_encap_afi = 0;
+    int original_packet_afi = 0;
 
     //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
@@ -490,10 +536,20 @@ int lisp_output (
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
 
-    default_encap_afi = AF_INET; //TODO Support IPv6 RLOCs
+    original_packet_afi = get_afi_from_packet((uint8_t *)original_packet);
 
-    /* No complete IPv6 support yet */
+    if (default_rloc_afi != -1){
+        default_encap_afi = default_rloc_afi;
+    }else{
+        default_encap_afi = original_packet_afi;
+    }
 
+    printf("default_rloc_afi %d\n", default_rloc_afi);
+    printf("original packet afi %d\n", original_packet_afi);
+    printf("default_encap_afi %d\n", default_encap_afi);
+
+//     /* No complete IPv6 support yet */
+// 
 //     if (default_encap_afi == AF_INET6){
 //         return (fordward_native(get_default_output_iface(default_encap_afi),
 //                                 original_packet,
@@ -503,16 +559,12 @@ int lisp_output (
     /* If already LISP packet, do not encapsulate again */
     
     if (is_lisp_packet(original_packet,original_packet_length) == TRUE){
-        return (fordward_native(get_default_output_iface(default_encap_afi),
-                                original_packet,
-                                original_packet_length));
+        return (forward_native(original_packet,original_packet_length));
     }
 
     /* If received packet doesn't have a source EID, forward it natively */
     if (lookup_eid_in_db (original_src_addr) == NULL){
-        return (fordward_native(get_default_output_iface(default_encap_afi),
-                                           original_packet,
-                                           original_packet_length));
+        return (forward_native(original_packet,original_packet_length));
     }
 
 
@@ -532,9 +584,7 @@ int lisp_output (
                              original_packet_length,
                              default_encap_afi) != GOOD){
             /* If error, fordward native*/
-            return (fordward_native(get_default_output_iface(default_encap_afi),
-                                    original_packet,
-                                    original_packet_length));
+            return (forward_native(original_packet,original_packet_length));
             }
             return (GOOD);
     }
@@ -560,7 +610,7 @@ int lisp_output (
                        &encap_packet,
                        &encap_packet_size);
     
-    send_raw_packet (iface,encap_packet,encap_packet_size);
+    send_ip_packet (iface,encap_packet,encap_packet_size);
     
     free (encap_packet);
     

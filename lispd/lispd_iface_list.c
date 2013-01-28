@@ -82,7 +82,7 @@ lispd_iface_elt *add_interface(char *iface_name)
     }else {
         iface->out_socket_v4 = -1;
     }
-    iface->ipv6_address = NULL; //XXX TODO arnatal lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+    iface->ipv6_address = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
     if (iface->ipv6_address != NULL){
         iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
     }else {

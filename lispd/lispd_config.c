@@ -119,6 +119,21 @@ void handle_lispd_command_line(
     }else{
         debug_level = -1;
     }
+    if (args_info.afi_given) {
+        switch (args_info.afi_arg){
+            case 0: /* afi given = 4 */
+                default_rloc_afi = AF_INET;
+                break;
+            case 1: /* afi given = 6 */
+                default_rloc_afi = AF_INET6;
+                break;       
+            default:
+                printf("AFI must be IPv4 (-a 4) or IPv6 (-a 6)\n");
+                break;
+        }
+    }else{
+        default_rloc_afi = -1;
+    }
 }
 
 
