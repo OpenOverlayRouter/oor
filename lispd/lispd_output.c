@@ -353,15 +353,19 @@ lisp_addr_t extract_dst_addr_from_packet ( char *packet )
 
     iph = (struct iphdr *) packet;
 
-    if (iph->version == 4 ) {
-        addr.afi = AF_INET;
-        addr.address.ip.s_addr = iph->daddr;
+    switch (iph->version) {
+        case 4:
+            addr.afi = AF_INET;
+            addr.address.ip.s_addr = iph->daddr;
+            break;
+        case 6:
+            ip6h = (struct ip6_hdr *) packet;
+            addr.afi = AF_INET6;
+            memcpy(&(addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
+            break;
 
-
-    } else {
-        ip6h = (struct ip6_hdr *) packet;
-        addr.afi = AF_INET6;
-        addr.address.ipv6 = ip6h->ip6_dst;
+        default:
+            break;
     }
 
     //arnatal TODO: check errors (afi unsupported)
@@ -378,15 +382,17 @@ lisp_addr_t extract_src_addr_from_packet ( char *packet )
     
     iph = (struct iphdr *) packet;
     
-    if ( iph->version == 4 ) {
-        addr.afi = AF_INET;
-        addr.address.ip.s_addr = iph->saddr;
-        
-        
-    } else {
-        ip6h = (struct ip6_hdr *) packet;
-        addr.afi = AF_INET6;
-        addr.address.ipv6 = ip6h->ip6_src;
+    switch (iph->version) {
+        case 4:
+            addr.afi = AF_INET;
+            addr.address.ip.s_addr = iph->saddr;
+            break;
+        case 6:
+            ip6h = (struct ip6_hdr *) packet;
+            addr.afi = AF_INET6;
+            memcpy(&(addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
+        default:
+            break;
     }
     
     //arnatal TODO: check errors (afi unsupported)
