@@ -243,31 +243,32 @@ int main(int argc, char **argv)
 
     /*
      * Assign address to the tun interface
+     * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
+     *                 ::/1      and 8000::/1
      */
 
-#ifdef OPENWRT
+#ifdef ROUTER
+    tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
+    tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
     get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
-     get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
+    get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
 #else
     tun_v4_addr = get_main_eid(AF_INET);
-     tun_v6_addr = get_main_eid(AF_INET6);
+    tun_v6_addr = get_main_eid(AF_INET6);
 #endif
+    tun_bring_up_iface(tun_dev_name);
     if (tun_v4_addr != NULL){
         tun_add_eid_to_iface(*tun_v4_addr,tun_dev_name);
+        set_tun_default_route_v4(tun_ifindex);
     }
-     if (tun_v6_addr != NULL){
-         tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
-     }
-    tun_bring_up_iface(tun_dev_name);
-
-
-    /*
-     * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
-     */
-
-    set_tun_default_route_v4(tun_ifindex);
-
-
+    if (tun_v6_addr != NULL){
+        tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
+        set_tun_default_route_v6(tun_ifindex);
+    }
+#ifdef ROUTER
+    free(tun_v4_addr);
+    free(tun_v6_addr);
+#endif
     /*
      * Generate receive sockets for control (4342) and data port (4341)
      */

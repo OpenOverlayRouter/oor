@@ -52,7 +52,7 @@
  */
 
 #define TUN_LOCAL_V4_ADDR "127.0.0.127"
-#define TUN_LOCAL_V6_ADDR "fe80::1"
+#define TUN_LOCAL_V6_ADDR "::127"
 
 /* Tun MN variables */
 
@@ -91,7 +91,7 @@ int tun_add_v6_eid_to_iface(
     lisp_addr_t         eid_address_v6,
     char                *tun_dev_name);
 
-int add_route_v4(
+int add_route(
     uint32_t            ifindex,
     lisp_addr_t         *dest,
     lisp_addr_t         *src,
@@ -100,3 +100,4 @@ int add_route_v4(
     uint32_t            metric);
 
 int set_tun_default_route_v4(int tun_ifindex);
+int set_tun_default_route_v6(int tun_ifindex);

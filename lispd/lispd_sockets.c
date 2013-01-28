@@ -793,17 +793,13 @@ int get_data_packet (
     
     if (afi == AF_INET){
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
-
-            printf("CMSG_LEVEL: %d , CMSG_TYPE: %d \n",cmsgptr->cmsg_level,cmsgptr->cmsg_type);
             
             if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_TTL) {
                 *ttl = *((uint8_t *)CMSG_DATA(cmsgptr));
-                printf("TTL on cmsgptr: %d\n",*ttl);
             }
 
             if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_TOS) {
                 *tos = *((uint8_t *)CMSG_DATA(cmsgptr));
-                printf("TOS on cmsgptr: %d\n",*tos);
             }
         }
 
