@@ -41,4 +41,4 @@
 #include "lispd_output.h"
 
 
-void process_input_packet(int fd, int tun_receive_fd);
+void process_input_packet(int fd, int afi, int tun_receive_fd);

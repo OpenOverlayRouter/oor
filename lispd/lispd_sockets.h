@@ -40,11 +40,6 @@
 #include "lispd_lib.h"
 #include "lispd_output.h"
 
-union control_data {
-    struct cmsghdr cmsg;
-    u_char data[CMSG_SPACE(sizeof(struct in_pktinfo))];
-};
-
 
 int open_device_binded_raw_socket(
     char *device,

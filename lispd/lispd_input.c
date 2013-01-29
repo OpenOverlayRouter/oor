@@ -30,6 +30,7 @@
 #include "lispd_input.h"
 
 void process_input_packet(int fd,
+                          int afi,
                           int tun_receive_fd)
 {
     uint8_t             *packet = NULL;
@@ -52,7 +53,7 @@ void process_input_packet(int fd,
     memset(packet,0,MAX_IP_PACKET);
     
     if (get_data_packet (fd,
-                         AF_INET,
+                         afi,
                          packet,
                          &length,
                          &ttl,

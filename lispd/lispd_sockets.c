@@ -42,6 +42,7 @@ int open_device_binded_raw_socket(
     int on = 1;
     
 
+    //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
     switch (afi){
         case AF_INET:
             if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
@@ -221,7 +222,7 @@ int open_data_input_socket(int afi){
     switch (afi){
         case AF_INET:
             
-            /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
+            /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
             if(setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on))< 0){
                 lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTOS: %s", strerror(errno));
             }
@@ -235,7 +236,17 @@ int open_data_input_socket(int afi){
             
         case AF_INET6:
             
-            //TODO IPv6 equivalents
+            /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
+            if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))< 0){
+                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+            }
+            
+            /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
+            if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))< 0){
+                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+            }
+            
+            break;
             
         default:
             return(BAD);
@@ -376,6 +387,8 @@ int send_udp_ipv6_packet(
  * Sends a raw packet through the specified interface
  */
 
+// TODO arnatal To change name and unify with send_ip_packet once IPv6 RLOCs tested
+
 int send_ipv4_packet (
         int     sock,
         char    *packet,
@@ -443,6 +456,7 @@ int send_ipv4_packet (
 
 }
 
+/* Tentative implementation using sendmsg. Currently not used. To be removed once IPv6 RLOCs tested */
 
 int send_ipv6_packet (
     int     sock,
@@ -464,7 +478,7 @@ int send_ipv6_packet (
     char *target, *source;
     struct addrinfo hints, *res;
     int status;
-    int srclen;
+    //int srclen;
 
     printf("Entering send_ipv6_packet function\n");
 
@@ -510,7 +524,7 @@ int send_ipv6_packet (
         return (EXIT_FAILURE);
     }
     memcpy (&src, res->ai_addr, res->ai_addrlen);
-    srclen = res->ai_addrlen;
+    //srclen = res->ai_addrlen;
     freeaddrinfo (res);
     
     // Resolve target using getaddrinfo().
@@ -692,6 +706,13 @@ int get_control_packet (
         lisp_addr_t     *local_rloc,
         uint16_t        *remote_port)
 {
+    union control_data {
+        struct cmsghdr cmsg;
+        u_char data4[CMSG_SPACE(sizeof(struct in_pktinfo))]; /* Space for IPv4 pktinfo */
+        u_char data6[CMSG_SPACE(sizeof(struct in6_pktinfo))]; /* Space for IPv6 pktinfo */
+    };
+    
+    
     struct sockaddr_in  s4;
     struct sockaddr_in6 s6;
     struct msghdr       msg;
@@ -718,7 +739,6 @@ int get_control_packet (
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        perror("recvfrom");
         lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
@@ -758,6 +778,12 @@ int get_data_packet (
     uint8_t         *ttl,
     uint8_t         *tos)
 {
+
+    union control_data {
+        struct cmsghdr cmsg;
+        u_char data[CMSG_SPACE(sizeof(int))+CMSG_SPACE(sizeof(int))]; /* Space for TTL and TOS data */
+    };
+    
     struct sockaddr_in  s4;
     struct sockaddr_in6 s6;
     struct msghdr       msg;
@@ -773,7 +799,7 @@ int get_data_packet (
     msg.msg_iov = iov;
     msg.msg_iovlen = 1;
     msg.msg_control = &cmsg;
-    msg.msg_controllen = sizeof cmsg*2; /* Allocate enought space (Here 2 cmsg blocks [TTL and TOS]) */
+    msg.msg_controllen = sizeof cmsg; 
     if (afi == AF_INET){
         msg.msg_name = &s4;
         msg.msg_namelen = sizeof (struct sockaddr_in);
@@ -784,7 +810,6 @@ int get_data_packet (
     
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        perror("recvfrom");
         lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
@@ -804,7 +829,16 @@ int get_data_packet (
         }
 
     }else {
-        //TODO IPv6 support
+        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+            
+            if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_HOPLIMIT) {
+                *ttl = *((uint8_t *)CMSG_DATA(cmsgptr));
+            }
+            
+            if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_TCLASS) {
+                *tos = *((uint8_t *)CMSG_DATA(cmsgptr));
+            }
+        }
     }
     
     return (GOOD);

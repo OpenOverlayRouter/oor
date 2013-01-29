@@ -136,7 +136,7 @@ void add_udp_header(
     udh->len = htons ( sizeof ( struct udphdr ) + length );
     //udh->len = htons(sizeof(struct udphdr)); /* Wireshark detects this as error*/
     udh->check = 0; // SHOULD be 0 as in LISP ID
-
+    /* With IPv6 this MUST be calculated (or disabled at all). Calculated later */
 
 }
 
@@ -179,6 +179,7 @@ int encapsulate_packet(
 {
     int extra_headers_size = 0;
     char *new_packet = NULL;
+    struct udphdr *udh = NULL;
 
     int iphdr_len = 0;
     int udphdr_len = 0;
@@ -234,6 +235,10 @@ int encapsulate_packet(
                   src_addr,
                   dst_addr);
 
+    /* UDP checksum mandatory for IPv6. Could be skipped if check disabled on receiver */
+    udh = (struct udphdr *)(new_packet + iphdr_len);
+    udh->check = udp_checksum(udh,ntohs(udh->len),new_packet,encap_afi);
+    
     *encap_packet = new_packet;
     *encap_packet_size = extra_headers_size + original_packet_length;
 
@@ -549,10 +554,6 @@ int lisp_output (
     }else{
         default_encap_afi = original_packet_afi;
     }
-
-    printf("default_rloc_afi %d\n", default_rloc_afi);
-    printf("original packet afi %d\n", original_packet_afi);
-    printf("default_encap_afi %d\n", default_encap_afi);
 
 //     /* No complete IPv6 support yet */
 // 

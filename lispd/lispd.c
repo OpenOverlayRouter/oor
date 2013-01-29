@@ -337,11 +337,11 @@ void event_loop()
         
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
             lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv4 packet in the data input buffer (4341)");
-            process_input_packet(ipv4_data_input_fd, tun_receive_fd);
+            process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
         }
         if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
             lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv6 packet in the data input buffer (4341)");
-            process_input_packet(ipv6_data_input_fd, tun_receive_fd);
+            process_input_packet(ipv6_data_input_fd, AF_INET6, tun_receive_fd);
         }
         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
             lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv4 packet in the control input buffer (4342)");
