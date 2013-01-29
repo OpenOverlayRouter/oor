@@ -247,10 +247,16 @@ int main(int argc, char **argv)
      */
 
 #ifdef ROUTER
-    tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-    tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-    get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
-    get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
+    tun_v4_addr = get_main_eid(AF_INET);
+    if (tun_v4_addr != NULL){
+        tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
+        get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+    }
+    tun_v6_addr = get_main_eid(AF_INET6);
+    if (tun_v6_addr != NULL){
+        tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
+        get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
+    }
 #else
     tun_v4_addr = get_main_eid(AF_INET);
     tun_v6_addr = get_main_eid(AF_INET6);
@@ -265,8 +271,12 @@ int main(int argc, char **argv)
         set_tun_default_route_v6(tun_ifindex);
     }
 #ifdef ROUTER
-    free(tun_v4_addr);
-    free(tun_v6_addr);
+    if (tun_v4_addr != NULL){
+        free(tun_v4_addr);
+    }
+    if (tun_v6_addr != NULL){
+        free(tun_v6_addr);
+    }
 #endif
     /*
      * Generate receive sockets for control (4342) and data port (4341)
