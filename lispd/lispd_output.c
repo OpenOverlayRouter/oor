@@ -34,7 +34,10 @@
 #include "lispd_sockets.h"
 
 
-
+/*
+ * get_output_afi: Returns the afi that should be used to send the packet
+ */
+int get_output_afi (lispd_map_cache_entry *map_cache_entry);
 
 
 void add_ip_header (
@@ -450,6 +453,38 @@ lisp_addr_t *get_proxy_etr(int afi)
     return (NULL);
 }
 
+/*
+ * get_output_afi: Returns the afi that should be used to send the packet
+ */
+int get_output_afi (lispd_map_cache_entry *map_cache_entry)
+{
+    if (default_rloc_afi != -1){
+        return (default_rloc_afi);
+    }else{
+        if (map_cache_entry == NULL){
+            if (get_default_output_iface(AF_INET)!= NULL &&
+                    get_proxy_etr(AF_INET) != NULL){
+                return (AF_INET);
+            }
+            if (get_default_output_iface(AF_INET6)!= NULL &&
+                    get_proxy_etr(AF_INET6) != NULL){
+                return (AF_INET6);
+            }
+        }else{
+            if (map_cache_entry->identifier->head_v4_locators_list != NULL &&
+                    get_default_output_iface(AF_INET)!= NULL){
+                return (AF_INET);
+            }
+            if (map_cache_entry->identifier->head_v6_locators_list != NULL &&
+                    get_default_output_iface(AF_INET6)!= NULL){
+                return (AF_INET6);
+            }
+        }
+    }
+    return (-1);
+}
+
+
 lisp_addr_t *get_default_locator_addr(
         lispd_map_cache_entry   *entry,
         int                     afi)
@@ -536,7 +571,6 @@ int lisp_output (
     lispd_map_cache_entry *entry = NULL;
     
     int default_encap_afi = 0;
-    int original_packet_afi = 0;
 
     //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
@@ -547,13 +581,6 @@ int lisp_output (
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
 
-    original_packet_afi = get_afi_from_packet((uint8_t *)original_packet);
-
-    if (default_rloc_afi != -1){
-        default_encap_afi = default_rloc_afi;
-    }else{
-        default_encap_afi = original_packet_afi;
-    }
 
 //     /* No complete IPv6 support yet */
 // 
@@ -585,6 +612,8 @@ int lisp_output (
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
     if ((map_cache_query_result != GOOD) || (entry->active == NO_ACTIVE) || (entry->identifier->locator_count == 0) ){ /* There is no entry or is not active*/
 
+        default_encap_afi = get_output_afi(NULL);
+
         /* Try to fordward to petr*/
         if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
                              original_packet,
@@ -598,8 +627,15 @@ int lisp_output (
     
     /* There is an entry in the map cache */
     
+    // If no default afi selected. Select iface acording to destination RLOC
+
+    default_encap_afi = get_output_afi(entry);
+
     iface = get_default_output_iface(default_encap_afi);
-    
+    if (iface == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"lisp_output: No output iface");
+        return (BAD);
+    }
 
     outer_src_addr = get_iface_address(iface,default_encap_afi);
     outer_dst_addr = get_default_locator_addr(entry,default_encap_afi);
