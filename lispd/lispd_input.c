@@ -69,7 +69,9 @@ void process_input_packet(int fd,
     
     if (iph->version == 4) {
         
-        iph->ttl = ttl;
+        if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
+            iph->ttl = ttl;
+        }
         iph->tos = tos;
 
         /* We need to recompute the checksum since we have changed the TTL and TOS header fields */
@@ -78,8 +80,10 @@ void process_input_packet(int fd,
         
     }else{
         ip6h = ( struct ip6_hdr *) iph;
-        
-        ip6h->ip6_hops = ttl; /* ttl = Hops limit in IPv6 */
+
+        if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
+            ip6h->ip6_hops = ttl; /* ttl = Hops limit in IPv6 */
+        }
         
         IPV6_SET_TC(ip6h,tos); /* tos = Traffic class field in IPv6 */
     }
