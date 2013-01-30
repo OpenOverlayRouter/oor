@@ -203,6 +203,10 @@ int add_encap_headers(
              lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
              return(BAD);
          }
+
+         /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
+         dst_port = ntohs(udph->source);
+         
  #ifdef BSD
          udp_len = ntohs(udph->uh_ulen);
         // sport   = ntohs(udph->uh_sport);
