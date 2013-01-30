@@ -309,6 +309,14 @@ lisp_addr_t *lispd_get_iface_address(
             }
         case AF_INET6:
             s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+            // XXX sin6_scope_id is an ID depending on the scope of the address.  Linux only supports it for link-
+            // local addresses, in that case sin6_scope_id contains the interface index. --> If sin6_scope_id is
+            // not zero, is a link-local address
+            if (s6->sin6_scope_id != 0){
+                lispd_log_msg(LISP_LOG_DEBUG_1, "lispd_get_iface_address: interface address discarded (%s)",
+                                        inet_ntop(AF_INET6, &(s6->sin6_addr), addr_str, MAX_INET_ADDRSTRLEN));
+                continue;
+            }
             if (!strcmp(ifa->ifa_name, ifacename)) {
                 memcpy((void *) &(addr->address),
                        (void *)&(s6->sin6_addr),
