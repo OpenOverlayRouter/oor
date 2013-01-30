@@ -34,11 +34,6 @@
 #include "lispd_sockets.h"
 
 
-/*
- * get_output_afi: Returns the afi that should be used to send the packet
- */
-int get_output_afi (lispd_map_cache_entry *map_cache_entry);
-
 
 void add_ip_header (
     char            *position,
@@ -456,29 +451,39 @@ lisp_addr_t *get_proxy_etr(int afi)
 /*
  * get_output_afi: Returns the afi that should be used to send the packet
  */
-int get_output_afi (lispd_map_cache_entry *map_cache_entry)
+int get_output_afi_based_on_petr()
 {
     if (default_rloc_afi != -1){
         return (default_rloc_afi);
     }else{
-        if (map_cache_entry == NULL){
-            if (get_default_output_iface(AF_INET)!= NULL &&
-                    get_proxy_etr(AF_INET) != NULL){
-                return (AF_INET);
-            }
-            if (get_default_output_iface(AF_INET6)!= NULL &&
-                    get_proxy_etr(AF_INET6) != NULL){
-                return (AF_INET6);
-            }
-        }else{
-            if (map_cache_entry->identifier->head_v4_locators_list != NULL &&
-                    get_default_output_iface(AF_INET)!= NULL){
-                return (AF_INET);
-            }
-            if (map_cache_entry->identifier->head_v6_locators_list != NULL &&
-                    get_default_output_iface(AF_INET6)!= NULL){
-                return (AF_INET6);
-            }
+        if (get_default_output_iface(AF_INET)!= NULL &&
+                get_proxy_etr(AF_INET) != NULL){
+            return (AF_INET);
+        }
+        if (get_default_output_iface(AF_INET6)!= NULL &&
+                get_proxy_etr(AF_INET6) != NULL){
+            return (AF_INET6);
+        }
+    }
+    return (-1);
+}
+
+
+/*
+ * get_output_afi_based_on_entry: Returns the afi that should be used to send the packet (based on map-cache entry)
+ */
+int get_output_afi_based_on_entry (lispd_map_cache_entry *map_cache_entry)
+{
+    if (default_rloc_afi != -1){
+        return (default_rloc_afi);
+    }else{
+        if (map_cache_entry->identifier->head_v4_locators_list != NULL &&
+                get_default_output_iface(AF_INET)!= NULL) {
+            return (AF_INET);
+        }
+        if (map_cache_entry->identifier->head_v6_locators_list != NULL &&
+                get_default_output_iface(AF_INET6)!= NULL) {
+            return (AF_INET6);
         }
     }
     return (-1);
@@ -612,7 +617,7 @@ int lisp_output (
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
     if ((map_cache_query_result != GOOD) || (entry->active == NO_ACTIVE) || (entry->identifier->locator_count == 0) ){ /* There is no entry or is not active*/
 
-        default_encap_afi = get_output_afi(NULL);
+        default_encap_afi = get_output_afi_based_on_petr();
 
         /* Try to fordward to petr*/
         if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
@@ -629,7 +634,7 @@ int lisp_output (
     
     // If no default afi selected. Select iface acording to destination RLOC
 
-    default_encap_afi = get_output_afi(entry);
+    default_encap_afi = get_output_afi_based_on_entry(entry);
 
     iface = get_default_output_iface(default_encap_afi);
     if (iface == NULL){
