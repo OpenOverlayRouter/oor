@@ -272,6 +272,15 @@ lisp_addr_t *lispd_get_iface_address(
     struct sockaddr_in6 *s6;
     char addr_str[MAX_INET_ADDRSTRLEN];
 
+
+    if (default_rloc_afi != -1){ /* If forced a exact RLOC type (Just IPv4 of just IPv6) */
+        if(afi != default_rloc_afi){
+            lispd_log_msg(LISP_LOG_INFO,"Default RLOC afi defined: Skipped %s address in iface %s",
+                          (afi == AF_INET) ? "IPv4" : "IPv6",ifacename);
+            return (NULL);
+        }
+    }
+
     /* 
      * make sure this is clean
      */
@@ -285,7 +294,7 @@ lisp_addr_t *lispd_get_iface_address(
     if (getifaddrs(&ifaddr) !=0) {
         lispd_log_msg(LISP_LOG_DEBUG_2,
                "lispd_get_iface_address: getifaddrs error: %s", strerror(errno));
-        return(BAD);
+        return(NULL);
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
