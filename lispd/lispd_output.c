@@ -453,18 +453,16 @@ lisp_addr_t *get_proxy_etr(int afi)
  */
 int get_output_afi_based_on_petr()
 {
-    if (default_rloc_afi != -1){
-        return (default_rloc_afi);
-    }else{
-        if (get_default_output_iface(AF_INET)!= NULL &&
-                get_proxy_etr(AF_INET) != NULL){
-            return (AF_INET);
-        }
-        if (get_default_output_iface(AF_INET6)!= NULL &&
-                get_proxy_etr(AF_INET6) != NULL){
-            return (AF_INET6);
-        }
+
+    if (default_out_iface_v4!= NULL &&
+            get_proxy_etr(AF_INET) != NULL){
+        return (AF_INET);
     }
+    if (default_out_iface_v6!= NULL &&
+            get_proxy_etr(AF_INET6) != NULL){
+        return (AF_INET6);
+    }
+
     return (-1);
 }
 
@@ -474,18 +472,15 @@ int get_output_afi_based_on_petr()
  */
 int get_output_afi_based_on_entry (lispd_map_cache_entry *map_cache_entry)
 {
-    if (default_rloc_afi != -1){
-        return (default_rloc_afi);
-    }else{
-        if (map_cache_entry->identifier->head_v4_locators_list != NULL &&
-                get_default_output_iface(AF_INET)!= NULL) {
-            return (AF_INET);
-        }
-        if (map_cache_entry->identifier->head_v6_locators_list != NULL &&
-                get_default_output_iface(AF_INET6)!= NULL) {
-            return (AF_INET6);
-        }
+    if (map_cache_entry->identifier->head_v4_locators_list != NULL &&
+            default_out_iface_v4!= NULL) {
+        return (AF_INET);
     }
+    if (map_cache_entry->identifier->head_v6_locators_list != NULL &&
+            default_out_iface_v6!= NULL) {
+        return (AF_INET6);
+    }
+    
     return (-1);
 }
 
