@@ -67,6 +67,7 @@
 
 
 int isfqdn(char *s);
+inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
 
 
 
@@ -646,24 +647,6 @@ int get_ip_header_len(int afi)
 
 
 /*
- *      given afi, get sockaddr len
- */
-
-int get_sockaddr_len(int afi)
-{
-    switch (afi) {                      /* == eid_afi */
-    case AF_INET:
-        return(sizeof(struct sockaddr_in));
-    case AF_INET6:
-        return(sizeof(struct sockaddr_in6));
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "get_sockaddr_len: unknown AFI (%d)", afi);
-        return(ERR_AFI);
-    }
-}
-
-
-/*
  *      given afi, get addr len
  */
 
@@ -688,6 +671,43 @@ int get_addr_len(int afi)
 int get_prefix_len(int afi)
 {
     return(get_addr_len(afi) * 8);
+}
+
+/*
+ * Return the first Map Resolver. If no default rloc afi is specified, then IPv4 has more priority than IPv6
+ */
+
+
+lisp_addr_t *get_map_resolver()
+{
+    lisp_addr_t *dst_rloc = NULL;
+
+    if (default_ctrl_iface_v4 != NULL){
+        dst_rloc = get_server(map_resolvers, AF_INET);
+    }
+    if (dst_rloc == NULL && default_ctrl_iface_v6 != NULL){
+        dst_rloc = get_server(map_resolvers, AF_INET6);
+    }
+
+    if (dst_rloc == NULL){
+        lispd_log_msg(LISP_LOG_CRIT,"No Map Resolver with a RLOC compatible with local RLOCs");
+        exit(EXIT_FAILURE);
+    }
+    return dst_rloc;
+}
+
+inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi)
+{
+    lispd_addr_list_t *server_elt;
+
+    server_elt = server_list;
+    while (server_elt != NULL){
+        if (server_elt->address->afi == afi){
+            return (server_elt->address);
+        }
+        server_elt = server_elt->next;
+    }
+    return (NULL);
 }
 
 struct udphdr *build_ip_header(

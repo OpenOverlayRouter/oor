@@ -78,6 +78,7 @@ int map_register(
     lispd_identifier_elt      *identifier_elt;
     int                       mrp_len = 0;
     int                       ctr = 0;
+    int                       sent_map_registers = 0;
     uint32_t                  md_len;
 
     dbs[0] = get_local_db(AF_INET);
@@ -128,17 +129,24 @@ int map_register(
 
                     /* Send the map register */
 
-                    if (!send_map_register(ms->address,map_register_pkt,mrp_len)) {
-                        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                    if ((err = send_map_register(ms->address,map_register_pkt,mrp_len)) == GOOD) {
+                        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent map register for %s/%d to maps server %s",
+                                                       get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
+                                                       identifier_elt->eid_prefix_length,
+                                                       get_char_from_lisp_addr_t(*(ms->address)));
+                        sent_map_registers++;
+                    }else {
+                        lispd_log_msg(LISP_LOG_WARNING, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
                     }
-                    lispd_log_msg(LISP_LOG_DEBUG_1, "Sent map register for %s/%d to maps server %s",
-                            get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
-                            identifier_elt->eid_prefix_length,
-                            get_char_from_lisp_addr_t(*(ms->address)));
                     ms = ms->next;
                 }
-
                 free(map_register_pkt);
+
+                if (sent_map_registers == 0){
+                    lispd_log_msg(LISP_LOG_CRIT, "Couldn't register %s. \n Exiting ...",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                    exit(EXIT_FAILURE);
+                }
+                sent_map_registers = 0;
             }
         } PATRICIA_WALK_END;
     }
@@ -220,11 +228,23 @@ int send_map_register(
         int                         mrp_len)
 {
     int result;
-    if (ms_address->afi == AF_INET)
-        result = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
-    else
-        result = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
-
+    if (ms_address->afi == AF_INET){
+        if (default_ctrl_iface_v4 != NULL){
+            result = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"send_map_register: No local RLOC compatible with the afi of the Map Server %s",
+                    get_char_from_lisp_addr_t(*ms_address));
+            result = BAD;
+        }
+    }else{
+        if (default_ctrl_iface_v6 != NULL){
+            result = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,ms_address,0,LISP_CONTROL_PORT,(void *)mrp,mrp_len);
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"send_map_register: No local RLOC compatible with the afi of the Map Server %s",
+                    get_char_from_lisp_addr_t(*ms_address));
+            result = BAD;
+        }
+    }
     return result;
 }
 

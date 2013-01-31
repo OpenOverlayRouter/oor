@@ -199,6 +199,22 @@ int main(int argc, char **argv)
     handle_lispd_config_file(config_file);
 #endif
 
+    if (map_servers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+
+    if (map_resolvers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+
+    if (proxy_etrs == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        sleep(3);
+    }
+
     /*
      *  see if we need to daemonize, and if so, do it
      */

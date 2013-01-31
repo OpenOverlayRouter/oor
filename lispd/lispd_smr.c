@@ -114,6 +114,8 @@ int solicit_map_request_reply(
 {
     lispd_map_cache_entry *map_cache_entry = (lispd_map_cache_entry *)arg;
     nonces_list *nonces = map_cache_entry->nonces;
+    lisp_addr_t *dst_rloc = NULL;
+
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
@@ -123,7 +125,8 @@ int solicit_map_request_reply(
         map_cache_entry->nonces = nonces;
     }
     if (nonces->retransmits - 1 < LISPD_MAX_SMR_RETRANSMIT ){
-        if((err = build_and_send_map_request_msg(map_cache_entry->identifier, NULL, map_resolvers->address,1, 0, 0, 1,
+        dst_rloc = get_map_resolver();
+        if((err = build_and_send_map_request_msg(map_cache_entry->identifier, NULL, dst_rloc, 1, 0, 0, 1,
                 &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
             // TODO process error

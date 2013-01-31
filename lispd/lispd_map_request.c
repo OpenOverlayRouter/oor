@@ -303,12 +303,12 @@ int add_encap_headers(
          memcpy(&(itr_rloc[i].address), cur_ptr, get_addr_len(itr_rloc_afi));
          itr_rloc[i].afi = itr_rloc_afi;
          cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
-         ///if (!remote_rloc ){ // XXX alopez: Uncoment this when support src address: &&  itr_rloc[i].afi == local_rloc->afi){
-            // remote_rloc = &itr_rloc[i];
-         //}
+         // Select the remote rloc according to the afi where we have received the map request
+         if (!remote_rloc &&  itr_rloc[i].afi == local_rloc->afi){
+             remote_rloc = &itr_rloc[i];
+         }
      }
-     if (!remote_rloc)
-         remote_rloc = &itr_rloc[0];
+
      /* Process record and send Map Reply for each one */
      for (i = 0; i < msg->record_count; i++) {
          process_map_request_record(&cur_ptr, local_rloc, remote_rloc, dst_port, msg->rloc_probe, msg->nonce);
@@ -759,6 +759,8 @@ int send_map_request_miss(timer *t, void *arg)
     timer_map_request_argument *argument = (timer_map_request_argument *)arg;
     lispd_map_cache_entry *map_cache_entry = argument->map_cache_entry;
     nonces_list *nonces = map_cache_entry->nonces;
+    lisp_addr_t *dst_rloc = NULL;
+
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
@@ -769,6 +771,10 @@ int send_map_request_miss(timer *t, void *arg)
     }
 
     if (nonces->retransmits - 1 < LISPD_MAX_MR_RETRANSMIT ){
+
+        /* Get the RLOC of the Map Resolver to be used */
+        dst_rloc = get_map_resolver();
+
 
         if (map_cache_entry->request_retry_timer == NULL){
             map_cache_entry->request_retry_timer = create_timer ("MAP REQUEST RETRY");
@@ -782,7 +788,7 @@ int send_map_request_miss(timer *t, void *arg)
         if ((build_and_send_map_request_msg(
                 map_cache_entry->identifier,
                 &(argument->src_eid),
-                map_resolvers->address,
+                dst_rloc,
                 1,
                 0,
                 0,
