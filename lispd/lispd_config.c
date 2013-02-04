@@ -456,7 +456,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
-            CFG_STR("map-resolver",         0, CFGF_NONE),
+            CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
             CFG_END()
     };
@@ -507,11 +507,12 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
      */
     n = cfg_size(cfg, "map-resolver");
     for(i = 0; i < n; i++) {
-        map_resolver = cfg_getstr(cfg, "map-resolver");
-        if (add_server(map_resolver, &map_resolvers) == GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-resolver list", map_resolver);
-        }else{
-            lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",cfg_getstr(cfg, "map-resolver"));
+        if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
+            if (add_server(map_resolver, &map_resolvers) == GOOD){
+                lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-resolver list", map_resolver);
+            }else{
+                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",cfg_getstr(cfg, "map-resolver"));
+            }
         }
     }
 
