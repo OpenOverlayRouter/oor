@@ -44,7 +44,31 @@
 
 #define TUN_RECEIVE_SIZE        2048 // Should probably tune to match largest MTU
 
-#define TUN_MTU                 1450 // Less than the Ethernet default (1500) for precaution
+/*
+ * From section 5.4.1 of LISP RFC (6830)
+ *
+
+ 1 .  Define H to be the size, in* octets, of the outer header an ITR
+ prepends to a packet.  This includes the UDP and LISP header
+ lengths.
+ 
+ 2.  Define L to be the size, in octets, of the maximum-sized packet
+ an ITR can send to an ETR without the need for the ITR or any
+ intermediate routers to fragment the packet.
+ 
+ 3.  Define an architectural constant S for the maximum size of a
+ packet, in octets, an ITR must receive so the effective MTU can
+ be met.  That is, S = L - H.
+
+ [...]
+
+ This specification RECOMMENDS that L be defined as 1500.
+ 
+ */
+
+/* H = 40 (IPv6 header) + 8 (UDP header) + 8 (LISP header) + 4 (extra/safety) = 60 */
+
+#define TUN_MTU                 1440 /* 1500 - 60 = 1440 */
 
 /* Local OpenWRT tun IPv4 address
  *
