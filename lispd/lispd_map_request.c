@@ -303,10 +303,15 @@ int add_encap_headers(
          memcpy(&(itr_rloc[i].address), cur_ptr, get_addr_len(itr_rloc_afi));
          itr_rloc[i].afi = itr_rloc_afi;
          cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
-         // Select the remote rloc according to the afi where we have received the map request
-         if (!remote_rloc &&  itr_rloc[i].afi == local_rloc->afi){
+         // Select the first accessible rloc from the ITR-RLOC list
+         if (remote_rloc == NULL &&  get_default_ctrl_iface (itr_rloc[i].afi) != NULL){
              remote_rloc = &itr_rloc[i];
          }
+     }
+     if (remote_rloc == NULL){
+         lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_request_msg: Couldn't generate map replay - "
+                 "No supported afi in the list of ITR-RLOCS");
+         return (BAD);
      }
 
      /* Process record and send Map Reply for each one */

@@ -266,10 +266,31 @@ lispd_iface_elt *get_any_output_iface(int afi)
     return (iface);
 }
 
+lispd_iface_elt *get_default_ctrl_iface(int afi)
+{
+
+    lispd_iface_elt *iface = NULL;
+
+    switch (afi){
+        case AF_INET:
+            iface = default_ctrl_iface_v4;
+            break;
+        case AF_INET6:
+            iface = default_ctrl_iface_v6;
+            break;
+        default:
+            //arnatal TODO: syslog
+            iface = NULL;
+            break;
+    }
+
+    return (iface);
+}
+
 lispd_iface_elt *get_default_output_iface(int afi)
 {
 
-    lispd_iface_elt *iface;
+    lispd_iface_elt *iface = NULL;
 
     switch (afi){
         case AF_INET:
