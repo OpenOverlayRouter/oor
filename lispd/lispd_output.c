@@ -83,7 +83,7 @@ void add_ip_header (
             iph->ihl      = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
             iph->tos      = tos;
             iph->tot_len  = htons(ip_payload_length);
-            iph->frag_off = 0;   // XXX recompute above, use method in 5.4.1 of draft
+            iph->frag_off = htons(IP_DF);   /* Do not fragment flag. See 5.4.1 in LISP RFC (6830) */
             iph->ttl      = ttl;
             iph->protocol = IPPROTO_UDP;
             iph->check    = 0; //Computed by the NIC (checksum offloading)
