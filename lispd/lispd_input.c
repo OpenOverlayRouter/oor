@@ -41,6 +41,7 @@ void process_input_packet(int fd,
     struct lisphdr      *lisp_hdr = NULL;
     struct iphdr        *iph = NULL;
     struct ip6_hdr      *ip6h = NULL;
+    struct udphdr       *udph = NULL;
 
     
     lispd_log_msg(LISP_LOG_DEBUG_3,"process_input_packet: tuntap_process_input_packet\n");
@@ -63,9 +64,25 @@ void process_input_packet(int fd,
         return;
     }
 
-    lisp_hdr = (struct lisphdr *)packet;
+    if(afi == AF_INET){
+        /* With input RAW UDP sockets in IPv4, we get the whole external IPv4 packet */
+        udph = (struct udphdr *) CO(packet,sizeof(struct iphdr));
+    }else{
+        /* With input RAW UDP sockets in IPv6, we get the whole external UDP packet */
+        udph = (struct udphdr *) packet;
+    }
     
-    iph = (struct iphdr *)((char *)lisp_hdr + sizeof(struct lisphdr));
+    /* With input RAW UDP sockets, we receive all UDP packets, we only want lisp data ones */
+    if(ntohs(udph->dest) != LISP_DATA_PORT){
+        free(packet);
+        return;
+    }
+
+    lisp_hdr = (struct lisphdr *) CO(udph,sizeof(struct udphdr));
+
+    length = length - sizeof(struct udphdr) - sizeof(struct lisphdr);
+    
+    iph = (struct iphdr *) CO(lisp_hdr,sizeof(struct lisphdr));
     
     if (iph->version == 4) {
         
@@ -88,7 +105,7 @@ void process_input_packet(int fd,
         IPV6_SET_TC(ip6h,tos); /* tos = Traffic class field in IPv6 */
     }
 
-    if ((write(tun_receive_fd, iph, length - sizeof(struct lisphdr))) < 0){
+    if ((write(tun_receive_fd, iph, length)) < 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
     }
     

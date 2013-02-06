@@ -78,6 +78,41 @@ int open_device_binded_raw_socket(
     
 }
 
+int open_raw_input_socket(int afi){
+    
+    struct protoent     *proto;
+    int                 sock;
+    int                 tr = 1;
+    
+    if ((proto = getprotobyname("UDP")) == NULL) {
+        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
+        return(BAD);
+    }
+    
+    /*
+     *  build the ipv4_data_input_fd, and make the port reusable
+     */
+    
+    
+    if ((sock = socket(afi,SOCK_RAW,proto->p_proto)) < 0) {
+        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
+        return(BAD);
+    }
+    lispd_log_msg(LISP_LOG_DEBUG_3,"open_udp_socket: socket at creation: %d\n",sock);
+    
+    if (setsockopt(sock,
+        SOL_SOCKET,
+        SO_REUSEADDR,
+        &tr,
+        sizeof(int)) == -1) {
+        lispd_log_msg(LISP_LOG_WARNING, "open_udp_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+    
+    return(BAD);
+        }
+        
+        return sock;
+}
+
 
 int open_udp_socket(int afi){
 
@@ -113,27 +148,17 @@ int open_udp_socket(int afi){
 
     return sock;
 }
-int open_input_socket(
-    int afi,
-    int port)
-{
 
+int bind_socket(int sock,
+                int afi,
+                int port)
+{
     struct sockaddr_in  sock_addr_v4;
     struct sockaddr_in6 sock_addr_v6;
     struct sockaddr     *sock_addr;
     int                 sock_addr_len;
     
-    
-    
-    int sock;
-    
-    
-    sock = open_udp_socket(afi);
-    
-    if(sock == BAD){
-        return BAD;
-    }
-    
+        
     switch (afi){
         case AF_INET:
             memset(&sock_addr_v4,0,sizeof(sock_addr_v4));           /* be sure */
@@ -166,7 +191,6 @@ int open_input_socket(
     }
     
     return(sock);
-    
 }
 
 
@@ -176,8 +200,10 @@ int open_control_input_socket(int afi){
 
     int sock;
 
-    sock = open_input_socket(afi,LISP_CONTROL_PORT);
-
+    sock = open_udp_socket(afi);
+    
+    sock = bind_socket(sock,afi,LISP_CONTROL_PORT);
+    
     if(sock == BAD){
         return BAD;
     }
@@ -211,9 +237,14 @@ int open_control_input_socket(int afi){
 int open_data_input_socket(int afi){
     
     int sock;
+    int dummy_sock; /* To avoid ICMP port unreacheable packets */
     const int on=1;
     
-    sock = open_input_socket(afi,LISP_DATA_PORT);
+    sock = open_raw_input_socket(afi);
+
+    dummy_sock = open_udp_socket(afi);
+    
+    dummy_sock = bind_socket(dummy_sock,afi,LISP_DATA_PORT);
 
     if(sock == BAD){
         return(BAD);
