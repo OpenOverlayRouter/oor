@@ -360,27 +360,27 @@ void event_loop()
         }
         
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv4 packet in the data input buffer (4341)");
+            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
             process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
         }
         if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv6 packet in the data input buffer (4341)");
+            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
             process_input_packet(ipv6_data_input_fd, AF_INET6, tun_receive_fd);
         }
         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv4 packet in the control input buffer (4342)");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
             process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
         }
         if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv6 packet in the control input buffer (4342)");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
             process_lisp_ctr_msg(ipv6_control_input_fd, AF_INET6);
         }
         if (FD_ISSET(tun_receive_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved packet in the tun buffer");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
             process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
         }
         if (FD_ISSET(timers_fd,&readfds)){
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved something in the timer fd");
+            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
             process_timer_signal(timers_fd);
         }
     }

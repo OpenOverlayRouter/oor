@@ -240,6 +240,9 @@ int encapsulate_packet(
     *encap_packet = new_packet;
     *encap_packet_size = extra_headers_size + original_packet_length;
 
+    lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Encap src: %s | Encap dst: %s\n",
+                  get_char_from_lisp_addr_t(*src_addr),get_char_from_lisp_addr_t(*dst_addr));
+    
     return (GOOD);
 }
 
@@ -579,7 +582,8 @@ int lisp_output (
     original_src_addr = extract_src_addr_from_packet(original_packet);
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
 
-    lispd_log_msg(LISP_LOG_DEBUG_3,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
+    lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Orig src: %s | Orig dst: %s\n",
+                  get_char_from_lisp_addr_t(original_src_addr),get_char_from_lisp_addr_t(original_dst_addr));
 
 
 //     /* No complete IPv6 support yet */
