@@ -30,6 +30,7 @@
 #include "lispd_input.h"
 
 void process_input_packet(int fd,
+                          int afi,
                           int tun_receive_fd)
 {
     uint8_t             *packet = NULL;
@@ -40,9 +41,8 @@ void process_input_packet(int fd,
     struct lisphdr      *lisp_hdr = NULL;
     struct iphdr        *iph = NULL;
     struct ip6_hdr      *ip6h = NULL;
+    struct udphdr       *udph = NULL;
 
-    
-    lispd_log_msg(LISP_LOG_DEBUG_3,"process_input_packet: tuntap_process_input_packet\n");
 
     if ((packet = (uint8_t *) malloc(MAX_IP_PACKET))==NULL){
         lispd_log_msg(LISP_LOG_ERR,"process_input_packet: Couldn't allocate space for packet: %s", strerror(errno));
@@ -52,7 +52,7 @@ void process_input_packet(int fd,
     memset(packet,0,MAX_IP_PACKET);
     
     if (get_data_packet (fd,
-                         AF_INET,
+                         afi,
                          packet,
                          &length,
                          &ttl,
@@ -62,13 +62,36 @@ void process_input_packet(int fd,
         return;
     }
 
-    lisp_hdr = (struct lisphdr *)packet;
+    if(afi == AF_INET){
+        /* With input RAW UDP sockets in IPv4, we get the whole external IPv4 packet */
+        udph = (struct udphdr *) CO(packet,sizeof(struct iphdr));
+    }else{
+        /* With input RAW UDP sockets in IPv6, we get the whole external UDP packet */
+        udph = (struct udphdr *) packet;
+    }
     
-    iph = (struct iphdr *)((char *)lisp_hdr + sizeof(struct lisphdr));
+    /* With input RAW UDP sockets, we receive all UDP packets, we only want lisp data ones */
+    if(ntohs(udph->dest) != LISP_DATA_PORT){
+        free(packet);
+        //lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (No LISP data): UDP dest: %d ",ntohs(udph->dest));
+        return;
+    }
+
+    lisp_hdr = (struct lisphdr *) CO(udph,sizeof(struct udphdr));
+
+    length = length - sizeof(struct udphdr) - sizeof(struct lisphdr);
+    
+    iph = (struct iphdr *) CO(lisp_hdr,sizeof(struct lisphdr));
+
+    lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
+                  get_char_from_lisp_addr_t(extract_src_addr_from_packet((char *)iph)),
+                  get_char_from_lisp_addr_t(extract_dst_addr_from_packet((char *)iph)));
     
     if (iph->version == 4) {
         
-        iph->ttl = ttl;
+        if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
+            iph->ttl = ttl;
+        }
         iph->tos = tos;
 
         /* We need to recompute the checksum since we have changed the TTL and TOS header fields */
@@ -77,13 +100,15 @@ void process_input_packet(int fd,
         
     }else{
         ip6h = ( struct ip6_hdr *) iph;
-        
-        ip6h->ip6_hops = ttl; /* ttl = Hops limit in IPv6 */
+
+        if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
+            ip6h->ip6_hops = ttl; /* ttl = Hops limit in IPv6 */
+        }
         
         IPV6_SET_TC(ip6h,tos); /* tos = Traffic class field in IPv6 */
     }
 
-    if ((write(tun_receive_fd, iph, length - sizeof(struct lisphdr))) < 0){
+    if ((write(tun_receive_fd, iph, length)) < 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
     }
     

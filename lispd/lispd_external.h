@@ -52,6 +52,7 @@ extern  int             map_request_retries;
 extern  int             control_port;
 extern  int             debug_level;
 extern  int             daemonize;
+extern  int             default_rloc_afi;
 
 extern  int         netlink_fd;
 extern  int         ipv6_data_input_fd;

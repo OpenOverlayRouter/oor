@@ -271,10 +271,11 @@ int lookup_eid_cache_exact_node(
         *node = patricia_search_exact(AF6_eid_cache, &prefix);
         break;
     default:
+        *node = NULL;
         break;
     }
 
-    if (!node){
+    if (*node == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_3, "lookup_eid_cache_exact_node: The entry %s/%d is not found in the map cache", get_char_from_lisp_addr_t(eid),prefixlen);
         return(BAD);
     }
@@ -310,7 +311,7 @@ int lookup_eid_cache_exact(
         int                     prefixlen,
         lispd_map_cache_entry   **entry)
 {
-    patricia_node_t *node;
+    patricia_node_t *node = NULL;
     if (!lookup_eid_cache_exact_node(eid,prefixlen,&node))
           return(BAD);
 

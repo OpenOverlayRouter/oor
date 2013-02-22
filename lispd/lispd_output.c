@@ -35,9 +35,7 @@
 
 
 
-
-
-void add_ipv4_header (
+void add_ip_header (
     char            *position,
     char            *original_packet_position,
     int             ip_payload_length,
@@ -48,6 +46,7 @@ void add_ipv4_header (
     
     struct iphdr *iph = NULL;
     struct iphdr *inner_iph = NULL;
+    struct ip6_hdr *ip6h = NULL;
     struct ip6_hdr *inner_ip6h = NULL;
     
     uint8_t tos = 0;
@@ -74,21 +73,40 @@ void add_ipv4_header (
      * Construct and add the outer ip header
      */
 
-    iph = (struct iphdr *) position;
-            
-    iph->version  = 4;
-    //iph->ihl      = sizeof ( struct iphdr ) >>2;
-    iph->ihl      = 5; /* Minimal IPv4 header */
-    iph->tos      = tos;
-    iph->tot_len  = htons(ip_payload_length);
-    iph->frag_off = 0;   // XXX recompute above, use method in 5.4.1 of draft
-    iph->ttl      = ttl;
-    iph->protocol = IPPROTO_UDP;
-    iph->check    = 0; //Computed by the NIC (checksum offloading)
-    iph->daddr    = dst_addr->address.ip.s_addr;
-    iph->saddr    = src_addr->address.ip.s_addr;
-            
+    switch (dst_addr->afi){
+        case AF_INET:
 
+            iph = (struct iphdr *) position;
+
+            iph->version  = 4;
+            //iph->ihl      = sizeof ( struct iphdr ) >>2;
+            iph->ihl      = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
+            iph->tos      = tos;
+            iph->tot_len  = htons(ip_payload_length);
+            iph->frag_off = htons(IP_DF);   /* Do not fragment flag. See 5.4.1 in LISP RFC (6830) */
+            iph->ttl      = ttl;
+            iph->protocol = IPPROTO_UDP;
+            iph->check    = 0; //Computed by the NIC (checksum offloading)
+            iph->daddr    = dst_addr->address.ip.s_addr;
+            iph->saddr    = src_addr->address.ip.s_addr;
+            break;
+
+        case AF_INET6:
+            
+            ip6h = ( struct ip6_hdr *) position;
+            IPV6_SET_VERSION(ip6h, 6);
+            IPV6_SET_TC(ip6h,tos);
+            IPV6_SET_FLOW_LABEL(ip6h,0);
+            ip6h->ip6_plen = htons(ip_payload_length);
+            ip6h->ip6_nxt = IPPROTO_UDP;
+            ip6h->ip6_hops = ttl;
+            memcopy_lisp_addr(&(ip6h->ip6_dst),dst_addr);
+            memcopy_lisp_addr(&(ip6h->ip6_src),src_addr);
+
+            break;
+        default:
+            break;
+    }
     
 
 }
@@ -116,7 +134,7 @@ void add_udp_header(
     udh->len = htons ( sizeof ( struct udphdr ) + length );
     //udh->len = htons(sizeof(struct udphdr)); /* Wireshark detects this as error*/
     udh->check = 0; // SHOULD be 0 as in LISP ID
-
+    /* With IPv6 this MUST be calculated (or disabled at all). Calculated later */
 
 }
 
@@ -159,6 +177,7 @@ int encapsulate_packet(
 {
     int extra_headers_size = 0;
     char *new_packet = NULL;
+    struct udphdr *udh = NULL;
 
     int iphdr_len = 0;
     int udphdr_len = 0;
@@ -169,7 +188,7 @@ int encapsulate_packet(
             iphdr_len = sizeof(struct iphdr);
             break;
         case AF_INET6:
-            //arnatal TODO: write IPv6 support
+            iphdr_len = sizeof(struct ip6_hdr);
             break;
     }
     
@@ -196,32 +215,66 @@ int encapsulate_packet(
     add_udp_header((char *)(new_packet + iphdr_len),original_packet_length+lisphdr_len,src_port,dst_port);
 
     
-    switch (encap_afi){
-        case AF_INET:
-            add_ipv4_header(new_packet,
-                          original_packet,
-                          original_packet_length+lisphdr_len+udphdr_len,
-                          src_addr,
-                          dst_addr);
-            break;
-        case AF_INET6:
-            //arnatal TODO: write IPv6 support
-            break;
-    }
+//     switch (encap_afi){
+//         case AF_INET:
+//             add_ip_header(new_packet,
+//                           original_packet,
+//                           original_packet_length+lisphdr_len+udphdr_len,
+//                           src_addr,
+//                           dst_addr);
+//             break;
+//         case AF_INET6:
+//             //arnatal TODO: write IPv6 support
+//             break;
+//     }
+    add_ip_header(new_packet,
+                  original_packet,
+                  original_packet_length+lisphdr_len+udphdr_len,
+                  src_addr,
+                  dst_addr);
 
+    /* UDP checksum mandatory for IPv6. Could be skipped if check disabled on receiver */
+    udh = (struct udphdr *)(new_packet + iphdr_len);
+    udh->check = udp_checksum(udh,ntohs(udh->len),new_packet,encap_afi);
+    
     *encap_packet = new_packet;
     *encap_packet_size = extra_headers_size + original_packet_length;
 
+    lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Encap src: %s | Encap dst: %s\n",
+                  get_char_from_lisp_addr_t(*src_addr),get_char_from_lisp_addr_t(*dst_addr));
+    
     return (GOOD);
 }
 
-int fordward_native(
-        lispd_iface_elt *iface,
+
+int get_afi_from_packet(uint8_t *packet){
+    int afi;
+    struct iphdr *iph;
+    
+    iph = (struct iphdr *) packet;
+    
+    switch (iph->version){
+        case 4:
+            afi = AF_INET;
+            break;
+        case 6:
+            afi = AF_INET6;
+            break;
+    }
+    
+    return (afi);
+}
+
+
+int forward_native(
         char            *packet_buf,
         int             pckt_length )
 {
 
     int ret;
+    lispd_iface_elt *iface;
+
+    iface = get_default_output_iface(get_afi_from_packet((uint8_t *)packet_buf));
     
     if (!iface){
         lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface found");
@@ -231,7 +284,7 @@ int fordward_native(
     lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
                         get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
-    if(send_raw_packet(iface,packet_buf,pckt_length) != GOOD){
+    if(send_ip_packet(iface,packet_buf,pckt_length) != GOOD){
         ret = BAD;
     }else{
         ret = GOOD;
@@ -270,7 +323,7 @@ int fordward_to_petr(
             outer_src_addr = iface->ipv4_address;
             break;
         case AF_INET6:
-            //arnatal TODO: write IPv6 support
+            outer_src_addr = iface->ipv6_address;
             break;
     }
 
@@ -287,7 +340,7 @@ int fordward_to_petr(
         return (BAD);
     }
     
-    if (send_raw_packet (iface,encap_packet,encap_packet_size ) != GOOD){
+    if (send_ip_packet (iface,encap_packet,encap_packet_size ) != GOOD){
         free (encap_packet );
         return (BAD);
     }
@@ -306,15 +359,19 @@ lisp_addr_t extract_dst_addr_from_packet ( char *packet )
 
     iph = (struct iphdr *) packet;
 
-    if (iph->version == 4 ) {
-        addr.afi = AF_INET;
-        addr.address.ip.s_addr = iph->daddr;
+    switch (iph->version) {
+        case 4:
+            addr.afi = AF_INET;
+            addr.address.ip.s_addr = iph->daddr;
+            break;
+        case 6:
+            ip6h = (struct ip6_hdr *) packet;
+            addr.afi = AF_INET6;
+            memcpy(&(addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
+            break;
 
-
-    } else {
-        ip6h = (struct ip6_hdr *) packet;
-        addr.afi = AF_INET6;
-        addr.address.ipv6 = ip6h->ip6_dst;
+        default:
+            break;
     }
 
     //arnatal TODO: check errors (afi unsupported)
@@ -331,15 +388,17 @@ lisp_addr_t extract_src_addr_from_packet ( char *packet )
     
     iph = (struct iphdr *) packet;
     
-    if ( iph->version == 4 ) {
-        addr.afi = AF_INET;
-        addr.address.ip.s_addr = iph->saddr;
-        
-        
-    } else {
-        ip6h = (struct ip6_hdr *) packet;
-        addr.afi = AF_INET6;
-        addr.address.ipv6 = ip6h->ip6_src;
+    switch (iph->version) {
+        case 4:
+            addr.afi = AF_INET;
+            addr.address.ip.s_addr = iph->saddr;
+            break;
+        case 6:
+            ip6h = (struct ip6_hdr *) packet;
+            addr.afi = AF_INET6;
+            memcpy(&(addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
+        default:
+            break;
     }
     
     //arnatal TODO: check errors (afi unsupported)
@@ -391,6 +450,43 @@ lisp_addr_t *get_proxy_etr(int afi)
     }
     return (NULL);
 }
+
+/*
+ * get_output_afi: Returns the afi that should be used to send the packet
+ */
+int get_output_afi_based_on_petr()
+{
+
+    if (default_out_iface_v4!= NULL &&
+            get_proxy_etr(AF_INET) != NULL){
+        return (AF_INET);
+    }
+    if (default_out_iface_v6!= NULL &&
+            get_proxy_etr(AF_INET6) != NULL){
+        return (AF_INET6);
+    }
+
+    return (-1);
+}
+
+
+/*
+ * get_output_afi_based_on_entry: Returns the afi that should be used to send the packet (based on map-cache entry)
+ */
+int get_output_afi_based_on_entry (lispd_map_cache_entry *map_cache_entry)
+{
+    if (map_cache_entry->identifier->head_v4_locators_list != NULL &&
+            default_out_iface_v4!= NULL) {
+        return (AF_INET);
+    }
+    if (map_cache_entry->identifier->head_v6_locators_list != NULL &&
+            default_out_iface_v6!= NULL) {
+        return (AF_INET6);
+    }
+    
+    return (-1);
+}
+
 
 lisp_addr_t *get_default_locator_addr(
         lispd_map_cache_entry   *entry,
@@ -462,8 +558,6 @@ int is_lisp_packet(
 }
 
 
-
-
 int lisp_output (
         char    *original_packet,
         int     original_packet_length )
@@ -488,12 +582,12 @@ int lisp_output (
     original_src_addr = extract_src_addr_from_packet(original_packet);
     original_dst_addr = extract_dst_addr_from_packet(original_packet);
 
-    lispd_log_msg(LISP_LOG_DEBUG_3,"Packet received dst. to: %s\n",get_char_from_lisp_addr_t(original_dst_addr));
+    lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Orig src: %s | Orig dst: %s\n",
+                  get_char_from_lisp_addr_t(original_src_addr),get_char_from_lisp_addr_t(original_dst_addr));
 
-    default_encap_afi = AF_INET; //TODO Support IPv6 RLOCs
 
-    /* No complete IPv6 support yet */
-
+//     /* No complete IPv6 support yet */
+// 
 //     if (default_encap_afi == AF_INET6){
 //         return (fordward_native(get_default_output_iface(default_encap_afi),
 //                                 original_packet,
@@ -503,16 +597,12 @@ int lisp_output (
     /* If already LISP packet, do not encapsulate again */
     
     if (is_lisp_packet(original_packet,original_packet_length) == TRUE){
-        return (fordward_native(get_default_output_iface(default_encap_afi),
-                                original_packet,
-                                original_packet_length));
+        return (forward_native(original_packet,original_packet_length));
     }
 
     /* If received packet doesn't have a source EID, forward it natively */
     if (lookup_eid_in_db (original_src_addr) == NULL){
-        return (fordward_native(get_default_output_iface(default_encap_afi),
-                                           original_packet,
-                                           original_packet_length));
+        return (forward_native(original_packet,original_packet_length));
     }
 
 
@@ -526,23 +616,30 @@ int lisp_output (
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
     if ((map_cache_query_result != GOOD) || (entry->active == NO_ACTIVE) || (entry->identifier->locator_count == 0) ){ /* There is no entry or is not active*/
 
+        default_encap_afi = get_output_afi_based_on_petr();
+
         /* Try to fordward to petr*/
         if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
                              original_packet,
                              original_packet_length,
                              default_encap_afi) != GOOD){
             /* If error, fordward native*/
-            return (fordward_native(get_default_output_iface(default_encap_afi),
-                                    original_packet,
-                                    original_packet_length));
+            return (forward_native(original_packet,original_packet_length));
             }
             return (GOOD);
     }
     
     /* There is an entry in the map cache */
     
+    // If no default afi selected. Select iface acording to destination RLOC
+
+    default_encap_afi = get_output_afi_based_on_entry(entry);
+
     iface = get_default_output_iface(default_encap_afi);
-    
+    if (iface == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"lisp_output: No output iface");
+        return (BAD);
+    }
 
     outer_src_addr = get_iface_address(iface,default_encap_afi);
     outer_dst_addr = get_default_locator_addr(entry,default_encap_afi);
@@ -560,7 +657,7 @@ int lisp_output (
                        &encap_packet,
                        &encap_packet_size);
     
-    send_raw_packet (iface,encap_packet,encap_packet_size);
+    send_ip_packet (iface,encap_packet,encap_packet_size);
     
     free (encap_packet);
     

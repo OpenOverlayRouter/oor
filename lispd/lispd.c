@@ -83,6 +83,7 @@ char    *map_server                     = NULL;
 char    *proxy_etr                      = NULL;
 char    *proxy_itr                      = NULL;
 int      debug_level                    = 0;
+int      default_rloc_afi               = -1;
 int      daemonize                      = FALSE;
 int      map_request_retries            = DEFAULT_MAP_REQUEST_RETRIES;
 int      control_port                   = LISP_CONTROL_PORT;
@@ -198,6 +199,22 @@ int main(int argc, char **argv)
     handle_lispd_config_file(config_file);
 #endif
 
+    if (map_servers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+
+    if (map_resolvers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+
+    if (proxy_etrs == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        sleep(3);
+    }
+
     /*
      *  see if we need to daemonize, and if so, do it
      */
@@ -282,11 +299,19 @@ int main(int argc, char **argv)
      * Generate receive sockets for control (4342) and data port (4341)
      */
 
-    ipv4_control_input_fd = open_control_input_socket(AF_INET);
-//     ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-
-    ipv4_data_input_fd = open_data_input_socket(AF_INET);
-//     ipv6_data_input_fd = open_data_input_socket(AF_INET6);
+    if (default_ctrl_iface_v4){
+        ipv4_control_input_fd = open_control_input_socket(AF_INET);
+    }
+    if (default_ctrl_iface_v6){
+        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
+    }
+    
+    if (default_out_iface_v4){
+        ipv4_data_input_fd = open_data_input_socket(AF_INET);
+    }
+    if (default_out_iface_v6){
+        ipv6_data_input_fd = open_data_input_socket(AF_INET6);
+    }
 
 
     /*
@@ -321,9 +346,9 @@ void event_loop()
      */
     
     max_fd = ipv4_data_input_fd;
-//     max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
+    max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
     max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
-//     max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
+    max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
     max_fd = (max_fd > tun_receive_fd)          ? max_fd : tun_receive_fd;
     max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
     for (;;) {
@@ -331,9 +356,9 @@ void event_loop()
         FD_ZERO(&readfds);
         FD_SET(tun_receive_fd, &readfds);
         FD_SET(ipv4_data_input_fd, &readfds);
-//         FD_SET(ipv6_data_input_fd, &readfds);
+        FD_SET(ipv6_data_input_fd, &readfds);
         FD_SET(ipv4_control_input_fd, &readfds);
-//         FD_SET(ipv6_control_input_fd, &readfds);
+        FD_SET(ipv6_control_input_fd, &readfds);
         FD_SET(timers_fd, &readfds);
         
         retval = have_input(max_fd, &readfds);
@@ -345,27 +370,27 @@ void event_loop()
         }
         
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv4 packet in the data input buffer (4341)");
-            process_input_packet(ipv4_data_input_fd, tun_receive_fd);
+            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
+            process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
         }
-//         if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
-//             lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv6 packet in the data input buffer (4341)");
-//             process_input_packet(ipv6_data_input_fd, tun_receive_fd);
-//         }
+        if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
+            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
+            process_input_packet(ipv6_data_input_fd, AF_INET6, tun_receive_fd);
+        }
         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv4 packet in the control input buffer (4342)");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
             process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
         }
-//         if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
-//             lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved IPv6 packet in the control input buffer (4342)");
-//             process_lisp_ctr_msg(ipv6_control_input_fd, AF_INET6);
-//         }
+        if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
+            process_lisp_ctr_msg(ipv6_control_input_fd, AF_INET6);
+        }
         if (FD_ISSET(tun_receive_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved packet in the tun buffer");
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
             process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
         }
         if (FD_ISSET(timers_fd,&readfds)){
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Recieved something in the timer fd");
+            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
             process_timer_signal(timers_fd);
         }
     }

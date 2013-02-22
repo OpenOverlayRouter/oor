@@ -38,11 +38,7 @@
 #include "lispd.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
-
-union control_data {
-    struct cmsghdr cmsg;
-    u_char data[CMSG_SPACE(sizeof(struct in_pktinfo))];
-};
+#include "lispd_output.h"
 
 
 int open_device_binded_raw_socket(
@@ -87,7 +83,7 @@ int send_udp_ipv6_packet(
  * Sends a raw packet through the specified interface
  */
 
-int send_raw_packet (
+int send_ip_packet (
         lispd_iface_elt     *iface,
         char                *packet_buf,
         int                 pckt_length );

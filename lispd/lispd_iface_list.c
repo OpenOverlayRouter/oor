@@ -82,7 +82,7 @@ lispd_iface_elt *add_interface(char *iface_name)
     }else {
         iface->out_socket_v4 = -1;
     }
-    iface->ipv6_address = NULL; //XXX TODO arnatal lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+    iface->ipv6_address = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
     if (iface->ipv6_address != NULL){
         iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
     }else {
@@ -266,10 +266,31 @@ lispd_iface_elt *get_any_output_iface(int afi)
     return (iface);
 }
 
+lispd_iface_elt *get_default_ctrl_iface(int afi)
+{
+
+    lispd_iface_elt *iface = NULL;
+
+    switch (afi){
+        case AF_INET:
+            iface = default_ctrl_iface_v4;
+            break;
+        case AF_INET6:
+            iface = default_ctrl_iface_v6;
+            break;
+        default:
+            //arnatal TODO: syslog
+            iface = NULL;
+            break;
+    }
+
+    return (iface);
+}
+
 lispd_iface_elt *get_default_output_iface(int afi)
 {
 
-    lispd_iface_elt *iface;
+    lispd_iface_elt *iface = NULL;
 
     switch (afi){
         case AF_INET:

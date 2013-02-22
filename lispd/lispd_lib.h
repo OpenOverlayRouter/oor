@@ -98,10 +98,6 @@ int lisp2inetafi(uint16_t afi);
 
 int get_ip_header_len(int afi);
 
-/*
- *      given afi, get sockaddr len
- */
-int get_sockaddr_len(int afi);
 
 /*
  *      given afi, get addr len
@@ -113,6 +109,12 @@ int get_addr_len(int afi);
  *      given afi, get prefix len
  */
 int get_prefix_len(int afi);
+
+/*
+ * Return the first Map Resolver with the correct AFI
+ */
+
+lisp_addr_t *get_map_resolver();
 
 struct udphdr *build_ip_header(
         void                  *cur_ptr,

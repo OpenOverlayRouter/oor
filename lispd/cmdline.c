@@ -36,6 +36,7 @@ const char *gengetopt_args_info_help[] = {
   "  -V, --version                 Print version and exit",
   "\n Mode: lispdconfig",
   "  -d, --debug=ENUM              Debuging output [0..3]  (possible values=\"0\", \n                                  \"1\", \"2\", \"3\")",
+  "  -a, --afi=ENUM                Default RLOCs afi [4,6]  (possible \n                                  values=\"4\", \"6\")",
   "  -D, --daemonize               Daemonize lispd",
   "  -f, --config-file=config-file Alternate config file",
     0
@@ -57,6 +58,7 @@ cmdline_parser_internal (int argc, char **argv, struct gengetopt_args_info *args
 
 
 const char *cmdline_parser_debug_values[] = {"0", "1", "2", "3", 0}; /*< Possible values for debug. */
+const char *cmdline_parser_afi_values[] = {"4", "6", 0}; /*< Possible values for afi. */
 
 static char *
 gengetopt_strdup (const char *s);
@@ -67,6 +69,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->help_given = 0 ;
   args_info->version_given = 0 ;
   args_info->debug_given = 0 ;
+  args_info->afi_given = 0 ;
   args_info->daemonize_given = 0 ;
   args_info->config_file_given = 0 ;
   args_info->lispdconfig_mode_counter = 0 ;
@@ -78,6 +81,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   FIX_UNUSED (args_info);
   args_info->debug_arg = debug__NULL;
   args_info->debug_orig = NULL;
+  args_info->afi_arg = afi__NULL;
+  args_info->afi_orig = NULL;
   args_info->config_file_arg = NULL;
   args_info->config_file_orig = NULL;
   
@@ -91,8 +96,9 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->help_help = gengetopt_args_info_help[0] ;
   args_info->version_help = gengetopt_args_info_help[1] ;
   args_info->debug_help = gengetopt_args_info_help[3] ;
-  args_info->daemonize_help = gengetopt_args_info_help[4] ;
-  args_info->config_file_help = gengetopt_args_info_help[5] ;
+  args_info->afi_help = gengetopt_args_info_help[4] ;
+  args_info->daemonize_help = gengetopt_args_info_help[5] ;
+  args_info->config_file_help = gengetopt_args_info_help[6] ;
   
 }
 
@@ -174,6 +180,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
 {
 
   free_string_field (&(args_info->debug_orig));
+  free_string_field (&(args_info->afi_orig));
   free_string_field (&(args_info->config_file_arg));
   free_string_field (&(args_info->config_file_orig));
   
@@ -253,6 +260,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "version", 0, 0 );
   if (args_info->debug_given)
     write_into_file(outfile, "debug", args_info->debug_orig, cmdline_parser_debug_values);
+  if (args_info->afi_given)
+    write_into_file(outfile, "afi", args_info->afi_orig, cmdline_parser_afi_values);
   if (args_info->daemonize_given)
     write_into_file(outfile, "daemonize", 0, 0 );
   if (args_info->config_file_given)
@@ -389,11 +398,13 @@ int update_arg(void *field, char **orig_field,
                const char *long_opt, char short_opt,
                const char *additional_error)
 {
+  char *stop_char = 0;
   const char *val = value;
   int found;
   char **string_field;
   FIX_UNUSED (field);
 
+  stop_char = 0;
   found = 0;
 
   if (!multiple_option && prev_given && (*prev_given || (check_ambiguity && *field_given)))
@@ -467,6 +478,30 @@ int update_arg(void *field, char **orig_field,
   return 0; /* OK */
 }
 
+
+static int check_modes(
+  int given1[], const char *options1[],
+                       int given2[], const char *options2[])
+{
+  int i = 0, j = 0, errors = 0;
+  
+  while (given1[i] >= 0) {
+    if (given1[i]) {
+      while (given2[j] >= 0) {
+        if (given2[j]) {
+          ++errors;
+          fprintf(stderr, "%s: option %s conflicts with option %s\n",
+                  package_name, options1[i], options2[j]);
+        }
+        ++j;
+      }
+    }
+    ++i;
+  }
+  
+  return errors;
+}
+
 int
 cmdline_parser_internal (
   int argc, char **argv, struct gengetopt_args_info *args_info,
@@ -479,12 +514,14 @@ cmdline_parser_internal (
   
   int override;
   int initialize;
+  int check_required;
   int check_ambiguity;
   
   package_name = argv[0];
   
   override = params->override;
   initialize = params->initialize;
+  check_required = params->check_required;
   check_ambiguity = params->check_ambiguity;
 
   if (initialize)
@@ -505,12 +542,13 @@ cmdline_parser_internal (
         { "help",	0, NULL, 'h' },
         { "version",	0, NULL, 'V' },
         { "debug",	1, NULL, 'd' },
+        { "afi",	1, NULL, 'a' },
         { "daemonize",	0, NULL, 'D' },
         { "config-file",	1, NULL, 'f' },
         { 0,  0, 0, 0 }
       };
 
-      c = getopt_long (argc, argv, "hVd:Df:", long_options, &option_index);
+      c = getopt_long (argc, argv, "hVd:a:Df:", long_options, &option_index);
 
       if (c == -1) break;	/* Exit from `while (1)' loop.  */
 
@@ -535,6 +573,19 @@ cmdline_parser_internal (
               &(local_args_info.debug_given), optarg, cmdline_parser_debug_values, 0, ARG_ENUM,
               check_ambiguity, override, 0, 0,
               "debug", 'd',
+              additional_error))
+            goto failure;
+        
+          break;
+        case 'a':	/* Default RLOCs afi [4,6].  */
+          args_info->lispdconfig_mode_counter += 1;
+        
+        
+          if (update_arg( (void *)&(args_info->afi_arg), 
+               &(args_info->afi_orig), &(args_info->afi_given),
+              &(local_args_info.afi_given), optarg, cmdline_parser_afi_values, 0, ARG_ENUM,
+              check_ambiguity, override, 0, 0,
+              "afi", 'a',
               additional_error))
             goto failure;
         

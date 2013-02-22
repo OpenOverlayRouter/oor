@@ -18,7 +18,10 @@ map-request-retries  = 2			# send 2 before giving up
 #
 
 # Encapsulated Map-Requests are sent to this map resolver
-map-resolver        = 128.223.156.23
+map-resolver        = {
+		128.223.156.23,
+		fd00:100::1
+}
 
 # Register to this map server
 map-server {

@@ -39,16 +39,27 @@ int open_device_binded_raw_socket(
     int device_len;
     
     int s;
-    int tr = 1;
+    int on = 1;
     
-    
-    if ((s = socket(afi, SOCK_RAW, IPPROTO_RAW)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
-        return (BAD);
+
+    //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
+    switch (afi){
+        case AF_INET:
+            if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                return (BAD);
+            }
+            break;
+        case AF_INET6:
+            if ((s = socket(AF_INET6, SOCK_RAW,IPPROTO_RAW)) < 0) {
+                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                return (BAD);
+            }
+            break;
     }
     
     
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
         lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
         close(s);
         return (BAD);
@@ -65,6 +76,41 @@ int open_device_binded_raw_socket(
     
     return s;
     
+}
+
+int open_raw_input_socket(int afi){
+    
+    struct protoent     *proto;
+    int                 sock;
+    int                 tr = 1;
+    
+    if ((proto = getprotobyname("UDP")) == NULL) {
+        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
+        return(BAD);
+    }
+    
+    /*
+     *  build the ipv4_data_input_fd, and make the port reusable
+     */
+    
+    
+    if ((sock = socket(afi,SOCK_RAW,proto->p_proto)) < 0) {
+        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
+        return(BAD);
+    }
+    lispd_log_msg(LISP_LOG_DEBUG_3,"open_udp_socket: socket at creation: %d\n",sock);
+    
+    if (setsockopt(sock,
+        SOL_SOCKET,
+        SO_REUSEADDR,
+        &tr,
+        sizeof(int)) == -1) {
+        lispd_log_msg(LISP_LOG_WARNING, "open_udp_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+    
+    return(BAD);
+        }
+        
+        return sock;
 }
 
 
@@ -102,27 +148,17 @@ int open_udp_socket(int afi){
 
     return sock;
 }
-int open_input_socket(
-    int afi,
-    int port)
-{
 
+int bind_socket(int sock,
+                int afi,
+                int port)
+{
     struct sockaddr_in  sock_addr_v4;
     struct sockaddr_in6 sock_addr_v6;
     struct sockaddr     *sock_addr;
     int                 sock_addr_len;
     
-    
-    
-    int sock;
-    
-    
-    sock = open_udp_socket(afi);
-    
-    if(sock == BAD){
-        return BAD;
-    }
-    
+        
     switch (afi){
         case AF_INET:
             memset(&sock_addr_v4,0,sizeof(sock_addr_v4));           /* be sure */
@@ -155,7 +191,6 @@ int open_input_socket(
     }
     
     return(sock);
-    
 }
 
 
@@ -165,8 +200,10 @@ int open_control_input_socket(int afi){
 
     int sock;
 
-    sock = open_input_socket(afi,LISP_CONTROL_PORT);
-
+    sock = open_udp_socket(afi);
+    
+    sock = bind_socket(sock,afi,LISP_CONTROL_PORT);
+    
     if(sock == BAD){
         return BAD;
     }
@@ -200,9 +237,14 @@ int open_control_input_socket(int afi){
 int open_data_input_socket(int afi){
     
     int sock;
+    int dummy_sock; /* To avoid ICMP port unreacheable packets */
     const int on=1;
     
-    sock = open_input_socket(afi,LISP_DATA_PORT);
+    sock = open_raw_input_socket(afi);
+
+    dummy_sock = open_udp_socket(afi);
+    
+    dummy_sock = bind_socket(dummy_sock,afi,LISP_DATA_PORT);
 
     if(sock == BAD){
         return(BAD);
@@ -211,7 +253,7 @@ int open_data_input_socket(int afi){
     switch (afi){
         case AF_INET:
             
-            /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
+            /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
             if(setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on))< 0){
                 lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTOS: %s", strerror(errno));
             }
@@ -225,7 +267,17 @@ int open_data_input_socket(int afi){
             
         case AF_INET6:
             
-            //TODO IPv6 equivalents
+            /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
+            if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))< 0){
+                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+            }
+            
+            /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
+            if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))< 0){
+                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+            }
+            
+            break;
             
         default:
             return(BAD);
@@ -366,58 +418,316 @@ int send_udp_ipv6_packet(
  * Sends a raw packet through the specified interface
  */
 
-int send_raw_packet (
-        lispd_iface_elt     *iface,
-        char                *packet_buf,
-        int                 pckt_length )
-{
+// TODO arnatal To change name and unify with send_ip_packet once IPv6 RLOCs tested
 
-    int socket;
+int send_ipv4_packet (
+        int     sock,
+        char    *packet,
+        int     packet_length )
+{
+    //TODO remove old code. Optimize for IPv4 only
 
     struct sockaddr *dst_addr;
     int dst_addr_len;
     struct sockaddr_in dst_addr4;
-    //struct sockaddr_in6 dst_addr6;
+    struct sockaddr_in6 dst_addr6;
     struct iphdr *iph;
+    struct ip6_hdr *ip6h;
     int nbytes;
 
-    if (!iface){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_raw_packet: No output interface found");
-        return (BAD);
-    }
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
 
-    iph = ( struct iphdr * ) packet_buf;
 
-    if ( iph->version == 4 ) {
-        memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
-        dst_addr4.sin_family = AF_INET;
-        dst_addr4.sin_port = htons ( LISP_DATA_PORT );
-        dst_addr4.sin_addr.s_addr = iph->daddr;
+    iph = ( struct iphdr * ) packet;
 
-        dst_addr = ( struct sockaddr * ) &dst_addr4;
-        dst_addr_len = sizeof ( struct sockaddr_in );
-        socket = iface->out_socket_v4;
-    } else {
-        return (GOOD);
-        //arnatal TODO: write IPv6 support
+    switch(iph->version){
+
+        case 4:
+
+            memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
+            dst_addr4.sin_family = AF_INET;
+            //dst_addr4.sin_port = htons ( LISP_DATA_PORT );
+            dst_addr4.sin_addr.s_addr = iph->daddr;
+
+            dst_addr = ( struct sockaddr * ) &dst_addr4;
+            dst_addr_len = sizeof ( struct sockaddr_in );
+            break;
+        case 6:
+
+            ip6h = (struct ip6_hdr *) packet;
+            
+            memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
+            dst_addr6.sin6_family = AF_INET6;
+            //dst_addr6.sin6_port = htons ( LISP_DATA_PORT );
+            //memcpy(&(dst_addr6.sin6_addr),&(ip6h->ip6_dst),32);
+            dst_addr6.sin6_addr = ip6h->ip6_dst;
+            
+            dst_addr = ( struct sockaddr * ) &dst_addr6;
+            dst_addr_len = sizeof ( struct sockaddr_in6 );
+            
+            break;
     }
+    
 
-    nbytes = sendto ( socket,
-                      ( const void * ) packet_buf,
-                      pckt_length,
+
+
+    nbytes = sendto ( sock,
+                      ( const void * ) packet,
+                      packet_length,
                       0,
                       dst_addr,
                       dst_addr_len );
 
-    if ( nbytes != pckt_length ) {
-        lispd_log_msg( LISP_LOG_DEBUG_2, "send_raw_packet: send failed %s", strerror ( errno ) );
+    if ( nbytes != packet_length ) {
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_ipv4_packet: send failed %s", strerror ( errno ) );
         return (BAD);
     }
 
     return (GOOD);
 
 }
+
+/* Tentative implementation using sendmsg. Currently not used. To be removed once IPv6 RLOCs tested */
+
+int send_ipv6_packet (
+    int     sock,
+    char    *packet,
+    int     packet_length ){
+
+
+    int cmsglen, hoplimit;
+    struct sockaddr_in6 src;
+    struct sockaddr_in6 dst;
+    struct msghdr msghdr;
+    struct cmsghdr *cmsghdr;
+    struct iovec iov[2];
+    void *tmp;
+    struct ip6_hdr *ip6h = NULL;
+    uint8_t *unheaded_packet;
+    int unheaded_packet_length;
+
+    char *target, *source;
+    struct addrinfo hints, *res;
+    int status;
+    //int srclen;
+
+    printf("Entering send_ipv6_packet function\n");
+
+    printf("Trying to send from %s to %s\n",get_char_from_lisp_addr_t(extract_src_addr_from_packet(packet)),
+                                            get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet)));
+
+
+    tmp = (char *) malloc (40 * sizeof (char));
+    if (tmp != NULL) {
+        source = tmp;
+    }
+    else {
+        fprintf (stderr, "ERROR: Cannot allocate memory for array 'source'.\n");
+        exit (EXIT_FAILURE);
+    }
+    memset (source, 0, 40 * sizeof (char));
+
+    tmp = (char *) malloc (40 * sizeof (char));
+    if (tmp != NULL) {
+        target = tmp;
+    }
+    else {
+        fprintf (stderr, "ERROR: Cannot allocate memory for array 'target'.\n");
+        exit (EXIT_FAILURE);
+    }
+    memset (target, 0, 40 * sizeof (char));
+
+    // Source IPv6 address: you need to fill this out
+    strcpy (source, "2001:40b0:7500:15:2::2");
+    
+    // Destination URL or IPv6 address
+    strcpy (target, "2a00:1450:4003:802::1013");
+    
+    // Fill out hints for getaddrinfo().
+    memset (&hints, 0, sizeof (struct addrinfo));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = hints.ai_flags | AI_CANONNAME;
+    
+    // Resolve source using getaddrinfo().
+    if ((status = getaddrinfo (source, NULL, &hints, &res)) != 0) {
+        fprintf (stderr, "getaddrinfo() failed: %s\n", gai_strerror (status));
+        return (EXIT_FAILURE);
+    }
+    memcpy (&src, res->ai_addr, res->ai_addrlen);
+    //srclen = res->ai_addrlen;
+    freeaddrinfo (res);
+    
+    // Resolve target using getaddrinfo().
+    if ((status = getaddrinfo (target, NULL, &hints, &res)) != 0) {
+        fprintf (stderr, "getaddrinfo() failed: %s\n", gai_strerror (status));
+        return (EXIT_FAILURE);
+    }
+    memcpy (&dst, res->ai_addr, res->ai_addrlen);
+    freeaddrinfo (res);
+
+
+    
+//     dst.sin6_addr = (ip6h->ip6_dst);
+//     dst.sin6_family = AF_INET6;
+//     dst.sin6_flowinfo = 0;
+//     dst.sin6_port = htons(LISP_DATA_PORT);
+    //dst.sin6_scope_id = if_nametoindex("eth0");
+
+    ip6h = (struct ip6_hdr *) packet;
+
+    ip6h->ip6_hops = 23;
+    
+    unheaded_packet = (uint8_t *) packet; //(uint8_t *) packet + sizeof(struct ip6_hdr);
+    unheaded_packet_length = packet_length; //- sizeof(struct ip6_hdr);
+    //unheaded_packet = (uint8_t *) packet + sizeof(struct ip6_hdr);
+    //unheaded_packet_length = packet_length- sizeof(struct ip6_hdr);
+    
+    // Compose the msghdr structure.
+    memset (&msghdr, 0, sizeof (msghdr));
+    msghdr.msg_name = &dst;             // pointer to socket address structure
+    msghdr.msg_namelen = sizeof (dst);  // size of socket address structure
+    
+    memset (&iov, 0, sizeof (iov));
+    iov[0].iov_base = (unsigned char *) unheaded_packet;
+    iov[0].iov_len = unheaded_packet_length;
+    msghdr.msg_iov = iov;   // scatter/gather array
+    msghdr.msg_iovlen = 1;  // number of elements in scatter/gather array
+    
+    // Tell msghdr we're adding cmsghdr data to change hop limit.
+    // Allocate some memory for our cmsghdr data.
+    cmsglen = CMSG_SPACE (sizeof (int));
+    tmp = (unsigned char *) malloc (cmsglen * sizeof (unsigned char));
+    if (tmp != NULL) {
+        msghdr.msg_control = tmp;
+        
+    }
+
+    else {
+        fprintf (stderr, "ERROR: Cannot allocate memory for array 'msghdr.msg_control'.\n");
+        exit (EXIT_FAILURE);
+    }
+    memset (msghdr.msg_control, 0, cmsglen);
+    msghdr.msg_controllen = cmsglen;
+
+    // Change hop limit to 255.
+//     hoplimit = 255;
+//     cmsghdr = CMSG_FIRSTHDR (&msghdr);
+//     cmsghdr->cmsg_level = IPPROTO_IPV6;
+//     cmsghdr->cmsg_type = IPV6_HOPLIMIT;  // We want to change hop limit
+//     cmsghdr->cmsg_len = CMSG_LEN (sizeof (int));
+//     *((int *) CMSG_DATA (cmsghdr)) = hoplimit;
+
+    hoplimit = 255;
+    cmsghdr = CMSG_FIRSTHDR (&msghdr);
+    cmsghdr->cmsg_level = IPPROTO_IPV6;
+    cmsghdr->cmsg_type = IPV6_HOPLIMIT;  // We want to change hop limit
+    cmsghdr->cmsg_len = CMSG_LEN (sizeof (int));
+    *((int *) CMSG_DATA (cmsghdr)) = hoplimit;
+
+    // Bind the socket descriptor to the source address.
+//     if (bind (sock, (struct sockaddr *) &src, srclen) != 0) {
+//         fprintf (stderr, "Failed to bind the socket descriptor to the source address.\n");
+//         exit (EXIT_FAILURE);
+//     }
+    
+    // Send packet.
+//     if (sendmsg (sock, &msghdr, 0) < 0) {
+//         perror ("sendmsg() failed ");
+//         exit (EXIT_FAILURE);
+//     }
+
+    int nbytes;
+    
+    
+    nbytes = sendto ( sock ,
+                      ( const void * ) packet,
+                      packet_length,
+                      0,
+                      &dst,
+                      sizeof(dst) );
+    
+    if ( nbytes != packet_length ) {
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_ipv4_packet: send failed %s", strerror ( errno ) );
+        return (BAD);
+    }
+    
+//     src_addr_ptr = get_iface_address(get_default_output_iface(AF_INET6),AF_INET6);
+//     src_addr = *src_addr_ptr;
+//     printf("Default output src_addr %s\n",get_char_from_lisp_addr_t(src_addr));
+// 
+//     //src_addr = extract_src_addr_from_packet(packet);
+// 
+//     src.sin6_addr = (src_addr_ptr->address.ipv6);
+//     src.sin6_family = AF_INET6;
+//     src.sin6_flowinfo = 0;
+//     src.sin6_port = htons(LISP_DATA_PORT);
+//     //src.sin6_scope_id = if_nametoindex("eth0");
+//     
+//     // Bind the socket descriptor to the source address.
+//     if (bind (socket, (struct sockaddr *) &src, sizeof(struct sockaddr_in6)) != 0) {
+//         lispd_log_msg(LISP_LOG_WARNING, "binding socket ipv6 send %s", strerror(errno));
+//         exit (EXIT_FAILURE);
+//     }
+// 
+//     // Send packet.
+// //     if (sendmsg (socket, &msghdr, 0) < 0) {
+// //         perror ("sendmsg() failed ");
+// //         exit (EXIT_FAILURE);
+// //     }
+// 
+//     if (sendto (socket, unheaded_packet,unheaded_packet_length,0,(struct sockaddr *) &dst,sizeof(struct sockaddr_in6)) < 0) {
+//         perror ("sendmsg() failed ");
+//         exit (EXIT_FAILURE);
+//     }
+
+
+    return (GOOD);
+}
+
+
+int send_ip_packet (
+    lispd_iface_elt     *iface,
+    char                *packet_buf,
+    int                 pckt_length )
+{
+
+    int socket;
+    struct iphdr *iph;
+    int ret;
+    
+    if (!iface){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "send_ip_packet: No output interface found");
+        return (BAD);
+    }
+    
+    iph = ( struct iphdr * ) packet_buf;
+    
+    switch (iph->version){
+
+        case 4:
+            //TODO arnatal check if socket exists (if IPvN supportted)
+            socket = iface->out_socket_v4;
+            ret = send_ipv4_packet(socket,packet_buf,pckt_length);
+            break;
+            
+        case 6:
+            //TODO arnatal check if socket exists (if IPvN supportted)
+            socket = iface->out_socket_v6;
+            ret = send_ipv4_packet(socket,packet_buf,pckt_length);
+            break;
+            
+        default:
+            break;
+    }
+
+
+
+    
+    return (ret);
+}
+
+
 
 
 int get_control_packet (
@@ -427,6 +737,13 @@ int get_control_packet (
         lisp_addr_t     *local_rloc,
         uint16_t        *remote_port)
 {
+    union control_data {
+        struct cmsghdr cmsg;
+        u_char data4[CMSG_SPACE(sizeof(struct in_pktinfo))]; /* Space for IPv4 pktinfo */
+        u_char data6[CMSG_SPACE(sizeof(struct in6_pktinfo))]; /* Space for IPv6 pktinfo */
+    };
+    
+    
     struct sockaddr_in  s4;
     struct sockaddr_in6 s6;
     struct msghdr       msg;
@@ -453,7 +770,6 @@ int get_control_packet (
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        perror("recvfrom");
         lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
@@ -493,6 +809,12 @@ int get_data_packet (
     uint8_t         *ttl,
     uint8_t         *tos)
 {
+
+    union control_data {
+        struct cmsghdr cmsg;
+        u_char data[CMSG_SPACE(sizeof(int))+CMSG_SPACE(sizeof(int))]; /* Space for TTL and TOS data */
+    };
+    
     struct sockaddr_in  s4;
     struct sockaddr_in6 s6;
     struct msghdr       msg;
@@ -508,7 +830,7 @@ int get_data_packet (
     msg.msg_iov = iov;
     msg.msg_iovlen = 1;
     msg.msg_control = &cmsg;
-    msg.msg_controllen = sizeof cmsg*2; /* Allocate enought space (Here 2 cmsg blocks [TTL and TOS]) */
+    msg.msg_controllen = sizeof cmsg; 
     if (afi == AF_INET){
         msg.msg_name = &s4;
         msg.msg_namelen = sizeof (struct sockaddr_in);
@@ -519,7 +841,6 @@ int get_data_packet (
     
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        perror("recvfrom");
         lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
@@ -539,7 +860,16 @@ int get_data_packet (
         }
 
     }else {
-        //TODO IPv6 support
+        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+            
+            if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_HOPLIMIT) {
+                *ttl = *((uint8_t *)CMSG_DATA(cmsgptr));
+            }
+            
+            if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_TCLASS) {
+                *tos = *((uint8_t *)CMSG_DATA(cmsgptr));
+            }
+        }
     }
     
     return (GOOD);

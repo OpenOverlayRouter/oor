@@ -18,6 +18,9 @@ defmode "lispdconfig"
 modeoption "debug" d "Debuging output [0..3]"
 	#int mode="lispdconfig" optional 
 		int values="0","1","2","3" enum mode="lispdconfig" optional
+
+modeoption "afi" a "Default RLOCs afi [4,6]"
+        int values="4","6" enum mode="lispdconfig" optional
 		
 modeoption "daemonize" D "Daemonize lispd" mode="lispdconfig" optional
 
