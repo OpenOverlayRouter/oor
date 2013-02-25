@@ -88,28 +88,30 @@ patricia_tree_t* get_map_cache_db(int afi);
 lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
 
 /*
- * del_eid_cache_entry()
+ * del_map_cache_entry()
  *
  * Delete an EID mapping from the cache
  */
-void del_eid_cache_entry(lisp_addr_t eid, int prefixlen);
+void del_map_cache_entry(lisp_addr_t eid, int prefixlen);
 
 
 /*
- * lookup_eid_cache_exact()
+ * lookup_map_cache_exact()
  *
  * Find an exact match for a prefix/prefixlen if possible
  */
-int lookup_eid_cache_exact(lisp_addr_t eid, int prefixlen, lispd_map_cache_entry **entry);
+lispd_map_cache_entry *lookup_map_cache_exact(
+        lisp_addr_t             eid,
+        int                     prefixlen);
 
 
 /*
- * lookup_eid_cache_v4()
+ * lookup_map_cache()
  *
- * Look up a given ipv4 eid in the cache, returning true and
- * filling in the entry pointer if found, or false if not found.
+ * Look up a given eid in the database, returning the
+ * lispd_map_cache_entry of this EID if it exists or NULL.
  */
-int lookup_eid_cache(lisp_addr_t eid, lispd_map_cache_entry **entry);
+lispd_map_cache_entry *lookup_map_cache(lisp_addr_t eid);
 
 
 /*
@@ -124,11 +126,11 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(int eid_afi, uint64_
  * This function is used when the map reply report a prefix that includes the requested prefix
  */
 
-int change_eid_prefix_in_db(lisp_addr_t         new_eid_prefix,
+int change_map_cache_prefix_in_db(lisp_addr_t         new_eid_prefix,
         int                                     new_eid_prefix_length,
         lispd_map_cache_entry                   *cache_entry);
 
-void eid_entry_expiration(timer *t, void *arg);
+void map_cache_entry_expiration(timer *t, void *arg);
 
 
 void dump_map_cache(int log_level);

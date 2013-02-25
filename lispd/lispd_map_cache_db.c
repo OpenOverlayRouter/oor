@@ -38,8 +38,8 @@
  *  Patricia tree based databases
  */
 
-patricia_tree_t *AF4_eid_cache           = NULL;
-patricia_tree_t *AF6_eid_cache           = NULL;
+patricia_tree_t *AF4_map_cache           = NULL;
+patricia_tree_t *AF6_map_cache           = NULL;
 
 
 
@@ -61,11 +61,11 @@ void map_cache_init()
 {
   lispd_log_msg(LISP_LOG_DEBUG_2,  " Creating map cache...");
 
-  AF4_eid_cache = New_Patricia(sizeof(struct in_addr) * 8);
-  AF6_eid_cache = New_Patricia(sizeof(struct in6_addr) * 8);
+  AF4_map_cache = New_Patricia(sizeof(struct in_addr) * 8);
+  AF6_map_cache = New_Patricia(sizeof(struct in6_addr) * 8);
 
 
-  if (!AF4_eid_cache || !AF6_eid_cache){
+  if (!AF4_map_cache || !AF6_map_cache){
       lispd_log_msg(LISP_LOG_CRIT, "map_cache_init: Unable to allocate memory for map cache database");
       exit(EXIT_FAILURE);
   }
@@ -80,9 +80,9 @@ void map_cache_init()
 patricia_tree_t* get_map_cache_db(int afi)
 {
     if (afi == AF_INET)
-        return (AF4_eid_cache);
+        return (AF4_map_cache);
     else
-        return (AF6_eid_cache);
+        return (AF6_map_cache);
 }
 
 void build_lsb_table(void)
@@ -123,7 +123,7 @@ int add_map_cache_entry(lispd_map_cache_entry *entry)
             free(node);
             return(ERR_MALLOC);
         }
-        node = patricia_lookup(AF4_eid_cache, prefix);
+        node = patricia_lookup(AF4_map_cache, prefix);
         break;
     case AF_INET6:
         if ((prefix = New_Prefix(AF_INET6, &(eid_prefix.address.ipv6), eid_prefix_length)) == NULL) {
@@ -131,7 +131,7 @@ int add_map_cache_entry(lispd_map_cache_entry *entry)
             free(node);
             return(ERR_MALLOC);
         }
-        node = patricia_lookup(AF6_eid_cache, prefix);
+        node = patricia_lookup(AF6_map_cache, prefix);
         break;
     default:
         free(node);
@@ -204,56 +204,51 @@ lispd_map_cache_entry *new_map_cache_entry (
 
 
 /*
- * lookup_eid_cache_node()
- *
- * Given an eid ,look up the best node in the cache, returning true and filling
- * in the patricia_node_t pointer if found, or false if not found.
+ * Given an eid , return the best patricai node in the map cache database (the most
+ * specific prefix that contains the EID) or NULL if no one is found
  */
-int lookup_eid_cache_node(
-        lisp_addr_t     eid,
-        patricia_node_t **node)
-{
-  prefix_t prefix;
-  *node=NULL;
 
-  switch(eid.afi) {
-        case AF_INET:
-            prefix.family = AF_INET;
-            prefix.bitlen = 32;
-            prefix.ref_count = 0;
-            prefix.add.sin.s_addr = eid.address.ip.s_addr;
-            *node = patricia_search_best(AF4_eid_cache, &prefix);
-            break;
-        case AF_INET6:
-            prefix.family = AF_INET6;
-            prefix.bitlen = 128;
-            prefix.ref_count = 0;
-            memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-            *node = patricia_search_best(AF6_eid_cache, &prefix);
-            break;
-        default:
-            break;
+patricia_node_t *lookup_map_cache_node(lisp_addr_t eid)
+{
+    patricia_node_t   *node = NULL;
+    prefix_t          prefix;
+
+    switch(eid.afi) {
+    case AF_INET:
+        prefix.family = AF_INET;
+        prefix.bitlen = 32;
+        prefix.ref_count = 0;
+        prefix.add.sin.s_addr = eid.address.ip.s_addr;
+        node = patricia_search_best(AF4_map_cache, &prefix);
+        break;
+    case AF_INET6:
+        prefix.family = AF_INET6;
+        prefix.bitlen = 128;
+        prefix.ref_count = 0;
+        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
+        node = patricia_search_best(AF6_map_cache, &prefix);
+        break;
+    default:
+        break;
     }
 
-  if (*node==NULL)
-  {
-      lispd_log_msg(LISP_LOG_DEBUG_3, "lookup_eid_cache_node: The entry %s is not found in the map cache", get_char_from_lisp_addr_t(eid));
-      return(BAD);
-  }
-  return(GOOD);
+    if (node==NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_3, "lookup_map_cache_node: The entry %s is not found in the map cache", get_char_from_lisp_addr_t(eid));
+    }
+
+    return(node);
 }
 
 /*
- * lookup_eid_cache_exact()
- * Look up a given eid in the cache, returning true and filling
- * in the patricia_node_t pointer if found, or false if not found.
+ * Given an eid , return the node in the map cache database  of this EID
+ * or NULL if it doesn't exist
  */
-int lookup_eid_cache_exact_node(
+patricia_node_t * lookup_map_cache_exact_node(
         lisp_addr_t     eid,
-        int             prefixlen,
-        patricia_node_t **node)
+        int             prefixlen)
 {
-    prefix_t prefix;
+    patricia_node_t     *node = NULL;
+    prefix_t            prefix;
 
     switch(eid.afi) {
     case AF_INET:
@@ -261,62 +256,64 @@ int lookup_eid_cache_exact_node(
         prefix.bitlen = prefixlen;
         prefix.ref_count = 0;
         prefix.add.sin.s_addr = eid.address.ip.s_addr;
-        *node = patricia_search_exact(AF4_eid_cache, &prefix);
+        node = patricia_search_exact(AF4_map_cache, &prefix);
         break;
     case AF_INET6:
         prefix.family = AF_INET6;
         prefix.bitlen = prefixlen;
         prefix.ref_count = 0;
         memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-        *node = patricia_search_exact(AF6_eid_cache, &prefix);
+        node = patricia_search_exact(AF6_map_cache, &prefix);
         break;
     default:
-        *node = NULL;
         break;
     }
 
-    if (*node == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "lookup_eid_cache_exact_node: The entry %s/%d is not found in the map cache", get_char_from_lisp_addr_t(eid),prefixlen);
-        return(BAD);
+    if (node == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_3, "lookup_map_cache_exact_node: The entry %s/%d is not found in the map cache", get_char_from_lisp_addr_t(eid),prefixlen);
     }
 
-    return(GOOD);
+    return(node);
 }
 
 /*
- * lookup_eid_cache_v4()
- *
- * Look up a given ipv4 eid in the cache, returning true and
- * filling in the entry pointer if found, or false if not found.
+ * Look up a given eid in the database, returning the
+ * lispd_map_cache_entry of this EID if it exists or NULL.
  */
-int lookup_eid_cache(
-        lisp_addr_t             eid,
-        lispd_map_cache_entry   **entry)
+
+lispd_map_cache_entry *lookup_map_cache(lisp_addr_t eid)
 {
-  patricia_node_t *node;
-  if (!lookup_eid_cache_node(eid,&node))
-      return(ERR_DB);
-  *entry = (lispd_map_cache_entry *)(node->data);
-  return(GOOD);
+  patricia_node_t           *node  = NULL;
+  lispd_map_cache_entry     *entry = NULL;
+
+  node = lookup_map_cache_node(eid);
+  if ( node == NULL ){
+      return(NULL);
+  }
+  entry = (lispd_map_cache_entry *)(node->data);
+
+  return(entry);
 }
 
 
 /*
- * lookup_eid_cache_exact()
- *
  * Find an exact match for a prefix/prefixlen if possible
  */
-int lookup_eid_cache_exact(
-        lisp_addr_t             eid,
-        int                     prefixlen,
-        lispd_map_cache_entry   **entry)
-{
-    patricia_node_t *node = NULL;
-    if (!lookup_eid_cache_exact_node(eid,prefixlen,&node))
-          return(BAD);
 
-    *entry = (lispd_map_cache_entry *)(node->data);
-    return(GOOD);
+lispd_map_cache_entry *lookup_map_cache_exact(
+        lisp_addr_t             eid,
+        int                     prefixlen)
+{
+    lispd_map_cache_entry   *entry = NULL;
+    patricia_node_t         *node  = NULL;
+
+    node = lookup_map_cache_exact_node(eid,prefixlen);
+    if ( node == NULL ){
+          return(NULL);
+    }
+    entry = (lispd_map_cache_entry *)(node->data);
+
+    return(entry);
 }
 
 /*
@@ -332,9 +329,9 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(
     lispd_map_cache_entry   *entry;
 
     if (eid_afi == AF_INET)
-        tree = AF4_eid_cache;
+        tree = AF4_map_cache;
     else
-        tree = AF6_eid_cache;
+        tree = AF6_map_cache;
 
     PATRICIA_WALK(tree->head, node) {
         entry = ((lispd_map_cache_entry *)(node->data));
@@ -382,32 +379,33 @@ void free_lispd_map_cache_entry(lispd_map_cache_entry *entry){
 
 
 /*
- * del_eid_cache_entry()
+ * del_map_cache_entry()
  *
  * Delete an EID mapping from the cache
  */
-void del_eid_cache_entry(
+void del_map_cache_entry(
         lisp_addr_t eid,
         int prefixlen)
 {
-    lispd_map_cache_entry *entry;
-    patricia_node_t      *result;
+    lispd_map_cache_entry *entry    = NULL;
+    patricia_node_t       *node   = NULL;
 
-    if (!lookup_eid_cache_exact_node(eid, prefixlen, &result)){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"del_eid_cache_entry: Unable to locate cache entry %s/%d for deletion",get_char_from_lisp_addr_t(eid),prefixlen);
+    node = lookup_map_cache_exact_node(eid, prefixlen);
+    if (node == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"del_map_cache_entry: Unable to locate cache entry %s/%d for deletion",get_char_from_lisp_addr_t(eid),prefixlen);
         return;
     } else {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"Deleting map cache EID entry %s/%d", get_char_from_lisp_addr_t(eid),prefixlen);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Deleting map cache entry: %s/%d", get_char_from_lisp_addr_t(eid),prefixlen);
     }
 
     /*
      * Remove the entry from the trie
      */
-    entry = (lispd_map_cache_entry *)(result->data);
+    entry = (lispd_map_cache_entry *)(node->data);
     if (eid.afi==AF_INET)
-        patricia_remove(AF4_eid_cache, result);
+        patricia_remove(AF4_map_cache, node);
     else
-        patricia_remove(AF6_eid_cache, result);
+        patricia_remove(AF6_map_cache, node);
 
     free_lispd_map_cache_entry(entry);
 }
@@ -417,19 +415,23 @@ void del_eid_cache_entry(
  * This function is used when the map reply report a prefix that includes the requested prefix.
  */
 
-int change_eid_prefix_in_db(
+int change_map_cache_prefix_in_db(
         lisp_addr_t             new_eid_prefix,
         int                     new_eid_prefix_length,
         lispd_map_cache_entry   *cache_entry)
 {
-    patricia_node_t *node;
+    patricia_node_t         *node = NULL;
     lisp_addr_t             old_eid_prefix;
     int                     old_eid_prefix_length;
-    lookup_eid_cache_exact_node(cache_entry->identifier->eid_prefix, cache_entry->identifier->eid_prefix_length, &node);
+
+    node = lookup_map_cache_exact_node(cache_entry->identifier->eid_prefix, cache_entry->identifier->eid_prefix_length);
+    if (node == NULL){
+        return (BAD);
+    }
     if (cache_entry->identifier->eid_prefix.afi==AF_INET)
-        patricia_remove(AF4_eid_cache, node);
+        patricia_remove(AF4_map_cache, node);
     else
-        patricia_remove(AF6_eid_cache, node);
+        patricia_remove(AF6_map_cache, node);
 
     old_eid_prefix = cache_entry->identifier->eid_prefix;
     old_eid_prefix_length = cache_entry->identifier->eid_prefix_length;
@@ -456,11 +458,11 @@ int change_eid_prefix_in_db(
 }
 
 /*
- * eid_entry_expiration()
+ * map_cache_entry_expiration()
  *
  * Called when the timer associated with an EID entry expires.
  */
-void eid_entry_expiration(
+void map_cache_entry_expiration(
         timer   *t,
         void    *arg)
 {
@@ -468,7 +470,7 @@ void eid_entry_expiration(
 
     lispd_log_msg(LISP_LOG_DEBUG_1,"Got expiration for EID %s/%d", get_char_from_lisp_addr_t(entry->identifier->eid_prefix),
             entry->identifier->eid_prefix_length);
-    del_eid_cache_entry(entry->identifier->eid_prefix, entry->identifier->eid_prefix_length);
+    del_map_cache_entry(entry->identifier->eid_prefix, entry->identifier->eid_prefix_length);
 }
 
 
@@ -498,7 +500,7 @@ void format_uptime(int seconds, char *buffer)
  */
 void dump_map_cache(int log_level)
 {
-	patricia_tree_t 	*dbs [2] = {AF4_eid_cache, AF6_eid_cache};
+	patricia_tree_t 	*dbs [2] = {AF4_map_cache, AF6_map_cache};
     char 				buf[256], buf2[256];
     time_t              uptime;
     time_t              expiretime;

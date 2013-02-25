@@ -111,10 +111,10 @@ int process_map_reply(uint8_t *packet)
 
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 {
-    lispd_pkt_mapping_record_t              *record;
+    lispd_pkt_mapping_record_t              *record = NULL;
     lispd_identifier_elt                    identifier;
-    lispd_map_cache_entry                   *cache_entry;
-    int                                     ctr;
+    lispd_map_cache_entry                   *cache_entry = NULL;
+    int                                     ctr = 0;
 
     record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
     init_identifier(&identifier);
@@ -143,7 +143,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
          * we remove the inactie entry from the database and store it again with the correct eix prefix (for instance /24).
          */
         if (cache_entry->identifier->eid_prefix_length != identifier.eid_prefix_length){
-            if (change_eid_prefix_in_db(identifier.eid_prefix, identifier.eid_prefix_length, cache_entry) == BAD)
+            if (change_map_cache_prefix_in_db(identifier.eid_prefix, identifier.eid_prefix_length, cache_entry) == BAD)
                 return (BAD);
         }
         cache_entry->active = 1;
@@ -154,7 +154,8 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
     else {
         /* Serch map cache entry exist*/
-        if (!lookup_eid_cache_exact(identifier.eid_prefix,identifier.eid_prefix_length,&cache_entry)){
+        cache_entry = lookup_map_cache_exact(identifier.eid_prefix,identifier.eid_prefix_length);
+        if (cache_entry == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  No map cache entry found for %s/%d",
                     get_char_from_lisp_addr_t(identifier.eid_prefix),identifier.eid_prefix_length);
             return BAD;
@@ -198,22 +199,8 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     if (!cache_entry->expiry_cache_timer){
         cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE);
     }
-    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)eid_entry_expiration,
+    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
                      (void *)cache_entry);
-    /*
-     *
-     *
-     *
-     * XXX alopez
-     *
-     * Programar els timers
-     * Recalcular locator_hash_table
-     *
-     *
-     *
-     *
-     */
-
 
     return TRUE;
 }

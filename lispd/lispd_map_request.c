@@ -155,7 +155,7 @@ int add_encap_headers(
  int process_map_request_msg(
          uint8_t        *packet,
          lisp_addr_t    *local_rloc,
-         uint16_t          dst_port) {
+         uint16_t       dst_port) {
 
      lispd_identifier_elt source_identifier;
      lispd_map_cache_entry *map_cache_entry     = NULL;
@@ -269,9 +269,10 @@ int add_encap_headers(
          /*
           * Lookup the map cache entry that match with the source identifier of the message
           */
-
-         if ((err = lookup_eid_cache(source_identifier.eid_prefix, &map_cache_entry)) != GOOD)
+         map_cache_entry = lookup_map_cache(source_identifier.eid_prefix);
+         if (map_cache_entry == NULL){
              return (BAD);
+         }
 
          /*
           * Check IID of the received Solicit Map Request match the IID of the map cache
@@ -813,7 +814,7 @@ int send_map_request_miss(timer *t, void *arg)
                         get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
                         map_cache_entry->identifier->eid_prefix_length,
                         nonces->retransmits -1);
-        del_eid_cache_entry(map_cache_entry->identifier->eid_prefix,
+        del_map_cache_entry(map_cache_entry->identifier->eid_prefix,
                 map_cache_entry->identifier->eid_prefix_length);
 
     }
