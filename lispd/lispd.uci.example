@@ -33,6 +33,15 @@ config 'database-mapping'
 	option   'priority_v6'          '1'
         option   'weight_v6'            '100' 
 
+# IPv6 EID of the mobile node
+config 'database-mapping'
+        option   'eid_prefix'           '2610:d0:ffff:192::1/128'
+        option   'interface'            'eth0'
+        option   'priority_v4'          '1'
+        option   'weight_v4'            '100'
+        option   'priority_v6'          '1'
+        option   'weight_v6'            '100'
+
 # Static cache entries      
 config 'static-map-cache'
         option   'eid_prefix'           '153.16.10.0/24'
