@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012 OpenWrt.org
+# Copyright (C) 2012-2013 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -8,8 +8,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lispmob
-PKG_REV:=6f302efbcb27da85ce9835328023ae2cad8378bf
-PKG_VERSION:=0.3.1
+PKG_REV:=648b23a160dd31839c9d10b719961e24cba89b30
+PKG_VERSION:=0.3
 PKG_RELEASE:=3
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
@@ -18,26 +18,28 @@ PKG_SOURCE_PROTO:=git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_REV)
 
+PKG_LICENSE:=GPLv2
+PKG_LICENSE_FILES:=LICENSE
+
 include $(INCLUDE_DIR)/package.mk
 
-define Package/lispd/default
+define Package/lispmob/default
   MAINTAINER:=Vasileios Lakafosis <lakafv@gmail.com>
   URL:=http://lisp.cisco.com/
 endef
 
-define Package/lispd
+define Package/lispmob
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Locator/ID separation protocol (using TUN)
   URL:=https://github.com/LISPmob
   DEPENDS:= +librt +libopenssl +confuse +kmod-tun +uci +kmod-ipv6 +luci
-  $(call Package/lispd/default)
+  $(call Package/lispmob/default)
 endef
 
-define Package/lispd/description
-  This packet provides support for the Locator-ID support protocol.
+define Package/lispmob/description
+  This packet provides support for the Locator-ID Separation Protocol.
 endef
-
 
 
 define Build/Compile
@@ -45,8 +47,7 @@ define Build/Compile
 endef
 
 
-
-define Package/lispd/install
+define Package/lispmob/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/lispd/lispd $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/config
@@ -59,4 +60,4 @@ define Package/lispd/install
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/model-cbi-lisp.lua $(1)/usr/lib/lua/luci/model/cbi/lisp/lisp.lua
 endef
 
-$(eval $(call BuildPackage,lispd))
+$(eval $(call BuildPackage,lispmob))
