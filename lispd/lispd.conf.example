@@ -25,10 +25,10 @@ map-resolver        = {
 
 # Register to this map server
 map-server {
-        address	    = 128.223.156.35		# 128.223.156.35
+        address	    = 128.223.156.35		# Address of the map server (IPv4 or IPv6)
         key-type    = 1		                # SHA1
-        key	    = foo%bar
-	proxy-reply = on	                # ask ms to proxy reply
+        key	    	= foo%bar
+		proxy-reply = on	                # ask ms to proxy reply
 }
 
 # Encapsulate packets for non-LISP sites to this Proxy-ETR
@@ -41,7 +41,7 @@ proxy-etr {
 # IPv4 EID of the mobile node
 database-mapping {
          eid-prefix 	= 153.16.254.1/32
-         interface  	= eth0
+         interface  	= eth0				# Interface containing the RLOCs associated to this EID
          priority_v4	= 1
          weight_v4     	= 100
          priority_v6	= 1
@@ -51,7 +51,7 @@ database-mapping {
 # IPv6 EID of the mobile node
 database-mapping {
          eid-prefix 	= 2610:d0:ffff:192::1/128
-         interface  	= eth0
+         interface  	= eth0				# Interface containing the RLOCs associated to this EID
          priority_v4	= 1
          weight_v4     	= 100
          priority_v6	= 1
