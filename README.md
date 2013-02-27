@@ -11,8 +11,8 @@ distributed database, the mapping system, is responsible for maintaining the
 associations between EIDs and RLOCs.
 
 LISP Mobile Node (LISP-MN) is a specification to enable fast host mobility
-using LISP.  The LISPmob project aims to deliver a full implementation of this
-specification for Linux, but parts of the implementation may be reusable on
+using LISP.  The LISPmob project aims to deliver a full implementation of both
+LISP and LISP-MN for Linux, but parts of the implementation may be reusable on
 other Unix-like operating systems.
 
 Please note that version 0.3 introduces major changes in the code architecture
@@ -123,6 +123,26 @@ has defined a default route in the routing table (there is a 'default' entry for
 each outgoing interface). In most cases, this is auto-configured by the 
 operating system during start-up.
 
+Check that sysctl options configuration is correct. Make sure that rp_filter 
+kernel network parameter is disabled. It is disabled by default in OpenWRT,
+but, for instance, it is enabled by default in Ubuntu. Make sure too that 
+IP forwarding is enabled. It should be enabled by default in OpenWRT.
+
+Configure these values during OS runtime with the following commands
+    
+    sudo sysctl net.ipv4.conf.default.rp_filter=0
+    sudo sysctl net.ipv4.conf.all.rp_filter=0
+    sudo sysctl net.ipv4.ip_forward=1
+    sudo sysctl net.ipv6.conf.all.forwarding=1  
+    
+You can instruct your system to auto-configure these values during system boot-up 
+if you add the following lines to `/etc/sysctl.conf`
+
+    net.ipv4.conf.default.rp_filter=0
+    net.ipv4.conf.all.rp_filter=0
+    net.ipv4.ip_forward=1
+    net.ipv6.conf.all.forwarding=1   
+
 The user space daemon must be started as the super-user:
 
     sudo lispd -f /etc/lispd.conf
@@ -176,6 +196,7 @@ This is the list of supported features at this moment:
     - Encapsulate data packets
     - Decapsulate data packets
     - RLOC Probing (reply only)
+    - IPv6 full support (EIDs and RLOCs)
 
 
 
@@ -199,31 +220,18 @@ with for the router mode but, there are a few specific requirements that are
 specific for this mode. To configure LISPmob to use it on router mode use the 
 general LISPmob configuration instructions considering the following exceptions:
 
-    - An EID /30 (at least) prefix is required instead of a /32 one. 
-    This prefix should be used as the network prefix for the subnet 
-    where the hosts behind the router are allocated. Assign it to an 
-    interface and configure it as you would do for a normal network 
-    prefix (static configuration, DHCP, etc...). No EID is used for 
-    the 'lispTun0' interface in router mode (a local address is 
-    automatically used by LISPmob instead).
+An EID /30 (at least) prefix is required instead of a /32 one. This prefix 
+should be used as the network prefix for the subnet where the hosts behind 
+the router are allocated. Assign it to an interface and configure it as you 
+would do for a normal network prefix (static configuration, DHCP, etc...). 
+No EID is used for the 'lispTun0' interface in router mode (a local address is 
+automatically used by LISPmob instead).
 
-    - The configuration is performed through the OpenWRT standard 
-    configuration tool UCI, instead of using 'lispd.conf' file. 
-    Configure the UCI file manually in '/etc/config/lispd' (by 
-    default), use the UCI CLI application, or use the web interface
-    (if available). The configuration fields are analogue to those
-    in the 'lispd.conf' file.
-
-    - Prior to launch LISPmob in router mode make sure that rp_filter 
-    kernel network parameter is disabled. It is disabled by default in 
-    OpenWRT, but, for instance, it is enabled by default in Ubuntu. 
-    Check it with "sysctl net.ipv4.conf.all.rp_filter", disable it 
-    with "sysctl net.ipv4.conf.all.rp_filter=0"
-    
-    - Make sure too that IP forwarding is enabled in the router. It 
-    should be enabled by default in OpenWRT. Check it again with 
-    sysctl "sysctl net.ipv4.ip_forward", enable it with
-    "sysctl net.ipv4.ip_forward=1"
+The configuration is performed through the OpenWRT standard configuration tool 
+UCI, instead of using 'lispd.conf' file. Configure the UCI file manually in 
+'/etc/config/lispd' (by default), use the UCI CLI application, or use the web 
+interface (if available). The configuration fields are analogue to those in 
+the 'lispd.conf' file.
 
 
 Contact
