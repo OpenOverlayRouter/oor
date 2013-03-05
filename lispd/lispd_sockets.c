@@ -205,7 +205,7 @@ int open_control_input_socket(int afi){
     sock = bind_socket(sock,afi,LISP_CONTROL_PORT);
     
     if(sock == BAD){
-        return BAD;
+        return (BAD);
     }
 
     switch (afi){

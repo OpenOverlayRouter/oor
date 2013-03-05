@@ -79,7 +79,12 @@ lispd_iface_elt *add_interface(char *iface_name);
 
 lispd_iface_elt *get_interface(char *iface_name);
 
+/*
+ * Look up an interface based in the index of the iface.
+ * Return the iface element if it is found or NULL if not.
+ */
 
+lispd_iface_elt *get_interface_from_index(int iface_index);
 
 /*
  * Add the identifier to the list of identifiers of the interface according to the afi.

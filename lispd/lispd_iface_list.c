@@ -179,6 +179,29 @@ lispd_iface_elt *get_interface(char *iface_name)
     return (NULL);
 }
 
+/*
+ * Look up an interface based in the index of the iface.
+ * Return the iface element if it is found or NULL if not.
+ */
+
+lispd_iface_elt *get_interface_from_index(int iface_index){
+
+    lispd_iface_elt         *iface          = NULL;
+    lispd_iface_list_elt    *iface_lst_elt  = NULL;
+    int                     index           = 0;
+
+    iface_lst_elt = head_interface_list;
+    while (iface_lst_elt != NULL){
+        index = if_nametoindex(iface_lst_elt->iface->iface_name);
+        if (index == iface_index){
+            iface = iface_lst_elt->iface;
+            break;
+        }
+        iface_lst_elt = iface_lst_elt->next;
+    }
+
+    return iface;
+}
 
 
 
@@ -368,6 +391,7 @@ lisp_addr_t *get_iface_address(
     return (addr);
     
 }
+
 
 /*
  * Editor modelines
