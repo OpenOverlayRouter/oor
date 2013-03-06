@@ -33,6 +33,8 @@
 #include "lispd_log.h"
 
 void process_nl_add_address (struct nlmsghdr *nlh);
+void process_nl_del_address (struct nlmsghdr *nlh);
+void process_nl_new_link (struct nlmsghdr *nlh);
 
 int opent_netlink_socket()
 {
@@ -84,17 +86,16 @@ void process_netlink_msg(int netlink_fd){
         for (;(NLMSG_OK (nlh, len)) && (nlh->nlmsg_type != NLMSG_DONE); nlh = NLMSG_NEXT(nlh, len)){
             switch(nlh->nlmsg_type){
             case RTM_NEWADDR:
-                printf ("========>>>  1\n");
+                lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  new address message");
                 process_nl_add_address (nlh);
                 break;
             case RTM_DELADDR:
-                printf ("========>>>  2\n");
+                process_nl_del_address (nlh);
+                lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  del address message");
                 break;
             case RTM_NEWLINK:
-                printf ("========>>>  3\n");
-                break;
-            case RTM_DELLINK:
-                printf ("========>>>  4\n");
+                lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  link message");
+                process_nl_new_link (nlh);
                 break;
             default:
                 break;
@@ -128,7 +129,6 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     rt_length = IFA_PAYLOAD (nlh);
     for (;rt_length && RTA_OK (rth, rt_length); rth = RTA_NEXT (rth,rt_length))
     {
-        printf("----> %d\n", rth->rta_type);
         if (rth->rta_type == IFA_ADDRESS){
             if (ifa->ifa_family == AF_INET){
                 memcpy (&(new_addr.address),(struct in_addr *)RTA_DATA(rth),sizeof(struct in_addr));
@@ -139,5 +139,72 @@ void process_nl_add_address (struct nlmsghdr *nlh)
             }
             break;
         }
+    }
+
+    printf ("addr: %s\n", get_char_from_lisp_addr_t(new_addr));
+}
+
+
+
+void process_nl_del_address (struct nlmsghdr *nlh)
+{
+    struct ifaddrmsg    *ifa            = NULL;
+    struct rtattr       *rth            = NULL;
+    int                 iface_index     = 0;
+    int                 rt_length       = 0;
+    lispd_iface_elt     *iface          = NULL;
+    lisp_addr_t         new_addr;
+
+    ifa = (struct ifaddrmsg *) NLMSG_DATA (nlh);
+    iface_index = ifa->ifa_index;
+
+    iface = get_interface_from_index(iface_index);
+
+    if (iface == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_3, "process_nl_add_address: the netlink message is not for any RLOC interface");
+        return;
+    }
+    rth = IFA_RTA (ifa);
+
+    rth = IFA_RTA (ifa);
+    rt_length = IFA_PAYLOAD (nlh);
+    for (;rt_length && RTA_OK (rth, rt_length); rth = RTA_NEXT (rth,rt_length))
+    {
+        if (rth->rta_type == IFA_ADDRESS){
+            if (ifa->ifa_family == AF_INET){
+                memcpy (&(new_addr.address),(struct in_addr *)RTA_DATA(rth),sizeof(struct in_addr));
+                new_addr.afi = AF_INET;
+            }else if (ifa->ifa_family == AF_INET6){
+                memcpy (&(new_addr.address),(struct in6_addr *)RTA_DATA(rth),sizeof(struct in6_addr));
+                new_addr.afi = AF_INET6;
+            }
+            break;
+        }
+    }
+
+    printf ("addr: %s\n", get_char_from_lisp_addr_t(new_addr));
+}
+
+void process_nl_new_link (struct nlmsghdr *nlh)
+{
+    struct ifinfomsg    *ifi            = NULL;
+    int                 iface_index     = 0;
+    lispd_iface_elt     *iface          = NULL;
+
+    ifi = (struct ifinfomsg *) NLMSG_DATA (nlh);
+    iface_index = ifi->ifi_index;
+
+    iface = get_interface_from_index(iface_index);
+
+    if (iface == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_3, "process_nl_new_link: the netlink message is not for any RLOC interface");
+        return;
+    }
+    printf ("***** %d \n",ifi->ifi_flags);
+    if ((ifi->ifi_flags & IFF_RUNNING) != 0){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to UP",iface->iface_name);
+    }
+    else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to DOWN",iface->iface_name);
     }
 }
