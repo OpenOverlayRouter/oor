@@ -168,8 +168,8 @@ lispd_map_cache_entry *new_map_cache_entry (
         return(NULL);
     }
     memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
-    if ((map_cache_entry->identifier = malloc(sizeof(lispd_identifier_elt))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_identifier_elt: %s", strerror(errno));
+    if ((map_cache_entry->identifier = malloc(sizeof(lispd_mapping_elt))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_mapping_elt: %s", strerror(errno));
         free (map_cache_entry);
         return(NULL);
     }
@@ -348,7 +348,7 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(
 
 void free_lispd_map_cache_entry(lispd_map_cache_entry *entry){
 
-    free_lispd_identifier_elt(entry->identifier, FALSE);
+    free_lispd_mapping_elt(entry->identifier, FALSE);
     /*
      * Free the entry
      */

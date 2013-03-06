@@ -46,7 +46,7 @@ patricia_tree_t *EIDv6_database           = NULL;
 /*
  *  Add a EID entry to the database.
  */
-int add_identifier(lispd_identifier_elt *identifier);
+int add_identifier(lispd_mapping_elt *identifier);
 
 patricia_node_t *lookup_eid_node(lisp_addr_t eid);
 
@@ -79,7 +79,7 @@ patricia_tree_t* get_local_db(int afi)
 }
 
 
-void init_identifier (lispd_identifier_elt *identifier)
+void init_identifier (lispd_mapping_elt *identifier)
 {
     int i = 0;
     identifier->eid_prefix.afi = -1;
@@ -100,7 +100,7 @@ void init_identifier (lispd_identifier_elt *identifier)
 /*
  *  Add a EID entry to the database.
  */
-int add_identifier(lispd_identifier_elt *identifier)
+int add_identifier(lispd_mapping_elt *identifier)
 {
     prefix_t            *prefix             = NULL;
     patricia_node_t     *node               = NULL;
@@ -140,7 +140,7 @@ int add_identifier(lispd_identifier_elt *identifier)
     Deref_Prefix(prefix);
 
     if (node->data == NULL){            /* its a new node */
-        node->data = (lispd_identifier_elt *) identifier;
+        node->data = (lispd_mapping_elt *) identifier;
         lispd_log_msg(LISP_LOG_DEBUG_2, "Identifier %s/%d inserted in the database",
                 get_char_from_lisp_addr_t(identifier->eid_prefix),
                 identifier->eid_prefix_length);
@@ -156,16 +156,16 @@ int add_identifier(lispd_identifier_elt *identifier)
  * Creates an identifier and add it into the database
  */
 
-lispd_identifier_elt *new_identifier(
+lispd_mapping_elt *new_identifier(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
 {
-    lispd_identifier_elt *identifier = NULL;
+    lispd_mapping_elt *identifier = NULL;
     int i;
 
-    if ((identifier=malloc(sizeof(lispd_identifier_elt)))==NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"Couldn't allocate memory for lispd_identifier_elt: %s", strerror(errno));
+    if ((identifier=malloc(sizeof(lispd_mapping_elt)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"Couldn't allocate memory for lispd_mapping_elt: %s", strerror(errno));
         return (NULL);
     }
     identifier->eid_prefix =  eid_prefix;
@@ -255,18 +255,18 @@ patricia_node_t *lookup_eid_exact_node(
  * lookup_eid_in_db
  *
  * Look up a given eid in the database, returning the
- * lispd_identifier_elt of this EID if it exists or NULL.
+ * lispd_mapping_elt of this EID if it exists or NULL.
  */
-lispd_identifier_elt *lookup_eid_in_db(lisp_addr_t eid)
+lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t eid)
 {
-    lispd_identifier_elt    *identifier = NULL;
+    lispd_mapping_elt       *identifier = NULL;
     patricia_node_t         *result     = NULL;
 
     result = lookup_eid_node(eid);
     if (result == NULL){
         return(NULL);
     }
-    identifier = (lispd_identifier_elt *)(result->data);
+    identifier = (lispd_mapping_elt *)(result->data);
 
     return(identifier);
 }
@@ -275,18 +275,18 @@ lispd_identifier_elt *lookup_eid_in_db(lisp_addr_t eid)
  * lookup_eid_in_db
  *
  *  Look up a given eid in the database, returning the
- * lispd_identifier_elt containing the exact EID if it exists or NULL.
+ * lispd_mapping_elt containing the exact EID if it exists or NULL.
  */
-lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length)
+lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length)
 {
-    lispd_identifier_elt    *identifier = NULL;
+    lispd_mapping_elt    *identifier = NULL;
     patricia_node_t         *result     = NULL;
 
     result = lookup_eid_exact_node(eid_prefix,eid_prefix_length);
     if (result == NULL){
         return(NULL);
     }
-    identifier = (lispd_identifier_elt *)(result->data);
+    identifier = (lispd_mapping_elt *)(result->data);
 
     return(identifier);
 }
@@ -297,7 +297,7 @@ lispd_identifier_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_pre
  */
 
 lispd_locator_elt   *new_locator (
-        lispd_identifier_elt 		*identifier,
+        lispd_mapping_elt 		*identifier,
         lisp_addr_t                 *locator_addr,
         uint8_t                     *state,    /* UP , DOWN */
         uint8_t                     locator_type,
@@ -442,7 +442,7 @@ void del_identifier_entry(
         int prefixlen,
         uint8_t local_identifier)
 {
-    lispd_identifier_elt *entry     = NULL;
+    lispd_mapping_elt    *entry     = NULL;
     patricia_node_t      *result    = NULL;
 
     result = lookup_eid_exact_node(eid, prefixlen);
@@ -457,7 +457,7 @@ void del_identifier_entry(
     /*
      * Remove the entry from the trie
      */
-    entry = (lispd_identifier_elt *)(result->data);
+    entry = (lispd_mapping_elt *)(result->data);
     if (eid.afi==AF_INET)
         patricia_remove(EIDv4_database, result);
     else
@@ -498,10 +498,10 @@ void free_locator_list(
 }
 
 /*
- * Free memory of lispd_identifier_elt. We indicate if the identifier is local or remote
+ * Free memory of lispd_mapping_elt. We indicate if the identifier is local or remote
  */
-void free_lispd_identifier_elt(
-        lispd_identifier_elt    *identifier,
+void free_lispd_mapping_elt(
+        lispd_mapping_elt    *identifier,
         uint8_t                 local_identifier)
 {
     /*
@@ -517,7 +517,7 @@ void free_lispd_identifier_elt(
 lisp_addr_t *get_main_eid(int afi){
     lisp_addr_t                 *eid        = NULL;
     patricia_node_t             *node       = NULL;
-    lispd_identifier_elt        *entry      = NULL;
+    lispd_mapping_elt           *entry      = NULL;
     patricia_tree_t             *database   = NULL;
 
     switch (afi){
@@ -530,7 +530,7 @@ lisp_addr_t *get_main_eid(int afi){
     }
 
     PATRICIA_WALK(database->head, node) {
-        entry = ((lispd_identifier_elt *)(node->data));
+        entry = ((lispd_mapping_elt *)(node->data));
         eid = &(entry->eid_prefix);
     } PATRICIA_WALK_END;
 
@@ -541,7 +541,7 @@ lisp_addr_t *get_main_eid(int afi){
  * dump local identifier
  */
 void dump_identifier(
-        lispd_identifier_elt    *identifier,
+        lispd_mapping_elt    *identifier,
         int                     log_level)
 {
     lispd_locators_list         *locator_iterator_array[2]= {NULL,NULL};
@@ -586,14 +586,14 @@ void dump_local_eids(int log_level)
     int                 ctr      = 0;
 
     patricia_node_t             *node;
-    lispd_identifier_elt        *entry;
+    lispd_mapping_elt           *entry;
 
 
     lispd_log_msg(log_level,"*** LISP Local EIDs ***\n\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){
         PATRICIA_WALK(dbs[ctr]->head, node) {
-            entry = ((lispd_identifier_elt *)(node->data));
+            entry = ((lispd_mapping_elt *)(node->data));
             dump_identifier(entry, log_level);
         } PATRICIA_WALK_END;
     }

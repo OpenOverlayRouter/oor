@@ -119,9 +119,9 @@ typedef struct lispd_pkt_lcaf_iid_t_ {
 
 
 /*
- * Reads the address information from the packet and fill the lispd_identifier_elt element
+ * Reads the address information from the packet and fill the lispd_mapping_elt element
  */
-int pkt_process_eid_afi(uint8_t  **offset, lispd_identifier_elt *identifier);
+int pkt_process_eid_afi(uint8_t  **offset, lispd_mapping_elt *identifier);
 
 /*
  * Reads the address information from the packet and fill the lispd_locator_elt element

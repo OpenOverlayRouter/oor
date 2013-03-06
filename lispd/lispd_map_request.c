@@ -118,7 +118,7 @@ int process_map_request_record(
 /* Build a Map Request paquet */
 
  uint8_t *build_map_request_pkt(
-         lispd_identifier_elt    *requested_identifier,
+         lispd_mapping_elt    *requested_identifier,
          lisp_addr_t             *src_eid,
          uint8_t                 encap,
          uint8_t                 probe,
@@ -141,7 +141,7 @@ int add_encap_headers(
   * Calculate Map Request length. Just add locators with status up
   */
 
- int get_map_request_length (lispd_identifier_elt *requested_identifier, lispd_identifier_elt *src_identifier);
+ int get_map_request_length (lispd_mapping_elt *requested_identifier, lispd_mapping_elt *src_identifier);
 
  /*
   * Calculate the overhead of the Encapsulated Map Request length.
@@ -157,7 +157,7 @@ int add_encap_headers(
          lisp_addr_t    *local_rloc,
          uint16_t       dst_port) {
 
-     lispd_identifier_elt source_identifier;
+     lispd_mapping_elt source_identifier;
      lispd_map_cache_entry *map_cache_entry     = NULL;
      lisp_addr_t itr_rloc[32];
      lisp_addr_t *remote_rloc                   = NULL;
@@ -335,8 +335,8 @@ int add_encap_headers(
          uint64_t nonce)
  {
      lispd_pkt_map_request_eid_prefix_record_t *record;
-     lispd_identifier_elt requested_identifier;
-     lispd_identifier_elt *identifier;
+     lispd_mapping_elt requested_identifier;
+     lispd_mapping_elt *identifier;
      map_reply_opts opts;
 
      /* Get the requested EID prefix */
@@ -392,7 +392,7 @@ int add_encap_headers(
  */
 
 int build_and_send_map_request_msg(
-        lispd_identifier_elt    *requested_identifier,
+        lispd_mapping_elt    *requested_identifier,
         lisp_addr_t             *src_eid,
         lisp_addr_t             *dst_rloc_addr,
         uint8_t                 encap,
@@ -443,7 +443,7 @@ int build_and_send_map_request_msg(
 /* Build a Map Request paquet */
 
 uint8_t *build_map_request_pkt(
-        lispd_identifier_elt    *requested_identifier,
+        lispd_mapping_elt    *requested_identifier,
         lisp_addr_t             *src_eid,
         uint8_t                 encap,
         uint8_t                 probe,
@@ -466,7 +466,7 @@ uint8_t *build_map_request_pkt(
     int                     cpy_len             = 0;
     int                     locators_ctr        = 0;
 
-    lispd_identifier_elt *src_identifier        = NULL;
+    lispd_mapping_elt *src_identifier        = NULL;
     lispd_locators_list *locators_list[2];
     lispd_locator_elt   *locator;
     lisp_addr_t         * ih_src_ip             = NULL;
@@ -699,7 +699,7 @@ int add_encap_headers(uint8_t *packet, lisp_addr_t *src_eid, lisp_addr_t *remote
  * Calculate Map Request length. Just add locators with status up
  */
 
-int get_map_request_length (lispd_identifier_elt *requested_identifier, lispd_identifier_elt *src_identifier)
+int get_map_request_length (lispd_mapping_elt *requested_identifier, lispd_mapping_elt *src_identifier)
 {
     int mr_len = 0;
     int locator_count = 0, aux_locator_count = 0;

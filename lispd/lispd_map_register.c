@@ -47,7 +47,7 @@
 
 
 lispd_pkt_map_register_t *build_map_register_pkt(
-        lispd_identifier_elt    *identifier,
+        lispd_mapping_elt       *identifier,
         int                     *mrp_len);
 int send_map_register(
         lisp_addr_t                 *ms_address,
@@ -75,7 +75,7 @@ int map_register(
     lispd_map_server_list_t   *ms;
     lispd_pkt_map_register_t  *map_register_pkt; 
     patricia_node_t           *node;
-    lispd_identifier_elt      *identifier_elt;
+    lispd_mapping_elt         *identifier_elt;
     int                       mrp_len = 0;
     int                       ctr = 0;
     int                       sent_map_registers = 0;
@@ -94,7 +94,7 @@ int map_register(
         if (!tree)
             continue;
         PATRICIA_WALK(tree->head, node) {
-            identifier_elt = ((lispd_identifier_elt *)(node->data));
+            identifier_elt = ((lispd_mapping_elt *)(node->data));
             if (identifier_elt) {
                 if ((map_register_pkt =
                         build_map_register_pkt(identifier_elt, &mrp_len)) == NULL) {
@@ -174,7 +174,7 @@ int map_register(
  */
 
 lispd_pkt_map_register_t *build_map_register_pkt(
-        lispd_identifier_elt    *identifier,
+        lispd_mapping_elt       *identifier,
         int                     *mrp_len)
 {
     lispd_pkt_map_register_t *mrp;

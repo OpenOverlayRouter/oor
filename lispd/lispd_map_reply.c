@@ -72,9 +72,9 @@
 #include "lispd_sockets.h"
 
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce);
-int process_map_reply_locator(uint8_t  **offset, lispd_identifier_elt *identifier);
+int process_map_reply_locator(uint8_t  **offset, lispd_mapping_elt *identifier);
 uint8_t *build_map_reply_pkt(
-        lispd_identifier_elt *identifier,
+        lispd_mapping_elt *identifier,
         lisp_addr_t *probed_rloc,
         map_reply_opts opts,
         uint64_t nonce,
@@ -112,7 +112,7 @@ int process_map_reply(uint8_t *packet)
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 {
     lispd_pkt_mapping_record_t              *record = NULL;
-    lispd_identifier_elt                    identifier;
+    lispd_mapping_elt                    identifier;
     lispd_map_cache_entry                   *cache_entry = NULL;
     int                                     ctr = 0;
 
@@ -207,7 +207,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 
 int process_map_reply_locator(
         uint8_t                 **offset,
-        lispd_identifier_elt    *identifier)
+        lispd_mapping_elt    *identifier)
 {
     lispd_pkt_mapping_record_locator_t  *pkt_locator;
     lispd_locator_elt                   aux_locator;
@@ -254,7 +254,7 @@ int process_map_reply_locator(
  */
 
 int build_and_send_map_reply_msg(
-        lispd_identifier_elt *requested_identifier,
+        lispd_mapping_elt *requested_identifier,
         lisp_addr_t *local_rloc,
         lisp_addr_t *remote_rloc,
         uint16_t dport,
@@ -294,7 +294,7 @@ int build_and_send_map_reply_msg(
 }
 
 
-uint8_t *build_map_reply_pkt(lispd_identifier_elt *identifier,
+uint8_t *build_map_reply_pkt(lispd_mapping_elt *identifier,
          lisp_addr_t *probed_rloc, map_reply_opts opts, uint64_t nonce,
          int *map_reply_msg_len) {
     uint8_t *packet;

@@ -35,7 +35,7 @@
 
 int pkt_process_eid_afi(
         uint8_t                 **offset,
-        lispd_identifier_elt    *identifier)
+        lispd_mapping_elt       *identifier)
 {
 
     uint8_t                 *cur_ptr;

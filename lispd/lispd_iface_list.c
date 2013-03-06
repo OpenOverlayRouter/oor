@@ -113,14 +113,14 @@ lispd_iface_elt *add_interface(char *iface_name)
 
 int add_identifier_to_interface (
         lispd_iface_elt         *interface,
-        lispd_identifier_elt    *identifier,
+        lispd_mapping_elt       *identifier,
         int                     afi)
 {
-	lispd_identifiers_list *identifiers_list, *aux_identifiers_list;
+	lispd_mappings_list *identifiers_list, *aux_identifiers_list;
 
 
-	if ((identifiers_list = malloc(sizeof(lispd_identifiers_list)))==NULL){
-		lispd_log_msg(LISP_LOG_ERR,"add_identifier_to_interface: couldn't allocate memory for lispd_identifiers_list: %s",strerror(errno));
+	if ((identifiers_list = malloc(sizeof(lispd_mappings_list)))==NULL){
+		lispd_log_msg(LISP_LOG_ERR,"add_identifier_to_interface: couldn't allocate memory for lispd_mappings_list: %s",strerror(errno));
 		return (ERR_MALLOC);
 	}
 	identifiers_list->identifier=identifier;
@@ -214,7 +214,7 @@ void dump_iface_list(int log_level)
 {
 
     lispd_iface_list_elt     *interface_list = head_interface_list;
-    lispd_identifiers_list   *identifier_list;
+    lispd_mappings_list   *identifier_list;
 
     if (head_interface_list == NULL)
         return;

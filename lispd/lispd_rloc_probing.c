@@ -43,7 +43,7 @@ int rloc_probing(
     void *arg)
 {
     lispd_map_cache_entry   *map_cache_entry = (lispd_map_cache_entry *)arg;
-    lispd_identifier_elt    *identifier = map_cache_entry->identifier;
+    lispd_mapping_elt       *identifier = map_cache_entry->identifier;
     lispd_locators_list 	*locators_lists[2];
     lispd_locators_list     *locators;
     lispd_locator_elt       *locator;

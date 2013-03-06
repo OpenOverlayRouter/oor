@@ -45,7 +45,7 @@
 int get_locator_length(lispd_locators_list *locators_list);
 
 
-int pkt_get_mapping_record_length(lispd_identifier_elt *identifier)
+int pkt_get_mapping_record_length(lispd_mapping_elt *identifier)
 {
     lispd_locators_list *locators_list[2] = {
             identifier->head_v4_locators_list,
@@ -148,7 +148,7 @@ int get_up_locator_length(
  */
 
 
-int get_identifier_length(lispd_identifier_elt *identifier)
+int get_identifier_length(lispd_mapping_elt *identifier)
 {
     int ident_len = 0;
     switch (identifier->eid_prefix.afi) {
@@ -170,7 +170,7 @@ int get_identifier_length(lispd_identifier_elt *identifier)
 
 void *pkt_fill_eid(
         void                    *offset,
-        lispd_identifier_elt    *identifier)
+        lispd_mapping_elt    *identifier)
 {
     uint16_t                *afi_ptr;
     lispd_pkt_lcaf_t        *lcaf_ptr;
@@ -212,7 +212,7 @@ void *pkt_fill_eid(
 
 void *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
-    lispd_identifier_elt                    *identifier,
+    lispd_mapping_elt                    *identifier,
     lisp_addr_t                             *probed_rloc)
 {
     int                                     cpy_len = 0;

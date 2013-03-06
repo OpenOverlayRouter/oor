@@ -666,7 +666,7 @@ int add_database_mapping(
         int    weight_v6)
 
 {
-    lispd_identifier_elt        *identifier;
+    lispd_mapping_elt           *identifier;
     lispd_iface_elt             *interface;
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
     int                         eid_prefix_length;
