@@ -101,12 +101,26 @@ The latest version of the LISPmob source code can be obtained from Github:
 Installation
 ------------
 
-To build and install the code, run the following in the top-level directory:
+To build the code for Linux operating as a Mobile Node, run the following 
+in the top-level directory:
 
-    make
+    make 
+
+To build the code for Linux operating as a Router, run the following 
+in the top-level directory:
+
+    make platform=router
+
+To install it in `/usr/local/sbin`, run
+
     sudo make install
+    
+To build the code for OpenWRT operating as a Router, use the OpenWRT specific
+Makefile (in OpenWRT folder) and the OpenWRT official SDK. However, for your
+convenience, we encourage you to install the precompiled .ipk, either from the
+OpenWRT official repository or from our website.
 
-This will build the executable files, installed to `/usr/local/sbin`.
+Check http://lispmob.org/downloads/openwrt
 
 
 Running LISPmob
