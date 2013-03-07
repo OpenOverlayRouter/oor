@@ -215,8 +215,8 @@ This is the list of supported features at this moment:
 
 
 
-OpenWRT
--------
+OpenWRT and router mode
+-----------------------
 
 Since version 0.3, LISPmob can be also used to operate as a router. This 
 working mode was developed with OpenWRT in mind, but it should work in any 
@@ -228,14 +228,16 @@ Thanks to the versatility of the TUN approach, the code changes to support
 OpenWRT are minimal. However, to enable OpenWRT configuration mode and the 
 routing specific operations, the code should be compiled with the option 
 -DOPEN_WRT. To enable router operation in a common Linux host, the option
--DROUTER will suffice.
+-DROUTER will suffice. Keep in mind the associated libraries. These options 
+and libraries are auto-managed when compiling with the `platform` option.
 
 The basic LISPmob requisites and configuration parameters must be complied 
 with for the router mode but, there are a few specific requirements that are
 specific for this mode. To configure LISPmob to use it on router mode use the 
 general LISPmob configuration instructions considering the following exceptions:
 
-An EID /30 (at least) prefix is required instead of a /32 one. This prefix 
+An EID /30 (at least) prefix is required instead of a /32 one. For IPv6 you 
+should have a /126 (at least) instead of a /128 one. This prefix 
 should be used as the network prefix for the subnet where the hosts behind 
 the router are allocated. Assign it to an interface and configure it as you 
 would do for a normal network prefix (static configuration, DHCP, etc...). 
