@@ -72,7 +72,7 @@
 #include "lispd_sockets.h"
 
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce);
-int process_map_reply_locator(uint8_t  **offset, lispd_mapping_elt *identifier);
+int process_map_reply_locator(uint8_t  **offset, lispd_mapping_elt *mapping);
 uint8_t *build_map_reply_pkt(
         lispd_mapping_elt *identifier,
         lisp_addr_t *probed_rloc,
@@ -112,12 +112,12 @@ int process_map_reply(uint8_t *packet)
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 {
     lispd_pkt_mapping_record_t              *record = NULL;
-    lispd_mapping_elt                    identifier;
+    lispd_mapping_elt                       identifier;
     lispd_map_cache_entry                   *cache_entry = NULL;
     int                                     ctr = 0;
 
     record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
-    init_identifier(&identifier);
+    init_mapping(&identifier);
     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
     if (!pkt_process_eid_afi(cur_ptr,&identifier)){
         lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Error processing the identifier of the map reply record");
@@ -178,8 +178,8 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         lispd_log_msg(LISP_LOG_DEBUG_2,"  A map cache entry already exists for %s/%d, replacing locators list of this entry",
                 get_char_from_lisp_addr_t(cache_entry->identifier->eid_prefix),
                 cache_entry->identifier->eid_prefix_length);
-        free_locator_list(cache_entry->identifier->head_v4_locators_list, FALSE);
-        free_locator_list(cache_entry->identifier->head_v6_locators_list, FALSE);
+        free_locator_list(cache_entry->identifier->head_v4_locators_list);
+        free_locator_list(cache_entry->identifier->head_v6_locators_list);
         cache_entry->identifier->head_v4_locators_list = NULL;
         cache_entry->identifier->head_v6_locators_list = NULL;
     }
@@ -207,13 +207,11 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 
 int process_map_reply_locator(
         uint8_t                 **offset,
-        lispd_mapping_elt    *identifier)
+        lispd_mapping_elt       *mapping)
 {
     lispd_pkt_mapping_record_locator_t  *pkt_locator;
-    lispd_locator_elt                   aux_locator;
-    lisp_addr_t                         aux_locator_addr;
-    lisp_addr_t                         *locator_addr;
-    uint8_t								*state;
+    lispd_locator_elt                   *locator;
+    lisp_addr_t                         locator_addr;
     uint8_t                             *cur_ptr;
 
     cur_ptr = *offset;
@@ -222,25 +220,21 @@ int process_map_reply_locator(
     cur_ptr = (uint8_t *)&(pkt_locator->locator_afi);
 
     /* Get the locator address from the packet */
-    // lispd_locator_elt->locator_addr is a pointer without reserved memory. We init here
-    aux_locator.locator_addr = &aux_locator_addr;
-    if (pkt_process_rloc_afi(&cur_ptr, &aux_locator) == BAD)
+    if (pkt_process_rloc_afi(&cur_ptr, &locator_addr) == BAD){
         return (BAD);
-
-    if((locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
-    	lispd_log_msg(LISP_LOG_WARNING,"process_map_reply_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-    	return (ERR_MALLOC);
-    }
-    if((state = malloc(sizeof(uint8_t))) == NULL){
-    	lispd_log_msg(LISP_LOG_WARNING,"process_map_reply_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
-    	return (ERR_MALLOC);
     }
 
-    copy_lisp_addr_t(locator_addr, aux_locator.locator_addr, FALSE);
-    *state = pkt_locator->reachable;
-    new_locator (identifier, locator_addr,state, DYNAMIC_LOCATOR,
+    locator = new_rmt_locator (locator_addr,pkt_locator->reachable, DYNAMIC_LOCATOR,
             pkt_locator->priority, pkt_locator->weight,
             pkt_locator->mpriority, pkt_locator->mweight);
+
+    if (locator != NULL){
+        if ((err=add_locator_to_mapping (mapping, locator)) != GOOD){
+            return (BAD);
+        }
+    }else{
+        return (BAD);
+    }
 
     *offset = cur_ptr;
     return (GOOD);

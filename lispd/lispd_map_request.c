@@ -258,7 +258,7 @@ int add_encap_headers(
          return(BAD); //we should never reach this return()
 
      /* Source EID is optional in general, but required for SMRs */
-     init_identifier(&source_identifier);
+     init_mapping(&source_identifier);
      cur_ptr = (uint8_t *)&(msg->source_eid_afi);
      if (pkt_process_eid_afi(&cur_ptr, &source_identifier)==BAD)
          return (BAD);
@@ -341,7 +341,7 @@ int add_encap_headers(
 
      /* Get the requested EID prefix */
      record = (lispd_pkt_map_request_eid_prefix_record_t *)*cur_ptr;
-     init_identifier(&requested_identifier);
+     init_mapping(&requested_identifier);
      *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
      if ((err=pkt_process_eid_afi(cur_ptr, &requested_identifier))!=GOOD){
          lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_record: Requested EID could not be processed");

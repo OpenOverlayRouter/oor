@@ -91,7 +91,7 @@ lispd_iface_elt *get_interface_from_index(int iface_index);
  * The identifier is added just one time
  */
 
-int add_identifier_to_interface (lispd_iface_elt *interface, lispd_mapping_elt *identifier, int afi);
+int add_mapping_to_interface (lispd_iface_elt *interface, lispd_mapping_elt *identifier, int afi);
 
 
 

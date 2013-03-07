@@ -111,7 +111,7 @@ lispd_iface_elt *add_interface(char *iface_name)
  * The identifier is added just one time
  */
 
-int add_identifier_to_interface (
+int add_mapping_to_interface (
         lispd_iface_elt         *interface,
         lispd_mapping_elt       *identifier,
         int                     afi)

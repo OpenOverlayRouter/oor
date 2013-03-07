@@ -31,24 +31,9 @@
 #define LISPD_LOCAL_DB_H_
 
 #include "lispd.h"
+#include "lispd_mapping.h"
 #include "lispd_nonce.h"
 
-
-/*
- * Locator information
- */
-typedef struct lispd_locator_elt_ {
-    lisp_addr_t                 *locator_addr;
-    uint8_t                     *state;    /* UP , DOWN */
-    uint8_t                     locator_type:2;
-    uint8_t                     priority;
-    uint8_t                     weight;
-    uint8_t                     mpriority;
-    uint8_t                     mweight;
-    uint32_t                    data_packets_in;
-    uint32_t                    data_packets_out;
-    nonces_list          		*rloc_probing_nonces;
-}lispd_locator_elt;
 
 
 /*
@@ -64,99 +49,16 @@ void db_init(void);
 patricia_tree_t* get_local_db(int afi);
 
 /*
- * list of locators.
+ *  Add a mapping entry to the database.
  */
-typedef struct lispd_locators_list_ {
-    lispd_locator_elt           *locator;
-    struct lispd_locators_list_ *next;
-} lispd_locators_list;
-
+int add_mapping_to_db(lispd_mapping_elt *mapping);
 
 /*
- * lispd identifier entry.
- */
-typedef struct lispd_mapping_elt_ {
-    lisp_addr_t                     eid_prefix;
-    uint8_t                         eid_prefix_length;
-    int                             iid;
-    uint16_t                        locator_count;
-    lispd_locators_list             *head_v4_locators_list;
-    lispd_locators_list             *head_v6_locators_list;
-    /*
-     * Used to do traffic balancing between RLOCs
-     *  v4_locator_hash_table: If we just have IPv4 RLOCs
-     *  v6_locator_hash_table: If we just hace IPv6 RLOCs
-     *  locator_hash_table: If we have IPv4 & IPv6 RLOCs
-     */
-    lispd_locator_elt               *v4_locator_hash_table[20]; /* Used to do traffic balancing between RLOCs.*/
-    lispd_locator_elt               *v6_locator_hash_table[20]; /* Used to do traffic balancing between RLOCs*/
-    lispd_locator_elt               *locator_hash_table[20];
-} lispd_mapping_elt;
-
-/*
- * list of identifiers.
- */
-typedef struct lispd_mappings_list_ {
-	lispd_mapping_elt        	    *identifier;
-    struct lispd_mappings_list_ 	*next;
-} lispd_mappings_list;
-
-
-
-/*
- * Initialize lispd_mapping_elt with default parameters
- */
-
-void init_identifier (lispd_mapping_elt *identifier);
-
-
-/*
- * Creates an identifier and add it into the database
- */
-
-lispd_mapping_elt *new_identifier(lisp_addr_t    eid_prefix,
-        uint8_t                                     eid_prefix_length,
-        int                                         iid);
-
-
-/*
- * Generets a locator element and add it to locators list.
- * The locator address and the state must be initialized before calling this function.
- */
-
-lispd_locator_elt   *new_locator (
-		lispd_mapping_elt 		*identifier,
-		lisp_addr_t                 *locator_addr,
-		uint8_t                     *state,    /* UP , DOWN */
-		uint8_t                     locator_type,
-		uint8_t                     priority,
-		uint8_t                     weight,
-		uint8_t                     mpriority,
-		uint8_t                     mweight
-		);
-
-
-/*
- * del_identifier_entry()
- *
  * Delete an EID mapping from the data base. We indicate if it is local or not
  */
-void del_identifier_entry(lisp_addr_t eid,
+void del_mapping_entry_from_db(lisp_addr_t eid,
         int prefixlen,
         uint8_t local_identifier);
-
-
-/*
- * Free memory of lispd_locator_list. If it's a local locator, we don't remove
- * the address as it can be used for other locators of other EIDs
- */
-
-void free_locator_list(lispd_locators_list *list, uint8_t local_locator);
-
-/*
- * Free memory of lispd_mapping_elt. We indicate if the identifier is local or remote
- */
-void free_lispd_mapping_elt(lispd_mapping_elt *identifier, uint8_t local_identifier);
 
 /*
  * lookup_eid_in_db
@@ -175,18 +77,11 @@ lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t eid);
 lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length);
 
 
-/*
- * dump local identifier
- */
-void dump_identifier(lispd_mapping_elt *identifier, int log_level);
-
-
-/*
- * dump local identifier list
- */
-void dump_local_eids(int log_level);
-
-
 lisp_addr_t *get_main_eid(int afi);
+
+/*
+ * dump the mapping list of the database
+ */
+void dump_local_db(int log_level);
 
 #endif /*LISPD_LOCAL_DB_H_*/

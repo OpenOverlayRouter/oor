@@ -97,7 +97,7 @@ int get_afi(char *str)
  *      copy_lisp_addr_t
  *
  *      Copy a lisp_addr_t, converting it using convert
- *      if supplied
+ *      if supplied (a2 -> a1)
  */
 
 int copy_lisp_addr_t(

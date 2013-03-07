@@ -174,7 +174,7 @@ lispd_map_cache_entry *new_map_cache_entry (
         return(NULL);
     }
 
-    init_identifier(map_cache_entry->identifier);
+    init_mapping(map_cache_entry->identifier);
     map_cache_entry->identifier->eid_prefix = eid_prefix;
     map_cache_entry->identifier->eid_prefix_length = eid_prefix_length;
     map_cache_entry->active_witin_period = FALSE;
@@ -348,7 +348,7 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(
 
 void free_lispd_map_cache_entry(lispd_map_cache_entry *entry){
 
-    free_lispd_mapping_elt(entry->identifier, FALSE);
+    free_lispd_mapping_elt(entry->identifier);
     /*
      * Free the entry
      */

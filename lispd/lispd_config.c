@@ -41,6 +41,7 @@
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
 #include "lispd_map_cache_db.h"
+#include "lispd_mapping.h"
 
 
 
@@ -627,7 +628,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_eids(LISP_LOG_DEBUG_1);
+    dump_local_db(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
         dump_map_cache(LISP_LOG_DEBUG_1);
     }
@@ -666,11 +667,12 @@ int add_database_mapping(
         int    weight_v6)
 
 {
-    lispd_mapping_elt           *identifier;
-    lispd_iface_elt             *interface;
+    lispd_mapping_elt           *mapping            = NULL;
+    lispd_locator_elt           *locator            = NULL;
+    lispd_iface_elt             *interface          = NULL;
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
-    int                         eid_prefix_length;
-    uint8_t                     is_new_identifier;
+    int                         eid_prefix_length   = 0;
+    uint8_t                     is_new_mapping      = FALSE;
 
     if (iid > MAX_IID || iid < -1) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
@@ -701,72 +703,75 @@ int add_database_mapping(
     }
 
     /*
-     * Lookup if the identifier exists. If not, a new identifier is created.
+     * Lookup if the mapping exists. If not, a new mapping is created.
      */
-    identifier = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
-    if (identifier == NULL)
+    mapping = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
+    if (mapping == NULL)
     {
-        identifier = new_identifier(eid_prefix,eid_prefix_length,iid);
-        if (identifier == NULL){
-            lispd_log_msg(LISP_LOG_ERR,"Configuration file: Identifier %s could not be added",eid);
+        mapping = new_mapping(eid_prefix,eid_prefix_length,iid);
+        if (mapping == NULL){
+            lispd_log_msg(LISP_LOG_ERR,"Configuration file: mapping %s could not be added",eid);
             return (BAD);
         }
-        is_new_identifier = TRUE;
+        is_new_mapping = TRUE;
     }else{
-        if (identifier->iid != iid){
+        if (mapping->iid != iid){
             lispd_log_msg(LISP_LOG_ERR,"Same identifier with different iid. This configuration is not supported..."
                     "Ignoring identifier.");
             return (BAD);
         }
-        is_new_identifier = FALSE;
+        is_new_mapping = FALSE;
     }
     /*
      * Add the new interface.
      */
     /* Check if the interface already exists. If not, add it*/
-    if ((interface=get_interface(iface_name))==NULL)
+    if ((interface=get_interface(iface_name))==NULL){
         interface = add_interface (iface_name);
-
-
-    /* If we couldn't add the interface and the identifier is new, we remove it. */
-    if (interface == NULL){
-        if (is_new_identifier){
-            del_identifier_entry (identifier->eid_prefix, identifier->eid_prefix_length, TRUE);
-        }
     }
 
-    /* XXX Process when the new locator could not be allocated */
+    /* If we couldn't add the interface and the mapping is new, we remove it. */
+    if (interface == NULL && is_new_mapping == TRUE){
+        if (is_new_mapping){
+            del_mapping_entry_from_db (mapping->eid_prefix, mapping->eid_prefix_length, TRUE);
+            lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add mapping -> Cudn't create interface");
+        }else{
+            lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add locator to the mapping -> Cudn't create interface");
+        }
+        return (BAD);
+    }
+
+    /* If interface has IPv4 address. Assign the mapping to the v4 mappings of the interface. Create IPv4 locator and assign to the mapping  */
     if (interface->ipv4_address && priority_v4 >= 0){
-        if ((err = add_identifier_to_interface (interface, identifier,AF_INET)) == GOOD){
-            new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
+        if ((err = add_mapping_to_interface (interface, mapping,AF_INET)) == GOOD){
+
+            locator = new_locator (interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
+            if (locator != NULL){
+                if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    return (BAD);
+                }
+            }else{
+                return (BAD);
+            }
+        }else {
+            return (BAD);
         }
     }
+    /* If interface has IPv6 address. Assign the mapping to the v6 mappings of the interface. Create IPv6 locator and assign to the mapping  */
     if (interface->ipv6_address  && priority_v6 >= 0){
-        if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
-            new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
+        if ((err = add_mapping_to_interface (interface, mapping,AF_INET6)) == GOOD){
+            locator = new_locator (interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
+            if (locator != NULL){
+                if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    return (BAD);
+                }
+            }else{
+                return (BAD);
+            }
+        }else{
+            return (BAD);
+        }
     }
-
-
-    //#ifdef LISPMOBMH
-    //    /* We need a default rloc (iface) to use. As of now
-    //     * we will use the same as the ctrl_iface */
-    //    if(ctrl_iface != NULL){
-    //       if (ctrl_iface->AF4_locators->head){
-    //		  if (ctrl_iface->AF4_locators->head->db_entry) {
-    //				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
-    //				lispd_log_msg(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
-    //		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
-    //			}
-    //		}
-    //		else{
-    //			if (ctrl_iface->AF6_locators->head){
-    //			  if (ctrl_iface->AF6_locators->head->db_entry) {
-    //					set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
-    //				}
-    //			}
-    //		}
-    //    }
-    //#endif
 
     return(GOOD);
 }
@@ -840,18 +845,21 @@ int add_static_map_cache_entry(
 
     map_cache_entry->identifier->iid = iid;
 
-    locator = new_locator(map_cache_entry->identifier,
-            rloc_addr,
+    locator = new_locator(rloc_addr,
             state,
             STATIC_LOCATOR,
             priority,
             weight,
             255,
             0);
-    if (locator)
-        return(GOOD);
-    else
+    if (locator != NULL){
+        if ((err=add_locator_to_mapping (map_cache_entry->identifier, locator)) != GOOD){
+            return (BAD);
+        }
+    }else{
         return (BAD);
+    }
+    return (GOOD);
 }
 
 /*
