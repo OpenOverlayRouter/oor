@@ -46,8 +46,8 @@ typedef struct lispd_iface_elt_ {
     uint8_t                     status;
     lisp_addr_t                 *ipv4_address;
     lisp_addr_t                 *ipv6_address;
-    lispd_mappings_list      *head_v4_identifiers_list;
-    lispd_mappings_list      *head_v6_identifiers_list;
+    lispd_mappings_list         *head_v4_mappings_list;
+    lispd_mappings_list         *head_v6_mappings_list;
     int                         out_socket_v4;
     int                         out_socket_v6;
 }lispd_iface_elt;
@@ -87,11 +87,11 @@ lispd_iface_elt *get_interface(char *iface_name);
 lispd_iface_elt *get_interface_from_index(int iface_index);
 
 /*
- * Add the identifier to the list of identifiers of the interface according to the afi.
- * The identifier is added just one time
+ * Add the mapping to the list of mappings of the interface according to the afi.
+ * The mapping is added just one time
  */
 
-int add_mapping_to_interface (lispd_iface_elt *interface, lispd_mapping_elt *identifier, int afi);
+int add_mapping_to_interface (lispd_iface_elt *interface, lispd_mapping_elt *mapping, int afi);
 
 
 

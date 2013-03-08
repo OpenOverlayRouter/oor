@@ -57,8 +57,7 @@ int add_mapping_to_db(lispd_mapping_elt *mapping);
  * Delete an EID mapping from the data base. We indicate if it is local or not
  */
 void del_mapping_entry_from_db(lisp_addr_t eid,
-        int prefixlen,
-        uint8_t local_identifier);
+        int prefixlen);
 
 /*
  * lookup_eid_in_db

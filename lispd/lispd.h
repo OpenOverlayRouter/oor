@@ -161,8 +161,11 @@ int err;
 #define ERR_MALLOC          0
 #define ERR_EXIST			-5
 
-
-
+/***** Negative Map-Reply actions ***/
+#define ACT_NO_ACTION           0
+#define ACT_NATIVELY_FORWARD    1
+#define ACT_SEND_MAP_REQUEST    2
+#define ACT_DROP                3
 
 
 #define TRUE                1

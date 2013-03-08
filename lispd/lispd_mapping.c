@@ -64,26 +64,26 @@ lispd_mapping_elt *new_mapping(
     for (i = 0 ; i < 20 ; i++)
         mapping->locator_hash_table[i] = NULL;
 
-    /*Add identifier to the data base */
+    /*Add mapping to the data base */
     if (add_mapping_to_db(mapping)!=GOOD)
         return (NULL);
     return (mapping);
 }
 
-void init_mapping (lispd_mapping_elt *identifier)
+void init_mapping (lispd_mapping_elt *mapping)
 {
     int i = 0;
-    identifier->eid_prefix.afi = -1;
-    identifier->iid = -1;
-    identifier->locator_count = 0;
-    identifier->head_v4_locators_list = NULL;
-    identifier->head_v6_locators_list = NULL;
+    mapping->eid_prefix.afi = -1;
+    mapping->iid = -1;
+    mapping->locator_count = 0;
+    mapping->head_v4_locators_list = NULL;
+    mapping->head_v6_locators_list = NULL;
     for (i = 0 ; i < 20 ; i++)
-        identifier->v4_locator_hash_table[i] = NULL;
+        mapping->v4_locator_hash_table[i] = NULL;
     for (i = 0 ; i < 20 ; i++)
-        identifier->v6_locator_hash_table[i] = NULL;
+        mapping->v6_locator_hash_table[i] = NULL;
     for (i = 0 ; i < 20 ; i++)
-        identifier->locator_hash_table[i] = NULL;
+        mapping->locator_hash_table[i] = NULL;
 }
 
 /*
@@ -121,14 +121,14 @@ int add_locator_to_mapping(
 /*
  * Free memory of lispd_mapping_elt.
  */
-void free_lispd_mapping_elt(lispd_mapping_elt    *identifier)
+void free_mapping_elt(lispd_mapping_elt    *mapping)
 {
     /*
      * Free the locators list
      */
-    free_locator_list(identifier->head_v4_locators_list);
-    free_locator_list(identifier->head_v6_locators_list);
-    free(identifier);
+    free_locator_list(mapping->head_v4_locators_list);
+    free_locator_list(mapping->head_v6_locators_list);
+    free(mapping);
 
 }
 

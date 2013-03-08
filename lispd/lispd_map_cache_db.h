@@ -33,46 +33,12 @@
 
 #include "lispd.h"
 #include "lispd_local_db.h"
+#include "lispd_map_cache.h"
 #include "lispd_timers.h"
 
-/*
- *  map-cache entry types (how_learned)
- */
-
-#define STATIC_MAP_CACHE_ENTRY          0
-#define DYNAMIC_MAP_CACHE_ENTRY         1
 
 /*
- *  map-cache entry activated  (received map reply)
- */
-#define NO_ACTIVE                       0
-#define ACTIVE                          1
-
-
-
-/*
- * Map cache entry
- */
-typedef struct lispd_map_cache_entry_ {
-    lispd_mapping_elt           *identifier;
-    uint8_t                     how_learned:2;
-    uint8_t                     actions:2;
-    uint8_t                     active:1;   /* TRUE if we have received a map reply for this entry */
-    uint8_t                     active_witin_period:1;
-    uint8_t                     probe_left; /* Counter to indicate number of RLOCs that has not been probed /put status down
-                                             * in this period of probe*/
-    uint16_t                    ttl;
-    time_t                      timestamp;
-    timer                       *expiry_cache_timer;
-    timer                       *probe_timer;
-    timer                       *request_retry_timer;
-    timer                       *smr_timer;
-    nonces_list                 *nonces;
-}lispd_map_cache_entry;
-
-
-/*
- * create_tables
+ * create database
  */
 void map_cache_init();
 
@@ -82,17 +48,16 @@ void map_cache_init();
 patricia_tree_t* get_map_cache_db(int afi);
 
 /*
- * Create a map cache entry and save it in the database
+ *  Add a map cache entry to the database.
  */
-
-lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+int add_map_cache_entry_to_db(lispd_map_cache_entry *entry);
 
 /*
  * del_map_cache_entry()
  *
  * Delete an EID mapping from the cache
  */
-void del_map_cache_entry(lisp_addr_t eid, int prefixlen);
+void del_map_cache_entry_from_db(lisp_addr_t eid, int prefixlen);
 
 
 /*
@@ -133,7 +98,7 @@ int change_map_cache_prefix_in_db(lisp_addr_t         new_eid_prefix,
 void map_cache_entry_expiration(timer *t, void *arg);
 
 
-void dump_map_cache(int log_level);
+void dump_map_cache_db(int log_level);
 
 
 #endif /*LISPD_MAP_CACAHE_DB_H_*/

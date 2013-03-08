@@ -46,7 +46,7 @@ patricia_tree_t *EIDv6_database           = NULL;
 /*
  *  Add a EID entry to the database.
  */
-int add_mapping_to_db(lispd_mapping_elt *identifier);
+int add_mapping_to_db(lispd_mapping_elt *mapping);
 
 patricia_node_t *lookup_eid_node(lisp_addr_t eid);
 
@@ -123,12 +123,12 @@ int add_mapping_to_db(lispd_mapping_elt *mapping)
 
     if (node->data == NULL){            /* its a new node */
         node->data = (lispd_mapping_elt *) mapping;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Identifier %s/%d inserted in the database",
+        lispd_log_msg(LISP_LOG_DEBUG_2, "EID prefix %s/%d inserted in the database",
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length);
         return (GOOD);
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_identifier: Identifier entry (%s/%d) already installed in the data base",
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_mapping_to_db: EID prefix entry (%s/%d) already installed in the data base",
                 get_char_from_lisp_addr_t(eid_prefix),eid_prefix_length);
         return (BAD);
     }
@@ -207,16 +207,16 @@ patricia_node_t *lookup_eid_exact_node(
  */
 lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t eid)
 {
-    lispd_mapping_elt       *identifier = NULL;
+    lispd_mapping_elt       *mapping = NULL;
     patricia_node_t         *result     = NULL;
 
     result = lookup_eid_node(eid);
     if (result == NULL){
         return(NULL);
     }
-    identifier = (lispd_mapping_elt *)(result->data);
+    mapping = (lispd_mapping_elt *)(result->data);
 
-    return(identifier);
+    return(mapping);
 }
 
 /*
@@ -227,16 +227,16 @@ lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t eid)
  */
 lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length)
 {
-    lispd_mapping_elt    *identifier = NULL;
+    lispd_mapping_elt       *mapping = NULL;
     patricia_node_t         *result     = NULL;
 
     result = lookup_eid_exact_node(eid_prefix,eid_prefix_length);
     if (result == NULL){
         return(NULL);
     }
-    identifier = (lispd_mapping_elt *)(result->data);
+    mapping = (lispd_mapping_elt *)(result->data);
 
-    return(identifier);
+    return(mapping);
 }
 
 
@@ -248,15 +248,14 @@ lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix
  */
 void del_mapping_entry_from_db(
         lisp_addr_t eid,
-        int prefixlen,
-        uint8_t local_identifier)
+        int prefixlen)
 {
     lispd_mapping_elt    *entry     = NULL;
     patricia_node_t      *result    = NULL;
 
     result = lookup_eid_exact_node(eid, prefixlen);
     if (result == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"del_identifier_entry: Unable to locate eid entry %s/%d for deletion",
+        lispd_log_msg(LISP_LOG_WARNING,"del_mapping_entry_from_db: Unable to locate eid entry %s/%d for deletion",
                 get_char_from_lisp_addr_t(eid),prefixlen);
         return;
     } else {

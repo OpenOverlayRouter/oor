@@ -28,6 +28,7 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
+#include "lispd_afi.h"
 #include "lispd_lib.h"
 #include "lispd_locator.h"
 #include "lispd_log.h"
@@ -36,10 +37,10 @@
  * Generets a locator element
  */
 
-lispd_locator_elt   *new_locator (
+inline lispd_locator_elt   *new_local_locator (
         lisp_addr_t                 *locator_addr,
         uint8_t                     *state,    /* UP , DOWN */
-        uint8_t                     locator_type,
+        uint8_t                     locator_type, /* LOCAL_LOCATOR, DYNAMIC_LOCATOR, ...*/
         uint8_t                     priority,
         uint8_t                     weight,
         uint8_t                     mpriority,
@@ -48,7 +49,7 @@ lispd_locator_elt   *new_locator (
     lispd_locator_elt       *locator                = NULL;
 
     if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "new_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING, "new_local_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
         return(NULL);
     }
 
@@ -67,12 +68,14 @@ lispd_locator_elt   *new_locator (
     return (locator);
 }
 
+
 /*
- * Generets a locator element. For the remote locators, we have to reserve memory for address and state.
+ * Generets a "remote" locator element. Remote locators should reserve memory for address and state.
+ * Afi information (address) is read from the packet (afi_ptr)
  */
 
 lispd_locator_elt   *new_rmt_locator (
-        lisp_addr_t                 address,
+        uint8_t                     **afi_ptr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     locator_type,
         uint8_t                     priority,
@@ -83,25 +86,30 @@ lispd_locator_elt   *new_rmt_locator (
     lispd_locator_elt       *locator                = NULL;
 
     if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "new_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING, "new_rmt_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
         return(NULL);
     }
 
     if((locator->locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"process_map_reply_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
         free (locator);
         return (NULL);
     }
 
     if((locator->state = malloc(sizeof(uint8_t))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"process_map_reply_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
         free (locator->locator_addr);
         free (locator);
         return (NULL);
     }
 
-    /* Initialize locator */
-    copy_lisp_addr_t(locator->locator_addr, &address, FALSE);
+    /* Read the afi information (locator address) from the packet */
+    if ((err=pkt_process_rloc_afi(afi_ptr,locator)) != GOOD){
+        free (locator->locator_addr);
+        free (locator);
+        return (NULL);
+    }
+
     *(locator->state) = state;
     locator->locator_type = locator_type;
     locator->priority = priority;
@@ -112,9 +120,57 @@ lispd_locator_elt   *new_rmt_locator (
     locator->data_packets_out = 0;
     locator->rloc_probing_nonces = NULL;
 
+    return (locator);
+}
+
+lispd_locator_elt   *new_static_rmt_locator (
+        char                        *rloc_addr,
+        uint8_t                     state,    /* UP , DOWN */
+        uint8_t                     locator_type,
+        uint8_t                     priority,
+        uint8_t                     weight,
+        uint8_t                     mpriority,
+        uint8_t                     mweight)
+{
+    lispd_locator_elt       *locator                = NULL;
+
+    if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "new_static_rmt_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
+        return(NULL);
+    }
+
+    if((locator->locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+        free (locator);
+        return (NULL);
+    }
+
+    if((locator->state = malloc(sizeof(uint8_t))) == NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
+        free (locator->locator_addr);
+        free (locator);
+        return (NULL);
+    }
+
+    if (get_lisp_addr_from_char(rloc_addr,locator->locator_addr) == BAD){
+        lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
+        return (NULL);
+    }
+
+    *(locator->state) = state;
+    locator->locator_type = locator_type;
+    locator->priority = priority;
+    locator->weight = weight;
+    locator->mpriority = mpriority;
+    locator->mweight = mweight;
+    locator->data_packets_in = 0;
+    locator->data_packets_out = 0;
+    locator->rloc_probing_nonces = NULL;
 
     return (locator);
 }
+
+
 
 
 /*

@@ -51,6 +51,8 @@ typedef struct lispd_locator_elt_ {
     nonces_list                 *rloc_probing_nonces;
 }lispd_locator_elt;
 
+
+
 /*
  * list of locators.
  */
@@ -65,10 +67,10 @@ typedef struct lispd_locators_list_ {
  * Generets a locator element
  */
 
-lispd_locator_elt   *new_locator (
+inline lispd_locator_elt   *new_local_locator (
         lisp_addr_t                 *locator_addr,
         uint8_t                     *state,    /* UP , DOWN */
-        uint8_t                     locator_type,
+        uint8_t                     locator_type, /* LOCAL_LOCATOR, DYNAMIC_LOCATOR, ...*/
         uint8_t                     priority,
         uint8_t                     weight,
         uint8_t                     mpriority,
@@ -79,7 +81,16 @@ lispd_locator_elt   *new_locator (
  */
 
 lispd_locator_elt   *new_rmt_locator (
-        lisp_addr_t                 address,
+        uint8_t                     **afi_ptr,
+        uint8_t                     state,    /* UP , DOWN */
+        uint8_t                     locator_type, /* LOCAL_LOCATOR, DYNAMIC_LOCATOR, ...*/
+        uint8_t                     priority,
+        uint8_t                     weight,
+        uint8_t                     mpriority,
+        uint8_t                     mweight);
+
+lispd_locator_elt   *new_static_rmt_locator (
+        char                        *rloc_addr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     locator_type,
         uint8_t                     priority,

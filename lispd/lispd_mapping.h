@@ -61,7 +61,7 @@ typedef struct lispd_mapping_elt_ {
  * list of mappings.
  */
 typedef struct lispd_mappings_list_ {
-    lispd_mapping_elt               *identifier;
+    lispd_mapping_elt               *mapping;
     struct lispd_mappings_list_     *next;
 } lispd_mappings_list;
 
@@ -93,7 +93,7 @@ int add_locator_to_mapping(
 /*
  * Free memory of lispd_mapping_elt.
  */
-void free_lispd_mapping_elt(lispd_mapping_elt *identifier);
+void free_mapping_elt(lispd_mapping_elt *mapping);
 
 /*
  * dump mapping

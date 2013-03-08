@@ -475,11 +475,11 @@ int get_output_afi_based_on_petr()
  */
 int get_output_afi_based_on_entry (lispd_map_cache_entry *map_cache_entry)
 {
-    if (map_cache_entry->identifier->head_v4_locators_list != NULL &&
+    if (map_cache_entry->mapping->head_v4_locators_list != NULL &&
             default_out_iface_v4!= NULL) {
         return (AF_INET);
     }
-    if (map_cache_entry->identifier->head_v6_locators_list != NULL &&
+    if (map_cache_entry->mapping->head_v6_locators_list != NULL &&
             default_out_iface_v6!= NULL) {
         return (AF_INET6);
     }
@@ -497,10 +497,10 @@ lisp_addr_t *get_default_locator_addr(
 
     switch(afi){ 
     case AF_INET:
-        addr = entry->identifier->head_v4_locators_list->locator->locator_addr;
+        addr = entry->mapping->head_v4_locators_list->locator->locator_addr;
         break;
     case AF_INET6:
-        addr = entry->identifier->head_v6_locators_list->locator->locator_addr;
+        addr = entry->mapping->head_v6_locators_list->locator->locator_addr;
         break;
     }
 
@@ -612,7 +612,7 @@ int lisp_output (
         handle_map_cache_miss(&original_dst_addr, &original_src_addr);
     }
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
-    if ((entry == NULL) || (entry->active == NO_ACTIVE) || (entry->identifier->locator_count == 0) ){ /* There is no entry or is not active*/
+    if ((entry == NULL) || (entry->active == NO_ACTIVE) || (entry->mapping->locator_count == 0) ){ /* There is no entry or is not active*/
 
         default_encap_afi = get_output_afi_based_on_petr();
 
@@ -650,7 +650,7 @@ int lisp_output (
             outer_dst_addr,
             LISP_DATA_PORT, //TODO: UDP src port based on hash?
             LISP_DATA_PORT,
-            //entry->identifier->iid, //XXX iid not supported yet
+            //entry->mapping->iid, //XXX iid not supported yet
             0,
             &encap_packet,
             &encap_packet_size);

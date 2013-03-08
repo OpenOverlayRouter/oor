@@ -35,7 +35,7 @@
 
 int pkt_process_eid_afi(
         uint8_t                 **offset,
-        lispd_mapping_elt       *identifier)
+        lispd_mapping_elt       *mapping)
 {
 
     uint8_t                 *cur_ptr;
@@ -48,14 +48,13 @@ int pkt_process_eid_afi(
     cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
     switch(lisp_afi) {
     case LISP_AFI_IP:
-        memcpy(&(identifier->eid_prefix.address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
-        //identifier->eid_prefix.address.ip.s_addr = ntohl(*(uint32_t *)cur_ptr);
-        identifier->eid_prefix.afi = AF_INET;
+        memcpy(&(mapping->eid_prefix.address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
+        mapping->eid_prefix.afi = AF_INET;
         cur_ptr  = CO(cur_ptr, sizeof(struct in_addr));
         break;
     case LISP_AFI_IPV6:
-        memcpy(&(identifier->eid_prefix.address.ipv6),cur_ptr,sizeof(struct in6_addr));
-        identifier->eid_prefix.afi = AF_INET6;
+        memcpy(&(mapping->eid_prefix.address.ipv6),cur_ptr,sizeof(struct in6_addr));
+        mapping->eid_prefix.afi = AF_INET6;
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
@@ -63,22 +62,22 @@ int pkt_process_eid_afi(
         cur_ptr  = CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
         switch(lcaf_ptr->type) {
         case LCAF_IID:
-            identifier->iid = ntohl(*(uint32_t *)cur_ptr);
-            cur_ptr = CO(lcaf_ptr, sizeof(identifier->iid));
-            if (!pkt_process_eid_afi (&cur_ptr, identifier))
+            mapping->iid = ntohl(*(uint32_t *)cur_ptr);
+            cur_ptr = CO(lcaf_ptr, sizeof(mapping->iid));
+            if (!pkt_process_eid_afi (&cur_ptr, mapping))
                 return (BAD);
             break;
         default:
-            identifier->eid_prefix.afi = -1;
+            mapping->eid_prefix.afi = -1;
             lispd_log_msg(LISP_LOG_DEBUG_2,"pkt_process_eid_afi:  Unknown LCAF type %d in EID", lcaf_ptr->type);
             return (BAD);
         }
         break;
     case LISP_AFI_NO_EID:
-        identifier->eid_prefix.afi = 0;
+        mapping->eid_prefix.afi = 0;
         break;
     default:
-        identifier->eid_prefix.afi = -1;
+        mapping->eid_prefix.afi = -1;
         lispd_log_msg(LISP_LOG_DEBUG_2,"pkt_process_eid_afi:  Unknown AFI type %d in EID", lisp_afi);
         return (BAD);
     }
@@ -92,7 +91,7 @@ int pkt_process_eid_afi(
 
 int pkt_process_rloc_afi(
         uint8_t             **offset,
-        lisp_addr_t         *address)
+        lispd_locator_elt   *locator)
 {
     uint8_t                  *cur_ptr;
     uint16_t                 lisp_afi;
@@ -102,13 +101,13 @@ int pkt_process_rloc_afi(
     cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
     switch(lisp_afi) {
     case LISP_AFI_IP:
-        memcpy(&(address->address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
-        address->afi = AF_INET;
+        memcpy(&(locator->locator_addr->address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
+        locator->locator_addr->afi = AF_INET;
         cur_ptr  = CO(cur_ptr, sizeof(struct in_addr));
         break;
     case LISP_AFI_IPV6:
-        memcpy(&(address->address.ipv6),cur_ptr,sizeof(struct in6_addr));
-        address->afi = AF_INET6;
+        memcpy(&(locator->locator_addr->address.ipv6),cur_ptr,sizeof(struct in6_addr));
+        locator->locator_addr->afi = AF_INET6;
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
