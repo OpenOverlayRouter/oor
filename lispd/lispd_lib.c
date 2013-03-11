@@ -227,8 +227,7 @@ void memcopy_lisp_addr(void *dest,
 
 int lispd_get_address(
     char             *host,
-    lisp_addr_t      *addr,
-    unsigned int     *flags)
+    lisp_addr_t      *addr)
 {
     struct hostent      *hptr;
 
@@ -247,10 +246,6 @@ int lispd_get_address(
         memcpy((void *) &(addr->address),
                (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
         addr->afi = hptr->h_addrtype;
-        if (isfqdn(host))
-            *flags = FQDN_LOCATOR;      
-        else 
-            *flags = STATIC_LOCATOR;
         return(GOOD);
     } 
     return(BAD);

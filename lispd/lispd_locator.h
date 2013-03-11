@@ -48,9 +48,19 @@ typedef struct lispd_locator_elt_ {
     uint8_t                     mweight;
     uint32_t                    data_packets_in;
     uint32_t                    data_packets_out;
-    nonces_list                 *rloc_probing_nonces;
+    void                        *extended_info;
 }lispd_locator_elt;
 
+//typedef struct lcl_locator_extended_info_ {
+//
+//}lcl_locator_extended_info;
+
+/*
+ * Structure to expand lispd_locator_elt for remote locators
+ */
+typedef struct rmt_locator_extended_info_ {
+    nonces_list                 *rloc_probing_nonces;
+}rmt_locator_extended_info;
 
 
 /*

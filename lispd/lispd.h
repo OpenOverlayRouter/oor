@@ -218,7 +218,6 @@ int err;
 
 #define STATIC_LOCATOR                  0
 #define DYNAMIC_LOCATOR                 1
-#define FQDN_LOCATOR                    2
 #define PETR_LOCATOR                    3
 #define LOCAL_LOCATOR                   4
 

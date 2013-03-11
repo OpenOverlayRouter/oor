@@ -42,13 +42,14 @@ int rloc_probing(
     timer *t,
     void *arg)
 {
-    lispd_map_cache_entry   *map_cache_entry = (lispd_map_cache_entry *)arg;
-    lispd_mapping_elt       *mapping = map_cache_entry->mapping;
-    lispd_locators_list 	*locators_lists[2];
-    lispd_locators_list     *locators;
-    lispd_locator_elt       *locator;
-    int loc_ctr = 0;
-    int ctr;
+    lispd_map_cache_entry       *map_cache_entry    = (lispd_map_cache_entry *)arg;
+    lispd_mapping_elt           *mapping            = map_cache_entry->mapping;
+    lispd_locators_list 	    *locators_lists[2]  = {NULL,NULL};
+    lispd_locators_list         *locators           = NULL;
+    lispd_locator_elt           *locator            = NULL;
+    rmt_locator_extended_info   *rmt_loc_ext        = NULL;
+    int                         loc_ctr             = 0;
+    int                         ctr                 = 0;
 
     /* First RLOC probing iteration: create timer*/
     if (!t)
@@ -62,19 +63,20 @@ int rloc_probing(
     		/* Send a map request probe for each locator of the mapping */
     		while (locators){
     			locator = locators->locator;
-    			if (locator->rloc_probing_nonces != NULL){
+    			rmt_loc_ext = (rmt_locator_extended_info *)locator->extended_info;
+    			if (rmt_loc_ext->rloc_probing_nonces != NULL){
     				// XXX alopez: It should never arrive here. Remove once tested
     				lispd_log_msg(LISP_LOG_ERR,"First RLOC Probing -> rloc_probing_nonces not null");
     				return(BAD);
     			}
-    			locator->rloc_probing_nonces = new_nonces_list();
-    			if (!locator->rloc_probing_nonces){
+    			rmt_loc_ext->rloc_probing_nonces = new_nonces_list();
+    			if (!rmt_loc_ext->rloc_probing_nonces){
     				// XXX alopez: REPROGRAMAR
     			}
     			if ((err=build_and_send_map_request_msg(map_cache_entry->mapping,
     			        NULL,
     					locator->locator_addr, 0, 1, 0, 0,
-    					&(locator->rloc_probing_nonces->nonce[0])))!= GOOD){
+    					&(rmt_loc_ext->rloc_probing_nonces->nonce[0])))!= GOOD){
     				// TODO Actions according to the error
     			}
     			loc_ctr++;
@@ -99,12 +101,13 @@ int rloc_probing(
     		 */
     		while (locators){
     			locator = locators->locator;
-    			if (locator->rloc_probing_nonces == NULL){ /* Map Reply Probe received */
+    			rmt_loc_ext = (rmt_locator_extended_info *)locator->extended_info;
+    			if (rmt_loc_ext->rloc_probing_nonces == NULL){ /* Map Reply Probe received */
     				locators = locators->next;
     				continue;
     			}
     			/* No Map Reply Probe received -> Retransmit Map Request Probe */
-    			if (locator->rloc_probing_nonces->retransmits -1 < LISPD_MAX_PROBE_RETRANSMIT){
+    			if (rmt_loc_ext->rloc_probing_nonces->retransmits -1 < LISPD_MAX_PROBE_RETRANSMIT){
     			/*	if ((err=build_and_send_map_request_msg(&(map_cache_entry->mapping->eid_prefix),
                             map_cache_entry->mapping->eid_prefix_length,
     						locator->locator_addr, 0, 1, 0, 0,
@@ -113,8 +116,8 @@ int rloc_probing(
     				}*/
     			}else { /* No Map Reply Probe received for any Map Request Probe */
     				locator->state = DOWN;
-    				free (locator->rloc_probing_nonces);
-    				locator->rloc_probing_nonces = NULL;
+    				free (rmt_loc_ext->rloc_probing_nonces);
+    				rmt_loc_ext->rloc_probing_nonces = NULL;
     				map_cache_entry->probe_left --;
     			}
     		}

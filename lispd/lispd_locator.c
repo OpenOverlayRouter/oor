@@ -33,6 +33,9 @@
 #include "lispd_locator.h"
 #include "lispd_log.h"
 
+inline rmt_locator_extended_info *new_rmt_locator_extended_info();
+inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extenden_info);
+
 /*
  * Generets a locator element
  */
@@ -62,8 +65,8 @@ inline lispd_locator_elt   *new_local_locator (
     locator->mweight = mweight;
     locator->data_packets_in = 0;
     locator->data_packets_out = 0;
-    locator->rloc_probing_nonces = NULL;
     locator->state = state;
+    locator->extended_info = NULL;
 
     return (locator);
 }
@@ -110,6 +113,14 @@ lispd_locator_elt   *new_rmt_locator (
         return (NULL);
     }
 
+    locator->extended_info = (void *)new_rmt_locator_extended_info();
+    if (locator->extended_info == NULL){
+        free (locator->locator_addr);
+        free (locator->state);
+        free (locator);
+        return (NULL);
+    }
+
     *(locator->state) = state;
     locator->locator_type = locator_type;
     locator->priority = priority;
@@ -118,7 +129,6 @@ lispd_locator_elt   *new_rmt_locator (
     locator->mweight = mweight;
     locator->data_packets_in = 0;
     locator->data_packets_out = 0;
-    locator->rloc_probing_nonces = NULL;
 
     return (locator);
 }
@@ -154,6 +164,17 @@ lispd_locator_elt   *new_static_rmt_locator (
 
     if (get_lisp_addr_from_char(rloc_addr,locator->locator_addr) == BAD){
         lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
+        free (locator->locator_addr);
+        free (locator->state);
+        free (locator);
+        return (NULL);
+    }
+
+    locator->extended_info = (void *)new_rmt_locator_extended_info();
+    if (locator->extended_info == NULL){
+        free (locator->locator_addr);
+        free (locator->state);
+        free (locator);
         return (NULL);
     }
 
@@ -165,9 +186,22 @@ lispd_locator_elt   *new_static_rmt_locator (
     locator->mweight = mweight;
     locator->data_packets_in = 0;
     locator->data_packets_out = 0;
-    locator->rloc_probing_nonces = NULL;
+
 
     return (locator);
+}
+
+
+inline rmt_locator_extended_info *new_rmt_locator_extended_info()
+{
+    rmt_locator_extended_info *rmt_loc_ext_inf;
+    if ((rmt_loc_ext_inf = malloc(sizeof(rmt_locator_extended_info))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "new_rmt_locator_extended_info: Unable to allocate memory for rmt_locator_extended_info: %s", strerror(errno));
+        return(NULL);
+    }
+    rmt_loc_ext_inf->rloc_probing_nonces = NULL;
+
+    return rmt_loc_ext_inf;
 }
 
 
@@ -180,14 +214,22 @@ lispd_locator_elt   *new_static_rmt_locator (
 void free_locator(lispd_locator_elt   *locator)
 {
 
-    if (locator->rloc_probing_nonces){
-        free (locator->rloc_probing_nonces);
+    if (locator->locator_type == STATIC_LOCATOR || locator->locator_type == DYNAMIC_LOCATOR || locator->locator_type ==PETR_LOCATOR){
+        free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
     }
     if (locator->locator_type != LOCAL_LOCATOR){
         free (locator->locator_addr);
         free (locator->state);
     }
     free (locator);
+}
+
+inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extenden_info)
+{
+    if (extenden_info->rloc_probing_nonces){
+        free (extenden_info->rloc_probing_nonces);
+    }
+    free (extenden_info);
 }
 
 void dump_locator (

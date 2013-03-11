@@ -64,7 +64,7 @@ int copy_addr(void *a1, lisp_addr_t *a2, int convert);
 /*
  *      return GOOD if addr contain a  lisp_addr_t for host/FQDN or BAD if none
  */
-int lispd_get_address(char *host, lisp_addr_t *addr, unsigned int *flags);
+int lispd_get_address(char *host, lisp_addr_t *addr);
 
 /*
  *  return lisp_addr_t for the interface, 0 if none

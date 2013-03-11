@@ -994,8 +994,6 @@ int add_proxy_etr_entry(
     lisp_addr_t                     *address;
     lispd_weighted_addr_list_t      *petr_unit;
 
-    uint32_t                flags = 0;
-
     if (priority > 255 || priority < 0) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [0..255]", priority);
         return (BAD);
@@ -1018,7 +1016,7 @@ int add_proxy_etr_entry(
     memset(address, 0,sizeof(lisp_addr_t));
     memset(petr_unit,0,sizeof(lispd_weighted_addr_list_t));
 
-    if (lispd_get_address(addr,address,&flags)==BAD) {
+    if (lispd_get_address(addr,address)==BAD) {
         free(address);
         free(petr_unit);
         return(BAD);
