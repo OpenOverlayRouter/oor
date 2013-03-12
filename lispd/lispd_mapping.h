@@ -33,6 +33,8 @@
 
 #include "lispd_locator.h"
 
+#define LOCATOR_HASH_TABLE_POSITIONS       20
+
 
 /****************************************  STRUCTURES **************************************/
 
@@ -46,16 +48,41 @@ typedef struct lispd_mapping_elt_ {
     uint16_t                        locator_count;
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
-    /*
-     * Used to do traffic balancing between RLOCs
-     *  v4_locator_hash_table: If we just have IPv4 RLOCs
-     *  v6_locator_hash_table: If we just hace IPv6 RLOCs
-     *  locator_hash_table: If we have IPv4 & IPv6 RLOCs
-     */
-    lispd_locator_elt               *v4_locator_hash_table[20]; /* Used to do traffic balancing between RLOCs.*/
-    lispd_locator_elt               *v6_locator_hash_table[20]; /* Used to do traffic balancing between RLOCs*/
-    lispd_locator_elt               *locator_hash_table[20];
+    void                            *extended_info;
 } lispd_mapping_elt;
+
+
+/*
+ * Used to select the locator to be used for an identifier according to locators' priority and weight.
+ *  v4_locator_hash_table: If we just have IPv4 RLOCs
+ *  v6_locator_hash_table: If we just hace IPv6 RLOCs
+ *  locator_hash_table: If we have IPv4 & IPv6 RLOCs
+ *  For each packet, a hash of its tuppla is calculaed. The result of this hash is one position of the array.
+ */
+
+typedef struct locator_hash_tables_ {
+    lispd_locator_elt               *v4_locator_hash_table[LOCATOR_HASH_TABLE_POSITIONS]; /* Used to do traffic balancing between RLOCs.*/
+    lispd_locator_elt               *v6_locator_hash_table[LOCATOR_HASH_TABLE_POSITIONS]; /* Used to do traffic balancing between RLOCs*/
+    lispd_locator_elt               *locator_hash_table[LOCATOR_HASH_TABLE_POSITIONS];
+}locator_hash_tables;
+
+
+/*
+ * Structure to expand the lispd_mapping_elt used in lispd_map_cache_entry
+ */
+
+typedef struct lcl_mapping_extended_info_ {
+    locator_hash_tables               outgoing_locator_hash_tables;
+}lcl_mapping_extended_info;
+
+/*
+ * Structure to expand the lispd_mapping_elt used in lispd_map_cache_entry
+ */
+typedef struct rmt_mapping_extended_info_ {
+    locator_hash_tables               rmt_locator_hash_tables;
+}rmt_mapping_extended_info;
+
+
 
 /*
  * list of mappings.
@@ -68,19 +95,22 @@ typedef struct lispd_mappings_list_ {
 /****************************************  FUNCTIONS **************************************/
 
 /*
- * Creates a mapping
+ * Generates a mapping with the local extended info
  */
 
-lispd_mapping_elt *new_mapping(
+lispd_mapping_elt *new_local_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid);
 
 /*
- * Initialize lispd_mapping_elt with default parameters
+ * Generates a mapping with the remote extended info
  */
 
-void init_mapping (lispd_mapping_elt *mapping);
+lispd_mapping_elt *new_map_cache_mapping(
+        lisp_addr_t     eid_prefix,
+        uint8_t         eid_prefix_length,
+        int             iid);
 
 /*
  * Add a locator into the locators list of the mapping.
@@ -93,7 +123,7 @@ int add_locator_to_mapping(
 /*
  * Free memory of lispd_mapping_elt.
  */
-void free_mapping_elt(lispd_mapping_elt *mapping);
+void free_mapping_elt(lispd_mapping_elt *mapping, int local);
 
 /*
  * dump mapping

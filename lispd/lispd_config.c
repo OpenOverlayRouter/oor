@@ -710,11 +710,17 @@ int add_database_mapping(
     mapping = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
     if (mapping == NULL)
     {
-        mapping = new_mapping(eid_prefix,eid_prefix_length,iid);
+        mapping = new_local_mapping(eid_prefix,eid_prefix_length,iid);
         if (mapping == NULL){
             lispd_log_msg(LISP_LOG_ERR,"Configuration file: mapping %s could not be added",eid);
             return (BAD);
         }
+        /* Add the mapping to the local database */
+        if (add_mapping_to_db(mapping)!=GOOD){
+            free_mapping_elt(mapping, TRUE);
+            return (BAD);
+        }
+
         is_new_mapping = TRUE;
     }else{
         if (mapping->iid != iid){

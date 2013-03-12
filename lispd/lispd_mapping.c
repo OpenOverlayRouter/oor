@@ -33,21 +33,31 @@
 #include "lispd_log.h"
 #include "lispd_mapping.h"
 
-
+/*********************************** FUNCTIONS DECLARATION ************************/
 
 /*
- * Creates a mapping and add it to the database
+ * Generates a basic mapping
  */
 
-lispd_mapping_elt *new_mapping(
+inline lispd_mapping_elt *new_mapping(
+        lisp_addr_t     eid_prefix,
+        uint8_t         eid_prefix_length,
+        int             iid);
+
+/************************************ FUNCTIONS  **********************************/
+
+/*
+ * Generates a basic mapping
+ */
+
+inline lispd_mapping_elt *new_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
 {
     lispd_mapping_elt *mapping = NULL;
-    int i;
 
-    if ((mapping=malloc(sizeof(lispd_mapping_elt)))==NULL){
+    if ((mapping = (lispd_mapping_elt *)malloc(sizeof(lispd_mapping_elt)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"Couldn't allocate memory for lispd_mapping_elt: %s", strerror(errno));
         return (NULL);
     }
@@ -57,33 +67,82 @@ lispd_mapping_elt *new_mapping(
     mapping->locator_count = 0;
     mapping->head_v4_locators_list = NULL;
     mapping->head_v6_locators_list = NULL;
-    for (i = 0 ; i < 20 ; i++)
-        mapping->v4_locator_hash_table[i] = NULL;
-    for (i = 0 ; i < 20 ; i++)
-        mapping->v6_locator_hash_table[i] = NULL;
-    for (i = 0 ; i < 20 ; i++)
-        mapping->locator_hash_table[i] = NULL;
 
-    /*Add mapping to the data base */
-    if (add_mapping_to_db(mapping)!=GOOD)
-        return (NULL);
     return (mapping);
 }
 
-void init_mapping (lispd_mapping_elt *mapping)
+/*
+ * Generates a mapping with the local extended info
+ */
+
+lispd_mapping_elt *new_local_mapping(
+        lisp_addr_t     eid_prefix,
+        uint8_t         eid_prefix_length,
+        int             iid)
 {
-    int i = 0;
-    mapping->eid_prefix.afi = -1;
-    mapping->iid = -1;
-    mapping->locator_count = 0;
-    mapping->head_v4_locators_list = NULL;
-    mapping->head_v6_locators_list = NULL;
-    for (i = 0 ; i < 20 ; i++)
-        mapping->v4_locator_hash_table[i] = NULL;
-    for (i = 0 ; i < 20 ; i++)
-        mapping->v6_locator_hash_table[i] = NULL;
-    for (i = 0 ; i < 20 ; i++)
-        mapping->locator_hash_table[i] = NULL;
+    lispd_mapping_elt           *mapping        = NULL;
+    lcl_mapping_extended_info   *extended_info  = NULL;
+    int                         ctr             = 0;
+
+    if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
+        return (NULL);
+    }
+
+    if ((extended_info=(lcl_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_local_mapping: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        free (mapping);
+        return (NULL);
+    }
+    mapping->extended_info = (void *)extended_info;
+
+    for (ctr = 0 ; ctr < LOCATOR_HASH_TABLE_POSITIONS ; ctr++){
+        extended_info->outgoing_locator_hash_tables.v4_locator_hash_table[ctr] = NULL;
+    }
+    for (ctr = 0 ; ctr < LOCATOR_HASH_TABLE_POSITIONS ; ctr++){
+        extended_info->outgoing_locator_hash_tables.v6_locator_hash_table[ctr] = NULL;
+    }
+    for (ctr = 0 ; ctr < LOCATOR_HASH_TABLE_POSITIONS ; ctr++){
+        extended_info->outgoing_locator_hash_tables.locator_hash_table[ctr] = NULL;
+    }
+
+    return (mapping);
+}
+
+/*
+ * Generates a mapping with the remote extended info
+ */
+
+lispd_mapping_elt *new_map_cache_mapping(
+        lisp_addr_t     eid_prefix,
+        uint8_t         eid_prefix_length,
+        int             iid)
+{
+    lispd_mapping_elt           *mapping        = NULL;
+    rmt_mapping_extended_info   *extended_info  = NULL;
+    int                         ctr             = 0;
+
+    if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
+        return (NULL);
+    }
+
+    if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_mapping: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        free (mapping);
+        return (NULL);
+    }
+    mapping->extended_info = (void *)extended_info;
+
+    for (ctr = 0 ; ctr < LOCATOR_HASH_TABLE_POSITIONS ; ctr++){
+        extended_info->rmt_locator_hash_tables.v4_locator_hash_table[ctr] = NULL;
+    }
+    for (ctr = 0 ; ctr < LOCATOR_HASH_TABLE_POSITIONS ; ctr++){
+        extended_info->rmt_locator_hash_tables.v6_locator_hash_table[ctr] = NULL;
+    }
+    for (ctr = 0 ; ctr < LOCATOR_HASH_TABLE_POSITIONS ; ctr++){
+        extended_info->rmt_locator_hash_tables.locator_hash_table[ctr] = NULL;
+    }
+
+    return (mapping);
 }
 
 /*
@@ -121,13 +180,17 @@ int add_locator_to_mapping(
 /*
  * Free memory of lispd_mapping_elt.
  */
-void free_mapping_elt(lispd_mapping_elt    *mapping)
+void free_mapping_elt(lispd_mapping_elt *mapping, int local)
 {
-    /*
-     * Free the locators list
-     */
+    /* Free the locators list*/
     free_locator_list(mapping->head_v4_locators_list);
     free_locator_list(mapping->head_v6_locators_list);
+    /* Free extended info */
+    if (local == TRUE){
+        free ((lcl_mapping_extended_info *)mapping->extended_info);
+    }else{
+        free ((rmt_mapping_extended_info *)mapping->extended_info);
+    }
     free(mapping);
 
 }

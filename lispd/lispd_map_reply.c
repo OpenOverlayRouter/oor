@@ -111,68 +111,83 @@ int process_map_reply(uint8_t *packet)
 
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 {
-    lispd_pkt_mapping_record_t              *record = NULL;
-    lispd_mapping_elt                       mapping;
-    lispd_map_cache_entry                   *cache_entry = NULL;
-    int                                     ctr = 0;
+    lispd_pkt_mapping_record_t              *record                 = NULL;
+    lispd_mapping_elt                       *mapping                = NULL;
+    lispd_map_cache_entry                   *cache_entry            = NULL;
+    lisp_addr_t                             aux_eid_prefix;
+    int                                     aux_eid_prefix_length   = 0;
+    int                                     aux_iid                 = -1;
+    int                                     ctr                     = 0;
 
     record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
-    init_mapping(&mapping);
-    *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
-    if (!pkt_process_eid_afi(cur_ptr,&mapping)){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Error processing the EID of the map reply record");
+    mapping = new_map_cache_mapping(aux_eid_prefix,aux_eid_prefix_length,aux_iid);
+    if (mapping == NULL){
         return (BAD);
     }
-    mapping.eid_prefix_length = record->eid_prefix_length;
+    *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
+    if (!pkt_process_eid_afi(cur_ptr,mapping)){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Error processing the EID of the map reply record");
+        free_mapping_elt(mapping, FALSE);
+        return (BAD);
+    }
+    mapping->eid_prefix_length = record->eid_prefix_length;
 
 
     /*
      * Check if the map replay corresponds to a not active map cache
      */
 
-    cache_entry = lookup_nonce_in_no_active_map_caches(mapping.eid_prefix.afi, nonce);
+    cache_entry = lookup_nonce_in_no_active_map_caches(mapping->eid_prefix.afi, nonce);
 
 
-    if (cache_entry){
-        if (cache_entry->mapping->iid != mapping.iid){
+    if (cache_entry != NULL){
+        if (cache_entry->mapping->iid != mapping->iid){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the inactive map cache entry");
+            free_mapping_elt(mapping, FALSE);
             return (BAD);
         }
         /*
          * If the eid prefix of the received map reply doesn't match the inactive map cache entry (x.x.x.x/32 or x:x:x:x:x:x:x:x/128),then
          * we remove the inactie entry from the database and store it again with the correct eix prefix (for instance /24).
          */
-        if (cache_entry->mapping->eid_prefix_length != mapping.eid_prefix_length){
-            if (change_map_cache_prefix_in_db(mapping.eid_prefix, mapping.eid_prefix_length, cache_entry) == BAD)
+        if (cache_entry->mapping->eid_prefix_length != mapping->eid_prefix_length){
+            if (change_map_cache_prefix_in_db(mapping->eid_prefix, mapping->eid_prefix_length, cache_entry) == BAD){
+                free_mapping_elt(mapping, FALSE);
                 return (BAD);
+            }
         }
         cache_entry->active = 1;
         stop_timer(cache_entry->request_retry_timer);
         lispd_log_msg(LISP_LOG_DEBUG_2,"  Activating map cache entry %s/%d",
-                            get_char_from_lisp_addr_t(mapping.eid_prefix),mapping.eid_prefix_length);
+                            get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
+        free_mapping_elt(mapping, FALSE);
+
     }
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
     else {
         /* Serch map cache entry exist*/
-        cache_entry = lookup_map_cache_exact(mapping.eid_prefix,mapping.eid_prefix_length);
+        cache_entry = lookup_map_cache_exact(mapping->eid_prefix,mapping->eid_prefix_length);
         if (cache_entry == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  No map cache entry found for %s/%d",
-                    get_char_from_lisp_addr_t(mapping.eid_prefix),mapping.eid_prefix_length);
-            return BAD;
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
+            free_mapping_elt(mapping, FALSE);
+            return (BAD);
         }
         /* Check the found map cache entry contain the nonce of the map reply*/
         if (check_nonce(cache_entry->nonces,nonce)==BAD){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  The nonce of the Map-Reply doesn't match the nonce of the generated Map-Request. Discarding message ...");
-            return BAD;
+            free_mapping_elt(mapping, FALSE);
+            return (BAD);
         }
         cache_entry->nonces = NULL;
         /* Stop timer of Map Requests retransmits */
         if (cache_entry->smr_timer != NULL){
             stop_timer(cache_entry->smr_timer);
         }
-        /* Check instane id. If the entry doesn't use instane id, its value is 0 */
-        if (cache_entry->mapping->iid != mapping.iid){
+        /* Check instane id.*/
+        if (cache_entry->mapping->iid != mapping->iid){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the map cache entry");
+            free_mapping_elt(mapping, FALSE);
             return (BAD);
         }
         lispd_log_msg(LISP_LOG_DEBUG_2,"  A map cache entry already exists for %s/%d, replacing locators list of this entry",
@@ -182,6 +197,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         free_locator_list(cache_entry->mapping->head_v6_locators_list);
         cache_entry->mapping->head_v4_locators_list = NULL;
         cache_entry->mapping->head_v6_locators_list = NULL;
+        free_mapping_elt(mapping, FALSE);
     }
     cache_entry->mapping->locator_count = record->locator_count;
     cache_entry->actions = record->action;
@@ -202,7 +218,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
                      (void *)cache_entry);
 
-    return TRUE;
+    return (TRUE);
 }
 
 int process_map_reply_locator(

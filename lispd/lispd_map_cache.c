@@ -48,15 +48,13 @@ lispd_map_cache_entry *new_map_cache_entry (
         return(NULL);
     }
     memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
-    if ((map_cache_entry->mapping = malloc(sizeof(lispd_mapping_elt))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_mapping_elt: %s", strerror(errno));
-        free (map_cache_entry);
+
+    /* Create themapping for this map-cache */
+    map_cache_entry->mapping = new_map_cache_mapping (eid_prefix, eid_prefix_length, -1);
+    if (map_cache_entry->mapping == NULL){
         return(NULL);
     }
 
-    init_mapping(map_cache_entry->mapping);
-    map_cache_entry->mapping->eid_prefix = eid_prefix;
-    map_cache_entry->mapping->eid_prefix_length = eid_prefix_length;
     map_cache_entry->active_witin_period = FALSE;
     map_cache_entry->probe_left = 0;
     map_cache_entry->how_learned = how_learned;
@@ -86,7 +84,7 @@ lispd_map_cache_entry *new_map_cache_entry (
 
 void free_map_cache_entry(lispd_map_cache_entry *entry)
 {
-    free_mapping_elt(entry->mapping);
+    free_mapping_elt(entry->mapping, FALSE);
     /*
      * Free the entry
      */

@@ -104,6 +104,15 @@
 /************** Function declaration ************/
 
 /*
+ * Process encapsulated map request header:  lisp header and the interal IP and UDP header
+ */
+
+int process_encapsulated_map_request_headers(
+         uint8_t        *packet,
+         int            *len,
+         uint16_t       *dst_port);
+
+/*
  * Process record and send Map Reply
  */
 
@@ -157,131 +166,69 @@ int add_encap_headers(
          lisp_addr_t    *local_rloc,
          uint16_t       dst_port) {
 
-     lispd_mapping_elt source_mapping;
-     lispd_map_cache_entry *map_cache_entry     = NULL;
-     lisp_addr_t itr_rloc[32];
-     lisp_addr_t *remote_rloc                   = NULL;
-     int itr_rloc_count                         = 0;
-     int itr_rloc_afi                           = 0;
-     uint8_t *cur_ptr                           = NULL;
-     int ip_header_len                          = 0;
-     int len                                    = 0;
-     lispd_pkt_map_request_t *msg               = NULL;
-     struct ip *iph                             = NULL;
-     struct ip6_hdr *ip6h                       = NULL;
-     struct udphdr *udph                        = NULL;
-     int encap_afi                              = 0;
-     uint16_t udpsum                            = 0;
-     uint16_t ipsum                             = 0;
-     int udp_len                                = 0;
-     //uint16_t sport                             = 0;
-     int i                                      = 0;
+     lispd_mapping_elt          *source_mapping          = NULL;
+     lispd_map_cache_entry      *map_cache_entry        = NULL;
+     lisp_addr_t                itr_rloc[32];
+     lisp_addr_t                *remote_rloc            = NULL;
+     int                        itr_rloc_count          = 0;
+     int                        itr_rloc_afi            = 0;
+     uint8_t                    *cur_ptr                = NULL;
+     int                        len                     = 0;
+     lispd_pkt_map_request_t    *msg                    = NULL;
+     lisp_addr_t                aux_eid_prefix;
+     int                        aux_eid_prefix_length   = 0;
+     int                        aux_iid                 = -1;
+     int                        i                       = 0;
 
      /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
 
      if (((lispd_pkt_encapsulated_control_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
-
-         /*
-          * Read IP header.source_mapping
-          */
-
-         iph = (struct ip *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-
-         switch (iph->ip_v) {
-         case IPVERSION:
-             ip_header_len = sizeof(struct ip);
-             udph = (struct udphdr *) CO(iph, ip_header_len);
-             encap_afi = AF_INET;
-             break;
-         case IP6VERSION:
-             ip6h = (struct ip6_hdr *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-             ip_header_len = sizeof(struct ip6_hdr);
-             udph = (struct udphdr *) CO(ip6h, ip_header_len);
-             encap_afi = AF_INET6;
-             break;
-         default:
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
-             return(BAD);
+         if ((err = process_encapsulated_map_request_headers(packet,&len,&dst_port)) != GOOD){
+             return (BAD);
          }
-
-         /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
-         dst_port = ntohs(udph->source);
-         
- #ifdef BSD
-         udp_len = ntohs(udph->uh_ulen);
-        // sport   = ntohs(udph->uh_sport);
- #else
-         udp_len = ntohs(udph->len);
-        // sport   = ntohs(udph->source);
- #endif
-
-
-         /*
-          * Verify the checksums.
-          */
-         if (iph->ip_v == IPVERSION) {
-             ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
-             if (ipsum != 0) {
-                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
-             }
-             if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-                 return(BAD);
-             }
-             if (udpsum != 0) {
-                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
-                 return(BAD);
-             }
-         }
-
-         //Pranathi: Added this
-         if (iph->ip_v == IP6VERSION) {
-
-             if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-                 return(BAD);
-             }
-             if (udpsum != 0) {
-                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
-                 return(BAD);
-             }
-         }
-
-         /*
-          * Point msg at the start of the Map-Request payload
-          */
-
-         len = ip_header_len + sizeof(struct udphdr);
-         msg = (lispd_pkt_map_request_t *) CO(iph, len);
-
+         msg = (lispd_pkt_map_request_t *) CO(packet, len);
      } else if (((lispd_pkt_map_request_t *) packet)->type == LISP_MAP_REQUEST) {
          msg = (lispd_pkt_map_request_t *) packet;
      } else
          return(BAD); //we should never reach this return()
 
-     /* Source EID is optional in general, but required for SMRs */
-     init_mapping(&source_mapping);
-     cur_ptr = (uint8_t *)&(msg->source_eid_afi);
-     if (pkt_process_eid_afi(&cur_ptr, &source_mapping)==BAD)
-         return (BAD);
+     /*
+      * Source EID is optional in general, but required for SMRs
+      */
 
+     /* Auxiliar lispd_mapping_elt created to be filled with pkt_process_eid_afi */
+     source_mapping = new_local_mapping(aux_eid_prefix,aux_eid_prefix_length,aux_iid);
+     if (source_mapping == NULL){
+         return (BAD);
+     }
+     cur_ptr = (uint8_t *)&(msg->source_eid_afi);
+     if (pkt_process_eid_afi(&cur_ptr, source_mapping) != GOOD){
+         free_mapping_elt(source_mapping, FALSE);
+         return (BAD);
+     }
      /* If packet is a Solicit Map Request, process it */
 
-     if (source_mapping.eid_prefix.afi != 0 && msg->solicit_map_request) {
+     if (source_mapping->eid_prefix.afi != 0 && msg->solicit_map_request) {
          /*
           * Lookup the map cache entry that match with the source EID prefix of the message
           */
-         map_cache_entry = lookup_map_cache(source_mapping.eid_prefix);
+         map_cache_entry = lookup_map_cache(source_mapping->eid_prefix);
          if (map_cache_entry == NULL){
+             free_mapping_elt(source_mapping, FALSE);
              return (BAD);
          }
 
          /*
           * Check IID of the received Solicit Map Request match the IID of the map cache
           */
-         if (map_cache_entry->mapping->iid != source_mapping.iid){
+         if (map_cache_entry->mapping->iid != source_mapping->iid){
              lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_msg: The IID of the received Solicit Map Request doesn't match the IID of "
                      "the entry in the map cache");
+             free_mapping_elt(source_mapping, FALSE);
              return (BAD);
          }
+         /* Free source_mapping once we have a valid map cache entry */
+         free_mapping_elt(source_mapping, FALSE);
 
          /*
           * Only accept a solicit map request for an EID prefix ->If node which generates the message
@@ -323,6 +270,94 @@ int add_encap_headers(
  }
 
  /*
+  * Process encapsulated map request header:  lisp header and the interal IP and UDP header
+  */
+
+ int process_encapsulated_map_request_headers(
+         uint8_t        *packet,
+         int            *len,
+         uint16_t       *dst_port){
+
+     struct ip                  *iph                    = NULL;
+     struct ip6_hdr             *ip6h                   = NULL;
+     struct udphdr              *udph                   = NULL;
+     int                        ip_header_len           = 0;
+     int                        encap_afi               = 0;
+     uint16_t                   udpsum                  = 0;
+     uint16_t                   ipsum                   = 0;
+     int                        udp_len                 = 0;
+
+     /*
+      * Read IP header.source_mapping
+      */
+
+     iph = (struct ip *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
+
+     switch (iph->ip_v) {
+     case IPVERSION:
+         ip_header_len = sizeof(struct ip);
+         udph = (struct udphdr *) CO(iph, ip_header_len);
+         encap_afi = AF_INET;
+         break;
+     case IP6VERSION:
+         ip6h = (struct ip6_hdr *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
+         ip_header_len = sizeof(struct ip6_hdr);
+         udph = (struct udphdr *) CO(ip6h, ip_header_len);
+         encap_afi = AF_INET6;
+         break;
+     default:
+         lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
+         return(BAD);
+     }
+
+     /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
+     *dst_port = ntohs(udph->source);
+
+#ifdef BSD
+     udp_len = ntohs(udph->uh_ulen);
+     // sport   = ntohs(udph->uh_sport);
+#else
+     udp_len = ntohs(udph->len);
+     // sport   = ntohs(udph->source);
+#endif
+
+
+     /*
+      * Verify the checksums.
+      */
+     if (iph->ip_v == IPVERSION) {
+         ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
+         if (ipsum != 0) {
+             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
+         }
+         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+             return(BAD);
+         }
+         if (udpsum != 0) {
+             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
+             return(BAD);
+         }
+     }
+
+     //Pranathi: Added this
+     if (iph->ip_v == IP6VERSION) {
+
+         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+             return(BAD);
+         }
+         if (udpsum != 0) {
+             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
+             return(BAD);
+         }
+     }
+
+     *len = sizeof(lispd_pkt_encapsulated_control_t)+ip_header_len + sizeof(struct udphdr);
+
+     return (GOOD);
+ }
+
+
+ /*
   * Process record and send Map Reply
   */
 
@@ -334,31 +369,40 @@ int add_encap_headers(
          uint8_t rloc_probe,
          uint64_t nonce)
  {
-     lispd_pkt_map_request_eid_prefix_record_t *record;
-     lispd_mapping_elt requested_mapping;
-     lispd_mapping_elt *mapping;
-     map_reply_opts opts;
+     lispd_pkt_map_request_eid_prefix_record_t  *record                 = NULL;
+     lispd_mapping_elt                          *requested_mapping      = NULL;
+     lispd_mapping_elt                          *mapping                = NULL;
+     map_reply_opts                             opts;
+     lisp_addr_t                                aux_eid_prefix;
+     int                                        aux_eid_prefix_length   = 0;
+     int                                        aux_iid                 = -1;
 
      /* Get the requested EID prefix */
      record = (lispd_pkt_map_request_eid_prefix_record_t *)*cur_ptr;
-     init_mapping(&requested_mapping);
-     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
-     if ((err=pkt_process_eid_afi(cur_ptr, &requested_mapping))!=GOOD){
-         lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_record: Requested EID could not be processed");
-         return (err);
-     }
-     requested_mapping.eid_prefix_length = record->eid_prefix_length;
-
-     /* Check the existence of the requested EID */
-     /* XXX aloepz: We don't use prefix mask and use by default 32 or 128*/
-     mapping = lookup_eid_in_db(requested_mapping.eid_prefix);
-     if (!mapping){
-         lispd_log_msg(LISP_LOG_DEBUG_1,"The requested EID doesn't belong to this node: %s/%d",
-                 get_char_from_lisp_addr_t(requested_mapping.eid_prefix),
-                 requested_mapping.eid_prefix_length);
+     /* Auxiliar lispd_mapping_elt created to be filled with pkt_process_eid_afi */
+     requested_mapping = new_local_mapping(aux_eid_prefix, aux_eid_prefix_length, aux_iid);
+     if (requested_mapping == NULL){
          return (BAD);
      }
+     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
+     if ((err=pkt_process_eid_afi(cur_ptr, requested_mapping))!=GOOD){
+         lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_record: Requested EID could not be processed");
+         free_mapping_elt (requested_mapping, TRUE);
+         return (err);
+     }
+     requested_mapping->eid_prefix_length = record->eid_prefix_length;
 
+     /* Check the existence of the requested EID */
+     /*  We don't use prefix mask and use by default 32 or 128*/
+     mapping = lookup_eid_in_db(requested_mapping->eid_prefix);
+     if (!mapping){
+         lispd_log_msg(LISP_LOG_DEBUG_1,"The requested EID doesn't belong to this node: %s/%d",
+                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                 requested_mapping->eid_prefix_length);
+         free_mapping_elt (requested_mapping, TRUE);
+         return (BAD);
+     }
+     free_mapping_elt (requested_mapping, TRUE);
 
      /* Set flags for Map-Reply */
      opts.send_rec   = 1;

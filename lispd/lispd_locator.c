@@ -226,7 +226,7 @@ void free_locator(lispd_locator_elt   *locator)
 
 inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extenden_info)
 {
-    if (extenden_info->rloc_probing_nonces){
+    if (extenden_info->rloc_probing_nonces != NULL){
         free (extenden_info->rloc_probing_nonces);
     }
     free (extenden_info);

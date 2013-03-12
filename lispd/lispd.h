@@ -209,9 +209,6 @@ int err;
 #define LISP_CONTROL_PORT               4342
 #define LISP_DATA_PORT                  4341
 
-
-
-
 /*
  *  locator_types
  */
