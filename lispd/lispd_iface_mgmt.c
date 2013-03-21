@@ -31,6 +31,7 @@
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
+#include "lispd_mapping.h"
 
 void process_nl_add_address (struct nlmsghdr *nlh);
 void process_nl_del_address (struct nlmsghdr *nlh);
@@ -90,8 +91,8 @@ void process_netlink_msg(int netlink_fd){
                 process_nl_add_address (nlh);
                 break;
             case RTM_DELADDR:
-                process_nl_del_address (nlh);
                 lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  del address message");
+                process_nl_del_address (nlh);
                 break;
             case RTM_NEWLINK:
                 lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  link message");
@@ -188,8 +189,11 @@ void process_nl_del_address (struct nlmsghdr *nlh)
 void process_nl_new_link (struct nlmsghdr *nlh)
 {
     struct ifinfomsg    *ifi            = NULL;
-    int                 iface_index     = 0;
     lispd_iface_elt     *iface          = NULL;
+    lispd_mappings_list *mapping_list[2]= {NULL, NULL};
+    int                 iface_index     = 0;
+    int                 is_updated      = FALSE;
+    int                 ctr             = 0;
 
     ifi = (struct ifinfomsg *) NLMSG_DATA (nlh);
     iface_index = ifi->ifi_index;
@@ -200,11 +204,31 @@ void process_nl_new_link (struct nlmsghdr *nlh)
         lispd_log_msg(LISP_LOG_DEBUG_3, "process_nl_new_link: the netlink message is not for any RLOC interface");
         return;
     }
-    printf ("***** %d \n",ifi->ifi_flags);
     if ((ifi->ifi_flags & IFF_RUNNING) != 0){
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to UP",iface->iface_name);
+        if (iface->status == DOWN){
+            iface->status = UP;
+            is_updated = TRUE;
+        }
     }
     else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to DOWN",iface->iface_name);
+        if (iface->status == UP){
+            iface->status = DOWN;
+            is_updated = TRUE;
+        }
+    }
+
+    if (is_updated == TRUE){
+        mapping_list[0] = iface->head_v4_mappings_list;
+        mapping_list[1] = iface->head_v6_mappings_list;
+        for (ctr = 0 ; ctr < 2 ; ctr ++){
+            while (mapping_list[ctr] != NULL){
+                calculate_balancing_vectors (
+                        mapping_list[ctr]->mapping,
+                        &(((lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info))->outgoing_balancing_locators_vecs));
+                mapping_list[ctr] = mapping_list[ctr]->next;
+            }
+        }
     }
 }
