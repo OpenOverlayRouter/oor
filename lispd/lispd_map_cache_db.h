@@ -35,6 +35,7 @@
 #include "lispd_local_db.h"
 #include "lispd_map_cache.h"
 #include "lispd_timers.h"
+#include "patricia/patricia.h"
 
 
 /*

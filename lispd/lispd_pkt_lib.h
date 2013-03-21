@@ -64,5 +64,13 @@ int get_mapping_length(lispd_mapping_elt *mapping);
 
 int get_up_locator_length(lispd_locators_list *locators_list, int *loc_count);
 
+/*
+ * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
+ */
+
+int extract_5_tuples_from_packet (
+        char *packet ,
+        packet_tuple *tuple);
+
 
 #endif /*LISPD_PKT_LIB_H_*/

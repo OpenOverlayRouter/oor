@@ -26,7 +26,8 @@
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  */
 
-#pragma once
+#ifndef LISPD_INPUT_H_
+#define LISPD_INPUT_H_
 
 #include <stdio.h>
 #include <net/if.h>
@@ -42,3 +43,5 @@
 
 
 void process_input_packet(int fd, int afi, int tun_receive_fd);
+
+#endif /*LISPD_IFACE_LIST_H_*/

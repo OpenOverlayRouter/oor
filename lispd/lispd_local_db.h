@@ -33,6 +33,7 @@
 #include "lispd.h"
 #include "lispd_mapping.h"
 #include "lispd_nonce.h"
+#include "patricia/patricia.h"
 
 
 

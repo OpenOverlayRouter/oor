@@ -71,7 +71,6 @@ int lispd_get_address(char *host, lisp_addr_t *addr);
  */
 lisp_addr_t *lispd_get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
 
-void dump_database(patricia_tree_t *tree,int afi);
 
 void dump_servers(lispd_addr_list_t *list, const char *list_name, int log_level);
 

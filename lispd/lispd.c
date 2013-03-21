@@ -133,6 +133,18 @@ int main(int argc, char **argv)
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
 
+
+
+#ifdef ROUTER
+#ifdef OPENWRT
+    printf ("LISPmob compiled for openWRT router");
+#else
+    printf ("LISPmob compiled for linux router");
+#endif
+    printf ("LISPmob compiled for simple node");
+#endif
+
+
     /*
      *  Check for superuser privileges
      */
@@ -306,7 +318,7 @@ int main(int argc, char **argv)
     if (default_ctrl_iface_v6){
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
     }
-    
+
     if (default_out_iface_v4){
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
     }
@@ -325,8 +337,8 @@ int main(int argc, char **argv)
 
     map_register (NULL,NULL);
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob: 'lispd' started...");
-    
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
+
     event_loop();
 
     lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */

@@ -33,7 +33,6 @@
 
 #include "lispd_locator.h"
 
-#define LOCATOR_HASH_TABLE_POSITIONS       20
 
 
 /****************************************  STRUCTURES **************************************/
@@ -54,17 +53,20 @@ typedef struct lispd_mapping_elt_ {
 
 /*
  * Used to select the locator to be used for an identifier according to locators' priority and weight.
- *  v4_locator_hash_table: If we just have IPv4 RLOCs
- *  v6_locator_hash_table: If we just hace IPv6 RLOCs
- *  locator_hash_table: If we have IPv4 & IPv6 RLOCs
+ *  v4_balancing_locators_vec: If we just have IPv4 RLOCs
+ *  v6_balancing_locators_vec: If we just hace IPv6 RLOCs
+ *  balancing_locators_vec: If we have IPv4 & IPv6 RLOCs
  *  For each packet, a hash of its tuppla is calculaed. The result of this hash is one position of the array.
  */
 
-typedef struct locator_hash_tables_ {
-    lispd_locator_elt               *v4_locator_hash_table[LOCATOR_HASH_TABLE_POSITIONS]; /* Used to do traffic balancing between RLOCs.*/
-    lispd_locator_elt               *v6_locator_hash_table[LOCATOR_HASH_TABLE_POSITIONS]; /* Used to do traffic balancing between RLOCs*/
-    lispd_locator_elt               *locator_hash_table[LOCATOR_HASH_TABLE_POSITIONS];
-}locator_hash_tables;
+typedef struct balancing_locators_vecs_ {
+    lispd_locator_elt               **v4_balancing_locators_vec;
+    lispd_locator_elt               **v6_balancing_locators_vec;
+    lispd_locator_elt               **balancing_locators_vec;
+    int v4_locators_vec_length;
+    int v6_locators_vec_length;
+    int locators_vec_length;
+}balancing_locators_vecs;
 
 
 /*
@@ -72,14 +74,14 @@ typedef struct locator_hash_tables_ {
  */
 
 typedef struct lcl_mapping_extended_info_ {
-    locator_hash_tables               outgoing_locator_hash_tables;
+    balancing_locators_vecs               outgoing_balancing_locators_vecs;
 }lcl_mapping_extended_info;
 
 /*
  * Structure to expand the lispd_mapping_elt used in lispd_map_cache_entry
  */
 typedef struct rmt_mapping_extended_info_ {
-    locator_hash_tables               rmt_locator_hash_tables;
+    balancing_locators_vecs               rmt_balancing_locators_vecs;
 }rmt_mapping_extended_info;
 
 
@@ -132,5 +134,20 @@ void dump_mapping_entry(
         lispd_mapping_elt       *mapping,
         int                     log_level);
 
+/*
+ * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
+ */
+int calculate_balancing_vectors (
+        lispd_mapping_elt           *mapping,
+        balancing_locators_vecs     *b_locators_vecs);
+
+/*
+ * Print balancing locators vector information
+ */
+
+void dump_balancing_locators_vec(
+        balancing_locators_vecs b_locators_vecs,
+        lispd_mapping_elt *mapping,
+        int log_level);
 
 #endif /* LISPD_MAPPING_H_ */

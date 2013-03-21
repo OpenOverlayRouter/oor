@@ -34,7 +34,6 @@
 #ifndef LISPD_LOG_H_
 #define LISPD_LOG_H_
 
-#include "lispd.h"
 
 
 // If these set of defines is modified, check the function is_loggable()

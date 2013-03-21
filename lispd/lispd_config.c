@@ -514,7 +514,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             if (add_server(map_resolver, &map_resolvers) == GOOD){
                 lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-resolver list", map_resolver);
             }else{
-                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",cfg_getstr(cfg, "map-resolver"));
+                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",map_resolver);
             }
         }
     }
@@ -753,7 +753,8 @@ int add_database_mapping(
     if (interface->ipv4_address && priority_v4 >= 0){
         if ((err = add_mapping_to_interface (interface, mapping,AF_INET)) == GOOD){
 
-            locator = new_local_locator (interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
+            locator = new_local_locator (interface->ipv4_address,&(interface->status),priority_v4,weight_v4,255,0,interface->out_socket_v4);
+
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
                     return (BAD);
@@ -768,7 +769,7 @@ int add_database_mapping(
     /* If interface has IPv6 address. Assign the mapping to the v6 mappings of the interface. Create IPv6 locator and assign to the mapping  */
     if (interface->ipv6_address  && priority_v6 >= 0){
         if ((err = add_mapping_to_interface (interface, mapping,AF_INET6)) == GOOD){
-            locator = new_local_locator (interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
+            locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,interface->out_socket_v6);
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
                     return (BAD);
@@ -780,6 +781,11 @@ int add_database_mapping(
             return (BAD);
         }
     }
+    /* Recalculate the outgoing rloc vectors */
+    if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
+        lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc prefenernce");
+    }
+
 
     return(GOOD);
 }
@@ -836,7 +842,7 @@ int add_static_map_cache_entry(
 
     map_cache_entry->mapping->iid = iid;
 
-    locator = new_static_rmt_locator(rloc_addr,UP,STATIC_LOCATOR,priority,weight,255,0);
+    locator = new_static_rmt_locator(rloc_addr,UP,priority,weight,255,0);
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (map_cache_entry->mapping, locator)) != GOOD){

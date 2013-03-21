@@ -40,8 +40,9 @@ INC		= lispd.h
 MAKEFILE	= Makefile
 OBJS		= cmdline.o lispd.o lispd_config.o lispd_log.o	\
 		  lispd_lib.o lispd_map_register.o	lispd_mapping.o \
-		  patricia/patricia.o cksum.o lispd_map_request.o	\
-		  lispd_map_reply.o lispd_iface_mgmt.o\
+		  patricia/patricia.o \
+		  cksum.o lispd_map_request.o \
+		  lispd_map_reply.o lispd_iface_mgmt.o \
 		  lispd_iface_list.o lispd_map_notify.o lispd_pkt_lib.o \
 		  lispd_timers.o lispd_local_db.o lispd_map_cache_db.o \
 		  lispd_afi.o lispd_nonce.o lispd_rloc_probing.o \
@@ -67,7 +68,7 @@ endif
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o $(EXE) patricia/*.o
+	rm -f *.o $(EXE) patricia/*.o bob/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

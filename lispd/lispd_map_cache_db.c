@@ -30,7 +30,6 @@
 
 #include "lispd_lib.h"
 #include "lispd_map_cache_db.h"
-#include "patricia/patricia.h"
 #include <math.h>
 
 /*

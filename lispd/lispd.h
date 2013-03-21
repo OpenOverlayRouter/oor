@@ -60,7 +60,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include "lispd_log.h"
-#include "patricia/patricia.h"
+
 
 /*
  *  Protocols constants related with timeouts
@@ -215,8 +215,8 @@ int err;
 
 #define STATIC_LOCATOR                  0
 #define DYNAMIC_LOCATOR                 1
-#define PETR_LOCATOR                    3
-#define LOCAL_LOCATOR                   4
+#define PETR_LOCATOR                    2
+#define LOCAL_LOCATOR                   3
 
 
 
@@ -307,6 +307,15 @@ typedef struct _lispd_map_server_list_t {
     uint8_t                         proxy_reply;
     struct _lispd_map_server_list_t *next;
 } lispd_map_server_list_t;
+
+typedef struct packet_tuple_ {
+    lisp_addr_t                     src_addr;
+    lisp_addr_t                     dst_addr;
+    uint16_t                        src_port;
+    uint16_t                        dst_port;
+    uint8_t                         protocol;
+} packet_tuple;
+
 
 /*
  *  for map-register auth data...

@@ -33,7 +33,6 @@
 #include <netinet/in.h>
 #include "lispd_lib.h"
 #include "lispd_map_cache_db.h"
-#include "patricia/patricia.h"
 
 
 /*

@@ -161,7 +161,6 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         lispd_log_msg(LISP_LOG_DEBUG_2,"  Activating map cache entry %s/%d",
                             get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
         free_mapping_elt(mapping, FALSE);
-
     }
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
     else {
@@ -211,6 +210,14 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         if ((process_map_reply_locator (cur_ptr, cache_entry->mapping)) == BAD)
             return(BAD);
     }
+
+    /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
+    if (cache_entry->mapping->locator_count != 0){
+        calculate_balancing_vectors (
+                cache_entry->mapping,
+                &(((rmt_mapping_extended_info *)cache_entry->mapping->extended_info)->rmt_balancing_locators_vecs));
+    }
+
     /* Reprogramming timers */
     if (!cache_entry->expiry_cache_timer){
         cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE);
@@ -234,7 +241,7 @@ int process_map_reply_locator(
 
     cur_ptr = (uint8_t *)&(pkt_locator->locator_afi);
 
-    locator = new_rmt_locator (&cur_ptr,pkt_locator->reachable, DYNAMIC_LOCATOR,
+    locator = new_rmt_locator (&cur_ptr,pkt_locator->reachable,
             pkt_locator->priority, pkt_locator->weight,
             pkt_locator->mpriority, pkt_locator->mweight);
 

@@ -51,9 +51,9 @@ typedef struct lispd_locator_elt_ {
     void                        *extended_info;
 }lispd_locator_elt;
 
-//typedef struct lcl_locator_extended_info_ {
-//
-//}lcl_locator_extended_info;
+typedef struct lcl_locator_extended_info_ {
+    int out_socket;
+}lcl_locator_extended_info;
 
 /*
  * Structure to expand lispd_locator_elt for remote locators
@@ -77,14 +77,14 @@ typedef struct lispd_locators_list_ {
  * Generets a locator element
  */
 
-inline lispd_locator_elt   *new_local_locator (
+lispd_locator_elt   *new_local_locator (
         lisp_addr_t                 *locator_addr,
         uint8_t                     *state,    /* UP , DOWN */
-        uint8_t                     locator_type, /* LOCAL_LOCATOR, DYNAMIC_LOCATOR, ...*/
         uint8_t                     priority,
         uint8_t                     weight,
         uint8_t                     mpriority,
-        uint8_t                     mweight);
+        uint8_t                     mweight,
+        int                         out_socket);
 
 /*
  * Generets a locator element. For the remote locators, we have to reserve memory for address and state.
@@ -93,7 +93,6 @@ inline lispd_locator_elt   *new_local_locator (
 lispd_locator_elt   *new_rmt_locator (
         uint8_t                     **afi_ptr,
         uint8_t                     state,    /* UP , DOWN */
-        uint8_t                     locator_type, /* LOCAL_LOCATOR, DYNAMIC_LOCATOR, ...*/
         uint8_t                     priority,
         uint8_t                     weight,
         uint8_t                     mpriority,
@@ -102,7 +101,6 @@ lispd_locator_elt   *new_rmt_locator (
 lispd_locator_elt   *new_static_rmt_locator (
         char                        *rloc_addr,
         uint8_t                     state,    /* UP , DOWN */
-        uint8_t                     locator_type,
         uint8_t                     priority,
         uint8_t                     weight,
         uint8_t                     mpriority,

@@ -35,6 +35,8 @@
 #include "lispd_map_register.h"
 #include "lispd_external.h"
 #include "lispd_sockets.h"
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
 
 /*
  *  get_locator_length
@@ -276,6 +278,58 @@ void *pkt_fill_mapping_record(
         }
     }
     return (void *)loc_ptr;
+}
+/*
+ * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
+ */
+int extract_5_tuples_from_packet (
+        char *packet ,
+        packet_tuple *tuple)
+{
+    struct iphdr        *iph    = NULL;
+    struct ip6_hdr      *ip6h   = NULL;
+    struct udphdr       *udp    = NULL;
+    struct tcphdr       *tcp    = NULL;
+    int                 len     = 0;
+
+    iph = (struct iphdr *) packet;
+
+    switch (iph->version) {
+    case 4:
+        tuple->src_addr.afi = AF_INET;
+        tuple->dst_addr.afi = AF_INET;
+        tuple->src_addr.address.ip.s_addr = iph->saddr;
+        tuple->dst_addr.address.ip.s_addr = iph->daddr;
+        tuple->protocol = iph->protocol;
+        len = iph->ihl*4;
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *) packet;
+        tuple->src_addr.afi = AF_INET6;
+        tuple->dst_addr.afi = AF_INET6;
+        memcpy(&(tuple->src_addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
+        memcpy(&(tuple->dst_addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
+        tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+        len = sizeof(struct ip6_hdr);
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2,"extract_5_tuples_from_packet: No ip packet identified");
+        return (BAD);
+    }
+
+    if (tuple->protocol == IPPROTO_UDP){
+        udp = (struct udphdr *)CO(packet,len);
+        tuple->src_port = udp->source;
+        tuple->dst_port = udp->dest;
+    }else if (tuple->protocol == IPPROTO_TCP){
+        tcp = (struct tcphdr *)CO(packet,len);
+        tuple->src_port = tcp->source;
+        tuple->dst_port = tcp->dest;
+    }else{//If protocol is not TCP or UDP, ports of the tuple set to 0
+        tuple->src_port = 0;
+        tuple->dst_port = 0;
+    }
+    return (GOOD);
 }
 
 /*

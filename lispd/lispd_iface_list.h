@@ -34,7 +34,8 @@
 #define LISPD_IFACE_LIST_H_
 
 #include "lispd.h"
-#include "lispd_local_db.h"
+#include "lispd_mapping.h"
+
 
 /*
  * Interface structure

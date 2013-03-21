@@ -33,7 +33,7 @@
 #define LISPD_AFI_H_
 
 #include "lispd.h"
-#include "lispd_local_db.h"
+#include "lispd_mapping.h"
 
 
 /*
