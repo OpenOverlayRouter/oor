@@ -47,7 +47,7 @@
 
 
 lispd_pkt_map_register_t *build_map_register_pkt(
-        lispd_identifier_elt    *identifier,
+        lispd_mapping_elt       *mapping,
         int                     *mrp_len);
 int send_map_register(
         lisp_addr_t                 *ms_address,
@@ -75,7 +75,7 @@ int map_register(
     lispd_map_server_list_t   *ms;
     lispd_pkt_map_register_t  *map_register_pkt; 
     patricia_node_t           *node;
-    lispd_identifier_elt      *identifier_elt;
+    lispd_mapping_elt         *mapping_elt;
     int                       mrp_len = 0;
     int                       ctr = 0;
     int                       sent_map_registers = 0;
@@ -94,10 +94,10 @@ int map_register(
         if (!tree)
             continue;
         PATRICIA_WALK(tree->head, node) {
-            identifier_elt = ((lispd_identifier_elt *)(node->data));
-            if (identifier_elt) {
+            mapping_elt = ((lispd_mapping_elt *)(node->data));
+            if (mapping_elt) {
                 if ((map_register_pkt =
-                        build_map_register_pkt(identifier_elt, &mrp_len)) == NULL) {
+                        build_map_register_pkt(mapping_elt, &mrp_len)) == NULL) {
                     lispd_log_msg(LISP_LOG_DEBUG_1, "map_register: Couldn't build map register packet");
                     return(BAD);
                 }
@@ -131,19 +131,19 @@ int map_register(
 
                     if ((err = send_map_register(ms->address,map_register_pkt,mrp_len)) == GOOD) {
                         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent map register for %s/%d to maps server %s",
-                                                       get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
-                                                       identifier_elt->eid_prefix_length,
+                                                       get_char_from_lisp_addr_t(mapping_elt->eid_prefix),
+                                                       mapping_elt->eid_prefix_length,
                                                        get_char_from_lisp_addr_t(*(ms->address)));
                         sent_map_registers++;
                     }else {
-                        lispd_log_msg(LISP_LOG_WARNING, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                        lispd_log_msg(LISP_LOG_WARNING, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(mapping_elt->eid_prefix));
                     }
                     ms = ms->next;
                 }
                 free(map_register_pkt);
 
                 if (sent_map_registers == 0){
-                    lispd_log_msg(LISP_LOG_CRIT, "Couldn't register %s. \n Exiting ...",get_char_from_lisp_addr_t(identifier_elt->eid_prefix));
+                    lispd_log_msg(LISP_LOG_CRIT, "Couldn't register %s. \n Exiting ...",get_char_from_lisp_addr_t(mapping_elt->eid_prefix));
                     exit(EXIT_FAILURE);
                 }
                 sent_map_registers = 0;
@@ -159,8 +159,8 @@ int map_register(
     }
     start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register, NULL);
     lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed map register for %s/%d in %d seconds",
-                                get_char_from_lisp_addr_t(identifier_elt->eid_prefix),
-                                identifier_elt->eid_prefix_length,
+                                get_char_from_lisp_addr_t(mapping_elt->eid_prefix),
+                                mapping_elt->eid_prefix_length,
                                 MAP_REGISTER_INTERVAL);
     return(GOOD);
 }
@@ -174,14 +174,14 @@ int map_register(
  */
 
 lispd_pkt_map_register_t *build_map_register_pkt(
-        lispd_identifier_elt    *identifier,
+        lispd_mapping_elt       *mapping,
         int                     *mrp_len)
 {
     lispd_pkt_map_register_t *mrp;
     lispd_pkt_mapping_record_t *mr;
 
     *mrp_len = sizeof(lispd_pkt_map_register_t) +
-              pkt_get_mapping_record_length(identifier);
+              pkt_get_mapping_record_length(mapping);
 
     if ((mrp = malloc(*mrp_len)) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "build_map_register_pkt: Unable to allocate memory for Map Register packet: %s", strerror(errno));
@@ -209,7 +209,7 @@ lispd_pkt_map_register_t *build_map_register_pkt(
 
     mr = (lispd_pkt_mapping_record_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
-    if (pkt_fill_mapping_record(mr, identifier, NULL)) {
+    if (pkt_fill_mapping_record(mr, mapping, NULL)) {
         return(mrp);
     } else {
         free(mrp);

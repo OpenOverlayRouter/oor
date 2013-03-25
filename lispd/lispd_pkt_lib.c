@@ -35,6 +35,8 @@
 #include "lispd_map_register.h"
 #include "lispd_external.h"
 #include "lispd_sockets.h"
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
 
 /*
  *  get_locator_length
@@ -45,11 +47,11 @@
 int get_locator_length(lispd_locators_list *locators_list);
 
 
-int pkt_get_mapping_record_length(lispd_identifier_elt *identifier)
+int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
 {
     lispd_locators_list *locators_list[2] = {
-            identifier->head_v4_locators_list,
-            identifier->head_v6_locators_list};
+            mapping->head_v4_locators_list,
+            mapping->head_v6_locators_list};
     int length          = 0;
     int loc_length      = 0;
     int eid_length      = 0;
@@ -60,9 +62,9 @@ int pkt_get_mapping_record_length(lispd_identifier_elt *identifier)
             continue;
         loc_length += get_locator_length(locators_list[ctr]);
     }
-    eid_length = get_identifier_length(identifier);
+    eid_length = get_mapping_length(mapping);
     length = sizeof(lispd_pkt_mapping_record_t) + eid_length +
-            (identifier->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
+            (mapping->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
             loc_length;
 
     return (length);
@@ -141,17 +143,17 @@ int get_up_locator_length(
 
 
 /*
- *  get_identifier_length
+ *  get_mapping_length
  *
- *  Compute the lengths of the identifier to be use in a record
+ *  Compute the lengths of the mapping to be use in a record
  *  so we can allocate  memory for the packet....
  */
 
 
-int get_identifier_length(lispd_identifier_elt *identifier)
+int get_mapping_length(lispd_mapping_elt *mapping)
 {
     int ident_len = 0;
-    switch (identifier->eid_prefix.afi) {
+    switch (mapping->eid_prefix.afi) {
     case AF_INET:
         ident_len += sizeof(struct in_addr);
         break;
@@ -162,7 +164,7 @@ int get_identifier_length(lispd_identifier_elt *identifier)
         break;
     }
 
-    if (identifier->iid >= 0)
+    if (mapping->iid >= 0)
         ident_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
 
     return ident_len;
@@ -170,7 +172,7 @@ int get_identifier_length(lispd_identifier_elt *identifier)
 
 void *pkt_fill_eid(
         void                    *offset,
-        lispd_identifier_elt    *identifier)
+        lispd_mapping_elt       *mapping)
 {
     uint16_t                *afi_ptr;
     lispd_pkt_lcaf_t        *lcaf_ptr;
@@ -179,11 +181,11 @@ void *pkt_fill_eid(
     int                     eid_addr_len;
 
     afi_ptr = (uint16_t *)offset;
-    eid_addr_len = get_addr_len(identifier->eid_prefix.afi);
+    eid_addr_len = get_addr_len(mapping->eid_prefix.afi);
 
     /* For negative IID values, we skip LCAF/IID field */
-    if (identifier->iid < 0) {
-        *afi_ptr = htons(get_lisp_afi(identifier->eid_prefix.afi, NULL));
+    if (mapping->iid < 0) {
+        *afi_ptr = htons(get_lisp_afi(mapping->eid_prefix.afi, NULL));
         eid_ptr  = CO(offset, sizeof(uint16_t));
     } else {
         *afi_ptr = htons(LISP_AFI_LCAF);
@@ -197,11 +199,11 @@ void *pkt_fill_eid(
         lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
         lcaf_ptr->len   = htons(sizeof(lispd_pkt_lcaf_iid_t) + eid_addr_len);
 
-        iid_ptr->iid = htonl(identifier->iid);
-        iid_ptr->afi = htons(identifier->eid_prefix.afi);
+        iid_ptr->iid = htonl(mapping->iid);
+        iid_ptr->afi = htons(mapping->eid_prefix.afi);
     }
 
-    if ((copy_addr(eid_ptr,&(identifier->eid_prefix), 0)) == 0) {
+    if ((copy_addr(eid_ptr,&(mapping->eid_prefix), 0)) == 0) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_eid: copy_addr failed");
         return NULL;
     }
@@ -212,7 +214,7 @@ void *pkt_fill_eid(
 
 void *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
-    lispd_identifier_elt                    *identifier,
+    lispd_mapping_elt                       *mapping,
     lisp_addr_t                             *probed_rloc)
 {
     int                                     cpy_len = 0;
@@ -224,25 +226,25 @@ void *pkt_fill_mapping_record(
     iface_list_elt *elt=NULL;
 #endif
 
-    if ((rec == NULL) || (identifier == NULL))
+    if ((rec == NULL) || (mapping == NULL))
         return NULL;
 
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
-    rec->locator_count          = identifier->locator_count;
-    rec->eid_prefix_length      = identifier->eid_prefix_length;
+    rec->locator_count          = mapping->locator_count;
+    rec->eid_prefix_length      = mapping->eid_prefix_length;
     rec->action                 = 0;
     rec->authoritative          = 1;
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-                pkt_fill_eid(&(rec->eid_prefix_afi), identifier);
+                pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
 
     if (loc_ptr == NULL)
         return NULL;
 
-    locators_list[0] = identifier->head_v4_locators_list;
-    locators_list[1] = identifier->head_v6_locators_list;
+    locators_list[0] = mapping->head_v4_locators_list;
+    locators_list[1] = mapping->head_v6_locators_list;
     for (ctr = 0 ; ctr < 2 ; ctr++){
         while (locators_list[ctr]) {
             locator             = locators_list[ctr]->locator;
@@ -276,6 +278,58 @@ void *pkt_fill_mapping_record(
         }
     }
     return (void *)loc_ptr;
+}
+/*
+ * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
+ */
+int extract_5_tuples_from_packet (
+        char *packet ,
+        packet_tuple *tuple)
+{
+    struct iphdr        *iph    = NULL;
+    struct ip6_hdr      *ip6h   = NULL;
+    struct udphdr       *udp    = NULL;
+    struct tcphdr       *tcp    = NULL;
+    int                 len     = 0;
+
+    iph = (struct iphdr *) packet;
+
+    switch (iph->version) {
+    case 4:
+        tuple->src_addr.afi = AF_INET;
+        tuple->dst_addr.afi = AF_INET;
+        tuple->src_addr.address.ip.s_addr = iph->saddr;
+        tuple->dst_addr.address.ip.s_addr = iph->daddr;
+        tuple->protocol = iph->protocol;
+        len = iph->ihl*4;
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *) packet;
+        tuple->src_addr.afi = AF_INET6;
+        tuple->dst_addr.afi = AF_INET6;
+        memcpy(&(tuple->src_addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
+        memcpy(&(tuple->dst_addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
+        tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+        len = sizeof(struct ip6_hdr);
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2,"extract_5_tuples_from_packet: No ip packet identified");
+        return (BAD);
+    }
+
+    if (tuple->protocol == IPPROTO_UDP){
+        udp = (struct udphdr *)CO(packet,len);
+        tuple->src_port = udp->source;
+        tuple->dst_port = udp->dest;
+    }else if (tuple->protocol == IPPROTO_TCP){
+        tcp = (struct tcphdr *)CO(packet,len);
+        tuple->src_port = tcp->source;
+        tuple->dst_port = tcp->dest;
+    }else{//If protocol is not TCP or UDP, ports of the tuple set to 0
+        tuple->src_port = 0;
+        tuple->dst_port = 0;
+    }
+    return (GOOD);
 }
 
 /*

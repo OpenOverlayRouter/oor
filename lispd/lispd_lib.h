@@ -64,14 +64,13 @@ int copy_addr(void *a1, lisp_addr_t *a2, int convert);
 /*
  *      return GOOD if addr contain a  lisp_addr_t for host/FQDN or BAD if none
  */
-int lispd_get_address(char *host, lisp_addr_t *addr, unsigned int *flags);
+int lispd_get_address(char *host, lisp_addr_t *addr);
 
 /*
  *  return lisp_addr_t for the interface, 0 if none
  */
 lisp_addr_t *lispd_get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
 
-void dump_database(patricia_tree_t *tree,int afi);
 
 void dump_servers(lispd_addr_list_t *list, const char *list_name, int log_level);
 

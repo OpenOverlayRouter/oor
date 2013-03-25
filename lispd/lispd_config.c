@@ -36,11 +36,14 @@
 #include "cmdline.h"
 #include "confuse.h"
 #include "lispd_afi.h"
+#include "lispd_config.h"
 #include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
+#include "lispd_map_cache.h"
 #include "lispd_map_cache_db.h"
+#include "lispd_mapping.h"
 
 
 
@@ -313,10 +316,10 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
                     uci_weigth_v4,
                     uci_priority_v6,
                     uci_weigth_v6) != GOOD ){
-                lispd_log_msg(LISP_LOG_ERR, "Can't add database-mapping %s. Discarded ...",
+                lispd_log_msg(LISP_LOG_ERR, "Can't add EID prefix %s. Discarded ...",
                         uci_eid_prefix);
             }else{
-                lispd_log_msg(LISP_LOG_DEBUG_1, "Added identifier %s in the database.",
+                lispd_log_msg(LISP_LOG_DEBUG_1, "Added EID prefix %s in the database.",
                         uci_eid_prefix);
             }
             continue;
@@ -377,7 +380,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     dump_local_eids(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
-        dump_map_cache(LISP_LOG_DEBUG_1);
+        dump_map_cache_db(LISP_LOG_DEBUG_1);
     }
     dump_map_servers(LISP_LOG_DEBUG_1);
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
@@ -511,7 +514,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             if (add_server(map_resolver, &map_resolvers) == GOOD){
                 lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-resolver list", map_resolver);
             }else{
-                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",cfg_getstr(cfg, "map-resolver"));
+                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",map_resolver);
             }
         }
     }
@@ -566,7 +569,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
                 cfg_getint(dm, "priority_v6"),
                 cfg_getint(dm, "weight_v6")) == GOOD
         ) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Added identifier %s in the database.",
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Added EID %s in the database.",
                     cfg_getstr(dm, "eid-prefix"));
         }else{
             lispd_log_msg(LISP_LOG_ERR, "Can't add database-mapping %s. Discarded ...",
@@ -627,9 +630,9 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_eids(LISP_LOG_DEBUG_1);
+    dump_local_db(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
-        dump_map_cache(LISP_LOG_DEBUG_1);
+        dump_map_cache_db(LISP_LOG_DEBUG_1);
     }
     dump_map_servers(LISP_LOG_DEBUG_1);
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
@@ -666,11 +669,12 @@ int add_database_mapping(
         int    weight_v6)
 
 {
-    lispd_identifier_elt        *identifier;
-    lispd_iface_elt             *interface;
+    lispd_mapping_elt           *mapping            = NULL;
+    lispd_locator_elt           *locator            = NULL;
+    lispd_iface_elt             *interface          = NULL;
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
-    int                         eid_prefix_length;
-    uint8_t                     is_new_identifier;
+    int                         eid_prefix_length   = 0;
+    uint8_t                     is_new_mapping      = FALSE;
 
     if (iid > MAX_IID || iid < -1) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
@@ -701,72 +705,87 @@ int add_database_mapping(
     }
 
     /*
-     * Lookup if the identifier exists. If not, a new identifier is created.
+     * Lookup if the mapping exists. If not, a new mapping is created.
      */
-    identifier = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
-    if (identifier == NULL)
+    mapping = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
+    if (mapping == NULL)
     {
-        identifier = new_identifier(eid_prefix,eid_prefix_length,iid);
-        if (identifier == NULL){
-            lispd_log_msg(LISP_LOG_ERR,"Configuration file: Identifier %s could not be added",eid);
+        mapping = new_local_mapping(eid_prefix,eid_prefix_length,iid);
+        if (mapping == NULL){
+            lispd_log_msg(LISP_LOG_ERR,"Configuration file: mapping %s could not be added",eid);
             return (BAD);
         }
-        is_new_identifier = TRUE;
+        /* Add the mapping to the local database */
+        if (add_mapping_to_db(mapping)!=GOOD){
+            free_mapping_elt(mapping, TRUE);
+            return (BAD);
+        }
+
+        is_new_mapping = TRUE;
     }else{
-        if (identifier->iid != iid){
-            lispd_log_msg(LISP_LOG_ERR,"Same identifier with different iid. This configuration is not supported..."
-                    "Ignoring identifier.");
+        if (mapping->iid != iid){
+            lispd_log_msg(LISP_LOG_ERR,"Same EID prefix with different iid. This configuration is not supported..."
+                    "Ignoring EID prefix.");
             return (BAD);
         }
-        is_new_identifier = FALSE;
+        is_new_mapping = FALSE;
     }
     /*
      * Add the new interface.
      */
     /* Check if the interface already exists. If not, add it*/
-    if ((interface=get_interface(iface_name))==NULL)
+    if ((interface=get_interface(iface_name))==NULL){
         interface = add_interface (iface_name);
-
-
-    /* If we couldn't add the interface and the identifier is new, we remove it. */
-    if (interface == NULL){
-        if (is_new_identifier){
-            del_identifier_entry (identifier->eid_prefix, identifier->eid_prefix_length, TRUE);
-        }
     }
 
-    /* XXX Process when the new locator could not be allocated */
+    /* If we couldn't add the interface and the mapping is new, we remove it. */
+    if (interface == NULL && is_new_mapping == TRUE){
+        if (is_new_mapping){
+            del_mapping_entry_from_db (mapping->eid_prefix, mapping->eid_prefix_length);
+            lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add mapping -> Cudn't create interface");
+        }else{
+            lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add locator to the mapping -> Cudn't create interface");
+        }
+        return (BAD);
+    }
+
+    /* If interface has IPv4 address. Assign the mapping to the v4 mappings of the interface. Create IPv4 locator and assign to the mapping  */
     if (interface->ipv4_address && priority_v4 >= 0){
-        if ((err = add_identifier_to_interface (interface, identifier,AF_INET)) == GOOD){
-            new_locator (identifier,interface->ipv4_address,&(interface->status),LOCAL_LOCATOR,priority_v4,weight_v4,255,0);
+        if ((err = add_mapping_to_interface (interface, mapping,AF_INET)) == GOOD){
+
+            locator = new_local_locator (interface->ipv4_address,&(interface->status),priority_v4,weight_v4,255,0,interface->out_socket_v4);
+
+            if (locator != NULL){
+                if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    return (BAD);
+                }
+            }else{
+                return (BAD);
+            }
+        }else {
+            return (BAD);
         }
     }
+    /* If interface has IPv6 address. Assign the mapping to the v6 mappings of the interface. Create IPv6 locator and assign to the mapping  */
     if (interface->ipv6_address  && priority_v6 >= 0){
-        if ((err = add_identifier_to_interface (interface, identifier,AF_INET6)) == GOOD)
-            new_locator (identifier,interface->ipv6_address,&(interface->status),LOCAL_LOCATOR,priority_v6,weight_v6,255,0);
+        if ((err = add_mapping_to_interface (interface, mapping,AF_INET6)) == GOOD){
+            locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,interface->out_socket_v6);
+            if (locator != NULL){
+                if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    return (BAD);
+                }
+            }else{
+                return (BAD);
+            }
+        }else{
+            return (BAD);
+        }
+    }
+    /* Recalculate the outgoing rloc vectors */
+    if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
+        lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc prefenernce");
     }
 
-
-    //#ifdef LISPMOBMH
-    //    /* We need a default rloc (iface) to use. As of now
-    //     * we will use the same as the ctrl_iface */
-    //    if(ctrl_iface != NULL){
-    //       if (ctrl_iface->AF4_locators->head){
-    //		  if (ctrl_iface->AF4_locators->head->db_entry) {
-    //				set_rloc(&(ctrl_iface->AF4_locators->head->db_entry->locator),0);
-    //				lispd_log_msg(LOG_INFO,"Mapping RLOC %pI4 to iface %d\n",
-    //		             &(ctrl_iface->AF4_locators->head->db_entry->locator.address.ip),0);
-    //			}
-    //		}
-    //		else{
-    //			if (ctrl_iface->AF6_locators->head){
-    //			  if (ctrl_iface->AF6_locators->head->db_entry) {
-    //					set_rloc(&(ctrl_iface->AF6_locators->head->db_entry->locator),0);
-    //				}
-    //			}
-    //		}
-    //    }
-    //#endif
 
     return(GOOD);
 }
@@ -787,16 +806,14 @@ int add_database_mapping(
 int add_static_map_cache_entry(
         char   *eid,
         int    iid,
-        char   *rloc,
+        char   *rloc_addr,
         int    priority,
         int    weight)
 {
     lispd_map_cache_entry    *map_cache_entry;
     lispd_locator_elt        *locator;
     lisp_addr_t              eid_prefix;
-    lisp_addr_t              *rloc_addr;
     int                      eid_prefix_length;
-    uint8_t                  *state = 0;
 
 
     if (iid > MAX_IID) {
@@ -822,36 +839,19 @@ int add_static_map_cache_entry(
     if (map_cache_entry == NULL)
         return (BAD);
 
-    if((rloc_addr = malloc(sizeof(lisp_addr_t))) == NULL){
-        lispd_log_msg(LISP_LOG_ERR,"add_static_map_cache_entry: Couldn't allocate lisp_addr_t for rloc address: %s", strerror(errno));
-        return (ERR_MALLOC);
-    }
-    if((state = malloc(sizeof(uint8_t))) == NULL){
-        lispd_log_msg(LISP_LOG_ERR,"add_static_map_cache_entry: Couldn't allocate uint8_t for status: %s", strerror(errno));
-        return (ERR_MALLOC);
-    }
 
-    if (get_lisp_addr_from_char(rloc,rloc_addr) == BAD){
-        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing RLOC address ... Ignoring static map cache entry");
+    map_cache_entry->mapping->iid = iid;
+
+    locator = new_static_rmt_locator(rloc_addr,UP,priority,weight,255,0);
+
+    if (locator != NULL){
+        if ((err=add_locator_to_mapping (map_cache_entry->mapping, locator)) != GOOD){
+            return (BAD);
+        }
+    }else{
         return (BAD);
     }
-
-    *state = UP;
-
-    map_cache_entry->identifier->iid = iid;
-
-    locator = new_locator(map_cache_entry->identifier,
-            rloc_addr,
-            state,
-            STATIC_LOCATOR,
-            priority,
-            weight,
-            255,
-            0);
-    if (locator)
-        return(GOOD);
-    else
-        return (BAD);
+    return (GOOD);
 }
 
 /*
@@ -1006,8 +1006,6 @@ int add_proxy_etr_entry(
     lisp_addr_t                     *address;
     lispd_weighted_addr_list_t      *petr_unit;
 
-    uint32_t                flags = 0;
-
     if (priority > 255 || priority < 0) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [0..255]", priority);
         return (BAD);
@@ -1030,7 +1028,7 @@ int add_proxy_etr_entry(
     memset(address, 0,sizeof(lisp_addr_t));
     memset(petr_unit,0,sizeof(lispd_weighted_addr_list_t));
 
-    if (lispd_get_address(addr,address,&flags)==BAD) {
+    if (lispd_get_address(addr,address)==BAD) {
         free(address);
         free(petr_unit);
         return(BAD);

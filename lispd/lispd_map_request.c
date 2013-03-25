@@ -104,6 +104,15 @@
 /************** Function declaration ************/
 
 /*
+ * Process encapsulated map request header:  lisp header and the interal IP and UDP header
+ */
+
+int process_encapsulated_map_request_headers(
+         uint8_t        *packet,
+         int            *len,
+         uint16_t       *dst_port);
+
+/*
  * Process record and send Map Reply
  */
 
@@ -118,7 +127,7 @@ int process_map_request_record(
 /* Build a Map Request paquet */
 
  uint8_t *build_map_request_pkt(
-         lispd_identifier_elt    *requested_identifier,
+         lispd_mapping_elt       *requested_mapping,
          lisp_addr_t             *src_eid,
          uint8_t                 encap,
          uint8_t                 probe,
@@ -141,7 +150,7 @@ int add_encap_headers(
   * Calculate Map Request length. Just add locators with status up
   */
 
- int get_map_request_length (lispd_identifier_elt *requested_identifier, lispd_identifier_elt *src_identifier);
+ int get_map_request_length (lispd_mapping_elt *requested_mapping, lispd_mapping_elt *src_mapping);
 
  /*
   * Calculate the overhead of the Encapsulated Map Request length.
@@ -157,134 +166,72 @@ int add_encap_headers(
          lisp_addr_t    *local_rloc,
          uint16_t       dst_port) {
 
-     lispd_identifier_elt source_identifier;
-     lispd_map_cache_entry *map_cache_entry     = NULL;
-     lisp_addr_t itr_rloc[32];
-     lisp_addr_t *remote_rloc                   = NULL;
-     int itr_rloc_count                         = 0;
-     int itr_rloc_afi                           = 0;
-     uint8_t *cur_ptr                           = NULL;
-     int ip_header_len                          = 0;
-     int len                                    = 0;
-     lispd_pkt_map_request_t *msg               = NULL;
-     struct ip *iph                             = NULL;
-     struct ip6_hdr *ip6h                       = NULL;
-     struct udphdr *udph                        = NULL;
-     int encap_afi                              = 0;
-     uint16_t udpsum                            = 0;
-     uint16_t ipsum                             = 0;
-     int udp_len                                = 0;
-     //uint16_t sport                             = 0;
-     int i                                      = 0;
+     lispd_mapping_elt          *source_mapping          = NULL;
+     lispd_map_cache_entry      *map_cache_entry        = NULL;
+     lisp_addr_t                itr_rloc[32];
+     lisp_addr_t                *remote_rloc            = NULL;
+     int                        itr_rloc_count          = 0;
+     int                        itr_rloc_afi            = 0;
+     uint8_t                    *cur_ptr                = NULL;
+     int                        len                     = 0;
+     lispd_pkt_map_request_t    *msg                    = NULL;
+     lisp_addr_t                aux_eid_prefix;
+     int                        aux_eid_prefix_length   = 0;
+     int                        aux_iid                 = -1;
+     int                        i                       = 0;
 
      /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
 
      if (((lispd_pkt_encapsulated_control_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
-
-         /*
-          * Read IP header.source_identifier
-          */
-
-         iph = (struct ip *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-
-         switch (iph->ip_v) {
-         case IPVERSION:
-             ip_header_len = sizeof(struct ip);
-             udph = (struct udphdr *) CO(iph, ip_header_len);
-             encap_afi = AF_INET;
-             break;
-         case IP6VERSION:
-             ip6h = (struct ip6_hdr *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-             ip_header_len = sizeof(struct ip6_hdr);
-             udph = (struct udphdr *) CO(ip6h, ip_header_len);
-             encap_afi = AF_INET6;
-             break;
-         default:
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
-             return(BAD);
+         if ((err = process_encapsulated_map_request_headers(packet,&len,&dst_port)) != GOOD){
+             return (BAD);
          }
-
-         /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
-         dst_port = ntohs(udph->source);
-         
- #ifdef BSD
-         udp_len = ntohs(udph->uh_ulen);
-        // sport   = ntohs(udph->uh_sport);
- #else
-         udp_len = ntohs(udph->len);
-        // sport   = ntohs(udph->source);
- #endif
-
-
-         /*
-          * Verify the checksums.
-          */
-         if (iph->ip_v == IPVERSION) {
-             ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
-             if (ipsum != 0) {
-                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
-             }
-             if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-                 return(BAD);
-             }
-             if (udpsum != 0) {
-                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
-                 return(BAD);
-             }
-         }
-
-         //Pranathi: Added this
-         if (iph->ip_v == IP6VERSION) {
-
-             if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-                 return(BAD);
-             }
-             if (udpsum != 0) {
-                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
-                 return(BAD);
-             }
-         }
-
-         /*
-          * Point msg at the start of the Map-Request payload
-          */
-
-         len = ip_header_len + sizeof(struct udphdr);
-         msg = (lispd_pkt_map_request_t *) CO(iph, len);
-
+         msg = (lispd_pkt_map_request_t *) CO(packet, len);
      } else if (((lispd_pkt_map_request_t *) packet)->type == LISP_MAP_REQUEST) {
          msg = (lispd_pkt_map_request_t *) packet;
      } else
          return(BAD); //we should never reach this return()
 
-     /* Source EID is optional in general, but required for SMRs */
-     init_identifier(&source_identifier);
-     cur_ptr = (uint8_t *)&(msg->source_eid_afi);
-     if (pkt_process_eid_afi(&cur_ptr, &source_identifier)==BAD)
-         return (BAD);
+     /*
+      * Source EID is optional in general, but required for SMRs
+      */
 
+     /* Auxiliar lispd_mapping_elt created to be filled with pkt_process_eid_afi */
+     source_mapping = new_local_mapping(aux_eid_prefix,aux_eid_prefix_length,aux_iid);
+     if (source_mapping == NULL){
+         return (BAD);
+     }
+     cur_ptr = (uint8_t *)&(msg->source_eid_afi);
+     if (pkt_process_eid_afi(&cur_ptr, source_mapping) != GOOD){
+         free_mapping_elt(source_mapping, FALSE);
+         return (BAD);
+     }
      /* If packet is a Solicit Map Request, process it */
 
-     if (source_identifier.eid_prefix.afi != 0 && msg->solicit_map_request) {
+     if (source_mapping->eid_prefix.afi != 0 && msg->solicit_map_request) {
          /*
-          * Lookup the map cache entry that match with the source identifier of the message
+          * Lookup the map cache entry that match with the source EID prefix of the message
           */
-         map_cache_entry = lookup_map_cache(source_identifier.eid_prefix);
+         map_cache_entry = lookup_map_cache(source_mapping->eid_prefix);
          if (map_cache_entry == NULL){
+             free_mapping_elt(source_mapping, FALSE);
              return (BAD);
          }
 
          /*
           * Check IID of the received Solicit Map Request match the IID of the map cache
           */
-         if (map_cache_entry->identifier->iid != source_identifier.iid){
+         if (map_cache_entry->mapping->iid != source_mapping->iid){
              lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_msg: The IID of the received Solicit Map Request doesn't match the IID of "
                      "the entry in the map cache");
+             free_mapping_elt(source_mapping, FALSE);
              return (BAD);
          }
+         /* Free source_mapping once we have a valid map cache entry */
+         free_mapping_elt(source_mapping, FALSE);
 
          /*
-          * Only accept a solicit map request for an identifier ->If node which generates the message
+          * Only accept a solicit map request for an EID prefix ->If node which generates the message
           * has more than one locator, it probably will generate a solicit map request for each one.
           * Only the first one is considered.
           * If map_cache_entry->nonces is different of null, we have already received a solicit map request
@@ -323,6 +270,94 @@ int add_encap_headers(
  }
 
  /*
+  * Process encapsulated map request header:  lisp header and the interal IP and UDP header
+  */
+
+ int process_encapsulated_map_request_headers(
+         uint8_t        *packet,
+         int            *len,
+         uint16_t       *dst_port){
+
+     struct ip                  *iph                    = NULL;
+     struct ip6_hdr             *ip6h                   = NULL;
+     struct udphdr              *udph                   = NULL;
+     int                        ip_header_len           = 0;
+     int                        encap_afi               = 0;
+     uint16_t                   udpsum                  = 0;
+     uint16_t                   ipsum                   = 0;
+     int                        udp_len                 = 0;
+
+     /*
+      * Read IP header.source_mapping
+      */
+
+     iph = (struct ip *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
+
+     switch (iph->ip_v) {
+     case IPVERSION:
+         ip_header_len = sizeof(struct ip);
+         udph = (struct udphdr *) CO(iph, ip_header_len);
+         encap_afi = AF_INET;
+         break;
+     case IP6VERSION:
+         ip6h = (struct ip6_hdr *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
+         ip_header_len = sizeof(struct ip6_hdr);
+         udph = (struct udphdr *) CO(ip6h, ip_header_len);
+         encap_afi = AF_INET6;
+         break;
+     default:
+         lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
+         return(BAD);
+     }
+
+     /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
+     *dst_port = ntohs(udph->source);
+
+#ifdef BSD
+     udp_len = ntohs(udph->uh_ulen);
+     // sport   = ntohs(udph->uh_sport);
+#else
+     udp_len = ntohs(udph->len);
+     // sport   = ntohs(udph->source);
+#endif
+
+
+     /*
+      * Verify the checksums.
+      */
+     if (iph->ip_v == IPVERSION) {
+         ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
+         if (ipsum != 0) {
+             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
+         }
+         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+             return(BAD);
+         }
+         if (udpsum != 0) {
+             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
+             return(BAD);
+         }
+     }
+
+     //Pranathi: Added this
+     if (iph->ip_v == IP6VERSION) {
+
+         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+             return(BAD);
+         }
+         if (udpsum != 0) {
+             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
+             return(BAD);
+         }
+     }
+
+     *len = sizeof(lispd_pkt_encapsulated_control_t)+ip_header_len + sizeof(struct udphdr);
+
+     return (GOOD);
+ }
+
+
+ /*
   * Process record and send Map Reply
   */
 
@@ -334,38 +369,47 @@ int add_encap_headers(
          uint8_t rloc_probe,
          uint64_t nonce)
  {
-     lispd_pkt_map_request_eid_prefix_record_t *record;
-     lispd_identifier_elt requested_identifier;
-     lispd_identifier_elt *identifier;
-     map_reply_opts opts;
+     lispd_pkt_map_request_eid_prefix_record_t  *record                 = NULL;
+     lispd_mapping_elt                          *requested_mapping      = NULL;
+     lispd_mapping_elt                          *mapping                = NULL;
+     map_reply_opts                             opts;
+     lisp_addr_t                                aux_eid_prefix;
+     int                                        aux_eid_prefix_length   = 0;
+     int                                        aux_iid                 = -1;
 
      /* Get the requested EID prefix */
      record = (lispd_pkt_map_request_eid_prefix_record_t *)*cur_ptr;
-     init_identifier(&requested_identifier);
-     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
-     if ((err=pkt_process_eid_afi(cur_ptr, &requested_identifier))!=GOOD){
-         lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_record: Requested EID could not be processed");
-         return (err);
-     }
-     requested_identifier.eid_prefix_length = record->eid_prefix_length;
-
-     /* Check the existence of the requested EID */
-     /* XXX aloepz: We don't use prefix mask and use by default 32 or 128*/
-     identifier = lookup_eid_in_db(requested_identifier.eid_prefix);
-     if (!identifier){
-         lispd_log_msg(LISP_LOG_DEBUG_1,"The requested EID doesn't belong to this node: %s/%d",
-                 get_char_from_lisp_addr_t(requested_identifier.eid_prefix),
-                 requested_identifier.eid_prefix_length);
+     /* Auxiliar lispd_mapping_elt created to be filled with pkt_process_eid_afi */
+     requested_mapping = new_local_mapping(aux_eid_prefix, aux_eid_prefix_length, aux_iid);
+     if (requested_mapping == NULL){
          return (BAD);
      }
+     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
+     if ((err=pkt_process_eid_afi(cur_ptr, requested_mapping))!=GOOD){
+         lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_record: Requested EID could not be processed");
+         free_mapping_elt (requested_mapping, TRUE);
+         return (err);
+     }
+     requested_mapping->eid_prefix_length = record->eid_prefix_length;
 
+     /* Check the existence of the requested EID */
+     /*  We don't use prefix mask and use by default 32 or 128*/
+     mapping = lookup_eid_in_db(requested_mapping->eid_prefix);
+     if (!mapping){
+         lispd_log_msg(LISP_LOG_DEBUG_1,"The requested EID doesn't belong to this node: %s/%d",
+                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                 requested_mapping->eid_prefix_length);
+         free_mapping_elt (requested_mapping, TRUE);
+         return (BAD);
+     }
+     free_mapping_elt (requested_mapping, TRUE);
 
      /* Set flags for Map-Reply */
      opts.send_rec   = 1;
      opts.echo_nonce = 0;
      opts.rloc_probe = rloc_probe;
 
-     err = build_and_send_map_reply_msg(identifier, local_rloc, remote_rloc, dst_port, nonce, opts);
+     err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, nonce, opts);
      if (rloc_probe){
          if (err == GOOD){
              lispd_log_msg(LISP_LOG_DEBUG_1, "Sent RLOC-probe reply to %s", get_char_from_lisp_addr_t(*remote_rloc));
@@ -392,7 +436,7 @@ int add_encap_headers(
  */
 
 int build_and_send_map_request_msg(
-        lispd_identifier_elt    *requested_identifier,
+        lispd_mapping_elt       *requested_mapping,
         lisp_addr_t             *src_eid,
         lisp_addr_t             *dst_rloc_addr,
         uint8_t                 encap,
@@ -407,7 +451,7 @@ int build_and_send_map_request_msg(
     int         result  = 0;
 
     packet = build_map_request_pkt(
-            requested_identifier,
+            requested_mapping,
             src_eid,
             encap,
             probe,
@@ -418,8 +462,8 @@ int build_and_send_map_request_msg(
 
     if (!packet) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Could not build map-request packet for %s/%d",
-                get_char_from_lisp_addr_t(requested_identifier->eid_prefix),
-                requested_identifier->eid_prefix_length);
+                get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                requested_mapping->eid_prefix_length);
         return (BAD);
     }
 
@@ -430,8 +474,8 @@ int build_and_send_map_request_msg(
 
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d",
-                        get_char_from_lisp_addr_t(requested_identifier->eid_prefix),
-                        requested_identifier->eid_prefix_length);
+                        get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                        requested_mapping->eid_prefix_length);
     }
 
     free (packet);
@@ -443,7 +487,7 @@ int build_and_send_map_request_msg(
 /* Build a Map Request paquet */
 
 uint8_t *build_map_request_pkt(
-        lispd_identifier_elt    *requested_identifier,
+        lispd_mapping_elt       *requested_mapping,
         lisp_addr_t             *src_eid,
         uint8_t                 encap,
         uint8_t                 probe,
@@ -466,7 +510,7 @@ uint8_t *build_map_request_pkt(
     int                     cpy_len             = 0;
     int                     locators_ctr        = 0;
 
-    lispd_identifier_elt *src_identifier        = NULL;
+    lispd_mapping_elt *src_mapping        = NULL;
     lispd_locators_list *locators_list[2];
     lispd_locator_elt   *locator;
     lisp_addr_t         * ih_src_ip             = NULL;
@@ -476,8 +520,8 @@ uint8_t *build_map_request_pkt(
      * src_eid is null for RLOC probing and refreshing map_cache -> Source-EID AFI = 0
      */
     if (src_eid != NULL){
-        src_identifier = lookup_eid_in_db(*src_eid);
-        if (!src_identifier){
+        src_mapping = lookup_eid_in_db(*src_eid);
+        if (!src_mapping){
             lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: Source EID address not found in local data base - %s -",
                     get_char_from_lisp_addr_t(*src_eid));
             return (NULL);
@@ -486,9 +530,9 @@ uint8_t *build_map_request_pkt(
     }
 
     /* Calculate the packet size and reserve memory */
-    map_request_msg_len = get_map_request_length(requested_identifier,src_identifier);
+    map_request_msg_len = get_map_request_length(requested_mapping,src_mapping);
     if (encap)
-        encap_overhead_len = get_emr_overhead_length(requested_identifier->eid_prefix.afi);
+        encap_overhead_len = get_emr_overhead_length(requested_mapping->eid_prefix.afi);
     *len = map_request_msg_len + encap_overhead_len;
 
     if ((packet = malloc(*len)) == NULL){
@@ -534,11 +578,11 @@ uint8_t *build_map_request_pkt(
     *nonce                         = mrp->nonce;
 
     if (src_eid != NULL){
-        cur_ptr = pkt_fill_eid(&(mrp->source_eid_afi),src_identifier);
+        cur_ptr = pkt_fill_eid(&(mrp->source_eid_afi),src_mapping);
 
         /* Add itr-rlocs */
-        locators_list[0] = src_identifier->head_v4_locators_list;
-        locators_list[1] = src_identifier->head_v6_locators_list;
+        locators_list[0] = src_mapping->head_v4_locators_list;
+        locators_list[1] = src_mapping->head_v6_locators_list;
 
         for (ctr=0 ; ctr < 2 ; ctr++){
             while (locators_list[ctr]){
@@ -588,12 +632,12 @@ uint8_t *build_map_request_pkt(
 
     /* Requested EID record */
     request_eid_record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
-    request_eid_record->eid_prefix_length = requested_identifier->eid_prefix_length;
+    request_eid_record->eid_prefix_length = requested_mapping->eid_prefix_length;
 
-    cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_identifier);
+    cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_mapping);
     if (mrp->map_data_present == 1){
         /* Map-Reply Record */
-        if ((pkt_fill_mapping_record(cur_ptr, src_identifier, NULL))== NULL) {
+        if ((pkt_fill_mapping_record(cur_ptr, src_mapping, NULL))== NULL) {
             lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: Couldn't buil map reply record for map request. "
                     "Map Request will not be send");
             free(packet);
@@ -609,16 +653,16 @@ uint8_t *build_map_request_pkt(
          * the source address in the inner IP header
          */
         if (src_eid != NULL){
-            ih_src_ip = &(src_identifier->eid_prefix);
+            ih_src_ip = &(src_mapping->eid_prefix);
         }else{
-            if (requested_identifier->eid_prefix.afi == AF_INET){
+            if (requested_mapping->eid_prefix.afi == AF_INET){
                 ih_src_ip = default_ctrl_iface_v4->ipv4_address;
             }else{
                 ih_src_ip = default_ctrl_iface_v6->ipv6_address;
             }
         }
 
-        if ((err=add_encap_headers(packet,ih_src_ip,&(requested_identifier->eid_prefix),map_request_msg_len))!=GOOD){
+        if ((err=add_encap_headers(packet,ih_src_ip,&(requested_mapping->eid_prefix),map_request_msg_len))!=GOOD){
             free (packet);
             return NULL;
         }
@@ -699,17 +743,17 @@ int add_encap_headers(uint8_t *packet, lisp_addr_t *src_eid, lisp_addr_t *remote
  * Calculate Map Request length. Just add locators with status up
  */
 
-int get_map_request_length (lispd_identifier_elt *requested_identifier, lispd_identifier_elt *src_identifier)
+int get_map_request_length (lispd_mapping_elt *requested_mapping, lispd_mapping_elt *src_mapping)
 {
     int mr_len = 0;
     int locator_count = 0, aux_locator_count = 0;
     mr_len = sizeof(lispd_pkt_map_request_t);
-    if (src_identifier != NULL){
-        mr_len += get_identifier_length(src_identifier);
+    if (src_mapping != NULL){
+        mr_len += get_mapping_length(src_mapping);
         /* Calculate locators length */
-        mr_len += get_up_locator_length(src_identifier->head_v4_locators_list,&aux_locator_count);
+        mr_len += get_up_locator_length(src_mapping->head_v4_locators_list,&aux_locator_count);
         locator_count = aux_locator_count;
-        mr_len += get_up_locator_length(src_identifier->head_v6_locators_list,&aux_locator_count);
+        mr_len += get_up_locator_length(src_mapping->head_v6_locators_list,&aux_locator_count);
         locator_count += aux_locator_count;
     }else{
         locator_count = 0;
@@ -726,10 +770,10 @@ int get_map_request_length (lispd_identifier_elt *requested_identifier, lispd_id
     /* Record size */
     mr_len += sizeof(lispd_pkt_map_request_eid_prefix_record_t);
     // We supose that the requested EID has the same AFI as the source EID
-    mr_len += get_identifier_length(requested_identifier);
+    mr_len += get_mapping_length(requested_mapping);
     /* Add the Map-Reply Record */
-    if (src_identifier != NULL)
-        mr_len += pkt_get_mapping_record_length(src_identifier);
+    if (src_mapping != NULL)
+        mr_len += pkt_get_mapping_record_length(src_mapping);
 
     return mr_len;
 }
@@ -788,11 +832,11 @@ int send_map_request_miss(timer *t, void *arg)
 
         if (nonces->retransmits > 1){
             lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request for EID: %s",
-                    get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix));
+                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix));
         }
 
         if ((build_and_send_map_request_msg(
-                map_cache_entry->identifier,
+                map_cache_entry->mapping,
                 &(argument->src_eid),
                 dst_rloc,
                 1,
@@ -811,11 +855,11 @@ int send_map_request_miss(timer *t, void *arg)
 
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_1,"No Map Reply fot EID %s/%d after %d retries. Removing map cache entry ...",
-                        get_char_from_lisp_addr_t(map_cache_entry->identifier->eid_prefix),
-                        map_cache_entry->identifier->eid_prefix_length,
+                        get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                        map_cache_entry->mapping->eid_prefix_length,
                         nonces->retransmits -1);
-        del_map_cache_entry(map_cache_entry->identifier->eid_prefix,
-                map_cache_entry->identifier->eid_prefix_length);
+        del_map_cache_entry_from_db(map_cache_entry->mapping->eid_prefix,
+                map_cache_entry->mapping->eid_prefix_length);
 
     }
     return GOOD;

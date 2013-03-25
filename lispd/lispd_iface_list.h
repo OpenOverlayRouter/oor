@@ -34,7 +34,8 @@
 #define LISPD_IFACE_LIST_H_
 
 #include "lispd.h"
-#include "lispd_local_db.h"
+#include "lispd_mapping.h"
+
 
 /*
  * Interface structure
@@ -46,8 +47,8 @@ typedef struct lispd_iface_elt_ {
     uint8_t                     status;
     lisp_addr_t                 *ipv4_address;
     lisp_addr_t                 *ipv6_address;
-    lispd_identifiers_list      *head_v4_identifiers_list;
-    lispd_identifiers_list      *head_v6_identifiers_list;
+    lispd_mappings_list         *head_v4_mappings_list;
+    lispd_mappings_list         *head_v6_mappings_list;
     int                         out_socket_v4;
     int                         out_socket_v6;
 }lispd_iface_elt;
@@ -79,14 +80,19 @@ lispd_iface_elt *add_interface(char *iface_name);
 
 lispd_iface_elt *get_interface(char *iface_name);
 
-
-
 /*
- * Add the identifier to the list of identifiers of the interface according to the afi.
- * The identifier is added just one time
+ * Look up an interface based in the index of the iface.
+ * Return the iface element if it is found or NULL if not.
  */
 
-int add_identifier_to_interface (lispd_iface_elt *interface, lispd_identifier_elt *identifier, int afi);
+lispd_iface_elt *get_interface_from_index(int iface_index);
+
+/*
+ * Add the mapping to the list of mappings of the interface according to the afi.
+ * The mapping is added just one time
+ */
+
+int add_mapping_to_interface (lispd_iface_elt *interface, lispd_mapping_elt *mapping, int afi);
 
 
 

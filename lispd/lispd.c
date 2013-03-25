@@ -50,6 +50,7 @@
 #include "lispd.h"
 #include "lispd_config.h"
 #include "lispd_iface_list.h"
+#include "lispd_iface_mgmt.h"
 #include "lispd_input.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
@@ -98,8 +99,8 @@ pid_t  sid                              = 0;
 /*
  *      sockets (fds)
  */
-int     ipv4_data_input_fd            = 0;
-int     ipv6_data_input_fd            = 0;
+int     ipv4_data_input_fd              = 0;
+int     ipv6_data_input_fd              = 0;
 int     ipv4_control_input_fd           = 0;
 int     ipv6_control_input_fd           = 0;
 int     netlink_fd                      = 0;
@@ -131,6 +132,18 @@ int main(int argc, char **argv)
     lisp_addr_t *tun_v4_addr;
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
+
+
+
+#ifdef ROUTER
+#ifdef OPENWRT
+    printf ("LISPmob compiled for openWRT router");
+#else
+    printf ("LISPmob compiled for linux router");
+#endif
+    printf ("LISPmob compiled for simple node");
+#endif
+
 
     /*
      *  Check for superuser privileges
@@ -305,7 +318,7 @@ int main(int argc, char **argv)
     if (default_ctrl_iface_v6){
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
     }
-    
+
     if (default_out_iface_v4){
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
     }
@@ -313,6 +326,10 @@ int main(int argc, char **argv)
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
     }
 
+    /*
+     * Create net_link socket to receive notifications of changes of RLOC status.
+     */
+    netlink_fd = opent_netlink_socket();
 
     /*
      *  Register to the Map-Server(s)
@@ -320,8 +337,8 @@ int main(int argc, char **argv)
 
     map_register (NULL,NULL);
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob: 'lispd' started...");
-    
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
+
     event_loop();
 
     lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
@@ -351,6 +368,8 @@ void event_loop()
     max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
     max_fd = (max_fd > tun_receive_fd)          ? max_fd : tun_receive_fd;
     max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
+    max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
+
     for (;;) {
         
         FD_ZERO(&readfds);
@@ -360,6 +379,7 @@ void event_loop()
         FD_SET(ipv4_control_input_fd, &readfds);
         FD_SET(ipv6_control_input_fd, &readfds);
         FD_SET(timers_fd, &readfds);
+        FD_SET(netlink_fd, &readfds);
         
         retval = have_input(max_fd, &readfds);
         if (retval == -1) {
@@ -392,6 +412,10 @@ void event_loop()
         if (FD_ISSET(timers_fd,&readfds)){
             //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
             process_timer_signal(timers_fd);
+        }
+        if (FD_ISSET(netlink_fd,&readfds)){
+            lispd_log_msg(LISP_LOG_DEBUG_3,"Received notification from net link");
+            process_netlink_msg(netlink_fd);
         }
     }
 }

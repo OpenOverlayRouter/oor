@@ -27,7 +27,8 @@
  */
 
 
-#pragma once
+#ifndef LISPD_OUTPUT_H_
+#define LISPD_OUTPUT_H_
 
 #include <stdio.h>
 #include <net/if.h>
@@ -166,3 +167,5 @@ IPV6_ADDR_RAW((x)->s6_addr)
 (x)->s6_addr32[1] == (y)->s6_addr32[1] && \
 (x)->s6_addr32[2] == (y)->s6_addr32[2] && \
 (x)->s6_addr32[3] == (y)->s6_addr32[3])
+
+#endif /*LISPD_OUTPUT_H_*/

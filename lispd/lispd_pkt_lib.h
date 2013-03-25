@@ -34,24 +34,24 @@
 #include "lispd.h"
 #include "lispd_local_db.h"
 
-int pkt_get_mapping_record_length(lispd_identifier_elt *identifier);
+int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
 
 
-void *pkt_fill_eid(void *offset, lispd_identifier_elt *identifier);
+void *pkt_fill_eid(void *offset, lispd_mapping_elt *mapping);
 
 void *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
-    lispd_identifier_elt                    *identifier,
+    lispd_mapping_elt                       *mapping,
     lisp_addr_t                             *probed_rloc);
 
 /*
- *  get_identifier_length
+ *  get_mapping_length
  *
- *  Compute the lengths of the identifier to be use in a record
+ *  Compute the lengths of the mapping to be use in a record
  *  so we can allocate  memory for the packet....
  */
 
-int get_identifier_length(lispd_identifier_elt *identifier);
+int get_mapping_length(lispd_mapping_elt *mapping);
 
 
 /*
@@ -63,6 +63,14 @@ int get_identifier_length(lispd_identifier_elt *identifier);
  */
 
 int get_up_locator_length(lispd_locators_list *locators_list, int *loc_count);
+
+/*
+ * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
+ */
+
+int extract_5_tuples_from_packet (
+        char *packet ,
+        packet_tuple *tuple);
 
 
 #endif /*LISPD_PKT_LIB_H_*/

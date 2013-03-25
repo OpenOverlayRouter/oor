@@ -33,7 +33,7 @@
 #define LISPD_AFI_H_
 
 #include "lispd.h"
-#include "lispd_local_db.h"
+#include "lispd_mapping.h"
 
 
 /*
@@ -119,13 +119,13 @@ typedef struct lispd_pkt_lcaf_iid_t_ {
 
 
 /*
- * Reads the address information from the packet and fill the lispd_identifier_elt element
+ * Reads the address information from the packet and fill the lispd_mapping_elt element
  */
-int pkt_process_eid_afi(uint8_t  **offset, lispd_identifier_elt *identifier);
+int pkt_process_eid_afi(uint8_t  **offset, lispd_mapping_elt *mapping);
 
 /*
- * Reads the address information from the packet and fill the lispd_locator_elt element
+ * Reads the address information from the packet and fill the lispd_locator_elt structure
  */
-int pkt_process_rloc_afi(uint8_t  **offset, lispd_locator_elt *locator);
+int pkt_process_rloc_afi(uint8_t  **offset, lispd_locator_elt   *locator);
 
 #endif /*LISPD_AFI_H_*/

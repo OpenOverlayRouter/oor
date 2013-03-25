@@ -113,7 +113,7 @@ typedef struct {
 int process_map_reply(uint8_t *packet);
 
 int build_and_send_map_reply_msg(
-        lispd_identifier_elt *requested_identifier,
+        lispd_mapping_elt *requested_mapping,
         lisp_addr_t *local_rloc,
         lisp_addr_t *remote_rloc,
         uint16_t dport,

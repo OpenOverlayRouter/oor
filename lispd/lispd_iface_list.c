@@ -30,7 +30,6 @@
  */
 
 #include "lispd_external.h"
-#include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "lispd_sockets.h"
 #include <string.h>
@@ -88,8 +87,8 @@ lispd_iface_elt *add_interface(char *iface_name)
     }else {
         iface->out_socket_v6 = -1;
     }
-    iface->head_v4_identifiers_list = NULL;
-    iface->head_v6_identifiers_list = NULL;
+    iface->head_v4_mappings_list = NULL;
+    iface->head_v6_mappings_list = NULL;
     iface_list->iface = iface;
     iface_list->next = NULL;
 
@@ -107,55 +106,55 @@ lispd_iface_elt *add_interface(char *iface_name)
 }
 
 /*
- * Add the identifier to the list of identifiers of the interface according to the afi.
- * The identifier is added just one time
+ * Add the mapping to the list of mappings of the interface according to the afi.
+ * The mapping is added just one time
  */
 
-int add_identifier_to_interface (
+int add_mapping_to_interface (
         lispd_iface_elt         *interface,
-        lispd_identifier_elt    *identifier,
+        lispd_mapping_elt       *mapping,
         int                     afi)
 {
-	lispd_identifiers_list *identifiers_list, *aux_identifiers_list;
+	lispd_mappings_list *mappings_list, *aux_mappings_list;
 
 
-	if ((identifiers_list = malloc(sizeof(lispd_identifiers_list)))==NULL){
-		lispd_log_msg(LISP_LOG_ERR,"add_identifier_to_interface: couldn't allocate memory for lispd_identifiers_list: %s",strerror(errno));
+	if ((mappings_list = malloc(sizeof(lispd_mappings_list)))==NULL){
+		lispd_log_msg(LISP_LOG_ERR,"add_mapping_to_interface: couldn't allocate memory for lispd_mappings_list: %s",strerror(errno));
 		return (ERR_MALLOC);
 	}
-	identifiers_list->identifier=identifier;
-	identifiers_list->next = NULL;
+	mappings_list->mapping=mapping;
+	mappings_list->next = NULL;
 
 	if ( afi == AF_INET ){
-		if (interface->head_v4_identifiers_list == NULL){
-			interface->head_v4_identifiers_list = identifiers_list;
+		if (interface->head_v4_mappings_list == NULL){
+			interface->head_v4_mappings_list = mappings_list;
 			return (GOOD);
 		}
-		aux_identifiers_list = interface->head_v4_identifiers_list;
+		aux_mappings_list = interface->head_v4_mappings_list;
 	}
 	else{
-		if (interface->head_v6_identifiers_list == NULL){
-			interface->head_v6_identifiers_list = identifiers_list;
+		if (interface->head_v6_mappings_list == NULL){
+			interface->head_v6_mappings_list = mappings_list;
 			return (GOOD);
 		}
-		aux_identifiers_list = interface->head_v6_identifiers_list;
+		aux_mappings_list = interface->head_v6_mappings_list;
 	}
-	while (aux_identifiers_list->next && aux_identifiers_list->identifier != identifier){
-		aux_identifiers_list = aux_identifiers_list->next;
+	while (aux_mappings_list->next && aux_mappings_list->mapping != mapping){
+		aux_mappings_list = aux_mappings_list->next;
 	}
 
-	if (aux_identifiers_list->identifier == identifier){
+	if (aux_mappings_list->mapping == mapping){
 	    lispd_log_msg(LISP_LOG_WARNING, "The EID %s/%d is already assigned to the RLOCs of the interface %s ->"
 	            "Duplicated entry in the configuration file",
-	            get_char_from_lisp_addr_t(identifier->eid_prefix),
-	            identifier->eid_prefix_length,
+	            get_char_from_lisp_addr_t(mapping->eid_prefix),
+	            mapping->eid_prefix_length,
 	            interface->iface_name);
 		return (ERR_EXIST);
 	}
-	aux_identifiers_list->next = identifiers_list;
+	aux_mappings_list->next = mappings_list;
 	lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s/%d has been assigned to the RLOCs of the interface %s",
-	        get_char_from_lisp_addr_t(identifier->eid_prefix),
-	        identifier->eid_prefix_length,
+	        get_char_from_lisp_addr_t(mapping->eid_prefix),
+	        mapping->eid_prefix_length,
 	        interface->iface_name);
 	return (GOOD);
 }
@@ -179,6 +178,29 @@ lispd_iface_elt *get_interface(char *iface_name)
     return (NULL);
 }
 
+/*
+ * Look up an interface based in the index of the iface.
+ * Return the iface element if it is found or NULL if not.
+ */
+
+lispd_iface_elt *get_interface_from_index(int iface_index){
+
+    lispd_iface_elt         *iface          = NULL;
+    lispd_iface_list_elt    *iface_lst_elt  = NULL;
+    int                     index           = 0;
+
+    iface_lst_elt = head_interface_list;
+    while (iface_lst_elt != NULL){
+        index = if_nametoindex(iface_lst_elt->iface->iface_name);
+        if (index == iface_index){
+            iface = iface_lst_elt->iface;
+            break;
+        }
+        iface_lst_elt = iface_lst_elt->next;
+    }
+
+    return iface;
+}
 
 
 
@@ -191,7 +213,7 @@ void dump_iface_list(int log_level)
 {
 
     lispd_iface_list_elt     *interface_list = head_interface_list;
-    lispd_identifiers_list   *identifier_list;
+    lispd_mappings_list   *mapping_list;
 
     if (head_interface_list == NULL)
         return;
@@ -202,22 +224,22 @@ void dump_iface_list(int log_level)
        lispd_log_msg(log_level,"== %s   (%s)==\n",interface_list->iface->iface_name, interface_list->iface->status ? "Up" : "Down");
         if (interface_list->iface->ipv4_address){
            lispd_log_msg(log_level,"  IPv4 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv4_address)));
-           lispd_log_msg(log_level,"    -- LIST identifiers -- \n");
-            identifier_list = interface_list->iface->head_v4_identifiers_list;
-            while (identifier_list){
-               lispd_log_msg(log_level,"    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
-                        identifier_list->identifier->eid_prefix_length);
-                identifier_list = identifier_list->next;
+           lispd_log_msg(log_level,"    -- LIST mappings -- \n");
+            mapping_list = interface_list->iface->head_v4_mappings_list;
+            while (mapping_list){
+               lispd_log_msg(log_level,"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
+                        mapping_list->mapping->eid_prefix_length);
+                mapping_list = mapping_list->next;
             }
         }
         if (interface_list->iface->ipv6_address){
             lispd_log_msg(log_level,"  IPv6 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv6_address)));
-            lispd_log_msg(log_level,"    -- LIST identifiers -- \n");
-            identifier_list = interface_list->iface->head_v6_identifiers_list;
-            while (identifier_list){
-                lispd_log_msg(log_level,"    %s/%d\n",get_char_from_lisp_addr_t(identifier_list->identifier->eid_prefix),
-                        identifier_list->identifier->eid_prefix_length);
-                identifier_list = identifier_list->next;
+            lispd_log_msg(log_level,"    -- LIST mappings -- \n");
+            mapping_list = interface_list->iface->head_v6_mappings_list;
+            while (mapping_list){
+                lispd_log_msg(log_level,"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
+                        mapping_list->mapping->eid_prefix_length);
+                mapping_list = mapping_list->next;
             }
         }
         interface_list = interface_list->next;
@@ -368,6 +390,7 @@ lisp_addr_t *get_iface_address(
     return (addr);
     
 }
+
 
 /*
  * Editor modelines

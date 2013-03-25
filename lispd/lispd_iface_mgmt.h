@@ -1,9 +1,10 @@
 /*
- * lispd_input.h
+ * lispd_iface_mgmt.h
  *
  * This file is part of LISP Mobile Node Implementation.
+ * Various routines to manage the list of interfaces.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,25 +24,14 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Albert López   <alopez@ac.upc.edu>
+ *
  */
 
-#ifndef LISPD_INPUT_H_
-#define LISPD_INPUT_H_
+#ifndef LISPD_IFACE_MGMT_H_
+#define LISPD_IFACE_MGMT_H_
 
-#include <stdio.h>
-#include <net/if.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <linux/if_tun.h>
-#include "lispd.h"
-#include "lispd_sockets.h"
-#include "cksum.h"
-#include "lispd_output.h"
+int opent_netlink_socket();
+void process_netlink_msg(int netlink_fd);
 
-
-void process_input_packet(int fd, int afi, int tun_receive_fd);
-
-#endif /*LISPD_IFACE_LIST_H_*/
+#endif /* LISPD_IFACE_MGMT_H_ */

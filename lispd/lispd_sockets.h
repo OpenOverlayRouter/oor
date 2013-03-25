@@ -80,6 +80,15 @@ int send_udp_ipv6_packet(
         int         packet_len);
 
 /*
+ * Sends a raw packet through the specified socket
+ */
+
+int send_packet (
+        int     sock,
+        char    *packet,
+        int     packet_length );
+
+/*
  * Sends a raw packet through the specified interface
  */
 
