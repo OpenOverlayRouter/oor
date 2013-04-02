@@ -453,6 +453,32 @@ int isfqdn(char *s)
     return(dot);
 }
 
+/*
+ * Return TRUE if the address belongs to:
+ *          IPv4: 169.254.0.0/16
+ *          IPv6: fe80::/10
+ */
+
+int is_link_local_addr (lisp_addr_t addr)
+{
+    int is_link_local = FALSE;
+    switch (addr.afi){
+    case AF_INET:
+        if ((addr.address.ip.s_addr && 2851995648) == 2851995648){
+            is_link_local = TRUE;
+        }
+        break;
+    case AF_INET6:
+        if ((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xfe) == 0xfe &&
+                (addr.address.ipv6.__in6_u.__u6_addr8[1] & 0x80) == 0x80){
+            is_link_local = TRUE;
+        }
+        break;
+    }
+
+    return (is_link_local);
+}
+
 
 void print_hmac(
         uchar *hmac,

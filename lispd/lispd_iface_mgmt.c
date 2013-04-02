@@ -28,14 +28,18 @@
  *
  */
 #include "lispd_iface_mgmt.h"
-#include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
 #include "lispd_mapping.h"
+#include "lispd_smr.h"
+#include "lispd_timers.h"
 
 void process_nl_add_address (struct nlmsghdr *nlh);
 void process_nl_del_address (struct nlmsghdr *nlh);
 void process_nl_new_link (struct nlmsghdr *nlh);
+int interface_change_update(
+    timer *timer,
+    void *arg);
 
 int opent_netlink_socket()
 {
@@ -87,15 +91,15 @@ void process_netlink_msg(int netlink_fd){
         for (;(NLMSG_OK (nlh, len)) && (nlh->nlmsg_type != NLMSG_DONE); nlh = NLMSG_NEXT(nlh, len)){
             switch(nlh->nlmsg_type){
             case RTM_NEWADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  new address message");
+                lispd_log_msg(LISP_LOG_DEBUG_1, "=============> process_netlink_msg: received  new address message");
                 process_nl_add_address (nlh);
                 break;
             case RTM_DELADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  del address message");
+                lispd_log_msg(LISP_LOG_DEBUG_1, "=============> process_netlink_msg: received  del address message");
                 process_nl_del_address (nlh);
                 break;
             case RTM_NEWLINK:
-                lispd_log_msg(LISP_LOG_DEBUG_1, "process_netlink_msg: received  link message");
+                lispd_log_msg(LISP_LOG_DEBUG_1, "=============> process_netlink_msg: received  link message");
                 process_nl_new_link (nlh);
                 break;
             default:
@@ -114,7 +118,11 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     int                 rt_length       = 0;
     lispd_iface_elt     *iface          = NULL;
     lisp_addr_t         new_addr;
+    lisp_addr_t         *iface_addr     = NULL;
 
+    /*
+     * Get the new address from the net link message
+     */
     ifa = (struct ifaddrmsg *) NLMSG_DATA (nlh);
     iface_index = ifa->ifa_index;
 
@@ -142,7 +150,55 @@ void process_nl_add_address (struct nlmsghdr *nlh)
         }
     }
 
-    printf ("addr: %s\n", get_char_from_lisp_addr_t(new_addr));
+    /* Check if the addres is a global address*/
+    if (is_link_local_addr(new_addr) == TRUE){
+        lispd_log_msg(LISP_LOG_DEBUG_3,"process_nl_add_address: the extractet address from the netlink"
+                "messages is a local link address: %s discarded", get_char_from_lisp_addr_t(new_addr));
+        return;
+    }
+
+    /*
+     * Actions to be done due to a change of address: SMR
+     */
+
+    switch (new_addr.afi){
+    case AF_INET:
+        iface_addr = iface->ipv4_address;
+        break;
+    case AF_INET6:
+        iface_addr = iface->ipv6_address;
+        break;
+    }
+
+    if (iface_addr == NULL){
+        /* XXX To be done */
+        lispd_log_msg(LISP_LOG_DEBUG_1,"process_nl_add_address: Automatic assignemen of locators is not supported."
+                "Restart LISPmob to use %s as a locator", get_char_from_lisp_addr_t(new_addr));
+        return;
+    }
+
+    if (compare_lisp_addr_t(iface_addr,&new_addr)==0){ // Same address that we already have
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_add_address: The detected change of address for interface %s "
+                "doesn't affect",iface->iface_name);
+        return;
+    }
+
+    lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_add_address: New address detected for interface %s -> %s: Start SMR process",
+                    iface->iface_name, get_char_from_lisp_addr_t(new_addr));
+
+    // Update the new address
+    copy_lisp_addr(iface_addr, &new_addr);
+
+    // Init SMR procedure
+    switch (new_addr.afi){
+    case AF_INET:
+        init_smr(iface->head_v4_mappings_list);
+        break;
+    case AF_INET6:
+        init_smr(iface->head_v6_mappings_list);
+        break;
+    }
+
 }
 
 
@@ -182,18 +238,19 @@ void process_nl_del_address (struct nlmsghdr *nlh)
             break;
         }
     }
-
-    printf ("addr: %s\n", get_char_from_lisp_addr_t(new_addr));
+    /* Actions to be done when address is removed */
+    lispd_log_msg(LISP_LOG_DEBUG_2,"   deleted address: %s\n", get_char_from_lisp_addr_t(new_addr));
 }
 
 void process_nl_new_link (struct nlmsghdr *nlh)
 {
-    struct ifinfomsg    *ifi            = NULL;
-    lispd_iface_elt     *iface          = NULL;
-    lispd_mappings_list *mapping_list[2]= {NULL, NULL};
-    int                 iface_index     = 0;
-    int                 is_updated      = FALSE;
-    int                 ctr             = 0;
+    struct ifinfomsg                    *ifi            = NULL;
+    lispd_iface_elt                     *iface          = NULL;
+    int                                 iface_index     = 0;
+    timer_iface_status_update_argument  *arguments      = NULL;
+    uint8_t                             status          = UP;
+
+
 
     ifi = (struct ifinfomsg *) NLMSG_DATA (nlh);
     iface_index = ifi->ifi_index;
@@ -206,29 +263,71 @@ void process_nl_new_link (struct nlmsghdr *nlh)
     }
     if ((ifi->ifi_flags & IFF_RUNNING) != 0){
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to UP",iface->iface_name);
-        if (iface->status == DOWN){
-            iface->status = UP;
-            is_updated = TRUE;
-        }
+        status = UP;
     }
     else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to DOWN",iface->iface_name);
-        if (iface->status == UP){
-            iface->status = DOWN;
-            is_updated = TRUE;
-        }
+        status = DOWN;
     }
 
-    if (is_updated == TRUE){
-        mapping_list[0] = iface->head_v4_mappings_list;
-        mapping_list[1] = iface->head_v6_mappings_list;
-        for (ctr = 0 ; ctr < 2 ; ctr ++){
-            while (mapping_list[ctr] != NULL){
-                calculate_balancing_vectors (
-                        mapping_list[ctr]->mapping,
-                        &(((lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info))->outgoing_balancing_locators_vecs));
-                mapping_list[ctr] = mapping_list[ctr]->next;
-            }
+    /* Reprograming timer*/
+    if (iface->status_transition_timer == NULL){
+        if ((arguments = malloc(sizeof(timer_iface_status_update_argument)))==NULL){
+            lispd_log_msg(LISP_LOG_WARNING,"process_nl_new_link: Unable to allocate memory for timer_iface_status_update_argument: %s",
+                    strerror(errno));
+            return ;
+        }
+
+        arguments->iface  = iface;
+        arguments->status = status;
+
+        iface->status_transition_timer = create_timer (INTERFACE_CHANGE_TIMER);
+    }else {
+        arguments = (timer_iface_status_update_argument *)(iface->status_transition_timer->cb_argument);
+        arguments->status = status;
+    }
+
+    start_timer(iface->status_transition_timer, LISPD_IFACE_TRANS_TIMEOUT,
+            (timer_callback)interface_change_update, (void *)arguments);
+}
+
+int interface_change_update(
+    timer *timer,
+    void *arg)
+{
+    timer_iface_status_update_argument     *argument          = (timer_iface_status_update_argument *)arg;
+    lispd_mappings_list                    *mapping_list[2]    = {NULL, NULL};
+    int                                     ctr                 = 0;
+
+    /*  If we reached here due to a transition period don't do anyhing */
+    if (argument->status == argument->iface->status){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"interface_change_update: Transition period of interface %s. No changes", argument->iface->iface_name);
+        free (argument->iface->status_transition_timer);
+        argument->iface->status_transition_timer = NULL;
+        free (argument);
+        return (GOOD);
+    }
+
+    // Change status of the interface
+    argument->iface->status = argument->status;
+
+    mapping_list[0] = argument->iface->head_v4_mappings_list;
+    mapping_list[1] = argument->iface->head_v6_mappings_list;
+    for (ctr = 0 ; ctr < 2 ; ctr ++){
+        /* Initiate SMR for each affected mapping */
+        init_smr(mapping_list[ctr]);
+        /* Recalculate balancing vector for each affected mapping*/
+        while (mapping_list[ctr] != NULL){
+            calculate_balancing_vectors (
+                    mapping_list[ctr]->mapping,
+                    &(((lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info))->outgoing_balancing_locators_vecs));
+            mapping_list[ctr] = mapping_list[ctr]->next;
         }
     }
+    free (argument->iface->status_transition_timer);
+    argument->iface->status_transition_timer = NULL;
+    free (argument);
+    return (GOOD);
 }
+
+

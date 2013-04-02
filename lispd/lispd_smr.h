@@ -33,9 +33,9 @@
 #include "lispd_timers.h"
 
 /*
- * Send a solicit map request for each proxy itr and rlocs of all eids of the map cahce
+ * Send a solicit map request for each rloc of all eids in the map cahce database
  */
-void init_smr();
+void init_smr(lispd_mappings_list *affected_mappings);
 
 /*
  * Send a map request smr invoked and reprogram the timer to retransmit in case

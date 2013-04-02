@@ -35,6 +35,7 @@
 
 #include "lispd.h"
 #include "lispd_mapping.h"
+#include "lispd_timers.h"
 
 
 /*
@@ -51,6 +52,7 @@ typedef struct lispd_iface_elt_ {
     lispd_mappings_list         *head_v6_mappings_list;
     int                         out_socket_v4;
     int                         out_socket_v6;
+    timer                       *status_transition_timer;
 }lispd_iface_elt;
 
 /*

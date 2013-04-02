@@ -60,9 +60,6 @@ extern  int         ipv4_data_input_fd;
 extern  int         ipv6_control_input_fd;
 extern  int         ipv4_control_input_fd;
 extern  int         timers_fd;
-#ifdef LISPMOBMH
-extern  int			smr_timer_fd;
-#endif
 extern  struct  sockaddr_nl dst_addr;
 extern  struct  sockaddr_nl src_addr;
 extern  nlsock_handle       nlh;

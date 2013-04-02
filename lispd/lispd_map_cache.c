@@ -67,7 +67,7 @@ lispd_map_cache_entry *new_map_cache_entry (
     }
     map_cache_entry->expiry_cache_timer = NULL;
     map_cache_entry->probe_timer = NULL;
-    map_cache_entry->smr_timer = NULL;
+    map_cache_entry->smr_inv_timer = NULL;
     map_cache_entry->request_retry_timer = NULL;
     map_cache_entry->nonces = NULL;
     /* Add entry to the data base */
@@ -97,9 +97,9 @@ void free_map_cache_entry(lispd_map_cache_entry *entry)
             stop_timer(entry->request_retry_timer);
             free (entry->request_retry_timer);
         }
-        if (entry->smr_timer){
-            stop_timer(entry->smr_timer);
-            free (entry->smr_timer);
+        if (entry->smr_inv_timer){
+            stop_timer(entry->smr_inv_timer);
+            free (entry->smr_inv_timer);
         }
     }
 

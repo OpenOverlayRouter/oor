@@ -12,8 +12,11 @@
 #include <sys/time.h>
 
 #include "lispd.h"
-#include "lispd_timers.h"
+#include "lispd_iface_mgmt.h"
 #include "lispd_log.h"
+#include "lispd_map_request.h"
+#include "lispd_timers.h"
+
 
 const int TimerTickInterval = 1;  // Seconds
 const int WheelSize = 4096;       // Good for a little over an hour
@@ -175,7 +178,7 @@ void start_timer(
      */
     next = tptr->links.next;
 
-    if (next) {
+    if (next != NULL) {
         prev = tptr->links.prev;
         next->prev = prev;
         prev->next = next;
@@ -207,25 +210,36 @@ void stop_timer(timer *tptr)
 {
     timer_links *next, *prev;
 
+    if (strcmp(tptr->name,MAP_REQUEST_RETRY_TIMER)==0){
+        free ((timer_map_request_argument *)tptr->cb_argument);
+    }else if (strcmp(tptr->name,INTERFACE_CHANGE_TIMER)==0){
+        free ((timer_iface_status_update_argument *)tptr->cb_argument);
+    }
+
     if (tptr == NULL) {
         return;
     }
 
     next = tptr->links.next;
     prev = tptr->links.prev;
-    if (next)
+    if (next != NULL){
         next->prev = prev;
-    if (prev)
+    }
+    if (prev != NULL){
         prev->next = next;
+    }
     tptr->links.next = NULL;
     tptr->links.prev = NULL;
 
     /*
      * Update stats
      */
-    if (next || prev)
+    if (next != NULL || prev != NULL){
         timer_wheel.running_timers--;
+    }
 }
+
+
 
 /*
  * handle_timers()

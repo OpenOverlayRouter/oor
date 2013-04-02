@@ -71,7 +71,7 @@ uint64_t build_nonce(int seed)
 nonces_list *new_nonces_list()
 {
     nonces_list *nonces;
-    if ((nonces = malloc(sizeof(nonces_list))) == NULL) {
+    if ((nonces = (nonces_list*)malloc(sizeof(nonces_list))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "new_nonces_list: Unable to allocate memory for nonces_list: %s", strerror(errno));
         return (NULL);
     }

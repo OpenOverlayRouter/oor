@@ -89,6 +89,7 @@ lispd_iface_elt *add_interface(char *iface_name)
     }
     iface->head_v4_mappings_list = NULL;
     iface->head_v6_mappings_list = NULL;
+    iface->status_transition_timer = NULL;
     iface_list->iface = iface;
     iface_list->next = NULL;
 

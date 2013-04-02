@@ -53,11 +53,13 @@ int rloc_probing(
 
     /* First RLOC probing iteration: create timer*/
     if (!t)
-        map_cache_entry->probe_timer = create_timer ("RLOC PROBING TIMER");
+        map_cache_entry->probe_timer = create_timer (RLOC_PROBING_TIMER);
+
+    locators_lists[0] = mapping->head_v4_locators_list;
+    locators_lists[1] = mapping->head_v6_locators_list;
 
     if (map_cache_entry->probe_left == 0){
-    	locators_lists[0] = mapping->head_v4_locators_list;
-    	locators_lists[1] = mapping->head_v6_locators_list;
+
     	for (ctr = 0 ; ctr < 2 ; ctr++){
     		locators = locators_lists[ctr];
     		/* Send a map request probe for each locator of the mapping */
@@ -91,8 +93,7 @@ int rloc_probing(
     	}
     	map_cache_entry->probe_left = loc_ctr;
     }else {
-    	locators_lists[0] = mapping->head_v4_locators_list;
-    	locators_lists[1] = mapping->head_v6_locators_list;
+
     	for (ctr = 0 ; ctr < 2 ; ctr++){
     		locators = locators_lists[ctr];
     		/*
