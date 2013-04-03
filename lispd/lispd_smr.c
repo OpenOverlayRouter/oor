@@ -40,93 +40,109 @@
 /*
  * Send a solicit map request for each rloc of all eids in the map cahce database
  */
-void init_smr(lispd_mappings_list *affected_mappings)
+void init_smr()
 {
-    patricia_tree_t             *dbs [2]            = {NULL,NULL};
+    patricia_tree_t             *local_dbs [2]      = {NULL,NULL};
+    patricia_tree_t             *map_cache_dbs [2]  = {NULL,NULL};
     lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
+    lispd_mapping_elt           *mapping            = NULL;
+    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
+
     int                         ctr=0,ctr1=0;
     uint64_t                    nonce               = 0;
-    lisp_addr_t                 *src_eid            = NULL;
 
-    patricia_node_t             *node               = NULL;
+    patricia_node_t             *lcl_node           = NULL;
+    patricia_node_t             *map_cache_node     = NULL;
     lispd_map_cache_entry       *map_cache_entry    = NULL;
     lispd_locators_list         *locator_iterator   = NULL;
     lispd_locator_elt           *locator            = NULL;
 
-    dbs[0] = get_map_cache_db(AF_INET);
-    dbs[1] = get_map_cache_db(AF_INET6);
+    local_dbs[0] = get_local_db(AF_INET);
+    local_dbs[1] = get_local_db(AF_INET6);
 
-   lispd_log_msg(LISP_LOG_DEBUG_1,"LISP Mapping Cache\n\n");
+    map_cache_dbs[0] = get_map_cache_db(AF_INET);
+    map_cache_dbs[1] = get_map_cache_db(AF_INET6);
 
 
-   while (affected_mappings != NULL){/* For each EID which have a locator modified*/
-       src_eid = &(affected_mappings->mapping->eid_prefix);
-       /* Send map register to inform map server of the change with the interface */
-       err = build_and_send_map_register_msg (affected_mappings->mapping);
-       if ( err != GOOD){
-           // XXX What should be done if it can't send map register?
-       }
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        PATRICIA_WALK(local_dbs[ctr]->head, lcl_node) {
+            mapping = ((lispd_mapping_elt *)(lcl_node->data));
+            lcl_extended_info = (lcl_mapping_extended_info *)mapping->extended_info;
+            if (lcl_extended_info->mapping_updated == TRUE){
+                lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s/%d",
+                        get_char_from_lisp_addr_t(mapping->eid_prefix),
+                        mapping->eid_prefix_length);
+                PATRICIA_WALK(map_cache_dbs[ctr]->head, map_cache_node) { /* For each map cache entry with same afi as local EID mapping */
+                    map_cache_entry = ((lispd_map_cache_entry *)(map_cache_node->data));
+                    locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
+                    locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
+                    for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For echa IPv4 and IPv6 locator*/
+                        if (map_cache_entry->active && locators_lists[ctr1] != NULL){
+                            locator_iterator = locators_lists[ctr1];
+                            while (locator_iterator){
+                                locator = locator_iterator->locator;
+                                if (build_and_send_map_request_msg(map_cache_entry->mapping,&(mapping->eid_prefix),locator->locator_addr,0,0,1,0,&nonce)==GOOD){
+                                    lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s from EID %s/%d",
+                                            get_char_from_lisp_addr_t(*(locator->locator_addr)),
+                                            get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                                            map_cache_entry->mapping->eid_prefix_length);
+                                }
 
-       /* Send SMR for each locator of each map-cache entry */
+                                locator_iterator = locator_iterator->next;
+                            }
+                        }
+                    }
+                }PATRICIA_WALK_END;
 
-       lispd_log_msg(LISP_LOG_DEBUG_1, "init_smr: Start SMR for the EID:  %s/%d ",
-               get_char_from_lisp_addr_t(*src_eid),
-               affected_mappings->mapping->eid_prefix_length);
-       for (ctr = 0 ; ctr < 2 ; ctr++){ /*For all IPv4 and IPv6 map cache entries */
-           PATRICIA_WALK(dbs[ctr]->head, node) {
-               map_cache_entry = ((lispd_map_cache_entry *)(node->data));
-               locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
-               locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
-               for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For echa IPv4 and IPv6 locator*/
-                   if (map_cache_entry->active && locators_lists[ctr1] != NULL){
-                       locator_iterator = locators_lists[ctr1];
-                       while (locator_iterator){
-                           locator = locator_iterator->locator;
+                lcl_extended_info->mapping_updated = FALSE;
+            }
 
-                           if (build_and_send_map_request_msg(map_cache_entry->mapping,src_eid,locator->locator_addr,0,0,1,0,&nonce)==GOOD){
-                               lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s of EID %s/%d",
-                                       get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                                       get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
-                                       map_cache_entry->mapping->eid_prefix_length);
-                           }
+        }PATRICIA_WALK_END;
+    }
 
-                           locator_iterator = locator_iterator->next;
-                       }
-                   }
-               }
-           } PATRICIA_WALK_END;
-       }
-       affected_mappings = affected_mappings->next;
-   }
+    smr_pitrs();
 }
 
 /*
- void smr_pitrs()
+ * Send SMR for each local EID prefix to each Proxy-ITR
+ */
+void smr_pitrs()
 {
-    patricia_node_t *node;
-    lispd_locator_chain_t *locator_chain = NULL;
-    lispd_addr_list_t *elt = proxy_itrs;
-    uint64_t nonce;
+    patricia_tree_t         *dbs [2]    = {NULL,NULL};
+    patricia_node_t         *node       = NULL;
+    lispd_mapping_elt       *mapping    = NULL;
+    lispd_addr_list_t       *pitr_elt   = NULL;
+    uint64_t                nonce       = 0;
+    int                     ctr         = 0;
 
-    PATRICIA_WALK(AF4_database->head, node) {
-        locator_chain = ((lispd_locator_chain_t *)(node->data));
-        if (locator_chain) {
-            while (elt) {
-                if (build_and_send_map_request_msg(elt->address,
-                        &(locator_chain->eid_prefix),
-                        (get_addr_len(locator_chain->eid_prefix.afi) * 8),
-                        locator_chain->eid_name,
-                        0, 0, 1, 0, &nonce))
-                    lispd_log_msg(LOG_DAEMON, "SMR'ing %s", get_char_from_lisp_addr_t(elt->address));
-                elt = elt->next;
+    dbs[0] = get_local_db(AF_INET);
+    dbs[1] = get_local_db(AF_INET6);
+
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        pitr_elt  = proxy_itrs;
+        PATRICIA_WALK(dbs[ctr]->head, node) {
+            mapping = ((lispd_mapping_elt *)(node->data));
+            while (pitr_elt) {
+                if (build_and_send_map_request_msg(mapping,&(mapping->eid_prefix),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
+                    lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s/%d",
+                            get_char_from_lisp_addr_t(*(pitr_elt->address)),
+                            get_char_from_lisp_addr_t(mapping->eid_prefix),
+                            mapping->eid_prefix_length);
+                }else {
+                    lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s/%d",
+                            get_char_from_lisp_addr_t(*(pitr_elt->address)),
+                            get_char_from_lisp_addr_t(mapping->eid_prefix),
+                            mapping->eid_prefix_length);
+                }
+                pitr_elt = pitr_elt->next;
             }
-        }
-    } PATRICIA_WALK_END;
-}*/
+        } PATRICIA_WALK_END;
+    }
+}
 
 int solicit_map_request_reply(
-    timer *timer,
-    void *arg)
+        timer *timer,
+        void *arg)
 {
     lispd_map_cache_entry *map_cache_entry = (lispd_map_cache_entry *)arg;
     lisp_addr_t *dst_rloc = NULL;

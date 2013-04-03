@@ -59,6 +59,7 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_output.h"
+#include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
@@ -336,6 +337,12 @@ int main(int argc, char **argv)
      */
 
     map_register (NULL,NULL);
+
+    /*
+     * SMR proxy-ITRs list to be updated with new mappings
+     */
+
+    smr_pitrs();
 
     lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
 

@@ -75,6 +75,7 @@ typedef struct balancing_locators_vecs_ {
 
 typedef struct lcl_mapping_extended_info_ {
     balancing_locators_vecs               outgoing_balancing_locators_vecs;
+    uint8_t                               mapping_updated:1; //when an interface related to this mapping change, it is set to TRUE
 }lcl_mapping_extended_info;
 
 /*

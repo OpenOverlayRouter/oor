@@ -125,6 +125,8 @@ lispd_mapping_elt *new_local_mapping(
     extended_info->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
     extended_info->outgoing_balancing_locators_vecs.locators_vec_length = 0;
 
+    extended_info->mapping_updated = FALSE;
+
     return (mapping);
 }
 

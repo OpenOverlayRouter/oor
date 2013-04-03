@@ -746,7 +746,16 @@ int lisp_output (
             tuple,
             &outer_src_locator,
             &outer_dst_locator)!=GOOD){
-        return (BAD);
+        /* If no match between afi of source and destinatiion RLOC, try to fordward to petr*/
+        if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
+                original_packet,
+                original_packet_length,
+                default_encap_afi) != GOOD){
+            /* If error, fordward native*/
+            return (forward_native(original_packet,original_packet_length));
+        }
+        return (GOOD);
+
     }
 
     if (outer_src_locator == NULL){

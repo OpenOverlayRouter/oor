@@ -112,13 +112,15 @@ void process_netlink_msg(int netlink_fd){
 
 void process_nl_add_address (struct nlmsghdr *nlh)
 {
-    struct ifaddrmsg    *ifa            = NULL;
-    struct rtattr       *rth            = NULL;
-    int                 iface_index     = 0;
-    int                 rt_length       = 0;
-    lispd_iface_elt     *iface          = NULL;
-    lisp_addr_t         new_addr;
-    lisp_addr_t         *iface_addr     = NULL;
+    struct ifaddrmsg            *ifa                = NULL;
+    struct rtattr               *rth                = NULL;
+    int                         iface_index         = 0;
+    int                         rt_length           = 0;
+    lispd_iface_elt             *iface              = NULL;
+    lisp_addr_t                 new_addr;
+    lisp_addr_t                 *iface_addr         = NULL;
+    lispd_mappings_list         *mapping_list       = NULL;
+    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
 
     /*
      * Get the new address from the net link message
@@ -164,9 +166,11 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     switch (new_addr.afi){
     case AF_INET:
         iface_addr = iface->ipv4_address;
+        mapping_list = iface->head_v4_mappings_list;
         break;
     case AF_INET6:
         iface_addr = iface->ipv6_address;
+        mapping_list = iface->head_v6_mappings_list;
         break;
     }
 
@@ -189,16 +193,14 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     // Update the new address
     copy_lisp_addr(iface_addr, &new_addr);
 
-    // Init SMR procedure
-    switch (new_addr.afi){
-    case AF_INET:
-        init_smr(iface->head_v4_mappings_list);
-        break;
-    case AF_INET6:
-        init_smr(iface->head_v6_mappings_list);
-        break;
+    /* Set the affected mappings as updated */
+    while (mapping_list != NULL){
+        lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
+        lcl_extended_info->mapping_updated = TRUE;
     }
 
+    // Init SMR procedure
+    init_smr();
 }
 
 
@@ -295,9 +297,10 @@ int interface_change_update(
     timer *timer,
     void *arg)
 {
-    timer_iface_status_update_argument     *argument          = (timer_iface_status_update_argument *)arg;
+    timer_iface_status_update_argument     *argument           = (timer_iface_status_update_argument *)arg;
     lispd_mappings_list                    *mapping_list[2]    = {NULL, NULL};
-    int                                     ctr                 = 0;
+    lcl_mapping_extended_info              *lcl_extended_info  = NULL;
+    int                                    ctr                 = 0;
 
     /*  If we reached here due to a transition period don't do anyhing */
     if (argument->status == argument->iface->status){
@@ -314,16 +317,19 @@ int interface_change_update(
     mapping_list[0] = argument->iface->head_v4_mappings_list;
     mapping_list[1] = argument->iface->head_v6_mappings_list;
     for (ctr = 0 ; ctr < 2 ; ctr ++){
-        /* Initiate SMR for each affected mapping */
-        init_smr(mapping_list[ctr]);
         /* Recalculate balancing vector for each affected mapping*/
         while (mapping_list[ctr] != NULL){
+            lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info);
+            lcl_extended_info->mapping_updated = TRUE; /* Change in the mapping */
             calculate_balancing_vectors (
                     mapping_list[ctr]->mapping,
-                    &(((lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info))->outgoing_balancing_locators_vecs));
+                    &(lcl_extended_info->outgoing_balancing_locators_vecs));
             mapping_list[ctr] = mapping_list[ctr]->next;
         }
     }
+    /* Initiate SMR for each affected mapping */
+    init_smr();
+
     free (argument->iface->status_transition_timer);
     argument->iface->status_transition_timer = NULL;
     free (argument);

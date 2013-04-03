@@ -35,7 +35,12 @@
 /*
  * Send a solicit map request for each rloc of all eids in the map cahce database
  */
-void init_smr(lispd_mappings_list *affected_mappings);
+void init_smr();
+
+/*
+ * Send SMR for each local EID prefix to each Proxy-ITR
+ */
+void smr_pitrs();
 
 /*
  * Send a map request smr invoked and reprogram the timer to retransmit in case
