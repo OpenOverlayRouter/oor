@@ -100,15 +100,6 @@ int send_packet (
         int     packet_length );
 
 /*
- * Sends a raw packet through the specified interface
- */
-
-int send_ip_packet (
-        lispd_iface_elt     *iface,
-        char                *packet_buf,
-        int                 pckt_length );
-
-/*
  * Get a packet from the socket. It also returns the destination addres and source port of the packet
  */
 

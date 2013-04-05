@@ -29,10 +29,25 @@
 
 
 #include "bob/lookup3.c"
+#include "lispd_locator.h"
 #include "lispd_map_request.h"
+#include "lispd_mapping.h"
 #include "lispd_output.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
+
+
+/*
+ * Select the source and destination RLOC according to the priority and weight.
+ * The destination RLOC is selected according to the AFI of the selected source RLOC
+ */
+
+int select_src_rmt_locators_from_balancing_locators_vec (
+        lispd_mapping_elt   *src_mapping,
+        lispd_mapping_elt   *dst_mapping,
+        packet_tuple        tuple,
+        lispd_locator_elt   **src_locator,
+        lispd_locator_elt   **dst_locator);
 
 
 
@@ -274,20 +289,22 @@ int forward_native(
         int             pckt_length )
 {
 
-    int ret;
-    lispd_iface_elt *iface;
+    int ret                 = 0;
+    int output_socket       = 0;
+    int packet_afi                 = 0;
 
-    iface = get_default_output_iface(get_afi_from_packet((uint8_t *)packet_buf));
+    packet_afi = get_afi_from_packet((uint8_t *)packet_buf);
+    output_socket = get_default_output_socket(packet_afi);
 
-    if (!iface){
-        lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface found");
+    if (output_socket == -1){
+        lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface for afi %d",output_socket);
         return (BAD);
     }
 
     lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
             get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
-    if(send_ip_packet(iface,packet_buf,pckt_length) != GOOD){
+    if(send_packet(output_socket,packet_buf,pckt_length) != GOOD){
         ret = BAD;
     }else{
         ret = GOOD;
@@ -297,43 +314,42 @@ int forward_native(
 
 }
 
+/*
+ * Send a packet to a proxy etr
+ */
+
 
 int fordward_to_petr(
-        lispd_iface_elt *iface,
-        char            *original_packet,
-        int             original_packet_length,
-        int             afi)
+        char                    *original_packet,
+        int                     original_packet_length,
+        lispd_mapping_elt       *src_mapping,
+        packet_tuple            tuple)
 {
-    lisp_addr_t *petr;
-    lisp_addr_t *outer_src_addr;
-    char *encap_packet;
-    int  encap_packet_size;
+    lispd_locator_elt       *outer_src_locator  = NULL;
+    lispd_locator_elt       *outer_dst_locator  = NULL;
+    char                    *encap_packet       = NULL;
+    int                     encap_packet_size   = 0;
+    int                     output_socket       = 0;
 
-    if (!iface){
-        lispd_log_msg(LISP_LOG_ERR, "fordward_to_petr: No output interface found");
+    if (proxy_etrs == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_3, "fordward_to_petr: Proxy-etr not found");
         return (BAD);
     }
 
-    petr = get_proxy_etr(afi); 
-
-    if (petr == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Proxy-etr not found");
+    if ((select_src_rmt_locators_from_balancing_locators_vec (
+                src_mapping,
+                proxy_etrs->mapping,
+                tuple,
+                &outer_src_locator,
+                &outer_dst_locator)) != GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_3, "fordward_to_petr: No Proxy-etr compatible with local locators afi");
         return (BAD);
-    }
-
-    switch (afi){
-    case AF_INET:
-        outer_src_addr = iface->ipv4_address;
-        break;
-    case AF_INET6:
-        outer_src_addr = iface->ipv6_address;
-        break;
     }
 
     if (encapsulate_packet(original_packet,
             original_packet_length,
-            outer_src_addr,
-            petr,
+            outer_src_locator->locator_addr,
+            outer_dst_locator->locator_addr,
             LISP_DATA_PORT,
             LISP_DATA_PORT,
             0,
@@ -342,7 +358,9 @@ int fordward_to_petr(
         return (BAD);
     }
 
-    if (send_ip_packet (iface,encap_packet,encap_packet_size ) != GOOD){
+    output_socket = ((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket;
+
+    if (send_packet (output_socket,encap_packet,encap_packet_size ) != GOOD){
         free (encap_packet );
         return (BAD);
     }
@@ -438,39 +456,6 @@ int handle_map_cache_miss(
 
     return (GOOD);
 }
-
-lisp_addr_t *get_proxy_etr(int afi)
-{
-    lispd_weighted_addr_list_t *petr_list_elt;
-    if(proxy_etrs!=NULL){
-        petr_list_elt = proxy_etrs;
-        while (proxy_etrs!=NULL){
-            if (petr_list_elt->address->afi == afi)
-                return petr_list_elt->address;
-            petr_list_elt = petr_list_elt->next;
-        }
-    }
-    return (NULL);
-}
-
-/*
- * get_output_afi: Returns the afi that should be used to send the packet
- */
-int get_output_afi_based_on_petr()
-{
-
-    if (default_out_iface_v4!= NULL &&
-            get_proxy_etr(AF_INET) != NULL){
-        return (AF_INET);
-    }
-    if (default_out_iface_v6!= NULL &&
-            get_proxy_etr(AF_INET6) != NULL){
-        return (AF_INET6);
-    }
-
-    return (-1);
-}
-
 
 /*
  * get_output_afi_based_on_entry: Returns the afi that should be used to send the packet (based on map-cache entry)
@@ -686,8 +671,6 @@ int lisp_output (
     lispd_locator_elt       *outer_dst_locator  = NULL;
     packet_tuple            tuple;
 
-    int default_encap_afi = 0;
-
     //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
 
@@ -722,13 +705,12 @@ int lisp_output (
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
     if ((entry == NULL) || (entry->active == NO_ACTIVE) || (entry->mapping->locator_count == 0) ){ /* There is no entry or is not active*/
 
-        default_encap_afi = get_output_afi_based_on_petr();
-
         /* Try to fordward to petr*/
-        if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
+        if (fordward_to_petr(
                 original_packet,
                 original_packet_length,
-                default_encap_afi) != GOOD){
+                src_mapping,
+                tuple) != GOOD){
             /* If error, fordward native*/
             return (forward_native(original_packet,original_packet_length));
         }
@@ -747,10 +729,11 @@ int lisp_output (
             &outer_src_locator,
             &outer_dst_locator)!=GOOD){
         /* If no match between afi of source and destinatiion RLOC, try to fordward to petr*/
-        if (fordward_to_petr(get_default_output_iface(default_encap_afi), /* Use afi of original dst for encapsulation */
+        if (fordward_to_petr(
                 original_packet,
                 original_packet_length,
-                default_encap_afi) != GOOD){
+                src_mapping,
+                tuple) != GOOD){
             /* If error, fordward native*/
             return (forward_native(original_packet,original_packet_length));
         }

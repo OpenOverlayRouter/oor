@@ -383,18 +383,23 @@ void dump_servers(
 
 void dump_proxy_etrs(int log_level)
 {
-    lispd_weighted_addr_list_t      *iterator = 0;
+    lispd_locators_list      *locator_lst_elt[2] = {NULL,NULL};
+    int                      ctr                 = 0;
 
-    if (!proxy_etrs)
+    if (proxy_etrs == NULL || !is_loggable(log_level)){
         return;
+    }
+
+    locator_lst_elt[0] = proxy_etrs->mapping->head_v4_locators_list;
+    locator_lst_elt[1] = proxy_etrs->mapping->head_v6_locators_list;
 
     lispd_log_msg(log_level, "*** Proxy ETRs List ***");
 
-    iterator = proxy_etrs;
-    while (iterator) {
-        lispd_log_msg(log_level,"\t%s priority: %d  weight: %d",
-                get_char_from_lisp_addr_t(*(iterator->address)), iterator->priority, iterator->weight);
-        iterator = iterator->next;
+    for (ctr = 0 ; ctr<2 ; ctr++){
+        while (locator_lst_elt[ctr]){
+            dump_locator (locator_lst_elt[ctr]->locator,log_level);
+            locator_lst_elt[ctr] = locator_lst_elt[ctr]->next;
+        }
     }
 }
 

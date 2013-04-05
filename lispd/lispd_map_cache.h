@@ -81,6 +81,13 @@ typedef struct lispd_map_cache_entry_ {
 
 lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
 
+/*
+ * Create a map cache entry but not saved in the database.
+ * Used to create the proxy-etr list
+ */
+
+lispd_map_cache_entry *new_map_cache_entry_no_db (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+
 void free_map_cache_entry(lispd_map_cache_entry *entry);
 
 void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level);

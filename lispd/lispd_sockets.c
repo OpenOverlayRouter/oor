@@ -452,14 +452,11 @@ int send_udp_ipv6_packet(
  * Sends a raw packet through the specified interface
  */
 
-// TODO arnatal To change name and unify with send_ip_packet once IPv6 RLOCs tested
-
 int send_packet (
         int     sock,
         char    *packet,
         int     packet_length )
 {
-    //TODO remove old code. Optimize for IPv4 only
 
     struct sockaddr *dst_addr;
     int dst_addr_len;
@@ -516,44 +513,6 @@ int send_packet (
 
     return (GOOD);
 
-}
-
-int send_ip_packet (
-    lispd_iface_elt     *iface,
-    char                *packet_buf,
-    int                 pckt_length )
-{
-
-    int socket;
-    struct iphdr *iph;
-    int ret;
-    
-    if (!iface){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_ip_packet: No output interface found");
-        return (BAD);
-    }
-    
-    iph = ( struct iphdr * ) packet_buf;
-    
-    switch (iph->version){
-
-        case 4:
-            //TODO arnatal check if socket exists (if IPvN supportted)
-            socket = iface->out_socket_v4;
-            ret = send_packet(socket,packet_buf,pckt_length);
-            break;
-            
-        case 6:
-            //TODO arnatal check if socket exists (if IPvN supportted)
-            socket = iface->out_socket_v6;
-            ret = send_packet(socket,packet_buf,pckt_length);
-            break;
-            
-        default:
-            break;
-    }
-    
-    return (ret);
 }
 
 

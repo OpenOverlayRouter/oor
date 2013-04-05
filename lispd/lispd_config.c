@@ -72,8 +72,7 @@ int add_map_server(
 int add_proxy_etr_entry(
         char   *addr,
         int    priority,
-        int    weight,
-        lispd_weighted_addr_list_t      **petr_list);
+        int    weight);
 
 int add_server(
         char *server,
@@ -291,8 +290,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
             if (add_proxy_etr_entry((char *)uci_address,
                     uci_priority,
-                    uci_weigth,
-                    &proxy_etrs) != GOOD ){
+                    uci_weigth) != GOOD ){
                 lispd_log_msg(LISP_LOG_ERR, "Can't add proxy-etr %s", uci_address);
             }else{
                 lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to proxy-etr list", uci_address);
@@ -411,10 +409,12 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
 int handle_lispd_config_file(char * lispdconf_conf_file)
 {
-    cfg_t           *cfg   = 0;
-    unsigned int    i      = 0;
-    unsigned        n      = 0;
-    int             ret    = 0;
+    cfg_t           *cfg            = 0;
+    unsigned int    i               = 0;
+    unsigned        n               = 0;
+    int             ret             = 0;
+    char            *map_resolver   = NULL;
+    char            *proxy_itr      = NULL;
 
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",      0, CFGF_NONE),
@@ -530,8 +530,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
         if (add_proxy_etr_entry(cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
-                cfg_getint(petr, "weight"),
-                &proxy_etrs) == GOOD) {
+                cfg_getint(petr, "weight")) == GOOD) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
         } else{
             lispd_log_msg(LISP_LOG_ERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
@@ -997,15 +996,15 @@ int add_map_server(
  */
 
 int add_proxy_etr_entry(
-        char                        *addr,
+        char                        *address,
         int                         priority,
-        int                         weight,
-        lispd_weighted_addr_list_t  **petr_list)
+        int                         weight)
 {
 
-    lisp_addr_t                     *address;
-    lispd_weighted_addr_list_t      *petr_unit;
+    lisp_addr_t                     aux_address;
+    lispd_locator_elt               *locator     = NULL;
 
+    /* Check the parameters */
     if (priority > 255 || priority < 0) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [0..255]", priority);
         return (BAD);
@@ -1016,46 +1015,35 @@ int add_proxy_etr_entry(
         return (BAD);
     }
 
-    if ((address = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_proxy_etr_entry: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return(BAD);
-    }
-    if ((petr_unit = malloc(sizeof(lispd_weighted_addr_list_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_proxy_etr_entry: Unable to allocate memory for lispd_weighted_addr_list_t: %s", strerror(errno));
-        free(address);
-        return(BAD);
-    }
-    memset(address, 0,sizeof(lisp_addr_t));
-    memset(petr_unit,0,sizeof(lispd_weighted_addr_list_t));
-
-    if (lispd_get_address(addr,address)==BAD) {
-        free(address);
-        free(petr_unit);
-        return(BAD);
-    }
     /*
      * Check that the afi of the map server matches with the default rloc afi (if it's defined).
      */
-    if (default_rloc_afi != -1 && default_rloc_afi != address->afi){
-        lispd_log_msg(LISP_LOG_WARNING, "The proxy etr %s will not be added due to the selected default rloc afi",addr);
-        free(address);
-        free(petr_unit);
+    if (default_rloc_afi != -1 && default_rloc_afi != get_afi(address)){
+        lispd_log_msg(LISP_LOG_WARNING, "The proxy etr %s will not be added due to the selected default rloc afi",address);
         return(BAD);
     }
 
-    petr_unit->address      = address;
-    petr_unit->priority     = priority;
-    petr_unit->weight       = weight;
+    /* Create the proxy-etrs map cache structure if it doesn't exist */
+    if (proxy_etrs == NULL){
+        if ((get_lisp_addr_from_char ("0.0.0.0", &aux_address))!=GOOD){
+            return (BAD);
+        }
+        proxy_etrs = new_map_cache_entry_no_db (aux_address,0,STATIC_MAP_CACHE_ENTRY,0);
+        if (proxy_etrs == NULL){
+            return (BAD);
+        }
+    }
 
-    /*
-     * hook this one to the front of the list
-     */
+    /* Create de locator representing the proxy-etr and add it to the mapping */
+    locator = new_static_rmt_locator (address,UP,priority,weight,255,0);
 
-    if (*petr_list) {
-        petr_unit->next = *petr_list;
-        *petr_list = petr_unit;
-    } else {
-        *petr_list = petr_unit;
+    if (locator != NULL){
+        if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){
+            free (locator);
+            return (BAD);
+        }
+    }else{
+        return (BAD);
     }
 
     return(GOOD);

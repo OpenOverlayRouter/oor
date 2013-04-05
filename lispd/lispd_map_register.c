@@ -31,7 +31,7 @@
  *
  */
 
-#include <sys/timerfd.h>
+//#include <sys/timerfd.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "lispd_external.h"

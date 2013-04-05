@@ -35,18 +35,15 @@
 
 #include "lispd.h"
 #include "lispd_iface_list.h"
+#include "lispd_map_cache.h"
 
 
 
 extern  lispd_addr_list_t *map_resolvers;
 extern  lispd_addr_list_t *proxy_itrs;
-extern  lispd_weighted_addr_list_t *proxy_etrs;
+extern  lispd_map_cache_entry *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
 extern  char            *config_file;
-extern  char            *map_resolver;
-extern  char            *map_server;
-extern  char            *proxy_etr;
-extern  char            *proxy_itr;
 extern  char            msg[];
 extern  int             map_request_retries;
 extern  int             control_port;
