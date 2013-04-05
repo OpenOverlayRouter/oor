@@ -42,20 +42,20 @@ proxy-etr {
 database-mapping {
          eid-prefix 	= 153.16.254.1/32
          interface  	= eth0				# Interface containing the RLOCs associated to this EID
-         priority_v4	= 1
-         weight_v4     	= 100
-         priority_v6	= 1
-         weight_v6     	= 100
+         priority_v4	= 1					# Priority of IPv4 locator of the interface eth0 for this EID
+         weight_v4     	= 100				# Weight of IPv4 locator of the interface eth0 for this EID
+         priority_v6	= 1					# Priority of IPv6 locator of the interface eth0 for this EID
+         weight_v6     	= 100				# Weight of IPv6 locator of the interface eth0 for this EID
 }
 
 # IPv6 EID of the mobile node
 database-mapping {
          eid-prefix 	= 2610:d0:ffff:192::1/128
          interface  	= eth0				# Interface containing the RLOCs associated to this EID
-         priority_v4	= 1
-         weight_v4     	= 100
-         priority_v6	= 1
-         weight_v6     	= 100
+         priority_v4	= 1					# Priority of IPv4 locator of the interface eth0 for this EID
+         weight_v4     	= 100				# Weight of IPv4 locator of the interface eth0 for this EID
+         priority_v6	= 1					# Priority of IPv6 locator of the interface eth0 for this EID
+         weight_v6     	= 100				# Weight of IPv6 locator of the interface eth0 for this EID
 }
 
 # Static cache entries
