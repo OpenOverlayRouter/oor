@@ -27,6 +27,7 @@
  *    Albert López   <alopez@ac.upc.edu>
  *
  */
+#include "lispd_external.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
@@ -314,10 +315,25 @@ int interface_change_update(
     // Change status of the interface
     argument->iface->status = argument->status;
 
+    /*
+     * If the affected interface is the default control or output iface, recalculate it
+     */
+
+    if (default_ctrl_iface_v4 == argument->iface || default_ctrl_iface_v6 == argument->iface ){
+        set_default_ctrl_ifaces();
+    }
+
+    if (default_out_iface_v4 == argument->iface || default_out_iface_v6 == argument->iface ){
+        set_default_output_ifaces();
+    }
+
+    /*
+     * Recalculate balancing vector for each affected mapping
+     */
+
     mapping_list[0] = argument->iface->head_v4_mappings_list;
     mapping_list[1] = argument->iface->head_v6_mappings_list;
     for (ctr = 0 ; ctr < 2 ; ctr ++){
-        /* Recalculate balancing vector for each affected mapping*/
         while (mapping_list[ctr] != NULL){
             lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info);
             lcl_extended_info->mapping_updated = TRUE; /* Change in the mapping */
