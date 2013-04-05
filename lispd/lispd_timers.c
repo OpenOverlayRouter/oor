@@ -204,20 +204,20 @@ void start_timer(
 /*
  * stop_timer()
  *
- * Mark one of the global timers as stopped.
+ * Mark one of the global timers as stopped and remove it.
  */
 void stop_timer(timer *tptr)
 {
     timer_links *next, *prev;
 
+    if (tptr == NULL) {
+        return;
+    }
+
     if (strcmp(tptr->name,MAP_REQUEST_RETRY_TIMER)==0){
         free ((timer_map_request_argument *)tptr->cb_argument);
     }else if (strcmp(tptr->name,INTERFACE_CHANGE_TIMER)==0){
         free ((timer_iface_status_update_argument *)tptr->cb_argument);
-    }
-
-    if (tptr == NULL) {
-        return;
     }
 
     next = tptr->links.next;
@@ -237,6 +237,7 @@ void stop_timer(timer *tptr)
     if (next != NULL || prev != NULL){
         timer_wheel.running_timers--;
     }
+    free (tptr);
 }
 
 

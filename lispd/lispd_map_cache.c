@@ -114,21 +114,17 @@ void free_map_cache_entry(lispd_map_cache_entry *entry)
     if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
         if (entry->expiry_cache_timer){
             stop_timer(entry->expiry_cache_timer);
-            free (entry->expiry_cache_timer);
         }
         if (entry->request_retry_timer){
             stop_timer(entry->request_retry_timer);
-            free (entry->request_retry_timer);
         }
         if (entry->smr_inv_timer){
             stop_timer(entry->smr_inv_timer);
-            free (entry->smr_inv_timer);
         }
     }
 
     if (entry->probe_timer){
         stop_timer(entry->probe_timer);
-        free(entry->probe_timer);
     }
     if (entry->nonces){
         free(entry->nonces);

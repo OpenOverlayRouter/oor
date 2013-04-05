@@ -510,5 +510,6 @@ void dump_balancing_locators_vec(
         for (ctr = 0; ctr< b_locators_vecs.locators_vec_length; ctr++){
             printf(" %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.balancing_locators_vec[ctr]->locator_addr));
         }
+        printf("\n");
     }
 }

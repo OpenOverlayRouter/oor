@@ -158,6 +158,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         }
         cache_entry->active = 1;
         stop_timer(cache_entry->request_retry_timer);
+        cache_entry->request_retry_timer = NULL;
         lispd_log_msg(LISP_LOG_DEBUG_2,"  Activating map cache entry %s/%d",
                             get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
         free_mapping_elt(mapping, FALSE);
@@ -182,6 +183,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         /* Stop timer of Map Requests retransmits */
         if (cache_entry->smr_inv_timer != NULL){
             stop_timer(cache_entry->smr_inv_timer);
+            cache_entry->smr_inv_timer = NULL;
         }
         /* Check instane id.*/
         if (cache_entry->mapping->iid != mapping->iid){

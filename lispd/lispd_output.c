@@ -297,7 +297,7 @@ int forward_native(
     output_socket = get_default_output_socket(packet_afi);
 
     if (output_socket == -1){
-        lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface for afi %d",output_socket);
+        lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface for afi %d",packet_afi);
         return (BAD);
     }
 

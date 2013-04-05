@@ -467,9 +467,10 @@ int isfqdn(char *s)
 int is_link_local_addr (lisp_addr_t addr)
 {
     int is_link_local = FALSE;
+    uint32_t ipv4_local_addr = (uint32_t)2851995648LL; //169.254.0.0
     switch (addr.afi){
     case AF_INET:
-        if ((addr.address.ip.s_addr && 2851995648) == 2851995648){
+        if ((addr.address.ip.s_addr && ipv4_local_addr) == ipv4_local_addr){
             is_link_local = TRUE;
         }
         break;
