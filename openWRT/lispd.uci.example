@@ -28,19 +28,19 @@ config 'proxy-etr'
 config 'database-mapping'
         option   'eid_prefix'           '153.16.254.1/32'
         option   'interface'            'eth0'	# Interface containing the RLOCs associated to this EID
-        option   'priority_v4'          '1'
-        option   'weight_v4'            '100' 
-	    option   'priority_v6'          '1'
-        option   'weight_v6'            '100' 
+        option   'priority_v4'          '1'		# Priority of IPv4 locator of the interface eth0 for this EID
+        option   'weight_v4'            '100' 	# Weight of IPv4 locator of the interface eth0 for this EID
+	    option   'priority_v6'          '1'		# Priority of IPv6 locator of the interface eth0 for this EID
+        option   'weight_v6'            '100' 	# Weight of IPv6 locator of the interface eth0 for this EID
 
 # IPv6 EID of the mobile node
 config 'database-mapping'
         option   'eid_prefix'           '2610:d0:ffff:192::1/128'
         option   'interface'            'eth0'  # Interface containing the RLOCs associated to this EID
-        option   'priority_v4'          '1'
-        option   'weight_v4'            '100'
-        option   'priority_v6'          '1'
-        option   'weight_v6'            '100'
+        option   'priority_v4'          '1'		# Priority of IPv4 locator of the interface eth0 for this EID
+        option   'weight_v4'            '100'	# Weight of IPv4 locator of the interface eth0 for this EID
+        option   'priority_v6'          '1'		# Priority of IPv6 locator of the interface eth0 for this EID
+        option   'weight_v6'            '100'	# Weight of IPv6 locator of the interface eth0 for this EID
 
 # Static cache entries      
 config 'static-map-cache'

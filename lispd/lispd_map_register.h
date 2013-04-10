@@ -65,7 +65,7 @@
  *        0                   1                   2                   3
  *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=3 |P|            Reserved               |M| Record Count  |
+ *       |Type=3 |P|            Reserved             |m|M| Record Count  |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *       |                         Nonce . . .                           |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -104,9 +104,11 @@ typedef struct lispd_pkt_map_register_t_ {
     uint8_t reserved2;
 #ifdef LITTLE_ENDIANS
     uint8_t map_notify:1;
-    uint8_t reserved3:7;
+    uint8_t lisp_mn:1;
+    uint8_t reserved3:6;
 #else
-    uint8_t reserved3:7;
+    uint8_t reserved3:6;
+    uint8_t lisp_mn:1;
     uint8_t map_notify:1;
 #endif
     uint8_t  record_count;
@@ -118,5 +120,11 @@ typedef struct lispd_pkt_map_register_t_ {
 
 
 int map_register(timer *t, void *arg);
+
+/*
+ * Build and send a map register for the mapping entry passed as argument.
+ */
+
+int build_and_send_map_register_msg(lispd_mapping_elt *mapping);
 
 #endif /*LISPD_MAP_REGISTER_H_*/

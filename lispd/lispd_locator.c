@@ -255,12 +255,15 @@ void dump_locator (
         lispd_locator_elt   *locator,
         int                 log_level)
 {
-    lispd_log_msg(log_level," %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
-    if (locator->locator_addr->afi == AF_INET)
-        lispd_log_msg(log_level," %15s ", locator->state ? "Up" : "Down");
-    else
-        lispd_log_msg(log_level," %5s ", locator->state ? "Up" : "Down");
-    lispd_log_msg(log_level,"         %3d/%-3d \n", locator->priority, locator->weight);
+    if (is_loggable(log_level)){
+        printf(" %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+        if (locator->locator_addr->afi == AF_INET){
+            printf(" %15s ", locator->state ? "Up" : "Down");
+        }else{
+            printf(" %5s ", locator->state ? "Up" : "Down");
+        }
+        printf("         %3d/%-3d \n", locator->priority, locator->weight);
+    }
 }
 
 /**********************************  LOCATORS LISTS FUNCTIONS ******************************************/
@@ -337,20 +340,18 @@ int add_locator_to_list (
  * Free memory of lispd_locator_list.
  */
 
-void free_locator_list(lispd_locators_list     *list)
+void free_locator_list(lispd_locators_list     *locator_list)
 {
-    lispd_locators_list  * locator_list     = NULL,
-                         *aux_locator_list  = NULL;
+    lispd_locators_list  * aux_locator_list     = NULL;
     /*
      * Free the locators
      */
-    locator_list = list;
     while (locator_list)
     {
+        aux_locator_list = locator_list->next;
         free_locator(locator_list->locator);
-        aux_locator_list = locator_list;
-        locator_list = locator_list->next;
-        free (aux_locator_list);
+        free (locator_list);
+        locator_list = aux_locator_list;
     }
 }
 

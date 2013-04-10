@@ -44,7 +44,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/timerfd.h>
+//#include <sys/timerfd.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include "lispd.h"
@@ -59,6 +59,7 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_output.h"
+#include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
@@ -74,36 +75,32 @@ void exit_cleanup(void);
  *      config paramaters
  */
 
-lispd_addr_list_t          *map_resolvers  = 0;
-lispd_addr_list_t          *proxy_itrs  = 0;
-lispd_weighted_addr_list_t *proxy_etrs  = 0;
-lispd_map_server_list_t    *map_servers = 0;
-char    *config_file                    = NULL;
-char    *map_resolver                   = NULL;
-char    *map_server                     = NULL;
-char    *proxy_etr                      = NULL;
-char    *proxy_itr                      = NULL;
-int      debug_level                    = 0;
-int      default_rloc_afi               = -1;
-int      daemonize                      = FALSE;
-int      map_request_retries            = DEFAULT_MAP_REQUEST_RETRIES;
-int      control_port                   = LISP_CONTROL_PORT;
+lispd_addr_list_t          *map_resolvers   = NULL;
+lispd_addr_list_t          *proxy_itrs      = NULL;
+lispd_map_cache_entry      *proxy_etrs      = NULL;
+lispd_map_server_list_t    *map_servers     = NULL;
+char    *config_file                        = NULL;
+int      debug_level                        = 0;
+int      default_rloc_afi                   = -1;
+int      daemonize                          = FALSE;
+int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
+int      control_port                       = LISP_CONTROL_PORT;
 uint32_t iseed  = 0;            /* initial random number generator */
 /*
  *      various globals
  */
 
 char   msg[128];                                /* syslog msg buffer */
-pid_t  pid                              = 0;    /* child pid */
-pid_t  sid                              = 0;
+pid_t  pid                                  = 0;    /* child pid */
+pid_t  sid                                  = 0;
 /*
  *      sockets (fds)
  */
-int     ipv4_data_input_fd              = 0;
-int     ipv6_data_input_fd              = 0;
-int     ipv4_control_input_fd           = 0;
-int     ipv6_control_input_fd           = 0;
-int     netlink_fd                      = 0;
+int     ipv4_data_input_fd                  = 0;
+int     ipv6_data_input_fd                  = 0;
+int     ipv4_control_input_fd               = 0;
+int     ipv6_control_input_fd               = 0;
+int     netlink_fd                          = 0;
 fd_set  readfds;
 struct  sockaddr_nl dst_addr;
 struct  sockaddr_nl src_addr;
@@ -226,6 +223,10 @@ int main(int argc, char **argv)
         lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
                 "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
         sleep(3);
+    }else{
+        calculate_balancing_vectors (
+                proxy_etrs->mapping,
+                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
     }
 
     /*
@@ -336,6 +337,12 @@ int main(int argc, char **argv)
      */
 
     map_register (NULL,NULL);
+
+    /*
+     * SMR proxy-ITRs list to be updated with new mappings
+     */
+
+    smr_pitrs();
 
     lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
 

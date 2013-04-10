@@ -89,6 +89,7 @@ lispd_iface_elt *add_interface(char *iface_name)
     }
     iface->head_v4_mappings_list = NULL;
     iface->head_v6_mappings_list = NULL;
+    iface->status_transition_timer = NULL;
     iface_list->iface = iface;
     iface_list->next = NULL;
 
@@ -309,25 +310,27 @@ lispd_iface_elt *get_default_ctrl_iface(int afi)
     return (iface);
 }
 
-lispd_iface_elt *get_default_output_iface(int afi)
+int get_default_output_socket(int afi)
 {
-
-    lispd_iface_elt *iface = NULL;
+    int out_socket = -1;
 
     switch (afi){
-        case AF_INET:
-            iface = default_out_iface_v4;
-            break;
-        case AF_INET6:
-            iface = default_out_iface_v6;
-            break;
-        default:
-            //arnatal TODO: syslog
-            iface = NULL;
-            break;
+    case AF_INET:
+        if (default_out_iface_v4 != NULL){
+            out_socket = default_out_iface_v4->out_socket_v4;
+        }
+        break;
+    case AF_INET6:
+        if (default_out_iface_v6 != NULL){
+            out_socket = default_out_iface_v6->out_socket_v6;
+        }
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2, "get_default_output_socket: Packet with not valid AFI: %d",afi);
+        break;
     }
 
-    return (iface);
+    return (out_socket);
 }
 
 void set_default_output_ifaces()
@@ -343,10 +346,9 @@ void set_default_output_ifaces()
     if (default_out_iface_v6 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
     }
-    // XXX alopez If no output interface found exit --> To be modified when iface management implemented
+
     if (!default_out_iface_v4 && !default_out_iface_v6){
-        lispd_log_msg(LISP_LOG_CRIT,"No default output interface. Exiting ...");
-        exit(EXIT_FAILURE);
+        lispd_log_msg(LISP_LOG_CRIT,"NO OUTPUT IFACE");
     }
 }
 

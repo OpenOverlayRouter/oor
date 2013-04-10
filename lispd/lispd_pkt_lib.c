@@ -222,9 +222,6 @@ void *pkt_fill_mapping_record(
     lispd_locators_list                     *locators_list[2];
     lispd_locator_elt                       *locator;
     int                                     ctr = 0;
-#ifdef LISPMOBMH
-    iface_list_elt *elt=NULL;
-#endif
 
     if ((rec == NULL) || (mapping == NULL))
         return NULL;
@@ -248,32 +245,26 @@ void *pkt_fill_mapping_record(
     for (ctr = 0 ; ctr < 2 ; ctr++){
         while (locators_list[ctr]) {
             locator             = locators_list[ctr]->locator;
-#ifdef LISPMOBMH
-            elt = search_iface_list(db_entry->locator_name);
-            if(elt!=NULL && elt->ready){
-#endif
-                loc_ptr->priority    = locator->priority;
-                loc_ptr->weight      = locator->weight;
-                loc_ptr->mpriority   = locator->mpriority;
-                loc_ptr->mweight     = locator->mweight;
-                loc_ptr->local       = 1;
-                if (probed_rloc && compare_lisp_addr_t(locator->locator_addr,probed_rloc)==0)
-                    loc_ptr->probed  = 1;       /* XXX probed locator, should check addresses */
-                loc_ptr->reachable   = locator->state && 1;
-                loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
-
-                if ((cpy_len = copy_addr((void *) CO(loc_ptr,
-                        sizeof(lispd_pkt_mapping_record_locator_t)), locator->locator_addr, 0)) == 0) {
-                    lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
-                            get_char_from_lisp_addr_t(*(locator->locator_addr)));
-                    return(NULL);
-                }
-
-                loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-                    CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
-#ifdef LISPMOBMH
+            loc_ptr->priority    = locator->priority;
+            loc_ptr->weight      = locator->weight;
+            loc_ptr->mpriority   = locator->mpriority;
+            loc_ptr->mweight     = locator->mweight;
+            loc_ptr->local       = 1;
+            if (probed_rloc != NULL && compare_lisp_addr_t(locator->locator_addr,probed_rloc)==0){
+                loc_ptr->probed  = 1;
             }
-#endif
+            loc_ptr->reachable   = *(locator->state);
+            loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
+
+            if ((cpy_len = copy_addr((void *) CO(loc_ptr,
+                    sizeof(lispd_pkt_mapping_record_locator_t)), locator->locator_addr, 0)) == 0) {
+                lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
+                        get_char_from_lisp_addr_t(*(locator->locator_addr)));
+                return(NULL);
+            }
+
+            loc_ptr = (lispd_pkt_mapping_record_locator_t *)
+                            CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
             locators_list[ctr] = locators_list[ctr]->next;
         }
     }

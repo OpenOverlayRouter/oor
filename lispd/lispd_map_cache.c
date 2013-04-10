@@ -35,7 +35,9 @@
 #include "lispd_map_cache_db.h"
 
 
-lispd_map_cache_entry *new_map_cache_entry (
+
+
+lispd_map_cache_entry *new_map_cache_entry_no_db (
         lisp_addr_t     eid_prefix,
         int             eid_prefix_length,
         int             how_learned,
@@ -67,19 +69,40 @@ lispd_map_cache_entry *new_map_cache_entry (
     }
     map_cache_entry->expiry_cache_timer = NULL;
     map_cache_entry->probe_timer = NULL;
-    map_cache_entry->smr_timer = NULL;
+    map_cache_entry->smr_inv_timer = NULL;
     map_cache_entry->request_retry_timer = NULL;
     map_cache_entry->nonces = NULL;
-    /* Add entry to the data base */
-    if (add_map_cache_entry_to_db (map_cache_entry)==BAD){
-        free(map_cache_entry);
-        return (NULL);
-    }
+
     map_cache_entry->timestamp = time(NULL);
     map_cache_entry->actions = ACT_NO_ACTION;
 
     return (map_cache_entry);
 }
+
+lispd_map_cache_entry *new_map_cache_entry (
+        lisp_addr_t     eid_prefix,
+        int             eid_prefix_length,
+        int             how_learned,
+        uint16_t        ttl)
+{
+    lispd_map_cache_entry *map_cache_entry;
+
+    map_cache_entry = new_map_cache_entry_no_db (eid_prefix, eid_prefix_length, how_learned, ttl);
+
+    if (map_cache_entry == NULL){
+        return (NULL);
+    }
+
+    /* Add entry to the data base */
+    if (add_map_cache_entry_to_db (map_cache_entry)==BAD){
+        free(map_cache_entry);
+        return (NULL);
+    }
+
+
+    return (map_cache_entry);
+}
+
 
 
 void free_map_cache_entry(lispd_map_cache_entry *entry)
@@ -91,21 +114,17 @@ void free_map_cache_entry(lispd_map_cache_entry *entry)
     if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
         if (entry->expiry_cache_timer){
             stop_timer(entry->expiry_cache_timer);
-            free (entry->expiry_cache_timer);
         }
         if (entry->request_retry_timer){
             stop_timer(entry->request_retry_timer);
-            free (entry->request_retry_timer);
         }
-        if (entry->smr_timer){
-            stop_timer(entry->smr_timer);
-            free (entry->smr_timer);
+        if (entry->smr_inv_timer){
+            stop_timer(entry->smr_inv_timer);
         }
     }
 
     if (entry->probe_timer){
         stop_timer(entry->probe_timer);
-        free(entry->probe_timer);
     }
     if (entry->nonces){
         free(entry->nonces);

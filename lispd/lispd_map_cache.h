@@ -58,16 +58,18 @@ typedef struct lispd_map_cache_entry_ {
     lispd_mapping_elt           *mapping;
     uint8_t                     how_learned:2;
     uint8_t                     actions:2;
-    uint8_t                     active:1;   /* TRUE if we have received a map reply for this entry */
+    uint8_t                     active:1;       /* TRUE if we have received a map reply for this entry */
     uint8_t                     active_witin_period:1;
-    uint8_t                     probe_left; /* Counter to indicate number of RLOCs that has not been probed /put status down
-                                             * in this period of probe*/
+    uint8_t                     probe_left;     /* Counter to indicate number of RLOCs that has not been probed /put status down
+                                                 * in this period of probe*/
+    uint8_t                     smr_inv_left;   /* Counter to indicate number of replies to the smr invoques  has not been recived  /put status down
+                                                 * in this period of probe*/
     uint16_t                    ttl;
     time_t                      timestamp;
     timer                       *expiry_cache_timer;
     timer                       *probe_timer;
     timer                       *request_retry_timer;
-    timer                       *smr_timer;
+    timer                       *smr_inv_timer;
     nonces_list                 *nonces;
 }lispd_map_cache_entry;
 
@@ -78,6 +80,13 @@ typedef struct lispd_map_cache_entry_ {
  */
 
 lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+
+/*
+ * Create a map cache entry but not saved in the database.
+ * Used to create the proxy-etr list
+ */
+
+lispd_map_cache_entry *new_map_cache_entry_no_db (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
 
 void free_map_cache_entry(lispd_map_cache_entry *entry);
 

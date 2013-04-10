@@ -287,6 +287,40 @@ int open_data_input_socket(int afi){
 }
 
 /*
+ * Send a control packet over a udp datagram to the destination address.
+ */
+
+int send_udp_ctrl_packet(
+        lisp_addr_t *dst_addr,
+        uint16_t    src_port,
+        uint16_t    dst_port,
+        void        *packet,
+        int         packet_len)
+{
+    switch (dst_addr->afi){
+    case AF_INET:
+        if (default_ctrl_iface_v4 != NULL){
+            err = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,dst_addr,src_port,dst_port,(void *)packet,packet_len);
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"send_udp_ctrl_packet: No local RLOC compatible with the afi of the Map Server %s",
+                    get_char_from_lisp_addr_t(*dst_addr));
+            err = BAD;
+        }
+        break;
+    case AF_INET6:
+        if (default_ctrl_iface_v6 != NULL){
+            err = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,dst_addr,src_port,dst_port,(void *)packet,packet_len);
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"send_udp_ctrl_packet: No local RLOC compatible with the afi of the Map Server %s",
+                    get_char_from_lisp_addr_t(*dst_addr));
+            err = BAD;
+        }
+        break;
+    }
+    return err;
+}
+
+/*
  * Send a ipv4 packet over a udp datagram to the destination address
  * If the src port is 0, then a random port is used.
  */
@@ -303,6 +337,7 @@ int send_udp_ipv4_packet(
     int                 nbytes;
     struct sockaddr_in  dst;
     struct sockaddr_in  src;
+
 
     if ((s = open_udp_socket(AF_INET)) < 0) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: socket: %s", strerror(errno));
@@ -368,7 +403,6 @@ int send_udp_ipv6_packet(
     struct sockaddr_in6  dst;
     struct sockaddr_in6  src;
 
-
     if ((s = open_udp_socket(AF_INET6)) < 0) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: socket: %s", strerror(errno));
         return(BAD);
@@ -418,14 +452,11 @@ int send_udp_ipv6_packet(
  * Sends a raw packet through the specified interface
  */
 
-// TODO arnatal To change name and unify with send_ip_packet once IPv6 RLOCs tested
-
 int send_packet (
         int     sock,
         char    *packet,
         int     packet_length )
 {
-    //TODO remove old code. Optimize for IPv4 only
 
     struct sockaddr *dst_addr;
     int dst_addr_len;
@@ -482,44 +513,6 @@ int send_packet (
 
     return (GOOD);
 
-}
-
-int send_ip_packet (
-    lispd_iface_elt     *iface,
-    char                *packet_buf,
-    int                 pckt_length )
-{
-
-    int socket;
-    struct iphdr *iph;
-    int ret;
-    
-    if (!iface){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_ip_packet: No output interface found");
-        return (BAD);
-    }
-    
-    iph = ( struct iphdr * ) packet_buf;
-    
-    switch (iph->version){
-
-        case 4:
-            //TODO arnatal check if socket exists (if IPvN supportted)
-            socket = iface->out_socket_v4;
-            ret = send_packet(socket,packet_buf,pckt_length);
-            break;
-            
-        case 6:
-            //TODO arnatal check if socket exists (if IPvN supportted)
-            socket = iface->out_socket_v6;
-            ret = send_packet(socket,packet_buf,pckt_length);
-            break;
-            
-        default:
-            break;
-    }
-    
-    return (ret);
 }
 
 

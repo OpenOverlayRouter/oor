@@ -43,6 +43,15 @@
 
 int get_afi(char *str);
 
+
+/*
+ * Return TRUE if the address belongs to:
+ *          IPv4: 169.254.0.0/16
+ *          IPv6: fe80::/10
+ */
+
+int is_link_local_addr (lisp_addr_t addr);
+
 /*
  *      Copy a lisp_addr_t, converting it using convert
  *      if supplied

@@ -236,11 +236,13 @@ int add_encap_headers(
           * Only the first one is considered.
           * If map_cache_entry->nonces is different of null, we have already received a solicit map request
           */
-         if (map_cache_entry->nonces == NULL)
+         if (map_cache_entry->nonces == NULL){
              solicit_map_request_reply(NULL,(void *)map_cache_entry);
+         }
          /* Return here only if RLOC probe bit is not set */
-         if (!msg->rloc_probe)
+         if (!msg->rloc_probe){
              return(GOOD);
+         }
      }
 
      /* Get the array of ITR-RLOCs */
@@ -467,10 +469,7 @@ int build_and_send_map_request_msg(
         return (BAD);
     }
 
-    if (dst_rloc_addr->afi == AF_INET)
-        result = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,dst_rloc_addr,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)packet,mrp_len);
-    else
-        result = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,dst_rloc_addr,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)packet,mrp_len);
+    result = send_udp_ctrl_packet(dst_rloc_addr,LISP_CONTROL_PORT, LISP_CONTROL_PORT,(void *)packet,mrp_len);
 
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d",
@@ -827,7 +826,7 @@ int send_map_request_miss(timer *t, void *arg)
 
 
         if (map_cache_entry->request_retry_timer == NULL){
-            map_cache_entry->request_retry_timer = create_timer ("MAP REQUEST RETRY");
+            map_cache_entry->request_retry_timer = create_timer (MAP_REQUEST_RETRY_TIMER);
         }
 
         if (nonces->retransmits > 1){

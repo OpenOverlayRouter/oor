@@ -31,6 +31,13 @@
 #ifndef LISPD_IFACE_MGMT_H_
 #define LISPD_IFACE_MGMT_H_
 
+#include "lispd_iface_list.h"
+
+typedef struct _timer_iface_status_update_argument{
+    lispd_iface_elt *iface;
+    uint8_t status;
+} timer_iface_status_update_argument;
+
 int opent_netlink_socket();
 void process_netlink_msg(int netlink_fd);
 

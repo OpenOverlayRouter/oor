@@ -158,6 +158,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         }
         cache_entry->active = 1;
         stop_timer(cache_entry->request_retry_timer);
+        cache_entry->request_retry_timer = NULL;
         lispd_log_msg(LISP_LOG_DEBUG_2,"  Activating map cache entry %s/%d",
                             get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
         free_mapping_elt(mapping, FALSE);
@@ -180,8 +181,9 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         }
         cache_entry->nonces = NULL;
         /* Stop timer of Map Requests retransmits */
-        if (cache_entry->smr_timer != NULL){
-            stop_timer(cache_entry->smr_timer);
+        if (cache_entry->smr_inv_timer != NULL){
+            stop_timer(cache_entry->smr_inv_timer);
+            cache_entry->smr_inv_timer = NULL;
         }
         /* Check instane id.*/
         if (cache_entry->mapping->iid != mapping->iid){
@@ -212,6 +214,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     }
 
     /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
+    // XXX NO calculate for RLOC Probing
     if (cache_entry->mapping->locator_count != 0){
         calculate_balancing_vectors (
                 cache_entry->mapping,
@@ -220,7 +223,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 
     /* Reprogramming timers */
     if (!cache_entry->expiry_cache_timer){
-        cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE);
+        cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE_TIMER);
     }
     start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
                      (void *)cache_entry);
@@ -284,10 +287,7 @@ int build_and_send_map_reply_msg(
         packet = build_map_reply_pkt(requested_mapping, NULL, opts, nonce, &packet_len);
 
     /* Send the packet */
-    if (remote_rloc->afi == AF_INET)
-        result = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
-    else
-        result = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,remote_rloc,LISP_CONTROL_PORT,dport,(void *)packet,packet_len);
+    result = send_udp_ctrl_packet(remote_rloc,LISP_CONTROL_PORT, dport,(void *)packet,packet_len);
 
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d",

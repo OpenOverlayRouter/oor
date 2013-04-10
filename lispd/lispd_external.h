@@ -35,18 +35,15 @@
 
 #include "lispd.h"
 #include "lispd_iface_list.h"
+#include "lispd_map_cache.h"
 
 
 
 extern  lispd_addr_list_t *map_resolvers;
 extern  lispd_addr_list_t *proxy_itrs;
-extern  lispd_weighted_addr_list_t *proxy_etrs;
+extern  lispd_map_cache_entry *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
 extern  char            *config_file;
-extern  char            *map_resolver;
-extern  char            *map_server;
-extern  char            *proxy_etr;
-extern  char            *proxy_itr;
 extern  char            msg[];
 extern  int             map_request_retries;
 extern  int             control_port;
@@ -60,9 +57,6 @@ extern  int         ipv4_data_input_fd;
 extern  int         ipv6_control_input_fd;
 extern  int         ipv4_control_input_fd;
 extern  int         timers_fd;
-#ifdef LISPMOBMH
-extern  int			smr_timer_fd;
-#endif
 extern  struct  sockaddr_nl dst_addr;
 extern  struct  sockaddr_nl src_addr;
 extern  nlsock_handle       nlh;

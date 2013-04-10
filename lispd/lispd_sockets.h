@@ -52,6 +52,17 @@ int open_control_input_socket(int afi);
 int open_udp_socket(int afi);
 
 /*
+ * Send a control packet over a udp datagram to the destination address.
+ */
+
+int send_udp_ctrl_packet(
+        lisp_addr_t *dst_addr,
+        uint16_t    src_port,
+        uint16_t    dst_port,
+        void        *packet,
+        int         packet_len);
+
+/*
  * Send a ipv4 packet over a udp datagram to the destination address
  * If the selected port is 0, then a random port is used.
  */
@@ -87,15 +98,6 @@ int send_packet (
         int     sock,
         char    *packet,
         int     packet_length );
-
-/*
- * Sends a raw packet through the specified interface
- */
-
-int send_ip_packet (
-        lispd_iface_elt     *iface,
-        char                *packet_buf,
-        int                 pckt_length );
 
 /*
  * Get a packet from the socket. It also returns the destination addres and source port of the packet
