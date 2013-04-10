@@ -266,6 +266,7 @@ lisp_addr_t *lispd_get_iface_address(
     struct ifaddrs      *ifa;
     struct sockaddr_in  *s4;
     struct sockaddr_in6 *s6;
+    lisp_addr_t         ip;
     char addr_str[MAX_INET_ADDRSTRLEN];
 
 
@@ -296,14 +297,22 @@ lisp_addr_t *lispd_get_iface_address(
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if ((ifa->ifa_addr == NULL) || ((ifa->ifa_flags & IFF_UP) == 0) || (ifa->ifa_addr->sa_family != afi))
             continue;
+
         switch (ifa->ifa_addr->sa_family) {
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             if (!strcmp(ifa->ifa_name, ifacename)) {
-                memcpy((void *) &(addr->address),
+                memcpy((void *) &(ip.address),
                        (void *)&(s4->sin_addr), sizeof(struct in_addr));
-                addr->afi = AF_INET;
-                lispd_log_msg(LISP_LOG_DEBUG_3, "lispd_get_iface_address: MN's IPv4 RLOC from interface (%s): %s \n",
+                ip.afi = AF_INET;
+                if (is_link_local_addr(ip) != TRUE){
+                    copy_lisp_addr(addr,&ip);
+                }else{
+                    lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
+                            ifacename, get_char_from_lisp_addr_t(ip));
+                    continue;
+                }
+                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: MN's IPv4 RLOC from interface (%s): %s \n",
                         ifacename, 
                         inet_ntop(AF_INET, &(s4->sin_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
@@ -318,8 +327,8 @@ lisp_addr_t *lispd_get_iface_address(
             // local addresses, in that case sin6_scope_id contains the interface index. --> If sin6_scope_id is
             // not zero, is a link-local address
             if (s6->sin6_scope_id != 0){
-                lispd_log_msg(LISP_LOG_DEBUG_1, "lispd_get_iface_address: interface address discarded (%s)",
-                                        inet_ntop(AF_INET6, &(s6->sin6_addr), addr_str, MAX_INET_ADDRSTRLEN));
+                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
+                        ifacename, inet_ntop(AF_INET6, &(s6->sin6_addr), addr_str, MAX_INET_ADDRSTRLEN));
                 continue;
             }
             if (!strcmp(ifa->ifa_name, ifacename)) {
@@ -327,7 +336,7 @@ lisp_addr_t *lispd_get_iface_address(
                        (void *)&(s6->sin6_addr),
                        sizeof(struct in6_addr));
                 addr->afi = AF_INET6;
-                lispd_log_msg(LISP_LOG_DEBUG_3, "lispd_get_iface_address: MN's IPv6 RLOC from interface (%s): %s\n",
+                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: MN's IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
@@ -466,17 +475,21 @@ int isfqdn(char *s)
 
 int is_link_local_addr (lisp_addr_t addr)
 {
-    int is_link_local = FALSE;
-    uint32_t ipv4_local_addr = (uint32_t)2851995648LL; //169.254.0.0
+    int         is_link_local = FALSE;
+    uint32_t    ipv4_network  = 0;
+    uint32_t    mask          = 0;
+
     switch (addr.afi){
     case AF_INET:
-        if ((addr.address.ip.s_addr && ipv4_local_addr) == ipv4_local_addr){
+        inet_pton(AF_INET,"169.254.0.0",&(ipv4_network));
+        inet_pton(AF_INET,"255.255.0.0",&(mask));
+        if ((addr.address.ip.s_addr & mask) == ipv4_network){
             is_link_local = TRUE;
         }
         break;
     case AF_INET6:
-        if ((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xfe) == 0xfe &&
-                (addr.address.ipv6.__in6_u.__u6_addr8[1] & 0x80) == 0x80){
+        if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
+                ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
             is_link_local = TRUE;
         }
         break;

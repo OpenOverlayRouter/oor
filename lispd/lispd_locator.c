@@ -257,10 +257,11 @@ void dump_locator (
 {
     if (is_loggable(log_level)){
         printf(" %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
-        if (locator->locator_addr->afi == AF_INET)
+        if (locator->locator_addr->afi == AF_INET){
             printf(" %15s ", locator->state ? "Up" : "Down");
-        else
+        }else{
             printf(" %5s ", locator->state ? "Up" : "Down");
+        }
         printf("         %3d/%-3d \n", locator->priority, locator->weight);
     }
 }

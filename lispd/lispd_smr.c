@@ -69,6 +69,9 @@ void init_smr()
             mapping = ((lispd_mapping_elt *)(lcl_node->data));
             lcl_extended_info = (lcl_mapping_extended_info *)mapping->extended_info;
             if (lcl_extended_info->mapping_updated == TRUE){
+                /* Send a map register for the affected mapping */
+                build_and_send_map_register_msg(mapping);
+
                 lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s/%d",
                         get_char_from_lisp_addr_t(mapping->eid_prefix),
                         mapping->eid_prefix_length);

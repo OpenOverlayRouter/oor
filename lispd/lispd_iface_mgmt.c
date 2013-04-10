@@ -92,15 +92,15 @@ void process_netlink_msg(int netlink_fd){
         for (;(NLMSG_OK (nlh, len)) && (nlh->nlmsg_type != NLMSG_DONE); nlh = NLMSG_NEXT(nlh, len)){
             switch(nlh->nlmsg_type){
             case RTM_NEWADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_1, "=============> process_netlink_msg: received  new address message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_netlink_msg: Received  new address message");
                 process_nl_add_address (nlh);
                 break;
             case RTM_DELADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_1, "=============> process_netlink_msg: received  del address message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_netlink_msg: Received  del address message");
                 process_nl_del_address (nlh);
                 break;
             case RTM_NEWLINK:
-                lispd_log_msg(LISP_LOG_DEBUG_1, "=============> process_netlink_msg: received  link message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_netlink_msg: Received  link message");
                 process_nl_new_link (nlh);
                 break;
             default:
@@ -155,7 +155,7 @@ void process_nl_add_address (struct nlmsghdr *nlh)
 
     /* Check if the addres is a global address*/
     if (is_link_local_addr(new_addr) == TRUE){
-        lispd_log_msg(LISP_LOG_DEBUG_3,"process_nl_add_address: the extractet address from the netlink"
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_add_address: the extractet address from the netlink"
                 "messages is a local link address: %s discarded", get_char_from_lisp_addr_t(new_addr));
         return;
     }
@@ -198,6 +198,7 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     while (mapping_list != NULL){
         lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
         lcl_extended_info->mapping_updated = TRUE;
+        mapping_list = mapping_list->next;
     }
 
     // Init SMR procedure

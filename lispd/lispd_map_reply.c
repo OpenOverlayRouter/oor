@@ -214,6 +214,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     }
 
     /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
+    // XXX NO calculate for RLOC Probing
     if (cache_entry->mapping->locator_count != 0){
         calculate_balancing_vectors (
                 cache_entry->mapping,
