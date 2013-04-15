@@ -92,15 +92,15 @@ void process_netlink_msg(int netlink_fd){
         for (;(NLMSG_OK (nlh, len)) && (nlh->nlmsg_type != NLMSG_DONE); nlh = NLMSG_NEXT(nlh, len)){
             switch(nlh->nlmsg_type){
             case RTM_NEWADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_2, "process_netlink_msg: Received  new address message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "===>process_netlink_msg: Received  new address message");
                 process_nl_add_address (nlh);
                 break;
             case RTM_DELADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_2, "process_netlink_msg: Received  del address message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "===>process_netlink_msg: Received  del address message");
                 process_nl_del_address (nlh);
                 break;
             case RTM_NEWLINK:
-                lispd_log_msg(LISP_LOG_DEBUG_2, "process_netlink_msg: Received  link message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "===>process_netlink_msg: Received  link message");
                 process_nl_new_link (nlh);
                 break;
             default:
@@ -194,8 +194,10 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     // Update the new address
     copy_lisp_addr(iface_addr, &new_addr);
 
-    /* Set the affected mappings as updated */
+    /* Set the affected mappings as updated and sort again the locators list of the affected mappings*/
     while (mapping_list != NULL){
+        printf ("1******************************************************\n");
+        sort_locators_list_elt (mapping_list->mapping, iface_addr);
         lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
         lcl_extended_info->mapping_updated = TRUE;
         mapping_list = mapping_list->next;
@@ -299,6 +301,7 @@ int interface_change_update(
     timer *timer,
     void *arg)
 {
+    printf ("===><==================================>\n");
     timer_iface_status_update_argument     *argument           = (timer_iface_status_update_argument *)arg;
     lispd_mappings_list                    *mapping_list[2]    = {NULL, NULL};
     lcl_mapping_extended_info              *lcl_extended_info  = NULL;
@@ -320,11 +323,19 @@ int interface_change_update(
      * If the affected interface is the default control or output iface, recalculate it
      */
 
-    if (default_ctrl_iface_v4 == argument->iface || default_ctrl_iface_v6 == argument->iface ){
+    if (default_ctrl_iface_v4 == argument->iface
+            || default_ctrl_iface_v6 == argument->iface
+            || default_ctrl_iface_v4 == NULL
+            || default_ctrl_iface_v6 == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Default control interface down. Recalculate new control interface");
         set_default_ctrl_ifaces();
     }
 
-    if (default_out_iface_v4 == argument->iface || default_out_iface_v6 == argument->iface ){
+    if (default_out_iface_v4 == argument->iface
+            || default_out_iface_v6 == argument->iface
+            || default_out_iface_v4 == NULL
+            || default_out_iface_v6 == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Default output interface down. Recalculate new output interface");
         set_default_output_ifaces();
     }
 

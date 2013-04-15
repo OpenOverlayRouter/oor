@@ -201,6 +201,105 @@ int add_locator_to_mapping(
     return (BAD);
 }
 
+
+/*
+ * This function sort the locator list elt with IP = changed_loc_addr
+ */
+
+void sort_locators_list_elt (
+        lispd_mapping_elt   *mapping,
+        lisp_addr_t         *changed_loc_addr)
+{
+    lispd_locators_list     *current_locators_list_elt   = NULL;
+    lispd_locators_list     *prev_locators_list_elt      = NULL;
+    lispd_locators_list     *changed_locator             = NULL;
+    lispd_locators_list     *prev_changed_locator        = NULL;
+    lispd_locators_list     *new_prev_changed_locator    = NULL;
+    int                     changed_locator_updated      = FALSE;
+    int                     new_prev_changed_lct_updated = FALSE;
+    int                     afi_length                   = 0;
+    int                     cmp                          = 0;
+
+
+    switch (changed_loc_addr->afi){
+    case AF_INET:
+        current_locators_list_elt = mapping->head_v4_locators_list;
+        afi_length = sizeof (struct in_addr);
+        break;
+    case AF_INET6:
+        current_locators_list_elt = mapping->head_v6_locators_list;
+        afi_length = sizeof (struct in6_addr);
+        break;
+    }
+
+    if (current_locators_list_elt == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "sort_locators_list_elt: It should nevear reach this point");
+        return;
+    }
+
+    while (current_locators_list_elt != NULL){
+        cmp = memcmp(
+                &(current_locators_list_elt->locator->locator_addr->address),
+                &(changed_loc_addr->address),
+                afi_length);
+        if (cmp == 0){
+            changed_locator = current_locators_list_elt;
+            prev_changed_locator = prev_locators_list_elt;
+            changed_locator_updated = TRUE;
+            if (new_prev_changed_lct_updated == TRUE){
+                break;
+            }
+
+        }else if (cmp > 0 && new_prev_changed_lct_updated == FALSE){
+            new_prev_changed_locator = prev_locators_list_elt;
+            new_prev_changed_lct_updated = TRUE;
+            if (changed_locator_updated == TRUE){
+                break;
+            }
+        }
+        prev_locators_list_elt = current_locators_list_elt;
+        current_locators_list_elt = current_locators_list_elt->next;
+    }
+
+    // The new locator goes to the last position
+    if (new_prev_changed_locator == NULL && new_prev_changed_lct_updated == FALSE){
+       new_prev_changed_locator = prev_locators_list_elt;
+    }
+
+    if (new_prev_changed_locator == changed_locator){
+        new_prev_changed_locator = prev_changed_locator;
+    }
+
+    if (prev_changed_locator != NULL){
+        prev_changed_locator->next = changed_locator->next;
+    }else{
+        switch (changed_loc_addr->afi){
+        case AF_INET:
+            mapping->head_v4_locators_list = changed_locator->next;
+            break;
+        case AF_INET6:
+            mapping->head_v6_locators_list = changed_locator->next;
+            break;
+        }
+    }
+    if (new_prev_changed_locator != NULL){
+        changed_locator->next = new_prev_changed_locator->next;
+        new_prev_changed_locator->next = changed_locator;
+    }else{
+        switch (changed_loc_addr->afi){
+        case AF_INET:
+            changed_locator->next = mapping->head_v4_locators_list;
+            mapping->head_v4_locators_list = changed_locator;
+            break;
+        case AF_INET6:
+            changed_locator->next = mapping->head_v6_locators_list;
+            mapping->head_v6_locators_list = changed_locator;
+            break;
+        }
+    }
+}
+
+
 /*
  * Free memory of lispd_mapping_elt.
  */
@@ -275,6 +374,8 @@ void dump_mapping_entry(
         lispd_log_msg(log_level,"\n");
     }
 }
+
+/**************************************** TRAFFIC BALANCING FUNCTIONS ************************/
 
 /*
  * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
@@ -513,3 +614,6 @@ void dump_balancing_locators_vec(
         printf("\n");
     }
 }
+
+/********************************************************************************************/
+

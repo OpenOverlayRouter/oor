@@ -348,7 +348,7 @@ void set_default_output_ifaces()
     }
 
     if (!default_out_iface_v4 && !default_out_iface_v6){
-        lispd_log_msg(LISP_LOG_CRIT,"NO OUTPUT IFACE");
+        lispd_log_msg(LISP_LOG_CRIT,"NO OUTPUT IFACE: all the locators are down");
     }
 }
 
@@ -367,8 +367,7 @@ void set_default_ctrl_ifaces()
 
     // XXX alopez If no output interface found exit --> To be modified when iface management implemented
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6){
-        lispd_log_msg(LISP_LOG_CRIT,"No default control interface. Exiting ...");
-        exit(EXIT_FAILURE);
+        lispd_log_msg(LISP_LOG_ERR,"NO CONTROL IFACE: all the locators are down");
     }
 }
 

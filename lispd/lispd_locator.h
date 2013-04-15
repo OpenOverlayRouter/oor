@@ -128,6 +128,7 @@ int add_locator_to_list (
         lispd_locators_list         **list,
         lispd_locator_elt           *locator);
 
+
 /*
  * Free memory of lispd_locator_list.
  */

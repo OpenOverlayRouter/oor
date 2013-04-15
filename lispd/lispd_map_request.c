@@ -509,7 +509,7 @@ uint8_t *build_map_request_pkt(
     int                     cpy_len             = 0;
     int                     locators_ctr        = 0;
 
-    lispd_mapping_elt *src_mapping        = NULL;
+    lispd_mapping_elt   *src_mapping            = NULL;
     lispd_locators_list *locators_list[2];
     lispd_locator_elt   *locator;
     lisp_addr_t         * ih_src_ip             = NULL;
@@ -530,8 +530,9 @@ uint8_t *build_map_request_pkt(
 
     /* Calculate the packet size and reserve memory */
     map_request_msg_len = get_map_request_length(requested_mapping,src_mapping);
-    if (encap)
+    if (encap){
         encap_overhead_len = get_emr_overhead_length(requested_mapping->eid_prefix.afi);
+    }
     *len = map_request_msg_len + encap_overhead_len;
 
     if ((packet = malloc(*len)) == NULL){
@@ -600,7 +601,6 @@ uint8_t *build_map_request_pkt(
                 locators_list[ctr] = locators_list[ctr]->next;
             }
         }
-        mrp->additional_itr_rloc_count = locators_ctr - 1; /* IRC = 0 --> 1 ITR-RLOC */
     }else {
         // XXX If no source EID is used, then we only use one ITR-RLOC for IPv4 and one for IPv6-> Default control RLOC
         mrp->source_eid_afi = 0;
@@ -615,15 +615,16 @@ uint8_t *build_map_request_pkt(
         }
         if (default_ctrl_iface_v6 != NULL){
             itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
-            itr_rloc->afi = htons((uint16_t)LISP_AFI_IPV6);
+            itr_rloc->afi = htons(get_lisp_afi(AF_INET6,NULL));
             cur_ptr = CO(itr_rloc,sizeof(lispd_pkt_map_request_itr_rloc_t));
             cpy_len = copy_addr((void *) cur_ptr ,default_ctrl_iface_v6->ipv6_address, 0);
             cur_ptr = CO(cur_ptr, cpy_len);
             locators_ctr ++;
         }
     }
+    mrp->additional_itr_rloc_count = locators_ctr - 1; /* IRC = 0 --> 1 ITR-RLOC */
     if (locators_ctr == 0){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: No ITR RLOCs.");
+        lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: No ITR RLOCs.");
         free(packet);
         return (NULL);
     }
@@ -637,7 +638,7 @@ uint8_t *build_map_request_pkt(
     if (mrp->map_data_present == 1){
         /* Map-Reply Record */
         if ((pkt_fill_mapping_record(cur_ptr, src_mapping, NULL))== NULL) {
-            lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: Couldn't buil map reply record for map request. "
+            lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: Couldn't buil map reply record for map request. "
                     "Map Request will not be send");
             free(packet);
             return(NULL);
@@ -755,7 +756,6 @@ int get_map_request_length (lispd_mapping_elt *requested_mapping, lispd_mapping_
         mr_len += get_up_locator_length(src_mapping->head_v6_locators_list,&aux_locator_count);
         locator_count += aux_locator_count;
     }else{
-        locator_count = 0;
         if (default_ctrl_iface_v4 != NULL){
             mr_len += sizeof(struct in_addr);
             locator_count ++;
@@ -821,10 +821,6 @@ int send_map_request_miss(timer *t, void *arg)
 
     if (nonces->retransmits - 1 < LISPD_MAX_MR_RETRANSMIT ){
 
-        /* Get the RLOC of the Map Resolver to be used */
-        dst_rloc = get_map_resolver();
-
-
         if (map_cache_entry->request_retry_timer == NULL){
             map_cache_entry->request_retry_timer = create_timer (MAP_REQUEST_RETRY_TIMER);
         }
@@ -834,7 +830,10 @@ int send_map_request_miss(timer *t, void *arg)
                     get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix));
         }
 
-        if ((build_and_send_map_request_msg(
+        /* Get the RLOC of the Map Resolver to be used */
+        dst_rloc = get_map_resolver();
+
+        if ((dst_rloc == NULL) || (build_and_send_map_request_msg(
                 map_cache_entry->mapping,
                 &(argument->src_eid),
                 dst_rloc,
@@ -843,9 +842,8 @@ int send_map_request_miss(timer *t, void *arg)
                 0,
                 0,
                 &nonces->nonce[nonces->retransmits]))==BAD){
+            lispd_log_msg (LISP_LOG_DEBUG_1, "send_map_request_miss: Couldn't send map request for a new map cache entry");
 
-            start_timer(map_cache_entry->request_retry_timer, LISPD_INITIAL_MRQ_TIMEOUT,
-                    send_map_request_miss, (void *)argument);
         }
 
         nonces->retransmits ++;

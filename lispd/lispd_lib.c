@@ -639,12 +639,14 @@ uint16_t get_lisp_afi(
 
     switch (afi) {
     case AF_INET:
-        if (len)
+        if (len){
             *len = sizeof(struct in_addr);
+        }
         return((uint16_t)LISP_AFI_IP);
     case AF_INET6:
-        if (len)
+        if (len){
             *len = sizeof(struct in6_addr);
+        }
         return((uint16_t)LISP_AFI_IPV6);
     default:
         lispd_log_msg(LISP_LOG_DEBUG_2, "get_lisp_afi: unknown AFI (%d)", afi);
@@ -739,8 +741,7 @@ lisp_addr_t *get_map_resolver()
     }
 
     if (dst_rloc == NULL){
-        lispd_log_msg(LISP_LOG_CRIT,"No Map Resolver with a RLOC compatible with local RLOCs");
-        exit(EXIT_FAILURE);
+        lispd_log_msg(LISP_LOG_ERR,"No Map Resolver with a RLOC compatible with local RLOCs");
     }
     return dst_rloc;
 }

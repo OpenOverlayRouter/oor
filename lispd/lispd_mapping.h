@@ -124,6 +124,14 @@ int add_locator_to_mapping(
         lispd_locator_elt           *locator);
 
 /*
+ * This function sort the locator list elt with IP = changed_loc_addr
+ */
+
+void sort_locators_list_elt (
+        lispd_mapping_elt   *mapping,
+        lisp_addr_t         *changed_loc_addr);
+
+/*
  * Free memory of lispd_mapping_elt.
  */
 void free_mapping_elt(lispd_mapping_elt *mapping, int local);
