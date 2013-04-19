@@ -224,38 +224,41 @@ lispd_iface_elt *get_interface_from_index(int iface_index){
 void dump_iface_list(int log_level)
 {
 
-    lispd_iface_list_elt     *interface_list = head_interface_list;
-    lispd_mappings_list   *mapping_list;
+    lispd_iface_list_elt     *interface_list    = head_interface_list;
+    lispd_mappings_list      *mapping_list      = NULL;
+    char                     str[4000];
 
-    if (head_interface_list == NULL)
+    if (head_interface_list == NULL || is_loggable(log_level) == FALSE){
         return;
+    }
 
-   lispd_log_msg(log_level,"*** LISP RLOC Interfaces List ***\n\n");
+    sprintf(str,"*** LISP RLOC Interfaces List ***\n\n");
 
     while (interface_list){
-       lispd_log_msg(log_level,"== %s   (%s)==\n",interface_list->iface->iface_name, interface_list->iface->status ? "Up" : "Down");
+        sprintf(str + strlen(str),"== %s   (%s)==\n",interface_list->iface->iface_name, interface_list->iface->status ? "Up" : "Down");
         if (interface_list->iface->ipv4_address){
-           lispd_log_msg(log_level,"  IPv4 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv4_address)));
-           lispd_log_msg(log_level,"    -- LIST mappings -- \n");
+            sprintf(str + strlen(str),"  IPv4 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv4_address)));
+            sprintf(str + strlen(str),"    -- LIST mappings -- \n");
             mapping_list = interface_list->iface->head_v4_mappings_list;
             while (mapping_list){
-               lispd_log_msg(log_level,"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
+                sprintf(str + strlen(str),"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
                         mapping_list->mapping->eid_prefix_length);
                 mapping_list = mapping_list->next;
             }
         }
         if (interface_list->iface->ipv6_address){
-            lispd_log_msg(log_level,"  IPv6 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv6_address)));
-            lispd_log_msg(log_level,"    -- LIST mappings -- \n");
+            sprintf(str + strlen(str),"  IPv6 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv6_address)));
+            sprintf(str + strlen(str),"    -- LIST mappings -- \n");
             mapping_list = interface_list->iface->head_v6_mappings_list;
             while (mapping_list){
-                lispd_log_msg(log_level,"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
+                sprintf(str + strlen(str),"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
                         mapping_list->mapping->eid_prefix_length);
                 mapping_list = mapping_list->next;
             }
         }
         interface_list = interface_list->next;
     }
+    lispd_log_msg(log_level,"%s",str);
 }
 
 

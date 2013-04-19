@@ -376,7 +376,7 @@ void dump_map_cache_db(int log_level)
     lispd_map_cache_entry       *entry;
 
 
-    lispd_log_msg(log_level,"*** LISP Mapping Cache ***\n\n");
+    lispd_log_msg(log_level,"**************** LISP Mapping Cache ******************\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){
         PATRICIA_WALK(dbs[ctr]->head, node) {
@@ -384,4 +384,5 @@ void dump_map_cache_db(int log_level)
             dump_map_cache_entry (entry, log_level);
         } PATRICIA_WALK_END;
     }
+    lispd_log_msg(log_level,"*******************************************************\n");
 }

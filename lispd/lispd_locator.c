@@ -255,14 +255,12 @@ void dump_locator (
         lispd_locator_elt   *locator,
         int                 log_level)
 {
+    char locator_str [2000];
     if (is_loggable(log_level)){
-        printf(" %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
-        if (locator->locator_addr->afi == AF_INET){
-            printf(" %15s ", locator->state ? "Up" : "Down");
-        }else{
-            printf(" %5s ", locator->state ? "Up" : "Down");
-        }
-        printf("         %3d/%-3d \n", locator->priority, locator->weight);
+        sprintf(locator_str, "| %39s |", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+        sprintf(locator_str + strlen(locator_str), "  %5s ", locator->state ? "Up" : "Down");
+        sprintf(locator_str + strlen(locator_str), "|     %3d/%-3d     |", locator->priority, locator->weight);
+        lispd_log_msg(log_level,"%s",locator_str);
     }
 }
 

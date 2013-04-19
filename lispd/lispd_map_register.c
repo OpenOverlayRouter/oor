@@ -228,7 +228,7 @@ uint8_t *build_map_register_pkt(
 #endif
     mrp->nonce            = 0;
     mrp->record_count     = 1;				/* XXX Just supported one record per map register */
-    mrp->key_id           = htons(1);       /* XXX not sure */
+    mrp->key_id           = htons(HMAC_SHA_1_96);
     mrp->auth_data_len    = htons(LISP_SHA1_AUTH_DATA_LEN);
 
 

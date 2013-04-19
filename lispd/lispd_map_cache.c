@@ -138,11 +138,17 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     time_t              expiretime;
     time_t              uptime;
     int                 ctr = 0;
+    char                str[400];
     lispd_locators_list         *locator_iterator_array[2]  = {NULL,NULL};
     lispd_locators_list         *locator_iterator           = NULL;
     lispd_locator_elt           *locator                    = NULL;
 
-    lispd_log_msg(log_level,"%s/%d (IID = %d), ", get_char_from_lisp_addr_t(entry->mapping->eid_prefix),
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
+
+
+    sprintf(str,"IDENTIFIER (EID): %s/%d (IID = %d), ", get_char_from_lisp_addr_t(entry->mapping->eid_prefix),
             entry->mapping->eid_prefix_length, entry->mapping->iid);
     uptime = time(NULL);
     uptime = uptime - entry->timestamp;
@@ -151,29 +157,26 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     if (expiretime > 0)
         strftime(buf2, 20, "%H:%M:%S", localtime(&expiretime));
 
-    lispd_log_msg(log_level,"uptime: %s, expires: %s, via ", buf, expiretime > 0 ? buf2 : "EXPIRED");
+    sprintf(str + strlen(str),"  UPTIME: %s, EXPIRES: %s   ", buf, buf2);
 
     if (entry->how_learned == STATIC_LOCATOR)
-        lispd_log_msg(log_level,"static ");
+        sprintf(str + strlen(str),"   TYPE: Static ");
     else
-        lispd_log_msg(log_level,"map-reply ");
-    lispd_log_msg(log_level,"active: %s\n", entry->active == TRUE ? "Yes" : "No");
-
+        sprintf(str + strlen(str),"   TYPE: Dynamic ");
+    sprintf(str + strlen(str),"   ACTIVE: %s\n", entry->active == TRUE ? "Yes" : "No");
+    lispd_log_msg(log_level,"%s",str);
 
     if (entry->mapping->locator_count > 0){
-        lispd_log_msg(log_level,"       Locator     State    Priority/Weight  Data In/Out  %d\n",entry->mapping->locator_count);
+
         locator_iterator_array[0] = entry->mapping->head_v4_locators_list;
         locator_iterator_array[1] = entry->mapping->head_v6_locators_list;
+        lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
         // Loop through the locators and print each
         for (ctr = 0 ; ctr < 2 ; ctr++){
             locator_iterator = locator_iterator_array[ctr];
             while (locator_iterator != NULL) {
                 locator = locator_iterator->locator;
-                lispd_log_msg(log_level," %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
-                lispd_log_msg(log_level," %5s ", locator->state ? "Up" : "Down");
-                lispd_log_msg(log_level,"         %3d/%-3d ", locator->priority, locator->weight);
-                lispd_log_msg(log_level,"      %5d/%-5d\n", locator->data_packets_in,
-                        locator->data_packets_out);
+                dump_locator(locator, log_level);
                 locator_iterator = locator_iterator->next;
             }
         }

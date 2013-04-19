@@ -305,12 +305,14 @@ void dump_local_db(int log_level)
 {
     patricia_tree_t     *dbs [2] = {EIDv4_database, EIDv6_database};
     int                 ctr      = 0;
+    patricia_node_t     *node    = NULL;
+    lispd_mapping_elt   *entry   = NULL;
 
-    patricia_node_t             *node;
-    lispd_mapping_elt           *entry;
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
 
-
-    lispd_log_msg(log_level,"*** LISP Local EIDs ***\n\n");
+    lispd_log_msg(log_level,"****************** LISP Local Mappings ****************\n");
 
     for (ctr = 0 ; ctr < 2 ; ctr++){
         PATRICIA_WALK(dbs[ctr]->head, node) {
@@ -318,5 +320,6 @@ void dump_local_db(int log_level)
             dump_mapping_entry(entry, log_level);
         } PATRICIA_WALK_END;
     }
+    lispd_log_msg(log_level,"*******************************************************\n");
 }
 

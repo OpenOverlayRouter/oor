@@ -230,6 +230,13 @@ int err;
 
 
 /*
+ * Map register Key type
+ */
+#define NO_KEY               0
+#define HMAC_SHA_1_96        1
+#define HMAC_SHA_256_128     2
+
+/*
  * Netlink mcast groups lispd is interested in
  * for interface management
  */

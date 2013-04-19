@@ -381,11 +381,12 @@ void dump_servers(
     if (!list)
         return;
 
-    lispd_log_msg(log_level, "*** %s ***", list_name);
+    lispd_log_msg(log_level, "************* %13s ***************", list_name);
+    lispd_log_msg(log_level, "|               Locator (RLOC)            |");
 
     iterator = list;
     while (iterator) {
-        lispd_log_msg(log_level,"\t%s", get_char_from_lisp_addr_t(*(iterator->address)));
+        lispd_log_msg(log_level,"| %39s |", get_char_from_lisp_addr_t(*(iterator->address)));
         iterator = iterator->next;
     }
 }
@@ -396,14 +397,15 @@ void dump_proxy_etrs(int log_level)
     lispd_locators_list      *locator_lst_elt[2] = {NULL,NULL};
     int                      ctr                 = 0;
 
-    if (proxy_etrs == NULL || !is_loggable(log_level)){
+    if (proxy_etrs == NULL || is_loggable(log_level) == FALSE){
         return;
     }
 
     locator_lst_elt[0] = proxy_etrs->mapping->head_v4_locators_list;
     locator_lst_elt[1] = proxy_etrs->mapping->head_v6_locators_list;
 
-    lispd_log_msg(log_level, "*** Proxy ETRs List ***");
+    lispd_log_msg(log_level, "************************* Proxy ETRs List ****************************");
+    lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
 
     for (ctr = 0 ; ctr<2 ; ctr++){
         while (locator_lst_elt[ctr]){
@@ -415,19 +417,28 @@ void dump_proxy_etrs(int log_level)
 
 void dump_map_servers(int log_level)
 {
-    lispd_map_server_list_t *ms;
+    lispd_map_server_list_t *ms         = NULL;
+    char                    str[80];
 
-    if (!map_servers)
+    if (map_servers == NULL || is_loggable(log_level) == FALSE){
         return;
+    }
 
-    lispd_log_msg(log_level, "*** Map-Servers list: ***");
+    lispd_log_msg(log_level, "******************* Map-Servers list ********************************");
+    lispd_log_msg(log_level, "|               Locator (RLOC)            |       Key Type          |");
     ms = map_servers;
 
     while (ms) {
-        lispd_log_msg(log_level, "\t%s key-type: %d ",
-               get_char_from_lisp_addr_t(*ms->address),
-               ms->key_type);
+        sprintf(str, "| %39s |",get_char_from_lisp_addr_t(*ms->address));
+        if (ms->key_type == NO_KEY){
+            sprintf(str + strlen(str),"          NONE           |");
+        }else if (ms->key_type == HMAC_SHA_1_96){
+            sprintf(str + strlen(str),"     HMAC-SHA-1-96       |");
+        }else{
+            sprintf(str + strlen(str),"    HMAC-SHA-256-128     |");
+        }
         ms = ms->next;
+        lispd_log_msg(log_level,"%s",str);
     }
 }
 

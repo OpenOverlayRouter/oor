@@ -380,16 +380,21 @@ void dump_mapping_entry(
         lispd_mapping_elt       *mapping,
         int                     log_level)
 {
-    lispd_locators_list         *locator_iterator_array[2]= {NULL,NULL};
-    lispd_locators_list         *locator_iterator = NULL;
-    lispd_locator_elt           *locator = NULL;
-    int                         ctr = 0;
+    lispd_locators_list         *locator_iterator_array[2]  = {NULL,NULL};
+    lispd_locators_list         *locator_iterator           = NULL;
+    lispd_locator_elt           *locator                    = NULL;
+    int                         ctr                         = 0;
 
-    lispd_log_msg(log_level,"%s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(mapping->eid_prefix),
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
+
+    lispd_log_msg(log_level,"IDENTIFIER (EID): %s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(mapping->eid_prefix),
             mapping->eid_prefix_length, mapping->iid);
 
+    lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
+
     if (mapping->locator_count > 0){
-        lispd_log_msg(log_level,"       Locator               State    Priority/Weight\n");
         locator_iterator_array[0] = mapping->head_v4_locators_list;
         locator_iterator_array[1] = mapping->head_v6_locators_list;
         // Loop through the locators and print each
@@ -398,12 +403,7 @@ void dump_mapping_entry(
             locator_iterator = locator_iterator_array[ctr];
             while (locator_iterator != NULL) {
                 locator = locator_iterator->locator;
-                lispd_log_msg(log_level," %15s ", get_char_from_lisp_addr_t(*(locator->locator_addr)));
-                if (locator->locator_addr->afi == AF_INET)
-                    lispd_log_msg(log_level," %15s ", locator->state ? "Up" : "Down");
-                else
-                    lispd_log_msg(log_level," %5s ", locator->state ? "Up" : "Down");
-                lispd_log_msg(log_level,"         %3d/%-3d \n", locator->priority, locator->weight);
+                dump_locator (locator,log_level);
                 locator_iterator = locator_iterator->next;
             }
         }
@@ -600,29 +600,32 @@ int highest_common_factor  (int a, int b)
  */
 
 void dump_balancing_locators_vec(
-        balancing_locators_vecs b_locators_vecs,
-        lispd_mapping_elt *mapping,
-        int log_level)
+        balancing_locators_vecs     b_locators_vecs,
+        lispd_mapping_elt           *mapping,
+        int                         log_level)
 {
-    int ctr = 0;
+    int     ctr         = 0;
+    char    str[1000];
 
     if ( is_loggable(log_level)){
-        printf("Balancing locator vector for %s/%d: \n",
+        lispd_log_msg(log_level,"Balancing locator vector for %s/%d: ",
                         get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
 
-        printf("  IPv4 locators vector (%d locators):  ",b_locators_vecs.v4_locators_vec_length);
+        sprintf(str,"  IPv4 locators vector (%d locators):  ",b_locators_vecs.v4_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v4_locators_vec_length; ctr++){
-            printf(" %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v4_balancing_locators_vec[ctr]->locator_addr));
+            sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v4_balancing_locators_vec[ctr]->locator_addr));
         }
-        printf("\n  IPv6 locators vector (%d locators):  ",b_locators_vecs.v6_locators_vec_length);
+        lispd_log_msg(log_level,"%s",str);
+        sprintf(str,"  IPv6 locators vector (%d locators):  ",b_locators_vecs.v6_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v6_locators_vec_length; ctr++){
-            printf(" %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v6_balancing_locators_vec[ctr]->locator_addr));
+            sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v6_balancing_locators_vec[ctr]->locator_addr));
         }
-        printf("\n  IPv4 & IPv6 locators vector (%d locators):  ", b_locators_vecs.locators_vec_length);
+        lispd_log_msg(log_level,"%s",str);
+        sprintf(str,"  IPv4 & IPv6 locators vector (%d locators):  ", b_locators_vecs.locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.locators_vec_length; ctr++){
-            printf(" %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.balancing_locators_vec[ctr]->locator_addr));
+            sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.balancing_locators_vec[ctr]->locator_addr));
         }
-        printf("\n");
+        lispd_log_msg(log_level,"%s",str);
     }
 }
 
