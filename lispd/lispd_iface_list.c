@@ -59,37 +59,48 @@ lispd_iface_elt *add_interface(char *iface_name)
         free(iface_list);
         return(NULL);
     }
-    if ((iface->ipv4_address = malloc(sizeof(lisp_addr_t)))==NULL){
+    if ((iface->ipv4_address = (lisp_addr_t *)malloc(sizeof(lisp_addr_t)))==NULL){
     	lispd_log_msg(LISP_LOG_WARNING,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
     	free(iface);
     	return(NULL);
     }
-    if ((iface->ipv6_address = malloc(sizeof(lisp_addr_t)))==NULL){
+    if ((iface->ipv6_address = (lisp_addr_t *)malloc(sizeof(lisp_addr_t)))==NULL){
     	lispd_log_msg(LISP_LOG_WARNING,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
     	free(iface->ipv4_address);
     	free(iface);
     	return(NULL);
     }
+    memset(iface->ipv4_address,0,sizeof(lisp_addr_t));
+    memset(iface->ipv6_address,0,sizeof(lisp_addr_t));
+
     iface->iface_name = malloc(strlen(iface_name) + 1);   // XXX Must free elsewhere
     strcpy(iface->iface_name, iface_name);
-    iface->status = UP;
-    iface->ipv4_address = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
-    if (iface->ipv4_address != NULL){
+
+    err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
+    if (err == GOOD){
         iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
     }else {
+        iface->ipv4_address->afi = AF_UNSPEC;
         iface->out_socket_v4 = -1;
     }
-    iface->ipv6_address = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
-    if (iface->ipv6_address != NULL){
+    err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+    if (err == GOOD){
         iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
     }else {
+        iface->ipv6_address->afi = AF_UNSPEC;
         iface->out_socket_v6 = -1;
     }
+
+    if ( iface->ipv4_address->afi == AF_UNSPEC &&  iface->ipv6_address->afi == AF_UNSPEC){
+        iface->status = DOWN;
+    }else{
+        iface->status = UP;
+    }
+
     iface->head_v4_mappings_list = NULL;
     iface->head_v6_mappings_list = NULL;
-    iface->status_transition_timer = NULL;
     iface_list->iface = iface;
     iface_list->next = NULL;
 
@@ -391,7 +402,28 @@ lisp_addr_t *get_iface_address(
     return (addr);
     
 }
+/*
+ * Recalculate balancing vector of the mappings assorciated to iface
+ */
 
+void iface_balancing_vectors_calc(lispd_iface_elt  *iface)
+{
+    lispd_mappings_list         *mapping_list[2]    = {NULL, NULL};
+    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
+    int                         ctr                 = 0;
+
+    mapping_list[0] = iface->head_v4_mappings_list;
+    mapping_list[1] = iface->head_v6_mappings_list;
+    for (ctr = 0 ; ctr < 2 ; ctr ++){
+        while (mapping_list[ctr] != NULL){
+            lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info);
+            calculate_balancing_vectors (
+                    mapping_list[ctr]->mapping,
+                    &(lcl_extended_info->outgoing_balancing_locators_vecs));
+            mapping_list[ctr] = mapping_list[ctr]->next;
+        }
+    }
+}
 
 /*
  * Editor modelines

@@ -131,7 +131,8 @@ lispd_mapping_elt *new_local_mapping(
     extended_info->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
     extended_info->outgoing_balancing_locators_vecs.locators_vec_length = 0;
 
-    extended_info->mapping_updated = FALSE;
+    extended_info->requires_smr = NO_SMR;
+    extended_info->head_not_init_locators_list = NULL;
 
     return (mapping);
 }
@@ -177,28 +178,45 @@ int add_locator_to_mapping(
         lispd_mapping_elt           *mapping,
         lispd_locator_elt           *locator)
 {
-    if (locator->locator_addr->afi == AF_INET){
+    int result = GOOD;
+
+    switch (locator->locator_addr->afi){
+    case AF_INET:
         err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
-    }else {
+        break;
+    case AF_INET6:
         err = add_locator_to_list (&(mapping->head_v6_locators_list), locator);
+        break;
+    case AF_UNSPEC:
+        err = add_locator_to_list (&(((lcl_mapping_extended_info *)(mapping->extended_info))->head_not_init_locators_list), locator);
+        if (err == GOOD){
+            return (GOOD);
+        }else{
+            free_locator (locator);
+            return (BAD);
+        }
     }
+
     if (err == GOOD){
         mapping->locator_count++;
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added to the EID %s/%d.",
                 get_char_from_lisp_addr_t(*(locator->locator_addr)),
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length);
-        return (GOOD);
+        result = GOOD;
     }else if (err == ERR_EXIST){
         free_locator (locator);
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s already exists for the EID %s/%d.",
                 get_char_from_lisp_addr_t(*(locator->locator_addr)),
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length);
-        return (GOOD);
+        result = GOOD;
+    }else{
+        free_locator (locator);
+        result = BAD;
     }
-    free_locator (locator);
-    return (BAD);
+
+    return (result);
 }
 
 
@@ -310,6 +328,7 @@ void free_mapping_elt(lispd_mapping_elt *mapping, int local)
     free_locator_list(mapping->head_v6_locators_list);
     /* Free extended info */
     if (local == TRUE){
+        free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
         free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
         free ((lcl_mapping_extended_info *)mapping->extended_info);
     }else{
@@ -326,15 +345,32 @@ void free_mapping_elt(lispd_mapping_elt *mapping, int local)
 
 void free_balancing_locators_vecs (balancing_locators_vecs locators_vec)
 {
+    if (locators_vec.balancing_locators_vec != NULL &&
+            locators_vec.balancing_locators_vec != locators_vec.v4_balancing_locators_vec && //IPv4 locators more priority -> IPv4_IPv6 vector = IPv4 locator vector
+            locators_vec.balancing_locators_vec != locators_vec.v6_balancing_locators_vec){  //IPv6 locators more priority -> IPv4_IPv6 vector = IPv4 locator vector
+            free (locators_vec.balancing_locators_vec);
+    }
     if (locators_vec.v4_balancing_locators_vec != NULL){
         free (locators_vec.v4_balancing_locators_vec);
     }
     if (locators_vec.v6_balancing_locators_vec != NULL){
         free (locators_vec.v6_balancing_locators_vec);
     }
-    if (locators_vec.balancing_locators_vec != NULL){
-        free (locators_vec.balancing_locators_vec);
-    }
+}
+
+/*
+ * Initialize to 0 balancing_locators_vecs
+ */
+
+void reset_balancing_locators_vecs (balancing_locators_vecs *blv)
+{
+    free_balancing_locators_vecs(*blv);
+    blv->v4_balancing_locators_vec = NULL;
+    blv->v4_locators_vec_length = 0;
+    blv->v6_balancing_locators_vec = NULL;
+    blv->v6_locators_vec_length = 0;
+    blv->balancing_locators_vec = NULL;
+    blv->locators_vec_length = 0;
 }
 
 /*
@@ -558,28 +594,6 @@ int highest_common_factor  (int a, int b)
     return (a);
 }
 
-/*
- * Initialize to 0 balancing_locators_vecs
- */
-
-void reset_balancing_locators_vecs (balancing_locators_vecs *blv)
-{
-    if (blv->v4_balancing_locators_vec != NULL){
-        free (blv->v4_balancing_locators_vec);
-        blv->v4_balancing_locators_vec = NULL;
-        blv->v4_locators_vec_length = 0;
-    }
-    if (blv->v6_balancing_locators_vec != NULL){
-        free (blv->v6_balancing_locators_vec);
-        blv->v6_balancing_locators_vec = NULL;
-        blv->v6_locators_vec_length = 0;
-    }
-    if (blv->balancing_locators_vec != NULL){
-        free (blv->balancing_locators_vec);
-        blv->balancing_locators_vec = NULL;
-        blv->locators_vec_length = 0;
-    }
-}
 
 /*
  * Print balancing locators vector information
@@ -593,21 +607,18 @@ void dump_balancing_locators_vec(
     int ctr = 0;
 
     if ( is_loggable(log_level)){
-        printf("Balancing locator vector (IPv4) for %s/%d: \n  %d locators:",
-                get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length,
-                b_locators_vecs.v4_locators_vec_length);
+        printf("Balancing locator vector for %s/%d: \n",
+                        get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
+
+        printf("  IPv4 locators vector (%d locators):  ",b_locators_vecs.v4_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v4_locators_vec_length; ctr++){
             printf(" %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v4_balancing_locators_vec[ctr]->locator_addr));
         }
-        printf("\nBalancing locator vector (IPv6) for %s/%d: \n  %d locators:",
-                get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length,
-                b_locators_vecs.v6_locators_vec_length);
+        printf("\n  IPv6 locators vector (%d locators):  ",b_locators_vecs.v6_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v6_locators_vec_length; ctr++){
             printf(" %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v6_balancing_locators_vec[ctr]->locator_addr));
         }
-        printf("\nBalancing locator vector (IPv4 + IPv6) for %s/%d: \n  %d locators:",
-                get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length,
-                b_locators_vecs.locators_vec_length);
+        printf("\n  IPv4 & IPv6 locators vector (%d locators):  ", b_locators_vecs.locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.locators_vec_length; ctr++){
             printf(" %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.balancing_locators_vec[ctr]->locator_addr));
         }

@@ -128,6 +128,14 @@ int add_locator_to_list (
         lispd_locators_list         **list,
         lispd_locator_elt           *locator);
 
+/*
+ * Extract the locator from a locators list that match with the address.
+ * The locator is removed from the list
+ */
+lispd_locator_elt *extract_locator_from_list(
+        lispd_locators_list     **head_locator_list,
+        lisp_addr_t             addr);
+
 
 /*
  * Free memory of lispd_locator_list.

@@ -39,32 +39,32 @@
 
 
 
-extern  lispd_addr_list_t *map_resolvers;
-extern  lispd_addr_list_t *proxy_itrs;
-extern  lispd_map_cache_entry *proxy_etrs;
+extern  lispd_addr_list_t       *map_resolvers;
+extern  lispd_addr_list_t       *proxy_itrs;
+extern  lispd_map_cache_entry   *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
-extern  char            *config_file;
-extern  char            msg[];
-extern  int             map_request_retries;
-extern  int             control_port;
-extern  int             debug_level;
-extern  int             daemonize;
-extern  int             default_rloc_afi;
-
-extern  int         netlink_fd;
-extern  int         ipv6_data_input_fd;
-extern  int         ipv4_data_input_fd;
-extern  int         ipv6_control_input_fd;
-extern  int         ipv4_control_input_fd;
-extern  int         timers_fd;
-extern  struct  sockaddr_nl dst_addr;
-extern  struct  sockaddr_nl src_addr;
-extern  nlsock_handle       nlh;
-extern  lisp_addr_t         source_rloc;
-extern lispd_iface_elt *default_ctrl_iface_v4 ;
-extern lispd_iface_elt *default_ctrl_iface_v6;
-extern lispd_iface_elt *default_out_iface_v4;
-extern lispd_iface_elt *default_out_iface_v6;
+extern  char                    *config_file;
+extern  char                    msg[];
+extern  int                     map_request_retries;
+extern  int                     control_port;
+extern  int                     debug_level;
+extern  int                     daemonize;
+extern  int                     default_rloc_afi;
+extern  int                     netlink_fd;
+extern  int                     ipv6_data_input_fd;
+extern  int                     ipv4_data_input_fd;
+extern  int                     ipv6_control_input_fd;
+extern  int                     ipv4_control_input_fd;
+extern  int                     timers_fd;
+extern  struct sockaddr_nl      dst_addr;
+extern  struct sockaddr_nl      src_addr;
+extern  nlsock_handle           nlh;
+extern  lisp_addr_t             source_rloc;
+extern lispd_iface_elt          *default_ctrl_iface_v4 ;
+extern lispd_iface_elt          *default_ctrl_iface_v6;
+extern lispd_iface_elt          *default_out_iface_v4;
+extern lispd_iface_elt          *default_out_iface_v6;
+extern timer                    *smr_timer;
 
 #endif /*LISPD_EXTERNAL_H_*/
 

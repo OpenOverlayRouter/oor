@@ -70,7 +70,7 @@
 #define LISPD_INITIAL_MRQ_TIMEOUT   1  // Initial expiration timer for the first MRq
 #define LISPD_INITIAL_SMR_TIMEOUT   1  // Initial expiration timer for the first MRq SMR
 #define LISPD_INITIAL_PROBE_TIMEOUT 1  // Initial expiration timer for the first MRq RLOC probe
-#define LISPD_IFACE_TRANS_TIMEOUT   3  // Time since interface status change until balancing arrays and SMR is done
+#define LISPD_SMR_TIMEOUT           15  // Time since interface status change until balancing arrays and SMR is done
 #define LISPD_MAX_MRQ_TIMEOUT       32 // Max expiration timer for the subsequent MRq
 #define LISPD_EXPIRE_TIMEOUT        1  // Time interval in which events are expired
 #define LISPD_MAX_MR_RETRANSMIT     2  // Maximum amount of Map Request retransmissions
@@ -219,8 +219,14 @@ int err;
 #define PETR_LOCATOR                    2
 #define LOCAL_LOCATOR                   3
 
+/*
+ * requires SMR values
+ */
 
-
+#define NO_SMR               0
+#define NEW_ADDRESS          1
+#define NEW_STATUS           2
+#define NEW_STATUS_AND_ADDR  3
 
 
 /*

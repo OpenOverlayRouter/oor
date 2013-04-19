@@ -62,8 +62,6 @@ typedef struct lispd_map_cache_entry_ {
     uint8_t                     active_witin_period:1;
     uint8_t                     probe_left;     /* Counter to indicate number of RLOCs that has not been probed /put status down
                                                  * in this period of probe*/
-    uint8_t                     smr_inv_left;   /* Counter to indicate number of replies to the smr invoques  has not been recived  /put status down
-                                                 * in this period of probe*/
     uint16_t                    ttl;
     time_t                      timestamp;
     timer                       *expiry_cache_timer;

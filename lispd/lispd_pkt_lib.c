@@ -39,12 +39,12 @@
 #include <netinet/tcp.h>
 
 /*
- *  get_locator_length
+ *  get_locators_length
  *
  *  Compute the sum of the lengths of the locators
  *  so we can allocate  memory for the packet....
  */
-int get_locator_length(lispd_locators_list *locators_list);
+int get_locators_length(lispd_locators_list *locators_list);
 
 
 int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
@@ -60,7 +60,7 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
     for (ctr = 0 ; ctr < 2 ; ctr ++){
         if (locators_list[ctr] == NULL)
             continue;
-        loc_length += get_locator_length(locators_list[ctr]);
+        loc_length += get_locators_length(locators_list[ctr]);
     }
     eid_length = get_mapping_length(mapping);
     length = sizeof(lispd_pkt_mapping_record_t) + eid_length +
@@ -72,13 +72,13 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
 
 
 /*
- *  get_locator_length
+ *  get_locators_length
  *
  *  Compute the sum of the lengths of the locators
  *  so we can allocate  memory for the packet....
  */
 
-int get_locator_length(lispd_locators_list *locators_list)
+int get_locators_length(lispd_locators_list *locators_list)
 {
     int sum = 0;
     while (locators_list) {
@@ -91,7 +91,7 @@ int get_locator_length(lispd_locators_list *locators_list)
             break;
         default:
             /* It should never happen*/
-            lispd_log_msg(LISP_LOG_DEBUG_2, "get_locator_length: Uknown AFI (%d) - It should never happen",
+            lispd_log_msg(LISP_LOG_DEBUG_2, "get_locators_length: Uknown AFI (%d) - It should never happen",
                locators_list->locator->locator_addr->afi);
             break;
         }
@@ -101,13 +101,13 @@ int get_locator_length(lispd_locators_list *locators_list)
 }
 
 /*
- *  get_up_locator_length
+ *  get_up_locators_length
  *
  *  Compute the sum of the lengths of the locators that has the status up
  *  so we can allocate  memory for the packet....
  */
 
-int get_up_locator_length(
+int get_up_locators_length(
         lispd_locators_list *locators_list,
         int                 *loc_count)
 {
@@ -130,7 +130,7 @@ int get_up_locator_length(
             break;
         default:
             /* It should never happen*/
-            lispd_log_msg(LISP_LOG_DEBUG_2, "get_locator_length: Uknown AFI (%d) - It should never happen",
+            lispd_log_msg(LISP_LOG_DEBUG_2, "get_up_locators_length: Uknown AFI (%d) - It should never happen",
                locators_list->locator->locator_addr->afi);
             break;
         }
@@ -217,11 +217,11 @@ void *pkt_fill_mapping_record(
     lispd_mapping_elt                       *mapping,
     lisp_addr_t                             *probed_rloc)
 {
-    int                                     cpy_len = 0;
-    lispd_pkt_mapping_record_locator_t      *loc_ptr;
-    lispd_locators_list                     *locators_list[2];
-    lispd_locator_elt                       *locator;
-    int                                     ctr = 0;
+    int                                     cpy_len             = 0;
+    lispd_pkt_mapping_record_locator_t      *loc_ptr            = NULL;
+    lispd_locators_list                     *locators_list[2]   = {NULL,NULL};
+    lispd_locator_elt                       *locator            = NULL;
+    int                                     ctr                 = 0;
 
     if ((rec == NULL) || (mapping == NULL))
         return NULL;
@@ -234,17 +234,17 @@ void *pkt_fill_mapping_record(
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-    loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-                pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+    loc_ptr = (lispd_pkt_mapping_record_locator_t *)pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
 
-    if (loc_ptr == NULL)
+    if (loc_ptr == NULL){
         return NULL;
+    }
 
     locators_list[0] = mapping->head_v4_locators_list;
     locators_list[1] = mapping->head_v6_locators_list;
     for (ctr = 0 ; ctr < 2 ; ctr++){
         while (locators_list[ctr]) {
-            locator             = locators_list[ctr]->locator;
+            locator              = locators_list[ctr]->locator;
             loc_ptr->priority    = locator->priority;
             loc_ptr->weight      = locator->weight;
             loc_ptr->mpriority   = locator->mpriority;

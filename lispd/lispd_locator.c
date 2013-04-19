@@ -287,7 +287,8 @@ int add_locator_to_list (
 
     locator_list->next = NULL;
     locator_list->locator = locator;
-    if (locator->locator_type == LOCAL_LOCATOR){/* If it's a local locator, we should store it in order*/
+    if (locator->locator_type == LOCAL_LOCATOR &&
+            locator->locator_addr->afi != AF_UNSPEC){ /* If it's a local initialized locator, we should store it in order*/
         if (*list == NULL){
             *list = locator_list;
         }else{
@@ -319,7 +320,7 @@ int add_locator_to_list (
                 locator_list->next = aux_locator_list_next;
             }
         }
-    }else{
+    }else{ /* Remote locators and not initialized local locators */
         if (*list == NULL){
             *list = locator_list;
         }else{
@@ -334,7 +335,36 @@ int add_locator_to_list (
     return (GOOD);
 }
 
+/*
+ * Extract the locator from a locators list that match with the address.
+ * The locator is removed from the list
+ */
+lispd_locator_elt *extract_locator_from_list(
+        lispd_locators_list     **head_locator_list,
+        lisp_addr_t             addr)
+{
+    lispd_locator_elt       *locator                = NULL;
+    lispd_locators_list     *locator_list           = NULL;
+    lispd_locators_list     *prev_locator_list_elt  = NULL;
 
+    locator_list = *head_locator_list;
+    while (locator_list != NULL){
+        if (compare_lisp_addr_t(locator_list->locator->locator_addr,&addr)==0){
+            locator = locator_list->locator;
+            /* Extract the locator from the list */
+            if (prev_locator_list_elt != NULL){
+                prev_locator_list_elt->next = locator_list->next;
+            }else{
+                *head_locator_list = locator_list->next;
+            }
+            free (locator_list);
+            break;
+        }
+        prev_locator_list_elt = locator_list;
+        locator_list = locator_list->next;
+    }
+    return (locator);
+}
 
 /*
  * Free memory of lispd_locator_list.

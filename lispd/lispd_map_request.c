@@ -751,9 +751,9 @@ int get_map_request_length (lispd_mapping_elt *requested_mapping, lispd_mapping_
     if (src_mapping != NULL){
         mr_len += get_mapping_length(src_mapping);
         /* Calculate locators length */
-        mr_len += get_up_locator_length(src_mapping->head_v4_locators_list,&aux_locator_count);
+        mr_len += get_up_locators_length(src_mapping->head_v4_locators_list,&aux_locator_count);
         locator_count = aux_locator_count;
-        mr_len += get_up_locator_length(src_mapping->head_v6_locators_list,&aux_locator_count);
+        mr_len += get_up_locators_length(src_mapping->head_v6_locators_list,&aux_locator_count);
         locator_count += aux_locator_count;
     }else{
         if (default_ctrl_iface_v4 != NULL){

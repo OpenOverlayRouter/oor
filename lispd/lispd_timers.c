@@ -216,8 +216,6 @@ void stop_timer(timer *tptr)
 
     if (strcmp(tptr->name,MAP_REQUEST_RETRY_TIMER)==0){
         free ((timer_map_request_argument *)tptr->cb_argument);
-    }else if (strcmp(tptr->name,INTERFACE_CHANGE_TIMER)==0){
-        free ((timer_iface_status_update_argument *)tptr->cb_argument);
     }
 
     next = tptr->links.next;

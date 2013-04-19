@@ -75,7 +75,8 @@ typedef struct balancing_locators_vecs_ {
 
 typedef struct lcl_mapping_extended_info_ {
     balancing_locators_vecs               outgoing_balancing_locators_vecs;
-    uint8_t                               mapping_updated:1; //when an interface related to this mapping change, it is set to TRUE
+    uint8_t                               requires_smr:2; //when an interface related to this mapping change, it is set to TRUE
+    lispd_locators_list                   *head_not_init_locators_list; //List of locators not initialized: interface without ip
 }lcl_mapping_extended_info;
 
 /*

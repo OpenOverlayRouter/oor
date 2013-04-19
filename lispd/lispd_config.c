@@ -130,7 +130,7 @@ void handle_lispd_command_line(
             default_rloc_afi = AF_INET6;
             break;
         default:
-            printf("AFI must be IPv4 (-a 4) or IPv6 (-a 6)\n");
+            lispd_log_msg(LISP_LOG_INFO,"AFI must be IPv4 (-a 4) or IPv6 (-a 6)\n");
             break;
         }
     }else{
@@ -680,13 +680,13 @@ int add_database_mapping(
         iid = -1;
     }
 
-    if (priority_v4 < MAX_PRIORITY || priority_v4 > UNUSED_RLOC_PRIORITY) {
+    if (priority_v4 < (MAX_PRIORITY - 1) || priority_v4 > UNUSED_RLOC_PRIORITY) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
                 priority_v4, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
         priority_v4 = MIN_PRIORITY;
     }
 
-    if (priority_v6 < MAX_PRIORITY || priority_v6 > UNUSED_RLOC_PRIORITY) {
+    if (priority_v6 < (MAX_PRIORITY - 1)|| priority_v6 > UNUSED_RLOC_PRIORITY) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
                 priority_v6, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
         priority_v6 = MIN_PRIORITY;
@@ -730,7 +730,7 @@ int add_database_mapping(
         is_new_mapping = FALSE;
     }
     /*
-     * Add the new interface.
+     * Add the interface.
      */
     /* Check if the interface already exists. If not, add it*/
     if ((interface=get_interface(iface_name))==NULL){
@@ -748,8 +748,8 @@ int add_database_mapping(
         return (BAD);
     }
 
-    /* If interface has IPv4 address. Assign the mapping to the v4 mappings of the interface. Create IPv4 locator and assign to the mapping  */
-    if (interface->ipv4_address && priority_v4 >= 0){
+    /* Assign the mapping to the v4 mappings of the interface. Create IPv4 locator and assign to the mapping  */
+    if (priority_v4 >= 0){
         if ((err = add_mapping_to_interface (interface, mapping,AF_INET)) == GOOD){
 
             locator = new_local_locator (interface->ipv4_address,&(interface->status),priority_v4,weight_v4,255,0,interface->out_socket_v4);
@@ -765,8 +765,8 @@ int add_database_mapping(
             return (BAD);
         }
     }
-    /* If interface has IPv6 address. Assign the mapping to the v6 mappings of the interface. Create IPv6 locator and assign to the mapping  */
-    if (interface->ipv6_address  && priority_v6 >= 0){
+    /* Assign the mapping to the v6 mappings of the interface. Create IPv6 locator and assign to the mapping  */
+    if (priority_v6 >= 0){
         if ((err = add_mapping_to_interface (interface, mapping,AF_INET6)) == GOOD){
             locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,interface->out_socket_v6);
             if (locator != NULL){

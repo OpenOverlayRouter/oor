@@ -33,14 +33,42 @@
 #include "lispd_log.h"
 #include "lispd_mapping.h"
 #include "lispd_smr.h"
+#include "lispd_sockets.h"
 #include "lispd_timers.h"
+
+/************************* FUNCTION DECLARTAION ********************************/
 
 void process_nl_add_address (struct nlmsghdr *nlh);
 void process_nl_del_address (struct nlmsghdr *nlh);
 void process_nl_new_link (struct nlmsghdr *nlh);
-int interface_change_update(
-    timer *timer,
-    void *arg);
+
+/*
+ * Change the address of the interface. If the address belongs to a not initialized locator, activate it.
+ * Program SMR
+ */
+
+void precess_address_change (
+        lispd_iface_elt     *iface,
+        lisp_addr_t         new_addr);
+
+
+/*
+ * Change the satus of the interface. Recalculate default control and output interfaces if it's needed.
+ * Program SMR
+ */
+
+void process_link_status_change(
+        lispd_iface_elt     *iface,
+        int                 new_status);
+
+/*
+ * Activate the locators associated with the interface using the new address
+ * This function is only used when an interface is down during the initial configuration process and then is activated
+ */
+void activate_interface_address(lispd_iface_elt *iface,lisp_addr_t new_address);
+
+
+/*******************************************************************************/
 
 int opent_netlink_socket()
 {
@@ -119,9 +147,6 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     int                         rt_length           = 0;
     lispd_iface_elt             *iface              = NULL;
     lisp_addr_t                 new_addr;
-    lisp_addr_t                 *iface_addr         = NULL;
-    lispd_mappings_list         *mapping_list       = NULL;
-    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
 
     /*
      * Get the new address from the net link message
@@ -153,9 +178,26 @@ void process_nl_add_address (struct nlmsghdr *nlh)
         }
     }
 
+    precess_address_change (iface, new_addr);
+}
+
+/*
+ * Change the address of the interface. If the address belongs to a not initialized locator, activate it.
+ * Program SMR
+ */
+
+void precess_address_change (
+        lispd_iface_elt     *iface,
+        lisp_addr_t         new_addr)
+{
+    lisp_addr_t                 *iface_addr         = NULL;
+    lispd_mappings_list         *mapping_list       = NULL;
+    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
+    int                         aux_afi             = 0;
+
     /* Check if the addres is a global address*/
     if (is_link_local_addr(new_addr) == TRUE){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_add_address: the extractet address from the netlink"
+        lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: the extractet address from the netlink"
                 "messages is a local link address: %s discarded", get_char_from_lisp_addr_t(new_addr));
         return;
     }
@@ -175,38 +217,51 @@ void process_nl_add_address (struct nlmsghdr *nlh)
         break;
     }
 
-    if (iface_addr == NULL){
-        /* XXX To be done */
-        lispd_log_msg(LISP_LOG_DEBUG_1,"process_nl_add_address: Automatic assignemen of locators is not supported."
-                "Restart LISPmob to use %s as a locator", get_char_from_lisp_addr_t(new_addr));
-        return;
-    }
-
-    if (compare_lisp_addr_t(iface_addr,&new_addr)==0){ // Same address that we already have
-        lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_add_address: The detected change of address for interface %s "
+    // Same address that we already have
+    if (compare_lisp_addr_t(iface_addr,&new_addr)==0){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: The detected change of address for interface %s "
                 "doesn't affect",iface->iface_name);
         return;
     }
 
-    lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_add_address: New address detected for interface %s -> %s: Start SMR process",
-                    iface->iface_name, get_char_from_lisp_addr_t(new_addr));
-
+    aux_afi = iface_addr->afi;
     // Update the new address
     copy_lisp_addr(iface_addr, &new_addr);
 
+    // The interface was down during initial configuratiopn process and now it is up.
+    if (aux_afi == AF_UNSPEC){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"precess_address_change: Activating the locator address %s"
+                , get_char_from_lisp_addr_t(new_addr));
+        activate_interface_address(iface, new_addr);
+        if (iface->status == UP){
+            iface_balancing_vectors_calc(iface);
+        }
+    }
+
+    lispd_log_msg(LISP_LOG_DEBUG_1,"precess_address_change: New address detected for interface %s -> %s: Start SMR process",
+            iface->iface_name, get_char_from_lisp_addr_t(new_addr));
+
     /* Set the affected mappings as updated and sort again the locators list of the affected mappings*/
     while (mapping_list != NULL){
-        printf ("1******************************************************\n");
-        sort_locators_list_elt (mapping_list->mapping, iface_addr);
+        if (aux_afi != AF_UNSPEC){ // When the locator is activated, it is automatically sorted
+            sort_locators_list_elt (mapping_list->mapping, iface_addr);
+        }
         lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
-        lcl_extended_info->mapping_updated = TRUE;
+        if (lcl_extended_info->requires_smr == NEW_STATUS || lcl_extended_info->requires_smr == NEW_STATUS_AND_ADDR){
+            lcl_extended_info->requires_smr = NEW_STATUS_AND_ADDR;
+        }else{
+            lcl_extended_info->requires_smr = NEW_ADDRESS;
+        }
         mapping_list = mapping_list->next;
     }
 
-    // Init SMR procedure
-    init_smr();
-}
+    /* Reprograming SMR timer*/
+    if (smr_timer == NULL){
+        smr_timer = create_timer (SMR_TIMER);
+    }
 
+    start_timer(smr_timer, LISPD_SMR_TIMEOUT,(timer_callback)init_smr, NULL);
+}
 
 
 void process_nl_del_address (struct nlmsghdr *nlh)
@@ -253,7 +308,6 @@ void process_nl_new_link (struct nlmsghdr *nlh)
     struct ifinfomsg                    *ifi            = NULL;
     lispd_iface_elt                     *iface          = NULL;
     int                                 iface_index     = 0;
-    timer_iface_status_update_argument  *arguments      = NULL;
     uint8_t                             status          = UP;
 
 
@@ -276,92 +330,150 @@ void process_nl_new_link (struct nlmsghdr *nlh)
         status = DOWN;
     }
 
-    /* Reprograming timer*/
-    if (iface->status_transition_timer == NULL){
-        if ((arguments = malloc(sizeof(timer_iface_status_update_argument)))==NULL){
-            lispd_log_msg(LISP_LOG_WARNING,"process_nl_new_link: Unable to allocate memory for timer_iface_status_update_argument: %s",
-                    strerror(errno));
-            return ;
-        }
-
-        arguments->iface  = iface;
-        arguments->status = status;
-
-        iface->status_transition_timer = create_timer (INTERFACE_CHANGE_TIMER);
-    }else {
-        arguments = (timer_iface_status_update_argument *)(iface->status_transition_timer->cb_argument);
-        arguments->status = status;
-    }
-
-    start_timer(iface->status_transition_timer, LISPD_IFACE_TRANS_TIMEOUT,
-            (timer_callback)interface_change_update, (void *)arguments);
+    process_link_status_change (iface, status);
 }
 
-int interface_change_update(
-    timer *timer,
-    void *arg)
-{
-    printf ("===><==================================>\n");
-    timer_iface_status_update_argument     *argument           = (timer_iface_status_update_argument *)arg;
-    lispd_mappings_list                    *mapping_list[2]    = {NULL, NULL};
-    lcl_mapping_extended_info              *lcl_extended_info  = NULL;
-    int                                    ctr                 = 0;
 
-    /*  If we reached here due to a transition period don't do anyhing */
-    if (argument->status == argument->iface->status){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"interface_change_update: Transition period of interface %s. No changes", argument->iface->iface_name);
-        free (argument->iface->status_transition_timer);
-        argument->iface->status_transition_timer = NULL;
-        free (argument);
-        return (GOOD);
+/*
+ * Change the satus of the interface. Recalculate default control and output interfaces if it's needed.
+ * Program SMR
+ */
+
+void process_link_status_change(
+    lispd_iface_elt     *iface,
+    int                 new_status)
+{
+
+    lispd_mappings_list         *mapping_list[2]    = {NULL, NULL};
+    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
+    int                         ctr                 = 0;
+
+    mapping_list[0] = iface->head_v4_mappings_list;
+    mapping_list[1] = iface->head_v6_mappings_list;
+
+    /* Solve problem of sending several SMR due to interface status transitions*/
+    for (ctr = 0 ; ctr < 2 ; ctr ++){
+        while (mapping_list[ctr] != NULL){
+            lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info);
+            switch (lcl_extended_info->requires_smr){
+            case NO_SMR:
+                lcl_extended_info->requires_smr = NEW_STATUS;
+                break;
+            case NEW_ADDRESS:
+                lcl_extended_info->requires_smr = NEW_STATUS_AND_ADDR;
+                break;
+            case NEW_STATUS:
+                lcl_extended_info->requires_smr = NO_SMR;
+                break;
+            case NEW_STATUS_AND_ADDR:
+                lcl_extended_info->requires_smr = NEW_ADDRESS;
+                break;
+            }
+            mapping_list[ctr] = mapping_list[ctr]->next;
+        }
     }
 
     // Change status of the interface
-    argument->iface->status = argument->status;
+    iface->status = new_status;
 
     /*
      * If the affected interface is the default control or output iface, recalculate it
      */
 
-    if (default_ctrl_iface_v4 == argument->iface
-            || default_ctrl_iface_v6 == argument->iface
+    if (default_ctrl_iface_v4 == iface
+            || default_ctrl_iface_v6 == iface
             || default_ctrl_iface_v4 == NULL
             || default_ctrl_iface_v6 == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default control interface down. Recalculate new control interface");
         set_default_ctrl_ifaces();
     }
 
-    if (default_out_iface_v4 == argument->iface
-            || default_out_iface_v6 == argument->iface
+    if (default_out_iface_v4 == iface
+            || default_out_iface_v6 == iface
             || default_out_iface_v4 == NULL
             || default_out_iface_v6 == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default output interface down. Recalculate new output interface");
         set_default_output_ifaces();
     }
 
-    /*
-     * Recalculate balancing vector for each affected mapping
-     */
+    iface_balancing_vectors_calc(iface);
 
-    mapping_list[0] = argument->iface->head_v4_mappings_list;
-    mapping_list[1] = argument->iface->head_v6_mappings_list;
-    for (ctr = 0 ; ctr < 2 ; ctr ++){
-        while (mapping_list[ctr] != NULL){
-            lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info);
-            lcl_extended_info->mapping_updated = TRUE; /* Change in the mapping */
-            calculate_balancing_vectors (
-                    mapping_list[ctr]->mapping,
-                    &(lcl_extended_info->outgoing_balancing_locators_vecs));
-            mapping_list[ctr] = mapping_list[ctr]->next;
-        }
+    /* Reprograming SMR timer*/
+    if (smr_timer == NULL){
+        smr_timer = create_timer (SMR_TIMER);
     }
-    /* Initiate SMR for each affected mapping */
-    init_smr();
+    start_timer(smr_timer, LISPD_SMR_TIMEOUT,(timer_callback)init_smr, NULL);
 
-    free (argument->iface->status_transition_timer);
-    argument->iface->status_transition_timer = NULL;
-    free (argument);
-    return (GOOD);
 }
+
+
+
+
+/*
+ * Activate the locators associated with the interface using the new address
+ * This function is only used when an interface is down during the initial configuration process and then is activated
+ */
+
+void activate_interface_address(
+        lispd_iface_elt     *iface,
+        lisp_addr_t         new_address)
+{
+    lispd_mappings_list     *mapping_list               = NULL;
+    lispd_mapping_elt       *mapping                    = NULL;
+    lispd_locators_list     **not_init_locators_list    = NULL;
+    lispd_locators_list     **locators_list             = NULL;
+    lispd_locator_elt       *locator                    = NULL;
+
+    switch(new_address.afi){
+    case AF_INET:
+        mapping_list = iface->head_v4_mappings_list;
+        iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+        break;
+    case AF_INET6:
+        mapping_list = iface->head_v6_mappings_list;
+        iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        break;
+    }
+
+    /*
+     * Activate the locator for each mapping associated with the interface
+     */
+    while (mapping_list != NULL){
+        mapping = mapping_list->mapping;
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Activating locator %s associated to the EID %s/%d\n",
+                get_char_from_lisp_addr_t(new_address),
+                get_char_from_lisp_addr_t(mapping->eid_prefix),
+                mapping->eid_prefix_length);
+        not_init_locators_list = &(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
+        locator = extract_locator_from_list (not_init_locators_list, new_address);
+        if (locator != NULL){
+            switch(new_address.afi){
+            case AF_INET:
+                ((lcl_locator_extended_info *)locator->extended_info)->out_socket = iface->out_socket_v4;
+                locators_list = &mapping->head_v4_locators_list;
+                break;
+            case AF_INET6:
+                ((lcl_locator_extended_info *)locator->extended_info)->out_socket = iface->out_socket_v6;
+                locators_list = &mapping->head_v6_locators_list;
+                break;
+            }
+            if (add_locator_to_list (locators_list,locator) == GOOD){
+                mapping->locator_count = mapping->locator_count + 1;
+            }else{
+                free_locator(locator);
+            }
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"activate_interface_address: No locator with address %s has been found"
+                    " in the not init locators list of the mapping %s/%d. It should never reach here",
+                    get_char_from_lisp_addr_t(new_address),
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),
+                    mapping->eid_prefix_length);
+        }
+        mapping_list = mapping_list->next;
+    }
+}
+
+
+
 
 

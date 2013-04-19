@@ -254,10 +254,11 @@ int lispd_get_address(
 /*
  *  lispd_get_iface_address
  *
- *  return lisp_addr_t for the interface, 0 if none
+ *  fill the parameter addr with the lisp_addr_t of the interface with afi.
+ *  Return BAD if no address is present in the interface.
  */
 
-lisp_addr_t *lispd_get_iface_address(
+int lispd_get_iface_address(
     char                *ifacename,
     lisp_addr_t         *addr,
     int                 afi)
@@ -274,7 +275,7 @@ lisp_addr_t *lispd_get_iface_address(
         if(afi != default_rloc_afi){
             lispd_log_msg(LISP_LOG_INFO,"Default RLOC afi defined: Skipped %s address in iface %s",
                           (afi == AF_INET) ? "IPv4" : "IPv6",ifacename);
-            return (NULL);
+            return (BAD);
         }
     }
 
@@ -291,7 +292,7 @@ lisp_addr_t *lispd_get_iface_address(
     if (getifaddrs(&ifaddr) !=0) {
         lispd_log_msg(LISP_LOG_DEBUG_2,
                "lispd_get_iface_address: getifaddrs error: %s", strerror(errno));
-        return(NULL);
+        return(BAD);
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
@@ -317,7 +318,7 @@ lisp_addr_t *lispd_get_iface_address(
                         inet_ntop(AF_INET, &(s4->sin_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
                 freeifaddrs(ifaddr);
-                return(addr);
+                return(GOOD);
             } else {
                 continue;
             }
@@ -341,7 +342,7 @@ lisp_addr_t *lispd_get_iface_address(
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
                 freeifaddrs(ifaddr);
-                return(addr);
+                return(GOOD);
             } else {
                 continue;
             }
@@ -353,7 +354,7 @@ lisp_addr_t *lispd_get_iface_address(
     lispd_log_msg(LISP_LOG_DEBUG_3, "lispd_get_iface_address: No %s RLOC configured for interface %s\n",
             (afi == AF_INET) ? "IPv4" : "IPv6",
             ifacename);
-    return(NULL);
+    return(BAD);
 }
 
 /*

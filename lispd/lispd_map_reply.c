@@ -276,9 +276,9 @@ int build_and_send_map_reply_msg(
         map_reply_opts opts)
 {
 
-    uint8_t *packet;
-    int packet_len = 0;
-    int result;
+    uint8_t         *packet         = NULL;
+    int             packet_len      = 0;
+    int             result          = 0;
 
     /* Build the packet */
     if (opts.rloc_probe)

@@ -35,12 +35,19 @@
 #include "lispd_external.h"
 #include "lispd_log.h"
 
+/*
+ * smr_timer is used to avoid sending SMRs during transition period.
+ */
+timer *smr_timer = NULL;
+
 //void smr_pitrs();
 
 /*
  * Send a solicit map request for each rloc of all eids in the map cahce database
  */
-void init_smr()
+void init_smr(
+        timer *timer_elt,
+        void  *arg)
 {
     patricia_tree_t             *local_dbs [2]      = {NULL,NULL};
     patricia_tree_t             *map_cache_dbs [2]  = {NULL,NULL};
@@ -57,6 +64,10 @@ void init_smr()
     lispd_locators_list         *locator_iterator   = NULL;
     lispd_locator_elt           *locator            = NULL;
 
+
+
+    lispd_log_msg(LISP_LOG_DEBUG_2,"*** Init SMR notification ***");
+
     local_dbs[0] = get_local_db(AF_INET);
     local_dbs[1] = get_local_db(AF_INET6);
 
@@ -68,7 +79,7 @@ void init_smr()
         PATRICIA_WALK(local_dbs[ctr]->head, lcl_node) {
             mapping = ((lispd_mapping_elt *)(lcl_node->data));
             lcl_extended_info = (lcl_mapping_extended_info *)mapping->extended_info;
-            if (lcl_extended_info->mapping_updated == TRUE){
+            if (lcl_extended_info->requires_smr != NO_SMR){
                 /* Send a map register for the affected mapping */
                 build_and_send_map_register_msg(mapping);
 
@@ -97,13 +108,14 @@ void init_smr()
                     }
                 }PATRICIA_WALK_END;
 
-                lcl_extended_info->mapping_updated = FALSE;
+                lcl_extended_info->requires_smr = NO_SMR;
             }
 
         }PATRICIA_WALK_END;
     }
 
     smr_pitrs();
+    lispd_log_msg(LISP_LOG_DEBUG_2,"*** Finish SMR notification ***");
 }
 
 /*

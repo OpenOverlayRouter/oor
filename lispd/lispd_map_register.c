@@ -46,7 +46,7 @@
 
 
 
-lispd_pkt_map_register_t *build_map_register_pkt(
+uint8_t *build_map_register_pkt(
         lispd_mapping_elt       *mapping,
         int                     *mrp_len);
 
@@ -87,11 +87,13 @@ int map_register(
         }
         PATRICIA_WALK(tree->head, node) {
             mapping = ((lispd_mapping_elt *)(node->data));
-            err = build_and_send_map_register_msg(mapping);
-            if (err != GOOD){
-                lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s/%d EID!",
-                        get_char_from_lisp_addr_t(mapping->eid_prefix),
-                        mapping->eid_prefix_length);
+            if (mapping->locator_count != 0){
+                err = build_and_send_map_register_msg(mapping);
+                if (err != GOOD){
+                    lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s/%d EID!",
+                            get_char_from_lisp_addr_t(mapping->eid_prefix),
+                            mapping->eid_prefix_length);
+                }
             }
         }PATRICIA_WALK_END;
     }
@@ -116,18 +118,20 @@ int map_register(
 
 int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
 {
+    uint8_t                   *packet               = NULL;
+    int                       packet_len            = 0;
     lispd_pkt_map_register_t  *map_register_pkt     = NULL;
     lispd_map_server_list_t   *ms                   = NULL;
-    int                       mrp_len               = 0;
     uint32_t                  md_len                = 0;
     int                       sent_map_registers    = 0;
 
 
-    if ((map_register_pkt =
-            build_map_register_pkt(mapping, &mrp_len)) == NULL) {
+    if ((packet = build_map_register_pkt(mapping, &packet_len)) == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couldn't build map register packet");
         return(BAD);
     }
+
+    map_register_pkt = (lispd_pkt_map_register_t *)packet;
 
     //  for each map server, send a register, and if verify
     //  send a map-request for our eid prefix
@@ -147,7 +151,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
                 (const void *) ms->key,
                 strlen(ms->key),
                 (uchar *) map_register_pkt,
-                mrp_len,
+                packet_len,
                 (uchar *) map_register_pkt->auth_data,
                 &md_len)) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: HMAC failed for map-register");
@@ -156,7 +160,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
         }
 
         /* Send the map register */
-        err = send_udp_ctrl_packet(ms->address,0,LISP_CONTROL_PORT,(void *)map_register_pkt,mrp_len);
+        err = send_udp_ctrl_packet(ms->address,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)map_register_pkt,packet_len);
 
         if (err == GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to maps server %s",
@@ -189,21 +193,23 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
  *
  */
 
-lispd_pkt_map_register_t *build_map_register_pkt(
+uint8_t *build_map_register_pkt(
         lispd_mapping_elt       *mapping,
         int                     *mrp_len)
 {
-    lispd_pkt_map_register_t *mrp;
-    lispd_pkt_mapping_record_t *mr;
+    uint8_t                         *packet     = NULL;
+    lispd_pkt_map_register_t        *mrp        = NULL;
+    lispd_pkt_mapping_record_t      *mr         = NULL;
 
     *mrp_len = sizeof(lispd_pkt_map_register_t) +
               pkt_get_mapping_record_length(mapping);
 
-    if ((mrp = malloc(*mrp_len)) == NULL) {
+    if ((packet = malloc(*mrp_len)) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "build_map_register_pkt: Unable to allocate memory for Map Register packet: %s", strerror(errno));
         return(NULL);
     }
-    memset(mrp, 0, *mrp_len);
+
+    memset(packet, 0, *mrp_len);
 
     /*
      *  build the packet
@@ -212,6 +218,8 @@ lispd_pkt_map_register_t *build_map_register_pkt(
      *  send_map_register()
      *
      */
+    mrp = (lispd_pkt_map_register_t *)packet;
+
 
     mrp->lisp_type        = LISP_MAP_REGISTER;
     mrp->map_notify       = 1;              /* TODO conf item */
@@ -228,10 +236,10 @@ lispd_pkt_map_register_t *build_map_register_pkt(
 
     mr = (lispd_pkt_mapping_record_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
-    if (pkt_fill_mapping_record(mr, mapping, NULL)) {
-        return(mrp);
+    if (pkt_fill_mapping_record(mr, mapping, NULL) != NULL) {
+        return(packet);
     } else {
-        free(mrp);
+        free(packet);
         return(NULL);
     }
 }

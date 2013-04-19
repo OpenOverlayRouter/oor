@@ -52,7 +52,6 @@ typedef struct lispd_iface_elt_ {
     lispd_mappings_list         *head_v6_mappings_list;
     int                         out_socket_v4;
     int                         out_socket_v6;
-    timer                       *status_transition_timer;
 }lispd_iface_elt;
 
 /*
@@ -121,5 +120,11 @@ void set_default_output_ifaces();
 void set_default_ctrl_ifaces();
 
 lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi);
+
+/*
+ * Recalculate balancing vector of the mappings assorciated to iface
+ */
+
+void iface_balancing_vectors_calc(lispd_iface_elt  *iface);
 
 #endif /*LISPD_IFACE_LIST_H_*/
