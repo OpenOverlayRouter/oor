@@ -344,33 +344,31 @@ void process_link_status_change(
     int                 new_status)
 {
 
-    lispd_mappings_list         *mapping_list[2]    = {NULL, NULL};
+    lispd_mappings_list         *mapping_list       = NULL;
     lcl_mapping_extended_info   *lcl_extended_info  = NULL;
     int                         ctr                 = 0;
 
-    mapping_list[0] = iface->head_v4_mappings_list;
-    mapping_list[1] = iface->head_v6_mappings_list;
+    mapping_list = iface->head_v4_v6_mappings_list;
+
 
     /* Solve problem of sending several SMR due to interface status transitions*/
-    for (ctr = 0 ; ctr < 2 ; ctr ++){
-        while (mapping_list[ctr] != NULL){
-            lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info);
-            switch (lcl_extended_info->requires_smr){
-            case NO_SMR:
-                lcl_extended_info->requires_smr = NEW_STATUS;
-                break;
-            case NEW_ADDRESS:
-                lcl_extended_info->requires_smr = NEW_STATUS_AND_ADDR;
-                break;
-            case NEW_STATUS:
-                lcl_extended_info->requires_smr = NO_SMR;
-                break;
-            case NEW_STATUS_AND_ADDR:
-                lcl_extended_info->requires_smr = NEW_ADDRESS;
-                break;
-            }
-            mapping_list[ctr] = mapping_list[ctr]->next;
+    while (mapping_list != NULL){
+        lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
+        switch (lcl_extended_info->requires_smr){
+        case NO_SMR:
+            lcl_extended_info->requires_smr = NEW_STATUS;
+            break;
+        case NEW_ADDRESS:
+            lcl_extended_info->requires_smr = NEW_STATUS_AND_ADDR;
+            break;
+        case NEW_STATUS:
+            lcl_extended_info->requires_smr = NO_SMR;
+            break;
+        case NEW_STATUS_AND_ADDR:
+            lcl_extended_info->requires_smr = NEW_ADDRESS;
+            break;
         }
+        mapping_list = mapping_list->next;
     }
 
     // Change status of the interface

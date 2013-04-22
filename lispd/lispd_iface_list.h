@@ -48,8 +48,12 @@ typedef struct lispd_iface_elt_ {
     uint8_t                     status;
     lisp_addr_t                 *ipv4_address;
     lisp_addr_t                 *ipv6_address;
+    /* List of mappings that have a locator with the IPv4 address of the interface. Used to do SMR  when interface changes IPv4 address*/
     lispd_mappings_list         *head_v4_mappings_list;
+    /* List of mappings that have a locator with the IPv6 address of the interface. Used to do SMR  when interface changes IPv6 address*/
     lispd_mappings_list         *head_v6_mappings_list;
+    /* List of mappings that have IPv4 and IPv6 locators associated to this interface. Used to do SMR when interface changes status */
+    lispd_mappings_list         *head_v4_v6_mappings_list;
     int                         out_socket_v4;
     int                         out_socket_v6;
 }lispd_iface_elt;

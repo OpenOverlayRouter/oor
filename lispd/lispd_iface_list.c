@@ -101,6 +101,7 @@ lispd_iface_elt *add_interface(char *iface_name)
 
     iface->head_v4_mappings_list = NULL;
     iface->head_v6_mappings_list = NULL;
+    iface->head_v4_v6_mappings_list = NULL;
     iface_list->iface = iface;
     iface_list->next = NULL;
 
@@ -127,48 +128,66 @@ int add_mapping_to_interface (
         lispd_mapping_elt       *mapping,
         int                     afi)
 {
-	lispd_mappings_list *mappings_list, *aux_mappings_list;
+    lispd_mappings_list *mappings_list, *aux_mappings_list;
 
 
-	if ((mappings_list = malloc(sizeof(lispd_mappings_list)))==NULL){
-		lispd_log_msg(LISP_LOG_ERR,"add_mapping_to_interface: couldn't allocate memory for lispd_mappings_list: %s",strerror(errno));
-		return (ERR_MALLOC);
-	}
-	mappings_list->mapping=mapping;
-	mappings_list->next = NULL;
+    if ((mappings_list = malloc(sizeof(lispd_mappings_list)))==NULL){
+        lispd_log_msg(LISP_LOG_ERR,"add_mapping_to_interface: couldn't allocate memory for lispd_mappings_list: %s",strerror(errno));
+        return (ERR_MALLOC);
+    }
+    mappings_list->mapping=mapping;
+    mappings_list->next = NULL;
 
-	if ( afi == AF_INET ){
-		if (interface->head_v4_mappings_list == NULL){
-			interface->head_v4_mappings_list = mappings_list;
-			return (GOOD);
-		}
-		aux_mappings_list = interface->head_v4_mappings_list;
-	}
-	else{
-		if (interface->head_v6_mappings_list == NULL){
-			interface->head_v6_mappings_list = mappings_list;
-			return (GOOD);
-		}
-		aux_mappings_list = interface->head_v6_mappings_list;
-	}
-	while (aux_mappings_list->next && aux_mappings_list->mapping != mapping){
-		aux_mappings_list = aux_mappings_list->next;
-	}
+    if ( afi == AF_INET ){
+        if (interface->head_v4_mappings_list == NULL){
+            interface->head_v4_mappings_list = mappings_list;
+        }
+        aux_mappings_list = interface->head_v4_mappings_list;
+    }else{
+        if (interface->head_v6_mappings_list == NULL){
+            interface->head_v6_mappings_list = mappings_list;
+        }
+        aux_mappings_list = interface->head_v6_mappings_list;
+    }
+    while (aux_mappings_list->mapping != mapping && aux_mappings_list->next != NULL ){
+        aux_mappings_list = aux_mappings_list->next;
+    }
 
-	if (aux_mappings_list->mapping == mapping){
-	    lispd_log_msg(LISP_LOG_WARNING, "The EID %s/%d is already assigned to the RLOCs of the interface %s ->"
-	            "Duplicated entry in the configuration file",
-	            get_char_from_lisp_addr_t(mapping->eid_prefix),
-	            mapping->eid_prefix_length,
-	            interface->iface_name);
-		return (ERR_EXIST);
-	}
-	aux_mappings_list->next = mappings_list;
-	lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s/%d has been assigned to the RLOCs of the interface %s",
-	        get_char_from_lisp_addr_t(mapping->eid_prefix),
-	        mapping->eid_prefix_length,
-	        interface->iface_name);
-	return (GOOD);
+    if (aux_mappings_list->mapping != mapping){
+        aux_mappings_list->next = mappings_list;
+    }
+
+    lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s/%d has been assigned to the RLOCs of the interface %s",
+            get_char_from_lisp_addr_t(mapping->eid_prefix),
+            mapping->eid_prefix_length,
+            interface->iface_name);
+
+
+
+    /* Add the mapping in the array of 4 and 6  mappings*/
+    if ((mappings_list = malloc(sizeof(lispd_mappings_list)))==NULL){
+        lispd_log_msg(LISP_LOG_ERR,"add_mapping_to_interface: couldn't allocate memory for lispd_mappings_list: %s",strerror(errno));
+        return (ERR_MALLOC);
+    }
+    mappings_list->mapping=mapping;
+    mappings_list->next = NULL;
+    if (interface->head_v4_v6_mappings_list == NULL){
+        interface->head_v4_v6_mappings_list = mappings_list;
+        return (GOOD);
+    }
+    aux_mappings_list = interface->head_v4_v6_mappings_list;
+    while (aux_mappings_list->mapping != mapping && aux_mappings_list->next != NULL){
+        printf("%s - ",get_char_from_lisp_addr_t(aux_mappings_list->mapping->eid_prefix));
+        aux_mappings_list = aux_mappings_list->next;
+    }
+    printf("\n");
+    if (aux_mappings_list->mapping != mapping){
+        aux_mappings_list->next = mappings_list;
+    }else{
+       free(mappings_list);
+    }
+
+    return (GOOD);
 }
 
 /*
