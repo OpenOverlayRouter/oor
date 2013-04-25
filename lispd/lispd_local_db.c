@@ -31,6 +31,7 @@
 
 
 #include <netinet/in.h>
+#include "lispd_external.h"
 #include "lispd_lib.h"
 #include "lispd_map_cache_db.h"
 
@@ -271,6 +272,7 @@ void del_mapping_entry_from_db(
         patricia_remove(EIDv6_database, result);
     free_locator_list(entry->head_v4_locators_list);
     free_locator_list(entry->head_v6_locators_list);
+    total_mappings--;
     free(entry);
 }
 

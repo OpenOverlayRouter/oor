@@ -191,8 +191,7 @@ void precess_address_change (
         lisp_addr_t         new_addr)
 {
     lisp_addr_t                 *iface_addr         = NULL;
-    lispd_mappings_list         *mapping_list       = NULL;
-    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
+    lispd_iface_mappings_list   *mapping_list       = NULL;
     int                         aux_afi             = 0;
 
     /* Check if the addres is a global address*/
@@ -209,11 +208,9 @@ void precess_address_change (
     switch (new_addr.afi){
     case AF_INET:
         iface_addr = iface->ipv4_address;
-        mapping_list = iface->head_v4_mappings_list;
         break;
     case AF_INET6:
         iface_addr = iface->ipv6_address;
-        mapping_list = iface->head_v6_mappings_list;
         break;
     }
 
@@ -228,7 +225,8 @@ void precess_address_change (
     // Update the new address
     copy_lisp_addr(iface_addr, &new_addr);
 
-    // The interface was down during initial configuratiopn process and now it is up.
+
+    /* The interface was down during initial configuratiopn process and now it is up. Activate address */
     if (aux_afi == AF_UNSPEC){
         lispd_log_msg(LISP_LOG_DEBUG_1,"precess_address_change: Activating the locator address %s"
                 , get_char_from_lisp_addr_t(new_addr));
@@ -238,23 +236,30 @@ void precess_address_change (
         }
     }
 
-    lispd_log_msg(LISP_LOG_DEBUG_1,"precess_address_change: New address detected for interface %s -> %s: Start SMR process",
+    lispd_log_msg(LISP_LOG_DEBUG_1,"precess_address_change: New address detected for interface %s -> %s",
             iface->iface_name, get_char_from_lisp_addr_t(new_addr));
 
-    /* Set the affected mappings as updated and sort again the locators list of the affected mappings*/
+    mapping_list = iface->head_mappings_list;
+    /* Sort again the locators list of the affected mappings*/
     while (mapping_list != NULL){
-        if (aux_afi != AF_UNSPEC){ // When the locator is activated, it is automatically sorted
+        if (aux_afi != AF_UNSPEC && // When the locator is activated, it is automatically sorted
+                ((new_addr.afi == AF_INET && mapping_list->use_ipv4_address == TRUE) ||
+                        (new_addr.afi == AF_INET6 && mapping_list->use_ipv6_address == TRUE))){
             sort_locators_list_elt (mapping_list->mapping, iface_addr);
-        }
-        lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
-        if (lcl_extended_info->requires_smr == NEW_STATUS || lcl_extended_info->requires_smr == NEW_STATUS_AND_ADDR){
-            lcl_extended_info->requires_smr = NEW_STATUS_AND_ADDR;
-        }else{
-            lcl_extended_info->requires_smr = NEW_ADDRESS;
         }
         mapping_list = mapping_list->next;
     }
 
+    /* Indicate change of address in the interface */
+
+    switch (new_addr.afi){
+    case AF_INET:
+        iface->ipv4_changed = TRUE;
+        break;
+    case AF_INET6:
+        iface->ipv6_changed = TRUE;
+        break;
+    }
     /* Reprograming SMR timer*/
     if (smr_timer == NULL){
         smr_timer = create_timer (SMR_TIMER);
@@ -343,32 +348,15 @@ void process_link_status_change(
     lispd_iface_elt     *iface,
     int                 new_status)
 {
+    if (iface->status == new_status){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_link_status_change: The detected change of status doesn't affect");
+        return;
+    }
 
-    lispd_mappings_list         *mapping_list       = NULL;
-    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
-    int                         ctr                 = 0;
-
-    mapping_list = iface->head_v4_v6_mappings_list;
-
-
-    /* Solve problem of sending several SMR due to interface status transitions*/
-    while (mapping_list != NULL){
-        lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
-        switch (lcl_extended_info->requires_smr){
-        case NO_SMR:
-            lcl_extended_info->requires_smr = NEW_STATUS;
-            break;
-        case NEW_ADDRESS:
-            lcl_extended_info->requires_smr = NEW_STATUS_AND_ADDR;
-            break;
-        case NEW_STATUS:
-            lcl_extended_info->requires_smr = NO_SMR;
-            break;
-        case NEW_STATUS_AND_ADDR:
-            lcl_extended_info->requires_smr = NEW_ADDRESS;
-            break;
-        }
-        mapping_list = mapping_list->next;
+    if (iface->status_changed == TRUE){
+        iface->status_changed = FALSE;
+    }else{
+        iface->status_changed = TRUE;
     }
 
     // Change status of the interface
@@ -416,23 +404,22 @@ void activate_interface_address(
         lispd_iface_elt     *iface,
         lisp_addr_t         new_address)
 {
-    lispd_mappings_list     *mapping_list               = NULL;
-    lispd_mapping_elt       *mapping                    = NULL;
-    lispd_locators_list     **not_init_locators_list    = NULL;
-    lispd_locators_list     **locators_list             = NULL;
-    lispd_locator_elt       *locator                    = NULL;
+    lispd_iface_mappings_list       *mapping_list               = NULL;
+    lispd_mapping_elt               *mapping                    = NULL;
+    lispd_locators_list             **not_init_locators_list    = NULL;
+    lispd_locators_list             **locators_list             = NULL;
+    lispd_locator_elt               *locator                    = NULL;
 
     switch(new_address.afi){
     case AF_INET:
-        mapping_list = iface->head_v4_mappings_list;
         iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
         break;
     case AF_INET6:
-        mapping_list = iface->head_v6_mappings_list;
         iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
         break;
     }
 
+    mapping_list = iface->head_mappings_list;
     /*
      * Activate the locator for each mapping associated with the interface
      */
@@ -447,14 +434,17 @@ void activate_interface_address(
         if (locator != NULL){
             switch(new_address.afi){
             case AF_INET:
+                mapping_list->use_ipv4_address = TRUE;
                 ((lcl_locator_extended_info *)locator->extended_info)->out_socket = iface->out_socket_v4;
                 locators_list = &mapping->head_v4_locators_list;
                 break;
             case AF_INET6:
+                mapping_list->use_ipv6_address = TRUE;
                 ((lcl_locator_extended_info *)locator->extended_info)->out_socket = iface->out_socket_v6;
                 locators_list = &mapping->head_v6_locators_list;
                 break;
             }
+            /* Add the activated locator */
             if (add_locator_to_list (locators_list,locator) == GOOD){
                 mapping->locator_count = mapping->locator_count + 1;
             }else{

@@ -37,6 +37,16 @@
 #include "lispd_mapping.h"
 #include "lispd_timers.h"
 
+/*
+ * list of mappings associated to the interface containin this structure.
+ */
+typedef struct lispd_iface_mappings_list_ {
+    lispd_mapping_elt                       *mapping;
+    uint8_t                                 use_ipv4_address:1;// The mapping has a locator that use the IPv4 address of iface
+    uint8_t                                 use_ipv6_address:1;// The mapping has a locator that use the IPv6 address of iface
+    struct lispd_iface_mappings_list_       *next;
+} lispd_iface_mappings_list;
+
 
 /*
  * Interface structure
@@ -48,12 +58,11 @@ typedef struct lispd_iface_elt_ {
     uint8_t                     status;
     lisp_addr_t                 *ipv4_address;
     lisp_addr_t                 *ipv6_address;
-    /* List of mappings that have a locator with the IPv4 address of the interface. Used to do SMR  when interface changes IPv4 address*/
-    lispd_mappings_list         *head_v4_mappings_list;
-    /* List of mappings that have a locator with the IPv6 address of the interface. Used to do SMR  when interface changes IPv6 address*/
-    lispd_mappings_list         *head_v6_mappings_list;
-    /* List of mappings that have IPv4 and IPv6 locators associated to this interface. Used to do SMR when interface changes status */
-    lispd_mappings_list         *head_v4_v6_mappings_list;
+    /* List of mappings that have a locator associated with this interface. Used to do SMR  when interface changes*/
+    lispd_iface_mappings_list   *head_mappings_list;
+    uint8_t                     status_changed:1;
+    uint8_t                     ipv4_changed:1;
+    uint8_t                     ipv6_changed:1;
     int                         out_socket_v4;
     int                         out_socket_v6;
 }lispd_iface_elt;
@@ -124,6 +133,12 @@ void set_default_output_ifaces();
 void set_default_ctrl_ifaces();
 
 lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi);
+
+/*
+ * Return the list of interfaces
+ */
+
+lispd_iface_list_elt *get_head_interface_list();
 
 /*
  * Recalculate balancing vector of the mappings assorciated to iface

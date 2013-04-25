@@ -454,7 +454,6 @@ int set_tun_default_route_v6(int tun_ifindex)
             prefix_len,
             metric);
 
-
     get_lisp_addr_from_char("8000::",&dest);
 
     add_route(tun_ifindex,

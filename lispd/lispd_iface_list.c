@@ -99,9 +99,10 @@ lispd_iface_elt *add_interface(char *iface_name)
         iface->status = UP;
     }
 
-    iface->head_v4_mappings_list = NULL;
-    iface->head_v6_mappings_list = NULL;
-    iface->head_v4_v6_mappings_list = NULL;
+    iface->head_mappings_list = NULL;
+    iface->status_changed = FALSE;
+    iface->ipv4_changed = FALSE;
+    iface->ipv6_changed = FALSE;
     iface_list->iface = iface;
     iface_list->next = NULL;
 
@@ -128,64 +129,62 @@ int add_mapping_to_interface (
         lispd_mapping_elt       *mapping,
         int                     afi)
 {
-    lispd_mappings_list *mappings_list, *aux_mappings_list;
+    lispd_iface_mappings_list       *mappings_list      = NULL;
+    lispd_iface_mappings_list       *prev_mappings_list  = NULL;
 
 
-    if ((mappings_list = malloc(sizeof(lispd_mappings_list)))==NULL){
+    mappings_list = interface->head_mappings_list;
+    while (mappings_list != NULL){
+        // Check if the mapping is already installed in the list
+        if ( mappings_list->mapping == mapping ){
+            switch(afi){
+            case AF_INET:
+                mappings_list->use_ipv4_address = TRUE;
+                break;
+            case AF_INET6:
+                mappings_list->use_ipv6_address = TRUE;
+                break;
+            }
+            lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s/%d has been assigned to the RLOCs of the interface %s",
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),
+                    mapping->eid_prefix_length,
+                    interface->iface_name);
+            return (GOOD);
+        }
+        prev_mappings_list = mappings_list;
+        mappings_list = mappings_list->next;
+    }
+
+
+    if ((mappings_list = malloc(sizeof(lispd_iface_mappings_list)))==NULL){
         lispd_log_msg(LISP_LOG_ERR,"add_mapping_to_interface: couldn't allocate memory for lispd_mappings_list: %s",strerror(errno));
         return (ERR_MALLOC);
     }
+
     mappings_list->mapping=mapping;
     mappings_list->next = NULL;
 
-    if ( afi == AF_INET ){
-        if (interface->head_v4_mappings_list == NULL){
-            interface->head_v4_mappings_list = mappings_list;
-        }
-        aux_mappings_list = interface->head_v4_mappings_list;
-    }else{
-        if (interface->head_v6_mappings_list == NULL){
-            interface->head_v6_mappings_list = mappings_list;
-        }
-        aux_mappings_list = interface->head_v6_mappings_list;
-    }
-    while (aux_mappings_list->mapping != mapping && aux_mappings_list->next != NULL ){
-        aux_mappings_list = aux_mappings_list->next;
+    switch(afi){
+    case AF_INET:
+        mappings_list->use_ipv4_address = TRUE;
+        mappings_list->use_ipv6_address = FALSE;
+        break;
+    case AF_INET6:
+        mappings_list->use_ipv4_address = FALSE;
+        mappings_list->use_ipv6_address = TRUE;
+        break;
     }
 
-    if (aux_mappings_list->mapping != mapping){
-        aux_mappings_list->next = mappings_list;
+    if (prev_mappings_list != NULL){
+        prev_mappings_list->next =  mappings_list;
+    }else{
+        interface->head_mappings_list = mappings_list;
     }
 
     lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s/%d has been assigned to the RLOCs of the interface %s",
             get_char_from_lisp_addr_t(mapping->eid_prefix),
             mapping->eid_prefix_length,
             interface->iface_name);
-
-
-
-    /* Add the mapping in the array of 4 and 6  mappings*/
-    if ((mappings_list = malloc(sizeof(lispd_mappings_list)))==NULL){
-        lispd_log_msg(LISP_LOG_ERR,"add_mapping_to_interface: couldn't allocate memory for lispd_mappings_list: %s",strerror(errno));
-        return (ERR_MALLOC);
-    }
-    mappings_list->mapping=mapping;
-    mappings_list->next = NULL;
-    if (interface->head_v4_v6_mappings_list == NULL){
-        interface->head_v4_v6_mappings_list = mappings_list;
-        return (GOOD);
-    }
-    aux_mappings_list = interface->head_v4_v6_mappings_list;
-    while (aux_mappings_list->mapping != mapping && aux_mappings_list->next != NULL){
-        printf("%s - ",get_char_from_lisp_addr_t(aux_mappings_list->mapping->eid_prefix));
-        aux_mappings_list = aux_mappings_list->next;
-    }
-    printf("\n");
-    if (aux_mappings_list->mapping != mapping){
-        aux_mappings_list->next = mappings_list;
-    }else{
-       free(mappings_list);
-    }
 
     return (GOOD);
 }
@@ -244,7 +243,7 @@ void dump_iface_list(int log_level)
 {
 
     lispd_iface_list_elt     *interface_list    = head_interface_list;
-    lispd_mappings_list      *mapping_list      = NULL;
+    lispd_iface_mappings_list      *mapping_list      = NULL;
     char                     str[4000];
 
     if (head_interface_list == NULL || is_loggable(log_level) == FALSE){
@@ -258,20 +257,24 @@ void dump_iface_list(int log_level)
         if (interface_list->iface->ipv4_address){
             sprintf(str + strlen(str),"  IPv4 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv4_address)));
             sprintf(str + strlen(str),"    -- LIST mappings -- \n");
-            mapping_list = interface_list->iface->head_v4_mappings_list;
+            mapping_list = interface_list->iface->head_mappings_list;
             while (mapping_list){
-                sprintf(str + strlen(str),"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
-                        mapping_list->mapping->eid_prefix_length);
+                if (mapping_list->use_ipv4_address == TRUE){
+                    sprintf(str + strlen(str),"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
+                            mapping_list->mapping->eid_prefix_length);
+                }
                 mapping_list = mapping_list->next;
             }
         }
         if (interface_list->iface->ipv6_address){
             sprintf(str + strlen(str),"  IPv6 RLOC: %s \n",get_char_from_lisp_addr_t(*(interface_list->iface->ipv6_address)));
             sprintf(str + strlen(str),"    -- LIST mappings -- \n");
-            mapping_list = interface_list->iface->head_v6_mappings_list;
+            mapping_list = interface_list->iface->head_mappings_list;
             while (mapping_list){
-                sprintf(str + strlen(str),"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
-                        mapping_list->mapping->eid_prefix_length);
+                if (mapping_list->use_ipv6_address == TRUE){
+                    sprintf(str + strlen(str),"    %s/%d\n",get_char_from_lisp_addr_t(mapping_list->mapping->eid_prefix),
+                            mapping_list->mapping->eid_prefix_length);
+                }
                 mapping_list = mapping_list->next;
             }
         }
@@ -424,26 +427,33 @@ lisp_addr_t *get_iface_address(
     return (addr);
     
 }
+
+/*
+ * Return the list of interfaces
+ */
+
+lispd_iface_list_elt *get_head_interface_list()
+{
+    return head_interface_list;
+}
+
+
 /*
  * Recalculate balancing vector of the mappings assorciated to iface
  */
 
 void iface_balancing_vectors_calc(lispd_iface_elt  *iface)
 {
-    lispd_mappings_list         *mapping_list[2]    = {NULL, NULL};
+    lispd_iface_mappings_list   *mapping_list       = NULL;
     lcl_mapping_extended_info   *lcl_extended_info  = NULL;
-    int                         ctr                 = 0;
 
-    mapping_list[0] = iface->head_v4_mappings_list;
-    mapping_list[1] = iface->head_v6_mappings_list;
-    for (ctr = 0 ; ctr < 2 ; ctr ++){
-        while (mapping_list[ctr] != NULL){
-            lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list[ctr]->mapping->extended_info);
-            calculate_balancing_vectors (
-                    mapping_list[ctr]->mapping,
-                    &(lcl_extended_info->outgoing_balancing_locators_vecs));
-            mapping_list[ctr] = mapping_list[ctr]->next;
-        }
+    mapping_list = iface->head_mappings_list;
+    while (mapping_list != NULL){
+        lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
+        calculate_balancing_vectors (
+                mapping_list->mapping,
+                &(lcl_extended_info->outgoing_balancing_locators_vecs));
+        mapping_list = mapping_list->next;
     }
 }
 

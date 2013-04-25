@@ -131,7 +131,6 @@ lispd_mapping_elt *new_local_mapping(
     extended_info->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
     extended_info->outgoing_balancing_locators_vecs.locators_vec_length = 0;
 
-    extended_info->requires_smr = NO_SMR;
     extended_info->head_not_init_locators_list = NULL;
 
     return (mapping);

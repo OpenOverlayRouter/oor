@@ -85,7 +85,8 @@ int      default_rloc_afi                   = -1;
 int      daemonize                          = FALSE;
 int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
 int      control_port                       = LISP_CONTROL_PORT;
-uint32_t iseed  = 0;            /* initial random number generator */
+uint32_t iseed                              = 0;  /* initial random number generator */
+int      total_mappings                     = 0;
 /*
  *      various globals
  */
@@ -117,12 +118,6 @@ int     timers_fd                       = 0;
 int 	smr_timer_fd					= 0;
 #endif
 
-/*
- * Interface on which control messages
- * are sent
- */
-
-lisp_addr_t source_rloc;
 
 int main(int argc, char **argv) 
 {
@@ -291,6 +286,7 @@ int main(int argc, char **argv)
 #else
     tun_v4_addr = get_main_eid(AF_INET);
     tun_v6_addr = get_main_eid(AF_INET6);
+
 #endif
     tun_bring_up_iface(tun_dev_name);
     if (tun_v4_addr != NULL){

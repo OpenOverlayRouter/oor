@@ -550,7 +550,11 @@ int select_src_rmt_locators_from_balancing_locators_vec (
         src_loc_vec = src_blv->v4_balancing_locators_vec;
         src_vec_len = src_blv->v4_locators_vec_length;
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_2,"get_rloc_from_balancing_locator_vec: Source and destination RLOCs have differnet afi");
+        if (src_blv->v4_balancing_locators_vec == NULL && src_blv->v6_balancing_locators_vec == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_2,"get_rloc_from_balancing_locator_vec: No src locators available");
+        }else {
+            lispd_log_msg(LISP_LOG_DEBUG_2,"get_rloc_from_balancing_locator_vec: Source and destination RLOCs have differnet afi");
+        }
         return (BAD);
     }
 
