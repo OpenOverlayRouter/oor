@@ -125,6 +125,7 @@ void init_smr(
         lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s/%d",
                 get_char_from_lisp_addr_t(mappings_to_smr[ctr]->eid_prefix),
                 mappings_to_smr[ctr]->eid_prefix_length);
+
         /* For each map cache entry with same afi as local EID mapping */
         if (mappings_to_smr[ctr]->eid_prefix.afi ==AF_INET){
             afi_db = 0;
@@ -140,7 +141,7 @@ void init_smr(
                     locator_iterator = locators_lists[ctr1];
                     while (locator_iterator){
                         locator = locator_iterator->locator;
-                        if (build_and_send_map_request_msg(map_cache_entry->mapping,&(mapping->eid_prefix),locator->locator_addr,0,0,1,0,&nonce)==GOOD){
+                        if (build_and_send_map_request_msg(map_cache_entry->mapping,&(mappings_to_smr[ctr]->eid_prefix),locator->locator_addr,0,0,1,0,&nonce)==GOOD){
                             lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s from EID %s/%d",
                                     get_char_from_lisp_addr_t(*(locator->locator_addr)),
                                     get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),

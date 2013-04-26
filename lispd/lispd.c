@@ -286,8 +286,8 @@ int main(int argc, char **argv)
 #else
     tun_v4_addr = get_main_eid(AF_INET);
     tun_v6_addr = get_main_eid(AF_INET6);
-
 #endif
+
     tun_bring_up_iface(tun_dev_name);
     if (tun_v4_addr != NULL){
         tun_add_eid_to_iface(*tun_v4_addr,tun_dev_name);

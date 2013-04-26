@@ -374,12 +374,16 @@ int add_route(
     return(GOOD);
 }
 
-int set_tun_default_route_v4(int tun_ifindex)
+int set_tun_default_route_v4(int tun_ifaceindex)
 {
 
     /*
      * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
      */
+
+    if (tun_ifaceindex == 0){
+        tun_ifaceindex = tun_ifindex;
+    }
 
     lisp_addr_t dest;
     lisp_addr_t *src = NULL;
@@ -394,13 +398,13 @@ int set_tun_default_route_v4(int tun_ifindex)
 
 #ifdef ROUTER
     if (default_out_iface_v4 != NULL){
-        src = default_out_iface_v4->ipv4_address;
+       src = default_out_iface_v4->ipv4_address;
     }
 #endif
 
     get_lisp_addr_from_char("0.0.0.0",&dest);
 
-    add_route(tun_ifindex,
+    add_route(tun_ifaceindex,
             &dest,
             src,
             NULL,
@@ -410,23 +414,26 @@ int set_tun_default_route_v4(int tun_ifindex)
 
     get_lisp_addr_from_char("128.0.0.0",&dest);
 
-    add_route(tun_ifindex,
+    add_route(tun_ifaceindex,
             &dest,
             src,
             NULL,
             prefix_len,
             metric);
-
     return(GOOD);
 }
 
 
-int set_tun_default_route_v6(int tun_ifindex)
+int set_tun_default_route_v6(int tun_ifaceindex)
 {
 
     /*
      * Assign route to ::/1 and 8000::/1 via tun interface
      */
+
+    if (tun_ifaceindex == 0){
+        tun_ifaceindex = tun_ifindex;
+    }
 
     lisp_addr_t dest;
     lisp_addr_t *src = NULL;
@@ -447,7 +454,7 @@ int set_tun_default_route_v6(int tun_ifindex)
 
     get_lisp_addr_from_char("::",&dest);
 
-    add_route(tun_ifindex,
+    add_route(tun_ifaceindex,
             &dest,
             src,
             NULL,
@@ -456,7 +463,7 @@ int set_tun_default_route_v6(int tun_ifindex)
 
     get_lisp_addr_from_char("8000::",&dest);
 
-    add_route(tun_ifindex,
+    add_route(tun_ifaceindex,
             &dest,
             src,
             NULL,

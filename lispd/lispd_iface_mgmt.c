@@ -35,6 +35,7 @@
 #include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
+#include "lispd_tun.h"
 
 /************************* FUNCTION DECLARTAION ********************************/
 
@@ -260,6 +261,22 @@ void precess_address_change (
         iface->ipv6_changed = TRUE;
         break;
     }
+
+#ifdef ROUTER
+    switch (new_addr.afi){
+    case AF_INET:
+        if (iface == default_out_iface_v4){
+            set_tun_default_route_v4(0);
+        }
+        break;
+    case AF_INET6:
+        if (iface == default_out_iface_v6){
+            set_tun_default_route_v6(0);
+        }
+        break;
+    }
+#endif
+
     /* Reprograming SMR timer*/
     if (smr_timer == NULL){
         smr_timer = create_timer (SMR_TIMER);

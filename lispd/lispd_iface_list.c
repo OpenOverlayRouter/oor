@@ -32,6 +32,7 @@
 #include "lispd_external.h"
 #include "lispd_lib.h"
 #include "lispd_sockets.h"
+#include "lispd_tun.h"
 #include <string.h>
 
 
@@ -376,11 +377,17 @@ void set_default_output_ifaces()
 
     if (default_out_iface_v4 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+#ifdef ROUTER
+       set_tun_default_route_v4(0);
+#endif
     }
     
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_out_iface_v6 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
+#ifdef ROUTER
+       set_tun_default_route_v6(0);
+#endif
     }
 
     if (!default_out_iface_v4 && !default_out_iface_v6){

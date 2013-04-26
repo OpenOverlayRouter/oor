@@ -289,12 +289,13 @@ int forward_native(
         int             pckt_length )
 {
 
-    int ret                 = 0;
-    int output_socket       = 0;
-    int packet_afi                 = 0;
+    int             ret                        = 0;
+    int             output_socket              = 0;
+    int             packet_afi                 = 0;
 
     packet_afi = get_afi_from_packet((uint8_t *)packet_buf);
     output_socket = get_default_output_socket(packet_afi);
+
 
     if (output_socket == -1){
         lispd_log_msg(LISP_LOG_ERR, "fordward_native: No output interface for afi %d",packet_afi);
@@ -303,6 +304,8 @@ int forward_native(
 
     lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
             get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
+
+
 
     if(send_packet(output_socket,packet_buf,pckt_length) != GOOD){
         ret = BAD;
