@@ -378,7 +378,7 @@ void set_default_output_ifaces()
     if (default_out_iface_v4 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
 #ifdef ROUTER
-       set_tun_default_route_v4(0);
+       set_tun_default_route_v4();
 #endif
     }
     
@@ -386,7 +386,9 @@ void set_default_output_ifaces()
     if (default_out_iface_v6 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
 #ifdef ROUTER
-       set_tun_default_route_v6(0);
+       // For IPv6, the route is not updated and should be removed before adding the new one
+       del_tun_default_route_v6();
+       set_tun_default_route_v6();
 #endif
     }
 

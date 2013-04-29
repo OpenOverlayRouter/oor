@@ -123,5 +123,14 @@ int add_route(
     uint32_t            prefix_len,
     uint32_t            metric);
 
-int set_tun_default_route_v4(int tun_ifindex);
-int set_tun_default_route_v6(int tun_ifindex);
+int del_route(
+    uint32_t            ifindex,
+    lisp_addr_t         *dest,
+    lisp_addr_t         *src,
+    lisp_addr_t         *gw,
+    uint32_t            prefix_len,
+    uint32_t            metric);
+
+int set_tun_default_route_v4();
+int set_tun_default_route_v6();
+int del_tun_default_route_v6();
