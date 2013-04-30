@@ -74,6 +74,8 @@ int open_device_binded_raw_socket(
         return (BAD);
     }
     
+    lispd_log_msg(LISP_LOG_DEBUG_2, "open_device_binded_raw_socket: open socket %d in interface %s with afi: %d", s, device, afi);
+
     return s;
     
 }
@@ -85,7 +87,7 @@ int open_raw_input_socket(int afi){
     int                 tr = 1;
     
     if ((proto = getprotobyname("UDP")) == NULL) {
-        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: getprotobyname: %s", strerror(errno));
         return(BAD);
     }
     
@@ -95,17 +97,17 @@ int open_raw_input_socket(int afi){
     
     
     if ((sock = socket(afi,SOCK_RAW,proto->p_proto)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: socket: %s", strerror(errno));
         return(BAD);
     }
-    lispd_log_msg(LISP_LOG_DEBUG_3,"open_udp_socket: socket at creation: %d\n",sock);
+    lispd_log_msg(LISP_LOG_DEBUG_3,"open_raw_input_socket: socket at creation: %d\n",sock);
     
     if (setsockopt(sock,
         SOL_SOCKET,
         SO_REUSEADDR,
         &tr,
         sizeof(int)) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_udp_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
     
     return(BAD);
         }
@@ -403,11 +405,26 @@ int send_udp_ipv6_packet(
     struct sockaddr_in6  dst;
     struct sockaddr_in6  src;
 
+    char* device= "eth0";
+    int device_len;
+
     if ((s = open_udp_socket(AF_INET6)) < 0) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: socket: %s", strerror(errno));
         return(BAD);
     }
-    memset((char *) &src, 0, sizeof(struct sockaddr_in));
+
+
+
+    device_len = strlen(device);
+        if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
+            lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
+            close(s);
+            return (BAD);
+        }
+
+
+
+    memset((char *) &src, 0, sizeof(struct sockaddr_in6));
     src.sin6_family       = AF_INET6;
     src.sin6_port         = htons(src_port);
     memcpy(&src.sin6_addr,&(src_addr->address.ipv6),sizeof(struct in6_addr));
@@ -418,7 +435,7 @@ int send_udp_ipv6_packet(
         return(BAD);
     }
 
-    memset((char *) &dst, 0, sizeof(struct sockaddr_in));
+    memset((char *) &dst, 0, sizeof(struct sockaddr_in6));
 
     dst.sin6_family      = AF_INET6;
     dst.sin6_port        = htons(dst_port);

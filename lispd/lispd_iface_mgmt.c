@@ -266,12 +266,13 @@ void precess_address_change (
     switch (new_addr.afi){
     case AF_INET:
         if (iface == default_out_iface_v4){
-            set_tun_default_route_v4(0);
+            set_tun_default_route_v4();
         }
         break;
     case AF_INET6:
         if (iface == default_out_iface_v6){
-            set_tun_default_route_v6(0);
+            del_tun_default_route_v6();
+            set_tun_default_route_v6();
         }
         break;
     }

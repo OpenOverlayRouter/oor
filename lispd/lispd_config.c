@@ -692,6 +692,19 @@ int add_database_mapping(
         priority_v6 = MIN_PRIORITY;
     }
 
+    if (weight_v4 < (MIN_WEIGHT) || weight_v4 > MAX_WEIGHT) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Weight %d out of range [%d..%d], set weight to 100...",
+                weight_v4, MIN_WEIGHT, MAX_WEIGHT);
+        priority_v4 = 100;
+    }
+
+    if (weight_v6 < (MIN_WEIGHT) || weight_v6 > MAX_WEIGHT) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Weight %d out of range [%d..%d], set weight to 100...",
+                weight_v6, MIN_WEIGHT, MAX_WEIGHT);
+        priority_v6 = 100;
+    }
+
+
     if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing EID address");
         return (BAD);

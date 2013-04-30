@@ -302,16 +302,12 @@ int forward_native(
         return (BAD);
     }
 
+
     lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
             get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
 
-
-    if(send_packet(output_socket,packet_buf,pckt_length) != GOOD){
-        ret = BAD;
-    }else{
-        ret = GOOD;
-    }
+    ret = send_packet(output_socket,packet_buf,pckt_length);
 
     return (ret);
 

@@ -133,6 +133,7 @@ int main(int argc, char **argv)
 #else
     printf ("LISPmob compiled for linux router");
 #endif
+#else
     printf ("LISPmob compiled for simple node");
 #endif
 

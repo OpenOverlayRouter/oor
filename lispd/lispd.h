@@ -243,6 +243,8 @@ int err;
 #define MAX_PRIORITY 0
 #define MIN_PRIORITY 254
 #define UNUSED_RLOC_PRIORITY 255
+#define MIN_WEIGHT 0
+#define MAX_WEIGHT 255
 
 /* LISP data packet header */
 

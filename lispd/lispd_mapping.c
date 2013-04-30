@@ -604,7 +604,7 @@ void dump_balancing_locators_vec(
         int                         log_level)
 {
     int     ctr         = 0;
-    char    str[1000];
+    char    str[3000];
 
     if ( is_loggable(log_level)){
         lispd_log_msg(log_level,"Balancing locator vector for %s/%d: ",
@@ -612,16 +612,28 @@ void dump_balancing_locators_vec(
 
         sprintf(str,"  IPv4 locators vector (%d locators):  ",b_locators_vecs.v4_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v4_locators_vec_length; ctr++){
+            if (strlen(str) > 2850){
+                sprintf(str + strlen(str)," ...");
+                break;
+            }
             sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v4_balancing_locators_vec[ctr]->locator_addr));
         }
         lispd_log_msg(log_level,"%s",str);
         sprintf(str,"  IPv6 locators vector (%d locators):  ",b_locators_vecs.v6_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v6_locators_vec_length; ctr++){
+            if (strlen(str) > 2900){
+                sprintf(str + strlen(str)," ...");
+                break;
+            }
             sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v6_balancing_locators_vec[ctr]->locator_addr));
         }
         lispd_log_msg(log_level,"%s",str);
         sprintf(str,"  IPv4 & IPv6 locators vector (%d locators):  ", b_locators_vecs.locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.locators_vec_length; ctr++){
+            if (strlen(str) > 2950){
+                sprintf(str + strlen(str)," ...");
+                break;
+            }
             sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.balancing_locators_vec[ctr]->locator_addr));
         }
         lispd_log_msg(log_level,"%s",str);
