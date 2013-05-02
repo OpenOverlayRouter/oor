@@ -495,9 +495,16 @@ lispd_locator_elt   **set_balancing_vector(
     int                 ctr1                        = 0;
     int                 pos                         = 0;
 
-
-    /* Length of the dynamic vector */
-    vector_length = total_weight / hcf;
+    if ( total_weight != 0 ){
+        /* Length of the dynamic vector */
+        vector_length = total_weight / hcf;
+    }else{ // If all locators has weight equal to 0, we assign one position for each locator
+        while (locators[ctr] != NULL){
+            ctr++;
+        }
+        vector_length = ctr;
+        ctr = 0;
+    }
 
     /* Reserve memory for the dynamic vector */
     if ((balancing_locators_vec = (lispd_locator_elt **)malloc(vector_length*sizeof(lispd_locator_elt *))) == NULL){
@@ -508,7 +515,11 @@ lispd_locator_elt   **set_balancing_vector(
     *locators_vec_length = vector_length;
 
     while (locators[ctr] != NULL){
-        used_pos = locators[ctr]->weight/hcf;
+        if (total_weight != 0 ){
+            used_pos = locators[ctr]->weight/hcf;
+        }else{
+            used_pos = 1; // If all locators has weight equal to 0, we assign one position for each locator. Simetric balancing
+        }
         ctr1 = 0;
         for (ctr1=0;ctr1<used_pos;ctr1++){
             balancing_locators_vec[pos] = locators[ctr];
@@ -578,6 +589,13 @@ inline void get_hcf_locators_weight (
 int highest_common_factor  (int a, int b)
 {
     int c;
+    if ( b == 0 ){
+        return a;
+    }
+    if ( a == 0 ){
+        return b;
+    }
+
     if (a < b){
         c = a;
         a = b;
