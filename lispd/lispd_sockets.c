@@ -36,10 +36,10 @@ int open_device_binded_raw_socket(
     
     //char *device = OUTPUT_IFACE;
     
-    int device_len;
+    int device_len  = 0;
     
-    int s;
-    int on = 1;
+    int s           = 0;
+    int on          = 1;
     
 
     //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
@@ -82,9 +82,9 @@ int open_device_binded_raw_socket(
 
 int open_raw_input_socket(int afi){
     
-    struct protoent     *proto;
-    int                 sock;
-    int                 tr = 1;
+    struct protoent     *proto  = NULL;
+    int                 sock    = 0;
+    int                 tr      = 1;
     
     if ((proto = getprotobyname("UDP")) == NULL) {
         lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: getprotobyname: %s", strerror(errno));
@@ -118,9 +118,9 @@ int open_raw_input_socket(int afi){
 
 int open_udp_socket(int afi){
 
-    struct protoent     *proto;
-    int                 sock;
-    int                 tr = 1;
+    struct protoent     *proto  = NULL;
+    int                 sock    = 0;
+    int                 tr      = 1;
     
     if ((proto = getprotobyname("UDP")) == NULL) {
         lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
@@ -157,8 +157,8 @@ int bind_socket(int sock,
 {
     struct sockaddr_in  sock_addr_v4;
     struct sockaddr_in6 sock_addr_v6;
-    struct sockaddr     *sock_addr;
-    int                 sock_addr_len;
+    struct sockaddr     *sock_addr      = NULL;
+    int                 sock_addr_len   = 0;
     
         
     switch (afi){
@@ -198,9 +198,8 @@ int bind_socket(int sock,
 
 int open_control_input_socket(int afi){
 
-    const int on=1;
-
-    int sock;
+    const int   on      = 1;
+    int         sock    = 0;
 
     sock = open_udp_socket(afi);
     
@@ -238,9 +237,9 @@ int open_control_input_socket(int afi){
 
 int open_data_input_socket(int afi){
     
-    int sock;
-    int dummy_sock; /* To avoid ICMP port unreacheable packets */
-    const int on=1;
+    int         sock        = 0;
+    int         dummy_sock  = 0; /* To avoid ICMP port unreacheable packets */
+    const int   on          = 1;
     
     sock = open_raw_input_socket(afi);
 
@@ -335,8 +334,8 @@ int send_udp_ipv4_packet(
         void        *packet,
         int         packet_len)
 {
-    int                 s;      /*socket */
-    int                 nbytes;
+    int                 s       = 0;      /*socket */
+    int                 nbytes  = 0;
     struct sockaddr_in  dst;
     struct sockaddr_in  src;
 
@@ -400,29 +399,15 @@ int send_udp_ipv6_packet(
         void        *packet,
         int         packet_len)
 {
-    int                 s;      /*socket */
-    int                 nbytes;
-    struct sockaddr_in6  dst;
-    struct sockaddr_in6  src;
-
-    char* device= "eth0";
-    int device_len;
+    int                     s       = 0;      /*socket */
+    int                     nbytes  = 0;
+    struct sockaddr_in6     dst;
+    struct sockaddr_in6     src;
 
     if ((s = open_udp_socket(AF_INET6)) < 0) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: socket: %s", strerror(errno));
         return(BAD);
     }
-
-
-
-    device_len = strlen(device);
-        if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
-            lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
-            close(s);
-            return (BAD);
-        }
-
-
 
     memset((char *) &src, 0, sizeof(struct sockaddr_in6));
     src.sin6_family       = AF_INET6;
@@ -475,13 +460,13 @@ int send_packet (
         int     packet_length )
 {
 
-    struct sockaddr *dst_addr;
-    int dst_addr_len;
-    struct sockaddr_in dst_addr4;
+    struct sockaddr     *dst_addr       = NULL;
+    int                 dst_addr_len    = 0;
+    struct sockaddr_in  dst_addr4;
     struct sockaddr_in6 dst_addr6;
-    struct iphdr *iph;
-    struct ip6_hdr *ip6h;
-    int nbytes;
+    struct iphdr        *iph            = NULL;
+    struct ip6_hdr      *ip6h           = NULL;
+    int                 nbytes          = 0;
 
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
 
@@ -552,8 +537,8 @@ int get_control_packet (
     struct msghdr       msg;
     struct iovec        iov[1];
     union control_data  cmsg;
-    struct cmsghdr      *cmsgptr;
-    int                 nbytes;
+    struct cmsghdr      *cmsgptr    = NULL;
+    int                 nbytes      = 0;
 
     iov[0].iov_base = packet;
     iov[0].iov_len = MAX_IP_PACKET;
@@ -623,8 +608,8 @@ int get_data_packet (
     struct msghdr       msg;
     struct iovec        iov[1];
     union  control_data  cmsg;
-    struct cmsghdr      *cmsgptr;
-    int                 nbytes;
+    struct cmsghdr      *cmsgptr    = NULL;
+    int                 nbytes      = 0;
     
     iov[0].iov_base = packet;
     iov[0].iov_len = MAX_IP_PACKET;

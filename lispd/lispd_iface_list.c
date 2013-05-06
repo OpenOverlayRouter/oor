@@ -422,7 +422,7 @@ lisp_addr_t *get_iface_address(
         int                 afi)
 {
     
-    lisp_addr_t *addr;
+    lisp_addr_t     *addr   = NULL;
     
     switch(afi){
         case AF_INET:

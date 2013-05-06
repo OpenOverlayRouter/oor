@@ -129,12 +129,12 @@ int main(int argc, char **argv)
 
 #ifdef ROUTER
 #ifdef OPENWRT
-    printf ("LISPmob compiled for openWRT router\n");
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
 #else
-    printf ("LISPmob compiled for linux router\n");
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for linux xTR\n");
 #endif
 #else
-    printf ("LISPmob compiled for simple node\n");
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
 #endif
 
 

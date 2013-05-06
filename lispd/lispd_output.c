@@ -60,10 +60,10 @@ void add_ip_header (
 {
 
 
-    struct iphdr *iph = NULL;
-    struct iphdr *inner_iph = NULL;
-    struct ip6_hdr *ip6h = NULL;
-    struct ip6_hdr *inner_ip6h = NULL;
+    struct iphdr    *iph        = NULL;
+    struct iphdr    *inner_iph  = NULL;
+    struct ip6_hdr  *ip6h       = NULL;
+    struct ip6_hdr  *inner_ip6h = NULL;
 
     uint8_t tos = 0;
     uint8_t ttl = 0;
@@ -134,7 +134,7 @@ void add_udp_header(
         int     dst_port)
 {
 
-    struct udphdr *udh;
+    struct udphdr *udh  = NULL;
 
 
     /*
@@ -159,7 +159,7 @@ void add_lisp_header(
         int     iid)
 {
 
-    struct lisphdr *lisphdr;
+    struct lisphdr  *lisphdr = NULL;
 
     lisphdr = (struct lisphdr *) position;
 
@@ -266,8 +266,8 @@ int encapsulate_packet(
 
 
 int get_afi_from_packet(uint8_t *packet){
-    int afi;
-    struct iphdr *iph;
+    int             afi     = 0;
+    struct iphdr    *iph    = NULL;
 
     iph = (struct iphdr *) packet;
 
@@ -278,6 +278,8 @@ int get_afi_from_packet(uint8_t *packet){
     case 6:
         afi = AF_INET6;
         break;
+    default:
+        afi = AF_UNSPEC;
     }
 
     return (afi);
@@ -372,9 +374,9 @@ int fordward_to_petr(
 
 lisp_addr_t extract_dst_addr_from_packet ( char *packet )
 {
-    lisp_addr_t addr;
-    struct iphdr *iph;
-    struct ip6_hdr *ip6h;
+    lisp_addr_t     addr    = {.afi=AF_UNSPEC};
+    struct iphdr    *iph    = NULL;
+    struct ip6_hdr  *ip6h   = NULL;
 
     iph = (struct iphdr *) packet;
 
@@ -401,9 +403,9 @@ lisp_addr_t extract_dst_addr_from_packet ( char *packet )
 
 lisp_addr_t extract_src_addr_from_packet ( char *packet )
 {
-    lisp_addr_t addr;
-    struct iphdr *iph;
-    struct ip6_hdr *ip6h;
+    lisp_addr_t         addr    = {.afi=AF_UNSPEC};
+    struct iphdr        *iph    = NULL;
+    struct ip6_hdr      *ip6h   = NULL;
 
     iph = (struct iphdr *) packet;
 
@@ -430,8 +432,8 @@ int handle_map_cache_miss(
         lisp_addr_t *src_eid)
 {
 
-    lispd_map_cache_entry *entry;
-    timer_map_request_argument *arguments;
+    lispd_map_cache_entry       *entry          = NULL;
+    timer_map_request_argument  *arguments      = NULL;
 
     if ((arguments = malloc(sizeof(timer_map_request_argument)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"handle_map_cache_miss: Unable to allocate memory for timer_map_request_argument: %s",
@@ -457,32 +459,15 @@ int handle_map_cache_miss(
 }
 
 /*
- * get_output_afi_based_on_entry: Returns the afi that should be used to send the packet (based on map-cache entry)
- */
-int get_output_afi_based_on_entry (lispd_map_cache_entry *map_cache_entry)
-{
-    if (map_cache_entry->mapping->head_v4_locators_list != NULL &&
-            default_out_iface_v4!= NULL) {
-        return (AF_INET);
-    }
-    if (map_cache_entry->mapping->head_v6_locators_list != NULL &&
-            default_out_iface_v6!= NULL) {
-        return (AF_INET6);
-    }
-
-    return (-1);
-}
-
-/*
  * Calculate the hash of the 5 tuples of a packet
  */
 
 uint32_t get_hash_from_tuple (packet_tuple tuple)
 {
-    int hash    = 0;
-    int len     = 0;
-    int port    = tuple.src_port;
-    uint32_t *tuples = NULL;
+    int         hash    = 0;
+    int         len     = 0;
+    int         port    = tuple.src_port;
+    uint32_t    *tuples = NULL;
 
     port = port + ((int)tuple.dst_port << 16);
     switch (tuple.src_addr.afi){
@@ -596,7 +581,7 @@ lisp_addr_t *get_default_locator_addr(
         int                     afi)
 {
 
-    lisp_addr_t *addr;
+    lisp_addr_t *addr   = NULL;
 
     switch(afi){ 
     case AF_INET:
@@ -616,11 +601,11 @@ int is_lisp_packet(
         int     packet_length)
 {
 
-    struct iphdr *iph = NULL;
-    struct ip6_hdr *ip6h = NULL;
-    int ipXh_len = 0;
-    int lvl4proto = 0;
-    struct udphdr *udh = NULL;
+    struct iphdr        *iph        = NULL;
+    struct ip6_hdr      *ip6h       = NULL;
+    int                 ipXh_len    = 0;
+    int                 lvl4proto   = 0;
+    struct udphdr       *udh        = NULL;
 
     iph = (struct iphdr *) packet;
 
@@ -776,7 +761,7 @@ void process_output_packet (
         char            *tun_receive_buf,
         unsigned int    tun_receive_size )
 {
-    int nread;
+    int nread   = 0;
 
     nread = read ( fd, tun_receive_buf, tun_receive_size );
 

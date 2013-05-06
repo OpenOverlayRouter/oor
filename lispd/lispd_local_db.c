@@ -161,7 +161,7 @@ patricia_node_t *lookup_eid_node(lisp_addr_t eid)
     }
 
     if ( node==NULL ){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
+        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", get_char_from_lisp_addr_t(eid));
     }
     return(node);
 }
@@ -193,7 +193,7 @@ patricia_node_t *lookup_eid_exact_node(
     }
 
     if (node == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "The entry %s is not found in the data base", get_char_from_lisp_addr_t(eid));
+        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", get_char_from_lisp_addr_t(eid));
     }
     return(node);
 }
