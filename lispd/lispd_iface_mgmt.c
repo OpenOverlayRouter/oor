@@ -366,12 +366,13 @@ void process_nl_new_link (struct nlmsghdr *nlh)
         }
     }
 
-    if (status == UP){
+    if ((ifi->ifi_flags & IFF_RUNNING) != 0){
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to UP",iface->iface_name);
         status = UP;
     }
     else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to DOWN",iface->iface_name);
+        status = DOWN;
     }
 
     process_link_status_change (iface, status);
