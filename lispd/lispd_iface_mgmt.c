@@ -102,8 +102,6 @@ void process_netlink_msg(int netlink_fd){
     struct msghdr       msgh;
     struct nlmsghdr     *nlh    = NULL;
 
-
-
     nlh = (struct nlmsghdr *)buffer;
 
     memset(&iov, 0, sizeof(iov));
@@ -116,7 +114,6 @@ void process_netlink_msg(int netlink_fd){
     msgh.msg_iov = &iov;
     msgh.msg_iovlen = 1;
 
-    //recvmsg(netlink_fd, &msgh, 0);
     while ((len = recv (netlink_fd,nlh,4096,0)) > 0){
         for (;(NLMSG_OK (nlh, len)) && (nlh->nlmsg_type != NLMSG_DONE); nlh = NLMSG_NEXT(nlh, len)){
             switch(nlh->nlmsg_type){
@@ -136,7 +133,11 @@ void process_netlink_msg(int netlink_fd){
                 break;
             }
         }
+        nlh = (struct nlmsghdr *)buffer;
+        memset(nlh,0,4096);
     }
+
+    return;
 }
 
 
@@ -148,6 +149,7 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     int                         rt_length           = 0;
     lispd_iface_elt             *iface              = NULL;
     lisp_addr_t                 new_addr;
+    char                        iface_name[IF_NAMESIZE];
 
     /*
      * Get the new address from the net link message
@@ -158,7 +160,9 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     iface = get_interface_from_index(iface_index);
 
     if (iface == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "process_nl_add_address: the netlink message is not for any RLOC interface");
+        if_indextoname(iface_index, iface_name);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_add_address: the netlink message is not for any interface associated with RLOCs  (%s / %d)",
+                iface_name, iface_index);
         return;
     }
     rth = IFA_RTA (ifa);
@@ -295,6 +299,7 @@ void process_nl_del_address (struct nlmsghdr *nlh)
     int                 rt_length       = 0;
     lispd_iface_elt     *iface          = NULL;
     lisp_addr_t         new_addr;
+    char                iface_name[IF_NAMESIZE];
 
     ifa = (struct ifaddrmsg *) NLMSG_DATA (nlh);
     iface_index = ifa->ifa_index;
@@ -302,7 +307,9 @@ void process_nl_del_address (struct nlmsghdr *nlh)
     iface = get_interface_from_index(iface_index);
 
     if (iface == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "process_nl_add_address: the netlink message is not for any RLOC interface");
+        if_indextoname(iface_index, iface_name);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_add_address: the netlink message is not for any interface associated with RLOCs (%s / %d)",
+                iface_name, iface_index);
         return;
     }
     rth = IFA_RTA (ifa);
@@ -332,25 +339,39 @@ void process_nl_new_link (struct nlmsghdr *nlh)
     lispd_iface_elt                     *iface          = NULL;
     int                                 iface_index     = 0;
     uint8_t                             status          = UP;
-
-
+    char                                iface_name[IF_NAMESIZE];
 
     ifi = (struct ifinfomsg *) NLMSG_DATA (nlh);
     iface_index = ifi->ifi_index;
 
+
     iface = get_interface_from_index(iface_index);
 
     if (iface == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "process_nl_new_link: the netlink message is not for any RLOC interface");
-        return;
+        /*
+         * In some OS when a virtual interface is removed and added again, the index of the interface change.
+         * Search lispd_iface_elt by the interface name and update the index.
+         */
+        if (if_indextoname(iface_index, iface_name) != NULL){
+            iface = get_interface(iface_name);
+        }
+        if (iface == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_new_link: the netlink message is not for any interface associated with RLOCs  (%s / %d)",
+                    iface_name,iface_index);
+            return;
+        }else{
+            iface->iface_index = iface_index;
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_new_link: The new index of the interface %s is: %d",
+                    iface_name, iface->iface_index);
+        }
     }
-    if ((ifi->ifi_flags & IFF_RUNNING) != 0){
+
+    if (status == UP){
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to UP",iface->iface_name);
         status = UP;
     }
     else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to DOWN",iface->iface_name);
-        status = DOWN;
     }
 
     process_link_status_change (iface, status);

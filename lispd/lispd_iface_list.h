@@ -55,6 +55,7 @@ typedef struct lispd_iface_mappings_list_ {
  */
 typedef struct lispd_iface_elt_ {
     char                        *iface_name;
+    uint32_t                    iface_index;
     uint8_t                     status;
     lisp_addr_t                 *ipv4_address;
     lisp_addr_t                 *ipv6_address;

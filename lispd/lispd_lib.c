@@ -302,7 +302,7 @@ int lispd_get_iface_address(
         switch (ifa->ifa_addr->sa_family) {
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
-            if (!strcmp(ifa->ifa_name, ifacename)) {
+            if (strcmp(ifa->ifa_name, ifacename) == 0) {
                 memcpy((void *) &(ip.address),
                        (void *)&(s4->sin_addr), sizeof(struct in_addr));
                 ip.afi = AF_INET;

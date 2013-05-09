@@ -79,17 +79,27 @@ lispd_iface_elt *add_interface(char *iface_name)
     iface->iface_name = malloc(strlen(iface_name) + 1);   // XXX Must free elsewhere
     strcpy(iface->iface_name, iface_name);
 
-    err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
-    if (err == GOOD){
-        iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
-    }else {
+    iface->iface_index = if_nametoindex(iface_name);
+
+
+    if (iface->iface_index != 0){
+        err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
+        if (err == GOOD){
+            iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+        }else {
+            iface->ipv4_address->afi = AF_UNSPEC;
+            iface->out_socket_v4 = -1;
+        }
+        err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+        if (err == GOOD){
+            iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        }else {
+            iface->ipv6_address->afi = AF_UNSPEC;
+            iface->out_socket_v6 = -1;
+        }
+    }else{
         iface->ipv4_address->afi = AF_UNSPEC;
         iface->out_socket_v4 = -1;
-    }
-    err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
-    if (err == GOOD){
-        iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
-    }else {
         iface->ipv6_address->afi = AF_UNSPEC;
         iface->out_socket_v6 = -1;
     }
@@ -116,7 +126,8 @@ lispd_iface_elt *add_interface(char *iface_name)
            aux_iface_list = aux_iface_list->next;
         aux_iface_list->next = iface_list;
     }
-    lispd_log_msg(LISP_LOG_DEBUG_2,"add_interface: Interface %s added to interfaces lists",iface_name);
+    lispd_log_msg(LISP_LOG_DEBUG_2,"add_interface: Interface %s with interface index %d added to interfaces lists",
+            iface_name, iface->iface_index);
     return (iface);
 }
 
@@ -218,12 +229,14 @@ lispd_iface_elt *get_interface_from_index(int iface_index){
 
     lispd_iface_elt         *iface          = NULL;
     lispd_iface_list_elt    *iface_lst_elt  = NULL;
-    int                     index           = 0;
 
     iface_lst_elt = head_interface_list;
     while (iface_lst_elt != NULL){
-        index = if_nametoindex(iface_lst_elt->iface->iface_name);
-        if (index == iface_index){
+        if (iface_lst_elt->iface->iface_index == 0){
+            iface_lst_elt->iface->iface_index = if_nametoindex (iface_lst_elt->iface->iface_name);
+        }
+
+        if (iface_lst_elt->iface->iface_index == iface_index){
             iface = iface_lst_elt->iface;
             break;
         }
@@ -402,12 +415,14 @@ void set_default_ctrl_ifaces()
     default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_ctrl_iface_v4 != NULL) {
-       lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 control iface %s\n",default_ctrl_iface_v4->iface_name);
+       lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 control iface %s: %s\n",
+               default_ctrl_iface_v4->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v4->ipv4_address)));
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_ctrl_iface_v6 != NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s\n",default_ctrl_iface_v6->iface_name);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s: %s\n",
+                default_ctrl_iface_v6->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v6->ipv6_address)));
     }
 
     // XXX alopez If no output interface found exit --> To be modified when iface management implemented

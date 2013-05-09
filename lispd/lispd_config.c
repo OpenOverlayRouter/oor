@@ -376,7 +376,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_eids(LISP_LOG_DEBUG_1);
+    dump_local_db(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
         dump_map_cache_db(LISP_LOG_DEBUG_1);
     }
@@ -712,8 +712,7 @@ int add_database_mapping(
 
 
     if (if_nametoindex(iface_name) == 0) {
-        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Invalid interface: %s ", iface_name);
-        return (ERR_CTR_IFACE);
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: INVALID INTERFACE or not initialized virtual interface: %s ", iface_name);
     }
 
     /*

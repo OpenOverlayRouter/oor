@@ -143,7 +143,7 @@ int main(int argc, char **argv)
      */
 
     if (geteuid()) {
-        printf("Running %s requires superuser privileges! Exiting...\n", LISPD);
+        lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
         exit(EXIT_FAILURE);
     }
 
@@ -375,7 +375,6 @@ void event_loop()
     max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
 
     for (;;) {
-        
         FD_ZERO(&readfds);
         FD_SET(tun_receive_fd, &readfds);
         FD_SET(ipv4_data_input_fd, &readfds);
