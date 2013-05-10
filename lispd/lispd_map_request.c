@@ -462,19 +462,28 @@ int build_and_send_map_request_msg(
             &mrp_len,
             nonce);
 
-    if (!packet) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Could not build map-request packet for %s/%d",
+    if (packet == NULL) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Could not build map-request packet for %s/%d:"
+                " Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
-                requested_mapping->eid_prefix_length);
+                requested_mapping->eid_prefix_length,
+                (encap == TRUE ? 'Y' : 'N'),
+                (probe == TRUE ? 'Y' : 'N'),
+                (solicit_map_request == TRUE ? 'Y' : 'N'),
+                (smr_invoked == TRUE ? 'Y' : 'N'));
         return (BAD);
     }
 
     result = send_udp_ctrl_packet(dst_rloc_addr,LISP_CONTROL_PORT, LISP_CONTROL_PORT,(void *)packet,mrp_len);
 
     if (result == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d",
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
                         get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
-                        requested_mapping->eid_prefix_length);
+                        requested_mapping->eid_prefix_length,
+                        (encap == TRUE ? 'Y' : 'N'),
+                        (probe == TRUE ? 'Y' : 'N'),
+                        (solicit_map_request == TRUE ? 'Y' : 'N'),
+                        (smr_invoked == TRUE ? 'Y' : 'N'));
     }
 
     free (packet);
@@ -545,8 +554,9 @@ uint8_t *build_map_request_pkt(
 
 
     /* Build the map request packet */
-    if (encap)
+    if (encap){
         cur_ptr = CO(cur_ptr,encap_overhead_len);
+    }
 
     mrp = (lispd_pkt_map_request_t *)cur_ptr;
 
@@ -645,7 +655,7 @@ uint8_t *build_map_request_pkt(
         }
     }
 
-    /* Add Encapsulated control header*/
+    /* Add Encapsulated (Inner) control header*/
     if (encap){
 
         /*
@@ -653,12 +663,12 @@ uint8_t *build_map_request_pkt(
          * the source address in the inner IP header
          */
         if (src_eid != NULL){
-            ih_src_ip = &(src_mapping->eid_prefix);
+            ih_src_ip = &(src_mapping->eid_prefix);;
         }else{
             if (requested_mapping->eid_prefix.afi == AF_INET){
-                ih_src_ip = default_ctrl_iface_v4->ipv4_address;
+                ih_src_ip = get_main_eid (AF_INET);
             }else{
-                ih_src_ip = default_ctrl_iface_v6->ipv6_address;
+                ih_src_ip = get_main_eid (AF_INET6);
             }
         }
 
@@ -707,7 +717,7 @@ int add_encap_headers(uint8_t *packet, lisp_addr_t *src_eid, lisp_addr_t *remote
 
     /* Build the internal IP header */
     iphptr = CO(ecm,sizeof(lispd_pkt_encapsulated_control_t));
-    if ((udph = build_ip_header(iphptr, src_eid, remote_eid, ip_len)) == 0) {
+    if ((udph = build_ip_header(iphptr, src_eid, remote_eid, ip_len)) == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "Can't build IP header (unknown AFI %d)",src_eid->afi);
         return (ERR_AFI);
     }

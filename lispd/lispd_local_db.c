@@ -25,7 +25,8 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Albert Lopez              <alopez@ac.upc.edu>
+ *    Alberto Rodriguez Natal   <arnatal@ac.upc.edu>
  */
 
 
@@ -276,10 +277,8 @@ void del_mapping_entry_from_db(
     free(entry);
 }
 
-//modified by arnatal
 lisp_addr_t *get_main_eid(int afi){
     lisp_addr_t                 *eid        = NULL;
-    patricia_node_t             *node       = NULL;
     lispd_mapping_elt           *entry      = NULL;
     patricia_tree_t             *database   = NULL;
 
@@ -292,10 +291,10 @@ lisp_addr_t *get_main_eid(int afi){
         break;
     }
 
-    PATRICIA_WALK(database->head, node) {
-        entry = ((lispd_mapping_elt *)(node->data));
+    if (database->head != NULL){
+        entry = ((lispd_mapping_elt *)(database->head->data));
         eid = &(entry->eid_prefix);
-    } PATRICIA_WALK_END;
+    }
 
     return (eid);
 }

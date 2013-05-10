@@ -36,19 +36,20 @@
 #include <string.h>
 
 
-lispd_iface_list_elt *head_interface_list = NULL;
+lispd_iface_list_elt    *head_interface_list    = NULL;
 
-lispd_iface_elt *default_out_iface_v4 = NULL;
-lispd_iface_elt *default_out_iface_v6 = NULL;
+lispd_iface_elt         *default_out_iface_v4   = NULL;
+lispd_iface_elt         *default_out_iface_v6   = NULL;
 
-lispd_iface_elt *default_ctrl_iface_v4  = NULL;
-lispd_iface_elt *default_ctrl_iface_v6  = NULL;
+lispd_iface_elt         *default_ctrl_iface_v4  = NULL;
+lispd_iface_elt         *default_ctrl_iface_v6  = NULL;
 
 
 lispd_iface_elt *add_interface(char *iface_name)
 {
-    lispd_iface_list_elt *iface_list, *aux_iface_list;
-    lispd_iface_elt *iface;
+    lispd_iface_list_elt    *iface_list         = NULL;
+    lispd_iface_list_elt    *aux_iface_list     = NULL;
+    lispd_iface_elt         *iface              = NULL;
 
     /* Creating the new interface*/
     if ((iface_list = malloc(sizeof(lispd_iface_list_elt)))==NULL){
@@ -141,7 +142,7 @@ int add_mapping_to_interface (
         lispd_mapping_elt       *mapping,
         int                     afi)
 {
-    lispd_iface_mappings_list       *mappings_list      = NULL;
+    lispd_iface_mappings_list       *mappings_list       = NULL;
     lispd_iface_mappings_list       *prev_mappings_list  = NULL;
 
 
@@ -208,16 +209,18 @@ int add_mapping_to_interface (
 
 lispd_iface_elt *get_interface(char *iface_name)
 {
-    lispd_iface_list_elt *iface_list;
-    if (!head_interface_list)
-        return (NULL);
-    iface_list = head_interface_list;
-    while (iface_list){
-        if (strcmp (iface_list->iface->iface_name , iface_name) == 0)
-            return (iface_list->iface);
+    lispd_iface_list_elt *iface_list = head_interface_list;
+    lispd_iface_elt      *iface      = NULL;
+
+    while (iface_list != NULL){
+        if (strcmp (iface_list->iface->iface_name , iface_name) == 0){
+            iface = iface_list->iface;
+            break;
+        }
         iface_list = iface_list->next;
     }
-    return (NULL);
+
+    return (iface);
 }
 
 /*
@@ -256,9 +259,9 @@ lispd_iface_elt *get_interface_from_index(int iface_index){
 void dump_iface_list(int log_level)
 {
 
-    lispd_iface_list_elt     *interface_list    = head_interface_list;
-    lispd_iface_mappings_list      *mapping_list      = NULL;
-    char                     str[4000];
+    lispd_iface_list_elt        *interface_list    = head_interface_list;
+    lispd_iface_mappings_list   *mapping_list      = NULL;
+    char                        str[4000];
 
     if (head_interface_list == NULL || is_loggable(log_level) == FALSE){
         return;
@@ -302,18 +305,13 @@ void dump_iface_list(int log_level)
 
 lispd_iface_elt *get_any_output_iface(int afi)
 {
-
-    lispd_iface_elt *iface;
-    lispd_iface_list_elt *iface_list_elt;
-
-    iface_list_elt = head_interface_list;
-
-    iface = NULL;
+    lispd_iface_elt         *iface              = NULL;
+    lispd_iface_list_elt    *iface_list_elt     = head_interface_list;
     
     switch (afi){
         case AF_INET:
             while (iface_list_elt!=NULL){
-                if ((iface_list_elt->iface->ipv4_address!=NULL)
+                if ((iface_list_elt->iface->ipv4_address->afi != AF_UNSPEC)
                         && (iface_list_elt->iface->status == UP)) {
                     iface = iface_list_elt->iface;
                     break;
@@ -323,7 +321,7 @@ lispd_iface_elt *get_any_output_iface(int afi)
             break;
         case AF_INET6:
             while (iface_list_elt!=NULL){
-                if ((iface_list_elt->iface->ipv6_address!=NULL)
+                if ((iface_list_elt->iface->ipv6_address->afi != AF_UNSPEC)
                         && (iface_list_elt->iface->status == UP)) {
                     iface = iface_list_elt->iface;
                     break;
