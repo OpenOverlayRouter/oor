@@ -243,6 +243,22 @@ void precess_address_change (
         activate_interface_address(iface, new_addr);
         if (iface->status == UP){
             iface_balancing_vectors_calc(iface);
+
+            /*
+             * If no default control and data interface, recalculate it
+             */
+
+            if ((default_ctrl_iface_v4 == NULL && new_addr.afi == AF_INET) ||
+                    (default_ctrl_iface_v6 == NULL && new_addr.afi == AF_INET6)){
+                lispd_log_msg(LISP_LOG_DEBUG_2,"No default control interface. Recalculate new control interface");
+                set_default_ctrl_ifaces();
+            }
+
+            if ((default_out_iface_v4 == NULL && new_addr.afi == AF_INET) ||
+                    (default_out_iface_v6 == NULL && new_addr.afi == AF_INET6)){
+                lispd_log_msg(LISP_LOG_DEBUG_2,"No default output interface. Recalculate new output interface");
+                set_default_output_ifaces();
+            }
         }
     }
 
