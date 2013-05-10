@@ -163,7 +163,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
         err = send_udp_ctrl_packet(ms->address,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)map_register_pkt,packet_len);
 
         if (err == GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to maps server %s",
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to Map Server %s",
                     get_char_from_lisp_addr_t(mapping->eid_prefix),
                     mapping->eid_prefix_length,
                     get_char_from_lisp_addr_t(*(ms->address)));

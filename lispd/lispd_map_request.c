@@ -412,22 +412,8 @@ int add_encap_headers(
      opts.rloc_probe = rloc_probe;
 
      err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, nonce, opts);
-     if (rloc_probe){
-         if (err == GOOD){
-             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent RLOC-probe reply to %s", get_char_from_lisp_addr_t(*remote_rloc));
-         }else {
-             lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_request_msg: couldn't build/send RLOC-probe reply");
-             return(BAD);
-         }
-     }else {
-         if (err == GOOD){
-             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map reply to %s", get_char_from_lisp_addr_t(*remote_rloc));
-         }else {
-             lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_request_msg: couldn't build/send map-reply");
-             return(BAD);
-         }
-     }
-     return (GOOD);
+
+     return (err);
  }
 
 /*
@@ -674,10 +660,9 @@ uint8_t *build_map_request_pkt(
 
         if ((err=add_encap_headers(packet,ih_src_ip,&(requested_mapping->eid_prefix),map_request_msg_len))!=GOOD){
             free (packet);
-            return NULL;
+            return (NULL);
         }
     }
-
 
     return (packet);
 }

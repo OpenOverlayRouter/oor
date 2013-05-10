@@ -281,7 +281,7 @@ int build_and_send_map_reply_msg(
     int             result          = 0;
 
     /* Build the packet */
-    if (opts.rloc_probe)
+    if (opts.rloc_probe == TRUE)
         packet = build_map_reply_pkt(requested_mapping, local_rloc, opts, nonce, &packet_len);
     else
         packet = build_map_reply_pkt(requested_mapping, NULL, opts, nonce, &packet_len);
@@ -290,15 +290,26 @@ int build_and_send_map_reply_msg(
     result = send_udp_ctrl_packet(remote_rloc,LISP_CONTROL_PORT, dport,(void *)packet,packet_len);
 
     if (result == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d",
-                get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
-                requested_mapping->eid_prefix_length);
+        if (opts.rloc_probe == TRUE){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d probing local locator %s",
+                    get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                    requested_mapping->eid_prefix_length,
+                    get_char_from_lisp_addr_t(*local_rloc));
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d",
+                    get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                    requested_mapping->eid_prefix_length);
+        }
     }
 
     free(packet);
 
     if (result != GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't send Map-Reply!");
+        if (opts.rloc_probe == TRUE){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't build/send Probe Reply!");
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't build/send Map-Reply!");
+        }
         return (BAD);
     }
     return (GOOD);

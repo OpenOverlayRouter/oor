@@ -205,7 +205,12 @@ void precess_address_change (
                 "messages is a local link address: %s discarded", get_char_from_lisp_addr_t(new_addr));
         return;
     }
-
+    /* If default RLOC afi defined (-a 4 or 6), only accept addresses of the specified afi */
+    if (default_rloc_afi != -1 && default_rloc_afi != new_addr.afi){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: Default RLOC afi defined: Skipped %s address in iface %s",
+                (new_addr.afi == AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
+        return;
+    }
     /*
      * Actions to be done due to a change of address: SMR
      */
