@@ -53,7 +53,7 @@ define Package/lispmob/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/lispd.uci.example $(1)/etc/config/lispd
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/lispd/openwrt.init.script $(1)/etc/init.d/lisp
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openWRT/openwrt.init.script $(1)/etc/init.d/lisp
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller/lisp
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/controller-lisp.lua $(1)/usr/lib/lua/luci/controller/lisp/lisp.lua
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/lisp

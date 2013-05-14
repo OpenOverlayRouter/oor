@@ -48,7 +48,7 @@ void process_nl_new_link (struct nlmsghdr *nlh);
  * Program SMR
  */
 
-void precess_address_change (
+void process_address_change (
         lispd_iface_elt     *iface,
         lisp_addr_t         new_addr);
 
@@ -183,7 +183,7 @@ void process_nl_add_address (struct nlmsghdr *nlh)
         }
     }
 
-    precess_address_change (iface, new_addr);
+    process_address_change (iface, new_addr);
 }
 
 /*
@@ -191,7 +191,7 @@ void process_nl_add_address (struct nlmsghdr *nlh)
  * Program SMR
  */
 
-void precess_address_change (
+void process_address_change (
         lispd_iface_elt     *iface,
         lisp_addr_t         new_addr)
 {
@@ -238,7 +238,7 @@ void precess_address_change (
 
     /* The interface was down during initial configuratiopn process and now it is up. Activate address */
     if (aux_afi == AF_UNSPEC){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"precess_address_change: Activating the locator address %s"
+        lispd_log_msg(LISP_LOG_DEBUG_1,"process_address_change: Activating the locator address %s"
                 , get_char_from_lisp_addr_t(new_addr));
         activate_interface_address(iface, new_addr);
         if (iface->status == UP){
