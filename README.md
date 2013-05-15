@@ -1,30 +1,30 @@
 Overview
 --------
 
-The Locator/ID Separation Protocol (LISP) is being developed within the IETF
-as a potential solution to the routing scalability problem documented in RFC
-4984. It uses the concept of Endpoint IDentifiers (EIDs) to name hosts in edge
+The Locator/ID Separation Protocol (LISP) is being developed within the IETF as
+a potential solution to the routing scalability problem documented in RFC 4984.
+It uses the concept of Endpoint IDentifiers (EIDs) to name hosts in edge
 networks, and Routing LOCators (RLOCs) for nodes in transit networks. EIDs and
 RLOCs are syntactically indistinguishable from current IPv4 and IPv6 addresses,
 enabling backwards compatibility with the existing Internet architecture. A
 distributed database, the mapping system, is responsible for maintaining the
-associations between EIDs and RLOCs.
+associations between EIDs and RLOCs. LISP Mobile Node (LISP-MN) is a
+specification to enable fast host mobility using LISP.  
 
-LISP Mobile Node (LISP-MN) is a specification to enable fast host mobility
-using LISP.  The LISPmob project aims to deliver a full implementation of both
-LISP and LISP-MN for Linux, but parts of the implementation may be reusable on
-other Unix-like operating systems.
+The LISPmob project aims to deliver a full implementation of both LISP and
+LISP-MN for Linux-like systems, but parts of the implementation may be reusable
+on other Unix-like operating systems.
 
-Please note that version 0.3 introduces major changes in the code architecture
-and branch 0.3 is considered experimental. Not all features present in previous
-versions are in 0.3 yet. See section "Version 0.3" below for more details.
-For a more featured (but frozen) version use latest code in 'release-0.2' branch 
-(currently 0.2.4) and refer to the README file there.
+Please note that version 0.3 introduced major changes in the code architecture
+Most features present in previous version have been ported to 0.3, but not
+all yet. See section "Version 0.3" below for more details. If you are interested
+in a specific function not yet implemented in version 0.3, use latest code in
+'release-0.2' branch (currently 0.2.4) and refer to the README file there.
 
-In version 0.3 the code was generalized and now it not only serves to MNs,
-but also can be used in a domestic router (Linux or OpenWRT) to provide LISP 
-routing capabilities (xTR). Please refer to "OpenWRT" section at the end for 
-details on router/OpenWRT configuration.
+In version 0.3 the code was generalized and now it not only serves to MNs, but
+also can be used in a domestic router (Linux or OpenWRT) to provide LISP routing
+capabilities (xTR). Please refer to "OpenWRT" section at the end for details on
+router/OpenWRT configuration.
 
 LISPmob consists of three major components:
 
@@ -32,21 +32,18 @@ LISPmob consists of three major components:
   * control plane
   * tools
 
-Since version 0.3, the user space daemon `lispd` is responsible for both
-control plane and data plane functionality. It is responsible for creating a
-virtual interface for the EID(s), encapsulating/decapsulating packets,
-maintaining the mapping cache, etc. (data plane functionality) and for
-sending and receiving control messages, managing interfaces, etc. (control
-plane functionality), among other funcionalities.
+Since version 0.3, the user space daemon 'lispd' is responsible for both control
+plane and data plane functionality. It is responsible for creating a virtual
+interface for the EID(s), encapsulating/decapsulating packets, maintaining the
+mapping cache, etc. (data plane functionality) and for sending and receiving
+control messages, managing interfaces, etc. (control plane functionality), among
+other functionalities.
 
 The distribution offers some external tools as well, which can be used for
 various testing and debugging purposes.
 
-The current reference platform for LISPmob development is Ubuntu Server
-12.04.1 LTS (Precise Pangolin), and OpenWRT 12.09 (Attitude Adjustment).
-It was also demonstrated on a Nokia N900 mobile phone running MeeGo 1.2
-Community Edition.
-
+The current reference platform for LISPmob development is Ubuntu Server 12.04.1
+LTS (Precise Pangolin), and OpenWRT 12.09 (Attitude Adjustment). 
 
 Network Prerequisites
 ---------------------
@@ -101,13 +98,13 @@ The latest version of the LISPmob source code can be obtained from Github:
 Installation
 ------------
 
-To build the code for Linux operating as a Mobile Node, run the following 
-in the top-level directory:
+To build the code for Linux operating as a Mobile Node, run the following in the
+top-level directory:
 
     make 
 
-To build the code for Linux operating as a Router, run the following 
-in the top-level directory:
+To build the code for Linux operating as a Router, run the following in the
+top-level directory:
 
     make platform=router
 
@@ -115,33 +112,29 @@ To install it in `/usr/local/sbin`, run
 
     sudo make install
     
-To build the code for OpenWRT operating as a Router, use the OpenWRT specific
-Makefile (in OpenWRT folder) and the OpenWRT official SDK. However, for your
-convenience, we encourage you to install the precompiled .ipk, either from the
-OpenWRT official repository or from our website.
-
-Check http://lispmob.org/downloads/openwrt
-
+To build the code for OpenWRT you will need the OpenWRT official SDK. However,
+for your convenience, we encourage you to install the precompiled .ipk, from our
+website. Check section "OpenWRT" for details.
 
 Running LISPmob
 ---------------
 
-Once the code is successfully installed on the host, `lispd.conf.example`
-should be copied to `/etc/lispd.conf` and edited with the values obtained from
-the MSP (see "Network Prerequisites"). Again, see section 'OpenWRT' for OpenWRT
-details about this. Additionally the host interface used for physical network
-connectivity (such as 'eth0', 'wlan0' or 'ppp0') must also be specified in
-the configuration file.
+Once the code is successfully installed on the host, `lispd.conf.example` should
+be copied to `/etc/lispd.conf` and edited with the values obtained from the MSP
+(see "Network Prerequisites"). Again, see section 'OpenWRT' for OpenWRT details
+about this. Additionally the host interface used for physical network
+connectivity (such as 'eth0', 'wlan0' or 'ppp0') must also be specified in the
+configuration file.
 
-Prior to execute LISPmob, make sure that each external interface (such as 'wan0') 
-has defined a default route in the routing table (there is a 'default' entry for 
-each outgoing interface). In most cases, this is auto-configured by the 
-operating system during start-up.
+Prior to execute LISPmob, make sure that each external interface (such as
+'wan0') has defined a default route with different metric in the routing
+table (there is a 'default' entry for each outgoing interface). In most cases,
+this is auto-configured by the operating system during start-up.
 
-Check that sysctl options configuration is correct. Make sure that rp_filter 
-kernel network parameter is disabled. It is disabled by default in OpenWRT,
-but, for instance, it is enabled by default in Ubuntu. Make sure too that 
-IP forwarding is enabled. It should be enabled by default in OpenWRT.
+Check that sysctl options configuration is correct. Make sure that rp_filter
+kernel network parameter is disabled. It is disabled by default in OpenWRT, but,
+for instance, it is enabled by default in Ubuntu. Make sure too that IP
+forwarding is enabled. It should be enabled by default in OpenWRT.
 
 Configure these values during OS runtime with the following commands
     
@@ -150,8 +143,8 @@ Configure these values during OS runtime with the following commands
     sudo sysctl net.ipv4.ip_forward=1
     sudo sysctl net.ipv6.conf.all.forwarding=1  
     
-You can instruct your system to auto-configure these values during system boot-up 
-if you add the following lines to `/etc/sysctl.conf`
+You can instruct your system to auto-configure these values during system
+boot-up if you add the following lines to `/etc/sysctl.conf`
 
     net.ipv4.conf.default.rp_filter=0
     net.ipv4.conf.all.rp_filter=0
@@ -163,10 +156,12 @@ The user space daemon must be started as the super-user:
     sudo lispd -f /etc/lispd.conf
 
 It will set up networking and register to the mapping system, after which you
-can enjoy all the benefits of LISP-MN. When 'lispd' is running in MN mode,
-the EID obtained from the MSP is associated to the 'lispTun0' virtual interface. 
-Two /1 routes covering the full IP addresses space should appear in the routing 
-table. These routes should be pointing to 'lispTun0' device:
+can enjoy all the benefits of LISP. When 'lispd' is running in MN mode, the
+EID obtained from the MSP is associated to the 'lispTun0' virtual interface. Two
+/1 routes covering the full IP addresses space should appear in the routing
+table. These routes should be pointing to 'lispTun0' device. The following lines
+shows an example of how 'ip addr' and 'ip route' will look like with IPv4,
+expect a similar output with IPv6:
 
     $ ip addr
     1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
@@ -183,7 +178,7 @@ table. These routes should be pointing to 'lispTun0' device:
 
 
     $ ip route
-    <Visited_Network> dev eth0  proto kernel  scope link  src <RLOC>
+    <RLOC_Network> dev eth0  proto kernel  scope link  src <RLOC>
     169.254.0.0/16 dev eth0  scope link  metric 1000
     0.0.0.0/1 dev lispTun0
     128.0.0.0/1 dev lispTun0
@@ -195,15 +190,17 @@ Version 0.3
 
 Version 0.3 introduced major changes into LISPmob. The most important was to
 discontinue the separation of data-plane in kernel-space and control-plane in
-user-space. This resulted in a merged data+control user-space daemon. This is 
-possible thanks to the use of TUN/TAP, creating a TUN virtual interface to deal 
+user-space. This resulted in a merged data+control user-space daemon. This is
+possible thanks to the use of TUN/TAP, creating a TUN virtual interface to deal
 with data-plane.
 
-This big architecture change was also used to perform a general clean-up and
-restructuring for most of the code. Due to this, existing (or partially developed) 
-functionalities should be adapted to the new architecture and structure. 
+This big architectural change was also used to perform a general clean-up and
+restructuring for most of the code. Due to this, existing (or partially
+developed) functionalities should be adapted to the new architecture and
+structure. 
 
-This is the list of supported features at this moment: 
+This is the list of supported features at this moment (those marked with and
+asterisk were not available, or with a limited support, on the 0.2 branch): 
 
     - Register to the Mapping System
     - Request mappings
@@ -211,30 +208,24 @@ This is the list of supported features at this moment:
     - Encapsulate data packets
     - Decapsulate data packets
     - RLOC Probing (reply only)
-    - IPv6 full support (EIDs and RLOCs)
+    - IPv6 full support (EIDs and RLOCs) *
+    - Interface management 
+    - Multihoming *
 
 
+Router mode
+-----------
 
-OpenWRT and router mode
------------------------
+Since version 0.3, LISPmob can be also used to operate as a router. This mode is
+available to both standard Linux boxes configured as a router as well as OpenWRT
+capable home routers. When running in router mode, LISPmob serves as a xTR
+(Ingress/Egress Tunnel Router) that performs LISP encapsulation/decapsulation of
+packets generated by hosts behind the router. 
 
-Since version 0.3, LISPmob can be also used to operate as a router. This 
-working mode was developed with OpenWRT in mind, but it should work in any 
-Linux box configured to work as a router. When running in a router, LISPmob 
-serves as a xTR (Ingress/Egress Tunnel Router) that performs LISP 
-encapsulation/decapsulation of packets generated by hosts behind the router. 
-
-Thanks to the versatility of the TUN approach, the code changes to support 
-OpenWRT are minimal. However, to enable OpenWRT configuration mode and the 
-routing specific operations, the code should be compiled with the option 
--DOPEN_WRT. To enable router operation in a common Linux host, the option
--DROUTER will suffice. Keep in mind the associated libraries. These options 
-and libraries are auto-managed when compiling with the `platform` option.
-
-The basic LISPmob requisites and configuration parameters must be complied 
-with for the router mode but, there are a few specific requirements that are
-specific for this mode. To configure LISPmob to use it on router mode use the 
-general LISPmob configuration instructions considering the following exceptions:
+To enable router operation in a common Linux host, compile the code for router
+mode as described in "Installation". To configure LISPmob to use it on router
+mode use the general LISPmob configuration instructions considering the
+following exception.
 
 An EID /30 (at least) prefix is required instead of a /32 one. For IPv6 you 
 should have a /126 (at least) instead of a /128 one. This prefix 
@@ -244,11 +235,29 @@ would do for a normal network prefix (static configuration, DHCP, etc...).
 No EID is used for the 'lispTun0' interface in router mode (a local address is 
 automatically used by LISPmob instead).
 
-The configuration is performed through the OpenWRT standard configuration tool 
-UCI, instead of using 'lispd.conf' file. Configure the UCI file manually in 
-'/etc/config/lispd' (by default), use the UCI CLI application, or use the web 
-interface (if available). The configuration fields are analogue to those in 
-the 'lispd.conf' file.
+OpenWRT 
+-------
+
+Thanks to the versatility of the TUN approach, the code changes to support
+OpenWRT are minimal. To enable OpenWRT configuration mode and the routing
+specific operations, the code should have been compiled the code with the
+`platform=openwrt` option during OpenWRT package creation. Please
+note that the best way to get LISPmob on OpenWRT is get a precompiled binary
+(either the full system or just the LISPmob package) from the LISPmob website
+(http://lispmob.org/downloads/openwrt). 
+
+LISPmob is also available on official OpenWRT repositories, but it is not
+guaranteed that this version would be the latest one. You can try to install
+LISPmob from OpenWRT package feeds with:
+
+    opkg update
+    opkg install lispd
+
+In OpenWRT, the configuration is performed through the OpenWRT standard
+configuration tool UCI, instead of using 'lispd.conf' file. Configure the UCI
+file manually in '/etc/config/lispd' (by default), use the UCI CLI application,
+or use the web interface (if available). The configuration fields are analogue
+to those in the 'lispd.conf' file.
 
 
 Contact
@@ -264,18 +273,17 @@ mailing list, devel@lispmob.org (https://lispmob.org/mailman/listinfo/devel).
 Additionally, important announcements are sent to the low volume mailing list
 announce@lispmob.org (https://lispmob.org/mailman/listinfo/announce).
 
-More interactive help can sometimes be obtained on the '#lispmob' IRC channel
-on FreeNode.
+More interactive help can sometimes be obtained on the '#lispmob' IRC channel on
+FreeNode.
 
 Bugs you encounter should be filed at the [repository's issue tracker on
 Github](https://github.com/LISPmob/lispmob/issues).
-
 
 References
 ----------
 
 1. [The Locator Identifier Separation Protocol (LISP)](http://www.cisco.com/web/about/ac123/ac147/archived_issues/ipj_11-1/111_lisp.html)
-2. [Locator/ID Separation Protocol](http://tools.ietf.org/html/draft-ietf-lisp)
+2. [Locator/ID Separation Protocol](https://tools.ietf.org/html/rfc6830)
 3. [LISP Mobile Node](http://tools.ietf.org/html/draft-meyer-lisp-mn)
-4. [Interworking LISP with IPv4 and IPv6](http://tools.ietf.org/html/draft-ietf-lisp-interworking)
+4. [Interworking between Locator/ID Separation Protocol (LISP) and Non-LISP Sites](https://tools.ietf.org/html/rfc6832)
 5. [LISPmob Project](http://lispmob.org/)
