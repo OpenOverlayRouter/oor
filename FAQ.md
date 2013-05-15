@@ -61,16 +61,16 @@ reaching the external physical interface
 
 A: Check that Reverse Path filtering is disabled. Add the following
 lines to /etc/sysctl.conf and reboot the system
-net.ipv4.conf.default.rp_filter=0
-net.ipv4.conf.all.rp_filter=0
+  net.ipv4.conf.default.rp_filter=0
+  net.ipv4.conf.all.rp_filter=0
 
 
 Q: My packets are not beeing forwarded
 
 A: Check that IP forwarding is enabled on your system. Add the following
 lines to /etc/sysctl.conf and reboot the system
-net.ipv4.ip_forward=1
-net.ipv6.conf.all.forwarding=1   
+  net.ipv4.ip_forward=1
+  net.ipv6.conf.all.forwarding=1   
 
 
 Q: The debug output shows this message, "forward_native: No output interface
