@@ -7,7 +7,7 @@ package 'lispd'
 #	debug: Debug levels [0..3]
 #	map_request_retries: Additional Map-Requests to send per map cache miss
 config 'daemon'
-        option  'debug'                 '1' 
+        option  'debug'                 '0' 
         option  'map_request_retries'   '2'
 
 # Encapsulated Map-Requests are sent to this map-resolver
