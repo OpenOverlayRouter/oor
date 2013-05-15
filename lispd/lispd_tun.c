@@ -70,6 +70,9 @@ int create_tun(
     if ((err = ioctl(*tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
         close(*tun_receive_fd);
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: Failed to create tunnel interface, errno: %d.", errno);
+        if (errno == 16){
+            lispd_log_msg(LISP_LOG_CRIT, "Check no other instance of lispd is running. Exiting ...");
+        }
         exit(EXIT_FAILURE);
     }
 
