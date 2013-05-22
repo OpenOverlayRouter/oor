@@ -75,8 +75,8 @@ proxy-itrs = {
 }
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
-# Uncomment the IPv4 or IPv6 list based on your current locators
-
+# Uncomment the IPv4 or IPv6 list based on your current locators and
+# comment the previous 'proxy-itrs' section
 
 # LISP beta-network IPv4 PITRs
 #proxy-itrs = {
@@ -96,13 +96,13 @@ proxy-itrs = {
 # LISP beta-network IPv6 PITRs 
 
 #proxy-itrs = {
-#	2001:590::451f:1f62 			# eqx-ash-pxtr
-#	2001:4f8:3:d::60				# isc-pxtr
-#	2001:418:4:1:deaf:bebe::10d 	# asp-pxtr
-#	2001:418:0:1000::613 			# ntt-amer-pxtr
-#	2001:200:e000:17::17   			# intouch-pxtr-1
-#	2001:67C:21B4:108::b    		# intouch-pxtr-2
-#	2001:6c8:41:100:0:2:1:c 		# tdc-pxtr
-#	2001:700:0:52E::4 				# uninett-pxtr
+#	2001:590::451f:1f62, 			# eqx-ash-pxtr
+#	2001:4f8:3:d::60,				# isc-pxtr
+#	2001:418:4:1:deaf:bebe::10d, 	# asp-pxtr
+#	2001:418:0:1000::613, 			# ntt-amer-pxtr
+#	2001:200:e000:17::17,   			# intouch-pxtr-1
+#	2001:67C:21B4:108::b,    		# intouch-pxtr-2
+#	2001:6c8:41:100:0:2:1:c, 		# tdc-pxtr
+#	2001:700:0:52E::4, 				# uninett-pxtr
 #	2001:67C:21B4:107::b    		# apan-pxtr
 #}

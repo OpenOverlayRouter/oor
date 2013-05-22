@@ -223,9 +223,6 @@ uint8_t *build_map_register_pkt(
 
     mrp->lisp_type        = LISP_MAP_REGISTER;
     mrp->map_notify       = 1;              /* TODO conf item */
-#ifndef ROUTER
-    mrp->lisp_mn          = 1;
-#endif
     mrp->nonce            = 0;
     mrp->record_count     = 1;				/* XXX Just supported one record per map register */
     mrp->key_id           = htons(HMAC_SHA_1_96);
