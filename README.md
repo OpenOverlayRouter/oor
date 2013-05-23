@@ -134,17 +134,11 @@ this is auto-configured by the operating system during start-up.
 Check that sysctl options configuration is correct. Make sure that rp_filter
 kernel network parameter is disabled. It is disabled by default in OpenWRT, but,
 for instance, it is enabled by default in Ubuntu. Make sure too that IP
-forwarding is enabled. It should be enabled by default in OpenWRT.
-
-Configure these values during OS runtime with the following commands
-    
-    sudo sysctl net.ipv4.conf.default.rp_filter=0
-    sudo sysctl net.ipv4.conf.all.rp_filter=0
-    sudo sysctl net.ipv4.ip_forward=1
-    sudo sysctl net.ipv6.conf.all.forwarding=1  
+forwarding is enabled. It should be enabled by default in OpenWRT.  
     
 You can instruct your system to auto-configure these values during system
-boot-up if you add the following lines to `/etc/sysctl.conf`
+boot-up if you add the following lines to `/etc/sysctl.conf`. Remember to 
+reboot your system after adding these lines.
 
     net.ipv4.conf.default.rp_filter=0
     net.ipv4.conf.all.rp_filter=0
