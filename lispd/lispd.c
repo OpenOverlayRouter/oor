@@ -172,17 +172,6 @@ int main(int argc, char **argv)
     map_cache_init();
 
     /*
-     *  create timers
-     */
-
-    if (build_timers_event_socket(&timers_fd) == 0)
-    {
-        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
-        exit(EXIT_FAILURE);
-    }
-    init_timers();
-
-    /*
      *  Parse command line options
      */
 
@@ -245,6 +234,17 @@ int main(int argc, char **argv)
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
     }
+
+    /*
+     *  create timers
+     */
+
+    if (build_timers_event_socket(&timers_fd) == 0)
+    {
+        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+    init_timers();
 
     /*
      * Select the default rlocs for output data packets and output control packets
