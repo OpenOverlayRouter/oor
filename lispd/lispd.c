@@ -63,6 +63,7 @@
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
+#include "lispd_nat_lib.h" 
 
 
 void event_loop();
@@ -332,6 +333,12 @@ int main(int argc, char **argv)
     /*
      *  Register to the Map-Server(s)
      */
+
+    /* NAT traversal global variables */
+
+    nat_aware = TRUE;
+    behind_nat = UNKNOWN;
+    
 
     map_register (NULL,NULL);
 

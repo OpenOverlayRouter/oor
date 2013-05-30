@@ -35,6 +35,7 @@
 #include "lispd_output.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
+#include "lispd_info_nat.h" 
 
 
 /*
@@ -372,6 +373,49 @@ int fordward_to_petr(
     return (GOOD);
 }
 
+int forward_to_natt_rtr(
+        char            *original_packet,
+        int             original_packet_length)
+{
+
+    lispd_iface_elt *iface;
+    char                    *encap_packet       = NULL;
+    int                     encap_packet_size   = 0;
+    lisp_addr_t             src_addr;
+
+    
+    iface = get_any_output_iface(AF_INET);
+
+    src_addr = *(iface->ipv4_address);
+    
+    // XXX Check if RTR exists? Check afi?
+
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Forwarding eid %s to NAT RTR",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
+
+    if (encapsulate_packet(original_packet,
+        original_packet_length,
+        &src_addr,
+        &natt_rtr,
+        LISP_DATA_PORT,
+        LISP_DATA_PORT,
+        0,
+        &encap_packet,
+        &encap_packet_size) != GOOD){
+        return (BAD);
+    }
+
+    if (send_packet (iface->out_socket_v4,encap_packet,encap_packet_size ) != GOOD){
+        free (encap_packet );
+        return (BAD);
+    }
+
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarded eid %s to NAT RTR",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
+    free (encap_packet );
+
+
+    return (GOOD);
+} 
+
 lisp_addr_t extract_dst_addr_from_packet ( char *packet )
 {
     lisp_addr_t     addr    = {.afi=AF_UNSPEC};
@@ -682,6 +726,14 @@ int lisp_output (
     if (src_mapping == NULL){
         return (forward_native(original_packet,original_packet_length));
     }
+
+    if ((nat_aware==TRUE)&&(behind_nat==TRUE)){
+
+        //NAT only IPv4 (AF_INET)
+        return (forward_to_natt_rtr(original_packet,
+                                    original_packet_length));
+    }
+
 
     entry = lookup_map_cache(tuple.dst_addr);
 

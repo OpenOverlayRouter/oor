@@ -173,6 +173,7 @@ int err;
 #define FALSE               0
 #define UP                  1
 #define DOWN                0
+#define UNKNOWN            -1  
 
 
 #define MAX_IP_PACKET       4096
@@ -201,6 +202,7 @@ int err;
 #define LISP_MAP_REPLY                  2
 #define LISP_MAP_REGISTER               3
 #define LISP_MAP_NOTIFY                 4
+#define LISP_INFO_NAT                   7
 #define LISP_ENCAP_CONTROL_TYPE         8
 #define LISP_CONTROL_PORT               4342
 #define LISP_DATA_PORT                  4341
@@ -414,6 +416,49 @@ typedef struct nlsock_handle
     int         fd;       // netlink socket fd
     uint32_t    seq;      // netlink message seq number
 } nlsock_handle;
+
+
+//modified by arnatal for NATT
+/*
+ * LISP Data header structure
+ */
+
+typedef struct lisp_data_hdr {
+#ifdef LITTLE_ENDIANS
+    uint8_t rflags:3;
+    uint8_t instance_id:1;
+    uint8_t map_version:1;
+    uint8_t echo_nonce:1;
+    uint8_t lsb:1;
+    uint8_t nonce_present:1;
+#else
+    uint8_t nonce_present:1;
+    uint8_t lsb:1;
+    uint8_t echo_nonce:1;
+    uint8_t map_version:1;
+    uint8_t instance_id:1;
+    uint8_t rflags:3;
+#endif
+    uint8_t nonce[3];
+    uint32_t lsb_bits;
+} lisp_data_hdr_t;
+
+/*
+ * LISP Control header structure
+ */
+
+typedef struct lisp_encap_control_hdr {
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved:3;
+    uint8_t s_bit:1;
+    uint8_t type:4;
+#else
+    uint8_t type:4;
+    uint8_t s_bit:1;
+    uint8_t reserved1:3;
+#endif
+    uint8_t reserved2[3];
+} lisp_encap_control_hdr_t;
 
 
 #endif /*LISPD_H_*/

@@ -108,6 +108,11 @@ void process_input_packet(int fd,
         IPV6_SET_TC(ip6h,tos); /* tos = Traffic class field in IPv6 */
     }
 
+    if (lisp_hdr->instance_id == 1){ //Poor discriminator for data map notify...
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Data-Map-Notify received\n ");
+        //Is there something to do here?
+    }
+    
     if ((write(tun_receive_fd, iph, length)) < 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
     }

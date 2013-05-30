@@ -63,6 +63,7 @@
 #include "lispd_map_notify.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
+#include "lispd_info_nat.h" 
 
 
 
@@ -894,6 +895,16 @@ int process_lisp_ctr_msg(
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Notify message");
         if(!process_map_notify(packet))
             return(BAD);
+        break;
+
+    case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
+        if(!process_info_nat_msg(packet)){
+            return (BAD);
+        }
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Unidentified type control message received");
         break;
     }
     lispd_log_msg(LISP_LOG_DEBUG_2, "Completed processing of LISP control message");

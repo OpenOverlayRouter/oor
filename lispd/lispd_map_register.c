@@ -42,13 +42,7 @@
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
-
-
-
-
-uint8_t *build_map_register_pkt(
-        lispd_mapping_elt       *mapping,
-        int                     *mrp_len);
+#include "lispd_nat_lib.h"
 
 
 /*
@@ -88,11 +82,37 @@ int map_register(
         PATRICIA_WALK(tree->head, node) {
             mapping = ((lispd_mapping_elt *)(node->data));
             if (mapping->locator_count != 0){
-                err = build_and_send_map_register_msg(mapping);
-                if (err != GOOD){
-                    lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s/%d EID!",
-                            get_char_from_lisp_addr_t(mapping->eid_prefix),
-                            mapping->eid_prefix_length);
+                
+                if((nat_aware==TRUE)){ /* NAT procedure instead of the standard one */
+                    
+                    if(behind_nat == UNKNOWN){
+                        nat_info_request();
+                    }
+                    
+                    if(behind_nat==TRUE){
+                        /* ECM map register only sent to the first Map Server */
+                        build_and_send_ecm_map_register(mapping,
+                                                        map_servers->proxy_reply,
+                                                        default_ctrl_iface_v4->ipv4_address,
+                                                        map_servers->address,
+                                                        LISP_CONTROL_PORT,
+                                                        LISP_CONTROL_PORT,
+                                                        default_ctrl_iface_v4->ipv4_address,
+                                                        &(natt_rtr),
+                                                        LISP_DATA_PORT,
+                                                        LISP_CONTROL_PORT,
+                                                        map_servers->key_type,
+                                                        map_servers->key);
+                    }
+                }
+                
+                if((nat_aware==FALSE)||((nat_aware==TRUE)&&(behind_nat==TRUE))){/* Standard Map-Register mechanism */
+                    err = build_and_send_map_register_msg(mapping);
+                    if (err != GOOD){
+                        lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s/%d EID!",
+                                get_char_from_lisp_addr_t(mapping->eid_prefix),
+                                mapping->eid_prefix_length);
+                    }
                 }
             }
         }PATRICIA_WALK_END;

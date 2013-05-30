@@ -120,7 +120,7 @@ void dump_iface_list(int log_level);
 
 void open_iface_binded_sockets();
 
-lispd_iface_elt *get_any_output_iface();
+lispd_iface_elt *get_any_output_iface(int afi);
 
 lispd_iface_elt *get_default_ctrl_iface(int afi);
 
