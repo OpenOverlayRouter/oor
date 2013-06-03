@@ -2,7 +2,7 @@
 #include "lispd_info_nat.h"
 
 
-int inet2lispafi(int afi);
+
 
 lisp_addr_t extract_lisp_address(void *ptr);
 
@@ -17,12 +17,7 @@ int check_auth_field(int key_id,
 
 lisp_addr_t *select_best_rtr_from_rtr_list(lispd_addr_list_t *rtr_rloc_list);
 
-int compare_lisp_addresses(lisp_addr_t * add1,
-                           lisp_addr_t * add2);
-
 lisp_addr_t *get_current_locator(void);
-
-int add_rtr_as_default_in_map_cache(lisp_addr_t * rtr_add);
 
 int get_auth_data_len(int key_id);
 

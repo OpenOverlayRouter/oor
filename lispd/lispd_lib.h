@@ -102,6 +102,12 @@ uint16_t get_lisp_afi(int afi, int *len);
 int lisp2inetafi(uint16_t afi);
 
 /*
+ *      Map from Internet INET AFI -> LISP AFI
+ */
+
+int inet2lispafi(int afi);
+
+/*
  *      given afi, get the IP header length
  */
 

@@ -257,22 +257,23 @@ int process_info_reply_msg(uint8_t *packet)
 
     /* Check if behind NAT */
 
-    switch (compare_lisp_addresses(&global_etr_rloc, get_current_locator())) {
+    switch (compare_lisp_addr_t(&global_etr_rloc, get_current_locator())) {
 
-        case TRUE:
+        case 0:
 
         behind_nat = FALSE;
         lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: MN is not behind NAT");
         break;
 
-        case FALSE:
+        case 1:
+        case 2:
 
         behind_nat = TRUE;
         lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: MN is behind NAT");
 
         break;
 
-        case UNKNOWN:
+        case -1:
 
         behind_nat = UNKNOWN;
         lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: Unknown state");

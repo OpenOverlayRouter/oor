@@ -691,6 +691,25 @@ int lisp2inetafi(uint16_t afi)
     }
 }
 
+/*
+ * Map from Internet INET AFI -> LISP AFI
+ */
+
+int inet2lispafi(int afi)
+
+{
+    switch (afi) {
+    case 0:
+        return (0);
+    case AF_INET:
+        return (LISP_AFI_IP);
+    case AF_INET6:
+        return (LISP_AFI_IPV6);
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2, "inet2lispafi: unknown AFI (%d)", afi);
+        return (0);
+    }
+}
 
 /*
  *      given afi, get the IP header length
