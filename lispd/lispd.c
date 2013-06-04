@@ -63,7 +63,6 @@
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
-#include "lispd_nat_lib.h" 
 
 
 void event_loop();
@@ -107,6 +106,15 @@ fd_set  readfds;
 struct  sockaddr_nl dst_addr;
 struct  sockaddr_nl src_addr;
 nlsock_handle nlh;
+
+/* NAT */
+
+int nat_aware = FALSE;
+int behind_nat = UNKNOWN;
+lisp_addr_t natt_rtr;
+
+lispd_site_ID site_ID = {.byte = {0}}; //XXX Check if this works
+lispd_xTR_ID xTR_ID = {.byte = {0}};
 
 /*
  *      timers (fds)
@@ -339,6 +347,8 @@ int main(int argc, char **argv)
     nat_aware = TRUE;
     behind_nat = UNKNOWN;
     
+    site_ID.byte[15] = 1;
+    xTR_ID.byte[7] = 1;
 
     map_register (NULL,NULL);
 

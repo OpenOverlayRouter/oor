@@ -963,6 +963,55 @@ int inaddr2sockaddr(
 }
 
 
+
+/*
+ * Extracts a lisp_addr_t from a memory position (if stored in Network Byte Order)
+ */
+
+lisp_addr_t extract_lisp_address(void *ptr)
+
+{
+    lisp_addr_t lisp_addr;
+
+    lisp_addr.afi = lisp2inetafi(ntohs(*(uint16_t *) ptr));     /* 2 Byte AFI field */
+
+    ptr = CO(ptr, sizeof(uint16_t));
+
+    memcpy(&(lisp_addr.address), ptr, get_addr_len(lisp_addr.afi));
+
+    return (lisp_addr);
+}
+
+/*
+ * Loop to free all the members of a lispd_addr_list_t
+ */
+
+void free_lisp_addr_list(lispd_addr_list_t * list)
+
+{
+
+    lispd_addr_list_t *list_pre;
+
+    while (list->next != NULL) {
+
+        list_pre = list;
+
+        list = list->next;
+
+        free(list_pre->address);
+        free(list_pre);
+    }
+}
+
+/* Policy to select the best RTR from the RTR list retrived from the Info Reply */
+
+lisp_addr_t *select_best_rtr_from_rtr_list(lispd_addr_list_t *rtr_rloc_list)
+
+{
+    /* No policy at the moment. Just use the first one. */
+    return (rtr_rloc_list->address);
+}
+
 /*
  * Editor modelines
  *

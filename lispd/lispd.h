@@ -322,6 +322,17 @@ typedef struct packet_tuple_ {
     uint8_t                         protocol;
 } packet_tuple;
 
+typedef struct lispd_site_ID_
+{
+	uint8_t	byte[16];
+
+} lispd_site_ID;
+
+typedef struct lispd_xTR_ID_
+{
+	uint8_t	byte[8];
+
+} lispd_xTR_ID;
 
 /*
  *  for map-register auth data...

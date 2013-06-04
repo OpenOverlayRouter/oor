@@ -42,11 +42,6 @@
 #include "lispd_log.h"
 
 
-int nat_aware = FALSE;
-int behind_nat = UNKNOWN;
-lisp_addr_t natt_rtr; 
-
-
 /*
  *  Process Info-Request Message
  *  Receive a Info-Request message and process based on control bits

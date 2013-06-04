@@ -3,7 +3,6 @@
 #include "lispd.h"
 
 #include "lispd_info_nat.h"
-#include "lispd_nat_lib.h"
 
 
 #define DEFAULT_INFO_REPLY_TIMEOUT      10

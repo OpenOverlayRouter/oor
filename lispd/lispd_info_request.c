@@ -218,9 +218,6 @@ int build_and_send_info_request(uint64_t nonce,
 }
 
 
-
-
-
 /*
  * Editor modelines
  *

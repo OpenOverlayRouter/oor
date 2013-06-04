@@ -208,6 +208,11 @@ inline void memcopy_lisp_addr_V6(void *dest,
 void memcopy_lisp_addr(void *dest,
                        lisp_addr_t *orig);
 
+lisp_addr_t extract_lisp_address(void *ptr);
+
+void free_lisp_addr_list(lispd_addr_list_t * list);
+
+lisp_addr_t *select_best_rtr_from_rtr_list(lispd_addr_list_t *rtr_rloc_list);
 
 #endif /*LISPD_LIB_H_*/
 

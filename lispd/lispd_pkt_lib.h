@@ -72,5 +72,25 @@ int extract_5_tuples_from_packet (
         char *packet ,
         packet_tuple *tuple);
 
+/*
+ * Generates an IP header and an UDP header
+ * and copies the original packet at the end
+ */
+
+uint8_t *build_ip_udp_encap_pkt(uint8_t * orig_pkt,
+                                int orig_pkt_len,
+                                lisp_addr_t * addr_from,
+                                lisp_addr_t * addr_dest,
+                                int port_from,
+                                int port_dest,
+                                int *encap_pkt_len);
+
+uint8_t *build_control_encap_pkt(uint8_t * orig_pkt,
+                                 int orig_pkt_len,
+                                 lisp_addr_t * addr_from,
+                                 lisp_addr_t * addr_dest,
+                                 int port_from,
+                                 int port_dest,
+                                 int *control_encap_pkt_len);
 
 #endif /*LISPD_PKT_LIB_H_*/

@@ -137,4 +137,19 @@ uint8_t *build_map_register_pkt(
 
 int build_and_send_map_register_msg(lispd_mapping_elt *mapping);
 
+int build_and_send_ecm_map_register(lispd_mapping_elt *mapping_elt,
+                                    int proxy_reply,
+                                    lisp_addr_t *inner_addr_from,
+                                    lisp_addr_t *inner_addr_dest,
+                                    int inner_port_from,
+                                    int inner_port_dest,
+                                    lisp_addr_t *outer_addr_from,
+                                    lisp_addr_t *outer_addr_dest,
+                                    int outer_port_from,
+                                    int outer_port_dest,
+                                    int key_id,
+                                    char *key,
+                                    lispd_site_ID *site_ID,
+                                    lispd_xTR_ID *xTR_ID);
+
 #endif /*LISPD_MAP_REGISTER_H_*/

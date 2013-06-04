@@ -42,7 +42,7 @@
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
-#include "lispd_nat_lib.h"
+#include "lispd_info_request.h"
 
 
 /*
@@ -86,7 +86,16 @@ int map_register(
                 if((nat_aware==TRUE)){ /* NAT procedure instead of the standard one */
                     
                     if(behind_nat == UNKNOWN){
-                        nat_info_request();
+                        build_and_send_info_request(build_nonce((unsigned int) time(NULL)),
+                                                    map_servers->key_type,
+                                                    map_servers->key,
+                                                    DEFAULT_INFO_REQUEST_TIMEOUT,
+                                                    mapping->eid_prefix_length,
+                                                    &(mapping->eid_prefix),
+                                                    default_ctrl_iface_v4->ipv4_address,
+                                                    LISP_CONTROL_PORT,
+                                                    map_servers->address,
+                                                    LISP_CONTROL_PORT);
                     }
                     
                     if(behind_nat==TRUE){
@@ -102,7 +111,9 @@ int map_register(
                                                         LISP_DATA_PORT,
                                                         LISP_CONTROL_PORT,
                                                         map_servers->key_type,
-                                                        map_servers->key);
+                                                        map_servers->key,
+                                                        &site_ID,
+                                                        &xTR_ID);
                     }
                 }
                 
@@ -259,6 +270,119 @@ uint8_t *build_map_register_pkt(
         free(packet);
         return(NULL);
     }
+}
+
+
+int build_and_send_ecm_map_register(lispd_mapping_elt *mapping_elt,
+                                    int proxy_reply,
+                                    lisp_addr_t *inner_addr_from,
+                                    lisp_addr_t *inner_addr_dest,
+                                    int inner_port_from,
+                                    int inner_port_dest,
+                                    lisp_addr_t *outer_addr_from,
+                                    lisp_addr_t *outer_addr_dest,
+                                    int outer_port_from,
+                                    int outer_port_dest,
+                                    int key_id,
+                                    char *key,
+                                    lispd_site_ID *site_ID,
+                                    lispd_xTR_ID *xTR_ID)
+
+{
+
+    lispd_pkt_map_register_t *map_register_pkt;
+    lispd_pkt_map_register_t *map_register_pkt_tmp;
+    uint8_t *ecm_map_register;
+    lisp_addr_t *orig_rloc;
+
+    int map_register_pkt_len;
+    int ecm_map_register_len;
+
+    /* XXX Quick hack to put the RTR locator instead of ours in the ECM Map Register */
+
+    orig_rloc = mapping_elt->head_v4_locators_list->locator->locator_addr; /* Switch RLOCs */
+    mapping_elt->head_v4_locators_list->locator->locator_addr = &natt_rtr;
+
+    map_register_pkt = (lispd_pkt_map_register_t *)build_map_register_pkt(mapping_elt,&map_register_pkt_len);
+
+    mapping_elt->head_v4_locators_list->locator->locator_addr = orig_rloc; /* Undo switch */
+
+
+    /* Map Server proxy reply */
+    map_register_pkt->proxy_reply = 1; /* We have to let the Map Server to proxy reply.
+                                          If not, we need to keep open a state in NAT via Info-Requests */
+
+    /* R bit always 1 for Map Registers sent to the RTR */
+    map_register_pkt->rbit = 1;
+
+    /* xTR-ID must be set if RTR bit is 1 */
+    map_register_pkt->ibit = 1;
+
+    /* XXX Quick hack */
+    /* Cisco IOS RTR implementation drops Data-Map-Notify if ECM Map Register nonce = 0 */
+    map_register_pkt->nonce = htobe64(1);
+
+    /* Add xTR-ID and site-ID fields */
+
+    map_register_pkt_tmp = map_register_pkt;
+
+    map_register_pkt = (lispd_pkt_map_register_t *)malloc(map_register_pkt_len +
+    													  sizeof(lispd_site_ID) +
+    													  sizeof(lispd_xTR_ID));
+
+    memset(map_register_pkt, 0,map_register_pkt_len +
+			                   sizeof(lispd_site_ID) +
+			                   sizeof(lispd_xTR_ID));
+
+    memcpy(map_register_pkt,map_register_pkt_tmp,map_register_pkt_len);
+
+    memcpy(map_register_pkt + map_register_pkt_len,
+    	   site_ID,
+    	   sizeof(lispd_site_ID));
+
+    memcpy(map_register_pkt + map_register_pkt_len + sizeof(lispd_site_ID),
+       	   xTR_ID,
+       	   sizeof(lispd_xTR_ID));
+
+    map_register_pkt_len = map_register_pkt_len + sizeof(lispd_site_ID) + sizeof(lispd_xTR_ID);
+
+
+    complete_auth_fields(key_id,
+                         &(map_register_pkt->key_id),
+                         key,
+                         (void *) (map_register_pkt),
+                         map_register_pkt_len,
+                         &(map_register_pkt->auth_data));
+
+    ecm_map_register = build_control_encap_pkt((uint8_t *) map_register_pkt,
+                                               map_register_pkt_len,
+                                               inner_addr_from,
+                                               inner_addr_dest,
+                                               inner_port_from,
+                                               inner_port_dest,
+                                               &ecm_map_register_len);
+    free(map_register_pkt);
+
+    if (ecm_map_register == NULL) {
+        return (BAD);
+    }
+
+
+    if (BAD == send_udp_ipv4_packet(outer_addr_from,
+                                    outer_addr_dest,
+                                    outer_port_from,
+                                    outer_port_dest,
+                                    ecm_map_register,
+                                    ecm_map_register_len)){
+
+        free(ecm_map_register);
+        return (BAD);
+    }
+
+
+    free(ecm_map_register);
+
+    return (GOOD);
 }
 
 

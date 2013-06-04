@@ -3,7 +3,6 @@
 #include "lispd.h"
 
 #include "lispd_info_nat.h"
-#include "lispd_nat_lib.h"
 
 
 #define DEFAULT_INFO_REQUEST_TIMEOUT    10 
@@ -69,3 +68,6 @@ int build_and_send_info_request(uint64_t nonce,
                                 unsigned int src_port,
                                 lisp_addr_t *dst_addr,
                                 unsigned int dst_port);
+
+
+

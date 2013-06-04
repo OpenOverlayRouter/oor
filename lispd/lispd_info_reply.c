@@ -39,20 +39,17 @@
 #include "lispd_lib.h"
 
 #include "lispd_map_register.h"
+#include "cksum.h"
 
-int extract_info_reply_body(irp_lcaf,lcaf_afi,flags,lcaf_type,lcaf_length,
-                            global_etr_rloc,ms_rloc,private_etr_rloc,rtr_rloc_list)
-
-lispd_pkt_info_reply_lcaf_t *irp_lcaf;
-uint16_t * lcaf_afi;
-uint8_t * flags;
-uint8_t * lcaf_type;
-uint16_t * lcaf_length;
-lisp_addr_t *global_etr_rloc;
-lisp_addr_t *ms_rloc;
-lisp_addr_t *private_etr_rloc;
-lispd_addr_list_t *rtr_rloc_list;
-
+int extract_info_reply_body(lispd_pkt_info_reply_lcaf_t *irp_lcaf,
+		                    uint16_t * lcaf_afi,
+		                    uint8_t * flags,
+		                    uint8_t * lcaf_type,
+		                    uint16_t * lcaf_length,
+		                    lisp_addr_t *global_etr_rloc,
+		                    lisp_addr_t *ms_rloc,
+		                    lisp_addr_t *private_etr_rloc,
+		                    lispd_addr_list_t *rtr_rloc_list)
 {
     lispd_addr_list_t *rtr_rloc_itr;
 
@@ -192,7 +189,6 @@ int process_info_reply_msg(uint8_t *packet)
 
     /*
      * Get source port and address.
-     * IPv4 and IPv6 support
      */
 
     irp = (lispd_pkt_info_nat_t *) packet;
@@ -241,8 +237,7 @@ int process_info_reply_msg(uint8_t *packet)
                                  map_servers->key,
                                  (void *) packet,
                                  pckt_len,
-                                 auth_data_pos,
-                                 auth_data_len)){
+                                 auth_data_pos)){
 									 
         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Error checking auth data field");
         return(BAD);
@@ -257,7 +252,8 @@ int process_info_reply_msg(uint8_t *packet)
 
     /* Check if behind NAT */
 
-    switch (compare_lisp_addr_t(&global_etr_rloc, get_current_locator())) {
+    /* XXX IPv4 only. Assuming just one out iface (for both data and control) */
+    switch (compare_lisp_addr_t(&global_etr_rloc, default_out_iface_v4->ipv4_address)) {
 
         case 0:
 

@@ -323,6 +323,196 @@ int extract_5_tuples_from_packet (
     return (GOOD);
 }
 
+
+/*
+ * Generates an IP header and an UDP header
+ * and copies the original packet at the end
+ */
+
+uint8_t *build_ip_udp_encap_pkt(uint8_t * orig_pkt,
+                                int orig_pkt_len,
+                                lisp_addr_t * addr_from,
+                                lisp_addr_t * addr_dest,
+                                int port_from,
+                                int port_dest,
+                                int *encap_pkt_len)
+{
+
+    uint8_t *cur_ptr;
+    void *pkt_ptr;
+
+    void *iph_ptr;
+    struct udphdr *udph_ptr;
+
+    int epkt_len;
+    int ip_hdr_len;
+    int udp_hdr_len;
+
+    int ip_payload_len;
+    int udp_hdr_and_payload_len;
+
+    uint16_t udpsum = 0;
+
+
+    if (addr_from->afi != addr_dest->afi) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "data_encap_pkt: Different AFI addresses");
+        return (NULL);
+    }
+
+    if ((addr_from->afi != AF_INET) && (addr_from->afi != AF_INET6)) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "data_encap_pkt: Unknown AFI %d",
+               addr_from->afi);
+        return (NULL);
+    }
+
+    /* Headers lengths */
+
+    ip_hdr_len = get_ip_header_len(addr_from->afi);
+
+    udp_hdr_len = sizeof(struct udphdr);
+
+
+    /* Assign memory for the original packet plus the new headers */
+
+    epkt_len = ip_hdr_len + udp_hdr_len + orig_pkt_len;
+
+    if ((pkt_ptr = (void *) malloc(epkt_len)) == NULL) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "malloc(packet_len): %s", strerror(errno));
+        return (NULL);
+    }
+
+    /* Make sure it's clean */
+
+    memset(pkt_ptr, 0, epkt_len);
+
+
+    /* IP header */
+
+    iph_ptr = pkt_ptr;
+
+    ip_payload_len = ip_hdr_len + udp_hdr_len + orig_pkt_len;
+
+    udph_ptr = build_ip_header(iph_ptr,
+                               addr_from,
+                               addr_dest,
+                               ip_payload_len);
+
+    /* UDP header */
+
+
+    udp_hdr_and_payload_len = udp_hdr_len + orig_pkt_len;
+
+#ifdef BSD
+    udph_ptr->uh_sport = htons(port_from);
+    udph_ptr->uh_dport = htons(port_dest);
+    udph_ptr->uh_ulen = htons(udp_payload_len);
+    udph_ptr->uh_sum = 0;
+#else
+    udph_ptr->source = htons(port_from);
+    udph_ptr->dest = htons(port_dest);
+    udph_ptr->len = htons(udp_hdr_and_payload_len);
+    udph_ptr->check = 0;
+#endif
+
+    /* Copy original packet after the headers */
+
+    cur_ptr = (void *) CO(udph_ptr, udp_hdr_len);
+
+    memcpy(cur_ptr, orig_pkt, orig_pkt_len);
+
+
+    /*
+     * Now compute the headers checksums
+     */
+
+
+    ((struct ip *) iph_ptr)->ip_sum = ip_checksum(iph_ptr, ip_hdr_len);
+
+    if ((udpsum =
+         udp_checksum(udph_ptr,
+                      udp_hdr_and_payload_len,
+                      iph_ptr,
+                      addr_from->afi)) == -1) {
+        return (NULL);
+    }
+    udpsum(udph_ptr) = udpsum;
+
+
+    /* Return the encapsulated packet and its length */
+
+    *encap_pkt_len = epkt_len;
+
+    return (pkt_ptr);
+
+}
+
+uint8_t *build_control_encap_pkt(uint8_t * orig_pkt,
+                                        int orig_pkt_len,
+                                        lisp_addr_t * addr_from,
+                                        lisp_addr_t * addr_dest,
+                                        int port_from,
+                                        int port_dest,
+                                        int *control_encap_pkt_len)
+{
+
+    uint8_t *encap_pkt_ptr;
+    uint8_t *cur_ptr;
+    void *c_encap_pkt_ptr;
+
+    lisp_encap_control_hdr_t *lisp_hdr_ptr;
+
+    int encap_pkt_len;
+    int c_encap_pkt_len;
+    int lisp_hdr_len;
+
+
+    encap_pkt_ptr = build_ip_udp_encap_pkt(orig_pkt,
+                                           orig_pkt_len,
+                                           addr_from,
+                                           addr_dest,
+                                           port_from,
+                                           port_dest,
+                                           &encap_pkt_len);
+
+
+    /* Header length */
+
+    lisp_hdr_len = sizeof(lisp_encap_control_hdr_t);
+
+    /* Assign memory for the original packet plus the new header */
+
+    c_encap_pkt_len = lisp_hdr_len + encap_pkt_len;
+
+    if ((c_encap_pkt_ptr = (void *) malloc(c_encap_pkt_len)) == NULL) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "malloc(packet_len): %s", strerror(errno));
+        free(encap_pkt_ptr);
+        return (NULL);
+    }
+
+    memset(c_encap_pkt_ptr, 0, c_encap_pkt_len);
+
+    /* LISP encap control header */
+
+    lisp_hdr_ptr = (lisp_encap_control_hdr_t *) c_encap_pkt_ptr;
+
+    lisp_hdr_ptr->type = 8;
+
+    /* Copy original packet after the LISP control header */
+
+    cur_ptr = (void *) CO(lisp_hdr_ptr, lisp_hdr_len);
+
+    memcpy(cur_ptr, encap_pkt_ptr, encap_pkt_len);
+
+    /* Return the encapsulated packet and its length */
+
+    *control_encap_pkt_len = c_encap_pkt_len;
+
+    return (c_encap_pkt_ptr);
+
+}
+
+
+
 /*
  * Editor modelines
  *
