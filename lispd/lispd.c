@@ -59,6 +59,7 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_output.h"
+#include "lispd_rloc_probing.h"
 #include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
@@ -84,6 +85,11 @@ int      debug_level                        = 0;
 int      default_rloc_afi                   = -1;
 int      daemonize                          = FALSE;
 int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
+/* RLOC probing parameters */
+int      rloc_probe_interval                = RLOC_PROBING_INTERVAL;
+int      rloc_probe_retries                 = DEFAULT_RLOC_PROBING_RETRIES;
+int      rloc_probe_retries_interval        = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+
 int      control_port                       = LISP_CONTROL_PORT;
 uint32_t iseed                              = 0;  /* initial random number generator */
 int      total_mappings                     = 0;
@@ -329,6 +335,8 @@ int main(int argc, char **argv)
      */
     netlink_fd = opent_netlink_socket();
 
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
+
     /*
      *  Register to the Map-Server(s)
      */
@@ -341,7 +349,11 @@ int main(int argc, char **argv)
 
     smr_pitrs();
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
+    /*
+     * RLOC Probing proxy ETRs
+     */
+    programming_petr_rloc_probing();
+
 
     event_loop();
 

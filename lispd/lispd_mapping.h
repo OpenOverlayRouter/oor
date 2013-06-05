@@ -123,6 +123,14 @@ void sort_locators_list_elt (
         lisp_addr_t         *changed_loc_addr);
 
 /*
+ * Returns the locators with the address passed as a parameter
+ */
+
+lispd_locator_elt *get_locator_from_mapping(
+        lispd_mapping_elt   *mapping,
+        lisp_addr_t         *address);
+
+/*
  * Free memory of lispd_mapping_elt.
  */
 void free_mapping_elt(lispd_mapping_elt *mapping, int local);

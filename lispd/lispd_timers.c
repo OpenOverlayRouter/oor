@@ -15,6 +15,7 @@
 #include "lispd_iface_mgmt.h"
 #include "lispd_log.h"
 #include "lispd_map_request.h"
+#include "lispd_rloc_probing.h"
 #include "lispd_timers.h"
 
 
@@ -216,6 +217,8 @@ void stop_timer(timer *tptr)
 
     if (strcmp(tptr->name,MAP_REQUEST_RETRY_TIMER)==0){
         free ((timer_map_request_argument *)tptr->cb_argument);
+    }else if (strcmp(tptr->name,RLOC_PROBING_TIMER)==0){
+        free ((timer_rloc_probe_argument *)tptr->cb_argument);
     }
 
     next = tptr->links.next;

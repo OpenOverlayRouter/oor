@@ -8,9 +8,22 @@
 # General configuration
 #	debug: Debug levels [0..3]
 #	map-request-retries: Additional Map-Requests to send per map cache miss
+#	rloc_probing_interval: Period in seconds between RLOC probes. A value of 0 will dissable RLOC probing 
 
-debug                = 0 
-map-request-retries  = 2
+debug                  = 0 
+map-request-retries    = 2
+
+# RLOC Probing configuration
+#	rloc-probe-interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 dissables RLOC Probing
+#   rloc-probe-retries: RLOC Probe retries before marking the locator with status down. [0..5]
+#   rloc-probe-retries-interval: interval at which RLOC probes retries are sent (seconds) [1..#rloc-probe-interval]
+
+rloc-probing {
+		rloc-probe-interval  			= 30
+		rloc-probe-retries				= 2
+		rloc-probe-retries-interval		= 5
+}
+
 
 
 # Encapsulated Map-Requests are sent to this map-resolver

@@ -124,6 +124,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
     lispd_map_server_list_t   *ms                   = NULL;
     uint32_t                  md_len                = 0;
     int                       sent_map_registers    = 0;
+    lisp_addr_t               *src_addr             = 0;
 
 
     if ((packet = build_map_register_pkt(mapping, &packet_len)) == NULL) {
@@ -160,7 +161,14 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
         }
 
         /* Send the map register */
-        err = send_udp_ctrl_packet(ms->address,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)map_register_pkt,packet_len);
+        src_addr = get_default_ctrl_address(ms->address->afi);
+        if (src_addr != NULL){
+            err = send_udp_packet(src_addr,ms->address,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)map_register_pkt,packet_len);
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_register_msg: Couldn't send Map-Register. No local RLOC compatible with the afi of the destinaion locator %s",
+                              get_char_from_lisp_addr_t(*(ms->address)));
+            err = BAD;
+        }
 
         if (err == GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to Map Server %s",

@@ -254,8 +254,10 @@ int add_encap_headers(
          itr_rloc[i].afi = itr_rloc_afi;
          cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
          // Select the first accessible rloc from the ITR-RLOC list
-         if (remote_rloc == NULL &&  get_default_ctrl_iface (itr_rloc[i].afi) != NULL){
-             remote_rloc = &itr_rloc[i];
+         if (remote_rloc == NULL){
+             if (local_rloc != NULL && itr_rloc[i].afi ==  local_rloc->afi){
+                 remote_rloc = &itr_rloc[i];
+             }
          }
      }
      if (remote_rloc == NULL){
@@ -434,9 +436,10 @@ int build_and_send_map_request_msg(
         uint64_t                *nonce)
 {
 
-    uint8_t     *packet = NULL;
-    int         mrp_len = 0;               /* return the length here */
-    int         result  = 0;
+    uint8_t     *packet         = NULL;
+    lisp_addr_t *src_rloc_addr  = NULL;
+    int         mrp_len         = 0;               /* return the length here */
+    int         result          = 0;
 
     packet = build_map_request_pkt(
             requested_mapping,
@@ -460,7 +463,18 @@ int build_and_send_map_request_msg(
         return (BAD);
     }
 
-    result = send_udp_ctrl_packet(dst_rloc_addr,LISP_CONTROL_PORT, LISP_CONTROL_PORT,(void *)packet,mrp_len);
+    /* Send the packet */
+
+
+    src_rloc_addr = get_default_ctrl_address(dst_rloc_addr->afi);
+    if (src_rloc_addr != NULL){
+        result = send_udp_packet(src_rloc_addr,dst_rloc_addr,LISP_CONTROL_PORT, LISP_CONTROL_PORT,(void *)packet,mrp_len);
+    }else {
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_request_msg: Couldn't send Map-Request. No local RLOC compatible with the afi of the destinaion locator %s",
+                get_char_from_lisp_addr_t(*dst_rloc_addr));
+        result = BAD;
+    }
+
 
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
@@ -470,6 +484,15 @@ int build_and_send_map_request_msg(
                         (probe == TRUE ? 'Y' : 'N'),
                         (solicit_map_request == TRUE ? 'Y' : 'N'),
                         (smr_invoked == TRUE ? 'Y' : 'N'));
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
+                get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                requested_mapping->eid_prefix_length,
+                (encap == TRUE ? 'Y' : 'N'),
+                (probe == TRUE ? 'Y' : 'N'),
+                (solicit_map_request == TRUE ? 'Y' : 'N'),
+                (smr_invoked == TRUE ? 'Y' : 'N'));
+        result = BAD;
     }
 
     free (packet);
@@ -808,13 +831,13 @@ int send_map_request_miss(timer *t, void *arg)
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
-            lispd_log_msg(LISP_LOG_WARNING,"Send_map_request_miss: Unable to allocate memory for nonces: %s", strerror(errno));
-            return BAD;
+            lispd_log_msg(LISP_LOG_WARNING,"Send_map_request_miss: Unable to allocate memory for nonces.");
+            return (BAD);
         }
         map_cache_entry->nonces = nonces;
     }
 
-    if (nonces->retransmits - 1 < LISPD_MAX_MR_RETRANSMIT ){
+    if (nonces->retransmits - 1 < map_request_retries ){
 
         if (map_cache_entry->request_retry_timer == NULL){
             map_cache_entry->request_retry_timer = create_timer (MAP_REQUEST_RETRY_TIMER);

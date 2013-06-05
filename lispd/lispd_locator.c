@@ -219,6 +219,7 @@ inline rmt_locator_extended_info *new_rmt_locator_extended_info()
         return(NULL);
     }
     rmt_loc_ext_inf->rloc_probing_nonces = NULL;
+    rmt_loc_ext_inf->probe_timer = NULL;
 
     return rmt_loc_ext_inf;
 }
@@ -245,6 +246,9 @@ void free_locator(lispd_locator_elt   *locator)
 
 inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extenden_info)
 {
+    if (extenden_info->probe_timer != NULL){
+        stop_timer(extenden_info->probe_timer);
+    }
     if (extenden_info->rloc_probing_nonces != NULL){
         free (extenden_info->rloc_probing_nonces);
     }

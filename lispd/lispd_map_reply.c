@@ -69,10 +69,32 @@
 #include "lispd_map_cache_db.h"
 #include "lispd_map_reply.h"
 #include "lispd_pkt_lib.h"
+#include "lispd_rloc_probing.h"
 #include "lispd_sockets.h"
 
+/********************************** Function declaration ********************************/
+
 int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce);
+
+/*
+ * Process a record from map-reply probe message
+ */
+
+int process_map_reply_probe_record(uint8_t **cur_ptr, uint64_t nonce);
+
 int process_map_reply_locator(uint8_t  **offset, lispd_mapping_elt *mapping);
+
+/*
+ * Return the locator from tha mapping that match with the locator of the packet.
+ * Retun null if no match found. Offset is updated to point the next locator of the packet.
+ */
+
+int process_map_reply_probe_locator(
+        uint8_t                 **offset,
+        lispd_mapping_elt       *mapping,
+        uint64_t                nonce,
+        lispd_locator_elt       **locator);
+
 uint8_t *build_map_reply_pkt(
         lispd_mapping_elt *mapping,
         lisp_addr_t *probed_rloc,
@@ -80,6 +102,7 @@ uint8_t *build_map_reply_pkt(
         uint64_t nonce,
         int *map_reply_msg_len);
 
+/****************************************************************************************/
 
 int process_map_reply(uint8_t *packet)
 {
@@ -92,18 +115,21 @@ int process_map_reply(uint8_t *packet)
     mrp = (lispd_pkt_map_reply_t *)packet;
     nonce = mrp->nonce;
     record_count = mrp->record_count;
-    //rloc_probe = mrp->rloc_probe;
-
-    // XXX alopez RLOC- PROBE
 
     packet = CO(packet, sizeof(lispd_pkt_map_reply_t));
     for (ctr=0;ctr<record_count;ctr++){
-        if ((process_map_reply_record(&packet,nonce))==BAD){
-            return (BAD);
+        if (mrp->rloc_probe == FALSE){
+            if ((process_map_reply_record(&packet,nonce))==BAD){
+                return (BAD);
+            }
+            if (is_loggable(LISP_LOG_DEBUG_3)){
+                dump_map_cache_db(LISP_LOG_DEBUG_3);
+            }
+        }else{
+            if ((process_map_reply_probe_record(&packet,nonce))==BAD){
+                return (BAD);
+            }
         }
-    }
-    if (is_loggable(LISP_LOG_DEBUG_3)){
-        dump_map_cache_db(LISP_LOG_DEBUG_3);
     }
     return (TRUE);
 }
@@ -118,6 +144,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     int                                     aux_eid_prefix_length   = 0;
     int                                     aux_iid                 = -1;
     int                                     ctr                     = 0;
+    uint8_t                                 new_mapping             = FALSE;
 
     record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
     mapping = new_map_cache_mapping(aux_eid_prefix,aux_eid_prefix_length,aux_iid);
@@ -162,6 +189,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         lispd_log_msg(LISP_LOG_DEBUG_2,"  Activating map cache entry %s/%d",
                             get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
         free_mapping_elt(mapping, FALSE);
+        new_mapping = TRUE;
     }
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
     else {
@@ -200,51 +228,232 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         cache_entry->mapping->head_v6_locators_list = NULL;
         free_mapping_elt(mapping, FALSE);
     }
-    cache_entry->mapping->locator_count = record->locator_count;
     cache_entry->actions = record->action;
     cache_entry->ttl = ntohl(record->ttl);
     cache_entry->active_witin_period = 1;
     cache_entry->timestamp = time(NULL);
-
+    //locator_count updated when adding the processed locators
 
     /* Generate the locators */
     for (ctr=0 ; ctr < record->locator_count ; ctr++){
-        if ((process_map_reply_locator (cur_ptr, cache_entry->mapping)) == BAD)
+        if ((process_map_reply_locator (cur_ptr, cache_entry->mapping)) == BAD){
             return(BAD);
+        }
     }
 
     /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
-    // XXX NO calculate for RLOC Probing
     if (cache_entry->mapping->locator_count != 0){
         calculate_balancing_vectors (
                 cache_entry->mapping,
                 &(((rmt_mapping_extended_info *)cache_entry->mapping->extended_info)->rmt_balancing_locators_vecs));
     }
-
-    /* Reprogramming timers */
+    /*
+     * Reprogramming timers
+     */
+    /* Expiration cache timer */
     if (!cache_entry->expiry_cache_timer){
         cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE_TIMER);
     }
     start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
                      (void *)cache_entry);
+    lispd_log_msg(LISP_LOG_DEBUG_1,"The map cache entry %s/%d will expire in %d minutes.",
+            get_char_from_lisp_addr_t(cache_entry->mapping->eid_prefix),
+            cache_entry->mapping->eid_prefix_length, cache_entry->ttl);
 
+    /* RLOC probing timer */
+    if (new_mapping == TRUE && rloc_probe_interval != 0){
+        programming_rloc_probing(cache_entry);
+    }
     return (TRUE);
 }
+
+/*
+ * Process a record from map-reply probe message
+ */
+
+int process_map_reply_probe_record(
+        uint8_t     **cur_ptr,
+        uint64_t    nonce)
+{
+    lispd_pkt_mapping_record_t              *record                 = NULL;
+    lispd_mapping_elt                       *mapping                = NULL;
+    lispd_map_cache_entry                   *cache_entry            = NULL;
+    lispd_locator_elt                       *aux_locator            = NULL;
+    lispd_locator_elt                       *locator                = NULL;
+    rmt_locator_extended_info               *rmt_locator_ext_inf    = NULL;
+    lispd_locators_list                     *locators_list[2]       = {NULL,NULL};
+    lisp_addr_t                             aux_eid_prefix;
+    int                                     aux_eid_prefix_length   = 0;
+    int                                     aux_iid                 = -1;
+    int                                     ctr                     = 0;
+    int                                     locators_probed         = 0;
+
+    record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
+    mapping = new_map_cache_mapping(aux_eid_prefix,aux_eid_prefix_length,aux_iid);
+    if (mapping == NULL){
+        return (BAD);
+    }
+    *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
+    if (!pkt_process_eid_afi(cur_ptr,mapping)){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_probe_record:  Error processing the EID of the map reply record");
+        free_mapping_elt(mapping, FALSE);
+        return (BAD);
+    }
+    mapping->eid_prefix_length = record->eid_prefix_length;
+
+    if (record->locator_count != 0 ){
+        /* Serch map cache entry exist*/
+        cache_entry = lookup_map_cache_exact(mapping->eid_prefix,mapping->eid_prefix_length);
+        if (cache_entry == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_probe_record:  No map cache entry found for %s/%d",
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
+            free_mapping_elt(mapping, FALSE);
+            return (BAD);
+        }
+
+        /* Check instane id.*/
+        if (cache_entry->mapping->iid != mapping->iid){
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_probe_record:  Instance ID of the map reply doesn't match with the map cache entry");
+            free_mapping_elt(mapping, FALSE);
+            return (BAD);
+        }
+
+
+        /* Free auxiliar mapping used to search the map cache entry*/
+        free_mapping_elt(mapping, FALSE);
+
+        /*
+         * Check probed locators of the list. Only one locator can be probed per message
+         */
+        for (ctr=0 ; ctr < record->locator_count ; ctr++){
+            err = process_map_reply_probe_locator (cur_ptr, cache_entry->mapping, nonce, &aux_locator);
+            if (err == ERR_MALLOC){
+                return (BAD);
+            }
+            if (aux_locator == NULL){ // The current locator is not probed
+                continue;
+            }
+            rmt_locator_ext_inf = (rmt_locator_extended_info *)(aux_locator->extended_info);
+            /* Check the nonce of the message match with the one stored in the structure of the locator */
+            if ((check_nonce(rmt_locator_ext_inf->rloc_probing_nonces,nonce)) == GOOD){
+                rmt_locator_ext_inf->rloc_probing_nonces = NULL;
+                if (locators_probed == 0){
+                    locator = aux_locator;
+                    locators_probed ++;
+                }else{
+                    lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: Invalid Map-Reply Probe. Only one locator can be probed per message");
+                    return (BAD);
+                }
+            }else{
+                lispd_log_msg(LISP_LOG_DEBUG_1,"The nonce of the Map-Reply Probe doesn't match the nonce of the generated Map-Request Probe. Discarding message ...");
+                return (BAD);
+            }
+        }
+
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply probe reachability to RLOC %s of the EID cache entry %s/%d",
+                    get_char_from_lisp_addr_t(*(locator->locator_addr)),
+                    get_char_from_lisp_addr_t(cache_entry->mapping->eid_prefix),
+                    cache_entry->mapping->eid_prefix_length);
+
+    }else{ // Probe of a negative map cache -> proxy-etr
+        if(proxy_etrs != NULL && compare_lisp_addr_t(&(mapping->eid_prefix),&(proxy_etrs->mapping->eid_prefix)) == 0){
+            cache_entry = proxy_etrs;
+            locators_list[0] = proxy_etrs->mapping->head_v4_locators_list;
+            locators_list[1] = proxy_etrs->mapping->head_v6_locators_list;
+
+            for (ctr=0 ; ctr < 2 ; ctr++){
+                while (locators_list[ctr]!=NULL){
+                    aux_locator = locators_list[ctr]->locator;
+                    rmt_locator_ext_inf = (rmt_locator_extended_info *)(aux_locator->extended_info);
+                    if ((check_nonce(rmt_locator_ext_inf->rloc_probing_nonces,nonce)) == GOOD){
+                        rmt_locator_ext_inf->rloc_probing_nonces = NULL;
+                        locator = aux_locator;
+                        break;
+                    }
+                    locators_list[ctr] = locators_list[ctr]->next;
+                }
+                if (locator != NULL){
+                    break;
+                }
+            }
+            if (locator == NULL){
+                lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The nonce of the Negative Map-Reply Probe don't match any nonce of Proxy-ETR locators");
+                free_mapping_elt(mapping, FALSE);
+                return (BAD);
+            }
+            free_mapping_elt(mapping, FALSE);
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The received negative Map-Reply Probe has not been requested: %s/%d",
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
+            free_mapping_elt(mapping, FALSE);
+            return (BAD);
+        }
+
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply probe reachability to the PETR with RLOC %s",
+                    get_char_from_lisp_addr_t(*(locator->locator_addr)));
+    }
+
+
+
+    if (*(locator->state) == DOWN){
+        *(locator->state) = UP;
+
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply Probe received for locator %s -> Locator state changes to UP",
+                           get_char_from_lisp_addr_t(*(locator->locator_addr)));
+
+        /* [re]Calculate balancing locator vectors  if it has been a change of status*/
+        calculate_balancing_vectors (
+                cache_entry->mapping,
+                &(((rmt_mapping_extended_info *)cache_entry->mapping->extended_info)->rmt_balancing_locators_vecs));
+    }
+
+    /*
+     * Reprogramming timers of rloc probing
+     */
+    rmt_locator_ext_inf = (rmt_locator_extended_info *)(locator->extended_info);
+    if (!rmt_locator_ext_inf->probe_timer){
+        // It should never enter in this block except RLOC Probing not active and receive a Map Reply Probe.
+        rmt_locator_ext_inf->probe_timer = create_timer (RLOC_PROBING_TIMER);
+        rmt_locator_ext_inf->probe_timer->cb_argument = (void *)new_timer_rloc_probe_argument(cache_entry,locator);;
+    }
+
+    start_timer(rmt_locator_ext_inf->probe_timer, rloc_probe_interval, (timer_callback)rloc_probing,rmt_locator_ext_inf->probe_timer->cb_argument);
+    if (record->locator_count != 0 ){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s of the EID %s/%d in %d seconds",
+                get_char_from_lisp_addr_t(*(locator->locator_addr)),
+                get_char_from_lisp_addr_t(cache_entry->mapping->eid_prefix),
+                cache_entry->mapping->eid_prefix_length, rloc_probe_interval);
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s (PETR) in %d seconds",
+                get_char_from_lisp_addr_t(*(locator->locator_addr)), rloc_probe_interval);
+    }
+
+    return (GOOD);
+}
+
 
 int process_map_reply_locator(
         uint8_t                 **offset,
         lispd_mapping_elt       *mapping)
 {
-    lispd_pkt_mapping_record_locator_t  *pkt_locator;
-    lispd_locator_elt                   *locator;
-    uint8_t                             *cur_ptr;
+    lispd_pkt_mapping_record_locator_t  *pkt_locator    = NULL;
+    lispd_locator_elt                   *locator        = NULL;
+    uint8_t                             *cur_ptr        = NULL;
+    uint8_t                             status          = UP;
 
     cur_ptr = *offset;
     pkt_locator = (lispd_pkt_mapping_record_locator_t *)(cur_ptr);
 
     cur_ptr = (uint8_t *)&(pkt_locator->locator_afi);
 
-    locator = new_rmt_locator (&cur_ptr,pkt_locator->reachable,
+    /*
+     * We only consider the reachable bit if the information comes from the owner of the locator (local)
+     */
+    if (pkt_locator->reachable == DOWN && pkt_locator->local == UP){
+        status = DOWN;
+    }
+
+    locator = new_rmt_locator (&cur_ptr,status,
             pkt_locator->priority, pkt_locator->weight,
             pkt_locator->mpriority, pkt_locator->mweight);
 
@@ -260,59 +469,116 @@ int process_map_reply_locator(
     return (GOOD);
 }
 
+/*
+ * Return the locator from tha mapping that match with the locator of the packet.
+ * Retun null if no match found. Offset is updated to point the next locator of the packet.
+ */
+
+int process_map_reply_probe_locator(
+        uint8_t                 **offset,
+        lispd_mapping_elt       *mapping,
+        uint64_t                nonce,
+        lispd_locator_elt       **locator)
+{
+    lispd_pkt_mapping_record_locator_t  *pkt_locator    = NULL;
+    lispd_locator_elt                   *aux_locator    = NULL;
+    uint8_t                             *cur_ptr        = NULL;
+
+
+    *locator = NULL;
+    cur_ptr = *offset;
+    pkt_locator = (lispd_pkt_mapping_record_locator_t *)(cur_ptr);
+
+    cur_ptr = (uint8_t *)&(pkt_locator->locator_afi);
+
+    /* Extract locator from packet */
+    aux_locator = new_rmt_locator (&cur_ptr,UP,
+            pkt_locator->priority, pkt_locator->weight,
+            pkt_locator->mpriority, pkt_locator->mweight);
+
+    if (aux_locator == NULL){
+        return (ERR_MALLOC);
+    }
+    /* If the locator of the packed is probed, search the structure of the locator that represents the locator of tha packet */
+    if (pkt_locator->probed == TRUE){
+        *locator = get_locator_from_mapping(mapping, aux_locator->locator_addr);
+        if (*locator == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_2,"get_map_reply_locator_from_mapping: The locator %s is not found in the mapping %s/%d",
+                    get_char_from_lisp_addr_t(*(aux_locator->locator_addr)),
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),
+                    mapping->eid_prefix_length);
+            return (ERR_NO_EXIST);
+        }
+    }
+    *offset = cur_ptr;
+    return (GOOD);
+}
 
 
 /*
  * build_and_send_map_reply_msg()
- *
  */
 
 int build_and_send_map_reply_msg(
         lispd_mapping_elt *requested_mapping,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
+        lisp_addr_t *src_rloc_addr,
+        lisp_addr_t *dst_rloc_addr,
         uint16_t dport,
         uint64_t nonce,
         map_reply_opts opts)
 {
 
-    uint8_t         *packet         = NULL;
-    int             packet_len      = 0;
-    int             result          = 0;
+    uint8_t         *packet             = NULL;
+    int             packet_len          = 0;
+    int             result              = 0;
 
     /* Build the packet */
-    if (opts.rloc_probe == TRUE)
-        packet = build_map_reply_pkt(requested_mapping, local_rloc, opts, nonce, &packet_len);
-    else
+    if (opts.rloc_probe == TRUE){
+        packet = build_map_reply_pkt(requested_mapping, src_rloc_addr, opts, nonce, &packet_len);
+    }
+    else{
         packet = build_map_reply_pkt(requested_mapping, NULL, opts, nonce, &packet_len);
+    }
+    if (packet == NULL){
+        return (BAD);
+    }
 
     /* Send the packet */
-    result = send_udp_ctrl_packet(remote_rloc,LISP_CONTROL_PORT, dport,(void *)packet,packet_len);
+
+    if (src_rloc_addr == NULL){
+        src_rloc_addr = get_default_ctrl_address(dst_rloc_addr->afi);
+    }
+    if (src_rloc_addr != NULL){
+        result = send_udp_packet(src_rloc_addr, dst_rloc_addr,LISP_CONTROL_PORT, dport,(void *)packet,packet_len);
+    }else {
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_reply_msg: Couldn't send Map-Reply. No local RLOC compatible with the afi of the destinaion locator %s",
+                get_char_from_lisp_addr_t(*dst_rloc_addr));
+        result = BAD;
+    }
 
     if (result == GOOD){
         if (opts.rloc_probe == TRUE){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d probing local locator %s",
                     get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                     requested_mapping->eid_prefix_length,
-                    get_char_from_lisp_addr_t(*local_rloc));
+                    get_char_from_lisp_addr_t(*src_rloc_addr));
         }else{
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d",
                     get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                     requested_mapping->eid_prefix_length);
         }
-    }
-
-    free(packet);
-
-    if (result != GOOD){
+    }else {
         if (opts.rloc_probe == TRUE){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't build/send Probe Reply!");
         }else{
             lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't build/send Map-Reply!");
         }
-        return (BAD);
+        result = BAD;
     }
-    return (GOOD);
+
+    free(packet);
+
+    return (result);
 }
 
 
@@ -330,7 +596,7 @@ uint8_t *build_map_reply_pkt(lispd_mapping_elt *mapping,
     if ((packet = malloc(*map_reply_msg_len)) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "build_map_reply_pkt: Unable to allocate memory for  Map Reply message(%d) %s",
                 *map_reply_msg_len, strerror(errno));
-        return(ERR_MALLOC);
+        return(NULL);
     }
     memset(packet, 0, *map_reply_msg_len);
 

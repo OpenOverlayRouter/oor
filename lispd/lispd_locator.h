@@ -32,6 +32,7 @@
 #define LISPD_LOCATOR_H_
 
 #include "lispd_nonce.h"
+#include "lispd_timers.h"
 
 /****************************************  STRUCTURES **************************************/
 
@@ -60,6 +61,7 @@ typedef struct lcl_locator_extended_info_ {
  */
 typedef struct rmt_locator_extended_info_ {
     nonces_list                 *rloc_probing_nonces;
+    timer                       *probe_timer;
 }rmt_locator_extended_info;
 
 

@@ -291,31 +291,24 @@ int open_data_input_socket(int afi){
  * Send a control packet over a udp datagram to the destination address.
  */
 
-int send_udp_ctrl_packet(
+int send_udp_packet(
+        lisp_addr_t *src_addr,
         lisp_addr_t *dst_addr,
         uint16_t    src_port,
         uint16_t    dst_port,
         void        *packet,
         int         packet_len)
 {
+    if (src_addr->afi != dst_addr->afi){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"send_udp_packet: Couldn't send packet. Source and destination address with different afi");
+    }
+
     switch (dst_addr->afi){
     case AF_INET:
-        if (default_ctrl_iface_v4 != NULL){
-            err = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,dst_addr,src_port,dst_port,(void *)packet,packet_len);
-        }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1,"send_udp_ctrl_packet: No local RLOC compatible with the afi of the destinaion locator %s",
-                    get_char_from_lisp_addr_t(*dst_addr));
-            err = BAD;
-        }
+        err = send_udp_ipv4_packet(src_addr,dst_addr,src_port,dst_port,(void *)packet,packet_len);
         break;
     case AF_INET6:
-        if (default_ctrl_iface_v6 != NULL){
-            err = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,dst_addr,src_port,dst_port,(void *)packet,packet_len);
-        }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1,"send_udp_ctrl_packet: No local RLOC compatible with the afi of the destination locator %s",
-                    get_char_from_lisp_addr_t(*dst_addr));
-            err = BAD;
-        }
+        err = send_udp_ipv6_packet(src_addr,dst_addr,src_port,dst_port,(void *)packet,packet_len);
         break;
     }
     return err;
