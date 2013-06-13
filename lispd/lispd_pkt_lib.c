@@ -221,7 +221,10 @@ void *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_locator_t      *loc_ptr            = NULL;
     lispd_locators_list                     *locators_list[2]   = {NULL,NULL};
     lispd_locator_elt                       *locator            = NULL;
+    lcl_locator_extended_info               *lct_extended_info  = NULL;
+    lisp_addr_t                             *itr_address    = NULL;
     int                                     ctr                 = 0;
+
 
     if ((rec == NULL) || (mapping == NULL))
         return NULL;
@@ -256,8 +259,15 @@ void *pkt_fill_mapping_record(
             loc_ptr->reachable   = *(locator->state);
             loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
 
+            lct_extended_info = (lcl_locator_extended_info *)(locator->extended_info);
+            if (lct_extended_info->rtr_locators_list != NULL){
+                itr_address = &(lct_extended_info->rtr_locators_list->locator->address);
+            }else{
+                itr_address = locator->locator_addr;
+            }
+
             if ((cpy_len = copy_addr((void *) CO(loc_ptr,
-                    sizeof(lispd_pkt_mapping_record_locator_t)), locator->locator_addr, 0)) == 0) {
+                    sizeof(lispd_pkt_mapping_record_locator_t)), itr_address, 0)) == 0) {
                 lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
                         get_char_from_lisp_addr_t(*(locator->locator_addr)));
                 return(NULL);
@@ -268,7 +278,7 @@ void *pkt_fill_mapping_record(
             locators_list[ctr] = locators_list[ctr]->next;
         }
     }
-    return (void *)loc_ptr;
+    return ((void *)loc_ptr);
 }
 /*
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
@@ -329,38 +339,39 @@ int extract_5_tuples_from_packet (
  * and copies the original packet at the end
  */
 
-uint8_t *build_ip_udp_encap_pkt(uint8_t * orig_pkt,
-                                int orig_pkt_len,
-                                lisp_addr_t * addr_from,
-                                lisp_addr_t * addr_dest,
-                                int port_from,
-                                int port_dest,
-                                int *encap_pkt_len)
+uint8_t *build_ip_udp_encap_pkt(
+        uint8_t         *orig_pkt,
+        int             orig_pkt_len,
+        lisp_addr_t     *addr_from,
+        lisp_addr_t     *addr_dest,
+        int             port_from,
+        int             port_dest,
+        int             *encap_pkt_len)
 {
 
-    uint8_t *cur_ptr;
-    void *pkt_ptr;
+    uint8_t         *cur_ptr                    = NULL;
+    void            *pkt_ptr                    = NULL;
 
-    void *iph_ptr;
-    struct udphdr *udph_ptr;
+    void            *iph_ptr                    = NULL;
+    struct udphdr   *udph_ptr                   = NULL;
 
-    int epkt_len;
-    int ip_hdr_len;
-    int udp_hdr_len;
+    int             epkt_len                    = 0;
+    int             ip_hdr_len                  = 0;
+    int             udp_hdr_len                 = 0;
 
-    int ip_payload_len;
-    int udp_hdr_and_payload_len;
+    int             ip_payload_len              = 0;
+    int             udp_hdr_and_payload_len     = 0;
 
-    uint16_t udpsum = 0;
+    uint16_t        udpsum                      = 0;
 
 
     if (addr_from->afi != addr_dest->afi) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "data_encap_pkt: Different AFI addresses");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Different AFI addresses");
         return (NULL);
     }
 
     if ((addr_from->afi != AF_INET) && (addr_from->afi != AF_INET6)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "data_encap_pkt: Unknown AFI %d",
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Unknown AFI %d",
                addr_from->afi);
         return (NULL);
     }
@@ -377,7 +388,7 @@ uint8_t *build_ip_udp_encap_pkt(uint8_t * orig_pkt,
     epkt_len = ip_hdr_len + udp_hdr_len + orig_pkt_len;
 
     if ((pkt_ptr = (void *) malloc(epkt_len)) == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "malloc(packet_len): %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Couldn't allocate memory for the packet to be generated %s", strerror(errno));
         return (NULL);
     }
 
@@ -396,6 +407,11 @@ uint8_t *build_ip_udp_encap_pkt(uint8_t * orig_pkt,
                                addr_from,
                                addr_dest,
                                ip_payload_len);
+
+    if (udph_ptr == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Couldn't build the inner ip header");
+        return (NULL);
+    }
 
     /* UDP header */
 

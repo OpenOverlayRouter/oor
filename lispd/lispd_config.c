@@ -415,18 +415,20 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     int             ret             = 0;
     char            *map_resolver   = NULL;
     char            *proxy_itr      = NULL;
+    char            *nat_site_ID    = NULL;
+    char            *nat_xTR_ID     = NULL;
 
     static cfg_opt_t map_server_opts[] = {
-            CFG_STR("address",      0, CFGF_NONE),
-            CFG_INT("key-type",     0, CFGF_NONE),
-            CFG_STR("key",          0, CFGF_NONE),
+            CFG_STR("address",              0, CFGF_NONE),
+            CFG_INT("key-type",             0, CFGF_NONE),
+            CFG_STR("key",                  0, CFGF_NONE),
             CFG_BOOL("proxy-reply", cfg_false, CFGF_NONE),
             CFG_END()
     };
 
     static cfg_opt_t db_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                  -1, CFGF_NONE),
+            CFG_INT("iid",                 -1, CFGF_NONE),
             CFG_STR("interface",            0, CFGF_NONE),
             CFG_INT("priority_v4",          0, CFGF_NONE),
             CFG_INT("weight_v4",            0, CFGF_NONE),
@@ -437,7 +439,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     static cfg_opt_t mc_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                  -1, CFGF_NONE),
+            CFG_INT("iid",                 -1, CFGF_NONE),
             CFG_STR("rloc",                 0, CFGF_NONE),
             CFG_INT("priority",             0, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
@@ -451,11 +453,19 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_END()
     };
 
+    static cfg_opt_t nat_traversal_opts[] = {
+            CFG_BOOL("nat_aware",   cfg_false, CFGF_NONE),
+            CFG_STR("site_ID",              0, CFGF_NONE),
+            CFG_STR("xTR_ID",               0, CFGF_NONE),
+            CFG_END()
+    };
+
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts, CFGF_MULTI),
             CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
             CFG_SEC("map-server",           map_server_opts, CFGF_MULTI),
             CFG_SEC("proxy-etr",            petr_mapping_opts, CFGF_MULTI),
+            CFG_SEC("nat-traversal",        nat_traversal_opts, CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
@@ -501,6 +511,26 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         if (debug_level > 3)
             debug_level = 3;
     }
+
+    /*
+     * Nat Traversal options
+     */
+    cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
+
+    nat_aware   = cfg_getbool(nt, "nat_aware");
+    nat_site_ID = cfg_getstr(nt, "site_ID");
+    nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
+    if (nat_aware == TRUE){
+        if ((convert_hex_string_to_bytes(nat_site_ID,site_ID.byte,8)) != GOOD){
+            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format", map_resolver);
+            exit(EXIT_FAILURE);
+        }
+        if ((convert_hex_string_to_bytes(nat_xTR_ID,xTR_ID.byte,16)) != GOOD){
+            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format", map_resolver);
+            exit(EXIT_FAILURE);
+        }
+    }
+
     /*
      *  LISP config options
      */

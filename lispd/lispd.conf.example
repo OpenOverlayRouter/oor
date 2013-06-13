@@ -47,6 +47,13 @@ proxy-etr {
 	weight      = 100
 }
 
+
+nat-traversal {
+	nat_aware	= on
+	site_ID		= 0000000000000000
+	xTR_ID		= 00000000000000000000000000000000
+}
+
 # IPv4 / IPv6 EID of the node.
 # One database-mapping structure is defined for each interface with RLOCs associated to this EID
 #	eid-prefix: EID prefix (IPvX/mask) of the mapping 

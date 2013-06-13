@@ -34,6 +34,7 @@
 #define LISPD_LIB_H_
 
 #include "lispd.h"
+#include "lispd_locator.h"
 
 
 /*
@@ -208,11 +209,14 @@ inline void memcopy_lisp_addr_V6(void *dest,
 void memcopy_lisp_addr(void *dest,
                        lisp_addr_t *orig);
 
-lisp_addr_t extract_lisp_address(void *ptr);
+int extract_lisp_address(
+        uint8_t         *ptr,
+        lisp_addr_t     *addr);
 
 void free_lisp_addr_list(lispd_addr_list_t * list);
 
-lisp_addr_t *select_best_rtr_from_rtr_list(lispd_addr_list_t *rtr_rloc_list);
+int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
+
 
 #endif /*LISPD_LIB_H_*/
 

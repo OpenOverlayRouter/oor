@@ -318,6 +318,31 @@ void sort_locators_list_elt (
 
 
 /*
+ * Returns the locators with the address passed as a parameter
+ */
+
+lispd_locator_elt *get_locator_from_mapping(
+        lispd_mapping_elt   *mapping,
+        lisp_addr_t         address)
+{
+    lispd_locator_elt   *locator        = NULL;
+    lispd_locators_list *locator_list   = NULL;
+
+    switch (address.afi){
+    case AF_INET:
+        locator_list = mapping->head_v4_locators_list;
+        break;
+    case AF_INET6:
+        locator_list = mapping->head_v6_locators_list;
+        break;
+    }
+
+    locator = get_locator_from_list(locator_list, address);
+
+    return (locator);
+}
+
+/*
  * Free memory of lispd_mapping_elt.
  */
 void free_mapping_elt(lispd_mapping_elt *mapping, int local)

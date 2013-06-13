@@ -110,11 +110,10 @@ nlsock_handle nlh;
 /* NAT */
 
 int nat_aware = FALSE;
-int behind_nat = UNKNOWN;
-lisp_addr_t natt_rtr;
+int nat_status = UNKNOWN;
 
 lispd_site_ID site_ID = {.byte = {0}}; //XXX Check if this works
-lispd_xTR_ID xTR_ID = {.byte = {0}};
+lispd_xTR_ID  xTR_ID = {.byte = {0}};
 
 /*
  *      timers (fds)
@@ -122,10 +121,6 @@ lispd_xTR_ID xTR_ID = {.byte = {0}};
 
 int     timers_fd                       = 0;
 
-#ifdef LISPMOBMH
-/* timer to rate control smr's in multihoming scenarios */
-int 	smr_timer_fd					= 0;
-#endif
 
 
 int main(int argc, char **argv) 
@@ -343,14 +338,9 @@ int main(int argc, char **argv)
      */
 
     /* NAT traversal global variables */
-
     nat_aware = TRUE;
-    behind_nat = UNKNOWN;
-    
-    site_ID.byte[15] = 1;
-    xTR_ID.byte[7] = 1;
 
-    map_register (NULL,NULL);
+    map_register (map_register_timer,NULL);
 
     /*
      * SMR proxy-ITRs list to be updated with new mappings

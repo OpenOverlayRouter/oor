@@ -36,7 +36,8 @@
 
 inline lcl_locator_extended_info *new_lcl_locator_extended_info(int out_socket);
 inline rmt_locator_extended_info *new_rmt_locator_extended_info();
-inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extenden_info);
+inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info);
+inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info);
 
 /*
  * Generets a locator element
@@ -206,6 +207,7 @@ inline lcl_locator_extended_info *new_lcl_locator_extended_info(int out_socket)
         return(NULL);
     }
     lcl_loc_ext_inf->out_socket = out_socket;
+    lcl_loc_ext_inf->rtr_locators_list = NULL;
 
     return lcl_loc_ext_inf;
 }
@@ -224,6 +226,57 @@ inline rmt_locator_extended_info *new_rmt_locator_extended_info()
 }
 
 
+lispd_rtr_locator *new_rtr_locator(lisp_addr_t address)
+{
+    lispd_rtr_locator       *rtr_locator            = NULL;
+
+    rtr_locator = (lispd_rtr_locator *)malloc(sizeof(lispd_rtr_locator));
+    if (rtr_locator == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "new_rtr_locator: Unable to allocate memory for lispd_rtr_locator: %s", strerror(errno));
+        return (NULL);
+    }
+    rtr_locator->address = address;
+    rtr_locator->latency = 0;
+    rtr_locator->state = UP;
+
+    return (rtr_locator);
+}
+
+/*
+ * Leave in the list, rtr with afi equal to the afi passed as a parameter
+ */
+
+void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_list, int afi)
+{
+    lispd_rtr_locators_list *rtr_list_elt           = *rtr_list;
+    lispd_rtr_locators_list *prev_rtr_list_elt      = NULL;
+    lispd_rtr_locators_list *aux_rtr_list_elt      = NULL;
+    uint8_t                 is_first_element        = TRUE;
+
+    while (rtr_list_elt != NULL){
+        if (rtr_list_elt->locator->address.afi == afi){
+            if (prev_rtr_list_elt == NULL){
+                prev_rtr_list_elt = rtr_list_elt;
+            }else{
+                prev_rtr_list_elt->next = rtr_list_elt;
+                prev_rtr_list_elt = prev_rtr_list_elt->next;
+            }
+            if (is_first_element == TRUE){
+                if (prev_rtr_list_elt != *rtr_list){
+                    *rtr_list = prev_rtr_list_elt;
+                }
+                is_first_element = FALSE;
+            }
+            rtr_list_elt = rtr_list_elt->next;
+        }else{
+            aux_rtr_list_elt = rtr_list_elt;
+            rtr_list_elt = rtr_list_elt->next;
+            free (aux_rtr_list_elt->locator);
+            free (aux_rtr_list_elt);
+        }
+    }
+    prev_rtr_list_elt->next = NULL;
+}
 
 
 /*
@@ -232,23 +285,40 @@ inline rmt_locator_extended_info *new_rmt_locator_extended_info()
 
 void free_locator(lispd_locator_elt   *locator)
 {
-
-    if (locator->locator_type == STATIC_LOCATOR || locator->locator_type == DYNAMIC_LOCATOR || locator->locator_type ==PETR_LOCATOR){
-        free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
-    }
     if (locator->locator_type != LOCAL_LOCATOR){
+        free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
         free (locator->locator_addr);
         free (locator->state);
+    }else{
+        free_lcl_locator_extended_info((lcl_locator_extended_info *)locator->extended_info);
     }
     free (locator);
 }
 
-inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extenden_info)
+inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info)
 {
-    if (extenden_info->rloc_probing_nonces != NULL){
-        free (extenden_info->rloc_probing_nonces);
+    free_rtr_list(extended_info->rtr_locators_list);
+    free (extended_info);
+}
+
+void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt)
+{
+    lispd_rtr_locators_list *aux_rtr_list_elt   = NULL;
+
+    while (rtr_list_elt != NULL){
+        aux_rtr_list_elt = rtr_list_elt->next;
+        free(rtr_list_elt->locator);
+        free(rtr_list_elt);
+        rtr_list_elt = aux_rtr_list_elt;
     }
-    free (extenden_info);
+}
+
+inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info)
+{
+    if (extended_info->rloc_probing_nonces != NULL){
+        free (extended_info->rloc_probing_nonces);
+    }
+    free (extended_info);
 }
 
 void dump_locator (
@@ -333,6 +403,33 @@ int add_locator_to_list (
     return (GOOD);
 }
 
+
+int add_rtr_locator_to_list(
+        lispd_rtr_locators_list **rtr_list,
+        lispd_rtr_locator       *rtr_locator)
+{
+    lispd_rtr_locators_list *rtr_locator_list_elt   = NULL;
+    lispd_rtr_locators_list *rtr_locator_list       = *rtr_list;
+
+    rtr_locator_list_elt = (lispd_rtr_locators_list *)malloc(sizeof(lispd_rtr_locators_list));
+    if (rtr_locator_list_elt == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "new_rtr_locator_list_elt: Unable to allocate memory for lispd_rtr_locators_list: %s", strerror(errno));
+        return (BAD);
+    }
+    rtr_locator_list_elt->locator = rtr_locator;
+    rtr_locator_list_elt->next = NULL;
+    if (rtr_locator_list != NULL){
+        while (rtr_locator_list->next != NULL){
+            rtr_locator_list = rtr_locator_list->next;
+        }
+        rtr_locator_list->next = rtr_locator_list_elt;
+    }else{
+        *rtr_list = rtr_locator_list_elt;
+    }
+
+    return (GOOD);
+}
+
 /*
  * Extract the locator from a locators list that match with the address.
  * The locator is removed from the list
@@ -360,6 +457,28 @@ lispd_locator_elt *extract_locator_from_list(
         }
         prev_locator_list_elt = locator_list;
         locator_list = locator_list->next;
+    }
+    return (locator);
+}
+/*
+ * Return the locator from the list that contains the address passed as a parameter
+ */
+
+lispd_locator_elt *get_locator_from_list(
+        lispd_locators_list    *locator_list,
+        lisp_addr_t             addr)
+{
+    lispd_locator_elt       *locator                = NULL;
+    int                     cmp                     = 0;
+
+    while (locator_list != NULL){
+        cmp = compare_lisp_addr_t(locator_list->locator->locator_addr,&addr);
+        if (cmp == 0){
+            locator = locator_list->locator;
+            break;
+        }else if (cmp == 1){
+            break;
+        }
     }
     return (locator);
 }

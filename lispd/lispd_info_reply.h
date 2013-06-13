@@ -1,7 +1,37 @@
-#pragma once
+/*
+ * lispd_info_reply.h
+ *
+ * This file is part of LISP Mobile Node Implementation.
+ * Send registration messages for each database mapping to
+ * configured map-servers.
+ *
+ * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Written or modified by:
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ */
+
+#ifndef LISPD_INFO_REPLY_H_
+#define LISPD_INFO_REPLY_H_
 
 #include "lispd.h"
-
 #include "lispd_info_nat.h"
 
 
@@ -60,20 +90,10 @@
  * We use the same lispd_pkt_eid_nat_t defined in the previous packet
  */
 
-/* Fixed part of NAT LCAF.
- * Variable in number and length adresses follows
- */
-
-typedef struct lispd_pkt_info_reply_lcaf_t_ {
-    uint16_t lcaf_afi;
-    uint8_t reserved1;
-    uint8_t flags;
-    uint8_t lcaf_type;
-    uint8_t reserved2;
-    uint16_t length;
-    uint16_t ms_udp_port;
-    uint16_t etr_udp_port;
-} PACKED lispd_pkt_info_reply_lcaf_t;
 
 
-int process_info_reply_msg(uint8_t *packet);
+int process_info_reply_msg(
+        uint8_t         *packet,
+        lisp_addr_t     local_rloc);
+
+#endif /*LISPD_INFO_REPLY_H_*/

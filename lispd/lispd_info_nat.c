@@ -48,7 +48,9 @@
  *
  */
 
-int process_info_nat_msg(uint8_t *packet)
+int process_info_nat_msg(
+        uint8_t         *packet,
+        lisp_addr_t     local_rloc)
 
 {
     lispd_pkt_info_nat_t *nat_pkt;
@@ -61,7 +63,7 @@ int process_info_nat_msg(uint8_t *packet)
         return (BAD);
 
     case NAT_REPLY:
-        return (process_info_reply_msg(packet));
+        return (process_info_reply_msg(packet, local_rloc));
 
     default:
         return (BAD);         // We should never reach here
@@ -163,20 +165,24 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(int lisp_type,
 
 
 
-int extract_info_nat_header(lispd_pkt_info_nat_t *hdr,
-                            uint8_t *type,
-                            uint8_t *reply,
-                            uint64_t *nonce,
-                            uint16_t *key_id,
-                            uint16_t *auth_data_len,
-                            uint8_t **auth_data,
-                            uint32_t *ttl,
-                            uint8_t *eid_mask_len,
-                            lisp_addr_t *eid_prefix)
+int extract_info_nat_header(
+        uint8_t     *offset,
+        uint8_t     *type,
+        uint8_t     *reply,
+        uint64_t    *nonce,
+        uint16_t    *key_id,
+        uint16_t    *auth_data_len,
+        uint8_t     **auth_data,
+        uint32_t    *ttl,
+        uint8_t     *eid_mask_len,
+        lisp_addr_t *eid_prefix,
+        uint32_t    *hdr_len)
 {
-    lispd_pkt_info_nat_eid_t *eid_part;
-    void *eid_ptr;
-    unsigned int hdr_len;
+    lispd_pkt_info_nat_t        *hdr        = NULL;
+    lispd_pkt_info_nat_eid_t    *eid_part   = NULL;
+    void                        *eid_ptr    = NULL;
+
+    hdr = (lispd_pkt_info_nat_t *)offset;
 
     *type = hdr->lisp_type;
     *reply = hdr->rbit;
@@ -201,11 +207,14 @@ int extract_info_nat_header(lispd_pkt_info_nat_t *hdr,
     /* Put the pointer just before the EID AFI field to use the extract_lisp_address function */
     eid_ptr = CO(eid_part, sizeof(lispd_pkt_info_nat_eid_t) - sizeof(uint16_t));
 
-    *eid_prefix = extract_lisp_address((void *) eid_ptr);
+    if ((extract_lisp_address(eid_ptr, eid_prefix)) != GOOD ){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"extract_info_nat_header: Coudn't obtain EID address");
+        return (BAD);
+    }
 
-    hdr_len = sizeof(lispd_pkt_info_nat_t) + sizeof(lispd_pkt_info_nat_eid_t);
+    *hdr_len = sizeof(lispd_pkt_info_nat_t) + sizeof(lispd_pkt_info_nat_eid_t) + get_addr_len(eid_prefix->afi);
 
-    return (hdr_len);
+    return (GOOD);
 }
 
 

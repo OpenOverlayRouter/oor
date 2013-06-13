@@ -330,7 +330,7 @@ uint8_t *build_map_reply_pkt(lispd_mapping_elt *mapping,
     if ((packet = malloc(*map_reply_msg_len)) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "build_map_reply_pkt: Unable to allocate memory for  Map Reply message(%d) %s",
                 *map_reply_msg_len, strerror(errno));
-        return(ERR_MALLOC);
+        return(NULL);
     }
     memset(packet, 0, *map_reply_msg_len);
 

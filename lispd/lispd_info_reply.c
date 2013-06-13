@@ -33,118 +33,15 @@
 #include <sys/timerfd.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
+#include "lispd_afi.h"
 #include "lispd_external.h"
-
 #include "lispd_info_reply.h"
 #include "lispd_lib.h"
-
+#include "lispd_local_db.h"
 #include "lispd_map_register.h"
 #include "cksum.h"
 
-int extract_info_reply_body(lispd_pkt_info_reply_lcaf_t *irp_lcaf,
-		                    uint16_t * lcaf_afi,
-		                    uint8_t * flags,
-		                    uint8_t * lcaf_type,
-		                    uint16_t * lcaf_length,
-		                    lisp_addr_t *global_etr_rloc,
-		                    lisp_addr_t *ms_rloc,
-		                    lisp_addr_t *private_etr_rloc,
-		                    lispd_addr_list_t *rtr_rloc_list)
-{
-    lispd_addr_list_t *rtr_rloc_itr;
 
-    lisp_addr_t *rtr_rloc_elt;
-
-    void *ptr;
-
-    unsigned int cumulative_add_length;
-
-
-    *lcaf_afi = ntohs(irp_lcaf->lcaf_afi);
-
-
-    *flags = irp_lcaf->flags;
-
-    *lcaf_type = irp_lcaf->lcaf_type;
-
-    *lcaf_length = ntohs(irp_lcaf->length);
-
-
-    cumulative_add_length = FIELD_PORT_LEN * 2; /* 2 UDP ports */
-
-
-    ptr = (void *) CO(irp_lcaf, sizeof(lispd_pkt_info_reply_lcaf_t));
-
-    /* Extract the Global ETR RLOC */
-
-    *global_etr_rloc = extract_lisp_address(ptr);
-
-    cumulative_add_length +=
-        get_addr_len(global_etr_rloc->afi) + FIELD_AFI_LEN;
-
-    ptr = CO(ptr, get_addr_len(global_etr_rloc->afi) + FIELD_AFI_LEN);
-
-    /* Extract the MS RLOC */
-
-    *ms_rloc = extract_lisp_address(ptr);
-
-    cumulative_add_length += get_addr_len(ms_rloc->afi) + FIELD_AFI_LEN;
-
-    ptr = CO(ptr, get_addr_len(ms_rloc->afi) + FIELD_AFI_LEN);
-
-    /* Extract the Private ETR RLOC */
-
-    *private_etr_rloc = extract_lisp_address(ptr);
-    /* In this case this function should return afi = 0 */
-
-    cumulative_add_length +=
-        get_addr_len(private_etr_rloc->afi) + FIELD_AFI_LEN;
-
-    ptr = CO(ptr, get_addr_len(private_etr_rloc->afi) + FIELD_AFI_LEN);
-
-
-    /* Extract the list of RTR RLOCs */
-
-    rtr_rloc_itr = rtr_rloc_list;
-
-    while (cumulative_add_length < *lcaf_length) {
-
-        rtr_rloc_elt = (lisp_addr_t *) malloc(sizeof(lisp_addr_t));
-
-        if (rtr_rloc_elt == NULL) {
-            lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Error malloc rtr_rloc_list");
-            free_lisp_addr_list(rtr_rloc_list);
-            return (BAD);
-        }
-
-        *rtr_rloc_elt = extract_lisp_address(ptr);
-
-        rtr_rloc_itr->address = rtr_rloc_elt;
-
-        cumulative_add_length +=
-            get_addr_len(rtr_rloc_elt->afi) + FIELD_AFI_LEN;
-
-        /* If still more RTR RLOCs */
-
-        if (cumulative_add_length < *lcaf_length) {
-
-            ptr = CO(ptr, get_addr_len(rtr_rloc_elt->afi) + FIELD_AFI_LEN);
-
-            rtr_rloc_itr->next =
-                (lispd_addr_list_t *) malloc(sizeof(lispd_addr_list_t));
-
-            if (rtr_rloc_itr->next == NULL) {
-                lispd_log_msg(LISP_LOG_DEBUG_2,"Info-Reply: Error malloc rtr_rloc_list");
-                free_lisp_addr_list(rtr_rloc_list);
-                return (BAD);
-            }
-
-            rtr_rloc_itr = rtr_rloc_itr->next;
-        }
-    }
-
-    return (GOOD);
-}
 
 
 /*
@@ -153,92 +50,131 @@ int extract_info_reply_body(lispd_pkt_info_reply_lcaf_t *irp_lcaf,
  *
  */
 
-int process_info_reply_msg(uint8_t *packet)
+int process_info_reply_msg(
+        uint8_t         *packet,
+        lisp_addr_t     local_rloc)
 {
 
-    lispd_pkt_info_nat_t *irp;
-    lispd_pkt_info_reply_lcaf_t *irp_lcaf;
+    uint8_t                     *ptr                    = packet;
 
-    uint8_t lisp_type;
-    uint8_t reply;
+    uint8_t                     lisp_type               = 0;
+    uint8_t                     reply                   = 0;
 
-    uint64_t nonce;
-    uint16_t key_id;
-    uint16_t auth_data_len;
-	uint8_t *auth_data_pos;
+    uint64_t                    nonce                   = 0;
+    uint16_t                    key_id                  = 0;
+    uint16_t                    auth_data_len           = 0;
+	uint8_t                     *auth_data_pos          = NULL;
 
-    uint32_t ttl;
-    uint8_t eid_mask_len;
+    uint32_t                    ttl                     = 0;
+    uint8_t                     eid_mask_len            = 0;
+    lisp_addr_t                 eid_prefix              = {.afi=AF_UNSPEC};
 
-    uint16_t lcaf_afi;
-    uint8_t flags;
-    uint8_t lcaf_type;
-    uint16_t lcaf_length;
+    uint16_t                    ms_udp_port             = 0;
+    uint16_t                    etr_udp_port            = 0;
 
-    lisp_addr_t eid_prefix;
+    uint32_t                    info_reply_hdr_len      = 0;
+    uint32_t                    lcaf_addr_len           = 0;
+	uint32_t                    pckt_len                = 0;
 
-    int hdr_len;
+	uint16_t                    *lcaf_afi               = NULL;
 
-	unsigned int pckt_len;
 
-    lisp_addr_t global_etr_rloc;
-    lisp_addr_t ms_rloc;
-    lisp_addr_t private_etr_rloc;
-    lispd_addr_list_t rtr_rloc_list;
+
+    lisp_addr_t                 global_etr_rloc         = {.afi=AF_UNSPEC};
+    lisp_addr_t                 ms_rloc                 = {.afi=AF_UNSPEC};
+    lisp_addr_t                 private_etr_rloc        = {.afi=AF_UNSPEC};
+    lispd_rtr_locators_list     *rtr_locators_list      = NULL;
+
+    lispd_mapping_elt           *mapping                = NULL;
+    lispd_locator_elt           *locator                = NULL;
+    lcl_locator_extended_info   *lcl_locator_ext_inf    = NULL;
+
+
+    char                        rtrs_list_str[2000];
+    lispd_rtr_locators_list     *aux_rtr_locators_list  = NULL;
+
+    uint8_t                     is_behind_nat           = FALSE;
+
 
 
     /*
      * Get source port and address.
      */
 
-    irp = (lispd_pkt_info_nat_t *) packet;
 
+    err = extract_info_nat_header(ptr,
+            &lisp_type,
+            &reply,
+            &nonce,
+            &key_id,
+            &auth_data_len,
+            &auth_data_pos,
+            &ttl,
+            &eid_mask_len,
+            &eid_prefix,
+            &info_reply_hdr_len);
 
-    hdr_len = extract_info_nat_header((lispd_pkt_info_nat_t *) packet,
-                                      &lisp_type,
-                                      &reply,
-                                      &nonce,
-                                      &key_id,
-                                      &auth_data_len,
-                                      &auth_data_pos,
-                                      &ttl,
-                                      &eid_mask_len,
-                                      &eid_prefix);
+    if (err != GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"process_info_reply_msg: Couldn't process Info Reply message");
+        return (BAD);
+    }
+    ptr = CO(ptr,info_reply_hdr_len);
 
-
-	
-
-    irp_lcaf =
-        (lispd_pkt_info_reply_lcaf_t *) CO(irp,hdr_len + get_addr_len(eid_prefix.afi));
-
-	/* Extract Info-Reply body fields */
-
-    if (BAD == extract_info_reply_body(irp_lcaf,
-                                         &lcaf_afi,
-                                         &flags,
-                                         &lcaf_type,
-                                         &lcaf_length,
-                                         &global_etr_rloc,
-                                         &ms_rloc,
-                                         &private_etr_rloc,
-                                         &rtr_rloc_list)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Error extracting packet data");
+    lcaf_afi = (uint16_t *)ptr;
+    if ( ntohs(*lcaf_afi) != LISP_AFI_LCAF){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"process_info_reply_msg: Malformed packet");
         return (BAD);
     }
 
+    ptr = CO(ptr,FIELD_AFI_LEN);
+	/* Extract Info-Reply body fields */
+    err = extract_nat_lcaf_data(ptr,
+            &ms_udp_port,
+            &etr_udp_port,
+            &global_etr_rloc,
+            &ms_rloc,
+            &private_etr_rloc,
+            &rtr_locators_list,
+            &lcaf_addr_len);
 
-    pckt_len = hdr_len+
-               sizeof(lispd_pkt_info_reply_lcaf_t)+
-               get_addr_len(eid_prefix.afi)+
-               lcaf_length - 4; 
-               /* These 4 bytes are already in sizeof(lispd_pkt_info_reply_lcaf_t) */
+    /* Leave only RTR with same afi as the local rloc where we received the message */
+    remove_rtr_locators_with_afi_different_to(&rtr_locators_list, local_rloc.afi);
+
+    lcaf_addr_len += FIELD_AFI_LEN;
+
+    if (err == BAD) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Error extracting packet data");
+        return (BAD);
+    }
+
+    /* Print the extracted information of the message */
+    if (is_loggable(LISP_LOG_DEBUG_2)){
+        aux_rtr_locators_list = rtr_locators_list;
+        if (aux_rtr_locators_list != NULL){
+            sprintf(rtrs_list_str, "  %s ", get_char_from_lisp_addr_t(aux_rtr_locators_list->locator->address));
+            aux_rtr_locators_list = aux_rtr_locators_list->next;
+        }
+        while (aux_rtr_locators_list != NULL){
+            sprintf(rtrs_list_str + strlen(rtrs_list_str), "  %s ", get_char_from_lisp_addr_t(aux_rtr_locators_list->locator->address));
+            aux_rtr_locators_list = aux_rtr_locators_list->next;
+        }
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply message data->"
+                "Nonce: %s , KeyID: %hu ,TTL: %u , EID-prefix: %s/%hhu , "
+                "MS UDP Port Number: %hu , ETR UDP Port Number: %hu , Global ETR RLOC Address: %s , "
+                "MS RLOC Address: %s , Private ETR RLOC Address: %s, RTR RLOC list: %s",
+                get_char_from_nonce(nonce), key_id, ttl, get_char_from_lisp_addr_t(eid_prefix),eid_mask_len,
+                ms_udp_port, etr_udp_port, get_char_from_lisp_addr_t(global_etr_rloc),
+                get_char_from_lisp_addr_t(ms_rloc),get_char_from_lisp_addr_t(private_etr_rloc),rtrs_list_str);
+    }
+
+
+    pckt_len = info_reply_hdr_len + lcaf_addr_len;
 
     if(BAD == check_auth_field(key_id,
                                  map_servers->key,
                                  (void *) packet,
                                  pckt_len,
                                  auth_data_pos)){
-									 
         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Error checking auth data field");
         return(BAD);
     }else{
@@ -246,36 +182,57 @@ int process_info_reply_msg(uint8_t *packet)
     }
 
 	
-	/* Select the best RTR from the list retrieved from the Info-Reply*/
+	// TODO  Select the best RTR from the list retrieved from the Info-Reply
 
-    natt_rtr = *select_best_rtr_from_rtr_list(&rtr_rloc_list);
 
     /* Check if behind NAT */
 
-    /* XXX IPv4 only. Assuming just one out iface (for both data and control) */
-    switch (compare_lisp_addr_t(&global_etr_rloc, default_out_iface_v4->ipv4_address)) {
-
-        case 0:
-
-        behind_nat = FALSE;
+    switch (compare_lisp_addr_t(&global_etr_rloc, &local_rloc)) {
+    case 0:
+        is_behind_nat = FALSE;
         lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: MN is not behind NAT");
         break;
-
-        case 1:
-        case 2:
-
-        behind_nat = TRUE;
+    case 1:
+    case 2:
+        is_behind_nat = TRUE;
         lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: MN is behind NAT");
-
         break;
-
-        case -1:
-
-        behind_nat = UNKNOWN;
+    case -1:
+        is_behind_nat = UNKNOWN;
         lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: Unknown state");
-
         break;
+    }
 
+    if (is_behind_nat == TRUE){
+
+        mapping = lookup_eid_exact_in_db(eid_prefix, eid_mask_len);
+        if (mapping == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
+            return (BAD);
+        }
+        locator = get_locator_from_mapping(mapping,local_rloc);
+        if (locator == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply received in the wrong locator");
+            return (BAD);
+        }
+
+        lcl_locator_ext_inf = (lcl_locator_extended_info *)locator->extended_info;
+        if (lcl_locator_ext_inf->rtr_locators_list != NULL){
+            free_rtr_list(lcl_locator_ext_inf->rtr_locators_list);
+        }
+        lcl_locator_ext_inf->rtr_locators_list = rtr_locators_list;
+
+        if (nat_status == FULL_NAT || nat_status == PARTIAL_NAT){
+            nat_status = PARTIAL_NAT;
+        }else{
+            nat_status = FULL_NAT;
+        }
+    }else{
+        if (nat_status == FULL_NAT || nat_status == PARTIAL_NAT){
+            nat_status = PARTIAL_NAT;
+        }else{
+            nat_status = NO_NAT;
+        }
     }
 
     /* Once we know the NAT state we send a Map-Register */

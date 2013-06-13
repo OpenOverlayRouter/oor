@@ -40,7 +40,7 @@
  * LISP AFI codes
  */
 
-#define LISP_AFI_NO_EID                 0
+#define LISP_AFI_NO_ADDR                0
 #define LISP_AFI_IP                     1
 #define LISP_AFI_IPV6                   2
 #define LISP_AFI_LCAF                   16387
@@ -118,14 +118,64 @@ typedef struct lispd_pkt_lcaf_iid_t_ {
 
 
 
+/* Fixed part of NAT LCAF.
+ *      0                   1                   2                   3
+ *      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |   Type = 7    |     Rsvd2     |             4 + n             |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |       MS UDP Port Number      |      ETR UDP Port Number      |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |              AFI = x          |  Global ETR RLOC Address  ... |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |              AFI = x          |       MS RLOC Address  ...    |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |              AFI = x          | Private ETR RLOC Address  ... |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |              AFI = x          |      RTR RLOC Address 1 ...   |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *      |              AFI = x          |      RTR RLOC Address k ...   |
+ *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lispd_pkt_nat_lcaf_t_ {
+    uint16_t ms_udp_port;
+    uint16_t etr_udp_port;
+} PACKED lispd_pkt_nat_lcaf_t;
+
+
+
 /*
  * Reads the address information from the packet and fill the lispd_mapping_elt element
  */
-int pkt_process_eid_afi(uint8_t  **offset, lispd_mapping_elt *mapping);
+int pkt_process_eid_afi(
+        uint8_t             **offset,
+        lispd_mapping_elt   *mapping);
 
 /*
  * Reads the address information from the packet and fill the lispd_locator_elt structure
  */
-int pkt_process_rloc_afi(uint8_t  **offset, lispd_locator_elt   *locator);
+int pkt_process_rloc_afi(
+        uint8_t             **offset,
+        lispd_locator_elt   *locator);
+
+
+/*
+ * Extract the nat lcaf address information from the packet.
+ */
+
+int extract_nat_lcaf_data(
+        uint8_t                         *offset,
+        uint16_t                        *ms_udp_port,
+        uint16_t                        *etr_udp_port,
+        lisp_addr_t                     *global_etr_rloc,
+        lisp_addr_t                     *ms_rloc,
+        lisp_addr_t                     *private_etr_rloc,
+        lispd_rtr_locators_list         **rtr_list,
+        uint32_t                        *length);
+
+
 
 #endif /*LISPD_AFI_H_*/

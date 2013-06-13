@@ -69,6 +69,7 @@
 
 int isfqdn(char *s);
 inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
+inline int convert_hex_char_to_byte (char val);
 
 
 
@@ -217,6 +218,75 @@ void memcopy_lisp_addr(void *dest,
         default:
             //TODO default case?
             break;
+    }
+}
+
+int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
+{
+    int         ctr = 0;
+    char        hex_digit[2];
+    int         partial_byte[2] = {0,0};
+
+    while (hex[ctr] != '\0' && ctr <= bytes_len*2){
+        ctr++;
+    }
+    if (hex[ctr] != '\0' && ctr != bytes_len*2){
+        return (BAD);
+    }
+
+    for (ctr = 0; ctr < bytes_len; ctr++){
+        hex_digit[0] = hex[ctr*2];
+        hex_digit[1] = hex[ctr*2+1];
+        partial_byte[0] = convert_hex_char_to_byte(hex_digit[0]);
+        partial_byte[1] = convert_hex_char_to_byte(hex_digit[1]);
+        if (partial_byte[0] == -1 || partial_byte[1] == -1){
+            lispd_log_msg(LISP_LOG_DEBUG_2,"convert_hex_string_to_bytes: Invalid hexadecimal number");
+            return (BAD);
+        }
+        bytes[ctr] = partial_byte[0]*16 + partial_byte[1];
+    }
+    return (GOOD);
+}
+
+inline int convert_hex_char_to_byte (char val)
+{
+    val = (char)toupper (val);
+
+    switch (val){
+    case '0':
+        return (0);
+    case '1':
+        return (1);
+    case '2':
+        return (2);
+    case '3':
+        return (3);
+    case '4':
+        return (4);
+    case '5':
+        return (5);
+    case '6':
+        return (6);
+    case '7':
+        return (7);
+    case '8':
+        return (8);
+    case '9':
+        return (9);
+    case 'A':
+        return (10);
+    case 'B':
+        return (11);
+    case 'C':
+        return (12);
+    case 'D':
+        return (13);
+    case 'E':
+        return (14);
+    case 'F':
+        return (15);
+    default:
+        return (-1);
     }
 }
 
@@ -530,12 +600,12 @@ void print_hmac(
 
 char *get_char_from_lisp_addr_t (lisp_addr_t addr)
 {
-    static char address[5][INET6_ADDRSTRLEN];
+    static char address[10][INET6_ADDRSTRLEN];
     static unsigned int i; //XXX Too much memory allocation for this, but standard syntax
 
     /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
     i++;
-    i = i % 5;
+    i = i % 10;
 
     switch (addr.afi){
     case AF_INET:
@@ -558,20 +628,27 @@ int get_lisp_addr_from_char (
         char        *address,
         lisp_addr_t *lisp_addr)
 {
+    uint8_t result = BAD;
+
     lisp_addr->afi = get_afi(address);
     switch (lisp_addr->afi){
     case AF_INET:
-        if (inet_pton(AF_INET,address,&(lisp_addr->address.ip))==1)
-            return (GOOD);
-        else
-            return (BAD);
+        if (inet_pton(AF_INET,address,&(lisp_addr->address.ip))==1){
+            result = GOOD;
+        }
+        break;
     case AF_INET6:
-        if (inet_pton(AF_INET6,address,&(lisp_addr->address.ipv6))==1)
-            return (GOOD);
-        else
-            return (BAD);
+        if (inet_pton(AF_INET6,address,&(lisp_addr->address.ipv6))==1){
+            result = GOOD;
+        }
+        break;
+    default:
+        break;
     }
-    return (BAD);
+    if (result == BAD){
+        lisp_addr->afi = AF_UNSPEC;
+    }
+    return (result);
 }
 
 /*
@@ -677,14 +754,14 @@ uint16_t get_lisp_afi(
 int lisp2inetafi(uint16_t afi)
 {
     switch (afi) {
-    case 0:
-        return(0);
+    case LISP_AFI_NO_ADDR:
+        return(AF_UNSPEC);
     case LISP_AFI_IP:
         return(AF_INET);
     case LISP_AFI_IPV6:
         return(AF_INET6);
     case LISP_AFI_LCAF:
-        return(BAD);
+        return(LISP_AFI_LCAF);
     default:
         lispd_log_msg(LISP_LOG_DEBUG_2, "lisp2inetafi: unknown AFI (%d)", afi);
         return(ERR_AFI);
@@ -699,12 +776,14 @@ int inet2lispafi(int afi)
 
 {
     switch (afi) {
-    case 0:
-        return (0);
+    case AF_UNSPEC:
+        return (LISP_AFI_NO_ADDR);
     case AF_INET:
         return (LISP_AFI_IP);
     case AF_INET6:
         return (LISP_AFI_IPV6);
+    case LISP_AFI_LCAF:
+        return(LISP_AFI_LCAF);
     default:
         lispd_log_msg(LISP_LOG_DEBUG_2, "inet2lispafi: unknown AFI (%d)", afi);
         return (0);
@@ -736,6 +815,8 @@ int get_ip_header_len(int afi)
 int get_addr_len(int afi)
 {
     switch (afi) {                      /* == eid_afi */
+    case AF_UNSPEC:
+        return (0);
     case AF_INET:
         return(sizeof(struct in_addr));
     case AF_INET6:
@@ -778,7 +859,9 @@ lisp_addr_t *get_map_resolver()
     return dst_rloc;
 }
 
-inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi)
+inline lisp_addr_t *get_server(
+        lispd_addr_list_t   *server_list,
+        int                 afi)
 {
     lispd_addr_list_t *server_elt;
 
@@ -835,7 +918,8 @@ struct udphdr *build_ip_header(
         udph = (struct udphdr *) CO(ip6h,sizeof(struct ip6_hdr));
         break;
     default:
-        return(ERR_AFI);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"build_ip_header: Uknown AFI of the source address: %d",src_addr->afi);
+        return(NULL);
     }
     return(udph);
 }
@@ -918,7 +1002,7 @@ int process_lisp_ctr_msg(
 
     case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-        if(!process_info_nat_msg(packet)){
+        if(!process_info_nat_msg(packet, local_rloc)){
             return (BAD);
         }
         break;
@@ -968,18 +1052,27 @@ int inaddr2sockaddr(
  * Extracts a lisp_addr_t from a memory position (if stored in Network Byte Order)
  */
 
-lisp_addr_t extract_lisp_address(void *ptr)
+int extract_lisp_address(
+        uint8_t         *ptr,
+        lisp_addr_t     *addr)
 
 {
-    lisp_addr_t lisp_addr;
+    addr->afi = lisp2inetafi(ntohs(*(uint16_t *) ptr));     /* 2 Byte AFI field */
+    if (addr->afi == LISP_AFI_LCAF){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "extract_lisp_address: Couldn't process lcaf address");
+        return (BAD);
+    }
+    if (addr->afi == ERR_AFI){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "extract_lisp_address: Coudn't extract address. Unknown afi");
+        return (BAD);
+    }
 
-    lisp_addr.afi = lisp2inetafi(ntohs(*(uint16_t *) ptr));     /* 2 Byte AFI field */
+    if (addr->afi != AF_UNSPEC){
+        ptr = CO(ptr, sizeof(uint16_t));
+        memcpy(&(addr->address), ptr, get_addr_len(addr->afi));
+    }
 
-    ptr = CO(ptr, sizeof(uint16_t));
-
-    memcpy(&(lisp_addr.address), ptr, get_addr_len(lisp_addr.afi));
-
-    return (lisp_addr);
+    return (GOOD);
 }
 
 /*
@@ -1003,14 +1096,6 @@ void free_lisp_addr_list(lispd_addr_list_t * list)
     }
 }
 
-/* Policy to select the best RTR from the RTR list retrived from the Info Reply */
-
-lisp_addr_t *select_best_rtr_from_rtr_list(lispd_addr_list_t *rtr_rloc_list)
-
-{
-    /* No policy at the moment. Just use the first one. */
-    return (rtr_rloc_list->address);
-}
 
 /*
  * Editor modelines

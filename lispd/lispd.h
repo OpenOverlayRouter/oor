@@ -102,6 +102,8 @@
 
 
 
+#define FIELD_AFI_LEN                    2
+#define FIELD_PORT_LEN                   2
 
 
 /*
@@ -157,9 +159,9 @@ int err;
 #define BAD                 0
 #define ERR_CTR_IFACE       0
 #define ERR_SRC_ADDR        0
-#define ERR_AFI             0
-#define ERR_DB              0
-#define ERR_MALLOC          0
+#define ERR_AFI             -2
+#define ERR_DB              -3
+#define ERR_MALLOC          -4
 #define ERR_EXIST			-5
 
 /***** Negative Map-Reply actions ***/
@@ -174,6 +176,12 @@ int err;
 #define UP                  1
 #define DOWN                0
 #define UNKNOWN            -1  
+
+/***** NAT status *******/
+//#define UNKNOWN          -1
+#define NO_NAT              0
+#define PARTIAL_NAT         1
+#define FULL_NAT            2
 
 
 #define MAX_IP_PACKET       4096
@@ -324,13 +332,13 @@ typedef struct packet_tuple_ {
 
 typedef struct lispd_site_ID_
 {
-	uint8_t	byte[16];
+	uint8_t	byte[8];
 
 } lispd_site_ID;
 
 typedef struct lispd_xTR_ID_
 {
-	uint8_t	byte[8];
+	uint8_t	byte[16];
 
 } lispd_xTR_ID;
 

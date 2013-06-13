@@ -120,4 +120,4 @@ int build_and_send_map_reply_msg(
         uint64_t nonce,
         map_reply_opts opts);
 
-#endif /*LISPD_MAP_REPLY_H_*/
+#endif /* LISPD_MAP_REPLY_H_ */

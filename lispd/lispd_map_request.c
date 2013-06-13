@@ -124,7 +124,7 @@ int process_map_request_record(
         uint8_t rloc_probe,
         uint64_t nonce);
 
-/* Build a Map Request paquet */
+/* Build a Map Request packet */
 
  uint8_t *build_map_request_pkt(
          lispd_mapping_elt       *requested_mapping,
@@ -587,6 +587,12 @@ uint8_t *build_map_request_pkt(
                     locators_list[ctr] = locators_list[ctr]->next;
                     continue;
                 }
+                /* Remove ITR locators behind NAT: No control message (4342) can be received in these interfaces */
+                if (((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list != NULL){
+                    locators_list[ctr] = locators_list[ctr]->next;
+                    continue;
+                }
+
                 itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
                 itr_rloc->afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
                 /* Add rloc address */
