@@ -337,10 +337,7 @@ int main(int argc, char **argv)
      *  Register to the Map-Server(s)
      */
 
-    /* NAT traversal global variables */
-    nat_aware = TRUE;
-
-    map_register (map_register_timer,NULL);
+    map_register (NULL,NULL);
 
     /*
      * SMR proxy-ITRs list to be updated with new mappings

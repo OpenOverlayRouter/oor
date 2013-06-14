@@ -37,7 +37,9 @@
 int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
 
 
-void *pkt_fill_eid(void *offset, lispd_mapping_elt *mapping);
+void *pkt_fill_eid(
+        void                *offset,
+        lispd_mapping_elt   *mapping);
 
 void *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
@@ -62,35 +64,63 @@ int get_mapping_length(lispd_mapping_elt *mapping);
  *  Loc_count return the number of UP locators.
  */
 
-int get_up_locators_length(lispd_locators_list *locators_list, int *loc_count);
+int get_up_locators_length(
+        lispd_locators_list *locators_list,
+        int                 *loc_count);
 
 /*
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
  */
 
 int extract_5_tuples_from_packet (
-        char *packet ,
-        packet_tuple *tuple);
+        char            *packet ,
+        packet_tuple    *tuple);
+
+/*
+ * Generate IP header. Returns the poninter to the transport header
+ */
+
+struct udphdr *build_ip_header(
+        void            *cur_ptr,
+        lisp_addr_t     *src_addr,
+        lisp_addr_t     *dst_addr,
+        int             ip_len);
 
 /*
  * Generates an IP header and an UDP header
  * and copies the original packet at the end
  */
 
-uint8_t *build_ip_udp_encap_pkt(uint8_t * orig_pkt,
-                                int orig_pkt_len,
-                                lisp_addr_t * addr_from,
-                                lisp_addr_t * addr_dest,
-                                int port_from,
-                                int port_dest,
-                                int *encap_pkt_len);
+uint8_t *build_ip_udp_encap_pkt(
+        uint8_t         *orig_pkt,
+        int             orig_pkt_len,
+        lisp_addr_t     *addr_from,
+        lisp_addr_t     *addr_dest,
+        int             port_from,
+        int             port_dest,
+        int             *encap_pkt_len);
 
-uint8_t *build_control_encap_pkt(uint8_t * orig_pkt,
-                                 int orig_pkt_len,
-                                 lisp_addr_t * addr_from,
-                                 lisp_addr_t * addr_dest,
-                                 int port_from,
-                                 int port_dest,
-                                 int *control_encap_pkt_len);
+/*
+ * Encapsulates a control lisp message
+ */
+
+uint8_t *build_control_encap_pkt(
+        uint8_t         *orig_pkt,
+        int             orig_pkt_len,
+        lisp_addr_t     *addr_from,
+        lisp_addr_t     *addr_dest,
+        int             port_from,
+        int             port_dest,
+        int             *control_encap_pkt_len);
+
+/*
+ * Process encapsulated map request header:  lisp header and the interal IP and UDP header
+ */
+
+int process_encapsulated_map_request_headers(
+         uint8_t        *packet,
+         int            *len,
+         uint16_t       *dst_port);
+
 
 #endif /*LISPD_PKT_LIB_H_*/

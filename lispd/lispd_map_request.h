@@ -39,27 +39,6 @@
 #include "lispd.h"
 #include "lispd_map_cache_db.h"
 
-/*
- * Encapsulated control message header. This is followed by the IP
- * header of the encapsulated LISP control message.
- *
- *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |S|                 Reserved                            |
- *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-typedef struct lispd_pkt_encapsulated_control_t_ {
-#ifdef LITTLE_ENDIANS
-    uint8_t reserved1:3;
-    uint8_t security_flag:1;
-    uint8_t type:4;
-#else
-    uint8_t type:4;
-    uint8_t security_flag:1;
-    uint8_t reserved1:3;
-#endif
-    uint8_t reserved2[3];
-} PACKED lispd_pkt_encapsulated_control_t;
-
 
 /*
  * Map-Request Message Format

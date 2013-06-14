@@ -132,13 +132,6 @@ int get_prefix_len(int afi);
 
 lisp_addr_t *get_map_resolver();
 
-struct udphdr *build_ip_header(
-        void                  *cur_ptr,
-        lisp_addr_t           *src_addr,
-        lisp_addr_t           *dst_addr,
-        int                   ip_len);
-
-
 /*
  * Return lisp_addr_t in a char format;
  */

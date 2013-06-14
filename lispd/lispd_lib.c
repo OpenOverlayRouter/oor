@@ -875,54 +875,6 @@ inline lisp_addr_t *get_server(
     return (NULL);
 }
 
-struct udphdr *build_ip_header(
-        void                  *cur_ptr,
-        lisp_addr_t           *src_addr,
-        lisp_addr_t           *dst_addr,
-        int                   ip_len)
-{
-    struct ip      *iph;
-    struct ip6_hdr *ip6h;
-    struct udphdr  *udph;
-
-    switch (src_addr->afi) {
-    case AF_INET:
-        iph                = (struct ip *) cur_ptr;
-        iph->ip_hl         = 5;
-        iph->ip_v          = IPVERSION;
-        iph->ip_tos        = 0;
-        iph->ip_len        = htons(ip_len);
-        iph->ip_id         = htons(54321);
-        iph->ip_off        = 0;
-        iph->ip_ttl        = 255;
-        iph->ip_p          = IPPROTO_UDP;
-        iph->ip_src.s_addr = src_addr->address.ip.s_addr;
-        iph->ip_dst.s_addr = dst_addr->address.ip.s_addr;
-        iph->ip_sum        = 0;
-        iph->ip_sum        = ip_checksum((uint16_t *)cur_ptr, sizeof(struct ip));
-
-        udph              = (struct udphdr *) CO(iph,sizeof(struct ip));
-        break;
-    case AF_INET6:
-        ip6h           = (struct ip6_hdr *) cur_ptr;
-        ip6h->ip6_hops = 255;
-        ip6h->ip6_vfc  = (IP6VERSION << 4);
-        ip6h->ip6_nxt  = IPPROTO_UDP;
-        ip6h->ip6_plen = htons(ip_len);
-        memcpy(ip6h->ip6_src.s6_addr,
-               src_addr->address.ipv6.s6_addr,
-               sizeof(struct in6_addr));
-        memcpy(ip6h->ip6_dst.s6_addr,
-                dst_addr->address.ipv6.s6_addr,
-               sizeof(struct in6_addr));
-        udph = (struct udphdr *) CO(ip6h,sizeof(struct ip6_hdr));
-        break;
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_2,"build_ip_header: Uknown AFI of the source address: %d",src_addr->afi);
-        return(NULL);
-    }
-    return(udph);
-}
 
 
 /*
@@ -977,7 +929,7 @@ int process_lisp_ctr_msg(
 
     lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
 
-    switch (((lispd_pkt_encapsulated_control_t *) packet)->type) {
+    switch (((lisp_encap_control_hdr_t *) packet)->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Reply message");
         process_map_reply(packet);

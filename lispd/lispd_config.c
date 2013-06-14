@@ -511,13 +511,12 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         if (debug_level > 3)
             debug_level = 3;
     }
-
     /*
      * Nat Traversal options
      */
     cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
 
-    nat_aware   = cfg_getbool(nt, "nat_aware");
+    nat_aware   = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
     nat_site_ID = cfg_getstr(nt, "site_ID");
     nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
     if (nat_aware == TRUE){

@@ -463,7 +463,12 @@ typedef struct lisp_data_hdr {
 } lisp_data_hdr_t;
 
 /*
- * LISP Control header structure
+ * Encapsulated control message header. This is followed by the IP
+ * header of the encapsulated LISP control message.
+ *
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |Type=8 |S|                 Reserved                            |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
 typedef struct lisp_encap_control_hdr {

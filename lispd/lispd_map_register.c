@@ -86,7 +86,7 @@ int map_register(
         PATRICIA_WALK(tree->head, node) {
             mapping = ((lispd_mapping_elt *)(node->data));
             if (mapping->locator_count != 0){
-                
+                printf ("%d==========================>>>>>> %s\n\n\n\n\n",nat_aware, nat_aware?"TRUE":"FALSE");
                 if((nat_aware==TRUE)){ /* NAT procedure instead of the standard one */
 
                     if(nat_status == UNKNOWN){

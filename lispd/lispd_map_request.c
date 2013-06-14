@@ -103,14 +103,6 @@
 
 /************** Function declaration ************/
 
-/*
- * Process encapsulated map request header:  lisp header and the interal IP and UDP header
- */
-
-int process_encapsulated_map_request_headers(
-         uint8_t        *packet,
-         int            *len,
-         uint16_t       *dst_port);
 
 /*
  * Process record and send Map Reply
@@ -136,15 +128,6 @@ int process_map_request_record(
          int                     *len,               /* return length here */
          uint64_t                *nonce);             /* return nonce here */
 
-/*
- * Add the encapsulated control message overhead
- */
-
-int add_encap_headers(
-        uint8_t        *packet,
-        lisp_addr_t    *src_eid,
-        lisp_addr_t    *remote_eid,
-         int            map_request_msg_len);
 
  /*
   * Calculate Map Request length. Just add locators with status up
@@ -182,7 +165,7 @@ int add_encap_headers(
 
      /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
 
-     if (((lispd_pkt_encapsulated_control_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
+     if (((lisp_encap_control_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
          if ((err = process_encapsulated_map_request_headers(packet,&len,&dst_port)) != GOOD){
              return (BAD);
          }
@@ -270,94 +253,6 @@ int add_encap_headers(
      }
      return(GOOD);
  }
-
- /*
-  * Process encapsulated map request header:  lisp header and the interal IP and UDP header
-  */
-
- int process_encapsulated_map_request_headers(
-         uint8_t        *packet,
-         int            *len,
-         uint16_t       *dst_port){
-
-     struct ip                  *iph                    = NULL;
-     struct ip6_hdr             *ip6h                   = NULL;
-     struct udphdr              *udph                   = NULL;
-     int                        ip_header_len           = 0;
-     int                        encap_afi               = 0;
-     uint16_t                   udpsum                  = 0;
-     uint16_t                   ipsum                   = 0;
-     int                        udp_len                 = 0;
-
-     /*
-      * Read IP header.source_mapping
-      */
-
-     iph = (struct ip *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-
-     switch (iph->ip_v) {
-     case IPVERSION:
-         ip_header_len = sizeof(struct ip);
-         udph = (struct udphdr *) CO(iph, ip_header_len);
-         encap_afi = AF_INET;
-         break;
-     case IP6VERSION:
-         ip6h = (struct ip6_hdr *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-         ip_header_len = sizeof(struct ip6_hdr);
-         udph = (struct udphdr *) CO(ip6h, ip_header_len);
-         encap_afi = AF_INET6;
-         break;
-     default:
-         lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
-         return(BAD);
-     }
-
-     /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
-     *dst_port = ntohs(udph->source);
-
-#ifdef BSD
-     udp_len = ntohs(udph->uh_ulen);
-     // sport   = ntohs(udph->uh_sport);
-#else
-     udp_len = ntohs(udph->len);
-     // sport   = ntohs(udph->source);
-#endif
-
-
-     /*
-      * Verify the checksums.
-      */
-     if (iph->ip_v == IPVERSION) {
-         ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
-         if (ipsum != 0) {
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
-         }
-         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-             return(BAD);
-         }
-         if (udpsum != 0) {
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
-             return(BAD);
-         }
-     }
-
-     //Pranathi: Added this
-     if (iph->ip_v == IP6VERSION) {
-
-         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-             return(BAD);
-         }
-         if (udpsum != 0) {
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
-             return(BAD);
-         }
-     }
-
-     *len = sizeof(lispd_pkt_encapsulated_control_t)+ip_header_len + sizeof(struct udphdr);
-
-     return (GOOD);
- }
-
 
  /*
   * Process record and send Map Reply
@@ -492,6 +387,7 @@ uint8_t *build_map_request_pkt(
 {
 
     uint8_t                                     *packet;
+    uint8_t                                     *mr_packet;
     lispd_pkt_map_request_t                     *mrp;
     lispd_pkt_map_request_itr_rloc_t            *itr_rloc;
     lispd_pkt_map_request_eid_prefix_record_t   *request_eid_record;
@@ -525,16 +421,12 @@ uint8_t *build_map_request_pkt(
 
     /* Calculate the packet size and reserve memory */
     map_request_msg_len = get_map_request_length(requested_mapping,src_mapping);
-    if (encap){
-        encap_overhead_len = get_emr_overhead_length(requested_mapping->eid_prefix.afi);
-    }
-    *len = map_request_msg_len + encap_overhead_len;
 
-    if ((packet = malloc(*len)) == NULL){
+    if ((packet = malloc(map_request_msg_len)) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"build_map_request_pkt: Unable to allocate memory for Map Request (packet_len): %s", strerror(errno));
         return (NULL);
     }
-    memset(packet, 0, *len);
+    memset(packet, 0, map_request_msg_len);
 
     cur_ptr = packet;
 
@@ -664,80 +556,18 @@ uint8_t *build_map_request_pkt(
             }
         }
 
-        if ((err=add_encap_headers(packet,ih_src_ip,&(requested_mapping->eid_prefix),map_request_msg_len))!=GOOD){
-            free (packet);
+        mr_packet = packet;
+        packet = build_control_encap_pkt(mr_packet, map_request_msg_len, ih_src_ip, &(requested_mapping->eid_prefix), LISP_CONTROL_PORT, LISP_CONTROL_PORT, len);
+
+        if (packet == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: Couldn't encapsulate the map request");
+            free (mr_packet);
             return (NULL);
         }
     }
 
     return (packet);
 }
-
-
-/*
- * Add the encapsulated control message overhead
- */
-
-int add_encap_headers(uint8_t *packet, lisp_addr_t *src_eid, lisp_addr_t *remote_eid, int map_request_msg_len)
-{
-
-    lispd_pkt_encapsulated_control_t    *ecm;
-    uint8_t                             *cur_ptr;
-    struct udphdr                       *udph;
-    void                                *iphptr;    /* v4 or v6 */
-    int                                 ip_len              = 0;
-    int                                 udp_len             = 0;
-    uint16_t                            udpsum              = 0;
-
-    cur_ptr = packet;
-    /* Add encapsulated lisp header */
-    ecm = (lispd_pkt_encapsulated_control_t *)cur_ptr;
-    ecm->type = LISP_ENCAP_CONTROL_TYPE;
-    ecm->security_flag = 0;  /* XXX Security field not supported */
-
-    udp_len = sizeof(struct udphdr) + map_request_msg_len;  /* udp header */
-
-    if(remote_eid->afi ==AF_INET)
-    {
-        ip_len  = sizeof(struct ip) + udp_len; // IPv4 header and payload
-    }
-    if(remote_eid->afi ==AF_INET6)
-    {
-        ip_len  = udp_len; // IPv6 only payload length
-    }
-
-    /* Build the internal IP header */
-    iphptr = CO(ecm,sizeof(lispd_pkt_encapsulated_control_t));
-    if ((udph = build_ip_header(iphptr, src_eid, remote_eid, ip_len)) == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Can't build IP header (unknown AFI %d)",src_eid->afi);
-        return (ERR_AFI);
-    }
-
-    /* Build UDP header */
-#ifdef BSD
-    udph->uh_sport = htons(LISP_CONTROL_PORT);
-    udph->uh_dport = htons(LISP_CONTROL_PORT);
-    udph->uh_ulen  = htons(udp_len);
-    udph->uh_sum   = 0;
-#else
-    udph->source = htons(LISP_CONTROL_PORT);
-    udph->dest   = htons(LISP_CONTROL_PORT);
-    udph->len    = htons(udp_len);
-    udph->check  = 0;
-#endif
-
-    /*
-     * now compute the udp checksums
-     */
-
-    if ((udpsum = udp_checksum(udph, udp_len, iphptr, src_eid->afi)) == -1) {
-        return (BAD);
-    }
-    udpsum(udph) = udpsum;
-    return (GOOD);
-}
-
-
 
 
 /*
@@ -777,23 +607,6 @@ int get_map_request_length (lispd_mapping_elt *requested_mapping, lispd_mapping_
 
     return mr_len;
 }
-
-/*
- * Calculate the overhead of the Encapsulated Map Request length.
- */
-
-int get_emr_overhead_length (int afi)
-{
-    int emr_len = 0;
-    emr_len = sizeof(struct udphdr);
-    emr_len +=  sizeof(lispd_pkt_encapsulated_control_t);
-    if (afi==AF_INET)
-        emr_len +=  sizeof(struct ip);
-    else
-        emr_len +=  sizeof(struct ip6_hdr);
-    return emr_len;
-}
-
 
 
 /*
@@ -862,8 +675,6 @@ int send_map_request_miss(timer *t, void *arg)
     }
     return GOOD;
 }
-
-
 
 /*
  * Editor modelines
