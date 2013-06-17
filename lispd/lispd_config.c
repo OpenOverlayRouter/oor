@@ -695,13 +695,13 @@ int add_database_mapping(
     if (weight_v4 < (MIN_WEIGHT) || weight_v4 > MAX_WEIGHT) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Weight %d out of range [%d..%d], set weight to 100...",
                 weight_v4, MIN_WEIGHT, MAX_WEIGHT);
-        priority_v4 = 100;
+        weight_v4 = 100;
     }
 
     if (weight_v6 < (MIN_WEIGHT) || weight_v6 > MAX_WEIGHT) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Weight %d out of range [%d..%d], set weight to 100...",
                 weight_v6, MIN_WEIGHT, MAX_WEIGHT);
-        priority_v6 = 100;
+        weight_v6 = 100;
     }
 
 
