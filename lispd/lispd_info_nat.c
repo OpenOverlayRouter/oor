@@ -43,6 +43,14 @@
 
 
 /*
+ *  info_request_ttl (tree)
+ *
+ */
+
+timer *info_reply_ttl_timer = NULL;
+
+
+/*
  *  Process Info-Request Message
  *  Receive a Info-Request message and process based on control bits
  *
@@ -75,22 +83,23 @@ int process_info_nat_msg(
  * TODO Pass the type of auth data and get the length by a function
  */
 
-lispd_pkt_info_nat_t *create_and_fill_info_nat_header(int lisp_type,
-                                                      int reply,
-                                                      unsigned long nonce,
-                                                      uint16_t auth_data_len,
-                                                      uint32_t ttl,
-                                                      uint8_t eid_mask_length,
-                                                      lisp_addr_t *eid_prefix,
-                                                      unsigned int *header_len)
+lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
+        int             lisp_type,
+        int             reply,
+        uint64_t        nonce,
+        uint16_t        auth_data_len,
+        uint32_t        ttl,
+        uint8_t         eid_mask_length,
+        lisp_addr_t     *eid_prefix,
+        uint32_t        *header_len)
 
 {
 
-    lispd_pkt_info_nat_t *hdr;
-    lispd_pkt_info_nat_eid_t *eid_part;
-    unsigned int eid_afi_lisp;
-    unsigned int afi_len;
-    unsigned int hdr_len;
+    lispd_pkt_info_nat_t        *hdr            = NULL;
+    lispd_pkt_info_nat_eid_t    *eid_part       = NULL;
+    uint32_t                    eid_afi_lisp    = 0;
+    uint32_t                    afi_len         = 0;
+    uint32_t                    hdr_len         = 0;
 
     /* get the length of the eid prefix and map to LISP_AFI types */
 
@@ -127,7 +136,7 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(int lisp_type,
 
     hdr->lisp_type = lisp_type;
     hdr->rbit = reply;
-    hdr->nonce = htobe64(nonce);        /* needs #include <endian.h> */
+    hdr->nonce = nonce;
 
     hdr->key_id = 0;            /* XXX not sure */
     hdr->auth_data_len = htons(auth_data_len);
@@ -186,7 +195,7 @@ int extract_info_nat_header(
 
     *type = hdr->lisp_type;
     *reply = hdr->rbit;
-    *nonce = be64toh(hdr->nonce);       /* Requieres #include <endian.h>*/
+    *nonce = hdr->nonce;       /* Requieres #include <endian.h>*/
     *key_id = ntohs(hdr->key_id);
     *auth_data_len = ntohs(hdr->auth_data_len);
     *auth_data = (uint8_t *) &(hdr->auth_data);

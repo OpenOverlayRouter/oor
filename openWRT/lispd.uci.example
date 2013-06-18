@@ -6,9 +6,20 @@ package 'lispd'
 # General configuration
 #	debug: Debug levels [0..3]
 #	map_request_retries: Additional Map-Requests to send per map cache miss
+#	rloc_probing_interval: Period in seconds between RLOC probes. A value of 0 will dissable RLOC probing 
 config 'daemon'
         option  'debug'                 '0' 
         option  'map_request_retries'   '2'
+        
+# RLOC Probing configuration
+#	rloc_probe_interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 dissables RLOC Probing
+#   rloc_probe_retries: RLOC Probe retries before marking the locator with status down. [0..5]
+#   rloc_probe_retries_interval: interval at which RLOC probes retries are sent (seconds) [1..#rloc_probe_interval]
+        
+config 'rloc-probing'        
+        option  'rloc_probe_interval' '30'
+        option  'rloc_probe_retries' '2'
+        option  'rloc_probe_retries_interval' '5'
 
 # Encapsulated Map-Requests are sent to this map-resolver
 # You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
@@ -22,7 +33,6 @@ config 'map-resolver'
 #   key_type: Only 1 supported (HMAC-SHA-1-96)
 #	key: password to authenticate with the map-server
 #   proxy_reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
-
 config 'map-server'
         option   'address'              'IPv4 or IPv6 address'
         option   'key_type'             '1'			

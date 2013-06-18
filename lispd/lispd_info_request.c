@@ -73,26 +73,27 @@
  *  Once done with the packet, it should be free()!
  */
 
-lispd_pkt_info_nat_t *build_info_request_pkt(nonce,auth_data_len,ttl,
-                                             eid_mask_length,eid_prefix, pkt_len)
-uint64_t nonce;
-uint16_t auth_data_len;
-uint32_t ttl;
-uint8_t eid_mask_length;
-lisp_addr_t *eid_prefix;
-uint32_t *pkt_len;
 
+
+lispd_pkt_info_nat_t *build_info_request_pkt(
+        uint16_t        auth_data_len,
+        uint32_t        ttl,
+        uint8_t         eid_mask_length,
+        lisp_addr_t     *eid_prefix,
+        uint32_t        *pkt_len,
+        uint64_t        *nonce)
 {
-    lispd_pkt_info_nat_t *irp;
-    lispd_pkt_info_request_lcaf_t *irp_lcaf;
-    unsigned int irp_len = 0;
-    unsigned int header_len = 0;
-    unsigned int lcaf_hdr_len = 0;
+    lispd_pkt_info_nat_t            *irp         = NULL;
+    lispd_pkt_info_request_lcaf_t   *irp_lcaf    = NULL;
+    uint32_t                        irp_len      = 0;
+    uint32_t                        header_len   = 0;
+    uint32_t                        lcaf_hdr_len = 0;
 
+    *nonce = build_nonce((unsigned int) time(NULL));
 
     irp = create_and_fill_info_nat_header(LISP_INFO_NAT,
                                           NAT_NO_REPLY,
-                                          nonce,
+                                          *nonce,
                                           auth_data_len,
                                           ttl,
                                           eid_mask_length,
@@ -155,33 +156,32 @@ uint32_t *pkt_len;
 
 
 
-int build_and_send_info_request(uint64_t nonce,
-                                uint16_t key_type,
-                                char *key,
-                                uint32_t ttl,
-                                uint8_t eid_mask_length,
-                                lisp_addr_t *eid_prefix,
-                                lisp_addr_t *src_addr,
-                                unsigned int src_port,
-                                lisp_addr_t *dst_addr,
-                                unsigned int dst_port)
-
-
+int build_and_send_info_request(
+        uint16_t        key_type,
+        char            *key,
+        uint32_t        ttl,
+        uint8_t         eid_mask_length,
+        lisp_addr_t     *eid_prefix,
+        lisp_addr_t     *src_addr,
+        uint32_t        src_port,
+        lisp_addr_t     *dst_addr,
+        uint32_t        dst_port,
+        uint64_t        *nonce)
 {
-    int packet_len;
-    int auth_data_len;
-
-
-    lispd_pkt_info_nat_t *info_request_pkt;
+    uint32_t             packet_len         = 0;
+    uint16_t             auth_data_len      = 0;
+    lispd_pkt_info_nat_t *info_request_pkt  = NULL;
 
     auth_data_len = get_auth_data_len(key_type);
 
-    info_request_pkt = build_info_request_pkt(nonce,
-                                              auth_data_len,
-                                              ttl,
-                                              eid_mask_length,
-                                              eid_prefix,
-                                              &packet_len);
+
+    info_request_pkt = build_info_request_pkt(
+            auth_data_len,
+            ttl,
+            eid_mask_length,
+            eid_prefix,
+            &packet_len,
+            nonce);
 
     if (info_request_pkt == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "Couldn't build info request packet");
@@ -212,11 +212,91 @@ int build_and_send_info_request(uint64_t nonce,
         return (BAD);
     }
 
-
     free(info_request_pkt);
     return (GOOD);
 }
 
+int initial_info_request_process()
+{
+    int result = 0;
+    patricia_tree_t           *dbs[2]           = {NULL,NULL};
+    int                       ctr               = 0;
+    patricia_tree_t           *tree             = NULL;
+    patricia_node_t           *node             = NULL;
+    lispd_mapping_elt         *mapping          = NULL;
+
+    dbs[0] = get_local_db(AF_INET);
+    dbs[1] = get_local_db(AF_INET6);
+
+
+    for (ctr = 0 ; ctr < 2 ; ctr++) {
+        tree = dbs[ctr];
+        if (!tree){
+            continue;
+        }
+        PATRICIA_WALK(tree->head, node) {
+            mapping = ((lispd_mapping_elt *)(node->data));
+            if (mapping->locator_count != 0){
+                result = info_request(NULL,mapping);
+                return (result);
+            }
+        }PATRICIA_WALK_END;
+    }
+    return(GOOD);
+}
+
+
+
+int info_request(
+        timer   *ttl_timer,
+        void    *arg)
+{
+    lispd_mapping_elt  *mapping         = NULL;
+    int                next_timer_time  = 0;
+
+    mapping = (lispd_mapping_elt *)arg;
+
+    if (nat_ir_nonce == NULL){
+        nat_ir_nonce = new_nonces_list();
+        if (nat_ir_nonce == NULL){
+            lispd_log_msg(LISP_LOG_WARNING,"info_request: Unable to allocate memory for nonces.");
+            return (BAD);
+        }
+    }
+
+    if (nat_ir_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
+        if ((err=build_and_send_info_request(
+                map_servers->key_type,
+                map_servers->key,
+                DEFAULT_INFO_REQUEST_TIMEOUT,
+                mapping->eid_prefix_length,
+                &(mapping->eid_prefix),
+                default_ctrl_iface_v4->ipv4_address,
+                LISP_CONTROL_PORT,
+                map_servers->address,
+                LISP_CONTROL_PORT,
+                &(nat_ir_nonce->nonce[nat_ir_nonce->retransmits])))!=GOOD){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"info_request: Couldn't send info request message.");
+        }
+        nat_ir_nonce->retransmits++;
+        next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
+    } else{
+        free (nat_ir_nonce);
+        nat_ir_nonce = NULL;
+        lispd_log_msg(LISP_LOG_ERR,"info_request: Communication error between LISPmob and RTR. Retry after %s seconds",MAP_REGISTER_INTERVAL);
+        next_timer_time = MAP_REGISTER_INTERVAL;
+    }
+
+    /*
+     * Configure timer to send the next map register.
+     */
+    if (info_reply_ttl_timer == NULL) {
+        info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
+    }
+    start_timer(info_reply_ttl_timer, next_timer_time, info_request, mapping);
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d seconds",next_timer_time);
+    return(GOOD);
+}
 
 /*
  * Editor modelines

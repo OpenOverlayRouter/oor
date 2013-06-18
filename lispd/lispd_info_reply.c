@@ -36,9 +36,11 @@
 #include "lispd_afi.h"
 #include "lispd_external.h"
 #include "lispd_info_reply.h"
+#include "lispd_info_request.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
 #include "lispd_map_register.h"
+#include "lispd_nonce.h"
 #include "cksum.h"
 
 
@@ -137,15 +139,17 @@ int process_info_reply_msg(
             &rtr_locators_list,
             &lcaf_addr_len);
 
+    if (err == BAD) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Error extracting packet data");
+        return (BAD);
+    }
+
     /* Leave only RTR with same afi as the local rloc where we received the message */
     remove_rtr_locators_with_afi_different_to(&rtr_locators_list, local_rloc.afi);
 
     lcaf_addr_len += FIELD_AFI_LEN;
 
-    if (err == BAD) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Error extracting packet data");
-        return (BAD);
-    }
+
 
     /* Print the extracted information of the message */
     if (is_loggable(LISP_LOG_DEBUG_2)){
@@ -168,13 +172,22 @@ int process_info_reply_msg(
     }
 
 
+    /* Checking the nonce */
+
+    if (check_nonce(nat_ir_nonce,nonce) == GOOD ){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Correct nonce field checking ");
+        nat_ir_nonce = NULL;
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Info-Reply: Error checking nonce field. No Info Request generated with nonce: %s",
+                get_char_from_nonce (nonce));
+        return (BAD);
+    }
+
+    /* Check authentication data */
+
     pckt_len = info_reply_hdr_len + lcaf_addr_len;
 
-    if(BAD == check_auth_field(key_id,
-                                 map_servers->key,
-                                 (void *) packet,
-                                 pckt_len,
-                                 auth_data_pos)){
+    if(BAD == check_auth_field(key_id, map_servers->key, (void *) packet, pckt_len, auth_data_pos)){
         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Error checking auth data field");
         return(BAD);
     }else{
@@ -238,6 +251,13 @@ int process_info_reply_msg(
     /* Once we know the NAT state we send a Map-Register */
 
     map_register(NULL,NULL);
+
+    /* Program timer to send Info Request after TTL minutes */
+    if (info_reply_ttl_timer == NULL) {
+        info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
+    }
+    start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
 
     return (GOOD);
 }

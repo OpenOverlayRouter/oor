@@ -195,7 +195,7 @@ uint16_t udp_checksum (
  * Returns the length of the auth data field based on the key_id value
  */
 
-int get_auth_data_len(int key_id)
+uint16_t get_auth_data_len(int key_id)
 
 {
     switch (key_id) {
@@ -216,7 +216,7 @@ int compute_sha1_hmac(char *key,
                       void *auth_data_pos)
 
 {
-	int auth_data_len;
+	uint16_t auth_data_len;
     unsigned int md_len;    /* Length of the HMAC output.  */
 
     auth_data_len = get_auth_data_len(HMAC_SHA_1_96);
@@ -275,7 +275,7 @@ int check_sha1_hmac(char *key,
                     int pckt_len,
                     void *auth_data_pos)
 {
-	int auth_data_len;
+	uint16_t auth_data_len;
     unsigned int md_len;    /* Length of the HMAC output.  */
 
     uint8_t* auth_data_copy;

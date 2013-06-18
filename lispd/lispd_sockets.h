@@ -55,7 +55,8 @@ int open_udp_socket(int afi);
  * Send a control packet over a udp datagram to the destination address.
  */
 
-int send_udp_ctrl_packet(
+int send_udp_packet(
+        lisp_addr_t *src_addr,
         lisp_addr_t *dst_addr,
         uint16_t    src_port,
         uint16_t    dst_port,

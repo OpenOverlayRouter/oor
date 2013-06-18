@@ -37,7 +37,7 @@
 #define NAT_REPLY                        1
 #define NAT_NO_REPLY                     0 
 
-
+extern  timer *info_reply_ttl_timer;
 
 
 /* NAT traversal Info-Request message
@@ -96,14 +96,14 @@ int extract_info_nat_header(
         uint32_t    *hdr_len);
 
 lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
-        int lisp_type,
-        int reply,
-        unsigned long nonce,
-        uint16_t auth_data_len,
-        uint32_t ttl,
-        uint8_t eid_mask_length,
+        int         lisp_type,
+        int         reply,
+        uint64_t    nonce,
+        uint16_t    auth_data_len,
+        uint32_t    ttl,
+        uint8_t     eid_mask_length,
         lisp_addr_t *eid_prefix,
-        unsigned int *header_len);
+        uint32_t    *header_len);
 
 int process_info_nat_msg(
         uint8_t         *packet,

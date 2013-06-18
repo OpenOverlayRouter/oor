@@ -35,7 +35,7 @@
 
 typedef struct{
     uint8_t     retransmits;
-    uint64_t    nonce[LISPD_MAX_NONCES_LIST];
+    uint64_t    nonce[LISPD_MAX_RETRANSMITS + 1];
 }nonces_list;
 
 

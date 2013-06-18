@@ -44,6 +44,9 @@
 #include "patricia/patricia.h"
 #include "lispd_info_request.h"
 
+int map_register_process();
+int encapsulated_map_register_process();
+
 
 /*
  *  map_server_register (tree)
@@ -60,23 +63,43 @@ int map_register(
         timer   *t,
         void    *arg)
 {
-    patricia_tree_t           *dbs[2]           = {NULL,NULL};
-    patricia_tree_t           *tree             = NULL;
-    patricia_node_t           *node             = NULL;
-    lispd_mapping_elt         *mapping          = NULL;
-    lispd_locators_list       *locators_list[2] = {NULL, NULL};
-    lispd_locator_elt         *locator          = NULL;
-    lisp_addr_t               *nat_rtr          = NULL;
-    int                       ctr               = 0;
-    int                       ctr1              = 0;
-
-    dbs[0] = get_local_db(AF_INET);
-    dbs[1] = get_local_db(AF_INET6);
+    int result = 0;
 
     if (!map_servers) {
         lispd_log_msg(LISP_LOG_CRIT, "map_register: No Map Servers conifgured!");
         exit(EXIT_FAILURE);
     }
+
+    if((nat_aware==TRUE)){ /* NAT procedure instead of the standard one */
+
+        if(nat_status == UNKNOWN){
+            result = initial_info_request_process();
+        }
+
+        if(nat_status == FULL_NAT){
+            result = encapsulated_map_register_process();
+        }
+    }
+
+    if((nat_aware == FALSE)||((nat_aware == TRUE)&&(nat_status ==NO_NAT ))){/* Standard Map-Register mechanism */
+        result = map_register_process();
+    }
+
+    return (result);
+}
+
+
+int map_register_process()
+{
+    patricia_tree_t           *dbs[2]           = {NULL,NULL};
+    patricia_tree_t           *tree             = NULL;
+    patricia_node_t           *node             = NULL;
+    lispd_mapping_elt         *mapping          = NULL;
+    int                       ctr               = 0;
+
+    dbs[0] = get_local_db(AF_INET);
+    dbs[1] = get_local_db(AF_INET6);
+
 
     for (ctr = 0 ; ctr < 2 ; ctr++) {
         tree = dbs[ctr];
@@ -86,82 +109,133 @@ int map_register(
         PATRICIA_WALK(tree->head, node) {
             mapping = ((lispd_mapping_elt *)(node->data));
             if (mapping->locator_count != 0){
-                printf ("%d==========================>>>>>> %s\n\n\n\n\n",nat_aware, nat_aware?"TRUE":"FALSE");
-                if((nat_aware==TRUE)){ /* NAT procedure instead of the standard one */
 
-                    if(nat_status == UNKNOWN){
-                        build_and_send_info_request(build_nonce((unsigned int) time(NULL)),
-                                                    map_servers->key_type,
-                                                    map_servers->key,
-                                                    DEFAULT_INFO_REQUEST_TIMEOUT,
-                                                    mapping->eid_prefix_length,
-                                                    &(mapping->eid_prefix),
-                                                    default_ctrl_iface_v4->ipv4_address,
-                                                    LISP_CONTROL_PORT,
-                                                    map_servers->address,
-                                                    LISP_CONTROL_PORT);
-                    }
-
-                    if(nat_status == FULL_NAT){
-                        locators_list[0] = mapping->head_v4_locators_list;
-                        locators_list[1] = mapping->head_v4_locators_list;
-                        for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){
-                            while (locators_list[ctr1] != NULL){
-                                locator = locators_list[ctr1]->locator;
-                                if ((((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list) != NULL){
-                                    break;
-                                }
-                                locators_list[ctr1] = locators_list[ctr1]->next;
-                            }
-                            if (locator != NULL){
-                                break;
-                            }
-                        }
-                        if (locator != NULL){
-                            nat_rtr = &(((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list->locator->address);
-                            /* ECM map register only sent to the first Map Server */
-                            build_and_send_ecm_map_register(mapping,
-                                    map_servers->proxy_reply,
-                                    default_ctrl_iface_v4->ipv4_address,
-                                    map_servers->address,
-                                    LISP_CONTROL_PORT,
-                                    LISP_CONTROL_PORT,
-                                    default_ctrl_iface_v4->ipv4_address,
-                                    nat_rtr,
-                                    LISP_DATA_PORT,
-                                    LISP_CONTROL_PORT,
-                                    map_servers->key_type,
-                                    map_servers->key,
-                                    &site_ID,
-                                    &xTR_ID);
-                        }else{
-                            lispd_log_msg(LISP_LOG_ERR,"map_register: Couldn't send encapsulated map register. No RTR found");
-                        }
-                    }
-                }
-                
-                if((nat_aware == FALSE)||((nat_aware == TRUE)&&(nat_status ==NO_NAT ))){/* Standard Map-Register mechanism */
-                    err = build_and_send_map_register_msg(mapping);
-                    if (err != GOOD){
-                        lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s/%d EID!",
-                                get_char_from_lisp_addr_t(mapping->eid_prefix),
-                                mapping->eid_prefix_length);
-                    }
+                err = build_and_send_map_register_msg(mapping);
+                if (err != GOOD){
+                    lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s/%d EID!",
+                            get_char_from_lisp_addr_t(mapping->eid_prefix),
+                            mapping->eid_prefix_length);
                 }
             }
         }PATRICIA_WALK_END;
     }
 
-/*
- * Configure timer to send the next map register.
+    /*
+     * Configure timer to send the next map register.
      */
-    if (!map_register_timer) {
+    if (map_register_timer == NULL) {
         map_register_timer = create_timer(MAP_REGISTER_TIMER);
     }
     start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register, NULL);
     lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed map register in %d seconds",MAP_REGISTER_INTERVAL);
     return(GOOD);
 }
+
+int encapsulated_map_register_process()
+{
+    patricia_tree_t           *dbs[2]           = {NULL,NULL};
+    patricia_tree_t           *tree             = NULL;
+    patricia_node_t           *node             = NULL;
+    lispd_mapping_elt         *mapping          = NULL;
+    lispd_locators_list       *locators_list[2] = {NULL, NULL};
+    lispd_locator_elt         *locator          = NULL;
+    lisp_addr_t               *nat_rtr          = NULL;
+    int                       next_timer_time   = 0;
+    int                       ctr               = 0;
+    int                       ctr1              = 0;
+
+    dbs[0] = get_local_db(AF_INET);
+    dbs[1] = get_local_db(AF_INET6);
+
+
+    if (nat_emr_nonce == NULL){
+        nat_emr_nonce = new_nonces_list();
+        if (nat_emr_nonce == NULL){
+            lispd_log_msg(LISP_LOG_WARNING,"encapsulated_map_register_process: Unable to allocate memory for nonces.");
+            return (BAD);
+        }
+    }
+
+    if (nat_emr_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
+
+        if (nat_emr_nonce->retransmits > 0){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"No Map Notify received. Retransmitting encapsulated map register.");
+        }
+
+        for (ctr = 0 ; ctr < 2 ; ctr++) {
+            tree = dbs[ctr];
+            if (!tree){
+                continue;
+            }
+            PATRICIA_WALK(tree->head, node) {
+                mapping = ((lispd_mapping_elt *)(node->data));
+                if (mapping->locator_count != 0){
+
+                    /* Find the locator behind NAT */
+                    locators_list[0] = mapping->head_v4_locators_list;
+                    locators_list[1] = mapping->head_v6_locators_list;
+                    for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){
+                        while (locators_list[ctr1] != NULL){
+                            locator = locators_list[ctr1]->locator;
+                            if ((((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list) != NULL){
+                                break;
+                            }
+                            locators_list[ctr1] = locators_list[ctr1]->next;
+                        }
+                        if (locator != NULL){
+                            break;
+                        }
+                    }
+                    /* If found a locator behind NAT, send Encapsulated Map Register */
+                    if (locator != NULL){
+                        nat_rtr = &(((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list->locator->address);
+                        /* ECM map register only sent to the first Map Server */
+                        err = build_and_send_ecm_map_register(mapping,
+                                map_servers->proxy_reply,
+                                default_ctrl_iface_v4->ipv4_address,
+                                map_servers->address,
+                                LISP_CONTROL_PORT,
+                                LISP_CONTROL_PORT,
+                                default_ctrl_iface_v4->ipv4_address,
+                                nat_rtr,
+                                LISP_DATA_PORT,
+                                LISP_CONTROL_PORT,
+                                map_servers->key_type,
+                                map_servers->key,
+                                &site_ID,
+                                &xTR_ID,
+                                &(nat_emr_nonce->nonce[nat_emr_nonce->retransmits]));
+                        if (err != GOOD){
+                            lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register.");
+                        }
+                        nat_emr_nonce->retransmits++;
+                    }else{
+                        lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No RTR found");
+                    }
+                    next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
+                }
+            }PATRICIA_WALK_END;
+        }
+
+    }else{
+        free (nat_emr_nonce);
+        nat_emr_nonce = NULL;
+        lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Communication error between LISPmob and RTR/MS. Retry after %d seconds",MAP_REGISTER_INTERVAL);
+        next_timer_time = MAP_REGISTER_INTERVAL;
+    }
+
+    /*
+     * Configure timer to send the next map register.
+     */
+    if (map_register_timer == NULL) {
+        map_register_timer = create_timer(MAP_REGISTER_TIMER);
+    }
+    start_timer(map_register_timer, next_timer_time, map_register, NULL);
+    return(GOOD);
+}
+
+
+
 
 
 /*
@@ -178,6 +252,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
     lispd_map_server_list_t   *ms                   = NULL;
     uint32_t                  md_len                = 0;
     int                       sent_map_registers    = 0;
+    lisp_addr_t               *src_addr             = 0;
 
 
     if ((packet = build_map_register_pkt(mapping, &packet_len)) == NULL) {
@@ -214,7 +289,14 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
         }
 
         /* Send the map register */
-        err = send_udp_ctrl_packet(ms->address,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)map_register_pkt,packet_len);
+        src_addr = get_default_ctrl_address(ms->address->afi);
+        if (src_addr != NULL){
+            err = send_udp_packet(src_addr,ms->address,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)map_register_pkt,packet_len);
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_register_msg: Couldn't send Map-Register. No local RLOC compatible with the afi of the destinaion locator %s",
+                              get_char_from_lisp_addr_t(*(ms->address)));
+            err = BAD;
+        }
 
         if (err == GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to Map Server %s",
@@ -296,29 +378,31 @@ uint8_t *build_map_register_pkt(
 }
 
 
-int build_and_send_ecm_map_register(lispd_mapping_elt *mapping_elt,
-                                    int proxy_reply,
-                                    lisp_addr_t *inner_addr_from,
-                                    lisp_addr_t *inner_addr_dest,
-                                    int inner_port_from,
-                                    int inner_port_dest,
-                                    lisp_addr_t *outer_addr_from,
-                                    lisp_addr_t *outer_addr_dest,
-                                    int outer_port_from,
-                                    int outer_port_dest,
-                                    int key_id,
-                                    char *key,
-                                    lispd_site_ID *site_ID,
-                                    lispd_xTR_ID *xTR_ID)
+int build_and_send_ecm_map_register(
+        lispd_mapping_elt   *mapping_elt,
+        int                 proxy_reply,
+        lisp_addr_t         *inner_addr_from,
+        lisp_addr_t         *inner_addr_dest,
+        int                 inner_port_from,
+        int                 inner_port_dest,
+        lisp_addr_t         *outer_addr_from,
+        lisp_addr_t         *outer_addr_dest,
+        int                 outer_port_from,
+        int                 outer_port_dest,
+        int                 key_id,
+        char                *key,
+        lispd_site_ID       *site_ID,
+        lispd_xTR_ID        *xTR_ID,
+        uint64_t            *nonce)
 
 {
 
-    lispd_pkt_map_register_t *map_register_pkt;
-    lispd_pkt_map_register_t *map_register_pkt_tmp;
-    uint8_t *ecm_map_register;
+    lispd_pkt_map_register_t    *map_register_pkt       = NULL;
+    lispd_pkt_map_register_t    *map_register_pkt_tmp   = NULL;
+    uint8_t                     *ecm_map_register       = NULL;
 
-    int map_register_pkt_len;
-    int ecm_map_register_len;
+    int                         map_register_pkt_len    = 0;
+    int                         ecm_map_register_len    = 0;
 
     map_register_pkt = (lispd_pkt_map_register_t *)build_map_register_pkt(mapping_elt,&map_register_pkt_len);
 
@@ -336,6 +420,7 @@ int build_and_send_ecm_map_register(lispd_mapping_elt *mapping_elt,
     /* XXX Quick hack */
     /* Cisco IOS RTR implementation drops Data-Map-Notify if ECM Map Register nonce = 0 */
     map_register_pkt->nonce = build_nonce((unsigned int) time(NULL));
+    *nonce = map_register_pkt->nonce;
 
     /* Add xTR-ID and site-ID fields */
 

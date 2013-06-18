@@ -75,7 +75,9 @@ nonces_list *new_nonces_list()
         lispd_log_msg(LISP_LOG_WARNING, "new_nonces_list: Unable to allocate memory for nonces_list: %s", strerror(errno));
         return (NULL);
     }
-    nonces->retransmits = 0;
+
+    memset(nonces,0,sizeof(nonces_list));
+
     return (nonces);
 }
 

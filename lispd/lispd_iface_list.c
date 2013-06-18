@@ -358,6 +358,31 @@ lispd_iface_elt *get_default_ctrl_iface(int afi)
     return (iface);
 }
 
+
+lisp_addr_t *get_default_ctrl_address(int afi)
+{
+
+    lisp_addr_t *address = NULL;
+
+
+    switch (afi){
+        case AF_INET:
+            if (default_ctrl_iface_v4 != NULL){
+                address = default_ctrl_iface_v4->ipv4_address;
+            }
+            break;
+        case AF_INET6:
+            if (default_ctrl_iface_v6 != NULL){
+                address = default_ctrl_iface_v6->ipv6_address;
+            }
+            break;
+        default:
+            break;
+    }
+
+    return (address);
+}
+
 int get_default_output_socket(int afi)
 {
     int out_socket = -1;
@@ -423,7 +448,6 @@ void set_default_ctrl_ifaces()
                 default_ctrl_iface_v6->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v6->ipv6_address)));
     }
 
-    // XXX alopez If no output interface found exit --> To be modified when iface management implemented
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6){
         lispd_log_msg(LISP_LOG_ERR,"NO CONTROL IFACE: all the locators are down");
     }

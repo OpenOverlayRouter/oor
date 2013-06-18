@@ -221,6 +221,7 @@ inline rmt_locator_extended_info *new_rmt_locator_extended_info()
         return(NULL);
     }
     rmt_loc_ext_inf->rloc_probing_nonces = NULL;
+    rmt_loc_ext_inf->probe_timer = NULL;
 
     return rmt_loc_ext_inf;
 }
@@ -315,6 +316,9 @@ void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt)
 
 inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info)
 {
+    if (extended_info->probe_timer != NULL){
+        stop_timer(extended_info->probe_timer);
+    }
     if (extended_info->rloc_probing_nonces != NULL){
         free (extended_info->rloc_probing_nonces);
     }

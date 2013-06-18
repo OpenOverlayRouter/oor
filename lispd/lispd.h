@@ -67,16 +67,18 @@
  *
  */
 
-#define LISPD_INITIAL_MRQ_TIMEOUT   1  // Initial expiration timer for the first MRq
-#define LISPD_INITIAL_SMR_TIMEOUT   1  // Initial expiration timer for the first MRq SMR
-#define LISPD_INITIAL_PROBE_TIMEOUT 1  // Initial expiration timer for the first MRq RLOC probe
-#define LISPD_SMR_TIMEOUT           7  // Time since interface status change until balancing arrays and SMR is done
-#define LISPD_MAX_MRQ_TIMEOUT       32 // Max expiration timer for the subsequent MRq
-#define LISPD_EXPIRE_TIMEOUT        1  // Time interval in which events are expired
-#define LISPD_MAX_MR_RETRANSMIT     2  // Maximum amount of Map Request retransmissions
-#define LISPD_MAX_SMR_RETRANSMIT    2  // Maximum amount of SMR MRq retransmissions
-#define LISPD_MAX_PROBE_RETRANSMIT  1  // Maximum amount of RLOC probe MRq retransmissions
-#define LISPD_MAX_NONCES_LIST       3  // Positions of nonces vec. Max of LISPD_MAX_XX_RETRANSMIT + 1
+#define LISPD_INITIAL_MRQ_TIMEOUT       2  // Initial expiration timer for the first MRq
+#define LISPD_INITIAL_SMR_TIMEOUT       3  // Initial expiration timer for the first MRq SMR
+#define LISPD_INITIAL_PROBE_TIMEOUT     3  // Initial expiration timer for the first MRq RLOC probe
+#define LISPD_INITIAL_EMR_TIMEOUT       3  // Initial expiration timer for the first Encapsulated Map Register
+#define LISPD_SMR_TIMEOUT               7  // Time since interface status change until balancing arrays and SMR is done
+#define LISPD_MAX_MRQ_TIMEOUT           32 // Max expiration timer for the subsequent MRq
+#define LISPD_EXPIRE_TIMEOUT            1  // Time interval in which events are expired
+#define LISPD_MAX_MR_RETRANSMIT         2  // Maximum amount of Map Request retransmissions
+#define LISPD_MAX_SMR_RETRANSMIT        2  // Maximum amount of SMR MRq retransmissions
+#define LISPD_MAX_PROBE_RETRANSMIT      1  // Maximum amount of RLOC probe MRq retransmissions
+#define LISPD_MAX_RETRANSMITS           5  // Maximum amount of retransmits of a message
+#define LISPD_MIN_RETRANSMIT_INTERVAL   1  // Minimum time between retransmits of control messages
 
 /*
  *  Determine endianness
@@ -157,12 +159,13 @@
 int err;
 #define GOOD                1
 #define BAD                 0
-#define ERR_CTR_IFACE       0
-#define ERR_SRC_ADDR        0
+#define ERR_SRC_ADDR        -1
 #define ERR_AFI             -2
 #define ERR_DB              -3
 #define ERR_MALLOC          -4
 #define ERR_EXIST			-5
+#define ERR_NO_EXIST        -6
+#define ERR_CTR_IFACE       -7
 
 /***** Negative Map-Reply actions ***/
 #define ACT_NO_ACTION           0
@@ -187,19 +190,21 @@ int err;
 #define MAX_IP_PACKET       4096
 
 
-#define DEFAULT_MAP_REQUEST_RETRIES     3
-#define DEFAULT_MAP_REGISTER_TIMEOUT    10  /* PN: expected to be in minutes; however,
-                                             * lisp_mod treats this as seconds instead of
-                                             * minutes
-                                             */
-#define MAP_REGISTER_INTERVAL           60  /* LJ: sets the interval at which periodic
-                                             * map register messages are sent (seconds).
-                                             * The spec recommends 1 minute
-                                             */
-#define RLOC_PROBING_INTERVAL           30  /* LJ: sets the interval at which periodic
-                                             * RLOC probes are sent (seconds) */
-#define DEFAULT_DATA_CACHE_TTL          60  /* seconds */
-#define DEFAULT_SELECT_TIMEOUT          1000/* ms */
+#define DEFAULT_MAP_REQUEST_RETRIES             3
+#define DEFAULT_RLOC_PROBING_RETRIES            1
+#define DEFAULT_MAP_REGISTER_TIMEOUT            1  /* PN: expected to be in minutes; however,
+                                                     * lisp_mod treats this as seconds instead of
+                                                     * minutes
+                                                     */
+#define MAP_REGISTER_INTERVAL                   60  /* LJ: sets the interval at which periodic
+                                                     * map register messages are sent (seconds).
+                                                     * The spec recommends 1 minute
+                                                     */
+#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
+                                                     * RLOC probes are sent (seconds) */
+#define DEFAULT_RLOC_PROBING_RETRIES_INTERVAL   5   /* Interval in seconds between RLOC probing retries  */
+#define DEFAULT_DATA_CACHE_TTL                  60  /* seconds */
+#define DEFAULT_SELECT_TIMEOUT                  1000/* ms */
 
 
 /*

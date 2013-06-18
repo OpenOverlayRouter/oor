@@ -44,6 +44,7 @@
 #include "lispd_map_cache.h"
 #include "lispd_map_cache_db.h"
 #include "lispd_mapping.h"
+#include "lispd_rloc_probing.h"
 
 
 
@@ -85,7 +86,10 @@ int add_static_map_cache_entry(
         int    priority,
         int    weight);
 
-
+void validate_rloc_probing_parameters (
+        int probe_int,
+        int probe_retries,
+        int probe_retries_interval);
 
 
 /*
@@ -153,6 +157,9 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     struct uci_element *e = NULL;
     int         uci_debug = 0;
     int         uci_retries = 0;
+    int         uci_rloc_probe_int = 0;
+    int         uci_rloc_probe_retries = 0;
+    int         uci_rloc_probe_retries_interval = 0;
     const char* uci_address = NULL;
     int         uci_key_type = 0;
     const char* uci_key = NULL;
@@ -206,6 +213,9 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     uci_foreach_element(&pck->sections, e) {
         uci_debug = 0;
         uci_retries = 0;
+        uci_rloc_probe_int = 0;
+        uci_rloc_probe_retries = 0;
+        uci_rloc_probe_retries_interval = 0;
 
         uci_address = NULL;
         uci_key_type = 0;
@@ -228,7 +238,8 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
             uci_debug = strtol(uci_lookup_option_string(ctx, s, "debug"),NULL,10);
 
-            if (debug_level == -1){
+
+            if (debug_level == -1){//Used to not overwrite debug level passed by console
                 if (uci_debug > 0)
                     debug_level = uci_debug;
                 else
@@ -239,9 +250,24 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
             uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
 
-            if (uci_retries != 0){
+            if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
                 map_request_retries = uci_retries;
+            }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                map_request_retries = LISPD_MAX_RETRANSMITS;
+                lispd_log_msg(LISP_LOG_WARNING, "Map-Request retries should be between 0 and %d. Using default value: %d",
+                        LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
             }
+
+
+
+            continue;
+        }
+
+        if (strcmp(s->type, "rloc-probing") == 0){
+
+            uci_rloc_probe_int = strtol(uci_lookup_option_string(ctx, s, "rloc_probe_interval"),NULL,10);
+            uci_rloc_probe_retries = strtol(uci_lookup_option_string(ctx, s, "rloc_probe_retries"),NULL,10);
+            uci_rloc_probe_retries_interval = strtol(uci_lookup_option_string(ctx, s, "rloc_probe_retries_interval"),NULL,10);
 
             continue;
         }
@@ -361,6 +387,8 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     }
 
+    validate_rloc_probing_parameters (uci_rloc_probe_int, uci_rloc_probe_retries, uci_rloc_probe_retries_interval);
+
     if (!proxy_etrs){
         lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
                 "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
@@ -409,14 +437,19 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
 int handle_lispd_config_file(char * lispdconf_conf_file)
 {
-    cfg_t           *cfg            = 0;
-    unsigned int    i               = 0;
-    unsigned        n               = 0;
-    int             ret             = 0;
-    char            *map_resolver   = NULL;
-    char            *proxy_itr      = NULL;
-    char            *nat_site_ID    = NULL;
-    char            *nat_xTR_ID     = NULL;
+
+    cfg_t           *cfg                    = 0;
+    unsigned int    i                       = 0;
+    unsigned        n                       = 0;
+    int             ret                     = 0;
+    char            *map_resolver           = NULL;
+    char            *proxy_itr              = NULL;
+    char            *nat_site_ID            = NULL;
+    char            *nat_xTR_ID             = NULL;
+    int             probe_int               = 0;
+    int             probe_retries           = 0;
+    int             probe_retries_interval  = 0;
+    int             ctr                     = 0;
 
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
@@ -460,15 +493,24 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_END()
     };
 
+    static cfg_opt_t rloc_probing_opts[] = {
+            CFG_INT("rloc-probe-interval",           0, CFGF_NONE),
+            CFG_INT("rloc-probe-retries",            0, CFGF_NONE),
+            CFG_INT("rloc-probe-retries-interval",   0, CFGF_NONE),
+            CFG_END()
+    };
+
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts, CFGF_MULTI),
             CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
             CFG_SEC("map-server",           map_server_opts, CFGF_MULTI),
             CFG_SEC("proxy-etr",            petr_mapping_opts, CFGF_MULTI),
             CFG_SEC("nat-traversal",        nat_traversal_opts, CFGF_MULTI),
+            CFG_SEC("rloc-probing",         rloc_probing_opts, CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
+            CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
             CFG_END()
@@ -511,6 +553,21 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         if (debug_level > 3)
             debug_level = 3;
     }
+
+
+    /*
+     *  RLOC Probing options
+     */
+
+    cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
+
+    probe_int = cfg_getint(dm, "rloc-probe-interval");
+    probe_retries = cfg_getint(dm, "rloc-probe-retries");
+    probe_retries_interval = cfg_getint(dm, "rloc-probe-retries-interval");
+
+    validate_rloc_probing_parameters (probe_int, probe_retries, probe_retries_interval);
+
+
     /*
      * Nat Traversal options
      */
@@ -588,6 +645,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     n = cfg_size(cfg, "database-mapping");
     for(i = 0; i < n; i++) {
+        ctr ++;
         cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
         if (add_database_mapping(cfg_getstr(dm, "eid-prefix"),
                 cfg_getint(dm, "iid"),
@@ -645,6 +703,25 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             lispd_log_msg(LISP_LOG_DEBUG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
                     cfg_getstr(smc, "eid-prefix"),
                     cfg_getstr(smc, "rloc"));
+        }
+    }
+    /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
+    if (nat_aware == TRUE){
+        if (ctr > 1){
+            lispd_log_msg(LISP_LOG_CRIT,"NAT aware on -> This version of LISPmob is limited to one EID prefix "
+                    "and one interface when NAT-T is enabled");
+            exit (EXIT_FAILURE);
+        }
+
+        if (map_servers->next != NULL){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one Map Server. Using %s",
+                    get_char_from_lisp_addr_t(*(map_servers->address)));
+            map_servers->next = NULL;
+        }
+
+        if (rloc_probe_interval > 0){
+            rloc_probe_interval = 0;
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> disabling RLOC Probing");
         }
     }
 
@@ -724,13 +801,13 @@ int add_database_mapping(
     if (weight_v4 < (MIN_WEIGHT) || weight_v4 > MAX_WEIGHT) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Weight %d out of range [%d..%d], set weight to 100...",
                 weight_v4, MIN_WEIGHT, MAX_WEIGHT);
-        priority_v4 = 100;
+        weight_v4 = 100;
     }
 
     if (weight_v6 < (MIN_WEIGHT) || weight_v6 > MAX_WEIGHT) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Weight %d out of range [%d..%d], set weight to 100...",
                 weight_v6, MIN_WEIGHT, MAX_WEIGHT);
-        priority_v6 = 100;
+        weight_v6 = 100;
     }
 
 
@@ -858,11 +935,11 @@ int add_static_map_cache_entry(
 
     if (iid > MAX_IID) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
-        iid = 0;
+        iid = -1;
     }
 
     if (iid < 0)
-        iid = 0;
+        iid = -1;
 
     if (priority < MAX_PRIORITY || priority > UNUSED_RLOC_PRIORITY) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
@@ -891,6 +968,12 @@ int add_static_map_cache_entry(
     }else{
         return (BAD);
     }
+
+    /*
+     * Programming rloc probing timer
+     */
+    programming_rloc_probing(map_cache_entry);
+
     return (GOOD);
 }
 
@@ -1088,6 +1171,52 @@ int add_proxy_etr_entry(
     }
 
     return(GOOD);
+}
+
+void validate_rloc_probing_parameters (
+        int probe_int,
+        int probe_retries,
+        int probe_retries_interval){
+
+    if (probe_int  < 0){
+        rloc_probe_interval = 0;
+    }else{
+        rloc_probe_interval = probe_int;
+    }
+    if (rloc_probe_interval > 0){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "RLOC Probing Interval: %d", rloc_probe_interval);
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "RLOC Probing dissabled");
+    }
+
+    if (rloc_probe_interval != 0){
+
+        if(probe_retries > LISPD_MAX_RETRANSMITS){
+            rloc_probe_retries = LISPD_MAX_RETRANSMITS;
+            lispd_log_msg(LISP_LOG_WARNING, "RLOC Probing retries should be between 0 and %d. Using %d retries",
+                    LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+        }else if (probe_retries < 0){
+            rloc_probe_retries = 0;
+            lispd_log_msg(LISP_LOG_WARNING, "RLOC Probing retries should be between 0 and %d. Using 0 retries",
+                    LISPD_MAX_RETRANSMITS);
+        }else{
+            rloc_probe_retries = probe_retries;
+        }
+
+        if (rloc_probe_retries > 0){
+            if (probe_retries_interval < LISPD_MIN_RETRANSMIT_INTERVAL){
+                rloc_probe_retries_interval = LISPD_MIN_RETRANSMIT_INTERVAL;
+                lispd_log_msg(LISP_LOG_WARNING, "RLOC Probing interval retries should be between %d and RLOC Probing interval. Using %d seconds",
+                        LISPD_MIN_RETRANSMIT_INTERVAL,LISPD_MIN_RETRANSMIT_INTERVAL);
+            }else if(probe_retries_interval > rloc_probe_interval){
+                rloc_probe_retries_interval = rloc_probe_interval;
+                lispd_log_msg(LISP_LOG_WARNING, "RLOC Probing interval retries should be between %d and RLOC Probing interval. Using %d seconds",
+                        LISPD_MIN_RETRANSMIT_INTERVAL,rloc_probe_interval);
+            }else{
+                rloc_probe_retries_interval = probe_retries_interval;
+            }
+        }
+    }
 }
 
 

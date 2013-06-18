@@ -46,7 +46,7 @@ uint16_t udp_checksum (
      void      *iphdr,
      int       afi);
 
-int get_auth_data_len(int key_id);
+uint16_t get_auth_data_len(int key_id);
 
 int complete_auth_fields(int key_id,
                          uint16_t * key_id_pos,

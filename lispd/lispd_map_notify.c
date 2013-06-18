@@ -39,30 +39,47 @@
 #include "lispd_external.h"
 #include "lispd_lib.h"
 #include "lispd_map_notify.h"
+#include "lispd_map_register.h"
 
 
 int process_map_notify(uint8_t *packet)
 {
 
-    lispd_pkt_map_notify_t              *mn;
-    lispd_pkt_mapping_record_t          *record;
-    lispd_pkt_mapping_record_locator_t  *locator;
-    lispd_pkt_lcaf_iid_t                *lcaf_iid;
+    lispd_pkt_map_notify_t              *mn                         = NULL;
+    lispd_pkt_mapping_record_t          *record                     = NULL;
+    lispd_pkt_mapping_record_locator_t  *locator                    = NULL;
+    lispd_pkt_auth_field_t              *auth_field                 = NULL;
 
-    int                                 eid_afi;
-    int                                 loc_afi;
-    int                                 record_count;
-    int                                 locator_count;
-    int                                 i,j;
+
+    int                                 eid_afi                     = 0;
+    int                                 loc_afi                     = 0;
+    int                                 record_count                = 0;
+    int                                 locator_count               = 0;
+    int                                 i                           = 0;
+    int                                 j                           = 0;
     uint8_t                             auth_data[LISP_SHA1_AUTH_DATA_LEN];
-    int                                 map_notify_length;
-    int                                 partial_map_notify_length1;
-    int                                 partial_map_notify_length2;
-    uint32_t                            md_len;
+    int                                 map_notify_length           = 0;
+    int                                 partial_map_notify_length1  = 0;
+    int                                 partial_map_notify_length2  = 0;
+    uint32_t                            md_len                      = 0;
+    lispd_site_ID                       *site_ID_msg                = NULL;
+    lispd_xTR_ID                        *xTR_ID_msg                 = NULL;
 
 
     mn = (lispd_pkt_map_notify_t *)packet;
     record_count = mn->record_count;
+
+    /* Check the nonce */
+    if (mn->nonce == 0){
+        if (check_nonce(nat_emr_nonce,mn->nonce) == GOOD){
+            lispd_log_msg(LISP_LOG_DEBUG_2, "Map Notify: Correct nonce field checking ");
+            nat_emr_nonce = NULL;
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
+                    get_char_from_nonce (mn->nonce));
+            return (BAD);
+        }
+    }
 
     map_notify_length = sizeof(lispd_pkt_map_notify_t);
 
@@ -71,18 +88,6 @@ int process_map_notify(uint8_t *packet)
     {
         partial_map_notify_length1 = sizeof(lispd_pkt_mapping_record_t);
         eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
-
-        /* XXX:  If we have LCAF, just assume it's Instance ID, jump over
-         *       and get the EID
-         * TODO: Proper LCAF handling on receipt
-         */
-        if (eid_afi < 0) {
-            partial_map_notify_length1 += sizeof(lispd_pkt_lcaf_t);
-            lcaf_iid = (lispd_pkt_lcaf_iid_t *)
-                       CO(record, partial_map_notify_length1);
-            eid_afi  = lisp2inetafi(ntohs(lcaf_iid->afi));
-            partial_map_notify_length1 += sizeof(lispd_pkt_lcaf_iid_t);
-        }
 
         switch (eid_afi) {
         case AF_INET:
@@ -126,20 +131,51 @@ int process_map_notify(uint8_t *packet)
         mn->auth_data[i] = 0;
     }
 
+    if (mn->xtr_id_present == TRUE){
+        xTR_ID_msg  = (lispd_xTR_ID *)CO(packet,map_notify_length);
+        site_ID_msg = (lispd_site_ID *)CO(packet,map_notify_length + sizeof(lispd_xTR_ID));
+        if (memcmp(site_ID_msg, &site_ID, sizeof(lispd_site_ID))!= 0){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_notify: Site ID of the map notify doesn't match");
+            return (BAD);
+        }
+        if (memcmp(xTR_ID_msg, &xTR_ID, sizeof(lispd_xTR_ID))!= 0){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_notify: xTR ID of the map notify doesn't match");
+            return (BAD);
+        }
+        map_notify_length = map_notify_length + sizeof(lispd_site_ID) + sizeof (lispd_xTR_ID);
+    }
+    if (mn->rtr_auth_present == TRUE){
+        auth_field = (lispd_pkt_auth_field_t *)CO(packet,map_notify_length);
+        //map_notify_length = map_notify_length + sizeof(lispd_pkt_auth_field_t) + auth_field->auth_data_len;
+        //lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_notify: RTR authentication field present. It should not appear");
+        //return (BAD);
+    }
+
+
     if (!HMAC((const EVP_MD *) EVP_sha1(),
             (const void *) map_servers->key,
             strlen(map_servers->key),
-            (uchar *) mn,
+            (uchar *) packet,
             map_notify_length,
             (uchar *) mn->auth_data,
             &md_len)) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "HMAC failed for Map-Notify");
         return(BAD);
     }
-    if ((strncmp((char *)mn->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0)
+    if ((strncmp((char *)mn->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0){
+        free (nat_emr_nonce);
+        nat_emr_nonce = NULL;
+        /* Reprogram timer of the map register process */
+        if (map_register_timer == NULL) {
+            map_register_timer = create_timer(MAP_REGISTER_TIMER);
+        }
+        start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register, NULL);
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration");
-    else
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed map register in %d seconds",MAP_REGISTER_INTERVAL);
+    } else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message is invalid");
+        return (BAD);
+    }
     return(GOOD);
 }
 

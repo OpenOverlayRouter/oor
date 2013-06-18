@@ -248,7 +248,13 @@ void *pkt_fill_mapping_record(
     for (ctr = 0 ; ctr < 2 ; ctr++){
         while (locators_list[ctr]) {
             locator              = locators_list[ctr]->locator;
-            loc_ptr->priority    = locator->priority;
+
+            if (*(locator->state) == UP){
+                loc_ptr->priority    = locator->priority;
+            }else{
+                /* If the locator is DOWN, set the priority to 255 -> Locator should not be used */
+                loc_ptr->priority    = UNUSED_RLOC_PRIORITY;
+            }
             loc_ptr->weight      = locator->weight;
             loc_ptr->mpriority   = locator->mpriority;
             loc_ptr->mweight     = locator->mweight;
@@ -256,6 +262,7 @@ void *pkt_fill_mapping_record(
             if (probed_rloc != NULL && compare_lisp_addr_t(locator->locator_addr,probed_rloc)==0){
                 loc_ptr->probed  = 1;
             }
+
             loc_ptr->reachable   = *(locator->state);
             loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
 
@@ -320,12 +327,12 @@ int extract_5_tuples_from_packet (
 
     if (tuple->protocol == IPPROTO_UDP){
         udp = (struct udphdr *)CO(packet,len);
-        tuple->src_port = udp->source;
-        tuple->dst_port = udp->dest;
+        tuple->src_port = ntohs(udp->source);
+        tuple->dst_port = ntohs(udp->dest);
     }else if (tuple->protocol == IPPROTO_TCP){
         tcp = (struct tcphdr *)CO(packet,len);
-        tuple->src_port = tcp->source;
-        tuple->dst_port = tcp->dest;
+        tuple->src_port = ntohs(tcp->source);
+        tuple->dst_port = ntohs(tcp->dest);
     }else{//If protocol is not TCP or UDP, ports of the tuple set to 0
         tuple->src_port = 0;
         tuple->dst_port = 0;
