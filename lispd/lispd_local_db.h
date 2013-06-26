@@ -80,6 +80,11 @@ lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix
 lisp_addr_t *get_main_eid(int afi);
 
 /*
+ * Return the number of entries of the database
+ */
+int num_entries_in_db(patricia_tree_t *database);
+
+/*
  * dump the mapping list of the database
  */
 void dump_local_db(int log_level);
