@@ -349,7 +349,6 @@ int process_map_reply_probe_record(
                 return (BAD);
             }
         }
-
         lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply probe reachability to RLOC %s of the EID cache entry %s/%d",
                     get_char_from_lisp_addr_t(*(locator->locator_addr)),
                     get_char_from_lisp_addr_t(cache_entry->mapping->eid_prefix),
@@ -406,7 +405,6 @@ int process_map_reply_probe_record(
                 cache_entry->mapping,
                 &(((rmt_mapping_extended_info *)cache_entry->mapping->extended_info)->rmt_balancing_locators_vecs));
     }
-
     /*
      * Reprogramming timers of rloc probing
      */

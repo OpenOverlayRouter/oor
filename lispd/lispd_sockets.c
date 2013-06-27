@@ -337,7 +337,6 @@ int send_udp_ipv4_packet(
         lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: socket: %s", strerror(errno));
         return(BAD);
     }
-
     memset((char *) &src, 0, sizeof(struct sockaddr_in));
     src.sin_family       = AF_INET;
     src.sin_port         = htons(src_port);
@@ -350,7 +349,6 @@ int send_udp_ipv4_packet(
         close(s);
         return(BAD);
     }
-
     memset((char *) &dst, 0, sizeof(struct sockaddr_in));
 
     dst.sin_family      = AF_INET;
@@ -374,7 +372,6 @@ int send_udp_ipv4_packet(
         close(s);
         return(BAD);
     }
-
     close(s);
     return (GOOD);
 }

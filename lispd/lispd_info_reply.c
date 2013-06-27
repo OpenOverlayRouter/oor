@@ -231,7 +231,7 @@ int process_info_reply_msg(
         }
         lcl_locator_ext_inf->rtr_locators_list = rtr_locators_list;
 
-        if (nat_status == FULL_NAT || nat_status == PARTIAL_NAT){
+        if (nat_status == NO_NAT || nat_status == PARTIAL_NAT){
             nat_status = PARTIAL_NAT;
         }else{
             nat_status = FULL_NAT;
@@ -244,11 +244,6 @@ int process_info_reply_msg(
         }
     }
 
-    /* Once we know the NAT state we send a Map-Register */
-
-    map_register(NULL,NULL);
-
-
     /* If we are behind NAT, the program timer to send Info Request after TTL minutes */
     if (is_behind_nat == TRUE){
         if (info_reply_ttl_timer == NULL) {
@@ -257,6 +252,11 @@ int process_info_reply_msg(
         start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
         lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
     }
+
+    /* Once we know the NAT state we send a Map-Register */
+
+    map_register(NULL,NULL);
+
     return (GOOD);
 }
 

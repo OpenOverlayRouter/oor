@@ -483,6 +483,7 @@ lispd_locator_elt *get_locator_from_list(
         }else if (cmp == 1){
             break;
         }
+        locator_list = locator_list->next;
     }
     return (locator);
 }

@@ -70,7 +70,7 @@ int map_register(
         exit(EXIT_FAILURE);
     }
 
-    if((nat_aware==TRUE)){ /* NAT procedure instead of the standard one */
+    if(nat_aware==TRUE){ /* NAT procedure instead of the standard one */
 
         if(nat_status == UNKNOWN){
             result = initial_info_request_process();
@@ -155,7 +155,6 @@ int encapsulated_map_register_process()
             return (BAD);
         }
     }
-
     if (nat_emr_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
 
         if (nat_emr_nonce->retransmits > 0){

@@ -29,6 +29,7 @@
  */
 #include "lispd_external.h"
 #include "lispd_iface_mgmt.h"
+#include "lispd_info_request.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
 #include "lispd_mapping.h"
@@ -284,6 +285,9 @@ void process_address_change (
         break;
     }
 
+
+    /* If it is compiled in router mode, then recompile default routes changing the indicated src address*/
+
 #ifdef ROUTER
     switch (new_addr.afi){
     case AF_INET:
@@ -299,6 +303,14 @@ void process_address_change (
         break;
     }
 #endif
+
+    /* Check if the new address is behind NAT */
+
+    if(nat_aware==TRUE){
+        // TODO : To be modified when implementing NAT per multiple interfaces
+        nat_status = UNKNOWN;
+        initial_info_request_process();
+    }
 
     /* Reprograming SMR timer*/
     if (smr_timer == NULL){

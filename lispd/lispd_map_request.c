@@ -444,12 +444,14 @@ uint8_t *build_map_request_pkt(
 
     /* Calculate the packet size and reserve memory */
     map_request_msg_len = get_map_request_length(requested_mapping,src_mapping);
+    *len = map_request_msg_len;
 
     if ((packet = malloc(map_request_msg_len)) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"build_map_request_pkt: Unable to allocate memory for Map Request (packet_len): %s", strerror(errno));
         return (NULL);
     }
     memset(packet, 0, map_request_msg_len);
+
 
     cur_ptr = packet;
 
