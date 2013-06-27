@@ -726,15 +726,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         }
     }
 
-
-    if (debug_level == 1){
-        lispd_log_msg (LISP_LOG_INFO, "Log level: Low debug");
-    }else if (debug_level == 2){
-        lispd_log_msg (LISP_LOG_INFO, "Log level: Medium debug");
-    }else if (debug_level == 3){
-        lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
-    }
-
     /* Check number of EID prefixes */
 #ifndef ROUTER
     if (num_entries_in_db(get_local_db(AF_INET)) > 1){
@@ -746,6 +737,15 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         exit(EXIT_FAILURE);
     }
 #endif
+
+
+    if (debug_level == 1){
+        lispd_log_msg (LISP_LOG_INFO, "Log level: Low debug");
+    }else if (debug_level == 2){
+        lispd_log_msg (LISP_LOG_INFO, "Log level: Medium debug");
+    }else if (debug_level == 3){
+        lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
+    }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     dump_local_db(LISP_LOG_DEBUG_1);
