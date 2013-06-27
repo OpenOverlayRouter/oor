@@ -281,6 +281,7 @@ lisp_addr_t *get_main_eid(int afi){
     lisp_addr_t                 *eid        = NULL;
     lispd_mapping_elt           *entry      = NULL;
     patricia_tree_t             *database   = NULL;
+    patricia_node_t             *node       = NULL;
 
     switch (afi){
     case AF_INET:
@@ -291,12 +292,29 @@ lisp_addr_t *get_main_eid(int afi){
         break;
     }
 
-    if (database->head != NULL){
-        entry = ((lispd_mapping_elt *)(database->head->data));
-        eid = &(entry->eid_prefix);
-    }
+    PATRICIA_WALK(database->head, node) {
+        entry = ((lispd_mapping_elt *)(node->data));
+        if (entry != NULL){
+            eid = &(entry->eid_prefix);
+            break;
+        }
+    }PATRICIA_WALK_END;
 
     return (eid);
+}
+
+/*
+ * Return the number of entries of the database
+ */
+int num_entries_in_db(patricia_tree_t *database){
+    patricia_node_t             *node       = NULL;
+    int                         ctr         = 0;
+
+    PATRICIA_WALK(database->head, node) {
+        ctr ++;
+    }PATRICIA_WALK_END;
+
+    return (ctr);
 }
 
 /*

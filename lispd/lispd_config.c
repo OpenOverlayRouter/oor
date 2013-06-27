@@ -735,6 +735,18 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
     }
 
+    /* Check number of EID prefixes */
+#ifndef ROUTER
+    if (num_entries_in_db(get_local_db(AF_INET)) > 1){
+        lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+        exit(EXIT_FAILURE);
+    }
+    if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
+        lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+        exit(EXIT_FAILURE);
+    }
+#endif
+
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     dump_local_db(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
