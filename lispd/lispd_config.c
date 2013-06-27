@@ -472,7 +472,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     static cfg_opt_t mc_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                 -1, CFGF_NONE),
             CFG_STR("rloc",                 0, CFGF_NONE),
             CFG_INT("priority",             0, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
@@ -689,6 +688,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     n = cfg_size(cfg, "static-map-cache");
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
+
         if (!add_static_map_cache_entry(cfg_getstr(smc, "eid-prefix"),
                 cfg_getint(smc, "iid"),
                 cfg_getstr(smc, "rloc"),
@@ -705,6 +705,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
                     cfg_getstr(smc, "rloc"));
         }
     }
+
     /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
     if (nat_aware == TRUE){
         if (ctr > 1){
@@ -731,7 +732,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }else if (debug_level == 2){
         lispd_log_msg (LISP_LOG_INFO, "Log level: Medium debug");
     }else if (debug_level == 3){
-        lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug ");
+        lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
     }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");

@@ -48,7 +48,6 @@ int process_map_notify(uint8_t *packet)
     lispd_pkt_map_notify_t              *mn                         = NULL;
     lispd_pkt_mapping_record_t          *record                     = NULL;
     lispd_pkt_mapping_record_locator_t  *locator                    = NULL;
-    lispd_pkt_auth_field_t              *auth_field                 = NULL;
 
 
     int                                 eid_afi                     = 0;
@@ -145,7 +144,7 @@ int process_map_notify(uint8_t *packet)
         map_notify_length = map_notify_length + sizeof(lispd_site_ID) + sizeof (lispd_xTR_ID);
     }
     if (mn->rtr_auth_present == TRUE){
-        auth_field = (lispd_pkt_auth_field_t *)CO(packet,map_notify_length);
+        //auth_field = (lispd_pkt_auth_field_t *)CO(packet,map_notify_length);
         //map_notify_length = map_notify_length + sizeof(lispd_pkt_auth_field_t) + auth_field->auth_data_len;
         //lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_notify: RTR authentication field present. It should not appear");
         //return (BAD);

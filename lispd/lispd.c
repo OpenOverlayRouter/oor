@@ -343,7 +343,7 @@ int main(int argc, char **argv)
      */
     netlink_fd = opent_netlink_socket();
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.3): 'lispd' started...");
 
     /*
      *  Register to the Map-Server(s)

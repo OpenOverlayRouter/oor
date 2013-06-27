@@ -167,7 +167,6 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     }
     rth = IFA_RTA (ifa);
 
-    rth = IFA_RTA (ifa);
     rt_length = IFA_PAYLOAD (nlh);
     for (;rt_length && RTA_OK (rth, rt_length); rth = RTA_NEXT (rth,rt_length))
     {
@@ -179,11 +178,9 @@ void process_nl_add_address (struct nlmsghdr *nlh)
                 memcpy (&(new_addr.address),(struct in6_addr *)RTA_DATA(rth),sizeof(struct in6_addr));
                 new_addr.afi = AF_INET6;
             }
-            break;
+            process_address_change (iface, new_addr);
         }
     }
-
-    process_address_change (iface, new_addr);
 }
 
 /*
@@ -513,7 +510,7 @@ void activate_interface_address(
             }
         }else{
             lispd_log_msg(LISP_LOG_DEBUG_1,"activate_interface_address: No locator with address %s has been found"
-                    " in the not init locators list of the mapping %s/%d. It should never reach here",
+                    " in the not init locators list of the mapping %s/%d. Is priority equal to -1 for this EID and afi?",
                     get_char_from_lisp_addr_t(new_address),
                     get_char_from_lisp_addr_t(mapping->eid_prefix),
                     mapping->eid_prefix_length);

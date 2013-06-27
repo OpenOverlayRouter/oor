@@ -91,18 +91,14 @@ int process_info_reply_msg(
     lispd_locator_elt           *locator                = NULL;
     lcl_locator_extended_info   *lcl_locator_ext_inf    = NULL;
 
-
     char                        rtrs_list_str[2000];
     lispd_rtr_locators_list     *aux_rtr_locators_list  = NULL;
 
     uint8_t                     is_behind_nat           = FALSE;
 
-
-
     /*
      * Get source port and address.
      */
-
 
     err = extract_info_nat_header(ptr,
             &lisp_type,
@@ -252,13 +248,15 @@ int process_info_reply_msg(
 
     map_register(NULL,NULL);
 
-    /* Program timer to send Info Request after TTL minutes */
-    if (info_reply_ttl_timer == NULL) {
-        info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
-    }
-    start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
 
+    /* If we are behind NAT, the program timer to send Info Request after TTL minutes */
+    if (is_behind_nat == TRUE){
+        if (info_reply_ttl_timer == NULL) {
+            info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
+        }
+        start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
+    }
     return (GOOD);
 }
 

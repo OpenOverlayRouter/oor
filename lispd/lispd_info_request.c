@@ -283,7 +283,7 @@ int info_request(
     } else{
         free (nat_ir_nonce);
         nat_ir_nonce = NULL;
-        lispd_log_msg(LISP_LOG_ERR,"info_request: Communication error between LISPmob and RTR. Retry after %s seconds",MAP_REGISTER_INTERVAL);
+        lispd_log_msg(LISP_LOG_ERR,"info_request: Communication error between LISPmob and RTR. Retry after %d seconds",MAP_REGISTER_INTERVAL);
         next_timer_time = MAP_REGISTER_INTERVAL;
     }
 
