@@ -162,51 +162,11 @@ void die(int exitcode)
     exit(exitcode);
 }
 
-#define LISPD_LOCKFILE "/sdcard/lispd.lock"
-int fdlock;
-int get_process_lock(int pid)
-{
-    struct flock fl;
-    char pidString[128];
-
-    fl.l_type = F_WRLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 1;
-
-    if ((fdlock = open(LISPD_LOCKFILE, O_RDWR|O_CREAT, 0666)) == -1) {
-		printf("Failed to create lispd lock file!\n");
-        return FALSE;
-    }
-
-    if (fcntl(fdlock, F_SETLK, &fl) == -1) {
-		printf("Failed to acquire lock on lispd lock file!\n");
-        return FALSE;
-    }
-    sprintf(pidString, "%d\n", pid);
-    write(fdlock, pidString, strlen(pidString));
-    return TRUE;
-}
-
-void remove_process_lock()
-{
-    close(fdlock);
-    unlink(LISPD_LOCKFILE);
-}
-
-void die(int exitcode)
-{
-    remove_process_lock();
-    exit(exitcode);
-}
-
 int main(int argc, char **argv) 
 {
     lisp_addr_t *tun_v4_addr;
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
-
-
 
 #ifdef ROUTER
 #ifdef OPENWRT

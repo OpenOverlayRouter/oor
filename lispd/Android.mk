@@ -10,13 +10,13 @@ subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, \
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES = cmdline.c lispd.c lispd_config.c lispd_log.c	\
-		  lispd_lib.c lispd_map_register.c		\
+		  lispd_lib.c lispd_map_register.c lispd_locator.c	\
 		  patricia/patricia.c cksum.c lispd_map_request.c	\
-		  lispd_map_reply.c \
-		  lispd_iface_list.c lispd_map_notify.c lispd_pkt_lib.c \
+		  lispd_map_reply.c lispd_iface_mgmt.c \
+		  lispd_iface_list.c lispd_map_notify.c lispd_pkt_lib.c lispd_map_cache.c \
 		  lispd_timers.c lispd_local_db.c lispd_map_cache_db.c \
 		  lispd_afi.c lispd_nonce.c lispd_rloc_probing.c \
-		  lispd_smr.c lispd_tun.c lispd_input.c lispd_output.c lispd_sockets.c 
+		  lispd_smr.c lispd_tun.c lispd_input.c lispd_output.c lispd_sockets.c lispd_mapping.c
 LOCAL_C_FLAGS += -g
 LOCAL_C_INCLUDES := external/openssl/include/
 LOCAL_STATIC_LIBRARIES := libconfuse

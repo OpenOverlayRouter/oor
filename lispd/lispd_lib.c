@@ -250,7 +250,7 @@ int getifaddrs(ifaddrs **addrlist) {
     return 0;
 }
 
-int freeifaddrs(ifaddrs **addrlist)
+int freeifaddrs(ifaddrs *addrlist)
 {
 	return 0; // XXX TODO
 }
@@ -685,8 +685,13 @@ int is_link_local_addr (lisp_addr_t addr)
         }
         break;
     case AF_INET6:
-        if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
-                ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
+#if ANDROID
+        if (((addr.address.ipv6.in6_u.u6_addr8[0] & 0xff) == 0xfe) &&
+                ((addr.address.ipv6.in6_u.u6_addr8[1] & 0xc0) == 0x80)){
+#else
+		if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
+	            ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
+#endif
             is_link_local = TRUE;
         }
         break;
