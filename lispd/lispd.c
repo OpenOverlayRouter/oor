@@ -162,6 +162,44 @@ void die(int exitcode)
     exit(exitcode);
 }
 
+#define LISPD_LOCKFILE "/sdcard/lispd.lock"
+int fdlock;
+int get_process_lock(int pid)
+{
+    struct flock fl;
+    char pidString[128];
+
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 1;
+
+    if ((fdlock = open(LISPD_LOCKFILE, O_RDWR|O_CREAT, 0666)) == -1) {
+		printf("Failed to create lispd lock file!\n");
+        return FALSE;
+    }
+
+    if (fcntl(fdlock, F_SETLK, &fl) == -1) {
+		printf("Failed to acquire lock on lispd lock file!\n");
+        return FALSE;
+    }
+    sprintf(pidString, "%d\n", pid);
+    write(fdlock, pidString, strlen(pidString));
+    return TRUE;
+}
+
+void remove_process_lock()
+{
+    close(fdlock);
+    unlink(LISPD_LOCKFILE);
+}
+
+void die(int exitcode)
+{
+    remove_process_lock();
+    exit(exitcode);
+}
+
 int main(int argc, char **argv) 
 {
     lisp_addr_t *tun_v4_addr;
@@ -212,6 +250,19 @@ int main(int argc, char **argv)
     map_cache_init();
 
     /*
+<<<<<<< HEAD
+=======
+     *  create timers
+     */
+    if (build_timers_event_socket(&timers_fd) == 0)
+    {
+        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+        exit(EXIT_FAILURE);
+    }
+    init_timers();
+
+    /*
+>>>>>>> 6d11ec6e41112bc2620764ece59a2567e0e5fc0e
      *  Parse command line options
      */
 
@@ -289,17 +340,6 @@ int main(int argc, char **argv)
 		printf("Sucessfully acquired process lock.\n");
 	}
 #endif
-
-    /*
-     *  create timers
-     */
-
-    if (build_timers_event_socket(&timers_fd) == 0)
-    {
-        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
-        exit(EXIT_FAILURE);
-    }
-    init_timers();
 
     /*
      * Select the default rlocs for output data packets and output control packets

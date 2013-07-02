@@ -85,7 +85,6 @@ int open_raw_input_socket(int afi){
     int                 sock    = 0;
     int                 tr      = 1;
 	int                 protonum = -1;
-
 #if ANDROID
 	protonum = IPPROTO_UDP;
 #else
