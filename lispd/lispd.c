@@ -32,7 +32,6 @@
  *
  */
 
-
 #include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
@@ -44,7 +43,12 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#if ANDROID
+#include "timerfd.h"
+#include <fcntl.h>
+#else
 #include <sys/timerfd.h>
+#endif
 #include <netinet/in.h>
 #include <net/if.h>
 #include "lispd.h"
@@ -126,6 +130,44 @@ int 	smr_timer_fd					= 0;
 
 lisp_addr_t source_rloc;
 
+#define LISPD_LOCKFILE "/sdcard/lispd.lock"
+int fdlock;
+int get_process_lock(int pid)
+{
+    struct flock fl;
+    char pidString[128];
+
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 1;
+
+    if ((fdlock = open(LISPD_LOCKFILE, O_RDWR|O_CREAT, 0666)) == -1) {
+		printf("Failed to create lispd lock file!\n");
+        return FALSE;
+    }
+
+    if (fcntl(fdlock, F_SETLK, &fl) == -1) {
+		printf("Failed to acquire lock on lispd lock file!\n");
+        return FALSE;
+    }
+    sprintf(pidString, "%d\n", pid);
+    write(fdlock, pidString, strlen(pidString));
+    return TRUE;
+}
+
+void remove_process_lock()
+{
+    close(fdlock);
+    unlink(LISPD_LOCKFILE);
+}
+
+void die(int exitcode)
+{
+    remove_process_lock();
+    exit(exitcode);
+}
+
 int main(int argc, char **argv) 
 {
     lisp_addr_t *tun_v4_addr;
@@ -135,7 +177,6 @@ int main(int argc, char **argv)
     /*
      *  Check for superuser privileges
      */
-
     if (geteuid()) {
         printf("Running %s requires superuser privileges! Exiting...\n", LISPD);
         exit(EXIT_FAILURE);
@@ -151,7 +192,6 @@ int main(int argc, char **argv)
     /*
      * Set up signal handlers
      */
-
     signal(SIGHUP,  signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGINT,  signal_handler);
@@ -161,14 +201,12 @@ int main(int argc, char **argv)
     /*
      *  set up databases
      */
-
     db_init();
     map_cache_init();
 
     /*
      *  create timers
      */
-
     if (build_timers_event_socket(&timers_fd) == 0)
     {
         lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
@@ -201,12 +239,12 @@ int main(int argc, char **argv)
 
     if (map_servers == NULL){
         lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
-        exit(EXIT_FAILURE);
+        die(EXIT_FAILURE);
     }
 
     if (map_resolvers == NULL){
         lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        exit(EXIT_FAILURE);
+        die(EXIT_FAILURE);
     }
 
     if (proxy_etrs == NULL){
@@ -222,7 +260,7 @@ int main(int argc, char **argv)
     if (daemonize) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
-            exit(EXIT_FAILURE);
+            die(EXIT_FAILURE);
         }
         umask(0);
         if (pid > 0)
@@ -235,6 +273,21 @@ int main(int argc, char **argv)
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
     }
+
+#if ANDROID
+	/*
+	 * Check if lispd is already running. Only allow one instance!
+	 */
+	if (!get_process_lock(getpid())) {
+		lispd_log_msg(LISP_LOG_CRIT, "lispd already running, please stop before restarting. If this seems wrong"
+			" remove %s.", LISPD_LOCKFILE);
+		printf("lispd already running, please stop before restarting.\n If this appears wrong,"
+			" remove %s.\n", LISPD_LOCKFILE);
+		exit(EXIT_FAILURE);
+	} else {
+		printf("Sucessfully acquired process lock.\n");
+	}
+#endif
 
     /*
      * Select the default rlocs for output data packets and output control packets
@@ -419,7 +472,7 @@ void signal_handler(int sig) {
         break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_1,"Unhandled signal (%d)", sig);
-        exit(EXIT_FAILURE);
+        die(EXIT_FAILURE);
     }
 }
 
@@ -441,7 +494,7 @@ void exit_cleanup(void) {
 
     /* Close syslog */
 
-    exit(EXIT_SUCCESS);
+    die(EXIT_SUCCESS);
 }
 
 

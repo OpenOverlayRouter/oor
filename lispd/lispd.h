@@ -30,14 +30,16 @@
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
-
 #ifndef LISPD_H_
 #define LISPD_H_
 
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
+#if ANDROID
+#else
 #include <ifaddrs.h>
+#endif
 #include <inttypes.h>
 #include <netdb.h>
 #include <net/if.h>

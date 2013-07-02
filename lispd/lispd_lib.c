@@ -33,7 +33,10 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
+#if ANDROID
+#else
 #include <ifaddrs.h>
+#endif
 #include <inttypes.h>
 #include <netdb.h>
 #include <net/if.h>
@@ -69,7 +72,189 @@
 int isfqdn(char *s);
 inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
 
+#if ANDROID
+/*
+ * Different from lispd_if_t to maintain
+ * linux system call compatibility.
+ */
+typedef struct ifaddrs {
+    struct ifaddrs      *ifa_next;
+    char                *ifa_name;
+    unsigned int         ifa_flags;
+    struct sockaddr      *ifa_addr;
+    int                  ifa_index;
+} ifaddrs;
 
+
+typedef struct {
+    struct nlmsghdr nlh;
+    struct rtgenmsg  rtmsg;
+} request_struct;
+
+/*
+ * populate_ifaddr_entry()
+ *
+ * Fill in the ifaddr data structure with the info from
+ * the rtnetlink message.
+ */
+int populate_ifaddr_entry(ifaddrs *ifaddr, int family, void *data, int ifindex, size_t count)
+{
+    char buf[IFNAMSIZ];
+    char *name;
+    void *dst;
+    int   sockfd;
+    struct ifreq ifr;
+    int   retval;
+
+    if (!((family == AF_INET) || (family == AF_INET6))) {
+        return -1;
+    }
+    name = if_indextoname(ifindex, buf);
+    if (name == NULL) {
+        return -1;
+    }
+    ifaddr->ifa_name = malloc(strlen(name) + 1);   // Must free elsewhere XXX
+    strcpy(ifaddr->ifa_name, name);
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == -1) {
+        free(ifaddr->ifa_name);
+        close(sockfd);
+        return -1;
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, name);
+
+    retval = ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+    if (retval == -1) {
+        free(ifaddr->ifa_name);
+        close(sockfd);
+        return -1;
+
+    }
+    ifaddr->ifa_flags = ifr.ifr_flags;
+    ifaddr->ifa_index = ifindex;
+    ifaddr->ifa_addr = malloc(sizeof(struct sockaddr));
+    ifaddr->ifa_addr->sa_family = family;
+
+    dst = &((struct sockaddr_in *)(ifaddr->ifa_addr))->sin_addr;
+    memcpy(dst, data, count);
+
+    close(sockfd);
+    return 0;
+}
+
+/*
+ * getifaddrs()
+ *
+ * Android (and other) compatible getifaddrs function, using
+ * rtnetlink. Enumerates all interfaces on the device.
+ */
+int getifaddrs(ifaddrs **addrlist) {
+    request_struct        req;
+    struct ifaddrmsg     *addr;
+    ifaddrs              *prev;
+    struct rtattr        *rta;
+    int                   afi;
+    size_t                msglen;
+    int                   sockfd;
+    char                  rcvbuf[4096];
+    int                   readlen;
+    int                   retval;
+    struct nlmsghdr      *rcvhdr;
+
+    *addrlist = NULL;
+
+    /*
+     * We open a separate socket here so the response can
+     * be synchronous
+     */
+    sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+
+    if (sockfd < 0) {
+        return -1;
+    }
+
+    /*
+     * Construct the request
+     */
+    req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_MATCH;
+    req.nlh.nlmsg_type = RTM_GETADDR;
+    req.nlh.nlmsg_len = NLMSG_ALIGN(NLMSG_LENGTH(sizeof(request_struct)));
+    req.rtmsg.rtgen_family = AF_UNSPEC;
+
+    /*
+     * Send it
+     */
+    retval = send(sockfd, &req, req.nlh.nlmsg_len, 0);
+
+    if (retval <= 0) {
+        close(sockfd);
+        return -1;
+    }
+
+    /*
+     * Receive the responses from the kernel
+     */
+    while ((readlen = read(sockfd, rcvbuf, 4096)) > 0) {
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            switch (rcvhdr->nlmsg_type) {
+            case NLMSG_DONE:
+                close(sockfd);
+                return 0;
+            case NLMSG_ERROR:
+                close(sockfd);
+                return -1;
+            case RTM_NEWADDR:
+
+                addr = (struct ifaddrmsg *)NLMSG_DATA(rcvhdr);
+                rta = IFA_RTA(addr);
+                msglen = IFA_PAYLOAD(rcvhdr);
+
+                while (RTA_OK(rta, msglen)) {
+
+                    /*
+                     * Only care about local addresses of our interfaces
+                     */
+                    if (rta->rta_type == IFA_LOCAL) {
+                        afi = addr->ifa_family;
+                        if ((afi == AF_INET) || (afi == AF_INET6)) {
+
+                            if (*addrlist) {
+                                prev = *addrlist;
+                            } else {
+                                prev = NULL;
+                            }
+                            *addrlist = malloc(sizeof(ifaddrs));  // Must free elsewhere XXX
+                            memset(*addrlist, 0, sizeof(ifaddrs));
+                            (*addrlist)->ifa_next = prev;
+                            populate_ifaddr_entry(*addrlist, afi, RTA_DATA(rta), addr->ifa_index, RTA_PAYLOAD(rta));
+                        }
+                    }
+                    rta = RTA_NEXT(rta, msglen);
+                }
+                break;
+            default:
+                break;
+            }
+
+        }
+    }
+    close(sockfd);
+    return 0;
+}
+
+int freeifaddrs(ifaddrs **addrlist)
+{
+	return 0; // XXX TODO
+}
+#endif
 
 /*
  *      get_afi

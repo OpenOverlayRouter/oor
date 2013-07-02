@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, lispMonitor!</string>
+    <string name="app_name">LISPMon</string>
+    <string name="koInstalledString">Kernel Module Installed</string>
+    <string name="kernelModule">Kernel Module</string>
+    <string name="installed">Installed</string>
+    <string name="notInstalled">Not Installed</string>
+    <string name="NullString"> </string>
+    <string name="lispdRunning">lispd is Running</string>
+    <string name="showMapCacheString">Show Map Cache</string>
+    <string name="showDataCacheString"> Show Data Cache </string>
+    <string name="showClearCacheString">Clear Map Cache</string>
+    <string name="showLogString">Show lispd logfile</string>
+    <string name="lispRunning">LISP is running</string>
+    <string name="lispNotRunning">LISP is NOT running</string>
+    
+    <string name="updateConfTitleString">Current LISP Configuration</string>
+    <string name="updateConfString">Edit LISP Configuration</string>
+    <string name="updateConfeid4String">EID-IPv4: </string>
+    <string name="updateConfeid6String">EID-IPv6: </string>
+    <string name="updateConfChgString">Update Configuration</string> 
+    <string name="updateConfUpdString">Save Changes</string> 
+    <string name="updateConfMRString">Map-Resolver:</string> 
+    <string name="updateConfMSString">Map-Server:</string>
+    <string name="updateConfMSKeyString">Map-Server Key:</string>
+    <string-array name="keytypearray">
+        <item>Cleartext</item>
+        <item>SHA1</item>
+    </string-array>
+</resources>

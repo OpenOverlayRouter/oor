@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+      package="com.le.lispmontun" android:versionCode="2" android:versionName="2.0">
+    <uses-sdk android:minSdkVersion="8" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="true"></uses-feature>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"></uses-permission>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"></uses-permission>
+
+    <application android:icon="@drawable/icon" android:theme="@android:style/Theme.NoTitleBar">
+        <activity android:name=".lispMonitor"
+                  android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".logActivity"></activity>
+        <activity android:name="mapCacheActivity"></activity>
+        <activity android:name="confActivity"></activity>
+        <activity android:name="pingActivity"></activity>
+                
+        <activity android:name="dataCacheActivity"></activity>
+        <activity android:name="clearCacheActivity"></activity>
+        <activity android:name="updateConfActivity"></activity>
+
+    </application>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    
+</manifest>

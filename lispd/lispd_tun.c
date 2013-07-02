@@ -58,7 +58,8 @@ int create_tun(
     /* open the clone device */
     if( (*tun_receive_fd = open(clonedev, O_RDWR)) < 0 ) {
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: Failed to open clone device");
-        exit(EXIT_FAILURE);
+       	lispd_log_msg(LISP_LOG_CRIT, "Errno: %d", errno);
+	    exit(EXIT_FAILURE);
     }
 
     memset(&ifr, 0, sizeof(ifr));
