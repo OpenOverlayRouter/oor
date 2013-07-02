@@ -31,8 +31,11 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-
+#if ANDROID
+//#include "timerfd.h"
+#else
 //#include <sys/timerfd.h>
+#endif
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "lispd_afi.h"

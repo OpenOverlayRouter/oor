@@ -34,7 +34,11 @@
  */
 
 #include "cmdline.h"
+#if ANDROID
+#include "confuse_android/src/confuse.h"
+#else
 #include "confuse.h"
+#endif
 #include "lispd_afi.h"
 #include "lispd_config.h"
 #include "lispd_external.h"

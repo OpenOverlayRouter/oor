@@ -52,8 +52,8 @@ timer_t create_wheel_timer(void)
     sev.sigev_value.sival_ptr = &tid;
     if (timer_create(CLOCK_REALTIME, &sev, &tid) == -1)
     {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "timer_create(): %s", strerror(errno));
-        return (timer_t)0;
+        lispd_log_msg(LISP_LOG_INFO, "timer_create(): %s", strerror(errno));
+        return (timer_t)(-1);
     }
 
     timerspec.it_value.tv_nsec = 0;
@@ -63,9 +63,9 @@ timer_t create_wheel_timer(void)
 
 
     if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "create_wheel_timer: timer start failed for %d %s",
+        lispd_log_msg(LISP_LOG_INFO, "create_wheel_timer: timer start failed for %d %s",
                tid, strerror(errno));
-        return (timer_t)0;
+        return (timer_t)(-1);
     }
     return(tid);
 }
@@ -81,7 +81,7 @@ int init_timers()
 
     lispd_log_msg(LISP_LOG_DEBUG_1, "Initializing lispd timers...");
 
-    if (create_wheel_timer() == 0) {
+    if (create_wheel_timer() == -1) {
         lispd_log_msg(LISP_LOG_INFO, "Failed to set up lispd timers.");
         return(BAD);
     }

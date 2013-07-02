@@ -38,7 +38,11 @@
 #include "lispd.h"
 #include "lispd_lib.h"
 
+#if ANDROID
+#define CLONEDEV                "/dev/tun"
+#else
 #define CLONEDEV                "/dev/net/tun"
+#endif
 
 #define TUN_IFACE_NAME          "lispTun0"
 

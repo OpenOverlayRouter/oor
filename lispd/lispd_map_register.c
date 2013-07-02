@@ -31,7 +31,11 @@
  *
  */
 
-//#include <sys/timerfd.h>
+#if ANDROID
+	//#include "timerfd.h"
+#else
+	//#include <sys/timerfd.h>
+#endif
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "lispd_external.h"
