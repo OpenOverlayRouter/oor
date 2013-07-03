@@ -324,17 +324,13 @@ int main(int argc, char **argv)
      * Generate receive sockets for control (4342) and data port (4341)
      */
 
-    if (default_ctrl_iface_v4){
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
-    }
-    if (default_ctrl_iface_v6){
-        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-    }
-
-    if (default_out_iface_v4){
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
     }
-    if (default_out_iface_v6){
+
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
+        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
     }
 
