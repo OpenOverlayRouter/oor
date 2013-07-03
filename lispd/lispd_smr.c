@@ -120,7 +120,12 @@ void init_smr(
 
     for (ctr = 0 ; ctr < mappings_ctr ; ctr++){
         /* Send map register for the affected mapping */
-        build_and_send_map_register_msg(mappings_to_smr[ctr]);
+        if (nat_aware == FALSE || nat_status == NO_NAT){
+            build_and_send_map_register_msg(mappings_to_smr[ctr]);
+        }else if (nat_status != UNKNOWN){
+            // TODO : We suppose one EID and one interface. To be modified when multiple elements
+            map_register(NULL,NULL);
+        }
 
         lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s/%d",
                 get_char_from_lisp_addr_t(mappings_to_smr[ctr]->eid_prefix),

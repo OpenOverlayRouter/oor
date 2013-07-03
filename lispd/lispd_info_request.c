@@ -184,7 +184,7 @@ int build_and_send_info_request(
             nonce);
 
     if (info_request_pkt == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Couldn't build info request packet");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_info_request: Couldn't build info request packet");
         return (BAD);
     }
 
@@ -196,21 +196,28 @@ int build_and_send_info_request(
                                       packet_len,
                                       info_request_pkt->auth_data)) {
         free(info_request_pkt);
-        lispd_log_msg(LISP_LOG_DEBUG_2, "HMAC failed for info-request");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_info_request: HMAC failed for info-request");
         return (BAD);
     }
 
 
-    if (BAD == send_udp_ipv4_packet(src_addr,
+    if (BAD == send_udp_packet(src_addr,
                              dst_addr,
                              src_port,
                              dst_port,
                              info_request_pkt,
                              packet_len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"Couldn't send info-request for",eid_prefix);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"build_and_send_info_request: Couldn't send info-request for",eid_prefix);
         free(info_request_pkt);
         return (BAD);
     }
+
+
+    lispd_log_msg(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s/%d",
+            get_char_from_lisp_addr_t(*dst_addr),
+            get_char_from_lisp_addr_t(*src_addr),
+            get_char_from_lisp_addr_t(*eid_prefix),
+            eid_mask_length);
 
     free(info_request_pkt);
     return (GOOD);
@@ -256,35 +263,39 @@ int info_request(
 
     mapping = (lispd_mapping_elt *)arg;
 
-    if (nat_ir_nonce == NULL){
-        nat_ir_nonce = new_nonces_list();
+    if (default_ctrl_iface_v4 != NULL){
         if (nat_ir_nonce == NULL){
-            lispd_log_msg(LISP_LOG_WARNING,"info_request: Unable to allocate memory for nonces.");
-            return (BAD);
+            nat_ir_nonce = new_nonces_list();
+            if (nat_ir_nonce == NULL){
+                lispd_log_msg(LISP_LOG_WARNING,"info_request: Unable to allocate memory for nonces.");
+                return (BAD);
+            }
         }
-    }
 
-    if (nat_ir_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
-        if ((err=build_and_send_info_request(
-                map_servers->key_type,
-                map_servers->key,
-                DEFAULT_INFO_REQUEST_TIMEOUT,
-                mapping->eid_prefix_length,
-                &(mapping->eid_prefix),
-                default_ctrl_iface_v4->ipv4_address,
-                LISP_CONTROL_PORT,
-                map_servers->address,
-                LISP_CONTROL_PORT,
-                &(nat_ir_nonce->nonce[nat_ir_nonce->retransmits])))!=GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"info_request: Couldn't send info request message.");
+        if (nat_ir_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
+            if ((err=build_and_send_info_request(
+                    map_servers->key_type,
+                    map_servers->key,
+                    DEFAULT_INFO_REQUEST_TIMEOUT,
+                    mapping->eid_prefix_length,
+                    &(mapping->eid_prefix),
+                    default_ctrl_iface_v4->ipv4_address,
+                    LISP_CONTROL_PORT,
+                    map_servers->address,
+                    LISP_CONTROL_PORT,
+                    &(nat_ir_nonce->nonce[nat_ir_nonce->retransmits])))!=GOOD){
+                lispd_log_msg(LISP_LOG_DEBUG_1,"info_request: Couldn't send info request message.");
+            }
+            nat_ir_nonce->retransmits++;
+            next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
+        } else{
+            free (nat_ir_nonce);
+            nat_ir_nonce = NULL;
+            lispd_log_msg(LISP_LOG_ERR,"info_request: Communication error between LISPmob and RTR. Retry after %d seconds",MAP_REGISTER_INTERVAL);
+            next_timer_time = MAP_REGISTER_INTERVAL;
         }
-        nat_ir_nonce->retransmits++;
-        next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
-    } else{
-        free (nat_ir_nonce);
-        nat_ir_nonce = NULL;
-        lispd_log_msg(LISP_LOG_ERR,"info_request: Communication error between LISPmob and RTR. Retry after %d seconds",MAP_REGISTER_INTERVAL);
-        next_timer_time = MAP_REGISTER_INTERVAL;
+    }else {
+        return (BAD);
     }
 
     /*

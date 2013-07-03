@@ -298,7 +298,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
         }
 
         if (err == GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to Map Server %s",
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to Map Server at %s",
                     get_char_from_lisp_addr_t(mapping->eid_prefix),
                     mapping->eid_prefix_length,
                     get_char_from_lisp_addr_t(*(ms->address)));
@@ -378,7 +378,7 @@ uint8_t *build_map_register_pkt(
 
 
 int build_and_send_ecm_map_register(
-        lispd_mapping_elt   *mapping_elt,
+        lispd_mapping_elt   *mapping,
         int                 proxy_reply,
         lisp_addr_t         *inner_addr_from,
         lisp_addr_t         *inner_addr_dest,
@@ -403,7 +403,7 @@ int build_and_send_ecm_map_register(
     int                         map_register_pkt_len    = 0;
     int                         ecm_map_register_len    = 0;
 
-    map_register_pkt = (lispd_pkt_map_register_t *)build_map_register_pkt(mapping_elt,&map_register_pkt_len);
+    map_register_pkt = (lispd_pkt_map_register_t *)build_map_register_pkt(mapping,&map_register_pkt_len);
 
 
     /* Map Server proxy reply */
@@ -469,7 +469,7 @@ int build_and_send_ecm_map_register(
     }
 
 
-    if (BAD == send_udp_ipv4_packet(outer_addr_from,
+    if (BAD == send_udp_packet(outer_addr_from,
                                     outer_addr_dest,
                                     outer_port_from,
                                     outer_port_dest,
@@ -479,7 +479,11 @@ int build_and_send_ecm_map_register(
         free(ecm_map_register);
         return (BAD);
     }
-
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
+            get_char_from_lisp_addr_t(mapping->eid_prefix),
+            mapping->eid_prefix_length,
+            get_char_from_lisp_addr_t(*inner_addr_dest),
+            get_char_from_lisp_addr_t(*outer_addr_dest));
 
     free(ecm_map_register);
 

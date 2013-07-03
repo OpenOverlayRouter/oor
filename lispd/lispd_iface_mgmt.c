@@ -309,7 +309,9 @@ void process_address_change (
     if(nat_aware==TRUE){
         // TODO : To be modified when implementing NAT per multiple interfaces
         nat_status = UNKNOWN;
-        initial_info_request_process();
+        if (iface->status == UP){
+            initial_info_request_process();
+        }
     }
 
     /* Reprograming SMR timer*/

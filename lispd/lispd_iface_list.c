@@ -30,6 +30,7 @@
  */
 
 #include "lispd_external.h"
+#include "lispd_info_request.h"
 #include "lispd_lib.h"
 #include "lispd_sockets.h"
 #include "lispd_tun.h"
@@ -435,6 +436,7 @@ void set_default_output_ifaces()
 
 void set_default_ctrl_ifaces()
 {
+
     default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_ctrl_iface_v4 != NULL) {
@@ -443,9 +445,17 @@ void set_default_ctrl_ifaces()
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
+
     if (default_ctrl_iface_v6 != NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s: %s\n",
                 default_ctrl_iface_v6->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v6->ipv6_address)));
+    }
+
+    /* Check NAT status */
+    if (nat_aware == TRUE && ( (default_ctrl_iface_v4 != NULL) || (default_ctrl_iface_v6 != NULL))){
+              // TODO : To be modified when implementing NAT per multiple interfaces
+              nat_status = UNKNOWN;
+              initial_info_request_process();
     }
 
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6){
