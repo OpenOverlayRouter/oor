@@ -291,8 +291,8 @@ void *pkt_fill_mapping_record(
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
  */
 int extract_5_tuples_from_packet (
-        char *packet ,
-        packet_tuple *tuple)
+        uint8_t         *packet ,
+        packet_tuple    *tuple)
 {
     struct iphdr        *iph    = NULL;
     struct ip6_hdr      *ip6h   = NULL;
@@ -345,7 +345,7 @@ int extract_5_tuples_from_packet (
  */
 
 struct udphdr *build_ip_header(
-        void                  *cur_ptr,
+        uint8_t               *cur_ptr,
         lisp_addr_t           *src_addr,
         lisp_addr_t           *dst_addr,
         int                   ip_len)
@@ -356,6 +356,7 @@ struct udphdr *build_ip_header(
 
     switch (src_addr->afi) {
     case AF_INET:
+        ip_len = ip_len + sizeof(struct ip);
         iph                = (struct ip *) cur_ptr;
         iph->ip_hl         = 5;
         iph->ip_v          = IPVERSION;
@@ -398,7 +399,7 @@ struct udphdr *build_ip_header(
  * and copies the original packet at the end
  */
 
-uint8_t *build_ip_udp_encap_pkt(
+uint8_t *build_ip_udp_pcket(
         uint8_t         *orig_pkt,
         int             orig_pkt_len,
         lisp_addr_t     *addr_from,
@@ -417,12 +418,12 @@ uint8_t *build_ip_udp_encap_pkt(
 
 
     if (addr_from->afi != addr_dest->afi) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Different AFI addresses");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses");
         return (NULL);
     }
 
     if ((addr_from->afi != AF_INET) && (addr_from->afi != AF_INET6)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Unknown AFI %d",
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Unknown AFI %d",
                addr_from->afi);
         return (NULL);
     }
@@ -433,13 +434,15 @@ uint8_t *build_ip_udp_encap_pkt(
 
     udp_hdr_len = sizeof(struct udphdr);
 
+    udp_hdr_and_payload_len = udp_hdr_len + orig_pkt_len;
+
 
     /* Assign memory for the original packet plus the new headers */
 
     *encap_pkt_len = ip_hdr_len + udp_hdr_len + orig_pkt_len;
 
     if ((encap_pkt = (uint8_t *) malloc(*encap_pkt_len)) == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Couldn't allocate memory for the packet to be generated %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't allocate memory for the packet to be generated %s", strerror(errno));
         return (NULL);
     }
 
@@ -452,15 +455,14 @@ uint8_t *build_ip_udp_encap_pkt(
 
     iph_ptr = encap_pkt;
 
-    if ((udph_ptr = build_ip_header(iph_ptr, addr_from, addr_dest, *encap_pkt_len)) == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "build_ip_udp_encap_pkt: Couldn't build the inner ip header");
+    if ((udph_ptr = build_ip_header(iph_ptr, addr_from, addr_dest, udp_hdr_and_payload_len)) == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't build the inner ip header");
+        free (encap_pkt);
         return (NULL);
     }
 
     /* UDP header */
 
-
-    udp_hdr_and_payload_len = udp_hdr_len + orig_pkt_len;
 
 #ifdef BSD
     udph_ptr->uh_sport = htons(port_from);
@@ -483,6 +485,7 @@ uint8_t *build_ip_udp_encap_pkt(
      */
 
     if ((udpsum = udp_checksum(udph_ptr, udp_hdr_and_payload_len, iph_ptr, addr_from->afi)) == -1) {
+        free (encap_pkt);
         return (NULL);
     }
     udpsum(udph_ptr) = udpsum;
@@ -508,13 +511,19 @@ uint8_t *build_control_encap_pkt(
     int                         lisp_hdr_len        = 0;
 
 
-    inner_pkt_ptr = build_ip_udp_encap_pkt(orig_pkt,
+    /* Add the interal IP and UDP headers */
+
+    printf("1====================>>>> %d    %d\n",orig_pkt_len, encap_pkt_len);
+
+    inner_pkt_ptr = build_ip_udp_pcket(orig_pkt,
                                            orig_pkt_len,
                                            addr_from,
                                            addr_dest,
                                            port_from,
                                            port_dest,
                                            &encap_pkt_len);
+
+    printf("2====================>>>> %d    %d\n",orig_pkt_len, encap_pkt_len);
 
     /* Header length */
 

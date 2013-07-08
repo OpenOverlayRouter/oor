@@ -34,6 +34,7 @@
 #define LISPD_MAP_REGISTER_H_
 
 #include "lispd.h"
+#include "lispd_iface_list.h"
 #include "lispd_timers.h"
 
 
@@ -141,20 +142,12 @@ uint8_t *build_map_register_pkt(
 int build_and_send_map_register_msg(lispd_mapping_elt *mapping);
 
 int build_and_send_ecm_map_register(
-        lispd_mapping_elt   *mapping_elt,
-        int                 proxy_reply,
-        lisp_addr_t         *inner_addr_from,
-        lisp_addr_t         *inner_addr_dest,
-        int                 inner_port_from,
-        int                 inner_port_dest,
-        lisp_addr_t         *outer_addr_from,
-        lisp_addr_t         *outer_addr_dest,
-        int                 outer_port_from,
-        int                 outer_port_dest,
-        int                 key_id,
-        char                *key,
-        lispd_site_ID       *site_ID,
-        lispd_xTR_ID        *xTR_ID,
-        uint64_t            *nonce);
+        lispd_mapping_elt           *mapping,
+        lispd_map_server_list_t     *map_servers,
+        lisp_addr_t                 *nat_rtr_addr,
+        lispd_iface_elt             *src_iface,
+        lispd_site_ID               *site_ID,
+        lispd_xTR_ID                *xTR_ID,
+        uint64_t                    *nonce);
 
 #endif /*LISPD_MAP_REGISTER_H_*/

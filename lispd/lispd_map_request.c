@@ -332,11 +332,13 @@ int build_and_send_map_request_msg(
 {
 
     uint8_t     *packet         = NULL;
-    lisp_addr_t *src_rloc_addr  = NULL;
+    uint8_t     *map_req_pkt    = NULL;
+    lisp_addr_t *src_addr       = NULL;
+    int         out_socket      = 0;
+    int         packet_len      = 0;
     int         mrp_len         = 0;               /* return the length here */
     int         result          = 0;
-
-    packet = build_map_request_pkt(
+    map_req_pkt = build_map_request_pkt(
             requested_mapping,
             src_eid,
             encap,
@@ -346,7 +348,7 @@ int build_and_send_map_request_msg(
             &mrp_len,
             nonce);
 
-    if (packet == NULL) {
+    if (map_req_pkt == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Could not build map-request packet for %s/%d:"
                 " Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
@@ -358,27 +360,47 @@ int build_and_send_map_request_msg(
         return (BAD);
     }
 
-    /* Send the packet */
+    /* Get src interface information */
+
+    src_addr    = get_default_ctrl_address(dst_rloc_addr->afi);
+    out_socket  = get_default_ctrl_socket(dst_rloc_addr->afi);
 
 
-    src_rloc_addr = get_default_ctrl_address(dst_rloc_addr->afi);
-    if (src_rloc_addr != NULL){
-        result = send_udp_packet(src_rloc_addr,dst_rloc_addr,LISP_CONTROL_PORT, LISP_CONTROL_PORT,(void *)packet,mrp_len);
-    }else {
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_request_msg: Couldn't send Map-Request. No local RLOC compatible with the afi of the destinaion locator %s",
-                get_char_from_lisp_addr_t(*dst_rloc_addr));
-        result = BAD;
+    if (src_addr == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Couden't send Map Request. No output interface with afi %d.",
+                dst_rloc_addr->afi);
+        free (map_req_pkt);
+        return (BAD);
     }
 
+    /*  Add UDP and IP header to the Map Request message */
 
-    if (result == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
+    packet = build_ip_udp_pcket(map_req_pkt,
+                                mrp_len,
+                                src_addr,
+                                dst_rloc_addr,
+                                LISP_CONTROL_PORT,
+                                LISP_CONTROL_PORT,
+                                &packet_len);
+    free (map_req_pkt);
+
+    if (packet == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_request_msg: Couldn't send Map Request. Error adding IP and UDP header to the message");
+        return (BAD);
+    }
+
+    /* Send the packet */
+
+    if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c . Nonce: %s",
                         get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                         requested_mapping->eid_prefix_length,
                         (encap == TRUE ? 'Y' : 'N'),
                         (probe == TRUE ? 'Y' : 'N'),
                         (solicit_map_request == TRUE ? 'Y' : 'N'),
-                        (smr_invoked == TRUE ? 'Y' : 'N'));
+                        (smr_invoked == TRUE ? 'Y' : 'N'),
+                        get_char_from_nonce(*nonce));
+        result = GOOD;
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
@@ -389,9 +411,7 @@ int build_and_send_map_request_msg(
                 (smr_invoked == TRUE ? 'Y' : 'N'));
         result = BAD;
     }
-
     free (packet);
-
 
     return (result);
 }
@@ -454,12 +474,6 @@ uint8_t *build_map_request_pkt(
 
 
     cur_ptr = packet;
-
-
-    /* Build the map request packet */
-    if (encap){
-        cur_ptr = CO(cur_ptr,encap_overhead_len);
-    }
 
     mrp = (lispd_pkt_map_request_t *)cur_ptr;
 

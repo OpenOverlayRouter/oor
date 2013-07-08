@@ -63,8 +63,8 @@ int select_src_rmt_locators_from_balancing_locators_vec (
 
 
 void add_ip_header (
-        char            *position,
-        char            *original_packet_position,
+        uint8_t         *position,
+        uint8_t         *original_packet_position,
         int             ip_payload_length,
         lisp_addr_t     *src_addr,
         lisp_addr_t     *dst_addr)
@@ -134,12 +134,10 @@ void add_ip_header (
     default:
         break;
     }
-
-
 }
 
 void add_udp_header(
-        char    *position,
+        uint8_t *position,
         int     length,
         int     src_port,
         int     dst_port)
@@ -166,7 +164,7 @@ void add_udp_header(
 }
 
 void add_lisp_header(
-        char    *position,
+        uint8_t *position,
         int     iid)
 {
 
@@ -191,18 +189,18 @@ void add_lisp_header(
 }
 
 int encapsulate_packet(
-        char        *original_packet,
+        uint8_t     *original_packet,
         int         original_packet_length,
         lisp_addr_t *src_addr,
         lisp_addr_t *dst_addr,
         int         src_port,
         int         dst_port,
         int         iid,
-        char        **encap_packet,
+        uint8_t     **encap_packet,
         int         *encap_packet_size)
 {
     int         extra_headers_size  = 0;
-    char        *new_packet         = NULL;
+    uint8_t     *new_packet         = NULL;
     struct      udphdr *udh         = NULL;
     int         encap_afi           = 0;
 
@@ -227,7 +225,7 @@ int encapsulate_packet(
 
     extra_headers_size = iphdr_len + udphdr_len + lisphdr_len;
 
-    new_packet = (char *) malloc (original_packet_length + extra_headers_size);
+    new_packet = (uint8_t *) malloc (original_packet_length + extra_headers_size);
     if (new_packet == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "encapsulate_packet: Unable to allocate memory for encapsulated packet: %s", strerror(errno));
         return (BAD);
@@ -239,9 +237,9 @@ int encapsulate_packet(
 
 
 
-    add_lisp_header((char *)(new_packet + iphdr_len + udphdr_len), iid);
+    add_lisp_header(CO(new_packet,iphdr_len + udphdr_len), iid);
 
-    add_udp_header((char *)(new_packet + iphdr_len),original_packet_length+lisphdr_len,src_port,dst_port);
+    add_udp_header(CO(new_packet,iphdr_len),original_packet_length+lisphdr_len,src_port,dst_port);
 
 
     add_ip_header(new_packet,
@@ -286,7 +284,7 @@ int get_afi_from_packet(uint8_t *packet){
 
 
 int forward_native(
-        char            *packet_buf,
+        uint8_t        *packet_buf,
         int             pckt_length )
 {
 
@@ -294,7 +292,7 @@ int forward_native(
     int             output_socket              = 0;
     int             packet_afi                 = 0;
 
-    packet_afi = get_afi_from_packet((uint8_t *)packet_buf);
+    packet_afi = get_afi_from_packet(packet_buf);
     output_socket = get_default_output_socket(packet_afi);
 
 
@@ -320,7 +318,7 @@ int forward_native(
 
 
 int fordward_to_petr(
-        char                    *original_packet,
+        uint8_t                 *original_packet,
         int                     original_packet_length,
         lispd_mapping_elt       *src_mapping,
         packet_tuple            tuple)
@@ -330,7 +328,7 @@ int fordward_to_petr(
     lisp_addr_t                 *src_addr           = NULL;
     lisp_addr_t                 *dst_addr           = NULL;
     lcl_locator_extended_info   *loc_extended_info  = NULL;
-    char                        *encap_packet       = NULL;
+    uint8_t                     *encap_packet       = NULL;
     int                         encap_packet_size   = 0;
     int                         output_socket       = 0;
 
@@ -383,12 +381,12 @@ int fordward_to_petr(
 }
 
 int forward_to_natt_rtr(
-        char                *original_packet,
+        uint8_t             *original_packet,
         int                 original_packet_length,
         lispd_locator_elt   *src_locator)
 {
 
-    char                        *encap_packet       = NULL;
+    uint8_t                     *encap_packet       = NULL;
     int                         encap_packet_size   = 0;
     lcl_locator_extended_info   *extended_info      = NULL;
     lispd_rtr_locators_list     *rtr_locators_list  = NULL;
@@ -431,7 +429,7 @@ int forward_to_natt_rtr(
     return (GOOD);
 } 
 
-lisp_addr_t extract_dst_addr_from_packet ( char *packet )
+lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
 {
     lisp_addr_t     addr    = {.afi=AF_UNSPEC};
     struct iphdr    *iph    = NULL;
@@ -460,7 +458,7 @@ lisp_addr_t extract_dst_addr_from_packet ( char *packet )
 }
 
 
-lisp_addr_t extract_src_addr_from_packet ( char *packet )
+lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
 {
     lisp_addr_t         addr    = {.afi=AF_UNSPEC};
     struct iphdr        *iph    = NULL;
@@ -699,7 +697,7 @@ lisp_addr_t *get_default_locator_addr(
 
 
 int is_lisp_packet(
-        char    *packet,
+        uint8_t *packet,
         int     packet_length)
 {
 
@@ -749,13 +747,13 @@ int is_lisp_packet(
 
 
 int lisp_output (
-        char    *original_packet,
+        uint8_t *original_packet,
         int     original_packet_length )
 {
     lispd_mapping_elt           *src_mapping        = NULL;
     lispd_mapping_elt           *dst_mapping        = NULL;
     lispd_map_cache_entry       *entry              = NULL;
-    char                        *encap_packet       = NULL;
+    uint8_t                     *encap_packet       = NULL;
     int                         encap_packet_size   = 0;
     lispd_locator_elt           *outer_src_locator  = NULL;
     lispd_locator_elt           *outer_dst_locator  = NULL;
@@ -878,7 +876,7 @@ int lisp_output (
 
 void process_output_packet (
         int             fd,
-        char            *tun_receive_buf,
+        uint8_t         *tun_receive_buf,
         unsigned int    tun_receive_size )
 {
     int nread   = 0;

@@ -446,7 +446,7 @@ int send_udp_ipv6_packet(
 
 int send_packet (
         int     sock,
-        char    *packet,
+        uint8_t *packet,
         int     packet_length )
 {
 

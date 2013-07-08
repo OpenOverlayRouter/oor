@@ -113,12 +113,15 @@ void free_map_cache_entry(lispd_map_cache_entry *entry)
     if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
         if (entry->expiry_cache_timer != NULL){
             stop_timer(entry->expiry_cache_timer);
+            entry->expiry_cache_timer = NULL;
         }
         if (entry->request_retry_timer != NULL){
             stop_timer(entry->request_retry_timer);
+            entry->request_retry_timer = NULL;
         }
         if (entry->smr_inv_timer != NULL){
             stop_timer(entry->smr_inv_timer);
+            entry->smr_inv_timer = NULL;
         }
     }
 

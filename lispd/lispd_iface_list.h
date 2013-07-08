@@ -103,6 +103,12 @@ lispd_iface_elt *get_interface(char *iface_name);
 lispd_iface_elt *get_interface_from_index(int iface_index);
 
 /*
+ * Return the interface belonging the address passed as a parameter
+ */
+
+lispd_iface_elt *get_interface_with_address(lisp_addr_t *address);
+
+/*
  * Add the mapping to the list of mappings of the interface according to the afi.
  * The mapping is added just one time
  */
@@ -126,6 +132,8 @@ lispd_iface_elt *get_default_ctrl_iface(int afi);
 
 lisp_addr_t *get_default_ctrl_address(int afi);
 
+int get_default_ctrl_socket(int afi);
+
 int get_default_output_socket(int afi);
 
 void set_default_output_ifaces();
@@ -136,6 +144,8 @@ void set_default_output_ifaces();
 void set_default_ctrl_ifaces();
 
 lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi);
+
+int get_iface_socket(lispd_iface_elt *iface, int afi);
 
 /*
  * Return the list of interfaces

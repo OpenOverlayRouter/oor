@@ -306,11 +306,11 @@ int main(int argc, char **argv)
     tun_bring_up_iface(tun_dev_name);
     if (tun_v4_addr != NULL){
         tun_add_eid_to_iface(*tun_v4_addr,tun_dev_name);
-        set_tun_default_route_v4(tun_ifindex);
+        set_tun_default_route_v4();
     }
     if (tun_v6_addr != NULL){
         tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
-        set_tun_default_route_v6(tun_ifindex);
+        set_tun_default_route_v6();
     }
 #ifdef ROUTER
     if (tun_v4_addr != NULL){

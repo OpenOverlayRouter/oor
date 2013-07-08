@@ -73,7 +73,7 @@ int get_up_locators_length(
  */
 
 int extract_5_tuples_from_packet (
-        char            *packet ,
+        uint8_t         *packet ,
         packet_tuple    *tuple);
 
 /*
@@ -81,7 +81,7 @@ int extract_5_tuples_from_packet (
  */
 
 struct udphdr *build_ip_header(
-        void            *cur_ptr,
+        uint8_t         *cur_ptr,
         lisp_addr_t     *src_addr,
         lisp_addr_t     *dst_addr,
         int             ip_len);
@@ -91,14 +91,14 @@ struct udphdr *build_ip_header(
  * and copies the original packet at the end
  */
 
-uint8_t *build_ip_udp_encap_pkt(
+uint8_t *build_ip_udp_pcket(
         uint8_t         *orig_pkt,
         int             orig_pkt_len,
         lisp_addr_t     *addr_from,
         lisp_addr_t     *addr_dest,
         int             port_from,
         int             port_dest,
-        int             *encap_pkt_len);
+        int             *pkt_len);
 
 /*
  * Encapsulates a control lisp message

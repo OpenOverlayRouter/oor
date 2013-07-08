@@ -58,17 +58,13 @@ typedef struct lispd_pkt_info_request_lcaf_t_ {
 */ 
 } PACKED lispd_pkt_info_request_lcaf_t;
 
-int build_and_send_info_request(
-        uint16_t        key_type,
-        char            *key,
-        uint32_t        ttl,
-        uint8_t         eid_mask_length,
-        lisp_addr_t     *eid_prefix,
-        lisp_addr_t     *src_addr,
-        uint32_t        src_port,
-        lisp_addr_t     *dst_addr,
-        uint32_t        dst_port,
-        uint64_t        *nonce);
+int  build_and_send_info_request(
+        lispd_map_server_list_t     *map_server,
+        uint32_t                    ttl,
+        uint8_t                     eid_mask_length,
+        lisp_addr_t                 *eid_prefix,
+        lispd_iface_elt             *src_iface,
+        uint64_t                    *nonce);
 
 
 /* Send initial Info Request message to know nat status*/

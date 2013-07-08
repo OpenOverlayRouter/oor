@@ -82,7 +82,7 @@
 
 int tun_receive_fd;
 int tun_ifindex;
-char *tun_receive_buf;
+uint8_t *tun_receive_buf;
 
 
 
@@ -92,7 +92,7 @@ int create_tun(
     int                 tun_mtu,
     int                 *tun_receive_fd,
     int                 *tun_ifindex,
-    char                **tun_receive_buf);
+    uint8_t             **tun_receive_buf);
 
 
 /*

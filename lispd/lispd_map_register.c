@@ -190,17 +190,9 @@ int encapsulated_map_register_process()
                         nat_rtr = &(((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list->locator->address);
                         /* ECM map register only sent to the first Map Server */
                         err = build_and_send_ecm_map_register(mapping,
-                                map_servers->proxy_reply,
-                                default_ctrl_iface_v4->ipv4_address,
-                                map_servers->address,
-                                LISP_CONTROL_PORT,
-                                LISP_CONTROL_PORT,
-                                default_ctrl_iface_v4->ipv4_address,
+                                map_servers,
                                 nat_rtr,
-                                LISP_DATA_PORT,
-                                LISP_CONTROL_PORT,
-                                map_servers->key_type,
-                                map_servers->key,
+                                default_ctrl_iface_v4,
                                 &site_ID,
                                 &xTR_ID,
                                 &(nat_emr_nonce->nonce[nat_emr_nonce->retransmits]));
@@ -247,57 +239,88 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
 {
     uint8_t                   *packet               = NULL;
     int                       packet_len            = 0;
-    lispd_pkt_map_register_t  *map_register_pkt     = NULL;
+    uint8_t                   *map_register_pkt     = NULL;
+    int                       map_reg_packet_len    = 0;
+    lispd_pkt_map_register_t  *map_register         = NULL;
     lispd_map_server_list_t   *ms                   = NULL;
     uint32_t                  md_len                = 0;
     int                       sent_map_registers    = 0;
-    lisp_addr_t               *src_addr             = 0;
+    lisp_addr_t               *src_addr             = NULL;
+    int                       out_socket            = 0;
 
 
-    if ((packet = build_map_register_pkt(mapping, &packet_len)) == NULL) {
+    if ((map_register_pkt = build_map_register_pkt(mapping, &map_reg_packet_len)) == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couldn't build map register packet");
         return(BAD);
     }
 
-    map_register_pkt = (lispd_pkt_map_register_t *)packet;
+    map_register = (lispd_pkt_map_register_t *)map_register_pkt;
 
     //  for each map server, send a register, and if verify
     //  send a map-request for our eid prefix
 
     ms = map_servers;
 
-    while (ms) {
+    while (ms != NULL) {
 
         /*
          * Fill in proxy_reply and compute the HMAC with SHA-1.
          */
 
-        map_register_pkt->proxy_reply = ms->proxy_reply;
-        memset(map_register_pkt->auth_data,0,LISP_SHA1_AUTH_DATA_LEN);   /* make sure */
+        map_register->proxy_reply = ms->proxy_reply;
+        memset(map_register->auth_data,0,LISP_SHA1_AUTH_DATA_LEN);   /* make sure */
 
         if (!HMAC((const EVP_MD *) EVP_sha1(),
                 (const void *) ms->key,
                 strlen(ms->key),
-                (uchar *) map_register_pkt,
-                packet_len,
-                (uchar *) map_register_pkt->auth_data,
+                (uchar *) map_register,
+                map_reg_packet_len,
+                (uchar *) map_register->auth_data,
                 &md_len)) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: HMAC failed for map-register");
             ms = ms->next;
             continue;
         }
 
-        /* Send the map register */
-        src_addr = get_default_ctrl_address(ms->address->afi);
-        if (src_addr != NULL){
-            err = send_udp_packet(src_addr,ms->address,LISP_CONTROL_PORT,LISP_CONTROL_PORT,(void *)map_register_pkt,packet_len);
-        }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_register_msg: Couldn't send Map-Register. No local RLOC compatible with the afi of the destinaion locator %s",
-                              get_char_from_lisp_addr_t(*(ms->address)));
-            err = BAD;
+        /*
+         * Get src interface
+         */
+
+        src_addr    = get_default_ctrl_address(ms->address->afi);
+        out_socket  = get_default_ctrl_socket (ms->address->afi);
+
+        if (src_addr == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couden't send Map Register to %s, no output interface with afi %d.",
+                    get_char_from_lisp_addr_t(*(ms->address)),
+                    ms->address->afi);
+            ms = ms->next;
+            continue;
         }
 
-        if (err == GOOD){
+
+        /*
+         * Add UDP and IP header to the Map Register message
+         */
+
+        packet = build_ip_udp_pcket(map_register_pkt,
+                                        map_reg_packet_len,
+                                        src_addr,
+                                        ms->address,
+                                        LISP_CONTROL_PORT,
+                                        LISP_CONTROL_PORT,
+                                        &packet_len);
+
+        if (packet == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_register_msg: Couldn't send Map-Register. Error adding IP and UDP header to the message");
+            ms = ms->next;
+            continue;
+        }
+
+        /*
+         * Send the map register
+         */
+
+        if ((err = send_packet(out_socket,packet,packet_len))==GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to Map Server at %s",
                     get_char_from_lisp_addr_t(mapping->eid_prefix),
                     mapping->eid_prefix_length,
@@ -306,7 +329,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
         }else{
             lispd_log_msg(LISP_LOG_WARNING, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(mapping->eid_prefix));
         }
-
+        free (packet);
         ms = ms->next;
     }
 
@@ -378,30 +401,25 @@ uint8_t *build_map_register_pkt(
 
 
 int build_and_send_ecm_map_register(
-        lispd_mapping_elt   *mapping,
-        int                 proxy_reply,
-        lisp_addr_t         *inner_addr_from,
-        lisp_addr_t         *inner_addr_dest,
-        int                 inner_port_from,
-        int                 inner_port_dest,
-        lisp_addr_t         *outer_addr_from,
-        lisp_addr_t         *outer_addr_dest,
-        int                 outer_port_from,
-        int                 outer_port_dest,
-        int                 key_id,
-        char                *key,
-        lispd_site_ID       *site_ID,
-        lispd_xTR_ID        *xTR_ID,
-        uint64_t            *nonce)
-
+        lispd_mapping_elt           *mapping,
+        lispd_map_server_list_t     *map_server,
+        lisp_addr_t                 *nat_rtr_addr,
+        lispd_iface_elt             *src_iface,
+        lispd_site_ID               *site_ID,
+        lispd_xTR_ID                *xTR_ID,
+        uint64_t                    *nonce)
 {
 
+    uint8_t                     *packet                 = NULL;
+    int                         packet_len              = 0;
     lispd_pkt_map_register_t    *map_register_pkt       = NULL;
     lispd_pkt_map_register_t    *map_register_pkt_tmp   = NULL;
     uint8_t                     *ecm_map_register       = NULL;
-
     int                         map_register_pkt_len    = 0;
     int                         ecm_map_register_len    = 0;
+    lisp_addr_t                 *src_addr               = NULL;
+    int                         out_socket              = 0;
+    int                         result                  = 0;
 
     map_register_pkt = (lispd_pkt_map_register_t *)build_map_register_pkt(mapping,&map_register_pkt_len);
 
@@ -448,19 +466,41 @@ int build_and_send_ecm_map_register(
     map_register_pkt_len = map_register_pkt_len + sizeof(lispd_site_ID) + sizeof(lispd_xTR_ID);
 
 
-    complete_auth_fields(key_id,
+    complete_auth_fields(map_server->key_type,
                          &(map_register_pkt->key_id),
-                         key,
+                         map_server->key,
                          (void *) (map_register_pkt),
                          map_register_pkt_len,
                          &(map_register_pkt->auth_data));
 
+
+    /* Get Src Iface information */
+
+    switch (nat_rtr_addr->afi){
+    case AF_INET:
+        src_addr     = src_iface->ipv4_address;
+        out_socket   = src_iface->out_socket_v4;
+        break;
+    case AF_INET6:
+        src_addr     = src_iface->ipv6_address;
+        out_socket   = src_iface->out_socket_v6;
+        break;
+    }
+
+    if (src_addr == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_ecm_map_register: No output interface for afi %d",nat_rtr_addr->afi);
+        free (map_register_pkt);
+        return (BAD);
+    }
+
+
+
     ecm_map_register = build_control_encap_pkt((uint8_t *) map_register_pkt,
                                                map_register_pkt_len,
-                                               inner_addr_from,
-                                               inner_addr_dest,
-                                               inner_port_from,
-                                               inner_port_dest,
+                                               src_addr,
+                                               map_server->address,
+                                               LISP_CONTROL_PORT,
+                                               LISP_CONTROL_PORT,
                                                &ecm_map_register_len);
     free(map_register_pkt);
 
@@ -469,25 +509,39 @@ int build_and_send_ecm_map_register(
     }
 
 
-    if (BAD == send_udp_packet(outer_addr_from,
-                                    outer_addr_dest,
-                                    outer_port_from,
-                                    outer_port_dest,
-                                    ecm_map_register,
-                                    ecm_map_register_len)){
+    packet = build_ip_udp_pcket(ecm_map_register,
+                                ecm_map_register_len,
+                                src_addr,
+                                nat_rtr_addr,
+                                LISP_DATA_PORT,
+                                LISP_CONTROL_PORT,
+                                &packet_len);
+    free (ecm_map_register);
 
-        free(ecm_map_register);
+    if (packet == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_ecm_map_register: Couldn't send Encapsulated Map Register. Error adding IP and UDP header to the message");
         return (BAD);
     }
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
-            get_char_from_lisp_addr_t(mapping->eid_prefix),
-            mapping->eid_prefix_length,
-            get_char_from_lisp_addr_t(*inner_addr_dest),
-            get_char_from_lisp_addr_t(*outer_addr_dest));
 
-    free(ecm_map_register);
+    if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
+                get_char_from_lisp_addr_t(mapping->eid_prefix),
+                mapping->eid_prefix_length,
+                get_char_from_lisp_addr_t(*(map_server->address)),
+                get_char_from_lisp_addr_t(*nat_rtr_addr));
+        result = GOOD;
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_ecm_map_register: Couldn't sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
+                get_char_from_lisp_addr_t(mapping->eid_prefix),
+                mapping->eid_prefix_length,
+                get_char_from_lisp_addr_t(*(map_server->address)),
+                get_char_from_lisp_addr_t(*nat_rtr_addr));
+        result = BAD;
+    }
 
-    return (GOOD);
+    free(packet);
+
+    return (result);
 }
 
 

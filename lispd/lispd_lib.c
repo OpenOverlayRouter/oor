@@ -664,20 +664,26 @@ int compare_lisp_addr_t (
         lisp_addr_t *addr2)
 {
 	int cmp;
-	if (addr1->afi != addr2->afi)
+	if (addr1 == NULL || addr2 == NULL){
+	    return (-1);
+	}
+	if (addr1->afi != addr2->afi){
 		return (-1);
-	if (addr1->afi == AF_INET)
+	}
+	if (addr1->afi == AF_INET){
 		cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
-	else if (addr1->afi == AF_INET6)
+	}else if (addr1->afi == AF_INET6){
 			cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
-	else
+	}else{
 		return (-1);
-	if (cmp == 0)
+	}
+	if (cmp == 0){
 		return (0);
-	else if (cmp > 0)
+	}else if (cmp > 0){
 		return (1);
-	else
+    }else{
 		return (2);
+    }
 }
 
 /*
@@ -1009,22 +1015,31 @@ int extract_lisp_address(
         lisp_addr_t     *addr)
 
 {
+    int result  = GOOD;
+
     addr->afi = lisp2inetafi(ntohs(*(uint16_t *) ptr));     /* 2 Byte AFI field */
-    if (addr->afi == LISP_AFI_LCAF){
+    ptr = CO(ptr, sizeof(uint16_t));
+
+    switch (addr->afi){
+    case AF_INET:
+        memcpy(&(addr->address), ptr, sizeof(struct in_addr));
+        break;
+    case AF_INET6:
+        memcpy(&(addr->address), ptr, sizeof(struct in6_addr));
+        break;
+    case AF_UNSPEC:
+        break;
+    case LISP_AFI_LCAF:
         lispd_log_msg(LISP_LOG_DEBUG_2, "extract_lisp_address: Couldn't process lcaf address");
-        return (BAD);
-    }
-    if (addr->afi == ERR_AFI){
+        result  = ERR_AFI;
+        break;
+    default:
         lispd_log_msg(LISP_LOG_DEBUG_2, "extract_lisp_address: Coudn't extract address. Unknown afi");
-        return (BAD);
+        result  = ERR_AFI;
+        break;
     }
 
-    if (addr->afi != AF_UNSPEC){
-        ptr = CO(ptr, sizeof(uint16_t));
-        memcpy(&(addr->address), ptr, get_addr_len(addr->afi));
-    }
-
-    return (GOOD);
+    return (result);
 }
 
 /*

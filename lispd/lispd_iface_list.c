@@ -229,7 +229,8 @@ lispd_iface_elt *get_interface(char *iface_name)
  * Return the iface element if it is found or NULL if not.
  */
 
-lispd_iface_elt *get_interface_from_index(int iface_index){
+lispd_iface_elt *get_interface_from_index(int iface_index)
+{
 
     lispd_iface_elt         *iface          = NULL;
     lispd_iface_list_elt    *iface_lst_elt  = NULL;
@@ -249,8 +250,36 @@ lispd_iface_elt *get_interface_from_index(int iface_index){
 
     return iface;
 }
+/*
+ * Return the interface belonging the address passed as a parameter
+ */
 
+lispd_iface_elt *get_interface_with_address(lisp_addr_t *address)
+{
+    lispd_iface_elt         *iface          = NULL;
+    lispd_iface_list_elt    *iface_lst_elt  = NULL;
 
+    iface_lst_elt = head_interface_list;
+    while (iface_lst_elt != NULL){
+        iface = iface_lst_elt->iface;
+        switch(address->afi)
+        {
+        case AF_INET:
+            if (compare_lisp_addr_t (address,iface->ipv4_address) == 0){
+                return (iface);
+            }
+            break;
+        case AF_INET6:
+            if (compare_lisp_addr_t (address,iface->ipv6_address) == 0){
+                return (iface);
+            }
+            break;
+        }
+        iface_lst_elt = iface_lst_elt->next;
+    }
+
+    return (NULL);
+}
 
 
 /*
@@ -384,6 +413,31 @@ lisp_addr_t *get_default_ctrl_address(int afi)
     return (address);
 }
 
+int get_default_ctrl_socket(int afi)
+{
+
+    int socket = 0;
+
+
+    switch (afi){
+        case AF_INET:
+            if (default_ctrl_iface_v4 != NULL){
+                socket = default_ctrl_iface_v4->out_socket_v4;
+            }
+            break;
+        case AF_INET6:
+            if (default_ctrl_iface_v6 != NULL){
+                socket = default_ctrl_iface_v6->out_socket_v6;
+            }
+            break;
+        default:
+            socket = ERR_SRC_ADDR;
+            break;
+    }
+
+    return (socket);
+}
+
 int get_default_output_socket(int afi)
 {
     int out_socket = -1;
@@ -481,7 +535,27 @@ lisp_addr_t *get_iface_address(
     }
     
     return (addr);
+}
+
+int get_iface_socket(
+        lispd_iface_elt     *iface,
+        int                 afi)
+{
+    int out_socket   = 0;
+
+    switch(afi){
+    case AF_INET:
+        out_socket = iface->out_socket_v4;
+        break;
+    case AF_INET6:
+        out_socket = iface->out_socket_v6;
+        break;
+    default:
+        out_socket = ERR_SRC_ADDR;
+        break;
+    }
     
+    return (out_socket);
 }
 
 /*

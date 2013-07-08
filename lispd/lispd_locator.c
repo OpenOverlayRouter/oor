@@ -251,22 +251,18 @@ void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_lis
 {
     lispd_rtr_locators_list *rtr_list_elt           = *rtr_list;
     lispd_rtr_locators_list *prev_rtr_list_elt      = NULL;
-    lispd_rtr_locators_list *aux_rtr_list_elt      = NULL;
-    uint8_t                 is_first_element        = TRUE;
+    lispd_rtr_locators_list *aux_rtr_list_elt       = NULL;
 
     while (rtr_list_elt != NULL){
         if (rtr_list_elt->locator->address.afi == afi){
             if (prev_rtr_list_elt == NULL){
                 prev_rtr_list_elt = rtr_list_elt;
+                if(rtr_list_elt != *rtr_list){
+                    *rtr_list = rtr_list_elt;
+                }
             }else{
                 prev_rtr_list_elt->next = rtr_list_elt;
                 prev_rtr_list_elt = prev_rtr_list_elt->next;
-            }
-            if (is_first_element == TRUE){
-                if (prev_rtr_list_elt != *rtr_list){
-                    *rtr_list = prev_rtr_list_elt;
-                }
-                is_first_element = FALSE;
             }
             rtr_list_elt = rtr_list_elt->next;
         }else{
@@ -276,7 +272,12 @@ void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_lis
             free (aux_rtr_list_elt);
         }
     }
-    prev_rtr_list_elt->next = NULL;
+    /* Put the next element of the last rtr_locators_list found with afi X to NULL*/
+    if (prev_rtr_list_elt != NULL){
+        prev_rtr_list_elt->next = NULL;
+    }else{
+        *rtr_list = NULL;
+    }
 }
 
 
@@ -318,6 +319,7 @@ inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_i
 {
     if (extended_info->probe_timer != NULL){
         stop_timer(extended_info->probe_timer);
+        extended_info->probe_timer = NULL;
     }
     if (extended_info->rloc_probing_nonces != NULL){
         free (extended_info->rloc_probing_nonces);

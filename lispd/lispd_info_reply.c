@@ -92,6 +92,7 @@ int process_info_reply_msg(
     lcl_locator_extended_info   *lcl_locator_ext_inf    = NULL;
 
     char                        rtrs_list_str[2000];
+    int                         rtrs_list_str_size = 0;
     lispd_rtr_locators_list     *aux_rtr_locators_list  = NULL;
 
     uint8_t                     is_behind_nat           = FALSE;
@@ -143,25 +144,24 @@ int process_info_reply_msg(
     /* Leave only RTR with same afi as the local rloc where we received the message */
     remove_rtr_locators_with_afi_different_to(&rtr_locators_list, local_rloc.afi);
 
-    lcaf_addr_len += FIELD_AFI_LEN;
+
+    lcaf_addr_len = lcaf_addr_len + FIELD_AFI_LEN;
 
 
 
     /* Print the extracted information of the message */
     if (is_loggable(LISP_LOG_DEBUG_2)){
         aux_rtr_locators_list = rtr_locators_list;
-        if (aux_rtr_locators_list != NULL){
-            sprintf(rtrs_list_str, "  %s ", get_char_from_lisp_addr_t(aux_rtr_locators_list->locator->address));
-            aux_rtr_locators_list = aux_rtr_locators_list->next;
-        }
+        rtrs_list_str[0] = '\0';
         while (aux_rtr_locators_list != NULL){
-            sprintf(rtrs_list_str + strlen(rtrs_list_str), "  %s ", get_char_from_lisp_addr_t(aux_rtr_locators_list->locator->address));
+            sprintf(rtrs_list_str + rtrs_list_str_size, "  %s ", get_char_from_lisp_addr_t(aux_rtr_locators_list->locator->address));
+            rtrs_list_str_size = rtrs_list_str_size + strlen(rtrs_list_str);
             aux_rtr_locators_list = aux_rtr_locators_list->next;
         }
         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply message data->"
                 "Nonce: %s , KeyID: %hu ,TTL: %u , EID-prefix: %s/%hhu , "
                 "MS UDP Port Number: %hu , ETR UDP Port Number: %hu , Global ETR RLOC Address: %s , "
-                "MS RLOC Address: %s , Private ETR RLOC Address: %s, RTR RLOC list: %s",
+                "MS RLOC Address: %s , Private ETR RLOC Address: %s, RTR RLOC Compatible list: %s",
                 get_char_from_nonce(nonce), key_id, ttl, get_char_from_lisp_addr_t(eid_prefix),eid_mask_len,
                 ms_udp_port, etr_udp_port, get_char_from_lisp_addr_t(global_etr_rloc),
                 get_char_from_lisp_addr_t(ms_rloc),get_char_from_lisp_addr_t(private_etr_rloc),rtrs_list_str);
@@ -214,6 +214,11 @@ int process_info_reply_msg(
 
     if (is_behind_nat == TRUE){
 
+        if (rtr_locators_list == NULL){
+            lispd_log_msg(LISP_LOG_WARNING, "process_info_reply_msg: The interface with IP address %s is behind NAT"
+                    " but there is no RTR compatible with local AFI", get_char_from_lisp_addr_t(local_rloc));
+        }
+
         mapping = lookup_eid_exact_in_db(eid_prefix, eid_mask_len);
         if (mapping == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
@@ -251,6 +256,9 @@ int process_info_reply_msg(
         }
         start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
         lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
+    }else{
+        stop_timer(info_reply_ttl_timer);
+        info_reply_ttl_timer = NULL;
     }
 
     /* Once we know the NAT state we send a Map-Register */

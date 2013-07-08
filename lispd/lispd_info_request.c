@@ -29,39 +29,10 @@
  *
  */
 
-#include <arpa/inet.h>
-#include <ctype.h>
-#include <errno.h>
-#include <ifaddrs.h>
-#include <inttypes.h>
-#include <netdb.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip6.h>
-#include <netinet/ip.h>
-#include <netinet/udp.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/ioctl.h>
-#include <syslog.h>
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-
-//#define _BSD_SOURCE             // needed?
-#include <endian.h>
-
-#include "linux/netlink.h"
 #include "lispd_external.h"
-
 #include "lispd_info_request.h"
+#include "lispd_lib.h"
+#include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 
 
@@ -157,22 +128,23 @@ lispd_pkt_info_nat_t *build_info_request_pkt(
 
 
 int build_and_send_info_request(
-        uint16_t        key_type,
-        char            *key,
-        uint32_t        ttl,
-        uint8_t         eid_mask_length,
-        lisp_addr_t     *eid_prefix,
-        lisp_addr_t     *src_addr,
-        uint32_t        src_port,
-        lisp_addr_t     *dst_addr,
-        uint32_t        dst_port,
-        uint64_t        *nonce)
+        lispd_map_server_list_t     *map_server,
+        uint32_t                    ttl,
+        uint8_t                     eid_mask_length,
+        lisp_addr_t                 *eid_prefix,
+        lispd_iface_elt             *src_iface,
+        uint64_t                    *nonce)
 {
-    uint32_t             packet_len         = 0;
-    uint16_t             auth_data_len      = 0;
-    lispd_pkt_info_nat_t *info_request_pkt  = NULL;
+    uint8_t                 *packet                 = NULL;
+    int                     packet_len              = 0;
+    lispd_pkt_info_nat_t    *info_request_pkt       = NULL;
+    uint32_t                info_request_pkt_len    = 0;
+    uint16_t                auth_data_len           = 0;
+    lisp_addr_t             *src_addr               = NULL;
+    int                     out_socket              = 0;
+    int                     result                  = 0;
 
-    auth_data_len = get_auth_data_len(key_type);
+    auth_data_len = get_auth_data_len(map_server->key_type);
 
 
     info_request_pkt = build_info_request_pkt(
@@ -180,7 +152,7 @@ int build_and_send_info_request(
             ttl,
             eid_mask_length,
             eid_prefix,
-            &packet_len,
+            &info_request_pkt_len,
             nonce);
 
     if (info_request_pkt == NULL) {
@@ -188,39 +160,65 @@ int build_and_send_info_request(
         return (BAD);
     }
 
-
-    if (BAD == complete_auth_fields(key_type,
+    if (BAD == complete_auth_fields(map_server->key_type,
                                       &(info_request_pkt->key_id),
-                                      key,
+                                      map_server->key,
                                       info_request_pkt,
-                                      packet_len,
+                                      info_request_pkt_len,
                                       info_request_pkt->auth_data)) {
-        free(info_request_pkt);
         lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_info_request: HMAC failed for info-request");
-        return (BAD);
-    }
-
-
-    if (BAD == send_udp_packet(src_addr,
-                             dst_addr,
-                             src_port,
-                             dst_port,
-                             info_request_pkt,
-                             packet_len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"build_and_send_info_request: Couldn't send info-request for",eid_prefix);
         free(info_request_pkt);
         return (BAD);
     }
 
+    /* Get src interface information */
 
-    lispd_log_msg(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s/%d",
-            get_char_from_lisp_addr_t(*dst_addr),
-            get_char_from_lisp_addr_t(*src_addr),
-            get_char_from_lisp_addr_t(*eid_prefix),
-            eid_mask_length);
+    src_addr    = get_iface_address (src_iface, map_server->address->afi);
+    out_socket  = get_iface_socket (src_iface, map_server->address->afi);
 
+    if (src_addr == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_info_request: No output interface for afi %d",map_server->address->afi);
+        free(info_request_pkt);
+        return (BAD);
+    }
+
+    /* Add UDP and IP header to the RAW paket */
+    packet = build_ip_udp_pcket((uint8_t *)info_request_pkt,
+                                info_request_pkt_len,
+                                src_addr,
+                                map_server->address,
+                                LISP_CONTROL_PORT,
+                                LISP_CONTROL_PORT,
+                                &packet_len);
     free(info_request_pkt);
-    return (GOOD);
+
+
+    if (packet != NULL){
+            err = send_packet(out_socket,packet,packet_len);
+            free(packet);
+    }else {
+        err = BAD;
+    }
+
+    if (err == GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s/%d and Nonce %s",
+                        get_char_from_lisp_addr_t(*(map_server->address)),
+                        get_char_from_lisp_addr_t(*src_addr),
+                        get_char_from_lisp_addr_t(*eid_prefix),
+                        eid_mask_length,
+                        get_char_from_nonce(*nonce));
+        result = GOOD;
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s from locator %s with EID %s/%d and Nonce %s",
+                        get_char_from_lisp_addr_t(*(map_server->address)),
+                        get_char_from_lisp_addr_t(*src_addr),
+                        get_char_from_lisp_addr_t(*eid_prefix),
+                        eid_mask_length,
+                        get_char_from_nonce(*nonce));
+        result = BAD;
+    }
+
+    return (result);
 }
 
 int initial_info_request_process()
@@ -234,7 +232,6 @@ int initial_info_request_process()
 
     dbs[0] = get_local_db(AF_INET);
     dbs[1] = get_local_db(AF_INET6);
-
 
     for (ctr = 0 ; ctr < 2 ; ctr++) {
         tree = dbs[ctr];
@@ -274,15 +271,11 @@ int info_request(
 
         if (nat_ir_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
             if ((err=build_and_send_info_request(
-                    map_servers->key_type,
-                    map_servers->key,
+                    map_servers,
                     DEFAULT_INFO_REQUEST_TIMEOUT,
                     mapping->eid_prefix_length,
                     &(mapping->eid_prefix),
-                    default_ctrl_iface_v4->ipv4_address,
-                    LISP_CONTROL_PORT,
-                    map_servers->address,
-                    LISP_CONTROL_PORT,
+                    default_ctrl_iface_v4,
                     &(nat_ir_nonce->nonce[nat_ir_nonce->retransmits])))!=GOOD){
                 lispd_log_msg(LISP_LOG_DEBUG_1,"info_request: Couldn't send info request message.");
             }

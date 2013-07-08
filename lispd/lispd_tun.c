@@ -38,7 +38,7 @@ int create_tun(
     int                 tun_mtu,
     int                 *tun_receive_fd,
     int                 *tun_ifindex,
-    char                **tun_receive_buf)
+    uint8_t             **tun_receive_buf)
 {
 
     struct ifreq ifr;
@@ -101,7 +101,7 @@ int create_tun(
 
     close(tmpsocket);
 
-    *tun_receive_buf = (char *)malloc(tun_receive_size);
+    *tun_receive_buf = (uint8_t *)malloc(tun_receive_size);
 
     if (tun_receive_buf == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "create_tun: Unable to allocate memory for tun_receive_buf: %s", strerror(errno));

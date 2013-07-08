@@ -45,7 +45,7 @@
 int process_map_notify(uint8_t *packet)
 {
 
-    lispd_pkt_map_notify_t              *mn                         = NULL;
+    lispd_pkt_map_notify_t              *map_notify                         = NULL;
     lispd_pkt_mapping_record_t          *record                     = NULL;
     lispd_pkt_mapping_record_locator_t  *locator                    = NULL;
 
@@ -65,24 +65,24 @@ int process_map_notify(uint8_t *packet)
     lispd_xTR_ID                        *xTR_ID_msg                 = NULL;
 
 
-    mn = (lispd_pkt_map_notify_t *)packet;
-    record_count = mn->record_count;
+    map_notify = (lispd_pkt_map_notify_t *)packet;
+    record_count = map_notify->record_count;
 
-    /* Check the nonce */
-    if (mn->nonce == 0){
-        if (check_nonce(nat_emr_nonce,mn->nonce) == GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_2, "Map Notify: Correct nonce field checking ");
+    /* Check the nonce of data Map Notify*/
+    if (map_notify->xtr_id_present == TRUE){
+        if (check_nonce(nat_emr_nonce,map_notify->nonce) == GOOD){
+            lispd_log_msg(LISP_LOG_DEBUG_2, "Data Map Notify: Correct nonce field checking ");
             nat_emr_nonce = NULL;
         }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
-                    get_char_from_nonce (mn->nonce));
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
+                    get_char_from_nonce (map_notify->nonce));
             return (BAD);
         }
     }
 
     map_notify_length = sizeof(lispd_pkt_map_notify_t);
 
-    record = (lispd_pkt_mapping_record_t *)CO(mn, sizeof(lispd_pkt_map_notify_t));
+    record = (lispd_pkt_mapping_record_t *)CO(map_notify, sizeof(lispd_pkt_map_notify_t));
     for (i=0; i < record_count; i++)
     {
         partial_map_notify_length1 = sizeof(lispd_pkt_mapping_record_t);
@@ -126,11 +126,11 @@ int process_map_notify(uint8_t *packet)
 
     for (i=0 ; i < LISP_SHA1_AUTH_DATA_LEN; i++)
     {
-        auth_data[i] = mn->auth_data[i];
-        mn->auth_data[i] = 0;
+        auth_data[i] = map_notify->auth_data[i];
+        map_notify->auth_data[i] = 0;
     }
 
-    if (mn->xtr_id_present == TRUE){
+    if (map_notify->xtr_id_present == TRUE){
         xTR_ID_msg  = (lispd_xTR_ID *)CO(packet,map_notify_length);
         site_ID_msg = (lispd_site_ID *)CO(packet,map_notify_length + sizeof(lispd_xTR_ID));
         if (memcmp(site_ID_msg, &site_ID, sizeof(lispd_site_ID))!= 0){
@@ -143,34 +143,22 @@ int process_map_notify(uint8_t *packet)
         }
         map_notify_length = map_notify_length + sizeof(lispd_site_ID) + sizeof (lispd_xTR_ID);
     }
-    if (mn->rtr_auth_present == TRUE){
-        //auth_field = (lispd_pkt_auth_field_t *)CO(packet,map_notify_length);
-        //map_notify_length = map_notify_length + sizeof(lispd_pkt_auth_field_t) + auth_field->auth_data_len;
-        //lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_notify: RTR authentication field present. It should not appear");
-        //return (BAD);
-    }
+    if (map_notify->rtr_auth_present == TRUE){
 
+    }
 
     if (!HMAC((const EVP_MD *) EVP_sha1(),
             (const void *) map_servers->key,
             strlen(map_servers->key),
             (uchar *) packet,
             map_notify_length,
-            (uchar *) mn->auth_data,
+            (uchar *) map_notify->auth_data,
             &md_len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "HMAC failed for Map-Notify");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: HMAC failed for Map-Notify");
         return(BAD);
     }
-    if ((strncmp((char *)mn->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0){
-        free (nat_emr_nonce);
-        nat_emr_nonce = NULL;
-        /* Reprogram timer of the map register process */
-        if (map_register_timer == NULL) {
-            map_register_timer = create_timer(MAP_REGISTER_TIMER);
-        }
-        start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register, NULL);
+    if ((strncmp((char *)map_notify->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration");
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed map register in %d seconds",MAP_REGISTER_INTERVAL);
     } else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message is invalid");
         return (BAD);

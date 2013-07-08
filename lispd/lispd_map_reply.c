@@ -116,6 +116,8 @@ int process_map_reply(uint8_t *packet)
     nonce = mrp->nonce;
     record_count = mrp->record_count;
 
+    lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply: Nonce of the Map Reply is: %s", get_char_from_nonce(nonce));
+
     packet = CO(packet, sizeof(lispd_pkt_map_reply_t));
     for (ctr=0;ctr<record_count;ctr++){
         if (mrp->rloc_probe == FALSE){
@@ -525,36 +527,72 @@ int build_and_send_map_reply_msg(
         uint64_t nonce,
         map_reply_opts opts)
 {
-
     uint8_t         *packet             = NULL;
+    uint8_t         *map_reply_pkt      = NULL;
+    int             map_reply_pkt_len   = 0;
     int             packet_len          = 0;
     int             result              = 0;
+    lisp_addr_t     *src_addr           = NULL;
+    int             out_socket          = 0;
+    lispd_iface_elt *iface              = NULL;
 
     /* Build the packet */
     if (opts.rloc_probe == TRUE){
-        packet = build_map_reply_pkt(requested_mapping, src_rloc_addr, opts, nonce, &packet_len);
+        map_reply_pkt = build_map_reply_pkt(requested_mapping, src_rloc_addr, opts, nonce, &map_reply_pkt_len);
     }
     else{
-        packet = build_map_reply_pkt(requested_mapping, NULL, opts, nonce, &packet_len);
+        map_reply_pkt = build_map_reply_pkt(requested_mapping, NULL, opts, nonce, &map_reply_pkt_len);
     }
-    if (packet == NULL){
+    if (map_reply_pkt == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_reply_msg: Couldn't send Map-Reply for requested EID %s/%d ",
+                get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                requested_mapping->eid_prefix_length);
         return (BAD);
     }
 
-    /* Send the packet */
+    /* Get src interface information */
 
     if (src_rloc_addr == NULL){
-        src_rloc_addr = get_default_ctrl_address(dst_rloc_addr->afi);
-    }
-    if (src_rloc_addr != NULL){
-        result = send_udp_packet(src_rloc_addr, dst_rloc_addr,LISP_CONTROL_PORT, dport,(void *)packet,packet_len);
-    }else {
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_reply_msg: Couldn't send Map-Reply. No local RLOC compatible with the afi of the destinaion locator %s",
-                get_char_from_lisp_addr_t(*dst_rloc_addr));
-        result = BAD;
+        src_addr   = get_default_ctrl_address(dst_rloc_addr->afi);
+        out_socket = get_default_ctrl_socket (dst_rloc_addr->afi);
+    }else{
+        iface = get_interface_with_address(src_rloc_addr);
+        if (iface != NULL){
+            src_addr = src_rloc_addr;
+            out_socket = get_iface_socket(iface, dst_rloc_addr->afi);
+        }else{
+            src_addr   = get_default_ctrl_address(dst_rloc_addr->afi);
+            out_socket = get_default_ctrl_socket (dst_rloc_addr->afi);
+        }
     }
 
-    if (result == GOOD){
+    if (src_addr == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_reply_msg: Couldn't send Map Reply. No output interface with afi %d.",
+                dst_rloc_addr->afi);
+        free (map_reply_pkt);
+        return (BAD);
+    }
+
+    /*  Add UDP and IP header to the Map Request message */
+
+    packet = build_ip_udp_pcket(map_reply_pkt,
+            map_reply_pkt_len,
+            src_addr,
+            dst_rloc_addr,
+            LISP_CONTROL_PORT,
+            dport,
+            &packet_len);
+    free (map_reply_pkt);
+
+    if (packet == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_reply_msg: Couldn't send Map Reply. Error adding IP and UDP header to the message");
+        return (BAD);
+    }
+
+
+    /* Send the packet */
+
+    if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
         if (opts.rloc_probe == TRUE){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d probing local locator %s",
                     get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
@@ -565,6 +603,7 @@ int build_and_send_map_reply_msg(
                     get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                     requested_mapping->eid_prefix_length);
         }
+        result = GOOD;
     }else {
         if (opts.rloc_probe == TRUE){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't build/send Probe Reply!");
