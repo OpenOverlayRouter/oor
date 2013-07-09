@@ -38,6 +38,8 @@
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 
+uint16_t ip_id = 0;
+
 /*
  *  get_locators_length
  *
@@ -362,8 +364,8 @@ struct udphdr *build_ip_header(
         iph->ip_v          = IPVERSION;
         iph->ip_tos        = 0;
         iph->ip_len        = htons(ip_len);
-        iph->ip_id         = htons(54321);
-        iph->ip_off        = 0;
+        iph->ip_id         = htons(get_IP_ID());
+        iph->ip_off        = 0;   /* XXX Control packets can be fragmented  */
         iph->ip_ttl        = 255;
         iph->ip_p          = IPPROTO_UDP;
         iph->ip_src.s_addr = src_addr->address.ip.s_addr;
@@ -513,8 +515,6 @@ uint8_t *build_control_encap_pkt(
 
     /* Add the interal IP and UDP headers */
 
-    printf("1====================>>>> %d    %d\n",orig_pkt_len, encap_pkt_len);
-
     inner_pkt_ptr = build_ip_udp_pcket(orig_pkt,
                                            orig_pkt_len,
                                            addr_from,
@@ -522,9 +522,6 @@ uint8_t *build_control_encap_pkt(
                                            port_from,
                                            port_dest,
                                            &encap_pkt_len);
-
-    printf("2====================>>>> %d    %d\n",orig_pkt_len, encap_pkt_len);
-
     /* Header length */
 
     lisp_hdr_len = sizeof(lisp_encap_control_hdr_t);
@@ -643,6 +640,12 @@ int process_encapsulated_map_request_headers(
     return (GOOD);
 }
 
+
+uint16_t get_IP_ID()
+{
+    ip_id ++;
+    return (ip_id);
+}
 
 /*
  * Editor modelines

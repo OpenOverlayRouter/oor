@@ -438,7 +438,6 @@ uint8_t *build_map_request_pkt(
 
 
     int                     map_request_msg_len = 0;
-    int                     encap_overhead_len  = 0;
     int                     ctr                 = 0;
     int                     cpy_len             = 0;
     int                     locators_ctr        = 0;

@@ -122,5 +122,8 @@ int process_encapsulated_map_request_headers(
          int            *len,
          uint16_t       *dst_port);
 
+/* Returns IP ID for the packet */
+uint16_t get_IP_ID();
+
 
 #endif /*LISPD_PKT_LIB_H_*/

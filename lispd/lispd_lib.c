@@ -929,7 +929,7 @@ int process_lisp_ctr_msg(
     lisp_addr_t         local_rloc;
     uint16_t            remote_port;
 
-    if  ( get_control_packet (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
+    if  ( get_packet_and_socket_inf (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
         return BAD;
     }
 

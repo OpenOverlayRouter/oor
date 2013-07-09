@@ -70,23 +70,23 @@ void add_ip_header (
         lisp_addr_t     *dst_addr)
 {
 
-
-    struct iphdr    *iph        = NULL;
-    struct iphdr    *inner_iph  = NULL;
+    struct ip       *iph        = NULL;
+    struct ip       *inner_iph  = NULL;
     struct ip6_hdr  *ip6h       = NULL;
     struct ip6_hdr  *inner_ip6h = NULL;
 
-    uint8_t tos = 0;
-    uint8_t ttl = 0;
+    int     ip_len  = 0;
+    uint8_t tos     = 0;
+    uint8_t ttl     = 0;
 
 
-    inner_iph = (struct iphdr *) original_packet_position;
+    inner_iph = (struct ip *) original_packet_position;
 
     /* We SHOULD copy ttl and tos fields from the inner packet to the encapsulated one */
 
-    if (inner_iph->version == 4 ) {
-        tos = inner_iph->tos;
-        ttl = inner_iph->ttl;
+    if (inner_iph->ip_v == 4 ) {
+        tos = inner_iph->ip_tos;
+        ttl = inner_iph->ip_ttl;
 
     } else {
         inner_ip6h = (struct ip6_hdr *) original_packet_position;
@@ -102,25 +102,24 @@ void add_ip_header (
 
     switch (dst_addr->afi){
     case AF_INET:
+        ip_len = ip_payload_length + sizeof(struct ip);
+        iph = (struct ip *) position;
 
-        iph = (struct iphdr *) position;
-
-        iph->version  = 4;
-        //iph->ihl      = sizeof ( struct iphdr ) >>2;
-        iph->ihl      = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
-        iph->tos      = tos;
-        iph->tot_len  = htons(ip_payload_length);
-        iph->frag_off = htons(IP_DF);   /* Do not fragment flag. See 5.4.1 in LISP RFC (6830) */
-        iph->ttl      = ttl;
-        iph->protocol = IPPROTO_UDP;
-        iph->check    = 0; //Computed by the NIC (checksum offloading)
-        iph->daddr    = dst_addr->address.ip.s_addr;
-        iph->saddr    = src_addr->address.ip.s_addr;
+        iph->ip_v               = IPVERSION;
+        iph->ip_hl              = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
+        iph->ip_tos             = tos;
+        iph->ip_len             = htons(ip_len);
+        iph->ip_id              = htons(get_IP_ID());
+        iph->ip_off             = htons(IP_DF);   /* Do not fragment flag. See 5.4.1 in LISP RFC (6830) */
+        iph->ip_ttl             = ttl;
+        iph->ip_p               = IPPROTO_UDP;
+        iph->ip_sum             = 0; //Computed by the NIC (checksum offloading)
+        iph->ip_dst.s_addr      = dst_addr->address.ip.s_addr;
+        iph->ip_src.s_addr      = src_addr->address.ip.s_addr;
         break;
-
     case AF_INET6:
-
         ip6h = ( struct ip6_hdr *) position;
+
         IPV6_SET_VERSION(ip6h, 6);
         IPV6_SET_TC(ip6h,tos);
         IPV6_SET_FLOW_LABEL(ip6h,0);
