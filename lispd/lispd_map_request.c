@@ -392,9 +392,10 @@ int build_and_send_map_request_msg(
     /* Send the packet */
 
     if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c . Nonce: %s",
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d to %s: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c . Nonce: %s",
                         get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                         requested_mapping->eid_prefix_length,
+                        get_char_from_lisp_addr_t(*dst_rloc_addr),
                         (encap == TRUE ? 'Y' : 'N'),
                         (probe == TRUE ? 'Y' : 'N'),
                         (solicit_map_request == TRUE ? 'Y' : 'N'),

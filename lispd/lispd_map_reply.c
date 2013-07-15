@@ -208,8 +208,10 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  The nonce of the Map-Reply doesn't match the nonce of the generated Map-Request. Discarding message ...");
             free_mapping_elt(mapping, FALSE);
             return (BAD);
+        }else {
+            free(cache_entry->nonces);
+            cache_entry->nonces = NULL;
         }
-        cache_entry->nonces = NULL;
         /* Stop timer of Map Requests retransmits */
         if (cache_entry->smr_inv_timer != NULL){
             stop_timer(cache_entry->smr_inv_timer);
@@ -338,6 +340,7 @@ int process_map_reply_probe_record(
             rmt_locator_ext_inf = (rmt_locator_extended_info *)(aux_locator->extended_info);
             /* Check the nonce of the message match with the one stored in the structure of the locator */
             if ((check_nonce(rmt_locator_ext_inf->rloc_probing_nonces,nonce)) == GOOD){
+                free(rmt_locator_ext_inf->rloc_probing_nonces);
                 rmt_locator_ext_inf->rloc_probing_nonces = NULL;
                 if (locators_probed == 0){
                     locator = aux_locator;
@@ -367,6 +370,7 @@ int process_map_reply_probe_record(
                     aux_locator = locators_list[ctr]->locator;
                     rmt_locator_ext_inf = (rmt_locator_extended_info *)(aux_locator->extended_info);
                     if ((check_nonce(rmt_locator_ext_inf->rloc_probing_nonces,nonce)) == GOOD){
+                        free (rmt_locator_ext_inf->rloc_probing_nonces);
                         rmt_locator_ext_inf->rloc_probing_nonces = NULL;
                         locator = aux_locator;
                         break;

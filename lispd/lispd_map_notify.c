@@ -63,6 +63,9 @@ int process_map_notify(uint8_t *packet)
     uint32_t                            md_len                      = 0;
     lispd_site_ID                       *site_ID_msg                = NULL;
     lispd_xTR_ID                        *xTR_ID_msg                 = NULL;
+    int                                 next_timer_time             = 0;
+    int                                 result                      = BAD;
+
 
 
     map_notify = (lispd_pkt_map_notify_t *)packet;
@@ -72,7 +75,7 @@ int process_map_notify(uint8_t *packet)
     if (map_notify->xtr_id_present == TRUE){
         if (check_nonce(nat_emr_nonce,map_notify->nonce) == GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_2, "Data Map Notify: Correct nonce field checking ");
-            nat_emr_nonce = NULL;
+            /* Free nonce if authentication is ok */
         }else{
             lispd_log_msg(LISP_LOG_DEBUG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
                     get_char_from_nonce (map_notify->nonce));
@@ -144,7 +147,7 @@ int process_map_notify(uint8_t *packet)
         map_notify_length = map_notify_length + sizeof(lispd_site_ID) + sizeof (lispd_xTR_ID);
     }
     if (map_notify->rtr_auth_present == TRUE){
-
+        // Nothing to be done
     }
 
     if (!HMAC((const EVP_MD *) EVP_sha1(),
@@ -159,11 +162,23 @@ int process_map_notify(uint8_t *packet)
     }
     if ((strncmp((char *)map_notify->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration");
+        next_timer_time = MAP_REGISTER_INTERVAL;
+        free (nat_emr_nonce);
+        nat_emr_nonce = NULL;
+        result = GOOD;
+
     } else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message is invalid");
-        return (BAD);
+        next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
+        result = BAD;
     }
-    return(GOOD);
+
+    if (map_register_timer == NULL) {
+        map_register_timer = create_timer(MAP_REGISTER_TIMER);
+    }
+    start_timer(map_register_timer, next_timer_time, map_register, NULL);
+
+    return(result);
 }
 
 

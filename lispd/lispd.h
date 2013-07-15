@@ -192,7 +192,7 @@ int err;
 
 #define DEFAULT_MAP_REQUEST_RETRIES             3
 #define DEFAULT_RLOC_PROBING_RETRIES            1
-#define DEFAULT_MAP_REGISTER_TIMEOUT            1  /* PN: expected to be in minutes; however,
+#define DEFAULT_MAP_REGISTER_TIMEOUT            10  /* PN: expected to be in minutes; however,
                                                      * lisp_mod treats this as seconds instead of
                                                      * minutes
                                                      */

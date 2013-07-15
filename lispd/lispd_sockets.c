@@ -29,54 +29,57 @@
 #include "lispd_sockets.h"
 #include "lispd_log.h"
 
+
+
+
 int open_device_binded_raw_socket(
     char *device,
     int afi)
 {
     
     //char *device = OUTPUT_IFACE;
-    
-    int device_len  = 0;
-    
-    int s           = 0;
-    int on          = 1;
-    
 
-    //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
-    switch (afi){
-        case AF_INET:
-            if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
-                return (BAD);
-            }
-            break;
-        case AF_INET6:
-            if ((s = socket(AF_INET6, SOCK_RAW,IPPROTO_RAW)) < 0) {
-                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
-                return (BAD);
-            }
-            break;
-    }
-    
-    
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
-        close(s);
-        return (BAD);
-    }
-    
-    
-    // bind a socket to a device name (might not work on all systems):
-    device_len = strlen(device);
-    if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
-        close(s);
-        return (BAD);
-    }
-    
-    lispd_log_msg(LISP_LOG_DEBUG_2, "open_device_binded_raw_socket: open socket %d in interface %s with afi: %d", s, device, afi);
+       int device_len = 0;
 
-    return s;
+       int s = 0;
+       int on = 1;
+
+
+       //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
+       switch (afi){
+           case AF_INET:
+               if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+                   lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                   return (BAD);
+               }
+               break;
+           case AF_INET6:
+               if ((s = socket(AF_INET6, SOCK_RAW,IPPROTO_RAW)) < 0) {
+                   lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                   return (BAD);
+               }
+               break;
+       }
+
+
+       if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
+           lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
+           close(s);
+           return (BAD);
+       }
+
+
+       // bind a socket to a device name (might not work on all systems):
+       device_len = strlen(device);
+       if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
+           lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
+           close(s);
+           return (BAD);
+       }
+
+       lispd_log_msg(LISP_LOG_DEBUG_2, "open_device_binded_raw_socket: open socket %d in interface %s with afi: %d", s, device, afi);
+
+       return s;
     
 }
 
@@ -301,9 +304,12 @@ int send_packet (
     int                 dst_addr_len    = 0;
     struct sockaddr_in  dst_addr4;
     struct sockaddr_in6 dst_addr6;
+    lisp_addr_t         pkt_src_addr;
+    lisp_addr_t         pkt_dst_addr;
     struct iphdr        *iph            = NULL;
     struct ip6_hdr      *ip6h           = NULL;
     int                 nbytes          = 0;
+
 
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
 
@@ -316,11 +322,11 @@ int send_packet (
 
             memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
             dst_addr4.sin_family = AF_INET;
-            //dst_addr4.sin_port = htons ( LISP_DATA_PORT );
             dst_addr4.sin_addr.s_addr = iph->daddr;
 
             dst_addr = ( struct sockaddr * ) &dst_addr4;
             dst_addr_len = sizeof ( struct sockaddr_in );
+
             break;
         case 6:
 
@@ -328,8 +334,6 @@ int send_packet (
             
             memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
             dst_addr6.sin6_family = AF_INET6;
-            //dst_addr6.sin6_port = htons ( LISP_DATA_PORT );
-            //memcpy(&(dst_addr6.sin6_addr),&(ip6h->ip6_dst),32);
             dst_addr6.sin6_addr = ip6h->ip6_dst;
             
             dst_addr = ( struct sockaddr * ) &dst_addr6;
@@ -346,7 +350,35 @@ int send_packet (
                       dst_addr_len );
 
     if ( nbytes != packet_length ) {
-        lispd_log_msg( LISP_LOG_DEBUG_2, "send_packet: send failed %s", strerror ( errno ) );
+
+        switch(iph->version){
+
+        case 4:
+            pkt_src_addr.afi = AF_INET;
+            pkt_src_addr.address.ip.s_addr = iph->saddr;
+
+            pkt_dst_addr.afi = AF_INET;
+            pkt_dst_addr.address.ip.s_addr = iph->daddr;
+
+            break;
+        case 6:
+
+            ip6h = (struct ip6_hdr *) packet;
+
+            pkt_src_addr.afi = AF_INET6;
+            memcpy (&(pkt_src_addr.address), &(ip6h->ip6_src), sizeof(struct in6_addr));
+
+            pkt_dst_addr.afi = AF_INET6;
+            memcpy (&(pkt_dst_addr.address), &(ip6h->ip6_dst), sizeof(struct in6_addr));
+
+            break;
+        }
+
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d",
+                strerror ( errno ),
+                get_char_from_lisp_addr_t(pkt_src_addr),
+                get_char_from_lisp_addr_t(pkt_dst_addr),
+                sock);
         return (BAD);
     }
 

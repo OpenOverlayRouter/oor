@@ -151,32 +151,34 @@ void handle_lispd_command_line(
 int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
 
-    struct uci_context *ctx = NULL;
-    struct uci_package *pck = NULL;
-    struct uci_section *s = NULL;
-    struct uci_element *e = NULL;
-    int         uci_debug = 0;
-    int         uci_retries = 0;
-    int         uci_rloc_probe_int = 0;
-    int         uci_rloc_probe_retries = 0;
-    int         uci_rloc_probe_retries_interval = 0;
-    const char* uci_address = NULL;
-    int         uci_key_type = 0;
-    const char* uci_key = NULL;
-    int         uci_proxy_reply = 0;
-    int         uci_priority_v4 = 0;
-    int         uci_weigth_v4 = 0;
-    int         uci_priority_v6 = 0;
-    int         uci_weigth_v6 = 0;
-    int         uci_priority = 0;
-    int         uci_weigth = 0;
-    const char* uci_interface = NULL;
-    int         uci_iid = -1;
-    const char* uci_rloc = NULL;
-    const char* uci_eid_prefix = NULL;
+    struct uci_context  *ctx                            = NULL;
+    struct uci_package  *pck                            = NULL;
+    struct uci_section  *s                              = NULL;
+    struct uci_element  *e                              = NULL;
+    int                 uci_debug                       = 0;
+    int                 uci_retries                     = 0;
+    int                 uci_rloc_probe_int              = 0;
+    int                 uci_rloc_probe_retries          = 0;
+    int                 uci_rloc_probe_retries_interval = 0;
+    const char*         uci_site_id                     = NULL;
+    const char*         uci_xtr_id                      = NULL
+    const char*         uci_address                     = NULL;
+    int                 uci_key_type                    = 0;
+    const char*         uci_key                         = NULL;
+    int                 uci_proxy_reply                 = 0;
+    int                 uci_priority_v4                 = 0;
+    int                 uci_weigth_v4                   = 0;
+    int                 uci_priority_v6                 = 0;
+    int                 uci_weigth_v6                   = 0;
+    int                 uci_priority                    = 0;
+    int                 uci_weigth                      = 0;
+    const char*         uci_interface                   = NULL;
+    int                 uci_iid                         = -1;
+    const char*         uci_rloc                        = NULL;
+    const char*         uci_eid_prefix                  = NULL;
 
-    char *uci_conf_dir;
-    char *uci_conf_file;
+    char                *uci_conf_dir                   = NULL;
+    char                *uci_conf_file                  = NULL;
 
     //arnatal TODO XXX: check errors for the whole function
 
@@ -271,6 +273,30 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
             continue;
         }
+
+        if (strcmp(s->type, "nat-traversal") == 0){
+            if (strcmp(uci_lookup_option_string(ctx, s, "nat_aware"), "on") == 0){
+                nat_aware = TRUE;
+            }else{
+                nat_aware = FALSE;
+            }
+            uci_site_id = uci_lookup_option_string(ctx, s, "site_ID");
+            uci_xtr_id = uci_lookup_option_string(ctx, s, "xTR_ID");
+
+            if (nat_aware == TRUE){
+                if ((convert_hex_string_to_bytes(uci_site_id,site_ID.byte,8)) != GOOD){
+                    lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
+                    exit(EXIT_FAILURE);
+                }
+                if ((convert_hex_string_to_bytes(uci_xtr_id,xTR_ID.byte,16)) != GOOD){
+                    lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            continue;
+        }
+
 
 
         if (strcmp(s->type, "map-resolver") == 0){
@@ -438,18 +464,18 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 int handle_lispd_config_file(char * lispdconf_conf_file)
 {
 
-    cfg_t           *cfg                    = 0;
-    unsigned int    i                       = 0;
-    unsigned        n                       = 0;
-    int             ret                     = 0;
-    char            *map_resolver           = NULL;
-    char            *proxy_itr              = NULL;
-    char            *nat_site_ID            = NULL;
-    char            *nat_xTR_ID             = NULL;
-    int             probe_int               = 0;
-    int             probe_retries           = 0;
-    int             probe_retries_interval  = 0;
-    int             ctr                     = 0;
+    cfg_t                   *cfg                    = 0;
+    int                     i                       = 0;
+    int                     n                       = 0;
+    int                     ret                     = 0;
+    char                    *map_resolver           = NULL;
+    char                    *proxy_itr              = NULL;
+    char                    *nat_site_ID            = NULL;
+    char                    *nat_xTR_ID             = NULL;
+    int                     probe_int               = 0;
+    int                     probe_retries           = 0;
+    int                     probe_retries_interval  = 0;
+    int                     ctr                     = 0;
 
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
@@ -577,11 +603,11 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
     if (nat_aware == TRUE){
         if ((convert_hex_string_to_bytes(nat_site_ID,site_ID.byte,8)) != GOOD){
-            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format", map_resolver);
+            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
             exit(EXIT_FAILURE);
         }
         if ((convert_hex_string_to_bytes(nat_xTR_ID,xTR_ID.byte,16)) != GOOD){
-            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format", map_resolver);
+            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
             exit(EXIT_FAILURE);
         }
     }
@@ -714,10 +740,14 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             exit (EXIT_FAILURE);
         }
 
-        if (map_servers->next != NULL){
-            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one Map Server. Using %s",
-                    get_char_from_lisp_addr_t(*(map_servers->address)));
-            map_servers->next = NULL;
+        if (map_servers->next != NULL || map_servers->address->afi != AF_INET){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Server.");
+            exit (EXIT_FAILURE);
+        }
+
+        if (map_resolvers->next != NULL || map_resolvers->address->afi != AF_INET){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Resolver.");
+            exit (EXIT_FAILURE);
         }
 
         if (rloc_probe_interval > 0){

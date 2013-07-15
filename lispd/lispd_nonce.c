@@ -93,7 +93,6 @@ int check_nonce(
         return (BAD);
     for (i=0;i<nonces->retransmits;i++){
         if (nonces->nonce[i] == nonce){
-            free(nonces);
             return (GOOD);
         }
     }

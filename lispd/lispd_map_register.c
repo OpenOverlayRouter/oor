@@ -327,7 +327,9 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
                     get_char_from_lisp_addr_t(*(ms->address)));
             sent_map_registers++;
         }else{
-            lispd_log_msg(LISP_LOG_WARNING, "Couldn't send map-register for %s",get_char_from_lisp_addr_t(mapping->eid_prefix));
+            lispd_log_msg(LISP_LOG_WARNING, "Couldn't send Map Register for %s to the Map Server %s",
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),
+                    get_char_from_lisp_addr_t(*(ms->address)));
         }
         free (packet);
         ms = ms->next;

@@ -172,6 +172,7 @@ int process_info_reply_msg(
 
     if (check_nonce(nat_ir_nonce,nonce) == GOOD ){
         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Correct nonce field checking ");
+        free(nat_ir_nonce);
         nat_ir_nonce = NULL;
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Info-Reply: Error checking nonce field. No Info Request generated with nonce: %s",

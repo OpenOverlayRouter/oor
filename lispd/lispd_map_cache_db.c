@@ -256,9 +256,12 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(
 
     PATRICIA_WALK(tree->head, node) {
         entry = ((lispd_map_cache_entry *)(node->data));
-        if (!entry->active && check_nonce(entry->nonces,nonce)){
-            entry->nonces = NULL;
-            return (entry);
+        if (entry->active == FALSE){
+            if (check_nonce(entry->nonces,nonce) == GOOD){
+                free(entry->nonces);
+                entry->nonces = NULL;
+                return (entry);
+            }
         }
     } PATRICIA_WALK_END;
 
