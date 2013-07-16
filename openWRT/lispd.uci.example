@@ -12,14 +12,29 @@ config 'daemon'
         option  'map_request_retries'   '2'
         
 # RLOC Probing configuration
-#	rloc_probe_interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 dissables RLOC Probing
-#   rloc_probe_retries: RLOC Probe retries before marking the locator with status down. [0..5]
+#   rloc_probe_interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 disables RLOC Probing
+#   rloc_probe_retries: RLOC Probe retries before setting the locator with status down. [0..5]
 #   rloc_probe_retries_interval: interval at which RLOC probes retries are sent (seconds) [1..#rloc_probe_interval]
         
 config 'rloc-probing'        
-        option  'rloc_probe_interval' '30'
-        option  'rloc_probe_retries' '2'
-        option  'rloc_probe_retries_interval' '5'
+        option  'rloc_probe_interval'           '30'
+        option  'rloc_probe_retries'            '2'
+        option  'rloc_probe_retries_interval'   '5'
+        
+# NAT Traversl configuration. 
+#   nat_aware: check if the node is behind NAT
+#   site_ID: 64 bits to identify the site where the node is connected to. In hexadecimal
+#   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal
+# Limitation of version 0.3.3 when nat_aware is enabled: 
+#   Only one interface is supported.
+#   Only one Map Server and one Map Resolver
+        
+config 'nat-traversal'
+        option  'nat_aware'	'on'
+        option  'site_ID'   '0000000000000001'                  #In doubt, keep the default value
+        option  'xTR_ID'    '00000000000000000000000000000001'  #In doubt, keep the default value
+        
+        
 
 # Encapsulated Map-Requests are sent to this map-resolver
 # You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
@@ -66,7 +81,7 @@ config 'database-mapping'
         option   'interface'            'eth0'	
         option   'priority_v4'          '1'		# Priority of IPv4 locator of the interface eth0 for this EID
         option   'weight_v4'            '100' 	# Weight of IPv4 locator of the interface eth0 for this EID
-	    option   'priority_v6'          '1'		# Priority of IPv6 locator of the interface eth0 for this EID
+        option   'priority_v6'          '1'		# Priority of IPv6 locator of the interface eth0 for this EID
         option   'weight_v6'            '100' 	# Weight of IPv6 locator of the interface eth0 for this EID
 
 

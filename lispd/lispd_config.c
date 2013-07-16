@@ -161,7 +161,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     int                 uci_rloc_probe_retries          = 0;
     int                 uci_rloc_probe_retries_interval = 0;
     const char*         uci_site_id                     = NULL;
-    const char*         uci_xtr_id                      = NULL
+    const char*         uci_xtr_id                      = NULL;
     const char*         uci_address                     = NULL;
     int                 uci_key_type                    = 0;
     const char*         uci_key                         = NULL;

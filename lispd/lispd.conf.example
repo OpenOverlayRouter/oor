@@ -14,17 +14,29 @@ debug                  = 0
 map-request-retries    = 2
 
 # RLOC Probing configuration
-#	rloc-probe-interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 dissables RLOC Probing
-#   rloc-probe-retries: RLOC Probe retries before marking the locator with status down. [0..5]
+#   rloc-probe-interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 disables RLOC Probing
+#   rloc-probe-retries: RLOC Probe retries before setting the locator with status down. [0..5]
 #   rloc-probe-retries-interval: interval at which RLOC probes retries are sent (seconds) [1..#rloc-probe-interval]
 
 rloc-probing {
-		rloc-probe-interval  			= 30
-		rloc-probe-retries				= 2
-		rloc-probe-retries-interval		= 5
+    rloc-probe-interval             = 30
+    rloc-probe-retries              = 2
+    rloc-probe-retries-interval     = 5
 }
 
+# NAT Traversl configuration. 
+#   nat_aware: check if the node is behind NAT
+#   site_ID: 64 bits to identify the site where the node is connected to. In hexadecimal
+#   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal
+# Limitation of version 0.3.3 when nat_aware is enabled: 
+#   Only one interface is supported.
+#   Only one Map Server and one Map Resolver
 
+nat-traversal {
+    nat_aware   = on
+    site_ID     = 0000000000000001                  #In doubt, keep the default value
+    xTR_ID      = 00000000000000000000000000000001  #In doubt, keep the default value
+}
 
 # Encapsulated Map-Requests are sent to this map-resolver
 # You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
@@ -58,13 +70,6 @@ proxy-etr {
 	address     = IPv4 or IPv6 address
 	priority    = 1
 	weight      = 100
-}
-
-
-nat-traversal {
-	nat_aware	= on
-	site_ID		= 0000000000000000
-	xTR_ID		= 00000000000000000000000000000000
 }
 
 # IPv4 / IPv6 EID of the node.
