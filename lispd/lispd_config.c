@@ -111,8 +111,9 @@ void handle_lispd_command_line(
 {
     struct gengetopt_args_info args_info;
 
-    if (cmdline_parser(argc, argv, &args_info) != 0) 
-        exit(EXIT_FAILURE);
+    if (cmdline_parser(argc, argv, &args_info) != 0){
+        exit_cleanup();
+    }
 
     if (args_info.daemonize_given) {
         daemonize = TRUE;
@@ -188,7 +189,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     if (ctx == NULL) {
         lispd_log_msg(LISP_LOG_CRIT, "Could not create UCI context. Exiting ...");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     uci_conf_dir = dirname(strdup(uci_conf_file_path));
@@ -205,7 +206,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         lispd_log_msg(LISP_LOG_CRIT, "Could not load conf file: %s. Exiting ...",uci_conf_file);
         uci_perror(ctx,"Error while loading packet ");
         uci_free_context(ctx);
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
 
@@ -286,11 +287,11 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
             if (nat_aware == TRUE){
                 if ((convert_hex_string_to_bytes(uci_site_id,site_ID.byte,8)) != GOOD){
                     lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
-                    exit(EXIT_FAILURE);
+                    exit_cleanup();
                 }
                 if ((convert_hex_string_to_bytes(uci_xtr_id,xTR_ID.byte,16)) != GOOD){
                     lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
-                    exit(EXIT_FAILURE);
+                    exit_cleanup();
                 }
             }
 
@@ -498,6 +499,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     static cfg_opt_t mc_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
+            CFG_INT("iid",                 -1, CFGF_NONE),
             CFG_STR("rloc",                 0, CFGF_NONE),
             CFG_INT("priority",             0, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
@@ -550,10 +552,10 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     if (ret == CFG_FILE_ERROR) {
         lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", config_file);
-        exit(EXIT_FAILURE);
-    } else if(ret == CFG_PARSE_ERROR) {;
-    lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting. Check conf file (see lispd.conf.example)", config_file);
-    exit(EXIT_FAILURE);
+        exit_cleanup();
+    } else if(ret == CFG_PARSE_ERROR) {
+        lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting. Check conf file (see lispd.conf.example)", config_file);
+        exit_cleanup();
     }
 
 
@@ -604,11 +606,11 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     if (nat_aware == TRUE){
         if ((convert_hex_string_to_bytes(nat_site_ID,site_ID.byte,8)) != GOOD){
             lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         }
         if ((convert_hex_string_to_bytes(nat_xTR_ID,xTR_ID.byte,16)) != GOOD){
             lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         }
     }
 
@@ -737,17 +739,17 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         if (ctr > 1){
             lispd_log_msg(LISP_LOG_CRIT,"NAT aware on -> This version of LISPmob is limited to one EID prefix "
                     "and one interface when NAT-T is enabled");
-            exit (EXIT_FAILURE);
+            exit_cleanup();
         }
 
         if (map_servers->next != NULL || map_servers->address->afi != AF_INET){
             lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Server.");
-            exit (EXIT_FAILURE);
+            exit_cleanup();
         }
 
         if (map_resolvers->next != NULL || map_resolvers->address->afi != AF_INET){
             lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Resolver.");
-            exit (EXIT_FAILURE);
+            exit_cleanup();
         }
 
         if (rloc_probe_interval > 0){
@@ -760,11 +762,11 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 #ifndef ROUTER
     if (num_entries_in_db(get_local_db(AF_INET)) > 1){
         lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
     if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
         lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 #endif
 

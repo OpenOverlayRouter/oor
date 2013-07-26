@@ -60,6 +60,7 @@
 #include "lispd_map_request.h"
 #include "lispd_output.h"
 #include "lispd_rloc_probing.h"
+#include "lispd_routing_tables_lib.h"
 #include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
@@ -68,7 +69,7 @@
 
 void event_loop();
 void signal_handler(int);
-void exit_cleanup(void);
+
 
 
 
@@ -139,8 +140,6 @@ int main(int argc, char **argv)
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
 
-
-
 #ifdef ROUTER
 #ifdef OPENWRT
     lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
@@ -158,7 +157,7 @@ int main(int argc, char **argv)
 
     if (geteuid()) {
         lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     /*
@@ -186,6 +185,17 @@ int main(int argc, char **argv)
     map_cache_init();
 
     /*
+     *  create timers
+     */
+
+    if (build_timers_event_socket(&timers_fd) == 0)
+    {
+        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+        exit_cleanup();
+    }
+    init_timers();
+
+    /*
      *  Parse command line options
      */
 
@@ -210,12 +220,12 @@ int main(int argc, char **argv)
 
     if (map_servers == NULL){
         lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     if (map_resolvers == NULL){
         lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     if (proxy_etrs == NULL){
@@ -235,30 +245,19 @@ int main(int argc, char **argv)
     if (daemonize) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         }
         umask(0);
         if (pid > 0)
-            exit(EXIT_SUCCESS);
+            exit_cleanup();
         if ((sid = setsid()) < 0)
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         if ((chdir("/")) < 0)
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
     }
-
-    /*
-     *  create timers
-     */
-
-    if (build_timers_event_socket(&timers_fd) == 0)
-    {
-        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
-        exit(EXIT_FAILURE);
-    }
-    init_timers();
 
     /*
      * Select the default rlocs for output data packets and output control packets
@@ -342,6 +341,15 @@ int main(int argc, char **argv)
     lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.3): 'lispd' started...");
 
     /*
+     * Request to dump the routing tables to obtain the gatways when processing the netlink messages
+     */
+
+    request_route_table(RT_TABLE_MAIN, AF_INET);
+    process_netlink_msg(netlink_fd);
+    request_route_table(RT_TABLE_MAIN, AF_INET6);
+    process_netlink_msg(netlink_fd);
+
+    /*
      *  Register to the Map-Server(s)
      */
 
@@ -351,7 +359,7 @@ int main(int argc, char **argv)
      * SMR proxy-ITRs list to be updated with new mappings
      */
 
-    smr_pitrs();
+    init_smr(NULL,NULL);
 
     /*
      * RLOC Probing proxy ETRs
@@ -473,7 +481,6 @@ void signal_handler(int sig) {
  */
 
 void exit_cleanup(void) {
-
     /* Close timer file descriptors */
     close(timers_fd);
 
@@ -482,7 +489,9 @@ void exit_cleanup(void) {
     close(ipv4_data_input_fd);
     close(ipv4_control_input_fd);
 
-    /* Close syslog */
+    /* Remove source routing tables */
+    remove_created_rules();
+    lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
 
     exit(EXIT_SUCCESS);
 }

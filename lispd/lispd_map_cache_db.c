@@ -53,7 +53,7 @@ void map_cache_init()
 
   if (!AF4_map_cache || !AF6_map_cache){
       lispd_log_msg(LISP_LOG_CRIT, "map_cache_init: Unable to allocate memory for map cache database");
-      exit(EXIT_FAILURE);
+      exit_cleanup();
   }
 }
 

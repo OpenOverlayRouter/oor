@@ -52,6 +52,7 @@ int rloc_probing(
     lispd_locator_elt           *locator            = NULL;
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     nonces_list                 *nonces             = NULL;
+    uint8_t                     have_control_iface  = FALSE;
 
 
 
@@ -66,6 +67,34 @@ int rloc_probing(
     locator_ext_inf = (rmt_locator_extended_info *)(locator->extended_info);
     nonces          = locator_ext_inf->rloc_probing_nonces;
 
+    /*
+     * If we don't have control iface compatible with the locator to probe, just reprograme the timer for next time
+     */
+
+    switch (locator->locator_addr->afi){
+    case AF_INET:
+        if(default_ctrl_iface_v4 != NULL){
+            have_control_iface = TRUE;
+        }
+        break;
+    case AF_INET6:
+        if(default_ctrl_iface_v6 != NULL){
+            have_control_iface = TRUE;
+        }
+        break;
+    }
+    if (have_control_iface == FALSE){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No control iface compatible with locator %s of the map-cache entry %s/%d. "
+                "Reprogramming RLOC Probing",
+                get_char_from_lisp_addr_t(*(locator->locator_addr)),
+                get_char_from_lisp_addr_t(mapping->eid_prefix),
+                mapping->eid_prefix_length);
+        start_timer(locator_ext_inf->probe_timer, rloc_probe_interval,(timer_callback)rloc_probing, arg);
+        return (BAD);
+    }
+
+    /* Generate Nonce structure */
+
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
@@ -75,6 +104,10 @@ int rloc_probing(
         }
         locator_ext_inf->rloc_probing_nonces = nonces;
     }
+
+    /*
+     * If the number of retransmits is less than rloc_probe_retries, then try to send the Map Request Probe again
+     */
 
     if (nonces->retransmits - 1 < rloc_probe_retries ){
         if (nonces->retransmits > 0){
@@ -97,7 +130,7 @@ int rloc_probing(
 
         /* Reprogram time for next retry */
         start_timer(locator_ext_inf->probe_timer, rloc_probe_retries_interval,(timer_callback)rloc_probing, arg);
-    }else{
+    }else{ /* If we have reached maximum number of retransmissions, change remote locator status */
         if (*(locator->state) == UP){
             *(locator->state) = DOWN;
             lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: No Map-Reply Probe received for locator %s and EID: %s/%d"

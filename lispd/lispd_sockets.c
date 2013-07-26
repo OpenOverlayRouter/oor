@@ -68,7 +68,6 @@ int open_device_binded_raw_socket(
            return (BAD);
        }
 
-
        // bind a socket to a device name (might not work on all systems):
        device_len = strlen(device);
        if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
@@ -154,9 +153,51 @@ int open_udp_socket(int afi){
     return sock;
 }
 
-int bind_socket(int sock,
-                int afi,
-                int port)
+int bind_socket_src_address(
+        int         sock,
+        lisp_addr_t *addr)
+{
+    int                  result          = TRUE;
+    struct sockaddr      *src_addr       = NULL;
+    int                  src_addr_len    = 0;
+    struct sockaddr_in   src_addr4;
+    struct sockaddr_in6  src_addr6;
+
+    memset ( ( char * ) &src_addr, 0, sizeof ( src_addr ) );
+
+    switch(addr->afi){
+
+    case AF_INET:
+        memset ( ( char * ) &src_addr4, 0, sizeof ( src_addr4 ) );
+        src_addr4.sin_family = AF_INET;
+        src_addr4.sin_addr.s_addr = addr->address.ip.s_addr;
+
+        src_addr = ( struct sockaddr * ) &src_addr4;
+        src_addr_len = sizeof ( struct sockaddr_in );
+
+        break;
+    case AF_INET6:
+        memset ( ( char * ) &src_addr6, 0, sizeof ( src_addr6 ) );
+        src_addr6.sin6_family = AF_INET6;
+        memcpy(&(src_addr6.sin6_addr),&(addr->address.ipv6),sizeof(struct in6_addr));
+
+        src_addr = ( struct sockaddr * ) &src_addr6;
+        src_addr_len = sizeof ( struct sockaddr_in6 );
+
+        break;
+    }
+
+    if (bind(sock,src_addr,src_addr_len) != 0){
+        lispd_log_msg(LISP_LOG_WARNING, "bind_socket_src_address: %s", strerror(errno));
+        result = BAD;
+    }
+    return (result);
+}
+
+int bind_socket(
+        int sock,
+        int afi,
+        int port)
 {
     struct sockaddr_in  sock_addr_v4;
     struct sockaddr_in6 sock_addr_v6;
@@ -299,47 +340,41 @@ int send_packet (
         uint8_t *packet,
         int     packet_length )
 {
-
-    struct sockaddr     *dst_addr       = NULL;
-    int                 dst_addr_len    = 0;
-    struct sockaddr_in  dst_addr4;
-    struct sockaddr_in6 dst_addr6;
-    lisp_addr_t         pkt_src_addr;
-    lisp_addr_t         pkt_dst_addr;
-    struct iphdr        *iph            = NULL;
-    struct ip6_hdr      *ip6h           = NULL;
-    int                 nbytes          = 0;
-
+    struct sockaddr         *dst_addr       = NULL;
+    int                     dst_addr_len    = 0;
+    struct sockaddr_in      dst_addr4;
+    struct sockaddr_in6     dst_addr6;
+    lisp_addr_t             pkt_src_addr;
+    lisp_addr_t             pkt_dst_addr;
+    struct iphdr            *iph            = NULL;
+    struct ip6_hdr          *ip6h           = NULL;
+    int                     nbytes          = 0;
 
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
-
 
     iph = ( struct iphdr * ) packet;
 
     switch(iph->version){
+    case 4:
+        memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
+        dst_addr4.sin_family = AF_INET;
+        dst_addr4.sin_addr.s_addr = iph->daddr;
 
-        case 4:
+        dst_addr = ( struct sockaddr * ) &dst_addr4;
+        dst_addr_len = sizeof ( struct sockaddr_in );
 
-            memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
-            dst_addr4.sin_family = AF_INET;
-            dst_addr4.sin_addr.s_addr = iph->daddr;
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *) packet;
 
-            dst_addr = ( struct sockaddr * ) &dst_addr4;
-            dst_addr_len = sizeof ( struct sockaddr_in );
+        memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
+        dst_addr6.sin6_family = AF_INET6;
+        dst_addr6.sin6_addr = ip6h->ip6_dst;
 
-            break;
-        case 6:
+        dst_addr = ( struct sockaddr * ) &dst_addr6;
+        dst_addr_len = sizeof ( struct sockaddr_in6 );
 
-            ip6h = (struct ip6_hdr *) packet;
-            
-            memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
-            dst_addr6.sin6_family = AF_INET6;
-            dst_addr6.sin6_addr = ip6h->ip6_dst;
-            
-            dst_addr = ( struct sockaddr * ) &dst_addr6;
-            dst_addr_len = sizeof ( struct sockaddr_in6 );
-            
-            break;
+        break;
     }
 
     nbytes = sendto ( sock,
@@ -352,7 +387,6 @@ int send_packet (
     if ( nbytes != packet_length ) {
 
         switch(iph->version){
-
         case 4:
             pkt_src_addr.afi = AF_INET;
             pkt_src_addr.address.ip.s_addr = iph->saddr;
@@ -362,7 +396,6 @@ int send_packet (
 
             break;
         case 6:
-
             ip6h = (struct ip6_hdr *) packet;
 
             pkt_src_addr.afi = AF_INET6;

@@ -30,7 +30,9 @@
 
 #include "lispd_external.h"
 #include "lispd_log.h"
+#include "lispd_routing_tables_lib.h"
 #include "lispd_tun.h"
+
 
 int create_tun(
     char                *tun_dev_name,
@@ -58,7 +60,7 @@ int create_tun(
     /* open the clone device */
     if( (*tun_receive_fd = open(clonedev, O_RDWR)) < 0 ) {
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: Failed to open clone device");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     memset(&ifr, 0, sizeof(ifr));
@@ -73,7 +75,7 @@ int create_tun(
         if (errno == 16){
             lispd_log_msg(LISP_LOG_CRIT, "Check no other instance of lispd is running. Exiting ...");
         }
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     // get the ifindex for the tun/tap
@@ -82,7 +84,7 @@ int create_tun(
         close(*tun_receive_fd);
         close(tmpsocket);
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: unable to determine ifindex for tunnel interface, errno: %d.", errno);
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     } else {
         lispd_log_msg(LISP_LOG_DEBUG_3, "TUN/TAP ifindex is: %d", ifr.ifr_ifindex);
         *tun_ifindex = ifr.ifr_ifindex;
@@ -92,7 +94,7 @@ int create_tun(
         if ((err = ioctl(tmpsocket, SIOCSIFMTU, &ifr)) < 0) {
             close(tmpsocket);
             lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: unable to set interface MTU to %d, errno: %d.", tun_mtu, errno);
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         } else {
             lispd_log_msg(LISP_LOG_DEBUG_1, "TUN/TAP mtu set to %d", tun_mtu);
         }
@@ -243,264 +245,6 @@ int tun_add_eid_to_iface(
     return(GOOD);
 }
 
-
-/*
- * ifindex:     Output interface
- * dest:        Destination address
- * gw:          Gateway
- * prefix_len:  Destination address mask (/n)
- * metric:      Route metric
- *
- */
-
-
-int add_route(
-    uint32_t            ifindex,
-    lisp_addr_t         *dest,
-    lisp_addr_t         *src,
-    lisp_addr_t         *gw,
-    uint32_t            prefix_len,
-    uint32_t            metric)
-{
-    struct nlmsghdr *nlh    = NULL;
-    struct rtmsg    *rtm    = NULL;
-    struct rtattr   *rta    = NULL;
-    char   sndbuf[4096];
-    int    rta_len          = 0;
-    int    retval           = 0;
-    int    sockfd           = 0;
-    int    afi              = 0;
-    int    addr_size        = 0;
-
-    afi = dest->afi;
-    if (afi == AF_INET){
-        addr_size = sizeof(struct in_addr);
-    }
-    else{
-        addr_size = sizeof(struct in6_addr);
-    }
-
-
-    sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-
-    if (sockfd < 0) {
-        lispd_log_msg(LISP_LOG_CRIT, "Failed to connect to netlink socket for install_default_route()");
-        exit(EXIT_FAILURE);
-    }
-
-    /*
-     * Build the command
-     */
-    memset(sndbuf, 0, 4096);
-
-    nlh = (struct nlmsghdr *)sndbuf;
-    rtm = (struct rtmsg *)(sndbuf + sizeof(struct nlmsghdr));
-
-    rta_len = sizeof(struct rtmsg);
-
-    /*
-     * Add the destination
-     */
-    rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
-    rta->rta_type = RTA_DST;
-    rta->rta_len = sizeof(struct rtattr) + addr_size;
-    memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address, addr_size);
-    rta_len += rta->rta_len;
-
-    /*
-     * Add src address for the route
-     */
-    if (src != NULL){
-        rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
-        rta->rta_type = RTA_PREFSRC;
-        rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &src->address, addr_size);
-        rta_len += rta->rta_len;
-    }
-
-    /*
-     * Add the outgoing interface
-     */
-    rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
-    rta->rta_type = RTA_OIF;
-    rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t); // if_index
-    memcpy(((char *)rta) + sizeof(struct rtattr), &ifindex, sizeof(uint32_t));
-    rta_len += rta->rta_len;
-
-    /*
-     * Add the gateway
-     */
-
-    if (gw != NULL){
-        rta = (struct rtattr *) (((char *)rta) + rta->rta_len);
-        rta->rta_type = RTA_GATEWAY;
-        rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address, addr_size);
-        rta_len += rta->rta_len;
-    }
-
-
-    /* Add the route metric */
-
-    rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
-    //rta->rta_type = RTA_METRICS;
-    rta->rta_type = RTA_PRIORITY; /* This is the actual atr type to set the metric... */
-    rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t);
-    memcpy(((char *)rta) + sizeof(struct rtattr), &metric, sizeof(uint32_t));
-    rta_len += rta->rta_len;
-
-    nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
-    nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
-    nlh->nlmsg_type =  RTM_NEWROUTE;
-
-    rtm->rtm_family    = afi;
-    rtm->rtm_table     = RT_TABLE_MAIN;
-
-    rtm->rtm_protocol  = RTPROT_STATIC;
-    rtm->rtm_scope     = RT_SCOPE_UNIVERSE;
-    rtm->rtm_type      = RTN_UNICAST;
-    rtm->rtm_src_len   = 0;
-    rtm->rtm_tos       = 0;
-
-    rtm->rtm_dst_len   = prefix_len;
-
-
-    retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
-
-    if (retval < 0) {
-        lispd_log_msg(LISP_LOG_CRIT, "install_default_route: send() failed %s", strerror(errno));
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Installed default route via TUN device");
-    close(sockfd);
-    return(GOOD);
-}
-
-
-int del_route(
-    uint32_t            ifindex,
-    lisp_addr_t         *dest,
-    lisp_addr_t         *src,
-    lisp_addr_t         *gw,
-    uint32_t            prefix_len,
-    uint32_t            metric)
-{
-    struct nlmsghdr *nlh    = NULL;
-    struct rtmsg    *rtm    = NULL;
-    struct rtattr   *rta    = NULL;
-    char   sndbuf[4096];
-    int    rta_len          = 0;
-    int    retval           = 0;
-    int    sockfd           = 0;
-    int    afi              = 0;
-    int    addr_size        = 0;
-
-    afi = dest->afi;
-    if (afi == AF_INET){
-        addr_size = sizeof(struct in_addr);
-    }
-    else{
-        addr_size = sizeof(struct in6_addr);
-    }
-
-
-    sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-
-    if (sockfd < 0) {
-        lispd_log_msg(LISP_LOG_CRIT, "Failed to connect to netlink socket for delete_default_route()");
-        exit(EXIT_FAILURE);
-    }
-
-    /*
-     * Build the command
-     */
-    memset(sndbuf, 0, 4096);
-
-    nlh = (struct nlmsghdr *)sndbuf;
-    rtm = (struct rtmsg *)(sndbuf + sizeof(struct nlmsghdr));
-
-    rta_len = sizeof(struct rtmsg);
-
-    /*
-     * Add the destination
-     */
-    rta = (struct rtattr *)((char *)rtm + sizeof(struct rtmsg));
-    rta->rta_type = RTA_DST;
-    rta->rta_len = sizeof(struct rtattr) + addr_size;
-    memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address, addr_size);
-    rta_len += rta->rta_len;
-
-    /*
-     * Add src address for the route
-     */
-    if (src != NULL){
-        rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
-        rta->rta_type = RTA_PREFSRC;
-        rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &src->address, addr_size);
-        rta_len += rta->rta_len;
-    }
-
-    /*
-     * Add the outgoing interface
-     */
-    rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
-    rta->rta_type = RTA_OIF;
-    rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t); // if_index
-    memcpy(((char *)rta) + sizeof(struct rtattr), &ifindex, sizeof(uint32_t));
-    rta_len += rta->rta_len;
-
-    /*
-     * Add the gateway
-     */
-
-    if (gw != NULL){
-        rta = (struct rtattr *) (((char *)rta) + rta->rta_len);
-        rta->rta_type = RTA_GATEWAY;
-        rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address, addr_size);
-        rta_len += rta->rta_len;
-    }
-
-
-    /* Add the route metric */
-
-    rta = (struct rtattr *)(((char *)rta) + rta->rta_len);
-    //rta->rta_type = RTA_METRICS;
-    rta->rta_type = RTA_PRIORITY; /* This is the actual atr type to set the metric... */
-    rta->rta_len = sizeof(struct rtattr) + sizeof(uint32_t);
-    memcpy(((char *)rta) + sizeof(struct rtattr), &metric, sizeof(uint32_t));
-    rta_len += rta->rta_len;
-
-    nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
-    nlh->nlmsg_flags = NLM_F_REQUEST;
-    nlh->nlmsg_type =  RTM_DELROUTE;
-
-    rtm->rtm_family    = afi;
-    rtm->rtm_table     = RT_TABLE_MAIN;
-
-    rtm->rtm_protocol  = RTPROT_STATIC;
-    rtm->rtm_scope     = RT_SCOPE_UNIVERSE;
-    rtm->rtm_type      = RTN_UNICAST;
-    rtm->rtm_src_len   = 0;
-    rtm->rtm_tos       = 0;
-
-    rtm->rtm_dst_len   = prefix_len;
-
-
-    retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
-
-    if (retval < 0) {
-        lispd_log_msg(LISP_LOG_CRIT, "del_route: send() failed %s", strerror(errno));
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Removed default route via TUN device");
-    close(sockfd);
-    return(GOOD);
-}
-
 int set_tun_default_route_v4()
 {
 
@@ -526,22 +270,26 @@ int set_tun_default_route_v4()
 
     get_lisp_addr_from_char("0.0.0.0",&dest);
 
-    add_route(tun_ifindex,
+    add_route(AF_INET,
+            tun_ifindex,
             &dest,
             src,
             NULL,
             prefix_len,
-            metric);
+            metric,
+            RT_TABLE_MAIN);
 
 
     get_lisp_addr_from_char("128.0.0.0",&dest);
 
-    add_route(tun_ifindex,
+    add_route(AF_INET,
+            tun_ifindex,
             &dest,
             src,
             NULL,
             prefix_len,
-            metric);
+            metric,
+            RT_TABLE_MAIN);
     return(GOOD);
 }
 
@@ -572,21 +320,25 @@ int set_tun_default_route_v6()
 
     get_lisp_addr_from_char("::",&dest);
 
-    add_route(tun_ifindex,
+    add_route(AF_INET6,
+            tun_ifindex,
             &dest,
             src,
             NULL,
             prefix_len,
-            metric);
+            metric,
+            RT_TABLE_MAIN);
 
     get_lisp_addr_from_char("8000::",&dest);
 
-    add_route(tun_ifindex,
+    add_route(AF_INET6,
+            tun_ifindex,
             &dest,
             src,
             NULL,
             prefix_len,
-            metric);
+            metric,
+            RT_TABLE_MAIN);
 
     return(GOOD);
 }
@@ -612,21 +364,25 @@ int del_tun_default_route_v6()
 
     get_lisp_addr_from_char("::",&dest);
 
-    del_route(tun_ifindex,
+    del_route(AF_INET6,
+            tun_ifindex,
             &dest,
             src,
             NULL,
             prefix_len,
-            metric);
+            metric,
+            RT_TABLE_MAIN);
 
     get_lisp_addr_from_char("8000::",&dest);
 
-    del_route(tun_ifindex,
+    del_route(AF_INET6,
+            tun_ifindex,
             &dest,
             src,
             NULL,
             prefix_len,
-            metric);
+            metric,
+            RT_TABLE_MAIN);
 
     return(GOOD);
 }

@@ -384,9 +384,9 @@ int lispd_get_iface_address(
                             ifacename, get_char_from_lisp_addr_t(ip));
                     continue;
                 }
-                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: MN's IPv4 RLOC from interface (%s): %s \n",
-                        ifacename, 
-                        inet_ntop(AF_INET, &(s4->sin_addr), 
+                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv4 RLOC from interface (%s): %s \n",
+                        ifacename,
+                        inet_ntop(AF_INET, &(s4->sin_addr),
                             addr_str, MAX_INET_ADDRSTRLEN));
                 freeifaddrs(ifaddr);
                 return(GOOD);
@@ -408,7 +408,7 @@ int lispd_get_iface_address(
                        (void *)&(s6->sin6_addr),
                        sizeof(struct in6_addr));
                 addr->afi = AF_INET6;
-                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: MN's IPv6 RLOC from interface (%s): %s\n",
+                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));

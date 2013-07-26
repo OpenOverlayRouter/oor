@@ -490,6 +490,9 @@ typedef struct lisp_encap_control_hdr {
 } lisp_encap_control_hdr_t;
 
 
+void exit_cleanup(void);
+
+
 #endif /*LISPD_H_*/
 
 /*

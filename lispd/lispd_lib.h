@@ -53,6 +53,7 @@ int get_afi(char *str);
 
 int is_link_local_addr (lisp_addr_t addr);
 
+
 /*
  *      Copy a lisp_addr_t, converting it using convert
  *      if supplied

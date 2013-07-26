@@ -71,7 +71,7 @@ typedef struct lispd_rtr_locator_ {
 }lispd_rtr_locator;
 
 /*
- * list of locators.
+ * list of rtr locators.
  */
 typedef struct lispd_rtr_locators_list_ {
     lispd_rtr_locator               *locator;

@@ -36,12 +36,20 @@
 
 int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
 
-
-void *pkt_fill_eid(
+/*
+ * Introduce the EID information in the packet. This information is extracted from the mapping structure
+ * It returns the position to the next position of the packet
+ */
+uint8_t *pkt_fill_eid(
         void                *offset,
         lispd_mapping_elt   *mapping);
 
-void *pkt_fill_mapping_record(
+/*
+ * Introduce a record information in the packet. This information is extracted from the mapping structure
+ * It returns the position to the next position of the packet
+ */
+
+uint8_t *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
     lispd_mapping_elt                       *mapping,
     lisp_addr_t                             *probed_rloc);

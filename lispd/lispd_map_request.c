@@ -430,23 +430,23 @@ uint8_t *build_map_request_pkt(
         uint64_t                *nonce)             /* return nonce here */
 {
 
-    uint8_t                                     *packet;
-    uint8_t                                     *mr_packet;
-    lispd_pkt_map_request_t                     *mrp;
-    lispd_pkt_map_request_itr_rloc_t            *itr_rloc;
-    lispd_pkt_map_request_eid_prefix_record_t   *request_eid_record;
-    void                                        *cur_ptr;
-
+    uint8_t                                     *packet                 = NULL;
+    uint8_t                                     *mr_packet              = NULL;
+    lispd_pkt_map_request_t                     *mrp                    = NULL;
+    lispd_pkt_mapping_record_t                  *rec                    = NULL;
+    lispd_pkt_map_request_itr_rloc_t            *itr_rloc               = NULL;
+    lispd_pkt_map_request_eid_prefix_record_t   *request_eid_record     = NULL;
+    uint8_t                                     *cur_ptr                = NULL;
 
     int                     map_request_msg_len = 0;
     int                     ctr                 = 0;
     int                     cpy_len             = 0;
     int                     locators_ctr        = 0;
 
-    lispd_mapping_elt   *src_mapping            = NULL;
-    lispd_locators_list *locators_list[2];
-    lispd_locator_elt   *locator;
-    lisp_addr_t         * ih_src_ip             = NULL;
+    lispd_mapping_elt       *src_mapping        = NULL;
+    lispd_locators_list     *locators_list[2]   = {NULL,NULL};
+    lispd_locator_elt       *locator            = NULL;
+    lisp_addr_t             *ih_src_ip          = NULL;
 
     /*
      * Lookup the local EID prefix from where we generate the message.
@@ -568,9 +568,11 @@ uint8_t *build_map_request_pkt(
     request_eid_record->eid_prefix_length = requested_mapping->eid_prefix_length;
 
     cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_mapping);
+
     if (mrp->map_data_present == 1){
         /* Map-Reply Record */
-        if ((pkt_fill_mapping_record(cur_ptr, src_mapping, NULL))== NULL) {
+        rec = (lispd_pkt_mapping_record_t *)cur_ptr;
+        if ((pkt_fill_mapping_record(rec, src_mapping, NULL))== NULL) {
             lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: Couldn't buil map reply record for map request. "
                     "Map Request will not be send");
             free(packet);

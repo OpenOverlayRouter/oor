@@ -32,6 +32,7 @@
 #include "lispd_external.h"
 #include "lispd_info_request.h"
 #include "lispd_lib.h"
+#include "lispd_routing_tables_lib.h"
 #include "lispd_sockets.h"
 #include "lispd_tun.h"
 #include <string.h>
@@ -85,20 +86,47 @@ lispd_iface_elt *add_interface(char *iface_name)
 
 
     if (iface->iface_index != 0){
-        err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
-        if (err == GOOD){
-            iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
-        }else {
+        if (default_rloc_afi != AF_INET6){
+            err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
+            if (err == GOOD){
+                iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+                bind_socket_src_address(iface->out_socket_v4,iface->ipv4_address);
+                add_rule(AF_INET,
+                        0,                      //iface
+                        iface->iface_index,     //table
+                        iface->iface_index,     //priority
+                        RTN_UNICAST,
+                        iface->ipv4_address,
+                        32,NULL,0,0);
+            }else {
+                iface->ipv4_address->afi = AF_UNSPEC;
+                iface->out_socket_v4 = -1;
+            }
+        }else{
             iface->ipv4_address->afi = AF_UNSPEC;
             iface->out_socket_v4 = -1;
         }
-        err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
-        if (err == GOOD){
-            iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        if (default_rloc_afi != AF_INET){
+            err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+            if (err == GOOD){
+                iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+                bind_socket_src_address(iface->out_socket_v6,iface->ipv6_address);
+                add_rule(AF_INET6,
+                        0,                      //iface
+                        iface->iface_index,     //table
+                        iface->iface_index,     //priority
+                        RTN_UNICAST,
+                        iface->ipv6_address,
+                        128,NULL,0,0);
+            }else {
+                iface->ipv6_address->afi = AF_UNSPEC;
+                iface->out_socket_v6 = -1;
+            }
         }else {
             iface->ipv6_address->afi = AF_UNSPEC;
             iface->out_socket_v6 = -1;
         }
+
     }else{
         iface->ipv4_address->afi = AF_UNSPEC;
         iface->out_socket_v4 = -1;
@@ -113,9 +141,11 @@ lispd_iface_elt *add_interface(char *iface_name)
     }
 
     iface->head_mappings_list = NULL;
-    iface->status_changed = FALSE;
-    iface->ipv4_changed = FALSE;
-    iface->ipv6_changed = FALSE;
+    iface->status_changed = TRUE;
+    iface->ipv4_changed = TRUE;
+    iface->ipv6_changed = TRUE;
+    iface->ipv4_gateway = NULL;
+    iface->ipv6_gateway = NULL;
     iface_list->iface = iface;
     iface_list->next = NULL;
 

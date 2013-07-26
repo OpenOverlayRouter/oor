@@ -172,7 +172,7 @@ int get_mapping_length(lispd_mapping_elt *mapping)
     return ident_len;
 }
 
-void *pkt_fill_eid(
+uint8_t *pkt_fill_eid(
         void                    *offset,
         lispd_mapping_elt       *mapping)
 {
@@ -210,15 +210,16 @@ void *pkt_fill_eid(
         return NULL;
     }
 
-    return CO(eid_ptr, eid_addr_len);
+    return (CO(eid_ptr, eid_addr_len));
 }
 
 
-void *pkt_fill_mapping_record(
+uint8_t *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
     lispd_mapping_elt                       *mapping,
     lisp_addr_t                             *probed_rloc)
 {
+    uint8_t                                 *cur_ptr             = NULL;
     int                                     cpy_len             = 0;
     lispd_pkt_mapping_record_locator_t      *loc_ptr            = NULL;
     lispd_locators_list                     *locators_list[2]   = {NULL,NULL};
@@ -239,7 +240,8 @@ void *pkt_fill_mapping_record(
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-    loc_ptr = (lispd_pkt_mapping_record_locator_t *)pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+    loc_ptr = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
 
     if (loc_ptr == NULL){
         return NULL;

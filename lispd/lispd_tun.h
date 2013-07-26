@@ -115,22 +115,6 @@ int tun_add_v6_eid_to_iface(
     lisp_addr_t         eid_address_v6,
     char                *tun_dev_name);
 
-int add_route(
-    uint32_t            ifindex,
-    lisp_addr_t         *dest,
-    lisp_addr_t         *src,
-    lisp_addr_t         *gw,
-    uint32_t            prefix_len,
-    uint32_t            metric);
-
-int del_route(
-    uint32_t            ifindex,
-    lisp_addr_t         *dest,
-    lisp_addr_t         *src,
-    lisp_addr_t         *gw,
-    uint32_t            prefix_len,
-    uint32_t            metric);
-
 int set_tun_default_route_v4();
 int set_tun_default_route_v6();
 int del_tun_default_route_v6();

@@ -41,6 +41,7 @@
 #include "lispd_local_db.h"
 #include "lispd_map_register.h"
 #include "lispd_nonce.h"
+#include "lispd_smr.h"
 #include "cksum.h"
 
 
@@ -80,8 +81,6 @@ int process_info_reply_msg(
 
 	uint16_t                    *lcaf_afi               = NULL;
 
-
-
     lisp_addr_t                 global_etr_rloc         = {.afi=AF_UNSPEC};
     lisp_addr_t                 ms_rloc                 = {.afi=AF_UNSPEC};
     lisp_addr_t                 private_etr_rloc        = {.afi=AF_UNSPEC};
@@ -96,6 +95,7 @@ int process_info_reply_msg(
     lispd_rtr_locators_list     *aux_rtr_locators_list  = NULL;
 
     uint8_t                     is_behind_nat           = FALSE;
+
 
     /*
      * Get source port and address.
@@ -263,7 +263,6 @@ int process_info_reply_msg(
     }
 
     /* Once we know the NAT state we send a Map-Register */
-
     map_register(NULL,NULL);
 
     return (GOOD);

@@ -60,6 +60,7 @@ void init_smr(
     lispd_locators_list         *locator_iterator   = NULL;
     lispd_locator_elt           *locator            = NULL;
     lispd_mapping_elt           **mappings_to_smr   = NULL;
+    lispd_addr_list_t           *pitr_elt           = NULL;
     int                         mappings_ctr        = 0;
     int                         ctr=0,ctr1=0;
     int                         afi_db              = 0;
@@ -158,50 +159,29 @@ void init_smr(
                 }
             }
         }PATRICIA_WALK_END;
+        /* SMR proxy-itr */
+        pitr_elt  = proxy_itrs;
+
+        while (pitr_elt) {
+            if (build_and_send_map_request_msg(mappings_to_smr[ctr],&(mappings_to_smr[ctr]->eid_prefix),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
+                lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s/%d",
+                        get_char_from_lisp_addr_t(*(pitr_elt->address)),
+                        get_char_from_lisp_addr_t(mappings_to_smr[ctr]->eid_prefix),
+                        mappings_to_smr[ctr]->eid_prefix_length);
+            }else {
+                lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s/%d",
+                        get_char_from_lisp_addr_t(*(pitr_elt->address)),
+                        get_char_from_lisp_addr_t(mappings_to_smr[ctr]->eid_prefix),
+                        mappings_to_smr[ctr]->eid_prefix_length);
+            }
+            pitr_elt = pitr_elt->next;
+        }
 
     }
-    /* SMR proxy-itr */
-    smr_pitrs();
     free (mappings_to_smr);
     lispd_log_msg(LISP_LOG_DEBUG_2,"*** Finish SMR notification ***");
 }
 
-/*
- * Send SMR for each local EID prefix to each Proxy-ITR
- */
-void smr_pitrs()
-{
-    patricia_tree_t         *dbs [2]    = {NULL,NULL};
-    patricia_node_t         *node       = NULL;
-    lispd_mapping_elt       *mapping    = NULL;
-    lispd_addr_list_t       *pitr_elt   = NULL;
-    uint64_t                nonce       = 0;
-    int                     ctr         = 0;
-
-    dbs[0] = get_local_db(AF_INET);
-    dbs[1] = get_local_db(AF_INET6);
-
-    for (ctr = 0 ; ctr < 2 ; ctr++){
-        pitr_elt  = proxy_itrs;
-        PATRICIA_WALK(dbs[ctr]->head, node) {
-            mapping = ((lispd_mapping_elt *)(node->data));
-            while (pitr_elt) {
-                if (build_and_send_map_request_msg(mapping,&(mapping->eid_prefix),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
-                    lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s/%d",
-                            get_char_from_lisp_addr_t(*(pitr_elt->address)),
-                            get_char_from_lisp_addr_t(mapping->eid_prefix),
-                            mapping->eid_prefix_length);
-                }else {
-                    lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s/%d",
-                            get_char_from_lisp_addr_t(*(pitr_elt->address)),
-                            get_char_from_lisp_addr_t(mapping->eid_prefix),
-                            mapping->eid_prefix_length);
-                }
-                pitr_elt = pitr_elt->next;
-            }
-        } PATRICIA_WALK_END;
-    }
-}
 
 int solicit_map_request_reply(
         timer *timer,

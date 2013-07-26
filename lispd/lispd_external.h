@@ -69,6 +69,7 @@ extern  int                     timers_fd;
 extern  struct sockaddr_nl      dst_addr;
 extern  struct sockaddr_nl      src_addr;
 extern  nlsock_handle           nlh;
+extern lispd_iface_list_elt     *head_interface_list;
 extern lispd_iface_elt          *default_ctrl_iface_v4 ;
 extern lispd_iface_elt          *default_ctrl_iface_v6;
 extern lispd_iface_elt          *default_out_iface_v4;

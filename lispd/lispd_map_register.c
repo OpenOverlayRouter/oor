@@ -67,7 +67,7 @@ int map_register(
 
     if (!map_servers) {
         lispd_log_msg(LISP_LOG_CRIT, "map_register: No Map Servers conifgured!");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     if(nat_aware==TRUE){ /* NAT procedure instead of the standard one */

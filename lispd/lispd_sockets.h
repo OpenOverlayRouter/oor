@@ -51,6 +51,10 @@ int open_control_input_socket(int afi);
 
 int open_udp_socket(int afi);
 
+int bind_socket_src_address(
+        int         sock,
+        lisp_addr_t *addr);
+
 /*
  * Sends a raw packet through the specified socket
  */

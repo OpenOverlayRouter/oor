@@ -33,6 +33,7 @@
 #include "lispd_lib.h"
 #include "lispd_log.h"
 #include "lispd_mapping.h"
+#include "lispd_routing_tables_lib.h"
 #include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
@@ -43,6 +44,8 @@
 void process_nl_add_address (struct nlmsghdr *nlh);
 void process_nl_del_address (struct nlmsghdr *nlh);
 void process_nl_new_link (struct nlmsghdr *nlh);
+void process_nl_new_route (struct nlmsghdr *nlh);
+
 
 /*
  * Change the address of the interface. If the address belongs to a not initialized locator, activate it.
@@ -64,6 +67,13 @@ void process_link_status_change(
         int                 new_status);
 
 /*
+ *
+ */
+
+void process_new_gateway (
+        lisp_addr_t         gateway,
+        lispd_iface_elt     *iface );
+/*
  * Activate the locators associated with the interface using the new address
  * This function is only used when an interface is down during the initial configuration process and then is activated
  */
@@ -80,7 +90,7 @@ int opent_netlink_socket()
 
     memset(&addr, 0, sizeof(addr));
     addr.nl_family = AF_NETLINK;
-    addr.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR;
+    addr.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR | RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE;
 
 
     netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -119,16 +129,20 @@ void process_netlink_msg(int netlink_fd){
         for (;(NLMSG_OK (nlh, len)) && (nlh->nlmsg_type != NLMSG_DONE); nlh = NLMSG_NEXT(nlh, len)){
             switch(nlh->nlmsg_type){
             case RTM_NEWADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_2, "===>process_netlink_msg: Received  new address message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "=>process_netlink_msg: Received  new address message");
                 process_nl_add_address (nlh);
                 break;
             case RTM_DELADDR:
-                lispd_log_msg(LISP_LOG_DEBUG_2, "===>process_netlink_msg: Received  del address message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "=>process_netlink_msg: Received  del address message");
                 process_nl_del_address (nlh);
                 break;
             case RTM_NEWLINK:
-                lispd_log_msg(LISP_LOG_DEBUG_2, "===>process_netlink_msg: Received  link message");
+                lispd_log_msg(LISP_LOG_DEBUG_2, "=>process_netlink_msg: Received  link message");
                 process_nl_new_link (nlh);
+                break;
+            case RTM_NEWROUTE:
+                lispd_log_msg(LISP_LOG_DEBUG_2, "=>process_netlink_msg: Received  new route message");
+                process_nl_new_route (nlh);
                 break;
             default:
                 break;
@@ -199,13 +213,13 @@ void process_address_change (
 
     /* Check if the addres is a global address*/
     if (is_link_local_addr(new_addr) == TRUE){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: the extractet address from the netlink"
+        lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: the extractet address from the netlink "
                 "messages is a local link address: %s discarded", get_char_from_lisp_addr_t(new_addr));
         return;
     }
     /* If default RLOC afi defined (-a 4 or 6), only accept addresses of the specified afi */
     if (default_rloc_afi != -1 && default_rloc_afi != new_addr.afi){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: Default RLOC afi defined: Skipped %s address in iface %s",
+        lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: Default RLOC afi defined (-a #): Skipped %s address in iface %s",
                 (new_addr.afi == AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
         return;
     }
@@ -228,6 +242,39 @@ void process_address_change (
                 "doesn't affect",iface->iface_name);
         return;
     }
+
+    /*
+     * Change source routing rules for this interface and binding
+     */
+
+    if (iface_addr->afi != AF_UNSPEC){
+        del_rule(iface_addr->afi,
+                0,
+                iface->iface_index,
+                iface->iface_index,
+                RTN_UNICAST,
+                iface_addr,
+                (iface_addr->afi == AF_INET) ? 32 : 128,
+                NULL,0,0);
+    }
+    add_rule(new_addr.afi,
+            0,
+            iface->iface_index,
+            iface->iface_index,
+            RTN_UNICAST,
+            &new_addr,
+            (new_addr.afi == AF_INET) ? 32 : 128,
+            NULL,0,0);
+
+    switch (new_addr.afi){
+    case AF_INET:
+        bind_socket_src_address(iface->out_socket_v4,&new_addr);
+        break;
+    case AF_INET6:
+        bind_socket_src_address(iface->out_socket_v6,&new_addr);
+        break;
+    }
+
 
     aux_afi = iface_addr->afi;
     // Update the new address
@@ -340,8 +387,8 @@ void process_nl_del_address (struct nlmsghdr *nlh)
 
     if (iface == NULL){
         if_indextoname(iface_index, iface_name);
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_add_address: the netlink message is not for any interface associated with RLOCs (%s / %d)",
-                iface_name, iface_index);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_add_address: the netlink message is not for any interface associated with RLOCs (%s)",
+                iface_name);
         return;
     }
     rth = IFA_RTA (ifa);
@@ -388,8 +435,8 @@ void process_nl_new_link (struct nlmsghdr *nlh)
             iface = get_interface(iface_name);
         }
         if (iface == NULL){
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_new_link: the netlink message is not for any interface associated with RLOCs  (%s / %d)",
-                    iface_name,iface_index);
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_new_link: the netlink message is not for any interface associated with RLOCs  (%s)",
+                    iface_name);
             return;
         }else{
             iface->iface_index = iface_index;
@@ -410,6 +457,134 @@ void process_nl_new_link (struct nlmsghdr *nlh)
     process_link_status_change (iface, status);
 }
 
+
+void process_nl_new_route (struct nlmsghdr *nlh)
+{
+    struct rtmsg             *rtm                       = NULL;
+    struct rtattr            *rt_attr                   = NULL;
+    int                      rt_length                  = 0;
+    lispd_iface_elt          *iface                     = NULL;
+    int                      iface_index                = 0;
+    char                     iface_name[IF_NAMESIZE];
+    lisp_addr_t              gateway                    = {.afi=AF_UNSPEC};
+    lisp_addr_t              dst                        = {.afi=AF_UNSPEC};;
+
+
+    rtm = (struct rtmsg *) NLMSG_DATA (nlh);
+
+    if ((rtm->rtm_family != AF_INET) && (rtm->rtm_family != AF_INET6)) {
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_new_route: Unknown adddress family");
+        return;
+    }
+
+    if (rtm->rtm_table != RT_TABLE_MAIN) {
+        /* Not interested in routes/gateways affecting tables other the main routing table */
+        return;
+    }
+
+    rt_attr = (struct rtattr *)RTM_RTA(rtm);
+    rt_length = RTM_PAYLOAD(nlh);
+
+    for (; RTA_OK(rt_attr, rt_length); rt_attr = RTA_NEXT(rt_attr, rt_length)) {
+        switch (rt_attr->rta_type) {
+        case RTA_OIF:
+            iface_index = *(int *)RTA_DATA(rt_attr);
+            iface = get_interface_from_index(iface_index);
+            if_indextoname(iface_index, iface_name);
+            if (iface == NULL){
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_new_route: the netlink message is not for any interface associated with RLOCs (%s)",
+                        iface_name);
+                return;
+            }
+            break;
+        case RTA_GATEWAY:
+            gateway.afi = rtm->rtm_family;
+            switch (gateway.afi) {
+            case AF_INET:
+                memcpy(&(gateway.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+                break;
+            case AF_INET6:
+                memcpy(&(gateway.address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+                break;
+            default:
+                break;
+            }
+            break;
+        case RTA_DST: // We check if the new route message contains a destintaion. If it is, then the gateway address is not a default route. Discard it
+            dst.afi = rtm->rtm_family;
+            switch (dst.afi) {
+            case AF_INET:
+                memcpy(&(dst.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+                break;
+            case AF_INET6:
+                memcpy(&(dst.address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    if (gateway.afi != AF_UNSPEC && iface_index != 0 && dst.afi == AF_UNSPEC){
+        /* Check default afi*/
+        if (default_rloc_afi != -1 && default_rloc_afi != gateway.afi){
+            lispd_log_msg(LISP_LOG_DEBUG_1,  "process_nl_new_route: Default RLOC afi defined (-a #): Skipped %s gateway in iface %s",
+                    (gateway.afi == AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
+            return;
+        }
+
+        /* Check if the addres is a global address*/
+        if (is_link_local_addr(gateway) == TRUE){
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_new_route: the extractet address from the netlink "
+                    "messages is a local link address: %s discarded", get_char_from_lisp_addr_t(gateway));
+            return;
+        }
+
+        /* Process the new gateway */
+        lispd_log_msg(LISP_LOG_DEBUG_1,  "process_nl_new_route: Process new gateway associated to the interface %s:  %s",
+                iface_name, get_char_from_lisp_addr_t(gateway));
+        process_new_gateway(gateway,iface);
+    }
+}
+
+void process_new_gateway (
+        lisp_addr_t         gateway,
+        lispd_iface_elt     *iface )
+{
+    lisp_addr_t **gw_addr   = NULL;
+    int         afi         = AF_UNSPEC;
+
+
+    switch(gateway.afi){
+    case AF_INET:
+        gw_addr = &(iface->ipv4_gateway);
+        afi = AF_INET;
+        break;
+    case AF_INET6:
+        gw_addr = &(iface->ipv6_gateway);
+        afi = AF_INET6;
+        break;
+    default:
+        return;
+    }
+    if (*gw_addr == NULL){ // The default gateway of this interface is not deffined yet
+        if ((*gw_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t))) == NULL){
+            lispd_log_msg(LISP_LOG_WARNING,"process_new_gateway: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+            return;
+        }
+        if ((copy_lisp_addr_t(*gw_addr,&gateway,FALSE)) != GOOD){
+            free (*gw_addr);
+            *gw_addr = NULL;
+            return;
+        }
+    }else{
+        copy_lisp_addr(*gw_addr,&gateway);
+    }
+
+    add_route(afi,iface->iface_index,NULL,NULL,*gw_addr,0,100,iface->iface_index);
+}
 
 /*
  * Change the satus of the interface. Recalculate default control and output interfaces if it's needed.
@@ -485,9 +660,11 @@ void activate_interface_address(
     switch(new_address.afi){
     case AF_INET:
         iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+        bind_socket_src_address(iface->out_socket_v4, &new_address);
         break;
     case AF_INET6:
         iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+        bind_socket_src_address(iface->out_socket_v6, &new_address);
         break;
     }
 

@@ -67,7 +67,7 @@ void db_init(void)
 
     if (!EIDv4_database || !EIDv6_database) {
         lispd_log_msg(LISP_LOG_CRIT, "db_init: Unable to allocate memory for database");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     };
 }
 
