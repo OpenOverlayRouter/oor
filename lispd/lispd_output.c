@@ -397,7 +397,8 @@ int forward_to_natt_rtr(
     rtr_locators_list = extended_info->rtr_locators_list;
     if (rtr_locators_list == NULL){
         //Could be due to RTR discarded by source afi type
-        lispd_log_msg(LISP_LOG_DEBUG_2,"forward_to_natt_rtr: No RTR for the selected src locator.");
+        lispd_log_msg(LISP_LOG_DEBUG_2,"forward_to_natt_rtr: No RTR for the selected src locator (%s).",
+                get_char_from_lisp_addr_t(*(src_locator->locator_addr)));
         return (BAD);
     }
     src_addr = src_locator->locator_addr;

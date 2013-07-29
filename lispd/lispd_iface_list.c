@@ -106,23 +106,29 @@ lispd_iface_elt *add_interface(char *iface_name)
             iface->ipv4_address->afi = AF_UNSPEC;
             iface->out_socket_v4 = -1;
         }
-        if (default_rloc_afi != AF_INET){
-            err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
-            if (err == GOOD){
-                iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
-                bind_socket_src_address(iface->out_socket_v6,iface->ipv6_address);
-                add_rule(AF_INET6,
-                        0,                      //iface
-                        iface->iface_index,     //table
-                        iface->iface_index,     //priority
-                        RTN_UNICAST,
-                        iface->ipv6_address,
-                        128,NULL,0,0);
+        // XXX To be modified when full NAT implemented
+        if (nat_aware != TRUE){
+            if (default_rloc_afi != AF_INET){
+                err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+                if (err == GOOD){
+                    iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+                    bind_socket_src_address(iface->out_socket_v6,iface->ipv6_address);
+                    add_rule(AF_INET6,
+                            0,                      //iface
+                            iface->iface_index,     //table
+                            iface->iface_index,     //priority
+                            RTN_UNICAST,
+                            iface->ipv6_address,
+                            128,NULL,0,0);
+                }else {
+                    iface->ipv6_address->afi = AF_UNSPEC;
+                    iface->out_socket_v6 = -1;
+                }
             }else {
                 iface->ipv6_address->afi = AF_UNSPEC;
                 iface->out_socket_v6 = -1;
             }
-        }else {
+        }else{
             iface->ipv6_address->afi = AF_UNSPEC;
             iface->out_socket_v6 = -1;
         }
