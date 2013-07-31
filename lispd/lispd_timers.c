@@ -112,6 +112,8 @@ timer *create_timer(char *name)
     timer *new_timer = malloc(sizeof(timer));
     memset(new_timer, 0, sizeof(timer));
     strncpy(new_timer->name, name, 64);
+    new_timer->links.prev = NULL;
+    new_timer->links.next = NULL;
     return(new_timer);
 }
 
@@ -280,7 +282,8 @@ void handle_timers(void)
             callback = tptr->cb;
             (*callback)(tptr, tptr->cb_argument);
         }
-        tptr = (timer *)next;
+        // We can not use directly "next" as it could be released  in the callback function  previously to be used
+        tptr = (timer *)(prev->next);
     }
 }
 
