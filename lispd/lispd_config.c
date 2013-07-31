@@ -915,7 +915,7 @@ int add_database_mapping(
     if (priority_v4 >= 0){
         if ((err = add_mapping_to_interface (interface, mapping, AF_INET)) == GOOD){
 
-            locator = new_local_locator (interface->ipv4_address,&(interface->status),priority_v4,weight_v4,255,0,interface->out_socket_v4);
+            locator = new_local_locator (interface->ipv4_address,&(interface->status),priority_v4,weight_v4,255,0,&(interface->out_socket_v4));
 
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
@@ -931,7 +931,7 @@ int add_database_mapping(
     /* Assign the mapping to the v6 mappings of the interface. Create IPv6 locator and assign to the mapping  */
     if (priority_v6 >= 0){
         if ((err = add_mapping_to_interface (interface, mapping, AF_INET6)) == GOOD){
-            locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,interface->out_socket_v6);
+            locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,&(interface->out_socket_v6));
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
                     return (BAD);

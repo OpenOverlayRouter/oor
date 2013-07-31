@@ -240,6 +240,16 @@ void process_address_change (
     if (compare_lisp_addr_t(iface_addr,&new_addr)==0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: The detected change of address for interface %s "
                 "doesn't affect",iface->iface_name);
+        /* We must rebind the socket just in case the address is from a virtual interface who has changed its interafce number */
+        switch (new_addr.afi){
+        case AF_INET:
+            bind_socket_src_address(iface->out_socket_v4,&new_addr);
+            break;
+        case AF_INET6:
+            bind_socket_src_address(iface->out_socket_v6,&new_addr);
+            break;
+        }
+
         return;
     }
 
@@ -419,6 +429,7 @@ void process_nl_new_link (struct nlmsghdr *nlh)
     int                                 iface_index     = 0;
     uint8_t                             status          = UP;
     char                                iface_name[IF_NAMESIZE];
+    uint32_t                            old_iface_index = 0;
 
     ifi = (struct ifinfomsg *) NLMSG_DATA (nlh);
     iface_index = ifi->ifi_index;
@@ -439,9 +450,25 @@ void process_nl_new_link (struct nlmsghdr *nlh)
                     iface_name);
             return;
         }else{
+            old_iface_index = iface->iface_index;
             iface->iface_index = iface_index;
-            lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_new_link: The new index of the interface %s is: %d",
+            lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_new_link: The new index of the interface %s is: %d. Updating tables",
                     iface_name, iface->iface_index);
+            /* Update routing tables and reopen sockets*/
+            if (iface->ipv4_address->afi != AF_UNSPEC){
+                del_rule(AF_INET,0,old_iface_index,old_iface_index,RTN_UNICAST,iface->ipv4_address,32,NULL,0,0);
+                add_rule(AF_INET,0,iface_index,iface_index,RTN_UNICAST,iface->ipv4_address,32,NULL,0,0);
+                close(iface->out_socket_v4);
+                iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+                bind_socket_src_address(iface->out_socket_v4,iface->ipv4_address);
+            }
+            if (iface->ipv6_address->afi != AF_UNSPEC){
+                del_rule(AF_INET6,0,old_iface_index,old_iface_index,RTN_UNICAST,iface->ipv6_address,128,NULL,0,0);
+                add_rule(AF_INET6,0,iface_index,iface_index,RTN_UNICAST,iface->ipv6_address,128,NULL,0,0);
+                close(iface->out_socket_v6);
+                iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+                bind_socket_src_address(iface->out_socket_v6,iface->ipv6_address);
+            }
         }
     }
 
@@ -684,12 +711,10 @@ void activate_interface_address(
             switch(new_address.afi){
             case AF_INET:
                 mapping_list->use_ipv4_address = TRUE;
-                ((lcl_locator_extended_info *)locator->extended_info)->out_socket = iface->out_socket_v4;
                 locators_list = &mapping->head_v4_locators_list;
                 break;
             case AF_INET6:
                 mapping_list->use_ipv6_address = TRUE;
-                ((lcl_locator_extended_info *)locator->extended_info)->out_socket = iface->out_socket_v6;
                 locators_list = &mapping->head_v6_locators_list;
                 break;
             }

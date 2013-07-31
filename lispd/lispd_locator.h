@@ -80,7 +80,7 @@ typedef struct lispd_rtr_locators_list_ {
 
 
 typedef struct lcl_locator_extended_info_ {
-    int                         out_socket;
+    int                         *out_socket;
     lispd_rtr_locators_list     *rtr_locators_list;
 }lcl_locator_extended_info;
 
@@ -106,7 +106,7 @@ lispd_locator_elt   *new_local_locator (
         uint8_t                     weight,
         uint8_t                     mpriority,
         uint8_t                     mweight,
-        int                         out_socket);
+        int                         *out_socket);
 
 /*
  * Generets a locator element. For the remote locators, we have to reserve memory for address and state.

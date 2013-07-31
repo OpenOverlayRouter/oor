@@ -415,10 +415,9 @@ int process_map_reply_probe_record(
      * Reprogramming timers of rloc probing
      */
     rmt_locator_ext_inf = (rmt_locator_extended_info *)(locator->extended_info);
-    if (!rmt_locator_ext_inf->probe_timer){
-        // It should never enter in this block except RLOC Probing not active and receive a Map Reply Probe.
-        rmt_locator_ext_inf->probe_timer = create_timer (RLOC_PROBING_TIMER);
-        rmt_locator_ext_inf->probe_timer->cb_argument = (void *)new_timer_rloc_probe_argument(cache_entry,locator);;
+    if (rmt_locator_ext_inf->probe_timer == NULL){
+       lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The received Map-Reply Probe was not requested");
+       return (BAD);
     }
 
     start_timer(rmt_locator_ext_inf->probe_timer, rloc_probe_interval, (timer_callback)rloc_probing,rmt_locator_ext_inf->probe_timer->cb_argument);

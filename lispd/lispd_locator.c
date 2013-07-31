@@ -34,7 +34,7 @@
 #include "lispd_log.h"
 
 
-inline lcl_locator_extended_info *new_lcl_locator_extended_info(int out_socket);
+inline lcl_locator_extended_info *new_lcl_locator_extended_info(int *out_socket);
 inline rmt_locator_extended_info *new_rmt_locator_extended_info();
 inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info);
 inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info);
@@ -50,7 +50,7 @@ lispd_locator_elt   *new_local_locator (
         uint8_t                     weight,
         uint8_t                     mpriority,
         uint8_t                     mweight,
-        int                         out_socket)
+        int                         *out_socket)
 {
     lispd_locator_elt       *locator                = NULL;
 
@@ -199,7 +199,7 @@ lispd_locator_elt   *new_static_rmt_locator (
     return (locator);
 }
 
-inline lcl_locator_extended_info *new_lcl_locator_extended_info(int out_socket)
+inline lcl_locator_extended_info *new_lcl_locator_extended_info(int *out_socket)
 {
     lcl_locator_extended_info *lcl_loc_ext_inf;
     if ((lcl_loc_ext_inf = (lcl_locator_extended_info *)malloc(sizeof(lcl_locator_extended_info))) == NULL) {

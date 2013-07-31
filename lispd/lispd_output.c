@@ -366,7 +366,7 @@ int fordward_to_petr(
         return (BAD);
     }
 
-    output_socket = ((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket;
+    output_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
 
     if (send_packet (output_socket,encap_packet,encap_packet_size ) != GOOD){
         free (encap_packet );
@@ -389,6 +389,7 @@ int forward_to_natt_rtr(
     int                         encap_packet_size   = 0;
     lcl_locator_extended_info   *extended_info      = NULL;
     lispd_rtr_locators_list     *rtr_locators_list  = NULL;
+    int                         output_socket       = 0;
     
     lisp_addr_t                 *src_addr;
     lisp_addr_t                 *dst_addr;
@@ -418,7 +419,8 @@ int forward_to_natt_rtr(
         return (BAD);
     }
 
-    if (send_packet (extended_info->out_socket,encap_packet,encap_packet_size ) != GOOD){
+    output_socket = *(extended_info->out_socket);
+    if (send_packet (output_socket,encap_packet,encap_packet_size ) != GOOD){
         free (encap_packet );
         return (BAD);
     }
@@ -760,6 +762,7 @@ int lisp_output (
     lisp_addr_t                 *src_addr           = NULL;
     lisp_addr_t                 *dst_addr           = NULL;
     lcl_locator_extended_info   *loc_extended_info  = NULL;
+    int                         output_socket       = 0;
     packet_tuple                tuple;
 
     //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
@@ -867,7 +870,8 @@ int lisp_output (
             &encap_packet,
             &encap_packet_size);
 
-    send_packet (((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket,encap_packet,encap_packet_size);
+    output_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
+    send_packet (output_socket,encap_packet,encap_packet_size);
 
     free (encap_packet);
 
