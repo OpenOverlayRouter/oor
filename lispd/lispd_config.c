@@ -216,9 +216,6 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     uci_foreach_element(&pck->sections, e) {
         uci_debug = 0;
         uci_retries = 0;
-        uci_rloc_probe_int = 0;
-        uci_rloc_probe_retries = 0;
-        uci_rloc_probe_retries_interval = 0;
 
         uci_address = NULL;
         uci_key_type = 0;
@@ -267,11 +264,9 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         }
 
         if (strcmp(s->type, "rloc-probing") == 0){
-
             uci_rloc_probe_int = strtol(uci_lookup_option_string(ctx, s, "rloc_probe_interval"),NULL,10);
             uci_rloc_probe_retries = strtol(uci_lookup_option_string(ctx, s, "rloc_probe_retries"),NULL,10);
             uci_rloc_probe_retries_interval = strtol(uci_lookup_option_string(ctx, s, "rloc_probe_retries_interval"),NULL,10);
-
             continue;
         }
 

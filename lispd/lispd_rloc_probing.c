@@ -54,8 +54,6 @@ int rloc_probing(
     nonces_list                 *nonces             = NULL;
     uint8_t                     have_control_iface  = FALSE;
 
-
-
     if (rloc_probe_interval == 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No RLOC Probing for %s/%d cache entry. RLOC Probing dissabled",
                 get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
@@ -169,7 +167,6 @@ void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
     timer_rloc_probe_argument   *timer_arg          = NULL;
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     int                         ctr                 = 0;
-
 
     locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
     locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
