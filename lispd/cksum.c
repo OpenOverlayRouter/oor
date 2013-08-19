@@ -284,7 +284,7 @@ int check_sha1_hmac(char *key,
 
     auth_data_copy = (uint8_t *) malloc(auth_data_len*sizeof(uint8_t));
     if (auth_data_copy == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG, "check_sha1_hmac: malloc failed");
+        lispd_log_msg(LISP_LOG_ERR, "check_sha1_hmac: malloc() failed");
         return(BAD);
     }
 
@@ -300,6 +300,7 @@ int check_sha1_hmac(char *key,
               (uchar *) auth_data_pos,
               &md_len)) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "SHA1 HMAC failed");
+        free(auth_data_copy);
         return(BAD);
     }
     if ((strncmp((char *)auth_data_pos, (char *)auth_data_copy, (size_t)auth_data_len)) == 0)
