@@ -275,7 +275,7 @@ int check_sha1_hmac(char *key,
                     int pckt_len,
                     void *auth_data_pos)
 {
-	uint16_t auth_data_len;
+    uint16_t auth_data_len;
     unsigned int md_len;    /* Length of the HMAC output.  */
 
     uint8_t* auth_data_copy;
@@ -283,6 +283,10 @@ int check_sha1_hmac(char *key,
     auth_data_len = get_auth_data_len(HMAC_SHA_1_96);
 
     auth_data_copy = (uint8_t *) malloc(auth_data_len*sizeof(uint8_t));
+    if (auth_data_copy == NULL) {
+        lispd_log_msg(LISP_LOG_DEBUG, "check_sha1_hmac: malloc failed");
+        return(BAD);
+    }
 
     /* Copy the data to another location and put 0's on the auth data field of the packet */
     memcpy(auth_data_copy,auth_data_pos,auth_data_len);
