@@ -303,10 +303,13 @@ int check_sha1_hmac(char *key,
         free(auth_data_copy);
         return(BAD);
     }
-    if ((strncmp((char *)auth_data_pos, (char *)auth_data_copy, (size_t)auth_data_len)) == 0)
+    if ((strncmp((char *)auth_data_pos, (char *)auth_data_copy, (size_t)auth_data_len)) == 0) {
+        free(auth_data_copy);
         return(GOOD);
-    else
+    } else {
+        free(auth_data_copy);
         return(BAD);
+    }
 }
 
 int check_auth_field(int key_id,
