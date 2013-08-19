@@ -534,6 +534,7 @@ uint32_t get_hash_from_tuple (packet_tuple tuple)
         len = 4; // 1 integer src_addr + 1 integer dst_adr + 1 integer (ports) + 1 integer protocol
         if ((tuples = (uint32_t *)malloc(sizeof(uint32_t)*(4))) == NULL ){
             lispd_log_msg(LISP_LOG_WARNING,"get_hash_from_tuple: Couldn't allocate memory for tuples array: %s", strerror(errno));
+            return (0);
         }
         tuples[0] = tuple.src_addr.address.ip.s_addr;
         tuples[1] = tuple.dst_addr.address.ip.s_addr;
@@ -544,6 +545,7 @@ uint32_t get_hash_from_tuple (packet_tuple tuple)
         len = 10; // 4 integer src_addr + 4 integer dst_adr + 1 integer (ports) + 1 integer protocol
         if ((tuples = (uint32_t *)malloc(sizeof(uint32_t)*(10))) == NULL ){
             lispd_log_msg(LISP_LOG_WARNING,"get_hash_from_tuple: Couldn't allocate memory for tuples array: %s", strerror(errno));
+            return (0);
         }
         memcpy(&tuples[0],&(tuple.src_addr.address.ipv6),sizeof(struct in6_addr));
         memcpy(&tuples[4],&(tuple.dst_addr.address.ipv6),sizeof(struct in6_addr));
