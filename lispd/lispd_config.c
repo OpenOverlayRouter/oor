@@ -1203,7 +1203,6 @@ int add_proxy_etr_entry(
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){
-            free (locator);
             return (BAD);
         }
     }else{
