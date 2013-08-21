@@ -109,12 +109,12 @@ int open_raw_input_socket(int afi){
         SO_REUSEADDR,
         &tr,
         sizeof(int)) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
-    
-    return(BAD);
+            lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+            close(sock);
+            return(BAD);
         }
         
-        return sock;
+        return (sock);
 }
 
 
