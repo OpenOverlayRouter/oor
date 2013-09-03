@@ -325,6 +325,7 @@ int open_data_input_socket(int afi){
             break;
             
         default:
+            close(sock);
             return(BAD);
     }
     
