@@ -624,6 +624,32 @@ void iface_balancing_vectors_calc(lispd_iface_elt  *iface)
 }
 
 /*
+ * Close all the open output sockets associated to interfaces
+ */
+
+void close_output_sockets()
+{
+    lispd_iface_list_elt    *interface_list_elt = NULL;
+    lispd_iface_elt         *iface              = NULL;
+
+    interface_list_elt = head_interface_list;
+    while (interface_list_elt != NULL){
+        iface = interface_list_elt->iface;
+        if (iface->out_socket_v4 != -1){
+            close (iface->out_socket_v4);
+        }
+        if (iface->out_socket_v6 != -1){
+            close (iface->out_socket_v6);
+        }
+
+        interface_list_elt = interface_list_elt->next;
+    }
+
+    return;
+}
+
+
+/*
  * Editor modelines
  *
  * vi: set shiftwidth=4 tabstop=4 expandtab:

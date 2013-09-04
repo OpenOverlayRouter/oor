@@ -161,4 +161,10 @@ lispd_iface_list_elt *get_head_interface_list();
 
 void iface_balancing_vectors_calc(lispd_iface_elt  *iface);
 
+/*
+ * Close all the open output sockets associated to interfaces
+ */
+
+void close_output_sockets();
+
 #endif /*LISPD_IFACE_LIST_H_*/
