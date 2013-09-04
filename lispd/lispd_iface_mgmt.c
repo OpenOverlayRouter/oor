@@ -211,6 +211,11 @@ void process_address_change (
     lispd_iface_mappings_list   *mapping_list       = NULL;
     int                         aux_afi             = 0;
 
+    // XXX To be modified when full NAT implemented --> When Nat Aware active no IPv6 RLOCs supported
+    if (nat_aware == TRUE && new_addr.afi == AF_INET6){
+        return;
+    }
+
     /* Check if the addres is a global address*/
     if (is_link_local_addr(new_addr) == TRUE){
         lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: the extractet address from the netlink "
