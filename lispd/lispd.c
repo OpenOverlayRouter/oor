@@ -481,16 +481,15 @@ void signal_handler(int sig) {
  */
 
 void exit_cleanup(void) {
+    /* Remove source routing tables */
+    remove_created_rules();
     /* Close timer file descriptors */
     close(timers_fd);
-
     /* Close receive sockets */
     close(tun_receive_fd);
     close(ipv4_data_input_fd);
     close(ipv4_control_input_fd);
 
-    /* Remove source routing tables */
-    remove_created_rules();
     lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
 
     exit(EXIT_SUCCESS);

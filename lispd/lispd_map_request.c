@@ -680,9 +680,10 @@ int send_map_request_miss(timer *t, void *arg)
             map_cache_entry->request_retry_timer = create_timer (MAP_REQUEST_RETRY_TIMER);
         }
 
-        if (nonces->retransmits > 1){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request for EID: %s",
-                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix));
+        if (nonces->retransmits > 0){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request for EID: %s (%d retries)",
+                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                    nonces->retransmits);
         }
 
         /* Get the RLOC of the Map Resolver to be used */

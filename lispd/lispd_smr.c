@@ -86,7 +86,6 @@ void init_smr(
         if ( (iface_list->iface->status_changed == TRUE) ||
                 (iface_list->iface->ipv4_changed == TRUE) ||
                 (iface_list->iface->ipv6_changed == TRUE)){
-
             mappings_list = iface_list->iface->head_mappings_list;
             while(mappings_list != NULL && mappings_ctr<total_mappings){
                 if (iface_list->iface->status_changed == TRUE ||
@@ -143,8 +142,10 @@ void init_smr(
             locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
             locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
             for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For echa IPv4 and IPv6 locator*/
+
                 if (map_cache_entry->active && locators_lists[ctr1] != NULL){
                     locator_iterator = locators_lists[ctr1];
+
                     while (locator_iterator){
                         locator = locator_iterator->locator;
                         if (build_and_send_map_request_msg(map_cache_entry->mapping,&(mappings_to_smr[ctr]->eid_prefix),locator->locator_addr,0,0,1,0,&nonce)==GOOD){
@@ -198,6 +199,11 @@ int solicit_map_request_reply(
         }
     }
     if (map_cache_entry->nonces->retransmits - 1 < LISPD_MAX_SMR_RETRANSMIT ){
+        if (map_cache_entry->nonces->retransmits > 0){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request SMR Invoked for EID: %s (%d retries)",
+                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                    map_cache_entry->nonces->retransmits);
+        }
         dst_rloc = get_map_resolver();
         if(dst_rloc == NULL ||(build_and_send_map_request_msg(
                 map_cache_entry->mapping,

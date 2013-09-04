@@ -109,10 +109,11 @@ int rloc_probing(
 
     if (nonces->retransmits - 1 < rloc_probe_retries ){
         if (nonces->retransmits > 0){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map-Request Probe for locator %s and EID: %s/%d",
+            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map-Request Probe for locator %s and EID: %s/%d (%d retries)",
                     get_char_from_lisp_addr_t(*(locator->locator_addr)),
                     get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    mapping->eid_prefix_length);
+                    mapping->eid_prefix_length,
+                    nonces->retransmits);
         }
 
         err = build_and_send_map_request_msg(mapping,NULL,locator->locator_addr, 0, 1, 0, 0,
