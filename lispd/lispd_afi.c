@@ -219,7 +219,7 @@ int extract_nat_lcaf_data(
             *rtr_list = rtr_locator_list;
         }
 
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Added RTR with RLOG %s to the list of RTRs",
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Added RTR with RLOC %s to the list of RTRs",
                 get_char_from_lisp_addr_t(rtr_locator->address));
 
         cumulative_add_length += get_addr_len(rtr_locator->address.afi) + FIELD_AFI_LEN;
