@@ -588,10 +588,13 @@ int select_src_locators_from_balancing_locators_vec (
         src_loc_vec = src_blv->v4_balancing_locators_vec;
         src_vec_len = src_blv->v4_locators_vec_length;
     }
-
+    if (src_vec_len == 0){
+        lispd_log_msg(LISP_LOG_DEBUG_3,"select_src_locators_from_balancing_locators_vec: No source locators availables to send packet");
+        return(BAD);
+    }
     hash = get_hash_from_tuple (tuple);
     if (hash == 0){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"get_rloc_from_tuple: Couldn't get the hash of the tuple to select the rloc. Using the default rloc");
+        lispd_log_msg(LISP_LOG_DEBUG_1,"select_src_locators_from_balancing_locators_vec: Couldn't get the hash of the tuple to select the rloc. Using the default rloc");
     }
     pos = hash%src_vec_len; // if hash = 0 then pos = 0
     *src_locator =  src_loc_vec[pos];
@@ -793,7 +796,9 @@ int lisp_output (
 
     /* If we are behind a full nat system, send the message directly to the RTR */
     if ((nat_aware == TRUE)&&(nat_status == FULL_NAT)){
-        select_src_locators_from_balancing_locators_vec (src_mapping,tuple,&outer_src_locator);
+        if (select_src_locators_from_balancing_locators_vec (src_mapping,tuple,&outer_src_locator) != GOOD){
+            return (BAD);
+        }
         return (forward_to_natt_rtr(original_packet, original_packet_length, outer_src_locator));
     }
 
