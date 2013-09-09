@@ -179,6 +179,7 @@ int encapsulated_map_register_process()
                             if ((((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list) != NULL){
                                 break;
                             }
+                            locator = NULL;
                             locators_list[ctr1] = locators_list[ctr1]->next;
                         }
                         if (locator != NULL){
@@ -186,7 +187,7 @@ int encapsulated_map_register_process()
                         }
                     }
                     /* If found a locator behind NAT, send Encapsulated Map Register */
-                    if (locator != NULL){
+                    if (locator != NULL && default_ctrl_iface_v4 != NULL){
                         nat_rtr = &(((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list->locator->address);
                         /* ECM map register only sent to the first Map Server */
                         err = build_and_send_ecm_map_register(mapping,
@@ -201,7 +202,11 @@ int encapsulated_map_register_process()
                         }
                         nat_emr_nonce->retransmits++;
                     }else{
-                        lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No RTR found");
+                        if (locator == NULL){
+                            lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No RTR found");
+                        }else{
+                            lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No output interface found");
+                        }
                     }
                     next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
                 }
@@ -477,6 +482,13 @@ int build_and_send_ecm_map_register(
 
 
     /* Get Src Iface information */
+
+    if (src_iface == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_ecm_map_register: Couden't send Encapsulated Map Register to %s, no output interface with afi %d.",
+                get_char_from_lisp_addr_t(*(map_server->address)),
+                map_server->address->afi);
+        return (BAD);
+    }
 
     switch (nat_rtr_addr->afi){
     case AF_INET:
