@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lispmob
-PKG_REV:=fd6e1de1939d45073a6c6a1688a7934a7c8d44a9
+PKG_REV:=8ebe5ee4b39bd9ca47b1d4d005a292c031c05bd8
 PKG_VERSION:=0.3
 PKG_RELEASE:=3
 
