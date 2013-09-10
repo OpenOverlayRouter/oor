@@ -34,6 +34,7 @@
 #define LISPD_LIB_H_
 
 #include "lispd.h"
+#include "lispd_locator.h"
 
 
 /*
@@ -51,6 +52,7 @@ int get_afi(char *str);
  */
 
 int is_link_local_addr (lisp_addr_t addr);
+
 
 /*
  *      Copy a lisp_addr_t, converting it using convert
@@ -102,6 +104,12 @@ uint16_t get_lisp_afi(int afi, int *len);
 int lisp2inetafi(uint16_t afi);
 
 /*
+ *      Map from Internet INET AFI -> LISP AFI
+ */
+
+int inet2lispafi(int afi);
+
+/*
  *      given afi, get the IP header length
  */
 
@@ -124,13 +132,6 @@ int get_prefix_len(int afi);
  */
 
 lisp_addr_t *get_map_resolver();
-
-struct udphdr *build_ip_header(
-        void                  *cur_ptr,
-        lisp_addr_t           *src_addr,
-        lisp_addr_t           *dst_addr,
-        int                   ip_len);
-
 
 /*
  * Return lisp_addr_t in a char format;
@@ -201,6 +202,14 @@ inline void memcopy_lisp_addr_V6(void *dest,
 
 void memcopy_lisp_addr(void *dest,
                        lisp_addr_t *orig);
+
+int extract_lisp_address(
+        uint8_t         *ptr,
+        lisp_addr_t     *addr);
+
+void free_lisp_addr_list(lispd_addr_list_t * list);
+
+int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
 
 
 #endif /*LISPD_LIB_H_*/

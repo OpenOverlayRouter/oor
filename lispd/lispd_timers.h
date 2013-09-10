@@ -22,6 +22,7 @@
 #define RLOC_PROBING_TIMER      "RLOC_PROBING_TIMER"
 #define SMR_TIMER               "SMR_TIMER"
 #define SMR_INV_RETRY_TIMER     "SMR_INV_RETRY_TIMER"
+#define INFO_REPLY_TTL_TIMER    "INFO_REPLY_TTL_TIMER"
 
 typedef struct _timer_links {
     struct _timer_links *prev;

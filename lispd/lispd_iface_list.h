@@ -59,6 +59,8 @@ typedef struct lispd_iface_elt_ {
     uint8_t                     status;
     lisp_addr_t                 *ipv4_address;
     lisp_addr_t                 *ipv6_address;
+    lisp_addr_t                 *ipv4_gateway;
+    lisp_addr_t                 *ipv6_gateway;
     /* List of mappings that have a locator associated with this interface. Used to do SMR  when interface changes*/
     lispd_iface_mappings_list   *head_mappings_list;
     uint8_t                     status_changed:1;
@@ -103,6 +105,12 @@ lispd_iface_elt *get_interface(char *iface_name);
 lispd_iface_elt *get_interface_from_index(int iface_index);
 
 /*
+ * Return the interface belonging the address passed as a parameter
+ */
+
+lispd_iface_elt *get_interface_with_address(lisp_addr_t *address);
+
+/*
  * Add the mapping to the list of mappings of the interface according to the afi.
  * The mapping is added just one time
  */
@@ -120,9 +128,13 @@ void dump_iface_list(int log_level);
 
 void open_iface_binded_sockets();
 
-lispd_iface_elt *get_any_output_iface();
+lispd_iface_elt *get_any_output_iface(int afi);
 
 lispd_iface_elt *get_default_ctrl_iface(int afi);
+
+lisp_addr_t *get_default_ctrl_address(int afi);
+
+int get_default_ctrl_socket(int afi);
 
 int get_default_output_socket(int afi);
 
@@ -135,6 +147,8 @@ void set_default_ctrl_ifaces();
 
 lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi);
 
+int get_iface_socket(lispd_iface_elt *iface, int afi);
+
 /*
  * Return the list of interfaces
  */
@@ -146,5 +160,11 @@ lispd_iface_list_elt *get_head_interface_list();
  */
 
 void iface_balancing_vectors_calc(lispd_iface_elt  *iface);
+
+/*
+ * Close all the open output sockets associated to interfaces
+ */
+
+void close_output_sockets();
 
 #endif /*LISPD_IFACE_LIST_H_*/

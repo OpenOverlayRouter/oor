@@ -35,8 +35,9 @@
 #include "lispd_map_cache_db.h"
 
 
-
-
+/*
+ * Creates a map cache entry structure without adding it to the data base
+ */
 lispd_map_cache_entry *new_map_cache_entry_no_db (
         lisp_addr_t     eid_prefix,
         int             eid_prefix_length,
@@ -58,7 +59,6 @@ lispd_map_cache_entry *new_map_cache_entry_no_db (
     }
 
     map_cache_entry->active_witin_period = FALSE;
-    map_cache_entry->probe_left = 0;
     map_cache_entry->how_learned = how_learned;
     map_cache_entry->ttl = ttl;
     if (how_learned == DYNAMIC_MAP_CACHE_ENTRY){
@@ -68,7 +68,6 @@ lispd_map_cache_entry *new_map_cache_entry_no_db (
         map_cache_entry->active = ACTIVE;
     }
     map_cache_entry->expiry_cache_timer = NULL;
-    map_cache_entry->probe_timer = NULL;
     map_cache_entry->smr_inv_timer = NULL;
     map_cache_entry->request_retry_timer = NULL;
     map_cache_entry->nonces = NULL;
@@ -112,21 +111,21 @@ void free_map_cache_entry(lispd_map_cache_entry *entry)
      * Free the entry
      */
     if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
-        if (entry->expiry_cache_timer){
+        if (entry->expiry_cache_timer != NULL){
             stop_timer(entry->expiry_cache_timer);
+            entry->expiry_cache_timer = NULL;
         }
-        if (entry->request_retry_timer){
+        if (entry->request_retry_timer != NULL){
             stop_timer(entry->request_retry_timer);
+            entry->request_retry_timer = NULL;
         }
-        if (entry->smr_inv_timer){
+        if (entry->smr_inv_timer != NULL){
             stop_timer(entry->smr_inv_timer);
+            entry->smr_inv_timer = NULL;
         }
     }
 
-    if (entry->probe_timer){
-        stop_timer(entry->probe_timer);
-    }
-    if (entry->nonces){
+    if (entry->nonces != NULL){
         free(entry->nonces);
     }
     free(entry);

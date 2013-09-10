@@ -9,7 +9,7 @@ RLOCs are syntactically indistinguishable from current IPv4 and IPv6 addresses,
 enabling backwards compatibility with the existing Internet architecture. A
 distributed database, the mapping system, is responsible for maintaining the
 associations between EIDs and RLOCs. LISP Mobile Node (LISP-MN) is a
-specification to enable fast host mobility using LISP.  
+specification to enable fast host mobility using LISP.
 
 The LISPmob project aims to deliver a full implementation of both LISP and
 LISP-MN for Linux-like systems, but parts of the implementation may be reusable
@@ -19,12 +19,14 @@ Please note that version 0.3 introduced major changes in the code architecture
 Most features present in previous version have been ported to 0.3, but not
 all yet. See section "Version 0.3" below for more details. If you are interested
 in a specific function not yet implemented in version 0.3, use latest code in
-'release-0.2' branch (currently 0.2.4) and refer to the README file there.
+'release-0.2' branch (currently 0.2.4) and refer to the README file there. At
+the time of this writing (release 0.3.3) the only feature not yet present in
+version 0.3.x is Instance-ID and LSB.
 
 In version 0.3 the code was generalized and now it not only serves to MNs, but
 also can be used in a domestic router (Linux or OpenWRT) to provide LISP routing
-capabilities (xTR). Please refer to "OpenWRT" section at the end for details on
-router/OpenWRT configuration.
+capabilities (xTR). Please refer to "Router mode" section for details on xTR
+funcionality, and to section "OpenWRT" for details on OpenWRT configuration.
 
 LISPmob consists of three major components:
 
@@ -55,7 +57,8 @@ Running LISPmob host on the public Internet requires the following:
   * an authentication token to register the EID with the Map-Server,
   * the RLOC of a Map-Resolver,
   * the RLOC of a Proxy-ETR,
-  * a publicly routable RLOC for the host, which is neither firewalled, nor behind NAT.
+  * a publicly routable RLOC for the host, which is neither firewalled, nor
+    behind NAT (see however "NAT traversal" section for details on this).
 
 Other than the last item, the above information is used for configuring 'lispd'
 via the configuration file 'lispd.conf'. See section "OpenWRT" for OpenWRT
@@ -68,7 +71,7 @@ the visited network. See the "References" section for pointers to detailed
 documentation on the above concepts and network elements.
 
 Visit http://www.lisp4.net/ for more info on the deployment status of the LISP
-pilot network and how you can join the testbed.
+beta-network and how you can join the testbed.
 
 Software Prerequisites
 ----------------------
@@ -201,10 +204,11 @@ asterisk were not available, or with a limited support, on the 0.2 branch):
     - Reply to mapping requests
     - Encapsulate data packets
     - Decapsulate data packets
-    - RLOC Probing (reply only)
+    - RLOC Probing (user configurable *)
     - IPv6 full support (EIDs and RLOCs) *
     - Interface management 
     - Multihoming *
+    - Experimental NAT traversal *
 
 
 Router mode
@@ -253,6 +257,22 @@ file manually in '/etc/config/lispd' (by default), use the UCI CLI application,
 or use the web interface (if available). The configuration fields are analogue
 to those in the 'lispd.conf' file.
 
+NAT traversal
+-------------
+
+Since version 0.3.3, LISPmob includes experimental NAT traversal capabilities
+(see LISP NAT traversal draft). In order to use NAT traversal with LISPmob you
+will need a MS and a RTR (Re-encapsulating Tunnel Router) that are NAT traversal
+capable. If you are using the beta-network, please take into account that, at
+the time of this writing (release 0.3.3), not all devices on the beta-network
+have been updated to support NAT traversal yet.
+
+On its current form, NAT traversal support on LISPmob allows to use just one
+RLOC interface and one EID prefix. If you want to use more than one RLOC
+interface or to configure several EID prefixes you will need to deactivate the
+NAT traversal feature (via the config file). If NAT traversal feature is
+enabled, all IPv6 addresses configured in the RLOC interaface will be ignored.
+
 
 Contact
 -------
@@ -281,3 +301,5 @@ References
 3. [LISP Mobile Node](http://tools.ietf.org/html/draft-meyer-lisp-mn)
 4. [Interworking between Locator/ID Separation Protocol (LISP) and Non-LISP Sites](https://tools.ietf.org/html/rfc6832)
 5. [LISPmob Project](http://lispmob.org/)
+6. [LISP NAT traversal draft] https://tools.ietf.org/html/draft-ermagan-lisp-nat-traversal-03
+7. [LISP beta-network] http://www.lisp4.net/beta-network/

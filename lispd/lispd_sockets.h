@@ -51,44 +51,9 @@ int open_control_input_socket(int afi);
 
 int open_udp_socket(int afi);
 
-/*
- * Send a control packet over a udp datagram to the destination address.
- */
-
-int send_udp_ctrl_packet(
-        lisp_addr_t *dst_addr,
-        uint16_t    src_port,
-        uint16_t    dst_port,
-        void        *packet,
-        int         packet_len);
-
-/*
- * Send a ipv4 packet over a udp datagram to the destination address
- * If the selected port is 0, then a random port is used.
- */
-
-int send_udp_ipv4_packet(
-        lisp_addr_t *src_addr,
-        lisp_addr_t *dst_addr,
-        uint16_t    src_port,
-        uint16_t    dst_port,
-        void        *packet,
-        int         packet_len);
-
-
-
-/*
- * Send a ipv6 packet over a udp datagram to the destination address
- * If the selected port is 0, then a random port is used.
- */
-
-int send_udp_ipv6_packet(
-        lisp_addr_t *src_addr,
-        lisp_addr_t *dst_addr,
-        uint16_t    src_port,
-        uint16_t    dst_port,
-        void        *packet,
-        int         packet_len);
+int bind_socket_src_address(
+        int         sock,
+        lisp_addr_t *addr);
 
 /*
  * Sends a raw packet through the specified socket
@@ -96,14 +61,15 @@ int send_udp_ipv6_packet(
 
 int send_packet (
         int     sock,
-        char    *packet,
+        uint8_t *packet,
         int     packet_length );
 
 /*
- * Get a packet from the socket. It also returns the destination addres and source port of the packet
+ * Get a packet from the socket. It also returns the destination addres and source port of the packet.
+ * Used for control packets
  */
 
-int get_control_packet (
+int get_packet_and_socket_inf (
         int             sock,
         int             afi,
         uint8_t         *packet,

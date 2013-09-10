@@ -53,7 +53,7 @@ void map_cache_init()
 
   if (!AF4_map_cache || !AF6_map_cache){
       lispd_log_msg(LISP_LOG_CRIT, "map_cache_init: Unable to allocate memory for map cache database");
-      exit(EXIT_FAILURE);
+      exit_cleanup();
   }
 }
 
@@ -256,9 +256,12 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(
 
     PATRICIA_WALK(tree->head, node) {
         entry = ((lispd_map_cache_entry *)(node->data));
-        if (!entry->active && check_nonce(entry->nonces,nonce)){
-            entry->nonces = NULL;
-            return (entry);
+        if (entry->active == FALSE){
+            if (check_nonce(entry->nonces,nonce) == GOOD){
+                free(entry->nonces);
+                entry->nonces = NULL;
+                return (entry);
+            }
         }
     } PATRICIA_WALK_END;
 

@@ -64,6 +64,8 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_output.h"
+#include "lispd_rloc_probing.h"
+#include "lispd_routing_tables_lib.h"
 #include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
@@ -72,7 +74,7 @@
 
 void event_loop();
 void signal_handler(int);
-void exit_cleanup(void);
+
 
 
 
@@ -89,6 +91,11 @@ int      debug_level                        = 0;
 int      default_rloc_afi                   = -1;
 int      daemonize                          = FALSE;
 int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
+/* RLOC probing parameters */
+int      rloc_probe_interval                = RLOC_PROBING_INTERVAL;
+int      rloc_probe_retries                 = DEFAULT_RLOC_PROBING_RETRIES;
+int      rloc_probe_retries_interval        = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+
 int      control_port                       = LISP_CONTROL_PORT;
 uint32_t iseed                              = 0;  /* initial random number generator */
 int      total_mappings                     = 0;
@@ -112,16 +119,24 @@ struct  sockaddr_nl dst_addr;
 struct  sockaddr_nl src_addr;
 nlsock_handle nlh;
 
+/* NAT */
+
+int             nat_aware   = FALSE;
+int             nat_status  = UNKNOWN;
+lispd_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
+lispd_xTR_ID    xTR_ID      = {.byte = {0}};
+// Global variables used to store nonces of encapsulated map register and info request.
+// To be removed when NAT with multihoming supported.
+nonces_list     *nat_emr_nonce  = NULL;
+nonces_list     *nat_ir_nonce   = NULL;
+
+
 /*
  *      timers (fds)
  */
 
 int     timers_fd                       = 0;
 
-#ifdef LISPMOBMH
-/* timer to rate control smr's in multihoming scenarios */
-int 	smr_timer_fd					= 0;
-#endif
 
 
 #define LISPD_LOCKFILE "/sdcard/lispd.lock"
@@ -184,7 +199,7 @@ int main(int argc, char **argv)
      */
     if (geteuid()) {
         lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     /*
@@ -210,19 +225,17 @@ int main(int argc, char **argv)
     map_cache_init();
 
     /*
-<<<<<<< HEAD
-=======
      *  create timers
      */
+
     if (build_timers_event_socket(&timers_fd) == 0)
     {
         lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
     init_timers();
 
     /*
->>>>>>> 6d11ec6e41112bc2620764ece59a2567e0e5fc0e
      *  Parse command line options
      */
 
@@ -247,12 +260,12 @@ int main(int argc, char **argv)
 
     if (map_servers == NULL){
         lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
-        die(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     if (map_resolvers == NULL){
         lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        die(EXIT_FAILURE);
+        exit_cleanup();
     }
 
     if (proxy_etrs == NULL){
@@ -272,15 +285,15 @@ int main(int argc, char **argv)
     if (daemonize) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
-            die(EXIT_FAILURE);
+            exit_cleanup();
         }
         umask(0);
         if (pid > 0)
-            exit(EXIT_SUCCESS);
+            exit_cleanup();
         if ((sid = setsid()) < 0)
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         if ((chdir("/")) < 0)
-            exit(EXIT_FAILURE);
+            exit_cleanup();
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
@@ -300,7 +313,7 @@ int main(int argc, char **argv)
 		printf("Sucessfully acquired process lock.\n");
 	}
 #endif
-
+	
     /*
      * Select the default rlocs for output data packets and output control packets
      */
@@ -347,11 +360,11 @@ int main(int argc, char **argv)
     tun_bring_up_iface(tun_dev_name);
     if (tun_v4_addr != NULL){
         tun_add_eid_to_iface(*tun_v4_addr,tun_dev_name);
-        set_tun_default_route_v4(tun_ifindex);
+        set_tun_default_route_v4();
     }
     if (tun_v6_addr != NULL){
         tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
-        set_tun_default_route_v6(tun_ifindex);
+        set_tun_default_route_v6();
     }
 #ifdef ROUTER
     if (tun_v4_addr != NULL){
@@ -365,17 +378,13 @@ int main(int argc, char **argv)
      * Generate receive sockets for control (4342) and data port (4341)
      */
 
-    if (default_ctrl_iface_v4){
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
-    }
-    if (default_ctrl_iface_v6){
-        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-    }
-
-    if (default_out_iface_v4){
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
     }
-    if (default_out_iface_v6){
+
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
+        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
     }
 
@@ -383,6 +392,17 @@ int main(int argc, char **argv)
      * Create net_link socket to receive notifications of changes of RLOC status.
      */
     netlink_fd = opent_netlink_socket();
+
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.3): 'lispd' started...");
+
+    /*
+     * Request to dump the routing tables to obtain the gatways when processing the netlink messages
+     */
+
+    request_route_table(RT_TABLE_MAIN, AF_INET);
+    process_netlink_msg(netlink_fd);
+    request_route_table(RT_TABLE_MAIN, AF_INET6);
+    process_netlink_msg(netlink_fd);
 
     /*
      *  Register to the Map-Server(s)
@@ -394,9 +414,13 @@ int main(int argc, char **argv)
      * SMR proxy-ITRs list to be updated with new mappings
      */
 
-    smr_pitrs();
+    init_smr(NULL,NULL);
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.2): 'lispd' started...");
+    /*
+     * RLOC Probing proxy ETRs
+     */
+    programming_petr_rloc_probing();
+
 
     event_loop();
 
@@ -512,16 +536,21 @@ void signal_handler(int sig) {
  */
 
 void exit_cleanup(void) {
-
+    /* Remove source routing tables */
+    remove_created_rules();
     /* Close timer file descriptors */
     close(timers_fd);
-
     /* Close receive sockets */
     close(tun_receive_fd);
     close(ipv4_data_input_fd);
     close(ipv4_control_input_fd);
-
-    /* Close syslog */
+    close(ipv6_data_input_fd);
+    close(ipv6_control_input_fd);
+    /* Close send sockets */
+    close_output_sockets();
+    /* Close netlink socket */
+    close(netlink_fd);
+    lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
 
     die(EXIT_SUCCESS);
 }

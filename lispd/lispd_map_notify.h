@@ -42,7 +42,7 @@
  *        0                   1                   2                   3
  *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=4 |              Reserved                 | Record Count  |
+ *       |Type=4 |I|R|          Reserved                 | Record Count  |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *       |                         Nonce . . .                           |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -70,11 +70,15 @@
 
 typedef struct lispd_pkt_map_notify_t_ {
 #ifdef LITTLE_ENDIANS
-    uint8_t  reserved1:4;
+    uint8_t  reserved1:2;
+    uint8_t  rtr_auth_present:1;
+    uint8_t  xtr_id_present:1;
     uint8_t  lisp_type:4;
 #else
     uint8_t  lisp_type:4;
-    uint8_t  reserved1:4;
+    uint8_t  xtr_id_present:1;
+    uint8_t  rtr_auth_present:1;
+    uint8_t  reserved1:2;
 #endif
     uint16_t reserved2;
     uint8_t  record_count;
@@ -83,6 +87,12 @@ typedef struct lispd_pkt_map_notify_t_ {
     uint16_t auth_data_len;
     uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
 } PACKED lispd_pkt_map_notify_t;
+
+
+typedef struct lispd_pkt_auth_field_t_ {
+    uint16_t key_id;
+    uint16_t auth_data_len;
+} PACKED lispd_pkt_auth_field_t;
 
 
 int process_map_notify(uint8_t *packet);

@@ -30,7 +30,9 @@
  */
 
 #include "lispd_external.h"
+#include "lispd_info_request.h"
 #include "lispd_lib.h"
+#include "lispd_routing_tables_lib.h"
 #include "lispd_sockets.h"
 #include "lispd_tun.h"
 #include <string.h>
@@ -84,20 +86,53 @@ lispd_iface_elt *add_interface(char *iface_name)
 
 
     if (iface->iface_index != 0){
-        err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
-        if (err == GOOD){
-            iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
-        }else {
+        if (default_rloc_afi != AF_INET6){
+            err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
+            if (err == GOOD){
+                iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
+                bind_socket_src_address(iface->out_socket_v4,iface->ipv4_address);
+                add_rule(AF_INET,
+                        0,                      //iface
+                        iface->iface_index,     //table
+                        iface->iface_index,     //priority
+                        RTN_UNICAST,
+                        iface->ipv4_address,
+                        32,NULL,0,0);
+            }else {
+                iface->ipv4_address->afi = AF_UNSPEC;
+                iface->out_socket_v4 = -1;
+            }
+        }else{
             iface->ipv4_address->afi = AF_UNSPEC;
             iface->out_socket_v4 = -1;
         }
-        err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
-        if (err == GOOD){
-            iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
-        }else {
+        // XXX To be modified when full NAT implemented
+        if (nat_aware != TRUE){
+            if (default_rloc_afi != AF_INET){
+                err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+                if (err == GOOD){
+                    iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
+                    bind_socket_src_address(iface->out_socket_v6,iface->ipv6_address);
+                    add_rule(AF_INET6,
+                            0,                      //iface
+                            iface->iface_index,     //table
+                            iface->iface_index,     //priority
+                            RTN_UNICAST,
+                            iface->ipv6_address,
+                            128,NULL,0,0);
+                }else {
+                    iface->ipv6_address->afi = AF_UNSPEC;
+                    iface->out_socket_v6 = -1;
+                }
+            }else {
+                iface->ipv6_address->afi = AF_UNSPEC;
+                iface->out_socket_v6 = -1;
+            }
+        }else{
             iface->ipv6_address->afi = AF_UNSPEC;
             iface->out_socket_v6 = -1;
         }
+
     }else{
         iface->ipv4_address->afi = AF_UNSPEC;
         iface->out_socket_v4 = -1;
@@ -112,9 +147,11 @@ lispd_iface_elt *add_interface(char *iface_name)
     }
 
     iface->head_mappings_list = NULL;
-    iface->status_changed = FALSE;
-    iface->ipv4_changed = FALSE;
-    iface->ipv6_changed = FALSE;
+    iface->status_changed = TRUE;
+    iface->ipv4_changed = TRUE;
+    iface->ipv6_changed = TRUE;
+    iface->ipv4_gateway = NULL;
+    iface->ipv6_gateway = NULL;
     iface_list->iface = iface;
     iface_list->next = NULL;
 
@@ -228,7 +265,8 @@ lispd_iface_elt *get_interface(char *iface_name)
  * Return the iface element if it is found or NULL if not.
  */
 
-lispd_iface_elt *get_interface_from_index(int iface_index){
+lispd_iface_elt *get_interface_from_index(int iface_index)
+{
 
     lispd_iface_elt         *iface          = NULL;
     lispd_iface_list_elt    *iface_lst_elt  = NULL;
@@ -248,8 +286,36 @@ lispd_iface_elt *get_interface_from_index(int iface_index){
 
     return iface;
 }
+/*
+ * Return the interface belonging the address passed as a parameter
+ */
 
+lispd_iface_elt *get_interface_with_address(lisp_addr_t *address)
+{
+    lispd_iface_elt         *iface          = NULL;
+    lispd_iface_list_elt    *iface_lst_elt  = NULL;
 
+    iface_lst_elt = head_interface_list;
+    while (iface_lst_elt != NULL){
+        iface = iface_lst_elt->iface;
+        switch(address->afi)
+        {
+        case AF_INET:
+            if (compare_lisp_addr_t (address,iface->ipv4_address) == 0){
+                return (iface);
+            }
+            break;
+        case AF_INET6:
+            if (compare_lisp_addr_t (address,iface->ipv6_address) == 0){
+                return (iface);
+            }
+            break;
+        }
+        iface_lst_elt = iface_lst_elt->next;
+    }
+
+    return (NULL);
+}
 
 
 /*
@@ -358,6 +424,56 @@ lispd_iface_elt *get_default_ctrl_iface(int afi)
     return (iface);
 }
 
+
+lisp_addr_t *get_default_ctrl_address(int afi)
+{
+
+    lisp_addr_t *address = NULL;
+
+
+    switch (afi){
+        case AF_INET:
+            if (default_ctrl_iface_v4 != NULL){
+                address = default_ctrl_iface_v4->ipv4_address;
+            }
+            break;
+        case AF_INET6:
+            if (default_ctrl_iface_v6 != NULL){
+                address = default_ctrl_iface_v6->ipv6_address;
+            }
+            break;
+        default:
+            break;
+    }
+
+    return (address);
+}
+
+int get_default_ctrl_socket(int afi)
+{
+
+    int socket = 0;
+
+
+    switch (afi){
+        case AF_INET:
+            if (default_ctrl_iface_v4 != NULL){
+                socket = default_ctrl_iface_v4->out_socket_v4;
+            }
+            break;
+        case AF_INET6:
+            if (default_ctrl_iface_v6 != NULL){
+                socket = default_ctrl_iface_v6->out_socket_v6;
+            }
+            break;
+        default:
+            socket = ERR_SRC_ADDR;
+            break;
+    }
+
+    return (socket);
+}
+
 int get_default_output_socket(int afi)
 {
     int out_socket = -1;
@@ -410,6 +526,7 @@ void set_default_output_ifaces()
 
 void set_default_ctrl_ifaces()
 {
+
     default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_ctrl_iface_v4 != NULL) {
@@ -418,12 +535,19 @@ void set_default_ctrl_ifaces()
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
+
     if (default_ctrl_iface_v6 != NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s: %s\n",
                 default_ctrl_iface_v6->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v6->ipv6_address)));
     }
 
-    // XXX alopez If no output interface found exit --> To be modified when iface management implemented
+    /* Check NAT status */
+    if (nat_aware == TRUE && ( (default_ctrl_iface_v4 != NULL) || (default_ctrl_iface_v6 != NULL))){
+              // TODO : To be modified when implementing NAT per multiple interfaces
+              nat_status = UNKNOWN;
+              initial_info_request_process();
+    }
+
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6){
         lispd_log_msg(LISP_LOG_ERR,"NO CONTROL IFACE: all the locators are down");
     }
@@ -447,7 +571,27 @@ lisp_addr_t *get_iface_address(
     }
     
     return (addr);
+}
+
+int get_iface_socket(
+        lispd_iface_elt     *iface,
+        int                 afi)
+{
+    int out_socket   = 0;
+
+    switch(afi){
+    case AF_INET:
+        out_socket = iface->out_socket_v4;
+        break;
+    case AF_INET6:
+        out_socket = iface->out_socket_v6;
+        break;
+    default:
+        out_socket = ERR_SRC_ADDR;
+        break;
+    }
     
+    return (out_socket);
 }
 
 /*
@@ -478,6 +622,32 @@ void iface_balancing_vectors_calc(lispd_iface_elt  *iface)
         mapping_list = mapping_list->next;
     }
 }
+
+/*
+ * Close all the open output sockets associated to interfaces
+ */
+
+void close_output_sockets()
+{
+    lispd_iface_list_elt    *interface_list_elt = NULL;
+    lispd_iface_elt         *iface              = NULL;
+
+    interface_list_elt = head_interface_list;
+    while (interface_list_elt != NULL){
+        iface = interface_list_elt->iface;
+        if (iface->out_socket_v4 != -1){
+            close (iface->out_socket_v4);
+        }
+        if (iface->out_socket_v6 != -1){
+            close (iface->out_socket_v6);
+        }
+
+        interface_list_elt = interface_list_elt->next;
+    }
+
+    return;
+}
+
 
 /*
  * Editor modelines
