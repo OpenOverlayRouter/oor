@@ -582,31 +582,38 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
      */
 
     cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
+    if (dm != NULL){
+        probe_int = cfg_getint(dm, "rloc-probe-interval");
+        probe_retries = cfg_getint(dm, "rloc-probe-retries");
+        probe_retries_interval = cfg_getint(dm, "rloc-probe-retries-interval");
 
-    probe_int = cfg_getint(dm, "rloc-probe-interval");
-    probe_retries = cfg_getint(dm, "rloc-probe-retries");
-    probe_retries_interval = cfg_getint(dm, "rloc-probe-retries-interval");
-
-    validate_rloc_probing_parameters (probe_int, probe_retries, probe_retries_interval);
+        validate_rloc_probing_parameters (probe_int, probe_retries, probe_retries_interval);
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: RLOC probing not defined. "
+                "Setting default values: RLOC Probing Interval: %d sec.",RLOC_PROBING_INTERVAL);
+    }
 
 
     /*
      * Nat Traversal options
      */
     cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
-
-    nat_aware   = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
-    nat_site_ID = cfg_getstr(nt, "site_ID");
-    nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
-    if (nat_aware == TRUE){
-        if ((convert_hex_string_to_bytes(nat_site_ID,site_ID.byte,8)) != GOOD){
-            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
-            exit_cleanup();
+    if (nt != NULL){
+        nat_aware   = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
+        nat_site_ID = cfg_getstr(nt, "site_ID");
+        nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
+        if (nat_aware == TRUE){
+            if ((convert_hex_string_to_bytes(nat_site_ID,site_ID.byte,8)) != GOOD){
+                lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
+                exit_cleanup();
+            }
+            if ((convert_hex_string_to_bytes(nat_xTR_ID,xTR_ID.byte,16)) != GOOD){
+                lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
+                exit_cleanup();
+            }
         }
-        if ((convert_hex_string_to_bytes(nat_xTR_ID,xTR_ID.byte,16)) != GOOD){
-            lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
-            exit_cleanup();
-        }
+    }else {
+        nat_aware = FALSE;
     }
 
     /*
@@ -617,6 +624,9 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
      *  handle map-resolver config
      */
     n = cfg_size(cfg, "map-resolver");
+    if (n == 0){
+
+    }
     for(i = 0; i < n; i++) {
         if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
             if (add_server(map_resolver, &map_resolvers) == GOOD){
@@ -820,6 +830,11 @@ int add_database_mapping(
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
     int                         eid_prefix_length   = 0;
     uint8_t                     is_new_mapping      = FALSE;
+
+    if (iface_name == NULL){
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: No interface specificated for database mapping. Ignoring mapping");
+        return (BAD);
+    }
 
     if (iid > MAX_IID || iid < -1) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
@@ -1092,6 +1107,11 @@ int add_map_server(
     lispd_map_server_list_t *list_elt;
     struct hostent          *hptr;
 
+    if (map_server == NULL || key_type == 0 || key == NULL){
+        lispd_log_msg(LISP_LOG_ERR, "Configuraton file: Wrong Map Server configuration.  Check configuration file");
+        exit_cleanup();
+    }
+
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
         return(BAD);
@@ -1167,6 +1187,11 @@ int add_proxy_etr_entry(
 
     lisp_addr_t                     aux_address;
     lispd_locator_elt               *locator     = NULL;
+
+    if (address == NULL){
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: The address of the Proxy ETR has not been specified. Discarding the entry");
+        return (BAD);
+    }
 
     /* Check the parameters */
     if (priority > 255 || priority < 0) {

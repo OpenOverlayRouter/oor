@@ -119,15 +119,20 @@ void lispd_print_nonce (
 
 char * get_char_from_nonce (uint64_t nonce)
 {
-    static char      nonce_char[17];
-    uint32_t         lower          = 0;
-    uint32_t         upper          = 0;
+    static char         nonce_char[2][21];
+    static unsigned int i;
+    uint32_t            lower          = 0;
+    uint32_t            upper          = 0;
+
+    /* Hack to allow more than one addresses per printf line. Now maximum = 2 */
+    i++;
+    i = i % 2;
 
     lower = nonce & 0xffffffff;
     upper = (nonce >> 32) & 0xffffffff;
-    sprintf(nonce_char , "0x%08x-0x%08x", htonl(upper), htonl(lower));
+    sprintf(nonce_char[i] , "0x%08x-0x%08x", htonl(upper), htonl(lower));
 
-    return (nonce_char);
+    return (nonce_char[i]);
 }
 
 
