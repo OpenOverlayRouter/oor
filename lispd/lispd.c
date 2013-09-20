@@ -184,6 +184,37 @@ int main(int argc, char **argv)
     db_init();
     map_cache_init();
 
+
+    /*
+     *  Parse command line options
+     */
+
+    handle_lispd_command_line(argc, argv);
+
+
+
+    /*
+     *  see if we need to daemonize, and if so, do it
+     */
+
+    if (daemonize) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
+        if ((pid = fork()) < 0) {
+            exit_cleanup();
+        }
+        umask(0);
+        if (pid > 0)
+            exit_cleanup();
+        if ((sid = setsid()) < 0)
+            exit_cleanup();
+        if ((chdir("/")) < 0)
+            exit_cleanup();
+        close(STDIN_FILENO);
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
+    }
+
+
     /*
      *  create timers
      */
@@ -195,11 +226,7 @@ int main(int argc, char **argv)
     }
     init_timers();
 
-    /*
-     *  Parse command line options
-     */
 
-    handle_lispd_command_line(argc, argv);
 
 
     /*
@@ -238,26 +265,6 @@ int main(int argc, char **argv)
                 &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
     }
 
-    /*
-     *  see if we need to daemonize, and if so, do it
-     */
-
-    if (daemonize) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
-        if ((pid = fork()) < 0) {
-            exit_cleanup();
-        }
-        umask(0);
-        if (pid > 0)
-            exit_cleanup();
-        if ((sid = setsid()) < 0)
-            exit_cleanup();
-        if ((chdir("/")) < 0)
-            exit_cleanup();
-        close(STDIN_FILENO);
-        close(STDOUT_FILENO);
-        close(STDERR_FILENO);
-    }
 
     /*
      * Select the default rlocs for output data packets and output control packets

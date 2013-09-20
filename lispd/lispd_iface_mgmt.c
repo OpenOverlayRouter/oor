@@ -125,7 +125,7 @@ void process_netlink_msg(int netlink_fd){
     msgh.msg_iov = &iov;
     msgh.msg_iovlen = 1;
 
-    while ((len = recv (netlink_fd,nlh,4096,0)) > 0){
+    while ((len = recv (netlink_fd,nlh,4096,MSG_DONTWAIT)) > 0){
         for (;(NLMSG_OK (nlh, len)) && (nlh->nlmsg_type != NLMSG_DONE); nlh = NLMSG_NEXT(nlh, len)){
             switch(nlh->nlmsg_type){
             case RTM_NEWADDR:
