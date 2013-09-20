@@ -24,6 +24,8 @@
 #define SMR_INV_RETRY_TIMER     "SMR_INV_RETRY_TIMER"
 #define INFO_REPLY_TTL_TIMER    "INFO_REPLY_TTL_TIMER"
 
+#define TIMER_NAME_LEN          64
+
 typedef struct _timer_links {
     struct _timer_links *prev;
     struct _timer_links *next;
@@ -38,7 +40,7 @@ typedef struct _timer {
     int             rotation_count;
     timer_callback  cb;
     void           *cb_argument;
-    char            name[64];
+    char            name[TIMER_NAME_LEN];
 } timer;
 
 

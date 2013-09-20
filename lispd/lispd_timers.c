@@ -111,7 +111,7 @@ timer *create_timer(char *name)
 {
     timer *new_timer = malloc(sizeof(timer));
     memset(new_timer, 0, sizeof(timer));
-    strncpy(new_timer->name, name, 64);
+    strncpy(new_timer->name, name, TIMER_NAME_LEN - 1);
     new_timer->links.prev = NULL;
     new_timer->links.next = NULL;
     return(new_timer);

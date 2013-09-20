@@ -66,7 +66,7 @@ int create_tun(
     memset(&ifr, 0, sizeof(ifr));
 
     ifr.ifr_flags = flags;
-    strncpy(ifr.ifr_name, tun_dev_name, IFNAMSIZ);
+    strncpy(ifr.ifr_name, tun_dev_name, IFNAMSIZ - 1);
 
     // try to create the device
     if ((err = ioctl(*tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
