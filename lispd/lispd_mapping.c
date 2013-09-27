@@ -347,20 +347,24 @@ lispd_locator_elt *get_locator_from_mapping(
  */
 void free_mapping_elt(lispd_mapping_elt *mapping, int local)
 {
+    if (mapping == NULL){
+        return;
+    }
     /* Free the locators list*/
     free_locator_list(mapping->head_v4_locators_list);
     free_locator_list(mapping->head_v6_locators_list);
     /* Free extended info */
-    if (local == TRUE){
-        free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
-        free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
-        free ((lcl_mapping_extended_info *)mapping->extended_info);
-    }else{
-        free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
-        free ((rmt_mapping_extended_info *)mapping->extended_info);
+    if (mapping->extended_info != NULL){
+        if (local == TRUE){
+            free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
+            free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
+            free ((lcl_mapping_extended_info *)mapping->extended_info);
+        }else{
+            free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
+            free ((rmt_mapping_extended_info *)mapping->extended_info);
+        }
     }
     free(mapping);
-
 }
 
 /*

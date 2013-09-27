@@ -287,6 +287,9 @@ void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_lis
 
 void free_locator(lispd_locator_elt   *locator)
 {
+    if (locator == NULL){
+        return;
+    }
     if (locator->locator_type != LOCAL_LOCATOR){
         free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
         free (locator->locator_addr);
@@ -299,6 +302,9 @@ void free_locator(lispd_locator_elt   *locator)
 
 inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info)
 {
+    if (extended_info == NULL){
+        return;
+    }
     free_rtr_list(extended_info->rtr_locators_list);
     free (extended_info);
 }
@@ -309,7 +315,9 @@ void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt)
 
     while (rtr_list_elt != NULL){
         aux_rtr_list_elt = rtr_list_elt->next;
-        free(rtr_list_elt->locator);
+        if (rtr_list_elt->locator != NULL){
+            free(rtr_list_elt->locator);
+        }
         free(rtr_list_elt);
         rtr_list_elt = aux_rtr_list_elt;
     }
@@ -317,6 +325,9 @@ void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt)
 
 inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info)
 {
+    if (extended_info == NULL){
+        return;
+    }
     if (extended_info->probe_timer != NULL){
         stop_timer(extended_info->probe_timer);
         extended_info->probe_timer = NULL;

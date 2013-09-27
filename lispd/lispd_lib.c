@@ -1049,17 +1049,14 @@ int extract_lisp_address(
 void free_lisp_addr_list(lispd_addr_list_t * list)
 
 {
+    lispd_addr_list_t *aux_list = NULL;
 
-    lispd_addr_list_t *list_pre;
+    while (list != NULL) {
+        aux_list = list->next;
 
-    while (list->next != NULL) {
-
-        list_pre = list;
-
-        list = list->next;
-
-        free(list_pre->address);
-        free(list_pre);
+        free(list->address);
+        free(list);
+        list = aux_list;
     }
 }
 

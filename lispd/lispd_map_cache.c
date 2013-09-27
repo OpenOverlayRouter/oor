@@ -106,6 +106,10 @@ lispd_map_cache_entry *new_map_cache_entry (
 
 void free_map_cache_entry(lispd_map_cache_entry *entry)
 {
+    if (entry == NULL){
+        return;
+    }
+
     free_mapping_elt(entry->mapping, FALSE);
     /*
      * Free the entry
