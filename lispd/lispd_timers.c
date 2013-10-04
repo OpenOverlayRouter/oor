@@ -15,6 +15,7 @@
 #include "lispd_iface_mgmt.h"
 #include "lispd_log.h"
 #include "lispd_map_request.h"
+#include "lispd_rloc_probing.h"
 #include "lispd_timers.h"
 
 
@@ -81,7 +82,7 @@ int init_timers()
 
     lispd_log_msg(LISP_LOG_DEBUG_1, "Initializing lispd timers...");
 
-    if (create_wheel_timer() == -1) {
+    if (create_wheel_timer() == (timer_t)-1) {
         lispd_log_msg(LISP_LOG_INFO, "Failed to set up lispd timers.");
         return(BAD);
     }
@@ -111,6 +112,8 @@ timer *create_timer(char *name)
     timer *new_timer = malloc(sizeof(timer));
     memset(new_timer, 0, sizeof(timer));
     strncpy(new_timer->name, name, 64);
+    new_timer->links.prev = NULL;
+    new_timer->links.next = NULL;
     return(new_timer);
 }
 
@@ -176,8 +179,8 @@ void start_timer(
     /*
      * See if this timer is also running.
      */
-    next = tptr->links.next;
 
+    next = tptr->links.next;
     if (next != NULL) {
         prev = tptr->links.prev;
         next->prev = prev;
@@ -216,6 +219,8 @@ void stop_timer(timer *tptr)
 
     if (strcmp(tptr->name,MAP_REQUEST_RETRY_TIMER)==0){
         free ((timer_map_request_argument *)tptr->cb_argument);
+    }else if (strcmp(tptr->name,RLOC_PROBING_TIMER)==0){
+        free ((timer_rloc_probe_argument *)tptr->cb_argument);
     }
 
     next = tptr->links.next;
@@ -277,7 +282,8 @@ void handle_timers(void)
             callback = tptr->cb;
             (*callback)(tptr, tptr->cb_argument);
         }
-        tptr = (timer *)next;
+        // We can not use directly "next" as it could be released  in the callback function  previously to be used
+        tptr = (timer *)(prev->next);
     }
 }
 

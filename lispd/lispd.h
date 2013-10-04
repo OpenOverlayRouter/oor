@@ -36,7 +36,7 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
-#if ANDROID
+#ifdef ANDROID
 #else
 #include <ifaddrs.h>
 #endif
@@ -64,21 +64,26 @@
 #include "lispd_log.h"
 
 
+#define LISPD_VERSION					"v0.3.3"
+
+
 /*
  *  Protocols constants related with timeouts
  *
  */
 
-#define LISPD_INITIAL_MRQ_TIMEOUT   1  // Initial expiration timer for the first MRq
-#define LISPD_INITIAL_SMR_TIMEOUT   1  // Initial expiration timer for the first MRq SMR
-#define LISPD_INITIAL_PROBE_TIMEOUT 1  // Initial expiration timer for the first MRq RLOC probe
-#define LISPD_SMR_TIMEOUT           7  // Time since interface status change until balancing arrays and SMR is done
-#define LISPD_MAX_MRQ_TIMEOUT       32 // Max expiration timer for the subsequent MRq
-#define LISPD_EXPIRE_TIMEOUT        1  // Time interval in which events are expired
-#define LISPD_MAX_MR_RETRANSMIT     2  // Maximum amount of Map Request retransmissions
-#define LISPD_MAX_SMR_RETRANSMIT    2  // Maximum amount of SMR MRq retransmissions
-#define LISPD_MAX_PROBE_RETRANSMIT  1  // Maximum amount of RLOC probe MRq retransmissions
-#define LISPD_MAX_NONCES_LIST       3  // Positions of nonces vec. Max of LISPD_MAX_XX_RETRANSMIT + 1
+#define LISPD_INITIAL_MRQ_TIMEOUT       2  // Initial expiration timer for the first MRq
+#define LISPD_INITIAL_SMR_TIMEOUT       3  // Initial expiration timer for the first MRq SMR
+#define LISPD_INITIAL_PROBE_TIMEOUT     3  // Initial expiration timer for the first MRq RLOC probe
+#define LISPD_INITIAL_EMR_TIMEOUT       3  // Initial expiration timer for the first Encapsulated Map Register
+#define LISPD_SMR_TIMEOUT               6  // Time since interface status change until balancing arrays and SMR is done
+#define LISPD_MAX_MRQ_TIMEOUT           32 // Max expiration timer for the subsequent MRq
+#define LISPD_EXPIRE_TIMEOUT            1  // Time interval in which events are expired
+#define LISPD_MAX_MR_RETRANSMIT         2  // Maximum amount of Map Request retransmissions
+#define LISPD_MAX_SMR_RETRANSMIT        2  // Maximum amount of SMR MRq retransmissions
+#define LISPD_MAX_PROBE_RETRANSMIT      1  // Maximum amount of RLOC probe MRq retransmissions
+#define LISPD_MAX_RETRANSMITS           5  // Maximum amount of retransmits of a message
+#define LISPD_MIN_RETRANSMIT_INTERVAL   1  // Minimum time between retransmits of control messages
 
 /*
  *  Determine endianness
@@ -104,6 +109,8 @@
 
 
 
+#define FIELD_AFI_LEN                    2
+#define FIELD_PORT_LEN                   2
 
 
 /*
@@ -157,12 +164,13 @@
 int err;
 #define GOOD                1
 #define BAD                 0
-#define ERR_CTR_IFACE       0
-#define ERR_SRC_ADDR        0
-#define ERR_AFI             0
-#define ERR_DB              0
-#define ERR_MALLOC          0
+#define ERR_SRC_ADDR        -1
+#define ERR_AFI             -2
+#define ERR_DB              -3
+#define ERR_MALLOC          -4
 #define ERR_EXIST			-5
+#define ERR_NO_EXIST        -6
+#define ERR_CTR_IFACE       -7
 
 /***** Negative Map-Reply actions ***/
 #define ACT_NO_ACTION           0
@@ -175,24 +183,33 @@ int err;
 #define FALSE               0
 #define UP                  1
 #define DOWN                0
+#define UNKNOWN            -1  
+
+/***** NAT status *******/
+//#define UNKNOWN          -1
+#define NO_NAT              0
+#define PARTIAL_NAT         1
+#define FULL_NAT            2
 
 
 #define MAX_IP_PACKET       4096
 
 
-#define DEFAULT_MAP_REQUEST_RETRIES     3
-#define DEFAULT_MAP_REGISTER_TIMEOUT    10  /* PN: expected to be in minutes; however,
-                                             * lisp_mod treats this as seconds instead of
-                                             * minutes
-                                             */
-#define MAP_REGISTER_INTERVAL           60  /* LJ: sets the interval at which periodic
-                                             * map register messages are sent (seconds).
-                                             * The spec recommends 1 minute
-                                             */
-#define RLOC_PROBING_INTERVAL           30  /* LJ: sets the interval at which periodic
-                                             * RLOC probes are sent (seconds) */
-#define DEFAULT_DATA_CACHE_TTL          60  /* seconds */
-#define DEFAULT_SELECT_TIMEOUT          1000/* ms */
+#define DEFAULT_MAP_REQUEST_RETRIES             3
+#define DEFAULT_RLOC_PROBING_RETRIES            1
+#define DEFAULT_MAP_REGISTER_TIMEOUT            10  /* PN: expected to be in minutes; however,
+                                                     * lisp_mod treats this as seconds instead of
+                                                     * minutes
+                                                     */
+#define MAP_REGISTER_INTERVAL                   60  /* LJ: sets the interval at which periodic
+                                                     * map register messages are sent (seconds).
+                                                     * The spec recommends 1 minute
+                                                     */
+#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
+                                                     * RLOC probes are sent (seconds) */
+#define DEFAULT_RLOC_PROBING_RETRIES_INTERVAL   5   /* Interval in seconds between RLOC probing retries  */
+#define DEFAULT_DATA_CACHE_TTL                  60  /* seconds */
+#define DEFAULT_SELECT_TIMEOUT                  1000/* ms */
 
 
 /*
@@ -203,6 +220,7 @@ int err;
 #define LISP_MAP_REPLY                  2
 #define LISP_MAP_REGISTER               3
 #define LISP_MAP_NOTIFY                 4
+#define LISP_INFO_NAT                   7
 #define LISP_ENCAP_CONTROL_TYPE         8
 #define LISP_CONTROL_PORT               4342
 #define LISP_DATA_PORT                  4341
@@ -322,6 +340,17 @@ typedef struct packet_tuple_ {
     uint8_t                         protocol;
 } packet_tuple;
 
+typedef struct lispd_site_ID_
+{
+	uint8_t	byte[8];
+
+} lispd_site_ID;
+
+typedef struct lispd_xTR_ID_
+{
+	uint8_t	byte[16];
+
+} lispd_xTR_ID;
 
 /*
  *  for map-register auth data...
@@ -416,6 +445,57 @@ typedef struct nlsock_handle
     int         fd;       // netlink socket fd
     uint32_t    seq;      // netlink message seq number
 } nlsock_handle;
+
+
+//modified by arnatal for NATT
+/*
+ * LISP Data header structure
+ */
+
+typedef struct lisp_data_hdr {
+#ifdef LITTLE_ENDIANS
+    uint8_t rflags:3;
+    uint8_t instance_id:1;
+    uint8_t map_version:1;
+    uint8_t echo_nonce:1;
+    uint8_t lsb:1;
+    uint8_t nonce_present:1;
+#else
+    uint8_t nonce_present:1;
+    uint8_t lsb:1;
+    uint8_t echo_nonce:1;
+    uint8_t map_version:1;
+    uint8_t instance_id:1;
+    uint8_t rflags:3;
+#endif
+    uint8_t nonce[3];
+    uint32_t lsb_bits;
+} lisp_data_hdr_t;
+
+/*
+ * Encapsulated control message header. This is followed by the IP
+ * header of the encapsulated LISP control message.
+ *
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |Type=8 |S|                 Reserved                            |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lisp_encap_control_hdr {
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved:3;
+    uint8_t s_bit:1;
+    uint8_t type:4;
+#else
+    uint8_t type:4;
+    uint8_t s_bit:1;
+    uint8_t reserved1:3;
+#endif
+    uint8_t reserved2[3];
+} lisp_encap_control_hdr_t;
+
+
+void exit_cleanup(void);
 
 
 #endif /*LISPD_H_*/

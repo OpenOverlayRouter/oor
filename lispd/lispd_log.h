@@ -47,7 +47,14 @@
 #define LISP_LOG_DEBUG_3     7       /* high debug-level messages -> Log for each received or generated packet */
 
 
+#define LOGFILE_LOCATION	"/sdcard/lispd.log"
+
+
 void lispd_log_msg(int lisp_log_level, const char *format, ...);
+
+void open_log_file();
+
+void close_log_file();
 
 /*
  * True if log_level is enough to print results

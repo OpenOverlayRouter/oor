@@ -38,6 +38,8 @@
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 
+uint16_t ip_id = 0;
+
 /*
  *  get_locators_length
  *
@@ -170,7 +172,7 @@ int get_mapping_length(lispd_mapping_elt *mapping)
     return ident_len;
 }
 
-void *pkt_fill_eid(
+uint8_t *pkt_fill_eid(
         void                    *offset,
         lispd_mapping_elt       *mapping)
 {
@@ -208,20 +210,24 @@ void *pkt_fill_eid(
         return NULL;
     }
 
-    return CO(eid_ptr, eid_addr_len);
+    return (CO(eid_ptr, eid_addr_len));
 }
 
 
-void *pkt_fill_mapping_record(
+uint8_t *pkt_fill_mapping_record(
     lispd_pkt_mapping_record_t              *rec,
     lispd_mapping_elt                       *mapping,
     lisp_addr_t                             *probed_rloc)
 {
+    uint8_t                                 *cur_ptr             = NULL;
     int                                     cpy_len             = 0;
     lispd_pkt_mapping_record_locator_t      *loc_ptr            = NULL;
     lispd_locators_list                     *locators_list[2]   = {NULL,NULL};
     lispd_locator_elt                       *locator            = NULL;
+    lcl_locator_extended_info               *lct_extended_info  = NULL;
+    lisp_addr_t                             *itr_address    = NULL;
     int                                     ctr                 = 0;
+
 
     if ((rec == NULL) || (mapping == NULL))
         return NULL;
@@ -234,7 +240,8 @@ void *pkt_fill_mapping_record(
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-    loc_ptr = (lispd_pkt_mapping_record_locator_t *)pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+    loc_ptr = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
 
     if (loc_ptr == NULL){
         return NULL;
@@ -245,7 +252,13 @@ void *pkt_fill_mapping_record(
     for (ctr = 0 ; ctr < 2 ; ctr++){
         while (locators_list[ctr]) {
             locator              = locators_list[ctr]->locator;
-            loc_ptr->priority    = locator->priority;
+
+            if (*(locator->state) == UP){
+                loc_ptr->priority    = locator->priority;
+            }else{
+                /* If the locator is DOWN, set the priority to 255 -> Locator should not be used */
+                loc_ptr->priority    = UNUSED_RLOC_PRIORITY;
+            }
             loc_ptr->weight      = locator->weight;
             loc_ptr->mpriority   = locator->mpriority;
             loc_ptr->mweight     = locator->mweight;
@@ -253,11 +266,19 @@ void *pkt_fill_mapping_record(
             if (probed_rloc != NULL && compare_lisp_addr_t(locator->locator_addr,probed_rloc)==0){
                 loc_ptr->probed  = 1;
             }
+
             loc_ptr->reachable   = *(locator->state);
             loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
 
+            lct_extended_info = (lcl_locator_extended_info *)(locator->extended_info);
+            if (lct_extended_info->rtr_locators_list != NULL){
+                itr_address = &(lct_extended_info->rtr_locators_list->locator->address);
+            }else{
+                itr_address = locator->locator_addr;
+            }
+
             if ((cpy_len = copy_addr((void *) CO(loc_ptr,
-                    sizeof(lispd_pkt_mapping_record_locator_t)), locator->locator_addr, 0)) == 0) {
+                    sizeof(lispd_pkt_mapping_record_locator_t)), itr_address, 0)) == 0) {
                 lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
                         get_char_from_lisp_addr_t(*(locator->locator_addr)));
                 return(NULL);
@@ -268,14 +289,14 @@ void *pkt_fill_mapping_record(
             locators_list[ctr] = locators_list[ctr]->next;
         }
     }
-    return (void *)loc_ptr;
+    return ((void *)loc_ptr);
 }
 /*
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
  */
 int extract_5_tuples_from_packet (
-        char *packet ,
-        packet_tuple *tuple)
+        uint8_t         *packet ,
+        packet_tuple    *tuple)
 {
     struct iphdr        *iph    = NULL;
     struct ip6_hdr      *ip6h   = NULL;
@@ -310,17 +331,322 @@ int extract_5_tuples_from_packet (
 
     if (tuple->protocol == IPPROTO_UDP){
         udp = (struct udphdr *)CO(packet,len);
-        tuple->src_port = udp->source;
-        tuple->dst_port = udp->dest;
+        tuple->src_port = ntohs(udp->source);
+        tuple->dst_port = ntohs(udp->dest);
     }else if (tuple->protocol == IPPROTO_TCP){
         tcp = (struct tcphdr *)CO(packet,len);
-        tuple->src_port = tcp->source;
-        tuple->dst_port = tcp->dest;
+        tuple->src_port = ntohs(tcp->source);
+        tuple->dst_port = ntohs(tcp->dest);
     }else{//If protocol is not TCP or UDP, ports of the tuple set to 0
         tuple->src_port = 0;
         tuple->dst_port = 0;
     }
     return (GOOD);
+}
+
+/*
+ * Generate IP header. Returns the poninter to the transport header
+ */
+
+struct udphdr *build_ip_header(
+        uint8_t               *cur_ptr,
+        lisp_addr_t           *src_addr,
+        lisp_addr_t           *dst_addr,
+        int                   ip_len)
+{
+    struct ip      *iph;
+    struct ip6_hdr *ip6h;
+    struct udphdr  *udph;
+
+    switch (src_addr->afi) {
+    case AF_INET:
+        ip_len = ip_len + sizeof(struct ip);
+        iph                = (struct ip *) cur_ptr;
+        iph->ip_hl         = 5;
+        iph->ip_v          = IPVERSION;
+        iph->ip_tos        = 0;
+        iph->ip_len        = htons(ip_len);
+        iph->ip_id         = htons(get_IP_ID());
+        iph->ip_off        = 0;   /* XXX Control packets can be fragmented  */
+        iph->ip_ttl        = 255;
+        iph->ip_p          = IPPROTO_UDP;
+        iph->ip_src.s_addr = src_addr->address.ip.s_addr;
+        iph->ip_dst.s_addr = dst_addr->address.ip.s_addr;
+        iph->ip_sum        = 0;
+        iph->ip_sum        = ip_checksum((uint16_t *)cur_ptr, sizeof(struct ip));
+
+        udph              = (struct udphdr *) CO(iph,sizeof(struct ip));
+        break;
+    case AF_INET6:
+        ip6h           = (struct ip6_hdr *) cur_ptr;
+        ip6h->ip6_hops = 255;
+        ip6h->ip6_vfc  = (IP6VERSION << 4);
+        ip6h->ip6_nxt  = IPPROTO_UDP;
+        ip6h->ip6_plen = htons(ip_len);
+        memcpy(ip6h->ip6_src.s6_addr,
+               src_addr->address.ipv6.s6_addr,
+               sizeof(struct in6_addr));
+        memcpy(ip6h->ip6_dst.s6_addr,
+                dst_addr->address.ipv6.s6_addr,
+               sizeof(struct in6_addr));
+        udph = (struct udphdr *) CO(ip6h,sizeof(struct ip6_hdr));
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2,"build_ip_header: Uknown AFI of the source address: %d",src_addr->afi);
+        return(NULL);
+    }
+    return(udph);
+}
+
+/*
+ * Generates an IP header and an UDP header
+ * and copies the original packet at the end
+ */
+
+uint8_t *build_ip_udp_pcket(
+        uint8_t         *orig_pkt,
+        int             orig_pkt_len,
+        lisp_addr_t     *addr_from,
+        lisp_addr_t     *addr_dest,
+        int             port_from,
+        int             port_dest,
+        int             *encap_pkt_len)
+{
+    uint8_t         *encap_pkt                  = NULL;
+    void            *iph_ptr                    = NULL;
+    struct udphdr   *udph_ptr                   = NULL;
+    int             ip_hdr_len                  = 0;
+    int             udp_hdr_len                 = 0;
+    int             udp_hdr_and_payload_len     = 0;
+    uint16_t        udpsum                      = 0;
+
+
+    if (addr_from->afi != addr_dest->afi) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses");
+        return (NULL);
+    }
+
+    if ((addr_from->afi != AF_INET) && (addr_from->afi != AF_INET6)) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Unknown AFI %d",
+               addr_from->afi);
+        return (NULL);
+    }
+
+    /* Headers lengths */
+
+    ip_hdr_len = get_ip_header_len(addr_from->afi);
+
+    udp_hdr_len = sizeof(struct udphdr);
+
+    udp_hdr_and_payload_len = udp_hdr_len + orig_pkt_len;
+
+
+    /* Assign memory for the original packet plus the new headers */
+
+    *encap_pkt_len = ip_hdr_len + udp_hdr_len + orig_pkt_len;
+
+    if ((encap_pkt = (uint8_t *) malloc(*encap_pkt_len)) == NULL) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't allocate memory for the packet to be generated %s", strerror(errno));
+        return (NULL);
+    }
+
+    /* Make sure it's clean */
+
+    memset(encap_pkt, 0, *encap_pkt_len);
+
+
+    /* IP header */
+
+    iph_ptr = encap_pkt;
+
+    if ((udph_ptr = build_ip_header(iph_ptr, addr_from, addr_dest, udp_hdr_and_payload_len)) == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't build the inner ip header");
+        free (encap_pkt);
+        return (NULL);
+    }
+
+    /* UDP header */
+
+
+#ifdef BSD
+    udph_ptr->uh_sport = htons(port_from);
+    udph_ptr->uh_dport = htons(port_dest);
+    udph_ptr->uh_ulen = htons(udp_payload_len);
+    udph_ptr->uh_sum = 0;
+#else
+    udph_ptr->source = htons(port_from);
+    udph_ptr->dest = htons(port_dest);
+    udph_ptr->len = htons(udp_hdr_and_payload_len);
+    udph_ptr->check = 0;
+#endif
+
+    /* Copy original packet after the headers */
+    memcpy(CO(udph_ptr, udp_hdr_len), orig_pkt, orig_pkt_len);
+
+
+    /*
+     * Now compute the headers checksums
+     */
+
+    if ((udpsum = udp_checksum(udph_ptr, udp_hdr_and_payload_len, iph_ptr, addr_from->afi)) == -1) {
+        free (encap_pkt);
+        return (NULL);
+    }
+    udpsum(udph_ptr) = udpsum;
+
+
+    return (encap_pkt);
+
+}
+
+uint8_t *build_control_encap_pkt(
+        uint8_t         * orig_pkt,
+        int             orig_pkt_len,
+        lisp_addr_t     *addr_from,
+        lisp_addr_t     *addr_dest,
+        int             port_from,
+        int             port_dest,
+        int             *control_encap_pkt_len)
+{
+    uint8_t                     *lisp_encap_pkt_ptr      = NULL;
+    uint8_t                     *inner_pkt_ptr      = NULL;
+    lisp_encap_control_hdr_t    *lisp_hdr_ptr       = NULL;
+    int                         encap_pkt_len       = 0;
+    int                         lisp_hdr_len        = 0;
+
+
+    /* Add the interal IP and UDP headers */
+
+    inner_pkt_ptr = build_ip_udp_pcket(orig_pkt,
+                                           orig_pkt_len,
+                                           addr_from,
+                                           addr_dest,
+                                           port_from,
+                                           port_dest,
+                                           &encap_pkt_len);
+    /* Header length */
+
+    lisp_hdr_len = sizeof(lisp_encap_control_hdr_t);
+
+    /* Assign memory for the original packet plus the new header */
+
+    *control_encap_pkt_len = lisp_hdr_len + encap_pkt_len;
+
+    if ((lisp_encap_pkt_ptr = (void *) malloc(*control_encap_pkt_len)) == NULL) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "malloc(packet_len): %s", strerror(errno));
+        free(inner_pkt_ptr);
+        return (NULL);
+    }
+
+    memset(lisp_encap_pkt_ptr, 0, *control_encap_pkt_len);
+
+    /* LISP encap control header */
+
+    lisp_hdr_ptr = (lisp_encap_control_hdr_t *) lisp_encap_pkt_ptr;
+
+    lisp_hdr_ptr->type = LISP_ENCAP_CONTROL_TYPE;
+    lisp_hdr_ptr->s_bit = 0; /* XXX Security field not supported */
+
+    /* Copy original packet after the LISP control header */
+
+    memcpy((uint8_t *)CO(lisp_hdr_ptr, lisp_hdr_len), inner_pkt_ptr, encap_pkt_len);
+    free (inner_pkt_ptr);
+
+    return (lisp_encap_pkt_ptr);
+}
+
+/*
+ * Process encapsulated map request header:  lisp header and the interal IP and UDP header
+ */
+
+int process_encapsulated_map_request_headers(
+        uint8_t        *packet,
+        int            *len,
+        uint16_t       *dst_port){
+
+    struct ip                  *iph                    = NULL;
+    struct ip6_hdr             *ip6h                   = NULL;
+    struct udphdr              *udph                   = NULL;
+    int                        ip_header_len           = 0;
+    int                        encap_afi               = 0;
+    uint16_t                   udpsum                  = 0;
+    uint16_t                   ipsum                   = 0;
+    int                        udp_len                 = 0;
+
+    /*
+     * Read IP header.source_mapping
+     */
+
+    iph = (struct ip *) CO(packet, sizeof(lisp_encap_control_hdr_t));
+
+    switch (iph->ip_v) {
+    case IPVERSION:
+        ip_header_len = sizeof(struct ip);
+        udph = (struct udphdr *) CO(iph, ip_header_len);
+        encap_afi = AF_INET;
+        break;
+    case IP6VERSION:
+        ip6h = (struct ip6_hdr *) CO(packet, sizeof(lisp_encap_control_hdr_t));
+        ip_header_len = sizeof(struct ip6_hdr);
+        udph = (struct udphdr *) CO(ip6h, ip_header_len);
+        encap_afi = AF_INET6;
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
+        return(BAD);
+    }
+
+    /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
+    *dst_port = ntohs(udph->source);
+
+#ifdef BSD
+    udp_len = ntohs(udph->uh_ulen);
+    // sport   = ntohs(udph->uh_sport);
+#else
+    udp_len = ntohs(udph->len);
+    // sport   = ntohs(udph->source);
+#endif
+
+
+    /*
+     * Verify the checksums.
+     */
+    if (iph->ip_v == IPVERSION) {
+        ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
+        if (ipsum != 0) {
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
+        }
+        if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+            return(BAD);
+        }
+        if (udpsum != 0) {
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
+            return(BAD);
+        }
+    }
+
+    //Pranathi: Added this
+    if (iph->ip_v == IP6VERSION) {
+
+        if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+            return(BAD);
+        }
+        if (udpsum != 0) {
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
+            return(BAD);
+        }
+    }
+
+    *len = sizeof(lisp_encap_control_hdr_t)+ip_header_len + sizeof(struct udphdr);
+
+    return (GOOD);
+}
+
+
+uint16_t get_IP_ID()
+{
+    ip_id ++;
+    return (ip_id);
 }
 
 /*

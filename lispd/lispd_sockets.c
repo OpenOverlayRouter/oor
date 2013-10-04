@@ -29,54 +29,56 @@
 #include "lispd_sockets.h"
 #include "lispd_log.h"
 
+
+
+
 int open_device_binded_raw_socket(
     char *device,
     int afi)
 {
     
     //char *device = OUTPUT_IFACE;
-    
-    int device_len  = 0;
-    
-    int s           = 0;
-    int on          = 1;
-    
 
-    //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
-    switch (afi){
-        case AF_INET:
-            if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
-                return (BAD);
-            }
-            break;
-        case AF_INET6:
-            if ((s = socket(AF_INET6, SOCK_RAW,IPPROTO_RAW)) < 0) {
-                lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
-                return (BAD);
-            }
-            break;
-    }
-    
-    
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
-        close(s);
-        return (BAD);
-    }
-    
-    
-    // bind a socket to a device name (might not work on all systems):
-    device_len = strlen(device);
-    if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
-        close(s);
-        return (BAD);
-    }
-    
-    lispd_log_msg(LISP_LOG_DEBUG_2, "open_device_binded_raw_socket: open socket %d in interface %s with afi: %d", s, device, afi);
+       int device_len = 0;
 
-    return s;
+       int s = 0;
+       int on = 1;
+
+
+       //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
+       switch (afi){
+           case AF_INET:
+               if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+                   lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                   return (BAD);
+               }
+               break;
+           case AF_INET6:
+               if ((s = socket(AF_INET6, SOCK_RAW,IPPROTO_RAW)) < 0) {
+                   lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                   return (BAD);
+               }
+               break;
+       }
+
+
+       if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
+           lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
+           close(s);
+           return (BAD);
+       }
+
+       // bind a socket to a device name (might not work on all systems):
+       device_len = strlen(device);
+       if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
+           lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
+           close(s);
+           return (BAD);
+       }
+
+       lispd_log_msg(LISP_LOG_DEBUG_2, "open_device_binded_raw_socket: open socket %d in interface %s with afi: %d", s, device, afi);
+
+       return s;
     
 }
 
@@ -85,7 +87,7 @@ int open_raw_input_socket(int afi){
     int                 sock    = 0;
     int                 tr      = 1;
 	int                 protonum = -1;
-#if ANDROID
+#ifdef ANDROID
 	protonum = IPPROTO_UDP;
 #else
     if ((proto = getprotobyname("UDP")) == NULL) {
@@ -110,12 +112,12 @@ int open_raw_input_socket(int afi){
         SO_REUSEADDR,
         &tr,
         sizeof(int)) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
-    
-    return(BAD);
+            lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+            close(sock);
+            return(BAD);
         }
         
-        return sock;
+        return (sock);
 }
 
 
@@ -125,7 +127,7 @@ int open_udp_socket(int afi){
     int                 tr      = 1;
 	int                 protonum;
 
-#if ANDROID
+#ifdef ANDROID
 	protonum = IPPROTO_UDP;
 #else
     if ((proto = getprotobyname("UDP")) == NULL) {
@@ -157,9 +159,51 @@ int open_udp_socket(int afi){
     return sock;
 }
 
-int bind_socket(int sock,
-                int afi,
-                int port)
+int bind_socket_src_address(
+        int         sock,
+        lisp_addr_t *addr)
+{
+    int                  result          = TRUE;
+    struct sockaddr      *src_addr       = NULL;
+    int                  src_addr_len    = 0;
+    struct sockaddr_in   src_addr4;
+    struct sockaddr_in6  src_addr6;
+
+    memset ( ( char * ) &src_addr, 0, sizeof ( src_addr ) );
+
+    switch(addr->afi){
+
+    case AF_INET:
+        memset ( ( char * ) &src_addr4, 0, sizeof ( src_addr4 ) );
+        src_addr4.sin_family = AF_INET;
+        src_addr4.sin_addr.s_addr = addr->address.ip.s_addr;
+
+        src_addr = ( struct sockaddr * ) &src_addr4;
+        src_addr_len = sizeof ( struct sockaddr_in );
+
+        break;
+    case AF_INET6:
+        memset ( ( char * ) &src_addr6, 0, sizeof ( src_addr6 ) );
+        src_addr6.sin6_family = AF_INET6;
+        memcpy(&(src_addr6.sin6_addr),&(addr->address.ipv6),sizeof(struct in6_addr));
+
+        src_addr = ( struct sockaddr * ) &src_addr6;
+        src_addr_len = sizeof ( struct sockaddr_in6 );
+
+        break;
+    }
+
+    if (bind(sock,src_addr,src_addr_len) != 0){
+        lispd_log_msg(LISP_LOG_WARNING, "bind_socket_src_address: %s", strerror(errno));
+        result = BAD;
+    }
+    return (result);
+}
+
+int bind_socket(
+        int sock,
+        int afi,
+        int port)
 {
     struct sockaddr_in  sock_addr_v4;
     struct sockaddr_in6 sock_addr_v6;
@@ -287,173 +331,11 @@ int open_data_input_socket(int afi){
             break;
             
         default:
+            close(sock);
             return(BAD);
     }
     
     return(sock);
-}
-
-/*
- * Send a control packet over a udp datagram to the destination address.
- */
-
-int send_udp_ctrl_packet(
-        lisp_addr_t *dst_addr,
-        uint16_t    src_port,
-        uint16_t    dst_port,
-        void        *packet,
-        int         packet_len)
-{
-    switch (dst_addr->afi){
-    case AF_INET:
-        if (default_ctrl_iface_v4 != NULL){
-            err = send_udp_ipv4_packet(default_ctrl_iface_v4->ipv4_address,dst_addr,src_port,dst_port,(void *)packet,packet_len);
-        }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1,"send_udp_ctrl_packet: No local RLOC compatible with the afi of the destinaion locator %s",
-                    get_char_from_lisp_addr_t(*dst_addr));
-            err = BAD;
-        }
-        break;
-    case AF_INET6:
-        if (default_ctrl_iface_v6 != NULL){
-            err = send_udp_ipv6_packet(default_ctrl_iface_v6->ipv6_address,dst_addr,src_port,dst_port,(void *)packet,packet_len);
-        }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1,"send_udp_ctrl_packet: No local RLOC compatible with the afi of the destination locator %s",
-                    get_char_from_lisp_addr_t(*dst_addr));
-            err = BAD;
-        }
-        break;
-    }
-    return err;
-}
-
-/*
- * Send a ipv4 packet over a udp datagram to the destination address
- * If the src port is 0, then a random port is used.
- */
-
-int send_udp_ipv4_packet(
-        lisp_addr_t *src_addr,
-        lisp_addr_t *dst_addr,
-        uint16_t    src_port,
-        uint16_t    dst_port,
-        void        *packet,
-        int         packet_len)
-{
-    int                 s       = 0;      /*socket */
-    int                 nbytes  = 0;
-    struct sockaddr_in  dst;
-    struct sockaddr_in  src;
-
-
-    if ((s = open_udp_socket(AF_INET)) < 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: socket: %s", strerror(errno));
-        return(BAD);
-    }
-
-    memset((char *) &src, 0, sizeof(struct sockaddr_in));
-    src.sin_family       = AF_INET;
-    src.sin_port         = htons(src_port);
-    src.sin_addr.s_addr  = src_addr->address.ip.s_addr;
-    static char address[INET6_ADDRSTRLEN];
-    inet_ntop(AF_INET, &(src.sin_addr), address, INET_ADDRSTRLEN);
-
-    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in)) < 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: bind: %s", strerror(errno));
-        close(s);
-        return(BAD);
-    }
-
-    memset((char *) &dst, 0, sizeof(struct sockaddr_in));
-
-    dst.sin_family      = AF_INET;
-    dst.sin_addr.s_addr = dst_addr->address.ip.s_addr;
-    dst.sin_port        = htons(dst_port);
-    if ((nbytes = sendto(s,
-            (const void *) packet,
-            packet_len,
-            0,
-            (struct sockaddr *)&dst,
-            sizeof(struct sockaddr_in))) < 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv4_packet: sendto: %s", strerror(errno));
-        close(s);
-        return(BAD);
-    }
-
-    if (nbytes != packet_len) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,
-                "send_udp_ipv4_packet: nbytes (%d) != packet (%d)\n",
-                nbytes, packet_len);
-        close(s);
-        return(BAD);
-    }
-
-    close(s);
-    return (GOOD);
-}
-
-/*
- * Send a ipv6 packet over a udp datagram to the destination address
- * If the src port is 0, then a random port is used.
- */
-
-int send_udp_ipv6_packet(
-        lisp_addr_t *src_addr,
-        lisp_addr_t *dst_addr,
-        uint16_t    src_port,
-        uint16_t    dst_port,
-        void        *packet,
-        int         packet_len)
-{
-    int                     s       = 0;      /*socket */
-    int                     nbytes  = 0;
-    struct sockaddr_in6     dst;
-    struct sockaddr_in6     src;
-
-    if ((s = open_udp_socket(AF_INET6)) < 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: socket: %s", strerror(errno));
-        return(BAD);
-    }
-
-    memset((char *) &src, 0, sizeof(struct sockaddr_in6));
-    src.sin6_family       = AF_INET6;
-    src.sin6_port         = htons(src_port);
-    memcpy(&src.sin6_addr,&(src_addr->address.ipv6),sizeof(struct in6_addr));
-
-    if (bind(s, (struct sockaddr *)&src, sizeof(struct sockaddr_in6)) < 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: bind: %s", strerror(errno));
-        close(s);
-        return(BAD);
-    }
-
-    memset((char *) &dst, 0, sizeof(struct sockaddr_in6));
-
-    dst.sin6_family      = AF_INET6;
-    dst.sin6_port        = htons(dst_port);
-    memcpy(&dst.sin6_addr,&(dst_addr->address.ipv6),sizeof(struct in6_addr));
-
-
-    if ((nbytes = sendto(s,
-            (const void *) packet,
-            packet_len,
-            0,
-            (struct sockaddr *)&dst,
-            sizeof(struct sockaddr_in6))) < 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "send_udp_ipv6_packet: sendto: %s", strerror(errno));
-        close(s);
-        return(BAD);
-    }
-
-    if (nbytes != packet_len) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,
-                "send_udp_ipv6_packet: nbytes (%d) != packet (%d)\n",
-                nbytes, packet_len);
-        close(s);
-        return(BAD);
-    }
-
-    close(s);
-    return (GOOD);
 }
 
 /*
@@ -462,49 +344,44 @@ int send_udp_ipv6_packet(
 
 int send_packet (
         int     sock,
-        char    *packet,
+        uint8_t *packet,
         int     packet_length )
 {
-
-    struct sockaddr     *dst_addr       = NULL;
-    int                 dst_addr_len    = 0;
-    struct sockaddr_in  dst_addr4;
-    struct sockaddr_in6 dst_addr6;
-    struct iphdr        *iph            = NULL;
-    struct ip6_hdr      *ip6h           = NULL;
-    int                 nbytes          = 0;
+    struct sockaddr         *dst_addr       = NULL;
+    int                     dst_addr_len    = 0;
+    struct sockaddr_in      dst_addr4;
+    struct sockaddr_in6     dst_addr6;
+    lisp_addr_t             pkt_src_addr;
+    lisp_addr_t             pkt_dst_addr;
+    struct iphdr            *iph            = NULL;
+    struct ip6_hdr          *ip6h           = NULL;
+    int                     nbytes          = 0;
 
     memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
-
 
     iph = ( struct iphdr * ) packet;
 
     switch(iph->version){
+    case 4:
+        memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
+        dst_addr4.sin_family = AF_INET;
+        dst_addr4.sin_addr.s_addr = iph->daddr;
 
-        case 4:
+        dst_addr = ( struct sockaddr * ) &dst_addr4;
+        dst_addr_len = sizeof ( struct sockaddr_in );
 
-            memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
-            dst_addr4.sin_family = AF_INET;
-            //dst_addr4.sin_port = htons ( LISP_DATA_PORT );
-            dst_addr4.sin_addr.s_addr = iph->daddr;
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *) packet;
 
-            dst_addr = ( struct sockaddr * ) &dst_addr4;
-            dst_addr_len = sizeof ( struct sockaddr_in );
-            break;
-        case 6:
+        memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
+        dst_addr6.sin6_family = AF_INET6;
+        dst_addr6.sin6_addr = ip6h->ip6_dst;
 
-            ip6h = (struct ip6_hdr *) packet;
-            
-            memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
-            dst_addr6.sin6_family = AF_INET6;
-            //dst_addr6.sin6_port = htons ( LISP_DATA_PORT );
-            //memcpy(&(dst_addr6.sin6_addr),&(ip6h->ip6_dst),32);
-            dst_addr6.sin6_addr = ip6h->ip6_dst;
-            
-            dst_addr = ( struct sockaddr * ) &dst_addr6;
-            dst_addr_len = sizeof ( struct sockaddr_in6 );
-            
-            break;
+        dst_addr = ( struct sockaddr * ) &dst_addr6;
+        dst_addr_len = sizeof ( struct sockaddr_in6 );
+
+        break;
     }
 
     nbytes = sendto ( sock,
@@ -515,7 +392,33 @@ int send_packet (
                       dst_addr_len );
 
     if ( nbytes != packet_length ) {
-        lispd_log_msg( LISP_LOG_DEBUG_2, "send_packet: send failed %s", strerror ( errno ) );
+
+        switch(iph->version){
+        case 4:
+            pkt_src_addr.afi = AF_INET;
+            pkt_src_addr.address.ip.s_addr = iph->saddr;
+
+            pkt_dst_addr.afi = AF_INET;
+            pkt_dst_addr.address.ip.s_addr = iph->daddr;
+
+            break;
+        case 6:
+            ip6h = (struct ip6_hdr *) packet;
+
+            pkt_src_addr.afi = AF_INET6;
+            memcpy (&(pkt_src_addr.address), &(ip6h->ip6_src), sizeof(struct in6_addr));
+
+            pkt_dst_addr.afi = AF_INET6;
+            memcpy (&(pkt_dst_addr.address), &(ip6h->ip6_dst), sizeof(struct in6_addr));
+
+            break;
+        }
+
+        lispd_log_msg( LISP_LOG_DEBUG_2, "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d",
+                strerror ( errno ),
+                get_char_from_lisp_addr_t(pkt_src_addr),
+                get_char_from_lisp_addr_t(pkt_dst_addr),
+                sock);
         return (BAD);
     }
 
@@ -523,8 +426,11 @@ int send_packet (
 
 }
 
+/*
+ * Get a packet from the socket. It also returns the destination addres and source port of the packet
+ */
 
-int get_control_packet (
+int get_packet_and_socket_inf (
         int             sock,
         int             afi,
         uint8_t         *packet,

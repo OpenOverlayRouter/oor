@@ -103,14 +103,6 @@
 
 /************** Function declaration ************/
 
-/*
- * Process encapsulated map request header:  lisp header and the interal IP and UDP header
- */
-
-int process_encapsulated_map_request_headers(
-         uint8_t        *packet,
-         int            *len,
-         uint16_t       *dst_port);
 
 /*
  * Process record and send Map Reply
@@ -124,7 +116,7 @@ int process_map_request_record(
         uint8_t rloc_probe,
         uint64_t nonce);
 
-/* Build a Map Request paquet */
+/* Build a Map Request packet */
 
  uint8_t *build_map_request_pkt(
          lispd_mapping_elt       *requested_mapping,
@@ -136,15 +128,6 @@ int process_map_request_record(
          int                     *len,               /* return length here */
          uint64_t                *nonce);             /* return nonce here */
 
-/*
- * Add the encapsulated control message overhead
- */
-
-int add_encap_headers(
-        uint8_t        *packet,
-        lisp_addr_t    *src_eid,
-        lisp_addr_t    *remote_eid,
-         int            map_request_msg_len);
 
  /*
   * Calculate Map Request length. Just add locators with status up
@@ -182,7 +165,7 @@ int add_encap_headers(
 
      /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
 
-     if (((lispd_pkt_encapsulated_control_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
+     if (((lisp_encap_control_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
          if ((err = process_encapsulated_map_request_headers(packet,&len,&dst_port)) != GOOD){
              return (BAD);
          }
@@ -254,8 +237,10 @@ int add_encap_headers(
          itr_rloc[i].afi = itr_rloc_afi;
          cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
          // Select the first accessible rloc from the ITR-RLOC list
-         if (remote_rloc == NULL &&  get_default_ctrl_iface (itr_rloc[i].afi) != NULL){
-             remote_rloc = &itr_rloc[i];
+         if (remote_rloc == NULL){
+             if (local_rloc != NULL && itr_rloc[i].afi ==  local_rloc->afi){
+                 remote_rloc = &itr_rloc[i];
+             }
          }
      }
      if (remote_rloc == NULL){
@@ -270,94 +255,6 @@ int add_encap_headers(
      }
      return(GOOD);
  }
-
- /*
-  * Process encapsulated map request header:  lisp header and the interal IP and UDP header
-  */
-
- int process_encapsulated_map_request_headers(
-         uint8_t        *packet,
-         int            *len,
-         uint16_t       *dst_port){
-
-     struct ip                  *iph                    = NULL;
-     struct ip6_hdr             *ip6h                   = NULL;
-     struct udphdr              *udph                   = NULL;
-     int                        ip_header_len           = 0;
-     int                        encap_afi               = 0;
-     uint16_t                   udpsum                  = 0;
-     uint16_t                   ipsum                   = 0;
-     int                        udp_len                 = 0;
-
-     /*
-      * Read IP header.source_mapping
-      */
-
-     iph = (struct ip *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-
-     switch (iph->ip_v) {
-     case IPVERSION:
-         ip_header_len = sizeof(struct ip);
-         udph = (struct udphdr *) CO(iph, ip_header_len);
-         encap_afi = AF_INET;
-         break;
-     case IP6VERSION:
-         ip6h = (struct ip6_hdr *) CO(packet, sizeof(lispd_pkt_encapsulated_control_t));
-         ip_header_len = sizeof(struct ip6_hdr);
-         udph = (struct udphdr *) CO(ip6h, ip_header_len);
-         encap_afi = AF_INET6;
-         break;
-     default:
-         lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
-         return(BAD);
-     }
-
-     /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
-     *dst_port = ntohs(udph->source);
-
-#ifdef BSD
-     udp_len = ntohs(udph->uh_ulen);
-     // sport   = ntohs(udph->uh_sport);
-#else
-     udp_len = ntohs(udph->len);
-     // sport   = ntohs(udph->source);
-#endif
-
-
-     /*
-      * Verify the checksums.
-      */
-     if (iph->ip_v == IPVERSION) {
-         ipsum = ip_checksum((uint16_t *)iph, ip_header_len);
-         if (ipsum != 0) {
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
-         }
-         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-             return(BAD);
-         }
-         if (udpsum != 0) {
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
-             return(BAD);
-         }
-     }
-
-     //Pranathi: Added this
-     if (iph->ip_v == IP6VERSION) {
-
-         if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-             return(BAD);
-         }
-         if (udpsum != 0) {
-             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
-             return(BAD);
-         }
-     }
-
-     *len = sizeof(lispd_pkt_encapsulated_control_t)+ip_header_len + sizeof(struct udphdr);
-
-     return (GOOD);
- }
-
 
  /*
   * Process record and send Map Reply
@@ -434,11 +331,14 @@ int build_and_send_map_request_msg(
         uint64_t                *nonce)
 {
 
-    uint8_t     *packet = NULL;
-    int         mrp_len = 0;               /* return the length here */
-    int         result  = 0;
-
-    packet = build_map_request_pkt(
+    uint8_t     *packet         = NULL;
+    uint8_t     *map_req_pkt    = NULL;
+    lisp_addr_t *src_addr       = NULL;
+    int         out_socket      = 0;
+    int         packet_len      = 0;
+    int         mrp_len         = 0;               /* return the length here */
+    int         result          = 0;
+    map_req_pkt = build_map_request_pkt(
             requested_mapping,
             src_eid,
             encap,
@@ -448,7 +348,7 @@ int build_and_send_map_request_msg(
             &mrp_len,
             nonce);
 
-    if (packet == NULL) {
+    if (map_req_pkt == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Could not build map-request packet for %s/%d:"
                 " Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
@@ -460,20 +360,59 @@ int build_and_send_map_request_msg(
         return (BAD);
     }
 
-    result = send_udp_ctrl_packet(dst_rloc_addr,LISP_CONTROL_PORT, LISP_CONTROL_PORT,(void *)packet,mrp_len);
+    /* Get src interface information */
 
-    if (result == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
+    src_addr    = get_default_ctrl_address(dst_rloc_addr->afi);
+    out_socket  = get_default_ctrl_socket(dst_rloc_addr->afi);
+
+
+    if (src_addr == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Couden't send Map Request. No output interface with afi %d.",
+                dst_rloc_addr->afi);
+        free (map_req_pkt);
+        return (BAD);
+    }
+
+    /*  Add UDP and IP header to the Map Request message */
+
+    packet = build_ip_udp_pcket(map_req_pkt,
+                                mrp_len,
+                                src_addr,
+                                dst_rloc_addr,
+                                LISP_CONTROL_PORT,
+                                LISP_CONTROL_PORT,
+                                &packet_len);
+    free (map_req_pkt);
+
+    if (packet == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_request_msg: Couldn't send Map Request. Error adding IP and UDP header to the message");
+        return (BAD);
+    }
+
+    /* Send the packet */
+
+    if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d to %s: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c . Nonce: %s",
                         get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                         requested_mapping->eid_prefix_length,
+                        get_char_from_lisp_addr_t(*dst_rloc_addr),
                         (encap == TRUE ? 'Y' : 'N'),
                         (probe == TRUE ? 'Y' : 'N'),
                         (solicit_map_request == TRUE ? 'Y' : 'N'),
-                        (smr_invoked == TRUE ? 'Y' : 'N'));
+                        (smr_invoked == TRUE ? 'Y' : 'N'),
+                        get_char_from_nonce(*nonce));
+        result = GOOD;
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
+                get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
+                requested_mapping->eid_prefix_length,
+                (encap == TRUE ? 'Y' : 'N'),
+                (probe == TRUE ? 'Y' : 'N'),
+                (solicit_map_request == TRUE ? 'Y' : 'N'),
+                (smr_invoked == TRUE ? 'Y' : 'N'));
+        result = BAD;
     }
-
     free (packet);
-
 
     return (result);
 }
@@ -491,23 +430,23 @@ uint8_t *build_map_request_pkt(
         uint64_t                *nonce)             /* return nonce here */
 {
 
-    uint8_t                                     *packet;
-    lispd_pkt_map_request_t                     *mrp;
-    lispd_pkt_map_request_itr_rloc_t            *itr_rloc;
-    lispd_pkt_map_request_eid_prefix_record_t   *request_eid_record;
-    void                                        *cur_ptr;
-
+    uint8_t                                     *packet                 = NULL;
+    uint8_t                                     *mr_packet              = NULL;
+    lispd_pkt_map_request_t                     *mrp                    = NULL;
+    lispd_pkt_mapping_record_t                  *rec                    = NULL;
+    lispd_pkt_map_request_itr_rloc_t            *itr_rloc               = NULL;
+    lispd_pkt_map_request_eid_prefix_record_t   *request_eid_record     = NULL;
+    uint8_t                                     *cur_ptr                = NULL;
 
     int                     map_request_msg_len = 0;
-    int                     encap_overhead_len  = 0;
     int                     ctr                 = 0;
     int                     cpy_len             = 0;
     int                     locators_ctr        = 0;
 
-    lispd_mapping_elt   *src_mapping            = NULL;
-    lispd_locators_list *locators_list[2];
-    lispd_locator_elt   *locator;
-    lisp_addr_t         * ih_src_ip             = NULL;
+    lispd_mapping_elt       *src_mapping        = NULL;
+    lispd_locators_list     *locators_list[2]   = {NULL,NULL};
+    lispd_locator_elt       *locator            = NULL;
+    lisp_addr_t             *ih_src_ip          = NULL;
 
     /*
      * Lookup the local EID prefix from where we generate the message.
@@ -525,24 +464,16 @@ uint8_t *build_map_request_pkt(
 
     /* Calculate the packet size and reserve memory */
     map_request_msg_len = get_map_request_length(requested_mapping,src_mapping);
-    if (encap){
-        encap_overhead_len = get_emr_overhead_length(requested_mapping->eid_prefix.afi);
-    }
-    *len = map_request_msg_len + encap_overhead_len;
+    *len = map_request_msg_len;
 
-    if ((packet = malloc(*len)) == NULL){
+    if ((packet = malloc(map_request_msg_len)) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"build_map_request_pkt: Unable to allocate memory for Map Request (packet_len): %s", strerror(errno));
         return (NULL);
     }
-    memset(packet, 0, *len);
+    memset(packet, 0, map_request_msg_len);
+
 
     cur_ptr = packet;
-
-
-    /* Build the map request packet */
-    if (encap){
-        cur_ptr = CO(cur_ptr,encap_overhead_len);
-    }
 
     mrp = (lispd_pkt_map_request_t *)cur_ptr;
 
@@ -587,6 +518,12 @@ uint8_t *build_map_request_pkt(
                     locators_list[ctr] = locators_list[ctr]->next;
                     continue;
                 }
+                /* Remove ITR locators behind NAT: No control message (4342) can be received in these interfaces */
+                if (((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list != NULL){
+                    locators_list[ctr] = locators_list[ctr]->next;
+                    continue;
+                }
+
                 itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
                 itr_rloc->afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
                 /* Add rloc address */
@@ -621,6 +558,7 @@ uint8_t *build_map_request_pkt(
     mrp->additional_itr_rloc_count = locators_ctr - 1; /* IRC = 0 --> 1 ITR-RLOC */
     if (locators_ctr == 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: No ITR RLOCs.");
+        dump_mapping_entry(src_mapping,LISP_LOG_DEBUG_3);
         free(packet);
         return (NULL);
     }
@@ -631,9 +569,11 @@ uint8_t *build_map_request_pkt(
     request_eid_record->eid_prefix_length = requested_mapping->eid_prefix_length;
 
     cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_mapping);
+
     if (mrp->map_data_present == 1){
         /* Map-Reply Record */
-        if ((pkt_fill_mapping_record(cur_ptr, src_mapping, NULL))== NULL) {
+        rec = (lispd_pkt_mapping_record_t *)cur_ptr;
+        if ((pkt_fill_mapping_record(rec, src_mapping, NULL))== NULL) {
             lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: Couldn't buil map reply record for map request. "
                     "Map Request will not be send");
             free(packet);
@@ -658,80 +598,18 @@ uint8_t *build_map_request_pkt(
             }
         }
 
-        if ((err=add_encap_headers(packet,ih_src_ip,&(requested_mapping->eid_prefix),map_request_msg_len))!=GOOD){
-            free (packet);
+        mr_packet = packet;
+        packet = build_control_encap_pkt(mr_packet, map_request_msg_len, ih_src_ip, &(requested_mapping->eid_prefix), LISP_CONTROL_PORT, LISP_CONTROL_PORT, len);
+
+        if (packet == NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: Couldn't encapsulate the map request");
+            free (mr_packet);
             return (NULL);
         }
     }
 
     return (packet);
 }
-
-
-/*
- * Add the encapsulated control message overhead
- */
-
-int add_encap_headers(uint8_t *packet, lisp_addr_t *src_eid, lisp_addr_t *remote_eid, int map_request_msg_len)
-{
-
-    lispd_pkt_encapsulated_control_t    *ecm;
-    uint8_t                             *cur_ptr;
-    struct udphdr                       *udph;
-    void                                *iphptr;    /* v4 or v6 */
-    int                                 ip_len              = 0;
-    int                                 udp_len             = 0;
-    uint16_t                            udpsum              = 0;
-
-    cur_ptr = packet;
-    /* Add encapsulated lisp header */
-    ecm = (lispd_pkt_encapsulated_control_t *)cur_ptr;
-    ecm->type = LISP_ENCAP_CONTROL_TYPE;
-    ecm->security_flag = 0;  /* XXX Security field not supported */
-
-    udp_len = sizeof(struct udphdr) + map_request_msg_len;  /* udp header */
-
-    if(remote_eid->afi ==AF_INET)
-    {
-        ip_len  = sizeof(struct ip) + udp_len; // IPv4 header and payload
-    }
-    if(remote_eid->afi ==AF_INET6)
-    {
-        ip_len  = udp_len; // IPv6 only payload length
-    }
-
-    /* Build the internal IP header */
-    iphptr = CO(ecm,sizeof(lispd_pkt_encapsulated_control_t));
-    if ((udph = build_ip_header(iphptr, src_eid, remote_eid, ip_len)) == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Can't build IP header (unknown AFI %d)",src_eid->afi);
-        return (ERR_AFI);
-    }
-
-    /* Build UDP header */
-#ifdef BSD
-    udph->uh_sport = htons(LISP_CONTROL_PORT);
-    udph->uh_dport = htons(LISP_CONTROL_PORT);
-    udph->uh_ulen  = htons(udp_len);
-    udph->uh_sum   = 0;
-#else
-    udph->source = htons(LISP_CONTROL_PORT);
-    udph->dest   = htons(LISP_CONTROL_PORT);
-    udph->len    = htons(udp_len);
-    udph->check  = 0;
-#endif
-
-    /*
-     * now compute the udp checksums
-     */
-
-    if ((udpsum = udp_checksum(udph, udp_len, iphptr, src_eid->afi)) == -1) {
-        return (BAD);
-    }
-    udpsum(udph) = udpsum;
-    return (GOOD);
-}
-
-
 
 
 /*
@@ -772,23 +650,6 @@ int get_map_request_length (lispd_mapping_elt *requested_mapping, lispd_mapping_
     return mr_len;
 }
 
-/*
- * Calculate the overhead of the Encapsulated Map Request length.
- */
-
-int get_emr_overhead_length (int afi)
-{
-    int emr_len = 0;
-    emr_len = sizeof(struct udphdr);
-    emr_len +=  sizeof(lispd_pkt_encapsulated_control_t);
-    if (afi==AF_INET)
-        emr_len +=  sizeof(struct ip);
-    else
-        emr_len +=  sizeof(struct ip6_hdr);
-    return emr_len;
-}
-
-
 
 /*
  *  process Map_Request Message
@@ -808,21 +669,22 @@ int send_map_request_miss(timer *t, void *arg)
     if (nonces == NULL){
         nonces = new_nonces_list();
         if (nonces==NULL){
-            lispd_log_msg(LISP_LOG_WARNING,"Send_map_request_miss: Unable to allocate memory for nonces: %s", strerror(errno));
-            return BAD;
+            lispd_log_msg(LISP_LOG_WARNING,"Send_map_request_miss: Unable to allocate memory for nonces.");
+            return (BAD);
         }
         map_cache_entry->nonces = nonces;
     }
 
-    if (nonces->retransmits - 1 < LISPD_MAX_MR_RETRANSMIT ){
+    if (nonces->retransmits - 1 < map_request_retries ){
 
         if (map_cache_entry->request_retry_timer == NULL){
             map_cache_entry->request_retry_timer = create_timer (MAP_REQUEST_RETRY_TIMER);
         }
 
-        if (nonces->retransmits > 1){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request for EID: %s",
-                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix));
+        if (nonces->retransmits > 0){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request for EID: %s (%d retries)",
+                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                    nonces->retransmits);
         }
 
         /* Get the RLOC of the Map Resolver to be used */
@@ -856,8 +718,6 @@ int send_map_request_miss(timer *t, void *arg)
     }
     return GOOD;
 }
-
-
 
 /*
  * Editor modelines

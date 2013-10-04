@@ -34,8 +34,11 @@
 #define LISPD_MAP_REGISTER_H_
 
 #include "lispd.h"
+#include "lispd_iface_list.h"
 #include "lispd_timers.h"
 
+
+extern timer *map_register_timer;
 
 /*
  * Map-Registers have an authentication header before the UDP header.
@@ -43,7 +46,7 @@
  *        0                   1                   2                   3
  *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=3 |P|            Reserved               |M| Record Count  |
+ *       |Type=3 |P| |I|R|      Reserved               |M| Record Count  |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *       |                         Nonce . . .                           |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -65,7 +68,7 @@
  *        0                   1                   2                   3
  *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=3 |P|            Reserved             |m|M| Record Count  |
+ *       |Type=3 |P| |I|R|      Reserved               |M| Record Count  |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *       |                         Nonce . . .                           |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -91,15 +94,21 @@
  *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
+/* I and R bit are defined on NAT tarversal draft*/
+
 typedef struct lispd_pkt_map_register_t_ {
 #ifdef LITTLE_ENDIANS
-    uint8_t  reserved1:3;
+    uint8_t  rbit:1;
+    uint8_t  ibit:1;
+    uint8_t  reserved1:1;
     uint8_t  proxy_reply:1;
     uint8_t  lisp_type:4;
 #else
     uint8_t  lisp_type:4;
     uint8_t  proxy_reply:1;
-    uint8_t  reserved1:3;
+    uint8_t  reserved1:1;
+    uint8_t  ibit:1;
+    uint8_t  rbit:1;
 #endif
     uint8_t reserved2;
 #ifdef LITTLE_ENDIANS
@@ -119,12 +128,26 @@ typedef struct lispd_pkt_map_register_t_ {
 } PACKED lispd_pkt_map_register_t;
 
 
+
 int map_register(timer *t, void *arg);
+
+uint8_t *build_map_register_pkt(
+        lispd_mapping_elt       *mapping,
+        int                     *mrp_len);
 
 /*
  * Build and send a map register for the mapping entry passed as argument.
  */
 
 int build_and_send_map_register_msg(lispd_mapping_elt *mapping);
+
+int build_and_send_ecm_map_register(
+        lispd_mapping_elt           *mapping,
+        lispd_map_server_list_t     *map_servers,
+        lisp_addr_t                 *nat_rtr_addr,
+        lispd_iface_elt             *src_iface,
+        lispd_site_ID               *site_ID,
+        lispd_xTR_ID                *xTR_ID,
+        uint64_t                    *nonce);
 
 #endif /*LISPD_MAP_REGISTER_H_*/

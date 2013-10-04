@@ -114,10 +114,10 @@ int process_map_reply(uint8_t *packet);
 
 int build_and_send_map_reply_msg(
         lispd_mapping_elt *requested_mapping,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
+        lisp_addr_t *src_rloc_addr,
+        lisp_addr_t *dst_rloc_addr,
         uint16_t dport,
         uint64_t nonce,
         map_reply_opts opts);
 
-#endif /*LISPD_MAP_REPLY_H_*/
+#endif /* LISPD_MAP_REPLY_H_ */

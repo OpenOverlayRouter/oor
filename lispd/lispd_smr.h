@@ -40,11 +40,6 @@ void init_smr(
         void  *arg);
 
 /*
- * Send SMR for each local EID prefix to each Proxy-ITR
- */
-void smr_pitrs();
-
-/*
  * Send a map request smr invoked and reprogram the timer to retransmit in case
  * no receive answer.
  */
