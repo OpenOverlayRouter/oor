@@ -9,38 +9,69 @@
 #	debug: Debug levels [0..3]
 #	map-request-retries: Additional Map-Requests to send per map cache miss
 
-debug                = 0 
-map-request-retries  = 2
+debug                  = 0 
+map-request-retries    = 2
 
+# RLOC Probing configuration
+#   rloc-probe-interval: interval at which periodic RLOC probes are sent
+#     (seconds). A value of 0 disables RLOC Probing
+#   rloc-probe-retries: RLOC Probe retries before setting the locator with
+#     status down. [0..5]
+#   rloc-probe-retries-interval: interval at which RLOC probes retries are
+#     sent (seconds) [1..#rloc-probe-interval]
+
+rloc-probing {
+    rloc-probe-interval             = 30
+    rloc-probe-retries              = 2
+    rloc-probe-retries-interval     = 5
+}
+
+# NAT Traversal configuration. 
+#   nat_aware: check if the node is behind NAT
+#   site_ID: 64 bits to identify the site which the node is connected to. In
+#     hexadecimal
+#   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal
+# Limitation of version 0.3.3 when nat_aware is enabled: 
+#   - Only one interface is supported.
+#   - Only one Map Server and one Map Resolver
+
+nat-traversal {
+    nat_aware   = on
+    site_ID     = 0000000000000001                  #In doubt, keep the default value
+    xTR_ID      = 00000000000000000000000000000001  #In doubt, keep the default value
+}
 
 # Encapsulated Map-Requests are sent to this map-resolver
-# You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
-#	address: IPv4 or IPv6 address of the map resolver  
+# You can define several map-resolvers. Encapsulated Map-Request messages will
+# be sent to only one.
+#   address: IPv4 or IPv6 address of the map resolver  
 map-resolver        = {
 		address,
 		[address,..]
 }
 
 # Map-Registers are sent to this map-server
-# You can define several map-servers. Map-Register messages will be sent to all of them.
-#	address: IPv4 or IPv6 address of the map-server
+# You can define several map-servers. Map-Register messages will be sent to all
+# of them.
+#   address: IPv4 or IPv6 address of the map-server
 #   key-type: Only 1 supported (HMAC-SHA-1-96)
-#	key: password to authenticate with the map-server
+#   key: password to authenticate with the map-server
 #   proxy-reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
 
 map-server {
         address	    = IPv4 or IPv6 address
         key-type    = 1
-        key	    	= password
-		proxy-reply = on
+        key	    = password
+	proxy-reply = on
 }
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
-# You can define several Proxy-ETR. Traffic will be balanced according to priority and weight.
-#	address: IPv4 or IPv6 address of the Proxy-ETR
+# You can define several Proxy-ETR. Traffic will be balanced according to
+# priority and weight.
+#   address: IPv4 or IPv6 address of the Proxy-ETR
 #   priority [0-255]: Proxy-ETR with lower values are more preferable.
-#	weight [0-255]: When priorities are the same for multiple Proxy-ETRs, the Weight indicates how to balance 
-#    unicast traffic between them.
+#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,
+#     the Weight indicates how to balance unicast traffic between them.
 proxy-etr {
 	address     = IPv4 or IPv6 address
 	priority    = 1
@@ -48,14 +79,16 @@ proxy-etr {
 }
 
 # IPv4 / IPv6 EID of the node.
-# One database-mapping structure is defined for each interface with RLOCs associated to this EID
-#	eid-prefix: EID prefix (IPvX/mask) of the mapping 
+# One database-mapping structure is defined for each interface with RLOCs
+# associated to this EID
+#   eid-prefix: EID prefix (IPvX/mask) of the mapping 
 #   interface: interface containing the RLOCs associated to this mapping 
-#   priority_vX [0-255]: Priority for the IPvX RLOC of the interface. Locators with lower values are more preferable. 
-#      This is used for both incoming policy announcements and outcoming traffic policy management.
-#      (A value of -1  means that IPvX address of that interface is not used)
-#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight indicates how to balance unicast 
-#        traffic between them.
+#   priority_vX [0-255]: Priority for the IPvX RLOC of the interface. Locators
+#     with lower values are more preferable. This is used for both incoming
+#     policy announcements and outcoming traffic policy management. (A value
+#     of -1  means that IPvX address of that interface is not used)
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
+#     indicates how to balance unicast traffic between them.
 
 database-mapping {
          eid-prefix 	= IPv4 or IPv6 address /mask length
@@ -67,8 +100,7 @@ database-mapping {
 }
 
 # List of PITRs to SMR on handover
-#	address: IPv4 or IPv6 address of the Proxy-ITR
-
+#   address: IPv4 or IPv6 address of the Proxy-ITR
 proxy-itrs = {
 	address,
 	[address ...]
@@ -96,13 +128,13 @@ proxy-itrs = {
 # LISP beta-network IPv6 PITRs 
 
 #proxy-itrs = {
-#	2001:590::451f:1f62, 			# eqx-ash-pxtr
-#	2001:4f8:3:d::60,				# isc-pxtr
+#	2001:590::451f:1f62,		# eqx-ash-pxtr
+#	2001:4f8:3:d::60,		# isc-pxtr
 #	2001:418:4:1:deaf:bebe::10d, 	# asp-pxtr
-#	2001:418:0:1000::613, 			# ntt-amer-pxtr
-#	2001:200:e000:17::17,   			# intouch-pxtr-1
-#	2001:67C:21B4:108::b,    		# intouch-pxtr-2
-#	2001:6c8:41:100:0:2:1:c, 		# tdc-pxtr
-#	2001:700:0:52E::4, 				# uninett-pxtr
-#	2001:67C:21B4:107::b    		# apan-pxtr
+#	2001:418:0:1000::613, 		# ntt-amer-pxtr
+#	2001:200:e000:17::17,   	# intouch-pxtr-1
+#	2001:67C:21B4:108::b,    	# intouch-pxtr-2
+#	2001:6c8:41:100:0:2:1:c, 	# tdc-pxtr
+#	2001:700:0:52E::4, 		# uninett-pxtr
+#	2001:67C:21B4:107::b    	# apan-pxtr
 #}
