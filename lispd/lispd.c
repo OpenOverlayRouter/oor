@@ -80,6 +80,7 @@ void signal_handler(int);
  *      config paramaters
  */
 
+
 lispd_addr_list_t          	*map_resolvers;
 lispd_addr_list_t          	*proxy_itrs;
 lispd_map_cache_entry      	*proxy_etrs;
@@ -97,6 +98,7 @@ int      					rloc_probe_retries_interval;
 int      					control_port;
 
 int      					total_mappings;
+
 /*
  *      various globals
  */
@@ -127,17 +129,29 @@ lispd_xTR_ID    			xTR_ID;
 nonces_list     			*nat_emr_nonce;
 nonces_list     			*nat_ir_nonce;
 
+/* NAT */
+
+int             nat_aware   = FALSE;
+int             nat_status  = UNKNOWN;
+lispd_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
+lispd_xTR_ID    xTR_ID      = {.byte = {0}};
+// Global variables used to store nonces of encapsulated map register and info request.
+// To be removed when NAT with multihoming supported.
+nonces_list     *nat_emr_nonce  = NULL;
+nonces_list     *nat_ir_nonce   = NULL;
+
+
 /*
  * smr_timer is used to avoid sending SMRs during transition period.
  */
 timer 						*smr_timer;
-
 
 /*
  *      timers (fds)
  */
 
 int     					timers_fd;
+
 
 
 #define LISPD_LOCKFILE "/sdcard/lispd.lock"
@@ -190,9 +204,9 @@ int main(int argc, char **argv)
 #else
 #ifdef ANDROID
     open_log_file();
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for mobile node\n", LISPD_VERSION);
-#else
     lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for android mobile node\n", LISPD_VERSION);
+#else
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for mobile node\n", LISPD_VERSION);
 #endif
 #endif
 
@@ -269,8 +283,6 @@ int main(int argc, char **argv)
     init_timers();
 
 
-
-
     /*
      *  Parse config file. Format of the file depends on the node: Linux Box or OpenWRT router
      */
@@ -306,6 +318,7 @@ int main(int argc, char **argv)
                 proxy_etrs->mapping,
                 &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
     }
+
 
 
 
@@ -544,7 +557,9 @@ void signal_handler(int sig) {
  */
 
 void exit_cleanup(void) {
+
 	remove_process_lock();
+
     /* Remove source routing tables */
     remove_created_rules();
     /* Close timer file descriptors */
@@ -560,10 +575,11 @@ void exit_cleanup(void) {
     /* Close netlink socket */
     close(netlink_fd);
     lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
-
 #ifdef ANDROID
     close_log_file();
 #endif
+
+    exit(EXIT_SUCCESS);
 }
 
 

@@ -305,8 +305,8 @@ int info_request(
     return(GOOD);
 }
 
-/*
- * Given an interface, it looks for all the locators associated with this interface and remove its
+
+/* Given an interface, it looks for all the locators associated with this interface and remove its
  * RTR information. Use this function befor starting info request process in interface change
  */
 

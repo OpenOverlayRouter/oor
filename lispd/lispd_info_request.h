@@ -75,6 +75,7 @@ int info_request(
         timer   *ttl_timer,
         void    *arg);
 
+
 /*
  * Given an interface, it looks for all the locators associated with this interface and remove its
  * RTR information. Use this function befor starting info request process in interface change
