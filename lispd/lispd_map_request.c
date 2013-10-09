@@ -244,9 +244,10 @@ int process_map_request_record(
          }
      }
      if (remote_rloc == NULL){
-         lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_request_msg: Couldn't generate map replay - "
-                 "No supported afi in the list of ITR-RLOCS");
-         return (BAD);
+         lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_request_msg: Map Request doesn't contain any ITR-RLOC with afi "
+                 "equal to the local RLOC where the message has been received. Trying to use first ITR of the list.");
+         remote_rloc = &itr_rloc[0];
+         local_rloc = NULL; // The process will select the appropriate local rloc to reach the remote rloc
      }
 
      /* Process record and send Map Reply for each one */
