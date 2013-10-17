@@ -509,7 +509,7 @@ void process_nl_new_route (struct nlmsghdr *nlh)
         return;
     }
 
-    if (rtm->rtm_table != RT_TABLE_MAIN) {
+    if (rtm->rtm_table != RT_TABLE_MAIN && rtm->rtm_type != RTN_UNICAST ) {
         /* Not interested in routes/gateways affecting tables other the main routing table */
         return;
     }
@@ -517,13 +517,15 @@ void process_nl_new_route (struct nlmsghdr *nlh)
     rt_attr = (struct rtattr *)RTM_RTA(rtm);
     rt_length = RTM_PAYLOAD(nlh);
 
+
+
     for (; RTA_OK(rt_attr, rt_length); rt_attr = RTA_NEXT(rt_attr, rt_length)) {
         switch (rt_attr->rta_type) {
         case RTA_OIF:
             iface_index = *(int *)RTA_DATA(rt_attr);
             iface = get_interface_from_index(iface_index);
-            if_indextoname(iface_index, iface_name);
             if (iface == NULL){
+                if_indextoname(iface_index, iface_name);
                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_nl_new_route: the netlink message is not for any interface associated with RLOCs (%s)",
                         iface_name);
                 return;
@@ -555,10 +557,12 @@ void process_nl_new_route (struct nlmsghdr *nlh)
                 break;
             }
             break;
+
         default:
             break;
         }
     }
+
     if (gateway.afi != AF_UNSPEC && iface_index != 0 && dst.afi == AF_UNSPEC){
         /* Check default afi*/
         if (default_rloc_afi != -1 && default_rloc_afi != gateway.afi){
