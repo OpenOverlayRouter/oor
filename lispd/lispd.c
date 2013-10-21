@@ -66,7 +66,6 @@
 #include "lispd_timers.h"
 #include "lispd_tun.h"
 
-
 void event_loop();
 void signal_handler(int);
 

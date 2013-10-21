@@ -30,12 +30,28 @@
 
 #include "defs_re.h"
 
-void join_re_channel(lisp_addr_t src, lisp_addr_t group){
+void join_re_channel(lisp_addr_t src, lisp_addr_t group) {
     printf("------ > Request to JOIN RE channel (%s, %s). Still not implemented! \n",
             get_char_from_lisp_addr_t(src), get_char_from_lisp_addr_t(group));
 }
 
-void leave_re_channel(lisp_addr_t src, lisp_addr_t group){
+void leave_re_channel(lisp_addr_t src, lisp_addr_t group) {
     printf("------ > Request to LEAVE RE channel (%s, %s). Still not implemented! \n",
             get_char_from_lisp_addr_t(src), get_char_from_lisp_addr_t(group));
+}
+
+void process_re_join_request() {
+
+}
+
+void process_re_leave_request() {
+
+}
+
+int send_re_join_request() {
+
+}
+
+int send_re_leave_request() {
+
 }

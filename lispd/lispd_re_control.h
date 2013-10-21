@@ -34,5 +34,7 @@
 
 void join_re_channel(lisp_addr_t src, lisp_addr_t group);
 void leave_re_channel(lisp_addr_t src, lisp_addr_t group);
+void process_re_join_request();
+void process_re_leave_request();
 
 #endif /* LISPD_RE_CONTROL_H_ */
