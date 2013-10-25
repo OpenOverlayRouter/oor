@@ -28,6 +28,7 @@
 
 
 
+#include <assert.h>
 #include "bob/lookup3.c"
 #include "lispd_locator.h"
 #include "lispd_map_request.h"
