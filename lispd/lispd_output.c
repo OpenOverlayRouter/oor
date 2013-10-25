@@ -666,6 +666,8 @@ int select_src_rmt_locators_from_balancing_locators_vec (
         dst_loc_vec = dst_blv->v6_balancing_locators_vec;
         dst_vec_len = dst_blv->v6_locators_vec_length;
         break;
+    default:
+        assert(0);
     }
 
     pos = hash%dst_vec_len;
