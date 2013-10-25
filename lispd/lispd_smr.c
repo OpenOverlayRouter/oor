@@ -111,8 +111,8 @@ void init_smr(
         iface_list = iface_list->next;
     }
 
-    map_cache_dbs[0] = get_map_cache_db(AF_INET);
-    map_cache_dbs[1] = get_map_cache_db(AF_INET6);
+    map_cache_dbs[0] = get_pt_from_afi(AF_INET);
+    map_cache_dbs[1] = get_pt_from_afi(AF_INET6);
 
     /*
      * Send map register and SMR request for each affected mapping

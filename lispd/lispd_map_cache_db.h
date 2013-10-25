@@ -26,6 +26,7 @@
  *
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Florin Coras      <fcoras@ac.upc.edu>
  */
 #ifndef LISPD_MAP_CACAHE_DB_H_
 #define LISPD_MAP_CACAHE_DB_H_
@@ -46,7 +47,7 @@ void map_cache_init();
 /*
  * Return map cache data base
  */
-patricia_tree_t* get_map_cache_db(int afi);
+patricia_tree_t* get_map_cache_db(lisp_afi_t afi);
 
 /*
  *  Add a map cache entry to the database.
@@ -58,7 +59,7 @@ int add_map_cache_entry_to_db(lispd_map_cache_entry *entry);
  *
  * Delete an EID mapping from the cache
  */
-void del_map_cache_entry_from_db(lisp_addr_t eid, int prefixlen);
+void del_map_cache_entry_from_db(lisp_addr_t *laddr, uint8_t prefixlen);
 
 
 /*
@@ -67,7 +68,7 @@ void del_map_cache_entry_from_db(lisp_addr_t eid, int prefixlen);
  * Find an exact match for a prefix/prefixlen if possible
  */
 lispd_map_cache_entry *lookup_map_cache_exact(
-        lisp_addr_t             eid,
+        lisp_addr_t             addr,
         int                     prefixlen);
 
 
@@ -92,8 +93,9 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(int eid_afi, uint64_
  * This function is used when the map reply report a prefix that includes the requested prefix
  */
 
-int change_map_cache_prefix_in_db(lisp_addr_t         new_eid_prefix,
-        int                                     new_eid_prefix_length,
+int replace_map_cache_entry(
+        lisp_addr_t                             *new_eid_prefix,
+        uint8_t                                 new_eid_prefix_length,
         lispd_map_cache_entry                   *cache_entry);
 
 void map_cache_entry_expiration(timer *t, void *arg);

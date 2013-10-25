@@ -180,7 +180,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
          * we remove the inactie entry from the database and store it again with the correct eix prefix (for instance /24).
          */
         if (cache_entry->mapping->eid_prefix_length != mapping->eid_prefix_length){
-            if (change_map_cache_prefix_in_db(mapping->eid_prefix, mapping->eid_prefix_length, cache_entry) == BAD){
+            if (replace_map_cache_entry(get_mapping_eid_addr(mapping), get_mapping_ip_eid_plen(mapping), cache_entry) == BAD){
                 free_mapping_elt(mapping, FALSE);
                 return (BAD);
             }

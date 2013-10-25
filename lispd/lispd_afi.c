@@ -27,12 +27,15 @@
  *
  * Written or modified by:
  *    Albert López      <alopez@ac.upc.edu>
+ *    Florin Coras      <fcoras@ac.upc.edu>
  *
  */
 
 #include "lispd_afi.h"
 #include "lispd_lib.h"
 
+
+int extract_ip_addr(uint8_t **offset, lisp_afi_t afi, ip_addr_t *addr);
 
 int pkt_process_eid_afi(
         uint8_t                 **offset,
@@ -42,7 +45,6 @@ int pkt_process_eid_afi(
     uint8_t                 *cur_ptr;
     lispd_pkt_lcaf_t        *lcaf_ptr;
     uint16_t                 lisp_afi;
-
 
     cur_ptr  = *offset;
     lisp_afi = ntohs(*(uint16_t *)cur_ptr);
@@ -60,12 +62,16 @@ int pkt_process_eid_afi(
         break;
     case LISP_AFI_LCAF:
         lcaf_ptr = (lispd_pkt_lcaf_t *)cur_ptr;
-        cur_ptr  = CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
         switch(lcaf_ptr->type) {
         case LCAF_IID:
+            cur_ptr  = CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
             mapping->iid = ntohl(*(uint32_t *)cur_ptr);
             cur_ptr = CO(lcaf_ptr, sizeof(mapping->iid));
-            if (!pkt_process_eid_afi (&cur_ptr, mapping))
+            if (pkt_process_eid_afi (&cur_ptr, mapping)!=GOOD)
+                return (BAD);
+            break;
+        case LCAF_MCAST_INFO:
+            if (extract_mcast_info_lcaf_data (&cur_ptr, mapping) != GOOD)
                 return (BAD);
             break;
         default:
@@ -232,3 +238,80 @@ int extract_nat_lcaf_data(
 
     return (GOOD);
 }
+
+int extract_mcast_info_lcaf_data(
+        uint8_t             **offset,
+        lispd_mapping_elt   *mapping){
+
+    lispd_pkt_lcaf_mcast_info_t     *mcinfohdr          = NULL;
+    mcinfo_mapping_extended_info    *extended_info      = NULL;
+    uint16_t                        safi                = 0;
+    lispd_addr_t                    *eid_prefix         = NULL;
+    uint8_t                         *cur_ptr            = NULL;
+
+    cur_ptr = *offset;
+    mcinfohdr = (lispd_pkt_lcaf_mcast_info_t *)cur_ptr;
+
+    if ((extended_info=(mcinfo_mapping_extended_info *)malloc(sizeof(mcinfo_mapping_extended_info)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"extract_mcast_info_lcaf_data: Couldn't allocate memory for mcinfo_mapping_extended_info: %s",
+                strerror(errno));
+        return (BAD);
+    }
+
+    extended_info->grp_plen = mcinfohdr->grp_mlen;
+    extended_info->jbit = mcinfohdr->jbit;
+    extended_info->rbit = mcinfohdr->rbit;
+    extended_info->lbit = mcinfohdr->lbit;
+
+
+    set_mapping_extended_info(mapping, (void *)extended_info);
+    set_mapping_iid(mapping, ntohl(mcinfohdr->iid));
+
+    eid_prefix = get_mapping_eid_addr(mapping);
+    set_lisp_addr_afi(eid_prefix, LM_AFI_MC);
+
+    safi = ntohs(mcinfohdr->src_afi);
+    cur_ptr = CO(cur_ptr, sizeof(mcinfohdr));
+
+    if (extract_ip_addr_to(&cur_ptr, safi, get_lisp_addr_mc_src(eid_prefix)) != GOOD)
+        return (BAD);
+
+    safi = ntohs(*(uint16_t *)cur_ptr);
+    cur_ptr = CO(cur_ptr, sizeof(safi));
+    if (extract_ip_addr_to(&cur_ptr, safi, get_lisp_addr_mc_grp(eid_prefix)) != GOOD)
+        return (BAD);
+
+    *offset = cur_ptr;
+    return (GOOD);
+
+}
+
+int extract_ip_addr_to(uint8_t **offset, lisp_afi_t afi, ip_addr_t *addr) {
+
+    struct in_addr  ipv4;
+    struct in6_addr ipv6;
+
+    switch(afi) {
+    case LISP_AFI_IP:
+        memcpy(&ipv4,*offset, sizeof(in_addr));
+        set_ip_addr_v4(addr, ipv4);
+        *offset  = CO(*offset, sizeof(struct in_addr));
+        break;
+    case LISP_AFI_IPV6:
+        memcpy(&ipv6,*offset, sizeof(in6_addr));
+        set_ip_addr_v6(addr, ipv6);
+        *offset  = CO(*offset, sizeof(struct in6_addr));
+        break;
+    case LISP_AFI_NO_ADDR:
+        set_ip_addr_afi(addr,AF_UNSPEC);
+        *offset=CO(*offset, sizeof(uint16_t)); /* that's what mr-signaling says */
+        break;
+    default:
+        set_ip_addr_afi(addr,AF_UNSPEC);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"extract_ip_addr_to:  Unknown LCAF type %d in EID", afi);
+        return (BAD);
+    }
+
+    return (GOOD);
+}
+

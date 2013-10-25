@@ -43,7 +43,7 @@
 typedef struct lispd_mapping_elt_ {
     lisp_addr_t                     eid_prefix;
     uint8_t                         eid_prefix_length;
-    int                             iid;
+    lisp_iid_t                      iid;
     uint16_t                        locator_count;
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
@@ -85,6 +85,15 @@ typedef struct rmt_mapping_extended_info_ {
     balancing_locators_vecs               rmt_balancing_locators_vecs;
 }rmt_mapping_extended_info;
 
+/*
+ * Structure to expand the lispd_mapping_elt to support multicast info AFI
+ */
+typedef struct mcinfo_mapping_exteded_info_{
+    uint16_t        grp_plen;
+    uint8_t         rbit;
+    uint8_t         lbit;
+    uint8_t         jbit;
+}mcinfo_mapping_extended_info;
 
 /****************************************  FUNCTIONS **************************************/
 

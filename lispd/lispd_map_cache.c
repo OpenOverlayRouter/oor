@@ -138,17 +138,21 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     time_t              uptime;
     int                 ctr = 0;
     char                str[400];
+    char                fmt[200];
     lispd_locators_list         *locator_iterator_array[2]  = {NULL,NULL};
     lispd_locators_list         *locator_iterator           = NULL;
     lispd_locator_elt           *locator                    = NULL;
+    lispd_mapping_elt           *mapping                    = NULL;
+    lisp_addr_t                 *addr                       = NULL;
 
     if (is_loggable(log_level) == FALSE){
         return;
     }
 
+    mapping = get_mcache_entry_mapping(entry);
 
-    sprintf(str,"IDENTIFIER (EID): %s/%d (IID = %d), ", get_char_from_lisp_addr_t(entry->mapping->eid_prefix),
-            entry->mapping->eid_prefix_length, entry->mapping->iid);
+    sprintf(str,"IDENTIFIER (EID): %s (IID = %d), ",
+            get_mapping_eid_prefix_to_char(mapping), get_mapping_iid(mapping) );
     uptime = time(NULL);
     uptime = uptime - entry->timestamp;
     strftime(buf, 20, "%H:%M:%S", localtime(&uptime));
@@ -166,7 +170,6 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     lispd_log_msg(log_level,"%s",str);
 
     if (entry->mapping->locator_count > 0){
-
         locator_iterator_array[0] = entry->mapping->head_v4_locators_list;
         locator_iterator_array[1] = entry->mapping->head_v6_locators_list;
         lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
@@ -181,4 +184,6 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
         }
         lispd_log_msg(log_level,"\n");
     }
+
+
 }

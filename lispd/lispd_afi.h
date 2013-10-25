@@ -27,6 +27,7 @@
  *
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Florin Coras      <fcoras@ac.upc.edu>
  *
  */
 #ifndef LISPD_AFI_H_
@@ -115,7 +116,47 @@ typedef struct lispd_pkt_lcaf_iid_t_ {
     uint16_t    afi;
 } PACKED lispd_pkt_lcaf_iid_t;
 
+/*   Multicast Info Canonical Address Format:
+ *
+ *    0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 9    |  Rsvd2  |R|L|J|             8 + n             |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Instance-ID                           |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |            Reserved           | Source MaskLen| Group MaskLen |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |   Source/Subnet Address  ...  |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |       Group Address  ...      |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
 
+typedef struct lispd_pkt_lcaf_mcast_info_t_{
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+#ifdef LITTLE_ENDIANS
+    uint8_t     jbit:1;
+    uint8_t     lbit:1;
+    uint8_t     rbit:1;
+    uint8_t     rsvd:5;
+#else
+    uint8_t     rsvd:5;
+    uint8_t     rbit:1;
+    uint8_t     lbit:1;
+    uint8_t     jbit:1;
+#endif
+    uint16_t    len;
+    lispd_iid_t iid;
+    uint16_t    reserved;
+    uint8_t     src_mlen;
+    uint8_t     grp_mlen;
+    uint16_t    src_afi;
+} PACKED lispd_pkt_lcaf_mcast_info_t;
 
 
 /* Fixed part of NAT LCAF.
@@ -144,7 +185,6 @@ typedef struct lispd_pkt_nat_lcaf_t_ {
     uint16_t ms_udp_port;
     uint16_t etr_udp_port;
 } PACKED lispd_pkt_nat_lcaf_t;
-
 
 
 /*
@@ -177,5 +217,8 @@ int extract_nat_lcaf_data(
         uint32_t                        *length);
 
 
+int extract_mcast_info_lcaf_data (
+        uint8_t             **offset,
+        lispd_mapping_elt   *mapping);
 
 #endif /*LISPD_AFI_H_*/

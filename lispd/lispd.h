@@ -60,6 +60,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include "lispd_log.h"
+#include "defs_re.h"
 
 
 /*
@@ -287,13 +288,73 @@ typedef struct lisphdr {
 /*
  * Lisp address structure
  */
+
+typedef uint8_t     lisp_afi_t;
+typedef uint8_t     ip_afi_t;
+typedef uint32_t    lisp_iid_t;
+
 typedef struct {
-  union {
-    struct in_addr ip;
-    struct in6_addr ipv6;
-  } address;
-  int afi;
+    ip_afi_t      afi;
+    union {
+        struct in_addr      v4;
+        struct in6_addr     v6;
+    };
+} ip_addr_t;
+
+typedef struct {
+    ip_addr_t    src;
+    ip_addr_t    grp;
+} mc_addr_t;
+
+/* ideal structure
+typedef struct {
+    lisp_afi_t  lafi;
+    union{
+        ip_addr_t   ip;
+        mc_addr_t   mc;
+    };
 } lisp_addr_t;
+*/
+
+/* fcoras: the next structure exists for compatibility reasons
+ *  Would be nice to remove it in the future.
+ *  The cool thing is that we can access in 2 ways the same data
+ *  either as old struct or as ip_addr_t
+ */
+typedef struct {
+    union {
+        struct {
+            ip_afi_t  lafi;
+            union {
+                struct in_addr  ip;
+                struct in6_adr  ipv6;
+            } address;
+        };
+        struct {
+            union {
+                ip_addr_t   ip;
+                mc_addr_t   mc;
+            };
+            lisp_afi_t        afi;
+        };
+    };
+} lisp_addr_t;
+
+/* fcoras: we should have a local AFI list that distinguishes between ip/mc/mac and any other.
+ * Since afi up to now was either AF_INET or AF_INET6 both are still valid in the new address struct
+ * I use AFI 2 for MC.
+ */
+#define LM_AFI_IP   1
+#define LM_AFI_MC   2
+
+/* for compatibility*/
+#define LM_AFI_IP6  AF_INET6
+
+
+typedef struct {
+    lisp_addr_t addr;
+    uint8_t     preflen;
+} lisp_prefix_t;
 
 
 /*
