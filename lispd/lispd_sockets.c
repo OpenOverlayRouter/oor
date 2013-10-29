@@ -146,7 +146,7 @@ int open_udp_socket(int afi){
             &tr,
             sizeof(int)) == -1) {
         lispd_log_msg(LISP_LOG_WARNING, "open_udp_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
-
+        close(sock);
         return(BAD);
     }
 
