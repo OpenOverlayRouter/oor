@@ -1,18 +1,28 @@
 #
+# The lispd LISP daemon configuration file
 #
-#       lispd example config file
-#
+# You can can copy this file to /etc/lispd.conf or explicitly specify its path
+# on the lispd command line:
+#     lispd -f /path/to/lispd.conf
 #
 
 
 # General configuration
-#	debug: Debug levels [0..3]
-#	map-request-retries: Additional Map-Requests to send per map cache miss
+#
+#   debug: Specify the amount of debugging information lispd will print. On
+#     production systems, with a stable configuration this should be set to
+#     0. When experimenting, debugging issues, or preparing useful bug
+#     reports, the value should be raised gradually. When reporting bugs,
+#     developers may ask a specific value to be configured and logs be sent.
+#     [0..3]
+#   map-request-retries: The number of additional Map-Requests to send if the
+#     first one times out. The non-configurable timeout value is 2 seconds.
 
 debug                  = 0 
 map-request-retries    = 2
 
-# RLOC Probing configuration
+# RLOC Probing configuration.
+#
 #   rloc-probe-interval: interval at which periodic RLOC probes are sent
 #     (seconds). A value of 0 disables RLOC Probing
 #   rloc-probe-retries: RLOC Probe retries before setting the locator with
@@ -27,114 +37,132 @@ rloc-probing {
 }
 
 # NAT Traversal configuration. 
+#
 #   nat_aware: check if the node is behind NAT
 #   site_ID: 64 bits to identify the site which the node is connected to. In
 #     hexadecimal
 #   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal
+#
 # Limitation of version 0.3.3 when nat_aware is enabled: 
 #   - Only one interface is supported.
-#   - Only one Map Server and one Map Resolver
+#   - Only one Map-Server and one Map-Resolver
 
 nat-traversal {
-    nat_aware   = on
-    site_ID     = 0000000000000001                  #In doubt, keep the default value
-    xTR_ID      = 00000000000000000000000000000001  #In doubt, keep the default value
+        nat_aware   = off
+        site_ID     = 0000000000000001                  #In doubt, keep the default value
+        xTR_ID      = 00000000000000000000000000000001  #In doubt, keep the default value
 }
 
-# Encapsulated Map-Requests are sent to this map-resolver
-# You can define several map-resolvers. Encapsulated Map-Request messages will
-# be sent to only one.
-#   address: IPv4 or IPv6 address of the map resolver  
-map-resolver        = {
-		address,
-		[address,..]
+# Map-Resolver configuration.
+# Encapsulated Map-Requests are sent to these Map-Resolvers. You can define
+# several Map-Resolvers. Encapsulated Map-Request messages will be sent to
+# only to the first one (for now).
+#
+#   address: IPv4 or IPv6 address of the Map-Resolver  
+
+map-resolver = {
+        address,
+        [address, ...]
 }
 
-# Map-Registers are sent to this map-server
-# You can define several map-servers. Map-Register messages will be sent to all
-# of them.
-#   address: IPv4 or IPv6 address of the map-server
+# Map-Server configuration.
+# Map-Registers are sent to this Map-Server. You can define several
+# Map-Servers. Map-Register messages will be sent to all of them.
+#
+#   address: IPv4 or IPv6 address of the Map-Server
 #   key-type: Only 1 supported (HMAC-SHA-1-96)
-#   key: password to authenticate with the map-server
-#   proxy-reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
+#   key: password to authenticate with the Map-Server
+#   proxy-reply [on/off]: Configure Map-Server to Map-Reply on behalf of the xTR
 
 map-server {
-        address	    = IPv4 or IPv6 address
+        address     = <IPv4 or IPv6 address>
         key-type    = 1
-        key	    = password
-	proxy-reply = on
+        key         = <password>
+        proxy-reply = on
 }
 
-# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
-# You can define several Proxy-ETR. Traffic will be balanced according to
-# priority and weight.
-#   address: IPv4 or IPv6 address of the Proxy-ETR
-#   priority [0-255]: Proxy-ETR with lower values are more preferable.
-#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,
-#     the Weight indicates how to balance unicast traffic between them.
-proxy-etr {
-	address     = IPv4 or IPv6 address
-	priority    = 1
-	weight      = 100
-}
-
-# IPv4 / IPv6 EID of the node.
+# IPv4/IPv6 EID of the node.
 # One database-mapping structure is defined for each interface with RLOCs
 # associated to this EID
+#
 #   eid-prefix: EID prefix (IPvX/mask) of the mapping 
 #   interface: interface containing the RLOCs associated to this mapping 
-#   priority_vX [0-255]: Priority for the IPvX RLOC of the interface. Locators
+#   priority_vX [0..255]: Priority for the IPvX RLOC of the interface. Locators
 #     with lower values are more preferable. This is used for both incoming
 #     policy announcements and outcoming traffic policy management. (A value
 #     of -1  means that IPvX address of that interface is not used)
-#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
+#   weight [0..255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.
+#
+# See Section 6.2 of RFC6839 for a detailed discussion of priority and weight
+# usage:
+# http://tools.ietf.org/html/rfc6830#section-6.2
 
 database-mapping {
-         eid-prefix 	= IPv4 or IPv6 address /mask length
-         interface  	= interface name
-         priority_v4	= 1					# Priority of IPv4 locator of the interface eth0 for this EID
-         weight_v4     	= 100				# Weight of IPv4 locator of the interface eth0 for this EID
-         priority_v6	= 1					# Priority of IPv6 locator of the interface eth0 for this EID
-         weight_v6     	= 100				# Weight of IPv6 locator of the interface eth0 for this EID
+         eid-prefix     = <IPv4 or IPv6 address/mask length>
+         interface      = <interface_name>
+         priority_v4    = 1             # Priority of IPv4 locator of <interface_name> for this EID
+         weight_v4      = 100           # Weight of IPv4 locator of <interface_name> for this EID
+         priority_v6    = 1             # Priority of IPv6 locator of <interface_name> for this EID
+         weight_v6      = 100           # Weight of IPv6 locator of <interface_name> for this EID
 }
 
-# List of PITRs to SMR on handover
+# Proxy-ETR configuration.
+# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
+# You can define several Proxy-ETR blocks. Traffic will be balanced according
+# to priority and weight. you can try to use of the Proxy-ITRs from the bottom
+# of this file, since they typically support Proxy-ETR functionality as well
+# (if their name contains 'pxtr'). Try the one with the lowest latency (ping)
+#
+#   priority [0..255]: Proxy-ETR with lower values are more preferable.
+#   weight [0..255]: When priorities are the same for multiple Proxy-ETRs,
+#     the Weight indicates how to balance unicast traffic between them.
+
+proxy-etr {
+        address     = <IPv4 or IPv6 address>
+        priority    = 1
+        weight      = 100
+}
+
+# List of PITRs to SMR on handover.
+# Unless you know what you're doing, you should just use the preconfigured
+# blocks at the end of this file.
+#
 #   address: IPv4 or IPv6 address of the Proxy-ITR
-proxy-itrs = {
-	address,
-	[address ...]
-}
+#
+#proxy-itrs = {
+#        address,
+#        [address, ...]
+#}
 
-# Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
-# Uncomment the IPv4 or IPv6 list based on your current locators and
-# comment the previous 'proxy-itrs' section
+# Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses.
+# Unless you know what you're doing, leave the following two blocks
+# uncommented.
 
 # LISP beta-network IPv4 PITRs
-#proxy-itrs = {
-#	69.31.31.98,		# eqx-ash-pxtr
-#	149.20.48.60,		# isc-pxtr
-#	198.6.255.37,		# asp-pxtr
-#	173.36.193.25,		# sjc-pxtr
-#	129.250.1.63,		# ntt-amer-pxtr
-#	217.8.98.33,		# intouch-pxtr-1
-#	217.8.98.35,		# intouch-pxtr-2
-#	193.162.145.46,		# tdc-pxtr
-#	158.38.1.92,		# uninett-pxtr
-#	203.181.249.172,	# apan-pxtr
-#	202.51.247.10		# sg-nus-pxtr
-#}
+proxy-itrs = {
+        69.31.31.98,            # eqx-ash-pxtr
+        149.20.48.60,           # isc-pxtr
+        198.6.255.37,           # asp-pxtr
+        173.36.193.25,          # sjc-pxtr
+        129.250.1.63,           # ntt-amer-pxtr
+        217.8.98.33,            # intouch-pxtr-1
+        217.8.98.35,            # intouch-pxtr-2
+        193.162.145.46,         # tdc-pxtr
+        158.38.1.92,            # uninett-pxtr
+        203.181.249.172,        # apan-pxtr
+        202.51.247.10           # sg-nus-pxtr
+}
 
 # LISP beta-network IPv6 PITRs 
-
-#proxy-itrs = {
-#	2001:590::451f:1f62,		# eqx-ash-pxtr
-#	2001:4f8:3:d::60,		# isc-pxtr
-#	2001:418:4:1:deaf:bebe::10d, 	# asp-pxtr
-#	2001:418:0:1000::613, 		# ntt-amer-pxtr
-#	2001:200:e000:17::17,   	# intouch-pxtr-1
-#	2001:67C:21B4:108::b,    	# intouch-pxtr-2
-#	2001:6c8:41:100:0:2:1:c, 	# tdc-pxtr
-#	2001:700:0:52E::4, 		# uninett-pxtr
-#	2001:67C:21B4:107::b    	# apan-pxtr
-#}
+proxy-itrs = {
+        2001:590::451f:1f62,            # eqx-ash-pxtr
+        2001:4f8:3:d::60,               # isc-pxtr
+        2001:418:4:1:deaf:bebe::10d,    # asp-pxtr
+        2001:418:0:1000::613,           # ntt-amer-pxtr
+        2001:200:e000:17::17,           # intouch-pxtr-1
+        2001:67C:21B4:108::b,           # intouch-pxtr-2
+        2001:6c8:41:100:0:2:1:c,        # tdc-pxtr
+        2001:700:0:52E::4,              # uninett-pxtr
+        2001:67C:21B4:107::b            # apan-pxtr
+}
