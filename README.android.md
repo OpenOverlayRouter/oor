@@ -1,11 +1,11 @@
 Android
 --------
 
-Since version 0.3.4, LISPmob integrates support for android devices as LISP 
-mobile nodes.
-Functionalities are limited to one IPv4 and one IPv6 EID mapped to RLOCs of one 
-interface (no multihoming support). If you require NAT functionality, it is 
-recommended you first read the NAT traversal section of the README.md file.
+Since version 0.3.4, LISPmob integrates support for android devices as LISP
+mobile nodes. Functionalities are limited to one IPv4 and one IPv6 EID mapped
+to RLOCs of one interface (no multihoming support). If you require NAT
+functionality, it is recommended you first read the NAT traversal section of
+the README.md file.
 
 Installation
 ------------
@@ -28,11 +28,13 @@ The latest version of the LISPmob source code can be obtained from Github:
     git submodule init
     git submodule update
 
-In the Android SDK manager you should either have Android 4.2.2 (API 17)
-installed, or update the `project.properties` file to specify the target API you
-have installed.  To build the code, enter the android directory located in the
-top-level directory and modify the `local.properties` file with the path to your
-Android SDK and Android NDK.
+To build the code, enter the `android/` directory located in the top-level
+directory and modify the `local.properties` file with the path to your Android
+SDK and Android NDK.  In the Android SDK Manager you should either have
+Android 4.2.2 (API 17) installed, or update the `project.properties` file to
+specify the target API you have installed. Please note that regardless of the
+target API you have installed, LISPmob should still work on all Android
+releases from API 9 (Android 2.3 Gingerbread) and above.
 
 Compile the code:
 
@@ -43,6 +45,8 @@ This command generates an APK file called `lispmob-debug.apk` in the folder
 the android application manager, or run:
 
     adb install [-r] bin/lispmob-debug.apk
+
+Building the code from source is supported on Linux and Mac OS X.
 
 Running LISPmob
 ---------------
