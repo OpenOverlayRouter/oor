@@ -1,3 +1,4 @@
 [submodule "android/jni/android-external-openssl"]
 	path = android/jni/android-external-openssl
 	url = git://github.com/fries/android-external-openssl.git
+	ignore = dirty
