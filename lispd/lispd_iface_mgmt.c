@@ -39,6 +39,11 @@
 #include "lispd_timers.h"
 #include "lispd_tun.h"
 
+// Used when an interface with status DOWN change its address. When interface changes to UP
+// and nat_aware_iface_address_change is TRUE init info request process
+// XXX NAT: Valid only for one interface
+uint8_t nat_aware_iface_address_change = FALSE;
+
 /************************* FUNCTION DECLARTAION ********************************/
 
 void process_nl_add_address (struct nlmsghdr *nlh);
@@ -151,7 +156,7 @@ void process_netlink_msg(int netlink_fd){
         nlh = (struct nlmsghdr *)buffer;
         memset(nlh,0,4096);
     }
-
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Finish pocessing netlink message");
     return;
 }
 
@@ -371,8 +376,12 @@ void process_address_change (
     if(nat_aware==TRUE){
         // TODO : To be modified when implementing NAT per multiple interfaces
         nat_status = UNKNOWN;
+        clear_rtr_from_locators (iface);
+
         if (iface->status == UP){
             initial_info_request_process();
+        }else{
+        	nat_aware_iface_address_change = TRUE;
         }
     }
 
@@ -660,13 +669,19 @@ void process_link_status_change(
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default output interface down. Recalculate new output interface");
         set_default_output_ifaces();
     }
-
     iface_balancing_vectors_calc(iface);
+
+    /* When NAT aware, if address has change when interface down, when UP init info request process */
+    if(new_status == UP && nat_aware==TRUE && nat_aware_iface_address_change == TRUE){
+    	initial_info_request_process();
+    	nat_aware_iface_address_change = FALSE;
+    }
 
     /* Reprograming SMR timer*/
     if (smr_timer == NULL){
         smr_timer = create_timer (SMR_TIMER);
     }
+
     start_timer(smr_timer, LISPD_SMR_TIMEOUT,(timer_callback)init_smr, NULL);
 
 }

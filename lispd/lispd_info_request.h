@@ -76,3 +76,11 @@ int info_request(
         void    *arg);
 
 
+/*
+ * Given an interface, it looks for all the locators associated with this interface and remove its
+ * RTR information. Use this function befor starting info request process in interface change
+ */
+
+void clear_rtr_from_locators (lispd_iface_elt     *iface);
+
+

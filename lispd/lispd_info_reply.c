@@ -30,7 +30,6 @@
  */
 
 
-#include <sys/timerfd.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "lispd_afi.h"

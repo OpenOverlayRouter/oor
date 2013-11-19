@@ -34,7 +34,11 @@
  */
 
 #include "cmdline.h"
+#ifdef ANDROID
+#include "../android/jni/confuse_android/src/confuse.h"
+#else
 #include "confuse.h"
+#endif
 #include "lispd_afi.h"
 #include "lispd_config.h"
 #include "lispd_external.h"
@@ -535,6 +539,11 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
+#ifdef ANDROID
+	    CFG_BOOL("override-dns",   		cfg_false, CFGF_NONE),
+	    CFG_STR("override-dns-primary",     0, CFGF_NONE),
+            CFG_STR("override-dns-secondary",   0, CFGF_NONE),
+#endif
             CFG_END()
     };
 

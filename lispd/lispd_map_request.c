@@ -559,6 +559,7 @@ uint8_t *build_map_request_pkt(
     mrp->additional_itr_rloc_count = locators_ctr - 1; /* IRC = 0 --> 1 ITR-RLOC */
     if (locators_ctr == 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: No ITR RLOCs.");
+        dump_mapping_entry(src_mapping,LISP_LOG_DEBUG_3);
         free(packet);
         return (NULL);
     }

@@ -38,13 +38,13 @@
 #include <string.h>
 
 
-lispd_iface_list_elt    *head_interface_list    = NULL;
+lispd_iface_list_elt    *head_interface_list;
 
-lispd_iface_elt         *default_out_iface_v4   = NULL;
-lispd_iface_elt         *default_out_iface_v6   = NULL;
+lispd_iface_elt         *default_out_iface_v4;
+lispd_iface_elt         *default_out_iface_v6;
 
-lispd_iface_elt         *default_ctrl_iface_v4  = NULL;
-lispd_iface_elt         *default_ctrl_iface_v6  = NULL;
+lispd_iface_elt         *default_ctrl_iface_v4;
+lispd_iface_elt         *default_ctrl_iface_v6;
 
 
 lispd_iface_elt *add_interface(char *iface_name)

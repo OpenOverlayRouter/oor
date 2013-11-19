@@ -30,8 +30,11 @@
  */
 
 #include "lispd_external.h"
+#include "lispd_iface_list.h"
 #include "lispd_info_request.h"
 #include "lispd_lib.h"
+#include "lispd_locator.h"
+#include "lispd_mapping.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 
@@ -300,6 +303,42 @@ int info_request(
     start_timer(info_reply_ttl_timer, next_timer_time, info_request, mapping);
     lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d seconds",next_timer_time);
     return(GOOD);
+}
+
+
+/* Given an interface, it looks for all the locators associated with this interface and remove its
+ * RTR information. Use this function befor starting info request process in interface change
+ */
+
+void clear_rtr_from_locators (lispd_iface_elt     *iface){
+	lispd_iface_mappings_list 	*mappings_list  	= NULL;
+	lispd_locator_elt 			*locator 			= NULL;
+	lcl_locator_extended_info	*local_etended_inf 	= NULL;
+
+	mappings_list = iface->head_mappings_list;
+	while (mappings_list != NULL){
+		if (mappings_list->use_ipv4_address == TRUE){
+			locator = get_locator_from_mapping(	mappings_list->mapping, *(iface->ipv4_address));
+			if (locator != NULL){
+				local_etended_inf = (lcl_locator_extended_info *)locator->extended_info;
+				if (local_etended_inf != NULL && local_etended_inf->rtr_locators_list != NULL){
+					free_rtr_list (local_etended_inf->rtr_locators_list);
+					local_etended_inf->rtr_locators_list = NULL;
+				}
+			}
+		}
+		if (mappings_list->use_ipv6_address == TRUE){
+			locator = get_locator_from_mapping(	mappings_list->mapping, *(iface->ipv6_address));
+			if (locator != NULL){
+				local_etended_inf = (lcl_locator_extended_info *)locator->extended_info;
+				if (local_etended_inf != NULL && local_etended_inf->rtr_locators_list != NULL){
+					free_rtr_list (local_etended_inf->rtr_locators_list);
+					local_etended_inf->rtr_locators_list = NULL;
+				}
+			}
+		}
+		mappings_list = mappings_list->next;
+	}
 }
 
 /*

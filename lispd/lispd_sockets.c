@@ -83,23 +83,26 @@ int open_device_binded_raw_socket(
 }
 
 int open_raw_input_socket(int afi){
-    
     struct protoent     *proto  = NULL;
     int                 sock    = 0;
     int                 tr      = 1;
-    
+	int                 protonum = -1;
+#ifdef ANDROID
+	protonum = IPPROTO_UDP;
+#else
     if ((proto = getprotobyname("UDP")) == NULL) {
         lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: getprotobyname: %s", strerror(errno));
         return(BAD);
     }
-    
+ 	protonum = proto->p_proto;
+#endif
+	
     /*
      *  build the ipv4_data_input_fd, and make the port reusable
      */
-    
-    
-    if ((sock = socket(afi,SOCK_RAW,proto->p_proto)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: socket: %s", strerror(errno));
+    if ((sock = socket(afi,SOCK_RAW,protonum)) < 0) {
+        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
+
         return(BAD);
     }
     lispd_log_msg(LISP_LOG_DEBUG_3,"open_raw_input_socket: socket at creation: %d\n",sock);
@@ -119,22 +122,25 @@ int open_raw_input_socket(int afi){
 
 
 int open_udp_socket(int afi){
-
     struct protoent     *proto  = NULL;
     int                 sock    = 0;
     int                 tr      = 1;
-    
+	int                 protonum;
+
+#ifdef ANDROID
+	protonum = IPPROTO_UDP;
+#else
     if ((proto = getprotobyname("UDP")) == NULL) {
         lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
         return(BAD);
     }
-     
+	protonum = proto->p_proto;
+#endif
+
     /*
      *  build the ipv4_data_input_fd, and make the port reusable
      */
-
-    
-    if ((sock = socket(afi,SOCK_DGRAM,proto->p_proto)) < 0) {
+    if ((sock = socket(afi,SOCK_DGRAM,protonum)) < 0) {
         lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
         return(BAD);
     }

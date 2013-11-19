@@ -30,9 +30,14 @@
  */
 
 #include "cksum.h"
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
 
+#ifdef ANDROID
+	#include "../android/jni/android-external-openssl/include/openssl/hmac.h"
+	#include "../android/jni/android-external-openssl/include/openssl/evp.h"
+#else
+	#include <openssl/hmac.h>
+	#include <openssl/evp.h>
+#endif
 
 uint16_t ip_checksum(
     uint16_t *buffer,

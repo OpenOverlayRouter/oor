@@ -35,12 +35,6 @@
 #include "lispd_external.h"
 #include "lispd_log.h"
 
-/*
- * smr_timer is used to avoid sending SMRs during transition period.
- */
-timer *smr_timer = NULL;
-
-//void smr_pitrs();
 
 /*
  * Send a solicit map request for each rloc of all eids in the map cahce database

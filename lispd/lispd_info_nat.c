@@ -29,7 +29,7 @@
  *
  */
 
-#include <sys/timerfd.h>
+
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <endian.h>
