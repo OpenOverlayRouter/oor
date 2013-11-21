@@ -1,7 +1,7 @@
 Android
 --------
 
-Since version 0.3.4, LISPmob integrates support for android devices as LISP
+Since version 0.3.4, LISPmob integrates support for Android devices as LISP
 mobile nodes. Functionalities are limited to one IPv4 and one IPv6 EID mapped
 to RLOCs of one interface (no multihoming support). If you require NAT
 functionality, it is recommended you first read the NAT traversal section of
@@ -10,21 +10,25 @@ the README.md file.
 Installation
 ------------
 
-To install LISPmob on your device, you require root access and an Android version 
+To install LISPmob on your device, you require root access and Android version 
 2.3.6 or higher. You can download a precompiled APK package file from the LISPmob
 website or compile it yourself. In both cases the device must be configured to
-allow the installation of packages from "unknown sources".
+allow the installation of packages from "unknown sources" (System Settings ->
+Security -> Device Administration).
 
-To install LISPmob from source code you require some extra packages apart from the
-ones specified in the main README.md file.
+To build LISPmob for Android from source code you require some extra packages
+apart from the ones specified in the main README.md file.
 
-  * Android SDK
-  * Android NDK
+  * Android SDK: [http://developer.android.com/sdk/]
+  * Android NDK: [http://developer.android.com/tools/sdk/ndk/]
   * Apache Ant
 
-The latest version of the LISPmob source code can be obtained from Github:
+Since the Android code uses git submodules, you need to build from a git
+repository checkout.  Get the latest version of the LISPmob source from
+Github:
 
-    git clone git://github.com/LISPmob/lispmob.git -b android
+    git clone git://github.com/LISPmob/lispmob.git
+    cd lispmob
     git submodule init
     git submodule update
 
@@ -38,6 +42,7 @@ releases from API 9 (Android 2.3 Gingerbread) and above.
 
 Compile the code:
 
+    cd android
     ant debug
 
 This command generates an APK file called `lispmob-debug.apk` in the folder
