@@ -2,8 +2,8 @@
 
 LOCAL_PATH:= $(call my-dir)
 LOCAL_PATH2:= $(LOCAL_PATH)
-subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, \confuse_android/ )) \
-		$(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, \android-external-openssl/ ))
+subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, /confuse_android )) \
+		$(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, /android-external-openssl ))
 	
 include $(subdirs)	
 
