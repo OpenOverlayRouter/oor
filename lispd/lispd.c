@@ -1,9 +1,9 @@
 /*
- * lispd.c 
+ * lispd.c
  *
  * This file is part of LISP Mobile Node Implementation.
  * lispd Implementation
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -44,6 +44,8 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/capability.h>
+#include <sys/prctl.h>
 //#include <sys/timerfd.h>
 #include <netinet/in.h>
 #include <net/if.h>
@@ -133,8 +135,67 @@ nonces_list     *nat_ir_nonce   = NULL;
 int     timers_fd                       = 0;
 
 
+int check_capabilities()
+{
 
-int main(int argc, char **argv) 
+    /*
+     *  Check for superuser privileges
+     */
+ 	struct __user_cap_header_struct cap_header;
+	struct __user_cap_data_struct cap_data;
+
+	cap_header.pid = getpid();
+	cap_header.version = _LINUX_CAPABILITY_VERSION;
+	if (capget(&cap_header, &cap_data) < 0)
+	{
+        lispd_log_msg(LISP_LOG_ERR, "Could not retrieve capabilities");
+        return BAD;
+	}
+
+    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    /* check for capabilities */
+    if(  (cap_data.effective & CAP_TO_MASK(CAP_NET_ADMIN)) && (cap_data.effective & CAP_TO_MASK(CAP_NET_RAW))  )  {
+    }
+    else {
+        lispd_log_msg(LISP_LOG_CRIT, "Insufficiant rights, you need CAP_NET_ADMIN and CAP_NET_RAW. See readme");
+        return BAD;
+    }
+
+    /* Clear all but the capability to bind to low ports */
+    cap_data.effective = CAP_TO_MASK(CAP_NET_ADMIN) | CAP_TO_MASK(CAP_NET_RAW);
+    cap_data.permitted = cap_data.effective ;
+    cap_data.inheritable = 0;
+    if (capset(&cap_header, &cap_data) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Could not drop privileges");
+        return BAD;
+    }
+
+    /* Tell kernel not clear permitted capabilities when dropping root */
+    if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Sprctl(PR_SET_KEEPCAPS) failed");
+        return GOOD;
+    }
+
+    /* Now we can drop privilege, drop effective rights even with KEEPCAPS */
+    if (setuid(getuid()) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Could not drop privileges");
+    }
+
+    /* that's why we need to set effective rights equal to permitted rights */
+	if (capset(&cap_header, &cap_data) < 0)
+	{
+        lispd_log_msg(LISP_LOG_CRIT, "Could not set effective rights to permitted ones");
+        return (BAD);
+	}
+
+    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    return GOOD;
+}
+
+
+int main(int argc, char **argv)
 {
     lisp_addr_t *tun_v4_addr;
     lisp_addr_t *tun_v6_addr;
@@ -150,16 +211,12 @@ int main(int argc, char **argv)
     lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
 #endif
 
-
     /*
-     *  Check for superuser privileges
+     *  Check for required capabilities and drop unnecssary privileges
      */
-
-    if (geteuid()) {
-        lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
+    if(check_capabilities() != GOOD) {
         exit_cleanup();
     }
-
     /*
      *  Initialize the random number generator
      */
@@ -392,11 +449,11 @@ void event_loop()
     int    max_fd;
     fd_set readfds;
     int    retval;
-    
+
     /*
      *  calculate the max_fd for select.
      */
-    
+
     max_fd = ipv4_data_input_fd;
     max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
     max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
@@ -414,7 +471,7 @@ void event_loop()
         FD_SET(ipv6_control_input_fd, &readfds);
         FD_SET(timers_fd, &readfds);
         FD_SET(netlink_fd, &readfds);
-        
+
         retval = have_input(max_fd, &readfds);
         if (retval == -1) {
             break;           /* doom */
@@ -422,7 +479,7 @@ void event_loop()
         if (retval == BAD) {
             continue;        /* interrupted */
         }
-        
+
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
             //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
             process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
