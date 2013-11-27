@@ -50,7 +50,7 @@ void process_nl_new_unicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_new_multicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_del_route (struct nlmsghdr *nlh);
 void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length);
-int  process_nl_multicast_route_attributes (struct rtmsg *rtm, int rt_length, lisp_addr_t *src, lisp_addr_t *grp);
+int  process_nl_multicast_route_attributes (struct rtmsg *rtm, int rt_length, ip_addr_t *src, ip_addr_t *grp);
 
 /*
  * Change the address of the interface. If the address belongs to a not initialized locator, activate it.
@@ -610,9 +610,8 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
 
 void process_nl_new_multicast_route(struct rtmsg *rtm, int rt_length) {
 
-    lisp_addr_t              rt_groupaddr               = {.afi=AF_UNSPEC};
-    lisp_addr_t              rt_srcaddr                 = {.afi=AF_UNSPEC};
-
+    ip_addr_t   srcaddr, grpaddr;
+    lisp_addr_t *eid;
 
     /*
      * IPv4 multicast routes are part of the default table and have family 128, while
@@ -623,18 +622,18 @@ void process_nl_new_multicast_route(struct rtmsg *rtm, int rt_length) {
         return;
 
 
-    if (process_nl_multicast_route_attributes(rtm, rt_length, &rt_srcaddr, &rt_groupaddr) == BAD)
+    if (process_nl_multicast_route_attributes(rtm, rt_length, &srcaddr, &grpaddr) == BAD)
         return;
 
-    join_re_channel(rt_srcaddr, rt_groupaddr);
+    multicast_join_channel(&srcaddr, &grpaddr);
 
 }
 
 int process_nl_multicast_route_attributes (
         struct rtmsg    *rtm,
         int             rt_length,
-        lisp_addr_t     *rt_srcaddr,
-        lisp_addr_t     *rt_groupaddr) {
+        ip_addr_t       *rt_srcaddr,
+        ip_addr_t       *rt_groupaddr) {
 
     struct rtattr            *rt_attr                   = NULL;
     lispd_iface_elt          *iface                     = NULL;
@@ -650,58 +649,63 @@ int process_nl_multicast_route_attributes (
 
     for (; RTA_OK(rt_attr, rt_length); rt_attr = RTA_NEXT(rt_attr, rt_length)) {
         switch (rt_attr->rta_type) {
-        case RTA_DST:
-            switch(rtm->rtm_family) {
-            case 128:
-                rt_groupaddr->afi = AF_INET;
-                memcpy(&(rt_groupaddr->address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
-                break;
-            case 129:
-                rt_groupaddr->afi = AF_INET6;
-                memcpy(&(rt_groupaddr->address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
-                break;
-            default:
-                break;
-            }
-            break;
-        case RTA_SRC:
-            switch (rtm->rtm_family) {
-            case 128:
-                rt_srcaddr->afi = AF_INET;
-                memcpy(&(rt_srcaddr->address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
-                break;
-            case 129:
-                rt_srcaddr->afi = AF_INET6;
-                memcpy(&(rt_srcaddr->address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
-                break;
-            default:
-                break;
-            }
-            break;
-        case RTA_MULTIPATH:
-            rt_nh = (struct rtnexthop *)RTA_DATA(rt_attr);
-            rtnh_length = RTA_PAYLOAD(rt_attr);
-            for (; RTNH_OK(rt_nh, rtnh_length); rt_nh = RTNH_NEXT(rt_nh)) {
-                /* Check if one of the interfaces is the gateway */
-                iface = get_interface_from_index(rt_nh->rtnh_ifindex);
-                iface_index = *(int *)RTA_DATA(rt_attr);
-                iface = get_interface_from_index(iface_index);
-                if (iface != NULL){
-                    if_indextoname(iface_index, iface_name);
-                    lispd_log_msg(LISP_LOG_INFO, "process_nl_new_multicast_route: the multicast route message is for an interface that has RLOCs associated (%s). Ignoring!",
-                            iface_name);
-                    return BAD;
+            case RTA_DST:
+                switch(rtm->rtm_family) {
+                    case 128:
+                        ip_addr_set_v4(rt_groupaddr, (void *)RTA_DATA(rt_attr) );
+//                        rt_groupaddr->afi = AF_INET;
+//                        memcpy(&(rt_groupaddr->address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+                        break;
+                    case 129:
+                        ip_addr_set_v6(rt_groupaddr, (void *)RTA_DATA(rt_attr));
+//                        rt_groupaddr->afi = AF_INET6;
+//                        memcpy(&(rt_groupaddr->address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+                        break;
+                    default:
+                        break;
                 }
+                break;
+            case RTA_SRC:
+                switch (rtm->rtm_family) {
+                    case 128:
+                        ip_addr_set_v4(rt_srcaddr, (struct in_addr *)RTA_DATA(rt_attr));
+//                        rt_srcaddr->afi = AF_INET;
+//                        memcpy(&(rt_srcaddr->address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+                        break;
+                    case 129:
+                        ip_addr_set_v6(rt_srcaddr, (struct in6_addr *)RTA_DATA(rt_attr));
+//                        rt_srcaddr->afi = AF_INET6;
+//                        memcpy(&(rt_srcaddr->address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case RTA_MULTIPATH:
+                rt_nh = (struct rtnexthop *)RTA_DATA(rt_attr);
+                rtnh_length = RTA_PAYLOAD(rt_attr);
+                for (; RTNH_OK(rt_nh, rtnh_length); rt_nh = RTNH_NEXT(rt_nh)) {
+                    /* Check if one of the interfaces is the gateway */
+                    iface = get_interface_from_index(rt_nh->rtnh_ifindex);
+                    iface_index = *(int *)RTA_DATA(rt_attr);
+                    iface = get_interface_from_index(iface_index);
+                    if (iface != NULL){
+                        if_indextoname(iface_index, iface_name);
+                        lispd_log_msg(LISP_LOG_INFO, "process_nl_new_multicast_route: the multicast route message is for an interface that has RLOCs associated (%s). Ignoring!",
+                                iface_name);
+                        return BAD;
+                    }
 
-                /* Prepare output for debug */
-                if_indextoname(rt_nh->rtnh_ifindex, iface_name);
-                strcat(ifnames, iface_name);
-                strcat(ifnames, " ");
-                nb_oifs++;
-            }
-            break;
-        default:
-            break;
+                    /* Prepare output for debug */
+                    if_indextoname(rt_nh->rtnh_ifindex, iface_name);
+                    sprintf(ifnames, "%s ", iface_name);
+//                    strcat(ifnames, iface_name);
+//                    strcat(ifnames, " ");
+                    nb_oifs++;
+                }
+                break;
+            default:
+                break;
         }
     }
 
@@ -742,7 +746,7 @@ void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length) {
     if (process_nl_multicast_route_attributes(rtm, rt_length, &rt_srcaddr, &rt_groupaddr) == BAD)
         return;
 
-    leave_re_channel(rt_srcaddr, rt_groupaddr);
+    multicast_leave_channel(rt_srcaddr, rt_groupaddr);
 }
 
 

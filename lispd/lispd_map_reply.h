@@ -102,9 +102,11 @@ typedef struct lispd_pkt_map_reply_t_ {
  * Structure to set Map Reply options
  */
 typedef struct {
-    uint8_t send_rec;       // send a Map Reply record as well
-    uint8_t rloc_probe;     // set RLOC probe bit
-    uint8_t echo_nonce;     // set Echo-nonce bit
+    uint8_t     send_rec;       // send a Map Reply record as well
+    uint8_t     rloc_probe;     // set RLOC probe bit
+    uint8_t     echo_nonce;     // set Echo-nonce bit
+    uint16_t    dport;
+    uint64_t    nonce;
 } map_reply_opts;
 
 

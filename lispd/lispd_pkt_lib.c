@@ -64,7 +64,8 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
             continue;
         loc_length += get_locators_length(locators_list[ctr]);
     }
-    eid_length = get_mapping_length(mapping);
+//    eid_length = get_mapping_length(mapping);
+    eid_length = lisp_addr_get_size_in_pkt(mapping_get_eid_addr(mapping));
     length = sizeof(lispd_pkt_mapping_record_t) + eid_length +
             (mapping->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
             loc_length;
@@ -84,19 +85,21 @@ int get_locators_length(lispd_locators_list *locators_list)
 {
     int sum = 0;
     while (locators_list) {
-        switch (locators_list->locator->locator_addr->afi) {
-        case AF_INET:
-            sum += sizeof(struct in_addr);
-            break;
-        case AF_INET6:
-            sum += sizeof(struct in6_addr);
-            break;
-        default:
-            /* It should never happen*/
-            lispd_log_msg(LISP_LOG_DEBUG_2, "get_locators_length: Uknown AFI (%d) - It should never happen",
-               locators_list->locator->locator_addr->afi);
-            break;
-        }
+        sum += lisp_addr_get_size_in_pkt(locators_list->locator->locator_addr);
+
+//        switch (locators_list->locator->locator_addr->afi) {
+//        case AF_INET:
+//            sum += sizeof(struct in_addr);
+//            break;
+//        case AF_INET6:
+//            sum += sizeof(struct in6_addr);
+//            break;
+//        default:
+//            /* It should never happen*/
+//            lispd_log_msg(LISP_LOG_DEBUG_2, "get_locators_length: Uknown AFI (%d) - It should never happen",
+//               locators_list->locator->locator_addr->afi);
+//            break;
+//        }
         locators_list = locators_list->next;
     }
     return(sum);
@@ -113,31 +116,43 @@ int get_up_locators_length(
         lispd_locators_list *locators_list,
         int                 *loc_count)
 {
-    int sum = 0;
-    int counter = 0;
+    int sum, counter, size;
+
+    sum = 0;
+    counter = 0;
+
     while (locators_list) {
         if (*(locators_list->locator->state)== DOWN){
             locators_list = locators_list->next;
             continue;
         }
 
-        switch (locators_list->locator->locator_addr->afi) {
-        case AF_INET:
-            sum += sizeof(struct in_addr);
+//        switch (locators_list->locator->locator_addr->afi) {
+//        case AF_INET:
+//            sum += sizeof(struct in_addr);
+//            counter++;
+//            break;
+//        case AF_INET6:
+//            sum += sizeof(struct in6_addr);
+//            counter++;
+//            break;
+//        default:
+//            /* It should never happen*/
+//            lispd_log_msg(LISP_LOG_DEBUG_2, "get_up_locators_length: Uknown AFI (%d) - It should never happen",
+//               locators_list->locator->locator_addr->afi);
+//            break;
+//        }
+        if ( (size=lisp_addr_get_size_in_pkt(locators_list->locator->locator_addr))) {
             counter++;
-            break;
-        case AF_INET6:
-            sum += sizeof(struct in6_addr);
-            counter++;
-            break;
-        default:
-            /* It should never happen*/
-            lispd_log_msg(LISP_LOG_DEBUG_2, "get_up_locators_length: Uknown AFI (%d) - It should never happen",
-               locators_list->locator->locator_addr->afi);
-            break;
+            sum += size;
+        } else{
+            lispd_log_msg(LISP_LOG_DEBUG_2, "get_up_locators_length: Uknown addr (%s) - It should never happen",
+               lisp_addr_to_str(locators_list->locator->locator_addr));
         }
+
         locators_list = locators_list->next;
     }
+
     *loc_count = counter;
     return(sum);
 }
@@ -152,66 +167,73 @@ int get_up_locators_length(
  */
 
 
-int get_mapping_length(lispd_mapping_elt *mapping)
-{
-    int ident_len = 0;
-    switch (mapping->eid_prefix.afi) {
-    case AF_INET:
-        ident_len += sizeof(struct in_addr);
-        break;
-    case AF_INET6:
-        ident_len += sizeof(struct in6_addr);
-        break;
-    default:
-        break;
-    }
+//int get_mapping_length(lispd_mapping_elt *mapping)
+//{
+//    int ident_len = 0;
+//    switch (mapping->eid_prefix.afi) {
+//    case AF_INET:
+//        ident_len += sizeof(struct in_addr);
+//        break;
+//    case AF_INET6:
+//        ident_len += sizeof(struct in6_addr);
+//        break;
+//    default:
+//        break;
+//    }
+//
+//    if (mapping->iid >= 0)
+//        ident_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
+//
+//    return ident_len;
+//}
 
-    if (mapping->iid >= 0)
-        ident_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
-
-    return ident_len;
-}
-
-uint8_t *pkt_fill_eid(
-        void                    *offset,
-        lispd_mapping_elt       *mapping)
-{
-    uint16_t                *afi_ptr;
-    lispd_pkt_lcaf_t        *lcaf_ptr;
-    lispd_pkt_lcaf_iid_t    *iid_ptr;
-    void                    *eid_ptr;
-    int                     eid_addr_len;
-
-    afi_ptr = (uint16_t *)offset;
-    eid_addr_len = get_addr_len(mapping->eid_prefix.afi);
-
-    /* For negative IID values, we skip LCAF/IID field */
-    if (mapping->iid < 0) {
-        *afi_ptr = htons(get_lisp_afi(mapping->eid_prefix.afi, NULL));
-        eid_ptr  = CO(offset, sizeof(uint16_t));
-    } else {
-        *afi_ptr = htons(LISP_AFI_LCAF);
-        lcaf_ptr = (lispd_pkt_lcaf_t *) CO(offset, sizeof(uint16_t));
-        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
-        eid_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
-
-        lcaf_ptr->rsvd1 = 0;
-        lcaf_ptr->flags = 0;
-        lcaf_ptr->type  = 2;
-        lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
-        lcaf_ptr->len   = htons(sizeof(lispd_pkt_lcaf_iid_t) + eid_addr_len);
-
-        iid_ptr->iid = htonl(mapping->iid);
-        iid_ptr->afi = htons(mapping->eid_prefix.afi);
-    }
-
-    if ((copy_addr(eid_ptr,&(mapping->eid_prefix), 0)) == 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_eid: copy_addr failed");
-        return NULL;
-    }
-
-    return (CO(eid_ptr, eid_addr_len));
-}
+//uint8_t *pkt_fill_eid(
+//        void                    *offset,
+//        lispd_mapping_elt       *mapping)
+//{
+//    uint16_t                *afi_ptr;
+//    lispd_pkt_lcaf_t        *lcaf_ptr;
+//    lispd_pkt_lcaf_iid_t    *iid_ptr;
+//    void                    *eid_ptr;
+//    lisp_addr_t             *laddr;
+//    int                     eid_addr_len;
+//
+//    laddr = mapping_get_eid_addr(mapping);
+//    afi_ptr = (uint16_t *)offset;
+//    *afi_ptr = htons(lisp_addr_get_iana_afi(laddr));
+//    eid_addr_len = get_addr_len(mapping->eid_prefix.afi);
+//    eid_ptr  = CO(offset, sizeof(uint16_t));
+//
+//
+//    /* For negative IID values, we skip LCAF/IID field */
+//    if (mapping->iid < 0) {
+//        *afi_ptr = htons(get_lisp_afi(mapping->eid_prefix.afi, NULL));
+//        eid_ptr  = CO(offset, sizeof(uint16_t));
+//    } else {
+//        *afi_ptr = htons(LISP_AFI_LCAF);
+//        lcaf_ptr = (lispd_pkt_lcaf_t *) CO(offset, sizeof(uint16_t));
+//        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
+//        eid_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
+//
+//        lcaf_ptr->rsvd1 = 0;
+//        lcaf_ptr->flags = 0;
+//        lcaf_ptr->type  = 2;
+//        lcaf_ptr->rsvd2 = 0;    /* This can be IID mask-len, not yet supported */
+//        lcaf_ptr->len   = htons(sizeof(lispd_pkt_lcaf_iid_t) + eid_addr_len);
+//
+//        iid_ptr->iid = htonl(mapping->iid);
+//        iid_ptr->afi = htons(mapping->eid_prefix.afi);
+//    }
+//
+//    if ((copy_addr(eid_ptr,&(mapping->eid_prefix), 0)) == 0) {
+//        lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_eid: copy_addr failed");
+//        return NULL;
+//    }
+//
+//    /* XXX: why was the address copied without htonl ? */
+//
+//    return (CO(eid_ptr, eid_addr_len));
+//}
 
 
 uint8_t *pkt_fill_mapping_record(
@@ -240,7 +262,8 @@ uint8_t *pkt_fill_mapping_record(
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+//    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+    cur_ptr = lisp_addr_copy_to_pkt(&(rec->eid_prefix_afi), mapping_get_eid_addr(mapping));
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
 
     if (loc_ptr == NULL){
@@ -268,7 +291,9 @@ uint8_t *pkt_fill_mapping_record(
             }
 
             loc_ptr->reachable   = *(locator->state);
-            loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
+//            loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
+            loc_ptr->locator_afi = htons(lisp_addr_get_iana_afi(locator->locator_addr,NULL));
+
 
             lct_extended_info = (lcl_locator_extended_info *)(locator->extended_info);
             if (lct_extended_info->rtr_locators_list != NULL){
@@ -280,7 +305,7 @@ uint8_t *pkt_fill_mapping_record(
             if ((cpy_len = copy_addr((void *) CO(loc_ptr,
                     sizeof(lispd_pkt_mapping_record_locator_t)), itr_address, 0)) == 0) {
                 lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
-                        get_char_from_lisp_addr_t(*(locator->locator_addr)));
+                        lisp_addr_to_char(locator->locator_addr));
                 return(NULL);
             }
 

@@ -177,37 +177,60 @@ int add_locator_to_mapping(
         lispd_mapping_elt           *mapping,
         lispd_locator_elt           *locator)
 {
+    lcaf_addr_t *lcaf;
     int result = GOOD;
 
-    switch (locator->locator_addr->afi){
-    case AF_INET:
-        err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
-        break;
-    case AF_INET6:
-        err = add_locator_to_list (&(mapping->head_v6_locators_list), locator);
-        break;
-    case AF_UNSPEC:
-        err = add_locator_to_list (&(((lcl_mapping_extended_info *)(mapping->extended_info))->head_not_init_locators_list), locator);
-        if (err == GOOD){
-            return (GOOD);
-        }else{
-            free_locator (locator);
-            return (BAD);
-        }
+    switch (lisp_addr_get_afi(locator->locator_addr)){
+        case LM_AFI_IP:
+            switch (ip_prefix_get_afi(lisp_addr_get_ippref(locator->locator_addr))) {
+                case AF_INET:
+                    err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
+                    break;
+                case AF_INET6:
+                    err = add_locator_to_list (&(mapping->head_v6_locators_list), locator);
+                    break;
+                case AF_UNSPEC:
+                    err = add_locator_to_list (&(((lcl_mapping_extended_info *)(mapping->extended_info))->head_not_init_locators_list), locator);
+                    if (err == GOOD){
+                        return (GOOD);
+                    }else{
+                        free_locator (locator);
+                        return (BAD);
+                    }
+            }
+            break;
+        case LM_AFI_LCAF:
+            lcaf = lisp_addr_get_lcaf(locator->locator_addr);
+            switch (lcaf_addr_get_type(lcaf)) {
+                case LCAF_MCAST_INFO:
+                    /* use G because S might be undefined */
+                    switch(mc_addr_get_grp_afi(lcaf_addr_get_mc(lcaf))) {
+                        case AF_INET:
+                            err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
+                            break;
+                        case AF_INET6:
+                            err = add_locator_to_list (&(mapping->head_v6_locators_list), locator);
+                            break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        default:
+            break;
     }
 
     if (err == GOOD){
         mapping->locator_count++;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added to the EID %s/%d.",
-                get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                get_char_from_lisp_addr_t(mapping->eid_prefix),
-                mapping->eid_prefix_length);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added to the EID %s.",
+                get_char_from_lisp_addr_t(locator->locator_addr),
+                get_char_from_lisp_addr_t(mapping_get_eid_addr(mapping)));
         result = GOOD;
     }else if (err == ERR_EXIST){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s already exists for the EID %s/%d.",
-                get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                get_char_from_lisp_addr_t(mapping->eid_prefix),
-                mapping->eid_prefix_length);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s already exists for the EID %s.",
+                get_char_from_lisp_addr_t(locator->locator_addr),
+                get_char_from_lisp_addr_t(mapping_get_eid_addr(mapping)));
         free_locator (locator);
         result = GOOD;
     }else{
@@ -359,6 +382,8 @@ void free_mapping_elt(lispd_mapping_elt *mapping, int local)
         free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
         free ((rmt_mapping_extended_info *)mapping->extended_info);
     }
+    if (lisp_addr_get_afi(mapping_get_eid_addr(mapping)) == LM_AFI_LCAF)
+        lcaf_addr_del(mapping_get_eid_addr(mapping));
     free(mapping);
 
 }

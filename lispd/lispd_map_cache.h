@@ -33,6 +33,7 @@
 
 #include "lispd_mapping.h"
 #include "lispd_timers.h"
+#include "lispd_afi.h"
 
 /****************************************  CONSTANTS **************************************/
 

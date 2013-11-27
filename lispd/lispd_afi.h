@@ -33,7 +33,8 @@
 #ifndef LISPD_AFI_H_
 #define LISPD_AFI_H_
 
-#include "lispd.h"
+//#include "lispd.h"
+#include "defs_re.h"
 #include "lispd_mapping.h"
 
 
@@ -63,6 +64,10 @@
 #define LCAF_MCAST_INFO     9
 #define LCAF_EXPL_LOC_PATH  10
 #define LCAF_SEC_KEY        11
+#define LCAF_TUPLE          12
+#define LCAF_RLE            13
+#define LCAF_DATA_MODEL     14
+#define LCAF_KEY_VALUE      15
 
 
 #define MAX_IID 16777215
@@ -93,7 +98,6 @@ typedef struct lispd_pkt_lcaf_t_ {
  * Using signed integer, negative value means "don't send LCAF/IID field"
  * resulting in a non-explicit default IID value of 0
  */
-typedef int32_t lispd_iid_t;
 
 /*
  * Instance ID
@@ -112,9 +116,21 @@ typedef int32_t lispd_iid_t;
  */
 
 typedef struct lispd_pkt_lcaf_iid_t_ {
-    lispd_iid_t iid;
+    uint32_t    iid;
     uint16_t    afi;
 } PACKED lispd_pkt_lcaf_iid_t;
+
+typedef struct {
+    uint8_t  rsvd1;
+    uint8_t  flags;
+    uint8_t  type;
+    uint8_t  mlen;
+    uint16_t len;
+    uint32_t iid;
+    uint16_t afi;
+} PACKED lispd_pkt_iid_hdr_t;
+
+
 
 /*   Multicast Info Canonical Address Format:
  *
@@ -135,7 +151,7 @@ typedef struct lispd_pkt_lcaf_iid_t_ {
  *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef struct lispd_pkt_lcaf_mcast_info_t_{
+typedef struct lispd_lcaf_mcinfo_hdr_t_{
     uint8_t     rsvd1;
     uint8_t     flags;
     uint8_t     type;
@@ -143,20 +159,74 @@ typedef struct lispd_pkt_lcaf_mcast_info_t_{
     uint8_t     jbit:1;
     uint8_t     lbit:1;
     uint8_t     rbit:1;
-    uint8_t     rsvd:5;
+    uint8_t     rsvd2:5;
 #else
-    uint8_t     rsvd:5;
+    uint8_t     rsvd2:5;
     uint8_t     rbit:1;
     uint8_t     lbit:1;
     uint8_t     jbit:1;
 #endif
     uint16_t    len;
-    lispd_iid_t iid;
+    uint32_t    iid;
     uint16_t    reserved;
     uint8_t     src_mlen;
     uint8_t     grp_mlen;
     uint16_t    src_afi;
-} PACKED lispd_pkt_lcaf_mcast_info_t;
+} PACKED lispd_lcaf_mcinfo_hdr_t;
+
+typedef struct {
+    uint8_t rbit;
+    uint8_t jbit;
+    uint8_t lbit;
+} mrsignaling_flags_t;
+
+
+/* Geo Coordinate LISP Canonical Address Format:
+ *
+ *      0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 5    |     Rsvd2     |            12 + n             |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |N|     Latitude Degrees        |    Minutes    |    Seconds    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |E|     Longitude Degrees       |    Minutes    |    Seconds    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                            Altitude                           |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |         Address  ...          |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct {
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+#ifdef LITTLE_ENDIANS
+    uint16_t    latitude_deg:15;
+    uint16_t    latitude_dir:1;
+#elif
+    uint16_t    latitude_dir:1;
+    uint16_t    latitude_deg:15;
+#endif
+    uint8_t     latitude_min;
+    uint8_t     latitude_sec;
+#ifdef LITTLE_ENDIANS
+    uint16_t    longitude_deg:15;
+    uint16_t    longitude_dir:1;
+#elif
+    uint16_t    longitude_dir:1;
+    uint16_t    longitude_deg:15;
+#endif
+    uint8_t     longitude_min;
+    uint8_t     longitude_sec;
+    uint32_t    altitude;
+    uint16_t    afi;
+} PACKED lispd_lcaf_geo_hdr_t;
 
 
 /* Fixed part of NAT LCAF.
@@ -195,6 +265,11 @@ int pkt_process_eid_afi(
         lispd_mapping_elt   *mapping);
 
 /*
+ * Builds, reads from offset and returns a pointer to a lisp_addr_t
+ */
+lisp_addr_t *pkt_read_lisp_addr(uint8_t **offset);
+
+/*
  * Reads the address information from the packet and fill the lispd_locator_elt structure
  */
 int pkt_process_rloc_afi(
@@ -221,4 +296,6 @@ int extract_mcast_info_lcaf_data (
         uint8_t             **offset,
         lispd_mapping_elt   *mapping);
 
+uint8_t is_lcaf_mcast_info(*offset);
+mrsignaling_flags_t lcaf_mcinfo_get_flags(uint8_t *cur_ptr);
 #endif /*LISPD_AFI_H_*/

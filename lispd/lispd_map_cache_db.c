@@ -26,7 +26,6 @@
  *
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
- *    Florin Coras      <fcoras@ac.upc.edu>
  */
 
 #include "lispd_lib.h"
@@ -40,12 +39,12 @@
 patricia_tree_t *AF4_map_cache           = NULL;
 patricia_tree_t *AF6_map_cache           = NULL;
 
-int                         del_map_cache_entry_from_db_ip(lisp_addr_t *ipaddr, uint8_t prefixlen);
-int                         del_map_cache_entry_from_db_mc(mc_addr_t *mcaddr, uint8_t splen, uint8_t gplen);
-int                         add_map_cache_entry_ip(lispd_map_cache_entry *entry, ip_addr_t *ipaddr);
-int                         add_map_cache_entry_mc(lispd_map_cache_entry *entry, mc_addr_t *addr);
-lispd_map_cache_entry       *lookup_map_cache_ip(ip_addr_t *ipaddr, uint8_t prefixlen);
-lispd_map_cache_entry       *lookup_map_cache_mc(mc_addr_t *mcaddr, uint8_t prefixlen);
+int                         map_cache_del_entry_ip(lisp_addr_t *ippref);
+int                         map_cache_del_entry_mc(mc_addr_t *mcaddr);
+int                         add_map_cache_entry_ip(void *entry, ip_prefix_t *ippref);
+int                         add_map_cache_entry_mc(void *entry, mc_addr_t *addr);
+lispd_map_cache_entry       *map_cache_lookup_ip(ip_addr_t *ipaddr, uint8_t prefixlen);
+lispd_map_cache_entry       *map_cache_lookup_mc(mc_addr_t *mcaddr, uint8_t prefixlen);
 patricia_node_t             *pt_add_entry(ip_addr_t *ipaddr, uint8_t prefixlen);
 patricia_node_t             *pt_lookup_ip_addr(lisp_addr_t *addr, uint8_t prefixlen, patricia_tree_t *pt);
 void                        pt_remove_entry(patricia_tree_t *pt, patricia_node_t *node);
@@ -79,92 +78,109 @@ patricia_tree_t* get_map_cache_db(lisp_afi_t afi){
  */
 
 int add_map_cache_entry_to_db(lispd_map_cache_entry *entry){
-    lisp_mapping_cache_elt  *mapping    = NULL;
+    lispd_mapping_elt       *mapping    = NULL;
     lisp_addr_t             *addr       = NULL;
+    lcaf_addr_t             *lcaf       = NULL;
 
-    mapping = get_mcache_entry_mapping(entry);
-    addr = get_mapping_eid_addr(mapping);
+    mapping = mcache_entry_get_mapping(entry);
+    addr = mapping_get_eid_addr(mapping);
 
-    switch(get_lisp_addr_afi(addr)) {
-    case LM_AFI_IP:
-        return add_map_cache_entry_ip(entry, get_lisp_addr_ip(addr));
-        break;
-    case LM_AFI_IP6:
-        return add_map_cache_entry_ip(entry, get_lisp_addr_ip(addr));
-        break;
-    case LM_AFI_MC:
-        return add_map_cache_entry_mc(entry, get_lisp_addr_mc(addr));
-        break;
-    default:
-        lisp_log_msg(LISP_LOG_WARNING, "del_map_cache_entry_from_db: called with unknown AFI:%u",
-                get_lisp_addr_afi(laddr));
-        break;
+    switch(lisp_addr_get_afi(addr)) {
+        case LM_AFI_IP:
+        case LM_AFI_IP6:
+            return(add_map_cache_entry_ip(entry, lisp_addr_get_ippref(addr)));
+            break;
+        case LM_AFI_LCAF:
+            lcaf = lisp_addr_get_lcaf(addr);
+            switch(lcaf_addr_get_type(lcaf)) {
+                case LCAF_MCAST_INFO:
+                    return(add_map_cache_entry_mc(entry, lcaf_addr_get_mc(lcaf)));
+                default:
+                    lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_to_db: unknown LCAF type:%u",
+                            lcaf_addr_get_type(lcaf));
+            }
+            return(add_map_cache_entry_mc(entry, lisp_addr_get_mc(addr)));
+            break;
+        default:
+            lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_to_db: called with unknown AFI:%u",
+                    lisp_addr_get_afi(addr));
+            break;
     }
 
-
+    return(GOOD);
 
 }
 
-int add_map_cache_entry_ip(lispd_map_cache_entry *entry, ip_addr_t *ipaddr) {
+int add_map_cache_entry_ip(void *entry, ip_prefix_t *ippref) {
     patricia_node_t     *node   = NULL;
 
     /* Insert prefix in pt */
-    if (node = pt_add_entry(NULL, ipaddr, get_mapping_ip_eid_plen(entry)) == NULL){
+    if ( (node = pt_add_entry(NULL, ip_prefix_get_addr(ippref), ip_prefix_get_plen(ippref))) == NULL){
         lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_mc: Attempting to "
-                "insert (%s) in the map-cache but couldn't add the entry to the pt!".
-                get_mcache_entry_eid_prefix_to_char(entry));
+                "insert (%s) in the map-cache but couldn't add the entry to the pt!",
+                ip_prefix_to_char(ippref));
     }
 
     /* node already exists */
     if (node->data){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "pt_add_ip_entry: Map cache entry (%s) already installed in the database",
-                get_mcache_entry_eid_prefix_to_char((lispd_map_cache_entry *)node->data));
+        lispd_log_msg(LISP_LOG_DEBUG_2, "pt_add_ip_entry: Trying to overwrite a map cache entry!");
         return (BAD);
     }
 
-    node->data = (lispd_map_cache_entry *)entry;
+    node->data = entry;
     lispd_log_msg(LISP_LOG_DEBUG_2, "pt_add_ip_entry: Added map cache data for EID: %s",
-            get_mcache_entry_eid_prefix_to_char(entry));
+            ip_prefix_to_char(ippref));
 
     return (GOOD);
 }
 
-int add_map_cache_entry_mc(lispd_map_cache_entry *entry, mc_addr_t *mcaddr) {
-    patricia_node_t *snode       = NULL;
-    patricia_node_t *gnode       = NULL;
-    ip_addr_t       *src        = NULL;
-    ip_addr_t       *grp        = NULL;
+int add_map_cache_entry_mc(void *entry, mc_addr_t *mcaddr) {
+    patricia_node_t     *snode          = NULL;
+    patricia_node_t     *gnode          = NULL;
+    lisp_addr_t         *src          = NULL;
+    lisp_addr_t         *grp          = NULL;
+    ip_addr_t           *srcip      = NULL;
+    ip_addr_t           *grpip      = NULL;
     uint8_t         safi        = 0;
     uint8_t         gafi        = 0;
 
-    src = get_lisp_addr_mc_src(mcaddr);
-    grp = get_lisp_addr_mc_grp(mcaddr);
-    safi = get_ip_addr_afi(src);
-    gafi = get_ip_addr_afi(grp);
+    src = mc_addr_get_src(mcaddr);
+    grp = mc_addr_get_grp(mcaddr);
+
+    if (lisp_addr_get_afi(src) != LM_AFI_IP || lisp_addr_get_afi(grp) != LM_AFI_IP) {
+        lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_mc: only IP type supported for S and G for now!");
+        return(GOOD);
+    }
+
+    srcip = lisp_addr_get_ip(src);
+    grpip = lisp_addr_get_ip(grp);
+
+    safi = ip_addr_get_afi(srcip);
+    gafi = ip_addr_get_afi(grpip);
 
     if (safi != gafi || safi == 0 || gafi == 0 ){
         lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_mc: Attempting to "
                 "insert multicast channel %s but it has AFIs problems for "
-                "S and G!", get_mcache_entry_eid_prefix_to_char(entry));
+                "S and G!", mc_addr_to_char(mcaddr));
         return(BAD);
     }
 
 
     /* insert src prefix in main db but without any data*/
-    snode = pt_add_entry(src, get_mcache_entry_eid_plen(entry));
+    snode = pt_add_entry(pt_get_from_afi(safi), srcip, mc_addr_get_src_plen(mcaddr));
     if (snode == NULL){
         lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_mc: Attempting to "
                 "insert multicast channel %s in map-cache but couldn't add"
-                " S to the pt!", get_mcache_entry_eid_prefix_to_char(entry));
+                " S to the pt!", mc_addr_to_char(mcaddr));
         return(BAD);
     }
 
     /* insert the G in the user1 field of the unicast pt node */
-    if(snode->user1 == NULL){
+    if(snode->mc_data == NULL){
         /* create the patricia if not initialized */
-        snode->user1 = (patricia_tree_t *)New_Patricia(get_ip_addr_size(grp) * 8);
+        snode->mc_data = (patricia_tree_t *)New_Patricia(ip_addr_get_size(grpip) * 8);
 
-        if (!snode->user1){
+        if (!snode->mc_data){
             lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_mc: Can't create "
                     "group pt! ");
             return(BAD);
@@ -172,43 +188,47 @@ int add_map_cache_entry_mc(lispd_map_cache_entry *entry, mc_addr_t *mcaddr) {
     }
 
     /* insert grp in node->user1 db with the entry*/
-    gnode = pt_add_entry(snode->user1, grp, get_mapping_mc_eid_grp_plen(get_mcache_entry_mapping(entry)));
+    gnode = pt_add_entry(snode->mc_data, grpip, mc_addr_get_grp_plen(mcaddr));
     if (gnode == NULL){
         lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_mc: Attempting to "
                 "insert multicast channel %s map-cache but couldn't add "
-                "G to the pt!", get_mcache_entry_eid_prefix_to_char(entry));
+                "G to the pt!", mc_addr_to_char(mcaddr));
         return(BAD);
     }
 
-    gnode->data = (lispd_map_cache_entry *)entry;
+    gnode->data = entry;
 
     return(GOOD);
 }
 
-void del_map_cache_entry_from_db(
-        lisp_addr_t *laddr,
-        uint8_t prefixlen)
+void del_map_cache_entry_from_db(lisp_addr_t *laddr)
 {
     /* TODO: support removal of mcast channel from prefix */
-    uint8_t         gplen   = 0;
+    lcaf_addr_t *lcaf;
 
 
-    switch(get_lisp_addr_afi(laddr)){
+    switch(lisp_addr_get_afi(laddr)){
     case LM_AFI_IP:
-        del_map_cache_entry_from_db_ip(get_lisp_addr_ip(laddr), prefixlen);
-        break;
-    /* compatibility */
     case LM_AFI_IP6:
-        del_map_cache_entry_from_db_ip(get_lisp_addr_ip(laddr), prefixlen);
+        map_cache_del_entry_ip(lisp_addr_get_ippref(laddr));
         break;
-    case LM_AFI_MC:
-        /* hack to avoid supporting group prefix in del_map_cache_entry_from_db */
-        gplen = (get_ip_addr_afi(get_lisp_addr_mc_grp(laddr)) == AF_INET) ? 32 : 128;
-        del_map_cache_entry_from_db_mc(get_lisp_addr_mc(laddr), prefixlen, gplen);
+    case LM_AFI_LCAF:
+        lcaf = lisp_addr_get_lcaf(lcaf);
+        switch(lcaf_addr_get_type(lcaf)) {
+            case LCAF_MCAST_INFO:
+                /* hack to avoid supporting group prefix in del_map_cache_entry_from_db */
+        //        gplen = (ip_addr_get_afi(lisp_addr_get_mc_grp(laddr)) == AF_INET) ? 32 : 128;
+                map_cache_del_entry_mc(lcaf_addr_get_mc(lcaf));
+                break;
+            default:
+                lisp_log_msg(LISP_LOG_WARNING, "del_map_cache_entry_from_db: called with unknown LCAF type:%u",
+                        lcaf_addr_get_type(lcaf));
+                break;
+        }
         break;
     default:
         lisp_log_msg(LISP_LOG_WARNING, "del_map_cache_entry_from_db: called with unknown AFI:%u",
-                get_lisp_addr_afi(laddr));
+                lisp_addr_get_afi(laddr));
         break;
     }
 
@@ -220,21 +240,23 @@ void del_map_cache_entry_from_db(
  * Delete an EID mapping from the cache
  */
 
-void del_map_cache_entry_from_db_ip(
-        ip_addr_t *ipaddr,
-        int prefixlen)
+void map_cache_del_entry_ip(ip_prefix_t *ippref)
 {
     patricia_node_t         *node   = NULL;
     patricia_tree_t         *pt     = NULL;
 
-    node = pt_lookup_ip_addr(ipaddr, prefixlen, get_pt_from_afi(get_ip_addr_afi(ipaddr)));
+    node = pt_lookup_ip_addr(
+            ip_prefix_get_addr(ippref),
+            ip_prefix_get_plen(ippref),
+            pt_get_from_afi(ip_prefix_get_afi(ippref)));
+
     if (node == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2,"del_map_cache_entry: Unable to locate cache entry %s/%d for deletion",
-                get_ip_addr_to_char(ipaddr), prefixlen);
-        return(BAD);
+                ip_prefix_to_char(ippref), ip_prefix_get_plen(ippref));
+        return;
     } else {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Deleting map cache entry: %s/%d",
-                get_ip_addr_to_char(ipaddr), prefixlen);
+                ip_prefix_to_char(ippref), ip_prefix_get_plen(ippref));
     }
 
     /*
@@ -242,20 +264,17 @@ void del_map_cache_entry_from_db_ip(
      */
 
     /* Avoid removing nodes that still have multicast mappings */
-    if (node->user1 == NULL) {
+    if (node->mc_data == NULL) {
         pt_remove_entry(pt, node);
     }else{
         node->data = NULL;
     }
 
-    return(GOOD);
+    return;
 
 }
 
-int del_map_cache_entry_from_db_mc(
-        mc_addr_t *mcaddr,
-        uint8_t splen,
-        uint8_t gplen)
+int map_cache_del_entry_mc(mc_addr_t *mcaddr)
 {
     patricia_node_t         *snode  = NULL;
     patricia_node_t         *gnode  = NULL;
@@ -263,44 +282,47 @@ int del_map_cache_entry_from_db_mc(
     patricia_tree_t         *gtrie  = NULL;
     ip_addr_t               *src    = NULL;
     ip_addr_t               *grp    = NULL;
+    uint8_t                 splen, gplen;
 
-    src = get_lisp_addr_mc_src(mcaddr);
-    strie = get_pt_from_afi(get_ip_addr_afi(src));
+    src = lisp_addr_get_mc_src(mcaddr);
+    strie = pt_get_from_afi(ip_addr_get_afi(src));
 
-    snode = pt_lookup_ip_addr(src, prefixlen, strie);
+    splen = mc_addr_get_src_plen(src);
+    snode = pt_lookup_ip_addr(src, splen, strie);
     if (snode == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2, "lookup_map_cache_mc: The source "
                 "prefix %s/%d does not exist in the map cache",
-                get_ip_addr_to_char(src), prefixlen);
+                ip_addr_to_char(src), splen);
         return(BAD);
     }
 
     /* using field user1 of a patricia node as pointer to a G lookup table */
-    gtrie = (patricia_tree_t *)snode->user1;
+    gtrie = (patricia_tree_t *)snode->mc_data;
     if (gtrie == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2, "lookup_map_cache_mc: The source  "
                 "prefix %s/%d does not have a multicast particia trie "
-                "associated", get_ip_addr_to_char(src), prefixlen);
+                "associated", ip_addr_to_char(src), splen);
         return(BAD);
     }
 
-    grp = get_lisp_addr_mc_grp(mcaddr);
+    grp = mc_addr_get_grp(mcaddr);
+    gplen = mc_addr_get_grp_plen(grp);
     gnode = pt_lookup_ip_addr(grp, gplen, gtrie);
 
     if (gnode == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2, "lookup_map_cache_mc: The group prefix"
                 "%s/%d does not have a multicast map cache entry associated",
-                get_ip_addr_to_char(grp), gplen);
+                ip_addr_to_char(grp), gplen);
         return(BAD);
     }else{
         /* remove gtrie entry */
-        pt_remove_entry(gtrie, pt);
+        pt_remove_entry(gtrie, gnode);
 
         /* remove strie entry if both gtrie and strie are empty */
         if(pt_test_if_empty(gtrie)){
             Destroy_Patricia(gtrie);
             if (snode->data == NULL)
-                pt_remove_entry(strie, pt);
+                pt_remove_entry(strie, snode);
         }
     }
 
@@ -313,58 +335,84 @@ int del_map_cache_entry_from_db_mc(
  * Look up a given lisp_addr_t in the database, returning the
  * lispd_map_cache_entry of this lisp_addr_t if it exists or NULL.
  */
-lispd_map_cache_entry *lookup_map_cache(lisp_addr_t addr)
+lispd_map_cache_entry *lookup_map_cache(lisp_addr_t *laddr)
 {
-    /* if prefixlen is 0 the search is not strict */
-    return lookup_map_cache_exact(addr, 0);
+    ip_prefix_t     *pref = NULL;
+    lcaf_addr_t     *lcaf = NULL;
+
+    switch(lisp_addr_get_afi(laddr)) {
+        case LM_AFI_IP:
+        case LM_AFI_IP6:
+            pref = lisp_addr_get_ippref(laddr);
+            return(map_cache_lookup_ip(ip_prefix_get_addr(pref), (ip_prefix_get_afi(pref) == AF_INET) ? 32: 128));
+        case LM_AFI_LCAF:
+            lcaf = lisp_addr_get_lcaf(laddr);
+            switch (lcaf_addr_get_type(lcaf)) {
+                case LCAF_MCAST_INFO:
+                    return(map_cache_lookup_mc(lcaf_addr_get_mc(lcaf)));
+                    break;
+                default:
+                    lisp_log_msg(LISP_LOG_WARNING, "lookup_map_cache_exact: Unknown LCAF type %u",
+                            lisp_addr_get_afi(laddr));
+            }
+            break;
+        default:
+            break;
+    }
+
+    return(NULL);
 }
 
 /*
  * Find an exact match for a prefix/prefixlen if possible
  */
-lispd_map_cache_entry *lookup_map_cache_exact(
-        lisp_addr_t             addr,
-        int                     prefixlen)
+lispd_map_cache_entry *lookup_map_cache_exact(lisp_addr_t *laddr)
 {
-    lispd_map_cache_entry       *entry = NULL;
-    lisp_addr_t                 *laddr = NULL;
-    laddr = &addr;
+    ip_prefix_t     *pref = NULL;
+    lcaf_addr_t     *lcaf = NULL;
 
-    switch(get_lisp_addr_afi(laddr)){
-    case LM_AFI_IP:
-        entry = lookup_map_cache_ip(laddr, prefixlen);
-        break;
-    /* compatibility */
-    case LM_AFI_IP6:
-        entry = lookup_map_cache_ip(laddr, prefixlen);
-        break;
-    case LM_AFI_MC:
-        entry = lookup_map_cache_mc(laddr, prefixlen);
-        break;
-    default:
-        lisp_log_msg(LISP_LOG_WARNING, "lookup_map_cache_exact: Unknown AFI %u",
-                get_lisp_addr_afi(laddr));
-        break;
+    switch(lisp_addr_get_afi(laddr)){
+        case LM_AFI_IP:
+        case LM_AFI_IP6:
+            pref = lisp_addr_get_ippref(laddr);
+            return(map_cache_lookup_ip(ip_prefix_get_addr(pref), ip_prefix_get_plen(pref)));
+            break;
+        case LM_AFI_LCAF:
+            lcaf = lisp_addr_get_lcaf(laddr);
+            switch (lcaf_addr_get_type(lcaf)) {
+                case LCAF_MCAST_INFO:
+                    return(map_cache_lookup_mc(lcaf_addr_get_mc(lcaf)));
+                    break;
+                default:
+                    lisp_log_msg(LISP_LOG_WARNING, "lookup_map_cache_exact: Unknown LCAF type %u",
+                            lisp_addr_get_afi(laddr));
+            }
+            break;
+        default:
+            lisp_log_msg(LISP_LOG_WARNING, "lookup_map_cache_exact: Unknown AFI %u",
+                    lcaf_addr_get_type(lisp_addr_get_lcaf(laddr)));
+            return(NULL);
+            break;
     }
 
-    return(entry);
+    return(NULL);
 }
 
 /*
  * Look up a given ip eid in the database, returning the
  * lispd_map_cache_entry of this eid if it exists or NULL.
  */
-lispd_map_cache_entry *lookup_map_cache_ip(ip_addr_t *ipaddr, uint8_t prefixlen) {
+lispd_map_cache_entry *map_cache_lookup_ip(ip_addr_t *ipaddr, uint8_t prefixlen) {
 
     patricia_node_t     *node   = NULL;
     patricia_tree_t     *pt     = NULL;
 
-    pt = get_pt_from_afi(get_ip_addr_afi(ipaddr));
+    pt = pt_get_from_afi(ip_addr_get_afi(ipaddr));
 
     node = pt_lookup_ip_addr(ipaddr, prefixlen, pt);
     if (!node){
         lispd_log_msg(LISP_LOG_DEBUG_2, "lookup_map_cache_ip: The source entry %s/%d does not exist in the map cache",
-                get_ip_addr_to_char(ipaddr), prefixlen);
+                ip_addr_to_char(ipaddr), prefixlen);
         return(NULL);
     }
 
@@ -375,7 +423,7 @@ lispd_map_cache_entry *lookup_map_cache_ip(ip_addr_t *ipaddr, uint8_t prefixlen)
  * Look up a given mc eid in the database. Return the
  * associated lispd_map_cache_entry if it exists or NULL otherwise.
  */
-lispd_map_cache_entry *lookup_map_cache_mc(mc_addr_t *mcaddr, uint8_t prefixlen) {
+lispd_map_cache_entry *map_cache_lookup_mc(mc_addr_t *mcaddr) {
     /* fcoras: this piggybacks the unicast lookup.
      * TODO: If a smarter search/data structure  will be used in the future
      * for multicast, change here!
@@ -387,33 +435,34 @@ lispd_map_cache_entry *lookup_map_cache_mc(mc_addr_t *mcaddr, uint8_t prefixlen)
     patricia_tree_t *gtrie  = NULL;
     ip_addr_t       *src    = NULL;
     ip_addr_t       *grp    = NULL;
+    uint8_t         src_plen;
 
-    src = get_lisp_addr_mc_src(mcaddr);
-    strie = get_pt_from_afi(get_ip_addr_afi(src));
 
-    snode =  pt_lookup_ip_addr(src, prefixlen, strie);
-    pt_lookup_ip_addr(src, prefixlen, strie);
+    src = mc_addr_get_src(mcaddr);
+    src_plen = mc_addr_get_src_plen(src);
+    strie = pt_get_from_afi(ip_addr_get_afi(src));
+    snode =  pt_lookup_ip_addr(src, src_plen, strie);
 
     if (!snode){
         lispd_log_msg(LISP_LOG_DEBUG_2, "lookup_map_cache_mc: The source entry %s/%d does not exist in the map cache",
-                get_ip_addr_to_char(src), prefixlen);
+                ip_addr_to_char(src), src_plen);
         return(NULL);
     }
 
     /* using field user1 of a patricia node as pointer to a G lookup table */
-    gtrie = (patricia_tree_t *)snode->user1;
+    gtrie = (patricia_tree_t *)snode->mc_data;
     if (gtrie == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "lookup_map_cache_mc: The source entry %s does not have a multicast particia trie associated",
-                get_ip_addr_to_char(src));
+                ip_addr_to_char(src));
         return(NULL);
     }
     
-    grp = get_lisp_addr_mc_grp(mcaddr);
-    gnode = pt_lookup_ip_addr(grp, prefixlen, gtrie);
+    grp = lisp_addr_get_mc_grp(mcaddr);
+    gnode = pt_lookup_ip_addr(grp, src_plen, gtrie);
     
     if (gnode == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2, "lookup_map_cache_mc: The group entry %s does not have a multicast map cache entry associated",
-                get_ip_addr_to_char(grp));
+                ip_addr_to_char(grp));
         return(NULL);
     } else {
         return((lispd_map_cache_entry *)gnode->data);
@@ -434,7 +483,7 @@ patricia_node_t *pt_add_entry(patricia_tree_t *pt, ip_addr_t *ipaddr, uint8_t pr
     patricia_node_t *node       = NULL;
 
     if (!pt)
-        pt = get_pt_from_afi(get_ip_addr_afi(ipaddr));
+        pt = pt_get_from_afi(ip_addr_get_afi(ipaddr));
 
     prefix = make_pt_ip_prefix(ipaddr, prefixlen);
     node = patricia_lookup(pt, prefix);
@@ -447,22 +496,24 @@ patricia_node_t *pt_lookup_ip_addr(ip_addr_t *addr, uint8_t prefixlen, patricia_
     patricia_node_t     *node = NULL;
     prefix_t            *prefix;
 
-    switch(get_ip_addr_afi(addr)) {
-    case AF_INET:
-        assert(prefixlen <= 32);
-        prefix = New_Prefix(AF_INET, get_ip_addr_v4(addr), (prefixlen) ? prefixlen: 32);
-        break;
-    case AF_INET6:
-        assert(prefixlen <=128);
-        prefix = New_Prefix(AF_INET6, get_ip_addr_v6(addr), (prefixlen) ? prefixlen: 128);
-        break;
-    default:
-        lispd_log_msg(LSIP_LOG_DEBUG_1, "lookup_map_cache_node: Unknown afi %d!", get_ip_addr_afi(addr) );
-        return(NULL);
-    }
+
+    prefix = New_Prefix(ip_addr_get_afi(addr), ip_addr_get_addr(addr), prefixlen);
+//    switch(ip_addr_get_afi(addr)) {
+//    case AF_INET:
+//        assert(prefixlen <= 32);
+//        prefix = New_Prefix(AF_INET, ip_addr_get_v4(addr), (prefixlen) ? prefixlen: 32);
+//        break;
+//    case AF_INET6:
+//        assert(prefixlen <=128);
+//        prefix = New_Prefix(AF_INET6, ip_addr_get_v6(addr), (prefixlen) ? prefixlen: 128);
+//        break;
+//    default:
+//        lispd_log_msg(LISP_LOG_DEBUG_1, "lookup_map_cache_node: Unknown afi %d!", ip_addr_get_afi(addr) );
+//        return(NULL);
+//    }
 
     if (prefix == NULL){
-        lispd_log_msg(LSIP_LOG_DEBUG_1, "lookup_map_cache_node: Couldn't allocate prefix!");
+        lispd_log_msg(LISP_LOG_DEBUG_1, "lookup_map_cache_node: Couldn't allocate prefix!");
         return(NULL);
     }
 
@@ -471,9 +522,9 @@ patricia_node_t *pt_lookup_ip_addr(ip_addr_t *addr, uint8_t prefixlen, patricia_
 
     Deref_Prefix(prefix);
 
-    if (node==NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "lookup_map_cache_node: The entry %s is"
-                " not found in the map cache", get_char_from_lisp_addr_t(eid));
+    if (!node){
+        lispd_log_msg(LISP_LOG_DEBUG_3, "lookup_map_cache_node: The entry %s was"
+                " not found in the map cache", ip_addr_to_char(addr));
     }
 
     return(node);
@@ -490,7 +541,7 @@ uint8_t pt_test_if_empty(patricia_tree_t *pt) {
 /*
  * Return map cache data base
  */
-patricia_tree_t *get_pt_from_afi(ip_afi_t afi) {
+patricia_tree_t *pt_get_from_afi(ip_afi_t afi) {
     patricia_tree_t *pt = NULL;
     switch(afi) {
     case AF_INET:
@@ -510,12 +561,12 @@ patricia_node_t *make_pt_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
     ip_afi_t        afi         = 0;
     prefix_t        *prefix     = NULL;
 
-    afi = get_ip_addr_afi(ipaddr);
+    afi = ip_addr_get_afi(ipaddr);
 
     switch(afi){
     case AF_INET:
         assert(prefixlen <= 32);
-        if(prefix = New_Prefix(AF_INET, get_ip_addr_v4(ipaddr), prefixlen) == NULL) {
+        if(!(prefix = New_Prefix(AF_INET, ip_addr_get_v4(ipaddr), prefixlen))) {
             lispd_log_msg(LISP_LOG_WARNING, "make_ip_prefix_for_pt: Unable to "
                     "allocate memory for prefix_t (AF_INET): %s", strerror(errno));
             return(NULL);
@@ -523,7 +574,7 @@ patricia_node_t *make_pt_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
         break;
     case AF_INET6:
         assert(prefixlen <= 128);
-        if(prefix = New_Prefix(AF_INET, get_ip_addr_v6(ipaddr), prefixlen) == NULL) {
+        if(!(prefix = New_Prefix(AF_INET, ip_addr_get_v6(ipaddr), prefixlen))) {
             lispd_log_msg(LISP_LOG_WARNING, "make_ip_prefix_for_pt: Unable to "
                     "allocate memory for prefix_t (AF_INET6): %s", strerror(errno));
             return(NULL);
@@ -531,7 +582,7 @@ patricia_node_t *make_pt_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
         break;
     default:
         lispd_log_msg(LISP_LOG_WARNING, "make_ip_prefix_for_pt: Unknown AFI %d "
-                "for address %s", afi, get_ip_addr_to_char(ipaddr));
+                "for address %s", afi, ip_addr_to_char(ipaddr));
         return(NULL);
     }
 
@@ -544,14 +595,14 @@ patricia_node_t *make_pt_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
  */
 
 lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(
-        lisp_afi_t  eid_afi,
+        uint16_t    eid_afi,
         uint64_t    nonce)
 {
     patricia_tree_t         *tree;
     patricia_node_t         *node;
     lispd_map_cache_entry   *entry;
 
-    tree = get_pt_from_afi(eid_afi);
+    tree = pt_get_from_afi(eid_afi);
 
     PATRICIA_WALK(tree->head, node) {
         entry = ((lispd_map_cache_entry *)(node->data));
@@ -574,42 +625,35 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(
 
 int replace_map_cache_entry(
         lisp_addr_t             *new_addr,
-        uint8_t                 new_plen,
         lispd_map_cache_entry   *centry)
 {
     patricia_node_t         *node = NULL;
+    lcaf_addr_t             *lcaf = NULL;
     lisp_addr_t             old_eid_addr;
-    int                     old_eid_plen;
 
     /* Get the node to be modified from the database
      * NOTE: This works assuming that both mc and ip addresses
      * are stored in the same pt. Also, mc prefix length is set
      * be S prefix length. */
-    del_map_cache_entry_from_db(get_mcache_entry_eid_addr(centry), get_mcache_entry_eid_plen(centry) );
 
-    old_eid_addr = get_mcache_entry_eid_addr(centry);
-    old_eid_plen = get_mcache_entry_eid_plen(centry);
+    old_eid_addr = mcache_entry_get_eid_addr(centry);
+    del_map_cache_entry_from_db(old_eid_addr);
 
-    set_mcache_entry_eid_addr(centry, new_addr);
-    set_mcache_entry_eid_plen(centry, new_plen);
+    mcache_entry_set_eid_addr(centry, new_addr);
 
 
     if ((err=add_map_cache_entry_to_db(centry))!= GOOD){
         /*XXX  if the process doesn't finish correctly, the map cache entry is released */
         lispd_log_msg(LISP_LOG_DEBUG_2,"change_eid_prefix_in_db: Couldn't change EID prefix of the inactive "
-                "map cache entry (%s/%d -> %s/%d). Releasing it",
-                get_lisp_addr_to_char(old_eid_addr),
-                old_eid_plen,
-                get_lisp_addr_to_char(new_addr),
-                new_plen);
+                "map cache entry (%s -> %s). Releasing it",
+                lisp_addr_to_char(old_eid_addr),
+                lisp_addr_to_char(new_addr));
         free_map_cache_entry(centry);
         return (BAD);
     }
-    lispd_log_msg(LISP_LOG_DEBUG_2,"EID prefix of the map cache entry %s/%d changed to %s/%d.",
-            get_lisp_addr_to_char(old_eid_addr),
-            old_eid_plen,
-            get_lisp_addr_to_char(new_addr),
-            new_plen);
+    lispd_log_msg(LISP_LOG_DEBUG_2,"EID prefix of the map cache entry %s changed to %s.",
+            lisp_addr_to_char(old_eid_addr),
+            lisp_addr_to_char(new_addr));
     return (GOOD);
 }
 
@@ -628,16 +672,12 @@ void map_cache_entry_expiration(
     uint8_t                 plen        = 0;
 
     entry = (lispd_map_cache_entry *)arg;
-    mapping = get_mcache_entry_mapping(entry);
-    addr = get_mapping_eid_addr(mapping);
-    plen = (get_lisp_addr_afi(addr) == LM_AFI_IP) ?
-            get_mapping_ip_eid_plen(mapping) :
-            get_mapping_mc_eid_src_plen(mapping);
-
+    mapping = mcache_entry_get_mapping(entry);
+    addr = mapping_get_eid_addr(mapping);
     lispd_log_msg(LISP_LOG_DEBUG_1,"Got expiration for EID",
-            get_mapping_eid_prefix_to_char(addr), plen);
+            lisp_addr_to_char(addr), plen);
 
-    del_map_cache_entry_from_db(addr, plen);
+    del_map_cache_entry_from_db(addr);
 }
 
 /*
@@ -662,9 +702,9 @@ void dump_map_cache_db(int log_level)
             dump_map_cache_entry (entry, log_level);
 
             /* dump multicast also */
-            if (node->user1){
+            if (node->mc_data){
                 lisp_log_msg(log_level, "======= Start Multicast =======\n");
-                PATRICIA_WALK( (patricia_tree_t *)node->user1, mnode){
+                PATRICIA_WALK( (patricia_tree_t *)node->mc_data, mnode){
                     mentry = ((lispd_map_cache_entry *)mnode->data);
                     dump_map_cache_entry(mentry, log_level);
                 } PATRICIA_WALK_END;

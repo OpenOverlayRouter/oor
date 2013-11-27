@@ -103,7 +103,7 @@ lispd_locator_elt   *new_rmt_locator (
         return(NULL);
     }
 
-    if((locator->locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
+    if((locator->locator_addr = lisp_addr_new()) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
         free (locator);
         return (NULL);
@@ -117,15 +117,17 @@ lispd_locator_elt   *new_rmt_locator (
     }
 
     /* Read the afi information (locator address) from the packet */
-    if ((err=pkt_process_rloc_afi(afi_ptr,locator)) != GOOD){
-        free (locator->locator_addr);
-        free (locator);
-        return (NULL);
-    }
+//    if ((err=pkt_process_rloc_afi(afi_ptr,locator)) != GOOD){
+//        free (locator->locator_addr);
+//        free (locator);
+//        return (NULL);
+//    }
+    if (lisp_addr_read_from_pkt(afi_ptr, locator->locator_addr) != GOOD)
+        return(NULL);
 
     locator->extended_info = (void *)new_rmt_locator_extended_info();
     if (locator->extended_info == NULL){
-        free (locator->locator_addr);
+        lisp_addr_del(locator->locator_addr);
         free (locator->state);
         free (locator);
         return (NULL);
@@ -158,7 +160,7 @@ lispd_locator_elt   *new_static_rmt_locator (
         return(NULL);
     }
 
-    if((locator->locator_addr = malloc(sizeof(lisp_addr_t))) == NULL){
+    if((locator->locator_addr = lisp_addr_new()) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
         free (locator);
         return (NULL);
@@ -173,7 +175,7 @@ lispd_locator_elt   *new_static_rmt_locator (
 
     if (get_lisp_addr_from_char(rloc_addr,locator->locator_addr) == BAD){
         lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
-        free (locator->locator_addr);
+        lisp_addr_del(locator->locator_addr);
         free (locator->state);
         free (locator);
         return (NULL);
@@ -181,7 +183,7 @@ lispd_locator_elt   *new_static_rmt_locator (
 
     locator->extended_info = (void *)new_rmt_locator_extended_info();
     if (locator->extended_info == NULL){
-        free (locator->locator_addr);
+        lisp_addr_del(locator->locator_addr);
         free (locator->state);
         free (locator);
         return (NULL);
@@ -289,7 +291,7 @@ void free_locator(lispd_locator_elt   *locator)
 {
     if (locator->locator_type != LOCAL_LOCATOR){
         free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
-        free (locator->locator_addr);
+        lisp_addr_del(locator->locator_addr);
         free (locator->state);
     }else{
         free_lcl_locator_extended_info((lcl_locator_extended_info *)locator->extended_info);

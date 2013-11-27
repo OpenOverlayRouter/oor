@@ -88,12 +88,11 @@ typedef struct rmt_mapping_extended_info_ {
 /*
  * Structure to expand the lispd_mapping_elt to support multicast info AFI
  */
-typedef struct mcinfo_mapping_exteded_info_{
-    uint16_t        grp_plen;
-    uint8_t         rbit;
-    uint8_t         lbit;
-    uint8_t         jbit;
-}mcinfo_mapping_extended_info;
+typedef struct mcinfo_mapping_exteded_info_ {
+//    uint16_t            grp_plen;
+    lispd_jib_t         *jib;
+//    lispd_locator_elt   *src_rloc;
+} mcinfo_mapping_extended_info;
 
 /****************************************  FUNCTIONS **************************************/
 

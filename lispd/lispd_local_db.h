@@ -66,7 +66,7 @@ void del_mapping_entry_from_db(lisp_addr_t eid,
  * Look up a given eid in the database, returning the
  * lispd_mapping_elt of this EID if it exists or NULL.
  */
-lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t eid);
+lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t *eid);
 
 /*
  * lookup_eid_in_db

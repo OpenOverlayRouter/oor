@@ -1,8 +1,7 @@
 /*
- * lispd_re_control.c
+ * lispd_re_jib.c
  *
  * This file is part of LISP Mobile Node Implementation.
- * Necessary logic to handle incoming map replies.
  *
  * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
  *
@@ -24,34 +23,29 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Florin Coras  <fcoras@ac.upc.edu>
- *
+ *    Florin Coras <fcoras@ac.upc.edu>
  */
+
+/*
+ * This defines the LISP-RE downstream join information base (jib)
+ */
+
+#ifndef LISPD_RE_JIB_H_
+#define LISPD_RE_JIB_H_
 
 #include "defs_re.h"
 
-void join_re_channel(lisp_addr_t src, lisp_addr_t group) {
-    printf("------ > Request to JOIN RE channel (%s, %s). Still not implemented! \n",
-            get_char_from_lisp_addr_t(src), get_char_from_lisp_addr_t(group));
-}
+typedef lispd_generic_list_t        lispd_jib_t;
+typedef struct {
+    lispd_locators_list *locators;
+    timer timer;
+}lispd_jib_entry_t;
 
-void leave_re_channel(lisp_addr_t src, lisp_addr_t group) {
-    printf("------ > Request to LEAVE RE channel (%s, %s). Still not implemented! \n",
-            get_char_from_lisp_addr_t(src), get_char_from_lisp_addr_t(group));
-}
+lispd_jib_t             *lispd_new_jib();
+lispd_generic_list_t    *jib_get_orlist(lispd_jib_t *jib);
+void                    jib_add_locator_list(lispd_locators_list *loc_list, lispd_jib_t *jib);
+void                    jib_del_locator_list(lispd_locators_list *loc_list, lispd_jib_t *jib);
+inline uint32_t         jib_size(lispd_jib_t *jib);
 
-void process_re_join_request() {
 
-}
-
-void process_re_leave_request() {
-
-}
-
-int send_re_join_request() {
-
-}
-
-int send_re_leave_request() {
-
-}
+#endif /* LISPD_RE_JIB_H_ */

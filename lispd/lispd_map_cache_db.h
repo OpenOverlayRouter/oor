@@ -59,7 +59,7 @@ int add_map_cache_entry_to_db(lispd_map_cache_entry *entry);
  *
  * Delete an EID mapping from the cache
  */
-void del_map_cache_entry_from_db(lisp_addr_t *laddr, uint8_t prefixlen);
+void del_map_cache_entry_from_db(lisp_addr_t *laddr);
 
 
 /*
@@ -67,9 +67,7 @@ void del_map_cache_entry_from_db(lisp_addr_t *laddr, uint8_t prefixlen);
  *
  * Find an exact match for a prefix/prefixlen if possible
  */
-lispd_map_cache_entry *lookup_map_cache_exact(
-        lisp_addr_t             addr,
-        int                     prefixlen);
+lispd_map_cache_entry *lookup_map_cache_exact(lisp_addr_t *addr);
 
 
 /*
@@ -78,14 +76,14 @@ lispd_map_cache_entry *lookup_map_cache_exact(
  * Look up a given eid in the database, returning the
  * lispd_map_cache_entry of this EID if it exists or NULL.
  */
-lispd_map_cache_entry *lookup_map_cache(lisp_addr_t eid);
+lispd_map_cache_entry *lookup_map_cache(lisp_addr_t *addr);
 
 
 /*
  * Lookup if there is a no active cache entry with the provided nonce and return it
  */
 
-lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(int eid_afi, uint64_t nonce);
+lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(uint16_t eid_afi, uint64_t nonce);
 
 
 /*
@@ -95,7 +93,6 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(int eid_afi, uint64_
 
 int replace_map_cache_entry(
         lisp_addr_t                             *new_eid_prefix,
-        uint8_t                                 new_eid_prefix_length,
         lispd_map_cache_entry                   *cache_entry);
 
 void map_cache_entry_expiration(timer *t, void *arg);

@@ -33,6 +33,7 @@
 
 #include "lispd_nonce.h"
 #include "lispd_timers.h"
+#include "lispd.h"
 
 /****************************************  STRUCTURES **************************************/
 

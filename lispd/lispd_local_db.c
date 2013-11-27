@@ -206,12 +206,12 @@ patricia_node_t *lookup_eid_exact_node(
  * Look up a given eid in the database, returning the
  * lispd_mapping_elt of this EID if it exists or NULL.
  */
-lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t eid)
+lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t *eid)
 {
     lispd_mapping_elt       *mapping = NULL;
     patricia_node_t         *result     = NULL;
 
-    result = lookup_eid_node(eid);
+    result = lookup_eid_node(*eid);
     if (result == NULL){
         return(NULL);
     }

@@ -63,21 +63,21 @@ lispd_iface_elt *add_interface(char *iface_name)
         free(iface_list);
         return(NULL);
     }
-    if ((iface->ipv4_address = (lisp_addr_t *)malloc(sizeof(lisp_addr_t)))==NULL){
+    if ((iface->ipv4_address = lisp_addr_new_ip())==NULL){
     	lispd_log_msg(LISP_LOG_WARNING,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
     	free(iface);
     	return(NULL);
     }
-    if ((iface->ipv6_address = (lisp_addr_t *)malloc(sizeof(lisp_addr_t)))==NULL){
+    if ((iface->ipv6_address = lisp_addr_new_ip())==NULL){
     	lispd_log_msg(LISP_LOG_WARNING,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
-    	free(iface->ipv4_address);
+    	lisp_addr_del(iface->ipv4_address);
     	free(iface);
     	return(NULL);
     }
-    memset(iface->ipv4_address,0,sizeof(lisp_addr_t));
-    memset(iface->ipv6_address,0,sizeof(lisp_addr_t));
+//    memset(iface->ipv4_address,0,sizeof(lisp_addr_t));
+//    memset(iface->ipv6_address,0,sizeof(lisp_addr_t));
 
     iface->iface_name = malloc(strlen(iface_name) + 1);   // XXX Must free elsewhere
     strcpy(iface->iface_name, iface_name);

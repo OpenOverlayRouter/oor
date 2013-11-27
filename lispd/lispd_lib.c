@@ -141,12 +141,14 @@ int copy_addr(
      lisp_addr_t    *a2,
      int            convert)
 {
+//    /* XXX: this doesn't start from EID!! */
+//    return(lisp_addr_copy_to_pkt(a2, a1, convert));
 
     switch (a2->afi) {
     case AF_INET:
         if (convert)
             ((struct in_addr *) a1)->s_addr = htonl(a2->address.ip.s_addr);
-        else 
+        else
             ((struct in_addr *) a1)->s_addr = a2->address.ip.s_addr;
         return(sizeof(struct in_addr));
     case AF_INET6:
@@ -158,6 +160,7 @@ int copy_addr(
         lispd_log_msg(LISP_LOG_DEBUG_2, "copy_addr: Unknown AFI (%d)", a2->afi);
         return(ERR_AFI);
     }
+
 }
 
 inline void copy_lisp_addr_V4(lisp_addr_t *dest,
@@ -374,11 +377,13 @@ int lispd_get_iface_address(
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             if (strcmp(ifa->ifa_name, ifacename) == 0) {
-                memcpy((void *) &(ip.address),
-                       (void *)&(s4->sin_addr), sizeof(struct in_addr));
-                ip.afi = AF_INET;
+                ip_addr_set_v4(lisp_addr_get_ip(ip), (void *)&(s4->sin_addr));
+//                memcpy((void *) &(ip.address),
+//                       (void *)&(s4->sin_addr), sizeof(struct in_addr));
+//                ip.afi = AF_INET;
                 if (is_link_local_addr(ip) != TRUE){
-                    copy_lisp_addr(addr,&ip);
+                    ip_addr_copy(lisp_addr_get_ip(addr), lisp_addr_get_ip(ip));
+//                    copy_lisp_addr(addr,&ip);
                 }else{
                     lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
                             ifacename, get_char_from_lisp_addr_t(ip));
@@ -404,10 +409,11 @@ int lispd_get_iface_address(
                 continue;
             }
             if (!strcmp(ifa->ifa_name, ifacename)) {
-                memcpy((void *) &(addr->address),
-                       (void *)&(s6->sin6_addr),
-                       sizeof(struct in6_addr));
-                addr->afi = AF_INET6;
+//                memcpy((void *) &(addr->address),
+//                       (void *)&(s6->sin6_addr),
+//                       sizeof(struct in6_addr));
+//                addr->afi = AF_INET6;
+                ip_addr_set_v6(lisp_addr_get_ip(ip), (void *)&(s6->sin6_addr) );
                 lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
@@ -600,23 +606,24 @@ void print_hmac(
 
 char *get_char_from_lisp_addr_t (lisp_addr_t addr)
 {
-    static char address[10][INET6_ADDRSTRLEN];
-    static unsigned int i; //XXX Too much memory allocation for this, but standard syntax
-
-    /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
-    i++;
-    i = i % 10;
-
-    switch (addr.afi){
-    case AF_INET:
-        inet_ntop(AF_INET, &(addr.address), address[i], INET_ADDRSTRLEN);
-        return (address[i]);
-    case AF_INET6:
-        inet_ntop(AF_INET6, &(addr.address.ipv6), address[i], INET6_ADDRSTRLEN);
-        return (address[i]);
-    default:
-        return (NULL);
-    }
+    lisp_addr_to_char(&addr);
+//    static char address[10][INET6_ADDRSTRLEN];
+//    static unsigned int i; //XXX Too much memory allocation for this, but standard syntax
+//
+//    /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
+//    i++;
+//    i = i % 10;
+//
+//    switch (addr.afi){
+//    case AF_INET:
+//        inet_ntop(AF_INET, &(addr.address), address[i], INET_ADDRSTRLEN);
+//        return (address[i]);
+//    case AF_INET6:
+//        inet_ntop(AF_INET6, &(addr.address.ipv6), address[i], INET6_ADDRSTRLEN);
+//        return (address[i]);
+//    default:
+//        return (NULL);
+//    }
 }
 
 /*
@@ -648,6 +655,8 @@ int get_lisp_addr_from_char (
     if (result == BAD){
         lisp_addr->afi = AF_UNSPEC;
     }
+
+    lisp_addr_set_afi(lisp_addr, LM_AFI_IP);
     return (result);
 }
 
@@ -663,27 +672,31 @@ int compare_lisp_addr_t (
         lisp_addr_t *addr1,
         lisp_addr_t *addr2)
 {
-	int cmp;
-	if (addr1 == NULL || addr2 == NULL){
-	    return (-1);
-	}
-	if (addr1->afi != addr2->afi){
-		return (-1);
-	}
-	if (addr1->afi == AF_INET){
-		cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
-	}else if (addr1->afi == AF_INET6){
-			cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
-	}else{
-		return (-1);
-	}
-	if (cmp == 0){
-		return (0);
-	}else if (cmp > 0){
-		return (1);
-    }else{
-		return (2);
-    }
+    /* !!! OBSOLETE !!!
+     * Use in the future lisp_addr_cmp
+     */
+    return(lisp_addr_cmp(addr1, addr2));
+//	int cmp;
+//	if (addr1 == NULL || addr2 == NULL){
+//	    return (-1);
+//	}
+//	if (addr1->afi != addr2->afi){
+//		return (-1);
+//	}
+//	if (addr1->afi == AF_INET){
+//		cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
+//	}else if (addr1->afi == AF_INET6){
+//			cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
+//	}else{
+//		return (-1);
+//	}
+//	if (cmp == 0){
+//		return (0);
+//	}else if (cmp > 0){
+//		return (1);
+//    }else{
+//		return (2);
+//    }
 }
 
 /*
@@ -929,7 +942,7 @@ int process_lisp_ctr_msg(
     lisp_addr_t         local_rloc;
     uint16_t            remote_port;
 
-    if  ( get_packet_and_socket_inf (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
+    if  (get_packet_and_socket_inf (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
         return BAD;
     }
 
