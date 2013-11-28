@@ -3,7 +3,7 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  * Various library routines.
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -63,7 +63,7 @@
 #include "lispd_map_notify.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
-#include "lispd_info_nat.h" 
+#include "lispd_info_nat.h"
 
 
 
@@ -76,7 +76,7 @@ inline int convert_hex_char_to_byte (char val);
 /*
  *      get_afi
  *
- *      Assume if there's a colon in str that its an IPv6 
+ *      Assume if there's a colon in str that its an IPv6
  *      address. Otherwise its v4.
  *
  *      David Meyer
@@ -88,10 +88,10 @@ inline int convert_hex_char_to_byte (char val);
  */
 
 int get_afi(char *str)
-{ 
+{
     if (strchr(str,':'))                /* poor-man's afi discriminator */
         return(AF_INET6);
-    else        
+    else
         return(AF_INET);
 }
 
@@ -112,7 +112,7 @@ int copy_lisp_addr_t(
     case AF_INET:
         if (convert)
             a1->address.ip.s_addr = htonl(a2->address.ip.s_addr);
-        else 
+        else
             a1->address.ip.s_addr = a2->address.ip.s_addr;
         break;
     case AF_INET6:
@@ -146,7 +146,7 @@ int copy_addr(
     case AF_INET:
         if (convert)
             ((struct in_addr *) a1)->s_addr = htonl(a2->address.ip.s_addr);
-        else 
+        else
             ((struct in_addr *) a1)->s_addr = a2->address.ip.s_addr;
         return(sizeof(struct in_addr));
     case AF_INET6:
@@ -290,6 +290,95 @@ inline int convert_hex_char_to_byte (char val)
     }
 }
 
+
+
+/**
+
+@param addr_str Might be a numeric IP or a hostname.
+@param number_of_results
+@param disable_name_resolution Disables name resolution
+
+macro on new result ? pass it to a callback function ?
+**/
+/*
+convert last field into a bitfield ?
+*/
+int lispd_get_address2(char *addr_str, on_new_lisp_addr_cb callback, void* data, const int disable_name_resolution , const int preferred_afi )
+{
+    lisp_addr_t lisp_addr;
+    struct addrinfo hints, *servinfo = NULL, *p = NULL;
+
+//    char ipstr[INET6_ADDRSTRLEN];
+
+
+    if( callback == NULL){
+            lispd_log_msg(LISP_LOG_WARNING, "No callback" );
+            return(BAD);
+    }
+
+
+    memset(&hints, 0, sizeof hints);
+
+
+    hints.ai_family = preferred_afi; /* AF_UNSPEC or use AF_INET6 to force IPv6 */
+    /* will remove hostname resolution if asked */
+    hints.ai_flags = (disable_name_resolution == TRUE) ? AI_NUMERICHOST : AI_PASSIVE;
+
+
+//    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;    /* we are interested in UDP only */
+    if ((getaddrinfo( addr_str, 0, &hints, &servinfo)) != 0) {
+
+            lispd_log_msg( LISP_LOG_WARNING, "get_addr_info: %s", strerror(errno) );
+            return( BAD );
+    }
+
+
+    /* iterate over addresses */
+    for (p = servinfo; p != NULL; p = p->ai_next) {
+
+
+
+        // TODO set lisp_addr_t from p
+        if( copy_addr_from_sockaddr( p->ai_addr, &lisp_addr, 0) != 0 ){
+            lispd_log_msg(LISP_LOG_WARNING, "Could not convert sockaddr to lisp_addr");
+            continue;
+
+        }
+
+
+        /* depending on callback return, we continue or not */
+        if( (*callback)( &lisp_addr, data) == BAD){
+            lispd_log_msg(LISP_LOG_DEBUG_3 , "Callback wanna stop ");
+            break;
+        }
+
+
+
+    }
+
+    freeaddrinfo(servinfo); /* free the linked list */
+
+    return (GOOD);
+}
+
+
+int copy_addr_from_sockaddr(
+     struct sockaddr   *addr,
+     lisp_addr_t    *a2,
+     int            convert)
+{
+    switch(addr->sa_family) {
+        case AF_INET:
+            return copy_addr( ((struct sockaddr_in *)addr), a2, convert );
+        case AF_INET6:
+            return copy_addr((struct sockaddr_in6 *)addr, a2, convert);
+    }
+     lispd_log_msg( LISP_LOG_WARNING, "Unknown address family" );
+    return 0;
+}
+
+
 /*
  *      lispd_get_address
  *
@@ -302,7 +391,7 @@ int lispd_get_address(
 {
     struct hostent      *hptr;
 
-    /* 
+    /*
      * make sure this is clean
      */
 
@@ -318,7 +407,7 @@ int lispd_get_address(
                (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
         addr->afi = hptr->h_addrtype;
         return(GOOD);
-    } 
+    }
     return(BAD);
 }
 
@@ -350,7 +439,7 @@ int lispd_get_iface_address(
         }
     }
 
-    /* 
+    /*
      * make sure this is clean
      */
 
@@ -409,8 +498,8 @@ int lispd_get_iface_address(
                        sizeof(struct in6_addr));
                 addr->afi = AF_INET6;
                 lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
-                        ifacename, 
-                        inet_ntop(AF_INET6, &(s6->sin6_addr), 
+                        ifacename,
+                        inet_ntop(AF_INET6, &(s6->sin6_addr),
                             addr_str, MAX_INET_ADDRSTRLEN));
                 freeifaddrs(ifaddr);
                 return(GOOD);
@@ -431,7 +520,7 @@ int lispd_get_iface_address(
 /*
  *      dump_X
  *
- *      walk the lispd X data structures 
+ *      walk the lispd X data structures
  *
  *      David Meyer
  *      dmm@1-4-5.net
@@ -446,7 +535,7 @@ void dump_servers(
         lispd_addr_list_t   *list,
         const char          *list_name,
         int                 log_level)
-{ 
+{
     lispd_addr_list_t   *iterator = 0;
 
     if (!list)
@@ -514,7 +603,7 @@ void dump_map_servers(int log_level)
 }
 
 
-/* 
+/*
  *      isfqdn(char *s)
  *
  *      See if a string qualifies as an FQDN. To qualifiy, s must
@@ -718,15 +807,15 @@ int get_lisp_addr_and_mask_from_char (
     }
     return (GOOD);
 }
-     
-     
+
+
 /*
  *      get_lisp_afi
  *
  *      Map from Internet AFI -> LISP_AFI
  *
  *      Get the length while your at it
- */         
+ */
 
 uint16_t get_lisp_afi(
      int        afi,
@@ -755,7 +844,7 @@ uint16_t get_lisp_afi(
  *
  *      Map from Internet LISP AFI -> INET AFI
  *
- */         
+ */
 
 int lisp2inetafi(uint16_t afi)
 {
@@ -884,7 +973,7 @@ inline lisp_addr_t *get_server(
 
 
 /*
- *  select from among readfds, the largest of which 
+ *  select from among readfds, the largest of which
  *  is max_fd.
  */
 
@@ -916,7 +1005,7 @@ int have_input(
 
 
 /*
- *  Process a LISP protocol message sitting on 
+ *  Process a LISP protocol message sitting on
  *  socket s with address family afi
  */
 
@@ -973,7 +1062,7 @@ int process_lisp_ctr_msg(
     return(GOOD);
 }
 
-    
+
 int inaddr2sockaddr(
         lisp_addr_t     *inaddr,
         struct sockaddr *sockaddr,

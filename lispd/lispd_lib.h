@@ -37,6 +37,14 @@
 #include "lispd_locator.h"
 
 
+
+typedef int (*on_new_lisp_addr_cb)(lisp_addr_t*, void* data ) ;
+
+int lispd_get_address2(char *addr_str, on_new_lisp_addr_cb callback, void* data, const int disable_name_resolution , const int preferred_afi );
+
+int copy_addr_from_sockaddr( struct sockaddr   *addr, lisp_addr_t    *a2, int            convert);
+
+
 /*
  *      Assume if there's a colon in str that its an IPv6
  *      address. Otherwise its v4.
