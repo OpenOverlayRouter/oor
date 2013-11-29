@@ -74,6 +74,63 @@ inline int convert_hex_char_to_byte (char val);
 
 
 /*
+ Expects  a lispd_addr_list_t**
+*/
+int add_lisp_addr_to_list(lisp_addr_t* addr, void* data )
+{
+    lispd_addr_list_t** list = (lispd_addr_list_t**)data;
+    lispd_addr_list_t   *list_elt   = NULL;
+
+    if(list == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "Empty data", strerror(errno));
+        return BAD;
+    }
+//int add_lisp_addr_to_lisp_addr_list( lispd_addr_list_t** list, lisp_addr_t *addr ){
+//    list->addr = addr;
+
+    if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "Unable to allocate memory for lispd_addr_list_t: %s", strerror(errno));
+        return(BAD);
+    }
+
+    memset(list_elt,0,sizeof(lispd_addr_list_t));
+
+
+    list_elt->address = addr;
+    if (*list) {
+        list_elt->next = *list;
+        *list = list_elt;
+    } else {
+        *list = list_elt;
+    }
+
+    return GOOD;
+}
+
+/*
+ Expects  a lispd_addr_list_t**
+*/
+int add_single_lisp_addr(lisp_addr_t* src, void* data )
+{
+    // TODO allocate
+    lisp_addr_t* addr = *( (lisp_addr_t**)data );
+
+    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+        return(BAD);
+    }
+
+    copy_lisp_addr(addr, src);
+
+//        lispd_log_msg(LISP_LOG_WARNING, "Unable to copy lisp_addr_t to another lisp_addr_t");
+//        return(BAD);
+//    }
+
+    return 0;
+}
+
+
+/*
  *      get_afi
  *
  *      Assume if there's a colon in str that its an IPv6
@@ -132,8 +189,8 @@ int copy_lisp_addr_t(
 /*
  *      copy_addr
  *
- *      Copy a lisp_addr_t to a memory location, htonl'ing it
- *      it convert != 0. Return the length or 0;
+ *      Copy a lisp_addr_t to a memory location, htonl'ing
+ *      if convert != 0. Return the length or 0;
  */
 
 int copy_addr(
@@ -303,7 +360,7 @@ macro on new result ? pass it to a callback function ?
 /*
 convert last field into a bitfield ?
 */
-int lispd_get_address2(char *addr_str, on_new_lisp_addr_cb callback, void* data, const int disable_name_resolution , const int preferred_afi )
+int lispd_get_address5(char *addr_str, on_new_lisp_addr_cb callback, void* data, const int disable_name_resolution , const int preferred_afi )
 {
     lisp_addr_t lisp_addr;
     struct addrinfo hints, *servinfo = NULL, *p = NULL;
@@ -321,12 +378,11 @@ int lispd_get_address2(char *addr_str, on_new_lisp_addr_cb callback, void* data,
 
 
     hints.ai_family = preferred_afi; /* AF_UNSPEC or use AF_INET6 to force IPv6 */
-    /* will remove hostname resolution if asked */
     hints.ai_flags = (disable_name_resolution == TRUE) ? AI_NUMERICHOST : AI_PASSIVE;
 
-
-//    hints.ai_socktype = SOCK_DGRAM;
+    lispd_log_msg( LISP_LOG_DEBUG_1, "Resolving [%s]", addr_str );
     hints.ai_protocol = IPPROTO_UDP;    /* we are interested in UDP only */
+
     if ((getaddrinfo( addr_str, 0, &hints, &servinfo)) != 0) {
 
             lispd_log_msg( LISP_LOG_WARNING, "get_addr_info: %s", strerror(errno) );
@@ -337,18 +393,15 @@ int lispd_get_address2(char *addr_str, on_new_lisp_addr_cb callback, void* data,
     /* iterate over addresses */
     for (p = servinfo; p != NULL; p = p->ai_next) {
 
-
-
-        // TODO set lisp_addr_t from p
-        if( copy_addr_from_sockaddr( p->ai_addr, &lisp_addr, 0) != 0 ){
+        if( copy_addr_from_sockaddr( p->ai_addr, &lisp_addr) != GOOD ){
             lispd_log_msg(LISP_LOG_WARNING, "Could not convert sockaddr to lisp_addr");
             continue;
-
         }
 
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Could not convert sockaddr to lisp_addr %s", get_char_from_lisp_addr_t(lisp_addr));
 
         /* depending on callback return, we continue or not */
-        if( (*callback)( &lisp_addr, data) == BAD){
+        if( (*callback)( &lisp_addr, data) == 0){
             lispd_log_msg(LISP_LOG_DEBUG_3 , "Callback wanna stop ");
             break;
         }
@@ -365,17 +418,22 @@ int lispd_get_address2(char *addr_str, on_new_lisp_addr_cb callback, void* data,
 
 int copy_addr_from_sockaddr(
      struct sockaddr   *addr,
-     lisp_addr_t    *a2,
-     int            convert)
+     lisp_addr_t    *lisp_addr
+//     int            convert
+     )
 {
     switch(addr->sa_family) {
         case AF_INET:
-            return copy_addr( ((struct sockaddr_in *)addr), a2, convert );
+            lisp_addr->address.ip = ((struct sockaddr_in *)addr)->sin_addr;
+            return GOOD;
         case AF_INET6:
-            return copy_addr((struct sockaddr_in6 *)addr, a2, convert);
+            lisp_addr->address.ipv6 = ((struct sockaddr_in6 *)addr)->sin6_addr;
+//            return copy_addr((struct sockaddr_in6 *)addr, a2, convert);
+            return GOOD;
     }
-     lispd_log_msg( LISP_LOG_WARNING, "Unknown address family" );
-    return 0;
+
+    lispd_log_msg( LISP_LOG_WARNING, "Unknown address family %d", addr->sa_family);
+    return BAD;
 }
 
 

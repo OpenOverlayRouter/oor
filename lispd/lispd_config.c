@@ -5,7 +5,7 @@
  * Handle lispd command line and config file
  * Parse command line args using gengetopt.
  * Handle config file with libconfuse.
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -807,7 +807,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 /*
  *  add_database_mapping
  *
- *  Get a single database mapping 
+ *  Get a single database mapping
  *
  *  David Meyer <dmm@1-4-5.net>
  *  Preethi Natarajan <prenatar@cisco.com>
@@ -1045,29 +1045,14 @@ int add_server(
     lisp_addr_t         *addr;
     lispd_addr_list_t   *list_elt;
 
-    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return(ERR_MALLOC);
-    }
-    memset(addr,0,sizeof(lisp_addr_t));
-
-    afi = get_afi(server);
-    addr->afi = afi;
-
-    if (inet_pton(afi, server, &(addr->address)) != 1) {
-        lispd_log_msg(LISP_LOG_ERR, "add_server: Wrong address format: %s", strerror(errno));
-        free(addr);
-        return(BAD);
-    }
-
     /*
      * Check that the afi of the map server matches with the default rloc afi (if it's defined).
      */
-    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
-        lispd_log_msg(LISP_LOG_WARNING, "The server %s will not be added due to the selected default rloc afi",server);
-        free(addr);
-        return(BAD);
-    }
+//    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
+//        lispd_log_msg(LISP_LOG_WARNING, "The server %s will not be added due to the selected default rloc afi",server);
+//        free(addr);
+//        return(BAD);
+//    }
 
     if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lispd_addr_list_t: %s", strerror(errno));
@@ -1076,17 +1061,10 @@ int add_server(
     }
     memset(list_elt,0,sizeof(lispd_addr_list_t));
 
-    list_elt->address = addr;
+    if( GOOD != lispd_get_address5( server, add_lisp_addr_to_list, (void*)list, FALSE,  (default_rloc_afi != -1) ? default_rloc_afi : AF_UNSPEC ) ){
 
-    /*
-     * hook this one to the front of the list
-     */
-
-    if (*list) {
-        list_elt->next = *list;
-        *list = list_elt;
-    } else {
-        *list = list_elt;
+        lispd_log_msg(LISP_LOG_WARNING, "Unable to convert addresses");
+        return BAD;
     }
 
     return(GOOD);
@@ -1111,6 +1089,7 @@ int add_map_server(
         lispd_log_msg(LISP_LOG_ERR, "Configuraton file: Wrong Map Server configuration.  Check configuration file");
         exit_cleanup();
     }
+
 
     if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
