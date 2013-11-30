@@ -76,27 +76,36 @@ inline int convert_hex_char_to_byte (char val);
 /*
  Expects  a lispd_addr_list_t**
 */
-int add_lisp_addr_to_list(lisp_addr_t* addr, void* data )
+int add_lisp_addr_to_list(lisp_addr_t* tempAddr, void* data )
 {
     lispd_addr_list_t** list = (lispd_addr_list_t**)data;
     lispd_addr_list_t   *list_elt   = NULL;
+    lisp_addr_t*    lisp_addr =  NULL;
+
 
     if(list == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "Empty data", strerror(errno));
-        return BAD;
+        return 0;
     }
-//int add_lisp_addr_to_lisp_addr_list( lispd_addr_list_t** list, lisp_addr_t *addr ){
-//    list->addr = addr;
+
 
     if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "Unable to allocate memory for lispd_addr_list_t: %s", strerror(errno));
-        return(BAD);
+        return(0);
     }
 
     memset(list_elt,0,sizeof(lispd_addr_list_t));
 
+    if ((lisp_addr = malloc(sizeof(lisp_addr_t))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+        return(0);
+    }
+    memset(lisp_addr,0,sizeof(lisp_addr_t));
 
-    list_elt->address = addr;
+    copy_lisp_addr( lisp_addr, tempAddr );
+
+    /** Allocate the address **/
+    list_elt->address = lisp_addr;
     if (*list) {
         list_elt->next = *list;
         *list = list_elt;
@@ -104,11 +113,11 @@ int add_lisp_addr_to_list(lisp_addr_t* addr, void* data )
         *list = list_elt;
     }
 
-    return GOOD;
+    return 1;
 }
 
 /*
- Expects  a lispd_addr_list_t**
+ Expects a single lispd_addr_t**
 */
 int add_single_lisp_addr(lisp_addr_t* src, void* data )
 {
@@ -121,11 +130,6 @@ int add_single_lisp_addr(lisp_addr_t* src, void* data )
     }
 
     copy_lisp_addr(addr, src);
-
-//        lispd_log_msg(LISP_LOG_WARNING, "Unable to copy lisp_addr_t to another lisp_addr_t");
-//        return(BAD);
-//    }
-
     return 0;
 }
 
@@ -379,12 +383,9 @@ int lispd_get_address5(char *addr_str, on_new_lisp_addr_cb callback, void* data,
 
     hints.ai_family = preferred_afi; /* AF_UNSPEC or use AF_INET6 to force IPv6 */
     hints.ai_flags = (disable_name_resolution == TRUE) ? AI_NUMERICHOST : AI_PASSIVE;
-
-    lispd_log_msg( LISP_LOG_DEBUG_1, "Resolving [%s]", addr_str );
     hints.ai_protocol = IPPROTO_UDP;    /* we are interested in UDP only */
 
     if ((getaddrinfo( addr_str, 0, &hints, &servinfo)) != 0) {
-
             lispd_log_msg( LISP_LOG_WARNING, "get_addr_info: %s", strerror(errno) );
             return( BAD );
     }
@@ -393,12 +394,12 @@ int lispd_get_address5(char *addr_str, on_new_lisp_addr_cb callback, void* data,
     /* iterate over addresses */
     for (p = servinfo; p != NULL; p = p->ai_next) {
 
-        if( copy_addr_from_sockaddr( p->ai_addr, &lisp_addr) != GOOD ){
+        if( GOOD != copy_addr_from_sockaddr( p->ai_addr, &lisp_addr)  ){
             lispd_log_msg(LISP_LOG_WARNING, "Could not convert sockaddr to lisp_addr");
             continue;
         }
 
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Could not convert sockaddr to lisp_addr %s", get_char_from_lisp_addr_t(lisp_addr));
+        lispd_log_msg(LISP_LOG_DEBUG_1, "converted addr_str [%s] to address [%s]", addr_str, get_char_from_lisp_addr_t(lisp_addr));
 
         /* depending on callback return, we continue or not */
         if( (*callback)( &lisp_addr, data) == 0){
@@ -406,29 +407,24 @@ int lispd_get_address5(char *addr_str, on_new_lisp_addr_cb callback, void* data,
             break;
         }
 
-
-
     }
 
     freeaddrinfo(servinfo); /* free the linked list */
-
     return (GOOD);
 }
 
 
-int copy_addr_from_sockaddr(
-     struct sockaddr   *addr,
-     lisp_addr_t    *lisp_addr
-//     int            convert
-     )
+int copy_addr_from_sockaddr(struct sockaddr   *addr, lisp_addr_t    *lisp_addr)
 {
-    switch(addr->sa_family) {
+
+    lisp_addr->afi = addr->sa_family;
+    switch(lisp_addr->afi ) {
         case AF_INET:
             lisp_addr->address.ip = ((struct sockaddr_in *)addr)->sin_addr;
             return GOOD;
+
         case AF_INET6:
             lisp_addr->address.ipv6 = ((struct sockaddr_in6 *)addr)->sin6_addr;
-//            return copy_addr((struct sockaddr_in6 *)addr, a2, convert);
             return GOOD;
     }
 
