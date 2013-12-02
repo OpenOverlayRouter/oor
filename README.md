@@ -9,7 +9,9 @@ RLOCs are syntactically indistinguishable from current IPv4 and IPv6 addresses,
 enabling backwards compatibility with the existing Internet architecture. A
 distributed database, the mapping system, is responsible for maintaining the
 associations between EIDs and RLOCs. LISP Mobile Node (LISP-MN) is a
-specification to enable fast host mobility using LISP.
+specification to enable fast host mobility using LISP. Among other nice 
+features, LISP provides interruption-free global provider-independent roaming
+of IP-addresses with different networks.
 
 The LISPmob project aims to deliver a full implementation of both LISP and
 LISP-MN for Linux-like systems, but parts of the implementation may be reusable
