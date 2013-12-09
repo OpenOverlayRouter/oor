@@ -33,8 +33,7 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
-#ifdef ANDROID
-#else
+#ifndef ANDROID
 #include <ifaddrs.h>
 #endif
 #include <inttypes.h>
@@ -61,6 +60,7 @@
 #include "lispd_afi.h"
 #include "lispd_lib.h"
 #include "lispd_external.h"
+#include "lispd_map_referral.h"
 #include "lispd_map_request.h"
 #include "lispd_map_reply.h"
 #include "lispd_map_notify.h"
@@ -68,11 +68,21 @@
 #include "patricia/patricia.h"
 #include "lispd_info_nat.h" 
 
-
+/********************************** Function declaration ********************************/
 
 int isfqdn(char *s);
 inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
 inline int convert_hex_char_to_byte (char val);
+inline lisp_addr_t get_network_address_v4(
+        lisp_addr_t address,
+        int         prefix_length);
+
+inline lisp_addr_t get_network_address_v6(
+        lisp_addr_t address,
+        int         prefix_length);
+
+
+/****************************************************************************************/
 
 #ifdef ANDROID
 /*
@@ -326,7 +336,6 @@ int copy_addr(
      lisp_addr_t    *a2,
      int            convert)
 {
-
     switch (a2->afi) {
     case AF_INET:
         if (convert)
@@ -406,7 +415,10 @@ void memcopy_lisp_addr(void *dest,
     }
 }
 
-int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
+int convert_hex_string_to_bytes(
+        char        *hex,
+        uint8_t     *bytes,
+        int         bytes_len)
 {
     int         ctr = 0;
     char        hex_digit[2];
@@ -837,6 +849,7 @@ int get_lisp_addr_from_char (
     }
     if (result == BAD){
         lisp_addr->afi = AF_UNSPEC;
+        lispd_log_msg(LISP_LOG_DEBUG_2,"get_lisp_addr_from_char: Error parsing the string of the address: %s", address);
     }
     return (result);
 }
@@ -1126,31 +1139,41 @@ int process_lisp_ctr_msg(
     lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
 
     switch (((lisp_encap_control_hdr_t *) packet)->type) {
-    case LISP_MAP_REPLY:    //Got Map Reply
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Reply message");
-        process_map_reply(packet);
-        break;
-    case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Encapsulated Map-Request message");
-        if(!process_map_request_msg(packet, &local_rloc, remote_port))
-            return (BAD);
-        break;
     case LISP_MAP_REQUEST:      //Got Map-Request
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Request message");
-        if(!process_map_request_msg(packet, &local_rloc, remote_port))
+        if(process_map_request_msg(packet, &local_rloc, remote_port) != GOOD){
             return (BAD);
+        }
+        break;
+    case LISP_MAP_REPLY:    //Got Map Reply
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Reply message");
+        if (process_map_reply(packet) != GOOD){
+            return (BAD);
+        }
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Notify message");
-        if(!process_map_notify(packet))
+        if(process_map_notify(packet) != GOOD){
             return(BAD);
+        }
         break;
-
+    case LISP_MAP_REFERRAL:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Referral message");
+        if(process_map_referral(packet) != GOOD){
+            return(BAD);
+        }
+        break;
     case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-        if(!process_info_nat_msg(packet, local_rloc)){
+        if(process_info_nat_msg(packet, local_rloc) != GOOD){
+            return (BAD);
+        }
+        break;
+    case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Encapsulated Map-Request message");
+        if(process_map_request_msg(packet, &local_rloc, remote_port) != GOOD){
             return (BAD);
         }
         break;
@@ -1248,6 +1271,104 @@ void free_lisp_addr_list(lispd_addr_list_t * list)
         free(list);
         list = aux_list;
     }
+}
+
+/*
+ * If prefix b is contained in prefix a, then return TRUE. Otherwise return FALSE.
+ * If both prefixs are the same it also returns TRUE
+ */
+int is_prefix_b_part_of_a (
+        lisp_addr_t a_prefix,
+        int a_prefix_length,
+        lisp_addr_t b_prefix,
+        int b_prefix_length)
+{
+    lisp_addr_t a_network_addr;
+    lisp_addr_t b_network_addr_prefix_a;
+
+    if (a_prefix.afi != b_prefix.afi){
+        return FALSE;
+    }
+
+    if (a_prefix_length > b_prefix_length){
+        return FALSE;
+    }
+
+    a_network_addr = get_network_address(a_prefix, a_prefix_length);
+    b_network_addr_prefix_a = get_network_address(b_prefix, a_prefix_length);
+
+    if (compare_lisp_addr_t (&a_network_addr, &b_network_addr_prefix_a) == 0){
+        return (TRUE);
+    }else{
+        return (FALSE);
+    }
+}
+
+lisp_addr_t get_network_address(
+        lisp_addr_t address,
+        int prefix_length)
+{
+    lisp_addr_t network_address = {.afi = AF_UNSPEC};
+
+    switch (address.afi){
+    case AF_INET:
+        network_address = get_network_address_v4(address,prefix_length);
+        break;
+    case AF_INET6:
+        network_address = get_network_address_v6(address,prefix_length);
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_network_address: Afi not supported (%d). It should never "
+                "reach this point", address.afi);
+        break;
+    }
+
+    return (network_address);
+}
+
+inline lisp_addr_t get_network_address_v4(
+        lisp_addr_t address,
+        int         prefix_length)
+{
+    lisp_addr_t network_address = {.afi=AF_INET};
+    uint32_t mask = 0xFFFFFFFF;
+    uint32_t addr = ntohl(address.address.ip.s_addr);
+    if (prefix_length != 0){
+        mask = mask << (32 - prefix_length);
+    }else{
+        mask = 0;
+    }
+    addr = addr & mask;
+    network_address.address.ip.s_addr = htonl(addr);
+
+    return network_address;
+}
+
+inline lisp_addr_t get_network_address_v6(
+        lisp_addr_t address,
+        int         prefix_length)
+{
+    lisp_addr_t network_address = {.afi=AF_INET6};
+    uint32_t mask[4] = {0,0,0,0};
+    int ctr = 0;
+    int a,b;
+
+
+    a = (prefix_length) / 32;
+    b = (prefix_length) % 32;
+
+    for (ctr = 0; ctr<a ; ctr++){
+        mask[ctr] = 0xFFFFFFFF;
+    }
+    if (b != 0){
+        mask[a] = 0xFFFFFFFF<<(32-b);
+    }
+
+    for (ctr = 0 ; ctr < 4 ; ctr++){
+        network_address.address.ipv6.__in6_u.__u6_addr32[ctr] = htonl(ntohl(address.address.ipv6.__in6_u.__u6_addr32[ctr]) & mask[ctr]);
+    }
+
+    return network_address;
 }
 
 

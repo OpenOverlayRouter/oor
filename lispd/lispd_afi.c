@@ -60,11 +60,11 @@ int pkt_process_eid_afi(
         break;
     case LISP_AFI_LCAF:
         lcaf_ptr = (lispd_pkt_lcaf_t *)cur_ptr;
-        cur_ptr  = CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
+        cur_ptr  = CO(cur_ptr, sizeof(lispd_pkt_lcaf_t));
         switch(lcaf_ptr->type) {
         case LCAF_IID:
             mapping->iid = ntohl(*(uint32_t *)cur_ptr);
-            cur_ptr = CO(lcaf_ptr, sizeof(mapping->iid));
+            cur_ptr = CO(cur_ptr, sizeof(uint32_t));
             if (!pkt_process_eid_afi (&cur_ptr, mapping))
                 return (BAD);
             break;
@@ -96,6 +96,7 @@ int pkt_process_rloc_afi(
 {
     uint8_t                  *cur_ptr;
     uint16_t                 lisp_afi;
+    lispd_pkt_lcaf_t         *lcaf_ptr;
 
     cur_ptr  = *offset;
     lisp_afi = ntohs(*(uint16_t *)cur_ptr);
@@ -112,11 +113,16 @@ int pkt_process_rloc_afi(
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
-        lispd_log_msg(LISP_LOG_DEBUG_2,"pkt_process_rloc_afi: LCAF address is not supported in locators");
-        return (BAD);
+        lcaf_ptr = (lispd_pkt_lcaf_t *)cur_ptr;
+        lispd_log_msg(LISP_LOG_DEBUG_1,"pkt_process_rloc_afi: LCAF address is not supported in locators. "
+                "LCAF type: %d with payload length: %d bytes\n",lcaf_ptr->type,ntohs(lcaf_ptr->len));
+        /* Discarding lcaf afi address */
+        cur_ptr = CO(cur_ptr, sizeof(lispd_pkt_lcaf_t) + ntohs(lcaf_ptr->len));
+        *offset = cur_ptr;
+        return (ERR_AFI_LCAF_TYPE);
     default:
         lispd_log_msg(LISP_LOG_DEBUG_2,"pkt_process_rloc_afi: Unknown AFI type %d in locator", lisp_afi);
-        return (BAD);
+        return (ERR_AFI);
     }
     *offset = cur_ptr;
     return (GOOD);

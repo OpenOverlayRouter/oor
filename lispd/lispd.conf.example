@@ -57,12 +57,34 @@ nat-traversal {
 # Encapsulated Map-Requests are sent to these Map-Resolvers. You can define
 # several Map-Resolvers. Encapsulated Map-Request messages will be sent to
 # only to the first one (for now).
+# If no Map-Resolver is configured, DDT Client mode is enabled automatically
 #
 #   address: IPv4 or IPv6 address of the Map-Resolver  
 
 map-resolver = {
         address,
         [address, ...]
+}
+
+# DDT Client section.
+# DDT configuration has prefernece over map-resolver configuration
+#
+#   ddt-client [on/off]: Obtain the mapping from EIDs to RLOCs through the DDT tree
+
+ddt-client  = on
+
+# DDT Encapsulated Map-Requests are sent to these ddt root node. You can define
+# several ddt-root-node. DDT Encapsulated Map-Request messages will be sent to the
+# ddt-root-node with higher priority (lowest value).
+#
+#   address: IPv4 or IPv6 address of the DDT root node
+#   priority [0..255]: DDT root nodes with lower values are more preferable.
+#   weight [0..255]: Not yet implemented
+
+ddt-root-node {
+        address     = <IPv4 or IPv6 address>
+        priority    = 1
+        weight      = 100
 }
 
 # Map-Server configuration.

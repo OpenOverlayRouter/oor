@@ -135,7 +135,7 @@ int process_info_reply_msg(
             &rtr_locators_list,
             &lcaf_addr_len);
 
-    if (err == BAD) {
+    if (err != GOOD) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Error extracting packet data");
         return (BAD);
     }

@@ -209,7 +209,20 @@ int extract_lisp_address(
 
 void free_lisp_addr_list(lispd_addr_list_t * list);
 
-int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
+int convert_hex_string_to_bytes(
+        char        *hex,
+        uint8_t     *bytes,
+        int         bytes_len);
+
+int is_prefix_b_part_of_a (
+        lisp_addr_t a_prefix,
+        int a_prefix_length,
+        lisp_addr_t b_prefix,
+        int b_prefix_length);
+
+lisp_addr_t get_network_address(
+        lisp_addr_t address,
+        int prefix_length);
 
 
 #endif /*LISPD_LIB_H_*/

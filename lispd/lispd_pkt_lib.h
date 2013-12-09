@@ -41,7 +41,7 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
  * It returns the position to the next position of the packet
  */
 uint8_t *pkt_fill_eid(
-        void                *offset,
+        uint8_t             *offset,
         lispd_mapping_elt   *mapping);
 
 /*
@@ -113,13 +113,14 @@ uint8_t *build_ip_udp_pcket(
  */
 
 uint8_t *build_control_encap_pkt(
-        uint8_t         *orig_pkt,
-        int             orig_pkt_len,
-        lisp_addr_t     *addr_from,
-        lisp_addr_t     *addr_dest,
-        int             port_from,
-        int             port_dest,
-        int             *control_encap_pkt_len);
+        uint8_t             * orig_pkt,
+        int                 orig_pkt_len,
+        lisp_addr_t         *addr_from,
+        lisp_addr_t         *addr_dest,
+        int                 port_from,
+        int                 port_dest,
+        encap_control_opts  opts,
+        int                 *control_encap_pkt_len);
 
 /*
  * Process encapsulated map request header:  lisp header and the interal IP and UDP header

@@ -30,13 +30,14 @@
 
 #include <assert.h>
 #include "bob/lookup3.c"
+#include "lispd_info_nat.h"
 #include "lispd_locator.h"
 #include "lispd_map_request.h"
 #include "lispd_mapping.h"
 #include "lispd_output.h"
 #include "lispd_pkt_lib.h"
+#include "lispd_referral_cache_db.h"
 #include "lispd_sockets.h"
-#include "lispd_info_nat.h" 
 
 
 /*
@@ -487,13 +488,31 @@ lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
     return (addr);
 }
 
+/*
+ * Add a not active map cache entry and init the process to request to the mapping system the information
+ * for this mapping
+ */
 int handle_map_cache_miss(
         lisp_addr_t *requested_eid,
         lisp_addr_t *src_eid)
 {
 
-    lispd_map_cache_entry       *entry          = NULL;
-    timer_map_request_argument  *arguments      = NULL;
+    lispd_map_cache_entry           *entry          = NULL;
+    timer_map_request_argument      *arguments      = NULL;
+    int                             prefix_length   = 0;
+
+
+    switch (requested_eid->afi){
+    case AF_INET:
+        prefix_length = 32;
+        break;
+    case AF_INET6:
+        prefix_length = 128;
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss: Unknown AFI");
+        return (BAD);
+    }
 
     if ((arguments = malloc(sizeof(timer_map_request_argument)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"handle_map_cache_miss: Unable to allocate memory for timer_map_request_argument: %s",
@@ -501,22 +520,97 @@ int handle_map_cache_miss(
         return (ERR_MALLOC);
     }
 
-
-    //arnatal TODO: check if this works
     entry = new_map_cache_entry(
             *requested_eid,
-            get_prefix_len(requested_eid->afi),
+            prefix_length,
             DYNAMIC_MAP_CACHE_ENTRY,
             DEFAULT_DATA_CACHE_TTL);
+
+    if (entry == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss: Couldn't create map cache entry");
+        free (arguments);
+        return (BAD);
+    }
 
     arguments->map_cache_entry = entry;
     arguments->src_eid = *src_eid;
 
-    if ((err=send_map_request_miss(NULL, (void *)arguments))!=GOOD)
+    if ((err=send_map_request_miss(NULL, (void *)arguments))!=GOOD){
         return (BAD);
-
+    }
     return (GOOD);
 }
+
+/*
+ * Add a not active map cache entry and init the process to request to the ddt mapping system the information
+ * for this mapping
+ */
+int handle_map_cache_miss_with_ddt(
+        lisp_addr_t *requested_eid,
+        lisp_addr_t *src_eid)
+{
+
+    lispd_map_cache_entry               *map_cache_entry    = NULL;
+    lispd_referral_cache_entry          *referral_cache     = NULL;
+    lispd_pending_referral_cache_entry  *pending_referral   = NULL;
+    int                                 prefix_length       = 0;
+
+    switch (requested_eid->afi){
+    case AF_INET:
+        prefix_length = 32;
+        break;
+    case AF_INET6:
+        prefix_length = 128;
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss: Unknown AFI");
+        return (BAD);
+    }
+
+    /* Serach if the entry is already in process to be resolved by ddt process */
+    pending_referral = lookup_pending_referral_cache_entry_by_eid(*requested_eid, prefix_length);
+
+    if (pending_referral != NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"handle_map_cache_miss: %s/%d is in process to be resolved by DDT client",
+                get_char_from_lisp_addr_t(*requested_eid), prefix_length);
+        return (GOOD);
+    }
+
+    map_cache_entry = new_map_cache_entry(
+            *requested_eid,
+            prefix_length,
+            DYNAMIC_MAP_CACHE_ENTRY,
+            DEFAULT_DATA_CACHE_TTL);
+
+    if (map_cache_entry == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss_with_ddt: Couldn't create map cache entry");
+        return (BAD);
+    }
+
+    referral_cache = lookup_referral_cache(*requested_eid, DDT_ALL_DATABASES);
+    lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss_with_ddt: Start DDT process to resolve %s. Process started from prefix %s/%d",
+            get_char_from_lisp_addr_t(*requested_eid),get_char_from_lisp_addr_t(referral_cache->mapping->eid_prefix),
+            referral_cache->mapping->eid_prefix_length);
+
+    pending_referral = new_pending_referral_cache_entry(map_cache_entry,*src_eid,referral_cache);
+    if (pending_referral == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss_with_ddt: Couldn't create pending referral");
+        del_map_cache_entry_from_db(map_cache_entry->mapping->eid_prefix, map_cache_entry->mapping->eid_prefix_length);
+        return (BAD);
+    }
+    if ((add_pending_referral_cache_entry_to_list(pending_referral))!=GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss_with_ddt: Couldn't add the pending referral cache entry to the list");
+        del_map_cache_entry_from_db(map_cache_entry->mapping->eid_prefix, map_cache_entry->mapping->eid_prefix_length);
+        free_pending_referral_cache_entry(pending_referral);
+        return (BAD);
+    }
+
+    if ((err=send_ddt_map_request_miss(pending_referral->ddt_request_retry_timer, (void *)pending_referral))!=GOOD){
+        return (BAD);
+    }
+    return (GOOD);
+}
+
 
 /*
  * Calculate the hash of the 5 tuples of a packet
@@ -810,7 +904,11 @@ int lisp_output (
 
     if (entry == NULL){ /* There is no entry in the map cache */
         lispd_log_msg(LISP_LOG_DEBUG_1, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(tuple.dst_addr));
-        handle_map_cache_miss(&(tuple.dst_addr), &(tuple.src_addr));
+        if (ddt_client == TRUE){
+            handle_map_cache_miss_with_ddt(&(tuple.dst_addr), &(tuple.src_addr));
+        }else{
+            handle_map_cache_miss(&(tuple.dst_addr), &(tuple.src_addr));
+        }
     }
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
     if ((entry == NULL) || (entry->active == NO_ACTIVE) || (entry->mapping->locator_count == 0) ){ /* There is no entry or is not active*/

@@ -1,7 +1,7 @@
 /*
  * lispd_map_reply.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * This file is part of LISP Implementation.
  * Necessary logic to handle incoming map replies.
  * 
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
@@ -27,6 +27,7 @@
  *    Kari Okamoto	    <okamotok@stanford.edu>
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Albert López      <alopez@ac.upc.edu>
  *
  */
 
@@ -144,9 +145,9 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     lispd_map_cache_entry                   *cache_entry            = NULL;
     lisp_addr_t                             aux_eid_prefix;
     int                                     aux_eid_prefix_length   = 0;
-    int                                     aux_iid                 = -1;
+    int                                     aux_iid                 = 0;
     int                                     ctr                     = 0;
-    uint8_t                                 new_mapping             = FALSE;
+    uint8_t                                 is_new_mapping          = FALSE;
 
     record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
     mapping = new_map_cache_mapping(aux_eid_prefix,aux_eid_prefix_length,aux_iid);
@@ -156,7 +157,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
     if (!pkt_process_eid_afi(cur_ptr,mapping)){
         lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Error processing the EID of the map reply record");
-        free_mapping_elt(mapping, FALSE);
+        free_mapping_elt(mapping);
         return (BAD);
     }
     mapping->eid_prefix_length = record->eid_prefix_length;
@@ -172,7 +173,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
     if (cache_entry != NULL){
         if (cache_entry->mapping->iid != mapping->iid){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the inactive map cache entry");
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
             return (BAD);
         }
         /*
@@ -180,8 +181,8 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
          * we remove the inactie entry from the database and store it again with the correct eix prefix (for instance /24).
          */
         if (cache_entry->mapping->eid_prefix_length != mapping->eid_prefix_length){
-            if (change_map_cache_prefix_in_db(mapping->eid_prefix, mapping->eid_prefix_length, cache_entry) == BAD){
-                free_mapping_elt(mapping, FALSE);
+            if (change_map_cache_prefix_in_db(mapping->eid_prefix, mapping->eid_prefix_length, cache_entry) != GOOD){
+                free_mapping_elt(mapping);
                 return (BAD);
             }
         }
@@ -190,8 +191,8 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         cache_entry->request_retry_timer = NULL;
         lispd_log_msg(LISP_LOG_DEBUG_2,"  Activating map cache entry %s/%d",
                             get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
-        free_mapping_elt(mapping, FALSE);
-        new_mapping = TRUE;
+        free_mapping_elt(mapping);
+        is_new_mapping = TRUE;
     }
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
     else {
@@ -200,13 +201,13 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         if (cache_entry == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  No map cache entry found for %s/%d",
                     get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
             return (BAD);
         }
         /* Check the found map cache entry contain the nonce of the map reply*/
         if (check_nonce(cache_entry->nonces,nonce)==BAD){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  The nonce of the Map-Reply doesn't match the nonce of the generated Map-Request. Discarding message ...");
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
             return (BAD);
         }else {
             free(cache_entry->nonces);
@@ -220,7 +221,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         /* Check instane id.*/
         if (cache_entry->mapping->iid != mapping->iid){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the map cache entry");
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
             return (BAD);
         }
         lispd_log_msg(LISP_LOG_DEBUG_2,"  A map cache entry already exists for %s/%d, replacing locators list of this entry",
@@ -230,7 +231,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         free_locator_list(cache_entry->mapping->head_v6_locators_list);
         cache_entry->mapping->head_v4_locators_list = NULL;
         cache_entry->mapping->head_v6_locators_list = NULL;
-        free_mapping_elt(mapping, FALSE);
+        free_mapping_elt(mapping);
     }
     cache_entry->actions = record->action;
     cache_entry->ttl = ntohl(record->ttl);
@@ -240,7 +241,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
 
     /* Generate the locators */
     for (ctr=0 ; ctr < record->locator_count ; ctr++){
-        if ((process_map_reply_locator (cur_ptr, cache_entry->mapping)) == BAD){
+        if ((process_map_reply_locator (cur_ptr, cache_entry->mapping)) != GOOD){
             return(BAD);
         }
     }
@@ -265,7 +266,7 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
             cache_entry->mapping->eid_prefix_length, cache_entry->ttl);
 
     /* RLOC probing timer */
-    if (new_mapping == TRUE && rloc_probe_interval != 0){
+    if (is_new_mapping == TRUE && rloc_probe_interval != 0){
         programming_rloc_probing(cache_entry);
     }
     return (TRUE);
@@ -288,7 +289,7 @@ int process_map_reply_probe_record(
     lispd_locators_list                     *locators_list[2]       = {NULL,NULL};
     lisp_addr_t                             aux_eid_prefix;
     int                                     aux_eid_prefix_length   = 0;
-    int                                     aux_iid                 = -1;
+    int                                     aux_iid                 = 0;
     int                                     ctr                     = 0;
     int                                     locators_probed         = 0;
 
@@ -300,7 +301,7 @@ int process_map_reply_probe_record(
     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
     if (!pkt_process_eid_afi(cur_ptr,mapping)){
         lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_probe_record:  Error processing the EID of the map reply record");
-        free_mapping_elt(mapping, FALSE);
+        free_mapping_elt(mapping);
         return (BAD);
     }
     mapping->eid_prefix_length = record->eid_prefix_length;
@@ -311,20 +312,20 @@ int process_map_reply_probe_record(
         if (cache_entry == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_probe_record:  No map cache entry found for %s/%d",
                     get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
             return (BAD);
         }
 
         /* Check instane id.*/
         if (cache_entry->mapping->iid != mapping->iid){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_probe_record:  Instance ID of the map reply doesn't match with the map cache entry");
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
             return (BAD);
         }
 
 
         /* Free auxiliar mapping used to search the map cache entry*/
-        free_mapping_elt(mapping, FALSE);
+        free_mapping_elt(mapping);
 
         /*
          * Check probed locators of the list. Only one locator can be probed per message
@@ -383,14 +384,14 @@ int process_map_reply_probe_record(
             }
             if (locator == NULL){
                 lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The nonce of the Negative Map-Reply Probe don't match any nonce of Proxy-ETR locators");
-                free_mapping_elt(mapping, FALSE);
+                free_mapping_elt(mapping);
                 return (BAD);
             }
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
         }else{
             lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The received negative Map-Reply Probe has not been requested: %s/%d",
                     get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
-            free_mapping_elt(mapping, FALSE);
+            free_mapping_elt(mapping);
             return (BAD);
         }
 
@@ -462,7 +463,10 @@ int process_map_reply_locator(
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (mapping, locator)) != GOOD){
-            return (BAD);
+            /* If we couldn't add the locator because it use an unsupported lcaf address, just ignore this locator */
+            if (err != ERR_AFI_LCAF_TYPE){
+                return (BAD);
+            }
         }
     }else{
         return (BAD);
@@ -499,20 +503,24 @@ int process_map_reply_probe_locator(
             pkt_locator->priority, pkt_locator->weight,
             pkt_locator->mpriority, pkt_locator->mweight);
 
-    if (aux_locator == NULL){
-        return (ERR_MALLOC);
-    }
-    /* If the locator of the packed is probed, search the structure of the locator that represents the locator of tha packet */
-    if (pkt_locator->probed == TRUE){
-        *locator = get_locator_from_mapping(mapping, *(aux_locator->locator_addr));
-        if (*locator == NULL){
-            lispd_log_msg(LISP_LOG_DEBUG_2,"get_map_reply_locator_from_mapping: The locator %s is not found in the mapping %s/%d",
-                    get_char_from_lisp_addr_t(*(aux_locator->locator_addr)),
-                    get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    mapping->eid_prefix_length);
-            return (ERR_NO_EXIST);
+    if (aux_locator != NULL){
+        /* If the locator of the packed is probed, search the structure of the locator that represents the locator of tha packet */
+        if (pkt_locator->probed == TRUE){
+            *locator = get_locator_from_mapping(mapping, *(aux_locator->locator_addr));
+            if (*locator == NULL){
+                lispd_log_msg(LISP_LOG_DEBUG_2,"get_map_reply_locator_from_mapping: The locator %s is not found in the mapping %s/%d",
+                        get_char_from_lisp_addr_t(*(aux_locator->locator_addr)),
+                        get_char_from_lisp_addr_t(mapping->eid_prefix),
+                        mapping->eid_prefix_length);
+                return (ERR_NO_EXIST);
+            }
+        }
+    }else{
+        if (err != ERR_AFI_LCAF_TYPE){
+            return (err);
         }
     }
+
     *offset = cur_ptr;
     return (GOOD);
 }

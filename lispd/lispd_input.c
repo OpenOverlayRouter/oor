@@ -56,7 +56,7 @@ void process_input_packet(int fd,
                          packet,
                          &length,
                          &ttl,
-                         &tos) == BAD){
+                         &tos) != GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_2,"process_input_packet: get_data_packet error: %s", strerror(errno));
         free(packet);
         return;

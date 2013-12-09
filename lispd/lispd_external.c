@@ -33,6 +33,7 @@
 void init_globales()
 {
 	map_resolvers						= NULL;
+	ddt_client                          = FALSE;
 	proxy_itrs							= NULL;
 	proxy_etrs							= NULL;
 	map_servers							= NULL;
@@ -41,6 +42,7 @@ void init_globales()
 	control_port            			= LISP_CONTROL_PORT;
 	debug_level             			= 0;
 	daemonize               			= FALSE;
+	ctrl_supported_afi                  = -1;
 	default_rloc_afi        			= -1;
 	/* RLOC probing parameters */
 	rloc_probe_interval                	= RLOC_PROBING_INTERVAL;
@@ -58,14 +60,16 @@ void init_globales()
 
 	nat_aware   					    = FALSE;
 	nat_status  						= UNKNOWN;
+    lispd_site_ID   site_ID             = {.byte = {0}};
+    lispd_xTR_ID    xTR_ID              = {.byte = {0}};
 	memset (&site_ID,0,sizeof(lispd_site_ID));
 	memset (&xTR_ID,0,sizeof(lispd_xTR_ID));
-
-
 	// Global variables used to store nonces of encapsulated map register and info request.
 	// To be removed when NAT with multihoming supported.
 	nat_emr_nonce  					= NULL;
 	nat_ir_nonce   					= NULL;
+
+
 
 	head_interface_list					= NULL;
 	default_ctrl_iface_v4 				= NULL;
@@ -73,6 +77,7 @@ void init_globales()
 	default_out_iface_v4				= NULL;
 	default_out_iface_v6				= NULL;
 	smr_timer							= NULL;
+	info_reply_ttl_timer                = NULL;
 
 
 	memset (msg,0,sizeof(char)*128);

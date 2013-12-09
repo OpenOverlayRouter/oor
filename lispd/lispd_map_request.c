@@ -1,7 +1,7 @@
 /*
  * lispd_map_request.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * This file is part of LISP Implementation.
  * Send a map request.
  * 
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
@@ -29,6 +29,7 @@
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
  *    Pranathi Mamidi   <pranathi.3961@gmail.com>
+ *    Albert López      <alopez@ac.upc.edu>
  *
  */
 
@@ -92,22 +93,23 @@
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "lispd_map_cache_db.h"
+#include "lispd_map_referral.h"
 #include "lispd_map_reply.h"
 #include "lispd_map_request.h"
 #include "lispd_nonce.h"
 #include "lispd_pkt_lib.h"
+#include "lispd_referral_cache_db.h"
 #include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
 #include <time.h>
 
-/************** Function declaration ************/
+/********************************** Function declaration ********************************/
 
 
 /*
  * Process record and send Map Reply
  */
-
 int process_map_request_record(
         uint8_t **cur_ptr,
         lisp_addr_t *src_rloc,
@@ -121,10 +123,7 @@ int process_map_request_record(
  uint8_t *build_map_request_pkt(
          lispd_mapping_elt       *requested_mapping,
          lisp_addr_t             *src_eid,
-         uint8_t                 encap,
-         uint8_t                 probe,
-         uint8_t                 solicit_map_request,/* boolean really */
-         uint8_t                 smr_invoked,
+         map_request_opts        opts,
          int                     *len,               /* return length here */
          uint64_t                *nonce);             /* return nonce here */
 
@@ -141,7 +140,7 @@ int process_map_request_record(
 
  int get_emr_overhead_length (int afi);
 
-/**************************************************/
+ /****************************************************************************************/
 
 
  int process_map_request_msg(
@@ -160,7 +159,7 @@ int process_map_request_record(
      lispd_pkt_map_request_t    *msg                    = NULL;
      lisp_addr_t                aux_eid_prefix;
      int                        aux_eid_prefix_length   = 0;
-     int                        aux_iid                 = -1;
+     int                        aux_iid                 = 0;
      int                        i                       = 0;
 
      /* If the packet is an Encapsulated Map Request, verify checksum and remove the inner IP header */
@@ -186,7 +185,7 @@ int process_map_request_record(
      }
      cur_ptr = (uint8_t *)&(msg->source_eid_afi);
      if (pkt_process_eid_afi(&cur_ptr, source_mapping) != GOOD){
-         free_mapping_elt(source_mapping, FALSE);
+         free_mapping_elt(source_mapping);
          return (BAD);
      }
      /* If packet is a Solicit Map Request, process it */
@@ -197,7 +196,7 @@ int process_map_request_record(
           */
          map_cache_entry = lookup_map_cache(source_mapping->eid_prefix);
          if (map_cache_entry == NULL){
-             free_mapping_elt(source_mapping, FALSE);
+             free_mapping_elt(source_mapping);
              return (BAD);
          }
 
@@ -207,11 +206,11 @@ int process_map_request_record(
          if (map_cache_entry->mapping->iid != source_mapping->iid){
              lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_msg: The IID of the received Solicit Map Request doesn't match the IID of "
                      "the entry in the map cache");
-             free_mapping_elt(source_mapping, FALSE);
+             free_mapping_elt(source_mapping);
              return (BAD);
          }
          /* Free source_mapping once we have a valid map cache entry */
-         free_mapping_elt(source_mapping, FALSE);
+         free_mapping_elt(source_mapping);
 
          /*
           * Only accept a solicit map request for an EID prefix ->If node which generates the message
@@ -275,7 +274,7 @@ int process_map_request_record(
      map_reply_opts                             opts;
      lisp_addr_t                                aux_eid_prefix;
      int                                        aux_eid_prefix_length   = 0;
-     int                                        aux_iid                 = -1;
+     int                                        aux_iid                 = 0;
 
      /* Get the requested EID prefix */
      record = (lispd_pkt_map_request_eid_prefix_record_t *)*cur_ptr;
@@ -287,7 +286,7 @@ int process_map_request_record(
      *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
      if ((err=pkt_process_eid_afi(cur_ptr, requested_mapping))!=GOOD){
          lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_request_record: Requested EID could not be processed");
-         free_mapping_elt (requested_mapping, TRUE);
+         free_mapping_elt (requested_mapping);
          return (err);
      }
      requested_mapping->eid_prefix_length = record->eid_prefix_length;
@@ -299,10 +298,10 @@ int process_map_request_record(
          lispd_log_msg(LISP_LOG_DEBUG_1,"The requested EID doesn't belong to this node: %s/%d",
                  get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                  requested_mapping->eid_prefix_length);
-         free_mapping_elt (requested_mapping, TRUE);
+         free_mapping_elt (requested_mapping);
          return (BAD);
      }
-     free_mapping_elt (requested_mapping, TRUE);
+     free_mapping_elt (requested_mapping);
 
      /* Set flags for Map-Reply */
      opts.send_rec   = 1;
@@ -325,10 +324,7 @@ int build_and_send_map_request_msg(
         lispd_mapping_elt       *requested_mapping,
         lisp_addr_t             *src_eid,
         lisp_addr_t             *dst_rloc_addr,
-        uint8_t                 encap,
-        uint8_t                 probe,
-        uint8_t                 solicit_map_request,
-        uint8_t                 smr_invoked,
+        map_request_opts        opts,
         uint64_t                *nonce)
 {
 
@@ -342,10 +338,7 @@ int build_and_send_map_request_msg(
     map_req_pkt = build_map_request_pkt(
             requested_mapping,
             src_eid,
-            encap,
-            probe,
-            solicit_map_request,
-            smr_invoked,
+            opts,
             &mrp_len,
             nonce);
 
@@ -354,10 +347,10 @@ int build_and_send_map_request_msg(
                 " Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                 requested_mapping->eid_prefix_length,
-                (encap == TRUE ? 'Y' : 'N'),
-                (probe == TRUE ? 'Y' : 'N'),
-                (solicit_map_request == TRUE ? 'Y' : 'N'),
-                (smr_invoked == TRUE ? 'Y' : 'N'));
+                (opts.encap == TRUE ? 'Y' : 'N'),
+                (opts.probe == TRUE ? 'Y' : 'N'),
+                (opts.solicit_map_request == TRUE ? 'Y' : 'N'),
+                (opts.smr_invoked == TRUE ? 'Y' : 'N'));
         return (BAD);
     }
 
@@ -391,26 +384,25 @@ int build_and_send_map_request_msg(
     }
 
     /* Send the packet */
-
     if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d to %s: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c . Nonce: %s",
                         get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                         requested_mapping->eid_prefix_length,
                         get_char_from_lisp_addr_t(*dst_rloc_addr),
-                        (encap == TRUE ? 'Y' : 'N'),
-                        (probe == TRUE ? 'Y' : 'N'),
-                        (solicit_map_request == TRUE ? 'Y' : 'N'),
-                        (smr_invoked == TRUE ? 'Y' : 'N'),
+                        (opts.encap == TRUE ? 'Y' : 'N'),
+                        (opts.probe == TRUE ? 'Y' : 'N'),
+                        (opts.solicit_map_request == TRUE ? 'Y' : 'N'),
+                        (opts.smr_invoked == TRUE ? 'Y' : 'N'),
                         get_char_from_nonce(*nonce));
         result = GOOD;
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't sent Map-Request packet for %s/%d: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
                 get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                 requested_mapping->eid_prefix_length,
-                (encap == TRUE ? 'Y' : 'N'),
-                (probe == TRUE ? 'Y' : 'N'),
-                (solicit_map_request == TRUE ? 'Y' : 'N'),
-                (smr_invoked == TRUE ? 'Y' : 'N'));
+                (opts.encap == TRUE ? 'Y' : 'N'),
+                (opts.probe == TRUE ? 'Y' : 'N'),
+                (opts.solicit_map_request == TRUE ? 'Y' : 'N'),
+                (opts.smr_invoked == TRUE ? 'Y' : 'N'));
         result = BAD;
     }
     free (packet);
@@ -423,10 +415,7 @@ int build_and_send_map_request_msg(
 uint8_t *build_map_request_pkt(
         lispd_mapping_elt       *requested_mapping,
         lisp_addr_t             *src_eid,
-        uint8_t                 encap,
-        uint8_t                 probe,
-        uint8_t                 solicit_map_request,/* boolean really */
-        uint8_t                 smr_invoked,
+        map_request_opts        opts,
         int                     *len,               /* return length here */
         uint64_t                *nonce)             /* return nonce here */
 {
@@ -449,13 +438,14 @@ uint8_t *build_map_request_pkt(
     lispd_locator_elt       *locator            = NULL;
     lisp_addr_t             *ih_src_ip          = NULL;
 
+
     /*
      * Lookup the local EID prefix from where we generate the message.
      * src_eid is null for RLOC probing and refreshing map_cache -> Source-EID AFI = 0
      */
     if (src_eid != NULL){
         src_mapping = lookup_eid_in_db(*src_eid);
-        if (!src_mapping){
+        if (src_mapping == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: Source EID address not found in local data base - %s -",
                     get_char_from_lisp_addr_t(*src_eid));
             return (NULL);
@@ -467,12 +457,10 @@ uint8_t *build_map_request_pkt(
     map_request_msg_len = get_map_request_length(requested_mapping,src_mapping);
     *len = map_request_msg_len;
 
-    if ((packet = malloc(map_request_msg_len)) == NULL){
+    if ((packet = calloc(1,map_request_msg_len)) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"build_map_request_pkt: Unable to allocate memory for Map Request (packet_len): %s", strerror(errno));
         return (NULL);
     }
-    memset(packet, 0, map_request_msg_len);
-
 
     cur_ptr = packet;
 
@@ -480,33 +468,25 @@ uint8_t *build_map_request_pkt(
 
     mrp->type                      = LISP_MAP_REQUEST;
     mrp->authoritative             = 0;
-    if (src_eid != NULL)
+
+
+    if (src_eid != NULL){
         mrp->map_data_present      = 1;
-    else
+    }else{
         mrp->map_data_present      = 0;
+    }
 
-    if (probe)
-        mrp->rloc_probe            = 1;
-    else
-        mrp->rloc_probe            = 0;
-
-    if (solicit_map_request)
-        mrp->solicit_map_request   = 1;
-    else
-        mrp->solicit_map_request   = 0;
-
-    if (smr_invoked)
-        mrp->smr_invoked           = 1;
-    else
-        mrp->smr_invoked           = 0;
+    mrp->rloc_probe                = opts.probe;
+    mrp->solicit_map_request       = opts.solicit_map_request;
+    mrp->smr_invoked               = opts.smr_invoked;
 
     mrp->additional_itr_rloc_count = 0;     /* To be filled later  */
     mrp->record_count              = 1;     /* XXX: assume 1 record */
-    mrp->nonce = build_nonce((unsigned int) time(NULL));
+    mrp->nonce                     = build_nonce((unsigned int) time(NULL));
     *nonce                         = mrp->nonce;
 
     if (src_eid != NULL){
-        cur_ptr = pkt_fill_eid(&(mrp->source_eid_afi),src_mapping);
+        cur_ptr = pkt_fill_eid((uint8_t*)&(mrp->source_eid_afi),src_mapping);
 
         /* Add itr-rlocs */
         locators_list[0] = src_mapping->head_v4_locators_list;
@@ -569,7 +549,7 @@ uint8_t *build_map_request_pkt(
     request_eid_record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
     request_eid_record->eid_prefix_length = requested_mapping->eid_prefix_length;
 
-    cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_mapping);
+    cur_ptr = pkt_fill_eid((uint8_t *)&(request_eid_record->eid_prefix_afi),requested_mapping);
 
     if (mrp->map_data_present == 1){
         /* Map-Reply Record */
@@ -583,24 +563,27 @@ uint8_t *build_map_request_pkt(
     }
 
     /* Add Encapsulated (Inner) control header*/
-    if (encap){
+    if (opts.encap == TRUE){
 
         /*
-         * If no source EID is included (Source-EID-AFI = 0), The default RLOC address is used for
-         * the source address in the inner IP header
+         * If no source EID is included (Source-EID-AFI = 0), use first local EID with same AFI as requested EID.
          */
         if (src_eid != NULL){
-            ih_src_ip = &(src_mapping->eid_prefix);;
+            ih_src_ip = &(src_mapping->eid_prefix);
         }else{
-            if (requested_mapping->eid_prefix.afi == AF_INET){
-                ih_src_ip = get_main_eid (AF_INET);
-            }else{
-                ih_src_ip = get_main_eid (AF_INET6);
+            ih_src_ip = get_main_eid(requested_mapping->eid_prefix.afi);
+            if (ih_src_ip == NULL){  // This should never happen when working as an xTR
+                ih_src_ip = get_default_ctrl_address(requested_mapping->eid_prefix.afi);
+                if (ih_src_ip == NULL){
+                    lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: No src EID address. It should never reach this pont");
+                    free (mr_packet);
+                    return (NULL);
+                }
             }
         }
 
         mr_packet = packet;
-        packet = build_control_encap_pkt(mr_packet, map_request_msg_len, ih_src_ip, &(requested_mapping->eid_prefix), LISP_CONTROL_PORT, LISP_CONTROL_PORT, len);
+        packet = build_control_encap_pkt(mr_packet, map_request_msg_len, ih_src_ip, &(requested_mapping->eid_prefix), LISP_CONTROL_PORT, LISP_CONTROL_PORT,opts.encap_opts, len);
 
         if (packet == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: Couldn't encapsulate the map request");
@@ -608,7 +591,6 @@ uint8_t *build_map_request_pkt(
             return (NULL);
         }
     }
-
     return (packet);
 }
 
@@ -645,27 +627,27 @@ int get_map_request_length (lispd_mapping_elt *requested_mapping, lispd_mapping_
     // We supose that the requested EID has the same AFI as the source EID
     mr_len += get_mapping_length(requested_mapping);
     /* Add the Map-Reply Record */
-    if (src_mapping != NULL)
+    if (src_mapping != NULL){
         mr_len += pkt_get_mapping_record_length(src_mapping);
-
+    }
     return mr_len;
 }
 
 
 /*
- *  process Map_Request Message
- *  Receive a Map_request message and process based on control bits
- *
- *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
+ *  Timer function to send an Encapsulated Map Request to a Map Resolver of the list with X retries.
+ *  When a reply to this message  is processed, then the timer that calls this functions to send the retries is removed.
+ *  This function is called for first time when a packet miss is generated. In that case the timer parameter is NULL.
  */
-
-
 int send_map_request_miss(timer *t, void *arg)
 {
-    timer_map_request_argument *argument = (timer_map_request_argument *)arg;
-    lispd_map_cache_entry *map_cache_entry = argument->map_cache_entry;
-    nonces_list *nonces = map_cache_entry->nonces;
-    lisp_addr_t *dst_rloc = NULL;
+    timer_map_request_argument          *argument = (timer_map_request_argument *)arg;
+    lispd_map_cache_entry               *map_cache_entry = argument->map_cache_entry;
+    nonces_list                         *nonces = map_cache_entry->nonces;
+    lisp_addr_t                         *dst_rloc = NULL;
+    map_request_opts                    opts;
+
+    memset ( &opts, FALSE, sizeof(map_request_opts));
 
     if (nonces == NULL){
         nonces = new_nonces_list();
@@ -676,7 +658,7 @@ int send_map_request_miss(timer *t, void *arg)
         map_cache_entry->nonces = nonces;
     }
 
-    if (nonces->retransmits - 1 < map_request_retries ){
+    if ( nonces->retransmits - 1 <= map_request_retries ){
 
         if (map_cache_entry->request_retry_timer == NULL){
             map_cache_entry->request_retry_timer = create_timer (MAP_REQUEST_RETRY_TIMER);
@@ -691,14 +673,12 @@ int send_map_request_miss(timer *t, void *arg)
         /* Get the RLOC of the Map Resolver to be used */
         dst_rloc = get_map_resolver();
 
+        opts.encap = TRUE;
         if ((dst_rloc == NULL) || (build_and_send_map_request_msg(
                 map_cache_entry->mapping,
                 &(argument->src_eid),
                 dst_rloc,
-                1,
-                0,
-                0,
-                0,
+                opts,
                 &nonces->nonce[nonces->retransmits]))==BAD){
             lispd_log_msg (LISP_LOG_DEBUG_1, "send_map_request_miss: Couldn't send map request for a new map cache entry");
 
@@ -716,6 +696,236 @@ int send_map_request_miss(timer *t, void *arg)
         del_map_cache_entry_from_db(map_cache_entry->mapping->eid_prefix,
                 map_cache_entry->mapping->eid_prefix_length);
 
+    }
+    return GOOD;
+}
+
+/*
+ *  Timer function to send a ddt Encapsulated Map Request to a DDT node with X retries.
+ *  When a reply to this message  is processed (map referral), the timer that calls this functions to send the
+ *  retries is removed.
+ *  This function is called for first time when a packet miss is generated and ddt_client is enabled. In that case the
+ *  timer parameter is NULL.
+ */
+int send_ddt_map_request_miss(timer *t, void *arg)
+{
+    lispd_pending_referral_cache_entry  *pending_referral_entry = (lispd_pending_referral_cache_entry *)arg;
+    lispd_map_cache_entry               *map_cache_entry        = pending_referral_entry->map_cache_entry;
+    nonces_list                         *nonces_referral        = pending_referral_entry->nonces;
+    // The nonces_map_cache is only used to check nonce of the map reply but not for retransmits.
+    // Is updated with the nonce of the referral.
+    nonces_list                         *nonces_map_cache       = map_cache_entry->nonces;
+    lisp_addr_t                         *src_eid                = NULL;
+    lisp_addr_t                         dst_rloc                = {.afi=AF_UNSPEC};
+    map_request_opts                    opts;
+    lispd_referral_cache_entry          *referral_entry         = NULL;
+    lispd_mapping_elt                   *referral_mapping       = NULL;
+
+
+    memset ( &opts, FALSE, sizeof(map_request_opts));
+
+    if (pending_referral_entry->src_eid.afi != AF_UNSPEC){
+        src_eid                = &(pending_referral_entry->src_eid);
+    }
+
+    if (nonces_referral == NULL){
+        nonces_referral = new_nonces_list();
+        if (nonces_referral==NULL){
+            lispd_log_msg(LISP_LOG_WARNING,"send_ddt_map_request_miss: Unable to allocate memory for nonces.");
+            return (BAD);
+        }
+        pending_referral_entry->nonces = nonces_referral;
+    }
+
+    if (nonces_map_cache == NULL){
+        nonces_map_cache = new_nonces_list();
+        if (nonces_map_cache==NULL){
+            lispd_log_msg(LISP_LOG_WARNING,"send_ddt_map_request_miss: Unable to allocate memory for nonces.");
+            free (nonces_referral);
+            return (BAD);
+        }
+        map_cache_entry->nonces = nonces_map_cache;
+        nonces_map_cache->retransmits = 1;
+    }
+    if ( nonces_referral->retransmits - 1 <= map_request_retries ){
+
+        if (nonces_referral->retransmits > 0){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"send_ddt_map_request_miss: Retransmiting DDT Map Request for EID: %s (%d retries)",
+                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                    nonces_referral->retransmits);
+        }
+        /*
+         * Get the RLOC of the ddt node to be used to send the Map Request
+         */
+        if (pending_referral_entry->previous_referral->act_entry_type == MS_NOT_REGISTERED){
+            dst_rloc = get_ddt_locator_addr_at_position(pending_referral_entry->previous_referral->parent_node,
+                    ctrl_supported_afi, pending_referral_entry->tried_locators);
+        }else{
+            dst_rloc = get_ddt_locator_addr_at_position(pending_referral_entry->previous_referral,
+                    ctrl_supported_afi, pending_referral_entry->tried_locators);
+        }
+
+        if (dst_rloc.afi == AF_UNSPEC){
+            return (ERR_DST_ADDR);
+        }
+
+
+        opts.encap              = TRUE;
+        opts.encap_opts.ddt_bit = TRUE;
+
+        if ((build_and_send_map_request_msg(
+                map_cache_entry->mapping,
+                src_eid,
+                &dst_rloc,
+                opts,
+                &nonces_referral->nonce[nonces_referral->retransmits]))!=GOOD){
+            lispd_log_msg (LISP_LOG_DEBUG_1, "send_ddt_map_request_miss: Couldn't send Map Request for a new map cache entry");
+
+        }
+        nonces_map_cache->nonce[0] = nonces_referral->nonce[nonces_referral->retransmits];
+        nonces_referral->retransmits ++;
+
+        if (pending_referral_entry->ddt_request_retry_timer == NULL){
+            pending_referral_entry->ddt_request_retry_timer = create_timer (DDT_MAP_REQUEST_RETRY_TIMER);
+        }
+
+        start_timer(pending_referral_entry->ddt_request_retry_timer, LISPD_INITIAL_DDT_MRQ_TIMEOUT,
+                send_ddt_map_request_miss, (void *)pending_referral_entry);
+
+    }else{ // End of retransmits. Try next node. If last node asked, activate negative map cache
+        lispd_log_msg(LISP_LOG_DEBUG_1,"send_ddt_map_request_miss: No Map Referral for EID %s/%d after %d retries. Trying next referal node ...",
+                get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                map_cache_entry->mapping->eid_prefix_length,
+                nonces_referral->retransmits -1);
+
+        pending_referral_entry->tried_locators = pending_referral_entry->tried_locators +1;
+        free (pending_referral_entry->nonces);
+        pending_referral_entry->nonces = NULL;
+
+        err = send_ddt_map_request_miss(NULL,arg);
+        if (err == ERR_DST_ADDR){ // We asked all nodes without obtaining answer
+            lispd_log_msg(LISP_LOG_DEBUG_1,"send_ddt_map_request_miss: No Map Referral for EID %s/%d . No more referral nodes to check. Removing entry ...",
+                            get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                            map_cache_entry->mapping->eid_prefix_length);
+
+            /*
+             *  Due to a bug in NXOS, some nodes can retun a Map Reply without returning a Map Referral. When this happen, it is very probable that the Map Cache entry
+             *  of the pending referral has a value different from a host (/32 or /128). In that case, we generate the referral entry directly from the map cache entry.
+             *  This hack must be removed when this problem is fixed.
+             */
+            if ((pending_referral_entry->map_cache_entry->mapping->eid_prefix.afi == AF_INET && pending_referral_entry->map_cache_entry->mapping->eid_prefix_length != 32) ||
+                    (pending_referral_entry->map_cache_entry->mapping->eid_prefix.afi == AF_INET6 && pending_referral_entry->map_cache_entry->mapping->eid_prefix_length != 128)){
+                lispd_log_msg(LISP_LOG_ERR,"send_ddt_map_request_miss: We obtained a Map Reply but not a Map Referral. Generating referral cache from the map reply");
+                referral_mapping = copy_mapping_elt(map_cache_entry->mapping);
+                referral_entry = new_referral_cache_entry(referral_mapping, MS_ACK, 1);
+                add_referral_cache_entry_to_tree(pending_referral_entry->previous_referral,referral_entry);
+            }else{
+                /* Activate negative map cache with using the EID prefix of the last received map referral */
+                referral_mapping = pending_referral_entry->previous_referral->mapping;
+                if (activate_negative_map_cache (map_cache_entry, referral_mapping->eid_prefix,
+                        referral_mapping->eid_prefix_length,1,MAPPING_ACT_NO_ACTION) != GOOD){
+                    del_map_cache_entry_from_db(map_cache_entry->mapping->eid_prefix,map_cache_entry->mapping->eid_prefix_length);
+                }
+            }
+
+            remove_pending_referral_cache_entry_from_list(pending_referral_entry);
+            return (BAD);
+        }
+    }
+    return (GOOD);
+}
+
+/*
+ * When we receive a Map Referral MS-ACK but not a Map Reply, after a period of time, send a normal map request (no ddt).
+ * NOTE: In the previous referral parameter of the pending_referral_entry ther is the referral cache entry generated by
+ * the Referral MS-ACK.
+ */
+int send_map_request_ddt_map_reply_miss(timer *t, void *arg)
+{
+
+    lispd_pending_referral_cache_entry  *pending_referral_entry = (lispd_pending_referral_cache_entry *)arg;
+    lispd_map_cache_entry               *map_cache_entry        = pending_referral_entry->map_cache_entry;
+    nonces_list                         *nonces                 = map_cache_entry->nonces;
+    lisp_addr_t                         *src_eid                = NULL;
+    lisp_addr_t                         dst_rloc                = {.afi=AF_UNSPEC};
+    map_request_opts                    opts;
+
+    memset ( &opts, FALSE, sizeof(map_request_opts));
+
+    if (pending_referral_entry->map_cache_entry->active == TRUE){
+        // We have received a map reply
+        remove_pending_referral_cache_entry_from_list(pending_referral_entry);
+        return (GOOD);
+    }
+
+    if (pending_referral_entry->src_eid.afi != AF_UNSPEC){
+        src_eid = &(pending_referral_entry->src_eid);
+    }
+
+    if (nonces == NULL){
+        // XXX It should never reach this code
+        nonces = new_nonces_list();
+        if (nonces==NULL){
+            lispd_log_msg(LISP_LOG_WARNING,"send_map_request_ddt_map_reply_miss: Unable to allocate memory for nonces.");
+            return (BAD);
+        }
+        map_cache_entry->nonces = nonces;
+    }
+
+    // While we don't reach the maximum number of retries, try to send a new map request
+    if (nonces->retransmits - 1 <= map_request_retries){
+        if (nonces->retransmits == 1){
+            lispd_log_msg(LISP_LOG_WARNING,"send_map_request_ddt_map_reply_miss: A MS-ACK Referral received but MS "
+                    "is not replying the Map Request. Send normal Encapsualted Map Request");
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"send_map_request_ddt_map_reply_miss: Retransmiting Map Request for EID: %s (%d retries)",
+                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                    nonces->retransmits);
+        }
+
+        /* Get the RLOC of the MS to be asked */
+        /* Node locator of the referral cache contain this information*/
+
+        dst_rloc = pending_referral_entry->previous_referral->src_inf_ddt_node_locator_addr;
+
+        opts.encap = TRUE;
+        if ((build_and_send_map_request_msg(
+                map_cache_entry->mapping,
+                src_eid,
+                &dst_rloc,
+                opts,
+                &nonces->nonce[nonces->retransmits]))!=GOOD){
+            lispd_log_msg (LISP_LOG_DEBUG_1, "send_map_request_ddt_map_reply_miss: Couldn't send Map Request for EID: %s",
+                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix));
+
+        }
+
+        nonces->retransmits ++;
+
+        if (map_cache_entry->request_retry_timer == NULL){
+            map_cache_entry->request_retry_timer = create_timer (DDT_MAP_REQ_RETRY_MS_ACK_TIMER);
+        }
+        start_timer(map_cache_entry->request_retry_timer, LISPD_INITIAL_MRQ_TIMEOUT,
+                send_map_request_ddt_map_reply_miss, arg);
+
+    }else{
+        lispd_log_msg(LISP_LOG_WARNING,"send_map_request_ddt_map_reply_miss: No Map Reply fot EID %s/%d after %d retries. "
+                "A MS-ACK Referral received but MS is not replying the Map Request. Activate negative map cache with TTL of 1 minute",
+                        get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                        map_cache_entry->mapping->eid_prefix_length,
+                        nonces->retransmits -1);
+
+        err = activate_negative_map_cache (pending_referral_entry->map_cache_entry,
+                pending_referral_entry->previous_referral->mapping->eid_prefix,
+                pending_referral_entry->previous_referral->mapping->eid_prefix_length,
+                1,MAPPING_ACT_NO_ACTION);
+        if (err != GOOD){
+            del_map_cache_entry_from_db(pending_referral_entry->map_cache_entry->mapping->eid_prefix,
+                    pending_referral_entry->map_cache_entry->mapping->eid_prefix_length);
+        }
+        remove_pending_referral_cache_entry_from_list(pending_referral_entry);
+
+        return (BAD);
     }
     return GOOD;
 }

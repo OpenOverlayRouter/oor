@@ -84,40 +84,40 @@ int open_device_binded_raw_socket(
 
 int open_raw_input_socket(int afi){
     struct protoent     *proto  = NULL;
-    int                 sock    = 0;
+    int                 sock    = -1;
     int                 tr      = 1;
-	int                 protonum = -1;
+    int                 protonum = -1;
 #ifdef ANDROID
-	protonum = IPPROTO_UDP;
+    protonum = IPPROTO_UDP;
 #else
     if ((proto = getprotobyname("UDP")) == NULL) {
         lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: getprotobyname: %s", strerror(errno));
-        return(BAD);
+        return(sock);
     }
- 	protonum = proto->p_proto;
+    protonum = proto->p_proto;
 #endif
-	
+
     /*
      *  build the ipv4_data_input_fd, and make the port reusable
      */
     if ((sock = socket(afi,SOCK_RAW,protonum)) < 0) {
         lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
 
-        return(BAD);
+        return(sock);
     }
     lispd_log_msg(LISP_LOG_DEBUG_3,"open_raw_input_socket: socket at creation: %d\n",sock);
-    
+
     if (setsockopt(sock,
-        SOL_SOCKET,
-        SO_REUSEADDR,
-        &tr,
-        sizeof(int)) == -1) {
-            lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
-            close(sock);
-            return(BAD);
-        }
-        
-        return (sock);
+            SOL_SOCKET,
+            SO_REUSEADDR,
+            &tr,
+            sizeof(int)) == -1) {
+        lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+        close(sock);
+        return(sock);
+    }
+
+    return (sock);
 }
 
 
@@ -233,7 +233,7 @@ int bind_socket(
             break;
             
         default:
-            return BAD;
+            return (BAD);
     }
     
     
@@ -242,7 +242,7 @@ int bind_socket(
         return(BAD);
     }
     
-    return(sock);
+    return(GOOD);
 }
 
 
@@ -252,10 +252,8 @@ int open_control_input_socket(int afi){
     int         sock    = 0;
 
     sock = open_udp_socket(afi);
-    
-    sock = bind_socket(sock,afi,LISP_CONTROL_PORT);
-    
-    if(sock == BAD){
+
+    if( bind_socket(sock,afi,LISP_CONTROL_PORT) != GOOD){
         return (BAD);
     }
 
@@ -292,12 +290,12 @@ int open_data_input_socket(int afi){
     const int   on          = 1;
     
     sock = open_raw_input_socket(afi);
+    if (sock < 0){
+        return(BAD);
+    }
 
     dummy_sock = open_udp_socket(afi);
-    
-    dummy_sock = bind_socket(dummy_sock,afi,LISP_DATA_PORT);
-
-    if(sock == BAD){
+    if(bind_socket(dummy_sock,afi,LISP_DATA_PORT) != GOOD){
         return(BAD);
     }
 

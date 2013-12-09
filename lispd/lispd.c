@@ -51,7 +51,7 @@
 #include <net/if.h>
 #include "lispd.h"
 #include "lispd_config.h"
-#include "lispd_external.h"
+//#include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_input.h"
@@ -62,6 +62,7 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_output.h"
+#include "lispd_referral_cache_db.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_routing_tables_lib.h"
 #include "lispd_smr.h"
@@ -74,88 +75,73 @@ void event_loop();
 void signal_handler(int);
 
 
-
-
 /*
  *      config paramaters
  */
-
-
-lispd_addr_list_t          	*map_resolvers;
-lispd_addr_list_t          	*proxy_itrs;
-lispd_map_cache_entry      	*proxy_etrs;
-lispd_map_server_list_t    	*map_servers;
-char    					*config_file;
-int      					debug_level;
-int      					default_rloc_afi;
-int      					daemonize;
-int      					map_request_retries;
+lispd_addr_list_t            *map_resolvers;
+int                          ddt_client;
+lispd_addr_list_t            *proxy_itrs;
+lispd_map_cache_entry        *proxy_etrs;
+lispd_map_server_list_t      *map_servers;
+char                         *config_file;
+int                          debug_level;
+int                          ctrl_supported_afi;
+int                          default_rloc_afi;
+int                          daemonize;
+int                          map_request_retries;
 /* RLOC probing parameters */
-int      					rloc_probe_interval;
-int      					rloc_probe_retries;
-int      					rloc_probe_retries_interval;
+int                          rloc_probe_interval;
+int                          rloc_probe_retries;
+int                          rloc_probe_retries_interval;
 
-int      					control_port;
+int                          control_port;
 
-int      					total_mappings;
+int                          total_mappings;
 
 /*
  *      various globals
  */
 
-char   						msg[128];   /* syslog msg buffer */
+char                           msg[128];   /* syslog msg buffer */
 
 /*
  *      sockets (fds)
  */
-int     					ipv4_data_input_fd;
-int     					ipv6_data_input_fd;
-int     					ipv4_control_input_fd;
-int     					ipv6_control_input_fd;
-int     					netlink_fd;
-fd_set  					readfds;
-struct  					sockaddr_nl dst_addr;
-struct  					sockaddr_nl src_addr;
-nlsock_handle 				nlh;
+int                         ipv4_data_input_fd;
+int                         ipv6_data_input_fd;
+int                         ipv4_control_input_fd;
+int                         ipv6_control_input_fd;
+int                         netlink_fd;
+fd_set                      readfds;
+struct                      sockaddr_nl dst_addr;
+struct                      sockaddr_nl src_addr;
+nlsock_handle               nlh;
 
 /* NAT */
 
-int             			nat_aware;
-int             			nat_status;
-lispd_site_ID   			site_ID;
-lispd_xTR_ID    			xTR_ID;
+int                         nat_aware;
+int                         nat_status;
+lispd_site_ID               site_ID;
+lispd_xTR_ID                xTR_ID;
 // Global variables used to store nonces of encapsulated map register and info request.
 // To be removed when NAT with multihoming supported.
-nonces_list     			*nat_emr_nonce;
-nonces_list     			*nat_ir_nonce;
-
-/* NAT */
-
-int             nat_aware   = FALSE;
-int             nat_status  = UNKNOWN;
-lispd_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
-lispd_xTR_ID    xTR_ID      = {.byte = {0}};
-// Global variables used to store nonces of encapsulated map register and info request.
-// To be removed when NAT with multihoming supported.
-nonces_list     *nat_emr_nonce  = NULL;
-nonces_list     *nat_ir_nonce   = NULL;
+nonces_list                 *nat_emr_nonce;
+nonces_list                 *nat_ir_nonce;
 
 
 /*
  * smr_timer is used to avoid sending SMRs during transition period.
  */
-timer 						*smr_timer;
+timer                         *smr_timer;
 
 /*
  *      timers (fds)
  */
-
-int     					timers_fd;
-
-
+int                         timers_fd;
 
 #define LISPD_LOCKFILE "/sdcard/lispd.lock"
 int fdlock;
+
 int get_process_lock(int pid)
 {
     struct flock fl;
@@ -211,7 +197,6 @@ int main(int argc, char **argv)
 #endif
 
     init_globales();
-
     /*
      *  Check for superuser privileges
      */
@@ -241,6 +226,7 @@ int main(int argc, char **argv)
      */
     db_init();
     map_cache_init();
+    init_referral_cache();
 
     /*
      *  Parse command line options
@@ -293,34 +279,22 @@ int main(int argc, char **argv)
     if (config_file == NULL){
         config_file = "/etc/config/lispd";
     }
-    handle_uci_lispd_config_file(config_file);
+    err = handle_uci_lispd_config_file(config_file);
 #else
     if (config_file == NULL){
         config_file = "/etc/lispd.conf";
     }
-    handle_lispd_config_file(config_file);
+    err = handle_lispd_config_file(config_file);
 #endif
 
-    if (map_servers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+    if (err != GOOD){
+        lispd_log_msg(LISP_LOG_CRIT,"Wrong configuration.");
         exit_cleanup();
     }
 
-    if (map_resolvers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        exit_cleanup();
+    if (ddt_client == FALSE){
+        drop_referral_cache();
     }
-
-    if (proxy_etrs == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
-                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-        sleep(3);
-    }else{
-        calculate_balancing_vectors (
-                proxy_etrs->mapping,
-                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
-    }
-
 
 #ifdef ANDROID
 	/*
@@ -485,10 +459,8 @@ void event_loop()
         FD_SET(netlink_fd, &readfds);
         
         retval = have_input(max_fd, &readfds);
-        if (retval == -1) {
-            break;           /* doom */
-        }
-        if (retval == BAD) {
+
+        if (retval != GOOD) {
             continue;        /* interrupted */
         }
         

@@ -526,12 +526,13 @@ void set_default_output_ifaces()
 
 void set_default_ctrl_ifaces()
 {
-
-    default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
+    ctrl_supported_afi      = NO_AFI_SUPPORT;
+    default_ctrl_iface_v4   = get_any_output_iface(AF_INET);
 
     if (default_ctrl_iface_v4 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 control iface %s: %s\n",
                default_ctrl_iface_v4->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v4->ipv4_address)));
+       ctrl_supported_afi = AFI_SUPPORT_4;
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
@@ -539,6 +540,11 @@ void set_default_ctrl_ifaces()
     if (default_ctrl_iface_v6 != NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s: %s\n",
                 default_ctrl_iface_v6->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v6->ipv6_address)));
+        if (ctrl_supported_afi == AFI_SUPPORT_4){
+            ctrl_supported_afi = AFI_SUPPORT_4_6;
+        }else{
+            ctrl_supported_afi = AFI_SUPPORT_6;
+        }
     }
 
     /* Check NAT status */

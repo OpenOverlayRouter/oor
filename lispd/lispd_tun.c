@@ -44,7 +44,7 @@ int create_tun(
 {
 
     struct ifreq ifr;
-    int err = 0;
+    int error = 0;
     int tmpsocket = 0;
     int flags = IFF_TUN | IFF_NO_PI; // Create a tunnel without persistence
     char *clonedev = CLONEDEV;
@@ -69,7 +69,7 @@ int create_tun(
     strncpy(ifr.ifr_name, tun_dev_name, IFNAMSIZ - 1);
 
     // try to create the device
-    if ((err = ioctl(*tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
+    if ((error = ioctl(*tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
         close(*tun_receive_fd);
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: Failed to create tunnel interface, errno: %d.", errno);
         if (errno == 16){
@@ -80,7 +80,7 @@ int create_tun(
 
     // get the ifindex for the tun/tap
     tmpsocket = socket(AF_INET, SOCK_DGRAM, 0); // Dummy socket for the ioctl, type/details unimportant
-    if ((err = ioctl(tmpsocket, SIOCGIFINDEX, (void *)&ifr)) < 0) {
+    if ((error = ioctl(tmpsocket, SIOCGIFINDEX, (void *)&ifr)) < 0) {
         close(*tun_receive_fd);
         close(tmpsocket);
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: unable to determine ifindex for tunnel interface, errno: %d.", errno);
@@ -91,7 +91,7 @@ int create_tun(
 
         // Set the MTU to the configured MTU
         ifr.ifr_ifru.ifru_mtu = tun_mtu;
-        if ((err = ioctl(tmpsocket, SIOCSIFMTU, &ifr)) < 0) {
+        if ((error = ioctl(tmpsocket, SIOCSIFMTU, &ifr)) < 0) {
             close(tmpsocket);
             lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: unable to set interface MTU to %d, errno: %d.", tun_mtu, errno);
             exit_cleanup();
