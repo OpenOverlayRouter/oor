@@ -76,7 +76,7 @@ OBJS		= 	cksum.o \
 				patricia/patricia.o \
 
 EXE		= lispd
-PREFIX		= /usr/local/sbin
+PREFIX		= /usr/local/sbin/
 
 $(EXE): $(OBJS) 
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
@@ -101,6 +101,7 @@ distclean: clean
 
 install: $(EXE)
 	mkdir -p $(DESTDIR)$(PREFIX) && cp $(EXE) $(DESTDIR)$(PREFIX)
+	setcap cap_net_raw,cap_net_admin+ep $(DESTDIR)$(PREFIX)$(EXE)
 
 tags:
 	cscope -R -b

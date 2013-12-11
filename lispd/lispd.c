@@ -1,9 +1,9 @@
 /*
- * lispd.c 
+ * lispd.c
  *
  * This file is part of LISP Mobile Node Implementation.
  * lispd Implementation
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -43,15 +43,15 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-
 #ifdef ANDROID
-#include <fcntl.h>
+ #include <fcntl.h>
 #endif
+#include <linux/capability.h>
+#include <sys/prctl.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include "lispd.h"
 #include "lispd_config.h"
-//#include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_input.h"
@@ -73,6 +73,13 @@
 
 void event_loop();
 void signal_handler(int);
+//int check_capabilities();
+/* system calls - look to libc for function to system call mapping */
+extern int capset(cap_user_header_t header, cap_user_data_t data);
+extern int capget(cap_user_header_t header, const cap_user_data_t data);
+#ifdef ANDROID
+#define CAP_TO_MASK(x)      (1 << ((x) & 31))
+#endif
 
 
 /*
@@ -139,40 +146,8 @@ timer                         *smr_timer;
  */
 int                         timers_fd;
 
-#define LISPD_LOCKFILE "/sdcard/lispd.lock"
-int fdlock;
 
-int get_process_lock(int pid)
-{
-    struct flock fl;
-    char pidString[128];
-
-    fl.l_type = F_WRLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 1;
-
-    if ((fdlock = open(LISPD_LOCKFILE, O_RDWR|O_CREAT, 0666)) == -1) {
-		printf("Failed to create lispd lock file!\n");
-        return FALSE;
-    }
-
-    if (fcntl(fdlock, F_SETLK, &fl) == -1) {
-		printf("Failed to acquire lock on lispd lock file!\n");
-        return FALSE;
-    }
-    sprintf(pidString, "%d\n", pid);
-    write(fdlock, pidString, strlen(pidString));
-    return TRUE;
-}
-
-void remove_process_lock()
-{
-    close(fdlock);
-    unlink(LISPD_LOCKFILE);
-}
-
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
     lisp_addr_t 		*tun_v4_addr  = NULL;
     lisp_addr_t 		*tun_v6_addr  = NULL;
@@ -196,14 +171,26 @@ int main(int argc, char **argv)
 #endif
 #endif
 
+
     init_globales();
+
+#ifndef ANDROID
     /*
-     *  Check for superuser privileges
+     *  Check for required capabilities and drop unnecssary privileges
      */
-    if (geteuid()) {
+
+    if(check_capabilities() != GOOD) {
+        exit_cleanup();
+    }
+#else
+    /*
+     * Check for superuser privileges
+     */
+    if (geteuid() != 0) {
         lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
         exit_cleanup();
     }
+#endif
 
     /*
      *  Initialize the random number generator
@@ -295,21 +282,6 @@ int main(int argc, char **argv)
     if (ddt_client == FALSE){
         drop_referral_cache();
     }
-
-#ifdef ANDROID
-	/*
-	 * Check if lispd is already running. Only allow one instance!
-	 */
-	if (!get_process_lock(getpid())) {
-		lispd_log_msg(LISP_LOG_CRIT, "lispd already running, please stop before restarting. If this seems wrong"
-			" remove %s.", LISPD_LOCKFILE);
-		printf("lispd already running, please stop before restarting.\n If this appears wrong,"
-			" remove %s.\n", LISPD_LOCKFILE);
-		exit(EXIT_FAILURE);
-	} else {
-		printf("Sucessfully acquired process lock.\n");
-	}
-#endif
 	
     /*
      * Select the default rlocs for output data packets and output control packets
@@ -416,7 +388,6 @@ int main(int argc, char **argv)
      */
     programming_petr_rloc_probing();
 
-
     event_loop();
 
     lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
@@ -435,11 +406,11 @@ void event_loop()
     int    max_fd;
     fd_set readfds;
     int    retval;
-    
+
     /*
      *  calculate the max_fd for select.
      */
-    
+
     max_fd = ipv4_data_input_fd;
     max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
     max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
@@ -457,13 +428,13 @@ void event_loop()
         FD_SET(ipv6_control_input_fd, &readfds);
         FD_SET(timers_fd, &readfds);
         FD_SET(netlink_fd, &readfds);
-        
+
         retval = have_input(max_fd, &readfds);
 
         if (retval != GOOD) {
             continue;        /* interrupted */
         }
-        
+
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
             //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
             process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
@@ -522,6 +493,66 @@ void signal_handler(int sig) {
     }
 }
 
+
+/*
+ *  Check for superuser privileges
+ */
+int check_capabilities()
+{
+    struct __user_cap_header_struct cap_header;
+    struct __user_cap_data_struct cap_data;
+
+    cap_header.pid = getpid();
+    cap_header.version = _LINUX_CAPABILITY_VERSION;
+    if (capget(&cap_header, &cap_data) < 0)
+    {
+        lispd_log_msg(LISP_LOG_ERR, "Could not retrieve capabilities");
+        return BAD;
+    }
+
+    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    /* check for capabilities */
+    if(  (cap_data.effective & CAP_TO_MASK(CAP_NET_ADMIN)) && (cap_data.effective & CAP_TO_MASK(CAP_NET_RAW))  )  {
+    }
+    else {
+        lispd_log_msg(LISP_LOG_CRIT, "Insufficiant rights, you need CAP_NET_ADMIN and CAP_NET_RAW. See readme");
+        return BAD;
+    }
+
+    /* Clear all but the capability to bind to low ports */
+    cap_data.effective = CAP_TO_MASK(CAP_NET_ADMIN) | CAP_TO_MASK(CAP_NET_RAW);
+    cap_data.permitted = cap_data.effective ;
+    cap_data.inheritable = 0;
+    if (capset(&cap_header, &cap_data) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Could not drop privileges");
+        return BAD;
+    }
+
+    /* Tell kernel not clear permitted capabilities when dropping root */
+    if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Sprctl(PR_SET_KEEPCAPS) failed");
+        return GOOD;
+    }
+
+    /* Now we can drop privilege, drop effective rights even with KEEPCAPS */
+    if (setuid(getuid()) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Could not drop privileges");
+    }
+
+    /* that's why we need to set effective rights equal to permitted rights */
+    if (capset(&cap_header, &cap_data) < 0)
+    {
+        lispd_log_msg(LISP_LOG_CRIT, "Could not set effective rights to permitted ones");
+        return (BAD);
+    }
+
+    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    return GOOD;
+}
+
+
 /*
  *  exit_cleanup()
  *
@@ -529,9 +560,6 @@ void signal_handler(int sig) {
  */
 
 void exit_cleanup(void) {
-
-	remove_process_lock();
-
     /* Remove source routing tables */
     remove_created_rules();
     /* Close timer file descriptors */
