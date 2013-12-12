@@ -37,6 +37,19 @@
 #include "lispd_locator.h"
 
 
+/* Callback function prototype passed on to lispd_get_address2 */
+typedef int (*on_new_lisp_addr_cb)(lisp_addr_t*, void* data ) ;
+
+/* Callback you could pass on to lispd_get_address2 */
+int add_lisp_addr_to_list(lisp_addr_t* addr, void* data );
+
+/* converts the hostname into IPs which are successively sent to the callback function */
+int lispd_get_address5(char *addr_str, on_new_lisp_addr_cb callback, void* data, const int disable_name_resolution , const int preferred_afi );
+
+
+int copy_addr_from_sockaddr( struct sockaddr   *addr, lisp_addr_t    *);
+
+
 /*
  *      Assume if there's a colon in str that its an IPv6
  *      address. Otherwise its v4.
