@@ -805,7 +805,7 @@ int lisp_output_multicast (
         free (encap_packet);
     }
 
-    lispd_generic_list_destroy(or_list);
+    generic_list_destroy(or_list);
 
     return (GOOD);
 

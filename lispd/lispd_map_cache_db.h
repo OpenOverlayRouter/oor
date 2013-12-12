@@ -47,7 +47,7 @@ void map_cache_init();
 /*
  * Return map cache data base
  */
-patricia_tree_t* get_map_cache_db(lisp_afi_t afi);
+patricia_tree_t* get_map_cache_db(lm_afi_t afi);
 
 /*
  *  Add a map cache entry to the database.

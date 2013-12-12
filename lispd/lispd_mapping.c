@@ -32,6 +32,7 @@
 #include "lispd_local_db.h"
 #include "lispd_log.h"
 #include "lispd_mapping.h"
+#include "lispd_lcaf.h"
 
 /*********************************** FUNCTIONS DECLARATION ************************/
 
@@ -224,13 +225,13 @@ int add_locator_to_mapping(
     if (err == GOOD){
         mapping->locator_count++;
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added to the EID %s.",
-                get_char_from_lisp_addr_t(locator->locator_addr),
-                get_char_from_lisp_addr_t(mapping_get_eid_addr(mapping)));
+                lisp_addr_to_char(locator->locator_addr),
+                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         result = GOOD;
     }else if (err == ERR_EXIST){
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s already exists for the EID %s.",
-                get_char_from_lisp_addr_t(locator->locator_addr),
-                get_char_from_lisp_addr_t(mapping_get_eid_addr(mapping)));
+                lisp_addr_to_char(locator->locator_addr),
+                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         free_locator (locator);
         result = GOOD;
     }else{
@@ -382,8 +383,9 @@ void free_mapping_elt(lispd_mapping_elt *mapping, int local)
         free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
         free ((rmt_mapping_extended_info *)mapping->extended_info);
     }
+    /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf */
     if (lisp_addr_get_afi(mapping_get_eid_addr(mapping)) == LM_AFI_LCAF)
-        lcaf_addr_del(mapping_get_eid_addr(mapping));
+        lcaf_addr_del(lisp_addr_get_lcaf(mapping_get_eid_addr(mapping)));
     free(mapping);
 
 }
@@ -709,4 +711,51 @@ void dump_balancing_locators_vec(
 }
 
 /********************************************************************************************/
+
+
+
+
+
+
+/*
+ * lispd_mapping_elt set/get functions
+ */
+
+lispd_mapping_elt *mapping_new() {
+    lispd_mapping_elt *mapping;
+    mapping = calloc(1, sizeof(lispd_mapping_elt));
+    return(mapping);
+}
+
+inline void mapping_set_extended_info(lispd_mapping_elt *mapping, void *extended_info) {
+    assert(mapping);
+    assert(extended_info);
+    mapping->extended_info = extended_info;
+}
+
+inline void mapping_set_iid(lispd_mapping_elt *mapping, lisp_iid_t iid) {
+    assert(mapping);
+    mapping->iid = iid;
+}
+
+inline void mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr) {
+    assert(mapping);
+    assert(addr);
+    lisp_addr_copy(mapping_get_eid_addr(mapping), addr);
+}
+
+inline void mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen) {
+    assert(mapping);
+    mapping->eid_prefix_length = plen;
+}
+
+inline lisp_addr_t *mapping_get_eid_addr(lispd_mapping_elt *mapping) {
+    assert(mapping);
+    return(&(mapping->eid_prefix));
+}
+
+lispd_jib_t *mapping_get_jib(lispd_mapping_elt *mapping) {
+    assert(mapping);
+    return(((mcinfo_mapping_extended_info*)mapping->extended_info)->jib);
+}
 

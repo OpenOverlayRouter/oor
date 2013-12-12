@@ -34,7 +34,8 @@
 #ifndef LISPD_MAP_REPLY_H_
 #define LISPD_MAP_REPLY_H_
 
-#include "lispd.h"
+#include "lispd_mapping.h"
+#include "lispd_lcaf.h"
 
 /*
  *  Map Reply action codes
@@ -101,12 +102,12 @@ typedef struct lispd_pkt_map_reply_t_ {
 /*
  * Structure to set Map Reply options
  */
+
 typedef struct {
     uint8_t     send_rec;       // send a Map Reply record as well
     uint8_t     rloc_probe;     // set RLOC probe bit
     uint8_t     echo_nonce;     // set Echo-nonce bit
-    uint16_t    dport;
-    uint64_t    nonce;
+    mrsignaling_flags_t     mrsig; // mrsignaling option bits
 } map_reply_opts;
 
 

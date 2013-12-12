@@ -147,7 +147,7 @@ int get_up_locators_length(
             sum += size;
         } else{
             lispd_log_msg(LISP_LOG_DEBUG_2, "get_up_locators_length: Uknown addr (%s) - It should never happen",
-               lisp_addr_to_str(locators_list->locator->locator_addr));
+               lisp_addr_to_char(locators_list->locator->locator_addr));
         }
 
         locators_list = locators_list->next;
@@ -249,21 +249,25 @@ uint8_t *pkt_fill_mapping_record(
     lcl_locator_extended_info               *lct_extended_info  = NULL;
     lisp_addr_t                             *itr_address    = NULL;
     int                                     ctr                 = 0;
+    lisp_addr_t                             *eid                = NULL;
 
 
     if ((rec == NULL) || (mapping == NULL))
         return NULL;
 
+    eid = mapping_get_eid_addr(mapping);
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = mapping->locator_count;
-    rec->eid_prefix_length      = mapping->eid_prefix_length;
+//    rec->eid_prefix_length      = mapping->eid_prefix_length;
+    rec->eid_prefix_length      = (lisp_addr_get_afi(eid)==LM_AFI_IP) ? ip_prefix_get_plen(eid) : 0;
     rec->action                 = 0;
     rec->authoritative          = 1;
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
+
 //    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
-    cur_ptr = lisp_addr_copy_to_pkt(&(rec->eid_prefix_afi), mapping_get_eid_addr(mapping));
+    cur_ptr = lisp_addr_copy_to_pkt(&(rec->eid_prefix_afi), eid);
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
 
     if (loc_ptr == NULL){

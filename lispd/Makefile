@@ -38,17 +38,18 @@ endif
 
 INC		= lispd.h
 MAKEFILE	= Makefile
-OBJS		= cmdline.o lispd.o lispd_config.o lispd_log.o	\
-		  lispd_lib.o lispd_map_register.o	lispd_mapping.o \
-		  patricia/patricia.o lispd_re_control.o \
-		  cksum.o lispd_map_request.o \
+OBJS		= lispd.o cmdline.o lispd_address.o lispd_config.o lispd_log.o	\
+		  lispd_lib.o lispd_map_register.o lispd_mapping.o \
+		  patricia/patricia.o cksum.o lispd_map_request.o \
 		  lispd_map_reply.o lispd_iface_mgmt.o \
 		  lispd_iface_list.o lispd_map_notify.o lispd_pkt_lib.o \
 		  lispd_timers.o lispd_local_db.o lispd_map_cache_db.o \
 		  lispd_afi.o lispd_nonce.o lispd_rloc_probing.o \
 		  lispd_smr.o lispd_tun.o lispd_input.o lispd_output.o lispd_sockets.o \
 		  lispd_locator.o lispd_map_cache.o lispd_routing_tables_lib.o \
-		  lispd_info_nat.o lispd_info_reply.o lispd_info_request.o
+		  lispd_info_nat.o lispd_info_reply.o lispd_info_request.o \
+		  lispd_generic_list.o lispd_lcaf.o lispd_re.o lispd_re_jib.o\
+		  lisp_re_lib.o llist/list.o 
 EXE		= lispd
 PREFIX		= /usr/local/sbin
 

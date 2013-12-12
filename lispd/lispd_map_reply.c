@@ -71,10 +71,11 @@
 #include "lispd_pkt_lib.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_sockets.h"
+#include "defs.h"
 
 /********************************** Function declaration ********************************/
 
-int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce);
+int process_map_reply_record(uint8_t **offset, uint64_t nonce);
 
 /*
  * Process a record from map-reply probe message
@@ -121,8 +122,13 @@ int process_map_reply(uint8_t *packet)
     packet = CO(packet, sizeof(lispd_pkt_map_reply_t));
     for (ctr=0;ctr<record_count;ctr++){
         if (mrp->rloc_probe == FALSE){
-            if ((process_map_reply_record(&packet,nonce))==BAD){
-                return (BAD);
+            /* Check if mrsignaling packet and read flags ... */
+            if (is_lcaf_mcast_info(CO(&(mrp->nonce), sizeof(uint32_t)))) {
+                mrsignaling_recv_mreply(&packet, nonce);
+            }else {
+                if ((process_map_reply_record(&packet,nonce))==BAD){
+                    return (BAD);
+                }
             }
             if (is_loggable(LISP_LOG_DEBUG_3)){
                 dump_map_cache_db(LISP_LOG_DEBUG_3);
@@ -139,7 +145,6 @@ int process_map_reply(uint8_t *packet)
 
 int process_map_reply_record(uint8_t **offset, uint64_t nonce)
 {
-    uint8_t                                 *cur_ptr                = NULL;
     lispd_pkt_mapping_record_t              *record                 = NULL;
     lispd_map_cache_entry                   *cache_entry            = NULL;
     lisp_addr_t                             aux_eid_prefix;
@@ -150,19 +155,11 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
     uint8_t                                 new_mapping             = FALSE;
     mrsignaling_flags_t                     mc_flags;
 
-
-    cur_ptr = *offset;
-    record = (lispd_pkt_mapping_record_t *)(*cur_ptr);
-
-    /* Check if mrsignaling packet and read flags ... */
-    if (is_lcaf_mcast_info(*cur_ptr)) {
-        return(mrsignaling_process_mreq_message(cur_ptr));
-    }
-
-    *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
+    record = (lispd_pkt_mapping_record_t *)(*offset);
+    *offset = (uint8_t *)&(record->eid_prefix_afi);
 
     eid = lisp_addr_new();
-    if(!lisp_addr_read_from_pkt(cur_ptr, eid)) {
+    if(!lisp_addr_read_from_pkt(offset, eid)) {
         lisp_addr_del(eid);
         return(err);
     }
@@ -249,7 +246,7 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
 
     /* Read the locators */
     for (ctr=0 ; ctr < record->locator_count ; ctr++){
-        if ((process_map_reply_locator (cur_ptr, cache_entry->mapping)) == BAD){
+        if ((process_map_reply_locator (offset, cache_entry->mapping)) == BAD){
             return(BAD);
         }
     }
@@ -277,7 +274,6 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
         programming_rloc_probing(cache_entry);
     }
 
-    *offset = cur_ptr;
     return (TRUE);
 }
 
@@ -308,7 +304,7 @@ int process_map_reply_probe_record(
     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
 
     eid = lisp_addr_new();
-    if(!lisp_addr_read_from_pkt(cur_ptr, eid)) {
+    if(!lisp_addr_read_from_pkt(&cur_ptr, eid)) {
         lisp_addr_del(eid);
         return(err);
     }
@@ -556,9 +552,8 @@ int build_and_send_map_reply_msg(
         map_reply_pkt = build_map_reply_pkt(requested_mapping, NULL, opts, nonce, &map_reply_pkt_len);
     }
     if (map_reply_pkt == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_reply_msg: Couldn't send Map-Reply for requested EID %s/%d ",
-                get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
-                requested_mapping->eid_prefix_length);
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_reply_msg: Couldn't send Map-Reply for requested EID %s ",
+                lisp_addr_to_char(&(requested_mapping->eid_prefix)));
         return (BAD);
     }
 
@@ -669,6 +664,11 @@ uint8_t *build_map_reply_pkt(lispd_mapping_elt *mapping,
             return(NULL);
         }
     }
+
+    /* if multicast eid and the mrsignaling options are set, write them into the packet */
+    if (lisp_addr_is_mc(mapping_get_eid_addr(mapping)) && (opts.mrsig.jbit || opts.mrsig.lbit) )
+        mrsignaling_set_flags_in_pkt(&(mapping_record->eid_prefix_afi), opts.mrsig);
+
     return(packet);
 }
 

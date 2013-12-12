@@ -33,13 +33,21 @@
 #ifndef LISPD_RE_JIB_H_
 #define LISPD_RE_JIB_H_
 
-#include "defs_re.h"
+#include "lispd_generic_list.h"
 
 typedef lispd_generic_list_t        lispd_jib_t;
 typedef struct {
     lispd_locators_list *locators;
     timer timer;
 }lispd_jib_entry_t;
+
+typedef struct {
+    lisp_addr_t     *locator;
+    nonces_list     *nonces;
+    timer           *probe_timer;
+    int             join_pending;
+    int             leave_pending;
+} lispd_upstream_t;
 
 lispd_jib_t             *lispd_new_jib();
 lispd_generic_list_t    *jib_get_orlist(lispd_jib_t *jib);

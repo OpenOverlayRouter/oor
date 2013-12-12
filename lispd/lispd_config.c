@@ -45,6 +45,7 @@
 #include "lispd_map_cache_db.h"
 #include "lispd_mapping.h"
 #include "lispd_rloc_probing.h"
+#include "lispd_lcaf.h"
 
 
 

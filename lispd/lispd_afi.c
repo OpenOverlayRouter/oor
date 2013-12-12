@@ -31,7 +31,7 @@
  *
  */
 
-int extract_ip_addr_to(uint8_t **offset, lisp_afi_t afi, ip_addr_t *addr);
+#include "lispd_afi.h"
 
 int pkt_process_eid_afi(
         uint8_t                 **offset,
@@ -254,78 +254,35 @@ int extract_mcast_info_lcaf_data(
         return (BAD);
     }
 
-    extended_info->grp_plen = mcinfohdr->grp_mlen;
+//    extended_info->grp_plen = mcinfohdr->grp_mlen;
 //    extended_info->jbit = mcinfohdr->jbit;
 //    extended_info->rbit = mcinfohdr->rbit;
 //    extended_info->lbit = mcinfohdr->lbit;
 
 
-    mapping_set_extended_info(mapping, (void *)extended_info);
-    mapping_set_iid(mapping, ntohl(mcinfohdr->iid));
-    mapping_set_eid_plen(mapping, mcinfohdr->src_mlen);
+//    mapping_set_extended_info(mapping, (void *)extended_info);
+//    mapping_set_iid(mapping, ntohl(mcinfohdr->iid));
+//    mapping_set_eid_plen(mapping, mcinfohdr->src_mlen);
 
-    eid_prefix = mapping_get_eid_addr(mapping);
-    lisp_addr_set_afi(eid_prefix, LM_AFI_MC);
+    lisp_addr_read_from_pkt(&cur_ptr, eid_prefix);
+    mapping_set_eid_addr(mapping, eid_prefix);
 
-    safi = ntohs(mcinfohdr->src_afi);
-    cur_ptr = CO(cur_ptr, sizeof(mcinfohdr));
-
-    if (extract_ip_addr_to(&cur_ptr, safi, lisp_addr_get_mc_src(eid_prefix)) != GOOD)
-        return (BAD);
-
-    safi = ntohs(*(uint16_t *)cur_ptr);
-    cur_ptr = CO(cur_ptr, sizeof(safi));
-    if (extract_ip_addr_to(&cur_ptr, safi, lisp_addr_get_mc_grp(eid_prefix)) != GOOD)
-        return (BAD);
+//    lisp_addr_set_afi(eid_prefix, LM_AFI_MC);
+//
+//    safi = ntohs(mcinfohdr->src_afi);
+//    cur_ptr = CO(cur_ptr, sizeof(mcinfohdr));
+//
+//    if (extract_ip_addr_to(&cur_ptr, safi, lisp_addr_get_mc_src(eid_prefix)) != GOOD)
+//        return (BAD);
+//
+//    safi = ntohs(*(uint16_t *)cur_ptr);
+//    cur_ptr = CO(cur_ptr, sizeof(safi));
+//    if (extract_ip_addr_to(&cur_ptr, safi, lisp_addr_get_mc_grp(eid_prefix)) != GOOD)
+//        return (BAD);
 
     *offset = cur_ptr;
     return (GOOD);
 
 }
 
-int extract_ip_addr_to(uint8_t **offset, lisp_afi_t afi, ip_addr_t *addr) {
-
-    switch(afi) {
-    case LISP_AFI_IP:
-        ip_addr_set_v4(addr, (void *)*offset);
-        *offset  = CO(*offset, sizeof(struct in_addr));
-        break;
-    case LISP_AFI_IPV6:
-        ip_addr_set_v6(addr, (void *)*offset);
-        *offset  = CO(*offset, sizeof(struct in6_addr));
-        break;
-    case LISP_AFI_NO_ADDR:
-        ip_addr_set_afi(addr,AF_UNSPEC);
-        break;
-    default:
-        ip_addr_set_afi(addr,AF_UNSPEC);
-        lispd_log_msg(LISP_LOG_DEBUG_2,"extract_ip_addr_to:  Unknown LCAF type %d in EID", afi);
-        return (BAD);
-    }
-
-    return (GOOD);
-}
-
-
-uint8_t is_lcaf_mcast_info(uint8_t *offset) {
-    uint16_t    lisp_afi;
-    uint8_t     *cur_ptr;
-
-    cur_ptr  = *offset;
-    cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
-    lisp_afi = ntohs(*(uint16_t *)cur_ptr);
-
-    return(lisp_afi == LISP_AFI_LCAF && ntohs(((lispd_pkt_lcaf_t *)cur_ptr)->type) == LCAF_MCAST_INFO);
-}
-
-mrsignaling_flags_t lcaf_mcinfo_get_flags(uint8_t *cur_ptr) {
-    mrsignaling_flags_t  flags;
-
-    cur_ptr = CO(cur_ptr, sizeof(uint16_t));
-    flags.jbit = ((lispd_lcaf_mcinfo_hdr_t *)cur_ptr)->jbit;
-    flags.lbit = ((lispd_lcaf_mcinfo_hdr_t *)cur_ptr)->lbit;
-    flags.rbit = ((lispd_lcaf_mcinfo_hdr_t *)cur_ptr)->rbit;
-
-    return(flags);
-}
 

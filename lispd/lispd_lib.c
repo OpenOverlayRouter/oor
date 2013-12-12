@@ -64,6 +64,7 @@
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
 #include "lispd_info_nat.h" 
+#include "lispd_address.h"
 
 
 
@@ -377,12 +378,12 @@ int lispd_get_iface_address(
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             if (strcmp(ifa->ifa_name, ifacename) == 0) {
-                ip_addr_set_v4(lisp_addr_get_ip(ip), (void *)&(s4->sin_addr));
+                ip_addr_set_v4(lisp_addr_get_ip(&ip), (void *)&(s4->sin_addr));
 //                memcpy((void *) &(ip.address),
 //                       (void *)&(s4->sin_addr), sizeof(struct in_addr));
 //                ip.afi = AF_INET;
                 if (is_link_local_addr(ip) != TRUE){
-                    ip_addr_copy(lisp_addr_get_ip(addr), lisp_addr_get_ip(ip));
+                    ip_addr_copy(lisp_addr_get_ip(addr), lisp_addr_get_ip(&ip));
 //                    copy_lisp_addr(addr,&ip);
                 }else{
                     lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
@@ -413,7 +414,7 @@ int lispd_get_iface_address(
 //                       (void *)&(s6->sin6_addr),
 //                       sizeof(struct in6_addr));
 //                addr->afi = AF_INET6;
-                ip_addr_set_v6(lisp_addr_get_ip(ip), (void *)&(s6->sin6_addr) );
+                ip_addr_set_v6(lisp_addr_get_ip(&ip), (void *)&(s6->sin6_addr) );
                 lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
@@ -606,7 +607,7 @@ void print_hmac(
 
 char *get_char_from_lisp_addr_t (lisp_addr_t addr)
 {
-    lisp_addr_to_char(&addr);
+    return(lisp_addr_to_char(&addr));
 //    static char address[10][INET6_ADDRSTRLEN];
 //    static unsigned int i; //XXX Too much memory allocation for this, but standard syntax
 //

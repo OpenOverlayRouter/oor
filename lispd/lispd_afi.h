@@ -33,200 +33,10 @@
 #ifndef LISPD_AFI_H_
 #define LISPD_AFI_H_
 
-//#include "lispd.h"
-#include "defs_re.h"
+#include "lispd.h"
+//#include "lispd_lcaf.h"
 #include "lispd_mapping.h"
 
-
-/*
- * LISP AFI codes
- */
-
-#define LISP_AFI_NO_ADDR                0
-#define LISP_AFI_IP                     1
-#define LISP_AFI_IPV6                   2
-#define LISP_AFI_LCAF                   16387
-
-
-/*
- * LCAF types
- */
-
-#define LCAF_NULL           0
-#define LCAF_AFI_LIST       1
-#define LCAF_IID            2
-#define LCAF_ASN            3
-#define LCAF_APP_DATA       4
-#define LCAF_GEO            5
-#define LCAF_OKEY           6
-#define LCAF_NATT           7
-#define LCAF_NONCE_LOC      8
-#define LCAF_MCAST_INFO     9
-#define LCAF_EXPL_LOC_PATH  10
-#define LCAF_SEC_KEY        11
-#define LCAF_TUPLE          12
-#define LCAF_RLE            13
-#define LCAF_DATA_MODEL     14
-#define LCAF_KEY_VALUE      15
-
-
-#define MAX_IID 16777215
-
-/*
- * LISP Canonical Address Format
- *
- *        0                   1                   2                   3
- *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |           AFI = 16387         |    Rsvd1     |     Flags      |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |    Type       |     Rsvd2     |            Length             |
- *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct lispd_pkt_lcaf_t_ {
-    uint8_t  rsvd1;
-    uint8_t  flags;
-    uint8_t  type;
-    uint8_t  rsvd2;
-    uint16_t len;
-} PACKED lispd_pkt_lcaf_t;
-
-
-/* Instance ID
- * Only the low order 24 bits should be used
- * Using signed integer, negative value means "don't send LCAF/IID field"
- * resulting in a non-explicit default IID value of 0
- */
-
-/*
- * Instance ID
- *
- *         0                   1                   2                   3
- *         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |           AFI = 16387         |    Rsvd1      |    Flags      |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |   Type = 2    | IID mask-len  |             4 + n             |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |                         Instance ID                           |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *        |              AFI = x          |         Address  ...          |
- *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct lispd_pkt_lcaf_iid_t_ {
-    uint32_t    iid;
-    uint16_t    afi;
-} PACKED lispd_pkt_lcaf_iid_t;
-
-typedef struct {
-    uint8_t  rsvd1;
-    uint8_t  flags;
-    uint8_t  type;
-    uint8_t  mlen;
-    uint16_t len;
-    uint32_t iid;
-    uint16_t afi;
-} PACKED lispd_pkt_iid_hdr_t;
-
-
-
-/*   Multicast Info Canonical Address Format:
- *
- *    0                   1                   2                   3
- *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |           AFI = 16387         |     Rsvd1     |     Flags     |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |   Type = 9    |  Rsvd2  |R|L|J|             8 + n             |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |                         Instance-ID                           |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |            Reserved           | Source MaskLen| Group MaskLen |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |              AFI = x          |   Source/Subnet Address  ...  |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |              AFI = x          |       Group Address  ...      |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct lispd_lcaf_mcinfo_hdr_t_{
-    uint8_t     rsvd1;
-    uint8_t     flags;
-    uint8_t     type;
-#ifdef LITTLE_ENDIANS
-    uint8_t     jbit:1;
-    uint8_t     lbit:1;
-    uint8_t     rbit:1;
-    uint8_t     rsvd2:5;
-#else
-    uint8_t     rsvd2:5;
-    uint8_t     rbit:1;
-    uint8_t     lbit:1;
-    uint8_t     jbit:1;
-#endif
-    uint16_t    len;
-    uint32_t    iid;
-    uint16_t    reserved;
-    uint8_t     src_mlen;
-    uint8_t     grp_mlen;
-    uint16_t    src_afi;
-} PACKED lispd_lcaf_mcinfo_hdr_t;
-
-typedef struct {
-    uint8_t rbit;
-    uint8_t jbit;
-    uint8_t lbit;
-} mrsignaling_flags_t;
-
-
-/* Geo Coordinate LISP Canonical Address Format:
- *
- *      0                   1                   2                   3
- *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |           AFI = 16387         |     Rsvd1     |     Flags     |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |   Type = 5    |     Rsvd2     |            12 + n             |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |N|     Latitude Degrees        |    Minutes    |    Seconds    |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |E|     Longitude Degrees       |    Minutes    |    Seconds    |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |                            Altitude                           |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |              AFI = x          |         Address  ...          |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct {
-    uint8_t     rsvd1;
-    uint8_t     flags;
-    uint8_t     type;
-    uint8_t     rsvd2;
-    uint16_t    length;
-#ifdef LITTLE_ENDIANS
-    uint16_t    latitude_deg:15;
-    uint16_t    latitude_dir:1;
-#elif
-    uint16_t    latitude_dir:1;
-    uint16_t    latitude_deg:15;
-#endif
-    uint8_t     latitude_min;
-    uint8_t     latitude_sec;
-#ifdef LITTLE_ENDIANS
-    uint16_t    longitude_deg:15;
-    uint16_t    longitude_dir:1;
-#elif
-    uint16_t    longitude_dir:1;
-    uint16_t    longitude_deg:15;
-#endif
-    uint8_t     longitude_min;
-    uint8_t     longitude_sec;
-    uint32_t    altitude;
-    uint16_t    afi;
-} PACKED lispd_lcaf_geo_hdr_t;
 
 
 /* Fixed part of NAT LCAF.
@@ -255,6 +65,15 @@ typedef struct lispd_pkt_nat_lcaf_t_ {
     uint16_t ms_udp_port;
     uint16_t etr_udp_port;
 } PACKED lispd_pkt_nat_lcaf_t;
+
+typedef struct {
+    uint16_t    ms_port_number;
+    uint16_t    etr_port_number;
+    lisp_addr_t global_etr_rloc;
+    lisp_addr_t ms_rloc;
+    lisp_addr_t private_etr_rloc;
+    //lisp_addr_list *rtr_rloc_list;
+} lcaf_nat_traversal_addr_t;
 
 
 /*
@@ -296,6 +115,5 @@ int extract_mcast_info_lcaf_data (
         uint8_t             **offset,
         lispd_mapping_elt   *mapping);
 
-uint8_t is_lcaf_mcast_info(*offset);
-mrsignaling_flags_t lcaf_mcinfo_get_flags(uint8_t *cur_ptr);
+
 #endif /*LISPD_AFI_H_*/

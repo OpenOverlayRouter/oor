@@ -116,6 +116,8 @@ int process_map_request_record(
         lisp_addr_t *src_eid,
         lisp_addr_t *src_rloc,
         lisp_addr_t *dst_rloc,
+        uint16_t    dport,
+        uint64_t    nonce,
         map_reply_opts mropts);
 
 /* Build a Map Request packet */
@@ -209,12 +211,10 @@ int process_map_request_msg(
     opts.send_rec   = 1;
     opts.echo_nonce = 0;
     opts.rloc_probe = msg->rloc_probe;
-    opts.dport = dst_port;
-    opts.nonce = msg->nonce;
 
     /* Process record and send Map Reply for each one */
     for (i = 0; i < msg->record_count; i++) {
-        process_map_request_record(&cur_ptr, src_eid, local_rloc, remote_rloc, opts);
+        process_map_request_record(&cur_ptr, src_eid, local_rloc, remote_rloc, dst_port, msg->nonce, opts);
     }
 
     lisp_addr_del(src_eid);
@@ -286,27 +286,25 @@ int process_map_request_record(
         lisp_addr_t *src_eid,
         lisp_addr_t *local_rloc,
         lisp_addr_t *remote_rloc,
+        uint16_t    dport,
+        uint64_t    nonce,
         map_reply_opts mropts)
 {
     uint8_t                                    *cur_ptr                = NULL;
     lispd_pkt_map_request_eid_prefix_record_t  *record                 = NULL;
     lispd_mapping_elt                          *mapping                = NULL;
     lisp_addr_t                                aux_eid_prefix;
-    int                                        aux_eid_prefix_length   = 0;
-    int                                        aux_iid                 = -1;
     lisp_addr_t                                *dst_eid;
     mrsignaling_flags_t                        mc_flags;
 
-
     cur_ptr = *offset;
-    record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
 
     /* Check if mrsignaling packet and read flags ... */
-    if (is_lcaf_mcast_info(cur_ptr)) {
-        mc_flags = lcaf_mcinfo_get_flags((uint8_t *)&(record->eid_prefix_afi));
-        mrsignaling_process_mreq_message(cur_ptr, mc_flags);
-        return(GOOD);
-    }
+    if (is_lcaf_mcast_info(cur_ptr))
+        return(mrsignaling_recv_mrequest(cur_ptr, src_eid, local_rloc, remote_rloc, dport, nonce));
+
+
+    record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
 
     cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
     dst_eid = lisp_addr_new();
@@ -331,7 +329,7 @@ int process_map_request_record(
         return (BAD);
     }
 
-    err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, mropts->dport, mropts->nonce, mropts);
+    err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dport, nonce, mropts);
 
     lisp_addr_del(dst_eid);
 
@@ -569,7 +567,7 @@ uint8_t *build_map_request_pkt(
         if (default_ctrl_iface_v4 != NULL){
             itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
 //            itr_rloc->afi = htons((uint16_t)LISP_AFI_IP);
-            itr_rloc->afi = htons(ip_afi_to_iana_afi(AF_INET));
+            itr_rloc->afi = htons(ip_addr_afi_to_iana_afi(AF_INET));
             cur_ptr = CO(itr_rloc,sizeof(lispd_pkt_map_request_itr_rloc_t));
             cpy_len = copy_addr((void *) cur_ptr ,default_ctrl_iface_v4->ipv4_address, 0);
             cur_ptr = CO(cur_ptr, cpy_len);
@@ -578,7 +576,7 @@ uint8_t *build_map_request_pkt(
         if (default_ctrl_iface_v6 != NULL){
             itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
 //            itr_rloc->afi = htons(get_lisp_afi(AF_INET6,NULL));
-            itr_rloc->afi = htons(ip_afi_to_iana_afi(AF_INET6));
+            itr_rloc->afi = htons(ip_addr_afi_to_iana_afi(AF_INET6));
             cur_ptr = CO(itr_rloc,sizeof(lispd_pkt_map_request_itr_rloc_t));
             cpy_len = copy_addr((void *) cur_ptr ,default_ctrl_iface_v6->ipv6_address, 0);
             cur_ptr = CO(cur_ptr, cpy_len);

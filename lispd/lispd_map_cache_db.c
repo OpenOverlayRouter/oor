@@ -68,7 +68,7 @@ void map_cache_init()
   }
 }
 
-patricia_tree_t* get_map_cache_db(lisp_afi_t afi){
+patricia_tree_t* get_map_cache_db(lm_afi_t afi){
     lisp_log_msg(LISP_LOG_INFO, "In get_map_cache_db: This function shouldn't be called from outside! Don't know why it existed!");
     return(NULL);
 }
@@ -99,7 +99,7 @@ int add_map_cache_entry_to_db(lispd_map_cache_entry *entry){
                     lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_to_db: unknown LCAF type:%u",
                             lcaf_addr_get_type(lcaf));
             }
-            return(add_map_cache_entry_mc(entry, lisp_addr_get_mc(addr)));
+            return(add_map_cache_entry_mc(entry, lcaf_addr_get_mc(lcaf)));
             break;
         default:
             lisp_log_msg(LISP_LOG_WARNING, "add_map_cache_entry_to_db: called with unknown AFI:%u",
@@ -284,7 +284,7 @@ int map_cache_del_entry_mc(mc_addr_t *mcaddr)
     ip_addr_t               *grp    = NULL;
     uint8_t                 splen, gplen;
 
-    src = lisp_addr_get_mc_src(mcaddr);
+    src = mc_addr_get_src(mcaddr);
     strie = pt_get_from_afi(ip_addr_get_afi(src));
 
     splen = mc_addr_get_src_plen(src);
@@ -457,7 +457,7 @@ lispd_map_cache_entry *map_cache_lookup_mc(mc_addr_t *mcaddr) {
         return(NULL);
     }
     
-    grp = lisp_addr_get_mc_grp(mcaddr);
+    grp = mc_addr_get_grp(mcaddr);
     gnode = pt_lookup_ip_addr(grp, src_plen, gtrie);
     
     if (gnode == NULL){
