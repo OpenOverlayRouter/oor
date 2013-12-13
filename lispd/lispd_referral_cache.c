@@ -49,7 +49,15 @@ lispd_referral_cache_entry *new_referral_cache_entry(
 
 void free_referral_cache_entry(lispd_referral_cache_entry *referral_cache_entry)
 {
+    lispd_referral_cache_list *list_elt          = referral_cache_entry->children_nodes;
+    lispd_referral_cache_list *aux_list_elt      = NULL;
+
     free_mapping_elt (referral_cache_entry->mapping);
+    while (list_elt != NULL){
+        aux_list_elt = list_elt->next;
+        free(aux_list_elt);
+        list_elt = aux_list_elt;
+    }
     if (referral_cache_entry->expiry_ddt_cache_timer != NULL){
         stop_timer(referral_cache_entry->expiry_ddt_cache_timer);
     }

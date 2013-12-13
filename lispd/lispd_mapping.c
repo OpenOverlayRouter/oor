@@ -351,10 +351,8 @@ int add_locator_to_mapping(
     case AF_UNSPEC:
         err = add_locator_to_list (&(((lcl_mapping_extended_info *)(mapping->extended_info))->head_not_init_locators_list), locator);
         if (err == GOOD){
+            // The locator_count should not be incremented
             return (GOOD);
-        }else{
-            free_locator (locator);
-            return (BAD);
         }
     }
 
@@ -370,10 +368,8 @@ int add_locator_to_mapping(
                 get_char_from_lisp_addr_t(*(locator->locator_addr)),
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length);
-        free_locator (locator);
         result = GOOD;
     }else{
-        free_locator (locator);
         result = BAD;
     }
 

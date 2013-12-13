@@ -37,14 +37,25 @@
 #include "lispd_locator.h"
 
 
-/* Callback function prototype passed on to lispd_get_address2 */
-typedef int (*on_new_lisp_addr_cb)(lisp_addr_t*, void* data ) ;
+/**
+ * Add an address (lisp_addr_t *) into a list of addresses (lispd_addr_list_t **)
+ * @param addr Pointer to the address to be added into the list
+ * @param list Pointer to the pointer of the first element of the list where the address should be added
+ * @return GOOD if finish correctly or an error code otherwise
+ */
+int add_lisp_addr_to_list(
+        lisp_addr_t         *addr,
+        lispd_addr_list_t   **list );
 
-/* Callback you could pass on to lispd_get_address2 */
-int add_lisp_addr_to_list(lisp_addr_t* addr, void* data );
-
-/* converts the hostname into IPs which are successively sent to the callback function */
-int lispd_get_address5(char *addr_str, on_new_lisp_addr_cb callback, void* data, const int disable_name_resolution , const int preferred_afi );
+/**
+ *  Converts the hostname into IPs which are added to a list of lisp_addr_t
+ *  @param addr_str String conating fqdn address or de IP address
+ *  @param preferred_afi Indicates the afi of the IPs to be added in the list
+ *  @return List of addresses (lispd_addr_list_t *)
+ */
+lispd_addr_list_t *lispd_get_address(
+        char        *addr_str,
+        const int   preferred_afi);
 
 
 int copy_addr_from_sockaddr( struct sockaddr   *addr, lisp_addr_t    *);
@@ -68,27 +79,10 @@ int is_link_local_addr (lisp_addr_t addr);
 
 
 /*
- *      Copy a lisp_addr_t, converting it using convert
- *      if supplied
- */
-
-int copy_lisp_addr_t(lisp_addr_t *a1, lisp_addr_t *a2, int convert);
-
-/*
  *      Copy a lisp_addr_t to a memory location, htonl'ing it
  *      it convert != 0. Return the length or 0;
  */
 int copy_addr(void *a1, lisp_addr_t *a2, int convert);
-
-/*
- *      find a useable source address with AFI = afi
- */
-
-
-/*
- *      return GOOD if addr contain a  lisp_addr_t for host/FQDN or BAD if none
- */
-int lispd_get_address(char *host, lisp_addr_t *addr);
 
 /*
  *  Fill the parameter addr with the lisp_addr_t of the interface with afi.
@@ -204,8 +198,21 @@ inline void copy_lisp_addr_V4(lisp_addr_t *dest,
 inline void copy_lisp_addr_V6(lisp_addr_t *dest,
                               lisp_addr_t *orig);
 
-void copy_lisp_addr(lisp_addr_t *dest,
-                    lisp_addr_t *orig);
+/**
+ * Copy address from orig to dest. The memory for dest must be allocated outside this function
+ * @param dest Destination of the copied address
+ * @return orig Address to be copied
+ */
+void copy_lisp_addr(
+        lisp_addr_t *dest,
+        lisp_addr_t *orig);
+
+/**
+ * Copy address into a new generated lisp_addr_t structure
+ * @param addr Address to be copied
+ * @return New allocated address
+ */
+lisp_addr_t *clone_lisp_addr(lisp_addr_t *addr);
 
 inline void memcopy_lisp_addr_V4(void *dest,
                                  lisp_addr_t *orig);

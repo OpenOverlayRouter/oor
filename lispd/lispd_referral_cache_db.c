@@ -66,17 +66,11 @@ void drop_referral_cache()
     patricia_tree_t                 *dbs [4]        = {ipv4_referral_cache, ipv6_referral_cache,
             ipv4_ms_referral_cache, ipv6_ms_referral_cache};
     int                             ctr             = 0;
-    patricia_node_t                 *node           = NULL;
-    lispd_referral_cache_entry      *referral_entry = NULL;
 
     lispd_log_msg(LISP_LOG_DEBUG_2,  " Droping referral cache...");
 
     for (ctr = 0 ; ctr < 4 ; ctr++){
-        PATRICIA_WALK(dbs[ctr]->head, node) {
-            referral_entry = ((lispd_referral_cache_entry *)(node->data));
-            del_referral_cache_entry_from_db(referral_entry);
-        } PATRICIA_WALK_END;
-        free (dbs[ctr]);
+        Destroy_Patricia (dbs[ctr], free_referral_cache_entry);
     }
 }
 
@@ -200,7 +194,9 @@ int add_update_ddt_static_entry_to_db (
     }
 
     if ((err=add_locator_to_mapping (referral_cache_entry->mapping,locator))!=GOOD){
-        free_locator(locator);
+        // We don't call free_locator because ddt_locator_address is allocated outside this function
+        free(state);
+        free(locator);
         if (is_new == TRUE){
             del_referral_cache_entry_from_db(referral_cache_entry);
         }

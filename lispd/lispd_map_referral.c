@@ -343,6 +343,7 @@ int process_map_referral_locator(
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (mapping, locator)) != GOOD){
+            free_locator(locator);
             return (BAD);
         }
     }else{

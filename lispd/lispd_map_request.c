@@ -146,7 +146,8 @@ int process_map_request_record(
  int process_map_request_msg(
          uint8_t        *packet,
          lisp_addr_t    *local_rloc,
-         uint16_t       dst_port) {
+         uint16_t       dst_port)
+ {
 
      lispd_mapping_elt          *source_mapping          = NULL;
      lispd_map_cache_entry      *map_cache_entry        = NULL;

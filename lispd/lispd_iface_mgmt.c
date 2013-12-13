@@ -228,7 +228,7 @@ void process_address_change (
         return;
     }
     /* If default RLOC afi defined (-a 4 or 6), only accept addresses of the specified afi */
-    if (default_rloc_afi != -1 && default_rloc_afi != new_addr.afi){
+    if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != new_addr.afi){
         lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: Default RLOC afi defined (-a #): Skipped %s address in iface %s",
                 (new_addr.afi == AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
         return;
@@ -570,7 +570,7 @@ void process_nl_new_route (struct nlmsghdr *nlh)
     }
     if (gateway.afi != AF_UNSPEC && iface_index != 0 && dst.afi == AF_UNSPEC){
         /* Check default afi*/
-        if (default_rloc_afi != -1 && default_rloc_afi != gateway.afi){
+        if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != gateway.afi){
             lispd_log_msg(LISP_LOG_DEBUG_1,  "process_nl_new_route: Default RLOC afi defined (-a #): Skipped %s gateway in iface %s",
                     (gateway.afi == AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
             return;
@@ -611,11 +611,8 @@ void process_new_gateway (
         return;
     }
     if (*gw_addr == NULL){ // The default gateway of this interface is not deffined yet
-        if ((*gw_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t))) == NULL){
-            lispd_log_msg(LISP_LOG_WARNING,"process_new_gateway: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-            return;
-        }
-        if ((copy_lisp_addr_t(*gw_addr,&gateway,FALSE)) != GOOD){
+        *gw_addr = clone_lisp_addr(&gateway);
+        if (*gw_addr == NULL){
             free (*gw_addr);
             *gw_addr = NULL;
             return;

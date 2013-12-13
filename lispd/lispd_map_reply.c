@@ -463,6 +463,7 @@ int process_map_reply_locator(
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (mapping, locator)) != GOOD){
+            free_locator(locator);
             /* If we couldn't add the locator because it use an unsupported lcaf address, just ignore this locator */
             if (err != ERR_AFI_LCAF_TYPE){
                 return (BAD);

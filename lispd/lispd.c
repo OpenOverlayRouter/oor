@@ -73,7 +73,7 @@
 
 void event_loop();
 void signal_handler(int);
-//int check_capabilities();
+int check_capabilities();
 /* system calls - look to libc for function to system call mapping */
 extern int capset(cap_user_header_t header, cap_user_data_t data);
 extern int capget(cap_user_header_t header, const cap_user_data_t data);
@@ -345,12 +345,12 @@ int main(int argc, char **argv)
      * Generate receive sockets for control (4342) and data port (4341)
      */
 
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
+    if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET){
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
     }
 
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
+    if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET6){
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
     }

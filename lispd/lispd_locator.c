@@ -204,7 +204,7 @@ lispd_locator_elt   *new_rmt_locator (
  * Generates a static locator element. This is used when creating static mappings
  */
 lispd_locator_elt   *new_static_rmt_locator (
-        char                        *rloc_addr,
+        lisp_addr_t                 *locator_addr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     priority,
         uint8_t                     weight,
@@ -212,27 +212,12 @@ lispd_locator_elt   *new_static_rmt_locator (
         uint8_t                     mweight)
 {
     lispd_locator_elt       *locator                = NULL;
-    lisp_addr_t             *locator_addr           = NULL;
     uint8_t                 *locator_state          = NULL;
-
-    /* Reserve and init the locator address */
-
-    if((locator_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        err = ERR_MALLOC;
-        return (NULL);
-    }
-
-    if (get_lisp_addr_from_char(rloc_addr,locator_addr) != GOOD){
-        lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
-        return (NULL);
-    }
 
     /* Reserve and init the locator state */
 
     if((locator_state = (uint8_t *)malloc(sizeof(uint8_t))) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
-        free (locator_addr);
         err = ERR_MALLOC;
         return (NULL);
     }
@@ -245,7 +230,6 @@ lispd_locator_elt   *new_static_rmt_locator (
 
     if (locator == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "new_static_rmt_locator: Unable to generate lispd_locator_elt: %s", strerror(errno));
-        free(locator_addr);
         free(locator_state);
         return(NULL);
     }
@@ -253,7 +237,10 @@ lispd_locator_elt   *new_static_rmt_locator (
     locator->locator_type = STATIC_LOCATOR;
     locator->extended_info = (void *)new_rmt_locator_extended_info();
     if (locator->extended_info == NULL){
-        free_locator(locator);
+        // We don't use free_locator function because the locator address is allocated outside this function and it should
+        // be released by the caller of this function
+        free(locator_state);
+        free(locator);
         return (NULL);
     }
 

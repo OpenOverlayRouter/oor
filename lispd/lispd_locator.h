@@ -133,7 +133,7 @@ lispd_locator_elt   *new_rmt_locator (
  * Generates a static locator element. This is used when creating static mappings
  */
 lispd_locator_elt   *new_static_rmt_locator (
-        char                        *rloc_addr,
+        lisp_addr_t                 *locator_addr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     priority,
         uint8_t                     weight,

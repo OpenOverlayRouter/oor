@@ -158,7 +158,7 @@ void handle_lispd_command_line(
             break;
         }
     }else{
-        default_rloc_afi = -1;
+        default_rloc_afi = AF_UNSPEC;
     }
 }
 
@@ -1016,6 +1016,7 @@ int add_database_mapping(
 
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    free_locator(locator);
                     return (BAD);
                 }
             }else{
@@ -1031,6 +1032,7 @@ int add_database_mapping(
             locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,&(interface->out_socket_v6));
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    free_locator(locator);
                     return (BAD);
                 }
             }else{
@@ -1069,10 +1071,11 @@ int add_static_map_cache_entry(
         int    priority,
         int    weight)
 {
-    lispd_map_cache_entry    *map_cache_entry;
-    lispd_locator_elt        *locator;
-    lisp_addr_t              eid_prefix;
-    int                      eid_prefix_length;
+    lispd_map_cache_entry    *map_cache_entry       = NULL;
+    lispd_locator_elt        *locator               = NULL;
+    lisp_addr_t              *locator_addr          = NULL;
+    lisp_addr_t              eid_prefix             = {.afi=AF_UNSPEC};
+    int                      eid_prefix_length      = 0;
 
 
     if (iid > MAX_IID || iid < 0) {
@@ -1091,20 +1094,35 @@ int add_static_map_cache_entry(
         return (BAD);
     }
 
-    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
-    if (map_cache_entry == NULL)
+    if ((locator_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t))) == NULL){
+        lispd_log_msg(LISP_LOG_ERR, "add_static_map_cache_entry: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
         return (BAD);
+    }
 
+    if (get_lisp_addr_from_char(rloc_addr,locator_addr) != GOOD){
+        lispd_log_msg(LISP_LOG_ERR, "add_static_map_cache_entry: Error parsing RLOC address ... Ignoring static map cache entry");
+        free(locator_addr);
+        return (BAD);
+    }
+
+    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
+    if (map_cache_entry == NULL){
+        free(locator_addr);
+        return (BAD);
+    }
 
     map_cache_entry->mapping->iid = iid;
 
-    locator = new_static_rmt_locator(rloc_addr,UP,priority,weight,255,0);
+    locator = new_static_rmt_locator(locator_addr,UP,priority,weight,255,0);
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (map_cache_entry->mapping, locator)) != GOOD){
+            free_locator(locator);
+            free_map_cache_entry(map_cache_entry);
             return (BAD);
         }
     }else{
+        free_map_cache_entry(map_cache_entry);
         return (BAD);
     }
 
@@ -1124,33 +1142,25 @@ int add_server(
         char                *server,
         lispd_addr_list_t   **list)
 {
+    lispd_addr_list_t   *new_list   = NULL;
+    lispd_addr_list_t   *aux_list   = NULL;
 
-    uint                afi;
-    lisp_addr_t         *addr;
-    lispd_addr_list_t   *list_elt;
-
-    /*
-     * Check that the afi of the map server matches with the default rloc afi (if it's defined).
-     */
-//    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
-//        lispd_log_msg(LISP_LOG_WARNING, "The server %s will not be added due to the selected default rloc afi",server);
-//        free(addr);
-//        return(BAD);
-//    }
-
-    if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lispd_addr_list_t: %s", strerror(errno));
-        free(addr);
-        return(BAD);
-    }
-    memset(list_elt,0,sizeof(lispd_addr_list_t));
-
-    if( GOOD != lispd_get_address5( server, add_lisp_addr_to_list, (void*)list, FALSE,  (default_rloc_afi != -1) ? default_rloc_afi : AF_UNSPEC ) ){
-
-        lispd_log_msg(LISP_LOG_WARNING, "Unable to convert addresses");
-        return BAD;
+    new_list = lispd_get_address( server, default_rloc_afi );
+    if (new_list == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to convert addresses: %s", server);
+        return (BAD);
     }
 
+    if( *list == NULL ){
+        *list = new_list;
+    }else{
+        aux_list = new_list;
+        while(aux_list->next != NULL){
+            aux_list = aux_list->next;
+        }
+        aux_list->next = *list;
+        *list = new_list;
+    }
     return(GOOD);
 }
 
@@ -1165,74 +1175,48 @@ int add_map_server(
         uint8_t      proxy_reply)
 
 {
-    lisp_addr_t             *addr;
-    lispd_map_server_list_t *list_elt;
-    struct hostent          *hptr;
+    lispd_addr_list_t               *list        = NULL;
+    lisp_addr_t                     *addr        = NULL;
+    lispd_map_server_list_t         *list_elt    = NULL;
+    int                             result       = GOOD;
 
     if (map_server == NULL || key_type == 0 || key == NULL){
         lispd_log_msg(LISP_LOG_ERR, "Configuraton file: Wrong Map Server configuration.  Check configuration file");
         exit_cleanup();
     }
 
+    list = lispd_get_address (map_server,default_rloc_afi);
 
-    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return(BAD);
+    if (list == NULL){
+        result = BAD;
     }
 
-    /*
-     *  make sure this is clean
-     */
-    // XXX alopez: to be revised
+    while (list != NULL){
+        addr = list->address;
+        if ((list_elt = (lispd_map_server_list_t *)calloc(1,sizeof(lispd_map_server_list_t))) == NULL) {
+            lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lispd_map_server_list_t: %s", strerror(errno));
+            free(addr);
+            result = BAD;
+            list = list->next;
+            continue;
+        }
 
-    memset(addr,0,sizeof(lisp_addr_t));
+        list_elt->address     = addr;
+        list_elt->key_type    = key_type;
+        list_elt->key         = strdup(key);
+        list_elt->proxy_reply = proxy_reply;
 
-    if (((hptr = gethostbyname2(map_server,AF_INET))  == NULL) &&
-            ((hptr = gethostbyname2(map_server,AF_INET6)) == NULL)) {
-        lispd_log_msg(LISP_LOG_WARNING, "can gethostbyname2 for map_server (%s)", map_server);
-        free(addr);
-        return(BAD);
+        if(map_servers != NULL){
+            list_elt->next = map_servers;
+            map_servers = list_elt;
+        }else {
+            map_servers = list_elt;
+        }
+
+        list = list->next;
     }
 
-
-    memcpy((void *) &(addr->address),
-            (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
-    addr->afi = hptr->h_addrtype;
-
-    /*
-     * Check that the afi of the map server matches with the default rloc afi (if it's defined).
-     */
-    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
-        lispd_log_msg(LISP_LOG_WARNING, "The map server %s will not be added due to the selected default rloc afi",map_server);
-        free(addr);
-        return(BAD);
-    }
-
-    if ((list_elt = malloc(sizeof(lispd_map_server_list_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lispd_map_server_list_t: %s", strerror(errno));
-        free(addr);
-        return(BAD);
-    }
-
-    memset(list_elt,0,sizeof(lispd_map_server_list_t));
-
-    list_elt->address     = addr;
-    list_elt->key_type    = key_type;
-    list_elt->key         = strdup(key);
-    list_elt->proxy_reply = proxy_reply;
-
-    /*
-     * hook this one to the front of the list
-     */
-
-    if (map_servers) {
-        list_elt->next = map_servers;
-        map_servers = list_elt;
-    } else {
-        map_servers = list_elt;
-    }
-
-    return(GOOD);
+    return(result);
 }
 
 /*
@@ -1244,9 +1228,10 @@ int add_ddt_root_entry(
         int                         priority,
         int                         weight)
 {
-
+    lispd_addr_list_t               *list                   = NULL;
     lisp_addr_t                     *ddt_locator_address    = NULL;
     lisp_addr_t                     root_eid_prefix         = {.afi = AF_UNSPEC};
+    int                             result                  = GOOD;
 
 
     /* Validate data introduced in the configuration file */
@@ -1255,12 +1240,8 @@ int add_ddt_root_entry(
         lispd_log_msg(LISP_LOG_ERR, "Configuration file (add_ddt_root_entry): The address of the  DDT root entry has not been specified. Discarding the entry");
         return (BAD);
     }
-    ddt_locator_address = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-    if (ddt_locator_address== NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "add_ddt_root_entry: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return (BAD);
-    }
-    if ((err = get_lisp_addr_from_char (address, ddt_locator_address)) != GOOD){
+
+    if ((list = lispd_get_address (address,default_rloc_afi)) == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "add_ddt_root_entry: Unable to process ddt root node with locator %s", address);
         return (BAD);
     }
@@ -1276,32 +1257,31 @@ int add_ddt_root_entry(
         return (BAD);
     }
 
-    /*
-     * Check that the afi of the map server matches with the default rloc afi (if it's defined).
-     */
-    if (default_rloc_afi != -1 && default_rloc_afi != get_afi(address)){
-        lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): The DDT root entry %s will not be added due to the selected default rloc afi",address);
-        return(BAD);
+    while (list != NULL){
+        ddt_locator_address = list->address;
+
+        if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET){
+            get_lisp_addr_from_char ("0.0.0.0", &root_eid_prefix);
+            if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
+                lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv4 database)",
+                        address);
+                free(ddt_locator_address);
+                result = BAD;
+            }
+        }
+        if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET6){
+            get_lisp_addr_from_char ("0::0", &root_eid_prefix);
+            if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
+                lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv6 database)",
+                        address);
+                free(ddt_locator_address);
+                result = BAD;
+            }
+        }
+        list = list->next;
     }
 
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
-        get_lisp_addr_from_char ("0.0.0.0", &root_eid_prefix);
-        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
-            lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv4 database)",
-                    address);
-            return (BAD);
-        }
-    }
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
-        get_lisp_addr_from_char ("0::0", &root_eid_prefix);
-        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
-            lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv6 database)",
-                    address);
-            return (BAD);
-        }
-    }
-
-    return (GOOD);
+    return (result);
 }
 
 /*
@@ -1316,9 +1296,11 @@ int add_proxy_etr_entry(
         int                         priority,
         int                         weight)
 {
-
-    lisp_addr_t                     aux_address;
+    lispd_addr_list_t               *list        = NULL;
+    lisp_addr_t                     petr_addr    = {.afi=AF_UNSPEC};
+    lisp_addr_t                     *lisp_addr   = NULL;
     lispd_locator_elt               *locator     = NULL;
+    int                             result       = GOOD;
 
     if (address == NULL){
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: The address of the Proxy ETR has not been specified. Discarding the entry");
@@ -1336,37 +1318,41 @@ int add_proxy_etr_entry(
         return (BAD);
     }
 
-    /*
-     * Check that the afi of the map server matches with the default rloc afi (if it's defined).
-     */
-    if (default_rloc_afi != -1 && default_rloc_afi != get_afi(address)){
-        lispd_log_msg(LISP_LOG_WARNING, "The proxy etr %s will not be added due to the selected default rloc afi",address);
-        return(BAD);
+    if ((list = lispd_get_address (address,default_rloc_afi)) == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "add_proxy_etr_entry: Unable to process proxy ETR  with locator %s", address);
+        return (BAD);
     }
 
     /* Create the proxy-etrs map cache structure if it doesn't exist */
     if (proxy_etrs == NULL){
-        if ((get_lisp_addr_from_char ("0.0.0.0", &aux_address))!=GOOD){
+        if ((get_lisp_addr_from_char ("0.0.0.0", &petr_addr))!=GOOD){
             return (BAD);
         }
-        proxy_etrs = new_map_cache_entry_no_db (aux_address,0,STATIC_MAP_CACHE_ENTRY,0);
+        proxy_etrs = new_map_cache_entry_no_db (petr_addr,0,STATIC_MAP_CACHE_ENTRY,0);
         if (proxy_etrs == NULL){
             return (BAD);
         }
     }
 
-    /* Create de locator representing the proxy-etr and add it to the mapping */
-    locator = new_static_rmt_locator (address,UP,priority,weight,255,0);
-
-    if (locator != NULL){
-        if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){
-            return (BAD);
+    while (list != NULL){
+        lisp_addr = list->address;
+        /* Create de locator representing the proxy-etr and add it to the mapping */
+        locator = new_static_rmt_locator (lisp_addr,UP,priority,weight,255,0);
+        if (locator != NULL){
+            if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){
+                lispd_log_msg(LISP_LOG_DEBUG_1, "add_proxy_etr_entry: %s caouldn't be added to the proxy ETR list", get_char_from_lisp_addr_t(*lisp_addr));
+                free_locator(locator);
+                result = BAD;
+            }
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1, "add_proxy_etr_entry: %s caouldn't be added to the proxy ETR list", get_char_from_lisp_addr_t(*lisp_addr));
+            free(lisp_addr);
+            result = BAD;
         }
-    }else{
-        return (BAD);
+        list = list->next;
     }
 
-    return(GOOD);
+    return(result);
 }
 
 void validate_rloc_probing_parameters (

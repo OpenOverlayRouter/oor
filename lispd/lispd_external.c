@@ -43,7 +43,7 @@ void init_globales()
 	debug_level             			= 0;
 	daemonize               			= FALSE;
 	ctrl_supported_afi                  = -1;
-	default_rloc_afi        			= -1;
+	default_rloc_afi        			= AF_UNSPEC;
 	/* RLOC probing parameters */
 	rloc_probe_interval                	= RLOC_PROBING_INTERVAL;
 	rloc_probe_retries                 	= DEFAULT_RLOC_PROBING_RETRIES;
