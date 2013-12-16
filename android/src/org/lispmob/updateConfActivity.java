@@ -351,6 +351,22 @@ public class updateConfActivity extends Activity {
 	
 	public void createConfFile()
 	{
+		String nat;
+		String dns;
+		
+		if (nat_aware == true){
+			nat = "on";
+		}else{
+			nat = "off";
+		}
+		
+		if (overrideDNS == true){
+			dns = "on";
+		}else{
+			dns = "off";
+		}
+		
+		
 		/* 
 		 * If a configuration file is not found, a default configuration file is created.
 		 * */
@@ -385,7 +401,7 @@ public class updateConfActivity extends Activity {
 						.append("#   - Only one interface is supported.\n")
 						.append("#   - Only one Map Server and one Map Resolver\n\n")
 						.append("nat-traversal {\n")
-						.append("    nat_aware   = "+nat_aware+"\n")
+						.append("    nat_aware   = "+nat+"\n")
 						.append("    site_ID     = "+nat_site_id+"\n")
 						.append("    xTR_ID      = "+nat_xtr_id+"\n")
 						.append("}\n\n\n")
@@ -396,6 +412,33 @@ public class updateConfActivity extends Activity {
 						.append("map-resolver        = {\n")
 						.append("        "+MR+",\n")
 						.append("}\n\n\n")
+						.append("# DDT Client section.\n")
+						.append("# DDT configuration has prefernece over map-resolver configuration\n")
+						.append("#\n")
+						.append("#   ddt-client [on/off]: Obtain the mapping from EIDs to RLOCs through the DDT tree\n\n")						
+						.append("ddt-client  = off\n\n")
+						.append("# DDT Encapsulated Map-Requests are sent to these ddt root node. You can define\n")
+						.append("# several ddt-root-node. DDT Encapsulated Map-Request messages will be sent to the\n")						
+						.append("# ddt-root-node with higher priority (lowest value).\n")
+						.append("#\n")
+						.append("#   address: IPv4 or IPv6 address of the DDT root node\n")
+						.append("#   priority [0..255]: DDT root nodes with lower values are more preferable.\n")						
+						.append("#   weight [0..255]: Not yet implemented\n")
+						.append("ddt-root-node {\n")
+						.append("        address     = 193.0.0.170\n")
+						.append("        priority    = 1\n")						
+						.append("        weight      = 100\n")
+						.append("}\n\n")
+						.append("ddt-root-node {\n")
+						.append("        address     = 192.149.252.136\n")
+						.append("        priority    = 1\n")						
+						.append("        weight      = 100\n")
+						.append("}\n\n")
+						.append("ddt-root-node {\n")
+						.append("        address     = 199.119.73.8\n")
+						.append("        priority    = 1\n")						
+						.append("        weight      = 100\n")
+						.append("}\n\n")
 						.append("# Map-Registers are sent to this map-server\n")
 						.append("# You can define several map-servers. Map-Register messages will be sent to all\n")
 						.append("# of them.\n")
@@ -469,8 +512,7 @@ public class updateConfActivity extends Activity {
 						.concat("        weight_v6      = 100\n")
 						.concat("}\n\n\n");
 			}
-			
-			defText= defText.concat("override-dns     		 = "+overrideDNS+"\n");
+			defText= defText.concat("override-dns     		 = "+dns+"\n");
 			defText= defText.concat("override-dns-primary    = "+DNS1+"\n");
 			defText= defText.concat("override-dns-secondary  = "+DNS2+"\n");
 

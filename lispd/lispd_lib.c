@@ -850,13 +850,8 @@ int is_link_local_addr (lisp_addr_t addr)
         }
         break;
     case AF_INET6:
-#ifdef ANDROID
-        if (((addr.address.ipv6.in6_u.u6_addr8[0] & 0xff) == 0xfe) &&
-                ((addr.address.ipv6.in6_u.u6_addr8[1] & 0xc0) == 0x80)){
-#else
-		if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
-	            ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
-#endif
+		if (((addr.address.ipv6.s6_addr[0] & 0xff) == 0xfe) &&
+	            ((addr.address.ipv6.s6_addr[1] & 0xc0) == 0x80)){
             is_link_local = TRUE;
         }
         break;
@@ -1447,7 +1442,7 @@ inline lisp_addr_t get_network_address_v6(
     }
 
     for (ctr = 0 ; ctr < 4 ; ctr++){
-        network_address.address.ipv6.__in6_u.__u6_addr32[ctr] = htonl(ntohl(address.address.ipv6.__in6_u.__u6_addr32[ctr]) & mask[ctr]);
+        network_address.address.ipv6.s6_addr32[ctr] = htonl(ntohl(address.address.ipv6.s6_addr32[ctr]) & mask[ctr]);
     }
 
     return network_address;

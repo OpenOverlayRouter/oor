@@ -28,6 +28,7 @@ LOCAL_SRC_FILES = \
 			lispd_map_cache_db.c \
 			lispd_map_cache.c \
 			lispd_map_notify.c \
+			lispd_map_referral.c \
 		  	lispd_map_register.c \
 		  	lispd_map_reply.c \
 		  	lispd_map_request.c	\
@@ -35,6 +36,8 @@ LOCAL_SRC_FILES = \
 		  	lispd_nonce.c \
 		  	lispd_output.c \
 		  	lispd_pkt_lib.c \
+		  	lispd_referral_cache.c \
+		  	lispd_referral_cache_db.c \
 		  	lispd_rloc_probing.c \
 		  	lispd_routing_tables_lib.c \
 		  	lispd_smr.c \
