@@ -429,7 +429,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     dump_local_db(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
-        dump_map_cache_db(LISP_LOG_DEBUG_1);
+        map_cache_dump_db(LISP_LOG_DEBUG_1);
     }
     dump_map_servers(LISP_LOG_DEBUG_1);
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
@@ -788,7 +788,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     dump_local_db(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
-        dump_map_cache_db(LISP_LOG_DEBUG_1);
+        map_cache_dump_db(LISP_LOG_DEBUG_1);
     }
     dump_map_servers(LISP_LOG_DEBUG_1);
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
@@ -1008,6 +1008,11 @@ int add_static_map_cache_entry(
         return (BAD);
     }
 
+    /* HACK: change afi from IP to IPPREF and set mask */
+    lisp_addr_set_afi(&eid_prefix, LM_AFI_IPPREF);
+    ip_prefix_set_plen(lisp_addr_get_ippref(&eid_prefix), (uint8_t)eid_prefix_length);
+    lispd_log_msg(LISP_LOG_WARNING, "\n\nthe address is %s\n", lisp_addr_to_char(&eid_prefix));
+
     map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
     if (map_cache_entry == NULL)
         return (BAD);
@@ -1046,18 +1051,22 @@ int add_server(
     lisp_addr_t         *addr;
     lispd_addr_list_t   *list_elt;
 
-    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return(ERR_MALLOC);
-    }
-    memset(addr,0,sizeof(lisp_addr_t));
+//    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
+//        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+//        return(ERR_MALLOC);
+//    }
+//    memset(addr,0,sizeof(lisp_addr_t));
+
 
     afi = get_afi(server);
-    addr->afi = afi;
+//    addr->afi = afi;
+    addr = lisp_addr_new_ip();
+    ip_addr_set_afi(lisp_addr_get_ip(addr), afi);
 
-    if (inet_pton(afi, server, &(addr->address)) != 1) {
+//    if (inet_pton(afi, server, &(addr->address)) != 1) {
+    if (inet_pton(afi, server,  ip_addr_get_addr(lisp_addr_get_ip(addr))) != 1) {
         lispd_log_msg(LISP_LOG_ERR, "add_server: Wrong address format: %s", strerror(errno));
-        free(addr);
+        lisp_addr_del(addr);
         return(BAD);
     }
 
@@ -1066,13 +1075,13 @@ int add_server(
      */
     if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
         lispd_log_msg(LISP_LOG_WARNING, "The server %s will not be added due to the selected default rloc afi",server);
-        free(addr);
+        lisp_addr_del(addr);
         return(BAD);
     }
 
     if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lispd_addr_list_t: %s", strerror(errno));
-        free(addr);
+        lisp_addr_del(addr);
         return(BAD);
     }
     memset(list_elt,0,sizeof(lispd_addr_list_t));
@@ -1113,42 +1122,45 @@ int add_map_server(
         exit_cleanup();
     }
 
-    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return(BAD);
-    }
+//    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
+//        lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+//        return(BAD);
+//    }
 
     /*
      *  make sure this is clean
      */
     // XXX alopez: to be revised
 
-    memset(addr,0,sizeof(lisp_addr_t));
+//    memset(addr,0,sizeof(lisp_addr_t));
 
     if (((hptr = gethostbyname2(map_server,AF_INET))  == NULL) &&
             ((hptr = gethostbyname2(map_server,AF_INET6)) == NULL)) {
         lispd_log_msg(LISP_LOG_WARNING, "can gethostbyname2 for map_server (%s)", map_server);
-        free(addr);
+//        free(addr);
         return(BAD);
     }
 
 
-    memcpy((void *) &(addr->address),
-            (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
-    addr->afi = hptr->h_addrtype;
+//    memcpy((void *) &(addr->address),
+//            (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
+//    addr->afi = hptr->h_addrtype;
+    addr = lisp_addr_new_ip();
+    ip_addr_init(lisp_addr_get_ip(addr), (void *) *(hptr->h_addr_list), hptr->h_addrtype);
+
 
     /*
      * Check that the afi of the map server matches with the default rloc afi (if it's defined).
      */
     if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
         lispd_log_msg(LISP_LOG_WARNING, "The map server %s will not be added due to the selected default rloc afi",map_server);
-        free(addr);
+        lisp_addr_del(addr);
         return(BAD);
     }
 
     if ((list_elt = malloc(sizeof(lispd_map_server_list_t))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lispd_map_server_list_t: %s", strerror(errno));
-        free(addr);
+        lisp_addr_del(addr);
         return(BAD);
     }
 

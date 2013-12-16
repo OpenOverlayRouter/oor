@@ -58,41 +58,41 @@ int re_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
 
 int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
 
-    /* TODO: in the future we should have only one function parameter, a map_request object!  */
-
-    lispd_jib_t         *jib                = NULL;
-    lispd_locators_list *locator_list       = NULL;
-    lisp_addr_t         *locp               = NULL;
-
+    lispd_remdb_t           *jib                = NULL;
+    lispd_remdb_member_t    *member             = NULL;
+    lcaf_addr_t             *lcaf               = NULL;
+    lisp_addr_t             *peer                = NULL;
 
     /* add dst (S-RLOC, DG/RLOC) to jib */
     if (!(jib = re_get_jib(ch)))
         return (BAD);
 
-    locator_list  = calloc(1, sizeof(lispd_locators_list));
-    locator_list->next = NULL;
+    lcaf = lisp_addr_get_lcaf(rloc_pair);
+    peer = lcaf_mc_get_grp(lcaf);
+    member = remdb_find_member(peer, jib);
 
-    /* the pair is of the type (S-RLOC, D-RLOC)
-     * If the join will carry in the future more D-RLOCs for TE
-     * add them one by one to the locator list
-     */
-    lisp_addr_copy(locator_list->locator, rloc_pair);
-    jib_add_locator_list(locator_list, jib);
+    if (member) {
+        /* XXX: renew timer + update locator list*/
+        return(GOOD);
+    }
 
+    remdb_add_member(peer, rloc_pair, jib);
     return(GOOD);
 
 }
 
-
+/* remove dst (S-RLOC, DG/RLOC) from jib */
 int re_recv_leave_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
-    /* remove dst (S-RLOC, DG/RLOC) from jib */
 
-    lispd_jib_t         *jib        = NULL;
-    lispd_locators_list *loc_list   = NULL;
+    lispd_remdb_t           *jib        = NULL;
+    lcaf_addr_t             *lcaf       = NULL;
+    lisp_addr_t             *peer        = NULL;
+
 
     jib = re_get_jib(ch);
-    /* XXX NEED PROPER DELETE */
-    jib_del_locator_list(rloc_pair, jib);
+    lcaf = lisp_addr_get_lcaf(rloc_pair);
+    peer = lcaf_mc_get_grp(lcaf);
+    remdb_del_member(peer, jib);
     return (GOOD);
 }
 
@@ -143,10 +143,12 @@ int re_recv_leave_ack(lisp_addr_t *eid, uint32_t nonce) {
 
 int re_send_join_request(lisp_addr_t *mceid) {
 
+    return(GOOD);
 }
 
-int re_send_leave_request() {
+int re_send_leave_request(lisp_addr_t *mceid) {
 
+    return(GOOD);
 }
 
 
@@ -157,29 +159,29 @@ lispd_upstream_t *re_get_upstream(lisp_addr_t *eid) {
     lispd_mapping_elt                       *mapping                = NULL;
 
     /* Find eid's map-cache entry*/
-    cache_entry = lookup_map_cache_exact(eid);
+    cache_entry = map_cache_lookup_exact(eid);
     if (!cache_entry){
         lispd_log_msg(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));
         return (BAD);
     }
 
-    mapping = mcache_entry_get_mapping(mapping);
+    mapping = mcache_entry_get_mapping(cache_entry);
     return(((mcinfo_mapping_extended_info*)mapping->extended_info)->upstream);
 }
 
-lispd_jib_t *re_get_jib(lisp_addr_t *mcaddr) {
+lispd_remdb_t *re_get_jib(lisp_addr_t *mcaddr) {
     lispd_map_cache_entry   *mcentry    = NULL;
     lispd_mapping_elt       *mapping    = NULL;
 
     if (!lisp_addr_is_mc(mcaddr)) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(dst_addr));
+        lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(mcaddr));
         return(NULL);
     }
 
     /* TODO: implement real multicast FIB instead of using the mapping db */
 //    mcentry = lookup_eid_in_db(mcaddr);
-    mcentry = lookup_map_cache_exact(mcaddr);
+    mcentry = map_cache_lookup_exact(mcaddr);
 
 
     if (!mcentry) {
@@ -208,9 +210,9 @@ lispd_jib_t *re_get_jib(lisp_addr_t *mcaddr) {
 /*
  * Interface to data plane
  */
-lispd_generic_list_t *re_get_orlist(lisp_addr_t *dst_addr) {
-    lispd_jib_t             *jib        = NULL;
-    lispd_generic_list_t    *or_list    = NULL;
+glist_t *re_get_orlist(lisp_addr_t *dst_addr) {
+    lispd_remdb_t           *jib        = NULL;
+    glist_t    *or_list    = NULL;
 
     if (!lisp_addr_is_mc(dst_addr)) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_orlist: The requested address is not multicast %s", lisp_addr_to_char(dst_addr));
@@ -218,9 +220,9 @@ lispd_generic_list_t *re_get_orlist(lisp_addr_t *dst_addr) {
     }
 
     jib = re_get_jib(dst_addr);
-    or_list = jib_get_orlist(jib);
+    or_list = remdb_get_orlist(jib);
 
-    if (generic_list_size(or_list) == 0)
+    if (glist_size(or_list) == 0)
         return(NULL);
     else
         return(or_list);
@@ -262,9 +264,11 @@ int mrsignaling_recv_mrequest(
     lispd_mapping_elt               *registered_mapping;
     int                             ret;
 
+    /* TODO: in the future we should have only one function parameter, a map_request object!
+     * NOTE: offset is a pointer to map-request record, not to the begining of the message */
 
     cur_ptr = *offset;
-    record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
+    record = (lispd_pkt_mapping_record_t *)cur_ptr;
 
     mc_flags = lcaf_mcinfo_get_flags((uint8_t *)&((record)->eid_prefix_afi));
     cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
@@ -283,8 +287,8 @@ int mrsignaling_recv_mrequest(
         return(BAD);
     }
 
-    if (mc_flags->jbit == 1 && mc_flags->lbit == 1) {
-        lisd_log_msg(LISP_LOG_DEBUG_1, "mrsignaling_recv_mrequest_message: Both join and leave flags are set!");
+    if (mc_flags.jbit == 1 && mc_flags.lbit == 1) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "mrsignaling_recv_mrequest_message: Both join and leave flags are set!");
         return(BAD);
     }
 
@@ -295,13 +299,13 @@ int mrsignaling_recv_mrequest(
     }
 
     /* hardwired to re, should change when we support lisp-multicast */
-    if (mc_flags->jbit == 1)
+    if (mc_flags.jbit == 1)
         ret = re_recv_join_request(dst_eid, src_eid);
-    else if (mc_flags->lbit == 1)
+    else if (mc_flags.lbit == 1)
         ret = re_recv_leave_request(dst_eid, src_eid);
-    else if (mc_flags->rbit == 1) {
+    else if (mc_flags.rbit == 1) {
         ret = BAD;
-        lisd_log_msg(LISP_LOG_WARNING, "re_process_mrsignaling: PIM join received, not implemented!");
+        lispd_log_msg(LISP_LOG_WARNING, "re_process_mrsignaling: PIM join received, not implemented!");
     }
 
     if (ret == GOOD)
@@ -363,18 +367,18 @@ int mrsignaling_recv_mreply(uint8_t **offset, uint64_t nonce) {
         return(err);
     }
 
-    if (mc_flags->jbit == 1 && mc_flags->lbit == 1) {
-        lisd_log_msg(LISP_LOG_DEBUG_1, "re_process_mrsignaling: Both join and leave flags are set!");
+    if (mc_flags.jbit == 1 && mc_flags.lbit == 1) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "re_process_mrsignaling: Both join and leave flags are set!");
         return(BAD);
     }
 
     /* hardwired to re, should change when we support lisp-multicast */
-    if (mc_flags->jbit == 1)
-        re_recv_join_ack(eid);
-    else if (mc_flags->lbit == 1)
-        re_recv_leave_ack(eid);
-    else if (mc_flags->rbit == 1) {
-        lisd_log_msg(LISP_LOG_WARNING, "mrsignaling_recv_mreply_message: PIM join received, not implemented!");
+    if (mc_flags.jbit == 1)
+        re_recv_join_ack(eid, nonce);
+    else if (mc_flags.lbit == 1)
+        re_recv_leave_ack(eid, nonce);
+    else if (mc_flags.rbit == 1) {
+        lispd_log_msg(LISP_LOG_WARNING, "mrsignaling_recv_mreply_message: PIM join received, not implemented!");
         return(BAD);
     }
 
@@ -387,7 +391,7 @@ int mrsignaling_recv_mreply(uint8_t **offset, uint64_t nonce) {
 /* auxiliary stuff */
 inline int lisp_addr_is_mc(lisp_addr_t *addr) {
     assert(addr);
-    if (lisp_addr_get_afi(addr) == LM_AFI_LCAF && lcaf_addr_is_mc(lisp_addr_get_lcaf(addr)))
+    if (lisp_addr_is_lcaf(addr) && lcaf_addr_is_mc(lisp_addr_get_lcaf(addr)))
         return(1);
     else
         return(0);
@@ -395,18 +399,15 @@ inline int lisp_addr_is_mc(lisp_addr_t *addr) {
 
 lisp_addr_t *re_build_mceid(ip_addr_t *src, ip_addr_t *grp) {
     lisp_addr_t     *mceid;
-    mc_addr_t       *mc;
-    lcaf_addr_t     *lcaf;
+    uint8_t         mlen;
 
-    mceid = lisp_addr_new_afi(LM_AFI_LCAF);
-    lcaf = lisp_addr_get_lcaf(mceid);
+    mlen = (ip_addr_get_afi(src) == AF_INET) ? 32 : 128;
 
-    mc = mc_addr_init(src, grp,
-            (ip_addr_get_afi(src) == AF_INET) ? 32 : 128,
-            (ip_addr_get_afi(grp) == AF_INET) ? 32 : 128,
-            0);
-
-    lcaf_addr_set(lcaf, mc, LCAF_MCAST_INFO);
+    mceid = lisp_addr_init_lcaf(
+            lcaf_addr_init_mc(
+                    lisp_addr_init_ip(src),
+                    lisp_addr_init_ip(grp),
+                    mlen, mlen, 0));
     return(mceid);
 }
 

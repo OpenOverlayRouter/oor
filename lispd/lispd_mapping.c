@@ -179,6 +179,7 @@ int add_locator_to_mapping(
         lispd_locator_elt           *locator)
 {
     lcaf_addr_t *lcaf;
+    mc_t *mcaddr;
     int result = GOOD;
 
     switch (lisp_addr_get_afi(locator->locator_addr)){
@@ -205,16 +206,29 @@ int add_locator_to_mapping(
             switch (lcaf_addr_get_type(lcaf)) {
                 case LCAF_MCAST_INFO:
                     /* use G because S might be undefined */
-                    switch(mc_addr_get_grp_afi(lcaf_addr_get_mc(lcaf))) {
+                    mcaddr = lcaf_addr_get_mc(lcaf);
+                    if (lisp_addr_get_afi(mc_type_get_grp(mcaddr))!= LM_AFI_IP){
+                        lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: Unsupported mcast afi for address %s",
+                                lcaf_addr_to_char(lcaf));
+                        return(BAD);
+                    }
+                    switch(ip_addr_get_afi(lisp_addr_get_ip(mc_type_get_grp(mcaddr)))) {
                         case AF_INET:
                             err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
                             break;
                         case AF_INET6:
                             err = add_locator_to_list (&(mapping->head_v6_locators_list), locator);
                             break;
+                        default:
+                            lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: Unsupported mcast afi for address %s",
+                                    lcaf_addr_to_char(lcaf));
+                            err = BAD;
+                            break;
                     }
                     break;
                 default:
+                    lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: lcaf type %s not supported",
+                            lcaf_addr_get_type(lcaf));
                     break;
             }
             break;
@@ -440,7 +454,7 @@ void dump_mapping_entry(
         return;
     }
 
-    lispd_log_msg(log_level,"IDENTIFIER (EID): %s/%d (IID = %d)\n ", get_char_from_lisp_addr_t(mapping->eid_prefix),
+    lispd_log_msg(log_level,"IDENTIFIER (EID): %s/%d (IID = %d)\n ", lisp_addr_to_char(mapping_get_eid_addr(mapping)),
             mapping->eid_prefix_length, mapping->iid);
 
     lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
@@ -754,7 +768,7 @@ inline lisp_addr_t *mapping_get_eid_addr(lispd_mapping_elt *mapping) {
     return(&(mapping->eid_prefix));
 }
 
-lispd_jib_t *mapping_get_jib(lispd_mapping_elt *mapping) {
+lispd_remdb_t *mapping_get_jib(lispd_mapping_elt *mapping) {
     assert(mapping);
     return(((mcinfo_mapping_extended_info*)mapping->extended_info)->jib);
 }

@@ -34,6 +34,7 @@
 #include "lispd_mapping.h"
 #include "lispd_timers.h"
 #include "lispd_afi.h"
+#include "lispd_address.h"
 
 /****************************************  CONSTANTS **************************************/
 
@@ -87,5 +88,16 @@ lispd_map_cache_entry *new_map_cache_entry_no_db (lisp_addr_t eid_prefix, int ei
 void free_map_cache_entry(lispd_map_cache_entry *entry);
 
 void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level);
+
+/*
+ * lispd_map_cache_entry  set/get functions
+ */
+
+inline void                  mcache_entry_set_eid_addr(lispd_map_cache_entry *mapcache, lisp_addr_t *addr);
+inline void                  mcache_entry_set_eid_plen(lispd_map_cache_entry *mapcache, uint8_t plen);
+inline lispd_mapping_elt     *mcache_entry_get_mapping(lispd_map_cache_entry* mapcache);
+inline lisp_addr_t           *mcache_entry_get_eid_addr(lispd_map_cache_entry* mapcache);
+inline nonces_list           *mcache_entry_get_nonces_list(lispd_map_cache_entry *mce);
+inline uint8_t               mcache_entry_get_active(lispd_map_cache_entry *mce);
 
 #endif /* LISPD_MAP_CACHE_H_ */

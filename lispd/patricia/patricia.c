@@ -334,12 +334,11 @@ New_Patricia (int maxbits)
  */
 
 void
-Clear_Patricia (patricia_tree_t *patricia, void_fn_t func)
-{
-    assert (patricia);
+Clear_Patricia(patricia_tree_t *patricia, void_fn_t func) {
+    assert(patricia);
     if (patricia->head) {
 
-        patricia_node_t *Xstack[PATRICIA_MAXBITS+1];
+        patricia_node_t *Xstack[PATRICIA_MAXBITS + 1];
         patricia_node_t **Xsp = Xstack;
         patricia_node_t *Xrn = patricia->head;
 
@@ -347,16 +346,18 @@ Clear_Patricia (patricia_tree_t *patricia, void_fn_t func)
             patricia_node_t *l = Xrn->l;
             patricia_node_t *r = Xrn->r;
 
-    	    if (Xrn->prefix) {
-		Deref_Prefix (Xrn->prefix);
-		if (Xrn->data && func)
-	    	    func (Xrn->data);
-    	    }
-    	    else {
-		assert (Xrn->data == NULL);
-    	    }
-    	    Delete (Xrn);
-	    patricia->num_active_node--;
+            if (Xrn->prefix) {
+                Deref_Prefix(Xrn->prefix);
+                if (Xrn->data && func)
+                    func(Xrn->data);
+                /* XXX: clear multicast data */
+                if (Xrn->mc_data && func)
+                    Destroy_Patricia((patricia_tree_t *)Xrn->mc_data, func);
+            } else {
+                assert(Xrn->data == NULL);
+            }
+            Delete(Xrn);
+            patricia->num_active_node--;
 
             if (l) {
                 if (r) {
@@ -372,7 +373,7 @@ Clear_Patricia (patricia_tree_t *patricia, void_fn_t func)
             }
         }
     }
-    assert (patricia->num_active_node == 0);
+    assert(patricia->num_active_node == 0);
     /* Delete (patricia); */
 }
 

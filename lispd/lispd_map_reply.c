@@ -71,6 +71,7 @@
 #include "lispd_pkt_lib.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_sockets.h"
+#include "lispd_re.h"
 #include "defs.h"
 
 /********************************** Function declaration ********************************/
@@ -131,7 +132,7 @@ int process_map_reply(uint8_t *packet)
                 }
             }
             if (is_loggable(LISP_LOG_DEBUG_3)){
-                dump_map_cache_db(LISP_LOG_DEBUG_3);
+                map_cache_dump_db(LISP_LOG_DEBUG_3);
             }
         }else{
             if ((process_map_reply_probe_record(&packet,nonce))==BAD){
@@ -147,13 +148,9 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
 {
     lispd_pkt_mapping_record_t              *record                 = NULL;
     lispd_map_cache_entry                   *cache_entry            = NULL;
-    lisp_addr_t                             aux_eid_prefix;
     lisp_addr_t                             *eid                    = NULL;
-    int                                     aux_eid_prefix_length   = 0;
-    int                                     aux_iid                 = -1;
     int                                     ctr                     = 0;
     uint8_t                                 new_mapping             = FALSE;
-    mrsignaling_flags_t                     mc_flags;
 
     record = (lispd_pkt_mapping_record_t *)(*offset);
     *offset = (uint8_t *)&(record->eid_prefix_afi);
@@ -185,7 +182,7 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
          * If the eid prefix of the received map reply doesn't match the inactive map cache entry (x.x.x.x/32 or x:x:x:x:x:x:x:x/128),then
          * we remove the inactie entry from the database and store it again with the correct eix prefix (for instance /24).
          */
-        if (replace_map_cache_entry(eid, cache_entry) == BAD){
+        if (map_cache_replace_entry(eid, cache_entry) == BAD){
             lisp_addr_del(eid);
             return (BAD);
         }
@@ -201,7 +198,7 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
     else {
         /* Serch map cache entry exist*/
-        cache_entry = lookup_map_cache_exact(eid);
+        cache_entry = map_cache_lookup_exact(eid);
         if (cache_entry == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  No map cache entry found for %s",
                     lisp_addr_to_char(eid));
@@ -231,7 +228,7 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
             return (BAD);
         }
         lispd_log_msg(LISP_LOG_DEBUG_2,"  A map cache entry already exists for %s, replacing locators list of this entry",
-                lisp_addr_to_char(cache_entry->mapping->eid_prefix));
+                lisp_addr_to_char(mapping_get_eid_addr(mcache_entry_get_mapping(cache_entry))));
         free_locator_list(cache_entry->mapping->head_v4_locators_list);
         free_locator_list(cache_entry->mapping->head_v6_locators_list);
         cache_entry->mapping->head_v4_locators_list = NULL;
@@ -267,7 +264,7 @@ int process_map_reply_record(uint8_t **offset, uint64_t nonce)
     start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
                      (void *)cache_entry);
     lispd_log_msg(LISP_LOG_DEBUG_1,"The map cache entry %s will expire in %d minutes.",
-            lisp_addr_to_char(cache_entry->mapping->eid_prefix), cache_entry->ttl);
+            lisp_addr_to_char(mapping_get_eid_addr(mcache_entry_get_mapping(cache_entry))), cache_entry->ttl);
 
     /* RLOC probing timer */
     if (new_mapping == TRUE && rloc_probe_interval != 0){
@@ -293,9 +290,6 @@ int process_map_reply_probe_record(
     rmt_locator_extended_info               *rmt_locator_ext_inf    = NULL;
     lispd_locators_list                     *locators_list[2]       = {NULL,NULL};
     lisp_addr_t                             *eid                    = NULL;
-    lisp_addr_t                             aux_eid_prefix;
-    int                                     aux_eid_prefix_length   = 0;
-    int                                     aux_iid                 = -1;
     int                                     ctr                     = 0;
     int                                     locators_probed         = 0;
 
@@ -304,7 +298,7 @@ int process_map_reply_probe_record(
     *cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
 
     eid = lisp_addr_new();
-    if(!lisp_addr_read_from_pkt(&cur_ptr, eid)) {
+    if(!lisp_addr_read_from_pkt(cur_ptr, eid)) {
         lisp_addr_del(eid);
         return(err);
     }
@@ -312,7 +306,7 @@ int process_map_reply_probe_record(
     /* Check if negative probe map-reply */
     if (record->locator_count != 0){
         /* Serch map cache entry exist*/
-        cache_entry = lookup_map_cache_exact(eid);
+        cache_entry = map_cache_lookup_exact(eid);
         if (cache_entry == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_probe_record:  No map cache entry found for %s/%d",
                     lisp_addr_to_char(eid));
@@ -366,7 +360,7 @@ int process_map_reply_probe_record(
     /* If negative probe map-reply, then the probe was for proxy-etr */
     }else{
 
-        if(proxy_etrs != NULL && lisp_addr_cmp(eid,&(mapping_get_eid_addr(proxy_etrs->mapping))) == 0){
+        if(proxy_etrs != NULL && lisp_addr_cmp(eid,mapping_get_eid_addr(proxy_etrs->mapping)) == 0){
             cache_entry = proxy_etrs;
             locators_list[0] = proxy_etrs->mapping->head_v4_locators_list;
             locators_list[1] = proxy_etrs->mapping->head_v6_locators_list;
@@ -667,7 +661,7 @@ uint8_t *build_map_reply_pkt(lispd_mapping_elt *mapping,
 
     /* if multicast eid and the mrsignaling options are set, write them into the packet */
     if (lisp_addr_is_mc(mapping_get_eid_addr(mapping)) && (opts.mrsig.jbit || opts.mrsig.lbit) )
-        mrsignaling_set_flags_in_pkt(&(mapping_record->eid_prefix_afi), opts.mrsig);
+        mrsignaling_set_flags_in_pkt((uint8_t *)&(mapping_record->eid_prefix_afi), opts.mrsig);
 
     return(packet);
 }

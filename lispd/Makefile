@@ -48,8 +48,7 @@ OBJS		= lispd.o cmdline.o lispd_address.o lispd_config.o lispd_log.o	\
 		  lispd_smr.o lispd_tun.o lispd_input.o lispd_output.o lispd_sockets.o \
 		  lispd_locator.o lispd_map_cache.o lispd_routing_tables_lib.o \
 		  lispd_info_nat.o lispd_info_reply.o lispd_info_request.o \
-		  lispd_generic_list.o lispd_lcaf.o lispd_re.o lispd_re_jib.o\
-		  lisp_re_lib.o llist/list.o 
+		  lispd_generic_list.o lispd_lcaf.o lispd_ip.o lispd_re.o lispd_remdb.o
 EXE		= lispd
 PREFIX		= /usr/local/sbin
 

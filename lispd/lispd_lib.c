@@ -379,11 +379,12 @@ int lispd_get_iface_address(
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             if (strcmp(ifa->ifa_name, ifacename) == 0) {
                 ip_addr_set_v4(lisp_addr_get_ip(&ip), (void *)&(s4->sin_addr));
+                lisp_addr_set_afi(&ip, LM_AFI_IP);
 //                memcpy((void *) &(ip.address),
 //                       (void *)&(s4->sin_addr), sizeof(struct in_addr));
 //                ip.afi = AF_INET;
                 if (is_link_local_addr(ip) != TRUE){
-                    ip_addr_copy(lisp_addr_get_ip(addr), lisp_addr_get_ip(&ip));
+                    lisp_addr_copy(addr, &ip);
 //                    copy_lisp_addr(addr,&ip);
                 }else{
                     lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
@@ -414,7 +415,8 @@ int lispd_get_iface_address(
 //                       (void *)&(s6->sin6_addr),
 //                       sizeof(struct in6_addr));
 //                addr->afi = AF_INET6;
-                ip_addr_set_v6(lisp_addr_get_ip(&ip), (void *)&(s6->sin6_addr) );
+                ip_addr_set_v6(lisp_addr_get_ip(addr), (void *)&(s6->sin6_addr) );
+                lisp_addr_set_afi(addr, LM_AFI_IP);
                 lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
@@ -507,7 +509,7 @@ void dump_map_servers(int log_level)
     ms = map_servers;
 
     while (ms) {
-        sprintf(str, "| %39s |",get_char_from_lisp_addr_t(*ms->address));
+        sprintf(str, "| %39s |",lisp_addr_to_char(ms->address));
         if (ms->key_type == NO_KEY){
             sprintf(str + strlen(str),"          NONE           |");
         }else if (ms->key_type == HMAC_SHA_1_96){
@@ -638,26 +640,30 @@ int get_lisp_addr_from_char (
 {
     uint8_t result = BAD;
 
+    lisp_addr_set_afi(lisp_addr, LM_AFI_IP);
+
     lisp_addr->afi = get_afi(address);
     switch (lisp_addr->afi){
     case AF_INET:
-        if (inet_pton(AF_INET,address,&(lisp_addr->address.ip))==1){
+        if (inet_pton(AF_INET,address, ip_addr_get_addr(lisp_addr_get_ip(lisp_addr)))==1){
             result = GOOD;
         }
         break;
     case AF_INET6:
-        if (inet_pton(AF_INET6,address,&(lisp_addr->address.ipv6))==1){
+        if (inet_pton(AF_INET6,address, ip_addr_get_addr(lisp_addr_get_ip(lisp_addr)))==1){
             result = GOOD;
         }
         break;
     default:
+        lispd_log_msg(LISP_LOG_WARNING, "get_lisp_addr_from_char: unkown afi requested %d", lisp_addr->afi);
+        result = BAD;
         break;
     }
     if (result == BAD){
+        lispd_log_msg(LISP_LOG_WARNING, "get_lisp_addr_from_char: couldn't convert the address %s", address);
         lisp_addr->afi = AF_UNSPEC;
     }
 
-    lisp_addr_set_afi(lisp_addr, LM_AFI_IP);
     return (result);
 }
 
@@ -730,6 +736,11 @@ int get_lisp_addr_and_mask_from_char (
         if (*mask < 1 || *mask > 128)
             return (BAD);
     }
+
+    /* HACK to convert the ip addr into a prefix */
+    lisp_addr_set_afi(lisp_addr, LM_AFI_IPPREF);
+    ip_prefix_set_plen(lisp_addr_get_ippref(lisp_addr), *mask);
+
     return (GOOD);
 }
      

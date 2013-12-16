@@ -201,19 +201,17 @@ int build_and_send_info_request(
     }
 
     if (err == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s/%d and Nonce %s",
-                        get_char_from_lisp_addr_t(*(map_server->address)),
-                        get_char_from_lisp_addr_t(*src_addr),
-                        get_char_from_lisp_addr_t(*eid_prefix),
-                        eid_mask_length,
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s and Nonce %s",
+                        lisp_addr_to_char(map_server->address),
+                        lisp_addr_to_char(src_addr),
+                        lisp_addr_to_char(eid_prefix),
                         get_char_from_nonce(*nonce));
         result = GOOD;
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s from locator %s with EID %s/%d and Nonce %s",
-                        get_char_from_lisp_addr_t(*(map_server->address)),
-                        get_char_from_lisp_addr_t(*src_addr),
-                        get_char_from_lisp_addr_t(*eid_prefix),
-                        eid_mask_length,
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s from locator %s with EID %s and Nonce %s",
+                        lisp_addr_to_char(map_server->address),
+                        lisp_addr_to_char(src_addr),
+                        lisp_addr_to_char(eid_prefix),
                         get_char_from_nonce(*nonce));
         result = BAD;
     }

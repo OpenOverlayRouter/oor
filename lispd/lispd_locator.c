@@ -335,7 +335,7 @@ void dump_locator (
 {
     char locator_str [2000];
     if (is_loggable(log_level)){
-        sprintf(locator_str, "| %39s |", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+        sprintf(locator_str, "| %39s |", lisp_addr_to_char(locator->locator_addr));
         sprintf(locator_str + strlen(locator_str), "  %5s ", locator->state ? "Up" : "Down");
         sprintf(locator_str + strlen(locator_str), "|     %3d/%-3d     |", locator->priority, locator->weight);
         lispd_log_msg(log_level,"%s",locator_str);

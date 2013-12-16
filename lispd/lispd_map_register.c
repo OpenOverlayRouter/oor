@@ -296,13 +296,14 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
 
         if (src_addr == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couden't send Map Register to %s, no output interface with afi %d.",
-                    get_char_from_lisp_addr_t(*(ms->address)),
+                    lisp_addr_to_char(ms->address),
                     ms->address->afi);
             ms = ms->next;
             continue;
         }
 
 
+        lispd_log_msg(LISP_LOG_WARNING, "************ IN map register ***********");
         /*
          * Add UDP and IP header to the Map Register message
          */
@@ -485,8 +486,8 @@ int build_and_send_ecm_map_register(
 
     if (src_iface == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_ecm_map_register: Couden't send Encapsulated Map Register to %s, no output interface with afi %d.",
-                get_char_from_lisp_addr_t(*(map_server->address)),
-                map_server->address->afi);
+                lisp_addr_to_char(map_server->address),
+                ip_addr_get_afi(lisp_addr_get_ip(map_server->address)));
         return (BAD);
     }
 

@@ -329,6 +329,7 @@ int main(int argc, char **argv)
      * Generate receive sockets for control (4342) and data port (4341)
      */
 
+
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
@@ -338,6 +339,7 @@ int main(int argc, char **argv)
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
     }
+
 
     /*
      * Create net_link socket to receive notifications of changes of RLOC status.
@@ -367,11 +369,11 @@ int main(int argc, char **argv)
 
     init_smr(NULL,NULL);
 
+
     /*
      * RLOC Probing proxy ETRs
      */
     programming_petr_rloc_probing();
-
 
     event_loop();
 

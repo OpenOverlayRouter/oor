@@ -244,7 +244,7 @@ int add_rule(
     result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "add_rule: Add rule for source routing of src addr: %s",
-                get_char_from_lisp_addr_t(*src_addr));
+                lisp_addr_to_char(src_addr));
     }
 
     return (result);
@@ -391,6 +391,8 @@ inline int modify_route(
         addr_size = sizeof(struct in6_addr);
     }
 
+    addr_size = ip_addr_afi_to_size(afi);
+
 
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
@@ -414,12 +416,21 @@ inline int modify_route(
     /*
      * Add the destination
      */
+
+
+    lispd_log_msg(LISP_LOG_WARNING, "addr size is %d", addr_size);
     if (dest != NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "copying the destination with afi %d %s, and ip afi %d",
+                lisp_addr_get_afi(dest), lisp_addr_to_char(dest), ip_addr_get_afi(lisp_addr_get_ip(dest)));
+
         rta->rta_type = RTA_DST;
         rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address, addr_size);
+//        memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address, addr_size);
+        lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr), dest);
         rta_len += rta->rta_len;
     }
+    lispd_log_msg(LISP_LOG_WARNING, "DONE with copy .. ");
+
 
     /*
      * Add src address for the route
@@ -527,13 +538,17 @@ int add_route(
     int result = BAD;
     result = modify_route(RTM_NEWROUTE, afi,ifindex, dest, src, gw, prefix_len, metric, table);
     if (result == GOOD){
+        lispd_log_msg(LISP_LOG_WARNING, " ################### GOT TO ADD ROUTE ##############");
+
         lispd_log_msg(LISP_LOG_DEBUG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
-                (src != NULL) ? get_char_from_lisp_addr_t(*src) : "-",
-                (dest != NULL) ? get_char_from_lisp_addr_t(*dest) : "-",
+                (src != NULL) ? lisp_addr_to_char(src) : "-",
+                (dest != NULL) ? lisp_addr_to_char(dest) : "-",
                 prefix_len,
-                (gw != NULL) ? get_char_from_lisp_addr_t(*gw) : "-",
+                (gw != NULL) ? lisp_addr_to_char(gw) : "-",
                 table);
     }
+    lispd_log_msg(LISP_LOG_WARNING, " ################### FINISHED ADD ROUTE ##############");
+
 
     return (result);
 }

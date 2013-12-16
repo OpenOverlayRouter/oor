@@ -166,25 +166,24 @@ int bind_socket_src_address(
     memset ( ( char * ) &src_addr, 0, sizeof ( src_addr ) );
 
     switch(addr->afi){
+        case AF_INET:
+            memset ( ( char * ) &src_addr4, 0, sizeof ( src_addr4 ) );
+            src_addr4.sin_family = AF_INET;
+            src_addr4.sin_addr.s_addr = addr->address.ip.s_addr;
 
-    case AF_INET:
-        memset ( ( char * ) &src_addr4, 0, sizeof ( src_addr4 ) );
-        src_addr4.sin_family = AF_INET;
-        src_addr4.sin_addr.s_addr = addr->address.ip.s_addr;
+            src_addr = ( struct sockaddr * ) &src_addr4;
+            src_addr_len = sizeof ( struct sockaddr_in );
 
-        src_addr = ( struct sockaddr * ) &src_addr4;
-        src_addr_len = sizeof ( struct sockaddr_in );
+            break;
+        case AF_INET6:
+            memset ( ( char * ) &src_addr6, 0, sizeof ( src_addr6 ) );
+            src_addr6.sin6_family = AF_INET6;
+            memcpy(&(src_addr6.sin6_addr),&(addr->address.ipv6),sizeof(struct in6_addr));
 
-        break;
-    case AF_INET6:
-        memset ( ( char * ) &src_addr6, 0, sizeof ( src_addr6 ) );
-        src_addr6.sin6_family = AF_INET6;
-        memcpy(&(src_addr6.sin6_addr),&(addr->address.ipv6),sizeof(struct in6_addr));
+            src_addr = ( struct sockaddr * ) &src_addr6;
+            src_addr_len = sizeof ( struct sockaddr_in6 );
 
-        src_addr = ( struct sockaddr * ) &src_addr6;
-        src_addr_len = sizeof ( struct sockaddr_in6 );
-
-        break;
+            break;
     }
 
     if (bind(sock,src_addr,src_addr_len) != 0){

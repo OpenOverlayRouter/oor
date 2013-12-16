@@ -31,9 +31,9 @@
 #ifndef LISPD_LCAF_H_
 #define LISPD_LCAF_H_
 
-#include "lispd_address.h"
 #include "defs.h"
-
+#include "lispd_ip.h"
+#include "lispd_address.h"
 
 /*
  * LCAF types
@@ -56,15 +56,16 @@ typedef enum {
     LCAF_RLE,
     LCAF_DATA_MODEL,
     LCAF_KEY_VALUE
-} lcaf_type;
+} lcaf_t;
 
 #define MAX_LCAFS 16
 
-
+typedef struct _lisp_addr_t lisp_addr_t;
+typedef struct _lcaf_addr_t lcaf_addr_t;
 
 struct _lcaf_addr_t {
     void        *addr;
-    lcaf_type   type;
+    lcaf_t   type;
 };
 
 #define MAX_IID             16777215
@@ -241,21 +242,21 @@ typedef struct {
     uint32_t        iid;
     lisp_addr_t     *src;
     lisp_addr_t     *grp;
-} mc_addr_t;
+} mc_t;
 
 typedef struct {
     geo_coordinates latitude;
     geo_coordinates longitude;
     uint32_t    altitude;
     lisp_addr_t *addr;
-} geo_addr_t;
+} geo_t;
 
 
 typedef struct {
     uint32_t    iid;
     uint8_t     mlen;
     lisp_addr_t *iidaddr;
-} iid_addr_t;
+} iid_t;
 
 typedef struct {
     lcaf_addr_t   ip;
@@ -265,19 +266,20 @@ typedef struct {
 typedef struct {
     uint32_t        nb_levels;
     level_addr_t    **rlist;
-} rle_addr_t;
+} rle_t;
+
 
 lcaf_addr_t             *lcaf_addr_new();
-lcaf_addr_t             *lcaf_addr_new_afi(lcaf_addr_t *lcaf, uint8_t type);
+lcaf_addr_t             *lcaf_addr_new_type(uint8_t type);
 void                    lcaf_addr_del(lcaf_addr_t *lcaf);
 
-inline lcaf_type        lcaf_addr_get_type(lcaf_addr_t *lcaf);
+inline lcaf_t           lcaf_addr_get_type(lcaf_addr_t *lcaf);
 inline void             *lcaf_addr_get_addr(lcaf_addr_t *lcaf);
-inline mc_addr_t        *lcaf_addr_get_mc(lcaf_addr_t *lcaf);
-inline geo_addr_t       *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
-inline iid_addr_t       *lcaf_addr_get_iid(lcaf_addr_t *lcaf);
+inline mc_t             *lcaf_addr_get_mc(lcaf_addr_t *lcaf);
+inline geo_t       *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
+inline iid_t            *lcaf_addr_get_iid(lcaf_addr_t *lcaf);
 
-inline int              lcat_addr_is_mc(lcaf_addr_t *lcaf);
+inline int              lcaf_addr_is_mc(lcaf_addr_t *lcaf);
 
 inline void             lcaf_addr_set(lcaf_addr_t *lcaf, void *newaddr, uint8_t type);
 inline void             lcaf_addr_set_addr(lcaf_addr_t *lcaf, void *addr);
@@ -287,8 +289,8 @@ int                     lcaf_addr_read_from_pkt(void *offset, lcaf_addr_t *lcaf_
 inline char             *lcaf_addr_to_char(lcaf_addr_t *lcaf);
 
 inline uint32_t         lcaf_addr_get_size_in_pkt(lcaf_addr_t *lcaf);
-inline int              lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src);
-inline uint8_t          *lcaf_addr_copy_to_pkt(void *offset, lcaf_addr_t *lcaf);
+int                     lcaf_addr_copy(lcaf_addr_t **dst, lcaf_addr_t *src);
+inline uint8_t          *lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf);
 inline int              lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 inline uint8_t          lcaf_addr_cmp_iids(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 
@@ -297,118 +299,95 @@ inline mrsignaling_flags_t  lcaf_mcinfo_get_flags(uint8_t *cur_ptr);
 
 
 /*
- * mc_addr_t functions
+ * mc type  functions
  */
 
-inline mc_addr_t         *mc_addr_new();
-inline void              mc_addr_del(void *mcaddr);
-inline mc_addr_t         *mc_addr_init(ip_addr_t *src, ip_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
-inline void              mc_addr_set_src(mc_addr_t *mc, ip_addr_t *ip);
-inline void              mc_addr_set_grp(mc_addr_t *mc, ip_addr_t *ip);
+inline lisp_addr_t      *lcaf_mc_get_src(lcaf_addr_t *mc);
+inline lisp_addr_t      *lcaf_mc_get_grp(lcaf_addr_t *mc);
+inline uint32_t         lcaf_mc_get_iid(lcaf_addr_t *mc);
+inline uint8_t          lcaf_mc_get_src_plen(lcaf_addr_t *mc);
+inline uint8_t          lcaf_mc_get_grp_plen(lcaf_addr_t *mc);
 
-inline lisp_addr_t       *mc_addr_get_src(mc_addr_t *mc);
-inline lisp_addr_t       *mc_addr_get_grp(mc_addr_t *mc);
-inline uint32_t          *mc_addr_get_iid(mc_addr_t *mc);
-inline uint8_t           mc_addr_get_src_plen(mc_addr_t *mc);
-inline uint8_t           mc_addr_get_grp_plen(mc_addr_t *mc);
-inline uint16_t          mc_addr_get_src_afi(mc_addr_t *mc);
-inline uint16_t          mc_addr_get_grp_afi(mc_addr_t *mc);
+inline mc_t             *mc_type_new();
+inline void              mc_type_del(void *mc);
+inline mc_t             *mc_type_init(lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
+inline void              mc_type_set_src(void *mc, lisp_addr_t *src);
+inline void              mc_type_set_grp(mc_t *mc, lisp_addr_t *grp);
 
-char                    *mc_addr_to_char (void *mc);
-inline uint32_t         mc_addr_get_size_in_pkt(mc_addr_t *mc);
-inline uint8_t          *mc_addr_copy_to_pkt(void *offset, mc_addr_t *mc);
-inline void             mc_addr_copy(void *dst, void *src);
-inline void             mc_addr_set(mc_addr_t *dst, ip_addr_t *src, ip_addr_t *grp);
-int                     mc_addr_read_from_pkt(void *offset, void *mc);
+inline lisp_addr_t       *mc_type_get_src(mc_t *mc);
+inline lisp_addr_t       *mc_type_get_grp(mc_t *mc);
+inline uint32_t          mc_type_get_iid(void *mc);
+inline uint8_t           mc_type_get_src_plen(mc_t *mc);
+inline uint8_t           mc_type_get_grp_plen(mc_t *mc);
+
+
+char                    *mc_type_to_char (void *mc);
+inline uint32_t         mc_type_get_size_in_pkt(mc_t *mc);
+inline uint8_t          *mc_type_copy_to_pkt(uint8_t *offset, void *mc);
+inline void             mc_type_copy(void **dst, void *src);
+inline int              mc_type_cmp(void *mc1, void *mc2);
+inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
+int                     mc_type_read_from_pkt(void *offset, void *mc);
+lcaf_addr_t             *lcaf_addr_init_mc(lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 
 
 
 /*
- * iid_addr_t functions
+ * iid type functions
  */
 
-inline iid_addr_t        *iid_addr_new();
-inline void              iid_addr_del(void *addr);
-inline uint8_t           iid_addr_get_mlen(iid_addr_t *addr);
-inline inline uint32_t   iid_addr_get_iidaddr(iid_addr_t *addr);
+inline iid_t                *iid_type_new();
+inline void                 iid_type_del(void *iid);
+inline uint8_t              iid_type_get_mlen(iid_t *iid);
+inline uint32_t             lcaf_iid_get_iid(lcaf_addr_t *iid);
+inline uint32_t             iid_type_get_iid(iid_t *iid);
+inline lisp_addr_t          *iid_type_get_addr(void *iid);
 
-inline void              iid_addr_set_iid(iid_addr_t *addr, uint32_t iid);
-inline void              iid_addr_set_iidaddr(iid_addr_t *addr, lisp_addr_t *iidaddr);
-inline void              iid_addr_set_mlen(iid_addr_t *addr, uint8_t mlen);
-inline int               iid_addr_cmp(iid_addr_t *iid1, iid_addr_t *iid2);
-inline uint32_t          iid_addr_get_size_in_pkt(iid_addr_t *iid);
-inline uint8_t           *iid_addr_copy_to_pkt(void *offset, iid_addr_t *iid);
-int                      iid_addr_read_from_pkt(void *offset, void *iid);
-char                    *iid_addr_to_char(void *iid);
-void                     iid_addr_copy(void *dst, void *src);
+inline void                 iid_type_set_iid(iid_t *addr, uint32_t iid);
+inline void                 iid_type_set_addr(iid_t *addr, lisp_addr_t *iidaddr);
+inline void                 iid_type_set_mlen(iid_t *addr, uint8_t mlen);
+inline int                  iid_type_cmp(void *iid1, void *iid2);
+inline uint32_t             iid_type_get_size_in_pkt(iid_t *iid);
+inline uint8_t              *iid_type_copy_to_pkt(uint8_t *offset, void *iid);
+int                         iid_type_read_from_pkt(void *offset, void *iid);
+char                        *iid_type_to_char(void *iid);
+void                        iid_type_copy(void **dst, void *src);
 
 
 
 
 
 /*
- * geo_addr_t functions
+ * geo type functions
  */
-inline void              geo_addr_del(void *geo);
-inline void              geo_addr_set_lat(geo_addr_t *geo, uint8_t dir, uint16_t deg, uint8_t min, uint8_t sec);
-inline void              geo_addr_set_long(geo_addr_t *geo, uint8_t dir, uint16_t deg, uint8_t min, uint8_t sec);
-inline void              geo_addr_set_lat_from_coord(geo_addr_t *geo, geo_coordinates coord);
-inline void              geo_addr_set_long_from_coord(geo_addr_t *geo, geo_coordinates coord);
-inline void              geo_addr_set_altitude(geo_addr_t *geo, uint32_t altitude);
-inline geo_coordinates   geo_addr_get_lat(geo_addr_t *geo);
-inline geo_coordinates   geo_addr_get_long(geo_addr_t *geo);
-inline geo_coordinates   geo_addr_get_altitude(geo_addr_t *geo);
-int                      geo_addr_read_from_pkt(void *offset, void *geo);
+inline void             geo_type_del(void *geo);
+inline void             geo_type_set_addr(geo_t *geo, lisp_addr_t *addr);
+inline void             geo_type_set_lat(geo_t *geo, uint8_t dir, uint16_t deg, uint8_t min, uint8_t sec);
+inline void             geo_type_set_long(geo_t *geo, uint8_t dir, uint16_t deg, uint8_t min, uint8_t sec);
+inline void             geo_type_set_lat_from_coord(geo_t *geo, geo_coordinates *coord);
+inline void             geo_type_set_long_from_coord(geo_t *geo, geo_coordinates *coord);
+inline void             geo_type_set_altitude(geo_t *geo, uint32_t altitude);
 
-inline lisp_addr_t       *geo_addr_get_addr(geo_addr_t *geo);
-char                    *geo_addr_to_char(void *geo);
-void                    geo_addr_copy(void *dst, void *src);
+inline lisp_addr_t      *geo_type_get_addr(geo_t *geo);
+inline geo_coordinates  *geo_type_get_lat(geo_t *geo);
+inline geo_coordinates  *geo_type_get_long(geo_t *geo);
+inline uint32_t         geo_type_get_altitude(geo_t *geo);
+int                     geo_type_read_from_pkt(void *offset, void *geo);
 
+
+
+char                    *geo_type_to_char(void *geo);
+void                    geo_type_copy(void **dst, void *src);
+char                    *geo_coord_to_char(geo_coordinates *coord);
 
 /*
- * geo_addr_t functions
+ * rle type functions
  */
-inline rle_addr_t       *rle_addr_new();
-inline void             rle_addr_del(void *rleaddr);
-int                     rle_addr_read_from_pkt(void *offset, void *rle);
-char                    *rle_addr_to_char(void *rle);
-void                    rle_addr_copy(void *dst, void *src);
+inline rle_t            *rle_type_new();
+inline void             rle_type_del(void *rleaddr);
+int                     rle_type_read_from_pkt(void *offset, void *rle);
+char                    *rle_type_to_char(void *rle);
+void                    rle_type_copy(void **dst, void *src);
 
-
-typedef void    (*del_fct)(void *);
-typedef int     (*read_from_pkt_fct)(void *, void *);
-typedef char    *(*to_char_fct)(void *);
-typedef void    (*copy_fct)(void *, void *);
-
-del_fct del_fcts[MAX_LCAFS] = {
-        0, 0,
-        iid_addr_del,
-        0, 0, 0,
-        geo_addr_del, 0, 0,
-        mc_addr_del, 0, 0,
-        rle_addr_del, 0, 0, 0};
-
-read_from_pkt_fct read_from_pkt_fcts[MAX_LCAFS] = {
-        0, 0,
-        iid_addr_read_from_pkt, 0, 0, 0,
-        geo_addr_read_from_pkt, 0, 0,
-        mc_addr_read_from_pkt, 0, 0,
-        rle_addr_read_from_pkt, 0, 0, 0};
-
-to_char_fct to_char_fcts[MAX_LCAFS] = {
-        0, 0,
-        iid_addr_to_char, 0, 0, 0,
-        geo_addr_to_char, 0, 0,
-        mc_addr_to_char, 0, 0,
-        rle_addr_to_char, 0, 0, 0
-};
-
-copy_fct copy_fcts[MAX_LCAFS] = {
-        0, 0,
-        iid_addr_copy, 0, 0, 0,
-        geo_addr_copy, 0, 0,
-        mc_addr_copy, 0, 0,
-        rle_addr_copy, 0, 0, 0
-};
 
 #endif /* LISPD_LCAF_H_ */

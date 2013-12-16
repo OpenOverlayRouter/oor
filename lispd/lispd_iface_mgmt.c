@@ -551,35 +551,44 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
             }
             break;
         case RTA_GATEWAY:
-            gateway.afi = rtm->rtm_family;
-            switch (gateway.afi) {
-            case AF_INET:
-                memcpy(&(gateway.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
-                break;
-            case AF_INET6:
-                memcpy(&(gateway.address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
-                break;
-            default:
-                break;
-            }
+            lisp_addr_set_afi(&gateway, LM_AFI_IP);
+            ip_addr_init(lisp_addr_get_ip(&gateway), RTA_DATA(rt_attr),  rtm->rtm_family);
+//            gateway.afi = rtm->rtm_family;
+//            switch (gateway.afi) {
+//            case AF_INET:
+//                memcpy(&(gateway.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+//                break;
+//            case AF_INET6:
+//                memcpy(&(gateway.address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+//                break;
+//            default:
+//                break;
+//            }
+
             break;
         case RTA_DST:
-            memcpy(&(dst.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+//            memcpy(&(dst.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+            /* XXX: why the above? */
+
+
             /*
              * We check if the new route message contains a destination. If it is, then the gateway
              * address is not a default route. Discard it
              */
-            dst.afi = rtm->rtm_family;
-            switch (dst.afi) {
-            case AF_INET:
-                memcpy(&(dst.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
-                break;
-            case AF_INET6:
-                memcpy(&(dst.address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
-                break;
-            default:
-                break;
-            }
+            lisp_addr_set_afi(&dst, LM_AFI_IP);
+            ip_addr_init(lisp_addr_get_ip(&dst), RTA_DATA(rt_attr), rtm->rtm_family);
+
+//            dst.afi = rtm->rtm_family;
+//            switch (dst.afi) {
+//            case AF_INET:
+//                memcpy(&(dst.address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+//                break;
+//            case AF_INET6:
+//                memcpy(&(dst.address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+//                break;
+//            default:
+//                break;
+//            }
             break;
         default:
             break;
@@ -597,13 +606,13 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
         /* Check if the addres is a global address*/
         if (is_link_local_addr(gateway) == TRUE) {
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_nl_new_unicast_route: the extractet address from the netlink "
-                    "messages is a local link address: %s discarded", get_char_from_lisp_addr_t(gateway));
+                    "messages is a local link address: %s discarded", lisp_addr_to_char(&gateway));
             return;
         }
 
         /* Process the new gateway */
         lispd_log_msg(LISP_LOG_DEBUG_1,  "process_nl_new_unicast_route: Process new gateway associated to the interface %s:  %s",
-                iface_name, get_char_from_lisp_addr_t(gateway));
+                iface_name, lisp_addr_to_char(&gateway));
         process_new_gateway(gateway,iface);
     }
 }
@@ -611,7 +620,6 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
 void process_nl_new_multicast_route(struct rtmsg *rtm, int rt_length) {
 
     ip_addr_t   srcaddr, grpaddr;
-    lisp_addr_t *eid;
 
     /*
      * IPv4 multicast routes are part of the default table and have family 128, while
@@ -715,7 +723,7 @@ int process_nl_multicast_route_attributes (
     }
 
     lispd_log_msg(LISP_LOG_INFO, "New multicast route with source %s, group %s for interfaces %s",
-            get_char_from_lisp_addr_t(*rt_srcaddr), get_char_from_lisp_addr_t(*rt_groupaddr), ifnames);
+            ip_addr_to_char(rt_srcaddr), ip_addr_to_char(rt_groupaddr), ifnames);
 
     return GOOD;
 }
@@ -735,8 +743,8 @@ void process_nl_del_route (struct nlmsghdr *nlh) {
 
 void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length) {
 
-    lisp_addr_t              rt_groupaddr               = {.afi=AF_UNSPEC};
-    lisp_addr_t              rt_srcaddr                 = {.afi=AF_UNSPEC};
+    ip_addr_t  rt_groupaddr               = {.afi=AF_UNSPEC};
+    ip_addr_t  rt_srcaddr                 = {.afi=AF_UNSPEC};
 
     if ( !((rtm->rtm_table == RT_TABLE_DEFAULT && rtm->rtm_family == 128) ||
            (rtm->rtm_table == RT_TABLE_MAIN && rtm->rtm_family == 129) ) )
@@ -746,7 +754,7 @@ void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length) {
     if (process_nl_multicast_route_attributes(rtm, rt_length, &rt_srcaddr, &rt_groupaddr) == BAD)
         return;
 
-    multicast_leave_channel(rt_srcaddr, rt_groupaddr);
+    multicast_leave_channel(&rt_srcaddr, &rt_groupaddr);
 }
 
 

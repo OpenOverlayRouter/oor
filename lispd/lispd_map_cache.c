@@ -93,7 +93,7 @@ lispd_map_cache_entry *new_map_cache_entry (
     }
 
     /* Add entry to the data base */
-    if (add_map_cache_entry_to_db (map_cache_entry)==BAD){
+    if (map_cache_add_entry (map_cache_entry)==BAD){
         free(map_cache_entry);
         return (NULL);
     }
@@ -138,12 +138,11 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     time_t              uptime;
     int                 ctr = 0;
     char                str[400];
-    char                fmt[200];
+//    char                fmt[200];
     lispd_locators_list         *locator_iterator_array[2]  = {NULL,NULL};
     lispd_locators_list         *locator_iterator           = NULL;
     lispd_locator_elt           *locator                    = NULL;
     lispd_mapping_elt           *mapping                    = NULL;
-    lisp_addr_t                 *addr                       = NULL;
 
     if (is_loggable(log_level) == FALSE){
         return;
@@ -152,7 +151,7 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     mapping = mcache_entry_get_mapping(entry);
 
     sprintf(str,"IDENTIFIER (EID): %s (IID = %d), ",
-            lisp_addr_to_char(mapp_get_eid_addr(mapping)), mapping->iid );
+            lisp_addr_to_char(mapping_get_eid_addr(mapping)), mapping->iid );
     uptime = time(NULL);
     uptime = uptime - entry->timestamp;
     strftime(buf, 20, "%H:%M:%S", localtime(&uptime));
@@ -186,4 +185,33 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     }
 
 
+}
+
+
+/*
+ * lispd_map_cache_entry set/get functions
+ */
+
+inline void mcache_entry_set_eid_addr(lispd_map_cache_entry *mce, lisp_addr_t *addr) {
+    mapping_set_eid_addr(mcache_entry_get_mapping(mce), addr);
+}
+
+
+inline lispd_mapping_elt *mcache_entry_get_mapping(lispd_map_cache_entry* mce) {
+    assert(mce);
+    return(mce->mapping);
+}
+
+inline lisp_addr_t *mcache_entry_get_eid_addr(lispd_map_cache_entry *mce) {
+    return(mapping_get_eid_addr(mcache_entry_get_mapping(mce)));
+}
+
+inline nonces_list *mcache_entry_get_nonces_list(lispd_map_cache_entry *mce) {
+    assert(mce);
+    return(mce->nonces);
+}
+
+inline uint8_t  mcache_entry_get_active(lispd_map_cache_entry *mce) {
+    assert(mce);
+    return(mce->active);
 }

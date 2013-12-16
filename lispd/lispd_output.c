@@ -37,6 +37,7 @@
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 #include "lispd_info_nat.h" 
+#include "lispd_re.h"
 
 
 /*
@@ -767,15 +768,16 @@ int lisp_output_multicast (
         int             original_packet_length,
         lisp_addr_t     *dst_eid)
 {
-    lispd_mapping_elt       *mapping            = NULL;
-    lispd_map_cache_entry   *mcentry            = NULL;
-    lispd_generic_list_t    *or_list            = NULL;
-    lispd_locator_elt       *outer_src_locator  = NULL;
-    uint8_t                 *encap_packet       = NULL;
-    lisp_addr_t             *src_rloc           = NULL;
-    lisp_addr_t             *dst_rloc           = NULL;
-    lispd_locator_elt       *locator               = NULL;
-    lispd_generic_list_entry_t       *it                 = NULL;
+//    lispd_mapping_elt           *mapping            = NULL;
+//    lispd_map_cache_entry       *mcentry            = NULL;
+    glist_t        *or_list            = NULL;
+//    lispd_locator_elt           *outer_src_locator  = NULL;
+    uint8_t                     *encap_packet       = NULL;
+    lisp_addr_t                 *src_rloc           = NULL;
+    lisp_addr_t                 *dst_rloc           = NULL;
+    lispd_locator_elt           *locator            = NULL;
+    glist_entry_t  *it                 = NULL;
+    mc_t                   *mcaddr             = NULL;
 
     int                     encap_packet_size   = 0;
     int                     output_socket       = 0;
@@ -783,10 +785,11 @@ int lisp_output_multicast (
     /* get the output RLOC list */
     or_list = re_get_orlist(dst_eid);
 
-    generic_list_for_each_entry(it, or_list){
-        locator =  (lispd_locator_elt *)generic_list_entry_get_data(it);
-        src_rloc = lisp_addr_get_src(locator->locator_addr);
-        dst_rloc = lisp_addr_get_grp(locator->locator_addr);
+    glist_for_each_entry(it, or_list){
+        locator =  (lispd_locator_elt *)glist_entry_get_data(it);
+        mcaddr = lcaf_addr_get_mc(lisp_addr_get_lcaf(locator->locator_addr));
+        src_rloc = mc_type_get_src(mcaddr);
+        dst_rloc = mc_type_get_grp(mcaddr);
         encapsulate_packet(original_packet,
                 original_packet_length,
                 src_rloc,
@@ -805,7 +808,7 @@ int lisp_output_multicast (
         free (encap_packet);
     }
 
-    generic_list_destroy(or_list);
+    glist_destroy(or_list);
 
     return (GOOD);
 
@@ -836,7 +839,9 @@ int lisp_output_unicast (
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
 
     /* fcoras TODO: implement unicast FIB instead of using the map-cache? */
-    entry = lookup_map_cache(&(tuple->dst_addr));
+    entry = map_cache_lookup(&(tuple->dst_addr));
+
+    lispd_log_msg(LISP_LOG_WARNING," ************* GOT HERE ***************** "); exit(0);
 
     if (entry == NULL){ /* There is no entry in the map cache */
         lispd_log_msg(LISP_LOG_DEBUG_1, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(tuple->dst_addr));
@@ -918,22 +923,50 @@ int lisp_output_unicast (
     return (GOOD);
 }
 
+int tuple_get_dst_lisp_addr(packet_tuple tuple, lisp_addr_t *addr){
+
+    /* TODO this really needs optimization */
+
+    uint16_t    plen;
+    lcaf_addr_t *lcaf;
+
+    if (ip_addr_is_multicast(lisp_addr_get_ip(&(tuple.dst_addr)))) {
+        if (lisp_addr_get_afi(&tuple.src_addr) != LM_AFI_IP || lisp_addr_get_afi(&tuple.src_addr) != LM_AFI_IP) {
+           lispd_log_msg(LISP_LOG_DEBUG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not of IP syntax!",
+                   lisp_addr_to_char(&tuple.src_addr), lisp_addr_to_char(&tuple.dst_addr));
+           return(BAD);
+        }
+
+        plen = (tuple.dst_addr.afi == AF_INET) ? 32 : 128;
+        lcaf = lcaf_addr_init_mc(&tuple.src_addr, &tuple.dst_addr, plen, plen, 0);
+        lisp_addr_set_afi(addr, LM_AFI_LCAF);
+        lisp_addr_set_lcaf(addr, lcaf);
+
+    } else {
+        /* XXX this converts from old lisp_addr_t to new struct, potential source for errors*/
+//        addr->lafi = tuple->src_addr.lafi;
+        lisp_addr_set_afi(addr, LM_AFI_IP);
+        ip_addr_copy(lisp_addr_get_ip(addr), lisp_addr_get_ip(&(tuple.dst_addr)));
+    }
+
+    return(GOOD);
+}
+
 int lisp_output (
         uint8_t *original_packet,
         int     original_packet_length )
 {
-    packet_tuple        *tuple              = NULL;
-    uint8_t             lafi                = 0;
+    packet_tuple        tuple;
     lisp_addr_t         *dst_addr           = NULL;
-    lisp_addr_t         *outer_src_locator  = NULL;
+    lispd_locator_elt   *outer_src_locator  = NULL;
     lispd_mapping_elt   *src_mapping        = NULL;
 
     /* fcoras TODO: should use get_dst_lisp_addr instead of tuple */
-    if (extract_5_tuples_from_packet(tun_receive_buf, tuple) != GOOD)
+    if (extract_5_tuples_from_packet(original_packet, &tuple) != GOOD)
         return (BAD);
 
-    lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Orig src: %s | Orig dst: %s\n",
-            get_char_from_lisp_addr_t(tuple->src_addr),get_char_from_lisp_addr_t(tuple->dst_addr));
+    lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Orig src: %s | Orig dst: %s",
+            lisp_addr_to_char(&tuple.src_addr),lisp_addr_to_char(&tuple.dst_addr));
 
 
     /* If already LISP packet, do not encapsulate again */
@@ -942,37 +975,44 @@ int lisp_output (
         return (forward_native(original_packet,original_packet_length));
 
     /* If the packet doesn't have an EID source, forward it natively */
-    if (!(src_mapping = lookup_eid_in_db (&(tuple->src_addr))))
+    if (!(src_mapping = lookup_eid_in_db (&(tuple.src_addr))))
         return (forward_native(original_packet,original_packet_length));
 
     /* If we are behind a full nat system, send the message directly to the RTR */
     if (nat_aware && (nat_status == FULL_NAT)){
-        if (select_src_locators_from_balancing_locators_vec (src_mapping,*tuple,&outer_src_locator) != GOOD)
+        if (select_src_locators_from_balancing_locators_vec (src_mapping,tuple, &outer_src_locator) != GOOD)
             return (BAD);
         return (forward_to_natt_rtr(original_packet, original_packet_length, outer_src_locator));
     }
 
     /* convert tuple to lisp_addr_t, to be used for map-cache lookup
-     * NOTE: this is the general address type that includes multicast
+     * TODO: should be a tad more efficient
      */
 
-    if (tuple_get_dst_lisp_addr(tuple, &dst_addr) != GOOD) {
+    dst_addr = lisp_addr_new();
+    if (tuple_get_dst_lisp_addr(tuple, dst_addr) != GOOD) {
         lispd_log_msg(LISP_LOG_WARNING, "lisp_output: Unable to determine "
                 "destination address from tuple: src %s dst %s",
-                lisp_addr_to_char(tuple->src_addr), lisp_addr_to_char(tuple->dst_addr));
+                lisp_addr_to_char(&tuple.src_addr), lisp_addr_to_char(&tuple.dst_addr));
         return(BAD);
     }
+
 
     switch (lisp_addr_get_afi(dst_addr)) {
         case LM_AFI_IP:
         case LM_AFI_IP6:
-            lisp_output_unicast(original_packet, original_packet_length, tuple);
+            lisp_output_unicast(original_packet, original_packet_length, &tuple);
             break;
         case LM_AFI_LCAF:
-            if(lcaf_addr_get_type(lisp_adddr_get_lcaf(dst_addr)) == LCAF_MCAST_INFO)
+            if(lcaf_addr_get_type(lisp_addr_get_lcaf(dst_addr)) == LCAF_MCAST_INFO)
                 lisp_output_multicast(original_packet, original_packet_length, dst_addr);
             break;
+        default:
+            lispd_log_msg(LISP_LOG_WARNING, "lisp_output: Unable to forward anything but IP and mcast packets!");
+            break;
     }
+
+    lisp_addr_del(dst_addr);
 
     return(GOOD);
 

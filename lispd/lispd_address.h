@@ -29,67 +29,35 @@
 #ifndef LISPD_ADDRESS_H_
 #define LISPD_ADDRESS_H_
 
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip6.h>
-#include <netinet/ip.h>
-#include <stdint.h>
+#include "lispd_ip.h"
+#include "lispd_lcaf.h"
 
 /*
  * LISP AFI codes
  */
 
-#define LISP_AFI_NO_ADDR                0
-#define LISP_AFI_IP                     1
-#define LISP_AFI_IPV6                   2
-#define LISP_AFI_LCAF                   16387
-
-/*
- * Maximum length (in bytes) of an IP address
- */
-#define MAX_INET_ADDRSTRLEN INET6_ADDRSTRLEN
+typedef enum {
+    LISP_AFI_NO_ADDR,
+    LISP_AFI_IP,
+    LISP_AFI_IPV6,
+    LISP_AFI_LCAF = 16387
+} lisp_afi_t;
 
 /*
  * Lisp address structure
  */
 
-typedef int         ip_afi_t;
 typedef uint32_t    lisp_iid_t;
-
-/*
- * IP address type
- */
-typedef struct {
-    ip_afi_t      afi;
-    union {
-        struct in_addr      v4;
-        struct in6_addr     v6;
-    } addr;
-} ip_addr_t;
-
-typedef struct {
-    ip_addr_t   prefix;
-    uint8_t     plen;
-} ip_prefix_t;
 
 typedef enum {
     LM_AFI_NO_ADDR = 0,
     LM_AFI_IP,
     LM_AFI_IPPREF,
     LM_AFI_LCAF,
-    /* compatibility */
-//    l4, l5, l6, l7, l8, l9,
+    /* compatibiliy */
     LM_AFI_IP6 = AF_INET6
-}lm_afi_t;
-//#define LM_AFI_NO_ADDR      0
-//#define LM_AFI_IP           1
-//#define LM_AFI_IPPREF       2
-//#define LM_AFI_LCAF         3
-//
-///* for compatibility*/
-//#define LM_AFI_IP6          AF_INET6
+} lm_afi_t;
+
 
 /* TODO fcoras: The cool thing about the new lisp_addr_t
  * is that we can access in 2 ways the same data
@@ -152,6 +120,7 @@ typedef struct _lispd_map_server_list_t {
 } lispd_map_server_list_t;
 
 typedef struct packet_tuple_ {
+    /* TODO: would be nice for this to use ip_addr_t in the future */
     lisp_addr_t                     src_addr;
     lisp_addr_t                     dst_addr;
     uint16_t                        src_port;
@@ -171,9 +140,6 @@ inline void              lisp_addr_del(lisp_addr_t *laddr);
 inline lm_afi_t          lisp_addr_get_afi(lisp_addr_t *addr);
 inline ip_addr_t         *lisp_addr_get_ip(lisp_addr_t *addr);
 inline ip_prefix_t       *lisp_addr_get_ippref(lisp_addr_t *addr);
-inline ip_afi_t          lisp_addr_get_ip_afi(lisp_addr_t *addr);
-inline lisp_addr_t       *lisp_addr_get_mc_src(lisp_addr_t *addr);
-inline lisp_addr_t       *lisp_addr_get_mc_grp(lisp_addr_t *addr);
 inline lcaf_addr_t       *lisp_addr_get_lcaf(lisp_addr_t *addr);
 inline uint16_t           lisp_addr_get_iana_afi(lisp_addr_t *laddr);
 
@@ -184,54 +150,15 @@ char                     *lisp_addr_to_char(lisp_addr_t *addr);
 inline void              lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi);
 inline void              lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf);
 inline void              lisp_addr_set_ip(lisp_addr_t *addr, ip_addr_t *ip);
-inline void              lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
+void                     lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
+lisp_addr_t              *lisp_addr_clone(lisp_addr_t *src);
 inline uint32_t          lisp_addr_copy_to(void *dst, lisp_addr_t *src);
-inline uint8_t           *lisp_addr_copy_to_pkt(void *offset, lisp_addr_t *laddr);
-int                      lisp_addr_read_from_pkt(void **offset, lisp_addr_t *laddr);
+inline uint8_t           *lisp_addr_write_to_pkt(void *offset, lisp_addr_t *laddr);
+int                      lisp_addr_read_from_pkt(uint8_t **offset, lisp_addr_t *laddr);
 inline uint8_t           lisp_addr_cmp_iids(lisp_addr_t *addr1, lisp_addr_t *addr2);
 inline int               lisp_addr_is_lcaf(lisp_addr_t *laddr);
 inline int               lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2);
-
-/*
- * ip_addr_t functions
- */
-
-inline ip_addr_t         *ip_addr_new();
-inline void              ip_addr_del(ip_addr_t *ip);
-inline ip_afi_t          ip_addr_get_afi(ip_addr_t *ipaddr);
-inline uint8_t           *ip_addr_get_addr(ip_addr_t *ipaddr);
-inline struct in_addr    *ip_addr_get_v4(ip_addr_t *ipaddr);
-inline struct in6_addr   *ip_addr_get_v6(ip_addr_t *ipaddr);
-inline uint8_t           ip_addr_get_size(ip_addr_t *ipaddr);
-inline uint8_t           ip_addr_get_size_in_pkt(ip_addr_t *ipaddr);
-inline uint8_t           ip_addr_afi_to_size(uint16_t afi);
-inline uint16_t          ip_addr_get_iana_afi(ip_addr_t *ipaddr);
-inline int               ip_addr_set_afi(ip_addr_t *ipaddr, lm_afi_t afi);
-inline void              ip_addr_set_v4(ip_addr_t *ipaddr, void *src);
-inline void              ip_addr_set_v6(ip_addr_t *ipaddr, void *src);
-inline void              ip_addr_copy(ip_addr_t *dst, ip_addr_t *src);
-inline void              ip_addr_copy_to(void *dst, ip_addr_t *src);
-inline uint8_t           *ip_addr_copy_to_pkt(void *dst, ip_addr_t *src, uint8_t convert);
-inline int               ip_addr_read_from_pkt(void *offset, uint16_t afi, ip_addr_t *dst);
-inline int               ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2);
-inline uint16_t          ip_addr_afi_to_iana_afi(uint16_t afi);
-char                     *ip_addr_to_char (ip_addr_t *addr);
-
-
-
-/*
- * ip_prefix_t functions
- */
-inline uint8_t           ip_prefix_get_plen(ip_prefix_t *pref);
-inline ip_addr_t         *ip_prefix_get_addr(ip_prefix_t *pref);
-inline uint8_t           ip_prefix_get_afi(ip_prefix_t *pref);
-inline void              ip_prefix_set(ip_prefix_t *pref, ip_addr_t *ipaddr, uint8_t plen);
-inline void              ip_prefix_set_plen(ip_prefix_t *pref, uint8_t plen);
-inline void             ip_prefix_copy(ip_prefix_t *dst, ip_prefix_t *src);
-
-char                     *ip_prefix_to_char(ip_prefix_t *pref);
-
-
-
+inline lisp_addr_t       *lisp_addr_init_ip(ip_addr_t *ip);
+inline lisp_addr_t       *lisp_addr_init_lcaf(lcaf_addr_t *lcaf);
 
 #endif /* LISPD_ADDRESS_H_ */

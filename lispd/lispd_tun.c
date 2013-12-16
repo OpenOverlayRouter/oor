@@ -230,7 +230,9 @@ int tun_add_eid_to_iface(
     rta = (struct rtattr *)(sndbuf + sizeof(struct nlmsghdr) + sizeof(struct ifaddrmsg));
     rta->rta_type = IFA_LOCAL;
     rta->rta_len = sizeof(struct rtattr) + addr_size;
-    memcopy_lisp_addr((void *)((char *)rta + sizeof(struct rtattr)),&eid_address);
+//    memcopy_lisp_addr((void *)((char *)rta + sizeof(struct rtattr)),&eid_address);
+    lisp_addr_copy_to((void *)((char *)rta + sizeof(struct rtattr)),&eid_address);
+
 
     retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
 
@@ -240,7 +242,7 @@ int tun_add_eid_to_iface(
         return(BAD);
     }
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "added %s EID to TUN interface.",get_char_from_lisp_addr_t(eid_address));
+    lispd_log_msg(LISP_LOG_DEBUG_1, "added %s EID to TUN interface.",lisp_addr_to_char(&eid_address));
     close(sockfd);
     return(GOOD);
 }
@@ -279,7 +281,6 @@ int set_tun_default_route_v4()
             metric,
             RT_TABLE_MAIN);
 
-
     get_lisp_addr_from_char("128.0.0.0",&dest);
 
     add_route(AF_INET,
@@ -291,6 +292,8 @@ int set_tun_default_route_v4()
             metric,
             RT_TABLE_MAIN);
     return(GOOD);
+
+
 }
 
 

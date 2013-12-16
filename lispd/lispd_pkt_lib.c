@@ -145,7 +145,7 @@ int get_up_locators_length(
         if ( (size=lisp_addr_get_size_in_pkt(locators_list->locator->locator_addr))) {
             counter++;
             sum += size;
-        } else{
+        } else {
             lispd_log_msg(LISP_LOG_DEBUG_2, "get_up_locators_length: Uknown addr (%s) - It should never happen",
                lisp_addr_to_char(locators_list->locator->locator_addr));
         }
@@ -259,7 +259,7 @@ uint8_t *pkt_fill_mapping_record(
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = mapping->locator_count;
 //    rec->eid_prefix_length      = mapping->eid_prefix_length;
-    rec->eid_prefix_length      = (lisp_addr_get_afi(eid)==LM_AFI_IP) ? ip_prefix_get_plen(eid) : 0;
+    rec->eid_prefix_length      = (lisp_addr_get_afi(eid)==LM_AFI_IP) ? ip_prefix_get_plen(lisp_addr_get_ippref(eid)) : 0;
     rec->action                 = 0;
     rec->authoritative          = 1;
     rec->version_hi             = 0;
@@ -267,7 +267,7 @@ uint8_t *pkt_fill_mapping_record(
 
 
 //    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
-    cur_ptr = lisp_addr_copy_to_pkt(&(rec->eid_prefix_afi), eid);
+    cur_ptr = lisp_addr_write_to_pkt(&(rec->eid_prefix_afi), eid);
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
 
     if (loc_ptr == NULL){
@@ -296,7 +296,7 @@ uint8_t *pkt_fill_mapping_record(
 
             loc_ptr->reachable   = *(locator->state);
 //            loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
-            loc_ptr->locator_afi = htons(lisp_addr_get_iana_afi(locator->locator_addr,NULL));
+            loc_ptr->locator_afi = htons(lisp_addr_get_iana_afi(locator->locator_addr));
 
 
             lct_extended_info = (lcl_locator_extended_info *)(locator->extended_info);
@@ -327,6 +327,7 @@ int extract_5_tuples_from_packet (
         uint8_t         *packet ,
         packet_tuple    *tuple)
 {
+    /* TODO: would be nice for this to use ip_addr_t in the future */
     struct iphdr        *iph    = NULL;
     struct ip6_hdr      *ip6h   = NULL;
     struct udphdr       *udp    = NULL;
@@ -335,27 +336,34 @@ int extract_5_tuples_from_packet (
 
     iph = (struct iphdr *) packet;
 
+    lisp_addr_set_afi(&tuple->src_addr, LM_AFI_IP);
+    lisp_addr_set_afi(&tuple->dst_addr, LM_AFI_IP);
+
     switch (iph->version) {
-    case 4:
-        tuple->src_addr.afi = AF_INET;
-        tuple->dst_addr.afi = AF_INET;
-        tuple->src_addr.address.ip.s_addr = iph->saddr;
-        tuple->dst_addr.address.ip.s_addr = iph->daddr;
-        tuple->protocol = iph->protocol;
-        len = iph->ihl*4;
-        break;
-    case 6:
-        ip6h = (struct ip6_hdr *) packet;
-        tuple->src_addr.afi = AF_INET6;
-        tuple->dst_addr.afi = AF_INET6;
-        memcpy(&(tuple->src_addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
-        memcpy(&(tuple->dst_addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
-        tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-        len = sizeof(struct ip6_hdr);
-        break;
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_2,"extract_5_tuples_from_packet: No ip packet identified");
-        return (BAD);
+        case 4:
+            ip_addr_set_v4(lisp_addr_get_ip(&tuple->src_addr), &iph->saddr);
+            ip_addr_set_v4(lisp_addr_get_ip(&tuple->dst_addr), &iph->daddr);
+//            tuple->src_addr.afi = AF_INET;
+//            tuple->dst_addr.afi = AF_INET;
+//            tuple->src_addr.address.ip.s_addr = iph->saddr;
+//            tuple->dst_addr.address.ip.s_addr = iph->daddr;
+            tuple->protocol = iph->protocol;
+            len = iph->ihl*4;
+            break;
+        case 6:
+            ip6h = (struct ip6_hdr *) packet;
+            ip_addr_set_v6(lisp_addr_get_ip(&tuple->src_addr), &ip6h->ip6_src);
+            ip_addr_set_v6(lisp_addr_get_ip(&tuple->dst_addr), &ip6h->ip6_dst);
+//            tuple->src_addr.afi = AF_INET6;
+//            tuple->dst_addr.afi = AF_INET6;
+//            memcpy(&(tuple->src_addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
+//            memcpy(&(tuple->dst_addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
+            tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+            len = sizeof(struct ip6_hdr);
+            break;
+        default:
+            lispd_log_msg(LISP_LOG_DEBUG_2,"extract_5_tuples_from_packet: No ip packet identified");
+            return (BAD);
     }
 
     if (tuple->protocol == IPPROTO_UDP){

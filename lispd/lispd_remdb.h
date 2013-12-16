@@ -27,19 +27,30 @@
  */
 
 /*
- * This defines the LISP-RE downstream join information base (jib)
+ * This defines the LISP-RE member databases. Could be used to implement
+ * the joining information base (jib) both upstream and downstream
  */
 
-#ifndef LISPD_RE_JIB_H_
-#define LISPD_RE_JIB_H_
+#ifndef LISPD_REMDB_H_
+#define LISPD_REMDB_H_
 
 #include "lispd_generic_list.h"
+#include "lispd_locator.h"
 
-typedef lispd_generic_list_t        lispd_jib_t;
+/* simple member database backend for starters */
+typedef glist_t        lispd_remdb_t;
+
 typedef struct {
+    /* actual data */
+    lisp_addr_t         *addr;
     lispd_locators_list *locators;
-    timer timer;
-}lispd_jib_entry_t;
+
+    /* status fields */
+    timer               *rt_timer;
+    nonces_list         *nonces;
+    uint8_t             join_pending;
+    uint8_t             leave_pending;
+} lispd_remdb_member_t;
 
 typedef struct {
     lisp_addr_t     *locator;
@@ -49,11 +60,17 @@ typedef struct {
     int             leave_pending;
 } lispd_upstream_t;
 
-lispd_jib_t             *lispd_new_jib();
-lispd_generic_list_t    *jib_get_orlist(lispd_jib_t *jib);
-void                    jib_add_locator_list(lispd_locators_list *loc_list, lispd_jib_t *jib);
-void                    jib_del_locator_list(lispd_locators_list *loc_list, lispd_jib_t *jib);
-inline uint32_t         jib_size(lispd_jib_t *jib);
+lispd_remdb_t           *remdb_new();
+void                    remdb_add_member(lisp_addr_t *addr, lisp_addr_t *rloc_pair, lispd_remdb_t *jib);
+void                    remdb_del_member(lisp_addr_t *addr, lispd_remdb_t *jib);
+lispd_remdb_member_t    *remdb_find_member(lisp_addr_t *peer, lispd_remdb_t *jib);
+void                    remdb_update_member(lisp_addr_t *addr, lispd_locators_list *loc_list);
+inline uint32_t         remdb_size(lispd_remdb_t *jib);
+lispd_remdb_member_t    *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair);
+
+/* builds a forwarding database for mc */
+glist_t    *remdb_get_orlist(lispd_remdb_t *jib);
 
 
-#endif /* LISPD_RE_JIB_H_ */
+
+#endif /* LISPD_REMDB_H_ */

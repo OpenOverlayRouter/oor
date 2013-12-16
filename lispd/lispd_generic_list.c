@@ -27,7 +27,6 @@
  */
 
 #include "lispd_generic_list.h"
-#include "defs.h"
 
 
 /**
@@ -35,12 +34,12 @@
  * @cmp_fct: function to compare to data entries
  * @del_fct: function to deallocate a data entry
  */
-lispd_generic_list_t *generic_list_new(
+glist_t *glist_new(
         int (*cmp_fct)(void *, void *),
         void (*del_fct)(void *)) {
-    lispd_generic_list_t    *glist  = NULL;
+    glist_t    *glist  = NULL;
 
-    glist = calloc(1, sizeof(lispd_generic_list_t));
+    glist = calloc(1, sizeof(glist_t));
     glist->size = 0;
     glist->head = NULL;
 
@@ -61,26 +60,26 @@ lispd_generic_list_t *generic_list_new(
  * at the head head, the position where cmp_fct fails and
  * inserts the new element there.
  */
-int generic_list_add(void *data, lispd_generic_list_t *list) {
-    lispd_generic_list_entry_t    *new    = NULL;
-    lispd_generic_list_entry_t    *tmp    = NULL;
+int glist_add(void *data, glist_t *glist) {
+    glist_entry_t    *new    = NULL;
+    glist_entry_t    *tmp    = NULL;
 
-    if (!(new = calloc(1, sizeof(lispd_generic_list_t))))
+    if (!(new = calloc(1, sizeof(glist_t))))
         return(ERR_MALLOC);
 
     new->data = data;
 
-    if (!list->cmp_fct) {
-        list_add(new->list, list->head);
+    if (!glist->cmp_fct) {
+        list_add(&(new->list), &(glist->head->list));
     } else {
-        list_for_each_entry(tmp, list->head, list) {
+        list_for_each_entry(tmp, &(glist->head->list), list) {
             /* insert where cmp fails */
-            if(cmp_fct(data, tmp->data) <= 0)
+            if((*glist->cmp_fct)(data, tmp->data) <= 0)
                 break;
         }
-        list_add(new->list, tmp->list);
+        list_add(&(new->list), &(tmp->list));
     }
-    list->size++;
+    glist->size++;
 
     return(GOOD);
 }
@@ -93,10 +92,10 @@ int generic_list_add(void *data, lispd_generic_list_t *list) {
  * If del_fct is defined, entry->data will be freed using it,
  * otherwise free is used
  */
-void lispd_generic_list_del(lispd_generic_list_entry_t *entry, lispd_generic_list_t *list) {
-    list_del(entry->list);
+void glist_del(glist_entry_t *entry, glist_t *list) {
+    list_del(&(entry->list));
     if(list->del_fct)
-        list->del_fct(entry->data);
+        (*list->del_fct)(entry->data);
     else
         free(entry->data);
 
@@ -104,23 +103,23 @@ void lispd_generic_list_del(lispd_generic_list_entry_t *entry, lispd_generic_lis
     list->size--;
 }
 
-void generic_list_destroy(lispd_generic_list_t *lst) {
+void glist_destroy(glist_t *lst) {
     struct list_head *buf, *it;
-    lispd_generic_list_entry_t *tmp;
+    glist_entry_t *tmp;
 
-    list_for_each_safe(it, buf, lst->head) {
-        tmp = list_entry(it, lispd_generic_list_entry_t, list);
-        lispd_generic_list_del(tmp, lst);
+    list_for_each_safe(it, buf, &(lst->head->list)) {
+        tmp = list_entry(it, glist_entry_t, list);
+        glist_del(tmp, lst);
     }
 
     free(lst);
 }
 
-inline uint32_t generic_list_size(lispd_generic_list_t *list) {
+inline uint32_t glist_size(glist_t *list) {
     return(list->size);
 }
 
-void *generic_list_entry_get_data(lispd_generic_list_entry_t *entry) {
+void *glist_entry_get_data(glist_entry_t *entry) {
     assert(entry);
     return(entry->data);
 }

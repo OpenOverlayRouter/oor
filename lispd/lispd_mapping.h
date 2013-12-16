@@ -33,7 +33,7 @@
 
 #include "lispd_locator.h"
 #include "lispd_address.h"
-#include "lispd_re_jib.h"
+#include "lispd_remdb.h"
 
 
 
@@ -92,7 +92,7 @@ typedef struct rmt_mapping_extended_info_ {
  */
 
 typedef struct mcinfo_mapping_exteded_info_ {
-    lispd_jib_t         *jib;       /* joining information base - the joined downstreams */
+    lispd_remdb_t       *jib;       /* joining information base - the joined downstreams */
     lispd_upstream_t    *upstream;  /* the overlay parent */
 } mcinfo_mapping_extended_info;
 
@@ -185,7 +185,7 @@ inline void                 mapping_set_extended_info(lispd_mapping_elt *mapping
 inline void                 mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr);
 inline void                 mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen);
 inline lisp_addr_t          *mapping_get_eid_addr(lispd_mapping_elt *mapping);
-lispd_jib_t                 *mapping_get_jib(lispd_mapping_elt *mapping);
+lispd_remdb_t                 *mapping_get_jib(lispd_mapping_elt *mapping);
 //inline void                 mapping_set_iid(lispd_mapping_elt *mapping, uint16_t iid);
 //inline uint8_t              get_mapping_eid_plen(lispd_mapping_elt *mapping);
 //inline lisp_iid_t           get_mapping_iid(lispd_mapping_elt *mapping, lisp_iid_t iid);

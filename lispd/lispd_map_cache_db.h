@@ -52,14 +52,14 @@ patricia_tree_t* get_map_cache_db(lm_afi_t afi);
 /*
  *  Add a map cache entry to the database.
  */
-int add_map_cache_entry_to_db(lispd_map_cache_entry *entry);
+int map_cache_add_entry(lispd_map_cache_entry *entry);
 
 /*
  * del_map_cache_entry()
  *
  * Delete an EID mapping from the cache
  */
-void del_map_cache_entry_from_db(lisp_addr_t *laddr);
+void map_cache_del_entry(lisp_addr_t *laddr);
 
 
 /*
@@ -67,7 +67,7 @@ void del_map_cache_entry_from_db(lisp_addr_t *laddr);
  *
  * Find an exact match for a prefix/prefixlen if possible
  */
-lispd_map_cache_entry *lookup_map_cache_exact(lisp_addr_t *addr);
+lispd_map_cache_entry *map_cache_lookup_exact(lisp_addr_t *addr);
 
 
 /*
@@ -76,7 +76,7 @@ lispd_map_cache_entry *lookup_map_cache_exact(lisp_addr_t *addr);
  * Look up a given eid in the database, returning the
  * lispd_map_cache_entry of this EID if it exists or NULL.
  */
-lispd_map_cache_entry *lookup_map_cache(lisp_addr_t *addr);
+lispd_map_cache_entry *map_cache_lookup(lisp_addr_t *addr);
 
 
 /*
@@ -91,14 +91,15 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(uint16_t eid_afi, ui
  * This function is used when the map reply report a prefix that includes the requested prefix
  */
 
-int replace_map_cache_entry(
+int map_cache_replace_entry(
         lisp_addr_t                             *new_eid_prefix,
         lispd_map_cache_entry                   *cache_entry);
 
 void map_cache_entry_expiration(timer *t, void *arg);
 
 
-void dump_map_cache_db(int log_level);
+void map_cache_dump_db(int log_level);
 
+patricia_tree_t             *pt_get_from_afi(ip_afi_t afi);
 
 #endif /*LISPD_MAP_CACAHE_DB_H_*/

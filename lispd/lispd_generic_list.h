@@ -30,27 +30,33 @@
 #define LISPD_GENERIC_LIST_H_
 
 #include "llist/list.h"
+#include "defs.h"
 
 typedef struct {
     struct list_head    list;
     void                *data;
-} lispd_generic_list_entry_t;
+} glist_entry_t;
 
 typedef struct {
-    lispd_generic_list_entry_t       *head;
-    uint32_t                        size;
-    int                             (*cmp_fct)(void *, void *);
-    void                            (*del_fct)(void *);
-} lispd_generic_list_t;
+    glist_entry_t       *head;
+    uint32_t            size;
+    int                 (*cmp_fct)(void *, void *);
+    void                (*del_fct)(void *);
+} glist_t;
 
+/**
+ * generic_list_for_each_entry  - iterates over list in generic_list_t
+ * @ iter:  * of lispd_generic_list_t to use as loop counter
+ * @ lst:   * to the list over which to iterate
+ */
+#define glist_for_each_entry(iter, lst) \
+    list_for_each_entry(iter, &((lst)->head->list), list)
 
-#define generic_list_for_each_entry(iter, lst) list_for_each_entry(iter, &((lst)->head.list), list)
-
-lispd_generic_list_t    *generic_list_new( int (*cmp_fct)(void *, void *), void (*del_fct)(void *));
-int                     generic_list_add(void *data, lispd_generic_list_t *list);
-void                    generic_list_del(lispd_generic_list_entry_t *entry, lispd_generic_list_t *list);
-void                    generic_list_destroy(lispd_generic_list_t *lst);
-inline uint32_t         generic_list_size(lispd_generic_list_t *list);
-inline void             *generic_list_entry_get_data(lispd_generic_list_entry_t *entry);
+glist_t                 *glist_new(int (*cmp_fct)(void *, void *), void (*del_fct)(void *));
+int                     glist_add(void *data, glist_t *list);
+void                    glist_del(glist_entry_t *entry, glist_t *list);
+void                    glist_destroy(glist_t *lst);
+inline uint32_t         glist_size(glist_t *list);
+inline void             *glist_entry_get_data(glist_entry_t *entry);
 
 #endif /* LISPD_GENERIC_LIST_H_ */

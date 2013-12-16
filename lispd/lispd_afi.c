@@ -32,6 +32,8 @@
  */
 
 #include "lispd_afi.h"
+#include "lispd_lcaf.h"
+#include "lispd_lib.h"
 
 int pkt_process_eid_afi(
         uint8_t                 **offset,
@@ -239,14 +241,14 @@ int extract_mcast_info_lcaf_data(
         uint8_t             **offset,
         lispd_mapping_elt   *mapping){
 
-    lispd_lcaf_mcinfo_hdr_t         *mcinfohdr          = NULL;
+//    lispd_lcaf_mcinfo_hdr_t         *mcinfohdr          = NULL;
     mcinfo_mapping_extended_info    *extended_info      = NULL;
-    uint16_t                        safi                = 0;
+//    uint16_t                        safi                = 0;
     lisp_addr_t                     *eid_prefix         = NULL;
     uint8_t                         *cur_ptr            = NULL;
 
     cur_ptr = *offset;
-    mcinfohdr = (lispd_lcaf_mcinfo_hdr_t *)cur_ptr;
+//    mcinfohdr = (lispd_lcaf_mcinfo_hdr_t *)cur_ptr;
 
     if ((extended_info=(mcinfo_mapping_extended_info *)malloc(sizeof(mcinfo_mapping_extended_info)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"extract_mcast_info_lcaf_data: Couldn't allocate memory for mcinfo_mapping_extended_info: %s",
