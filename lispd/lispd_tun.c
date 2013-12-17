@@ -262,11 +262,11 @@ int set_tun_default_route_v4()
     
     get_lisp_addr_from_char("0.0.0.0",&gw);
 
-#ifdef ROUTER
-    if (default_out_iface_v4 != NULL){
-       src = default_out_iface_v4->ipv4_address;
+    if (router_mode == TRUE){
+        if (default_out_iface_v4 != NULL){
+            src = default_out_iface_v4->ipv4_address;
+        }
     }
-#endif
 
     get_lisp_addr_from_char("0.0.0.0",&dest);
 
@@ -312,11 +312,11 @@ int set_tun_default_route_v6()
 
     get_lisp_addr_from_char("::",&gw);
 
-#ifdef ROUTER
-    if (default_out_iface_v6 != NULL){
-        src = default_out_iface_v6->ipv6_address;
+    if (router_mode == TRUE){
+        if (default_out_iface_v6 != NULL){
+            src = default_out_iface_v6->ipv6_address;
+        }
     }
-#endif
 
     get_lisp_addr_from_char("::",&dest);
 
