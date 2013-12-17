@@ -85,6 +85,8 @@ extern int capget(cap_user_header_t header, const cap_user_data_t data);
 /*
  *      config paramaters
  */
+uint8_t                      router_mode;
+
 lispd_addr_list_t            *map_resolvers;
 int                          ddt_client;
 lispd_addr_list_t            *proxy_itrs;
@@ -156,21 +158,17 @@ int main(int argc, char **argv)
     pid_t  				pid           = 0;    /* child pid */
     pid_t  				sid           = 0;
 
-#ifdef ROUTER
+
 #ifdef OPENWRT
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for openWRT xTR\n", LISPD_VERSION);
-#else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for linux xTR\n", LISPD_VERSION);
-#endif
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for openWRT\n", LISPD_VERSION);
 #else
 #ifdef ANDROID
     open_log_file();
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for android mobile node\n", LISPD_VERSION);
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for Android\n", LISPD_VERSION);
 #else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for mobile node\n", LISPD_VERSION);
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for Linux\n", LISPD_VERSION);
 #endif
 #endif
-
 
     init_globales();
 
@@ -308,21 +306,21 @@ int main(int argc, char **argv)
      *                 ::/1      and 8000::/1
      */
 
-#ifdef ROUTER
-    tun_v4_addr = get_main_eid(AF_INET);
-    if (tun_v4_addr != NULL){
-        tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+    if (router_mode == TRUE){
+        tun_v4_addr = get_main_eid(AF_INET);
+        if (tun_v4_addr != NULL){
+            tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
+            get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+        }
+        tun_v6_addr = get_main_eid(AF_INET6);
+        if (tun_v6_addr != NULL){
+            tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
+            get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
+        }
+    }else{
+        tun_v4_addr = get_main_eid(AF_INET);
+        tun_v6_addr = get_main_eid(AF_INET6);
     }
-    tun_v6_addr = get_main_eid(AF_INET6);
-    if (tun_v6_addr != NULL){
-        tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
-    }
-#else
-    tun_v4_addr = get_main_eid(AF_INET);
-    tun_v6_addr = get_main_eid(AF_INET6);
-#endif
 
     tun_bring_up_iface(tun_dev_name);
     if (tun_v4_addr != NULL){
@@ -333,14 +331,14 @@ int main(int argc, char **argv)
         tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
         set_tun_default_route_v6();
     }
-#ifdef ROUTER
-    if (tun_v4_addr != NULL){
-        free(tun_v4_addr);
+    if (router_mode == TRUE){
+        if (tun_v4_addr != NULL){
+            free(tun_v4_addr);
+        }
+        if (tun_v6_addr != NULL){
+            free(tun_v6_addr);
+        }
     }
-    if (tun_v6_addr != NULL){
-        free(tun_v6_addr);
-    }
-#endif
     /*
      * Generate receive sockets for control (4342) and data port (4341)
      */
@@ -361,6 +359,11 @@ int main(int argc, char **argv)
     netlink_fd = opent_netlink_socket();
 
     lispd_log_msg(LISP_LOG_INFO,"LISPmob (%s): 'lispd' started...", LISPD_VERSION);
+    if (router_mode == TRUE){
+        lispd_log_msg(LISP_LOG_INFO,"Running as an xTR router");
+    }else{
+        lispd_log_msg(LISP_LOG_INFO,"Running as a LISP mobile node");
+    }
 
     /*
      * Request to dump the routing tables to obtain the gatways when processing the netlink messages

@@ -503,20 +503,20 @@ void set_default_output_ifaces()
     default_out_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_out_iface_v4 != NULL) {
-       lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
-#ifdef ROUTER
-       set_tun_default_route_v4();
-#endif
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+        if (router_mode == TRUE){
+            set_tun_default_route_v4();
+        }
     }
-    
+
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_out_iface_v6 != NULL) {
-       lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
-#ifdef ROUTER
-       // For IPv6, the route is not updated and should be removed before adding the new one
-       del_tun_default_route_v6();
-       set_tun_default_route_v6();
-#endif
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
+        if (router_mode == TRUE){
+            // For IPv6, the route is not updated and should be removed before adding the new one
+            del_tun_default_route_v6();
+            set_tun_default_route_v6();
+        }
     }
 
     if (!default_out_iface_v4 && !default_out_iface_v6){

@@ -39,7 +39,7 @@
 #include "lispd_nonce.h"
 
 
-
+extern  uint8_t                 router_mode;
 extern  lispd_addr_list_t       *map_resolvers;
 extern  int                     ddt_client;
 extern  lispd_addr_list_t       *proxy_itrs;

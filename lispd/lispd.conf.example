@@ -9,6 +9,8 @@
 
 # General configuration
 #
+#   router-mode: on  -> LISP routing capabilities enabled: xTR
+#                off -> LISP mobile node
 #   debug: Specify the amount of debugging information lispd will print. On
 #     production systems, with a stable configuration this should be set to
 #     0. When experimenting, debugging issues, or preparing useful bug
@@ -18,6 +20,7 @@
 #   map-request-retries: The number of additional Map-Requests to send if the
 #     first one times out. The non-configurable timeout value is 2 seconds.
 
+router-mode            = off
 debug                  = 0 
 map-request-retries    = 2
 
@@ -81,11 +84,35 @@ ddt-client  = on
 #   priority [0..255]: DDT root nodes with lower values are more preferable.
 #   weight [0..255]: Not yet implemented
 
+#ddt-root-node {
+#        address     = <IPv4 or IPv6 address>
+#        priority    = 1
+#        weight      = 100
+#}
+
+# Some LISP beta-network (lisp4.net/lisp6.net) DDT root nodes
+
 ddt-root-node {
-        address     = <IPv4 or IPv6 address>
+        address     = 193.0.0.170
         priority    = 1
         weight      = 100
 }
+
+ddt-root-node {
+        address     = 2001:610:240:5:193::170
+        priority    = 1
+        weight      = 100
+}
+
+# Current LISP beta-network (lisp4.net/lisp6.net) DDT root nodes:
+# IPv4: 
+#      - arin-ddt.rloc.lisp4.net: 192.149.252.136
+#      - ripe-ddt.rloc.lisp4.net: 193.0.0.170
+#      - vxnet-ddt.rloc.lisp4.net: 199.119.73.8
+# IPv6:
+#      - arin-ddt.rloc.lisp6.net: 2001:500:4:12::5
+#      - ripe-ddt.rloc.lisp6.net: 2001:610:240:5:193::170
+
 
 # Map-Server configuration.
 # Map-Registers are sent to this Map-Server. You can define several

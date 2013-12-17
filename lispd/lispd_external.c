@@ -32,6 +32,7 @@
 
 void init_globales()
 {
+    router_mode                         = FALSE;
 	map_resolvers						= NULL;
 	ddt_client                          = FALSE;
 	proxy_itrs							= NULL;
