@@ -620,24 +620,29 @@ int process_encapsulated_map_request_headers(
         if (ipsum != 0) {
             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
         }
-        if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-            return(BAD);
-        }
-        if (udpsum != 0) {
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
-            return(BAD);
+        /* We accept checksum 0 in the inner header*/
+        if (udph->check != 0){
+            if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+                return(BAD);
+            }
+            if (udpsum != 0) {
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
+                return(BAD);
+            }
         }
     }
 
     //Pranathi: Added this
     if (iph->ip_v == IP6VERSION) {
-
-        if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-            return(BAD);
-        }
-        if (udpsum != 0) {
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
-            return(BAD);
+        /* We accept checksum 0 in the inner header*/
+        if (udph->check != 0){
+            if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+                return(BAD);
+            }
+            if (udpsum != 0) {
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
+                return(BAD);
+            }
         }
     }
 
