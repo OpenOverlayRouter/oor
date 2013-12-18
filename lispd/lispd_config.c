@@ -1268,24 +1268,22 @@ int add_ddt_root_entry(
     while (list != NULL){
         ddt_locator_address = list->address;
 
-        if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET){
-            get_lisp_addr_from_char ("0.0.0.0", &root_eid_prefix);
-            if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
-                lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv4 database)",
-                        address);
-                free(ddt_locator_address);
-                result = BAD;
-            }
+        get_lisp_addr_from_char ("0.0.0.0", &root_eid_prefix);
+        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
+            lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv4 database)",
+                    address);
+            free(ddt_locator_address);
+            result = BAD;
         }
-        if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET6){
-            get_lisp_addr_from_char ("0::0", &root_eid_prefix);
-            if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
-                lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv6 database)",
-                        address);
-                free(ddt_locator_address);
-                result = BAD;
-            }
+
+        get_lisp_addr_from_char ("0::0", &root_eid_prefix);
+        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
+            lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv6 database)",
+                    address);
+            free(ddt_locator_address);
+            result = BAD;
         }
+
         list = list->next;
     }
 

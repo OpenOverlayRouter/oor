@@ -9,6 +9,7 @@ package 'lispd'
 #	debug: Debug levels [0..3]
 #	map_request_retries: Additional Map-Requests to send per map cache miss
 #	rloc_probing_interval: Period in seconds between RLOC probes. A value of 0 will dissable RLOC probing 
+
 config 'daemon'
         option  'router_mode'           'on'                  #In doubt, keep the default value
         option  'debug'                 '0' 
@@ -38,7 +39,6 @@ config 'nat-traversal'
         option  'xTR_ID'    '00000000000000000000000000000001'  #In doubt, keep the default value
         
         
-
 # Encapsulated Map-Requests are sent to this map-resolver
 # You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
 #	address: IPv4 or IPv6 address of the map resolver     

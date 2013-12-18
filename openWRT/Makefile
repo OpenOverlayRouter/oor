@@ -8,9 +8,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lispmob
-PKG_REV:=8ebe5ee4b39bd9ca47b1d4d005a292c031c05bd8
+PKG_REV:=be297fa5b7f2274a2952987d55c513753fcc5e19
 PKG_VERSION:=0.3
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=git://github.com/LISPmob/lispmob.git

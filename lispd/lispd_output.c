@@ -588,6 +588,11 @@ int handle_map_cache_miss_with_ddt(
     }
 
     referral_cache = lookup_referral_cache(*requested_eid, DDT_ALL_DATABASES);
+    if (referral_cache == NULL){
+        lispd_log_msg(LISP_LOG_ERR,"handle_map_cache_miss_with_ddt: No DDT root found");
+        return (BAD);
+    }
+
     lispd_log_msg(LISP_LOG_DEBUG_1,"handle_map_cache_miss_with_ddt: Start DDT process to resolve %s. Process started from prefix %s/%d",
             get_char_from_lisp_addr_t(*requested_eid),get_char_from_lisp_addr_t(referral_cache->mapping->eid_prefix),
             referral_cache->mapping->eid_prefix_length);
