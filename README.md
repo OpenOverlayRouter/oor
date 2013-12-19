@@ -260,11 +260,11 @@ lity, it is recommended you first read the NAT traversal section.
 To install LISPmob on your device, you require root access and Android version 
 2.3.6 or higher. You can download a precompiled APK package file from the LISPmob 
 website or compile it yourself following the instructions of the README.android.md 
-file. You can also obtain the oficial package of LISPmob in Google Play.
+file. You can also obtain the official package of LISPmob in Google Play.
 
-LISPmob Android application allows you to start and stop lispd daemon and edit the 
+The LISPmob Android application allows you to start and stop the lispd daemon and edit the
 most important parameters of the configuration file. To access to the full list of 
-features you have to edit manually the configuration file located in /sdcard/lispd.conf. 
+features you have to manually edit the configuration file located in /sdcard/lispd.conf.
 Manually edited parameters not present in the configuration form will be overwritten 
 when using the application configuration editor. 
 
