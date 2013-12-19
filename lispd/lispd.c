@@ -581,7 +581,6 @@ void exit_cleanup(void) {
 #ifdef ANDROID
     close_log_file();
 #endif
-
     exit(EXIT_SUCCESS);
 }
 

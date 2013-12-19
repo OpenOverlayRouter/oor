@@ -23,12 +23,8 @@ ifeq "$(platform)" ""
 CFLAGS		+= -Wall -g 
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 else
-ifeq "$(platform)" "router"
-CFLAGS		+= -Wall -g -DROUTER
-LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
-else
 ifeq "$(platform)" "openwrt"
-CFLAGS		+= -Wall -g -DROUTER -DOPENWRT
+CFLAGS		+= -Wall -g -DOPENWRT
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
 else
 ERROR		= true

@@ -64,7 +64,7 @@
 #include "lispd_log.h"
 
 
-#define LISPD_VERSION					"v0.3.4"
+#define LISPD_VERSION					"v0.4"
 
 
 /*

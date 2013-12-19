@@ -1,7 +1,7 @@
 Android
 --------
 
-Since version 0.3.4, LISPmob integrates support for Android devices as LISP
+Since version 0.4, LISPmob integrates support for Android devices as LISP
 mobile nodes. Functionalities are limited to one IPv4 and one IPv6 EID mapped
 to RLOCs of one interface (no multihoming support). If you require NAT
 functionality, it is recommended you first read the NAT traversal section of

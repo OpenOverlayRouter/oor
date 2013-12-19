@@ -290,9 +290,10 @@ public class LISPmob extends Activity implements OnClickListener {
 		alert.show();
 	}
 
-	static public String killLispd() {
-		String command = "killall liblispd.so";
-		return(shell.run(command));
+	static public void killLispd() {
+		String command = "killall -s 15 liblispd.so";
+		shell.run_no_output(command);
+		return;
 	}
 
 	static public String startLispd() {

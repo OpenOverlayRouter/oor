@@ -46,8 +46,7 @@ LOCAL_SRC_FILES = \
 		  	lispd_tun.c \
 		  	lispd.c \
 		  	patricia/patricia.c
-		  	
-		  	
+
 LOCAL_C_FLAGS += -g -DANDROID
 LOCAL_C_INCLUDES := android-external-openssl/include/
 LOCAL_STATIC_LIBRARIES := libconfuse libopenssl-static
