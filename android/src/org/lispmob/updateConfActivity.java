@@ -70,8 +70,8 @@ public class updateConfActivity extends Activity {
 	public static String MSKey = "password";
 	public static String proxyETR = "";
 	public static String iface_name = "wlan0";
-	public static String DNS1 = "";
-	public static String DNS2 = "";
+	public static String DNS1 = "208.67.222.222";
+	public static String DNS2 = "208.67.220.220";
 	public static String nat_site_id = "0000000000000000";
 	public static String nat_xtr_id  = "00000000000000000000000000000001";
 	public static boolean overrideDNS = false; 
@@ -128,9 +128,10 @@ public class updateConfActivity extends Activity {
 		
 		try {
 			
-			BufferedReader  br = new BufferedReader(new FileReader(file));
-			String line 	= br.readLine();
-			String sub_line	= null;
+			BufferedReader  br 	= new BufferedReader(new FileReader(file));
+			String line 		= br.readLine();
+			String sub_line		= null;
+			String aux_sub_line = null;
 			
 			while ( line != null ) {
 				if (line.startsWith("#")){
@@ -252,8 +253,10 @@ public class updateConfActivity extends Activity {
 							sub_line = br.readLine();
 							continue;
 						}
-						sub_line = sub_line.toLowerCase();
 						sub_line = sub_line.replaceAll("\\s", "");
+						// Avoid pass to lower case the password of the Map Server
+						aux_sub_line = sub_line;
+						sub_line = sub_line.toLowerCase();
 
 						if (sub_line.contains("address")) {
 							String[] tmp = sub_line.split("=");
@@ -261,7 +264,7 @@ public class updateConfActivity extends Activity {
 								MS = tmp[1];
 							}
 						} else if (sub_line.contains("key")) {
-							String[] tmp = sub_line.split("=");
+							String[] tmp = aux_sub_line.split("=");
 							if (tmp.length>1){
 								MSKey = tmp[1];
 							}
@@ -344,7 +347,7 @@ public class updateConfActivity extends Activity {
 			
 		}
 		catch (IOException e) {
-			;
+			e.printStackTrace();
 		}
 		
 	}
@@ -630,16 +633,16 @@ public class updateConfActivity extends Activity {
 			error = error.concat("  - EID-IPv4\n");
 		}
 		
-		if (!eidv6.equals("") &&!validate_IP_Address(eidv6)){
+		if (!eidv6.equals("") && !validate_IP_Address(eidv6)){
 			error = error.concat("  - EID-IPv6\n");
 		}
-		if (!validate_IP_Address(mapResolver)){
+		if (mapResolver.equals("") || !validate_Address(mapResolver)){
 			error = error.concat("  - Map-Resolver\n");
 		}
-		if (!validate_IP_Address(mapServer)){
+		if (mapServer.equals("") || !validate_Address(mapServer)){
 			error = error.concat("  - Map-Server\n");
 		}
-		if (pETR.equals("") && !validate_IP_Address(pETR)){
+		if (pETR.equals("") || !validate_Address(pETR)){
 			error = error.concat("  - Proxy ETR\n");
 		}
 		if (overrideDNS_bool && ( DNS_1.equals("") || !validate_IP_Address(DNS_1))){
@@ -682,6 +685,50 @@ public class updateConfActivity extends Activity {
 		return (true);
 	}
 	
+	
+	boolean isfqdn(String addr)
+	{
+	    int		    dot = 0;
+        char	    c;
+        int 		i = 0;
+	    
+	    if (addr == null || addr.equals("")){
+	    	return (false);
+	    }
+	    
+
+	    if ((Character.isLetterOrDigit(addr.charAt(0)) == false) || (addr.contains(":")!=false)){
+	        return(false);
+	    }
+	    for (i = 1 ; i < addr.length(); i++){
+	    	c = addr.charAt(i);
+	    	if (c == ','){
+	    		break;
+	    	}
+	    	if (c == '.') {
+	            dot = 1;
+	            if (addr.charAt(i-1) == '.'){
+	                return(false);
+	            }
+	        }
+	    	if (((Character.isLetterOrDigit(c)== true) || c == '-' || c == '.') == false){
+	    		return(false);
+	    	}
+	    	
+	    }
+
+	    c = addr.charAt(addr.length()-1);
+	    if (c == '.' || (Character.isLetter(c)== false)){
+	        return(false);
+	    }
+	    if (dot == 1){
+	        return (true);
+	    }else{
+	        return (false);
+	    }
+	}
+	
+	
 	private boolean validate_IP_Address(String ip)
 	{
 		String ipv4Pattern = "(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])";
@@ -712,6 +759,16 @@ public class updateConfActivity extends Activity {
 	    return m3.matches();
 	}
 
+	private boolean validate_Address (String address)
+	{
+		if (isfqdn(address) == true){
+			return (true);
+		}
+		if (validate_IP_Address(address) == true){
+			return (true);
+		}
+		return (false);
+	}
 	
 	public void updateConfFile() 
 	{
