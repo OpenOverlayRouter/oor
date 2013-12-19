@@ -70,8 +70,8 @@ public class updateConfActivity extends Activity {
 	public static String MSKey = "password";
 	public static String proxyETR = "";
 	public static String iface_name = "wlan0";
-	public static String DNS1 = "208.67.222.222";
-	public static String DNS2 = "208.67.220.220";
+	public static String DNS1 = "";
+	public static String DNS2 = "";
 	public static String nat_site_id = "0000000000000000";
 	public static String nat_xtr_id  = "00000000000000000000000000000001";
 	public static boolean overrideDNS = false; 
@@ -519,7 +519,13 @@ public class updateConfActivity extends Activity {
 						.concat("}\n\n\n");
 			}
 			defText= defText.concat("override-dns     		 = "+dns+"\n");
+			if (DNS1 == null || DNS1.equals("")){
+				defText= defText.concat("# ");
+			}
 			defText= defText.concat("override-dns-primary    = "+DNS1+"\n");
+			if (DNS2 == null || DNS2.equals("")){
+				defText= defText.concat("# ");
+			}
 			defText= defText.concat("override-dns-secondary  = "+DNS2+"\n");
 
 			FileWriter fstream = new FileWriter("/sdcard/"+confFile);
