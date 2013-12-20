@@ -144,13 +144,8 @@ reboot your system after adding these lines.
     net.ipv4.ip_forward=1
     net.ipv6.conf.all.forwarding=1   
 
-The user space daemon requires to be started by a user with the following
-capabilities (in doubt just use root user):
-
-    CAP_NET_ADMIN
-    CAP_NET_RAW
-
-Such user can run the daemon with: 
+The user space daemon can be started by not privileged users. Such user can run 
+the daemon with: 
 
     lispd -f /etc/lispd.conf
 
