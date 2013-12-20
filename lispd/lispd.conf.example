@@ -62,7 +62,7 @@ nat-traversal {
 # only to the first one (for now).
 # If no Map-Resolver is configured, DDT Client mode is enabled automatically
 #
-#   address: IPv4 or IPv6 address of the Map-Resolver  
+#   address: IPv4 or IPv6 address or FQDN name of the Map-Resolver  
 
 map-resolver = {
         address,
@@ -85,7 +85,7 @@ ddt-client  = on
 #   weight [0..255]: Not yet implemented
 
 #ddt-root-node {
-#        address     = <IPv4 or IPv6 address>
+#        address     = <IPv4 or IPv6 address or FQDN name>
 #        priority    = 1
 #        weight      = 100
 #}
@@ -124,7 +124,7 @@ ddt-root-node {
 #   proxy-reply [on/off]: Configure Map-Server to Map-Reply on behalf of the xTR
 
 map-server {
-        address     = <IPv4 or IPv6 address>
+        address     = <IPv4 or IPv6 address or FQDN name>
         key-type    = 1
         key         = <password>
         proxy-reply = on
@@ -168,7 +168,7 @@ database-mapping {
 #     the Weight indicates how to balance unicast traffic between them.
 
 proxy-etr {
-        address     = <IPv4 or IPv6 address>
+        address     = <IPv4 or IPv6 address or FQDN name>
         priority    = 1
         weight      = 100
 }
@@ -177,7 +177,7 @@ proxy-etr {
 # Unless you know what you're doing, you should just use the preconfigured
 # blocks at the end of this file.
 #
-#   address: IPv4 or IPv6 address of the Proxy-ITR
+#   address: IPv4 or IPv6 address or FQDN name of the Proxy-ITR
 #
 #proxy-itrs = {
 #        address,
