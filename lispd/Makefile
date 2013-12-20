@@ -30,7 +30,6 @@ else
 ERROR		= true
 endif
 endif
-endif
 
 INC		= lispd.h		
 MAKEFILE	= Makefile
