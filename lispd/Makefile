@@ -23,35 +23,55 @@ ifeq "$(platform)" ""
 CFLAGS		+= -Wall -g 
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 else
-ifeq "$(platform)" "router"
-CFLAGS		+= -Wall -g -DROUTER
-LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
-else
 ifeq "$(platform)" "openwrt"
-CFLAGS		+= -Wall -g -DROUTER -DOPENWRT
+CFLAGS		+= -Wall -g -DOPENWRT
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
 else
 ERROR		= true
 endif
 endif
-endif
 
-INC		= lispd.h
+INC		= lispd.h		
 MAKEFILE	= Makefile
-OBJS		= cmdline.o lispd.o lispd_config.o lispd_log.o	\
-		  lispd_lib.o lispd_map_register.o	lispd_mapping.o \
-		  patricia/patricia.o \
-		  cksum.o lispd_map_request.o \
-		  lispd_map_reply.o lispd_iface_mgmt.o \
-		  lispd_iface_list.o lispd_map_notify.o lispd_pkt_lib.o \
-		  lispd_timers.o lispd_local_db.o lispd_map_cache_db.o \
-		  lispd_afi.o lispd_nonce.o lispd_rloc_probing.o \
-		  lispd_smr.o lispd_tun.o lispd_input.o lispd_output.o lispd_sockets.o \
-		  lispd_locator.o lispd_map_cache.o lispd_routing_tables_lib.o\
-		  lispd_info_nat.o lispd_info_reply.o lispd_info_request.o  
+OBJS		= 	cksum.o \
+				cmdline.o \
+				lispd.o \
+				lispd_afi.o \
+				lispd_config.o \
+				lispd_external.o \
+				lispd_iface_list.o \
+				lispd_iface_mgmt.o \
+				lispd_info_nat.o \
+				lispd_info_request.o \
+				lispd_info_reply.o \
+				lispd_input.o \
+				lispd_lib.o \
+				lispd_local_db.o \
+				lispd_locator.o \
+				lispd_log.o	\
+				lispd_map_cache.o \
+				lispd_map_cache_db.o \
+				lispd_map_notify.o \
+				lispd_map_referral.o \
+				lispd_map_register.o \
+				lispd_map_reply.o \
+				lispd_map_request.o \
+				lispd_mapping.o \
+				lispd_nonce.o \
+				lispd_output.o \
+				lispd_pkt_lib.o \
+				lispd_referral_cache.o \
+				lispd_referral_cache_db.o \
+				lispd_rloc_probing.o \
+				lispd_routing_tables_lib.o\
+				lispd_smr.o \
+				lispd_sockets.o \
+				lispd_timers.o \
+				lispd_tun.o \
+				patricia/patricia.o \
 
 EXE		= lispd
-PREFIX		= /usr/local/sbin
+PREFIX		= /usr/local/sbin/
 
 $(EXE): $(OBJS) 
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
@@ -76,6 +96,7 @@ distclean: clean
 
 install: $(EXE)
 	mkdir -p $(DESTDIR)$(PREFIX) && cp $(EXE) $(DESTDIR)$(PREFIX)
+	setcap cap_net_raw,cap_net_admin+ep $(DESTDIR)$(PREFIX)$(EXE)
 
 tags:
 	cscope -R -b

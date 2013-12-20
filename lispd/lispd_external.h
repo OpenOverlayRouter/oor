@@ -36,10 +36,12 @@
 #include "lispd.h"
 #include "lispd_iface_list.h"
 #include "lispd_map_cache.h"
+#include "lispd_nonce.h"
 
 
-
+extern  uint8_t                 router_mode;
 extern  lispd_addr_list_t       *map_resolvers;
+extern  int                     ddt_client;
 extern  lispd_addr_list_t       *proxy_itrs;
 extern  lispd_map_cache_entry   *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
@@ -49,6 +51,7 @@ extern  int                     map_request_retries;
 extern  int                     control_port;
 extern  int                     debug_level;
 extern  int                     daemonize;
+extern  int                     ctrl_supported_afi;
 extern  int                     default_rloc_afi;
 extern  int                     rloc_probe_interval;
 extern  int                     rloc_probe_retries;
@@ -75,6 +78,9 @@ extern lispd_iface_elt          *default_ctrl_iface_v6;
 extern lispd_iface_elt          *default_out_iface_v4;
 extern lispd_iface_elt          *default_out_iface_v6;
 extern timer                    *smr_timer;
+extern timer                    *info_reply_ttl_timer;
+
+void init_globales();
 
 #endif /*LISPD_EXTERNAL_H_*/
 

@@ -30,9 +30,14 @@
  */
 
 #include "cksum.h"
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
 
+#ifdef ANDROID
+	#include "../android/jni/android-external-openssl/include/openssl/hmac.h"
+	#include "../android/jni/android-external-openssl/include/openssl/evp.h"
+#else
+	#include <openssl/hmac.h>
+	#include <openssl/evp.h>
+#endif
 
 uint16_t ip_checksum(
     uint16_t *buffer,
@@ -253,15 +258,14 @@ int complete_auth_fields(int key_id,
                          void *auth_data_pos)
 
 {
-    int err;
+    int error;
 
     *key_id_pos = htons(key_id);
 
     switch (key_id) {
     default:   //HMAC_SHA_1_96     /* TODO support more auth algorithms */
-        err =
-            compute_sha1_hmac(key, packet, pckt_len, auth_data_pos);
-        return (err);
+        error = compute_sha1_hmac(key, packet, pckt_len, auth_data_pos);
+        return (error);
 
     }
 

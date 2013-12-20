@@ -38,13 +38,13 @@
 #include <string.h>
 
 
-lispd_iface_list_elt    *head_interface_list    = NULL;
+lispd_iface_list_elt    *head_interface_list;
 
-lispd_iface_elt         *default_out_iface_v4   = NULL;
-lispd_iface_elt         *default_out_iface_v6   = NULL;
+lispd_iface_elt         *default_out_iface_v4;
+lispd_iface_elt         *default_out_iface_v6;
 
-lispd_iface_elt         *default_ctrl_iface_v4  = NULL;
-lispd_iface_elt         *default_ctrl_iface_v6  = NULL;
+lispd_iface_elt         *default_ctrl_iface_v4;
+lispd_iface_elt         *default_ctrl_iface_v6;
 
 
 lispd_iface_elt *add_interface(char *iface_name)
@@ -503,20 +503,20 @@ void set_default_output_ifaces()
     default_out_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_out_iface_v4 != NULL) {
-       lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
-#ifdef ROUTER
-       set_tun_default_route_v4();
-#endif
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+        if (router_mode == TRUE){
+            set_tun_default_route_v4();
+        }
     }
-    
+
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_out_iface_v6 != NULL) {
-       lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
-#ifdef ROUTER
-       // For IPv6, the route is not updated and should be removed before adding the new one
-       del_tun_default_route_v6();
-       set_tun_default_route_v6();
-#endif
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
+        if (router_mode == TRUE){
+            // For IPv6, the route is not updated and should be removed before adding the new one
+            del_tun_default_route_v6();
+            set_tun_default_route_v6();
+        }
     }
 
     if (!default_out_iface_v4 && !default_out_iface_v6){
@@ -526,12 +526,13 @@ void set_default_output_ifaces()
 
 void set_default_ctrl_ifaces()
 {
-
-    default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
+    ctrl_supported_afi      = NO_AFI_SUPPORT;
+    default_ctrl_iface_v4   = get_any_output_iface(AF_INET);
 
     if (default_ctrl_iface_v4 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 control iface %s: %s\n",
                default_ctrl_iface_v4->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v4->ipv4_address)));
+       ctrl_supported_afi = AFI_SUPPORT_4;
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
@@ -539,6 +540,11 @@ void set_default_ctrl_ifaces()
     if (default_ctrl_iface_v6 != NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s: %s\n",
                 default_ctrl_iface_v6->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v6->ipv6_address)));
+        if (ctrl_supported_afi == AFI_SUPPORT_4){
+            ctrl_supported_afi = AFI_SUPPORT_4_6;
+        }else{
+            ctrl_supported_afi = AFI_SUPPORT_6;
+        }
     }
 
     /* Check NAT status */

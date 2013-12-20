@@ -36,18 +36,40 @@
 /*********************************** FUNCTIONS DECLARATION ************************/
 
 /*
- * Generates a basic mapping
+ * Reseve and fill the memory required by a lcl_mapping_extended_info
  */
+inline lcl_mapping_extended_info *new_lcl_mapping_extended_info();
 
-inline lispd_mapping_elt *new_mapping(
-        lisp_addr_t     eid_prefix,
-        uint8_t         eid_prefix_length,
-        int             iid);
+/*
+ * Generates a copy of a local mapping extended info. Some parameters should be initialized after
+ * invoking this method like the "balancing locator vector"
+ */
+lcl_mapping_extended_info *copy_lcl_mapping_extended_info(lcl_mapping_extended_info *ext_info);
+
+/*
+ * Free memory of lcl_mapping_extended_info.
+ */
+void free_lcl_mapping_extended_info(lcl_mapping_extended_info *extended_info);
+
+/*
+ * Reseve and fill the memory required by a rmt_mapping_extended_info
+ */
+inline rmt_mapping_extended_info *new_rmt_mapping_extended_info();
+
+/*
+ * Generates a copy of a remote mapping extended info. Some parameters should be initialized after
+ * invoking this method like the "balancing locator vector"
+ */
+rmt_mapping_extended_info *copy_rmt_mapping_extended_info(rmt_mapping_extended_info *ext_info);
+
+/*
+ * Free memory of rmt_mapping_extended_info.
+ */
+void free_rmt_mapping_extended_info(rmt_mapping_extended_info *extended_info);
 
 /*
  * Free the dinamic arrays that contains the balancing_locators_vecs structure;
  */
-
 void free_balancing_locators_vecs (balancing_locators_vecs locators_vec);
 
 
@@ -71,7 +93,6 @@ int highest_common_factor  (int a, int b);
 /*
  * Initialize to 0 balancing_locators_vecs
  */
-
 void reset_balancing_locators_vecs (balancing_locators_vecs *blv);
 
 /************************************ FUNCTIONS  **********************************/
@@ -79,8 +100,7 @@ void reset_balancing_locators_vecs (balancing_locators_vecs *blv);
 /*
  * Generates a basic mapping
  */
-
-inline lispd_mapping_elt *new_mapping(
+lispd_mapping_elt *new_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
@@ -97,6 +117,7 @@ inline lispd_mapping_elt *new_mapping(
     mapping->locator_count = 0;
     mapping->head_v4_locators_list = NULL;
     mapping->head_v6_locators_list = NULL;
+    mapping->extended_info = NULL;
 
     return (mapping);
 }
@@ -104,60 +125,179 @@ inline lispd_mapping_elt *new_mapping(
 /*
  * Generates a mapping with the local extended info
  */
-
 lispd_mapping_elt *new_local_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
 {
     lispd_mapping_elt           *mapping        = NULL;
-    lcl_mapping_extended_info   *extended_info  = NULL;
 
     if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
         return (NULL);
     }
 
-    if ((extended_info=(lcl_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))==NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"new_local_mapping: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
-        free (mapping);
+    mapping->mapping_type = LOCAL_MAPPING;
+    mapping->extended_info = (void *)new_lcl_mapping_extended_info();
+    if (mapping->extended_info == NULL){
+        free_mapping_elt(mapping);
         return (NULL);
     }
-    mapping->extended_info = (void *)extended_info;
-
-    extended_info->outgoing_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
-    extended_info->outgoing_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
-    extended_info->outgoing_balancing_locators_vecs.balancing_locators_vec = NULL;
-    extended_info->outgoing_balancing_locators_vecs.v4_locators_vec_length = 0;
-    extended_info->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
-    extended_info->outgoing_balancing_locators_vecs.locators_vec_length = 0;
-
-    extended_info->head_not_init_locators_list = NULL;
-
     return (mapping);
 }
 
 /*
  * Generates a mapping with the remote extended info
  */
-
 lispd_mapping_elt *new_map_cache_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
 {
     lispd_mapping_elt           *mapping        = NULL;
-    rmt_mapping_extended_info   *extended_info  = NULL;
 
     if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
         return (NULL);
     }
 
-    if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_mapping: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
-        free (mapping);
+    mapping->mapping_type = REMOTE_MAPPING;
+    mapping->extended_info = (void *)new_rmt_mapping_extended_info();
+    if (mapping->extended_info == NULL){
+        free_mapping_elt(mapping);
         return (NULL);
     }
-    mapping->extended_info = (void *)extended_info;
+
+    return (mapping);
+}
+
+/*
+ * Generates a clone of a lispd_mapping_elt. Parameters like timers or nonces are not cloned
+ */
+lispd_mapping_elt *copy_mapping_elt(lispd_mapping_elt *elt)
+{
+    lispd_mapping_elt *mapping = NULL;
+    mapping = new_mapping(elt->eid_prefix,elt->eid_prefix_length,elt->iid);
+    if (mapping == NULL){
+        return (NULL);
+    }
+    mapping->locator_count = elt->locator_count;
+    if (elt->head_v4_locators_list != NULL){
+        mapping->head_v4_locators_list = copy_locators_list(elt->head_v4_locators_list);
+        if (mapping->head_v4_locators_list == NULL){
+            free_mapping_elt(mapping);
+            return (NULL);
+        }
+    }
+    if(elt->head_v6_locators_list != NULL){
+        mapping->head_v6_locators_list = copy_locators_list(elt->head_v6_locators_list);
+        if (mapping->head_v6_locators_list == NULL){
+            free_mapping_elt(mapping);
+            return(NULL);
+        }
+    }
+    if (elt->extended_info != NULL){
+        if (mapping->mapping_type == LOCAL_MAPPING){
+            mapping->extended_info = (void *)copy_lcl_mapping_extended_info((lcl_mapping_extended_info *)elt->extended_info);
+            if (mapping->extended_info == NULL){
+                free_mapping_elt(mapping);
+                return(NULL);
+            }
+            calculate_balancing_vectors (mapping,&(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs));
+        }else{
+            mapping->extended_info = (void *)copy_rmt_mapping_extended_info((rmt_mapping_extended_info *)elt->extended_info);
+            if (mapping->extended_info == NULL){
+                free_mapping_elt(mapping);
+                return(NULL);
+            }
+            calculate_balancing_vectors (mapping,&(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs));
+        }
+    }
+
+    return (mapping);
+}
+
+/*
+ * Free memory of lispd_mapping_elt.
+ */
+void free_mapping_elt(lispd_mapping_elt *mapping)
+{
+    if (mapping == NULL){
+        return;
+    }
+    /* Free the locators list*/
+    free_locator_list(mapping->head_v4_locators_list);
+    free_locator_list(mapping->head_v6_locators_list);
+    /* Free extended info */
+    if (mapping->extended_info != NULL){
+        switch (mapping->mapping_type){
+        case LOCAL_MAPPING:
+            free_lcl_mapping_extended_info((lcl_mapping_extended_info *)mapping->extended_info);
+            break;
+        case REMOTE_MAPPING:
+            free_rmt_mapping_extended_info((rmt_mapping_extended_info *)mapping->extended_info);
+            break;
+        }
+    }
+    free(mapping);
+}
+
+/*
+ * Reseve and fill the memory required by a lcl_mapping_extended_info
+ */
+inline lcl_mapping_extended_info *new_lcl_mapping_extended_info()
+{
+    lcl_mapping_extended_info   *extended_info  = NULL;
+    if ((extended_info=(lcl_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_lcl_mapping_extended_info: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        err = ERR_MALLOC;
+        return (NULL);
+    }
+    extended_info->outgoing_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
+    extended_info->outgoing_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
+    extended_info->outgoing_balancing_locators_vecs.balancing_locators_vec = NULL;
+    extended_info->outgoing_balancing_locators_vecs.v4_locators_vec_length = 0;
+    extended_info->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
+    extended_info->outgoing_balancing_locators_vecs.locators_vec_length = 0;
+    extended_info->head_not_init_locators_list = NULL;
+
+    return(extended_info);
+}
+
+/*
+ * Generates a clone of a lcl_mapping_extended_info.
+ */
+lcl_mapping_extended_info *copy_lcl_mapping_extended_info(lcl_mapping_extended_info *ext_info)
+{
+    lcl_mapping_extended_info *extended_info = NULL;
+    extended_info=(lcl_mapping_extended_info *)calloc(1,sizeof(lcl_mapping_extended_info));
+    if(extended_info == NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"copy_lcl_mapping_extended_info: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        return (NULL);
+    }
+    return (extended_info);
+}
+
+/*
+ * Free memory of lcl_mapping_extended_info.
+ */
+void free_lcl_mapping_extended_info(lcl_mapping_extended_info *extended_info)
+{
+    free_locator_list(extended_info->head_not_init_locators_list);
+    free_balancing_locators_vecs(extended_info->outgoing_balancing_locators_vecs);
+    free (extended_info);
+}
+
+/*
+ * Reseve and fill the memory required by a rmt_mapping_extended_info
+ */
+inline rmt_mapping_extended_info *new_rmt_mapping_extended_info()
+{
+    rmt_mapping_extended_info   *extended_info  = NULL;
+
+    if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_mapping_extended_info: Couldn't allocate memory for rmt_mapping_extended_info: %s", strerror(errno));
+        err = ERR_MALLOC;
+        return (NULL);
+    }
 
     extended_info->rmt_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
     extended_info->rmt_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
@@ -166,13 +306,35 @@ lispd_mapping_elt *new_map_cache_mapping(
     extended_info->rmt_balancing_locators_vecs.v6_locators_vec_length = 0;
     extended_info->rmt_balancing_locators_vecs.locators_vec_length = 0;
 
-    return (mapping);
+    return (extended_info);
+}
+
+/*
+ * Generates a clone of a rmt_mapping_extended_info.
+ */
+rmt_mapping_extended_info *copy_rmt_mapping_extended_info(rmt_mapping_extended_info *ext_info)
+{
+    rmt_mapping_extended_info *extended_info = NULL;
+    extended_info=(rmt_mapping_extended_info *)calloc(1,sizeof(rmt_mapping_extended_info));
+    if(extended_info == NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"copy_rmt_mapping_extended_info: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        return (NULL);
+    }
+    return (extended_info);
+}
+
+/*
+ * Free memory of rmt_mapping_extended_info.
+ */
+void free_rmt_mapping_extended_info(rmt_mapping_extended_info *extended_info)
+{
+    free_balancing_locators_vecs(extended_info->rmt_balancing_locators_vecs);
+    free (extended_info);
 }
 
 /*
  * Add a locator into the locators list of the mapping.
  */
-
 int add_locator_to_mapping(
         lispd_mapping_elt           *mapping,
         lispd_locator_elt           *locator)
@@ -189,29 +351,25 @@ int add_locator_to_mapping(
     case AF_UNSPEC:
         err = add_locator_to_list (&(((lcl_mapping_extended_info *)(mapping->extended_info))->head_not_init_locators_list), locator);
         if (err == GOOD){
+            // The locator_count should not be incremented
             return (GOOD);
-        }else{
-            free_locator (locator);
-            return (BAD);
         }
     }
 
     if (err == GOOD){
         mapping->locator_count++;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added to the EID %s/%d.",
+        lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_mapping: The locator %s has been added to the EID %s/%d.",
                 get_char_from_lisp_addr_t(*(locator->locator_addr)),
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length);
         result = GOOD;
     }else if (err == ERR_EXIST){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s already exists for the EID %s/%d.",
+        lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_mapping: The locator %s already exists for the EID %s/%d.",
                 get_char_from_lisp_addr_t(*(locator->locator_addr)),
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length);
-        free_locator (locator);
         result = GOOD;
     }else{
-        free_locator (locator);
         result = BAD;
     }
 
@@ -222,7 +380,6 @@ int add_locator_to_mapping(
 /*
  * This function sort the locator list elt with IP = changed_loc_addr
  */
-
 void sort_locators_list_elt (
         lispd_mapping_elt   *mapping,
         lisp_addr_t         *changed_loc_addr)
@@ -320,7 +477,6 @@ void sort_locators_list_elt (
 /*
  * Returns the locators with the address passed as a parameter
  */
-
 lispd_locator_elt *get_locator_from_mapping(
         lispd_mapping_elt   *mapping,
         lisp_addr_t         address)
@@ -343,30 +499,8 @@ lispd_locator_elt *get_locator_from_mapping(
 }
 
 /*
- * Free memory of lispd_mapping_elt.
- */
-void free_mapping_elt(lispd_mapping_elt *mapping, int local)
-{
-    /* Free the locators list*/
-    free_locator_list(mapping->head_v4_locators_list);
-    free_locator_list(mapping->head_v6_locators_list);
-    /* Free extended info */
-    if (local == TRUE){
-        free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
-        free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
-        free ((lcl_mapping_extended_info *)mapping->extended_info);
-    }else{
-        free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
-        free ((rmt_mapping_extended_info *)mapping->extended_info);
-    }
-    free(mapping);
-
-}
-
-/*
  * Free the dinamic arrays that contains the balancing_locators_vecs structure;
  */
-
 void free_balancing_locators_vecs (balancing_locators_vecs locators_vec)
 {
     if (locators_vec.balancing_locators_vec != NULL &&
@@ -385,7 +519,6 @@ void free_balancing_locators_vecs (balancing_locators_vecs locators_vec)
 /*
  * Initialize to 0 balancing_locators_vecs
  */
-
 void reset_balancing_locators_vecs (balancing_locators_vecs *blv)
 {
     free_balancing_locators_vecs(*blv);
@@ -640,7 +773,6 @@ int highest_common_factor  (int a, int b)
 /*
  * Print balancing locators vector information
  */
-
 void dump_balancing_locators_vec(
         balancing_locators_vecs     b_locators_vecs,
         lispd_mapping_elt           *mapping,

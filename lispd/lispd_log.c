@@ -35,6 +35,8 @@
 #include <syslog.h>
 #include <stdarg.h>
 
+FILE *fp = NULL;
+
 inline void lispd_log(
         int         log_level,
         char        *log_name,
@@ -111,12 +113,34 @@ inline void lispd_log(
         va_list     args)
 {
     if (daemonize){
+#ifdef ANDROID
+    	fprintf(fp,"%s: ",log_name);
+    	vfprintf(fp,format,args);
+    	fprintf(fp,"\n");
+    	fflush(fp);
+#else
         vsyslog(log_level,format,args);
+#endif
+
     }else{
         printf("%s: ",log_name);
         vfprintf(stdout,format,args);
         printf("\n");
     }
+}
+
+void open_log_file()
+{
+	if (fp == NULL){
+		fp = freopen(LOGFILE_LOCATION, "w", stderr);
+	}else{
+		fp = freopen(LOGFILE_LOCATION, "a", stderr);
+	}
+}
+
+void close_log_file()
+{
+	fclose (fp);
 }
 
 /*

@@ -47,6 +47,7 @@ typedef struct lispd_mapping_elt_ {
     uint16_t                        locator_count;
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
+    uint8_t                         mapping_type;
     void                            *extended_info;
 } lispd_mapping_elt;
 
@@ -89,6 +90,14 @@ typedef struct rmt_mapping_extended_info_ {
 /****************************************  FUNCTIONS **************************************/
 
 /*
+ * Generates a basic mapping
+ */
+lispd_mapping_elt *new_mapping(
+        lisp_addr_t     eid_prefix,
+        uint8_t         eid_prefix_length,
+        int             iid);
+
+/*
  * Generates a mapping with the local extended info
  */
 
@@ -105,6 +114,13 @@ lispd_mapping_elt *new_map_cache_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid);
+
+/**
+ * Generates a clone of a lispd_mapping_elt. Parameters like timers or nonces are not cloned
+ * @param elt lispd_mapping_elt to be cloned
+ * @return cloned lispd_mapping_elt structure
+ */
+lispd_mapping_elt *copy_mapping_elt(lispd_mapping_elt *elt);
 
 /*
  * Add a locator into the locators list of the mapping.
@@ -133,7 +149,7 @@ lispd_locator_elt *get_locator_from_mapping(
 /*
  * Free memory of lispd_mapping_elt.
  */
-void free_mapping_elt(lispd_mapping_elt *mapping, int local);
+void free_mapping_elt(lispd_mapping_elt *mapping);
 
 /*
  * dump mapping

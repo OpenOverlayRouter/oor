@@ -39,6 +39,11 @@
 #include "lispd_timers.h"
 #include "lispd_tun.h"
 
+// Used when an interface with status DOWN change its address. When interface changes to UP
+// and nat_aware_iface_address_change is TRUE init info request process
+// XXX NAT: Valid only for one interface
+uint8_t nat_aware_iface_address_change = FALSE;
+
 /************************* FUNCTION DECLARTAION ********************************/
 
 void process_nl_add_address (struct nlmsghdr *nlh);
@@ -151,7 +156,7 @@ void process_netlink_msg(int netlink_fd){
         nlh = (struct nlmsghdr *)buffer;
         memset(nlh,0,4096);
     }
-
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Finish pocessing netlink message");
     return;
 }
 
@@ -223,7 +228,7 @@ void process_address_change (
         return;
     }
     /* If default RLOC afi defined (-a 4 or 6), only accept addresses of the specified afi */
-    if (default_rloc_afi != -1 && default_rloc_afi != new_addr.afi){
+    if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != new_addr.afi){
         lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: Default RLOC afi defined (-a #): Skipped %s address in iface %s",
                 (new_addr.afi == AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
         return;
@@ -350,29 +355,33 @@ void process_address_change (
 
     /* If it is compiled in router mode, then recompile default routes changing the indicated src address*/
 
-#ifdef ROUTER
-    switch (new_addr.afi){
-    case AF_INET:
-        if (iface == default_out_iface_v4){
-            set_tun_default_route_v4();
+    if (router_mode == TRUE){
+        switch (new_addr.afi){
+        case AF_INET:
+            if (iface == default_out_iface_v4){
+                set_tun_default_route_v4();
+            }
+            break;
+        case AF_INET6:
+            if (iface == default_out_iface_v6){
+                del_tun_default_route_v6();
+                set_tun_default_route_v6();
+            }
+            break;
         }
-        break;
-    case AF_INET6:
-        if (iface == default_out_iface_v6){
-            del_tun_default_route_v6();
-            set_tun_default_route_v6();
-        }
-        break;
     }
-#endif
 
     /* Check if the new address is behind NAT */
 
     if(nat_aware==TRUE){
         // TODO : To be modified when implementing NAT per multiple interfaces
         nat_status = UNKNOWN;
+        clear_rtr_from_locators (iface);
+
         if (iface->status == UP){
             initial_info_request_process();
+        }else{
+        	nat_aware_iface_address_change = TRUE;
         }
     }
 
@@ -561,7 +570,7 @@ void process_nl_new_route (struct nlmsghdr *nlh)
     }
     if (gateway.afi != AF_UNSPEC && iface_index != 0 && dst.afi == AF_UNSPEC){
         /* Check default afi*/
-        if (default_rloc_afi != -1 && default_rloc_afi != gateway.afi){
+        if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != gateway.afi){
             lispd_log_msg(LISP_LOG_DEBUG_1,  "process_nl_new_route: Default RLOC afi defined (-a #): Skipped %s gateway in iface %s",
                     (gateway.afi == AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
             return;
@@ -602,11 +611,8 @@ void process_new_gateway (
         return;
     }
     if (*gw_addr == NULL){ // The default gateway of this interface is not deffined yet
-        if ((*gw_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t))) == NULL){
-            lispd_log_msg(LISP_LOG_WARNING,"process_new_gateway: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-            return;
-        }
-        if ((copy_lisp_addr_t(*gw_addr,&gateway,FALSE)) != GOOD){
+        *gw_addr = clone_lisp_addr(&gateway);
+        if (*gw_addr == NULL){
             free (*gw_addr);
             *gw_addr = NULL;
             return;
@@ -660,13 +666,19 @@ void process_link_status_change(
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default output interface down. Recalculate new output interface");
         set_default_output_ifaces();
     }
-
     iface_balancing_vectors_calc(iface);
+
+    /* When NAT aware, if address has change when interface down, when UP init info request process */
+    if(new_status == UP && nat_aware==TRUE && nat_aware_iface_address_change == TRUE){
+    	initial_info_request_process();
+    	nat_aware_iface_address_change = FALSE;
+    }
 
     /* Reprograming SMR timer*/
     if (smr_timer == NULL){
         smr_timer = create_timer (SMR_TIMER);
     }
+
     start_timer(smr_timer, LISPD_SMR_TIMEOUT,(timer_callback)init_smr, NULL);
 
 }

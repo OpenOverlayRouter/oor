@@ -60,8 +60,9 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
     int ctr;
 
     for (ctr = 0 ; ctr < 2 ; ctr ++){
-        if (locators_list[ctr] == NULL)
+        if (locators_list[ctr] == NULL){
             continue;
+        }
         loc_length += get_locators_length(locators_list[ctr]);
     }
     eid_length = get_mapping_length(mapping);
@@ -166,14 +167,15 @@ int get_mapping_length(lispd_mapping_elt *mapping)
         break;
     }
 
-    if (mapping->iid >= 0)
+    if (mapping->iid > 0){
         ident_len += sizeof(lispd_pkt_lcaf_t) + sizeof(lispd_pkt_lcaf_iid_t);
+    }
 
-    return ident_len;
+    return (ident_len);
 }
 
 uint8_t *pkt_fill_eid(
-        void                    *offset,
+        uint8_t                 *offset,
         lispd_mapping_elt       *mapping)
 {
     uint16_t                *afi_ptr;
@@ -185,16 +187,15 @@ uint8_t *pkt_fill_eid(
     afi_ptr = (uint16_t *)offset;
     eid_addr_len = get_addr_len(mapping->eid_prefix.afi);
 
-    /* For negative IID values, we skip LCAF/IID field */
-    if (mapping->iid < 0) {
+    /* For IID = 0, we skip LCAF/IID field */
+    if (mapping->iid == 0) {
         *afi_ptr = htons(get_lisp_afi(mapping->eid_prefix.afi, NULL));
         eid_ptr  = CO(offset, sizeof(uint16_t));
     } else {
         *afi_ptr = htons(LISP_AFI_LCAF);
         lcaf_ptr = (lispd_pkt_lcaf_t *) CO(offset, sizeof(uint16_t));
-        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
-        eid_ptr  = (void *) CO(iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
-
+        iid_ptr  = (lispd_pkt_lcaf_iid_t *) CO((uint8_t *)lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
+        eid_ptr  = (void *) CO((uint8_t *)iid_ptr, sizeof(lispd_pkt_lcaf_iid_t));
         lcaf_ptr->rsvd1 = 0;
         lcaf_ptr->flags = 0;
         lcaf_ptr->type  = 2;
@@ -209,8 +210,7 @@ uint8_t *pkt_fill_eid(
         lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_eid: copy_addr failed");
         return NULL;
     }
-
-    return (CO(eid_ptr, eid_addr_len));
+    return (CO((uint8_t *)eid_ptr, eid_addr_len));
 }
 
 
@@ -229,8 +229,9 @@ uint8_t *pkt_fill_mapping_record(
     int                                     ctr                 = 0;
 
 
-    if ((rec == NULL) || (mapping == NULL))
+    if ((rec == NULL) || (mapping == NULL)){
         return NULL;
+    }
 
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = mapping->locator_count;
@@ -240,7 +241,8 @@ uint8_t *pkt_fill_mapping_record(
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
+    cur_ptr = (uint8_t *)&(rec->eid_prefix_afi);
+    cur_ptr = pkt_fill_eid(cur_ptr, mapping);
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
 
     if (loc_ptr == NULL){
@@ -500,13 +502,14 @@ uint8_t *build_ip_udp_pcket(
 }
 
 uint8_t *build_control_encap_pkt(
-        uint8_t         * orig_pkt,
-        int             orig_pkt_len,
-        lisp_addr_t     *addr_from,
-        lisp_addr_t     *addr_dest,
-        int             port_from,
-        int             port_dest,
-        int             *control_encap_pkt_len)
+        uint8_t             * orig_pkt,
+        int                 orig_pkt_len,
+        lisp_addr_t         *addr_from,
+        lisp_addr_t         *addr_dest,
+        int                 port_from,
+        int                 port_dest,
+        encap_control_opts  opts,
+        int                 *control_encap_pkt_len)
 {
     uint8_t                     *lisp_encap_pkt_ptr      = NULL;
     uint8_t                     *inner_pkt_ptr      = NULL;
@@ -546,6 +549,7 @@ uint8_t *build_control_encap_pkt(
 
     lisp_hdr_ptr->type = LISP_ENCAP_CONTROL_TYPE;
     lisp_hdr_ptr->s_bit = 0; /* XXX Security field not supported */
+    lisp_hdr_ptr->ddt_bit = opts.ddt_bit;
 
     /* Copy original packet after the LISP control header */
 
@@ -616,24 +620,29 @@ int process_encapsulated_map_request_headers(
         if (ipsum != 0) {
             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: IP checksum failed.");
         }
-        if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-            return(BAD);
-        }
-        if (udpsum != 0) {
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
-            return(BAD);
+        /* We accept checksum 0 in the inner header*/
+        if (udph->check != 0){
+            if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+                return(BAD);
+            }
+            if (udpsum != 0) {
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request: UDP checksum failed.");
+                return(BAD);
+            }
         }
     }
 
     //Pranathi: Added this
     if (iph->ip_v == IP6VERSION) {
-
-        if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
-            return(BAD);
-        }
-        if (udpsum != 0) {
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
-            return(BAD);
+        /* We accept checksum 0 in the inner header*/
+        if (udph->check != 0){
+            if ((udpsum = udp_checksum(udph, udp_len, iph, encap_afi)) == -1) {
+                return(BAD);
+            }
+            if (udpsum != 0) {
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: Map-Request:v6 UDP checksum failed.");
+                return(BAD);
+            }
         }
     }
 

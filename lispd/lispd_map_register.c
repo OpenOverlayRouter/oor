@@ -1,7 +1,7 @@
 /* 
  * lispd_map_register.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * This file is part of LISP Implementation.
  * Send registration messages for each database mapping to
  * configured map-servers.
  * 
@@ -25,15 +25,20 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
- *
+ *    David Meyer               <dmm@cisco.com>
+ *    Preethi Natarajan         <prenatar@cisco.com>
+ *    Lorand Jakab              <ljakab@ac.upc.edu>
+ *    Albert Lopez              <alopez@ac.upc.edu>
+ *    Alberto Rodriguez Natal   <arnatal@ac.upc.edu>
  */
 
-//#include <sys/timerfd.h>
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
+#ifdef ANDROID
+        #include "../android/jni/android-external-openssl/include/openssl/hmac.h"
+        #include "../android/jni/android-external-openssl/include/openssl/evp.h"
+#else
+	#include <openssl/hmac.h>
+	#include <openssl/evp.h>
+#endif
 #include "lispd_external.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
@@ -427,6 +432,9 @@ int build_and_send_ecm_map_register(
     lisp_addr_t                 *src_addr               = NULL;
     int                         out_socket              = 0;
     int                         result                  = 0;
+    encap_control_opts          opts;
+
+    memset(&opts, FALSE, sizeof(encap_control_opts));
 
     map_register_pkt = (lispd_pkt_map_register_t *)build_map_register_pkt(mapping,&map_register_pkt_len);
 
@@ -515,6 +523,7 @@ int build_and_send_ecm_map_register(
                                                map_server->address,
                                                LISP_CONTROL_PORT,
                                                LISP_CONTROL_PORT,
+                                               opts,
                                                &ecm_map_register_len);
     free(map_register_pkt);
 

@@ -51,11 +51,19 @@ lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet );
 
 lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet );
 
+/*
+ * Add a not active map cache entry and init the process to request to the mapping system the information
+ * for this mapping
+ */
 int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
 
+/*
+ * Add a not active map cache entry and init the process to request to the ddt mapping system the information
+ * for this mapping
+ */
+int handle_map_cache_miss_with_ddt(lisp_addr_t *requested_eid,lisp_addr_t *src_eid);
+
 lisp_addr_t *get_proxy_etr(int afi);
-
-
 
 
 /* Macros extracted from ROHC library code: http://rohc-lib.org/ */

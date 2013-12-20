@@ -4,10 +4,14 @@
 package 'lispd'
 
 # General configuration
+#   router-mode: on  -> LISP routing capabilities enabled: xTR
+#                off -> LISP mobile node. 
 #	debug: Debug levels [0..3]
 #	map_request_retries: Additional Map-Requests to send per map cache miss
 #	rloc_probing_interval: Period in seconds between RLOC probes. A value of 0 will dissable RLOC probing 
+
 config 'daemon'
+        option  'router_mode'           'on'                  #In doubt, keep the default value
         option  'debug'                 '0' 
         option  'map_request_retries'   '2'
         
@@ -35,12 +39,55 @@ config 'nat-traversal'
         option  'xTR_ID'    '00000000000000000000000000000001'  #In doubt, keep the default value
         
         
-
 # Encapsulated Map-Requests are sent to this map-resolver
 # You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
-#	address: IPv4 or IPv6 address of the map resolver     
+#	address: IPv4 or IPv6 address or FQDN name of the map resolver     
 config 'map-resolver'
         option  'address'               'IPv4 or IPv6 address'
+        
+# DDT Client section.
+# DDT configuration has prefernece over map-resolver configuration
+#
+#   ddt-client [on/off]: Obtain the mapping from EIDs to RLOCs through the DDT tree
+config 'ddt-client'
+        option  'enabled'  'off'
+ 
+# DDT Encapsulated Map-Requests are sent to these ddt root node. You can define
+# several ddt-root-node. DDT Encapsulated Map-Request messages will be sent to the
+# ddt-root-node with higher priority (lowest value).
+#
+#   address: IPv4 or IPv6 address or FQDN name of the DDT root node
+#   priority [0..255]: DDT root nodes with lower values are more preferable.
+#   weight [0..255]: Not yet implemented
+~
+
+#config 'ddt-root-node'
+#        option   'address'              'IPv4 or IPv6 address or FQDN name'
+#        option   'priority'             '1'
+#        option   'weight'               '100' 
+
+# Some LISP beta-network (lisp4.net/lisp6.net) DDT root nodes
+
+config 'ddt-root-node'
+        option   'address'              '193.0.0.170'
+        option   'priority'             '1'
+        option   'weight'               '100' 
+        
+config 'ddt-root-node'
+        option   'address'              '2001:610:240:5:193::170'
+        option   'priority'             '1'
+        option   'weight'               '100'
+
+# Current LISP beta-network (lisp4.net/lisp6.net) DDT root nodes:
+# IPv4: 
+#      - arin-ddt.rloc.lisp4.net: 192.149.252.136
+#      - ripe-ddt.rloc.lisp4.net: 193.0.0.170
+#      - vxnet-ddt.rloc.lisp4.net: 199.119.73.8
+# IPv6:
+#      - arin-ddt.rloc.lisp6.net: 2001:500:4:12::5
+#      - ripe-ddt.rloc.lisp6.net: 2001:610:240:5:193::170
+       
+                
 
 # Map-Registers are sent to this map-server
 # You can define several map-servers. Map-Register messages will be sent to all of them.
@@ -49,7 +96,7 @@ config 'map-resolver'
 #	key: password to authenticate with the map-server
 #   proxy_reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
 config 'map-server'
-        option   'address'              'IPv4 or IPv6 address'
+        option   'address'              'IPv4 or IPv6 address or FQDN name'
         option   'key_type'             '1'			
         option   'key'                  'password'
         option   'proxy_reply'          'on'
@@ -61,7 +108,7 @@ config 'map-server'
 #	weight [0-255]: When priorities are the same for multiple Proxy-ETRs, the Weight indicates how to balance 
 #    unicast traffic between them.
 config 'proxy-etr'
-        option   'address'              'IPv4 or IPv6 address'
+        option   'address'              'IPv4 or IPv6 address or FQDN name'
         option   'priority'             '1'
         option   'weight'               '100'     
 
@@ -88,10 +135,10 @@ config 'database-mapping'
 
         
 # List of PITRs to SMR on handover
-#	address: IPv4 or IPv6 address of the Proxy-ITR
+#	address: IPv4 or IPv6 address or FQDN name of the Proxy-ITR
 
 config 'proxy-itr'
-        option   'address'              'IPv4 or IPv6 PITR address' 
+        option   'address'              'IPv4 or IPv6 PITR address or FQDN name' 
 
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses

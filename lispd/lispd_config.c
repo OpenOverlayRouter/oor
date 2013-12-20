@@ -5,7 +5,7 @@
  * Handle lispd command line and config file
  * Parse command line args using gengetopt.
  * Handle config file with libconfuse.
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -34,7 +34,11 @@
  */
 
 #include "cmdline.h"
+#ifdef ANDROID
+#include "../android/jni/confuse_android/src/confuse.h"
+#else
 #include "confuse.h"
+#endif
 #include "lispd_afi.h"
 #include "lispd_config.h"
 #include "lispd_external.h"
@@ -44,6 +48,7 @@
 #include "lispd_map_cache.h"
 #include "lispd_map_cache_db.h"
 #include "lispd_mapping.h"
+#include "lispd_referral_cache_db.h"
 #include "lispd_rloc_probing.h"
 
 
@@ -54,6 +59,8 @@
 #include <string.h>
 #endif
 
+
+/********************************** Function declaration ********************************/
 
 int add_database_mapping(
         char   *eid,
@@ -86,10 +93,22 @@ int add_static_map_cache_entry(
         int    priority,
         int    weight);
 
+int add_ddt_root_entry(
+        char                        *address,
+        int                         priority,
+        int                         weight);
+
 void validate_rloc_probing_parameters (
         int probe_int,
         int probe_retries,
         int probe_retries_interval);
+
+/*
+ * Validates the information obtained from the configuration file
+ */
+int validate_configuration();
+
+/****************************************************************************************/
 
 
 /*
@@ -139,7 +158,7 @@ void handle_lispd_command_line(
             break;
         }
     }else{
-        default_rloc_afi = -1;
+        default_rloc_afi = AF_UNSPEC;
     }
 }
 
@@ -174,9 +193,10 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     int                 uci_priority                    = 0;
     int                 uci_weigth                      = 0;
     const char*         uci_interface                   = NULL;
-    int                 uci_iid                         = -1;
+    int                 uci_iid                         = 0;
     const char*         uci_rloc                        = NULL;
     const char*         uci_eid_prefix                  = NULL;
+    int                 uci_ddt_enabled                 = 0;
 
     char                *uci_conf_dir                   = NULL;
     char                *uci_conf_file                  = NULL;
@@ -227,7 +247,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         uci_weigth_v6 = 0;
         uci_priority = 0;
         uci_weigth = 0;
-        uci_iid = -1;
+        uci_iid = 0;
         uci_interface = NULL;
         uci_rloc = NULL;
         uci_eid_prefix = NULL;
@@ -235,6 +255,12 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         s = uci_to_section(e);
 
         if (strcmp(s->type, "daemon") == 0){
+
+            if (strcmp(uci_lookup_option_string(ctx, s, "router_mode"), "on") == 0){
+                router_mode = TRUE;
+            }else{
+                router_mode = FALSE;
+            }
 
             uci_debug = strtol(uci_lookup_option_string(ctx, s, "debug"),NULL,10);
 
@@ -262,6 +288,29 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
             continue;
         }
+
+        if (strcmp(s->type, "ddt-client") == 0){
+            if (strcmp(uci_lookup_option_string(ctx, s, "enabled"), "on") == 0){
+                ddt_client = TRUE;
+            }else{
+                ddt_client = FALSE;
+            }
+            continue;
+        }
+
+        if (strcmp(s->type, "ddt-root-node") == 0){
+            uci_address = uci_lookup_option_string(ctx, s, "address");
+            uci_priority = strtol(uci_lookup_option_string(ctx, s, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, s, "weight"),NULL,10);
+
+            if (add_ddt_root_entry(uci_address, uci_priority, uci_weigth) != GOOD ){
+                lispd_log_msg(LISP_LOG_ERR, "Can't add ddt root node %s", uci_address);
+            }else{
+                lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s as a ddt root node", uci_address);
+            }
+            continue;
+        }
+
 
         if (strcmp(s->type, "rloc-probing") == 0){
             uci_rloc_probe_int = strtol(uci_lookup_option_string(ctx, s, "rloc_probe_interval"),NULL,10);
@@ -305,6 +354,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
             }
             continue;
         }
+
 
 
         if (strcmp(s->type, "map-server") == 0){
@@ -437,7 +487,9 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     uci_free_context(ctx);
 
-    return(GOOD);
+    err = validate_configuration();
+
+    return(err);
 }
 
 #else
@@ -483,7 +535,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     static cfg_opt_t db_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                 -1, CFGF_NONE),
+            CFG_INT("iid",                  0, CFGF_NONE),
             CFG_STR("interface",            0, CFGF_NONE),
             CFG_INT("priority_v4",          0, CFGF_NONE),
             CFG_INT("weight_v4",            0, CFGF_NONE),
@@ -494,7 +546,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     static cfg_opt_t mc_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                 -1, CFGF_NONE),
+            CFG_INT("iid",                  0, CFGF_NONE),
             CFG_STR("rloc",                 0, CFGF_NONE),
             CFG_INT("priority",             0, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
@@ -502,6 +554,13 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     };
 
     static cfg_opt_t petr_mapping_opts[] = {
+            CFG_STR("address",              0, CFGF_NONE),
+            CFG_INT("priority",           255, CFGF_NONE),
+            CFG_INT("weight",               0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t ddt_root_node_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
             CFG_INT("priority",           255, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
@@ -527,14 +586,22 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
             CFG_SEC("map-server",           map_server_opts, CFGF_MULTI),
             CFG_SEC("proxy-etr",            petr_mapping_opts, CFGF_MULTI),
+            CFG_BOOL("ddt-client",          cfg_false, CFGF_NONE),
+            CFG_SEC("ddt-root-node",        ddt_root_node_opts, CFGF_MULTI),
             CFG_SEC("nat-traversal",        nat_traversal_opts, CFGF_MULTI),
             CFG_SEC("rloc-probing",         rloc_probing_opts, CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
+            CFG_BOOL("router-mode",         cfg_false, CFGF_NONE),
             CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
+#ifdef ANDROID
+            CFG_BOOL("override-dns",   		    cfg_false, CFGF_NONE),
+            CFG_STR("override-dns-primary",     0, CFGF_NONE),
+            CFG_STR("override-dns-secondary",   0, CFGF_NONE),
+#endif
             CFG_END()
     };
 
@@ -558,9 +625,18 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
      *  lispd config options
      */
 
+    router_mode   = cfg_getbool(cfg, "router-mode") ? TRUE:FALSE;
+
     ret = cfg_getint(cfg, "map-request-retries");
-    if (ret != 0)
+    if (ret >= 0){
+        if (ret > LISPD_MAX_RETRANSMITS){
+            ret = LISPD_MAX_RETRANSMITS;
+            lispd_log_msg(LISP_LOG_WARNING, "Map-Request retries should be between 0 and %d. Using default value: %d",
+                    LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+        }
         map_request_retries = ret;
+    }
+
 
     /*
      * Debug level
@@ -624,9 +700,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
      *  handle map-resolver config
      */
     n = cfg_size(cfg, "map-resolver");
-    if (n == 0){
 
-    }
     for(i = 0; i < n; i++) {
         if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
             if (add_server(map_resolver, &map_resolvers) == GOOD){
@@ -637,11 +711,27 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         }
     }
 
+    /*
+     *  handle ddt root node config
+     */
+
+    ddt_client   = cfg_getbool(cfg, "ddt-client") ? TRUE:FALSE;
+
+    n = cfg_size(cfg, "ddt-root-node");
+    for(i = 0; i < n; i++) {
+        cfg_t *ddt_node = cfg_getnsec(cfg, "ddt-root-node", i);
+        if (add_ddt_root_entry(cfg_getstr(ddt_node, "address"),
+                cfg_getint(ddt_node, "priority"),
+                cfg_getint(ddt_node, "weight")) == GOOD) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to ddt root node list", cfg_getstr(ddt_node, "address"));
+        } else{
+            lispd_log_msg(LISP_LOG_ERR, "Can't add ddt root node %s", cfg_getstr(ddt_node, "address"));
+        }
+    }
 
     /*
      *  handle proxy-etr config
      */
-
 
     n = cfg_size(cfg, "proxy-etr");
     for(i = 0; i < n; i++) {
@@ -654,7 +744,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             lispd_log_msg(LISP_LOG_ERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
         }
     }
-
 
     /*
      *  handle proxy-itr config
@@ -764,16 +853,16 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }
 
     /* Check number of EID prefixes */
-#ifndef ROUTER
-    if (num_entries_in_db(get_local_db(AF_INET)) > 1){
-        lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-        exit_cleanup();
+    if (router_mode == FALSE){
+        if (num_entries_in_db(get_local_db(AF_INET)) > 1){
+            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+            exit_cleanup();
+        }
+        if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
+            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+            exit_cleanup();
+        }
     }
-    if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
-        lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-        exit_cleanup();
-    }
-#endif
 
 
     if (debug_level == 1){
@@ -793,9 +882,15 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
     dump_proxy_etrs(LISP_LOG_DEBUG_1);
     dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_DEBUG_1);
+    if (ddt_client == TRUE){
+        dump_referral_cache_db(LISP_LOG_INFO);
+    }
 
     cfg_free(cfg);
-    return(GOOD);
+
+    err = validate_configuration();
+
+    return(err);
 }
 
 
@@ -807,7 +902,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 /*
  *  add_database_mapping
  *
- *  Get a single database mapping 
+ *  Get a single database mapping
  *
  *  David Meyer <dmm@1-4-5.net>
  *  Preethi Natarajan <prenatar@cisco.com>
@@ -836,9 +931,9 @@ int add_database_mapping(
         return (BAD);
     }
 
-    if (iid > MAX_IID || iid < -1) {
+    if (iid > MAX_IID || iid < 0) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
-        iid = -1;
+        iid = 0;
     }
 
     if (priority_v4 < (MAX_PRIORITY - 1) || priority_v4 > UNUSED_RLOC_PRIORITY) {
@@ -889,7 +984,7 @@ int add_database_mapping(
         }
         /* Add the mapping to the local database */
         if (add_mapping_to_db(mapping)!=GOOD){
-            free_mapping_elt(mapping, TRUE);
+            free_mapping_elt(mapping);
             return (BAD);
         }
         total_mappings ++;
@@ -929,6 +1024,7 @@ int add_database_mapping(
 
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    free_locator(locator);
                     return (BAD);
                 }
             }else{
@@ -944,6 +1040,7 @@ int add_database_mapping(
             locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,&(interface->out_socket_v6));
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                    free_locator(locator);
                     return (BAD);
                 }
             }else{
@@ -982,19 +1079,17 @@ int add_static_map_cache_entry(
         int    priority,
         int    weight)
 {
-    lispd_map_cache_entry    *map_cache_entry;
-    lispd_locator_elt        *locator;
-    lisp_addr_t              eid_prefix;
-    int                      eid_prefix_length;
+    lispd_map_cache_entry    *map_cache_entry       = NULL;
+    lispd_locator_elt        *locator               = NULL;
+    lisp_addr_t              *locator_addr          = NULL;
+    lisp_addr_t              eid_prefix             = {.afi=AF_UNSPEC};
+    int                      eid_prefix_length      = 0;
 
 
-    if (iid > MAX_IID) {
+    if (iid > MAX_IID || iid < 0) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
-        iid = -1;
+        iid = 0;
     }
-
-    if (iid < 0)
-        iid = -1;
 
     if (priority < MAX_PRIORITY || priority > UNUSED_RLOC_PRIORITY) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
@@ -1007,20 +1102,35 @@ int add_static_map_cache_entry(
         return (BAD);
     }
 
-    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
-    if (map_cache_entry == NULL)
+    if ((locator_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t))) == NULL){
+        lispd_log_msg(LISP_LOG_ERR, "add_static_map_cache_entry: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
         return (BAD);
+    }
 
+    if (get_lisp_addr_from_char(rloc_addr,locator_addr) != GOOD){
+        lispd_log_msg(LISP_LOG_ERR, "add_static_map_cache_entry: Error parsing RLOC address ... Ignoring static map cache entry");
+        free(locator_addr);
+        return (BAD);
+    }
+
+    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
+    if (map_cache_entry == NULL){
+        free(locator_addr);
+        return (BAD);
+    }
 
     map_cache_entry->mapping->iid = iid;
 
-    locator = new_static_rmt_locator(rloc_addr,UP,priority,weight,255,0);
+    locator = new_static_rmt_locator(locator_addr,UP,priority,weight,255,0);
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (map_cache_entry->mapping, locator)) != GOOD){
+            free_locator(locator);
+            free_map_cache_entry(map_cache_entry);
             return (BAD);
         }
     }else{
+        free_map_cache_entry(map_cache_entry);
         return (BAD);
     }
 
@@ -1040,55 +1150,25 @@ int add_server(
         char                *server,
         lispd_addr_list_t   **list)
 {
+    lispd_addr_list_t   *new_list   = NULL;
+    lispd_addr_list_t   *aux_list   = NULL;
 
-    uint                afi;
-    lisp_addr_t         *addr;
-    lispd_addr_list_t   *list_elt;
-
-    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return(ERR_MALLOC);
-    }
-    memset(addr,0,sizeof(lisp_addr_t));
-
-    afi = get_afi(server);
-    addr->afi = afi;
-
-    if (inet_pton(afi, server, &(addr->address)) != 1) {
-        lispd_log_msg(LISP_LOG_ERR, "add_server: Wrong address format: %s", strerror(errno));
-        free(addr);
-        return(BAD);
+    new_list = lispd_get_address( server, default_rloc_afi );
+    if (new_list == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to convert addresses: %s", server);
+        return (BAD);
     }
 
-    /*
-     * Check that the afi of the map server matches with the default rloc afi (if it's defined).
-     */
-    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
-        lispd_log_msg(LISP_LOG_WARNING, "The server %s will not be added due to the selected default rloc afi",server);
-        free(addr);
-        return(BAD);
+    if( *list == NULL ){
+        *list = new_list;
+    }else{
+        aux_list = new_list;
+        while(aux_list->next != NULL){
+            aux_list = aux_list->next;
+        }
+        aux_list->next = *list;
+        *list = new_list;
     }
-
-    if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_server: Unable to allocate memory for lispd_addr_list_t: %s", strerror(errno));
-        free(addr);
-        return(BAD);
-    }
-    memset(list_elt,0,sizeof(lispd_addr_list_t));
-
-    list_elt->address = addr;
-
-    /*
-     * hook this one to the front of the list
-     */
-
-    if (*list) {
-        list_elt->next = *list;
-        *list = list_elt;
-    } else {
-        *list = list_elt;
-    }
-
     return(GOOD);
 }
 
@@ -1103,73 +1183,111 @@ int add_map_server(
         uint8_t      proxy_reply)
 
 {
-    lisp_addr_t             *addr;
-    lispd_map_server_list_t *list_elt;
-    struct hostent          *hptr;
+    lispd_addr_list_t               *list        = NULL;
+    lisp_addr_t                     *addr        = NULL;
+    lispd_map_server_list_t         *list_elt    = NULL;
+    int                             result       = GOOD;
 
     if (map_server == NULL || key_type == 0 || key == NULL){
         lispd_log_msg(LISP_LOG_ERR, "Configuraton file: Wrong Map Server configuration.  Check configuration file");
         exit_cleanup();
     }
 
-    if ((addr = malloc(sizeof(lisp_addr_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        return(BAD);
+    list = lispd_get_address (map_server,default_rloc_afi);
+
+    if (list == NULL){
+        result = BAD;
     }
 
-    /*
-     *  make sure this is clean
-     */
-    // XXX alopez: to be revised
+    while (list != NULL){
+        addr = list->address;
+        if ((list_elt = (lispd_map_server_list_t *)calloc(1,sizeof(lispd_map_server_list_t))) == NULL) {
+            lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lispd_map_server_list_t: %s", strerror(errno));
+            free(addr);
+            result = BAD;
+            list = list->next;
+            continue;
+        }
 
-    memset(addr,0,sizeof(lisp_addr_t));
+        list_elt->address     = addr;
+        list_elt->key_type    = key_type;
+        list_elt->key         = strdup(key);
+        list_elt->proxy_reply = proxy_reply;
 
-    if (((hptr = gethostbyname2(map_server,AF_INET))  == NULL) &&
-            ((hptr = gethostbyname2(map_server,AF_INET6)) == NULL)) {
-        lispd_log_msg(LISP_LOG_WARNING, "can gethostbyname2 for map_server (%s)", map_server);
-        free(addr);
-        return(BAD);
+        if(map_servers != NULL){
+            list_elt->next = map_servers;
+            map_servers = list_elt;
+        }else {
+            map_servers = list_elt;
+        }
+
+        list = list->next;
     }
 
+    return(result);
+}
 
-    memcpy((void *) &(addr->address),
-            (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
-    addr->afi = hptr->h_addrtype;
+/*
+ * Add a locator of a ddt node to the root referral cache entry (root of the ddt tree)
+ */
 
-    /*
-     * Check that the afi of the map server matches with the default rloc afi (if it's defined).
-     */
-    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
-        lispd_log_msg(LISP_LOG_WARNING, "The map server %s will not be added due to the selected default rloc afi",map_server);
-        free(addr);
-        return(BAD);
+int add_ddt_root_entry(
+        char                        *address,
+        int                         priority,
+        int                         weight)
+{
+    lispd_addr_list_t               *list                   = NULL;
+    lisp_addr_t                     *ddt_locator_address    = NULL;
+    lisp_addr_t                     root_eid_prefix         = {.afi = AF_UNSPEC};
+    int                             result                  = GOOD;
+
+
+    /* Validate data introduced in the configuration file */
+
+    if (address == NULL){
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file (add_ddt_root_entry): The address of the  DDT root entry has not been specified. Discarding the entry");
+        return (BAD);
     }
 
-    if ((list_elt = malloc(sizeof(lispd_map_server_list_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_map_server: Unable to allocate memory for lispd_map_server_list_t: %s", strerror(errno));
-        free(addr);
-        return(BAD);
+    if ((list = lispd_get_address (address,default_rloc_afi)) == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "add_ddt_root_entry: Unable to process ddt root node with locator %s", address);
+        return (BAD);
     }
 
-    memset(list_elt,0,sizeof(lispd_map_server_list_t));
-
-    list_elt->address     = addr;
-    list_elt->key_type    = key_type;
-    list_elt->key         = strdup(key);
-    list_elt->proxy_reply = proxy_reply;
-
-    /*
-     * hook this one to the front of the list
-     */
-
-    if (map_servers) {
-        list_elt->next = map_servers;
-        map_servers = list_elt;
-    } else {
-        map_servers = list_elt;
+    /* Check the parameters */
+    if (priority > 255 || priority < 0) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file (add_ddt_root_entry): Priority %d out of range [0..255]", priority);
+        return (BAD);
     }
 
-    return(GOOD);
+    if (weight > 100 || weight < 0) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file (add_ddt_root_entry): Weight %d out of range [0..100]", priority);
+        return (BAD);
+    }
+
+    while (list != NULL){
+        ddt_locator_address = list->address;
+
+        get_lisp_addr_from_char ("0.0.0.0", &root_eid_prefix);
+        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
+            lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv4 database)",
+                    address);
+            free(ddt_locator_address);
+            result = BAD;
+        }
+
+        get_lisp_addr_from_char ("0::0", &root_eid_prefix);
+        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
+            lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv6 database)",
+                    address);
+            free(ddt_locator_address);
+            result = BAD;
+        }
+
+        list = list->next;
+    }
+
+    return (result);
 }
 
 /*
@@ -1184,9 +1302,11 @@ int add_proxy_etr_entry(
         int                         priority,
         int                         weight)
 {
-
-    lisp_addr_t                     aux_address;
+    lispd_addr_list_t               *list        = NULL;
+    lisp_addr_t                     petr_addr    = {.afi=AF_UNSPEC};
+    lisp_addr_t                     *lisp_addr   = NULL;
     lispd_locator_elt               *locator     = NULL;
+    int                             result       = GOOD;
 
     if (address == NULL){
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: The address of the Proxy ETR has not been specified. Discarding the entry");
@@ -1204,37 +1324,41 @@ int add_proxy_etr_entry(
         return (BAD);
     }
 
-    /*
-     * Check that the afi of the map server matches with the default rloc afi (if it's defined).
-     */
-    if (default_rloc_afi != -1 && default_rloc_afi != get_afi(address)){
-        lispd_log_msg(LISP_LOG_WARNING, "The proxy etr %s will not be added due to the selected default rloc afi",address);
-        return(BAD);
+    if ((list = lispd_get_address (address,default_rloc_afi)) == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "add_proxy_etr_entry: Unable to process proxy ETR  with locator %s", address);
+        return (BAD);
     }
 
     /* Create the proxy-etrs map cache structure if it doesn't exist */
     if (proxy_etrs == NULL){
-        if ((get_lisp_addr_from_char ("0.0.0.0", &aux_address))!=GOOD){
+        if ((get_lisp_addr_from_char ("0.0.0.0", &petr_addr))!=GOOD){
             return (BAD);
         }
-        proxy_etrs = new_map_cache_entry_no_db (aux_address,0,STATIC_MAP_CACHE_ENTRY,0);
+        proxy_etrs = new_map_cache_entry_no_db (petr_addr,0,STATIC_MAP_CACHE_ENTRY,0);
         if (proxy_etrs == NULL){
             return (BAD);
         }
     }
 
-    /* Create de locator representing the proxy-etr and add it to the mapping */
-    locator = new_static_rmt_locator (address,UP,priority,weight,255,0);
-
-    if (locator != NULL){
-        if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){
-            return (BAD);
+    while (list != NULL){
+        lisp_addr = list->address;
+        /* Create de locator representing the proxy-etr and add it to the mapping */
+        locator = new_static_rmt_locator (lisp_addr,UP,priority,weight,255,0);
+        if (locator != NULL){
+            if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){
+                lispd_log_msg(LISP_LOG_DEBUG_1, "add_proxy_etr_entry: %s caouldn't be added to the proxy ETR list", get_char_from_lisp_addr_t(*lisp_addr));
+                free_locator(locator);
+                result = BAD;
+            }
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1, "add_proxy_etr_entry: %s caouldn't be added to the proxy ETR list", get_char_from_lisp_addr_t(*lisp_addr));
+            free(lisp_addr);
+            result = BAD;
         }
-    }else{
-        return (BAD);
+        list = list->next;
     }
 
-    return(GOOD);
+    return(result);
 }
 
 void validate_rloc_probing_parameters (
@@ -1283,6 +1407,44 @@ void validate_rloc_probing_parameters (
     }
 }
 
+/*
+ * Validates the information obtained from the configuration file
+ */
+int validate_configuration()
+{
+    int result = GOOD;
+    if (map_servers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured.");
+        result = BAD;
+    }
+
+    if (map_resolvers == NULL && ddt_client == FALSE){
+        if (is_referral_db_empty() == FALSE){
+            ddt_client = TRUE;
+            lispd_log_msg(LISP_LOG_WARNING, "No Map Resolver configured. Enabling DDT client mode");
+        }else{
+            lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured.");
+            result = BAD;
+        }
+    }
+
+    if(ddt_client == TRUE && is_referral_db_empty() == TRUE){
+        lispd_log_msg(LISP_LOG_WARNING, "DDT client mode enabled but no ddt root node configured");
+        result = BAD;
+    }
+
+    if (proxy_etrs == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        sleep(3);
+    }else{
+        calculate_balancing_vectors (
+                proxy_etrs->mapping,
+                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
+    }
+
+    return (result);
+}
 
 /*
  * Editor modelines

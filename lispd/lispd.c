@@ -1,9 +1,9 @@
 /*
- * lispd.c 
+ * lispd.c
  *
  * This file is part of LISP Mobile Node Implementation.
  * lispd Implementation
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -32,7 +32,6 @@
  *
  */
 
-
 #include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
@@ -44,7 +43,11 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-//#include <sys/timerfd.h>
+#ifdef ANDROID
+ #include <fcntl.h>
+#endif
+#include <linux/capability.h>
+#include <sys/prctl.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include "lispd.h"
@@ -59,6 +62,7 @@
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_output.h"
+#include "lispd_referral_cache_db.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_routing_tables_lib.h"
 #include "lispd_smr.h"
@@ -69,96 +73,122 @@
 
 void event_loop();
 void signal_handler(int);
-
-
+int check_capabilities();
+/* system calls - look to libc for function to system call mapping */
+extern int capset(cap_user_header_t header, cap_user_data_t data);
+extern int capget(cap_user_header_t header, const cap_user_data_t data);
+#ifdef ANDROID
+#define CAP_TO_MASK(x)      (1 << ((x) & 31))
+#endif
 
 
 /*
  *      config paramaters
  */
+uint8_t                      router_mode;
 
-lispd_addr_list_t          *map_resolvers   = NULL;
-lispd_addr_list_t          *proxy_itrs      = NULL;
-lispd_map_cache_entry      *proxy_etrs      = NULL;
-lispd_map_server_list_t    *map_servers     = NULL;
-char    *config_file                        = NULL;
-int      debug_level                        = 0;
-int      default_rloc_afi                   = -1;
-int      daemonize                          = FALSE;
-int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
+lispd_addr_list_t            *map_resolvers;
+int                          ddt_client;
+lispd_addr_list_t            *proxy_itrs;
+lispd_map_cache_entry        *proxy_etrs;
+lispd_map_server_list_t      *map_servers;
+char                         *config_file;
+int                          debug_level;
+int                          ctrl_supported_afi;
+int                          default_rloc_afi;
+int                          daemonize;
+int                          map_request_retries;
 /* RLOC probing parameters */
-int      rloc_probe_interval                = RLOC_PROBING_INTERVAL;
-int      rloc_probe_retries                 = DEFAULT_RLOC_PROBING_RETRIES;
-int      rloc_probe_retries_interval        = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+int                          rloc_probe_interval;
+int                          rloc_probe_retries;
+int                          rloc_probe_retries_interval;
 
-int      control_port                       = LISP_CONTROL_PORT;
-uint32_t iseed                              = 0;  /* initial random number generator */
-int      total_mappings                     = 0;
+int                          control_port;
+
+int                          total_mappings;
+
 /*
  *      various globals
  */
 
-char   msg[128];                                /* syslog msg buffer */
-pid_t  pid                                  = 0;    /* child pid */
-pid_t  sid                                  = 0;
+char                           msg[128];   /* syslog msg buffer */
+
 /*
  *      sockets (fds)
  */
-int     ipv4_data_input_fd                  = 0;
-int     ipv6_data_input_fd                  = 0;
-int     ipv4_control_input_fd               = 0;
-int     ipv6_control_input_fd               = 0;
-int     netlink_fd                          = 0;
-fd_set  readfds;
-struct  sockaddr_nl dst_addr;
-struct  sockaddr_nl src_addr;
-nlsock_handle nlh;
+int                         ipv4_data_input_fd;
+int                         ipv6_data_input_fd;
+int                         ipv4_control_input_fd;
+int                         ipv6_control_input_fd;
+int                         netlink_fd;
+fd_set                      readfds;
+struct                      sockaddr_nl dst_addr;
+struct                      sockaddr_nl src_addr;
+nlsock_handle               nlh;
 
 /* NAT */
 
-int             nat_aware   = FALSE;
-int             nat_status  = UNKNOWN;
-lispd_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
-lispd_xTR_ID    xTR_ID      = {.byte = {0}};
+int                         nat_aware;
+int                         nat_status;
+lispd_site_ID               site_ID;
+lispd_xTR_ID                xTR_ID;
 // Global variables used to store nonces of encapsulated map register and info request.
 // To be removed when NAT with multihoming supported.
-nonces_list     *nat_emr_nonce  = NULL;
-nonces_list     *nat_ir_nonce   = NULL;
+nonces_list                 *nat_emr_nonce;
+nonces_list                 *nat_ir_nonce;
 
+
+/*
+ * smr_timer is used to avoid sending SMRs during transition period.
+ */
+timer                         *smr_timer;
 
 /*
  *      timers (fds)
  */
-
-int     timers_fd                       = 0;
-
+int                         timers_fd;
 
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
-    lisp_addr_t *tun_v4_addr;
-    lisp_addr_t *tun_v6_addr;
-    char *tun_dev_name = TUN_IFACE_NAME;
+    lisp_addr_t 		*tun_v4_addr  = NULL;
+    lisp_addr_t 		*tun_v6_addr  = NULL;
+    char 				*tun_dev_name = TUN_IFACE_NAME;
+    uint32_t 			iseed         = 0;  /* initial random number generator */
+    pid_t  				pid           = 0;    /* child pid */
+    pid_t  				sid           = 0;
 
-#ifdef ROUTER
+
 #ifdef OPENWRT
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for openWRT\n", LISPD_VERSION);
 #else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for linux xTR\n");
+#ifdef ANDROID
+    open_log_file();
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for Android\n", LISPD_VERSION);
+#else
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for Linux\n", LISPD_VERSION);
 #endif
-#else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
 #endif
 
+    init_globales();
 
+#ifndef ANDROID
     /*
-     *  Check for superuser privileges
+     *  Check for required capabilities and drop unnecssary privileges
      */
 
-    if (geteuid()) {
+    if(check_capabilities() != GOOD) {
+        exit_cleanup();
+    }
+#else
+    /*
+     * Check for superuser privileges
+     */
+    if (geteuid() != 0) {
         lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
         exit_cleanup();
     }
+#endif
 
     /*
      *  Initialize the random number generator
@@ -170,7 +200,6 @@ int main(int argc, char **argv)
     /*
      * Set up signal handlers
      */
-
     signal(SIGHUP,  signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGINT,  signal_handler);
@@ -180,10 +209,9 @@ int main(int argc, char **argv)
     /*
      *  set up databases
      */
-
     db_init();
     map_cache_init();
-
+    init_referral_cache();
 
     /*
      *  Parse command line options
@@ -192,27 +220,27 @@ int main(int argc, char **argv)
     handle_lispd_command_line(argc, argv);
 
 
-
     /*
      *  see if we need to daemonize, and if so, do it
      */
 
     if (daemonize) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process1");
         if ((pid = fork()) < 0) {
             exit_cleanup();
         }
         umask(0);
-        if (pid > 0)
+        if (pid > 0){
+        	exit(EXIT_SUCCESS);
+        }
+        if ((sid = setsid()) < 0){
             exit_cleanup();
-        if ((sid = setsid()) < 0)
+        }
+        if ((chdir("/")) < 0){
             exit_cleanup();
-        if ((chdir("/")) < 0)
-            exit_cleanup();
-        close(STDIN_FILENO);
-        close(STDOUT_FILENO);
-        close(STDERR_FILENO);
+        }
     }
+
 
 
     /*
@@ -221,11 +249,10 @@ int main(int argc, char **argv)
 
     if (build_timers_event_socket(&timers_fd) == 0)
     {
-        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
-        exit_cleanup();
+    	lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+    	exit_cleanup();
     }
     init_timers();
-
 
 
 
@@ -237,43 +264,29 @@ int main(int argc, char **argv)
     if (config_file == NULL){
         config_file = "/etc/config/lispd";
     }
-    handle_uci_lispd_config_file(config_file);
+    err = handle_uci_lispd_config_file(config_file);
 #else
     if (config_file == NULL){
         config_file = "/etc/lispd.conf";
     }
-    handle_lispd_config_file(config_file);
+    err = handle_lispd_config_file(config_file);
 #endif
 
-    if (map_servers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+    if (err != GOOD){
+        lispd_log_msg(LISP_LOG_CRIT,"Wrong configuration.");
         exit_cleanup();
     }
 
-    if (map_resolvers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        exit_cleanup();
+    if (ddt_client == FALSE){
+        drop_referral_cache();
     }
-
-    if (proxy_etrs == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
-                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-        sleep(3);
-    }else{
-        calculate_balancing_vectors (
-                proxy_etrs->mapping,
-                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
-    }
-
-
+	
     /*
      * Select the default rlocs for output data packets and output control packets
      */
-
     set_default_output_ifaces();
 
     set_default_ctrl_ifaces();
-
 
     /*
      * Create tun interface
@@ -293,21 +306,21 @@ int main(int argc, char **argv)
      *                 ::/1      and 8000::/1
      */
 
-#ifdef ROUTER
-    tun_v4_addr = get_main_eid(AF_INET);
-    if (tun_v4_addr != NULL){
-        tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+    if (router_mode == TRUE){
+        tun_v4_addr = get_main_eid(AF_INET);
+        if (tun_v4_addr != NULL){
+            tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
+            get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+        }
+        tun_v6_addr = get_main_eid(AF_INET6);
+        if (tun_v6_addr != NULL){
+            tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
+            get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
+        }
+    }else{
+        tun_v4_addr = get_main_eid(AF_INET);
+        tun_v6_addr = get_main_eid(AF_INET6);
     }
-    tun_v6_addr = get_main_eid(AF_INET6);
-    if (tun_v6_addr != NULL){
-        tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
-    }
-#else
-    tun_v4_addr = get_main_eid(AF_INET);
-    tun_v6_addr = get_main_eid(AF_INET6);
-#endif
 
     tun_bring_up_iface(tun_dev_name);
     if (tun_v4_addr != NULL){
@@ -318,24 +331,24 @@ int main(int argc, char **argv)
         tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
         set_tun_default_route_v6();
     }
-#ifdef ROUTER
-    if (tun_v4_addr != NULL){
-        free(tun_v4_addr);
+    if (router_mode == TRUE){
+        if (tun_v4_addr != NULL){
+            free(tun_v4_addr);
+        }
+        if (tun_v6_addr != NULL){
+            free(tun_v6_addr);
+        }
     }
-    if (tun_v6_addr != NULL){
-        free(tun_v6_addr);
-    }
-#endif
     /*
      * Generate receive sockets for control (4342) and data port (4341)
      */
 
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
+    if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET){
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
     }
 
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
+    if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET6){
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
     }
@@ -345,7 +358,12 @@ int main(int argc, char **argv)
      */
     netlink_fd = opent_netlink_socket();
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.3): 'lispd' started...");
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (%s): 'lispd' started...", LISPD_VERSION);
+    if (router_mode == TRUE){
+        lispd_log_msg(LISP_LOG_INFO,"Running as an xTR router");
+    }else{
+        lispd_log_msg(LISP_LOG_INFO,"Running as a LISP mobile node");
+    }
 
     /*
      * Request to dump the routing tables to obtain the gatways when processing the netlink messages
@@ -373,7 +391,6 @@ int main(int argc, char **argv)
      */
     programming_petr_rloc_probing();
 
-
     event_loop();
 
     lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
@@ -392,11 +409,11 @@ void event_loop()
     int    max_fd;
     fd_set readfds;
     int    retval;
-    
+
     /*
      *  calculate the max_fd for select.
      */
-    
+
     max_fd = ipv4_data_input_fd;
     max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
     max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
@@ -414,15 +431,13 @@ void event_loop()
         FD_SET(ipv6_control_input_fd, &readfds);
         FD_SET(timers_fd, &readfds);
         FD_SET(netlink_fd, &readfds);
-        
+
         retval = have_input(max_fd, &readfds);
-        if (retval == -1) {
-            break;           /* doom */
-        }
-        if (retval == BAD) {
+
+        if (retval != GOOD) {
             continue;        /* interrupted */
         }
-        
+
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
             //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
             process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
@@ -477,9 +492,69 @@ void signal_handler(int sig) {
         break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_1,"Unhandled signal (%d)", sig);
-        exit(EXIT_FAILURE);
+        exit_cleanup();
     }
 }
+
+
+/*
+ *  Check for superuser privileges
+ */
+int check_capabilities()
+{
+    struct __user_cap_header_struct cap_header;
+    struct __user_cap_data_struct cap_data;
+
+    cap_header.pid = getpid();
+    cap_header.version = _LINUX_CAPABILITY_VERSION;
+    if (capget(&cap_header, &cap_data) < 0)
+    {
+        lispd_log_msg(LISP_LOG_ERR, "Could not retrieve capabilities");
+        return BAD;
+    }
+
+    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    /* check for capabilities */
+    if(  (cap_data.effective & CAP_TO_MASK(CAP_NET_ADMIN)) && (cap_data.effective & CAP_TO_MASK(CAP_NET_RAW))  )  {
+    }
+    else {
+        lispd_log_msg(LISP_LOG_CRIT, "Insufficiant rights, you need CAP_NET_ADMIN and CAP_NET_RAW. See readme");
+        return BAD;
+    }
+
+    /* Clear all but the capability to bind to low ports */
+    cap_data.effective = CAP_TO_MASK(CAP_NET_ADMIN) | CAP_TO_MASK(CAP_NET_RAW);
+    cap_data.permitted = cap_data.effective ;
+    cap_data.inheritable = 0;
+    if (capset(&cap_header, &cap_data) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Could not drop privileges");
+        return BAD;
+    }
+
+    /* Tell kernel not clear permitted capabilities when dropping root */
+    if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Sprctl(PR_SET_KEEPCAPS) failed");
+        return GOOD;
+    }
+
+    /* Now we can drop privilege, drop effective rights even with KEEPCAPS */
+    if (setuid(getuid()) < 0) {
+        lispd_log_msg(LISP_LOG_WARNING, "Could not drop privileges");
+    }
+
+    /* that's why we need to set effective rights equal to permitted rights */
+    if (capset(&cap_header, &cap_data) < 0)
+    {
+        lispd_log_msg(LISP_LOG_CRIT, "Could not set effective rights to permitted ones");
+        return (BAD);
+    }
+
+    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    return GOOD;
+}
+
 
 /*
  *  exit_cleanup()
@@ -503,7 +578,9 @@ void exit_cleanup(void) {
     /* Close netlink socket */
     close(netlink_fd);
     lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
-
+#ifdef ANDROID
+    close_log_file();
+#endif
     exit(EXIT_SUCCESS);
 }
 

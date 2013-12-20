@@ -3,7 +3,7 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  * Various library routines.
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -33,7 +33,9 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
+#ifndef ANDROID
 #include <ifaddrs.h>
+#endif
 #include <inttypes.h>
 #include <netdb.h>
 #include <net/if.h>
@@ -58,25 +60,254 @@
 #include "lispd_afi.h"
 #include "lispd_lib.h"
 #include "lispd_external.h"
+#include "lispd_map_referral.h"
 #include "lispd_map_request.h"
 #include "lispd_map_reply.h"
 #include "lispd_map_notify.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
-#include "lispd_info_nat.h" 
+#include "lispd_info_nat.h"
 
-
+/********************************** Function declaration ********************************/
 
 int isfqdn(char *s);
 inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
 inline int convert_hex_char_to_byte (char val);
+inline lisp_addr_t get_network_address_v4(
+        lisp_addr_t address,
+        int         prefix_length);
 
+inline lisp_addr_t get_network_address_v6(
+        lisp_addr_t address,
+        int         prefix_length);
+
+
+/****************************************************************************************/
+
+#ifdef ANDROID
+/*
+ * Different from lispd_if_t to maintain
+ * linux system call compatibility.
+ */
+typedef struct ifaddrs {
+    struct ifaddrs      *ifa_next;
+    char                *ifa_name;
+    unsigned int         ifa_flags;
+    struct sockaddr      *ifa_addr;
+    int                  ifa_index;
+} ifaddrs;
+
+
+typedef struct {
+    struct nlmsghdr nlh;
+    struct rtgenmsg  rtmsg;
+} request_struct;
+
+/*
+ * populate_ifaddr_entry()
+ *
+ * Fill in the ifaddr data structure with the info from
+ * the rtnetlink message.
+ */
+int populate_ifaddr_entry(ifaddrs *ifaddr, int family, void *data, int ifindex, size_t count)
+{
+    char buf[IFNAMSIZ];
+    char *name;
+    void *dst;
+    int   sockfd;
+    struct ifreq ifr;
+    int   retval;
+
+    if (!((family == AF_INET) || (family == AF_INET6))) {
+        return -1;
+    }
+    name = if_indextoname(ifindex, buf);
+    if (name == NULL) {
+        return -1;
+    }
+    ifaddr->ifa_name = malloc(strlen(name) + 1);   // Must free elsewhere XXX
+    strcpy(ifaddr->ifa_name, name);
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == -1) {
+        free(ifaddr->ifa_name);
+        close(sockfd);
+        return -1;
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, name);
+
+    retval = ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+    if (retval == -1) {
+        free(ifaddr->ifa_name);
+        close(sockfd);
+        return -1;
+
+    }
+    ifaddr->ifa_flags = ifr.ifr_flags;
+    ifaddr->ifa_index = ifindex;
+    ifaddr->ifa_addr = malloc(sizeof(struct sockaddr));
+    ifaddr->ifa_addr->sa_family = family;
+
+    dst = &((struct sockaddr_in *)(ifaddr->ifa_addr))->sin_addr;
+    memcpy(dst, data, count);
+
+    close(sockfd);
+    return 0;
+}
+
+/*
+ * getifaddrs()
+ *
+ * Android (and other) compatible getifaddrs function, using
+ * rtnetlink. Enumerates all interfaces on the device.
+ */
+int getifaddrs(ifaddrs **addrlist) {
+    request_struct        req;
+    struct ifaddrmsg     *addr;
+    ifaddrs              *prev;
+    struct rtattr        *rta;
+    int                   afi;
+    size_t                msglen;
+    int                   sockfd;
+    char                  rcvbuf[4096];
+    int                   readlen;
+    int                   retval;
+    struct nlmsghdr      *rcvhdr;
+
+    *addrlist = NULL;
+
+    /*
+     * We open a separate socket here so the response can
+     * be synchronous
+     */
+    sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+
+    if (sockfd < 0) {
+        return -1;
+    }
+
+    /*
+     * Construct the request
+     */
+    req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_MATCH;
+    req.nlh.nlmsg_type = RTM_GETADDR;
+    req.nlh.nlmsg_len = NLMSG_ALIGN(NLMSG_LENGTH(sizeof(request_struct)));
+    req.rtmsg.rtgen_family = AF_UNSPEC;
+
+    /*
+     * Send it
+     */
+    retval = send(sockfd, &req, req.nlh.nlmsg_len, 0);
+
+    if (retval <= 0) {
+        close(sockfd);
+        return -1;
+    }
+
+    /*
+     * Receive the responses from the kernel
+     */
+    while ((readlen = read(sockfd, rcvbuf, 4096)) > 0) {
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            switch (rcvhdr->nlmsg_type) {
+            case NLMSG_DONE:
+                close(sockfd);
+                return 0;
+            case NLMSG_ERROR:
+                close(sockfd);
+                return -1;
+            case RTM_NEWADDR:
+
+                addr = (struct ifaddrmsg *)NLMSG_DATA(rcvhdr);
+                rta = IFA_RTA(addr);
+                msglen = IFA_PAYLOAD(rcvhdr);
+
+                while (RTA_OK(rta, msglen)) {
+
+                    /*
+                     * Only care about local addresses of our interfaces
+                     */
+                    if (rta->rta_type == IFA_LOCAL) {
+                        afi = addr->ifa_family;
+                        if ((afi == AF_INET) || (afi == AF_INET6)) {
+
+                            if (*addrlist) {
+                                prev = *addrlist;
+                            } else {
+                                prev = NULL;
+                            }
+                            *addrlist = malloc(sizeof(ifaddrs));  // Must free elsewhere XXX
+                            memset(*addrlist, 0, sizeof(ifaddrs));
+                            (*addrlist)->ifa_next = prev;
+                            populate_ifaddr_entry(*addrlist, afi, RTA_DATA(rta), addr->ifa_index, RTA_PAYLOAD(rta));
+                        }
+                    }
+                    rta = RTA_NEXT(rta, msglen);
+                }
+                break;
+            default:
+                break;
+            }
+
+        }
+    }
+    close(sockfd);
+    return 0;
+}
+
+int freeifaddrs(ifaddrs *addrlist)
+{
+	return 0; // XXX TODO
+}
+#endif
+
+/*
+ * Add an address (lisp_addr_t *) into a list of addresses (lispd_addr_list_t **)
+ * @param addr Pointer to the address to be added into the list
+ * @param list Pointer to the pointer of the first element of the list where the address should be added
+ * @return GOOD if finish correctly or an error code otherwise
+ */
+int add_lisp_addr_to_list(
+        lisp_addr_t         *addr,
+        lispd_addr_list_t   **list )
+{
+    lispd_addr_list_t   *list_elt   = NULL;
+
+    if(addr == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "add_lisp_addr_to_list: Empty data");
+        return (BAD);
+    }
+
+    if ((list_elt = malloc(sizeof(lispd_addr_list_t))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "add_lisp_addr_to_list: Unable to allocate memory for lispd_addr_list_t: %s", strerror(errno));
+        return(BAD);
+    }
+
+    memset(list_elt,0,sizeof(lispd_addr_list_t));
+
+    list_elt->address = addr;
+    if (*list != NULL) {
+        list_elt->next = *list;
+        *list = list_elt;
+    } else {
+        *list = list_elt;
+    }
+
+    return (GOOD);
+}
 
 
 /*
  *      get_afi
  *
- *      Assume if there's a colon in str that its an IPv6 
+ *      Assume if there's a colon in str that its an IPv6
  *      address. Otherwise its v4.
  *
  *      David Meyer
@@ -88,52 +319,19 @@ inline int convert_hex_char_to_byte (char val);
  */
 
 int get_afi(char *str)
-{ 
+{
     if (strchr(str,':'))                /* poor-man's afi discriminator */
         return(AF_INET6);
-    else        
+    else
         return(AF_INET);
 }
-
-/*
- *      copy_lisp_addr_t
- *
- *      Copy a lisp_addr_t, converting it using convert
- *      if supplied (a2 -> a1)
- */
-
-int copy_lisp_addr_t(
-     lisp_addr_t    *a1,
-     lisp_addr_t    *a2,
-     int            convert)
-{
-    a1->afi = a2->afi;
-    switch (a2->afi) {
-    case AF_INET:
-        if (convert)
-            a1->address.ip.s_addr = htonl(a2->address.ip.s_addr);
-        else 
-            a1->address.ip.s_addr = a2->address.ip.s_addr;
-        break;
-    case AF_INET6:
-        memcpy(a1->address.ipv6.s6_addr,
-               a2->address.ipv6.s6_addr,
-               sizeof(struct in6_addr));
-        break;
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "copy_lisp_addr_t: Unknown AFI (%d)", a2->afi);
-        return(BAD);
-    }
-    return(GOOD);
-}
-
 
 
 /*
  *      copy_addr
  *
- *      Copy a lisp_addr_t to a memory location, htonl'ing it
- *      it convert != 0. Return the length or 0;
+ *      Copy a lisp_addr_t to a memory location, htonl'ing
+ *      if convert != 0. Return the length or 0;
  */
 
 int copy_addr(
@@ -141,12 +339,11 @@ int copy_addr(
      lisp_addr_t    *a2,
      int            convert)
 {
-
     switch (a2->afi) {
     case AF_INET:
         if (convert)
             ((struct in_addr *) a1)->s_addr = htonl(a2->address.ip.s_addr);
-        else 
+        else
             ((struct in_addr *) a1)->s_addr = a2->address.ip.s_addr;
         return(sizeof(struct in_addr));
     case AF_INET6:
@@ -177,8 +374,15 @@ inline void copy_lisp_addr_V6(lisp_addr_t *dest,
     dest->afi = orig->afi;
 }
 
-void copy_lisp_addr(lisp_addr_t *dest,
-                    lisp_addr_t *orig){
+/*
+ * Copy address from orig to dest. The memory for dest must be allocated outside this function
+ * @param dest Destination of the copied address
+ * @return orig Address to be copied
+ */
+void copy_lisp_addr(
+        lisp_addr_t *dest,
+        lisp_addr_t *orig)
+{
     switch (orig->afi){
         case AF_INET:
             copy_lisp_addr_V4(dest,orig);
@@ -188,8 +392,33 @@ void copy_lisp_addr(lisp_addr_t *dest,
             break;
         default:
             //TODO default case?
+            dest->afi = AF_UNSPEC;
             break;
     }
+}
+
+/*
+ * Copy address into a new generated lisp_addr_t structure
+ * @param addr Address to be copied
+ * @return New allocated address
+ */
+lisp_addr_t *clone_lisp_addr(lisp_addr_t *addr)
+{
+    lisp_addr_t *new_addr = NULL;
+
+    if ((new_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "clone_lisp_addr: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+        return(NULL);
+    }
+
+    copy_lisp_addr(new_addr, addr);
+    if (new_addr->afi == AF_UNSPEC){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "clone_lisp_addr: Unknown AFI: %d.", addr->afi);
+        free (new_addr);
+        new_addr = NULL;
+    }
+
+    return (new_addr);
 }
 
 inline void memcopy_lisp_addr_V4(void *dest,
@@ -221,7 +450,10 @@ void memcopy_lisp_addr(void *dest,
     }
 }
 
-int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
+int convert_hex_string_to_bytes(
+        char        *hex,
+        uint8_t     *bytes,
+        int         bytes_len)
 {
     int         ctr = 0;
     char        hex_digit[2];
@@ -291,36 +523,119 @@ inline int convert_hex_char_to_byte (char val)
 }
 
 /*
- *      lispd_get_address
+ *  Converts the hostname into IPs which are added to a list of lisp_addr_t
+ *  @param addr_str String conating fqdn address or de IP address
+ *  @param preferred_afi Indicates the afi of the IPs to be added in the list
+ *  @return List of addresses (lispd_addr_list_t *)
+ */
+lispd_addr_list_t *lispd_get_address(
+        char        *addr_str,
+        const int   preferred_afi)
+{
+    lispd_addr_list_t   *addr_list = NULL;
+    lisp_addr_t         *lisp_addr = NULL;
+    struct addrinfo     hints, *servinfo = NULL, *p = NULL;
+    int                 disable_name_resolution = TRUE;
+
+    memset(&hints, 0, sizeof hints);
+
+    if (isfqdn(addr_str) == TRUE){
+        disable_name_resolution = FALSE;
+    }
+
+    hints.ai_family = preferred_afi;
+    hints.ai_flags = (disable_name_resolution == TRUE) ? AI_NUMERICHOST : AI_PASSIVE;
+    hints.ai_protocol = IPPROTO_UDP;    /* we are interested in UDP only */
+
+    if (getaddrinfo( addr_str, 0, &hints, &servinfo) != 0) {
+        lispd_log_msg( LISP_LOG_WARNING, "get_addr_info: %s", strerror(errno) );
+        return( NULL );
+    }
+    /* iterate over addresses */
+    for (p = servinfo; p != NULL; p = p->ai_next) {
+        if ((lisp_addr = (lisp_addr_t *)malloc (sizeof(lisp_addr_t)))== NULL){
+            lispd_log_msg(LISP_LOG_WARNING, "lispd_get_address: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+            continue;
+        }
+        if( GOOD != copy_addr_from_sockaddr( p->ai_addr, lisp_addr)  ){
+            lispd_log_msg(LISP_LOG_WARNING, "Could not convert %s to lisp_addr", addr_str);
+            continue;
+        }
+        lispd_log_msg(LISP_LOG_DEBUG_1, "converted addr_str [%s] to address [%s]", addr_str, get_char_from_lisp_addr_t(*lisp_addr));
+        /* depending on callback return, we continue or not */
+        if ( GOOD != add_lisp_addr_to_list(lisp_addr,&addr_list)){
+            continue;
+        }
+    }
+    freeaddrinfo(servinfo); /* free the linked list */
+
+    return (addr_list);
+}
+
+/*
+ *      isfqdn(char *s)
  *
- *      return lisp_addr_t for host/FQDN or 0 if none
+ *      See if a string qualifies as an FQDN. To qualifiy, s must
+ *      contain one or more dots. The dots may not be the first
+ *      or the last character. Two dots may not immidiately follow
+ *      each other. It must consist of the characters a..z, A..Z,,
+ *      0..9, '.', '-'. The first character must be a letter or a digit.
  */
 
-int lispd_get_address(
-    char             *host,
-    lisp_addr_t      *addr)
+int isfqdn(char *s)
 {
-    struct hostent      *hptr;
+    int         i = 1;
+    uint8_t     dot = 0;
+    char        c;
 
-    /* 
-     * make sure this is clean
-     */
+    if ((!isalnum(s[0])) || (strchr(s,':') != NULL)){
+        return(BAD);
+    }
 
-    memset(addr, 0, sizeof(lisp_addr_t));
+    while (((c = s[i]) != 0) && (c != ',')) {
+        if (c == '.') {
+            dot = 1;
+            if (s[i-1] == '.'){
+                return(FALSE);
+            }
+        }
+        if (!(isalnum(c) || c=='-' || c=='.')){
+            return(FALSE);
+        }
+        i++;
+    }
 
-    /*
-     *  check to see if hhost is either a FQDN of IPvX address.
-     */
-
-    if (((hptr = gethostbyname2(host,AF_INET))  != NULL) ||
-        ((hptr = gethostbyname2(host,AF_INET6)) != NULL)) {
-        memcpy((void *) &(addr->address),
-               (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
-        addr->afi = hptr->h_addrtype;
-        return(GOOD);
-    } 
-    return(BAD);
+    if (s[0] == '.' || s[i-1] == '.' || !isalpha(s[i-1])){
+        return(FALSE);
+    }
+    if (dot == 1){
+        return (TRUE);
+    }else{
+        return (FALSE);
+    }
 }
+
+
+int copy_addr_from_sockaddr(
+        struct sockaddr     *addr,
+        lisp_addr_t         *lisp_addr)
+{
+
+    lisp_addr->afi = addr->sa_family;
+    switch(lisp_addr->afi ) {
+        case AF_INET:
+            lisp_addr->address.ip = ((struct sockaddr_in *)addr)->sin_addr;
+            return (GOOD);
+
+        case AF_INET6:
+            lisp_addr->address.ipv6 = ((struct sockaddr_in6 *)addr)->sin6_addr;
+            return (GOOD);
+    }
+
+    lispd_log_msg( LISP_LOG_WARNING, "copy_addr_from_sockaddr: Unknown address family %d", addr->sa_family);
+    return (BAD);
+}
+
 
 /*
  *  lispd_get_iface_address
@@ -342,7 +657,7 @@ int lispd_get_iface_address(
     char addr_str[MAX_INET_ADDRSTRLEN];
 
 
-    if (default_rloc_afi != -1){ /* If forced a exact RLOC type (Just IPv4 of just IPv6) */
+    if (default_rloc_afi != AF_UNSPEC){ /* If forced a exact RLOC type (Just IPv4 of just IPv6) */
         if(afi != default_rloc_afi){
             lispd_log_msg(LISP_LOG_INFO,"Default RLOC afi defined: Skipped %s address in iface %s",
                           (afi == AF_INET) ? "IPv4" : "IPv6",ifacename);
@@ -350,7 +665,7 @@ int lispd_get_iface_address(
         }
     }
 
-    /* 
+    /*
      * make sure this is clean
      */
 
@@ -409,8 +724,8 @@ int lispd_get_iface_address(
                        sizeof(struct in6_addr));
                 addr->afi = AF_INET6;
                 lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
-                        ifacename, 
-                        inet_ntop(AF_INET6, &(s6->sin6_addr), 
+                        ifacename,
+                        inet_ntop(AF_INET6, &(s6->sin6_addr),
                             addr_str, MAX_INET_ADDRSTRLEN));
                 freeifaddrs(ifaddr);
                 return(GOOD);
@@ -431,7 +746,7 @@ int lispd_get_iface_address(
 /*
  *      dump_X
  *
- *      walk the lispd X data structures 
+ *      walk the lispd X data structures
  *
  *      David Meyer
  *      dmm@1-4-5.net
@@ -446,7 +761,7 @@ void dump_servers(
         lispd_addr_list_t   *list,
         const char          *list_name,
         int                 log_level)
-{ 
+{
     lispd_addr_list_t   *iterator = 0;
 
     if (!list)
@@ -514,42 +829,6 @@ void dump_map_servers(int log_level)
 }
 
 
-/* 
- *      isfqdn(char *s)
- *
- *      See if a string qualifies as an FQDN. To qualifiy, s must
- *      contain one or more dots. The dots may not be the first
- *      or the last character. Two dots may not immidiately follow
- *      each other. It must consist of the characters a..z, A..Z,,
- *      0..9, '.', '-'. The first character must be a letter or a digit.
- */
-
-int isfqdn(char *s)
-{
-    int         i = 1;
-    uint8_t     dot = 0;
-    char        c;
-
-    if ((!isalnum(s[0])) || (!strchr(s,':')))
-        return(BAD);
-
-    while (((c = s[i]) != 0) && (c != ',') && (c != ':')) {
-        if (c == '.') {
-            dot = 1;
-            if (s[i-1] == '.')
-                return(BAD);
-        }
-        if (!(isalnum(c) || c=='-' || c=='.'))
-            return(BAD);
-        i++;
-    }
-
-    if (s[0] == '.' || s[i-1] == '.')
-        return(BAD);
-
-    return(dot);
-}
-
 /*
  * Return TRUE if the address belongs to:
  *          IPv4: 169.254.0.0/16
@@ -571,8 +850,8 @@ int is_link_local_addr (lisp_addr_t addr)
         }
         break;
     case AF_INET6:
-        if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
-                ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
+		if (((addr.address.ipv6.s6_addr[0] & 0xff) == 0xfe) &&
+	            ((addr.address.ipv6.s6_addr[1] & 0xc0) == 0x80)){
             is_link_local = TRUE;
         }
         break;
@@ -647,6 +926,7 @@ int get_lisp_addr_from_char (
     }
     if (result == BAD){
         lisp_addr->afi = AF_UNSPEC;
+        lispd_log_msg(LISP_LOG_DEBUG_2,"get_lisp_addr_from_char: Error parsing the string of the address: %s", address);
     }
     return (result);
 }
@@ -718,15 +998,15 @@ int get_lisp_addr_and_mask_from_char (
     }
     return (GOOD);
 }
-     
-     
+
+
 /*
  *      get_lisp_afi
  *
  *      Map from Internet AFI -> LISP_AFI
  *
  *      Get the length while your at it
- */         
+ */
 
 uint16_t get_lisp_afi(
      int        afi,
@@ -755,7 +1035,7 @@ uint16_t get_lisp_afi(
  *
  *      Map from Internet LISP AFI -> INET AFI
  *
- */         
+ */
 
 int lisp2inetafi(uint16_t afi)
 {
@@ -884,7 +1164,7 @@ inline lisp_addr_t *get_server(
 
 
 /*
- *  select from among readfds, the largest of which 
+ *  select from among readfds, the largest of which
  *  is max_fd.
  */
 
@@ -916,7 +1196,7 @@ int have_input(
 
 
 /*
- *  Process a LISP protocol message sitting on 
+ *  Process a LISP protocol message sitting on
  *  socket s with address family afi
  */
 
@@ -936,31 +1216,41 @@ int process_lisp_ctr_msg(
     lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
 
     switch (((lisp_encap_control_hdr_t *) packet)->type) {
-    case LISP_MAP_REPLY:    //Got Map Reply
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Reply message");
-        process_map_reply(packet);
-        break;
-    case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Encapsulated Map-Request message");
-        if(!process_map_request_msg(packet, &local_rloc, remote_port))
-            return (BAD);
-        break;
     case LISP_MAP_REQUEST:      //Got Map-Request
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Request message");
-        if(!process_map_request_msg(packet, &local_rloc, remote_port))
+        if(process_map_request_msg(packet, &local_rloc, remote_port) != GOOD){
             return (BAD);
+        }
+        break;
+    case LISP_MAP_REPLY:    //Got Map Reply
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Reply message");
+        if (process_map_reply(packet) != GOOD){
+            return (BAD);
+        }
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Notify message");
-        if(!process_map_notify(packet))
+        if(process_map_notify(packet) != GOOD){
             return(BAD);
+        }
         break;
-
+    case LISP_MAP_REFERRAL:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Referral message");
+        if(process_map_referral(packet) != GOOD){
+            return(BAD);
+        }
+        break;
     case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-        if(!process_info_nat_msg(packet, local_rloc)){
+        if(process_info_nat_msg(packet, local_rloc) != GOOD){
+            return (BAD);
+        }
+        break;
+    case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Encapsulated Map-Request message");
+        if(process_map_request_msg(packet, &local_rloc, remote_port) != GOOD){
             return (BAD);
         }
         break;
@@ -973,7 +1263,7 @@ int process_lisp_ctr_msg(
     return(GOOD);
 }
 
-    
+
 int inaddr2sockaddr(
         lisp_addr_t     *inaddr,
         struct sockaddr *sockaddr,
@@ -1049,18 +1339,113 @@ int extract_lisp_address(
 void free_lisp_addr_list(lispd_addr_list_t * list)
 
 {
+    lispd_addr_list_t *aux_list = NULL;
 
-    lispd_addr_list_t *list_pre;
+    while (list != NULL) {
+        aux_list = list->next;
 
-    while (list->next != NULL) {
-
-        list_pre = list;
-
-        list = list->next;
-
-        free(list_pre->address);
-        free(list_pre);
+        free(list->address);
+        free(list);
+        list = aux_list;
     }
+}
+
+/*
+ * If prefix b is contained in prefix a, then return TRUE. Otherwise return FALSE.
+ * If both prefixs are the same it also returns TRUE
+ */
+int is_prefix_b_part_of_a (
+        lisp_addr_t a_prefix,
+        int a_prefix_length,
+        lisp_addr_t b_prefix,
+        int b_prefix_length)
+{
+    lisp_addr_t a_network_addr;
+    lisp_addr_t b_network_addr_prefix_a;
+
+    if (a_prefix.afi != b_prefix.afi){
+        return FALSE;
+    }
+
+    if (a_prefix_length > b_prefix_length){
+        return FALSE;
+    }
+
+    a_network_addr = get_network_address(a_prefix, a_prefix_length);
+    b_network_addr_prefix_a = get_network_address(b_prefix, a_prefix_length);
+
+    if (compare_lisp_addr_t (&a_network_addr, &b_network_addr_prefix_a) == 0){
+        return (TRUE);
+    }else{
+        return (FALSE);
+    }
+}
+
+lisp_addr_t get_network_address(
+        lisp_addr_t address,
+        int prefix_length)
+{
+    lisp_addr_t network_address = {.afi = AF_UNSPEC};
+
+    switch (address.afi){
+    case AF_INET:
+        network_address = get_network_address_v4(address,prefix_length);
+        break;
+    case AF_INET6:
+        network_address = get_network_address_v6(address,prefix_length);
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_network_address: Afi not supported (%d). It should never "
+                "reach this point", address.afi);
+        break;
+    }
+
+    return (network_address);
+}
+
+inline lisp_addr_t get_network_address_v4(
+        lisp_addr_t address,
+        int         prefix_length)
+{
+    lisp_addr_t network_address = {.afi=AF_INET};
+    uint32_t mask = 0xFFFFFFFF;
+    uint32_t addr = ntohl(address.address.ip.s_addr);
+    if (prefix_length != 0){
+        mask = mask << (32 - prefix_length);
+    }else{
+        mask = 0;
+    }
+    addr = addr & mask;
+    network_address.address.ip.s_addr = htonl(addr);
+
+    return network_address;
+}
+
+inline lisp_addr_t get_network_address_v6(
+        lisp_addr_t address,
+        int         prefix_length)
+{
+    lisp_addr_t network_address = {.afi=AF_INET6};
+    uint32_t mask[4] = {0,0,0,0};
+    int ctr = 0;
+    int a,b;
+
+
+    a = (prefix_length) / 32;
+    b = (prefix_length) % 32;
+
+    for (ctr = 0; ctr<a ; ctr++){
+        mask[ctr] = 0xFFFFFFFF;
+    }
+    if (b != 0){
+        mask[a] = 0xFFFFFFFF<<(32-b);
+    }
+
+    for (ctr = 0 ; ctr < 4 ; ctr++){
+        network_address.address.ipv6.s6_addr32[ctr] = htonl(ntohl(address.address.ipv6.s6_addr32[ctr]) & mask[ctr]);
+    }
+
+    return network_address;
 }
 
 

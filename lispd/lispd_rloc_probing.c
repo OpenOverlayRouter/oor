@@ -53,6 +53,9 @@ int rloc_probing(
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     nonces_list                 *nonces             = NULL;
     uint8_t                     have_control_iface  = FALSE;
+    map_request_opts            opts;
+
+    memset ( &opts, FALSE, sizeof(map_request_opts));
 
     if (rloc_probe_interval == 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No RLOC Probing for %s/%d cache entry. RLOC Probing dissabled",
@@ -116,8 +119,8 @@ int rloc_probing(
                     nonces->retransmits);
         }
 
-        err = build_and_send_map_request_msg(mapping,NULL,locator->locator_addr, 0, 1, 0, 0,
-                &(nonces->nonce[nonces->retransmits]));
+        opts.probe = TRUE;
+        err = build_and_send_map_request_msg(mapping,NULL,locator->locator_addr,opts,&(nonces->nonce[nonces->retransmits]));
 
         if (err != GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: Couldn't send Map-Request Probe for locator %s and EID: %s/%d",

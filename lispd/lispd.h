@@ -30,14 +30,16 @@
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
-
 #ifndef LISPD_H_
 #define LISPD_H_
 
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
+#ifdef ANDROID
+#else
 #include <ifaddrs.h>
+#endif
 #include <inttypes.h>
 #include <netdb.h>
 #include <net/if.h>
@@ -62,12 +64,15 @@
 #include "lispd_log.h"
 
 
+#define LISPD_VERSION					"v0.4"
+
+
 /*
  *  Protocols constants related with timeouts
  *
  */
-
 #define LISPD_INITIAL_MRQ_TIMEOUT       2  // Initial expiration timer for the first MRq
+#define LISPD_INITIAL_DDT_MRQ_TIMEOUT   2  // Initial expiration timer for the first DDT MRq
 #define LISPD_INITIAL_SMR_TIMEOUT       3  // Initial expiration timer for the first MRq SMR
 #define LISPD_INITIAL_PROBE_TIMEOUT     3  // Initial expiration timer for the first MRq RLOC probe
 #define LISPD_INITIAL_EMR_TIMEOUT       3  // Initial expiration timer for the first Encapsulated Map Register
@@ -160,18 +165,20 @@ int err;
 #define GOOD                1
 #define BAD                 0
 #define ERR_SRC_ADDR        -1
-#define ERR_AFI             -2
-#define ERR_DB              -3
-#define ERR_MALLOC          -4
-#define ERR_EXIST			-5
-#define ERR_NO_EXIST        -6
-#define ERR_CTR_IFACE       -7
+#define ERR_DST_ADDR        -2
+#define ERR_AFI             -3
+#define ERR_AFI_LCAF_TYPE   -4
+#define ERR_DB              -5
+#define ERR_MALLOC          -6
+#define ERR_EXIST           -7
+#define ERR_NO_EXIST        -8
+#define ERR_CTR_IFACE       -9
 
 /***** Negative Map-Reply actions ***/
-#define ACT_NO_ACTION           0
-#define ACT_NATIVELY_FORWARD    1
-#define ACT_SEND_MAP_REQUEST    2
-#define ACT_DROP                3
+#define MAPPING_ACT_NO_ACTION           0
+#define MAPPING_ACT_NATIVELY_FORWARD    1
+#define MAPPING_ACT_SEND_MAP_REQUEST    2
+#define MAPPING_ACT_DROP                3
 
 
 #define TRUE                1
@@ -215,10 +222,18 @@ int err;
 #define LISP_MAP_REPLY                  2
 #define LISP_MAP_REGISTER               3
 #define LISP_MAP_NOTIFY                 4
+#define LISP_MAP_REFERRAL               6
 #define LISP_INFO_NAT                   7
 #define LISP_ENCAP_CONTROL_TYPE         8
 #define LISP_CONTROL_PORT               4342
 #define LISP_DATA_PORT                  4341
+
+/*
+ * Mapping type
+ */
+#define LOCAL_MAPPING                   0
+#define REMOTE_MAPPING                  1
+
 
 /*
  *  locator_types
@@ -230,14 +245,22 @@ int err;
 #define LOCAL_LOCATOR                   3
 
 
-
-
 /*
  * Map register Key type
  */
 #define NO_KEY               0
 #define HMAC_SHA_1_96        1
 #define HMAC_SHA_256_128     2
+
+
+/*
+ * Indicate supported AFIs connectivity
+ */
+
+#define NO_AFI_SUPPORT      0
+#define AFI_SUPPORT_4       1
+#define AFI_SUPPORT_6       2
+#define AFI_SUPPORT_4_6     3
 
 /*
  * Netlink mcast groups lispd is interested in
@@ -472,22 +495,33 @@ typedef struct lisp_data_hdr {
  * header of the encapsulated LISP control message.
  *
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |S|                 Reserved                            |
+ *    |Type=8 |S|D|               Reserved                            |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
 typedef struct lisp_encap_control_hdr {
 #ifdef LITTLE_ENDIANS
-    uint8_t reserved:3;
+    uint8_t reserved:2;
+    uint8_t ddt_bit:1;
     uint8_t s_bit:1;
     uint8_t type:4;
 #else
     uint8_t type:4;
     uint8_t s_bit:1;
-    uint8_t reserved1:3;
+    uint8_t ddt_bit:1;
+    uint8_t reserved1:2;
 #endif
     uint8_t reserved2[3];
 } lisp_encap_control_hdr_t;
+
+
+/*
+ * Structure to set Map Request options/flags
+ */
+typedef struct {
+    uint8_t                 ddt_bit;    // Include DDT bit solicit
+    uint8_t                 s_bit;      // Include Security bit
+} encap_control_opts;
 
 
 void exit_cleanup(void);
