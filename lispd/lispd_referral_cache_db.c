@@ -215,11 +215,11 @@ int add_update_ddt_static_entry_to_db (
  */
 void del_referral_cache_entry_from_db(lispd_referral_cache_entry  *entry)
 {
-    lispd_referral_cache_entry  *db_entry                               = NULL;
     patricia_node_t             *node                                   = NULL;
 
     if (entry->children_nodes != NULL){
         del_referral_cache_list_from_db(entry->children_nodes);
+        entry->children_nodes = NULL;
     }
 
     if (entry->act_entry_type == MS_ACK || entry->act_entry_type == MS_NOT_REGISTERED){
@@ -227,35 +227,33 @@ void del_referral_cache_entry_from_db(lispd_referral_cache_entry  *entry)
     }else{
         node = lookup_referral_cache_exact_node(entry->mapping->eid_prefix, entry->mapping->eid_prefix_length,DDT_NOT_END_PREFIX_DATABASES);
     }
-    if (node == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"del_referral_cache_entry_from_db: Unable to locate referral cache entry %s/%d for deletion",
-                get_char_from_lisp_addr_t(entry->mapping->eid_prefix),entry->mapping->eid_prefix_length);
-        return;
-    } else {
+    if (node != NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2,"del_referral_cache_entry_from_db: Deleting referral cache entry: %s/%d",
-                get_char_from_lisp_addr_t(entry->mapping->eid_prefix),entry->mapping->eid_prefix_length);
-    }
-
-    /*
-     * Remove the entry from the database
-     */
-    db_entry = (lispd_referral_cache_entry *)(node->data);
-
-    if (entry->mapping->eid_prefix.afi==AF_INET){
-        if (db_entry->act_entry_type == MS_ACK || db_entry->act_entry_type == MS_NOT_REGISTERED){
-            patricia_remove(ipv4_ms_referral_cache, node);
+                        get_char_from_lisp_addr_t(entry->mapping->eid_prefix),entry->mapping->eid_prefix_length);
+        /*
+         * Remove the entry from the database
+         */
+        if (entry->mapping->eid_prefix.afi==AF_INET){
+            if (entry->act_entry_type == MS_ACK || entry->act_entry_type == MS_NOT_REGISTERED){
+                patricia_remove(ipv4_ms_referral_cache, node);
+            }else{
+                patricia_remove(ipv4_referral_cache, node);
+            }
         }else{
-            patricia_remove(ipv4_referral_cache, node);
+            if (entry->act_entry_type == MS_ACK || entry->act_entry_type == MS_NOT_REGISTERED){
+                patricia_remove(ipv6_ms_referral_cache, node);
+            }else{
+                patricia_remove(ipv6_referral_cache, node);
+            }
         }
     }else{
-        if (db_entry->act_entry_type == MS_ACK || db_entry->act_entry_type == MS_NOT_REGISTERED){
-            patricia_remove(ipv6_ms_referral_cache, node);
-        }else{
-            patricia_remove(ipv6_referral_cache, node);
-        }
+        lispd_log_msg(LISP_LOG_DEBUG_2,"del_referral_cache_entry_from_db: Unable to locate referral cache entry %s/%d for deletion",
+                        get_char_from_lisp_addr_t(entry->mapping->eid_prefix),entry->mapping->eid_prefix_length);
     }
 
-    free_referral_cache_entry(db_entry);
+    reset_pending_referrals_with_expired_previous_referral(entry);
+
+    free_referral_cache_entry(entry);
 }
 
 /*

@@ -821,7 +821,7 @@ int send_ddt_map_request_miss(timer *t, void *arg)
                 referral_entry = new_referral_cache_entry(referral_mapping, MS_ACK, 1);
                 add_referral_cache_entry_to_tree(pending_referral_entry->previous_referral,referral_entry);
             }else{
-                /* Activate negative map cache with using the EID prefix of the last received map referral */
+                /* Activate negative map cache using the EID prefix of the last received map referral */
                 referral_mapping = pending_referral_entry->previous_referral->mapping;
                 if (activate_negative_map_cache (map_cache_entry, referral_mapping->eid_prefix,
                         referral_mapping->eid_prefix_length,1,MAPPING_ACT_NO_ACTION) != GOOD){

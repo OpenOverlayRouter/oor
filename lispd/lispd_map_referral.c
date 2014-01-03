@@ -715,13 +715,12 @@ int referral_expiry(
 {
     lispd_referral_cache_entry *referral_entry = (lispd_referral_cache_entry *)arg;
 
-    dump_referral_cache_db(LISP_LOG_DEBUG_1);
     lispd_log_msg(LISP_LOG_DEBUG_1,"referral_expiry: The referral entry with prefix %s/%d has expired. "
             "Removing it and all its offspring", get_char_from_lisp_addr_t(referral_entry->mapping->eid_prefix),
             referral_entry->mapping->eid_prefix_length);
 
     remove_referral_cache_entry_from_parent_node(referral_entry);
     del_referral_cache_entry_from_db(referral_entry);
-    dump_referral_cache_db(LISP_LOG_DEBUG_1);
+    dump_referral_cache_db(LISP_LOG_DEBUG_3);
     return (GOOD);
 }

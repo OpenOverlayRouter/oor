@@ -1,16 +1,41 @@
 /*
  * lispd_referral_cache.c
  *
- *  Created on: Sep 26, 2013
- *      Author: alopez
+ * This file is part of LISP Mobile Node Implementation.
+ * Send registration messages for each database mapping to
+ * configured map-servers.
+ *
+ * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Written or modified by:
+ *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
 #include "lispd_afi.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
 #include "lispd_map_referral.h"
+#include "lispd_map_request.h"
 #include "lispd_nonce.h"
 #include "lispd_referral_cache.h"
+#include "lispd_referral_cache_db.h"
 
 lispd_pending_referral_cache_list  *pening_referrals_list    = NULL;
 
@@ -52,6 +77,7 @@ void free_referral_cache_entry(lispd_referral_cache_entry *referral_cache_entry)
     lispd_referral_cache_list *list_elt          = referral_cache_entry->children_nodes;
     lispd_referral_cache_list *aux_list_elt      = NULL;
     free_mapping_elt (referral_cache_entry->mapping);
+    /* We remove the list of childs (lispd_referral_cache_list) but not the childs  (lispd_referral_cache_entry)*/
     while (list_elt != NULL){
         aux_list_elt = list_elt->next;
         free(aux_list_elt);
@@ -273,6 +299,38 @@ int remove_pending_referral_cache_entry_from_list(lispd_pending_referral_cache_e
     return (result);
 }
 
+/*
+ * Restart from root all pending referrals which its previous referral has expired.
+ * @param expired_referral_cache Referral cache entry that has expired
+ */
+void reset_pending_referrals_with_expired_previous_referral(lispd_referral_cache_entry *expired_referral_cache)
+{
+    lispd_pending_referral_cache_list   *pending_referrals      = pening_referrals_list;
+    lispd_pending_referral_cache_entry  *pending_referral_entry = NULL;
+
+    while (pending_referrals != NULL){
+        if (pending_referrals->pending_referral_cache_entry->previous_referral == expired_referral_cache){
+            pending_referral_entry = pending_referrals->pending_referral_cache_entry;
+            pending_referral_entry->previous_referral = get_root_referral_cache(pending_referral_entry->map_cache_entry->mapping->eid_prefix.afi);
+            pending_referral_entry->tried_locators = 0;
+            pending_referral_entry->request_through_root = TRUE;
+            if (pending_referral_entry->nonces != NULL){
+                free(pending_referral_entry->nonces);
+                pending_referral_entry->nonces = NULL;
+            }
+            if (pending_referral_entry->ddt_request_retry_timer != NULL){
+                stop_timer(pending_referral_entry->ddt_request_retry_timer);
+                pending_referral_entry->ddt_request_retry_timer = NULL;
+            }
+            lispd_log_msg(LISP_LOG_DEBUG_1,"reset_pending_referrals_with_expired_previous_referral: Resetting of pending referral cache "
+                    "%s/%d due to expiration of its parent referral node. Restart from root",
+                    get_char_from_lisp_addr_t(pending_referral_entry->map_cache_entry->mapping->eid_prefix),
+                    pending_referral_entry->map_cache_entry->mapping->eid_prefix_length);
+            err = send_ddt_map_request_miss(NULL,(void *)pending_referral_entry);
+        }
+        pending_referrals = pending_referrals->next;
+    }
+}
 
 
 lispd_pending_referral_cache_entry *lookup_pending_referral_cache_entry_by_eid (
@@ -299,7 +357,6 @@ lispd_pending_referral_cache_entry *lookup_pending_referral_cache_entry_by_eid (
 /*
  *  Search the pending referral cache entry that matches the nonce.
  */
-
 lispd_pending_referral_cache_entry *lookup_pending_referral_cache_entry_by_nonce (uint64_t nonce)
 {
     lispd_pending_referral_cache_entry      *pending_referral   = NULL;

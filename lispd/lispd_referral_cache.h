@@ -1,8 +1,31 @@
 /*
- * lispd_referral_map_cache.h
+ * lispd_referral_cache.h
  *
- *  Created on: Sep 26, 2013
- *      Author: alopez
+ * This file is part of LISP Mobile Node Implementation.
+ * Send registration messages for each database mapping to
+ * configured map-servers.
+ *
+ * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Written or modified by:
+ *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
 #ifndef LISPD_REFERRAL_CACHE_H_
@@ -96,6 +119,12 @@ lispd_pending_referral_cache_entry *new_pending_referral_cache_entry(
 int add_pending_referral_cache_entry_to_list(lispd_pending_referral_cache_entry *pending_referral_cache_entry);
 
 int remove_pending_referral_cache_entry_from_list(lispd_pending_referral_cache_entry *pending_referral);
+
+/**
+ * Restart from root all pending referrals which its previous referral has expired.
+ * @param expired_referral_cache Referral cache entry that has expired
+ */
+void reset_pending_referrals_with_expired_previous_referral(lispd_referral_cache_entry *expired_referral_cache);
 
 lispd_pending_referral_cache_entry *lookup_pending_referral_cache_entry_by_eid (
         lisp_addr_t eid_prefix,

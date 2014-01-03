@@ -321,10 +321,11 @@ int change_map_cache_prefix_in_db(
         return (BAD);
     }
     /* Remove the node from the database*/
-    if (cache_entry->mapping->eid_prefix.afi==AF_INET)
+    if (cache_entry->mapping->eid_prefix.afi==AF_INET){
         patricia_remove(AF4_map_cache, node);
-    else
+    }else{
         patricia_remove(AF6_map_cache, node);
+    }
 
     old_eid_prefix = cache_entry->mapping->eid_prefix;
     old_eid_prefix_length = cache_entry->mapping->eid_prefix_length;
