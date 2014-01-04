@@ -186,4 +186,5 @@ lispd_locator_elt *get_locator_from_list(
  */
 
 void free_locator_list(lispd_locators_list     *list);
+void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_flag);
 #endif /* LISPD_LOCATOR_H_ */

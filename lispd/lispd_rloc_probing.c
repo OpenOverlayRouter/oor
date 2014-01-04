@@ -55,8 +55,8 @@ int rloc_probing(
     uint8_t                     have_control_iface  = FALSE;
 
     if (rloc_probe_interval == 0){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No RLOC Probing for %s/%d cache entry. RLOC Probing dissabled",
-                get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No RLOC Probing for %s cache entry. RLOC Probing dissabled",
+                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         return (GOOD);
     }
 
@@ -82,11 +82,10 @@ int rloc_probing(
         break;
     }
     if (have_control_iface == FALSE){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No control iface compatible with locator %s of the map-cache entry %s/%d. "
+        lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No control iface compatible with locator %s of the map-cache entry %s. "
                 "Reprogramming RLOC Probing",
-                get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                get_char_from_lisp_addr_t(mapping->eid_prefix),
-                mapping->eid_prefix_length);
+                lisp_addr_to_char(locator->locator_addr),
+                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         start_timer(locator_ext_inf->probe_timer, rloc_probe_interval,(timer_callback)rloc_probing, arg);
         return (BAD);
     }
@@ -109,10 +108,9 @@ int rloc_probing(
 
     if (nonces->retransmits - 1 < rloc_probe_retries ){
         if (nonces->retransmits > 0){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map-Request Probe for locator %s and EID: %s/%d (%d retries)",
-                    get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                    get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    mapping->eid_prefix_length,
+            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map-Request Probe for locator %s and EID: %s (%d retries)",
+                    lisp_addr_to_char(locator->locator_addr),
+                    lisp_addr_to_char(mapping_get_eid_addr(mapping)),
                     nonces->retransmits);
         }
 
@@ -120,10 +118,9 @@ int rloc_probing(
                 &(nonces->nonce[nonces->retransmits]));
 
         if (err != GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: Couldn't send Map-Request Probe for locator %s and EID: %s/%d",
-                    get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                    get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    mapping->eid_prefix_length);
+            lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: Couldn't send Map-Request Probe for locator %s and EID: %s",
+                    lisp_addr_to_char(locator->locator_addr),
+                    lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         }
         locator_ext_inf->rloc_probing_nonces->retransmits++;
 
@@ -132,11 +129,10 @@ int rloc_probing(
     }else{ /* If we have reached maximum number of retransmissions, change remote locator status */
         if (*(locator->state) == UP){
             *(locator->state) = DOWN;
-            lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: No Map-Reply Probe received for locator %s and EID: %s/%d"
+            lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: No Map-Reply Probe received for locator %s and EID: %s"
                     "-> Locator state changes to DOWN",
-                    get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                    get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    mapping->eid_prefix_length);
+                    lisp_addr_to_char(locator->locator_addr),
+                    lisp_addr_to_char(mapping_get_eid_addr(mapping)));
 
             /* [re]Calculate balancing locator vectors  if it has been a change of status*/
             calculate_balancing_vectors (
@@ -148,10 +144,10 @@ int rloc_probing(
 
         /* Reprogram time for next probe interval */
         start_timer(locator_ext_inf->probe_timer, rloc_probe_interval,(timer_callback)rloc_probing, arg);
-        lispd_log_msg(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s of the EID %s/%d in %d seconds",
-                get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                get_char_from_lisp_addr_t(mapping->eid_prefix),
-                mapping->eid_prefix_length, rloc_probe_interval);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s of the EID %s in %d seconds",
+                lisp_addr_to_char(locator->locator_addr),
+                lisp_addr_to_char(mapping_get_eid_addr(mapping)),
+                rloc_probe_interval);
     }
 
     return (GOOD);

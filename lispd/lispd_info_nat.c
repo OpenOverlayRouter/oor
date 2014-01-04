@@ -97,13 +97,10 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
 
     lispd_pkt_info_nat_t        *hdr            = NULL;
     lispd_pkt_info_nat_eid_t    *eid_part       = NULL;
-    uint32_t                    eid_afi_lisp    = 0;
     uint32_t                    afi_len         = 0;
     uint32_t                    hdr_len         = 0;
 
     /* get the length of the eid prefix and map to LISP_AFI types */
-
-    eid_afi_lisp = inet2lispafi(eid_prefix->afi);
 
     afi_len = get_addr_len(eid_prefix->afi);
 
@@ -146,18 +143,18 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
     eid_part = (lispd_pkt_info_nat_eid_t *) CO(hdr, sizeof(lispd_pkt_info_nat_t));
     eid_part->ttl = htonl(ttl);
     eid_part->eid_mask_length = eid_mask_length;
-    eid_part->eid_prefix_afi = htons(eid_afi_lisp);
+//    eid_part->eid_prefix_afi = htons(eid_afi_lisp);
 
     /*
      * skip over the eid fixed part and put the eid prefix immediately
      * following...
      */
 
-
-    if ((copy_addr((void *) CO(eid_part,
-                   sizeof(lispd_pkt_info_nat_eid_t)),
-                   eid_prefix,
-                   0)) != afi_len) {
+//    if ((copy_addr((void *) CO(eid_part,
+//                   sizeof(lispd_pkt_info_nat_eid_t)),
+//                   eid_prefix,
+//                   0)) != afi_len) {
+    if (lisp_addr_copy_to_pkt(&eid_part->eid_prefix_afi, eid_prefix) != afi_len + sizeof(uint16_t)) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "Error coping eid address ",eid_prefix);
         free(hdr);
         return (NULL);
@@ -190,6 +187,7 @@ int extract_info_nat_header(
     lispd_pkt_info_nat_t        *hdr        = NULL;
     lispd_pkt_info_nat_eid_t    *eid_part   = NULL;
     void                        *eid_ptr    = NULL;
+    int                         len         = 0;
 
     hdr = (lispd_pkt_info_nat_t *)offset;
 
@@ -213,15 +211,16 @@ int extract_info_nat_header(
     *ttl = ntohl(eid_part->ttl);
     *eid_mask_len = eid_part->eid_mask_length;
 
+    lispd_log_msg(LISP_LOG_WARNING, "eid mask len = %d, ttl = %u", *eid_mask_len, *ttl);
     /* Put the pointer just before the EID AFI field to use the extract_lisp_address function */
-    eid_ptr = CO(eid_part, sizeof(lispd_pkt_info_nat_eid_t) - sizeof(uint16_t));
+    eid_ptr = (uint8_t *)&(eid_part->eid_prefix_afi);
 
-    if ((extract_lisp_address(eid_ptr, eid_prefix)) != GOOD ){
+    if ((len = lisp_addr_read_from_pkt(eid_ptr, eid_prefix))<= 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"extract_info_nat_header: Coudn't obtain EID address");
         return (BAD);
     }
 
-    *hdr_len = sizeof(lispd_pkt_info_nat_t) + sizeof(lispd_pkt_info_nat_eid_t) + get_addr_len(eid_prefix->afi);
+    *hdr_len = sizeof(lispd_pkt_info_nat_t) + sizeof(lispd_pkt_info_nat_eid_t) + len - sizeof(uint16_t);
 
     return (GOOD);
 }

@@ -186,6 +186,7 @@ int add_mapping_to_interface (
     mappings_list = interface->head_mappings_list;
     while (mappings_list != NULL){
         // Check if the mapping is already installed in the list
+        // XXX: this is risky stuff
         if ( mappings_list->mapping == mapping ){
             switch(afi){
             case AF_INET:
@@ -195,10 +196,8 @@ int add_mapping_to_interface (
                 mappings_list->use_ipv6_address = TRUE;
                 break;
             }
-            lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s/%d has been assigned to the RLOCs of the interface %s",
-                    get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    mapping->eid_prefix_length,
-                    interface->iface_name);
+            lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s has been previously assigned to the RLOCs of the interface %s",
+                    lisp_addr_to_char(mapping_get_eid_addr(mapping)), interface->iface_name);
             return (GOOD);
         }
         prev_mappings_list = mappings_list;
@@ -231,10 +230,8 @@ int add_mapping_to_interface (
         interface->head_mappings_list = mappings_list;
     }
 
-    lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s/%d has been assigned to the RLOCs of the interface %s",
-            get_char_from_lisp_addr_t(mapping->eid_prefix),
-            mapping->eid_prefix_length,
-            interface->iface_name);
+    lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s has been assigned to the RLOCs of the interface %s",
+            lisp_addr_to_char(mapping_get_eid_addr(mapping)), interface->iface_name);
 
     return (GOOD);
 }

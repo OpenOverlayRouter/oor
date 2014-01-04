@@ -35,6 +35,57 @@
 #include "lispd_map_cache_db.h"
 
 
+inline lispd_map_cache_entry *mcache_entry_new() {
+    lispd_map_cache_entry *mce;
+    if ((mce = calloc(1, sizeof(lispd_map_cache_entry))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
+        return(NULL);
+    }
+
+    mce->active = NO_ACTIVE;
+    mce->expiry_cache_timer = NULL;
+    mce->smr_inv_timer = NULL;
+    mce->request_retry_timer = NULL;
+    mce->nonces = NULL;
+
+    mce->timestamp = time(NULL);
+    mce->actions = ACT_NO_ACTION;
+
+    return(mce);
+}
+
+lispd_map_cache_entry *mcache_entry_init(lispd_mapping_elt *mapping) {
+    lispd_map_cache_entry *mce;
+    mce = mcache_entry_new();
+
+    if (!mce)
+        return (NULL);
+
+    mce->mapping = mapping;
+    mce->how_learned = DYNAMIC_MAP_CACHE_ENTRY;
+    mce->ttl = DEFAULT_DATA_CACHE_TTL;
+
+    return(mce);
+}
+
+lispd_map_cache_entry *mcache_entry_init_static(lispd_mapping_elt *mapping) {
+    lispd_map_cache_entry *mce;
+    mce = mcache_entry_new();
+
+    if (!mce)
+        return (NULL);
+
+    mce->active = ACTIVE;
+    mce->mapping = mapping;
+    mce->how_learned = STATIC_MAP_CACHE_ENTRY;
+    mce->ttl = 255;
+
+    return(mce);
+}
+
+
+
+
 /*
  * Creates a map cache entry structure without adding it to the data base
  */
@@ -88,9 +139,9 @@ lispd_map_cache_entry *new_map_cache_entry (
 
     map_cache_entry = new_map_cache_entry_no_db (eid_prefix, eid_prefix_length, how_learned, ttl);
 
-    if (map_cache_entry == NULL){
+    if (map_cache_entry == NULL)
         return (NULL);
-    }
+
 
     /* Add entry to the data base */
     if (map_cache_add_entry (map_cache_entry)==BAD){

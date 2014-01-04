@@ -142,25 +142,28 @@ int copy_addr(
      lisp_addr_t    *a2,
      int            convert)
 {
+
+    lispd_log_msg(LISP_LOG_WARNING, "copy_addr: IS OBSOLETE!!!!");
+    return(0);
 //    /* XXX: this doesn't start from EID!! */
 //    return(lisp_addr_copy_to_pkt(a2, a1, convert));
 
-    switch (a2->afi) {
-    case AF_INET:
-        if (convert)
-            ((struct in_addr *) a1)->s_addr = htonl(a2->address.ip.s_addr);
-        else
-            ((struct in_addr *) a1)->s_addr = a2->address.ip.s_addr;
-        return(sizeof(struct in_addr));
-    case AF_INET6:
-        memcpy(((struct in6_addr *) a1)->s6_addr,
-               a2->address.ipv6.s6_addr,
-               sizeof(struct in6_addr));
-        return(sizeof(struct in6_addr));
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "copy_addr: Unknown AFI (%d)", a2->afi);
-        return(ERR_AFI);
-    }
+//    switch (a2->afi) {
+//    case AF_INET:
+//        if (convert)
+//            ((struct in_addr *) a1)->s_addr = htonl(a2->address.ip.s_addr);
+//        else
+//            ((struct in_addr *) a1)->s_addr = a2->address.ip.s_addr;
+//        return(sizeof(struct in_addr));
+//    case AF_INET6:
+//        memcpy(((struct in6_addr *) a1)->s6_addr,
+//               a2->address.ipv6.s6_addr,
+//               sizeof(struct in6_addr));
+//        return(sizeof(struct in6_addr));
+//    default:
+//        lispd_log_msg(LISP_LOG_DEBUG_2, "copy_addr: Unknown AFI (%d)", a2->afi);
+//        return(ERR_AFI);
+//    }
 
 }
 
@@ -358,7 +361,7 @@ int lispd_get_iface_address(
      * make sure this is clean
      */
 
-    memset(addr, 0, sizeof(lisp_addr_t));
+//    memset(addr, 0, sizeof(lisp_addr_t));
 
     /*
      *  go search for the interface

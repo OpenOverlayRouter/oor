@@ -64,6 +64,7 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
             continue;
         loc_length += get_locators_length(locators_list[ctr]);
     }
+
 //    eid_length = get_mapping_length(mapping);
     eid_length = lisp_addr_get_size_in_pkt(mapping_get_eid_addr(mapping));
     length = sizeof(lispd_pkt_mapping_record_t) + eid_length +
@@ -255,24 +256,23 @@ uint8_t *pkt_fill_mapping_record(
     if ((rec == NULL) || (mapping == NULL))
         return NULL;
 
+
     eid = mapping_get_eid_addr(mapping);
+
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = mapping->locator_count;
-//    rec->eid_prefix_length      = mapping->eid_prefix_length;
-    rec->eid_prefix_length      = (lisp_addr_get_afi(eid)==LM_AFI_IP) ? ip_prefix_get_plen(lisp_addr_get_ippref(eid)) : 0;
+    rec->eid_prefix_length      = lisp_addr_get_plen(eid);
     rec->action                 = 0;
     rec->authoritative          = 1;
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-
-//    cur_ptr = pkt_fill_eid(&(rec->eid_prefix_afi), mapping);
-    cur_ptr = lisp_addr_write_to_pkt(&(rec->eid_prefix_afi), eid);
+    cur_ptr = (uint8_t *)&(rec->eid_prefix_afi);
+    cur_ptr = CO(cur_ptr, lisp_addr_copy_to_pkt(cur_ptr, eid));
     loc_ptr = (lispd_pkt_mapping_record_locator_t *)cur_ptr;
 
-    if (loc_ptr == NULL){
-        return NULL;
-    }
+    if (loc_ptr == NULL)
+        return(NULL);
 
     locators_list[0] = mapping->head_v4_locators_list;
     locators_list[1] = mapping->head_v6_locators_list;
@@ -290,14 +290,10 @@ uint8_t *pkt_fill_mapping_record(
             loc_ptr->mpriority   = locator->mpriority;
             loc_ptr->mweight     = locator->mweight;
             loc_ptr->local       = 1;
-            if (probed_rloc != NULL && compare_lisp_addr_t(locator->locator_addr,probed_rloc)==0){
+            if (probed_rloc != NULL && lisp_addr_cmp(locator->locator_addr,probed_rloc)==0)
                 loc_ptr->probed  = 1;
-            }
 
             loc_ptr->reachable   = *(locator->state);
-//            loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
-            loc_ptr->locator_afi = htons(lisp_addr_get_iana_afi(locator->locator_addr));
-
 
             lct_extended_info = (lcl_locator_extended_info *)(locator->extended_info);
             if (lct_extended_info->rtr_locators_list != NULL){
@@ -306,16 +302,15 @@ uint8_t *pkt_fill_mapping_record(
                 itr_address = locator->locator_addr;
             }
 
-            if ((cpy_len = copy_addr((void *) CO(loc_ptr,
-                    sizeof(lispd_pkt_mapping_record_locator_t)), itr_address, 0)) == 0) {
+            if ((cpy_len = lisp_addr_copy_to_pkt(&(loc_ptr->locator_afi), itr_address)) <= 0) {
                 lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
                         lisp_addr_to_char(locator->locator_addr));
                 return(NULL);
             }
 
-            loc_ptr = (lispd_pkt_mapping_record_locator_t *)
-                            CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
+            loc_ptr = (lispd_pkt_mapping_record_locator_t *)CO(&(loc_ptr->locator_afi), cpy_len);
             locators_list[ctr] = locators_list[ctr]->next;
+
         }
     }
     return ((void *)loc_ptr);

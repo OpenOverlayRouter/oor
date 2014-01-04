@@ -109,38 +109,38 @@ void add_ip_header (
      * Construct and add the outer ip header
      */
 
-    switch (dst_addr->afi){
-    case AF_INET:
-        ip_len = ip_payload_length + sizeof(struct ip);
-        iph = (struct ip *) position;
+    switch (ip_addr_get_afi(lisp_addr_get_ip(dst_addr))){
+        case AF_INET:
+            ip_len = ip_payload_length + sizeof(struct ip);
+            iph = (struct ip *) position;
 
-        iph->ip_v               = IPVERSION;
-        iph->ip_hl              = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
-        iph->ip_tos             = tos;
-        iph->ip_len             = htons(ip_len);
-        iph->ip_id              = htons(get_IP_ID());
-        iph->ip_off             = htons(IP_DF);   /* Do not fragment flag. See 5.4.1 in LISP RFC (6830) */
-        iph->ip_ttl             = ttl;
-        iph->ip_p               = IPPROTO_UDP;
-        iph->ip_sum             = 0; //Computed by the NIC (checksum offloading)
-        iph->ip_dst.s_addr      = dst_addr->address.ip.s_addr;
-        iph->ip_src.s_addr      = src_addr->address.ip.s_addr;
-        break;
-    case AF_INET6:
-        ip6h = ( struct ip6_hdr *) position;
+            iph->ip_v               = IPVERSION;
+            iph->ip_hl              = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
+            iph->ip_tos             = tos;
+            iph->ip_len             = htons(ip_len);
+            iph->ip_id              = htons(get_IP_ID());
+            iph->ip_off             = htons(IP_DF);   /* Do not fragment flag. See 5.4.1 in LISP RFC (6830) */
+            iph->ip_ttl             = ttl;
+            iph->ip_p               = IPPROTO_UDP;
+            iph->ip_sum             = 0; //Computed by the NIC (checksum offloading)
+            lisp_addr_copy_to(&iph->ip_dst, dst_addr);
+            lisp_addr_copy_to(&iph->ip_src, src_addr);
+            break;
+        case AF_INET6:
+            ip6h = ( struct ip6_hdr *) position;
 
-        IPV6_SET_VERSION(ip6h, 6);
-        IPV6_SET_TC(ip6h,tos);
-        IPV6_SET_FLOW_LABEL(ip6h,0);
-        ip6h->ip6_plen = htons(ip_payload_length);
-        ip6h->ip6_nxt = IPPROTO_UDP;
-        ip6h->ip6_hops = ttl;
-        memcopy_lisp_addr(&(ip6h->ip6_dst),dst_addr);
-        memcopy_lisp_addr(&(ip6h->ip6_src),src_addr);
+            IPV6_SET_VERSION(ip6h, 6);
+            IPV6_SET_TC(ip6h,tos);
+            IPV6_SET_FLOW_LABEL(ip6h,0);
+            ip6h->ip6_plen = htons(ip_payload_length);
+            ip6h->ip6_nxt = IPPROTO_UDP;
+            ip6h->ip6_hops = ttl;
+            lisp_addr_copy_to(&(ip6h->ip6_dst), dst_addr);
+            lisp_addr_copy_to(&(ip6h->ip6_src), src_addr);
 
-        break;
-    default:
-        break;
+            break;
+        default:
+            break;
     }
 }
 
@@ -216,7 +216,7 @@ int encapsulate_packet(
     int         udphdr_len          = 0;
     int         lisphdr_len         = 0;
 
-    encap_afi = src_addr->afi;
+    encap_afi = ip_addr_get_afi(lisp_addr_get_ip(src_addr));
 
     switch (encap_afi){
     case AF_INET:
@@ -226,7 +226,6 @@ int encapsulate_packet(
         iphdr_len = sizeof(struct ip6_hdr);
         break;
     }
-
 
     udphdr_len = sizeof(struct udphdr);
     lisphdr_len = sizeof(struct lisphdr);
@@ -240,15 +239,10 @@ int encapsulate_packet(
     }
 
     memset(new_packet,0,original_packet_length+extra_headers_size);
+    memcpy(new_packet + extra_headers_size, original_packet, original_packet_length);
 
-    memcpy (new_packet + extra_headers_size, original_packet, original_packet_length);
-
-
-
-    add_lisp_header(CO(new_packet,iphdr_len + udphdr_len), iid);
-
-    add_udp_header(CO(new_packet,iphdr_len),original_packet_length+lisphdr_len,src_port,dst_port);
-
+    add_lisp_header(CO(new_packet, iphdr_len + udphdr_len), iid);
+    add_udp_header(CO(new_packet, iphdr_len), original_packet_length+lisphdr_len, src_port, dst_port);
 
     add_ip_header(new_packet,
             original_packet,
@@ -264,7 +258,7 @@ int encapsulate_packet(
     *encap_packet_size = extra_headers_size + original_packet_length;
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Encap src: %s | Encap dst: %s\n",
-            get_char_from_lisp_addr_t(*src_addr),get_char_from_lisp_addr_t(*dst_addr));
+            lisp_addr_to_char(src_addr),lisp_addr_to_char(dst_addr));
 
     return (GOOD);
 }
@@ -303,19 +297,15 @@ int forward_native(
     packet_afi = get_afi_from_packet(packet_buf);
     output_socket = get_default_output_socket(packet_afi);
 
-
     if (output_socket == -1){
         lispd_log_msg(LISP_LOG_DEBUG_2, "fordward_native: No output interface for afi %d",packet_afi);
         return (BAD);
     }
 
-
     lispd_log_msg(LISP_LOG_DEBUG_3, "Fordwarding native for destination %s",
             get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
 
-
     ret = send_packet(output_socket,packet_buf,pckt_length);
-
     return (ret);
 
 }
@@ -442,7 +432,7 @@ int forward_to_natt_rtr(
 
 lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
 {
-    lisp_addr_t     addr    = {.afi=AF_UNSPEC};
+    lisp_addr_t     addr    = {.afi=AF_UNSPEC, .lafi=LM_AFI_IP};
     struct iphdr    *iph    = NULL;
     struct ip6_hdr  *ip6h   = NULL;
 
@@ -450,20 +440,15 @@ lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
 
     switch (iph->version) {
     case 4:
-        addr.afi = AF_INET;
-        addr.address.ip.s_addr = iph->daddr;
+        ip_addr_set_v4(lisp_addr_get_ip(&addr), &iph->daddr);
         break;
     case 6:
-        ip6h = (struct ip6_hdr *) packet;
-        addr.afi = AF_INET6;
-        memcpy(&(addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
+        ip_addr_set_v6(lisp_addr_get_ip(&addr), &ip6h->ip6_dst);
         break;
-
     default:
+        lispd_log_msg(LISP_LOG_DEBUG_3,"extract_dst_addr_from_packet: uknown ip version %d", iph->version);
         break;
     }
-
-    //arnatal TODO: check errors (afi unsupported)
 
     return (addr);
 }
@@ -471,7 +456,7 @@ lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
 
 lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
 {
-    lisp_addr_t         addr    = {.afi=AF_UNSPEC};
+    lisp_addr_t         addr    = {.afi=AF_UNSPEC, .lafi=LM_AFI_IP};
     struct iphdr        *iph    = NULL;
     struct ip6_hdr      *ip6h   = NULL;
 
@@ -479,19 +464,15 @@ lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
 
     switch (iph->version) {
     case 4:
-        addr.afi = AF_INET;
-        addr.address.ip.s_addr = iph->saddr;
+        ip_addr_set_v4(lisp_addr_get_ip(&addr), &iph->saddr);
         break;
     case 6:
-        ip6h = (struct ip6_hdr *) packet;
-        addr.afi = AF_INET6;
-        memcpy(&(addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
+        ip_addr_set_v6(lisp_addr_get_ip(&addr), &ip6h->ip6_src);
         break;
     default:
+        lispd_log_msg(LISP_LOG_DEBUG_3,"extract_src_addr_from_packet: uknown ip version %d", iph->version);
         break;
     }
-
-    //arnatal TODO: check errors (afi unsupported)
 
     return (addr);
 }
@@ -514,7 +495,7 @@ int handle_map_cache_miss(
     //arnatal TODO: check if this works
     entry = new_map_cache_entry(
             *requested_eid,
-            get_prefix_len(requested_eid->afi),
+            lisp_addr_get_plen(requested_eid),
             DYNAMIC_MAP_CACHE_ENTRY,
             DEFAULT_DATA_CACHE_TTL);
 
@@ -640,7 +621,6 @@ int select_src_rmt_locators_from_balancing_locators_vec (
     src_blv = &((lcl_mapping_extended_info *)(src_mapping->extended_info))->outgoing_balancing_locators_vecs;
     dst_blv = &((rmt_mapping_extended_info *)(dst_mapping->extended_info))->rmt_balancing_locators_vecs;
 
-
     if (src_blv->balancing_locators_vec != NULL && dst_blv->balancing_locators_vec != NULL){
         src_loc_vec = src_blv->balancing_locators_vec;
         src_vec_len = src_blv->locators_vec_length;
@@ -683,11 +663,11 @@ int select_src_rmt_locators_from_balancing_locators_vec (
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"select_src_rmt_locators_from_balancing_locators_vec: "
             "src EID: %s, rmt EID: %s, protocol: %d, src port: %d , dst port: %d --> src RLOC: %s, dst RLOC: %s",
-            get_char_from_lisp_addr_t(src_mapping->eid_prefix),
-            get_char_from_lisp_addr_t(dst_mapping->eid_prefix),
+            lisp_addr_to_char(mapping_get_eid_addr(src_mapping)),
+            lisp_addr_to_char(mapping_get_eid_addr(dst_mapping)),
             tuple.protocol, tuple.src_port, tuple.dst_port,
-            get_char_from_lisp_addr_t(*((*src_locator)->locator_addr)),
-            get_char_from_lisp_addr_t(*((*dst_locator)->locator_addr)));
+            lisp_addr_to_char((*src_locator)->locator_addr),
+            lisp_addr_to_char((*dst_locator)->locator_addr));
 
     return (GOOD);
 }
@@ -835,21 +815,32 @@ int lisp_output_unicast (
     int                         output_socket       = 0;
 
 
+    /* If the packet doesn't have an EID source, forward it natively */
+    if (!(src_mapping = lookup_eid_in_db (&(tuple->src_addr))))
+        return (forward_native(original_packet,original_packet_length));
+
+    /* If we are behind a full nat system, send the message directly to the RTR */
+    if (nat_aware && (nat_status == FULL_NAT)){
+        if (select_src_locators_from_balancing_locators_vec (src_mapping,*tuple, &outer_src_locator) != GOOD)
+            return (BAD);
+        return (forward_to_natt_rtr(original_packet, original_packet_length, outer_src_locator));
+    }
+
     //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
 
     /* fcoras TODO: implement unicast FIB instead of using the map-cache? */
     entry = map_cache_lookup(&(tuple->dst_addr));
 
-    lispd_log_msg(LISP_LOG_WARNING," ************* GOT HERE ***************** "); exit(0);
 
     if (entry == NULL){ /* There is no entry in the map cache */
-        lispd_log_msg(LISP_LOG_DEBUG_1, "No map cache retrieved for eid %s",get_char_from_lisp_addr_t(tuple->dst_addr));
+        lispd_log_msg(LISP_LOG_DEBUG_1, "lisp_output_unicast: No map cache retrieved for eid %s", lisp_addr_to_char(&tuple->dst_addr));
         handle_map_cache_miss(&(tuple->dst_addr), &(tuple->src_addr));
     }
-    /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
-    if ((entry == NULL) || (entry->active == NO_ACTIVE) || (entry->mapping->locator_count == 0) ){ /* There is no entry or is not active*/
 
+    /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
+    if ((entry == NULL) || (entry->active == NO_ACTIVE) || (entry->mapping->locator_count == 0) ){
+        /* There is no entry or is not active*/
         /* Try to fordward to petr*/
         if (fordward_to_petr(
                 original_packet,
@@ -919,7 +910,6 @@ int lisp_output_unicast (
     send_packet (output_socket,encap_packet,encap_packet_size);
 
     free (encap_packet);
-
     return (GOOD);
 }
 
@@ -958,8 +948,6 @@ int lisp_output (
 {
     packet_tuple        tuple;
     lisp_addr_t         *dst_addr           = NULL;
-    lispd_locator_elt   *outer_src_locator  = NULL;
-    lispd_mapping_elt   *src_mapping        = NULL;
 
     /* fcoras TODO: should use get_dst_lisp_addr instead of tuple */
     if (extract_5_tuples_from_packet(original_packet, &tuple) != GOOD)
@@ -974,16 +962,6 @@ int lisp_output (
     if (is_lisp_packet(original_packet,original_packet_length))
         return (forward_native(original_packet,original_packet_length));
 
-    /* If the packet doesn't have an EID source, forward it natively */
-    if (!(src_mapping = lookup_eid_in_db (&(tuple.src_addr))))
-        return (forward_native(original_packet,original_packet_length));
-
-    /* If we are behind a full nat system, send the message directly to the RTR */
-    if (nat_aware && (nat_status == FULL_NAT)){
-        if (select_src_locators_from_balancing_locators_vec (src_mapping,tuple, &outer_src_locator) != GOOD)
-            return (BAD);
-        return (forward_to_natt_rtr(original_packet, original_packet_length, outer_src_locator));
-    }
 
     /* convert tuple to lisp_addr_t, to be used for map-cache lookup
      * TODO: should be a tad more efficient

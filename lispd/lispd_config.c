@@ -790,6 +790,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     if (is_loggable(LISP_LOG_DEBUG_1)){
         map_cache_dump_db(LISP_LOG_DEBUG_1);
     }
+
     dump_map_servers(LISP_LOG_DEBUG_1);
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
     dump_proxy_etrs(LISP_LOG_DEBUG_1);
@@ -872,7 +873,6 @@ int add_database_mapping(
         return (BAD);
     }
 
-
     if (if_nametoindex(iface_name) == 0) {
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: INVALID INTERFACE or not initialized virtual interface: %s ", iface_name);
     }
@@ -881,15 +881,14 @@ int add_database_mapping(
      * Lookup if the mapping exists. If not, a new mapping is created.
      */
     mapping = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
-    if (mapping == NULL)
-    {
+    if (mapping == NULL) {
         mapping = new_local_mapping(eid_prefix,eid_prefix_length,iid);
-        if (mapping == NULL){
+        if (mapping == NULL) {
             lispd_log_msg(LISP_LOG_ERR,"Configuration file: mapping %s could not be added",eid);
             return (BAD);
         }
         /* Add the mapping to the local database */
-        if (add_mapping_to_db(mapping)!=GOOD){
+        if (add_mapping_to_db(mapping)!=GOOD) {
             free_mapping_elt(mapping, TRUE);
             return (BAD);
         }
@@ -907,9 +906,8 @@ int add_database_mapping(
      * Add the interface.
      */
     /* Check if the interface already exists. If not, add it*/
-    if ((interface=get_interface(iface_name))==NULL){
-        interface = add_interface (iface_name);
-    }
+    if ((interface=get_interface(iface_name))==NULL)
+        interface = add_interface(iface_name);
 
     /* If we couldn't add the interface and the mapping is new, we remove it. */
     if (interface == NULL && is_new_mapping == TRUE){
@@ -925,9 +923,7 @@ int add_database_mapping(
     /* Assign the mapping to the v4 mappings of the interface. Create IPv4 locator and assign to the mapping  */
     if (priority_v4 >= 0){
         if ((err = add_mapping_to_interface (interface, mapping, AF_INET)) == GOOD){
-
             locator = new_local_locator (interface->ipv4_address,&(interface->status),priority_v4,weight_v4,255,0,&(interface->out_socket_v4));
-
             if (locator != NULL){
                 if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
                     return (BAD);
@@ -958,7 +954,6 @@ int add_database_mapping(
     if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
         lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc prefenernce");
     }
-
 
     return(GOOD);
 }

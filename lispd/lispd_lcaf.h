@@ -290,7 +290,7 @@ inline char             *lcaf_addr_to_char(lcaf_addr_t *lcaf);
 
 inline uint32_t         lcaf_addr_get_size_in_pkt(lcaf_addr_t *lcaf);
 int                     lcaf_addr_copy(lcaf_addr_t **dst, lcaf_addr_t *src);
-inline uint8_t          *lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf);
+inline int              lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf);
 inline int              lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 inline uint8_t          lcaf_addr_cmp_iids(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 
@@ -307,6 +307,7 @@ inline lisp_addr_t      *lcaf_mc_get_grp(lcaf_addr_t *mc);
 inline uint32_t         lcaf_mc_get_iid(lcaf_addr_t *mc);
 inline uint8_t          lcaf_mc_get_src_plen(lcaf_addr_t *mc);
 inline uint8_t          lcaf_mc_get_grp_plen(lcaf_addr_t *mc);
+inline uint8_t          lcaf_mc_get_afi(lcaf_addr_t *mc);
 
 inline mc_t             *mc_type_new();
 inline void              mc_type_del(void *mc);
@@ -316,6 +317,7 @@ inline void              mc_type_set_grp(mc_t *mc, lisp_addr_t *grp);
 
 inline lisp_addr_t       *mc_type_get_src(mc_t *mc);
 inline lisp_addr_t       *mc_type_get_grp(mc_t *mc);
+inline uint8_t           mc_type_get_afi(mc_t *mc);
 inline uint32_t          mc_type_get_iid(void *mc);
 inline uint8_t           mc_type_get_src_plen(mc_t *mc);
 inline uint8_t           mc_type_get_grp_plen(mc_t *mc);
@@ -323,7 +325,7 @@ inline uint8_t           mc_type_get_grp_plen(mc_t *mc);
 
 char                    *mc_type_to_char (void *mc);
 inline uint32_t         mc_type_get_size_in_pkt(mc_t *mc);
-inline uint8_t          *mc_type_copy_to_pkt(uint8_t *offset, void *mc);
+inline int              mc_type_copy_to_pkt(uint8_t *offset, void *mc);
 inline void             mc_type_copy(void **dst, void *src);
 inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
@@ -348,7 +350,7 @@ inline void                 iid_type_set_addr(iid_t *addr, lisp_addr_t *iidaddr)
 inline void                 iid_type_set_mlen(iid_t *addr, uint8_t mlen);
 inline int                  iid_type_cmp(void *iid1, void *iid2);
 inline uint32_t             iid_type_get_size_in_pkt(iid_t *iid);
-inline uint8_t              *iid_type_copy_to_pkt(uint8_t *offset, void *iid);
+inline int                  iid_type_copy_to_pkt(uint8_t *offset, void *iid);
 int                         iid_type_read_from_pkt(void *offset, void *iid);
 char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);

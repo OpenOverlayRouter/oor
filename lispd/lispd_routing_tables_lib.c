@@ -417,19 +417,13 @@ inline int modify_route(
      * Add the destination
      */
 
-
-    lispd_log_msg(LISP_LOG_WARNING, "addr size is %d", addr_size);
     if (dest != NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "copying the destination with afi %d %s, and ip afi %d",
-                lisp_addr_get_afi(dest), lisp_addr_to_char(dest), ip_addr_get_afi(lisp_addr_get_ip(dest)));
-
         rta->rta_type = RTA_DST;
         rta->rta_len = sizeof(struct rtattr) + addr_size;
 //        memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address, addr_size);
         lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr), dest);
         rta_len += rta->rta_len;
     }
-    lispd_log_msg(LISP_LOG_WARNING, "DONE with copy .. ");
 
 
     /*
@@ -538,8 +532,6 @@ int add_route(
     int result = BAD;
     result = modify_route(RTM_NEWROUTE, afi,ifindex, dest, src, gw, prefix_len, metric, table);
     if (result == GOOD){
-        lispd_log_msg(LISP_LOG_WARNING, " ################### GOT TO ADD ROUTE ##############");
-
         lispd_log_msg(LISP_LOG_DEBUG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
                 (src != NULL) ? lisp_addr_to_char(src) : "-",
                 (dest != NULL) ? lisp_addr_to_char(dest) : "-",
@@ -547,8 +539,6 @@ int add_route(
                 (gw != NULL) ? lisp_addr_to_char(gw) : "-",
                 table);
     }
-    lispd_log_msg(LISP_LOG_WARNING, " ################### FINISHED ADD ROUTE ##############");
-
 
     return (result);
 }

@@ -88,7 +88,7 @@ inline uint8_t ip_addr_afi_to_size(uint16_t afi){
 
 inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
     assert(ipaddr);
-    return(ip_addr_afi_to_iana_afi(ip_addr_get_afi(ipaddr)));
+    return(ip_addr_sock_afi_to_iana_afi(ip_addr_get_afi(ipaddr)));
 }
 
 inline int ip_addr_set_afi(ip_addr_t *ipaddr, ip_afi_t afi) {
@@ -128,9 +128,9 @@ inline void ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi) {
     }
 }
 
-char *ip_addr_to_char (ip_addr_t *addr){
+char *ip_addr_to_char(ip_addr_t *addr){
     static char address[10][INET6_ADDRSTRLEN];
-    static unsigned int i; //XXX Too much memory allocation for this, but standard syntax
+    static unsigned int i;
 
     /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
     i++;
@@ -148,19 +148,34 @@ char *ip_addr_to_char (ip_addr_t *addr){
     }
 }
 
+/* ip_addr_copy
+ *
+ * @dst : the destination where the ip should be copied
+ * @src : the ip address to be copied
+ * Description: The function copies src structure to dst
+ * structure. It does a full memory copy
+ */
 inline void ip_addr_copy(ip_addr_t *dst, ip_addr_t *src) {
     assert(src);
     assert(dst);
     memcpy(dst, src, sizeof(ip_addr_t));
 }
 
+/* ip_addr_copy_to
+ *
+ * @dst : memory location
+ * @src : the ip address to be copied
+ * Description: The function copies what is *CONTAINED* in an ip address
+ * to a given memory location, NOT the whole structure! See ip_addr_copy
+ * for copying ip addresses
+ */
 inline void ip_addr_copy_to(void *dst, ip_addr_t *src) {
     assert(dst);
     assert(src);
     memcpy(dst, ip_addr_get_addr(src), ip_addr_get_size(src));
 }
 
-inline uint8_t *ip_addr_copy_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
+inline int ip_addr_copy_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
     assert(dst);
     assert(src);
     if (convert && ip_addr_get_afi(src) == AF_INET)
@@ -168,7 +183,7 @@ inline uint8_t *ip_addr_copy_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) 
         *((uint32_t *)dst) = htonl(ip_addr_get_v4(src)->s_addr);
     else
         memcpy(dst, ip_addr_get_addr(src), ip_addr_get_size(src));
-    return(CO(dst, ip_addr_get_size(src)));
+    return(ip_addr_get_size(src));
 }
 
 inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
@@ -186,22 +201,38 @@ inline int ip_addr_read_from_pkt(void *offset, uint16_t afi, ip_addr_t *dst) {
 
     if(afi == AF_UNSPEC || ip_addr_set_afi(dst, afi) == BAD)
         return(0);
-    memcpy(offset, ip_addr_get_addr(dst), ip_addr_afi_to_size(afi));
+    memcpy(ip_addr_get_addr(dst), offset, ip_addr_afi_to_size(afi));
     return(ip_addr_afi_to_size(afi));
 }
 
-inline uint16_t ip_addr_afi_to_iana_afi(uint16_t afi) {
+inline uint16_t ip_addr_sock_afi_to_iana_afi(uint16_t afi) {
     switch (afi){
         case AF_INET:
             return(LISP_AFI_IP);
         case AF_INET6:
             return(LISP_AFI_IPV6);
         default:
-            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_afi_to_iana_afi: unknown IP AFI (%d)", afi);
+            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_sock_afi_to_iana_afi: unknown IP AFI (%d)", afi);
             return(0);
     }
 }
 
+inline uint16_t ip_addr_iana_afi_to_sock_afi(uint16_t afi) {
+    switch (afi) {
+        case LISP_AFI_IP:
+            return(AF_INET);
+        case LISP_AFI_IPV6:
+            return(AF_INET6);
+        default:
+            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
+            return(0);
+    }
+}
+
+inline uint8_t ip_addr_afi_to_mask(ip_addr_t *ip) {
+    assert(ip);
+    return(ip_addr_get_size(ip)*8);
+}
 
 
 /*
@@ -243,9 +274,15 @@ inline void ip_prefix_copy(ip_prefix_t *dst, ip_prefix_t *src) {
 }
 
 char *ip_prefix_to_char(ip_prefix_t *pref) {
-    static char address[INET6_ADDRSTRLEN+5];
-    sprintf(address, "%s/%d", ip_addr_to_char(ip_prefix_get_addr(pref)), ip_prefix_get_plen(pref));
-    return(address);
+    static char address[10][INET6_ADDRSTRLEN+5];
+    static unsigned int i;
+
+    /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
+    i++;
+    i = i % 10;
+
+    sprintf(address[i], "%s/%d", ip_addr_to_char(ip_prefix_get_addr(pref)), ip_prefix_get_plen(pref));
+    return(address[i]);
 }
 
 

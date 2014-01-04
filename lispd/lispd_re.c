@@ -250,7 +250,7 @@ void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
 
 
 int mrsignaling_recv_mrequest(
-        uint8_t **offset,
+        uint8_t *cur_ptr,
         lisp_addr_t *src_eid,
         lisp_addr_t *local_rloc,
         lisp_addr_t *remote_rloc,
@@ -258,7 +258,6 @@ int mrsignaling_recv_mrequest(
         uint64_t    nonce) {
 
     mrsignaling_flags_t             mc_flags;
-    uint8_t                         *cur_ptr;
     lispd_pkt_mapping_record_t      *record;
     lisp_addr_t                     *dst_eid;
     lispd_mapping_elt               *registered_mapping;
@@ -267,7 +266,6 @@ int mrsignaling_recv_mrequest(
     /* TODO: in the future we should have only one function parameter, a map_request object!
      * NOTE: offset is a pointer to map-request record, not to the begining of the message */
 
-    cur_ptr = *offset;
     record = (lispd_pkt_mapping_record_t *)cur_ptr;
 
     mc_flags = lcaf_mcinfo_get_flags((uint8_t *)&((record)->eid_prefix_afi));
@@ -276,7 +274,7 @@ int mrsignaling_recv_mrequest(
     dst_eid = lisp_addr_new();
 
     /* Read destination/requested EID prefix */
-    if(!lisp_addr_read_from_pkt(&cur_ptr, dst_eid)) {
+    if(!lisp_addr_read_from_pkt(cur_ptr, dst_eid)) {
         lisp_addr_del(dst_eid);
         return(BAD);
     }
@@ -311,7 +309,6 @@ int mrsignaling_recv_mrequest(
     if (ret == GOOD)
         err = mrsignaling_send_mreply(registered_mapping, local_rloc, remote_rloc, dport, nonce, mc_flags);
 
-    *offset = cur_ptr;
     lisp_addr_del(dst_eid);
     return (err);
 
@@ -349,20 +346,20 @@ void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags)
     mc_ptr->rbit = mc_flags.rbit;
 }
 
-int mrsignaling_recv_mreply(uint8_t **offset, uint64_t nonce) {
+int mrsignaling_recv_mreply(uint8_t *offset, uint64_t nonce) {
 
     uint8_t                                 *cur_ptr                = NULL;
     lispd_pkt_mapping_record_t              *record                 = NULL;
     lisp_addr_t                             *eid                    = NULL;
     mrsignaling_flags_t                     mc_flags;
 
-    record = (lispd_pkt_mapping_record_t *)(*offset);
+    record = (lispd_pkt_mapping_record_t *)offset;
     cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
 
     mc_flags = lcaf_mcinfo_get_flags(cur_ptr);
 
     eid = lisp_addr_new();
-    if(!lisp_addr_read_from_pkt(&cur_ptr, eid)) {
+    if(lisp_addr_read_from_pkt(cur_ptr, eid) <= 0) {
         lisp_addr_del(eid);
         return(err);
     }
@@ -383,8 +380,6 @@ int mrsignaling_recv_mreply(uint8_t **offset, uint64_t nonce) {
     }
 
     lisp_addr_del(eid);
-    *offset = cur_ptr;
-
     return(GOOD);
 }
 

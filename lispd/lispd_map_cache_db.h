@@ -44,10 +44,12 @@
  */
 void map_cache_init();
 
-/*
- * Return map cache data base
- */
-patricia_tree_t* get_map_cache_db(lm_afi_t afi);
+
+int                 mcache_add_mapping(lispd_mapping_elt *mapping);
+int                 mcache_del_mapping(lisp_addr_t *laddr);
+lispd_mapping_elt   *mcache_lookup_mapping(lisp_addr_t *laddr);
+lispd_mapping_elt   *mcache_lookup_mapping_exact(lisp_addr_t *laddr);
+int                 mcache_activate_mapping(lisp_addr_t *eid, uint64_t nonce, lispd_locators_list *locators, uint8_t action, uint16_t ttl);
 
 /*
  *  Add a map cache entry to the database.
@@ -100,6 +102,7 @@ void map_cache_entry_expiration(timer *t, void *arg);
 
 void map_cache_dump_db(int log_level);
 
-patricia_tree_t             *pt_get_from_afi(ip_afi_t afi);
+patricia_tree_t *pt_get_from_afi(ip_afi_t afi);
+
 
 #endif /*LISPD_MAP_CACAHE_DB_H_*/

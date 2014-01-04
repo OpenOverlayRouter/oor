@@ -72,6 +72,15 @@ typedef struct lispd_map_cache_entry_ {
 
 /****************************************  FUNCTIONS **************************************/
 
+
+inline lispd_map_cache_entry        *mcache_entry_new();
+lispd_map_cache_entry               *mcache_entry_init(lispd_mapping_elt *mapping);
+lispd_map_cache_entry               *mcache_entry_init_static(lispd_mapping_elt *mapping);
+
+
+
+
+
 /*
  * Create a map cache entry and save it in the database
  */

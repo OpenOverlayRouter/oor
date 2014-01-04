@@ -60,10 +60,7 @@
 #include <stdint.h>
 
 #include "lispd_log.h"
-//#include "lispd_address.h"
-//#include "lispd_lcaf.h"
 
-//#include "defs_re.h"
 
 
 /*

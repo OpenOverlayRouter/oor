@@ -66,7 +66,7 @@ void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp);
 void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp);
 
 int mrsignaling_recv_mrequest(
-        uint8_t **offset,
+        uint8_t *offset,
         lisp_addr_t *src_eid,
         lisp_addr_t *local_rloc,
         lisp_addr_t *remote_rloc,
@@ -82,7 +82,7 @@ int mrsignaling_send_mreply(
         mrsignaling_flags_t mc_flags);
 
 void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags);
-int mrsignaling_recv_mreply(uint8_t **offset,  uint64_t nonce);
+int mrsignaling_recv_mreply(uint8_t *offset,  uint64_t nonce);
 
 inline int lisp_addr_is_mc(lisp_addr_t *addr);
 

@@ -59,8 +59,6 @@ lispd_locator_elt   *new_local_locator (
         return(NULL);
     }
 
-
-
     /* Initialize locator */
     locator->locator_addr = locator_addr;
     locator->locator_type = LOCAL_LOCATOR;
@@ -97,6 +95,7 @@ lispd_locator_elt   *new_rmt_locator (
         uint8_t                     mweight)
 {
     lispd_locator_elt       *locator                = NULL;
+    int                     len                     = 0;
 
     if ((locator = malloc(sizeof(lispd_locator_elt))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "new_rmt_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
@@ -111,19 +110,14 @@ lispd_locator_elt   *new_rmt_locator (
 
     if((locator->state = malloc(sizeof(uint8_t))) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
-        free (locator->locator_addr);
+        lisp_addr_del(locator->locator_addr);
         free (locator);
         return (NULL);
     }
 
-    /* Read the afi information (locator address) from the packet */
-//    if ((err=pkt_process_rloc_afi(afi_ptr,locator)) != GOOD){
-//        free (locator->locator_addr);
-//        free (locator);
-//        return (NULL);
-//    }
-    if (lisp_addr_read_from_pkt(afi_ptr, locator->locator_addr) != GOOD)
+    if ((len = lisp_addr_read_from_pkt(*afi_ptr, locator->locator_addr)) <= 0)
         return(NULL);
+    *afi_ptr = CO(*afi_ptr, len);
 
     locator->extended_info = (void *)new_rmt_locator_extended_info();
     if (locator->extended_info == NULL){
@@ -480,7 +474,7 @@ lispd_locator_elt *get_locator_from_list(
     int                     cmp                     = 0;
 
     while (locator_list != NULL){
-        cmp = compare_lisp_addr_t(locator_list->locator->locator_addr,&addr);
+        cmp = lisp_addr_cmp(locator_list->locator->locator_addr,&addr);
         if (cmp == 0){
             locator = locator_list->locator;
             break;
@@ -507,6 +501,20 @@ void free_locator_list(lispd_locators_list     *locator_list)
         aux_locator_list = locator_list->next;
         free_locator(locator_list->locator);
         free (locator_list);
+        locator_list = aux_locator_list;
+    }
+}
+
+void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_flag) {
+    lispd_locators_list  * aux_locator_list     = NULL;
+    /*
+     * Free the locators
+     */
+    while (locator_list){
+        aux_locator_list = locator_list->next;
+        if (free_locators_flag)
+            free_locator(locator_list->locator);
+        free(locator_list);
         locator_list = aux_locator_list;
     }
 }

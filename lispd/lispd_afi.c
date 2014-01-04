@@ -266,7 +266,7 @@ int extract_mcast_info_lcaf_data(
 //    mapping_set_iid(mapping, ntohl(mcinfohdr->iid));
 //    mapping_set_eid_plen(mapping, mcinfohdr->src_mlen);
 
-    lisp_addr_read_from_pkt(&cur_ptr, eid_prefix);
+    cur_ptr = CO(cur_ptr, lisp_addr_read_from_pkt(cur_ptr, eid_prefix));
     mapping_set_eid_addr(mapping, eid_prefix);
 
 //    lisp_addr_set_afi(eid_prefix, LM_AFI_MC);

@@ -182,13 +182,14 @@ int process_map_request_msg(
 
     /* Process SRC EID */
     cur_ptr = (uint8_t *)&(msg->source_eid_afi);
-    if (!lisp_addr_read_from_pkt(&cur_ptr, src_eid)) {
+    if ((len=lisp_addr_read_from_pkt(cur_ptr, src_eid)) <= 0) {
         lisp_addr_del(src_eid);
         return(BAD);
     }
+    cur_ptr = CO(cur_ptr, len);
 
     /* If packet is a Solicit Map Request, process it */
-    if (lisp_addr_get_afi(src_eid) != 0 && msg->solicit_map_request) {
+    if (lisp_addr_get_afi(src_eid) != LM_AFI_NO_ADDR && msg->solicit_map_request) {
         if(process_smr(src_eid) != GOOD){
             lisp_addr_del(src_eid);
             return(BAD);
@@ -200,6 +201,7 @@ int process_map_request_msg(
     }
 
     /* Process additional ITR RLOCs. Obtain remote RLOC to use for Map-Requests*/
+    remote_rloc = lisp_addr_new();
     if (process_itr_rlocs(&cur_ptr, msg->additional_itr_rloc_count + 1, local_rloc, remote_rloc) != GOOD) {
         lisp_addr_del(src_eid);
         return(BAD);
@@ -225,34 +227,35 @@ int process_itr_rlocs(
         lisp_addr_t *local_rloc,
         lisp_addr_t *remote_rloc) {
 
-    lisp_addr_t                itr_rloc[32];
-    int                        itr_rloc_afi            = 0;
+    lisp_addr_t                *itr_rloc;
     uint8_t                    *cur_ptr                = NULL;
     int                        i                       = 0;
+    int                        len                     = 0;
 
     cur_ptr = *offset;
+    itr_rloc = lisp_addr_new();
 
     /* Get the array of ITR-RLOCs */
     for (i = 0; i < itr_rloc_count; i++) {
-        itr_rloc_afi = lisp2inetafi(ntohs(*(uint16_t *)cur_ptr));
-        cur_ptr = CO(cur_ptr, sizeof(uint16_t));
-        memcpy(&(itr_rloc[i].address), cur_ptr, get_addr_len(itr_rloc_afi));
-        itr_rloc[i].afi = itr_rloc_afi;
-        cur_ptr = CO(cur_ptr, get_addr_len(itr_rloc_afi));
+        if ((len = lisp_addr_read_from_pkt(cur_ptr, itr_rloc)) <= 0) {
+            lispd_log_msg(LISP_LOG_DEBUG_3,"process_itr_rlocs: Failed to read RLOC!");
+            return(BAD);
+        }
+        cur_ptr = CO(cur_ptr, len);
 
         /* Select the first accessible rloc from the ITR-RLOC list */
-        if (remote_rloc == NULL){
-            if (local_rloc != NULL && itr_rloc[i].afi == local_rloc->afi){
-                remote_rloc = &itr_rloc[i];
-            }
+        if (lisp_addr_get_afi(remote_rloc) == LM_AFI_NO_ADDR) {
+            if (local_rloc != NULL && lisp_addr_get_ip_afi(itr_rloc) == lisp_addr_get_ip_afi(local_rloc))
+                lisp_addr_copy(remote_rloc, itr_rloc);
         }
     }
-    if (remote_rloc == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"process_additional_itr_rlocs: No supported afi in the list of ITR-RLOCS");
+    if (lisp_addr_get_afi(remote_rloc) == LM_AFI_NO_ADDR){
+        lispd_log_msg(LISP_LOG_DEBUG_3,"process_itr_rlocs: No supported afi in the list of ITR-RLOCS");
         return (BAD);
     }
 
     *offset = cur_ptr;
+    lisp_addr_del(itr_rloc);
 
     return(GOOD);
 }
@@ -292,13 +295,13 @@ int process_map_request_record(
     lispd_pkt_map_request_eid_prefix_record_t  *record                 = NULL;
     lispd_mapping_elt                          *mapping                = NULL;
     lisp_addr_t                                *dst_eid;
+    int                                         len                     = 0;
 
     cur_ptr = *offset;
 
     /* Check if mrsignaling packet and read flags ... */
     if (is_lcaf_mcast_info(cur_ptr))
-        return(mrsignaling_recv_mrequest(&cur_ptr, src_eid, local_rloc, remote_rloc, dport, nonce));
-
+        return(mrsignaling_recv_mrequest(cur_ptr, src_eid, local_rloc, remote_rloc, dport, nonce));
 
     record = (lispd_pkt_map_request_eid_prefix_record_t *)cur_ptr;
 
@@ -306,10 +309,14 @@ int process_map_request_record(
     dst_eid = lisp_addr_new();
 
     /* Read destination/requested EID prefix */
-    if(!lisp_addr_read_from_pkt(&cur_ptr, dst_eid)) {
+    if((len = lisp_addr_read_from_pkt(cur_ptr, dst_eid)) <= 0) {
         lisp_addr_del(dst_eid);
         return(err);
     }
+
+    cur_ptr = CO(cur_ptr, len);
+    lispd_log_msg(LISP_LOG_DEBUG_3, "process_map_request_msg: Received Map-Request from EID %s for EID %s",
+            lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
 
     /* Save prefix length only if the entry is an IP */
     if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)
@@ -525,7 +532,8 @@ uint8_t *build_map_request_pkt(
 
     if (src_eid != NULL){
 //        cur_ptr = pkt_fill_eid(&(mrp->source_eid_afi),src_mapping);
-        cur_ptr = lisp_addr_write_to_pkt(&(mrp->source_eid_afi), mapping_get_eid_addr(src_mapping));
+        cur_ptr = (uint8_t *)&(mrp->source_eid_afi);
+        cur_ptr = CO(cur_ptr, lisp_addr_copy_to_pkt(cur_ptr, mapping_get_eid_addr(src_mapping)));
 
         /* Add itr-rlocs */
         locators_list[0] = src_mapping->head_v4_locators_list;
@@ -545,11 +553,8 @@ uint8_t *build_map_request_pkt(
                 }
 
                 itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
-//                itr_rloc->afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
-                itr_rloc->afi = htons(lisp_addr_get_iana_afi(locator->locator_addr));
-                /* Add rloc address */
-                cur_ptr = CO(itr_rloc,sizeof(lispd_pkt_map_request_itr_rloc_t));
-                cpy_len = copy_addr((void *) cur_ptr ,locator->locator_addr, 0);
+                cur_ptr = (uint8_t *)&itr_rloc->afi;
+                cpy_len = lisp_addr_copy_to_pkt(cur_ptr ,locator->locator_addr);
                 cur_ptr = CO(cur_ptr, cpy_len);
                 locators_ctr ++;
                 locators_list[ctr] = locators_list[ctr]->next;
@@ -561,19 +566,15 @@ uint8_t *build_map_request_pkt(
         cur_ptr = CO(mrp, sizeof(lispd_pkt_map_request_t));
         if (default_ctrl_iface_v4 != NULL){
             itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
-//            itr_rloc->afi = htons((uint16_t)LISP_AFI_IP);
-            itr_rloc->afi = htons(ip_addr_afi_to_iana_afi(AF_INET));
-            cur_ptr = CO(itr_rloc,sizeof(lispd_pkt_map_request_itr_rloc_t));
-            cpy_len = copy_addr((void *) cur_ptr ,default_ctrl_iface_v4->ipv4_address, 0);
+            cur_ptr = (uint8_t *)&itr_rloc->afi;
+            cpy_len = lisp_addr_copy_to_pkt(cur_ptr, default_ctrl_iface_v4->ipv4_address);
             cur_ptr = CO(cur_ptr, cpy_len);
             locators_ctr ++;
         }
         if (default_ctrl_iface_v6 != NULL){
             itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
-//            itr_rloc->afi = htons(get_lisp_afi(AF_INET6,NULL));
-            itr_rloc->afi = htons(ip_addr_afi_to_iana_afi(AF_INET6));
-            cur_ptr = CO(itr_rloc,sizeof(lispd_pkt_map_request_itr_rloc_t));
-            cpy_len = copy_addr((void *) cur_ptr ,default_ctrl_iface_v6->ipv6_address, 0);
+            cur_ptr = (uint8_t *)&itr_rloc->afi;
+            cpy_len = lisp_addr_copy_to_pkt(cur_ptr, default_ctrl_iface_v6->ipv6_address);
             cur_ptr = CO(cur_ptr, cpy_len);
             locators_ctr ++;
         }
@@ -591,7 +592,8 @@ uint8_t *build_map_request_pkt(
     request_eid_record->eid_prefix_length = requested_mapping->eid_prefix_length;
 
 //    cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_mapping);
-    cur_ptr = lisp_addr_write_to_pkt(&(request_eid_record->eid_prefix_afi),mapping_get_eid_addr(requested_mapping));
+    cur_ptr = CO(&(request_eid_record->eid_prefix_afi),
+            lisp_addr_copy_to_pkt(&(request_eid_record->eid_prefix_afi),mapping_get_eid_addr(requested_mapping)));
 
 
     if (mrp->map_data_present == 1){
@@ -717,7 +719,7 @@ int send_map_request_miss(timer *t, void *arg)
 
         if (nonces->retransmits > 0){
             lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request for EID: %s (%d retries)",
-                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+                    lisp_addr_to_char(mapping_get_eid_addr(map_cache_entry->mapping)),
                     nonces->retransmits);
         }
 
@@ -742,10 +744,8 @@ int send_map_request_miss(timer *t, void *arg)
                 send_map_request_miss, (void *)argument);
 
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_1,"No Map Reply fot EID %s/%d after %d retries. Removing map cache entry ...",
-                        get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
-                        map_cache_entry->mapping->eid_prefix_length,
-                        nonces->retransmits -1);
+        lispd_log_msg(LISP_LOG_DEBUG_1,"No Map Reply for EID %s after %d retries. Removing map cache entry ...",
+                        lisp_addr_to_char(mapping_get_eid_addr(map_cache_entry->mapping)), nonces->retransmits -1);
         map_cache_del_entry(mapping_get_eid_addr(mapping));
 
     }

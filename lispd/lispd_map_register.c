@@ -100,21 +100,18 @@ int map_register_process()
     dbs[0] = get_local_db(AF_INET);
     dbs[1] = get_local_db(AF_INET6);
 
-
     for (ctr = 0 ; ctr < 2 ; ctr++) {
         tree = dbs[ctr];
-        if (!tree){
+        if (!tree)
             continue;
-        }
+
         PATRICIA_WALK(tree->head, node) {
             mapping = ((lispd_mapping_elt *)(node->data));
             if (mapping->locator_count != 0){
-
                 err = build_and_send_map_register_msg(mapping);
                 if (err != GOOD){
-                    lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s/%d EID!",
-                            get_char_from_lisp_addr_t(mapping->eid_prefix),
-                            mapping->eid_prefix_length);
+                    lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s EID!",
+                            lisp_addr_to_char(mapping_get_eid_addr(mapping)));
                 }
             }
         }PATRICIA_WALK_END;
@@ -253,7 +250,6 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
     lisp_addr_t               *src_addr             = NULL;
     int                       out_socket            = 0;
 
-
     if ((map_register_pkt = build_map_register_pkt(mapping, &map_reg_packet_len)) == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couldn't build map register packet");
         return(BAD);
@@ -287,6 +283,7 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
             continue;
         }
 
+
         /*
          * Get src interface
          */
@@ -296,14 +293,12 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
 
         if (src_addr == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couden't send Map Register to %s, no output interface with afi %d.",
-                    lisp_addr_to_char(ms->address),
-                    ms->address->afi);
+                    lisp_addr_to_char(ms->address), ms->address->afi);
             ms = ms->next;
             continue;
         }
 
 
-        lispd_log_msg(LISP_LOG_WARNING, "************ IN map register ***********");
         /*
          * Add UDP and IP header to the Map Register message
          */
@@ -327,15 +322,14 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
          */
 
         if ((err = send_packet(out_socket,packet,packet_len))==GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s/%d to Map Server at %s",
-                    get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    mapping->eid_prefix_length,
-                    get_char_from_lisp_addr_t(*(ms->address)));
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s to Map Server at %s",
+                    lisp_addr_to_char(mapping_get_eid_addr(mapping)),
+                    lisp_addr_to_char(ms->address));
             sent_map_registers++;
         }else{
             lispd_log_msg(LISP_LOG_WARNING, "Couldn't send Map Register for %s to the Map Server %s",
-                    get_char_from_lisp_addr_t(mapping->eid_prefix),
-                    get_char_from_lisp_addr_t(*(ms->address)));
+                    lisp_addr_to_char(mapping_get_eid_addr(mapping)),
+                    lisp_addr_to_char(ms->address));
         }
         free (packet);
         ms = ms->next;

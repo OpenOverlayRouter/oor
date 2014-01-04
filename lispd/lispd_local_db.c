@@ -124,13 +124,12 @@ int add_mapping_to_db(lispd_mapping_elt *mapping)
 
     if (node->data == NULL){            /* its a new node */
         node->data = (lispd_mapping_elt *) mapping;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "EID prefix %s/%d inserted in the database",
-                get_char_from_lisp_addr_t(mapping->eid_prefix),
-                mapping->eid_prefix_length);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "EID prefix %s inserted in the database",
+                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         return (GOOD);
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_mapping_to_db: EID prefix entry (%s/%d) already installed in the data base",
-                get_char_from_lisp_addr_t(eid_prefix),eid_prefix_length);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_mapping_to_db: EID prefix entry %s already installed in the data base",
+                lisp_addr_to_char(&eid_prefix));
         return (BAD);
     }
 }
@@ -162,7 +161,7 @@ patricia_node_t *lookup_eid_node(lisp_addr_t eid)
     }
 
     if ( node==NULL ){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", get_char_from_lisp_addr_t(eid));
+        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", lisp_addr_to_char(eid));
     }
     return(node);
 }

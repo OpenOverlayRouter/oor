@@ -43,7 +43,6 @@ void process_input_packet(int fd,
     struct ip6_hdr      *ip6h = NULL;
     struct udphdr       *udph = NULL;
 
-
     if ((packet = (uint8_t *) malloc(MAX_IP_PACKET))==NULL){
         lispd_log_msg(LISP_LOG_ERR,"process_input_packet: Couldn't allocate space for packet: %s", strerror(errno));
         return;

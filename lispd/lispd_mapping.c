@@ -92,7 +92,10 @@ inline lispd_mapping_elt *new_mapping(
         lispd_log_msg(LISP_LOG_WARNING,"Couldn't allocate memory for lispd_mapping_elt: %s", strerror(errno));
         return (NULL);
     }
-    mapping->eid_prefix =  eid_prefix;
+
+    lisp_addr_ip_to_ippref(&eid_prefix);
+    lisp_addr_copy(mapping_get_eid_addr(mapping), &eid_prefix);
+//    ip_prefix_set(lisp_addr_get_ippref(&mapping->eid_prefix), lisp_addr_get_ip(&eid_prefix), eid_prefix_length);
     mapping->eid_prefix_length = eid_prefix_length;
     mapping->iid = iid;
     mapping->locator_count = 0;
@@ -114,6 +117,7 @@ lispd_mapping_elt *new_local_mapping(
     lispd_mapping_elt           *mapping        = NULL;
     lcl_mapping_extended_info   *extended_info  = NULL;
 
+    lisp_addr_ip_to_ippref(&eid_prefix);
     if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
         return (NULL);
     }
@@ -174,6 +178,18 @@ lispd_mapping_elt *new_map_cache_mapping(
  * Add a locator into the locators list of the mapping.
  */
 
+int mapping_add_locators(lispd_mapping_elt *mapping, lispd_locators_list *locators) {
+    lispd_locators_list *it;
+
+    it = locators;
+    while(it) {
+        add_locator_to_mapping(mapping, it->locator);
+        it = it->next;
+    }
+
+    return(GOOD);
+}
+
 int add_locator_to_mapping(
         lispd_mapping_elt           *mapping,
         lispd_locator_elt           *locator)
@@ -184,7 +200,8 @@ int add_locator_to_mapping(
 
     switch (lisp_addr_get_afi(locator->locator_addr)){
         case LM_AFI_IP:
-            switch (ip_prefix_get_afi(lisp_addr_get_ippref(locator->locator_addr))) {
+//        case LM_AFI_IPPREF:
+            switch (lisp_addr_get_ip_afi(locator->locator_addr)) {
                 case AF_INET:
                     err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
                     break;
@@ -233,6 +250,8 @@ int add_locator_to_mapping(
             }
             break;
         default:
+            lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_mapping: afi not supported %d",
+                    lisp_addr_get_afi(locator->locator_addr));
             break;
     }
 
@@ -691,8 +710,8 @@ void dump_balancing_locators_vec(
     char    str[3000];
 
     if ( is_loggable(log_level)){
-        lispd_log_msg(log_level,"Balancing locator vector for %s/%d: ",
-                        get_char_from_lisp_addr_t(mapping->eid_prefix),mapping->eid_prefix_length);
+        lispd_log_msg(log_level,"Balancing locator vector for %s: ",
+                        lisp_addr_to_char(mapping_get_eid_addr(mapping)));
 
         sprintf(str,"  IPv4 locators vector (%d locators):  ",b_locators_vecs.v4_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v4_locators_vec_length; ctr++){
@@ -700,7 +719,7 @@ void dump_balancing_locators_vec(
                 sprintf(str + strlen(str)," ...");
                 break;
             }
-            sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v4_balancing_locators_vec[ctr]->locator_addr));
+            sprintf(str + strlen(str)," %s  ",lisp_addr_to_char(b_locators_vecs.v4_balancing_locators_vec[ctr]->locator_addr));
         }
         lispd_log_msg(log_level,"%s",str);
         sprintf(str,"  IPv6 locators vector (%d locators):  ",b_locators_vecs.v6_locators_vec_length);
@@ -709,7 +728,7 @@ void dump_balancing_locators_vec(
                 sprintf(str + strlen(str)," ...");
                 break;
             }
-            sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.v6_balancing_locators_vec[ctr]->locator_addr));
+            sprintf(str + strlen(str)," %s  ",lisp_addr_to_char(b_locators_vecs.v6_balancing_locators_vec[ctr]->locator_addr));
         }
         lispd_log_msg(log_level,"%s",str);
         sprintf(str,"  IPv4 & IPv6 locators vector (%d locators):  ", b_locators_vecs.locators_vec_length);
@@ -718,7 +737,7 @@ void dump_balancing_locators_vec(
                 sprintf(str + strlen(str)," ...");
                 break;
             }
-            sprintf(str + strlen(str)," %s  ",get_char_from_lisp_addr_t(*b_locators_vecs.balancing_locators_vec[ctr]->locator_addr));
+            sprintf(str + strlen(str)," %s  ",lisp_addr_to_char(b_locators_vecs.balancing_locators_vec[ctr]->locator_addr));
         }
         lispd_log_msg(log_level,"%s",str);
     }
@@ -735,10 +754,79 @@ void dump_balancing_locators_vec(
  * lispd_mapping_elt set/get functions
  */
 
-lispd_mapping_elt *mapping_new() {
+inline lispd_mapping_elt *mapping_new() {
     lispd_mapping_elt *mapping;
     mapping = calloc(1, sizeof(lispd_mapping_elt));
     return(mapping);
+}
+
+inline lispd_mapping_elt *mapping_init(lisp_addr_t *eid) {
+    lispd_mapping_elt *mapping;
+    mapping = mapping_new();
+    if (!mapping)
+        return(NULL);
+
+    lisp_addr_copy(&(mapping->eid_prefix), eid);
+    return(mapping);
+}
+
+lispd_mapping_elt *mapping_init_local(lisp_addr_t *eid) {
+    lispd_mapping_elt           *mapping        = NULL;
+    lcl_mapping_extended_info   *extended_info  = NULL;
+
+    lisp_addr_ip_to_ippref(eid);
+    mapping = mapping_init(eid);
+
+    if (!mapping) {
+        lispd_log_msg(LISP_LOG_WARNING, "mapping_init_dynamic: Can't allocate mapping!");
+        return(NULL);
+    }
+
+    if (!(extended_info=(lcl_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))){
+        lispd_log_msg(LISP_LOG_WARNING,"mapping_init_local: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        free(mapping);
+        return(NULL);
+    }
+
+    mapping->extended_info = (void *)extended_info;
+
+    extended_info->outgoing_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
+    extended_info->outgoing_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
+    extended_info->outgoing_balancing_locators_vecs.balancing_locators_vec = NULL;
+    extended_info->outgoing_balancing_locators_vecs.v4_locators_vec_length = 0;
+    extended_info->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
+    extended_info->outgoing_balancing_locators_vecs.locators_vec_length = 0;
+    extended_info->head_not_init_locators_list = NULL;
+
+    return (mapping);
+}
+
+lispd_mapping_elt *mapping_init_learned(lisp_addr_t *eid) {
+    lispd_mapping_elt           *mapping        = NULL;
+    rmt_mapping_extended_info   *extended_info  = NULL;
+
+    mapping = mapping_init(eid);
+
+    if (!mapping) {
+        lispd_log_msg(LISP_LOG_WARNING, "mapping_init_dynamic: Can't allocate mapping!");
+        return(NULL);
+    }
+
+    if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_mapping: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        free (mapping);
+        return (NULL);
+    }
+
+    mapping->extended_info = (void *)extended_info;
+    extended_info->rmt_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
+    extended_info->rmt_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
+    extended_info->rmt_balancing_locators_vecs.balancing_locators_vec = NULL;
+    extended_info->rmt_balancing_locators_vecs.v4_locators_vec_length = 0;
+    extended_info->rmt_balancing_locators_vecs.v6_locators_vec_length = 0;
+    extended_info->rmt_balancing_locators_vecs.locators_vec_length = 0;
+
+    return (mapping);
 }
 
 inline void mapping_set_extended_info(lispd_mapping_elt *mapping, void *extended_info) {

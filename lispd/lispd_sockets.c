@@ -344,8 +344,8 @@ int send_packet (
     int                     dst_addr_len    = 0;
     struct sockaddr_in      dst_addr4;
     struct sockaddr_in6     dst_addr6;
-    lisp_addr_t             pkt_src_addr;
-    lisp_addr_t             pkt_dst_addr;
+    ip_addr_t               pkt_src_addr;
+    ip_addr_t               pkt_dst_addr;
     struct iphdr            *iph            = NULL;
     struct ip6_hdr          *ip6h           = NULL;
     int                     nbytes          = 0;
@@ -388,29 +388,20 @@ int send_packet (
 
         switch(iph->version){
         case 4:
-            pkt_src_addr.afi = AF_INET;
-            pkt_src_addr.address.ip.s_addr = iph->saddr;
-
-            pkt_dst_addr.afi = AF_INET;
-            pkt_dst_addr.address.ip.s_addr = iph->daddr;
-
+            ip_addr_set_v4(&pkt_src_addr, &iph->saddr);
+            ip_addr_set_v4(&pkt_dst_addr, &iph->daddr);
             break;
         case 6:
             ip6h = (struct ip6_hdr *) packet;
-
-            pkt_src_addr.afi = AF_INET6;
-            memcpy (&(pkt_src_addr.address), &(ip6h->ip6_src), sizeof(struct in6_addr));
-
-            pkt_dst_addr.afi = AF_INET6;
-            memcpy (&(pkt_dst_addr.address), &(ip6h->ip6_dst), sizeof(struct in6_addr));
-
+            ip_addr_set_v6(&pkt_src_addr, &ip6h->ip6_src);
+            ip_addr_set_v6(&pkt_dst_addr, &ip6h->ip6_dst);
             break;
         }
 
         lispd_log_msg( LISP_LOG_DEBUG_2, "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d",
                 strerror ( errno ),
-                get_char_from_lisp_addr_t(pkt_src_addr),
-                get_char_from_lisp_addr_t(pkt_dst_addr),
+                ip_addr_to_char(&pkt_src_addr),
+                ip_addr_to_char(&pkt_dst_addr),
                 sock);
         return (BAD);
     }
@@ -470,8 +461,8 @@ int get_packet_and_socket_inf (
     if (afi == AF_INET){
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_PKTINFO) {
-                local_rloc->afi = AF_INET;
-                local_rloc->address.ip = ((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr;
+                lisp_addr_set_afi(local_rloc, LM_AFI_IP);
+                ip_addr_set_v4(lisp_addr_get_ip(local_rloc), &(((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr));
                 break;
             }
         }
@@ -480,10 +471,8 @@ int get_packet_and_socket_inf (
     }else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO) {
-                local_rloc->afi = AF_INET6;
-                memcpy(&(local_rloc->address.ipv6.s6_addr),
-                        &(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr),
-                        sizeof(struct in6_addr));
+                lisp_addr_set_afi(local_rloc, LM_AFI_IP);
+                ip_addr_set_v6(lisp_addr_get_ip(local_rloc), &(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr));
                 break;
             }
         }
