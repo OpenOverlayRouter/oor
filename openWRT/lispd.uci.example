@@ -59,7 +59,7 @@ config 'ddt-client'
 #   address: IPv4 or IPv6 address or FQDN name of the DDT root node
 #   priority [0..255]: DDT root nodes with lower values are more preferable.
 #   weight [0..255]: Not yet implemented
-~
+
 
 #config 'ddt-root-node'
 #        option   'address'              'IPv4 or IPv6 address or FQDN name'

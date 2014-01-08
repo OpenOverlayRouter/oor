@@ -60,4 +60,26 @@ define Package/lispmob/install
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/model-cbi-lisp.lua $(1)/usr/lib/lua/luci/model/cbi/lisp/lisp.lua
 endef
 
+define Package/lispmob/postinst
+        #!/bin/sh
+
+        uci -q batch <<-EOF
+            delete ucitrack.@lispd[-1]
+            add ucitrack lispd
+            set ucitrack.@lispd[-1].init=lisp
+            commit ucitrack
+        EOF
+
+        rm -f /tmp/luci-indexcache
+endef
+
+define Package/lispmob/postrm
+        #!/bin/sh
+
+        uci -q batch <<-EOF
+            delete ucitrack.@lispd[-1]
+            commit ucitrack
+        EOF
+endef
+
 $(eval $(call BuildPackage,lispmob))
