@@ -34,6 +34,7 @@
 #include "lispd_nonce.h"
 #include "lispd_timers.h"
 #include "lispd_address.h"
+#include "util/messages/lisp_messages.h"
 
 /****************************************  STRUCTURES **************************************/
 
@@ -122,7 +123,7 @@ lispd_locator_elt   *new_rmt_locator (
         uint8_t                     mweight);
 
 lispd_locator_elt   *new_static_rmt_locator (
-        char                        *rloc_addr,
+        lisp_addr_t                 *rloc_addr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     priority,
         uint8_t                     weight,
@@ -187,4 +188,20 @@ lispd_locator_elt *get_locator_from_list(
 
 void free_locator_list(lispd_locators_list     *list);
 void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_flag);
+
+inline lispd_locator_elt *locator_new();
+lispd_locator_elt *locator_init_from_field(locator_field *lf);
+
+/* accessors */
+static inline lisp_addr_t *locator_get_addr(lispd_locator_elt *locator) {
+    return(locator->locator_addr);
+}
+
+
+
+
+
+
+
+
 #endif /* LISPD_LOCATOR_H_ */

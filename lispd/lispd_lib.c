@@ -58,8 +58,6 @@
 #include "lispd_afi.h"
 #include "lispd_lib.h"
 #include "lispd_external.h"
-#include "lispd_map_request.h"
-#include "lispd_map_reply.h"
 #include "lispd_map_notify.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
@@ -948,58 +946,7 @@ int have_input(
  *  socket s with address family afi
  */
 
-int process_lisp_ctr_msg(
-        int sock,
-        int afi)
-{
 
-    uint8_t             packet[MAX_IP_PACKET];
-    lisp_addr_t         local_rloc;
-    uint16_t            remote_port;
-
-    if  (get_packet_and_socket_inf (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
-        return BAD;
-    }
-
-    lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
-
-    switch (((lisp_encap_control_hdr_t *) packet)->type) {
-    case LISP_MAP_REPLY:    //Got Map Reply
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Reply message");
-        process_map_reply(packet);
-        break;
-    case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Encapsulated Map-Request message");
-        if(!process_map_request_msg(packet, &local_rloc, remote_port))
-            return (BAD);
-        break;
-    case LISP_MAP_REQUEST:      //Got Map-Request
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Request message");
-        if(!process_map_request_msg(packet, &local_rloc, remote_port))
-            return (BAD);
-        break;
-    case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
-        break;
-    case LISP_MAP_NOTIFY:
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Notify message");
-        if(!process_map_notify(packet))
-            return(BAD);
-        break;
-
-    case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-        if(!process_info_nat_msg(packet, local_rloc)){
-            return (BAD);
-        }
-        break;
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Unidentified type control message received");
-        break;
-    }
-    lispd_log_msg(LISP_LOG_DEBUG_2, "Completed processing of LISP control message");
-
-    return(GOOD);
-}
 
     
 int inaddr2sockaddr(

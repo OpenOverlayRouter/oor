@@ -45,9 +45,9 @@
 int process_map_notify(uint8_t *packet)
 {
 
-    lispd_pkt_map_notify_t              *map_notify                         = NULL;
-    lispd_pkt_mapping_record_t          *record                     = NULL;
-    lispd_pkt_mapping_record_locator_t  *locator                    = NULL;
+    lispd_pkt_map_notify_t              *map_notify                 = NULL;
+    mapping_record_hdr                  *record                     = NULL;
+    locator_hdr                         *locator                    = NULL;
 
 
     int                                 eid_afi                     = 0;
@@ -85,11 +85,11 @@ int process_map_notify(uint8_t *packet)
 
     map_notify_length = sizeof(lispd_pkt_map_notify_t);
 
-    record = (lispd_pkt_mapping_record_t *)CO(map_notify, sizeof(lispd_pkt_map_notify_t));
+    record = (mapping_record_hdr *)CO(map_notify, sizeof(lispd_pkt_map_notify_t));
     for (i=0; i < record_count; i++)
     {
-        partial_map_notify_length1 = sizeof(lispd_pkt_mapping_record_t);
-        eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
+        partial_map_notify_length1 = sizeof(mapping_record_hdr) + sizeof(uint16_t);
+        eid_afi = lisp2inetafi(ntohs(*(uint16_t *)CO(record, sizeof(mapping_record_hdr))));
 
         switch (eid_afi) {
         case AF_INET:
@@ -99,16 +99,16 @@ int process_map_notify(uint8_t *packet)
             partial_map_notify_length1 += sizeof(struct in6_addr);
             break;
         default:
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: Unknown AFI (%d) - EID", record->eid_prefix_afi);
+            lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: Unknown AFI (%d) - EID", eid_afi);
             return(ERR_AFI);
         }
 
         locator_count = record->locator_count;
-        locator = (lispd_pkt_mapping_record_locator_t *)CO(record, partial_map_notify_length1);
+        locator = (locator_hdr *)CO(record, partial_map_notify_length1);
         for ( j=0 ; j<locator_count ; j++)
         {
-            partial_map_notify_length2 = sizeof(lispd_pkt_mapping_record_locator_t);
-            loc_afi = lisp2inetafi(ntohs(locator->locator_afi));
+            partial_map_notify_length2 = sizeof(locator_hdr)+sizeof(uint16_t);
+            loc_afi = lisp2inetafi(ntohs(*(uint16_t *)CO(locator, sizeof(locator_hdr))));
             switch (loc_afi) {
             case AF_INET:
                 partial_map_notify_length2 = partial_map_notify_length2 + sizeof(struct in_addr);
@@ -117,14 +117,14 @@ int process_map_notify(uint8_t *packet)
                 partial_map_notify_length2 = partial_map_notify_length2 + sizeof(struct in6_addr);
                 break;
             default:
-                lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: Unknown AFI (%d) - Locator", htons(locator->locator_afi));
+                lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: Unknown AFI (%d) - Locator", loc_afi);
                 return(ERR_AFI);
             }
-            locator = (lispd_pkt_mapping_record_locator_t *)CO(locator, partial_map_notify_length2);
+            locator = (locator_hdr *)CO(locator, partial_map_notify_length2);
             partial_map_notify_length1 = partial_map_notify_length1 + partial_map_notify_length2;
         }
         map_notify_length = map_notify_length + partial_map_notify_length1;
-        record = (lispd_pkt_mapping_record_t *)locator;
+        record = (mapping_record_hdr *)locator;
     }
 
     for (i=0 ; i < LISP_SHA1_AUTH_DATA_LEN; i++)

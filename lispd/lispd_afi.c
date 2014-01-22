@@ -41,7 +41,7 @@ int pkt_process_eid_afi(
 {
 
     uint8_t                 *cur_ptr;
-    lispd_pkt_lcaf_t        *lcaf_ptr;
+    lcaf_hdr_t        *lcaf_ptr;
     uint16_t                 lisp_afi;
 
     cur_ptr  = *offset;
@@ -59,10 +59,10 @@ int pkt_process_eid_afi(
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
-        lcaf_ptr = (lispd_pkt_lcaf_t *)cur_ptr;
+        lcaf_ptr = (lcaf_hdr_t *)cur_ptr;
         switch(ntohs(lcaf_ptr->type)) {
         case LCAF_IID:
-            cur_ptr  = CO(lcaf_ptr, sizeof(lispd_pkt_lcaf_t));
+            cur_ptr  = CO(lcaf_ptr, sizeof(lcaf_hdr_t));
             mapping->iid = ntohl(*(uint32_t *)cur_ptr);
             cur_ptr = CO(lcaf_ptr, sizeof(mapping->iid));
             if (pkt_process_eid_afi (&cur_ptr, mapping)!=GOOD)
@@ -137,7 +137,7 @@ int extract_nat_lcaf_data(
         lispd_rtr_locators_list         **rtr_list,
         uint32_t                        *length)
 {
-    lispd_pkt_lcaf_t         *pkt_lcaf               = NULL;
+    lcaf_hdr_t         *pkt_lcaf               = NULL;
     lispd_pkt_nat_lcaf_t     *pkt_nat_lcaf           = NULL;
     lispd_rtr_locators_list  *rtr_locator_list       = NULL;
     lispd_rtr_locator        *rtr_locator            = NULL;
@@ -147,7 +147,7 @@ int extract_nat_lcaf_data(
     uint32_t                 cumulative_add_length   = 0;
 
 
-    pkt_lcaf = (lispd_pkt_lcaf_t *)ptr;
+    pkt_lcaf = (lcaf_hdr_t *)ptr;
 
     if (pkt_lcaf->type != LCAF_NATT){
         lispd_log_msg(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Packet doesn't have NAT LCAF address");
@@ -156,7 +156,7 @@ int extract_nat_lcaf_data(
 
     lcaf_length = ntohs(pkt_lcaf->len);
 
-    ptr = CO(ptr,sizeof(lispd_pkt_lcaf_t));
+    ptr = CO(ptr,sizeof(lcaf_hdr_t));
     pkt_nat_lcaf = (lispd_pkt_nat_lcaf_t *)ptr;
 
     *ms_udp_port = ntohs(pkt_nat_lcaf->ms_udp_port);
@@ -232,7 +232,7 @@ int extract_nat_lcaf_data(
 
     }
 
-    *length = sizeof(lispd_pkt_lcaf_t) + lcaf_length;
+    *length = sizeof(lcaf_hdr_t) + lcaf_length;
 
     return (GOOD);
 }

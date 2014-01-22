@@ -27,13 +27,14 @@
  *    Albert López       <alopez@ac.upc.edu>
  *
  */
+#include "lispd_smr.h"
+#include "defs.h"
 #include "lispd_lib.h"
 #include "lispd_map_cache_db.h"
 #include "lispd_map_register.h"
-#include "lispd_map_request.h"
-#include "lispd_smr.h"
 #include "lispd_external.h"
 #include "lispd_log.h"
+#include "lispd_control.h"
 
 /*
  * smr_timer is used to avoid sending SMRs during transition period.
@@ -51,11 +52,9 @@ void init_smr(
 {
     lispd_iface_list_elt        *iface_list         = NULL;
     lispd_iface_mappings_list   *mappings_list      = NULL;
-    patricia_tree_t             *map_cache_dbs [2]  = {NULL,NULL};
     lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
     lispd_mapping_elt           *mapping            = NULL;
     uint64_t                    nonce               = 0;
-    patricia_node_t             *map_cache_node     = NULL;
     lispd_map_cache_entry       *map_cache_entry    = NULL;
     lispd_locators_list         *locator_iterator   = NULL;
     lispd_locator_elt           *locator            = NULL;
@@ -64,9 +63,6 @@ void init_smr(
     lisp_addr_t                 *eid                = NULL;
     int                         mappings_ctr        = 0;
     int                         ctr=0,ctr1=0;
-    int                         afi_db              = 0;
-
-
 
 
     lispd_log_msg(LISP_LOG_DEBUG_2,"*** Init SMR notification ***");
@@ -112,9 +108,6 @@ void init_smr(
         iface_list = iface_list->next;
     }
 
-    map_cache_dbs[0] = pt_get_from_afi(AF_INET);
-    map_cache_dbs[1] = pt_get_from_afi(AF_INET6);
-
     /*
      * Send map register and SMR request for each affected mapping
      */
@@ -144,24 +137,26 @@ void init_smr(
             continue;
         }
 
-        if (ip_prefix_get_afi(lisp_addr_get_ippref(eid)) == AF_INET){
-            afi_db = 0;
-        }else{
-            afi_db = 1;
-        }
+        /* no SMRs for now for multicast */
+        if (lisp_addr_is_mc(eid))
+            continue;
 
-        PATRICIA_WALK(map_cache_dbs[afi_db]->head, map_cache_node) {
-            map_cache_entry = ((lispd_map_cache_entry *)(map_cache_node->data));
+
+        /* TODO: spec says SMRs should be sent only to peer ITRs that sent us traffic in the last minute
+         * Should change this in the future*/
+        mcache_foreach_active_entry_in_eid_db(eid, map_cache_entry) {
             locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
             locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
-            for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For echa IPv4 and IPv6 locator*/
+            for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For each IPv4 and IPv6 locator*/
 
-                if (map_cache_entry->active && locators_lists[ctr1] != NULL){
+                if (locators_lists[ctr1] != NULL) {
+
                     locator_iterator = locators_lists[ctr1];
 
                     while (locator_iterator){
                         locator = locator_iterator->locator;
-                        if (build_and_send_map_request_msg(map_cache_entry->mapping, eid, locator->locator_addr,0,0,1,0,&nonce)==GOOD){
+                        if (build_and_send_map_request_msg(map_cache_entry->mapping,
+                                eid, locator->locator_addr,0,0,1,0,&nonce)==GOOD){
                             lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s from EID %s",
                                     lisp_addr_to_char(locator->locator_addr),
                                     lisp_addr_to_char(eid));
@@ -171,7 +166,8 @@ void init_smr(
                     }
                 }
             }
-        }PATRICIA_WALK_END;
+        } mcache_foreach_active_entry_in_db_end;
+
         /* SMR proxy-itr */
         pitr_elt  = proxy_itrs;
 

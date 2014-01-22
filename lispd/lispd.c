@@ -49,6 +49,7 @@
 #include <net/if.h>
 #include "lispd.h"
 #include "lispd_config.h"
+#include "lispd_control.h"
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_input.h"
@@ -57,7 +58,6 @@
 #include "lispd_log.h"
 #include "lispd_map_cache_db.h"
 #include "lispd_map_register.h"
-#include "lispd_map_request.h"
 #include "lispd_output.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_routing_tables_lib.h"

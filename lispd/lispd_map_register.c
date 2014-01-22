@@ -38,7 +38,6 @@
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
 #include "lispd_map_register.h"
-#include "lispd_map_request.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
@@ -359,7 +358,7 @@ uint8_t *build_map_register_pkt(
 {
     uint8_t                         *packet     = NULL;
     lispd_pkt_map_register_t        *mrp        = NULL;
-    lispd_pkt_mapping_record_t      *mr         = NULL;
+    mapping_record_hdr      *mr         = NULL;
 
     *mrp_len = sizeof(lispd_pkt_map_register_t) +
               pkt_get_mapping_record_length(mapping);
@@ -391,9 +390,9 @@ uint8_t *build_map_register_pkt(
 
     /* skip over the fixed part,  assume one record (mr) */
 
-    mr = (lispd_pkt_mapping_record_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
+    mr = (mapping_record_hdr *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
-    if (pkt_fill_mapping_record(mr, mapping, NULL) != NULL) {
+    if (mapping_fill_record_in_pkt(mr, mapping, NULL) != NULL) {
         return(packet);
     } else {
         free(packet);

@@ -391,7 +391,7 @@ inline int modify_route(
         addr_size = sizeof(struct in6_addr);
     }
 
-    addr_size = ip_addr_afi_to_size(afi);
+    addr_size = ip_sock_afi_to_size(afi);
 
 
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);

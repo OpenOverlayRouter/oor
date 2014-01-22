@@ -14,9 +14,9 @@
 #include "lispd.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_log.h"
-#include "lispd_map_request.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_timers.h"
+#include "lispd_control.h"
 
 
 const int TimerTickInterval = 1;  // Seconds

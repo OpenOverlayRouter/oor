@@ -172,7 +172,7 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     int                         iface_index         = 0;
     int                         rt_length           = 0;
     lispd_iface_elt             *iface              = NULL;
-    lisp_addr_t                 new_addr;
+    lisp_addr_t                 new_addr            = {.lafi=LM_AFI_IP};
     char                        iface_name[IF_NAMESIZE];
 
     /*
@@ -251,7 +251,7 @@ void process_address_change (
     }
 
     // Same address that we already have
-    if (compare_lisp_addr_t(iface_addr,&new_addr)==0){
+    if (lisp_addr_cmp(iface_addr,&new_addr)==0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"precess_address_change: The detected change of address for interface %s "
                 "doesn't affect",iface->iface_name);
         /* We must rebind the socket just in case the address is from a virtual interface who has changed its interafce number */
@@ -523,13 +523,8 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
     lispd_iface_elt          *iface                     = NULL;
     int                      iface_index                = 0;
     char                     iface_name[IF_NAMESIZE];
-    lisp_addr_t              gateway                    = {.afi=AF_UNSPEC};
-    lisp_addr_t              dst                        = {.afi=AF_UNSPEC};
-
-    if (!rtm) {
-        lispd_log_msg(LISP_LOG_WARNING, "************ LOL *************");
-        exit(1);
-    }
+    lisp_addr_t              gateway                    = {.lafi=LM_AFI_IP};
+    lisp_addr_t              dst                        = {.lafi=LM_AFI_IP};
 
     /* Interested only in main table updates for unicast */
     if (rtm->rtm_table != RT_TABLE_MAIN)
@@ -557,7 +552,7 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
             break;
         case RTA_GATEWAY:
             lisp_addr_set_afi(&gateway, LM_AFI_IP);
-            ip_addr_init(lisp_addr_get_ip(&gateway), RTA_DATA(rt_attr),  rtm->rtm_family);
+            ip_addr_init(lisp_addr_get_ip(&gateway), RTA_DATA(rt_attr), rtm->rtm_family);
 //            gateway.afi = rtm->rtm_family;
 //            switch (gateway.afi) {
 //            case AF_INET:
@@ -600,11 +595,11 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
         }
     }
 
-    if (lisp_addr_get_ip_afi(&gateway) != AF_UNSPEC && iface_index != 0 && lisp_addr_get_ip_afi(&dst) == AF_UNSPEC) {
+    if (lisp_addr_ip_get_afi(&gateway) != AF_UNSPEC && iface_index != 0 && lisp_addr_ip_get_afi(&dst) == AF_UNSPEC) {
         /* Check default afi*/
-        if (default_rloc_afi != -1 && default_rloc_afi != gateway.afi) {
+        if (default_rloc_afi != -1 && default_rloc_afi != lisp_addr_ip_get_afi(&gateway)) {
             lispd_log_msg(LISP_LOG_DEBUG_1,  "process_nl_new_unicast_route: Default RLOC afi defined (-a #): Skipped %s gateway in iface %s",
-                    (lisp_addr_get_ip_afi(&gateway)== AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
+                    (lisp_addr_ip_get_afi(&gateway)== AF_INET) ? "IPv4" : "IPv6",iface->iface_name);
             return;
         }
 

@@ -91,7 +91,8 @@ int add_mapping_to_db(lispd_mapping_elt *mapping)
     int                 eid_prefix_length;
 
     eid_prefix = mapping->eid_prefix;
-    eid_prefix_length = mapping->eid_prefix_length;
+//    eid_prefix_length = mapping->eid_prefix_length;
+    eid_prefix_length = lisp_addr_ippref_get_plen(mapping_get_eid_addr(mapping));
 
     if ((node = malloc(sizeof(patricia_node_t))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "add_mapping_to_db: Unable to allocate memory for patrica_node_t: %s", strerror(errno));
@@ -161,7 +162,7 @@ patricia_node_t *lookup_eid_node(lisp_addr_t eid)
     }
 
     if ( node==NULL ){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", lisp_addr_to_char(eid));
+        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", lisp_addr_to_char(&eid));
     }
     return(node);
 }

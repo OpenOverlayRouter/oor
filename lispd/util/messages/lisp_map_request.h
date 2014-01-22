@@ -1,5 +1,5 @@
 /*
- * lispd_map_request.h
+ * lisp_map_request.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Send a map request.
@@ -32,13 +32,11 @@
  *
  */
 
-#ifndef LISPD_MAP_REQUEST_H_
-#define LISPD_MAP_REQUEST_H_
+#ifndef LISP_MAP_REQUEST_H_
+#define LISP_MAP_REQUEST_H_
 
 
-#include "lispd.h"
-#include "lispd_map_cache_db.h"
-
+#include "lisp_message_fields.h"
 
 /*
  * Map-Request Message Format
@@ -76,7 +74,7 @@
  * address, originating ITR RLOC AFIs and addresses and then map
  * request records follow.
  */
-typedef struct lispd_pkt_map_request_t_ {
+typedef struct _map_request_msg_hdr {
 #ifdef LITTLE_ENDIANS
     uint8_t solicit_map_request:1;
     uint8_t rloc_probe:1;
@@ -108,90 +106,53 @@ typedef struct lispd_pkt_map_request_t_ {
 #endif
     uint8_t record_count;
     uint64_t nonce;
-    uint16_t source_eid_afi;
-} PACKED lispd_pkt_map_request_t;
+} PACKED map_request_msg_hdr;
+
+typedef struct _map_request_msg {
+    uint8_t                 *data;
+    address_field           *src_eid;
+    address_field           **itr_rlocs;
+    eid_prefix_record       **eids;
+    mapping_record          *mrep_record;
+} map_request_msg;
 
 
-
-/*
- * Fixed size portion of map request ITR RLOC.
- */
-typedef struct lispd_pkt_map_request_itr_rloc_t_ {
-    uint16_t afi;
-    /*    uint8_t address[0]; */
-} PACKED lispd_pkt_map_request_itr_rloc_t;
+map_request_msg *map_request_msg_new();
+map_request_msg *map_request_msg_parse(uint8_t *offset);
+void map_request_msg_del(map_request_msg *msg);
 
 
+static inline map_request_msg_hdr *mreq_get_hdr(map_request_msg *mrp) {
+    return((map_request_msg_hdr *)mrp->data);
+}
+
+static inline address_field *mreq_msg_get_src_eid(map_request_msg *mreq) {
+    return(mreq->src_eid);
+}
+
+static inline address_field **mreq_msg_get_itr_rlocs(map_request_msg *mreq) {
+    return(mreq->itr_rlocs);
+}
+
+static inline eid_prefix_record **mreq_msg_get_eids(map_request_msg *mreq) {
+    return(mreq->eids);
+}
 
 
-/*
- * Map Request Record
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    / |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
- *  Rec +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    \ |                       EID-prefix  ...                         |
- *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
+#define mreq_msg_foreach_itr_rloc(mreq, rlocs, rit) \
+    for ((rlocs) = mreq_msg_get_itr_rlocs(mreq), (rit) = *(rlocs);  \
+        *(rlocs) != NULL;   \
+        (rlocs)++, (rit) = *(rlocs) )
 
-/*
- * Fixed portion of the request record. EID prefix address follow.
- */
-
-typedef struct lispd_pkt_map_request_eid_prefix_record_t_ {
-    uint8_t reserved;
-    uint8_t eid_prefix_length;
-    uint16_t eid_prefix_afi;
-} PACKED lispd_pkt_map_request_eid_prefix_record_t;
-
-
-
-/*
- * Use the nonce to calculate the source port for a map request
- * message.
- */
-#define LISP_PKT_MAP_REQUEST_UDP_SPORT(Nonce) (0xf000 | (Nonce & 0xfff))
-
-#define LISP_PKT_MAP_REQUEST_TTL 32
-
-
-/*
- * The IRC value above is set to one less than the number of ITR-RLOC
- * fields (an IRC of zero means one ITR-RLOC). In 5 bits we can encode
- * the number 15 which means we can have up to 16 ITR-RLOCs.
- */
-#define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
-
-
-/*
- * Struct used to pass the arguments to the call_back function of a
- * map request miss
- */
-
-typedef struct _timer_map_request_argument{
-    lispd_map_cache_entry *map_cache_entry;
-    lisp_addr_t src_eid;
-} timer_map_request_argument;
-
-
-/*
- *  Put a wrapper around build_map_request_pkt and send_map_request
- */
-int build_and_send_map_request_msg(
-        lispd_mapping_elt       *requested_mapping,
-        lisp_addr_t             *src_eid,
-        lisp_addr_t             *dst_rloc_addr,
-        uint8_t                 encap,
-        uint8_t                 probe,
-        uint8_t                 solicit_map_request,
-        uint8_t                 smr_invoked,
-        uint64_t                *nonce);
-
-
-/*
- *  Receive a Map_request message and process based on control bits
- *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
- */
-int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc, uint16_t remote_port);
+#define mreq_msg_foreach_eid(mreq, _eids, _eit) \
+    for ((_eids) = mreq_msg_get_eids(mreq), (_eit) = *(_eids);     \
+        *(_eids) != NULL;    \
+        (_eids)++, (_eit) = *(_eids))
+///*
+// *  Receive a Map_request message and process based on control bits
+// *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
+// */
+//int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc, uint16_t remote_port);
 
 
 /*
@@ -202,6 +163,5 @@ int process_map_request_msg(uint8_t *packet, lisp_addr_t *local_rloc, uint16_t r
  */
 
 
-int send_map_request_miss(timer *t, void *arg);
 
 #endif /*LISPD_MAP_REQUEST_H_*/

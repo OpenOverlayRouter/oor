@@ -340,53 +340,49 @@ int send_packet (
         uint8_t *packet,
         int     packet_length )
 {
-    struct sockaddr         *dst_addr       = NULL;
-    int                     dst_addr_len    = 0;
-    struct sockaddr_in      dst_addr4;
-    struct sockaddr_in6     dst_addr6;
-    ip_addr_t               pkt_src_addr;
-    ip_addr_t               pkt_dst_addr;
-    struct iphdr            *iph            = NULL;
-    struct ip6_hdr          *ip6h           = NULL;
-    int                     nbytes          = 0;
+    struct sockaddr *dst_addr = NULL;
+    int dst_addr_len = 0;
+    struct sockaddr_in dst_addr4;
+    struct sockaddr_in6 dst_addr6;
+    ip_addr_t pkt_src_addr;
+    ip_addr_t pkt_dst_addr;
+    struct iphdr *iph = NULL;
+    struct ip6_hdr *ip6h = NULL;
+    int nbytes = 0;
 
-    memset ( ( char * ) &dst_addr, 0, sizeof ( dst_addr ) );
+    memset((char *) &dst_addr, 0, sizeof(dst_addr));
 
-    iph = ( struct iphdr * ) packet;
+    iph = (struct iphdr *) packet;
 
-    switch(iph->version){
+    switch (iph->version) {
     case 4:
-        memset ( ( char * ) &dst_addr4, 0, sizeof ( dst_addr4 ) );
+        memset((char *) &dst_addr4, 0, sizeof(dst_addr4));
         dst_addr4.sin_family = AF_INET;
         dst_addr4.sin_addr.s_addr = iph->daddr;
 
-        dst_addr = ( struct sockaddr * ) &dst_addr4;
-        dst_addr_len = sizeof ( struct sockaddr_in );
+        dst_addr = (struct sockaddr *) &dst_addr4;
+        dst_addr_len = sizeof(struct sockaddr_in);
 
         break;
     case 6:
         ip6h = (struct ip6_hdr *) packet;
 
-        memset ( ( char * ) &dst_addr6, 0, sizeof ( dst_addr6 ) );
+        memset((char *) &dst_addr6, 0, sizeof(dst_addr6));
         dst_addr6.sin6_family = AF_INET6;
         dst_addr6.sin6_addr = ip6h->ip6_dst;
 
-        dst_addr = ( struct sockaddr * ) &dst_addr6;
-        dst_addr_len = sizeof ( struct sockaddr_in6 );
+        dst_addr = (struct sockaddr *) &dst_addr6;
+        dst_addr_len = sizeof(struct sockaddr_in6);
 
         break;
     }
 
-    nbytes = sendto ( sock,
-                      ( const void * ) packet,
-                      packet_length,
-                      0,
-                      dst_addr,
-                      dst_addr_len );
+    nbytes = sendto(sock, (const void *) packet, packet_length, 0, dst_addr,
+            dst_addr_len);
 
-    if ( nbytes != packet_length ) {
+    if (nbytes != packet_length) {
 
-        switch(iph->version){
+        switch (iph->version) {
         case 4:
             ip_addr_set_v4(&pkt_src_addr, &iph->saddr);
             ip_addr_set_v4(&pkt_dst_addr, &iph->daddr);
@@ -398,11 +394,10 @@ int send_packet (
             break;
         }
 
-        lispd_log_msg( LISP_LOG_DEBUG_2, "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d",
-                strerror ( errno ),
-                ip_addr_to_char(&pkt_src_addr),
-                ip_addr_to_char(&pkt_dst_addr),
-                sock);
+        lispd_log_msg(LISP_LOG_DEBUG_2,
+                "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d",
+                strerror(errno), ip_addr_to_char(&pkt_src_addr),
+                ip_addr_to_char(&pkt_dst_addr), sock);
         return (BAD);
     }
 
@@ -468,6 +463,7 @@ int get_packet_and_socket_inf (
         }
 
         *remote_port = ntohs(s4.sin_port);
+//        *remote_port = noths(((struct sockaddr_in*)msg.msg_name)->sin_port);
     }else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO) {

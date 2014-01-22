@@ -978,8 +978,9 @@ int add_static_map_cache_entry(
         int    priority,
         int    weight)
 {
-    lispd_map_cache_entry    *map_cache_entry;
+    lispd_mapping_elt        *mapping;
     lispd_locator_elt        *locator;
+    lisp_addr_t              rloc;
     lisp_addr_t              eid_prefix;
     int                      eid_prefix_length;
 
@@ -999,36 +1000,44 @@ int add_static_map_cache_entry(
     }
 
     if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
-        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing RLOC address ...Ignoring static map cache entry");
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing EID address ...Ignoring static map cache entry");
         return (BAD);
     }
 
     /* HACK: change afi from IP to IPPREF and set mask */
     lisp_addr_set_afi(&eid_prefix, LM_AFI_IPPREF);
     ip_prefix_set_plen(lisp_addr_get_ippref(&eid_prefix), (uint8_t)eid_prefix_length);
-    lispd_log_msg(LISP_LOG_WARNING, "\n\nthe address is %s\n", lisp_addr_to_char(&eid_prefix));
-
-    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
-    if (map_cache_entry == NULL)
-        return (BAD);
 
 
-    map_cache_entry->mapping->iid = iid;
+    mapping = mapping_init_local(&eid_prefix);
+    if (!mapping)
+        return(BAD);
 
-    locator = new_static_rmt_locator(rloc_addr,UP,priority,weight,255,0);
+    /* TODO convert eid_prefix into lcaf */
+    mapping->iid = iid;
+
+//    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
+//    if (map_cache_entry == NULL)
+//        return (BAD);
+//
+//    map_cache_entry->mapping->iid = iid;
+
+    if (get_lisp_addr_from_char(rloc_addr,&rloc) == BAD){
+        lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
+        return(BAD);
+    }
+
+    locator = new_static_rmt_locator(&rloc,UP,priority,weight,255,0);
 
     if (locator != NULL){
-        if ((err=add_locator_to_mapping (map_cache_entry->mapping, locator)) != GOOD){
+        if ((err=add_locator_to_mapping(mapping, locator)) != GOOD){
             return (BAD);
         }
     }else{
         return (BAD);
     }
 
-    /*
-     * Programming rloc probing timer
-     */
-    programming_rloc_probing(map_cache_entry);
+    mcache_add_static_mapping(mapping);
 
     return (GOOD);
 }
@@ -1055,8 +1064,8 @@ int add_server(
 
     afi = get_afi(server);
 //    addr->afi = afi;
-    addr = lisp_addr_new_ip();
-    ip_addr_set_afi(lisp_addr_get_ip(addr), afi);
+    addr = lisp_addr_new_afi(LM_AFI_IP);
+    lisp_addr_ip_set_afi(addr, afi);
 
 //    if (inet_pton(afi, server, &(addr->address)) != 1) {
     if (inet_pton(afi, server,  ip_addr_get_addr(lisp_addr_get_ip(addr))) != 1) {
@@ -1068,7 +1077,7 @@ int add_server(
     /*
      * Check that the afi of the map server matches with the default rloc afi (if it's defined).
      */
-    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
+    if (default_rloc_afi != -1 && default_rloc_afi != lisp_addr_ip_get_afi(addr)){
         lispd_log_msg(LISP_LOG_WARNING, "The server %s will not be added due to the selected default rloc afi",server);
         lisp_addr_del(addr);
         return(BAD);
@@ -1140,7 +1149,7 @@ int add_map_server(
 //    memcpy((void *) &(addr->address),
 //            (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
 //    addr->afi = hptr->h_addrtype;
-    addr = lisp_addr_new_ip();
+    addr = lisp_addr_new_afi(LM_AFI_IP);
     ip_addr_init(lisp_addr_get_ip(addr), (void *) *(hptr->h_addr_list), hptr->h_addrtype);
 
 
@@ -1194,6 +1203,7 @@ int add_proxy_etr_entry(
 {
 
     lisp_addr_t                     aux_address;
+    lisp_addr_t                     rloc;
     lispd_locator_elt               *locator     = NULL;
 
     if (address == NULL){
@@ -1231,8 +1241,13 @@ int add_proxy_etr_entry(
         }
     }
 
+    if (get_lisp_addr_from_char(address, &rloc) == BAD){
+        lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
+        return(BAD);
+    }
+
     /* Create de locator representing the proxy-etr and add it to the mapping */
-    locator = new_static_rmt_locator (address,UP,priority,weight,255,0);
+    locator = new_static_rmt_locator(&rloc,UP,priority,weight,255,0);
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){

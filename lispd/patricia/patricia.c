@@ -350,9 +350,6 @@ Clear_Patricia(patricia_tree_t *patricia, void_fn_t func) {
                 Deref_Prefix(Xrn->prefix);
                 if (Xrn->data && func)
                     func(Xrn->data);
-                /* XXX: clear multicast data */
-                if (Xrn->mc_data && func)
-                    Destroy_Patricia((patricia_tree_t *)Xrn->mc_data, func);
             } else {
                 assert(Xrn->data == NULL);
             }

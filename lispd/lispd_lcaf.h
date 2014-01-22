@@ -34,7 +34,7 @@
 #include "defs.h"
 #include "lispd_ip.h"
 #include "lispd_address.h"
-
+#include "util/messages/lisp_messages.h"
 /*
  * LCAF types
  */
@@ -56,7 +56,7 @@ typedef enum {
     LCAF_RLE,
     LCAF_DATA_MODEL,
     LCAF_KEY_VALUE
-} lcaf_t;
+} lcaf_type;
 
 #define MAX_LCAFS 16
 
@@ -65,7 +65,7 @@ typedef struct _lcaf_addr_t lcaf_addr_t;
 
 struct _lcaf_addr_t {
     void        *addr;
-    lcaf_t   type;
+    lcaf_type   type;
 };
 
 #define MAX_IID             16777215
@@ -85,13 +85,14 @@ struct _lcaf_addr_t {
  */
 
 
-typedef struct lispd_pkt_lcaf_t_ {
-    uint8_t  rsvd1;
-    uint8_t  flags;
-    uint8_t  type;
-    uint8_t  rsvd2;
-    uint16_t len;
-} PACKED lispd_pkt_lcaf_t;
+typedef struct _lcaf_hdr_t {
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    len;
+} PACKED lcaf_hdr_t;
 
 
 /* Instance ID
@@ -121,15 +122,15 @@ typedef struct lispd_pkt_lcaf_iid_t_ {
     uint16_t    afi;
 } PACKED lispd_pkt_lcaf_iid_t;
 
-typedef struct {
-    uint8_t  rsvd1;
-    uint8_t  flags;
-    uint8_t  type;
-    uint8_t  mlen;
-    uint16_t len;
-    uint32_t iid;
-    uint16_t afi;
-} PACKED lispd_pkt_iid_hdr_t;
+typedef struct _lcaf_iid_hdr_t{
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     mlen;
+    uint16_t    len;
+    uint32_t    iid;
+} PACKED lcaf_iid_hdr_t;
 
 
 
@@ -152,28 +153,28 @@ typedef struct {
  *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef struct lispd_lcaf_mcinfo_hdr_t_{
+typedef struct _lcaf_mcinfo_hdr_t{
+    uint16_t    afi;
     uint8_t     rsvd1;
     uint8_t     flags;
     uint8_t     type;
 #ifdef LITTLE_ENDIANS
-    uint8_t     jbit:1;
-    uint8_t     lbit:1;
-    uint8_t     rbit:1;
+    uint8_t     J:1;
+    uint8_t     L:1;
+    uint8_t     R:1;
     uint8_t     rsvd2:5;
 #else
     uint8_t     rsvd2:5;
-    uint8_t     rbit:1;
-    uint8_t     lbit:1;
-    uint8_t     jbit:1;
+    uint8_t     R:1;
+    uint8_t     L:1;
+    uint8_t     J:1;
 #endif
     uint16_t    len;
     uint32_t    iid;
     uint16_t    reserved;
     uint8_t     src_mlen;
     uint8_t     grp_mlen;
-    uint16_t    src_afi;
-} PACKED lispd_lcaf_mcinfo_hdr_t;
+} PACKED lcaf_mcinfo_hdr_t;
 
 typedef struct {
     uint8_t rbit;
@@ -201,7 +202,8 @@ typedef struct {
  *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef struct {
+typedef struct _lcaf_geo_hdr_t{
+    uint16_t    afi;
     uint8_t     rsvd1;
     uint8_t     flags;
     uint8_t     type;
@@ -226,8 +228,7 @@ typedef struct {
     uint8_t     longitude_min;
     uint8_t     longitude_sec;
     uint32_t    altitude;
-    uint16_t    afi;
-} PACKED lispd_lcaf_geo_hdr_t;
+} PACKED lcaf_geo_hdr_t;
 
 typedef struct {
     uint8_t     dir;
@@ -273,10 +274,10 @@ lcaf_addr_t             *lcaf_addr_new();
 lcaf_addr_t             *lcaf_addr_new_type(uint8_t type);
 void                    lcaf_addr_del(lcaf_addr_t *lcaf);
 
-inline lcaf_t           lcaf_addr_get_type(lcaf_addr_t *lcaf);
+inline lcaf_type        lcaf_addr_get_type(lcaf_addr_t *lcaf);
 inline void             *lcaf_addr_get_addr(lcaf_addr_t *lcaf);
 inline mc_t             *lcaf_addr_get_mc(lcaf_addr_t *lcaf);
-inline geo_t       *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
+inline geo_t            *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
 inline iid_t            *lcaf_addr_get_iid(lcaf_addr_t *lcaf);
 
 inline int              lcaf_addr_is_mc(lcaf_addr_t *lcaf);
@@ -288,14 +289,13 @@ int                     lcaf_addr_read_from_pkt(void *offset, lcaf_addr_t *lcaf_
 
 inline char             *lcaf_addr_to_char(lcaf_addr_t *lcaf);
 
-inline uint32_t         lcaf_addr_get_size_in_pkt(lcaf_addr_t *lcaf);
+inline uint32_t         lcaf_addr_get_size_to_write(lcaf_addr_t *lcaf);
 int                     lcaf_addr_copy(lcaf_addr_t **dst, lcaf_addr_t *src);
 inline int              lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf);
 inline int              lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 inline uint8_t          lcaf_addr_cmp_iids(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 
-inline uint8_t              is_lcaf_mcast_info(uint8_t *offset);
-inline mrsignaling_flags_t  lcaf_mcinfo_get_flags(uint8_t *cur_ptr);
+inline lcaf_mcinfo_hdr_t  *address_field_get_mc_hdr(address_field *cur_ptr);
 
 
 /*
@@ -324,8 +324,8 @@ inline uint8_t           mc_type_get_grp_plen(mc_t *mc);
 
 
 char                    *mc_type_to_char (void *mc);
-inline uint32_t         mc_type_get_size_in_pkt(mc_t *mc);
-inline int              mc_type_copy_to_pkt(uint8_t *offset, void *mc);
+inline uint32_t         mc_type_get_size_to_write(mc_t *mc);
+inline int              mc_type_write_to_pkt(uint8_t *offset, void *mc);
 inline void             mc_type_copy(void **dst, void *src);
 inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
@@ -349,8 +349,8 @@ inline void                 iid_type_set_iid(iid_t *addr, uint32_t iid);
 inline void                 iid_type_set_addr(iid_t *addr, lisp_addr_t *iidaddr);
 inline void                 iid_type_set_mlen(iid_t *addr, uint8_t mlen);
 inline int                  iid_type_cmp(void *iid1, void *iid2);
-inline uint32_t             iid_type_get_size_in_pkt(iid_t *iid);
-inline int                  iid_type_copy_to_pkt(uint8_t *offset, void *iid);
+inline uint32_t             iid_type_get_size_to_write(iid_t *iid);
+inline int                  iid_type_write_to_pkt(uint8_t *offset, void *iid);
 int                         iid_type_read_from_pkt(void *offset, void *iid);
 char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);

@@ -30,7 +30,7 @@
 #ifndef LISPD_LOCAL_DB_H_
 #define LISPD_LOCAL_DB_H_
 
-#include "lispd.h"
+#include "defs.h"
 #include "lispd_mapping.h"
 #include "lispd_nonce.h"
 #include "patricia/patricia.h"

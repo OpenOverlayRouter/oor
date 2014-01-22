@@ -63,13 +63,13 @@ lispd_iface_elt *add_interface(char *iface_name)
         free(iface_list);
         return(NULL);
     }
-    if ((iface->ipv4_address = lisp_addr_new_ip())==NULL){
+    if ((iface->ipv4_address = lisp_addr_new_afi(LM_AFI_IP))==NULL){
     	lispd_log_msg(LISP_LOG_WARNING,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
     	free(iface);
     	return(NULL);
     }
-    if ((iface->ipv6_address = lisp_addr_new_ip())==NULL){
+    if ((iface->ipv6_address = lisp_addr_new_afi(LM_AFI_IP))==NULL){
     	lispd_log_msg(LISP_LOG_WARNING,"add_interface: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
     	free(iface_list);
     	lisp_addr_del(iface->ipv4_address);

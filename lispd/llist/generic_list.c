@@ -26,7 +26,8 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#include "lispd_generic_list.h"
+#include "generic_list.h"
+#include <stdlib.h>
 
 
 /**
@@ -65,7 +66,7 @@ int glist_add(void *data, glist_t *glist) {
     glist_entry_t    *tmp    = NULL;
 
     if (!(new = calloc(1, sizeof(glist_t))))
-        return(ERR_MALLOC);
+        return(-1);
 
     new->data = data;
 
@@ -81,7 +82,7 @@ int glist_add(void *data, glist_t *glist) {
     }
     glist->size++;
 
-    return(GOOD);
+    return(0);
 }
 
 /**
@@ -96,8 +97,8 @@ void glist_del(glist_entry_t *entry, glist_t *list) {
     list_del(&(entry->list));
     if(list->del_fct)
         (*list->del_fct)(entry->data);
-    else
-        free(entry->data);
+//    else
+//        free(entry->data);
 
     free(entry);
     list->size--;
@@ -115,11 +116,10 @@ void glist_destroy(glist_t *lst) {
     free(lst);
 }
 
-inline uint32_t glist_size(glist_t *list) {
+inline int glist_size(glist_t *list) {
     return(list->size);
 }
 
 void *glist_entry_get_data(glist_entry_t *entry) {
-    assert(entry);
     return(entry->data);
 }

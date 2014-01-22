@@ -44,15 +44,7 @@ uint8_t *pkt_fill_eid(
         void                *offset,
         lispd_mapping_elt   *mapping);
 
-/*
- * Introduce a record information in the packet. This information is extracted from the mapping structure
- * It returns the position to the next position of the packet
- */
 
-uint8_t *pkt_fill_mapping_record(
-    lispd_pkt_mapping_record_t              *rec,
-    lispd_mapping_elt                       *mapping,
-    lisp_addr_t                             *probed_rloc);
 
 /*
  *  get_mapping_length
@@ -121,14 +113,7 @@ uint8_t *build_control_encap_pkt(
         int             port_dest,
         int             *control_encap_pkt_len);
 
-/*
- * Process encapsulated map request header:  lisp header and the interal IP and UDP header
- */
 
-int process_encapsulated_map_request_headers(
-         uint8_t        *packet,
-         int            *len,
-         uint16_t       *dst_port);
 
 /* Returns IP ID for the packet */
 uint16_t get_IP_ID();

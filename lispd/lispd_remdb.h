@@ -26,15 +26,11 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-/*
- * This defines the LISP-RE member databases. Could be used to implement
- * the joining information base (jib) both upstream and downstream
- */
 
 #ifndef LISPD_REMDB_H_
 #define LISPD_REMDB_H_
 
-#include "lispd_generic_list.h"
+#include "llist/generic_list.h"
 #include "lispd_locator.h"
 
 /* simple member database backend for starters */

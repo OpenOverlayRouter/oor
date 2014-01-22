@@ -33,10 +33,15 @@
 #ifndef LISPD_RLOC_PROBING_H_
 #define LISPD_RLOC_PROBING_H_
 
+#include "lispd_locator.h"
+#include "lispd_map_cache_db.h"
+
 typedef struct _timer_rloc_prob_argument{
     lispd_map_cache_entry   *map_cache_entry;
     lispd_locator_elt       *locator;
 } timer_rloc_probe_argument;
+
+
 
 timer_rloc_probe_argument *new_timer_rloc_probe_argument(
         lispd_map_cache_entry   *map_cache_entry,

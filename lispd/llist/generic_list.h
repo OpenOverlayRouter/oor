@@ -29,8 +29,7 @@
 #ifndef LISPD_GENERIC_LIST_H_
 #define LISPD_GENERIC_LIST_H_
 
-#include "llist/list.h"
-#include "defs.h"
+#include "list.h"
 
 typedef struct {
     struct list_head    list;
@@ -39,7 +38,7 @@ typedef struct {
 
 typedef struct {
     glist_entry_t       *head;
-    uint32_t            size;
+    int                 size;
     int                 (*cmp_fct)(void *, void *);
     void                (*del_fct)(void *);
 } glist_t;
@@ -56,7 +55,7 @@ glist_t                 *glist_new(int (*cmp_fct)(void *, void *), void (*del_fc
 int                     glist_add(void *data, glist_t *list);
 void                    glist_del(glist_entry_t *entry, glist_t *list);
 void                    glist_destroy(glist_t *lst);
-inline uint32_t         glist_size(glist_t *list);
+inline int              glist_size(glist_t *list);
 inline void             *glist_entry_get_data(glist_entry_t *entry);
 
 #endif /* LISPD_GENERIC_LIST_H_ */

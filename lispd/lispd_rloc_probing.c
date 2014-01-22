@@ -34,8 +34,8 @@
 #include "lispd_local_db.h"
 #include "lispd_lib.h"
 #include "lispd_map_cache_db.h"
-#include "lispd_map_request.h"
 #include "lispd_rloc_probing.h"
+#include "lispd_control.h"
 
 
 /*
@@ -43,9 +43,7 @@
  * If the number of retries without answer is higher than rloc_probe_retries. Change the status of the locator to down
  */
 
-int rloc_probing(
-    timer *rloc_prob_timer,
-    void *arg)
+int rloc_probing(timer *rloc_prob_timer, void *arg)
 {
     timer_rloc_probe_argument   *timer_argument     = (timer_rloc_probe_argument *)arg;
     lispd_mapping_elt           *mapping            = NULL;

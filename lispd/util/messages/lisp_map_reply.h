@@ -1,5 +1,5 @@
 /*
- * lispd_map_reply.h
+ * lisp_map_reply.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Necessary logic to handle incoming map replies.
@@ -31,11 +31,11 @@
  */
 
 
-#ifndef LISPD_MAP_REPLY_H_
-#define LISPD_MAP_REPLY_H_
+#ifndef LISP_MAP_REPLY_H_
+#define LISP_MAP_REPLY_H_
 
-#include "lispd_mapping.h"
-#include "lispd_lcaf.h"
+#include "lisp_message_fields.h"
+//#include "lispd_lcaf.h"
 
 /*
  *  Map Reply action codes
@@ -77,10 +77,12 @@
  */
 
 
+
+
 /*
  * Fixed size portion of the map reply.
  */
-typedef struct lispd_pkt_map_reply_t_ {
+typedef struct map_reply_hdr_ {
 #ifdef LITTLE_ENDIANS
     uint8_t reserved1:2;
     uint8_t echo_nonce:1;
@@ -96,31 +98,48 @@ typedef struct lispd_pkt_map_reply_t_ {
     uint8_t reserved3;
     uint8_t record_count;
     uint64_t nonce;
-} PACKED lispd_pkt_map_reply_t;
+} PACKED map_reply_hdr;
+
+
+typedef struct lispd_map_reply_pkt_ {
+    uint8_t             *data;
+    mapping_record      **records;
+    /* TODO map reply data */
+} map_reply_msg;
+
+
+
+
+inline map_reply_msg    *map_reply_msg_new();
+map_reply_msg           *map_reply_msg_parse(uint8_t *offset);
+void                    map_reply_msg_del(map_reply_msg *pkt);
 
 
 /*
- * Structure to set Map Reply options
+ * Accessors
  */
 
-typedef struct {
-    uint8_t     send_rec;       // send a Map Reply record as well
-    uint8_t     rloc_probe;     // set RLOC probe bit
-    uint8_t     echo_nonce;     // set Echo-nonce bit
-    mrsignaling_flags_t     mrsig; // mrsignaling option bits
-} map_reply_opts;
+
+static inline map_reply_hdr *mrep_get_hdr(map_reply_msg *mrp) {
+    return((map_reply_hdr *)mrp->data);
+}
+
+
+static inline mapping_record **mrep_get_records(map_reply_msg *mrp) {
+    return(mrp->records);
+}
 
 
 
 
-int process_map_reply(uint8_t *packet);
 
-int build_and_send_map_reply_msg(
-        lispd_mapping_elt *requested_mapping,
-        lisp_addr_t *src_rloc_addr,
-        lisp_addr_t *dst_rloc_addr,
-        uint16_t dport,
-        uint64_t nonce,
-        map_reply_opts opts);
 
-#endif /* LISPD_MAP_REPLY_H_ */
+/*
+ * Macros
+ */
+
+#define mrep_foreach_record(mrp, records, record)    \
+    for (records = mrep_get_records(mrp), record=*records; *records != NULL; records++, record = *records)
+
+
+#endif /* LISP_MAP_REPLY_H_ */

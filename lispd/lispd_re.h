@@ -33,9 +33,7 @@
 
 #include "lispd_remdb.h"
 #include "lispd_mapping.h"
-#include "lispd_map_reply.h"
-#include "lispd_map_request.h"
-
+#include "util/messages/lisp_messages.h"
 
 
 int re_join_channel(ip_addr_t *src, ip_addr_t *grp);
@@ -65,25 +63,24 @@ lisp_addr_t *re_build_mceid(ip_addr_t *src, ip_addr_t *grp);
 void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp);
 void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp);
 
-int mrsignaling_recv_mrequest(
-        uint8_t *offset,
-        lisp_addr_t *src_eid,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
-        uint16_t    dport,
-        uint64_t    nonce);
-
-int mrsignaling_send_mreply(
-        lispd_mapping_elt *registered_mapping,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
-        uint16_t dport,
-        uint64_t nonce,
-        mrsignaling_flags_t mc_flags);
+//int mrsignaling_recv_mrequest(
+//        uint8_t *offset,
+//        lisp_addr_t *src_eid,
+//        lisp_addr_t *local_rloc,
+//        lisp_addr_t *remote_rloc,
+//        uint16_t    dport,
+//        uint64_t    nonce);
+//
+//int mrsignaling_send_mreply(
+//        lispd_mapping_elt *registered_mapping,
+//        lisp_addr_t *local_rloc,
+//        lisp_addr_t *remote_rloc,
+//        uint16_t dport,
+//        uint64_t nonce,
+//        mrsignaling_flags_t mc_flags);
 
 void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags);
-int mrsignaling_recv_mreply(uint8_t *offset,  uint64_t nonce);
+int mrsignaling_recv_mreply(mapping_record *record,  uint64_t nonce);
 
-inline int lisp_addr_is_mc(lisp_addr_t *addr);
 
 #endif /* LISPD_RE_CONTROL_H_ */

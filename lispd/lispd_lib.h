@@ -170,11 +170,6 @@ int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int
  */
 int have_input(int max_fd,fd_set *readfds);
 
-/*
- *  Process a LISP protocol message sitting on
- *  socket s with address family afi
- */
-int process_lisp_ctr_msg(int sock, int afi);
 
 /*
  *  Retrieve a mesage from socket s

@@ -173,7 +173,13 @@ void dump_balancing_locators_vec(
 
 
 
+/*
+ * Introduce a record information in the packet. This information is extracted from the mapping structure
+ * It returns the position to the next position of the packet
+ */
 
+uint8_t *mapping_fill_record_in_pkt(mapping_record_hdr *rec, lispd_mapping_elt *mapping, lisp_addr_t *probed_rloc);
+mapping_record *mapping_build_record_field(lispd_mapping_elt *mapping);
 
 
 
@@ -183,13 +189,14 @@ void dump_balancing_locators_vec(
 inline lispd_mapping_elt    *mapping_new();
 inline lispd_mapping_elt    *mapping_init(lisp_addr_t *eid);
 lispd_mapping_elt           *mapping_init_local(lisp_addr_t *eid);
-lispd_mapping_elt           *mapping_init_learned(lisp_addr_t *eid);
+lispd_mapping_elt           *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators);
 inline void                 mapping_set_extended_info(lispd_mapping_elt *mapping, void *extended_info);
 inline void                 mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr);
 inline void                 mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen);
 inline lisp_addr_t          *mapping_get_eid_addr(lispd_mapping_elt *mapping);
 lispd_remdb_t               *mapping_get_jib(lispd_mapping_elt *mapping);
 int                         mapping_add_locators(lispd_mapping_elt *mapping, lispd_locators_list *locators);
+inline uint16_t             mapping_get_locator_count(lispd_mapping_elt *mapping);
 //inline void                 mapping_set_iid(lispd_mapping_elt *mapping, uint16_t iid);
 //inline uint8_t              get_mapping_eid_plen(lispd_mapping_elt *mapping);
 //inline lisp_iid_t           get_mapping_iid(lispd_mapping_elt *mapping, lisp_iid_t iid);

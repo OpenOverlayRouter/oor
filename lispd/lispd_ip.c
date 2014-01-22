@@ -44,7 +44,7 @@ inline void ip_addr_del(ip_addr_t *ip) {
     free(ip);
 }
 
-inline ip_afi_t ip_addr_get_afi(ip_addr_t *ipaddr) {
+inline int ip_addr_get_afi(ip_addr_t *ipaddr) {
     assert(ipaddr);
     return(ipaddr->afi);
 }
@@ -65,33 +65,19 @@ inline struct in6_addr *ip_addr_get_v6(ip_addr_t *ipaddr) {
 
 inline uint8_t ip_addr_get_size(ip_addr_t *ipaddr) {
     assert(ipaddr);
-    return(ip_addr_afi_to_size(ip_addr_get_afi(ipaddr)));
+    return(ip_sock_afi_to_size(ip_addr_get_afi(ipaddr)));
 }
 
-inline uint8_t ip_addr_get_size_in_pkt(ip_addr_t *ipaddr) {
+inline uint8_t ip_addr_get_size_to_write(ip_addr_t *ipaddr) {
     return(ip_addr_get_size(ipaddr));
-}
-
-inline uint8_t ip_addr_afi_to_size(uint16_t afi){
-    switch (afi) {
-        case AF_UNSPEC:
-            return (0);
-        case AF_INET:
-            return(sizeof(struct in_addr));
-        case AF_INET6:
-            return(sizeof(struct in6_addr));
-        default:
-            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_get_size: unknown IP AFI (%d)", afi);
-            return(0);
-    }
 }
 
 inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
     assert(ipaddr);
-    return(ip_addr_sock_afi_to_iana_afi(ip_addr_get_afi(ipaddr)));
+    return(ip_sock_afi_to_iana_afi(ip_addr_get_afi(ipaddr)));
 }
 
-inline int ip_addr_set_afi(ip_addr_t *ipaddr, ip_afi_t afi) {
+inline int ip_addr_set_afi(ip_addr_t *ipaddr, int afi) {
     assert(ipaddr);
     if (afi != AF_INET && afi != AF_INET6 && afi != AF_UNSPEC) {
         lispd_log_msg(LISP_LOG_WARNING, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
@@ -175,15 +161,19 @@ inline void ip_addr_copy_to(void *dst, ip_addr_t *src) {
     memcpy(dst, ip_addr_get_addr(src), ip_addr_get_size(src));
 }
 
-inline int ip_addr_copy_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
+inline int ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
     assert(dst);
     assert(src);
+
+    *(uint16_t *)dst = htons(ip_addr_get_iana_afi(src));
+    dst = CO(dst, sizeof(uint16_t));
+
     if (convert && ip_addr_get_afi(src) == AF_INET)
         /* XXX: haven't encountered a case when this is used */
         *((uint32_t *)dst) = htonl(ip_addr_get_v4(src)->s_addr);
     else
         memcpy(dst, ip_addr_get_addr(src), ip_addr_get_size(src));
-    return(ip_addr_get_size(src));
+    return(sizeof(uint16_t)+ip_addr_get_size(src));
 }
 
 inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
@@ -197,42 +187,20 @@ inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
 }
 
 
-inline int ip_addr_read_from_pkt(void *offset, uint16_t afi, ip_addr_t *dst) {
-
-    if(afi == AF_UNSPEC || ip_addr_set_afi(dst, afi) == BAD)
+inline int ip_addr_read_from_pkt(void *offset, uint16_t iana_afi, ip_addr_t *dst) {
+    if(ip_addr_set_afi(dst, ip_iana_afi_to_sock_afi(iana_afi)) == BAD)
         return(0);
-    memcpy(ip_addr_get_addr(dst), offset, ip_addr_afi_to_size(afi));
-    return(ip_addr_afi_to_size(afi));
-}
-
-inline uint16_t ip_addr_sock_afi_to_iana_afi(uint16_t afi) {
-    switch (afi){
-        case AF_INET:
-            return(LISP_AFI_IP);
-        case AF_INET6:
-            return(LISP_AFI_IPV6);
-        default:
-            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_sock_afi_to_iana_afi: unknown IP AFI (%d)", afi);
-            return(0);
-    }
-}
-
-inline uint16_t ip_addr_iana_afi_to_sock_afi(uint16_t afi) {
-    switch (afi) {
-        case LISP_AFI_IP:
-            return(AF_INET);
-        case LISP_AFI_IPV6:
-            return(AF_INET6);
-        default:
-            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
-            return(0);
-    }
+    memcpy(ip_addr_get_addr(dst), CO(offset, sizeof(uint16_t)), ip_iana_afi_to_size(iana_afi));
+    return(sizeof(uint16_t) + ip_iana_afi_to_size(iana_afi));
 }
 
 inline uint8_t ip_addr_afi_to_mask(ip_addr_t *ip) {
     assert(ip);
     return(ip_addr_get_size(ip)*8);
 }
+
+
+
 
 
 /*
@@ -266,6 +234,10 @@ inline void ip_prefix_set_plen(ip_prefix_t *pref, uint8_t plen) {
     pref->plen = plen;
 }
 
+inline void ip_prefix_set_afi(ip_prefix_t *pref, int afi) {
+    ip_addr_set_afi(&pref->prefix, afi);
+}
+
 inline void ip_prefix_copy(ip_prefix_t *dst, ip_prefix_t *src) {
     assert(src);
     assert(dst);
@@ -289,9 +261,60 @@ char *ip_prefix_to_char(ip_prefix_t *pref) {
 
 
 
+
+
 /*
- * other
+ * other ip functions
  */
+
+inline uint16_t ip_sock_afi_to_iana_afi(uint16_t afi) {
+    switch (afi){
+        case AF_INET:
+            return(LISP_AFI_IP);
+        case AF_INET6:
+            return(LISP_AFI_IPV6);
+        default:
+            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_sock_afi_to_iana_afi: unknown IP AFI (%d)", afi);
+            return(0);
+    }
+}
+
+inline uint16_t ip_iana_afi_to_sock_afi(uint16_t afi) {
+    switch (afi) {
+        case LISP_AFI_IP:
+            return(AF_INET);
+        case LISP_AFI_IPV6:
+            return(AF_INET6);
+        default:
+            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
+            return(0);
+    }
+}
+
+inline uint8_t ip_sock_afi_to_size(uint16_t afi){
+    switch (afi) {
+    case AF_INET:
+        return(sizeof(struct in_addr));
+    case AF_INET6:
+        return(sizeof(struct in6_addr));
+    default:
+        lispd_log_msg(LISP_LOG_WARNING, "ip_addr_get_size: unknown IP AFI (%d)", afi);
+        return(0);
+    }
+}
+
+inline uint8_t ip_iana_afi_to_size(uint16_t afi) {
+    switch(afi) {
+    case LISP_AFI_IP:
+        return(sizeof(struct in_addr));
+    case LISP_AFI_IPV6:
+        return(sizeof(struct in6_addr));
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_3, "ip_iana_afi_to_size: unknown AFI (%d)", afi);
+        return(0);
+    }
+    return(0);
+}
 
 int ip_addr_is_link_local (ip_addr_t *ipaddr) {
     /*

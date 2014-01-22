@@ -1,21 +1,11 @@
-/*
- * lispd_re_jib.c
- *
- *  Created on: Oct 27, 2013
- *      Author: florin
- */
 
-#include "defs_re.h"
 
-void free_remdb_member(void *member) {
-    /*
-     * TODO: free a member
-     */
-}
+#include "lispd_remdb.h"
+//#include "defs_re.h"
 
 lispd_remdb_t *remdb_new() {
     lispd_remdb_t     *db    = NULL;
-    db =  glist_new(NULL, free_remdb_member);
+    db =  glist_new(NULL, NULL);
     return(db);
 }
 
@@ -24,7 +14,7 @@ glist_t *remdb_get_orlist(lispd_remdb_t *jib) {
     lispd_remdb_member_t           *jibentry   = NULL;
     glist_entry_t  *it         = NULL;
 
-    orlist = glist_new(NULL, free_remdb_member);
+    orlist = glist_new(NULL, NULL);
 
     glist_for_each_entry(it,jib){
         /* Ugly but should do for now. Just take the first locator */

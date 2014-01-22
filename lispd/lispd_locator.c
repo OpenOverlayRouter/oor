@@ -140,7 +140,7 @@ lispd_locator_elt   *new_rmt_locator (
 }
 
 lispd_locator_elt   *new_static_rmt_locator (
-        char                        *rloc_addr,
+        lisp_addr_t                 *rloc_addr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     priority,
         uint8_t                     weight,
@@ -154,23 +154,15 @@ lispd_locator_elt   *new_static_rmt_locator (
         return(NULL);
     }
 
-    if((locator->locator_addr = lisp_addr_new()) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
-        free (locator);
-        return (NULL);
-    }
+//    if((locator->locator_addr = lisp_addr_new()) == NULL){
+//        lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+//        free (locator);
+//        return (NULL);
+//    }
 
     if((locator->state = malloc(sizeof(uint8_t))) == NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
         free (locator->locator_addr);
-        free (locator);
-        return (NULL);
-    }
-
-    if (get_lisp_addr_from_char(rloc_addr,locator->locator_addr) == BAD){
-        lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
-        lisp_addr_del(locator->locator_addr);
-        free (locator->state);
         free (locator);
         return (NULL);
     }
@@ -183,6 +175,7 @@ lispd_locator_elt   *new_static_rmt_locator (
         return (NULL);
     }
 
+    locator->locator_addr = lisp_addr_clone(rloc_addr);
     *(locator->state) = state;
     locator->locator_type = STATIC_LOCATOR;
     locator->priority = priority;
@@ -365,15 +358,15 @@ int add_locator_to_list (
             aux_locator_list_prev = NULL;
             aux_locator_list_next = *list;
             while (aux_locator_list_next != NULL){
-                if (locator->locator_addr->afi == AF_INET){
-                    cmp = memcmp(&(locator->locator_addr->address.ip),&(aux_locator_list_next->locator->locator_addr->address.ip),sizeof(struct in_addr));
-                } else {
-                    cmp = memcmp(&(locator->locator_addr->address.ipv6),&(aux_locator_list_next->locator->locator_addr->address.ipv6),sizeof(struct in6_addr));
-                }
+                cmp = lisp_addr_cmp(locator->locator_addr, aux_locator_list_next->locator->locator_addr);
+//                if (locator->locator_addr->afi == AF_INET){
+//                    cmp = memcmp(&(locator->locator_addr->address.ip),&(aux_locator_list_next->locator->locator_addr->address.ip),sizeof(struct in_addr));
+//                } else {
+//                    cmp = memcmp(&(locator->locator_addr->address.ipv6),&(aux_locator_list_next->locator->locator_addr->address.ipv6),sizeof(struct in6_addr));
+//                }
                 if (cmp < 0){
                     break;
-                }
-                if (cmp == 0){
+                }else if(cmp == 0) {
                     lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_list: The locator %s already exists.",
                             get_char_from_lisp_addr_t(*(locator->locator_addr)));
                     free (locator_list);
@@ -462,6 +455,7 @@ lispd_locator_elt *extract_locator_from_list(
     }
     return (locator);
 }
+
 /*
  * Return the locator from the list that contains the address passed as a parameter
  */
@@ -518,5 +512,50 @@ void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_
         locator_list = aux_locator_list;
     }
 }
+
+inline lispd_locator_elt *locator_new() {
+    lispd_locator_elt *loc;
+    loc = calloc(1, sizeof(lispd_locator_elt));
+    return(loc);
+}
+
+
+lispd_locator_elt *locator_init_from_field(locator_field *lf) {
+    lispd_locator_elt   *loc    = NULL;
+    uint8_t             status  = UP;
+
+
+    if(!(loc = locator_new()))
+        return(NULL);
+
+    /*
+     * We only consider the reachable bit if the information comes from the owner of the locator (local)
+     */
+    if (locator_field_get_hdr(lf)->reachable == DOWN && locator_field_get_hdr(lf)->local == UP){
+        status = DOWN;
+    }
+
+    loc->locator_addr = lisp_addr_init_from_field(locator_field_get_addr(lf));
+    loc->extended_info = (void *)new_rmt_locator_extended_info();
+    if (!loc->extended_info){
+        free(loc);
+        return(NULL);
+    }
+
+    loc->state = calloc(1, sizeof(uint8_t));
+    *(loc->state) = status;
+    loc->locator_type = DYNAMIC_LOCATOR;
+    loc->priority = locator_field_get_hdr(lf)->priority;
+    loc->weight = locator_field_get_hdr(lf)->weight;
+    loc->mpriority = locator_field_get_hdr(lf)->mpriority;
+    loc->mweight = locator_field_get_hdr(lf)->mweight;
+    loc->data_packets_in = 0;
+    loc->data_packets_out = 0;
+
+    return(loc);
+}
+
+
+
 
 

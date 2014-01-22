@@ -31,13 +31,13 @@
 
 #include "bob/lookup3.c"
 #include "lispd_locator.h"
-#include "lispd_map_request.h"
 #include "lispd_mapping.h"
 #include "lispd_output.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 #include "lispd_info_nat.h" 
 #include "lispd_re.h"
+#include "lispd_control.h"
 
 
 /*
@@ -477,36 +477,6 @@ lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
     return (addr);
 }
 
-int handle_map_cache_miss(
-        lisp_addr_t *requested_eid,
-        lisp_addr_t *src_eid)
-{
-
-    lispd_map_cache_entry       *entry          = NULL;
-    timer_map_request_argument  *arguments      = NULL;
-
-    if ((arguments = malloc(sizeof(timer_map_request_argument)))==NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"handle_map_cache_miss: Unable to allocate memory for timer_map_request_argument: %s",
-                strerror(errno));
-        return (ERR_MALLOC);
-    }
-
-
-    //arnatal TODO: check if this works
-    entry = new_map_cache_entry(
-            *requested_eid,
-            lisp_addr_get_plen(requested_eid),
-            DYNAMIC_MAP_CACHE_ENTRY,
-            DEFAULT_DATA_CACHE_TTL);
-
-    arguments->map_cache_entry = entry;
-    arguments->src_eid = *src_eid;
-
-    if ((err=send_map_request_miss(NULL, (void *)arguments))!=GOOD)
-        return (BAD);
-
-    return (GOOD);
-}
 
 /*
  * Calculate the hash of the 5 tuples of a packet
@@ -781,7 +751,6 @@ int lisp_output_multicast (
                 &encap_packet,
                 &encap_packet_size);
 
-//        outer_src_locator =
         output_socket = *(((lcl_locator_extended_info *)(locator->extended_info))->out_socket);
         send_packet (output_socket,encap_packet,encap_packet_size);
 
@@ -804,7 +773,7 @@ int lisp_output_unicast (
 {
     lispd_mapping_elt           *src_mapping        = NULL;
     lispd_mapping_elt           *dst_mapping        = NULL;
-    lispd_map_cache_entry       *entry              = NULL;
+//    lispd_map_cache_entry       *entry              = NULL;
     uint8_t                     *encap_packet       = NULL;
     int                         encap_packet_size   = 0;
     lispd_locator_elt           *outer_src_locator  = NULL;
@@ -830,16 +799,15 @@ int lisp_output_unicast (
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
 
     /* fcoras TODO: implement unicast FIB instead of using the map-cache? */
-    entry = map_cache_lookup(&(tuple->dst_addr));
+    dst_mapping = mcache_lookup_mapping(&(tuple->dst_addr));
 
-
-    if (entry == NULL){ /* There is no entry in the map cache */
+    if (dst_mapping == NULL){ /* There is no entry in the map cache */
         lispd_log_msg(LISP_LOG_DEBUG_1, "lisp_output_unicast: No map cache retrieved for eid %s", lisp_addr_to_char(&tuple->dst_addr));
         handle_map_cache_miss(&(tuple->dst_addr), &(tuple->src_addr));
     }
 
     /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
-    if ((entry == NULL) || (entry->active == NO_ACTIVE) || (entry->mapping->locator_count == 0) ){
+    if ((dst_mapping == NULL) || (mapping_get_locator_count(dst_mapping) == 0) ){
         /* There is no entry or is not active*/
         /* Try to fordward to petr*/
         if (fordward_to_petr(
@@ -852,8 +820,6 @@ int lisp_output_unicast (
         }
         return (GOOD);
     }
-
-    dst_mapping = entry->mapping;
 
     /* There is an entry in the map cache */
 

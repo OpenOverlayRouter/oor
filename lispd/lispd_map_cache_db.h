@@ -32,24 +32,25 @@
 #define LISPD_MAP_CACAHE_DB_H_
 
 
-#include "lispd.h"
-#include "lispd_local_db.h"
+#include "defs.h"
+#include "lispd_mdb.h"
+#include "lispd_address.h"
+//#include "lispd_local_db.h"
 #include "lispd_map_cache.h"
 #include "lispd_timers.h"
-#include "patricia/patricia.h"
 
 
-/*
- * create database
- */
+mdb_t *mdb;
+
 void map_cache_init();
 
 
 int                 mcache_add_mapping(lispd_mapping_elt *mapping);
+int                 mcache_add_static_mapping(lispd_mapping_elt *mapping);
 int                 mcache_del_mapping(lisp_addr_t *laddr);
 lispd_mapping_elt   *mcache_lookup_mapping(lisp_addr_t *laddr);
 lispd_mapping_elt   *mcache_lookup_mapping_exact(lisp_addr_t *laddr);
-int                 mcache_activate_mapping(lisp_addr_t *eid, uint64_t nonce, lispd_locators_list *locators, uint8_t action, uint16_t ttl);
+int                 mcache_update_mapping_eid(lisp_addr_t *new_eid, lispd_map_cache_entry *mce);
 
 /*
  *  Add a map cache entry to the database.
@@ -85,24 +86,40 @@ lispd_map_cache_entry *map_cache_lookup(lisp_addr_t *addr);
  * Lookup if there is a no active cache entry with the provided nonce and return it
  */
 
-lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(uint16_t eid_afi, uint64_t nonce);
+lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64_t nonce);
 
 
-/*
- * Remove the map cache entry from the database and reintroduce it with the new eid.
- * This function is used when the map reply report a prefix that includes the requested prefix
- */
-
-int map_cache_replace_entry(
-        lisp_addr_t                             *new_eid_prefix,
-        lispd_map_cache_entry                   *cache_entry);
+///*
+// * Remove the map cache entry from the database and reintroduce it with the new eid.
+// * This function is used when the map reply report a prefix that includes the requested prefix
+// */
+//
+//int map_cache_replace_entry(
+//        lisp_addr_t                             *new_eid_prefix,
+//        lispd_map_cache_entry                   *cache_entry);
 
 void map_cache_entry_expiration(timer *t, void *arg);
 
 
 void map_cache_dump_db(int log_level);
 
-patricia_tree_t *pt_get_from_afi(ip_afi_t afi);
+#define mcache_foreach_entry(eit)   \
+    mdb_foreach_entry(mdb, (eit))   \
+
+#define mcache_foreach_active_entry(eit)   \
+    mdb_foreach_entry(mdb, (eit))   \
+        if (((lispd_map_cache_entry *)(eit))->active)
+
+#define mcache_foreach_end  \
+    } mdb_foreach_entry_end
+
+/* ugly .. */
+#define mcache_foreach_active_entry_in_eid_db(_eid, _eit)   \
+    mdb_foreach_entry_in_eid_db(mdb, (_eid), (_eit))  \
+        if (((lispd_map_cache_entry *)(_eit))->active)
+
+#define mcache_foreach_active_entry_in_db_end  \
+    mdb_foreach_entry_in_eid_db_end
 
 
 #endif /*LISPD_MAP_CACAHE_DB_H_*/

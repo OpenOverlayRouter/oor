@@ -29,6 +29,7 @@
  */
 
 #include "lispd_re.h"
+#include "lispd_map_cache_db.h"
 
 /*
  * Interface to end-hosts
@@ -249,148 +250,10 @@ void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
  */
 
 
-int mrsignaling_recv_mrequest(
-        uint8_t *cur_ptr,
-        lisp_addr_t *src_eid,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
-        uint16_t    dport,
-        uint64_t    nonce) {
 
-    mrsignaling_flags_t             mc_flags;
-    lispd_pkt_mapping_record_t      *record;
-    lisp_addr_t                     *dst_eid;
-    lispd_mapping_elt               *registered_mapping;
-    int                             ret;
-
-    /* TODO: in the future we should have only one function parameter, a map_request object!
-     * NOTE: offset is a pointer to map-request record, not to the begining of the message */
-
-    record = (lispd_pkt_mapping_record_t *)cur_ptr;
-
-    mc_flags = lcaf_mcinfo_get_flags((uint8_t *)&((record)->eid_prefix_afi));
-    cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
-
-    dst_eid = lisp_addr_new();
-
-    /* Read destination/requested EID prefix */
-    if(!lisp_addr_read_from_pkt(cur_ptr, dst_eid)) {
-        lisp_addr_del(dst_eid);
-        return(BAD);
-    }
-
-    if (!lisp_addr_is_mc(dst_eid)) {
-        lispd_log_msg(LISP_LOG_WARNING, "mrsignaling_process_mreq_message: The destination EID is not multicast!");
-        lisp_addr_del(dst_eid);
-        return(BAD);
-    }
-
-    if (mc_flags.jbit == 1 && mc_flags.lbit == 1) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "mrsignaling_recv_mrequest_message: Both join and leave flags are set!");
-        return(BAD);
-    }
-
-    if(!(registered_mapping = lookup_eid_in_db(dst_eid))) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"re_recv_join_request: received join request for multicast channel %s. "
-                "But we're not replicating it. Dropping ... ", lisp_addr_to_char(dst_eid));
-        return(BAD);
-    }
-
-    /* hardwired to re, should change when we support lisp-multicast */
-    if (mc_flags.jbit == 1)
-        ret = re_recv_join_request(dst_eid, src_eid);
-    else if (mc_flags.lbit == 1)
-        ret = re_recv_leave_request(dst_eid, src_eid);
-    else if (mc_flags.rbit == 1) {
-        ret = BAD;
-        lispd_log_msg(LISP_LOG_WARNING, "re_process_mrsignaling: PIM join received, not implemented!");
-    }
-
-    if (ret == GOOD)
-        err = mrsignaling_send_mreply(registered_mapping, local_rloc, remote_rloc, dport, nonce, mc_flags);
-
-    lisp_addr_del(dst_eid);
-    return (err);
-
-}
-
-int mrsignaling_send_mreply(
-        lispd_mapping_elt *registered_mapping,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
-        uint16_t dport,
-        uint64_t nonce,
-        mrsignaling_flags_t mc_flags) {
-
-    map_reply_opts mropts;
-
-    mropts.send_rec   = 1;
-    mropts.echo_nonce = 0;
-    mropts.rloc_probe = 0;
-    mropts.mrsig.jbit = mc_flags.jbit;
-    mropts.mrsig.lbit = mc_flags.lbit;
-    mropts.mrsig.rbit = mc_flags.rbit;
-
-    return(build_and_send_map_reply_msg(registered_mapping, local_rloc, remote_rloc, dport, nonce, mropts));
-}
-
-void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags) {
-
-    lispd_lcaf_mcinfo_hdr_t *mc_ptr;
-
-    /* jump the afi */
-    offset = CO(offset, sizeof(uint16_t));
-    mc_ptr = (lispd_lcaf_mcinfo_hdr_t *) offset;
-    mc_ptr->jbit = mc_flags.jbit;
-    mc_ptr->lbit = mc_flags.lbit;
-    mc_ptr->rbit = mc_flags.rbit;
-}
-
-int mrsignaling_recv_mreply(uint8_t *offset, uint64_t nonce) {
-
-    uint8_t                                 *cur_ptr                = NULL;
-    lispd_pkt_mapping_record_t              *record                 = NULL;
-    lisp_addr_t                             *eid                    = NULL;
-    mrsignaling_flags_t                     mc_flags;
-
-    record = (lispd_pkt_mapping_record_t *)offset;
-    cur_ptr = (uint8_t *)&(record->eid_prefix_afi);
-
-    mc_flags = lcaf_mcinfo_get_flags(cur_ptr);
-
-    eid = lisp_addr_new();
-    if(lisp_addr_read_from_pkt(cur_ptr, eid) <= 0) {
-        lisp_addr_del(eid);
-        return(err);
-    }
-
-    if (mc_flags.jbit == 1 && mc_flags.lbit == 1) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_process_mrsignaling: Both join and leave flags are set!");
-        return(BAD);
-    }
-
-    /* hardwired to re, should change when we support lisp-multicast */
-    if (mc_flags.jbit == 1)
-        re_recv_join_ack(eid, nonce);
-    else if (mc_flags.lbit == 1)
-        re_recv_leave_ack(eid, nonce);
-    else if (mc_flags.rbit == 1) {
-        lispd_log_msg(LISP_LOG_WARNING, "mrsignaling_recv_mreply_message: PIM join received, not implemented!");
-        return(BAD);
-    }
-
-    lisp_addr_del(eid);
-    return(GOOD);
-}
 
 /* auxiliary stuff */
-inline int lisp_addr_is_mc(lisp_addr_t *addr) {
-    assert(addr);
-    if (lisp_addr_is_lcaf(addr) && lcaf_addr_is_mc(lisp_addr_get_lcaf(addr)))
-        return(1);
-    else
-        return(0);
-}
+
 
 lisp_addr_t *re_build_mceid(ip_addr_t *src, ip_addr_t *grp) {
     lisp_addr_t     *mceid;
