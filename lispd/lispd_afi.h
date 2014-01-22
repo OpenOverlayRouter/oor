@@ -145,7 +145,39 @@ typedef struct lispd_pkt_nat_lcaf_t_ {
     uint16_t etr_udp_port;
 } PACKED lispd_pkt_nat_lcaf_t;
 
+/*
+ *    0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 10   |     Rsvd2     |               n               |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |           Rsvd3         |L|P|S|
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Reencap Hop 1  ...                    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |           Rsvd3         |L|P|S|
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Reencap Hop k  ...                    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
 
+typedef struct lispd_pkt_elp_lcaf_t_ {
+    uint16_t afi;
+    uint8_t reserved1;
+#ifdef LITTLE_ENDIANS
+    uint8_t lookup_bit:1;
+    uint8_t probe_bit:1;
+    uint8_t strict_bit:1;
+    uint8_t reserved2:5;
+#else
+    uint8_t reserved2:5;
+    uint8_t strict_bit:1;
+    uint8_t probe_bit:1;
+    uint8_t lookup_bit:1;
+#endif
+} PACKED lispd_pkt_elp_lcaf_t;
 
 /*
  * Reads the address information from the packet and fill the lispd_mapping_elt element
@@ -160,6 +192,20 @@ int pkt_process_eid_afi(
 int pkt_process_rloc_afi(
         uint8_t             **offset,
         lispd_locator_elt   *locator);
+
+
+/**
+ * Read an afi from a packet according to the afi
+ * @param **offset Pointer to the pointer to the position from where the address should be extracted.
+ *        The pointer is updated to next position to read.
+ * @param lisp_afi Afi of the address to be extracted. IPv4 or IPv6
+ * @param *addr Pointer to the lisp_addr_t structure that should be filed
+ * @return GOOD if finish correctly or an error code otherwise
+ */
+int pkt_get_ip_address(
+        uint8_t                 **offset,
+        int                     lisp_afi,
+        lisp_addr_t             *addr);
 
 
 /*

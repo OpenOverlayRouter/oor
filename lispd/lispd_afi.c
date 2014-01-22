@@ -94,9 +94,12 @@ int pkt_process_rloc_afi(
         uint8_t             **offset,
         lispd_locator_elt   *locator)
 {
-    uint8_t                  *cur_ptr;
-    uint16_t                 lisp_afi;
-    lispd_pkt_lcaf_t         *lcaf_ptr;
+    uint8_t                  *cur_ptr   = NULL;
+    uint8_t                  *aux_ptr   = NULL;
+    uint16_t                 lisp_afi   = 0;
+    lispd_pkt_lcaf_t         *lcaf_ptr  = NULL;
+    lispd_pkt_elp_lcaf_t     *elp_ptr   = NULL;
+
 
     cur_ptr  = *offset;
     lisp_afi = ntohs(*(uint16_t *)cur_ptr);
@@ -114,18 +117,68 @@ int pkt_process_rloc_afi(
         break;
     case LISP_AFI_LCAF:
         lcaf_ptr = (lispd_pkt_lcaf_t *)cur_ptr;
-        lispd_log_msg(LISP_LOG_DEBUG_1,"pkt_process_rloc_afi: LCAF address is not supported in locators. "
-                "LCAF type: %d with payload length: %d bytes\n",lcaf_ptr->type,ntohs(lcaf_ptr->len));
-        /* Discarding lcaf afi address */
-        cur_ptr = CO(cur_ptr, sizeof(lispd_pkt_lcaf_t) + ntohs(lcaf_ptr->len));
-        *offset = cur_ptr;
-        return (ERR_AFI_LCAF_TYPE);
+        cur_ptr  = CO(cur_ptr, sizeof(lispd_pkt_lcaf_t));
+        switch(lcaf_ptr->type) {
+        case LCAF_EXPL_LOC_PATH:
+            aux_ptr = cur_ptr;
+
+            elp_ptr = (lispd_pkt_elp_lcaf_t *)cur_ptr;
+            cur_ptr = CO(cur_ptr, sizeof(lispd_pkt_elp_lcaf_t));
+            lisp_afi = ntohs(elp_ptr->afi);
+            if (pkt_get_ip_address (&cur_ptr ,lisp_afi,locator->locator_addr)!=GOOD){
+                cur_ptr = CO (aux_ptr, lcaf_ptr->len);
+                return(ERR_AFI);
+            }
+            lispd_log_msg(LISP_LOG_DEBUG_1,"pkt_process_rloc_afi: Received Explicit Locator Address. Using the first hop "
+                    "adddress as the locator: %s", get_char_from_lisp_addr_t(*(locator->locator_addr)));
+            cur_ptr = CO (aux_ptr, lcaf_ptr->len);
+            break;
+        default:
+            lispd_log_msg(LISP_LOG_DEBUG_1,"pkt_process_rloc_afi: LCAF address is not supported in locators. "
+                            "LCAF type: %d with payload length: %d bytes\n",lcaf_ptr->type,ntohs(lcaf_ptr->len));
+            /* Discarding lcaf afi address */
+            cur_ptr = CO(cur_ptr, sizeof(lispd_pkt_lcaf_t) + ntohs(lcaf_ptr->len));
+            *offset = cur_ptr;
+            return (ERR_AFI_LCAF_TYPE);
+        }
+        break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_2,"pkt_process_rloc_afi: Unknown AFI type %d in locator", lisp_afi);
         return (ERR_AFI);
     }
     *offset = cur_ptr;
     return (GOOD);
+}
+
+int pkt_get_ip_address(
+        uint8_t                 **offset,
+        int                     lisp_afi,
+        lisp_addr_t             *addr)
+{
+
+    uint8_t                 *cur_ptr = *offset;
+    uint8_t                 result   = GOOD;
+
+    switch(lisp_afi) {
+    case LISP_AFI_IP:
+        memcpy(&(addr->address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
+        addr->afi = AF_INET;
+        cur_ptr  = CO(cur_ptr, sizeof(struct in_addr));
+        break;
+    case LISP_AFI_IPV6:
+        memcpy(&(addr->address.ipv6),cur_ptr,sizeof(struct in6_addr));
+        addr->afi = AF_INET6;
+        cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
+        break;
+    default :
+        lispd_log_msg(LISP_LOG_DEBUG_1, "pkt_get_ip_address: Unknown afi");
+        result = BAD;
+        break;
+    }
+
+    *offset = cur_ptr;
+
+    return (result);
 }
 
 
