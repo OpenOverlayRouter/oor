@@ -69,7 +69,7 @@ inline uint8_t ip_addr_get_size(ip_addr_t *ipaddr) {
 }
 
 inline uint8_t ip_addr_get_size_to_write(ip_addr_t *ipaddr) {
-    return(ip_addr_get_size(ipaddr));
+    return(ip_sock_afi_to_size(ip_addr_get_afi(ipaddr)));
 }
 
 inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
@@ -162,9 +162,6 @@ inline void ip_addr_copy_to(void *dst, ip_addr_t *src) {
 }
 
 inline int ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
-    assert(dst);
-    assert(src);
-
     *(uint16_t *)dst = htons(ip_addr_get_iana_afi(src));
     dst = CO(dst, sizeof(uint16_t));
 
@@ -177,8 +174,6 @@ inline int ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
 }
 
 inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
-    assert(ip1);
-    assert(ip2);
     if (ip_addr_get_afi(ip1) != ip_addr_get_afi(ip2))
         return(-1);
     return(memcmp(ip_addr_get_addr(ip1),

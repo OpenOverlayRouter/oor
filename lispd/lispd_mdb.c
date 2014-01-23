@@ -92,12 +92,8 @@ static patricia_node_t *_find_ip_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exa
 
     patricia_tree_t *pt = _get_ip_pt_from_afi(db, lisp_addr_ip_get_afi(laddr));
 
-    /* if the address is IP the search can't be exact */
-    if (lisp_addr_get_afi(laddr) == LM_AFI_IP)
-        return(pt_find_ip_node(pt, lisp_addr_ip_get_addr(laddr)));
-
     if (exact)
-        return(pt_find_ip_node_exact(pt, lisp_addr_ip_get_addr(laddr), lisp_addr_ippref_get_plen(laddr)));
+        return(pt_find_ip_node_exact(pt, lisp_addr_ip_get_addr(laddr), lisp_addr_ip_get_plen(laddr)));
     else
         return(pt_find_ip_node(pt, lisp_addr_ip_get_addr(laddr)));
 }
@@ -215,7 +211,7 @@ static patricia_tree_t *_get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_add
 static int _add_ippref_entry(mdb_t *db, void *entry, ip_prefix_t *ippref) {
 
     if (pt_add_ippref(_get_ip_pt_from_afi(db, ip_prefix_get_afi(ippref)), ippref, entry) != GOOD){
-        lispd_log_msg(LISP_LOG_WARNING, "map_cache_add_ippref_entry: Attempting to "
+        lispd_log_msg(LISP_LOG_WARNING, "_add_ippref_entry: Attempting to "
                 "insert (%s) in the map-cache but couldn't add the entry to the pt!",
                 ip_prefix_to_char(ippref));
         return(BAD);
@@ -330,7 +326,7 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
     switch(lisp_addr_get_afi(addr)) {
     case LM_AFI_IP:
     case LM_AFI_IP6:
-        lispd_log_msg(LISP_LOG_WARNING, "map_cache_add_mapping: mapping stores an IP not a prefix!");
+        lispd_log_msg(LISP_LOG_WARNING, "mdb_add_entry: mapping stores an IP not a prefix!");
         break;
     case LM_AFI_IPPREF:
         return(_add_ippref_entry(db, data, lisp_addr_get_ippref(addr)));
@@ -338,7 +334,7 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
     case LM_AFI_LCAF:
         return(_add_lcaf_entry(db, data, lisp_addr_get_lcaf(addr)));
     default:
-        lispd_log_msg(LISP_LOG_WARNING, "map_cache_add_mapping: called with unknown AFI:%u",
+        lispd_log_msg(LISP_LOG_WARNING, "mdb_add_entry: called with unknown AFI:%u",
                 lisp_addr_get_afi(addr));
         break;
     }
@@ -369,19 +365,11 @@ void *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr, uint8_t exact)
 {
     patricia_node_t *node;
     node = _find_node(db, laddr, exact);
-    return(node->data);
+    if (node)
+        return(node->data);
+    else
+        return(NULL);
 }
-
-//void mdb_foreach_entry(mdb_t *db, void (*cbfunc)(void *))
-//{
-//    _ip_pt_foreach_entry(db->AF4_ip_db, cbfunc);
-//    _ip_pt_foreach_entry(db->AF6_ip_db, cbfunc);
-//    _mc_pt_foreach_entry(db->AF4_mc_db, cbfunc);
-//    _mc_pt_foreach_entry(db->AF6_mc_db, cbfunc);
-//}
-
-
-
 
 
 

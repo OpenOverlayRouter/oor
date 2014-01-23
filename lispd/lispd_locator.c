@@ -350,6 +350,7 @@ int add_locator_to_list (
 
     locator_list->next = NULL;
     locator_list->locator = locator;
+
     if (locator->locator_type == LOCAL_LOCATOR &&
             locator->locator_addr->afi != AF_UNSPEC){ /* If it's a local initialized locator, we should store it in order*/
         if (*list == NULL){
@@ -462,13 +463,13 @@ lispd_locator_elt *extract_locator_from_list(
 
 lispd_locator_elt *get_locator_from_list(
         lispd_locators_list    *locator_list,
-        lisp_addr_t             addr)
+        lisp_addr_t             *addr)
 {
     lispd_locator_elt       *locator                = NULL;
     int                     cmp                     = 0;
 
     while (locator_list != NULL){
-        cmp = lisp_addr_cmp(locator_list->locator->locator_addr,&addr);
+        cmp = lisp_addr_cmp(locator_list->locator->locator_addr,addr);
         if (cmp == 0){
             locator = locator_list->locator;
             break;
@@ -514,16 +515,13 @@ void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_
 }
 
 inline lispd_locator_elt *locator_new() {
-    lispd_locator_elt *loc;
-    loc = calloc(1, sizeof(lispd_locator_elt));
-    return(loc);
+    return(calloc(1, sizeof(lispd_locator_elt)));
 }
 
 
 lispd_locator_elt *locator_init_from_field(locator_field *lf) {
     lispd_locator_elt   *loc    = NULL;
     uint8_t             status  = UP;
-
 
     if(!(loc = locator_new()))
         return(NULL);
@@ -553,6 +551,20 @@ lispd_locator_elt *locator_init_from_field(locator_field *lf) {
     loc->data_packets_out = 0;
 
     return(loc);
+}
+
+char *locator_to_char(lispd_locator_elt *locator)
+{
+    static char locator_str[5][2000];
+    static int i;
+
+    /* hack to allow more than one locator per line */
+    i++; i = i%10;
+
+    sprintf(locator_str[i], "%s, ", lisp_addr_to_char(locator->locator_addr));
+    sprintf(locator_str[i] + strlen(locator_str[i]), "%s, ", locator->state ? "Up" : "Down");
+    sprintf(locator_str[i] + strlen(locator_str[i]), "%d/%-d", locator->priority, locator->weight);
+    return(locator_str[i]);
 }
 
 

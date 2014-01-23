@@ -180,7 +180,7 @@ lispd_locator_elt *extract_locator_from_list(
 
 lispd_locator_elt *get_locator_from_list(
         lispd_locators_list    *locator_list,
-        lisp_addr_t             addr);
+        lisp_addr_t            *addr);
 
 /*
  * Free memory of lispd_locator_list.
@@ -191,6 +191,7 @@ void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_
 
 inline lispd_locator_elt *locator_new();
 lispd_locator_elt *locator_init_from_field(locator_field *lf);
+char *locator_to_char(lispd_locator_elt *locator);
 
 /* accessors */
 static inline lisp_addr_t *locator_get_addr(lispd_locator_elt *locator) {

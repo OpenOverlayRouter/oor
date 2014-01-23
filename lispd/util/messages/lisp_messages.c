@@ -38,7 +38,7 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
 
     msg = lisp_msg_new();
     if (((lisp_encap_control_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "LISP message is encapsulated. Parsing encapsulation data");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "LISP control message is encapsulated. Parsing encapsulation data");
         msg->encap = 1;
         msg->encapdata = lisp_encap_hdr_parse(packet);
         packet = CO(packet, lisp_encap_data_get_len(msg->encapdata));
@@ -49,31 +49,31 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
     msg->type = ((lisp_encap_control_hdr_t *) packet)->type;
     switch (msg->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Parsing LISP Map-Reply message");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Map-Reply message");
         msg->msg = map_reply_msg_parse(packet);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Parsing LISP Map-Request message");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Map-Request message");
         msg->msg = map_request_msg_parse(packet);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Parsing LISP Map-Notify message");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Map-Notify message");
         break;
     case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Parsing LISP Info-Request/Info-Reply message");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Info-Request/Info-Reply message");
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Parsing LISP double Encapsulated Map-Request message! Discarding!");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP double Encapsulated Map-Request message! Discarding!");
         return(NULL);
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Unidentified type (%d) control message received", msg->type);
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Unidentified type (%d) control message received", msg->type);
         break;
     }
     lispd_log_msg(LISP_LOG_DEBUG_2, "Completed parsing of LISP control message");
 
-    return(NULL);
+    return(msg);
 }
 
 void lisp_msg_del(lisp_msg *msg) {
@@ -121,6 +121,8 @@ lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet) {
     }
 
     data->len = sizeof(lisp_encap_control_hdr_t)+data->ip_header_len + sizeof(struct udphdr);
+    lispd_log_msg(LISP_LOG_DEBUG_2, "********* len is  = %d ", data->len);
+
     return(data);
 }
 
@@ -182,12 +184,11 @@ map_request_msg *map_request_msg_new() {
 
 
 map_request_msg *map_request_msg_parse(uint8_t *offset) {
-    map_request_msg     *mrp        = NULL;
-    address_field       *itr_rloc   = NULL;
-    eid_prefix_record   *eid        = NULL;
+    map_request_msg     *mrp            = NULL;
     int i;
 
     mrp = map_request_msg_new();
+
     mrp->data = offset;
     offset = CO(mrp->data, sizeof(map_request_msg_hdr));
     mrp->src_eid = address_field_parse(offset);
@@ -197,11 +198,11 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
 
     /* parse ITR RLOCs */
     mrp->itr_rlocs = calloc(mreq_get_hdr(mrp)->additional_itr_rloc_count + 1, sizeof(address_field*));
-    for (i=0; i <= mreq_get_hdr(mrp)->additional_itr_rloc_count + 1; i++) {
+    for (i=0; i < mreq_get_hdr(mrp)->additional_itr_rloc_count + 1; i++) {
         mrp->itr_rlocs[i] = address_field_parse(offset);
         if (!mrp->itr_rlocs[i])
             goto err;
-        offset = CO(offset, address_field_get_len(itr_rloc));
+        offset = CO(offset, address_field_get_len(mrp->itr_rlocs[i]));
     }
 
     /* parse EIDs */
@@ -210,7 +211,7 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
         mrp->eids[i] = eid_prefix_record_parse(offset);
         if (!mrp->eids[i])
             goto err;
-        offset = CO(offset, eid_prefix_record_get_len(eid));
+        offset = CO(offset, eid_prefix_record_get_len(mrp->eids[i]));
     }
 
     /* TODO read mapping record */

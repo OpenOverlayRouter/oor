@@ -62,7 +62,7 @@ typedef struct lispd_map_cache_entry_ {
     uint8_t                     actions:2;
     uint8_t                     active:1;       /* TRUE if we have received a map reply for this entry */
     uint8_t                     active_witin_period:1;
-    uint16_t                    ttl;
+    uint32_t                    ttl;
     time_t                      timestamp;
     timer                       *expiry_cache_timer;
     timer                       *request_retry_timer;

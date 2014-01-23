@@ -138,7 +138,7 @@ void sort_locators_list_elt (
 
 lispd_locator_elt *get_locator_from_mapping(
         lispd_mapping_elt   *mapping,
-        lisp_addr_t         address);
+        lisp_addr_t         *address);
 
 /*
  * Free memory of lispd_mapping_elt.

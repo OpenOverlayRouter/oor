@@ -92,6 +92,8 @@ int check_nonce(
     if (nonces == NULL)
         return (BAD);
     for (i=0;i<nonces->retransmits;i++){
+        lispd_log_msg(LISP_LOG_WARNING, "****** comparing nonces %s", get_char_from_nonce(nonce));
+        lispd_log_msg(LISP_LOG_WARNING, "****** and %s", get_char_from_nonce(nonces->nonce[i]));
         if (nonces->nonce[i] == nonce){
             return (GOOD);
         }

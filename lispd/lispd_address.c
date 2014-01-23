@@ -268,6 +268,24 @@ inline ip_addr_t *lisp_addr_ip_get_addr(lisp_addr_t *laddr) {
     return(NULL);
 }
 
+
+inline uint8_t lisp_addr_ip_get_plen(lisp_addr_t *laddr) {
+    switch(_get_afi(laddr)) {
+    case LM_AFI_IP:
+        if (ip_addr_get_afi(lisp_addr_get_ip(laddr)) == AF_UNSPEC) {
+            lispd_log_msg(LISP_LOG_WARNING, "lisp_addr_ip_get_plen: called with AF_UNSPEC");
+            return(0);
+        }
+        return((ip_addr_get_afi(lisp_addr_get_ip(laddr)) == AF_INET) ? 32: 128);
+    case LM_AFI_IPPREF:
+        return(ip_prefix_get_plen(lisp_addr_get_ippref(laddr)));
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_addr_ip_get_plen: called with AFI not IP or IPPREF");
+    }
+
+    return(0);
+}
+
 inline void lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi) {
     switch(_get_afi(laddr)) {
     case LM_AFI_IP:
@@ -374,9 +392,6 @@ inline uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src) {
  * to a certain memory location, NOT the whole structure!
  */
 inline int lisp_addr_write_to_pkt(void *offset, lisp_addr_t *laddr) {
-    assert(offset);
-    assert(laddr);
-
     switch (lisp_addr_get_afi(laddr)) {
     case LM_AFI_IP:
         return(ip_addr_write_to_pkt(offset, lisp_addr_get_ip(laddr), 0));

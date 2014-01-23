@@ -165,33 +165,46 @@ int mrsignaling_recv_mreply(mapping_record *record, uint64_t nonce) {
 
 int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
 {
-    lisp_addr_t                 *eid                = NULL;
+    lisp_addr_t                 *src_eid                = NULL;
     int                         locators_probed     = 0;
-    locator_field               *locfield           = NULL;
     locator_field               **locs              = NULL;
     lispd_locator_elt           *locator            = NULL;
     lispd_locator_elt           *aux_locator        = NULL;
+    lispd_mapping_elt           *mapping            = NULL;
+    int i;
 
 
     lispd_locators_list                     *locators_list[2]       = {NULL,NULL};
     int                                     ctr                     = 0;
     rmt_locator_extended_info               *rmt_locator_ext_inf    = NULL;
-    lispd_map_cache_entry                   *cache_entry            = NULL;
+//    lispd_map_cache_entry                   *cache_entry            = NULL;
 
-    if (!(eid = lisp_addr_init_from_field(mapping_record_get_eid(record))))
+    if (!(src_eid = lisp_addr_init_from_field(mapping_record_get_eid(record))))
         return(BAD);
 
-    if (lisp_addr_get_afi(eid) == LM_AFI_IP)
-        lisp_addr_set_plen(eid, mapping_record_get_eid_mask(record));
+    if (lisp_addr_get_afi(src_eid) == LM_AFI_IP)
+        lisp_addr_set_plen(src_eid, mapping_record_get_eid_mask(record));
 
     if (mapping_record_get_hdr(record)->locator_count > 0) {
-        mapping_record_foreach_locator(record, locs, locfield) {
-            if (locator_field_get_hdr(locfield)->probed) {
+
+        /* Lookup src EID in map cache */
+        mapping = mcache_lookup_mapping(src_eid);
+        if(!mapping) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Source EID %s couldn't be found in the map-cache",
+                    lisp_addr_to_char(src_eid));
+            lisp_addr_del(src_eid);
+            return(BAD);
+        }
+
+        /* Find the locator being probed*/
+        locs = mapping_record_get_locators(record);
+        for (i = 0; i < mapping_record_get_hdr(record)->locator_count; i++) {
+            if (locator_field_get_hdr(locs[i])->probed) {
                 if (locator)
-                    free_locator(locator);
-                locator = locator_init_from_field(locfield);
+                    free_locator(aux_locator);
+                aux_locator = locator_init_from_field(locs[i]);
                 locators_probed++;
-                lispd_log_msg(LISP_LOG_DEBUG_2, "probed rloc: %s", lisp_addr_to_char(locator_get_addr(locator)));
+                lispd_log_msg(LISP_LOG_DEBUG_3, "  Probed rloc: %s", lisp_addr_to_char(locator_get_addr(aux_locator)));
             }
         }
 
@@ -201,7 +214,21 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
             return(BAD);
         }
 
+        /* Find probed locator in mapping */
+        locator = get_locator_from_mapping(mapping, locator_get_addr(aux_locator));
+        if (!locator){
+            lispd_log_msg(LISP_LOG_DEBUG_2,"The locator %s is not found in the mapping %s",
+                    lisp_addr_to_char(locator_get_addr(aux_locator)),
+                    lisp_addr_to_char(mapping_get_eid_addr(mapping)));
+            return (ERR_NO_EXIST);
+        }
+
+        /* Compare nonces */
         rmt_locator_ext_inf = (rmt_locator_extended_info *)(locator->extended_info);
+        if (!rmt_locator_ext_inf || !rmt_locator_ext_inf->rloc_probing_nonces) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Locator %s has no nonces!",
+                    lisp_addr_to_char(locator_get_addr(locator)));
+        }
 
         /* Check if the nonce of the message match with the one stored in the structure of the locator */
         if ((check_nonce(rmt_locator_ext_inf->rloc_probing_nonces,nonce)) == GOOD){
@@ -213,13 +240,13 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
         }
 
         lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply probe reachability to RLOC %s of the EID cache entry %s",
-                    lisp_addr_to_char(locator->locator_addr),
-                    lisp_addr_to_char(mapping_get_eid_addr(cache_entry->mapping)));
+                    lisp_addr_to_char(locator_get_addr(aux_locator)), lisp_addr_to_char(mapping_get_eid_addr(mapping)));
 
     /* If negative probe map-reply, then the probe was for proxy-etr */
     } else {
-        if(proxy_etrs != NULL && lisp_addr_cmp(eid,mapping_get_eid_addr(proxy_etrs->mapping)) == 0){
-            cache_entry = proxy_etrs;
+        if(proxy_etrs != NULL && lisp_addr_cmp(src_eid,mapping_get_eid_addr(proxy_etrs->mapping)) == 0){
+//            cache_entry = proxy_etrs;
+            mapping = mcache_entry_get_mapping(proxy_etrs);
             locators_list[0] = proxy_etrs->mapping->head_v4_locators_list;
             locators_list[1] = proxy_etrs->mapping->head_v6_locators_list;
 
@@ -241,14 +268,14 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
             }
             if (locator == NULL){
                 lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The nonce of the Negative Map-Reply Probe doesn't match any nonce of Proxy-ETR locators");
-                lisp_addr_del(eid);
+                lisp_addr_del(src_eid);
                 return (BAD);
             }
-            lisp_addr_del(eid);
+            lisp_addr_del(src_eid);
         }else{
             lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The received negative Map-Reply Probe has not been requested: %s",
-                    lisp_addr_to_char(eid));
-            lisp_addr_del(eid);
+                    lisp_addr_to_char(src_eid));
+            lisp_addr_del(src_eid);
             return (BAD);
         }
 
@@ -262,16 +289,16 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
         *(locator->state) = UP;
 
         lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply Probe received for locator %s -> Locator state changes to UP",
-                           lisp_addr_to_char(locator->locator_addr));
+                lisp_addr_to_char(locator_get_addr(locator)));
 
         /* [re]Calculate balancing locator vectors  if it has been a change of status*/
         calculate_balancing_vectors (
-                cache_entry->mapping,
-                &(((rmt_mapping_extended_info *)cache_entry->mapping->extended_info)->rmt_balancing_locators_vecs));
+                mapping, &(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs));
     }
     /*
      * Reprogramming timers of rloc probing
      */
+
     rmt_locator_ext_inf = (rmt_locator_extended_info *)(locator->extended_info);
     if (rmt_locator_ext_inf->probe_timer == NULL){
        lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: The received Map-Reply Probe was not requested");
@@ -282,7 +309,7 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
     if (mapping_record_get_hdr(record)->locator_count != 0 ){
         lispd_log_msg(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s of the EID %s in %d seconds",
                 lisp_addr_to_char(locator->locator_addr),
-                lisp_addr_to_char(mapping_get_eid_addr(cache_entry->mapping)),
+                lisp_addr_to_char(mapping_get_eid_addr(mapping)),
                 RLOC_PROBING_INTERVAL);
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s (PETR) in %d seconds",
@@ -296,34 +323,45 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
 
 static int process_map_reply_record(mapping_record *record, uint64_t nonce) {
 
-    lisp_addr_t                     *eid;
-    lispd_locators_list             *locators;
-    locator_field                   *loc_iter;
-    locator_field                   **locs;
-
+    lisp_addr_t                     *eid        = NULL;
+    lispd_locators_list             **locators  = NULL;
+    lispd_locator_elt               *loc_elt    = NULL;
+    locator_field                   **locs      = NULL;
+    int i;
     if (!(eid = lisp_addr_init_from_field(mapping_record_get_eid(record))))
         return(BAD);
 
     if (lisp_addr_get_afi(eid) == LM_AFI_IP)
         lisp_addr_set_plen(eid, mapping_record_get_eid_mask(record));
 
-    mapping_record_foreach_locator(record, locs, loc_iter) {
-        if (add_locator_to_list(&locators, locator_init_from_field(loc_iter)) != GOOD)
+    lispd_log_msg(LISP_LOG_DEBUG_1, " EID: %s", lisp_addr_to_char(eid));
+
+    /* I don't like this too much but we need it to be compatible with locators_list */
+    locators = calloc(1, sizeof(lispd_locators_list*));
+
+    locs = mapping_record_get_locators(record);
+    for (i = 0; i < mapping_record_get_hdr(record)->locator_count; i++) {
+        if (!(loc_elt = locator_init_from_field(locs[i])))
+            goto err;
+        lispd_log_msg(LISP_LOG_DEBUG_1, "    RLOC: %s", locator_to_char(loc_elt));
+
+        if (add_locator_to_list(locators, loc_elt) != GOOD)
             goto err;
     }
 
     /* TODO: mapping should be created here */
-    if (mcache_activate_mapping(eid, locators, nonce,
+    if (mcache_activate_mapping(eid, *locators, nonce,
                                 mapping_record_get_hdr(record)->action,
-                                mapping_record_get_hdr(record)->ttl) != GOOD)
+                                ntohl(mapping_record_get_hdr(record)->ttl)) != GOOD)
         goto err;
 
     lisp_addr_del(eid); /* TODO: eid is copied when mapping is created. Should change ... */
     return(GOOD);
 err:
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Error encountered while processing locators!");
     lisp_addr_del(eid);
     if (locators)
-        free_locator_list(locators);
+        free_locator_list(*locators);
     return(BAD);
 
 }
@@ -334,15 +372,21 @@ static int process_map_reply_msg(map_reply_msg *mrep)
     mapping_record              *record;
     mapping_record              **records;
 
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Processing Map-Reply message with nonce %s",
+            get_char_from_nonce(mrep_get_hdr(mrep)->nonce));
+
+    records = mrep->records;
+
     mrep_foreach_record(mrep, records, record) {
         /* Map-Reply carries a mapping */
         if (mrep_get_hdr(mrep)->rloc_probe == FALSE) {
-            if (is_lcaf_mcast_info(mapping_record_get_eid(record)))
-                return(mrsignaling_recv_mreply(record, mrep_get_hdr(mrep)->nonce));
+//            if (is_lcaf_mcast_info(mapping_record_get_eid(record)))
+//                return(mrsignaling_recv_mreply(record, mrep_get_hdr(mrep)->nonce));
             if (process_map_reply_record(record, mrep_get_hdr(mrep)->nonce)!= GOOD)
                 return(BAD);
         /* Map-Reply is an RLOC-probe reply*/
         } else {
+
             if (process_map_reply_probe_record(record, mrep_get_hdr(mrep)->nonce) != GOOD)
                 return(BAD);
         }
@@ -378,13 +422,13 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
     lisp_addr_t                 *src_eid                = NULL;
     lisp_addr_t                 *dst_eid                = NULL;
     lisp_addr_t                 *remote_rloc            = NULL;
-    address_field               *itr                    = NULL;
     address_field               **itrs                  = NULL;
-    eid_prefix_record           *eid                    = NULL;
     eid_prefix_record           **eids                  = NULL;
     lispd_mapping_elt           *mapping                = NULL;
     map_reply_opts              opts;
+    int i;
 
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Processing LISP Map-Request message");
 
     if (!(src_eid = lisp_addr_init_from_field(mreq_msg_get_src_eid(mreq))))
         return(BAD);
@@ -399,11 +443,13 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
 
     }
 
+
     /* Process additional ITR RLOCs. Obtain remote RLOC to use for Map-Replies*/
-    mreq_msg_foreach_itr_rloc(mreq, itrs, itr) {
+    itrs = mreq_msg_get_itr_rlocs(mreq);
+    for (i = 0; i < mreq_get_hdr(mreq)->additional_itr_rloc_count + 1; i++) {
         /* XXX: support only for IP RLOCs */
-        if (address_field_get_afi(itr) == lisp_addr_ip_get_afi(local_rloc)) {
-            remote_rloc = lisp_addr_init_from_field(itr);
+        if (ip_iana_afi_to_sock_afi(address_field_get_afi(itrs[i])) == lisp_addr_ip_get_afi(local_rloc)) {
+            remote_rloc = lisp_addr_init_from_field(itrs[i]);
             break;
         }
     }
@@ -419,15 +465,16 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
     opts.rloc_probe = mreq_get_hdr(mreq)->rloc_probe;
 
     /* Process record and send Map Reply for each one */
-    mreq_msg_foreach_eid(mreq, eids, eid) {
-        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(eid))))
+    eids = mreq_msg_get_eids(mreq);
+    for (i = 0; i < mreq_get_hdr(mreq)->record_count; i++) {
+        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(eids[i]))))
             goto err;
 
         /* Save prefix length only if the entry is an IP */
         if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)
-            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid), eid_prefix_record_get_hdr(eid)->eid_prefix_length);
+            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid), eid_prefix_record_get_hdr(eids[i])->eid_prefix_length);
 
-        lispd_log_msg(LISP_LOG_DEBUG_3, "\tReceived Map-Request from EID %s for EID %s",
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Received Map-Request from EID %s for EID %s",
                 lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
 
         /* Check the existence of the requested EID */
@@ -440,10 +487,10 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
             continue;
         }
 
-        if (is_mrsignaling(eid_prefix_record_get_eid(eid)))
+//        if (is_mrsignaling(eid_prefix_record_get_eid(eid)))
 //            return(mrsignaling_recv_mrequest(mreq, dst_eid, local_rloc, remote_rloc, dst_port));
-
         err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_get_hdr(mreq)->nonce, opts);
+
         lisp_addr_del(dst_eid);
     }
 
@@ -535,6 +582,11 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid)
             DYNAMIC_MAP_CACHE_ENTRY,
             DEFAULT_DATA_CACHE_TTL);
 
+    if (!entry) {
+        lispd_log_msg(LISP_LOG_WARNING, "Couln't install the new map cache entry!");
+        return(BAD);
+    }
+
     arguments->map_cache_entry = entry;
     arguments->src_eid = *src_eid;
 
@@ -618,8 +670,7 @@ int send_map_request_miss(timer *t, void *arg)
  * Calculate Map Request length. Just add locators with status up
  */
 
-int get_map_request_length(lispd_mapping_elt *requested_mapping,
-        lispd_mapping_elt *src_mapping) {
+int get_map_request_length(lispd_mapping_elt *requested_mapping, lispd_mapping_elt *src_mapping) {
     int mr_len = 0;
     int locator_count = 0, aux_locator_count = 0;
     mr_len = sizeof(map_request_msg_hdr);
@@ -630,19 +681,26 @@ int get_map_request_length(lispd_mapping_elt *requested_mapping,
         /* Calculate locators length */
         mr_len += get_up_locators_length(src_mapping->head_v4_locators_list,
                 &aux_locator_count);
+
         locator_count = aux_locator_count;
         mr_len += get_up_locators_length(src_mapping->head_v6_locators_list,
                 &aux_locator_count);
         locator_count += aux_locator_count;
+
     } else {
+        mr_len += sizeof(uint16_t); /* the src EID AFI */
+
         if (default_ctrl_iface_v4 != NULL ) {
-            mr_len += sizeof(struct in_addr);
+            mr_len += sizeof(struct in_addr) + sizeof(uint16_t);
             locator_count++;
         }
+
+
         if (default_ctrl_iface_v6 != NULL ) {
-            mr_len += sizeof(struct in6_addr);
+            mr_len += sizeof(struct in6_addr) + sizeof(uint16_t);
             locator_count++;
         }
+
     }
 
     /* ITR-RLOC-AFI field */
@@ -678,13 +736,13 @@ uint8_t *build_map_request_pkt(
     uint8_t                                 *mr_packet              = NULL;
     map_request_msg_hdr                     *mrp                    = NULL;
     mapping_record_hdr                      *rec                    = NULL;
-    lispd_pkt_map_request_itr_rloc_t        *itr_rloc               = NULL;
+//    lispd_pkt_map_request_itr_rloc_t        *itr_rloc               = NULL;
     eid_prefix_record_hdr                   *request_eid_record     = NULL;
     uint8_t                                 *cur_ptr                = NULL;
 
     int                     map_request_msg_len = 0;
     int                     ctr                 = 0;
-    int                     cpy_len             = 0;
+//    int                     cpy_len             = 0;
     int                     locators_ctr        = 0;
 
     lispd_mapping_elt       *src_mapping        = NULL;
@@ -748,9 +806,9 @@ uint8_t *build_map_request_pkt(
     mrp->nonce = build_nonce((unsigned int) time(NULL));
     *nonce                         = mrp->nonce;
 
+    cur_ptr = CO(cur_ptr, sizeof(map_request_msg_hdr));
+
     if (src_eid != NULL){
-//        cur_ptr = pkt_fill_eid(&(mrp->source_eid_afi),src_mapping);
-        cur_ptr = CO(cur_ptr, sizeof(map_request_msg_hdr));
         cur_ptr = CO(cur_ptr, lisp_addr_write_to_pkt(cur_ptr, mapping_get_eid_addr(src_mapping)));
 
         /* Add itr-rlocs */
@@ -769,40 +827,28 @@ uint8_t *build_map_request_pkt(
                     locators_list[ctr] = locators_list[ctr]->next;
                     continue;
                 }
-
-//                itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
-//                cur_ptr = (uint8_t *)&itr_rloc->afi;
-//                cpy_len = lisp_addr_write_to_pkt(cur_ptr ,locator->locator_addr);
-//                cur_ptr = CO(cur_ptr, cpy_len);
-                cur_ptr = CO(cur_ptr, lisp_addr_write_to_pkt(cur_ptr ,locator->locator_addr));
+                cur_ptr = CO(cur_ptr, lisp_addr_write_to_pkt(cur_ptr, locator->locator_addr));
                 locators_ctr ++;
                 locators_list[ctr] = locators_list[ctr]->next;
             }
         }
     }else {
+
         // XXX If no source EID is used, then we only use one ITR-RLOC for IPv4 and one for IPv6-> Default control RLOC
 //        mrp->source_eid_afi = LISP_AFI_NO_ADDR;
-        cur_ptr = CO(mrp, sizeof(map_request_msg_hdr));
         *(uint16_t*)cur_ptr = LISP_AFI_NO_ADDR;
         cur_ptr = CO(cur_ptr, sizeof(uint16_t));
 
         if (default_ctrl_iface_v4 != NULL){
-//            itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
-//            cur_ptr = (uint8_t *)&itr_rloc->afi;
-//            cpy_len = lisp_addr_write_to_pkt(cur_ptr, default_ctrl_iface_v4->ipv4_address);
-//            cur_ptr = CO(cur_ptr, cpy_len);
             cur_ptr = CO(cur_ptr, lisp_addr_write_to_pkt(cur_ptr, default_ctrl_iface_v4->ipv4_address));
             locators_ctr ++;
         }
         if (default_ctrl_iface_v6 != NULL){
-//            itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
-//            cur_ptr = (uint8_t *)&itr_rloc->afi;
-//            cpy_len = lisp_addr_write_to_pkt(cur_ptr, default_ctrl_iface_v6->ipv6_address);
-//            cur_ptr = CO(cur_ptr, cpy_len);
             cur_ptr = CO(cur_ptr, lisp_addr_write_to_pkt(cur_ptr, default_ctrl_iface_v6->ipv6_address));
             locators_ctr ++;
         }
     }
+
     mrp->additional_itr_rloc_count = locators_ctr - 1; /* IRC = 0 --> 1 ITR-RLOC */
     if (locators_ctr == 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: No ITR RLOCs.");
@@ -811,15 +857,18 @@ uint8_t *build_map_request_pkt(
     }
 
 
+    if (!src_eid) {
+        lispd_log_msg(LISP_LOG_DEBUG_2,"SOME VARS: eid %s plen %d", lisp_addr_to_char(mapping_get_eid_addr(requested_mapping)),
+                lisp_addr_ippref_get_plen(mapping_get_eid_addr(requested_mapping)));
+    }
     /* Requested EID record */
     request_eid_record = (eid_prefix_record_hdr *)cur_ptr;
     request_eid_record->eid_prefix_length = lisp_addr_ippref_get_plen(mapping_get_eid_addr(requested_mapping));
 //    requested_mapping->eid_prefix_length;
 
 //    cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_mapping);
-    cur_ptr = CO(cur_ptr, sizeof(request_eid_record));
+    cur_ptr = CO(cur_ptr, sizeof(eid_prefix_record_hdr));
     cur_ptr = CO(cur_ptr, lisp_addr_write_to_pkt(cur_ptr, mapping_get_eid_addr(requested_mapping)));
-
 
     if (mrp->map_data_present == 1){
         /* Map-Reply Record */
@@ -834,7 +883,6 @@ uint8_t *build_map_request_pkt(
 
     /* Add Encapsulated (Inner) control header*/
     if (encap){
-
         /*
          * If no source EID is included (Source-EID-AFI = 0), The default RLOC address is used for
          * the source address in the inner IP header
@@ -924,8 +972,6 @@ int build_and_send_map_request_msg(
                                 LISP_CONTROL_PORT,
                                 LISP_CONTROL_PORT,
                                 &packet_len);
-    lispd_log_msg(LISP_LOG_DEBUG_3, "********** GOT HERE ***************"); exit(1);\
-
     free (map_req_pkt);
 
 
@@ -998,6 +1044,7 @@ uint8_t *build_map_reply_pkt(lispd_mapping_elt *mapping,
     map_reply_msg->record_count = 1;
     map_reply_msg->nonce = nonce;
 
+
     if (opts.send_rec) {
         mapping_record = (mapping_record_hdr *) CO(map_reply_msg, sizeof(map_reply_hdr));
 
@@ -1034,6 +1081,8 @@ int build_and_send_map_reply_msg(
     lisp_addr_t     *src_addr           = NULL;
     int             out_socket          = 0;
     lispd_iface_elt *iface              = NULL;
+
+
 
     /* Build the packet */
     if (opts.rloc_probe == TRUE)
@@ -1095,12 +1144,13 @@ int build_and_send_map_reply_msg(
 
     if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
         if (opts.rloc_probe == TRUE){
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s probing local locator %s",
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s probing local locator %s to %s",
                     lisp_addr_to_char(mapping_get_eid_addr(requested_mapping)),
-                    lisp_addr_to_char(src_rloc_addr));
+                    lisp_addr_to_char(src_rloc_addr), lisp_addr_to_char(dst_rloc_addr));
         }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s",
-                    lisp_addr_to_char(mapping_get_eid_addr(requested_mapping)));
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply for %s from %s to %s",
+                    lisp_addr_to_char(mapping_get_eid_addr(requested_mapping)), lisp_addr_to_char(src_rloc_addr),
+                    lisp_addr_to_char(dst_rloc_addr));
         }
         result = GOOD;
     }else{
@@ -1138,9 +1188,10 @@ static int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locato
     cache_entry = lookup_nonce_in_no_active_map_caches(eid, nonce);
 
     if (cache_entry != NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Activating map cache entry for %s", lisp_addr_to_char(eid));
+
         if (lisp_addr_cmp_for_mcache_install(mapping_get_eid_addr(mcache_entry_get_mapping(cache_entry)), eid) != GOOD) {
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record: The EID in the Map-Reply does not match the one in the Map-Request!");
-            lisp_addr_del(eid);
             return (BAD);
         }
         /*
@@ -1149,15 +1200,12 @@ static int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locato
          */
 
         if (mcache_update_mapping_eid(eid, cache_entry) == BAD) {
-            lisp_addr_del(eid);
             return (BAD);
         }
 
         cache_entry->active = 1;
         stop_timer(cache_entry->request_retry_timer);
         cache_entry->request_retry_timer = NULL;
-        lispd_log_msg(LISP_LOG_DEBUG_2,"Activating map cache entry %s", lisp_addr_to_char(eid));
-        lisp_addr_del(eid);
         new_mapping = TRUE;
     }
     /* If the nonce is not found in the no active cache enties, then it should be an active cache entry */
@@ -1167,13 +1215,11 @@ static int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locato
         if (cache_entry == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  No map cache entry found for %s",
                     lisp_addr_to_char(eid));
-            lisp_addr_del(eid);
             return (BAD);
         }
         /* Check if the found map cache entry contains the nonce of the map reply*/
         if (check_nonce(cache_entry->nonces,nonce)==BAD){
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  The nonce of the Map-Reply doesn't match the nonce of the generated Map-Request. Discarding message ...");
-            lisp_addr_del(eid);
             return (BAD);
 
         } else {
@@ -1189,7 +1235,6 @@ static int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locato
         /* Check instance id.*/
         if (!lisp_addr_cmp_for_mcache_install(mapping_get_eid_addr(mcache_entry_get_mapping(cache_entry)), eid)) {
             lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  Instance ID of the map reply doesn't match with the map cache entry");
-            lisp_addr_del(eid);
             return (BAD);
         }
         lispd_log_msg(LISP_LOG_DEBUG_2,"  A map cache entry already exists for %s, replacing locators list of this entry",
@@ -1198,7 +1243,6 @@ static int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locato
         free_locator_list(cache_entry->mapping->head_v6_locators_list);
         cache_entry->mapping->head_v4_locators_list = NULL;
         cache_entry->mapping->head_v6_locators_list = NULL;
-        lisp_addr_del(eid);
     }
 
     cache_entry->actions = action ;
@@ -1241,7 +1285,7 @@ static int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locato
     }
     start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
                      (void *)cache_entry);
-    lispd_log_msg(LISP_LOG_DEBUG_1,"The map cache entry %s will expire in %d minutes.",
+    lispd_log_msg(LISP_LOG_DEBUG_1,"The map cache entry %s will expire in %ld minutes.",
             lisp_addr_to_char(mapping_get_eid_addr(mcache_entry_get_mapping(cache_entry))), cache_entry->ttl);
 
     /* RLOC probing timer */
@@ -1265,6 +1309,7 @@ int process_lisp_msg_encapsulated_data(lisp_encap_data *data, uint16_t *dst_port
     uint16_t    udpsum  = 0;
     int         udp_len  = 0;
 
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Processing the encapsulation header");
     /* This should overwrite the external port (dst_port in map-reply = inner src_port in encap map-request) */
     *dst_port = ntohs(data->udph->source);
 

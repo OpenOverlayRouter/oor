@@ -139,7 +139,8 @@ static inline mapping_record **mrep_get_records(map_reply_msg *mrp) {
  */
 
 #define mrep_foreach_record(mrp, records, record)    \
-    for (records = mrep_get_records(mrp), record=*records; *records != NULL; records++, record = *records)
+    for (records = mrep_get_records(mrp); *records != NULL; records++) \
+        if ((record = *records))
 
 
 #endif /* LISP_MAP_REPLY_H_ */

@@ -255,7 +255,7 @@ int add_locator_to_mapping(
 
     if (err == GOOD){
         mapping->locator_count++;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added to the EID %s.",
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added for the EID %s.",
                 lisp_addr_to_char(locator->locator_addr),
                 lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         result = GOOD;
@@ -378,12 +378,12 @@ void sort_locators_list_elt (
 
 lispd_locator_elt *get_locator_from_mapping(
         lispd_mapping_elt   *mapping,
-        lisp_addr_t         address)
+        lisp_addr_t         *address)
 {
     lispd_locator_elt   *locator        = NULL;
     lispd_locators_list *locator_list   = NULL;
 
-    switch (address.afi){
+    switch (lisp_addr_ip_get_afi(address)){
     case AF_INET:
         locator_list = mapping->head_v4_locators_list;
         break;
@@ -937,8 +937,6 @@ inline void mapping_set_iid(lispd_mapping_elt *mapping, lisp_iid_t iid) {
 }
 
 inline void mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr) {
-    assert(mapping);
-    assert(addr);
     lisp_addr_copy(mapping_get_eid_addr(mapping), addr);
 }
 

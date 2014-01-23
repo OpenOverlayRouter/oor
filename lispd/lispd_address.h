@@ -129,6 +129,7 @@ inline void              lisp_addr_del(lisp_addr_t *laddr);
 inline lm_afi_t          lisp_addr_get_afi(lisp_addr_t *addr);
 inline uint16_t          lisp_addr_ip_get_afi(lisp_addr_t *addr);
 inline ip_addr_t         *lisp_addr_ip_get_addr(lisp_addr_t *laddr);
+inline uint8_t           lisp_addr_ip_get_plen(lisp_addr_t *laddr);
 inline void              lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi);
 inline ip_addr_t         *lisp_addr_get_ip(lisp_addr_t *addr);
 inline ip_prefix_t       *lisp_addr_get_ippref(lisp_addr_t *addr);

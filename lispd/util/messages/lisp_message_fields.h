@@ -83,7 +83,7 @@ static inline uint8_t address_field_get_lcaf_type(address_field *addr) {
 }
 
 static inline uint16_t address_field_get_afi(address_field *addr) {
-    return(ntohs(*(uint16_t *)address_field_get_data(addr)));
+    return(ntohs(*(uint16_t *)addr->data));
 }
 
 
@@ -276,9 +276,9 @@ static inline uint8_t mapping_record_get_eid_mask(mapping_record *record) {
     } while(0)
 
 #define mapping_record_foreach_locator(record, locators, lit)    \
-    for((locators) = mapping_record_get_locators((record)), (lit) = *(locators); \
-        (lit) != NULL;  \
-        (locators)++, (lit) = *(locators))
+    for((locators) = mapping_record_get_locators((record)); \
+        *(locators) != NULL; (locators)++ )  \
+            if((lit=*(locators)))
 
 
 

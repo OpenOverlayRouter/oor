@@ -172,7 +172,8 @@ void init_smr(
         pitr_elt  = proxy_itrs;
 
         while (pitr_elt) {
-            if (build_and_send_map_request_msg(mappings_to_smr[ctr],mapping_get_eid_addr(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
+            if (build_and_send_map_request_msg(mappings_to_smr[ctr],
+                    mapping_get_eid_addr(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
                 lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
                         lisp_addr_to_char(mapping_get_eid_addr(mappings_to_smr[ctr])));

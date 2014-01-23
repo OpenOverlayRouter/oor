@@ -36,9 +36,7 @@
  */
 
 inline address_field *address_field_new() {
-    address_field *addr;
-    addr = calloc(1, sizeof(address_field));
-    return(addr);
+    return(calloc(1, sizeof(address_field)));
 }
 
 inline void address_field_del(address_field *addr) {
@@ -46,6 +44,7 @@ inline void address_field_del(address_field *addr) {
 }
 
 address_field *address_field_parse(uint8_t *offset) {
+
     address_field *addr;
     addr = calloc(1, sizeof(address_field));
     addr->afi = ntohs(*((uint16_t *)offset));
@@ -64,10 +63,10 @@ address_field *address_field_parse(uint8_t *offset) {
         addr->len = sizeof(generic_lcaf_hdr) + ((generic_lcaf_hdr *)addr->data)->len;
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_pkt_addr_new: Unsupported AFI %d", addr->afi);
+        lispd_log_msg(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", addr->afi);
         break;
     }
-//    addr->len += sizeof(uint16_t);
+    addr->len += sizeof(uint16_t);
     return(addr);
 }
 
@@ -83,9 +82,7 @@ address_field *address_field_parse(uint8_t *offset) {
  */
 
 inline locator_field *locator_field_new() {
-    locator_field *locator;
-    locator = calloc(1, sizeof(locator_field));
-    return(locator);
+    return(calloc(1, sizeof(locator_field)));
 }
 
 inline void locator_field_del(locator_field *locator) {
@@ -118,9 +115,7 @@ locator_field *locator_field_parse(uint8_t *offset) {
  */
 
 inline mapping_record *mapping_record_new() {
-    mapping_record *record;
-    record = calloc(1, sizeof(mapping_record));
-    return(record);
+    return(calloc(1, sizeof(mapping_record)));
 }
 
 void mapping_record_del(mapping_record *record) {
@@ -140,11 +135,13 @@ mapping_record *mapping_record_parse(uint8_t *offset) {
     mapping_record  *record;
     int i;
 
+
     record = calloc(1, sizeof(mapping_record));
     record->data = offset;
     record->len = 0;
 
     offset = CO(record->data, sizeof(mapping_record_hdr));
+
     record->eid = address_field_parse(offset);
     if (!record->eid)
         goto err;
@@ -152,7 +149,7 @@ mapping_record *mapping_record_parse(uint8_t *offset) {
     offset = CO(offset, address_field_get_len(record->eid));
     record->locators = calloc(mapping_record_get_hdr(record)->locator_count, sizeof(locator_field*));
 
-    for (i = 1; i < mapping_record_get_hdr(record)->locator_count; i++) {
+    for (i = 0; i < mapping_record_get_hdr(record)->locator_count; i++) {
         record->locators[i] = locator_field_parse(offset);
         if (!record->locators[i])
             goto err;
@@ -183,13 +180,12 @@ err:
  */
 
 inline eid_prefix_record *eid_prefix_record_new() {
-    eid_prefix_record *record;
-    record = calloc(1, sizeof(eid_prefix_record));
-    return(record);
+    return(calloc(1, sizeof(eid_prefix_record)));
 }
 
 void eid_prefix_record_del(eid_prefix_record *record) {
-    address_field_del(record->eid);
+    if (record->eid)
+        address_field_del(record->eid);
     free(record);
 }
 
@@ -199,6 +195,7 @@ eid_prefix_record *eid_prefix_record_parse(uint8_t *offset) {
     record = eid_prefix_record_new();
     record->data = offset;
     record->eid = address_field_parse(CO(record->data, sizeof(eid_prefix_record_hdr)));
+    record->len = sizeof(eid_prefix_record_hdr) + address_field_get_len(record->eid);
     return(record);
 }
 

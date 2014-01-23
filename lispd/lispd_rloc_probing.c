@@ -112,6 +112,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
                     nonces->retransmits);
         }
 
+        lispd_log_msg(LISP_LOG_DEBUG_1,"***** WOKEN UP to sent probe for %s", lisp_addr_to_char(mapping_get_eid_addr(mapping)));
         err = build_and_send_map_request_msg(mapping,NULL,locator->locator_addr, 0, 1, 0, 0,
                 &(nonces->nonce[nonces->retransmits]));
 

@@ -98,7 +98,7 @@ endif
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o $(EXE) patricia/*.o bob/*o
+	rm -f *.o $(EXE) patricia/*.o bob/*o util/messages/*o llist/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

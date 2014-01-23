@@ -361,14 +361,15 @@ uint8_t *build_ip_udp_pcket(
     uint16_t        udpsum                      = 0;
 
 
-    if (addr_from->afi != addr_dest->afi) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses");
+    if (lisp_addr_ip_get_afi(addr_from) != lisp_addr_ip_get_afi(addr_dest)) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses %d and %d",
+                lisp_addr_ip_get_afi(addr_from), lisp_addr_ip_get_afi(addr_dest));
         return (NULL);
     }
 
-    if ((addr_from->afi != AF_INET) && (addr_from->afi != AF_INET6)) {
+    if ((lisp_addr_ip_get_afi(addr_from) != AF_INET) && (lisp_addr_ip_get_afi(addr_from) != AF_INET6)) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Unknown AFI %d",
-               addr_from->afi);
+               lisp_addr_ip_get_afi(addr_from) );
         return (NULL);
     }
 
@@ -386,8 +387,6 @@ uint8_t *build_ip_udp_pcket(
 
     *encap_pkt_len = ip_hdr_len + udp_hdr_len + orig_pkt_len;
 
-    lispd_log_msg(LISP_LOG_DEBUG_2, "********* pkt len = %d, orig addr %s, dest  %s", *encap_pkt_len,
-            lisp_addr_to_char(addr_from), lisp_addr_to_char(addr_dest));
     if ((encap_pkt = (uint8_t *) malloc(*encap_pkt_len)) == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't allocate memory for the packet to be generated %s", strerror(errno));
         return (NULL);
@@ -436,9 +435,6 @@ uint8_t *build_ip_udp_pcket(
         return (NULL);
     }
     udpsum(udph_ptr) = udpsum;
-
-    lispd_log_msg(LISP_LOG_DEBUG_2, "********* pkt len = %d, orig addr %s, dest %s", *encap_pkt_len,
-            lisp_addr_to_char(addr_from), lisp_addr_to_char(addr_dest)); //exit(1);
 
     return (encap_pkt);
 
