@@ -31,8 +31,8 @@
 #ifndef LISPD_PKT_LIB_H_
 #define LISPD_PKT_LIB_H_
 
-#include "lispd.h"
-#include "lispd_local_db.h"
+#include "defs.h"
+//#include "lispd_local_db.h"
 
 int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
 

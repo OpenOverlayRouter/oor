@@ -60,6 +60,7 @@
 #include <stdint.h>
 
 #include "lispd_log.h"
+//#include "lispd_external.h"
 
 
 
@@ -278,7 +279,7 @@ typedef struct lispd_xTR_ID_
  *  for map-register auth data...
  */
 
-#define LISP_SHA1_AUTH_DATA_LEN         20
+
 
 /*
  * Structure to simplify netlink processing
@@ -322,10 +323,10 @@ typedef struct lisp_data_hdr {
 /*
  * Fixed size portion of map request ITR RLOC.
  */
-typedef struct lispd_pkt_map_request_itr_rloc_t_ {
-    uint16_t afi;
-    /*    uint8_t address[0]; */
-} PACKED lispd_pkt_map_request_itr_rloc_t;
+//typedef struct lispd_pkt_map_request_itr_rloc_t_ {
+//    uint16_t afi;
+//    /*    uint8_t address[0]; */
+//} PACKED lispd_pkt_map_request_itr_rloc_t;
 
 
 /*

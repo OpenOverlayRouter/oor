@@ -34,8 +34,8 @@
 #define LISPD_EXTERNAL_H_
 
 #include "lispd.h"
-#include "lispd_iface_list.h"
-#include "lispd_map_cache.h"
+#include <lispd_iface_list.h>
+#include <lispd_map_cache.h>
 
 
 

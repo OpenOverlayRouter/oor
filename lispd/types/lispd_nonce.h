@@ -1,8 +1,9 @@
 /*
- * cksum.h
+ * lispd_nonce.h
  *
  * This file is part of LISP Mobile Node Implementation.
- * Implementation for UDP checksum.
+ * Send registration messages for each database mapping to
+ * configured map-servers.
  *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
@@ -24,42 +25,46 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer   <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *
+ *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#ifndef CKSUM_H_
-#define CKSUM_H_
+#ifndef LISPD_NONCE_H_
+#define LISPD_NONCE_H_
 
 #include <defs.h>
 
-uint16_t ip_checksum(uint16_t *buffer,int size);
+typedef struct{
+    uint8_t     retransmits;
+    uint64_t    nonce[LISPD_MAX_RETRANSMITS + 1];
+}nonces_list;
+
+
 
 /*
- *  Calculate the IPv4 or IPv6 UDP checksum
+ *      Generates a nonce random number
+ *      requires librt
  */
 
-uint16_t udp_checksum (
-     struct udphdr *udph,
-     int       udp_len,
-     void      *iphdr,
-     int       afi);
-
-uint16_t get_auth_data_len(int key_id);
-
-int complete_auth_fields(int key_id,
-                         uint16_t * key_id_pos,
-                         char *key,
-                         void *packet,
-                         int pckt_len,
-                         void *auth_data_pos);
-
-int check_auth_field(int key_id,
-                     char *key,
-                     void *packet,
-                     int pckt_len,
-                     void *auth_data_pos);
+uint64_t build_nonce(int seed);
 
 
-#endif /* CKSUM_H_ */
+/*
+ * Create and reserve space for a nonces_lits structure
+ */
+nonces_list *new_nonces_list();
+
+/*
+ * Return true if nonce is found in the nonces list
+ */
+
+int check_nonce(nonces_list   *nonces, uint64_t nonce);
+
+
+/*
+ * Print 64-bit nonce in 0x%08x-0x%08x format.
+ */
+void lispd_print_nonce (uint64_t nonce, int log_level);
+
+char * get_char_from_nonce (uint64_t nonce);
+
+#endif /* LISPD_NONCE_H_ */

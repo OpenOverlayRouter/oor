@@ -35,10 +35,10 @@
 #define _GNU_SOURCE
 #endif
 
-#include "lispd.h"
+#include "defs.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
-#include "lispd_output.h"
+//#include "lispd_output.h"
 
 
 int open_device_binded_raw_socket(

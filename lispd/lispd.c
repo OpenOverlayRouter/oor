@@ -49,22 +49,18 @@
 #include <net/if.h>
 #include "lispd.h"
 #include "lispd_config.h"
-#include "lispd_control.h"
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
-#include "lispd_input.h"
+#include "data-tun/lispd_input.h"
 #include "lispd_lib.h"
-#include "lispd_local_db.h"
 #include "lispd_log.h"
-#include "lispd_map_cache_db.h"
-#include "lispd_map_register.h"
-#include "lispd_output.h"
-#include "lispd_rloc_probing.h"
-#include "lispd_routing_tables_lib.h"
-#include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
-#include "lispd_tun.h"
+#include "control/lispd_control.h"
+#include "data-tun/lispd_tun.h"
+#include "data-tun/lispd_output.h"
+#include "data-tun/lispd_routing_tables_lib.h"
+
 
 void event_loop();
 void signal_handler(int);

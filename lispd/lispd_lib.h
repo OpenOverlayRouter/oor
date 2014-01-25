@@ -33,8 +33,8 @@
 #ifndef LISPD_LIB_H_
 #define LISPD_LIB_H_
 
-#include "lispd.h"
-#include "lispd_locator.h"
+#include "defs.h"
+#include <lispd_locator.h>
 
 
 /*

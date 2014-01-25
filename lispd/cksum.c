@@ -29,7 +29,7 @@
  *
  */
 
-#include "cksum.h"
+#include <cksum.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 

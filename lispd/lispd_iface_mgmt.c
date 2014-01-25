@@ -29,16 +29,16 @@
  */
 #include "lispd_external.h"
 #include "lispd_iface_mgmt.h"
-#include "lispd_info_request.h"
+#include <lispd_info_request.h>
 #include "lispd_lib.h"
-#include "lispd_log.h"
-#include "lispd_mapping.h"
-#include "lispd_routing_tables_lib.h"
+#include "defs.h"
+#include <lispd_mapping.h>
+#include <lispd_routing_tables_lib.h>
 #include "lispd_smr.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
-#include "defs_re.h"
+#include <lispd_control.h>
 
 /************************* FUNCTION DECLARTAION ********************************/
 

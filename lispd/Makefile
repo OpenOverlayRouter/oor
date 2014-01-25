@@ -36,54 +36,55 @@ endif
 endif
 endif
 
-INC		= lispd.h
+INC		= defs.h
 MAKEFILE	= Makefile
-OBJS		= cksum.o	\
-		  cmdline.o	\
+OBJS		= cmdline.o	\
+		  cksum.o	\
+		  control/lispd_control.o	\
+		  control/lispd_info_nat.o	\
+		  control/lispd_info_request.o \
+		  control/lispd_info_reply.o	\
+		  control/lispd_local_db.o	\
+		  control/lispd_map_cache_db.o \
+		  control/lispd_map_notify.o	\
+		  control/lispd_map_register.o	\
+		  control/lispd_re.o	\
+		  control/lispd_rloc_probing.o \
+		  control/lispd_smr.o	\
+		  data-tun/lispd_iface_list.o	\
+		  data-tun/lispd_input.o	\
+		  data-tun/lispd_output.o	\
+		  data-tun/lispd_tun.o	\
+		  data-tun/lispd_routing_tables_lib.o \
+		  elibs/llist/generic_list.o	\
+		  elibs/patricia/patricia.o	\
+		  lisp-messages/lisp_messages.o	\
+		  lisp-messages/lisp_message_fields.o \
 		  lispd.o	\
-		  lispd_address.o	\
 		  lispd_afi.o	\
 		  lispd_config.o	\
-		  lispd_control.o	\
-		  lispd_iface_list.o	\
 		  lispd_iface_mgmt.o \
-		  lispd_info_nat.o	\
-		  lispd_info_request.o \
-		  lispd_info_reply.o	\
-		  lispd_input.o	\
-		  lispd_ip.o	\
-		  lispd_lcaf.o	\
 		  lispd_lib.o	\
-		  lispd_local_db.o	\
-		  lispd_locator.o	\
 		  lispd_log.o	\
-		  lispd_map_cache.o	\
-		  lispd_map_cache_db.o \
-		  lispd_map_notify.o	\
-		  lispd_map_register.o	\
-		  lispd_mapping.o \
-		  lispd_mdb.o	\
-		  lispd_nonce.o 	\
-		  lispd_output.o	\
 		  lispd_pkt_lib.o \
-		  lispd_re.o	\
-		  lispd_remdb.o	\
-		  lispd_rloc_probing.o \
-		  lispd_routing_tables_lib.o \
-		  lispd_smr.o	\
 		  lispd_sockets.o \
 		  lispd_timers.o 	\
-		  lispd_tun.o	\
-		  llist/generic_list.o	\
-		  patricia/patricia.o	\
-		  util/messages/lisp_messages.o	\
-		  util/messages/lisp_message_fields.o
+		  types/lispd_address.o	\
+		  types/lispd_ip.o	\
+		  types/lispd_lcaf.o	\
+		  types/lispd_locator.o	\
+		  types/lispd_map_cache.o	\
+		  types/lispd_mapping.o 	\
+		  types/lispd_mdb.o	\
+		  types/lispd_nonce.o 	\
+		  types/lispd_remdb.o	
 
 EXE		= lispd
 PREFIX		= /usr/local/sbin
+INCLUDE		= -I. -Ilisp-messages -Ielibs -Itypes -Icontrol -Idata-tun
 
 $(EXE): $(OBJS) 
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS) 
 
 #
 #	gengetops generates this...
@@ -91,14 +92,14 @@ $(EXE): $(OBJS)
 cmdline.c: lispd.ggo
 	$(GENGETOPT) -i $<
 
-%.o: %.c $(DEPS) $(INC) $(MAKEFILE)
+%.o: %.c $(DEPS)  $(INC) $(MAKEFILE)
 ifeq "$(ERROR)" "true"
 		$(error  Invalid value of platform parameter)
 endif
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $< 
 
 clean:
-	rm -f *.o $(EXE) patricia/*.o bob/*o util/messages/*o llist/*o
+	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o lisp-messages/*o elibs/llist/*o types/*o control/*o data-tun/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out
