@@ -79,6 +79,15 @@ lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix
 
 lisp_addr_t *get_main_eid(int afi);
 
+/**
+ * Returns a list with all the mappings in the database according to the specified afi
+ * @param afi Indicate the mapping that should be added to the list (AF_INET, AF_INET6 or AF_UNSPEC for both)
+ * @return List of mappings or NULL if no mapping matching the afi
+ */
+lispd_mapping_list *get_all_mappings(int afi);
+
+lispd_addr_list_t   *get_all_eids();
+
 /*
  * Return the number of entries of the database
  */

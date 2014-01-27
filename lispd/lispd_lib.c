@@ -1336,7 +1336,7 @@ int extract_lisp_address(
  * Loop to free all the members of a lispd_addr_list_t
  */
 
-void free_lisp_addr_list(lispd_addr_list_t * list)
+void free_lisp_addr_list(lispd_addr_list_t * list, uint8_t free_address)
 
 {
     lispd_addr_list_t *aux_list = NULL;
@@ -1344,7 +1344,9 @@ void free_lisp_addr_list(lispd_addr_list_t * list)
     while (list != NULL) {
         aux_list = list->next;
 
-        free(list->address);
+        if (free_address == TRUE){
+            free(list->address);
+        }
         free(list);
         list = aux_list;
     }

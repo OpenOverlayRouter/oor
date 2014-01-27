@@ -277,7 +277,13 @@ void del_mapping_entry_from_db(
     free(entry);
 }
 
-lisp_addr_t *get_main_eid(int afi){
+/**
+ * Returns a list with all the mappings in the database according to the specified afi
+ * @param afi Indicate the mapping that should be added to the list (AF_INET, AF_INET6 or AF_UNSPEC for both)
+ * @return List of mappings or NULL if no mapping matching the afi
+ */
+lisp_addr_t *get_main_eid(int afi)
+{
     lisp_addr_t                 *eid        = NULL;
     lispd_mapping_elt           *entry      = NULL;
     patricia_tree_t             *database   = NULL;
@@ -301,6 +307,48 @@ lisp_addr_t *get_main_eid(int afi){
     }PATRICIA_WALK_END;
 
     return (eid);
+}
+
+/*
+ * Returns a list with all the mappings in the database according to the specified afi
+ * @param afi Indicate the mapping that should be added to the list (AF_INET, AF_INET6 or AF_UNSPEC for both)
+ * @return List of mappings or NULL if no mapping matching the afi
+ */
+lispd_mapping_list *get_all_mappings(int afi)
+{
+    lispd_mapping_list          *list           = NULL;
+    lispd_mapping_elt           *mapping        = NULL;
+    patricia_node_t             *node           = NULL;
+    patricia_tree_t             *database[2]    = {NULL,NULL};
+    int                         ctr             = 0;
+
+    switch (afi){
+    case AF_INET:
+        database[0] = EIDv4_database;
+        break;
+    case AF_INET6:
+        database[1] = EIDv6_database;
+        break;
+    case AF_UNSPEC:
+        database[0] = EIDv4_database;
+        database[1] = EIDv6_database;
+        break;
+    default:
+        return (NULL);
+    }
+
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        if (database[ctr] == NULL){
+            continue;
+        }
+        PATRICIA_WALK(database[ctr]->head, node) {
+            mapping = ((lispd_mapping_elt *)(node->data));
+            if (mapping != NULL){
+                add_mapping_to_list(mapping,&list);
+            }
+        }PATRICIA_WALK_END;
+    }
+    return (list);
 }
 
 /*

@@ -33,8 +33,11 @@
 
 #include "lispd_external.h"
 #include "lispd_lib.h"
+#include "lispd_local_db.h"
 #include "lispd_log.h"
+#include "lispd_mapping.h"
 #include "lispd_routing_tables_lib.h"
+#include "lispd_tun.h"
 
 
 /**************************** FUNCTION DECLARATION ***************************/
@@ -110,7 +113,7 @@ inline int modify_rule (
 
     if (sockfd < 0) {
         lispd_log_msg(LISP_LOG_CRIT, "Failed to connect to netlink socket for creating route");
-        exit_cleanup();
+        return (BAD);
     }
 
     if (afi == AF_INET){
@@ -218,7 +221,7 @@ inline int modify_rule (
     if (result < 0) {
         lispd_log_msg(LISP_LOG_CRIT, "mod_route: send netlink command failed %s", strerror(errno));
         close(sockfd);
-        exit_cleanup();
+        return (BAD);
     }
     close(sockfd);
     return(GOOD);
@@ -243,8 +246,14 @@ int add_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
     if (result == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "add_rule: Add rule for source routing of src addr: %s",
-                get_char_from_lisp_addr_t(*src_addr));
+        if (src_addr != NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "add_rule: Added rule in ip rule table for source routing of src prefix: %s/%d",
+                    get_char_from_lisp_addr_t(*src_addr),src_plen);
+        }
+        if (dst_addr != NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "add_rule: Added rule in ip rule table to redirect packets with destination in %s/%d"
+                    "to the main routing table", get_char_from_lisp_addr_t(*dst_addr), dst_plen);
+        }
     }
 
     return (result);
@@ -269,8 +278,23 @@ int del_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_DELRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
     if (result == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "del_rule: Removed rule for source routing of src addr: %s",
-                get_char_from_lisp_addr_t(*src_addr));
+        if (src_addr != NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "del_rule: Removed rule in ip rule table for source routing of src prefix: %s/%d",
+                    get_char_from_lisp_addr_t(*src_addr),src_plen);
+        }
+        if (dst_addr != NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "del_rule: Removed rule in ip rule table for redirect packets with destination in %s/%d"
+                    "to the main routing table", get_char_from_lisp_addr_t(*dst_addr), dst_plen);
+        }
+    }else{
+        if (src_addr != NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "del_rule: Couldn't remove rule in ip rule table for source routing of src prefix: %s/%d",
+                    get_char_from_lisp_addr_t(*src_addr),src_plen);
+        }
+        if (dst_addr != NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1, "del_rule: Couldn't remove rule in ip rule table for redirect packets with destination in %s/%d"
+                    "to the main routing table", get_char_from_lisp_addr_t(*dst_addr), dst_plen);
+        }
     }
 
     return (result);
@@ -283,24 +307,52 @@ void remove_created_rules()
 {
     lispd_iface_list_elt    *interface_list = NULL;
     lispd_iface_elt         *iface          = NULL;
+    lispd_mapping_list      *list           = NULL;
+    lispd_mapping_list      *list_elt       = NULL;
+    lispd_mapping_elt       *mapping        = NULL;
 
     interface_list = head_interface_list;
     while (interface_list != NULL){
         iface = interface_list->iface;
 
         if (iface->ipv4_address->afi != AF_UNSPEC){
-            if (iface->ipv4_gateway != NULL){
-                del_route(AF_INET,iface->iface_index,NULL,NULL,iface->ipv4_gateway,0,0,iface->iface_index);
-            }
             del_rule(AF_INET,0,iface->iface_index,iface->iface_index,RTN_UNICAST,iface->ipv4_address,32,NULL,0,0);
         }
         if (iface->ipv6_address->afi != AF_UNSPEC){
-            if (iface->ipv6_gateway != NULL){
-                del_route(AF_INET6,iface->iface_index,NULL,NULL,iface->ipv6_gateway,0,0,iface->iface_index);
-            }
             del_rule(AF_INET6,0,iface->iface_index,iface->iface_index,RTN_UNICAST,iface->ipv6_address,128,NULL,0,0);
         }
         interface_list = interface_list->next;
+    }
+    /* If router mode then remove lisp routing table to tun interface */
+    if (router_mode == TRUE){
+        list = get_all_mappings(AF_UNSPEC);
+        list_elt = list;
+        while (list_elt != NULL){
+            mapping = list_elt->mapping;
+            if (del_rule(mapping->eid_prefix.afi,
+                    0,
+                    LISP_TABLE,
+                    RULE_TO_LISP_TABLE_PRIORITY,
+                    RTN_UNICAST,
+                    &(mapping->eid_prefix),
+                    mapping->eid_prefix_length,
+                    NULL,0,0)!=GOOD){
+                free_mapping_list(list, FALSE);
+            }
+            if (del_rule(mapping->eid_prefix.afi,
+                    0,
+                    RT_TABLE_MAIN,
+                    RULE_AVOID_LISP_TABLE_PRIORITY,
+                    RTN_UNICAST,
+                    NULL,0,
+                    &(mapping->eid_prefix),
+                    mapping->eid_prefix_length,
+                    0)!=GOOD){
+                free_mapping_list(list, FALSE);
+            }
+
+            list_elt = list_elt->next;
+        }
     }
 }
 
@@ -349,7 +401,7 @@ int request_route_table(uint32_t table, int afi)
 
     if (retval < 0) {
         lispd_log_msg(LISP_LOG_CRIT, "request_route_table: send netlink command failed %s", strerror(errno));
-        exit_cleanup();
+        return(BAD);
     }
     return(GOOD);
 }
@@ -396,7 +448,7 @@ inline int modify_route(
 
     if (sockfd < 0) {
         lispd_log_msg(LISP_LOG_CRIT, "modify_route: Failed to connect to netlink socket");
-        exit_cleanup();
+        return(BAD);
     }
 
     /*
@@ -508,7 +560,7 @@ inline int modify_route(
     if (retval < 0) {
         lispd_log_msg(LISP_LOG_CRIT, "modify_route: send netlink command failed %s", strerror(errno));
         close(sockfd);
-        exit_cleanup();
+        return(BAD);
     }
     close(sockfd);
     return(GOOD);
@@ -533,6 +585,13 @@ int add_route(
                 prefix_len,
                 (gw != NULL) ? get_char_from_lisp_addr_t(*gw) : "-",
                 table);
+    }else{
+        lispd_log_msg(LISP_LOG_ERR, "add_route: Coudn't add route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
+                        (src != NULL) ? get_char_from_lisp_addr_t(*src) : "-",
+                        (dest != NULL) ? get_char_from_lisp_addr_t(*dest) : "-",
+                        prefix_len,
+                        (gw != NULL) ? get_char_from_lisp_addr_t(*gw) : "-",
+                        table);
     }
 
     return (result);
@@ -552,6 +611,8 @@ int del_route(
     result = modify_route(RTM_DELROUTE, afi, ifindex, dest, src, gw, prefix_len, metric, table);
     if (result == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "del_route: deleted route  from the system");
+    }else{
+        lispd_log_msg(LISP_LOG_ERR, "del_route: Couldn't delete route  from the system");
     }
     return (result);
 }

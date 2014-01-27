@@ -352,25 +352,6 @@ void process_address_change (
         break;
     }
 
-
-    /* If it is compiled in router mode, then recompile default routes changing the indicated src address*/
-
-    if (router_mode == TRUE){
-        switch (new_addr.afi){
-        case AF_INET:
-            if (iface == default_out_iface_v4){
-                set_tun_default_route_v4();
-            }
-            break;
-        case AF_INET6:
-            if (iface == default_out_iface_v6){
-                del_tun_default_route_v6();
-                set_tun_default_route_v6();
-            }
-            break;
-        }
-    }
-
     /* Check if the new address is behind NAT */
 
     if(nat_aware==TRUE){

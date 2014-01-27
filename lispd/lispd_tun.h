@@ -95,9 +95,12 @@ int create_tun(
     unsigned int        tun_receive_size,
     int                 tun_mtu,
     int                 *tun_receive_fd,
-    int                 *tun_ifindex,
     uint8_t             **tun_receive_buf);
 
+/**
+ * Creates the routes to send the traffic to the tun interface to be encapsulated
+ */
+int configure_routing_to_tun();
 
 /*
  * tun_bring_up_iface()

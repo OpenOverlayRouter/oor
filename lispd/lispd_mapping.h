@@ -51,6 +51,14 @@ typedef struct lispd_mapping_elt_ {
     void                            *extended_info;
 } lispd_mapping_elt;
 
+/*
+ * lispd mapping list
+ */
+typedef struct lispd_mapping_list_ {
+    lispd_mapping_elt          *mapping;
+    struct lispd_mapping_list_ *next;
+}lispd_mapping_list;
+
 
 /*
  * Used to select the locator to be used for an identifier according to locators' priority and weight.
@@ -173,5 +181,23 @@ void dump_balancing_locators_vec(
         balancing_locators_vecs b_locators_vecs,
         lispd_mapping_elt *mapping,
         int log_level);
+
+
+/**
+ * Add a mapping to a mapping list
+ * @param mapping Mapping element to be added
+ * @param list Pointer to the first element of the list where to add the mapping
+ * @retun GOOD if finish correctly or an error code otherwise
+ */
+
+int add_mapping_to_list(lispd_mapping_elt *mapping, lispd_mapping_list **list);
+
+/**
+ * Release the memory of a list of mappings
+ * @param list First element of the list to be released
+ * @param free_mappings If TRUE the elements stored in the list are also released
+ */
+void free_mapping_list(lispd_mapping_list *list, uint8_t free_mappings);
+
 
 #endif /* LISPD_MAPPING_H_ */

@@ -816,4 +816,59 @@ void dump_balancing_locators_vec(
 }
 
 /********************************************************************************************/
+/********************************************* MAPPINGS LIST ********************************/
+/*
+ * Add a mapping to a mapping list
+ * @param mapping Mapping element to be added
+ * @param list Pointer to the first element of the list where to add the mapping
+ * @retun GOOD if finish correctly or an error code otherwise
+ */
+int add_mapping_to_list(
+        lispd_mapping_elt    *mapping,
+        lispd_mapping_list   **list)
+{
+    lispd_mapping_list   *list_elt   = NULL;
+
+    if(mapping == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "add_mapping_to_list: Empty data");
+        return (BAD);
+    }
+
+    if ((list_elt = (lispd_mapping_list *)calloc(1,sizeof(lispd_mapping_list))) == NULL) {
+        lispd_log_msg(LISP_LOG_WARNING, "add_mapping_to_list: Unable to allocate memory for lisp_mapping_list: %s", strerror(errno));
+        return(ERR_MALLOC);
+    }
+
+    list_elt->mapping = mapping;
+    if (*list != NULL) {
+        list_elt->next = *list;
+        *list = list_elt;
+    } else {
+        *list = list_elt;
+    }
+
+    return (GOOD);
+}
+
+/*
+ * Release the memory of a list of mappings
+ * @param list First element of the list to be released
+ * @param free_mappings If TRUE the elements stored in the list are also released
+ */
+void free_mapping_list(
+        lispd_mapping_list   *list,
+        uint8_t             free_mappings)
+{
+    lispd_mapping_list *aux_list = NULL;
+
+    while (list != NULL) {
+        aux_list = list->next;
+
+        if (free_mappings == TRUE){
+            free_mapping_elt(list->mapping);
+        }
+        free(list);
+        list = aux_list;
+    }
+}
 

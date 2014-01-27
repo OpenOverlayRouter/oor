@@ -151,9 +151,6 @@ int                         timers_fd;
 
 int main(int argc, char **argv)
 {
-    lisp_addr_t 		*tun_v4_addr  = NULL;
-    lisp_addr_t 		*tun_v6_addr  = NULL;
-    char 				*tun_dev_name = TUN_IFACE_NAME;
     uint32_t 			iseed         = 0;  /* initial random number generator */
     pid_t  				pid           = 0;    /* child pid */
     pid_t  				sid           = 0;
@@ -292,53 +289,21 @@ int main(int argc, char **argv)
      * Create tun interface
      */
 
-    create_tun(tun_dev_name,
+    if (create_tun(TUN_IFACE_NAME,
             TUN_RECEIVE_SIZE,
             TUN_MTU,
             &tun_receive_fd,
-            &tun_ifindex,
-            &tun_receive_buf);
-
+            &tun_receive_buf) != GOOD){
+        exit_cleanup();
+    }
 
     /*
-     * Assign address to the tun interface
-     * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
-     *                 ::/1      and 8000::/1
+     * Assign address to the tun interface and add routing to this interface
      */
-
-    if (router_mode == TRUE){
-        tun_v4_addr = get_main_eid(AF_INET);
-        if (tun_v4_addr != NULL){
-            tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-            get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
-        }
-        tun_v6_addr = get_main_eid(AF_INET6);
-        if (tun_v6_addr != NULL){
-            tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-            get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
-        }
-    }else{
-        tun_v4_addr = get_main_eid(AF_INET);
-        tun_v6_addr = get_main_eid(AF_INET6);
+    if (configure_routing_to_tun() != GOOD){
+        exit_cleanup();
     }
 
-    tun_bring_up_iface(tun_dev_name);
-    if (tun_v4_addr != NULL){
-        tun_add_eid_to_iface(*tun_v4_addr,tun_dev_name);
-        set_tun_default_route_v4();
-    }
-    if (tun_v6_addr != NULL){
-        tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
-        set_tun_default_route_v6();
-    }
-    if (router_mode == TRUE){
-        if (tun_v4_addr != NULL){
-            free(tun_v4_addr);
-        }
-        if (tun_v6_addr != NULL){
-            free(tun_v6_addr);
-        }
-    }
     /*
      * Generate receive sockets for control (4342) and data port (4341)
      */

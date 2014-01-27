@@ -227,7 +227,7 @@ int extract_lisp_address(
         uint8_t         *ptr,
         lisp_addr_t     *addr);
 
-void free_lisp_addr_list(lispd_addr_list_t * list);
+void free_lisp_addr_list(lispd_addr_list_t *list, uint8_t free_address);
 
 int convert_hex_string_to_bytes(
         char        *hex,
