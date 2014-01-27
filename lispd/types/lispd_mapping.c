@@ -471,8 +471,8 @@ void dump_mapping_entry(
         return;
     }
 
-    lispd_log_msg(log_level,"IDENTIFIER (EID): %s/%d (IID = %d)\n ", lisp_addr_to_char(mapping_get_eid_addr(mapping)),
-            mapping->eid_prefix_length, mapping->iid);
+    lispd_log_msg(log_level,"IDENTIFIER (EID): %s (IID = %d)\n ",
+            lisp_addr_to_char(mapping_get_eid_addr(mapping)), mapping->iid);
 
     lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
 

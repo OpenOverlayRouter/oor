@@ -220,7 +220,7 @@ int process_info_reply_msg(
                     " but there is no RTR compatible with local AFI", get_char_from_lisp_addr_t(local_rloc));
         }
 
-        mapping = lookup_eid_exact_in_db(eid_prefix, eid_mask_len);
+        mapping = local_map_db_lookup_eid_exact(&eid_prefix);
         if (mapping == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
             return (BAD);
@@ -263,7 +263,7 @@ int process_info_reply_msg(
     }
 
     /* Once we know the NAT state we send a Map-Register */
-    map_register(NULL,NULL);
+    map_register_all_eids();
 
     return (GOOD);
 }

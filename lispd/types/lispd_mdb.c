@@ -300,7 +300,7 @@ patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr)
     return(NULL);
 }
 
-mdb_t *mdb_init()
+mdb_t *mdb_new()
 {
 
     mdb_t *db;

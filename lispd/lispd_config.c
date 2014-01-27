@@ -427,7 +427,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_db(LISP_LOG_DEBUG_1);
+    local_map_db_dump(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
         map_cache_dump_db(LISP_LOG_DEBUG_1);
     }
@@ -766,11 +766,11 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     /* Check number of EID prefixes */
 #ifndef ROUTER
-    if (num_entries_in_db(get_local_db(AF_INET)) > 1){
+    if (local_map_db_num_ip_eids(AF_INET) > 1){
         lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
         exit_cleanup();
     }
-    if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
+    if (local_map_db_num_ip_eids(AF_INET6) > 1){
         lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
         exit_cleanup();
     }
@@ -786,7 +786,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
-    dump_local_db(LISP_LOG_DEBUG_1);
+    local_map_db_dump(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
         map_cache_dump_db(LISP_LOG_DEBUG_1);
     }
@@ -880,7 +880,9 @@ int add_database_mapping(
     /*
      * Lookup if the mapping exists. If not, a new mapping is created.
      */
-    mapping = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
+//    if (eid_prefix)
+    mapping = local_map_db_lookup_eid_exact(&eid_prefix);
+
     if (mapping == NULL) {
         mapping = new_local_mapping(eid_prefix,eid_prefix_length,iid);
         if (mapping == NULL) {
@@ -888,11 +890,10 @@ int add_database_mapping(
             return (BAD);
         }
         /* Add the mapping to the local database */
-        if (add_mapping_to_db(mapping)!=GOOD) {
+        if (local_map_db_add_mapping(mapping)!=GOOD) {
             free_mapping_elt(mapping, TRUE);
             return (BAD);
         }
-        total_mappings ++;
         is_new_mapping = TRUE;
     }else{
         if (mapping->iid != iid){
@@ -912,7 +913,7 @@ int add_database_mapping(
     /* If we couldn't add the interface and the mapping is new, we remove it. */
     if (interface == NULL && is_new_mapping == TRUE){
         if (is_new_mapping){
-            del_mapping_entry_from_db (mapping->eid_prefix, mapping->eid_prefix_length);
+            local_map_db_del_mapping(mapping_get_eid_addr(mapping));
             lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add mapping -> Cudn't create interface");
         }else{
             lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add locator to the mapping -> Cudn't create interface");

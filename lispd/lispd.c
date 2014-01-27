@@ -176,7 +176,7 @@ int main(int argc, char **argv)
      *  set up databases
      */
 
-    db_init();
+    local_map_db_init();
     map_cache_init();
 
 
@@ -289,19 +289,19 @@ int main(int argc, char **argv)
      */
 
 #ifdef ROUTER
-    tun_v4_addr = get_main_eid(AF_INET);
+    tun_v4_addr = local_map_db_get_main_eid(AF_INET);
     if (tun_v4_addr != NULL){
         tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
         get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
     }
-    tun_v6_addr = get_main_eid(AF_INET6);
+    tun_v6_addr = local_map_db_get_main_eid(AF_INET6);
     if (tun_v6_addr != NULL){
         tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
         get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
     }
 #else
-    tun_v4_addr = get_main_eid(AF_INET);
-    tun_v6_addr = get_main_eid(AF_INET6);
+    tun_v4_addr = local_map_db_get_main_eid(AF_INET);
+    tun_v6_addr = local_map_db_get_main_eid(AF_INET6);
 #endif
 
     tun_bring_up_iface(tun_dev_name);
@@ -357,7 +357,7 @@ int main(int argc, char **argv)
      *  Register to the Map-Server(s)
      */
 
-    map_register (NULL,NULL);
+    map_register_all_eids();
 
     /*
      * SMR proxy-ITRs list to be updated with new mappings

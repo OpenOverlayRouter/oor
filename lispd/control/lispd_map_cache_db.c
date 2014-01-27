@@ -67,7 +67,7 @@ int mcache_update_mapping_eid(lisp_addr_t *new_eid, lispd_map_cache_entry *mce) 
  */
 void map_cache_init()
 {
-    mdb = mdb_init();
+    mdb = mdb_new();
     if (!mdb) {
         lispd_log_msg(LISP_LOG_CRIT, "Could not initialize the mappings cache! Exiting .. ");
         exit(1);

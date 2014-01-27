@@ -49,7 +49,7 @@ typedef struct {
     patricia_tree_t *AF6_mc_db;
 } mdb_t;
 
-mdb_t                   *mdb_init();
+mdb_t                   *mdb_new();
 int                     mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
 void                    *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
 void                    *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr, uint8_t exact);

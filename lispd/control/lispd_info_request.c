@@ -224,28 +224,16 @@ int build_and_send_info_request(
 int initial_info_request_process()
 {
     int result = 0;
-    patricia_tree_t           *dbs[2]           = {NULL,NULL};
-    int                       ctr               = 0;
-    patricia_tree_t           *tree             = NULL;
-    patricia_node_t           *node             = NULL;
     lispd_mapping_elt         *mapping          = NULL;
+    void                      *it               = NULL;
 
-    dbs[0] = get_local_db(AF_INET);
-    dbs[1] = get_local_db(AF_INET6);
-
-    for (ctr = 0 ; ctr < 2 ; ctr++) {
-        tree = dbs[ctr];
-        if (!tree){
-            continue;
+    local_map_db_foreach_entry(it) {
+        mapping = (lispd_mapping_elt *)it;
+        if (mapping->locator_count != 0){
+            result = info_request(NULL,mapping);
+            return (result);
         }
-        PATRICIA_WALK(tree->head, node) {
-            mapping = ((lispd_mapping_elt *)(node->data));
-            if (mapping->locator_count != 0){
-                result = info_request(NULL,mapping);
-                return (result);
-            }
-        }PATRICIA_WALK_END;
-    }
+    } local_map_db_foreach_end;
     return(GOOD);
 }
 

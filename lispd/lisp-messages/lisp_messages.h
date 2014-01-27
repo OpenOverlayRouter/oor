@@ -31,6 +31,9 @@
 #include "lisp_message_fields.h"
 #include "lisp_map_reply.h"
 #include "lisp_map_request.h"
+#include "lisp_map_register.h"
+#include "lisp_map_notify.h"
+#include <defs.h>
 
 /*
  * LISP Types

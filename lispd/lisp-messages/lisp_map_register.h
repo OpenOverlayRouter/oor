@@ -35,8 +35,8 @@
 #define LISP_MAP_REGISTER_H_
 
 #include <stdint.h>
+#include "lisp_message_fields.h"
 
-#define LISP_SHA1_AUTH_DATA_LEN         20
 
 /*
  * Map-Registers have an authentication header before the UDP header.
@@ -94,7 +94,7 @@
 
 /* I and R bit are defined on NAT tarversal draft*/
 
-typedef struct lispd_pkt_map_register_t_ {
+typedef struct _map_register_msg_hdr {
 #ifdef LITTLE_ENDIANS
     uint8_t  rbit:1;
     uint8_t  ibit:1;
@@ -120,22 +120,32 @@ typedef struct lispd_pkt_map_register_t_ {
 #endif
     uint8_t  record_count;
     uint64_t nonce;
-    uint16_t key_id;
-    uint16_t auth_data_len;
-    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
+//    uint16_t key_id;
+//    uint16_t auth_data_len;
+//    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
 } __attribute__ ((__packed__)) map_register_msg_hdr;
 
 typedef struct map_register_msg_ {
     uint8_t         *bits;
-    uint8_t        *authdata;
+    auth_field      *auth_data;
     mapping_record  **records;
 } map_register_msg;
 
-map_register_msg *map_register_msg_new();
-map_register_msg *map_register_msg_parse(uint8_t *offset);
+
+inline map_register_msg *map_register_msg_new();
 void map_register_msg_del(map_register_msg *mreg);
+map_register_msg *map_register_msg_parse(uint8_t *offset);
 
+static inline map_register_msg_hdr *mreg_msg_get_hdr(map_register_msg *mreg) {
+    return((map_register_msg_hdr *)mreg->bits);
+}
 
+static inline mapping_record **mreg_msg_get_records(map_register_msg *mreg) {
+    return(mreg->records);
+}
 
+static inline auth_field *mreg_msg_get_auth_data(map_register_msg *mreg) {
+    return(mreg->auth_data);
+}
 
 #endif /* LISP_MAP_REGISTER_H_ */

@@ -345,6 +345,7 @@ typedef struct lisp_data_hdr {
  */
 #define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
 
+#define LISP_SHA1_AUTH_DATA_LEN         20
 
 
 

@@ -184,6 +184,8 @@ inline eid_prefix_record *eid_prefix_record_new() {
 }
 
 void eid_prefix_record_del(eid_prefix_record *record) {
+    if (!record)
+        return;
     if (record->eid)
         address_field_del(record->eid);
     free(record);
@@ -197,6 +199,61 @@ eid_prefix_record *eid_prefix_record_parse(uint8_t *offset) {
     record->eid = address_field_parse(CO(record->data, sizeof(eid_prefix_record_hdr)));
     record->len = sizeof(eid_prefix_record_hdr) + address_field_get_len(record->eid);
     return(record);
+}
+
+
+/*
+ * Authentication field (Map-Register and Map-Notify)
+ */
+
+
+auth_field *auth_field_new() {
+    return(calloc(1, sizeof(auth_field)));
+}
+
+auth_field *auth_field_parse(uint8_t *offset) {
+    auth_field *af = auth_field_new();
+    int ad_len = 0;
+
+    af->bits = offset;
+    ad_len = ntohs(auth_field_get_hdr(af)->auth_data_len);
+    offset = CO(offset, sizeof(auth_field_hdr));
+    af->auth_data = offset;
+    af->len = sizeof(auth_field_hdr) + ad_len;
+    return(af);
+}
+
+void auth_field_del(auth_field *af) {
+    if (!af)
+        return;
+    free(af);
+}
+
+/* RTR auth */
+
+rtr_auth_field *rtr_auth_field_new() {
+    return(calloc(1, sizeof(rtr_auth_field)));
+}
+
+rtr_auth_field *rtr_auth_field_parse(uint8_t *offset) {
+    rtr_auth_field *raf = rtr_auth_field_new();
+    int ad_len = 0;
+
+    raf->bits = offset;
+    /* we only know how to parse RTR_AUTH_DATA */
+    if (rtr_auth_field_get_hdr(raf)->ad_type != RTR_AUTH_DATA)
+        return(NULL);
+    ad_len = ntohs(rtr_auth_field_get_hdr(raf)->rtr_auth_data_len);
+    offset = CO(raf->bits, sizeof(rtr_auth_field_hdr));
+    raf->rtr_auth_data = offset;
+    raf->len = sizeof(rtr_auth_field_hdr) + ad_len;
+    return(raf);
+}
+
+void rtr_auth_field_del(rtr_auth_field *raf) {
+    if (!raf)
+        return;
+    free(raf);
 }
 
 

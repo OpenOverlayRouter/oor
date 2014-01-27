@@ -32,17 +32,19 @@
 
 #include <defs.h>
 #include <lispd_types.h>
+#include <lispd_mdb.h>
 //#include "lispd_mapping.h"
 //#include "lispd_nonce.h"
-#include <patricia/patricia.h>
+//#include <patricia/patricia.h>
 
 
+mdb_t *local_mdb;
 
 /*
  * Initialize databases
  */
 
-void db_init(void);
+void local_map_db_init(void);
 
 
 /*
@@ -53,13 +55,12 @@ patricia_tree_t* get_local_db(int afi);
 /*
  *  Add a mapping entry to the database.
  */
-int add_mapping_to_db(lispd_mapping_elt *mapping);
+int local_map_db_add_mapping(lispd_mapping_elt *mapping);
 
 /*
  * Delete an EID mapping from the data base. We indicate if it is local or not
  */
-void del_mapping_entry_from_db(lisp_addr_t eid,
-        int prefixlen);
+void local_map_db_del_mapping(lisp_addr_t *eid);
 
 /*
  * lookup_eid_in_db
@@ -67,7 +68,7 @@ void del_mapping_entry_from_db(lisp_addr_t eid,
  * Look up a given eid in the database, returning the
  * lispd_mapping_elt of this EID if it exists or NULL.
  */
-lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t *eid);
+lispd_mapping_elt *local_map_db_lookup_eid(lisp_addr_t *eid);
 
 /*
  * lookup_eid_in_db
@@ -75,19 +76,28 @@ lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t *eid);
  *  Look up a given eid in the database, returning the
  * lispd_mapping_elt containing the exact EID if it exists or NULL.
  */
-lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length);
+lispd_mapping_elt *local_map_db_lookup_eid_exact(lisp_addr_t *eid_prefix);
 
 
-lisp_addr_t *get_main_eid(int afi);
+lisp_addr_t *local_map_db_get_main_eid(int afi);
 
 /*
- * Return the number of entries of the database
+ * Return the number of IP entries of the given afi in the database
  */
-int num_entries_in_db(patricia_tree_t *database);
+int local_map_db_num_ip_eids(int afi);
 
 /*
  * dump the mapping list of the database
  */
-void dump_local_db(int log_level);
+void local_map_db_dump(int log_level);
+
+
+
+#define local_map_db_foreach_entry(eit)   \
+    mdb_foreach_entry(local_mdb, (eit)) {   \
+        if (eit)
+
+#define local_map_db_foreach_end  \
+    } mdb_foreach_entry_end
 
 #endif /*LISPD_LOCAL_DB_H_*/

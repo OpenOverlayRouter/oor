@@ -31,9 +31,9 @@
 #ifndef LISPD_LOCATOR_H_
 #define LISPD_LOCATOR_H_
 
+#include "lispd_address.h"
 #include "lispd_nonce.h"
 #include <lispd_timers.h>
-#include "lispd_address.h"
 
 /****************************************  STRUCTURES **************************************/
 

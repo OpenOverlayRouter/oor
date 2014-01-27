@@ -30,174 +30,140 @@
  */
 
 
-
+#include "lispd_local_db.h"
 #include <netinet/in.h>
 #include "lispd_external.h"
 #include "lispd_lib.h"
-#include "lispd_map_cache_db.h"
+//#include "lispd_map_cache_db.h"
 
 
-/*
- *  Patricia tree based databases
- */
-patricia_tree_t *EIDv4_database           = NULL;
-patricia_tree_t *EIDv6_database           = NULL;
+///*
+// *  Patricia tree based databases
+// */
+//patricia_tree_t *EIDv4_database           = NULL;
+//patricia_tree_t *EIDv6_database           = NULL;
 
 
-/*
- *  Add a EID entry to the database.
- */
-int add_mapping_to_db(lispd_mapping_elt *mapping);
-
-patricia_node_t *lookup_eid_node(lisp_addr_t eid);
-
-patricia_node_t *lookup_eid_exact_node(
-        lisp_addr_t eid,
-        int         eid_prefix_length);
-
+///*
+// *  Add a EID entry to the database.
+// */
+//int local_map_db_add_mapping(lispd_mapping_elt *mapping);
+//
+//patricia_node_t *lookup_eid_node(lisp_addr_t eid);
+//
+//patricia_node_t *lookup_eid_exact_node(
+//        lisp_addr_t eid,
+//        int         eid_prefix_length);
+//
 
 /*
  * Initialize databases
  */
 
-void db_init(void)
+void local_map_db_init(void)
 {
-    EIDv4_database  = New_Patricia(sizeof(struct in_addr)  * 8);
-    EIDv6_database  = New_Patricia(sizeof(struct in6_addr) * 8);
+    local_mdb = mdb_new();
+    if (!local_mdb) {
+        lispd_log_msg(LISP_LOG_CRIT, "Could not initialize the local mappings db! Exiting .. ");
+        exit(1);
+    }
 
-    if (!EIDv4_database || !EIDv6_database) {
-        lispd_log_msg(LISP_LOG_CRIT, "db_init: Unable to allocate memory for database");
-        exit_cleanup();
-    };
+//    EIDv4_database  = New_Patricia(sizeof(struct in_addr)  * 8);
+//    EIDv6_database  = New_Patricia(sizeof(struct in6_addr) * 8);
+//
+//    if (!EIDv4_database || !EIDv6_database) {
+//        lispd_log_msg(LISP_LOG_CRIT, "db_init: Unable to allocate memory for database");
+//        exit_cleanup();
+//    };
 }
 
-patricia_tree_t* get_local_db(int afi)
-{
-    if (afi == AF_INET)
-        return EIDv4_database;
-    else
-        return EIDv6_database;
-}
+//patricia_tree_t* get_local_db(int afi)
+//{
+//    if (afi == AF_INET)
+//        return EIDv4_database;
+//    else
+//        return EIDv6_database;
+//}
 
 
 /*
  *  Add a mapping entry to the database.
  */
-int add_mapping_to_db(lispd_mapping_elt *mapping)
+int local_map_db_add_mapping(lispd_mapping_elt *mapping)
 {
-    prefix_t            *prefix             = NULL;
-    patricia_node_t     *node               = NULL;
-    lisp_addr_t         eid_prefix;
-    int                 eid_prefix_length;
-
-    eid_prefix = mapping->eid_prefix;
-//    eid_prefix_length = mapping->eid_prefix_length;
-    eid_prefix_length = lisp_addr_ippref_get_plen(mapping_get_eid_addr(mapping));
-
-    if ((node = malloc(sizeof(patricia_node_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_mapping_to_db: Unable to allocate memory for patrica_node_t: %s", strerror(errno));
-        return(ERR_MALLOC);
-    }
-
-    switch(eid_prefix.afi) {
-    case AF_INET:
-        if ((prefix = New_Prefix(AF_INET, &(eid_prefix.address.ip), eid_prefix_length)) == NULL) {
-            lispd_log_msg(LISP_LOG_WARNING, "add_mapping_to_db: Unable to allocate memory for prefix_t (AF_INET): %s", strerror(errno));
-            free(node);
-            return(ERR_MALLOC);
-        }
-        node = patricia_lookup(EIDv4_database, prefix);
-        break;
-    case AF_INET6:
-        if ((prefix = New_Prefix(AF_INET6, &(eid_prefix.address.ipv6), eid_prefix_length)) == NULL) {
-            lispd_log_msg(LISP_LOG_WARNING, "add_mapping_to_db: Unable to allocate memory for prefix_t (AF_INET): %s", strerror(errno));
-            free(node);
-            return(ERR_MALLOC);
-        }
-        node = patricia_lookup(EIDv6_database, prefix);
-        break;
-    default:
-        free(node);
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_mapping_to_db: Unknown afi (%d) when allocating prefix_t", eid_prefix.afi);
-        return(ERR_AFI);
-    }
-    Deref_Prefix(prefix);
-
-    if (node->data == NULL){            /* its a new node */
-        node->data = (lispd_mapping_elt *) mapping;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "EID prefix %s inserted in the database",
+    if (mdb_add_entry(local_mdb, mapping_get_eid_addr(mapping), mapping) != GOOD) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Couldn't add mapping for EID %s to local mappings db",
                 lisp_addr_to_char(mapping_get_eid_addr(mapping)));
-        return (GOOD);
-    }else{
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_mapping_to_db: EID prefix entry %s already installed in the data base",
-                lisp_addr_to_char(&eid_prefix));
-        return (BAD);
+        return(BAD);
     }
+
+    total_mappings ++;
+    return(GOOD);
 }
 
 
 
-patricia_node_t *lookup_eid_node(lisp_addr_t eid)
-{
-    patricia_node_t *node = NULL;
-    prefix_t prefix;
-
-    switch(eid.afi) {
-    case AF_INET:
-        prefix.family = AF_INET;
-        prefix.bitlen = 32;
-        prefix.ref_count = 0;
-        prefix.add.sin.s_addr = eid.address.ip.s_addr;
-        node = patricia_search_best(EIDv4_database, &prefix);
-        break;
-    case AF_INET6:
-        prefix.family = AF_INET6;
-        prefix.bitlen = 128;
-        prefix.ref_count = 0;
-        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-        node = patricia_search_best(EIDv6_database, &prefix);
-        break;
-    default:
-        break;
-    }
-
-    if ( node==NULL ){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", lisp_addr_to_char(&eid));
-    }
-    return(node);
-}
-
-patricia_node_t *lookup_eid_exact_node(
-        lisp_addr_t eid,
-        int         eid_prefix_length)
-{
-    patricia_node_t *node = NULL;
-    prefix_t        prefix;
-
-    switch(eid.afi) {
-    case AF_INET:
-        prefix.family = AF_INET;
-        prefix.bitlen = eid_prefix_length;
-        prefix.ref_count = 0;
-        memcpy (&(prefix.add.sin), &(eid.address.ip), sizeof(struct in_addr));
-        node = patricia_search_exact(EIDv4_database, &prefix);
-        break;
-    case AF_INET6:
-        prefix.family = AF_INET6;
-        prefix.bitlen = eid_prefix_length;
-        prefix.ref_count = 0;
-        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-        node = patricia_search_exact(EIDv6_database, &prefix);
-        break;
-    default:
-        break;
-    }
-
-    if (node == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", get_char_from_lisp_addr_t(eid));
-    }
-    return(node);
-}
+//patricia_node_t *lookup_eid_node(lisp_addr_t eid)
+//{
+//    patricia_node_t *node = NULL;
+//    prefix_t prefix;
+//
+//    switch(eid.afi) {
+//    case AF_INET:
+//        prefix.family = AF_INET;
+//        prefix.bitlen = 32;
+//        prefix.ref_count = 0;
+//        prefix.add.sin.s_addr = eid.address.ip.s_addr;
+//        node = patricia_search_best(EIDv4_database, &prefix);
+//        break;
+//    case AF_INET6:
+//        prefix.family = AF_INET6;
+//        prefix.bitlen = 128;
+//        prefix.ref_count = 0;
+//        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
+//        node = patricia_search_best(EIDv6_database, &prefix);
+//        break;
+//    default:
+//        break;
+//    }
+//
+//    if ( node==NULL ){
+//        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", lisp_addr_to_char(&eid));
+//    }
+//    return(node);
+//}
+//
+//patricia_node_t *lookup_eid_exact_node(
+//        lisp_addr_t eid,
+//        int         eid_prefix_length)
+//{
+//    patricia_node_t *node = NULL;
+//    prefix_t        prefix;
+//
+//    switch(eid.afi) {
+//    case AF_INET:
+//        prefix.family = AF_INET;
+//        prefix.bitlen = eid_prefix_length;
+//        prefix.ref_count = 0;
+//        memcpy (&(prefix.add.sin), &(eid.address.ip), sizeof(struct in_addr));
+//        node = patricia_search_exact(EIDv4_database, &prefix);
+//        break;
+//    case AF_INET6:
+//        prefix.family = AF_INET6;
+//        prefix.bitlen = eid_prefix_length;
+//        prefix.ref_count = 0;
+//        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
+//        node = patricia_search_exact(EIDv6_database, &prefix);
+//        break;
+//    default:
+//        break;
+//    }
+//
+//    if (node == NULL){
+//        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", get_char_from_lisp_addr_t(eid));
+//    }
+//    return(node);
+//}
 
 
 /*
@@ -206,17 +172,17 @@ patricia_node_t *lookup_eid_exact_node(
  * Look up a given eid in the database, returning the
  * lispd_mapping_elt of this EID if it exists or NULL.
  */
-lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t *eid)
+lispd_mapping_elt *local_map_db_lookup_eid(lisp_addr_t *eid)
 {
-    lispd_mapping_elt       *mapping = NULL;
-    patricia_node_t         *result     = NULL;
 
-    result = lookup_eid_node(*eid);
-    if (result == NULL){
+    lispd_mapping_elt       *mapping = NULL;
+
+    mapping = mdb_lookup_entry(local_mdb, eid, 0);
+    if (!mapping) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Couldn't find mapping for EID %s in local mappings db",
+                        lisp_addr_to_char(eid));
         return(NULL);
     }
-    mapping = (lispd_mapping_elt *)(result->data);
-
     return(mapping);
 }
 
@@ -226,17 +192,21 @@ lispd_mapping_elt *lookup_eid_in_db(lisp_addr_t *eid)
  *  Look up a given eid in the database, returning the
  * lispd_mapping_elt containing the exact EID if it exists or NULL.
  */
-lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix_length)
+lispd_mapping_elt *local_map_db_lookup_eid_exact(lisp_addr_t *eid)
 {
     lispd_mapping_elt       *mapping = NULL;
-    patricia_node_t         *result     = NULL;
 
-    result = lookup_eid_exact_node(eid_prefix,eid_prefix_length);
-    if (result == NULL){
+    if (lisp_addr_get_afi(eid) == LM_AFI_IP) {
+        lispd_log_msg(LISP_LOG_WARNING, "Called with IP EID %s, probably it should've been an IPPREF",
+                lisp_addr_to_char(eid));
+    }
+
+    mapping = mdb_lookup_entry(local_mdb, eid, 1);
+    if (!mapping) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Couldn't find mapping for EID %s in local mappings db",
+                        lisp_addr_to_char(eid));
         return(NULL);
     }
-    mapping = (lispd_mapping_elt *)(result->data);
-
     return(mapping);
 }
 
@@ -247,72 +217,47 @@ lispd_mapping_elt *lookup_eid_exact_in_db(lisp_addr_t eid_prefix, int eid_prefix
  *
  * Delete an EID mapping from the data base
  */
-void del_mapping_entry_from_db(
-        lisp_addr_t eid,
-        int prefixlen)
+void local_map_db_del_mapping(lisp_addr_t *eid)
 {
-    lispd_mapping_elt    *entry     = NULL;
-    patricia_node_t      *result    = NULL;
-
-    result = lookup_eid_exact_node(eid, prefixlen);
-    if (result == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"del_mapping_entry_from_db: Unable to locate eid entry %s/%d for deletion",
-                get_char_from_lisp_addr_t(eid),prefixlen);
-        return;
-    } else {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"Deleting EID entry %s/%d", get_char_from_lisp_addr_t(eid),prefixlen);
+    lispd_mapping_elt    *mapping   = NULL;
+    mapping = mdb_remove_entry(local_mdb, eid);
+    if (mapping) {
+        free_mapping_elt(mapping, 1);
+        total_mappings--;
     }
-
-    /*
-     * Remove the entry from the trie
-     */
-    entry = (lispd_mapping_elt *)(result->data);
-    if (eid.afi==AF_INET)
-        patricia_remove(EIDv4_database, result);
-    else
-        patricia_remove(EIDv6_database, result);
-    free_locator_list(entry->head_v4_locators_list);
-    free_locator_list(entry->head_v6_locators_list);
-    total_mappings--;
-    free(entry);
 }
 
-lisp_addr_t *get_main_eid(int afi){
-    lisp_addr_t                 *eid        = NULL;
-    lispd_mapping_elt           *entry      = NULL;
-    patricia_tree_t             *database   = NULL;
-    patricia_node_t             *node       = NULL;
+lisp_addr_t *local_map_db_get_main_eid(int afi) {
 
-    switch (afi){
-    case AF_INET:
-        database = EIDv4_database;
-        break;
-    case AF_INET6:
-        database = EIDv6_database;
-        break;
-    }
+    void                *it         = NULL;
+    lisp_addr_t         *eid        = NULL;
 
-    PATRICIA_WALK(database->head, node) {
-        entry = ((lispd_mapping_elt *)(node->data));
-        if (entry != NULL){
-            eid = &(entry->eid_prefix);
-            break;
-        }
-    }PATRICIA_WALK_END;
+    mdb_foreach_entry(local_mdb, it) {
+        eid = mapping_get_eid_addr((lispd_mapping_elt *)it);
 
-    return (eid);
+        if (eid && lisp_addr_ip_get_afi(eid) == afi)
+            return(eid);
+
+    } mdb_foreach_entry_end;
+    return(NULL);
 }
 
 /*
- * Return the number of entries of the database
+ * Return the number of IP entries of requested afi in the database
  */
-int num_entries_in_db(patricia_tree_t *database){
-    patricia_node_t             *node       = NULL;
-    int                         ctr         = 0;
+int local_map_db_num_ip_eids(int afi){
+    void                *it         = NULL;
+    lisp_addr_t         *eid        = NULL;
+    int                 ctr         = 0;
 
-    PATRICIA_WALK(database->head, node) {
-        ctr ++;
-    }PATRICIA_WALK_END;
+    /* search could be better implemented but local db is small
+     * so this should do for now
+     */
+    mdb_foreach_entry(local_mdb, it) {
+        eid = mapping_get_eid_addr((lispd_mapping_elt *)it);
+        if (eid && lisp_addr_get_afi(eid) == LM_AFI_IP && lisp_addr_ip_get_afi(eid) == afi)
+            ctr ++;
+    }mdb_foreach_entry_end;
 
     return (ctr);
 }
@@ -320,25 +265,17 @@ int num_entries_in_db(patricia_tree_t *database){
 /*
  * dump the mapping list of the database
  */
-void dump_local_db(int log_level)
+void local_map_db_dump(int log_level)
 {
-    patricia_tree_t     *dbs [2] = {EIDv4_database, EIDv6_database};
-    int                 ctr      = 0;
-    patricia_node_t     *node    = NULL;
-    lispd_mapping_elt   *entry   = NULL;
-
-    if (is_loggable(log_level) == FALSE){
-        return;
-    }
+    lispd_mapping_elt   *mapping    = NULL;
+    void                *it         = NULL;
 
     lispd_log_msg(log_level,"****************** LISP Local Mappings ****************\n");
 
-    for (ctr = 0 ; ctr < 2 ; ctr++){
-        PATRICIA_WALK(dbs[ctr]->head, node) {
-            entry = ((lispd_mapping_elt *)(node->data));
-            dump_mapping_entry(entry, log_level);
-        } PATRICIA_WALK_END;
-    }
+    mdb_foreach_entry(local_mdb, it) {
+        mapping = (lispd_mapping_elt *)it;
+        dump_mapping_entry(mapping, log_level);
+    } mdb_foreach_entry_end;
     lispd_log_msg(log_level,"*******************************************************\n");
 }
 

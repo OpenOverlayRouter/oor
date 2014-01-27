@@ -117,12 +117,12 @@ typedef struct _map_request_msg {
 } map_request_msg;
 
 
-map_request_msg *map_request_msg_new();
+inline map_request_msg *map_request_msg_new();
 map_request_msg *map_request_msg_parse(uint8_t *offset);
 void map_request_msg_del(map_request_msg *msg);
 
 
-static inline map_request_msg_hdr *mreq_get_hdr(map_request_msg *mrp) {
+static inline map_request_msg_hdr *mreq_msg_get_hdr(map_request_msg *mrp) {
     return((map_request_msg_hdr *)mrp->data);
 }
 

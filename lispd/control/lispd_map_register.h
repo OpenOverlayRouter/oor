@@ -34,10 +34,9 @@
 #define LISPD_MAP_REGISTER_H_
 
 #include <defs.h>
-#include <data-tun/lispd_iface_list.h>
+#include <lispd_iface_list.h>
 #include <lispd_timers.h>
 
-#define LISP_SHA1_AUTH_DATA_LEN         20
 
 extern timer *map_register_timer;
 
@@ -130,7 +129,8 @@ typedef struct lispd_pkt_map_register_t_ {
 
 
 
-int map_register(timer *t, void *arg);
+int map_register_cb(timer *t, void *arg);
+int map_register_all_eids();
 
 uint8_t *build_map_register_pkt(
         lispd_mapping_elt       *mapping,

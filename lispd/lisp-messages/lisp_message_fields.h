@@ -337,4 +337,110 @@ static inline uint16_t eid_prefix_record_get_len(eid_prefix_record *record) {
 
 
 
+/*
+ * Authentication field (Map-Register and Map-Notify)
+ */
+
+/*
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |            Key ID             |  Authentication Data Length   |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       ~                     Authentication Data                       ~
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+
+typedef struct _auth_field_hdr {
+    uint16_t key_id;
+    uint16_t auth_data_len;
+} auth_field_hdr;
+
+typedef struct _auth_field {
+    uint8_t     *bits;
+    uint8_t     *auth_data;
+    uint16_t    len;
+} auth_field;
+
+static inline uint8_t *auth_field_get_data(auth_field *af) {
+    return(af->bits);
+}
+static inline auth_field_hdr *auth_field_get_hdr(auth_field *af) {
+    return((auth_field_hdr *)af->bits);
+}
+
+static inline uint16_t auth_field_get_len(auth_field *af) {
+    return(af->len);
+}
+
+static inline uint8_t *auth_field_get_auth_data(auth_field *af) {
+    return(af->auth_data);
+}
+
+auth_field *auth_field_new();
+auth_field *auth_field_parse(uint8_t *offset);
+void auth_field_del(auth_field *raf);
+
+
+/*
+ * RTR Authentication field (Map-Register and Map-Notify)
+ */
+
+/*
+ * 0                   1                   2                   3
+ * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |AD Type|                   Reserved                            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |        MS-RTR Key ID          |  MS-RTR Auth. Data Length     |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * ~               MS-RTR Authentication Data                      ~
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef enum {
+    RTR_AUTH_DATA = 2
+} rtr_auth_ad_type;
+
+
+typedef struct _rtr_auth_field_hdr {
+#ifdef LITTLE_ENDIANS
+    uint16_t    reserved1;
+    uint8_t     reserved2;
+    uint8_t     reserved3:3;
+    uint8_t     ad_type:5;
+#else
+    uint8_t     ad_type:5;
+    uint8_t     reserved3:3;
+    uint8_t     reserved2;
+    uint16_t    reserved3;
+#endif
+    uint16_t key_id;
+    uint16_t rtr_auth_data_len;
+} rtr_auth_field_hdr;
+
+typedef struct _rtr_auth_field {
+    uint8_t     *bits;
+    uint8_t     *rtr_auth_data;
+    uint16_t    len;
+} rtr_auth_field;
+
+static inline uint8_t *rtr_auth_field_get_data(rtr_auth_field *raf) {
+    return(raf->bits);
+}
+static inline rtr_auth_field_hdr *rtr_auth_field_get_hdr(rtr_auth_field *raf) {
+    return((rtr_auth_field_hdr *)raf->bits);
+}
+
+static inline uint16_t rtr_auth_field_get_len(rtr_auth_field *raf) {
+    return(raf->len);
+}
+
+static inline uint8_t *rtr_auth_field_get_auth_data(rtr_auth_field *raf) {
+    return(raf->rtr_auth_data);
+}
+
+rtr_auth_field *rtr_auth_field_new();
+rtr_auth_field *rtr_auth_field_parse(uint8_t *offset);
+void rtr_auth_field_del(rtr_auth_field *raf);
+
 #endif /* LISP_MESSAGE_FIELDS_H_ */

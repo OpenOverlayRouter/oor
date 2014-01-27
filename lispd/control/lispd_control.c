@@ -30,7 +30,6 @@
 #include <lispd_external.h>
 #include <lispd_sockets.h>
 
-
 static int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uint64_t nonce, uint8_t action, uint32_t ttl);
 
 static uint8_t is_lcaf_mcast_info(address_field *addr) {
@@ -424,11 +423,11 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
         return(BAD);
 
     /* If packet is a Solicit Map Request, process it */
-    if (lisp_addr_get_afi(src_eid) != LM_AFI_NO_ADDR && mreq_get_hdr(mreq)->solicit_map_request) {
+    if (lisp_addr_get_afi(src_eid) != LM_AFI_NO_ADDR && mreq_msg_get_hdr(mreq)->solicit_map_request) {
         if(process_smr(src_eid) != GOOD)
             goto err;
         /* Return here only if RLOC probe bit is not set */
-        else if (!mreq_get_hdr(mreq)->rloc_probe)
+        else if (!mreq_msg_get_hdr(mreq)->rloc_probe)
             goto done;
 
     }
@@ -436,7 +435,7 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
 
     /* Process additional ITR RLOCs. Obtain remote RLOC to use for Map-Replies*/
     itrs = mreq_msg_get_itr_rlocs(mreq);
-    for (i = 0; i < mreq_get_hdr(mreq)->additional_itr_rloc_count + 1; i++) {
+    for (i = 0; i < mreq_msg_get_hdr(mreq)->additional_itr_rloc_count + 1; i++) {
         /* XXX: support only for IP RLOCs */
         if (ip_iana_afi_to_sock_afi(address_field_get_afi(itrs[i])) == lisp_addr_ip_get_afi(local_rloc)) {
             remote_rloc = lisp_addr_init_from_field(itrs[i]);
@@ -452,11 +451,11 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
     /* Set flags for Map-Reply */
     opts.send_rec   = 1;
     opts.echo_nonce = 0;
-    opts.rloc_probe = mreq_get_hdr(mreq)->rloc_probe;
+    opts.rloc_probe = mreq_msg_get_hdr(mreq)->rloc_probe;
 
     /* Process record and send Map Reply for each one */
     eids = mreq_msg_get_eids(mreq);
-    for (i = 0; i < mreq_get_hdr(mreq)->record_count; i++) {
+    for (i = 0; i < mreq_msg_get_hdr(mreq)->record_count; i++) {
         if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(eids[i]))))
             goto err;
 
@@ -470,7 +469,7 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
         /* Check the existence of the requested EID */
         /* We don't use prefix mask and use by default 32 or 128*/
         /* XXX: Maybe here we should do a strict search in case of RLOC probing */
-        if (!(mapping = lookup_eid_in_db(dst_eid))){
+        if (!(mapping = local_map_db_lookup_eid(dst_eid))){
             lispd_log_msg(LISP_LOG_DEBUG_1,"The requested EID doesn't belong to this node: %s",
                     lisp_addr_to_char(dst_eid));
             lisp_addr_del(dst_eid);
@@ -479,7 +478,7 @@ static int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rlo
 
 //        if (is_mrsignaling(eid_prefix_record_get_eid(eid)))
 //            return(mrsignaling_recv_mrequest(mreq, dst_eid, local_rloc, remote_rloc, dst_port));
-        err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_get_hdr(mreq)->nonce, opts);
+        err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_msg_get_hdr(mreq)->nonce, opts);
 
         lisp_addr_del(dst_eid);
     }
@@ -514,7 +513,8 @@ int process_lisp_ctr_msg(int sock, int afi)
     if  (get_packet_and_socket_inf (sock, afi, packet, &local_rloc, &remote_port) != GOOD )
         return BAD;
 
-    if (!(msg = lisp_msg_parse(packet))) {
+    msg = lisp_msg_parse(packet);
+    if (!msg || !msg->msg) {
         return(BAD);
         lispd_log_msg(LISP_LOG_DEBUG_2, "Couldn't parse control message");
     }
@@ -534,7 +534,7 @@ int process_lisp_ctr_msg(int sock, int afi)
         break;
     case LISP_MAP_NOTIFY:
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Notify message");
-        if(!process_map_notify(packet))
+        if(process_map_notify(msg->msg) != GOOD)
             return(BAD);
         break;
     case LISP_INFO_NAT:
@@ -745,7 +745,7 @@ uint8_t *build_map_request_pkt(
      * src_eid is null for RLOC probing and refreshing map_cache -> Source-EID AFI = 0
      */
     if (src_eid != NULL){
-        src_mapping = lookup_eid_in_db(src_eid);
+        src_mapping = local_map_db_lookup_eid(src_eid);
         if (!src_mapping){
             lispd_log_msg(LISP_LOG_DEBUG_2,"build_map_request_pkt: Source EID address not found in local data base - %s -",
                     lisp_addr_to_char(src_eid));
@@ -881,9 +881,9 @@ uint8_t *build_map_request_pkt(
             ih_src_ip = &(src_mapping->eid_prefix);
         }else{
             if (requested_mapping->eid_prefix.afi == AF_INET){
-                ih_src_ip = get_main_eid (AF_INET);
+                ih_src_ip = local_map_db_get_main_eid (AF_INET);
             }else{
-                ih_src_ip = get_main_eid (AF_INET6);
+                ih_src_ip = local_map_db_get_main_eid (AF_INET6);
             }
         }
 

@@ -33,7 +33,6 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <endian.h>
-#include <defs.h>
 #include "lispd_info_nat.h"
 #include "lispd_info_reply.h"
 #include <lispd_lib.h>
@@ -217,6 +216,9 @@ int extract_info_nat_header(
         lispd_log_msg(LISP_LOG_DEBUG_2,"extract_info_nat_header: Coudn't obtain EID address");
         return (BAD);
     }
+
+    if (lisp_addr_get_afi(eid_prefix) == LM_AFI_IP)
+        lisp_addr_set_plen(eid_prefix, *eid_mask_len);
 
     *hdr_len = sizeof(lispd_pkt_info_nat_t) + sizeof(lispd_pkt_info_nat_eid_t) + len - sizeof(uint16_t);
 

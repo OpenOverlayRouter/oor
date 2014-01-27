@@ -848,7 +848,7 @@ int lisp_output_unicast (
 
 
     /* If the packet doesn't have an EID source, forward it natively */
-    if (!(src_mapping = lookup_eid_in_db (&(tuple->src_addr))))
+    if (!(src_mapping = local_map_db_lookup_eid(&(tuple->src_addr))))
         return (forward_native(original_packet,original_packet_length));
 
     /* If we are behind a full nat system, send the message directly to the RTR */

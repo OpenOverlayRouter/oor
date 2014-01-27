@@ -1,40 +1,9 @@
-/*
- * lispd_map_notify.h
- *
- * This file is part of LISP Mobile Node Implementation.
- * Send registration messages for each database mapping to
- * configured map-servers.
- *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
- *    Albert Lopez      <alopez@ac.upc.edu>
- */
 
-#ifndef LISPD_MAP_NOTIFY_H_
-#define LISPD_MAP_NOTIFY_H_
 
-#include <defs.h>
+#ifndef LISP_MAP_NOTIFY_H_
+#define LISP_MAP_NOTIFY_H_
+
+#include <stdint.h>
 
 /*
  * Map-Notify Message Format
@@ -68,7 +37,7 @@
  *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef struct lispd_pkt_map_notify_t_ {
+typedef struct _map_notify_msg_hdr {
 #ifdef LITTLE_ENDIANS
     uint8_t  reserved1:2;
     uint8_t  rtr_auth_present:1;
@@ -83,18 +52,42 @@ typedef struct lispd_pkt_map_notify_t_ {
     uint16_t reserved2;
     uint8_t  record_count;
     uint64_t nonce;
-    uint16_t key_id;
-    uint16_t auth_data_len;
-    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
-} PACKED lispd_pkt_map_notify_t;
+//    uint16_t key_id;
+//    uint16_t auth_data_len;
+//    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
+} __attribute__ ((__packed__)) map_notify_msg_hdr;
 
 
-typedef struct lispd_pkt_auth_field_t_ {
-    uint16_t key_id;
-    uint16_t auth_data_len;
-} PACKED lispd_pkt_auth_field_t;
+typedef struct _map_notify_msg {
+    uint8_t         *bits;
+    auth_field      *auth_data;
+    mapping_record  **records;
+    uint8_t         *xtr_id;
+    uint8_t         *site_id;
+    rtr_auth_field  *rtr_auth;
+} map_notify_msg;
 
 
-int process_map_notify(map_notify_msg *msg);
+inline map_notify_msg *map_notify_msg_new();
+void map_notify_msg_del(map_notify_msg *msg);
+map_notify_msg *map_notify_msg_parse(uint8_t *offset);
+uint16_t mnotify_msg_get_len(map_notify_msg *msg);
+char *mnotify_hdr_to_char(map_notify_msg *msg);
 
-#endif /*LISPD_MAP_NOTIFY_H_*/
+static inline map_notify_msg_hdr *mnotify_msg_get_hdr(map_notify_msg *msg) {
+    return((map_notify_msg_hdr *)msg->bits);
+}
+
+static inline mapping_record **mnotify_msg_get_records(map_notify_msg *msg) {
+    return(msg->records);
+}
+
+static inline auth_field *mnotify_msg_get_auth_data(map_notify_msg *msg) {
+    return(msg->auth_data);
+}
+
+static inline uint8_t *mnotify_msg_get_data(map_notify_msg *msg) {
+    return(msg->bits);
+}
+
+#endif /* LISP_MAP_NOTIFY_H_ */
