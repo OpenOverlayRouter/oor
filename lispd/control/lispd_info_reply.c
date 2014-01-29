@@ -162,7 +162,7 @@ int process_info_reply_msg(
                 "Nonce: %s , KeyID: %hu ,TTL: %u , EID-prefix: %s/%hhu , "
                 "MS UDP Port Number: %hu , ETR UDP Port Number: %hu , Global ETR RLOC Address: %s , "
                 "MS RLOC Address: %s , Private ETR RLOC Address: %s, RTR RLOC Compatible list: %s",
-                get_char_from_nonce(nonce), key_id, ttl, get_char_from_lisp_addr_t(eid_prefix),eid_mask_len,
+                nonce_to_char(nonce), key_id, ttl, get_char_from_lisp_addr_t(eid_prefix),eid_mask_len,
                 ms_udp_port, etr_udp_port, get_char_from_lisp_addr_t(global_etr_rloc),
                 get_char_from_lisp_addr_t(ms_rloc),get_char_from_lisp_addr_t(private_etr_rloc),rtrs_list_str);
     }
@@ -176,7 +176,7 @@ int process_info_reply_msg(
         nat_ir_nonce = NULL;
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Info-Reply: Error checking nonce field. No Info Request generated with nonce: %s",
-                get_char_from_nonce (nonce));
+                nonce_to_char (nonce));
         return (BAD);
     }
 

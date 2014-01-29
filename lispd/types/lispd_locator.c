@@ -548,6 +548,8 @@ lispd_locator_elt *locator_init_from_field(locator_field *lf) {
     }
 
     loc->locator_addr = lisp_addr_init_from_field(locator_field_get_addr(lf));
+    if (!loc->locator_addr)
+        return(NULL);
     loc->extended_info = (void *)new_rmt_locator_extended_info();
     if (!loc->extended_info){
         free(loc);

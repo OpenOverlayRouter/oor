@@ -207,14 +207,14 @@ int build_and_send_info_request(
                         lisp_addr_to_char(map_server->address),
                         lisp_addr_to_char(src_addr),
                         lisp_addr_to_char(eid_prefix),
-                        get_char_from_nonce(*nonce));
+                        nonce_to_char(*nonce));
         result = GOOD;
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s from locator %s with EID %s and Nonce %s",
                         lisp_addr_to_char(map_server->address),
                         lisp_addr_to_char(src_addr),
                         lisp_addr_to_char(eid_prefix),
-                        get_char_from_nonce(*nonce));
+                        nonce_to_char(*nonce));
         result = BAD;
     }
 

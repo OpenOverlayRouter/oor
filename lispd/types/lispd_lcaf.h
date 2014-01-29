@@ -274,6 +274,24 @@ typedef struct _elp_node_flags {
 #endif
 } elp_node_flags;
 
+
+/*
+ * AFI-list LCAF type
+ */
+
+typedef struct _lcaf_afi_list_hdr_t {
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+} __attribute__ ((__packed__)) lcaf_afi_list_hdr_t;
+
+
+
+
+
 /*
  * Abstract representation of LCAFs
  */
@@ -321,9 +339,9 @@ typedef struct {
 
 /* ELP */
 typedef struct _elp_node_t{
-    uint8_t             L;
-    uint8_t             P;
-    uint8_t             S;
+    uint8_t             L:1;
+    uint8_t             P:1;
+    uint8_t             S:1;
     lisp_addr_t         *addr;
     struct _elp_node_t  *next;
 } elp_node_t;
@@ -332,6 +350,16 @@ typedef struct _elp_t {
     uint16_t    nb_nodes;
     elp_node_t  *nodes;
 } elp_t;
+
+/* AFI-list */
+typedef struct _afi_list_node {
+    lisp_addr_t             *addr;
+    struct _afi_list_node   *next;
+} afi_list_node;
+
+typedef struct _afi_list_t {
+    afi_list_node   *list;
+} afi_list_t;
 
 lcaf_addr_t             *lcaf_addr_new();
 lcaf_addr_t             *lcaf_addr_new_type(uint8_t type);
@@ -348,7 +376,7 @@ inline int              lcaf_addr_is_mc(lcaf_addr_t *lcaf);
 inline void             lcaf_addr_set(lcaf_addr_t *lcaf, void *newaddr, uint8_t type);
 inline void             lcaf_addr_set_addr(lcaf_addr_t *lcaf, void *addr);
 inline void             lcaf_addr_set_type(lcaf_addr_t *lcaf, uint8_t type);
-int                     lcaf_addr_read_from_pkt(void *offset, lcaf_addr_t *lcaf_addr);
+int                     lcaf_addr_read_from_pkt(uint8_t *offset, lcaf_addr_t *lcaf_addr);
 
 inline char             *lcaf_addr_to_char(lcaf_addr_t *lcaf);
 
@@ -469,4 +497,17 @@ int                         elp_type_read_from_pkt(uint8_t *offset, void **elp);
 char                        *elp_type_to_char(void *elp);
 void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
+
+/*
+ * AFI-list type functions
+ */
+
+inline afi_list_t           *afi_list_type_new();
+void                        afi_list_type_del(void *afil);
+int                         afi_list_type_get_size_to_write(void *afil);
+int                         afi_list_type_write_to_pkt(uint8_t *offset, void *afil);
+int                         afi_list_type_read_from_pkt(uint8_t *offset, void **afil);
+char                        *afi_list_type_to_char(void *afil);
+void                        afi_list_type_copy(void **dst, void *src);
+int                         afi_list_type_cmp(void *afil1, void *afil2);
 #endif /* LISPD_LCAF_H_ */

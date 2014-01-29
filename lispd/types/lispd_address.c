@@ -33,7 +33,6 @@
  * lisp_addr_t functions
  */
 
-mdb_t *local_mdb;
 
 static inline lm_afi_t _get_afi(lisp_addr_t *laddr) {
     return(laddr->lafi);
@@ -424,7 +423,8 @@ int lisp_addr_read_from_pkt(uint8_t *offset, lisp_addr_t *laddr) {
         lisp_addr_set_afi(laddr, LM_AFI_IP);
         break;
     case LISP_AFI_LCAF:
-        len = lcaf_addr_read_from_pkt((void *)offset, lisp_addr_get_lcaf(laddr));
+        laddr->lcaf = lcaf_addr_new();
+        len = lcaf_addr_read_from_pkt(offset, lisp_addr_get_lcaf(laddr));
         lisp_addr_set_afi(laddr, LM_AFI_LCAF);
         break;
     case LISP_AFI_NO_ADDR:

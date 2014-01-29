@@ -117,7 +117,7 @@ void lispd_print_nonce (
     lispd_log_msg(log_level,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
 }
 
-char * get_char_from_nonce (uint64_t nonce)
+char * nonce_to_char (uint64_t nonce)
 {
     static char         nonce_char[2][21];
     static unsigned int i;

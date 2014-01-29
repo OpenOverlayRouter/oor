@@ -65,6 +65,6 @@ int check_nonce(nonces_list   *nonces, uint64_t nonce);
  */
 void lispd_print_nonce (uint64_t nonce, int log_level);
 
-char * get_char_from_nonce (uint64_t nonce);
+char * nonce_to_char (uint64_t nonce);
 
 #endif /* LISPD_NONCE_H_ */

@@ -333,7 +333,6 @@ static int process_map_reply_record(mapping_record *record, uint64_t nonce) {
         if (!(loc_elt = locator_init_from_field(locs[i])))
             goto err;
         lispd_log_msg(LISP_LOG_DEBUG_1, "    RLOC: %s", locator_to_char(loc_elt));
-
         if (add_locator_to_list(locators, loc_elt) != GOOD)
             goto err;
     }
@@ -362,7 +361,7 @@ static int process_map_reply_msg(map_reply_msg *mrep)
     mapping_record              **records;
 
     lispd_log_msg(LISP_LOG_DEBUG_1, "Processing Map-Reply message with nonce %s",
-            get_char_from_nonce(mrep_get_hdr(mrep)->nonce));
+            nonce_to_char(mrep_get_hdr(mrep)->nonce));
 
     records = mrep->records;
 
@@ -980,7 +979,7 @@ int build_and_send_map_request_msg(
                         (probe == TRUE ? 'Y' : 'N'),
                         (solicit_map_request == TRUE ? 'Y' : 'N'),
                         (smr_invoked == TRUE ? 'Y' : 'N'),
-                        get_char_from_nonce(*nonce));
+                        nonce_to_char(*nonce));
         result = GOOD;
     }else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't sent Map-Request packet for %s: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",

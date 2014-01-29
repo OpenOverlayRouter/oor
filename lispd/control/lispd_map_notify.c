@@ -57,7 +57,7 @@ int process_map_notify(map_notify_msg *msg)
             /* Free nonce if authentication is ok */
         }else{
             lispd_log_msg(LISP_LOG_DEBUG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
-                    get_char_from_nonce (mnotify_msg_get_hdr(msg)->nonce));
+                    nonce_to_char (mnotify_msg_get_hdr(msg)->nonce));
             return (BAD);
         }
     }

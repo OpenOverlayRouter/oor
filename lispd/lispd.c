@@ -443,11 +443,11 @@ void event_loop()
 
 
     lispd_log_msg(LISP_LOG_WARNING, "finished!");
-    lisp_addr_del(laddr);
-    free_mapping_elt(mapping, 1);
-    for(;;) {
-        sleep(1);
-    }
+//    lisp_addr_del(laddr);
+//    free_mapping_elt(mapping, 1);
+//    for(;;) {
+//        sleep(1);
+//    }
 
     /*************************************/
 
