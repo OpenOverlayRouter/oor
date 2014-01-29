@@ -478,13 +478,13 @@ int check_capabilities()
         return BAD;
     }
 
-    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
 
     /* check for capabilities */
     if(  (cap_data.effective & CAP_TO_MASK(CAP_NET_ADMIN)) && (cap_data.effective & CAP_TO_MASK(CAP_NET_RAW))  )  {
     }
     else {
-        lispd_log_msg(LISP_LOG_CRIT, "Insufficiant rights, you need CAP_NET_ADMIN and CAP_NET_RAW. See readme");
+        lispd_log_msg(LISP_LOG_CRIT, "Insufficient rights, you need CAP_NET_ADMIN and CAP_NET_RAW. See README");
         return BAD;
     }
 
@@ -515,7 +515,7 @@ int check_capabilities()
         return (BAD);
     }
 
-    lispd_log_msg(LISP_LOG_INFO, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
 
     return GOOD;
 }
