@@ -69,7 +69,8 @@ inline uint8_t ip_addr_get_size(ip_addr_t *ipaddr) {
 }
 
 inline uint8_t ip_addr_get_size_to_write(ip_addr_t *ipaddr) {
-    return(ip_sock_afi_to_size(ip_addr_get_afi(ipaddr)));
+    /* includes afi size */
+    return(ip_sock_afi_to_size(ip_addr_get_afi(ipaddr))+sizeof(uint16_t));
 }
 
 inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
@@ -189,7 +190,7 @@ inline int ip_addr_read_from_pkt(void *offset, uint16_t iana_afi, ip_addr_t *dst
     return(sizeof(uint16_t) + ip_iana_afi_to_size(iana_afi));
 }
 
-inline uint8_t ip_addr_afi_to_mask(ip_addr_t *ip) {
+inline uint8_t ip_addr_afi_to_default_mask(ip_addr_t *ip) {
     assert(ip);
     return(ip_addr_get_size(ip)*8);
 }

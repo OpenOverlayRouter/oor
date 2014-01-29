@@ -43,6 +43,12 @@
 #include "lispd_map_notify.h"
 #include "lispd_info_nat.h"
 
+typedef struct _lisp_ctrl_device {
+    int (*process_lisp_ctrl_msg)(lisp_msg *msg);
+    int (*send_lisp_ctrl_msg)(lisp_msg *msg);
+    int (*lookup_eid_map_cache)(lisp_addr_t *eid);
+    int (*process_netlink_event)();
+} lisp_ctrl_device;
 
 int             process_lisp_ctr_msg(int sock, int afi);
 int             handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);

@@ -33,7 +33,6 @@
  */
 
 #include "lispd_mdb.h"
-#include "lispd.h"
 #include "defs.h"
 
 patricia_node_t             *pt_add_node(patricia_tree_t *pt, ip_addr_t *ipaddr, uint8_t prefixlen, void *data);
@@ -121,7 +120,7 @@ static patricia_node_t *_find_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exact)
         return(_find_lcaf_node(db, lisp_addr_get_lcaf(laddr), exact));
         break;
     default:
-        lispd_log_msg(LISP_LOG_WARNING, "map_cache_lookup: unsupported AFI %d", lisp_addr_get_afi(laddr));
+        lispd_log_msg(LISP_LOG_WARNING, "_find_node: unsupported AFI %d", lisp_addr_get_afi(laddr));
         break;
     }
 
@@ -217,7 +216,7 @@ static int _add_ippref_entry(mdb_t *db, void *entry, ip_prefix_t *ippref) {
         return(BAD);
     }
 
-    lispd_log_msg(LISP_LOG_DEBUG_2, "map_cache_add_ippref_entry: Added map cache data for %s",
+    lispd_log_msg(LISP_LOG_DEBUG_2, "_add_ippref_entry: Added map cache data for %s",
                 ip_prefix_to_char(ippref));
     return(GOOD);
 }
@@ -303,9 +302,8 @@ patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr)
 mdb_t *mdb_new()
 {
 
-    mdb_t *db;
-    db = calloc(1, sizeof(mdb_t));
-    lispd_log_msg(LISP_LOG_DEBUG_2,  " Creating pbmdb...");
+    mdb_t *db = calloc(1, sizeof(mdb_t));
+    lispd_log_msg(LISP_LOG_DEBUG_2,  " Creating mdb...");
 
     db->AF4_ip_db = New_Patricia(sizeof(struct in_addr) * 8);
     db->AF6_ip_db = New_Patricia(sizeof(struct in6_addr) * 8);
@@ -314,7 +312,7 @@ mdb_t *mdb_new()
     db->AF6_mc_db = New_Patricia(sizeof(struct in6_addr) * 8);
 
     if (!db->AF4_ip_db || !db->AF6_ip_db || !db->AF4_mc_db || !db->AF6_mc_db) {
-      lispd_log_msg(LISP_LOG_CRIT, "ptmdb_init: Unable to allocate memory for pbmdb");
+      lispd_log_msg(LISP_LOG_CRIT, "mdb_init: Unable to allocate memory for mdb");
       exit_cleanup();
     }
 
@@ -323,26 +321,36 @@ mdb_t *mdb_new()
 
 int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
 {
+    int retval = 0;
     switch(lisp_addr_get_afi(addr)) {
     case LM_AFI_IP:
     case LM_AFI_IP6:
         lispd_log_msg(LISP_LOG_WARNING, "mdb_add_entry: mapping stores an IP not a prefix!");
         break;
     case LM_AFI_IPPREF:
-        return(_add_ippref_entry(db, data, lisp_addr_get_ippref(addr)));
+        retval = _add_ippref_entry(db, data, lisp_addr_get_ippref(addr));
         break;
     case LM_AFI_LCAF:
-        return(_add_lcaf_entry(db, data, lisp_addr_get_lcaf(addr)));
+        retval = _add_lcaf_entry(db, data, lisp_addr_get_lcaf(addr));
+        break;
     default:
+        retval = BAD;
         lispd_log_msg(LISP_LOG_WARNING, "mdb_add_entry: called with unknown AFI:%u",
                 lisp_addr_get_afi(addr));
         break;
+    }
+
+    if (retval != GOOD) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "mdb_add_entry: failed to insert entry %s",
+                lisp_addr_to_char(addr));
+        return(BAD);
     }
     return(GOOD);
 }
 
 void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
 {
+    lispd_log_msg(LISP_LOG_WARNING, "****** GOT HERE ************** ");
     ip_prefix_t *ippref;
 
     switch(lisp_addr_get_afi(laddr)){
@@ -353,7 +361,7 @@ void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
     case LM_AFI_LCAF:
         return(_del_lcaf_entry(db, lisp_addr_get_lcaf(laddr)));
     default:
-        lispd_log_msg(LISP_LOG_WARNING, "pbmdb_del_entry: called with unknown AFI:%u",
+        lispd_log_msg(LISP_LOG_WARNING, "mdb_del_entry: called with unknown AFI:%u",
                 lisp_addr_get_afi(laddr));
         break;
     }

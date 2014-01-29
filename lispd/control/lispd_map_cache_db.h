@@ -39,7 +39,7 @@
 #include <lispd_timers.h>
 
 
-mdb_t *mdb;
+extern mdb_t *mdb;
 
 void map_cache_init();
 

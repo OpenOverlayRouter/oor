@@ -37,44 +37,21 @@
 //#include "lispd_map_cache_db.h"
 
 
-///*
-// *  Patricia tree based databases
-// */
-//patricia_tree_t *EIDv4_database           = NULL;
-//patricia_tree_t *EIDv6_database           = NULL;
-
-
-///*
-// *  Add a EID entry to the database.
-// */
-//int local_map_db_add_mapping(lispd_mapping_elt *mapping);
-//
-//patricia_node_t *lookup_eid_node(lisp_addr_t eid);
-//
-//patricia_node_t *lookup_eid_exact_node(
-//        lisp_addr_t eid,
-//        int         eid_prefix_length);
-//
+mdb_t *local_mdb = NULL;
 
 /*
  * Initialize databases
  */
+
 
 void local_map_db_init(void)
 {
     local_mdb = mdb_new();
     if (!local_mdb) {
         lispd_log_msg(LISP_LOG_CRIT, "Could not initialize the local mappings db! Exiting .. ");
-        exit(1);
+        exit_cleanup();
     }
 
-//    EIDv4_database  = New_Patricia(sizeof(struct in_addr)  * 8);
-//    EIDv6_database  = New_Patricia(sizeof(struct in6_addr) * 8);
-//
-//    if (!EIDv4_database || !EIDv6_database) {
-//        lispd_log_msg(LISP_LOG_CRIT, "db_init: Unable to allocate memory for database");
-//        exit_cleanup();
-//    };
 }
 
 //patricia_tree_t* get_local_db(int afi)

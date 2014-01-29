@@ -697,6 +697,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     }
 
+
     /*
      *  handle map-server config
      */

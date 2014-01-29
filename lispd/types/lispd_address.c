@@ -33,6 +33,7 @@
  * lisp_addr_t functions
  */
 
+mdb_t *local_mdb;
 
 static inline lm_afi_t _get_afi(lisp_addr_t *laddr) {
     return(laddr->lafi);
@@ -147,8 +148,8 @@ inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr) {
     }
 }
 
-inline uint32_t lisp_addr_get_size_to_write_without_afi(lisp_addr_t *laddr) {
-    /* Returns the size needed in a packet for laddr */
+
+inline uint32_t lisp_addr_get_size_to_write(lisp_addr_t *laddr) {
     switch(lisp_addr_get_afi(laddr)) {
     case LM_AFI_NO_ADDR:
         return(0);
@@ -168,15 +169,11 @@ inline uint32_t lisp_addr_get_size_to_write_without_afi(lisp_addr_t *laddr) {
     return(0);
 }
 
-inline uint32_t lisp_addr_get_size_to_write(lisp_addr_t *laddr) {
-    return(lisp_addr_get_size_to_write_without_afi(laddr) + sizeof(uint16_t));
-}
-
 inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr) {
     assert(laddr);
     switch (lisp_addr_get_afi(laddr)) {
     case LM_AFI_IP:
-        return(ip_addr_afi_to_mask(lisp_addr_get_ip(laddr)));
+        return(ip_addr_afi_to_default_mask(lisp_addr_get_ip(laddr)));
     case LM_AFI_IPPREF:
         return(ip_prefix_get_plen(lisp_addr_get_ippref(laddr)));
     default:
@@ -230,7 +227,7 @@ inline void lisp_addr_ip_to_ippref(lisp_addr_t *laddr) {
         return;
     }
     lisp_addr_set_afi(laddr, LM_AFI_IPPREF);
-    ip_prefix_set_plen(lisp_addr_get_ippref(laddr), ip_addr_afi_to_mask(lisp_addr_get_ip(laddr)));
+    ip_prefix_set_plen(lisp_addr_get_ippref(laddr), ip_addr_afi_to_default_mask(lisp_addr_get_ip(laddr)));
 }
 
 inline uint16_t lisp_addr_ip_get_afi(lisp_addr_t *addr) {
@@ -398,7 +395,7 @@ inline int lisp_addr_write_to_pkt(void *offset, lisp_addr_t *laddr) {
     case LM_AFI_IPPREF:
         return(ip_addr_write_to_pkt(offset, ip_prefix_get_addr(lisp_addr_get_ippref(laddr)), 0));
     case LM_AFI_LCAF:
-        return(lcaf_addr_write_to_pkt(laddr, offset));
+        return(lcaf_addr_write_to_pkt(offset, lisp_addr_get_lcaf(laddr)));
     case LM_AFI_NO_ADDR:
         memset(offset, 0, sizeof(uint16_t));
         return(sizeof(uint16_t));

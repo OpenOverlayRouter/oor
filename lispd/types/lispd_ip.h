@@ -89,7 +89,7 @@ inline int               ip_addr_read_from_pkt(void *offset, uint16_t afi, ip_ad
 inline int               ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2);
 inline uint16_t          ip_sock_afi_to_iana_afi(uint16_t afi);
 inline uint16_t          ip_iana_afi_to_sock_afi(uint16_t afi);
-inline uint8_t           ip_addr_afi_to_mask(ip_addr_t *ip);
+inline uint8_t           ip_addr_afi_to_default_mask(ip_addr_t *ip);
 char                     *ip_addr_to_char (ip_addr_t *addr);
 
 

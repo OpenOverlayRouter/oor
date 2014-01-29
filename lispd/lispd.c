@@ -60,6 +60,7 @@
 #include "data-tun/lispd_tun.h"
 #include "data-tun/lispd_output.h"
 #include "data-tun/lispd_routing_tables_lib.h"
+#include <lispd_address.h>
 
 
 void event_loop();
@@ -390,6 +391,66 @@ void event_loop()
     fd_set readfds;
     int    retval;
     
+
+    /*****************************************/
+    /*
+     * TESTS!!
+     */
+    lisp_addr_t *laddr = lisp_addr_new_afi(LM_AFI_LCAF);
+    lcaf_addr_t *lcaf = lisp_addr_get_lcaf(laddr);
+    lcaf_addr_set_type(lcaf, LCAF_EXPL_LOC_PATH);
+
+    elp_t *elp = elp_type_new();
+    elp->nb_nodes = 3;
+
+    elp_node_t *en1 = calloc(1, sizeof(elp_node_t));
+    en1->L = 0; en1->P = 0; en1->S = 1;
+    en1->addr = lisp_addr_new(); get_lisp_addr_from_char("1.1.1.1", en1->addr);
+
+    elp_node_t *en2 = calloc(1, sizeof(elp_node_t));
+    en2->L = 0; en2->P = 0; en2->S = 1;
+    en2->addr = lisp_addr_new(); get_lisp_addr_from_char("2.2.2.2", en2->addr);
+
+    elp_node_t *en3 = calloc(1, sizeof(elp_node_t));
+    en3->L = 0; en1->P = 0; en3->S = 1;
+    en3->addr = lisp_addr_new(); get_lisp_addr_from_char("3.3.3.3", en3->addr);
+
+    en1->next = en2; en2->next = en3;
+    elp->nodes = en1;
+    lcaf->addr = elp;
+
+    lispd_log_msg(LISP_LOG_WARNING, "the generated lcaf: %s", lisp_addr_to_char(laddr));
+    lispd_log_msg(LISP_LOG_WARNING, "let's see now!");
+
+    lisp_addr_t *eid = lisp_addr_new(); get_lisp_addr_from_char("4.5.6.7", eid);
+    uint8_t status = 1; int sock = 1;
+    lispd_locator_elt *locator = new_local_locator(laddr, &status, 1, 100, 1, 100, &sock);
+    lispd_mapping_elt *mapping = mapping_init_local(eid);
+    lispd_log_msg(LISP_LOG_WARNING, "mapping created!");
+
+    add_locator_to_mapping(mapping, locator);
+    lispd_log_msg(LISP_LOG_WARNING, "locator added!");
+    local_map_db_add_mapping(mapping);
+    local_map_db_dump(LISP_LOG_WARNING);
+
+    map_register_all_eids();
+
+    lispd_log_msg(LISP_LOG_WARNING, "removing mapping!");
+    local_map_db_del_mapping(eid);
+
+    lispd_log_msg(LISP_LOG_WARNING, "done. Sending map-request!");
+    handle_map_cache_miss(eid, local_map_db_get_main_eid(AF_INET));
+
+
+    lispd_log_msg(LISP_LOG_WARNING, "finished!");
+    lisp_addr_del(laddr);
+    free_mapping_elt(mapping, 1);
+    for(;;) {
+        sleep(1);
+    }
+
+    /*************************************/
+
     /*
      *  calculate the max_fd for select.
      */

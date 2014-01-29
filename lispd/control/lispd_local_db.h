@@ -38,7 +38,7 @@
 //#include <patricia/patricia.h>
 
 
-mdb_t *local_mdb;
+extern mdb_t *local_mdb;
 
 /*
  * Initialize databases

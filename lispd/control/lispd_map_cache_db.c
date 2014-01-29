@@ -33,6 +33,7 @@
 #include "lispd_rloc_probing.h"
 #include <math.h>
 
+mdb_t *mdb = NULL;
 
 int mcache_update_mapping_eid(lisp_addr_t *new_eid, lispd_map_cache_entry *mce) {
 //    lcaf_addr_t             *lcaf;

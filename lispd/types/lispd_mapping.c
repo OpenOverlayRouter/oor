@@ -197,6 +197,9 @@ int add_locator_to_mapping(
     lcaf_addr_t *lcaf;
     int result = GOOD;
 
+    lispd_log_msg(LISP_LOG_WARNING, "adding locator");
+
+
     switch (lisp_addr_get_afi(locator->locator_addr)){
         case LM_AFI_IP:
 //        case LM_AFI_IPPREF:
@@ -219,6 +222,8 @@ int add_locator_to_mapping(
             break;
         case LM_AFI_LCAF:
             lcaf = lisp_addr_get_lcaf(locator->locator_addr);
+            lispd_log_msg(LISP_LOG_WARNING, "adding locator of lcaf type %d", lcaf_addr_get_type(lcaf));
+
             switch (lcaf_addr_get_type(lcaf)) {
                 case LCAF_MCAST_INFO:
                     /* use G because S might be undefined */
@@ -235,17 +240,21 @@ int add_locator_to_mapping(
                             err = add_locator_to_list (&(mapping->head_v6_locators_list), locator);
                             break;
                         default:
-                            lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: Unsupported mcast afi for address %s",
+                            lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: Unsupported mcast afi for address %d",
                                     lcaf_addr_to_char(lcaf));
                             err = BAD;
                             break;
                     }
                     break;
-                default:
-                    lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: lcaf type %s not supported",
-                            lcaf_addr_get_type(lcaf));
+                case LCAF_EXPL_LOC_PATH:
+                    add_locator_to_list(&(mapping->head_v4_locators_list), locator);
                     break;
+                default:
+                    lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: lcaf type %d not supported",
+                            lcaf_addr_get_type(lcaf));
+                    return(BAD);
             }
+            lispd_log_msg(LISP_LOG_WARNING, "GOT TO HERE");
             break;
         default:
             lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_mapping: afi not supported %d",
@@ -805,6 +814,7 @@ uint8_t *mapping_fill_record_in_pkt(
             if (lct_extended_info->rtr_locators_list != NULL){
                 itr_address = &(lct_extended_info->rtr_locators_list->locator->address);
             }else{
+                lispd_log_msg(LISP_LOG_WARNING, "HHEEEEEERE, ctr = %d, eid = %s", ctr, lisp_addr_to_char(eid));
                 itr_address = locator->locator_addr;
             }
 
@@ -847,7 +857,8 @@ lispd_mapping_elt *mapping_init_local(lisp_addr_t *eid) {
     lispd_mapping_elt           *mapping        = NULL;
     lcl_mapping_extended_info   *extended_info  = NULL;
 
-    lisp_addr_ip_to_ippref(eid);
+    if (lisp_addr_get_afi(eid) == LM_AFI_IP)
+        lisp_addr_ip_to_ippref(eid);
     mapping = mapping_init(eid);
 
     if (!mapping) {

@@ -228,6 +228,56 @@ typedef struct _lcaf_geo_hdr_t{
     uint32_t    altitude;
 } __attribute__ ((__packed__)) lcaf_geo_hdr_t;
 
+
+/* Explicit Locator Path (ELP)
+ *
+ *      0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 10   |     Rsvd2     |               n               |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           Rsvd3         |L|P|S|              AFI = x          |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Reencap Hop 1  ...                    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           Rsvd3         |L|P|S|              AFI = x          |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Reencap Hop k  ...                    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+
+typedef struct _lcaf_elp_hdr_t {
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+} __attribute__ ((__packed__)) lcaf_elp_hdr_t;
+
+
+typedef struct _elp_node_flags {
+    uint8_t rsvd1;
+#ifdef LITTLE_ENDIANS
+    uint8_t S:1;
+    uint8_t P:1;
+    uint8_t L:1;
+    uint8_t rsvd2:5;
+#else
+    uint8_t rsvd2:5;
+    uint8_t L:1;
+    uint8_t P:1;
+    uint8_t S:1;
+#endif
+} elp_node_flags;
+
+/*
+ * Abstract representation of LCAFs
+ */
+
 typedef struct {
     uint8_t     dir;
     uint16_t    deg;
@@ -257,6 +307,7 @@ typedef struct {
     lisp_addr_t *iidaddr;
 } iid_t;
 
+/* RLE */
 typedef struct {
     lcaf_addr_t   ip;
     uint8_t       level;
@@ -267,6 +318,20 @@ typedef struct {
     level_addr_t    **rlist;
 } rle_t;
 
+
+/* ELP */
+typedef struct _elp_node_t{
+    uint8_t             L;
+    uint8_t             P;
+    uint8_t             S;
+    lisp_addr_t         *addr;
+    struct _elp_node_t  *next;
+} elp_node_t;
+
+typedef struct _elp_t {
+    uint16_t    nb_nodes;
+    elp_node_t  *nodes;
+} elp_t;
 
 lcaf_addr_t             *lcaf_addr_new();
 lcaf_addr_t             *lcaf_addr_new_type(uint8_t type);
@@ -324,12 +389,12 @@ inline uint8_t           mc_type_get_grp_plen(mc_t *mc);
 
 
 char                    *mc_type_to_char (void *mc);
-inline uint32_t         mc_type_get_size_to_write(mc_t *mc);
+int                     mc_type_get_size_to_write(void *mc);
 inline int              mc_type_write_to_pkt(uint8_t *offset, void *mc);
 inline void             mc_type_copy(void **dst, void *src);
 inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
-int                     mc_type_read_from_pkt(void *offset, void *mc);
+int                     mc_type_read_from_pkt(uint8_t *offset, void **mc);
 lcaf_addr_t             *lcaf_addr_init_mc(lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 
 
@@ -349,9 +414,9 @@ inline void                 iid_type_set_iid(iid_t *addr, uint32_t iid);
 inline void                 iid_type_set_addr(iid_t *addr, lisp_addr_t *iidaddr);
 inline void                 iid_type_set_mlen(iid_t *addr, uint8_t mlen);
 inline int                  iid_type_cmp(void *iid1, void *iid2);
-inline uint32_t             iid_type_get_size_to_write(iid_t *iid);
+int                         iid_type_get_size_to_write(void *iid);
 inline int                  iid_type_write_to_pkt(uint8_t *offset, void *iid);
-int                         iid_type_read_from_pkt(void *offset, void *iid);
+int                         iid_type_read_from_pkt(uint8_t *offset, void **iid);
 char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);
 
@@ -374,7 +439,7 @@ inline lisp_addr_t      *geo_type_get_addr(geo_t *geo);
 inline geo_coordinates  *geo_type_get_lat(geo_t *geo);
 inline geo_coordinates  *geo_type_get_long(geo_t *geo);
 inline uint32_t         geo_type_get_altitude(geo_t *geo);
-int                     geo_type_read_from_pkt(void *offset, void *geo);
+int                     geo_type_read_from_pkt(uint8_t *offset, void **geo);
 
 
 
@@ -387,9 +452,21 @@ char                    *geo_coord_to_char(geo_coordinates *coord);
  */
 inline rle_t            *rle_type_new();
 inline void             rle_type_del(void *rleaddr);
-int                     rle_type_read_from_pkt(void *offset, void *rle);
+int                     rle_type_read_from_pkt(uint8_t *offset, void **rle);
 char                    *rle_type_to_char(void *rle);
 void                    rle_type_copy(void **dst, void *src);
 
 
+/*
+ *  ELP type functions
+ */
+
+inline elp_t                *elp_type_new();
+void                        elp_type_del(void *elp);
+int                         elp_type_get_size_to_write(void *elp);
+int                         elp_type_write_to_pkt(uint8_t *offset, void *elp);
+int                         elp_type_read_from_pkt(uint8_t *offset, void **elp);
+char                        *elp_type_to_char(void *elp);
+void                        elp_type_copy(void **dst, void *src);
+int                         elp_type_cmp(void *elp1, void *elp2);
 #endif /* LISPD_LCAF_H_ */

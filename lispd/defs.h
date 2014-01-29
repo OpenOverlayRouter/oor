@@ -348,6 +348,8 @@ typedef struct lisp_data_hdr {
 #define LISP_SHA1_AUTH_DATA_LEN         20
 
 
+extern void exit_cleanup();
+
 
 
 #endif /* DEFS_H_ */
