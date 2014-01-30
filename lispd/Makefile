@@ -51,6 +51,9 @@ OBJS		= cmdline.o	\
 		  control/lispd_re.o	\
 		  control/lispd_rloc_probing.o \
 		  control/lispd_smr.o	\
+		  control/lisp_ctrl_device.o	\
+		  control/lisp_xtr.o	\
+		  control/lisp_ms.o	\
 		  data-tun/lispd_iface_list.o	\
 		  data-tun/lispd_input.o	\
 		  data-tun/lispd_output.o	\
@@ -73,7 +76,7 @@ OBJS		= cmdline.o	\
 		  types/lispd_ip.o	\
 		  types/lispd_lcaf.o	\
 		  types/lispd_locator.o	\
-		  types/lispd_map_cache.o	\
+		  types/lispd_map_cache_entry.o	\
 		  types/lispd_mapping.o 	\
 		  types/lispd_mdb.o	\
 		  types/lispd_nonce.o 	\

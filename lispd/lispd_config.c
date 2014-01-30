@@ -41,7 +41,7 @@
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
-#include "lispd_map_cache.h"
+#include "lispd_map_cache_entry.h"
 #include "lispd_map_cache_db.h"
 #include "lispd_mapping.h"
 #include "lispd_rloc_probing.h"

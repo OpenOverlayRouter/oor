@@ -35,7 +35,8 @@
 
 #include "lispd.h"
 #include <lispd_iface_list.h>
-#include <lispd_map_cache.h>
+#include <lispd_map_cache_entry.h>
+#include <lisp_ctrl_device.h>
 
 
 
@@ -75,7 +76,7 @@ extern lispd_iface_elt          *default_ctrl_iface_v6;
 extern lispd_iface_elt          *default_out_iface_v4;
 extern lispd_iface_elt          *default_out_iface_v6;
 extern timer                    *smr_timer;
-
+lisp_ctrl_device                *active_dev;
 #endif /*LISPD_EXTERNAL_H_*/
 
 /*

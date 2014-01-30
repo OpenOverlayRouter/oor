@@ -128,6 +128,7 @@ lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet) {
     lisp_encap_data *data;
     data = calloc(1, sizeof(lisp_encap_data));
 
+    data->ecmh = packet;
     data->iph = CO(packet, sizeof(lisp_encap_control_hdr_t));
     switch (((struct ip *)data->iph)->ip_v) {
     case IPVERSION:

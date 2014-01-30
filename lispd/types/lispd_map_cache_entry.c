@@ -31,7 +31,7 @@
 #include "lispd.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
-#include "lispd_map_cache.h"
+#include "lispd_map_cache_entry.h"
 #include "lispd_map_cache_db.h"
 
 

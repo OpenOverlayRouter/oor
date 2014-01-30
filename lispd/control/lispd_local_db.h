@@ -38,6 +38,10 @@
 //#include <patricia/patricia.h>
 
 
+typedef struct _local_map_db {
+    mdb_t *local_mdb;
+} local_map_db;
+
 extern mdb_t *local_mdb;
 
 /*

@@ -31,13 +31,16 @@
 #ifndef LISPD_MAP_CACAHE_DB_H_
 #define LISPD_MAP_CACAHE_DB_H_
 
-#include <lispd_map_cache.h>
+#include <lispd_map_cache_entry.h>
 #include <defs.h>
 #include <lispd_types.h>
 //#include "lispd_address.h"
 //#include "lispd_local_db.h"
 #include <lispd_timers.h>
 
+typedef struct _map_cache_db {
+    mdb_t *mdb;
+} map_cache_db;
 
 extern mdb_t *mdb;
 

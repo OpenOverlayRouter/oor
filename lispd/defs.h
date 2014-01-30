@@ -350,6 +350,4 @@ typedef struct lisp_data_hdr {
 
 extern void exit_cleanup();
 
-
-
 #endif /* DEFS_H_ */

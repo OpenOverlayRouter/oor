@@ -1,5 +1,5 @@
 /*
- * lispd_control.h
+ * lisp_ms.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
@@ -26,18 +26,11 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#ifndef LISPD_CONTROL_H_
-#define LISPD_CONTROL_H_
+#ifndef LISP_MS_H_
+#define LISP_MS_H_
 
-#include <defs.h>
 #include "lisp_ctrl_device.h"
 
+lisp_ctrl_device *ms_init();
 
-
-int process_lisp_ctr_msg(int sock, int afi);
-
-
-void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp);
-void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp);
-
-#endif /* LISPD_CONTROL_H_ */
+#endif /* LISP_MS_H_ */

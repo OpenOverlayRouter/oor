@@ -87,7 +87,7 @@ typedef enum {
 */
 
 typedef struct _lisp_encap_data {
-    uint8_t         *data;
+    uint8_t         *ecmh;
     uint8_t         *iph;
     uint8_t         ip_afi;
     int             ip_header_len;

@@ -61,6 +61,7 @@
 #include "data-tun/lispd_output.h"
 #include "data-tun/lispd_routing_tables_lib.h"
 #include <lispd_address.h>
+#include <lisp_xtr.h>
 
 
 void event_loop();
@@ -371,6 +372,9 @@ int main(int argc, char **argv)
      * RLOC Probing proxy ETRs
      */
     programming_petr_rloc_probing();
+
+    /* activate lisp control device xtr/ms */
+    active_dev = xtr_init();
 
     event_loop();
 
