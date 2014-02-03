@@ -32,9 +32,10 @@
 #define LISPD_IFACE_MGMT_H_
 
 #include "lispd_iface_list.h"
+#include "lispd_sockets.h"
 
 
 int opent_netlink_socket();
-void process_netlink_msg(int netlink_fd);
+int process_netlink_msg(struct sock *sl);
 
 #endif /* LISPD_IFACE_MGMT_H_ */

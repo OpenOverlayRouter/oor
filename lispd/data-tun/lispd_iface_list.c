@@ -295,8 +295,7 @@ lispd_iface_elt *get_interface_with_address(lisp_addr_t *address)
     iface_lst_elt = head_interface_list;
     while (iface_lst_elt != NULL){
         iface = iface_lst_elt->iface;
-        switch(address->afi)
-        {
+        switch (address->afi) {
         case AF_INET:
             if (compare_lisp_addr_t (address,iface->ipv4_address) == 0){
                 return (iface);
@@ -372,29 +371,29 @@ lispd_iface_elt *get_any_output_iface(int afi)
     lispd_iface_list_elt    *iface_list_elt     = head_interface_list;
     
     switch (afi){
-        case AF_INET:
-            while (iface_list_elt!=NULL){
-                if ((iface_list_elt->iface->ipv4_address->afi != AF_UNSPEC)
-                        && (iface_list_elt->iface->status == UP)) {
-                    iface = iface_list_elt->iface;
-                    break;
-                }
-                iface_list_elt = iface_list_elt->next;
+    case AF_INET:
+        while (iface_list_elt!=NULL){
+            if ((iface_list_elt->iface->ipv4_address->afi != AF_UNSPEC)
+                    && (iface_list_elt->iface->status == UP)) {
+                iface = iface_list_elt->iface;
+                break;
             }
-            break;
-        case AF_INET6:
-            while (iface_list_elt!=NULL){
-                if ((iface_list_elt->iface->ipv6_address->afi != AF_UNSPEC)
-                        && (iface_list_elt->iface->status == UP)) {
-                    iface = iface_list_elt->iface;
-                    break;
-                }
-                iface_list_elt = iface_list_elt->next;
+            iface_list_elt = iface_list_elt->next;
+        }
+        break;
+    case AF_INET6:
+        while (iface_list_elt!=NULL){
+            if ((iface_list_elt->iface->ipv6_address->afi != AF_UNSPEC)
+                    && (iface_list_elt->iface->status == UP)) {
+                iface = iface_list_elt->iface;
+                break;
             }
-            break;
-        default:
-            lispd_log_msg(LISP_LOG_DEBUG_2, "get_output_iface: unknown afi %d",afi);
-            break;
+            iface_list_elt = iface_list_elt->next;
+        }
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2, "get_output_iface: unknown afi %d",afi);
+        break;
     }
 
     return (iface);
@@ -406,16 +405,16 @@ lispd_iface_elt *get_default_ctrl_iface(int afi)
     lispd_iface_elt *iface = NULL;
 
     switch (afi){
-        case AF_INET:
-            iface = default_ctrl_iface_v4;
-            break;
-        case AF_INET6:
-            iface = default_ctrl_iface_v6;
-            break;
-        default:
-            //arnatal TODO: syslog
-            iface = NULL;
-            break;
+    case AF_INET:
+        iface = default_ctrl_iface_v4;
+        break;
+    case AF_INET6:
+        iface = default_ctrl_iface_v6;
+        break;
+    default:
+        //arnatal TODO: syslog
+        iface = NULL;
+        break;
     }
 
     return (iface);
@@ -424,23 +423,20 @@ lispd_iface_elt *get_default_ctrl_iface(int afi)
 
 lisp_addr_t *get_default_ctrl_address(int afi)
 {
-
     lisp_addr_t *address = NULL;
-
-
     switch (afi){
-        case AF_INET:
-            if (default_ctrl_iface_v4 != NULL){
-                address = default_ctrl_iface_v4->ipv4_address;
-            }
-            break;
-        case AF_INET6:
-            if (default_ctrl_iface_v6 != NULL){
-                address = default_ctrl_iface_v6->ipv6_address;
-            }
-            break;
-        default:
-            break;
+    case AF_INET:
+        if (default_ctrl_iface_v4 != NULL){
+            address = default_ctrl_iface_v4->ipv4_address;
+        }
+        break;
+    case AF_INET6:
+        if (default_ctrl_iface_v6 != NULL){
+            address = default_ctrl_iface_v6->ipv6_address;
+        }
+        break;
+    default:
+        break;
     }
 
     return (address);
@@ -448,24 +444,21 @@ lisp_addr_t *get_default_ctrl_address(int afi)
 
 int get_default_ctrl_socket(int afi)
 {
-
     int socket = 0;
-
-
     switch (afi){
-        case AF_INET:
-            if (default_ctrl_iface_v4 != NULL){
-                socket = default_ctrl_iface_v4->out_socket_v4;
-            }
-            break;
-        case AF_INET6:
-            if (default_ctrl_iface_v6 != NULL){
-                socket = default_ctrl_iface_v6->out_socket_v6;
-            }
-            break;
-        default:
-            socket = ERR_SRC_ADDR;
-            break;
+    case AF_INET:
+        if (default_ctrl_iface_v4 != NULL){
+            socket = default_ctrl_iface_v4->out_socket_v4;
+        }
+        break;
+    case AF_INET6:
+        if (default_ctrl_iface_v6 != NULL){
+            socket = default_ctrl_iface_v6->out_socket_v6;
+        }
+        break;
+    default:
+        socket = ERR_SRC_ADDR;
+        break;
     }
 
     return (socket);
@@ -528,14 +521,14 @@ void set_default_ctrl_ifaces()
 
     if (default_ctrl_iface_v4 != NULL) {
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 control iface %s: %s\n",
-               default_ctrl_iface_v4->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v4->ipv4_address)));
+               default_ctrl_iface_v4->iface_name, lisp_addr_to_char(default_ctrl_iface_v4->ipv4_address));
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
 
     if (default_ctrl_iface_v6 != NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 control iface %s: %s\n",
-                default_ctrl_iface_v6->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v6->ipv6_address)));
+                default_ctrl_iface_v6->iface_name, lisp_addr_to_char(default_ctrl_iface_v6->ipv6_address));
     }
 
     /* Check NAT status */

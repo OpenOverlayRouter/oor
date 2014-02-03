@@ -54,15 +54,6 @@ void local_map_db_init(void)
 
 }
 
-//patricia_tree_t* get_local_db(int afi)
-//{
-//    if (afi == AF_INET)
-//        return EIDv4_database;
-//    else
-//        return EIDv6_database;
-//}
-
-
 /*
  *  Add a mapping entry to the database.
  */
@@ -77,71 +68,6 @@ int local_map_db_add_mapping(lispd_mapping_elt *mapping)
     total_mappings ++;
     return(GOOD);
 }
-
-
-
-//patricia_node_t *lookup_eid_node(lisp_addr_t eid)
-//{
-//    patricia_node_t *node = NULL;
-//    prefix_t prefix;
-//
-//    switch(eid.afi) {
-//    case AF_INET:
-//        prefix.family = AF_INET;
-//        prefix.bitlen = 32;
-//        prefix.ref_count = 0;
-//        prefix.add.sin.s_addr = eid.address.ip.s_addr;
-//        node = patricia_search_best(EIDv4_database, &prefix);
-//        break;
-//    case AF_INET6:
-//        prefix.family = AF_INET6;
-//        prefix.bitlen = 128;
-//        prefix.ref_count = 0;
-//        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-//        node = patricia_search_best(EIDv6_database, &prefix);
-//        break;
-//    default:
-//        break;
-//    }
-//
-//    if ( node==NULL ){
-//        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", lisp_addr_to_char(&eid));
-//    }
-//    return(node);
-//}
-//
-//patricia_node_t *lookup_eid_exact_node(
-//        lisp_addr_t eid,
-//        int         eid_prefix_length)
-//{
-//    patricia_node_t *node = NULL;
-//    prefix_t        prefix;
-//
-//    switch(eid.afi) {
-//    case AF_INET:
-//        prefix.family = AF_INET;
-//        prefix.bitlen = eid_prefix_length;
-//        prefix.ref_count = 0;
-//        memcpy (&(prefix.add.sin), &(eid.address.ip), sizeof(struct in_addr));
-//        node = patricia_search_exact(EIDv4_database, &prefix);
-//        break;
-//    case AF_INET6:
-//        prefix.family = AF_INET6;
-//        prefix.bitlen = eid_prefix_length;
-//        prefix.ref_count = 0;
-//        memcpy (&(prefix.add.sin6), &(eid.address.ipv6), sizeof(struct in6_addr));
-//        node = patricia_search_exact(EIDv6_database, &prefix);
-//        break;
-//    default:
-//        break;
-//    }
-//
-//    if (node == NULL){
-//        lispd_log_msg(LISP_LOG_DEBUG_3, "The entry %s is not a local EID", get_char_from_lisp_addr_t(eid));
-//    }
-//    return(node);
-//}
-
 
 /*
  * lookup_eid_in_db
@@ -186,8 +112,6 @@ lispd_mapping_elt *local_map_db_lookup_eid_exact(lisp_addr_t *eid)
     }
     return(mapping);
 }
-
-
 
 /*
  * del_mapping_entry_from_db()

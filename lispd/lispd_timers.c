@@ -11,7 +11,7 @@
 #include <signal.h>
 #include <sys/time.h>
 
-#include "lispd.h"
+#include "defs.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_log.h"
 #include "lispd_rloc_probing.h"
@@ -289,12 +289,12 @@ void handle_timers(void)
 
 
 
-int process_timer_signal(int timers_fd)
+int process_timer_signal(struct sock *sl)
 {
     int sig;
     int bytes;
 
-    bytes = read(timers_fd, &sig, sizeof(sig));
+    bytes = read(sl->fd, &sig, sizeof(sig));
 
     if (bytes != sizeof(sig)) {
         lispd_log_msg(LISP_LOG_WARNING, "process_event_signal(): nothing to read");

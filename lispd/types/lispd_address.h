@@ -112,7 +112,6 @@ typedef struct _lispd_map_server_list_t {
 } lispd_map_server_list_t;
 
 typedef struct packet_tuple_ {
-    /* TODO: would be nice for this to use ip_addr_t in the future */
     lisp_addr_t                     src_addr;
     lisp_addr_t                     dst_addr;
     uint16_t                        src_port;

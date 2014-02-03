@@ -58,6 +58,7 @@
 #include <netinet/ip6.h>
 #include <netinet/ip.h>
 #include <stdint.h>
+#include <sys/select.h>
 
 #include "lispd_log.h"
 //#include "lispd_external.h"

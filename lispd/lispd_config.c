@@ -46,6 +46,8 @@
 #include "lispd_mapping.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_lcaf.h"
+#include <lisp_xtr.h>
+#include <lisp_ms.h>
 
 
 
@@ -458,10 +460,8 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
  *
  */
 
-int handle_lispd_config_file(char * lispdconf_conf_file)
-{
+int configure_xtr(cfg_t *cfg) {
 
-    cfg_t                   *cfg                    = 0;
     int                     i                       = 0;
     int                     n                       = 0;
     int                     ret                     = 0;
@@ -474,108 +474,12 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     int                     probe_retries_interval  = 0;
     int                     ctr                     = 0;
 
-    static cfg_opt_t map_server_opts[] = {
-            CFG_STR("address",              0, CFGF_NONE),
-            CFG_INT("key-type",             0, CFGF_NONE),
-            CFG_STR("key",                  0, CFGF_NONE),
-            CFG_BOOL("proxy-reply", cfg_false, CFGF_NONE),
-            CFG_END()
-    };
-
-    static cfg_opt_t db_mapping_opts[] = {
-            CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                 -1, CFGF_NONE),
-            CFG_STR("interface",            0, CFGF_NONE),
-            CFG_INT("priority_v4",          0, CFGF_NONE),
-            CFG_INT("weight_v4",            0, CFGF_NONE),
-            CFG_INT("priority_v6",          0, CFGF_NONE),
-            CFG_INT("weight_v6",            0, CFGF_NONE),
-            CFG_END()
-    };
-
-    static cfg_opt_t mc_mapping_opts[] = {
-            CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                 -1, CFGF_NONE),
-            CFG_STR("rloc",                 0, CFGF_NONE),
-            CFG_INT("priority",             0, CFGF_NONE),
-            CFG_INT("weight",               0, CFGF_NONE),
-            CFG_END()
-    };
-
-    static cfg_opt_t petr_mapping_opts[] = {
-            CFG_STR("address",              0, CFGF_NONE),
-            CFG_INT("priority",           255, CFGF_NONE),
-            CFG_INT("weight",               0, CFGF_NONE),
-            CFG_END()
-    };
-
-    static cfg_opt_t nat_traversal_opts[] = {
-            CFG_BOOL("nat_aware",   cfg_false, CFGF_NONE),
-            CFG_STR("site_ID",              0, CFGF_NONE),
-            CFG_STR("xTR_ID",               0, CFGF_NONE),
-            CFG_END()
-    };
-
-    static cfg_opt_t rloc_probing_opts[] = {
-            CFG_INT("rloc-probe-interval",           0, CFGF_NONE),
-            CFG_INT("rloc-probe-retries",            0, CFGF_NONE),
-            CFG_INT("rloc-probe-retries-interval",   0, CFGF_NONE),
-            CFG_END()
-    };
-
-    cfg_opt_t opts[] = {
-            CFG_SEC("database-mapping",     db_mapping_opts, CFGF_MULTI),
-            CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
-            CFG_SEC("map-server",           map_server_opts, CFGF_MULTI),
-            CFG_SEC("proxy-etr",            petr_mapping_opts, CFGF_MULTI),
-            CFG_SEC("nat-traversal",        nat_traversal_opts, CFGF_MULTI),
-            CFG_SEC("rloc-probing",         rloc_probing_opts, CFGF_MULTI),
-            CFG_INT("map-request-retries",  0, CFGF_NONE),
-            CFG_INT("control-port",         0, CFGF_NONE),
-            CFG_INT("debug",                0, CFGF_NONE),
-            CFG_INT("rloc-probing-interval",0, CFGF_NONE),
-            CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
-            CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
-            CFG_END()
-    };
-
-    /*
-     *  parse config_file
-     */
-
-    cfg = cfg_init(opts, CFGF_NOCASE);
-    ret = cfg_parse(cfg, lispdconf_conf_file);
-
-    if (ret == CFG_FILE_ERROR) {
-        lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", config_file);
-        exit_cleanup();
-    } else if(ret == CFG_PARSE_ERROR) {
-        lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting. Check conf file (see lispd.conf.example)", config_file);
-        exit_cleanup();
-    }
-
-
-    /*
-     *  lispd config options
-     */
+    /* initialize xtr */
+    ctrl_dev = (lisp_ctrl_device *)xtr_ctrl_init();
 
     ret = cfg_getint(cfg, "map-request-retries");
     if (ret != 0)
         map_request_retries = ret;
-
-    /*
-     * Debug level
-     */
-
-    if (debug_level == -1){
-        ret = cfg_getint(cfg, "debug");
-        if (ret > 0)
-            debug_level = ret;
-        else
-            debug_level = 0;
-        if (debug_level > 3)
-            debug_level = 3;
-    }
 
 
     /*
@@ -778,14 +682,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 #endif
 
 
-    if (debug_level == 1){
-        lispd_log_msg (LISP_LOG_INFO, "Log level: Low debug");
-    }else if (debug_level == 2){
-        lispd_log_msg (LISP_LOG_INFO, "Log level: Medium debug");
-    }else if (debug_level == 3){
-        lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
-    }
-
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     local_map_db_dump(LISP_LOG_DEBUG_1);
     if (is_loggable(LISP_LOG_DEBUG_1)){
@@ -796,6 +692,158 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     dump_servers(map_resolvers, "Map-Resolvers", LISP_LOG_DEBUG_1);
     dump_proxy_etrs(LISP_LOG_DEBUG_1);
     dump_servers(proxy_itrs, "Proxy-ITRs", LISP_LOG_DEBUG_1);
+
+    return(GOOD);
+
+}
+
+int configure_ms(cfg_t *cfg) {
+    int n, i;
+    ctrl_dev = (lisp_ctrl_device *)ms_ctrl_init();
+
+
+    /* XXX: FC: Hack to ensure that we have an output interface for
+     * control messages. Maybe MS shouldn't send Map-Replies out a raw
+     * socket. The disadvantage is that we must configure an
+     * interface, thus the hack were we read the database mapping interface.
+     *
+     */
+    /*
+     *  handle database-mapping config
+     */
+
+    n = cfg_size(cfg, "database-mapping");
+    for(i = 0; i < n; i++) {
+        cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
+        if (!add_interface(cfg_getstr(dm, "interface")))
+            return(BAD);
+    }
+
+    return(GOOD);
+}
+
+int handle_lispd_config_file(char * lispdconf_conf_file)
+{
+    int                     ret                     = 0;
+    cfg_t                   *cfg                    = 0;
+    char                    *mode                   = NULL;
+
+    static cfg_opt_t map_server_opts[] = {
+            CFG_STR("address",              0, CFGF_NONE),
+            CFG_INT("key-type",             0, CFGF_NONE),
+            CFG_STR("key",                  0, CFGF_NONE),
+            CFG_BOOL("proxy-reply", cfg_false, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t db_mapping_opts[] = {
+            CFG_STR("eid-prefix",           0, CFGF_NONE),
+            CFG_INT("iid",                 -1, CFGF_NONE),
+            CFG_STR("interface",            0, CFGF_NONE),
+            CFG_INT("priority_v4",          0, CFGF_NONE),
+            CFG_INT("weight_v4",            0, CFGF_NONE),
+            CFG_INT("priority_v6",          0, CFGF_NONE),
+            CFG_INT("weight_v6",            0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t mc_mapping_opts[] = {
+            CFG_STR("eid-prefix",           0, CFGF_NONE),
+            CFG_INT("iid",                 -1, CFGF_NONE),
+            CFG_STR("rloc",                 0, CFGF_NONE),
+            CFG_INT("priority",             0, CFGF_NONE),
+            CFG_INT("weight",               0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t petr_mapping_opts[] = {
+            CFG_STR("address",              0, CFGF_NONE),
+            CFG_INT("priority",           255, CFGF_NONE),
+            CFG_INT("weight",               0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t nat_traversal_opts[] = {
+            CFG_BOOL("nat_aware",   cfg_false, CFGF_NONE),
+            CFG_STR("site_ID",              0, CFGF_NONE),
+            CFG_STR("xTR_ID",               0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t rloc_probing_opts[] = {
+            CFG_INT("rloc-probe-interval",           0, CFGF_NONE),
+            CFG_INT("rloc-probe-retries",            0, CFGF_NONE),
+            CFG_INT("rloc-probe-retries-interval",   0, CFGF_NONE),
+            CFG_END()
+    };
+
+    cfg_opt_t opts[] = {
+            CFG_SEC("database-mapping",     db_mapping_opts, CFGF_MULTI),
+            CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
+            CFG_SEC("map-server",           map_server_opts, CFGF_MULTI),
+            CFG_SEC("proxy-etr",            petr_mapping_opts, CFGF_MULTI),
+            CFG_SEC("nat-traversal",        nat_traversal_opts, CFGF_MULTI),
+            CFG_SEC("rloc-probing",         rloc_probing_opts, CFGF_MULTI),
+            CFG_INT("map-request-retries",  0, CFGF_NONE),
+            CFG_INT("control-port",         0, CFGF_NONE),
+            CFG_INT("debug",                0, CFGF_NONE),
+            CFG_INT("rloc-probing-interval",0, CFGF_NONE),
+            CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
+            CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
+            CFG_STR("operating-mode",       0, CFGF_NONE),
+            CFG_END()
+    };
+
+    /*
+     *  parse config_file
+     */
+
+    cfg = cfg_init(opts, CFGF_NOCASE);
+    ret = cfg_parse(cfg, lispdconf_conf_file);
+
+    if (ret == CFG_FILE_ERROR) {
+        lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", config_file);
+        exit_cleanup();
+    } else if(ret == CFG_PARSE_ERROR) {
+        lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting. Check conf file (see lispd.conf.example)", config_file);
+        exit_cleanup();
+    }
+
+
+    /*
+     *  lispd config options
+     */
+
+
+    /*
+     * Debug level
+     */
+
+    if (debug_level == -1){
+        ret = cfg_getint(cfg, "debug");
+        if (ret > 0)
+            debug_level = ret;
+        else
+            debug_level = 0;
+        if (debug_level > 3)
+            debug_level = 3;
+    }
+
+    if (debug_level == 1){
+        lispd_log_msg (LISP_LOG_INFO, "Log level: Low debug");
+    }else if (debug_level == 2){
+        lispd_log_msg (LISP_LOG_INFO, "Log level: Medium debug");
+    }else if (debug_level == 3){
+        lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
+    }
+
+    mode = cfg_getstr(cfg, "operating-mode");
+    if (mode) {
+        if (strcmp(mode, "xTR") == 0)
+            ret=configure_xtr(cfg);
+        if (strcmp(mode, "MS") == 0)
+            ret=configure_ms(cfg);
+    }
 
     cfg_free(cfg);
     return(GOOD);

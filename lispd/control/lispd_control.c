@@ -27,8 +27,9 @@
  */
 
 #include "lispd_control.h"
-#include <lispd_sockets.h>
 #include <lispd_external.h>
+#include "lispd_info_nat.h"
+#include <cksum.h>
 
 /*
  * Process encapsulated map request header:  lisp header and the interal IP and UDP header
@@ -88,7 +89,7 @@ int process_lisp_msg_encapsulated_data(lisp_encap_data *data, uint16_t *dst_port
  *  Process a LISP protocol message sitting on
  *  socket s with address family afi
  */
-int process_lisp_ctr_msg(int sock, int afi)
+int process_lisp_ctr_msg(struct sock *sl)
 {
 
     uint8_t             packet[MAX_IP_PACKET];
@@ -99,7 +100,7 @@ int process_lisp_ctr_msg(int sock, int afi)
 
     lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
 
-    if  (get_packet_and_socket_inf (sock, afi, packet, &local_rloc, &remote_port) != GOOD )
+    if  (get_packet_and_socket_inf (sl->fd, packet, &local_rloc, &remote_port) != GOOD )
         return BAD;
 
     msg = lisp_msg_parse(packet);
@@ -123,35 +124,13 @@ int process_lisp_ctr_msg(int sock, int afi)
     }
     /* ======================  */
 
-    active_dev->process_lisp_ctrl_msg(msg, &local_rloc, remote_port);
-
-//    switch(msg->type) {
-//    case LISP_MAP_REPLY:
-//        process_map_reply_msg(msg->msg);
-//        break;
-//    case LISP_MAP_REQUEST:
-//        process_map_request_msg(msg->msg, &local_rloc, remote_port);
-//        break;
-//    case LISP_MAP_REGISTER:
-//        break;
-//    case LISP_MAP_NOTIFY:
-//        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Notify message");
-//        if(process_map_notify(msg->msg) != GOOD)
-//            return(BAD);
-//        break;
-//    case LISP_INFO_NAT:
-//        lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-//        if(!process_info_nat_msg(packet, local_rloc)){
-//            return (BAD);
-//        }
-//        break;
-//    default:
-//        lispd_log_msg(LISP_LOG_DEBUG_1, "Unidentified type (%d) control message received", msg->type);
-//        break;
-//    }
+    process_ctrl_msg(ctrl_dev, msg, &local_rloc, remote_port);
+//    (*ctrl_dev->process_lisp_ctrl_msg)(msg, &local_rloc, remote_port);
 
     lispd_log_msg(LISP_LOG_DEBUG_2, "Completed processing of LISP control message");
     lisp_msg_del(msg);
+
+
     return(GOOD);
 }
 
@@ -162,11 +141,11 @@ int process_lisp_ctr_msg(int sock, int afi)
  */
 
 void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp) {
-    re_join_channel(src, grp);
+//    re_join_channel(src, grp);
 }
 
 void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
-    re_leave_channel(src, grp);
+//    re_leave_channel(src, grp);
 }
 
 

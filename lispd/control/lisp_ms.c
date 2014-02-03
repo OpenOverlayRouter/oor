@@ -30,43 +30,8 @@
 
 int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);
 
- int ms_process_lisp_ctrl_msg(lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port) {
-     int ret = BAD;
-
-      switch(msg->type) {
-      case LISP_MAP_REQUEST:
-          ret = ms_process_map_request_msg(msg->msg, local_rloc, remote_port);
-          break;
-      case LISP_MAP_REGISTER:
-//          ret = process_map_register_msg();
-          break;
-      case LISP_MAP_REPLY:
-      case LISP_MAP_NOTIFY:
-      case LISP_INFO_NAT:
-          lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received control message with type %d. Discarding!",
-                  msg->type);
-          break;
-      default:
-          lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received unidentified type (%d) control message", msg->type);
-          ret = BAD;
-          break;
-      }
-
-      if (ret != GOOD) {
-          lispd_log_msg(LISP_LOG_DEBUG_2, "Map-Server: Failed to process LISP control message");
-          return(BAD);
-      } else {
-          lispd_log_msg(LISP_LOG_DEBUG_2, "Map-Server: Completed processing of LISP control message");
-          return(ret);
-      }
-}
-
-lisp_ctrl_device *ms_init() {
-    lisp_ctrl_device *ms;
-    ms = calloc(1, sizeof(lisp_ctrl_device));
-    ms->process_lisp_ctrl_msg = ms_process_lisp_ctrl_msg;
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing Map-Server");
-    return(ms);
+void ms_ctrl_start(lisp_ctrl_device *dev) {
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
 }
 
 
@@ -155,3 +120,114 @@ err:
         lisp_addr_del(dst_eid);
     return(BAD);
 }
+
+lispd_mapping_elt *process_mapping_record(mapping_record *record) {
+    lispd_mapping_elt   *mapping    = NULL;
+    lisp_addr_t         *eid        = NULL;
+    locator_field       **locs      = NULL;
+    lispd_locator_elt   *loc        = NULL;
+    int i;
+
+
+    eid = lisp_addr_init_from_field(mapping_record_get_eid(record));
+    if (!eid)
+        goto err;
+
+    mapping = mapping_init(eid);
+    if (!mapping)
+        goto err;
+
+    locs = mapping_record_get_locators(record);
+    for (i = 0; i < mapping_record_get_hdr(record)->locator_count; i++) {
+        if (!(loc = locator_init_from_field(locs[i])))
+            goto err;
+        lispd_log_msg(LISP_LOG_DEBUG_1, "    RLOC: %s", locator_to_char(loc));
+        if (add_locator_to_mapping(mapping, loc) != GOOD)
+            goto err;
+    }
+    return(mapping);
+
+err:
+    if (eid)
+        lisp_addr_del(eid);
+    if (mapping)
+        free_mapping_elt(mapping, 0);
+    return(NULL);
+}
+
+int ms_process_map_register_msg(map_register_msg *mreg) {
+    int i;
+    mapping_record      **records   = NULL;
+    lispd_mapping_elt   *mapping    = NULL;
+
+    records = mreg_msg_get_records(mreg);
+    for (i = 0; i < mreg_msg_get_hdr(mreg)->record_count; i++) {
+        mapping = process_mapping_record(records[i]);
+        if (!mapping) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "MS: Couldn't process mapping record. Skipping");
+            continue;
+        }
+
+        /* check authentication */
+
+        local_map_db_add_mapping(mapping);
+        /* start timers */
+        if (mreg_msg_get_hdr(mreg)->map_notify){
+            /* send map-notify */
+        }
+
+
+    }
+    return(GOOD);
+
+err:
+    return(BAD);
+}
+
+int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port) {
+    int ret = BAD;
+
+     switch(msg->type) {
+     case LISP_MAP_REQUEST:
+         ret = ms_process_map_request_msg(msg->msg, local_rloc, remote_port);
+         break;
+     case LISP_MAP_REGISTER:
+         ret = ms_process_map_register_msg(msg->msg);
+         break;
+     case LISP_MAP_REPLY:
+     case LISP_MAP_NOTIFY:
+     case LISP_INFO_NAT:
+         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received control message with type %d. Discarding!",
+                 msg->type);
+         break;
+     default:
+         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received unidentified type (%d) control message", msg->type);
+         ret = BAD;
+         break;
+     }
+
+     if (ret != GOOD) {
+         lispd_log_msg(LISP_LOG_DEBUG_2, "Map-Server: Failed to process LISP control message");
+         return(BAD);
+     } else {
+         lispd_log_msg(LISP_LOG_DEBUG_2, "Map-Server: Completed processing of LISP control message");
+         return(ret);
+     }
+}
+
+ctrl_device_vtable ms_vtable = {
+        ms_process_lisp_ctrl_msg,
+        ms_ctrl_start
+};
+
+lisp_ctrl_device *ms_ctrl_init() {
+    lisp_ms *ms;
+    ms = calloc(1, sizeof(lisp_ctrl_device));
+    ms->super.mode = 2;
+    ms->super.vtable = &ms_vtable;
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing Map-Server");
+    local_map_db_init();
+
+    return((lisp_ctrl_device *)ms);
+}
+

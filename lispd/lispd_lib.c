@@ -62,7 +62,8 @@
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
 #include "lispd_info_nat.h" 
-#include "lispd_address.h"
+#include <lispd_locator.h>
+
 
 
 

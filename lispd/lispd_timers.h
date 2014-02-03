@@ -13,6 +13,7 @@
 
 #include <signal.h>
 #include <time.h>
+#include "lispd_sockets.h"
 
 #define RLOC_PROBE_CHECK_INTERVAL 1 // 1 second
 
@@ -57,7 +58,7 @@ void start_timer(
 
 void stop_timer(timer *);
 
-int process_timer_signal();
+int process_timer_signal(struct sock *sl);
 
 /*
  * build_timer_event_socket

@@ -30,11 +30,12 @@
 #define LISPD_CONTROL_H_
 
 #include <defs.h>
+#include <lispd_sockets.h>
 #include "lisp_ctrl_device.h"
 
 
 
-int process_lisp_ctr_msg(int sock, int afi);
+int process_lisp_ctr_msg(struct sock *sl);
 
 
 void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp);

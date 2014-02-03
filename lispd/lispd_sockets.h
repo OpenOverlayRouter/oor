@@ -36,10 +36,61 @@
 #endif
 
 #include "defs.h"
-#include "lispd_iface_list.h"
-#include "lispd_lib.h"
+#include <lispd_address.h>
+
 //#include "lispd_output.h"
 
+typedef enum {
+    SOCK_READ,
+    SOCK_WRITE,
+} sock_type;
+
+/*
+ * inspired by quagga thread.c
+ * It might be a little bit of an overkill for now
+ * but it could prove useful in the future
+ */
+struct sock;
+
+
+struct sock_list {
+    struct sock *head;
+    struct sock *tail;
+    int count;
+    int maxfd;
+};
+
+struct sock {
+    sock_type               type;
+    int                     (*func)(struct sock *);
+    void                    *arg;
+    int                     fd;
+    struct sock    *next;
+    struct sock    *prev;
+};
+
+
+
+struct sock_master {
+    struct sock_list read;
+//    struct sock_list *write;
+//    struct sock_list *netlink;
+    fd_set readfds;
+//    fd_set *writefds;
+//    fd_set *netlinkfds;
+};
+
+union sockunion {
+    struct sockaddr_in  s4;
+    struct sockaddr_in6 s6;
+};
+
+
+extern struct sock_master *sock_master_new();
+extern struct sock *sock_register_read_listener(struct sock_master *m,
+        int (*)(struct sock *), void *arg, int fd);
+extern void sock_process_all(struct sock_master *m);
+extern void sock_fdset_all_read(struct sock_master *m);
 
 int open_device_binded_raw_socket(
     char *device,
@@ -71,14 +122,14 @@ int send_packet (
 
 int get_packet_and_socket_inf (
         int             sock,
-        int             afi,
+//        int             afi,
         uint8_t         *packet,
         lisp_addr_t     *local_rloc,
         uint16_t        *remote_port);
 
 int get_data_packet (
     int             sock,
-    int             afi,
+    int             *afi,
     uint8_t         *packet,
     int             *length,
     uint8_t         *ttl,

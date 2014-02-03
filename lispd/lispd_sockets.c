@@ -27,10 +27,88 @@
  */
 
 #include "lispd_sockets.h"
-#include "lispd_log.h"
+#include "lispd_iface_list.h"
+#include "lispd_lib.h"
+
+struct sock_master *sock_master_new()
+{
+    struct sock_master *sm;
+    sm = calloc(1, sizeof(struct sock_master));
+    return(sm);
+}
+
+static void sock_list_add(struct sock_list *lst, struct sock *sock)
+{
+    sock->next = NULL;
+    sock->prev = lst->tail;
+    if (lst->tail)
+        lst->tail->next = sock;
+    else
+        lst->head = sock;
+
+    lst->tail = sock;
+    lst->count++;
+    if (sock->fd > lst->maxfd)
+        lst->maxfd = sock->fd;
+
+}
+
+struct sock *sock_register_read_listener(struct sock_master *m,
+        int (*func)(struct sock *), void *arg, int fd)
+{
+    struct sock *sock;
+    sock = calloc(1, sizeof(struct sock));
+    sock->func = func;
+    sock->type = SOCK_READ;
+    sock->arg = arg;
+    sock->fd = fd;
+    sock_list_add(&m->read, sock);
+//    FD_SET(fd, &m->readfds);
+    return(sock);
+}
 
 
+static void sock_process_fd(struct sock_list *lst, fd_set *fdset) {
+    struct sock *sit;
 
+    for (sit = lst->head; sit; sit = sit->next) {
+        if (FD_ISSET(sit->fd, fdset))
+            (*sit->func)(sit);
+    }
+}
+
+void sock_process_all(struct sock_master *m)
+{
+//    fd_set          readfds;
+    struct timeval  tv;
+
+    tv.tv_sec  = 0;
+    tv.tv_usec = DEFAULT_SELECT_TIMEOUT;
+
+//    readfds = m->readfds;
+
+    while (1) {
+        if (select(m->read.maxfd + 1, &m->readfds,NULL,NULL,&tv) == -1) {
+            if (errno == EINTR) {
+                continue;
+            } else {
+                lispd_log_msg(LISP_LOG_DEBUG_2, "sock_process_all: select error: %s", strerror(errno));
+                return;
+            }
+        } else {
+            break;
+        }
+    }
+
+    sock_process_fd(&m->read, &m->readfds);
+}
+
+void sock_fdset_all_read(struct sock_master *m) {
+
+    struct sock *sit;
+    for (sit = m->read.head; sit; sit = sit->next)
+        FD_SET(sit->fd, &m->readfds);
+}
 
 int open_device_binded_raw_socket(
     char *device,
@@ -245,34 +323,27 @@ int open_control_input_socket(int afi){
     int         sock    = 0;
 
     sock = open_udp_socket(afi);
-    
     sock = bind_socket(sock,afi,LISP_CONTROL_PORT);
     
-    if(sock == BAD){
+    if(sock == BAD)
         return (BAD);
-    }
 
     switch (afi){
-        case AF_INET:
-
-            /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
-            if(setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on))< 0){
-                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_PKTINFO: %s", strerror(errno));
-            }
-
+    case AF_INET:
+        /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
+        if(setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on))< 0){
+            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_PKTINFO: %s", strerror(errno));
+        }
         break;
+    case AF_INET6:
+        /* IPV6_RECVPKTINFO is requiered to get later the IPv6 destination address of incoming control packets*/
+        if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) < 0){
+            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
+        }
+    break;
 
-        case AF_INET6:
-
-            /* IPV6_RECVPKTINFO is requiered to get later the IPv6 destination address of incoming control packets*/
-            if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) < 0){
-                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
-            }
-
-        break;
-
-        default:
-            return(BAD);
+    default:
+        return(BAD);
     }
     return(sock);
 }
@@ -287,7 +358,6 @@ int open_data_input_socket(int afi){
     sock = open_raw_input_socket(afi);
 
     dummy_sock = open_udp_socket(afi);
-    
     dummy_sock = bind_socket(dummy_sock,afi,LISP_DATA_PORT);
 
     if(sock == BAD){
@@ -295,37 +365,37 @@ int open_data_input_socket(int afi){
     }
 
     switch (afi){
-        case AF_INET:
-            
-            /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
-            if(setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on))< 0){
-                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTOS: %s", strerror(errno));
-            }
+    case AF_INET:
 
-            /* IP_RECVTTL is requiered to get later the IPv4 original TTL */
-            if(setsockopt(sock, IPPROTO_IP, IP_RECVTTL, &on, sizeof(on))< 0){
-                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTTL: %s", strerror(errno));
-            }
-            
-            break;
-            
-        case AF_INET6:
-            
-            /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
-            if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))< 0){
-                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
-            }
-            
-            /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
-            if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))< 0){
-                lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
-            }
-            
-            break;
-            
-        default:
-            close(sock);
-            return(BAD);
+        /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
+        if(setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on))< 0){
+            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTOS: %s", strerror(errno));
+        }
+
+        /* IP_RECVTTL is requiered to get later the IPv4 original TTL */
+        if(setsockopt(sock, IPPROTO_IP, IP_RECVTTL, &on, sizeof(on))< 0){
+            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTTL: %s", strerror(errno));
+        }
+
+        break;
+
+    case AF_INET6:
+
+        /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
+        if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))< 0){
+            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+        }
+
+        /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
+        if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))< 0){
+            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+        }
+
+        break;
+
+    default:
+        close(sock);
+        return(BAD);
     }
     
     return(sock);
@@ -411,20 +481,21 @@ int send_packet (
 
 int get_packet_and_socket_inf (
         int             sock,
-        int             afi,
+//        int             afi,
         uint8_t         *packet,
         lisp_addr_t     *local_rloc,
         uint16_t        *remote_port)
 {
+
     union control_data {
         struct cmsghdr cmsg;
         u_char data4[CMSG_SPACE(sizeof(struct in_pktinfo))]; /* Space for IPv4 pktinfo */
         u_char data6[CMSG_SPACE(sizeof(struct in6_pktinfo))]; /* Space for IPv6 pktinfo */
     };
     
-    
-    struct sockaddr_in  s4;
-    struct sockaddr_in6 s6;
+    union sockunion su;
+//    struct sockaddr_in  s4;
+//    struct sockaddr_in6 s6;
     struct msghdr       msg;
     struct iovec        iov[1];
     union control_data  cmsg;
@@ -439,13 +510,16 @@ int get_packet_and_socket_inf (
     msg.msg_iovlen = 1;
     msg.msg_control = &cmsg;
     msg.msg_controllen = sizeof cmsg;
-    if (afi == AF_INET){
-        msg.msg_name = &s4;
-        msg.msg_namelen = sizeof (struct sockaddr_in);
-    }else{
-        msg.msg_name = &s6;
-        msg.msg_namelen = sizeof (struct sockaddr_in6);
-    }
+    msg.msg_name = &su;
+    msg.msg_namelen = sizeof(union sockunion);
+
+//    if (afi == AF_INET){
+//        msg.msg_name = &s4;
+//        msg.msg_namelen = sizeof (struct sockaddr_in);
+//    }else{
+//        msg.msg_name = &s6;
+//        msg.msg_namelen = sizeof (struct sockaddr_in6);
+//    }
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
@@ -453,7 +527,9 @@ int get_packet_and_socket_inf (
         return (BAD);
     }
 
-    if (afi == AF_INET){
+
+
+    if (su.s4.sin_family == AF_INET){
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_PKTINFO) {
                 lisp_addr_set_afi(local_rloc, LM_AFI_IP);
@@ -462,7 +538,7 @@ int get_packet_and_socket_inf (
             }
         }
 
-        *remote_port = ntohs(s4.sin_port);
+        *remote_port = ntohs(su.s4.sin_port);
 //        *remote_port = noths(((struct sockaddr_in*)msg.msg_name)->sin_port);
     }else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
@@ -472,7 +548,7 @@ int get_packet_and_socket_inf (
                 break;
             }
         }
-        *remote_port = ntohs(s6.sin6_port);
+        *remote_port = ntohs(su.s6.sin6_port);
     }
 
     return (GOOD);
@@ -481,7 +557,7 @@ int get_packet_and_socket_inf (
 
 int get_data_packet (
     int             sock,
-    int             afi,
+    int             *afi,
     uint8_t         *packet,
     int             *length,
     uint8_t         *ttl,
@@ -493,8 +569,9 @@ int get_data_packet (
         u_char data[CMSG_SPACE(sizeof(int))+CMSG_SPACE(sizeof(int))]; /* Space for TTL and TOS data */
     };
     
-    struct sockaddr_in  s4;
-    struct sockaddr_in6 s6;
+//    struct sockaddr_in  s4;
+//    struct sockaddr_in6 s6;
+    union sockunion     su;
     struct msghdr       msg;
     struct iovec        iov[1];
     union  control_data  cmsg;
@@ -509,13 +586,16 @@ int get_data_packet (
     msg.msg_iovlen = 1;
     msg.msg_control = &cmsg;
     msg.msg_controllen = sizeof cmsg; 
-    if (afi == AF_INET){
-        msg.msg_name = &s4;
-        msg.msg_namelen = sizeof (struct sockaddr_in);
-    }else{
-        msg.msg_name = &s6;
-        msg.msg_namelen = sizeof (struct sockaddr_in6);
-    }
+    msg.msg_name = &su;
+    msg.msg_namelen = sizeof(union sockunion);
+
+//    if (afi == AF_INET){
+//        msg.msg_name = &s4;
+//        msg.msg_namelen = sizeof (struct sockaddr_in);
+//    }else{
+//        msg.msg_name = &s6;
+//        msg.msg_namelen = sizeof (struct sockaddr_in6);
+//    }
     
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
@@ -524,8 +604,8 @@ int get_data_packet (
     }
 
     *length = nbytes;
-    
-    if (afi == AF_INET){
+    *afi = su.s4.sin_family;
+    if (*afi == AF_INET){
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             
             if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_TTL) {
@@ -552,3 +632,4 @@ int get_data_packet (
     
     return (GOOD);
 }
+

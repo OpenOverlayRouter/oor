@@ -41,6 +41,9 @@ MAKEFILE	= Makefile
 OBJS		= cmdline.o	\
 		  cksum.o	\
 		  control/lispd_control.o	\
+		  control/lisp_ctrl_device.o	\
+		  control/lisp_xtr.o	\
+		  control/lisp_ms.o	\
 		  control/lispd_info_nat.o	\
 		  control/lispd_info_request.o \
 		  control/lispd_info_reply.o	\
@@ -51,9 +54,6 @@ OBJS		= cmdline.o	\
 		  control/lispd_re.o	\
 		  control/lispd_rloc_probing.o \
 		  control/lispd_smr.o	\
-		  control/lisp_ctrl_device.o	\
-		  control/lisp_xtr.o	\
-		  control/lisp_ms.o	\
 		  data-tun/lispd_iface_list.o	\
 		  data-tun/lispd_input.o	\
 		  data-tun/lispd_output.o	\

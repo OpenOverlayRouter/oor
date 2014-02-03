@@ -148,4 +148,5 @@ static inline auth_field *mreg_msg_get_auth_data(map_register_msg *mreg) {
     return(mreg->auth_data);
 }
 
+
 #endif /* LISP_MAP_REGISTER_H_ */

@@ -29,6 +29,17 @@
 #include "lisp_ctrl_device.h"
 #include <lispd_external.h>
 #include <lispd_sockets.h>
+#include <lispd_pkt_lib.h>
+#include <lispd_lib.h>
+
+
+int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port) {
+    return(dev->vtable->process_msg(dev, msg, local_rloc, remote_port));
+}
+
+void lisp_ctrl_dev_start(lisp_ctrl_device *dev) {
+    dev->vtable->start(dev);
+}
 
 static uint8_t is_lcaf_mcast_info(address_field *addr) {
     return( address_field_get_afi(addr) != LISP_AFI_LCAF
@@ -680,10 +691,6 @@ uint8_t *build_map_request_pkt(
     }
 
 
-    if (!src_eid) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"SOME VARS: eid %s plen %d", lisp_addr_to_char(mapping_get_eid_addr(requested_mapping)),
-                lisp_addr_ippref_get_plen(mapping_get_eid_addr(requested_mapping)));
-    }
     /* Requested EID record */
     request_eid_record = (eid_prefix_record_hdr *)cur_ptr;
     request_eid_record->eid_prefix_length = lisp_addr_ippref_get_plen(mapping_get_eid_addr(requested_mapping));

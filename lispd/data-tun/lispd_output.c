@@ -39,6 +39,7 @@
 #include <lispd_re.h>
 #include <lispd_control.h>
 #include <netinet/tcp.h>
+#include "lispd_tun.h"
 
 
 /*
@@ -516,29 +517,6 @@ lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
     return (addr);
 }
 
-
-lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
-{
-    lisp_addr_t         addr    = {.afi=AF_UNSPEC, .lafi=LM_AFI_IP};
-    struct iphdr        *iph    = NULL;
-    struct ip6_hdr      *ip6h   = NULL;
-
-    iph = (struct iphdr *) packet;
-
-    switch (iph->version) {
-    case 4:
-        ip_addr_set_v4(lisp_addr_get_ip(&addr), &iph->saddr);
-        break;
-    case 6:
-        ip_addr_set_v6(lisp_addr_get_ip(&addr), &ip6h->ip6_src);
-        break;
-    default:
-        lispd_log_msg(LISP_LOG_DEBUG_3,"extract_src_addr_from_packet: uknown ip version %d", iph->version);
-        break;
-    }
-
-    return (addr);
-}
 
 
 /*
@@ -1025,17 +1003,15 @@ int lisp_output (
 
 }
 
-void process_output_packet (
-        int             fd,
-        uint8_t         *tun_receive_buf,
-        unsigned int    tun_receive_size)
+int process_output_packet (struct sock *sl)
 {
     int         nread   = 0;
 
-    if ((nread = read(fd, tun_receive_buf, tun_receive_size)) == 0) {
+    if ((nread = read(sl->fd, tun_receive_buf, TUN_RECEIVE_SIZE)) == 0) {
         lispd_log_msg(LISP_LOG_WARNING, "OUTPUT: Error while reading from tun:%s", strerror(errno));
-        return;
+        return(BAD);
     }
 
     lisp_output(tun_receive_buf, nread);
+    return(GOOD);
 }

@@ -79,6 +79,7 @@ int mcache_add_mapping(lispd_mapping_elt *mapping) {
     lispd_map_cache_entry   *mce;
     lisp_addr_t             *addr;
 
+    /* TODO: will change when nonces are handled outside of the map-cache */
     addr = mapping_get_eid_addr(mapping);
     mce = mcache_entry_init(mapping);
     return(mdb_add_entry(mdb, addr, mce));
@@ -191,57 +192,6 @@ lispd_map_cache_entry *map_cache_lookup_exact(lisp_addr_t *laddr)
     mce = mdb_lookup_entry(mdb, laddr, 1);
     return(mce);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-///*
-// * Remove the map cache entry from the database and reintroduce it with the new eid.
-// * This function is used when the map reply report a prefix that includes the requested prefix.
-// */
-//
-//int map_cache_replace_entry(
-//        lisp_addr_t             *new_addr,
-//        lispd_map_cache_entry   *centry)
-//{
-//    lisp_addr_t             *old_eid_addr;
-//
-//    /* Get the node to be modified from the database
-//     * NOTE: This works assuming that both mc and ip addresses
-//     * are stored in the same pt. Also, mc prefix length is set
-//     * be S prefix length. */
-//
-//    old_eid_addr = mapping_get_eid_addr(mcache_entry_get_mapping(centry));
-//
-//    lispd_log_msg(LISP_LOG_DEBUG_2,"EID prefix of the map cache entry %s will be changed to %s",
-//            lisp_addr_to_char(old_eid_addr), lisp_addr_to_char(new_addr));
-//
-//
-//
-//
-////    map_cache_del_entry(old_eid_addr);
-//
-////    mcache_entry_set_eid_addr(centry, new_addr);
-//
-//    if ((err=map_cache_add_entry(centry))!= GOOD){
-//        /*XXX  if the process doesn't finish correctly, the map cache entry is released */
-//        lispd_log_msg(LISP_LOG_DEBUG_2,"change_eid_prefix_in_db: Couldn't change EID prefix of the inactive "
-//                "map cache entry (%s -> %s). Releasing it",
-//                lisp_addr_to_char(old_eid_addr),
-//                lisp_addr_to_char(new_addr));
-//        free_map_cache_entry(centry);
-//        return (BAD);
-//    }
-//    return (GOOD);
-//}
 
 
 

@@ -34,7 +34,7 @@
 #define LISPD_LIB_H_
 
 #include "defs.h"
-#include <lispd_locator.h>
+#include "lispd_address.h"
 
 
 /*

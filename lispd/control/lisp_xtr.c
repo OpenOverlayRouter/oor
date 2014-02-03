@@ -30,50 +30,89 @@
 
 int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);
 
- int xtr_process_lisp_ctrl_msg(lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port) {
-     int ret = 0;
+int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port){
+    int ret = 0;
 
-      switch(msg->type) {
-      case LISP_MAP_REPLY:
-          ret = process_map_reply_msg(msg->msg);
-          break;
-      case LISP_MAP_REQUEST:
-          ret = xtr_process_map_request_msg(msg->msg, local_rloc, remote_port);
-          break;
-      case LISP_MAP_REGISTER:
-          break;
-      case LISP_MAP_NOTIFY:
-          ret = process_map_notify(msg->msg);
-          break;
-      case LISP_INFO_NAT:
-          /*FC: should be de-commented once process_info_nat_msg is updated to work with lisp_msg */
-//          lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-//          if(!process_info_nat_msg(packet, local_rloc)){
-//              return (BAD);
-//          }
-          break;
-      default:
-          lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Unidentified type (%d) control message received", msg->type);
-          ret = BAD;
-          break;
-      }
+    switch(msg->type) {
+    case LISP_MAP_REPLY:
+      ret = process_map_reply_msg(msg->msg);
+      break;
+    case LISP_MAP_REQUEST:
+      ret = xtr_process_map_request_msg(msg->msg, local_rloc, remote_port);
+      break;
+    case LISP_MAP_REGISTER:
+      break;
+    case LISP_MAP_NOTIFY:
+      ret = process_map_notify(msg->msg);
+      break;
+    case LISP_INFO_NAT:
+      /*FC: should be de-commented once process_info_nat_msg is updated to work with lisp_msg */
+    //          lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
+    //          if(!process_info_nat_msg(packet, local_rloc)){
+    //              return (BAD);
+    //          }
+      break;
+    default:
+      lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Unidentified type (%d) control message received", msg->type);
+      ret = BAD;
+      break;
+    }
 
-      if (ret != GOOD) {
-          lispd_log_msg(LISP_LOG_DEBUG_2, "xTR: Failed to process LISP control message");
-          return(BAD);
-      } else {
-          lispd_log_msg(LISP_LOG_DEBUG_2, "xTR: Completed processing of LISP control message");
-          return(ret);
-      }
+    if (ret != GOOD) {
+      lispd_log_msg(LISP_LOG_DEBUG_2, "xTR: Failed to process LISP control message");
+      return(BAD);
+    } else {
+      lispd_log_msg(LISP_LOG_DEBUG_2, "xTR: Completed processing of LISP control message");
+      return(ret);
+    }
 }
 
-lisp_ctrl_device *xtr_init() {
-    lisp_ctrl_device *xtr;
-    xtr = calloc(1, sizeof(lisp_ctrl_device));
-    xtr->process_lisp_ctrl_msg = xtr_process_lisp_ctrl_msg;
+void xtr_ctrl_start(lisp_ctrl_device *dev) {
+
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Starting xTR ...");
+    /*
+    *  Register to the Map-Server(s)
+    */
+
+    map_register_all_eids();
+
+    /*
+    * SMR proxy-ITRs list to be updated with new mappings
+    */
+
+    init_smr(NULL,NULL);
+
+    /*
+    * RLOC Probing proxy ETRs
+    */
+    programming_petr_rloc_probing();
+
+}
+
+
+/* implementation of base functions */
+ctrl_device_vtable xtr_vtable = {
+        &xtr_process_ctrl_msg,
+        &xtr_ctrl_start
+};
+
+lisp_ctrl_device *xtr_ctrl_init() {
+    lisp_xtr *xtr;
+    xtr = calloc(1, sizeof(lisp_xtr));
+    xtr->super.vtable = &xtr_vtable;
+    xtr->super.mode = 1;
     lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
-    return(xtr);
+
+    /*
+     *  set up databases
+     */
+
+    local_map_db_init();
+    map_cache_init();
+
+    return((lisp_ctrl_device *)xtr);
 }
+
 
 
 static int process_smr(lisp_addr_t *src_addr){

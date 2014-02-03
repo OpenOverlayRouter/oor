@@ -350,7 +350,6 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
 
 void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
 {
-    lispd_log_msg(LISP_LOG_WARNING, "****** GOT HERE ************** ");
     ip_prefix_t *ippref;
 
     switch(lisp_addr_get_afi(laddr)){

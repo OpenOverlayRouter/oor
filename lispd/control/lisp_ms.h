@@ -31,6 +31,16 @@
 
 #include "lisp_ctrl_device.h"
 
-lisp_ctrl_device *ms_init();
+typedef struct _lisp_ms {
+    lisp_ctrl_device super;    /* base "class" */
+
+    /* ms interface */
+    int (*add_lisp_site)(struct _lisp_ms *ms, lispd_mapping_elt *site);
+
+    /* ms members */
+//    lisp_site_db *lisp_sites;
+} lisp_ms;
+
+lisp_ctrl_device *ms_ctrl_init();
 
 #endif /* LISP_MS_H_ */

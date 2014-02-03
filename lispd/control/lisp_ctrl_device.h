@@ -32,8 +32,6 @@
 #include <defs.h>
 #include <lisp_messages.h>
 #include <lispd_types.h>
-#include <lispd_pkt_lib.h>
-#include <cksum.h>
 #include "lispd_map_cache_db.h"
 #include "lispd_local_db.h"
 #include "lispd_map_register.h"
@@ -43,17 +41,24 @@
 #include "lispd_map_notify.h"
 #include "lispd_info_nat.h"
 
-/* FC: global variables are to be passed to this structure */
-typedef struct _lisp_ctrl_device {
-    int (*process_lisp_ctrl_msg)(lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port);
-    int (*send_lisp_ctrl_msg)(lisp_msg *msg);
-    lispd_mapping_elt *(*lookup_eid_map_cache)(lisp_addr_t *eid);
-    lispd_mapping_elt *(*lookup_eid_local_map_db)(lisp_addr_t *eid);
-    int (*add_mapping_to_map_cache)(lispd_mapping_elt *mapping);
-    int (*add_mapping_to_local_map_db)(lispd_mapping_elt *mapping);
-    map_cache_db *map_cache;
-    local_map_db *local_mdb;
-} lisp_ctrl_device;
+
+typedef struct _lisp_ctrl_device lisp_ctrl_device;
+
+/* FC: global variables are to be passed to these structure */
+typedef struct _ctrl_device_vtable {
+    int (*process_msg)(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port);
+//    int (*send_ctrl_msg)(lisp_ctrl_device *dev, lisp_msg *msg);
+    void (*start)(lisp_ctrl_device *dev);
+} ctrl_device_vtable;
+
+struct _lisp_ctrl_device {
+    ctrl_device_vtable *vtable;
+    int mode;
+};
+
+int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port);
+
+void lisp_ctrl_dev_start(lisp_ctrl_device *dev);
 
 int process_map_reply_msg(map_reply_msg *mrep);
 int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);

@@ -46,7 +46,7 @@
 #include <lispd_control.h>
 
 
-void process_output_packet(int fd, uint8_t *tun_receive_buf, unsigned int tun_receive_size);
+int process_output_packet(struct sock *sl);
 
 lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet );
 

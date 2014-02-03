@@ -36,12 +36,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
-#include "lispd.h"
+#include <defs.h>
 #include "lispd_sockets.h"
 #include "cksum.h"
 #include "lispd_output.h"
 
 
-void process_input_packet(int fd, int afi, int tun_receive_fd);
+int process_input_packet(struct sock *sl);
 
 #endif /*LISPD_IFACE_LIST_H_*/

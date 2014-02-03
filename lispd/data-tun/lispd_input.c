@@ -28,15 +28,38 @@
 
 
 #include "lispd_input.h"
+#include "lispd_tun.h"
 
-void process_input_packet(int fd,
-                          int afi,
-                          int tun_receive_fd)
+lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
+{
+    lisp_addr_t         addr    = {.afi=AF_UNSPEC, .lafi=LM_AFI_IP};
+    struct iphdr        *iph    = NULL;
+    struct ip6_hdr      *ip6h   = NULL;
+
+    iph = (struct iphdr *) packet;
+
+    switch (iph->version) {
+    case 4:
+        ip_addr_set_v4(lisp_addr_get_ip(&addr), &iph->saddr);
+        break;
+    case 6:
+        ip_addr_set_v6(lisp_addr_get_ip(&addr), &ip6h->ip6_src);
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_3,"extract_src_addr_from_packet: uknown ip version %d", iph->version);
+        break;
+    }
+
+    return (addr);
+}
+
+int process_input_packet(struct sock *sl)
 {
     uint8_t             *packet = NULL;
     int                 length = 0;
     uint8_t             ttl = 0;
     uint8_t             tos = 0;
+    int                 afi = 0;
 
     struct lisphdr      *lisp_hdr = NULL;
     struct iphdr        *iph = NULL;
@@ -45,20 +68,20 @@ void process_input_packet(int fd,
 
     if ((packet = (uint8_t *) malloc(MAX_IP_PACKET))==NULL){
         lispd_log_msg(LISP_LOG_ERR,"process_input_packet: Couldn't allocate space for packet: %s", strerror(errno));
-        return;
+        return (BAD);
     }
 
     memset(packet,0,MAX_IP_PACKET);
     
-    if (get_data_packet (fd,
-                         afi,
+    if (get_data_packet (sl->fd,
+                         &afi,
                          packet,
                          &length,
                          &ttl,
                          &tos) == BAD){
         lispd_log_msg(LISP_LOG_DEBUG_2,"process_input_packet: get_data_packet error: %s", strerror(errno));
         free(packet);
-        return;
+        return(BAD);
     }
 
     if(afi == AF_INET){
@@ -73,7 +96,7 @@ void process_input_packet(int fd,
     if(ntohs(udph->dest) != LISP_DATA_PORT){
         free(packet);
         //lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (No LISP data): UDP dest: %d ",ntohs(udph->dest));
-        return;
+        return(BAD);
     }
 
     lisp_hdr = (struct lisphdr *) CO(udph,sizeof(struct udphdr));
@@ -117,5 +140,6 @@ void process_input_packet(int fd,
     }
     
     free(packet);
+    return(GOOD);
 }
 

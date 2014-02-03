@@ -56,18 +56,13 @@
 #include "lispd_log.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
-#include "control/lispd_control.h"
-#include "data-tun/lispd_tun.h"
-#include "data-tun/lispd_output.h"
-#include "data-tun/lispd_routing_tables_lib.h"
+#include "lispd_control.h"
+#include "lispd_tun.h"
+#include "lispd_output.h"
+#include "lispd_routing_tables_lib.h"
 #include <lispd_address.h>
 #include <lisp_xtr.h>
-
-
-void event_loop();
-void signal_handler(int);
-
-
+#include <lisp_ms.h>
 
 
 /*
@@ -83,6 +78,7 @@ int      debug_level                        = 0;
 int      default_rloc_afi                   = -1;
 int      daemonize                          = FALSE;
 int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
+
 /* RLOC probing parameters */
 int      rloc_probe_interval                = RLOC_PROBING_INTERVAL;
 int      rloc_probe_retries                 = DEFAULT_RLOC_PROBING_RETRIES;
@@ -91,6 +87,7 @@ int      rloc_probe_retries_interval        = DEFAULT_RLOC_PROBING_RETRIES_INTER
 int      control_port                       = LISP_CONTROL_PORT;
 uint32_t iseed                              = 0;  /* initial random number generator */
 int      total_mappings                     = 0;
+
 /*
  *      various globals
  */
@@ -98,6 +95,7 @@ int      total_mappings                     = 0;
 char   msg[128];                                /* syslog msg buffer */
 pid_t  pid                                  = 0;    /* child pid */
 pid_t  sid                                  = 0;
+
 /*
  *      sockets (fds)
  */
@@ -129,118 +127,14 @@ nonces_list     *nat_ir_nonce   = NULL;
 
 int     timers_fd                       = 0;
 
+struct sock_master *smaster             = NULL;
 
 
-int main(int argc, char **argv) 
-{
+int init_xtr() {
     lisp_addr_t *tun_v4_addr;
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
-
-#ifdef ROUTER
-#ifdef OPENWRT
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
-#else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for linux xTR\n");
-#endif
-#else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
-#endif
-
-
-    /*
-     *  Check for superuser privileges
-     */
-
-    if (geteuid()) {
-        lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
-        exit_cleanup();
-    }
-
-    /*
-     *  Initialize the random number generator
-     */
-
-    iseed = (unsigned int) time (NULL);
-    srandom(iseed);
-
-    /*
-     * Set up signal handlers
-     */
-
-    signal(SIGHUP,  signal_handler);
-    signal(SIGTERM, signal_handler);
-    signal(SIGINT,  signal_handler);
-    signal(SIGQUIT, signal_handler);
-
-
-    /*
-     *  set up databases
-     */
-
-    local_map_db_init();
-    map_cache_init();
-
-
-    /*
-     *  Parse command line options
-     */
-
-    handle_lispd_command_line(argc, argv);
-
-
-
-    /*
-     *  see if we need to daemonize, and if so, do it
-     */
-
-    if (daemonize) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
-        if ((pid = fork()) < 0) {
-            exit_cleanup();
-        }
-        umask(0);
-        if (pid > 0)
-            exit_cleanup();
-        if ((sid = setsid()) < 0)
-            exit_cleanup();
-        if ((chdir("/")) < 0)
-            exit_cleanup();
-        close(STDIN_FILENO);
-        close(STDOUT_FILENO);
-        close(STDERR_FILENO);
-    }
-
-
-    /*
-     *  create timers
-     */
-
-    if (build_timers_event_socket(&timers_fd) == 0)
-    {
-        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
-        exit_cleanup();
-    }
-    init_timers();
-
-
-
-
-    /*
-     *  Parse config file. Format of the file depends on the node: Linux Box or OpenWRT router
-     */
-
-#ifdef OPENWRT
-    if (config_file == NULL){
-        config_file = "/etc/config/lispd";
-    }
-    handle_uci_lispd_config_file(config_file);
-#else
-    if (config_file == NULL){
-        config_file = "/etc/lispd.conf";
-    }
-    handle_lispd_config_file(config_file);
-#endif
+    struct sock *nl_sl;
 
     if (map_servers == NULL){
         lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
@@ -268,7 +162,6 @@ int main(int argc, char **argv)
      */
 
     set_default_output_ifaces();
-
     set_default_ctrl_ifaces();
 
 
@@ -323,83 +216,67 @@ int main(int argc, char **argv)
         free(tun_v6_addr);
     }
 #endif
+
+
+    sock_register_read_listener(smaster, process_output_packet, NULL, tun_receive_fd);
+
     /*
      * Generate receive sockets for control (4342) and data port (4341)
      */
-
-
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
+        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
+
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
+        sock_register_read_listener(smaster, process_input_packet, NULL, ipv4_data_input_fd); // will use data_dev
     }
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-        ipv6_data_input_fd = open_data_input_socket(AF_INET6);
-    }
+        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
 
+        ipv6_data_input_fd = open_data_input_socket(AF_INET6);
+        sock_register_read_listener(smaster, process_input_packet, NULL, ipv6_data_input_fd);
+    }
 
     /*
      * Create net_link socket to receive notifications of changes of RLOC status.
      */
     netlink_fd = opent_netlink_socket();
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.3.3): 'lispd' started...");
-
     /*
      * Request to dump the routing tables to obtain the gatways when processing the netlink messages
      */
+    nl_sl = sock_register_read_listener(smaster, process_netlink_msg, NULL, netlink_fd);
 
     request_route_table(RT_TABLE_MAIN, AF_INET);
-    process_netlink_msg(netlink_fd);
+    process_netlink_msg(nl_sl);
     request_route_table(RT_TABLE_MAIN, AF_INET6);
-    process_netlink_msg(netlink_fd);
-
-    /*
-     *  Register to the Map-Server(s)
-     */
-
-    map_register_all_eids();
-
-    /*
-     * SMR proxy-ITRs list to be updated with new mappings
-     */
-
-    init_smr(NULL,NULL);
+    process_netlink_msg(nl_sl);
 
 
-    /*
-     * RLOC Probing proxy ETRs
-     */
-    programming_petr_rloc_probing();
-
-    /* activate lisp control device xtr/ms */
-    active_dev = xtr_init();
-
-    event_loop();
-
-    lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
-    closelog();
-    return(0);
+    return(GOOD);
 }
 
-/*
- *      main event loop
- *
- *      should never return (in theory)
- */
 
-void event_loop()
-{
-    int    max_fd;
-    fd_set readfds;
-    int    retval;
-    
+int init_ms() {
+    set_default_ctrl_ifaces();
 
-    /*****************************************/
-    /*
-     * TESTS!!
-     */
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
+        ipv4_control_input_fd = open_control_input_socket(AF_INET);
+        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
+    }
+
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
+        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
+        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
+    }
+    return(GOOD);
+}
+
+
+void test_elp() {
+
     lisp_addr_t *laddr = lisp_addr_new_afi(LM_AFI_LCAF);
     lcaf_addr_t *lcaf = lisp_addr_get_lcaf(laddr);
     lcaf_addr_set_type(lcaf, LCAF_EXPL_LOC_PATH);
@@ -452,8 +329,22 @@ void event_loop()
 //    for(;;) {
 //        sleep(1);
 //    }
+}
 
-    /*************************************/
+/*
+ *      main event loop
+ *
+ *      should never return (in theory)
+ */
+
+void event_loop()
+{
+    int    max_fd;
+//    fd_set readfds;
+//    int    retval;
+    
+
+//    test_elp();
 
     /*
      *  calculate the max_fd for select.
@@ -467,52 +358,60 @@ void event_loop()
     max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
     max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
 
+    /* register timer fd with the socket master */
+    sock_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
+
     for (;;) {
-        FD_ZERO(&readfds);
-        FD_SET(tun_receive_fd, &readfds);
-        FD_SET(ipv4_data_input_fd, &readfds);
-        FD_SET(ipv6_data_input_fd, &readfds);
-        FD_SET(ipv4_control_input_fd, &readfds);
-        FD_SET(ipv6_control_input_fd, &readfds);
-        FD_SET(timers_fd, &readfds);
-        FD_SET(netlink_fd, &readfds);
+        sock_fdset_all_read(smaster);
+        sock_process_all(smaster);
+
         
-        retval = have_input(max_fd, &readfds);
-        if (retval == -1) {
-            break;           /* doom */
-        }
-        if (retval == BAD) {
-            continue;        /* interrupted */
-        }
-        
-        if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
-            process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
-        }
-        if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
-            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
-            process_input_packet(ipv6_data_input_fd, AF_INET6, tun_receive_fd);
-        }
-        if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
-            process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
-        }
-        if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
-            process_lisp_ctr_msg(ipv6_control_input_fd, AF_INET6);
-        }
-        if (FD_ISSET(tun_receive_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
-            process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
-        }
-        if (FD_ISSET(timers_fd,&readfds)){
-            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
-            process_timer_signal(timers_fd);
-        }
-        if (FD_ISSET(netlink_fd,&readfds)){
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Received notification from net link");
-            process_netlink_msg(netlink_fd);
-        }
+//        FD_ZERO(&readfds);
+//        FD_SET(tun_receive_fd, &readfds);
+//        FD_SET(ipv4_data_input_fd, &readfds);
+//        FD_SET(ipv6_data_input_fd, &readfds);
+//        FD_SET(ipv4_control_input_fd, &readfds);
+//        FD_SET(ipv6_control_input_fd, &readfds);
+//        FD_SET(timers_fd, &readfds);
+//        FD_SET(netlink_fd, &readfds);
+//
+//        retval = have_input(max_fd, &readfds);
+//        if (retval == -1) {
+//            break;           /* doom */
+//        }
+//        if (retval == BAD) {
+//            continue;        /* interrupted */
+//        }
+//
+//        if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
+//            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
+//            process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
+//        }
+//        if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
+//            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
+//            process_input_packet(ipv6_data_input_fd, AF_INET6, tun_receive_fd);
+//        }
+//        if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
+//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
+//            process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
+//        }
+//        if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
+//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
+//            process_lisp_ctr_msg(ipv6_control_input_fd, AF_INET6);
+//        }
+//        if (FD_ISSET(tun_receive_fd, &readfds)) {
+//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
+//            process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
+//        }
+//        if (FD_ISSET(timers_fd,&readfds)){
+//            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
+//            process_timer_signal(timers_fd);
+//        }
+//        if (FD_ISSET(netlink_fd,&readfds)){
+//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received notification from net link");
+//            process_netlink_msg(netlink_fd);
+//        }
+
     }
 }
 
@@ -570,6 +469,135 @@ void exit_cleanup(void) {
 }
 
 
+int main(int argc, char **argv)
+{
+
+    int ret = 0;
+
+#ifdef ROUTER
+#ifdef OPENWRT
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
+#else
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for linux xTR\n");
+#endif
+#else
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
+#endif
+
+
+    /*
+     *  Check for superuser privileges
+     */
+
+    if (geteuid()) {
+        lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
+        exit_cleanup();
+    }
+
+    /*
+     *  Initialize the random number generator
+     */
+
+    iseed = (unsigned int) time (NULL);
+    srandom(iseed);
+
+    /*
+     * Set up signal handlers
+     */
+
+    signal(SIGHUP,  signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGINT,  signal_handler);
+    signal(SIGQUIT, signal_handler);
+
+    /*
+     *  Parse command line options
+     */
+
+    handle_lispd_command_line(argc, argv);
+
+
+    /*
+     *  see if we need to daemonize, and if so, do it
+     */
+
+    if (daemonize) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
+        if ((pid = fork()) < 0) {
+            exit_cleanup();
+        }
+        umask(0);
+        if (pid > 0)
+            exit_cleanup();
+        if ((sid = setsid()) < 0)
+            exit_cleanup();
+        if ((chdir("/")) < 0)
+            exit_cleanup();
+        close(STDIN_FILENO);
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
+    }
+
+    /* create socket master */
+    smaster = sock_master_new();
+
+
+    /*
+     *  create timers event socket
+     */
+
+    if (build_timers_event_socket(&timers_fd) == 0)
+    {
+        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+        exit_cleanup();
+    }
+
+    init_timers();
+
+
+    /*
+     *  Parse config file. Format of the file depends on the node: Linux Box or OpenWRT router
+     */
+
+#ifdef OPENWRT
+    if (config_file == NULL){
+        config_file = "/etc/config/lispd";
+    }
+    handle_uci_lispd_config_file(config_file);
+#else
+    if (config_file == NULL){
+        config_file = "/etc/lispd.conf";
+    }
+    handle_lispd_config_file(config_file);
+#endif
+
+    switch (ctrl_dev->mode) {
+    case 1:
+        ret = init_xtr();
+        break;
+    case 2:
+        ret = init_ms();
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_CRIT, "No active control device configured. Exiting ... ");
+        exit_cleanup();
+    }
+
+    if (ret != GOOD)
+        exit_cleanup();
+
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.5): 'lispd' started...");
+
+
+    /* activate lisp control device xtr/ms */
+    lisp_ctrl_dev_start(ctrl_dev);
+
+    event_loop();
+
+    lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
+    closelog();
+    return(0);
+}
 
 
 /*
