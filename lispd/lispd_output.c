@@ -744,14 +744,14 @@ int select_src_rmt_locators_from_balancing_locators_vec (
         if (src_blv->v4_balancing_locators_vec == NULL && src_blv->v6_balancing_locators_vec == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_2,"get_rloc_from_balancing_locator_vec: No src locators available");
         }else {
-            lispd_log_msg(LISP_LOG_DEBUG_2,"get_rloc_from_balancing_locator_vec: Source and destination RLOCs have differnet afi");
+            lispd_log_msg(LISP_LOG_DEBUG_2,"get_rloc_from_balancing_locator_vec: Source and destination RLOCs have different AFI");
         }
         return (BAD);
     }
 
     hash = get_hash_from_tuple (tuple);
     if (hash == 0){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"get_rloc_from_tuple: Couldn't get the hash of the tuple to select the rloc. Using the default rloc");
+        lispd_log_msg(LISP_LOG_DEBUG_1,"get_rloc_from_tuple: Couldn't get the hash of the tuple to select the RLOC. Using the default RLOC");
         //pos = hash%x_vec_len -> 0%x_vec_len = 0;
     }
     pos = hash%src_vec_len;
