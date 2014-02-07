@@ -106,13 +106,13 @@ typedef struct _map_request_msg_hdr {
 #endif
     uint8_t record_count;
     uint64_t nonce;
-} PACKED map_request_msg_hdr;
+} __attribute__ ((__packed__)) map_request_msg_hdr;
 
 typedef struct _map_request_msg {
     uint8_t                 *data;
     address_field           *src_eid;
-    address_field           **itr_rlocs;
-    eid_prefix_record       **eids;
+    glist_t                 *itr_rlocs;
+    glist_t                 *eids;
     mapping_record          *mrep_record;
 } map_request_msg;
 
@@ -130,22 +130,20 @@ static inline address_field *mreq_msg_get_src_eid(map_request_msg *mreq) {
     return(mreq->src_eid);
 }
 
-static inline address_field **mreq_msg_get_itr_rlocs(map_request_msg *mreq) {
+static inline glist_t *mreq_msg_get_itr_rlocs(map_request_msg *mreq) {
     return(mreq->itr_rlocs);
 }
 
-static inline eid_prefix_record **mreq_msg_get_eids(map_request_msg *mreq) {
+static inline glist_t *mreq_msg_get_eids(map_request_msg *mreq) {
     return(mreq->eids);
 }
 
 
-/*
- *  process Map_Request Message
- *  Receive a Map_request message and process based on control bits
- *
- *  For first phase just accept (encapsulated) SMR. Proxy bit is set to avoid receiving ecm, and all other types are ignored.
- */
+#define mreq_msg_foreach_itr_rloc(it, msg) \
+    glist_for_each_entry(it, (msg)->itr_rlocs)
 
+#define mreq_msg_foreach_eid_record(it, msg) \
+    glist_for_each_entry(it, (msg)->eids)
 
 
 #endif /*LISPD_MAP_REQUEST_H_*/

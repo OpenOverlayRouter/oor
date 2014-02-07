@@ -94,7 +94,7 @@ inline lispd_mapping_elt *new_mapping(
     }
 
     lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
-    lisp_addr_copy(mapping_get_eid_addr(mapping), &eid_prefix);
+    lisp_addr_copy(mapping_get_eid(mapping), &eid_prefix);
 //    ip_prefix_set(lisp_addr_get_ippref(&mapping->eid_prefix), lisp_addr_get_ip(&eid_prefix), eid_prefix_length);
     mapping->eid_prefix_length = eid_prefix_length;
     mapping->iid = iid;
@@ -265,12 +265,12 @@ int add_locator_to_mapping(
         mapping->locator_count++;
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added for the EID %s.",
                 lisp_addr_to_char(locator->locator_addr),
-                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
+                lisp_addr_to_char(mapping_get_eid(mapping)));
         result = GOOD;
     }else if (err == ERR_EXIST){
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s already exists for the EID %s.",
                 lisp_addr_to_char(locator->locator_addr),
-                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
+                lisp_addr_to_char(mapping_get_eid(mapping)));
         free_locator (locator);
         result = GOOD;
     }else{
@@ -423,8 +423,8 @@ void free_mapping_elt(lispd_mapping_elt *mapping, int local)
         free ((rmt_mapping_extended_info *)mapping->extended_info);
     }
     /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf */
-    if (lisp_addr_get_afi(mapping_get_eid_addr(mapping)) == LM_AFI_LCAF)
-        lcaf_addr_del(lisp_addr_get_lcaf(mapping_get_eid_addr(mapping)));
+    if (lisp_addr_get_afi(mapping_get_eid(mapping)) == LM_AFI_LCAF)
+        lcaf_addr_del(lisp_addr_get_lcaf(mapping_get_eid(mapping)));
     free(mapping);
 
 }
@@ -480,7 +480,7 @@ void dump_mapping_entry(
     }
 
     lispd_log_msg(log_level,"IDENTIFIER (EID): %s (IID = %d)\n ",
-            lisp_addr_to_char(mapping_get_eid_addr(mapping)), mapping->iid);
+            lisp_addr_to_char(mapping_get_eid(mapping)), mapping->iid);
 
     lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
 
@@ -717,7 +717,7 @@ void dump_balancing_locators_vec(
 
     if ( is_loggable(log_level)){
         lispd_log_msg(log_level,"Balancing locator vector for %s: ",
-                        lisp_addr_to_char(mapping_get_eid_addr(mapping)));
+                        lisp_addr_to_char(mapping_get_eid(mapping)));
 
         sprintf(str,"  IPv4 locators vector (%d locators):  ",b_locators_vecs.v4_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v4_locators_vec_length; ctr++){
@@ -771,7 +771,7 @@ uint8_t *mapping_fill_record_in_pkt(
         return NULL;
 
 
-    eid = mapping_get_eid_addr(mapping);
+    eid = mapping_get_eid(mapping);
 
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = mapping->locator_count;
@@ -938,7 +938,7 @@ inline void mapping_set_iid(lispd_mapping_elt *mapping, lisp_iid_t iid) {
 }
 
 inline void mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr) {
-    lisp_addr_copy(mapping_get_eid_addr(mapping), addr);
+    lisp_addr_copy(mapping_get_eid(mapping), addr);
 }
 
 inline void mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen) {
@@ -946,7 +946,7 @@ inline void mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen) {
     mapping->eid_prefix_length = plen;
 }
 
-inline lisp_addr_t *mapping_get_eid_addr(lispd_mapping_elt *mapping) {
+inline lisp_addr_t *mapping_get_eid(lispd_mapping_elt *mapping) {
     assert(mapping);
     return(&(mapping->eid_prefix));
 }

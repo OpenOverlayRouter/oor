@@ -103,12 +103,9 @@ typedef struct map_reply_hdr_ {
 
 typedef struct lispd_map_reply_pkt_ {
     uint8_t             *data;
-    mapping_record      **records;
+    glist_t             *records;
     /* TODO map reply data */
 } map_reply_msg;
-
-
-
 
 inline map_reply_msg    *map_reply_msg_new();
 map_reply_msg           *map_reply_msg_parse(uint8_t *offset);
@@ -124,23 +121,16 @@ static inline map_reply_hdr *mrep_get_hdr(map_reply_msg *mrp) {
     return((map_reply_hdr *)mrp->data);
 }
 
-
-static inline mapping_record **mrep_get_records(map_reply_msg *mrp) {
+static inline glist_t *mrep_msg_get_records(map_reply_msg *mrp) {
     return(mrp->records);
 }
-
-
-
-
 
 
 /*
  * Macros
  */
 
-#define mrep_foreach_record(mrp, records, record)    \
-    for (records = mrep_get_records(mrp); *records != NULL; records++) \
-        if ((record = *records))
-
+#define mrep_msg_foreach_mapping_record(it, mrep) \
+    glist_for_each_entry(it, (mrep)->records)
 
 #endif /* LISP_MAP_REPLY_H_ */

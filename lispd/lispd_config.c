@@ -962,7 +962,7 @@ int add_database_mapping(
     /* If we couldn't add the interface and the mapping is new, we remove it. */
     if (interface == NULL && is_new_mapping == TRUE){
         if (is_new_mapping){
-            local_map_db_del_mapping(mapping_get_eid_addr(mapping));
+            local_map_db_del_mapping(mapping_get_eid(mapping));
             lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add mapping -> Cudn't create interface");
         }else{
             lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add locator to the mapping -> Cudn't create interface");

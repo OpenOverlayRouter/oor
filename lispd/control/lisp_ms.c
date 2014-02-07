@@ -28,23 +28,20 @@
 
 #include "lisp_ms.h"
 
-int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);
-
 void ms_ctrl_start(lisp_ctrl_device *dev) {
     lispd_log_msg(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
 }
-
 
 int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port)
 {
     lisp_addr_t                 *src_eid                = NULL;
     lisp_addr_t                 *dst_eid                = NULL;
     lisp_addr_t                 *remote_rloc            = NULL;
-    address_field               **itrs                  = NULL;
-    eid_prefix_record           **eids                  = NULL;
+    glist_t                     *itrs                   = NULL;
+    glist_t                     *eids                   = NULL;
+    glist_entry_t               *it                     = NULL;
     lispd_mapping_elt           *mapping                = NULL;
     map_reply_opts              opts;
-    int i;
 
     lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Processing LISP Map-Request message");
 
@@ -63,10 +60,10 @@ int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, u
 
     /* Process additional ITR RLOCs. Obtain remote RLOC to use for Map-Replies*/
     itrs = mreq_msg_get_itr_rlocs(mreq);
-    for (i = 0; i < mreq_msg_get_hdr(mreq)->additional_itr_rloc_count + 1; i++) {
+    glist_for_each_entry(it, itrs) {
         /* XXX: support only for IP RLOCs */
-        if (ip_iana_afi_to_sock_afi(address_field_get_afi(itrs[i])) == lisp_addr_ip_get_afi(local_rloc)) {
-            remote_rloc = lisp_addr_init_from_field(itrs[i]);
+        if (ip_iana_afi_to_sock_afi(address_field_get_afi(glist_entry_data(it))) == lisp_addr_ip_get_afi(local_rloc)) {
+            remote_rloc = lisp_addr_init_from_field(glist_entry_data(it));
             break;
         }
     }
@@ -83,13 +80,14 @@ int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, u
 
     /* Process record and send Map Reply for each one */
     eids = mreq_msg_get_eids(mreq);
-    for (i = 0; i < mreq_msg_get_hdr(mreq)->record_count; i++) {
-        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(eids[i]))))
+    glist_for_each_entry(it, eids) {
+        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(glist_entry_data(it)))))
             goto err;
 
         /* Save prefix length only if the entry is an IP */
         if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)
-            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid), eid_prefix_record_get_hdr(eids[i])->eid_prefix_length);
+            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid),
+                    eid_prefix_record_get_hdr(glist_entry_data(it))->eid_prefix_length);
 
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: received Map-Request from EID %s for EID %s",
                 lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
@@ -124,10 +122,9 @@ err:
 lispd_mapping_elt *process_mapping_record(mapping_record *record) {
     lispd_mapping_elt   *mapping    = NULL;
     lisp_addr_t         *eid        = NULL;
-    locator_field       **locs      = NULL;
+    glist_t             *locs       = NULL;
+    glist_entry_t       *it         = NULL;
     lispd_locator_elt   *loc        = NULL;
-    int i;
-
 
     eid = lisp_addr_init_from_field(mapping_record_get_eid(record));
     if (!eid)
@@ -138,8 +135,8 @@ lispd_mapping_elt *process_mapping_record(mapping_record *record) {
         goto err;
 
     locs = mapping_record_get_locators(record);
-    for (i = 0; i < mapping_record_get_hdr(record)->locator_count; i++) {
-        if (!(loc = locator_init_from_field(locs[i])))
+    glist_for_each_entry(it, locs) {
+        if (!(loc = locator_init_from_field(glist_entry_data(it))))
             goto err;
         lispd_log_msg(LISP_LOG_DEBUG_1, "    RLOC: %s", locator_to_char(loc));
         if (add_locator_to_mapping(mapping, loc) != GOOD)
@@ -155,29 +152,49 @@ err:
     return(NULL);
 }
 
-int ms_process_map_register_msg(map_register_msg *mreg) {
-    int i;
-    mapping_record      **records   = NULL;
+int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
+    glist_t             *records    = NULL;
+    glist_entry_t       *it         = NULL;
     lispd_mapping_elt   *mapping    = NULL;
+    lisp_ms             *ms         = NULL;
+    lisp_site_prefix    *reg_pref   = NULL;
+
+
+    ms = (lisp_ms *)dev;
 
     records = mreg_msg_get_records(mreg);
-    for (i = 0; i < mreg_msg_get_hdr(mreg)->record_count; i++) {
-        mapping = process_mapping_record(records[i]);
+    if (!records)
+        goto err;
+
+    glist_for_each_entry(it, records) {
+        mapping = process_mapping_record(glist_entry_data(it));
         if (!mapping) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "MS: Couldn't process mapping record. Skipping");
             continue;
         }
 
         /* check authentication */
+        reg_pref = mdb_lookup_entry(ms->lisp_sites_db, mapping_get_eid(mapping), NOT_EXACT);
+        if (!reg_pref) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "MS: No prefix configured to accept registration for EID %s! Discarding mapping!",
+                    lisp_addr_to_char(mapping_get_eid(mapping)));
+            free_mapping_elt(mapping, 0);
+            continue;
+        }
 
-        local_map_db_add_mapping(mapping);
+        /* TODO: check if more specific */
+
+        /* save prefix to the registered sites db */
+        mdb_add_entry(ms->registered_sites_db, mapping_get_eid(mapping), mapping);
+
         /* start timers */
-        if (mreg_msg_get_hdr(mreg)->map_notify){
+        if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY){
             /* send map-notify */
         }
 
 
     }
+
     return(GOOD);
 
 err:
@@ -192,7 +209,7 @@ int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *
          ret = ms_process_map_request_msg(msg->msg, local_rloc, remote_port);
          break;
      case LISP_MAP_REGISTER:
-         ret = ms_process_map_register_msg(msg->msg);
+         ret = ms_process_map_register_msg(dev, msg->msg);
          break;
      case LISP_MAP_REPLY:
      case LISP_MAP_NOTIFY:
@@ -207,10 +224,10 @@ int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *
      }
 
      if (ret != GOOD) {
-         lispd_log_msg(LISP_LOG_DEBUG_2, "Map-Server: Failed to process LISP control message");
+         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Failed to process LISP control message");
          return(BAD);
      } else {
-         lispd_log_msg(LISP_LOG_DEBUG_2, "Map-Server: Completed processing of LISP control message");
+         lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Completed processing of LISP control message");
          return(ret);
      }
 }
@@ -230,4 +247,7 @@ lisp_ctrl_device *ms_ctrl_init() {
 
     return((lisp_ctrl_device *)ms);
 }
+
+
+
 

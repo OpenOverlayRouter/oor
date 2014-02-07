@@ -674,8 +674,8 @@ int select_src_rmt_locators_from_balancing_locators_vec (
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"select_src_rmt_locators_from_balancing_locators_vec: "
             "src EID: %s, rmt EID: %s, protocol: %d, src port: %d , dst port: %d --> src RLOC: %s, dst RLOC: %s",
-            lisp_addr_to_char(mapping_get_eid_addr(src_mapping)),
-            lisp_addr_to_char(mapping_get_eid_addr(dst_mapping)),
+            lisp_addr_to_char(mapping_get_eid(src_mapping)),
+            lisp_addr_to_char(mapping_get_eid(dst_mapping)),
             tuple.protocol, tuple.src_port, tuple.dst_port,
             lisp_addr_to_char((*src_locator)->locator_addr),
             lisp_addr_to_char((*dst_locator)->locator_addr));
@@ -777,7 +777,7 @@ int lisp_output_multicast (
     or_list = re_get_orlist(dst_eid);
 
     glist_for_each_entry(it, or_list){
-        locator =  (lispd_locator_elt *)glist_entry_get_data(it);
+        locator =  (lispd_locator_elt *)glist_entry_data(it);
         mcaddr = lcaf_addr_get_mc(lisp_addr_get_lcaf(locator->locator_addr));
         src_rloc = mc_type_get_src(mcaddr);
         dst_rloc = mc_type_get_grp(mcaddr);

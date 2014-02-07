@@ -35,14 +35,18 @@
  * @cmp_fct: function to compare to data entries
  * @del_fct: function to deallocate a data entry
  */
+
 glist_t *glist_new(
         int (*cmp_fct)(void *, void *),
-        void (*del_fct)(void *)) {
+        glist_del_fct del_fct) {
     glist_t    *glist  = NULL;
 
-    glist = calloc(1, sizeof(glist_t));
+    if (!(glist = calloc(1, sizeof(glist_t))))
+        return(NULL);
+    if (!(glist->head = calloc(1, sizeof(glist_entry_t))))
+        return(NULL);
+    INIT_LIST_HEAD(&(glist->head->list));
     glist->size = 0;
-    glist->head = NULL;
 
     glist->cmp_fct = cmp_fct;
     glist->del_fct = del_fct;
@@ -65,10 +69,11 @@ int glist_add(void *data, glist_t *glist) {
     glist_entry_t    *new    = NULL;
     glist_entry_t    *tmp    = NULL;
 
-    if (!(new = calloc(1, sizeof(glist_t))))
+    if (!(new = calloc(1, sizeof(glist_entry_t))))
         return(-1);
 
     new->data = data;
+    INIT_LIST_HEAD(&new->list);
 
     if (!glist->cmp_fct) {
         list_add(&(new->list), &(glist->head->list));
@@ -86,12 +91,36 @@ int glist_add(void *data, glist_t *glist) {
 }
 
 /**
+ * lispd_list_gen_insert - insert new value to the list
+ * @data: new value to be added
+ * @head: list where data is to be inserted
+ *
+ * Append a new entry to the end of the list.
+ * If cmp_fct is defined, the element is not added
+ */
+int glist_add_tail(void *data, glist_t *glist) {
+    glist_entry_t    *new    = NULL;
+
+    if (glist->cmp_fct)
+        return(-1);
+    if (!(new = calloc(1, sizeof(glist_entry_t))))
+        return(-1);
+
+    new->data = data;
+    INIT_LIST_HEAD(&new->list);
+    list_add_tail(&(new->list), &(glist->head->list));
+    glist->size++;
+
+    return(0);
+}
+
+/**
  * lispd_generic_list_del - remove entry from list
  * @entry: entry to be removed
  * @list: list from which the entry is to be removed
  *
- * If del_fct is defined, entry->data will be freed using it,
- * otherwise free is used
+ * If del_fct is defined, entry->data will be freed using it
+ *
  */
 void glist_del(glist_entry_t *entry, glist_t *list) {
     list_del(&(entry->list));
@@ -113,6 +142,7 @@ void glist_destroy(glist_t *lst) {
         glist_del(tmp, lst);
     }
 
+    free(lst->head);
     free(lst);
 }
 
@@ -120,6 +150,6 @@ inline int glist_size(glist_t *list) {
     return(list->size);
 }
 
-void *glist_entry_get_data(glist_entry_t *entry) {
+inline void *glist_entry_data(glist_entry_t *entry) {
     return(entry->data);
 }

@@ -31,16 +31,29 @@
 
 #include "lisp_ctrl_device.h"
 
+#define REQ_MAP_NOTIFY 1
+
+typedef struct _lisp_site_prefix {
+    lisp_addr_t         *eid_prefix;
+    uint32_t            iid;
+    uint8_t             proxy_reply;
+    uint8_t             accept_more_specifics;
+    char                *key;
+} lisp_site_prefix;
+
+
 typedef struct _lisp_ms {
     lisp_ctrl_device super;    /* base "class" */
 
-    /* ms interface */
-    int (*add_lisp_site)(struct _lisp_ms *ms, lispd_mapping_elt *site);
-
     /* ms members */
-//    lisp_site_db *lisp_sites;
+    mdb_t *lisp_sites_db;
+    mdb_t *registered_sites_db;
 } lisp_ms;
 
 lisp_ctrl_device *ms_ctrl_init();
+
+/* ms interface */
+int ms_add_lisp_site_prefix(lisp_ms *ms, lisp_site_prefix *site);
+
 
 #endif /* LISP_MS_H_ */

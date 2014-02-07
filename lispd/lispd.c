@@ -51,7 +51,7 @@
 #include "lispd_config.h"
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
-#include "data-tun/lispd_input.h"
+#include "lispd_input.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
 #include "lispd_sockets.h"

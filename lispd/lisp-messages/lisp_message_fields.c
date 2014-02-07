@@ -86,6 +86,8 @@ inline locator_field *locator_field_new() {
 }
 
 inline void locator_field_del(locator_field *locator) {
+    if (!locator)
+        return;
     if (locator->address)
         address_field_del(locator->address);
     free(locator);
@@ -119,20 +121,17 @@ inline mapping_record *mapping_record_new() {
 }
 
 void mapping_record_del(mapping_record *record) {
-    int i;
-
     if (record->eid)
         address_field_del(record->eid);
     if (record->locators)
-        for (i=0; i<mapping_record_get_hdr(record)->locator_count; i++)
-            if (record->locators[i])
-               locator_field_del(record->locators[i]);
+        glist_destroy(record->locators);
     free(record);
 }
 
 
 mapping_record *mapping_record_parse(uint8_t *offset) {
     mapping_record  *record;
+    locator_field   *locator;
     int i;
 
 
@@ -147,30 +146,27 @@ mapping_record *mapping_record_parse(uint8_t *offset) {
         goto err;
 
     offset = CO(offset, address_field_get_len(record->eid));
-    record->locators = calloc(mapping_record_get_hdr(record)->locator_count, sizeof(locator_field*));
+    record->locators = glist_new(NO_CMP, (glist_del_fct)locator_field_del);
+    if (!record->locators)
+        goto err;
 
     for (i = 0; i < mapping_record_get_hdr(record)->locator_count; i++) {
-        record->locators[i] = locator_field_parse(offset);
-        if (!record->locators[i])
+        locator = locator_field_parse(offset);
+        if (!locator)
             goto err;
-        offset = CO(offset, locator_field_get_len(record->locators[i]));
+        glist_add_tail(locator, record->locators);
+        offset = CO(offset, locator_field_get_len(locator));
     }
 
     return(record);
 err:
     if (record->eid)
         address_field_del(record->eid);
-    if (record->locators) {
-        for (i=0; i < mapping_record_get_hdr(record)->locator_count; i++)
-            if (record->locators[i])
-                locator_field_del(record->locators[i]);
-        free(record->locators);
-    }
+    if (record->locators)
+        glist_destroy(record->locators);
     free(record);
     return(NULL);
 }
-
-
 
 
 
@@ -200,6 +196,9 @@ eid_prefix_record *eid_prefix_record_parse(uint8_t *offset) {
     record->len = sizeof(eid_prefix_record_hdr) + address_field_get_len(record->eid);
     return(record);
 }
+
+
+
 
 
 /*

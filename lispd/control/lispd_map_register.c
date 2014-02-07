@@ -99,7 +99,7 @@ int map_register_process()
             err = build_and_send_map_register_msg(mapping);
             if (err != GOOD){
                 lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s EID!",
-                        lisp_addr_to_char(mapping_get_eid_addr(mapping)));
+                        lisp_addr_to_char(mapping_get_eid(mapping)));
             }
         }
     } local_map_db_foreach_end;
@@ -297,12 +297,12 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
 
         if ((err = send_packet(out_socket,packet,packet_len))==GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s to Map Server at %s",
-                    lisp_addr_to_char(mapping_get_eid_addr(mapping)),
+                    lisp_addr_to_char(mapping_get_eid(mapping)),
                     lisp_addr_to_char(ms->address));
             sent_map_registers++;
         }else{
             lispd_log_msg(LISP_LOG_WARNING, "Couldn't send Map Register for %s to the Map Server %s",
-                    lisp_addr_to_char(mapping_get_eid_addr(mapping)),
+                    lisp_addr_to_char(mapping_get_eid(mapping)),
                     lisp_addr_to_char(ms->address));
         }
         free (packet);

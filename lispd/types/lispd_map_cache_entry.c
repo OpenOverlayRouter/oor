@@ -202,7 +202,7 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     mapping = mcache_entry_get_mapping(entry);
 
     sprintf(str,"IDENTIFIER (EID): %s (IID = %d), ",
-            lisp_addr_to_char(mapping_get_eid_addr(mapping)), mapping->iid );
+            lisp_addr_to_char(mapping_get_eid(mapping)), mapping->iid );
     uptime = time(NULL);
     uptime = uptime - entry->timestamp;
     strftime(buf, 20, "%H:%M:%S", localtime(&uptime));
@@ -254,7 +254,7 @@ inline lispd_mapping_elt *mcache_entry_get_mapping(lispd_map_cache_entry* mce) {
 }
 
 inline lisp_addr_t *mcache_entry_get_eid_addr(lispd_map_cache_entry *mce) {
-    return(mapping_get_eid_addr(mcache_entry_get_mapping(mce)));
+    return(mapping_get_eid(mcache_entry_get_mapping(mce)));
 }
 
 inline nonces_list *mcache_entry_get_nonces_list(lispd_map_cache_entry *mce) {

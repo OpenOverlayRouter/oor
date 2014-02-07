@@ -31,6 +31,11 @@
 
 #include "list.h"
 
+#define NO_CMP NULL
+#define NO_DEL NULL
+
+typedef void (*glist_del_fct)(void *);
+
 typedef struct {
     struct list_head    list;
     void                *data;
@@ -40,22 +45,23 @@ typedef struct {
     glist_entry_t       *head;
     int                 size;
     int                 (*cmp_fct)(void *, void *);
-    void                (*del_fct)(void *);
+    glist_del_fct       del_fct;
 } glist_t;
 
 /**
  * generic_list_for_each_entry  - iterates over list in generic_list_t
- * @ iter:  * of lispd_generic_list_t to use as loop counter
- * @ lst:   * to the list over which to iterate
+ * @ iter:  * of glist_entry_t type, to use as loop iterator
+ * @ lst:   * the list of glist_t type, over whose elements to iterate
  */
 #define glist_for_each_entry(iter, lst) \
     list_for_each_entry(iter, &((lst)->head->list), list)
 
 glist_t                 *glist_new(int (*cmp_fct)(void *, void *), void (*del_fct)(void *));
 int                     glist_add(void *data, glist_t *list);
+int                     glist_add_tail(void *data, glist_t *glist);
 void                    glist_del(glist_entry_t *entry, glist_t *list);
 void                    glist_destroy(glist_t *lst);
 inline int              glist_size(glist_t *list);
-inline void             *glist_entry_get_data(glist_entry_t *entry);
+inline void             *glist_entry_data(glist_entry_t *entry);
 
 #endif /* LISPD_GENERIC_LIST_H_ */

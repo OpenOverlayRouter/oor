@@ -59,10 +59,10 @@ int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *loca
     }
 
     if (ret != GOOD) {
-      lispd_log_msg(LISP_LOG_DEBUG_2, "xTR: Failed to process LISP control message");
+      lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Failed to process LISP control message");
       return(BAD);
     } else {
-      lispd_log_msg(LISP_LOG_DEBUG_2, "xTR: Completed processing of LISP control message");
+      lispd_log_msg(LISP_LOG_DEBUG_3, "xTR: Completed processing of LISP control message");
       return(ret);
     }
 }
@@ -142,11 +142,11 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
     lisp_addr_t                 *src_eid                = NULL;
     lisp_addr_t                 *dst_eid                = NULL;
     lisp_addr_t                 *remote_rloc            = NULL;
-    address_field               **itrs                  = NULL;
-    eid_prefix_record           **eids                  = NULL;
+    glist_t                     *itrs                   = NULL;
+    glist_entry_t               *it                     = NULL;
+    glist_t                     *eids                   = NULL;
     lispd_mapping_elt           *mapping                = NULL;
     map_reply_opts              opts;
-    int i;
 
     lispd_log_msg(LISP_LOG_DEBUG_3, "xTR: Processing LISP Map-Request message");
 
@@ -166,10 +166,10 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
 
     /* Process additional ITR RLOCs. Obtain remote RLOC to use for Map-Replies*/
     itrs = mreq_msg_get_itr_rlocs(mreq);
-    for (i = 0; i < mreq_msg_get_hdr(mreq)->additional_itr_rloc_count + 1; i++) {
+    glist_for_each_entry(it, itrs) {
         /* XXX: support only for IP RLOCs */
-        if (ip_iana_afi_to_sock_afi(address_field_get_afi(itrs[i])) == lisp_addr_ip_get_afi(local_rloc)) {
-            remote_rloc = lisp_addr_init_from_field(itrs[i]);
+        if (ip_iana_afi_to_sock_afi(address_field_get_afi(glist_entry_data(it))) == lisp_addr_ip_get_afi(local_rloc)) {
+            remote_rloc = lisp_addr_init_from_field(glist_entry_data(it));
             break;
         }
     }
@@ -186,13 +186,14 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
 
     /* Process record and send Map Reply for each one */
     eids = mreq_msg_get_eids(mreq);
-    for (i = 0; i < mreq_msg_get_hdr(mreq)->record_count; i++) {
-        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(eids[i]))))
+    glist_for_each_entry(it, eids) {
+        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(glist_entry_data(it)))))
             goto err;
 
         /* Save prefix length only if the entry is an IP */
         if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)
-            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid), eid_prefix_record_get_hdr(eids[i])->eid_prefix_length);
+            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid),
+                    eid_prefix_record_get_hdr(glist_entry_data(it))->eid_prefix_length);
 
         lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Received Map-Request from EID %s for EID %s",
                 lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));

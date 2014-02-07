@@ -123,11 +123,11 @@ void init_smr(
         }
 
         lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s",
-                lisp_addr_to_char(mapping_get_eid_addr(mappings_to_smr[ctr])));
+                lisp_addr_to_char(mapping_get_eid(mappings_to_smr[ctr])));
 
         /* For each map cache entry with same afi as local EID mapping */
 
-        eid = mapping_get_eid_addr(mappings_to_smr[ctr]);
+        eid = mapping_get_eid(mappings_to_smr[ctr]);
         if (lisp_addr_get_afi(eid) == LM_AFI_IP ) {
             lispd_log_msg(LISP_LOG_DEBUG_3, "init_smr: SMR request for %s. Shouldn't receive SMR for IP in mapping?!",
                     lisp_addr_to_char(eid));
@@ -173,14 +173,14 @@ void init_smr(
 
         while (pitr_elt) {
             if (build_and_send_map_request_msg(mappings_to_smr[ctr],
-                    mapping_get_eid_addr(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
+                    mapping_get_eid(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
                 lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
-                        lisp_addr_to_char(mapping_get_eid_addr(mappings_to_smr[ctr])));
+                        lisp_addr_to_char(mapping_get_eid(mappings_to_smr[ctr])));
             }else {
                 lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
-                        lisp_addr_to_char(mapping_get_eid_addr(mappings_to_smr[ctr])));
+                        lisp_addr_to_char(mapping_get_eid(mappings_to_smr[ctr])));
             }
             pitr_elt = pitr_elt->next;
         }

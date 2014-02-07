@@ -128,7 +128,7 @@ typedef struct _map_register_msg_hdr {
 typedef struct map_register_msg_ {
     uint8_t         *bits;
     auth_field      *auth_data;
-    mapping_record  **records;
+    glist_t         *records;
 } map_register_msg;
 
 
@@ -140,13 +140,16 @@ static inline map_register_msg_hdr *mreg_msg_get_hdr(map_register_msg *mreg) {
     return((map_register_msg_hdr *)mreg->bits);
 }
 
-static inline mapping_record **mreg_msg_get_records(map_register_msg *mreg) {
+static inline glist_t *mreg_msg_get_records(map_register_msg *mreg) {
     return(mreg->records);
 }
 
 static inline auth_field *mreg_msg_get_auth_data(map_register_msg *mreg) {
     return(mreg->auth_data);
 }
+
+#define mreg_msg_foreach_mapping_record(it, mreg) \
+    list_for_each_entry(it, &((mreg)->records->list), list)
 
 
 #endif /* LISP_MAP_REGISTER_H_ */

@@ -32,6 +32,7 @@
 #define LISP_MESSAGE_FIELDS_H_
 
 #include <defs.h>
+#include <llist/generic_list.h>
 
 /*
  * LISP AFI codes
@@ -157,6 +158,7 @@ static inline address_field *locator_field_get_addr(locator_field *locator) {
 
 
 
+
 /*
  * mapping record
  */
@@ -216,7 +218,7 @@ typedef struct _mapping_record {
     uint16_t                len;
     uint8_t                 *data;
     address_field           *eid;
-    locator_field           **locators;
+    glist_t                 *locators;
 } mapping_record;
 
 inline mapping_record *mapping_record_new();
@@ -228,16 +230,8 @@ static inline mapping_record_hdr *mapping_record_get_hdr(mapping_record *record)
     return((mapping_record_hdr *)record->data);
 }
 
-static inline uint8_t *_record_get_eid_ptr(mapping_record *record) {
-    return(CO(record->data, sizeof(mapping_record_hdr)));
-}
-
 static inline uint8_t *mapping_record_get_data(mapping_record *record) {
     return(record->data);
-}
-
-static inline locator_field **mapping_record_get_locators(mapping_record *record) {
-    return(record->locators);
 }
 
 static inline address_field *mapping_record_get_eid(mapping_record *record) {
@@ -252,33 +246,9 @@ static inline uint8_t mapping_record_get_eid_mask(mapping_record *record) {
     return(mapping_record_get_hdr(record)->eid_prefix_length);
 }
 
-
-
-
-/**
- * mrep_record_foreach_locator - iterate over record locators
- * @record: map-reply record that contains locators
- * @lit:    iterator over the locators
- *
- * Description: the macro iterates over the locators without the need
- * to externally define a "loop counter" over the locators array
- *
- * TODO: would be nicer do to this with a for to avoid the "end" macro
- */
-#define mrep_record_foreach_locator_1(record,lit)    \
-    do {    \
-        lispd_locators_list **__lst = _record_get_locators((record));   \
-        while ((lit = *__lst)) {    \
-            if (lit)
-#define mrep_record_foreach_locator_end \
-            __lst++;  \
-        }   \
-    } while(0)
-
-#define mapping_record_foreach_locator(record, locators, lit)    \
-    for((locators) = mapping_record_get_locators((record)); \
-        *(locators) != NULL; (locators)++ )  \
-            if((lit=*(locators)))
+static inline glist_t *mapping_record_get_locators(mapping_record *record) {
+    return(record->locators);
+}
 
 
 
@@ -304,18 +274,12 @@ typedef struct _eid_prefix_record {
     uint8_t                     *data;
     address_field               *eid;
     uint16_t                    len;
-    struct _eid_prefix_record   *next;
 } eid_prefix_record;
-
-typedef struct _eid_prefix_record_list {
-    eid_prefix_record               *record;
-    struct _eid_prefix_record_list  *next;
-} eid_prefix_record_list;
 
 inline eid_prefix_record *eid_prefix_record_new();
 void eid_prefix_record_del(eid_prefix_record *record);
-eid_prefix_record * eid_prefix_record_parse(uint8_t *offset);
-
+eid_prefix_record *eid_prefix_record_parse(uint8_t *offset);
+void eid_prefix_record_list_del(eid_prefix_record *record);
 
 
 

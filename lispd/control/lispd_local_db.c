@@ -59,9 +59,9 @@ void local_map_db_init(void)
  */
 int local_map_db_add_mapping(lispd_mapping_elt *mapping)
 {
-    if (mdb_add_entry(local_mdb, mapping_get_eid_addr(mapping), mapping) != GOOD) {
+    if (mdb_add_entry(local_mdb, mapping_get_eid(mapping), mapping) != GOOD) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "Couldn't add mapping for EID %s to local mappings db",
-                lisp_addr_to_char(mapping_get_eid_addr(mapping)));
+                lisp_addr_to_char(mapping_get_eid(mapping)));
         return(BAD);
     }
 
@@ -134,7 +134,7 @@ lisp_addr_t *local_map_db_get_main_eid(int afi) {
     lisp_addr_t         *eid        = NULL;
 
     mdb_foreach_entry(local_mdb, it) {
-        eid = mapping_get_eid_addr((lispd_mapping_elt *)it);
+        eid = mapping_get_eid((lispd_mapping_elt *)it);
 
         if (eid && lisp_addr_ip_get_afi(eid) == afi)
             return(eid);
@@ -155,7 +155,7 @@ int local_map_db_num_ip_eids(int afi){
      * so this should do for now
      */
     mdb_foreach_entry(local_mdb, it) {
-        eid = mapping_get_eid_addr((lispd_mapping_elt *)it);
+        eid = mapping_get_eid((lispd_mapping_elt *)it);
         if (eid && lisp_addr_get_afi(eid) == LM_AFI_IP && lisp_addr_ip_get_afi(eid) == afi)
             ctr ++;
     }mdb_foreach_entry_end;

@@ -38,6 +38,9 @@
 #include "../elibs/patricia/patricia.h"
 #include "../types/lispd_address.h"
 
+#define NOT_EXACT 0
+#define EXACT 1
+
 /*
  *  Patricia tree based databases
  *  for IP/IP-prefix and multicast addresses

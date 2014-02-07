@@ -192,7 +192,7 @@ lispd_mapping_elt           *mapping_init_learned(lisp_addr_t *eid, lispd_locato
 inline void                 mapping_set_extended_info(lispd_mapping_elt *mapping, void *extended_info);
 inline void                 mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr);
 inline void                 mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen);
-inline lisp_addr_t          *mapping_get_eid_addr(lispd_mapping_elt *mapping);
+inline lisp_addr_t          *mapping_get_eid(lispd_mapping_elt *mapping);
 lispd_remdb_t               *mapping_get_jib(lispd_mapping_elt *mapping);
 int                         mapping_add_locators(lispd_mapping_elt *mapping, lispd_locators_list *locators);
 inline uint16_t             mapping_get_locator_count(lispd_mapping_elt *mapping);

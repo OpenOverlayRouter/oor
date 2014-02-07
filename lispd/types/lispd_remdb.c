@@ -18,7 +18,7 @@ glist_t *remdb_get_orlist(lispd_remdb_t *jib) {
 
     glist_for_each_entry(it,jib){
         /* Ugly but should do for now. Just take the first locator */
-        jibentry = (lispd_remdb_member_t *)glist_entry_get_data(it);
+        jibentry = (lispd_remdb_member_t *)glist_entry_data(it);
         glist_add(jibentry->locators->locator, orlist);
     }
 
@@ -44,7 +44,7 @@ lispd_remdb_member_t *remdb_find_member(lisp_addr_t *peer, lispd_remdb_t *jib) {
     assert(jib);
 
     glist_for_each_entry(it,jib) {
-        member = (lispd_remdb_member_t *)glist_entry_get_data(it);
+        member = (lispd_remdb_member_t *)glist_entry_data(it);
         if (lisp_addr_cmp(member->addr, peer))
             return(member);
     }
@@ -59,7 +59,7 @@ void remdb_del_member(lisp_addr_t *addr, lispd_remdb_t *jib) {
     lispd_remdb_member_t    *member     = NULL;
 
     glist_for_each_entry(it,jib) {
-        member = (lispd_remdb_member_t *)glist_entry_get_data(it);
+        member = (lispd_remdb_member_t *)glist_entry_data(it);
         if (lisp_addr_cmp(member->addr, addr))
             glist_del(it, jib);
     }

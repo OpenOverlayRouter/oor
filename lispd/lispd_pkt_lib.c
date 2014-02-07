@@ -68,7 +68,7 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
     }
 
 //    eid_length = get_mapping_length(mapping);
-    eid_length = lisp_addr_get_size_to_write(mapping_get_eid_addr(mapping));
+    eid_length = lisp_addr_get_size_to_write(mapping_get_eid(mapping));
     length = sizeof(mapping_record_hdr) + eid_length +
             (mapping->locator_count * sizeof(locator_hdr)) +
             loc_length;

@@ -62,41 +62,35 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
 
     msg = lisp_msg_new();
     if (((lisp_encap_control_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "LISP control message is encapsulated. Parsing encapsulation data");
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Parsing encapsulated control message data");
         msg->encap = 1;
         msg->encapdata = lisp_encap_hdr_parse(packet);
         packet = CO(packet, lisp_encap_data_get_len(msg->encapdata));
     } else {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Parsing control message");
         msg->encap = 0;
     }
 
     msg->type = ((lisp_encap_control_hdr_t *) packet)->type;
     switch (msg->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Map-Reply message");
         msg->msg = map_reply_msg_parse(packet);
         break;
     case LISP_MAP_REQUEST:      //Got Map-Request
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Map-Request message");
         msg->msg = map_request_msg_parse(packet);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Map-Notify message");
         msg->msg = map_notify_msg_parse(packet);
         break;
     case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP Info-Request/Info-Reply message");
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Parsing LISP double Encapsulated Map-Request message! Discarding!");
         return(NULL);
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Unidentified type (%d) control message received", msg->type);
         break;
     }
-    lispd_log_msg(LISP_LOG_DEBUG_2, "Completed parsing of LISP control message");
 
     return(msg);
 }
@@ -147,7 +141,6 @@ lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet) {
     }
 
     data->len = sizeof(lisp_encap_control_hdr_t)+data->ip_header_len + sizeof(struct udphdr);
-    lispd_log_msg(LISP_LOG_DEBUG_2, "********* len is  = %d ", data->len);
 
     return(data);
 }
@@ -164,40 +157,37 @@ inline map_reply_msg *map_reply_msg_new() {
 }
 
 map_reply_msg *map_reply_msg_parse(uint8_t *offset) {
-    map_reply_msg *mrp  = NULL;
+    map_reply_msg   *mrp  = NULL;
+    mapping_record  *record = NULL;
     int i;
 
     mrp = map_reply_msg_new();
     mrp->data = offset;
 
     offset = CO(mrp->data, sizeof(map_reply_hdr));
+    mrp->records = glist_new(NO_CMP, (void (*)(void *))mapping_record_del);
+    if (!mrp->records)
+        goto err;
 
-    mrp->records = calloc(mrep_get_hdr(mrp)->record_count, sizeof(mapping_record *));
     for (i=0; i < mrep_get_hdr(mrp)->record_count; i++) {
-         mrp->records[i] = mapping_record_parse(offset);
-         if (!mrp->records[i])
-             goto err;
-         offset = CO(offset, mapping_record_get_len(mrp->records[i]));
+        record = mapping_record_parse(offset);
+        if (!record)
+            goto err;
+        glist_add_tail(record, mrp->records);
+        offset = CO(offset, mapping_record_get_len(record));
     }
 
     return(mrp);
 err:
-    if (mrp->records) {
-        for (i = 0; i < mrep_get_hdr(mrp)->record_count; i++)
-            if (mrp->records[i])
-                mapping_record_del(mrp->records[i]);
-        free(mrp->records);
-    }
+    if (mrp->records)
+        glist_destroy(mrp->records);
     free(mrp);
     return(NULL);
 }
 
 void map_reply_msg_del(map_reply_msg *mrp) {
-    int i;
-    if (mrp->records) {
-        for (i=0; i < mrep_get_hdr(mrp)->record_count; i++)
-            mapping_record_del(mrp->records[i]);
-    }
+    if (mrp->records)
+        glist_destroy(mrp->records);
     free(mrp);
 }
 
@@ -211,6 +201,8 @@ inline map_request_msg *map_request_msg_new() {
 
 map_request_msg *map_request_msg_parse(uint8_t *offset) {
     map_request_msg     *mrp            = NULL;
+    eid_prefix_record   *record         = NULL;
+    address_field       *afield         = NULL;
     int i;
 
     mrp = map_request_msg_new();
@@ -223,21 +215,23 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
     offset = CO(offset, address_field_get_len(mrp->src_eid));
 
     /* parse ITR RLOCs */
-    mrp->itr_rlocs = calloc(mreq_msg_get_hdr(mrp)->additional_itr_rloc_count + 1, sizeof(address_field*));
+    mrp->itr_rlocs = glist_new(NO_CMP, (void (*)(void *))address_field_del);
     for (i=0; i < mreq_msg_get_hdr(mrp)->additional_itr_rloc_count + 1; i++) {
-        mrp->itr_rlocs[i] = address_field_parse(offset);
-        if (!mrp->itr_rlocs[i])
+        afield = address_field_parse(offset);
+        if (!afield)
             goto err;
-        offset = CO(offset, address_field_get_len(mrp->itr_rlocs[i]));
+        glist_add_tail(afield, mrp->itr_rlocs);
+        offset = CO(offset, address_field_get_len(afield));
     }
 
     /* parse EIDs */
-    mrp->eids = calloc(mreq_msg_get_hdr(mrp)->record_count, sizeof(eid_prefix_record*));
+    mrp->eids = glist_new(NO_CMP, (glist_del_fct)eid_prefix_record_del);
     for (i=0; i< mreq_msg_get_hdr(mrp)->record_count; i++) {
-        mrp->eids[i] = eid_prefix_record_parse(offset);
-        if (!mrp->eids[i])
+        record = eid_prefix_record_parse(offset);
+        if (!record)
             goto err;
-        offset = CO(offset, eid_prefix_record_get_len(mrp->eids[i]));
+        glist_add_tail(record, mrp->eids);
+        offset = CO(offset, eid_prefix_record_get_len(record));
     }
 
     /* TODO read mapping record */
@@ -245,38 +239,18 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
     return(mrp);
 
 err:
-    if (mrp->src_eid)
-        address_field_del(mrp->src_eid);
-    if (mrp->itr_rlocs) {
-        for(i=0;i<mreq_msg_get_hdr(mrp)->additional_itr_rloc_count+1; i++)
-            if (mrp->itr_rlocs[i])
-                address_field_del(mrp->itr_rlocs[i]);
-        free(mrp->itr_rlocs);
-    }
-
-    if (mrp->eids) {
-        for (i=0;i<mreq_msg_get_hdr(mrp)->record_count; i++)
-            if (mrp->eids[i])
-                eid_prefix_record_del(mrp->eids[i]);
-        free(mrp->eids);
-    }
-    free(mrp);
+    map_request_msg_del(mrp);
     return(NULL);
 }
 
 void map_request_msg_del(map_request_msg *msg) {
-    int i;
 
     if (msg->src_eid)
         address_field_del(msg->src_eid);
     if (msg->itr_rlocs)
-        for(i=0;i<mreq_msg_get_hdr(msg)->additional_itr_rloc_count + 1; i++)
-            address_field_del(msg->itr_rlocs[i]);
-    free(msg->itr_rlocs);
+        glist_destroy(msg->itr_rlocs);
     if (msg->eids)
-        for(i=0;i<mreq_msg_get_hdr(msg)->record_count; i++)
-            eid_prefix_record_del(msg->eids[i]);
-    free(msg->eids);
+        glist_destroy(msg->eids);
     free(msg);
 }
 
@@ -291,22 +265,21 @@ inline map_register_msg *map_register_msg_new() {
 }
 
 void map_register_msg_del(map_register_msg *mreg) {
-    int i;
 
     if (!mreg)
         return;
     if (mreg->auth_data)
         auth_field_del(mreg->auth_data);
-    for (i = 0; i < mreg_msg_get_hdr(mreg)->record_count; i++ ) {
-        if (mreg->records[i])
-            mapping_record_del(mreg->records[i]);
+    if (mreg->records) {
+        glist_destroy(mreg->records);
     }
 
     free(mreg);
 }
 
 map_register_msg *map_register_msg_parse(uint8_t *offset) {
-    map_register_msg *mreg  = NULL;
+    map_register_msg    *mreg  = NULL;
+    mapping_record      *record = NULL;
     int i;
 
     mreg = map_register_msg_new();
@@ -316,12 +289,15 @@ map_register_msg *map_register_msg_parse(uint8_t *offset) {
     if (!mreg->auth_data)
         goto err;
     offset = CO(offset, auth_field_get_len(mreg->auth_data));
-    mreg->records = calloc(mreg_msg_get_hdr(mreg)->record_count, sizeof(mapping_record *));
+    mreg->records = glist_new(NO_CMP, (void (*)(void *))mapping_record_del);
     if (!mreg->records)
         goto err;
     for (i = 0; i < mreg_msg_get_hdr(mreg)->record_count; i++) {
-        mreg->records[i] = mapping_record_parse(offset);
-        offset = CO(offset, mapping_record_get_len(mreg->records[i]));
+        record = mapping_record_parse(offset);
+        if (!record)
+            goto err;
+        glist_add_tail(record, mreg->records);
+        offset = CO(offset, mapping_record_get_len(record));
     }
 
     return(mreg);
@@ -340,16 +316,13 @@ inline map_notify_msg *map_notify_msg_new() {
 }
 
 void map_notify_msg_del(map_notify_msg *mnotify) {
-    int i;
 
     if (!mnotify)
         return;
     if (mnotify->auth_data)
         auth_field_del(mnotify->auth_data);
-    for (i = 0; i < mnotify_msg_get_hdr(mnotify)->record_count; i++ ) {
-        if (mnotify->records[i])
-            mapping_record_del(mnotify->records[i]);
-    }
+    if (mnotify->records)
+        glist_destroy(mnotify->records);
     if (mnotify->rtr_auth)
         rtr_auth_field_del(mnotify->rtr_auth);
 
@@ -357,7 +330,8 @@ void map_notify_msg_del(map_notify_msg *mnotify) {
 }
 
 map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
-    map_notify_msg *mnotify  = NULL;
+    map_notify_msg  *mnotify  = NULL;
+    mapping_record  *record   = NULL;
     int i;
 
     mnotify = map_notify_msg_new();
@@ -367,12 +341,16 @@ map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
     if (!mnotify->auth_data)
         goto err;
     offset = CO(offset, auth_field_get_len(mnotify->auth_data));
-    mnotify->records = calloc(mnotify_msg_get_hdr(mnotify)->record_count, sizeof(mapping_record *));
+    mnotify->records = glist_new(NO_CMP, (glist_del_fct)mapping_record_del);
     if (!mnotify->records)
         goto err;
+
     for (i = 0; i < mnotify_msg_get_hdr(mnotify)->record_count; i++) {
-        mnotify->records[i] = mapping_record_parse(offset);
-        offset = CO(offset, mapping_record_get_len(mnotify->records[i]));
+        record = mapping_record_parse(offset);
+        if (!record)
+            goto err;
+        glist_add_tail(record, mnotify->records);
+        offset = CO(offset, mapping_record_get_len(record));
     }
 
     /* xtr-id and site-id*/
@@ -397,11 +375,14 @@ err:
 
 uint16_t mnotify_msg_get_len(map_notify_msg *msg) {
     uint16_t len = 0;
-    int i;
+    glist_t             *records    = NULL;
+    glist_entry_t       *it         = NULL;
 
     len = sizeof(map_notify_msg_hdr) + auth_field_get_len(msg->auth_data);
-    for (i = 0; i < mnotify_msg_get_hdr(msg)->record_count; i++) {
-        len += mapping_record_get_len(msg->records[i]);
+
+    records = mnotify_msg_get_records(msg);
+    glist_for_each_entry(it, records) {
+        len += mapping_record_get_len(glist_entry_data(it));
     }
     if (mnotify_msg_get_hdr(msg)->xtr_id_present)
         len += 128*sizeof(uint8_t) + 64*sizeof(uint8_t);
