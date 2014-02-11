@@ -305,8 +305,8 @@ void test_elp() {
 
     lisp_addr_t *eid = lisp_addr_new(); get_lisp_addr_from_char("4.5.6.7", eid);
     uint8_t status = 1; int sock = 1;
-    lispd_locator_elt *locator = new_local_locator(laddr, &status, 1, 100, 1, 100, &sock);
-    lispd_mapping_elt *mapping = mapping_init_local(eid);
+    locator_t *locator = new_local_locator(laddr, &status, 1, 100, 1, 100, &sock);
+    mapping_t *mapping = mapping_init_local(eid);
     lispd_log_msg(LISP_LOG_WARNING, "mapping created!");
 
     add_locator_to_mapping(mapping, locator);

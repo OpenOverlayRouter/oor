@@ -51,14 +51,14 @@ typedef struct lispd_locator_elt_ {
     uint32_t                    data_packets_in;
     uint32_t                    data_packets_out;
     void                        *extended_info;
-}lispd_locator_elt;
+} locator_t;
 
 
 /*
  * list of locators.
  */
 typedef struct lispd_locators_list_ {
-    lispd_locator_elt           *locator;
+    locator_t           *locator;
     struct lispd_locators_list_ *next;
 } lispd_locators_list;
 
@@ -100,7 +100,7 @@ typedef struct rmt_locator_extended_info_ {
  * Generets a locator element
  */
 
-lispd_locator_elt   *new_local_locator (
+locator_t   *new_local_locator (
         lisp_addr_t                 *locator_addr,
         uint8_t                     *state,    /* UP , DOWN */
         uint8_t                     priority,
@@ -113,7 +113,7 @@ lispd_locator_elt   *new_local_locator (
  * Generets a locator element. For the remote locators, we have to reserve memory for address and state.
  */
 
-lispd_locator_elt   *new_rmt_locator (
+locator_t   *new_rmt_locator (
         uint8_t                     **afi_ptr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     priority,
@@ -121,7 +121,7 @@ lispd_locator_elt   *new_rmt_locator (
         uint8_t                     mpriority,
         uint8_t                     mweight);
 
-lispd_locator_elt   *new_static_rmt_locator (
+locator_t   *new_static_rmt_locator (
         lisp_addr_t                 *rloc_addr,
         uint8_t                     state,    /* UP , DOWN */
         uint8_t                     priority,
@@ -143,12 +143,12 @@ void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_lis
  * the address as it can be used for other locators of other EIDs
  */
 
-void free_locator(lispd_locator_elt   *locator);
+void free_locator(locator_t   *locator);
 
 void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt);
 
 void dump_locator (
-        lispd_locator_elt   *locator,
+        locator_t   *locator,
         int                 log_level);
 
 /**********************************  LOCATORS LISTS FUNCTIONS ******************************************/
@@ -158,7 +158,7 @@ void dump_locator (
  */
 int add_locator_to_list (
         lispd_locators_list         **list,
-        lispd_locator_elt           *locator);
+        locator_t           *locator);
 /*
  * Add a rtr localtor to a list of rtr locators
  */
@@ -170,14 +170,14 @@ int add_rtr_locator_to_list(
  * Extract the locator from a locators list that match with the address.
  * The locator is removed from the list
  */
-lispd_locator_elt *extract_locator_from_list(
+locator_t *extract_locator_from_list(
         lispd_locators_list     **head_locator_list,
         lisp_addr_t             addr);
 /*
  * Return the locator from the list that contains the address passed as a parameter
  */
 
-lispd_locator_elt *get_locator_from_list(
+locator_t *get_locator_from_list(
         lispd_locators_list    *locator_list,
         lisp_addr_t            *addr);
 
@@ -187,13 +187,16 @@ lispd_locator_elt *get_locator_from_list(
 
 void free_locator_list(lispd_locators_list     *list);
 void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_flag);
-lispd_locator_elt *locator_init_from_field(locator_field *lf);
+locator_t *locator_init_from_field(locator_field *lf);
+int locator_write_to_field(locator_t *locator, locator_field *lfield);
 
-inline lispd_locator_elt *locator_new();
-char *locator_to_char(lispd_locator_elt *locator);
+inline locator_t *locator_new();
+char *locator_to_char(locator_t *locator);
+int locator_get_size_in_field(locator_t *loc);
+int locator_list_get_size_in_field(lispd_locators_list *locators_list);
 
 /* accessors */
-static inline lisp_addr_t *locator_get_addr(lispd_locator_elt *locator) {
+static inline lisp_addr_t *locator_addr(locator_t *locator) {
     return(locator->locator_addr);
 }
 

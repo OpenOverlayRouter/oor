@@ -47,9 +47,9 @@ address_field *address_field_parse(uint8_t *offset) {
 
     address_field *addr;
     addr = calloc(1, sizeof(address_field));
-    addr->afi = ntohs(*((uint16_t *)offset));
+//    addr->afi = ntohs(*((uint16_t *)offset));
     addr->data = offset;
-    switch (addr->afi) {
+    switch (address_field_afi(addr)) {
     case LISP_AFI_IP:
         addr->len = sizeof(struct in_addr);
         break;
@@ -63,7 +63,7 @@ address_field *address_field_parse(uint8_t *offset) {
         addr->len = sizeof(generic_lcaf_hdr) + ((generic_lcaf_hdr *)addr->data)->len;
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", addr->afi);
+        lispd_log_msg(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", address_field_afi(addr));
         break;
     }
     addr->len += sizeof(uint16_t);
@@ -97,13 +97,13 @@ locator_field *locator_field_parse(uint8_t *offset) {
     locator_field *locator;
     locator = locator_field_new();
     locator->data = offset;
-    locator->address = address_field_parse(locator_field_get_afi_ptr(locator));
+    locator->address = address_field_parse(locator_field_addr_ptr(locator));
     if (!locator->address) {
         free(locator);
         return(NULL);
     }
 
-    locator->len = sizeof(locator_hdr)+ address_field_get_len(locator->address);
+    locator->len = sizeof(locator_hdr_t)+ address_field_len(locator->address);
     return(locator);
 }
 
@@ -132,31 +132,33 @@ void mapping_record_del(mapping_record *record) {
 mapping_record *mapping_record_parse(uint8_t *offset) {
     mapping_record  *record;
     locator_field   *locator;
+    uint8_t         *ptr;
     int i;
 
 
+    ptr = offset;
     record = calloc(1, sizeof(mapping_record));
     record->data = offset;
-    record->len = 0;
 
-    offset = CO(record->data, sizeof(mapping_record_hdr));
+    ptr = CO(record->data, sizeof(mapping_record_hdr_t));
 
-    record->eid = address_field_parse(offset);
+    record->eid = address_field_parse(ptr);
     if (!record->eid)
         goto err;
 
-    offset = CO(offset, address_field_get_len(record->eid));
+    ptr = CO(ptr, address_field_len(record->eid));
     record->locators = glist_new(NO_CMP, (glist_del_fct)locator_field_del);
     if (!record->locators)
         goto err;
 
-    for (i = 0; i < mapping_record_get_hdr(record)->locator_count; i++) {
-        locator = locator_field_parse(offset);
+    for (i = 0; i < mapping_record_hdr(record)->locator_count; i++) {
+        locator = locator_field_parse(ptr);
         if (!locator)
             goto err;
         glist_add_tail(locator, record->locators);
-        offset = CO(offset, locator_field_get_len(locator));
+        ptr = CO(ptr, locator_field_len(locator));
     }
+    record->len = ptr - offset;
 
     return(record);
 err:
@@ -166,6 +168,18 @@ err:
         glist_destroy(record->locators);
     free(record);
     return(NULL);
+}
+
+locator_field *mapping_record_allocate_locator(mapping_record *record, int size) {
+    locator_field *locator = NULL;
+    if (!record->locators)
+        record->locators = glist_new(NO_CMP, (glist_del_fct)locator_field_del);
+
+    locator = locator_field_new();
+    glist_add(locator, record->locators);
+    locator_field_set_data(locator, CO(record->data, record->len));
+    record->len += size;
+    return(locator);
 }
 
 
@@ -193,7 +207,7 @@ eid_prefix_record *eid_prefix_record_parse(uint8_t *offset) {
     record = eid_prefix_record_new();
     record->data = offset;
     record->eid = address_field_parse(CO(record->data, sizeof(eid_prefix_record_hdr)));
-    record->len = sizeof(eid_prefix_record_hdr) + address_field_get_len(record->eid);
+    record->len = sizeof(eid_prefix_record_hdr) + address_field_len(record->eid);
     return(record);
 }
 
@@ -214,11 +228,11 @@ auth_field *auth_field_parse(uint8_t *offset) {
     auth_field *af = auth_field_new();
     int ad_len = 0;
 
-    af->bits = offset;
-    ad_len = ntohs(auth_field_get_hdr(af)->auth_data_len);
-    offset = CO(offset, sizeof(auth_field_hdr));
+    af->data = offset;
+    ad_len = ntohs(auth_field_hdr(af)->auth_data_len);
+    offset = CO(offset, sizeof(auth_field_hdr_t));
     af->auth_data = offset;
-    af->len = sizeof(auth_field_hdr) + ad_len;
+    af->len = sizeof(auth_field_hdr_t) + ad_len;
     return(af);
 }
 
@@ -227,6 +241,20 @@ void auth_field_del(auth_field *af) {
         return;
     free(af);
 }
+
+/*
+ * Returns the length of the auth data field based on the key_id value
+ */
+
+uint16_t auth_data_get_len_for_type(lisp_key_type key_id)
+
+{
+    switch (key_id) {
+    default: // HMAC_SHA_1_96
+        return (LISP_SHA1_AUTH_DATA_LEN);   //TODO support more auth algorithms
+    }
+}
+
 
 /* RTR auth */
 

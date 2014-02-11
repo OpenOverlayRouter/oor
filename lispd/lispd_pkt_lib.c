@@ -42,71 +42,10 @@
 
 uint16_t ip_id = 0;
 
-/*
- *  get_locators_length
- *
- *  Compute the sum of the lengths of the locators
- *  so we can allocate  memory for the packet....
- */
-int get_locators_length(lispd_locators_list *locators_list);
 
 
-int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
-{
-    lispd_locators_list *locators_list[2] = {
-            mapping->head_v4_locators_list,
-            mapping->head_v6_locators_list};
-    int length          = 0;
-    int loc_length      = 0;
-    int eid_length      = 0;
-    int ctr;
-
-    for (ctr = 0 ; ctr < 2 ; ctr ++){
-        if (locators_list[ctr] == NULL)
-            continue;
-        loc_length += get_locators_length(locators_list[ctr]);
-    }
-
-//    eid_length = get_mapping_length(mapping);
-    eid_length = lisp_addr_get_size_to_write(mapping_get_eid(mapping));
-    length = sizeof(mapping_record_hdr) + eid_length +
-            (mapping->locator_count * sizeof(locator_hdr)) +
-            loc_length;
-
-    return (length);
-}
 
 
-/*
- *  get_locators_length
- *
- *  Compute the sum of the lengths of the locators
- *  so we can allocate  memory for the packet....
- */
-
-int get_locators_length(lispd_locators_list *locators_list)
-{
-    int sum = 0;
-    while (locators_list) {
-        sum += lisp_addr_get_size_to_write(locators_list->locator->locator_addr);
-
-//        switch (locators_list->locator->locator_addr->afi) {
-//        case AF_INET:
-//            sum += sizeof(struct in_addr);
-//            break;
-//        case AF_INET6:
-//            sum += sizeof(struct in6_addr);
-//            break;
-//        default:
-//            /* It should never happen*/
-//            lispd_log_msg(LISP_LOG_DEBUG_2, "get_locators_length: Uknown AFI (%d) - It should never happen",
-//               locators_list->locator->locator_addr->afi);
-//            break;
-//        }
-        locators_list = locators_list->next;
-    }
-    return(sum);
-}
 
 /*
  *  get_up_locators_length
@@ -129,7 +68,7 @@ int get_up_locators_length(
             locators_list = locators_list->next;
             continue;
         }
-        if ( (size=lisp_addr_get_size_to_write(locators_list->locator->locator_addr))) {
+        if ( (size=lisp_addr_get_size_in_field(locators_list->locator->locator_addr))) {
             counter++;
             sum += size;
         } else {

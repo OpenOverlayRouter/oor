@@ -322,10 +322,7 @@ int check_auth_field(int key_id,
 
     switch (key_id){
         default:      /* Only sha1 hmac supported at the moment */
-            return(check_sha1_hmac(key,
-                                   packet,
-                                   pckt_len,
-                                   auth_data_pos));
+            return(check_sha1_hmac(key, packet, pckt_len,  auth_data_pos));
 
     }
 

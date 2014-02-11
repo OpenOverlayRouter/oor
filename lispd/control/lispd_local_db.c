@@ -57,11 +57,11 @@ void local_map_db_init(void)
 /*
  *  Add a mapping entry to the database.
  */
-int local_map_db_add_mapping(lispd_mapping_elt *mapping)
+int local_map_db_add_mapping(mapping_t *mapping)
 {
-    if (mdb_add_entry(local_mdb, mapping_get_eid(mapping), mapping) != GOOD) {
+    if (mdb_add_entry(local_mdb, mapping_eid(mapping), mapping) != GOOD) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "Couldn't add mapping for EID %s to local mappings db",
-                lisp_addr_to_char(mapping_get_eid(mapping)));
+                lisp_addr_to_char(mapping_eid(mapping)));
         return(BAD);
     }
 
@@ -75,10 +75,10 @@ int local_map_db_add_mapping(lispd_mapping_elt *mapping)
  * Look up a given eid in the database, returning the
  * lispd_mapping_elt of this EID if it exists or NULL.
  */
-lispd_mapping_elt *local_map_db_lookup_eid(lisp_addr_t *eid)
+mapping_t *local_map_db_lookup_eid(lisp_addr_t *eid)
 {
 
-    lispd_mapping_elt       *mapping = NULL;
+    mapping_t       *mapping = NULL;
 
     mapping = mdb_lookup_entry(local_mdb, eid, 0);
     if (!mapping) {
@@ -95,9 +95,9 @@ lispd_mapping_elt *local_map_db_lookup_eid(lisp_addr_t *eid)
  *  Look up a given eid in the database, returning the
  * lispd_mapping_elt containing the exact EID if it exists or NULL.
  */
-lispd_mapping_elt *local_map_db_lookup_eid_exact(lisp_addr_t *eid)
+mapping_t *local_map_db_lookup_eid_exact(lisp_addr_t *eid)
 {
-    lispd_mapping_elt       *mapping = NULL;
+    mapping_t       *mapping = NULL;
 
     if (lisp_addr_get_afi(eid) == LM_AFI_IP) {
         lispd_log_msg(LISP_LOG_WARNING, "Called with IP EID %s, probably it should've been an IPPREF",
@@ -120,7 +120,7 @@ lispd_mapping_elt *local_map_db_lookup_eid_exact(lisp_addr_t *eid)
  */
 void local_map_db_del_mapping(lisp_addr_t *eid)
 {
-    lispd_mapping_elt    *mapping   = NULL;
+    mapping_t    *mapping   = NULL;
     mapping = mdb_remove_entry(local_mdb, eid);
     if (mapping) {
         free_mapping_elt(mapping, 1);
@@ -134,7 +134,7 @@ lisp_addr_t *local_map_db_get_main_eid(int afi) {
     lisp_addr_t         *eid        = NULL;
 
     mdb_foreach_entry(local_mdb, it) {
-        eid = mapping_get_eid((lispd_mapping_elt *)it);
+        eid = mapping_eid((mapping_t *)it);
 
         if (eid && lisp_addr_ip_get_afi(eid) == afi)
             return(eid);
@@ -155,7 +155,7 @@ int local_map_db_num_ip_eids(int afi){
      * so this should do for now
      */
     mdb_foreach_entry(local_mdb, it) {
-        eid = mapping_get_eid((lispd_mapping_elt *)it);
+        eid = mapping_eid((mapping_t *)it);
         if (eid && lisp_addr_get_afi(eid) == LM_AFI_IP && lisp_addr_ip_get_afi(eid) == afi)
             ctr ++;
     }mdb_foreach_entry_end;
@@ -168,13 +168,13 @@ int local_map_db_num_ip_eids(int afi){
  */
 void local_map_db_dump(int log_level)
 {
-    lispd_mapping_elt   *mapping    = NULL;
+    mapping_t   *mapping    = NULL;
     void                *it         = NULL;
 
     lispd_log_msg(log_level,"****************** LISP Local Mappings ****************\n");
 
     mdb_foreach_entry(local_mdb, it) {
-        mapping = (lispd_mapping_elt *)it;
+        mapping = (mapping_t *)it;
         dump_mapping_entry(mapping, log_level);
     } mdb_foreach_entry_end;
     lispd_log_msg(log_level,"*******************************************************\n");

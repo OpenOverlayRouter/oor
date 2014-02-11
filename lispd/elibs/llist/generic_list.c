@@ -146,10 +146,3 @@ void glist_destroy(glist_t *lst) {
     free(lst);
 }
 
-inline int glist_size(glist_t *list) {
-    return(list->size);
-}
-
-inline void *glist_entry_data(glist_entry_t *entry) {
-    return(entry->data);
-}

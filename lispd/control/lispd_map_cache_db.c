@@ -44,7 +44,7 @@ int mcache_update_mapping_eid(lisp_addr_t *new_eid, lispd_map_cache_entry *mce) 
      * are stored in the same pt. Also, mc prefix length is set
      * to be S prefix length. */
 
-    old_eid = mapping_get_eid(mcache_entry_get_mapping(mce));
+    old_eid = mapping_eid(mcache_entry_get_mapping(mce));
     if (!mce) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "mcache_update_mapping_eid: requested to update EID %s but it is "
                 "not present in the mappings cache!", lisp_addr_to_char(old_eid));
@@ -75,21 +75,21 @@ void map_cache_init()
     }
 }
 
-int mcache_add_mapping(lispd_mapping_elt *mapping) {
+int mcache_add_mapping(mapping_t *mapping) {
     lispd_map_cache_entry   *mce;
     lisp_addr_t             *addr;
 
     /* TODO: will change when nonces are handled outside of the map-cache */
-    addr = mapping_get_eid(mapping);
+    addr = mapping_eid(mapping);
     mce = mcache_entry_init(mapping);
     return(mdb_add_entry(mdb, addr, mce));
 }
 
-int mcache_add_static_mapping(lispd_mapping_elt *mapping) {
+int mcache_add_static_mapping(mapping_t *mapping) {
     lispd_map_cache_entry   *mce;
     lisp_addr_t             *addr;
 
-    addr = mapping_get_eid(mapping);
+    addr = mapping_eid(mapping);
     mce = mcache_entry_init_static(mapping);
 
     /*
@@ -107,7 +107,7 @@ int mcache_del_mapping(lisp_addr_t *laddr) {
     return(GOOD);
 }
 
-lispd_mapping_elt *mcache_lookup_mapping(lisp_addr_t *laddr) {
+mapping_t *mcache_lookup_mapping(lisp_addr_t *laddr) {
 
     lispd_map_cache_entry *mce;
     mce = mdb_lookup_entry(mdb, laddr, 0);
@@ -118,7 +118,7 @@ lispd_mapping_elt *mcache_lookup_mapping(lisp_addr_t *laddr) {
         return(mcache_entry_get_mapping(mce));
 }
 
-lispd_mapping_elt *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
+mapping_t *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
     lispd_map_cache_entry *mce;
 
     mce = mdb_lookup_entry(mdb, laddr, 1);
@@ -153,7 +153,7 @@ lispd_mapping_elt *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
 
 
 int map_cache_add_entry(lispd_map_cache_entry *entry){
-    return(mdb_add_entry(mdb, mapping_get_eid(mcache_entry_get_mapping(entry)), entry));
+    return(mdb_add_entry(mdb, mapping_eid(mcache_entry_get_mapping(entry)), entry));
 }
 
 
@@ -205,13 +205,13 @@ void map_cache_entry_expiration(
         void    *arg)
 {
     lispd_map_cache_entry   *entry      = NULL;
-    lispd_mapping_elt       *mapping    = NULL;
+    mapping_t       *mapping    = NULL;
     lisp_addr_t             *addr       = NULL;
     uint8_t                 plen        = 0;
 
     entry = (lispd_map_cache_entry *)arg;
     mapping = mcache_entry_get_mapping(entry);
-    addr = mapping_get_eid(mapping);
+    addr = mapping_eid(mapping);
     lispd_log_msg(LISP_LOG_DEBUG_1,"Got expiration for EID",
             lisp_addr_to_char(addr), plen);
 

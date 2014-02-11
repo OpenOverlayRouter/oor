@@ -81,7 +81,7 @@ typedef struct {
  */
 int pkt_process_eid_afi(
         uint8_t             **offset,
-        lispd_mapping_elt   *mapping);
+        mapping_t   *mapping);
 
 /*
  * Builds, reads from offset and returns a pointer to a lisp_addr_t
@@ -93,7 +93,7 @@ lisp_addr_t *pkt_read_lisp_addr(uint8_t **offset);
  */
 int pkt_process_rloc_afi(
         uint8_t             **offset,
-        lispd_locator_elt   *locator);
+        locator_t   *locator);
 
 
 /*
@@ -113,7 +113,7 @@ int extract_nat_lcaf_data(
 
 int extract_mcast_info_lcaf_data (
         uint8_t             **offset,
-        lispd_mapping_elt   *mapping);
+        mapping_t   *mapping);
 
 
 #endif /*LISPD_AFI_H_*/

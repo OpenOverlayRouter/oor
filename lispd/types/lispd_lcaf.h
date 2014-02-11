@@ -32,8 +32,13 @@
 #define LISPD_LCAF_H_
 
 #include "lispd_ip.h"
-#include "lispd_address.h"
 #include <lisp_messages.h>
+
+
+#define MAX_LCAFS 16
+
+typedef struct _lisp_addr_t lisp_addr_t;
+//typedef struct _lcaf_addr_t lcaf_addr_t;
 
 /*
  * LCAF types
@@ -58,15 +63,10 @@ typedef enum {
     LCAF_KEY_VALUE
 } lcaf_type;
 
-#define MAX_LCAFS 16
-
-typedef struct _lisp_addr_t lisp_addr_t;
-typedef struct _lcaf_addr_t lcaf_addr_t;
-
-struct _lcaf_addr_t {
-    void        *addr;
+typedef struct _lcaf_addr_t {
     lcaf_type   type;
-};
+    void        *addr;
+} lcaf_addr_t;
 
 #define MAX_IID             16777215
 
@@ -327,7 +327,7 @@ typedef struct {
 
 /* RLE */
 typedef struct {
-    lcaf_addr_t   ip;
+    lisp_addr_t   *ip;
     uint8_t       level;
 } level_addr_t;
 
@@ -423,7 +423,7 @@ inline void             mc_type_copy(void **dst, void *src);
 inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 int                     mc_type_read_from_pkt(uint8_t *offset, void **mc);
-lcaf_addr_t             *lcaf_addr_init_mc(lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
+int                     lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 
 
 

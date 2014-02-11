@@ -851,10 +851,10 @@ void activate_interface_address (
         lisp_addr_t         new_address)
 {
     lispd_iface_mappings_list       *mapping_list               = NULL;
-    lispd_mapping_elt               *mapping                    = NULL;
+    mapping_t               *mapping                    = NULL;
     lispd_locators_list             **not_init_locators_list    = NULL;
     lispd_locators_list             **locators_list             = NULL;
-    lispd_locator_elt               *locator                    = NULL;
+    locator_t               *locator                    = NULL;
 
     switch(new_address.afi){
     case AF_INET:

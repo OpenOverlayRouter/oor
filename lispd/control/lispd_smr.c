@@ -53,12 +53,12 @@ void init_smr(
     lispd_iface_list_elt        *iface_list         = NULL;
     lispd_iface_mappings_list   *mappings_list      = NULL;
     lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
-    lispd_mapping_elt           *mapping            = NULL;
+    mapping_t           *mapping            = NULL;
     uint64_t                    nonce               = 0;
     lispd_map_cache_entry       *map_cache_entry    = NULL;
     lispd_locators_list         *locator_iterator   = NULL;
-    lispd_locator_elt           *locator            = NULL;
-    lispd_mapping_elt           **mappings_to_smr   = NULL;
+    locator_t           *locator            = NULL;
+    mapping_t           **mappings_to_smr   = NULL;
     lispd_addr_list_t           *pitr_elt           = NULL;
     lisp_addr_t                 *eid                = NULL;
     int                         mappings_ctr        = 0;
@@ -73,11 +73,11 @@ void init_smr(
 
     iface_list = get_head_interface_list();
 
-    if ((mappings_to_smr = (lispd_mapping_elt **)malloc(total_mappings*sizeof(lispd_mapping_elt *))) == NULL){
+    if ((mappings_to_smr = (mapping_t **)malloc(total_mappings*sizeof(mapping_t *))) == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "init_smr: Unable to allocate memory for lispd_mapping_elt **: %s", strerror(errno));
         return;
     }
-    memset (mappings_to_smr,0,total_mappings*sizeof(lispd_mapping_elt *));
+    memset (mappings_to_smr,0,total_mappings*sizeof(mapping_t *));
 
     while (iface_list != NULL){
         if ( (iface_list->iface->status_changed == TRUE) ||
@@ -123,11 +123,11 @@ void init_smr(
         }
 
         lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s",
-                lisp_addr_to_char(mapping_get_eid(mappings_to_smr[ctr])));
+                lisp_addr_to_char(mapping_eid(mappings_to_smr[ctr])));
 
         /* For each map cache entry with same afi as local EID mapping */
 
-        eid = mapping_get_eid(mappings_to_smr[ctr]);
+        eid = mapping_eid(mappings_to_smr[ctr]);
         if (lisp_addr_get_afi(eid) == LM_AFI_IP ) {
             lispd_log_msg(LISP_LOG_DEBUG_3, "init_smr: SMR request for %s. Shouldn't receive SMR for IP in mapping?!",
                     lisp_addr_to_char(eid));
@@ -173,14 +173,14 @@ void init_smr(
 
         while (pitr_elt) {
             if (build_and_send_map_request_msg(mappings_to_smr[ctr],
-                    mapping_get_eid(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
+                    mapping_eid(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
                 lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
-                        lisp_addr_to_char(mapping_get_eid(mappings_to_smr[ctr])));
+                        lisp_addr_to_char(mapping_eid(mappings_to_smr[ctr])));
             }else {
                 lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
-                        lisp_addr_to_char(mapping_get_eid(mappings_to_smr[ctr])));
+                        lisp_addr_to_char(mapping_eid(mappings_to_smr[ctr])));
             }
             pitr_elt = pitr_elt->next;
         }

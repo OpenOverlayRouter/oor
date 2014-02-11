@@ -57,7 +57,7 @@
  * Map cache entry
  */
 typedef struct lispd_map_cache_entry_ {
-    lispd_mapping_elt           *mapping;
+    mapping_t           *mapping;
     uint8_t                     how_learned:2;
     uint8_t                     actions:2;
     uint8_t                     active:1;       /* TRUE if we have received a map reply for this entry */
@@ -74,8 +74,8 @@ typedef struct lispd_map_cache_entry_ {
 
 
 inline lispd_map_cache_entry        *mcache_entry_new();
-lispd_map_cache_entry               *mcache_entry_init(lispd_mapping_elt *mapping);
-lispd_map_cache_entry               *mcache_entry_init_static(lispd_mapping_elt *mapping);
+lispd_map_cache_entry               *mcache_entry_init(mapping_t *mapping);
+lispd_map_cache_entry               *mcache_entry_init_static(mapping_t *mapping);
 
 
 
@@ -104,7 +104,7 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level);
 
 inline void                  mcache_entry_set_eid_addr(lispd_map_cache_entry *mapcache, lisp_addr_t *addr);
 inline void                  mcache_entry_set_eid_plen(lispd_map_cache_entry *mapcache, uint8_t plen);
-inline lispd_mapping_elt     *mcache_entry_get_mapping(lispd_map_cache_entry* mapcache);
+inline mapping_t     *mcache_entry_get_mapping(lispd_map_cache_entry* mapcache);
 inline lisp_addr_t           *mcache_entry_get_eid_addr(lispd_map_cache_entry* mapcache);
 inline nonces_list           *mcache_entry_get_nonces_list(lispd_map_cache_entry *mce);
 inline uint8_t               mcache_entry_get_active(lispd_map_cache_entry *mce);

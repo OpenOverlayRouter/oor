@@ -224,11 +224,11 @@ int build_and_send_info_request(
 int initial_info_request_process()
 {
     int result = 0;
-    lispd_mapping_elt         *mapping          = NULL;
+    mapping_t         *mapping          = NULL;
     void                      *it               = NULL;
 
     local_map_db_foreach_entry(it) {
-        mapping = (lispd_mapping_elt *)it;
+        mapping = (mapping_t *)it;
         if (mapping->locator_count != 0){
             result = info_request(NULL,mapping);
             return (result);
@@ -243,10 +243,10 @@ int info_request(
         timer   *ttl_timer,
         void    *arg)
 {
-    lispd_mapping_elt  *mapping         = NULL;
+    mapping_t  *mapping         = NULL;
     int                next_timer_time  = 0;
 
-    mapping = (lispd_mapping_elt *)arg;
+    mapping = (mapping_t *)arg;
 
     if (default_ctrl_iface_v4 != NULL){
         if (nat_ir_nonce == NULL){

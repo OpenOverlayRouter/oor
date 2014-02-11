@@ -53,13 +53,9 @@ static inline lisp_addr_t *_new_ippref() {
 
 static inline lisp_addr_t *_new_lcaf() {
     lisp_addr_t *laddr;
-    lcaf_addr_t *lcaf;
 
     laddr = lisp_addr_new();
-    lcaf = lcaf_addr_new();
-
     lisp_addr_set_afi(laddr, LM_AFI_LCAF);
-    lisp_addr_set_lcaf(laddr, lcaf);
     return(laddr);
 }
 
@@ -125,7 +121,7 @@ inline ip_prefix_t *lisp_addr_get_ippref(lisp_addr_t *addr) {
 
 inline lcaf_addr_t *lisp_addr_get_lcaf(lisp_addr_t *addr) {
     assert(addr);
-    return(addr->lcaf);
+    return(&addr->lcaf);
 }
 
 inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr) {
@@ -148,7 +144,7 @@ inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr) {
 }
 
 
-inline uint32_t lisp_addr_get_size_to_write(lisp_addr_t *laddr) {
+inline uint32_t lisp_addr_get_size_in_field(lisp_addr_t *laddr) {
     switch(lisp_addr_get_afi(laddr)) {
     case LM_AFI_NO_ADDR:
         return(0);
@@ -212,11 +208,11 @@ inline void lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi) {
     addr->lafi = afi;
 }
 
-inline void lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf) {
-    assert(laddr);
-    assert(lcaf);
-    laddr->lcaf = lcaf;
-}
+//inline void lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf) {
+//    assert(laddr);
+//    assert(lcaf);
+//    laddr->lcaf = lcaf;
+//}
 
 inline void lisp_addr_ip_to_ippref(lisp_addr_t *laddr) {
     assert(laddr);
@@ -380,14 +376,14 @@ inline uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src) {
     return(0);
 }
 
-/** lisp_addr_write_to_pkt
+/** lisp_addr_write
  *
  * @offset:     memory location
  * @laddr:      the lisp address to be copied
  * Description: The function copies what is *CONTAINED* in a lisp address
  * to a certain memory location, NOT the whole structure!
  */
-inline int lisp_addr_write_to_pkt(void *offset, lisp_addr_t *laddr) {
+inline int lisp_addr_write(void *offset, lisp_addr_t *laddr) {
     switch (lisp_addr_get_afi(laddr)) {
     case LM_AFI_IP:
         return(ip_addr_write_to_pkt(offset, lisp_addr_get_ip(laddr), 0));
@@ -423,7 +419,7 @@ int lisp_addr_read_from_pkt(uint8_t *offset, lisp_addr_t *laddr) {
         lisp_addr_set_afi(laddr, LM_AFI_IP);
         break;
     case LISP_AFI_LCAF:
-        laddr->lcaf = lcaf_addr_new();
+//        laddr->lcaf = lcaf_addr_new();
         len = lcaf_addr_read_from_pkt(offset, lisp_addr_get_lcaf(laddr));
         lisp_addr_set_afi(laddr, LM_AFI_LCAF);
         break;
@@ -559,14 +555,29 @@ lisp_addr_t *lisp_addr_init_from_field(address_field *addrfld) {
     int len;
 
     laddr = lisp_addr_new();
-    len = lisp_addr_read_from_pkt(address_field_get_data(addrfld), laddr);
-    if (len != address_field_get_len(addrfld)) {
+    len = lisp_addr_read_from_pkt(address_field_data(addrfld), laddr);
+    if (len != address_field_len(addrfld)) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_addr_init_from_field: length of address (%d) and that from "
-                "the header (%d) do not match!", len, address_field_get_len(addrfld));
+                "the header (%d) do not match!", len, address_field_len(addrfld));
         return(NULL);
     }
 
     return(laddr);
+}
+
+inline int lisp_addr_write_to_field(lisp_addr_t *addr, address_field *afield) {
+    address_field_set_len(afield, lisp_addr_write(address_field_data(afield), addr));
+    return(address_field_len(afield));
+}
+
+address_field *lisp_addr_to_field(lisp_addr_t *addr) {
+    address_field   *field  = NULL;
+    uint8_t         *hdr    = NULL;
+    field = address_field_new();
+    hdr = address_field_data(field);
+    hdr = calloc(1, lisp_addr_get_size_in_field(addr));
+    lisp_addr_write(hdr, addr);
+    return(field);
 }
 
 

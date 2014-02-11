@@ -37,15 +37,17 @@ typedef struct _lisp_xtr {
     lisp_ctrl_device super; /* base "class". MUST be first */
 
     /* xtr interface */
-    lispd_mapping_elt *(*lookup_eid_map_cache)(lisp_addr_t *eid);
-    lispd_mapping_elt *(*lookup_eid_local_map_db)(lisp_addr_t *eid);
-    int (*add_mapping_to_map_cache)(lispd_mapping_elt *mapping);
-    int (*add_mapping_to_local_map_db)(lispd_mapping_elt *mapping);
+    mapping_t *(*lookup_eid_map_cache)(lisp_addr_t *eid);
+    mapping_t *(*lookup_eid_local_map_db)(lisp_addr_t *eid);
+    int (*add_mapping_to_map_cache)(mapping_t *mapping);
+    int (*add_mapping_to_local_map_db)(mapping_t *mapping);
 
     /* xtr members */
     map_cache_db *map_cache;
     local_map_db *local_mdb;
 } lisp_xtr;
+
+//extern ctrl_device_vtable xtr_vtable;
 
 lisp_ctrl_device *xtr_ctrl_init();
 

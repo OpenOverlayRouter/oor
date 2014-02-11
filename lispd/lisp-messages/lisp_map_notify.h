@@ -55,51 +55,55 @@ typedef struct _map_notify_msg_hdr {
 //    uint16_t key_id;
 //    uint16_t auth_data_len
 //    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
-} __attribute__ ((__packed__)) map_notify_msg_hdr;
+} __attribute__ ((__packed__)) map_notify_msg_hdr_t;
 
 
 typedef struct _map_notify_msg {
-    uint8_t         *bits;
     auth_field      *auth_data;
     glist_t         *records;
     uint8_t         *xtr_id;
     uint8_t         *site_id;
     rtr_auth_field  *rtr_auth;
+
+    /* should be at the end*/
+    uint16_t        len;    /* also offset to end of data */
+    uint8_t         *data;
 } map_notify_msg;
 
-
 inline map_notify_msg *map_notify_msg_new();
-void map_notify_msg_del(map_notify_msg *msg);
-map_notify_msg *map_notify_msg_parse(uint8_t *offset);
-uint16_t mnotify_msg_get_len(map_notify_msg *msg);
-char *mnotify_hdr_to_char(map_notify_msg *msg);
+void                map_notify_msg_del(map_notify_msg *msg);
+map_notify_msg      *map_notify_msg_parse(uint8_t *offset);
+uint16_t            mnotify_msg_get_len(map_notify_msg *msg);
+char                *mnotify_hdr_to_char(map_notify_msg *msg);
+int                 mnotify_msg_check_auth(map_notify_msg *msg, const char *key);
 
-static inline map_notify_msg_hdr *mnotify_msg_get_hdr(map_notify_msg *msg) {
-    return((map_notify_msg_hdr *)msg->bits);
+int                 mnotify_msg_alloc(map_notify_msg *msg);
+mapping_record      *mnotify_msg_push_record(map_notify_msg *msg, int size);
+
+int                 mnotify_msg_write_auth_field(map_notify_msg *msg, auth_field *afield);
+int                 mnotify_msg_fill_auth_field(map_notify_msg *msg, const char *key);
+
+int                 mnotify_msg_write_records(map_notify_msg *msg, glist_t *rec);
+int                 mnotify_msg_create_hdr(map_notify_msg *msg);
+int                 mnotify_msg_add_record(map_notify_msg *msg, mapping_record *record);
+int                 mnotify_msg_add_auth_field(map_notify_msg *msg, auth_field *afield);
+int                 mnotify_msg_serialize(map_notify_msg *msg, uint8_t *pkt, int *pkt_len);
+
+static inline map_notify_msg_hdr_t *mnotify_msg_hdr(map_notify_msg *msg) {
+    return((map_notify_msg_hdr_t *)msg->data);
 }
 
-static inline glist_t *mnotify_msg_get_records(map_notify_msg *msg) {
+static inline glist_t *mnotify_msg_records(map_notify_msg *msg) {
     return(msg->records);
 }
 
-static inline auth_field *mnotify_msg_get_auth_data(map_notify_msg *msg) {
+static inline auth_field *mnotify_msg_auth_data(map_notify_msg *msg) {
     return(msg->auth_data);
 }
 
-static inline uint8_t *mnotify_msg_get_data(map_notify_msg *msg) {
-    return(msg->bits);
+static inline uint8_t *mnotify_msg_data(map_notify_msg *msg) {
+    return(msg->data);
 }
-
-//static inline int mnotify_msg_build_hdr();
-static inline void mnotify_msg_add_record(map_notify_msg *msg, mapping_record *rec) {
-    if (!msg->records)
-        msg->records = glist_new(NO_CMP, (void (*)(void *))mapping_record_del);  /* avoid having void ptr in mapping_record_del */
-
-    glist_add_tail(rec, msg->records);
-}
-
-#define mnotify_foreach_mapping_record(it, mnot) \
-    list_for_each_entry(it, &((mnot)->records->list), list)
 
 
 #endif /* LISP_MAP_NOTIFY_H_ */

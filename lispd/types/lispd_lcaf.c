@@ -30,6 +30,7 @@
 
 #include "defs.h"
 #include "lispd_lcaf.h"
+#include "lispd_address.h"
 
 
 typedef void    (*del_fct)(void *);
@@ -342,7 +343,7 @@ inline uint8_t lcaf_mc_get_afi(lcaf_addr_t *mc) {
 
 
 inline lcaf_mcinfo_hdr_t *address_field_get_mc_hdr(address_field *addr) {
-    return((lcaf_mcinfo_hdr_t *)address_field_get_data(addr));
+    return((lcaf_mcinfo_hdr_t *)address_field_data(addr));
 }
 
 
@@ -499,9 +500,9 @@ char *mc_type_to_char(void *mc){
 
 int mc_type_get_size_to_write(void *mc) {
     return( sizeof(lcaf_mcinfo_hdr_t)+
-            lisp_addr_get_size_to_write(mc_type_get_src(mc)) +
+            lisp_addr_get_size_in_field(mc_type_get_src(mc)) +
 //            sizeof(uint16_t)+ /* grp afi */
-            lisp_addr_get_size_to_write(mc_type_get_grp(mc)) );
+            lisp_addr_get_size_in_field(mc_type_get_grp(mc)) );
 }
 
 inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
@@ -522,8 +523,8 @@ inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
     ((lcaf_mcinfo_hdr_t *)offset)->src_mlen = mc_type_get_src_plen(mc);
     ((lcaf_mcinfo_hdr_t *)offset)->grp_mlen = mc_type_get_grp_plen(mc);
     cur_ptr = CO(offset, sizeof(lcaf_mcinfo_hdr_t));
-    cur_ptr = CO(cur_ptr, (lena1 = lisp_addr_write_to_pkt(cur_ptr, mc_type_get_src(mc))));
-    lena2 = lisp_addr_write_to_pkt(cur_ptr, mc_type_get_grp(mc));
+    cur_ptr = CO(cur_ptr, (lena1 = lisp_addr_write(cur_ptr, mc_type_get_src(mc))));
+    lena2 = lisp_addr_write(cur_ptr, mc_type_get_grp(mc));
     return(sizeof(lcaf_mcinfo_hdr_t)+lena1+lena2);
 }
 
@@ -545,18 +546,13 @@ int mc_type_read_from_pkt(uint8_t *offset, void **mc) {
 
 
 /* Function that builds mc packets from packets on the wire. */
-lcaf_addr_t *lcaf_addr_init_mc(lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid) {
-    assert(src);
-    assert(grp);
-
+int lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid) {
     mc_t            *mc;
-    lcaf_addr_t     *lcaf;
 
     mc  = mc_type_init(src, grp, splen, gplen, iid);
-    lcaf = lcaf_addr_new();
     lcaf_addr_set_type(lcaf, LCAF_MCAST_INFO);
     lcaf_addr_set_addr(lcaf, mc);
-    return(lcaf);
+    return(GOOD);
 }
 
 
@@ -630,7 +626,7 @@ inline int iid_type_cmp(void *iid1, void *iid2) {
 
 int iid_type_get_size_to_write(void *iid) {
     return( sizeof(lcaf_iid_hdr_t)+
-            lisp_addr_get_size_to_write(iid_type_get_addr(iid)));
+            lisp_addr_get_size_in_field(iid_type_get_addr(iid)));
 }
 
 inline int iid_type_write_to_pkt(uint8_t *offset, void *iid) {
@@ -642,7 +638,7 @@ inline int iid_type_write_to_pkt(uint8_t *offset, void *iid) {
     ((lcaf_iid_hdr_t *)offset)->len = htons(iid_type_get_size_to_write(iid));
     ((lcaf_iid_hdr_t *)offset)->iid = htonl(iid_type_get_iid(iid));
     return(sizeof(lcaf_iid_hdr_t) +
-            lisp_addr_write_to_pkt(CO(offset, sizeof(lcaf_iid_hdr_t)), iid_type_get_addr(iid)));
+            lisp_addr_write(CO(offset, sizeof(lcaf_iid_hdr_t)), iid_type_get_addr(iid)));
 }
 
 int iid_type_read_from_pkt(uint8_t *offset, void **iid) {
@@ -874,7 +870,7 @@ int elp_type_get_size_to_write(void *elp) {
     len += sizeof(lcaf_elp_hdr_t);
     node = ((elp_t *)elp)->nodes;
     while(node) {
-        len += sizeof(elp_node_flags) + lisp_addr_get_size_to_write(node->addr);
+        len += sizeof(elp_node_flags) + lisp_addr_get_size_in_field(node->addr);
         node = node->next;
     }
     return(len);
@@ -902,7 +898,7 @@ int elp_type_write_to_pkt(uint8_t *offset, void *elp) {
         ((elp_node_flags *)cur_ptr)->rsvd1 = 0;
         ((elp_node_flags *)cur_ptr)->rsvd2 = 0;
         cur_ptr = CO(cur_ptr, sizeof(elp_node_flags));
-        addrlen = lisp_addr_write_to_pkt(cur_ptr, node->addr);
+        addrlen = lisp_addr_write(cur_ptr, node->addr);
         if (addrlen <=0)
             return(BAD);
         cur_ptr = CO(cur_ptr, addrlen);
@@ -1064,7 +1060,7 @@ int afi_list_type_get_size_to_write(void *afil) {
     afi_list_node *node = NULL;
     len += sizeof(lcaf_afi_list_hdr_t);
     while(node) {
-        len += lisp_addr_get_size_to_write(node->addr);
+        len += lisp_addr_get_size_in_field(node->addr);
         node = node->next;
     }
     return(len);
@@ -1086,7 +1082,7 @@ int afi_list_type_write_to_pkt(uint8_t *offset, void *afil) {
 
     node = ((afi_list_t *)afil)->list;
     while(node) {
-        lenw = lisp_addr_write_to_pkt(cur_ptr, node->addr);
+        lenw = lisp_addr_write(cur_ptr, node->addr);
         if (lenw <= 0)
             return(BAD);
         cur_ptr = CO(cur_ptr, lenw);

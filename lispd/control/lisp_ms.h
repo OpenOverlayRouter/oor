@@ -32,6 +32,7 @@
 #include "lisp_ctrl_device.h"
 
 #define REQ_MAP_NOTIFY 1
+#define MORE_SPECIFICS 1
 
 typedef struct _lisp_site_prefix {
     lisp_addr_t         *eid_prefix;

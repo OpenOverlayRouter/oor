@@ -50,7 +50,7 @@ typedef struct lispd_mapping_elt_ {
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
     void                            *extended_info;
-} lispd_mapping_elt;
+} mapping_t;
 
 
 /*
@@ -62,9 +62,9 @@ typedef struct lispd_mapping_elt_ {
  */
 
 typedef struct balancing_locators_vecs_ {
-    lispd_locator_elt               **v4_balancing_locators_vec;
-    lispd_locator_elt               **v6_balancing_locators_vec;
-    lispd_locator_elt               **balancing_locators_vec;
+    locator_t               **v4_balancing_locators_vec;
+    locator_t               **v6_balancing_locators_vec;
+    locator_t               **balancing_locators_vec;
     int v4_locators_vec_length;
     int v6_locators_vec_length;
     int locators_vec_length;
@@ -102,7 +102,7 @@ typedef struct mcinfo_mapping_exteded_info_ {
  * Generates a mapping with the local extended info
  */
 
-lispd_mapping_elt *new_local_mapping(
+mapping_t *new_local_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid);
@@ -111,7 +111,7 @@ lispd_mapping_elt *new_local_mapping(
  * Generates a mapping with the remote extended info
  */
 
-lispd_mapping_elt *new_map_cache_mapping(
+mapping_t *new_map_cache_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid);
@@ -121,42 +121,42 @@ lispd_mapping_elt *new_map_cache_mapping(
  */
 
 int add_locator_to_mapping(
-        lispd_mapping_elt           *mapping,
-        lispd_locator_elt           *locator);
+        mapping_t           *mapping,
+        locator_t           *locator);
 
 /*
  * This function sort the locator list elt with IP = changed_loc_addr
  */
 
 void sort_locators_list_elt (
-        lispd_mapping_elt   *mapping,
+        mapping_t   *mapping,
         lisp_addr_t         *changed_loc_addr);
 
 /*
  * Returns the locators with the address passed as a parameter
  */
 
-lispd_locator_elt *get_locator_from_mapping(
-        lispd_mapping_elt   *mapping,
+locator_t *get_locator_from_mapping(
+        mapping_t   *mapping,
         lisp_addr_t         *address);
 
 /*
  * Free memory of lispd_mapping_elt.
  */
-void free_mapping_elt(lispd_mapping_elt *mapping, int local);
+void free_mapping_elt(mapping_t *mapping, int local);
 
 /*
  * dump mapping
  */
 void dump_mapping_entry(
-        lispd_mapping_elt       *mapping,
+        mapping_t       *mapping,
         int                     log_level);
 
 /*
  * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
  */
 int calculate_balancing_vectors (
-        lispd_mapping_elt           *mapping,
+        mapping_t           *mapping,
         balancing_locators_vecs     *b_locators_vecs);
 
 /*
@@ -165,7 +165,7 @@ int calculate_balancing_vectors (
 
 void dump_balancing_locators_vec(
         balancing_locators_vecs b_locators_vecs,
-        lispd_mapping_elt *mapping,
+        mapping_t *mapping,
         int log_level);
 
 
@@ -178,27 +178,31 @@ void dump_balancing_locators_vec(
  * It returns the position to the next position of the packet
  */
 
-uint8_t *mapping_fill_record_in_pkt(mapping_record_hdr *rec, lispd_mapping_elt *mapping, lisp_addr_t *probed_rloc);
+uint8_t *mapping_fill_record_in_pkt(mapping_record_hdr_t *rec, mapping_t *mapping, lisp_addr_t *probed_rloc);
 
 
 
 /*
  * lispd_mapping_elt functions
  */
-inline lispd_mapping_elt    *mapping_new();
-inline lispd_mapping_elt    *mapping_init(lisp_addr_t *eid);
-lispd_mapping_elt           *mapping_init_local(lisp_addr_t *eid);
-lispd_mapping_elt           *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators);
-inline void                 mapping_set_extended_info(lispd_mapping_elt *mapping, void *extended_info);
-inline void                 mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr);
-inline void                 mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen);
-inline lisp_addr_t          *mapping_get_eid(lispd_mapping_elt *mapping);
-lispd_remdb_t               *mapping_get_jib(lispd_mapping_elt *mapping);
-int                         mapping_add_locators(lispd_mapping_elt *mapping, lispd_locators_list *locators);
-inline uint16_t             mapping_get_locator_count(lispd_mapping_elt *mapping);
+inline mapping_t    *mapping_new();
+inline mapping_t    *mapping_init(lisp_addr_t *eid);
+mapping_t           *mapping_init_local(lisp_addr_t *eid);
+mapping_t           *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators);
+inline void                 mapping_set_extended_info(mapping_t *mapping, void *extended_info);
+inline void                 mapping_set_eid_addr(mapping_t *mapping, lisp_addr_t *addr);
+inline void                 mapping_set_eid_plen(mapping_t *mapping, uint8_t plen);
+inline lisp_addr_t          *mapping_eid(mapping_t *mapping);
+lispd_remdb_t               *mapping_get_jib(mapping_t *mapping);
+int                         mapping_add_locators(mapping_t *mapping, lispd_locators_list *locators);
+inline uint16_t             mapping_get_locator_count(mapping_t *mapping);
+int                         mapping_get_record_size(mapping_t *mapping);
+
 //inline void                 mapping_set_iid(lispd_mapping_elt *mapping, uint16_t iid);
 //inline uint8_t              get_mapping_eid_plen(lispd_mapping_elt *mapping);
 //inline lisp_iid_t           get_mapping_iid(lispd_mapping_elt *mapping, lisp_iid_t iid);
 
+mapping_t           *mapping_init_from_record(mapping_record *record);
+void                mapping_write_to_record(mapping_record *record, mapping_t *mapping);
 
 #endif /* LISPD_MAPPING_H_ */

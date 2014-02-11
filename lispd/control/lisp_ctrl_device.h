@@ -96,7 +96,7 @@ typedef struct _timer_map_request_argument{
  *  Put a wrapper around build_map_request_pkt and send_map_request
  */
 int     build_and_send_map_request_msg(
-            lispd_mapping_elt       *requested_mapping,
+            mapping_t       *requested_mapping,
             lisp_addr_t             *src_eid,
             lisp_addr_t             *dst_rloc_addr,
             uint8_t                 encap,
@@ -106,14 +106,14 @@ int     build_and_send_map_request_msg(
             uint64_t                *nonce);
 
 uint8_t     *build_map_reply_pkt(
-            lispd_mapping_elt *mapping,
+            mapping_t *mapping,
             lisp_addr_t *probed_rloc,
             map_reply_opts opts,
             uint64_t nonce,
             int *map_reply_msg_len);
 
 int build_and_send_map_reply_msg(
-        lispd_mapping_elt *requested_mapping,
+        mapping_t *requested_mapping,
         lisp_addr_t *src_rloc_addr,
         lisp_addr_t *dst_rloc_addr,
         uint16_t dport,

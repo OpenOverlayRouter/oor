@@ -37,7 +37,7 @@
 
 int pkt_process_eid_afi(
         uint8_t                 **offset,
-        lispd_mapping_elt       *mapping)
+        mapping_t       *mapping)
 {
 
     uint8_t                 *cur_ptr;
@@ -96,7 +96,7 @@ int pkt_process_eid_afi(
 
 int pkt_process_rloc_afi(
         uint8_t             **offset,
-        lispd_locator_elt   *locator)
+        locator_t   *locator)
 {
     uint8_t                  *cur_ptr;
     uint16_t                 lisp_afi;
@@ -239,7 +239,7 @@ int extract_nat_lcaf_data(
 
 int extract_mcast_info_lcaf_data(
         uint8_t             **offset,
-        lispd_mapping_elt   *mapping){
+        mapping_t   *mapping){
 
 //    lispd_lcaf_mcinfo_hdr_t         *mcinfohdr          = NULL;
     mcinfo_mapping_extended_info    *extended_info      = NULL;

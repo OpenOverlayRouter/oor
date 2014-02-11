@@ -86,8 +86,8 @@ int process_info_reply_msg(
     lisp_addr_t                 private_etr_rloc        = {.afi=AF_UNSPEC};
     lispd_rtr_locators_list     *rtr_locators_list      = NULL;
 
-    lispd_mapping_elt           *mapping                = NULL;
-    lispd_locator_elt           *locator                = NULL;
+    mapping_t           *mapping                = NULL;
+    locator_t           *locator                = NULL;
     lcl_locator_extended_info   *lcl_locator_ext_inf    = NULL;
 
     char                        rtrs_list_str[2000];

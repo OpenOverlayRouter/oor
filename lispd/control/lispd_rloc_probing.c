@@ -46,15 +46,15 @@
 int rloc_probing(timer *rloc_prob_timer, void *arg)
 {
     timer_rloc_probe_argument   *timer_argument     = (timer_rloc_probe_argument *)arg;
-    lispd_mapping_elt           *mapping            = NULL;
-    lispd_locator_elt           *locator            = NULL;
+    mapping_t           *mapping            = NULL;
+    locator_t           *locator            = NULL;
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     nonces_list                 *nonces             = NULL;
     uint8_t                     have_control_iface  = FALSE;
 
     if (rloc_probe_interval == 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No RLOC Probing for %s cache entry. RLOC Probing dissabled",
-                lisp_addr_to_char(mapping_get_eid(mapping)));
+                lisp_addr_to_char(mapping_eid(mapping)));
         return (GOOD);
     }
 
@@ -83,7 +83,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
         lispd_log_msg(LISP_LOG_DEBUG_2,"rloc_probing: No control iface compatible with locator %s of the map-cache entry %s. "
                 "Reprogramming RLOC Probing",
                 lisp_addr_to_char(locator->locator_addr),
-                lisp_addr_to_char(mapping_get_eid(mapping)));
+                lisp_addr_to_char(mapping_eid(mapping)));
         start_timer(locator_ext_inf->probe_timer, rloc_probe_interval,(timer_callback)rloc_probing, arg);
         return (BAD);
     }
@@ -108,7 +108,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
         if (nonces->retransmits > 0){
             lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map-Request Probe for locator %s and EID: %s (%d retries)",
                     lisp_addr_to_char(locator->locator_addr),
-                    lisp_addr_to_char(mapping_get_eid(mapping)),
+                    lisp_addr_to_char(mapping_eid(mapping)),
                     nonces->retransmits);
         }
 
@@ -118,7 +118,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
         if (err != GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: Couldn't send Map-Request Probe for locator %s and EID: %s",
                     lisp_addr_to_char(locator->locator_addr),
-                    lisp_addr_to_char(mapping_get_eid(mapping)));
+                    lisp_addr_to_char(mapping_eid(mapping)));
         }
         locator_ext_inf->rloc_probing_nonces->retransmits++;
 
@@ -130,7 +130,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
             lispd_log_msg(LISP_LOG_DEBUG_1,"rloc_probing: No Map-Reply Probe received for locator %s and EID: %s"
                     "-> Locator state changes to DOWN",
                     lisp_addr_to_char(locator->locator_addr),
-                    lisp_addr_to_char(mapping_get_eid(mapping)));
+                    lisp_addr_to_char(mapping_eid(mapping)));
 
             /* [re]Calculate balancing locator vectors  if it has been a change of status*/
             calculate_balancing_vectors (
@@ -144,7 +144,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
         start_timer(locator_ext_inf->probe_timer, rloc_probe_interval,(timer_callback)rloc_probing, arg);
         lispd_log_msg(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s of the EID %s in %d seconds",
                 lisp_addr_to_char(locator->locator_addr),
-                lisp_addr_to_char(mapping_get_eid(mapping)),
+                lisp_addr_to_char(mapping_eid(mapping)),
                 rloc_probe_interval);
     }
 
@@ -158,7 +158,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
 void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
 {
     lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
-    lispd_locator_elt           *locator            = NULL;
+    locator_t           *locator            = NULL;
     timer_rloc_probe_argument   *timer_arg          = NULL;
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     int                         ctr                 = 0;
@@ -188,7 +188,7 @@ void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
 void programming_petr_rloc_probing()
 {
     lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
-    lispd_locator_elt           *locator            = NULL;
+    locator_t           *locator            = NULL;
     timer_rloc_probe_argument   *timer_arg          = NULL;
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     int                         ctr                 = 0;
@@ -218,7 +218,7 @@ void programming_petr_rloc_probing()
 
 timer_rloc_probe_argument *new_timer_rloc_probe_argument(
         lispd_map_cache_entry   *map_cache_entry,
-        lispd_locator_elt       *locator)
+        locator_t       *locator)
 {
     timer_rloc_probe_argument *timer_argument = NULL;
 

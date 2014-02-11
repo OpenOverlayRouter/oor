@@ -176,7 +176,7 @@ lispd_iface_elt *add_interface(char *iface_name)
 
 int add_mapping_to_interface (
         lispd_iface_elt         *interface,
-        lispd_mapping_elt       *mapping,
+        mapping_t       *mapping,
         int                     afi)
 {
     lispd_iface_mappings_list       *mappings_list       = NULL;
@@ -197,7 +197,7 @@ int add_mapping_to_interface (
                 break;
             }
             lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s has been previously assigned to the RLOCs of the interface %s",
-                    lisp_addr_to_char(mapping_get_eid(mapping)), interface->iface_name);
+                    lisp_addr_to_char(mapping_eid(mapping)), interface->iface_name);
             return (GOOD);
         }
         prev_mappings_list = mappings_list;
@@ -231,7 +231,7 @@ int add_mapping_to_interface (
     }
 
     lispd_log_msg(LISP_LOG_DEBUG_2,"The EID %s has been assigned to the RLOCs of the interface %s",
-            lisp_addr_to_char(mapping_get_eid(mapping)), interface->iface_name);
+            lisp_addr_to_char(mapping_eid(mapping)), interface->iface_name);
 
     return (GOOD);
 }

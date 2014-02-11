@@ -34,7 +34,6 @@
 #include "defs.h"
 //#include "lispd_local_db.h"
 
-int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
 
 /*
  * Introduce the EID information in the packet. This information is extracted from the mapping structure
@@ -42,7 +41,7 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
  */
 uint8_t *pkt_fill_eid(
         void                *offset,
-        lispd_mapping_elt   *mapping);
+        mapping_t   *mapping);
 
 
 
@@ -53,7 +52,7 @@ uint8_t *pkt_fill_eid(
  *  so we can allocate  memory for the packet....
  */
 
-int get_mapping_length(lispd_mapping_elt *mapping);
+int get_mapping_length(mapping_t *mapping);
 
 
 /*

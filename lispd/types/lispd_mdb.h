@@ -53,6 +53,7 @@ typedef struct {
 } mdb_t;
 
 mdb_t                   *mdb_new();
+void                    mdb_del(mdb_t *db);
 int                     mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
 void                    *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
 void                    *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr, uint8_t exact);

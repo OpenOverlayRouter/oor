@@ -319,6 +319,13 @@ mdb_t *mdb_new()
     return(db);
 }
 
+void mdb_del(mdb_t *db) {
+    Destroy_Patricia(db->AF4_ip_db);
+    Destroy_Patricia(db->AF6_ip_db);
+    Destroy_Patricia(db->AF4_mc_db);
+    Destroy_Patricia(db->AF6_mc_db);
+}
+
 int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
 {
     int retval = 0;

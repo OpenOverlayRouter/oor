@@ -47,11 +47,11 @@ extern mdb_t *mdb;
 void map_cache_init();
 
 
-int                 mcache_add_mapping(lispd_mapping_elt *mapping);
-int                 mcache_add_static_mapping(lispd_mapping_elt *mapping);
+int                 mcache_add_mapping(mapping_t *mapping);
+int                 mcache_add_static_mapping(mapping_t *mapping);
 int                 mcache_del_mapping(lisp_addr_t *laddr);
-lispd_mapping_elt   *mcache_lookup_mapping(lisp_addr_t *laddr);
-lispd_mapping_elt   *mcache_lookup_mapping_exact(lisp_addr_t *laddr);
+mapping_t   *mcache_lookup_mapping(lisp_addr_t *laddr);
+mapping_t   *mcache_lookup_mapping_exact(lisp_addr_t *laddr);
 int                 mcache_update_mapping_eid(lisp_addr_t *new_eid, lispd_map_cache_entry *mce);
 
 /*

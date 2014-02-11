@@ -40,7 +40,7 @@
  * Generates a basic mapping
  */
 
-inline lispd_mapping_elt *new_mapping(
+inline mapping_t *new_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid);
@@ -52,18 +52,18 @@ inline lispd_mapping_elt *new_mapping(
 void free_balancing_locators_vecs (balancing_locators_vecs locators_vec);
 
 
-lispd_locator_elt   **set_balancing_vector(
-        lispd_locator_elt   **locators,
+locator_t   **set_balancing_vector(
+        locator_t   **locators,
         int                 total_weight,
         int                 hcf,
         int                 *locators_vec_length);
 
 int select_best_priority_locators (
         lispd_locators_list     *locators_list_elt,
-        lispd_locator_elt       **selected_locators);
+        locator_t       **selected_locators);
 
 inline void get_hcf_locators_weight (
-        lispd_locator_elt   **locators,
+        locator_t   **locators,
         int                 *total_weight,
         int                 *highest_common_factor);
 
@@ -81,20 +81,20 @@ void reset_balancing_locators_vecs (balancing_locators_vecs *blv);
  * Generates a basic mapping
  */
 
-inline lispd_mapping_elt *new_mapping(
+inline mapping_t *new_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
 {
-    lispd_mapping_elt *mapping = NULL;
+    mapping_t *mapping = NULL;
 
-    if ((mapping = (lispd_mapping_elt *)malloc(sizeof(lispd_mapping_elt)))==NULL){
+    if ((mapping = (mapping_t *)malloc(sizeof(mapping_t)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"Couldn't allocate memory for lispd_mapping_elt: %s", strerror(errno));
         return (NULL);
     }
 
     lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
-    lisp_addr_copy(mapping_get_eid(mapping), &eid_prefix);
+    lisp_addr_copy(mapping_eid(mapping), &eid_prefix);
 //    ip_prefix_set(lisp_addr_get_ippref(&mapping->eid_prefix), lisp_addr_get_ip(&eid_prefix), eid_prefix_length);
     mapping->eid_prefix_length = eid_prefix_length;
     mapping->iid = iid;
@@ -109,12 +109,12 @@ inline lispd_mapping_elt *new_mapping(
  * Generates a mapping with the local extended info
  */
 
-lispd_mapping_elt *new_local_mapping(
+mapping_t *new_local_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
 {
-    lispd_mapping_elt           *mapping        = NULL;
+    mapping_t           *mapping        = NULL;
     lcl_mapping_extended_info   *extended_info  = NULL;
 
     lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
@@ -145,12 +145,12 @@ lispd_mapping_elt *new_local_mapping(
  * Generates a mapping with the remote extended info
  */
 
-lispd_mapping_elt *new_map_cache_mapping(
+mapping_t *new_map_cache_mapping(
         lisp_addr_t     eid_prefix,
         uint8_t         eid_prefix_length,
         int             iid)
 {
-    lispd_mapping_elt           *mapping        = NULL;
+    mapping_t           *mapping        = NULL;
     rmt_mapping_extended_info   *extended_info  = NULL;
 
     if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
@@ -178,7 +178,7 @@ lispd_mapping_elt *new_map_cache_mapping(
  * Add a locator into the locators list of the mapping.
  */
 
-int mapping_add_locators(lispd_mapping_elt *mapping, lispd_locators_list *locators) {
+int mapping_add_locators(mapping_t *mapping, lispd_locators_list *locators) {
     lispd_locators_list *it;
 
     it = locators;
@@ -191,8 +191,8 @@ int mapping_add_locators(lispd_mapping_elt *mapping, lispd_locators_list *locato
 }
 
 int add_locator_to_mapping(
-        lispd_mapping_elt           *mapping,
-        lispd_locator_elt           *locator)
+        mapping_t           *mapping,
+        locator_t           *locator)
 {
     lcaf_addr_t *lcaf;
     int result = GOOD;
@@ -265,12 +265,12 @@ int add_locator_to_mapping(
         mapping->locator_count++;
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s has been added for the EID %s.",
                 lisp_addr_to_char(locator->locator_addr),
-                lisp_addr_to_char(mapping_get_eid(mapping)));
+                lisp_addr_to_char(mapping_eid(mapping)));
         result = GOOD;
     }else if (err == ERR_EXIST){
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_locator_to_mapping: The locator %s already exists for the EID %s.",
                 lisp_addr_to_char(locator->locator_addr),
-                lisp_addr_to_char(mapping_get_eid(mapping)));
+                lisp_addr_to_char(mapping_eid(mapping)));
         free_locator (locator);
         result = GOOD;
     }else{
@@ -287,7 +287,7 @@ int add_locator_to_mapping(
  */
 
 void sort_locators_list_elt (
-        lispd_mapping_elt   *mapping,
+        mapping_t   *mapping,
         lisp_addr_t         *changed_loc_addr)
 {
     lispd_locators_list     *current_locators_list_elt   = NULL;
@@ -384,11 +384,11 @@ void sort_locators_list_elt (
  * Returns the locators with the address passed as a parameter
  */
 
-lispd_locator_elt *get_locator_from_mapping(
-        lispd_mapping_elt   *mapping,
+locator_t *get_locator_from_mapping(
+        mapping_t   *mapping,
         lisp_addr_t         *address)
 {
-    lispd_locator_elt   *locator        = NULL;
+    locator_t   *locator        = NULL;
     lispd_locators_list *locator_list   = NULL;
 
     switch (lisp_addr_ip_get_afi(address)){
@@ -408,7 +408,7 @@ lispd_locator_elt *get_locator_from_mapping(
 /*
  * Free memory of lispd_mapping_elt.
  */
-void free_mapping_elt(lispd_mapping_elt *mapping, int local)
+void free_mapping_elt(mapping_t *mapping, int local)
 {
     /* Free the locators list*/
     free_locator_list(mapping->head_v4_locators_list);
@@ -423,8 +423,8 @@ void free_mapping_elt(lispd_mapping_elt *mapping, int local)
         free ((rmt_mapping_extended_info *)mapping->extended_info);
     }
     /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf */
-    if (lisp_addr_get_afi(mapping_get_eid(mapping)) == LM_AFI_LCAF)
-        lcaf_addr_del(lisp_addr_get_lcaf(mapping_get_eid(mapping)));
+    if (lisp_addr_get_afi(mapping_eid(mapping)) == LM_AFI_LCAF)
+        lcaf_addr_del(lisp_addr_get_lcaf(mapping_eid(mapping)));
     free(mapping);
 
 }
@@ -467,12 +467,12 @@ void reset_balancing_locators_vecs (balancing_locators_vecs *blv)
  * dump mapping
  */
 void dump_mapping_entry(
-        lispd_mapping_elt       *mapping,
+        mapping_t       *mapping,
         int                     log_level)
 {
     lispd_locators_list         *locator_iterator_array[2]  = {NULL,NULL};
     lispd_locators_list         *locator_iterator           = NULL;
-    lispd_locator_elt           *locator                    = NULL;
+    locator_t           *locator                    = NULL;
     int                         ctr                         = 0;
 
     if (is_loggable(log_level) == FALSE){
@@ -480,7 +480,7 @@ void dump_mapping_entry(
     }
 
     lispd_log_msg(log_level,"IDENTIFIER (EID): %s (IID = %d)\n ",
-            lisp_addr_to_char(mapping_get_eid(mapping)), mapping->iid);
+            lisp_addr_to_char(mapping_eid(mapping)), mapping->iid);
 
     lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
 
@@ -507,11 +507,11 @@ void dump_mapping_entry(
  * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
  */
 int calculate_balancing_vectors (
-        lispd_mapping_elt           *mapping,
+        mapping_t           *mapping,
         balancing_locators_vecs     *b_locators_vecs)
 {
     // Store locators with same priority. Maximum 32 locators (33 to no get out of array)
-    lispd_locator_elt       *locators[3][33];
+    locator_t       *locators[3][33];
 
     int                     min_priority[2]         = {255,255};
     int                     total_weight[3]         = {0,0,0};
@@ -573,13 +573,13 @@ int calculate_balancing_vectors (
     return (GOOD);
 }
 
-lispd_locator_elt   **set_balancing_vector(
-        lispd_locator_elt   **locators,
+locator_t   **set_balancing_vector(
+        locator_t   **locators,
         int                 total_weight,
         int                 hcf,
         int                 *locators_vec_length)
 {
-    lispd_locator_elt   **balancing_locators_vec    = NULL;
+    locator_t   **balancing_locators_vec    = NULL;
     int                 vector_length               = 0;
     int                 used_pos                    = 0;
     int                 ctr                         = 0;
@@ -598,7 +598,7 @@ lispd_locator_elt   **set_balancing_vector(
     }
 
     /* Reserve memory for the dynamic vector */
-    if ((balancing_locators_vec = (lispd_locator_elt **)malloc(vector_length*sizeof(lispd_locator_elt *))) == NULL){
+    if ((balancing_locators_vec = (locator_t **)malloc(vector_length*sizeof(locator_t *))) == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "calculate_balancing_vector: Unable to allocate memory for lispd_locator_elt *: %s", strerror(errno));
         *locators_vec_length = 0;
         return(NULL);
@@ -624,7 +624,7 @@ lispd_locator_elt   **set_balancing_vector(
 
 int select_best_priority_locators (
         lispd_locators_list     *locators_list_elt,
-        lispd_locator_elt       **selected_locators)
+        locator_t       **selected_locators)
 {
     lispd_locators_list     *list_elt       = locators_list_elt;
     int                     min_priority    = UNUSED_RLOC_PRIORITY;
@@ -657,7 +657,7 @@ int select_best_priority_locators (
 }
 
 inline void get_hcf_locators_weight (
-        lispd_locator_elt   **locators,
+        locator_t   **locators,
         int                 *total_weight,
         int                 *hcf)
 {
@@ -709,7 +709,7 @@ int highest_common_factor  (int a, int b)
 
 void dump_balancing_locators_vec(
         balancing_locators_vecs     b_locators_vecs,
-        lispd_mapping_elt           *mapping,
+        mapping_t           *mapping,
         int                         log_level)
 {
     int     ctr         = 0;
@@ -717,7 +717,7 @@ void dump_balancing_locators_vec(
 
     if ( is_loggable(log_level)){
         lispd_log_msg(log_level,"Balancing locator vector for %s: ",
-                        lisp_addr_to_char(mapping_get_eid(mapping)));
+                        lisp_addr_to_char(mapping_eid(mapping)));
 
         sprintf(str,"  IPv4 locators vector (%d locators):  ",b_locators_vecs.v4_locators_vec_length);
         for (ctr = 0; ctr< b_locators_vecs.v4_locators_vec_length; ctr++){
@@ -752,26 +752,26 @@ void dump_balancing_locators_vec(
 /********************************************************************************************/
 
 uint8_t *mapping_fill_record_in_pkt(
-    mapping_record_hdr                      *rec,
-    lispd_mapping_elt                       *mapping,
-    lisp_addr_t                             *probed_rloc)
+    mapping_record_hdr_t        *rec,
+    mapping_t                   *mapping,
+    lisp_addr_t                 *probed_rloc)
 {
-    uint8_t                                 *cur_ptr             = NULL;
-    int                                     cpy_len             = 0;
-    locator_hdr      *loc_ptr            = NULL;
-    lispd_locators_list                     *locators_list[2]   = {NULL,NULL};
-    lispd_locator_elt                       *locator            = NULL;
-    lcl_locator_extended_info               *lct_extended_info  = NULL;
-    lisp_addr_t                             *itr_address    = NULL;
-    int                                     ctr                 = 0;
-    lisp_addr_t                             *eid                = NULL;
+    uint8_t                     *cur_ptr            = NULL;
+    int                         cpy_len             = 0;
+    locator_hdr_t                 *loc_ptr            = NULL;
+    lispd_locators_list         *locators_list[2]   = {NULL,NULL};
+    locator_t                   *locator            = NULL;
+    lcl_locator_extended_info   *lct_extended_info  = NULL;
+    lisp_addr_t                 *itr_address        = NULL;
+    int                         ctr                 = 0;
+    lisp_addr_t                 *eid                = NULL;
 
 
     if ((rec == NULL) || (mapping == NULL))
         return NULL;
 
 
-    eid = mapping_get_eid(mapping);
+    eid = mapping_eid(mapping);
 
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
     rec->locator_count          = mapping->locator_count;
@@ -781,9 +781,9 @@ uint8_t *mapping_fill_record_in_pkt(
     rec->version_hi             = 0;
     rec->version_low            = 0;
 
-    cur_ptr = CO(rec, sizeof(mapping_record_hdr));
-    cur_ptr = CO(cur_ptr, lisp_addr_write_to_pkt(cur_ptr, eid));
-    loc_ptr = (locator_hdr *)cur_ptr;
+    cur_ptr = CO(rec, sizeof(mapping_record_hdr_t));
+    cur_ptr = CO(cur_ptr, lisp_addr_write(cur_ptr, eid));
+    loc_ptr = (locator_hdr_t *)cur_ptr;
 
     if (loc_ptr == NULL)
         return(NULL);
@@ -816,13 +816,13 @@ uint8_t *mapping_fill_record_in_pkt(
                 itr_address = locator->locator_addr;
             }
 
-            if ((cpy_len = lisp_addr_write_to_pkt(CO(loc_ptr, sizeof(locator_hdr)), itr_address)) <= 0) {
+            if ((cpy_len = lisp_addr_write(CO(loc_ptr, sizeof(locator_hdr_t)), itr_address)) <= 0) {
                 lispd_log_msg(LISP_LOG_DEBUG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
                         lisp_addr_to_char(locator->locator_addr));
                 return(NULL);
             }
 
-            loc_ptr = (locator_hdr *)CO(loc_ptr, sizeof(locator_hdr)+cpy_len);
+            loc_ptr = (locator_hdr_t *)CO(loc_ptr, sizeof(locator_hdr_t)+cpy_len);
             locators_list[ctr] = locators_list[ctr]->next;
 
         }
@@ -835,14 +835,14 @@ uint8_t *mapping_fill_record_in_pkt(
  * lispd_mapping_elt set/get functions
  */
 
-inline lispd_mapping_elt *mapping_new() {
-    lispd_mapping_elt *mapping;
-    mapping = calloc(1, sizeof(lispd_mapping_elt));
+inline mapping_t *mapping_new() {
+    mapping_t *mapping;
+    mapping = calloc(1, sizeof(mapping_t));
     return(mapping);
 }
 
-inline lispd_mapping_elt *mapping_init(lisp_addr_t *eid) {
-    lispd_mapping_elt *mapping;
+inline mapping_t *mapping_init(lisp_addr_t *eid) {
+    mapping_t *mapping;
     mapping = mapping_new();
     if (!mapping)
         return(NULL);
@@ -853,8 +853,8 @@ inline lispd_mapping_elt *mapping_init(lisp_addr_t *eid) {
     return(mapping);
 }
 
-lispd_mapping_elt *mapping_init_local(lisp_addr_t *eid) {
-    lispd_mapping_elt           *mapping        = NULL;
+mapping_t *mapping_init_local(lisp_addr_t *eid) {
+    mapping_t           *mapping        = NULL;
     lcl_mapping_extended_info   *extended_info  = NULL;
 
     mapping = mapping_init(eid);
@@ -883,8 +883,8 @@ lispd_mapping_elt *mapping_init_local(lisp_addr_t *eid) {
     return (mapping);
 }
 
-lispd_mapping_elt *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators) {
-    lispd_mapping_elt           *mapping        = NULL;
+mapping_t *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators) {
+    mapping_t           *mapping        = NULL;
     rmt_mapping_extended_info   *extended_info  = NULL;
 
     mapping = mapping_init(eid);
@@ -926,38 +926,114 @@ lispd_mapping_elt *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *l
     return (mapping);
 }
 
-inline void mapping_set_extended_info(lispd_mapping_elt *mapping, void *extended_info) {
+inline void mapping_set_extended_info(mapping_t *mapping, void *extended_info) {
     assert(mapping);
     assert(extended_info);
     mapping->extended_info = extended_info;
 }
 
-inline void mapping_set_iid(lispd_mapping_elt *mapping, lisp_iid_t iid) {
+inline void mapping_set_iid(mapping_t *mapping, lisp_iid_t iid) {
     assert(mapping);
     mapping->iid = iid;
 }
 
-inline void mapping_set_eid_addr(lispd_mapping_elt *mapping, lisp_addr_t *addr) {
-    lisp_addr_copy(mapping_get_eid(mapping), addr);
+inline void mapping_set_eid_addr(mapping_t *mapping, lisp_addr_t *addr) {
+    lisp_addr_copy(mapping_eid(mapping), addr);
 }
 
-inline void mapping_set_eid_plen(lispd_mapping_elt *mapping, uint8_t plen) {
+inline void mapping_set_eid_plen(mapping_t *mapping, uint8_t plen) {
     assert(mapping);
     mapping->eid_prefix_length = plen;
 }
 
-inline lisp_addr_t *mapping_get_eid(lispd_mapping_elt *mapping) {
+inline lisp_addr_t *mapping_eid(mapping_t *mapping) {
     assert(mapping);
     return(&(mapping->eid_prefix));
 }
 
-lispd_remdb_t *mapping_get_jib(lispd_mapping_elt *mapping) {
+lispd_remdb_t *mapping_get_jib(mapping_t *mapping) {
     assert(mapping);
     return(((mcinfo_mapping_extended_info*)mapping->extended_info)->jib);
 }
 
-inline uint16_t mapping_get_locator_count(lispd_mapping_elt *mapping) {
+inline uint16_t mapping_get_locator_count(mapping_t *mapping) {
     assert(mapping);
     return(mapping->locator_count);
+}
+
+
+int mapping_get_size_in_record(mapping_t *mapping) {
+    int locs_length = 0;
+
+    locs_length = locator_list_get_size_in_field(mapping->head_v4_locators_list)
+            + locator_list_get_size_in_field(mapping->head_v6_locators_list);
+
+    return(sizeof(mapping_record_hdr_t) + lisp_addr_get_size_in_field(mapping_eid(mapping)) + locs_length );
+}
+
+mapping_t *mapping_init_from_record(mapping_record *record) {
+    mapping_t           *mapping    = NULL;
+    lisp_addr_t         *eid        = NULL;
+    glist_t             *locs       = NULL;
+    glist_entry_t       *it         = NULL;
+    locator_t           *loc        = NULL;
+
+    eid = lisp_addr_init_from_field(mapping_record_eid(record));
+    if (!eid)
+        goto err;
+
+    mapping = mapping_init(eid);
+    if (!mapping)
+        goto err;
+
+    locs = mapping_record_locators(record);
+    glist_for_each_entry(it, locs) {
+        if (!(loc = locator_init_from_field(glist_entry_data(it))))
+            goto err;
+        lispd_log_msg(LISP_LOG_DEBUG_1, "    RLOC: %s", locator_to_char(loc));
+        if (add_locator_to_mapping(mapping, loc) != GOOD)
+            goto err;
+    }
+    return(mapping);
+
+err:
+    if (eid)
+        lisp_addr_del(eid);
+    if (mapping)
+        free_mapping_elt(mapping, 0);
+    return(NULL);
+}
+
+/* write in an allocated record */
+void mapping_write_to_record(mapping_record *record, mapping_t *mapping) {
+    address_field       *eidf               = NULL;
+    locator_field       *locf               = NULL;
+    lispd_locators_list *locators_list[2]   = {NULL,NULL};
+    int ctr;
+
+    mapping_record_hdr(record)->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
+    mapping_record_hdr(record)->locator_count          = mapping->locator_count;
+    mapping_record_hdr(record)->eid_prefix_length      = lisp_addr_get_plen(mapping_eid(mapping));
+    mapping_record_hdr(record)->action                 = 0;
+    mapping_record_hdr(record)->authoritative          = 0; /* to be filled outside */
+    mapping_record_hdr(record)->version_hi             = 0;
+    mapping_record_hdr(record)->version_low            = 0;
+
+    eidf = mapping_record_eid(record);
+    address_field_set_len(eidf, lisp_addr_write(address_field_data(eidf), mapping_eid(mapping)));
+
+    locators_list[0] = mapping->head_v4_locators_list;
+    locators_list[1] = mapping->head_v6_locators_list;
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        while (locators_list[ctr]) {
+            locf = mapping_record_allocate_locator(record, locator_get_size_in_field(locators_list[ctr]->locator));
+            locator_write_to_field(locators_list[ctr]->locator, locf);
+//            if (probed_rloc != NULL && lisp_addr_cmp(locator->locator_addr,probed_rloc)==0)
+//                loc_ptr->probed  = 1;
+            locators_list[ctr] = locators_list[ctr]->next;
+        }
+    }
+
+    mapping_record_update_len(mapping);
 }
 

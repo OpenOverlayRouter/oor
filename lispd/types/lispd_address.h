@@ -57,7 +57,7 @@ typedef enum {
  */
 
 typedef struct _lisp_addr_t lisp_addr_t;
-typedef struct _lcaf_addr_t lcaf_addr_t;
+//typedef struct _lcaf_addr_t lcaf_addr_t;
 
 struct _lisp_addr_t {
     union {
@@ -72,12 +72,13 @@ struct _lisp_addr_t {
             union {
                 ip_addr_t       ip;
                 ip_prefix_t     ippref;
-                lcaf_addr_t     *lcaf;
+                lcaf_addr_t     lcaf;
             };
             lm_afi_t        lafi;
         };
     };
 };
+
 
 
 /*
@@ -137,7 +138,7 @@ inline uint16_t           lisp_addr_get_iana_afi(lisp_addr_t *laddr);
 inline uint16_t           lisp_addr_get_plen(lisp_addr_t *laddr);
 
 //inline uint16_t          lisp_addr_get_plen(lisp_addr_t *laddr);
-inline uint32_t          lisp_addr_get_size_to_write(lisp_addr_t *laddr);
+inline uint32_t          lisp_addr_get_size_in_field(lisp_addr_t *laddr);
 char                     *lisp_addr_to_char(lisp_addr_t *addr);
 
 inline void              lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi);
@@ -149,7 +150,7 @@ inline void              lisp_addr_set_ip(lisp_addr_t *addr, ip_addr_t *ip);
 void                     lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
 lisp_addr_t              *lisp_addr_clone(lisp_addr_t *src);
 inline uint32_t          lisp_addr_copy_to(void *dst, lisp_addr_t *src);
-inline int               lisp_addr_write_to_pkt(void *offset, lisp_addr_t *laddr);
+inline int               lisp_addr_write(void *offset, lisp_addr_t *laddr);
 int                      lisp_addr_read_from_pkt(uint8_t *offset, lisp_addr_t *laddr);
 inline uint8_t           lisp_addr_cmp_iids(lisp_addr_t *addr1, lisp_addr_t *addr2);
 inline uint8_t           lisp_addr_cmp_for_mcache_install(lisp_addr_t *old, lisp_addr_t *new);
@@ -161,6 +162,8 @@ inline lisp_addr_t       *lisp_addr_init_lcaf(lcaf_addr_t *lcaf);
 inline uint16_t          lisp_addr_iana_afi_to_lm_afi(uint16_t afi);
 inline int              lisp_addr_is_mc(lisp_addr_t *addr);
 lisp_addr_t             *lisp_addr_init_from_field(address_field *paddr);
+inline int              lisp_addr_write_to_field(lisp_addr_t *addr, address_field *afield);
+address_field           *lisp_addr_to_field(lisp_addr_t *addr);
 
 
 

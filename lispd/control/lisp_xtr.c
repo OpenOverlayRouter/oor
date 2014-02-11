@@ -92,8 +92,8 @@ void xtr_ctrl_start(lisp_ctrl_device *dev) {
 
 /* implementation of base functions */
 ctrl_device_vtable xtr_vtable = {
-        &xtr_process_ctrl_msg,
-        &xtr_ctrl_start
+        .process_msg = xtr_process_ctrl_msg,
+        .start = xtr_ctrl_start
 };
 
 lisp_ctrl_device *xtr_ctrl_init() {
@@ -145,7 +145,7 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
     glist_t                     *itrs                   = NULL;
     glist_entry_t               *it                     = NULL;
     glist_t                     *eids                   = NULL;
-    lispd_mapping_elt           *mapping                = NULL;
+    mapping_t           *mapping                = NULL;
     map_reply_opts              opts;
 
     lispd_log_msg(LISP_LOG_DEBUG_3, "xTR: Processing LISP Map-Request message");
@@ -168,7 +168,7 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
     itrs = mreq_msg_get_itr_rlocs(mreq);
     glist_for_each_entry(it, itrs) {
         /* XXX: support only for IP RLOCs */
-        if (ip_iana_afi_to_sock_afi(address_field_get_afi(glist_entry_data(it))) == lisp_addr_ip_get_afi(local_rloc)) {
+        if (ip_iana_afi_to_sock_afi(address_field_afi(glist_entry_data(it))) == lisp_addr_ip_get_afi(local_rloc)) {
             remote_rloc = lisp_addr_init_from_field(glist_entry_data(it));
             break;
         }

@@ -127,7 +127,6 @@ int process_lisp_ctr_msg(struct sock *sl)
     process_ctrl_msg(ctrl_dev, msg, &local_rloc, remote_port);
 //    (*ctrl_dev->process_lisp_ctrl_msg)(msg, &local_rloc, remote_port);
 
-    lispd_log_msg(LISP_LOG_DEBUG_2, "Completed processing of LISP control message");
     lisp_msg_del(msg);
 
 

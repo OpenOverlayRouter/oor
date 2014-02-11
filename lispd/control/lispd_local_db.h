@@ -59,7 +59,7 @@ patricia_tree_t* get_local_db(int afi);
 /*
  *  Add a mapping entry to the database.
  */
-int local_map_db_add_mapping(lispd_mapping_elt *mapping);
+int local_map_db_add_mapping(mapping_t *mapping);
 
 /*
  * Delete an EID mapping from the data base. We indicate if it is local or not
@@ -72,7 +72,7 @@ void local_map_db_del_mapping(lisp_addr_t *eid);
  * Look up a given eid in the database, returning the
  * lispd_mapping_elt of this EID if it exists or NULL.
  */
-lispd_mapping_elt *local_map_db_lookup_eid(lisp_addr_t *eid);
+mapping_t *local_map_db_lookup_eid(lisp_addr_t *eid);
 
 /*
  * lookup_eid_in_db
@@ -80,7 +80,7 @@ lispd_mapping_elt *local_map_db_lookup_eid(lisp_addr_t *eid);
  *  Look up a given eid in the database, returning the
  * lispd_mapping_elt containing the exact EID if it exists or NULL.
  */
-lispd_mapping_elt *local_map_db_lookup_eid_exact(lisp_addr_t *eid_prefix);
+mapping_t *local_map_db_lookup_eid_exact(lisp_addr_t *eid_prefix);
 
 
 lisp_addr_t *local_map_db_get_main_eid(int afi);

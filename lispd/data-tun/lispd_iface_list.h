@@ -41,7 +41,7 @@
  * list of mappings associated to the interface containin this structure.
  */
 typedef struct lispd_iface_mappings_list_ {
-    lispd_mapping_elt                       *mapping;
+    mapping_t                       *mapping;
     uint8_t                                 use_ipv4_address:1;// The mapping has a locator that use the IPv4 address of iface
     uint8_t                                 use_ipv6_address:1;// The mapping has a locator that use the IPv6 address of iface
     struct lispd_iface_mappings_list_       *next;
@@ -115,7 +115,7 @@ lispd_iface_elt *get_interface_with_address(lisp_addr_t *address);
  * The mapping is added just one time
  */
 
-int add_mapping_to_interface (lispd_iface_elt *interface, lispd_mapping_elt *mapping, int afi);
+int add_mapping_to_interface (lispd_iface_elt *interface, mapping_t *mapping, int afi);
 
 
 

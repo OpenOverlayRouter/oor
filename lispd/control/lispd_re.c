@@ -157,7 +157,7 @@ int re_send_leave_request(lisp_addr_t *mceid) {
 
 lispd_upstream_t *re_get_upstream(lisp_addr_t *eid) {
     lispd_map_cache_entry                   *cache_entry            = NULL;
-    lispd_mapping_elt                       *mapping                = NULL;
+    mapping_t                       *mapping                = NULL;
 
     /* Find eid's map-cache entry*/
     cache_entry = map_cache_lookup_exact(eid);
@@ -173,7 +173,7 @@ lispd_upstream_t *re_get_upstream(lisp_addr_t *eid) {
 
 lispd_remdb_t *re_get_jib(lisp_addr_t *mcaddr) {
     lispd_map_cache_entry   *mcentry    = NULL;
-    lispd_mapping_elt       *mapping    = NULL;
+    mapping_t       *mapping    = NULL;
 
     if (!lisp_addr_is_mc(mcaddr)) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(mcaddr));
@@ -250,12 +250,13 @@ lisp_addr_t *re_build_mceid(ip_addr_t *src, ip_addr_t *grp) {
     uint8_t         mlen;
 
     mlen = (ip_addr_get_afi(src) == AF_INET) ? 32 : 128;
-
-    mceid = lisp_addr_init_lcaf(
-            lcaf_addr_init_mc(
-                    lisp_addr_init_ip(src),
-                    lisp_addr_init_ip(grp),
-                    mlen, mlen, 0));
+    mceid = lisp_addr_new();
+    lcaf_addr_set_mc(lisp_addr_get_lcaf(mceid), lisp_addr_init_ip(src), lisp_addr_init_ip(grp), mlen, mlen, 0);
+//    lisp_addr_set_lcaf(lisp_addr_get_lcaf(mceid),
+//            lcaf_addr_init_mc(
+//                    lisp_addr_init_ip(src),
+//                    lisp_addr_init_ip(grp),
+//                    mlen, mlen, 0));
     return(mceid);
 }
 

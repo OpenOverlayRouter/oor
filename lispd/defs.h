@@ -225,12 +225,12 @@ int err;
 
 
 
-/*
- * Map register Key type
- */
-#define NO_KEY               0
-#define HMAC_SHA_1_96        1
-#define HMAC_SHA_256_128     2
+///*
+// * Map register Key type
+// */
+//#define NO_KEY               0
+//#define HMAC_SHA_1_96        1
+//#define HMAC_SHA_256_128     2
 
 
 #define MAX_PRIORITY 0
@@ -345,8 +345,6 @@ typedef struct lisp_data_hdr {
  * the number 15 which means we can have up to 16 ITR-RLOCs.
  */
 #define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
-
-#define LISP_SHA1_AUTH_DATA_LEN         20
 
 
 extern void exit_cleanup();

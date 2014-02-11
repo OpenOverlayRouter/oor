@@ -90,16 +90,16 @@ int map_register_all_eids() {
 
 int map_register_process()
 {
-    lispd_mapping_elt         *mapping          = NULL;
+    mapping_t         *mapping          = NULL;
     void                      *it               = NULL;
 
     local_map_db_foreach_entry(it) {
-        mapping = (lispd_mapping_elt *)it;
+        mapping = (mapping_t *)it;
         if (mapping->locator_count != 0){
             err = build_and_send_map_register_msg(mapping);
             if (err != GOOD){
                 lispd_log_msg(LISP_LOG_ERR, "map_register: Coudn't register %s EID!",
-                        lisp_addr_to_char(mapping_get_eid(mapping)));
+                        lisp_addr_to_char(mapping_eid(mapping)));
             }
         }
     } local_map_db_foreach_end;
@@ -117,9 +117,9 @@ int map_register_process()
 
 int encapsulated_map_register_process()
 {
-    lispd_mapping_elt         *mapping          = NULL;
+    mapping_t         *mapping          = NULL;
     lispd_locators_list       *locators_list[2] = {NULL, NULL};
-    lispd_locator_elt         *locator          = NULL;
+    locator_t         *locator          = NULL;
     lisp_addr_t               *nat_rtr          = NULL;
     int                       next_timer_time   = 0;
     int                       ctr1              = 0;
@@ -139,7 +139,7 @@ int encapsulated_map_register_process()
         }
 
         local_map_db_foreach_entry(it) {
-            mapping = (lispd_mapping_elt *)it;
+            mapping = (mapping_t *)it;
             if (mapping->locator_count != 0){
 
                 /* Find the locator behind NAT */
@@ -211,7 +211,7 @@ int encapsulated_map_register_process()
  */
 
 
-int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
+int build_and_send_map_register_msg(mapping_t *mapping)
 {
     uint8_t                   *packet               = NULL;
     int                       packet_len            = 0;
@@ -297,12 +297,12 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
 
         if ((err = send_packet(out_socket,packet,packet_len))==GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s to Map Server at %s",
-                    lisp_addr_to_char(mapping_get_eid(mapping)),
+                    lisp_addr_to_char(mapping_eid(mapping)),
                     lisp_addr_to_char(ms->address));
             sent_map_registers++;
         }else{
             lispd_log_msg(LISP_LOG_WARNING, "Couldn't send Map Register for %s to the Map Server %s",
-                    lisp_addr_to_char(mapping_get_eid(mapping)),
+                    lisp_addr_to_char(mapping_eid(mapping)),
                     lisp_addr_to_char(ms->address));
         }
         free (packet);
@@ -328,15 +328,15 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
  */
 
 uint8_t *build_map_register_pkt(
-        lispd_mapping_elt       *mapping,
+        mapping_t       *mapping,
         int                     *mrp_len)
 {
     uint8_t                         *packet     = NULL;
     lispd_pkt_map_register_t        *mrp        = NULL;
-    mapping_record_hdr      *mr         = NULL;
+    mapping_record_hdr_t      *mr         = NULL;
 
     *mrp_len = sizeof(lispd_pkt_map_register_t) +
-              pkt_get_mapping_record_length(mapping);
+              mapping_get_record_size(mapping);
 
     if ((packet = malloc(*mrp_len)) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING, "build_map_register_pkt: Unable to allocate memory for Map Register packet: %s", strerror(errno));
@@ -365,7 +365,7 @@ uint8_t *build_map_register_pkt(
 
     /* skip over the fixed part,  assume one record (mr) */
 
-    mr = (mapping_record_hdr *) CO(mrp, sizeof(lispd_pkt_map_register_t));
+    mr = (mapping_record_hdr_t *) CO(mrp, sizeof(lispd_pkt_map_register_t));
 
     if (mapping_fill_record_in_pkt(mr, mapping, NULL) != NULL) {
         return(packet);
@@ -377,7 +377,7 @@ uint8_t *build_map_register_pkt(
 
 
 int build_and_send_ecm_map_register(
-        lispd_mapping_elt           *mapping,
+        mapping_t           *mapping,
         lispd_map_server_list_t     *map_server,
         lisp_addr_t                 *nat_rtr_addr,
         lispd_iface_elt             *src_iface,

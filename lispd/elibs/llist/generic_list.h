@@ -35,6 +35,7 @@
 #define NO_DEL NULL
 
 typedef void (*glist_del_fct)(void *);
+typedef void (*glist_cmp_fct)(void *);
 
 typedef struct {
     struct list_head    list;
@@ -44,9 +45,34 @@ typedef struct {
 typedef struct {
     glist_entry_t       *head;
     int                 size;
-    int                 (*cmp_fct)(void *, void *);
+    glist_cmp_fct       cmp_fct;
     glist_del_fct       del_fct;
 } glist_t;
+
+
+glist_t                 *glist_new(int (*cmp_fct)(void *, void *), void (*del_fct)(void *));
+int                     glist_add(void *data, glist_t *list);
+int                     glist_add_tail(void *data, glist_t *glist);
+void                    glist_del(glist_entry_t *entry, glist_t *list);
+void                    glist_destroy(glist_t *lst);
+inline int              glist_size(glist_t *list);
+inline void             *glist_entry_data(glist_entry_t *entry);
+
+inline static glist_entry_t *glist_head(glist_t *lst) {
+    return(list_entry(lst->head->list.next, glist_entry_t, list));
+}
+
+inline static glist_entry_t *glist_tail(glist_t *lst) {
+    return(list_entry(lst->head->list.prev, glist_entry_t, list));
+}
+
+inline static int glist_size(glist_t *list) {
+    return(list->size);
+}
+
+inline static void *glist_entry_data(glist_entry_t *entry) {
+    return(entry->data);
+}
 
 /**
  * generic_list_for_each_entry  - iterates over list in generic_list_t
@@ -56,12 +82,9 @@ typedef struct {
 #define glist_for_each_entry(iter, lst) \
     list_for_each_entry(iter, &((lst)->head->list), list)
 
-glist_t                 *glist_new(int (*cmp_fct)(void *, void *), void (*del_fct)(void *));
-int                     glist_add(void *data, glist_t *list);
-int                     glist_add_tail(void *data, glist_t *glist);
-void                    glist_del(glist_entry_t *entry, glist_t *list);
-void                    glist_destroy(glist_t *lst);
-inline int              glist_size(glist_t *list);
-inline void             *glist_entry_data(glist_entry_t *entry);
+//#define glist_for_each(pos, lst)              \
+//    for (pos = list_entry((lst->head)->next, glist_entry_t, list);  \
+//         &pos->list != (lst->head);                    \
+//         pos = list_entry(pos->member.next, glist_entry_t, list))
 
 #endif /* LISPD_GENERIC_LIST_H_ */

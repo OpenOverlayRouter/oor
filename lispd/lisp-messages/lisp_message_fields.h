@@ -61,7 +61,6 @@ typedef struct _generic_lcaf_hdr {
 } __attribute__ ((__packed__)) generic_lcaf_hdr;
 
 typedef struct _address_field {
-    uint16_t                afi;
     uint16_t                len;
     uint8_t                 *data;
 } address_field;
@@ -71,20 +70,24 @@ inline void address_field_del(address_field *addr);
 address_field           *address_field_parse(uint8_t *offset);
 
 
-static inline uint16_t address_field_get_len(address_field *addr) {
+static inline uint16_t address_field_len(address_field *addr) {
     return(addr->len);
 }
 
-static inline uint8_t *address_field_get_data(address_field *addr) {
+static inline uint8_t *address_field_data(address_field *addr) {
     return(addr->data);
 }
 
-static inline uint8_t address_field_get_lcaf_type(address_field *addr) {
-    return(((generic_lcaf_hdr *)address_field_get_data(addr))->type);
+static inline uint8_t address_field_lcaf_type(address_field *addr) {
+    return(((generic_lcaf_hdr *)address_field_data(addr))->type);
 }
 
-static inline uint16_t address_field_get_afi(address_field *addr) {
+static inline uint16_t address_field_afi(address_field *addr) {
     return(ntohs(*(uint16_t *)addr->data));
+}
+
+static inline void address_field_set_len(address_field *addr, int len) {
+    addr->len = len;
 }
 
 
@@ -107,6 +110,7 @@ static inline uint16_t address_field_get_afi(address_field *addr) {
  *   o |        Unused Flags     |L|p|R|           Loc-AFI             |
  *   c +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *    \|                            Locator                            |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * Fixed portion of the mapping record locator. Variable length
  * locator address follows.
@@ -128,32 +132,45 @@ typedef struct _locator_hdr {
     uint8_t probed:1;
     uint8_t reachable:1;
 #endif
-} __attribute__ ((__packed__)) locator_hdr;
+} __attribute__ ((__packed__)) locator_hdr_t;
 
 typedef struct _locator_field {
+    address_field           *address;
     uint16_t                len;
     uint8_t                 *data;
-    address_field           *address;
 } locator_field;
 
 inline locator_field *locator_field_new();
 inline void locator_field_del(locator_field *locator);
 locator_field *locator_field_parse(uint8_t *offset);
 
-static inline locator_hdr *locator_field_get_hdr(locator_field *locator) {
-    return((locator_hdr *)locator->data);
+static inline locator_hdr_t *locator_field_hdr(locator_field *locator) {
+    return((locator_hdr_t *)locator->data);
 }
 
-static inline uint8_t *locator_field_get_afi_ptr(locator_field *locator) {
-    return(CO(locator->data, sizeof(locator_hdr)));
+static inline uint8_t *locator_field_addr_ptr(locator_field *locator) {
+    return(CO(locator->data, sizeof(locator_hdr_t)));
 }
 
-static inline uint16_t locator_field_get_len(locator_field *locator) {
-    return(locator->len);
+static inline uint16_t locator_field_len(locator_field *locator) {
+    return(sizeof(locator_hdr_t) + address_field_len(locator->address));
 }
 
-static inline address_field *locator_field_get_addr(locator_field *locator) {
+static inline address_field *locator_field_addr(locator_field *locator) {
     return(locator->address);
+}
+
+static inline void locator_field_set_data(locator_field *locator, uint8_t *data) {
+    locator->data = data;
+}
+
+static inline void locator_field_set_len(locator_field *locator, int len) {
+    locator->len = len;
+}
+
+/* should be called after a write to update field len*/
+static inline void locator_field_update_len(locator_field *locator) {
+    locator->len = sizeof(locator_field_hdr)+address_field_len(locator->address);
 }
 
 
@@ -189,7 +206,7 @@ static inline address_field *locator_field_get_addr(locator_field *locator) {
  * locators follow.
  */
 
-typedef struct _mapping_record_hdr {
+typedef struct _mapping_record_hdr_t {
     uint32_t ttl;
     uint8_t locator_count;
     uint8_t eid_prefix_length;
@@ -211,43 +228,52 @@ typedef struct _mapping_record_hdr {
     uint8_t version_hi:4;
 #endif
     uint8_t version_low;
-} __attribute__ ((__packed__)) mapping_record_hdr;
+} __attribute__ ((__packed__)) mapping_record_hdr_t;
 
 
 typedef struct _mapping_record {
-    uint16_t                len;
-    uint8_t                 *data;
     address_field           *eid;
     glist_t                 *locators;
+    uint16_t                len;
+    uint8_t                 *data;
 } mapping_record;
 
 inline mapping_record *mapping_record_new();
 void mapping_record_del(mapping_record *record);
 mapping_record *mapping_record_parse(uint8_t *offset);
+locator_field *mapping_record_allocate_locator(mapping_record *record, int size);
 
-
-static inline mapping_record_hdr *mapping_record_get_hdr(mapping_record *record) {
-    return((mapping_record_hdr *)record->data);
+static inline mapping_record_hdr_t *mapping_record_hdr(mapping_record *record) {
+    return((mapping_record_hdr_t *)record->data);
 }
 
-static inline uint8_t *mapping_record_get_data(mapping_record *record) {
+static inline uint8_t *mapping_record_data(mapping_record *record) {
     return(record->data);
 }
 
-static inline address_field *mapping_record_get_eid(mapping_record *record) {
-    return (record->eid);
+static inline address_field *mapping_record_eid(mapping_record *record) {
+    return(record->eid);
 }
 
-static inline uint16_t mapping_record_get_len(mapping_record *record) {
+static inline uint16_t mapping_record_len(mapping_record *record) {
     return(record->len);
 }
 
-static inline uint8_t mapping_record_get_eid_mask(mapping_record *record) {
-    return(mapping_record_get_hdr(record)->eid_prefix_length);
+static inline glist_t *mapping_record_locators(mapping_record *record) {
+    return(record->locators);
 }
 
-static inline glist_t *mapping_record_get_locators(mapping_record *record) {
-    return(record->locators);
+static inline void mapping_record_create_hdr(mapping_record *record) {
+    if (record)
+        record->data = calloc(1, sizeof(mapping_record_hdr_t));
+}
+
+static inline void mapping_record_add_eid(mapping_record *record, address_field *eid) {
+    record->eid = eid;
+}
+
+static inline void mapping_record_set_data(mapping_record *record, uint8_t *data) {
+    record->data = data;
 }
 
 
@@ -314,36 +340,59 @@ static inline uint16_t eid_prefix_record_get_len(eid_prefix_record *record) {
  *
  */
 
+
 typedef struct _auth_field_hdr {
     uint16_t key_id;
     uint16_t auth_data_len;
-} auth_field_hdr;
+} auth_field_hdr_t;
 
 typedef struct _auth_field {
-    uint8_t     *bits;
     uint8_t     *auth_data;
     uint16_t    len;
+    uint8_t     *data;
 } auth_field;
 
-static inline uint8_t *auth_field_get_data(auth_field *af) {
-    return(af->bits);
-}
-static inline auth_field_hdr *auth_field_get_hdr(auth_field *af) {
-    return((auth_field_hdr *)af->bits);
-}
+typedef enum {
+    NO_KEY,
+    HMAC_SHA_1_96,
+    HMAC_SHA_256_128
+} lisp_key_type;
 
-static inline uint16_t auth_field_get_len(auth_field *af) {
-    return(af->len);
-}
-
-static inline uint8_t *auth_field_get_auth_data(auth_field *af) {
-    return(af->auth_data);
-}
+#define LISP_SHA1_AUTH_DATA_LEN         20
 
 auth_field *auth_field_new();
 auth_field *auth_field_parse(uint8_t *offset);
 void auth_field_del(auth_field *raf);
+uint16_t auth_data_get_len_for_type(lisp_key_type key_id);
 
+
+static inline uint8_t *auth_field_get_data(auth_field *af) {
+    return(af->data);
+}
+
+static inline auth_field_hdr_t *auth_field_hdr(auth_field *af) {
+    return((auth_field_hdr_t *)af->data);
+}
+
+static inline uint16_t auth_field_get_len(auth_field *af) {
+    if (!af)
+        return(0);
+    return(af->len);
+}
+
+static inline uint8_t *auth_field_auth_data(auth_field *af) {
+    return(af->auth_data);
+}
+
+
+static inline int auth_field_get_size_for_type(lisp_key_type keyid) {
+    return(auth_data_get_len_for_type(keyid)+sizeof(auth_field_hdr_t));
+}
+
+static inline void auth_field_init(uint8_t *ptr, lisp_key_type keyid) {
+    auth_field_hdr(ptr)->key_id = keyid;
+    auth_field_hdr(ptr)->auth_data_len = auth_data_get_len_for_type(keyid);
+}
 
 /*
  * RTR Authentication field (Map-Register and Map-Notify)

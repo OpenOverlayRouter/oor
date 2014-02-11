@@ -38,14 +38,14 @@
 
 typedef struct _timer_rloc_prob_argument{
     lispd_map_cache_entry   *map_cache_entry;
-    lispd_locator_elt       *locator;
+    locator_t       *locator;
 } timer_rloc_probe_argument;
 
 
 
 timer_rloc_probe_argument *new_timer_rloc_probe_argument(
         lispd_map_cache_entry   *map_cache_entry,
-        lispd_locator_elt       *locator);
+        locator_t       *locator);
 
 int rloc_probing(
     timer *t,

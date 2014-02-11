@@ -75,7 +75,7 @@ lispd_remdb_member_t *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair
 
     member = calloc(1, sizeof(lispd_remdb_member_t));
     locator_list  = calloc(1, sizeof(lispd_locators_list));
-    locator_list->locator = calloc(1, sizeof(lispd_locator_elt));
+    locator_list->locator = calloc(1, sizeof(locator_t));
     locator_list->next = NULL;
     /* the pair is of the type (S-RLOC, D-RLOC)
      * If the join will carry in the future more D-RLOCs for TE

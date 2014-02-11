@@ -875,8 +875,8 @@ int add_database_mapping(
         int    weight_v6)
 
 {
-    lispd_mapping_elt           *mapping            = NULL;
-    lispd_locator_elt           *locator            = NULL;
+    mapping_t           *mapping            = NULL;
+    locator_t           *locator            = NULL;
     lispd_iface_elt             *interface          = NULL;
     lisp_addr_t                 eid_prefix;           /* save the eid_prefix here */
     int                         eid_prefix_length   = 0;
@@ -962,7 +962,7 @@ int add_database_mapping(
     /* If we couldn't add the interface and the mapping is new, we remove it. */
     if (interface == NULL && is_new_mapping == TRUE){
         if (is_new_mapping){
-            local_map_db_del_mapping(mapping_get_eid(mapping));
+            local_map_db_del_mapping(mapping_eid(mapping));
             lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add mapping -> Cudn't create interface");
         }else{
             lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add locator to the mapping -> Cudn't create interface");
@@ -1028,8 +1028,8 @@ int add_static_map_cache_entry(
         int    priority,
         int    weight)
 {
-    lispd_mapping_elt        *mapping;
-    lispd_locator_elt        *locator;
+    mapping_t        *mapping;
+    locator_t        *locator;
     lisp_addr_t              rloc;
     lisp_addr_t              eid_prefix;
     int                      eid_prefix_length;
@@ -1254,7 +1254,7 @@ int add_proxy_etr_entry(
 
     lisp_addr_t                     aux_address;
     lisp_addr_t                     rloc;
-    lispd_locator_elt               *locator     = NULL;
+    locator_t               *locator     = NULL;
 
     if (address == NULL){
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: The address of the Proxy ETR has not been specified. Discarding the entry");

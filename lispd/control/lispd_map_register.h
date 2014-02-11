@@ -133,17 +133,17 @@ int map_register_cb(timer *t, void *arg);
 int map_register_all_eids();
 
 uint8_t *build_map_register_pkt(
-        lispd_mapping_elt       *mapping,
+        mapping_t       *mapping,
         int                     *mrp_len);
 
 /*
  * Build and send a map register for the mapping entry passed as argument.
  */
 
-int build_and_send_map_register_msg(lispd_mapping_elt *mapping);
+int build_and_send_map_register_msg(mapping_t *mapping);
 
 int build_and_send_ecm_map_register(
-        lispd_mapping_elt           *mapping,
+        mapping_t           *mapping,
         lispd_map_server_list_t     *map_servers,
         lisp_addr_t                 *nat_rtr_addr,
         lispd_iface_elt             *src_iface,

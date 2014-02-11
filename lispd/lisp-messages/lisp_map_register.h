@@ -135,6 +135,7 @@ typedef struct map_register_msg_ {
 inline map_register_msg *map_register_msg_new();
 void map_register_msg_del(map_register_msg *mreg);
 map_register_msg *map_register_msg_parse(uint8_t *offset);
+int mreg_msg_check_auth(map_register_msg *msg, const char *key);
 
 static inline map_register_msg_hdr *mreg_msg_get_hdr(map_register_msg *mreg) {
     return((map_register_msg_hdr *)mreg->bits);

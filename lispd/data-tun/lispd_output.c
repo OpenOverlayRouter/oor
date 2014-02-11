@@ -109,9 +109,9 @@ int extract_5_tuples_from_packet (
  */
 
 int select_src_locators_from_balancing_locators_vec (
-        lispd_mapping_elt   *src_mapping,
+        mapping_t   *src_mapping,
         packet_tuple        tuple,
-        lispd_locator_elt   **src_locator);
+        locator_t   **src_locator);
 
 
 /*
@@ -120,11 +120,11 @@ int select_src_locators_from_balancing_locators_vec (
  */
 
 int select_src_rmt_locators_from_balancing_locators_vec (
-        lispd_mapping_elt   *src_mapping,
-        lispd_mapping_elt   *dst_mapping,
+        mapping_t   *src_mapping,
+        mapping_t   *dst_mapping,
         packet_tuple        tuple,
-        lispd_locator_elt   **src_locator,
-        lispd_locator_elt   **dst_locator);
+        locator_t   **src_locator,
+        locator_t   **dst_locator);
 
 /*
  * Output multicast packets (for now only SSM)
@@ -382,11 +382,11 @@ int forward_native(
 int fordward_to_petr(
         uint8_t                 *original_packet,
         int                     original_packet_length,
-        lispd_mapping_elt       *src_mapping,
+        mapping_t       *src_mapping,
         packet_tuple            tuple)
 {
-    lispd_locator_elt           *outer_src_locator  = NULL;
-    lispd_locator_elt           *outer_dst_locator  = NULL;
+    locator_t           *outer_src_locator  = NULL;
+    locator_t           *outer_dst_locator  = NULL;
     lisp_addr_t                 *src_addr           = NULL;
     lisp_addr_t                 *dst_addr           = NULL;
     lcl_locator_extended_info   *loc_extended_info  = NULL;
@@ -445,7 +445,7 @@ int fordward_to_petr(
 int forward_to_natt_rtr(
         uint8_t             *original_packet,
         int                 original_packet_length,
-        lispd_locator_elt   *src_locator)
+        locator_t   *src_locator)
 {
 
     uint8_t                     *encap_packet       = NULL;
@@ -568,15 +568,15 @@ uint32_t get_hash_from_tuple (packet_tuple tuple)
  */
 
 int select_src_locators_from_balancing_locators_vec (
-        lispd_mapping_elt   *src_mapping,
+        mapping_t   *src_mapping,
         packet_tuple        tuple,
-        lispd_locator_elt   **src_locator)
+        locator_t   **src_locator)
 {
     int                     src_vec_len     = 0;
     uint32_t                pos             = 0;
     uint32_t                hash            = 0;
     balancing_locators_vecs *src_blv        = NULL;
-    lispd_locator_elt       **src_loc_vec   = NULL;
+    locator_t       **src_loc_vec   = NULL;
 
     src_blv = &((lcl_mapping_extended_info *)(src_mapping->extended_info))->outgoing_balancing_locators_vecs;
 
@@ -614,11 +614,11 @@ int select_src_locators_from_balancing_locators_vec (
  */
 
 int select_src_rmt_locators_from_balancing_locators_vec (
-        lispd_mapping_elt   *src_mapping,
-        lispd_mapping_elt   *dst_mapping,
+        mapping_t   *src_mapping,
+        mapping_t   *dst_mapping,
         packet_tuple        tuple,
-        lispd_locator_elt   **src_locator,
-        lispd_locator_elt   **dst_locator)
+        locator_t   **src_locator,
+        locator_t   **dst_locator)
 {
     int                     src_vec_len     = 0;
     int                     dst_vec_len     = 0;
@@ -626,8 +626,8 @@ int select_src_rmt_locators_from_balancing_locators_vec (
     uint32_t                hash            = 0;
     balancing_locators_vecs *src_blv        = NULL;
     balancing_locators_vecs *dst_blv        = NULL;
-    lispd_locator_elt       **src_loc_vec   = NULL;
-    lispd_locator_elt       **dst_loc_vec   = NULL;
+    locator_t       **src_loc_vec   = NULL;
+    locator_t       **dst_loc_vec   = NULL;
 
     src_blv = &((lcl_mapping_extended_info *)(src_mapping->extended_info))->outgoing_balancing_locators_vecs;
     dst_blv = &((rmt_mapping_extended_info *)(dst_mapping->extended_info))->rmt_balancing_locators_vecs;
@@ -674,8 +674,8 @@ int select_src_rmt_locators_from_balancing_locators_vec (
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"select_src_rmt_locators_from_balancing_locators_vec: "
             "src EID: %s, rmt EID: %s, protocol: %d, src port: %d , dst port: %d --> src RLOC: %s, dst RLOC: %s",
-            lisp_addr_to_char(mapping_get_eid(src_mapping)),
-            lisp_addr_to_char(mapping_get_eid(dst_mapping)),
+            lisp_addr_to_char(mapping_eid(src_mapping)),
+            lisp_addr_to_char(mapping_eid(dst_mapping)),
             tuple.protocol, tuple.src_port, tuple.dst_port,
             lisp_addr_to_char((*src_locator)->locator_addr),
             lisp_addr_to_char((*dst_locator)->locator_addr));
@@ -766,7 +766,7 @@ int lisp_output_multicast (
     uint8_t                     *encap_packet       = NULL;
     lisp_addr_t                 *src_rloc           = NULL;
     lisp_addr_t                 *dst_rloc           = NULL;
-    lispd_locator_elt           *locator            = NULL;
+    locator_t           *locator            = NULL;
     glist_entry_t  *it                 = NULL;
     mc_t                   *mcaddr             = NULL;
 
@@ -777,7 +777,7 @@ int lisp_output_multicast (
     or_list = re_get_orlist(dst_eid);
 
     glist_for_each_entry(it, or_list){
-        locator =  (lispd_locator_elt *)glist_entry_data(it);
+        locator =  (locator_t *)glist_entry_data(it);
         mcaddr = lcaf_addr_get_mc(lisp_addr_get_lcaf(locator->locator_addr));
         src_rloc = mc_type_get_src(mcaddr);
         dst_rloc = mc_type_get_grp(mcaddr);
@@ -812,13 +812,13 @@ int lisp_output_unicast (
         int             original_packet_length,
         packet_tuple    *tuple)
 {
-    lispd_mapping_elt           *src_mapping        = NULL;
-    lispd_mapping_elt           *dst_mapping        = NULL;
+    mapping_t           *src_mapping        = NULL;
+    mapping_t           *dst_mapping        = NULL;
 //    lispd_map_cache_entry       *entry              = NULL;
     uint8_t                     *encap_packet       = NULL;
     int                         encap_packet_size   = 0;
-    lispd_locator_elt           *outer_src_locator  = NULL;
-    lispd_locator_elt           *outer_dst_locator  = NULL;
+    locator_t           *outer_src_locator  = NULL;
+    locator_t           *outer_dst_locator  = NULL;
     lisp_addr_t                 *src_addr           = NULL;
     lisp_addr_t                 *dst_addr           = NULL;
     lcl_locator_extended_info   *loc_extended_info  = NULL;
@@ -934,10 +934,10 @@ int tuple_get_dst_lisp_addr(packet_tuple tuple, lisp_addr_t *addr){
            return(BAD);
         }
 
-        plen = (tuple.dst_addr.afi == AF_INET) ? 32 : 128;
-        lcaf = lcaf_addr_init_mc(&tuple.src_addr, &tuple.dst_addr, plen, plen, 0);
         lisp_addr_set_afi(addr, LM_AFI_LCAF);
-        lisp_addr_set_lcaf(addr, lcaf);
+        plen = (tuple.dst_addr.afi == AF_INET) ? 32 : 128;
+        lcaf = lisp_addr_get_lcaf(addr);
+        lcaf_addr_set_mc(lcaf, &tuple.src_addr, &tuple.dst_addr, plen, plen, 0);
 
     } else {
         /* XXX this converts from old lisp_addr_t to new struct, potential source for errors*/
