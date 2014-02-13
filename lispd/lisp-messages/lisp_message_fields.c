@@ -57,13 +57,14 @@ address_field *address_field_parse(uint8_t *offset) {
         addr->len = sizeof(struct in6_addr);
         break;
     case LISP_AFI_NO_ADDR:
-        addr->len = sizeof(uint16_t);
+        addr->len = 0;
         break;
     case LISP_AFI_LCAF:
         addr->len = sizeof(generic_lcaf_hdr) + ((generic_lcaf_hdr *)addr->data)->len;
         break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", address_field_afi(addr));
+        return(NULL);
         break;
     }
     addr->len += sizeof(uint16_t);

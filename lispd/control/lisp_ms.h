@@ -30,17 +30,10 @@
 #define LISP_MS_H_
 
 #include "lisp_ctrl_device.h"
+#include <lisp_site.h>
 
 #define REQ_MAP_NOTIFY 1
 #define MORE_SPECIFICS 1
-
-typedef struct _lisp_site_prefix {
-    lisp_addr_t         *eid_prefix;
-    uint32_t            iid;
-    uint8_t             proxy_reply;
-    uint8_t             accept_more_specifics;
-    char                *key;
-} lisp_site_prefix;
 
 
 typedef struct _lisp_ms {
@@ -54,7 +47,6 @@ typedef struct _lisp_ms {
 lisp_ctrl_device *ms_ctrl_init();
 
 /* ms interface */
-int ms_add_lisp_site_prefix(lisp_ms *ms, lisp_site_prefix *site);
-
+int ms_add_lisp_site_prefix(lisp_ctrl_device *ms, lisp_site_prefix *site);
 
 #endif /* LISP_MS_H_ */

@@ -32,6 +32,7 @@
 #include <cksum.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
+#include <lisp_messages.h>
 
 
 uint16_t ip_checksum(

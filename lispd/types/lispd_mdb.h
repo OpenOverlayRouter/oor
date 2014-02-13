@@ -52,14 +52,18 @@ typedef struct {
     patricia_tree_t *AF6_mc_db;
 } mdb_t;
 
+typedef void (*mdb_del_fct)(void *);
+
 mdb_t                   *mdb_new();
-void                    mdb_del(mdb_t *db);
+void                    mdb_del(mdb_t *db, mdb_del_fct del_fct);
 int                     mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
 void                    *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
-void                    *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr, uint8_t exact);
+void                    *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr);
+void                    *mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr);
 
 patricia_tree_t *_get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf);
 patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);
+
 
 #define mdb_foreach_entry(_mdb, _it) \
     do { \

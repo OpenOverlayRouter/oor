@@ -49,7 +49,7 @@ int process_map_notify(map_notify_msg *msg)
     mapping_record                      *record                     = NULL;
     int                                 next_timer_time             = 0;
     int                                 result                      = BAD;
-    int                                 i;
+    auth_field                          *afield                     = NULL;
 
     /* FC XXX: what is this? */
     if (mnotify_msg_hdr(msg)->xtr_id_present == TRUE) {
@@ -63,7 +63,9 @@ int process_map_notify(map_notify_msg *msg)
         }
     }
 
-    if (mnotify_msg_check_auth(msg, map_servers->key)) {
+    afield = mnotify_msg_auth_data(msg);
+//    if (mnotify_msg_check_auth(msg, map_servers->key)) {
+    if (auth_field_check(mnotify_msg_data(msg), mnotify_msg_get_len(msg), afield, map_servers->key)) {
         record = glist_entry_data(glist_head(mnotify_msg_records(msg)));
         eid = lisp_addr_init_from_field(mapping_record_eid(record));
         if (lisp_addr_get_afi(eid) == LM_AFI_IP)

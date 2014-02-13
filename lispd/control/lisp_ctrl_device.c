@@ -198,7 +198,7 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce)
         /* Find the locator being probed*/
         locs = mapping_record_locators(record);
         glist_for_each_entry(locit, locs) {
-            if (locator_field_get_hdr(glist_entry_data(locit))->probed) {
+            if (locator_field_hdr(glist_entry_data(locit))->probed) {
                 if (locator)
                     free_locator(aux_locator);
                 aux_locator = locator_init_from_field(glist_entry_data(locit));
@@ -323,7 +323,7 @@ static int process_map_reply_record(mapping_record *record, uint64_t nonce) {
 
     lisp_addr_t                     *eid        = NULL;
     lispd_locators_list             **locators  = NULL;
-    locator_t               *loc_elt    = NULL;
+    locator_t                       *loc_elt    = NULL;
     glist_t                         *locs       = NULL;
     glist_entry_t                   *it         = NULL;
 
@@ -546,7 +546,7 @@ int get_map_request_length(mapping_t *requested_mapping, mapping_t *src_mapping)
 
     /* Add the Map-Reply Record */
     if (src_mapping)
-        mr_len += mapping_get_record_size(src_mapping);
+        mr_len += mapping_get_size_in_record(src_mapping);
 
     return mr_len;
 }
@@ -851,7 +851,7 @@ uint8_t *build_map_reply_pkt(mapping_t *mapping,
     map_reply_hdr *map_reply_msg;
     mapping_record_hdr_t *mapping_record;
 
-    *map_reply_msg_len = sizeof(map_reply_hdr) + mapping_get_record_size(mapping);
+    *map_reply_msg_len = sizeof(map_reply_hdr) + mapping_get_size_in_record(mapping);
 
     if ((packet = malloc(*map_reply_msg_len)) == NULL ) {
         lispd_log_msg(LISP_LOG_WARNING,
@@ -924,9 +924,9 @@ int build_and_send_map_reply_msg(
         return (BAD);
     }
 
-    /* if multicast eid and the mrsignaling options are set, write them to the packet */
-    if (lisp_addr_is_mc(mapping_eid(requested_mapping)) && (opts.mrsig.jbit || opts.mrsig.lbit) )
-        mrsignaling_set_flags_in_pkt(CO(packet, sizeof(map_reply_hdr)), opts.mrsig);
+//    /* if multicast eid and the mrsignaling options are set, write them to the packet */
+//    if (lisp_addr_is_mc(mapping_eid(requested_mapping)) && (opts.mrsig.jbit || opts.mrsig.lbit) )
+//        mrsignaling_set_flags_in_pkt(CO(packet, sizeof(map_reply_hdr)), opts.mrsig);
 
     /* Get src interface information */
 

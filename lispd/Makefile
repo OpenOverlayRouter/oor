@@ -75,6 +75,7 @@ OBJS		= cmdline.o	\
 		  types/lispd_address.o	\
 		  types/lispd_ip.o	\
 		  types/lispd_lcaf.o	\
+		  types/lisp_site.o	\
 		  types/lispd_locator.o	\
 		  types/lispd_map_cache_entry.o	\
 		  types/lispd_mapping.o 	\

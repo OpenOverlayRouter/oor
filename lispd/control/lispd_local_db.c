@@ -80,7 +80,7 @@ mapping_t *local_map_db_lookup_eid(lisp_addr_t *eid)
 
     mapping_t       *mapping = NULL;
 
-    mapping = mdb_lookup_entry(local_mdb, eid, 0);
+    mapping = mdb_lookup_entry(local_mdb, eid);
     if (!mapping) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "Couldn't find mapping for EID %s in local mappings db",
                         lisp_addr_to_char(eid));
@@ -104,7 +104,7 @@ mapping_t *local_map_db_lookup_eid_exact(lisp_addr_t *eid)
                 lisp_addr_to_char(eid));
     }
 
-    mapping = mdb_lookup_entry(local_mdb, eid, 1);
+    mapping = mdb_lookup_entry_exact(local_mdb, eid);
     if (!mapping) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "Couldn't find mapping for EID %s in local mappings db",
                         lisp_addr_to_char(eid));

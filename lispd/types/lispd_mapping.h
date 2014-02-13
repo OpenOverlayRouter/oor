@@ -196,7 +196,7 @@ inline lisp_addr_t          *mapping_eid(mapping_t *mapping);
 lispd_remdb_t               *mapping_get_jib(mapping_t *mapping);
 int                         mapping_add_locators(mapping_t *mapping, lispd_locators_list *locators);
 inline uint16_t             mapping_get_locator_count(mapping_t *mapping);
-int                         mapping_get_record_size(mapping_t *mapping);
+int                         mapping_get_size_in_record(mapping_t *mapping);
 
 //inline void                 mapping_set_iid(lispd_mapping_elt *mapping, uint16_t iid);
 //inline uint8_t              get_mapping_eid_plen(lispd_mapping_elt *mapping);
@@ -204,5 +204,9 @@ int                         mapping_get_record_size(mapping_t *mapping);
 
 mapping_t           *mapping_init_from_record(mapping_record *record);
 void                mapping_write_to_record(mapping_record *record, mapping_t *mapping);
+
+void mapping_del(mapping_t *mapping);
+void mapping_del_local(mapping_t *mapping);
+void mapping_del_remote(mapping_t *mapping);
 
 #endif /* LISPD_MAPPING_H_ */

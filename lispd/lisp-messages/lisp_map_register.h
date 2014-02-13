@@ -136,6 +136,7 @@ inline map_register_msg *map_register_msg_new();
 void map_register_msg_del(map_register_msg *mreg);
 map_register_msg *map_register_msg_parse(uint8_t *offset);
 int mreg_msg_check_auth(map_register_msg *msg, const char *key);
+int mreg_msg_get_len(map_register_msg *mreg);
 
 static inline map_register_msg_hdr *mreg_msg_get_hdr(map_register_msg *mreg) {
     return((map_register_msg_hdr *)mreg->bits);
@@ -148,6 +149,11 @@ static inline glist_t *mreg_msg_get_records(map_register_msg *mreg) {
 static inline auth_field *mreg_msg_get_auth_data(map_register_msg *mreg) {
     return(mreg->auth_data);
 }
+
+static inline uint8_t *mreg_msg_data(map_register_msg *mreg) {
+    return(mreg->bits);
+}
+
 
 #define mreg_msg_foreach_mapping_record(it, mreg) \
     list_for_each_entry(it, &((mreg)->records->list), list)

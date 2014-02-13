@@ -525,7 +525,7 @@ char *locator_to_char(locator_t *locator)
     static int i;
 
     /* hack to allow more than one locator per line */
-    i++; i = i%10;
+    i++; i = i%5;
 
     sprintf(locator_str[i], "%s, ", lisp_addr_to_char(locator->locator_addr));
     sprintf(locator_str[i] + strlen(locator_str[i]), "%s, ", locator->state ? "Up" : "Down");
@@ -573,8 +573,6 @@ locator_t *locator_init_from_field(locator_field *lf) {
 int locator_write_to_field(locator_t *locator, locator_field *lfield) {
     lcl_locator_extended_info   *lct_extended_info  = NULL;
     lisp_addr_t                 *itr_address        = NULL;
-    address_field               *addrf              = NULL;
-    int cpy_len = 0;
 
     /* If the locator is DOWN, set the priority to 255 -> Locator should not be used */
     locator_field_hdr(lfield)->priority     = (*(locator->state) == UP) ? locator->priority : UNUSED_RLOC_PRIORITY;

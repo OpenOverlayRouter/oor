@@ -98,15 +98,15 @@ int process_lisp_ctr_msg(struct sock *sl)
     lisp_msg            *msg;
 
 
-    lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
-
-    if  (get_packet_and_socket_inf (sl->fd, packet, &local_rloc, &remote_port) != GOOD )
-        return BAD;
+    if  (get_packet_and_socket_inf (sl->fd, packet, &local_rloc, &remote_port) != GOOD ) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't retrieve socket information for control message! Discarding packet!");
+        return(BAD);
+    }
 
     msg = lisp_msg_parse(packet);
     if (!msg || !msg->msg) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "Couldn't parse control message. Discarding ...");
         return(BAD);
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Couldn't parse control message");
     }
 
     if (msg->encapdata)

@@ -95,6 +95,9 @@ void validate_rloc_probing_parameters (
         int probe_retries_interval);
 
 
+lisp_site_prefix *build_lisp_site_prefix(char *eidstr, uint32_t iid, int key_type, char *key,
+        uint8_t more_specifics, uint8_t proxy_reply);
+
 /*
  *  handle_lispd_command_line --
  *
@@ -529,9 +532,6 @@ int configure_xtr(cfg_t *cfg) {
      *  handle map-resolver config
      */
     n = cfg_size(cfg, "map-resolver");
-    if (n == 0){
-
-    }
     for(i = 0; i < n; i++) {
         if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
             if (add_server(map_resolver, &map_resolvers) == GOOD){
@@ -698,26 +698,55 @@ int configure_xtr(cfg_t *cfg) {
 }
 
 int configure_ms(cfg_t *cfg) {
+    char                *iface  = NULL;
+    lisp_site_prefix    *site   = NULL;
     int n, i;
+
     ctrl_dev = (lisp_ctrl_device *)ms_ctrl_init();
 
 
     /* XXX: FC: Hack to ensure that we have an output interface for
      * control messages. Maybe MS shouldn't send Map-Replies out a raw
      * socket. The disadvantage is that we must configure an
-     * interface, thus the hack were we read the database mapping interface.
+     * interface even when we don't have an active data-plane module
      *
      */
+
     /*
-     *  handle database-mapping config
+     * handle control interface
      */
 
-    n = cfg_size(cfg, "database-mapping");
-    for(i = 0; i < n; i++) {
-        cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
-        if (!add_interface(cfg_getstr(dm, "interface")))
+    iface = cfg_getstr(cfg, "control-iface");
+    if (iface) {
+        if (!add_interface(iface))
             return(BAD);
     }
+
+    /*
+     *  handle lisp-site config
+     */
+
+    n = cfg_size(cfg, "lisp-site");
+    for(i = 0; i < n; i++) {
+        cfg_t *ls = cfg_getnsec(cfg, "lisp-site", i);
+        site = build_lisp_site_prefix(cfg_getstr(ls, "eid-prefix"),
+                cfg_getint(ls, "iid"),
+                cfg_getint(ls, "key-type"),
+                cfg_getstr(ls, "key"),
+                cfg_getbool(ls, "accept-more-specifics") ? 1:0,
+                cfg_getbool(ls, "proxy-reply") ? 1:0);
+        if (site) {
+            ms_add_lisp_site_prefix(ctrl_dev, site);
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Added lisp site prefix %s to the lisp-sites database.",
+                    cfg_getstr(ls, "eid-prefix"));
+        }else{
+            lispd_log_msg(LISP_LOG_ERR, "Can't add lisp-site prefix %s. Discarded ...",
+                    cfg_getstr(ls, "eid-prefix"));
+        }
+
+    }
+
+
 
     return(GOOD);
 }
@@ -728,6 +757,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     cfg_t                   *cfg                    = 0;
     char                    *mode                   = NULL;
 
+    /* xTR specific */
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
             CFG_INT("key-type",             0, CFGF_NONE),
@@ -777,6 +807,17 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_END()
     };
 
+    /* Map-Server specific */
+    static cfg_opt_t lisp_site_opts[] = {
+            CFG_STR("eid-prefix",               0, CFGF_NONE),
+            CFG_INT("iid",                      0, CFGF_NONE),
+            CFG_INT("key-type",                 0, CFGF_NONE),
+            CFG_STR("key",                      0, CFGF_NONE),
+            CFG_BOOL("accept-more-specifics",   cfg_false, CFGF_NONE),
+            CFG_BOOL("proxy-reply",             cfg_false, CFGF_NONE),
+            CFG_END()
+    };
+
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts, CFGF_MULTI),
             CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
@@ -791,6 +832,8 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
             CFG_STR("operating-mode",       0, CFGF_NONE),
+            CFG_STR("control-iface",        0, CFGF_NONE),
+            CFG_SEC("lisp-site",            lisp_site_opts, CFGF_MULTI),
             CFG_END()
     };
 
@@ -1354,6 +1397,41 @@ void validate_rloc_probing_parameters (
             }
         }
     }
+}
+
+lisp_site_prefix *build_lisp_site_prefix(char *eidstr, uint32_t iid, int key_type, char *key,
+        uint8_t more_specifics, uint8_t proxy_reply) {
+
+    lisp_addr_t         *eid_prefix         = NULL;
+    int                 eid_prefix_length   = 0;
+    lisp_site_prefix    *site               = NULL;
+
+    if (iid > MAX_IID) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        iid = -1;
+    }
+
+    if (iid < 0)
+        iid = 0;
+
+
+    /* EID prefix allocated here and added to the site prefix db
+     * DON'T delete it!
+     */
+    eid_prefix = lisp_addr_new();
+    if (get_lisp_addr_and_mask_from_char(eidstr,eid_prefix,&eid_prefix_length)!=GOOD){
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing EID address ...Ignoring static map cache entry");
+        lisp_addr_del(eid_prefix);
+        return (BAD);
+    }
+    lispd_log_msg(LISP_LOG_WARNING, " the eid %s", lisp_addr_to_char(eid_prefix));
+
+    /* HACK: change afi from IP to IPPREF and set mask */
+    lisp_addr_set_afi(eid_prefix, LM_AFI_IPPREF);
+    ip_prefix_set_plen(lisp_addr_get_ippref(eid_prefix), (uint8_t)eid_prefix_length);
+
+    site = lisp_site_prefix_init(eid_prefix, iid, key_type, key, more_specifics, proxy_reply);
+    return(site);
 }
 
 

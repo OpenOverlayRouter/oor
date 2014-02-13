@@ -78,10 +78,10 @@ char                *mnotify_hdr_to_char(map_notify_msg *msg);
 int                 mnotify_msg_check_auth(map_notify_msg *msg, const char *key);
 
 int                 mnotify_msg_alloc(map_notify_msg *msg);
+uint8_t             *mnotify_msg_push(map_notify_msg *msg, int len);
 mapping_record      *mnotify_msg_push_record(map_notify_msg *msg, int size);
 
 int                 mnotify_msg_write_auth_field(map_notify_msg *msg, auth_field *afield);
-int                 mnotify_msg_fill_auth_field(map_notify_msg *msg, const char *key);
 
 int                 mnotify_msg_write_records(map_notify_msg *msg, glist_t *rec);
 int                 mnotify_msg_create_hdr(map_notify_msg *msg);
@@ -103,6 +103,11 @@ static inline auth_field *mnotify_msg_auth_data(map_notify_msg *msg) {
 
 static inline uint8_t *mnotify_msg_data(map_notify_msg *msg) {
     return(msg->data);
+}
+
+/* easily confused with mnotify_msg_get_len, will change */
+static inline int mnotify_msg_len(map_notify_msg *msg) {
+    return(msg->len);
 }
 
 

@@ -32,11 +32,9 @@
 #include <openssl/evp.h>
 
 void ms_ctrl_start(lisp_ctrl_device *dev) {
-    lisp_ms *ms = NULL;
-    ms = (lisp_ms *)dev;
+//    lisp_ms *ms = NULL;
+//    ms = (lisp_ms *)dev;
     lispd_log_msg(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
-    ms->registered_sites_db = mdb_new();
-    ms->lisp_sites_db = mdb_new();
 }
 
 void ms_ctrl_stop(lisp_ctrl_device *dev) {
@@ -44,11 +42,11 @@ void ms_ctrl_stop(lisp_ctrl_device *dev) {
     ms = (lisp_ms *)dev;
 
     lispd_log_msg(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
-    mdb_del(ms->registered_sites_db);
-    mdb_del(ms->lisp_sites_db);
+    mdb_del(ms->registered_sites_db, (mdb_del_fct)mapping_del);
+    mdb_del(ms->lisp_sites_db, (mdb_del_fct)lisp_site_prefix_del);
 }
 
-int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port)
+int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port)
 {
     lisp_addr_t                 *src_eid                = NULL;
     lisp_addr_t                 *dst_eid                = NULL;
@@ -56,10 +54,11 @@ int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, u
     glist_t                     *itrs                   = NULL;
     glist_t                     *eids                   = NULL;
     glist_entry_t               *it                     = NULL;
-    mapping_t           *mapping                = NULL;
+    mapping_t                   *mapping                = NULL;
     map_reply_opts              opts;
+    lisp_ms                     *ms                     = NULL;
 
-    lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Processing LISP Map-Request message");
+    ms = (lisp_ms *)dev;
 
     if (mreq_msg_get_hdr(mreq)->rloc_probe) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Received LISP Map-Request message with Probe bit set. Discarding!");
@@ -90,7 +89,7 @@ int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, u
     }
 
     /* Set flags for Map-Reply */
-    opts.send_rec   = 0;
+    opts.send_rec   = 1;
     opts.echo_nonce = 0;
     opts.rloc_probe = 0;
 
@@ -109,13 +108,13 @@ int ms_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, u
                 lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
 
         /* Check the existence of the requested EID */
-        if (!(mapping = local_map_db_lookup_eid(dst_eid))){
+        if (!(mapping = mdb_lookup_entry(ms->registered_sites_db, dst_eid))){
             lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Server: the requested EID %s is not registered",
                     lisp_addr_to_char(dst_eid));
             lisp_addr_del(dst_eid);
             continue;
         }
-
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: found mapping with EID %s", lisp_addr_to_char(mapping_eid(mapping)));
 //        if (is_mrsignaling(eid_prefix_record_get_eid(eid)))
 //            return(mrsignaling_recv_mrequest(mreq, dst_eid, local_rloc, remote_rloc, dst_port));
         err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_msg_get_hdr(mreq)->nonce, opts);
@@ -135,22 +134,33 @@ err:
     return(BAD);
 }
 
-map_notify_msg *ms_build_map_notify_msg(lisp_key_type keyid, char *key, glist_t *records) {
+map_notify_msg *build_map_notify_msg(lisp_key_type keyid, char *key, glist_t *records) {
     map_notify_msg  *msg        = NULL;
     uint8_t         *ptr        = NULL;
     glist_entry_t   *it         = NULL;
     mapping_t       *mapping    = NULL;
+    uint8_t         *afptr      = NULL;
 
-    msg = mnotify_msg_alloc();
+    msg = map_notify_msg_new();
+    if (!msg)
+        goto err;
+    mnotify_msg_alloc(msg);
     ptr = mnotify_msg_push(msg, auth_field_get_size_for_type(keyid));
     auth_field_init(ptr, keyid);
+    afptr = ptr;
 
     glist_for_each_entry(it, records) {
         mapping = glist_entry_data(it);
         ptr = mnotify_msg_push(msg, mapping_get_size_in_record(mapping));
-        mapping_write_to_record(ptr, mapping);
+        if (!mapping_fill_record_in_pkt((mapping_record_hdr_t *)ptr, mapping, NULL))
+            goto err;
     }
 
+    auth_field_fill((auth_field_hdr_t*)afptr, mnotify_msg_data(msg) , mnotify_msg_len(msg), keyid, key);
+    return(msg);
+err:
+    map_notify_msg_del(msg);
+    return(NULL);
 }
 
 int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
@@ -161,22 +171,17 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
     lisp_site_prefix    *reg_pref   = NULL;
     map_notify_msg      *mnot_msg   = NULL;
     char                *key        = NULL;
+    lisp_key_type       keyid       = HMAC_SHA_1_96;
     glist_t             *write_recs = NULL;
-    auth_field          *afield     = NULL;
     lisp_addr_t         *eid        = NULL;
+//    auth_field          *afield     = NULL;
 
 
     ms = (lisp_ms *)dev;
-    afield = mreg_msg_get_auth_data(mreg);
+//    afield = mreg_msg_get_auth_data(mreg);
 
     if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY) {
-        mnot_msg = map_notify_msg_new();
-        if (!mnot_msg)
-            goto err;
-        mnotify_msg_alloc(mnot_msg);
-        mnotify_msg_hdr(mnot_msg)->nonce = mreg_msg_get_hdr(mreg)->nonce;
-//        mnotify_msg_write_auth_field(mnot_msg, auth_field_get_hdr(afield)->key_id);
-        write_recs = glist_new(NO_CMP, (glist_del_fct)mapping_record_del);
+        write_recs = glist_new(NO_CMP, (glist_del_fct)mapping_del);
     }
 
     records = mreg_msg_get_records(mreg);
@@ -188,19 +193,19 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
         eid = mapping_eid(mapping);
 
         /* find configured prefix */
-        reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid, NOT_EXACT);
+        reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid);
         if (!reg_pref) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "MS: No prefix configured to accept registration for EID %s! Discarding mapping!",
                     lisp_addr_to_char(eid));
-            free_mapping_elt(mapping, 0);
+            mapping_del(mapping);
             continue;
         }
 
         /* check auth */
         if (!key) {
             if (!mreg_msg_check_auth(mreg, reg_pref->key)) {
-                lispd_log_msg(LISP_LOG_DEBUG_1, "MS: Message validation failed with key associated to EID %s. Stopping processing!",
-                        lisp_addr_to_char(eid));
+                lispd_log_msg(LISP_LOG_DEBUG_1, "MS: Message validation failed with key %s associated to EID %s. Stopping processing!",
+                        reg_pref->key, lisp_addr_to_char(eid));
                 goto bad;
             }
             lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Message validated with key associated to EID %s",
@@ -209,11 +214,17 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
         } else if (strncmp(key, reg_pref->key, strlen(key)) !=0 ) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "MS: EID %s part of multi EID Map-Register has different key! Discarding!",
                     lisp_addr_to_char(eid));
+            continue;
         }
 
 
+        if (mdb_lookup_entry_exact(ms->registered_sites_db, eid)) {
+            lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered", lisp_addr_to_char(eid));
+            goto done;
+        }
+
         /* check if more specific */
-        if (lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0 && reg_pref->accept_more_specifics != MORE_SPECIFICS) {
+        if (reg_pref->accept_more_specifics != MORE_SPECIFICS && lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "MS: EID %s is a more specific of %s. However more specifics not configured! Discarding",
                     lisp_addr_to_char(eid), lisp_addr_to_char(reg_pref->eid_prefix));
             lisp_addr_del(eid);
@@ -227,7 +238,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
 
         /* add record to map-notify */
         if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY){
-            glist_add_tail(write_recs, mapping);
+            glist_add_tail(mapping, write_recs);
         }
 
         lisp_addr_del(eid);
@@ -236,8 +247,9 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
 
     if (mnot_msg) {
         if (glist_size(write_recs) > 0) {
-            mnotify_msg_write_records(mnot_msg, write_recs);
-            mnotify_msg_fill_auth_field(mnot_msg, key);
+            mnot_msg = build_map_notify_msg(keyid, key, write_recs);
+            mnotify_msg_hdr(mnot_msg)->nonce = mreg_msg_get_hdr(mreg)->nonce;
+
 //            send_ctrl_msg(mnot_msg);
         }
         glist_destroy(write_recs);
@@ -245,18 +257,25 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
         map_notify_msg_del(mnot_msg);
     }
 
-
     return(GOOD);
 err:
-    map_notify_msg_del(mnot_msg);
+    if(mnot_msg)
+        map_notify_msg_del(mnot_msg);
     if (write_recs)
         glist_destroy(write_recs);
     return(BAD);
 bad: /* could return different error */
-    map_notify_msg_del(mnot_msg);
+    if(mnot_msg)
+        map_notify_msg_del(mnot_msg);
     if (write_recs)
         glist_destroy(write_recs);
     return(BAD);
+done:
+    if(mnot_msg)
+        map_notify_msg_del(mnot_msg);
+    if (write_recs)
+        glist_destroy(write_recs);
+    return(GOOD);
 }
 
 int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port) {
@@ -264,9 +283,11 @@ int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *
 
      switch(msg->type) {
      case LISP_MAP_REQUEST:
-         ret = ms_process_map_request_msg(msg->msg, local_rloc, remote_port);
+         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Request");
+         ret = ms_process_map_request_msg(dev, msg->msg, local_rloc, remote_port);
          break;
      case LISP_MAP_REGISTER:
+         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Register");
          ret = ms_process_map_register_msg(dev, msg->msg);
          break;
      case LISP_MAP_REPLY:
@@ -291,21 +312,34 @@ int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *
 }
 
 ctrl_device_vtable ms_vtable = {
-        ms_process_lisp_ctrl_msg,
-        ms_ctrl_start
+        .process_msg = ms_process_lisp_ctrl_msg,
+        .start = ms_ctrl_start
 };
 
 lisp_ctrl_device *ms_ctrl_init() {
     lisp_ms *ms;
-    ms = calloc(1, sizeof(lisp_ctrl_device));
+    ms = calloc(1, sizeof(lisp_ms));
     ms->super.mode = 2;
     ms->super.vtable = &ms_vtable;
     lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing Map-Server");
-    local_map_db_init();
+//    local_map_db_init();
+
+    ms->registered_sites_db = mdb_new();
+    ms->lisp_sites_db = mdb_new();
 
     return((lisp_ctrl_device *)ms);
 }
 
+int ms_add_lisp_site_prefix(lisp_ctrl_device *dev, lisp_site_prefix *sp) {
+    lisp_ms *ms = NULL;
+    ms = (lisp_ms *)dev;
 
+    if (!sp)
+        return(BAD);
+
+    if(!mdb_add_entry(ms->lisp_sites_db, lsite_prefix(sp), sp))
+        return(BAD);
+    return(GOOD);
+}
 
 

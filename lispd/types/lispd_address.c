@@ -90,6 +90,7 @@ inline void lisp_addr_del(lisp_addr_t *laddr) {
     case LM_AFI_IP:
     case LM_AFI_IP6:
     case LM_AFI_IPPREF:
+    case LM_AFI_NO_ADDR:
         free(laddr);
         break;
     case LM_AFI_LCAF:
@@ -195,6 +196,8 @@ char *lisp_addr_to_char(lisp_addr_t *addr) {
     case LM_AFI_LCAF:
         return(lcaf_addr_to_char(lisp_addr_get_lcaf(addr)));
         break;
+    case LM_AFI_NO_ADDR:
+        return("_EMPTY_ADDR_");
     default:
         lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_addr_to_char: Trying to convert"
                 " to string unknown LISP AFI %d", lisp_addr_get_afi(addr) );

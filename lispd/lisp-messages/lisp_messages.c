@@ -73,10 +73,8 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
         msg->encapdata = lisp_encap_hdr_parse(packet);
         packet = CO(packet, lisp_encap_data_get_len(msg->encapdata));
     } else {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Parsing control message");
         msg->encap = 0;
     }
-
     msg->type = ((lisp_encap_control_hdr_t *) packet)->type;
     switch (msg->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
@@ -86,6 +84,7 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
         msg->msg = map_request_msg_parse(packet);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
+        msg->msg = map_register_msg_parse(packet);
         break;
     case LISP_MAP_NOTIFY:
         msg->msg = map_notify_msg_parse(packet);
@@ -212,7 +211,6 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
     int i;
 
     mrp = map_request_msg_new();
-
     mrp->data = offset;
     offset = CO(mrp->data, sizeof(map_request_msg_hdr));
     mrp->src_eid = address_field_parse(offset);
@@ -249,6 +247,18 @@ err:
     return(NULL);
 }
 
+void map_request_msg_del(map_request_msg *msg) {
+
+    if (msg->src_eid)
+        address_field_del(msg->src_eid);
+    if (msg->itr_rlocs)
+        glist_destroy(msg->itr_rlocs);
+    if (msg->eids)
+        glist_destroy(msg->eids);
+    free(msg);
+}
+
+
 
 /*
  * Compute and fill auth data field
@@ -256,7 +266,7 @@ err:
  * TODO Support more than SHA1
  */
 
-static int msg_fill_auth_data(uint8_t *msg, int msg_len, lisp_key_type key_id, char *key, uint8_t *md, int *md_len)
+int auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id, const char *key, uint8_t *md, uint32_t *md_len)
 {
     switch(key_id) {
     case NO_KEY:
@@ -280,30 +290,32 @@ static int msg_fill_auth_data(uint8_t *msg, int msg_len, lisp_key_type key_id, c
     return(GOOD);
 }
 
-static int msg_fill_auth_field(auth_field *afield, uint8_t *msg, int msg_len, lisp_key_type keyid, const char *key) {
+int auth_field_fill(auth_field_hdr_t *afield, uint8_t *msg, int msg_len, lisp_key_type keyid, const char *key) {
     uint32_t    md_len  = 0;
-    uint8_t     *adptr  = NULL;
-    adptr = auth_field_auth_data(afield);
+//    uint8_t     *adptr  = NULL;
+//    adptr = auth_field_auth_data(afield);
 
-    if (msg_fill_auth_data(msg, msg_len, keyid, key, adptr, &md_len)!=GOOD)
+    if (auth_data_fill(msg, msg_len, keyid, key, CO(afield, sizeof(auth_field_hdr_t)), &md_len)!=GOOD)
         return(BAD);
 
-    auth_field_hdr(afield)->key_id = htons(keyid);
-    auth_field_hdr(afield)->auth_data_len = htons(md_len);
+    afield->key_id = htons(keyid);
+    afield->auth_data_len = htons(md_len);
+    return(GOOD);
 }
 
 
 /* Checks auth field of Map-Reply and Map-Request messages
  * Returns 1 if validation succeeded and 0 otherwise
  */
-static int msg_check_auth_field(uint8_t *msg, uint32_t msg_len, auth_field *afield, const char *key) {
+int auth_field_check(uint8_t *msg, uint32_t msg_len, auth_field *afield, const char *key) {
     uint8_t     *auth_data_cpy;
     uint32_t    md_len  = 0;
     uint8_t     *adptr  = NULL;
-    int i, ad_len, keyid;
+    uint16_t    ad_len;
+    lisp_key_type keyid;
 
-    keyid = auth_field_hdr(afield)->key_id;
-    ad_len = get_auth_data_len(keyid);
+    keyid = ntohs(auth_field_hdr(afield)->key_id);
+    ad_len = auth_data_get_len_for_type(keyid);
     if (ad_len != ntohs(auth_field_hdr(afield)->auth_data_len))
         return(0);
 
@@ -314,27 +326,13 @@ static int msg_check_auth_field(uint8_t *msg, uint32_t msg_len, auth_field *afie
     memcpy(auth_data_cpy, adptr, ad_len*sizeof(uint8_t));
     memset(adptr, 0, ad_len*sizeof(uint8_t));
 
-    if (msg_fill_auth_data(msg, msg_len, keyid, key, adptr, &md_len)!=GOOD)
+    if (auth_data_fill(msg, msg_len, keyid, key, adptr, &md_len)!=GOOD)
         return(0);
 
     if ((strncmp((char *)adptr, (char *)auth_data_cpy, (size_t)ad_len)) == 0)
         return(1);
     else
         return(0);
-}
-
-
-
-
-void map_request_msg_del(map_request_msg *msg) {
-
-    if (msg->src_eid)
-        address_field_del(msg->src_eid);
-    if (msg->itr_rlocs)
-        glist_destroy(msg->itr_rlocs);
-    if (msg->eids)
-        glist_destroy(msg->eids);
-    free(msg);
 }
 
 
@@ -390,9 +388,29 @@ err:
 }
 
 int mreg_msg_check_auth(map_register_msg *msg, const char *key) {
-    return(msg_check_auth_field(mreg_msg_data(msg), mreg_msg_get_len(msg), mreg_get_auth_data(msg), key));
+    return(auth_field_check(mreg_msg_data(msg), mreg_msg_get_len(msg), mreg_msg_get_auth_data(msg), key));
 }
 
+int mreg_msg_get_len(map_register_msg *msg) {
+    uint16_t len = 0;
+    glist_t             *records    = NULL;
+    glist_entry_t       *it         = NULL;
+
+    len = sizeof(map_notify_msg_hdr_t) + auth_field_get_len(msg->auth_data);
+
+    records = mreg_msg_get_records(msg);
+    glist_for_each_entry(it, records) {
+        len += mapping_record_len(glist_entry_data(it));
+    }
+//    if (mreg_msg_get_hdr(msg)->xtr_id_present)
+//        len += 128*sizeof(uint8_t) + 64*sizeof(uint8_t);
+//    if (mreg_msg_get_hdr(msg)->rtr_auth_present)
+//        len += rtr_auth_field_get_len(msg->rtr_auth);
+
+    records = mreg_msg_get_records(msg);
+
+    return(len);
+}
 
 /*
  * Map-Notify
@@ -420,6 +438,7 @@ map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
     map_notify_msg  *mnotify  = NULL;
     mapping_record  *record   = NULL;
     int i;
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Parsing map notify!");
 
     mnotify = map_notify_msg_new();
     mnotify->data = offset;
@@ -432,6 +451,7 @@ map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
     if (!mnotify->records)
         goto err;
 
+    lispd_log_msg(LISP_LOG_DEBUG_1, "we have %d records", mnotify_msg_hdr(mnotify)->record_count);
     for (i = 0; i < mnotify_msg_hdr(mnotify)->record_count; i++) {
         record = mapping_record_parse(offset);
         if (!record)
@@ -543,88 +563,6 @@ uint8_t *mnotify_msg_push(map_notify_msg *msg, int len) {
     return(CO(msg->data, msg->len - len));
 }
 
-
-//int mnotify_msg_write_records(map_notify_msg *msg, glist_t *recs) {
-//    uint8_t         *offset = NULL;
-//    glist_entry_t   *it     = NULL;
-//    mapping_record  *record = NULL;
-//
-//    offset = CO(msg->data, sizeof(map_notify_msg_hdr)+auth_field_get_len(msg->auth_data));
-//    glist_for_each_entry(it, recs) {
-//        record = glist_entry_data(it);
-//        memcpy(offset, mapping_entry_data(record), mapping_entry_len(record));
-//        offset = CO(offset, mapping_record_len(record));
-//    }
-//
-//    return(GOOD);
-//}
-//
-//
-///* Out of order building procedure */
-//int mnotify_msg_create_hdr(map_notify_msg *msg) {
-//    msg->data = calloc(1, sizeof(map_notify_msg_hdr));
-//    if(!msg->data)
-//        return(BAD);
-//    mnotify_msg_hdr(msg)->lisp_type = LISP_MAP_NOTIFY;
-//    return(GOOD);
-//}
-//
-//int mnotify_msg_add_record(map_notify_msg *msg, mapping_record *record) {
-//    if (!msg->records) {
-//        msg->records = glist_new(NO_CMP, (glist_del_fct)mapping_record_del);
-//        if (!msg->records)
-//            return(BAD);
-//    }
-//    glist_add_tail(msg->records, record);
-//    return(GOOD);
-//}
-//
-//int mnotify_msg_add_auth_field(map_notify_msg *msg, auth_field *afield) {
-//    if (!msg || !afield)
-//        return(BAD);
-//    msg->auth_data = afield;
-//    return(GOOD);
-//}
-//
-//int mnotify_msg_serialize(map_notify_msg *msg, uint8_t *pkt, int *pkt_len) {
-//    uint8_t         *ptr    = NULL;
-//    mapping_record  *record = NULL;
-//    glist_entry_t   *it     = NULL;
-//
-//    if (!msg)
-//        return(BAD);
-//
-//    ptr = msg_send_buf;
-//    memcpy(ptr, msg->data, sizeof(map_notify_msg_hdr));
-//    ptr = CO(ptr, sizeof(map_notify_msg_hdr));
-//    memcpy(ptr, msg->auth_data, auth_data_get_len(msg->auth_data));
-//    ptr = CO(ptr, auth_field_get_len(msg->auth_data));
-//    glist_for_each_entry(it, msg->records) {
-//        record = glist_entry_data(it);
-//        memcpy(ptr, mapping_record_data(record), mapping_record_len(record));
-//        ptr = CO(ptr, mapping_record_len(record));
-//    }
-//
-//    *pkt_len = ptr - msg_send_buf;
-//    pkt = msg_send_buf;
-//
-//    return(GOOD);
-//
-//}
-
-
-
-int mnotify_msg_fill_auth_field(map_notify_msg *msg, int keyid, const char *key) {
-    uint32_t            md_len      = 0;
-    auth_field          *afield     = NULL;
-
-    afield = msg->auth_data;
-    msg_fill_auth_field(afield, msg->data, mnotify_msg_get_len(msg), keyid, key);
-
-    auth_field_hdr(msg->auth_data)->auth_data_len = htons(md_len);
-    return(GOOD);
-}
-
 int mnotify_msg_check_auth(map_notify_msg *msg, const char *key) {
-    return(msg_check_auth_field(mnotify_msg_data(msg), mnotify_msg_get_len(msg), mnotify_get_auth_data(msg), key));
+    return(auth_field_check(mnotify_msg_data(msg), mnotify_msg_get_len(msg), mnotify_msg_auth_data(msg), key));
 }

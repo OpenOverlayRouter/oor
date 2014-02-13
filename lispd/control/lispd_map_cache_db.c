@@ -110,7 +110,7 @@ int mcache_del_mapping(lisp_addr_t *laddr) {
 mapping_t *mcache_lookup_mapping(lisp_addr_t *laddr) {
 
     lispd_map_cache_entry *mce;
-    mce = mdb_lookup_entry(mdb, laddr, 0);
+    mce = mdb_lookup_entry(mdb, laddr);
 
     if ((mce == NULL) || (mce->active == NO_ACTIVE) )
         return(NULL);
@@ -121,7 +121,7 @@ mapping_t *mcache_lookup_mapping(lisp_addr_t *laddr) {
 mapping_t *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
     lispd_map_cache_entry *mce;
 
-    mce = mdb_lookup_entry(mdb, laddr, 1);
+    mce = mdb_lookup_entry_exact(mdb, laddr);
 
     if ((mce == NULL) || (mce->active == NO_ACTIVE) )
         return(NULL);
@@ -179,7 +179,7 @@ int map_cache_add_entry(lispd_map_cache_entry *entry){
 lispd_map_cache_entry *map_cache_lookup(lisp_addr_t *laddr)
 {
     lispd_map_cache_entry *mce;
-    mce = mdb_lookup_entry(mdb, laddr, 0);
+    mce = mdb_lookup_entry(mdb, laddr);
     return(mce);
 }
 
@@ -189,7 +189,7 @@ lispd_map_cache_entry *map_cache_lookup(lisp_addr_t *laddr)
 lispd_map_cache_entry *map_cache_lookup_exact(lisp_addr_t *laddr)
 {
     lispd_map_cache_entry *mce;
-    mce = mdb_lookup_entry(mdb, laddr, 1);
+    mce = mdb_lookup_entry_exact(mdb, laddr);
     return(mce);
 }
 
