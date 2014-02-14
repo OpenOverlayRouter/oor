@@ -93,12 +93,15 @@ int process_lisp_ctr_msg(struct sock *sl)
 {
 
     uint8_t             packet[MAX_IP_PACKET];
-    lisp_addr_t         local_rloc;
-    uint16_t            remote_port;
+//    lisp_addr_t         local_rloc;
+//    uint16_t            remote_port;
     lisp_msg            *msg;
+    udpsock_t           udpsock;
 
 
-    if  (get_packet_and_socket_inf (sl->fd, packet, &local_rloc, &remote_port) != GOOD ) {
+    udpsock.dst_port = LISP_CONTROL_PORT;
+
+    if  (get_packet_and_socket_inf (sl->fd, packet, &udpsock) != GOOD ) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't retrieve socket information for control message! Discarding packet!");
         return(BAD);
     }
@@ -110,21 +113,21 @@ int process_lisp_ctr_msg(struct sock *sl)
     }
 
     if (msg->encapdata)
-        if (process_lisp_msg_encapsulated_data(msg->encapdata, &remote_port) != GOOD)
+        if (process_lisp_msg_encapsulated_data(msg->encapdata, &(udpsock.src_port)) != GOOD)
             return(BAD);
 
     /* ====================== */
     /* FC: should be moved in xtr once process_info_nat_msg is updated to work with lisp_msg */
     if (msg->type == LISP_INFO_NAT) {
           lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-          if(!process_info_nat_msg(packet, local_rloc)){
+          if(!process_info_nat_msg(packet, udpsock.dst)){
               return (BAD);
           }
           return(GOOD);
     }
     /* ======================  */
 
-    process_ctrl_msg(ctrl_dev, msg, &local_rloc, remote_port);
+    process_ctrl_msg(ctrl_dev, msg, &udpsock);
 //    (*ctrl_dev->process_lisp_ctrl_msg)(msg, &local_rloc, remote_port);
 
     lisp_msg_del(msg);

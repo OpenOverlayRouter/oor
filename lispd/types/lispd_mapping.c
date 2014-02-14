@@ -962,10 +962,14 @@ inline uint16_t mapping_get_locator_count(mapping_t *mapping) {
 int mapping_get_size_in_record(mapping_t *mapping) {
     int locs_length = 0;
 
-    locs_length = locator_list_get_size_in_field(mapping->head_v4_locators_list)
-            + locator_list_get_size_in_field(mapping->head_v6_locators_list);
+    if (!mapping)
+        return(0);
+    if (mapping->head_v4_locators_list)
+        locs_length += locator_list_get_size_in_field(mapping->head_v4_locators_list);
+    if (mapping->head_v6_locators_list)
+        locs_length += locator_list_get_size_in_field(mapping->head_v6_locators_list);
 
-    return(sizeof(mapping_record_hdr_t) + lisp_addr_get_size_in_field(mapping_eid(mapping)) + locs_length );
+    return(sizeof(mapping_record_hdr_t) + lisp_addr_get_size_in_field(mapping_eid(mapping)) + locs_length);
 }
 
 mapping_t *mapping_init_from_record(mapping_record *record) {

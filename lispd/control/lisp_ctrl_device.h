@@ -46,7 +46,7 @@ typedef struct _lisp_ctrl_device lisp_ctrl_device;
 
 /* FC: global variables are to be passed to these structure */
 typedef struct _ctrl_device_vtable {
-    int (*process_msg)(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port);
+    int (*process_msg)(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock);
 //    int (*send_ctrl_msg)(lisp_ctrl_device *dev, lisp_msg *msg);
     void (*start)(lisp_ctrl_device *dev);
 } ctrl_device_vtable;
@@ -56,7 +56,7 @@ struct _lisp_ctrl_device {
     int mode;
 };
 
-int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port);
+int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock);
 
 void lisp_ctrl_dev_start(lisp_ctrl_device *dev);
 

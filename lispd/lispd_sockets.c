@@ -408,7 +408,7 @@ int open_data_input_socket(int afi){
 int send_packet (
         int     sock,
         uint8_t *packet,
-        int     packet_length )
+        int     packet_length)
 {
     struct sockaddr *dst_addr = NULL;
     int dst_addr_len = 0;
@@ -419,6 +419,8 @@ int send_packet (
     struct iphdr *iph = NULL;
     struct ip6_hdr *ip6h = NULL;
     int nbytes = 0;
+    lispd_log_msg(LISP_LOG_DEBUG_1, "in send pkt len %d", packet_length);
+
 
     memset((char *) &dst_addr, 0, sizeof(dst_addr));
 
@@ -465,9 +467,9 @@ int send_packet (
         }
 
         lispd_log_msg(LISP_LOG_DEBUG_2,
-                "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d",
+                "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d, packet len %d",
                 strerror(errno), ip_addr_to_char(&pkt_src_addr),
-                ip_addr_to_char(&pkt_dst_addr), sock);
+                ip_addr_to_char(&pkt_dst_addr), sock, packet_length);
         return (BAD);
     }
 
@@ -481,10 +483,8 @@ int send_packet (
 
 int get_packet_and_socket_inf (
         int             sock,
-//        int             afi,
         uint8_t         *packet,
-        lisp_addr_t     *local_rloc,
-        uint16_t        *remote_port)
+        udpsock_t       *udpsock)
 {
 
     union control_data {
@@ -513,13 +513,6 @@ int get_packet_and_socket_inf (
     msg.msg_name = &su;
     msg.msg_namelen = sizeof(union sockunion);
 
-//    if (afi == AF_INET){
-//        msg.msg_name = &s4;
-//        msg.msg_namelen = sizeof (struct sockaddr_in);
-//    }else{
-//        msg.msg_name = &s6;
-//        msg.msg_namelen = sizeof (struct sockaddr_in6);
-//    }
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
@@ -532,23 +525,30 @@ int get_packet_and_socket_inf (
     if (su.s4.sin_family == AF_INET){
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_PKTINFO) {
-                lisp_addr_set_afi(local_rloc, LM_AFI_IP);
-                ip_addr_set_v4(lisp_addr_get_ip(local_rloc), &(((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr));
+//                lisp_addr_set_afi(local_rloc, LM_AFI_IP);
+                lisp_addr_set_afi(&udpsock->dst, LM_AFI_IP);
+                ip_addr_set_v4(lisp_addr_get_ip(&udpsock->dst), &(((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr));
                 break;
             }
         }
 
-        *remote_port = ntohs(su.s4.sin_port);
-//        *remote_port = noths(((struct sockaddr_in*)msg.msg_name)->sin_port);
+//        *remote_port = ntohs(su.s4.sin_port);
+        lisp_addr_set_afi(&udpsock->src, LM_AFI_IP);
+        ip_addr_set_v4(lisp_addr_get_ip(&udpsock->src), &su.s4.sin_addr);
+        udpsock->src_port = ntohs(su.s4.sin_port);
     }else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO) {
-                lisp_addr_set_afi(local_rloc, LM_AFI_IP);
-                ip_addr_set_v6(lisp_addr_get_ip(local_rloc), &(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr));
+                lisp_addr_set_afi(&udpsock->dst, LM_AFI_IP);
+                ip_addr_set_v6(lisp_addr_get_ip(&udpsock->dst), &(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr));
                 break;
             }
         }
-        *remote_port = ntohs(su.s6.sin6_port);
+//        *remote_port = ntohs(su.s6.sin6_port);
+        /* src addr and port */
+        lisp_addr_set_afi(&udpsock->src, LM_AFI_IP);
+        ip_addr_set_v6(lisp_addr_get_ip(&udpsock->src), &su.s6.sin6_addr);
+        udpsock->src_port = ntohs(su.s6.sin6_port);
     }
 
     return (GOOD);

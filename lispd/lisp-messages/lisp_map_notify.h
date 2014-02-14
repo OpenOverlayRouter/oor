@@ -66,7 +66,8 @@ typedef struct _map_notify_msg {
     rtr_auth_field  *rtr_auth;
 
     /* should be at the end*/
-    uint16_t        len;    /* also offset to end of data */
+    uint16_t        len;
+    uint8_t         *head;
     uint8_t         *data;
 } map_notify_msg;
 
@@ -78,6 +79,8 @@ char                *mnotify_hdr_to_char(map_notify_msg *msg);
 int                 mnotify_msg_check_auth(map_notify_msg *msg, const char *key);
 
 int                 mnotify_msg_alloc(map_notify_msg *msg);
+void                mnotify_msg_reserve(map_notify_msg *msg, int len);
+uint8_t             *mnotify_msg_put(map_notify_msg *msg, int len);
 uint8_t             *mnotify_msg_push(map_notify_msg *msg, int len);
 mapping_record      *mnotify_msg_push_record(map_notify_msg *msg, int size);
 

@@ -30,7 +30,12 @@
 #include <string.h>
 
 /* buffer used for filling in and sending messages */
-static uint8_t msg_send_buf[500];
+static uint8_t msg_send_buf[2000];
+
+/* The maximum length of the headers, when we have IPv6 encapsulated control messages
+ * is 100 bytes. Allocate 150 for safety
+ */
+#define MAX_HEADERS_LEN 150
 
 inline char *msg_type_to_char(int type) {
     static char buf[40];
@@ -526,41 +531,59 @@ char *mnotify_hdr_to_char(map_notify_msg *msg) {
     return(buf);
 }
 
-/* In-order writing */
+
+/* FC TODO: this should be generalized into a msgbuf  */
 
 /* Allocates a chunk of memory where to write the message
  * For starters, we use a static buffer*/
 int mnotify_msg_alloc(map_notify_msg *msg) {
-    msg->data = msg_send_buf;
-    /* clear hdr */
+    msg->data = CO(msg_send_buf, MAX_HEADERS_LEN);
+    msg->head = msg_send_buf;
+
+    /* clear hdr*/
     memset(msg->data, 0, sizeof(map_notify_msg_hdr_t));
+
     mnotify_msg_hdr(msg)->lisp_type = LISP_MAP_NOTIFY;
     msg->len = sizeof(map_notify_msg_hdr_t);
     return(GOOD);
 }
 
-mapping_record *mnotify_msg_push_record(map_notify_msg *msg, int size) {
-    mapping_record *record  = NULL;
-    if (!msg->data)
-        goto err;
-    if (!msg->records) {
-        msg->records = glist_new(NO_CMP, (glist_del_fct)mapping_record_del);
-        if (!msg->records)
-            goto err;
-    }
-    if (!(record = mapping_record_new()))
-        goto err;
-    mapping_record_set_data(record, CO(msg->data, msg->len));
-    glist_add(record, msg->records);
-    msg->len += size;
-    return(record);
-err:
-    return(NULL);
+/*
+ * allocate some header space
+ */
+void mnotify_msg_reserve(map_notify_msg *msg, int len) {
+    msg->data = CO(msg->data, len);
+}
+
+
+//mapping_record *mnotify_msg_push_record(map_notify_msg *msg, int size) {
+//    mapping_record *record  = NULL;
+//    if (!msg->data)
+//        goto err;
+//    if (!msg->records) {
+//        msg->records = glist_new(NO_CMP, (glist_del_fct)mapping_record_del);
+//        if (!msg->records)
+//            goto err;
+//    }
+//    if (!(record = mapping_record_new()))
+//        goto err;
+//    mapping_record_set_data(record, CO(msg->data, msg->len));
+//    glist_add(record, msg->records);
+//    msg->len += size;
+//    return(record);
+//err:
+//    return(NULL);
+//}
+
+uint8_t *mnotify_msg_put(map_notify_msg *msg, int len) {
+    msg->len += len;
+    return(CO(msg->data, msg->len - len));
 }
 
 uint8_t *mnotify_msg_push(map_notify_msg *msg, int len) {
+    msg->data -= len;
     msg->len += len;
-    return(CO(msg->data, msg->len - len));
+    return(msg->data);
 }
 
 int mnotify_msg_check_auth(map_notify_msg *msg, const char *key) {

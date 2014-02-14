@@ -31,6 +31,12 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 
+
+/* for testing, should move them out */
+#include <lispd_lib.h>
+#include <lispd_pkt_lib.h>
+#include <lispd_sockets.h>
+
 void ms_ctrl_start(lisp_ctrl_device *dev) {
 //    lisp_ms *ms = NULL;
 //    ms = (lisp_ms *)dev;
@@ -134,6 +140,69 @@ err:
     return(BAD);
 }
 
+int push_ip_udp_hdr(
+        map_notify_msg  *msg,
+        lisp_addr_t     *addr_from,
+        lisp_addr_t     *addr_dest,
+        int             port_from,
+        int             port_dest)
+{
+    void            *iph_ptr                    = NULL;
+    struct udphdr   *udph_ptr                   = NULL;
+//    int             ip_hdr_len                  = 0;
+//    int             udp_hdr_len                 = 0;
+    int             udp_hdr_and_payload_len     = 0;
+    uint16_t        udpsum                      = 0;
+
+    lispd_log_msg(LISP_LOG_DEBUG_2,"src %s and dst %s, srcport %d, dstport %d",
+            lisp_addr_to_char(addr_from), lisp_addr_to_char(addr_dest), port_from, port_dest);
+
+    if (lisp_addr_ip_get_afi(addr_from) != lisp_addr_ip_get_afi(addr_dest)) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses %d and %d",
+                lisp_addr_ip_get_afi(addr_from), lisp_addr_ip_get_afi(addr_dest));
+        return(BAD);
+    }
+
+    if ((lisp_addr_ip_get_afi(addr_from) != AF_INET) && (lisp_addr_ip_get_afi(addr_from) != AF_INET6)) {
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Unknown AFI %d",
+               lisp_addr_ip_get_afi(addr_from) );
+        return(BAD);
+    }
+
+    /* UDP header */
+    udp_hdr_and_payload_len = sizeof(struct udphdr) + mnotify_msg_len(msg);
+    udph_ptr = (struct udphdr *)mnotify_msg_push(msg, sizeof(struct udphdr));
+#ifdef BSD
+    udph_ptr->uh_sport = htons(port_from);
+    udph_ptr->uh_dport = htons(port_dest);
+    udph_ptr->uh_ulen = htons(mnotify_msg_len(msg));
+    udph_ptr->uh_sum = 0;
+#else
+    udph_ptr->source = htons(port_from);
+    udph_ptr->dest = htons(port_dest);
+    udph_ptr->len = htons(udp_hdr_and_payload_len);
+    udph_ptr->check = 0;
+#endif
+
+    /* IP header */
+    iph_ptr = mnotify_msg_push(msg, get_ip_header_len(addr_from->afi));
+
+    if (build_ip_header(iph_ptr, addr_from, addr_dest, udp_hdr_and_payload_len) == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't build the inner ip header");
+        return(BAD);
+    }
+
+    /*
+     * Now compute the headers checksums
+     */
+
+    if ((udpsum = udp_checksum(udph_ptr, udp_hdr_and_payload_len, iph_ptr, addr_from->afi)) == -1)
+        return(BAD);
+
+    udpsum(udph_ptr) = udpsum;
+    return(GOOD);
+}
+
 map_notify_msg *build_map_notify_msg(lisp_key_type keyid, char *key, glist_t *records) {
     map_notify_msg  *msg        = NULL;
     uint8_t         *ptr        = NULL;
@@ -145,13 +214,14 @@ map_notify_msg *build_map_notify_msg(lisp_key_type keyid, char *key, glist_t *re
     if (!msg)
         goto err;
     mnotify_msg_alloc(msg);
-    ptr = mnotify_msg_push(msg, auth_field_get_size_for_type(keyid));
+    ptr = mnotify_msg_put(msg, auth_field_get_size_for_type(keyid));
     auth_field_init(ptr, keyid);
     afptr = ptr;
+    mnotify_msg_hdr(msg)->record_count = glist_size(records);
 
     glist_for_each_entry(it, records) {
         mapping = glist_entry_data(it);
-        ptr = mnotify_msg_push(msg, mapping_get_size_in_record(mapping));
+        ptr = mnotify_msg_put(msg, mapping_get_size_in_record(mapping));
         if (!mapping_fill_record_in_pkt((mapping_record_hdr_t *)ptr, mapping, NULL))
             goto err;
     }
@@ -163,7 +233,7 @@ err:
     return(NULL);
 }
 
-int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
+int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, udpsock_t *udpsock) {
     glist_t             *records    = NULL;
     glist_entry_t       *it         = NULL;
     mapping_t           *mapping    = NULL;
@@ -182,6 +252,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
 
     if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY) {
         write_recs = glist_new(NO_CMP, (glist_del_fct)mapping_del);
+        mnot_msg = map_notify_msg_new();
     }
 
     records = mreg_msg_get_records(mreg);
@@ -234,14 +305,14 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
         /* save prefix to the registered sites db */
         mdb_add_entry(ms->registered_sites_db, mapping_eid(mapping), mapping);
 
-        /* start timers */
+        /* TODO: start timers */
 
         /* add record to map-notify */
         if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY){
             glist_add_tail(mapping, write_recs);
         }
 
-        lisp_addr_del(eid);
+//        lisp_addr_del(eid);
 
     }
 
@@ -249,8 +320,15 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg) {
         if (glist_size(write_recs) > 0) {
             mnot_msg = build_map_notify_msg(keyid, key, write_recs);
             mnotify_msg_hdr(mnot_msg)->nonce = mreg_msg_get_hdr(mreg)->nonce;
+            lispd_log_msg(LISP_LOG_DEBUG_1, "packet len %d", mnotify_msg_len(mnot_msg));
+            push_ip_udp_hdr(mnot_msg, get_default_ctrl_address(lisp_addr_ip_get_afi(&udpsock->src)),
+                    &udpsock->src, LISP_CONTROL_PORT, LISP_CONTROL_PORT);
+            lispd_log_msg(LISP_LOG_DEBUG_1, "packet len %d", mnotify_msg_len(mnot_msg));
 
-//            send_ctrl_msg(mnot_msg);
+            if (send_packet(get_default_ctrl_socket(lisp_addr_ip_get_afi(&udpsock->dst)),
+                    mnotify_msg_data(mnot_msg), mnotify_msg_len(mnot_msg)) != GOOD) {
+                lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Failed to send Map-Notify");
+            }
         }
         glist_destroy(write_recs);
         // dealloc??
@@ -278,17 +356,17 @@ done:
     return(GOOD);
 }
 
-int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port) {
+int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock) {
     int ret = BAD;
 
      switch(msg->type) {
      case LISP_MAP_REQUEST:
          lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Request");
-         ret = ms_process_map_request_msg(dev, msg->msg, local_rloc, remote_port);
+         ret = ms_process_map_request_msg(dev, msg->msg, &udpsock->dst, udpsock->src_port);
          break;
      case LISP_MAP_REGISTER:
          lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Register");
-         ret = ms_process_map_register_msg(dev, msg->msg);
+         ret = ms_process_map_register_msg(dev, msg->msg, udpsock);
          break;
      case LISP_MAP_REPLY:
      case LISP_MAP_NOTIFY:

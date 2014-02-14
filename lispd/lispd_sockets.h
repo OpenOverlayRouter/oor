@@ -69,6 +69,12 @@ struct sock {
     struct sock    *prev;
 };
 
+typedef struct _udpsock_t {
+    lisp_addr_t src;
+    lisp_addr_t dst;
+    uint16_t    src_port;
+    uint16_t    dst_port;
+} udpsock_t;
 
 
 struct sock_master {
@@ -122,10 +128,8 @@ int send_packet (
 
 int get_packet_and_socket_inf (
         int             sock,
-//        int             afi,
         uint8_t         *packet,
-        lisp_addr_t     *local_rloc,
-        uint16_t        *remote_port);
+        udpsock_t       *udpsock);
 
 int get_data_packet (
     int             sock,

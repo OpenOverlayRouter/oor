@@ -30,7 +30,7 @@
 
 int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);
 
-int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port){
+int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock){
     int ret = 0;
 
     switch(msg->type) {
@@ -38,7 +38,7 @@ int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *loca
       ret = process_map_reply_msg(msg->msg);
       break;
     case LISP_MAP_REQUEST:
-      ret = xtr_process_map_request_msg(msg->msg, local_rloc, remote_port);
+      ret = xtr_process_map_request_msg(msg->msg, &udpsock->dst, udpsock->src_port);
       break;
     case LISP_MAP_REGISTER:
       break;

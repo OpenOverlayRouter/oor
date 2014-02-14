@@ -33,8 +33,8 @@
 #include <lispd_lib.h>
 
 
-int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, lisp_addr_t *local_rloc, uint16_t remote_port) {
-    return(dev->vtable->process_msg(dev, msg, local_rloc, remote_port));
+int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock) {
+    return(dev->vtable->process_msg(dev, msg, udpsock));
 }
 
 void lisp_ctrl_dev_start(lisp_ctrl_device *dev) {
@@ -1125,3 +1125,5 @@ int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uin
 
     return (GOOD);
 }
+
+
