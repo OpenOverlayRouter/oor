@@ -847,39 +847,36 @@ void rle_type_copy(void **dst, void *src) {
  */
 
 elp_t *elp_type_new() {
-    return(calloc(1, sizeof(elp_t)));
+    elp_t *elp;
+    elp = calloc(1, sizeof(elp_t));
+    elp->nodes = glist_new(NO_CMP, (glist_del_fct)elp_node_del);
+    return(elp);
 }
 
 void elp_type_del(void *elp) {
-    elp_node_t *node        = NULL;
-    elp_node_t *aux_node    = NULL;
-    node = ((elp_t *)elp)->nodes;
-    while(node) {
-        lisp_addr_del(node->addr);
-        aux_node = node->next;
-        free(node);
-        node = aux_node;
-    }
+    glist_destroy(((elp_t *)elp)->nodes);
     free(elp);
 }
 
 int elp_type_get_size_to_write(void *elp) {
+    glist_entry_t   *it     = NULL;
+    elp_node_t      *node   = NULL;
     uint32_t len = 0;
-    elp_node_t *node    = NULL;
 
     len += sizeof(lcaf_elp_hdr_t);
-    node = ((elp_t *)elp)->nodes;
-    while(node) {
+    glist_for_each_entry(it, ((elp_t *)elp)->nodes) {
+        node = glist_entry_data(it);
         len += sizeof(elp_node_flags) + lisp_addr_get_size_in_field(node->addr);
-        node = node->next;
     }
+
     return(len);
 }
 
 int elp_type_write_to_pkt(uint8_t *offset, void *elp) {
-    uint32_t    len = 0, addrlen;
-    elp_node_t  *node    = NULL;
-    uint8_t     *cur_ptr = NULL;
+    uint32_t        len = 0, addrlen;
+    elp_node_t      *node    = NULL;
+    uint8_t         *cur_ptr = NULL;
+    glist_entry_t   *it     = NULL;
 
     cur_ptr = offset;
     ((lcaf_elp_hdr_t*)cur_ptr)->afi = htons(LISP_AFI_LCAF);
@@ -890,8 +887,8 @@ int elp_type_write_to_pkt(uint8_t *offset, void *elp) {
     len += sizeof(lcaf_elp_hdr_t);
     cur_ptr = CO(cur_ptr, sizeof(lcaf_elp_hdr_t));
 
-    node = ((elp_t *)elp)->nodes;
-    while(node) {
+    glist_for_each_entry(it, ((elp_t *)elp)->nodes) {
+        node = glist_entry_data(it);
         ((elp_node_flags *)cur_ptr)->L = node->L;
         ((elp_node_flags *)cur_ptr)->P = node->P;
         ((elp_node_flags *)cur_ptr)->S = node->S;
@@ -903,7 +900,6 @@ int elp_type_write_to_pkt(uint8_t *offset, void *elp) {
             return(BAD);
         cur_ptr = CO(cur_ptr, addrlen);
         len += sizeof(elp_node_flags) + addrlen;
-        node = node->next;
     }
     /* length is only what follows the first 8 bytes of the lcaf hdr */
     ((lcaf_elp_hdr_t*)offset)->length = htons(len-sizeof(lcaf_elp_hdr_t));
@@ -913,7 +909,6 @@ int elp_type_write_to_pkt(uint8_t *offset, void *elp) {
 int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
     int                 len = 0, totallen = 0, readlen=0;
     elp_node_t          *enode = NULL;
-    elp_node_t          *aux_enode = NULL;
     elp_node_flags      *flags = NULL;
     elp_t               *elp_ptr = NULL;
 
@@ -924,7 +919,6 @@ int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
     readlen = sizeof(lcaf_elp_hdr_t);
     offset = CO(offset, sizeof(lcaf_elp_hdr_t));
 
-    aux_enode = elp_ptr->nodes;
     while(totallen > 0) {
         enode = calloc(1, sizeof(elp_node_t));
         flags = (elp_node_flags *)offset;
@@ -940,26 +934,14 @@ int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
         totallen = totallen - sizeof(elp_node_flags) - len;
         readlen += sizeof(elp_node_flags) + len;
 
-        if (aux_enode) {
-            aux_enode->next = enode;
-            aux_enode = enode;
-        } else {
-            aux_enode = enode;
-        }
-        elp_ptr->nb_nodes++;
+        glist_add_tail(enode, elp_ptr->nodes);
+
     }
 
     return(readlen);
 
 err:
-    enode = elp_ptr->nodes;
-    while(enode) {
-        if (enode->addr)
-            lisp_addr_del(enode->addr);
-        aux_enode = enode->next;
-        free(enode);
-        enode = aux_enode;
-    }
+    glist_destroy(elp_ptr->nodes);
     return(BAD);
 }
 
@@ -968,15 +950,16 @@ char *elp_type_to_char(void *elp) {
     static unsigned int i;
     i++; i = i % 10;
 
-    elp_node_t *aux_node;
-    int j;
+    glist_entry_t *it;
+    elp_node_t *node;
+    int j = 0;
 
-    aux_node = ((elp_t *)elp)->nodes;
     sprintf(buf[i], "\nLCAF ELP\n");
-    for (j = 0; j < ((elp_t *)elp)->nb_nodes; j++) {
-        sprintf(buf[i]+strlen(buf[i]), "Hop %d: %s flags: %s%s%s\n", j, lisp_addr_to_char(aux_node->addr),
-                (aux_node->L) ? "L" : "l", (aux_node->P) ? "P" : "p", (aux_node->S) ? "S" : "s");
-        aux_node = aux_node->next;
+    glist_for_each_entry(it, ((elp_t *)elp)->nodes) {
+        j++;
+        node = glist_entry_data(it);
+        sprintf(buf[i]+strlen(buf[i]), "Hop %d: %s flags: %s%s%s\n", j, lisp_addr_to_char(node->addr),
+                (node->L) ? "L" : "l", (node->P) ? "P" : "p", (node->S) ? "S" : "s");
     }
     return(buf[i]);
 }
@@ -994,43 +977,55 @@ void elp_type_copy(void **dst, void *src) {
     elp_t       *elp_ptr    = NULL;
     elp_node_t  *node       = NULL;
     elp_node_t  *cp_node    = NULL;
+    glist_entry_t *it       = NULL;
 
     elp_ptr = *dst;
     if (!elp_ptr)
         elp_ptr = elp_type_new();
-    elp_ptr->nb_nodes = ((elp_t *)src)->nb_nodes;
-    node = ((elp_t *)src)->nodes;
 
-    cp_node = elp_ptr->nodes;
-    while(node) {
+    glist_for_each_entry(it, ((elp_t *)src)->nodes) {
+        node = glist_entry_data(it);
         cp_node = elp_node_clone(node);
-        node = node->next;
-        cp_node = cp_node->next;
+        glist_add(cp_node, elp_ptr->nodes);
     }
+
 }
 
 
 int elp_type_cmp(void *elp1, void *elp2) {
     elp_node_t  *node1      = NULL;
     elp_node_t  *node2      = NULL;
+    glist_entry_t   *it1    = NULL;
+    glist_entry_t   *it2    = NULL;
     int ret = 0;
 
-    if (((elp_t *)elp1)->nb_nodes !=  ((elp_t *)elp2)->nb_nodes)
-        return((((elp_t *)elp1)->nb_nodes > ((elp_t *)elp2)->nb_nodes) ? 1 : 2);
 
-    node1 = ((elp_t *)elp1)->nodes;
-    node2 = ((elp_t *)elp2)->nodes;
+    it1 = glist_first(((elp_t*)elp1)->nodes);
+    it2 = glist_first(((elp_t*)elp2)->nodes);
 
-    while(node1 && node2) {
+    while(it1 != glist_head(((elp_t*)elp1)->nodes) && it2 != glist_head(((elp_t*)elp2)->nodes)) {
+        node1 = glist_entry_data(it1);
+        node2 = glist_entry_data(it2);
         if (node1->L != node2->L || node1->S != node2->S || node1->P != node2->P)
             return(1);
         if ((ret = lisp_addr_cmp(node1->addr, node2->addr)) != 0)
             return(ret);
-        node1 = node1->next;
-        node2 = node2->next;
+        it1 = glist_next(it1);
+        it2 = glist_next(it2);
     }
 
     return(0);
+}
+
+inline void elp_node_del(elp_node_t *enode) {
+    lisp_addr_del(enode->addr);
+    free(enode);
+}
+
+inline void lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode) {
+    if (!((elp_t *)lcaf->addr)->nodes)
+        ((elp_t *)lcaf->addr)->nodes = glist_new(NO_CMP, (glist_del_fct)elp_node_del);
+    glist_add_tail(enode, ((elp_t *)lcaf->addr)->nodes);
 }
 
 

@@ -611,22 +611,22 @@ int select_src_locators_from_balancing_locators_vec (
 lisp_addr_t *get_locator_from_lcaf(lisp_addr_t *laddr) {
     lcaf_addr_t             *lcaf       = NULL;
     elp_node_t              *elp_node   = NULL;
-    lispd_iface_list_elt    *interface = NULL;
+    lispd_iface_list_elt    *interface  = NULL;
+    glist_entry_t           *it         = NULL;
 
     lcaf = lisp_addr_get_lcaf(laddr);
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_EXPL_LOC_PATH:
-        elp_node = lcaf_elp_get_node_list(lcaf);
-        while (elp_node) {
+        glist_for_each_entry(it, lcaf_elp_get_node_list(lcaf)) {
+            elp_node = glist_entry_data(it);
             interface = head_interface_list;
             while (interface) {
                 if (lisp_addr_cmp(interface->iface->ipv4_address, elp_node->addr))
-                    return(elp_node->next->addr);
+                    return(((elp_node_t *)glist_next(it))->addr);
                 if (lisp_addr_cmp(interface->iface->ipv6_address, elp_node->addr))
-                    return(elp_node->next->addr);
+                    return(((elp_node_t *)glist_next(it))->addr);
                 interface = interface->next;
             }
-            elp_node = elp_node->next;
         }
         return(NULL);
         break;

@@ -443,7 +443,7 @@ map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
     map_notify_msg  *mnotify  = NULL;
     mapping_record  *record   = NULL;
     int i;
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Parsing map notify!");
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Parsing map notify!");
 
     mnotify = map_notify_msg_new();
     mnotify->data = offset;

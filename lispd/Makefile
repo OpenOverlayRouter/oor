@@ -60,6 +60,7 @@ OBJS		= cmdline.o	\
 		  data-tun/lispd_output.o	\
 		  data-tun/lispd_tun.o	\
 		  data-tun/lispd_routing_tables_lib.o \
+		  elibs/htable/hash_table.o	\
 		  elibs/llist/generic_list.o	\
 		  elibs/patricia/patricia.o	\
 		  lisp-messages/lisp_messages.o	\

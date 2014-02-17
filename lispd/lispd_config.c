@@ -47,6 +47,7 @@
 #include "lispd_rloc_probing.h"
 #include "lispd_lcaf.h"
 #include "lispd_control.h"
+#include "elibs/htable/hash_table.h"
 
 
 
@@ -87,7 +88,8 @@ int add_static_map_cache_entry(
         int    iid,
         char   *rloc,
         int    priority,
-        int    weight);
+        int    weight,
+        HashTable *elp_hash);
 
 void validate_rloc_probing_parameters (
         int probe_int,
@@ -464,6 +466,45 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
  */
 
 
+static HashTable *parse_elp_list(cfg_t *cfg) {
+    HashTable   *ht     = NULL;
+    elp_node_t  *enode  = NULL;
+    elp_t       *elp    = NULL;
+    lisp_addr_t *laddr  = NULL;
+    char        *name   = NULL;
+    int i, j;
+
+    ht = hash_table_new(g_str_hash, g_str_equal, (DestroyFunc)lisp_addr_del);
+    for(i = 0; i < cfg_size(cfg, "explicit-locator-path"); i++) {
+        cfg_t *selp = cfg_getnsec(cfg, "explicit-locator-path", i);
+        name = cfg_getstr(selp, "elp-name");
+
+        laddr = lisp_addr_new();
+        elp = lisp_addr_lcaf_get_addr(laddr);
+        elp = calloc(1, sizeof(elp_t));
+
+        for (j = 0; j < cfg_size(selp, "elp-node");j++) {
+            cfg_t *senode = cfg_getnsec(selp, "elp-node", j);
+            enode = calloc(1, sizeof(elp_node_t));
+            enode->addr = lisp_addr_new();
+            if (get_lisp_addr_from_char(cfg_getstr(senode, "address"), enode->addr) != GOOD) {
+                elp_node_del(enode);
+                lispd_log_msg(LISP_LOG_DEBUG_1, "parse_elp_list: Couldn't parse ELP node %s",
+                        cfg_getstr(senode, "address"));
+                continue;
+            }
+            enode->L = cfg_getbool(senode, "lookup") ? 1 : 0;
+            enode->P = cfg_getbool(senode, "probe") ? 1 : 0;
+            enode->S = cfg_getbool(senode, "strict") ? 1: 0;
+
+            glist_add_tail(enode, elp->nodes);
+        }
+        hash_table_insert(ht, name, laddr);
+    }
+
+    return(ht);
+}
+
 int configure_rtr(cfg_t *cfg) {
     int                     i                       = 0;
     int                     n                       = 0;
@@ -472,6 +513,7 @@ int configure_rtr(cfg_t *cfg) {
     int                     probe_retries           = 0;
     int                     probe_retries_interval  = 0;
     char                    *map_resolver           = NULL;
+    HashTable               *elp_ht                 = NULL;
 
 
     /* initialize rtr - as a control device, it is only an xtr */
@@ -512,6 +554,39 @@ int configure_rtr(cfg_t *cfg) {
         }
     }
 
+    /*
+     *  handle static-map-cache config
+     */
+
+    /* get a hash table of all the elps. If any are configured,
+     * their names could appear in the rloc field of static map cache entries  */
+    elp_ht = parse_elp_list(cfg);
+
+
+    n = cfg_size(cfg, "static-map-cache");
+    for(i = 0; i < n; i++) {
+        cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
+
+        if (!add_static_map_cache_entry(cfg_getstr(smc, "eid-prefix"),
+                cfg_getint(smc, "iid"),
+                cfg_getstr(smc, "rloc"),
+                cfg_getint(smc, "priority"),
+                cfg_getint(smc, "weight"),
+                elp_ht)
+
+        ) {
+            lispd_log_msg(LISP_LOG_WARNING,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
+                    cfg_getstr(smc, "eid-prefix"),
+                    cfg_getstr(smc, "rloc"));
+        }else{
+            lispd_log_msg(LISP_LOG_DEBUG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
+                    cfg_getstr(smc, "eid-prefix"),
+                    cfg_getstr(smc, "rloc"));
+        }
+    }
+
+    hash_table_destroy(elp_ht);
+
     return(GOOD);
 }
 
@@ -528,6 +603,7 @@ int configure_xtr(cfg_t *cfg) {
     int                     probe_retries           = 0;
     int                     probe_retries_interval  = 0;
     int                     ctr                     = 0;
+    HashTable               *elp_ht                 = NULL;
 
     /* initialize xtr */
     ctrl_dev = (lisp_ctrl_device *)xtr_ctrl_init();
@@ -676,6 +752,11 @@ int configure_xtr(cfg_t *cfg) {
      *  handle static-map-cache config
      */
 
+    /* get a hash table of all the elps. If any are configured,
+     * their names could appear in the rloc field of static map cache entries  */
+    elp_ht = parse_elp_list(cfg);
+
+
     n = cfg_size(cfg, "static-map-cache");
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
@@ -684,7 +765,8 @@ int configure_xtr(cfg_t *cfg) {
                 cfg_getint(smc, "iid"),
                 cfg_getstr(smc, "rloc"),
                 cfg_getint(smc, "priority"),
-                cfg_getint(smc, "weight"))
+                cfg_getint(smc, "weight"),
+                elp_ht)
 
         ) {
             lispd_log_msg(LISP_LOG_WARNING,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
@@ -696,6 +778,9 @@ int configure_xtr(cfg_t *cfg) {
                     cfg_getstr(smc, "rloc"));
         }
     }
+
+    hash_table_destroy(elp_ht);
+
 
     /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
     if (nat_aware == TRUE){
@@ -802,6 +887,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     cfg_t                   *cfg                    = 0;
     char                    *mode                   = NULL;
 
+
     /* xTR specific */
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
@@ -852,6 +938,20 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_END()
     };
 
+    static cfg_opt_t elp_node_opts[] = {
+            CFG_STR("address",      0,          CFGF_NONE),
+            CFG_BOOL("strict",      cfg_false,  CFGF_NONE),
+            CFG_BOOL("probe",       cfg_false,  CFGF_NONE),
+            CFG_BOOL("lookup",         cfg_false,  CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t elp_opts[] = {
+            CFG_STR("elp-name",     0,              CFGF_NONE),
+            CFG_SEC("elp-node",     elp_node_opts,  CFGF_MULTI),
+            CFG_END()
+    };
+
     /* Map-Server specific */
     static cfg_opt_t lisp_site_opts[] = {
             CFG_STR("eid-prefix",               0, CFGF_NONE),
@@ -879,6 +979,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_STR("operating-mode",       0, CFGF_NONE),
             CFG_STR("control-iface",        0, CFGF_NONE),
             CFG_SEC("lisp-site",            lisp_site_opts, CFGF_MULTI),
+            CFG_SEC("explicit-locator-path", elp_opts, CFGF_MULTI),
             CFG_END()
     };
 
@@ -924,6 +1025,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }else if (debug_level == 3){
         lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
     }
+
 
     mode = cfg_getstr(cfg, "operating-mode");
     if (mode) {
@@ -1119,11 +1221,13 @@ int add_static_map_cache_entry(
         int    iid,
         char   *rloc_addr,
         int    priority,
-        int    weight)
+        int    weight,
+        HashTable *elp_hash)
 {
     mapping_t        *mapping;
     locator_t        *locator;
-    lisp_addr_t              rloc;
+    lisp_addr_t      rloc;
+    lisp_addr_t      *lcaf_rloc;
     lisp_addr_t              eid_prefix;
     int                      eid_prefix_length;
 
@@ -1165,12 +1269,17 @@ int add_static_map_cache_entry(
 //
 //    map_cache_entry->mapping->iid = iid;
 
-    if (get_lisp_addr_from_char(rloc_addr,&rloc) == BAD){
-        lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
-        return(BAD);
-    }
+    if (get_lisp_addr_from_char(rloc_addr, &rloc) == BAD){
+        lcaf_rloc = hash_table_lookup(elp_hash, rloc_addr);
+        if (!lcaf_rloc) {
+            lispd_log_msg(LISP_LOG_ERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
+            return(BAD);
+        }
+        locator = new_static_rmt_locator(lcaf_rloc,UP,priority,weight,255,0);
 
-    locator = new_static_rmt_locator(&rloc,UP,priority,weight,255,0);
+    } else {
+        locator = new_static_rmt_locator(&rloc,UP,priority,weight,255,0);
+    }
 
     if (locator != NULL){
         if ((err=add_locator_to_mapping(mapping, locator)) != GOOD){

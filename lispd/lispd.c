@@ -359,7 +359,6 @@ void test_elp() {
     lcaf_addr_set_type(lcaf, LCAF_EXPL_LOC_PATH);
 
     elp_t *elp = elp_type_new();
-    elp->nb_nodes = 3;
 
     elp_node_t *en1 = calloc(1, sizeof(elp_node_t));
     en1->L = 0; en1->P = 0; en1->S = 1;
@@ -373,8 +372,9 @@ void test_elp() {
     en3->L = 0; en1->P = 0; en3->S = 1;
     en3->addr = lisp_addr_new(); get_lisp_addr_from_char("3.3.3.3", en3->addr);
 
-    en1->next = en2; en2->next = en3;
-    elp->nodes = en1;
+    glist_add_tail(en1, elp->nodes);
+    glist_add_tail(en2, elp->nodes);
+    glist_add_tail(en3, elp->nodes);
     lcaf->addr = elp;
 
     lispd_log_msg(LISP_LOG_WARNING, "the generated lcaf: %s", lisp_addr_to_char(laddr));

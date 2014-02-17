@@ -32,6 +32,7 @@
 #define LISPD_LCAF_H_
 
 #include "lispd_ip.h"
+#include "elibs/llist/generic_list.h"
 #include <lisp_messages.h>
 
 
@@ -343,12 +344,10 @@ typedef struct _elp_node_t{
     uint8_t             P:1;
     uint8_t             S:1;
     lisp_addr_t         *addr;
-    struct _elp_node_t  *next;
 } elp_node_t;
 
 typedef struct _elp_t {
-    uint16_t    nb_nodes;
-    elp_node_t  *nodes;
+    glist_t     *nodes;
 } elp_t;
 
 /* AFI-list */
@@ -498,9 +497,13 @@ char                        *elp_type_to_char(void *elp);
 void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
 
-static inline elp_node_t *lcaf_elp_get_node_list(lcaf_addr_t *lcaf) {
+inline void     elp_node_del(elp_node_t *enode);
+inline void     lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode);
+
+static inline glist_t *lcaf_elp_get_node_list(lcaf_addr_t *lcaf) {
     return(((elp_t *)lcaf->addr)->nodes);
 }
+
 
 
 /*

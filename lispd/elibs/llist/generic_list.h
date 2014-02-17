@@ -58,11 +58,16 @@ void                    glist_destroy(glist_t *lst);
 //inline int              glist_size(glist_t *list);
 //inline void             *glist_entry_data(glist_entry_t *entry);
 
+
 inline static glist_entry_t *glist_head(glist_t *lst) {
+    return(lst->head);
+}
+
+inline static glist_entry_t *glist_first(glist_t *lst) {
     return(list_entry(lst->head->list.next, glist_entry_t, list));
 }
 
-inline static glist_entry_t *glist_tail(glist_t *lst) {
+inline static glist_entry_t *glist_last(glist_t *lst) {
     return(list_entry(lst->head->list.prev, glist_entry_t, list));
 }
 
@@ -72,6 +77,10 @@ inline static int glist_size(glist_t *list) {
 
 inline static void *glist_entry_data(glist_entry_t *entry) {
     return(entry->data);
+}
+
+inline static glist_entry_t *glist_next(glist_entry_t *entry) {
+    return(list_entry(entry->list.next, glist_entry_t, list));
 }
 
 /**

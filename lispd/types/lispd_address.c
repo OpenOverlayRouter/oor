@@ -504,6 +504,14 @@ inline int lisp_addr_is_lcaf(lisp_addr_t *laddr) {
     return(lisp_addr_get_afi(laddr) == LM_AFI_LCAF);
 }
 
+inline void lisp_addr_lcaf_set_addr(lisp_addr_t *laddr, void *addr) {
+    laddr->lcaf.addr = addr;
+}
+
+inline void *lisp_addr_lcaf_get_addr(lisp_addr_t *laddr) {
+    return(laddr->lcaf.addr);
+}
+
 inline lisp_addr_t *lisp_addr_init_ip(ip_addr_t *ip) {
     assert(ip);
     lisp_addr_t *laddr;

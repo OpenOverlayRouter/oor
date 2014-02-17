@@ -11,6 +11,7 @@
 
 #include "hash_table.h"
 #include "stdlib.h"
+#include <string.h>
 
 #define HASH_TABLE_MIN_SIZE 11
 #define HASH_TABLE_MAX_SIZE 13845163
@@ -29,7 +30,8 @@ struct _HashTable {
     unsigned int frozen;
     HashNode **nodes;
     HashFunc hash_func;
-    CompareFunc key_compare_func;
+    EqualFunc key_equal_func;
+    DestroyFunc val_destroy_func;
 };
 
 static void hash_table_resize(HashTable *hash_table);
@@ -41,6 +43,8 @@ static HashNode *get_node_in_chunk();
 static void get_new_chunk();
 
 #define CHUNK_SIZE 100
+#define ARRAY_SIZE(x) ((sizeof x) / (sizeof *x))
+
 static unsigned int chunk_index;
 static HashNode *node_mem_chunk = NULL;
 static HashNode *node_free_list = NULL;
@@ -67,15 +71,15 @@ static const unsigned int g_primes[] = { 11, 19, 37, 73, 109, 163, 251, 367,
 static unsigned int spaced_primes_closest(unsigned int num) {
     int i;
 
-    for (i = 0; i < G_N_ELEMENTS(g_primes); i++)
+    for (i = 0; i < ARRAY_SIZE(g_primes); i++)
         if (g_primes[i] > num)
             return g_primes[i];
 
-    return g_primes[G_N_ELEMENTS(g_primes) - 1];
+    return g_primes[ARRAY_SIZE(g_primes) - 1];
 }
 
 HashTable*
-hash_table_new(HashFunc hash_func, CompareFunc key_compare_func) {
+hash_table_new(HashFunc hash_func, EqualFunc key_equal_func, DestroyFunc val_destroy_func) {
     HashTable *hash_table;
     unsigned int i;
 
@@ -83,8 +87,8 @@ hash_table_new(HashFunc hash_func, CompareFunc key_compare_func) {
     hash_table->size = HASH_TABLE_MIN_SIZE;
     hash_table->nnodes = 0;
     hash_table->frozen = 0;
-    hash_table->hash_func = hash_func ? hash_func : g_direct_hash;
-    hash_table->key_compare_func = key_compare_func;
+    hash_table->hash_func = hash_func;
+    hash_table->key_equal_func = key_equal_func;
     hash_table->nodes = calloc(hash_table->size, sizeof(HashNode*));
 
     for (i = 0; i < hash_table->size; i++)
@@ -99,8 +103,12 @@ void hash_table_destroy(HashTable *hash_table) {
     if (!hash_table)
         return;
 
-    for (i = 0; i < hash_table->size; i++)
+    for (i = 0; i < hash_table->size; i++) {
+        /* free value */
+        if (hash_table->val_destroy_func)
+           hash_table->val_destroy_func(hash_table->nodes[i]->value);
         hash_nodes_destroy(hash_table->nodes[i]);
+    }
 
     free(hash_table->nodes);
     free(hash_table);
@@ -117,8 +125,8 @@ hash_table_lookup_node(HashTable *hash_table, const void * key) {
      *  whether to call the key_compare_func or not from
      *  the inner loop.
      */
-    if (hash_table->key_compare_func)
-        while (*node && !(*hash_table->key_compare_func)((*node)->key, key))
+    if (hash_table->key_equal_func)
+        while (*node && !(*hash_table->key_equal_func)((*node)->key, key))
             node = &(*node)->next;
     else
         while (*node && (*node)->key != key)
@@ -183,7 +191,7 @@ void hash_table_remove(HashTable *hash_table, const void * key) {
 }
 
 int hash_table_lookup_extended(HashTable *hash_table, const void * lookup_key,
-        void * *orig_key, void **value) {
+        void **orig_key, void **value) {
     HashNode *node;
 
     if (!hash_table)
@@ -355,7 +363,7 @@ static void hash_nodes_destroy(HashNode *hash_node) {
 static HashNode *get_node_in_chunk() {
     HashNode *ret = NULL;
     if (chunk_index < CHUNK_SIZE - 1) {
-        ret = node_mem_chunk[chunk_index];
+        ret = &node_mem_chunk[chunk_index];
         chunk_index++;
         if (chunk_index == CHUNK_SIZE - 1)
             node_mem_chunk = NULL;
@@ -364,7 +372,105 @@ static HashNode *get_node_in_chunk() {
 }
 
 static void get_new_chunk() {
-    HashNode *chunk;
     node_mem_chunk = calloc(CHUNK_SIZE, sizeof(HashNode));
     chunk_index = 0;
 }
+
+
+/**
+ * g_str_hash:
+ * @v: a string key
+ *
+ * Converts a string to a hash value.
+ *
+ * This function implements the widely used "djb" hash apparently
+ * posted by Daniel Bernstein to comp.lang.c some time ago.  The 32
+ * bit unsigned hash value starts at 5381 and for each byte 'c' in
+ * the string, is updated: `hash = hash * 33 + c`. This function
+ * uses the signed value of each byte.
+ *
+ * It can be passed to g_hash_table_new() as the @hash_func parameter,
+ * when using non-%NULL strings as keys in a #GHashTable.
+ *
+ * Returns: a hash value corresponding to the key
+ */
+unsigned int g_str_hash (const void *v)
+{
+  const signed char *p;
+  unsigned int h = 5381;
+
+  for (p = v; *p != '\0'; p++)
+    h = (h << 5) + h + *p;
+
+  return h;
+}
+
+/**
+ * g_str_equal:
+ * @v1: a key
+ * @v2: a key to compare with @v1
+ *
+ * Compares two strings for byte-by-byte equality and returns %TRUE
+ * if they are equal. It can be passed to g_hash_table_new() as the
+ * @key_equal_func parameter, when using non-%NULL strings as keys in a
+ * #GHashTable.
+ *
+ * Note that this function is primarily meant as a hash table comparison
+ * function. For a general-purpose, %NULL-safe string comparison function,
+ * see g_strcmp0().
+ *
+ * Returns: %TRUE if the two keys match
+ */
+int g_str_equal(const void *v1,
+                const void *v2)
+{
+  const char *string1 = v1;
+  const char *string2 = v2;
+
+  return strcmp (string1, string2) == 0;
+}
+
+
+/**
+ * g_int_equal:
+ * @v1: a pointer to a #gint key
+ * @v2: a pointer to a #gint key to compare with @v1
+ *
+ * Compares the two #gint values being pointed to and returns
+ * %TRUE if they are equal.
+ * It can be passed to g_hash_table_new() as the @key_equal_func
+ * parameter, when using non-%NULL pointers to integers as keys in a
+ * #GHashTable.
+ *
+ * Note that this function acts on pointers to #gint, not on #gint
+ * directly: if your hash table's keys are of the form
+ * `GINT_TO_POINTER (n)`, use g_direct_equal() instead.
+ *
+ * Returns: %TRUE if the two keys match.
+ */
+int  g_int_equal(const void *v1,
+                 const void *v2)
+{
+  return *((const int*) v1) == *((const int*) v2);
+}
+
+/**
+ * g_int_hash:
+ * @v: a pointer to a #gint key
+ *
+ * Converts a pointer to a #gint to a hash value.
+ * It can be passed to g_hash_table_new() as the @hash_func parameter,
+ * when using non-%NULL pointers to integer values as keys in a #GHashTable.
+ *
+ * Note that this function acts on pointers to #gint, not on #gint
+ * directly: if your hash table's keys are of the form
+ * `GINT_TO_POINTER (n)`, use g_direct_hash() instead.
+ *
+ * Returns: a hash value corresponding to the key.
+ */
+unsigned int g_int_hash (const void *v)
+{
+  return *(const int*) v;
+}
+
+

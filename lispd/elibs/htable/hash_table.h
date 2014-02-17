@@ -13,8 +13,8 @@
 
 typedef struct _HashTable  HashTable;
 
-typedef int (*HashFunc) (const void *);
-typedef int (*CompareFunc) (const void *, const void *);
+typedef unsigned int (*HashFunc) (const void *);
+//typedef unsigned int (*CompareFunc) (const void *, const void *);
 typedef int (*EqualFunc) (const void *, const void *);
 typedef int (*DestroyFunc)(void *);
 typedef void (*HFunc)  (void *key, void *value, void *user_data);
@@ -34,13 +34,12 @@ struct _HashTableIter
   void      *dummy6;
 };
 
-HashTable*  hash_table_new(HashFunc hash_func, EqualFunc key_equal_func);
-HashTable*  hash_table_new_full(HashFunc hash_func, EqualFunc key_equal_func, DestroyFunc key_destroy_func, DestroyFunc value_destroy_func);
+HashTable*  hash_table_new(HashFunc hash_func, EqualFunc key_equal_func, DestroyFunc val_destroy_func);
 void        hash_table_destroy(HashTable *hash_table);
 void        hash_table_insert(HashTable *hash_table, void *key, void *value);
 void        hash_table_replace(HashTable *hash_table, void *key, void *value);
 void        hash_table_add(HashTable *hash_table, void *key);
-int         hash_table_remove(HashTable *hash_table, const void * key);
+void        hash_table_remove(HashTable *hash_table, const void *key);
 void        hash_table_remove_all(HashTable *hash_table);
 int         hash_table_steal(HashTable *hash_table, const void *key);
 void        hash_table_steal_all(HashTable *hash_table);

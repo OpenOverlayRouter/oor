@@ -194,13 +194,14 @@ int add_locator_to_mapping(
         mapping_t           *mapping,
         locator_t           *locator)
 {
-    lcaf_addr_t *lcaf;
-    int result = GOOD;
+    lcaf_addr_t *lcaf       = NULL;
+    glist_t     *enodes     = NULL;
+    elp_node_t  *elp_node   = NULL;
 
+    int result = GOOD;
 
     switch (lisp_addr_get_afi(locator->locator_addr)){
         case LM_AFI_IP:
-//        case LM_AFI_IPPREF:
             switch (lisp_addr_ip_get_afi(locator->locator_addr)) {
                 case AF_INET:
                     err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
@@ -244,7 +245,20 @@ int add_locator_to_mapping(
                     }
                     break;
                 case LCAF_EXPL_LOC_PATH:
-                    add_locator_to_list(&(mapping->head_v4_locators_list), locator);
+                    enodes = lcaf_elp_get_node_list(lcaf);
+                    elp_node = glist_entry_data(glist_first(enodes));
+                    switch (lisp_addr_get_afi(elp_node->addr)) {
+                    case AF_INET:
+                        add_locator_to_list(&(mapping->head_v4_locators_list), locator);
+                        break;
+                    case AF_INET6:
+                        add_locator_to_list(&(mapping->head_v6_locators_list), locator);
+                        break;
+                    default:
+                        lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: elp node afi %d not supported",
+                                lisp_addr_get_afi(elp_node->addr));
+                        break;
+                    }
                     break;
                 default:
                     lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: lcaf type %d not supported",
