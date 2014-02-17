@@ -1,5 +1,5 @@
 /*
- * lispd_input.h
+ * lisp_rtr.c
  *
  * This file is part of LISP Mobile Node Implementation.
  *
@@ -23,26 +23,40 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#ifndef LISPD_INPUT_H_
-#define LISPD_INPUT_H_
+#include "lisp_rtr.h"
+#include "lisp_xtr.h"
 
-#include <stdio.h>
-#include <net/if.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <linux/if_tun.h>
-#include <defs.h>
-#include "lispd_sockets.h"
-#include "cksum.h"
-#include "lispd_output.h"
+void rtr_ctrl_start(lisp_ctrl_device *dev) {
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Starting RTR...");
+}
 
+void rtr_ctrl_delete(lisp_ctrl_device *dev) {
 
-int process_input_packet(struct sock *sl);
-int rtr_process_input_packet(struct sock *sl);
+}
 
-#endif /*LISPD_IFACE_LIST_H_*/
+/* implementation of base functions */
+ctrl_device_vtable rtr_vtable = {
+        .process_msg = xtr_process_ctrl_msg,
+        .start = rtr_ctrl_start,
+        .delete = rtr_ctrl_delete
+};
+
+lisp_ctrl_device *rtr_ctrl_init() {
+    lisp_rtr *rtr;
+    rtr = calloc(1, sizeof(lisp_rtr));
+    rtr->super.vtable = &rtr_vtable;
+    rtr->super.mode = RTR_MODE;
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
+
+    /*
+     *  set up databases
+     */
+
+    local_map_db_init();
+    map_cache_init();
+
+    return((lisp_ctrl_device *)rtr);
+}

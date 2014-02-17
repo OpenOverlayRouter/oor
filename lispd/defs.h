@@ -169,6 +169,7 @@ int err;
 #define ERR_EXIST           -5
 #define ERR_NO_EXIST        -6
 #define ERR_CTR_IFACE       -7
+#define ERR_NOT_LISP        -8
 
 /***** Negative Map-Reply actions ***/
 #define ACT_NO_ACTION           0

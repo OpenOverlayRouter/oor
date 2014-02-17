@@ -46,8 +46,8 @@
 #include "lispd_mapping.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_lcaf.h"
-#include <lisp_xtr.h>
-#include <lisp_ms.h>
+#include "lispd_control.h"
+
 
 
 
@@ -463,6 +463,58 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
  *
  */
 
+
+int configure_rtr(cfg_t *cfg) {
+    int                     i                       = 0;
+    int                     n                       = 0;
+    int                     ret                     = 0;
+    int                     probe_int               = 0;
+    int                     probe_retries           = 0;
+    int                     probe_retries_interval  = 0;
+    char                    *map_resolver           = NULL;
+
+
+    /* initialize rtr - as a control device, it is only an xtr */
+    ctrl_dev = rtr_ctrl_init();
+
+    ret = cfg_getint(cfg, "map-request-retries");
+    if (ret != 0)
+        map_request_retries = ret;
+
+
+    /*
+     *  RLOC Probing options
+     */
+
+    cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
+    if (dm != NULL){
+        probe_int = cfg_getint(dm, "rloc-probe-interval");
+        probe_retries = cfg_getint(dm, "rloc-probe-retries");
+        probe_retries_interval = cfg_getint(dm, "rloc-probe-retries-interval");
+
+        validate_rloc_probing_parameters (probe_int, probe_retries, probe_retries_interval);
+    }else{
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: RLOC probing not defined. "
+                "Setting default values: RLOC Probing Interval: %d sec.",RLOC_PROBING_INTERVAL);
+    }
+
+    /*
+     *  handle map-resolver config
+     */
+    n = cfg_size(cfg, "map-resolver");
+    for(i = 0; i < n; i++) {
+        if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
+            if (add_server(map_resolver, &map_resolvers) == GOOD){
+                lispd_log_msg(LISP_LOG_DEBUG_1, "Added %s to map-resolver list", map_resolver);
+            }else{
+                lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",map_resolver);
+            }
+        }
+    }
+
+    return(GOOD);
+}
+
 int configure_xtr(cfg_t *cfg) {
 
     int                     i                       = 0;
@@ -704,18 +756,11 @@ int configure_ms(cfg_t *cfg) {
 
     ctrl_dev = (lisp_ctrl_device *)ms_ctrl_init();
 
-
-    /* XXX: FC: Hack to ensure that we have an output interface for
-     * control messages. Maybe MS shouldn't send Map-Replies out a raw
-     * socket. The disadvantage is that we must configure an
-     * interface even when we don't have an active data-plane module
-     *
-     */
-
     /*
      * handle control interface
      */
 
+    /* TODO: should work with all interfaces in the future */
     iface = cfg_getstr(cfg, "control-iface");
     if (iface) {
         if (!add_interface(iface))
@@ -882,10 +927,15 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     mode = cfg_getstr(cfg, "operating-mode");
     if (mode) {
-        if (strcmp(mode, "xTR") == 0)
+        if (strcmp(mode, "xTR") == 0) {
             ret=configure_xtr(cfg);
-        if (strcmp(mode, "MS") == 0)
+        }
+        if (strcmp(mode, "MS") == 0) {
             ret=configure_ms(cfg);
+        }
+        if (strcmp(mode, "RTR") == 0) {
+            ret=configure_rtr(cfg);
+        }
     }
 
     cfg_free(cfg);

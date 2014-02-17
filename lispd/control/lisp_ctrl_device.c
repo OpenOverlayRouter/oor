@@ -41,6 +41,10 @@ void lisp_ctrl_dev_start(lisp_ctrl_device *dev) {
     dev->vtable->start(dev);
 }
 
+void lisp_ctrl_dev_del(lisp_ctrl_device *dev) {
+    dev->vtable->delete(dev);
+}
+
 static uint8_t is_lcaf_mcast_info(address_field *addr) {
     return( address_field_afi(addr) != LISP_AFI_LCAF
             && address_field_lcaf_type(addr) != LCAF_MCAST_INFO);

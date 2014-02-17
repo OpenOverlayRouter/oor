@@ -31,7 +31,9 @@
 
 #include <defs.h>
 #include <lispd_sockets.h>
-#include "lisp_ctrl_device.h"
+#include <lisp_xtr.h>
+#include <lisp_ms.h>
+#include <lisp_rtr.h>
 
 
 

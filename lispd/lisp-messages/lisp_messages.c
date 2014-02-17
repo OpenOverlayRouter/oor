@@ -456,7 +456,6 @@ map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
     if (!mnotify->records)
         goto err;
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "we have %d records", mnotify_msg_hdr(mnotify)->record_count);
     for (i = 0; i < mnotify_msg_hdr(mnotify)->record_count; i++) {
         record = mapping_record_parse(offset);
         if (!record)

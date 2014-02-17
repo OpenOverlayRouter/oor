@@ -50,5 +50,6 @@ typedef struct _lisp_xtr {
 //extern ctrl_device_vtable xtr_vtable;
 
 lisp_ctrl_device *xtr_ctrl_init();
+int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock);
 
 #endif /* LISP_XTR_H_ */

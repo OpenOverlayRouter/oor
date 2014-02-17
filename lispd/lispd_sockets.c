@@ -419,7 +419,6 @@ int send_packet (
     struct iphdr *iph = NULL;
     struct ip6_hdr *ip6h = NULL;
     int nbytes = 0;
-    lispd_log_msg(LISP_LOG_DEBUG_1, "in send pkt len %d", packet_length);
 
 
     memset((char *) &dst_addr, 0, sizeof(dst_addr));
@@ -569,8 +568,6 @@ int get_data_packet (
         u_char data[CMSG_SPACE(sizeof(int))+CMSG_SPACE(sizeof(int))]; /* Space for TTL and TOS data */
     };
     
-//    struct sockaddr_in  s4;
-//    struct sockaddr_in6 s6;
     union sockunion     su;
     struct msghdr       msg;
     struct iovec        iov[1];
@@ -589,13 +586,6 @@ int get_data_packet (
     msg.msg_name = &su;
     msg.msg_namelen = sizeof(union sockunion);
 
-//    if (afi == AF_INET){
-//        msg.msg_name = &s4;
-//        msg.msg_namelen = sizeof (struct sockaddr_in);
-//    }else{
-//        msg.msg_name = &s6;
-//        msg.msg_namelen = sizeof (struct sockaddr_in6);
-//    }
     
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {

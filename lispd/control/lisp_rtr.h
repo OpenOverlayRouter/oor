@@ -1,5 +1,5 @@
 /*
- * lispd_input.h
+ * lisp_rtr.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
@@ -23,26 +23,24 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#ifndef LISPD_INPUT_H_
-#define LISPD_INPUT_H_
+#ifndef LISP_RTR_H_
+#define LISP_RTR_H_
 
-#include <stdio.h>
-#include <net/if.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <linux/if_tun.h>
 #include <defs.h>
-#include "lispd_sockets.h"
-#include "cksum.h"
-#include "lispd_output.h"
+#include "lisp_ctrl_device.h"
+
+typedef struct _lisp_rtr {
+    lisp_ctrl_device super; /* base "class". MUST be first */
+
+    /* rtr members */
+    map_cache_db *map_cache;
+    local_map_db *local_mdb;
+} lisp_rtr;
+
+lisp_ctrl_device *rtr_ctrl_init();
 
 
-int process_input_packet(struct sock *sl);
-int rtr_process_input_packet(struct sock *sl);
-
-#endif /*LISPD_IFACE_LIST_H_*/
+#endif /* LISP_RTR_H_ */

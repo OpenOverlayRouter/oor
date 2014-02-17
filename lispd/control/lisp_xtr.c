@@ -30,7 +30,7 @@
 
 int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);
 
-int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock){
+int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock) {
     int ret = 0;
 
     switch(msg->type) {
@@ -89,18 +89,26 @@ void xtr_ctrl_start(lisp_ctrl_device *dev) {
 
 }
 
+void xtr_delete(lisp_ctrl_device *dev) {
+//    lisp_xtr *xtr;
+//    xtr = (lisp_xtr *)dev;
+//    mdb_del(xtr->local_mdb, (glist_del_fct)mapping_del_local);
+//    mdb_del(xtr->map_cache, (glist_del_fct)mapping_del_remote);
+
+}
 
 /* implementation of base functions */
 ctrl_device_vtable xtr_vtable = {
         .process_msg = xtr_process_ctrl_msg,
-        .start = xtr_ctrl_start
+        .start = xtr_ctrl_start,
+        .delete = xtr_delete
 };
 
 lisp_ctrl_device *xtr_ctrl_init() {
     lisp_xtr *xtr;
     xtr = calloc(1, sizeof(lisp_xtr));
     xtr->super.vtable = &xtr_vtable;
-    xtr->super.mode = 1;
+    xtr->super.mode = xTR_MODE;
     lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
 
     /*

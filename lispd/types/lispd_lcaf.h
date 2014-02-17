@@ -319,19 +319,19 @@ typedef struct {
 } geo_t;
 
 
-typedef struct {
+typedef struct _iit_t {
     uint32_t    iid;
     uint8_t     mlen;
     lisp_addr_t *iidaddr;
 } iid_t;
 
 /* RLE */
-typedef struct {
+typedef struct _level_addr_t {
     lisp_addr_t   *ip;
     uint8_t       level;
 } level_addr_t;
 
-typedef struct {
+typedef struct _rle_t {
     uint32_t        nb_levels;
     level_addr_t    **rlist;
 } rle_t;
@@ -497,6 +497,11 @@ int                         elp_type_read_from_pkt(uint8_t *offset, void **elp);
 char                        *elp_type_to_char(void *elp);
 void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
+
+static inline elp_node_t *lcaf_elp_get_node_list(lcaf_addr_t *lcaf) {
+    return(((elp_t *)lcaf->addr)->nodes);
+}
+
 
 /*
  * AFI-list type functions

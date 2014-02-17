@@ -43,13 +43,12 @@ void ms_ctrl_start(lisp_ctrl_device *dev) {
     lispd_log_msg(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
 }
 
-void ms_ctrl_stop(lisp_ctrl_device *dev) {
-    lisp_ms *ms = NULL;
+void ms_ctrl_delete(lisp_ctrl_device *dev) {
+    lisp_ms *ms;
     ms = (lisp_ms *)dev;
-
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
-    mdb_del(ms->registered_sites_db, (mdb_del_fct)mapping_del);
-    mdb_del(ms->lisp_sites_db, (mdb_del_fct)lisp_site_prefix_del);
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Freeing Map-Server ...");
+    mdb_del(ms->lisp_sites_db, (mdb_del_fct)mapping_del);
+    mdb_del(ms->registered_sites_db, (mdb_del_fct)lisp_site_prefix_del);
 }
 
 int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port)
@@ -237,6 +236,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
     glist_t             *records    = NULL;
     glist_entry_t       *it         = NULL;
     mapping_t           *mapping    = NULL;
+    mapping_t           *mentry     = NULL;
     lisp_ms             *ms         = NULL;
     lisp_site_prefix    *reg_pref   = NULL;
     map_notify_msg      *mnot_msg   = NULL;
@@ -288,18 +288,19 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
             continue;
         }
 
-
-        if (mdb_lookup_entry_exact(ms->registered_sites_db, eid)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered", lisp_addr_to_char(eid));
-            goto done;
-        }
-
         /* check if more specific */
         if (reg_pref->accept_more_specifics != MORE_SPECIFICS && lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "MS: EID %s is a more specific of %s. However more specifics not configured! Discarding",
                     lisp_addr_to_char(eid), lisp_addr_to_char(reg_pref->eid_prefix));
             lisp_addr_del(eid);
             continue;
+        }
+
+        mentry = mdb_lookup_entry_exact(ms->registered_sites_db, eid);
+        if (mentry) {
+            lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
+            mapping_update_locators(mentry, mapping->head_v4_locators_list, mapping->head_v6_locators_list);
+            goto done;
         }
 
         /* save prefix to the registered sites db */
@@ -391,7 +392,8 @@ int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *ud
 
 ctrl_device_vtable ms_vtable = {
         .process_msg = ms_process_lisp_ctrl_msg,
-        .start = ms_ctrl_start
+        .start = ms_ctrl_start,
+        .delete = ms_ctrl_delete
 };
 
 lisp_ctrl_device *ms_ctrl_init() {
@@ -400,7 +402,6 @@ lisp_ctrl_device *ms_ctrl_init() {
     ms->super.mode = 2;
     ms->super.vtable = &ms_vtable;
     lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing Map-Server");
-//    local_map_db_init();
 
     ms->registered_sites_db = mdb_new();
     ms->lisp_sites_db = mdb_new();

@@ -382,7 +382,7 @@ int forward_native(
 int fordward_to_petr(
         uint8_t                 *original_packet,
         int                     original_packet_length,
-        mapping_t       *src_mapping,
+        mapping_t               *src_mapping,
         packet_tuple            tuple)
 {
     locator_t           *outer_src_locator  = NULL;
@@ -602,11 +602,40 @@ int select_src_locators_from_balancing_locators_vec (
     *src_locator =  src_loc_vec[pos];
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"select_src_locators_from_balancing_locators_vec: src RLOC: %s",
-            get_char_from_lisp_addr_t(*((*src_locator)->locator_addr)));
+            lisp_addr_to_char(locator_addr(*src_locator)));
 
     return (GOOD);
 }
 
+
+lisp_addr_t *get_locator_from_lcaf(lisp_addr_t *laddr) {
+    lcaf_addr_t             *lcaf       = NULL;
+    elp_node_t              *elp_node   = NULL;
+    lispd_iface_list_elt    *interface = NULL;
+
+    lcaf = lisp_addr_get_lcaf(laddr);
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH:
+        elp_node = lcaf_elp_get_node_list(lcaf);
+        while (elp_node) {
+            interface = head_interface_list;
+            while (interface) {
+                if (lisp_addr_cmp(interface->iface->ipv4_address, elp_node->addr))
+                    return(elp_node->next->addr);
+                if (lisp_addr_cmp(interface->iface->ipv6_address, elp_node->addr))
+                    return(elp_node->next->addr);
+                interface = interface->next;
+            }
+            elp_node = elp_node->next;
+        }
+        return(NULL);
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_locator_from_lcaf: Type % not supported!, ",
+                lcaf_addr_get_type(lcaf));
+        return(NULL);
+    }
+}
 
 /*
  * Select the source and destination RLOC according to the priority and weight.
@@ -801,39 +830,42 @@ int lisp_output_multicast (
     glist_destroy(or_list);
 
     return (GOOD);
-
-
-
-
 }
 
-int lisp_output_unicast (
-        uint8_t         *original_packet,
-        int             original_packet_length,
-        packet_tuple    *tuple)
-{
+forwarding_entry *get_forwarding_entry(packet_tuple *tuple) {
     mapping_t           *src_mapping        = NULL;
     mapping_t           *dst_mapping        = NULL;
-//    lispd_map_cache_entry       *entry              = NULL;
-    uint8_t                     *encap_packet       = NULL;
-    int                         encap_packet_size   = 0;
-    locator_t           *outer_src_locator  = NULL;
-    locator_t           *outer_dst_locator  = NULL;
-    lisp_addr_t                 *src_addr           = NULL;
-    lisp_addr_t                 *dst_addr           = NULL;
-    lcl_locator_extended_info   *loc_extended_info  = NULL;
-    int                         output_socket       = 0;
+    locator_t                   *outer_src_locator  = NULL;
+    locator_t                   *outer_dst_locator  = NULL;
+    forwarding_entry            *fwd_entry          = NULL;
 
+
+    /* should be retrieved from a cache in the future */
+    fwd_entry = calloc(1, sizeof(forwarding_entry));
 
     /* If the packet doesn't have an EID source, forward it natively */
     if (!(src_mapping = local_map_db_lookup_eid(&(tuple->src_addr))))
-        return (forward_native(original_packet,original_packet_length));
+        return(fwd_entry);
 
     /* If we are behind a full nat system, send the message directly to the RTR */
-    if (nat_aware && (nat_status == FULL_NAT)){
-        if (select_src_locators_from_balancing_locators_vec (src_mapping,*tuple, &outer_src_locator) != GOOD)
-            return (BAD);
-        return (forward_to_natt_rtr(original_packet, original_packet_length, outer_src_locator));
+    if (nat_aware && (nat_status == FULL_NAT)) {
+        if (select_src_locators_from_balancing_locators_vec (src_mapping,*tuple, &outer_src_locator) != GOOD) {
+            free(fwd_entry);
+            return(NULL);
+        }
+        if (!outer_src_locator || !outer_src_locator->extended_info ||
+                !((lcl_locator_extended_info *)outer_src_locator->extended_info)->rtr_locators_list->locator) {
+            lispd_log_msg(LISP_LOG_DEBUG_2,"forward_to_natt_rtr: No RTR for the selected src locator (%s).",
+                    lisp_addr_to_char(outer_src_locator->locator_addr));
+            free(fwd_entry);
+            return(NULL);
+        }
+
+        fwd_entry->src_rloc = outer_src_locator->locator_addr;
+        fwd_entry->dst_rloc = &((lcl_locator_extended_info *)outer_src_locator->extended_info)->rtr_locators_list->locator->address;
+        fwd_entry->out_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
+
+        return(fwd_entry);
     }
 
     //arnatal TODO TODO: Check if local -> Do not encapsulate (can be solved with proper route configuration)
@@ -843,69 +875,98 @@ int lisp_output_unicast (
     dst_mapping = mcache_lookup_mapping(&(tuple->dst_addr));
 
     if (dst_mapping == NULL){ /* There is no entry in the map cache */
-        lispd_log_msg(LISP_LOG_DEBUG_1, "lisp_output_unicast: No map cache retrieved for eid %s", lisp_addr_to_char(&tuple->dst_addr));
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_forwarding_entry: No map cache retrieved for eid %s. Sending Map-Request!",
+                lisp_addr_to_char(&tuple->dst_addr));
         handle_map_cache_miss(&(tuple->dst_addr), &(tuple->src_addr));
     }
 
-    /* Packets with negative map cache entry, no active map cache entry or no map cache entry are forwarded to PETR */
-    if ((dst_mapping == NULL) || (mapping_get_locator_count(dst_mapping) == 0) ){
-        /* There is no entry or is not active*/
-        /* Try to fordward to petr*/
-        if (fordward_to_petr(
-                original_packet,
-                original_packet_length,
-                src_mapping,
-                *tuple) != GOOD){
-            /* If error, fordward native*/
-            return (forward_native(original_packet,original_packet_length));
+    /* No map-cache entry or no output locators (negative entry) */
+    if (dst_mapping == NULL || (mapping_get_locator_count(dst_mapping) == 0)) {
+        /* Try PETRs */
+        if (proxy_etrs == NULL) {
+            lispd_log_msg(LISP_LOG_DEBUG_3, "get_forwarding_entry: Trying to forward to PxTR but none found ...");
+            return(fwd_entry);
         }
-        return (GOOD);
-    }
+        if ((select_src_rmt_locators_from_balancing_locators_vec (
+                    src_mapping,
+                    proxy_etrs->mapping,
+                    *tuple,
+                    &outer_src_locator,
+                    &outer_dst_locator)) != GOOD){
+            lispd_log_msg(LISP_LOG_DEBUG_3, "get_forwarding_entry: No Proxy-etr compatible with local locators afi");
+            free(fwd_entry);
+            return(NULL);
+        }
 
-    /* There is an entry in the map cache */
-
-    /* Find locators to be used */
-    if (select_src_rmt_locators_from_balancing_locators_vec (
-            src_mapping,
-            dst_mapping,
-            *tuple,
-            &outer_src_locator,
-            &outer_dst_locator)!=GOOD){
-        /* If no match between afi of source and destinatiion RLOC, try to fordward to petr*/
-        if (fordward_to_petr(
-                original_packet,
-                original_packet_length,
+    /* There is an entry in the map cache
+     * Find locators to be used */
+    } else {
+        if (select_src_rmt_locators_from_balancing_locators_vec (
                 src_mapping,
-                *tuple) != GOOD){
-            /* If error, fordward native*/
-            return (forward_native(original_packet,original_packet_length));
-        }else{
-            return (GOOD);
+                dst_mapping,
+                *tuple,
+                &outer_src_locator,
+                &outer_dst_locator)!=GOOD){
+            /* If no match between afi of source and destinatiion RLOC, try to fordward to petr*/
+            return(fwd_entry);
         }
     }
 
     if (outer_src_locator == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_output: No output src locator");
-        return (BAD);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"get_forwarding_entry: No output src locator");
+        return (fwd_entry);
     }
     if (outer_dst_locator == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_output: No destination locator selectable");
-        return (BAD);
+        lispd_log_msg(LISP_LOG_DEBUG_2,"get_forwarding_entry: No destination locator selectable");
+        return (fwd_entry);
     }
 
-    src_addr = outer_src_locator->locator_addr;
-    dst_addr = outer_dst_locator->locator_addr;
+    fwd_entry->src_rloc = locator_addr(outer_src_locator);
+    if (lisp_addr_get_afi(locator_addr(outer_dst_locator)) == LM_AFI_LCAF) {
+        fwd_entry->dst_rloc  = get_locator_from_lcaf(locator_addr(outer_dst_locator));
+    } else {
+        fwd_entry->dst_rloc = locator_addr(outer_dst_locator);
+    }
 
-    /* If the selected src locator is behind NAT, fordware to the RTR */
-    loc_extended_info = (lcl_locator_extended_info *)outer_src_locator->extended_info;
-    if (loc_extended_info->rtr_locators_list != NULL){
-        dst_addr = &(loc_extended_info->rtr_locators_list->locator->address);
+    fwd_entry->out_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
+
+    return(fwd_entry);
+
+}
+
+
+int lisp_output_unicast (
+        uint8_t         *original_packet,
+        int             original_packet_length,
+        packet_tuple    *tuple)
+{
+    forwarding_entry            *fwd_entry          = NULL;
+    uint8_t                     *encap_packet       = NULL;
+    int                         encap_packet_size   = 0;
+
+    /* find a forwarding entry, either in cache or ask control */
+    fwd_entry = get_forwarding_entry(tuple);
+
+
+    /* FC: should we forward natively all packets with no forwarding entry or not? */
+    if (!fwd_entry)
+        return(BAD);
+
+    /* Packets with no source RLOC OR
+     * Packets with negative map cache entry, no active map cache entry or no map cache entry and no PETR
+     * forward them natively */
+    if (!fwd_entry->src_rloc) {
+        return (forward_native(original_packet, original_packet_length));
+
+        /* TODO XXX: temporary! When it will be part of a cache, no need to free */
+        free(fwd_entry);
+        return (GOOD);
     }
 
     encapsulate_packet(original_packet,
             original_packet_length,
-            src_addr,
-            dst_addr,
+            fwd_entry->src_rloc,
+            fwd_entry->dst_rloc,
             LISP_DATA_PORT, //TODO: UDP src port based on hash?
             LISP_DATA_PORT,
             //entry->mapping->iid, //XXX iid not supported yet
@@ -913,10 +974,11 @@ int lisp_output_unicast (
             &encap_packet,
             &encap_packet_size);
 
-    output_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
-    send_packet (output_socket,encap_packet,encap_packet_size);
+    send_packet(fwd_entry->out_socket,encap_packet,encap_packet_size);
 
     free (encap_packet);
+    /* TODO TEMPORARY, up to when we have cache */
+    free(fwd_entry);
     return (GOOD);
 }
 
@@ -949,9 +1011,7 @@ int tuple_get_dst_lisp_addr(packet_tuple tuple, lisp_addr_t *addr){
     return(GOOD);
 }
 
-int lisp_output (
-        uint8_t *original_packet,
-        int     original_packet_length )
+int lisp_output(uint8_t *original_packet, int original_packet_length)
 {
     packet_tuple        tuple;
     lisp_addr_t         *dst_addr           = NULL;
@@ -961,7 +1021,7 @@ int lisp_output (
         return (BAD);
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Orig src: %s | Orig dst: %s",
-            lisp_addr_to_char(&tuple.src_addr),lisp_addr_to_char(&tuple.dst_addr));
+            lisp_addr_to_char(&tuple.src_addr), lisp_addr_to_char(&tuple.dst_addr));
 
 
     /* If already LISP packet, do not encapsulate again */
@@ -1000,7 +1060,6 @@ int lisp_output (
     lisp_addr_del(dst_addr);
 
     return(GOOD);
-
 }
 
 int process_output_packet (struct sock *sl)

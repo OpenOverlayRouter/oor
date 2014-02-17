@@ -504,7 +504,7 @@ void dump_mapping_entry(
  * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
  */
 int calculate_balancing_vectors (
-        mapping_t           *mapping,
+        mapping_t                   *mapping,
         balancing_locators_vecs     *b_locators_vecs)
 {
     // Store locators with same priority. Maximum 32 locators (33 to no get out of array)
@@ -621,7 +621,7 @@ locator_t   **set_balancing_vector(
 
 int select_best_priority_locators (
         lispd_locators_list     *locators_list_elt,
-        locator_t       **selected_locators)
+        locator_t               **selected_locators)
 {
     lispd_locators_list     *list_elt       = locators_list_elt;
     int                     min_priority    = UNUSED_RLOC_PRIORITY;
@@ -655,8 +655,8 @@ int select_best_priority_locators (
 
 inline void get_hcf_locators_weight (
         locator_t   **locators,
-        int                 *total_weight,
-        int                 *hcf)
+        int         *total_weight,
+        int         *hcf)
 {
     int ctr     = 0;
     int weight  = 0;
@@ -1034,6 +1034,13 @@ void mapping_del_remote(mapping_t *mapping)
     free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
     free ((rmt_mapping_extended_info *)mapping->extended_info);
     mapping_del(mapping);
+}
+
+void mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6) {
+    free_locator_list(mapping->head_v4_locators_list);
+    free_locator_list(mapping->head_v6_locators_list);
+    mapping->head_v4_locators_list = locv4;
+    mapping->head_v6_locators_list = locv6;
 }
 
 ///* write in an allocated record */

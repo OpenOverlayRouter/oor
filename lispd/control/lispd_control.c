@@ -101,7 +101,7 @@ int process_lisp_ctr_msg(struct sock *sl)
 
     udpsock.dst_port = LISP_CONTROL_PORT;
 
-    if  (get_packet_and_socket_inf (sl->fd, packet, &udpsock) != GOOD ) {
+    if  (get_packet_and_socket_inf(sl->fd, packet, &udpsock) != GOOD ) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't retrieve socket information for control message! Discarding packet!");
         return(BAD);
     }
@@ -149,5 +149,7 @@ void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp) {
 void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
 //    re_leave_channel(src, grp);
 }
+
+
 
 

@@ -42,6 +42,7 @@ OBJS		= cmdline.o	\
 		  cksum.o	\
 		  control/lispd_control.o	\
 		  control/lisp_ctrl_device.o	\
+		  control/lisp_rtr.o	\
 		  control/lisp_xtr.o	\
 		  control/lisp_ms.o	\
 		  control/lispd_info_nat.o	\

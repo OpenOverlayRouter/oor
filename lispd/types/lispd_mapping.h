@@ -204,6 +204,7 @@ int                         mapping_get_size_in_record(mapping_t *mapping);
 
 mapping_t           *mapping_init_from_record(mapping_record *record);
 void                mapping_write_to_record(mapping_record *record, mapping_t *mapping);
+void                mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6);
 
 void mapping_del(mapping_t *mapping);
 void mapping_del_local(mapping_t *mapping);

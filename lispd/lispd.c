@@ -130,40 +130,10 @@ int     timers_fd                       = 0;
 struct sock_master *smaster             = NULL;
 
 
-int init_xtr() {
+void init_tun() {
     lisp_addr_t *tun_v4_addr;
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
-    struct sock *nl_sl;
-
-    if (map_servers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
-        exit_cleanup();
-    }
-
-    if (map_resolvers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        exit_cleanup();
-    }
-
-    if (proxy_etrs == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
-                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-        sleep(3);
-    }else{
-        calculate_balancing_vectors (
-                proxy_etrs->mapping,
-                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
-    }
-
-
-    /*
-     * Select the default rlocs for output data packets and output control packets
-     */
-
-    set_default_output_ifaces();
-    set_default_ctrl_ifaces();
-
 
     /*
      * Create tun interface
@@ -217,13 +187,47 @@ int init_xtr() {
     }
 #endif
 
-
     sock_register_read_listener(smaster, process_output_packet, NULL, tun_receive_fd);
+}
+
+int init_xtr() {
+
+    struct sock *nl_sl;
+
+    if (map_servers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+        exit_cleanup();
+    }
+
+    if (map_resolvers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
+        exit_cleanup();
+    }
+
+    if (proxy_etrs == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+        sleep(3);
+    }else{
+        calculate_balancing_vectors (
+                proxy_etrs->mapping,
+                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
+    }
+
+
+    /*
+     * Select the default rlocs for output data packets and output control packets
+     */
+
+    set_default_output_ifaces();
+    set_default_ctrl_ifaces();
+
+    init_tun();
 
     /*
      * Generate receive sockets for control (4342) and data port (4341)
      */
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
         sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
 
@@ -231,7 +235,7 @@ int init_xtr() {
         sock_register_read_listener(smaster, process_input_packet, NULL, ipv4_data_input_fd); // will use data_dev
     }
 
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
 
@@ -258,7 +262,6 @@ int init_xtr() {
     return(GOOD);
 }
 
-
 int init_ms() {
     set_default_ctrl_ifaces();
 
@@ -271,6 +274,80 @@ int init_ms() {
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
     }
+    return(GOOD);
+}
+
+int init_rtr() {
+    struct sock *nl_sl;
+
+//    if (map_servers == NULL){
+//        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+//        exit_cleanup();
+//    }
+
+    if (map_resolvers == NULL){
+        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
+        exit_cleanup();
+    }
+
+//    if (proxy_etrs == NULL){
+//        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+//                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
+//        sleep(3);
+//    }else{
+//        calculate_balancing_vectors (
+//                proxy_etrs->mapping,
+//                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
+//    }
+
+
+    /*
+     * Select the default rlocs for output data packets and output control packets
+     */
+
+    set_default_output_ifaces();
+    set_default_ctrl_ifaces();
+
+    /*
+     * NO TUN!
+     */
+
+
+    /*
+     * Generate receive sockets for control (4342) and data port (4341)
+     */
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
+        ipv4_control_input_fd = open_control_input_socket(AF_INET);
+        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
+
+        ipv4_data_input_fd = open_data_input_socket(AF_INET);
+        sock_register_read_listener(smaster, rtr_process_input_packet, NULL, ipv4_data_input_fd);
+    }
+
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
+        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
+        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
+
+        ipv6_data_input_fd = open_data_input_socket(AF_INET6);
+        sock_register_read_listener(smaster, rtr_process_input_packet, NULL, ipv6_data_input_fd);
+    }
+
+    /*
+     * Create net_link socket to receive notifications of changes of RLOC status.
+     */
+    netlink_fd = opent_netlink_socket();
+
+    /*
+     * Request to dump the routing tables to obtain the gatways when processing the netlink messages
+     */
+    nl_sl = sock_register_read_listener(smaster, process_netlink_msg, NULL, netlink_fd);
+
+    request_route_table(RT_TABLE_MAIN, AF_INET);
+    process_netlink_msg(nl_sl);
+    request_route_table(RT_TABLE_MAIN, AF_INET6);
+    process_netlink_msg(nl_sl);
+
+
     return(GOOD);
 }
 
@@ -339,10 +416,6 @@ void test_elp() {
 
 void event_loop()
 {
-    int    max_fd;
-//    fd_set readfds;
-//    int    retval;
-    
 
 //    test_elp();
 
@@ -350,68 +423,12 @@ void event_loop()
      *  calculate the max_fd for select.
      */
     
-    max_fd = ipv4_data_input_fd;
-    max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
-    max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
-    max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
-    max_fd = (max_fd > tun_receive_fd)          ? max_fd : tun_receive_fd;
-    max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
-    max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
-
     /* register timer fd with the socket master */
     sock_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
 
     for (;;) {
         sock_fdset_all_read(smaster);
         sock_process_all(smaster);
-
-        
-//        FD_ZERO(&readfds);
-//        FD_SET(tun_receive_fd, &readfds);
-//        FD_SET(ipv4_data_input_fd, &readfds);
-//        FD_SET(ipv6_data_input_fd, &readfds);
-//        FD_SET(ipv4_control_input_fd, &readfds);
-//        FD_SET(ipv6_control_input_fd, &readfds);
-//        FD_SET(timers_fd, &readfds);
-//        FD_SET(netlink_fd, &readfds);
-//
-//        retval = have_input(max_fd, &readfds);
-//        if (retval == -1) {
-//            break;           /* doom */
-//        }
-//        if (retval == BAD) {
-//            continue;        /* interrupted */
-//        }
-//
-//        if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-//            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
-//            process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
-//        }
-//        if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
-//            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
-//            process_input_packet(ipv6_data_input_fd, AF_INET6, tun_receive_fd);
-//        }
-//        if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
-//            process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
-//        }
-//        if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
-//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
-//            process_lisp_ctr_msg(ipv6_control_input_fd, AF_INET6);
-//        }
-//        if (FD_ISSET(tun_receive_fd, &readfds)) {
-//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
-//            process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
-//        }
-//        if (FD_ISSET(timers_fd,&readfds)){
-//            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
-//            process_timer_signal(timers_fd);
-//        }
-//        if (FD_ISSET(netlink_fd,&readfds)){
-//            lispd_log_msg(LISP_LOG_DEBUG_3,"Received notification from net link");
-//            process_netlink_msg(netlink_fd);
-//        }
-
     }
 }
 
@@ -463,6 +480,7 @@ void exit_cleanup(void) {
     close_output_sockets();
     /* Close netlink socket */
     close(netlink_fd);
+    if (ctrl_dev) lisp_ctrl_dev_del(ctrl_dev);
     lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
 
     exit(EXIT_SUCCESS);
@@ -471,7 +489,6 @@ void exit_cleanup(void) {
 
 int main(int argc, char **argv)
 {
-
     int ret = 0;
 
 #ifdef ROUTER
@@ -577,6 +594,9 @@ int main(int argc, char **argv)
         break;
     case 2:
         ret = init_ms();
+        break;
+    case 3:
+        ret = init_rtr();
         break;
     default:
         lispd_log_msg(LISP_LOG_CRIT, "No active control device configured. Exiting ... ");
