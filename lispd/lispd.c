@@ -63,6 +63,7 @@
 #include <lispd_address.h>
 #include <lisp_xtr.h>
 #include <lisp_ms.h>
+#include <elibs/htable/hash_table.h>
 
 
 /*
@@ -127,7 +128,8 @@ nonces_list     *nat_ir_nonce   = NULL;
 
 int     timers_fd                       = 0;
 
-struct sock_master *smaster             = NULL;
+struct sock_master  *smaster            = NULL;
+HashTable           *iface_addr_ht      = NULL;
 
 
 void init_tun() {
@@ -351,6 +353,44 @@ int init_rtr() {
     return(GOOD);
 }
 
+int build_iface_addr_hash_table() {
+    struct  ifaddrs *ifaddr, *ifa;
+    int     family, s;
+    char    host[NI_MAXHOST];
+
+    lispd_log_msg(LISP_LOG_INFO, "Building address to interface hash table");
+    if (getifaddrs(&ifaddr) == -1) {
+        lispd_log_msg(LISP_LOG_CRIT, "Can't read the interfaces of the system. Exiting .. ");
+        exit_cleanup();
+    }
+
+    iface_addr_ht = hash_table_new(g_str_hash, g_str_equal, free, free);
+
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL)
+            continue;
+        family = ifa->ifa_addr->sa_family;
+
+        if (family == AF_INET || family == AF_INET6) {
+            s = getnameinfo(ifa->ifa_addr,
+                    (family == AF_INET) ? sizeof(struct sockaddr_in) :
+                                          sizeof(struct sockaddr_in6),
+                    host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+            if (s != 0) {
+                lispd_log_msg(LISP_LOG_WARNING, "getnameinfo() failed: %s. Skipping interface. ", gai_strerror(s));
+                continue;
+            }
+            /* make a copy */
+            hash_table_insert(iface_addr_ht, strdup(host), strdup(ifa->ifa_name));
+
+            lispd_log_msg(LISP_LOG_INFO, "Found interface %s with address %s", ifa->ifa_name, host);
+        }
+    }
+
+    freeifaddrs(ifaddr);
+    return(GOOD);
+}
+
 
 void test_elp() {
 
@@ -481,6 +521,7 @@ void exit_cleanup(void) {
     /* Close netlink socket */
     close(netlink_fd);
     if (ctrl_dev) lisp_ctrl_dev_del(ctrl_dev);
+    if (iface_addr_ht) hash_table_destroy(iface_addr_ht);
     lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
 
     exit(EXIT_SUCCESS);
@@ -558,6 +599,8 @@ int main(int argc, char **argv)
     /* create socket master */
     smaster = sock_master_new();
 
+    /* map addr to interfaces */
+    build_iface_addr_hash_table();
 
     /*
      *  create timers event socket

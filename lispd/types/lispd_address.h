@@ -157,6 +157,7 @@ inline uint8_t           lisp_addr_cmp_for_mcache_install(lisp_addr_t *old, lisp
 inline int               lisp_addr_is_lcaf(lisp_addr_t *laddr);
 inline void              lisp_addr_lcaf_set_addr(lisp_addr_t *laddr, void *addr);
 inline void              *lisp_addr_lcaf_get_addr(lisp_addr_t *laddr);
+inline void              lisp_addr_lcaf_set_type(lisp_addr_t *laddr, int type);
 inline int               lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2);
 inline lisp_addr_t       *lisp_addr_init_ip(ip_addr_t *ip);
 inline lisp_addr_t       *lisp_addr_init_ippref(ip_addr_t *ip, uint8_t plen);

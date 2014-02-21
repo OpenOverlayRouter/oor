@@ -134,6 +134,18 @@ lcaf_addr_t *lcaf_addr_new_type(uint8_t type) {
     return(lcaf);
 }
 
+/* free only the address part */
+void lcaf_addr_del_addr(lcaf_addr_t *lcaf) {
+    assert(lcaf);
+    if (!lcaf->addr)
+        return;
+    if (!del_fcts[_get_type(lcaf)]) {
+        return;
+    }
+    (*del_fcts[_get_type(lcaf)])(lcaf_addr_get_addr(lcaf));
+}
+
+/* free an lcaf pointer */
 void lcaf_addr_del(lcaf_addr_t *lcaf) {
     assert(lcaf);
     if (!del_fcts[_get_type(lcaf)]) {
@@ -151,15 +163,16 @@ int lcaf_addr_read_from_pkt(uint8_t *offset, lcaf_addr_t *lcaf_addr) {
 
     int len = 0;
 
-    lcaf_addr_set_type(lcaf_addr, ntohs(((lcaf_hdr_t *)offset)->type));
+    lcaf_addr_set_type(lcaf_addr, ((lcaf_hdr_t *)offset)->type);
     if (!read_from_pkt_fcts[lcaf_addr_get_type(lcaf_addr)]) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "lcaf_addr_read_from_pkt: Cannot parse LCAF type %d:",
                 lcaf_addr_get_type(lcaf_addr));
         return(BAD);
     }
     len = read_from_pkt_fcts[lcaf_addr_get_type(lcaf_addr)](offset, &lcaf_addr->addr);
-    if (len != ntohs(((lcaf_hdr_t *)offset)->len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "lcaf_addr_read_from_pkt: len field and the number of bytes read are different!");
+    if (len != ntohs(((lcaf_hdr_t *)offset)->len) + sizeof(lcaf_hdr_t)) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of bytes read %d are different!",
+                ntohs(((lcaf_hdr_t *)offset)->len), len);
         return(BAD);
     }
 
@@ -210,7 +223,7 @@ inline void lcaf_addr_set(lcaf_addr_t *lcaf, void *newaddr, uint8_t type) {
     void *addr;
     addr = lcaf_addr_get_addr(lcaf);
     if (addr)
-        lcaf_addr_del(addr);
+        lcaf_addr_del_addr(addr);
     lcaf_addr_set_type(lcaf, type);
     lcaf_addr_set_addr(lcaf, newaddr);
 }
@@ -236,9 +249,7 @@ inline uint32_t lcaf_addr_get_size_to_write(lcaf_addr_t *lcaf) {
     return((*size_in_pkt_fcts[_get_type(lcaf)])(_get_addr(lcaf)));
 }
 
-int lcaf_addr_copy(lcaf_addr_t **dst, lcaf_addr_t *src) {
-
-    void *addr;
+int lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src) {
 
     assert(src);
     if (!copy_fcts[lcaf_addr_get_type(src)]) {
@@ -246,16 +257,11 @@ int lcaf_addr_copy(lcaf_addr_t **dst, lcaf_addr_t *src) {
         return(BAD);
     }
 
-    if (!(*dst))
-        *dst = lcaf_addr_new();
-    else if (_get_type(*dst) != _get_type(src)) {
-        lcaf_addr_del(*dst);
-        *dst = lcaf_addr_new();
-    }
+    if (_get_type(dst) != _get_type(src))
+        lcaf_addr_del_addr(dst);
 
-    lcaf_addr_set_type(*dst, _get_type(src));
-    addr = _get_addr(*dst);
-    (*copy_fcts[_get_type(src)])(&addr, src);
+    lcaf_addr_set_type(dst, _get_type(src));
+    (*copy_fcts[_get_type(src)])(&dst->addr, src->addr);
 
     return(GOOD);
 }
@@ -670,7 +676,22 @@ void iid_type_copy(void **dst, void *src) {
     iid_type_set_mlen((iid_t*)*dst, iid_type_get_mlen(src));
 }
 
+iid_t *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen) {
+    iid_t *iidt = iid_type_new();
+    iidt->iid = iid;
+    iidt->iidaddr = addr;
+    iidt->mlen = mlen;
+    return(iidt);
+}
 
+lcaf_addr_t *lcaf_iid_init(int iid, lisp_addr_t *addr, uint8_t mlen) {
+    lcaf_addr_t *iidaddr    = lcaf_addr_new();
+
+    iidaddr->type = LCAF_IID;
+    iidaddr->addr = iid_type_init(iid, addr, mlen);
+
+    return(iidaddr);
+}
 
 
 
@@ -912,8 +933,8 @@ int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
     elp_node_flags      *flags = NULL;
     elp_t               *elp_ptr = NULL;
 
+    *elp = elp_type_new();
     elp_ptr = *elp;
-    elp_ptr = elp_type_new();
 
     totallen = ntohs(((lcaf_elp_hdr_t *)offset)->length);
     readlen = sizeof(lcaf_elp_hdr_t);
@@ -937,6 +958,8 @@ int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
         glist_add_tail(enode, elp_ptr->nodes);
 
     }
+    if (totallen !=0)
+        lispd_log_msg(LISP_LOG_DEBUG_1, "elp_type_read_from_pkt: Error encountered!");
 
     return(readlen);
 
@@ -954,12 +977,14 @@ char *elp_type_to_char(void *elp) {
     elp_node_t *node;
     int j = 0;
 
-    sprintf(buf[i], "\nLCAF ELP\n");
+    sprintf(buf[i], "ELP:");
+
     glist_for_each_entry(it, ((elp_t *)elp)->nodes) {
         j++;
         node = glist_entry_data(it);
-        sprintf(buf[i]+strlen(buf[i]), "Hop %d: %s flags: %s%s%s\n", j, lisp_addr_to_char(node->addr),
-                (node->L) ? "L" : "l", (node->P) ? "P" : "p", (node->S) ? "S" : "s");
+//        sprintf(buf[i]+strlen(buf[i]), "[%d] %s f: %s%s%s", j, lisp_addr_to_char(node->addr),
+//                (node->L) ? "L" : "l", (node->P) ? "P" : "p", (node->S) ? "S" : "s");
+        sprintf(buf[i]+strlen(buf[i]), "[%d] %s ", j, lisp_addr_to_char(node->addr));
     }
     return(buf[i]);
 }
@@ -979,16 +1004,15 @@ void elp_type_copy(void **dst, void *src) {
     elp_node_t  *cp_node    = NULL;
     glist_entry_t *it       = NULL;
 
+    if (!*dst)
+        *dst = elp_type_new();
     elp_ptr = *dst;
-    if (!elp_ptr)
-        elp_ptr = elp_type_new();
 
     glist_for_each_entry(it, ((elp_t *)src)->nodes) {
         node = glist_entry_data(it);
         cp_node = elp_node_clone(node);
-        glist_add(cp_node, elp_ptr->nodes);
+        glist_add_tail(cp_node, elp_ptr->nodes);
     }
-
 }
 
 

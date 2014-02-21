@@ -169,6 +169,13 @@ void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
     for (ctr=0; ctr < 2 ; ctr++){
         while (locators_lists[ctr] != NULL){
             locator = locators_lists[ctr]->locator;
+
+            /* no RLOC probing for LCAF for now */
+            if (lisp_addr_get_afi(locator_addr(locator)) == LM_AFI_LCAF) {
+                locators_lists[ctr] = locators_lists[ctr]->next;
+                continue;
+            }
+
             locator_ext_inf = (rmt_locator_extended_info *)locator->extended_info;
             timer_arg = new_timer_rloc_probe_argument (map_cache_entry, locator);
             /* Create and program the timer */

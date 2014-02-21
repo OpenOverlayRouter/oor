@@ -608,7 +608,7 @@ int select_src_locators_from_balancing_locators_vec (
 }
 
 
-lisp_addr_t *get_locator_from_lcaf(lisp_addr_t *laddr) {
+int rtr_get_src_and_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **src, lisp_addr_t **dst) {
     lcaf_addr_t             *lcaf       = NULL;
     elp_node_t              *elp_node   = NULL;
     lispd_iface_list_elt    *interface  = NULL;
@@ -617,24 +617,48 @@ lisp_addr_t *get_locator_from_lcaf(lisp_addr_t *laddr) {
     lcaf = lisp_addr_get_lcaf(laddr);
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_EXPL_LOC_PATH:
-        glist_for_each_entry(it, lcaf_elp_get_node_list(lcaf)) {
+        /* lookup in the elp list the first RLOC to also pertain to the RTR */
+        glist_for_each_entry(it, lcaf_elp_node_list(lcaf)) {
             elp_node = glist_entry_data(it);
             interface = head_interface_list;
             while (interface) {
-                if (lisp_addr_cmp(interface->iface->ipv4_address, elp_node->addr))
-                    return(((elp_node_t *)glist_next(it))->addr);
-                if (lisp_addr_cmp(interface->iface->ipv6_address, elp_node->addr))
-                    return(((elp_node_t *)glist_next(it))->addr);
+                if (lisp_addr_cmp(interface->iface->ipv4_address, elp_node->addr) == 0) {
+                    *dst = ((elp_node_t *)glist_entry_data(glist_next(it)))->addr;
+                    *src = elp_node->addr;
+                    return(GOOD);
+                }
+                if (lisp_addr_cmp(interface->iface->ipv6_address, elp_node->addr) == 0) {
+                    *dst = ((elp_node_t *)glist_entry_data(glist_next(it)))->addr;
+                    *dst = elp_node->addr;
+                    return(GOOD);
+                }
                 interface = interface->next;
             }
         }
-        return(NULL);
-        break;
+        return(GOOD);
     default:
         lispd_log_msg(LISP_LOG_DEBUG_1, "get_locator_from_lcaf: Type % not supported!, ",
                 lcaf_addr_get_type(lcaf));
-        return(NULL);
+        return(BAD);
     }
+}
+
+int xtr_get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst) {
+    lcaf_addr_t             *lcaf       = NULL;
+
+    lcaf = lisp_addr_get_lcaf(laddr);
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH:
+        /* we're the ITR, so the destination is the first elp hop, the src we choose outside */
+        *dst = ((elp_node_t *)glist_first_data(lcaf_elp_node_list(lcaf)))->addr;
+        break;
+    default:
+        *dst = NULL;
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_locator_from_lcaf: Type % not supported!, ",
+                lcaf_addr_get_type(lcaf));
+        return(BAD);
+    }
+    return(GOOD);
 }
 
 /*
@@ -657,6 +681,8 @@ int select_src_rmt_locators_from_balancing_locators_vec (
     balancing_locators_vecs *dst_blv        = NULL;
     locator_t       **src_loc_vec   = NULL;
     locator_t       **dst_loc_vec   = NULL;
+    lcaf_addr_t     *lcaf           = NULL;
+    int             afi             = 0;
 
     src_blv = &((lcl_mapping_extended_info *)(src_mapping->extended_info))->outgoing_balancing_locators_vecs;
     dst_blv = &((rmt_mapping_extended_info *)(dst_mapping->extended_info))->rmt_balancing_locators_vecs;
@@ -687,7 +713,31 @@ int select_src_rmt_locators_from_balancing_locators_vec (
     pos = hash%src_vec_len;
     *src_locator =  src_loc_vec[pos];
 
-    switch ((*src_locator)->locator_addr->afi){
+    /* figure out src afi to decide dst afi */
+    switch (lisp_addr_get_afi(locator_addr(*src_locator))) {
+    case LM_AFI_IP:
+        afi = lisp_addr_ip_get_afi(locator_addr(*src_locator));
+        break;
+    case LM_AFI_LCAF:
+        lcaf = lisp_addr_get_lcaf(locator_addr(*src_locator));
+        switch(lcaf_addr_get_type(lcaf)) {
+        case LCAF_EXPL_LOC_PATH:
+            /* the afi of the first node in the elp */
+            afi = lisp_addr_ip_get_afi(((elp_node_t *)glist_first_data(lcaf_elp_node_list(lcaf)))->addr);
+            break;
+        default:
+            lispd_log_msg(LISP_LOG_DEBUG_2,"select_src_rmt_locators_from_balancing_locators_vec: LCAF type %d not supported",
+                    lcaf_addr_get_type(lcaf));
+            return(BAD);
+        }
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2,"select_src_rmt_locators_from_balancing_locators_vec: LISP addr afi %d not supported",
+                lisp_addr_get_afi(locator_addr(*src_locator)));
+        return(BAD);
+    }
+
+    switch (afi){
     case (AF_INET):
         dst_loc_vec = dst_blv->v4_balancing_locators_vec;
         dst_vec_len = dst_blv->v4_locators_vec_length;
@@ -696,7 +746,12 @@ int select_src_rmt_locators_from_balancing_locators_vec (
         dst_loc_vec = dst_blv->v6_balancing_locators_vec;
         dst_vec_len = dst_blv->v6_locators_vec_length;
         break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_2,"select_src_rmt_locators_from_balancing_locators_vec: Unknown IP AFI %d",
+                lisp_addr_ip_get_afi(locator_addr(*src_locator)));
+        return(BAD);
     }
+
 
     pos = hash%dst_vec_len;
     *dst_locator =  dst_loc_vec[pos];
@@ -839,7 +894,6 @@ forwarding_entry *get_forwarding_entry(packet_tuple *tuple) {
     locator_t                   *outer_dst_locator  = NULL;
     forwarding_entry            *fwd_entry          = NULL;
 
-
     /* should be retrieved from a cache in the future */
     fwd_entry = calloc(1, sizeof(forwarding_entry));
 
@@ -921,17 +975,79 @@ forwarding_entry *get_forwarding_entry(packet_tuple *tuple) {
         return (fwd_entry);
     }
 
+    fwd_entry->dst_rloc = locator_addr(outer_dst_locator);
     fwd_entry->src_rloc = locator_addr(outer_src_locator);
+
+    /* Decide what happens when src or dst are LCAFs */
     if (lisp_addr_get_afi(locator_addr(outer_dst_locator)) == LM_AFI_LCAF) {
-        fwd_entry->dst_rloc  = get_locator_from_lcaf(locator_addr(outer_dst_locator));
-    } else {
-        fwd_entry->dst_rloc = locator_addr(outer_dst_locator);
+         xtr_get_dst_from_lcaf(locator_addr(outer_dst_locator), &fwd_entry->dst_rloc);
+    }
+
+    /* if our src rloc is an LCAF, just use the default data address */
+    if (lisp_addr_get_afi(locator_addr(outer_src_locator)) == LM_AFI_LCAF) {
+        if (lisp_addr_ip_get_afi(fwd_entry->dst_rloc) == AF_INET)
+            fwd_entry->src_rloc = default_out_iface_v4->ipv4_address;
+        else
+            fwd_entry->src_rloc = default_out_iface_v6->ipv6_address;
     }
 
     fwd_entry->out_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
 
     return(fwd_entry);
 
+}
+
+forwarding_entry *get_reencap_forwarding_entry(packet_tuple *tuple) {
+    mapping_t           *dst_mapping        = NULL;
+    forwarding_entry    *fwd_entry          = NULL;
+    lispd_locators_list         *locator_iterator_array[2]  = {NULL,NULL};
+    lispd_locators_list         *locator_iterator           = NULL;
+    locator_t                   *locator                    = NULL;
+    int ctr;
+
+    /* should be retrieved from a cache in the future */
+    fwd_entry = calloc(1, sizeof(forwarding_entry));
+
+    dst_mapping = mcache_lookup_mapping(&(tuple->dst_addr));
+
+    if (dst_mapping == NULL){ /* There is no entry in the map cache */
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_forwarding_entry: No map cache retrieved for eid %s. Sending Map-Request!",
+                lisp_addr_to_char(&tuple->dst_addr));
+        /* the inner src is not registered by the RTR, so don't use it when doing map-requests */
+        handle_map_cache_miss(&(tuple->dst_addr), NULL);
+        return(fwd_entry);
+    }
+
+    if (dst_mapping->locator_count >1 ) {
+        lispd_log_msg(LISP_LOG_WARNING, "Multihoming of RTRs currently not supported!");
+    }
+
+    /* just lookup the first LCAF in the dst mapping and obtain the src/dst rlocs */
+    locator_iterator_array[0] = dst_mapping->head_v4_locators_list;
+    locator_iterator_array[1] = dst_mapping->head_v6_locators_list;
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        locator_iterator = locator_iterator_array[ctr];
+        while (locator_iterator != NULL) {
+            locator = locator_iterator->locator;
+            if (lisp_addr_get_afi(locator_addr(locator)) == LM_AFI_LCAF) {
+                rtr_get_src_and_dst_from_lcaf(locator_addr(locator), &fwd_entry->src_rloc, &fwd_entry->dst_rloc);
+                break;
+            }
+            locator_iterator = locator_iterator->next;
+        }
+    }
+
+    if (!fwd_entry->src_rloc || !fwd_entry->dst_rloc) {
+        lispd_log_msg(LISP_LOG_WARNING, "Couldn't find src/dst rloc pair");
+        return(NULL);
+    }
+
+    if (lisp_addr_get_afi(fwd_entry->src_rloc))
+        fwd_entry->out_socket = default_out_iface_v4->out_socket_v4;
+    else
+        fwd_entry->out_socket = default_out_iface_v6->out_socket_v6;
+
+    return(fwd_entry);
 }
 
 
@@ -945,7 +1061,10 @@ int lisp_output_unicast (
     int                         encap_packet_size   = 0;
 
     /* find a forwarding entry, either in cache or ask control */
-    fwd_entry = get_forwarding_entry(tuple);
+    if (ctrl_dev->mode == RTR_MODE)
+        fwd_entry = get_reencap_forwarding_entry(tuple);
+    else
+        fwd_entry = get_forwarding_entry(tuple);
 
 
     /* FC: should we forward natively all packets with no forwarding entry or not? */
@@ -1074,3 +1193,5 @@ int process_output_packet (struct sock *sl)
     lisp_output(tun_receive_buf, nread);
     return(GOOD);
 }
+
+

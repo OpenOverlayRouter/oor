@@ -68,6 +68,8 @@ int add_database_mapping(
         int    priority_v6,
         int    weight_v6);
 
+int add_local_db_mapping(cfg_t *map, HashTable *lcaf_ht);
+
 int add_map_server(
         char       *map_server,
         int        key_type,
@@ -474,14 +476,15 @@ static HashTable *parse_elp_list(cfg_t *cfg) {
     char        *name   = NULL;
     int i, j;
 
-    ht = hash_table_new(g_str_hash, g_str_equal, (DestroyFunc)lisp_addr_del);
+    ht = hash_table_new(g_str_hash, g_str_equal, free, (DestroyFunc)lisp_addr_del);
     for(i = 0; i < cfg_size(cfg, "explicit-locator-path"); i++) {
         cfg_t *selp = cfg_getnsec(cfg, "explicit-locator-path", i);
         name = cfg_getstr(selp, "elp-name");
 
-        laddr = lisp_addr_new();
-        elp = lisp_addr_lcaf_get_addr(laddr);
-        elp = calloc(1, sizeof(elp_t));
+        laddr = lisp_addr_new_afi(LM_AFI_LCAF);
+        lisp_addr_lcaf_set_type(laddr, LCAF_EXPL_LOC_PATH);
+
+        elp = elp_type_new();
 
         for (j = 0; j < cfg_size(selp, "elp-node");j++) {
             cfg_t *senode = cfg_getnsec(selp, "elp-node", j);
@@ -499,6 +502,10 @@ static HashTable *parse_elp_list(cfg_t *cfg) {
 
             glist_add_tail(enode, elp->nodes);
         }
+
+        lisp_addr_lcaf_set_addr(laddr, (void *)elp);
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: parsed explicit-locator-path: %s", lisp_addr_to_char(laddr));
+
         hash_table_insert(ht, name, laddr);
     }
 
@@ -514,6 +521,7 @@ int configure_rtr(cfg_t *cfg) {
     int                     probe_retries_interval  = 0;
     char                    *map_resolver           = NULL;
     HashTable               *elp_ht                 = NULL;
+    char                    *iface                  = NULL;
 
 
     /* initialize rtr - as a control device, it is only an xtr */
@@ -552,6 +560,13 @@ int configure_rtr(cfg_t *cfg) {
                 lispd_log_msg(LISP_LOG_CRIT,"Can't add %s Map Resolver.",map_resolver);
             }
         }
+    }
+
+    /* TODO: should work with all interfaces in the future */
+    iface = cfg_getstr(cfg, "rtr-data-iface");
+    if (iface) {
+        if (!add_interface(iface))
+            return(BAD);
     }
 
     /*
@@ -611,6 +626,11 @@ int configure_xtr(cfg_t *cfg) {
     ret = cfg_getint(cfg, "map-request-retries");
     if (ret != 0)
         map_request_retries = ret;
+
+    /* get a hash table of all the elps. If any are configured,
+     * their names could appear in the rloc field of database mappings
+     * or static map cache entries  */
+    elp_ht = parse_elp_list(cfg);
 
 
     /*
@@ -718,16 +738,23 @@ int configure_xtr(cfg_t *cfg) {
                 cfg_getint(dm, "priority_v4"),
                 cfg_getint(dm, "weight_v4"),
                 cfg_getint(dm, "priority_v6"),
-                cfg_getint(dm, "weight_v6")) == GOOD
-        ) {
+                cfg_getint(dm, "weight_v6")) == GOOD) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "Added EID %s in the database.",
                     cfg_getstr(dm, "eid-prefix"));
         }else{
             lispd_log_msg(LISP_LOG_ERR, "Can't add database-mapping %s. Discarded ...",
                     cfg_getstr(dm, "eid-prefix"));
         }
-
     }
+
+
+
+    n = cfg_size(cfg, "database-mapping-new");
+    for (i = 0; i < n; i++) {
+        add_local_db_mapping(cfg_getnsec(cfg, "database-mapping-new", i), elp_ht);
+    }
+
+
 
 
     /*
@@ -752,10 +779,6 @@ int configure_xtr(cfg_t *cfg) {
      *  handle static-map-cache config
      */
 
-    /* get a hash table of all the elps. If any are configured,
-     * their names could appear in the rloc field of static map cache entries  */
-    elp_ht = parse_elp_list(cfg);
-
 
     n = cfg_size(cfg, "static-map-cache");
     for(i = 0; i < n; i++) {
@@ -778,8 +801,6 @@ int configure_xtr(cfg_t *cfg) {
                     cfg_getstr(smc, "rloc"));
         }
     }
-
-    hash_table_destroy(elp_ht);
 
 
     /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
@@ -805,6 +826,10 @@ int configure_xtr(cfg_t *cfg) {
             lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> disabling RLOC Probing");
         }
     }
+
+    /* destroy the hash table */
+    hash_table_destroy(elp_ht);
+
 
     /* Check number of EID prefixes */
 #ifndef ROUTER
@@ -876,8 +901,6 @@ int configure_ms(cfg_t *cfg) {
 
     }
 
-
-
     return(GOOD);
 }
 
@@ -905,6 +928,19 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_INT("weight_v4",            0, CFGF_NONE),
             CFG_INT("priority_v6",          0, CFGF_NONE),
             CFG_INT("weight_v6",            0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t rloc_opts[] = {
+            CFG_STR("address",       0, CFGF_NONE),
+            CFG_INT("priority",      0, CFGF_NONE),
+            CFG_INT("weight",        0, CFGF_NONE),
+            CFG_END()
+    };
+    static cfg_opt_t db_mapping_opts_new[] = {
+            CFG_STR("eid-prefix",           0, CFGF_NONE),
+            CFG_INT("iid",                  0, CFGF_NONE),
+            CFG_SEC("rloc",                 rloc_opts, CFGF_MULTI),
             CFG_END()
     };
 
@@ -942,7 +978,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_STR("address",      0,          CFGF_NONE),
             CFG_BOOL("strict",      cfg_false,  CFGF_NONE),
             CFG_BOOL("probe",       cfg_false,  CFGF_NONE),
-            CFG_BOOL("lookup",         cfg_false,  CFGF_NONE),
+            CFG_BOOL("lookup",      cfg_false,  CFGF_NONE),
             CFG_END()
     };
 
@@ -964,12 +1000,13 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     };
 
     cfg_opt_t opts[] = {
-            CFG_SEC("database-mapping",     db_mapping_opts, CFGF_MULTI),
-            CFG_SEC("static-map-cache",     mc_mapping_opts, CFGF_MULTI),
-            CFG_SEC("map-server",           map_server_opts, CFGF_MULTI),
-            CFG_SEC("proxy-etr",            petr_mapping_opts, CFGF_MULTI),
-            CFG_SEC("nat-traversal",        nat_traversal_opts, CFGF_MULTI),
-            CFG_SEC("rloc-probing",         rloc_probing_opts, CFGF_MULTI),
+            CFG_SEC("database-mapping",     db_mapping_opts,        CFGF_MULTI),
+            CFG_SEC("database-mapping-new", db_mapping_opts_new,    CFGF_MULTI),
+            CFG_SEC("static-map-cache",     mc_mapping_opts,        CFGF_MULTI),
+            CFG_SEC("map-server",           map_server_opts,        CFGF_MULTI),
+            CFG_SEC("proxy-etr",            petr_mapping_opts,      CFGF_MULTI),
+            CFG_SEC("nat-traversal",        nat_traversal_opts,     CFGF_MULTI),
+            CFG_SEC("rloc-probing",         rloc_probing_opts,      CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
@@ -978,8 +1015,9 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
             CFG_STR("operating-mode",       0, CFGF_NONE),
             CFG_STR("control-iface",        0, CFGF_NONE),
-            CFG_SEC("lisp-site",            lisp_site_opts, CFGF_MULTI),
-            CFG_SEC("explicit-locator-path", elp_opts, CFGF_MULTI),
+            CFG_STR("rtr-data-iface",        0, CFGF_NONE),
+            CFG_SEC("lisp-site",            lisp_site_opts,         CFGF_MULTI),
+            CFG_SEC("explicit-locator-path", elp_opts,              CFGF_MULTI),
             CFG_END()
     };
 
@@ -1077,6 +1115,7 @@ int add_database_mapping(
     int                         eid_prefix_length   = 0;
     uint8_t                     is_new_mapping      = FALSE;
 
+
     if (iface_name == NULL){
         lispd_log_msg(LISP_LOG_ERR, "Configuration file: No interface specificated for database mapping. Ignoring mapping");
         return (BAD);
@@ -1118,13 +1157,13 @@ int add_database_mapping(
     }
 
     if (if_nametoindex(iface_name) == 0) {
-        lispd_log_msg(LISP_LOG_ERR, "Configuration file: INVALID INTERFACE or not initialized virtual interface: %s ", iface_name);
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: INVALID INTERFACE or not initialized virtual interface"
+                ": %s ", iface_name);
     }
 
     /*
      * Lookup if the mapping exists. If not, a new mapping is created.
      */
-//    if (eid_prefix)
     mapping = local_map_db_lookup_eid_exact(&eid_prefix);
 
     if (mapping == NULL) {
@@ -1147,6 +1186,9 @@ int add_database_mapping(
         }
         is_new_mapping = FALSE;
     }
+
+
+
     /*
      * Add the interface.
      */
@@ -1158,7 +1200,7 @@ int add_database_mapping(
     if (interface == NULL && is_new_mapping == TRUE){
         if (is_new_mapping){
             local_map_db_del_mapping(mapping_eid(mapping));
-            lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add mapping -> Cudn't create interface");
+            lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add mapping -> Could't create interface");
         }else{
             lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't add locator to the mapping -> Cudn't create interface");
         }
@@ -1195,6 +1237,7 @@ int add_database_mapping(
             return (BAD);
         }
     }
+
     /* Recalculate the outgoing rloc vectors */
     if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
         lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc prefenernce");
@@ -1202,6 +1245,179 @@ int add_database_mapping(
 
     return(GOOD);
 }
+
+
+lisp_addr_t *get_ip_rloc_from_lcaf(lisp_addr_t *addr) {
+    lisp_addr_t *rloc = NULL;
+    lcaf_addr_t *lcaf = lisp_addr_get_lcaf(addr);
+
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH:
+        rloc = ((elp_node_t *)glist_last_data(lcaf_elp_node_list(lcaf)))->addr;
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_ip_rloc_from_lcaf: lcaf type %d not supported",
+                lcaf_addr_get_type(lcaf));
+    }
+    return(rloc);
+}
+
+char *get_interface_name_from_address(lisp_addr_t *addr) {
+    char *iface  = NULL;
+
+    if (lisp_addr_get_afi(addr) != LM_AFI_IP) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_interface_name_from_address: failed for %s. Function only "
+                "supports IP syntax addresses!", lisp_addr_to_char(addr));
+        return(NULL);
+    }
+
+    iface = hash_table_lookup(iface_addr_ht, lisp_addr_to_char(addr));
+    lispd_log_msg(LISP_LOG_DEBUG_1, "iface %s and strlen addr %d", iface, strlen(lisp_addr_to_char(addr)));
+    if (iface)
+        return((char *)iface);
+    else
+        return(NULL);
+
+}
+
+locator_t *parse_locator(
+        char   *address,
+        int    priority,
+        int    weight,
+        HashTable *lcaf_ht)
+
+{
+
+    char                *iface_name         = NULL;
+    locator_t           *locator            = NULL;
+    lisp_addr_t         *lcaf_rloc          = NULL;
+    lispd_iface_elt     *interface          = NULL;
+    lisp_addr_t         *rloc               = NULL;
+    lisp_addr_t         *aux_rloc           = NULL;
+
+
+    lispd_log_msg(LISP_LOG_DEBUG_3, "parsing locator %s", address);
+
+    if (priority < (MAX_PRIORITY - 1) || priority > UNUSED_RLOC_PRIORITY) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
+                priority, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
+        priority = MIN_PRIORITY;
+    }
+
+
+    if (weight < (MIN_WEIGHT) || weight > MAX_WEIGHT) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Weight %d out of range [%d..%d], set weight to 100...",
+                weight, MIN_WEIGHT, MAX_WEIGHT);
+        weight = 100;
+    }
+
+    /* decide rloc to be used to lookup the interface */
+    rloc = lisp_addr_new();
+    if (get_lisp_addr_from_char(address, rloc)!=GOOD) {
+        lisp_addr_del(rloc);
+        lcaf_rloc = hash_table_lookup(lcaf_ht, address);
+        if(!lcaf_rloc){
+            lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing RLOC address %s", address);
+            return (NULL);
+        }
+        aux_rloc = get_ip_rloc_from_lcaf(lcaf_rloc);
+        if (!aux_rloc) {
+            lispd_log_msg(LISP_LOG_ERR, "Configuration file: Can't determine RLOC address %s", lisp_addr_to_char(lcaf_rloc));
+            lisp_addr_del(lcaf_rloc);
+            return(NULL);
+        }
+    } else {
+        aux_rloc = rloc;
+    }
+
+    if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Can't find interface for RLOC %s", lisp_addr_to_char(aux_rloc));
+        lisp_addr_del(aux_rloc);
+        return(NULL);
+    }
+
+    if (!(interface = get_interface(iface_name))) {
+        if (!(interface = add_interface(iface_name))) {
+            lisp_addr_del(aux_rloc);
+        }
+    }
+
+    if (!lcaf_rloc) {
+        locator = new_local_locator(rloc,&(interface->status), priority, weight, 255, 0, &(interface->out_socket_v4));
+    }else {
+        locator = new_local_locator(lisp_addr_clone(lcaf_rloc),&(interface->status), priority, weight, 255, 0, &(interface->out_socket_v4));
+        if (!locator) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: failed to create locator with addr %s",
+                    lisp_addr_to_char(lcaf_rloc));
+            return(NULL);
+        }
+    }
+
+    return(locator);
+}
+
+int add_local_db_mapping(cfg_t *map, HashTable *lcaf_ht) {
+    int i;
+    mapping_t           *mapping            = NULL;
+    locator_t           *locator            = NULL;
+    lisp_addr_t         *eid_prefix;           /* save the eid_prefix here */
+    lisp_addr_t         *new_eid            = NULL;
+    int                 eid_prefix_length   = 0;
+    int                 iid                 = 0;
+
+    eid_prefix = lisp_addr_new();
+    if (get_lisp_addr_and_mask_from_char(cfg_getstr(map, "eid-prefix"), eid_prefix, &eid_prefix_length)!=GOOD){
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing EID address");
+        return (BAD);
+    }
+
+    /* add iid to eid-prefix if different from 0 */
+    iid = cfg_getint(map, "iid");
+
+    if (iid > MAX_IID || iid < -1) {
+        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        iid = 0;
+    }
+
+    if (iid != 0) {
+        new_eid = lisp_addr_new_afi(LM_AFI_LCAF);
+        /* XXX: mask not defined. Just filling in a value for now */
+        lisp_addr_lcaf_set_addr(new_eid, (void *)iid_type_init(iid, eid_prefix, 32));
+        eid_prefix = new_eid;
+    }
+
+    mapping = local_map_db_lookup_eid_exact(eid_prefix);
+    if (!mapping) {
+        mapping = mapping_init_local(eid_prefix);
+        local_map_db_add_mapping(mapping);
+    } else {
+        /* no need for the prefix */
+        lisp_addr_del(eid_prefix);
+    }
+
+    for (i = 0; i < cfg_size(map, "rloc"); i++) {
+        cfg_t *rl = cfg_getnsec(map, "rloc", i);
+        locator = parse_locator(cfg_getstr(rl, "address"),
+                cfg_getint(rl, "priority"),
+                cfg_getint(rl, "weight"),
+                lcaf_ht);
+
+        if (!locator) {
+            lispd_log_msg(LISP_LOG_WARNING, "Configuration file: couldn't parse %s", cfg_getstr(rl, "address"));
+            continue;
+        }
+
+        add_locator_to_mapping(mapping, locator);
+    }
+
+    /* Recalculate the outgoing rloc vectors */
+    if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
+        lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc preference");
+    }
+
+    return(GOOD);
+}
+
 
 /*
  *  add_static_map_cache_entry --
@@ -1256,7 +1472,7 @@ int add_static_map_cache_entry(
     ip_prefix_set_plen(lisp_addr_get_ippref(&eid_prefix), (uint8_t)eid_prefix_length);
 
 
-    mapping = mapping_init_local(&eid_prefix);
+    mapping = mapping_init_static(&eid_prefix);
     if (!mapping)
         return(BAD);
 
@@ -1583,7 +1799,6 @@ lisp_site_prefix *build_lisp_site_prefix(char *eidstr, uint32_t iid, int key_typ
         lisp_addr_del(eid_prefix);
         return (BAD);
     }
-    lispd_log_msg(LISP_LOG_WARNING, " the eid %s", lisp_addr_to_char(eid_prefix));
 
     /* HACK: change afi from IP to IPPREF and set mask */
     lisp_addr_set_afi(eid_prefix, LM_AFI_IPPREF);

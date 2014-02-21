@@ -362,7 +362,7 @@ typedef struct _afi_list_t {
 
 lcaf_addr_t             *lcaf_addr_new();
 lcaf_addr_t             *lcaf_addr_new_type(uint8_t type);
-void                    lcaf_addr_del(lcaf_addr_t *lcaf);
+void                    lcaf_addr_del_addr(lcaf_addr_t *lcaf);
 
 inline lcaf_type        lcaf_addr_get_type(lcaf_addr_t *lcaf);
 inline void             *lcaf_addr_get_addr(lcaf_addr_t *lcaf);
@@ -380,7 +380,7 @@ int                     lcaf_addr_read_from_pkt(uint8_t *offset, lcaf_addr_t *lc
 inline char             *lcaf_addr_to_char(lcaf_addr_t *lcaf);
 
 inline uint32_t         lcaf_addr_get_size_to_write(lcaf_addr_t *lcaf);
-int                     lcaf_addr_copy(lcaf_addr_t **dst, lcaf_addr_t *src);
+int                     lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src);
 inline int              lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf);
 inline int              lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 inline uint8_t          lcaf_addr_cmp_iids(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
@@ -446,6 +446,8 @@ inline int                  iid_type_write_to_pkt(uint8_t *offset, void *iid);
 int                         iid_type_read_from_pkt(uint8_t *offset, void **iid);
 char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);
+iid_t                       *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen);
+lcaf_addr_t                 *lcaf_iid_init(int iid, lisp_addr_t *addr, uint8_t mlen);
 
 
 
@@ -500,7 +502,7 @@ int                         elp_type_cmp(void *elp1, void *elp2);
 inline void     elp_node_del(elp_node_t *enode);
 inline void     lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode);
 
-static inline glist_t *lcaf_elp_get_node_list(lcaf_addr_t *lcaf) {
+static inline glist_t *lcaf_elp_node_list(lcaf_addr_t *lcaf) {
     return(((elp_t *)lcaf->addr)->nodes);
 }
 

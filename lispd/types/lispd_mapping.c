@@ -118,9 +118,10 @@ mapping_t *new_local_mapping(
     lcl_mapping_extended_info   *extended_info  = NULL;
 
     lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
-    if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
+    if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL)
         return (NULL);
-    }
+
+    mapping->type = MAPPING_LOCAL;
 
     if ((extended_info=(lcl_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_local_mapping: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
@@ -153,10 +154,10 @@ mapping_t *new_map_cache_mapping(
     mapping_t           *mapping        = NULL;
     rmt_mapping_extended_info   *extended_info  = NULL;
 
-    if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL){
+    if ((mapping = new_mapping (eid_prefix, eid_prefix_length, iid)) == NULL)
         return (NULL);
-    }
 
+    mapping->type = MAPPING_LEARNED;
     if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_rmt_mapping: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
         free (mapping);
@@ -200,9 +201,9 @@ int add_locator_to_mapping(
 
     int result = GOOD;
 
-    switch (lisp_addr_get_afi(locator->locator_addr)){
+    switch (lisp_addr_get_afi(locator_addr(locator))){
         case LM_AFI_IP:
-            switch (lisp_addr_ip_get_afi(locator->locator_addr)) {
+            switch (lisp_addr_ip_get_afi(locator_addr(locator))) {
                 case AF_INET:
                     err = add_locator_to_list (&(mapping->head_v4_locators_list), locator);
                     break;
@@ -220,7 +221,7 @@ int add_locator_to_mapping(
             }
             break;
         case LM_AFI_LCAF:
-            lcaf = lisp_addr_get_lcaf(locator->locator_addr);
+            lcaf = lisp_addr_get_lcaf(locator_addr(locator));
 
             switch (lcaf_addr_get_type(lcaf)) {
                 case LCAF_MCAST_INFO:
@@ -245,9 +246,9 @@ int add_locator_to_mapping(
                     }
                     break;
                 case LCAF_EXPL_LOC_PATH:
-                    enodes = lcaf_elp_get_node_list(lcaf);
-                    elp_node = glist_entry_data(glist_first(enodes));
-                    switch (lisp_addr_get_afi(elp_node->addr)) {
+                    enodes = lcaf_elp_node_list(lcaf);
+                    elp_node = glist_first_data(enodes);
+                    switch (lisp_addr_ip_get_afi(elp_node->addr)) {
                     case AF_INET:
                         add_locator_to_list(&(mapping->head_v4_locators_list), locator);
                         break;
@@ -255,8 +256,8 @@ int add_locator_to_mapping(
                         add_locator_to_list(&(mapping->head_v6_locators_list), locator);
                         break;
                     default:
-                        lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: elp node afi %d not supported",
-                                lisp_addr_get_afi(elp_node->addr));
+                        lispd_log_msg(LISP_LOG_DEBUG_1, "add_locator_to_mapping: elp node afi %d not supported. The node %s",
+                                lisp_addr_ip_get_afi(elp_node->addr), lisp_addr_to_char(elp_node->addr));
                         break;
                     }
                     break;
@@ -277,6 +278,7 @@ int add_locator_to_mapping(
         lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_mapping: The locator %s has been added for the EID %s.",
                 lisp_addr_to_char(locator->locator_addr),
                 lisp_addr_to_char(mapping_eid(mapping)));
+
         result = GOOD;
     }else if (err == ERR_EXIST){
         lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_mapping: The locator %s already exists for the EID %s.",
@@ -433,9 +435,9 @@ void free_mapping_elt(mapping_t *mapping, int local)
         free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
         free ((rmt_mapping_extended_info *)mapping->extended_info);
     }
-    /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf */
+    /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf addr */
     if (lisp_addr_get_afi(mapping_eid(mapping)) == LM_AFI_LCAF)
-        lcaf_addr_del(lisp_addr_get_lcaf(mapping_eid(mapping)));
+        lcaf_addr_del_addr(lisp_addr_get_lcaf(mapping_eid(mapping)));
     free(mapping);
 
 }
@@ -865,7 +867,7 @@ inline mapping_t *mapping_init(lisp_addr_t *eid) {
 }
 
 mapping_t *mapping_init_local(lisp_addr_t *eid) {
-    mapping_t           *mapping        = NULL;
+    mapping_t                   *mapping        = NULL;
     lcl_mapping_extended_info   *extended_info  = NULL;
 
     mapping = mapping_init(eid);
@@ -874,6 +876,8 @@ mapping_t *mapping_init_local(lisp_addr_t *eid) {
         lispd_log_msg(LISP_LOG_WARNING, "mapping_init_local: Can't allocate mapping!");
         return(NULL);
     }
+
+    mapping->type = MAPPING_LOCAL;
 
     if (!(extended_info=(lcl_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))){
         lispd_log_msg(LISP_LOG_WARNING,"mapping_init_local: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
@@ -894,8 +898,38 @@ mapping_t *mapping_init_local(lisp_addr_t *eid) {
     return (mapping);
 }
 
+mapping_t *mapping_init_static(lisp_addr_t *eid) {
+    mapping_t                   *mapping        = NULL;
+    rmt_mapping_extended_info   *extended_info  = NULL;
+
+    mapping = mapping_init(eid);
+
+    if (!mapping) {
+        lispd_log_msg(LISP_LOG_WARNING, "mapping_init_static: Can't allocate mapping!");
+        return(NULL);
+    }
+
+    mapping->type = MAPPING_STATIC;
+
+    if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"mapping_init_learned: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+        free (mapping);
+        return (NULL);
+    }
+
+    mapping->extended_info = (void *)extended_info;
+    extended_info->rmt_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
+    extended_info->rmt_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
+    extended_info->rmt_balancing_locators_vecs.balancing_locators_vec = NULL;
+    extended_info->rmt_balancing_locators_vecs.v4_locators_vec_length = 0;
+    extended_info->rmt_balancing_locators_vecs.v6_locators_vec_length = 0;
+    extended_info->rmt_balancing_locators_vecs.locators_vec_length = 0;
+
+    return (mapping);
+}
+
 mapping_t *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators) {
-    mapping_t           *mapping        = NULL;
+    mapping_t                   *mapping        = NULL;
     rmt_mapping_extended_info   *extended_info  = NULL;
 
     mapping = mapping_init(eid);
@@ -904,6 +938,8 @@ mapping_t *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators)
         lispd_log_msg(LISP_LOG_WARNING, "mapping_init_learned: Can't allocate mapping!");
         return(NULL);
     }
+
+    mapping->type = MAPPING_LEARNED;
 
     if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"mapping_init_learned: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
@@ -921,11 +957,6 @@ mapping_t *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators)
 
     if (locators) {
         mapping_add_locators(mapping, locators);
-        /* XXX Must free the locators list container.
-         * TODO: add locators list directly to the mapping, and within the list
-         * split between ipv4 and ipv6 ... and others
-         */
-        locator_list_free(locators,0);
 
         /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
         if (mapping->locator_count != 0){
@@ -996,6 +1027,8 @@ mapping_t *mapping_init_from_record(mapping_record *record) {
     eid = lisp_addr_init_from_field(mapping_record_eid(record));
     if (!eid)
         goto err;
+    if (lisp_addr_get_afi(eid) == LM_AFI_IP)
+        lisp_addr_set_plen(eid, mapping_record_hdr(record)->eid_prefix_length);
     lispd_log_msg(LISP_LOG_DEBUG_1, "  EID: %s", lisp_addr_to_char(eid));
 
     mapping = mapping_init(eid);
@@ -1025,37 +1058,57 @@ void mapping_del(mapping_t *mapping)
     /* Free the locators list*/
     free_locator_list(mapping->head_v4_locators_list);
     free_locator_list(mapping->head_v6_locators_list);
+
+    if (mapping->extended_info) {
+        switch (mapping->type) {
+        case MAPPING_LOCAL:
+            free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
+            free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
+            free ((lcl_mapping_extended_info *)mapping->extended_info);
+            break;
+        case MAPPING_LEARNED:
+            free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
+            free ((rmt_mapping_extended_info *)mapping->extended_info);
+            break;
+        case MAPPING_STATIC:
+            free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
+            free ((rmt_mapping_extended_info *)mapping->extended_info);
+            break;
+        default:
+            lispd_log_msg(LISP_LOG_DEBUG_1, "mapping_del: unknown mapping type %d. Can't free extended info!", mapping->type);
+            break;
+        }
+    }
+
     /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf */
     if (lisp_addr_get_afi(mapping_eid(mapping)) == LM_AFI_LCAF)
-        lcaf_addr_del(lisp_addr_get_lcaf(mapping_eid(mapping)));
+        lcaf_addr_del_addr(lisp_addr_get_lcaf(mapping_eid(mapping)));
     free(mapping);
 
 }
 
-void mapping_del_local(mapping_t *mapping)
-{
 
-    /* Free extended info */
-    free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
-    free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
-    free ((lcl_mapping_extended_info *)mapping->extended_info);
-    mapping_del(mapping);
-}
+void mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6, int nb_locators) {
+    if (!mapping)
+        return;
 
-void mapping_del_remote(mapping_t *mapping)
-{
-    /* Free extended info */
-    free_balancing_locators_vecs(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs);
-    free ((rmt_mapping_extended_info *)mapping->extended_info);
-    mapping_del(mapping);
-}
-
-void mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6) {
-    free_locator_list(mapping->head_v4_locators_list);
-    free_locator_list(mapping->head_v6_locators_list);
+    /* TODO: do a comparison first */
+    if (mapping->head_v4_locators_list)
+        free_locator_list(mapping->head_v4_locators_list);
+    if (mapping->head_v6_locators_list)
+        free_locator_list(mapping->head_v6_locators_list);
     mapping->head_v4_locators_list = locv4;
     mapping->head_v6_locators_list = locv6;
+    mapping->locator_count = nb_locators;
 }
+
+///* clones a mapping, but copies just eid and locators */
+//mapping_t *mapping_clone_simple(mapping_t *mapping) {
+//    mapping_t *copy = mapping_init(mapping_eid(mapping));
+//    copy->head_v4_locators_list = locator_list_clone(mapping->head_v4_locators_list);
+//    copy->head_v6_locators_list = locator_list_clone(mapping->head_v6_locators_list);
+//    return(copy);
+//}
 
 ///* write in an allocated record */
 //void mapping_write_to_record(mapping_record *record, mapping_t *mapping) {

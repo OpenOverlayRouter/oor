@@ -37,6 +37,7 @@
 #include <lispd_iface_list.h>
 #include <lispd_map_cache_entry.h>
 #include <lisp_ctrl_device.h>
+#include <elibs/htable/hash_table.h>
 
 
 
@@ -77,6 +78,7 @@ extern lispd_iface_elt          *default_out_iface_v4;
 extern lispd_iface_elt          *default_out_iface_v6;
 extern timer                    *smr_timer;
 lisp_ctrl_device                *ctrl_dev;
+extern HashTable                *iface_addr_ht;
 #endif /*LISPD_EXTERNAL_H_*/
 
 /*

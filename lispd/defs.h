@@ -200,12 +200,15 @@ int err;
                                                      * lisp_mod treats this as seconds instead of
                                                      * minutes
                                                      */
-#define MAP_REGISTER_INTERVAL                   60  /* LJ: sets the interval at which periodic
-                                                     * map register messages are sent (seconds).
-                                                     * The spec recommends 1 minute
-                                                     */
-#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
-                                                     * RLOC probes are sent (seconds) */
+//#define MAP_REGISTER_INTERVAL                   60  /* LJ: sets the interval at which periodic
+//                                                     * map register messages are sent (seconds).
+//                                                     * The spec recommends 1 minute
+//                                                     */
+//#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
+//                                                     * RLOC probes are sent (seconds) */
+#define MAP_REGISTER_INTERVAL                   600
+#define RLOC_PROBING_INTERVAL                   300
+
 #define DEFAULT_RLOC_PROBING_RETRIES_INTERVAL   5   /* Interval in seconds between RLOC probing retries  */
 #define DEFAULT_DATA_CACHE_TTL                  60  /* seconds */
 #define DEFAULT_SELECT_TIMEOUT                  1000/* ms */

@@ -424,7 +424,12 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid)
     }
 
     arguments->map_cache_entry = entry;
-    arguments->src_eid = *src_eid;
+    if (src_eid)
+        arguments->src_eid = lisp_addr_clone(src_eid);
+    else
+        arguments->src_eid = NULL;
+    /* need to delete src addr, which may be an lcaf */
+    arguments->src_eid_del_fct = (void (*)(void *))lisp_addr_del;
 
     if ((err=send_map_request_miss(NULL, (void *)arguments))!=GOOD)
         return (BAD);
@@ -476,7 +481,7 @@ int send_map_request_miss(timer *t, void *arg)
 
         if ((dst_rloc == NULL) || (build_and_send_map_request_msg(
                 map_cache_entry->mapping,
-                &(argument->src_eid),
+                argument->src_eid,
                 dst_rloc,
                 1,
                 0,
@@ -495,7 +500,7 @@ int send_map_request_miss(timer *t, void *arg)
         lispd_log_msg(LISP_LOG_DEBUG_1,"No Map Reply for EID %s after %d retries. Removing map cache entry ...",
                         lisp_addr_to_char(mapping_eid(map_cache_entry->mapping)), nonces->retransmits -1);
         mcache_del_mapping(mapping_eid(mapping));
-
+        lisp_addr_del(argument->src_eid);
     }
     return GOOD;
 }
@@ -590,6 +595,7 @@ uint8_t *build_map_request_pkt(
      * Lookup the local EID prefix from where we generate the message.
      * src_eid is null for RLOC probing and refreshing map_cache -> Source-EID AFI = 0
      */
+
     if (src_eid != NULL){
         src_mapping = local_map_db_lookup_eid(src_eid);
         if (!src_mapping){
@@ -724,9 +730,14 @@ uint8_t *build_map_request_pkt(
         }else{
             if (requested_mapping->eid_prefix.afi == AF_INET){
                 ih_src_ip = local_map_db_get_main_eid (AF_INET);
+                if (!ih_src_ip)
+                    ih_src_ip = default_ctrl_iface_v4->ipv4_address;
             }else{
                 ih_src_ip = local_map_db_get_main_eid (AF_INET6);
+                if (!ih_src_ip)
+                    ih_src_ip = default_ctrl_iface_v6->ipv6_address;
             }
+
         }
 
         mr_packet = packet;
@@ -1099,7 +1110,7 @@ int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uin
      * TODO: add locators list directly to the mapping, and within the list
      * split between ipv4 and ipv6 ... and others
      */
-    locator_list_free(locators,0);
+    locator_list_free_container(locators,0);
 
     /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
     if (cache_entry->mapping->locator_count != 0){

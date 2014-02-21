@@ -16,7 +16,7 @@ typedef struct _HashTable  HashTable;
 typedef unsigned int (*HashFunc) (const void *);
 //typedef unsigned int (*CompareFunc) (const void *, const void *);
 typedef int (*EqualFunc) (const void *, const void *);
-typedef int (*DestroyFunc)(void *);
+typedef void (*DestroyFunc)(void *);
 typedef void (*HFunc)  (void *key, void *value, void *user_data);
 typedef int (*HRFunc)  (void *key, void *value, void *user_data);
 
@@ -34,7 +34,7 @@ struct _HashTableIter
   void      *dummy6;
 };
 
-HashTable*  hash_table_new(HashFunc hash_func, EqualFunc key_equal_func, DestroyFunc val_destroy_func);
+HashTable*  hash_table_new(HashFunc hash_func, EqualFunc key_equal_func, DestroyFunc key_destroy_func, DestroyFunc val_destroy_func);
 void        hash_table_destroy(HashTable *hash_table);
 void        hash_table_insert(HashTable *hash_table, void *key, void *value);
 void        hash_table_replace(HashTable *hash_table, void *key, void *value);

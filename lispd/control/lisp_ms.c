@@ -106,8 +106,7 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
 
         /* Save prefix length only if the entry is an IP */
         if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)
-            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid),
-                    eid_prefix_record_get_hdr(glist_entry_data(it))->eid_prefix_length);
+            lisp_addr_set_plen(dst_eid, eid_prefix_record_get_hdr(glist_entry_data(it))->eid_prefix_length);
 
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: received Map-Request from EID %s for EID %s",
                 lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
@@ -119,6 +118,7 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
             lisp_addr_del(dst_eid);
             continue;
         }
+
         lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: found mapping with EID %s", lisp_addr_to_char(mapping_eid(mapping)));
 //        if (is_mrsignaling(eid_prefix_record_get_eid(eid)))
 //            return(mrsignaling_recv_mrequest(mreq, dst_eid, local_rloc, remote_rloc, dst_port));
@@ -152,9 +152,6 @@ int push_ip_udp_hdr(
 //    int             udp_hdr_len                 = 0;
     int             udp_hdr_and_payload_len     = 0;
     uint16_t        udpsum                      = 0;
-
-    lispd_log_msg(LISP_LOG_DEBUG_2,"src %s and dst %s, srcport %d, dstport %d",
-            lisp_addr_to_char(addr_from), lisp_addr_to_char(addr_dest), port_from, port_dest);
 
     if (lisp_addr_ip_get_afi(addr_from) != lisp_addr_ip_get_afi(addr_dest)) {
         lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses %d and %d",
@@ -251,7 +248,8 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
 //    afield = mreg_msg_get_auth_data(mreg);
 
     if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY) {
-        write_recs = glist_new(NO_CMP, (glist_del_fct)mapping_del);
+        /* mappings are not freed when list is destroyed */
+        write_recs = glist_new(NO_CMP, NO_DEL);
         mnot_msg = map_notify_msg_new();
     }
 
@@ -298,22 +296,31 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
 
         mentry = mdb_lookup_entry_exact(ms->registered_sites_db, eid);
         if (mentry) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
-            mapping_update_locators(mentry, mapping->head_v4_locators_list, mapping->head_v6_locators_list);
-            goto done;
-        }
 
-        /* save prefix to the registered sites db */
-        mdb_add_entry(ms->registered_sites_db, mapping_eid(mapping), mapping);
+            lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
+            mapping_update_locators(mentry, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
+
+            /* cheap hack to avoid cloning */
+            mapping->head_v4_locators_list = NULL;
+            mapping->head_v6_locators_list = NULL;
+            mapping_del(mapping);
+
+            /* add record to map-notify */
+            if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY)
+                glist_add_tail(mentry, write_recs);
+        } else {
+            /* save prefix to the registered sites db */
+            mdb_add_entry(ms->registered_sites_db, mapping_eid(mapping), mapping);
+
+            /* add record to map-notify */
+            if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY)
+                glist_add_tail(mapping, write_recs);
+            else
+                mapping_del(mapping);
+        }
 
         /* TODO: start timers */
 
-        /* add record to map-notify */
-        if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY){
-            glist_add_tail(mapping, write_recs);
-        }
-
-//        lisp_addr_del(eid);
 
     }
 
@@ -321,10 +328,8 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         if (glist_size(write_recs) > 0) {
             mnot_msg = build_map_notify_msg(keyid, key, write_recs);
             mnotify_msg_hdr(mnot_msg)->nonce = mreg_msg_get_hdr(mreg)->nonce;
-            lispd_log_msg(LISP_LOG_DEBUG_1, "packet len %d", mnotify_msg_len(mnot_msg));
             push_ip_udp_hdr(mnot_msg, get_default_ctrl_address(lisp_addr_ip_get_afi(&udpsock->src)),
                     &udpsock->src, LISP_CONTROL_PORT, LISP_CONTROL_PORT);
-            lispd_log_msg(LISP_LOG_DEBUG_1, "packet len %d", mnotify_msg_len(mnot_msg));
 
             if (send_packet(get_default_ctrl_socket(lisp_addr_ip_get_afi(&udpsock->dst)),
                     mnotify_msg_data(mnot_msg), mnotify_msg_len(mnot_msg)) != GOOD) {
@@ -349,12 +354,7 @@ bad: /* could return different error */
     if (write_recs)
         glist_destroy(write_recs);
     return(BAD);
-done:
-    if(mnot_msg)
-        map_notify_msg_del(mnot_msg);
-    if (write_recs)
-        glist_destroy(write_recs);
-    return(GOOD);
+
 }
 
 int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock) {

@@ -333,7 +333,7 @@ uint8_t *build_map_register_pkt(
 {
     uint8_t                         *packet     = NULL;
     lispd_pkt_map_register_t        *mrp        = NULL;
-    mapping_record_hdr_t      *mr         = NULL;
+    mapping_record_hdr_t            *mr         = NULL;
 
     *mrp_len = sizeof(lispd_pkt_map_register_t) +
               mapping_get_size_in_record(mapping);

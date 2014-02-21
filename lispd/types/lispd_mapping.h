@@ -39,6 +39,11 @@
 
 /****************************************  STRUCTURES **************************************/
 
+typedef enum {
+    MAPPING_LOCAL,
+    MAPPING_LEARNED,
+    MAPPING_STATIC
+} mapping_type;
 /*
  * lispd mapping entry.
  */
@@ -50,6 +55,7 @@ typedef struct lispd_mapping_elt_ {
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
     void                            *extended_info;
+    mapping_type                    type;
 } mapping_t;
 
 
@@ -188,6 +194,7 @@ uint8_t *mapping_fill_record_in_pkt(mapping_record_hdr_t *rec, mapping_t *mappin
 inline mapping_t    *mapping_new();
 inline mapping_t    *mapping_init(lisp_addr_t *eid);
 mapping_t           *mapping_init_local(lisp_addr_t *eid);
+mapping_t           *mapping_init_static(lisp_addr_t *eid);
 mapping_t           *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators);
 inline void                 mapping_set_extended_info(mapping_t *mapping, void *extended_info);
 inline void                 mapping_set_eid_addr(mapping_t *mapping, lisp_addr_t *addr);
@@ -204,10 +211,8 @@ int                         mapping_get_size_in_record(mapping_t *mapping);
 
 mapping_t           *mapping_init_from_record(mapping_record *record);
 void                mapping_write_to_record(mapping_record *record, mapping_t *mapping);
-void                mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6);
+void                mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6, int nb_locators);
 
 void mapping_del(mapping_t *mapping);
-void mapping_del_local(mapping_t *mapping);
-void mapping_del_remote(mapping_t *mapping);
 
 #endif /* LISPD_MAPPING_H_ */

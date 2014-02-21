@@ -66,7 +66,7 @@ int process_map_notify(map_notify_msg *msg)
     afield = mnotify_msg_auth_data(msg);
 //    if (mnotify_msg_check_auth(msg, map_servers->key)) {
     if (auth_field_check(mnotify_msg_data(msg), mnotify_msg_get_len(msg), afield, map_servers->key)) {
-        record = glist_entry_data(glist_first(mnotify_msg_records(msg)));
+        record = glist_first_data(mnotify_msg_records(msg));
         eid = lisp_addr_init_from_field(mapping_record_eid(record));
         if (lisp_addr_get_afi(eid) == LM_AFI_IP)
             lisp_addr_set_plen(eid, mapping_record_hdr(record)->eid_prefix_length);

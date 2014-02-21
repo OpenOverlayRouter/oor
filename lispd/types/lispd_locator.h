@@ -157,7 +157,7 @@ void dump_locator (
  * Add a locator to a locators list
  */
 int add_locator_to_list (
-        lispd_locators_list         **list,
+        lispd_locators_list **list,
         locator_t           *locator);
 /*
  * Add a rtr localtor to a list of rtr locators
@@ -186,7 +186,7 @@ locator_t *get_locator_from_list(
  */
 
 void free_locator_list(lispd_locators_list     *list);
-void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_flag);
+void locator_list_free_container(lispd_locators_list *locator_list, uint8_t free_locators_flag);
 locator_t *locator_init_from_field(locator_field *lf);
 int locator_write_to_field(locator_t *locator, locator_field *lfield);
 
@@ -194,6 +194,8 @@ inline locator_t *locator_new();
 char *locator_to_char(locator_t *locator);
 int locator_get_size_in_field(locator_t *loc);
 int locator_list_get_size_in_field(lispd_locators_list *locators_list);
+locator_t *locator_clone_remote(locator_t *locator);
+lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst);
 
 /* accessors */
 static inline lisp_addr_t *locator_addr(locator_t *locator) {

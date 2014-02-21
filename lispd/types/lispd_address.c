@@ -94,7 +94,7 @@ inline void lisp_addr_del(lisp_addr_t *laddr) {
         free(laddr);
         break;
     case LM_AFI_LCAF:
-        lcaf_addr_del(lisp_addr_get_lcaf(laddr));
+        lcaf_addr_del_addr(lisp_addr_get_lcaf(laddr));
         free(laddr);
         break;
     default:
@@ -159,7 +159,7 @@ inline uint32_t lisp_addr_get_size_in_field(lisp_addr_t *laddr) {
         return(lcaf_addr_get_size_to_write(lisp_addr_get_lcaf(laddr)));
     default:
         lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_addr_get_size_in_pkt: not defined for afi %d",
-                lisp_addr_get_afi(laddr)); fflush(stdout);
+                lisp_addr_get_afi(laddr));
         break;
     }
     return(0);
@@ -328,7 +328,6 @@ inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen) {
  */
 void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src) {
     assert(src);
-    lcaf_addr_t *lcaf;
 
     lisp_addr_set_afi(dst, lisp_addr_get_afi(src));
     switch (lisp_addr_get_afi(dst)) {
@@ -339,8 +338,7 @@ void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src) {
         ip_prefix_copy(lisp_addr_get_ippref(dst), lisp_addr_get_ippref(src));
         break;
     case LM_AFI_LCAF:
-        lcaf = lisp_addr_get_lcaf(dst);
-        lcaf_addr_copy(&lcaf, lisp_addr_get_lcaf(src));
+        lcaf_addr_copy(lisp_addr_get_lcaf(dst), lisp_addr_get_lcaf(src));
         break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_addr_copy:  Unknown AFI type %d in EID", lisp_addr_get_afi(dst));
@@ -512,6 +510,10 @@ inline void *lisp_addr_lcaf_get_addr(lisp_addr_t *laddr) {
     return(laddr->lcaf.addr);
 }
 
+inline void lisp_addr_lcaf_set_type(lisp_addr_t *laddr, int type) {
+    laddr->lcaf.type = type;
+}
+
 inline lisp_addr_t *lisp_addr_init_ip(ip_addr_t *ip) {
     assert(ip);
     lisp_addr_t *laddr;
@@ -531,11 +533,9 @@ inline lisp_addr_t *lisp_addr_init_ippref(ip_addr_t *ip, uint8_t plen) {
 inline lisp_addr_t *lisp_addr_init_lcaf(lcaf_addr_t *lcaf) {
     assert(lcaf);
     lisp_addr_t *laddr;
-    lcaf_addr_t *llcaf;
 
     laddr = _new_afi(LM_AFI_LCAF);
-    llcaf = lisp_addr_get_lcaf(laddr);
-    lcaf_addr_copy(&llcaf, lcaf);
+    lcaf_addr_copy(lisp_addr_get_lcaf(laddr), lcaf);
     return(laddr);
 }
 

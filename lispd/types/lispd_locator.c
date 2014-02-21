@@ -335,8 +335,8 @@ void dump_locator (
  * Add a locator to a locators list
  */
 int add_locator_to_list (
-        lispd_locators_list         **list,
-        locator_t           *locator)
+        lispd_locators_list     **list,
+        locator_t               *locator)
 {
     lispd_locators_list     *locator_list           = NULL,
                             *aux_locator_list_prev  = NULL,
@@ -500,7 +500,7 @@ void free_locator_list(lispd_locators_list     *locator_list)
     }
 }
 
-void locator_list_free(lispd_locators_list *locator_list, uint8_t free_locators_flag) {
+void locator_list_free_container(lispd_locators_list *locator_list, uint8_t free_locators_flag) {
     lispd_locators_list  * aux_locator_list     = NULL;
     /*
      * Free the locators
@@ -611,6 +611,41 @@ int locator_list_get_size_in_field(lispd_locators_list *locators_list)
         locators_list = locators_list->next;
     }
     return(sum);
+}
+
+/* FC: ugly stuff! Need to unify locators properly support extended info .. */
+locator_t *locator_clone_remote(locator_t *locator) {
+    locator_t *copy = locator_new();
+    copy->locator_addr = lisp_addr_clone(locator->locator_addr);
+    copy->state = calloc(1, sizeof(uint8_t));
+    *(copy->state) = *(locator->state);
+
+    copy->locator_type = locator->locator_type;
+    copy->priority = locator->priority;
+    copy->weight = locator->weight;
+    copy->mpriority = locator->mpriority;
+    copy->mweight = locator->mweight;
+    copy->data_packets_in = locator->data_packets_in;
+    copy->data_packets_out = locator->data_packets_out;
+    copy->extended_info = new_rmt_locator_extended_info();
+    ((lcl_locator_extended_info *)copy->extended_info)->out_socket = ((lcl_locator_extended_info *)locator->extended_info)->out_socket;
+    if (((lcl_locator_extended_info *)copy->extended_info)->rtr_locators_list) {
+        lispd_log_msg(LISP_LOG_WARNING, "locator_clone_remote: clone of rtr locators list NOT IMPLEMENTED!");
+    }
+    return(copy);
+}
+
+lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst) {
+    lispd_locators_list *copy   = NULL;
+    lispd_locators_list *it     = NULL;
+    copy = calloc(1, sizeof(lispd_locators_list));
+
+    it = lst;
+    while(it) {
+        add_locator_to_list(&copy, locator_clone_remote(it->locator));
+        it = it->next;
+    }
+    return(copy);
 }
 
 

@@ -51,23 +51,22 @@ address_field *address_field_parse(uint8_t *offset) {
     addr->data = offset;
     switch (address_field_afi(addr)) {
     case LISP_AFI_IP:
-        addr->len = sizeof(struct in_addr);
+        addr->len = sizeof(struct in_addr) + sizeof(uint16_t); /* add the AFI field len */
         break;
     case LISP_AFI_IPV6:
-        addr->len = sizeof(struct in6_addr);
+        addr->len = sizeof(struct in6_addr) + sizeof(uint16_t);
         break;
     case LISP_AFI_NO_ADDR:
-        addr->len = 0;
+        addr->len = 0 + sizeof(uint16_t);
         break;
     case LISP_AFI_LCAF:
-        addr->len = sizeof(generic_lcaf_hdr) + ((generic_lcaf_hdr *)addr->data)->len;
+        addr->len = sizeof(generic_lcaf_hdr) + ntohs(((generic_lcaf_hdr *)addr->data)->len); /* AFI field is included in header */
         break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", address_field_afi(addr));
         return(NULL);
         break;
     }
-    addr->len += sizeof(uint16_t);
     return(addr);
 }
 
