@@ -1018,10 +1018,6 @@ forwarding_entry *get_reencap_forwarding_entry(packet_tuple *tuple) {
         return(fwd_entry);
     }
 
-    if (dst_mapping->locator_count >1 ) {
-        lispd_log_msg(LISP_LOG_WARNING, "Multihoming of RTRs currently not supported!");
-    }
-
     /* just lookup the first LCAF in the dst mapping and obtain the src/dst rlocs */
     locator_iterator_array[0] = dst_mapping->head_v4_locators_list;
     locator_iterator_array[1] = dst_mapping->head_v6_locators_list;

@@ -75,6 +75,7 @@ int process_map_reply_probe_record(mapping_record *record, uint64_t nonce);
 
 int             handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
 int             send_map_request_miss(timer *t, void *arg);
+void            timer_map_request_argument_del(void *);
 
 /*
  * Structure to set Map Reply options
@@ -96,7 +97,7 @@ typedef struct _map_reply_opts{
 typedef struct _timer_map_request_argument{
     lispd_map_cache_entry *map_cache_entry;
     lisp_addr_t *src_eid;
-    void (*src_eid_del_fct)(void *);
+    void (*arg_free_fct)(void *);
 } timer_map_request_argument;
 
 

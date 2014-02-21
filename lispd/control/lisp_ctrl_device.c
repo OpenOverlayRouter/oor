@@ -425,11 +425,12 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid)
 
     arguments->map_cache_entry = entry;
     if (src_eid)
+        /* clone the address not to lose it while waiting for the answer*/
         arguments->src_eid = lisp_addr_clone(src_eid);
     else
         arguments->src_eid = NULL;
     /* need to delete src addr, which may be an lcaf */
-    arguments->src_eid_del_fct = (void (*)(void *))lisp_addr_del;
+    arguments->arg_free_fct = (void (*)(void *))timer_map_request_argument_del;
 
     if ((err=send_map_request_miss(NULL, (void *)arguments))!=GOOD)
         return (BAD);
@@ -1141,4 +1142,10 @@ int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uin
     return (GOOD);
 }
 
+
+void timer_map_request_argument_del(void *arg) {
+    timer_map_request_argument *targ = arg;
+    lisp_addr_del(targ->src_eid);
+    free(targ);
+}
 
