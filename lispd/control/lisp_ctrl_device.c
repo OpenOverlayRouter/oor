@@ -501,7 +501,7 @@ int send_map_request_miss(timer *t, void *arg)
         lispd_log_msg(LISP_LOG_DEBUG_1,"No Map Reply for EID %s after %d retries. Removing map cache entry ...",
                         lisp_addr_to_char(mapping_eid(map_cache_entry->mapping)), nonces->retransmits -1);
         mcache_del_mapping(mapping_eid(mapping));
-        lisp_addr_del(argument->src_eid);
+//        lisp_addr_del(argument->src_eid);
     }
     return GOOD;
 }

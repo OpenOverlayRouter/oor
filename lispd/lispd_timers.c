@@ -217,6 +217,8 @@ void stop_timer(timer *tptr)
         return;
     }
 
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Called stop timer");
+
     if (strcmp(tptr->name,MAP_REQUEST_RETRY_TIMER)==0){
         ((timer_map_request_argument *)tptr->cb_argument)->arg_free_fct(tptr->cb_argument);
 //        free ((timer_map_request_argument *)tptr->cb_argument);
