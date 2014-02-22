@@ -86,7 +86,7 @@ On Debian-derived Linux distributions (including Ubuntu), installing the
 following packages will provide all necessary dependencies:
 
   * 'build-essential'
-  * 'git-core'
+  * 'git'
   * 'libssl-dev'
   * 'libconfuse-dev'
   * 'gengetopt'
