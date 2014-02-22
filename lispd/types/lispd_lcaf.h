@@ -93,6 +93,19 @@ typedef struct _lcaf_hdr_t {
     uint16_t    len;
 } __attribute__ ((__packed__)) lcaf_hdr_t;
 
+/*
+ * AFI-list LCAF type
+ */
+
+typedef struct _lcaf_afi_list_hdr_t {
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+} __attribute__ ((__packed__)) lcaf_afi_list_hdr_t;
+
 
 /* Instance ID
  * Only the low order 24 bits should be used
@@ -131,6 +144,54 @@ typedef struct _lcaf_iid_hdr_t{
     uint32_t    iid;
 } __attribute__ ((__packed__)) lcaf_iid_hdr_t;
 
+
+
+/* Geo Coordinate LISP Canonical Address Format:
+ *
+ *      0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 5    |     Rsvd2     |            12 + n             |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |N|     Latitude Degrees        |    Minutes    |    Seconds    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |E|     Longitude Degrees       |    Minutes    |    Seconds    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                            Altitude                           |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |         Address  ...          |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct _lcaf_geo_hdr_t{
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+#ifdef LITTLE_ENDIANS
+    uint16_t    latitude_deg:15;
+    uint16_t    latitude_dir:1;
+#else
+    uint16_t    latitude_dir:1;
+    uint16_t    latitude_deg:15;
+#endif
+    uint8_t     latitude_min;
+    uint8_t     latitude_sec;
+#ifdef LITTLE_ENDIANS
+    uint16_t    longitude_deg:15;
+    uint16_t    longitude_dir:1;
+#else
+    uint16_t    longitude_dir:1;
+    uint16_t    longitude_deg:15;
+#endif
+    uint8_t     longitude_min;
+    uint8_t     longitude_sec;
+    uint32_t    altitude;
+} __attribute__ ((__packed__)) lcaf_geo_hdr_t;
 
 
 /*   Multicast Info Canonical Address Format:
@@ -182,54 +243,6 @@ typedef struct {
 } mrsignaling_flags_t;
 
 
-/* Geo Coordinate LISP Canonical Address Format:
- *
- *      0                   1                   2                   3
- *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |           AFI = 16387         |     Rsvd1     |     Flags     |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |   Type = 5    |     Rsvd2     |            12 + n             |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |N|     Latitude Degrees        |    Minutes    |    Seconds    |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |E|     Longitude Degrees       |    Minutes    |    Seconds    |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |                            Altitude                           |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |              AFI = x          |         Address  ...          |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-
-typedef struct _lcaf_geo_hdr_t{
-    uint16_t    afi;
-    uint8_t     rsvd1;
-    uint8_t     flags;
-    uint8_t     type;
-    uint8_t     rsvd2;
-    uint16_t    length;
-#ifdef LITTLE_ENDIANS
-    uint16_t    latitude_deg:15;
-    uint16_t    latitude_dir:1;
-#else
-    uint16_t    latitude_dir:1;
-    uint16_t    latitude_deg:15;
-#endif
-    uint8_t     latitude_min;
-    uint8_t     latitude_sec;
-#ifdef LITTLE_ENDIANS
-    uint16_t    longitude_deg:15;
-    uint16_t    longitude_dir:1;
-#else
-    uint16_t    longitude_dir:1;
-    uint16_t    longitude_deg:15;
-#endif
-    uint8_t     longitude_min;
-    uint8_t     longitude_sec;
-    uint32_t    altitude;
-} __attribute__ ((__packed__)) lcaf_geo_hdr_t;
-
-
 /* Explicit Locator Path (ELP)
  *
  *      0                   1                   2                   3
@@ -250,15 +263,6 @@ typedef struct _lcaf_geo_hdr_t{
  *
  */
 
-typedef struct _lcaf_elp_hdr_t {
-    uint16_t    afi;
-    uint8_t     rsvd1;
-    uint8_t     flags;
-    uint8_t     type;
-    uint8_t     rsvd2;
-    uint16_t    length;
-} __attribute__ ((__packed__)) lcaf_elp_hdr_t;
-
 
 typedef struct _elp_node_flags {
     uint8_t rsvd1;
@@ -276,26 +280,53 @@ typedef struct _elp_node_flags {
 } elp_node_flags;
 
 
-/*
- * AFI-list LCAF type
- */
 
-typedef struct _lcaf_afi_list_hdr_t {
-    uint16_t    afi;
-    uint8_t     rsvd1;
-    uint8_t     flags;
-    uint8_t     type;
-    uint8_t     rsvd2;
-    uint16_t    length;
-} __attribute__ ((__packed__)) lcaf_afi_list_hdr_t;
+/* Replication List Entry Address Format:
+*
+*   0                   1                   2                   3
+*   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |           AFI = 16387         |     Rsvd1     |     Flags     |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |   Type = 13   |    Rsvd2      |             4 + n             |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              Rsvd3            |     Rsvd4     |  Level Value  |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              AFI = x          |           RTR/ETR #1 ...      |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              Rsvd3            |     Rsvd4     |  Level Value  |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              AFI = x          |           RTR/ETR  #n ...     |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
 
-
-
+typedef struct _rle_node_hdr {
+    uint8_t rsvd[3];
+    uint8_t level;
+} rle_node_hdr_t;
 
 
 /*
  * Abstract representation of LCAFs
  */
+
+/* AFI-list */
+typedef struct _afi_list_node {
+    lisp_addr_t             *addr;
+    struct _afi_list_node   *next;
+} afi_list_node;
+
+typedef struct _afi_list_t {
+    afi_list_node   *list;
+} afi_list_t;
+
+
+typedef struct _iit_t {
+    uint32_t    iid;
+    uint8_t     mlen;
+    lisp_addr_t *iidaddr;
+} iid_t;
+
 
 typedef struct {
     uint8_t     dir;
@@ -320,24 +351,6 @@ typedef struct {
 } geo_t;
 
 
-typedef struct _iit_t {
-    uint32_t    iid;
-    uint8_t     mlen;
-    lisp_addr_t *iidaddr;
-} iid_t;
-
-/* RLE */
-typedef struct _level_addr_t {
-    lisp_addr_t   *ip;
-    uint8_t       level;
-} level_addr_t;
-
-typedef struct _rle_t {
-    uint32_t        nb_levels;
-    level_addr_t    **rlist;
-} rle_t;
-
-
 /* ELP */
 typedef struct _elp_node_t{
     uint8_t             L:1;
@@ -350,15 +363,17 @@ typedef struct _elp_t {
     glist_t     *nodes;
 } elp_t;
 
-/* AFI-list */
-typedef struct _afi_list_node {
-    lisp_addr_t             *addr;
-    struct _afi_list_node   *next;
-} afi_list_node;
 
-typedef struct _afi_list_t {
-    afi_list_node   *list;
-} afi_list_t;
+/* RLE */
+typedef struct _rle_node_t {
+    lisp_addr_t   *addr;
+    uint8_t       level;
+} rle_node_t;
+
+typedef struct _rle_t {
+    glist_t     *nodes;
+} rle_t;
+
 
 lcaf_addr_t             *lcaf_addr_new();
 lcaf_addr_t             *lcaf_addr_new_type(uint8_t type);
