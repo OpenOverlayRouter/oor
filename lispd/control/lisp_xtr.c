@@ -153,8 +153,9 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
     glist_t                     *itrs                   = NULL;
     glist_entry_t               *it                     = NULL;
     glist_t                     *eids                   = NULL;
-    mapping_t           *mapping                = NULL;
+    mapping_t                   *mapping                = NULL;
     map_reply_opts              opts;
+    address_field               *dfield                 = NULL;
 
     lispd_log_msg(LISP_LOG_DEBUG_3, "xTR: Processing LISP Map-Request message");
 
@@ -195,7 +196,8 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
     /* Process record and send Map Reply for each one */
     eids = mreq_msg_get_eids(mreq);
     glist_for_each_entry(it, eids) {
-        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(glist_entry_data(it)))))
+        dfield = eid_prefix_record_get_eid(glist_entry_data(it));
+        if (!(dst_eid = lisp_addr_init_from_field(dfield)))
             goto err;
 
         /* Save prefix length only if the entry is an IP */
@@ -216,8 +218,12 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
             continue;
         }
 
-//        if (is_mrsignaling(eid_prefix_record_get_eid(eid)))
-//            return(mrsignaling_recv_mrequest(mreq, dst_eid, local_rloc, remote_rloc, dst_port));
+        if (is_mrsignaling(dfield)) {
+            mrsignaling_recv_join(src_eid, dst_eid, local_rloc, remote_rloc, dst_port,
+                    mreq_msg_get_hdr(mreq)->nonce, mrsignaling_get_flags_from_field(dfield));
+            goto done;
+        }
+
         err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_msg_get_hdr(mreq)->nonce, opts);
 
         lisp_addr_del(dst_eid);
@@ -226,6 +232,7 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
 done:
     lisp_addr_del(src_eid);
     lisp_addr_del(remote_rloc);
+    lisp_addr_del(dst_eid);
     return(GOOD);
 err:
     lisp_addr_del(src_eid);

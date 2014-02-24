@@ -58,7 +58,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
         return (GOOD);
     }
 
-    mapping         = timer_argument->map_cache_entry->mapping;
+    mapping         = timer_argument->mapping;
     locator         = timer_argument->locator;
     locator_ext_inf = (rmt_locator_extended_info *)(locator->extended_info);
     nonces          = locator_ext_inf->rloc_probing_nonces;
@@ -112,7 +112,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
                     nonces->retransmits);
         }
 
-        err = build_and_send_map_request_msg(mapping,NULL,locator->locator_addr, 0, 1, 0, 0,
+        err = build_and_send_map_request_msg(mapping,NULL,locator->locator_addr, 0, 1, 0, 0, NULL,
                 &(nonces->nonce[nonces->retransmits]));
 
         if (err != GOOD){
@@ -155,16 +155,16 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
  * Program RLOC probing for each locator of the mapping
  */
 
-void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
+void programming_rloc_probing(mapping_t *mapping)
 {
     lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
-    locator_t           *locator            = NULL;
+    locator_t                   *locator            = NULL;
     timer_rloc_probe_argument   *timer_arg          = NULL;
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     int                         ctr                 = 0;
 
-    locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
-    locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
+    locators_lists[0] = mapping->head_v4_locators_list;
+    locators_lists[1] = mapping->head_v6_locators_list;
     /* Start rloc probing for each locator of the mapping */
     for (ctr=0; ctr < 2 ; ctr++){
         while (locators_lists[ctr] != NULL){
@@ -177,7 +177,7 @@ void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
             }
 
             locator_ext_inf = (rmt_locator_extended_info *)locator->extended_info;
-            timer_arg = new_timer_rloc_probe_argument (map_cache_entry, locator);
+            timer_arg = new_timer_rloc_probe_argument (mapping, locator);
             /* Create and program the timer */
             if (locator_ext_inf->probe_timer == NULL){
                 locator_ext_inf->probe_timer = create_timer (RLOC_PROBING_TIMER);
@@ -195,7 +195,7 @@ void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
 void programming_petr_rloc_probing()
 {
     lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
-    locator_t           *locator            = NULL;
+    locator_t                   *locator            = NULL;
     timer_rloc_probe_argument   *timer_arg          = NULL;
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     int                         ctr                 = 0;
@@ -211,7 +211,7 @@ void programming_petr_rloc_probing()
         while (locators_lists[ctr] != NULL){
             locator = locators_lists[ctr]->locator;
             locator_ext_inf = (rmt_locator_extended_info *)locator->extended_info;
-            timer_arg = new_timer_rloc_probe_argument (proxy_etrs, locator);
+            timer_arg = new_timer_rloc_probe_argument (proxy_etrs->mapping, locator);
             /* Create and program the timer */
             if (locator_ext_inf->probe_timer == NULL){
                 locator_ext_inf->probe_timer = create_timer (RLOC_PROBING_TIMER);
@@ -224,7 +224,7 @@ void programming_petr_rloc_probing()
 
 
 timer_rloc_probe_argument *new_timer_rloc_probe_argument(
-        lispd_map_cache_entry   *map_cache_entry,
+        mapping_t       *mapping,
         locator_t       *locator)
 {
     timer_rloc_probe_argument *timer_argument = NULL;
@@ -233,7 +233,7 @@ timer_rloc_probe_argument *new_timer_rloc_probe_argument(
         lispd_log_msg(LISP_LOG_WARNING,"new_timer_rloc_probe_argument: Unable to allocate memory for timer_rloc_probe_argument: %s",
                 strerror(errno));
     }else{
-        timer_argument->map_cache_entry = map_cache_entry;
+        timer_argument->mapping = mapping;
         timer_argument->locator = locator;
     }
 

@@ -438,7 +438,7 @@ inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 int                     mc_type_read_from_pkt(uint8_t *offset, void **mc);
 int                     lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
-
+lisp_addr_t             *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp);
 
 
 /*
@@ -492,13 +492,19 @@ void                    geo_type_copy(void **dst, void *src);
 char                    *geo_coord_to_char(geo_coordinates *coord);
 
 /*
- * rle type functions
+ * RLE type functions
  */
 inline rle_t            *rle_type_new();
 inline void             rle_type_del(void *rleaddr);
 int                     rle_type_read_from_pkt(uint8_t *offset, void **rle);
+int                     rle_type_write_to_pkt(uint8_t *offset, void *rle);
+int                     rle_type_get_size_to_write(void *elp);
 char                    *rle_type_to_char(void *rle);
 void                    rle_type_copy(void **dst, void *src);
+int                     rle_type_cmp(void *elp1, void *elp2);
+
+rle_node_t              *rle_node_clone(rle_node_t *srn);
+inline void             rle_node_del(rle_node_t *rnode);
 
 
 /*
@@ -514,8 +520,8 @@ char                        *elp_type_to_char(void *elp);
 void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
 
-inline void     elp_node_del(elp_node_t *enode);
-inline void     lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode);
+inline void                 elp_node_del(elp_node_t *enode);
+inline void                 lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode);
 
 static inline glist_t *lcaf_elp_node_list(lcaf_addr_t *lcaf) {
     return(((elp_t *)lcaf->addr)->nodes);

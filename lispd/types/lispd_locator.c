@@ -613,6 +613,17 @@ int locator_list_get_size_in_field(lispd_locators_list *locators_list)
     return(sum);
 }
 
+int locator_cmp(locator_t *l1, locator_t *l2) {
+    int ret = 0;
+    if ((ret = lisp_addr_cmp(locator_addr(l1), locator_addr(l2))) != 0)
+        return(1);
+    if (l1->priority != l2->priority)   return(1);
+    if (l1->weight != l2->weight)   return(1);
+    if (l1->mpriority != l2->mpriority)   return(1);
+    if (l1->mweight != l2->mweight)   return(1);
+    return(0);
+}
+
 /* FC: ugly stuff! Need to unify locators properly support extended info .. */
 locator_t *locator_clone_remote(locator_t *locator) {
     locator_t *copy = locator_new();

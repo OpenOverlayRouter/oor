@@ -142,12 +142,16 @@ int process_lisp_ctr_msg(struct sock *sl)
  * Multicast Interface to end-hosts
  */
 
-void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp) {
-//    re_join_channel(src, grp);
+void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp) {
+    lisp_addr_t *mceid = lisp_addr_build_mc(src, grp);
+    re_join_channel(mceid);
+    lisp_addr_del(mceid);
 }
 
-void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
-//    re_leave_channel(src, grp);
+void multicast_leave_channel(lisp_addr_t *src, lisp_addr_t *grp) {
+    lisp_addr_t *mceid = lisp_addr_build_mc(src, grp);
+    re_leave_channel(mceid);
+    lisp_addr_del(mceid);
 }
 
 

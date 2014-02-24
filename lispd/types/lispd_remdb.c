@@ -3,31 +3,33 @@
 #include "lispd_remdb.h"
 //#include "defs_re.h"
 
-lispd_remdb_t *remdb_new() {
-    lispd_remdb_t     *db    = NULL;
-    db =  glist_new(NULL, NULL);
+remdb_t *remdb_new() {
+    remdb_t     *db    = NULL;
+    db =  glist_new(NO_CMP, NO_DEL);
     return(db);
 }
 
-glist_t *remdb_get_orlist(lispd_remdb_t *jib) {
-    glist_t        *orlist     = NULL;
-    lispd_remdb_member_t           *jibentry   = NULL;
-    glist_entry_t  *it         = NULL;
+glist_t *remdb_get_orlist(remdb_t *jib) {
+    glist_t                 *orlist     = NULL;
+    remdb_member_t          *jibentry   = NULL;
+    glist_entry_t           *it         = NULL;
 
-    orlist = glist_new(NULL, NULL);
+    orlist = glist_new(NO_CMP, NO_DEL);
 
     glist_for_each_entry(it,jib){
         /* Ugly but should do for now. Just take the first locator */
-        jibentry = (lispd_remdb_member_t *)glist_entry_data(it);
-        glist_add(jibentry->locators->locator, orlist);
+        jibentry = glist_entry_data(it);
+
+        if (jibentry->locators->locator)
+            glist_add(jibentry->locators->locator, orlist);
     }
 
     return(orlist);
 }
 
-void remdb_add_member(lisp_addr_t *peer, lisp_addr_t *rloc_pair, lispd_remdb_t *jib) {
+void remdb_add_member(lisp_addr_t *peer, lisp_addr_t *rloc_pair, remdb_t *jib) {
 
-    lispd_remdb_member_t *member;
+    remdb_member_t *member;
 
     assert(jib);
     assert(rloc_pair);
@@ -36,44 +38,42 @@ void remdb_add_member(lisp_addr_t *peer, lisp_addr_t *rloc_pair, lispd_remdb_t *
     glist_add(member, jib);
 }
 
-lispd_remdb_member_t *remdb_find_member(lisp_addr_t *peer, lispd_remdb_t *jib) {
-    glist_entry_t           *it         = NULL;
-    lispd_remdb_member_t    *member     = NULL;
+remdb_member_t *remdb_find_member(lisp_addr_t *peer, remdb_t *jib) {
+    glist_entry_t     *it         = NULL;
+    remdb_member_t    *member     = NULL;
 
     assert(peer);
     assert(jib);
 
     glist_for_each_entry(it,jib) {
-        member = (lispd_remdb_member_t *)glist_entry_data(it);
+        member = glist_entry_data(it);
         if (lisp_addr_cmp(member->addr, peer))
             return(member);
     }
 
     return(NULL);
-
-
 }
 
-void remdb_del_member(lisp_addr_t *addr, lispd_remdb_t *jib) {
+void remdb_del_member(lisp_addr_t *addr, remdb_t *jib) {
     glist_entry_t           *it         = NULL;
-    lispd_remdb_member_t    *member     = NULL;
+    remdb_member_t    *member     = NULL;
 
     glist_for_each_entry(it,jib) {
-        member = (lispd_remdb_member_t *)glist_entry_data(it);
+        member = (remdb_member_t *)glist_entry_data(it);
         if (lisp_addr_cmp(member->addr, addr))
             glist_del(it, jib);
     }
 }
 
-inline uint32_t remdb_size(lispd_remdb_t *jib) {
+inline uint32_t remdb_size(remdb_t *jib) {
     return(glist_size(jib));
 }
 
-lispd_remdb_member_t *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair) {
-    lispd_remdb_member_t    *member             = NULL;
+remdb_member_t *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair) {
+    remdb_member_t    *member             = NULL;
     lispd_locators_list     *locator_list       = NULL;
 
-    member = calloc(1, sizeof(lispd_remdb_member_t));
+    member = calloc(1, sizeof(remdb_member_t));
     locator_list  = calloc(1, sizeof(lispd_locators_list));
     locator_list->locator = calloc(1, sizeof(locator_t));
     locator_list->next = NULL;

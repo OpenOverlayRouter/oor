@@ -550,10 +550,22 @@ int mc_type_read_from_pkt(uint8_t *offset, void **mc) {
 int lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid) {
     mc_t            *mc;
 
+    if (lcaf->addr)
+        lcaf_addr_del_addr(lcaf);
     mc  = mc_type_init(src, grp, splen, gplen, iid);
     lcaf_addr_set_type(lcaf, LCAF_MCAST_INFO);
     lcaf_addr_set_addr(lcaf, mc);
     return(GOOD);
+}
+
+lisp_addr_t *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp) {
+    lisp_addr_t     *mceid;
+    uint8_t         mlen;
+
+    mlen = (lisp_addr_ip_get_afi(src) == AF_INET) ? 32 : 128;
+    mceid = lisp_addr_new();
+    lcaf_addr_set_mc(lisp_addr_get_lcaf(mceid), src, grp, mlen, mlen, 0);
+    return(mceid);
 }
 
 

@@ -117,13 +117,13 @@ int map_register_process()
 
 int encapsulated_map_register_process()
 {
-    mapping_t         *mapping          = NULL;
-    lispd_locators_list       *locators_list[2] = {NULL, NULL};
-    locator_t         *locator          = NULL;
-    lisp_addr_t               *nat_rtr          = NULL;
-    int                       next_timer_time   = 0;
-    int                       ctr1              = 0;
-    void                      *it               = NULL;
+    mapping_t                   *mapping          = NULL;
+    lispd_locators_list         *locators_list[2] = {NULL, NULL};
+    locator_t                   *locator          = NULL;
+    lisp_addr_t                 *nat_rtr          = NULL;
+    int                         next_timer_time   = 0;
+    int                         ctr1              = 0;
+    void                        *it               = NULL;
 
     if (nat_emr_nonce == NULL){
         nat_emr_nonce = new_nonces_list();

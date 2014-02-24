@@ -295,15 +295,22 @@ inline void lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi) {
     }
 }
 
-inline uint8_t lisp_addr_ippref_get_plen(lisp_addr_t *laddr) {
-    assert(laddr);
-    if (lisp_addr_get_afi(laddr) != LM_AFI_IPPREF) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_addr_ippref_get_plen: not an IP prefix %s!",
-                lisp_addr_to_char(laddr));
-        return(0);
-    }
-    return(ip_prefix_get_plen(lisp_addr_get_ippref(laddr)));
-}
+//inline uint8_t lisp_addr_get_plen(lisp_addr_t *laddr) {
+//    assert(laddr);
+////    if (lisp_addr_get_afi(laddr) != LM_AFI_IPPREF) {
+////        lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_addr_ippref_get_plen: not an IP prefix %s!",
+////                lisp_addr_to_char(laddr));
+////        return(0);
+////    }
+//    switch(_get_afi(laddr)) {
+//    case LM_AFI_IP:
+//        return(ip_addr_afi_to_default_mask(lisp_addr_get_ip(laddr)));
+//    case LM_AFI_IPPREF:
+//        return(ip_prefix_get_plen(lisp_addr_get_ippref(laddr)));
+//    default:
+//        return(0);
+//    }
+//}
 
 inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen) {
     assert(laddr);

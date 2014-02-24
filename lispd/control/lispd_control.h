@@ -40,7 +40,7 @@
 int process_lisp_ctr_msg(struct sock *sl);
 
 
-void multicast_join_channel(ip_addr_t *src, ip_addr_t *grp);
-void multicast_leave_channel(ip_addr_t *src, ip_addr_t *grp);
+void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);
+void multicast_leave_channel(lisp_addr_t *src, lisp_addr_t *grp);
 
 #endif /* LISPD_CONTROL_H_ */

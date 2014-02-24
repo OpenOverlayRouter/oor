@@ -34,7 +34,7 @@
 #include "lispd_locator.h"
 
 /* simple member database backend for starters */
-typedef glist_t        lispd_remdb_t;
+typedef glist_t        remdb_t;
 
 typedef struct {
     /* actual data */
@@ -46,7 +46,7 @@ typedef struct {
     nonces_list         *nonces;
     uint8_t             join_pending;
     uint8_t             leave_pending;
-} lispd_remdb_member_t;
+} remdb_member_t;
 
 typedef struct {
     lisp_addr_t     *locator;
@@ -54,18 +54,18 @@ typedef struct {
     timer           *probe_timer;
     int             join_pending;
     int             leave_pending;
-} lispd_upstream_t;
+} re_upstream_t;
 
-lispd_remdb_t           *remdb_new();
-void                    remdb_add_member(lisp_addr_t *addr, lisp_addr_t *rloc_pair, lispd_remdb_t *jib);
-void                    remdb_del_member(lisp_addr_t *addr, lispd_remdb_t *jib);
-lispd_remdb_member_t    *remdb_find_member(lisp_addr_t *peer, lispd_remdb_t *jib);
+remdb_t                 *remdb_new();
+void                    remdb_add_member(lisp_addr_t *addr, lisp_addr_t *rloc_pair, remdb_t *jib);
+void                    remdb_del_member(lisp_addr_t *addr, remdb_t *jib);
+remdb_member_t          *remdb_find_member(lisp_addr_t *peer, remdb_t *jib);
 void                    remdb_update_member(lisp_addr_t *addr, lispd_locators_list *loc_list);
-inline uint32_t         remdb_size(lispd_remdb_t *jib);
-lispd_remdb_member_t    *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair);
+inline uint32_t         remdb_size(remdb_t *jib);
+remdb_member_t          *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair);
 
 /* builds a forwarding database for mc */
-glist_t    *remdb_get_orlist(lispd_remdb_t *jib);
+glist_t    *remdb_get_orlist(remdb_t *jib);
 
 
 

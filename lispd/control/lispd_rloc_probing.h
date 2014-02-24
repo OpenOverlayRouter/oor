@@ -37,14 +37,14 @@
 #include "lispd_map_cache_db.h"
 
 typedef struct _timer_rloc_prob_argument{
-    lispd_map_cache_entry   *map_cache_entry;
-    locator_t       *locator;
+    mapping_t   *mapping;
+    locator_t   *locator;
 } timer_rloc_probe_argument;
 
 
 
 timer_rloc_probe_argument *new_timer_rloc_probe_argument(
-        lispd_map_cache_entry   *map_cache_entry,
+        mapping_t       *mapping,
         locator_t       *locator);
 
 int rloc_probing(
@@ -55,7 +55,7 @@ int rloc_probing(
  * Program RLOC probing for each locator of the mapping
  */
 
-void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry);
+void programming_rloc_probing(mapping_t *mapping);
 
 /*
  * Program RLOC probing for each proxy-ETR

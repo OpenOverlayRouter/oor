@@ -843,16 +843,13 @@ int lisp_output_multicast (
         int             original_packet_length,
         lisp_addr_t     *dst_eid)
 {
-//    lispd_mapping_elt           *mapping            = NULL;
-//    lispd_map_cache_entry       *mcentry            = NULL;
-    glist_t        *or_list            = NULL;
-//    lispd_locator_elt           *outer_src_locator  = NULL;
+    glist_t                     *or_list            = NULL;
     uint8_t                     *encap_packet       = NULL;
     lisp_addr_t                 *src_rloc           = NULL;
     lisp_addr_t                 *dst_rloc           = NULL;
-    locator_t           *locator            = NULL;
-    glist_entry_t  *it                 = NULL;
-    mc_t                   *mcaddr             = NULL;
+    locator_t                   *locator            = NULL;
+    glist_entry_t               *it                 = NULL;
+    mc_t                        *mcaddr             = NULL;
 
     int                     encap_packet_size   = 0;
     int                     output_socket       = 0;
@@ -861,8 +858,9 @@ int lisp_output_multicast (
     or_list = re_get_orlist(dst_eid);
 
     glist_for_each_entry(it, or_list){
+        /* TODO: take locator out, just send mcaddr and out socket */
         locator =  (locator_t *)glist_entry_data(it);
-        mcaddr = lcaf_addr_get_mc(lisp_addr_get_lcaf(locator->locator_addr));
+        mcaddr = lcaf_addr_get_mc(lisp_addr_get_lcaf(locator_addr(locator)));
         src_rloc = mc_type_get_src(mcaddr);
         dst_rloc = mc_type_get_grp(mcaddr);
         encapsulate_packet(original_packet,

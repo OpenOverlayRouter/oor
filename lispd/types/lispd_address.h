@@ -144,7 +144,7 @@ char                     *lisp_addr_to_char(lisp_addr_t *addr);
 inline void              lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi);
 inline void              lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf);
 inline void              lisp_addr_ip_to_ippref(lisp_addr_t *laddr);
-inline uint8_t           lisp_addr_ippref_get_plen(lisp_addr_t *laddr);
+//inline uint8_t           lisp_addr_get_plen(lisp_addr_t *laddr);
 inline void              lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen);
 inline void              lisp_addr_set_ip(lisp_addr_t *addr, ip_addr_t *ip);
 void                     lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);

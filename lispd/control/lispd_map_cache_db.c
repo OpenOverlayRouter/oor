@@ -91,11 +91,7 @@ int mcache_add_static_mapping(mapping_t *mapping) {
 
     addr = mapping_eid(mapping);
     mce = mcache_entry_init_static(mapping);
-
-    /*
-     * Programming rloc probing timer
-     */
-    programming_rloc_probing(mce);
+    programming_rloc_probing(mapping);
 
     return(mdb_add_entry(mdb, addr, mce));
 }
@@ -256,6 +252,17 @@ void map_cache_dump_db(int log_level)
     } mdb_foreach_entry_end;
     lispd_log_msg(log_level,"*******************************************************\n");
 
+}
+
+void map_cache_entry_start_expiration_timer(lispd_map_cache_entry *cache_entry) {
+    /* Expiration cache timer */
+    if (!cache_entry->expiry_cache_timer){
+        cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE_TIMER);
+    }
+    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
+                     (void *)cache_entry);
+    lispd_log_msg(LISP_LOG_DEBUG_1,"The map cache entry %s will expire in %ld minutes.",
+            lisp_addr_to_char(mapping_eid(mcache_entry_get_mapping(cache_entry))), cache_entry->ttl);
 }
 
 

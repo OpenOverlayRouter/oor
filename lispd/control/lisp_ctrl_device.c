@@ -45,122 +45,53 @@ void lisp_ctrl_dev_del(lisp_ctrl_device *dev) {
     dev->vtable->delete(dev);
 }
 
-static uint8_t is_lcaf_mcast_info(address_field *addr) {
-    return( address_field_afi(addr) != LISP_AFI_LCAF
-            && address_field_lcaf_type(addr) != LCAF_MCAST_INFO);
-}
+//static uint8_t is_lcaf_mcast_info(address_field *addr) {
+//    return( address_field_afi(addr) != LISP_AFI_LCAF
+//            && address_field_lcaf_type(addr) != LCAF_MCAST_INFO);
+//}
 
-static uint8_t is_mrsignaling(address_field *addr) {
+uint8_t is_mrsignaling(address_field *addr) {
     return( address_field_afi(addr) != LISP_AFI_LCAF
             && address_field_lcaf_type(addr) != LCAF_MCAST_INFO
             && (address_field_get_mc_hdr(addr)->J || address_field_get_mc_hdr(addr)->L));
 }
 
-int mrsignaling_recv_mrequest(address_field *dstfield, lisp_addr_t *dst_eid, lisp_addr_t *src_eid)
-{
-    lcaf_mcinfo_hdr_t   *mcinf_hdr;
-    int                             ret;
 
-    if (!is_lcaf_mcast_info(dstfield)) {
-        lispd_log_msg(LISP_LOG_WARNING, "The destination EID %s is not multicast!", lisp_addr_to_char(dst_eid));
-        lisp_addr_del(dst_eid);
-        return(BAD);
+mrsignaling_flags_t mrsignaling_get_flags_from_field(address_field *afield) {
+    lcaf_mcinfo_hdr_t   *mcinf_hdr;
+    mrsignaling_flags_t mc_flags = {0, 0, 0};
+
+    if (!is_mrsignaling(afield)) {
+        lispd_log_msg(LISP_LOG_WARNING, "mrsignaling_get_flags_from_field:The field is not a multicast address!");
+        return(mc_flags);
     }
 
-    mcinf_hdr = address_field_get_mc_hdr(dstfield);
+    mcinf_hdr = address_field_get_mc_hdr(afield);
 
     if (mcinf_hdr->J == 1 && mcinf_hdr->L == 1) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Both join and leave flags are set for %s!", lisp_addr_to_char(dst_eid));
-        return(BAD);
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Both join and leave flags are set for in mrsignaling. Discarding!");
+        return(mc_flags);
     }
 
-
-    /* hardwired to re, should change when we support lisp-multicast */
-    if (mcinf_hdr->J == 1)
-        ret = re_recv_join_request(dst_eid, src_eid);
-    else if (mcinf_hdr->L == 1)
-        ret = re_recv_leave_request(dst_eid, src_eid);
-    else if (mcinf_hdr->R == 1) {
-        ret = BAD;
-        lispd_log_msg(LISP_LOG_WARNING, "re_process_mrsignaling: PIM join received, not implemented!");
-    }
-
-    if (ret == GOOD)
-//        err = mrsignaling_send_mreply(registered_mapping, local_rloc, remote_rloc, dport, nonce, mc_flags);
-
-    lisp_addr_del(dst_eid);
-    return (err);
-
+    mc_flags = (mrsignaling_flags_t){.rbit = mcinf_hdr->R, .jbit = mcinf_hdr->J, .lbit = mcinf_hdr->L};
+    return(mc_flags);
 }
 
-int mrsignaling_send_mreply(
-        mapping_t *registered_mapping,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
-        uint16_t dport,
-        uint64_t nonce,
-        mrsignaling_flags_t mc_flags) {
-
-    map_reply_opts mropts;
-
-    mropts.send_rec   = 1;
-    mropts.echo_nonce = 0;
-    mropts.rloc_probe = 0;
-    mropts.mrsig.jbit = mc_flags.jbit;
-    mropts.mrsig.lbit = mc_flags.lbit;
-    mropts.mrsig.rbit = mc_flags.rbit;
-
-    return(build_and_send_map_reply_msg(registered_mapping, local_rloc, remote_rloc, dport, nonce, mropts));
-}
 
 /**
  * @offset: pointer to start of the mapping record
  */
-void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags) {
+static void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig) {
 
     lcaf_mcinfo_hdr_t *mc_ptr;
 
     offset = CO(offset, sizeof(mapping_record_hdr_t) + sizeof(uint16_t));
     mc_ptr = (lcaf_mcinfo_hdr_t *) offset;
-    mc_ptr->J = mc_flags.jbit;
-    mc_ptr->L = mc_flags.lbit;
-    mc_ptr->R = mc_flags.rbit;
+    mc_ptr->J = mrsig->jbit;
+    mc_ptr->L = mrsig->lbit;
+    mc_ptr->R = mrsig->rbit;
 
 }
-
-int mrsignaling_recv_mreply(mapping_record *record, uint64_t nonce) {
-
-    lisp_addr_t                             *eid                    = NULL;
-    lcaf_mcinfo_hdr_t                       *mcinfohdr               = NULL;
-    address_field                           *addr                   = NULL;
-
-    addr = mapping_record_eid(record);
-
-    mcinfohdr = address_field_get_mc_hdr(addr);
-    eid = lisp_addr_init_from_field(addr);
-    if (!eid)
-        return(BAD);
-
-    if (mcinfohdr->J == 1 && mcinfohdr->L == 1) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Both join and leave flags are set!");
-        return(BAD);
-    }
-
-    /* hardwired to re, should change when we support lisp-multicast */
-    if (mcinfohdr->J == 1)
-        re_recv_join_ack(eid, nonce);
-    else if (mcinfohdr->L == 1)
-        re_recv_leave_ack(eid, nonce);
-    else if (mcinfohdr->R == 1) {
-        lispd_log_msg(LISP_LOG_WARNING, "PIM join received, not implemented!");
-        return(BAD);
-    }
-
-    lisp_addr_del(eid);
-    return(GOOD);
-}
-
-
 
 /*
  * Process a record from map-reply probe message
@@ -383,8 +314,8 @@ int process_map_reply_msg(map_reply_msg *mrep)
         record = glist_entry_data(it);
         /* Map-Reply carries a mapping */
         if (mrep_get_hdr(mrep)->rloc_probe == FALSE) {
-//            if (is_lcaf_mcast_info(mapping_record_get_eid(record)))
-//                return(mrsignaling_recv_mreply(record, mrep_get_hdr(mrep)->nonce));
+            if (is_mrsignaling(mapping_record_eid(record)))
+                return(mrsignaling_recv_ack(record, mrep_get_hdr(mrep)->nonce));
             if (process_map_reply_record(record, mrep_get_hdr(mrep)->nonce)!= GOOD)
                 return(BAD);
         /* Map-Reply is an RLOC-probe reply*/
@@ -481,13 +412,8 @@ int send_map_request_miss(timer *t, void *arg)
         dst_rloc = get_map_resolver();
 
         if ((dst_rloc == NULL) || (build_and_send_map_request_msg(
-                map_cache_entry->mapping,
-                argument->src_eid,
-                dst_rloc,
-                1,
-                0,
-                0,
-                0,
+                map_cache_entry->mapping, argument->src_eid,
+                dst_rloc, 1, 0, 0, 0, NULL,
                 &nonces->nonce[nonces->retransmits]))==BAD){
             lispd_log_msg (LISP_LOG_DEBUG_1, "send_map_request_miss: Couldn't send map request for a new map cache entry");
 
@@ -512,7 +438,7 @@ int send_map_request_miss(timer *t, void *arg)
  * Calculate Map Request length. Just add locators with status up
  */
 
-int get_map_request_length(mapping_t *requested_mapping, mapping_t *src_mapping) {
+int get_map_request_length(lisp_addr_t *dst_eid, mapping_t *src_mapping) {
     int mr_len = 0;
     int locator_count = 0, aux_locator_count = 0;
     mr_len = sizeof(map_request_msg_hdr);
@@ -552,7 +478,7 @@ int get_map_request_length(mapping_t *requested_mapping, mapping_t *src_mapping)
     mr_len += sizeof(eid_prefix_record_hdr);
     /* XXX: We supose that the requested EID has the same AFI as the source EID */
 //    mr_len += get_mapping_length(requested_mapping);
-    mr_len += lisp_addr_get_size_in_field(mapping_eid(requested_mapping));
+    mr_len += lisp_addr_get_size_in_field(dst_eid);
 
     /* Add the Map-Reply Record */
     if (src_mapping)
@@ -564,32 +490,32 @@ int get_map_request_length(mapping_t *requested_mapping, mapping_t *src_mapping)
 /* Build a Map Request paquet */
 
 uint8_t *build_map_request_pkt(
-        mapping_t       *requested_mapping,
-        lisp_addr_t             *src_eid,
-        uint8_t                 encap,
-        uint8_t                 probe,
-        uint8_t                 solicit_map_request,/* boolean really */
-        uint8_t                 smr_invoked,
-        int                     *len,               /* return length here */
-        uint64_t                *nonce)             /* return nonce here */
+        lisp_addr_t     *dst_eid,
+        lisp_addr_t     *src_eid,
+        uint8_t         encap,
+        uint8_t         probe,
+        uint8_t         solicit_map_request,/* boolean really */
+        uint8_t         smr_invoked,
+        mrsignaling_flags_t *mrsig,
+        int             *len,               /* return length here */
+        uint64_t        *nonce)             /* return nonce here */
 {
 
     uint8_t                                 *packet                 = NULL;
     uint8_t                                 *mr_packet              = NULL;
     map_request_msg_hdr                     *mrp                    = NULL;
-    mapping_record_hdr_t                      *rec                    = NULL;
-//    lispd_pkt_map_request_itr_rloc_t        *itr_rloc               = NULL;
+    mapping_record_hdr_t                    *rec                    = NULL;
     eid_prefix_record_hdr                   *request_eid_record     = NULL;
     uint8_t                                 *cur_ptr                = NULL;
 
     int                     map_request_msg_len = 0;
     int                     ctr                 = 0;
-//    int                     cpy_len             = 0;
     int                     locators_ctr        = 0;
+    int                     rlen                = 0;
 
-    mapping_t       *src_mapping        = NULL;
+    mapping_t               *src_mapping        = NULL;
     lispd_locators_list     *locators_list[2]   = {NULL,NULL};
-    locator_t       *locator            = NULL;
+    locator_t               *locator            = NULL;
     lisp_addr_t             *ih_src_ip          = NULL;
 
     /*
@@ -608,7 +534,7 @@ uint8_t *build_map_request_pkt(
     }
 
     /* Calculate the packet size and reserve memory */
-    map_request_msg_len = get_map_request_length(requested_mapping,src_mapping);
+    map_request_msg_len = get_map_request_length(dst_eid, src_mapping);
     *len = map_request_msg_len;
 
     if ((packet = malloc(map_request_msg_len)) == NULL){
@@ -617,41 +543,24 @@ uint8_t *build_map_request_pkt(
     }
     memset(packet, 0, map_request_msg_len);
 
-
     cur_ptr = packet;
 
     mrp = (map_request_msg_hdr *)cur_ptr;
 
-    mrp->type                      = LISP_MAP_REQUEST;
-    mrp->authoritative             = 0;
-    if (src_eid != NULL)
-        mrp->map_data_present      = 1;
-    else
-        mrp->map_data_present      = 0;
-
-    if (probe)
-        mrp->rloc_probe            = 1;
-    else
-        mrp->rloc_probe            = 0;
-
-    if (solicit_map_request)
-        mrp->solicit_map_request   = 1;
-    else
-        mrp->solicit_map_request   = 0;
-
-    if (smr_invoked)
-        mrp->smr_invoked           = 1;
-    else
-        mrp->smr_invoked           = 0;
-
-    mrp->additional_itr_rloc_count = 0;     /* To be filled later  */
-    mrp->record_count              = 1;     /* XXX: assume 1 record */
-    mrp->nonce = build_nonce((unsigned int) time(NULL));
-    *nonce                         = mrp->nonce;
+    mrp->type                       = LISP_MAP_REQUEST;
+    mrp->authoritative              = 0;
+    mrp->map_data_present           = (src_eid && !mrsig) ? 1 : 0;
+    mrp->rloc_probe                 = (probe) ? 1: 0;
+    mrp->solicit_map_request        = (solicit_map_request) ? 1 : 0;
+    mrp->smr_invoked                = (smr_invoked) ? 1 : 0;
+    mrp->additional_itr_rloc_count  = 0;     /* To be filled later  */
+    mrp->record_count               = 1;     /* XXX: assume 1 record */
+    mrp->nonce                      = build_nonce((unsigned int) time(NULL));
+    *nonce                          = mrp->nonce;
 
     cur_ptr = CO(cur_ptr, sizeof(map_request_msg_hdr));
 
-    if (src_eid != NULL){
+    if (src_eid && !mrsig) {
         cur_ptr = CO(cur_ptr, lisp_addr_write(cur_ptr, mapping_eid(src_mapping)));
 
         /* Add itr-rlocs */
@@ -675,13 +584,18 @@ uint8_t *build_map_request_pkt(
                 locators_list[ctr] = locators_list[ctr]->next;
             }
         }
-    }else {
+
+    } else {
+        if (src_eid && mrsig) {
+            rlen = lisp_addr_write(cur_ptr, src_eid);
+            mrsignaling_set_flags_in_pkt(cur_ptr, mrsig);
+            cur_ptr = CO(cur_ptr, rlen);
+        } else {
+            *(uint16_t*)cur_ptr = LISP_AFI_NO_ADDR;
+            cur_ptr = CO(cur_ptr, sizeof(uint16_t));
+        }
 
         // XXX If no source EID is used, then we only use one ITR-RLOC for IPv4 and one for IPv6-> Default control RLOC
-//        mrp->source_eid_afi = LISP_AFI_NO_ADDR;
-        *(uint16_t*)cur_ptr = LISP_AFI_NO_ADDR;
-        cur_ptr = CO(cur_ptr, sizeof(uint16_t));
-
         if (default_ctrl_iface_v4 != NULL){
             cur_ptr = CO(cur_ptr, lisp_addr_write(cur_ptr, default_ctrl_iface_v4->ipv4_address));
             locators_ctr ++;
@@ -702,12 +616,13 @@ uint8_t *build_map_request_pkt(
 
     /* Requested EID record */
     request_eid_record = (eid_prefix_record_hdr *)cur_ptr;
-    request_eid_record->eid_prefix_length = lisp_addr_ippref_get_plen(mapping_eid(requested_mapping));
-//    requested_mapping->eid_prefix_length;
+    request_eid_record->eid_prefix_length = lisp_addr_get_plen(dst_eid);
 
-//    cur_ptr = pkt_fill_eid(&(request_eid_record->eid_prefix_afi),requested_mapping);
     cur_ptr = CO(cur_ptr, sizeof(eid_prefix_record_hdr));
-    cur_ptr = CO(cur_ptr, lisp_addr_write(cur_ptr, mapping_eid(requested_mapping)));
+    rlen = lisp_addr_write(cur_ptr, dst_eid);
+    if (mrsig)
+        mrsignaling_set_flags_in_pkt(cur_ptr, mrsig);
+    cur_ptr = CO(cur_ptr, rlen);
 
     if (mrp->map_data_present == 1){
         /* Map-Reply Record */
@@ -727,9 +642,9 @@ uint8_t *build_map_request_pkt(
          * the source address in the inner IP header
          */
         if (src_eid != NULL){
-            ih_src_ip = &(src_mapping->eid_prefix);
+            ih_src_ip = mapping_eid(src_mapping);
         }else{
-            if (requested_mapping->eid_prefix.afi == AF_INET){
+            if (lisp_addr_ip_get_afi(dst_eid) == AF_INET){
                 ih_src_ip = local_map_db_get_main_eid (AF_INET);
                 if (!ih_src_ip)
                     ih_src_ip = default_ctrl_iface_v4->ipv4_address;
@@ -742,7 +657,7 @@ uint8_t *build_map_request_pkt(
         }
 
         mr_packet = packet;
-        packet = build_control_encap_pkt(mr_packet, map_request_msg_len, ih_src_ip, &(requested_mapping->eid_prefix), LISP_CONTROL_PORT, LISP_CONTROL_PORT, len);
+        packet = build_control_encap_pkt(mr_packet, map_request_msg_len, ih_src_ip, dst_eid, LISP_CONTROL_PORT, LISP_CONTROL_PORT, len);
 
         if (packet == NULL){
             lispd_log_msg(LISP_LOG_DEBUG_1,"build_map_request_pkt: Couldn't encapsulate the map request");
@@ -755,53 +670,56 @@ uint8_t *build_map_request_pkt(
 }
 
 int build_and_send_map_request_msg(
-        mapping_t       *requested_mapping,
+        mapping_t               *requested_mapping,
         lisp_addr_t             *src_eid,
-        lisp_addr_t             *dst_rloc_addr,
+        lisp_addr_t             *dst_rloc,
         uint8_t                 encap,
         uint8_t                 probe,
         uint8_t                 solicit_map_request,
         uint8_t                 smr_invoked,
+        mrsignaling_flags_t     *mrsig,
         uint64_t                *nonce)
 {
 
     uint8_t     *packet         = NULL;
     uint8_t     *map_req_pkt    = NULL;
-    lisp_addr_t *src_addr       = NULL;
+    lisp_addr_t *src_rloc       = NULL;
     int         out_socket      = 0;
     int         packet_len      = 0;
     int         mrp_len         = 0;               /* return the length here */
     int         result          = 0;
 
     map_req_pkt = build_map_request_pkt(
-            requested_mapping,
+            mapping_eid(requested_mapping),
             src_eid,
             encap,
             probe,
             solicit_map_request,
             smr_invoked,
+            mrsig,  /* no mr signaling flag */
             &mrp_len,
             nonce);
 
     if (map_req_pkt == NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Could not build map-request packet for %s:"
-                " Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
+                " Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c , MRSIG: %c",
                 lisp_addr_to_char(mapping_eid(requested_mapping)),
                 (encap == TRUE ? 'Y' : 'N'),
                 (probe == TRUE ? 'Y' : 'N'),
                 (solicit_map_request == TRUE ? 'Y' : 'N'),
-                (smr_invoked == TRUE ? 'Y' : 'N'));
+                (smr_invoked == TRUE ? 'Y' : 'N'),
+                (mrsig ? 'Y' : 'N'));
         return (BAD);
     }
 
     /* Get src interface information */
 
-    src_addr    = get_default_ctrl_address(dst_rloc_addr->afi);
-    out_socket  = get_default_ctrl_socket(dst_rloc_addr->afi);
+    src_rloc    = get_default_ctrl_address(lisp_addr_ip_get_afi(dst_rloc));
+    out_socket  = get_default_ctrl_socket(lisp_addr_ip_get_afi(dst_rloc));
 
-    if (src_addr == NULL){
+    if (src_rloc == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Couden't send Map Request. No output interface with afi %d.",
-                dst_rloc_addr->afi);
+                dst_rloc->afi);
         free (map_req_pkt);
         return (BAD);
     }
@@ -811,8 +729,8 @@ int build_and_send_map_request_msg(
 
     packet = build_ip_udp_pcket(map_req_pkt,
                                 mrp_len,
-                                src_addr,
-                                dst_rloc_addr,
+                                src_rloc,
+                                dst_rloc,
                                 LISP_CONTROL_PORT,
                                 LISP_CONTROL_PORT,
                                 &packet_len);
@@ -827,22 +745,26 @@ int build_and_send_map_request_msg(
     /* Send the packet */
 
     if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s to %s: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c . Nonce: %s",
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s to %s: Encap: %c, Probe: %c, SMR: %c, "
+                "SMR-inv: %c MRSIG: %c. Nonce: %s",
                         lisp_addr_to_char(mapping_eid(requested_mapping)),
-                        lisp_addr_to_char(dst_rloc_addr),
+                        lisp_addr_to_char(dst_rloc),
                         (encap == TRUE ? 'Y' : 'N'),
                         (probe == TRUE ? 'Y' : 'N'),
                         (solicit_map_request == TRUE ? 'Y' : 'N'),
                         (smr_invoked == TRUE ? 'Y' : 'N'),
+                        (mrsig ? 'Y' : 'N'),
                         nonce_to_char(*nonce));
         result = GOOD;
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't sent Map-Request packet for %s: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c ",
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't sent Map-Request packet for %s: Encap: %c, Probe: %c, SMR: %c, "
+                "SMR-inv: %c MRSIG: %c",
                 lisp_addr_to_char(mapping_eid(requested_mapping)),
                 (encap == TRUE ? 'Y' : 'N'),
                 (probe == TRUE ? 'Y' : 'N'),
                 (solicit_map_request == TRUE ? 'Y' : 'N'),
-                (smr_invoked == TRUE ? 'Y' : 'N'));
+                (smr_invoked == TRUE ? 'Y' : 'N'),
+                (mrsig ? 'Y' : 'N'));
         result = BAD;
     }
 
@@ -1093,15 +1015,6 @@ int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uin
     cache_entry->ttl = ttl;
     cache_entry->active_witin_period = 1;
     cache_entry->timestamp = time(NULL);
-    //locator_count updated when adding the processed locators
-
-//    /* Read the locators */
-//    for (ctr=0 ; ctr < record->locator_count ; ctr++){
-//        if ((process_map_reply_locator (offset, cache_entry->mapping)) == BAD){
-//            return(BAD);
-//        }
-//    }
-
 
     if (locators)
         mapping_add_locators(cache_entry->mapping, locators);
@@ -1113,29 +1026,16 @@ int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uin
      */
     locator_list_free_container(locators,0);
 
-    /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
-    if (cache_entry->mapping->locator_count != 0){
-        calculate_balancing_vectors (
-                cache_entry->mapping,
-                &(((rmt_mapping_extended_info *)cache_entry->mapping->extended_info)->rmt_balancing_locators_vecs));
-    }
+    mapping_compute_balancing_vectors(cache_entry->mapping);
 
     /*
      * Reprogramming timers
      */
-    /* Expiration cache timer */
-    if (!cache_entry->expiry_cache_timer){
-        cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE_TIMER);
-    }
-    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
-                     (void *)cache_entry);
-    lispd_log_msg(LISP_LOG_DEBUG_1,"The map cache entry %s will expire in %ld minutes.",
-            lisp_addr_to_char(mapping_eid(mcache_entry_get_mapping(cache_entry))), cache_entry->ttl);
+    map_cache_entry_start_expiration_timer(cache_entry);
 
     /* RLOC probing timer */
-    if (new_mapping == TRUE && RLOC_PROBING_INTERVAL != 0){
-        programming_rloc_probing(cache_entry);
-    }
+    if (new_mapping == TRUE && RLOC_PROBING_INTERVAL != 0)
+        programming_rloc_probing(cache_entry->mapping);
 
     map_cache_dump_db(LISP_LOG_DEBUG_3);
 
@@ -1147,5 +1047,98 @@ void timer_map_request_argument_del(void *arg) {
     timer_map_request_argument *targ = arg;
     lisp_addr_del(targ->src_eid);
     free(targ);
+}
+
+
+/*
+ * received Map-Request/Join-Request for dst_eid that ask that replication be performed to src_eid
+ */
+int mrsignaling_recv_join(lisp_addr_t *src_eid, lisp_addr_t *dst_eid, lisp_addr_t *local_rloc,
+        lisp_addr_t *remote_rloc, uint16_t dst_port, uint64_t nonce, mrsignaling_flags_t mc_flags)
+{
+    int                 ret;
+    mapping_t           *tmapping;
+    locator_t           *tloc;
+
+    /* hardwired to re, should change when we support lisp-multicast */
+    if (mc_flags.jbit == 1)
+        ret = re_recv_join_request(dst_eid, src_eid);
+    else if (mc_flags.lbit == 1)
+        ret = re_recv_leave_request(dst_eid, src_eid);
+    else if (mc_flags.rbit == 1) {
+        ret = BAD;
+        lispd_log_msg(LISP_LOG_WARNING, "re_process_mrsignaling: PIM join received, not implemented!");
+    }
+
+
+    if (ret == GOOD) {
+        tmapping = mapping_init(dst_eid);
+        tloc = locator_new();
+        locator_set_addr(tloc, src_eid);
+        add_locator_to_mapping(tmapping, tloc);
+        mrsignaling_send_ack(tmapping, local_rloc, remote_rloc, dst_port, nonce, mc_flags);
+        mapping_del(tmapping);
+
+    }
+    return (err);
+
+}
+
+int mrsignaling_send_ack(
+        mapping_t *registered_mapping,
+        lisp_addr_t *local_rloc,
+        lisp_addr_t *remote_rloc,
+        uint16_t dport,
+        uint64_t nonce,
+        mrsignaling_flags_t mc_flags) {
+
+    map_reply_opts mropts;
+
+    mropts.send_rec   = 1;
+    mropts.echo_nonce = 0;
+    mropts.rloc_probe = 0;
+    mropts.mrsig.jbit = mc_flags.jbit;
+    mropts.mrsig.lbit = mc_flags.lbit;
+    mropts.mrsig.rbit = mc_flags.rbit;
+
+    return(build_and_send_map_reply_msg(registered_mapping, local_rloc, remote_rloc, dport, nonce, mropts));
+}
+
+int mrsignaling_send_join(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce) {
+    mrsignaling_flags_t mrsig = {0, 1, 0};
+    return(build_and_send_map_request_msg(ch_mapping, delivery_grp, dst_rloc, 0, 0, 0, 0, &mrsig, nonce));
+}
+
+
+int mrsignaling_recv_ack(mapping_record *record, uint64_t nonce) {
+
+    lisp_addr_t                             *eid                    = NULL;
+    lcaf_mcinfo_hdr_t                       *mcinfohdr               = NULL;
+    address_field                           *addr                   = NULL;
+
+    addr = mapping_record_eid(record);
+
+    mcinfohdr = address_field_get_mc_hdr(addr);
+    eid = lisp_addr_init_from_field(addr);
+    if (!eid)
+        return(BAD);
+
+    if (mcinfohdr->J == 1 && mcinfohdr->L == 1) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Both join and leave flags are set!");
+        return(BAD);
+    }
+
+    /* hardwired to re, should change when we support lisp-multicast */
+    if (mcinfohdr->J == 1)
+        re_recv_join_ack(eid, nonce);
+    else if (mcinfohdr->L == 1)
+        re_recv_leave_ack(eid, nonce);
+    else if (mcinfohdr->R == 1) {
+        lispd_log_msg(LISP_LOG_WARNING, "PIM join received, not implemented!");
+        return(BAD);
+    }
+
+    lisp_addr_del(eid);
+    return(GOOD);
 }
 

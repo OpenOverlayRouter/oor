@@ -49,7 +49,7 @@ void process_nl_new_unicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_new_multicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_del_route (struct nlmsghdr *nlh);
 void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length);
-int  process_nl_multicast_route_attributes (struct rtmsg *rtm, int rt_length, ip_addr_t *src, ip_addr_t *grp);
+int  process_nl_multicast_route_attributes (struct rtmsg *rtm, int rt_length, lisp_addr_t *src, lisp_addr_t *grp);
 
 /*
  * Change the address of the interface. If the address belongs to a not initialized locator, activate it.
@@ -508,6 +508,7 @@ void process_nl_new_route (struct nlmsghdr *nlh)
     rtm = (struct rtmsg *) NLMSG_DATA (nlh);
     rt_length = RTM_PAYLOAD(nlh);
 
+    lispd_log_msg(LISP_LOG_DEBUG_1, "the route type = %d", rtm->rtm_type);
     /* Interested only in unicast or multicast updates */
     if (rtm->rtm_type == RTN_UNICAST)
         process_nl_new_unicast_route(rtm, rt_length);
@@ -618,8 +619,10 @@ void process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length) {
 
 void process_nl_new_multicast_route(struct rtmsg *rtm, int rt_length) {
 
-    ip_addr_t   srcaddr, grpaddr;
+    lisp_addr_t srcaddr = {.lafi = LM_AFI_IP};
+    lisp_addr_t grpaddr = {.lafi = LM_AFI_IP};
 
+    lispd_log_msg(LISP_LOG_DEBUG_1, "MUUULTICAAAAST!!!!!!");
     /*
      * IPv4 multicast routes are part of the default table and have family 128, while
      * IPv6 multicast routes are part of the main table and have family 129 ...
@@ -639,8 +642,8 @@ void process_nl_new_multicast_route(struct rtmsg *rtm, int rt_length) {
 int process_nl_multicast_route_attributes (
         struct rtmsg    *rtm,
         int             rt_length,
-        ip_addr_t       *rt_srcaddr,
-        ip_addr_t       *rt_groupaddr) {
+        lisp_addr_t       *rt_srcaddr,
+        lisp_addr_t       *rt_groupaddr) {
 
     struct rtattr            *rt_attr                   = NULL;
     lispd_iface_elt          *iface                     = NULL;
@@ -659,14 +662,10 @@ int process_nl_multicast_route_attributes (
             case RTA_DST:
                 switch(rtm->rtm_family) {
                     case 128:
-                        ip_addr_set_v4(rt_groupaddr, (void *)RTA_DATA(rt_attr) );
-//                        rt_groupaddr->afi = AF_INET;
-//                        memcpy(&(rt_groupaddr->address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+                        ip_addr_set_v4(lisp_addr_get_ip(rt_groupaddr), (void *)RTA_DATA(rt_attr) );
                         break;
                     case 129:
-                        ip_addr_set_v6(rt_groupaddr, (void *)RTA_DATA(rt_attr));
-//                        rt_groupaddr->afi = AF_INET6;
-//                        memcpy(&(rt_groupaddr->address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+                        ip_addr_set_v6(lisp_addr_get_ip(rt_groupaddr), (void *)RTA_DATA(rt_attr));
                         break;
                     default:
                         break;
@@ -675,14 +674,10 @@ int process_nl_multicast_route_attributes (
             case RTA_SRC:
                 switch (rtm->rtm_family) {
                     case 128:
-                        ip_addr_set_v4(rt_srcaddr, (struct in_addr *)RTA_DATA(rt_attr));
-//                        rt_srcaddr->afi = AF_INET;
-//                        memcpy(&(rt_srcaddr->address),(struct in_addr *)RTA_DATA(rt_attr), sizeof(struct in_addr));
+                        ip_addr_set_v4(lisp_addr_get_ip(rt_srcaddr), (struct in_addr *)RTA_DATA(rt_attr));
                         break;
                     case 129:
-                        ip_addr_set_v6(rt_srcaddr, (struct in6_addr *)RTA_DATA(rt_attr));
-//                        rt_srcaddr->afi = AF_INET6;
-//                        memcpy(&(rt_srcaddr->address),(struct in6_addr *)RTA_DATA(rt_attr), sizeof(struct in6_addr));
+                        ip_addr_set_v6(lisp_addr_get_ip(rt_srcaddr), (struct in6_addr *)RTA_DATA(rt_attr));
                         break;
                     default:
                         break;
@@ -706,8 +701,6 @@ int process_nl_multicast_route_attributes (
                     /* Prepare output for debug */
                     if_indextoname(rt_nh->rtnh_ifindex, iface_name);
                     sprintf(ifnames, "%s ", iface_name);
-//                    strcat(ifnames, iface_name);
-//                    strcat(ifnames, " ");
                     nb_oifs++;
                 }
                 break;
@@ -722,7 +715,7 @@ int process_nl_multicast_route_attributes (
     }
 
     lispd_log_msg(LISP_LOG_INFO, "New multicast route with source %s, group %s for interfaces %s",
-            ip_addr_to_char(rt_srcaddr), ip_addr_to_char(rt_groupaddr), ifnames);
+            lisp_addr_to_char(rt_srcaddr), lisp_addr_to_char(rt_groupaddr), ifnames);
 
     return GOOD;
 }
@@ -742,8 +735,8 @@ void process_nl_del_route (struct nlmsghdr *nlh) {
 
 void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length) {
 
-    ip_addr_t  rt_groupaddr               = {.afi=AF_UNSPEC};
-    ip_addr_t  rt_srcaddr                 = {.afi=AF_UNSPEC};
+    lisp_addr_t  rt_groupaddr               = {.lafi=LM_AFI_IP};
+    lisp_addr_t  rt_srcaddr                 = {.lafi=LM_AFI_IP};
 
     if ( !((rtm->rtm_table == RT_TABLE_DEFAULT && rtm->rtm_family == 128) ||
            (rtm->rtm_table == RT_TABLE_MAIN && rtm->rtm_family == 129) ) )

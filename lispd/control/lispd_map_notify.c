@@ -50,6 +50,10 @@ int process_map_notify(map_notify_msg *msg)
     int                                 next_timer_time             = 0;
     int                                 result                      = BAD;
     auth_field                          *afield                     = NULL;
+    mapping_t                           *mapping                    = NULL;
+    mapping_t                           *local_mapping              = NULL;
+    mapping_t                           *mcache_mapping             = NULL;
+    lispd_map_cache_entry               *mce                        = NULL;
 
     /* FC XXX: what is this? */
     if (mnotify_msg_hdr(msg)->xtr_id_present == TRUE) {
@@ -64,13 +68,49 @@ int process_map_notify(map_notify_msg *msg)
     }
 
     afield = mnotify_msg_auth_data(msg);
-//    if (mnotify_msg_check_auth(msg, map_servers->key)) {
     if (auth_field_check(mnotify_msg_data(msg), mnotify_msg_get_len(msg), afield, map_servers->key)) {
         record = glist_first_data(mnotify_msg_records(msg));
-        eid = lisp_addr_init_from_field(mapping_record_eid(record));
-        if (lisp_addr_get_afi(eid) == LM_AFI_IP)
-            lisp_addr_set_plen(eid, mapping_record_hdr(record)->eid_prefix_length);
+
+        mapping = mapping_init_from_record(record);
+        eid = mapping_eid(mapping);
+
+        local_mapping = local_map_db_lookup_eid_exact(eid);
+        if (!local_mapping) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify confirms registration of UNKNOWN EID %s. Dropping!",
+                    lisp_addr_to_char(mapping_eid(mapping)));
+        }
+
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration of %s", lisp_addr_to_char(eid));
+
+        /* === merge semantics on === */
+        if (mapping_cmp(local_mapping, mapping) != 0) {
+            /* Save the mapping returned by the map-notify in the mapping cache */
+            mcache_mapping = mcache_lookup_mapping(eid);
+            if (mcache_mapping && mapping_cmp(mcache_mapping, mapping) != 0) {
+                lispd_log_msg(LISP_LOG_DEBUG_3, "Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
+                mapping_update_locators(mcache_mapping, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
+
+                mapping_compute_balancing_vectors(mcache_mapping);
+                programming_rloc_probing(mcache_mapping);
+
+                /* cheap hack to avoid cloning */
+                mapping->head_v4_locators_list = NULL;
+                mapping->head_v6_locators_list = NULL;
+                mapping_del(mapping);
+            } else if (!mcache_mapping) {
+                if (mcache_add_mapping(mapping) != GOOD) {
+                    mapping_del(mapping);
+                    return(BAD);
+                }
+
+                mce = map_cache_lookup_exact(eid);
+                mce->active = 1;
+                programming_rloc_probing(mcache_entry_get_mapping(mce));
+                map_cache_entry_start_expiration_timer(mce);
+                mapping_compute_balancing_vectors(mcache_entry_get_mapping(mce));
+
+            }
+        }
 
         next_timer_time = MAP_REGISTER_INTERVAL;
         free (nat_emr_nonce);

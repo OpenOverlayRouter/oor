@@ -120,8 +120,6 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
         }
 
         lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: found mapping with EID %s", lisp_addr_to_char(mapping_eid(mapping)));
-//        if (is_mrsignaling(eid_prefix_record_get_eid(eid)))
-//            return(mrsignaling_recv_mrequest(mreq, dst_eid, local_rloc, remote_rloc, dst_port));
         err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_msg_get_hdr(mreq)->nonce, opts);
 
         lisp_addr_del(dst_eid);
@@ -295,7 +293,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         }
 
         mentry = mdb_lookup_entry_exact(ms->registered_sites_db, eid);
-        if (mentry) {
+        if (mentry && mapping_cmp(mentry, mapping) != 0) {
 
             lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
             mapping_update_locators(mentry, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
@@ -308,7 +306,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
             /* add record to map-notify */
             if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY)
                 glist_add_tail(mentry, write_recs);
-        } else {
+        } else if (!mentry){
             /* save prefix to the registered sites db */
             mdb_add_entry(ms->registered_sites_db, mapping_eid(mapping), mapping);
 

@@ -30,24 +30,43 @@
 
 #include "lispd_re.h"
 #include "lispd_map_cache_db.h"
+#include "lisp_ctrl_device.h"
+#include "lispd_external.h"
 
 /*
  * Interface to end-hosts
  */
 
-int re_join_channel(ip_addr_t *src, ip_addr_t *grp) {
-    lisp_addr_t *mceid = re_build_mceid(src, grp);
-    re_send_join_request(mceid);
+int re_join_channel(lisp_addr_t *mceid) {
+    mapping_t *mapping  = NULL;
 
-    lisp_addr_del(mceid);
+    /* first step, obtain a mapping for mceid */
+    mapping = mcache_lookup_mapping(mceid);
+    if (!mapping) {
+        if (handle_map_cache_miss(mceid, lcaf_mc_get_src(lisp_addr_get_lcaf(mceid))) != GOOD)
+            return(BAD);
+        return(GOOD);
+    }
+
+    /* once the mapping is obtained (generally this is reached on a second function call)
+     * do a mr-signaling join
+     */
+    re_send_join_request(mapping);
+
     return(GOOD);
 }
 
-int re_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
-    lisp_addr_t *mceid = re_build_mceid(src, grp);
+int re_leave_channel(lisp_addr_t *mceid) {
+    mapping_t   *mapping = NULL;
     re_send_leave_request(mceid);
 
-    lisp_addr_del(mceid);
+    mapping = mcache_lookup_mapping(mceid);
+    if (!mapping) {
+        if (handle_map_cache_miss(mceid, lcaf_mc_get_src(lisp_addr_get_lcaf(mceid))) != GOOD)
+            return(BAD);
+        return(GOOD);
+    }
+
     return(GOOD);
 }
 
@@ -59,36 +78,36 @@ int re_leave_channel(ip_addr_t *src, ip_addr_t *grp) {
 
 int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
 
-    lispd_remdb_t           *jib                = NULL;
-    lispd_remdb_member_t    *member             = NULL;
-    lcaf_addr_t             *lcaf               = NULL;
-    lisp_addr_t             *peer                = NULL;
+    remdb_t             *jib                = NULL;
+    remdb_member_t      *member             = NULL;
+    lcaf_addr_t         *lcaf               = NULL;
+    lisp_addr_t         *peer               = NULL;
 
     /* add dst (S-RLOC, DG/RLOC) to jib */
     if (!(jib = re_get_jib(ch)))
         return (BAD);
 
     lcaf = lisp_addr_get_lcaf(rloc_pair);
+    /* downstream node */
     peer = lcaf_mc_get_grp(lcaf);
     member = remdb_find_member(peer, jib);
 
     if (member) {
         /* XXX: renew timer + update locator list*/
         return(GOOD);
+    } else {
+        remdb_add_member(peer, rloc_pair, jib);
     }
 
-    remdb_add_member(peer, rloc_pair, jib);
     return(GOOD);
 
 }
 
 /* remove dst (S-RLOC, DG/RLOC) from jib */
 int re_recv_leave_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
-
-    lispd_remdb_t           *jib        = NULL;
-    lcaf_addr_t             *lcaf       = NULL;
-    lisp_addr_t             *peer        = NULL;
-
+    remdb_t         *jib        = NULL;
+    lcaf_addr_t     *lcaf       = NULL;
+    lisp_addr_t     *peer       = NULL;
 
     jib = re_get_jib(ch);
     lcaf = lisp_addr_get_lcaf(rloc_pair);
@@ -98,31 +117,31 @@ int re_recv_leave_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
 }
 
 int re_recv_join_ack(lisp_addr_t *eid, uint32_t nonce) {
-    lispd_upstream_t    *upstream               = NULL;
+    re_upstream_t    *upstream               = NULL;
 
     upstream = re_get_upstream(eid);
 
-    /* Check if the nonces are identical */
-    if (check_nonce(upstream->nonces, nonce)==BAD){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record:  The nonce of the Map-Reply doesn't "
-                "match the nonce of the generated Map-Request. Discarding message ...");
-        return (BAD);
-    }
+//    /* Check if the nonces are identical */
+//    if (check_nonce(upstream->nonces, nonce)==BAD){
+//        lispd_log_msg(LISP_LOG_DEBUG_2,"re_recv_join_ack:  The nonce of the Map-Reply doesn't "
+//                "match the nonce of the generated Map-Request. Discarding message ...");
+//        return (BAD);
+//    }
 
     if (upstream->join_pending) {
-
+        lispd_log_msg(LISP_LOG_DEBUG_2,"re_recv_join_ack: Message confirms correct join!");
+        upstream->join_pending = 0;
     } else {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record: Received join ack with correct nonce although "
+        lispd_log_msg(LISP_LOG_DEBUG_2,"re_recv_join_ack: Received join ack with correct nonce although "
                 "we didn't send one! Discarding ... ");
         return(BAD);
     }
-
 
     return(GOOD);
 }
 
 int re_recv_leave_ack(lisp_addr_t *eid, uint32_t nonce) {
-    lispd_upstream_t    *upstream               = NULL;
+    re_upstream_t    *upstream               = NULL;
     upstream = re_get_upstream(eid);
 
     /* Check if the nonces are identical */
@@ -142,7 +161,55 @@ int re_recv_leave_ack(lisp_addr_t *eid, uint32_t nonce) {
     return(GOOD);
 }
 
-int re_send_join_request(lisp_addr_t *mceid) {
+int re_send_join_request(mapping_t *ch_mapping) {
+
+    lisp_addr_t     *mceid          = NULL;
+    lisp_addr_t     *dst_rloc       = NULL;
+    lisp_addr_t     *src_rloc       = NULL;
+    lisp_addr_t     *delivery_grp   = NULL;
+    uint64_t        nonce           = 0;
+    re_upstream_t   *upstream       = NULL;
+    mcinfo_mapping_extended_info *einfo = NULL;
+
+    mceid = mapping_eid(ch_mapping);
+    /* choose the first available RLOC as RTR RLOC
+     * TODO: implement better policy */
+    if (ch_mapping->head_v4_locators_list)
+        dst_rloc = locator_addr(ch_mapping->head_v4_locators_list->locator);
+    else if (ch_mapping->head_v6_locators_list)
+        dst_rloc = locator_addr(ch_mapping->head_v6_locators_list->locator);
+    else {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "re_send_join_request: no upstream RLOC for channel %s. Aborting join!",
+                lisp_addr_to_char(mceid));
+        return(BAD);
+    }
+
+    src_rloc =  (lisp_addr_ip_get_afi(mapping_eid(ch_mapping)) == AF_INET) ?
+            default_out_iface_v4->ipv4_address : default_out_iface_v6->ipv6_address;
+
+    if (!src_rloc) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "re_send_join_request: couldn't find a src RLOC for channel %s. Aborting join!",
+                lisp_addr_to_char(mceid));
+        return(BAD);
+    }
+
+    delivery_grp = lisp_addr_build_mc(dst_rloc, src_rloc);
+
+    /* ch_mapping should be ch eid but mapping sent due to legacy functions */
+    if (mrsignaling_send_join(ch_mapping, delivery_grp, dst_rloc, &nonce) == GOOD) {
+        /* initialize extended info and upstream */
+        upstream = calloc(1, sizeof(re_upstream_t));
+        upstream->join_pending = 1;
+        upstream->locator = dst_rloc;
+        einfo = calloc(1, sizeof(mcinfo_mapping_extended_info));
+        if (!einfo)
+            return(BAD);
+
+        einfo->upstream = upstream;
+        mapping_set_extended_info(ch_mapping, einfo);
+
+        /* TODO: initialize timers */
+    }
 
     return(GOOD);
 }
@@ -155,52 +222,45 @@ int re_send_leave_request(lisp_addr_t *mceid) {
 
 
 
-lispd_upstream_t *re_get_upstream(lisp_addr_t *eid) {
-    lispd_map_cache_entry                   *cache_entry            = NULL;
-    mapping_t                       *mapping                = NULL;
+re_upstream_t *re_get_upstream(lisp_addr_t *eid) {
+    mapping_t   *mapping    = NULL;
 
     /* Find eid's map-cache entry*/
-    cache_entry = map_cache_lookup_exact(eid);
-    if (!cache_entry){
+    mapping = mcache_lookup_mapping_exact(eid);
+    if (!mapping){
         lispd_log_msg(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));
         return (BAD);
     }
 
-    mapping = mcache_entry_get_mapping(cache_entry);
-    return(((mcinfo_mapping_extended_info*)mapping->extended_info)->upstream);
+    return(mapping_get_re_upstream(mapping));
 }
 
-lispd_remdb_t *re_get_jib(lisp_addr_t *mcaddr) {
-    lispd_map_cache_entry   *mcentry    = NULL;
+remdb_t *re_get_jib(lisp_addr_t *eid) {
     mapping_t       *mapping    = NULL;
 
-    if (!lisp_addr_is_mc(mcaddr)) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(mcaddr));
+    if (!lisp_addr_is_mc(eid)) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(eid));
         return(NULL);
     }
 
     /* TODO: implement real multicast FIB instead of using the mapping db */
-//    mcentry = lookup_eid_in_db(mcaddr);
-    mcentry = map_cache_lookup_exact(mcaddr);
-
-
-    if (!mcentry) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "get_re_orlist: No map-cache "
-                "entry found for EID %s. This shouldn't happen!",
-                lisp_addr_to_char(mcaddr));
-        return(BAD);
+    /* Find eid's map-cache entry*/
+    mapping = mcache_lookup_mapping_exact(eid);
+    if (!mapping){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
+                lisp_addr_to_char(eid));
+        return (BAD);
     }
 
     /* get output RLOC list (subset of the jib - joinig information base)
      * Current implementation: the jib is pointed to from  the mapping
      * extended info of mcinfo type.  */
-    mapping = mcache_entry_get_mapping(mcentry);
 
     /* packets with no active mapping are dropped */
-    if (mcache_entry_get_active(mcentry) == NO_ACTIVE){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_get_jib: Map cache entry carrying the jib, with eid %s, is NOT active!",
-                lisp_addr_to_char(mcaddr));
+    if (!mapping){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "re_get_jib: Map cache entry carrying the jib, with eid %s, not found or not active!",
+                lisp_addr_to_char(eid));
         /* fcoras TODO: what should we return here? */
         return (NULL);
     }
@@ -212,7 +272,7 @@ lispd_remdb_t *re_get_jib(lisp_addr_t *mcaddr) {
  * Interface to data plane
  */
 glist_t *re_get_orlist(lisp_addr_t *dst_addr) {
-    lispd_remdb_t           *jib        = NULL;
+    remdb_t           *jib        = NULL;
     glist_t    *or_list    = NULL;
 
     if (!lisp_addr_is_mc(dst_addr)) {
@@ -242,21 +302,5 @@ glist_t *re_get_orlist(lisp_addr_t *dst_addr) {
 
 
 
-/* auxiliary stuff */
 
-
-lisp_addr_t *re_build_mceid(ip_addr_t *src, ip_addr_t *grp) {
-    lisp_addr_t     *mceid;
-    uint8_t         mlen;
-
-    mlen = (ip_addr_get_afi(src) == AF_INET) ? 32 : 128;
-    mceid = lisp_addr_new();
-    lcaf_addr_set_mc(lisp_addr_get_lcaf(mceid), lisp_addr_init_ip(src), lisp_addr_init_ip(grp), mlen, mlen, 0);
-//    lisp_addr_set_lcaf(lisp_addr_get_lcaf(mceid),
-//            lcaf_addr_init_mc(
-//                    lisp_addr_init_ip(src),
-//                    lisp_addr_init_ip(grp),
-//                    mlen, mlen, 0));
-    return(mceid);
-}
 

@@ -156,7 +156,7 @@ void init_smr(
                     while (locator_iterator){
                         locator = locator_iterator->locator;
                         if (build_and_send_map_request_msg(map_cache_entry->mapping,
-                                eid, locator->locator_addr,0,0,1,0,&nonce)==GOOD){
+                                eid, locator->locator_addr,0,0,1,0,NULL, &nonce)==GOOD){
                             lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s from EID %s",
                                     lisp_addr_to_char(locator->locator_addr),
                                     lisp_addr_to_char(eid));
@@ -173,7 +173,7 @@ void init_smr(
 
         while (pitr_elt) {
             if (build_and_send_map_request_msg(mappings_to_smr[ctr],
-                    mapping_eid(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,&nonce)==GOOD){
+                    mapping_eid(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,NULL, &nonce)==GOOD){
                 lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
                         lisp_addr_to_char(mapping_eid(mappings_to_smr[ctr])));
@@ -214,13 +214,7 @@ int solicit_map_request_reply(
         }
         dst_rloc = get_map_resolver();
         if(dst_rloc == NULL ||(build_and_send_map_request_msg(
-                map_cache_entry->mapping,
-                NULL,
-                dst_rloc,
-                1,
-                0,
-                0,
-                1,
+                map_cache_entry->mapping, NULL, dst_rloc, 1, 0, 0, 1, NULL,
                 &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
         }

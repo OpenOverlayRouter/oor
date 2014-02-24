@@ -77,6 +77,23 @@ int             handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *s
 int             send_map_request_miss(timer *t, void *arg);
 void            timer_map_request_argument_del(void *);
 
+
+uint8_t is_mrsignaling(address_field *addr);
+mrsignaling_flags_t mrsignaling_get_flags_from_field(address_field *afield);
+int mrsignaling_send_join(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce);
+int mrsignaling_send_ack(
+        mapping_t *registered_mapping,
+        lisp_addr_t *local_rloc,
+        lisp_addr_t *remote_rloc,
+        uint16_t dport,
+        uint64_t nonce,
+        mrsignaling_flags_t mc_flags);
+int mrsignaling_recv_join(lisp_addr_t *src_eid, lisp_addr_t *dst_eid, lisp_addr_t *local_rloc,
+        lisp_addr_t *remote_rloc, uint16_t dst_port, uint64_t nonce, mrsignaling_flags_t mc_flags);
+int mrsignaling_recv_ack(mapping_record *record, uint64_t nonce);
+
+
+
 /*
  * Structure to set Map Reply options
  */
@@ -113,6 +130,7 @@ int     build_and_send_map_request_msg(
             uint8_t                 probe,
             uint8_t                 solicit_map_request,
             uint8_t                 smr_invoked,
+            mrsignaling_flags_t     *mrsig,
             uint64_t                *nonce);
 
 uint8_t     *build_map_reply_pkt(

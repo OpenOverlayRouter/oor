@@ -38,8 +38,8 @@
 #define MCASTMIN4   0xE0000000
 #define MCASTMAX4   0xEFFFFFFF
 
-int re_join_channel(ip_addr_t *src, ip_addr_t *grp);
-int re_leave_channel(ip_addr_t *src, ip_addr_t *grp);
+int re_join_channel(lisp_addr_t *mceid);
+int re_leave_channel(lisp_addr_t *mceid);
 
 int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 
@@ -47,20 +47,20 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 int re_recv_leave_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 int re_send_leave_ack();
 
-int re_send_join_request(lisp_addr_t *mceid);
+int re_send_join_request(mapping_t *ch_mapping);
 int re_recv_join_ack(lisp_addr_t *eid, uint32_t nonce);
 
 int re_send_leave_request(lisp_addr_t *mceid);
 int re_recv_leave_ack(lisp_addr_t *eid, uint32_t nonce);
 
 
-lispd_upstream_t        *re_get_upstream(lisp_addr_t *eid);
-lispd_remdb_t             *re_get_jib(lisp_addr_t *mcaddr);
+re_upstream_t        *re_get_upstream(lisp_addr_t *eid);
+remdb_t             *re_get_jib(lisp_addr_t *mcaddr);
 
 glist_t    *re_get_orlist(lisp_addr_t *addr);
 
 
-lisp_addr_t *re_build_mceid(ip_addr_t *src, ip_addr_t *grp);
+//lisp_addr_t *re_build_mceid(lisp_addr_t *src, lisp_addr_t *grp);
 
 
 //int mrsignaling_recv_mrequest(
@@ -79,8 +79,8 @@ lisp_addr_t *re_build_mceid(ip_addr_t *src, ip_addr_t *grp);
 //        uint64_t nonce,
 //        mrsignaling_flags_t mc_flags);
 
-void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags);
-int mrsignaling_recv_mreply(mapping_record *record,  uint64_t nonce);
+//void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags);
+//int mrsignaling_recv_mreply(mapping_record *record,  uint64_t nonce);
 
 
 #endif /* LISPD_RE_CONTROL_H_ */

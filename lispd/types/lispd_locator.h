@@ -48,6 +48,7 @@ typedef struct lispd_locator_elt_ {
     uint8_t                     weight;
     uint8_t                     mpriority;
     uint8_t                     mweight;
+
     uint32_t                    data_packets_in;
     uint32_t                    data_packets_out;
     void                        *extended_info;
@@ -194,12 +195,17 @@ inline locator_t *locator_new();
 char *locator_to_char(locator_t *locator);
 int locator_get_size_in_field(locator_t *loc);
 int locator_list_get_size_in_field(lispd_locators_list *locators_list);
+int locator_cmp(locator_t *l1, locator_t *l2);
 locator_t *locator_clone_remote(locator_t *locator);
 lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst);
 
 /* accessors */
 static inline lisp_addr_t *locator_addr(locator_t *locator) {
     return(locator->locator_addr);
+}
+
+static inline void locator_set_addr(locator_t *locator, lisp_addr_t *addr) {
+    locator->locator_addr = addr;
 }
 
 

@@ -98,8 +98,8 @@ typedef struct rmt_mapping_extended_info_ {
  */
 
 typedef struct mcinfo_mapping_exteded_info_ {
-    lispd_remdb_t       *jib;       /* joining information base - the joined downstreams */
-    lispd_upstream_t    *upstream;  /* the overlay parent */
+    remdb_t         *jib;       /* joining information base - the joined downstreams */
+    re_upstream_t   *upstream;  /* the overlay parent */
 } mcinfo_mapping_extended_info;
 
 /****************************************  FUNCTIONS **************************************/
@@ -200,7 +200,8 @@ inline void                 mapping_set_extended_info(mapping_t *mapping, void *
 inline void                 mapping_set_eid_addr(mapping_t *mapping, lisp_addr_t *addr);
 inline void                 mapping_set_eid_plen(mapping_t *mapping, uint8_t plen);
 inline lisp_addr_t          *mapping_eid(mapping_t *mapping);
-lispd_remdb_t               *mapping_get_jib(mapping_t *mapping);
+inline remdb_t              *mapping_get_jib(mapping_t *mapping);
+inline re_upstream_t        *mapping_get_re_upstream(mapping_t *mapping);
 int                         mapping_add_locators(mapping_t *mapping, lispd_locators_list *locators);
 inline uint16_t             mapping_get_locator_count(mapping_t *mapping);
 int                         mapping_get_size_in_record(mapping_t *mapping);
@@ -212,7 +213,8 @@ int                         mapping_get_size_in_record(mapping_t *mapping);
 mapping_t           *mapping_init_from_record(mapping_record *record);
 void                mapping_write_to_record(mapping_record *record, mapping_t *mapping);
 void                mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6, int nb_locators);
-
-void mapping_del(mapping_t *mapping);
+void                mapping_compute_balancing_vectors(mapping_t *mapping);
+void                mapping_del(mapping_t *mapping);
+int                 mapping_cmp(mapping_t *m1, mapping_t *m2);
 
 #endif /* LISPD_MAPPING_H_ */

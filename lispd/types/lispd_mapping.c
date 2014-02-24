@@ -993,9 +993,13 @@ inline lisp_addr_t *mapping_eid(mapping_t *mapping) {
     return(&(mapping->eid_prefix));
 }
 
-lispd_remdb_t *mapping_get_jib(mapping_t *mapping) {
+inline remdb_t *mapping_get_jib(mapping_t *mapping) {
     assert(mapping);
     return(((mcinfo_mapping_extended_info*)mapping->extended_info)->jib);
+}
+
+inline re_upstream_t *mapping_get_re_upstream(mapping_t *mapping) {
+    return(((mcinfo_mapping_extended_info*)mapping->extended_info)->upstream);
 }
 
 inline uint16_t mapping_get_locator_count(mapping_t *mapping) {
@@ -1102,6 +1106,51 @@ void mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lis
     mapping->locator_count = nb_locators;
 }
 
+void mapping_compute_balancing_vectors(mapping_t *mapping) {
+    /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
+    if (mapping->locator_count != 0)
+        calculate_balancing_vectors(mapping,
+                &(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs));
+
+
+}
+
+/*
+ * compare two mappings
+ * returns 0 if they are the same and 1 otherwise
+ */
+int mapping_cmp(mapping_t *m1, mapping_t *m2) {
+    int                 ret = 0, ctr =0;
+    lispd_locators_list *ll1[2] = {NULL, NULL}, *ll2[2] = {NULL, NULL};
+    locator_t           *l1 = NULL, *l2 = NULL;
+
+    if ((ret = lisp_addr_cmp(mapping_eid(m1), mapping_eid(m2)))!= 0)
+        return(1);
+    if (m1->locator_count != m2->locator_count)
+        return(1);
+
+    ll1[0] = m1->head_v4_locators_list;
+    ll1[1] = m1->head_v6_locators_list;
+
+    ll2[0] = m2->head_v4_locators_list;
+    ll2[1] = m2->head_v6_locators_list;
+
+    for (ctr = 0 ; ctr < 2 ; ctr++){
+        while (ll1[ctr] && ll2[ctr]) {
+            l1  = ll1[ctr]->locator;
+            l2  = ll2[ctr]->locator;
+            if ((ret = locator_cmp(l1, l2)) != 0 )
+                return(ret);
+            ll1[ctr] = ll1[ctr]->next;
+            ll2[ctr] = ll2[ctr]->next;
+        }
+
+        if ((ll1[ctr] && !ll2[ctr]) || (!ll1[ctr] && ll2[ctr]))
+            return(1);
+    }
+    return(0);
+
+}
 ///* clones a mapping, but copies just eid and locators */
 //mapping_t *mapping_clone_simple(mapping_t *mapping) {
 //    mapping_t *copy = mapping_init(mapping_eid(mapping));
