@@ -331,20 +331,19 @@ int process_map_reply_probe_record(
          * Check probed locators of the list. Only one locator can be probed per message
          */
         for (ctr=0 ; ctr < record->locator_count ; ctr++){
-            err = process_map_reply_probe_locator (cur_ptr, cache_entry->mapping, nonce, &aux_locator);
+            err = process_map_reply_probe_locator (cur_ptr, cache_entry->mapping, nonce, &locator);
             if (err == ERR_MALLOC){
                 return (BAD);
             }
-            if (aux_locator == NULL){ // The current locator is not probed
+            if (locator == NULL){ // The current locator is not probed
                 continue;
             }
-            rmt_locator_ext_inf = (rmt_locator_extended_info *)(aux_locator->extended_info);
+            rmt_locator_ext_inf = (rmt_locator_extended_info *)(locator->extended_info);
             /* Check the nonce of the message match with the one stored in the structure of the locator */
             if ((check_nonce(rmt_locator_ext_inf->rloc_probing_nonces,nonce)) == GOOD){
                 free(rmt_locator_ext_inf->rloc_probing_nonces);
                 rmt_locator_ext_inf->rloc_probing_nonces = NULL;
                 if (locators_probed == 0){
-                    locator = aux_locator;
                     locators_probed ++;
                 }else{
                     lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: Invalid Map-Reply Probe. Only one locator can be probed per message");
@@ -354,6 +353,11 @@ int process_map_reply_probe_record(
                 lispd_log_msg(LISP_LOG_DEBUG_1,"The nonce of the Map-Reply Probe doesn't match the nonce of the generated Map-Request Probe. Discarding message ...");
                 return (BAD);
             }
+        }
+        if (locator ==  NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: Invalid Map-Reply Probe.No probed locator of the received message matches with the "
+                    "locators of the mapping  stored in the map cahce database.");
+            return (BAD);
         }
         lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply probe reachability to RLOC %s of the EID cache entry %s/%d",
                     get_char_from_lisp_addr_t(*(locator->locator_addr)),
