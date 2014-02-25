@@ -247,7 +247,6 @@ int process_map_request_record(
          lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_request_msg: Map Request doesn't contain any ITR-RLOC with afi "
                  "equal to the local RLOC where the message has been received. Trying to use first ITR of the list.");
          remote_rloc = &itr_rloc[0];
-         local_rloc = NULL; // The process will select the appropriate local rloc to reach the remote rloc
      }
 
      /* Process record and send Map Reply for each one */

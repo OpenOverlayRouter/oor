@@ -568,7 +568,7 @@ int build_and_send_map_reply_msg(
 
     /* Get src interface information */
 
-    if (src_rloc_addr == NULL){
+    if (src_rloc_addr == NULL || src_rloc_addr->afi != dst_rloc_addr->afi){
         src_addr   = get_default_ctrl_address(dst_rloc_addr->afi);
         out_socket = get_default_ctrl_socket (dst_rloc_addr->afi);
     }else{
