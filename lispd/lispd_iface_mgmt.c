@@ -508,7 +508,6 @@ void process_nl_new_route (struct nlmsghdr *nlh)
     rtm = (struct rtmsg *) NLMSG_DATA (nlh);
     rt_length = RTM_PAYLOAD(nlh);
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "the route type = %d", rtm->rtm_type);
     /* Interested only in unicast or multicast updates */
     if (rtm->rtm_type == RTN_UNICAST)
         process_nl_new_unicast_route(rtm, rt_length);
@@ -622,7 +621,6 @@ void process_nl_new_multicast_route(struct rtmsg *rtm, int rt_length) {
     lisp_addr_t srcaddr = {.lafi = LM_AFI_IP};
     lisp_addr_t grpaddr = {.lafi = LM_AFI_IP};
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "MUUULTICAAAAST!!!!!!");
     /*
      * IPv4 multicast routes are part of the default table and have family 128, while
      * IPv6 multicast routes are part of the main table and have family 129 ...

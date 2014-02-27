@@ -336,6 +336,7 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid)
     lispd_map_cache_entry       *entry          = NULL;
     timer_map_request_argument  *arguments      = NULL;
 
+    lispd_log_msg(LISP_LOG_DEBUG_1, "req %s and src %s", lisp_addr_to_char(requested_eid), lisp_addr_to_char(src_eid));
     if ((arguments = malloc(sizeof(timer_map_request_argument)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"handle_map_cache_miss: Unable to allocate memory for timer_map_request_argument: %s",
                 strerror(errno));
@@ -642,19 +643,25 @@ uint8_t *build_map_request_pkt(
          * the source address in the inner IP header
          */
         if (src_eid != NULL){
-            ih_src_ip = mapping_eid(src_mapping);
+            if (lisp_addr_get_afi(mapping_eid(src_mapping)) == LM_AFI_IP)
+                ih_src_ip = mapping_eid(src_mapping);
+            else
+                /* avoid lcafs */
+                ih_src_ip = local_map_db_get_main_eid(AF_INET);
         }else{
             if (lisp_addr_ip_get_afi(dst_eid) == AF_INET){
-                ih_src_ip = local_map_db_get_main_eid (AF_INET);
+                ih_src_ip = local_map_db_get_main_eid(AF_INET);
                 if (!ih_src_ip)
                     ih_src_ip = default_ctrl_iface_v4->ipv4_address;
             }else{
-                ih_src_ip = local_map_db_get_main_eid (AF_INET6);
+                ih_src_ip = local_map_db_get_main_eid(AF_INET6);
                 if (!ih_src_ip)
                     ih_src_ip = default_ctrl_iface_v6->ipv6_address;
             }
 
         }
+
+        dst_eid = lisp_addr_to_ip_addr(dst_eid);
 
         mr_packet = packet;
         packet = build_control_encap_pkt(mr_packet, map_request_msg_len, ih_src_ip, dst_eid, LISP_CONTROL_PORT, LISP_CONTROL_PORT, len);
@@ -1011,7 +1018,7 @@ int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uin
         cache_entry->mapping->head_v6_locators_list = NULL;
     }
 
-    cache_entry->actions = action ;
+    cache_entry->actions = action;
     cache_entry->ttl = ttl;
     cache_entry->active_witin_period = 1;
     cache_entry->timestamp = time(NULL);
@@ -1105,7 +1112,16 @@ int mrsignaling_send_ack(
 }
 
 int mrsignaling_send_join(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce) {
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Sending Join-Request to %s for %s requesting that traffic be replicated to %s",
+            lisp_addr_to_char(dst_rloc), lisp_addr_to_char(mapping_eid(ch_mapping)), lisp_addr_to_char(delivery_grp));
     mrsignaling_flags_t mrsig = {0, 1, 0};
+    return(build_and_send_map_request_msg(ch_mapping, delivery_grp, dst_rloc, 0, 0, 0, 0, &mrsig, nonce));
+}
+
+int mrsignaling_send_leave(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce) {
+    lispd_log_msg(LISP_LOG_DEBUG_3, "Sending Leave-Request to %s for %s requesting that traffic be replicated to %s",
+            lisp_addr_to_char(dst_rloc), lisp_addr_to_char(mapping_eid(ch_mapping)), lisp_addr_to_char(delivery_grp));
+    mrsignaling_flags_t mrsig = {0, 0, 1};
     return(build_and_send_map_request_msg(ch_mapping, delivery_grp, dst_rloc, 0, 0, 0, 0, &mrsig, nonce));
 }
 

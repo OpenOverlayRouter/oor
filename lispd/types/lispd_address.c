@@ -173,8 +173,8 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr) {
     case LM_AFI_IPPREF:
         return(ip_prefix_get_plen(lisp_addr_get_ippref(laddr)));
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "lisp_addr_get_plen: not defined for afi %d",
-                lisp_addr_get_afi(laddr));
+//        lispd_log_msg(LISP_LOG_DEBUG_2, "lisp_addr_get_plen: not defined for afi %d",
+//                lisp_addr_get_afi(laddr));
         break;
     }
     return(0);
@@ -517,6 +517,10 @@ inline void *lisp_addr_lcaf_get_addr(lisp_addr_t *laddr) {
     return(laddr->lcaf.addr);
 }
 
+inline lcaf_type lisp_addr_lcaf_get_type(lisp_addr_t *laddr) {
+    return(laddr->lcaf.type);
+}
+
 inline void lisp_addr_lcaf_set_type(lisp_addr_t *laddr, int type) {
     laddr->lcaf.type = type;
 }
@@ -596,6 +600,19 @@ address_field *lisp_addr_to_field(lisp_addr_t *addr) {
     hdr = calloc(1, lisp_addr_get_size_in_field(addr));
     lisp_addr_write(hdr, addr);
     return(field);
+}
+
+lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr) {
+    switch(lisp_addr_get_afi(addr)) {
+    case LM_AFI_IP:
+    case LM_AFI_IPPREF:
+        return(addr);
+    case LM_AFI_LCAF:
+        return(lcaf_eid_get_ip_addr(lisp_addr_get_lcaf(addr)));
+    default:
+        return(NULL);
+    }
+    return(NULL);
 }
 
 

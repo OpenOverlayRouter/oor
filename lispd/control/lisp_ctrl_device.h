@@ -81,6 +81,8 @@ void            timer_map_request_argument_del(void *);
 uint8_t is_mrsignaling(address_field *addr);
 mrsignaling_flags_t mrsignaling_get_flags_from_field(address_field *afield);
 int mrsignaling_send_join(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce);
+int mrsignaling_send_leave(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce);
+
 int mrsignaling_send_ack(
         mapping_t *registered_mapping,
         lisp_addr_t *local_rloc,

@@ -9,6 +9,10 @@ remdb_t *remdb_new() {
     return(db);
 }
 
+void remdb_del(remdb_t *db) {
+    glist_destroy(db);
+}
+
 glist_t *remdb_get_orlist(remdb_t *jib) {
     glist_t                 *orlist     = NULL;
     remdb_member_t          *jibentry   = NULL;

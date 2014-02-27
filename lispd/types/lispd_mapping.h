@@ -41,12 +41,15 @@
 
 typedef enum {
     MAPPING_LOCAL,
-    MAPPING_LEARNED,
-    MAPPING_STATIC
+    MAPPING_REMOTE,
+    MAPPING_RE,
 } mapping_type;
 /*
  * lispd mapping entry.
  */
+
+typedef void (*extended_info_del_fct)(void *);
+
 typedef struct lispd_mapping_elt_ {
     lisp_addr_t                     eid_prefix;
     uint8_t                         eid_prefix_length;
@@ -54,8 +57,9 @@ typedef struct lispd_mapping_elt_ {
     uint16_t                        locator_count;
     lispd_locators_list             *head_v4_locators_list;
     lispd_locators_list             *head_v6_locators_list;
-    void                            *extended_info;
     mapping_type                    type;
+    void                            *extended_info;
+    extended_info_del_fct           extended_info_del;
 } mapping_t;
 
 
@@ -92,15 +96,6 @@ typedef struct lcl_mapping_extended_info_ {
 typedef struct rmt_mapping_extended_info_ {
     balancing_locators_vecs               rmt_balancing_locators_vecs;
 }rmt_mapping_extended_info;
-
-/*
- * Structure to expand the lispd_mapping_elt to support multicast info AFI
- */
-
-typedef struct mcinfo_mapping_exteded_info_ {
-    remdb_t         *jib;       /* joining information base - the joined downstreams */
-    re_upstream_t   *upstream;  /* the overlay parent */
-} mcinfo_mapping_extended_info;
 
 /****************************************  FUNCTIONS **************************************/
 
@@ -195,13 +190,12 @@ inline mapping_t    *mapping_new();
 inline mapping_t    *mapping_init(lisp_addr_t *eid);
 mapping_t           *mapping_init_local(lisp_addr_t *eid);
 mapping_t           *mapping_init_static(lisp_addr_t *eid);
-mapping_t           *mapping_init_learned(lisp_addr_t *eid, lispd_locators_list *locators);
-inline void                 mapping_set_extended_info(mapping_t *mapping, void *extended_info);
+mapping_t           *mapping_init_remote(lisp_addr_t *eid);
+inline void                 *mapping_extended_info(mapping_t *mapping);
+inline void                 mapping_set_extended_info(mapping_t *mapping, void *extended_info, extended_info_del_fct ei_del);
 inline void                 mapping_set_eid_addr(mapping_t *mapping, lisp_addr_t *addr);
 inline void                 mapping_set_eid_plen(mapping_t *mapping, uint8_t plen);
 inline lisp_addr_t          *mapping_eid(mapping_t *mapping);
-inline remdb_t              *mapping_get_jib(mapping_t *mapping);
-inline re_upstream_t        *mapping_get_re_upstream(mapping_t *mapping);
 int                         mapping_add_locators(mapping_t *mapping, lispd_locators_list *locators);
 inline uint16_t             mapping_get_locator_count(mapping_t *mapping);
 int                         mapping_get_size_in_record(mapping_t *mapping);

@@ -38,8 +38,29 @@
 #define MCASTMIN4   0xE0000000
 #define MCASTMAX4   0xEFFFFFFF
 
+/*
+ * Structure to expand the lispd_mapping_elt to support multicast info AFI
+ */
+
+typedef struct {
+    locator_t       *locator;
+    lisp_addr_t     *delivery_rloc;
+//    nonces_list     *nonces;
+//    timer           *probe_timer;
+    int             join_pending;
+    int             leave_pending;
+} re_upstream_t;
+
+typedef struct mcinfo_mapping_exteded_info_ {
+    remdb_t         *jib;       /* joining information base - the joined downstreams */
+    re_upstream_t   *upstream;  /* the overlay parent */
+} mcinfo_mapping_extended_info;
+
+
 int re_join_channel(lisp_addr_t *mceid);
+int re_join_upstream(mapping_t *ch_mapping);
 int re_leave_channel(lisp_addr_t *mceid);
+int re_leave_upstream(mapping_t *ch_mapping);
 
 int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 
@@ -47,40 +68,27 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 int re_recv_leave_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 int re_send_leave_ack();
 
-int re_send_join_request(mapping_t *ch_mapping);
 int re_recv_join_ack(lisp_addr_t *eid, uint32_t nonce);
-
-int re_send_leave_request(lisp_addr_t *mceid);
 int re_recv_leave_ack(lisp_addr_t *eid, uint32_t nonce);
 
 
-re_upstream_t        *re_get_upstream(lisp_addr_t *eid);
+re_upstream_t       *re_get_upstream(lisp_addr_t *eid);
 remdb_t             *re_get_jib(lisp_addr_t *mcaddr);
 
 glist_t    *re_get_orlist(lisp_addr_t *addr);
 
+static inline remdb_t *mapping_get_jib(mapping_t *mapping) {
+    return(((mcinfo_mapping_extended_info*)mapping->extended_info)->jib);
+}
 
-//lisp_addr_t *re_build_mceid(lisp_addr_t *src, lisp_addr_t *grp);
+static inline re_upstream_t *mapping_get_re_upstream(mapping_t *mapping) {
+    return(((mcinfo_mapping_extended_info*)mapping->extended_info)->upstream);
+}
 
-
-//int mrsignaling_recv_mrequest(
-//        uint8_t *offset,
-//        lisp_addr_t *src_eid,
-//        lisp_addr_t *local_rloc,
-//        lisp_addr_t *remote_rloc,
-//        uint16_t    dport,
-//        uint64_t    nonce);
-//
-//int mrsignaling_send_mreply(
-//        lispd_mapping_elt *registered_mapping,
-//        lisp_addr_t *local_rloc,
-//        lisp_addr_t *remote_rloc,
-//        uint16_t dport,
-//        uint64_t nonce,
-//        mrsignaling_flags_t mc_flags);
-
-//void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t mc_flags);
-//int mrsignaling_recv_mreply(mapping_record *record,  uint64_t nonce);
-
+static inline void re_upstream_del(re_upstream_t *upstream) {
+    free_locator(upstream->locator);
+    lisp_addr_del(upstream->delivery_rloc);
+    free(upstream);
+}
 
 #endif /* LISPD_RE_CONTROL_H_ */

@@ -277,11 +277,13 @@ void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_lis
 void free_locator(locator_t   *locator)
 {
     if (locator->locator_type != LOCAL_LOCATOR){
-        free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
+        if (locator->extended_info)
+            free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
         lisp_addr_del(locator->locator_addr);
         free (locator->state);
     }else{
-        free_lcl_locator_extended_info((lcl_locator_extended_info *)locator->extended_info);
+        if (locator->extended_info)
+            free_lcl_locator_extended_info((lcl_locator_extended_info *)locator->extended_info);
     }
     free (locator);
 }
@@ -657,6 +659,37 @@ lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst) {
         it = it->next;
     }
     return(copy);
+}
+
+locator_t *locator_init_remote(lisp_addr_t *addr) {
+    locator_t *locator = locator_new();
+    locator->locator_addr = addr;
+
+    if((locator->state = malloc(sizeof(uint8_t))) == NULL){
+        free_locator(locator);
+        return(NULL);
+    }
+
+    locator->extended_info = (void *)new_rmt_locator_extended_info();
+    if (!locator->extended_info){
+        free_locator(locator);
+        return (NULL);
+    }
+
+    locator->locator_type = DYNAMIC_LOCATOR;
+
+    return(locator);
+}
+
+locator_t *locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority, uint8_t weight,
+        uint8_t mpriority, uint8_t mweight) {
+    locator_t *locator = locator_init_remote(addr);
+    *(locator->state) = state;
+    locator->priority = priority;
+    locator->weight = weight;
+    locator->mpriority = mpriority;
+    locator->mweight = mweight;
+    return(locator);
 }
 
 

@@ -242,8 +242,9 @@ uint8_t *build_ip_udp_pcket(
 
 
     if (lisp_addr_ip_get_afi(addr_from) != lisp_addr_ip_get_afi(addr_dest)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses %d and %d",
-                lisp_addr_ip_get_afi(addr_from), lisp_addr_ip_get_afi(addr_dest));
+        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses %d (%s) and %d (%s)",
+                lisp_addr_ip_get_afi(addr_from), lisp_addr_to_char(addr_from), lisp_addr_ip_get_afi(addr_dest),
+                lisp_addr_to_char(addr_dest));
         return (NULL);
     }
 

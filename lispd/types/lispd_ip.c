@@ -45,7 +45,7 @@ inline void ip_addr_del(ip_addr_t *ip) {
 }
 
 inline int ip_addr_get_afi(ip_addr_t *ipaddr) {
-    assert(ipaddr);
+//    assert(ipaddr);
     return(ipaddr->afi);
 }
 

@@ -196,6 +196,10 @@ char *locator_to_char(locator_t *locator);
 int locator_get_size_in_field(locator_t *loc);
 int locator_list_get_size_in_field(lispd_locators_list *locators_list);
 int locator_cmp(locator_t *l1, locator_t *l2);
+locator_t *locator_init_remote(lisp_addr_t *addr);
+locator_t *locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority, uint8_t weight,
+        uint8_t mpriority, uint8_t mweight);
+
 locator_t *locator_clone_remote(locator_t *locator);
 lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst);
 

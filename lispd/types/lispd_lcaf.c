@@ -518,7 +518,6 @@ inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
     ((lcaf_mcinfo_hdr_t *)offset)->R = 0;
     ((lcaf_mcinfo_hdr_t *)offset)->L = 0;
     ((lcaf_mcinfo_hdr_t *)offset)->J = 0;
-    ((lcaf_mcinfo_hdr_t *)offset)->len = htons(mc_type_get_size_to_write(mc));
     ((lcaf_mcinfo_hdr_t *)offset)->iid = htonl(mc_type_get_iid(mc));
     ((lcaf_mcinfo_hdr_t *)offset)->reserved = 0;
     ((lcaf_mcinfo_hdr_t *)offset)->src_mlen = mc_type_get_src_plen(mc);
@@ -526,6 +525,7 @@ inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
     cur_ptr = CO(offset, sizeof(lcaf_mcinfo_hdr_t));
     cur_ptr = CO(cur_ptr, (lena1 = lisp_addr_write(cur_ptr, mc_type_get_src(mc))));
     lena2 = lisp_addr_write(cur_ptr, mc_type_get_grp(mc));
+    ((lcaf_mcinfo_hdr_t *)offset)->len = htons(lena1+lena2+8);
     return(sizeof(lcaf_mcinfo_hdr_t)+lena1+lena2);
 }
 
@@ -563,7 +563,7 @@ lisp_addr_t *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp) {
     uint8_t         mlen;
 
     mlen = (lisp_addr_ip_get_afi(src) == AF_INET) ? 32 : 128;
-    mceid = lisp_addr_new();
+    mceid = lisp_addr_new_afi(LM_AFI_LCAF);
     lcaf_addr_set_mc(lisp_addr_get_lcaf(mceid), src, grp, mlen, mlen, 0);
     return(mceid);
 }
@@ -1032,7 +1032,7 @@ inline void lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode) {
  */
 inline rle_t *rle_type_new() {
     rle_t *rle = calloc(1, sizeof(iid_t));
-    rle->nodes = glist_new(NO_CMP, rle_type_del);
+    rle->nodes = glist_new(NO_CMP, (glist_del_fct)rle_node_del);
     return(rle);
 }
 
@@ -1150,6 +1150,12 @@ rle_node_t *rle_node_clone(rle_node_t *srn) {
     rn->level = srn->level;
     rn->addr = lisp_addr_clone(srn->addr);
     return(rn);
+}
+
+inline rle_node_t *rle_node_new() {
+    rle_node_t *rnode = calloc(1, sizeof(rle_node_t));
+    rnode->addr = lisp_addr_new();
+    return(rnode);
 }
 
 inline void rle_node_del(rle_node_t *rnode) {
@@ -1356,4 +1362,43 @@ int afi_list_type_cmp(void *elp1, void *elp2) {
     return(0);
 }
 
+/* obtain IP address from LCAF EIDs */
+lisp_addr_t *lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf) {
+    switch(lcaf_addr_get_type(lcaf)) {
+    case LCAF_MCAST_INFO:
+        return(lcaf_mc_get_src(lcaf));
+    default:
+        return(NULL);
+    }
 
+    return(NULL);
+}
+
+/* obtain IP address from LCAF RLOCs */
+lisp_addr_t *lcaf_rloc_get_ip_addr(lisp_addr_t *addr) {
+    lisp_addr_t     *rloc = NULL;
+    lcaf_addr_t     *lcaf = lisp_addr_get_lcaf(addr);
+    glist_entry_t   *it = NULL;
+    rle_node_t      *rnode  = NULL;
+    int             level   = -1;
+
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH:
+        rloc = ((elp_node_t *)glist_last_data(lcaf_elp_node_list(lcaf)))->addr;
+        break;
+    case LCAF_RLE:
+        /* find the first highest level replication node */
+        glist_for_each_entry(it, lcaf_rle_node_list(lcaf)) {
+            rnode = glist_entry_data(it);
+            if (rnode->level > level) {
+                level = rnode->level;
+                rloc = rnode->addr;
+            }
+        }
+        break;
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "get_ip_rloc_from_lcaf: lcaf type %d not supported",
+                lcaf_addr_get_type(lcaf));
+    }
+    return(rloc);
+}

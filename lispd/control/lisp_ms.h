@@ -48,5 +48,6 @@ lisp_ctrl_device *ms_ctrl_init();
 
 /* ms interface */
 int ms_add_lisp_site_prefix(lisp_ctrl_device *ms, lisp_site_prefix *site);
+int ms_add_registered_site_prefix(lisp_ctrl_device *dev, mapping_t *sp);
 
 #endif /* LISP_MS_H_ */

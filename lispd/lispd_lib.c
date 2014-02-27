@@ -662,7 +662,7 @@ int get_lisp_addr_from_char (
         break;
     }
     if (result == BAD){
-        lispd_log_msg(LISP_LOG_WARNING, "get_lisp_addr_from_char: couldn't convert the address %s", address);
+//        lispd_log_msg(LISP_LOG_WARNING, "get_lisp_addr_from_char: couldn't convert the address %s", address);
         lisp_addr->afi = AF_UNSPEC;
     }
 

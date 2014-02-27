@@ -152,16 +152,17 @@ static patricia_node_t *_find_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exact)
 static patricia_tree_t *_get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, uint8_t exact) {
     patricia_node_t     *snode          = NULL;
     lisp_addr_t         *src            = NULL;
-    lisp_addr_t         *grp            = NULL;
+//    lisp_addr_t         *grp            = NULL;
     ip_addr_t           *srcip          = NULL;
     uint8_t             splen;
 
     patricia_tree_t         *gtrie  = NULL;
 
     src = lcaf_mc_get_src(mcaddr);
-    grp = lcaf_mc_get_grp(mcaddr);
+    srcip = lisp_addr_get_ip(src);
+//    grp = lcaf_mc_get_grp(mcaddr);
 
-    if (lisp_addr_get_afi(src) != LM_AFI_IP || lisp_addr_get_afi(grp) != LM_AFI_IP) {
+    if (lisp_addr_get_afi(src) != LM_AFI_IP ) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return(NULL);
     }
@@ -328,6 +329,7 @@ void mdb_del(mdb_t *db, mdb_del_fct del_fct) {
 
 int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
 {
+
     int retval = 0;
     switch(lisp_addr_get_afi(addr)) {
     case LM_AFI_IP:
@@ -378,6 +380,7 @@ void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
 void *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr)
 {
     patricia_node_t *node;
+
     node = _find_node(db, laddr, NOT_EXACT);
     if (node)
         return(node->data);
@@ -427,16 +430,19 @@ int pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data) {
     src = lcaf_mc_get_src(mcaddr);
     grp = lcaf_mc_get_grp(mcaddr);
 
+    if (lisp_addr_get_afi(src) != LM_AFI_IP || lisp_addr_get_afi(grp) != LM_AFI_IP) {
+        lispd_log_msg(LISP_LOG_WARNING, "pt_add_mc_addr: only IP type supported for S %s and G %s for now!",
+                lisp_addr_to_char(src), lisp_addr_to_char(grp));
+        return(BAD);
+    }
+
     srcip = lisp_addr_get_ip(src);
     grpip = lisp_addr_get_ip(grp);
 
     splen = lcaf_mc_get_src_plen(mcaddr);
     gplen = lcaf_mc_get_grp_plen(mcaddr);
 
-    if (ip_addr_get_afi(srcip) != LM_AFI_IP || ip_addr_get_afi(grpip) != LM_AFI_IP) {
-        lispd_log_msg(LISP_LOG_WARNING, "pt_add_mc_addr: only IP type supported for S and G for now!");
-        return(BAD);
-    }
+
 
     /* insert src prefix in main db but without any data*/
     snode = pt_add_node(strie, srcip, splen, NULL);
@@ -523,7 +529,8 @@ void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
     data = gnode->data;
     pt_remove_node(gtrie, gnode);
 
-    if(pt_test_if_empty(gtrie)){
+
+    if (pt_test_if_empty(gtrie)){
         Destroy_Patricia(gtrie, NULL);
         pt_remove_node(strie, pt_find_ip_node_exact(strie, lisp_addr_get_ip(src), lcaf_mc_get_src_plen(mcaddr)));
     }
@@ -585,6 +592,11 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
 
     patricia_tree_t         *gtrie  = NULL;
 
+    if (!strie) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: no S trie. Aborting");
+        return(NULL);
+    }
+
     src = lcaf_mc_get_src(mcaddr);
     grp = lcaf_mc_get_grp(mcaddr);
 
@@ -617,9 +629,9 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
 uint8_t pt_test_if_empty(patricia_tree_t *pt) {
     assert(pt);
     if (pt->num_active_node > 0)
-        return(1);
-    else
         return(0);
+    else
+        return(1);
 }
 
 prefix_t *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {

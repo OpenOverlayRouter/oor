@@ -34,6 +34,7 @@
 #include "lispd_afi.h"
 #include "lispd_lcaf.h"
 #include "lispd_lib.h"
+#include "lispd_re.h"
 
 int pkt_process_eid_afi(
         uint8_t                 **offset,

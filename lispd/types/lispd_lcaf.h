@@ -504,8 +504,12 @@ void                    rle_type_copy(void **dst, void *src);
 int                     rle_type_cmp(void *elp1, void *elp2);
 
 rle_node_t              *rle_node_clone(rle_node_t *srn);
+inline rle_node_t       *rle_node_new();
 inline void             rle_node_del(rle_node_t *rnode);
 
+static inline glist_t *lcaf_rle_node_list(lcaf_addr_t *lcaf) {
+    return(((rle_t *)lcaf->addr)->nodes);
+}
 
 /*
  *  ELP type functions
@@ -541,4 +545,7 @@ int                         afi_list_type_read_from_pkt(uint8_t *offset, void **
 char                        *afi_list_type_to_char(void *afil);
 void                        afi_list_type_copy(void **dst, void *src);
 int                         afi_list_type_cmp(void *afil1, void *afil2);
+
+lisp_addr_t                 *lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf);
+lisp_addr_t                 *lcaf_rloc_get_ip_addr(lisp_addr_t *addr);
 #endif /* LISPD_LCAF_H_ */

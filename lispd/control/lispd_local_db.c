@@ -123,7 +123,7 @@ void local_map_db_del_mapping(lisp_addr_t *eid)
     mapping_t    *mapping   = NULL;
     mapping = mdb_remove_entry(local_mdb, eid);
     if (mapping) {
-        free_mapping_elt(mapping, 1);
+        mapping_del(mapping);
         total_mappings--;
     }
 }

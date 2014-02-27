@@ -97,17 +97,19 @@ lispd_map_cache_entry *new_map_cache_entry_no_db (
 {
     lispd_map_cache_entry *map_cache_entry;
     /* Create map cache entry */
-    if ((map_cache_entry = malloc(sizeof(lispd_map_cache_entry))) == NULL) {
+    if ((map_cache_entry = calloc(1, sizeof(lispd_map_cache_entry))) == NULL) {
         lispd_log_msg(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
         return(NULL);
     }
-    memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
+//    memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
 
     /* Create themapping for this map-cache */
-    map_cache_entry->mapping = new_map_cache_mapping (eid_prefix, eid_prefix_length, -1);
-    if (map_cache_entry->mapping == NULL){
+    if (lisp_addr_get_afi(&eid_prefix) == LM_AFI_IP)
+        lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
+    //    map_cache_entry->mapping = new_map_cache_mapping (eid_prefix, eid_prefix_length, -1);
+    map_cache_entry->mapping = mapping_init(&eid_prefix);
+    if (!map_cache_entry->mapping)
         return(NULL);
-    }
 
     map_cache_entry->active_witin_period = FALSE;
     map_cache_entry->how_learned = how_learned;
@@ -157,7 +159,7 @@ lispd_map_cache_entry *new_map_cache_entry (
 
 void free_map_cache_entry(lispd_map_cache_entry *entry)
 {
-    free_mapping_elt(entry->mapping, FALSE);
+    mapping_del(entry->mapping);
     /*
      * Free the entry
      */

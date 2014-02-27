@@ -419,4 +419,14 @@ int ms_add_lisp_site_prefix(lisp_ctrl_device *dev, lisp_site_prefix *sp) {
     return(GOOD);
 }
 
+int ms_add_registered_site_prefix(lisp_ctrl_device *dev, mapping_t *sp) {
+    lisp_ms *ms = (lisp_ms *)dev;
+
+    if (!sp)
+        return(BAD);
+    if (!mdb_add_entry(ms->registered_sites_db, mapping_eid(sp), sp))
+        return(BAD);
+    return(GOOD);
+}
+
 

@@ -48,15 +48,9 @@ typedef struct {
     uint8_t             leave_pending;
 } remdb_member_t;
 
-typedef struct {
-    lisp_addr_t     *locator;
-    nonces_list     *nonces;
-    timer           *probe_timer;
-    int             join_pending;
-    int             leave_pending;
-} re_upstream_t;
 
 remdb_t                 *remdb_new();
+void                    remdb_del(remdb_t *db);
 void                    remdb_add_member(lisp_addr_t *addr, lisp_addr_t *rloc_pair, remdb_t *jib);
 void                    remdb_del_member(lisp_addr_t *addr, remdb_t *jib);
 remdb_member_t          *remdb_find_member(lisp_addr_t *peer, remdb_t *jib);
