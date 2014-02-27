@@ -507,7 +507,7 @@ static void parse_elp_list(cfg_t *cfg, HashTable *ht) {
         lisp_addr_lcaf_set_addr(laddr, (void *)elp);
         lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: parsed explicit-locator-path: %s", lisp_addr_to_char(laddr));
 
-        hash_table_insert(ht, name, laddr);
+        hash_table_insert(ht, strdup(name), laddr);
     }
 
 }
@@ -543,7 +543,7 @@ static void parse_rle_list(cfg_t *cfg, HashTable *ht) {
         lisp_addr_lcaf_set_addr(laddr, (void *)rle);
         lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: parsed replication-list: %s", lisp_addr_to_char(laddr));
 
-        hash_table_insert(ht, name, laddr);
+        hash_table_insert(ht, strdup(name), laddr);
     }
 
 }
@@ -571,7 +571,7 @@ static void parse_mcinfo_list(cfg_t *cfg, HashTable *ht) {
         lisp_addr_lcaf_set_addr(laddr, mc);
         lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: parsed multicast-info: %s", lisp_addr_to_char(laddr));
 
-        hash_table_insert(ht, name, laddr);
+        hash_table_insert(ht, strdup(name), laddr);
     }
 
     lispd_log_msg(LISP_LOG_INFO, "Parsed configured multicast addresses");
@@ -586,7 +586,6 @@ static HashTable *parse_lcafs(cfg_t *cfg) {
     parse_elp_list(cfg, lcaf_ht);
     parse_rle_list(cfg, lcaf_ht);
     parse_mcinfo_list(cfg, lcaf_ht);
-    lispd_log_msg(LISP_LOG_INFO, "Parsed LCAFs!");
 
     return(lcaf_ht);
 }
@@ -1499,7 +1498,7 @@ locator_t *parse_locator(char *address, int priority, int weight,
         if (!lcaf_rloc)
             locator = locator_init_remote_full(rloc, 1, priority, weight, 255, 0);
         else
-            locator = locator_init_remote_full(lcaf_rloc, 1, priority, weight, 255, 0);
+            locator = locator_init_remote_full(lisp_addr_clone(lcaf_rloc), 1, priority, weight, 255, 0);
 
         if (!locator) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "Configuration file: failed to create locator with addr %s",

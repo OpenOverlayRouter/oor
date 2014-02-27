@@ -350,6 +350,7 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid)
             DYNAMIC_MAP_CACHE_ENTRY,
             DEFAULT_DATA_CACHE_TTL);
 
+    dump_map_cache_entry(entry, LISP_LOG_DEBUG_1);
     if (!entry) {
         lispd_log_msg(LISP_LOG_WARNING, "Couln't install the new map cache entry!");
         return(BAD);
@@ -618,7 +619,7 @@ uint8_t *build_map_request_pkt(
     /* Requested EID record */
     request_eid_record = (eid_prefix_record_hdr *)cur_ptr;
     request_eid_record->eid_prefix_length = lisp_addr_get_plen(dst_eid);
-
+    lispd_log_msg(LISP_LOG_DEBUG_2,"############## build_map_request_pkt: about to write dst eid %s", lisp_addr_to_char(dst_eid));
     cur_ptr = CO(cur_ptr, sizeof(eid_prefix_record_hdr));
     rlen = lisp_addr_write(cur_ptr, dst_eid);
     if (mrsig)

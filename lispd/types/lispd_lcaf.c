@@ -166,8 +166,8 @@ int lcaf_addr_read_from_pkt(uint8_t *offset, lcaf_addr_t *lcaf_addr) {
     }
     len = read_from_pkt_fcts[lcaf_addr_get_type(lcaf_addr)](offset, &lcaf_addr->addr);
     if (len != ntohs(((lcaf_hdr_t *)offset)->len) + sizeof(lcaf_hdr_t)) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of bytes read %d are different!",
-                ntohs(((lcaf_hdr_t *)offset)->len), len);
+        lispd_log_msg(LISP_LOG_DEBUG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of "
+                "bytes read %d don't differ by 8 bytes!", ntohs(((lcaf_hdr_t *)offset)->len), len);
         return(BAD);
     }
 
@@ -262,7 +262,6 @@ int lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src) {
 }
 
 inline int lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf) {
-
     assert(lcaf);
     if (!write_to_pkt_fcts[_get_type(lcaf)]) {
         lispd_log_msg(LISP_LOG_WARNING, "lcaf_addr_write_to_pkt: write not implemented for LCAF type %d",
@@ -507,9 +506,9 @@ int mc_type_get_size_to_write(void *mc) {
 }
 
 inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
-    int     lena1, lena2;
-    uint8_t *cur_ptr;
-
+    int     lena1 = 0, lena2 = 0;
+    uint8_t *cur_ptr = NULL;
+    lispd_log_msg(LISP_LOG_DEBUG_1, " ###################### WRIIIITING MC");
     ((lcaf_mcinfo_hdr_t *)offset)->afi = htons(LISP_AFI_LCAF);
     ((lcaf_mcinfo_hdr_t *)offset)->rsvd1 = 0;
     ((lcaf_mcinfo_hdr_t *)offset)->flags = 0;
@@ -525,7 +524,8 @@ inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
     cur_ptr = CO(offset, sizeof(lcaf_mcinfo_hdr_t));
     cur_ptr = CO(cur_ptr, (lena1 = lisp_addr_write(cur_ptr, mc_type_get_src(mc))));
     lena2 = lisp_addr_write(cur_ptr, mc_type_get_grp(mc));
-    ((lcaf_mcinfo_hdr_t *)offset)->len = htons(lena1+lena2+8);
+    ((lcaf_mcinfo_hdr_t *)offset)->len = htons(lena1+lena2+8*sizeof(uint8_t));
+    lispd_log_msg(LISP_LOG_DEBUG_1, "lena1 %d lena2 %d, sizeof hdr %d", lena1, lena2, sizeof(lcaf_mcinfo_hdr_t));
     return(sizeof(lcaf_mcinfo_hdr_t)+lena1+lena2);
 }
 
@@ -534,13 +534,14 @@ int mc_type_read_from_pkt(uint8_t *offset, void **mc) {
     srclen = grplen =0;
 
     *mc = mc_type_new();
-    mc_type_set_iid(*mc, ((lcaf_mcinfo_hdr_t *)offset)->iid);
+    mc_type_set_iid(*mc, ntohl(((lcaf_mcinfo_hdr_t *)offset)->iid));
     mc_type_set_src_plen(*mc, ((lcaf_mcinfo_hdr_t *)offset)->src_mlen);
     mc_type_set_grp_plen(*mc, ((lcaf_mcinfo_hdr_t *)offset)->grp_mlen);
 
     offset = CO(offset, sizeof(lcaf_mcinfo_hdr_t));
     srclen = lisp_addr_read_from_pkt(offset, mc_type_get_src(*mc));
-    grplen = lisp_addr_read_from_pkt(CO(offset, srclen), mc_type_get_grp(*mc));
+    offset = CO(offset, srclen);
+    grplen = lisp_addr_read_from_pkt(offset, mc_type_get_grp(*mc));
     return(sizeof(lcaf_mcinfo_hdr_t) + srclen + grplen);
 
 }

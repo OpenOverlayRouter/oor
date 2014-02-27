@@ -144,13 +144,15 @@ lispd_map_cache_entry *new_map_cache_entry (
     if (map_cache_entry == NULL)
         return (NULL);
 
-
     /* Add entry to the data base */
     if (map_cache_add_entry (map_cache_entry)==BAD){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Failed to add map cache entry to map-cache for prefix %s! Aborting!",
+                lisp_addr_to_char(&eid_prefix));
         free(map_cache_entry);
         return (NULL);
     }
 
+    map_cache_dump_db(LISP_LOG_DEBUG_1);
 
     return (map_cache_entry);
 }

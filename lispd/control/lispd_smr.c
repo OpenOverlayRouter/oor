@@ -144,7 +144,8 @@ void init_smr(
 
         /* TODO: spec says SMRs should be sent only to peer ITRs that sent us traffic in the last minute
          * Should change this in the future*/
-        mcache_foreach_active_entry_in_eid_db(eid, map_cache_entry) {
+        /* XXX: works ONLY with IP */
+        mcache_foreach_active_entry_in_ip_eid_db(eid, map_cache_entry) {
             locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
             locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
             for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For each IPv4 and IPv6 locator*/
@@ -166,7 +167,7 @@ void init_smr(
                     }
                 }
             }
-        } mcache_foreach_active_entry_in_db_end;
+        } mcache_foreach_active_entry_in_ip_eid_db_end;
 
         /* SMR proxy-itr */
         pitr_elt  = proxy_itrs;

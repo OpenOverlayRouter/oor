@@ -133,13 +133,13 @@ lisp_addr_t *local_map_db_get_main_eid(int afi) {
     void                *it         = NULL;
     lisp_addr_t         *eid        = NULL;
 
-    mdb_foreach_entry(local_mdb, it) {
+    mdb_foreach_ip_entry(local_mdb, it) {
         eid = mapping_eid((mapping_t *)it);
 
         if (eid && lisp_addr_ip_get_afi(eid) == afi)
             return(eid);
 
-    } mdb_foreach_entry_end;
+    } mdb_foreach_ip_entry_end;
     return(NULL);
 }
 
@@ -154,11 +154,11 @@ int local_map_db_num_ip_eids(int afi){
     /* search could be better implemented but local db is small
      * so this should do for now
      */
-    mdb_foreach_entry(local_mdb, it) {
+    mdb_foreach_ip_entry(local_mdb, it) {
         eid = mapping_eid((mapping_t *)it);
         if (eid && lisp_addr_get_afi(eid) == LM_AFI_IP && lisp_addr_ip_get_afi(eid) == afi)
             ctr ++;
-    }mdb_foreach_entry_end;
+    }mdb_foreach_ip_entry_end;
 
     return (ctr);
 }
@@ -179,4 +179,3 @@ void local_map_db_dump(int log_level)
     } mdb_foreach_entry_end;
     lispd_log_msg(log_level,"*******************************************************\n");
 }
-

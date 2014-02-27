@@ -116,12 +116,12 @@ void map_cache_dump_db(int log_level);
     } mdb_foreach_entry_end
 
 /* ugly .. */
-#define mcache_foreach_active_entry_in_eid_db(_eid, _eit)   \
-    mdb_foreach_entry_in_eid_db(mdb, (_eid), (_eit))  \
+#define mcache_foreach_active_entry_in_ip_eid_db(_eid, _eit)   \
+    mdb_foreach_entry_in_ip_eid_db(mdb, (_eid), (_eit))  \
         if (((lispd_map_cache_entry *)(_eit))->active)
 
-#define mcache_foreach_active_entry_in_db_end  \
-    mdb_foreach_entry_in_eid_db_end
+#define mcache_foreach_active_entry_in_ip_eid_db_end  \
+    mdb_foreach_entry_in_ip_eid_db_end
 
 
 #endif /*LISPD_MAP_CACAHE_DB_H_*/

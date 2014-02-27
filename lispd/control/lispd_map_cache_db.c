@@ -218,6 +218,7 @@ void map_cache_entry_expiration(
  * Lookup if there is a no active cache entry with the provided nonce and return it
  */
 
+
 lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64_t nonce)
 {
     void                    *it;
@@ -239,9 +240,17 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, ui
 }
 
 
+//static void print_mcache_entry(void *entry, void *log_level) {
+//    dump_map_cache_entry(entry, *log_level);
+//}
 
 void map_cache_dump_db(int log_level)
 {
+//
+//    lispd_log_msg(log_level,"**************** LISP Mapping Cache ******************\n");
+//    mdb_for_each_entry_cb(mdb, print_mcache_entry, &log_level);
+//    lispd_log_msg(log_level,"*******************************************************\n");
+
     lispd_map_cache_entry   *mce;
     void                    *it;
 
@@ -251,6 +260,7 @@ void map_cache_dump_db(int log_level)
         dump_map_cache_entry(mce, log_level);
     } mdb_foreach_entry_end;
     lispd_log_msg(log_level,"*******************************************************\n");
+
 
 }
 

@@ -224,16 +224,16 @@ int build_and_send_info_request(
 int initial_info_request_process()
 {
     int result = 0;
-    mapping_t         *mapping          = NULL;
-    void                      *it               = NULL;
+    mapping_t       *mapping          = NULL;
+    void            *it               = NULL;
 
-    local_map_db_foreach_entry(it) {
+    local_map_db_foreach_ip_entry(it) {
         mapping = (mapping_t *)it;
         if (mapping->locator_count != 0){
             result = info_request(NULL,mapping);
             return (result);
         }
-    } local_map_db_foreach_end;
+    } local_map_db_foreach_ip_end;
     return(GOOD);
 }
 
@@ -243,8 +243,8 @@ int info_request(
         timer   *ttl_timer,
         void    *arg)
 {
-    mapping_t  *mapping         = NULL;
-    int                next_timer_time  = 0;
+    mapping_t           *mapping         = NULL;
+    int                 next_timer_time  = 0;
 
     mapping = (mapping_t *)arg;
 

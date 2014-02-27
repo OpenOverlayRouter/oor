@@ -75,8 +75,10 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
         return(BAD);
     }
 
-    if (!(src_eid = lisp_addr_init_from_field(mreq_msg_get_src_eid(mreq))))
+    if (!(src_eid = lisp_addr_init_from_field(mreq_msg_get_src_eid(mreq)))) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Couldn't read SRC EID. Discarding!");
         return(BAD);
+    }
 
     /* Process additional ITR RLOCs. Obtain remote RLOC to use for Map-Replies*/
     itrs = mreq_msg_get_itr_rlocs(mreq);
@@ -101,8 +103,10 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
     /* Process record and send Map Reply for each one */
     eids = mreq_msg_get_eids(mreq);
     glist_for_each_entry(it, eids) {
-        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(glist_entry_data(it)))))
+        if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(glist_entry_data(it))))) {
+            lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Couldn't read DST EID. Discarding!");
             goto err;
+        }
 
         /* Save prefix length only if the entry is an IP */
         if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)

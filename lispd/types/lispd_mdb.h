@@ -64,29 +64,61 @@ void                    *mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr);
 patricia_tree_t *_get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf);
 patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);
 
-
 #define mdb_foreach_entry(_mdb, _it) \
     do { \
         patricia_tree_t *_ptstack[4] = {(_mdb)->AF4_ip_db, (_mdb)->AF6_ip_db, (_mdb)->AF4_mc_db, (_mdb)->AF6_mc_db}; \
-        patricia_node_t *_node;  \
-        int _i;  \
-        for (_i=0; _i < 4; _i++) {  \
-            PATRICIA_WALK(_ptstack[_i]->head, _node) { \
-            if ((_it = _node->data))
+        patricia_node_t *_node, *_nodein;                                       \
+        int _i;                                                                 \
+        for (_i=0; _i < 4; _i++) {                                              \
+            PATRICIA_WALK(_ptstack[_i]->head, _node) {                          \
+                PATRICIA_WALK(((patricia_tree_t *)(_node->data))->head, _nodein) {      \
+                    if ((_it = _nodein->data))
 
 #define mdb_foreach_entry_end \
+                } PATRICIA_WALK_END;    \
+            } PATRICIA_WALK_END;        \
+        }                               \
+    } while (0)
+
+
+#define mdb_foreach_ip_entry(_mdb, _it) \
+    do { \
+        patricia_tree_t *_ptstack[2] = {(_mdb)->AF4_ip_db->head->data, (_mdb)->AF6_ip_db->head->data}; \
+        patricia_node_t *_node;                         \
+        int _i;                                         \
+        for (_i=0; _i < 2; _i++) {                      \
+            PATRICIA_WALK(_ptstack[_i]->head, _node) {  \
+                if ((_it = _node->data))
+
+#define mdb_foreach_ip_entry_end \
             }PATRICIA_WALK_END;  \
         }   \
     } while (0)
 
+#define mdb_foreach_mc_entry(_mdb, _it) \
+    do { \
+        patricia_tree_t *_ptstack[2] = {(_mdb)->AF4_mc_db, (_mdb)->AF6_mc_db}; \
+        patricia_node_t *_node, *_nodemc;                                       \
+        int _i;                                                                 \
+        for (_i=0; _i < 2; _i++) {                                              \
+            PATRICIA_WALK(_ptstack[_i]->head, _node) {                          \
+                PATRICIA_WALK(((patricia_tree_t *)(_node->data))->head, _nodemc) {      \
+                    if ((_it = _nodemc->data))
 
-#define mdb_foreach_entry_in_eid_db(_mdb, _eid, _it) \
+#define mdb_foreach_mc_entry_end \
+                } PATRICIA_WALK_END;    \
+            } PATRICIA_WALK_END;        \
+        }                               \
+    } while (0)
+
+
+#define mdb_foreach_entry_in_ip_eid_db(_mdb, _eid, _it) \
     do { \
         patricia_tree_t *_eid_db = _get_local_db_for_addr(_mdb, (_eid)); \
         patricia_node_t *_node = NULL;  \
         PATRICIA_WALK(_eid_db->head, _node){ \
             if (((_it) = _node->data))
-#define mdb_foreach_entry_in_eid_db_end \
+#define mdb_foreach_entry_in_ip_eid_db_end \
         }PATRICIA_WALK_END; \
     } while(0)
 

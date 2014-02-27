@@ -104,4 +104,11 @@ void local_map_db_dump(int log_level);
 #define local_map_db_foreach_end  \
     } mdb_foreach_entry_end
 
+#define local_map_db_foreach_ip_entry(eit)   \
+    mdb_foreach_ip_entry(local_mdb, (eit)) {   \
+        if (eit)
+
+#define local_map_db_foreach_ip_end  \
+    } mdb_foreach_ip_entry_end
+
 #endif /*LISPD_LOCAL_DB_H_*/

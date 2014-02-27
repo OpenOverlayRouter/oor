@@ -50,6 +50,8 @@ inline void                 pt_remove_node(patricia_tree_t *pt, patricia_node_t 
 uint8_t                     pt_test_if_empty(patricia_tree_t *pt);
 prefix_t                    *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen);
 
+void                        mdb_for_each_entry_cb(mdb_t *mdb, void (*callback)(void *, void *), void *cb_data);
+
 
 /*
  * Return map cache data base
@@ -58,10 +60,10 @@ static patricia_tree_t *_get_ip_pt_from_afi(mdb_t *db, uint16_t afi) {
 
     switch(afi) {
     case AF_INET:
-        return(db->AF4_ip_db);
+        return(db->AF4_ip_db->head->data);
         break;
     case AF_INET6:
-        return(db->AF6_ip_db);
+        return(db->AF6_ip_db->head->data);
         break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_1,"_get_ip_pt_from_afi: AFI %u not recognized!", afi);
@@ -229,6 +231,9 @@ static int _add_mc_entry(mdb_t *db, void *entry, lcaf_addr_t *mcaddr) {
     src = lcaf_mc_get_src(mcaddr);
     srcip = lisp_addr_get_ip(src);
 
+
+//    dump_map_cache_entry(entry, LISP_LOG_DEBUG_1);
+    lispd_log_msg(LISP_LOG_DEBUG_3, "########### About to insert the mce above, using srcip %s ", ip_addr_to_char(srcip));
     if (pt_add_mc_addr(_get_mc_pt_from_afi(db, ip_addr_get_afi(srcip)), mcaddr, entry) != GOOD) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "_add_mc_entry: Attempting to "
                 "insert %s to map cache but failed! ", mc_type_to_char(mcaddr));
@@ -309,10 +314,19 @@ mdb_t *mdb_new()
     db->AF4_ip_db = New_Patricia(sizeof(struct in_addr) * 8);
     db->AF6_ip_db = New_Patricia(sizeof(struct in6_addr) * 8);
 
+    /* MC is stored as patricia in patricia, what follows is a HACK
+     * to have compatible walk methods for both IP and MC.
+     */
+    ip_addr_t ipv4, ipv6;
+    memset(&ipv4, 0, sizeof(ip_addr_t)); ipv4.afi = AF_INET;
+    memset(&ipv6, 0, sizeof(ip_addr_t)); ipv6.afi = AF_INET6;
+    pt_add_node(db->AF4_ip_db, &ipv4, 0, (void *)New_Patricia(sizeof(struct in_addr)*8));
+    pt_add_node(db->AF6_ip_db, &ipv6, 0, (void *)New_Patricia(sizeof(struct in6_addr)*8));
+
     db->AF4_mc_db = New_Patricia(sizeof(struct in_addr) * 8);
     db->AF6_mc_db = New_Patricia(sizeof(struct in6_addr) * 8);
 
-    if (!db->AF4_ip_db || !db->AF6_ip_db || !db->AF4_mc_db || !db->AF6_mc_db) {
+    if (!db->AF4_ip_db->head->data|| !db->AF6_ip_db->head->data || !db->AF4_mc_db || !db->AF6_mc_db) {
       lispd_log_msg(LISP_LOG_CRIT, "mdb_init: Unable to allocate memory for mdb");
       exit_cleanup();
     }
@@ -321,10 +335,23 @@ mdb_t *mdb_new()
 }
 
 void mdb_del(mdb_t *db, mdb_del_fct del_fct) {
-    Destroy_Patricia(db->AF4_ip_db, del_fct);
-    Destroy_Patricia(db->AF6_ip_db, del_fct);
-    Destroy_Patricia(db->AF4_mc_db, del_fct);
-    Destroy_Patricia(db->AF6_mc_db, del_fct);
+    patricia_node_t *node;
+    PATRICIA_WALK(db->AF4_ip_db->head, node) {
+        Destroy_Patricia(node->data, del_fct);
+    }PATRICIA_WALK_END;
+
+    PATRICIA_WALK(db->AF6_ip_db->head, node) {
+        Destroy_Patricia(node->data, del_fct);
+    }PATRICIA_WALK_END;
+
+    PATRICIA_WALK(db->AF4_mc_db->head, node) {
+        Destroy_Patricia(node->data, del_fct);
+    }PATRICIA_WALK_END;
+
+    PATRICIA_WALK(db->AF6_mc_db->head, node) {
+        Destroy_Patricia(node->data, del_fct);
+    }PATRICIA_WALK_END;
+
 }
 
 int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
@@ -334,7 +361,7 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
     switch(lisp_addr_get_afi(addr)) {
     case LM_AFI_IP:
     case LM_AFI_IP6:
-        lispd_log_msg(LISP_LOG_WARNING, "mdb_add_entry: mapping stores an IP not a prefix!");
+        lispd_log_msg(LISP_LOG_WARNING, "mdb_add_entry: mapping stores an IP prefix not an IP!");
         break;
     case LM_AFI_IPPREF:
         retval = _add_ippref_entry(db, data, lisp_addr_get_ippref(addr));
@@ -353,8 +380,12 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
         lispd_log_msg(LISP_LOG_DEBUG_3, "mdb_add_entry: failed to insert entry %s",
                 lisp_addr_to_char(addr));
         return(BAD);
+    } else {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "mdb_add_entry: inserted %s",
+                lisp_addr_to_char(addr));
+        return(GOOD);
     }
-    return(GOOD);
+
 }
 
 void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
@@ -654,6 +685,23 @@ prefix_t *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
     }
 
     return(prefix);
+}
+
+
+/*
+ * use this function to access all entries in the map-cache
+ */
+void mdb_for_each_entry_cb(mdb_t *mdb, void (*callback)(void *, void *), void *cb_data) {
+    void    *it;
+
+    mdb_foreach_ip_entry(mdb, it) {
+        callback(it, cb_data);
+    } mdb_foreach_ip_entry_end;
+
+    mdb_foreach_mc_entry(mdb, it) {
+        callback(it, cb_data);
+    } mdb_foreach_mc_entry_end;
+
 }
 
 
