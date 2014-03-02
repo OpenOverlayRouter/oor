@@ -651,8 +651,8 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
     src = lcaf_mc_get_src(mcaddr);
     grp = lcaf_mc_get_grp(mcaddr);
 
-    src = lcaf_mc_get_src(mcaddr);
-    grp = lcaf_mc_get_grp(mcaddr);
+//    src = lcaf_mc_get_src(mcaddr);
+//    grp = lcaf_mc_get_grp(mcaddr);
 
     if (lisp_addr_get_afi(src) != LM_AFI_IP || lisp_addr_get_afi(grp) != LM_AFI_IP) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
@@ -668,9 +668,9 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
     }
 
 //    if (exact)
-        gnode = pt_find_ip_node_exact(gtrie, lisp_addr_get_ip(grp), lcaf_mc_get_grp_plen(mcaddr));
+//        gnode = pt_find_ip_node_exact(gtrie, lisp_addr_get_ip(grp), lcaf_mc_get_grp_plen(mcaddr));
 //    else
-//        gnode = pt_find_ip_node(gtrie, lisp_addr_get_ip(grp));
+        gnode = pt_find_ip_node(gtrie, lisp_addr_get_ip(grp));
 
 
     return(gnode);

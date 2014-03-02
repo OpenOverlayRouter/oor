@@ -39,6 +39,7 @@
 #define MCASTMAX4   0xEFFFFFFF
 
 #define RE_ITR_MR_SOLVE_TIMEOUT 4*LISPD_INITIAL_MRQ_TIMEOUT
+#define RE_UPSTREAM_JOIN_TIMEOUT 60
 /*
  * Structure to expand the lispd_mapping_elt to support multicast info AFI
  */
@@ -51,6 +52,9 @@ typedef struct {
     int             itr_resolution_pending;
     int             join_pending;
     int             leave_pending;
+    mapping_t       *mapping;
+
+    timer           *join_upstream_timer;
 } re_upstream_t;
 
 typedef struct mcinfo_mapping_exteded_info_ {
@@ -60,7 +64,7 @@ typedef struct mcinfo_mapping_exteded_info_ {
     uint8_t         is_itr;
 
     timer           *itr_solve_timer;
-    timer           *join_upstream;
+    uint8_t         resolution_pending;
 } re_mapping_data;
 
 typedef struct _timer_itr_resolution{
@@ -118,6 +122,7 @@ static inline re_upstream_t *mapping_get_re_upstream(mapping_t *mapping) {
 static inline void re_upstream_del(re_upstream_t *upstream) {
     free_locator(upstream->locator);
     lisp_addr_del(upstream->delivery_rloc);
+    free(upstream->join_upstream_timer);
     free(upstream);
 }
 

@@ -1159,7 +1159,6 @@ int lisp_output(uint8_t *original_packet, int original_packet_length)
         return(BAD);
     }
 
-
     switch (lisp_addr_get_afi(dst_addr)) {
         case LM_AFI_IP:
         case LM_AFI_IP6:

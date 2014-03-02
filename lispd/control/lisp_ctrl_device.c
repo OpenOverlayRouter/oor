@@ -354,7 +354,7 @@ int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid)
             DYNAMIC_MAP_CACHE_ENTRY,
             DEFAULT_DATA_CACHE_TTL);
 
-    dump_map_cache_entry(entry, LISP_LOG_DEBUG_1);
+//    if (entry) dump_map_cache_entry(entry, LISP_LOG_DEBUG_1);
     if (!entry) {
         lispd_log_msg(LISP_LOG_WARNING, "Couln't install the new map cache entry!");
         return(BAD);

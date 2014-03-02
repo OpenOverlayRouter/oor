@@ -37,15 +37,42 @@
  * Interface to end-hosts
  */
 
+
+int start_join_upstream(timer *t, void *arg) {
+    re_upstream_t *upstream = arg;
+    re_join_upstream(upstream->mapping);
+    start_timer(upstream->join_upstream_timer, RE_UPSTREAM_JOIN_TIMEOUT, start_join_upstream, upstream);
+    return(GOOD);
+}
+
+int begin_upstream_join_loop(mapping_t *mapping) {
+    re_mapping_data *redata;
+    if (!mapping)
+        return(BAD);
+//    if (!mapping_get_re_data(mapping))
+
+        mapping_init_re_data(mapping);
+
+
+    redata = mapping_get_re_data(mapping);
+    redata->upstream->mapping = mapping;
+
+
+    redata->upstream->join_upstream_timer = create_timer(RE_UPSTREAM_JOIN_TIMER);
+    start_join_upstream(redata->upstream->join_upstream_timer, redata->upstream);
+    return(GOOD);
+}
+
 int re_upstream_join_cb(timer *t, void *arg) {
     timer_upstream_join *argtimer = arg;
+
     mapping_t *mapping = mcache_lookup_mapping(argtimer->mceid);
 
     if (!mapping) {
         lispd_log_msg(LISP_LOG_DEBUG_1, "Failed to get a map-reply for %s. Aborting Join!",
                 lisp_addr_to_char(argtimer->mceid));
     } else {
-        re_join_upstream(mapping);
+        begin_upstream_join_loop(mapping);
     }
 
     lisp_addr_del(argtimer->mceid);
@@ -58,6 +85,7 @@ int re_join_channel(lisp_addr_t *mceid) {
     lisp_addr_t         *src            = NULL;
     timer               *t = NULL;
     timer_upstream_join *argtimer = NULL;
+
     /* FIRST STEP
      * obtain a mapping for mceid
      */
@@ -66,6 +94,13 @@ int re_join_channel(lisp_addr_t *mceid) {
         src = lcaf_mc_get_src(lisp_addr_get_lcaf(mceid));
         if (handle_map_cache_miss(mceid, local_map_db_get_main_eid(lisp_addr_ip_get_afi(src))) != GOOD)
             return(BAD);
+
+        /* SECOND STEP IF FAILURE */
+        t = create_timer(RE_UPSTREAM_JOIN_TIMER);
+
+        argtimer = calloc(1, sizeof(timer_upstream_join));
+        argtimer->mceid = lisp_addr_clone(mceid);
+        start_timer(t, RE_ITR_MR_SOLVE_TIMEOUT, re_upstream_join_cb, (void *)argtimer);
     }
 
     /* SECOND STEP
@@ -73,11 +108,9 @@ int re_join_channel(lisp_addr_t *mceid) {
      *
      * we start a timer that waits some seconds prior to checking if the mapping is solved
      */
-    t = create_timer(RE_UPSTREAM_JOIN_TIMER);
 
-    argtimer = calloc(1, sizeof(timer_upstream_join));
-    argtimer->mceid = lisp_addr_clone(mceid);
-    start_timer(t, RE_ITR_MR_SOLVE_TIMEOUT, re_upstream_join_cb, (void *)argtimer);
+    if (!mapping_get_re_data(mapping))
+        begin_upstream_join_loop(mapping);
 
     return(GOOD);
 }
@@ -133,6 +166,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
 
 
     mceid = mapping_eid(ch_mapping);
+
     src_rloc = get_default_ctrl_address(lisp_addr_ip_get_afi(lcaf_mc_get_src(lisp_addr_get_lcaf(mceid))));
 
     if (!src_rloc) {
@@ -267,47 +301,43 @@ int mapping_init_re_data(mapping_t *ch_mapping) {
 }
 
 
-static int mapping_re_new_upstream(mapping_t *ch_mapping) {
-    re_mapping_data *einfo = mapping_extended_info(ch_mapping);
-    einfo->upstream = calloc(1, sizeof(re_upstream_t));
-    return(GOOD);
-}
-
-static timer *mapping_re_itr_solve_timer(mapping_t *ch_mapping) {
-    re_mapping_data *einfo = mapping_extended_info(ch_mapping);
-    return(einfo->itr_solve_timer);
-}
-
-static int re_itr_solve_cb(timer *t, void *arg) {
-    timer_itr_resolution *argtimer = arg;
-    re_join_upstream(argtimer->ch_mapping);
-    return(GOOD);
-}
+//static int mapping_re_new_upstream(mapping_t *ch_mapping) {
+//    re_mapping_data *einfo = mapping_extended_info(ch_mapping);
+//    einfo->upstream = calloc(1, sizeof(re_upstream_t));
+//    return(GOOD);
+//}
+//
+//static timer *mapping_re_itr_solve_timer(mapping_t *ch_mapping) {
+//    re_mapping_data *einfo = mapping_extended_info(ch_mapping);
+//    return(einfo->itr_solve_timer);
+//}
+//
+//static int re_itr_solve_cb(timer *t, void *arg) {
+//    timer_itr_resolution *argtimer = arg;
+//    re_join_upstream(argtimer->ch_mapping);
+//    return(GOOD);
+//}
 
 int re_join_upstream(mapping_t *ch_mapping) {
     re_upstream_t       *upstream   = NULL;
     uint64_t            nonce       = 0;
-    timer               *t          =  NULL;
+//    timer               *t          =  NULL;
     mapping_t           *local_map  = NULL;
-    timer_itr_resolution *argtimer  = NULL;
+//    timer_itr_resolution *argtimer  = NULL;
 
     /* TODO: should build black list of nodes we can't join */
     /* TODO: change code such that when upstream locator probing fails, this process is reran */
 
-    /* already joined an upstream */
-    if (mapping_extended_info(ch_mapping) && (upstream = mapping_get_re_upstream(ch_mapping))) {
-        /* just send a periodical Join-Request */
-        if (upstream->locator && (*upstream->locator->state) == UP)
-            return(mrsignaling_send_join(ch_mapping, upstream->delivery_rloc, locator_addr(upstream->locator), &nonce));
+    if (!mapping_get_re_data(ch_mapping)) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "re_join_upstream: called without initialized re data! Aborting!");
+        return(BAD);
     }
 
-    /* new mc_data/upstream */
-    if (!mapping_extended_info(ch_mapping) && (mapping_init_re_data(ch_mapping) != GOOD))
-        return(BAD);
-    else if (!upstream && (mapping_re_new_upstream(ch_mapping) != GOOD))
-        return(BAD);
-
     upstream = mapping_get_re_upstream(ch_mapping);
+
+    /* already joined an upstream. just send a periodical Join-Request */
+    if (upstream->locator && (*upstream->locator->state) == UP)
+        return(mrsignaling_send_join(ch_mapping, upstream->delivery_rloc, locator_addr(upstream->locator), &nonce));
 
     if (ctrl_dev->mode == RTR_MODE)
         local_map = local_map_db_lookup_eid(mapping_eid(ch_mapping));
@@ -321,22 +351,26 @@ int re_join_upstream(mapping_t *ch_mapping) {
     }
 
     /* returned GOOD from select but no locator set => M-Req for ITR */
-    if (!upstream->locator) {
-        if (ctrl_dev->mode == RTR_MODE) {
-            /* set timer to return to this function */
-            t = mapping_re_itr_solve_timer(ch_mapping);
-            if (!t)
-                t = create_timer(RE_ITR_RESOLUTION_TIMER);
-            argtimer = calloc(1, sizeof(timer_itr_resolution));
-            argtimer->ch_mapping = ch_mapping;
-            upstream->itr_resolution_pending = 1;
-            start_timer(t, RE_ITR_MR_SOLVE_TIMEOUT, re_itr_solve_cb, (void *)argtimer);
-            return(GOOD);
-        }
+    if (!upstream->locator)
+        return(GOOD);
 
-        /* ETRs have nothing more to do */
-        return(BAD);
-    }
+//    /* returned GOOD from select but no locator set => M-Req for ITR */
+//    if (!upstream->locator) {
+//        if (ctrl_dev->mode == RTR_MODE) {
+//            /* set timer to return to this function */
+//            t = mapping_re_itr_solve_timer(ch_mapping);
+//            if (!t)
+//                t = create_timer(RE_ITR_RESOLUTION_TIMER);
+//            argtimer = calloc(1, sizeof(timer_itr_resolution));
+//            argtimer->ch_mapping = ch_mapping;
+//            upstream->itr_resolution_pending = 1;
+//            start_timer(t, RE_ITR_MR_SOLVE_TIMEOUT, re_itr_solve_cb, (void *)argtimer);
+//            return(GOOD);
+//        }
+//
+//        /* ETRs have nothing more to do */
+//        return(BAD);
+//    }
 
     upstream->join_pending = 1;
 
@@ -375,6 +409,7 @@ int re_leave_channel(lisp_addr_t *mceid) {
  * Interface to lisp-re overlay
  */
 
+
 int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
 
 //    remdb_t             *jib                = NULL;
@@ -383,10 +418,6 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
     lisp_addr_t         *peer = NULL, *src_eid = NULL;
     re_mapping_data     *redata = NULL;
     mapping_t           *ch_mapping = NULL, *src_eid_mapping = NULL;
-
-    timer               *t = NULL;
-    timer_itr_joined    *argtimer = NULL;
-
 
     lispd_log_msg(LISP_LOG_DEBUG_1, "Received Join-Request for channel %s requesting replication pair %s",
             lisp_addr_to_char(ch), lisp_addr_to_char(rloc_pair));
@@ -399,16 +430,8 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "re_recv_join_request: Received Join-Request for %s. We are the source ITR! Sending Map-Request",
                     lisp_addr_to_char(ch));
             handle_map_cache_miss(ch, src_eid);
-            return(GOOD);
 
-//            t = create_timer(RE_UPSTREAM_JOIN_TIMER);
-//            argtimer = calloc(1, sizeof(timer_upstream_join));
-//            argtimer->mceid = lisp_addr_clone(ch);
-//            argtimer->rloc_pair = lisp_addr_clone(rloc_pair);
-//            start_timer(t, RE_ITR_MR_SOLVE_TIMEOUT, re_upstream_join_cb, (void *)argtimer);
-//
-//            ch_mapping = mcache_lookup_mapping(ch);
-//            mapping_init_re_data(ch_mapping);
+            return(GOOD);
         } else {
             lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't find a mapping for channel %s. Aborting",
                     lisp_addr_to_char(ch));
@@ -416,12 +439,12 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
         }
     }
 
+//    if (!mapping_get_re_data(ch_mapping))
+    if (ch_mapping->type != MAPPING_RE)
+        mapping_init_re_data(ch_mapping);
     redata = mapping_get_re_data(ch_mapping);
 
     /* add dst (S-RLOC, DG/RLOC) to jib */
-    if (!redata->jib)
-        redata->jib = remdb_new();
-
     lcaf = lisp_addr_get_lcaf(rloc_pair);
     /* downstream node */
     peer = lcaf_mc_get_grp(lcaf);
@@ -435,8 +458,14 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
         remdb_dump(redata->jib, LISP_LOG_DEBUG_3);
     }
 
-    if (!redata->upstream->locator) {
-        re_join_upstream(ch_mapping);
+    if (!redata->upstream->join_upstream_timer) {
+        src_eid = lcaf_mc_get_src(lisp_addr_get_lcaf(ch));
+        src_eid_mapping = local_map_db_lookup_eid(src_eid);
+        if (src_eid_mapping) {
+            redata->is_itr = 1;
+            return(GOOD);
+        }
+        begin_upstream_join_loop(ch_mapping);
     }
 
     return(GOOD);
@@ -520,7 +549,7 @@ remdb_t *re_get_jib(lisp_addr_t *eid) {
 
     /* TODO: implement real multicast FIB instead of using the mapping db */
     /* Find eid's map-cache entry*/
-    map_cache_dump_db(LISP_LOG_DEBUG_1);
+//    map_cache_dump_db(LISP_LOG_DEBUG_1);
     mapping = mcache_lookup_mapping(eid);
     if (!mapping){
         lispd_log_msg(LISP_LOG_DEBUG_2,"re_get_jib:  No map cache entry found for %s",
@@ -533,12 +562,8 @@ remdb_t *re_get_jib(lisp_addr_t *eid) {
      * extended info of mcinfo type.  */
 
     /* packets with no active mapping are dropped */
-    if (!mapping){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_get_jib: Map cache entry carrying the jib, with eid %s, not found or not active!",
-                lisp_addr_to_char(eid));
-        /* fcoras TODO: what should we return here? */
-        return (NULL);
-    }
+    if (mapping->type != MAPPING_RE)
+        mapping_init_re_data(mapping);
 
     return(mapping_get_jib(mapping));
 }
@@ -584,6 +609,7 @@ glist_t *re_get_orlist(lisp_addr_t *dst_addr) {
     }
 
     jib = re_get_jib(dst_addr);
+
     if (jib)
         or_list = remdb_get_orlist(jib);
     else

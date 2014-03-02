@@ -21,6 +21,7 @@ glist_t *remdb_get_orlist(remdb_t *jib) {
     orlist = glist_new(NO_CMP, NO_DEL);
 
     glist_for_each_entry(it, jib){
+
         /* Ugly but should do for now. Just take the first locator */
         jibentry = glist_entry_data(it);
 

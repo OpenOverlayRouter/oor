@@ -235,7 +235,7 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
 done:
     lisp_addr_del(src_eid);
     lisp_addr_del(remote_rloc);
-    lisp_addr_del(dst_eid);
+//    lisp_addr_del(dst_eid);
     return(GOOD);
 err:
     lisp_addr_del(src_eid);
