@@ -199,6 +199,9 @@ int locator_cmp(locator_t *l1, locator_t *l2);
 locator_t *locator_init_remote(lisp_addr_t *addr);
 locator_t *locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority, uint8_t weight,
         uint8_t mpriority, uint8_t mweight);
+locator_t *locator_init_local(lisp_addr_t *addr);
+locator_t *locator_init_local_full(lisp_addr_t *addr, uint8_t *state, uint8_t priority, uint8_t weight,
+        uint8_t mpriority, uint8_t mweight);
 
 locator_t *locator_clone_remote(locator_t *locator);
 lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst);
@@ -210,6 +213,17 @@ static inline lisp_addr_t *locator_addr(locator_t *locator) {
 
 static inline void locator_set_addr(locator_t *locator, lisp_addr_t *addr) {
     locator->locator_addr = addr;
+}
+
+static inline void locator_set_state(locator_t *locator, uint8_t *state) {
+    locator->state = state;
+}
+
+/* XXX: use with caution! */
+static inline void locator_set_state_static(locator_t *locator, uint8_t state) {
+    if (!locator->state)
+        locator->state = calloc(1, sizeof(uint8_t));
+    *(locator->state) = state;
 }
 
 

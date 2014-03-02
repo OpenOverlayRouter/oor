@@ -38,6 +38,7 @@
 #define MCASTMIN4   0xE0000000
 #define MCASTMAX4   0xEFFFFFFF
 
+#define RE_ITR_MR_SOLVE_TIMEOUT 4*LISPD_INITIAL_MRQ_TIMEOUT
 /*
  * Structure to expand the lispd_mapping_elt to support multicast info AFI
  */
@@ -47,6 +48,7 @@ typedef struct {
     lisp_addr_t     *delivery_rloc;
 //    nonces_list     *nonces;
 //    timer           *probe_timer;
+    int             itr_resolution_pending;
     int             join_pending;
     int             leave_pending;
 } re_upstream_t;
@@ -54,8 +56,25 @@ typedef struct {
 typedef struct mcinfo_mapping_exteded_info_ {
     remdb_t         *jib;       /* joining information base - the joined downstreams */
     re_upstream_t   *upstream;  /* the overlay parent */
-} mcinfo_mapping_extended_info;
+    uint8_t         level;
+    uint8_t         is_itr;
 
+    timer           *itr_solve_timer;
+    timer           *join_upstream;
+} re_mapping_data;
+
+typedef struct _timer_itr_resolution{
+    mapping_t   *ch_mapping;
+} timer_itr_resolution;
+
+typedef struct _timer_join_upstream {
+    lisp_addr_t *mceid;
+} timer_upstream_join;
+
+typedef struct _timer_itr_joined {
+    lisp_addr_t *mceid;
+    lisp_addr_t *rloc_pair;
+} timer_itr_joined;
 
 int re_join_channel(lisp_addr_t *mceid);
 int re_join_upstream(mapping_t *ch_mapping);
@@ -64,25 +83,36 @@ int re_leave_upstream(mapping_t *ch_mapping);
 
 int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 
-
 int re_recv_leave_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair);
 int re_send_leave_ack();
 
 int re_recv_join_ack(lisp_addr_t *eid, uint32_t nonce);
 int re_recv_leave_ack(lisp_addr_t *eid, uint32_t nonce);
 
-
+int                 mapping_init_re_data(mapping_t *ch_mapping);
+void                re_mapping_data_del(void *eidata);
 re_upstream_t       *re_get_upstream(lisp_addr_t *eid);
 remdb_t             *re_get_jib(lisp_addr_t *mcaddr);
+re_mapping_data     *re_get_ch_data(lisp_addr_t *eid);
 
-glist_t    *re_get_orlist(lisp_addr_t *addr);
+glist_t             *re_get_orlist(lisp_addr_t *addr);
 
 static inline remdb_t *mapping_get_jib(mapping_t *mapping) {
-    return(((mcinfo_mapping_extended_info*)mapping->extended_info)->jib);
+    if (mapping_extended_info(mapping))
+        return(((re_mapping_data*)mapping->extended_info)->jib);
+    else
+        return(NULL);
+}
+
+static inline re_mapping_data *mapping_get_re_data(mapping_t *mapping) {
+    if (mapping_extended_info(mapping))
+        return((re_mapping_data *)mapping->extended_info);
+    else
+        return(NULL);
 }
 
 static inline re_upstream_t *mapping_get_re_upstream(mapping_t *mapping) {
-    return(((mcinfo_mapping_extended_info*)mapping->extended_info)->upstream);
+    return(((re_mapping_data*)mapping->extended_info)->upstream);
 }
 
 static inline void re_upstream_del(re_upstream_t *upstream) {

@@ -964,7 +964,7 @@ mapping_t *mapping_init_static(lisp_addr_t *eid) {
 
 mapping_t *mapping_init_remote(lisp_addr_t *eid) {
     mapping_t                   *mapping        = NULL;
-    rmt_mapping_extended_info   *extended_info  = NULL;
+//    rmt_mapping_extended_info   *extended_info  = NULL;
 
     mapping = mapping_init(eid);
 
@@ -975,19 +975,19 @@ mapping_t *mapping_init_remote(lisp_addr_t *eid) {
 
     mapping->type = MAPPING_REMOTE;
 
-    if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"mapping_init_learned: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
-        free (mapping);
-        return (NULL);
-    }
-
-    mapping->extended_info = (void *)extended_info;
-    extended_info->rmt_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
-    extended_info->rmt_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
-    extended_info->rmt_balancing_locators_vecs.balancing_locators_vec = NULL;
-    extended_info->rmt_balancing_locators_vecs.v4_locators_vec_length = 0;
-    extended_info->rmt_balancing_locators_vecs.v6_locators_vec_length = 0;
-    extended_info->rmt_balancing_locators_vecs.locators_vec_length = 0;
+//    if ((extended_info=(rmt_mapping_extended_info *)malloc(sizeof(rmt_mapping_extended_info)))==NULL){
+//        lispd_log_msg(LISP_LOG_WARNING,"mapping_init_learned: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
+//        free (mapping);
+//        return (NULL);
+//    }
+//
+//    mapping->extended_info = (void *)extended_info;
+//    extended_info->rmt_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
+//    extended_info->rmt_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
+//    extended_info->rmt_balancing_locators_vecs.balancing_locators_vec = NULL;
+//    extended_info->rmt_balancing_locators_vecs.v4_locators_vec_length = 0;
+//    extended_info->rmt_balancing_locators_vecs.v6_locators_vec_length = 0;
+//    extended_info->rmt_balancing_locators_vecs.locators_vec_length = 0;
 
 //    if (locators) {
 //        mapping_add_locators(mapping, locators);
@@ -1003,7 +1003,10 @@ mapping_t *mapping_init_remote(lisp_addr_t *eid) {
 }
 
 inline void *mapping_extended_info(mapping_t *mapping) {
-    return(mapping->extended_info);
+    if (mapping)
+        return(mapping->extended_info);
+    else
+        return(NULL);
 }
 
 inline void mapping_set_extended_info(mapping_t *mapping, void *extended_info, extended_info_del_fct ei_del_fct) {
@@ -1063,7 +1066,7 @@ mapping_t *mapping_init_from_record(mapping_record *record) {
         lisp_addr_set_plen(eid, mapping_record_hdr(record)->eid_prefix_length);
     lispd_log_msg(LISP_LOG_DEBUG_1, "  EID: %s", lisp_addr_to_char(eid));
 
-    mapping = mapping_init(eid);
+    mapping = mapping_init_remote(eid);
     if (!mapping)
         goto err;
 
@@ -1091,6 +1094,16 @@ void mapping_del(mapping_t *mapping)
     free_locator_list(mapping->head_v4_locators_list);
     free_locator_list(mapping->head_v6_locators_list);
 
+    mapping_extended_info_del(mapping);
+
+    /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf */
+    if (lisp_addr_get_afi(mapping_eid(mapping)) == LM_AFI_LCAF)
+        lcaf_addr_del_addr(lisp_addr_get_lcaf(mapping_eid(mapping)));
+    free(mapping);
+
+}
+
+void mapping_extended_info_del(mapping_t *mapping) {
     if (mapping->extended_info) {
         switch (mapping->type) {
         case MAPPING_LOCAL:
@@ -1103,22 +1116,15 @@ void mapping_del(mapping_t *mapping)
             free ((rmt_mapping_extended_info *)mapping->extended_info);
             break;
         case MAPPING_RE:
+            /* RE is not a type, it sets its own destruct function for the extended info */
+            if (mapping->extended_info)
+                mapping->extended_info_del(mapping->extended_info);
             break;
         default:
             lispd_log_msg(LISP_LOG_DEBUG_1, "mapping_del: unknown mapping type %d. Can't free extended info!", mapping->type);
             break;
         }
     }
-
-    /* RE is not a type, it sets its own destruct function for the extended info */
-    if (mapping->extended_info)
-        mapping->extended_info_del(mapping->extended_info);
-
-    /* XXX ^2: lisp_addr_t unfortunately is not a pointer in mapping, need hack to free lcaf */
-    if (lisp_addr_get_afi(mapping_eid(mapping)) == LM_AFI_LCAF)
-        lcaf_addr_del_addr(lisp_addr_get_lcaf(mapping_eid(mapping)));
-    free(mapping);
-
 }
 
 
@@ -1137,14 +1143,30 @@ void mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lis
 }
 
 /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
-void mapping_compute_balancing_vectors(mapping_t *mapping) {
-    if (!mapping->extended_info)
-        mapping->extended_info = calloc(1, sizeof(rmt_mapping_extended_info));
-    if (mapping->locator_count != 0)
-        calculate_balancing_vectors(mapping,
-                &(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs));
-
-
+int mapping_compute_balancing_vectors(mapping_t *mapping) {
+    switch (mapping->type) {
+    case MAPPING_REMOTE:
+        if (!mapping->extended_info)
+            mapping->extended_info = calloc(1, sizeof(rmt_mapping_extended_info));
+        if (mapping->locator_count != 0)
+            return(calculate_balancing_vectors(mapping,
+                    &(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs)));
+        break;
+    case MAPPING_LOCAL:
+        if (!mapping->extended_info)
+            mapping->extended_info = calloc(1, sizeof(lcl_mapping_extended_info));
+        if (mapping->locator_count > 0)
+            return(calculate_balancing_vectors(mapping,
+                    &((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs));
+        break;
+    case MAPPING_RE:
+        return(GOOD);
+    default:
+        lispd_log_msg(LISP_LOG_DEBUG_1, "mapping_compute_balancing_vectors: Mapping type %d unknown. Aborting!",
+                mapping->type);
+        return(BAD);
+    }
+    return(GOOD);
 }
 
 /*

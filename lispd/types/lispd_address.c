@@ -398,7 +398,6 @@ inline int lisp_addr_write(void *offset, lisp_addr_t *laddr) {
     case LM_AFI_IPPREF:
         return(ip_addr_write_to_pkt(offset, ip_prefix_get_addr(lisp_addr_get_ippref(laddr)), 0));
     case LM_AFI_LCAF:
-        lispd_log_msg(LISP_LOG_DEBUG_1, "##### ABOUT TO CALL TO WRITE LCAF ");
         return(lcaf_addr_write_to_pkt(offset, lisp_addr_get_lcaf(laddr)));
     case LM_AFI_NO_ADDR:
         memset(offset, 0, sizeof(uint16_t));
@@ -566,6 +565,8 @@ inline uint16_t lisp_addr_iana_afi_to_lm_afi(uint16_t afi) {
 }
 
 inline int lisp_addr_is_mc(lisp_addr_t *addr) {
+    if (!addr)
+        return(0);
     if (lisp_addr_is_lcaf(addr) && lcaf_addr_is_mc(lisp_addr_get_lcaf(addr)))
         return(1);
     else

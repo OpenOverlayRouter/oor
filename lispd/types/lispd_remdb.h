@@ -1,5 +1,5 @@
 /*
- * lispd_re_jib.c
+ * lispd_remdb.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
@@ -57,6 +57,7 @@ remdb_member_t          *remdb_find_member(lisp_addr_t *peer, remdb_t *jib);
 void                    remdb_update_member(lisp_addr_t *addr, lispd_locators_list *loc_list);
 inline uint32_t         remdb_size(remdb_t *jib);
 remdb_member_t          *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair);
+void                    remdb_dump(remdb_t *remdb, int log_level);
 
 /* builds a forwarding database for mc */
 glist_t    *remdb_get_orlist(remdb_t *jib);

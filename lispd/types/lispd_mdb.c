@@ -154,7 +154,6 @@ static patricia_node_t *_find_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exact)
 static patricia_tree_t *_get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, uint8_t exact) {
     patricia_node_t     *snode          = NULL;
     lisp_addr_t         *src            = NULL;
-//    lisp_addr_t         *grp            = NULL;
     ip_addr_t           *srcip          = NULL;
     uint8_t             splen;
 
@@ -162,7 +161,6 @@ static patricia_tree_t *_get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_add
 
     src = lcaf_mc_get_src(mcaddr);
     srcip = lisp_addr_get_ip(src);
-//    grp = lcaf_mc_get_grp(mcaddr);
 
     if (lisp_addr_get_afi(src) != LM_AFI_IP ) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
@@ -170,13 +168,13 @@ static patricia_tree_t *_get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_add
     }
 
     splen = lcaf_mc_get_src_plen(mcaddr);
-
-    if (exact)
+    if (exact) {
         /* exact lookup for src node */
         snode = pt_find_ip_node_exact(strie, srcip, splen);
-    else
+    } else {
         /* longest prefix match to find the S/S-prefix node */
         snode = pt_find_ip_node(strie, srcip);
+    }
 
     if (snode == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_3, "_get_pt_for_mc_addr: The source "
@@ -231,19 +229,19 @@ static int _add_mc_entry(mdb_t *db, void *entry, lcaf_addr_t *mcaddr) {
     src = lcaf_mc_get_src(mcaddr);
     srcip = lisp_addr_get_ip(src);
 
-
-//    dump_map_cache_entry(entry, LISP_LOG_DEBUG_1);
-    lispd_log_msg(LISP_LOG_DEBUG_3, "########### About to insert the mce above, using srcip %s ", ip_addr_to_char(srcip));
     if (pt_add_mc_addr(_get_mc_pt_from_afi(db, ip_addr_get_afi(srcip)), mcaddr, entry) != GOOD) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "_add_mc_entry: Attempting to "
+        lispd_log_msg(LISP_LOG_DEBUG_2, "_add_mc_entry: Attempting to "
                 "insert %s to map cache but failed! ", mc_type_to_char(mcaddr));
         return(BAD);
+    } else {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "_add_mc_entry: Added entry %s to mdb!", lcaf_addr_to_char(mcaddr));
     }
 
     return(GOOD);
 }
 
 static int _add_lcaf_entry(mdb_t *db, void *entry, lcaf_addr_t *lcaf) {
+
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_IID:
         lispd_log_msg(LISP_LOG_DEBUG_3, "_add_lcaf_entry: IID support to implement!");
@@ -391,8 +389,18 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
 void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
 {
     ip_prefix_t *ippref;
+    lisp_addr_t *taddr;
+    void *data;
 
     switch(lisp_addr_get_afi(laddr)){
+    case LM_AFI_IP:
+        /* make ippref */
+        taddr = lisp_addr_clone(laddr);
+        lisp_addr_ip_to_ippref(taddr);
+        ippref = lisp_addr_get_ippref(taddr);
+        data = pt_remove_ippref(_get_ip_pt_from_afi(db, ip_prefix_get_afi(ippref)), ippref);
+        lisp_addr_del(taddr);
+        return(data);
     case LM_AFI_IPPREF:
         ippref = lisp_addr_get_ippref(laddr);
         return(pt_remove_ippref(_get_ip_pt_from_afi(db, ip_prefix_get_afi(ippref)), ippref));
@@ -502,6 +510,11 @@ int pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data) {
         return(BAD);
     }
 
+    patricia_node_t *tnode;
+    PATRICIA_WALK(((patricia_tree_t *)snode->data)->head, tnode) {
+        printf("1");
+    } PATRICIA_WALK_END;
+
     return(GOOD);
 }
 
@@ -533,6 +546,12 @@ void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
     lisp_addr_t     *grp    = NULL;
     void            *data   = NULL;
 
+    if (!strie) {
+        lispd_log_msg(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: strie for %s not initialized. Aborting!",
+                lcaf_addr_to_char(mcaddr));
+        return(NULL);
+    }
+
     src = lcaf_mc_get_src(mcaddr);
     grp = lcaf_mc_get_grp(mcaddr);
 
@@ -540,6 +559,7 @@ void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
         lispd_log_msg(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return(NULL);
     }
+
 
     gtrie = _get_grp_pt_for_mc_addr(strie, mcaddr, 1);
 
@@ -647,10 +667,10 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
         return(NULL);
     }
 
-    if (exact)
+//    if (exact)
         gnode = pt_find_ip_node_exact(gtrie, lisp_addr_get_ip(grp), lcaf_mc_get_grp_plen(mcaddr));
-    else
-        gnode = pt_find_ip_node(gtrie, lisp_addr_get_ip(grp));
+//    else
+//        gnode = pt_find_ip_node(gtrie, lisp_addr_get_ip(grp));
 
 
     return(gnode);

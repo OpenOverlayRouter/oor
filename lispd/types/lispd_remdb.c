@@ -20,11 +20,11 @@ glist_t *remdb_get_orlist(remdb_t *jib) {
 
     orlist = glist_new(NO_CMP, NO_DEL);
 
-    glist_for_each_entry(it,jib){
+    glist_for_each_entry(it, jib){
         /* Ugly but should do for now. Just take the first locator */
         jibentry = glist_entry_data(it);
 
-        if (jibentry->locators->locator)
+        if (jibentry->locators && jibentry->locators->locator)
             glist_add(jibentry->locators->locator, orlist);
     }
 
@@ -35,11 +35,14 @@ void remdb_add_member(lisp_addr_t *peer, lisp_addr_t *rloc_pair, remdb_t *jib) {
 
     remdb_member_t *member;
 
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Adding peer %s requesting replication to %s to the re joining information base",
+            lisp_addr_to_char(peer), lisp_addr_to_char(rloc_pair));
+
     assert(jib);
     assert(rloc_pair);
 
     member = remdb_member_init(peer, rloc_pair);
-    glist_add(member, jib);
+    glist_add_tail(member, jib);
 }
 
 remdb_member_t *remdb_find_member(lisp_addr_t *peer, remdb_t *jib) {
@@ -51,7 +54,7 @@ remdb_member_t *remdb_find_member(lisp_addr_t *peer, remdb_t *jib) {
 
     glist_for_each_entry(it,jib) {
         member = glist_entry_data(it);
-        if (lisp_addr_cmp(member->addr, peer))
+        if (lisp_addr_cmp(member->addr, peer) == 0)
             return(member);
     }
 
@@ -74,7 +77,7 @@ inline uint32_t remdb_size(remdb_t *jib) {
 }
 
 remdb_member_t *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair) {
-    remdb_member_t    *member             = NULL;
+    remdb_member_t          *member             = NULL;
     lispd_locators_list     *locator_list       = NULL;
 
     member = calloc(1, sizeof(remdb_member_t));
@@ -91,4 +94,18 @@ remdb_member_t *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair) {
     member->locators = locator_list;
 
     return(member);
+}
+
+void remdb_dump(remdb_t *remdb, int log_level) {
+    glist_entry_t *it;
+    remdb_member_t *rmem;
+
+    lispd_log_msg(log_level, "************************************* REMDB ****************************");
+    glist_for_each_entry(it, remdb) {
+        rmem = glist_entry_data(it);
+        lispd_log_msg(log_level, "downstream: %s locator: %s", lisp_addr_to_char(rmem->addr),
+                lisp_addr_to_char(locator_addr(rmem->locators->locator)));
+    }
+    lispd_log_msg(log_level, "************************************************************************");
+
 }

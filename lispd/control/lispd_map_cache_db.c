@@ -99,7 +99,7 @@ int mcache_add_static_mapping(mapping_t *mapping) {
 int mcache_del_mapping(lisp_addr_t *laddr) {
     void *data;
     data = mdb_remove_entry(mdb, laddr);
-    free_map_cache_entry((lispd_map_cache_entry *)data);
+    free_map_cache_entry(data);
     return(GOOD);
 }
 
@@ -119,7 +119,7 @@ mapping_t *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
 
     mce = mdb_lookup_entry_exact(mdb, laddr);
 
-    if ((mce == NULL) || (mce->active == NO_ACTIVE) )
+    if ( !mce || (mce->active == NO_ACTIVE) )
         return(NULL);
     else
         return(mcache_entry_get_mapping(mce));
@@ -192,29 +192,6 @@ lispd_map_cache_entry *map_cache_lookup_exact(lisp_addr_t *laddr)
 
 
 /*
- * map_cache_entry_expiration()
- *
- * Called when the timer associated with an EID entry expires.
- */
-void map_cache_entry_expiration(
-        timer   *t,
-        void    *arg)
-{
-    lispd_map_cache_entry   *entry      = NULL;
-    mapping_t       *mapping    = NULL;
-    lisp_addr_t             *addr       = NULL;
-    uint8_t                 plen        = 0;
-
-    entry = (lispd_map_cache_entry *)arg;
-    mapping = mcache_entry_get_mapping(entry);
-    addr = mapping_eid(mapping);
-    lispd_log_msg(LISP_LOG_DEBUG_1,"Got expiration for EID",
-            lisp_addr_to_char(addr), plen);
-
-    mcache_del_mapping(addr);
-}
-
-/*
  * Lookup if there is a no active cache entry with the provided nonce and return it
  */
 
@@ -271,10 +248,32 @@ void map_cache_entry_start_expiration_timer(lispd_map_cache_entry *cache_entry) 
     }
     start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
                      (void *)cache_entry);
+//    start_timer(cache_entry->expiry_cache_timer, 10, (timer_callback)map_cache_entry_expiration,
+//                     (void *)cache_entry);
     lispd_log_msg(LISP_LOG_DEBUG_1,"The map cache entry %s will expire in %ld minutes.",
             lisp_addr_to_char(mapping_eid(mcache_entry_get_mapping(cache_entry))), cache_entry->ttl);
 }
 
+/*
+ * map_cache_entry_expiration()
+ *
+ * Called when the timer associated with an EID entry expires.
+ */
+void map_cache_entry_expiration(
+        timer   *t,
+        void    *arg)
+{
+    lispd_map_cache_entry   *entry      = NULL;
+    mapping_t       *mapping    = NULL;
+    lisp_addr_t             *addr       = NULL;
+
+    entry = (lispd_map_cache_entry *)arg;
+    mapping = mcache_entry_get_mapping(entry);
+    addr = mapping_eid(mapping);
+    lispd_log_msg(LISP_LOG_DEBUG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
+
+    mcache_del_mapping(addr);
+}
 
 
 

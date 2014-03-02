@@ -133,9 +133,10 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
                     lisp_addr_to_char(mapping_eid(mapping)));
 
             /* [re]Calculate balancing locator vectors  if it has been a change of status*/
-            calculate_balancing_vectors (
-                    mapping,
-                    &(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs));
+            mapping_compute_balancing_vectors(mapping);
+//            calculate_balancing_vectors (
+//                    mapping,
+//                    &(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs));
         }
         free (locator_ext_inf->rloc_probing_nonces);
         locator_ext_inf->rloc_probing_nonces = NULL;

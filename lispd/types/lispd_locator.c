@@ -276,10 +276,12 @@ void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_lis
 
 void free_locator(locator_t   *locator)
 {
+    if (!locator)
+        return;
+    lisp_addr_del(locator->locator_addr);
     if (locator->locator_type != LOCAL_LOCATOR){
         if (locator->extended_info)
             free_rmt_locator_extended_info((rmt_locator_extended_info*)locator->extended_info);
-        lisp_addr_del(locator->locator_addr);
         free (locator->state);
     }else{
         if (locator->extended_info)
@@ -692,6 +694,28 @@ locator_t *locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t pr
     return(locator);
 }
 
+locator_t *locator_init_local(lisp_addr_t *addr) {
+    locator_t *locator = locator_new();
+    /* Initialize locator */
+    locator->locator_addr = addr;
+    locator->locator_type = LOCAL_LOCATOR;
+
+    return(locator);
+}
+
+locator_t *locator_init_local_full(lisp_addr_t *addr, uint8_t *state, uint8_t priority, uint8_t weight,
+        uint8_t mpriority, uint8_t mweight) {
+    locator_t *locator = locator_init_local(addr);
+    /* Initialize locator */
+    locator->priority = priority;
+    locator->weight = weight;
+    locator->mpriority = mpriority;
+    locator->mweight = mweight;
+    locator->data_packets_in = 0;
+    locator->data_packets_out = 0;
+    locator->state = state;
+    return(locator);
+}
 
 
 

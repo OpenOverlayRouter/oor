@@ -99,6 +99,7 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
     opts.send_rec   = 1;
     opts.echo_nonce = 0;
     opts.rloc_probe = 0;
+    opts.mrsig = (mrsignaling_flags_t){0, 0, 0};
 
     /* Process record and send Map Reply for each one */
     eids = mreq_msg_get_eids(mreq);
@@ -231,6 +232,54 @@ err:
     return(NULL);
 }
 
+static void mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
+    locator_t       *cloc = NULL, *rtrloc = NULL;
+    lcaf_addr_t     *crle = NULL, *rtrrle = NULL;
+    glist_entry_t   *it = NULL;
+    rle_node_t      *rtrnode = NULL, *itnode;
+    int             found = 0;
+
+    if (!lisp_addr_is_mc(mapping_eid(rtrmap)))
+        return;
+
+    if (rtrmap->head_v4_locators_list)
+        rtrloc = rtrmap->head_v4_locators_list->locator;
+    else if (rtrmap->head_v6_locators_list)
+        rtrloc = rtrmap->head_v6_locators_list->locator;
+
+    if (!rtrloc) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "mc_add_rlocs_to_rle: NO rloc for mc channel %s. Aborting!",
+                lisp_addr_to_char(mapping_eid(rtrmap)));
+        return;
+    }
+
+    if (cmap->head_v4_locators_list)
+        cloc = cmap->head_v4_locators_list->locator;
+    else if (cmap->head_v6_locators_list)
+        cloc = cmap->head_v6_locators_list->locator;
+
+    if (!cloc) {
+        lispd_log_msg(LISP_LOG_DEBUG_1, "mc_add_rlocs_to_rle: RLOC for mc channel %s is not initialized. Aborting!",
+                lisp_addr_to_char(mapping_eid(rtrmap)));
+    }
+
+    rtrrle = lisp_addr_get_lcaf(locator_addr(rtrloc));
+    crle = lisp_addr_get_lcaf(locator_addr(cloc));
+    rtrnode = glist_first_data(lcaf_rle_node_list(rtrrle));
+
+    glist_for_each_entry(it, lcaf_rle_node_list(crle)) {
+        itnode = glist_entry_data(it);
+        if (lisp_addr_cmp(itnode->addr, rtrnode->addr) == 0
+                && itnode->level == rtrnode->level)
+            found = 1;
+    }
+
+    if (!found)
+        glist_add_tail(rle_node_clone(rtrnode), lcaf_rle_node_list(crle));
+
+
+}
+
 int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, udpsock_t *udpsock) {
     glist_t             *records    = NULL;
     glist_entry_t       *it         = NULL;
@@ -249,7 +298,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
     ms = (lisp_ms *)dev;
 //    afield = mreg_msg_get_auth_data(mreg);
 
-    if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY) {
+    if (mreg_msg_get_hdr(mreg)->map_notify) {
         /* mappings are not freed when list is destroyed */
         write_recs = glist_new(NO_CMP, NO_DEL);
         mnot_msg = map_notify_msg_new();
@@ -289,7 +338,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         }
 
         /* check if more specific */
-        if (reg_pref->accept_more_specifics != MORE_SPECIFICS && lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
+        if (!reg_pref->accept_more_specifics && lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
             lispd_log_msg(LISP_LOG_DEBUG_1, "MS: EID %s is a more specific of %s. However more specifics not configured! Discarding",
                     lisp_addr_to_char(eid), lisp_addr_to_char(reg_pref->eid_prefix));
             lisp_addr_del(eid);
@@ -297,33 +346,50 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         }
 
         mentry = mdb_lookup_entry_exact(ms->registered_sites_db, eid);
-        if (mentry && mapping_cmp(mentry, mapping) != 0) {
+        if (mentry) {
+            if (mapping_cmp(mentry, mapping) != 0) {
+                if (!reg_pref->merge) {
+                    lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators",
+                            lisp_addr_to_char(eid));
+                    mapping_update_locators(mentry, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
+                    /* cheap hack to avoid cloning */
+                    mapping->head_v4_locators_list = NULL;
+                    mapping->head_v6_locators_list = NULL;
+                } else {
+                    /* TREAT MERGE SEMANTICS */
+                    lispd_log_msg(LISP_LOG_WARNING, "MS: Prefix %s has merge semantics", lisp_addr_to_char(eid));
+                    /* MCs EIDs have their RLOCs aggregated into an RLE */
+                    if (lisp_addr_is_mc(eid)) {
+                        mc_add_rlocs_to_rle(mentry, mapping);
+                    } else {
+                        lispd_log_msg(LISP_LOG_WARNING, "MS: Registered %s requires merge semantics but we don't know "
+                                "how to handle! Discarding!", lisp_addr_to_char(eid));
+                        goto bad;
+                    }
+                }
 
-            lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
-            mapping_update_locators(mentry, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
+                ms_dump_registered_sites(dev, LISP_LOG_DEBUG_3);
+            }
 
-            /* cheap hack to avoid cloning */
-            mapping->head_v4_locators_list = NULL;
-            mapping->head_v6_locators_list = NULL;
             mapping_del(mapping);
 
-            /* add record to map-notify */
-            if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY)
-                glist_add_tail(mentry, write_recs);
         } else if (!mentry){
             /* save prefix to the registered sites db */
             mdb_add_entry(ms->registered_sites_db, mapping_eid(mapping), mapping);
-
-            /* add record to map-notify */
-            if (mreg_msg_get_hdr(mreg)->map_notify == REQ_MAP_NOTIFY)
-                glist_add_tail(mapping, write_recs);
-            else
-                mapping_del(mapping);
+            ms_dump_registered_sites(dev, LISP_LOG_DEBUG_3);
+            mentry = mapping;
+//            /* add record to map-notify */
+//            if (mreg_msg_get_hdr(mreg)->map_notify)
+//                glist_add_tail(mapping, write_recs);
+//            else
+//                mapping_del(mapping);
         }
 
+        /* add record to map-notify */
+        if (mreg_msg_get_hdr(mreg)->map_notify)
+            glist_add_tail(mentry, write_recs);
+
         /* TODO: start timers */
-
-
     }
 
     if (mnot_msg) {
@@ -432,5 +498,38 @@ int ms_add_registered_site_prefix(lisp_ctrl_device *dev, mapping_t *sp) {
         return(BAD);
     return(GOOD);
 }
+
+void ms_dump_configured_sites(lisp_ctrl_device *dev, int log_level)
+{
+    lisp_ms             *ms = (lisp_ms *)dev;
+    void                *it     = NULL;
+    lisp_site_prefix    *site   = NULL;
+
+    lispd_log_msg(log_level,"****************** MS configured prefixes **************\n");
+
+    mdb_foreach_entry(ms->lisp_sites_db, it) {
+        site = it;
+        lispd_log_msg(log_level, "Prefix: %s, accept specifics: %s merge: %s, proxy: %s", lisp_addr_to_char(site->eid_prefix),
+                (site->accept_more_specifics) ? "on" : "off",
+                (site->merge) ? "on" : "off",
+                (site->proxy_reply) ? "on" : "off");
+    } mdb_foreach_entry_end;
+    lispd_log_msg(log_level,"*******************************************************\n");
+}
+
+void ms_dump_registered_sites(lisp_ctrl_device *dev, int log_level) {
+    lisp_ms     *ms = (lisp_ms *)dev;
+    void        *it     = NULL;
+    mapping_t   *mapping = NULL;
+
+    lispd_log_msg(log_level,"**************** MS registered sites ******************\n");
+    mdb_foreach_entry(ms->registered_sites_db, it) {
+        mapping = it;
+        dump_mapping_entry(mapping, log_level);
+    } mdb_foreach_entry_end;
+    lispd_log_msg(log_level,"*******************************************************\n");
+
+}
+
 
 

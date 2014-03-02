@@ -508,7 +508,6 @@ int mc_type_get_size_to_write(void *mc) {
 inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
     int     lena1 = 0, lena2 = 0;
     uint8_t *cur_ptr = NULL;
-    lispd_log_msg(LISP_LOG_DEBUG_1, " ###################### WRIIIITING MC");
     ((lcaf_mcinfo_hdr_t *)offset)->afi = htons(LISP_AFI_LCAF);
     ((lcaf_mcinfo_hdr_t *)offset)->rsvd1 = 0;
     ((lcaf_mcinfo_hdr_t *)offset)->flags = 0;
@@ -525,7 +524,6 @@ inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
     cur_ptr = CO(cur_ptr, (lena1 = lisp_addr_write(cur_ptr, mc_type_get_src(mc))));
     lena2 = lisp_addr_write(cur_ptr, mc_type_get_grp(mc));
     ((lcaf_mcinfo_hdr_t *)offset)->len = htons(lena1+lena2+8*sizeof(uint8_t));
-    lispd_log_msg(LISP_LOG_DEBUG_1, "lena1 %d lena2 %d, sizeof hdr %d", lena1, lena2, sizeof(lcaf_mcinfo_hdr_t));
     return(sizeof(lcaf_mcinfo_hdr_t)+lena1+lena2);
 }
 
@@ -568,6 +566,11 @@ lisp_addr_t *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp) {
     lcaf_addr_set_mc(lisp_addr_get_lcaf(mceid), src, grp, mlen, mlen, 0);
     return(mceid);
 }
+
+inline int lisp_addr_is_mcinfo(lisp_addr_t *addr) {
+    return(lisp_addr_get_afi(addr) == LM_AFI_LCAF && lisp_addr_lcaf_get_type(addr) == LCAF_MCAST_INFO);
+}
+
 
 
 
@@ -1397,8 +1400,11 @@ lisp_addr_t *lcaf_rloc_get_ip_addr(lisp_addr_t *addr) {
             }
         }
         break;
+    case LCAF_MCAST_INFO:
+        rloc = lcaf_mc_get_grp(lcaf);
+        break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_1, "get_ip_rloc_from_lcaf: lcaf type %d not supported",
+        lispd_log_msg(LISP_LOG_DEBUG_1, "lcaf_rloc_get_ip_addr: lcaf type %d not supported",
                 lcaf_addr_get_type(lcaf));
     }
     return(rloc);

@@ -206,8 +206,8 @@ int err;
 //                                                     */
 //#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
 //                                                     * RLOC probes are sent (seconds) */
-#define MAP_REGISTER_INTERVAL                   600
-#define RLOC_PROBING_INTERVAL                   300
+#define MAP_REGISTER_INTERVAL                   6000
+#define RLOC_PROBING_INTERVAL                   3000
 
 #define DEFAULT_RLOC_PROBING_RETRIES_INTERVAL   5   /* Interval in seconds between RLOC probing retries  */
 #define DEFAULT_DATA_CACHE_TTL                  60  /* seconds */

@@ -28,11 +28,13 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#include "lispd.h"
-#include "lispd_lib.h"
-#include "lispd_log.h"
+//#include "lispd.h"
+//#include "lispd_log.h"
 #include "lispd_map_cache_entry.h"
+#include "defs.h"
 #include "lispd_map_cache_db.h"
+#include "lispd_lib.h"
+
 
 
 inline lispd_map_cache_entry *mcache_entry_new() {
@@ -107,7 +109,7 @@ lispd_map_cache_entry *new_map_cache_entry_no_db (
     if (lisp_addr_get_afi(&eid_prefix) == LM_AFI_IP)
         lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
     //    map_cache_entry->mapping = new_map_cache_mapping (eid_prefix, eid_prefix_length, -1);
-    map_cache_entry->mapping = mapping_init(&eid_prefix);
+    map_cache_entry->mapping = mapping_init_remote(&eid_prefix);
     if (!map_cache_entry->mapping)
         return(NULL);
 
@@ -161,7 +163,7 @@ lispd_map_cache_entry *new_map_cache_entry (
 
 void free_map_cache_entry(lispd_map_cache_entry *entry)
 {
-    mapping_del(entry->mapping);
+    mapping_del(mcache_entry_get_mapping(entry));
     /*
      * Free the entry
      */

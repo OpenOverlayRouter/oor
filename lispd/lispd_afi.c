@@ -243,7 +243,7 @@ int extract_mcast_info_lcaf_data(
         mapping_t   *mapping){
 
 //    lispd_lcaf_mcinfo_hdr_t         *mcinfohdr          = NULL;
-    mcinfo_mapping_extended_info    *extended_info      = NULL;
+    re_mapping_data    *extended_info      = NULL;
 //    uint16_t                        safi                = 0;
     lisp_addr_t                     *eid_prefix         = NULL;
     uint8_t                         *cur_ptr            = NULL;
@@ -251,7 +251,7 @@ int extract_mcast_info_lcaf_data(
     cur_ptr = *offset;
 //    mcinfohdr = (lispd_lcaf_mcinfo_hdr_t *)cur_ptr;
 
-    if ((extended_info=(mcinfo_mapping_extended_info *)malloc(sizeof(mcinfo_mapping_extended_info)))==NULL){
+    if ((extended_info=(re_mapping_data *)malloc(sizeof(re_mapping_data)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"extract_mcast_info_lcaf_data: Couldn't allocate memory for mcinfo_mapping_extended_info: %s",
                 strerror(errno));
         return (BAD);

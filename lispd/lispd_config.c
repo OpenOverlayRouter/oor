@@ -100,7 +100,7 @@ void validate_rloc_probing_parameters (
 
 
 lisp_site_prefix *build_lisp_site_prefix(char *eidstr, uint32_t iid, int key_type, char *key,
-        uint8_t more_specifics, uint8_t proxy_reply);
+        uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge, HashTable *lcaf_ht);
 
 mapping_t *build_mapping_from_config(cfg_t *map, HashTable *lcaf_ht, int local);
 
@@ -680,7 +680,7 @@ int configure_rtr(cfg_t *cfg) {
 
 
     /*
-     * RTR database mappings (like for instance replication lists (
+     * RTR database mappings (like for instance replication lists)
      */
 
     n = cfg_size(cfg, "rtr-database-mapping");
@@ -710,6 +710,12 @@ int configure_rtr(cfg_t *cfg) {
 
 
     hash_table_destroy(lcaf_ht);
+
+    lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
+    local_map_db_dump(LISP_LOG_DEBUG_1);
+    if (is_loggable(LISP_LOG_DEBUG_1)){
+        map_cache_dump_db(LISP_LOG_DEBUG_1);
+    }
 
     return(GOOD);
 }
@@ -1005,11 +1011,13 @@ int configure_ms(cfg_t *cfg) {
                 cfg_getint(ls, "key-type"),
                 cfg_getstr(ls, "key"),
                 cfg_getbool(ls, "accept-more-specifics") ? 1:0,
-                cfg_getbool(ls, "proxy-reply") ? 1:0);
+                cfg_getbool(ls, "proxy-reply") ? 1:0,
+                cfg_getbool(ls, "merge") ? 1 : 0,
+                lcaf_ht);
         if (site) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Adding lisp site prefix %s to the lisp-sites database.",
+                    lisp_addr_to_char(site->eid_prefix));
             ms_add_lisp_site_prefix(ctrl_dev, site);
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Added lisp site prefix %s to the lisp-sites database.",
-                    cfg_getstr(ls, "eid-prefix"));
         }else{
             lispd_log_msg(LISP_LOG_ERR, "Can't add lisp-site prefix %s. Discarded ...",
                     cfg_getstr(ls, "eid-prefix"));
@@ -1029,6 +1037,10 @@ int configure_ms(cfg_t *cfg) {
 
     /* destroy the hash table */
     hash_table_destroy(lcaf_ht);
+
+    lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
+    ms_dump_configured_sites(ctrl_dev, LISP_LOG_DEBUG_1);
+    ms_dump_registered_sites(ctrl_dev, LISP_LOG_DEBUG_1);
 
     return(GOOD);
 }
@@ -1147,6 +1159,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_STR("key",                      0, CFGF_NONE),
             CFG_BOOL("accept-more-specifics",   cfg_false, CFGF_NONE),
             CFG_BOOL("proxy-reply",             cfg_false, CFGF_NONE),
+            CFG_BOOL("merge",                   cfg_false, CFGF_NONE),
             CFG_END()
     };
 
@@ -1571,9 +1584,9 @@ mapping_t *build_mapping_from_config(cfg_t *map, HashTable *lcaf_ht, int local) 
         add_locator_to_mapping(mapping, locator);
     }
 
-    /* Recalculate the outgoing rloc vectors */
-    if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
-        lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc preference");
+    if (mapping_compute_balancing_vectors(mapping) != GOOD) {
+        lispd_log_msg(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate balancing vectors");
+        return(BAD);
     }
 
     return(mapping);
@@ -2006,9 +2019,10 @@ void validate_rloc_probing_parameters (
 }
 
 lisp_site_prefix *build_lisp_site_prefix(char *eidstr, uint32_t iid, int key_type, char *key,
-        uint8_t more_specifics, uint8_t proxy_reply) {
+        uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge, HashTable *lcaf_ht) {
 
     lisp_addr_t         *eid_prefix         = NULL;
+    lisp_addr_t         *ht_prefix         = NULL;
     int                 eid_prefix_length   = 0;
     lisp_site_prefix    *site               = NULL;
 
@@ -2026,16 +2040,23 @@ lisp_site_prefix *build_lisp_site_prefix(char *eidstr, uint32_t iid, int key_typ
      */
     eid_prefix = lisp_addr_new();
     if (get_lisp_addr_and_mask_from_char(eidstr,eid_prefix,&eid_prefix_length)!=GOOD){
-        lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing EID address ...Ignoring static map cache entry");
         lisp_addr_del(eid_prefix);
-        return (BAD);
+        /* if not found, try in the hash table */
+        ht_prefix = hash_table_lookup(lcaf_ht, eidstr);
+        if(!ht_prefix){
+            lispd_log_msg(LISP_LOG_ERR, "Configuration file: Error parsing RLOC address %s", eidstr);
+            return (NULL);
+        }
+        eid_prefix = lisp_addr_clone(ht_prefix);
     }
 
     /* HACK: change afi from IP to IPPREF and set mask */
-    lisp_addr_set_afi(eid_prefix, LM_AFI_IPPREF);
-    ip_prefix_set_plen(lisp_addr_get_ippref(eid_prefix), (uint8_t)eid_prefix_length);
+    if (lisp_addr_get_afi(eid_prefix) == LM_AFI_IP) {
+        lisp_addr_set_afi(eid_prefix, LM_AFI_IPPREF);
+        ip_prefix_set_plen(lisp_addr_get_ippref(eid_prefix), (uint8_t)eid_prefix_length);
+    }
 
-    site = lisp_site_prefix_init(eid_prefix, iid, key_type, key, more_specifics, proxy_reply);
+    site = lisp_site_prefix_init(eid_prefix, iid, key_type, key, more_specifics, proxy_reply, merge);
     return(site);
 }
 

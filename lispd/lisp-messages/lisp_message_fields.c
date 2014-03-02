@@ -117,7 +117,9 @@ locator_field *locator_field_parse(uint8_t *offset) {
  */
 
 inline mapping_record *mapping_record_new() {
-    return(calloc(1, sizeof(mapping_record)));
+    mapping_record *record = calloc(1, sizeof(mapping_record));
+    record->locators = glist_new(NO_CMP, (glist_del_fct)locator_field_del);
+    return(record);
 }
 
 void mapping_record_del(mapping_record *record) {
@@ -137,7 +139,7 @@ mapping_record *mapping_record_parse(uint8_t *offset) {
 
 
     ptr = offset;
-    record = calloc(1, sizeof(mapping_record));
+    record = mapping_record_new();
     record->data = offset;
 
     ptr = CO(record->data, sizeof(mapping_record_hdr_t));
@@ -147,7 +149,6 @@ mapping_record *mapping_record_parse(uint8_t *offset) {
         goto err;
 
     ptr = CO(ptr, address_field_len(record->eid));
-    record->locators = glist_new(NO_CMP, (glist_del_fct)locator_field_del);
     if (!record->locators)
         goto err;
 

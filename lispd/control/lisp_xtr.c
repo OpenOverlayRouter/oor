@@ -192,6 +192,7 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
     opts.send_rec   = 1;
     opts.echo_nonce = 0;
     opts.rloc_probe = mreq_msg_get_hdr(mreq)->rloc_probe;
+    opts.mrsig = (mrsignaling_flags_t){0, 0, 0};
 
     /* Process record and send Map Reply for each one */
     eids = mreq_msg_get_eids(mreq);
@@ -208,6 +209,13 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
         lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Received Map-Request from EID %s for EID %s",
                 lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
 
+
+        if (is_mrsignaling(dfield)) {
+            mrsignaling_recv_join(src_eid, dst_eid, local_rloc, remote_rloc, dst_port,
+                    mreq_msg_get_hdr(mreq)->nonce, mrsignaling_get_flags_from_field(dfield));
+            goto done;
+        }
+
         /* Check the existence of the requested EID */
         /* We don't use prefix mask and use by default 32 or 128*/
         /* XXX: Maybe here we should do a strict search in case of RLOC probing */
@@ -218,11 +226,6 @@ int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, 
             continue;
         }
 
-        if (is_mrsignaling(dfield)) {
-            mrsignaling_recv_join(src_eid, dst_eid, local_rloc, remote_rloc, dst_port,
-                    mreq_msg_get_hdr(mreq)->nonce, mrsignaling_get_flags_from_field(dfield));
-            goto done;
-        }
 
         err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_msg_get_hdr(mreq)->nonce, opts);
 

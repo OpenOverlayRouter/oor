@@ -114,9 +114,9 @@ typedef struct _map_reply_opts{
 
 /* TODO: make src_eid a pointer */
 typedef struct _timer_map_request_argument{
-    lispd_map_cache_entry *map_cache_entry;
-    lisp_addr_t *src_eid;
-    void (*arg_free_fct)(void *);
+    lispd_map_cache_entry   *map_cache_entry;
+    lisp_addr_t             *src_eid;
+    void                    (*arg_free_fct)(void *);
 } timer_map_request_argument;
 
 

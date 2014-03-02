@@ -2,7 +2,7 @@
 #include "defs.h"
 
 lisp_site_prefix *lisp_site_prefix_init(lisp_addr_t *eid_prefix, uint32_t iid,
-        int key_type, char *key, uint8_t more_specifics, uint8_t proxy_reply) {
+        int key_type, char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge) {
 
     lisp_site_prefix *sp = NULL;
     sp = calloc(1, sizeof(lisp_site_prefix));
@@ -14,6 +14,7 @@ lisp_site_prefix *lisp_site_prefix_init(lisp_addr_t *eid_prefix, uint32_t iid,
     sp->key = strdup(key);
     sp->accept_more_specifics = more_specifics;
     sp->proxy_reply = proxy_reply;
+    sp->merge = merge;
 
     return(sp);
 }

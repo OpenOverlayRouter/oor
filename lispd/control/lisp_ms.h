@@ -32,9 +32,6 @@
 #include "lisp_ctrl_device.h"
 #include <lisp_site.h>
 
-#define REQ_MAP_NOTIFY 1
-#define MORE_SPECIFICS 1
-
 
 typedef struct _lisp_ms {
     lisp_ctrl_device super;    /* base "class" */
@@ -49,5 +46,7 @@ lisp_ctrl_device *ms_ctrl_init();
 /* ms interface */
 int ms_add_lisp_site_prefix(lisp_ctrl_device *ms, lisp_site_prefix *site);
 int ms_add_registered_site_prefix(lisp_ctrl_device *dev, mapping_t *sp);
+void ms_dump_configured_sites(lisp_ctrl_device *dev, int log_level);
+void ms_dump_registered_sites(lisp_ctrl_device *dev, int log_level);
 
 #endif /* LISP_MS_H_ */

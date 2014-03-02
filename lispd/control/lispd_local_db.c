@@ -169,7 +169,7 @@ int local_map_db_num_ip_eids(int afi){
 void local_map_db_dump(int log_level)
 {
     mapping_t   *mapping    = NULL;
-    void                *it         = NULL;
+    void        *it         = NULL;
 
     lispd_log_msg(log_level,"****************** LISP Local Mappings ****************\n");
 

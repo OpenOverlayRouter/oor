@@ -68,6 +68,10 @@ int get_up_locators_length(
             locators_list = locators_list->next;
             continue;
         }
+
+//        if (lisp_addr_afi(locator_addr(locators_list->locator)) != LM_AFI_IP)
+//            continue;
+//
         if ( (size=lisp_addr_get_size_in_field(locators_list->locator->locator_addr))) {
             counter++;
             sum += size;

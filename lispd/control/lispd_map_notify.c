@@ -83,10 +83,13 @@ int process_map_notify(map_notify_msg *msg)
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration of %s", lisp_addr_to_char(eid));
 
         /* === merge semantics on === */
-        if (mapping_cmp(local_mapping, mapping) != 0) {
+        if (mapping_cmp(local_mapping, mapping) != 0 || lisp_addr_is_mc(eid)) {
+            lispd_log_msg(LISP_LOG_DEBUG_1, "Merge-Semantics on, moving returned mapping to map-cache");
+
             /* Save the mapping returned by the map-notify in the mapping cache */
             mcache_mapping = mcache_lookup_mapping(eid);
             if (mcache_mapping && mapping_cmp(mcache_mapping, mapping) != 0) {
+                /* UPDATED rlocs */
                 lispd_log_msg(LISP_LOG_DEBUG_3, "Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
                 mapping_update_locators(mcache_mapping, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
 
@@ -98,25 +101,32 @@ int process_map_notify(map_notify_msg *msg)
                 mapping->head_v6_locators_list = NULL;
                 mapping_del(mapping);
             } else if (!mcache_mapping) {
+                /* FIRST registration */
                 if (mcache_add_mapping(mapping) != GOOD) {
                     mapping_del(mapping);
                     return(BAD);
                 }
 
+                /* ACTIVATE the mapping */
+                /* XXX: still works with the old method of looking up the mcache entry */
                 mce = map_cache_lookup_exact(eid);
                 mce->active = 1;
                 programming_rloc_probing(mcache_entry_get_mapping(mce));
                 map_cache_entry_start_expiration_timer(mce);
                 mapping_compute_balancing_vectors(mcache_entry_get_mapping(mce));
 
+                /* for MC initialize the JIB */
+                if (lisp_addr_is_mc(eid) && !mapping_get_re_data(mcache_entry_get_mapping(mce)))
+                    mapping_init_re_data(mcache_entry_get_mapping(mce));
+
             }
+
         }
 
         next_timer_time = MAP_REGISTER_INTERVAL;
         free (nat_emr_nonce);
         nat_emr_nonce = NULL;
         result = GOOD;
-        lisp_addr_del(eid);
     } else{
         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message is invalid");
         next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;

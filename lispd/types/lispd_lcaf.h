@@ -439,6 +439,7 @@ inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *gr
 int                     mc_type_read_from_pkt(uint8_t *offset, void **mc);
 int                     lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 lisp_addr_t             *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp);
+inline int              lisp_addr_is_mcinfo(lisp_addr_t *addr);
 
 
 /*
@@ -510,6 +511,8 @@ inline void             rle_node_del(rle_node_t *rnode);
 static inline glist_t *lcaf_rle_node_list(lcaf_addr_t *lcaf) {
     return(((rle_t *)lcaf->addr)->nodes);
 }
+
+
 
 /*
  *  ELP type functions

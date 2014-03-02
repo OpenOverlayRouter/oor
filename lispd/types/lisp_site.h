@@ -12,10 +12,11 @@ typedef struct _lisp_site_prefix {
     uint8_t             accept_more_specifics;
     lisp_key_type       key_type;
     char                *key;
+    uint8_t             merge;
 } lisp_site_prefix;
 
 lisp_site_prefix *lisp_site_prefix_init(lisp_addr_t *eid_prefix, uint32_t iid,
-        int key_type, char *key, uint8_t more_specifics, uint8_t proxy_reply);
+        int key_type, char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge);
 void lisp_site_prefix_del(lisp_site_prefix *sp);
 
 static inline lisp_addr_t *lsite_prefix(lisp_site_prefix *ls) {
