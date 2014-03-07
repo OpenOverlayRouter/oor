@@ -85,7 +85,7 @@ int process_not_authoritative_reply(
  * @param pending_referral_entry lispd_pending_referral_cache_entry containing information of the petition that is being replied
  * @return GOOD if could send ddt map request or an error code otherwise
  */
-inline int try_next_referral_node_or_go_through_root (lispd_pending_referral_cache_entry *pending_referral_entry);
+static inline int try_next_referral_node_or_go_through_root (lispd_pending_referral_cache_entry *pending_referral_entry);
 
 /*
  * Program timer to remove referral cache entry after TTL
@@ -670,7 +670,7 @@ int process_not_authoritative_reply(
  * @param pending_referral_entry lispd_pending_referral_cache_entry containing information of the petition that is being replied
  * @return GOOD if could send ddt map request or an error code otherwise
  */
-inline int try_next_referral_node_or_go_through_root (lispd_pending_referral_cache_entry *pending_referral_entry)
+static inline int try_next_referral_node_or_go_through_root (lispd_pending_referral_cache_entry *pending_referral_entry)
 {
     pending_referral_entry->tried_locators = pending_referral_entry->tried_locators + 1;
     err = send_ddt_map_request_miss(NULL,(void *)pending_referral_entry);

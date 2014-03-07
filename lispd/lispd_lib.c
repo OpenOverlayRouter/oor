@@ -71,15 +71,27 @@
 /********************************** Function declaration ********************************/
 
 int isfqdn(char *s);
-inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
-inline int convert_hex_char_to_byte (char val);
-inline lisp_addr_t get_network_address_v4(
+static inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
+static inline int convert_hex_char_to_byte (char val);
+static inline lisp_addr_t get_network_address_v4(
         lisp_addr_t address,
         int         prefix_length);
 
-inline lisp_addr_t get_network_address_v6(
+static inline lisp_addr_t get_network_address_v6(
         lisp_addr_t address,
         int         prefix_length);
+
+static inline void copy_lisp_addr_V4(lisp_addr_t *dest,
+                              lisp_addr_t *orig);
+
+static inline void copy_lisp_addr_V6(lisp_addr_t *dest,
+                              lisp_addr_t *orig);
+
+static inline void memcopy_lisp_addr_V4(void *dest,
+                                 lisp_addr_t *orig);
+
+static inline void memcopy_lisp_addr_V6(void *dest,
+                                 lisp_addr_t *orig);
 
 
 /****************************************************************************************/
@@ -357,14 +369,14 @@ int copy_addr(
     }
 }
 
-inline void copy_lisp_addr_V4(lisp_addr_t *dest,
+static inline void copy_lisp_addr_V4(lisp_addr_t *dest,
                               lisp_addr_t *orig){
 
     dest->address.ip.s_addr = orig->address.ip.s_addr;
     dest->afi = orig->afi;
 }
 
-inline void copy_lisp_addr_V6(lisp_addr_t *dest,
+static inline void copy_lisp_addr_V6(lisp_addr_t *dest,
                               lisp_addr_t *orig){
 
     memcpy((dest->address.ipv6.s6_addr),
@@ -421,13 +433,13 @@ lisp_addr_t *clone_lisp_addr(lisp_addr_t *addr)
     return (new_addr);
 }
 
-inline void memcopy_lisp_addr_V4(void *dest,
+static inline void memcopy_lisp_addr_V4(void *dest,
                                  lisp_addr_t *orig){
 
     ((struct in_addr *) dest)->s_addr = orig->address.ip.s_addr;
 }
 
-inline void memcopy_lisp_addr_V6(void *dest,
+static inline void memcopy_lisp_addr_V6(void *dest,
                                  lisp_addr_t *orig){
 
     memcpy(dest,
@@ -480,7 +492,7 @@ int convert_hex_string_to_bytes(
     return (GOOD);
 }
 
-inline int convert_hex_char_to_byte (char val)
+static inline int convert_hex_char_to_byte (char val)
 {
     val = (char)toupper (val);
 
@@ -1145,7 +1157,7 @@ lisp_addr_t *get_map_resolver()
     return dst_rloc;
 }
 
-inline lisp_addr_t *get_server(
+static inline lisp_addr_t *get_server(
         lispd_addr_list_t   *server_list,
         int                 afi)
 {
@@ -1405,7 +1417,7 @@ lisp_addr_t get_network_address(
     return (network_address);
 }
 
-inline lisp_addr_t get_network_address_v4(
+static inline lisp_addr_t get_network_address_v4(
         lisp_addr_t address,
         int         prefix_length)
 {
@@ -1423,7 +1435,7 @@ inline lisp_addr_t get_network_address_v4(
     return network_address;
 }
 
-inline lisp_addr_t get_network_address_v6(
+static inline lisp_addr_t get_network_address_v6(
         lisp_addr_t address,
         int         prefix_length)
 {

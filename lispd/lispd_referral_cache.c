@@ -39,8 +39,8 @@
 
 lispd_pending_referral_cache_list  *pening_referrals_list    = NULL;
 
-inline lispd_referral_cache_list *new_referral_cache_list_elt(lispd_referral_cache_entry *referral_cache_entry);
-inline void free_lispd_referral_cache_list (lispd_referral_cache_list *referral_cache_list);
+static inline lispd_referral_cache_list *new_referral_cache_list_elt(lispd_referral_cache_entry *referral_cache_entry);
+static inline void free_lispd_referral_cache_list (lispd_referral_cache_list *referral_cache_list);
 
 
 /*
@@ -183,7 +183,7 @@ void remove_referral_cache_entry_from_parent_node(lispd_referral_cache_entry *re
     }
 }
 
-inline lispd_referral_cache_list *new_referral_cache_list_elt(lispd_referral_cache_entry *referral_cache_entry)
+static inline lispd_referral_cache_list *new_referral_cache_list_elt(lispd_referral_cache_entry *referral_cache_entry)
 {
     lispd_referral_cache_list       *referral_cache_list_elt                = NULL;
     if((referral_cache_list_elt = malloc(sizeof(lispd_referral_cache_list))) == NULL){
@@ -196,7 +196,7 @@ inline lispd_referral_cache_list *new_referral_cache_list_elt(lispd_referral_cac
     return (referral_cache_list_elt);
 }
 
-inline void free_lispd_referral_cache_list (lispd_referral_cache_list *referral_cache_list)
+static inline void free_lispd_referral_cache_list (lispd_referral_cache_list *referral_cache_list)
 {
     lispd_referral_cache_list *referral_list_elt        = NULL;
     lispd_referral_cache_list *aux_referral_list_elt    = NULL;
