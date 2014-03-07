@@ -1,8 +1,10 @@
 # This project is implemented in C
 language: c
 
-# Use only GCC to build (for now)
-compiler: gcc
+# Test build with both GCC and Clang
+compiler:
+  - gcc
+  - clang
 
 # Build using this command
 script: make
