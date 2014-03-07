@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/LISPmob/lispmob.png)](https://travis-ci.org/LISPmob/lispmob)
+
 Overview
 --------
 
