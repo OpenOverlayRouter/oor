@@ -1,16 +1,52 @@
-#
-#
-#       lispd example config file
-#
-#
-
-
 # General configuration
-#	debug: Debug levels [0..3]
-#	map-request-retries: Additional Map-Requests to send per map cache miss
+#        debug: Debug levels [0..3]
+#        map-request-retries: Additional Map-Requests to send per map cache miss
 
 debug                  = 0 
 map-request-retries    = 2
+# 
+# operating mode can be any of:
+# xTR, RTR, MS
+#
+operating-mode         = xTR
+
+################################################
+#
+# MS config
+#
+
+control-iface = <iface name>
+
+lisp-site {
+    eid-prefix            = <prefix>
+    iid                   = <int>
+    key-type              = <int>
+    key                   = <string>
+    accept-more-specifics = <bool>
+}
+
+###############################################
+
+#
+# RTR config
+#
+
+rtr-data-iface = <iface name>
+
+rtr-database-mapping {
+        eid-prefix         = <prefix>  
+	rloc {
+		address 	= <string>
+		priority        = <int>
+		weight          = <int>
+	}
+}
+
+
+###############################################
+#
+# xTR config
+#
 
 # RLOC Probing configuration
 #   rloc-probe-interval: interval at which periodic RLOC probes are sent
@@ -36,7 +72,7 @@ rloc-probing {
 #   - Only one Map Server and one Map Resolver
 
 nat-traversal {
-    nat_aware   = on
+    nat_aware   = off
     site_ID     = 0000000000000001                  #In doubt, keep the default value
     xTR_ID      = 00000000000000000000000000000001  #In doubt, keep the default value
 }
@@ -46,8 +82,7 @@ nat-traversal {
 # be sent to only one.
 #   address: IPv4 or IPv6 address of the map resolver  
 map-resolver        = {
-		address,
-		[address,..]
+	<ip>	
 }
 
 # Map-Registers are sent to this map-server
@@ -59,10 +94,10 @@ map-resolver        = {
 #   proxy-reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
 
 map-server {
-        address	    = IPv4 or IPv6 address
-        key-type    = 1
-        key	    = password
-	proxy-reply = on
+        address 	= <ip>
+        key-type   	= 1
+        key            	= lispmob
+        proxy-reply	= off
 }
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
@@ -72,11 +107,11 @@ map-server {
 #   priority [0-255]: Proxy-ETR with lower values are more preferable.
 #   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,
 #     the Weight indicates how to balance unicast traffic between them.
-proxy-etr {
-	address     = IPv4 or IPv6 address
-	priority    = 1
-	weight      = 100
-}
+#proxy-etr {
+#        address     = IPv4 or IPv6 address
+#        priority    = 1
+#        weight      = 100
+#}
 
 # IPv4 / IPv6 EID of the node.
 # One database-mapping structure is defined for each interface with RLOCs
@@ -90,20 +125,41 @@ proxy-etr {
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.
 
+	 #eid-prefix = fd00:4:1::1/128 # dst:fd00:101::1
 database-mapping {
-         eid-prefix 	= IPv4 or IPv6 address /mask length
-         interface  	= interface name
-         priority_v4	= 1					# Priority of IPv4 locator of the interface eth0 for this EID
-         weight_v4     	= 100				# Weight of IPv4 locator of the interface eth0 for this EID
-         priority_v6	= 1					# Priority of IPv6 locator of the interface eth0 for this EID
-         weight_v6     	= 100				# Weight of IPv6 locator of the interface eth0 for this EID
+         eid-prefix         = 10.100.100.1/24
+         interface          = eth1
+         priority_v4        = 1         # Priority of IPv4 locator of the interface eth0 for this EID
+         weight_v4          = 100       # Weight of IPv4 locator of the interface eth0 for this EID
+         priority_v6        = 1         # Priority of IPv6 locator of the interface eth0 for this EID
+         weight_v6          = 100       # Weight of IPv6 locator of the interface eth0 for this EID
 }
 
-# List of PITRs to SMR on handover
-#   address: IPv4 or IPv6 address of the Proxy-ITR
-proxy-itrs = {
-	address,
-	[address ...]
+explicit-locator-path {
+	elp-name = <string>
+	elp-node {
+		address = <prefix>
+		strict 	= <bool>
+		probe	= <bool>
+		lookup	= <bool>
+	}
+	elp-node {
+		address = <prefix>
+		strict 	= <bool>
+		probe	= <bool>
+		lookup 	= <bool
+	} 
+...
+}
+		
+
+database-mapping-new {
+        eid-prefix         = <prefix>  
+	rloc {
+		address 	= <string>
+		priority        = <int>
+		weight          = <int>
+	}
 }
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
@@ -112,29 +168,29 @@ proxy-itrs = {
 
 # LISP beta-network IPv4 PITRs
 #proxy-itrs = {
-#	69.31.31.98,		# eqx-ash-pxtr
-#	149.20.48.60,		# isc-pxtr
-#	198.6.255.37,		# asp-pxtr
-#	173.36.193.25,		# sjc-pxtr
-#	129.250.1.63,		# ntt-amer-pxtr
-#	217.8.98.33,		# intouch-pxtr-1
-#	217.8.98.35,		# intouch-pxtr-2
-#	193.162.145.46,		# tdc-pxtr
-#	158.38.1.92,		# uninett-pxtr
-#	203.181.249.172,	# apan-pxtr
-#	202.51.247.10		# sg-nus-pxtr
+#        69.31.31.98,                # eqx-ash-pxtr
+#        149.20.48.60,                # isc-pxtr
+#        198.6.255.37,                # asp-pxtr
+#        173.36.193.25,                # sjc-pxtr
+#        129.250.1.63,                # ntt-amer-pxtr
+#        217.8.98.33,                # intouch-pxtr-1
+#        217.8.98.35,                # intouch-pxtr-2
+#        193.162.145.46,                # tdc-pxtr
+#        158.38.1.92,                # uninett-pxtr
+#        203.181.249.172,        # apan-pxtr
+#        202.51.247.10                # sg-nus-pxtr
 #}
 
 # LISP beta-network IPv6 PITRs 
 
 #proxy-itrs = {
-#	2001:590::451f:1f62,		# eqx-ash-pxtr
-#	2001:4f8:3:d::60,		# isc-pxtr
-#	2001:418:4:1:deaf:bebe::10d, 	# asp-pxtr
-#	2001:418:0:1000::613, 		# ntt-amer-pxtr
-#	2001:200:e000:17::17,   	# intouch-pxtr-1
-#	2001:67C:21B4:108::b,    	# intouch-pxtr-2
-#	2001:6c8:41:100:0:2:1:c, 	# tdc-pxtr
-#	2001:700:0:52E::4, 		# uninett-pxtr
-#	2001:67C:21B4:107::b    	# apan-pxtr
+#        2001:590::451f:1f62,                # eqx-ash-pxtr
+#        2001:4f8:3:d::60,                # isc-pxtr
+#        2001:418:4:1:deaf:bebe::10d,         # asp-pxtr
+#        2001:418:0:1000::613,                 # ntt-amer-pxtr
+#        2001:200:e000:17::17,           # intouch-pxtr-1
+#        2001:67C:21B4:108::b,            # intouch-pxtr-2
+#        2001:6c8:41:100:0:2:1:c,         # tdc-pxtr
+#        2001:700:0:52E::4,                 # uninett-pxtr
+#        2001:67C:21B4:107::b            # apan-pxtr
 #}
