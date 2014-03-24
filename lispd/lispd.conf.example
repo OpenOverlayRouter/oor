@@ -185,26 +185,22 @@ proxy-etr {
 #}
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses.
-# Unless you know what you're doing, leave the following two blocks
+# Unless you know what you're doing, leave the following block
 # uncommented.
 
-# LISP beta-network IPv4 PITRs
+# LISP beta-network PITRs
 proxy-itrs = {
-        69.31.31.98,            # eqx-ash-pxtr
-        149.20.48.60,           # isc-pxtr
-        198.6.255.37,           # asp-pxtr
-        173.36.193.25,          # sjc-pxtr
-        129.250.1.63,           # ntt-amer-pxtr
-        217.8.98.33,            # intouch-pxtr-1
-        217.8.98.35,            # intouch-pxtr-2
-        193.162.145.46,         # tdc-pxtr
-        158.38.1.92,            # uninett-pxtr
-        203.181.249.172,        # apan-pxtr
-        202.51.247.10           # sg-nus-pxtr
-}
-
-# LISP beta-network IPv6 PITRs 
-proxy-itrs = {
+        69.31.31.98,                    # eqx-ash-pxtr
+        149.20.48.60,                   # isc-pxtr
+        198.6.255.37,                   # asp-pxtr
+        173.36.193.25,                  # sjc-pxtr
+        129.250.1.63,                   # ntt-amer-pxtr
+        217.8.98.33,                    # intouch-pxtr-1
+        217.8.98.35,                    # intouch-pxtr-2
+        193.162.145.46,                 # tdc-pxtr
+        158.38.1.92,                    # uninett-pxtr
+        203.181.249.172,                # apan-pxtr
+        202.51.247.10                   # sg-nus-pxtr
         2001:590::451f:1f62,            # eqx-ash-pxtr
         2001:4f8:3:d::60,               # isc-pxtr
         2001:418:4:1:deaf:bebe::10d,    # asp-pxtr
