@@ -523,7 +523,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     int                     probe_int               = 0;
     int                     probe_retries           = 0;
     int                     probe_retries_interval  = 0;
-    int                     ctr                     = 0;
 
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
@@ -766,7 +765,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     n = cfg_size(cfg, "database-mapping");
     for(i = 0; i < n; i++) {
-        ctr ++;
         cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
         if (add_database_mapping(cfg_getstr(dm, "eid-prefix"),
                 cfg_getint(dm, "iid"),
@@ -828,42 +826,9 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         }
     }
 
-    /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
-    if (nat_aware == TRUE){
-        if (ctr > 1){
-            lispd_log_msg(LISP_LOG_CRIT,"NAT aware on -> This version of LISPmob is limited to one EID prefix "
-                    "and one interface when NAT-T is enabled");
-            exit_cleanup();
-        }
-
-        if (map_servers->next != NULL || map_servers->address->afi != AF_INET){
-            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Server.");
-            exit_cleanup();
-        }
-
-        if (map_resolvers->next != NULL || map_resolvers->address->afi != AF_INET){
-            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Resolver.");
-            exit_cleanup();
-        }
-
-        if (rloc_probe_interval > 0){
-            rloc_probe_interval = 0;
-            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> disabling RLOC Probing");
-        }
+    if (validate_configuration() != GOOD){
+        return (BAD);
     }
-
-    /* Check number of EID prefixes */
-    if (router_mode == FALSE){
-        if (num_entries_in_db(get_local_db(AF_INET)) > 1){
-            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-            exit_cleanup();
-        }
-        if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
-            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-            exit_cleanup();
-        }
-    }
-
 
     if (debug_level == 1){
         lispd_log_msg (LISP_LOG_INFO, "Log level: Low debug");
@@ -888,9 +853,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     cfg_free(cfg);
 
-    err = validate_configuration();
-
-    return(err);
+    return(GOOD);
 }
 
 
@@ -1442,6 +1405,44 @@ int validate_configuration()
                 proxy_etrs->mapping,
                 &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
     }
+
+
+    /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
+    if (nat_aware == TRUE){
+        if ((num_entries_in_db(get_local_db(AF_INET)) + num_entries_in_db(get_local_db(AF_INET6))) > 1){
+            lispd_log_msg(LISP_LOG_CRIT,"NAT aware on -> This version of LISPmob is limited to one EID prefix "
+                    "and one interface when NAT-T is enabled");
+            result = BAD;
+        }
+
+        if (map_servers != NULL && (map_servers->next != NULL || map_servers->address->afi != AF_INET)){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Server.");
+            result = BAD;
+        }
+
+        if (map_resolvers != NULL && (map_resolvers->next != NULL || map_resolvers->address->afi != AF_INET)){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Resolver.");
+            result = BAD;
+        }
+
+        if (rloc_probe_interval > 0){
+            rloc_probe_interval = 0;
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> disabling RLOC Probing");
+        }
+    }
+
+    /* Check number of EID prefixes */
+    if (router_mode == FALSE){
+        if (num_entries_in_db(get_local_db(AF_INET)) > 1){
+            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+            result = BAD;
+        }
+        if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
+            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+            result = BAD;
+        }
+    }
+
 
     return (result);
 }
