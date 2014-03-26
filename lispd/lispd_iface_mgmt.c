@@ -190,14 +190,14 @@ void process_nl_add_address (struct nlmsghdr *nlh)
     rt_length = IFA_PAYLOAD (nlh);
     for (;rt_length && RTA_OK (rth, rt_length); rth = RTA_NEXT (rth,rt_length))
     {
-        if (rth->rta_type == IFA_ADDRESS){
-            if (ifa->ifa_family == AF_INET){
-                memcpy (&(new_addr.address),(struct in_addr *)RTA_DATA(rth),sizeof(struct in_addr));
-                new_addr.afi = AF_INET;
-            }else if (ifa->ifa_family == AF_INET6){
-                memcpy (&(new_addr.address),(struct in6_addr *)RTA_DATA(rth),sizeof(struct in6_addr));
-                new_addr.afi = AF_INET6;
-            }
+        if (ifa->ifa_family == AF_INET && rth->rta_type == IFA_LOCAL){
+            memcpy (&(new_addr.address),(struct in_addr *)RTA_DATA(rth),sizeof(struct in_addr));
+            new_addr.afi = AF_INET;
+            process_address_change (iface, new_addr);
+        }
+        if (ifa->ifa_family == AF_INET6 && rth->rta_type == IFA_ADDRESS){
+            memcpy (&(new_addr.address),(struct in6_addr *)RTA_DATA(rth),sizeof(struct in6_addr));
+            new_addr.afi = AF_INET6;
             process_address_change (iface, new_addr);
         }
     }
@@ -402,14 +402,16 @@ void process_nl_del_address (struct nlmsghdr *nlh)
     rt_length = IFA_PAYLOAD (nlh);
     for (;rt_length && RTA_OK (rth, rt_length); rth = RTA_NEXT (rth,rt_length))
     {
-        if (rth->rta_type == IFA_ADDRESS){
-            if (ifa->ifa_family == AF_INET){
-                memcpy (&(new_addr.address),(struct in_addr *)RTA_DATA(rth),sizeof(struct in_addr));
-                new_addr.afi = AF_INET;
-            }else if (ifa->ifa_family == AF_INET6){
-                memcpy (&(new_addr.address),(struct in6_addr *)RTA_DATA(rth),sizeof(struct in6_addr));
-                new_addr.afi = AF_INET6;
-            }
+        if (ifa->ifa_family == AF_INET && rth->rta_type == IFA_LOCAL){
+            memcpy (&(new_addr.address),(struct in_addr *)RTA_DATA(rth),sizeof(struct in_addr));
+            new_addr.afi = AF_INET;
+            process_address_change (iface, new_addr);
+            break;
+        }
+        if (ifa->ifa_family == AF_INET6 && rth->rta_type == IFA_ADDRESS){
+            memcpy (&(new_addr.address),(struct in6_addr *)RTA_DATA(rth),sizeof(struct in6_addr));
+            new_addr.afi = AF_INET6;
+            process_address_change (iface, new_addr);
             break;
         }
     }
