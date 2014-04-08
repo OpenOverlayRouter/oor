@@ -32,12 +32,17 @@
 #define LISP_MESSAGE_FIELDS_H_
 
 #include <defs.h>
-#include <llist/generic_list.h>
+#include <generic_list.h>
+
+
+/*
+ * ADDRESS FIELD
+ */
+
 
 /*
  * LISP AFI codes
  */
-
 
 typedef enum {
     LISP_AFI_NO_ADDR,
@@ -46,19 +51,262 @@ typedef enum {
     LISP_AFI_LCAF = 16387
 } lisp_afi_t;
 
-
 /*
- * address
+ * LCAF types
  */
 
-typedef struct _generic_lcaf_hdr {
+typedef enum {
+    LCAF_NULL = 0,
+    LCAF_AFI_LIST,
+    LCAF_IID,
+    LCAF_ASN,
+    LCAF_APP_DATA,
+    LCAF_GEO = 5,
+    LCAF_OKEY,
+    LCAF_NATT,
+    LCAF_NONCE_LOC,
+    LCAF_MCAST_INFO,
+    LCAF_EXPL_LOC_PATH = 10,
+    LCAF_SEC_KEY,
+    LCAF_TUPLE,
+    LCAF_RLE,
+    LCAF_DATA_MODEL,
+    LCAF_KEY_VALUE
+} lcaf_type;
+
+/*
+ * LISP Canonical Address Format
+ *
+ *        0                   1                   2                   3
+ *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |           AFI = 16387         |    Rsvd1     |     Flags      |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *       |    Type       |     Rsvd2     |            Length             |
+ *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+
+typedef struct _lcaf_hdr_t {
     uint16_t    afi;
     uint8_t     rsvd1;
     uint8_t     flags;
     uint8_t     type;
     uint8_t     rsvd2;
     uint16_t    len;
-} __attribute__ ((__packed__)) generic_lcaf_hdr;
+} __attribute__ ((__packed__)) lcaf_hdr_t;
+
+/*
+ * AFI-list LCAF type
+ */
+
+typedef struct _lcaf_afi_list_hdr_t {
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+} __attribute__ ((__packed__)) lcaf_afi_list_hdr_t;
+
+
+/* Instance ID
+ * Only the low order 24 bits should be used
+ * Using signed integer, negative value means "don't send LCAF/IID field"
+ * resulting in a non-explicit default IID value of 0
+ */
+
+/*
+ * Instance ID
+ *
+ *         0                   1                   2                   3
+ *         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |           AFI = 16387         |    Rsvd1      |    Flags      |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |   Type = 2    | IID mask-len  |             4 + n             |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |                         Instance ID                           |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *        |              AFI = x          |         Address  ...          |
+ *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct lispd_pkt_lcaf_iid_t_ {
+    uint32_t    iid;
+    uint16_t    afi;
+} __attribute__ ((__packed__)) lispd_pkt_lcaf_iid_t;
+
+typedef struct _lcaf_iid_hdr_t{
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     mlen;
+    uint16_t    len;
+    uint32_t    iid;
+} __attribute__ ((__packed__)) lcaf_iid_hdr_t;
+
+
+
+/* Geo Coordinate LISP Canonical Address Format:
+ *
+ *      0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 5    |     Rsvd2     |            12 + n             |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |N|     Latitude Degrees        |    Minutes    |    Seconds    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |E|     Longitude Degrees       |    Minutes    |    Seconds    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                            Altitude                           |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |         Address  ...          |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct _lcaf_geo_hdr_t{
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+#ifdef LITTLE_ENDIANS
+    uint16_t    latitude_deg:15;
+    uint16_t    latitude_dir:1;
+#else
+    uint16_t    latitude_dir:1;
+    uint16_t    latitude_deg:15;
+#endif
+    uint8_t     latitude_min;
+    uint8_t     latitude_sec;
+#ifdef LITTLE_ENDIANS
+    uint16_t    longitude_deg:15;
+    uint16_t    longitude_dir:1;
+#else
+    uint16_t    longitude_dir:1;
+    uint16_t    longitude_deg:15;
+#endif
+    uint8_t     longitude_min;
+    uint8_t     longitude_sec;
+    uint32_t    altitude;
+} __attribute__ ((__packed__)) lcaf_geo_hdr_t;
+
+
+/*   Multicast Info Canonical Address Format:
+ *
+ *    0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 9    |  Rsvd2  |R|L|J|             8 + n             |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Instance-ID                           |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |            Reserved           | Source MaskLen| Group MaskLen |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |   Source/Subnet Address  ...  |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |       Group Address  ...      |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct _lcaf_mcinfo_hdr_t{
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+#ifdef LITTLE_ENDIANS
+    uint8_t     J:1;
+    uint8_t     L:1;
+    uint8_t     R:1;
+    uint8_t     rsvd2:5;
+#else
+    uint8_t     rsvd2:5;
+    uint8_t     R:1;
+    uint8_t     L:1;
+    uint8_t     J:1;
+#endif
+    uint16_t    len;
+    uint32_t    iid;
+    uint16_t    reserved;
+    uint8_t     src_mlen;
+    uint8_t     grp_mlen;
+} __attribute__ ((__packed__)) lcaf_mcinfo_hdr_t;
+
+
+/* Explicit Locator Path (ELP)
+ *
+ *      0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 10   |     Rsvd2     |               n               |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           Rsvd3         |L|P|S|              AFI = x          |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Reencap Hop 1  ...                    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           Rsvd3         |L|P|S|              AFI = x          |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                         Reencap Hop k  ...                    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+
+
+typedef struct _elp_node_flags {
+    uint8_t rsvd1;
+#ifdef LITTLE_ENDIANS
+    uint8_t S:1;
+    uint8_t P:1;
+    uint8_t L:1;
+    uint8_t rsvd2:5;
+#else
+    uint8_t rsvd2:5;
+    uint8_t L:1;
+    uint8_t P:1;
+    uint8_t S:1;
+#endif
+} elp_node_flags;
+
+
+
+/* Replication List Entry Address Format:
+*
+*   0                   1                   2                   3
+*   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |           AFI = 16387         |     Rsvd1     |     Flags     |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |   Type = 13   |    Rsvd2      |             4 + n             |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              Rsvd3            |     Rsvd4     |  Level Value  |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              AFI = x          |           RTR/ETR #1 ...      |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              Rsvd3            |     Rsvd4     |  Level Value  |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*  |              AFI = x          |           RTR/ETR  #n ...     |
+*  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+
+typedef struct _rle_node_hdr {
+    uint8_t rsvd[3];
+    uint8_t level;
+} rle_node_hdr_t;
+
+
+
+typedef struct _address_hdr_t {
+    uint16_t afi;
+} address_hdr_t;
 
 typedef struct _address_field {
     uint16_t                len;
@@ -78,12 +326,12 @@ static inline uint8_t *address_field_data(address_field *addr) {
     return(addr->data);
 }
 
-static inline uint8_t address_field_lcaf_type(address_field *addr) {
-    return(((generic_lcaf_hdr *)address_field_data(addr))->type);
+static inline uint8_t address_field_lcaf_type(address_hdr_t *addr) {
+    return(((lcaf_hdr_t *)addr)->type);
 }
 
-static inline uint16_t address_field_afi(address_field *addr) {
-    return(ntohs(*(uint16_t *)addr->data));
+static inline uint16_t address_field_afi(address_hdr_t *addr) {
+    return(ntohs(*(uint16_t *)addr->afi));
 }
 
 static inline void address_field_set_len(address_field *addr, int len) {
@@ -173,8 +421,8 @@ static inline void locator_field_update_len(locator_field *locator) {
     locator->len = sizeof(locator_field_hdr)+address_field_len(locator->address);
 }
 
-
-
+#define LOC_PROBED(h) ((locator_hdr_t *)(h))->probed
+#define LOC_ADDR(h) ((uint8_t *)(h)  + sizeof(locator_hdr_t))
 
 /*
  * mapping record
@@ -276,6 +524,22 @@ static inline void mapping_record_set_data(mapping_record *record, uint8_t *data
     record->data = data;
 }
 
+static void mapping_record_init_hdr(mapping_record_hdr_t *h) {
+    h->ttl                  = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
+    h->locator_count        = 1;
+    h->eid_prefix_length    = 0;
+    h->action               = 0;
+    h->authoritative        = 1;
+    h->version_hi           = 0;
+    h->version_low          = 0;
+
+    h->reserved1 = 0;
+    h->reserved2 = 0;
+    h->reserved3 = 0;
+}
+
+#define MAP_REC_EID_PLEN(h) ((mapping_record_hdr_t *)(h))->eid_prefix_length
+#define MAP_REC_LOC_COUNT(h) ((mapping_record_hdr_t *)(h))->locator_count
 
 
 /*
@@ -294,7 +558,7 @@ static inline void mapping_record_set_data(mapping_record *record, uint8_t *data
 typedef struct _eid_prefix_record_hdr {
     uint8_t reserved;
     uint8_t eid_prefix_length;
-} __attribute__ ((__packed__)) eid_prefix_record_hdr;
+} __attribute__ ((__packed__)) eid_record_hdr_t;
 
 typedef struct _eid_prefix_record {
     uint8_t                     *data;
@@ -309,8 +573,8 @@ void eid_prefix_record_list_del(eid_prefix_record *record);
 
 
 
-static inline eid_prefix_record_hdr *eid_prefix_record_get_hdr(eid_prefix_record *record) {
-    return((eid_prefix_record_hdr*)record->data);
+static inline eid_record_hdr_t *eid_prefix_record_get_hdr(eid_prefix_record *record) {
+    return((eid_record_hdr_t*)record->data);
 }
 
 static inline uint8_t eid_prefix_record_get_mask_len(eid_prefix_record *record) {

@@ -41,9 +41,9 @@
 
 
 
-extern  lispd_addr_list_t       *map_resolvers;
-extern  lispd_addr_list_t       *proxy_itrs;
-extern  lispd_map_cache_entry   *proxy_etrs;
+extern  lisp_addr_list_t       *map_resolvers;
+extern  lisp_addr_list_t       *proxy_itrs;
+extern  map_cache_entry_t   *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
 extern  char                    *config_file;
 extern  char                    msg[];
@@ -71,7 +71,7 @@ extern  int                     timers_fd;
 extern  struct sockaddr_nl      dst_addr;
 extern  struct sockaddr_nl      src_addr;
 extern  nlsock_handle           nlh;
-extern lispd_iface_list_elt     *head_interface_list;
+extern iface_list_elt     *head_interface_list;
 extern lispd_iface_elt          *default_ctrl_iface_v4 ;
 extern lispd_iface_elt          *default_ctrl_iface_v6;
 extern lispd_iface_elt          *default_out_iface_v4;

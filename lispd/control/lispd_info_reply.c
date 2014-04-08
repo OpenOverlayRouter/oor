@@ -114,14 +114,14 @@ int process_info_reply_msg(
             &info_reply_hdr_len);
 
     if (err != GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"process_info_reply_msg: Couldn't process Info Reply message");
+        lmlog(LISP_LOG_DEBUG_1,"process_info_reply_msg: Couldn't process Info Reply message");
         return (BAD);
     }
     ptr = CO(ptr,info_reply_hdr_len);
 
     lcaf_afi = (uint16_t *)ptr;
     if ( ntohs(*lcaf_afi) != LISP_AFI_LCAF){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"process_info_reply_msg: Malformed packet");
+        lmlog(LISP_LOG_DEBUG_1,"process_info_reply_msg: Malformed packet");
         return (BAD);
     }
 
@@ -137,7 +137,7 @@ int process_info_reply_msg(
             &lcaf_addr_len);
 
     if (err == BAD) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Error extracting packet data");
+        lmlog(LISP_LOG_DEBUG_2, "process_info_reply_msg: Error extracting packet data");
         return (BAD);
     }
 
@@ -158,7 +158,7 @@ int process_info_reply_msg(
             rtrs_list_str_size = rtrs_list_str_size + strlen(rtrs_list_str);
             aux_rtr_locators_list = aux_rtr_locators_list->next;
         }
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply message data->"
+        lmlog(LISP_LOG_DEBUG_2, "Info-Reply message data->"
                 "Nonce: %s , KeyID: %hu ,TTL: %u , EID-prefix: %s/%hhu , "
                 "MS UDP Port Number: %hu , ETR UDP Port Number: %hu , Global ETR RLOC Address: %s , "
                 "MS RLOC Address: %s , Private ETR RLOC Address: %s, RTR RLOC Compatible list: %s",
@@ -171,11 +171,11 @@ int process_info_reply_msg(
     /* Checking the nonce */
 
     if (check_nonce(nat_ir_nonce,nonce) == GOOD ){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Correct nonce field checking ");
+        lmlog(LISP_LOG_DEBUG_2, "Info-Reply: Correct nonce field checking ");
         free(nat_ir_nonce);
         nat_ir_nonce = NULL;
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Info-Reply: Error checking nonce field. No Info Request generated with nonce: %s",
+        lmlog(LISP_LOG_DEBUG_1, "Info-Reply: Error checking nonce field. No Info Request generated with nonce: %s",
                 nonce_to_char (nonce));
         return (BAD);
     }
@@ -185,10 +185,10 @@ int process_info_reply_msg(
     pckt_len = info_reply_hdr_len + lcaf_addr_len;
 
     if(BAD == check_auth_field(key_id, map_servers->key, (void *) packet, pckt_len, auth_data_pos)){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Error checking auth data field");
+        lmlog(LISP_LOG_DEBUG_2, "Info-Reply: Error checking auth data field");
         return(BAD);
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Correct auth data field checking");
+        lmlog(LISP_LOG_DEBUG_2, "Info-Reply: Correct auth data field checking");
     }
 
 	
@@ -200,34 +200,34 @@ int process_info_reply_msg(
     switch (compare_lisp_addr_t(&global_etr_rloc, &local_rloc)) {
     case 0:
         is_behind_nat = FALSE;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: MN is not behind NAT");
+        lmlog(LISP_LOG_DEBUG_2, "NAT Traversal: MN is not behind NAT");
         break;
     case 1:
     case 2:
         is_behind_nat = TRUE;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: MN is behind NAT");
+        lmlog(LISP_LOG_DEBUG_2, "NAT Traversal: MN is behind NAT");
         break;
     case -1:
         is_behind_nat = UNKNOWN;
-        lispd_log_msg(LISP_LOG_DEBUG_2, "NAT Traversal: Unknown state");
+        lmlog(LISP_LOG_DEBUG_2, "NAT Traversal: Unknown state");
         break;
     }
 
     if (is_behind_nat == TRUE){
 
         if (rtr_locators_list == NULL){
-            lispd_log_msg(LISP_LOG_WARNING, "process_info_reply_msg: The interface with IP address %s is behind NAT"
+            lmlog(LISP_LOG_WARNING, "process_info_reply_msg: The interface with IP address %s is behind NAT"
                     " but there is no RTR compatible with local AFI", get_char_from_lisp_addr_t(local_rloc));
         }
 
         mapping = local_map_db_lookup_eid_exact(&eid_prefix);
         if (mapping == NULL){
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
+            lmlog(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
             return (BAD);
         }
         locator = get_locator_from_mapping(mapping, &local_rloc);
         if (locator == NULL){
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply received in the wrong locator");
+            lmlog(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply received in the wrong locator");
             return (BAD);
         }
 
@@ -256,7 +256,7 @@ int process_info_reply_msg(
             info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
         }
         start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
+        lmlog(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
     }else{
         stop_timer(info_reply_ttl_timer);
         info_reply_ttl_timer = NULL;

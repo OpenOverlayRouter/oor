@@ -31,8 +31,9 @@
 #ifndef LISPD_MAPPING_H_
 #define LISPD_MAPPING_H_
 
-#include "lispd_locator.h"
-#include "lispd_address.h"
+//#include "lispd_locator.h"
+//#include "lispd_address.h"
+#include "lispd_types.h"
 #include "lispd_remdb.h"
 
 
@@ -53,10 +54,10 @@ typedef void (*extended_info_del_fct)(void *);
 typedef struct lispd_mapping_elt_ {
     lisp_addr_t                     eid_prefix;
     uint8_t                         eid_prefix_length;
-    lisp_iid_t                      iid;
+    uint32_t                        iid;
     uint16_t                        locator_count;
-    lispd_locators_list             *head_v4_locators_list;
-    lispd_locators_list             *head_v6_locators_list;
+    locators_list_t             *head_v4_locators_list;
+    locators_list_t             *head_v6_locators_list;
     mapping_type                    type;
     void                            *extended_info;
     extended_info_del_fct           extended_info_del;
@@ -87,7 +88,7 @@ typedef struct balancing_locators_vecs_ {
 
 typedef struct lcl_mapping_extended_info_ {
     balancing_locators_vecs               outgoing_balancing_locators_vecs;
-    lispd_locators_list                   *head_not_init_locators_list; //List of locators not initialized: interface without ip
+    locators_list_t                   *head_not_init_locators_list; //List of locators not initialized: interface without ip
 }lcl_mapping_extended_info;
 
 /*
@@ -196,7 +197,7 @@ inline void                 mapping_set_extended_info(mapping_t *mapping, void *
 inline void                 mapping_set_eid_addr(mapping_t *mapping, lisp_addr_t *addr);
 inline void                 mapping_set_eid_plen(mapping_t *mapping, uint8_t plen);
 inline lisp_addr_t          *mapping_eid(mapping_t *mapping);
-int                         mapping_add_locators(mapping_t *mapping, lispd_locators_list *locators);
+int                         mapping_add_locators(mapping_t *mapping, locators_list_t *locators);
 inline uint16_t             mapping_get_locator_count(mapping_t *mapping);
 int                         mapping_get_size_in_record(mapping_t *mapping);
 
@@ -206,7 +207,7 @@ int                         mapping_get_size_in_record(mapping_t *mapping);
 
 mapping_t           *mapping_init_from_record(mapping_record *record);
 void                mapping_write_to_record(mapping_record *record, mapping_t *mapping);
-void                mapping_update_locators(mapping_t *mapping, lispd_locators_list *locv4, lispd_locators_list *locv6, int nb_locators);
+void                mapping_update_locators(mapping_t *mapping, locators_list_t *locv4, locators_list_t *locv6, int nb_locators);
 int                 mapping_compute_balancing_vectors(mapping_t *mapping);
 void                mapping_del(mapping_t *mapping);
 void                mapping_extended_info_del(mapping_t *mapping);

@@ -50,22 +50,22 @@ void init_smr(
         timer *timer_elt,
         void  *arg)
 {
-    lispd_iface_list_elt        *iface_list         = NULL;
-    lispd_iface_mappings_list   *mappings_list      = NULL;
-    lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
+    iface_list_elt        *iface_list         = NULL;
+    iface_mappings_list   *mappings_list      = NULL;
+    locators_list_t         *locators_lists[2]  = {NULL,NULL};
     mapping_t           *mapping            = NULL;
     uint64_t                    nonce               = 0;
-    lispd_map_cache_entry       *map_cache_entry    = NULL;
-    lispd_locators_list         *locator_iterator   = NULL;
+    map_cache_entry_t       *map_cache_entry    = NULL;
+    locators_list_t         *locator_iterator   = NULL;
     locator_t           *locator            = NULL;
     mapping_t           **mappings_to_smr   = NULL;
-    lispd_addr_list_t           *pitr_elt           = NULL;
+    lisp_addr_list_t           *pitr_elt           = NULL;
     lisp_addr_t                 *eid                = NULL;
     int                         mappings_ctr        = 0;
     int                         ctr=0,ctr1=0;
 
 
-    lispd_log_msg(LISP_LOG_DEBUG_2,"*** Init SMR notification ***");
+    lmlog(DBG_2,"*** Init SMR notification ***");
 
     /*
      * Check which mappings should be SMRed and put in a list without duplicate elements
@@ -74,7 +74,7 @@ void init_smr(
     iface_list = get_head_interface_list();
 
     if ((mappings_to_smr = (mapping_t **)malloc(total_mappings*sizeof(mapping_t *))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "init_smr: Unable to allocate memory for lispd_mapping_elt **: %s", strerror(errno));
+        lmlog(LWRN, "init_smr: Unable to allocate memory for lispd_mapping_elt **: %s", strerror(errno));
         return;
     }
     memset (mappings_to_smr,0,total_mappings*sizeof(mapping_t *));
@@ -122,17 +122,17 @@ void init_smr(
             map_register_all_eids();
         }
 
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s",
+        lmlog(DBG_1, "Start SMR for local EID %s",
                 lisp_addr_to_char(mapping_eid(mappings_to_smr[ctr])));
 
         /* For each map cache entry with same afi as local EID mapping */
 
         eid = mapping_eid(mappings_to_smr[ctr]);
-        if (lisp_addr_get_afi(eid) == LM_AFI_IP ) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "init_smr: SMR request for %s. Shouldn't receive SMR for IP in mapping?!",
+        if (lisp_addr_afi(eid) == LM_AFI_IP ) {
+            lmlog(DBG_3, "init_smr: SMR request for %s. Shouldn't receive SMR for IP in mapping?!",
                     lisp_addr_to_char(eid));
-        } else if (lisp_addr_get_afi(eid) != LM_AFI_IPPREF) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "init_smr: SMR request for %s. SMR supported only for IP-prefixes for now!",
+        } else if (lisp_addr_afi(eid) != LM_AFI_IPPREF) {
+            lmlog(DBG_3, "init_smr: SMR request for %s. SMR supported only for IP-prefixes for now!",
                     lisp_addr_to_char(eid));
             continue;
         }
@@ -158,7 +158,7 @@ void init_smr(
                         locator = locator_iterator->locator;
                         if (build_and_send_map_request_msg(map_cache_entry->mapping,
                                 eid, locator->locator_addr,0,0,1,0,NULL, &nonce)==GOOD){
-                            lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s from EID %s",
+                            lmlog(DBG_1, "  SMR'ing RLOC %s from EID %s",
                                     lisp_addr_to_char(locator->locator_addr),
                                     lisp_addr_to_char(eid));
                         }
@@ -175,11 +175,11 @@ void init_smr(
         while (pitr_elt) {
             if (build_and_send_map_request_msg(mappings_to_smr[ctr],
                     mapping_eid(mappings_to_smr[ctr]),pitr_elt->address,0,0,1,0,NULL, &nonce)==GOOD){
-                lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s",
+                lmlog(DBG_1, "  SMR'ing Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
                         lisp_addr_to_char(mapping_eid(mappings_to_smr[ctr])));
             }else {
-                lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s",
+                lmlog(DBG_1, "  Coudn't SMR Proxy ITR %s for EID %s",
                         lisp_addr_to_char(pitr_elt->address),
                         lisp_addr_to_char(mapping_eid(mappings_to_smr[ctr])));
             }
@@ -189,51 +189,58 @@ void init_smr(
     }
 
     free (mappings_to_smr);
-    lispd_log_msg(LISP_LOG_DEBUG_2,"*** Finish SMR notification ***");
+    lmlog(DBG_2,"*** Finish SMR notification ***");
 }
 
+static int
+send_smr_invoked_map_request(map_cache_entry_t *mce) {
+    struct lbuf *mr;
+    void *mr_hdr;
+    udpsock_t ssock;
+    nonces_list *nonces;
+    nonces = mcache_entry_nonces_list(mce);
 
-int solicit_map_request_reply(
-        timer *timer,
-        void *arg)
+    mr = lisp_msg_create(LISP_MAP_REQUEST);
+    lisp_msg_put_mapping(mr, mce->mapping, NULL);
+
+    mr_hdr = lisp_msg_hdr(mr);
+    MREQ_SMR_INVOKED(mr) = 1;
+    MREQ_NONCE(mr) = nonces->nonce[nonces->retransmits];
+
+    return(send_map_request_to_mr(mr, ssock));
+}
+
+int smr_reply_cb(timer *t, void *arg)
 {
-    lispd_map_cache_entry *map_cache_entry = (lispd_map_cache_entry *)arg;
+    map_cache_entry_t *mce = (map_cache_entry_t *)arg;
     lisp_addr_t *dst_rloc = NULL;
+    nonces_list *nonces;
+    lisp_addr_t *eid;
 
-    if (map_cache_entry->nonces == NULL){
-        map_cache_entry->nonces = new_nonces_list();
-        if (map_cache_entry->nonces==NULL){
-            lispd_log_msg(LISP_LOG_ERR,"Send_map_request_miss: Coudn't allocate memory for nonces");
-            return (BAD);
-        }
+    eid = mapping_eid(mce->mapping);
+
+    /* Sanity Check */
+    nonces = mcache_entry_nonces_list(mce);
+    if (!nonces) {
+        lmlog(LWRN, "SMR: no nonce list for entry %s. Aborting ...",
+                lisp_addr_to_char(eid));
+        return(BAD);
     }
-    if (map_cache_entry->nonces->retransmits - 1 < LISPD_MAX_SMR_RETRANSMIT ){
-        if (map_cache_entry->nonces->retransmits > 0){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"Retransmiting Map Request SMR Invoked for EID: %s (%d retries)",
-                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
-                    map_cache_entry->nonces->retransmits);
-        }
-        dst_rloc = get_map_resolver();
-        if(dst_rloc == NULL ||(build_and_send_map_request_msg(
-                map_cache_entry->mapping, NULL, dst_rloc, 1, 0, 0, 1, NULL,
-                &(map_cache_entry->nonces->nonce[map_cache_entry->nonces->retransmits])))!=GOOD) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "solicit_map_request_reply: couldn't build/send SMR triggered Map-Request");
-        }
-        map_cache_entry->nonces->retransmits ++;
-        /* Reprograming timer*/
-        if (map_cache_entry->smr_inv_timer == NULL){
-            map_cache_entry->smr_inv_timer = create_timer (SMR_INV_RETRY_TIMER);
-        }
-        start_timer(map_cache_entry->smr_inv_timer, LISPD_INITIAL_SMR_TIMEOUT,
-                (timer_callback)solicit_map_request_reply, (void *)map_cache_entry);
-    }else{
-        free(map_cache_entry->nonces);
-        map_cache_entry->nonces = NULL;
-        free(map_cache_entry->smr_inv_timer);
-        map_cache_entry->smr_inv_timer = NULL;
-        lispd_log_msg(LISP_LOG_DEBUG_1,"SMR process: No Map Reply fot EID %s/%d. Ignoring solicit map request ...",
-                get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
-                map_cache_entry->mapping->eid_prefix_length);
+
+    if (nonces->retransmits - 1 < LISPD_MAX_SMR_RETRANSMIT) {
+        lmlog(DBG_1,"SMR: Map-Request for EID: %s (%d retries)",
+                lisp_addr_to_char(eid), nonces->retransmits);
+
+        send_smr_invoked_map_request(mce);
+        nonces->retransmits ++;
+
+        start_timer(t, LISPD_INITIAL_SMR_TIMEOUT,
+                (timer_callback)smr_reply_cb, (void *)mce);
+    } else {
+        free(nonces);
+        free(mce->smr_inv_timer);
+        lmlog(DBG_1,"SMR: No Map Reply for EID %s. Stopping ...",
+                lisp_addr_to_char(eid));
     }
     return (GOOD);
 }

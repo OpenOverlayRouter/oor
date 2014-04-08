@@ -35,12 +35,9 @@
 #include <lisp_messages.h>
 
 
-uint16_t ip_checksum(
-    uint16_t *buffer,
-    int      size)
-{
+uint16_t ip_checksum(uint16_t *buffer, int size) {
     uint32_t cksum = 0;
-    
+
     while (size > 1) {
         cksum += *buffer++;
         size -= sizeof(uint16_t);
@@ -50,10 +47,10 @@ uint16_t ip_checksum(
         cksum += *(uint8_t *) buffer;
     }
 
-    cksum  = (cksum >> 16) + (cksum & 0xffff);
+    cksum = (cksum >> 16) + (cksum & 0xffff);
     cksum += (cksum >> 16);
-    
-    return ((uint16_t)(~cksum));
+
+    return ((uint16_t) (~cksum));
 }
 
 
@@ -186,7 +183,7 @@ uint16_t udp_checksum (
     case AF_INET6:
         return(udp_ipv6_checksum(iphdr, udph, udp_len));
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "udp_checksum: Unknown AFI");
+        lmlog(LISP_LOG_DEBUG_2, "udp_checksum: Unknown AFI");
         return(-1);
     }
 }
@@ -231,7 +228,7 @@ int compute_sha1_hmac(char *key,
               pckt_len,
               (uchar *) auth_data_pos,
               &md_len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "HMAC failed");
+        lmlog(LISP_LOG_DEBUG_2, "HMAC failed");
 
         return (BAD);
     }
@@ -285,7 +282,7 @@ int check_sha1_hmac(char *key,
 
     auth_data_copy = (uint8_t *) malloc(auth_data_len*sizeof(uint8_t));
     if (auth_data_copy == NULL) {
-        lispd_log_msg(LISP_LOG_ERR, "check_sha1_hmac: malloc() failed");
+        lmlog(LISP_LOG_ERR, "check_sha1_hmac: malloc() failed");
         return(BAD);
     }
 
@@ -300,7 +297,7 @@ int check_sha1_hmac(char *key,
               pckt_len,
               (uchar *) auth_data_pos,
               &md_len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "SHA1 HMAC failed");
+        lmlog(LISP_LOG_DEBUG_2, "SHA1 HMAC failed");
         free(auth_data_copy);
         return(BAD);
     }

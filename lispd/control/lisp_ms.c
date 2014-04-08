@@ -34,19 +34,19 @@
 
 /* for testing, should move them out */
 #include <lispd_lib.h>
-#include <lispd_pkt_lib.h>
+#include <packets.h>
 #include <lispd_sockets.h>
 
 void ms_ctrl_start(lisp_ctrl_device *dev) {
 //    lisp_ms *ms = NULL;
 //    ms = (lisp_ms *)dev;
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
+    lmlog(LISP_LOG_DEBUG_1, "Starting Map-Server ...");
 }
 
 void ms_ctrl_delete(lisp_ctrl_device *dev) {
     lisp_ms *ms;
     ms = (lisp_ms *)dev;
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Freeing Map-Server ...");
+    lmlog(LISP_LOG_DEBUG_1, "Freeing Map-Server ...");
     mdb_del(ms->lisp_sites_db, (mdb_del_fct)mapping_del);
     mdb_del(ms->registered_sites_db, (mdb_del_fct)lisp_site_prefix_del);
 }
@@ -66,17 +66,17 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
     ms = (lisp_ms *)dev;
 
     if (mreq_msg_get_hdr(mreq)->rloc_probe) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Received LISP Map-Request message with Probe bit set. Discarding!");
+        lmlog(LISP_LOG_DEBUG_3, "Map-Server: Received LISP Map-Request message with Probe bit set. Discarding!");
         return(BAD);
     }
 
     if (mreq_msg_get_hdr(mreq)->solicit_map_request) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Received LISP Map-Request message with SMR bit set. Discarding!");
+        lmlog(LISP_LOG_DEBUG_3, "Map-Server: Received LISP Map-Request message with SMR bit set. Discarding!");
         return(BAD);
     }
 
     if (!(src_eid = lisp_addr_init_from_field(mreq_msg_get_src_eid(mreq)))) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Couldn't read SRC EID. Discarding!");
+        lmlog(LISP_LOG_DEBUG_3, "Map-Server: Couldn't read SRC EID. Discarding!");
         return(BAD);
     }
 
@@ -84,14 +84,14 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
     itrs = mreq_msg_get_itr_rlocs(mreq);
     glist_for_each_entry(it, itrs) {
         /* XXX: support only for IP RLOCs */
-        if (ip_iana_afi_to_sock_afi(address_field_afi(glist_entry_data(it))) == lisp_addr_ip_get_afi(local_rloc)) {
+        if (ip_iana_afi_to_sock_afi(address_field_afi(glist_entry_data(it))) == lisp_addr_ip_afi(local_rloc)) {
             remote_rloc = lisp_addr_init_from_field(glist_entry_data(it));
             break;
         }
     }
 
     if (!remote_rloc){
-        lispd_log_msg(LISP_LOG_DEBUG_3,"Map-Server: No supported AFI in the list of ITR-RLOCS");
+        lmlog(LISP_LOG_DEBUG_3,"Map-Server: No supported AFI in the list of ITR-RLOCS");
         goto err;
     }
 
@@ -105,26 +105,26 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
     eids = mreq_msg_get_eids(mreq);
     glist_for_each_entry(it, eids) {
         if (!(dst_eid = lisp_addr_init_from_field(eid_prefix_record_get_eid(glist_entry_data(it))))) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Couldn't read DST EID. Discarding!");
+            lmlog(LISP_LOG_DEBUG_3, "Map-Server: Couldn't read DST EID. Discarding!");
             goto err;
         }
 
         /* Save prefix length only if the entry is an IP */
-        if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)
+        if (lisp_addr_afi(dst_eid) == LM_AFI_IP)
             lisp_addr_set_plen(dst_eid, eid_prefix_record_get_hdr(glist_entry_data(it))->eid_prefix_length);
 
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: received Map-Request from EID %s for EID %s",
+        lmlog(LISP_LOG_DEBUG_1, "Map-Server: received Map-Request from EID %s for EID %s",
                 lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
 
         /* Check the existence of the requested EID */
         if (!(mapping = mdb_lookup_entry(ms->registered_sites_db, dst_eid))){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Server: the requested EID %s is not registered",
+            lmlog(LISP_LOG_DEBUG_1,"Map-Server: the requested EID %s is not registered",
                     lisp_addr_to_char(dst_eid));
             lisp_addr_del(dst_eid);
             continue;
         }
 
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: found mapping with EID %s", lisp_addr_to_char(mapping_eid(mapping)));
+        lmlog(LISP_LOG_DEBUG_3, "Map-Server: found mapping with EID %s", lisp_addr_to_char(mapping_eid(mapping)));
         err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_msg_get_hdr(mreq)->nonce, opts);
 
         lisp_addr_del(dst_eid);
@@ -156,15 +156,15 @@ int push_ip_udp_hdr(
     int             udp_hdr_and_payload_len     = 0;
     uint16_t        udpsum                      = 0;
 
-    if (lisp_addr_ip_get_afi(addr_from) != lisp_addr_ip_get_afi(addr_dest)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses %d and %d",
-                lisp_addr_ip_get_afi(addr_from), lisp_addr_ip_get_afi(addr_dest));
+    if (lisp_addr_ip_afi(addr_from) != lisp_addr_ip_afi(addr_dest)) {
+        lmlog(LISP_LOG_DEBUG_2, "add_ip_udp_header: Different AFI addresses %d and %d",
+                lisp_addr_ip_afi(addr_from), lisp_addr_ip_afi(addr_dest));
         return(BAD);
     }
 
-    if ((lisp_addr_ip_get_afi(addr_from) != AF_INET) && (lisp_addr_ip_get_afi(addr_from) != AF_INET6)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Unknown AFI %d",
-               lisp_addr_ip_get_afi(addr_from) );
+    if ((lisp_addr_ip_afi(addr_from) != AF_INET) && (lisp_addr_ip_afi(addr_from) != AF_INET6)) {
+        lmlog(LISP_LOG_DEBUG_2, "add_ip_udp_header: Unknown AFI %d",
+               lisp_addr_ip_afi(addr_from) );
         return(BAD);
     }
 
@@ -187,7 +187,7 @@ int push_ip_udp_hdr(
     iph_ptr = mnotify_msg_push(msg, get_ip_header_len(addr_from->afi));
 
     if (build_ip_header(iph_ptr, addr_from, addr_dest, udp_hdr_and_payload_len) == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't build the inner ip header");
+        lmlog(LISP_LOG_DEBUG_2, "add_ip_udp_header: Couldn't build the inner ip header");
         return(BAD);
     }
 
@@ -248,7 +248,7 @@ static void mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
         rtrloc = rtrmap->head_v6_locators_list->locator;
 
     if (!rtrloc) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "mc_add_rlocs_to_rle: NO rloc for mc channel %s. Aborting!",
+        lmlog(LISP_LOG_DEBUG_1, "mc_add_rlocs_to_rle: NO rloc for mc channel %s. Aborting!",
                 lisp_addr_to_char(mapping_eid(rtrmap)));
         return;
     }
@@ -259,7 +259,7 @@ static void mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
         cloc = cmap->head_v6_locators_list->locator;
 
     if (!cloc) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "mc_add_rlocs_to_rle: RLOC for mc channel %s is not initialized. Aborting!",
+        lmlog(LISP_LOG_DEBUG_1, "mc_add_rlocs_to_rle: RLOC for mc channel %s is not initialized. Aborting!",
                 lisp_addr_to_char(mapping_eid(rtrmap)));
     }
 
@@ -300,7 +300,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
 
     if (mreg_msg_get_hdr(mreg)->map_notify) {
         /* mappings are not freed when list is destroyed */
-        write_recs = glist_new(NO_CMP, NO_DEL);
+        write_recs = glist_new_full(NO_CMP, NO_DEL);
         mnot_msg = map_notify_msg_new();
     }
 
@@ -315,7 +315,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         /* find configured prefix */
         reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid);
         if (!reg_pref) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "MS: No prefix configured to accept registration for EID %s! Discarding mapping!",
+            lmlog(LISP_LOG_DEBUG_1, "MS: No prefix configured to accept registration for EID %s! Discarding mapping!",
                     lisp_addr_to_char(eid));
             mapping_del(mapping);
             continue;
@@ -324,22 +324,22 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         /* check auth */
         if (!key) {
             if (!mreg_msg_check_auth(mreg, reg_pref->key)) {
-                lispd_log_msg(LISP_LOG_DEBUG_1, "MS: Message validation failed with key %s associated to EID %s. Stopping processing!",
+                lmlog(LISP_LOG_DEBUG_1, "MS: Message validation failed with key %s associated to EID %s. Stopping processing!",
                         reg_pref->key, lisp_addr_to_char(eid));
                 goto bad;
             }
-            lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Message validated with key associated to EID %s",
+            lmlog(LISP_LOG_DEBUG_3, "MS: Message validated with key associated to EID %s",
                     lisp_addr_to_char(eid));
             key = reg_pref->key;
         } else if (strncmp(key, reg_pref->key, strlen(key)) !=0 ) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "MS: EID %s part of multi EID Map-Register has different key! Discarding!",
+            lmlog(LISP_LOG_DEBUG_1, "MS: EID %s part of multi EID Map-Register has different key! Discarding!",
                     lisp_addr_to_char(eid));
             continue;
         }
 
         /* check if more specific */
         if (!reg_pref->accept_more_specifics && lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "MS: EID %s is a more specific of %s. However more specifics not configured! Discarding",
+            lmlog(LISP_LOG_DEBUG_1, "MS: EID %s is a more specific of %s. However more specifics not configured! Discarding",
                     lisp_addr_to_char(eid), lisp_addr_to_char(reg_pref->eid_prefix));
             lisp_addr_del(eid);
             continue;
@@ -349,7 +349,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         if (mentry) {
             if (mapping_cmp(mentry, mapping) != 0) {
                 if (!reg_pref->merge) {
-                    lispd_log_msg(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators",
+                    lmlog(LISP_LOG_DEBUG_3, "MS: Prefix %s already registered, updating locators",
                             lisp_addr_to_char(eid));
                     mapping_update_locators(mentry, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
                     /* cheap hack to avoid cloning */
@@ -357,12 +357,12 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
                     mapping->head_v6_locators_list = NULL;
                 } else {
                     /* TREAT MERGE SEMANTICS */
-                    lispd_log_msg(LISP_LOG_WARNING, "MS: Prefix %s has merge semantics", lisp_addr_to_char(eid));
+                    lmlog(LISP_LOG_WARNING, "MS: Prefix %s has merge semantics", lisp_addr_to_char(eid));
                     /* MCs EIDs have their RLOCs aggregated into an RLE */
                     if (lisp_addr_is_mc(eid)) {
                         mc_add_rlocs_to_rle(mentry, mapping);
                     } else {
-                        lispd_log_msg(LISP_LOG_WARNING, "MS: Registered %s requires merge semantics but we don't know "
+                        lmlog(LISP_LOG_WARNING, "MS: Registered %s requires merge semantics but we don't know "
                                 "how to handle! Discarding!", lisp_addr_to_char(eid));
                         goto bad;
                     }
@@ -396,12 +396,12 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
         if (glist_size(write_recs) > 0) {
             mnot_msg = build_map_notify_msg(keyid, key, write_recs);
             mnotify_msg_hdr(mnot_msg)->nonce = mreg_msg_get_hdr(mreg)->nonce;
-            push_ip_udp_hdr(mnot_msg, get_default_ctrl_address(lisp_addr_ip_get_afi(&udpsock->src)),
+            push_ip_udp_hdr(mnot_msg, get_default_ctrl_address(lisp_addr_ip_afi(&udpsock->src)),
                     &udpsock->src, LISP_CONTROL_PORT, LISP_CONTROL_PORT);
 
-            if (send_packet(get_default_ctrl_socket(lisp_addr_ip_get_afi(&udpsock->dst)),
+            if (send_packet(get_default_ctrl_socket(lisp_addr_ip_afi(&udpsock->dst)),
                     mnotify_msg_data(mnot_msg), mnotify_msg_len(mnot_msg)) != GOOD) {
-                lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Failed to send Map-Notify");
+                lmlog(LISP_LOG_DEBUG_1, "Map-Server: Failed to send Map-Notify");
             }
         }
         glist_destroy(write_recs);
@@ -430,30 +430,30 @@ int ms_process_lisp_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *ud
 
      switch(msg->type) {
      case LISP_MAP_REQUEST:
-         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Request");
+         lmlog(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Request");
          ret = ms_process_map_request_msg(dev, msg->msg, &udpsock->dst, udpsock->src_port);
          break;
      case LISP_MAP_REGISTER:
-         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Register");
+         lmlog(LISP_LOG_DEBUG_1, "Map-Server: Received Map-Register");
          ret = ms_process_map_register_msg(dev, msg->msg, udpsock);
          break;
      case LISP_MAP_REPLY:
      case LISP_MAP_NOTIFY:
      case LISP_INFO_NAT:
-         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received control message with type %d. Discarding!",
+         lmlog(LISP_LOG_DEBUG_1, "Map-Server: Received control message with type %d. Discarding!",
                  msg->type);
          break;
      default:
-         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Received unidentified type (%d) control message", msg->type);
+         lmlog(LISP_LOG_DEBUG_1, "Map-Server: Received unidentified type (%d) control message", msg->type);
          ret = BAD;
          break;
      }
 
      if (ret != GOOD) {
-         lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Server: Failed to process LISP control message");
+         lmlog(LISP_LOG_DEBUG_1, "Map-Server: Failed to process LISP control message");
          return(BAD);
      } else {
-         lispd_log_msg(LISP_LOG_DEBUG_3, "Map-Server: Completed processing of LISP control message");
+         lmlog(LISP_LOG_DEBUG_3, "Map-Server: Completed processing of LISP control message");
          return(ret);
      }
 }
@@ -467,9 +467,9 @@ ctrl_device_vtable ms_vtable = {
 lisp_ctrl_device *ms_ctrl_init() {
     lisp_ms *ms;
     ms = calloc(1, sizeof(lisp_ms));
-    ms->super.mode = 2;
+    ms->super.mode = MS_MODE;
     ms->super.vtable = &ms_vtable;
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing Map-Server");
+    lmlog(LISP_LOG_DEBUG_1, "Finished Initializing Map-Server");
 
     ms->registered_sites_db = mdb_new();
     ms->lisp_sites_db = mdb_new();
@@ -505,16 +505,16 @@ void ms_dump_configured_sites(lisp_ctrl_device *dev, int log_level)
     void                *it     = NULL;
     lisp_site_prefix    *site   = NULL;
 
-    lispd_log_msg(log_level,"****************** MS configured prefixes **************\n");
+    lmlog(log_level,"****************** MS configured prefixes **************\n");
 
     mdb_foreach_entry(ms->lisp_sites_db, it) {
         site = it;
-        lispd_log_msg(log_level, "Prefix: %s, accept specifics: %s merge: %s, proxy: %s", lisp_addr_to_char(site->eid_prefix),
+        lmlog(log_level, "Prefix: %s, accept specifics: %s merge: %s, proxy: %s", lisp_addr_to_char(site->eid_prefix),
                 (site->accept_more_specifics) ? "on" : "off",
                 (site->merge) ? "on" : "off",
                 (site->proxy_reply) ? "on" : "off");
     } mdb_foreach_entry_end;
-    lispd_log_msg(log_level,"*******************************************************\n");
+    lmlog(log_level,"*******************************************************\n");
 }
 
 void ms_dump_registered_sites(lisp_ctrl_device *dev, int log_level) {
@@ -522,12 +522,12 @@ void ms_dump_registered_sites(lisp_ctrl_device *dev, int log_level) {
     void        *it     = NULL;
     mapping_t   *mapping = NULL;
 
-    lispd_log_msg(log_level,"**************** MS registered sites ******************\n");
+    lmlog(log_level,"**************** MS registered sites ******************\n");
     mdb_foreach_entry(ms->registered_sites_db, it) {
         mapping = it;
         dump_mapping_entry(mapping, log_level);
     } mdb_foreach_entry_end;
-    lispd_log_msg(log_level,"*******************************************************\n");
+    lmlog(log_level,"*******************************************************\n");
 
 }
 

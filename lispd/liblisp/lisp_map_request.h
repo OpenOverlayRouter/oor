@@ -106,7 +106,7 @@ typedef struct _map_request_msg_hdr {
 #endif
     uint8_t record_count;
     uint64_t nonce;
-} __attribute__ ((__packed__)) map_request_msg_hdr;
+} __attribute__ ((__packed__)) map_request_hdr_t;
 
 typedef struct _map_request_msg {
     uint8_t                 *data;
@@ -122,8 +122,8 @@ map_request_msg *map_request_msg_parse(uint8_t *offset);
 void map_request_msg_del(map_request_msg *msg);
 
 
-static inline map_request_msg_hdr *mreq_msg_get_hdr(map_request_msg *mrp) {
-    return((map_request_msg_hdr *)mrp->data);
+static inline map_request_hdr_t *mreq_msg_get_hdr(map_request_msg *mrp) {
+    return((map_request_hdr_t *)mrp->data);
 }
 
 static inline address_field *mreq_msg_get_src_eid(map_request_msg *mreq) {
@@ -144,6 +144,19 @@ static inline glist_t *mreq_msg_get_eids(map_request_msg *mreq) {
 
 #define mreq_msg_foreach_eid_record(it, msg) \
     glist_for_each_entry(it, (msg)->eids)
+
+
+
+char *mreq_hdr_to_char(map_request_hdr_t *);
+
+#define MREQ_HDR_CAST(h) ((map_request_hdr_t *)(h))
+#define MREQ_REC_COUNT(h) ((map_request_hdr_t *)(h))->record_count
+#define MREQ_RLOC_PROBE(h) ((map_request_hdr_t *)(h))->rloc_probe
+#define ITR_RLOC_COUNT(h) ((map_request_hdr_t *)(h))->additional_itr_rloc_count
+#define MREQ_NONCE(h) ((map_request_hdr_t *)(h))->nonce
+#define MREQ_SMR(h) ((map_request_hdr_t *)(h))->solicit_map_request
+#define MREQ_SMR_INVOKED(h) ((map_request_hdr_t *)(h))->smr_invoked
+
 
 
 #endif /*LISPD_MAP_REQUEST_H_*/

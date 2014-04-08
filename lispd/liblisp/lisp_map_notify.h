@@ -42,9 +42,9 @@ typedef struct _map_notify_msg_hdr {
     uint8_t  reserved1:2;
     uint8_t  rtr_auth_present:1;
     uint8_t  xtr_id_present:1;
-    uint8_t  lisp_type:4;
+    uint8_t  type:4;
 #else
-    uint8_t  lisp_type:4;
+    uint8_t  type:4;
     uint8_t  xtr_id_present:1;
     uint8_t  rtr_auth_present:1;
     uint8_t  reserved1:2;
@@ -55,7 +55,7 @@ typedef struct _map_notify_msg_hdr {
 //    uint16_t key_id;
 //    uint16_t auth_data_len
 //    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
-} __attribute__ ((__packed__)) map_notify_msg_hdr_t;
+} __attribute__ ((__packed__)) map_notify_hdr_t;
 
 
 typedef struct _map_notify_msg {
@@ -92,8 +92,8 @@ int                 mnotify_msg_add_record(map_notify_msg *msg, mapping_record *
 int                 mnotify_msg_add_auth_field(map_notify_msg *msg, auth_field *afield);
 int                 mnotify_msg_serialize(map_notify_msg *msg, uint8_t *pkt, int *pkt_len);
 
-static inline map_notify_msg_hdr_t *mnotify_msg_hdr(map_notify_msg *msg) {
-    return((map_notify_msg_hdr_t *)msg->data);
+static inline map_notify_hdr_t *mnotify_msg_hdr(map_notify_msg *msg) {
+    return((map_notify_hdr_t *)msg->data);
 }
 
 static inline glist_t *mnotify_msg_records(map_notify_msg *msg) {
@@ -113,5 +113,8 @@ static inline int mnotify_msg_len(map_notify_msg *msg) {
     return(msg->len);
 }
 
+
+#define MNTF_HDR_CAST(h) ((map_notify_hdr_t *)(h))
+#define MNTF_REC_COUNT(hdr) MNTF_HDR_CAST((hdr))->record_count
 
 #endif /* LISP_MAP_NOTIFY_H_ */

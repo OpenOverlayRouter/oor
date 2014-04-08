@@ -36,86 +36,41 @@
 
 
 /*
- * Introduce the EID information in the packet. This information is extracted from the mapping structure
- * It returns the position to the next position of the packet
- */
-uint8_t *pkt_fill_eid(
-        void                *offset,
-        mapping_t   *mapping);
-
-
-
-/*
- *  get_mapping_length
- *
- *  Compute the lengths of the mapping to be use in a record
- *  so we can allocate  memory for the packet....
- */
-
-int get_mapping_length(mapping_t *mapping);
-
-
-/*
- *  get_up_locators_length
- *
- *  Compute the sum of the lengths of the locators that has the status up
- *  so we can allocate  memory for the packet....
- *  Loc_count return the number of UP locators.
- */
-
-int get_up_locators_length(
-        lispd_locators_list *locators_list,
-        int                 *loc_count);
-
-/*
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
  */
 
-int extract_5_tuples_from_packet (
-        uint8_t         *packet ,
-        packet_tuple    *tuple);
+int extract_5_tuples_from_packet(uint8_t *packet, packet_tuple *tuple);
 
 /*
  * Generate IP header. Returns the poninter to the transport header
  */
 
-struct udphdr *build_ip_header(
-        uint8_t         *cur_ptr,
-        lisp_addr_t     *src_addr,
-        lisp_addr_t     *dst_addr,
-        int             ip_len);
+struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr, int ip_len);
 
 /*
  * Generates an IP header and an UDP header
  * and copies the original packet at the end
  */
 
-uint8_t *build_ip_udp_pcket(
-        uint8_t         *orig_pkt,
-        int             orig_pkt_len,
-        lisp_addr_t     *addr_from,
-        lisp_addr_t     *addr_dest,
-        int             port_from,
-        int             port_dest,
-        int             *pkt_len);
+uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
+        lisp_addr_t *addr_from, lisp_addr_t *addr_dest, int port_from,
+        int port_dest, int *pkt_len);
 
 /*
  * Encapsulates a control lisp message
  */
 
-uint8_t *build_control_encap_pkt(
-        uint8_t         *orig_pkt,
-        int             orig_pkt_len,
-        lisp_addr_t     *addr_from,
-        lisp_addr_t     *addr_dest,
-        int             port_from,
-        int             port_dest,
-        int             *control_encap_pkt_len);
-
-
+uint8_t *build_control_encap_pkt(uint8_t *orig_pkt, int orig_pkt_len,
+        lisp_addr_t *addr_from, lisp_addr_t *addr_dest, int port_from,
+        int port_dest, int *control_encap_pkt_len);
 
 /* Returns IP ID for the packet */
 uint16_t get_IP_ID();
 
+int ip_hdr_ver_to_len(int ih_ver);
+void *lbuf_pull_ipv4(struct lbuf *b);
+void *lbuf_pull_ipv6(struct lbuf *b);
+void *lbuf_pull_ip(struct lbuf *);
 
 #endif /*LISPD_PKT_LIB_H_*/

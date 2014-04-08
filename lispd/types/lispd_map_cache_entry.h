@@ -68,14 +68,14 @@ typedef struct lispd_map_cache_entry_ {
     timer                       *request_retry_timer;
     timer                       *smr_inv_timer;
     nonces_list                 *nonces;
-}lispd_map_cache_entry;
+}map_cache_entry_t;
 
 /****************************************  FUNCTIONS **************************************/
 
 
-inline lispd_map_cache_entry        *mcache_entry_new();
-lispd_map_cache_entry               *mcache_entry_init(mapping_t *mapping);
-lispd_map_cache_entry               *mcache_entry_init_static(mapping_t *mapping);
+inline map_cache_entry_t        *mcache_entry_new();
+map_cache_entry_t               *mcache_entry_init(mapping_t *mapping);
+map_cache_entry_t               *mcache_entry_init_static(mapping_t *mapping);
 
 
 
@@ -85,28 +85,28 @@ lispd_map_cache_entry               *mcache_entry_init_static(mapping_t *mapping
  * Create a map cache entry and save it in the database
  */
 
-lispd_map_cache_entry *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+map_cache_entry_t *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
 
 /*
  * Create a map cache entry but not saved in the database.
  * Used to create the proxy-etr list
  */
 
-lispd_map_cache_entry *new_map_cache_entry_no_db (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+map_cache_entry_t *new_map_cache_entry_no_db (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
 
-void free_map_cache_entry(lispd_map_cache_entry *entry);
+void free_map_cache_entry(map_cache_entry_t *entry);
 
-void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level);
+void dump_map_cache_entry (map_cache_entry_t *entry, int log_level);
 
 /*
  * lispd_map_cache_entry  set/get functions
  */
 
-inline void                  mcache_entry_set_eid_addr(lispd_map_cache_entry *mapcache, lisp_addr_t *addr);
-inline void                  mcache_entry_set_eid_plen(lispd_map_cache_entry *mapcache, uint8_t plen);
-inline mapping_t     *mcache_entry_get_mapping(lispd_map_cache_entry* mapcache);
-inline lisp_addr_t           *mcache_entry_get_eid_addr(lispd_map_cache_entry* mapcache);
-inline nonces_list           *mcache_entry_get_nonces_list(lispd_map_cache_entry *mce);
-inline uint8_t               mcache_entry_get_active(lispd_map_cache_entry *mce);
+inline void                  mcache_entry_set_eid_addr(map_cache_entry_t *mapcache, lisp_addr_t *addr);
+inline void                  mcache_entry_set_eid_plen(map_cache_entry_t *mapcache, uint8_t plen);
+inline mapping_t     *mcache_entry_get_mapping(map_cache_entry_t* mapcache);
+inline lisp_addr_t           *mcache_entry_get_eid_addr(map_cache_entry_t* mapcache);
+inline nonces_list           *mcache_entry_nonces_list(map_cache_entry_t *mce);
+inline uint8_t               mcache_entry_get_active(map_cache_entry_t *mce);
 
 #endif /* LISPD_MAP_CACHE_H_ */

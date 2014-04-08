@@ -34,7 +34,7 @@
 #include <lispd_map_cache_entry.h>
 #include <defs.h>
 #include <lispd_types.h>
-//#include "lispd_address.h"
+//#include "lisp_address.h"
 //#include "lispd_local_db.h"
 #include <lispd_timers.h>
 
@@ -52,12 +52,12 @@ int                 mcache_add_static_mapping(mapping_t *mapping);
 int                 mcache_del_mapping(lisp_addr_t *laddr);
 mapping_t   *mcache_lookup_mapping(lisp_addr_t *laddr);
 mapping_t   *mcache_lookup_mapping_exact(lisp_addr_t *laddr);
-int                 mcache_update_mapping_eid(lisp_addr_t *new_eid, lispd_map_cache_entry *mce);
+int                 mcache_update_mapping_eid(lisp_addr_t *new_eid, map_cache_entry_t *mce);
 
 /*
  *  Add a map cache entry to the database.
  */
-int map_cache_add_entry(lispd_map_cache_entry *entry);
+int map_cache_add_entry(map_cache_entry_t *entry);
 
 /*
  * del_map_cache_entry()
@@ -72,7 +72,7 @@ void map_cache_del_entry(lisp_addr_t *laddr);
  *
  * Find an exact match for a prefix/prefixlen if possible
  */
-lispd_map_cache_entry *map_cache_lookup_exact(lisp_addr_t *addr);
+map_cache_entry_t *map_cache_lookup_exact(lisp_addr_t *addr);
 
 
 /*
@@ -81,14 +81,14 @@ lispd_map_cache_entry *map_cache_lookup_exact(lisp_addr_t *addr);
  * Look up a given eid in the database, returning the
  * lispd_map_cache_entry of this EID if it exists or NULL.
  */
-lispd_map_cache_entry *map_cache_lookup(lisp_addr_t *addr);
+map_cache_entry_t *map_cache_lookup(lisp_addr_t *addr);
 
 
 /*
  * Lookup if there is a no active cache entry with the provided nonce and return it
  */
 
-lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64_t nonce);
+map_cache_entry_t *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64_t nonce);
 
 
 ///*
@@ -101,7 +101,7 @@ lispd_map_cache_entry *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, ui
 //        lispd_map_cache_entry                   *cache_entry);
 
 void map_cache_entry_expiration(timer *t, void *arg);
-void map_cache_entry_start_expiration_timer(lispd_map_cache_entry *cache_entry);
+void map_cache_entry_start_expiration_timer(map_cache_entry_t *cache_entry);
 
 void map_cache_dump_db(int log_level);
 
@@ -110,7 +110,7 @@ void map_cache_dump_db(int log_level);
 
 #define mcache_foreach_active_entry(eit)   \
     mdb_foreach_entry(mdb, (eit))   \
-        if (((lispd_map_cache_entry *)(eit))->active)
+        if (((map_cache_entry_t *)(eit))->active)
 
 #define mcache_foreach_end  \
     } mdb_foreach_entry_end
@@ -118,7 +118,7 @@ void map_cache_dump_db(int log_level);
 /* ugly .. */
 #define mcache_foreach_active_entry_in_ip_eid_db(_eid, _eit)   \
     mdb_foreach_entry_in_ip_eid_db(mdb, (_eid), (_eit))  \
-        if (((lispd_map_cache_entry *)(_eit))->active)
+        if (((map_cache_entry_t *)(_eit))->active)
 
 #define mcache_foreach_active_entry_in_ip_eid_db_end  \
     mdb_foreach_entry_in_ip_eid_db_end

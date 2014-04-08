@@ -36,7 +36,7 @@
  * @del_fct: function to deallocate a data entry
  */
 
-glist_t *glist_new(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
+glist_t *glist_new_full(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
     glist_t    *glist  = NULL;
 
     if (!(glist = calloc(1, sizeof(glist_t))))
@@ -50,6 +50,15 @@ glist_t *glist_new(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
     glist->del_fct = del_fct;
 
     return(glist);
+}
+
+glist_t *glist_new_simple() {
+    return(glist_new_full(NO_CMP, NO_DEL));
+}
+
+
+glist_new(glist_del_fct *del) {
+    return(glist_new_full(NO_CMP, del));
 }
 
 /**

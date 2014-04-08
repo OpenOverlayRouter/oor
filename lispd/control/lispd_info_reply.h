@@ -92,8 +92,6 @@
 
 
 
-int process_info_reply_msg(
-        uint8_t         *packet,
-        lisp_addr_t     local_rloc);
+int process_info_reply_msg(uint8_t *packet, lisp_addr_t local_rloc);
 
 #endif /*LISPD_INFO_REPLY_H_*/

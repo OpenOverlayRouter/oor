@@ -61,6 +61,7 @@
 #include <sys/select.h>
 
 #include "lispd_log.h"
+#include "util.h"
 //#include "lispd_external.h"
 
 
@@ -111,37 +112,7 @@
 #define FIELD_PORT_LEN                   2
 
 
-/*
- *  CO --
- *
- *  Calculate Offset
- *
- *  Try not to make dumb mistakes with
- *  pointer arithmetic
- *
- */
 
-#define CO(addr,len) (((uint8_t *) addr + len))
-
-
-/*
- *  SA_LEN --
- *
- *  sockaddr length
- *
- */
-
-#define SA_LEN(a) ((a == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
-
-/*
- *  names for where the udp checksum goes
- */
-
-#ifdef BSD
-#define udpsum(x) x->uh_sum
-#else
-#define udpsum(x) x->check
-#endif
 
 /*
  *  lispd constants
@@ -191,7 +162,13 @@ int err;
 #define FULL_NAT            2
 
 
-#define MAX_IP_PACKET       4096
+#define MAX_IP_PKT_LEN          4096
+#define MAX_IP_HDR_LEN          40      /* without options or IPv6 hdr extensions */
+#define UDP_HDR_LEN             8
+#define LISP_DATA_HDR_LEN       8
+#define LISP_ECM_HDR_LEN        4
+#define MAX_LISP_MSG_ENCAP_LEN  2*(MAX_IP_HDR_LEN + UDP_HDR_LEN)+ LISP_ECM_HDR_LEN
+#define MAX_LISP_PKT_ENCAP_LEN  MAX_IP_HDR_LEN + UDP_HDR_LEN + LISP_DATA_HDR_LEN
 
 
 #define DEFAULT_MAP_REQUEST_RETRIES             3
@@ -349,6 +326,8 @@ typedef struct lisp_data_hdr {
  * the number 15 which means we can have up to 16 ITR-RLOCs.
  */
 #define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
+
+
 
 
 extern void exit_cleanup();

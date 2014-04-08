@@ -55,7 +55,7 @@ locator_t   *new_local_locator (
     locator_t       *locator                = NULL;
 
     if ((locator = malloc(sizeof(locator_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "new_local_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "new_local_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
         return(NULL);
     }
 
@@ -98,18 +98,18 @@ locator_t   *new_rmt_locator (
     int                     len                     = 0;
 
     if ((locator = malloc(sizeof(locator_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "new_rmt_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "new_rmt_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
         return(NULL);
     }
 
     if((locator->locator_addr = lisp_addr_new()) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for lisp_addr_t: %s", strerror(errno));
         free (locator);
         return (NULL);
     }
 
     if((locator->state = malloc(sizeof(uint8_t))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING,"new_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
         lisp_addr_del(locator->locator_addr);
         free (locator);
         return (NULL);
@@ -150,7 +150,7 @@ locator_t   *new_static_rmt_locator (
     locator_t       *locator                = NULL;
 
     if ((locator = malloc(sizeof(locator_t))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "new_static_rmt_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "new_static_rmt_locator: Unable to allocate memory for lispd_locator_elt: %s", strerror(errno));
         return(NULL);
     }
 
@@ -161,7 +161,7 @@ locator_t   *new_static_rmt_locator (
 //    }
 
     if((locator->state = malloc(sizeof(uint8_t))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING,"new_static_rmt_locator: Unable to allocate memory for uint8_t: %s", strerror(errno));
         free (locator->locator_addr);
         free (locator);
         return (NULL);
@@ -192,7 +192,7 @@ inline lcl_locator_extended_info *new_lcl_locator_extended_info(int *out_socket)
 {
     lcl_locator_extended_info *lcl_loc_ext_inf;
     if ((lcl_loc_ext_inf = (lcl_locator_extended_info *)malloc(sizeof(lcl_locator_extended_info))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "lcl_locator_extended_info: Unable to allocate memory for rmt_locator_extended_info: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "lcl_locator_extended_info: Unable to allocate memory for rmt_locator_extended_info: %s", strerror(errno));
         return(NULL);
     }
     lcl_loc_ext_inf->out_socket = out_socket;
@@ -206,7 +206,7 @@ inline rmt_locator_extended_info *new_rmt_locator_extended_info()
 {
     rmt_locator_extended_info *rmt_loc_ext_inf;
     if ((rmt_loc_ext_inf = (rmt_locator_extended_info *)malloc(sizeof(rmt_locator_extended_info))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "new_rmt_locator_extended_info: Unable to allocate memory for rmt_locator_extended_info: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "new_rmt_locator_extended_info: Unable to allocate memory for rmt_locator_extended_info: %s", strerror(errno));
         return(NULL);
     }
     rmt_loc_ext_inf->rloc_probing_nonces = NULL;
@@ -222,7 +222,7 @@ lispd_rtr_locator *new_rtr_locator(lisp_addr_t address)
 
     rtr_locator = (lispd_rtr_locator *)malloc(sizeof(lispd_rtr_locator));
     if (rtr_locator == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "new_rtr_locator: Unable to allocate memory for lispd_rtr_locator: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "new_rtr_locator: Unable to allocate memory for lispd_rtr_locator: %s", strerror(errno));
         return (NULL);
     }
     rtr_locator->address = address;
@@ -329,7 +329,7 @@ void dump_locator (
         sprintf(locator_str, "| %39s |", lisp_addr_to_char(locator->locator_addr));
         sprintf(locator_str + strlen(locator_str), "  %5s ", locator->state ? "Up" : "Down");
         sprintf(locator_str + strlen(locator_str), "|     %3d/%-3d     |", locator->priority, locator->weight);
-        lispd_log_msg(log_level,"%s",locator_str);
+        lmlog(log_level,"%s",locator_str);
     }
 }
 
@@ -339,16 +339,16 @@ void dump_locator (
  * Add a locator to a locators list
  */
 int add_locator_to_list (
-        lispd_locators_list     **list,
+        locators_list_t     **list,
         locator_t               *locator)
 {
-    lispd_locators_list     *locator_list           = NULL,
+    locators_list_t     *locator_list           = NULL,
                             *aux_locator_list_prev  = NULL,
                             *aux_locator_list_next  = NULL;
     int                     cmp                     = 0;
 
-    if ((locator_list = malloc(sizeof(lispd_locators_list))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "add_locator_to_list: Unable to allocate memory for lispd_locator_list: %s", strerror(errno));
+    if ((locator_list = malloc(sizeof(locators_list_t))) == NULL) {
+        lmlog(LISP_LOG_WARNING, "add_locator_to_list: Unable to allocate memory for lispd_locator_list: %s", strerror(errno));
         return(ERR_MALLOC);
     }
 
@@ -372,7 +372,7 @@ int add_locator_to_list (
                 if (cmp < 0){
                     break;
                 }else if(cmp == 0) {
-                    lispd_log_msg(LISP_LOG_DEBUG_3, "add_locator_to_list: The locator %s already exists.",
+                    lmlog(LISP_LOG_DEBUG_3, "add_locator_to_list: The locator %s already exists.",
                             get_char_from_lisp_addr_t(*(locator->locator_addr)));
                     free (locator_list);
                     return (ERR_EXIST);
@@ -413,7 +413,7 @@ int add_rtr_locator_to_list(
 
     rtr_locator_list_elt = (lispd_rtr_locators_list *)malloc(sizeof(lispd_rtr_locators_list));
     if (rtr_locator_list_elt == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "new_rtr_locator_list_elt: Unable to allocate memory for lispd_rtr_locators_list: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "new_rtr_locator_list_elt: Unable to allocate memory for lispd_rtr_locators_list: %s", strerror(errno));
         return (BAD);
     }
     rtr_locator_list_elt->locator = rtr_locator;
@@ -435,12 +435,12 @@ int add_rtr_locator_to_list(
  * The locator is removed from the list
  */
 locator_t *extract_locator_from_list(
-        lispd_locators_list     **head_locator_list,
+        locators_list_t     **head_locator_list,
         lisp_addr_t             addr)
 {
     locator_t       *locator                = NULL;
-    lispd_locators_list     *locator_list           = NULL;
-    lispd_locators_list     *prev_locator_list_elt  = NULL;
+    locators_list_t     *locator_list           = NULL;
+    locators_list_t     *prev_locator_list_elt  = NULL;
 
     locator_list = *head_locator_list;
     while (locator_list != NULL){
@@ -466,7 +466,7 @@ locator_t *extract_locator_from_list(
  */
 
 locator_t *get_locator_from_list(
-        lispd_locators_list    *locator_list,
+        locators_list_t    *locator_list,
         lisp_addr_t             *addr)
 {
     locator_t       *locator                = NULL;
@@ -489,9 +489,9 @@ locator_t *get_locator_from_list(
  * Free memory of lispd_locator_list.
  */
 
-void free_locator_list(lispd_locators_list     *locator_list)
+void free_locator_list(locators_list_t     *locator_list)
 {
-    lispd_locators_list  * aux_locator_list     = NULL;
+    locators_list_t  * aux_locator_list     = NULL;
     /*
      * Free the locators
      */
@@ -504,8 +504,8 @@ void free_locator_list(lispd_locators_list     *locator_list)
     }
 }
 
-void locator_list_free_container(lispd_locators_list *locator_list, uint8_t free_locators_flag) {
-    lispd_locators_list  * aux_locator_list     = NULL;
+void locator_list_free_container(locators_list_t *locator_list, uint8_t free_locators_flag) {
+    locators_list_t  * aux_locator_list     = NULL;
     /*
      * Free the locators
      */
@@ -591,7 +591,7 @@ int locator_write_to_field(locator_t *locator, locator_field *lfield) {
             &(lct_extended_info->rtr_locators_list->locator->address): locator->locator_addr;
 
     if (lisp_addr_write_to_field(itr_address, locator_field_addr(lfield)) <= 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "locator_write_to_field: copy_addr failed for locator: %s",
+        lmlog(LISP_LOG_DEBUG_3, "locator_write_to_field: copy_addr failed for locator: %s",
                 lisp_addr_to_char(locator_addr(locator)));
         return(BAD);
     }
@@ -607,7 +607,7 @@ int locator_get_size_in_field(locator_t *loc) {
  *  so we can allocate  memory for the packet....
  */
 
-int locator_list_get_size_in_field(lispd_locators_list *locators_list)
+int locator_list_get_size_in_field(locators_list_t *locators_list)
 {
     int sum = 0;
     while (locators_list) {
@@ -645,15 +645,15 @@ locator_t *locator_clone_remote(locator_t *locator) {
     copy->extended_info = new_rmt_locator_extended_info();
     ((lcl_locator_extended_info *)copy->extended_info)->out_socket = ((lcl_locator_extended_info *)locator->extended_info)->out_socket;
     if (((lcl_locator_extended_info *)copy->extended_info)->rtr_locators_list) {
-        lispd_log_msg(LISP_LOG_WARNING, "locator_clone_remote: clone of rtr locators list NOT IMPLEMENTED!");
+        lmlog(LISP_LOG_WARNING, "locator_clone_remote: clone of rtr locators list NOT IMPLEMENTED!");
     }
     return(copy);
 }
 
-lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst) {
-    lispd_locators_list *copy   = NULL;
-    lispd_locators_list *it     = NULL;
-    copy = calloc(1, sizeof(lispd_locators_list));
+locators_list_t *locators_list_clone_remote(locators_list_t *lst) {
+    locators_list_t *copy   = NULL;
+    locators_list_t *it     = NULL;
+    copy = calloc(1, sizeof(locators_list_t));
 
     it = lst;
     while(it) {

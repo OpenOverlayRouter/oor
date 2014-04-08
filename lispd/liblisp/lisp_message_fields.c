@@ -60,10 +60,10 @@ address_field *address_field_parse(uint8_t *offset) {
         addr->len = 0 + sizeof(uint16_t);
         break;
     case LISP_AFI_LCAF:
-        addr->len = sizeof(generic_lcaf_hdr) + ntohs(((generic_lcaf_hdr *)addr->data)->len); /* AFI field is included in header */
+        addr->len = sizeof(lcaf_hdr_t) + ntohs(((lcaf_hdr_t *)addr->data)->len); /* AFI field is included in header */
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", address_field_afi(addr));
+        lmlog(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", address_field_afi(addr));
         return(NULL);
         break;
     }
@@ -118,7 +118,7 @@ locator_field *locator_field_parse(uint8_t *offset) {
 
 inline mapping_record *mapping_record_new() {
     mapping_record *record = calloc(1, sizeof(mapping_record));
-    record->locators = glist_new(NO_CMP, (glist_del_fct)locator_field_del);
+    record->locators = glist_new_full(NO_CMP, (glist_del_fct)locator_field_del);
     return(record);
 }
 
@@ -174,7 +174,7 @@ err:
 locator_field *mapping_record_allocate_locator(mapping_record *record, int size) {
     locator_field *locator = NULL;
     if (!record->locators)
-        record->locators = glist_new(NO_CMP, (glist_del_fct)locator_field_del);
+        record->locators = glist_new_full(NO_CMP, (glist_del_fct)locator_field_del);
 
     locator = locator_field_new();
     glist_add(locator, record->locators);
@@ -207,8 +207,8 @@ eid_prefix_record *eid_prefix_record_parse(uint8_t *offset) {
     eid_prefix_record *record;
     record = eid_prefix_record_new();
     record->data = offset;
-    record->eid = address_field_parse(CO(record->data, sizeof(eid_prefix_record_hdr)));
-    record->len = sizeof(eid_prefix_record_hdr) + address_field_len(record->eid);
+    record->eid = address_field_parse(CO(record->data, sizeof(eid_record_hdr_t)));
+    record->len = sizeof(eid_record_hdr_t) + address_field_len(record->eid);
     return(record);
 }
 

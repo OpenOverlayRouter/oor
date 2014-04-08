@@ -3,7 +3,7 @@
 #define LISP_SITE_H_
 
 #include <lisp_message_fields.h>
-#include <lispd_address.h>
+#include <lisp_address.h>
 
 typedef struct _lisp_site_prefix {
     lisp_addr_t         *eid_prefix;

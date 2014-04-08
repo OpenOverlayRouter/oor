@@ -33,7 +33,7 @@
 
 #include <defs.h>
 #include <lispd_timers.h>
-#include <lispd_address.h>
+#include <lisp_address.h>
 
 
 #define NAT_REPLY                        1

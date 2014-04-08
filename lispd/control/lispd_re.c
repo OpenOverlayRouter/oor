@@ -69,7 +69,7 @@ int re_upstream_join_cb(timer *t, void *arg) {
     mapping_t *mapping = mcache_lookup_mapping(argtimer->mceid);
 
     if (!mapping) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Failed to get a map-reply for %s. Aborting Join!",
+        lmlog(LISP_LOG_DEBUG_1, "Failed to get a map-reply for %s. Aborting Join!",
                 lisp_addr_to_char(argtimer->mceid));
     } else {
         begin_upstream_join_loop(mapping);
@@ -92,7 +92,7 @@ int re_join_channel(lisp_addr_t *mceid) {
     mapping = mcache_lookup_mapping(mceid);
     if (!mapping) {
         src = lcaf_mc_get_src(lisp_addr_get_lcaf(mceid));
-        if (handle_map_cache_miss(mceid, local_map_db_get_main_eid(lisp_addr_ip_get_afi(src))) != GOOD)
+        if (handle_map_cache_miss(mceid, local_map_db_get_main_eid(lisp_addr_ip_afi(src))) != GOOD)
             return(BAD);
 
         /* SECOND STEP IF FAILURE */
@@ -136,17 +136,17 @@ static int get_level_from_mapping(mapping_t *mapping) {
     if (!lisp_addr_is_mc(eid))
         return(-1);
 
-    if (lisp_addr_ip_get_afi(lcaf_mc_get_src(lisp_addr_get_lcaf(eid))) == AF_INET)
+    if (lisp_addr_ip_afi(lcaf_mc_get_src(lisp_addr_get_lcaf(eid))) == AF_INET)
         rloc = locator_addr(mapping->head_v4_locators_list->locator);
     else
         rloc = locator_addr(mapping->head_v6_locators_list->locator);
 
-    if (lisp_addr_get_afi(rloc) != LM_AFI_LCAF && lisp_addr_lcaf_get_type(rloc) != LCAF_RLE)
+    if (lisp_addr_afi(rloc) != LM_AFI_LCAF && lisp_addr_lcaf_get_type(rloc) != LCAF_RLE)
         return(-1);
 
     node_list = lcaf_rle_node_list(lisp_addr_get_lcaf(rloc));
     if (glist_size(node_list)>1) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "get_level_from_mapping: RLE in mapping has more than 1 RLE node!");
+        lmlog(LISP_LOG_DEBUG_1, "get_level_from_mapping: RLE in mapping has more than 1 RLE node!");
         return(-1);
     }
 
@@ -159,7 +159,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
     lisp_addr_t         *mceid = NULL, *src_rloc = NULL, *dst_rloc = NULL, *rleaddr = NULL, *itr_eid = NULL;
     mapping_t           *itr_mapping = NULL;
     lcaf_addr_t         *rle            = NULL;
-    lispd_locators_list *ll             = NULL;
+    locators_list_t *ll             = NULL;
     glist_entry_t       *it             = NULL;
     rle_node_t          *rnode          = NULL;
     int                 level = 0, local_level = 0;
@@ -167,10 +167,10 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
 
     mceid = mapping_eid(ch_mapping);
 
-    src_rloc = get_default_ctrl_address(lisp_addr_ip_get_afi(lcaf_mc_get_src(lisp_addr_get_lcaf(mceid))));
+    src_rloc = get_default_ctrl_address(lisp_addr_ip_afi(lcaf_mc_get_src(lisp_addr_get_lcaf(mceid))));
 
     if (!src_rloc) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "re_select_upstream: couldn't find a src RLOC for channel %s. Aborting join!",
+        lmlog(LISP_LOG_DEBUG_3, "re_select_upstream: couldn't find a src RLOC for channel %s. Aborting join!",
                 lisp_addr_to_char(mceid));
         return(BAD);
     }
@@ -178,12 +178,12 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
     local_level = get_level_from_mapping(loc_mapping);
 
     if (local_level < 0) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "re_select_upstream: local level can't be determined for %s. Abort!",
+        lmlog(LISP_LOG_DEBUG_3, "re_select_upstream: local level can't be determined for %s. Abort!",
                 lisp_addr_to_char(mceid));
         return(BAD);
     }
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "re_select_upstream: Local level is %d for ch %s", local_level,
+    lmlog(LISP_LOG_DEBUG_1, "re_select_upstream: Local level is %d for ch %s", local_level,
             lisp_addr_to_char(mceid));
 
     if (upstream->locator)
@@ -192,7 +192,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
     /* top RTR, must connect to ITR */
     if (local_level == 0) {
         if (ctrl_dev->mode != RTR_MODE) {
-            lispd_log_msg(LISP_LOG_WARNING, "re_select_upstream: our level is 0 in channel %s but we're NOT an RTR!",
+            lmlog(LISP_LOG_WARNING, "re_select_upstream: our level is 0 in channel %s but we're NOT an RTR!",
                     lisp_addr_to_char(mceid));
             return(BAD);
         }
@@ -200,16 +200,16 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
         itr_mapping = mcache_lookup_mapping(itr_eid);
 
         if (!itr_mapping && upstream->itr_resolution_pending) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "ITR resolution failed! Aborting");
+            lmlog(LISP_LOG_DEBUG_3, "ITR resolution failed! Aborting");
             upstream->itr_resolution_pending = 0;
             return(BAD);
         } else if (!itr_mapping) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "re_select_upstream: must obtain RLOC of ITR. Sending Map-Request for %s",
+            lmlog(LISP_LOG_DEBUG_3, "re_select_upstream: must obtain RLOC of ITR. Sending Map-Request for %s",
                     lisp_addr_to_char(itr_eid));
             return(handle_map_cache_miss(itr_eid, NULL));
         }
 
-        if (lisp_addr_ip_get_afi(src_rloc))
+        if (lisp_addr_ip_afi(src_rloc))
             dst_rloc = locator_addr(itr_mapping->head_v4_locators_list->locator);
         else
             dst_rloc = locator_addr(itr_mapping->head_v6_locators_list->locator);
@@ -217,26 +217,26 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
     } else {
 
         /* FIND RLE in ch_mapping */
-        if (lisp_addr_ip_get_afi(src_rloc) == AF_INET)
+        if (lisp_addr_ip_afi(src_rloc) == AF_INET)
             ll = ch_mapping->head_v4_locators_list;
         else
             ll = ch_mapping->head_v6_locators_list;
 
         if (!ll) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "re_select_upstream: No compatible upstream RLOC found for channel %s!",
+            lmlog(LISP_LOG_DEBUG_3, "re_select_upstream: No compatible upstream RLOC found for channel %s!",
                     lisp_addr_to_char(mceid));
             return(BAD);
         }
 
         while(ll) {
-            if (lisp_addr_get_afi(locator_addr(ll->locator)) == LM_AFI_LCAF &&
+            if (lisp_addr_afi(locator_addr(ll->locator)) == LM_AFI_LCAF &&
                     lisp_addr_lcaf_get_type(locator_addr(ll->locator)) == LCAF_RLE)
                 break;
             ll = ll->next;
         }
 
         if (!ll) {
-            lispd_log_msg(LISP_LOG_DEBUG_3, "re_select_upstream: Locator for ch %s mapping is NOT RLE. Aborting! ",
+            lmlog(LISP_LOG_DEBUG_3, "re_select_upstream: Locator for ch %s mapping is NOT RLE. Aborting! ",
                     lisp_addr_to_char(mceid));
             return(BAD);
         }
@@ -258,11 +258,11 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
             }
         }
 
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_select_upstream: rle %s and dst rloc is %s",
+        lmlog(LISP_LOG_DEBUG_1, "re_select_upstream: rle %s and dst rloc is %s",
                 lcaf_addr_to_char(rle), lisp_addr_to_char(dst_rloc));
 
         if (!dst_rloc) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "re_select_upstream: couldn't find upstream RLOC for %s! Aborting!",
+            lmlog(LISP_LOG_DEBUG_1, "re_select_upstream: couldn't find upstream RLOC for %s! Aborting!",
                     lisp_addr_to_char(mceid));
         }
     }
@@ -272,7 +272,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
 
     /* TODO: start timers checking the upstream's RLOC */
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Found upstream with locator %s for channel eid %s",
+    lmlog(LISP_LOG_DEBUG_1, "Found upstream with locator %s for channel eid %s",
             lisp_addr_to_char(locator_addr(upstream->locator)), lisp_addr_to_char(mceid));
     return(GOOD);
 }
@@ -280,7 +280,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
 int mapping_init_re_data(mapping_t *ch_mapping) {
     re_mapping_data *einfo = NULL;
 
-    lispd_log_msg(LISP_LOG_DEBUG_3, "Initializing re data for channel %s", lisp_addr_to_char(mapping_eid(ch_mapping)));
+    lmlog(LISP_LOG_DEBUG_3, "Initializing re data for channel %s", lisp_addr_to_char(mapping_eid(ch_mapping)));
     if (!mapping_extended_info(ch_mapping)) {
         einfo = calloc(1, sizeof(re_mapping_data));
         if (!einfo)
@@ -329,7 +329,7 @@ int re_join_upstream(mapping_t *ch_mapping) {
     /* TODO: change code such that when upstream locator probing fails, this process is reran */
 
     if (!mapping_get_re_data(ch_mapping)) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_join_upstream: called without initialized re data! Aborting!");
+        lmlog(LISP_LOG_DEBUG_1, "re_join_upstream: called without initialized re data! Aborting!");
         return(BAD);
     }
 
@@ -345,7 +345,7 @@ int re_join_upstream(mapping_t *ch_mapping) {
         local_map = NULL;
 
     if (re_select_upstream(upstream, ch_mapping, local_map) != GOOD) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_join_upstream: Couldn't find upstream for channel %s",
+        lmlog(LISP_LOG_DEBUG_1, "re_join_upstream: Couldn't find upstream for channel %s",
                 lisp_addr_to_char(mapping_eid(ch_mapping)));
         return(BAD);
     }
@@ -385,14 +385,14 @@ int re_leave_channel(lisp_addr_t *mceid) {
 
     mapping = mcache_lookup_mapping(mceid);
     if (!mapping) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_leave_channel: Request to leave channel %s but we're not a member. Discarding!",
+        lmlog(LISP_LOG_DEBUG_1, "re_leave_channel: Request to leave channel %s but we're not a member. Discarding!",
                 lisp_addr_to_char(mceid));
         return(BAD);
     }
 
     upstream = mapping_get_re_upstream(mapping);
     if (!upstream) {
-        lispd_log_msg(LISP_LOG_DEBUG_1,"re_leave_channel: Channel %s has no upstream configured! Discarding request!",
+        lmlog(LISP_LOG_DEBUG_1,"re_leave_channel: Channel %s has no upstream configured! Discarding request!",
                 lisp_addr_to_char(mceid));
         return(BAD);
     }
@@ -419,7 +419,7 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
     re_mapping_data     *redata = NULL;
     mapping_t           *ch_mapping = NULL, *src_eid_mapping = NULL;
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Received Join-Request for channel %s requesting replication pair %s",
+    lmlog(LISP_LOG_DEBUG_1, "Received Join-Request for channel %s requesting replication pair %s",
             lisp_addr_to_char(ch), lisp_addr_to_char(rloc_pair));
 
     ch_mapping = mcache_lookup_mapping(ch);
@@ -427,13 +427,13 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
         src_eid = lcaf_mc_get_src(lisp_addr_get_lcaf(ch));
         src_eid_mapping = local_map_db_lookup_eid(src_eid);
         if (src_eid_mapping) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "re_recv_join_request: Received Join-Request for %s. We are the source ITR! Sending Map-Request",
+            lmlog(LISP_LOG_DEBUG_1, "re_recv_join_request: Received Join-Request for %s. We are the source ITR! Sending Map-Request",
                     lisp_addr_to_char(ch));
             handle_map_cache_miss(ch, src_eid);
 
             return(GOOD);
         } else {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Couldn't find a mapping for channel %s. Aborting",
+            lmlog(LISP_LOG_DEBUG_1, "Couldn't find a mapping for channel %s. Aborting",
                     lisp_addr_to_char(ch));
             return(BAD);
         }
@@ -498,10 +498,10 @@ int re_recv_join_ack(lisp_addr_t *eid, uint32_t nonce) {
 //    }
 
     if (upstream->join_pending) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"re_recv_join_ack: Message confirms correct join!");
+        lmlog(LISP_LOG_DEBUG_2,"re_recv_join_ack: Message confirms correct join!");
         upstream->join_pending = 0;
     } else {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"re_recv_join_ack: Received join ack with correct nonce although "
+        lmlog(LISP_LOG_DEBUG_2,"re_recv_join_ack: Received join ack with correct nonce although "
                 "we didn't send one! Discarding ... ");
         return(BAD);
     }
@@ -516,7 +516,7 @@ int re_recv_leave_ack(lisp_addr_t *eid, uint32_t nonce) {
     if (upstream->leave_pending) {
         re_upstream_del(upstream);
     } else {
-        lispd_log_msg(LISP_LOG_DEBUG_2,"process_map_reply_record: Received leave ACK with correct nonce although "
+        lmlog(LISP_LOG_DEBUG_2,"process_map_reply_record: Received leave ACK with correct nonce although "
                 "we didn't send one! Discarding ... ");
         return(BAD);
     }
@@ -531,7 +531,7 @@ re_upstream_t *re_get_upstream(lisp_addr_t *eid) {
     /* Find eid's map-cache entry*/
     mapping = mcache_lookup_mapping_exact(eid);
     if (!mapping){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
+        lmlog(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));
         return (BAD);
     }
@@ -543,7 +543,7 @@ remdb_t *re_get_jib(lisp_addr_t *eid) {
     mapping_t       *mapping    = NULL;
 
     if (!lisp_addr_is_mc(eid)) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(eid));
+        lmlog(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(eid));
         return(NULL);
     }
 
@@ -552,7 +552,7 @@ remdb_t *re_get_jib(lisp_addr_t *eid) {
 //    map_cache_dump_db(LISP_LOG_DEBUG_1);
     mapping = mcache_lookup_mapping(eid);
     if (!mapping){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"re_get_jib:  No map cache entry found for %s",
+        lmlog(LISP_LOG_DEBUG_2,"re_get_jib:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));
         return (BAD);
     }
@@ -572,7 +572,7 @@ re_mapping_data *re_get_ch_data(lisp_addr_t *eid) {
     mapping_t *mapping;
 
     if (!lisp_addr_is_mc(eid)) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(eid));
+        lmlog(LISP_LOG_DEBUG_3, "re_get_jib: The requested address is not multicast %s", lisp_addr_to_char(eid));
         return(NULL);
     }
 
@@ -580,14 +580,14 @@ re_mapping_data *re_get_ch_data(lisp_addr_t *eid) {
     /* Find eid's map-cache entry*/
     mapping = mcache_lookup_mapping_exact(eid);
     if (!mapping){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
+        lmlog(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));
         return (BAD);
     }
 
     /* packets with no active mapping are dropped */
     if (!mapping){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "re_get_data: Map cache entry for eid %s, not found or not active!",
+        lmlog(LISP_LOG_DEBUG_1, "re_get_data: Map cache entry for eid %s, not found or not active!",
                 lisp_addr_to_char(eid));
         /* fcoras TODO: what should we return here? */
         return (NULL);
@@ -604,7 +604,7 @@ glist_t *re_get_orlist(lisp_addr_t *dst_addr) {
     glist_t    *or_list    = NULL;
 
     if (!lisp_addr_is_mc(dst_addr)) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "re_get_orlist: The requested address is not multicast %s", lisp_addr_to_char(dst_addr));
+        lmlog(LISP_LOG_DEBUG_3, "re_get_orlist: The requested address is not multicast %s", lisp_addr_to_char(dst_addr));
         return(NULL);
     }
 

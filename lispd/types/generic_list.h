@@ -29,7 +29,7 @@
 #ifndef LISPD_GENERIC_LIST_H_
 #define LISPD_GENERIC_LIST_H_
 
-#include "list.h"
+#include "llist/list.h"
 
 #define NO_CMP NULL
 #define NO_DEL NULL
@@ -50,7 +50,9 @@ typedef struct {
 } glist_t;
 
 
-glist_t                 *glist_new(int (*cmp_fct)(void *, void *), void (*del_fct)(void *));
+glist_t                 *glist_new_simple();
+glist_t                 *glist_new(glist_del_fct);
+glist_t                 *glist_new_full(glist_cmp_fct, glist_del_fct);
 int                     glist_add(void *data, glist_t *list);
 int                     glist_add_tail(void *data, glist_t *glist);
 void                    glist_del(glist_entry_t *entry, glist_t *list);

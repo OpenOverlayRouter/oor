@@ -72,7 +72,7 @@ nonces_list *new_nonces_list()
 {
     nonces_list *nonces;
     if ((nonces = (nonces_list*)malloc(sizeof(nonces_list))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING, "new_nonces_list: Unable to allocate memory for nonces_list: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "new_nonces_list: Unable to allocate memory for nonces_list: %s", strerror(errno));
         return (NULL);
     }
 
@@ -114,7 +114,7 @@ void lispd_print_nonce (
 
     lower = nonce & 0xffffffff;
     upper = (nonce >> 32) & 0xffffffff;
-    lispd_log_msg(log_level,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
+    lmlog(log_level,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
 }
 
 char * nonce_to_char (uint64_t nonce)

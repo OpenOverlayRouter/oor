@@ -34,7 +34,7 @@
 #define LISPD_LIB_H_
 
 #include "defs.h"
-#include "lispd_address.h"
+#include "lispd_types.h"
 
 
 /*
@@ -84,7 +84,7 @@ int lispd_get_address(char *host, lisp_addr_t *addr);
 int lispd_get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
 
 
-void dump_servers(lispd_addr_list_t *list, const char *list_name, int log_level);
+void dump_servers(lisp_addr_list_t *list, const char *list_name, int log_level);
 
 void dump_proxy_etrs(int log_level);
 
@@ -202,7 +202,7 @@ int extract_lisp_address(
         uint8_t         *ptr,
         lisp_addr_t     *addr);
 
-void free_lisp_addr_list(lispd_addr_list_t * list);
+void free_lisp_addr_list(lisp_addr_list_t * list);
 
 int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
 

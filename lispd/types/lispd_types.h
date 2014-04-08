@@ -29,13 +29,51 @@
 #ifndef LISPD_TYPES_H_
 #define LISPD_TYPES_H_
 
-#include "types/lispd_address.h"
-#include "types/lispd_locator.h"
-#include "types/lispd_mapping.h"
+#include "liblisp/lisp_address.h"
+#include "liblisp/lispd_locator.h"
+#include "liblisp/lispd_mapping.h"
 #include "types/lispd_nonce.h"
 #include "types/lispd_mdb.h"
 #include "types/lispd_remdb.h"
 
+
+/*
+ *  generic list of addresses with priority and weight
+ */
+
+typedef struct _lispd_weighted_addr_list_t {
+    lisp_addr_t                         *address;
+    uint8_t                             priority;
+    uint8_t                             weight;
+    struct _lispd_weighted_addr_list_t  *next;
+} lispd_weighted_addr_list_t;
+
+
+
+typedef struct _lispd_map_server_list_t {
+    lisp_addr_t                     *address;
+    uint8_t                         key_type;
+    char                            *key;
+    uint8_t                         proxy_reply;
+    struct _lispd_map_server_list_t *next;
+} lispd_map_server_list_t;
+
+typedef struct packet_tuple_ {
+    lisp_addr_t                     src_addr;
+    lisp_addr_t                     dst_addr;
+    uint16_t                        src_port;
+    uint16_t                        dst_port;
+    uint8_t                         protocol;
+} packet_tuple;
+
+/*
+ *  generic list of addresses
+ */
+
+typedef struct _lispd_addr_list_t {
+    lisp_addr_t                 *address;
+    struct _lispd_addr_list_t   *next;
+} lisp_addr_list_t;
 
 
 #endif /* LISPD_TYPES_H_ */

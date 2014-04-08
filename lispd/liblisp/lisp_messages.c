@@ -72,15 +72,15 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
     lisp_msg            *msg        = NULL;
 
     msg = lisp_msg_new();
-    if (((lisp_encap_control_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
-        lispd_log_msg(LISP_LOG_DEBUG_3, "Parsing encapsulated control message data");
+    if (((lisp_ecm_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
+        lmlog(LISP_LOG_DEBUG_3, "Parsing encapsulated control message data");
         msg->encap = 1;
         msg->encapdata = lisp_encap_hdr_parse(packet);
         packet = CO(packet, lisp_encap_data_get_len(msg->encapdata));
     } else {
         msg->encap = 0;
     }
-    msg->type = ((lisp_encap_control_hdr_t *) packet)->type;
+    msg->type = ((lisp_ecm_hdr_t *) packet)->type;
     switch (msg->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
         msg->msg = map_reply_msg_parse(packet);
@@ -118,7 +118,7 @@ void lisp_msg_del(lisp_msg *msg) {
     case LISP_INFO_NAT:
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Unidentified type (%d) control message received", msg->type);
+        lmlog(LISP_LOG_DEBUG_1, "Unidentified type (%d) control message received", msg->type);
         break;
 
     }
@@ -133,7 +133,7 @@ lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet) {
     data = calloc(1, sizeof(lisp_encap_data));
 
     data->ecmh = packet;
-    data->iph = CO(packet, sizeof(lisp_encap_control_hdr_t));
+    data->iph = CO(packet, sizeof(lisp_ecm_hdr_t));
     switch (((struct ip *)data->iph)->ip_v) {
     case IPVERSION:
         data->ip_header_len = sizeof(struct ip);
@@ -146,11 +146,11 @@ lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet) {
         data->ip_afi = AF_INET6;
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
+        lmlog(LISP_LOG_DEBUG_2, "process_map_request_msg: couldn't read incoming Encapsulated Map-Request: IP header corrupted.");
         return(NULL);
     }
 
-    data->len = sizeof(lisp_encap_control_hdr_t)+data->ip_header_len + sizeof(struct udphdr);
+    data->len = sizeof(lisp_ecm_hdr_t)+data->ip_header_len + sizeof(struct udphdr);
 
     return(data);
 }
@@ -174,8 +174,8 @@ map_reply_msg *map_reply_msg_parse(uint8_t *offset) {
     mrp = map_reply_msg_new();
     mrp->data = offset;
 
-    offset = CO(mrp->data, sizeof(map_reply_hdr));
-    mrp->records = glist_new(NO_CMP, (void (*)(void *))mapping_record_del);
+    offset = CO(mrp->data, sizeof(map_reply_hdr_t));
+    mrp->records = glist_new_full(NO_CMP, (void (*)(void *))mapping_record_del);
     if (!mrp->records)
         goto err;
 
@@ -217,14 +217,14 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
 
     mrp = map_request_msg_new();
     mrp->data = offset;
-    offset = CO(mrp->data, sizeof(map_request_msg_hdr));
+    offset = CO(mrp->data, sizeof(map_request_hdr_t));
     mrp->src_eid = address_field_parse(offset);
     if (!mrp->src_eid)
         goto err;
     offset = CO(offset, address_field_len(mrp->src_eid));
 
     /* parse ITR RLOCs */
-    mrp->itr_rlocs = glist_new(NO_CMP, (glist_del_fct)address_field_del);
+    mrp->itr_rlocs = glist_new_full(NO_CMP, (glist_del_fct)address_field_del);
     for (i=0; i < mreq_msg_get_hdr(mrp)->additional_itr_rloc_count + 1; i++) {
         afield = address_field_parse(offset);
         if (!afield)
@@ -234,7 +234,7 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
     }
 
     /* parse EIDs */
-    mrp->eids = glist_new(NO_CMP, (glist_del_fct)eid_prefix_record_del);
+    mrp->eids = glist_new_full(NO_CMP, (glist_del_fct)eid_prefix_record_del);
     for (i=0; i< mreq_msg_get_hdr(mrp)->record_count; i++) {
         record = eid_prefix_record_parse(offset);
         if (!record)
@@ -264,6 +264,67 @@ void map_request_msg_del(map_request_msg *msg) {
 }
 
 
+void map_request_hdr_init(uint8_t *ptr) {
+    map_request_hdr_t *mrp = ptr;
+
+    mrp->type                       = LISP_MAP_REQUEST;
+    mrp->authoritative              = 0;
+    mrp->map_data_present           = 1;    /* default not mrsig */
+    mrp->rloc_probe                 = 0;    /* default not rloc probe */
+    mrp->solicit_map_request        = 0;    /* default not smr */
+    mrp->smr_invoked                = 0;    /* default not smr-invoked */
+    mrp->additional_itr_rloc_count  = 0;    /* to be filled in later  */
+    mrp->record_count               = 0;    /* to be filled in later */
+    mrp->nonce                      = 0;    /* to be filled in later */
+    mrp->pitr                       = 0;    /* default not sent by PITR */
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+}
+
+void map_reply_hdr_init(uint8_t *ptr) {
+    map_reply_hdr_t *mrp = ptr;
+
+    mrp->type = LISP_MAP_REPLY;
+    mrp->rloc_probe = 0;        /* default not rloc-probe */
+    mrp->record_count = 0;      /* to be filled in later */
+    mrp->echo_nonce  = 0;       /* default not reply to echo nonce req */
+    mrp->nonce = 0;             /* to be filled in later */
+
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+    mrp->reserved3 = 0;
+
+}
+
+void map_register_hdr_init(uint8_t *ptr) {
+    map_register_hdr_t *mrp = ptr;
+
+    mrp->type = LISP_MAP_REGISTER;
+    mrp->proxy_reply = 0;               /* default no proxy-map-reply */
+    mrp->map_notify = 1;                /* default want map-notify */
+    mrp->nonce = 0;                     /* to be filled in later */
+    mrp->record_count = 0;              /* to be filled in later */
+    mrp->rbit = 0;                      /* default not NATT */
+    mrp->ibit = 0;                      /* default not NATT */
+
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+    mrp->reserved3 = 0;
+}
+
+void map_notify_hdr_init(uint8_t *ptr) {
+    map_notify_hdr_t *mrp = ptr;
+
+    mrp->type = LISP_MAP_NOTIFY;
+    mrp->record_count = 0;              /* to be filled in later */
+    mrp->rtr_auth_present = 0;          /* to be filled in later */
+    mrp->xtr_id_present = 0;            /* to be filled in later */
+    mrp->nonce = 0;                     /* to be filled in later */
+
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+}
+
 
 /*
  * Compute and fill auth data field
@@ -283,7 +344,7 @@ int auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id, const char *
                 (const void *) key, strlen(key),
                 (uchar *) msg, msg_len,
                 (uchar *) md, md_len)) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "msg_check_auth_field: HMAC_SHA_1_96 computation failed!");
+            lmlog(LISP_LOG_DEBUG_1, "msg_check_auth_field: HMAC_SHA_1_96 computation failed!");
             return(BAD);
         }
         break;
@@ -370,12 +431,12 @@ map_register_msg *map_register_msg_parse(uint8_t *offset) {
 
     mreg = map_register_msg_new();
     mreg->bits = offset;
-    offset = CO(mreg->bits, sizeof(map_register_msg_hdr));
+    offset = CO(mreg->bits, sizeof(map_register_hdr_t));
     mreg->auth_data = auth_field_parse(offset);
     if (!mreg->auth_data)
         goto err;
     offset = CO(offset, auth_field_get_len(mreg->auth_data));
-    mreg->records = glist_new(NO_CMP, (glist_del_fct)mapping_record_del);
+    mreg->records = glist_new_full(NO_CMP, (glist_del_fct)mapping_record_del);
     if (!mreg->records)
         goto err;
     for (i = 0; i < mreg_msg_get_hdr(mreg)->record_count; i++) {
@@ -401,7 +462,7 @@ int mreg_msg_get_len(map_register_msg *msg) {
     glist_t             *records    = NULL;
     glist_entry_t       *it         = NULL;
 
-    len = sizeof(map_notify_msg_hdr_t) + auth_field_get_len(msg->auth_data);
+    len = sizeof(map_notify_hdr_t) + auth_field_get_len(msg->auth_data);
 
     records = mreg_msg_get_records(msg);
     glist_for_each_entry(it, records) {
@@ -443,16 +504,16 @@ map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
     map_notify_msg  *mnotify  = NULL;
     mapping_record  *record   = NULL;
     int i;
-    lispd_log_msg(LISP_LOG_DEBUG_3, "Parsing map notify!");
+    lmlog(LISP_LOG_DEBUG_3, "Parsing map notify!");
 
     mnotify = map_notify_msg_new();
     mnotify->data = offset;
-    offset = CO(mnotify->data, sizeof(map_notify_msg_hdr_t));
+    offset = CO(mnotify->data, sizeof(map_notify_hdr_t));
     mnotify->auth_data = auth_field_parse(offset);
     if (!mnotify->auth_data)
         goto err;
     offset = CO(offset, auth_field_get_len(mnotify->auth_data));
-    mnotify->records = glist_new(NO_CMP, (glist_del_fct)mapping_record_del);
+    mnotify->records = glist_new_full(NO_CMP, (glist_del_fct)mapping_record_del);
     if (!mnotify->records)
         goto err;
 
@@ -490,7 +551,7 @@ uint16_t mnotify_msg_get_len(map_notify_msg *msg) {
     glist_t             *records    = NULL;
     glist_entry_t       *it         = NULL;
 
-    len = sizeof(map_notify_msg_hdr_t) + auth_field_get_len(msg->auth_data);
+    len = sizeof(map_notify_hdr_t) + auth_field_get_len(msg->auth_data);
 
     records = mnotify_msg_records(msg);
     glist_for_each_entry(it, records) {
@@ -540,10 +601,10 @@ int mnotify_msg_alloc(map_notify_msg *msg) {
     msg->head = msg_send_buf;
 
     /* clear hdr*/
-    memset(msg->data, 0, sizeof(map_notify_msg_hdr_t));
+    memset(msg->data, 0, sizeof(map_notify_hdr_t));
 
-    mnotify_msg_hdr(msg)->lisp_type = LISP_MAP_NOTIFY;
-    msg->len = sizeof(map_notify_msg_hdr_t);
+    mnotify_msg_hdr(msg)->type = LISP_MAP_NOTIFY;
+    msg->len = sizeof(map_notify_hdr_t);
     return(GOOD);
 }
 
@@ -588,3 +649,65 @@ uint8_t *mnotify_msg_push(map_notify_msg *msg, int len) {
 int mnotify_msg_check_auth(map_notify_msg *msg, const char *key) {
     return(auth_field_check(mnotify_msg_data(msg), mnotify_msg_get_len(msg), mnotify_msg_auth_data(msg), key));
 }
+
+
+
+
+
+/* Given the start of an address field, @addr, checks if the address is an
+ * MCAST_INFO LCAF that carries mrsignaling flags */
+uint8_t is_mrsignaling(address_hdr_t *addr) {
+    return( address_field_afi(addr) == LISP_AFI_LCAF
+            && address_field_lcaf_type(addr) == LCAF_MCAST_INFO
+            && (address_field_get_mc_hdr(addr)->J || address_field_get_mc_hdr(addr)->L));
+}
+
+/* Given the start of an address field, @addr, checks if the address is used
+ * for mrsignaling, in which case it returns the mrsignaling flags */
+mrsignaling_flags_t
+mrsignaling_flags(address_hdr_t *addr) {
+    lcaf_mcinfo_hdr_t   *hdr;
+    mrsignaling_flags_t mc_flags = {.rbit = 0, .jbit = 0, .lbit = 0};
+
+    if (!is_mrsignaling(addr)) {
+        return(mc_flags);
+    }
+
+    hdr = addr;
+
+    if (hdr->J == 1 && hdr->L == 1) {
+        lmlog(LISP_LOG_DEBUG_1, "Both join and leave flags are set in "
+                "mrsignaling msg. Discarding!");
+        return(mc_flags);
+    }
+
+    mc_flags = (mrsignaling_flags_t){.rbit = hdr->R, .jbit = hdr->J, .lbit = hdr->L};
+    return(mc_flags);
+}
+
+
+/**
+ * @offset: pointer to start of the mapping record
+ */
+void
+mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig) {
+
+    lcaf_mcinfo_hdr_t *mc_ptr;
+
+//    offset = CO(offset, sizeof(mapping_record_hdr_t) + sizeof(uint16_t));
+    mc_ptr = (lcaf_mcinfo_hdr_t *) offset;
+    mc_ptr->J = mrsig->jbit;
+    mc_ptr->L = mrsig->lbit;
+    mc_ptr->R = mrsig->rbit;
+
+}
+
+
+
+static
+char *mreq_hdr_to_char(map_request_hdr_t *h) {
+    static char *buf[100];
+//    sprintf(buf, "Map-Request -> Flags:s", h->)
+}
+
+

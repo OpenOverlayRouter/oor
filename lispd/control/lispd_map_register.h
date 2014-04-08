@@ -96,37 +96,37 @@ extern timer *map_register_timer;
 
 /* I and R bit are defined on NAT tarversal draft*/
 
-typedef struct lispd_pkt_map_register_t_ {
-#ifdef LITTLE_ENDIANS
-    uint8_t  rbit:1;
-    uint8_t  ibit:1;
-    uint8_t  reserved1:1;
-    uint8_t  proxy_reply:1;
-    uint8_t  lisp_type:4;
-#else
-    uint8_t  lisp_type:4;
-    uint8_t  proxy_reply:1;
-    uint8_t  reserved1:1;
-    uint8_t  ibit:1;
-    uint8_t  rbit:1;
-#endif
-    uint8_t reserved2;
-#ifdef LITTLE_ENDIANS
-    uint8_t map_notify:1;
-    uint8_t lisp_mn:1;
-    uint8_t reserved3:6;
-#else
-    uint8_t reserved3:6;
-    uint8_t lisp_mn:1;
-    uint8_t map_notify:1;
-#endif
-    uint8_t  record_count;
-    uint64_t nonce;
-    uint16_t key_id;
-    uint16_t auth_data_len;
-    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
-} PACKED lispd_pkt_map_register_t;
-
+//typedef struct lispd_pkt_map_register_t_ {
+//#ifdef LITTLE_ENDIANS
+//    uint8_t  rbit:1;
+//    uint8_t  ibit:1;
+//    uint8_t  reserved1:1;
+//    uint8_t  proxy_reply:1;
+//    uint8_t  lisp_type:4;
+//#else
+//    uint8_t  lisp_type:4;
+//    uint8_t  proxy_reply:1;
+//    uint8_t  reserved1:1;
+//    uint8_t  ibit:1;
+//    uint8_t  rbit:1;
+//#endif
+//    uint8_t reserved2;
+//#ifdef LITTLE_ENDIANS
+//    uint8_t map_notify:1;
+//    uint8_t lisp_mn:1;
+//    uint8_t reserved3:6;
+//#else
+//    uint8_t reserved3:6;
+//    uint8_t lisp_mn:1;
+//    uint8_t map_notify:1;
+//#endif
+//    uint8_t  record_count;
+//    uint64_t nonce;
+//    uint16_t key_id;
+//    uint16_t auth_data_len;
+//    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
+//} PACKED map_register_hdr_t;
+//
 
 
 int map_register_cb(timer *t, void *arg);

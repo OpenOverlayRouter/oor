@@ -60,7 +60,7 @@
 #include "lispd_tun.h"
 #include "lispd_output.h"
 #include "lispd_routing_tables_lib.h"
-#include <lispd_address.h>
+#include <lisp_address.h>
 #include <lisp_xtr.h>
 #include <lisp_ms.h>
 #include <elibs/htable/hash_table.h>
@@ -70,9 +70,9 @@
  *      config paramaters
  */
 
-lispd_addr_list_t          *map_resolvers   = NULL;
-lispd_addr_list_t          *proxy_itrs      = NULL;
-lispd_map_cache_entry      *proxy_etrs      = NULL;
+lisp_addr_list_t          *map_resolvers   = NULL;
+lisp_addr_list_t          *proxy_itrs      = NULL;
+map_cache_entry_t      *proxy_etrs      = NULL;
 lispd_map_server_list_t    *map_servers     = NULL;
 char    *config_file                        = NULL;
 int      debug_level                        = 0;
@@ -197,17 +197,17 @@ int init_xtr() {
     struct sock *nl_sl;
 
     if (map_servers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+        lmlog(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
         exit_cleanup();
     }
 
     if (map_resolvers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
+        lmlog(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
         exit_cleanup();
     }
 
     if (proxy_etrs == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+        lmlog(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
                 "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
         sleep(3);
     }else{
@@ -288,7 +288,7 @@ int init_rtr() {
 //    }
 
     if (map_resolvers == NULL){
-        lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
+        lmlog(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
         exit_cleanup();
     }
 
@@ -358,9 +358,9 @@ int build_iface_addr_hash_table() {
     int     family, s;
     char    host[NI_MAXHOST];
 
-    lispd_log_msg(LISP_LOG_INFO, "Building address to interface hash table");
+    lmlog(LISP_LOG_INFO, "Building address to interface hash table");
     if (getifaddrs(&ifaddr) == -1) {
-        lispd_log_msg(LISP_LOG_CRIT, "Can't read the interfaces of the system. Exiting .. ");
+        lmlog(LISP_LOG_CRIT, "Can't read the interfaces of the system. Exiting .. ");
         exit_cleanup();
     }
 
@@ -377,13 +377,13 @@ int build_iface_addr_hash_table() {
                                           sizeof(struct sockaddr_in6),
                     host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
             if (s != 0) {
-                lispd_log_msg(LISP_LOG_WARNING, "getnameinfo() failed: %s. Skipping interface. ", gai_strerror(s));
+                lmlog(LISP_LOG_WARNING, "getnameinfo() failed: %s. Skipping interface. ", gai_strerror(s));
                 continue;
             }
             /* make a copy */
             hash_table_insert(iface_addr_ht, strdup(host), strdup(ifa->ifa_name));
 
-            lispd_log_msg(LISP_LOG_INFO, "Found interface %s with address %s", ifa->ifa_name, host);
+            lmlog(LISP_LOG_INFO, "Found interface %s with address %s", ifa->ifa_name, host);
         }
     }
 
@@ -417,30 +417,30 @@ void test_elp() {
     glist_add_tail(en3, elp->nodes);
     lcaf->addr = elp;
 
-    lispd_log_msg(LISP_LOG_WARNING, "the generated lcaf: %s", lisp_addr_to_char(laddr));
-    lispd_log_msg(LISP_LOG_WARNING, "let's see now!");
+    lmlog(LISP_LOG_WARNING, "the generated lcaf: %s", lisp_addr_to_char(laddr));
+    lmlog(LISP_LOG_WARNING, "let's see now!");
 
     lisp_addr_t *eid = lisp_addr_new(); get_lisp_addr_from_char("4.5.6.7", eid);
     uint8_t status = 1; int sock = 1;
     locator_t *locator = new_local_locator(laddr, &status, 1, 100, 1, 100, &sock);
     mapping_t *mapping = mapping_init_local(eid);
-    lispd_log_msg(LISP_LOG_WARNING, "mapping created!");
+    lmlog(LISP_LOG_WARNING, "mapping created!");
 
     add_locator_to_mapping(mapping, locator);
-    lispd_log_msg(LISP_LOG_WARNING, "locator added!");
+    lmlog(LISP_LOG_WARNING, "locator added!");
     local_map_db_add_mapping(mapping);
     local_map_db_dump(LISP_LOG_WARNING);
 
     map_register_all_eids();
 
-    lispd_log_msg(LISP_LOG_WARNING, "removing mapping!");
+    lmlog(LISP_LOG_WARNING, "removing mapping!");
     local_map_db_del_mapping(eid);
 
-    lispd_log_msg(LISP_LOG_WARNING, "done. Sending map-request!");
+    lmlog(LISP_LOG_WARNING, "done. Sending map-request!");
     handle_map_cache_miss(eid, local_map_db_get_main_eid(AF_INET));
 
 
-    lispd_log_msg(LISP_LOG_WARNING, "finished!");
+    lmlog(LISP_LOG_WARNING, "finished!");
 //    lisp_addr_del(laddr);
 //    free_mapping_elt(mapping, 1);
 //    for(;;) {
@@ -481,20 +481,20 @@ void signal_handler(int sig) {
     switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received SIGHUP signal.");
+        lmlog(LISP_LOG_DEBUG_1, "Received SIGHUP signal.");
         break;
     case SIGTERM:
         /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received SIGTERM signal. Cleaning up...");
+        lmlog(LISP_LOG_DEBUG_1, "Received SIGTERM signal. Cleaning up...");
         exit_cleanup();
         break;
     case SIGINT:
         /* SIGINT is sent by pressing Ctrl-C. Exit cleanly */
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Terminal interrupt. Cleaning up...");
+        lmlog(LISP_LOG_DEBUG_1, "Terminal interrupt. Cleaning up...");
         exit_cleanup();
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_1,"Unhandled signal (%d)", sig);
+        lmlog(LISP_LOG_DEBUG_1,"Unhandled signal (%d)", sig);
         exit(EXIT_FAILURE);
     }
 }
@@ -522,7 +522,7 @@ void exit_cleanup(void) {
     close(netlink_fd);
     if (ctrl_dev) lisp_ctrl_dev_del(ctrl_dev);
     if (iface_addr_ht) hash_table_destroy(iface_addr_ht);
-    lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
+    lmlog(LISP_LOG_INFO,"Exiting ...");
 
     exit(EXIT_SUCCESS);
 }
@@ -534,12 +534,12 @@ int main(int argc, char **argv)
 
 #ifdef ROUTER
 #ifdef OPENWRT
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
+    lmlog(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
 #else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for linux xTR\n");
+    lmlog(LISP_LOG_INFO,"LISPmob compiled for linux xTR\n");
 #endif
 #else
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
+    lmlog(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
 #endif
 
 
@@ -548,7 +548,7 @@ int main(int argc, char **argv)
      */
 
     if (geteuid()) {
-        lispd_log_msg(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
+        lmlog(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
         exit_cleanup();
     }
 
@@ -580,7 +580,7 @@ int main(int argc, char **argv)
      */
 
     if (daemonize) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
+        lmlog(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
             exit_cleanup();
         }
@@ -608,7 +608,7 @@ int main(int argc, char **argv)
 
     if (build_timers_event_socket(&timers_fd) == 0)
     {
-        lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+        lmlog(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
         exit_cleanup();
     }
 
@@ -642,14 +642,14 @@ int main(int argc, char **argv)
         ret = init_rtr();
         break;
     default:
-        lispd_log_msg(LISP_LOG_CRIT, "No active control device configured. Exiting ... ");
+        lmlog(LISP_LOG_CRIT, "No active control device configured. Exiting ... ");
         exit_cleanup();
     }
 
     if (ret != GOOD)
         exit_cleanup();
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob (0.5): 'lispd' started...");
+    lmlog(LISP_LOG_INFO,"LISPmob (0.5): 'lispd' started...");
 
 
     /* activate lisp control device xtr/ms */
@@ -657,7 +657,7 @@ int main(int argc, char **argv)
 
     event_loop();
 
-    lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
+    lmlog(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
     closelog();
     return(0);
 }

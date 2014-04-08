@@ -42,9 +42,7 @@
 #include "lispd_info_nat.h"
 
 typedef enum {
-    xTR_MODE = 1,
-    MS_MODE,
-    RTR_MODE
+    xTR_MODE = 1, MS_MODE, RTR_MODE
 } lisp_device_mode;
 
 struct _lisp_ctrl_device;
@@ -63,92 +61,65 @@ struct _lisp_ctrl_device {
     lisp_device_mode mode;
 };
 
-
 /* vtable functions */
 int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock);
 void lisp_ctrl_dev_start(lisp_ctrl_device *dev);
 void lisp_ctrl_dev_del(lisp_ctrl_device *dev);
 
 int process_map_reply_msg(map_reply_msg *mrep);
-int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);
+int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc,
+        uint16_t dst_port);
 int process_map_reply_probe_record(mapping_record *record, uint64_t nonce);
 
-int             handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
-int             send_map_request_miss(timer *t, void *arg);
-void            timer_map_request_argument_del(void *);
+int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
+int send_map_request_miss(timer *t, void *arg);
+void timer_map_request_argument_del(void *);
 
 
-uint8_t is_mrsignaling(address_field *addr);
 mrsignaling_flags_t mrsignaling_get_flags_from_field(address_field *afield);
-int mrsignaling_send_join(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce);
-int mrsignaling_send_leave(mapping_t *ch_mapping, lisp_addr_t *delivery_grp, lisp_addr_t *dst_rloc, uint64_t *nonce);
+int mrsignaling_send_join(mapping_t *ch_mapping, lisp_addr_t *delivery_grp,
+        lisp_addr_t *dst_rloc, uint64_t *nonce);
+int mrsignaling_send_leave(mapping_t *ch_mapping, lisp_addr_t *delivery_grp,
+        lisp_addr_t *dst_rloc, uint64_t *nonce);
 
-int mrsignaling_send_ack(
-        mapping_t *registered_mapping,
-        lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc,
-        uint16_t dport,
-        uint64_t nonce,
+int mrsignaling_send_ack(mapping_t *registered_mapping, lisp_addr_t *local_rloc,
+        lisp_addr_t *remote_rloc, uint16_t dport, uint64_t nonce,
         mrsignaling_flags_t mc_flags);
-int mrsignaling_recv_join(lisp_addr_t *src_eid, lisp_addr_t *dst_eid, lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc, uint16_t dst_port, uint64_t nonce, mrsignaling_flags_t mc_flags);
+int mrsignaling_recv_msg(struct lbuf *, lisp_addr_t *, lisp_addr_t *,
+         mrsignaling_flags_t);
 int mrsignaling_recv_ack(mapping_record *record, uint64_t nonce);
 
-
-
-/*
- * Structure to set Map Reply options
- */
-
-typedef struct _map_reply_opts{
-    uint8_t     send_rec;       // send a Map Reply record as well
-    uint8_t     rloc_probe;     // set RLOC probe bit
-    uint8_t     echo_nonce;     // set Echo-nonce bit
-    mrsignaling_flags_t     mrsig; // mrsignaling option bits
+/* Structure to set Map Reply options */
+typedef struct _map_reply_opts {
+    uint8_t send_rec;       // send a Map Reply record as well
+    uint8_t rloc_probe;     // set RLOC probe bit
+    uint8_t echo_nonce;     // set Echo-nonce bit
+    mrsignaling_flags_t mrsig; // mrsignaling option bits
 } map_reply_opts;
 
-/*
- * Struct used to pass the arguments to the call_back function of a
- * map request miss
- */
 
-/* TODO: make src_eid a pointer */
-typedef struct _timer_map_request_argument{
-    lispd_map_cache_entry   *map_cache_entry;
-    lisp_addr_t             *src_eid;
-    void                    (*arg_free_fct)(void *);
+/* Struct used to pass the arguments to the call_back function of a  map
+ * request miss
+ * TODO: make src_eid a pointer */
+typedef struct _timer_map_request_argument {
+    map_cache_entry_t *map_cache_entry;
+    lisp_addr_t *src_eid;
+    void (*arg_free_fct)(void *);
 } timer_map_request_argument;
 
+/* Put a wrapper around build_map_request_pkt and send_map_request */
+int build_and_send_map_request_msg(mapping_t *requested_mapping,
+        lisp_addr_t *src_eid, lisp_addr_t *dst_rloc_addr, uint8_t encap,
+        uint8_t probe, uint8_t solicit_map_request, uint8_t smr_invoked,
+        mrsignaling_flags_t *mrsig, uint64_t *nonce);
 
+uint8_t *build_map_reply_pkt(mapping_t *mapping, lisp_addr_t *probed_rloc,
+        map_reply_opts opts, uint64_t nonce, int *map_reply_msg_len);
 
-/*
- *  Put a wrapper around build_map_request_pkt and send_map_request
- */
-int     build_and_send_map_request_msg(
-            mapping_t       *requested_mapping,
-            lisp_addr_t             *src_eid,
-            lisp_addr_t             *dst_rloc_addr,
-            uint8_t                 encap,
-            uint8_t                 probe,
-            uint8_t                 solicit_map_request,
-            uint8_t                 smr_invoked,
-            mrsignaling_flags_t     *mrsig,
-            uint64_t                *nonce);
+int build_and_send_map_reply_msg(mapping_t *requested_mapping,
+        lisp_addr_t *src_rloc_addr, lisp_addr_t *dst_rloc_addr, uint16_t dport,
+        uint64_t nonce, map_reply_opts opts);
 
-uint8_t     *build_map_reply_pkt(
-            mapping_t *mapping,
-            lisp_addr_t *probed_rloc,
-            map_reply_opts opts,
-            uint64_t nonce,
-            int *map_reply_msg_len);
-
-int build_and_send_map_reply_msg(
-        mapping_t *requested_mapping,
-        lisp_addr_t *src_rloc_addr,
-        lisp_addr_t *dst_rloc_addr,
-        uint16_t dport,
-        uint64_t nonce,
-        map_reply_opts opts);
-
-int mcache_activate_mapping(lisp_addr_t *eid, lispd_locators_list *locators, uint64_t nonce, uint8_t action, uint32_t ttl);
+int mcache_activate_mapping(lisp_addr_t *eid, locators_list_t *locators,
+        uint64_t nonce, uint8_t action, uint32_t ttl);
 #endif /* LISP_CTRL_DEVICE_H_ */

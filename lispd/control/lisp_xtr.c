@@ -27,49 +27,55 @@
  */
 
 #include "lisp_xtr.h"
+#include "lispd_sockets.h"
 
-int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port);
+int xtr_process_map_request_msg(struct lbuf *, udpsock_t *);
 
-int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock) {
-    int ret = 0;
+int xtr_process_ctrl_msg(lisp_ctrl_device *dev, struct lbuf *msg,
+        udpsock_t *udpsock) {
+    int ret = 0, type;
 
-    switch(msg->type) {
+    type = lisp_msg_parse_type(msg);
+    switch (type) {
     case LISP_MAP_REPLY:
-      ret = process_map_reply_msg(msg->msg);
-      break;
+        ret = process_map_reply_msg(msg);
+        break;
     case LISP_MAP_REQUEST:
-      ret = xtr_process_map_request_msg(msg->msg, &udpsock->dst, udpsock->src_port);
-      break;
+        ret = xtr_process_map_request_msg(msg, udpsock);
+        break;
     case LISP_MAP_REGISTER:
-      break;
+        break;
     case LISP_MAP_NOTIFY:
-      ret = process_map_notify(msg->msg);
-      break;
+        ret = process_map_notify(msg);
+        break;
     case LISP_INFO_NAT:
-      /*FC: should be de-commented once process_info_nat_msg is updated to work with lisp_msg */
-    //          lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-    //          if(!process_info_nat_msg(packet, local_rloc)){
-    //              return (BAD);
-    //          }
-      break;
+        /*FC: should be de-commented once process_info_nat_msg is updated to work with lisp_msg */
+        //          lispd_log_msg(DBG_1, "Received a LISP Info-Request/Info-Reply message");
+        //          if(!process_info_nat_msg(packet, local_rloc)){
+        //              return (BAD);
+        //          }
+        break;
     default:
-      lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Unidentified type (%d) control message received", msg->type);
-      ret = BAD;
-      break;
+        lmlog(DBG_1, "xTR: Unidentified type (%d) control "
+                "message received", type);
+        ret = BAD;
+        break;
     }
 
     if (ret != GOOD) {
-      lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Failed to process LISP control message");
-      return(BAD);
+        lmlog(DBG_1,"xTR: Failed to process LISP control "
+                "message");
+        return (BAD);
     } else {
-      lispd_log_msg(LISP_LOG_DEBUG_3, "xTR: Completed processing of LISP control message");
-      return(ret);
+        lmlog(DBG_3,
+                "xTR: Completed processing of LISP control message");
+        return (ret);
     }
 }
 
 void xtr_ctrl_start(lisp_ctrl_device *dev) {
 
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Starting xTR ...");
+    lmlog(DBG_1, "Starting xTR ...");
     /*
     *  Register to the Map-Server(s)
     */
@@ -109,7 +115,7 @@ lisp_ctrl_device *xtr_ctrl_init() {
     xtr = calloc(1, sizeof(lisp_xtr));
     xtr->super.vtable = &xtr_vtable;
     xtr->super.mode = xTR_MODE;
-    lispd_log_msg(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
+    lmlog(DBG_1, "Finished Initializing xTR");
 
     /*
      *  set up databases
@@ -122,126 +128,155 @@ lisp_ctrl_device *xtr_ctrl_init() {
 }
 
 
+int
+send_map_request_to_mr(struct lbuf *b, udpsock_t *ss)
+{
+    lisp_addr_copy(ss->dst, get_map_resolver());
+    lisp_addr_copy(ss->src, get_default_ctrl_address(lisp_addr_ip_afi(ss->dst)));
+    ss->dst_port = LISP_CONTROL_PORT;
+    ss->src_port = LISP_CONTROL_PORT;
 
-static int process_smr(lisp_addr_t *src_addr){
-
-    lispd_map_cache_entry      *map_cache_entry        = NULL;
-    /*
-    * Lookup the map cache entry that match with the source EID prefix of the message
-    */
-    map_cache_entry = map_cache_lookup(src_addr);
-    if (map_cache_entry == NULL)
-        return (BAD);
-
-    /*
-    * Only accept a solicit map request for an EID prefix ->If node which generates the message
-    * has more than one locator, it probably will generate a solicit map request for each one.
-    * Only the first one is considered.
-    * If map_cache_entry->nonces is different of null, we have already received a solicit map request
-    */
-    if (!mcache_entry_get_nonces_list(map_cache_entry))
-        solicit_map_request_reply(NULL,(void *)map_cache_entry);
+    if (core_send_msg(b, ss) != GOOD) {
+        lmlog(DBG_1,"Couldn't send Map-Request!");
+    }
 
     return(GOOD);
 }
 
-int xtr_process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc, uint16_t dst_port)
-{
-    lisp_addr_t                 *src_eid                = NULL;
-    lisp_addr_t                 *dst_eid                = NULL;
-    lisp_addr_t                 *remote_rloc            = NULL;
-    glist_t                     *itrs                   = NULL;
-    glist_entry_t               *it                     = NULL;
-    glist_t                     *eids                   = NULL;
-    mapping_t                   *mapping                = NULL;
-    map_reply_opts              opts;
-    address_field               *dfield                 = NULL;
+static void
+select_remote_rloc(glist_t *l, int afi, lisp_addr_t *remote) {
+    int i;
+    glist_entry_t *it;
+    lisp_addr_t *rloc;
 
-    lispd_log_msg(LISP_LOG_DEBUG_3, "xTR: Processing LISP Map-Request message");
-
-    if (!(src_eid = lisp_addr_init_from_field(mreq_msg_get_src_eid(mreq))))
-        return(BAD);
-
-    /* If packet is a Solicit Map Request, process it */
-    if (lisp_addr_get_afi(src_eid) != LM_AFI_NO_ADDR && mreq_msg_get_hdr(mreq)->solicit_map_request) {
-        if(process_smr(src_eid) != GOOD)
-            goto err;
-        /* Return here only if RLOC probe bit is not set */
-        else if (!mreq_msg_get_hdr(mreq)->rloc_probe)
-            goto done;
-
-    }
-
-
-    /* Process additional ITR RLOCs. Obtain remote RLOC to use for Map-Replies*/
-    itrs = mreq_msg_get_itr_rlocs(mreq);
-    glist_for_each_entry(it, itrs) {
-        /* XXX: support only for IP RLOCs */
-        if (ip_iana_afi_to_sock_afi(address_field_afi(glist_entry_data(it))) == lisp_addr_ip_get_afi(local_rloc)) {
-            remote_rloc = lisp_addr_init_from_field(glist_entry_data(it));
+    glist_for_each_entry(it, l) {
+        rloc = glist_entry_data(it);
+        if (lisp_addr_ip_afi(rloc) == afi) {
+            lisp_addr_copy(remote, rloc);
             break;
         }
     }
+}
 
-    if (!remote_rloc){
-        lispd_log_msg(LISP_LOG_DEBUG_3,"xTR: No supported AFI in the list of ITR-RLOCS");
-        goto err;
+int
+send_map_reply(struct lbuf *b, udpsock_t *rsk, glist_t *itr_rlocs)
+{
+    udpsock_t ssk;
+    lisp_addr_copy(&ssk.src, &rsk->dst);
+    select_remote_rloc(itr_rlocs, lisp_addr_ip_afi(&rsk->src), &ssk.dst);
+
+    if (core_send_msg(b, ssk) != GOOD) {
+        lmlog(DBG_1, "Couldn't send Map-Reply!");
+    }
+    return(GOOD);
+}
+
+
+static int
+reply_smr(lisp_addr_t *src_addr)
+{
+    map_cache_entry_t *mce;
+    nonces_list *nonces;
+
+    /* Lookup the map cache entry that match with the source EID prefix
+     * of the message */
+    mce = map_cache_lookup(src_addr);
+    if (!mce)
+        return (BAD);
+
+    /* Only accept one solicit map request for an EID prefix. If node which
+     * generates the message has more than one locator, it probably will
+     * generate a solicit map request for each one. Only the first one is
+     * considered. If map_cache_entry->nonces is different from null, we have
+     * already received a solicit map request  */
+    if (!(nonces = mcache_entry_nonces_list(mce))) {
+        nonces = new_nonces_list();
+        if (!nonces)
+            return(BAD);
+
+        mce->smr_inv_timer = create_timer(SMR_INV_RETRY_TIMER);
+        if (!mce->smr_inv_timer)
+            return(BAD);
+
+        smr_reply_cb(mce->smr_inv_timer,(void *)mce);
     }
 
-    /* Set flags for Map-Reply */
-    opts.send_rec   = 1;
-    opts.echo_nonce = 0;
-    opts.rloc_probe = mreq_msg_get_hdr(mreq)->rloc_probe;
-    opts.mrsig = (mrsignaling_flags_t){0, 0, 0};
+    return(GOOD);
+}
 
-    /* Process record and send Map Reply for each one */
-    eids = mreq_msg_get_eids(mreq);
-    glist_for_each_entry(it, eids) {
-        dfield = eid_prefix_record_get_eid(glist_entry_data(it));
-        if (!(dst_eid = lisp_addr_init_from_field(dfield)))
+int
+xtr_process_map_request_msg(struct lbuf *b, udpsock_t *rsk)
+{
+    lisp_addr_t seid, deid;
+    mapping_t *map;
+    glist_t *itr_rlocs;
+    void *mreq_hdr, *mrep_hdr, *paddr;
+    int i;
+    struct lbuf *mrep;
+
+    lmlog(DBG_3, "xTR: Processing LISP Map-Request message");
+
+    mreq_hdr = lisp_msg_pull_hdr(b, sizeof(map_request_hdr_t));
+    lmlog(DBG_1, "%s", lisp_msg_hdr_to_char(mreq_hdr));
+
+    if (lisp_msg_parse_addr(b, &seid) != GOOD)
+        goto err;
+
+    /* If packet is a Solicit Map Request, process it */
+    if (lisp_addr_afi(&seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
+        if(reply_smr(&seid) != GOOD)
             goto err;
-
-        /* Save prefix length only if the entry is an IP */
-        if (lisp_addr_get_afi(dst_eid) == LM_AFI_IP)
-            ip_prefix_set_plen(lisp_addr_get_ippref(dst_eid),
-                    eid_prefix_record_get_hdr(glist_entry_data(it))->eid_prefix_length);
-
-        lispd_log_msg(LISP_LOG_DEBUG_1, "xTR: Received Map-Request from EID %s for EID %s",
-                lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
-
-
-        if (is_mrsignaling(dfield)) {
-            mrsignaling_recv_join(src_eid, dst_eid, local_rloc, remote_rloc, dst_port,
-                    mreq_msg_get_hdr(mreq)->nonce, mrsignaling_get_flags_from_field(dfield));
+        /* Return if RLOC probe bit is not set */
+        if (!MREQ_RLOC_PROBE(mreq_hdr))
             goto done;
-        }
+    }
 
-        /* Check the existence of the requested EID */
-        /* We don't use prefix mask and use by default 32 or 128*/
-        /* XXX: Maybe here we should do a strict search in case of RLOC probing */
-        if (!(mapping = local_map_db_lookup_eid(dst_eid))){
-            lispd_log_msg(LISP_LOG_DEBUG_1,"xTR: The requested EID doesn't belong to this node: %s",
-                    lisp_addr_to_char(dst_eid));
-            lisp_addr_del(dst_eid);
+    /* Process additional ITR RLOCs */
+    itr_rlocs = lisp_msg_parse_itr_rlocs(b);
+    if (!itr_rlocs)
+        goto err;
+
+    /* Process records and build Map-Reply */
+    mrep = lisp_msg_create(LISP_MAP_REPLY);
+    for (i = 0; i < MREQ_REC_COUNT(mreq_hdr); i++) {
+        if (lisp_msg_parse_eid_rec(b, &deid, paddr) != GOOD)
+            goto err;
+        lmlog(DBG_1, "Map-Request for %s (from %s)", lisp_addr_to_char(&deid),
+                lisp_addr_to_char(&seid));
+
+        if (is_mrsignaling(paddr)) {
+            mrsignaling_recv_msg(mrep, &seid, &deid, mrsignaling_flags(paddr));
             continue;
         }
 
+        /* Check the existence of the requested EID */
+        if (!(map = local_map_db_lookup_eid_exact(&deid))) {
+            lmlog(DBG_1,"EID %s not locally configured!",
+                    lisp_addr_to_char(&deid));
+            continue;
+        }
 
-        err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, mreq_msg_get_hdr(mreq)->nonce, opts);
-
-        lisp_addr_del(dst_eid);
+        lisp_msg_put_mapping(mrep, map, MREQ_RLOC_PROBE(mreq_hdr)
+                ? &rsk->dst: NULL);
     }
 
+    mrep_hdr = lisp_msg_hdr(mrep);
+    MREP_RLOC_PROBE(mrep_hdr) = MREQ_RLOC_PROBE(mreq_hdr);
+    MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
+
+    send_map_reply(mrep, rsk, itr_rlocs);
+
 done:
-    lisp_addr_del(src_eid);
-    lisp_addr_del(remote_rloc);
-//    lisp_addr_del(dst_eid);
+    if (itr_rlocs)
+        glist_del(itr_rlocs);
+    if (mrep)
+        lisp_msg_destroy(mrep);
+
     return(GOOD);
 err:
-    lisp_addr_del(src_eid);
-    if (remote_rloc)
-        lisp_addr_del(remote_rloc);
-    if (dst_eid)
-        lisp_addr_del(dst_eid);
+    if (itr_rlocs)
+        glist_del(itr_rlocs);
+    if (mrep)
+        lisp_msg_destroy(mrep);
     return(BAD);
 }

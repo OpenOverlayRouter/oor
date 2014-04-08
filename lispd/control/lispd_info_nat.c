@@ -64,7 +64,7 @@ int process_info_nat_msg(
 
     switch (nat_pkt->rbit) {
     case NAT_NO_REPLY:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_nat_msg: r-bit value not supported");
+        lmlog(LISP_LOG_DEBUG_2, "process_info_nat_msg: r-bit value not supported");
         return (BAD);
 
     case NAT_REPLY:
@@ -111,7 +111,7 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
 
     /* Reserve memory for the header */
     if ((hdr = (lispd_pkt_info_nat_t *) malloc(hdr_len)) == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "malloc (header info-nat packet): %s", strerror(errno));
+        lmlog(LISP_LOG_DEBUG_2, "malloc (header info-nat packet): %s", strerror(errno));
         return (NULL);
     }
 
@@ -152,7 +152,7 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
 //                   eid_prefix,
 //                   0)) != afi_len) {
     if (lisp_addr_write(&eid_part->eid_prefix_afi, eid_prefix) != afi_len + sizeof(uint16_t)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Error coping eid address ",eid_prefix);
+        lmlog(LISP_LOG_DEBUG_2, "Error coping eid address ",eid_prefix);
         free(hdr);
         return (NULL);
     }
@@ -208,16 +208,16 @@ int extract_info_nat_header(
     *ttl = ntohl(eid_part->ttl);
     *eid_mask_len = eid_part->eid_mask_length;
 
-    lispd_log_msg(LISP_LOG_WARNING, "eid mask len = %d, ttl = %u", *eid_mask_len, *ttl);
+    lmlog(LISP_LOG_WARNING, "eid mask len = %d, ttl = %u", *eid_mask_len, *ttl);
     /* Put the pointer just before the EID AFI field to use the extract_lisp_address function */
     eid_ptr = (uint8_t *)&(eid_part->eid_prefix_afi);
 
     if ((len = lisp_addr_read_from_pkt(eid_ptr, eid_prefix))<= 0){
-        lispd_log_msg(LISP_LOG_DEBUG_2,"extract_info_nat_header: Coudn't obtain EID address");
+        lmlog(LISP_LOG_DEBUG_2,"extract_info_nat_header: Coudn't obtain EID address");
         return (BAD);
     }
 
-    if (lisp_addr_get_afi(eid_prefix) == LM_AFI_IP)
+    if (lisp_addr_afi(eid_prefix) == LM_AFI_IP)
         lisp_addr_set_plen(eid_prefix, *eid_mask_len);
 
     *hdr_len = sizeof(lispd_pkt_info_nat_t) + sizeof(lispd_pkt_info_nat_eid_t) + len - sizeof(uint16_t);

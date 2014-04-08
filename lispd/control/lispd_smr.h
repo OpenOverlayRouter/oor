@@ -43,7 +43,7 @@ void init_smr(
  * Send a map request smr invoked and reprogram the timer to retransmit in case
  * no receive answer.
  */
-int solicit_map_request_reply(
+int smr_reply_cb(
         timer *t,
         void *arg);
 

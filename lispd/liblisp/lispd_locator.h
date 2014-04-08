@@ -31,7 +31,7 @@
 #ifndef LISPD_LOCATOR_H_
 #define LISPD_LOCATOR_H_
 
-#include "lispd_address.h"
+#include "lisp_address.h"
 #include "lispd_nonce.h"
 #include <lispd_timers.h>
 
@@ -61,7 +61,7 @@ typedef struct lispd_locator_elt_ {
 typedef struct lispd_locators_list_ {
     locator_t           *locator;
     struct lispd_locators_list_ *next;
-} lispd_locators_list;
+} locators_list_t;
 
 /*
  * Locator information
@@ -158,7 +158,7 @@ void dump_locator (
  * Add a locator to a locators list
  */
 int add_locator_to_list (
-        lispd_locators_list **list,
+        locators_list_t **list,
         locator_t           *locator);
 /*
  * Add a rtr localtor to a list of rtr locators
@@ -172,29 +172,29 @@ int add_rtr_locator_to_list(
  * The locator is removed from the list
  */
 locator_t *extract_locator_from_list(
-        lispd_locators_list     **head_locator_list,
+        locators_list_t     **head_locator_list,
         lisp_addr_t             addr);
 /*
  * Return the locator from the list that contains the address passed as a parameter
  */
 
 locator_t *get_locator_from_list(
-        lispd_locators_list    *locator_list,
+        locators_list_t    *locator_list,
         lisp_addr_t            *addr);
 
 /*
  * Free memory of lispd_locator_list.
  */
 
-void free_locator_list(lispd_locators_list     *list);
-void locator_list_free_container(lispd_locators_list *locator_list, uint8_t free_locators_flag);
+void free_locator_list(locators_list_t     *list);
+void locator_list_free_container(locators_list_t *locator_list, uint8_t free_locators_flag);
 locator_t *locator_init_from_field(locator_field *lf);
 int locator_write_to_field(locator_t *locator, locator_field *lfield);
 
 inline locator_t *locator_new();
 char *locator_to_char(locator_t *locator);
 int locator_get_size_in_field(locator_t *loc);
-int locator_list_get_size_in_field(lispd_locators_list *locators_list);
+int locator_list_get_size_in_field(locators_list_t *locators_list);
 int locator_cmp(locator_t *l1, locator_t *l2);
 locator_t *locator_init_remote(lisp_addr_t *addr);
 locator_t *locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority, uint8_t weight,
@@ -204,7 +204,7 @@ locator_t *locator_init_local_full(lisp_addr_t *addr, uint8_t *state, uint8_t pr
         uint8_t mpriority, uint8_t mweight);
 
 locator_t *locator_clone_remote(locator_t *locator);
-lispd_locators_list *locators_list_clone_remote(lispd_locators_list *lst);
+locators_list_t *locators_list_clone_remote(locators_list_t *lst);
 
 /* accessors */
 static inline lisp_addr_t *locator_addr(locator_t *locator) {

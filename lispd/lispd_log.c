@@ -42,7 +42,7 @@ inline void lispd_log(
         va_list     args);
 
 
-void lispd_log_msg(
+void lmlog(
         int lisp_log_level, const char *format, ...)
 {
     va_list args;

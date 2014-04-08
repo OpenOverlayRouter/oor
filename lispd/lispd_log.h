@@ -46,8 +46,18 @@
 #define LISP_LOG_DEBUG_2     6       /* medium debug-level messages -> Errors in received packets. Wrong AFI, ...  */
 #define LISP_LOG_DEBUG_3     7       /* high debug-level messages -> Log for each received or generated packet */
 
+#define LCRIT    1
+#define LERR     2
+#define LWRN     3
+#define LINF     4
+#define DBG_1   5
+#define DBG_2   6
+#define DBG_3   7
 
-void lispd_log_msg(int lisp_log_level, const char *format, ...);
+
+
+
+void lmlog(int lisp_log_level, const char *format, ...);
 
 /*
  * True if log_level is enough to print results

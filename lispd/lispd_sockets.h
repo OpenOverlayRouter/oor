@@ -36,13 +36,13 @@
 #endif
 
 #include "defs.h"
-#include <lispd_address.h>
+#include <lisp_address.h>
+#include <lmbuf.h>
 
 //#include "lispd_output.h"
 
 typedef enum {
-    SOCK_READ,
-    SOCK_WRITE,
+    SOCK_READ, SOCK_WRITE,
 } sock_type;
 
 /*
@@ -52,7 +52,6 @@ typedef enum {
  */
 struct sock;
 
-
 struct sock_list {
     struct sock *head;
     struct sock *tail;
@@ -61,21 +60,20 @@ struct sock_list {
 };
 
 struct sock {
-    sock_type               type;
-    int                     (*func)(struct sock *);
-    void                    *arg;
-    int                     fd;
-    struct sock    *next;
-    struct sock    *prev;
+    sock_type type;
+    int (*func)(struct sock *);
+    void *arg;
+    int fd;
+    struct sock *next;
+    struct sock *prev;
 };
 
 typedef struct _udpsock_t {
     lisp_addr_t src;
     lisp_addr_t dst;
-    uint16_t    src_port;
-    uint16_t    dst_port;
+    uint16_t src_port;
+    uint16_t dst_port;
 } udpsock_t;
-
 
 struct sock_master {
     struct sock_list read;
@@ -87,10 +85,9 @@ struct sock_master {
 };
 
 union sockunion {
-    struct sockaddr_in  s4;
+    struct sockaddr_in s4;
     struct sockaddr_in6 s6;
 };
-
 
 extern struct sock_master *sock_master_new();
 extern struct sock *sock_register_read_listener(struct sock_master *m,
@@ -98,9 +95,7 @@ extern struct sock *sock_register_read_listener(struct sock_master *m,
 extern void sock_process_all(struct sock_master *m);
 extern void sock_fdset_all_read(struct sock_master *m);
 
-int open_device_binded_raw_socket(
-    char *device,
-    int afi);
+int open_device_binded_raw_socket(char *device, int afi);
 
 int open_data_input_socket(int afi);
 
@@ -108,35 +103,22 @@ int open_control_input_socket(int afi);
 
 int open_udp_socket(int afi);
 
-int bind_socket_src_address(
-        int         sock,
-        lisp_addr_t *addr);
+int bind_socket_src_address(int sock, lisp_addr_t *addr);
 
 /*
  * Sends a raw packet through the specified socket
  */
 
-int send_packet (
-        int     sock,
-        uint8_t *packet,
-        int     packet_length );
+int send_packet(int sock, uint8_t *packet, int packet_length);
 
 /*
  * Get a packet from the socket. It also returns the destination addres and source port of the packet.
  * Used for control packets
  */
 
-int get_packet_and_socket_inf (
-        int             sock,
-        uint8_t         *packet,
-        udpsock_t       *udpsock);
+int get_packet_and_socket_inf(int, struct lbuf *, udpsock_t *);
 
-int get_data_packet (
-    int             sock,
-    int             *afi,
-    uint8_t         *packet,
-    int             *length,
-    uint8_t         *ttl,
-    uint8_t         *tos);
+int get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
+        uint8_t *ttl, uint8_t *tos);
 
 #endif /*LISPD_SOCKETS_H_*/

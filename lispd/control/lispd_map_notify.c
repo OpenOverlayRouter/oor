@@ -53,15 +53,15 @@ int process_map_notify(map_notify_msg *msg)
     mapping_t                           *mapping                    = NULL;
     mapping_t                           *local_mapping              = NULL;
     mapping_t                           *mcache_mapping             = NULL;
-    lispd_map_cache_entry               *mce                        = NULL;
+    map_cache_entry_t               *mce                        = NULL;
 
     /* FC XXX: what is this? */
     if (mnotify_msg_hdr(msg)->xtr_id_present == TRUE) {
         if (check_nonce(nat_emr_nonce, mnotify_msg_hdr(msg)->nonce) == GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_3, "Data Map Notify: Correct nonce");
+            lmlog(LISP_LOG_DEBUG_3, "Data Map Notify: Correct nonce");
             /* Free nonce if authentication is ok */
         }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
+            lmlog(LISP_LOG_DEBUG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
                     nonce_to_char (mnotify_msg_hdr(msg)->nonce));
             return (BAD);
         }
@@ -76,21 +76,21 @@ int process_map_notify(map_notify_msg *msg)
 
         local_mapping = local_map_db_lookup_eid_exact(eid);
         if (!local_mapping) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify confirms registration of UNKNOWN EID %s. Dropping!",
+            lmlog(LISP_LOG_DEBUG_1, "Map-Notify confirms registration of UNKNOWN EID %s. Dropping!",
                     lisp_addr_to_char(mapping_eid(mapping)));
         }
 
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration of %s", lisp_addr_to_char(eid));
+        lmlog(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration of %s", lisp_addr_to_char(eid));
 
         /* === merge semantics on === */
         if (mapping_cmp(local_mapping, mapping) != 0 || lisp_addr_is_mc(eid)) {
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Merge-Semantics on, moving returned mapping to map-cache");
+            lmlog(LISP_LOG_DEBUG_1, "Merge-Semantics on, moving returned mapping to map-cache");
 
             /* Save the mapping returned by the map-notify in the mapping cache */
             mcache_mapping = mcache_lookup_mapping(eid);
             if (mcache_mapping && mapping_cmp(mcache_mapping, mapping) != 0) {
                 /* UPDATED rlocs */
-                lispd_log_msg(LISP_LOG_DEBUG_3, "Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
+                lmlog(LISP_LOG_DEBUG_3, "Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
                 mapping_update_locators(mcache_mapping, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
 
                 mapping_compute_balancing_vectors(mcache_mapping);
@@ -128,7 +128,7 @@ int process_map_notify(map_notify_msg *msg)
         nat_emr_nonce = NULL;
         result = GOOD;
     } else{
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message is invalid");
+        lmlog(LISP_LOG_DEBUG_1, "Map-Notify message is invalid");
         next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
         result = BAD;
     }

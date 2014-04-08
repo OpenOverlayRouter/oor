@@ -61,33 +61,33 @@ OBJS		= cmdline.o	\
 		  data-tun/lispd_tun.o	\
 		  data-tun/lispd_routing_tables_lib.o \
 		  elibs/htable/hash_table.o	\
-		  elibs/llist/generic_list.o	\
 		  elibs/patricia/patricia.o	\
-		  lisp-messages/lisp_messages.o	\
-		  lisp-messages/lisp_message_fields.o \
+		  liblisp/lisp_address.o	\
+		  liblisp/lisp_ip.o	\
+		  liblisp/lisp_lcaf.o	\
+		  liblisp/lisp_messages.o	\
+		  liblisp/lisp_message_fields.o \
+		  liblisp/lispd_locator.o	\
+		  liblisp/lispd_mapping.o 	\
 		  lispd.o	\
 		  lispd_afi.o	\
 		  lispd_config.o	\
 		  lispd_iface_mgmt.o \
 		  lispd_lib.o	\
 		  lispd_log.o	\
-		  lispd_pkt_lib.o \
 		  lispd_sockets.o \
 		  lispd_timers.o 	\
-		  types/lispd_address.o	\
-		  types/lispd_ip.o	\
-		  types/lispd_lcaf.o	\
+		  types/generic_list.o	\
 		  types/lisp_site.o	\
-		  types/lispd_locator.o	\
 		  types/lispd_map_cache_entry.o	\
-		  types/lispd_mapping.o 	\
 		  types/lispd_mdb.o	\
 		  types/lispd_nonce.o 	\
-		  types/lispd_remdb.o	
+		  types/lispd_remdb.o	\	
+		  types/lispd_pkt_lib.o 	
 
 EXE		= lispd
 PREFIX		= /usr/local/sbin
-INCLUDE		= -I. -Ilisp-messages -Ielibs -Itypes -Icontrol -Idata-tun
+INCLUDE		= -I. -Iliblisp -Ielibs -Itypes -Icontrol -Idata-tun
 
 $(EXE): $(OBJS) 
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS) 
@@ -105,7 +105,7 @@ endif
 	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $< 
 
 clean:
-	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o lisp-messages/*o elibs/llist/*o types/*o control/*o data-tun/*o
+	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o liblisp/*o elibs/llist/*o types/*o control/*o data-tun/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

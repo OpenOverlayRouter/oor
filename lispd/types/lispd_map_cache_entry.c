@@ -37,10 +37,10 @@
 
 
 
-inline lispd_map_cache_entry *mcache_entry_new() {
-    lispd_map_cache_entry *mce;
-    if ((mce = calloc(1, sizeof(lispd_map_cache_entry))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
+inline map_cache_entry_t *mcache_entry_new() {
+    map_cache_entry_t *mce;
+    if ((mce = calloc(1, sizeof(map_cache_entry_t))) == NULL) {
+        lmlog(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
         return(NULL);
     }
 
@@ -56,8 +56,8 @@ inline lispd_map_cache_entry *mcache_entry_new() {
     return(mce);
 }
 
-lispd_map_cache_entry *mcache_entry_init(mapping_t *mapping) {
-    lispd_map_cache_entry *mce;
+map_cache_entry_t *mcache_entry_init(mapping_t *mapping) {
+    map_cache_entry_t *mce;
     mce = mcache_entry_new();
 
     if (!mce)
@@ -70,8 +70,8 @@ lispd_map_cache_entry *mcache_entry_init(mapping_t *mapping) {
     return(mce);
 }
 
-lispd_map_cache_entry *mcache_entry_init_static(mapping_t *mapping) {
-    lispd_map_cache_entry *mce;
+map_cache_entry_t *mcache_entry_init_static(mapping_t *mapping) {
+    map_cache_entry_t *mce;
     mce = mcache_entry_new();
 
     if (!mce)
@@ -91,22 +91,22 @@ lispd_map_cache_entry *mcache_entry_init_static(mapping_t *mapping) {
 /*
  * Creates a map cache entry structure without adding it to the data base
  */
-lispd_map_cache_entry *new_map_cache_entry_no_db (
+map_cache_entry_t *new_map_cache_entry_no_db (
         lisp_addr_t     eid_prefix,
         int             eid_prefix_length,
         int             how_learned,
         uint16_t        ttl)
 {
-    lispd_map_cache_entry *map_cache_entry;
+    map_cache_entry_t *map_cache_entry;
     /* Create map cache entry */
-    if ((map_cache_entry = calloc(1, sizeof(lispd_map_cache_entry))) == NULL) {
-        lispd_log_msg(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
+    if ((map_cache_entry = calloc(1, sizeof(map_cache_entry))) == NULL) {
+        lmlog(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
         return(NULL);
     }
 //    memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
 
     /* Create themapping for this map-cache */
-    if (lisp_addr_get_afi(&eid_prefix) == LM_AFI_IP)
+    if (lisp_addr_afi(&eid_prefix) == LM_AFI_IP)
         lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
     //    map_cache_entry->mapping = new_map_cache_mapping (eid_prefix, eid_prefix_length, -1);
     map_cache_entry->mapping = mapping_init_remote(&eid_prefix);
@@ -133,13 +133,13 @@ lispd_map_cache_entry *new_map_cache_entry_no_db (
     return (map_cache_entry);
 }
 
-lispd_map_cache_entry *new_map_cache_entry (
+map_cache_entry_t *new_map_cache_entry (
         lisp_addr_t     eid_prefix,
         int             eid_prefix_length,
         int             how_learned,
         uint16_t        ttl)
 {
-    lispd_map_cache_entry *map_cache_entry;
+    map_cache_entry_t *map_cache_entry;
 
     map_cache_entry = new_map_cache_entry_no_db (eid_prefix, eid_prefix_length, how_learned, ttl);
 
@@ -148,7 +148,7 @@ lispd_map_cache_entry *new_map_cache_entry (
 
     /* Add entry to the data base */
     if (map_cache_add_entry (map_cache_entry)==BAD){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Failed to add map cache entry to map-cache for prefix %s! Aborting!",
+        lmlog(LISP_LOG_DEBUG_1, "Failed to add map cache entry to map-cache for prefix %s! Aborting!",
                 lisp_addr_to_char(&eid_prefix));
         free(map_cache_entry);
         return (NULL);
@@ -161,7 +161,7 @@ lispd_map_cache_entry *new_map_cache_entry (
 
 
 
-void free_map_cache_entry(lispd_map_cache_entry *entry)
+void free_map_cache_entry(map_cache_entry_t *entry)
 {
     mapping_del(mcache_entry_get_mapping(entry));
     /*
@@ -188,7 +188,7 @@ void free_map_cache_entry(lispd_map_cache_entry *entry)
     free(entry);
 }
 
-void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
+void dump_map_cache_entry (map_cache_entry_t *entry, int log_level)
 {
     char                buf[256], buf2[256];
     time_t              expiretime;
@@ -196,8 +196,8 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     int                 ctr = 0;
     char                str[400];
 //    char                fmt[200];
-    lispd_locators_list         *locator_iterator_array[2]  = {NULL,NULL};
-    lispd_locators_list         *locator_iterator           = NULL;
+    locators_list_t         *locator_iterator_array[2]  = {NULL,NULL};
+    locators_list_t         *locator_iterator           = NULL;
     locator_t           *locator                    = NULL;
     mapping_t           *mapping                    = NULL;
 
@@ -223,12 +223,12 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
     else
         sprintf(str + strlen(str),"   TYPE: Dynamic ");
     sprintf(str + strlen(str),"   ACTIVE: %s\n", entry->active == TRUE ? "Yes" : "No");
-    lispd_log_msg(log_level,"%s",str);
+    lmlog(log_level,"%s",str);
 
     if (entry->mapping->locator_count > 0){
         locator_iterator_array[0] = entry->mapping->head_v4_locators_list;
         locator_iterator_array[1] = entry->mapping->head_v6_locators_list;
-        lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
+        lmlog(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
         // Loop through the locators and print each
         for (ctr = 0 ; ctr < 2 ; ctr++){
             locator_iterator = locator_iterator_array[ctr];
@@ -238,7 +238,7 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
                 locator_iterator = locator_iterator->next;
             }
         }
-        lispd_log_msg(log_level,"\n");
+        lmlog(log_level,"\n");
     }
 
 
@@ -249,26 +249,26 @@ void dump_map_cache_entry (lispd_map_cache_entry *entry, int log_level)
  * lispd_map_cache_entry set/get functions
  */
 
-inline void mcache_entry_set_eid_addr(lispd_map_cache_entry *mce, lisp_addr_t *addr) {
+inline void mcache_entry_set_eid_addr(map_cache_entry_t *mce, lisp_addr_t *addr) {
     mapping_set_eid_addr(mcache_entry_get_mapping(mce), addr);
 }
 
 
-inline mapping_t *mcache_entry_get_mapping(lispd_map_cache_entry* mce) {
+inline mapping_t *mcache_entry_get_mapping(map_cache_entry_t* mce) {
     assert(mce);
     return(mce->mapping);
 }
 
-inline lisp_addr_t *mcache_entry_get_eid_addr(lispd_map_cache_entry *mce) {
+inline lisp_addr_t *mcache_entry_get_eid_addr(map_cache_entry_t *mce) {
     return(mapping_eid(mcache_entry_get_mapping(mce)));
 }
 
-inline nonces_list *mcache_entry_get_nonces_list(lispd_map_cache_entry *mce) {
+inline nonces_list *mcache_entry_nonces_list(map_cache_entry_t *mce) {
     assert(mce);
     return(mce->nonces);
 }
 
-inline uint8_t  mcache_entry_get_active(lispd_map_cache_entry *mce) {
+inline uint8_t  mcache_entry_get_active(map_cache_entry_t *mce) {
     assert(mce);
     return(mce->active);
 }

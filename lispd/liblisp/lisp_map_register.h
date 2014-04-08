@@ -100,9 +100,9 @@ typedef struct _map_register_msg_hdr {
     uint8_t  ibit:1;
     uint8_t  reserved1:1;
     uint8_t  proxy_reply:1;
-    uint8_t  lisp_type:4;
+    uint8_t  type:4;
 #else
-    uint8_t  lisp_type:4;
+    uint8_t  type:4;
     uint8_t  proxy_reply:1;
     uint8_t  reserved1:1;
     uint8_t  ibit:1;
@@ -123,7 +123,7 @@ typedef struct _map_register_msg_hdr {
 //    uint16_t key_id;
 //    uint16_t auth_data_len;
 //    uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
-} __attribute__ ((__packed__)) map_register_msg_hdr;
+} __attribute__ ((__packed__)) map_register_hdr_t;
 
 typedef struct map_register_msg_ {
     uint8_t         *bits;
@@ -138,8 +138,8 @@ map_register_msg *map_register_msg_parse(uint8_t *offset);
 int mreg_msg_check_auth(map_register_msg *msg, const char *key);
 int mreg_msg_get_len(map_register_msg *mreg);
 
-static inline map_register_msg_hdr *mreg_msg_get_hdr(map_register_msg *mreg) {
-    return((map_register_msg_hdr *)mreg->bits);
+static inline map_register_hdr_t *mreg_msg_get_hdr(map_register_msg *mreg) {
+    return((map_register_hdr_t *)mreg->bits);
 }
 
 static inline glist_t *mreg_msg_get_records(map_register_msg *mreg) {
@@ -157,6 +157,11 @@ static inline uint8_t *mreg_msg_data(map_register_msg *mreg) {
 
 #define mreg_msg_foreach_mapping_record(it, mreg) \
     list_for_each_entry(it, &((mreg)->records->list), list)
+
+
+
+#define MREG_HDR_CAST(h) ((map_register_hdr_t *)(h))
+#define MREG_REC_COUNT(hdr) MREG_HDR_CAST((hdr))->record_count
 
 
 #endif /* LISP_MAP_REGISTER_H_ */

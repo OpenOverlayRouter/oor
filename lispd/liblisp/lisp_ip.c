@@ -28,8 +28,7 @@
  *
  */
 
-#include "lispd_ip.h"
-#include "lispd_address.h"
+#include "lisp_address.h"
 #include "defs.h"
 
 /*
@@ -81,7 +80,7 @@ inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
 inline int ip_addr_set_afi(ip_addr_t *ipaddr, int afi) {
     assert(ipaddr);
     if (afi != AF_INET && afi != AF_INET6 && afi != AF_UNSPEC) {
-        lispd_log_msg(LISP_LOG_WARNING, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
+        lmlog(LISP_LOG_WARNING, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
         return(BAD);
     }
     ipaddr->afi = afi;
@@ -110,7 +109,7 @@ inline void ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi) {
             ip_addr_set_v6(ipaddr, src);
             break;
         default:
-            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_init: unknown IP AFI (%d)", afi);
+            lmlog(LISP_LOG_WARNING, "ip_addr_init: unknown IP AFI (%d)", afi);
             break;
     }
 }
@@ -270,7 +269,7 @@ inline uint16_t ip_sock_afi_to_iana_afi(uint16_t afi) {
         case AF_INET6:
             return(LISP_AFI_IPV6);
         default:
-            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_sock_afi_to_iana_afi: unknown IP AFI (%d)", afi);
+            lmlog(LISP_LOG_WARNING, "ip_addr_sock_afi_to_iana_afi: unknown IP AFI (%d)", afi);
             return(0);
     }
 }
@@ -282,7 +281,7 @@ inline uint16_t ip_iana_afi_to_sock_afi(uint16_t afi) {
         case LISP_AFI_IPV6:
             return(AF_INET6);
         default:
-            lispd_log_msg(LISP_LOG_WARNING, "ip_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
+            lmlog(LISP_LOG_WARNING, "ip_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
             return(0);
     }
 }
@@ -294,7 +293,7 @@ inline uint8_t ip_sock_afi_to_size(uint16_t afi){
     case AF_INET6:
         return(sizeof(struct in6_addr));
     default:
-        lispd_log_msg(LISP_LOG_WARNING, "ip_addr_get_size: unknown IP AFI (%d)", afi);
+        lmlog(LISP_LOG_WARNING, "ip_addr_get_size: unknown IP AFI (%d)", afi);
         return(0);
     }
 }
@@ -306,7 +305,7 @@ inline uint8_t ip_iana_afi_to_size(uint16_t afi) {
     case LISP_AFI_IPV6:
         return(sizeof(struct in6_addr));
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_3, "ip_iana_afi_to_size: unknown AFI (%d)", afi);
+        lmlog(LISP_LOG_DEBUG_3, "ip_iana_afi_to_size: unknown AFI (%d)", afi);
         return(0);
     }
     return(0);
@@ -351,7 +350,7 @@ inline uint8_t ip_addr_is_multicast(ip_addr_t *addr) {
         return ipv6_addr_is_multicast(ip_addr_get_v6(addr));
         break;
     default:
-        lispd_log_msg(LISP_LOG_WARNING, "is_multicast_addr: Unknown afi %s",
+        lmlog(LISP_LOG_WARNING, "is_multicast_addr: Unknown afi %s",
                 ip_addr_get_afi(addr));
         break;
     }
@@ -367,7 +366,7 @@ inline uint8_t ipv4_addr_is_multicast(struct in_addr *addr) {
 
 inline uint8_t ipv6_addr_is_multicast(struct in6_addr *addr) {
     /* TODO fcoras: implement this */
-    lispd_log_msg(LISP_LOG_WARNING, "is_multicast_addr6 : THIS IS A STUB for "
+    lmlog(LISP_LOG_WARNING, "is_multicast_addr6 : THIS IS A STUB for "
             "IPv6 multicast address test!");
     return(0);
 }

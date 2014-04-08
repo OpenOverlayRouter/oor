@@ -98,7 +98,7 @@ typedef struct map_reply_hdr_ {
     uint8_t reserved3;
     uint8_t record_count;
     uint64_t nonce;
-} PACKED map_reply_hdr;
+} PACKED map_reply_hdr_t;
 
 
 typedef struct lispd_map_reply_pkt_ {
@@ -117,8 +117,8 @@ void                    map_reply_msg_del(map_reply_msg *pkt);
  */
 
 
-static inline map_reply_hdr *mrep_get_hdr(map_reply_msg *mrp) {
-    return((map_reply_hdr *)mrp->data);
+static inline map_reply_hdr_t *mrep_get_hdr(map_reply_msg *mrp) {
+    return((map_reply_hdr_t *)mrp->data);
 }
 
 static inline glist_t *mrep_msg_get_records(map_reply_msg *mrp) {
@@ -132,5 +132,13 @@ static inline glist_t *mrep_msg_get_records(map_reply_msg *mrp) {
 
 #define mrep_msg_foreach_mapping_record(it, mrep) \
     glist_for_each_entry(it, (mrep)->records)
+
+
+
+
+#define MREP_HDR_CAST(h) ((map_reply_hdr_t *)(h))
+#define MREP_REC_COUNT(h) ((map_reply_hdr_t *)(h))->record_count
+#define MREP_RLOC_PROBE(h) ((map_reply_hdr_t *)(h))->rloc_probe
+#define MREP_NONCE(h) ((map_reply_hdr_t *)(h))->nonce
 
 #endif /* LISP_MAP_REPLY_H_ */

@@ -45,7 +45,7 @@ typedef struct lispd_iface_mappings_list_ {
     uint8_t                                 use_ipv4_address:1;// The mapping has a locator that use the IPv4 address of iface
     uint8_t                                 use_ipv6_address:1;// The mapping has a locator that use the IPv6 address of iface
     struct lispd_iface_mappings_list_       *next;
-} lispd_iface_mappings_list;
+} iface_mappings_list;
 
 
 /*
@@ -62,7 +62,7 @@ typedef struct lispd_iface_elt_ {
     lisp_addr_t                 *ipv4_gateway;
     lisp_addr_t                 *ipv6_gateway;
     /* List of mappings that have a locator associated with this interface. Used to do SMR  when interface changes*/
-    lispd_iface_mappings_list   *head_mappings_list;
+    iface_mappings_list   *head_mappings_list;
     uint8_t                     status_changed:1;  /*detect changes on flapping interfaces*/
     uint8_t                     ipv4_changed:1;
     uint8_t                     ipv6_changed:1;
@@ -76,7 +76,7 @@ typedef struct lispd_iface_elt_ {
 typedef struct lispd_iface_list_elt_ {
     lispd_iface_elt                  *iface;
     struct lispd_iface_list_elt_     *next;
-}lispd_iface_list_elt;
+}iface_list_elt;
 
 
 
@@ -153,7 +153,7 @@ int get_iface_socket(lispd_iface_elt *iface, int afi);
  * Return the list of interfaces
  */
 
-lispd_iface_list_elt *get_head_interface_list();
+iface_list_elt *get_head_interface_list();
 
 /*
  * Recalculate balancing vector of the mappings assorciated to iface

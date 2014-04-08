@@ -35,7 +35,7 @@
 #define LISPD_ROUTING_TABLES_LIB_H_
 
 #include <defs.h>
-#include <lispd_address.h>
+#include <lisp_address.h>
 
 /*
  * This function adds a specific ip rule to

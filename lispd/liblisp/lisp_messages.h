@@ -54,7 +54,7 @@ typedef enum {
     LISP_MAP_NOTIFY,
     LISP_INFO_NAT = 7,
     LISP_ENCAP_CONTROL_TYPE
-} lisp_msg_types;
+} lisp_msg_type_t;
 
 /*
  * Encapsulated Control Message Format
@@ -100,7 +100,7 @@ typedef struct _lisp_encap_data {
 typedef struct _lisp_msg {
     uint8_t         encap;
     lisp_encap_data *encapdata;
-    lisp_msg_types  type;
+    lisp_msg_type_t  type;
     void            *msg;
 } lisp_msg;
 
@@ -126,7 +126,7 @@ typedef struct lisp_encap_control_hdr {
     uint8_t reserved1:3;
 #endif
     uint8_t reserved2[3];
-} lisp_encap_control_hdr_t;
+} lisp_ecm_hdr_t;
 
 
 
@@ -134,9 +134,27 @@ lisp_msg *lisp_msg_parse(uint8_t *offset);
 void lisp_msg_del(lisp_msg *msg);
 lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet);
 void lisp_encap_hdr_del(lisp_encap_data *data);
+uint8_t lisp_msg_parse_type(struct lbuf *b);
+int lisp_msg_ecm_decap(struct lbuf *pkt, uint16_t *dst_port);
 
 static inline int lisp_encap_data_get_len(lisp_encap_data *data) {
     return(data->len);
 }
+
+static void *lbuf_pull_ecm_hdr(struct lbuf *b) {
+    return(lbuf_pull(b, sizeof(lisp_ecm_hdr_t)));
+}
+
+
+void map_request_hdr_init(uint8_t *ptr);
+void map_reply_hdr_init(uint8_t *ptr);
+void map_register_hdr_init(uint8_t *ptr);
+void map_notify_hdr_init(uint8_t *ptr);
+
+
+
+uint8_t is_mrsignaling(address_hdr_t *addr);
+mrsignaling_flags_t mrsignaling_flags(address_hdr_t *addr);
+void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig);
 
 #endif /* LISP_MESSAGES_H_ */

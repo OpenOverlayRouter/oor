@@ -68,7 +68,7 @@
 
 
 int isfqdn(char *s);
-inline lisp_addr_t *get_server(lispd_addr_list_t *server_list,int afi);
+inline lisp_addr_t *get_server(lisp_addr_list_t *server_list,int afi);
 inline int convert_hex_char_to_byte (char val);
 
 
@@ -121,7 +121,7 @@ int copy_lisp_addr_t(
                sizeof(struct in6_addr));
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "copy_lisp_addr_t: Unknown AFI (%d)", a2->afi);
+        lmlog(LISP_LOG_DEBUG_2, "copy_lisp_addr_t: Unknown AFI (%d)", a2->afi);
         return(BAD);
     }
     return(GOOD);
@@ -142,7 +142,7 @@ int copy_addr(
      int            convert)
 {
 
-    lispd_log_msg(LISP_LOG_WARNING, "copy_addr: IS OBSOLETE!!!!");
+    lmlog(LISP_LOG_WARNING, "copy_addr: IS OBSOLETE!!!!");
     return(0);
 //    /* XXX: this doesn't start from EID!! */
 //    return(lisp_addr_copy_to_pkt(a2, a1, convert));
@@ -246,7 +246,7 @@ int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
         partial_byte[0] = convert_hex_char_to_byte(hex_digit[0]);
         partial_byte[1] = convert_hex_char_to_byte(hex_digit[1]);
         if (partial_byte[0] == -1 || partial_byte[1] == -1){
-            lispd_log_msg(LISP_LOG_DEBUG_2,"convert_hex_string_to_bytes: Invalid hexadecimal number");
+            lmlog(LISP_LOG_DEBUG_2,"convert_hex_string_to_bytes: Invalid hexadecimal number");
             return (BAD);
         }
         bytes[ctr] = partial_byte[0]*16 + partial_byte[1];
@@ -350,7 +350,7 @@ int lispd_get_iface_address(
 
     if (default_rloc_afi != -1){ /* If forced a exact RLOC type (Just IPv4 of just IPv6) */
         if(afi != default_rloc_afi){
-            lispd_log_msg(LISP_LOG_INFO,"Default RLOC afi defined: Skipped %s address in iface %s",
+            lmlog(LISP_LOG_INFO,"Default RLOC afi defined: Skipped %s address in iface %s",
                           (afi == AF_INET) ? "IPv4" : "IPv6",ifacename);
             return (BAD);
         }
@@ -367,7 +367,7 @@ int lispd_get_iface_address(
      */
 
     if (getifaddrs(&ifaddr) !=0) {
-        lispd_log_msg(LISP_LOG_DEBUG_2,
+        lmlog(LISP_LOG_DEBUG_2,
                "lispd_get_iface_address: getifaddrs error: %s", strerror(errno));
         return(BAD);
     }
@@ -389,11 +389,11 @@ int lispd_get_iface_address(
                     lisp_addr_copy(addr, &ip);
 //                    copy_lisp_addr(addr,&ip);
                 }else{
-                    lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
+                    lmlog(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
                             ifacename, get_char_from_lisp_addr_t(ip));
                     continue;
                 }
-                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv4 RLOC from interface (%s): %s \n",
+                lmlog(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv4 RLOC from interface (%s): %s \n",
                         ifacename,
                         inet_ntop(AF_INET, &(s4->sin_addr),
                             addr_str, MAX_INET_ADDRSTRLEN));
@@ -408,7 +408,7 @@ int lispd_get_iface_address(
             // local addresses, in that case sin6_scope_id contains the interface index. --> If sin6_scope_id is
             // not zero, is a link-local address
             if (s6->sin6_scope_id != 0){
-                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
+                lmlog(LISP_LOG_DEBUG_2, "lispd_get_iface_address: interface address from %s discarded (%s)",
                         ifacename, inet_ntop(AF_INET6, &(s6->sin6_addr), addr_str, MAX_INET_ADDRSTRLEN));
                 continue;
             }
@@ -419,7 +419,7 @@ int lispd_get_iface_address(
 //                addr->afi = AF_INET6;
                 ip_addr_set_v6(lisp_addr_get_ip(addr), (void *)&(s6->sin6_addr) );
                 lisp_addr_set_afi(addr, LM_AFI_IP);
-                lispd_log_msg(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
+                lmlog(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
                         inet_ntop(AF_INET6, &(s6->sin6_addr), 
                             addr_str, MAX_INET_ADDRSTRLEN));
@@ -433,7 +433,7 @@ int lispd_get_iface_address(
         }
     }
     freeifaddrs(ifaddr);
-    lispd_log_msg(LISP_LOG_DEBUG_3, "lispd_get_iface_address: No %s RLOC configured for interface %s\n",
+    lmlog(LISP_LOG_DEBUG_3, "lispd_get_iface_address: No %s RLOC configured for interface %s\n",
             (afi == AF_INET) ? "IPv4" : "IPv6",
             ifacename);
     return(BAD);
@@ -454,21 +454,21 @@ int lispd_get_iface_address(
 
 
 void dump_servers(
-        lispd_addr_list_t   *list,
+        lisp_addr_list_t   *list,
         const char          *list_name,
         int                 log_level)
 { 
-    lispd_addr_list_t   *iterator = 0;
+    lisp_addr_list_t   *iterator = 0;
 
     if (!list)
         return;
 
-    lispd_log_msg(log_level, "************* %13s ***************", list_name);
-    lispd_log_msg(log_level, "|               Locator (RLOC)            |");
+    lmlog(log_level, "************* %13s ***************", list_name);
+    lmlog(log_level, "|               Locator (RLOC)            |");
 
     iterator = list;
     while (iterator) {
-        lispd_log_msg(log_level,"| %39s |", get_char_from_lisp_addr_t(*(iterator->address)));
+        lmlog(log_level,"| %39s |", get_char_from_lisp_addr_t(*(iterator->address)));
         iterator = iterator->next;
     }
 }
@@ -476,7 +476,7 @@ void dump_servers(
 
 void dump_proxy_etrs(int log_level)
 {
-    lispd_locators_list      *locator_lst_elt[2] = {NULL,NULL};
+    locators_list_t      *locator_lst_elt[2] = {NULL,NULL};
     int                      ctr                 = 0;
 
     if (proxy_etrs == NULL || is_loggable(log_level) == FALSE){
@@ -486,8 +486,8 @@ void dump_proxy_etrs(int log_level)
     locator_lst_elt[0] = proxy_etrs->mapping->head_v4_locators_list;
     locator_lst_elt[1] = proxy_etrs->mapping->head_v6_locators_list;
 
-    lispd_log_msg(log_level, "************************* Proxy ETRs List ****************************");
-    lispd_log_msg(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
+    lmlog(log_level, "************************* Proxy ETRs List ****************************");
+    lmlog(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
 
     for (ctr = 0 ; ctr<2 ; ctr++){
         while (locator_lst_elt[ctr]){
@@ -506,8 +506,8 @@ void dump_map_servers(int log_level)
         return;
     }
 
-    lispd_log_msg(log_level, "******************* Map-Servers list ********************************");
-    lispd_log_msg(log_level, "|               Locator (RLOC)            |       Key Type          |");
+    lmlog(log_level, "******************* Map-Servers list ********************************");
+    lmlog(log_level, "|               Locator (RLOC)            |       Key Type          |");
     ms = map_servers;
 
     while (ms) {
@@ -520,7 +520,7 @@ void dump_map_servers(int log_level)
             sprintf(str + strlen(str),"    HMAC-SHA-256-128     |");
         }
         ms = ms->next;
-        lispd_log_msg(log_level,"%s",str);
+        lmlog(log_level,"%s",str);
     }
 }
 
@@ -600,9 +600,9 @@ void print_hmac(
     int i;
 
     for (i = 0; i < len; i += 4) {
-        lispd_log_msg(LISP_LOG_DEBUG_3,"i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
+        lmlog(LISP_LOG_DEBUG_3,"i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
     }
-    lispd_log_msg(LISP_LOG_DEBUG_3,"\n");
+    lmlog(LISP_LOG_DEBUG_3,"\n");
 }
 
 /*
@@ -657,7 +657,7 @@ int get_lisp_addr_from_char (
         }
         break;
     default:
-        lispd_log_msg(LISP_LOG_WARNING, "get_lisp_addr_from_char: unkown afi requested %d", lisp_addr->afi);
+        lmlog(LISP_LOG_WARNING, "get_lisp_addr_from_char: unkown afi requested %d", lisp_addr->afi);
         result = BAD;
         break;
     }
@@ -721,13 +721,13 @@ int get_lisp_addr_and_mask_from_char (
     char                     *token;
 
     if ((token = strtok(address, "/")) == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_1, "get_lisp_addr_and_mask_from_char: Prefix not of the form prefix/length: %s",address);
+        lmlog(LISP_LOG_DEBUG_1, "get_lisp_addr_and_mask_from_char: Prefix not of the form prefix/length: %s",address);
         return (BAD);
     }
     if (get_lisp_addr_from_char(token,lisp_addr)==BAD)
         return (BAD);
     if ((token = strtok(NULL,"/")) == NULL) {
-        lispd_log_msg(LISP_LOG_DEBUG_1,"get_lisp_addr_and_mask_from_char: strtok: %s", strerror(errno));
+        lmlog(LISP_LOG_DEBUG_1,"get_lisp_addr_and_mask_from_char: strtok: %s", strerror(errno));
         return (BAD);
     }
     *mask = atoi(token);
@@ -772,7 +772,7 @@ uint16_t get_lisp_afi(
         }
         return((uint16_t)LISP_AFI_IPV6);
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "get_lisp_afi: unknown AFI (%d)", afi);
+        lmlog(LISP_LOG_DEBUG_2, "get_lisp_afi: unknown AFI (%d)", afi);
         return (BAD);
     }
 }
@@ -796,7 +796,7 @@ int lisp2inetafi(uint16_t afi)
     case LISP_AFI_LCAF:
         return(LISP_AFI_LCAF);
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "lisp2inetafi: unknown AFI (%d)", afi);
+        lmlog(LISP_LOG_DEBUG_2, "lisp2inetafi: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -818,7 +818,7 @@ int inet2lispafi(int afi)
     case LISP_AFI_LCAF:
         return(LISP_AFI_LCAF);
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "inet2lispafi: unknown AFI (%d)", afi);
+        lmlog(LISP_LOG_DEBUG_2, "inet2lispafi: unknown AFI (%d)", afi);
         return (0);
     }
 }
@@ -835,7 +835,7 @@ int get_ip_header_len(int afi)
     case AF_INET6:
         return(sizeof(struct ip6_hdr));
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "get_ip_header_len: unknown AFI (%d)", afi);
+        lmlog(LISP_LOG_DEBUG_2, "get_ip_header_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -855,7 +855,7 @@ int get_addr_len(int afi)
     case AF_INET6:
         return(sizeof(struct in6_addr));
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "get_addr_len: unknown AFI (%d)", afi);
+        lmlog(LISP_LOG_DEBUG_2, "get_addr_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -887,16 +887,16 @@ lisp_addr_t *get_map_resolver()
     }
 
     if (dst_rloc == NULL){
-        lispd_log_msg(LISP_LOG_ERR,"No Map Resolver with a RLOC compatible with local RLOCs");
+        lmlog(LISP_LOG_ERR,"No Map Resolver with a RLOC compatible with local RLOCs");
     }
     return dst_rloc;
 }
 
 inline lisp_addr_t *get_server(
-        lispd_addr_list_t   *server_list,
+        lisp_addr_list_t   *server_list,
         int                 afi)
 {
-    lispd_addr_list_t *server_elt;
+    lisp_addr_list_t *server_elt;
 
     server_elt = server_list;
     while (server_elt != NULL){
@@ -931,7 +931,7 @@ int have_input(
                 continue;
             }
             else {
-                lispd_log_msg(LISP_LOG_DEBUG_2, "have_input: select error: %s", strerror(errno));
+                lmlog(LISP_LOG_DEBUG_2, "have_input: select error: %s", strerror(errno));
                 return(BAD);
             }
         }else{
@@ -975,7 +975,7 @@ int inaddr2sockaddr(
         memcpy(&(ipv6->sin6_addr), &(inaddr->address.ipv6), sizeof(struct in6_addr));
         return(GOOD);
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
+        lmlog(LISP_LOG_DEBUG_2, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
         return(ERR_AFI);
     }
 }
@@ -1006,11 +1006,11 @@ int extract_lisp_address(
     case AF_UNSPEC:
         break;
     case LISP_AFI_LCAF:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "extract_lisp_address: Couldn't process lcaf address");
+        lmlog(LISP_LOG_DEBUG_2, "extract_lisp_address: Couldn't process lcaf address");
         result  = ERR_AFI;
         break;
     default:
-        lispd_log_msg(LISP_LOG_DEBUG_2, "extract_lisp_address: Coudn't extract address. Unknown afi");
+        lmlog(LISP_LOG_DEBUG_2, "extract_lisp_address: Coudn't extract address. Unknown afi");
         result  = ERR_AFI;
         break;
     }
@@ -1022,11 +1022,11 @@ int extract_lisp_address(
  * Loop to free all the members of a lispd_addr_list_t
  */
 
-void free_lisp_addr_list(lispd_addr_list_t * list)
+void free_lisp_addr_list(lisp_addr_list_t * list)
 
 {
 
-    lispd_addr_list_t *list_pre;
+    lisp_addr_list_t *list_pre;
 
     while (list->next != NULL) {
 

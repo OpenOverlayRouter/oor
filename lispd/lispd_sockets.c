@@ -92,7 +92,7 @@ void sock_process_all(struct sock_master *m)
             if (errno == EINTR) {
                 continue;
             } else {
-                lispd_log_msg(LISP_LOG_DEBUG_2, "sock_process_all: select error: %s", strerror(errno));
+                lmlog(LISP_LOG_DEBUG_2, "sock_process_all: select error: %s", strerror(errno));
                 return;
             }
         } else {
@@ -127,13 +127,13 @@ int open_device_binded_raw_socket(
        switch (afi){
            case AF_INET:
                if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-                   lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                   lmlog(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
                    return (BAD);
                }
                break;
            case AF_INET6:
                if ((s = socket(AF_INET6, SOCK_RAW,IPPROTO_RAW)) < 0) {
-                   lispd_log_msg(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
+                   lmlog(LISP_LOG_ERR, "open_device_binded_raw_socket: socket creation failed %s", strerror(errno));
                    return (BAD);
                }
                break;
@@ -141,7 +141,7 @@ int open_device_binded_raw_socket(
 
 
        if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
-           lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
+           lmlog(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option reuse %s", strerror(errno));
            close(s);
            return (BAD);
        }
@@ -149,12 +149,12 @@ int open_device_binded_raw_socket(
        // bind a socket to a device name (might not work on all systems):
        device_len = strlen(device);
        if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
-           lispd_log_msg(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
+           lmlog(LISP_LOG_WARNING, "open_device_binded_raw_socket: socket option device %s", strerror(errno));
            close(s);
            return (BAD);
        }
 
-       lispd_log_msg(LISP_LOG_DEBUG_2, "open_device_binded_raw_socket: open socket %d in interface %s with afi: %d", s, device, afi);
+       lmlog(LISP_LOG_DEBUG_2, "open_device_binded_raw_socket: open socket %d in interface %s with afi: %d", s, device, afi);
 
        return s;
     
@@ -167,7 +167,7 @@ int open_raw_input_socket(int afi){
     int                 tr      = 1;
     
     if ((proto = getprotobyname("UDP")) == NULL) {
-        lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: getprotobyname: %s", strerror(errno));
+        lmlog(LISP_LOG_ERR, "open_raw_input_socket: getprotobyname: %s", strerror(errno));
         return(BAD);
     }
     
@@ -177,17 +177,17 @@ int open_raw_input_socket(int afi){
     
     
     if ((sock = socket(afi,SOCK_RAW,proto->p_proto)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "open_raw_input_socket: socket: %s", strerror(errno));
+        lmlog(LISP_LOG_ERR, "open_raw_input_socket: socket: %s", strerror(errno));
         return(BAD);
     }
-    lispd_log_msg(LISP_LOG_DEBUG_3,"open_raw_input_socket: socket at creation: %d\n",sock);
+    lmlog(LISP_LOG_DEBUG_3,"open_raw_input_socket: socket at creation: %d\n",sock);
     
     if (setsockopt(sock,
         SOL_SOCKET,
         SO_REUSEADDR,
         &tr,
         sizeof(int)) == -1) {
-            lispd_log_msg(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+            lmlog(LISP_LOG_WARNING, "open_raw_input_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
             close(sock);
             return(BAD);
         }
@@ -203,7 +203,7 @@ int open_udp_socket(int afi){
     int                 tr      = 1;
     
     if ((proto = getprotobyname("UDP")) == NULL) {
-        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
+        lmlog(LISP_LOG_ERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
         return(BAD);
     }
      
@@ -213,17 +213,17 @@ int open_udp_socket(int afi){
 
     
     if ((sock = socket(afi,SOCK_DGRAM,proto->p_proto)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
+        lmlog(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
         return(BAD);
     }
-    lispd_log_msg(LISP_LOG_DEBUG_3,"open_udp_socket: socket at creation: %d\n",sock);
+    lmlog(LISP_LOG_DEBUG_3,"open_udp_socket: socket at creation: %d\n",sock);
 
     if (setsockopt(sock,
             SOL_SOCKET,
             SO_REUSEADDR,
             &tr,
             sizeof(int)) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "open_udp_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "open_udp_socket: setsockopt SO_REUSEADDR: %s", strerror(errno));
 
         return(BAD);
     }
@@ -265,7 +265,7 @@ int bind_socket_src_address(
     }
 
     if (bind(sock,src_addr,src_addr_len) != 0){
-        lispd_log_msg(LISP_LOG_WARNING, "bind_socket_src_address: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "bind_socket_src_address: %s", strerror(errno));
         result = BAD;
     }
     return (result);
@@ -309,7 +309,7 @@ int bind_socket(
     
     
     if (bind(sock,sock_addr, sock_addr_len) == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "bind input socket: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "bind input socket: %s", strerror(errno));
         return(BAD);
     }
     
@@ -332,13 +332,13 @@ int open_control_input_socket(int afi){
     case AF_INET:
         /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
         if(setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on))< 0){
-            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_PKTINFO: %s", strerror(errno));
+            lmlog(LISP_LOG_WARNING, "setsockopt IP_PKTINFO: %s", strerror(errno));
         }
         break;
     case AF_INET6:
         /* IPV6_RECVPKTINFO is requiered to get later the IPv6 destination address of incoming control packets*/
         if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) < 0){
-            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
+            lmlog(LISP_LOG_WARNING, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
         }
     break;
 
@@ -369,12 +369,12 @@ int open_data_input_socket(int afi){
 
         /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
         if(setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on))< 0){
-            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTOS: %s", strerror(errno));
+            lmlog(LISP_LOG_WARNING, "setsockopt IP_RECVTOS: %s", strerror(errno));
         }
 
         /* IP_RECVTTL is requiered to get later the IPv4 original TTL */
         if(setsockopt(sock, IPPROTO_IP, IP_RECVTTL, &on, sizeof(on))< 0){
-            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IP_RECVTTL: %s", strerror(errno));
+            lmlog(LISP_LOG_WARNING, "setsockopt IP_RECVTTL: %s", strerror(errno));
         }
 
         break;
@@ -383,12 +383,12 @@ int open_data_input_socket(int afi){
 
         /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
         if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))< 0){
-            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+            lmlog(LISP_LOG_WARNING, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
         }
 
         /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
         if(setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))< 0){
-            lispd_log_msg(LISP_LOG_WARNING, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+            lmlog(LISP_LOG_WARNING, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
         }
 
         break;
@@ -465,7 +465,7 @@ int send_packet (
             break;
         }
 
-        lispd_log_msg(LISP_LOG_DEBUG_2,
+        lmlog(LISP_LOG_DEBUG_2,
                 "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d, packet len %d",
                 strerror(errno), ip_addr_to_char(&pkt_src_addr),
                 ip_addr_to_char(&pkt_dst_addr), sock, packet_length);
@@ -480,10 +480,7 @@ int send_packet (
  * Get a packet from the socket. It also returns the destination addres and source port of the packet
  */
 
-int get_packet_and_socket_inf (
-        int             sock,
-        uint8_t         *packet,
-        udpsock_t       *udpsock)
+int get_packet_and_socket_inf(int sock, struct lbuf *buf, udpsock_t *udpsock)
 {
 
     union control_data {
@@ -492,17 +489,15 @@ int get_packet_and_socket_inf (
         u_char data6[CMSG_SPACE(sizeof(struct in6_pktinfo))]; /* Space for IPv6 pktinfo */
     };
     
-    union sockunion su;
-//    struct sockaddr_in  s4;
-//    struct sockaddr_in6 s6;
+    union sockunion     su;
     struct msghdr       msg;
     struct iovec        iov[1];
     union control_data  cmsg;
     struct cmsghdr      *cmsgptr    = NULL;
     int                 nbytes      = 0;
 
-    iov[0].iov_base = packet;
-    iov[0].iov_len = MAX_IP_PACKET;
+    iov[0].iov_base = lbuf_data(buf);
+    iov[0].iov_len = buf->size;
 
     memset(&msg, 0, sizeof msg);
     msg.msg_iov = iov;
@@ -515,38 +510,33 @@ int get_packet_and_socket_inf (
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
 
+    buf->size += nbytes;
 
 
     if (su.s4.sin_family == AF_INET){
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IP && cmsgptr->cmsg_type == IP_PKTINFO) {
-//                lisp_addr_set_afi(local_rloc, LM_AFI_IP);
-                lisp_addr_set_afi(&udpsock->dst, LM_AFI_IP);
-                ip_addr_set_v4(lisp_addr_get_ip(&udpsock->dst), &(((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr));
+                lisp_addr_ip_init(&udpsock->dst, &(((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr), AF_INET);
                 break;
             }
         }
 
-//        *remote_port = ntohs(su.s4.sin_port);
         lisp_addr_set_afi(&udpsock->src, LM_AFI_IP);
-        ip_addr_set_v4(lisp_addr_get_ip(&udpsock->src), &su.s4.sin_addr);
+        lisp_addr_ip_init(&udpsock->src, &su.s4.sin_addr);
         udpsock->src_port = ntohs(su.s4.sin_port);
-    }else {
+    } else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IPV6 && cmsgptr->cmsg_type == IPV6_PKTINFO) {
-                lisp_addr_set_afi(&udpsock->dst, LM_AFI_IP);
-                ip_addr_set_v6(lisp_addr_get_ip(&udpsock->dst), &(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr));
+                lisp_addr_ip_init(&udpsock->dst, &(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr), AF_INET6);
                 break;
             }
         }
-//        *remote_port = ntohs(su.s6.sin6_port);
-        /* src addr and port */
         lisp_addr_set_afi(&udpsock->src, LM_AFI_IP);
-        ip_addr_set_v6(lisp_addr_get_ip(&udpsock->src), &su.s6.sin6_addr);
+        lisp_addr_ip_init(&udpsock->src, &su.s6.sin6_addr);
         udpsock->src_port = ntohs(su.s6.sin6_port);
     }
 
@@ -576,7 +566,7 @@ int get_data_packet (
     int                 nbytes      = 0;
     
     iov[0].iov_base = packet;
-    iov[0].iov_len = MAX_IP_PACKET;
+    iov[0].iov_len = MAX_IP_PKT_LEN;
     
     memset(&msg, 0, sizeof msg);
     msg.msg_iov = iov;
@@ -589,7 +579,7 @@ int get_data_packet (
     
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        lispd_log_msg(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING, "read_packet: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
 
