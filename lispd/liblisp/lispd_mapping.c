@@ -456,11 +456,11 @@ locator_t *get_locator_from_mapping(
 void free_mapping_elt(mapping_t *mapping, int local)
 {
     /* Free the locators list*/
-    free_locator_list(mapping->head_v4_locators_list);
-    free_locator_list(mapping->head_v6_locators_list);
+    locator_list_del(mapping->head_v4_locators_list);
+    locator_list_del(mapping->head_v6_locators_list);
     /* Free extended info */
     if (local == TRUE){
-        free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
+        locator_list_del(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
         free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
         free ((lcl_mapping_extended_info *)mapping->extended_info);
     }else{
@@ -1090,8 +1090,8 @@ err:
 void mapping_del(mapping_t *mapping)
 {
     /* Free the locators list*/
-    free_locator_list(mapping->head_v4_locators_list);
-    free_locator_list(mapping->head_v6_locators_list);
+    locator_list_del(mapping->head_v4_locators_list);
+    locator_list_del(mapping->head_v6_locators_list);
 
     mapping_extended_info_del(mapping);
 
@@ -1106,7 +1106,7 @@ void mapping_extended_info_del(mapping_t *mapping) {
     if (mapping->extended_info) {
         switch (mapping->type) {
         case MAPPING_LOCAL:
-            free_locator_list(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
+            locator_list_del(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
             free_balancing_locators_vecs(((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs);
             free ((lcl_mapping_extended_info *)mapping->extended_info);
             break;
@@ -1133,9 +1133,9 @@ void mapping_update_locators(mapping_t *mapping, locators_list_t *locv4, locator
 
     /* TODO: do a comparison first */
     if (mapping->head_v4_locators_list)
-        free_locator_list(mapping->head_v4_locators_list);
+        locator_list_del(mapping->head_v4_locators_list);
     if (mapping->head_v6_locators_list)
-        free_locator_list(mapping->head_v6_locators_list);
+        locator_list_del(mapping->head_v6_locators_list);
     mapping->head_v4_locators_list = locv4;
     mapping->head_v6_locators_list = locv6;
     mapping->locator_count = nb_locators;

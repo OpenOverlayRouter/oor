@@ -126,7 +126,7 @@ typedef struct lisp_encap_control_hdr {
     uint8_t reserved1:3;
 #endif
     uint8_t reserved2[3];
-} lisp_ecm_hdr_t;
+} ecm_hdr_t;
 
 
 
@@ -142,7 +142,7 @@ static inline int lisp_encap_data_get_len(lisp_encap_data *data) {
 }
 
 static void *lbuf_pull_ecm_hdr(struct lbuf *b) {
-    return(lbuf_pull(b, sizeof(lisp_ecm_hdr_t)));
+    return(lbuf_pull(b, sizeof(ecm_hdr_t)));
 }
 
 
@@ -156,5 +156,11 @@ void map_notify_hdr_init(uint8_t *ptr);
 uint8_t is_mrsignaling(address_hdr_t *addr);
 mrsignaling_flags_t mrsignaling_flags(address_hdr_t *addr);
 void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig);
+
+char *map_request_hdr_to_char(map_request_hdr_t *h);
+char *map_reply_hdr_to_char(map_reply_hdr_t *h);
+char *map_register_hdr_to_char(map_register_hdr_t *h);
+char *map_notify_hdr_to_char(map_notify_hdr_t *h);
+char *ecm_hdr_to_char(ecm_hdr_t *h);
 
 #endif /* LISP_MESSAGES_H_ */

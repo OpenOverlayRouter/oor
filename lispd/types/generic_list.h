@@ -43,20 +43,24 @@ typedef struct {
 } glist_entry_t;
 
 typedef struct {
-    glist_entry_t       *head;
+    glist_entry_t       head;
     int                 size;
     glist_cmp_fct       cmp_fct;
     glist_del_fct       del_fct;
 } glist_t;
 
 
-glist_t                 *glist_new_simple();
-glist_t                 *glist_new(glist_del_fct);
+glist_t                 *glist_new();
+glist_t                 *glist_new_managed(glist_del_fct);
 glist_t                 *glist_new_full(glist_cmp_fct, glist_del_fct);
+void                    glist_init_full(glist_t *, glist_cmp_fct, glist_del_fct);
+void                    glist_init(glist_t *);
+void                    glist_init_managed(glist_t *lst, glist_del_fct del_fct);
 int                     glist_add(void *data, glist_t *list);
 int                     glist_add_tail(void *data, glist_t *glist);
-void                    glist_del(glist_entry_t *entry, glist_t *list);
+void                    glist_remove(glist_entry_t *entry, glist_t *list);
 void                    glist_destroy(glist_t *lst);
+void                    glist_remove_all(glist_t *lst);
 //inline int              glist_size(glist_t *list);
 //inline void             *glist_entry_data(glist_entry_t *entry);
 
@@ -74,7 +78,7 @@ inline static glist_entry_t *glist_head(glist_t *lst) {
 }
 
 inline static glist_entry_t *glist_first(glist_t *lst) {
-    return(list_entry(lst->head->list.next, glist_entry_t, list));
+    return(list_entry(lst->head.list.next, glist_entry_t, list));
 }
 
 inline static void *glist_first_data(glist_t *lst) {
@@ -82,7 +86,7 @@ inline static void *glist_first_data(glist_t *lst) {
 }
 
 inline static glist_entry_t *glist_last(glist_t *lst) {
-    return(list_entry(lst->head->list.prev, glist_entry_t, list));
+    return(list_entry(lst->head.list.prev, glist_entry_t, list));
 }
 
 inline static void *glist_last_data(glist_t *lst) {
@@ -99,7 +103,7 @@ inline static glist_entry_t *glist_next(glist_entry_t *entry) {
  * @ lst:   * the list of glist_t type, over whose elements to iterate
  */
 #define glist_for_each_entry(iter, lst) \
-    list_for_each_entry(iter, &((lst)->head->list), list)
+    list_for_each_entry(iter, &((lst)->head.list), list)
 
 /*
 #define glist_for_each(pos, lst)              \

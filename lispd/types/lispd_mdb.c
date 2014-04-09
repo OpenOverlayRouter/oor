@@ -229,7 +229,7 @@ static int _add_mc_entry(mdb_t *db, void *entry, lcaf_addr_t *mcaddr) {
     src = lcaf_mc_get_src(mcaddr);
     srcip = lisp_addr_get_ip(src);
 
-    if (pt_add_mc_addr(_get_mc_pt_from_afi(db, ip_addr_get_afi(srcip)), mcaddr, entry) != GOOD) {
+    if (pt_add_mc_addr(_get_mc_pt_from_afi(db, ip_addr_afi(srcip)), mcaddr, entry) != GOOD) {
         lmlog(LISP_LOG_DEBUG_2, "_add_mc_entry: Attempting to "
                 "insert %s to map cache but failed! ", mc_type_to_char(mcaddr));
         return(BAD);
@@ -617,7 +617,7 @@ patricia_node_t *pt_find_ip_node(patricia_tree_t *pt, ip_addr_t *ipaddr) {
     prefix_t        *prefix;
     uint8_t         default_plen;
 
-    default_plen = (ip_addr_get_afi(ipaddr) == AF_INET) ? 32: 128;
+    default_plen = (ip_addr_afi(ipaddr) == AF_INET) ? 32: 128;
     prefix = pt_make_ip_prefix(ipaddr, default_plen);
     node =  patricia_search_best(pt, prefix);
     Deref_Prefix(prefix);
@@ -689,7 +689,7 @@ prefix_t *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
     int             afi         = 0;
     prefix_t        *prefix     = NULL;
 
-    afi = ip_addr_get_afi(ipaddr);
+    afi = ip_addr_afi(ipaddr);
 
     if (afi != AF_INET && afi != AF_INET6) {
         lmlog(LISP_LOG_WARNING, "make_ip_prefix_for_pt: Unsupported afi %s", afi);

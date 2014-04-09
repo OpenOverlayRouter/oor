@@ -5,7 +5,7 @@
 
 remdb_t *remdb_new() {
     remdb_t     *db    = NULL;
-    db =  glist_new_full(NO_CMP, NO_DEL);
+    db =  glist_new();
     return(db);
 }
 
@@ -18,7 +18,7 @@ glist_t *remdb_get_orlist(remdb_t *jib) {
     remdb_member_t          *jibentry   = NULL;
     glist_entry_t           *it         = NULL;
 
-    orlist = glist_new_full(NO_CMP, NO_DEL);
+    orlist = glist_new();
 
     glist_for_each_entry(it, jib){
 
@@ -69,7 +69,7 @@ void remdb_del_member(lisp_addr_t *addr, remdb_t *jib) {
     glist_for_each_entry(it,jib) {
         member = (remdb_member_t *)glist_entry_data(it);
         if (lisp_addr_cmp(member->addr, addr))
-            glist_del(it, jib);
+            glist_remove(it, jib);
     }
 }
 

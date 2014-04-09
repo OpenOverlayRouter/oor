@@ -173,7 +173,7 @@ void add_ip_header (
      * Construct and add the outer ip header
      */
 
-    switch (ip_addr_get_afi(lisp_addr_get_ip(dst_addr))){
+    switch (ip_addr_afi(lisp_addr_get_ip(dst_addr))){
         case AF_INET:
             ip_len = ip_payload_length + sizeof(struct ip);
             iph = (struct ip *) position;
@@ -280,7 +280,7 @@ int encapsulate_packet(
     int         udphdr_len          = 0;
     int         lisphdr_len         = 0;
 
-    encap_afi = ip_addr_get_afi(lisp_addr_get_ip(src_addr));
+    encap_afi = ip_addr_afi(lisp_addr_get_ip(src_addr));
 
     switch (encap_afi){
     case AF_INET:

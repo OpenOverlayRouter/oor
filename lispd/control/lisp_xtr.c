@@ -164,7 +164,7 @@ send_map_reply(struct lbuf *b, udpsock_t *rsk, glist_t *itr_rlocs)
     udpsock_t ssk;
     lisp_addr_copy(&ssk.src, &rsk->dst);
     select_remote_rloc(itr_rlocs, lisp_addr_ip_afi(&rsk->src), &ssk.dst);
-
+    ssk->src_port = LISP_CONTROL_PORT;
     if (core_send_msg(b, ssk) != GOOD) {
         lmlog(DBG_1, "Couldn't send Map-Reply!");
     }
@@ -207,42 +207,52 @@ reply_smr(lisp_addr_t *src_addr)
 int
 xtr_process_map_request_msg(struct lbuf *b, udpsock_t *rsk)
 {
-    lisp_addr_t seid, deid;
+    lisp_addr_t seid, deid, *tloc;
     mapping_t *map;
-    glist_t *itr_rlocs;
+    glist_t *itr_rlocs = NULL;
     void *mreq_hdr, *mrep_hdr, *paddr;
     int i;
-    struct lbuf *mrep;
-
-    lmlog(DBG_3, "xTR: Processing LISP Map-Request message");
+    struct lbuf *mrep = NULL;
 
     mreq_hdr = lisp_msg_pull_hdr(b, sizeof(map_request_hdr_t));
-    lmlog(DBG_1, "%s", lisp_msg_hdr_to_char(mreq_hdr));
 
-    if (lisp_msg_parse_addr(b, &seid) != GOOD)
+    if (lisp_msg_parse_addr(b, &seid) != GOOD) {
         goto err;
+    }
+
+    lmlog(DBG_1, "%s src-eid: %s", lisp_msg_hdr_to_char(mreq_hdr),
+            lisp_addr_to_char(&seid));
 
     /* If packet is a Solicit Map Request, process it */
     if (lisp_addr_afi(&seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
-        if(reply_smr(&seid) != GOOD)
+        if(reply_smr(&seid) != GOOD) {
             goto err;
+        }
         /* Return if RLOC probe bit is not set */
-        if (!MREQ_RLOC_PROBE(mreq_hdr))
+        if (!MREQ_RLOC_PROBE(mreq_hdr)) {
             goto done;
+        }
     }
 
     /* Process additional ITR RLOCs */
-    itr_rlocs = lisp_msg_parse_itr_rlocs(b);
-    if (!itr_rlocs)
-        goto err;
+    itr_rlocs = lisp_addr_list_new();
+    for (i = 0; i < ITR_RLOC_COUNT(mreq_hdr) + 1; i++) {
+        tloc = lisp_addr_new();
+        if (lisp_msg_parse_addr(b, tloc) != GOOD) {
+            return(BAD);
+        }
+        glist_add(itr_rlocs, tloc);
+        lmlog(DBG_1," itr-rloc: %s", lisp_addr_to_char(tloc));
+    }
 
     /* Process records and build Map-Reply */
     mrep = lisp_msg_create(LISP_MAP_REPLY);
     for (i = 0; i < MREQ_REC_COUNT(mreq_hdr); i++) {
-        if (lisp_msg_parse_eid_rec(b, &deid, paddr) != GOOD)
+        if (lisp_msg_parse_eid_rec(b, &deid, paddr) != GOOD) {
             goto err;
-        lmlog(DBG_1, "Map-Request for %s (from %s)", lisp_addr_to_char(&deid),
-                lisp_addr_to_char(&seid));
+        }
+
+        lmlog(DBG_1, " dst-eid: %s", lisp_addr_to_char(&deid));
 
         if (is_mrsignaling(paddr)) {
             mrsignaling_recv_msg(mrep, &seid, &deid, mrsignaling_flags(paddr));
@@ -267,16 +277,12 @@ xtr_process_map_request_msg(struct lbuf *b, udpsock_t *rsk)
     send_map_reply(mrep, rsk, itr_rlocs);
 
 done:
-    if (itr_rlocs)
-        glist_del(itr_rlocs);
-    if (mrep)
-        lisp_msg_destroy(mrep);
+    glist_destroy(itr_rlocs);
+    lisp_msg_destroy(mrep);
 
     return(GOOD);
 err:
-    if (itr_rlocs)
-        glist_del(itr_rlocs);
-    if (mrep)
-        lisp_msg_destroy(mrep);
+    glist_destroy(itr_rlocs);
+    lisp_msg_destroy(mrep);
     return(BAD);
 }

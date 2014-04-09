@@ -243,7 +243,7 @@ inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr) {
     assert(addr);
     switch (get_afi_(addr)) {
     case LM_AFI_IP:
-        return(ip_addr_get_afi(get_ip_(addr)));
+        return(ip_addr_afi(get_ip_(addr)));
     case LM_AFI_IPPREF:
         return(ip_prefix_get_afi(get_ippref_(addr)));
     default:
@@ -278,11 +278,11 @@ inline ip_addr_t *lisp_addr_ip_get_addr(lisp_addr_t *laddr) {
 inline uint8_t lisp_addr_ip_get_plen(lisp_addr_t *laddr) {
     switch(get_afi_(laddr)) {
     case LM_AFI_IP:
-        if (ip_addr_get_afi(get_ip_(laddr)) == AF_UNSPEC) {
+        if (ip_addr_afi(get_ip_(laddr)) == AF_UNSPEC) {
             lmlog(LISP_LOG_WARNING, "lisp_addr_ip_get_plen: called with AF_UNSPEC");
             return(0);
         }
-        return((ip_addr_get_afi(get_ip_(laddr)) == AF_INET) ? 32: 128);
+        return((ip_addr_afi(get_ip_(laddr)) == AF_INET) ? 32: 128);
     case LM_AFI_IPPREF:
         return(ip_prefix_get_plen(get_ippref_(laddr)));
     default:

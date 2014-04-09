@@ -117,7 +117,7 @@ void lispd_print_nonce (
     lmlog(log_level,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
 }
 
-char * nonce_to_char (uint64_t nonce)
+char *nonce_to_char(uint64_t nonce)
 {
     static char         nonce_char[2][21];
     static unsigned int i;
@@ -128,9 +128,10 @@ char * nonce_to_char (uint64_t nonce)
     i++;
     i = i % 2;
 
-    lower = nonce & 0xffffffff;
-    upper = (nonce >> 32) & 0xffffffff;
-    sprintf(nonce_char[i] , "0x%08x-0x%08x", htonl(upper), htonl(lower));
+//    lower = nonce & 0xffffffff;
+//    upper = (nonce >> 32) & 0xffffffff;
+//    sprintf(nonce_char[i] , "0x%08x-0x%08x", htonl(upper), htonl(lower));
+    sprintf(nonce_char[i], "0x%x", nonce);
 
     return (nonce_char[i]);
 }

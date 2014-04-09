@@ -84,7 +84,7 @@ int ms_process_map_request_msg(lisp_ctrl_device *dev, map_request_msg *mreq, lis
     itrs = mreq_msg_get_itr_rlocs(mreq);
     glist_for_each_entry(it, itrs) {
         /* XXX: support only for IP RLOCs */
-        if (ip_iana_afi_to_sock_afi(address_field_afi(glist_entry_data(it))) == lisp_addr_ip_afi(local_rloc)) {
+        if (ip_iana_to_sock_afi(address_field_afi(glist_entry_data(it))) == lisp_addr_ip_afi(local_rloc)) {
             remote_rloc = lisp_addr_init_from_field(glist_entry_data(it));
             break;
         }
@@ -300,7 +300,7 @@ int ms_process_map_register_msg(lisp_ctrl_device *dev, map_register_msg *mreg, u
 
     if (mreg_msg_get_hdr(mreg)->map_notify) {
         /* mappings are not freed when list is destroyed */
-        write_recs = glist_new_full(NO_CMP, NO_DEL);
+        write_recs = glist_new();
         mnot_msg = map_notify_msg_new();
     }
 

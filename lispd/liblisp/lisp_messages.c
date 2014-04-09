@@ -72,7 +72,7 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
     lisp_msg            *msg        = NULL;
 
     msg = lisp_msg_new();
-    if (((lisp_ecm_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
+    if (((ecm_hdr_t *) packet)->type == LISP_ENCAP_CONTROL_TYPE) {
         lmlog(LISP_LOG_DEBUG_3, "Parsing encapsulated control message data");
         msg->encap = 1;
         msg->encapdata = lisp_encap_hdr_parse(packet);
@@ -80,7 +80,7 @@ lisp_msg *lisp_msg_parse(uint8_t *packet) {
     } else {
         msg->encap = 0;
     }
-    msg->type = ((lisp_ecm_hdr_t *) packet)->type;
+    msg->type = ((ecm_hdr_t *) packet)->type;
     switch (msg->type) {
     case LISP_MAP_REPLY:    //Got Map Reply
         msg->msg = map_reply_msg_parse(packet);
@@ -133,7 +133,7 @@ lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet) {
     data = calloc(1, sizeof(lisp_encap_data));
 
     data->ecmh = packet;
-    data->iph = CO(packet, sizeof(lisp_ecm_hdr_t));
+    data->iph = CO(packet, sizeof(ecm_hdr_t));
     switch (((struct ip *)data->iph)->ip_v) {
     case IPVERSION:
         data->ip_header_len = sizeof(struct ip);
@@ -150,7 +150,7 @@ lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet) {
         return(NULL);
     }
 
-    data->len = sizeof(lisp_ecm_hdr_t)+data->ip_header_len + sizeof(struct udphdr);
+    data->len = sizeof(ecm_hdr_t)+data->ip_header_len + sizeof(struct udphdr);
 
     return(data);
 }
@@ -175,7 +175,7 @@ map_reply_msg *map_reply_msg_parse(uint8_t *offset) {
     mrp->data = offset;
 
     offset = CO(mrp->data, sizeof(map_reply_hdr_t));
-    mrp->records = glist_new_full(NO_CMP, (void (*)(void *))mapping_record_del);
+    mrp->records = glist_new_managed((void (*)(void *))mapping_record_del);
     if (!mrp->records)
         goto err;
 
@@ -224,7 +224,7 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
     offset = CO(offset, address_field_len(mrp->src_eid));
 
     /* parse ITR RLOCs */
-    mrp->itr_rlocs = glist_new_full(NO_CMP, (glist_del_fct)address_field_del);
+    mrp->itr_rlocs = glist_new_managed((glist_del_fct)address_field_del);
     for (i=0; i < mreq_msg_get_hdr(mrp)->additional_itr_rloc_count + 1; i++) {
         afield = address_field_parse(offset);
         if (!afield)
@@ -264,66 +264,6 @@ void map_request_msg_del(map_request_msg *msg) {
 }
 
 
-void map_request_hdr_init(uint8_t *ptr) {
-    map_request_hdr_t *mrp = ptr;
-
-    mrp->type                       = LISP_MAP_REQUEST;
-    mrp->authoritative              = 0;
-    mrp->map_data_present           = 1;    /* default not mrsig */
-    mrp->rloc_probe                 = 0;    /* default not rloc probe */
-    mrp->solicit_map_request        = 0;    /* default not smr */
-    mrp->smr_invoked                = 0;    /* default not smr-invoked */
-    mrp->additional_itr_rloc_count  = 0;    /* to be filled in later  */
-    mrp->record_count               = 0;    /* to be filled in later */
-    mrp->nonce                      = 0;    /* to be filled in later */
-    mrp->pitr                       = 0;    /* default not sent by PITR */
-    mrp->reserved1 = 0;
-    mrp->reserved2 = 0;
-}
-
-void map_reply_hdr_init(uint8_t *ptr) {
-    map_reply_hdr_t *mrp = ptr;
-
-    mrp->type = LISP_MAP_REPLY;
-    mrp->rloc_probe = 0;        /* default not rloc-probe */
-    mrp->record_count = 0;      /* to be filled in later */
-    mrp->echo_nonce  = 0;       /* default not reply to echo nonce req */
-    mrp->nonce = 0;             /* to be filled in later */
-
-    mrp->reserved1 = 0;
-    mrp->reserved2 = 0;
-    mrp->reserved3 = 0;
-
-}
-
-void map_register_hdr_init(uint8_t *ptr) {
-    map_register_hdr_t *mrp = ptr;
-
-    mrp->type = LISP_MAP_REGISTER;
-    mrp->proxy_reply = 0;               /* default no proxy-map-reply */
-    mrp->map_notify = 1;                /* default want map-notify */
-    mrp->nonce = 0;                     /* to be filled in later */
-    mrp->record_count = 0;              /* to be filled in later */
-    mrp->rbit = 0;                      /* default not NATT */
-    mrp->ibit = 0;                      /* default not NATT */
-
-    mrp->reserved1 = 0;
-    mrp->reserved2 = 0;
-    mrp->reserved3 = 0;
-}
-
-void map_notify_hdr_init(uint8_t *ptr) {
-    map_notify_hdr_t *mrp = ptr;
-
-    mrp->type = LISP_MAP_NOTIFY;
-    mrp->record_count = 0;              /* to be filled in later */
-    mrp->rtr_auth_present = 0;          /* to be filled in later */
-    mrp->xtr_id_present = 0;            /* to be filled in later */
-    mrp->nonce = 0;                     /* to be filled in later */
-
-    mrp->reserved1 = 0;
-    mrp->reserved2 = 0;
-}
 
 
 /*
@@ -436,7 +376,7 @@ map_register_msg *map_register_msg_parse(uint8_t *offset) {
     if (!mreg->auth_data)
         goto err;
     offset = CO(offset, auth_field_get_len(mreg->auth_data));
-    mreg->records = glist_new_full(NO_CMP, (glist_del_fct)mapping_record_del);
+    mreg->records = glist_new_managed((glist_del_fct)mapping_record_del);
     if (!mreg->records)
         goto err;
     for (i = 0; i < mreg_msg_get_hdr(mreg)->record_count; i++) {
@@ -513,7 +453,7 @@ map_notify_msg *map_notify_msg_parse(uint8_t *offset) {
     if (!mnotify->auth_data)
         goto err;
     offset = CO(offset, auth_field_get_len(mnotify->auth_data));
-    mnotify->records = glist_new_full(NO_CMP, (glist_del_fct)mapping_record_del);
+    mnotify->records = glist_new_managed((glist_del_fct)mapping_record_del);
     if (!mnotify->records)
         goto err;
 
@@ -654,6 +594,79 @@ int mnotify_msg_check_auth(map_notify_msg *msg, const char *key) {
 
 
 
+
+
+
+
+
+
+
+void map_request_hdr_init(uint8_t *ptr) {
+    map_request_hdr_t *mrp = ptr;
+
+    mrp->type                       = LISP_MAP_REQUEST;
+    mrp->authoritative              = 0;
+    mrp->map_data_present           = 1;    /* default not mrsig */
+    mrp->rloc_probe                 = 0;    /* default not rloc probe */
+    mrp->solicit_map_request        = 0;    /* default not smr */
+    mrp->smr_invoked                = 0;    /* default not smr-invoked */
+    mrp->additional_itr_rloc_count  = 0;    /* to be filled in later  */
+    mrp->record_count               = 0;    /* to be filled in later */
+    mrp->nonce                      = 0;    /* to be filled in later */
+    mrp->pitr                       = 0;    /* default not sent by PITR */
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+}
+
+void map_reply_hdr_init(uint8_t *ptr) {
+    map_reply_hdr_t *mrp = ptr;
+
+    mrp->type = LISP_MAP_REPLY;
+    mrp->rloc_probe = 0;        /* default not rloc-probe */
+    mrp->record_count = 0;      /* to be filled in later */
+    mrp->echo_nonce  = 0;       /* default not reply to echo nonce req */
+    mrp->security = 0;          /* default no security */
+    mrp->nonce = 0;             /* to be filled in later */
+
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+    mrp->reserved3 = 0;
+
+}
+
+void map_register_hdr_init(uint8_t *ptr) {
+    map_register_hdr_t *mrp = ptr;
+
+    mrp->type = LISP_MAP_REGISTER;
+    mrp->proxy_reply = 0;               /* default no proxy-map-reply */
+    mrp->map_notify = 1;                /* default want map-notify */
+    mrp->nonce = 0;                     /* to be filled in later */
+    mrp->record_count = 0;              /* to be filled in later */
+    mrp->rbit = 0;                      /* default not NATT */
+    mrp->ibit = 0;                      /* default not NATT */
+
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+    mrp->reserved3 = 0;
+}
+
+void map_notify_hdr_init(uint8_t *ptr) {
+    map_notify_hdr_t *mrp = ptr;
+
+    mrp->type = LISP_MAP_NOTIFY;
+    mrp->record_count = 0;              /* to be filled in later */
+    mrp->rtr_auth_present = 0;          /* to be filled in later */
+    mrp->xtr_id_present = 0;            /* to be filled in later */
+    mrp->nonce = 0;                     /* to be filled in later */
+
+    mrp->reserved1 = 0;
+    mrp->reserved2 = 0;
+}
+
+
+
+
+
 /* Given the start of an address field, @addr, checks if the address is an
  * MCAST_INFO LCAF that carries mrsignaling flags */
 uint8_t is_mrsignaling(address_hdr_t *addr) {
@@ -704,10 +717,117 @@ mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig) {
 
 
 
-static
-char *mreq_hdr_to_char(map_request_hdr_t *h) {
-    static char *buf[100];
-//    sprintf(buf, "Map-Request -> Flags:s", h->)
+char *
+mreq_flags_to_char(map_request_hdr_t *h) {
+    static char buf[10];
+    h->authoritative ? sprintf(buf+strlen(buf), "A") : sprintf(buf+strlen(buf), "a") ;
+    h->map_data_present ?  sprintf(buf+strlen(buf), "M") : sprintf(buf+strlen(buf), "m");
+    h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
+    h->solicit_map_request ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
+    h->pitr ? sprintf(buf+strlen(buf), "p") : sprintf(buf+strlen(buf), "P");
+    h->smr_invoked ? sprintf(buf+strlen(buf), "s") : sprintf(buf+strlen(buf), "S");
+    return(buf);
+}
+
+char *
+map_request_hdr_to_char(map_request_hdr_t *h) {
+    static char buf[50];
+
+    if (!h) {
+        return(NULL);
+    }
+
+    sprintf(buf, "Map-Request -> flags:%s irc: %d (+1) record-count: %d nonce %s",
+            mreq_flags_to_char(h), h->additional_itr_rloc_count, h->record_count,
+            nonce_to_char(h->nonce));
+    return(buf);
+}
+
+char *
+mrep_flags_to_char(map_reply_hdr_t *h) {
+    static char buf[10];
+    h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
+    h->echo_nonce ? sprintf(buf+strlen(buf), "E") : sprintf(buf+strlen(buf), "e");
+    h->security ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
+    return(buf);
+}
+
+char *
+map_reply_hdr_to_char(map_reply_hdr_t *h) {
+    static char buf[50];
+
+    if (!h) {
+        return(NULL);
+    }
+
+    sprintf(buf, "Map-Reply -> flags:%s record-count: %d nonce %s",
+            mreq_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+    return(buf);
+}
+
+char *
+mreg_flags_to_char(map_register_hdr_t *h) {
+    static char buf[10];
+    h->proxy_reply ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
+    h->ibit ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
+    h->rbit ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
+    h->map_notify ? sprintf(buf+strlen(buf), "M") : sprintf(buf+strlen(buf), "m");
+    return(buf);
+}
+
+char *
+map_register_hdr_to_char(map_reply_hdr_t *h) {
+    static char buf[50];
+
+    if (!h) {
+        return(NULL);
+    }
+
+    sprintf(buf, "Map-Register -> flags:%s record-count: %d nonce %s",
+            mreq_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+    return(buf);
+}
+
+char *
+mntf_flags_to_char(map_notify_hdr_t *h) {
+    static char buf[5];
+    h->xtr_id_present ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
+    h->rtr_auth_present ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
+    return(buf);
+}
+
+char *
+map_notify_hdr_to_char(map_notify_hdr_t *h) {
+    static char buf[50];
+
+    if (!h) {
+        return(NULL);
+    }
+
+    sprintf(buf, "Map-Notify -> flags:%s record-count: %d nonce %s",
+            mreq_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+    return(buf);
 }
 
 
+char *
+ecm_flags_to_char(ecm_hdr_t *h) {
+    static char buf[10];
+    if (!h) {
+        return(NULL);
+    }
+    h->s_bit ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
+    return(buf);
+}
+
+char *
+ecm_hdr_to_char(ecm_hdr_t *h) {
+    static char buf[50];
+
+    if (!h) {
+        return(NULL);
+    }
+
+    sprintf(buf, "ECM -> flags:%s", mreq_flags_to_char(h));
+    return(buf);
+}

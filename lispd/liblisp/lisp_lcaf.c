@@ -1024,7 +1024,7 @@ inline void elp_node_del(elp_node_t *enode) {
 
 inline void lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode) {
     if (!((elp_t *)lcaf->addr)->nodes)
-        ((elp_t *)lcaf->addr)->nodes = glist_new_full(NO_CMP, (glist_del_fct)elp_node_del);
+        ((elp_t *)lcaf->addr)->nodes = glist_new_managed((glist_del_fct)elp_node_del);
     glist_add_tail(enode, ((elp_t *)lcaf->addr)->nodes);
 }
 
@@ -1036,7 +1036,7 @@ inline void lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode) {
  */
 inline rle_t *rle_type_new() {
     rle_t *rle = calloc(1, sizeof(iid_t));
-    rle->nodes = glist_new_full(NO_CMP, (glist_del_fct)rle_node_del);
+    rle->nodes = glist_new_managed((glist_del_fct)rle_node_del);
     return(rle);
 }
 

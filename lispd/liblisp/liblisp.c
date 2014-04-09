@@ -3,7 +3,7 @@
 
 static lisp_msg_type_t
 lisp_msg_type(struct lbuf *b) {
-    lisp_ecm_hdr_t *hdr = lbuf_lisp(b);
+    ecm_hdr_t *hdr = lbuf_lisp(b);
     return(hdr->type);
 }
 
@@ -22,12 +22,17 @@ lisp_msg_ecm_decap(struct lbuf *pkt, uint16_t *dst_port) {
     int udp_len = 0;
     struct udphdr *udph;
     struct ip *iph;
+    void *hdr;
 
-    lmlog(LISP_LOG_DEBUG_3, "Processing the encapsulation header");
-
-    lbuf_pull_ecm_hdr(pkt);
+    hdr = lbuf_pull_ecm_hdr(pkt);
     iph = lbuf_pull_ip(pkt);
     udph = lbuf_data(pkt);
+
+    lmlog(DBG_2, "%s inner IP: %s -> %s inner UDP %d -> %d",
+            lisp_msg_hdr_to_char(hdr),
+            ip_to_char(iph->ip_src, ip_version_to_sock_afi(iph->ip_v)),
+            ip_to_char(iph->ip_dst, ip_version_to_sock_afi(iph->ip_v)),
+            ntohs(udph->source), ntohs(udph->dest));
 
     /* This should overwrite the external port (dst_port in map-reply =
      * inner src_port in encap map-request) */
@@ -45,14 +50,14 @@ lisp_msg_ecm_decap(struct lbuf *pkt, uint16_t *dst_port) {
     if (iph->ip_v == IPVERSION) {
         ipsum = ip_checksum((uint16_t *) iph, sizeof(struct ip));
         if (ipsum != 0) {
-            lmlog(LISP_LOG_DEBUG_2, "ECM: IP checksum failed.");
+            lmlog(DBG_2, "IP checksum failed.");
         }
         if ((udpsum = udp_checksum(udph, udp_len, iph, AF_INET))
                 == -1) {
             return (BAD);
         }
         if (udpsum != 0) {
-            lmlog(LISP_LOG_DEBUG_2, "ECM: UDP checksum failed.");
+            lmlog(DBG_2, "UDP checksum failed.");
             return (BAD);
         }
     }
@@ -65,7 +70,7 @@ lisp_msg_ecm_decap(struct lbuf *pkt, uint16_t *dst_port) {
             return (BAD);
         }
         if (udpsum != 0) {
-            lmlog(LISP_LOG_DEBUG_2, "ECM: v6 UDP checksum failed.");
+            lmlog(DBG_2, "v6 UDP checksum failed.");
             return (BAD);
         }
     }
@@ -99,22 +104,20 @@ lisp_msg_parse_eid_rec(struct lbuf *msg, lisp_addr_t *eid,
     return(GOOD);
 }
 
-glist_t *
-lisp_msg_parse_itr_rlocs(struct lbuf *b) {
+int
+lisp_msg_parse_itr_rlocs(struct lbuf *b, glist_t *rlocs) {
     lisp_addr_t *tloc;
-    glist_t *rlocs = glist_new((glist_del_fct)lisp_addr_del);
     void *mreq_hdr = lbuf_listp(b);
     int i;
 
     for (i = 0; i < ITR_RLOC_COUNT(mreq_hdr) + 1; i++) {
         tloc = lisp_addr_new();
         if (lisp_msg_parse_addr(b, tloc) != GOOD) {
-            glist_del(rlocs);
-            return(NULL);
+            return(BAD);
         }
         glist_add(rlocs, tloc);
     }
-    return(rlocs);
+    return(GOOD);
 }
 
 
@@ -149,7 +152,7 @@ lisp_msg_put_addr(struct lbuf *msg, lisp_addr_t *addr) {
     /* make sure there's enough space */
     ptr = lbuf_put_uninit(msg, lisp_addr_size_to_write(addr));
     if ((len = lisp_addr_write(ptr, addr)) <= 0) {
-        lmlog(LISP_LOG_DEBUG_3, "lisp_msg_put_addr: failed to write address %s",
+        lmlog(DBG_3, "lisp_msg_put_addr: failed to write address %s",
                 lisp_addr_to_char(addr));
         return(NULL);
     }
@@ -291,7 +294,7 @@ lisp_msg_create(lisp_msg_type_t type) {
         /* nothing to do */
         break;
     default:
-        lisp_log_msg(LISP_LOG_DEBUG_3, "lisp_msg_create: Unknown LISP message "
+        lisp_log_msg(DBG_3, "lisp_msg_create: Unknown LISP message "
                 "type %s", type);
     }
 
@@ -300,23 +303,26 @@ lisp_msg_create(lisp_msg_type_t type) {
 
 char *
 lisp_msg_hdr_to_char(struct lbuf *b) {
+    void *h = lbuf_lisp(b);
     switch(lisp_msg_type(b)) {
     case LISP_MAP_REQUEST:
-        return(map_request_hdr_to_char(b));
+        return(map_request_hdr_to_char(h));
     case LISP_MAP_REPLY:
-        return(map_reply_hdr_to_char(b));
+        return(map_reply_hdr_to_char(h));
     case LISP_MAP_REGISTER:
-        return(map_register_hdr_to_char(b));
+        return(map_register_hdr_to_char(h));
     case LISP_MAP_NOTIFY:
-        return(map_notify_hdr_to_char(b));
+        return(map_notify_hdr_to_char(h));
     case LISP_INFO_NAT:
         return(NULL);
     case LISP_ENCAP_CONTROL_TYPE:
-        return(lisp_msg_encap_hdr_to_char(b));
+        return(ecm_hdr_to_char(h));
     default:
-        lisp_log_msg(LISP_LOG_DEBUG_3, "Unknown LISP message type %s",
-                lisp_msg_type(b));
+        lisp_log_msg(DBG_3, "Unknown LISP message type %s",
+                lisp_msg_type(h));
         return(NULL);
     }
 }
+
+
 

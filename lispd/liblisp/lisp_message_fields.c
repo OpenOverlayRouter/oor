@@ -118,7 +118,7 @@ locator_field *locator_field_parse(uint8_t *offset) {
 
 inline mapping_record *mapping_record_new() {
     mapping_record *record = calloc(1, sizeof(mapping_record));
-    record->locators = glist_new_full(NO_CMP, (glist_del_fct)locator_field_del);
+    record->locators = glist_new_managed((glist_del_fct)locator_field_del);
     return(record);
 }
 
@@ -174,7 +174,7 @@ err:
 locator_field *mapping_record_allocate_locator(mapping_record *record, int size) {
     locator_field *locator = NULL;
     if (!record->locators)
-        record->locators = glist_new_full(NO_CMP, (glist_del_fct)locator_field_del);
+        record->locators = glist_new_managed((glist_del_fct)locator_field_del);
 
     locator = locator_field_new();
     glist_add(locator, record->locators);

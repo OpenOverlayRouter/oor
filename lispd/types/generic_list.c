@@ -30,6 +30,24 @@
 #include <stdlib.h>
 
 
+void
+glist_init_full(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
+    lst->cmp_fct = cmp_fct;
+    lst->del_fct = del_fct;
+    lst->size = 0;
+    INIT_LIST_HEAD(&(lst->head.list));
+}
+
+void
+glist_init(glist_t *lst) {
+    glist_init_full(lst, NULL, NULL);
+}
+
+void
+glist_init_managed(glist_t *lst, glist_del_fct del_fct) {
+    glist_init_full(lst, NULL, del_fct);
+}
+
 /**
  * lispd_list_gen_new - initializes the list
  * @cmp_fct: function to compare to data entries
@@ -41,25 +59,19 @@ glist_t *glist_new_full(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
 
     if (!(glist = calloc(1, sizeof(glist_t))))
         return(NULL);
-    if (!(glist->head = calloc(1, sizeof(glist_entry_t))))
-        return(NULL);
-    INIT_LIST_HEAD(&(glist->head->list));
-    glist->size = 0;
-
-    glist->cmp_fct = cmp_fct;
-    glist->del_fct = del_fct;
-
+    glist_init_full(glist, cmp_fct, del_fct);
     return(glist);
 }
 
-glist_t *glist_new_simple() {
+glist_t *glist_new() {
     return(glist_new_full(NO_CMP, NO_DEL));
 }
 
-
-glist_new(glist_del_fct *del) {
+/* memory managed. when destroy is called all inner data is freed*/
+glist_new_managed(glist_del_fct *del) {
     return(glist_new_full(NO_CMP, del));
 }
+
 
 /**
  * lispd_list_gen_insert - insert new value to the list
@@ -83,9 +95,9 @@ int glist_add(void *data, glist_t *glist) {
     INIT_LIST_HEAD(&new->list);
 
     if (!glist->cmp_fct) {
-        list_add(&(new->list), &(glist->head->list));
+        list_add(&(new->list), &(glist->head.list));
     } else {
-        list_for_each_entry(tmp, &(glist->head->list), list) {
+        list_for_each_entry(tmp, &(glist->head.list), list) {
             /* insert where cmp fails */
             if((*glist->cmp_fct)(data, tmp->data) <= 0)
                 break;
@@ -115,7 +127,7 @@ int glist_add_tail(void *data, glist_t *glist) {
 
     new->data = data;
     INIT_LIST_HEAD(&new->list);
-    list_add_tail(&(new->list), &(glist->head->list));
+    list_add_tail(&(new->list), &(glist->head.list));
     glist->size++;
 
     return(0);
@@ -129,7 +141,11 @@ int glist_add_tail(void *data, glist_t *glist) {
  * If del_fct is defined, entry->data will be freed using it
  *
  */
-void glist_del(glist_entry_t *entry, glist_t *list) {
+void glist_remove(glist_entry_t *entry, glist_t *list) {
+    if (!entry || !list) {
+        return;
+    }
+
     list_del(&(entry->list));
     if(list->del_fct)
         (*list->del_fct)(entry->data);
@@ -140,16 +156,29 @@ void glist_del(glist_entry_t *entry, glist_t *list) {
     list->size--;
 }
 
-void glist_destroy(glist_t *lst) {
+void
+glist_remove_all(glist_t *lst) {
     struct list_head *buf, *it;
     glist_entry_t *tmp;
 
-    list_for_each_safe(it, buf, &(lst->head->list)) {
-        tmp = list_entry(it, glist_entry_t, list);
-        glist_del(tmp, lst);
+    if (!lst) {
+        return;
     }
 
-    free(lst->head);
+    list_for_each_safe(it, buf, &(lst->head.list)) {
+        tmp = list_entry(it, glist_entry_t, list);
+        glist_remove(tmp, lst);
+    }
+}
+
+void glist_destroy(glist_t *lst) {
+    if (!lst) {
+        return;
+    }
+
+    glist_remove_all(lst);
     free(lst);
 }
+
+
 

@@ -43,7 +43,7 @@ inline void ip_addr_del(ip_addr_t *ip) {
     free(ip);
 }
 
-inline int ip_addr_get_afi(ip_addr_t *ipaddr) {
+inline int ip_addr_afi(ip_addr_t *ipaddr) {
 //    assert(ipaddr);
     return(ipaddr->afi);
 }
@@ -64,17 +64,17 @@ inline struct in6_addr *ip_addr_get_v6(ip_addr_t *ipaddr) {
 
 inline uint8_t ip_addr_get_size(ip_addr_t *ipaddr) {
     assert(ipaddr);
-    return(ip_sock_afi_to_size(ip_addr_get_afi(ipaddr)));
+    return(ip_sock_afi_to_size(ip_addr_afi(ipaddr)));
 }
 
 inline uint8_t ip_addr_get_size_to_write(ip_addr_t *ipaddr) {
     /* includes afi size */
-    return(ip_sock_afi_to_size(ip_addr_get_afi(ipaddr))+sizeof(uint16_t));
+    return(ip_sock_afi_to_size(ip_addr_afi(ipaddr))+sizeof(uint16_t));
 }
 
 inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
     assert(ipaddr);
-    return(ip_sock_afi_to_iana_afi(ip_addr_get_afi(ipaddr)));
+    return(ip_sock_to_iana_afi(ip_addr_afi(ipaddr)));
 }
 
 inline int ip_addr_set_afi(ip_addr_t *ipaddr, int afi) {
@@ -114,24 +114,24 @@ inline void ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi) {
     }
 }
 
-char *ip_addr_to_char(ip_addr_t *addr){
+char *
+ip_to_char(void *ip, int afi) {
     static char address[10][INET6_ADDRSTRLEN];
     static unsigned int i;
 
-    /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
-    i++;
-    i = i % 10;
-
-    switch (ip_addr_get_afi(addr)){
+    switch(afi){
     case AF_INET:
-        inet_ntop(AF_INET, ip_addr_get_v4(addr), address[i], INET_ADDRSTRLEN);
-        return (address[i]);
+        inet_ntop(AF_INET, ip, address[i], INET_ADDRSTRLEN);
+        return(address[i]);
     case AF_INET6:
-        inet_ntop(AF_INET6, ip_addr_get_v6(addr), address[i], INET6_ADDRSTRLEN);
+        inet_ntop(AF_INET6, ip, address[i], INET6_ADDRSTRLEN);
         return (address[i]);
-    default:
-        return (NULL);
     }
+}
+
+char *
+ip_addr_to_char(ip_addr_t *addr){
+    return(ip_to_char(ip_addr_get_addr(addr), ip_addr_afi(addr)));
 }
 
 /* ip_addr_copy
@@ -165,7 +165,7 @@ inline int ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
     *(uint16_t *)dst = htons(ip_addr_get_iana_afi(src));
     dst = CO(dst, sizeof(uint16_t));
 
-    if (convert && ip_addr_get_afi(src) == AF_INET)
+    if (convert && ip_addr_afi(src) == AF_INET)
         /* XXX: haven't encountered a case when this is used */
         *((uint32_t *)dst) = htonl(ip_addr_get_v4(src)->s_addr);
     else
@@ -174,7 +174,7 @@ inline int ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
 }
 
 inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
-    if (ip_addr_get_afi(ip1) != ip_addr_get_afi(ip2))
+    if (ip_addr_afi(ip1) != ip_addr_afi(ip2))
         return(-1);
     return(memcmp(ip_addr_get_addr(ip1),
                   ip_addr_get_addr(ip2),
@@ -183,7 +183,7 @@ inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
 
 
 inline int ip_addr_read_from_pkt(void *offset, uint16_t iana_afi, ip_addr_t *dst) {
-    if(ip_addr_set_afi(dst, ip_iana_afi_to_sock_afi(iana_afi)) == BAD)
+    if(ip_addr_set_afi(dst, ip_iana_to_sock_afi(iana_afi)) == BAD)
         return(0);
     memcpy(ip_addr_get_addr(dst), CO(offset, sizeof(uint16_t)), ip_iana_afi_to_size(iana_afi));
     return(sizeof(uint16_t) + ip_iana_afi_to_size(iana_afi));
@@ -214,7 +214,7 @@ inline ip_addr_t *ip_prefix_get_addr(ip_prefix_t *pref) {
 
 inline uint8_t ip_prefix_get_afi(ip_prefix_t *pref) {
     assert(pref);
-    return(ip_addr_get_afi(ip_prefix_get_addr(pref)));
+    return(ip_addr_afi(ip_prefix_get_addr(pref)));
 }
 
 inline void ip_prefix_set(ip_prefix_t *pref, ip_addr_t *ipaddr, uint8_t plen) {
@@ -262,7 +262,7 @@ char *ip_prefix_to_char(ip_prefix_t *pref) {
  * other ip functions
  */
 
-inline uint16_t ip_sock_afi_to_iana_afi(uint16_t afi) {
+inline uint16_t ip_sock_to_iana_afi(uint16_t afi) {
     switch (afi){
         case AF_INET:
             return(LISP_AFI_IP);
@@ -274,7 +274,7 @@ inline uint16_t ip_sock_afi_to_iana_afi(uint16_t afi) {
     }
 }
 
-inline uint16_t ip_iana_afi_to_sock_afi(uint16_t afi) {
+inline uint16_t ip_iana_to_sock_afi(uint16_t afi) {
     switch (afi) {
         case LISP_AFI_IP:
             return(AF_INET);
@@ -321,7 +321,7 @@ int ip_addr_is_link_local (ip_addr_t *ipaddr) {
     uint32_t    ipv4_network  = 0;
     uint32_t    mask          = 0;
 
-    switch (ip_addr_get_afi(ipaddr)){
+    switch (ip_addr_afi(ipaddr)){
         case AF_INET:
             inet_pton(AF_INET,"169.254.0.0",&(ipv4_network));
             inet_pton(AF_INET,"255.255.0.0",&(mask));
@@ -342,7 +342,7 @@ int ip_addr_is_link_local (ip_addr_t *ipaddr) {
 }
 
 inline uint8_t ip_addr_is_multicast(ip_addr_t *addr) {
-    switch(ip_addr_get_afi(addr)) {
+    switch(ip_addr_afi(addr)) {
     case AF_INET:
         return ipv4_addr_is_multicast(ip_addr_get_v4(addr));
         break;
@@ -351,7 +351,7 @@ inline uint8_t ip_addr_is_multicast(ip_addr_t *addr) {
         break;
     default:
         lmlog(LISP_LOG_WARNING, "is_multicast_addr: Unknown afi %s",
-                ip_addr_get_afi(addr));
+                ip_addr_afi(addr));
         break;
     }
     return(0);
@@ -371,3 +371,14 @@ inline uint8_t ipv6_addr_is_multicast(struct in6_addr *addr) {
     return(0);
 }
 
+uint8_t
+ip_version_to_sock_afi(uint8_t ver) {
+    switch(ver) {
+    case IPVERSION:
+        return(AF_INET);
+    case IP6VERSION:
+        return(AF_INET6);
+    default:
+        return(0);
+    }
+}

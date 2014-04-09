@@ -186,7 +186,7 @@ locator_t *get_locator_from_list(
  * Free memory of lispd_locator_list.
  */
 
-void free_locator_list(locators_list_t     *list);
+void locator_list_del(locators_list_t     *list);
 void locator_list_free_container(locators_list_t *locator_list, uint8_t free_locators_flag);
 locator_t *locator_init_from_field(locator_field *lf);
 int locator_write_to_field(locator_t *locator, locator_field *lfield);

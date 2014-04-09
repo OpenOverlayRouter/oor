@@ -52,7 +52,7 @@
  *       0                   1                   2                   3
  *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *      |Type=2 |P|E|           Reserved                | Record Count  |
+ *      |Type=2 |P|E|S|         Reserved                | Record Count  |
  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *      |                         Nonce . . .                           |
  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -84,7 +84,8 @@
  */
 typedef struct map_reply_hdr_ {
 #ifdef LITTLE_ENDIANS
-    uint8_t reserved1:2;
+    uint8_t reserved1:1;
+    uint8_t security:1;
     uint8_t echo_nonce:1;
     uint8_t rloc_probe:1;
     uint8_t type:4;

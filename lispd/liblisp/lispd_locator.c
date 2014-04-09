@@ -338,62 +338,63 @@ void dump_locator (
 /*
  * Add a locator to a locators list
  */
-int add_locator_to_list (
-        locators_list_t     **list,
-        locator_t               *locator)
-{
-    locators_list_t     *locator_list           = NULL,
-                            *aux_locator_list_prev  = NULL,
-                            *aux_locator_list_next  = NULL;
-    int                     cmp                     = 0;
+int add_locator_to_list(locators_list_t **list, locator_t *locator) {
+    locators_list_t *locator_list = NULL, *aux_locator_list_prev = NULL,
+            *aux_locator_list_next = NULL;
+    int cmp = 0;
 
     if ((locator_list = malloc(sizeof(locators_list_t))) == NULL) {
-        lmlog(LISP_LOG_WARNING, "add_locator_to_list: Unable to allocate memory for lispd_locator_list: %s", strerror(errno));
-        return(ERR_MALLOC);
+        lmlog(LISP_LOG_WARNING,
+                "add_locator_to_list: Unable to allocate memory for lispd_locator_list: %s",
+                strerror(errno));
+        return (ERR_MALLOC);
     }
 
     locator_list->next = NULL;
     locator_list->locator = locator;
 
-    if (locator->locator_type == LOCAL_LOCATOR &&
-            locator->locator_addr->afi != AF_UNSPEC){ /* If it's a local initialized locator, we should store it in order*/
-        if (*list == NULL){
+    if (locator->locator_type == LOCAL_LOCATOR
+            && locator->locator_addr->afi != AF_UNSPEC) { /* If it's a local initialized locator, we should store it in order*/
+        if (*list == NULL) {
             *list = locator_list;
-        }else{
+        } else {
             aux_locator_list_prev = NULL;
             aux_locator_list_next = *list;
-            while (aux_locator_list_next != NULL){
-                cmp = lisp_addr_cmp(locator->locator_addr, aux_locator_list_next->locator->locator_addr);
+            while (aux_locator_list_next != NULL) {
+                cmp = lisp_addr_cmp(locator->locator_addr,
+                        aux_locator_list_next->locator->locator_addr);
 //                if (locator->locator_addr->afi == AF_INET){
 //                    cmp = memcmp(&(locator->locator_addr->address.ip),&(aux_locator_list_next->locator->locator_addr->address.ip),sizeof(struct in_addr));
 //                } else {
 //                    cmp = memcmp(&(locator->locator_addr->address.ipv6),&(aux_locator_list_next->locator->locator_addr->address.ipv6),sizeof(struct in6_addr));
 //                }
-                if (cmp < 0){
+                if (cmp < 0) {
                     break;
-                }else if(cmp == 0) {
-                    lmlog(LISP_LOG_DEBUG_3, "add_locator_to_list: The locator %s already exists.",
-                            get_char_from_lisp_addr_t(*(locator->locator_addr)));
-                    free (locator_list);
+                } else if (cmp == 0) {
+                    lmlog(LISP_LOG_DEBUG_3,
+                            "add_locator_to_list: The locator %s already exists.",
+                            get_char_from_lisp_addr_t(
+                                    *(locator->locator_addr)));
+                    free(locator_list);
                     return (ERR_EXIST);
                 }
                 aux_locator_list_prev = aux_locator_list_next;
                 aux_locator_list_next = aux_locator_list_next->next;
             }
-            if (aux_locator_list_prev == NULL){
+            if (aux_locator_list_prev == NULL) {
                 locator_list->next = aux_locator_list_next;
                 *list = locator_list;
-            }else{
+            } else {
                 aux_locator_list_prev->next = locator_list;
                 locator_list->next = aux_locator_list_next;
             }
         }
-    }else{ /* Remote locators and not initialized local locators */
-        if (*list == NULL){
+    } else { /* Remote locators and not initialized local locators */
+        if (*list == NULL) {
             *list = locator_list;
-        }else{
+        } else {
             aux_locator_list_prev = *list;
-            while (aux_locator_list_prev->next != NULL){
+            while (aux_locator_list_prev->next != NULL) {
                 aux_locator_list_prev = aux_locator_list_prev->next;
             }
             aux_locator_list_prev->next = locator_list;
@@ -489,7 +490,7 @@ locator_t *get_locator_from_list(
  * Free memory of lispd_locator_list.
  */
 
-void free_locator_list(locators_list_t     *locator_list)
+void locator_list_del(locators_list_t     *locator_list)
 {
     locators_list_t  * aux_locator_list     = NULL;
     /*

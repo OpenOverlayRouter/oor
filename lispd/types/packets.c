@@ -197,7 +197,7 @@ uint8_t *build_control_encap_pkt(uint8_t * orig_pkt, int orig_pkt_len,
 
     uint8_t *lisp_encap_pkt_ptr = NULL;
     uint8_t *inner_pkt_ptr = NULL;
-    lisp_ecm_hdr_t *lisp_hdr_ptr = NULL;
+    ecm_hdr_t *lisp_hdr_ptr = NULL;
     int encap_pkt_len = 0;
     int lisp_hdr_len = 0;
 
@@ -207,7 +207,7 @@ uint8_t *build_control_encap_pkt(uint8_t * orig_pkt, int orig_pkt_len,
             addr_dest, port_from, port_dest, &encap_pkt_len);
 
     /* Header length */
-    lisp_hdr_len = sizeof(lisp_ecm_hdr_t);
+    lisp_hdr_len = sizeof(ecm_hdr_t);
 
     /* Assign memory for the original packet plus the new header */
 
@@ -224,7 +224,7 @@ uint8_t *build_control_encap_pkt(uint8_t * orig_pkt, int orig_pkt_len,
 
     /* LISP encap control header */
 
-    lisp_hdr_ptr = (lisp_ecm_hdr_t *) lisp_encap_pkt_ptr;
+    lisp_hdr_ptr = (ecm_hdr_t *) lisp_encap_pkt_ptr;
 
     lisp_hdr_ptr->type = LISP_ENCAP_CONTROL_TYPE;
     lisp_hdr_ptr->s_bit = 0; /* XXX Security field not supported */

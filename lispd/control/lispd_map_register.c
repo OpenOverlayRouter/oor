@@ -455,7 +455,7 @@ int build_and_send_ecm_map_register(
     if (src_iface == NULL){
         lmlog(LISP_LOG_DEBUG_1, "build_and_send_ecm_map_register: Couden't send Encapsulated Map Register to %s, no output interface with afi %d.",
                 lisp_addr_to_char(map_server->address),
-                ip_addr_get_afi(lisp_addr_get_ip(map_server->address)));
+                ip_addr_afi(lisp_addr_get_ip(map_server->address)));
         return (BAD);
     }
 

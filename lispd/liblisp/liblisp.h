@@ -6,6 +6,7 @@
 #include "lispd_locator.h"
 #include "lispd_mapping.h"
 #include "lisp_messages.h"
+#include "generic_list.h"
 #include "lbuf.h"
 
 int lisp_msg_parse_addr(struct lbuf *, lisp_addr_t *);
@@ -22,13 +23,27 @@ struct lbuf* lisp_msg_create();
 inline lisp_msg_destroy(struct lbuf *);
 static inline lisp_msg_hdr(struct lbuf *b);
 
+char *lisp_msg_hdr_to_char(struct lbuf *b);
 
-inline lisp_msg_destroy(struct lbuf *b) {
+
+inline void lisp_msg_destroy(struct lbuf *b) {
+    if (!b) {
+        return;
+    }
+
     lbuf_del(b);
 }
 
 static inline lisp_msg_hdr(struct lbuf *b) {
     return(lbuf_lisp(b));
+}
+
+static glist_t *lisp_addr_list_new() {
+    return(glist_new_managed((glist_del_fct)lisp_addr_del));
+}
+
+static glist_t *list_addr_sorted_list_new() {
+    return(glist_new_full((glist_cmp_fct)lisp_addr_cmp, (glist_del_fct)lisp_addr_del));
 }
 
 
