@@ -139,13 +139,13 @@ inline int              lcaf_addr_is_mc(lcaf_addr_t *lcaf);
 inline void             lcaf_addr_set(lcaf_addr_t *lcaf, void *newaddr, uint8_t type);
 inline void             lcaf_addr_set_addr(lcaf_addr_t *lcaf, void *addr);
 inline void             lcaf_addr_set_type(lcaf_addr_t *lcaf, uint8_t type);
-int                     lcaf_addr_read_from_pkt(uint8_t *offset, lcaf_addr_t *lcaf_addr);
+int                     lcaf_addr_parse(uint8_t *offset, lcaf_addr_t *lcaf_addr);
 
 inline char             *lcaf_addr_to_char(lcaf_addr_t *lcaf);
 
 inline uint32_t         lcaf_addr_get_size_to_write(lcaf_addr_t *lcaf);
 int                     lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src);
-inline int              lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf);
+inline int              lcaf_addr_write(void *offset, lcaf_addr_t *lcaf);
 inline int              lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 inline uint8_t          lcaf_addr_cmp_iids(lcaf_addr_t *addr1, lcaf_addr_t *addr2);
 
@@ -185,7 +185,7 @@ inline int              mc_type_write_to_pkt(uint8_t *offset, void *mc);
 inline void             mc_type_copy(void **dst, void *src);
 inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
-int                     mc_type_read_from_pkt(uint8_t *offset, void **mc);
+int                     mc_type_parse(uint8_t *offset, void **mc);
 int                     lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 lisp_addr_t             *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp);
 inline int              lisp_addr_is_mcinfo(lisp_addr_t *addr);
@@ -208,7 +208,7 @@ inline void                 iid_type_set_mlen(iid_t *addr, uint8_t mlen);
 inline int                  iid_type_cmp(void *iid1, void *iid2);
 int                         iid_type_get_size_to_write(void *iid);
 inline int                  iid_type_write_to_pkt(uint8_t *offset, void *iid);
-int                         iid_type_read_from_pkt(uint8_t *offset, void **iid);
+int                         iid_type_parse(uint8_t *offset, void **iid);
 char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);
 iid_t                       *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen);
@@ -233,7 +233,7 @@ inline lisp_addr_t      *geo_type_get_addr(geo_t *geo);
 inline geo_coordinates  *geo_type_get_lat(geo_t *geo);
 inline geo_coordinates  *geo_type_get_long(geo_t *geo);
 inline uint32_t         geo_type_get_altitude(geo_t *geo);
-int                     geo_type_read_from_pkt(uint8_t *offset, void **geo);
+int                     geo_type_parse(uint8_t *offset, void **geo);
 
 
 
@@ -246,7 +246,7 @@ char                    *geo_coord_to_char(geo_coordinates *coord);
  */
 inline rle_t            *rle_type_new();
 inline void             rle_type_del(void *rleaddr);
-int                     rle_type_read_from_pkt(uint8_t *offset, void **rle);
+int                     rle_type_parse(uint8_t *offset, void **rle);
 int                     rle_type_write_to_pkt(uint8_t *offset, void *rle);
 int                     rle_type_get_size_to_write(void *elp);
 char                    *rle_type_to_char(void *rle);
@@ -271,7 +271,7 @@ inline elp_t                *elp_type_new();
 void                        elp_type_del(void *elp);
 int                         elp_type_get_size_to_write(void *elp);
 int                         elp_type_write_to_pkt(uint8_t *offset, void *elp);
-int                         elp_type_read_from_pkt(uint8_t *offset, void **elp);
+int                         elp_type_parse(uint8_t *offset, void **elp);
 char                        *elp_type_to_char(void *elp);
 void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
@@ -293,7 +293,7 @@ inline afi_list_t           *afi_list_type_new();
 void                        afi_list_type_del(void *afil);
 int                         afi_list_type_get_size_to_write(void *afil);
 int                         afi_list_type_write_to_pkt(uint8_t *offset, void *afil);
-int                         afi_list_type_read_from_pkt(uint8_t *offset, void **afil);
+int                         afi_list_type_parse(uint8_t *offset, void **afil);
 char                        *afi_list_type_to_char(void *afil);
 void                        afi_list_type_copy(void **dst, void *src);
 int                         afi_list_type_cmp(void *afil1, void *afil2);

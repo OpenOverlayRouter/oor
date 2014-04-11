@@ -3,7 +3,7 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -111,7 +111,7 @@ void                    lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
 lisp_addr_t             *lisp_addr_clone(lisp_addr_t *src);
 inline uint32_t         lisp_addr_copy_to(void *dst, lisp_addr_t *src);
 inline int              lisp_addr_write(void *offset, lisp_addr_t *laddr);
-int                     lisp_addr_read_from_pkt(uint8_t *offset, lisp_addr_t *laddr);
+int                     lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr);
 inline uint8_t          lisp_addr_cmp_iids(lisp_addr_t *addr1, lisp_addr_t *addr2);
 inline uint8_t          lisp_addr_cmp_for_mcache_install(lisp_addr_t *old, lisp_addr_t *new);
 inline int              lisp_addr_is_lcaf(lisp_addr_t *laddr);

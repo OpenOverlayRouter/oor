@@ -29,27 +29,27 @@
 #include "lbuf.h"
 
 void
-lbuf_init(struct lbuf *b, uint32_t size) {
+lbuf_init(lbuf_t *b, uint32_t size) {
     b->data = b->base = size ? malloc(1, size) : NULL;
     b->allocated = size;
     b->size = 0;
 }
 
-lbuf_uninit(struct lbuf *b) {
+lbuf_uninit(lbuf_t *b) {
     free(b->base);
 }
 
-struct lbuf *
+lbuf_t *
 lbuf_new(uint32_t size) {
-    struct lbuf *b;
-    b = malloc(1, sizeof(struct lbuf));
+    lbuf_t *b;
+    b = malloc(1, sizeof(lbuf_t));
     lbuf_init(b, size);
     return b;
 }
 
-struct lbuf *
+lbuf_t *
 lbuf_new_with_headroom(uint32_t size, size_t headroom) {
-    struct lbuf *b = lbuf_new(size + headroom);
+    lbuf_t *b = lbuf_new(size + headroom);
     lbuf_reserve(b, headroom);
     return b;
 }
@@ -57,7 +57,7 @@ lbuf_new_with_headroom(uint32_t size, size_t headroom) {
 /* Resizes b such that it has @new_headroom headroom and @new_tailroom
  * tailroom */
 static void
-lbuf_resize_(struct lbuf *b, uint32_t new_headroom, size_t new_tailroom) {
+lbuf_resize_(lbuf_t *b, uint32_t new_headroom, size_t new_tailroom) {
     uint8_t *new_base, *new_data;
     uint32_t new_allocated = new_headroom + b->size + new_tailroom;
 
@@ -79,21 +79,21 @@ lbuf_resize_(struct lbuf *b, uint32_t new_headroom, size_t new_tailroom) {
 }
 
 void
-lbuf_prealloc_tailroom(struct lbuf *b, uint32_t size) {
+lbuf_prealloc_tailroom(lbuf_t *b, uint32_t size) {
     if (size > lbuf_tailroom(b)) {
         lbuf_resize_(b, lbuf_headroom(b), MAX(size, 64));
     }
 }
 
 void
-lbuf_prealloc_headroom(struct lbuf *b, uint32_t size) {
+lbuf_prealloc_headroom(lbuf_t *b, uint32_t size) {
     if (size > lbuf_headroom(b)) {
         lbuf_resize_(b, MAX(size, 64), lbuf_tailroom(b));
     }
 }
 
 void *
-lbuf_put_uninit(struct lbuf *b, uint32_t size) {
+lbuf_put_uninit(lbuf_t *b, uint32_t size) {
     void *t;
 
     lbuf_prealloc_tailroom(b, size);
@@ -103,14 +103,14 @@ lbuf_put_uninit(struct lbuf *b, uint32_t size) {
 }
 
 void *
-lbuf_put(struct lbuf *b, void *data, uint32_t size) {
+lbuf_put(lbuf_t *b, void *data, uint32_t size) {
     void *dst = lbuf_put_uninit(b, size);
     memcpy(dst, data, size);
     return dst;
 }
 
 void *
-lbuf_push_uninit(struct lbuf *b, uint32_t size) {
+lbuf_push_uninit(lbuf_t *b, uint32_t size) {
     lbuf_prealloc_headroom(b, size);
     b->data = (uint8_t *)b->data - size;
     b->size += size;
@@ -118,21 +118,21 @@ lbuf_push_uninit(struct lbuf *b, uint32_t size) {
 }
 
 void *
-lbuf_push(struct lbuf *b, void *data, uint32_t size) {
+lbuf_push(lbuf_t *b, void *data, uint32_t size) {
     void *dst = lbuf_push_uninit(b, size);
     memcpy(dst, data, size);
     return dst;
 }
 
 void
-lbuf_reserve(struct lbuf *b, uint32_t size) {
+lbuf_reserve(lbuf_t *b, uint32_t size) {
     lbuf_prealloc_tailroom(b, size);
     b->data = (uint8_t *)b->base + size;
 }
 
-struct lbuf *
-lbuf_clone(struct lbuf *b) {
-    struct lbuf *new_buf = lbuf_new(b->size);
+lbuf_t *
+lbuf_clone(lbuf_t *b) {
+    lbuf_t *new_buf = lbuf_new(b->size);
     lbuf_put(new_buf->data, b->data, b->size);
     new_buf->lisp = b->lisp;
     return new_buf;

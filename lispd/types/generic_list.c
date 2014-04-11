@@ -31,7 +31,7 @@
 
 
 void
-glist_init_full(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
+glist_init_complete(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
     lst->cmp_fct = cmp_fct;
     lst->del_fct = del_fct;
     lst->size = 0;
@@ -40,12 +40,12 @@ glist_init_full(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
 
 void
 glist_init(glist_t *lst) {
-    glist_init_full(lst, NULL, NULL);
+    glist_init_complete(lst, NULL, NULL);
 }
 
 void
 glist_init_managed(glist_t *lst, glist_del_fct del_fct) {
-    glist_init_full(lst, NULL, del_fct);
+    glist_init_complete(lst, NULL, del_fct);
 }
 
 /**
@@ -54,22 +54,22 @@ glist_init_managed(glist_t *lst, glist_del_fct del_fct) {
  * @del_fct: function to deallocate a data entry
  */
 
-glist_t *glist_new_full(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
+glist_t *glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
     glist_t    *glist  = NULL;
 
     if (!(glist = calloc(1, sizeof(glist_t))))
         return(NULL);
-    glist_init_full(glist, cmp_fct, del_fct);
+    glist_init_complete(glist, cmp_fct, del_fct);
     return(glist);
 }
 
 glist_t *glist_new() {
-    return(glist_new_full(NO_CMP, NO_DEL));
+    return(glist_new_complete(NO_CMP, NO_DEL));
 }
 
 /* memory managed. when destroy is called all inner data is freed*/
 glist_new_managed(glist_del_fct *del) {
-    return(glist_new_full(NO_CMP, del));
+    return(glist_new_complete(NO_CMP, del));
 }
 
 

@@ -885,7 +885,7 @@ void activate_interface_address (
             if (add_locator_to_list (locators_list,locator) == GOOD){
                 mapping->locator_count = mapping->locator_count + 1;
             }else{
-                free_locator(locator);
+                locator_del(locator);
             }
         }else{
             lmlog(LISP_LOG_DEBUG_1,"activate_interface_address: No locator with address %s has been found"

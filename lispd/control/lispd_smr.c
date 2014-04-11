@@ -157,9 +157,9 @@ void init_smr(
                     while (locator_iterator){
                         locator = locator_iterator->locator;
                         if (build_and_send_map_request_msg(map_cache_entry->mapping,
-                                eid, locator->locator_addr,0,0,1,0,NULL, &nonce)==GOOD){
+                                eid, locator->addr,0,0,1,0,NULL, &nonce)==GOOD){
                             lmlog(DBG_1, "  SMR'ing RLOC %s from EID %s",
-                                    lisp_addr_to_char(locator->locator_addr),
+                                    lisp_addr_to_char(locator->addr),
                                     lisp_addr_to_char(eid));
                         }
 

@@ -157,6 +157,10 @@ uint8_t is_mrsignaling(address_hdr_t *addr);
 mrsignaling_flags_t mrsignaling_flags(address_hdr_t *addr);
 void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig);
 
+
+char *locator_record_hdr_to_char(locator_hdr_t *h);
+char *mapping_record_hdr_to_char(mapping_record_hdr_t *h);
+
 char *map_request_hdr_to_char(map_request_hdr_t *h);
 char *map_reply_hdr_to_char(map_reply_hdr_t *h);
 char *map_register_hdr_to_char(map_register_hdr_t *h);

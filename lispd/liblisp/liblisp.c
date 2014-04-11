@@ -1,14 +1,41 @@
+/*
+ * liblisp.c
+ *
+ * This file is part of LISP Mobile Node Implementation.
+ *
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Written or modified by:
+ *    Florin Coras <fcoras@ac.upc.edu>
+ */
 
 #include "liblisp.h"
 
 static lisp_msg_type_t
-lisp_msg_type(struct lbuf *b) {
+lisp_msg_type(lbuf_t *b) {
     ecm_hdr_t *hdr = lbuf_lisp(b);
     return(hdr->type);
 }
 
 uint8_t
-lisp_msg_parse_type(struct lbuf *b) {
+lisp_msg_parse_type(lbuf_t *b) {
     lbuf_reset_lisp(b);
     return(lisp_msg_type(b));
 }
@@ -16,7 +43,7 @@ lisp_msg_parse_type(struct lbuf *b) {
 /* Process encapsulated map request header:  lisp header and the interal IP and
  * UDP header */
 int
-lisp_msg_ecm_decap(struct lbuf *pkt, uint16_t *dst_port) {
+lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port) {
     uint16_t ipsum = 0;
     uint16_t udpsum = 0;
     int udp_len = 0;
@@ -81,8 +108,8 @@ lisp_msg_ecm_decap(struct lbuf *pkt, uint16_t *dst_port) {
 }
 
 int
-lisp_msg_parse_addr(struct lbuf *msg, lisp_addr_t *eid) {
-    int len = lisp_addr_read_from_pkt(lbuf_data(msg), eid);
+lisp_msg_parse_addr(lbuf_t *msg, lisp_addr_t *eid) {
+    int len = lisp_addr_parse(lbuf_data(msg), eid);
     if (len < 0)
         return(BAD);
     lbuf_pull(msg, len);
@@ -90,36 +117,135 @@ lisp_msg_parse_addr(struct lbuf *msg, lisp_addr_t *eid) {
 }
 
 /* Given a message buffer @msg, extracts the EID out of an EID prefix field
- * and stores it in @eid. Because LCAFs may carry flags, e.g., MCAST_INFO,
- * the pointer to the start of the EID address is returned in @eid_ptr for
- * further processing */
+ * and stores it in @eid. */
 int
-lisp_msg_parse_eid_rec(struct lbuf *msg, lisp_addr_t *eid,
-        address_hdr_t *eid_ptr) {
+lisp_msg_parse_eid_rec(lbuf_t *msg, lisp_addr_t *eid) {
     eid_record_hdr_t *hdr = lbuf_data(msg);
-    eid_ptr = lbuf_pull(msg, sizeof(eid_record_hdr_t));
-    int len = lisp_addr_read_from_pkt(eid_ptr, eid);
+    int len = lisp_addr_parse(EID_REC_ADDR(hdr), eid);
     lbuf_pull(msg, len);
 
     return(GOOD);
 }
 
 int
-lisp_msg_parse_itr_rlocs(struct lbuf *b, glist_t *rlocs) {
-    lisp_addr_t *tloc;
-    void *mreq_hdr = lbuf_listp(b);
+lisp_msg_parse_itr_rlocs(lbuf_t *b, glist_t *rlocs) {
+    lisp_addr_t tloc;
+    void *mreq_hdr = lbuf_lisp(b);
     int i;
 
     for (i = 0; i < ITR_RLOC_COUNT(mreq_hdr) + 1; i++) {
-        tloc = lisp_addr_new();
         if (lisp_msg_parse_addr(b, tloc) != GOOD) {
             return(BAD);
         }
-        glist_add(rlocs, tloc);
+        glist_add(rlocs, lisp_addr_clone(&tloc));
+        lmlog(DBG_1," itr-rloc: %s", lisp_addr_to_char(tloc));
     }
     return(GOOD);
 }
 
+
+int
+lisp_msg_parse_loc(lbuf_t *b, locator_t *loc) {
+    int len;
+    void *hdr;
+    lisp_addr_t addr;
+
+    hdr = lbuf_data(b);
+
+    len = locator_parse(lbuf_data(b), loc);
+    if (len <= 0) {
+        return(BAD);
+    }
+
+    lbuf_pull(b, len);
+
+    lmlog(DBG_1, "%s addr: %s", locator_record_hdr_to_char(hdr),
+            lisp_addr_to_char(locator_addr(loc)));
+
+    return(GOOD);
+}
+
+int
+lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
+        glist_t *loc_list, locator_t *probed) {
+    lisp_addr_t eid;
+    void *mrec_hdr, *loc_hdr;
+    locator_t *loc;
+    int i;
+
+    mrec_hdr = lbuf_data(b);
+    lbuf_pull(b, sizeof(mapping_record_hdr_t));
+
+    int len = lisp_addr_parse(lbuf_data(b), &eid);
+    if (len <= 0) {
+        return(BAD);
+    }
+
+    lmlog(DBG_1, "%s eid: %s", mapping_record_hdr_to_char(mrec_hdr),
+            lisp_addr_to_char(&eid));
+
+    for (i = 0; i < MAP_REC_LOC_COUNT(mrec_hdr); i++) {
+        loc_hdr = lbuf_data(b);
+
+        loc = locator_new();
+        if (lisp_msg_parse_loc(b, loc) != GOOD) {
+            return(BAD);
+        }
+
+        glist_add(loc_list, loc);
+
+        if (LOC_PROBED(loc_hdr)) {
+            if (probed) {
+                lmlog(DBG_1, "Multiple probed locators! Aborting");
+                return(BAD);
+            }
+            probed = loc;
+        }
+    }
+
+    return(GOOD);
+}
+
+/* extracts a mapping record out of lbuf @b and stores it into @m. @m must
+ * be preallocated. If a locator is probed, a pointer to it is stored in
+ * @probed. */
+int
+lisp_msg_parse_mapping_record(lbuf_t *b, mapping_t *m, locator_t *probed) {
+    glist_t *loc_list;
+    glist_entry_t *lit;
+    int ret;
+    void *hdr;
+
+    if (!m) {
+        return(BAD);
+    }
+
+    hdr = lbuf_data(b);
+    mapping_set_ttl(m, MAP_REC_TTL(hdr));
+    mapping_set_action(m, MAP_REC_ACTION(hdr));
+    mapping_set_auth(m, MAP_REC_AUTH(hdr));
+
+    /* no free is called when destroyed*/
+    loc_list = glist_new();
+
+    ret = lisp_msg_parse_mapping_record_split(b, mapping_eid(m), loc_list,
+                                              probed);
+    if (ret != GOOD) {
+        goto err;
+    }
+
+    glist_for_each_entry(lit, loc_list) {
+        if (mapping_add_locator(m, lit) != GOOD) {
+            goto err;
+        }
+    }
+
+    return(GOOD);
+
+err:
+    glist_destroy(loc_list);
+    return(BAD);
+}
 
 static unsigned int
 msg_type_to_hdr_len(lisp_msg_type_t type) {
@@ -138,14 +264,14 @@ msg_type_to_hdr_len(lisp_msg_type_t type) {
 }
 
 void *
-lisp_msg_pull_hdr(struct lbuf *b) {
+lisp_msg_pull_hdr(lbuf_t *b) {
     lisp_msg_type_t type = lisp_msg_type(b);
     return(lbuf_pull(b, msg_type_to_hdr_len(type)));
 }
 
 
 void *
-lisp_msg_put_addr(struct lbuf *msg, lisp_addr_t *addr) {
+lisp_msg_put_addr(lbuf_t *msg, lisp_addr_t *addr) {
     void *ptr;
     int len;
 
@@ -161,7 +287,7 @@ lisp_msg_put_addr(struct lbuf *msg, lisp_addr_t *addr) {
 }
 
 void *
-lisp_msg_put_locator(struct lbuf *msg, locator_t *locator) {
+lisp_msg_put_locator(lbuf_t *msg, locator_t *locator) {
     locator_hdr_t *loc_ptr;
     lisp_addr_t *addr;
     int len = 0;
@@ -173,7 +299,8 @@ lisp_msg_put_locator(struct lbuf *msg, locator_t *locator) {
     if (*(locator->state) == UP){
         loc_ptr->priority    = locator->priority;
     } else {
-        /* If the locator is DOWN, set the priority to 255 -> Locator should not be used */
+        /* If the locator is DOWN, set the priority to 255
+         * -> Locator should not be used */
         loc_ptr->priority    = UNUSED_RLOC_PRIORITY;
     }
     loc_ptr->weight      = locator->weight;
@@ -196,7 +323,7 @@ lisp_msg_put_locator(struct lbuf *msg, locator_t *locator) {
 
 
 static void
-increment_record_count(struct lbuf *b) {
+increment_record_count(lbuf_t *b) {
     void *hdr = lbuf_lisp(b);
 
     switch(lisp_msg_type(b)) {
@@ -219,14 +346,14 @@ increment_record_count(struct lbuf *b) {
 }
 
 void *
-lisp_msg_put_mapping_hdr(struct lbuf *b) {
+lisp_msg_put_mapping_hdr(lbuf_t *b) {
     void *hdr = lbuf_put_uninit(b, sizeof(mapping_record_hdr_t));
     mapping_record_init_hdr(lbuf_data(b));
     return(hdr);
 }
 
 void *
-lisp_msg_put_mapping(struct lbuf *b, mapping_t *m, locator_t *probed_loc) {
+lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, locator_t *probed_loc) {
 
     locators_list_t *locators_list[2]   = {NULL,NULL};
     locator_t locator;
@@ -261,9 +388,9 @@ lisp_msg_put_mapping(struct lbuf *b, mapping_t *m, locator_t *probed_loc) {
 }
 
 
-struct lbuf*
+lbuf_t*
 lisp_msg_create(lisp_msg_type_t type) {
-    struct lbuf* b;
+    lbuf_t* b;
     void *hdr;
 
     b = lbuf_new_with_headroom(MAX_IP_PKT_LEN, MAX_LISP_MSG_ENCAP_LEN);
@@ -302,7 +429,7 @@ lisp_msg_create(lisp_msg_type_t type) {
 }
 
 char *
-lisp_msg_hdr_to_char(struct lbuf *b) {
+lisp_msg_hdr_to_char(lbuf_t *b) {
     void *h = lbuf_lisp(b);
     switch(lisp_msg_type(b)) {
     case LISP_MAP_REQUEST:

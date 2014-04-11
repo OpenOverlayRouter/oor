@@ -67,7 +67,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
      * If we don't have control iface compatible with the locator to probe, just reprograme the timer for next time
      */
 
-    switch (locator->locator_addr->afi){
+    switch (locator->addr->afi){
     case AF_INET:
         if(default_ctrl_iface_v4 != NULL){
             have_control_iface = TRUE;
@@ -82,7 +82,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
     if (have_control_iface == FALSE){
         lmlog(LISP_LOG_DEBUG_2,"rloc_probing: No control iface compatible with locator %s of the map-cache entry %s. "
                 "Reprogramming RLOC Probing",
-                lisp_addr_to_char(locator->locator_addr),
+                lisp_addr_to_char(locator->addr),
                 lisp_addr_to_char(mapping_eid(mapping)));
         start_timer(locator_ext_inf->probe_timer, rloc_probe_interval,(timer_callback)rloc_probing, arg);
         return (BAD);
@@ -107,17 +107,17 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
     if (nonces->retransmits - 1 < rloc_probe_retries ){
         if (nonces->retransmits > 0){
             lmlog(LISP_LOG_DEBUG_1,"Retransmiting Map-Request Probe for locator %s and EID: %s (%d retries)",
-                    lisp_addr_to_char(locator->locator_addr),
+                    lisp_addr_to_char(locator->addr),
                     lisp_addr_to_char(mapping_eid(mapping)),
                     nonces->retransmits);
         }
 
-        err = build_and_send_map_request_msg(mapping,NULL,locator->locator_addr, 0, 1, 0, 0, NULL,
+        err = build_and_send_map_request_msg(mapping,NULL,locator->addr, 0, 1, 0, 0, NULL,
                 &(nonces->nonce[nonces->retransmits]));
 
         if (err != GOOD){
             lmlog(LISP_LOG_DEBUG_1,"rloc_probing: Couldn't send Map-Request Probe for locator %s and EID: %s",
-                    lisp_addr_to_char(locator->locator_addr),
+                    lisp_addr_to_char(locator->addr),
                     lisp_addr_to_char(mapping_eid(mapping)));
         }
         locator_ext_inf->rloc_probing_nonces->retransmits++;
@@ -129,7 +129,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
             *(locator->state) = DOWN;
             lmlog(LISP_LOG_DEBUG_1,"rloc_probing: No Map-Reply Probe received for locator %s and EID: %s"
                     "-> Locator state changes to DOWN",
-                    lisp_addr_to_char(locator->locator_addr),
+                    lisp_addr_to_char(locator->addr),
                     lisp_addr_to_char(mapping_eid(mapping)));
 
             /* [re]Calculate balancing locator vectors  if it has been a change of status*/
@@ -144,7 +144,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
         /* Reprogram time for next probe interval */
         start_timer(locator_ext_inf->probe_timer, rloc_probe_interval,(timer_callback)rloc_probing, arg);
         lmlog(LISP_LOG_DEBUG_2,"Reprogramed RLOC probing of the locator %s of the EID %s in %d seconds",
-                lisp_addr_to_char(locator->locator_addr),
+                lisp_addr_to_char(locator->addr),
                 lisp_addr_to_char(mapping_eid(mapping)),
                 rloc_probe_interval);
     }
@@ -156,7 +156,7 @@ int rloc_probing(timer *rloc_prob_timer, void *arg)
  * Program RLOC probing for each locator of the mapping
  */
 
-void programming_rloc_probing(mapping_t *mapping)
+void mapping_program_rloc_probing(mapping_t *mapping)
 {
     locators_list_t         *locators_lists[2]  = {NULL,NULL};
     locator_t                   *locator            = NULL;

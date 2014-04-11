@@ -234,7 +234,7 @@ map_request_msg *map_request_msg_parse(uint8_t *offset) {
     }
 
     /* parse EIDs */
-    mrp->eids = glist_new_full(NO_CMP, (glist_del_fct)eid_prefix_record_del);
+    mrp->eids = glist_new_complete(NO_CMP, (glist_del_fct)eid_prefix_record_del);
     for (i=0; i< mreq_msg_get_hdr(mrp)->record_count; i++) {
         record = eid_prefix_record_parse(offset);
         if (!record)
@@ -718,6 +718,63 @@ mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig) {
 
 
 char *
+locator_record_flags_to_char(locator_hdr_t *h) {
+    static char buf[5];
+    h->local ? sprintf(buf+strlen(buf), "L") : sprintf(buf+stlen(buf), "l");
+    h->probed ? sprintf(buf+strlen(buf), "p") : sprintf(buf+stlen(buf), "P");
+    h->reachable ? sprintf(buf+strlen(buf), "R") : sprintf(buf+stlen(buf), "r");
+    return(buf);
+}
+
+char *
+locator_record_hdr_to_char(locator_hdr_t *h) {
+   static char buf[100];
+   if (!h) {
+       return(NULL);
+   }
+
+   sprintf(buf, "Locator-record -> flags: %s p/w: %d/%d %d/%d",
+           locator_record_flags_to_char(h), h->priority, h->weight,
+           h->mpriority, h->mweight);
+   return(buf);
+}
+
+static char *
+action_to_char(int act) {
+    static char buf[10];
+    switch(act) {
+    case 0:
+        sprintf(buf, "no-action");
+        break;
+    case 1:
+        sprintf(buf, "native-forward");
+        break;
+    case 2:
+        sprintf(buf, "send-map-request");
+        break;
+    case 3:
+        sprintf(buf, "drop");
+        break;
+    default:
+        sprintf(buf, "unknown-action");
+    }
+    return(buf);
+}
+
+char *
+mapping_record_hdr_to_char(mapping_record_hdr_t *h) {
+    static char buf[100];
+    if (!h) {
+        return(NULL);
+    }
+
+    sprintf(buf, "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d "
+            "map-version: %d", ntohl(h->ttl), h->locator_count,
+            action_to_char(h->action), h->authoritative, MAP_REC_VERSION(h));
+    return(buf);
+}
+
+char *
 mreq_flags_to_char(map_request_hdr_t *h) {
     static char buf[10];
     h->authoritative ? sprintf(buf+strlen(buf), "A") : sprintf(buf+strlen(buf), "a") ;
@@ -729,9 +786,10 @@ mreq_flags_to_char(map_request_hdr_t *h) {
     return(buf);
 }
 
+
 char *
 map_request_hdr_to_char(map_request_hdr_t *h) {
-    static char buf[50];
+    static char buf[100];
 
     if (!h) {
         return(NULL);
@@ -754,7 +812,7 @@ mrep_flags_to_char(map_reply_hdr_t *h) {
 
 char *
 map_reply_hdr_to_char(map_reply_hdr_t *h) {
-    static char buf[50];
+    static char buf[100];
 
     if (!h) {
         return(NULL);
@@ -777,7 +835,7 @@ mreg_flags_to_char(map_register_hdr_t *h) {
 
 char *
 map_register_hdr_to_char(map_reply_hdr_t *h) {
-    static char buf[50];
+    static char buf[100];
 
     if (!h) {
         return(NULL);
@@ -798,7 +856,7 @@ mntf_flags_to_char(map_notify_hdr_t *h) {
 
 char *
 map_notify_hdr_to_char(map_notify_hdr_t *h) {
-    static char buf[50];
+    static char buf[100];
 
     if (!h) {
         return(NULL);

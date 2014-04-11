@@ -408,8 +408,8 @@ int fordward_to_petr(
         lmlog(LISP_LOG_DEBUG_3, "fordward_to_petr: No Proxy-etr compatible with local locators afi");
         return (BAD);
     }
-    src_addr = outer_src_locator->locator_addr;
-    dst_addr = outer_dst_locator->locator_addr;
+    src_addr = outer_src_locator->addr;
+    dst_addr = outer_dst_locator->addr;
 
     /* If the selected src locator is behind NAT, fordware to the RTR */
     loc_extended_info = (lcl_locator_extended_info *)outer_src_locator->extended_info;
@@ -462,10 +462,10 @@ int forward_to_natt_rtr(
     if (rtr_locators_list == NULL){
         //Could be due to RTR discarded by source afi type
         lmlog(LISP_LOG_DEBUG_2,"forward_to_natt_rtr: No RTR for the selected src locator (%s).",
-                get_char_from_lisp_addr_t(*(src_locator->locator_addr)));
+                get_char_from_lisp_addr_t(*(src_locator->addr)));
         return (BAD);
     }
-    src_addr = src_locator->locator_addr;
+    src_addr = src_locator->addr;
     dst_addr = &(rtr_locators_list->locator->address);
 
     lmlog(LISP_LOG_DEBUG_3, "Forwarding eid %s to NAT RTR",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
@@ -761,8 +761,8 @@ int select_src_rmt_locators_from_balancing_locators_vec (
             lisp_addr_to_char(mapping_eid(src_mapping)),
             lisp_addr_to_char(mapping_eid(dst_mapping)),
             tuple.protocol, tuple.src_port, tuple.dst_port,
-            lisp_addr_to_char((*src_locator)->locator_addr),
-            lisp_addr_to_char((*dst_locator)->locator_addr));
+            lisp_addr_to_char((*src_locator)->addr),
+            lisp_addr_to_char((*dst_locator)->addr));
 
     return (GOOD);
 }
@@ -777,10 +777,10 @@ lisp_addr_t *get_default_locator_addr(
 
     switch(afi){ 
     case AF_INET:
-        addr = entry->mapping->head_v4_locators_list->locator->locator_addr;
+        addr = entry->mapping->head_v4_locators_list->locator->addr;
         break;
     case AF_INET6:
-        addr = entry->mapping->head_v6_locators_list->locator->locator_addr;
+        addr = entry->mapping->head_v6_locators_list->locator->addr;
         break;
     }
 
@@ -912,12 +912,12 @@ forwarding_entry *get_forwarding_entry(packet_tuple *tuple) {
         if (!outer_src_locator || !outer_src_locator->extended_info ||
                 !((lcl_locator_extended_info *)outer_src_locator->extended_info)->rtr_locators_list->locator) {
             lmlog(LISP_LOG_DEBUG_2,"forward_to_natt_rtr: No RTR for the selected src locator (%s).",
-                    lisp_addr_to_char(outer_src_locator->locator_addr));
+                    lisp_addr_to_char(outer_src_locator->addr));
             free(fwd_entry);
             return(NULL);
         }
 
-        fwd_entry->src_rloc = outer_src_locator->locator_addr;
+        fwd_entry->src_rloc = outer_src_locator->addr;
         fwd_entry->dst_rloc = &((lcl_locator_extended_info *)outer_src_locator->extended_info)->rtr_locators_list->locator->address;
         fwd_entry->out_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
 
@@ -937,7 +937,7 @@ forwarding_entry *get_forwarding_entry(packet_tuple *tuple) {
     }
 
     /* No map-cache entry or no output locators (negative entry) */
-    if (dst_mapping == NULL || (mapping_get_locator_count(dst_mapping) == 0)) {
+    if (dst_mapping == NULL || (mapping_locator_count(dst_mapping) == 0)) {
         /* Try PETRs */
         if (proxy_etrs == NULL) {
             lmlog(LISP_LOG_DEBUG_3, "get_forwarding_entry: Trying to forward to PxTR but none found ...");

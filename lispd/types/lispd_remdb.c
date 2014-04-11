@@ -89,7 +89,7 @@ remdb_member_t *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair) {
      * If the join will carry in the future more D-RLOCs for TE
      * add them one by one to the locator list
      */
-    locator_list->locator->locator_addr = lisp_addr_clone(rloc_pair);
+    locator_list->locator->addr = lisp_addr_clone(rloc_pair);
 
     member->addr = lisp_addr_clone(src);
     member->locators = locator_list;

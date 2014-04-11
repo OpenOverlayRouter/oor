@@ -37,10 +37,12 @@
 
 
 
-inline map_cache_entry_t *mcache_entry_new() {
+inline map_cache_entry_t *
+mcache_entry_new() {
     map_cache_entry_t *mce;
     if ((mce = calloc(1, sizeof(map_cache_entry_t))) == NULL) {
-        lmlog(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
+        lmlog(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory"
+                " for lispd_map_cache_entry: %s", strerror(errno));
         return(NULL);
     }
 
@@ -56,33 +58,29 @@ inline map_cache_entry_t *mcache_entry_new() {
     return(mce);
 }
 
-map_cache_entry_t *mcache_entry_init(mapping_t *mapping) {
-    map_cache_entry_t *mce;
-    mce = mcache_entry_new();
-
-    if (!mce)
-        return (NULL);
+void
+mcache_entry_init(map_cache_entry_t *mce, mapping_t *mapping) {
+    if (!mce) {
+        return;
+    }
 
     mce->mapping = mapping;
     mce->how_learned = DYNAMIC_MAP_CACHE_ENTRY;
     mce->ttl = DEFAULT_DATA_CACHE_TTL;
 
-    return(mce);
 }
 
-map_cache_entry_t *mcache_entry_init_static(mapping_t *mapping) {
-    map_cache_entry_t *mce;
-    mce = mcache_entry_new();
-
-    if (!mce)
-        return (NULL);
+void
+mcache_entry_init_static(map_cache_entry_t *mce, mapping_t *mapping) {
+    if (!mce) {
+        return;
+    }
 
     mce->active = ACTIVE;
     mce->mapping = mapping;
     mce->how_learned = STATIC_MAP_CACHE_ENTRY;
     mce->ttl = 255;
 
-    return(mce);
 }
 
 
@@ -91,11 +89,9 @@ map_cache_entry_t *mcache_entry_init_static(mapping_t *mapping) {
 /*
  * Creates a map cache entry structure without adding it to the data base
  */
-map_cache_entry_t *new_map_cache_entry_no_db (
-        lisp_addr_t     eid_prefix,
-        int             eid_prefix_length,
-        int             how_learned,
-        uint16_t        ttl)
+map_cache_entry_t *
+new_map_cache_entry_no_db(lisp_addr_t eid_prefix, int eid_prefix_length,
+        int how_learned, uint16_t ttl)
 {
     map_cache_entry_t *map_cache_entry;
     /* Create map cache entry */
@@ -133,40 +129,36 @@ map_cache_entry_t *new_map_cache_entry_no_db (
     return (map_cache_entry);
 }
 
-map_cache_entry_t *new_map_cache_entry (
-        lisp_addr_t     eid_prefix,
-        int             eid_prefix_length,
-        int             how_learned,
-        uint16_t        ttl)
+map_cache_entry_t *
+new_map_cache_entry(lisp_addr_t eid_prefix, int eid_prefix_length,
+        int how_learned, uint16_t ttl)
 {
     map_cache_entry_t *map_cache_entry;
 
     map_cache_entry = new_map_cache_entry_no_db (eid_prefix, eid_prefix_length, how_learned, ttl);
 
     if (map_cache_entry == NULL)
-        return (NULL);
+        return(NULL);
 
     /* Add entry to the data base */
     if (map_cache_add_entry (map_cache_entry)==BAD){
-        lmlog(LISP_LOG_DEBUG_1, "Failed to add map cache entry to map-cache for prefix %s! Aborting!",
+        lmlog(DBG_1, "Failed to add map cache entry to map-cache for prefix %s! Aborting!",
                 lisp_addr_to_char(&eid_prefix));
         free(map_cache_entry);
-        return (NULL);
+        return(NULL);
     }
 
-    map_cache_dump_db(LISP_LOG_DEBUG_1);
+    map_cache_dump_db(DBG_1);
 
-    return (map_cache_entry);
+    return(map_cache_entry);
 }
 
 
 
-void free_map_cache_entry(map_cache_entry_t *entry)
+void map_cache_entry_del(map_cache_entry_t *entry)
 {
-    mapping_del(mcache_entry_get_mapping(entry));
-    /*
-     * Free the entry
-     */
+    mapping_del(mcache_entry_mapping(entry));
+
     if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
         if (entry->expiry_cache_timer != NULL){
             stop_timer(entry->expiry_cache_timer);
@@ -188,7 +180,7 @@ void free_map_cache_entry(map_cache_entry_t *entry)
     free(entry);
 }
 
-void dump_map_cache_entry (map_cache_entry_t *entry, int log_level)
+void map_cache_entry_dump (map_cache_entry_t *entry, int log_level)
 {
     char                buf[256], buf2[256];
     time_t              expiretime;
@@ -205,7 +197,7 @@ void dump_map_cache_entry (map_cache_entry_t *entry, int log_level)
         return;
     }
 
-    mapping = mcache_entry_get_mapping(entry);
+    mapping = mcache_entry_mapping(entry);
 
     sprintf(str,"IDENTIFIER (EID): %s (IID = %d), ",
             lisp_addr_to_char(mapping_eid(mapping)), mapping->iid );
@@ -240,35 +232,20 @@ void dump_map_cache_entry (map_cache_entry_t *entry, int log_level)
         }
         lmlog(log_level,"\n");
     }
+}
 
+void
+mcache_entry_destroy_nonces(map_cache_entry_t *mce) {
+    free(mce->nonces);
+    mce->nonces = NULL;
+}
 
+void
+mcache_entry_stop_smr_timer(map_cache_entry_t *mce) {
+    if (mce->smr_inv_timer){
+        stop_timer(mce->smr_inv_timer);
+        mce->smr_inv_timer = NULL;
+    }
 }
 
 
-/*
- * lispd_map_cache_entry set/get functions
- */
-
-inline void mcache_entry_set_eid_addr(map_cache_entry_t *mce, lisp_addr_t *addr) {
-    mapping_set_eid_addr(mcache_entry_get_mapping(mce), addr);
-}
-
-
-inline mapping_t *mcache_entry_get_mapping(map_cache_entry_t* mce) {
-    assert(mce);
-    return(mce->mapping);
-}
-
-inline lisp_addr_t *mcache_entry_get_eid_addr(map_cache_entry_t *mce) {
-    return(mapping_eid(mcache_entry_get_mapping(mce)));
-}
-
-inline nonces_list *mcache_entry_nonces_list(map_cache_entry_t *mce) {
-    assert(mce);
-    return(mce->nonces);
-}
-
-inline uint8_t  mcache_entry_get_active(map_cache_entry_t *mce) {
-    assert(mce);
-    return(mce->active);
-}

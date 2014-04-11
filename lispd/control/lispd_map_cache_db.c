@@ -44,14 +44,14 @@ int mcache_update_mapping_eid(lisp_addr_t *new_eid, map_cache_entry_t *mce) {
      * are stored in the same pt. Also, mc prefix length is set
      * to be S prefix length. */
 
-    old_eid = mapping_eid(mcache_entry_get_mapping(mce));
+    old_eid = mapping_eid(mcache_entry_mapping(mce));
     if (!mce) {
-        lmlog(LISP_LOG_DEBUG_3, "mcache_update_mapping_eid: requested to update EID %s but it is "
+        lmlog(DBG_3, "mcache_update_mapping_eid: requested to update EID %s but it is "
                 "not present in the mappings cache!", lisp_addr_to_char(old_eid));
         return(BAD);
     }
 
-    lmlog(LISP_LOG_DEBUG_2,"EID prefix of the map cache entry %s will be changed to %s.",
+    lmlog(DBG_2,"EID prefix of the map cache entry %s will be changed to %s.",
             lisp_addr_to_char(old_eid), lisp_addr_to_char(new_eid));
 
     /* does not delete the data */
@@ -75,23 +75,37 @@ void map_cache_init()
     }
 }
 
-int mcache_add_mapping(mapping_t *mapping) {
-    map_cache_entry_t   *mce;
-    lisp_addr_t             *addr;
+int mcache_add_mapping(mapping_t *m) {
+    map_cache_entry_t *mce;
+    lisp_addr_t *addr;
 
     /* TODO: will change when nonces are handled outside of the map-cache */
-    addr = mapping_eid(mapping);
-    mce = mcache_entry_init(mapping);
+    addr = mapping_eid(m);
+    mce = mcache_new();
+    mcache_entry_init(mce, m);
+
+    /* prepare mapping for installment */
+
+    mapping_compute_balancing_vectors(m);
+
+    /* Reprogramming timers */
+    map_cache_entry_start_expiration_timer(mce);
+
+    /* RLOC probing timer */
+    if (new_mapping == TRUE && RLOC_PROBING_INTERVAL != 0)
+        mapping_program_rloc_probing(m);
+
     return(mdb_add_entry(mdb, addr, mce));
 }
 
 int mcache_add_static_mapping(mapping_t *mapping) {
-    map_cache_entry_t   *mce;
-    lisp_addr_t             *addr;
+    map_cache_entry_t *mce;
+    lisp_addr_t *addr;
 
     addr = mapping_eid(mapping);
-    mce = mcache_entry_init_static(mapping);
-    programming_rloc_probing(mapping);
+    mce = mcache_entry_new();
+    mcache_entry_init_static(mce, mapping);
+    mapping_program_rloc_probing(mapping);
 
     return(mdb_add_entry(mdb, addr, mce));
 }
@@ -99,7 +113,7 @@ int mcache_add_static_mapping(mapping_t *mapping) {
 int mcache_del_mapping(lisp_addr_t *laddr) {
     void *data;
     data = mdb_remove_entry(mdb, laddr);
-    free_map_cache_entry(data);
+    map_cache_entry_del(data);
     return(GOOD);
 }
 
@@ -111,7 +125,7 @@ mapping_t *mcache_lookup_mapping(lisp_addr_t *laddr) {
     if ((mce == NULL) || (mce->active == NO_ACTIVE) )
         return(NULL);
     else
-        return(mcache_entry_get_mapping(mce));
+        return(mcache_entry_mapping(mce));
 }
 
 mapping_t *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
@@ -122,7 +136,7 @@ mapping_t *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
     if ( !mce || (mce->active == NO_ACTIVE) )
         return(NULL);
     else
-        return(mcache_entry_get_mapping(mce));
+        return(mcache_entry_mapping(mce));
 }
 
 
@@ -149,7 +163,7 @@ mapping_t *mcache_lookup_mapping_exact(lisp_addr_t *laddr) {
 
 
 int map_cache_add_entry(map_cache_entry_t *entry){
-    return(mdb_add_entry(mdb, mapping_eid(mcache_entry_get_mapping(entry)), entry));
+    return(mdb_add_entry(mdb, mapping_eid(mcache_entry_mapping(entry)), entry));
 }
 
 
@@ -191,21 +205,17 @@ map_cache_entry_t *map_cache_lookup_exact(lisp_addr_t *laddr)
 
 
 
-/*
- * Lookup if there is a no active cache entry with the provided nonce and return it
- */
+/* Looks up @nonce among the not active cache entries having afi @afi. Return
+ * the entry if any is found */
+map_cache_entry_t *
+lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64_t nonce) {
+    void *it;
+    map_cache_entry_t *mce;
 
-
-map_cache_entry_t *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64_t nonce)
-{
-    void                    *it;
-    map_cache_entry_t   *mce;
-
-
-    mdb_foreach_entry(mdb, it) {
-        mce = (map_cache_entry_t *)it;
-        if (mce->active == FALSE){
-            if (check_nonce(mce->nonces,nonce) == GOOD){
+    mdb_foreach_entry(mdb, it){
+        mce = it;
+        if (mce->active == FALSE) {
+            if (check_nonce(mce->nonces,nonce) == GOOD) {
                 free(mce->nonces);
                 mce->nonces = NULL;
                 return(mce);
@@ -217,41 +227,31 @@ map_cache_entry_t *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64
 }
 
 
-//static void print_mcache_entry(void *entry, void *log_level) {
-//    dump_map_cache_entry(entry, *log_level);
-//}
-
 void map_cache_dump_db(int log_level)
 {
-//
-//    lispd_log_msg(log_level,"**************** LISP Mapping Cache ******************\n");
-//    mdb_for_each_entry_cb(mdb, print_mcache_entry, &log_level);
-//    lispd_log_msg(log_level,"*******************************************************\n");
-
-    map_cache_entry_t   *mce;
-    void                    *it;
+    map_cache_entry_t *mce;
+    void *it;
 
     lmlog(log_level,"**************** LISP Mapping Cache ******************\n");
     mdb_foreach_entry(mdb, it) {
         mce = (map_cache_entry_t *)it;
-        dump_map_cache_entry(mce, log_level);
+        map_cache_entry_dump(mce, log_level);
     } mdb_foreach_entry_end;
     lmlog(log_level,"*******************************************************\n");
 
-
 }
 
-void map_cache_entry_start_expiration_timer(map_cache_entry_t *cache_entry) {
+void map_cache_entry_start_expiration_timer(map_cache_entry_t *mce) {
     /* Expiration cache timer */
-    if (!cache_entry->expiry_cache_timer){
-        cache_entry->expiry_cache_timer = create_timer (EXPIRE_MAP_CACHE_TIMER);
+    if (!mce->expiry_cache_timer){
+        mce->expiry_cache_timer = create_timer(EXPIRE_MAP_CACHE_TIMER);
     }
-    start_timer(cache_entry->expiry_cache_timer, cache_entry->ttl*60, (timer_callback)map_cache_entry_expiration,
-                     (void *)cache_entry);
-//    start_timer(cache_entry->expiry_cache_timer, 10, (timer_callback)map_cache_entry_expiration,
-//                     (void *)cache_entry);
-    lmlog(LISP_LOG_DEBUG_1,"The map cache entry %s will expire in %ld minutes.",
-            lisp_addr_to_char(mapping_eid(mcache_entry_get_mapping(cache_entry))), cache_entry->ttl);
+
+    start_timer(mce->expiry_cache_timer, mce->ttl*60,
+            (timer_callback)map_cache_entry_expiration_cb,(void *)mce);
+
+    lmlog(DBG_1,"The map cache entry %s will expire in %ld minutes.",
+            lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))), mce->ttl);
 }
 
 /*
@@ -259,18 +259,16 @@ void map_cache_entry_start_expiration_timer(map_cache_entry_t *cache_entry) {
  *
  * Called when the timer associated with an EID entry expires.
  */
-void map_cache_entry_expiration(
-        timer   *t,
-        void    *arg)
+void map_cache_entry_expiration_cb(timer *t, void *arg)
 {
-    map_cache_entry_t   *entry      = NULL;
-    mapping_t       *mapping    = NULL;
-    lisp_addr_t             *addr       = NULL;
+    map_cache_entry_t *entry = NULL;
+    mapping_t *mapping = NULL;
+    lisp_addr_t *addr = NULL;
 
     entry = (map_cache_entry_t *)arg;
-    mapping = mcache_entry_get_mapping(entry);
+    mapping = mcache_entry_mapping(entry);
     addr = mapping_eid(mapping);
-    lmlog(LISP_LOG_DEBUG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
+    lmlog(DBG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
 
     mcache_del_mapping(addr);
 }

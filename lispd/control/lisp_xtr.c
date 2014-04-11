@@ -3,7 +3,7 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -29,9 +29,9 @@
 #include "lisp_xtr.h"
 #include "lispd_sockets.h"
 
-int xtr_process_map_request_msg(struct lbuf *, udpsock_t *);
+int xtr_process_map_request_msg(lbuf_t *, udpsock_t *);
 
-int xtr_process_ctrl_msg(lisp_ctrl_device *dev, struct lbuf *msg,
+int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lbuf_t *msg,
         udpsock_t *udpsock) {
     int ret = 0, type;
 
@@ -129,7 +129,7 @@ lisp_ctrl_device *xtr_ctrl_init() {
 
 
 int
-send_map_request_to_mr(struct lbuf *b, udpsock_t *ss)
+send_map_request_to_mr(lbuf_t *b, udpsock_t *ss)
 {
     lisp_addr_copy(ss->dst, get_map_resolver());
     lisp_addr_copy(ss->src, get_default_ctrl_address(lisp_addr_ip_afi(ss->dst)));
@@ -159,7 +159,7 @@ select_remote_rloc(glist_t *l, int afi, lisp_addr_t *remote) {
 }
 
 int
-send_map_reply(struct lbuf *b, udpsock_t *rsk, glist_t *itr_rlocs)
+send_map_reply(lbuf_t *b, udpsock_t *rsk, glist_t *itr_rlocs)
 {
     udpsock_t ssk;
     lisp_addr_copy(&ssk.src, &rsk->dst);
@@ -205,27 +205,34 @@ reply_smr(lisp_addr_t *src_addr)
 }
 
 int
-xtr_process_map_request_msg(struct lbuf *b, udpsock_t *rsk)
+xtr_process_map_request_msg(lbuf_t *buf, udpsock_t *rsk)
 {
-    lisp_addr_t seid, deid, *tloc;
+    lisp_addr_t *seid, *deid, *tloc;
     mapping_t *map;
     glist_t *itr_rlocs = NULL;
-    void *mreq_hdr, *mrep_hdr, *paddr;
+    void *mreq_hdr, *mrep_hdr, *paddr, *per;
     int i;
-    struct lbuf *mrep = NULL;
+    lbuf_t *mrep = NULL;
+    lbuf_t  b;
 
-    mreq_hdr = lisp_msg_pull_hdr(b, sizeof(map_request_hdr_t));
+    /* local copy of the buf that can be modified */
+    b = *buf;
 
-    if (lisp_msg_parse_addr(b, &seid) != GOOD) {
+    seid = lisp_addr_new();
+    deid = lisp_addr_new();
+
+    mreq_hdr = lisp_msg_pull_hdr(&b, sizeof(map_request_hdr_t));
+
+    if (lisp_msg_parse_addr(&b, seid) != GOOD) {
         goto err;
     }
 
     lmlog(DBG_1, "%s src-eid: %s", lisp_msg_hdr_to_char(mreq_hdr),
-            lisp_addr_to_char(&seid));
+            lisp_addr_to_char(seid));
 
     /* If packet is a Solicit Map Request, process it */
-    if (lisp_addr_afi(&seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
-        if(reply_smr(&seid) != GOOD) {
+    if (lisp_addr_afi(seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
+        if(reply_smr(seid) != GOOD) {
             goto err;
         }
         /* Return if RLOC probe bit is not set */
@@ -236,33 +243,28 @@ xtr_process_map_request_msg(struct lbuf *b, udpsock_t *rsk)
 
     /* Process additional ITR RLOCs */
     itr_rlocs = lisp_addr_list_new();
-    for (i = 0; i < ITR_RLOC_COUNT(mreq_hdr) + 1; i++) {
-        tloc = lisp_addr_new();
-        if (lisp_msg_parse_addr(b, tloc) != GOOD) {
-            return(BAD);
-        }
-        glist_add(itr_rlocs, tloc);
-        lmlog(DBG_1," itr-rloc: %s", lisp_addr_to_char(tloc));
-    }
+    lisp_msg_parse_itr_rlocs(&b, itr_rlocs);
+
 
     /* Process records and build Map-Reply */
     mrep = lisp_msg_create(LISP_MAP_REPLY);
     for (i = 0; i < MREQ_REC_COUNT(mreq_hdr); i++) {
-        if (lisp_msg_parse_eid_rec(b, &deid, paddr) != GOOD) {
+        per = lbuf_data(b);
+        if (lisp_msg_parse_eid_rec(b, deid, paddr) != GOOD) {
             goto err;
         }
 
-        lmlog(DBG_1, " dst-eid: %s", lisp_addr_to_char(&deid));
+        lmlog(DBG_1, " dst-eid: %s", lisp_addr_to_char(deid));
 
-        if (is_mrsignaling(paddr)) {
-            mrsignaling_recv_msg(mrep, &seid, &deid, mrsignaling_flags(paddr));
+        if (is_mrsignaling(EID_REC_ADDR(per))) {
+            mrsignaling_recv_msg(mrep, seid, deid, mrsignaling_flags(paddr));
             continue;
         }
 
         /* Check the existence of the requested EID */
-        if (!(map = local_map_db_lookup_eid_exact(&deid))) {
+        if (!(map = local_map_db_lookup_eid_exact(deid))) {
             lmlog(DBG_1,"EID %s not locally configured!",
-                    lisp_addr_to_char(&deid));
+                    lisp_addr_to_char(deid));
             continue;
         }
 
@@ -279,10 +281,11 @@ xtr_process_map_request_msg(struct lbuf *b, udpsock_t *rsk)
 done:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
-
+    lisp_addr_del(seid);
     return(GOOD);
 err:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
+    lisp_addr_free(deid);
     return(BAD);
 }

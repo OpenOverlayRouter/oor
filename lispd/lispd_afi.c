@@ -107,13 +107,13 @@ int pkt_process_rloc_afi(
     cur_ptr  = CO(cur_ptr, sizeof(lisp_afi));
     switch(lisp_afi) {
     case LISP_AFI_IP:
-        memcpy(&(locator->locator_addr->address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
-        locator->locator_addr->afi = AF_INET;
+        memcpy(&(locator->addr->address.ip.s_addr),cur_ptr,sizeof(struct in_addr));
+        locator->addr->afi = AF_INET;
         cur_ptr  = CO(cur_ptr, sizeof(struct in_addr));
         break;
     case LISP_AFI_IPV6:
-        memcpy(&(locator->locator_addr->address.ipv6),cur_ptr,sizeof(struct in6_addr));
-        locator->locator_addr->afi = AF_INET6;
+        memcpy(&(locator->addr->address.ipv6),cur_ptr,sizeof(struct in6_addr));
+        locator->addr->afi = AF_INET6;
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
@@ -267,7 +267,7 @@ int extract_mcast_info_lcaf_data(
 //    mapping_set_iid(mapping, ntohl(mcinfohdr->iid));
 //    mapping_set_eid_plen(mapping, mcinfohdr->src_mlen);
 
-    cur_ptr = CO(cur_ptr, lisp_addr_read_from_pkt(cur_ptr, eid_prefix));
+    cur_ptr = CO(cur_ptr, lisp_addr_parse(cur_ptr, eid_prefix));
     mapping_set_eid_addr(mapping, eid_prefix);
 
 //    lisp_addr_set_afi(eid_prefix, LM_AFI_MC);

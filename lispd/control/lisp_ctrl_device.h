@@ -69,7 +69,7 @@ void lisp_ctrl_dev_del(lisp_ctrl_device *dev);
 int process_map_reply_msg(map_reply_msg *mrep);
 int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc,
         uint16_t dst_port);
-int process_map_reply_probe_record(mapping_record *record, uint64_t nonce);
+int process_map_reply_probe(mapping_record *record, uint64_t nonce);
 
 int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
 int send_map_request_miss(timer *t, void *arg);
@@ -120,6 +120,6 @@ int build_and_send_map_reply_msg(mapping_t *requested_mapping,
         lisp_addr_t *src_rloc_addr, lisp_addr_t *dst_rloc_addr, uint16_t dport,
         uint64_t nonce, map_reply_opts opts);
 
-int mcache_activate_mapping(lisp_addr_t *eid, locators_list_t *locators,
+int mcache_update_entry(lisp_addr_t *eid, locators_list_t *locators,
         uint64_t nonce, uint8_t action, uint32_t ttl);
 #endif /* LISP_CTRL_DEVICE_H_ */

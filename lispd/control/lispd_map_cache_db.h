@@ -100,7 +100,7 @@ map_cache_entry_t *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64
 //        lisp_addr_t                             *new_eid_prefix,
 //        lispd_map_cache_entry                   *cache_entry);
 
-void map_cache_entry_expiration(timer *t, void *arg);
+void map_cache_entry_expiration_cb(timer *t, void *arg);
 void map_cache_entry_start_expiration_timer(map_cache_entry_t *cache_entry);
 
 void map_cache_dump_db(int log_level);

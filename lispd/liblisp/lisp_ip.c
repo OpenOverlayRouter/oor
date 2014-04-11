@@ -182,7 +182,7 @@ inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
 }
 
 
-inline int ip_addr_read_from_pkt(void *offset, uint16_t iana_afi, ip_addr_t *dst) {
+inline int ip_addr_parse(void *offset, uint16_t iana_afi, ip_addr_t *dst) {
     if(ip_addr_set_afi(dst, ip_iana_to_sock_afi(iana_afi)) == BAD)
         return(0);
     memcpy(ip_addr_get_addr(dst), CO(offset, sizeof(uint16_t)), ip_iana_afi_to_size(iana_afi));

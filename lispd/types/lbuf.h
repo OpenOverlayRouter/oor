@@ -53,70 +53,73 @@ struct lbuf {
     void *data;                 /* start of in-use space */
 };
 
-void lbuf_init(struct lbuf *, uint32_t);
-void lbuf_uninit(struct lbuf *);
-struct lbuf *lbuf_new(uint32_t);
-struct lbuf *lbuf_new_with_headroom(uint32_t, uint32_t);
-struct lbuf *lbuf_clone(struct lbuf *);
-static void lbuf_del(struct lbuf *);
+typedef struct lbuf lbuf_t;
 
 
-static void *lbuf_at(const struct lbuf *, uint32_t, uint32_t);
-static void *lbuf_tail(const struct lbuf *);
-static uint32_t lbuf_end(const struct lbuf *);
-static void *lbuf_data(const struct lbuf *b);
-
-void lbuf_prealloc_tailroom(struct lbuf *b, uint32_t);
-void lbuf_prealloc_headroom(struct lbuf *b, uint32_t);
-
-void *lbuf_put_uninit(struct lbuf *, uint32_t);
-void *lbuf_put(struct lbuf *, void *, uint32_t);
-void *lbuf_push_uninit(struct lbuf *, uint32_t);
-void *lbuf_push(struct lbuf *, void *, uint32_t);
-static void *lbuf_pull(struct lbuf *b, uint32_t);
+void lbuf_init(lbuf_t *, uint32_t);
+void lbuf_uninit(lbuf_t *);
+lbuf_t *lbuf_new(uint32_t);
+lbuf_t *lbuf_new_with_headroom(uint32_t, uint32_t);
+lbuf_t *lbuf_clone(lbuf_t *);
+static void lbuf_del(lbuf_t *);
 
 
-void lbuf_reserve(struct lbuf *b, uint32_t size);
-struct lbuf *lbuf_clone(struct lbuf *b);
+static void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
+static void *lbuf_tail(const lbuf_t *);
+static uint32_t lbuf_end(const lbuf_t *);
+static void *lbuf_data(const lbuf_t *b);
 
-static void *lbuf_lisp(struct lbuf*);
+void lbuf_prealloc_tailroom(lbuf_t *b, uint32_t);
+void lbuf_prealloc_headroom(lbuf_t *b, uint32_t);
+
+void *lbuf_put_uninit(lbuf_t *, uint32_t);
+void *lbuf_put(lbuf_t *, void *, uint32_t);
+void *lbuf_push_uninit(lbuf_t *, uint32_t);
+void *lbuf_push(lbuf_t *, void *, uint32_t);
+static void *lbuf_pull(lbuf_t *b, uint32_t);
 
 
-static void *lbuf_at(const struct lbuf *buf, uint32_t offset, uint32_t size) {
+void lbuf_reserve(lbuf_t *b, uint32_t size);
+lbuf_t *lbuf_clone(lbuf_t *b);
+
+static void *lbuf_lisp(lbuf_t*);
+
+
+static void *lbuf_at(const lbuf_t *buf, uint32_t offset, uint32_t size) {
     return offset+size <= buf->size ? (uint8_t *) buf->data + offset : NULL;
 }
 
 
-static void *lbuf_tail(const struct lbuf *b) {
+static void *lbuf_tail(const lbuf_t *b) {
     return (uint8_t *) b->data + b->size;
 }
 
-static void *lbuf_end(const struct lbuf *b) {
+static void *lbuf_end(const lbuf_t *b) {
     return (uint8_t *) b->base + b->allocated;
 }
 
-static uint32_t lbuf_headroom(const struct lbuf *b) {
+static uint32_t lbuf_headroom(const lbuf_t *b) {
     return (uint8_t *)b->base - (uint8_t *)b->data;
 }
 
-static uint32_t lbuf_tailroom(const struct lbuf *b) {
+static uint32_t lbuf_tailroom(const lbuf_t *b) {
     return lbuf_end(b)-lbuf_tail(b);
 }
 
-static void lbuf_del(struct lbuf *b) {
+static void lbuf_del(lbuf_t *b) {
     if (b) {
         lbuf_uninit(b);
         free(b);
     }
 }
 
-static void *lbuf_data(const struct lbuf *b) {
+static void *lbuf_data(const lbuf_t *b) {
     return b->data;
 }
 
 /* moves 'data' pointer by 'size'. Returns first byte
  * of data removed */
-static void *lbuf_pull(struct lbuf *b, uint32_t size) {
+static void *lbuf_pull(lbuf_t *b, uint32_t size) {
     if (size > b->size)
         return NULL;
     void *data = b->data;
@@ -125,11 +128,11 @@ static void *lbuf_pull(struct lbuf *b, uint32_t size) {
     return data;
 }
 
-static void lbuf_reset_lisp(struct lbuf *b) {
+static void lbuf_reset_lisp(lbuf_t *b) {
     b->lisp = (uint8_t *)b->data - (uint8_t *)b->base;
 }
 
-static void *lbuf_lisp(struct lbuf *b) {
+static void *lbuf_lisp(lbuf_t *b) {
     return(b->lisp ? (uint8_t *)b->allocated + b->lisp : NULL);
 }
 

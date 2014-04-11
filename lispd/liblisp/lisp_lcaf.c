@@ -34,11 +34,11 @@
 
 
 typedef void    (*del_fct)(void *);
-typedef int     (*read_from_pkt_fct)(uint8_t *, void **);
+typedef int     (*parse_fct)(uint8_t *, void **);
 typedef char    *(*to_char_fct)(void *);
 typedef void    (*copy_fct)(void **, void *);
 typedef int     (*cmp_fct)(void *, void *);
-typedef int     (*write_to_pkt_fct)(uint8_t *, void *);
+typedef int     (*write_fct)(uint8_t *, void *);
 typedef int     (*size_in_pkt_fct)(void *);
 
 del_fct del_fcts[MAX_LCAFS] = {
@@ -49,12 +49,12 @@ del_fct del_fcts[MAX_LCAFS] = {
         mc_type_del, elp_type_del, 0, 0,
         rle_type_del, 0, 0};
 
-read_from_pkt_fct read_from_pkt_fcts[MAX_LCAFS] = {
-        0, afi_list_type_read_from_pkt,
-        iid_type_read_from_pkt, 0, 0, 0,
-        geo_type_read_from_pkt, 0, 0,
-        mc_type_read_from_pkt, elp_type_read_from_pkt, 0, 0,
-        rle_type_read_from_pkt, 0, 0};
+parse_fct parse_fcts[MAX_LCAFS] = {
+        0, afi_list_type_parse,
+        iid_type_parse, 0, 0, 0,
+        geo_type_parse, 0, 0,
+        mc_type_parse, elp_type_parse, 0, 0,
+        rle_type_parse, 0, 0};
 
 to_char_fct to_char_fcts[MAX_LCAFS] = {
         0, afi_list_type_to_char,
@@ -63,7 +63,7 @@ to_char_fct to_char_fcts[MAX_LCAFS] = {
         mc_type_to_char, elp_type_to_char, 0, 0,
         rle_type_to_char, 0, 0 };
 
-write_to_pkt_fct write_to_pkt_fcts[MAX_LCAFS] = {
+write_fct write_fcts[MAX_LCAFS] = {
         0, afi_list_type_write_to_pkt,
         iid_type_write_to_pkt, 0, 0, 0,
         0, 0, 0,
@@ -91,12 +91,12 @@ size_in_pkt_fct size_in_pkt_fcts[MAX_LCAFS] = {
         mc_type_get_size_to_write, elp_type_get_size_to_write, 0, 0,
         rle_type_get_size_to_write, 0, 0};
 
-static inline lcaf_type _get_type(lcaf_addr_t *lcaf) {
+static inline lcaf_type get_type_(lcaf_addr_t *lcaf) {
     assert(lcaf);
     return(lcaf->type);
 }
 
-static inline void *_get_addr(lcaf_addr_t *lcaf) {
+static inline void *get_addr_(lcaf_addr_t *lcaf) {
     assert(lcaf);
     return(lcaf->addr);
 }
@@ -134,19 +134,19 @@ void lcaf_addr_del_addr(lcaf_addr_t *lcaf) {
     assert(lcaf);
     if (!lcaf->addr)
         return;
-    if (!del_fcts[_get_type(lcaf)]) {
+    if (!del_fcts[get_type_(lcaf)]) {
         return;
     }
-    (*del_fcts[_get_type(lcaf)])(lcaf_addr_get_addr(lcaf));
+    (*del_fcts[get_type_(lcaf)])(lcaf_addr_get_addr(lcaf));
 }
 
 /* free an lcaf pointer */
 void lcaf_addr_del(lcaf_addr_t *lcaf) {
     assert(lcaf);
-    if (!del_fcts[_get_type(lcaf)]) {
+    if (!del_fcts[get_type_(lcaf)]) {
         return;
     }
-    (*del_fcts[_get_type(lcaf)])(lcaf_addr_get_addr(lcaf));
+    (*del_fcts[get_type_(lcaf)])(lcaf_addr_get_addr(lcaf));
     free(lcaf);
 }
 
@@ -154,19 +154,24 @@ void lcaf_addr_del(lcaf_addr_t *lcaf) {
  * lcaf_addr_t functions
  */
 
-int lcaf_addr_read_from_pkt(uint8_t *offset, lcaf_addr_t *lcaf_addr) {
+int lcaf_addr_parse(uint8_t *offset, lcaf_addr_t *lcaf) {
 
     int len = 0;
 
-    lcaf_addr_set_type(lcaf_addr, ((lcaf_hdr_t *)offset)->type);
-    if (!read_from_pkt_fcts[lcaf_addr_get_type(lcaf_addr)]) {
-        lmlog(LISP_LOG_DEBUG_3, "lcaf_addr_read_from_pkt: Cannot parse LCAF type %d:",
-                lcaf_addr_get_type(lcaf_addr));
+    /* about to ovewrite 'addr', just free the old one */
+    if (get_addr_(lcaf)) {
+        lcaf_addr_del_addr(lcaf);
+    }
+
+    lcaf_addr_set_type(lcaf, ((lcaf_hdr_t *)offset)->type);
+    if (!parse_fcts[lcaf_addr_get_type(lcaf)]) {
+        lmlog(DBG_3, "lcaf_addr_read_from_pkt: Cannot parse LCAF type %d:",
+                lcaf_addr_get_type(lcaf));
         return(BAD);
     }
-    len = read_from_pkt_fcts[lcaf_addr_get_type(lcaf_addr)](offset, &lcaf_addr->addr);
+    len = parse_fcts[lcaf_addr_get_type(lcaf)](offset, &lcaf->addr);
     if (len != ntohs(((lcaf_hdr_t *)offset)->len) + sizeof(lcaf_hdr_t)) {
-        lmlog(LISP_LOG_DEBUG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of "
+        lmlog(DBG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of "
                 "bytes read %d don't differ by 8 bytes!", ntohs(((lcaf_hdr_t *)offset)->len), len);
         return(BAD);
     }
@@ -177,7 +182,7 @@ int lcaf_addr_read_from_pkt(uint8_t *offset, lcaf_addr_t *lcaf_addr) {
 
 char *lcaf_addr_to_char(lcaf_addr_t *lcaf) {
     assert(lcaf);
-    return((*to_char_fcts[_get_type(lcaf)])(lcaf_addr_get_addr(lcaf)));
+    return((*to_char_fcts[get_type_(lcaf)])(lcaf_addr_get_addr(lcaf)));
 }
 
 
@@ -235,13 +240,13 @@ inline void lcaf_addr_set_type(lcaf_addr_t *lcaf, uint8_t type) {
 
 inline uint32_t lcaf_addr_get_size_to_write(lcaf_addr_t *lcaf) {
 
-    if (!size_in_pkt_fcts[_get_type(lcaf)]) {
+    if (!size_in_pkt_fcts[get_type_(lcaf)]) {
         lmlog(LISP_LOG_WARNING, "lcaf_addr_get_size_to_write: size not implemented for LCAF type %d",
-                _get_type(lcaf));
+                get_type_(lcaf));
         return(BAD);
     }
 
-    return((*size_in_pkt_fcts[_get_type(lcaf)])(_get_addr(lcaf)));
+    return((*size_in_pkt_fcts[get_type_(lcaf)])(get_addr_(lcaf)));
 }
 
 int lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src) {
@@ -252,31 +257,33 @@ int lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src) {
         return(BAD);
     }
 
-    if (_get_type(dst) != _get_type(src))
+    /* if 'addr' set, free it */
+    if (get_addr_(dst)) {
         lcaf_addr_del_addr(dst);
+    }
 
-    lcaf_addr_set_type(dst, _get_type(src));
-    (*copy_fcts[_get_type(src)])(&dst->addr, src->addr);
+    lcaf_addr_set_type(dst, get_type_(src));
+    (*copy_fcts[get_type_(src)])(&dst->addr, src->addr);
 
     return(GOOD);
 }
 
-inline int lcaf_addr_write_to_pkt(void *offset, lcaf_addr_t *lcaf) {
+inline int lcaf_addr_write(void *offset, lcaf_addr_t *lcaf) {
     assert(lcaf);
-    if (!write_to_pkt_fcts[_get_type(lcaf)]) {
+    if (!write_fcts[get_type_(lcaf)]) {
         lmlog(LISP_LOG_WARNING, "lcaf_addr_write_to_pkt: write not implemented for LCAF type %d",
-                _get_type(lcaf));
+                get_type_(lcaf));
         return(BAD);
     }
 
-    return((*write_to_pkt_fcts[_get_type(lcaf)])(offset, _get_addr(lcaf)));
+    return((*write_fcts[get_type_(lcaf)])(offset, get_addr_(lcaf)));
 }
 
 inline int lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2) {
     if (lcaf_addr_get_type(addr1) != lcaf_addr_get_type(addr2))
         return(-1);
     if (!(cmp_fcts[lcaf_addr_get_type(addr1)])) {
-        lmlog(LISP_LOG_DEBUG_1, "lcaf_addr_cmp: cmp not implemented for type %d", lcaf_addr_get_type(addr1));
+        lmlog(DBG_1, "lcaf_addr_cmp: cmp not implemented for type %d", lcaf_addr_get_type(addr1));
         return(-1);
     }
     return((*cmp_fcts[lcaf_addr_get_type(addr1)])(lcaf_addr_get_addr(addr1), lcaf_addr_get_addr(addr2)));
@@ -284,13 +291,13 @@ inline int lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2) {
 }
 
 inline uint8_t lcaf_addr_cmp_iids(lcaf_addr_t *addr1, lcaf_addr_t *addr2) {
-    if (_get_type(addr1) != _get_type(addr2))
+    if (get_type_(addr1) != get_type_(addr2))
         return(0);
-    switch(_get_type(addr1)) {
+    switch(get_type_(addr1)) {
         case LCAF_IID:
             return(lcaf_iid_get_iid(addr1) == lcaf_iid_get_iid(addr2));
         case LCAF_MCAST_INFO:
-            return(mc_type_get_iid(_get_addr(addr1)) == mc_type_get_iid(addr2));
+            return(mc_type_get_iid(get_addr_(addr1)) == mc_type_get_iid(addr2));
         default:
             return(0);
     }
@@ -527,7 +534,7 @@ inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
     return(sizeof(lcaf_mcinfo_hdr_t)+lena1+lena2);
 }
 
-int mc_type_read_from_pkt(uint8_t *offset, void **mc) {
+int mc_type_parse(uint8_t *offset, void **mc) {
     int srclen, grplen;
     srclen = grplen =0;
 
@@ -537,9 +544,9 @@ int mc_type_read_from_pkt(uint8_t *offset, void **mc) {
     mc_type_set_grp_plen(*mc, ((lcaf_mcinfo_hdr_t *)offset)->grp_mlen);
 
     offset = CO(offset, sizeof(lcaf_mcinfo_hdr_t));
-    srclen = lisp_addr_read_from_pkt(offset, mc_type_get_src(*mc));
+    srclen = lisp_addr_parse(offset, mc_type_get_src(*mc));
     offset = CO(offset, srclen);
-    grplen = lisp_addr_read_from_pkt(offset, mc_type_get_grp(*mc));
+    grplen = lisp_addr_parse(offset, mc_type_get_grp(*mc));
     return(sizeof(lcaf_mcinfo_hdr_t) + srclen + grplen);
 
 }
@@ -549,9 +556,11 @@ int mc_type_read_from_pkt(uint8_t *offset, void **mc) {
 int lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid) {
     mc_t            *mc;
 
-    if (lcaf->addr)
+    if (get_addr_(lcaf)) {
         lcaf_addr_del_addr(lcaf);
-    mc  = mc_type_init(src, grp, splen, gplen, iid);
+    }
+
+    mc = mc_type_init(src, grp, splen, gplen, iid);
     lcaf_addr_set_type(lcaf, LCAF_MCAST_INFO);
     lcaf_addr_set_addr(lcaf, mc);
     return(GOOD);
@@ -600,7 +609,7 @@ inline uint8_t iid_type_get_mlen(iid_t *iid) {
 }
 
 inline uint32_t lcaf_iid_get_iid(lcaf_addr_t *iid) {
-    return(iid_type_get_iid(_get_addr(iid)));
+    return(iid_type_get_iid(get_addr_(iid)));
 }
 
 inline uint32_t iid_type_get_iid(iid_t *iid) {
@@ -658,13 +667,13 @@ inline int iid_type_write_to_pkt(uint8_t *offset, void *iid) {
             lisp_addr_write(CO(offset, sizeof(lcaf_iid_hdr_t)), iid_type_get_addr(iid)));
 }
 
-int iid_type_read_from_pkt(uint8_t *offset, void **iid) {
+int iid_type_parse(uint8_t *offset, void **iid) {
     *iid = iid_type_new();
     iid_type_set_mlen(*iid, ((lcaf_iid_hdr_t *)offset)->mlen);
     iid_type_set_iid(*iid, ((lcaf_iid_hdr_t *)offset)->iid);
 
     offset = CO(offset, sizeof(lcaf_iid_hdr_t));
-    return(lisp_addr_read_from_pkt(offset, iid_type_get_addr(*iid)) + sizeof(lcaf_iid_hdr_t));
+    return(lisp_addr_parse(offset, iid_type_get_addr(*iid)) + sizeof(lcaf_iid_hdr_t));
 }
 
 char *iid_type_to_char(void *iid) {
@@ -783,7 +792,7 @@ inline uint32_t geo_type_get_altitude(geo_t *geo) {
     return(geo->altitude);
 }
 
-inline int geo_type_read_from_pkt(uint8_t *offset, void **geo) {
+inline int geo_type_parse(uint8_t *offset, void **geo) {
     *geo = geo_type_new();
     geo_type_set_lat(*geo,
             ((lcaf_geo_hdr_t *)offset)->latitude_dir,
@@ -799,7 +808,7 @@ inline int geo_type_read_from_pkt(uint8_t *offset, void **geo) {
 
     offset = CO(offset, sizeof(lcaf_geo_hdr_t));
     return(sizeof(lcaf_geo_hdr_t) +
-            lisp_addr_read_from_pkt(offset, geo_type_get_addr(*geo)));
+            lisp_addr_parse(offset, geo_type_get_addr(*geo)));
 }
 
 inline lisp_addr_t *geo_type_get_addr(geo_t *geo) {
@@ -846,7 +855,7 @@ void geo_type_copy(void **dst, void *src) {
 elp_t *elp_type_new() {
     elp_t *elp;
     elp = calloc(1, sizeof(elp_t));
-    elp->nodes = glist_new_full(NO_CMP, (glist_del_fct)elp_node_del);
+    elp->nodes = glist_new_complete(NO_CMP, (glist_del_fct)elp_node_del);
     return(elp);
 }
 
@@ -903,7 +912,7 @@ int elp_type_write_to_pkt(uint8_t *offset, void *elp) {
     return(len);
 }
 
-int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
+int elp_type_parse(uint8_t *offset, void **elp) {
     int                 len = 0, totallen = 0, readlen=0;
     elp_node_t          *enode = NULL;
     elp_node_flags      *flags = NULL;
@@ -924,7 +933,7 @@ int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
         enode->S = flags->S;
         offset = CO(offset, sizeof(elp_node_flags));
         enode->addr = lisp_addr_new();
-        len = lisp_addr_read_from_pkt(offset, enode->addr);
+        len = lisp_addr_parse(offset, enode->addr);
         if (len <= 0)
             goto err;
         offset = CO(offset, len);
@@ -935,7 +944,7 @@ int elp_type_read_from_pkt(uint8_t *offset, void **elp) {
 
     }
     if (totallen !=0)
-        lmlog(LISP_LOG_DEBUG_1, "elp_type_read_from_pkt: Error encountered!");
+        lmlog(DBG_1, "elp_type_read_from_pkt: Error encountered!");
 
     return(readlen);
 
@@ -1047,7 +1056,7 @@ inline void rle_type_del(void *rleaddr) {
     free(rleaddr);
 }
 
-int rle_type_read_from_pkt(uint8_t *offset, void **rle) {
+int rle_type_parse(uint8_t *offset, void **rle) {
     int                 len = 0, totallen = 0, readlen=0;
     rle_node_t          *rnode      = NULL;
     rle_node_hdr_t      *rhdr       = NULL;
@@ -1066,7 +1075,7 @@ int rle_type_read_from_pkt(uint8_t *offset, void **rle) {
         rnode->level = rhdr->level;
         offset = CO(offset, sizeof(rle_node_hdr_t));
         rnode->addr = lisp_addr_new();
-        len = lisp_addr_read_from_pkt(offset, rnode->addr);
+        len = lisp_addr_parse(offset, rnode->addr);
         if (len <= 0)
             goto err;
         offset = CO(offset, len);
@@ -1076,7 +1085,7 @@ int rle_type_read_from_pkt(uint8_t *offset, void **rle) {
         glist_add_tail(rnode, rle_ptr->nodes);
     }
     if (totallen !=0)
-        lmlog(LISP_LOG_DEBUG_1, "rle_type_read_from_pkt: Error encountered!");
+        lmlog(DBG_1, "rle_type_read_from_pkt: Error encountered!");
 
     return(readlen);
 
@@ -1277,7 +1286,7 @@ int afi_list_type_write_to_pkt(uint8_t *offset, void *afil) {
     return(len);
 }
 
-int afi_list_type_read_from_pkt(uint8_t *offset, void **afilptr) {
+int afi_list_type_parse(uint8_t *offset, void **afilptr) {
     afi_list_node   *node   = NULL;
     afi_list_t      *afil   = NULL;
     uint8_t         *cur_ptr = NULL;
@@ -1297,7 +1306,7 @@ int afi_list_type_read_from_pkt(uint8_t *offset, void **afilptr) {
         node->addr = lisp_addr_new();
         if (!node->addr)
             goto err;
-        rlen = lisp_addr_read_from_pkt(cur_ptr, node->addr);
+        rlen = lisp_addr_parse(cur_ptr, node->addr);
         if (rlen <= 0)
            goto err;
         cur_ptr = CO(cur_ptr, rlen);
@@ -1404,7 +1413,7 @@ lisp_addr_t *lcaf_rloc_get_ip_addr(lisp_addr_t *addr) {
         rloc = lcaf_mc_get_grp(lcaf);
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_1, "lcaf_rloc_get_ip_addr: lcaf type %d not supported",
+        lmlog(DBG_1, "lcaf_rloc_get_ip_addr: lcaf type %d not supported",
                 lcaf_addr_get_type(lcaf));
     }
     return(rloc);

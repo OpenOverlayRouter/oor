@@ -41,9 +41,9 @@
  * Locator information
  */
 typedef struct lispd_locator_elt_ {
-    lisp_addr_t                 *locator_addr;
+    lisp_addr_t                 *addr;
     uint8_t                     *state;    /* UP , DOWN */
-    uint8_t                     locator_type:2;
+    uint8_t                     type:2;
     uint8_t                     priority;
     uint8_t                     weight;
     uint8_t                     mpriority;
@@ -144,7 +144,7 @@ void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_lis
  * the address as it can be used for other locators of other EIDs
  */
 
-void free_locator(locator_t   *locator);
+void locator_del(locator_t   *locator);
 
 void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt);
 
@@ -208,11 +208,17 @@ locators_list_t *locators_list_clone_remote(locators_list_t *lst);
 
 /* accessors */
 static inline lisp_addr_t *locator_addr(locator_t *locator) {
-    return(locator->locator_addr);
+    return(locator->addr);
 }
 
 static inline void locator_set_addr(locator_t *locator, lisp_addr_t *addr) {
-    locator->locator_addr = addr;
+    /* TODO: locator_addr should be a static field.
+     * The code now acts as it were because it does a copy @addr. It also
+     * the address won't go NULL if by mistake @addr is freed outside */
+    if (!locator->addr)
+        locator->addr = lisp_addr_new();
+    lisp_addr_copy(locator->addr, addr);
+//    locator->locator_addr = addr;
 }
 
 static inline void locator_set_state(locator_t *locator, uint8_t *state) {

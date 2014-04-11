@@ -38,29 +38,27 @@
 
 
 
-/****************************************  STRUCTURES **************************************/
-
 typedef enum {
     MAPPING_LOCAL,
     MAPPING_REMOTE,
     MAPPING_RE,
 } mapping_type;
-/*
- * lispd mapping entry.
- */
 
 typedef void (*extended_info_del_fct)(void *);
 
 typedef struct lispd_mapping_elt_ {
     lisp_addr_t                     eid_prefix;
-    uint8_t                         eid_prefix_length;
-    uint32_t                        iid;
+    uint8_t                         eid_prefix_length;  /*to remove in future*/
+    uint32_t                        iid;                /*to remove in future*/
     uint16_t                        locator_count;
-    locators_list_t             *head_v4_locators_list;
-    locators_list_t             *head_v6_locators_list;
-    mapping_type                    type;
-    void                            *extended_info;
-    extended_info_del_fct           extended_info_del;
+    locators_list_t                 *head_v4_locators_list;
+    locators_list_t                 *head_v6_locators_list;
+    mapping_type                    type;               /*to remove in future*/
+    void                            *extended_info;     /*to remove in future*/
+    extended_info_del_fct           extended_info_del;  /*to remove in future*/
+    uint32_t                        ttl;
+    uint8_t                         action;
+    uint8_t                         authoritative;
 } mapping_t;
 
 
@@ -79,7 +77,7 @@ typedef struct balancing_locators_vecs_ {
     int v4_locators_vec_length;
     int v6_locators_vec_length;
     int locators_vec_length;
-}balancing_locators_vecs;
+} balancing_locators_vecs;
 
 
 /*
@@ -87,8 +85,8 @@ typedef struct balancing_locators_vecs_ {
  */
 
 typedef struct lcl_mapping_extended_info_ {
-    balancing_locators_vecs               outgoing_balancing_locators_vecs;
-    locators_list_t                   *head_not_init_locators_list; //List of locators not initialized: interface without ip
+    balancing_locators_vecs outgoing_balancing_locators_vecs;
+    locators_list_t *head_not_init_locators_list; /* List of locators not initialized: interface without ip */
 }lcl_mapping_extended_info;
 
 /*
@@ -98,77 +96,31 @@ typedef struct rmt_mapping_extended_info_ {
     balancing_locators_vecs               rmt_balancing_locators_vecs;
 }rmt_mapping_extended_info;
 
-/****************************************  FUNCTIONS **************************************/
 
-/*
- * Generates a mapping with the local extended info
- */
 
-mapping_t *new_local_mapping(
-        lisp_addr_t     eid_prefix,
-        uint8_t         eid_prefix_length,
-        int             iid);
+mapping_t *new_local_mapping(lisp_addr_t eid_prefix, uint8_t eid_prefix_length,
+        int iid);
 
-/*
- * Generates a mapping with the remote extended info
- */
+mapping_t *new_map_cache_mapping(lisp_addr_t eid_prefix,
+        uint8_t eid_prefix_length, int iid);
 
-mapping_t *new_map_cache_mapping(
-        lisp_addr_t     eid_prefix,
-        uint8_t         eid_prefix_length,
-        int             iid);
+int add_locator_to_mapping(mapping_t *mapping, locator_t *locator);
 
-/*
- * Add a locator into the locators list of the mapping.
- */
 
-int add_locator_to_mapping(
-        mapping_t           *mapping,
-        locator_t           *locator);
+void sort_locators_list_elt(mapping_t *mapping, lisp_addr_t *changed_loc_addr);
 
-/*
- * This function sort the locator list elt with IP = changed_loc_addr
- */
+locator_t *get_locator_from_mapping(mapping_t *mapping, lisp_addr_t *address);
 
-void sort_locators_list_elt (
-        mapping_t   *mapping,
-        lisp_addr_t         *changed_loc_addr);
 
-/*
- * Returns the locators with the address passed as a parameter
- */
-
-locator_t *get_locator_from_mapping(
-        mapping_t   *mapping,
-        lisp_addr_t         *address);
-
-/*
- * Free memory of lispd_mapping_elt.
- */
 void free_mapping_elt(mapping_t *mapping, int local);
 
-/*
- * dump mapping
- */
-void dump_mapping_entry(
-        mapping_t       *mapping,
-        int                     log_level);
+void dump_mapping_entry(mapping_t *mapping, int log_level);
 
-/*
- * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
- */
-int calculate_balancing_vectors (
-        mapping_t           *mapping,
-        balancing_locators_vecs     *b_locators_vecs);
+int calculate_balancing_vectors(mapping_t *mapping,
+        balancing_locators_vecs *b_locators_vecs);
 
-/*
- * Print balancing locators vector information
- */
-
-void dump_balancing_locators_vec(
-        balancing_locators_vecs b_locators_vecs,
-        mapping_t *mapping,
-        int log_level);
+void dump_balancing_locators_vec(balancing_locators_vecs b_locators_vecs,
+        mapping_t *mapping, int log_level);
 
 
 
@@ -187,30 +139,57 @@ uint8_t *mapping_fill_record_in_pkt(mapping_record_hdr_t *rec, mapping_t *mappin
 /*
  * lispd_mapping_elt functions
  */
-inline mapping_t    *mapping_new();
-inline mapping_t    *mapping_init(lisp_addr_t *eid);
-mapping_t           *mapping_init_local(lisp_addr_t *eid);
-mapping_t           *mapping_init_static(lisp_addr_t *eid);
-mapping_t           *mapping_init_remote(lisp_addr_t *eid);
-inline void                 *mapping_extended_info(mapping_t *mapping);
-inline void                 mapping_set_extended_info(mapping_t *mapping, void *extended_info, extended_info_del_fct ei_del);
-inline void                 mapping_set_eid_addr(mapping_t *mapping, lisp_addr_t *addr);
-inline void                 mapping_set_eid_plen(mapping_t *mapping, uint8_t plen);
-inline lisp_addr_t          *mapping_eid(mapping_t *mapping);
-int                         mapping_add_locators(mapping_t *mapping, locators_list_t *locators);
-inline uint16_t             mapping_get_locator_count(mapping_t *mapping);
-int                         mapping_get_size_in_record(mapping_t *mapping);
+inline mapping_t *mapping_new();
+inline mapping_t *mapping_init(lisp_addr_t *);
+mapping_t *mapping_init_local(lisp_addr_t *);
+mapping_t *mapping_init_static(lisp_addr_t *);
+mapping_t *mapping_init_remote(lisp_addr_t *);
+
+inline void *mapping_extended_info(mapping_t *);
+inline void mapping_set_extended_info(mapping_t *, void *,
+        extended_info_del_fct);
+void mapping_extended_info_del(mapping_t *);
+
+
+inline void mapping_set_eid_addr(mapping_t *, lisp_addr_t *);
+inline void mapping_set_eid_plen(mapping_t *, uint8_t );
+inline lisp_addr_t *mapping_eid(mapping_t *);
+int mapping_add_locators(mapping_t *, locators_list_t *);
+void mapping_update_locators(mapping_t *, locators_list_t *, locators_list_t *,
+        int);
+inline uint16_t mapping_locator_count(mapping_t *);
+int mapping_get_size_in_record(mapping_t *);
 
 //inline void                 mapping_set_iid(lispd_mapping_elt *mapping, uint16_t iid);
 //inline uint8_t              get_mapping_eid_plen(lispd_mapping_elt *mapping);
 //inline lisp_iid_t           get_mapping_iid(lispd_mapping_elt *mapping, lisp_iid_t iid);
 
-mapping_t           *mapping_init_from_record(mapping_record *record);
-void                mapping_write_to_record(mapping_record *record, mapping_t *mapping);
-void                mapping_update_locators(mapping_t *mapping, locators_list_t *locv4, locators_list_t *locv6, int nb_locators);
-int                 mapping_compute_balancing_vectors(mapping_t *mapping);
-void                mapping_del(mapping_t *mapping);
-void                mapping_extended_info_del(mapping_t *mapping);
-int                 mapping_cmp(mapping_t *m1, mapping_t *m2);
+mapping_t *mapping_init_from_record(mapping_record *);
+void mapping_write_to_record(mapping_record *, mapping_t *);
+
+
+int mapping_compute_balancing_vectors(mapping_t *);
+void mapping_del(mapping_t *);
+int mapping_cmp(mapping_t *, mapping_t *);
+
+void mapping_del_locators(mapping_t *);
+
+
+static inline void mapping_set_ttl(mapping_t *, uint32_t *);
+static inline void mapping_set_action(mapping_t *, uint8_t *);
+static inline void mapping_set_auth(mapping_t *, uint8_t *);
+
+
+static inline void mapping_set_ttl(mapping_t *m, uint32_t *t) {
+    m->ttl = t;
+}
+
+static inline void mapping_set_action(mapping_t *m, uint8_t *a) {
+    m->action = 1;
+}
+
+static inline void mapping_set_auth(mapping_t *m, uint8_t *a) {
+    m->authoritative = 1;
+}
 
 #endif /* LISPD_MAPPING_H_ */

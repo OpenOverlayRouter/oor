@@ -36,8 +36,6 @@
 //#include "lispd_afi.h"
 //#include "lispd_address.h"
 
-/****************************************  CONSTANTS **************************************/
-
 /*
  *  map-cache entry types (how_learned)
  */
@@ -51,62 +49,55 @@
 #define NO_ACTIVE                       0
 #define ACTIVE                          1
 
-/****************************************  STRUCTURES **************************************/
-
-/*
- * Map cache entry
- */
 typedef struct lispd_map_cache_entry_ {
-    mapping_t                   *mapping;
-    uint8_t                     how_learned:2;
-    uint8_t                     actions:2;
-    uint8_t                     active:1;       /* TRUE if we have received a map reply for this entry */
-    uint8_t                     active_witin_period:1;
-    uint32_t                    ttl;
-    time_t                      timestamp;
-    timer                       *expiry_cache_timer;
-    timer                       *request_retry_timer;
-    timer                       *smr_inv_timer;
-    nonces_list                 *nonces;
-}map_cache_entry_t;
+    mapping_t *mapping;
+    uint8_t how_learned :2;
+    uint8_t actions :2;
+    uint8_t active :1; /* TRUE if we have received a map reply for this entry */
+    uint8_t active_witin_period :1;
+    uint32_t ttl;
+    time_t timestamp;
+    timer *expiry_cache_timer;
+    timer *request_retry_timer;
+    timer *smr_inv_timer;
+    nonces_list *nonces;
+} map_cache_entry_t;
 
-/****************************************  FUNCTIONS **************************************/
-
-
-inline map_cache_entry_t        *mcache_entry_new();
-map_cache_entry_t               *mcache_entry_init(mapping_t *mapping);
-map_cache_entry_t               *mcache_entry_init_static(mapping_t *mapping);
+map_cache_entry_t *mcache_entry_new();
+void mcache_entry_init(map_cache_entry_t *mce, mapping_t *mapping);
+void mcache_entry_init_static(map_cache_entry_t *mce, mapping_t *mapping);
 
 
+map_cache_entry_t *new_map_cache_entry(lisp_addr_t eid_prefix,
+        int eid_prefix_length, int how_learned, uint16_t ttl);
 
 
+map_cache_entry_t *new_map_cache_entry_no_db(lisp_addr_t eid_prefix,
+        int eid_prefix_length, int how_learned, uint16_t ttl);
+void map_cache_entry_del(map_cache_entry_t *entry);
+void map_cache_entry_dump(map_cache_entry_t *entry, int log_level);
 
-/*
- * Create a map cache entry and save it in the database
- */
+static inline void mcache_entry_set_eid_addr(map_cache_entry_t *, lisp_addr_t *);
+static inline void mcache_entry_set_eid_plen(map_cache_entry_t *, uint8_t);
+static inline mapping_t *mcache_entry_mapping(map_cache_entry_t*);
+static inline lisp_addr_t *mcache_entry_get_eid_addr(map_cache_entry_t*);
+static inline nonces_list *mcache_entry_nonces_list(map_cache_entry_t *);
+static inline uint8_t mcache_entry_active(map_cache_entry_t *);
 
-map_cache_entry_t *new_map_cache_entry (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+static inline void mcache_entry_set_eid_addr(map_cache_entry_t *mce,
+        lisp_addr_t *addr) {
+    mapping_set_eid_addr(mcache_entry_mapping(mce), addr);
+}
 
-/*
- * Create a map cache entry but not saved in the database.
- * Used to create the proxy-etr list
- */
+static inline mapping_t *mcache_entry_mapping(map_cache_entry_t* mce) {
+    return (mce->mapping);
+}
 
-map_cache_entry_t *new_map_cache_entry_no_db (lisp_addr_t eid_prefix, int eid_prefix_length, int how_learned, uint16_t ttl);
+static inline nonces_list *mcache_entry_nonces_list(map_cache_entry_t *mce) {
+    return (mce->nonces);
+}
 
-void free_map_cache_entry(map_cache_entry_t *entry);
-
-void dump_map_cache_entry (map_cache_entry_t *entry, int log_level);
-
-/*
- * lispd_map_cache_entry  set/get functions
- */
-
-inline void                  mcache_entry_set_eid_addr(map_cache_entry_t *mapcache, lisp_addr_t *addr);
-inline void                  mcache_entry_set_eid_plen(map_cache_entry_t *mapcache, uint8_t plen);
-inline mapping_t     *mcache_entry_get_mapping(map_cache_entry_t* mapcache);
-inline lisp_addr_t           *mcache_entry_get_eid_addr(map_cache_entry_t* mapcache);
-inline nonces_list           *mcache_entry_nonces_list(map_cache_entry_t *mce);
-inline uint8_t               mcache_entry_get_active(map_cache_entry_t *mce);
-
+static inline uint8_t mcache_entry_active(map_cache_entry_t *mce) {
+    return (mce->active);
+}
 #endif /* LISPD_MAP_CACHE_H_ */

@@ -120,7 +120,7 @@ static inline re_upstream_t *mapping_get_re_upstream(mapping_t *mapping) {
 }
 
 static inline void re_upstream_del(re_upstream_t *upstream) {
-    free_locator(upstream->locator);
+    locator_del(upstream->locator);
     lisp_addr_del(upstream->delivery_rloc);
     free(upstream->join_upstream_timer);
     free(upstream);

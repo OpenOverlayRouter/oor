@@ -212,7 +212,7 @@ int extract_info_nat_header(
     /* Put the pointer just before the EID AFI field to use the extract_lisp_address function */
     eid_ptr = (uint8_t *)&(eid_part->eid_prefix_afi);
 
-    if ((len = lisp_addr_read_from_pkt(eid_ptr, eid_prefix))<= 0){
+    if ((len = lisp_addr_parse(eid_ptr, eid_prefix))<= 0){
         lmlog(LISP_LOG_DEBUG_2,"extract_info_nat_header: Coudn't obtain EID address");
         return (BAD);
     }

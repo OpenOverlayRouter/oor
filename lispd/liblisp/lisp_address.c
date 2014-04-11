@@ -3,7 +3,7 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -409,7 +409,7 @@ inline int lisp_addr_write(void *offset, lisp_addr_t *laddr) {
     case LM_AFI_IPPREF:
         return(ip_addr_write_to_pkt(offset, ip_prefix_get_addr(get_ippref_(laddr)), 0));
     case LM_AFI_LCAF:
-        return(lcaf_addr_write_to_pkt(offset, get_lcaf_(laddr)));
+        return(lcaf_addr_write(offset, get_lcaf_(laddr)));
     case LM_AFI_NO_ADDR:
         memset(offset, 0, sizeof(uint16_t));
         return(sizeof(uint16_t));
@@ -420,12 +420,12 @@ inline int lisp_addr_write(void *offset, lisp_addr_t *laddr) {
     return(0);
 }
 
-int lisp_addr_read_from_pkt(uint8_t *offset, lisp_addr_t *laddr) {
+int lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr) {
     lisp_afi_t  afi;
     int len = 0;
 
     if (!laddr) {
-        lmlog(LISP_LOG_DEBUG_3,"lisp_addr_read_from_pkt: Called with unallocated address!");
+        lmlog(LISP_LOG_DEBUG_3,"lisp_addr_parse: Called with unallocated address!");
         return(BAD);
     }
 
@@ -434,12 +434,12 @@ int lisp_addr_read_from_pkt(uint8_t *offset, lisp_addr_t *laddr) {
     switch(afi) {
     case LISP_AFI_IP:
     case LISP_AFI_IPV6:
-        len = ip_addr_read_from_pkt((void *)offset, afi, get_ip_(laddr));
+        len = ip_addr_parse((void *)offset, afi, get_ip_(laddr));
         set_afi_(laddr, LM_AFI_IP);
         break;
     case LISP_AFI_LCAF:
 //        laddr->lcaf = lcaf_addr_new();
-        len = lcaf_addr_read_from_pkt(offset, get_lcaf_(laddr));
+        len = lcaf_addr_parse(offset, get_lcaf_(laddr));
         set_afi_(laddr, LM_AFI_LCAF);
         break;
     case LISP_AFI_NO_ADDR:
@@ -595,7 +595,7 @@ lisp_addr_t *lisp_addr_init_from_field(address_field *addrfld) {
     int len;
 
     laddr = lisp_addr_new();
-    len = lisp_addr_read_from_pkt(address_field_data(addrfld), laddr);
+    len = lisp_addr_parse(address_field_data(addrfld), laddr);
     if (len != address_field_len(addrfld)) {
         lmlog(LISP_LOG_DEBUG_3, "lisp_addr_init_from_field: length of address (%d) and that from "
                 "the header (%d) do not match!", len, address_field_len(addrfld));
@@ -631,6 +631,22 @@ lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr) {
         return(NULL);
     }
     return(NULL);
+}
+
+/* deallocates the lcaf's address or does nothing for other AFIs*/
+void
+lisp_addr_dealloc(lisp_addr_t *addr) {
+    switch(get_afi_(addr)) {
+    case LM_AFI_IP:
+    case LM_AFI_IPPREF:
+    case LM_AFI_NO_ADDR:
+        break;
+    case LM_AFI_LCAF:
+        lcaf_addr_del_addr(get_lcaf_(addr));
+        break;
+    default:
+        break;
+    }
 }
 
 

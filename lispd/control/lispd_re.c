@@ -187,7 +187,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
             lisp_addr_to_char(mceid));
 
     if (upstream->locator)
-        free_locator(upstream->locator);
+        locator_del(upstream->locator);
 
     /* top RTR, must connect to ITR */
     if (local_level == 0) {

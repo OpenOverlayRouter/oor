@@ -85,7 +85,7 @@ inline void              ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi)
 inline void              ip_addr_copy(ip_addr_t *dst, ip_addr_t *src);
 inline void              ip_addr_copy_to(void *dst, ip_addr_t *src);
 inline int               ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert);
-inline int               ip_addr_read_from_pkt(void *offset, uint16_t afi, ip_addr_t *dst);
+inline int               ip_addr_parse(void *offset, uint16_t afi, ip_addr_t *dst);
 inline int               ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2);
 inline uint16_t          ip_sock_to_iana_afi(uint16_t afi);
 inline uint16_t          ip_iana_to_sock_afi(uint16_t afi);

@@ -382,6 +382,7 @@ typedef struct _locator_hdr {
 #endif
 } __attribute__ ((__packed__)) locator_hdr_t;
 
+
 typedef struct _locator_field {
     address_field           *address;
     uint16_t                len;
@@ -422,6 +423,12 @@ static inline void locator_field_update_len(locator_field *locator) {
 }
 
 #define LOC_PROBED(h) ((locator_hdr_t *)(h))->probed
+#define LOC_PRIORITY(h) ((locator_hdr_t *)(h))->priority
+#define LOC_WEIGHT(h) ((locator_hdr_t *)(h))->weight
+#define LOC_MPRIORITY(h) ((locator_hdr_t *)(h))->mpriority
+#define LOC_MWEIGHT(h) ((locator_hdr_t *)(h))->mweight
+#define LOC_REACHABLE(h) ((locator_hdr_t *)(h))->reachable
+#define LOC_LOCAL(h) ((locator_hdr_t *)(h))->local
 #define LOC_ADDR(h) ((uint8_t *)(h)  + sizeof(locator_hdr_t))
 
 /*
@@ -540,6 +547,11 @@ static void mapping_record_init_hdr(mapping_record_hdr_t *h) {
 
 #define MAP_REC_EID_PLEN(h) ((mapping_record_hdr_t *)(h))->eid_prefix_length
 #define MAP_REC_LOC_COUNT(h) ((mapping_record_hdr_t *)(h))->locator_count
+#define MAP_REC_ACTION(h) ((mapping_record_hdr_t *)(h))->action
+#define MAP_REC_AUTH(h) ((mapping_record_hdr_t *)(h))->authoritative
+#define MAP_REC_TTL(h) ((mapping_record_hdr_t *)(h))->action
+#define MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mapping_record_hdr_t)
+#define MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
 
 
 /*
@@ -589,6 +601,8 @@ static inline uint16_t eid_prefix_record_get_len(eid_prefix_record *record) {
     return(record->len);
 }
 
+
+#define EID_REC_ADDR(h) (uint8_t *)(h) + sizeof(eid_record_hdr_t)
 
 
 /*

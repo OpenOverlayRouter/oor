@@ -55,7 +55,7 @@ int rloc_probing(
  * Program RLOC probing for each locator of the mapping
  */
 
-void programming_rloc_probing(mapping_t *mapping);
+void mapping_program_rloc_probing(mapping_t *mapping);
 
 /*
  * Program RLOC probing for each proxy-ETR
