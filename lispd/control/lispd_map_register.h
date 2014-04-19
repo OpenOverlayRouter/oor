@@ -132,9 +132,7 @@ extern timer *map_register_timer;
 int map_register_cb(timer *t, void *arg);
 int map_register_all_eids();
 
-uint8_t *build_map_register_pkt(
-        mapping_t       *mapping,
-        int                     *mrp_len);
+uint8_t *build_map_register_pkt(mapping_t *mapping, int *mrp_len);
 
 /*
  * Build and send a map register for the mapping entry passed as argument.

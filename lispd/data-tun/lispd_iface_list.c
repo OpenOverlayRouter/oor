@@ -89,8 +89,8 @@ lispd_iface_elt *add_interface(char *iface_name)
         if (default_rloc_afi != AF_INET6){
             err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
             if (err == GOOD){
-                iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
-                bind_socket_src_address(iface->out_socket_v4,iface->ipv4_address);
+                iface->out_socket_v4 = open_device_bound_raw_socket(iface->iface_name,AF_INET);
+                bind_socket_address(iface->out_socket_v4,iface->ipv4_address);
                 add_rule(AF_INET,
                         0,                      //iface
                         iface->iface_index,     //table
@@ -111,8 +111,8 @@ lispd_iface_elt *add_interface(char *iface_name)
             if (default_rloc_afi != AF_INET){
                 err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
                 if (err == GOOD){
-                    iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
-                    bind_socket_src_address(iface->out_socket_v6,iface->ipv6_address);
+                    iface->out_socket_v6 = open_device_bound_raw_socket(iface->iface_name,AF_INET6);
+                    bind_socket_address(iface->out_socket_v6,iface->ipv6_address);
                     add_rule(AF_INET6,
                             0,                      //iface
                             iface->iface_index,     //table
@@ -174,10 +174,8 @@ lispd_iface_elt *add_interface(char *iface_name)
  * The mapping is added just one time
  */
 
-int add_mapping_to_interface (
-        lispd_iface_elt         *interface,
-        mapping_t       *mapping,
-        int                     afi)
+int add_mapping_to_interface(lispd_iface_elt *interface, mapping_t *mapping,
+        int afi)
 {
     iface_mappings_list       *mappings_list       = NULL;
     iface_mappings_list       *prev_mappings_list  = NULL;
@@ -594,42 +592,35 @@ iface_list_elt *get_head_interface_list()
 }
 
 
-/*
- * Recalculate balancing vector of the mappings assorciated to iface
- */
-
-void iface_balancing_vectors_calc(lispd_iface_elt  *iface)
-{
-    iface_mappings_list   *mapping_list       = NULL;
-    lcl_mapping_extended_info   *lcl_extended_info  = NULL;
+/* Recalculate balancing vector of the mappings associated to iface */
+void
+iface_balancing_vectors_calc(lispd_iface_elt *iface) {
+    iface_mappings_list *mapping_list = NULL;
+    lcl_mapping_extended_info *lcl_extended_info = NULL;
 
     mapping_list = iface->head_mappings_list;
-    while (mapping_list != NULL){
-        lcl_extended_info = (lcl_mapping_extended_info *)(mapping_list->mapping->extended_info);
-        calculate_balancing_vectors (
-                mapping_list->mapping,
+    while (mapping_list != NULL) {
+        lcl_extended_info = mapping_list->mapping->extended_info;
+        calculate_balancing_vectors(mapping_list->mapping,
                 &(lcl_extended_info->outgoing_balancing_locators_vecs));
         mapping_list = mapping_list->next;
     }
 }
 
-/*
- * Close all the open output sockets associated to interfaces
- */
-
-void close_output_sockets()
-{
-    iface_list_elt    *interface_list_elt = NULL;
-    lispd_iface_elt         *iface              = NULL;
+/* Close all the open output sockets associated to interfaces */
+void
+close_output_sockets() {
+    iface_list_elt *interface_list_elt = NULL;
+    lispd_iface_elt *iface = NULL;
 
     interface_list_elt = head_interface_list;
-    while (interface_list_elt != NULL){
+    while (interface_list_elt != NULL) {
         iface = interface_list_elt->iface;
-        if (iface->out_socket_v4 != -1){
-            close (iface->out_socket_v4);
+        if (iface->out_socket_v4 != -1) {
+            close(iface->out_socket_v4);
         }
-        if (iface->out_socket_v6 != -1){
-            close (iface->out_socket_v6);
+        if (iface->out_socket_v6 != -1) {
+            close(iface->out_socket_v6);
         }
 
         interface_list_elt = interface_list_elt->next;

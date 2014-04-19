@@ -380,12 +380,12 @@ int lispd_get_iface_address(
         case AF_INET:
             s4 = (struct sockaddr_in *)(ifa->ifa_addr);
             if (strcmp(ifa->ifa_name, ifacename) == 0) {
-                ip_addr_set_v4(lisp_addr_get_ip(&ip), (void *)&(s4->sin_addr));
+                ip_addr_set_v4(lisp_addr_ip(&ip), (void *)&(s4->sin_addr));
                 lisp_addr_set_afi(&ip, LM_AFI_IP);
 //                memcpy((void *) &(ip.address),
 //                       (void *)&(s4->sin_addr), sizeof(struct in_addr));
 //                ip.afi = AF_INET;
-                if (is_link_local_addr(ip) != TRUE){
+                if (is_link_local_addr(&ip) != TRUE){
                     lisp_addr_copy(addr, &ip);
 //                    copy_lisp_addr(addr,&ip);
                 }else{
@@ -417,7 +417,7 @@ int lispd_get_iface_address(
 //                       (void *)&(s6->sin6_addr),
 //                       sizeof(struct in6_addr));
 //                addr->afi = AF_INET6;
-                ip_addr_set_v6(lisp_addr_get_ip(addr), (void *)&(s6->sin6_addr) );
+                ip_addr_set_v6(lisp_addr_ip(addr), (void *)&(s6->sin6_addr) );
                 lisp_addr_set_afi(addr, LM_AFI_IP);
                 lmlog(LISP_LOG_DEBUG_2, "lispd_get_iface_address: IPv6 RLOC from interface (%s): %s\n",
                         ifacename, 
@@ -567,23 +567,26 @@ int isfqdn(char *s)
  *          IPv6: fe80::/10
  */
 
-int is_link_local_addr (lisp_addr_t addr)
+int is_link_local_addr(lisp_addr_t *addr)
 {
     int         is_link_local = FALSE;
     uint32_t    ipv4_network  = 0;
     uint32_t    mask          = 0;
+    void *ad;
 
-    switch (addr.afi){
+    ad = ip_addr_get_addr(lisp_addr_ip(addr));
+    switch (lisp_addr_ip_afi(addr)){
     case AF_INET:
         inet_pton(AF_INET,"169.254.0.0",&(ipv4_network));
         inet_pton(AF_INET,"255.255.0.0",&(mask));
-        if ((addr.address.ip.s_addr & mask) == ipv4_network){
+
+        if ((((struct in_addr)ad)->s_addr & mask) == ipv4_network){
             is_link_local = TRUE;
         }
         break;
     case AF_INET6:
-        if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
-                ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
+        if (((((struct in6_addr)ad)->__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
+                ((((struct in6_addr)ad)->__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
             is_link_local = TRUE;
         }
         break;
@@ -647,12 +650,12 @@ int get_lisp_addr_from_char (
     lisp_addr->afi = get_afi(address);
     switch (lisp_addr->afi){
     case AF_INET:
-        if (inet_pton(AF_INET,address, ip_addr_get_addr(lisp_addr_get_ip(lisp_addr)))==1){
+        if (inet_pton(AF_INET,address, ip_addr_get_addr(lisp_addr_ip(lisp_addr)))==1){
             result = GOOD;
         }
         break;
     case AF_INET6:
-        if (inet_pton(AF_INET6,address, ip_addr_get_addr(lisp_addr_get_ip(lisp_addr)))==1){
+        if (inet_pton(AF_INET6,address, ip_addr_get_addr(lisp_addr_ip(lisp_addr)))==1){
             result = GOOD;
         }
         break;

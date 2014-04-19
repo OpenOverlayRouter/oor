@@ -149,13 +149,13 @@ static inline glist_t *mreq_msg_get_eids(map_request_msg *mreq) {
 
 char *mreq_hdr_to_char(map_request_hdr_t *);
 
-#define MREQ_HDR_CAST(h) ((map_request_hdr_t *)(h))
-#define MREQ_REC_COUNT(h) ((map_request_hdr_t *)(h))->record_count
-#define MREQ_RLOC_PROBE(h) ((map_request_hdr_t *)(h))->rloc_probe
-#define ITR_RLOC_COUNT(h) ((map_request_hdr_t *)(h))->additional_itr_rloc_count
-#define MREQ_NONCE(h) ((map_request_hdr_t *)(h))->nonce
-#define MREQ_SMR(h) ((map_request_hdr_t *)(h))->solicit_map_request
-#define MREQ_SMR_INVOKED(h) ((map_request_hdr_t *)(h))->smr_invoked
+#define MREQ_HDR_CAST(h_) ((map_request_hdr_t *)(h_))
+#define MREQ_REC_COUNT(h_) (MREQ_HDR_CAST(h_))->record_count
+#define MREQ_RLOC_PROBE(h_) (MREQ_HDR_CAST(h_))->rloc_probe
+#define ITR_RLOC_COUNT(h_) (MREQ_HDR_CAST(h_))->additional_itr_rloc_count
+#define MREQ_NONCE(h_) (MREQ_HDR_CAST(h_))->nonce
+#define MREQ_SMR(h_) (MREQ_HDR_CAST(h_))->solicit_map_request
+#define MREQ_SMR_INVOKED(h_) (MREQ_HDR_CAST(h_))->smr_invoked
 
 
 

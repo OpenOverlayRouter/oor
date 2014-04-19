@@ -95,6 +95,6 @@ typedef struct lispd_pkt_auth_field_t_ {
 } PACKED lispd_pkt_auth_field_t;
 
 
-int process_map_notify(map_notify_msg *msg);
+int process_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
 
 #endif /*LISPD_MAP_NOTIFY_H_*/

@@ -53,6 +53,15 @@ int encapsulated_map_register_process();
 
 timer *map_register_timer = NULL;
 
+
+void
+map_register_resend(lisp_ctrl_dev_t *dev, int time) {
+    if (!map_register_timer) {
+        map_register_timer = create_timer(MAP_REGISTER_TIMER);
+    }
+    start_timer(map_register_timer, time, map_register_cb, NULL);
+}
+
 /*
  * Timer and arg parameters are not used but must be defined to be consistent
  * with timer call back function.
@@ -87,31 +96,55 @@ int map_register_all_eids() {
     return (result);
 }
 
+static int
+build_map_register(lbuf_t **b, mapping_t *m, char *key, lisp_key_type_t keyid) {
+    *b = lisp_msg_create(LISP_MAP_REGISTER);
+    if (lisp_msg_put_empty_auth_record(*b, keyid) != GOOD) {
+        return(BAD);
+    }
+    if (lisp_msg_put_mapping(*b, m) != GOOD) {
+        return(BAD);
+    }
+    if (lisp_msg_fill_auth_data(b, key, keyid) != GOOD) {
+        return(BAD);
+    }
+    return(GOOD);
+}
+
 
 int map_register_process()
 {
-    mapping_t         *mapping          = NULL;
-    void                      *it               = NULL;
+    mapping_t *mapping;
+    void *it = NULL;
+    lbuf_t *mreg;
+    lisp_key_type_t keyid = HMAC_SHA_1_96;
+    /* TODO
+     * - configurable keyid
+     * - multiple MSes
+     */
 
     local_map_db_foreach_entry(it) {
         mapping = (mapping_t *)it;
-        if (mapping->locator_count != 0){
-            err = build_and_send_map_register_msg(mapping);
-            if (err != GOOD){
-                lmlog(LISP_LOG_ERR, "map_register: Coudn't register %s EID!",
+        if (mapping->locator_count != 0) {
+            build_map_register(&mreg, mapping, map_servers->key, keyid);
+            core_send_msg(mreg); //XXX
+            lisp_msg_destroy(mreg);
+//            err = build_and_send_map_register_msg(mapping);
+            if (err != GOOD) {
+                lmlog(LISP_LOG_ERR, "Coudn't send Map-Register for EID  %s!",
                         lisp_addr_to_char(mapping_eid(mapping)));
             }
         }
     } local_map_db_foreach_end;
 
-    /*
-     * Configure timer to send the next map register.
-     */
+    /* Configure timer to send the next map register. */
     if (map_register_timer == NULL) {
         map_register_timer = create_timer(MAP_REGISTER_TIMER);
     }
-    start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register_cb, NULL);
-    lmlog(LISP_LOG_DEBUG_1, "Reprogrammed map register in %d seconds",MAP_REGISTER_INTERVAL);
+    start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register_cb,
+            NULL);
+    lmlog(DBG_1, "Reprogrammed Map-Register process in %d seconds",
+            MAP_REGISTER_INTERVAL);
     return(GOOD);
 }
 
@@ -135,7 +168,7 @@ int encapsulated_map_register_process()
     if (nat_emr_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
 
         if (nat_emr_nonce->retransmits > 0){
-            lmlog(LISP_LOG_DEBUG_1,"No Map Notify received. Retransmitting encapsulated map register.");
+            lmlog(DBG_1,"No Map Notify received. Retransmitting encapsulated map register.");
         }
 
         local_map_db_foreach_entry(it) {
@@ -225,7 +258,7 @@ int build_and_send_map_register_msg(mapping_t *mapping)
     int                       out_socket            = 0;
 
     if ((map_register_pkt = build_map_register_pkt(mapping, &map_reg_packet_len)) == NULL) {
-        lmlog(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couldn't build map register packet");
+        lmlog(DBG_1, "build_and_send_map_register_msg: Couldn't build map register packet");
         return(BAD);
     }
 
@@ -252,7 +285,7 @@ int build_and_send_map_register_msg(mapping_t *mapping)
                 map_reg_packet_len,
                 (uchar *) map_register->auth_data,
                 &md_len)) {
-            lmlog(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: HMAC failed for map-register");
+            lmlog(DBG_1, "build_and_send_map_register_msg: HMAC failed for map-register");
             ms = ms->next;
             continue;
         }
@@ -266,7 +299,7 @@ int build_and_send_map_register_msg(mapping_t *mapping)
         out_socket  = get_default_ctrl_socket (ms->address->afi);
 
         if (src_addr == NULL){
-            lmlog(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: Couden't send Map Register to %s, no output interface with afi %d.",
+            lmlog(DBG_1, "build_and_send_map_register_msg: Couden't send Map Register to %s, no output interface with afi %d.",
                     lisp_addr_to_char(ms->address), ms->address->afi);
             ms = ms->next;
             continue;
@@ -286,7 +319,7 @@ int build_and_send_map_register_msg(mapping_t *mapping)
                                         &packet_len);
 
         if (packet == NULL){
-            lmlog(LISP_LOG_DEBUG_1,"build_and_send_map_register_msg: Couldn't send Map-Register. Error adding IP and UDP header to the message");
+            lmlog(DBG_1,"build_and_send_map_register_msg: Couldn't send Map-Register. Error adding IP and UDP header to the message");
             ms = ms->next;
             continue;
         }
@@ -296,7 +329,7 @@ int build_and_send_map_register_msg(mapping_t *mapping)
          */
 
         if ((err = send_packet(out_socket,packet,packet_len))==GOOD){
-            lmlog(LISP_LOG_DEBUG_1, "Sent Map-Register message for %s to Map Server at %s",
+            lmlog(DBG_1, "Sent Map-Register message for %s to Map Server at %s",
                     lisp_addr_to_char(mapping_eid(mapping)),
                     lisp_addr_to_char(ms->address));
             sent_map_registers++;
@@ -453,9 +486,9 @@ int build_and_send_ecm_map_register(
     /* Get Src Iface information */
 
     if (src_iface == NULL){
-        lmlog(LISP_LOG_DEBUG_1, "build_and_send_ecm_map_register: Couden't send Encapsulated Map Register to %s, no output interface with afi %d.",
+        lmlog(DBG_1, "build_and_send_ecm_map_register: Couden't send Encapsulated Map Register to %s, no output interface with afi %d.",
                 lisp_addr_to_char(map_server->address),
-                ip_addr_afi(lisp_addr_get_ip(map_server->address)));
+                ip_addr_afi(lisp_addr_ip(map_server->address)));
         return (BAD);
     }
 
@@ -471,7 +504,7 @@ int build_and_send_ecm_map_register(
     }
 
     if (src_addr == NULL){
-        lmlog(LISP_LOG_DEBUG_2, "build_and_send_ecm_map_register: No output interface for afi %d",nat_rtr_addr->afi);
+        lmlog(DBG_2, "build_and_send_ecm_map_register: No output interface for afi %d",nat_rtr_addr->afi);
         free (map_register_pkt);
         return (BAD);
     }
@@ -502,19 +535,19 @@ int build_and_send_ecm_map_register(
     free (ecm_map_register);
 
     if (packet == NULL){
-        lmlog(LISP_LOG_DEBUG_2, "build_and_send_ecm_map_register: Couldn't send Encapsulated Map Register. Error adding IP and UDP header to the message");
+        lmlog(DBG_2, "build_and_send_ecm_map_register: Couldn't send Encapsulated Map Register. Error adding IP and UDP header to the message");
         return (BAD);
     }
 
     if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
-        lmlog(LISP_LOG_DEBUG_1, "Sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
+        lmlog(DBG_1, "Sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length,
                 get_char_from_lisp_addr_t(*(map_server->address)),
                 get_char_from_lisp_addr_t(*nat_rtr_addr));
         result = GOOD;
     }else{
-        lmlog(LISP_LOG_DEBUG_1, "build_and_send_ecm_map_register: Couldn't sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
+        lmlog(DBG_1, "build_and_send_ecm_map_register: Couldn't sent Encapsulated Map-Register message for %s/%d to Map Server at %s through RTR %s",
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length,
                 get_char_from_lisp_addr_t(*(map_server->address)),

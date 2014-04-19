@@ -42,103 +42,103 @@
 #include <lisp_messages.h>
 
 
-int process_map_notify(map_notify_msg *msg)
+int process_map_notify(lisp_ctrl_dev_t *dev, lbuf_t *b)
 {
 
-    lisp_addr_t                         *eid                        = NULL;
-    mapping_record                      *record                     = NULL;
-    int                                 next_timer_time             = 0;
-    int                                 result                      = BAD;
-    auth_field                          *afield                     = NULL;
-    mapping_t                           *mapping                    = NULL;
-    mapping_t                           *local_mapping              = NULL;
-    mapping_t                           *mcache_mapping             = NULL;
-    map_cache_entry_t               *mce                        = NULL;
+    lisp_addr_t *eid;
+    mapping_t *m, *local_mapping, *mcache_mapping;
+    map_cache_entry_t *mce;
+    void *hdr;
+    int i;
+    locator_t *probed;
 
-    /* FC XXX: what is this? */
-    if (mnotify_msg_hdr(msg)->xtr_id_present == TRUE) {
-        if (check_nonce(nat_emr_nonce, mnotify_msg_hdr(msg)->nonce) == GOOD){
-            lmlog(DBG_3, "Data Map Notify: Correct nonce");
+    hdr = lisp_msg_pull_hdr(b);
+
+    /* TODO: compare nonces in all cases not only NAT */
+    if (MNTF_XTR_ID_PRESENT(hdr) == TRUE) {
+        if (check_nonce(nat_emr_nonce, MNTF_NONCE(hdr)) == GOOD){
+            lmlog(DBG_3, "Correct nonce");
             /* Free nonce if authentication is ok */
-        }else{
-            lmlog(DBG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
-                    nonce_to_char (mnotify_msg_hdr(msg)->nonce));
+        } else {
+            lmlog(DBG_1, "No (Encapsulated) Map Register sent with nonce: %s",
+                    nonce_to_char(MNTF_NONCE(hdr)));
             return (BAD);
         }
     }
 
-    afield = mnotify_msg_auth_data(msg);
-    if (auth_field_check(mnotify_msg_data(msg), mnotify_msg_get_len(msg), afield, map_servers->key)) {
-        record = glist_first_data(mnotify_msg_records(msg));
+    /* TODO: match eid/nonce to ms-key */
+    if (lisp_msg_check_auth_field(b, map_servers->key) != GOOD) {
+        lmlog(DBG_1, "Map-Notify message is invalid");
+        map_register_resend(dev, LISPD_INITIAL_EMR_TIMEOUT);
+        return(BAD);
+    }
 
-        mapping = mapping_init_from_record(record);
-        eid = mapping_eid(mapping);
+    lisp_msg_pull_auth_field(b);
+
+    for (i = 0; i <= MNTF_REC_COUNT(hdr); i++) {
+        m = mapping_new();
+        if (lisp_msg_parse_mapping_record(b, m, probed) != GOOD) {
+            mapping_del(m);
+            return(BAD);
+        }
+
+        eid = mapping_eid(m);
 
         local_mapping = local_map_db_lookup_eid_exact(eid);
         if (!local_mapping) {
-            lmlog(DBG_1, "Map-Notify confirms registration of UNKNOWN EID %s. Dropping!",
-                    lisp_addr_to_char(mapping_eid(mapping)));
+            lmlog(DBG_1, "Map-Notify confirms registration of UNKNOWN EID %s. "
+                    "Dropping!", lisp_addr_to_char(mapping_eid(m)));
+            continue;
         }
 
-        lmlog(DBG_1, "Map-Notify message confirms correct registration of %s", lisp_addr_to_char(eid));
+        lmlog(DBG_1, "Map-Notify message confirms correct registration of %s",
+                lisp_addr_to_char(eid));
 
         /* === merge semantics on === */
-        if (mapping_cmp(local_mapping, mapping) != 0 || lisp_addr_is_mc(eid)) {
+        if (mapping_cmp(local_mapping, m) != 0 || lisp_addr_is_mc(eid)) {
             lmlog(DBG_1, "Merge-Semantics on, moving returned mapping to map-cache");
 
             /* Save the mapping returned by the map-notify in the mapping cache */
             mcache_mapping = mcache_lookup_mapping(eid);
-            if (mcache_mapping && mapping_cmp(mcache_mapping, mapping) != 0) {
+            if (mcache_mapping && mapping_cmp(mcache_mapping, m) != 0) {
                 /* UPDATED rlocs */
-                lmlog(DBG_3, "Prefix %s already registered, updating locators", lisp_addr_to_char(eid));
-                mapping_update_locators(mcache_mapping, mapping->head_v4_locators_list, mapping->head_v6_locators_list, mapping->locator_count);
+                lmlog(DBG_3, "Prefix %s already registered, updating locators",
+                        lisp_addr_to_char(eid));
+                mapping_update_locators(mcache_mapping,
+                        m->head_v4_locators_list,
+                        m->head_v6_locators_list,
+                        m->locator_count);
 
                 mapping_compute_balancing_vectors(mcache_mapping);
                 mapping_program_rloc_probing(mcache_mapping);
 
                 /* cheap hack to avoid cloning */
-                mapping->head_v4_locators_list = NULL;
-                mapping->head_v6_locators_list = NULL;
-                mapping_del(mapping);
+                m->head_v4_locators_list = NULL;
+                m->head_v6_locators_list = NULL;
+                mapping_del(m);
             } else if (!mcache_mapping) {
                 /* FIRST registration */
-                if (mcache_add_mapping(mapping) != GOOD) {
-                    mapping_del(mapping);
+                if (mcache_add_mapping(m) != GOOD) {
+                    mapping_del(m);
                     return(BAD);
                 }
 
-                /* ACTIVATE the mapping */
-                /* XXX: still works with the old method of looking up the mcache entry */
-                mce = map_cache_lookup_exact(eid);
-                mce->active = 1;
-                mapping_program_rloc_probing(mcache_entry_mapping(mce));
-                map_cache_entry_start_expiration_timer(mce);
-                mapping_compute_balancing_vectors(mcache_entry_mapping(mce));
-
                 /* for MC initialize the JIB */
-                if (lisp_addr_is_mc(eid) && !mapping_get_re_data(mcache_entry_mapping(mce)))
+                if (lisp_addr_is_mc(eid)
+                        && !mapping_get_re_data(mcache_entry_mapping(mce))) {
                     mapping_init_re_data(mcache_entry_mapping(mce));
-
+                }
             }
-
         }
 
-        next_timer_time = MAP_REGISTER_INTERVAL;
-        free (nat_emr_nonce);
+        free(nat_emr_nonce);
         nat_emr_nonce = NULL;
-        result = GOOD;
-    } else{
-        lmlog(DBG_1, "Map-Notify message is invalid");
-        next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
-        result = BAD;
+        map_register_resend(dev, MAP_REGISTER_INTERVAL);
+
     }
 
-    if (map_register_timer == NULL) {
-        map_register_timer = create_timer(MAP_REGISTER_TIMER);
-    }
-    start_timer(map_register_timer, next_timer_time, map_register_cb, NULL);
+    return(GOOD);
 
-    return(result);
 
 }
 

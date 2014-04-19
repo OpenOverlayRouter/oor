@@ -1,9 +1,9 @@
 /*
- * lisp_rtr.h
+ * lisp_proto.c
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,21 +26,3 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#ifndef LISP_RTR_H_
-#define LISP_RTR_H_
-
-#include <defs.h>
-#include "lisp_ctrl_device.h"
-
-typedef struct _lisp_rtr {
-    lisp_ctrl_dev_t super; /* base "class". MUST be first */
-
-    /* rtr members */
-    map_cache_db *map_cache;
-    local_map_db *local_mdb;
-} lisp_rtr;
-
-lisp_ctrl_dev_t *rtr_ctrl_init();
-
-
-#endif /* LISP_RTR_H_ */

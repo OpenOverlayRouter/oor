@@ -736,7 +736,7 @@ int configure_xtr(cfg_t *cfg) {
     HashTable               *lcaf_ht                = NULL;
 
     /* initialize xtr */
-    ctrl_dev = (lisp_ctrl_device *)xtr_ctrl_init();
+    ctrl_dev = (lisp_ctrl_dev_t *)xtr_ctrl_init();
 
     /* create lcaf hash table */
     lcaf_ht = hash_table_new(g_str_hash, g_str_equal, free, (DestroyFunc)lisp_addr_del);
@@ -983,7 +983,7 @@ int configure_ms(cfg_t *cfg) {
     HashTable           *lcaf_ht    = NULL;
     int i;
 
-    ctrl_dev = (lisp_ctrl_device *)ms_ctrl_init();
+    ctrl_dev = (lisp_ctrl_dev_t *)ms_ctrl_init();
 
 
     /* create lcaf hash table */
@@ -1780,7 +1780,7 @@ int add_server(
     lisp_addr_ip_set_afi(addr, afi);
 
 //    if (inet_pton(afi, server, &(addr->address)) != 1) {
-    if (inet_pton(afi, server,  ip_addr_get_addr(lisp_addr_get_ip(addr))) != 1) {
+    if (inet_pton(afi, server,  ip_addr_get_addr(lisp_addr_ip(addr))) != 1) {
         lmlog(LISP_LOG_ERR, "add_server: Wrong address format: %s", strerror(errno));
         lisp_addr_del(addr);
         return(BAD);
@@ -1862,7 +1862,7 @@ int add_map_server(
 //            (void *) *(hptr->h_addr_list), sizeof(lisp_addr_t));
 //    addr->afi = hptr->h_addrtype;
     addr = lisp_addr_new_afi(LM_AFI_IP);
-    ip_addr_init(lisp_addr_get_ip(addr), (void *) *(hptr->h_addr_list), hptr->h_addrtype);
+    ip_addr_init(lisp_addr_ip(addr), (void *) *(hptr->h_addr_list), hptr->h_addrtype);
 
 
     /*

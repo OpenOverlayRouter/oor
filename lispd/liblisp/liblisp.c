@@ -34,10 +34,12 @@ lisp_msg_type(lbuf_t *b) {
     return(hdr->type);
 }
 
-uint8_t
-lisp_msg_parse_type(lbuf_t *b) {
+int
+lisp_msg_parse_type(lbuf_t *b, lisp_msg_type_t *t) {
     lbuf_reset_lisp(b);
-    return(lisp_msg_type(b));
+    lbuf_pull(b, sizeof(uint8_t));
+    t = lisp_msg_type(b);
+    return(GOOD);
 }
 
 /* Process encapsulated map request header:  lisp header and the interal IP and
@@ -52,7 +54,7 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port) {
     void *hdr;
 
     hdr = lbuf_pull_ecm_hdr(pkt);
-    iph = lbuf_pull_ip(pkt);
+    iph = pkt_pull_ip(pkt);
     udph = lbuf_data(pkt);
 
     lmlog(DBG_2, "%s inner IP: %s -> %s inner UDP %d -> %d",
@@ -173,6 +175,7 @@ lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
     locator_t *loc;
     int i;
 
+    probed = NULL;
     mrec_hdr = lbuf_data(b);
     lbuf_pull(b, sizeof(mapping_record_hdr_t));
 
@@ -450,6 +453,113 @@ lisp_msg_hdr_to_char(lbuf_t *b) {
         return(NULL);
     }
 }
+
+
+
+/* Compute and fill auth data field
+ * TODO Support more than SHA1 */
+static int
+auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type_t key_id,
+        const char *key, uint8_t *md, uint32_t *md_len) {
+    switch(key_id) {
+    case NO_KEY:
+        /* FC XXX: what happens here? */
+        *md_len = 0;
+        return(GOOD);
+    case HMAC_SHA_1_96:
+        if (!HMAC((const EVP_MD *) EVP_sha1(),
+                (const void *) key, strlen(key),
+                (uchar *) msg, msg_len,
+                (uchar *) md, md_len)) {
+            lmlog(LISP_LOG_DEBUG_1, "HMAC_SHA_1_96 computation failed!");
+            return(BAD);
+        }
+        break;
+    case HMAC_SHA_256_128:
+        return(BAD);
+    default:
+        return(BAD);
+    }
+    return(GOOD);
+}
+
+int
+lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_t keyid, const char *key) {
+    uint32_t    md_len  = 0;
+
+    void *hdr = lisp_msg_auth_record(b);
+    if (auth_data_fill(lbuf_lisp(b), lbuf_size(b), keyid, key,
+            AUTH_REC_DATA(hdr), &md_len) != GOOD) {
+        return(BAD);
+    }
+
+//    AUTH_REC_KEY_ID(hdr) = htons(keyid);
+//    AUTH_REC_DATA_LEN(hdr) = htons(md_len);
+
+    return(GOOD);
+}
+
+
+
+/* Checks auth field of Map-Reply and Map-Request messages
+ * Returns 1 if validation succeeded and 0 otherwise */
+int
+lisp_msg_check_auth_field(lbuf_t *b, const char *key) {
+    uint8_t     *auth_data_cpy;
+    uint32_t    md_len  = 0;
+    uint8_t     *adptr  = NULL;
+    uint16_t    ad_len;
+    lisp_key_type_t keyid;
+
+    auth_record_hdr_t *hdr;
+
+    hdr = lisp_msg_auth_record(b);
+
+    keyid = ntohs(AUTH_REC_KEY_ID(hdr));
+    ad_len = auth_data_get_len_for_type(keyid);
+    if (ad_len != ntohs(AUTH_REC_DATA_LEN(hdr))) {
+        return(0);
+    }
+    auth_data_cpy = calloc(1, ad_len*sizeof(uint8_t));
+
+    /* set auth field in 0 prior to computing the HMAC (see draft) */
+    adptr = lbuf_data(b);
+    memcpy(auth_data_cpy, adptr, ad_len*sizeof(uint8_t));
+    memset(adptr, 0, ad_len*sizeof(uint8_t));
+
+    if (auth_data_fill(lbuf_lisp(b), lbuf_size(b), keyid, key, adptr, &md_len)
+            != GOOD) {
+        return(0);
+    }
+
+    if ((strncmp((char *)adptr, (char *)auth_data_cpy, (size_t)ad_len)) == 0)
+        return(1);
+    else
+        return(0);
+}
+
+void *
+lisp_msg_pull_auth_field(lbuf_t *b) {
+    void *hdr;
+    lisp_key_type_t keyid;
+
+    hdr = lbuf_pull(b, sizeof(auth_record_hdr_t));
+    keyid = noths(AUTH_REC_KEY_ID(hdr));
+    lbuf_pull(b, auth_data_get_len_for_type(keyid));
+    return(hdr);
+}
+
+void *
+lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type_t keyid) {
+    void *hdr;
+    int len = auth_data_get_len_for_type(keyid);
+    hdr = lbuf_put(b, sizeof(auth_record_hdr_t) + len);
+    AUTH_REC_KEY_ID(hdr) = htons(keyid);
+    AUTH_REC_DATA_LEN(hdr) = htons(len);
+    memset(AUTH_REC_DATA(hdr), 0, len);
+    return(hdr);
+}
+
 
 
 

@@ -622,7 +622,8 @@ static inline uint16_t eid_prefix_record_get_len(eid_prefix_record *record) {
 typedef struct _auth_field_hdr {
     uint16_t key_id;
     uint16_t auth_data_len;
-} auth_field_hdr_t;
+} auth_record_hdr_t;
+
 
 typedef struct _auth_field {
     uint8_t     *auth_data;
@@ -634,24 +635,28 @@ typedef enum {
     NO_KEY,
     HMAC_SHA_1_96,
     HMAC_SHA_256_128
-} lisp_key_type;
+} lisp_key_type_t;
 
 #define LISP_SHA1_AUTH_DATA_LEN         20
+
+#define AUTH_REC_KEY_ID(h_) ((auth_record_hdr_t *)(h_))->key_id
+#define AUTH_REC_DATA_LEN(h_) ((auth_record_hdr_t *)(h_))->auth_data_len
+#define AUTH_REC_DATA(h_) (uint8_t *(h_))+sizeof(auth_record_hdr_t)
+
 
 auth_field *auth_field_new();
 auth_field *auth_field_parse(uint8_t *offset);
 void auth_field_del(auth_field *raf);
-uint16_t auth_data_get_len_for_type(lisp_key_type key_id);
-int auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id, const char *key, uint8_t *md, uint32_t *md_len);
-int auth_field_fill(auth_field_hdr_t *afield, uint8_t *msg, int msg_len, lisp_key_type keyid, const char *key);
-int auth_field_check(uint8_t *msg, uint32_t msg_len, auth_field *afield, const char *key);
+uint16_t auth_data_get_len_for_type(lisp_key_type_t key_id);
+int auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type_t key_id, const char *key, uint8_t *md, uint32_t *md_len);
+
 
 static inline uint8_t *auth_field_get_data(auth_field *af) {
     return(af->data);
 }
 
-static inline auth_field_hdr_t *auth_field_hdr(auth_field *af) {
-    return((auth_field_hdr_t *)af->data);
+static inline auth_record_hdr_t *auth_field_hdr(auth_field *af) {
+    return((auth_record_hdr_t *)af->data);
 }
 
 static inline uint16_t auth_field_get_len(auth_field *af) {
@@ -665,14 +670,14 @@ static inline uint8_t *auth_field_auth_data(auth_field *af) {
 }
 
 
-static inline int auth_field_get_size_for_type(lisp_key_type keyid) {
-    return(auth_data_get_len_for_type(keyid)+sizeof(auth_field_hdr_t));
+static inline int auth_field_get_size_for_type(lisp_key_type_t keyid) {
+    return(auth_data_get_len_for_type(keyid)+sizeof(auth_record_hdr_t));
 }
 
-static inline void auth_field_init(uint8_t *ptr, lisp_key_type keyid) {
-    ((auth_field_hdr_t*)ptr)->key_id = htons(keyid);
-    ((auth_field_hdr_t*)ptr)->auth_data_len = htons(auth_data_get_len_for_type(keyid));
-    memset(CO(ptr, sizeof(auth_field_hdr_t)), 0, auth_data_get_len_for_type(keyid));
+static inline void auth_field_init(uint8_t *ptr, lisp_key_type_t keyid) {
+    ((auth_record_hdr_t*)ptr)->key_id = htons(keyid);
+    ((auth_record_hdr_t*)ptr)->auth_data_len = htons(auth_data_get_len_for_type(keyid));
+    memset(CO(ptr, sizeof(auth_record_hdr_t)), 0, auth_data_get_len_for_type(keyid));
 }
 
 /*

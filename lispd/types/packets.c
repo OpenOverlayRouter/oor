@@ -42,8 +42,148 @@
 
 uint16_t ip_id = 0;
 
+
+uint16_t
+ip_checksum(uint16_t *buffer, int size) {
+    uint32_t cksum = 0;
+
+    while (size > 1) {
+        cksum += *buffer++;
+        size -= sizeof(uint16_t);
+    }
+
+    if (size) {
+        cksum += *(uint8_t *) buffer;
+    }
+
+    cksum = (cksum >> 16) + (cksum & 0xffff);
+    cksum += (cksum >> 16);
+
+    return ((uint16_t) (~cksum));
+}
+
 /*
- * Generate IP header. Returns the poninter to the transport header
+ *
+ *  Calculate the IPv4 UDP checksum (calculated with the whole packet).
+ *
+ *  Parameters:
+ *
+ *  buff    -   pointer to the UDP header
+ *  len -   the UDP packet length.
+ *  src -   the IP source address (in network format).
+ *  dest    -   the IP destination address (in network format).
+ *
+ *  Returns:        The result of the checksum
+ *
+ */
+
+static uint16_t
+udp_ipv4_checksum(const void *b, unsigned int len,
+        in_addr_t src, in_addr_t dst) {
+
+    const uint16_t *buf = b;
+    uint16_t *ip_src = (void *) &src;
+    uint16_t *ip_dst = (void *) &dst;
+    uint32_t length = len;
+    uint32_t sum = 0;
+
+    while (len > 1) {
+        sum += *buf++;
+        if (sum & 0x80000000)
+            sum = (sum & 0xFFFF) + (sum >> 16);
+        len -= 2;
+    }
+
+    /* Add the padding if the packet length is odd */
+
+    if (len & 1)
+        sum += *((uint8_t *) buf);
+
+    /* Add the pseudo-header */
+
+    sum += *(ip_src++);
+    sum += *ip_src;
+
+    sum += *(ip_dst++);
+    sum += *ip_dst;
+
+    sum += htons(IPPROTO_UDP);
+    sum += htons(length);
+
+    /* Add the carries */
+
+    while (sum >> 16)
+        sum = (sum & 0xFFFF) + (sum >> 16);
+
+    /* Return the one's complement of sum */
+
+    return ((uint16_t) (~sum));
+}
+
+uint16_t
+udp_ipv6_checksum(const struct ip6_hdr *ip6, const struct udphdr *up,
+        unsigned int len) {
+    size_t i;
+    register const u_int16_t *sp;
+    uint32_t sum;
+    union {
+        struct {
+            struct in6_addr ph_src;
+            struct in6_addr ph_dst;
+            u_int32_t ph_len;
+            u_int8_t ph_zero[3];
+            u_int8_t ph_nxt;
+        } ph;
+        u_int16_t pa[20];
+    } phu;
+
+    /* pseudo-header */
+    memset(&phu, 0, sizeof(phu));
+    phu.ph.ph_src = ip6->ip6_src;
+    phu.ph.ph_dst = ip6->ip6_dst;
+    phu.ph.ph_len = htonl(len);
+    phu.ph.ph_nxt = IPPROTO_UDP;
+
+    sum = 0;
+    for (i = 0; i < sizeof(phu.pa) / sizeof(phu.pa[0]); i++)
+        sum += phu.pa[i];
+
+    sp = (const u_int16_t *) up;
+
+    for (i = 0; i < (len & ~1); i += 2)
+        sum += *sp++;
+
+    if (len & 1)
+        sum += htons((*(const u_int8_t *) sp) << 8);
+
+    while (sum > 0xffff)
+        sum = (sum & 0xffff) + (sum >> 16);
+    sum = ~sum & 0xffff;
+
+    return (sum);
+}
+
+/*
+ *  upd_checksum
+ *
+ *  Calculate the IPv4 or IPv6 UDP checksum  */
+uint16_t udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi) {
+    switch (afi) {
+    case AF_INET:
+        return (udp_ipv4_checksum(udph, udp_len,
+                ((struct ip *) iphdr)->ip_src.s_addr,
+                ((struct ip *) iphdr)->ip_dst.s_addr));
+    case AF_INET6:
+        return (udp_ipv6_checksum(iphdr, udph, udp_len));
+    default:
+        lmlog(LISP_LOG_DEBUG_2, "udp_checksum: Unknown AFI");
+        return (-1);
+    }
+}
+
+
+/*
+ * Generate IP header. Returns the pointer to the transport header
  */
 
 struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
@@ -257,17 +397,20 @@ int ip_hdr_ver_to_len(int ih_ver) {
     }
 }
 
-void *lbuf_pull_ipv4(struct lbuf *b) {
+void *
+pkt_pull_ipv4(lbuf_t *b) {
     void *data = lbuf_data(b);
     return(lbuf_pull(b, sizeof(struct ip)));
 }
 
-void *lbuf_pull_ipv6(struct lbuf *b) {
+void *
+pkt_pull_ipv6(lbuf_t *b) {
     void *data = lbuf_data(b);
     return(lbuf_pull(b, sizeof(struct ip6_hdr)));
 }
 
-void *lbuf_pull_ip(struct lbuf *b) {
+void *
+pkt_pull_ip(lbuf_t *b) {
     void *data;
     int ip_hdr_len;
 
@@ -280,6 +423,99 @@ void *lbuf_pull_ip(struct lbuf *b) {
     return(lbuf_pull(b, ip_hdr_len));
 }
 
+void *
+pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst) {
+    struct ip *iph;
+    iph = lbuf_push_uninit(b, sizeof(struct ip));
+    lbuf_reset_ip(b);
+
+    iph->ip_hl = 5;
+    iph->ip_v = IPVERSION;
+    iph->ip_tos = 0;
+    iph->ip_len = htons(sizeof(struct ip) + lbuf_size(b));
+    iph->ip_id = htons(get_IP_ID());
+    iph->ip_off = 0; /* XXX Control packets can be fragmented  */
+    iph->ip_ttl = 255;
+    iph->ip_p = IPPROTO_UDP;
+    iph->ip_src.s_addr = src->s_addr;
+    iph->ip_dst.s_addr = dst->s_addr;
+    iph->ip_sum = 0;
+    iph->ip_sum = ip_checksum((uint16_t *) iph, sizeof(struct ip));
+    return(iph);
+}
+
+void *
+pkt_push_ipv6(lbuf_t *b, struct in6_addr *src, struct in6_addr *dst) {
+    struct ip6_hdr *ip6h;
+    ip6h = lbuf_push_uninit(b, sizeof(struct ip6_hdr));
+    lbuf_reset_ip(b);
+
+    ip6h->ip6_hops = 255;
+    ip6h->ip6_vfc = (IP6VERSION << 4);
+    ip6h->ip6_nxt = IPPROTO_UDP;
+    ip6h->ip6_plen = htons(lbuf_size(b));
+    memcpy(ip6h->ip6_src.s6_addr, src->s6_addr, sizeof(struct in6_addr));
+    memcpy(ip6h->ip6_dst.s6_addr, dst->s6_addr, sizeof(struct in6_addr));
+    return(ip6h);
+}
+
+void *
+pkt_push_udp(lbuf_t *b, uint16_t sp, uint16_t dp) {
+    struct udphdr *uh;
+    int udp_len;
+
+    udp_len = sizeof(struct udphdr) + lbuf_size(b);
+    uh = lbuf_push_uninit(b, sizeof(struct udphdr));
+    lbuf_reset_udp(b);
+
+#ifdef BSD
+    uh->uh_sport = htons(port_from);
+    uh->uh_dport = htons(port_dest);
+    uh->uh_ulen = htons(udp_payload_len);
+    uh->uh_sum = 0;
+#else
+    uh->source = htons(sp);
+    uh->dest = htons(dp);
+    uh->len = htons(udp_len);
+    uh->check = 0; /* to be filled in after IP is pushed */
+#endif
+    return(uh);
+}
+
+void *
+pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst) {
+
+    void *iph;
+    if (ip_addr_afi(src) != ip_addr_afi(dst)) {
+        lmlog(DBG_1, "src %s and dst % IP have different AFI! Discarding!",
+                ip_addr_to_char(src), ip_addr_to_char(dst));
+        return(NULL);
+    }
+
+    switch (ip_addr_afi(src)) {
+    case AF_INET:
+        iph = pkt_push_ipv4(b, ip_addr_get_addr(src), ip_addr_get_addr(dst));
+        break;
+    case AF_INET6:
+        iph = pkt_push_ipv6(b, ip_addr_get_addr(src), ip_addr_get_addr(dst));
+        break;
+    }
+
+    return(iph);
+}
+
+int
+pkt_compute_udp_cksum(lbuf_t *b, int afi) {
+    uint16_t udpsum;
+    struct udphdr *uh;
+
+    uh = lbuf_udp(b);
+    if ((udpsum = udp_checksum(uh, ntoh(uh->len), lbuf_ip(b), afi)) == -1) {
+        return (BAD);
+    }
+    udpsum(uh) = udpsum;
+    return(GOOD);
+}
 
 /*
  * Editor modelines

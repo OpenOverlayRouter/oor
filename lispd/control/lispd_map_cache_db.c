@@ -85,15 +85,15 @@ int mcache_add_mapping(mapping_t *m) {
     mcache_entry_init(mce, m);
 
     /* prepare mapping for installment */
-
     mapping_compute_balancing_vectors(m);
 
     /* Reprogramming timers */
     map_cache_entry_start_expiration_timer(mce);
 
     /* RLOC probing timer */
-    if (new_mapping == TRUE && RLOC_PROBING_INTERVAL != 0)
+    if (RLOC_PROBING_INTERVAL) {
         mapping_program_rloc_probing(m);
+    }
 
     return(mdb_add_entry(mdb, addr, mce));
 }
@@ -241,37 +241,6 @@ void map_cache_dump_db(int log_level)
 
 }
 
-void map_cache_entry_start_expiration_timer(map_cache_entry_t *mce) {
-    /* Expiration cache timer */
-    if (!mce->expiry_cache_timer){
-        mce->expiry_cache_timer = create_timer(EXPIRE_MAP_CACHE_TIMER);
-    }
-
-    start_timer(mce->expiry_cache_timer, mce->ttl*60,
-            (timer_callback)map_cache_entry_expiration_cb,(void *)mce);
-
-    lmlog(DBG_1,"The map cache entry %s will expire in %ld minutes.",
-            lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))), mce->ttl);
-}
-
-/*
- * map_cache_entry_expiration()
- *
- * Called when the timer associated with an EID entry expires.
- */
-void map_cache_entry_expiration_cb(timer *t, void *arg)
-{
-    map_cache_entry_t *entry = NULL;
-    mapping_t *mapping = NULL;
-    lisp_addr_t *addr = NULL;
-
-    entry = (map_cache_entry_t *)arg;
-    mapping = mcache_entry_mapping(entry);
-    addr = mapping_eid(mapping);
-    lmlog(DBG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
-
-    mcache_del_mapping(addr);
-}
 
 
 

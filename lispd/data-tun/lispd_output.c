@@ -63,8 +63,8 @@ int extract_5_tuples_from_packet (
 
     switch (iph->version) {
         case 4:
-            ip_addr_set_v4(lisp_addr_get_ip(&tuple->src_addr), &iph->saddr);
-            ip_addr_set_v4(lisp_addr_get_ip(&tuple->dst_addr), &iph->daddr);
+            ip_addr_set_v4(lisp_addr_ip(&tuple->src_addr), &iph->saddr);
+            ip_addr_set_v4(lisp_addr_ip(&tuple->dst_addr), &iph->daddr);
 //            tuple->src_addr.afi = AF_INET;
 //            tuple->dst_addr.afi = AF_INET;
 //            tuple->src_addr.address.ip.s_addr = iph->saddr;
@@ -74,8 +74,8 @@ int extract_5_tuples_from_packet (
             break;
         case 6:
             ip6h = (struct ip6_hdr *) packet;
-            ip_addr_set_v6(lisp_addr_get_ip(&tuple->src_addr), &ip6h->ip6_src);
-            ip_addr_set_v6(lisp_addr_get_ip(&tuple->dst_addr), &ip6h->ip6_dst);
+            ip_addr_set_v6(lisp_addr_ip(&tuple->src_addr), &ip6h->ip6_src);
+            ip_addr_set_v6(lisp_addr_ip(&tuple->dst_addr), &ip6h->ip6_dst);
 //            tuple->src_addr.afi = AF_INET6;
 //            tuple->dst_addr.afi = AF_INET6;
 //            memcpy(&(tuple->src_addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
@@ -173,7 +173,7 @@ void add_ip_header (
      * Construct and add the outer ip header
      */
 
-    switch (ip_addr_afi(lisp_addr_get_ip(dst_addr))){
+    switch (ip_addr_afi(lisp_addr_ip(dst_addr))){
         case AF_INET:
             ip_len = ip_payload_length + sizeof(struct ip);
             iph = (struct ip *) position;
@@ -280,7 +280,7 @@ int encapsulate_packet(
     int         udphdr_len          = 0;
     int         lisphdr_len         = 0;
 
-    encap_afi = ip_addr_afi(lisp_addr_get_ip(src_addr));
+    encap_afi = ip_addr_afi(lisp_addr_ip(src_addr));
 
     switch (encap_afi){
     case AF_INET:
@@ -504,10 +504,10 @@ lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
 
     switch (iph->version) {
     case 4:
-        ip_addr_set_v4(lisp_addr_get_ip(&addr), &iph->daddr);
+        ip_addr_set_v4(lisp_addr_ip(&addr), &iph->daddr);
         break;
     case 6:
-        ip_addr_set_v6(lisp_addr_get_ip(&addr), &ip6h->ip6_dst);
+        ip_addr_set_v6(lisp_addr_ip(&addr), &ip6h->ip6_dst);
         break;
     default:
         lmlog(LISP_LOG_DEBUG_3,"extract_dst_addr_from_packet: uknown ip version %d", iph->version);
@@ -1106,7 +1106,7 @@ int tuple_get_dst_lisp_addr(packet_tuple tuple, lisp_addr_t *addr){
     uint16_t    plen;
     lcaf_addr_t *lcaf;
 
-    if (ip_addr_is_multicast(lisp_addr_get_ip(&(tuple.dst_addr)))) {
+    if (ip_addr_is_multicast(lisp_addr_ip(&(tuple.dst_addr)))) {
         if (lisp_addr_afi(&tuple.src_addr) != LM_AFI_IP || lisp_addr_afi(&tuple.src_addr) != LM_AFI_IP) {
            lmlog(LISP_LOG_DEBUG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not of IP syntax!",
                    lisp_addr_to_char(&tuple.src_addr), lisp_addr_to_char(&tuple.dst_addr));
@@ -1122,7 +1122,7 @@ int tuple_get_dst_lisp_addr(packet_tuple tuple, lisp_addr_t *addr){
         /* XXX this converts from old lisp_addr_t to new struct, potential source for errors*/
 //        addr->lafi = tuple->src_addr.lafi;
         lisp_addr_set_afi(addr, LM_AFI_IP);
-        ip_addr_copy(lisp_addr_get_ip(addr), lisp_addr_get_ip(&(tuple.dst_addr)));
+        ip_addr_copy(lisp_addr_ip(addr), lisp_addr_ip(&(tuple.dst_addr)));
     }
 
     return(GOOD);

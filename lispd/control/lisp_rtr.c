@@ -29,23 +29,23 @@
 #include "lisp_rtr.h"
 #include "lisp_xtr.h"
 
-void rtr_ctrl_start(lisp_ctrl_device *dev) {
+void rtr_ctrl_start(lisp_ctrl_dev_t *dev) {
     lmlog(LISP_LOG_DEBUG_1, "Starting RTR...");
     map_register_all_eids();
 }
 
-void rtr_ctrl_delete(lisp_ctrl_device *dev) {
+void rtr_ctrl_delete(lisp_ctrl_dev_t *dev) {
 
 }
 
 /* implementation of base functions */
-ctrl_device_vtable rtr_vtable = {
+ctrl_dev_class_t rtr_vtable = {
         .process_msg = xtr_process_ctrl_msg,
         .start = rtr_ctrl_start,
         .delete = rtr_ctrl_delete
 };
 
-lisp_ctrl_device *rtr_ctrl_init() {
+lisp_ctrl_dev_t *rtr_ctrl_init() {
     lisp_rtr *rtr;
     rtr = calloc(1, sizeof(lisp_rtr));
     rtr->super.vtable = &rtr_vtable;
@@ -59,5 +59,5 @@ lisp_ctrl_device *rtr_ctrl_init() {
     local_map_db_init();
     map_cache_init();
 
-    return((lisp_ctrl_device *)rtr);
+    return((lisp_ctrl_dev_t *)rtr);
 }

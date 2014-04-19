@@ -3,7 +3,8 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -32,67 +33,150 @@
 #include <lbuf.h>
 #include <cksum.h>
 
-/*
- *  Process a LISP protocol message sitting on
- *  socket s with address family afi
- */
-int process_lisp_ctr_msg(struct sock *sl) {
+/* only one instance for now */
+lisp_ctrl_t *ctrl = lisp_ctrl_create();
 
-//    uint8_t             packet[MAX_IP_PACKET];
-//    lisp_addr_t         local_rloc;
-//    uint16_t            remote_port;
+lisp_ctrl_t *
+lisp_ctrl_create() {
+    lisp_ctrl_t *ctrl = calloc(1, sizeof(lisp_ctrl_t));
+    ctrl->devices = glist_new_managed(lisp_ctrl_destroy);
+    return(ctrl);
+}
+
+void
+lisp_ctrl_destroy(lisp_ctrl_t *ctrl) {
+    glist_del(ctrl->devices);
+    free(ctrl);
+}
+
+
+/*  Process a LISP protocol message sitting on
+ *  socket s with address family afi */
+int
+process_lisp_ctr_msg(struct sock *sl) {
+
     lisp_msg *msg;
-    udpsock_t udpsock;
+    uconn_t uc;
     struct lbuf *packet;
     uint8_t type;
+    lisp_msg_type_t type;
 
-    udpsock.dst_port = LISP_CONTROL_PORT;
+    uc.rp = LISP_CONTROL_PORT;
 
     packet = lbuf_new(MAX_IP_PKT_LEN);
-    if (get_packet_and_socket_inf(sl->fd, packet, &udpsock) != GOOD) {
-        lmlog(LISP_LOG_DEBUG_1, "Couldn't retrieve socket information"
+    if (sock_recv(sl->fd, packet, &uc) != GOOD) {
+        lmlog(DBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
         return (BAD);
     }
 
-    type = lisp_msg_parse_type(packet);
+    lisp_msg_parse_type(packet, &type);
 
-    /* ==================================================== */
-    /* FC: should be moved in xtr once process_info_nat_msg is updated to work with lisp_msg */
-    if (type == LISP_INFO_NAT) {
-        lmlog(LISP_LOG_DEBUG_1,
-                "Received a LISP Info-Request/Info-Reply message");
-        if (!process_info_nat_msg(packet->data, udpsock.dst)) {
-            return (BAD);
-        }
-        return (GOOD);
-    }
-    /* ===================================================  */
+    /* direct call of ctrl device
+     * TODO: check type to decide where to send msg*/
+    ctrl_dev_handle_msg(ctrl_dev, packet, &uc);
 
-    if (type == LISP_ENCAP_CONTROL_TYPE) {
-        if (lisp_msg_ecm_decap(packet, &(udpsock.src_port)) != GOOD)
-            return (BAD);
-    }
-
-//    msg = lisp_msg_parse(packet);
-//    if (!msg || !msg->msg) {
-//        lispd_log_msg(LISP_LOG_DEBUG_2,
-//                "Couldn't parse control message. Discarding ...");
-//        return (BAD);
-//    }
-//
-//    if (msg->encapdata)
-//        if (lisp_msg_ecm_decap(msg->encapdata,
-//                &(udpsock.src_port)) != GOOD)
-//            return (BAD);
-
-    process_ctrl_msg(ctrl_dev, packet, &udpsock);
-//    (*ctrl_dev->process_lisp_ctrl_msg)(msg, &local_rloc, remote_port);
-
-//    lisp_msg_del(msg);
     lbuf_del(packet);
 
     return (GOOD);
+}
+
+int
+ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc) {
+    int sk;
+    int dst_afi = lisp_addr_ip_afi(&uc->ra);
+    lispd_iface_elt *iface;
+
+    if (lisp_addr_afi(&uc->rp) != LM_AFI_IP) {
+        lmlog(DBG_1, "sock_send: dst % of UDP connection is not IP. "
+                "Discarding!", lisp_addr_to_char(&uc->ra));
+        return(BAD);
+    }
+
+    /* FIND the socket where to output the packet
+     * TODO: sockmgr should deal with this, once it's
+     *       implemented */
+    if (lisp_addr_afi(uc->la) == LM_AFI_NO_ADDR) {
+        lisp_addr_copy(&uc->la, get_default_ctrl_address(dst_afi));
+        sk =  get_default_ctrl_socket(dst_afi);
+    } else {
+        iface = get_interface_with_address(&uc->la);
+        if (iface) {
+            sk = get_iface_socket(iface, dst_afi);
+        } else {
+            sk = get_default_ctrl_socket(dst_afi);
+        }
+    }
+
+    return(sock_send(sk, b, uc));
+}
+
+/* TODO: should change to get_updated_interfaces */
+int
+ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr, int *mcount) {
+    iface_list_elt *iface_list = NULL;
+    mapping_t *m;
+    iface_mappings_list *mlist;
+    int mappings_ctr, ctr, nb_mappings;
+
+    iface_list = get_head_interface_list();
+
+    while (iface_list) {
+        if ((iface_list->iface->status_changed == TRUE)
+             || (iface_list->iface->ipv4_changed == TRUE)
+             || (iface_list->iface->ipv6_changed == TRUE)) {
+            mlist = iface_list->iface->head_mappings_list;
+            while (mlist != NULL && mappings_ctr < nb_mappings) {
+                if (iface_list->iface->status_changed == TRUE
+                    || (iface_list->iface->ipv4_changed == TRUE && mlist->use_ipv4_address == TRUE)
+                    || (iface_list->iface->ipv6_changed == TRUE && mlist->use_ipv6_address == TRUE)) {
+                    m = mlist->mapping;
+                    for (ctr=0; ctr< mappings_ctr; ctr++) {
+                        if (mappings_to_smr[ctr] == m) {
+                            break;
+                        }
+                    }
+                    if (mappings_to_smr[ctr] != m) {
+                        mappings_to_smr[mappings_ctr] = m;
+                        mappings_ctr ++;
+                    }
+                }
+                mlist = mlist->next;
+            }
+        }
+
+        iface_list->iface->status_changed = FALSE;
+        iface_list->iface->ipv4_changed = FALSE;
+        iface_list->iface->ipv6_changed = FALSE;
+        iface_list = iface_list->next;
+    }
+    *mcount = mappings_ctr;
+    return(GOOD);
+}
+
+void
+ctrl_if_addr_update(lispd_iface_elt *iface, lisp_addr_t *old) {
+
+    /* Check if the new address is behind NAT */
+    if(nat_aware==TRUE){
+        // TODO : To be modified when implementing NAT per multiple interfaces
+        nat_status = UNKNOWN;
+        if (iface->status == UP){
+            initial_info_request_process();
+        }
+    }
+
+    /* TODO: should store and pass updated rloc in the future
+     * The old, and current solution is to keep a mapping between mapping_t
+     * and iface to identify mapping_t(s) for which SMRs have to be sent. In
+     * the future this should be decoupled and only the affected RLOC should
+     * be passed to ctrl_dev */
+    ctrl_dev_program_smr();
+}
+
+void
+ctrl_if_status_update() {
+    ctrl_dev_program_smr();
 }
 
 /*

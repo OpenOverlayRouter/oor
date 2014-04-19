@@ -33,80 +33,43 @@
 #include <defs.h>
 #include <lispd_types.h>
 #include <lispd_mdb.h>
-//#include "lispd_mapping.h"
-//#include "lispd_nonce.h"
-//#include <patricia/patricia.h>
 
 
-typedef struct _local_map_db {
-    mdb_t *local_mdb;
-} local_map_db;
+typedef struct local_map_db_t_ {
+    mdb_t *db;
+} local_map_db_t;
 
-extern mdb_t *local_mdb;
 
-/*
- * Initialize databases
- */
+extern local_map_db_t *local_mdb;
 
 void local_map_db_init(void);
-
-
-/*
- * Returns the local data base according ton afi
- */
-patricia_tree_t* get_local_db(int afi);
-
-/*
- *  Add a mapping entry to the database.
- */
 int local_map_db_add_mapping(mapping_t *mapping);
-
-/*
- * Delete an EID mapping from the data base. We indicate if it is local or not
- */
 void local_map_db_del_mapping(lisp_addr_t *eid);
-
-/*
- * lookup_eid_in_db
- *
- * Look up a given eid in the database, returning the
- * lispd_mapping_elt of this EID if it exists or NULL.
- */
 mapping_t *local_map_db_lookup_eid(lisp_addr_t *eid);
-
-/*
- * lookup_eid_in_db
- *
- *  Look up a given eid in the database, returning the
- * lispd_mapping_elt containing the exact EID if it exists or NULL.
- */
 mapping_t *local_map_db_lookup_eid_exact(lisp_addr_t *eid_prefix);
 
 
 lisp_addr_t *local_map_db_get_main_eid(int afi);
-
-/*
- * Return the number of IP entries of the given afi in the database
- */
 int local_map_db_num_ip_eids(int afi);
+static int local_map_db_n_entries();
 
-/*
- * dump the mapping list of the database
- */
 void local_map_db_dump(int log_level);
 
 
+static int local_map_db_n_entries() {
+    return(mdb->n_entries);
+}
 
-#define local_map_db_foreach_entry(eit)   \
-    mdb_foreach_entry(local_mdb, (eit)) {   \
-        if (eit)
+#define local_map_db_foreach_entry(eit_)   \
+    mdb_foreach_entry(local_mdb->db, (eit_)) {   \
+        if (eit_)
 
 #define local_map_db_foreach_end  \
     } mdb_foreach_entry_end
 
-#define local_map_db_foreach_ip_entry(eit)   \
-    mdb_foreach_ip_entry(local_mdb, (eit)) {   \
-        if (eit)
+#define local_map_db_foreach_ip_entry(eit_)   \
+    mdb_foreach_ip_entry(local_mdb->db, (eit_)) {   \
+        if (eit_)
 
 #define local_map_db_foreach_ip_end  \
     } mdb_foreach_ip_entry_end

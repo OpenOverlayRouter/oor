@@ -114,7 +114,11 @@ static inline int mnotify_msg_len(map_notify_msg *msg) {
 }
 
 
-#define MNTF_HDR_CAST(h) ((map_notify_hdr_t *)(h))
-#define MNTF_REC_COUNT(hdr) MNTF_HDR_CAST((hdr))->record_count
+#define MNTF_HDR_CAST(h_) ((map_notify_hdr_t *)(h_))
+#define MNTF_I_BIT(h_) (MNTF_HDR_CAST((h_)))->xtr_id_present
+#define MNTF_XTR_ID_PRESENT(h_) (MNTF_HDR_CAST((h_)))->xtr_id_present
+#define MNTF_RTR_AUTH_PRESENT(h_) (MNTF_HDR_CAST((h_)))->rtr_auth_present
+#define MNTF_REC_COUNT(h_) MNTF_HDR_CAST((h_))->record_count
+#define MNTF_NONCE(h_) MNTF_HDR_CAST((h_))->nonce
 
 #endif /* LISP_MAP_NOTIFY_H_ */

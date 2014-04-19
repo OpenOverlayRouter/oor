@@ -34,17 +34,7 @@
 
 #include <defs.h>
 
-uint16_t ip_checksum(uint16_t *buffer,int size);
 
-/*
- *  Calculate the IPv4 or IPv6 UDP checksum
- */
-
-uint16_t udp_checksum (
-     struct udphdr *udph,
-     int       udp_len,
-     void      *iphdr,
-     int       afi);
 
 uint16_t get_auth_data_len(int key_id);
 

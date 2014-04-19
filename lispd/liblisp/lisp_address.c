@@ -125,7 +125,7 @@ inline lm_afi_t lisp_addr_afi(lisp_addr_t *addr) {
     return(addr->lafi);
 }
 
-inline ip_addr_t *lisp_addr_get_ip(lisp_addr_t *addr) {
+inline ip_addr_t *lisp_addr_ip(lisp_addr_t *addr) {
     return(get_ip_(addr));
 }
 
@@ -236,7 +236,7 @@ inline void lisp_addr_ip_to_ippref(lisp_addr_t *laddr) {
         return;
     }
     set_afi_(laddr, LM_AFI_IPPREF);
-    ip_prefix_set_plen(get_ippref_(laddr), ip_addr_afi_to_default_mask(lisp_addr_get_ip(laddr)));
+    ip_prefix_set_plen(get_ippref_(laddr), ip_addr_afi_to_default_mask(lisp_addr_ip(laddr)));
 }
 
 inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr) {

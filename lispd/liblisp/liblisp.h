@@ -44,7 +44,9 @@ int lisp_msg_parse_mapping_record_split(lbuf_t *, lisp_addr_t *, glist_t *,
                                         locator_t *);
 int lisp_msg_parse_mapping_record(lbuf_t *, mapping_t *, locator_t *);
 
-int lisp_msg_put_addr(lbuf_t *, lisp_addr_t *addr);
+int lisp_msg_ecm_decap(struct lbuf *, uint16_t *);
+
+void *lisp_msg_put_addr(lbuf_t *, lisp_addr_t *addr);
 void *lisp_msg_put_locator(lbuf_t *, locator_t *locator);
 void *lisp_msg_put_mapping_hdr(lbuf_t *b, int plen) ;
 void *lisp_msg_put_mapping(lbuf_t *, mapping_t *, locator_t *);
@@ -54,6 +56,11 @@ inline lisp_msg_destroy(lbuf_t *);
 static inline lisp_msg_hdr(lbuf_t *b);
 
 char *lisp_msg_hdr_to_char(lbuf_t *b);
+
+int lisp_msg_fill_auth_data(lbuf_t *, lisp_key_type_t , const char *);
+int lisp_msg_check_auth_field(lbuf_t *, const char *);
+void *lisp_msg_pull_auth_field(lbuf_t *b);
+static void *lisp_msg_auth_record(lbuf_t *);
 
 
 inline void lisp_msg_destroy(lbuf_t *b) {
@@ -68,7 +75,13 @@ static inline lisp_msg_hdr(lbuf_t *b) {
     return(lbuf_lisp(b));
 }
 
-
+/* get pointer of auth field in a message */
+static void *lisp_msg_auth_record(lbuf_t *b) {
+    /* assumption here is that auth field in all messages is at
+     * sizeof(map_notify_hdr_t) from the beginning of the lisp
+     * message */
+    return((uint8_t *)lbuf_lisp(b) + sizeof(map_notify_hdr_t));
+}
 
 
 

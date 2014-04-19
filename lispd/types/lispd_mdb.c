@@ -160,7 +160,7 @@ static patricia_tree_t *_get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_add
     patricia_tree_t         *gtrie  = NULL;
 
     src = lcaf_mc_get_src(mcaddr);
-    srcip = lisp_addr_get_ip(src);
+    srcip = lisp_addr_ip(src);
 
     if (lisp_addr_afi(src) != LM_AFI_IP ) {
         lmlog(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
@@ -227,7 +227,7 @@ static int _add_mc_entry(mdb_t *db, void *entry, lcaf_addr_t *mcaddr) {
     ip_addr_t           *srcip          = NULL;
 
     src = lcaf_mc_get_src(mcaddr);
-    srcip = lisp_addr_get_ip(src);
+    srcip = lisp_addr_ip(src);
 
     if (pt_add_mc_addr(_get_mc_pt_from_afi(db, ip_addr_afi(srcip)), mcaddr, entry) != GOOD) {
         lmlog(LISP_LOG_DEBUG_2, "_add_mc_entry: Attempting to "
@@ -329,6 +329,8 @@ mdb_t *mdb_new()
       exit_cleanup();
     }
 
+    db->n_entries = 0;
+
     return(db);
 }
 
@@ -381,6 +383,7 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
     } else {
         lmlog(LISP_LOG_DEBUG_3, "mdb_add_entry: inserted %s",
                 lisp_addr_to_char(addr));
+        mdb->n_entries++;
         return(GOOD);
     }
 
@@ -390,7 +393,7 @@ void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
 {
     ip_prefix_t *ippref;
     lisp_addr_t *taddr;
-    void *data;
+    void *ret;
 
     switch(lisp_addr_afi(laddr)){
     case LM_AFI_IP:
@@ -398,22 +401,26 @@ void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
         taddr = lisp_addr_clone(laddr);
         lisp_addr_ip_to_ippref(taddr);
         ippref = lisp_addr_get_ippref(taddr);
-        data = pt_remove_ippref(_get_ip_pt_from_afi(db, ip_prefix_get_afi(ippref)), ippref);
+        ret = pt_remove_ippref(_get_ip_pt_from_afi(db, ip_prefix_get_afi(ippref)), ippref);
         lisp_addr_del(taddr);
-        return(data);
+        break;
     case LM_AFI_IPPREF:
         ippref = lisp_addr_get_ippref(laddr);
-        return(pt_remove_ippref(_get_ip_pt_from_afi(db, ip_prefix_get_afi(ippref)), ippref));
+        ret = pt_remove_ippref(_get_ip_pt_from_afi(db, ip_prefix_get_afi(ippref)), ippref);
         break;
     case LM_AFI_LCAF:
-        return(_del_lcaf_entry(db, lisp_addr_get_lcaf(laddr)));
+        ret = _del_lcaf_entry(db, lisp_addr_get_lcaf(laddr));
+        break;
     default:
         lmlog(LISP_LOG_WARNING, "mdb_del_entry: called with unknown AFI:%u",
                 lisp_addr_afi(laddr));
         break;
     }
-    return(NULL);
 
+    if (ret) {
+        mdb->n_entries--;
+    }
+    return(ret);
 }
 
 void *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr)
@@ -475,8 +482,8 @@ int pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data) {
         return(BAD);
     }
 
-    srcip = lisp_addr_get_ip(src);
-    grpip = lisp_addr_get_ip(grp);
+    srcip = lisp_addr_ip(src);
+    grpip = lisp_addr_ip(grp);
 
     splen = lcaf_mc_get_src_plen(mcaddr);
     gplen = lcaf_mc_get_grp_plen(mcaddr);
@@ -569,7 +576,7 @@ void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
         return(NULL);
     }
 
-    gnode = pt_find_ip_node_exact(gtrie, lisp_addr_get_ip(grp), lcaf_mc_get_grp_plen(mcaddr));
+    gnode = pt_find_ip_node_exact(gtrie, lisp_addr_ip(grp), lcaf_mc_get_grp_plen(mcaddr));
 
     if (!gnode){
         lmlog(LISP_LOG_DEBUG_3, "pt_remove_mc_addr: The multicast address %s could not be found!",
@@ -583,7 +590,7 @@ void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
 
     if (pt_test_if_empty(gtrie)){
         Destroy_Patricia(gtrie, NULL);
-        pt_remove_node(strie, pt_find_ip_node_exact(strie, lisp_addr_get_ip(src), lcaf_mc_get_src_plen(mcaddr)));
+        pt_remove_node(strie, pt_find_ip_node_exact(strie, lisp_addr_ip(src), lcaf_mc_get_src_plen(mcaddr)));
     }
 
     return(data);
@@ -670,7 +677,7 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
 //    if (exact)
 //        gnode = pt_find_ip_node_exact(gtrie, lisp_addr_get_ip(grp), lcaf_mc_get_grp_plen(mcaddr));
 //    else
-        gnode = pt_find_ip_node(gtrie, lisp_addr_get_ip(grp));
+        gnode = pt_find_ip_node(gtrie, lisp_addr_ip(grp));
 
 
     return(gnode);

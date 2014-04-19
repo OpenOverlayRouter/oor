@@ -37,7 +37,7 @@
 
 #include "defs.h"
 #include <lisp_address.h>
-#include <lmbuf.h>
+#include <lbuf.h>
 
 //#include "lispd_output.h"
 
@@ -51,6 +51,7 @@ typedef enum {
  * but it could prove useful in the future
  */
 struct sock;
+typedef struct sock sock_t;
 
 struct sock_list {
     struct sock *head;
@@ -61,7 +62,7 @@ struct sock_list {
 
 struct sock {
     sock_type type;
-    int (*func)(struct sock *);
+    int (*recv_cb)(struct sock *);
     void *arg;
     int fd;
     struct sock *next;
@@ -69,11 +70,12 @@ struct sock {
 };
 
 typedef struct _udpsock_t {
-    lisp_addr_t src;
-    lisp_addr_t dst;
-    uint16_t src_port;
-    uint16_t dst_port;
-} udpsock_t;
+    /* TODO: decide if la, ra should be IP */
+    lisp_addr_t la;     /* local address */
+    lisp_addr_t ra;     /* remote address */
+    uint16_t lp;        /* local port */
+    uint16_t rp;        /* remote port */
+} uconn_t;
 
 struct sock_master {
     struct sock_list read;
@@ -95,28 +97,17 @@ extern struct sock *sock_register_read_listener(struct sock_master *m,
 extern void sock_process_all(struct sock_master *m);
 extern void sock_fdset_all_read(struct sock_master *m);
 
-int open_device_binded_raw_socket(char *device, int afi);
-
 int open_data_input_socket(int afi);
-
 int open_control_input_socket(int afi);
 
-int open_udp_socket(int afi);
 
-int bind_socket_src_address(int sock, lisp_addr_t *addr);
-
-/*
- * Sends a raw packet through the specified socket
- */
-
-int send_packet(int sock, uint8_t *packet, int packet_length);
 
 /*
  * Get a packet from the socket. It also returns the destination addres and source port of the packet.
  * Used for control packets
  */
 
-int get_packet_and_socket_inf(int, struct lbuf *, udpsock_t *);
+int sock_recv(int, struct lbuf *, uconn_t *);
 
 int get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
         uint8_t *ttl, uint8_t *tos);

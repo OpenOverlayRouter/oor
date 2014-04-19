@@ -19,8 +19,8 @@
 typedef struct _HashNode HashNode;
 
 struct _HashNode {
-    void * key;
-    void * value;
+    void *key;
+    void *value;
     HashNode *next;
 };
 

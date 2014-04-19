@@ -35,16 +35,7 @@
 /*
  * Send a solicit map request for each rloc of all eids in the map cahce database
  */
-void init_smr(
-        timer *timer_elt,
-        void  *arg);
+void ctrl_dev_send_smr(timer *timer_elt, void *arg);
 
-/*
- * Send a map request smr invoked and reprogram the timer to retransmit in case
- * no receive answer.
- */
-int smr_reply_cb(
-        timer *t,
-        void *arg);
 
 #endif /*LISPD_SMR_H_*/

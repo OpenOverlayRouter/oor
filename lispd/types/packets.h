@@ -68,9 +68,21 @@ uint8_t *build_control_encap_pkt(uint8_t *orig_pkt, int orig_pkt_len,
 /* Returns IP ID for the packet */
 uint16_t get_IP_ID();
 
+
+uint16_t ip_checksum(uint16_t *buffer, int size);
+
+/* Calculate the IPv4 or IPv6 UDP checksum */
+uint16_t udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi);
+
 int ip_hdr_ver_to_len(int ih_ver);
-void *lbuf_pull_ipv4(struct lbuf *b);
-void *lbuf_pull_ipv6(struct lbuf *b);
-void *lbuf_pull_ip(struct lbuf *);
+void *pkt_pull_ipv4(struct lbuf *b);
+void *pkt_pull_ipv6(struct lbuf *b);
+void *pkt_pull_ip(struct lbuf *);
+
+void *pkt_push_ipv4(lbuf_t *, struct in_addr *, struct in_addr *);
+void *pkt_push_ipv6(lbuf_t *, struct in6_addr *, struct in6_addr *);
+void *pkt_push_udp(lbuf_t *, uint16_t , uint16_t );
+void *pkt_push_ip(lbuf_t *, ip_addr_t *, ip_addr_t *);
+int pkt_compute_udp_cksum(lbuf_t *, int afi);
 
 #endif /*LISPD_PKT_LIB_H_*/

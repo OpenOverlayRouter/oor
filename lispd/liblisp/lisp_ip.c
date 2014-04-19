@@ -311,7 +311,7 @@ inline uint8_t ip_iana_afi_to_size(uint16_t afi) {
     return(0);
 }
 
-int ip_addr_is_link_local (ip_addr_t *ipaddr) {
+int ip_addr_is_link_local(ip_addr_t *ipaddr) {
     /*
      * Return TRUE if the address belongs to:
      *          IPv4: 169.254.0.0/16

@@ -50,19 +50,25 @@ typedef struct {
     patricia_tree_t *AF6_ip_db;
     patricia_tree_t *AF4_mc_db;
     patricia_tree_t *AF6_mc_db;
+    int n_entries;
 } mdb_t;
 
 typedef void (*mdb_del_fct)(void *);
 
-mdb_t                   *mdb_new();
-void                    mdb_del(mdb_t *db, mdb_del_fct del_fct);
-int                     mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
-void                    *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
-void                    *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr);
-void                    *mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr);
+mdb_t *mdb_new();
+void mdb_del(mdb_t *db, mdb_del_fct del_fct);
+int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
+void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
+void *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr);
+void *mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr);
+static int mdb_nb_entries(mdb_t *);
 
 patricia_tree_t *_get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf);
 patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);
+
+static int mdb_n_entries(mdb_t *mdb) {
+    return(mdb->n_entries);
+}
 
 #define mdb_foreach_entry(_mdb, _it) \
     do { \
@@ -81,8 +87,8 @@ patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);
     } while (0)
 
 
-#define mdb_foreach_ip_entry(_mdb, _it) \
-    do { \
+#define mdb_foreach_ip_entry(_mdb, _it)     \
+    do {                                    \
         patricia_tree_t *_ptstack[2] = {(_mdb)->AF4_ip_db->head->data, (_mdb)->AF6_ip_db->head->data}; \
         patricia_node_t *_node;                         \
         int _i;                                         \
@@ -97,7 +103,7 @@ patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);
 
 #define mdb_foreach_mc_entry(_mdb, _it) \
     do { \
-        patricia_tree_t *_ptstack[2] = {(_mdb)->AF4_mc_db, (_mdb)->AF6_mc_db}; \
+        patricia_tree_t *_ptstack[2] = {(_mdb)->AF4_mc_db, (_mdb)->AF6_mc_db};  \
         patricia_node_t *_node, *_nodemc;                                       \
         int _i;                                                                 \
         for (_i=0; _i < 2; _i++) {                                              \

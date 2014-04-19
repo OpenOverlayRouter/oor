@@ -266,82 +266,6 @@ void map_request_msg_del(map_request_msg *msg) {
 
 
 
-/*
- * Compute and fill auth data field
- *
- * TODO Support more than SHA1
- */
-
-int auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id, const char *key, uint8_t *md, uint32_t *md_len)
-{
-    switch(key_id) {
-    case NO_KEY:
-        /* FC XXX: what happens here? */
-        *md_len = 0;
-        return(GOOD);
-    case HMAC_SHA_1_96:
-        if (!HMAC((const EVP_MD *) EVP_sha1(),
-                (const void *) key, strlen(key),
-                (uchar *) msg, msg_len,
-                (uchar *) md, md_len)) {
-            lmlog(LISP_LOG_DEBUG_1, "msg_check_auth_field: HMAC_SHA_1_96 computation failed!");
-            return(BAD);
-        }
-        break;
-    case HMAC_SHA_256_128:
-        return(BAD);
-    default:
-        return(BAD);
-    }
-    return(GOOD);
-}
-
-int auth_field_fill(auth_field_hdr_t *afield, uint8_t *msg, int msg_len, lisp_key_type keyid, const char *key) {
-    uint32_t    md_len  = 0;
-//    uint8_t     *adptr  = NULL;
-//    adptr = auth_field_auth_data(afield);
-
-    if (auth_data_fill(msg, msg_len, keyid, key, CO(afield, sizeof(auth_field_hdr_t)), &md_len)!=GOOD)
-        return(BAD);
-
-    afield->key_id = htons(keyid);
-    afield->auth_data_len = htons(md_len);
-    return(GOOD);
-}
-
-
-/* Checks auth field of Map-Reply and Map-Request messages
- * Returns 1 if validation succeeded and 0 otherwise
- */
-int auth_field_check(uint8_t *msg, uint32_t msg_len, auth_field *afield, const char *key) {
-    uint8_t     *auth_data_cpy;
-    uint32_t    md_len  = 0;
-    uint8_t     *adptr  = NULL;
-    uint16_t    ad_len;
-    lisp_key_type keyid;
-
-    keyid = ntohs(auth_field_hdr(afield)->key_id);
-    ad_len = auth_data_get_len_for_type(keyid);
-    if (ad_len != ntohs(auth_field_hdr(afield)->auth_data_len))
-        return(0);
-
-    auth_data_cpy = calloc(1, ad_len*sizeof(uint8_t));
-
-    /* set auth field in 0 prior to computing the HMAC (see draft) */
-    adptr = auth_field_auth_data(afield);
-    memcpy(auth_data_cpy, adptr, ad_len*sizeof(uint8_t));
-    memset(adptr, 0, ad_len*sizeof(uint8_t));
-
-    if (auth_data_fill(msg, msg_len, keyid, key, adptr, &md_len)!=GOOD)
-        return(0);
-
-    if ((strncmp((char *)adptr, (char *)auth_data_cpy, (size_t)ad_len)) == 0)
-        return(1);
-    else
-        return(0);
-}
-
-
 
 /*
  * Map-Register
@@ -394,7 +318,7 @@ err:
 }
 
 int mreg_msg_check_auth(map_register_msg *msg, const char *key) {
-    return(auth_field_check(mreg_msg_data(msg), mreg_msg_get_len(msg), mreg_msg_get_auth_data(msg), key));
+    return(lisp_msg_check_auth_field(mreg_msg_data(msg), mreg_msg_get_len(msg), mreg_msg_get_auth_data(msg), key));
 }
 
 int mreg_msg_get_len(map_register_msg *msg) {
@@ -587,7 +511,7 @@ uint8_t *mnotify_msg_push(map_notify_msg *msg, int len) {
 }
 
 int mnotify_msg_check_auth(map_notify_msg *msg, const char *key) {
-    return(auth_field_check(mnotify_msg_data(msg), mnotify_msg_get_len(msg), mnotify_msg_auth_data(msg), key));
+    return(lisp_msg_check_auth_field(mnotify_msg_data(msg), mnotify_msg_get_len(msg), mnotify_msg_auth_data(msg), key));
 }
 
 

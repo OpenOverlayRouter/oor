@@ -40,8 +40,8 @@ struct lbuf {
     uint32_t allocated;         /* allocated size */
     uint32_t size;              /* size in-use */
 
-//    uint16_t ip_hdr;            /* IP hdr offset*/
-//    uint16_t udp_hdr;           /* UDP hdr offset*/
+    uint16_t ip;                /* IP hdr offset*/
+    uint16_t udp;               /* UDP hdr offset*/
 //
 //    uint16_t lh;                /* lisp hdr offset*/
 //    uint16_t ip_ihdr;           /* inner IP hdr offset */
@@ -67,7 +67,8 @@ static void lbuf_del(lbuf_t *);
 static void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
 static void *lbuf_tail(const lbuf_t *);
 static uint32_t lbuf_end(const lbuf_t *);
-static void *lbuf_data(const lbuf_t *b);
+static void *lbuf_data(const lbuf_t *);
+static int lbuf_size(const lbuf_t *);
 
 void lbuf_prealloc_tailroom(lbuf_t *b, uint32_t);
 void lbuf_prealloc_headroom(lbuf_t *b, uint32_t);
@@ -117,6 +118,10 @@ static void *lbuf_data(const lbuf_t *b) {
     return b->data;
 }
 
+static int lbuf_size(const lbuf_t *b) {
+    return b->size;
+}
+
 /* moves 'data' pointer by 'size'. Returns first byte
  * of data removed */
 static void *lbuf_pull(lbuf_t *b, uint32_t size) {
@@ -126,6 +131,22 @@ static void *lbuf_pull(lbuf_t *b, uint32_t size) {
     b->data = (uint8_t *)b->data + size;
     b->size -= size;
     return data;
+}
+
+static void lbuf_reset_ip(lbuf_t *b) {
+    b->ip = (uint8_t *)b->data - (uint8_t *)b->base;
+}
+
+static void *lbuf_ip(lbuf_t *b) {
+    return(b->ip ? (uint8_t *)b->allocated + b->ip : NULL);
+}
+
+static void lbuf_reset_udp(lbuf_t *b) {
+    b->udp = (uint8_t *)b->data - (uint8_t *)b->base;
+}
+
+static void *lbuf_udp(lbuf_t *b) {
+    return(b->udp ? (uint8_t *)b->allocated + b->udp : NULL);
 }
 
 static void lbuf_reset_lisp(lbuf_t *b) {

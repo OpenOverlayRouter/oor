@@ -3,7 +3,8 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -35,9 +36,21 @@
 #include <lisp_ms.h>
 #include <lisp_rtr.h>
 
+extern lisp_ctrl_t *ctrl;
 
+/* services lisp_ctrl offers to lisp_ctrl_dev_t */
+typedef struct lisp_ctrl_class_ {
+    int (*send_msg)(lisp_ctrl_t *, lbuf_t *, uconn_t *);
+};
+
+typedef struct lisp_control_ {
+    glist_t *devices;
+    /* move ctrl interface here */
+} lisp_ctrl_t;
 
 int process_lisp_ctr_msg(struct sock *sl);
+int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
+mapping_t **ctrl_get_mappings_to_smr(lisp_ctrl_t *);
 
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);

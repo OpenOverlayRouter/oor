@@ -3,7 +3,8 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -38,56 +39,56 @@
 #include "lispd_smr.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_re.h"
-#include "lispd_map_notify.h"
+//#include "lispd_map_notify.h"
 #include "lispd_info_nat.h"
 
 typedef enum {
-    xTR_MODE = 1, MS_MODE, RTR_MODE
+    xTR_MODE = 1,
+    MS_MODE,
+    RTR_MODE
 } lisp_device_mode;
 
-struct _lisp_ctrl_device;
-typedef struct _lisp_ctrl_device lisp_ctrl_device;
+struct lisp_ctrl_device_;
+typedef struct lisp_ctrl_device_ lisp_ctrl_dev_t;
 
-/* FC: global variables are to be passed to these structure */
-typedef struct _ctrl_device_vtable {
-    int (*process_msg)(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock);
-//    int (*send_ctrl_msg)(lisp_ctrl_device *dev, lisp_msg *msg);
-    void (*start)(lisp_ctrl_device *dev);
-    void (*delete)(lisp_ctrl_device *dev);
-} ctrl_device_vtable;
+typedef struct ctrl_dev_class_t_ {
+    int (*handle_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+    int (*send_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+    void (*start)(lisp_ctrl_dev_t *dev);
+    void (*delete)(lisp_ctrl_dev_t *dev);
+} ctrl_dev_class_t;
 
-struct _lisp_ctrl_device {
-    ctrl_device_vtable *vtable;
+struct lisp_ctrl_device_ {
+    ctrl_dev_class_t *vtable;
     lisp_device_mode mode;
+
+    /* pointer to lisp ctrl */
+    lisp_ctrl_t *ctrl;
+
+    /* smr_timer is used to avoid sending SMRs during transition period. */
+    timer_t *smr_timer;
 };
 
-/* vtable functions */
-int process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock);
-void lisp_ctrl_dev_start(lisp_ctrl_device *dev);
-void lisp_ctrl_dev_del(lisp_ctrl_device *dev);
+int ctrl_dev_handle_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+void lisp_ctrl_dev_start(lisp_ctrl_dev_t *);
+void lisp_ctrl_dev_del(lisp_ctrl_dev_t *);
 
-int process_map_reply_msg(map_reply_msg *mrep);
-int process_map_request_msg(map_request_msg *mreq, lisp_addr_t *local_rloc,
-        uint16_t dst_port);
-int process_map_reply_probe(mapping_record *record, uint64_t nonce);
+/* interface to lisp_ctrl */
+//int recv_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+int send_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+
+int process_map_reply_msg(lisp_ctrl_dev_t *dev, lbuf_t *buf);
+int process_map_request_msg(map_request_msg *, lisp_addr_t *,  uint16_t );
+int process_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
+
+int send_map_request_to_mr(lbuf_t *b, uconn_t *ss);
 
 int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
 int send_map_request_miss(timer *t, void *arg);
 void timer_map_request_argument_del(void *);
 
 
-mrsignaling_flags_t mrsignaling_get_flags_from_field(address_field *afield);
-int mrsignaling_send_join(mapping_t *ch_mapping, lisp_addr_t *delivery_grp,
-        lisp_addr_t *dst_rloc, uint64_t *nonce);
-int mrsignaling_send_leave(mapping_t *ch_mapping, lisp_addr_t *delivery_grp,
-        lisp_addr_t *dst_rloc, uint64_t *nonce);
 
-int mrsignaling_send_ack(mapping_t *registered_mapping, lisp_addr_t *local_rloc,
-        lisp_addr_t *remote_rloc, uint16_t dport, uint64_t nonce,
-        mrsignaling_flags_t mc_flags);
-int mrsignaling_recv_msg(struct lbuf *, lisp_addr_t *, lisp_addr_t *,
-         mrsignaling_flags_t);
-int mrsignaling_recv_ack(mapping_record *record, uint64_t nonce);
 
 /* Structure to set Map Reply options */
 typedef struct _map_reply_opts {
@@ -98,7 +99,7 @@ typedef struct _map_reply_opts {
 } map_reply_opts;
 
 
-/* Struct used to pass the arguments to the call_back function of a  map
+/* Struct used to pass the arguments to the call_back function of a map
  * request miss
  * TODO: make src_eid a pointer */
 typedef struct _timer_map_request_argument {

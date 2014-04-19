@@ -83,7 +83,7 @@ OBJS		= cmdline.o	\
 		  types/lispd_mdb.o	\
 		  types/lispd_nonce.o 	\
 		  types/lispd_remdb.o	\	
-		  types/lispd_pkt_lib.o 	
+		  types/packets.o 	
 
 EXE		= lispd
 PREFIX		= /usr/local/sbin

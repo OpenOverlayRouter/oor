@@ -51,7 +51,7 @@ int get_afi(char *str);
  *          IPv6: fe80::/10
  */
 
-int is_link_local_addr (lisp_addr_t addr);
+int is_link_local_addr(lisp_addr_t *addr);
 
 
 /*

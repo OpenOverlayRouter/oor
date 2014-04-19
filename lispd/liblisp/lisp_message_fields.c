@@ -231,9 +231,9 @@ auth_field *auth_field_parse(uint8_t *offset) {
 
     af->data = offset;
     ad_len = ntohs(auth_field_hdr(af)->auth_data_len);
-    offset = CO(offset, sizeof(auth_field_hdr_t));
+    offset = CO(offset, sizeof(auth_record_hdr_t));
     af->auth_data = offset;
-    af->len = sizeof(auth_field_hdr_t) + ad_len;
+    af->len = sizeof(auth_record_hdr_t) + ad_len;
     return(af);
 }
 
@@ -243,11 +243,8 @@ void auth_field_del(auth_field *af) {
     free(af);
 }
 
-/*
- * Returns the length of the auth data field based on the key_id value
- */
-
-uint16_t auth_data_get_len_for_type(lisp_key_type key_id)
+/* Returns the length of the auth data field based on the key_id value */
+uint16_t auth_data_get_len_for_type(lisp_key_type_t key_id)
 
 {
     switch (key_id) {

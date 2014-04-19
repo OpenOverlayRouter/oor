@@ -68,14 +68,16 @@ void mcache_entry_init(map_cache_entry_t *mce, mapping_t *mapping);
 void mcache_entry_init_static(map_cache_entry_t *mce, mapping_t *mapping);
 
 
-map_cache_entry_t *new_map_cache_entry(lisp_addr_t eid_prefix,
-        int eid_prefix_length, int how_learned, uint16_t ttl);
+map_cache_entry_t *new_map_cache_entry(lisp_addr_t, int, int, uint16_t);
 
 
 map_cache_entry_t *new_map_cache_entry_no_db(lisp_addr_t eid_prefix,
         int eid_prefix_length, int how_learned, uint16_t ttl);
 void map_cache_entry_del(map_cache_entry_t *entry);
 void map_cache_entry_dump(map_cache_entry_t *entry, int log_level);
+
+void map_cache_entry_start_expiration_timer(map_cache_entry_t *);
+void map_cache_entry_expiration_cb(timer *t, void *arg);
 
 static inline void mcache_entry_set_eid_addr(map_cache_entry_t *, lisp_addr_t *);
 static inline void mcache_entry_set_eid_plen(map_cache_entry_t *, uint8_t);

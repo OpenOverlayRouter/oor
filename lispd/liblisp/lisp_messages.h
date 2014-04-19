@@ -134,8 +134,7 @@ lisp_msg *lisp_msg_parse(uint8_t *offset);
 void lisp_msg_del(lisp_msg *msg);
 lisp_encap_data *lisp_encap_hdr_parse(uint8_t *packet);
 void lisp_encap_hdr_del(lisp_encap_data *data);
-uint8_t lisp_msg_parse_type(struct lbuf *b);
-int lisp_msg_ecm_decap(struct lbuf *pkt, uint16_t *dst_port);
+
 
 static inline int lisp_encap_data_get_len(lisp_encap_data *data) {
     return(data->len);

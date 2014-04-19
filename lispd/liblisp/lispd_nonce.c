@@ -85,9 +85,7 @@ nonces_list *new_nonces_list()
  * Return true if nonce is found in the nonces list
  */
 
-int check_nonce(
-        nonces_list     *nonces,
-        uint64_t        nonce){
+int check_nonce(nonces_list *nonces, uint64_t nonce) {
     int i;
     if (nonces == NULL)
         return (BAD);

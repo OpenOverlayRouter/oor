@@ -3,7 +3,8 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -34,7 +35,7 @@
 #include "lisp_ctrl_device.h"
 
 typedef struct _lisp_xtr {
-    lisp_ctrl_device super; /* base "class". MUST be first */
+    lisp_ctrl_dev_t super; /* base "class" */
 
     /* xtr interface */
     mapping_t *(*lookup_eid_map_cache)(lisp_addr_t *eid);
@@ -45,11 +46,11 @@ typedef struct _lisp_xtr {
     /* xtr members */
     map_cache_db *map_cache;
     local_map_db *local_mdb;
-} lisp_xtr;
+} lisp_xtr_t;
 
 //extern ctrl_device_vtable xtr_vtable;
 
-lisp_ctrl_device *xtr_ctrl_init();
-int xtr_process_ctrl_msg(lisp_ctrl_device *dev, lisp_msg *msg, udpsock_t *udpsock);
+lisp_ctrl_dev_t *xtr_ctrl_init();
+int xtr_process_ctrl_msg(lisp_ctrl_dev_t *dev, lisp_msg *msg, uconn_t *udpsock);
 
 #endif /* LISP_XTR_H_ */

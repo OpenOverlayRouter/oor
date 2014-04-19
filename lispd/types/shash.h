@@ -1,9 +1,10 @@
 /*
- * lisp_rtr.h
+ * shash.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,21 +27,16 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#ifndef LISP_RTR_H_
-#define LISP_RTR_H_
+#ifndef SHASH_H_
+#define SHASH_H_
 
-#include <defs.h>
-#include "lisp_ctrl_device.h"
+typedef struct HashTable shash_t;
 
-typedef struct _lisp_rtr {
-    lisp_ctrl_dev_t super; /* base "class". MUST be first */
+shash_t *shash_new();
+shash_t *shash_new_managed(DestroyFunc *df);
+void shash_del(shash_t *);
+void shash_insert(shash_t *, const char *, const void *);
+void shash_remove(shash_t *, const char *);
+void *shash_lookup(shash_t *, const char *);
 
-    /* rtr members */
-    map_cache_db *map_cache;
-    local_map_db *local_mdb;
-} lisp_rtr;
-
-lisp_ctrl_dev_t *rtr_ctrl_init();
-
-
-#endif /* LISP_RTR_H_ */
+#endif /* SHASH_H_ */

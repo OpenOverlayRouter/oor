@@ -43,10 +43,10 @@ lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
 
     switch (iph->version) {
     case 4:
-        ip_addr_set_v4(lisp_addr_get_ip(&addr), &iph->saddr);
+        ip_addr_set_v4(lisp_addr_ip(&addr), &iph->saddr);
         break;
     case 6:
-        ip_addr_set_v6(lisp_addr_get_ip(&addr), &ip6h->ip6_src);
+        ip_addr_set_v6(lisp_addr_ip(&addr), &ip6h->ip6_src);
         break;
     default:
         lmlog(LISP_LOG_DEBUG_3,"extract_src_addr_from_packet: uknown ip version %d", iph->version);
