@@ -383,7 +383,8 @@ uint16_t get_IP_ID() {
     return (ip_id);
 }
 
-int ip_hdr_ver_to_len(int ih_ver) {
+int ip_hdr_ver_to_len(int ih_ver)
+{
     switch (ih_ver) {
     case IPVERSION:
         return(sizeof(struct ip));
@@ -398,7 +399,8 @@ int ip_hdr_ver_to_len(int ih_ver) {
 }
 
 void *
-pkt_pull_ipv4(lbuf_t *b) {
+pkt_pull_ipv4(lbuf_t *b)
+{
     void *data = lbuf_data(b);
     return(lbuf_pull(b, sizeof(struct ip)));
 }
@@ -410,7 +412,8 @@ pkt_pull_ipv6(lbuf_t *b) {
 }
 
 void *
-pkt_pull_ip(lbuf_t *b) {
+pkt_pull_ip(lbuf_t *b)
+{
     void *data;
     int ip_hdr_len;
 
@@ -424,7 +427,8 @@ pkt_pull_ip(lbuf_t *b) {
 }
 
 void *
-pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst) {
+pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst)
+{
     struct ip *iph;
     iph = lbuf_push_uninit(b, sizeof(struct ip));
     lbuf_reset_ip(b);
@@ -445,7 +449,8 @@ pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst) {
 }
 
 void *
-pkt_push_ipv6(lbuf_t *b, struct in6_addr *src, struct in6_addr *dst) {
+pkt_push_ipv6(lbuf_t *b, struct in6_addr *src, struct in6_addr *dst)
+{
     struct ip6_hdr *ip6h;
     ip6h = lbuf_push_uninit(b, sizeof(struct ip6_hdr));
     lbuf_reset_ip(b);
@@ -483,7 +488,8 @@ pkt_push_udp(lbuf_t *b, uint16_t sp, uint16_t dp) {
 }
 
 void *
-pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst) {
+pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst)
+{
 
     void *iph;
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
@@ -505,7 +511,8 @@ pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst) {
 }
 
 int
-pkt_compute_udp_cksum(lbuf_t *b, int afi) {
+pkt_compute_udp_cksum(lbuf_t *b, int afi)
+{
     uint16_t udpsum;
     struct udphdr *uh;
 
@@ -514,6 +521,16 @@ pkt_compute_udp_cksum(lbuf_t *b, int afi) {
         return (BAD);
     }
     udpsum(uh) = udpsum;
+    return(GOOD);
+}
+
+int
+pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
+        ip_addr_t *dip)
+{
+    pkt_push_udp(b, sp, dp);
+    pkt_push_ip(b, sip, dip);
+    pkt_compute_udp_cksum(b, ip_addr_afi(sip));
     return(GOOD);
 }
 

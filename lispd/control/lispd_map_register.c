@@ -42,199 +42,8 @@
 #include <lispd_sockets.h>
 #include "lispd_info_request.h"
 
-int map_register_process();
-int encapsulated_map_register_process();
-
-
-/*
- *  map_server_register (tree)
- *
- */
-
-timer *map_register_timer = NULL;
-
-
-void
-map_register_resend(lisp_ctrl_dev_t *dev, int time) {
-    if (!map_register_timer) {
-        map_register_timer = create_timer(MAP_REGISTER_TIMER);
-    }
-    start_timer(map_register_timer, time, map_register_cb, NULL);
-}
-
-/*
- * Timer and arg parameters are not used but must be defined to be consistent
- * with timer call back function.
- */
-int map_register_cb(timer *t, void *arg) {
-    return(map_register_all_eids());
-}
-
-int map_register_all_eids() {
-    int result = 0;
-
-    if (!map_servers) {
-        lmlog(LISP_LOG_CRIT, "map_register: No Map Servers configured!");
-        exit_cleanup();
-    }
-
-    if(nat_aware==TRUE){ /* NAT procedure instead of the standard one */
-
-        if(nat_status == UNKNOWN){
-            result = initial_info_request_process();
-        }
-
-        if(nat_status == FULL_NAT){
-            result = encapsulated_map_register_process();
-        }
-    }
-
-    if((nat_aware == FALSE)||((nat_aware == TRUE)&&(nat_status ==NO_NAT ))){/* Standard Map-Register mechanism */
-        result = map_register_process();
-    }
-
-    return (result);
-}
-
-static int
-build_map_register(lbuf_t **b, mapping_t *m, char *key, lisp_key_type_t keyid) {
-    *b = lisp_msg_create(LISP_MAP_REGISTER);
-    if (lisp_msg_put_empty_auth_record(*b, keyid) != GOOD) {
-        return(BAD);
-    }
-    if (lisp_msg_put_mapping(*b, m) != GOOD) {
-        return(BAD);
-    }
-    if (lisp_msg_fill_auth_data(b, key, keyid) != GOOD) {
-        return(BAD);
-    }
-    return(GOOD);
-}
-
-
-int map_register_process()
-{
-    mapping_t *mapping;
-    void *it = NULL;
-    lbuf_t *mreg;
-    lisp_key_type_t keyid = HMAC_SHA_1_96;
-    /* TODO
-     * - configurable keyid
-     * - multiple MSes
-     */
-
-    local_map_db_foreach_entry(it) {
-        mapping = (mapping_t *)it;
-        if (mapping->locator_count != 0) {
-            build_map_register(&mreg, mapping, map_servers->key, keyid);
-            core_send_msg(mreg); //XXX
-            lisp_msg_destroy(mreg);
-//            err = build_and_send_map_register_msg(mapping);
-            if (err != GOOD) {
-                lmlog(LISP_LOG_ERR, "Coudn't send Map-Register for EID  %s!",
-                        lisp_addr_to_char(mapping_eid(mapping)));
-            }
-        }
-    } local_map_db_foreach_end;
-
-    /* Configure timer to send the next map register. */
-    if (map_register_timer == NULL) {
-        map_register_timer = create_timer(MAP_REGISTER_TIMER);
-    }
-    start_timer(map_register_timer, MAP_REGISTER_INTERVAL, map_register_cb,
-            NULL);
-    lmlog(DBG_1, "Reprogrammed Map-Register process in %d seconds",
-            MAP_REGISTER_INTERVAL);
-    return(GOOD);
-}
-
-int encapsulated_map_register_process()
-{
-    mapping_t                   *mapping          = NULL;
-    locators_list_t         *locators_list[2] = {NULL, NULL};
-    locator_t                   *locator          = NULL;
-    lisp_addr_t                 *nat_rtr          = NULL;
-    int                         next_timer_time   = 0;
-    int                         ctr1              = 0;
-    void                        *it               = NULL;
-
-    if (nat_emr_nonce == NULL){
-        nat_emr_nonce = new_nonces_list();
-        if (nat_emr_nonce == NULL){
-            lmlog(LISP_LOG_WARNING,"encapsulated_map_register_process: Unable to allocate memory for nonces.");
-            return (BAD);
-        }
-    }
-    if (nat_emr_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
-
-        if (nat_emr_nonce->retransmits > 0){
-            lmlog(DBG_1,"No Map Notify received. Retransmitting encapsulated map register.");
-        }
-
-        local_map_db_foreach_entry(it) {
-            mapping = (mapping_t *)it;
-            if (mapping->locator_count != 0){
-
-                /* Find the locator behind NAT */
-                locators_list[0] = mapping->head_v4_locators_list;
-                locators_list[1] = mapping->head_v6_locators_list;
-                for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){
-                    while (locators_list[ctr1] != NULL){
-                        locator = locators_list[ctr1]->locator;
-                        if ((((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list) != NULL){
-                            break;
-                        }
-                        locator = NULL;
-                        locators_list[ctr1] = locators_list[ctr1]->next;
-                    }
-                    if (locator != NULL){
-                        break;
-                    }
-                }
-                /* If found a locator behind NAT, send Encapsulated Map Register */
-                if (locator != NULL && default_ctrl_iface_v4 != NULL){
-                    nat_rtr = &(((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list->locator->address);
-                    /* ECM map register only sent to the first Map Server */
-                    err = build_and_send_ecm_map_register(mapping,
-                            map_servers,
-                            nat_rtr,
-                            default_ctrl_iface_v4,
-                            &site_ID,
-                            &xTR_ID,
-                            &(nat_emr_nonce->nonce[nat_emr_nonce->retransmits]));
-                    if (err != GOOD){
-                        lmlog(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register.");
-                    }
-                    nat_emr_nonce->retransmits++;
-                }else{
-                    if (locator == NULL){
-                        lmlog(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No RTR found");
-                    }else{
-                        lmlog(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No output interface found");
-                    }
-                }
-                next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
-            }
-        } local_map_db_foreach_end;
-
-    }else{
-        free (nat_emr_nonce);
-        nat_emr_nonce = NULL;
-        lmlog(LISP_LOG_ERR,"encapsulated_map_register_process: Communication error between LISPmob and RTR/MS. Retry after %d seconds",MAP_REGISTER_INTERVAL);
-        next_timer_time = MAP_REGISTER_INTERVAL;
-    }
-
-    /*
-     * Configure timer to send the next map register.
-     */
-    if (map_register_timer == NULL) {
-        map_register_timer = create_timer(MAP_REGISTER_TIMER);
-    }
-    start_timer(map_register_timer, next_timer_time, map_register_cb, NULL);
-    return(GOOD);
-}
-
-
+int map_register_process_default();
+int map_register_process_encap();
 
 
 
@@ -334,7 +143,7 @@ int build_and_send_map_register_msg(mapping_t *mapping)
                     lisp_addr_to_char(ms->address));
             sent_map_registers++;
         }else{
-            lmlog(LISP_LOG_WARNING, "Couldn't send Map Register for %s to the Map Server %s",
+            lmlog(LWRN, "Couldn't send Map Register for %s to the Map Server %s",
                     lisp_addr_to_char(mapping_eid(mapping)),
                     lisp_addr_to_char(ms->address));
         }
@@ -372,7 +181,7 @@ uint8_t *build_map_register_pkt(
               mapping_get_size_in_record(mapping);
 
     if ((packet = malloc(*mrp_len)) == NULL) {
-        lmlog(LISP_LOG_WARNING, "build_map_register_pkt: Unable to allocate memory for Map Register packet: %s", strerror(errno));
+        lmlog(LWRN, "build_map_register_pkt: Unable to allocate memory for Map Register packet: %s", strerror(errno));
         return(NULL);
     }
 
@@ -445,7 +254,7 @@ int build_and_send_ecm_map_register(
 
     /* XXX Quick hack */
     /* Cisco IOS RTR implementation drops Data-Map-Notify if ECM Map Register nonce = 0 */
-    map_register_pkt->nonce = build_nonce((unsigned int) time(NULL));
+    map_register_pkt->nonce = nonce_build((unsigned int) time(NULL));
     *nonce = map_register_pkt->nonce;
 
     /* Add xTR-ID and site-ID fields */

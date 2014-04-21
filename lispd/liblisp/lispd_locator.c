@@ -309,6 +309,7 @@ void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt)
     }
 }
 
+
 inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info)
 {
     if (extended_info->probe_timer != NULL){
@@ -321,16 +322,16 @@ inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_i
     free (extended_info);
 }
 
-void dump_locator (
-        locator_t   *locator,
-        int                 log_level)
+void dump_locator(locator_t *locator, int log_level)
 {
-    char locator_str [2000];
-    if (is_loggable(log_level)){
+    char locator_str[2000];
+    if (is_loggable(log_level)) {
         sprintf(locator_str, "| %39s |", lisp_addr_to_char(locator->addr));
-        sprintf(locator_str + strlen(locator_str), "  %5s ", locator->state ? "Up" : "Down");
-        sprintf(locator_str + strlen(locator_str), "|     %3d/%-3d     |", locator->priority, locator->weight);
-        lmlog(log_level,"%s",locator_str);
+        sprintf(locator_str + strlen(locator_str), "  %5s ",
+                locator->state ? "Up" : "Down");
+        sprintf(locator_str + strlen(locator_str), "|     %3d/%-3d     |",
+                locator->priority, locator->weight);
+        lmlog(log_level, "%s", locator_str);
     }
 }
 
@@ -632,7 +633,7 @@ int locator_write_to_field(locator_t *locator, locator_field *lfield) {
 }
 
 int locator_get_size_in_field(locator_t *loc) {
-    return(lisp_addr_get_size_in_field(locator_addr(loc))+sizeof(locator_hdr_t));
+    return(lisp_addr_size_to_write(locator_addr(loc))+sizeof(locator_hdr_t));
 }
 
 /*

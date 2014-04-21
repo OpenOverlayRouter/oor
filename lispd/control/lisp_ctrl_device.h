@@ -36,11 +36,10 @@
 #include "lispd_map_cache_db.h"
 #include "lispd_local_db.h"
 #include "lispd_map_register.h"
-#include "lispd_smr.h"
 #include "lispd_rloc_probing.h"
 #include "lispd_re.h"
-//#include "lispd_map_notify.h"
 #include "lispd_info_nat.h"
+#include "lisp_proto.h"
 
 typedef enum {
     xTR_MODE = 1,
@@ -51,6 +50,7 @@ typedef enum {
 struct lisp_ctrl_device_;
 typedef struct lisp_ctrl_device_ lisp_ctrl_dev_t;
 
+/* generic functions common to control devices*/
 typedef struct ctrl_dev_class_t_ {
     int (*handle_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
     int (*send_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
@@ -58,15 +58,42 @@ typedef struct ctrl_dev_class_t_ {
     void (*delete)(lisp_ctrl_dev_t *dev);
 } ctrl_dev_class_t;
 
+
+/* generic functions common to tunnel routers */
+typedef struct tr_dev_class_t_ {
+    /* timers */
+    timer *(*map_register_timer)(lisp_ctrl_dev_t *);
+
+    /* smr_timer is used to avoid sending SMRs during transition period. */
+    timer *(*smr_timer)(lisp_ctrl_dev_t *);
+
+
+    lispd_map_server_list_t *(*get_map_servers)(lisp_ctrl_dev_t *);
+    lisp_addr_t *(*get_map_resolver)(lisp_ctrl_dev_t *);
+    lisp_addr_t *(*get_default_rloc)(lisp_ctrl_dev_t *, int);
+    glist_t *(*get_default_rlocs)(lisp_ctrl_dev_t *);
+    lisp_addr_t *(*get_main_eid)(lisp_ctrl_dev_t *);
+
+    /* NAT specific */
+    int (*nat_aware)(lisp_ctrl_dev_t *);
+    int (*nat_status)(lisp_ctrl_dev_t *);
+    nonces_list_t *(*nat_emr_nonce)(lisp_ctrl_dev_t *);
+} tr_dev_class_t;
+
 struct lisp_ctrl_device_ {
-    ctrl_dev_class_t *vtable;
     lisp_device_mode mode;
+
+    ctrl_dev_class_t *ctrl_class;
+
+    /* device type specific functions */
+    union {
+        tr_dev_class_t *tr_class;
+        /* ms class */
+        /* ddt class */
+    };
 
     /* pointer to lisp ctrl */
     lisp_ctrl_t *ctrl;
-
-    /* smr_timer is used to avoid sending SMRs during transition period. */
-    timer_t *smr_timer;
 };
 
 int ctrl_dev_handle_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
@@ -81,10 +108,9 @@ int process_map_reply_msg(lisp_ctrl_dev_t *dev, lbuf_t *buf);
 int process_map_request_msg(map_request_msg *, lisp_addr_t *,  uint16_t );
 int process_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
 
-int send_map_request_to_mr(lbuf_t *b, uconn_t *ss);
 
 int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
-int send_map_request_miss(timer *t, void *arg);
+int send_map_request_retry(timer *t, void *arg);
 void timer_map_request_argument_del(void *);
 
 
@@ -103,10 +129,11 @@ typedef struct _map_reply_opts {
  * request miss
  * TODO: make src_eid a pointer */
 typedef struct _timer_map_request_argument {
-    map_cache_entry_t *map_cache_entry;
+    lisp_ctrl_dev_t *dev;
+    mcache_entry_t *mce;
     lisp_addr_t *src_eid;
     void (*arg_free_fct)(void *);
-} timer_map_request_argument;
+} timer_mreq_arg_t;
 
 /* Put a wrapper around build_map_request_pkt and send_map_request */
 int build_and_send_map_request_msg(mapping_t *requested_mapping,

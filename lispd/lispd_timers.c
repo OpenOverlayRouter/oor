@@ -217,11 +217,15 @@ void stop_timer(timer *tptr)
         return;
     }
 
-    if (strcmp(tptr->name,MAP_REQUEST_RETRY_TIMER)==0){
-        ((timer_map_request_argument *)tptr->cb_argument)->arg_free_fct(tptr->cb_argument);
+
+
+    if (strcmp(tptr->name, MAP_REQUEST_RETRY_TIMER)==0){
+        ((timer_mreq_arg_t *)tptr->cb_argument)->arg_free_fct(tptr->cb_argument);
 //        free ((timer_map_request_argument *)tptr->cb_argument);
-    }else if (strcmp(tptr->name,RLOC_PROBING_TIMER)==0){
+    }else if (strcmp(tptr->name, RLOC_PROBING_TIMER)==0){
         free ((timer_rloc_probe_argument *)tptr->cb_argument);
+    } else {
+        free(tptr->cb_argument);
     }
 
     next = tptr->links.next;

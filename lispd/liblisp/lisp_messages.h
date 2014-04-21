@@ -140,15 +140,12 @@ static inline int lisp_encap_data_get_len(lisp_encap_data *data) {
     return(data->len);
 }
 
-static void *lbuf_pull_ecm_hdr(struct lbuf *b) {
-    return(lbuf_pull(b, sizeof(ecm_hdr_t)));
-}
-
 
 void map_request_hdr_init(uint8_t *ptr);
 void map_reply_hdr_init(uint8_t *ptr);
 void map_register_hdr_init(uint8_t *ptr);
 void map_notify_hdr_init(uint8_t *ptr);
+void ecm_hdr_init(uint8_t *ptr);
 
 
 
@@ -165,5 +162,8 @@ char *map_reply_hdr_to_char(map_reply_hdr_t *h);
 char *map_register_hdr_to_char(map_register_hdr_t *h);
 char *map_notify_hdr_to_char(map_notify_hdr_t *h);
 char *ecm_hdr_to_char(ecm_hdr_t *h);
+
+
+#define ECM_TYPE(h_) ((ecm_hdr_t *)(h_))->type
 
 #endif /* LISP_MESSAGES_H_ */

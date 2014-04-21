@@ -507,9 +507,9 @@ char *mc_type_to_char(void *mc){
 
 int mc_type_get_size_to_write(void *mc) {
     return( sizeof(lcaf_mcinfo_hdr_t)+
-            lisp_addr_get_size_in_field(mc_type_get_src(mc)) +
+            lisp_addr_size_to_write(mc_type_get_src(mc)) +
 //            sizeof(uint16_t)+ /* grp afi */
-            lisp_addr_get_size_in_field(mc_type_get_grp(mc)) );
+            lisp_addr_size_to_write(mc_type_get_grp(mc)) );
 }
 
 inline int mc_type_write_to_pkt(uint8_t *offset, void *mc) {
@@ -652,7 +652,7 @@ inline int iid_type_cmp(void *iid1, void *iid2) {
 
 int iid_type_get_size_to_write(void *iid) {
     return( sizeof(lcaf_iid_hdr_t)+
-            lisp_addr_get_size_in_field(iid_type_get_addr(iid)));
+            lisp_addr_size_to_write(iid_type_get_addr(iid)));
 }
 
 inline int iid_type_write_to_pkt(uint8_t *offset, void *iid) {
@@ -872,7 +872,7 @@ int elp_type_get_size_to_write(void *elp) {
     len += sizeof(lcaf_hdr_t);
     glist_for_each_entry(it, ((elp_t *)elp)->nodes) {
         node = glist_entry_data(it);
-        len += sizeof(elp_node_flags) + lisp_addr_get_size_in_field(node->addr);
+        len += sizeof(elp_node_flags) + lisp_addr_size_to_write(node->addr);
     }
 
     return(len);
@@ -1133,7 +1133,7 @@ int rle_type_get_size_to_write(void *elp) {
     len += sizeof(lcaf_hdr_t);
     glist_for_each_entry(it, ((rle_t *)elp)->nodes) {
         node = glist_entry_data(it);
-        len += sizeof(rle_node_hdr_t) + lisp_addr_get_size_in_field(node->addr);
+        len += sizeof(rle_node_hdr_t) + lisp_addr_size_to_write(node->addr);
     }
 
     return(len);
@@ -1254,7 +1254,7 @@ int afi_list_type_get_size_to_write(void *afil) {
     afi_list_node *node = NULL;
     len += sizeof(lcaf_afi_list_hdr_t);
     while(node) {
-        len += lisp_addr_get_size_in_field(node->addr);
+        len += lisp_addr_size_to_write(node->addr);
         node = node->next;
     }
     return(len);

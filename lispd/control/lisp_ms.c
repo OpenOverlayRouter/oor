@@ -54,7 +54,7 @@ ms_ctrl_delete(lisp_ctrl_dev_t *dev) {
 }
 
 int
-ms_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *usk)
+ms_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *uc)
 {
 
     lisp_addr_t *seid, *deid, *tloc;
@@ -119,8 +119,8 @@ ms_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *usk)
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* send map-reply */
-    select_remote_rloc(itr_rlocs, lisp_addr_ip_afi(&usk->local_addr), &usk.ra);
-    if (send_msg(dev, b, usk) != GOOD) {
+    select_remote_rloc(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc.ra);
+    if (send_msg(dev, b, uc) != GOOD) {
         lmlog(DBG_1, "Couldn't send Map-Reply!");
     }
 done:
@@ -186,7 +186,8 @@ mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
 }
 
 int
-ms_process_map_register(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *rsk) {
+ms_process_map_register(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *rsk)
+{
     mapping_t *mentry = NULL;
     lisp_ms_t *ms = NULL;
     lisp_site_prefix *reg_pref = NULL;
@@ -382,7 +383,7 @@ lisp_ctrl_dev_t *ms_ctrl_init() {
     lisp_ms_t *ms;
     ms = calloc(1, sizeof(lisp_ms_t));
     ms->super.mode = MS_MODE;
-    ms->super.vtable = &ms_ctrl_class;
+    ms->super.ctrl_class = &ms_ctrl_class;
     lmlog(DBG_1, "Finished Initializing Map-Server");
 
     ms->registered_sites_db = mdb_new();
@@ -440,7 +441,7 @@ void ms_dump_registered_sites(lisp_ctrl_dev_t *dev, int log_level) {
     lmlog(log_level,"**************** MS registered sites ******************\n");
     mdb_foreach_entry(ms->registered_sites_db, it) {
         mapping = it;
-        dump_mapping_entry(mapping, log_level);
+        mapping_to_char(mapping, log_level);
     } mdb_foreach_entry_end;
     lmlog(log_level,"*******************************************************\n");
 

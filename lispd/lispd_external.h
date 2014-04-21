@@ -43,7 +43,7 @@
 
 extern  lisp_addr_list_t       *map_resolvers;
 extern  lisp_addr_list_t       *proxy_itrs;
-extern  map_cache_entry_t   *proxy_etrs;
+extern  mcache_entry_t   *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
 extern  char                    *config_file;
 extern  char                    msg[];
@@ -65,8 +65,8 @@ extern  int                     nat_aware;
 extern  int                     nat_status;
 extern  lispd_site_ID           site_ID;
 extern  lispd_xTR_ID            xTR_ID;
-extern  nonces_list             *nat_emr_nonce;
-extern  nonces_list             *nat_ir_nonce;
+extern  nonces_list_t             *nat_emr_nonce;
+extern  nonces_list_t             *nat_ir_nonce;
 extern  int                     timers_fd;
 extern  struct sockaddr_nl      dst_addr;
 extern  struct sockaddr_nl      src_addr;

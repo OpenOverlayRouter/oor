@@ -62,7 +62,7 @@ lispd_pkt_info_nat_t *build_info_request_pkt(
     uint32_t                        header_len   = 0;
     uint32_t                        lcaf_hdr_len = 0;
 
-    *nonce = build_nonce((unsigned int) time(NULL));
+    *nonce = nonce_build((unsigned int) time(NULL));
 
     irp = create_and_fill_info_nat_header(LISP_INFO_NAT,
                                           NAT_NO_REPLY,
@@ -250,7 +250,7 @@ int info_request(
 
     if (default_ctrl_iface_v4 != NULL){
         if (nat_ir_nonce == NULL){
-            nat_ir_nonce = new_nonces_list();
+            nat_ir_nonce = nonces_list_new();
             if (nat_ir_nonce == NULL){
                 lmlog(LISP_LOG_WARNING,"info_request: Unable to allocate memory for nonces.");
                 return (BAD);

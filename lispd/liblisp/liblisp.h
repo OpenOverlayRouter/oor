@@ -50,6 +50,9 @@ void *lisp_msg_put_addr(lbuf_t *, lisp_addr_t *addr);
 void *lisp_msg_put_locator(lbuf_t *, locator_t *locator);
 void *lisp_msg_put_mapping_hdr(lbuf_t *b, int plen) ;
 void *lisp_msg_put_mapping(lbuf_t *, mapping_t *, locator_t *);
+void *lisp_msg_put_itr_rlocs(lbuf_t *, glist_t *);
+void *lisp_msg_put_eid_rec(lbuf_t *, lisp_addr_t *);
+void *lisp_msg_push_ecm_encap(lbuf_t *, uconn_t *);
 
 lbuf_t* lisp_msg_create();
 inline lisp_msg_destroy(lbuf_t *);

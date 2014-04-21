@@ -37,29 +37,31 @@
 
 
 
-inline map_cache_entry_t *
-mcache_entry_new() {
-    map_cache_entry_t *mce;
-    if ((mce = calloc(1, sizeof(map_cache_entry_t))) == NULL) {
-        lmlog(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory"
+inline mcache_entry_t *
+mcache_entry_new()
+{
+    mcache_entry_t *mce;
+    if ((mce = calloc(1, sizeof(mcache_entry_t))) == NULL) {
+        lmlog(LWRN,"new_map_cache_entry: Unable to allocate memory"
                 " for lispd_map_cache_entry: %s", strerror(errno));
         return(NULL);
     }
 
-    mce->active = NO_ACTIVE;
+    mce->active = NOT_ACTIVE;
+    mce->timestamp = time(NULL);
+
+    mce->nonces = NULL;
+
     mce->expiry_cache_timer = NULL;
     mce->smr_inv_timer = NULL;
     mce->request_retry_timer = NULL;
-    mce->nonces = NULL;
-
-    mce->timestamp = time(NULL);
-    mce->actions = ACT_NO_ACTION;
 
     return(mce);
 }
 
 void
-mcache_entry_init(map_cache_entry_t *mce, mapping_t *mapping) {
+mcache_entry_init(mcache_entry_t *mce, mapping_t *mapping)
+{
     if (!mce) {
         return;
     }
@@ -71,7 +73,8 @@ mcache_entry_init(map_cache_entry_t *mce, mapping_t *mapping) {
 }
 
 void
-mcache_entry_init_static(map_cache_entry_t *mce, mapping_t *mapping) {
+mcache_entry_init_static(mcache_entry_t *mce, mapping_t *mapping)
+{
     if (!mce) {
         return;
     }
@@ -79,7 +82,7 @@ mcache_entry_init_static(map_cache_entry_t *mce, mapping_t *mapping) {
     mce->active = ACTIVE;
     mce->mapping = mapping;
     mce->how_learned = STATIC_MAP_CACHE_ENTRY;
-    mce->ttl = 255;
+    mce->ttl = 255; /* XXX: why 255? */
 
 }
 
@@ -89,14 +92,14 @@ mcache_entry_init_static(map_cache_entry_t *mce, mapping_t *mapping) {
 /*
  * Creates a map cache entry structure without adding it to the data base
  */
-map_cache_entry_t *
+mcache_entry_t *
 new_map_cache_entry_no_db(lisp_addr_t eid_prefix, int eid_prefix_length,
         int how_learned, uint16_t ttl)
 {
-    map_cache_entry_t *map_cache_entry;
+    mcache_entry_t *map_cache_entry;
     /* Create map cache entry */
     if ((map_cache_entry = calloc(1, sizeof(map_cache_entry))) == NULL) {
-        lmlog(LISP_LOG_WARNING,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
+        lmlog(LWRN,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
         return(NULL);
     }
 //    memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
@@ -113,7 +116,7 @@ new_map_cache_entry_no_db(lisp_addr_t eid_prefix, int eid_prefix_length,
     map_cache_entry->how_learned = how_learned;
     map_cache_entry->ttl = ttl;
     if (how_learned == DYNAMIC_MAP_CACHE_ENTRY){
-        map_cache_entry->active = NO_ACTIVE;
+        map_cache_entry->active = NOT_ACTIVE;
     }
     else{
         map_cache_entry->active = ACTIVE;
@@ -124,16 +127,15 @@ new_map_cache_entry_no_db(lisp_addr_t eid_prefix, int eid_prefix_length,
     map_cache_entry->nonces = NULL;
 
     map_cache_entry->timestamp = time(NULL);
-    map_cache_entry->actions = ACT_NO_ACTION;
 
     return (map_cache_entry);
 }
 
-map_cache_entry_t *
+mcache_entry_t *
 new_map_cache_entry(lisp_addr_t eid_prefix, int eid_prefix_length,
         int how_learned, uint16_t ttl)
 {
-    map_cache_entry_t *map_cache_entry;
+    mcache_entry_t *map_cache_entry;
 
     map_cache_entry = new_map_cache_entry_no_db (eid_prefix, eid_prefix_length, how_learned, ttl);
 
@@ -155,7 +157,7 @@ new_map_cache_entry(lisp_addr_t eid_prefix, int eid_prefix_length,
 
 
 
-void map_cache_entry_del(map_cache_entry_t *entry)
+void map_cache_entry_del(mcache_entry_t *entry)
 {
     mapping_del(mcache_entry_mapping(entry));
 
@@ -165,12 +167,10 @@ void map_cache_entry_del(map_cache_entry_t *entry)
             entry->expiry_cache_timer = NULL;
         }
         if (entry->request_retry_timer != NULL){
-            stop_timer(entry->request_retry_timer);
-            entry->request_retry_timer = NULL;
+            mcache_entry_stop_req_retry_timer(entry);
         }
         if (entry->smr_inv_timer != NULL){
-            stop_timer(entry->smr_inv_timer);
-            entry->smr_inv_timer = NULL;
+            mcache_entry_stop_smr_inv_timer(entry);
         }
     }
 
@@ -180,7 +180,7 @@ void map_cache_entry_del(map_cache_entry_t *entry)
     free(entry);
 }
 
-void map_cache_entry_dump (map_cache_entry_t *entry, int log_level)
+void map_cache_entry_dump (mcache_entry_t *entry, int log_level)
 {
     char                buf[256], buf2[256];
     time_t              expiretime;
@@ -234,48 +234,39 @@ void map_cache_entry_dump (map_cache_entry_t *entry, int log_level)
     }
 }
 
-void
-mcache_entry_destroy_nonces(map_cache_entry_t *mce) {
-    free(mce->nonces);
-    mce->nonces = NULL;
-}
-
-void
-mcache_entry_stop_smr_timer(map_cache_entry_t *mce) {
-    if (mce->smr_inv_timer){
-        stop_timer(mce->smr_inv_timer);
-        mce->smr_inv_timer = NULL;
-    }
-}
-
-void
-map_cache_entry_start_expiration_timer(map_cache_entry_t *mce) {
-    /* Expiration cache timer */
-    if (!mce->expiry_cache_timer){
-        mce->expiry_cache_timer = create_timer(EXPIRE_MAP_CACHE_TIMER);
-    }
-
-    start_timer(mce->expiry_cache_timer, mce->ttl*60,
-            (timer_callback)map_cache_entry_expiration_cb,(void *)mce);
-
-    lmlog(DBG_1,"The map cache entry %s will expire in %ld minutes.",
-            lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))), mce->ttl);
-}
-
 /* Called when the timer associated with an EID entry expires. */
-void
+static int
 map_cache_entry_expiration_cb(timer *t, void *arg)
 {
-    map_cache_entry_t *entry = NULL;
+    mcache_entry_t *entry = NULL;
     mapping_t *mapping = NULL;
     lisp_addr_t *addr = NULL;
 
-    entry = (map_cache_entry_t *)arg;
+    entry = (mcache_entry_t *)arg;
     mapping = mcache_entry_mapping(entry);
     addr = mapping_eid(mapping);
     lmlog(DBG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
 
     mcache_del_mapping(addr);
+    return(GOOD);
 }
+
+void
+map_cache_entry_start_expiration_timer(mcache_entry_t *mce)
+{
+    /* Expiration cache timer */
+    if (!mce->expiry_cache_timer) {
+        mce->expiry_cache_timer = create_timer(EXPIRE_MAP_CACHE_TIMER);
+    }
+
+    start_timer(mce->expiry_cache_timer, mce->ttl*60,
+            map_cache_entry_expiration_cb,(void *)mce);
+
+    lmlog(DBG_1,"The map cache entry of EID %s will expire in %ld minutes.",
+            lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))),
+            mce->ttl);
+}
+
+
 
 

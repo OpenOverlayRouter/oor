@@ -1380,7 +1380,7 @@ int add_database_mapping(
         if ((err = add_mapping_to_interface (interface, mapping, AF_INET)) == GOOD){
             locator = new_local_locator (interface->ipv4_address,&(interface->status),priority_v4,weight_v4,255,0,&(interface->out_socket_v4));
             if (locator != NULL){
-                if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                if ((err=mapping_add_locator (mapping,locator))!=GOOD){
                     return (BAD);
                 }
             }else{
@@ -1395,7 +1395,7 @@ int add_database_mapping(
         if ((err = add_mapping_to_interface (interface, mapping, AF_INET6)) == GOOD){
             locator = new_local_locator (interface->ipv6_address,&(interface->status),priority_v6,weight_v6,255,0,&(interface->out_socket_v6));
             if (locator != NULL){
-                if ((err=add_locator_to_mapping (mapping,locator))!=GOOD){
+                if ((err=mapping_add_locator (mapping,locator))!=GOOD){
                     return (BAD);
                 }
             }else{
@@ -1407,7 +1407,7 @@ int add_database_mapping(
     }
 
     /* Recalculate the outgoing rloc vectors */
-    if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
+    if (balancing_vectors_calculate (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
         lmlog(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc prefenernce");
     }
 
@@ -1581,7 +1581,7 @@ mapping_t *build_mapping_from_config(cfg_t *map, HashTable *lcaf_ht, int local) 
             continue;
         }
 
-        add_locator_to_mapping(mapping, locator);
+        mapping_add_locator(mapping, locator);
     }
 
     if (mapping_compute_balancing_vectors(mapping) != GOOD) {
@@ -1651,11 +1651,11 @@ int add_local_db_mapping(cfg_t *map, HashTable *lcaf_ht) {
             continue;
         }
 
-        add_locator_to_mapping(mapping, locator);
+        mapping_add_locator(mapping, locator);
     }
 
     /* Recalculate the outgoing rloc vectors */
-    if (calculate_balancing_vectors (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
+    if (balancing_vectors_calculate (mapping,&((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs) != GOOD){
         lmlog(LISP_LOG_WARNING,"add_database_mapping: Couldn't calculate outgoing rloc preference");
     }
 
@@ -1742,7 +1742,7 @@ int add_static_map_cache_entry(
     }
 
     if (locator != NULL){
-        if ((err=add_locator_to_mapping(mapping, locator)) != GOOD){
+        if ((err=mapping_add_locator(mapping, locator)) != GOOD){
             return (BAD);
         }
     }else{
@@ -1962,7 +1962,7 @@ int add_proxy_etr_entry(
     locator = new_static_rmt_locator(&rloc,UP,priority,weight,255,0);
 
     if (locator != NULL){
-        if ((err=add_locator_to_mapping (proxy_etrs->mapping, locator)) != GOOD){
+        if ((err=mapping_add_locator (proxy_etrs->mapping, locator)) != GOOD){
             return (BAD);
         }
     }else{

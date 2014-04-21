@@ -47,7 +47,6 @@ typedef struct _timer {
 } timer;
 
 
-
 int init_timers();
 
 timer *create_timer(char *);

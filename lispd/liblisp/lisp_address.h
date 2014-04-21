@@ -98,7 +98,7 @@ inline uint16_t          lisp_addr_get_iana_afi(lisp_addr_t *laddr);
 inline uint16_t          lisp_addr_get_plen(lisp_addr_t *laddr);
 
 //inline uint16_t         lisp_addr_get_plen(lisp_addr_t *laddr);
-inline uint32_t         lisp_addr_get_size_in_field(lisp_addr_t *laddr);
+inline uint32_t         lisp_addr_size_to_write(lisp_addr_t *laddr);
 char                    *lisp_addr_to_char(lisp_addr_t *addr);
 
 inline void             lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi);

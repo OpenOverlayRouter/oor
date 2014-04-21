@@ -38,7 +38,6 @@
 #include <lispd_timers.h>
 
 
-extern timer *map_register_timer;
 
 /*
  * Map-Registers have an authentication header before the UDP header.
@@ -128,9 +127,8 @@ extern timer *map_register_timer;
 //} PACKED map_register_hdr_t;
 //
 
-
-int map_register_cb(timer *t, void *arg);
-int map_register_all_eids();
+int program_map_register(lisp_ctrl_dev_t *dev, int time);
+int map_register_process();
 
 uint8_t *build_map_register_pkt(mapping_t *mapping, int *mrp_len);
 

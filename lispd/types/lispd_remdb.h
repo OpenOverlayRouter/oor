@@ -43,7 +43,7 @@ typedef struct {
 
     /* status fields */
     timer               *rt_timer;
-    nonces_list         *nonces;
+    nonces_list_t         *nonces;
     uint8_t             join_pending;
     uint8_t             leave_pending;
 } remdb_member_t;

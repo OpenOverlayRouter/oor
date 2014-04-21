@@ -163,6 +163,6 @@ static inline uint8_t *mreg_msg_data(map_register_msg *mreg) {
 #define MREG_HDR_CAST(h_) ((map_register_hdr_t *)(h_))
 #define MREG_REC_COUNT(h_) MREG_HDR_CAST((h_))->record_count
 #define MREG_WANT_MAP_NOTIFY(h_) (MREG_HDR_CAST(h_))->map_notify
-
+#define MREG_NONCE(h_) (MREG_HDR_CAST(h_))->nonce
 
 #endif /* LISP_MAP_REGISTER_H_ */

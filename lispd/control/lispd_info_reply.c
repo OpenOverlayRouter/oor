@@ -170,7 +170,7 @@ int process_info_reply_msg(
 
     /* Checking the nonce */
 
-    if (check_nonce(nat_ir_nonce,nonce) == GOOD ){
+    if (nonce_check(nat_ir_nonce,nonce) == GOOD ){
         lmlog(LISP_LOG_DEBUG_2, "Info-Reply: Correct nonce field checking ");
         free(nat_ir_nonce);
         nat_ir_nonce = NULL;
@@ -225,7 +225,7 @@ int process_info_reply_msg(
             lmlog(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
             return (BAD);
         }
-        locator = get_locator_from_mapping(mapping, &local_rloc);
+        locator = mapping_get_locator(mapping, &local_rloc);
         if (locator == NULL){
             lmlog(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply received in the wrong locator");
             return (BAD);
@@ -263,7 +263,7 @@ int process_info_reply_msg(
     }
 
     /* Once we know the NAT state we send a Map-Register */
-    map_register_all_eids();
+    map_register_process();
 
     return (GOOD);
 }

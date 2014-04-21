@@ -31,25 +31,24 @@
 #include "lispd_nonce.h"
 #include <time.h>
 
-
 /*
  *      requires librt
  */
 
-uint64_t build_nonce(int seed)
+uint64_t nonce_build(int seed)
 {
 
-    uint64_t            nonce;
-    uint32_t            nonce_lower;
-    uint32_t            nonce_upper;
-    struct timespec     ts;
+    uint64_t nonce;
+    uint32_t nonce_lower;
+    uint32_t nonce_upper;
+    struct timespec ts;
 
     /*
      * Put nanosecond clock in lower 32-bits and put an XOR of the nanosecond
      * clock with the seond clock in the upper 32-bits.
      */
 
-    clock_gettime(CLOCK_MONOTONIC,&ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     nonce_lower = ts.tv_nsec;
     nonce_upper = ts.tv_sec ^ htonl(nonce_lower);
 
@@ -63,20 +62,20 @@ uint64_t build_nonce(int seed)
      */
     nonce = nonce_upper;
     nonce = (nonce << 32) | nonce_lower;
-    return(nonce);
+    return (nonce);
 }
 
-
-
-nonces_list *new_nonces_list()
+nonces_list_t *nonces_list_new()
 {
-    nonces_list *nonces;
-    if ((nonces = (nonces_list*)malloc(sizeof(nonces_list))) == NULL) {
-        lmlog(LISP_LOG_WARNING, "new_nonces_list: Unable to allocate memory for nonces_list: %s", strerror(errno));
+    nonces_list_t *nonces;
+    if ((nonces = (nonces_list_t*) malloc(sizeof(nonces_list_t))) == NULL) {
+        lmlog(LISP_LOG_WARNING,
+                "new_nonces_list: Unable to allocate memory for nonces_list: %s",
+                strerror(errno));
         return (NULL);
     }
 
-    memset(nonces,0,sizeof(nonces_list));
+    memset(nonces, 0, sizeof(nonces_list_t));
 
     return (nonces);
 }
@@ -85,42 +84,40 @@ nonces_list *new_nonces_list()
  * Return true if nonce is found in the nonces list
  */
 
-int check_nonce(nonces_list *nonces, uint64_t nonce) {
+int nonce_check(nonces_list_t *nonces, uint64_t nonce)
+{
     int i;
     if (nonces == NULL)
         return (BAD);
-    for (i=0;i<nonces->retransmits;i++){
-        if (nonces->nonce[i] == nonce){
+    for (i = 0; i < nonces->retransmits; i++) {
+        if (nonces->nonce[i] == nonce) {
             return (GOOD);
         }
     }
     return (BAD);
 }
 
-
 /*
  * lisp_print_nonce
  *
  * Print 64-bit nonce in 0x%08x-0x%08x format.
  */
-void lispd_print_nonce (
-        uint64_t    nonce,
-        int         log_level)
+void lispd_print_nonce(uint64_t nonce, int log_level)
 {
     uint32_t lower;
     uint32_t upper;
 
     lower = nonce & 0xffffffff;
     upper = (nonce >> 32) & 0xffffffff;
-    lmlog(log_level,"nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
+    lmlog(log_level, "nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
 }
 
 char *nonce_to_char(uint64_t nonce)
 {
-    static char         nonce_char[2][21];
+    static char nonce_char[2][21];
     static unsigned int i;
-    uint32_t            lower          = 0;
-    uint32_t            upper          = 0;
+    uint32_t lower = 0;
+    uint32_t upper = 0;
 
     /* Hack to allow more than one addresses per printf line. Now maximum = 2 */
     i++;
@@ -133,5 +130,4 @@ char *nonce_to_char(uint64_t nonce)
 
     return (nonce_char[i]);
 }
-
 

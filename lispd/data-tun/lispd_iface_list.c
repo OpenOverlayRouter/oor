@@ -601,7 +601,7 @@ iface_balancing_vectors_calc(lispd_iface_elt *iface) {
     mapping_list = iface->head_mappings_list;
     while (mapping_list != NULL) {
         lcl_extended_info = mapping_list->mapping->extended_info;
-        calculate_balancing_vectors(mapping_list->mapping,
+        balancing_vectors_calculate(mapping_list->mapping,
                 &(lcl_extended_info->outgoing_balancing_locators_vecs));
         mapping_list = mapping_list->next;
     }

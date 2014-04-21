@@ -88,13 +88,12 @@ xtr_ctrl_start(lisp_ctrl_dev_t *dev) {
     *  Register to the Map-Server(s)
     */
 
-    map_register_all_eids();
+    map_register_process();
 
     /*
     * SMR proxy-ITRs list to be updated with new mappings
     */
-
-    ctrl_dev_send_smr(NULL,NULL);
+    program_smr(dev, 0);
 
     /*
     * RLOC Probing proxy ETRs
@@ -112,7 +111,7 @@ xtr_delete(lisp_ctrl_dev_t *dev) {
 
 }
 
-/* implementation of base functions */
+/* implementation of ctrl base functions */
 ctrl_dev_class_t xtr_vtable = {
         .process_msg = xtr_handle_msg,
         .start = xtr_ctrl_start,
@@ -123,7 +122,7 @@ lisp_ctrl_dev_t *
 xtr_ctrl_init() {
     lisp_xtr_t *xtr;
     xtr = calloc(1, sizeof(lisp_xtr_t));
-    xtr->super.vtable = &xtr_vtable;
+    xtr->super.ctrl_class = &xtr_vtable;
     xtr->super.mode = xTR_MODE;
     lmlog(DBG_1, "Finished Initializing xTR");
 
@@ -155,14 +154,14 @@ select_remote_rloc(glist_t *l, int afi, lisp_addr_t *remote) {
 
 
 static int
-reply_to_smr(lisp_addr_t *src_addr)
+reply_to_smr(lisp_ctrl_dev_t *dev, lisp_addr_t *eid)
 {
-    map_cache_entry_t *mce;
-    nonces_list *nonces;
+    mcache_entry_t *mce;
+    nonces_list_t *nonces;
 
     /* Lookup the map cache entry that match with the source EID prefix
      * of the message */
-    if (!(mce = map_cache_lookup(src_addr))) {
+    if (!(mce = map_cache_lookup(eid))) {
         return(BAD);
     }
 
@@ -172,25 +171,20 @@ reply_to_smr(lisp_addr_t *src_addr)
      * generate a solicit map request for each one. Only the first one is
      * considered. If map_cache_entry->nonces is different from null, we have
      * already received a solicit map request  */
-    if (!(nonces = mcache_entry_nonces_list(mce))) {
-        nonces = new_nonces_list();
+    if (!(nonces = mcache_entry_nonces(mce))) {
+        mcache_entry_init_nonces_list(mce);
         if (!nonces) {
             return(BAD);
         }
 
-        mce->smr_inv_timer = create_timer(SMR_INV_RETRY_TIMER);
-        if (!mce->smr_inv_timer) {
-            return(BAD);
-        }
-
-        send_smr_invoked_map_request(mce);
+        send_smr_invoked_map_request(dev, mce);
     }
 
     return(GOOD);
 }
 
 int
-xtr_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *usk)
+xtr_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *uc)
 {
     lisp_addr_t *seid, *deid, *tloc;
     mapping_t *map;
@@ -219,7 +213,7 @@ xtr_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *usk)
 
     /* If packet is a Solicit Map Request, process it */
     if (lisp_addr_afi(seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
-        if(reply_to_smr(seid) != GOOD) {
+        if(reply_to_smr(dev, seid) != GOOD) {
             goto err;
         }
         /* Return if RLOC probe bit is not set */
@@ -256,7 +250,7 @@ xtr_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *usk)
         }
 
         lisp_msg_put_mapping(mrep, map, MREQ_RLOC_PROBE(mreq_hdr)
-                ? &usk->ra: NULL);
+                ? &uc->ra: NULL);
     }
 
     mrep_hdr = lisp_msg_hdr(mrep);
@@ -264,8 +258,8 @@ xtr_process_map_request(lisp_ctrl_dev_t *dev, lbuf_t *buf, uconn_t *usk)
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* send map-reply */
-    select_remote_rloc(itr_rlocs, lisp_addr_ip_afi(&usk->la), &usk.ra);
-    if (send_msg(dev, b, usk) != GOOD) {
+    select_remote_rloc(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc.ra);
+    if (send_msg(dev, b, uc) != GOOD) {
         lmlog(DBG_1, "Couldn't send Map-Reply!");
     }
 

@@ -179,6 +179,11 @@ ctrl_if_status_update() {
     ctrl_dev_program_smr();
 }
 
+forwarding_entry *
+ctrl_get_forwarding_entry(packet_tuple *tuple) {
+    return(tr_get_forwarding_entry(ctrl_dev, tuple));
+}
+
 /*
  * Multicast Interface to end-hosts
  */

@@ -174,7 +174,7 @@ void local_map_db_dump(int log_level)
 
     mdb_foreach_entry(local_mdb->db, it) {
         mapping = (mapping_t *)it;
-        dump_mapping_entry(mapping, log_level);
+        mapping_to_char(mapping, log_level);
     } mdb_foreach_entry_end;
     lmlog(log_level,"*******************************************************\n");
 }

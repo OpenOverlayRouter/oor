@@ -72,7 +72,7 @@
 
 lisp_addr_list_t          *map_resolvers   = NULL;
 lisp_addr_list_t          *proxy_itrs      = NULL;
-map_cache_entry_t      *proxy_etrs      = NULL;
+mcache_entry_t      *proxy_etrs      = NULL;
 lispd_map_server_list_t    *map_servers     = NULL;
 char    *config_file                        = NULL;
 int      debug_level                        = 0;
@@ -118,8 +118,8 @@ lispd_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
 lispd_xTR_ID    xTR_ID      = {.byte = {0}};
 // Global variables used to store nonces of encapsulated map register and info request.
 // To be removed when NAT with multihoming supported.
-nonces_list     *nat_emr_nonce  = NULL;
-nonces_list     *nat_ir_nonce   = NULL;
+nonces_list_t     *nat_emr_nonce  = NULL;
+nonces_list_t     *nat_ir_nonce   = NULL;
 
 
 /*
@@ -211,7 +211,7 @@ int init_xtr() {
                 "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
         sleep(3);
     }else{
-        calculate_balancing_vectors (
+        balancing_vectors_calculate (
                 proxy_etrs->mapping,
                 &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
     }
@@ -426,12 +426,12 @@ void test_elp() {
     mapping_t *mapping = mapping_init_local(eid);
     lmlog(LISP_LOG_WARNING, "mapping created!");
 
-    add_locator_to_mapping(mapping, locator);
+    mapping_add_locator(mapping, locator);
     lmlog(LISP_LOG_WARNING, "locator added!");
     local_map_db_add_mapping(mapping);
     local_map_db_dump(LISP_LOG_WARNING);
 
-    map_register_all_eids();
+    map_register_process();
 
     lmlog(LISP_LOG_WARNING, "removing mapping!");
     local_map_db_del_mapping(eid);

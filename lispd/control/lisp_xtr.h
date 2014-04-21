@@ -44,13 +44,15 @@ typedef struct _lisp_xtr {
     int (*add_mapping_to_local_map_db)(mapping_t *mapping);
 
     /* xtr members */
-    map_cache_db *map_cache;
-    local_map_db *local_mdb;
+    map_cache_db_t *map_cache;
+    local_map_db_t *local_mdb;
+
+    timer_t *map_register_timer;
 } lisp_xtr_t;
 
 //extern ctrl_device_vtable xtr_vtable;
 
 lisp_ctrl_dev_t *xtr_ctrl_init();
-int xtr_process_ctrl_msg(lisp_ctrl_dev_t *dev, lisp_msg *msg, uconn_t *udpsock);
+int xtr_process_ctrl_msg(lisp_ctrl_dev_t *, lisp_msg *, uconn_t *);
 
 #endif /* LISP_XTR_H_ */

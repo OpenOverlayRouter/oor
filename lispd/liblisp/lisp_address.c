@@ -151,13 +151,13 @@ inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr) {
     case LM_AFI_NO_ADDR:
         return(LISP_AFI_NO_ADDR);
     default:
-        lmlog(LISP_LOG_DEBUG_2, "lisp_addr_get_iana_afi: unknown AFI (%d)", lisp_addr_afi(laddr));
+        lmlog(DBG_2, "lisp_addr_get_iana_afi: unknown AFI (%d)", lisp_addr_afi(laddr));
         return (BAD);
     }
 }
 
 
-inline uint32_t lisp_addr_get_size_in_field(lisp_addr_t *laddr) {
+inline uint32_t lisp_addr_size_to_write(lisp_addr_t *laddr) {
     switch(lisp_addr_afi(laddr)) {
     case LM_AFI_NO_ADDR:
         return(0);
@@ -170,7 +170,7 @@ inline uint32_t lisp_addr_get_size_in_field(lisp_addr_t *laddr) {
     case LM_AFI_LCAF:
         return(lcaf_addr_get_size_to_write(get_lcaf_(laddr)));
     default:
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_get_size_in_pkt: not defined for afi %d",
+        lmlog(DBG_3, "lisp_addr_get_size_in_pkt: not defined for afi %d",
                 lisp_addr_afi(laddr));
         break;
     }
@@ -185,7 +185,7 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr) {
     case LM_AFI_IPPREF:
         return(ip_prefix_get_plen(get_ippref_(laddr)));
     default:
-//        lispd_log_msg(LISP_LOG_DEBUG_2, "lisp_addr_get_plen: not defined for afi %d",
+//        lispd_log_msg(DBG_2, "lisp_addr_get_plen: not defined for afi %d",
 //                lisp_addr_get_afi(laddr));
         break;
     }
@@ -194,7 +194,7 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr) {
 
 char *lisp_addr_to_char(lisp_addr_t *addr) {
     if (!addr) {
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_to_char: called with uninitialized address");
+        lmlog(DBG_3, "lisp_addr_to_char: called with uninitialized address");
         return(NULL);
     }
 
@@ -211,7 +211,7 @@ char *lisp_addr_to_char(lisp_addr_t *addr) {
     case LM_AFI_NO_ADDR:
         return("_EMPTY_ADDR_");
     default:
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_to_char: Trying to convert"
+        lmlog(DBG_3, "lisp_addr_to_char: Trying to convert"
                 " to string unknown LISP AFI %d", lisp_addr_afi(addr) );
         break;
     }
@@ -231,7 +231,7 @@ inline void lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi) {
 inline void lisp_addr_ip_to_ippref(lisp_addr_t *laddr) {
     assert(laddr);
     if (lisp_addr_afi(laddr) != LM_AFI_IP && lisp_addr_afi(laddr) != LM_AFI_IPPREF) {
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_ip_to_ippref: called, but addr has afi (%d)",
+        lmlog(DBG_3, "lisp_addr_ip_to_ippref: called, but addr has afi (%d)",
                 lisp_addr_afi(laddr));
         return;
     }
@@ -255,7 +255,7 @@ inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr) {
 inline ip_addr_t *lisp_addr_ip_get_addr(lisp_addr_t *laddr) {
     assert(laddr);
     if (lisp_addr_afi(laddr) != LM_AFI_IP && lisp_addr_afi(laddr) != LM_AFI_IPPREF) {
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_ip_get_addr: called, but addr has afi (%d)",
+        lmlog(DBG_3, "lisp_addr_ip_get_addr: called, but addr has afi (%d)",
                 lisp_addr_afi(laddr));
         return(NULL);
     }
@@ -266,10 +266,10 @@ inline ip_addr_t *lisp_addr_ip_get_addr(lisp_addr_t *laddr) {
         return(ip_prefix_get_addr(get_ippref_(laddr)));
     case LM_AFI_NO_ADDR:
     case LM_AFI_LCAF:
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_ip_get_addr: AFI (%s) not of IP type", get_afi_(laddr));
+        lmlog(DBG_3, "lisp_addr_ip_get_addr: AFI (%s) not of IP type", get_afi_(laddr));
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_ip_get_addr: AFI (%s) not supported", get_afi_(laddr));
+        lmlog(DBG_3, "lisp_addr_ip_get_addr: AFI (%s) not supported", get_afi_(laddr));
     }
     return(NULL);
 }
@@ -286,7 +286,7 @@ inline uint8_t lisp_addr_ip_get_plen(lisp_addr_t *laddr) {
     case LM_AFI_IPPREF:
         return(ip_prefix_get_plen(get_ippref_(laddr)));
     default:
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_ip_get_plen: called with AFI not IP or IPPREF");
+        lmlog(DBG_3, "lisp_addr_ip_get_plen: called with AFI not IP or IPPREF");
     }
 
     return(0);
@@ -301,15 +301,20 @@ inline void lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi) {
         ip_prefix_set_afi(get_ippref_(laddr), afi);
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_ip_set_afi: called with LM AFI %d", get_afi_(laddr));
+        lmlog(DBG_3, "lisp_addr_ip_set_afi: called with LM AFI %d", get_afi_(laddr));
         break;
     }
+}
+
+int
+lisp_addr_is_ip(lisp_addr_t *addr) {
+    return(get_afi_(addr) == LM_AFI_IP);
 }
 
 //inline uint8_t lisp_addr_get_plen(lisp_addr_t *laddr) {
 //    assert(laddr);
 ////    if (lisp_addr_get_afi(laddr) != LM_AFI_IPPREF) {
-////        lispd_log_msg(LISP_LOG_DEBUG_3, "lisp_addr_ippref_get_plen: not an IP prefix %s!",
+////        lispd_log_msg(DBG_3, "lisp_addr_ippref_get_plen: not an IP prefix %s!",
 ////                lisp_addr_to_char(laddr));
 ////        return(0);
 ////    }
@@ -334,7 +339,7 @@ inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen) {
         ip_prefix_set_plen(get_ippref_(laddr), plen);
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_2,"lisp_addr_set_plen: not supported for afi %d",
+        lmlog(DBG_2,"lisp_addr_set_plen: not supported for afi %d",
                 lisp_addr_afi(laddr));
         break;
     }
@@ -359,7 +364,7 @@ void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src) {
         lcaf_addr_copy(get_lcaf_(dst), get_lcaf_(src));
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_2,"lisp_addr_copy:  Unknown AFI type %d in EID", lisp_addr_afi(dst));
+        lmlog(DBG_2,"lisp_addr_copy:  Unknown AFI type %d in EID", lisp_addr_afi(dst));
         break;
     }
 }
@@ -385,11 +390,11 @@ inline uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src) {
         ip_addr_copy_to(dst, ip_prefix_get_addr(get_ippref_(src)));
         return(ip_addr_get_size(ip_prefix_get_addr(get_ippref_(src))));
     case LM_AFI_LCAF:
-        lmlog(LISP_LOG_DEBUG_3,"lisp_addr_copy_to: requeste for %s Not implemented for LCAF.",
+        lmlog(DBG_3,"lisp_addr_copy_to: requeste for %s Not implemented for LCAF.",
                 lisp_addr_to_char(src));
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_3,"lisp_addr_copy_to:  Unknown AFI type %d in EID", lisp_addr_afi(src));
+        lmlog(DBG_3,"lisp_addr_copy_to:  Unknown AFI type %d in EID", lisp_addr_afi(src));
         break;
     }
     return(0);
@@ -414,7 +419,7 @@ inline int lisp_addr_write(void *offset, lisp_addr_t *laddr) {
         memset(offset, 0, sizeof(uint16_t));
         return(sizeof(uint16_t));
     default:
-        lmlog(LISP_LOG_DEBUG_3,"lisp_addr_write_to_pkt: Unkown afi %d", lisp_addr_afi(laddr));
+        lmlog(DBG_3,"lisp_addr_write_to_pkt: Unkown afi %d", lisp_addr_afi(laddr));
         break;
     }
     return(0);
@@ -425,7 +430,7 @@ int lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr) {
     int len = 0;
 
     if (!laddr) {
-        lmlog(LISP_LOG_DEBUG_3,"lisp_addr_parse: Called with unallocated address!");
+        lmlog(DBG_3,"lisp_addr_parse: Called with unallocated address!");
         return(BAD);
     }
 
@@ -447,7 +452,7 @@ int lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr) {
         set_afi_(laddr, LM_AFI_NO_ADDR);
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_2,"lisp_addr_read_from_pkt:  Unknown AFI type %d in EID", afi);
+        lmlog(DBG_2,"lisp_addr_read_from_pkt:  Unknown AFI type %d in EID", afi);
         return(BAD);
         break;
     }
@@ -517,7 +522,7 @@ inline uint8_t lisp_addr_cmp_for_mcache_install(lisp_addr_t *old, lisp_addr_t *n
 
 inline int lisp_addr_is_lcaf(lisp_addr_t *laddr) {
     assert(laddr);
-    return(lisp_addr_afi(laddr) == LM_AFI_LCAF);
+    return(get_afi_(laddr) == LM_AFI_LCAF);
 }
 
 inline void lisp_addr_lcaf_set_addr(lisp_addr_t *laddr, void *addr) {
@@ -597,7 +602,7 @@ lisp_addr_t *lisp_addr_init_from_field(address_field *addrfld) {
     laddr = lisp_addr_new();
     len = lisp_addr_parse(address_field_data(addrfld), laddr);
     if (len != address_field_len(addrfld)) {
-        lmlog(LISP_LOG_DEBUG_3, "lisp_addr_init_from_field: length of address (%d) and that from "
+        lmlog(DBG_3, "lisp_addr_init_from_field: length of address (%d) and that from "
                 "the header (%d) do not match!", len, address_field_len(addrfld));
         return(NULL);
     }
@@ -615,7 +620,7 @@ address_field *lisp_addr_to_field(lisp_addr_t *addr) {
     uint8_t         *hdr    = NULL;
     field = address_field_new();
     hdr = address_field_data(field);
-    hdr = calloc(1, lisp_addr_get_size_in_field(addr));
+    hdr = calloc(1, lisp_addr_size_to_write(addr));
     lisp_addr_write(hdr, addr);
     return(field);
 }

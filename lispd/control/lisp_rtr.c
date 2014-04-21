@@ -31,7 +31,7 @@
 
 void rtr_ctrl_start(lisp_ctrl_dev_t *dev) {
     lmlog(LISP_LOG_DEBUG_1, "Starting RTR...");
-    map_register_all_eids();
+    map_register_process();
 }
 
 void rtr_ctrl_delete(lisp_ctrl_dev_t *dev) {

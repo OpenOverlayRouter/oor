@@ -84,5 +84,7 @@ void *pkt_push_ipv6(lbuf_t *, struct in6_addr *, struct in6_addr *);
 void *pkt_push_udp(lbuf_t *, uint16_t , uint16_t );
 void *pkt_push_ip(lbuf_t *, ip_addr_t *, ip_addr_t *);
 int pkt_compute_udp_cksum(lbuf_t *, int afi);
+int pkt_push_udp_and_ip(lbuf_t *, uint16_t , uint16_t , ip_addr_t *,
+        ip_addr_t *);
 
 #endif /*LISPD_PKT_LIB_H_*/

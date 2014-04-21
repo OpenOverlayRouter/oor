@@ -207,12 +207,13 @@ open_data_input_socket(int afi) {
  */
 
 int
-sock_recv(int sock, struct lbuf *buf, uconn_t *uc) {
+sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
+{
 
     union control_data {
         struct cmsghdr cmsg;
-        u_char data4[CMSG_SPACE(sizeof(struct in_pktinfo))]; /* Space for IPv4 pktinfo */
-        u_char data6[CMSG_SPACE(sizeof(struct in6_pktinfo))]; /* Space for IPv6 pktinfo */
+        u_char data4[CMSG_SPACE(sizeof(struct in_pktinfo))];
+        u_char data6[CMSG_SPACE(sizeof(struct in6_pktinfo))];
     };
 
     union sockunion su;
@@ -242,7 +243,8 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc) {
     buf->size += nbytes;
 
     if (su.s4.sin_family == AF_INET) {
-        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
+                cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IP
                     && cmsgptr->cmsg_type == IP_PKTINFO) {
                 lisp_addr_ip_init(&uc->ra,
@@ -256,7 +258,8 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc) {
         lisp_addr_ip_init(&uc->la, &su.s4.sin_addr);
         uc->lp = ntohs(su.s4.sin_port);
     } else {
-        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
+        for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
+                cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IPV6
                     && cmsgptr->cmsg_type == IPV6_PKTINFO) {
                 lisp_addr_ip_init(&uc->ra,
@@ -274,19 +277,19 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc) {
 }
 
 int
-sock_send(int sock, struct lbuf *b, uconn_t *uc) {
-    ip_addr_t *src;
-    ip_addr_t *dst;
+sock_send(int sock, struct lbuf *b, uconn_t *uc)
+{
+    ip_addr_t *src, *dst;
 
-    if (lisp_addr_afi(&uc->lp) != LM_AFI_IP
+    if (lisp_addr_afi(&uc->la) != LM_AFI_IP
         || lisp_addr_afi(&uc->rp) != LM_AFI_IP) {
         lmlog(DBG_1, "sock_send: src %s and dst % of UDP are not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra));
         return(BAD);
     }
-    src = lisp_addr_ip(&uc->lp);
-    dst = lisp_addr_ip(&uc->rp);
+    src = lisp_addr_ip(&uc->la);
+    dst = lisp_addr_ip(&uc->ra);
 
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
         lmglog(DBG_1, "sock_send: src %s and dst %s of UDP connection have"
@@ -296,17 +299,15 @@ sock_send(int sock, struct lbuf *b, uconn_t *uc) {
     }
 
     /* TODO, XXX: this assumes RAW sockets. Change for android!*/
-    pkt_push_udp(b, src, dst);
-    pkt_push_ip(b, uc->la, uc->ra);
-    pkt_compute_udp_cksum(b, lisp_addr_ip_afi(&uc->la));
-
-    send_raw(sock, lbuf_data(b), lbuf_size(b), lisp_addr_ip(dst));
+    pkt_push_udp_and_ip(b, uc->lp, uc->rp, src, dst);
+    send_raw(sock, lbuf_data(b), lbuf_size(b), dst);
     return(GOOD);
 }
 
 int
 get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
-        uint8_t *ttl, uint8_t *tos) {
+        uint8_t *ttl, uint8_t *tos)
+{
 
     /* Space for TTL and TOS data */
     union control_data {
