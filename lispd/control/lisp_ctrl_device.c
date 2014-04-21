@@ -51,15 +51,15 @@ lisp_ctrl_dev_del(lisp_ctrl_dev_t *dev) {
 }
 
 int
-recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *usk) {
-    ctrl_dev_handle_msg(dev, b, usk);
+recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc) {
+    ctrl_dev_handle_msg(dev, b, uc);
 
     return(GOOD);
 }
 
 int
-send_msg(lisp_ctrl_dev_t *dev, lisp_msg *msg, uconn_t *usk) {
-    ctrl_send_msg(dev->ctrl, msg, usk);
+send_msg(lisp_ctrl_dev_t *dev, lisp_msg *msg, uconn_t *uc) {
+    ctrl_send_msg(dev->ctrl, msg, uc);
     return(GOOD);
 }
 
@@ -336,16 +336,6 @@ tr_get_reencap_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple *tuple)
 
 
 
-
-
-
-
-static void
-timer_map_request_argument_del(void *arg) {
-    timer_mreq_arg_t *targ = arg;
-    lisp_addr_del(targ->src_eid);
-    free(targ);
-}
 
 
 

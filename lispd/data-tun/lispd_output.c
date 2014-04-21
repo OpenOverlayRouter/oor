@@ -860,7 +860,7 @@ lisp_output_unicast(uint8_t *original_packet, int original_packet_length,
 
     /* find a forwarding entry, either in cache or ask control */
     if (ctrl_dev->mode == RTR_MODE) {
-        fwd_entry = get_reencap_forwarding_entry(tuple);
+        fwd_entry = ctrl_get_reencap_forwarding_entry(tuple);
     } else {
         fwd_entry = ctrl_get_forwarding_entry(tuple);
     }

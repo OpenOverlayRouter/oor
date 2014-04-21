@@ -422,7 +422,7 @@ build_and_send_smr_mreq(lisp_ctrl_dev_t *dev, mapping_t *m, lisp_addr_t *dst)
     return(GOOD);
 }
 
-int
+static int
 send_all_smr_cb(timer *t, void *arg)
 {
     timer_arg_t *ta = arg;
@@ -432,7 +432,7 @@ send_all_smr_cb(timer *t, void *arg)
 
 /* Send a solicit map request for each rloc of all eids in the map cache
  * database */
-void
+static void
 send_all_smr(lisp_ctrl_dev_t *dev)
 {
     locators_list_t *loc_lists[2] = {NULL, NULL};
@@ -625,7 +625,7 @@ send_smr_invoked_map_request(lisp_ctrl_dev_t *dev, mcache_entry_t *mce)
 
 
 /* build and send generic map-register with one record */
-int
+static int
 build_and_send_map_reg(lisp_ctrl_dev_t *dev, mapping_t *m, char *key,
         lisp_key_type_t keyid)
 {
@@ -683,11 +683,11 @@ handle_map_cache_miss(lisp_ctrl_dev_t *dev, lisp_addr_t *requested_eid,
 
 static int
 send_map_request_retry_cb(timer *t, void *arg) {
-    timer_mreq_arg_t *ta = arg;
+    timer_arg_t *ta = arg;
     int ret;
 
     free(ta);
-    ret = send_map_request_retry(ta->dev, ta->mce);
+    ret = send_map_request_retry(ta->dev, ta->data);
     return(ret);
 }
 
@@ -703,7 +703,7 @@ send_map_request_retry(lisp_ctrl_dev_t *dev, mcache_entry_t *mce)
     uconn_t uc;
     lbuf_t *b;
     void *mr_hdr;
-    timer_mreq_arg_t *arg;
+    timer_arg_t *arg;
 
     nonces = mcache_entry_nonces(mce);
     m = mcache_entry_mapping(mce);

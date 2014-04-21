@@ -50,7 +50,7 @@ typedef enum {
 struct lisp_ctrl_device_;
 typedef struct lisp_ctrl_device_ lisp_ctrl_dev_t;
 
-/* generic functions common to control devices*/
+/* functions to control lisp control devices*/
 typedef struct ctrl_dev_class_t_ {
     int (*handle_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
     int (*send_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
@@ -59,14 +59,13 @@ typedef struct ctrl_dev_class_t_ {
 } ctrl_dev_class_t;
 
 
-/* generic functions common to tunnel routers */
+/* functions to interact with tunnel routers */
 typedef struct tr_dev_class_t_ {
     /* timers */
     timer *(*map_register_timer)(lisp_ctrl_dev_t *);
 
     /* smr_timer is used to avoid sending SMRs during transition period. */
     timer *(*smr_timer)(lisp_ctrl_dev_t *);
-
 
     lispd_map_server_list_t *(*get_map_servers)(lisp_ctrl_dev_t *);
     lisp_addr_t *(*get_map_resolver)(lisp_ctrl_dev_t *);
@@ -111,42 +110,6 @@ int process_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
 
 int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
 int send_map_request_retry(timer *t, void *arg);
-void timer_map_request_argument_del(void *);
-
-
-
-
-/* Structure to set Map Reply options */
-typedef struct _map_reply_opts {
-    uint8_t send_rec;       // send a Map Reply record as well
-    uint8_t rloc_probe;     // set RLOC probe bit
-    uint8_t echo_nonce;     // set Echo-nonce bit
-    mrsignaling_flags_t mrsig; // mrsignaling option bits
-} map_reply_opts;
-
-
-/* Struct used to pass the arguments to the call_back function of a map
- * request miss
- * TODO: make src_eid a pointer */
-typedef struct _timer_map_request_argument {
-    lisp_ctrl_dev_t *dev;
-    mcache_entry_t *mce;
-    lisp_addr_t *src_eid;
-    void (*arg_free_fct)(void *);
-} timer_mreq_arg_t;
-
-/* Put a wrapper around build_map_request_pkt and send_map_request */
-int build_and_send_map_request_msg(mapping_t *requested_mapping,
-        lisp_addr_t *src_eid, lisp_addr_t *dst_rloc_addr, uint8_t encap,
-        uint8_t probe, uint8_t solicit_map_request, uint8_t smr_invoked,
-        mrsignaling_flags_t *mrsig, uint64_t *nonce);
-
-uint8_t *build_map_reply_pkt(mapping_t *mapping, lisp_addr_t *probed_rloc,
-        map_reply_opts opts, uint64_t nonce, int *map_reply_msg_len);
-
-int build_and_send_map_reply_msg(mapping_t *requested_mapping,
-        lisp_addr_t *src_rloc_addr, lisp_addr_t *dst_rloc_addr, uint16_t dport,
-        uint64_t nonce, map_reply_opts opts);
 
 int mcache_update_entry(lisp_addr_t *eid, locators_list_t *locators,
         uint64_t nonce, uint8_t action, uint32_t ttl);

@@ -41,11 +41,10 @@ typedef struct timer_arg_t_ {
 } timer_arg_t;
 
 int process_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
-void send_all_smr(lisp_ctrl_dev_t *);
 int send_smr_invoked_map_request(lisp_ctrl_dev_t *, mcache_entry_t *);
 
 int build_and_send_map_reg(lisp_ctrl_dev_t *, mapping_t *, char *,
-        lisp_key_type_t );
+        lisp_key_type_t);
 
 int program_smr(lisp_ctrl_dev_t *, int time);
 int program_map_register(lisp_ctrl_dev_t *dev, int time);

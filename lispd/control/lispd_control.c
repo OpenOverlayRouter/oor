@@ -184,6 +184,11 @@ ctrl_get_forwarding_entry(packet_tuple *tuple) {
     return(tr_get_forwarding_entry(ctrl_dev, tuple));
 }
 
+forwarding_entry *
+ctrl_get_reencap_forwarding_entry(packet_tuple *tuple) {
+    return(tr_get_reencap_forwarding_entry(ctrl_dev, tuple));
+}
+
 /*
  * Multicast Interface to end-hosts
  */

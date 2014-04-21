@@ -52,6 +52,11 @@ int process_lisp_ctr_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
 mapping_t **ctrl_get_mappings_to_smr(lisp_ctrl_t *);
 
+void ctrl_if_addr_update(lispd_iface_elt *, lisp_addr_t *);
+void ctrl_if_status_update();
+forwarding_entry *ctrl_get_forwarding_entry(packet_tuple *);
+forwarding_entry *ctrl_get_reencap_forwarding_entry(packet_tuple *);
+
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);
 void multicast_leave_channel(lisp_addr_t *src, lisp_addr_t *grp);
