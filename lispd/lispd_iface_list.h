@@ -87,8 +87,23 @@ typedef struct lispd_iface_list_elt_ {
 
 lispd_iface_elt *add_interface(char *iface_name);
 
+/*
+ * Release memory of an iface structure
+ */
+void free_iface_elt(lispd_iface_elt *iface);
 
+/*
+ * Release memory of an free_iface_mappings_list structure
+ */
+void free_iface_mappings_list (
+		lispd_iface_mappings_list *mappings_list_elt,
+		lisp_addr_t *iface_ipv4_addr,
+		lisp_addr_t *iface_ipv6_addr);
 
+/*
+ * Release memory of an iface list structure
+ */
+void free_ifaces_list ();
 
 /*
  * Look up an interface based in the iface_name.
@@ -145,9 +160,18 @@ void set_default_output_ifaces();
  */
 void set_default_ctrl_ifaces();
 
+lispd_mapping_list *get_mappings_from_iface(lispd_iface_elt     *iface);
+
 lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi);
 
 int get_iface_socket(lispd_iface_elt *iface, int afi);
+
+
+/*
+ * Interface list length
+ */
+
+int get_interface_list_length();
 
 /*
  * Return the list of interfaces

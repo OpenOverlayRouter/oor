@@ -148,48 +148,6 @@
 				    android:onClick="updateConfNATAwareClicked">
 				</CheckBox>
 			</LinearLayout>
-				
-			<LinearLayout 
-			    android:id="@+id/updateContTable_NAT_Layout_data_siteid" 
-			    android:layout_height="wrap_content" 
-			    android:layout_width="match_parent">
-				<TextView 
-				    android:id="@+id/textSiteID" 
-				    android:text="Site ID:" 
-				    android:textSize="25px" 
-				    android:layout_height="wrap_content" 
-				    android:layout_width="wrap_content">
-				</TextView>
-				<EditText
-				    android:id="@+id/updateConf_Site_ID" 
-				    android:enabled="false" 
-				    android:text="0000000000000001" 
-				    android:maxLength="16"
-				    android:layout_height="wrap_content"  
-				    android:layout_width="wrap_content">
-				</EditText>
-			</LinearLayout>
-			
-			<LinearLayout 
-			    android:id="@+id/updateContTable_NAT_Layout_data_xtr_id" 
-			    android:layout_height="wrap_content" 
-			    android:layout_width="match_parent">
-				<TextView 
-				    android:id="@+id/text_xTR_ID" 
-				    android:text="xTR ID:" 
-				    android:textSize="25px" 
-				    android:layout_height="wrap_content" 
-				    android:layout_width="wrap_content">
-				</TextView>
-				<EditText
-				    android:id="@+id/updateConf_xTR_ID" 
-				    android:enabled="false" 
-				    android:text="00000000000000000000000000000001" 
-				    android:maxLength="32"
-				    android:layout_height="wrap_content"  
-				    android:layout_width="wrap_content">
-				</EditText>
-			</LinearLayout>
 
     		<LinearLayout
     		    android:id="@+id/updateConfLinearLayout2" 

@@ -41,7 +41,7 @@ void init_globales()
 	config_file							= NULL;
 	map_request_retries 				= DEFAULT_MAP_REQUEST_RETRIES;
 	control_port            			= LISP_CONTROL_PORT;
-	debug_level             			= 0;
+	debug_level             			= -1;
 	daemonize               			= FALSE;
 	ctrl_supported_afi                  = -1;
 	default_rloc_afi        			= AF_UNSPEC;
@@ -49,10 +49,11 @@ void init_globales()
 	rloc_probe_interval                	= RLOC_PROBING_INTERVAL;
 	rloc_probe_retries                 	= DEFAULT_RLOC_PROBING_RETRIES;
 	rloc_probe_retries_interval       	= DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
-	total_mappings                      = 0;
 	netlink_fd                          = 0;
 	ipv4_data_input_fd                  = 0;
 	ipv6_data_input_fd                  = 0;
+	ipc_data_fd							= 0;
+	ipc_control_fd						= 0;
 	ipv4_control_input_fd               = 0;
 	ipv6_control_input_fd               = 0;
 	timers_fd                       	= 0;
@@ -60,15 +61,8 @@ void init_globales()
 	/* NAT */
 
 	nat_aware   					    = FALSE;
-	nat_status  						= UNKNOWN;
-    lispd_site_ID   site_ID             = {.byte = {0}};
-    lispd_xTR_ID    xTR_ID              = {.byte = {0}};
 	memset (&site_ID,0,sizeof(lispd_site_ID));
 	memset (&xTR_ID,0,sizeof(lispd_xTR_ID));
-	// Global variables used to store nonces of encapsulated map register and info request.
-	// To be removed when NAT with multihoming supported.
-	nat_emr_nonce  					= NULL;
-	nat_ir_nonce   					= NULL;
 
 
 
@@ -78,11 +72,11 @@ void init_globales()
 	default_out_iface_v4				= NULL;
 	default_out_iface_v6				= NULL;
 	smr_timer							= NULL;
-	info_reply_ttl_timer                = NULL;
 
 
 	memset (msg,0,sizeof(char)*128);
 	memset (&dst_addr,0,sizeof(struct sockaddr_nl));
 	memset (&src_addr,0,sizeof(struct sockaddr_nl));
 	memset (&nlh,0,sizeof(nlsock_handle));
+
 }

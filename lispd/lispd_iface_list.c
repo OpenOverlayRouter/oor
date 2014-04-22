@@ -30,6 +30,8 @@
  */
 
 #include "lispd_external.h"
+#include "lispd_iface_list.h"
+#include "lispd_iface_mgmt.h"
 #include "lispd_info_request.h"
 #include "lispd_lib.h"
 #include "lispd_routing_tables_lib.h"
@@ -87,10 +89,11 @@ lispd_iface_elt *add_interface(char *iface_name)
 
     if (iface->iface_index != 0){
         if (default_rloc_afi != AF_INET6){
-            err = lispd_get_iface_address(iface_name, iface->ipv4_address, AF_INET);
+            err = lispd_get_iface_address_nl(iface_name, iface->ipv4_address, AF_INET);
             if (err == GOOD){
-                iface->out_socket_v4 = open_device_binded_raw_socket(iface->iface_name,AF_INET);
-                bind_socket_src_address(iface->out_socket_v4,iface->ipv4_address);
+#ifndef VPNAPI
+                iface->out_socket_v4 = new_device_binded_raw_socket(iface->iface_name,AF_INET);
+                bind_socket(iface->out_socket_v4,AF_INET,iface->ipv4_address,0);
                 add_rule(AF_INET,
                         0,                      //iface
                         iface->iface_index,     //table
@@ -98,6 +101,7 @@ lispd_iface_elt *add_interface(char *iface_name)
                         RTN_UNICAST,
                         iface->ipv4_address,
                         32,NULL,0,0);
+#endif
             }else {
                 iface->ipv4_address->afi = AF_UNSPEC;
                 iface->out_socket_v4 = -1;
@@ -109,10 +113,11 @@ lispd_iface_elt *add_interface(char *iface_name)
         // XXX To be modified when full NAT implemented
         if (nat_aware != TRUE){
             if (default_rloc_afi != AF_INET){
-                err = lispd_get_iface_address(iface_name, iface->ipv6_address, AF_INET6);
+                err = lispd_get_iface_address_nl(iface_name, iface->ipv6_address, AF_INET6);
                 if (err == GOOD){
-                    iface->out_socket_v6 = open_device_binded_raw_socket(iface->iface_name,AF_INET6);
-                    bind_socket_src_address(iface->out_socket_v6,iface->ipv6_address);
+#ifndef VPNAPI
+                    iface->out_socket_v6 = new_device_binded_raw_socket(iface->iface_name,AF_INET6);
+                    bind_socket(iface->out_socket_v6,AF_INET6,iface->ipv6_address,0);
                     add_rule(AF_INET6,
                             0,                      //iface
                             iface->iface_index,     //table
@@ -120,6 +125,7 @@ lispd_iface_elt *add_interface(char *iface_name)
                             RTN_UNICAST,
                             iface->ipv6_address,
                             128,NULL,0,0);
+#endif
                 }else {
                     iface->ipv6_address->afi = AF_UNSPEC;
                     iface->out_socket_v6 = -1;
@@ -167,6 +173,58 @@ lispd_iface_elt *add_interface(char *iface_name)
     lispd_log_msg(LISP_LOG_DEBUG_2,"add_interface: Interface %s with interface index %d added to interfaces lists",
             iface_name, iface->iface_index);
     return (iface);
+}
+
+void free_iface_elt(lispd_iface_elt *iface)
+{
+	free(iface->iface_name);
+	free_iface_mappings_list(iface->head_mappings_list, iface->ipv4_address, iface->ipv6_address);
+	if (iface->ipv4_address != NULL)
+		free(iface->ipv4_address);
+	if (iface->ipv6_address != NULL)
+		free(iface->ipv6_address);
+	if (iface->ipv4_gateway != NULL)
+		free(iface->ipv4_gateway);
+	if (iface->ipv6_gateway != NULL)
+		free(iface->ipv6_gateway);
+
+	free(iface);
+}
+
+void free_iface_mappings_list (
+		lispd_iface_mappings_list *mappings_list_elt,
+		lisp_addr_t *ipv4,
+		lisp_addr_t *ipv6)
+{
+	lispd_iface_mappings_list *next_mapping_list_elt = NULL;
+	lispd_mapping_elt *mapping	= NULL;
+	while (mappings_list_elt != NULL){
+		mapping = mappings_list_elt->mapping;
+		if (mappings_list_elt->use_ipv4_address == TRUE && ipv4 != NULL){
+			remove_locator_from_mapping(mapping,ipv4);
+		}
+		if (mappings_list_elt->use_ipv6_address == TRUE && ipv6 != NULL){
+			remove_locator_from_mapping(mapping,ipv6);
+		}
+		next_mapping_list_elt = mappings_list_elt->next;
+		free(mappings_list_elt);
+		mappings_list_elt = next_mapping_list_elt;
+	}
+}
+
+void free_ifaces_list()
+{
+	lispd_iface_list_elt 	*iface_list_elt		 = head_interface_list;
+	lispd_iface_list_elt 	*next_iface_list_elt = NULL;
+	lispd_iface_elt 		*iface				 = NULL;
+
+	while (iface_list_elt != NULL){
+		iface = iface_list_elt->iface;
+		next_iface_list_elt = iface_list_elt->next;
+		free_iface_elt(iface);
+		iface_list_elt = next_iface_list_elt;
+	}
+	head_interface_list = NULL;
 }
 
 /*
@@ -542,18 +600,23 @@ void set_default_ctrl_ifaces()
         }
     }
 
-    /* Check NAT status */
-    if (nat_aware == TRUE && ( (default_ctrl_iface_v4 != NULL) || (default_ctrl_iface_v6 != NULL))){
-              // TODO : To be modified when implementing NAT per multiple interfaces
-              nat_status = UNKNOWN;
-              initial_info_request_process();
-    }
-
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6){
         lispd_log_msg(LISP_LOG_ERR,"NO CONTROL IFACE: all the locators are down");
     }
 }
 
+lispd_mapping_list *get_mappings_from_iface(lispd_iface_elt     *iface)
+{
+	lispd_mapping_list 			*mappings_list 	= NULL;
+	lispd_iface_mappings_list 	*list			= iface->head_mappings_list;
+
+	while (list != NULL){
+		add_mapping_to_list(list->mapping, &mappings_list);
+		list = list->next;
+	}
+
+	return (mappings_list);
+}
 
 lisp_addr_t *get_iface_address(
         lispd_iface_elt     *iface,
@@ -593,6 +656,21 @@ int get_iface_socket(
     }
     
     return (out_socket);
+}
+
+/*
+ * Interface list length
+ */
+int get_interface_list_length()
+{
+	int ctr = 0;
+	lispd_iface_list_elt *iface = head_interface_list;
+
+	while(iface != NULL){
+		ctr ++;
+		iface = iface->next;
+	}
+	return (ctr);
 }
 
 /*

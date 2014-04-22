@@ -20,8 +20,8 @@ ERROR		= false
 
 
 ifeq "$(platform)" ""
-CFLAGS		+= -Wall -g 
-LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
+CFLAGS		+= -Wall -g
+LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -ljson
 else
 ifeq "$(platform)" "openwrt"
 CFLAGS		+= -Wall -g -DOPENWRT
@@ -68,6 +68,7 @@ OBJS		= 	cksum.o \
 				lispd_sockets.o \
 				lispd_timers.o \
 				lispd_tun.o \
+				api/ipc.o \
 				patricia/patricia.o \
 
 EXE		= lispd
@@ -89,7 +90,7 @@ endif
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o $(EXE) patricia/*.o bob/*o
+	rm -f *.o $(EXE) patricia/*.o bob/*o api/*.o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

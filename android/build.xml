@@ -71,7 +71,7 @@
     	<exec executable="${ndk.dir}/ndk-build" dir="./jni/" failonerror="true">
 		<arg value="NDK_DEBUG=1"/>
 	</exec>
-        <move file="./libs/armeabi/lispd" tofile="./libs/armeabi/liblispd.so"/>
+        <!--<move file="./libs/armeabi/lispd" tofile="./libs/armeabi/liblispd.so"/>-->
     </target>
     
     

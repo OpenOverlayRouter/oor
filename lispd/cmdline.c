@@ -329,7 +329,7 @@ cmdline_parser_ext (int argc, char **argv, struct gengetopt_args_info *args_info
   if (result == EXIT_FAILURE)
     {
       cmdline_parser_free (args_info);
-      exit_cleanup();
+      exit (EXIT_FAILURE);
     }
   
   return result;
@@ -352,7 +352,7 @@ cmdline_parser2 (int argc, char **argv, struct gengetopt_args_info *args_info, i
   if (result == EXIT_FAILURE)
     {
       cmdline_parser_free (args_info);
-      exit_cleanup();
+      exit (EXIT_FAILURE);
     }
   
   return result;

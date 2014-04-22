@@ -35,6 +35,10 @@
 
 #ifndef LISPD_CONFIG_H_
 #define LISPD_CONFIG_H_
+
+#define CONF_FILE_NAME  "lispd.conf"
+
+
 /*
  *  Get command line args and set up whatever is needed
  */

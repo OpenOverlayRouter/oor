@@ -180,8 +180,6 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     int                 uci_rloc_probe_int              = 0;
     int                 uci_rloc_probe_retries          = 0;
     int                 uci_rloc_probe_retries_interval = 0;
-    const char*         uci_site_id                     = NULL;
-    const char*         uci_xtr_id                      = NULL;
     const char*         uci_address                     = NULL;
     int                 uci_key_type                    = 0;
     const char*         uci_key                         = NULL;
@@ -209,7 +207,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     if (ctx == NULL) {
         lispd_log_msg(LISP_LOG_CRIT, "Could not create UCI context. Exiting ...");
-        exit_cleanup();
+        return(BAD);
     }
 
     uci_conf_dir = dirname(strdup(uci_conf_file_path));
@@ -226,7 +224,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         lispd_log_msg(LISP_LOG_CRIT, "Could not load conf file: %s. Exiting ...",uci_conf_file);
         uci_perror(ctx,"Error while loading packet ");
         uci_free_context(ctx);
-        exit_cleanup();
+        return(BAD);
     }
 
 
@@ -325,20 +323,6 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
             }else{
                 nat_aware = FALSE;
             }
-            uci_site_id = uci_lookup_option_string(ctx, s, "site_ID");
-            uci_xtr_id = uci_lookup_option_string(ctx, s, "xTR_ID");
-
-            if (nat_aware == TRUE){
-                if ((convert_hex_string_to_bytes(uci_site_id,site_ID.byte,8)) != GOOD){
-                    lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
-                    exit_cleanup();
-                }
-                if ((convert_hex_string_to_bytes(uci_xtr_id,xTR_ID.byte,16)) != GOOD){
-                    lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
-                    exit_cleanup();
-                }
-            }
-
             continue;
         }
 
@@ -461,10 +445,8 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     validate_rloc_probing_parameters (uci_rloc_probe_int, uci_rloc_probe_retries, uci_rloc_probe_retries_interval);
 
-    if (!proxy_etrs){
-        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
-                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-        sleep(3);
+    if (validate_configuration() != GOOD){
+        return (BAD);
     }
 
     if (debug_level == 1){
@@ -487,9 +469,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
     uci_free_context(ctx);
 
-    err = validate_configuration();
-
-    return(err);
+    return(GOOD);
 }
 
 #else
@@ -518,8 +498,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     int                     ret                     = 0;
     char                    *map_resolver           = NULL;
     char                    *proxy_itr              = NULL;
-    char                    *nat_site_ID            = NULL;
-    char                    *nat_xTR_ID             = NULL;
     int                     probe_int               = 0;
     int                     probe_retries           = 0;
     int                     probe_retries_interval  = 0;
@@ -569,8 +547,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     static cfg_opt_t nat_traversal_opts[] = {
             CFG_BOOL("nat_aware",   cfg_false, CFGF_NONE),
-            CFG_STR("site_ID",              0, CFGF_NONE),
-            CFG_STR("xTR_ID",               0, CFGF_NONE),
             CFG_END()
     };
 
@@ -610,14 +586,17 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
      */
 
     cfg = cfg_init(opts, CFGF_NOCASE);
+
+    lispd_log_msg(LISP_LOG_INFO, "Processing configuration file %s", lispdconf_conf_file);
+
     ret = cfg_parse(cfg, lispdconf_conf_file);
 
     if (ret == CFG_FILE_ERROR) {
-        lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", config_file);
-        exit_cleanup();
+        lispd_log_msg(LISP_LOG_CRIT, "Couldn't find config file %s, exiting...", lispdconf_conf_file);
+        return(BAD);
     } else if(ret == CFG_PARSE_ERROR) {
         lispd_log_msg(LISP_LOG_CRIT, "Parse error in file %s, exiting. Check conf file (see lispd.conf.example)", config_file);
-        exit_cleanup();
+        return(BAD);
     }
 
 
@@ -652,7 +631,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             debug_level = 3;
     }
 
-
     /*
      *  RLOC Probing options
      */
@@ -676,18 +654,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
     if (nt != NULL){
         nat_aware   = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
-        nat_site_ID = cfg_getstr(nt, "site_ID");
-        nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
-        if (nat_aware == TRUE){
-            if ((convert_hex_string_to_bytes(nat_site_ID,site_ID.byte,8)) != GOOD){
-                lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong Site-ID format");
-                exit_cleanup();
-            }
-            if ((convert_hex_string_to_bytes(nat_xTR_ID,xTR_ID.byte,16)) != GOOD){
-                lispd_log_msg(LISP_LOG_CRIT, "Configuration file: Wrong xTR-ID format");
-                exit_cleanup();
-            }
-        }
     }else {
         nat_aware = FALSE;
     }
@@ -828,42 +794,9 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
         }
     }
 
-    /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
-    if (nat_aware == TRUE){
-        if (ctr > 1){
-            lispd_log_msg(LISP_LOG_CRIT,"NAT aware on -> This version of LISPmob is limited to one EID prefix "
-                    "and one interface when NAT-T is enabled");
-            exit_cleanup();
-        }
-
-        if (map_servers->next != NULL || map_servers->address->afi != AF_INET){
-            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Server.");
-            exit_cleanup();
-        }
-
-        if (map_resolvers->next != NULL || map_resolvers->address->afi != AF_INET){
-            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Resolver.");
-            exit_cleanup();
-        }
-
-        if (rloc_probe_interval > 0){
-            rloc_probe_interval = 0;
-            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> disabling RLOC Probing");
-        }
+    if (validate_configuration() != GOOD){
+        return (BAD);
     }
-
-    /* Check number of EID prefixes */
-    if (router_mode == FALSE){
-        if (num_entries_in_db(get_local_db(AF_INET)) > 1){
-            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-            exit_cleanup();
-        }
-        if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
-            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
-            exit_cleanup();
-        }
-    }
-
 
     if (debug_level == 1){
         lispd_log_msg (LISP_LOG_INFO, "Log level: Low debug");
@@ -872,6 +805,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }else if (debug_level == 3){
         lispd_log_msg (LISP_LOG_INFO, "Log level: High Debug");
     }
+
 
     lispd_log_msg (LISP_LOG_DEBUG_1, "****** Summary of the configuration ******");
     dump_local_db(LISP_LOG_DEBUG_1);
@@ -887,9 +821,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }
 
     cfg_free(cfg);
-
     err = validate_configuration();
-
     return(err);
 }
 
@@ -987,7 +919,6 @@ int add_database_mapping(
             free_mapping_elt(mapping);
             return (BAD);
         }
-        total_mappings ++;
         is_new_mapping = TRUE;
     }else{
         if (mapping->iid != iid){
@@ -1139,6 +1070,13 @@ int add_static_map_cache_entry(
      */
     programming_rloc_probing(map_cache_entry);
 
+    /*
+     * Calculate balancing locators vector
+     */
+
+    calculate_balancing_vectors (map_cache_entry->mapping,
+    		&((rmt_mapping_extended_info *)(map_cache_entry->mapping->extended_info))->rmt_balancing_locators_vecs);
+
     return (GOOD);
 }
 
@@ -1190,7 +1128,7 @@ int add_map_server(
 
     if (map_server == NULL || key_type == 0 || key == NULL){
         lispd_log_msg(LISP_LOG_ERR, "Configuraton file: Wrong Map Server configuration.  Check configuration file");
-        exit_cleanup();
+        return(BAD);
     }
 
     list = lispd_get_address (map_server,default_rloc_afi);
@@ -1237,6 +1175,7 @@ int add_ddt_root_entry(
         int                         weight)
 {
     lispd_addr_list_t               *list                   = NULL;
+    lispd_addr_list_t               *head_list              = NULL;
     lisp_addr_t                     *ddt_locator_address    = NULL;
     lisp_addr_t                     root_eid_prefix         = {.afi = AF_UNSPEC};
     int                             result                  = GOOD;
@@ -1249,10 +1188,11 @@ int add_ddt_root_entry(
         return (BAD);
     }
 
-    if ((list = lispd_get_address (address,default_rloc_afi)) == NULL){
+    if ((head_list = lispd_get_address (address,default_rloc_afi)) == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "add_ddt_root_entry: Unable to process ddt root node with locator %s", address);
         return (BAD);
     }
+
 
     /* Check the parameters */
     if (priority > 255 || priority < 0) {
@@ -1265,6 +1205,7 @@ int add_ddt_root_entry(
         return (BAD);
     }
 
+    list = head_list;
     while (list != NULL){
         ddt_locator_address = list->address;
 
@@ -1277,7 +1218,7 @@ int add_ddt_root_entry(
         }
 
         get_lisp_addr_from_char ("0::0", &root_eid_prefix);
-        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, ddt_locator_address, 10, 100, 0)) != GOOD ){
+        if ((err = add_update_ddt_static_entry_to_db (root_eid_prefix, 0, 0, clone_lisp_addr(ddt_locator_address), 10, 100, 0)) != GOOD ){
             lispd_log_msg(LISP_LOG_WARNING, "Configuration file (add_ddt_root_entry): Error processing the root ddt node %s (IPv6 database)",
                     address);
             free(ddt_locator_address);
@@ -1286,6 +1227,7 @@ int add_ddt_root_entry(
 
         list = list->next;
     }
+    free_lisp_addr_list(head_list, FALSE);
 
     return (result);
 }
@@ -1302,6 +1244,7 @@ int add_proxy_etr_entry(
         int                         priority,
         int                         weight)
 {
+	lispd_addr_list_t               *head_list        = NULL;
     lispd_addr_list_t               *list        = NULL;
     lisp_addr_t                     petr_addr    = {.afi=AF_UNSPEC};
     lisp_addr_t                     *lisp_addr   = NULL;
@@ -1324,7 +1267,7 @@ int add_proxy_etr_entry(
         return (BAD);
     }
 
-    if ((list = lispd_get_address (address,default_rloc_afi)) == NULL){
+    if ((head_list = lispd_get_address (address,default_rloc_afi)) == NULL){
         lispd_log_msg(LISP_LOG_WARNING, "add_proxy_etr_entry: Unable to process proxy ETR  with locator %s", address);
         return (BAD);
     }
@@ -1339,7 +1282,7 @@ int add_proxy_etr_entry(
             return (BAD);
         }
     }
-
+    list = head_list;
     while (list != NULL){
         lisp_addr = list->address;
         /* Create de locator representing the proxy-etr and add it to the mapping */
@@ -1357,6 +1300,7 @@ int add_proxy_etr_entry(
         }
         list = list->next;
     }
+    free_lisp_addr_list(head_list, FALSE);
 
     return(result);
 }
@@ -1442,6 +1386,44 @@ int validate_configuration()
                 proxy_etrs->mapping,
                 &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
     }
+
+
+    /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
+    if (nat_aware == TRUE){
+        if (num_entries_in_db(get_local_db(AF_INET)) > 1 || num_entries_in_db(get_local_db(AF_INET6)) > 1){
+            lispd_log_msg(LISP_LOG_CRIT,"NAT aware on -> This version of LISPmob is limited to one IPv4 EID prefix "
+                    "and one IPv6 EID prefix when NAT-T is enabled");
+            result = BAD;
+        }
+
+        if (map_servers != NULL && (map_servers->next != NULL || map_servers->address->afi != AF_INET)){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Server.");
+            result = BAD;
+        }
+
+        if (map_resolvers != NULL && (map_resolvers->next != NULL || map_resolvers->address->afi != AF_INET)){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> This version of LISPmob is limited to one IPv4 Map Resolver.");
+            result = BAD;
+        }
+
+        if (rloc_probe_interval > 0){
+            rloc_probe_interval = 0;
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> disabling RLOC Probing");
+        }
+    }
+
+    /* Check number of EID prefixes */
+    if (router_mode == FALSE){
+        if (num_entries_in_db(get_local_db(AF_INET)) > 1){
+            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+            result = BAD;
+        }
+        if (num_entries_in_db(get_local_db(AF_INET6)) > 1){
+            lispd_log_msg (LISP_LOG_ERR, "LISPmob in mobile node mode only supports one IPv4 EID prefix and one IPv6 EID prefix");
+            result = BAD;
+        }
+    }
+
 
     return (result);
 }

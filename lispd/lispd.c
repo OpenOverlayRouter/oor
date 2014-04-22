@@ -55,6 +55,9 @@
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_input.h"
+#ifdef VPNAPI
+ #include "lispd_jni.h"
+#endif
 #include "lispd_lib.h"
 #include "lispd_local_db.h"
 #include "lispd_log.h"
@@ -69,6 +72,8 @@
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
 #include "lispd_tun.h"
+#include "api/ipc.h"
+
 
 
 void event_loop();
@@ -105,8 +110,6 @@ int                          rloc_probe_retries_interval;
 
 int                          control_port;
 
-int                          total_mappings;
-
 /*
  *      various globals
  */
@@ -120,6 +123,11 @@ int                         ipv4_data_input_fd;
 int                         ipv6_data_input_fd;
 int                         ipv4_control_input_fd;
 int                         ipv6_control_input_fd;
+
+/* FD used in VPN-API */
+int							ipc_data_fd;
+int							ipc_control_fd;
+
 int                         netlink_fd;
 fd_set                      readfds;
 struct                      sockaddr_nl dst_addr;
@@ -129,13 +137,8 @@ nlsock_handle               nlh;
 /* NAT */
 
 int                         nat_aware;
-int                         nat_status;
 lispd_site_ID               site_ID;
 lispd_xTR_ID                xTR_ID;
-// Global variables used to store nonces of encapsulated map register and info request.
-// To be removed when NAT with multihoming supported.
-nonces_list                 *nat_emr_nonce;
-nonces_list                 *nat_ir_nonce;
 
 
 /*
@@ -148,7 +151,9 @@ timer                         *smr_timer;
  */
 int                         timers_fd;
 
+uint8_t						lispd_running;
 
+#ifndef VPNAPI
 int main(int argc, char **argv)
 {
     uint32_t 			iseed         = 0;  /* initial random number generator */
@@ -169,6 +174,7 @@ int main(int argc, char **argv)
 
     init_globales();
 
+
 #ifndef ANDROID
     /*
      *  Check for required capabilities and drop unnecssary privileges
@@ -178,6 +184,7 @@ int main(int argc, char **argv)
         exit_cleanup();
     }
 #else
+
     /*
      * Check for superuser privileges
      */
@@ -254,17 +261,22 @@ int main(int argc, char **argv)
 
 
     /*
+     * Create net_link socket to receive notifications of changes of RLOC status.
+     */
+    netlink_fd = opent_netlink_socket();
+
+    /*
      *  Parse config file. Format of the file depends on the node: Linux Box or OpenWRT router
      */
 
 #ifdef OPENWRT
     if (config_file == NULL){
-        config_file = "/etc/config/lispd";
+        config_file = strdup("/etc/config/lispd");
     }
     err = handle_uci_lispd_config_file(config_file);
 #else
     if (config_file == NULL){
-        config_file = "/etc/lispd.conf";
+        config_file = strdup("/etc/lispd.conf");
     }
     err = handle_lispd_config_file(config_file);
 #endif
@@ -277,7 +289,11 @@ int main(int argc, char **argv)
     if (ddt_client == FALSE){
         drop_referral_cache();
     }
-	
+
+    if (nat_aware == TRUE){
+    	nat_set_xTR_ID();
+    }
+
     /*
      * Select the default rlocs for output data packets and output control packets
      */
@@ -291,9 +307,7 @@ int main(int argc, char **argv)
 
     if (create_tun(TUN_IFACE_NAME,
             TUN_RECEIVE_SIZE,
-            TUN_MTU,
-            &tun_receive_fd,
-            &tun_receive_buf) != GOOD){
+            TUN_MTU) != GOOD){
         exit_cleanup();
     }
 
@@ -318,17 +332,7 @@ int main(int argc, char **argv)
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
     }
 
-    /*
-     * Create net_link socket to receive notifications of changes of RLOC status.
-     */
-    netlink_fd = opent_netlink_socket();
 
-    lispd_log_msg(LISP_LOG_INFO,"LISPmob (%s): 'lispd' started...", LISPD_VERSION);
-    if (router_mode == TRUE){
-        lispd_log_msg(LISP_LOG_INFO,"Running as an xTR router");
-    }else{
-        lispd_log_msg(LISP_LOG_INFO,"Running as a LISP mobile node");
-    }
 
     /*
      * Request to dump the routing tables to obtain the gatways when processing the netlink messages
@@ -339,15 +343,19 @@ int main(int argc, char **argv)
     request_route_table(RT_TABLE_MAIN, AF_INET6);
     process_netlink_msg(netlink_fd);
 
+    lispd_log_msg(LISP_LOG_INFO,"LISPmob (%s): 'lispd' started...", LISPD_VERSION);
+    if (router_mode == TRUE){
+        lispd_log_msg(LISP_LOG_INFO,"Running as an xTR router");
+    }else{
+        lispd_log_msg(LISP_LOG_INFO,"Running as a LISP mobile node");
+    }
+
+
+
     /*
      *  Register to the Map-Server(s)
      */
-
-    map_register (NULL,NULL);
-
-    /*
-     * SMR proxy-ITRs list to be updated with new mappings
-     */
+    initial_map_register_process();
 
     init_smr(NULL,NULL);
 
@@ -356,6 +364,7 @@ int main(int argc, char **argv)
      */
     programming_petr_rloc_probing();
 
+
     event_loop();
 
     lispd_log_msg(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
@@ -363,18 +372,158 @@ int main(int argc, char **argv)
     return(0);
 }
 
+#else
+
+JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
+  (JNIEnv *env, jclass cl, jint vpn_tun_fd, jstring storage_path)
+{
+	jintArray 			fd_list;
+	jint				sockets_fds[4];
+	uint32_t 			iseed         = 0;  /* initial random number generator */
+	pid_t  				pid           = 0;    /* child pid */
+	pid_t  				sid           = 0;
+	char 				log_file[1024];
+	const char 			*path 		  = NULL;
+
+	memset (log_file,0,sizeof(char)*1024);
+	init_globales();
+
+	path = (*env)->GetStringUTFChars(env, storage_path, 0);
+	config_file = calloc(1024, sizeof(char));
+	strcat(config_file,path);
+	strcat(config_file,CONF_FILE_NAME);
+	strcat(log_file,path);
+	strcat(log_file,LOG_FILE_NAME);
+	(*env)->ReleaseStringUTFChars(env, storage_path, path);
+
+	open_log_file(log_file);
+
+
+	lispd_log_msg(LISP_LOG_INFO,"LISPmob %s compiled for Android", LISPD_VERSION);
+
+
+
+	/*
+	 *  Initialize the random number generator
+	 */
+
+	iseed = (unsigned int) time (NULL);
+	srandom(iseed);
+
+	/*
+	 * Set up signal handlers
+	 */
+	signal(SIGHUP,  signal_handler);
+	signal(SIGTERM, signal_handler);
+	signal(SIGINT,  signal_handler);
+	signal(SIGQUIT, signal_handler);
+
+	/*
+	 *  set up databases
+	 */
+	db_init();
+	map_cache_init();
+	init_referral_cache();
+
+	/*
+	 *  create timers
+	 */
+
+	if (build_timers_event_socket(&timers_fd) == 0)
+	{
+		lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+		exit_cleanup();
+		return (NULL);
+	}
+	init_timers();
+
+    /*
+     * Create net_link socket to receive notifications of changes of RLOC status.
+     */
+	netlink_fd 		  = opent_netlink_socket();
+
+    ipc_control_fd    = open_ipc_socket(IPC_CONTROL_RX_PORT);
+
+	err = handle_lispd_config_file(config_file);
+
+
+	if (err != GOOD){
+		lispd_log_msg(LISP_LOG_CRIT,"Wrong configurationn.");
+        ipc_send_log_msg("Configuration file error. Check logs for more details",1);
+		exit_cleanup();
+		return (NULL);
+	}
+
+    if (nat_aware == TRUE){
+    	nat_set_xTR_ID();
+    }
+
+	/*
+	 * Select the default rlocs for output data packets and output control packets
+	 */
+	set_default_output_ifaces();
+
+	set_default_ctrl_ifaces();
+
+
+    /*
+     * Generate receive sockets for control (4342) and data port (4341)
+     */
+
+    if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET){
+        ipv4_control_input_fd = open_control_input_socket(AF_INET);
+        ipv4_data_input_fd = open_data_input_socket(AF_INET);
+    }
+
+    if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET6){
+        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
+        ipv6_data_input_fd = open_data_input_socket(AF_INET6);
+    }
+
+    tun_fd = vpn_tun_fd;
+
+
+
+
+
+	lispd_log_msg(LISP_LOG_INFO,"LISPmob (%s): 'lispd' started...", LISPD_VERSION);
+	if (router_mode == TRUE){
+		lispd_log_msg(LISP_LOG_INFO,"Running as an xTR router");
+	}else{
+		lispd_log_msg(LISP_LOG_INFO,"Running as a LISP mobile node");
+	}
+
+
+	fd_list = (*env)->NewIntArray(env, 4);
+	if (fd_list == NULL) {
+		return NULL; /* out of memory error thrown */
+	}
+
+	sockets_fds[0] = ipv4_control_input_fd;
+	sockets_fds[1] = ipv4_data_input_fd;
+	sockets_fds[2] = ipv6_control_input_fd;
+	sockets_fds[3] = ipv6_data_input_fd;
+
+	(*env)->SetIntArrayRegion(env, fd_list, 0, 4, sockets_fds);
+	return fd_list;
+}
+#endif //VPNAPI
+
+
 /*
  *      main event loop
  *
  *      should never return (in theory)
  */
 
+
+#ifndef VPNAPI
+
 void event_loop()
 {
     int    max_fd;
     fd_set readfds;
     int    retval;
-
     /*
      *  calculate the max_fd for select.
      */
@@ -383,13 +532,15 @@ void event_loop()
     max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
     max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
     max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
-    max_fd = (max_fd > tun_receive_fd)          ? max_fd : tun_receive_fd;
+    max_fd = (max_fd > tun_fd)          		? max_fd : tun_fd;
     max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
     max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
 
-    for (;;) {
+    lispd_running = TRUE;
+
+    while (lispd_running) {
         FD_ZERO(&readfds);
-        FD_SET(tun_receive_fd, &readfds);
+        FD_SET(tun_fd, &readfds);
         FD_SET(ipv4_data_input_fd, &readfds);
         FD_SET(ipv6_data_input_fd, &readfds);
         FD_SET(ipv4_control_input_fd, &readfds);
@@ -405,23 +556,23 @@ void event_loop()
 
         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
             //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
-            process_input_packet(ipv4_data_input_fd, AF_INET, tun_receive_fd);
+            process_input_packet(ipv4_data_input_fd, AF_INET);
         }
         if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
             //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
-            process_input_packet(ipv6_data_input_fd, AF_INET6, tun_receive_fd);
+            process_input_packet(ipv6_data_input_fd, AF_INET6);
         }
         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
             lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
-            process_lisp_ctr_msg(ipv4_control_input_fd, AF_INET);
+            process_ctr_msg(ipv4_control_input_fd, AF_INET);
         }
         if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
             lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
-            process_lisp_ctr_msg(ipv6_control_input_fd, AF_INET6);
+            process_ctr_msg(ipv6_control_input_fd, AF_INET6);
         }
-        if (FD_ISSET(tun_receive_fd, &readfds)) {
+        if (FD_ISSET(tun_fd, &readfds)) {
             lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
-            process_output_packet(tun_receive_fd, tun_receive_buf, TUN_RECEIVE_SIZE);
+            process_output_packet(tun_fd);
         }
         if (FD_ISSET(timers_fd,&readfds)){
             //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
@@ -434,19 +585,120 @@ void event_loop()
     }
 }
 
+#else
+
+void event_loop (){}
+
+JNIEXPORT void JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_lispd_1loop(JNIEnv * env, jclass cl)
+{
+	int    max_fd;
+	fd_set readfds;
+	int    retval;
+
+	initial_map_register_process ();
+
+	/*
+	 * SMR proxy-ITRs list to be updated with new mappings
+	 */
+
+	init_smr(NULL,NULL);
+
+	/*
+	 * RLOC Probing proxy ETRs
+	 */
+	programming_petr_rloc_probing();
+
+	/*
+	 *  calculate the max_fd for select.
+	 */
+
+	 max_fd = tun_fd;
+	 max_fd = (max_fd > ipv4_data_input_fd)      ? max_fd : ipv4_data_input_fd;
+	 max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
+	 max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
+	 max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
+	 max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
+	 max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
+
+
+	 lispd_running = TRUE;
+
+	 while (lispd_running){
+	         FD_ZERO(&readfds);
+	         FD_SET(tun_fd, &readfds);
+	         FD_SET(ipv4_data_input_fd, &readfds);
+	         FD_SET(ipv6_data_input_fd, &readfds);
+	         FD_SET(ipv4_control_input_fd, &readfds);
+	         FD_SET(ipv6_control_input_fd, &readfds);
+	         FD_SET(timers_fd, &readfds);
+	         FD_SET(netlink_fd, &readfds);
+
+
+	         retval = have_input(max_fd, &readfds);
+//
+//	         if (retval != GOOD) {
+//	        	 continue;        /* interrupted */
+//	         }
+
+	         if (FD_ISSET(tun_fd, &readfds)) {
+	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
+	        	 process_output_packet();
+	         }
+
+	         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
+	        	 //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
+	        	 process_input_packet(ipv4_data_input_fd, AF_INET);
+	         }
+
+	         if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
+	        	 //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
+	        	 process_input_packet(ipv6_data_input_fd, AF_INET6);
+	         }
+
+	         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
+	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
+	        	 process_ctr_msg(ipv4_control_input_fd, AF_INET);
+	         }
+
+	         if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
+	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
+	        	 process_ctr_msg(ipv6_control_input_fd, AF_INET6);
+	         }
+
+	         if (FD_ISSET(timers_fd,&readfds)){
+	        	 //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
+	        	 process_timer_signal(timers_fd);
+	         }
+
+	         if (FD_ISSET(netlink_fd,&readfds)){
+	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received notification from net link");
+	        	 process_netlink_msg(netlink_fd);
+	         }
+	 }
+	 lispd_log_msg(LISP_LOG_DEBUG_2,"event_loop: Exiting from event loop");
+}
+
+JNIEXPORT void JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_lispd_1exit
+   (JNIEnv * env, jclass cl){
+	exit_cleanup();
+}
+
+
+#endif
+
 /*
  *      signal_handler --
  *
  */
 
 void signal_handler(int sig) {
-    switch (sig) {
-    case SIGHUP:
-        /* TODO: SIGHUP should trigger reloading the configuration file */
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Received SIGHUP signal.");
-        break;
-    case SIGTERM:
-        /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
+	switch (sig) {
+	case SIGHUP:
+		/* TODO: SIGHUP should trigger reloading the configuration file */
+		lispd_log_msg(LISP_LOG_DEBUG_1, "Received SIGHUP signal.");
+		break;
+	case SIGTERM:
+		/* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received SIGTERM signal. Cleaning up...");
         exit_cleanup();
         break;
@@ -527,13 +779,17 @@ int check_capabilities()
  *  Close opened sockets and file descriptors
  */
 
+#ifndef VPNAPI
 void exit_cleanup(void) {
+	lispd_running = FALSE;
     /* Remove source routing tables */
     remove_created_rules();
     /* Close timer file descriptors */
-    close(timers_fd);
+    if (timers_fd != 0){
+    	remove_sig_timer();
+    }
     /* Close receive sockets */
-    close(tun_receive_fd);
+    close(tun_fd);
     close(ipv4_data_input_fd);
     close(ipv4_control_input_fd);
     close(ipv6_data_input_fd);
@@ -542,12 +798,50 @@ void exit_cleanup(void) {
     close_output_sockets();
     /* Close netlink socket */
     close(netlink_fd);
-    lispd_log_msg(LISP_LOG_INFO,"Exiting ...");
+
+    free_map_cache_entry(proxy_etrs);
+    free_lisp_addr_list(proxy_itrs, TRUE);
+    free_map_server_list(map_servers);
+    free_ifaces_list();
+    drop_map_cache();
+    drop_local_mappings();
+    drop_referral_cache();
+    free(config_file);
+
 #ifdef ANDROID
     close_log_file();
 #endif
     exit(EXIT_SUCCESS);
 }
+#else
+void exit_cleanup(void) {
+	lispd_running = FALSE;
+	/* Close timer file descriptors */
+	if (timers_fd != 0){
+		remove_sig_timer();
+	}
+	/* Close receive sockets */
+	close(tun_fd);
+	close(ipv4_data_input_fd);
+	close(ipv4_control_input_fd);
+	close(ipv6_data_input_fd);
+	close(ipv6_control_input_fd);
+	/* Close netlink socket */
+	close(netlink_fd);
+
+	free_ifaces_list();
+	drop_map_cache();
+	drop_local_mappings();
+	drop_referral_cache();
+	free_map_cache_entry(proxy_etrs);
+	free_lisp_addr_list(proxy_itrs, TRUE);
+	free_map_server_list(map_servers);
+	free(config_file);
+
+
+    close_log_file();
+}
+#endif
 
 
 
