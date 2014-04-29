@@ -31,7 +31,7 @@
 
 void rtr_ctrl_start(lisp_ctrl_dev_t *dev) {
     lmlog(LISP_LOG_DEBUG_1, "Starting RTR...");
-    map_register_process();
+    program_map_register(dev, 0);
 }
 
 void rtr_ctrl_delete(lisp_ctrl_dev_t *dev) {
@@ -48,16 +48,14 @@ ctrl_dev_class_t rtr_vtable = {
 lisp_ctrl_dev_t *rtr_ctrl_init() {
     lisp_rtr *rtr;
     rtr = calloc(1, sizeof(lisp_rtr));
-    rtr->super.vtable = &rtr_vtable;
+    rtr->super.ctrl_class = &rtr_vtable;
     rtr->super.mode = RTR_MODE;
     lmlog(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
 
-    /*
-     *  set up databases
-     */
+    /* set up databases */
 
-    local_map_db_init();
-    map_cache_init();
+    rtr->local_mdb = local_map_db_new();
+    rtr->map_cache = mcache_new();
 
     return((lisp_ctrl_dev_t *)rtr);
 }

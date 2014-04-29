@@ -71,7 +71,10 @@ typedef struct tr_dev_class_t_ {
     lisp_addr_t *(*get_map_resolver)(lisp_ctrl_dev_t *);
     lisp_addr_t *(*get_default_rloc)(lisp_ctrl_dev_t *, int);
     glist_t *(*get_default_rlocs)(lisp_ctrl_dev_t *);
-    lisp_addr_t *(*get_main_eid)(lisp_ctrl_dev_t *);
+    lisp_addr_t *(*get_main_eid)(lisp_ctrl_dev_t *, int);
+
+    map_cache_db_t *(*get_map_cache)(lisp_ctrl_dev_t *);
+    map_cache_db_t *(*get_local_mdb)(lisp_ctrl_dev_t *);
 
     /* NAT specific */
     int (*nat_aware)(lisp_ctrl_dev_t *);
@@ -96,21 +99,12 @@ struct lisp_ctrl_device_ {
 };
 
 int ctrl_dev_handle_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
-void lisp_ctrl_dev_start(lisp_ctrl_dev_t *);
-void lisp_ctrl_dev_del(lisp_ctrl_dev_t *);
+void ctrl_dev_start(lisp_ctrl_dev_t *);
+void ctrl_dev_del(lisp_ctrl_dev_t *);
 
 /* interface to lisp_ctrl */
 //int recv_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 int send_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
-int process_map_reply_msg(lisp_ctrl_dev_t *dev, lbuf_t *buf);
-int process_map_request_msg(map_request_msg *, lisp_addr_t *,  uint16_t );
-int process_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
 
-
-int handle_map_cache_miss(lisp_addr_t *requested_eid, lisp_addr_t *src_eid);
-int send_map_request_retry(timer *t, void *arg);
-
-int mcache_update_entry(lisp_addr_t *eid, locators_list_t *locators,
-        uint64_t nonce, uint8_t action, uint32_t ttl);
 #endif /* LISP_CTRL_DEVICE_H_ */

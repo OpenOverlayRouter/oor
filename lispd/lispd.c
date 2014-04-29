@@ -428,10 +428,10 @@ void test_elp() {
 
     mapping_add_locator(mapping, locator);
     lmlog(LISP_LOG_WARNING, "locator added!");
-    local_map_db_add_mapping(mapping);
+    local_map_db_add_mapping(NULL, mapping);
     local_map_db_dump(LISP_LOG_WARNING);
 
-    map_register_process();
+    program_map_register(NULL, 0);
 
     lmlog(LISP_LOG_WARNING, "removing mapping!");
     local_map_db_del_mapping(eid);
@@ -520,7 +520,7 @@ void exit_cleanup(void) {
     close_output_sockets();
     /* Close netlink socket */
     close(netlink_fd);
-    if (ctrl_dev) lisp_ctrl_dev_del(ctrl_dev);
+    if (ctrl_dev) ctrl_dev_del(ctrl_dev);
     if (iface_addr_ht) hash_table_destroy(iface_addr_ht);
     lmlog(LISP_LOG_INFO,"Exiting ...");
 
@@ -653,7 +653,7 @@ int main(int argc, char **argv)
 
 
     /* activate lisp control device xtr/ms */
-    lisp_ctrl_dev_start(ctrl_dev);
+    ctrl_dev_start(ctrl_dev);
 
     event_loop();
 

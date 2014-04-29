@@ -119,7 +119,7 @@ int select_src_locators_from_balancing_locators_vec (
  * The destination RLOC is selected according to the AFI of the selected source RLOC
  */
 
-int select_src_rmt_locators_from_balancing_locators_vec (
+int select_rmt_srloc_from_bvec (
         mapping_t   *src_mapping,
         mapping_t   *dst_mapping,
         packet_tuple        tuple,
@@ -349,27 +349,27 @@ int get_afi_from_packet(uint8_t *packet){
 }
 
 
-int forward_native(
-        uint8_t        *packet_buf,
-        int             pckt_length )
+int forward_native(uint8_t *packet_buf, int pckt_length)
 {
 
-    int             ret                        = 0;
-    int             output_socket              = 0;
-    int             packet_afi                 = 0;
+    int ret = 0;
+    int output_socket = 0;
+    int packet_afi = 0;
 
     packet_afi = get_afi_from_packet(packet_buf);
     output_socket = get_default_output_socket(packet_afi);
 
-    if (output_socket == -1){
-        lmlog(DBG_2, "fordward_native: No output interface for afi %d",packet_afi);
+    if (output_socket == -1) {
+        lmlog(DBG_2, "fordward_native: No output interface for afi %d",
+                packet_afi);
         return (BAD);
     }
 
     lmlog(DBG_3, "Fordwarding native for destination %s",
-            get_char_from_lisp_addr_t(extract_dst_addr_from_packet(packet_buf)));
+            get_char_from_lisp_addr_t(
+                    extract_dst_addr_from_packet(packet_buf)));
 
-    ret = send_packet(output_socket,packet_buf,pckt_length);
+    ret = send_packet(output_socket, packet_buf, pckt_length);
     return (ret);
 
 }
@@ -399,7 +399,7 @@ int fordward_to_petr(
         return (BAD);
     }
 
-    if ((select_src_rmt_locators_from_balancing_locators_vec (
+    if ((select_rmt_srloc_from_bvec (
                 src_mapping,
                 proxy_etrs->mapping,
                 tuple,
@@ -451,7 +451,7 @@ int forward_to_natt_rtr(
     uint8_t                     *encap_packet       = NULL;
     int                         encap_packet_size   = 0;
     lcl_locator_extended_info   *extended_info      = NULL;
-    lispd_rtr_locators_list     *rtr_locators_list  = NULL;
+    rtr_locators_list     *rtr_locators_list  = NULL;
     int                         output_socket       = 0;
     
     lisp_addr_t                 *src_addr;
@@ -560,169 +560,6 @@ uint32_t get_hash_from_tuple (packet_tuple tuple)
     free (tuples);
 
     return (hash);
-}
-
-
-
-
-
-int rtr_get_src_and_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **src, lisp_addr_t **dst) {
-    lcaf_addr_t             *lcaf       = NULL;
-    elp_node_t              *elp_node   = NULL;
-    iface_list_elt    *interface  = NULL;
-    glist_entry_t           *it         = NULL;
-
-    lcaf = lisp_addr_get_lcaf(laddr);
-    switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_EXPL_LOC_PATH:
-        /* lookup in the elp list the first RLOC to also pertain to the RTR */
-        glist_for_each_entry(it, lcaf_elp_node_list(lcaf)) {
-            elp_node = glist_entry_data(it);
-            interface = head_interface_list;
-            while (interface) {
-                if (lisp_addr_cmp(interface->iface->ipv4_address, elp_node->addr) == 0) {
-                    *dst = ((elp_node_t *)glist_entry_data(glist_next(it)))->addr;
-                    *src = elp_node->addr;
-                    return(GOOD);
-                }
-                if (lisp_addr_cmp(interface->iface->ipv6_address, elp_node->addr) == 0) {
-                    *dst = ((elp_node_t *)glist_entry_data(glist_next(it)))->addr;
-                    *dst = elp_node->addr;
-                    return(GOOD);
-                }
-                interface = interface->next;
-            }
-        }
-        return(GOOD);
-    default:
-        lmlog(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
-                lcaf_addr_get_type(lcaf));
-        return(BAD);
-    }
-}
-
-int xtr_get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst) {
-    lcaf_addr_t             *lcaf       = NULL;
-
-    lcaf = lisp_addr_get_lcaf(laddr);
-    switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_EXPL_LOC_PATH:
-        /* we're the ITR, so the destination is the first elp hop, the src we choose outside */
-        *dst = ((elp_node_t *)glist_first_data(lcaf_elp_node_list(lcaf)))->addr;
-        break;
-    default:
-        *dst = NULL;
-        lmlog(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
-                lcaf_addr_get_type(lcaf));
-        return(BAD);
-    }
-    return(GOOD);
-}
-
-/*
- * Select the source and destination RLOC according to the priority and weight.
- * The destination RLOC is selected according to the AFI of the selected source RLOC
- */
-
-int select_src_rmt_locators_from_balancing_locators_vec (
-        mapping_t   *src_mapping,
-        mapping_t   *dst_mapping,
-        packet_tuple        tuple,
-        locator_t   **src_locator,
-        locator_t   **dst_locator)
-{
-    int                     src_vec_len     = 0;
-    int                     dst_vec_len     = 0;
-    uint32_t                pos             = 0;
-    uint32_t                hash            = 0;
-    balancing_locators_vecs *src_blv        = NULL;
-    balancing_locators_vecs *dst_blv        = NULL;
-    locator_t       **src_loc_vec   = NULL;
-    locator_t       **dst_loc_vec   = NULL;
-    lcaf_addr_t     *lcaf           = NULL;
-    int             afi             = 0;
-
-    src_blv = &((lcl_mapping_extended_info *)(src_mapping->extended_info))->outgoing_balancing_locators_vecs;
-    dst_blv = &((rmt_mapping_extended_info *)(dst_mapping->extended_info))->rmt_balancing_locators_vecs;
-
-    if (src_blv->balancing_locators_vec != NULL && dst_blv->balancing_locators_vec != NULL){
-        src_loc_vec = src_blv->balancing_locators_vec;
-        src_vec_len = src_blv->locators_vec_length;
-    }else if (src_blv->v6_balancing_locators_vec != NULL && dst_blv->v6_balancing_locators_vec != NULL){
-        src_loc_vec = src_blv->v6_balancing_locators_vec;
-        src_vec_len = src_blv->v6_locators_vec_length;
-    }else if (src_blv->v4_balancing_locators_vec != NULL && dst_blv->v4_balancing_locators_vec != NULL){
-        src_loc_vec = src_blv->v4_balancing_locators_vec;
-        src_vec_len = src_blv->v4_locators_vec_length;
-    }else{
-        if (src_blv->v4_balancing_locators_vec == NULL && src_blv->v6_balancing_locators_vec == NULL){
-            lmlog(DBG_2,"get_rloc_from_balancing_locator_vec: No src locators available");
-        }else {
-            lmlog(DBG_2,"get_rloc_from_balancing_locator_vec: Source and destination RLOCs have differnet afi");
-        }
-        return (BAD);
-    }
-
-    hash = get_hash_from_tuple (tuple);
-    if (hash == 0){
-        lmlog(DBG_1,"get_rloc_from_tuple: Couldn't get the hash of the tuple to select the rloc. Using the default rloc");
-        //pos = hash%x_vec_len -> 0%x_vec_len = 0;
-    }
-    pos = hash%src_vec_len;
-    *src_locator =  src_loc_vec[pos];
-
-    /* figure out src afi to decide dst afi */
-    switch (lisp_addr_afi(locator_addr(*src_locator))) {
-    case LM_AFI_IP:
-        afi = lisp_addr_ip_afi(locator_addr(*src_locator));
-        break;
-    case LM_AFI_LCAF:
-        lcaf = lisp_addr_get_lcaf(locator_addr(*src_locator));
-        switch(lcaf_addr_get_type(lcaf)) {
-        case LCAF_EXPL_LOC_PATH:
-            /* the afi of the first node in the elp */
-            afi = lisp_addr_ip_afi(((elp_node_t *)glist_first_data(lcaf_elp_node_list(lcaf)))->addr);
-            break;
-        default:
-            lmlog(DBG_2,"select_src_rmt_locators_from_balancing_locators_vec: LCAF type %d not supported",
-                    lcaf_addr_get_type(lcaf));
-            return(BAD);
-        }
-        break;
-    default:
-        lmlog(DBG_2,"select_src_rmt_locators_from_balancing_locators_vec: LISP addr afi %d not supported",
-                lisp_addr_afi(locator_addr(*src_locator)));
-        return(BAD);
-    }
-
-    switch (afi){
-    case (AF_INET):
-        dst_loc_vec = dst_blv->v4_balancing_locators_vec;
-        dst_vec_len = dst_blv->v4_locators_vec_length;
-        break;
-    case (AF_INET6):
-        dst_loc_vec = dst_blv->v6_balancing_locators_vec;
-        dst_vec_len = dst_blv->v6_locators_vec_length;
-        break;
-    default:
-        lmlog(DBG_2,"select_src_rmt_locators_from_balancing_locators_vec: Unknown IP AFI %d",
-                lisp_addr_ip_afi(locator_addr(*src_locator)));
-        return(BAD);
-    }
-
-
-    pos = hash%dst_vec_len;
-    *dst_locator =  dst_loc_vec[pos];
-
-    lmlog(DBG_3,"select_src_rmt_locators_from_balancing_locators_vec: "
-            "src EID: %s, rmt EID: %s, protocol: %d, src port: %d , dst port: %d --> src RLOC: %s, dst RLOC: %s",
-            lisp_addr_to_char(mapping_eid(src_mapping)),
-            lisp_addr_to_char(mapping_eid(dst_mapping)),
-            tuple.protocol, tuple.src_port, tuple.dst_port,
-            lisp_addr_to_char((*src_locator)->addr),
-            lisp_addr_to_char((*dst_locator)->addr));
-
-    return (GOOD);
 }
 
 

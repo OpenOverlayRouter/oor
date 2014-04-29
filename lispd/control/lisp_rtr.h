@@ -37,7 +37,7 @@ typedef struct _lisp_rtr {
 
     /* rtr members */
     map_cache_db_t *map_cache;
-    local_map_db *local_mdb;
+    local_map_db_t *local_mdb;
 } lisp_rtr;
 
 lisp_ctrl_dev_t *rtr_ctrl_init();

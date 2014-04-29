@@ -58,6 +58,8 @@ lbuf_t* lisp_msg_create();
 inline lisp_msg_destroy(lbuf_t *);
 static inline lisp_msg_hdr(lbuf_t *b);
 
+int lisp_msg_mreq_init(lbuf_t *, lisp_addr_t *, glist_t *, lisp_addr_t *);
+
 char *lisp_msg_hdr_to_char(lbuf_t *b);
 
 int lisp_msg_fill_auth_data(lbuf_t *, lisp_key_type_t , const char *);

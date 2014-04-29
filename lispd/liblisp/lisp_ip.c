@@ -212,7 +212,7 @@ inline ip_addr_t *ip_prefix_get_addr(ip_prefix_t *pref) {
     return(&(pref->prefix));
 }
 
-inline uint8_t ip_prefix_get_afi(ip_prefix_t *pref) {
+inline uint8_t ip_prefix_afi(ip_prefix_t *pref) {
     assert(pref);
     return(ip_addr_afi(ip_prefix_get_addr(pref)));
 }

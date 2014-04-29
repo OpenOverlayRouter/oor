@@ -84,7 +84,7 @@ int process_info_reply_msg(
     lisp_addr_t                 global_etr_rloc         = {.afi=AF_UNSPEC};
     lisp_addr_t                 ms_rloc                 = {.afi=AF_UNSPEC};
     lisp_addr_t                 private_etr_rloc        = {.afi=AF_UNSPEC};
-    lispd_rtr_locators_list     *rtr_locators_list      = NULL;
+    rtr_locators_list     *rtr_locators_list      = NULL;
 
     mapping_t           *mapping                = NULL;
     locator_t           *locator                = NULL;
@@ -92,7 +92,7 @@ int process_info_reply_msg(
 
     char                        rtrs_list_str[2000];
     int                         rtrs_list_str_size = 0;
-    lispd_rtr_locators_list     *aux_rtr_locators_list  = NULL;
+    rtr_locators_list     *aux_rtr_locators_list  = NULL;
 
     uint8_t                     is_behind_nat           = FALSE;
 
@@ -142,7 +142,7 @@ int process_info_reply_msg(
     }
 
     /* Leave only RTR with same afi as the local rloc where we received the message */
-    remove_rtr_locators_with_afi_different_to(&rtr_locators_list, local_rloc.afi);
+    rtr_list_remove_locs_with_afi_different_to(&rtr_locators_list, local_rloc.afi);
 
 
     lcaf_addr_len = lcaf_addr_len + FIELD_AFI_LEN;
@@ -233,7 +233,7 @@ int process_info_reply_msg(
 
         lcl_locator_ext_inf = (lcl_locator_extended_info *)locator->extended_info;
         if (lcl_locator_ext_inf->rtr_locators_list != NULL){
-            free_rtr_list(lcl_locator_ext_inf->rtr_locators_list);
+            rtr_list_del(lcl_locator_ext_inf->rtr_locators_list);
         }
         lcl_locator_ext_inf->rtr_locators_list = rtr_locators_list;
 

@@ -182,13 +182,13 @@ int mapping_add_locator(mapping_t *m, locator_t *loc)
 
     switch (lisp_addr_ip_afi(auxaddr)) {
         case AF_INET:
-            err = add_locator_to_list(&(m->head_v4_locators_list), loc);
+            err = locator_list_add(&(m->head_v4_locators_list), loc);
             break;
         case AF_INET6:
-            err = add_locator_to_list(&(m->head_v6_locators_list), loc);
+            err = locator_list_add(&(m->head_v6_locators_list), loc);
             break;
         case AF_UNSPEC:
-            err = add_locator_to_list(&(((lcl_mapping_extended_info *)(m->extended_info))->head_not_init_locators_list), loc);
+            err = locator_list_add(&(((lcl_mapping_extended_info *)(m->extended_info))->head_not_init_locators_list), loc);
             if (err == GOOD){
                 return (GOOD);
             }else{
@@ -339,7 +339,7 @@ mapping_get_locator(mapping_t *mapping, lisp_addr_t *address)
         break;
     }
 
-    locator = get_locator_from_list(locator_list, address);
+    locator = locator_list_get_locator(locator_list, address);
 
     return (locator);
 }
@@ -409,7 +409,7 @@ mapping_to_char(mapping_t *mapping, int log_level)
             locator_iterator = locator_iterator_array[ctr];
             while (locator_iterator != NULL) {
                 locator = locator_iterator->locator;
-                dump_locator(locator, log_level);
+                locator_to_char(locator);
                 locator_iterator = locator_iterator->next;
             }
         }
@@ -931,42 +931,6 @@ mapping_get_size_in_record(mapping_t *mapping)
 
     return (sizeof(mapping_record_hdr_t)
             + lisp_addr_size_to_write(mapping_eid(mapping)) + locs_length);
-}
-
-mapping_t *mapping_init_from_record(mapping_record *record) {
-    mapping_t           *mapping    = NULL;
-    lisp_addr_t         *eid        = NULL;
-    glist_t             *locs       = NULL;
-    glist_entry_t       *it         = NULL;
-    locator_t           *loc        = NULL;
-
-    eid = lisp_addr_init_from_field(mapping_record_eid(record));
-    if (!eid)
-        goto err;
-    if (lisp_addr_afi(eid) == LM_AFI_IP)
-        lisp_addr_set_plen(eid, mapping_record_hdr(record)->eid_prefix_length);
-    lmlog(DBG_1, "  EID: %s", lisp_addr_to_char(eid));
-
-    mapping = mapping_init_remote(eid);
-    if (!mapping)
-        goto err;
-
-    locs = mapping_record_locators(record);
-    glist_for_each_entry(it, locs) {
-        if (!(loc = locator_init_from_field(glist_entry_data(it))))
-            goto err;
-        lmlog(DBG_1, "    RLOC: %s", locator_to_char(loc));
-        if (mapping_add_locator(mapping, loc) != GOOD)
-            goto err;
-    }
-    return(mapping);
-
-err:
-    if (eid)
-        lisp_addr_del(eid);
-    if (mapping)
-        mapping_del(mapping);
-    return(NULL);
 }
 
 void mapping_del(mapping_t *m)

@@ -491,7 +491,7 @@ void dump_proxy_etrs(int log_level)
 
     for (ctr = 0 ; ctr<2 ; ctr++){
         while (locator_lst_elt[ctr]){
-            dump_locator (locator_lst_elt[ctr]->locator,log_level);
+            locator_to_char(locator_lst_elt[ctr]->locator);
             locator_lst_elt[ctr] = locator_lst_elt[ctr]->next;
         }
     }

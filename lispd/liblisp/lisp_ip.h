@@ -100,7 +100,7 @@ char                    *ip_addr_to_char (ip_addr_t *addr);
  */
 inline uint8_t           ip_prefix_get_plen(ip_prefix_t *pref);
 inline ip_addr_t         *ip_prefix_get_addr(ip_prefix_t *pref);
-inline uint8_t           ip_prefix_get_afi(ip_prefix_t *pref);
+inline uint8_t           ip_prefix_afi(ip_prefix_t *pref);
 inline void              ip_prefix_set(ip_prefix_t *pref, ip_addr_t *ipaddr, uint8_t plen);
 inline void              ip_prefix_set_plen(ip_prefix_t *pref, uint8_t plen);
 inline void              ip_prefix_set_afi(ip_prefix_t *pref, int afi);

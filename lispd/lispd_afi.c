@@ -135,13 +135,13 @@ int extract_nat_lcaf_data(
         lisp_addr_t                     *global_etr_rloc,
         lisp_addr_t                     *ms_rloc,
         lisp_addr_t                     *private_etr_rloc,
-        lispd_rtr_locators_list         **rtr_list,
+        rtr_locators_list         **rtr_list,
         uint32_t                        *length)
 {
     lcaf_hdr_t         *pkt_lcaf               = NULL;
     lispd_pkt_nat_lcaf_t     *pkt_nat_lcaf           = NULL;
-    lispd_rtr_locators_list  *rtr_locator_list       = NULL;
-    lispd_rtr_locator        *rtr_locator            = NULL;
+    rtr_locators_list  *rtr_locator_list       = NULL;
+    rtr_locator        *rtr_locator            = NULL;
     lisp_addr_t              rtr_address             = {.afi=AF_UNSPEC};
     uint8_t                  *ptr                    = offset;
     uint32_t                 lcaf_length             = 0;
@@ -210,12 +210,12 @@ int extract_nat_lcaf_data(
             lmlog(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Coudln't process rtr address");
             return (BAD);
         }
-        rtr_locator = new_rtr_locator (rtr_address);
+        rtr_locator = rtr_locator_new (rtr_address);
         if (rtr_locator == NULL){
             lmlog(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Error malloc lispd_rtr_locator");
             return (BAD);
         }
-        if ((add_rtr_locator_to_list(&rtr_locator_list,rtr_locator))!=GOOD){
+        if ((rtr_list_add(&rtr_locator_list,rtr_locator))!=GOOD){
             lmlog(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Error adding rtr_locator");
             return (BAD);
         }

@@ -851,7 +851,7 @@ void activate_interface_address (
                 get_char_from_lisp_addr_t(mapping->eid_prefix),
                 mapping->eid_prefix_length);
         not_init_locators_list = &(((lcl_mapping_extended_info *)mapping->extended_info)->head_not_init_locators_list);
-        locator = extract_locator_from_list (not_init_locators_list, new_address);
+        locator = locator_list_extract_locator (not_init_locators_list, new_address);
         if (locator != NULL){
             switch(new_address.afi){
             case AF_INET:
@@ -864,7 +864,7 @@ void activate_interface_address (
                 break;
             }
             /* Add the activated locator */
-            if (add_locator_to_list (locators_list,locator) == GOOD){
+            if (locator_list_add (locators_list,locator) == GOOD){
                 mapping->locator_count = mapping->locator_count + 1;
             }else{
                 locator_del(locator);

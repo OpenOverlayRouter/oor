@@ -34,88 +34,46 @@
 #include <lispd_map_cache_entry.h>
 #include <defs.h>
 #include <lispd_types.h>
-//#include "lisp_address.h"
-//#include "lispd_local_db.h"
 #include <lispd_timers.h>
 
 typedef struct _map_cache_db {
-    mdb_t *mdb1;
+    mdb_t *db;
 } map_cache_db_t;
 
-extern mdb_t *mdb;
-
-void map_cache_init();
-
-
-int mcache_add_mapping(mapping_t *mapping);
-int mcache_add_static_mapping(mapping_t *mapping);
-int mcache_del_mapping(lisp_addr_t *laddr);
-mapping_t *mcache_lookup_mapping(lisp_addr_t *laddr);
-mapping_t *mcache_lookup_mapping_exact(lisp_addr_t *laddr);
-
-/*
- *  Add a map cache entry to the database.
- */
-int map_cache_add_entry(mcache_entry_t *entry);
-
-/*
- * del_map_cache_entry()
- *
- * Delete an EID mapping from the cache
- */
-void map_cache_del_entry(lisp_addr_t *laddr);
+map_cache_db_t *mcache_new();
+int mcache_add_mapping(map_cache_db_t *, mapping_t *);
+int mcache_add_static_mapping(map_cache_db_t *, mapping_t *);
+int mcache_remove_mapping(map_cache_db_t *, lisp_addr_t *);
+mapping_t *mcache_lookup_mapping(map_cache_db_t *, lisp_addr_t *);
+mapping_t *mcache_lookup_mapping_exact(map_cache_db_t *, lisp_addr_t *);
+void macache_start_expiration_timer_entry(lisp_ctrl_dev_t *, mcache_entry_t *);
 
 
-/*
- * lookup_map_cache_exact()
- *
- * Find an exact match for a prefix/prefixlen if possible
- */
-mcache_entry_t *map_cache_lookup_exact(lisp_addr_t *addr);
+int map_cache_add_entry(map_cache_db_t *, mcache_entry_t *entry);
+void map_cache_del_entry(map_cache_db_t *, lisp_addr_t *laddr);
+mcache_entry_t *map_cache_lookup_exact(map_cache_db_t *, lisp_addr_t *addr);
+mcache_entry_t *map_cache_lookup(map_cache_db_t *, lisp_addr_t *addr);
 
+/* Lookup if there is a no active cache entry with the provided nonce and
+ * return it */
+mcache_entry_t *lookup_nonce_in_no_active_map_caches(lisp_addr_t *, uint64_t);
 
-/*
- * lookup_map_cache()
- *
- * Look up a given eid in the database, returning the
- * lispd_map_cache_entry of this EID if it exists or NULL.
- */
-mcache_entry_t *map_cache_lookup(lisp_addr_t *addr);
+void map_cache_dump_db(map_cache_db_t *, int log_level);
 
+#define mcache_foreach_entry(MC, EIT)               \
+    mdb_foreach_entry((MC)->db, (EIT))
 
-/*
- * Lookup if there is a no active cache entry with the provided nonce and return it
- */
+#define mcache_foreach_active_entry(MC, EIT)        \
+    mdb_foreach_entry((MC)->db, (EIT))              \
+        if (((mcache_entry_t *)(EIT))->active)
 
-mcache_entry_t *lookup_nonce_in_no_active_map_caches(lisp_addr_t *eid, uint64_t nonce);
-
-
-///*
-// * Remove the map cache entry from the database and reintroduce it with the new eid.
-// * This function is used when the map reply report a prefix that includes the requested prefix
-// */
-//
-//int map_cache_replace_entry(
-//        lisp_addr_t                             *new_eid_prefix,
-//        lispd_map_cache_entry                   *cache_entry);
-
-
-void map_cache_dump_db(int log_level);
-
-#define mcache_foreach_entry(eit)   \
-    mdb_foreach_entry(mdb, (eit))   \
-
-#define mcache_foreach_active_entry(eit)   \
-    mdb_foreach_entry(mdb, (eit))   \
-        if (((mcache_entry_t *)(eit))->active)
-
-#define mcache_foreach_end  \
+#define mcache_foreach_end                          \
     } mdb_foreach_entry_end
 
 /* ugly .. */
-#define mcache_foreach_active_entry_in_ip_eid_db(_eid, _eit)   \
-    mdb_foreach_entry_in_ip_eid_db(mdb, (_eid), (_eit))  \
-        if (((mcache_entry_t *)(_eit))->active)
+#define mcache_foreach_active_entry_in_ip_eid_db(MC, EID, EIT)  \
+    mdb_foreach_entry_in_ip_eid_db((MC)->db, (EID), (EIT))     \
+        if ((EIT)->active)
 
 #define mcache_foreach_active_entry_in_ip_eid_db_end  \
     mdb_foreach_entry_in_ip_eid_db_end

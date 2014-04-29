@@ -43,24 +43,8 @@ typedef struct _timer_rloc_prob_argument{
 
 
 
-timer_rloc_probe_argument *new_timer_rloc_probe_argument(
-        mapping_t       *mapping,
-        locator_t       *locator);
-
-int rloc_probing(
-    timer *t,
-    void *arg);
-
-/*
- * Program RLOC probing for each locator of the mapping
- */
-
-void mapping_program_rloc_probing(mapping_t *mapping);
-
-/*
- * Program RLOC probing for each proxy-ETR
- */
-
+int program_rloc_probing(lisp_ctrl_dev_t *dev, mapping_t *mapping, locator_t *locator);
+void program_mapping_rloc_probing(lisp_ctrl_dev_t *dev, mapping_t *mapping);
 void programming_petr_rloc_probing();
 
 #endif /*LISPD_RLOC_PROBING_H_*/

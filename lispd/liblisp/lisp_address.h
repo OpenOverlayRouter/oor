@@ -126,9 +126,6 @@ inline lisp_addr_t      *lisp_addr_init_from_ippref(ip_addr_t *ip, uint8_t plen)
 inline lisp_addr_t      *lisp_addr_init_from_lcaf(lcaf_addr_t *lcaf);
 inline uint16_t         lisp_addr_iana_afi_to_lm_afi(uint16_t afi);
 inline int              lisp_addr_is_mc(lisp_addr_t *addr);
-lisp_addr_t             *lisp_addr_init_from_field(address_field *paddr);
-inline int              lisp_addr_write_to_field(lisp_addr_t *addr, address_field *afield);
-address_field           *lisp_addr_to_field(lisp_addr_t *addr);
 lisp_addr_t             *lisp_addr_to_ip_addr(lisp_addr_t *addr);
 
 

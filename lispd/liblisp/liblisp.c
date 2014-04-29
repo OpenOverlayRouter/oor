@@ -441,10 +441,10 @@ lisp_msg_push_ecm_encap(lbuf_t *b, uconn_t *uc) {
     data = lbuf_data(b);
 
     /* inner hdr */
-    pkt_push_udp_and_ip(b, uc->lp, uc->rp, lisp_addr_ip(uc->la),
-            lisp_addr_ip(uc->ra));
+    pkt_push_udp_and_ip(b, &uc->lp, &uc->rp, lisp_addr_ip(&uc->la),
+            lisp_addr_ip(&uc->ra));
 
-    hdr = lbuf_push_uninit(b, sizeof (ecm_hdr_t));
+    hdr = lbuf_push_uninit(b, sizeof(ecm_hdr_t));
     ecm_hdr_init(hdr);
 
     return(data);
@@ -489,6 +489,15 @@ lisp_msg_create(lisp_msg_type_t type) {
     }
 
     return(b);
+}
+
+int
+lisp_msg_mreq_init(lbuf_t *b, lisp_addr_t *seid, glist_t *itr_rlocs,
+        lisp_addr_t *deid) {
+    lisp_msg_put_addr(b, seid);
+    lisp_msg_put_itr_rlocs(b, itr_rlocs);
+    lisp_msg_put_eid_rec(b, deid);
+    return(GOOD);
 }
 
 char *

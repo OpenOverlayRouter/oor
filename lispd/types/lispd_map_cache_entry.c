@@ -180,7 +180,7 @@ void map_cache_entry_del(mcache_entry_t *entry)
     free(entry);
 }
 
-void map_cache_entry_dump (mcache_entry_t *entry, int log_level)
+void map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
 {
     char                buf[256], buf2[256];
     time_t              expiretime;
@@ -226,47 +226,13 @@ void map_cache_entry_dump (mcache_entry_t *entry, int log_level)
             locator_iterator = locator_iterator_array[ctr];
             while (locator_iterator != NULL) {
                 locator = locator_iterator->locator;
-                dump_locator(locator, log_level);
+                locator_to_char(locator);
                 locator_iterator = locator_iterator->next;
             }
         }
         lmlog(log_level,"\n");
     }
 }
-
-/* Called when the timer associated with an EID entry expires. */
-static int
-map_cache_entry_expiration_cb(timer *t, void *arg)
-{
-    mcache_entry_t *entry = NULL;
-    mapping_t *mapping = NULL;
-    lisp_addr_t *addr = NULL;
-
-    entry = (mcache_entry_t *)arg;
-    mapping = mcache_entry_mapping(entry);
-    addr = mapping_eid(mapping);
-    lmlog(DBG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
-
-    mcache_del_mapping(addr);
-    return(GOOD);
-}
-
-void
-map_cache_entry_start_expiration_timer(mcache_entry_t *mce)
-{
-    /* Expiration cache timer */
-    if (!mce->expiry_cache_timer) {
-        mce->expiry_cache_timer = create_timer(EXPIRE_MAP_CACHE_TIMER);
-    }
-
-    start_timer(mce->expiry_cache_timer, mce->ttl*60,
-            map_cache_entry_expiration_cb,(void *)mce);
-
-    lmlog(DBG_1,"The map cache entry of EID %s will expire in %ld minutes.",
-            lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))),
-            mce->ttl);
-}
-
 
 
 

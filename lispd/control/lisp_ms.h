@@ -38,7 +38,7 @@ typedef struct _lisp_ms {
 
     /* ms members */
     mdb_t *lisp_sites_db;
-    mdb_t *registered_sites_db;
+    mdb_t *reg_sites_db;
 } lisp_ms_t;
 
 lisp_ctrl_dev_t *ms_ctrl_init();

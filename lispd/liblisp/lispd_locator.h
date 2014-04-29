@@ -35,208 +35,114 @@
 #include "lispd_nonce.h"
 #include <lispd_timers.h>
 
-/****************************************  STRUCTURES **************************************/
-
-/*
- * Locator information
- */
 typedef struct lispd_locator_elt_ {
-    lisp_addr_t                 *addr;
-    uint8_t                     *state;    /* UP , DOWN */
-    uint8_t                     type:2;
-    uint8_t                     priority;
-    uint8_t                     weight;
-    uint8_t                     mpriority;
-    uint8_t                     mweight;
+    lisp_addr_t *addr;
+    uint8_t *state; /* UP , DOWN */
+    uint8_t type :2;
+    uint8_t priority;
+    uint8_t weight;
+    uint8_t mpriority;
+    uint8_t mweight;
 
-    uint32_t                    data_packets_in;
-    uint32_t                    data_packets_out;
-    void                        *extended_info;
+    uint32_t data_packets_in;
+    uint32_t data_packets_out;
+    void *extended_info;
 } locator_t;
 
-
-/*
- * list of locators.
- */
 typedef struct lispd_locators_list_ {
-    locator_t           *locator;
+    locator_t *locator;
     struct lispd_locators_list_ *next;
 } locators_list_t;
 
-/*
- * Locator information
- */
 typedef struct lispd_rtr_locator_ {
-    lisp_addr_t                 address;
-    uint8_t                     state;    /* UP , DOWN */
-    uint32_t                    latency;
-}lispd_rtr_locator;
+    lisp_addr_t address;
+    uint8_t state; /* UP , DOWN */
+    uint32_t latency;
+} rtr_locator;
 
-/*
- * list of rtr locators.
- */
 typedef struct lispd_rtr_locators_list_ {
-    lispd_rtr_locator               *locator;
+    rtr_locator *locator;
     struct lispd_rtr_locators_list_ *next;
-} lispd_rtr_locators_list;
-
+} rtr_locators_list;
 
 typedef struct lcl_locator_extended_info_ {
-    int                         *out_socket;
-    lispd_rtr_locators_list     *rtr_locators_list;
-}lcl_locator_extended_info;
+    int *out_socket;
+    rtr_locators_list *rtr_locators_list;
+} lcl_locator_extended_info;
 
-/*
- * Structure to expand lispd_locator_elt for remote locators
- */
+/* Structure to expand lispd_locator_elt for remote locators */
 typedef struct rmt_locator_extended_info_ {
-    nonces_list_t                 *rloc_probing_nonces;
-    timer                       *probe_timer;
-}rmt_locator_extended_info;
+    nonces_list_t *rloc_probing_nonces;
+    timer *probe_timer;
+} rmt_locator_extended_info;
 
 
-/****************************************  FUNCTIONS **************************************/
 
-/*
- * Generets a locator element
- */
-
-locator_t   *new_local_locator (
-        lisp_addr_t                 *locator_addr,
-        uint8_t                     *state,    /* UP , DOWN */
-        uint8_t                     priority,
-        uint8_t                     weight,
-        uint8_t                     mpriority,
-        uint8_t                     mweight,
-        int                         *out_socket);
-
-/*
- * Generets a locator element. For the remote locators, we have to reserve memory for address and state.
- */
-
-locator_t   *new_rmt_locator (
-        uint8_t                     **afi_ptr,
-        uint8_t                     state,    /* UP , DOWN */
-        uint8_t                     priority,
-        uint8_t                     weight,
-        uint8_t                     mpriority,
-        uint8_t                     mweight);
-
-locator_t   *new_static_rmt_locator (
-        lisp_addr_t                 *rloc_addr,
-        uint8_t                     state,    /* UP , DOWN */
-        uint8_t                     priority,
-        uint8_t                     weight,
-        uint8_t                     mpriority,
-        uint8_t                     mweight);
+/* Obsolete functions!  */
+locator_t *new_local_locator(lisp_addr_t *, uint8_t *, uint8_t, uint8_t,
+        uint8_t, uint8_t, int *);
+locator_t *new_static_rmt_locator(lisp_addr_t *, uint8_t, uint8_t, uint8_t,
+        uint8_t, uint8_t);
 
 
-lispd_rtr_locator *new_rtr_locator(lisp_addr_t address);
-
-/*
- * Leave in the list, rtr with afi equal to the afi passed as a parameter
- */
-
-void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_list, int afi);
-
-/*
- * Free memory of lispd_locator. If it's a local locator, we don't remove
- * the address as it can be used for other locators of other EIDs
- */
-
-void locator_del(locator_t   *locator);
-
-void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt);
-
-void dump_locator (
-        locator_t   *locator,
-        int                 log_level);
-
-/**********************************  LOCATORS LISTS FUNCTIONS ******************************************/
-
-/*
- * Add a locator to a locators list
- */
-int add_locator_to_list (
-        locators_list_t **list,
-        locator_t           *locator);
-/*
- * Add a rtr localtor to a list of rtr locators
- */
-int add_rtr_locator_to_list(
-        lispd_rtr_locators_list **rtr_list,
-        lispd_rtr_locator       *rtr_locator);
-
-/*
- * Extract the locator from a locators list that match with the address.
- * The locator is removed from the list
- */
-locator_t *extract_locator_from_list(
-        locators_list_t     **head_locator_list,
-        lisp_addr_t             addr);
-/*
- * Return the locator from the list that contains the address passed as a parameter
- */
-
-locator_t *get_locator_from_list(
-        locators_list_t    *locator_list,
-        lisp_addr_t            *addr);
-
-/*
- * Free memory of lispd_locator_list.
- */
-
-void locator_list_del(locators_list_t     *list);
-void locator_list_free_container(locators_list_t *locator_list, uint8_t free_locators_flag);
-locator_t *locator_init_from_field(locator_field *lf);
-int locator_write_to_field(locator_t *locator, locator_field *lfield);
-
-inline locator_t *locator_new();
+locator_t *locator_new();
 char *locator_to_char(locator_t *locator);
-int locator_get_size_in_field(locator_t *loc);
-int locator_list_get_size_in_field(locators_list_t *locators_list);
 int locator_cmp(locator_t *l1, locator_t *l2);
+
 locator_t *locator_init_remote(lisp_addr_t *addr);
-locator_t *locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority, uint8_t weight,
-        uint8_t mpriority, uint8_t mweight);
-locator_t *locator_init_local(lisp_addr_t *addr);
-locator_t *locator_init_local_full(lisp_addr_t *addr, uint8_t *state, uint8_t priority, uint8_t weight,
-        uint8_t mpriority, uint8_t mweight);
+locator_t *locator_init_remote_full(lisp_addr_t *, uint8_t, uint8_t, uint8_t,
+        uint8_t, uint8_t);
+locator_t *locator_init_local(lisp_addr_t *);
+locator_t *locator_init_local_full(lisp_addr_t *, uint8_t *, uint8_t, uint8_t,
+        uint8_t, uint8_t);
+void locator_del(locator_t *locator);
 
-locator_t *locator_clone_remote(locator_t *locator);
-locators_list_t *locators_list_clone_remote(locators_list_t *lst);
 
-/* accessors */
-static inline lisp_addr_t *locator_addr(locator_t *locator) {
-    return(locator->addr);
+/* Extract the locator from a locators list that match with the address.
+ * The locator is removed from the list */
+locator_t *locator_list_extract_locator(locators_list_t **, lisp_addr_t);
+locator_t *locator_list_get_locator(locators_list_t *, lisp_addr_t *);
+void locator_list_del(locators_list_t *list);
+int locator_list_add(locators_list_t **, locator_t *);
+
+rtr_locator *rtr_locator_new(lisp_addr_t address);
+rtr_locators_list *rtr_locator_list_new();
+/* Add a rtr localtor to a list of rtr locators */
+int rtr_list_add(rtr_locators_list **, rtr_locator *);
+void rtr_list_del(rtr_locators_list *rtr_list_elt);
+
+/* Leave in the list, rtr with afi equal to the afi passed as a parameter */
+void rtr_list_remove_locs_with_afi_different_to(rtr_locators_list **, int);
+
+
+static inline lisp_addr_t *locator_addr(locator_t *locator)
+{
+    return (locator->addr);
 }
 
-static inline void locator_set_addr(locator_t *locator, lisp_addr_t *addr) {
+static inline void locator_set_addr(locator_t *locator, lisp_addr_t *addr)
+{
     /* TODO: locator_addr should be a static field.
-     * The code now acts as it were because it does a copy @addr. It also
+     * The code now acts as if it were because it does a copy @addr. It also
      * the address won't go NULL if by mistake @addr is freed outside */
-    if (!locator->addr)
+    if (!locator->addr) {
         locator->addr = lisp_addr_new();
+    }
     lisp_addr_copy(locator->addr, addr);
-//    locator->locator_addr = addr;
 }
 
-static inline void locator_set_state(locator_t *locator, uint8_t *state) {
+static inline void locator_set_state(locator_t *locator, uint8_t *state)
+{
     locator->state = state;
 }
 
 /* XXX: use with caution! */
-static inline void locator_set_state_static(locator_t *locator, uint8_t state) {
+static inline void locator_set_state_static(locator_t *locator, uint8_t state)
+{
     if (!locator->state)
         locator->state = calloc(1, sizeof(uint8_t));
     *(locator->state) = state;
 }
-
-
-
-
-
-
 
 
 

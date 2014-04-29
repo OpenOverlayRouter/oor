@@ -72,7 +72,7 @@ static inline lisp_addr_t *new_afi_(lm_afi_t afi) {
     case LM_AFI_LCAF:
         return(new_lcaf_());
     default:
-        lmlog(LISP_LOG_WARNING, "lisp_addr_new_afi: unknown lisp addr afi %d", afi);
+        lmlog(LWRN, "lisp_addr_new_afi: unknown lisp addr afi %d", afi);
         break;
     }
     return(NULL);
@@ -114,7 +114,7 @@ inline void lisp_addr_del(lisp_addr_t *laddr) {
         free(laddr);
         break;
     default:
-        lmlog(LISP_LOG_WARNING, "lisp_addr_delete: unknown lisp addr afi %d", lisp_addr_afi(laddr));
+        lmlog(LWRN, "lisp_addr_delete: unknown lisp addr afi %d", lisp_addr_afi(laddr));
         return;
     }
 }
@@ -222,12 +222,6 @@ inline void lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi) {
     set_afi_(addr, afi);
 }
 
-//inline void lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf) {
-//    assert(laddr);
-//    assert(lcaf);
-//    laddr->lcaf = lcaf;
-//}
-
 inline void lisp_addr_ip_to_ippref(lisp_addr_t *laddr) {
     assert(laddr);
     if (lisp_addr_afi(laddr) != LM_AFI_IP && lisp_addr_afi(laddr) != LM_AFI_IPPREF) {
@@ -245,9 +239,9 @@ inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr) {
     case LM_AFI_IP:
         return(ip_addr_afi(get_ip_(addr)));
     case LM_AFI_IPPREF:
-        return(ip_prefix_get_afi(get_ippref_(addr)));
+        return(ip_prefix_afi(get_ippref_(addr)));
     default:
-        lmlog(LISP_LOG_WARNING, "lisp_addr_ip_get_afi: not supported for afi %d", get_afi_(addr));
+        lmlog(LWRN, "lisp_addr_ip_get_afi: not supported for afi %d", get_afi_(addr));
         return(0);
     }
 }
@@ -279,7 +273,7 @@ inline uint8_t lisp_addr_ip_get_plen(lisp_addr_t *laddr) {
     switch(get_afi_(laddr)) {
     case LM_AFI_IP:
         if (ip_addr_afi(get_ip_(laddr)) == AF_UNSPEC) {
-            lmlog(LISP_LOG_WARNING, "lisp_addr_ip_get_plen: called with AF_UNSPEC");
+            lmlog(LWRN, "lisp_addr_ip_get_plen: called with AF_UNSPEC");
             return(0);
         }
         return((ip_addr_afi(get_ip_(laddr)) == AF_INET) ? 32: 128);
@@ -310,23 +304,6 @@ int
 lisp_addr_is_ip(lisp_addr_t *addr) {
     return(get_afi_(addr) == LM_AFI_IP);
 }
-
-//inline uint8_t lisp_addr_get_plen(lisp_addr_t *laddr) {
-//    assert(laddr);
-////    if (lisp_addr_get_afi(laddr) != LM_AFI_IPPREF) {
-////        lispd_log_msg(DBG_3, "lisp_addr_ippref_get_plen: not an IP prefix %s!",
-////                lisp_addr_to_char(laddr));
-////        return(0);
-////    }
-//    switch(_get_afi(laddr)) {
-//    case LM_AFI_IP:
-//        return(ip_addr_afi_to_default_mask(get_ip_(laddr)));
-//    case LM_AFI_IPPREF:
-//        return(ip_prefix_get_plen(get_ippref_(laddr)));
-//    default:
-//        return(0);
-//    }
-//}
 
 inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen) {
     assert(laddr);
@@ -579,7 +556,7 @@ inline uint16_t lisp_addr_iana_afi_to_lm_afi(uint16_t afi) {
     case LISP_AFI_LCAF:
         return(LM_AFI_LCAF);
     default:
-        lmlog(LISP_LOG_WARNING, "lisp_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
+        lmlog(LWRN, "lisp_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
         return(0);
     }
 
@@ -594,36 +571,6 @@ inline int lisp_addr_is_mc(lisp_addr_t *addr) {
         return(0);
 }
 
-
-lisp_addr_t *lisp_addr_init_from_field(address_field *addrfld) {
-    lisp_addr_t *laddr;
-    int len;
-
-    laddr = lisp_addr_new();
-    len = lisp_addr_parse(address_field_data(addrfld), laddr);
-    if (len != address_field_len(addrfld)) {
-        lmlog(DBG_3, "lisp_addr_init_from_field: length of address (%d) and that from "
-                "the header (%d) do not match!", len, address_field_len(addrfld));
-        return(NULL);
-    }
-
-    return(laddr);
-}
-
-inline int lisp_addr_write_to_field(lisp_addr_t *addr, address_field *afield) {
-    address_field_set_len(afield, lisp_addr_write(address_field_data(afield), addr));
-    return(address_field_len(afield));
-}
-
-address_field *lisp_addr_to_field(lisp_addr_t *addr) {
-    address_field   *field  = NULL;
-    uint8_t         *hdr    = NULL;
-    field = address_field_new();
-    hdr = address_field_data(field);
-    hdr = calloc(1, lisp_addr_size_to_write(addr));
-    lisp_addr_write(hdr, addr);
-    return(field);
-}
 
 lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr) {
     switch(lisp_addr_afi(addr)) {

@@ -40,38 +40,37 @@ typedef struct local_map_db_t_ {
 } local_map_db_t;
 
 
-extern local_map_db_t *local_mdb;
-
-void local_map_db_init(void);
-int local_map_db_add_mapping(mapping_t *mapping);
-void local_map_db_del_mapping(lisp_addr_t *eid);
-mapping_t *local_map_db_lookup_eid(lisp_addr_t *eid);
-mapping_t *local_map_db_lookup_eid_exact(lisp_addr_t *eid_prefix);
+local_map_db_t *local_map_db_new();
+int local_map_db_add_mapping(local_map_db_t *, mapping_t *);
+void local_map_db_del_mapping(local_map_db_t *, lisp_addr_t *);
+mapping_t *local_map_db_lookup_eid(local_map_db_t *, lisp_addr_t *);
+mapping_t *local_map_db_lookup_eid_exact(local_map_db_t *, lisp_addr_t *);
 
 
-lisp_addr_t *local_map_db_get_main_eid(int afi);
-int local_map_db_num_ip_eids(int afi);
-static int local_map_db_n_entries();
+lisp_addr_t *local_map_db_get_main_eid(local_map_db_t *, int );
+int local_map_db_num_ip_eids(local_map_db_t *, int );
+void local_map_db_dump(local_map_db_t *, int );
 
-void local_map_db_dump(int log_level);
+static int local_map_db_n_entries(local_map_db_t *);
 
 
-static int local_map_db_n_entries() {
-    return(mdb->n_entries);
+
+static int local_map_db_n_entries(local_map_db_t *lmdb) {
+    return(lmdb->db->n_entries);
 }
 
-#define local_map_db_foreach_entry(eit_)   \
-    mdb_foreach_entry(local_mdb->db, (eit_)) {   \
-        if (eit_)
+#define local_map_db_foreach_entry(LMDB, EIT)           \
+    mdb_foreach_entry((LMDB)->db, (EIT)) {              \
+        if ((EIT))
 
-#define local_map_db_foreach_end  \
+#define local_map_db_foreach_end                        \
     } mdb_foreach_entry_end
 
-#define local_map_db_foreach_ip_entry(eit_)   \
-    mdb_foreach_ip_entry(local_mdb->db, (eit_)) {   \
-        if (eit_)
+#define local_map_db_foreach_ip_entry(LMDB, EIT)        \
+    mdb_foreach_ip_entry((LMDB)->db, (EIT)) {           \
+        if ((EIT))
 
-#define local_map_db_foreach_ip_end  \
+#define local_map_db_foreach_ip_end                     \
     } mdb_foreach_ip_entry_end
 
 #endif /*LISPD_LOCAL_DB_H_*/

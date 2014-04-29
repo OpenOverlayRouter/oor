@@ -589,6 +589,7 @@ void map_notify_hdr_init(uint8_t *ptr) {
 
 void
 ecm_hdr_init(uint8_t *ptr)
+{
     ecm_hdr_t *ecm = ptr;
     ecm->type = LISP_ENCAP_CONTROL_TYPE;
     ecm->s_bit = 0;
