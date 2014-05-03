@@ -349,12 +349,6 @@ inline uint8_t lcaf_mc_get_afi(lcaf_addr_t *mc) {
 }
 
 
-inline lcaf_mcinfo_hdr_t *address_field_get_mc_hdr(address_field *addr) {
-    return((lcaf_mcinfo_hdr_t *)address_field_data(addr));
-}
-
-
-
 
 /* these shouldn't be called from outside */
 

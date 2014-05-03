@@ -161,7 +161,6 @@ inline uint32_t         lcaf_mc_get_iid(lcaf_addr_t *mc);
 inline uint8_t          lcaf_mc_get_src_plen(lcaf_addr_t *mc);
 inline uint8_t          lcaf_mc_get_grp_plen(lcaf_addr_t *mc);
 inline uint8_t          lcaf_mc_get_afi(lcaf_addr_t *mc);
-inline lcaf_mcinfo_hdr_t  *address_field_get_mc_hdr(address_field *cur_ptr);
 
 
 inline mc_t             *mc_type_new();

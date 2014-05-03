@@ -30,255 +30,91 @@
 
 #include "lisp_message_fields.h"
 
+void
+mapping_record_init_hdr(mapping_record_hdr_t *h) {
+    h->ttl                  = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
+    h->locator_count        = 1;
+    h->eid_prefix_length    = 0;
+    h->action               = 0;
+    h->authoritative        = 1;
+    h->version_hi           = 0;
+    h->version_low          = 0;
 
-/*
- * address
- */
-
-inline address_field *address_field_new() {
-    return(calloc(1, sizeof(address_field)));
+    h->reserved1 = 0;
+    h->reserved2 = 0;
+    h->reserved3 = 0;
 }
 
-inline void address_field_del(address_field *addr) {
-    free(addr);
-}
-
-address_field *address_field_parse(uint8_t *offset) {
-
-    address_field *addr;
-    addr = calloc(1, sizeof(address_field));
-//    addr->afi = ntohs(*((uint16_t *)offset));
-    addr->data = offset;
-    switch (address_field_afi(addr)) {
-    case LISP_AFI_IP:
-        addr->len = sizeof(struct in_addr) + sizeof(uint16_t); /* add the AFI field len */
+static char *
+action_to_char(int act) {
+    static char buf[10];
+    switch(act) {
+    case 0:
+        sprintf(buf, "no-action");
         break;
-    case LISP_AFI_IPV6:
-        addr->len = sizeof(struct in6_addr) + sizeof(uint16_t);
+    case 1:
+        sprintf(buf, "native-forward");
         break;
-    case LISP_AFI_NO_ADDR:
-        addr->len = 0 + sizeof(uint16_t);
+    case 2:
+        sprintf(buf, "send-map-request");
         break;
-    case LISP_AFI_LCAF:
-        addr->len = sizeof(lcaf_hdr_t) + ntohs(((lcaf_hdr_t *)addr->data)->len); /* AFI field is included in header */
+    case 3:
+        sprintf(buf, "drop");
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_3, "address_field_parse: Unsupported AFI %d", address_field_afi(addr));
-        return(NULL);
-        break;
+        sprintf(buf, "unknown-action");
     }
-    return(addr);
+    return(buf);
 }
 
-
-
-
-
-
-
-
-/*
- * locator
- */
-
-inline locator_field *locator_field_new() {
-    return(calloc(1, sizeof(locator_field)));
-}
-
-inline void locator_field_del(locator_field *locator) {
-    if (!locator)
-        return;
-    if (locator->address)
-        address_field_del(locator->address);
-    free(locator);
-}
-
-locator_field *locator_field_parse(uint8_t *offset) {
-    locator_field *locator;
-    locator = locator_field_new();
-    locator->data = offset;
-    locator->address = address_field_parse(locator_field_addr_ptr(locator));
-    if (!locator->address) {
-        free(locator);
+char *
+mapping_record_hdr_to_char(mapping_record_hdr_t *h)
+{
+    static char buf[100];
+    if (!h) {
         return(NULL);
     }
 
-    locator->len = sizeof(locator_hdr_t)+ address_field_len(locator->address);
-    return(locator);
+    sprintf(buf, "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d"
+            " map-version: %d", ntohl(h->ttl), h->locator_count,
+            action_to_char(h->action), h->authoritative, MAP_REC_VERSION(h));
+    return(buf);
 }
 
 
 
-
-
-
-/*
- * mapping record
- */
-
-inline mapping_record *mapping_record_new() {
-    mapping_record *record = calloc(1, sizeof(mapping_record));
-    record->locators = glist_new_managed((glist_del_fct)locator_field_del);
-    return(record);
+char *
+locator_record_flags_to_char(locator_hdr_t *h)
+{
+    static char buf[5];
+    h->local ? sprintf(buf+strlen(buf), "L") : sprintf(buf+stlen(buf), "l");
+    h->probed ? sprintf(buf+strlen(buf), "p") : sprintf(buf+stlen(buf), "P");
+    h->reachable ? sprintf(buf+strlen(buf), "R") : sprintf(buf+stlen(buf), "r");
+    return(buf);
 }
 
-void mapping_record_del(mapping_record *record) {
-    if (record->eid)
-        address_field_del(record->eid);
-    if (record->locators)
-        glist_destroy(record->locators);
-    free(record);
-}
+char *
+locator_record_hdr_to_char(locator_hdr_t *h)
+{
+   static char buf[100];
+   if (!h) {
+       return(NULL);
+   }
 
-
-mapping_record *mapping_record_parse(uint8_t *offset) {
-    mapping_record  *record;
-    locator_field   *locator;
-    uint8_t         *ptr;
-    int i;
-
-
-    ptr = offset;
-    record = mapping_record_new();
-    record->data = offset;
-
-    ptr = CO(record->data, sizeof(mapping_record_hdr_t));
-
-    record->eid = address_field_parse(ptr);
-    if (!record->eid)
-        goto err;
-
-    ptr = CO(ptr, address_field_len(record->eid));
-    if (!record->locators)
-        goto err;
-
-    for (i = 0; i < mapping_record_hdr(record)->locator_count; i++) {
-        locator = locator_field_parse(ptr);
-        if (!locator)
-            goto err;
-        glist_add_tail(locator, record->locators);
-        ptr = CO(ptr, locator_field_len(locator));
-    }
-    record->len = ptr - offset;
-
-    return(record);
-err:
-    if (record->eid)
-        address_field_del(record->eid);
-    if (record->locators)
-        glist_destroy(record->locators);
-    free(record);
-    return(NULL);
-}
-
-locator_field *mapping_record_allocate_locator(mapping_record *record, int size) {
-    locator_field *locator = NULL;
-    if (!record->locators)
-        record->locators = glist_new_managed((glist_del_fct)locator_field_del);
-
-    locator = locator_field_new();
-    glist_add(locator, record->locators);
-    locator_field_set_data(locator, CO(record->data, record->len));
-    record->len += size;
-    return(locator);
-}
-
-
-
-
-/*
- * EID prefix record
- */
-
-inline eid_prefix_record *eid_prefix_record_new() {
-    return(calloc(1, sizeof(eid_prefix_record)));
-}
-
-void eid_prefix_record_del(eid_prefix_record *record) {
-    if (!record)
-        return;
-    if (record->eid)
-        address_field_del(record->eid);
-    free(record);
-}
-
-
-eid_prefix_record *eid_prefix_record_parse(uint8_t *offset) {
-    eid_prefix_record *record;
-    record = eid_prefix_record_new();
-    record->data = offset;
-    record->eid = address_field_parse(CO(record->data, sizeof(eid_record_hdr_t)));
-    record->len = sizeof(eid_record_hdr_t) + address_field_len(record->eid);
-    return(record);
-}
-
-
-
-
-
-/*
- * Authentication field (Map-Register and Map-Notify)
- */
-
-
-auth_field *auth_field_new() {
-    return(calloc(1, sizeof(auth_field)));
-}
-
-auth_field *auth_field_parse(uint8_t *offset) {
-    auth_field *af = auth_field_new();
-    int ad_len = 0;
-
-    af->data = offset;
-    ad_len = ntohs(auth_field_hdr(af)->auth_data_len);
-    offset = CO(offset, sizeof(auth_record_hdr_t));
-    af->auth_data = offset;
-    af->len = sizeof(auth_record_hdr_t) + ad_len;
-    return(af);
-}
-
-void auth_field_del(auth_field *af) {
-    if (!af)
-        return;
-    free(af);
+   sprintf(buf, "Locator-record -> flags: %s p/w: %d/%d %d/%d",
+           locator_record_flags_to_char(h), h->priority, h->weight,
+           h->mpriority, h->mweight);
+   return(buf);
 }
 
 /* Returns the length of the auth data field based on the key_id value */
-uint16_t auth_data_get_len_for_type(lisp_key_type key_id)
-
+uint16_t
+auth_data_get_len_for_type(lisp_key_type key_id)
 {
     switch (key_id) {
     default: // HMAC_SHA_1_96
         return (LISP_SHA1_AUTH_DATA_LEN);   //TODO support more auth algorithms
     }
-}
-
-
-/* RTR auth */
-
-rtr_auth_field *rtr_auth_field_new() {
-    return(calloc(1, sizeof(rtr_auth_field)));
-}
-
-rtr_auth_field *rtr_auth_field_parse(uint8_t *offset) {
-    rtr_auth_field *raf = rtr_auth_field_new();
-    int ad_len = 0;
-
-    raf->bits = offset;
-    /* we only know how to parse RTR_AUTH_DATA */
-    if (rtr_auth_field_get_hdr(raf)->ad_type != RTR_AUTH_DATA)
-        return(NULL);
-    ad_len = ntohs(rtr_auth_field_get_hdr(raf)->rtr_auth_data_len);
-    offset = CO(raf->bits, sizeof(rtr_auth_field_hdr));
-    raf->rtr_auth_data = offset;
-    raf->len = sizeof(rtr_auth_field_hdr) + ad_len;
-    return(raf);
-}
-
-void rtr_auth_field_del(rtr_auth_field *raf) {
-    if (!raf)
-        return;
-    free(raf);
 }
 
 

@@ -62,7 +62,11 @@ typedef struct _lisp_xtr {
 
 } lisp_xtr_t;
 
-//extern ctrl_device_vtable xtr_vtable;
+typedef struct _timer_rloc_prob_argument{
+    mapping_t   *mapping;
+    locator_t   *locator;
+} timer_rloc_probe_argument;
+
 
 lisp_ctrl_dev_t *xtr_ctrl_init();
 int xtr_process_ctrl_msg(lisp_ctrl_dev_t *, lisp_msg *, uconn_t *);
