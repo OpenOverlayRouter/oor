@@ -62,7 +62,7 @@ int lisp_msg_mreq_init(lbuf_t *, lisp_addr_t *, glist_t *, lisp_addr_t *);
 
 char *lisp_msg_hdr_to_char(lbuf_t *b);
 
-int lisp_msg_fill_auth_data(lbuf_t *, lisp_key_type_t , const char *);
+int lisp_msg_fill_auth_data(lbuf_t *, lisp_key_type , const char *);
 int lisp_msg_check_auth_field(lbuf_t *, const char *);
 void *lisp_msg_pull_auth_field(lbuf_t *b);
 static void *lisp_msg_auth_record(lbuf_t *);

@@ -80,13 +80,8 @@ int add_server(
         char *server,
         lisp_addr_list_t  **list);
 
-int add_static_map_cache_entry(
-        char   *eid,
-        int    iid,
-        char   *rloc,
-        int    priority,
-        int    weight,
-        HashTable *elp_hash);
+int add_static_map_cache_entry(lisp_xtr_t *, char *, int, char *, int, int,
+        HashTable *);
 
 void validate_rloc_probing_parameters (
         int probe_int,
@@ -435,7 +430,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     lmlog (DBG_1, "****** Summary of the configuration ******");
     local_map_db_dump(DBG_1);
     if (is_loggable(DBG_1)){
-        map_cache_dump_db(DBG_1);
+        mcache_dump_db(DBG_1);
     }
     dump_map_servers(DBG_1);
     dump_servers(map_resolvers, "Map-Resolvers", DBG_1);
@@ -655,7 +650,8 @@ int configure_rtr(cfg_t *cfg) {
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
 
-        if (!add_static_map_cache_entry(cfg_getstr(smc, "eid-prefix"),
+        if (!add_static_map_cache_entry(ctrl_dev,
+                cfg_getstr(smc, "eid-prefix"),
                 cfg_getint(smc, "iid"),
                 cfg_getstr(smc, "rloc"),
                 cfg_getint(smc, "priority"),
@@ -709,7 +705,7 @@ int configure_rtr(cfg_t *cfg) {
     lmlog (DBG_1, "****** Summary of the configuration ******");
     local_map_db_dump(DBG_1);
     if (is_loggable(DBG_1)){
-        map_cache_dump_db(DBG_1);
+        mcache_dump_db(ctrl_dev, DBG_1);
     }
 
     return(GOOD);
@@ -897,7 +893,8 @@ int configure_xtr(cfg_t *cfg) {
     for(i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
 
-        if (!add_static_map_cache_entry(cfg_getstr(smc, "eid-prefix"),
+        if (!add_static_map_cache_entry(ctrl_dev,
+                cfg_getstr(smc, "eid-prefix"),
                 cfg_getint(smc, "iid"),
                 cfg_getstr(smc, "rloc"),
                 cfg_getint(smc, "priority"),
@@ -960,7 +957,7 @@ int configure_xtr(cfg_t *cfg) {
     lmlog (DBG_1, "****** Summary of the configuration ******");
     local_map_db_dump(DBG_1);
     if (is_loggable(DBG_1)){
-        map_cache_dump_db(DBG_1);
+        mcache_dump_db(ctrl_dev, DBG_1);
     }
 
     dump_map_servers(DBG_1);
@@ -1699,24 +1696,21 @@ add_local_db_mapping(lisp_ctrl_dev_t *dev, cfg_t *map, HashTable *lcaf_ht)
  *
  */
 
-int add_static_map_cache_entry(
-        char   *eid,
-        int    iid,
-        char   *rloc_addr,
-        int    priority,
-        int    weight,
-        HashTable *elp_hash)
+int
+add_static_map_cache_entry(lisp_xtr_t *dev, char *eid, int iid,
+        char *rloc_addr, int priority, int weight, HashTable *elp_hash)
 {
-    mapping_t        *mapping;
-    locator_t        *locator;
-    lisp_addr_t      rloc;
-    lisp_addr_t      *lcaf_rloc;
-    lisp_addr_t              eid_prefix;
-    int                      eid_prefix_length;
+    mapping_t *mapping;
+    locator_t *locator;
+    lisp_addr_t rloc;
+    lisp_addr_t *lcaf_rloc;
+    lisp_addr_t eid_prefix;
+    int eid_prefix_length;
 
 
     if (iid > MAX_IID) {
-        lmlog(LERR, "Configuration file: Instance ID %d out of range [0..%d], disabling...", iid, MAX_IID);
+        lmlog(LERR, "Configuration file: Instance ID %d out of range [0..%d],"
+                " disabling...", iid, MAX_IID);
         iid = -1;
     }
 
@@ -1724,57 +1718,57 @@ int add_static_map_cache_entry(
         iid = -1;
 
     if (priority < MAX_PRIORITY || priority > UNUSED_RLOC_PRIORITY) {
-        lmlog(LERR, "Configuration file: Priority %d out of range [%d..%d], set minimum priority...",
-                priority, MAX_PRIORITY, UNUSED_RLOC_PRIORITY);
+        lmlog(LERR, "Configuration file: Priority %d out of range [%d..%d], "
+                "set minimum priority...", priority, MAX_PRIORITY,
+                UNUSED_RLOC_PRIORITY);
         priority = MIN_PRIORITY;
     }
 
-    if (get_lisp_addr_and_mask_from_char(eid,&eid_prefix,&eid_prefix_length)!=GOOD){
-        lmlog(LERR, "Configuration file: Error parsing EID address ...Ignoring static map cache entry");
+    if (get_lisp_addr_and_mask_from_char(eid, &eid_prefix,
+            &eid_prefix_length) !=GOOD) {
+        lmlog(LERR, "Configuration file: Error parsing EID address ..."
+                "Ignoring static map cache entry");
         return (BAD);
     }
 
     /* HACK: change afi from IP to IPPREF and set mask */
     lisp_addr_set_afi(&eid_prefix, LM_AFI_IPPREF);
-    ip_prefix_set_plen(lisp_addr_get_ippref(&eid_prefix), (uint8_t)eid_prefix_length);
+    ip_prefix_set_plen(lisp_addr_get_ippref(&eid_prefix), eid_prefix_length);
 
 
-    mapping = mapping_init_static(&eid_prefix);
-    if (!mapping)
+    if (!(mapping = mapping_init_static(&eid_prefix))) {
         return(BAD);
+    }
 
     /* TODO convert eid_prefix into lcaf */
     mapping->iid = iid;
 
-//    map_cache_entry = new_map_cache_entry(eid_prefix, eid_prefix_length, STATIC_MAP_CACHE_ENTRY,255);
-//    if (map_cache_entry == NULL)
-//        return (BAD);
-//
-//    map_cache_entry->mapping->iid = iid;
 
-    if (get_lisp_addr_from_char(rloc_addr, &rloc) == BAD){
+    if (get_lisp_addr_from_char(rloc_addr, &rloc) == BAD) {
         lcaf_rloc = hash_table_lookup(elp_hash, rloc_addr);
         if (!lcaf_rloc) {
-            lmlog(LERR, "new_static_rmt_locator: Error parsing RLOC address ... Ignoring static map cache entry");
-            return(BAD);
-        }
-        locator = new_static_rmt_locator(lcaf_rloc,UP,priority,weight,255,0);
-
-    } else {
-        locator = new_static_rmt_locator(&rloc,UP,priority,weight,255,0);
-    }
-
-    if (locator != NULL){
-        if ((err=mapping_add_locator(mapping, locator)) != GOOD){
+            lmlog(LERR, "new_static_rmt_locator: Error parsing RLOC address ..."
+                    " Ignoring static map cache entry");
             return (BAD);
         }
-    }else{
-        return (BAD);
+        locator = new_static_rmt_locator(lcaf_rloc, UP, priority, weight, 255,
+                0);
+
+    } else {
+        locator = new_static_rmt_locator(&rloc, UP, priority, weight, 255, 0);
     }
 
-    mcache_add_static_mapping(mapping);
+    if (locator != NULL) {
+        if ((err = mapping_add_locator(mapping, locator)) != GOOD) {
+            return(BAD);
+        }
+    } else {
+        return(BAD);
+    }
 
-    return (GOOD);
+    tr_mcache_add_static_mapping(dev, mapping);
+
+    return(GOOD);
 }
 
 /*

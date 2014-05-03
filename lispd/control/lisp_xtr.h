@@ -47,12 +47,30 @@ typedef struct _lisp_xtr {
     map_cache_db_t *map_cache;
     local_map_db_t *local_mdb;
 
-    timer_t *map_register_timer;
+    timer *map_register_timer;
+    timer *smr_timer;
+
+    lisp_addr_t *map_resolver;
+
+    lisp_addr_t *map_server;
+    char *map_server_key;
+    int map_server_key_type;
+
+    int nat_aware;
+    int nat_status;
+    nonces_list_t *nat_nonces;
+
 } lisp_xtr_t;
 
 //extern ctrl_device_vtable xtr_vtable;
 
 lisp_ctrl_dev_t *xtr_ctrl_init();
 int xtr_process_ctrl_msg(lisp_ctrl_dev_t *, lisp_msg *, uconn_t *);
+
+int tr_mcache_add_mapping(map_cache_db_t *, mapping_t *);
+int tr_mcache_add_static_mapping(map_cache_db_t *, mapping_t *);
+int tr_mcache_remove_mapping(map_cache_db_t *, lisp_addr_t *);
+mapping_t *tr_mcache_lookup_mapping(map_cache_db_t *, lisp_addr_t *);
+mapping_t *tr_mcache_lookup_mapping_exact(map_cache_db_t *, lisp_addr_t *);
 
 #endif /* LISP_XTR_H_ */

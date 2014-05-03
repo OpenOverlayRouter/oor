@@ -520,7 +520,7 @@ void exit_cleanup(void) {
     close_output_sockets();
     /* Close netlink socket */
     close(netlink_fd);
-    if (ctrl_dev) ctrl_dev_del(ctrl_dev);
+    if (ctrl_dev) ctrl_dev_destroy(ctrl_dev);
     if (iface_addr_ht) hash_table_destroy(iface_addr_ht);
     lmlog(LISP_LOG_INFO,"Exiting ...");
 

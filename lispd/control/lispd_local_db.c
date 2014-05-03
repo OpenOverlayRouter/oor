@@ -37,7 +37,8 @@
 
 
 local_map_db_t *
-local_map_db_new() {
+local_map_db_new()
+{
     local_map_db_t *db;
     db = calloc(1, sizeof(local_map_db_t));
     if (!db) {
@@ -52,6 +53,11 @@ local_map_db_new() {
     }
 
     return(db);
+}
+
+void local_map_db_del(local_map_db_t *lmdb)
+{
+    mdb_del(lmdb->db, mapping_del);
 }
 
 
@@ -115,8 +121,8 @@ local_map_db_del_mapping(local_map_db_t *lmdb, lisp_addr_t *eid)
 lisp_addr_t *
 local_map_db_get_main_eid(local_map_db_t *lmdb, int afi)
 {
-    void                *it         = NULL;
-    lisp_addr_t         *eid        = NULL;
+    void *it = NULL;
+    lisp_addr_t *eid = NULL;
 
     mdb_foreach_ip_entry(lmdb->db, it) {
         eid = mapping_eid((mapping_t *)it);
@@ -124,7 +130,7 @@ local_map_db_get_main_eid(local_map_db_t *lmdb, int afi)
             return(eid);
         }
     } mdb_foreach_ip_entry_end;
-    return(NULL);
+    return (NULL);
 }
 
 int

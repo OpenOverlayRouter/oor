@@ -66,7 +66,7 @@ int begin_upstream_join_loop(mapping_t *mapping) {
 int re_upstream_join_cb(timer *t, void *arg) {
     timer_upstream_join *argtimer = arg;
 
-    mapping_t *mapping = mcache_lookup_mapping(argtimer->mceid);
+    mapping_t *mapping = tr_mcache_lookup_mapping(argtimer->mceid);
 
     if (!mapping) {
         lmlog(LISP_LOG_DEBUG_1, "Failed to get a map-reply for %s. Aborting Join!",
@@ -89,7 +89,7 @@ int re_join_channel(lisp_addr_t *mceid) {
     /* FIRST STEP
      * obtain a mapping for mceid
      */
-    mapping = mcache_lookup_mapping(mceid);
+    mapping = tr_mcache_lookup_mapping(mceid);
     if (!mapping) {
         src = lcaf_mc_get_src(lisp_addr_get_lcaf(mceid));
         if (handle_map_cache_miss(mceid, local_map_db_get_main_eid(lisp_addr_ip_afi(src))) != GOOD)
@@ -197,7 +197,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
             return(BAD);
         }
         itr_eid = lcaf_mc_get_src(lisp_addr_get_lcaf(mceid));
-        itr_mapping = mcache_lookup_mapping(itr_eid);
+        itr_mapping = tr_mcache_lookup_mapping(itr_eid);
 
         if (!itr_mapping && upstream->itr_resolution_pending) {
             lmlog(LISP_LOG_DEBUG_3, "ITR resolution failed! Aborting");
@@ -383,7 +383,7 @@ int re_leave_channel(lisp_addr_t *mceid) {
     re_upstream_t   *upstream   = NULL;
     uint64_t        nonce       = 0;
 
-    mapping = mcache_lookup_mapping(mceid);
+    mapping = tr_mcache_lookup_mapping(mceid);
     if (!mapping) {
         lmlog(LISP_LOG_DEBUG_1, "re_leave_channel: Request to leave channel %s but we're not a member. Discarding!",
                 lisp_addr_to_char(mceid));
@@ -422,7 +422,7 @@ int re_recv_join_request(lisp_addr_t *ch, lisp_addr_t *rloc_pair) {
     lmlog(LISP_LOG_DEBUG_1, "Received Join-Request for channel %s requesting replication pair %s",
             lisp_addr_to_char(ch), lisp_addr_to_char(rloc_pair));
 
-    ch_mapping = mcache_lookup_mapping(ch);
+    ch_mapping = tr_mcache_lookup_mapping(ch);
     if (!ch_mapping) {
         src_eid = lcaf_mc_get_src(lisp_addr_get_lcaf(ch));
         src_eid_mapping = local_map_db_lookup_eid(src_eid);
@@ -529,7 +529,7 @@ re_upstream_t *re_get_upstream(lisp_addr_t *eid) {
     mapping_t   *mapping    = NULL;
 
     /* Find eid's map-cache entry*/
-    mapping = mcache_lookup_mapping_exact(eid);
+    mapping = tr_mcache_lookup_mapping_exact(eid);
     if (!mapping){
         lmlog(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));
@@ -550,7 +550,7 @@ remdb_t *re_get_jib(lisp_addr_t *eid) {
     /* TODO: implement real multicast FIB instead of using the mapping db */
     /* Find eid's map-cache entry*/
 //    map_cache_dump_db(LISP_LOG_DEBUG_1);
-    mapping = mcache_lookup_mapping(eid);
+    mapping = tr_mcache_lookup_mapping(eid);
     if (!mapping){
         lmlog(LISP_LOG_DEBUG_2,"re_get_jib:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));
@@ -578,7 +578,7 @@ re_mapping_data *re_get_ch_data(lisp_addr_t *eid) {
 
     /* TODO: implement real multicast FIB instead of using the mapping db */
     /* Find eid's map-cache entry*/
-    mapping = mcache_lookup_mapping_exact(eid);
+    mapping = tr_mcache_lookup_mapping_exact(eid);
     if (!mapping){
         lmlog(LISP_LOG_DEBUG_2,"re_get_upstream:  No map cache entry found for %s",
                 lisp_addr_to_char(eid));

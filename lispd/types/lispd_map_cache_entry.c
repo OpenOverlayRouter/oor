@@ -131,45 +131,20 @@ new_map_cache_entry_no_db(lisp_addr_t eid_prefix, int eid_prefix_length,
     return (map_cache_entry);
 }
 
-mcache_entry_t *
-new_map_cache_entry(lisp_addr_t eid_prefix, int eid_prefix_length,
-        int how_learned, uint16_t ttl)
-{
-    mcache_entry_t *map_cache_entry;
-
-    map_cache_entry = new_map_cache_entry_no_db (eid_prefix, eid_prefix_length, how_learned, ttl);
-
-    if (map_cache_entry == NULL)
-        return(NULL);
-
-    /* Add entry to the data base */
-    if (map_cache_add_entry (map_cache_entry)==BAD){
-        lmlog(DBG_1, "Failed to add map cache entry to map-cache for prefix %s! Aborting!",
-                lisp_addr_to_char(&eid_prefix));
-        free(map_cache_entry);
-        return(NULL);
-    }
-
-    map_cache_dump_db(DBG_1);
-
-    return(map_cache_entry);
-}
-
-
-
-void map_cache_entry_del(mcache_entry_t *entry)
+void
+mcache_entry_del(mcache_entry_t *entry)
 {
     mapping_del(mcache_entry_mapping(entry));
 
     if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
-        if (entry->expiry_cache_timer != NULL){
+        if (entry->expiry_cache_timer){
             stop_timer(entry->expiry_cache_timer);
             entry->expiry_cache_timer = NULL;
         }
-        if (entry->request_retry_timer != NULL){
+        if (entry->request_retry_timer){
             mcache_entry_stop_req_retry_timer(entry);
         }
-        if (entry->smr_inv_timer != NULL){
+        if (entry->smr_inv_timer){
             mcache_entry_stop_smr_inv_timer(entry);
         }
     }
@@ -180,7 +155,8 @@ void map_cache_entry_del(mcache_entry_t *entry)
     free(entry);
 }
 
-void map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
+void
+map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
 {
     char                buf[256], buf2[256];
     time_t              expiretime;

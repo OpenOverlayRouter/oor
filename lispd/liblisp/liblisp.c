@@ -279,7 +279,7 @@ lisp_msg_pull_hdr(lbuf_t *b) {
 void *
 lisp_msg_pull_auth_field(lbuf_t *b) {
     void *hdr;
-    lisp_key_type_t keyid;
+    lisp_key_type keyid;
 
     hdr = lbuf_pull(b, sizeof(auth_record_hdr_t));
     keyid = noths(AUTH_REC_KEY_ID(hdr));
@@ -528,7 +528,7 @@ lisp_msg_hdr_to_char(lbuf_t *b) {
 /* Compute and fill auth data field
  * TODO Support more than SHA1 */
 static int
-auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type_t key_id,
+auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id,
         const char *key, uint8_t *md, uint32_t *md_len) {
     switch(key_id) {
     case NO_KEY:
@@ -553,7 +553,7 @@ auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type_t key_id,
 }
 
 int
-lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_t keyid, const char *key) {
+lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type keyid, const char *key) {
     uint32_t    md_len  = 0;
 
     void *hdr = lisp_msg_auth_record(b);
@@ -578,7 +578,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key) {
     uint32_t    md_len  = 0;
     uint8_t     *adptr  = NULL;
     uint16_t    ad_len;
-    lisp_key_type_t keyid;
+    lisp_key_type keyid;
 
     auth_record_hdr_t *hdr;
 
@@ -608,7 +608,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key) {
 }
 
 void *
-lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type_t keyid) {
+lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type keyid) {
     void *hdr;
     int len = auth_data_get_len_for_type(keyid);
     hdr = lbuf_put(b, sizeof(auth_record_hdr_t) + len);

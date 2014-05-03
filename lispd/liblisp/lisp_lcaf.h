@@ -39,7 +39,6 @@
 #define MAX_LCAFS 16
 
 typedef struct _lisp_addr_t lisp_addr_t;
-//typedef struct _lcaf_addr_t lcaf_addr_t;
 
 
 typedef struct _lcaf_addr_t {

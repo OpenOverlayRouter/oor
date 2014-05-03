@@ -244,7 +244,7 @@ void auth_field_del(auth_field *af) {
 }
 
 /* Returns the length of the auth data field based on the key_id value */
-uint16_t auth_data_get_len_for_type(lisp_key_type_t key_id)
+uint16_t auth_data_get_len_for_type(lisp_key_type key_id)
 
 {
     switch (key_id) {

@@ -32,18 +32,10 @@
 #include <liblisp.h>
 #include <lisp_ctrl_device.h>
 
-/* Generic timer argument that includes the device as parameter. As a rule,
- * both 'dev' and 'data' should be pointers to existing data structure that
- * don't require the caller to free them */
-typedef struct timer_arg_t_ {
-    lisp_ctrl_dev_t *dev;
-    void *data;
-} timer_arg_t;
+
 
 int recv_map_reply_msg(lisp_ctrl_dev_t *dev, lbuf_t *buf);
-int recv_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
-int tr_recv_map_request(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
-int ms_recv_map_request(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+int tr_recv_map_notify(lisp_ctrl_dev_t *, lbuf_t *);
 
 int handle_map_cache_miss(lisp_ctrl_dev_t *, lisp_addr_t *, lisp_addr_t *);
 
@@ -51,7 +43,7 @@ int send_smr_invoked_map_request(lisp_ctrl_dev_t *, mcache_entry_t *);
 int send_map_request_retry(lisp_ctrl_dev_t *, mcache_entry_t *);
 
 int build_and_send_map_reg(lisp_ctrl_dev_t *, mapping_t *, char *,
-        lisp_key_type_t);
+        lisp_key_type);
 
 int program_smr(lisp_ctrl_dev_t *, int time);
 int program_map_register(lisp_ctrl_dev_t *dev, int time);

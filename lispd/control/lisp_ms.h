@@ -41,8 +41,6 @@ typedef struct _lisp_ms {
     mdb_t *reg_sites_db;
 } lisp_ms_t;
 
-lisp_ctrl_dev_t *ms_ctrl_init();
-
 /* ms interface */
 int ms_add_lisp_site_prefix(lisp_ctrl_dev_t *ms, lisp_site_prefix *site);
 int ms_add_registered_site_prefix(lisp_ctrl_dev_t *dev, mapping_t *sp);

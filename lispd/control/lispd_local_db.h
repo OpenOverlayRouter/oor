@@ -41,6 +41,7 @@ typedef struct local_map_db_t_ {
 
 
 local_map_db_t *local_map_db_new();
+void local_map_db_del(local_map_db_t *lmdb);
 int local_map_db_add_mapping(local_map_db_t *, mapping_t *);
 void local_map_db_del_mapping(local_map_db_t *, lisp_addr_t *);
 mapping_t *local_map_db_lookup_eid(local_map_db_t *, lisp_addr_t *);

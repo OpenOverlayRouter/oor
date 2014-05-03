@@ -45,6 +45,6 @@ typedef struct _timer_rloc_prob_argument{
 
 int program_rloc_probing(lisp_ctrl_dev_t *dev, mapping_t *mapping, locator_t *locator);
 void program_mapping_rloc_probing(lisp_ctrl_dev_t *dev, mapping_t *mapping);
-void programming_petr_rloc_probing();
+void program_petr_rloc_probing();
 
 #endif /*LISPD_RLOC_PROBING_H_*/

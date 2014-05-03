@@ -36,33 +36,80 @@
 
 
 int
-ctrl_dev_handle_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *usk) {
-    return(dev->ctrl_class->handle_msg(dev, b, usk));
+ctrl_dev_recv(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc) {
+    return(dev->ctrl_class->recv_msg(dev, b, uc));
 }
 
 void
-ctrl_dev_start(lisp_ctrl_dev_t *dev) {
-    dev->ctrl_class->start(dev);
+ctrl_dev_start(lisp_ctrl_dev_t *dev)
+{
+    dev->ctrl_class->run(dev);
 }
 
 void
-ctrl_dev_del(lisp_ctrl_dev_t *dev) {
-    dev->ctrl_class->delete(dev);
+ctrl_dev_destroy(lisp_ctrl_dev_t *dev)
+{
+    dev->ctrl_class->destruct(dev);
+    dev->ctrl_class->dealloc(dev);
 }
 
 int
-recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc) {
-    ctrl_dev_handle_msg(dev, b, uc);
+recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc)
+{
+    ctrl_dev_recv(dev, b, uc);
 
     return(GOOD);
 }
 
 int
-send_msg(lisp_ctrl_dev_t *dev, lisp_msg *msg, uconn_t *uc) {
+send_msg(lisp_ctrl_dev_t *dev, lisp_msg *msg, uconn_t *uc)
+{
     ctrl_send_msg(dev->ctrl, msg, uc);
     return(GOOD);
 }
 
+glist_t *
+ctrl_dev_default_rlocs(lisp_ctrl_dev_t *dev)
+{
+    return(dev->default_rlocs);
+}
+
+static ctrl_dev_class_t *
+ctrl_dev_class_find(lisp_dev_type type)
+{
+    return(reg_ctrl_dev_cls[type]);
+}
+
+int
+ctrl_dev_create(lisp_dev_type type, lisp_ctrl_dev_t **devp)
+{
+    lisp_ctrl_dev_t *dev;
+    ctrl_dev_class_t *class;
+
+    *devp = NULL;
+
+    /* find type of device */
+    class = ctrl_dev_class_find(type);
+    dev = class->alloc();
+    dev->mode =type;
+    dev->ctrl_class = class;
+    dev->ctrl_class->construct(dev);
+
+    *devp = dev;
+    return(GOOD);
+}
+
+lisp_addr_t *
+ctrl_dev_default_rloc(lisp_ctrl_dev_t *dev, int afi)
+{
+    lisp_addr_t *loc = NULL;
+    if (lisp_addr_afi(glist_first_data(dev->default_rlocs)) == afi) {
+        loc = glist_first_data(dev->default_rlocs);
+    } else if (lisp_addr_afi(glist_last_data(dev->default_rlocs)) == afi) {
+        loc = glist_last_data(dev->default_rlocs);
+    }
+    return(loc);
+}
 
 int
 ctrl_dev_program_smr(lisp_ctrl_dev_t *dev)
@@ -250,18 +297,16 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple *tuple)
     locator_t *out_srloc = NULL;
     locator_t *out_drloc = NULL;
     forwarding_entry *fwd_entry = NULL;
-    local_map_db_t *lmdb;
-    map_cache_db_t *mcdb;
     lcl_locator_extended_info *leinfo;
+    lisp_xtr_t *xtr;
+
+    xtr = CONTAINER_OF(dev, lisp_xtr_t, super);
 
     /* should be retrieved from a cache in the future */
     fwd_entry = calloc(1, sizeof(forwarding_entry));
 
-    lmdb = dev->tr_class->get_local_mdb(dev);
-    mcdb = dev->tr_class->get_map_cache(dev);
-
     /* If the packet doesn't have an EID source, forward it natively */
-    if (!(smap = local_map_db_lookup_eid(lmdb, &(tuple->src_addr)))) {
+    if (!(smap = local_map_db_lookup_eid(xtr->local_mdb, &(tuple->src_addr)))) {
         return (fwd_entry);
     }
 
@@ -292,13 +337,13 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple *tuple)
     //arnatal: Do not need to check here if route metrics setted correctly -> local more preferable than default (tun)
 
     /* FC TODO: implement unicast FIB instead of using the map-cache? */
-    dmap = mcache_lookup_mapping(mcdb, &(tuple->dst_addr));
+    dmap = tr_mcache_lookup_mapping(xtr, &(tuple->dst_addr));
 
     /* There is no entry in the map cache */
     if (!dmap) {
         lmlog(DBG_1, "No map cache retrieved for eid %s. Sending Map-Request!",
                 lisp_addr_to_char(&tuple->dst_addr));
-        handle_map_cache_miss(dev, &(tuple->dst_addr), &(tuple->src_addr));
+        handle_map_cache_miss(xtr, &(tuple->dst_addr), &(tuple->src_addr));
     }
 
     /* No map-cache entry or no output locators (negative entry) */
@@ -411,11 +456,14 @@ tr_get_reencap_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple *tuple)
     locators_list_t *lit = NULL;
     locator_t *locator = NULL;
     int ctr;
+    lisp_xtr_t *xtr;
+
+    xtr = CONTAINER_OF(dev, lisp_xtr_t, super);
 
     /* should be retrieved from a cache in the future */
     fwd_entry = calloc(1, sizeof(forwarding_entry));
 
-    dst_mapping = mcache_lookup_mapping(&(tuple->dst_addr));
+    dst_mapping = tr_mcache_lookup_mapping(xtr, &(tuple->dst_addr));
 
     /* There is no entry in the map cache */
     if (!dst_mapping) {

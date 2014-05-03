@@ -83,12 +83,10 @@ void mcache_entry_init(mcache_entry_t *mce, mapping_t *mapping);
 void mcache_entry_init_static(mcache_entry_t *mce, mapping_t *mapping);
 
 
-mcache_entry_t *new_map_cache_entry(lisp_addr_t, int, int, uint16_t);
-
-
 mcache_entry_t *new_map_cache_entry_no_db(lisp_addr_t eid_prefix,
         int eid_prefix_length, int how_learned, uint16_t ttl);
-void map_cache_entry_del(mcache_entry_t *entry);
+
+void mcache_entry_del(mcache_entry_t *entry);
 void map_cache_entry_to_char(mcache_entry_t *entry, int log_level);
 
 static inline mapping_t *mcache_entry_mapping(mcache_entry_t*);

@@ -74,7 +74,7 @@ process_lisp_ctr_msg(struct sock *sl) {
 
     /* direct call of ctrl device
      * TODO: check type to decide where to send msg*/
-    ctrl_dev_handle_msg(ctrl_dev, packet, &uc);
+    ctrl_dev_recv(ctrl_dev, packet, &uc);
 
     lbuf_del(packet);
 

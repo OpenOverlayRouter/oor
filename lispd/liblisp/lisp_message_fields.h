@@ -635,7 +635,7 @@ typedef enum {
     NO_KEY,
     HMAC_SHA_1_96,
     HMAC_SHA_256_128
-} lisp_key_type_t;
+} lisp_key_type;
 
 #define LISP_SHA1_AUTH_DATA_LEN         20
 
@@ -647,8 +647,8 @@ typedef enum {
 auth_field *auth_field_new();
 auth_field *auth_field_parse(uint8_t *offset);
 void auth_field_del(auth_field *raf);
-uint16_t auth_data_get_len_for_type(lisp_key_type_t key_id);
-int auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type_t key_id, const char *key, uint8_t *md, uint32_t *md_len);
+uint16_t auth_data_get_len_for_type(lisp_key_type key_id);
+int auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id, const char *key, uint8_t *md, uint32_t *md_len);
 
 
 static inline uint8_t *auth_field_get_data(auth_field *af) {
@@ -670,11 +670,11 @@ static inline uint8_t *auth_field_auth_data(auth_field *af) {
 }
 
 
-static inline int auth_field_get_size_for_type(lisp_key_type_t keyid) {
+static inline int auth_field_get_size_for_type(lisp_key_type keyid) {
     return(auth_data_get_len_for_type(keyid)+sizeof(auth_record_hdr_t));
 }
 
-static inline void auth_field_init(uint8_t *ptr, lisp_key_type_t keyid) {
+static inline void auth_field_init(uint8_t *ptr, lisp_key_type keyid) {
     ((auth_record_hdr_t*)ptr)->key_id = htons(keyid);
     ((auth_record_hdr_t*)ptr)->auth_data_len = htons(auth_data_get_len_for_type(keyid));
     memset(CO(ptr, sizeof(auth_record_hdr_t)), 0, auth_data_get_len_for_type(keyid));
