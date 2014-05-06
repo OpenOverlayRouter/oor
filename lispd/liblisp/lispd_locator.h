@@ -26,6 +26,7 @@
  *
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Florin Coras      <fcoras@ac.upc.edu>
  */
 
 #ifndef LISPD_LOCATOR_H_
@@ -34,6 +35,13 @@
 #include "lisp_address.h"
 #include "lispd_nonce.h"
 #include <lispd_timers.h>
+
+/* locator_types */
+#define STATIC_LOCATOR                  0
+#define DYNAMIC_LOCATOR                 1
+#define PETR_LOCATOR                    2
+#define LOCAL_LOCATOR                   3
+
 
 typedef struct lispd_locator_elt_ {
     lisp_addr_t *addr;
@@ -94,24 +102,25 @@ locator_t *locator_init_remote_full(lisp_addr_t *, uint8_t, uint8_t, uint8_t,
         uint8_t, uint8_t);
 locator_t *locator_init_local(lisp_addr_t *);
 locator_t *locator_init_local_full(lisp_addr_t *, uint8_t *, uint8_t, uint8_t,
-        uint8_t, uint8_t);
+        uint8_t, uint8_t, int *);
 void locator_del(locator_t *locator);
 
-
-/* Extract the locator from a locators list that match with the address.
- * The locator is removed from the list */
 locator_t *locator_list_extract_locator(locators_list_t **, lisp_addr_t);
 locator_t *locator_list_get_locator(locators_list_t *, lisp_addr_t *);
 void locator_list_del(locators_list_t *list);
 int locator_list_add(locators_list_t **, locator_t *);
 
+static inline lisp_addr_t *locator_addr(locator_t *);
+static inline void locator_set_addr(locator_t *, lisp_addr_t *);
+static inline void locator_set_state(locator_t *locator, uint8_t *state);
+static inline void locator_set_state_static(locator_t *locator, uint8_t state);
+static inline void locator_set_type(locator_t *, int);
+
+
 rtr_locator *rtr_locator_new(lisp_addr_t address);
 rtr_locators_list *rtr_locator_list_new();
-/* Add a rtr localtor to a list of rtr locators */
 int rtr_list_add(rtr_locators_list **, rtr_locator *);
 void rtr_list_del(rtr_locators_list *rtr_list_elt);
-
-/* Leave in the list, rtr with afi equal to the afi passed as a parameter */
 void rtr_list_remove_locs_with_afi_different_to(rtr_locators_list **, int);
 
 
@@ -139,11 +148,16 @@ static inline void locator_set_state(locator_t *locator, uint8_t *state)
 /* XXX: use with caution! */
 static inline void locator_set_state_static(locator_t *locator, uint8_t state)
 {
-    if (!locator->state)
-        locator->state = calloc(1, sizeof(uint8_t));
+    if (!locator->state) {
+        locator->state = xcalloc(1, sizeof(uint8_t));
+    }
     *(locator->state) = state;
 }
 
+static inline void locator_set_type(locator_t *l, int type)
+{
+    l->type = type;
+}
 
 
 

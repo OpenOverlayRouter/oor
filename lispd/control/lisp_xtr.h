@@ -43,22 +43,39 @@ typedef struct _lisp_xtr {
     int (*add_mapping_to_map_cache)(mapping_t *mapping);
     int (*add_mapping_to_local_map_db)(mapping_t *mapping);
 
-    /* xtr members */
+    int map_request_retries;
+    int probe_interval;
+    int probe_retries;
+    int probe_retries_interval;
+
+    lisp_site_ID site_ID;
+    lisp_xTR_ID xTR_ID;
+    mcache_entry_t *petrs;
+    lisp_addr_list_t *pitrs;
+
+    /* DATABASES */
     map_cache_db_t *map_cache;
     local_map_db_t *local_mdb;
 
-    timer *map_register_timer;
-    timer *smr_timer;
+    /* MAP RESOLVERS */
+    lisp_addr_list_t *map_resolvers;
 
-    lisp_addr_t *map_resolver;
-
-    lisp_addr_t *map_server;
+    /* MAP SERVERs */
+    map_server_list_t *map_servers;
     char *map_server_key;
     int map_server_key_type;
 
+    /* NAT */
     int nat_aware;
     int nat_status;
-    nonces_list_t *nat_nonces;
+    char *nat_site_ID;
+    char *nat_xTR_ID;
+    nonces_list_t *nat_emr_nonces;
+    nonces_list_t *nat_ir_nonces;
+
+    /* TIMERS */
+    timer *map_register_timer;
+    timer *smr_timer;
 
 } lisp_xtr_t;
 
@@ -67,9 +84,6 @@ typedef struct _timer_rloc_prob_argument{
     locator_t   *locator;
 } timer_rloc_probe_argument;
 
-
-lisp_ctrl_dev_t *xtr_ctrl_init();
-int xtr_process_ctrl_msg(lisp_ctrl_dev_t *, lisp_msg *, uconn_t *);
 
 int tr_mcache_add_mapping(map_cache_db_t *, mapping_t *);
 int tr_mcache_add_static_mapping(map_cache_db_t *, mapping_t *);

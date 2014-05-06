@@ -673,7 +673,7 @@ int lisp_output_multicast (
                 &encap_packet_size);
 
 //        output_socket = *(((lcl_locator_extended_info *)(locator->extended_info))->out_socket);
-        output_socket = get_iface_socket(get_interface_with_address(src_rloc), lisp_addr_ip_afi(src_rloc));
+        output_socket = iface_socket(get_interface_with_address(src_rloc), lisp_addr_ip_afi(src_rloc));
         send_packet(output_socket,encap_packet,encap_packet_size);
 
         free (encap_packet);

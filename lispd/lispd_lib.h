@@ -81,14 +81,8 @@ int lispd_get_address(char *host, lisp_addr_t *addr);
  *  Fill the parameter addr with the lisp_addr_t of the interface with afi.
  *  Return BAD if no address is present in the interface.
  */
-int lispd_get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
+int get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
 
-
-void dump_servers(lisp_addr_list_t *list, const char *list_name, int log_level);
-
-void dump_proxy_etrs(int log_level);
-
-void dump_map_servers(int log_level);
 
 
 /*
@@ -139,12 +133,9 @@ lisp_addr_t *get_map_resolver();
 
 char *get_char_from_lisp_addr_t (lisp_addr_t addr);
 
-/*
- * Fill lisp_addr with the address.
- * Return GOOD if no error has been found
- */
 
-int get_lisp_addr_from_char (char *address, lisp_addr_t *lisp_addr);
+int get_ip_addr_from_char(char *address, lisp_addr_t *lisp_addr);
+int get_ippref_from_char(char *address, lisp_addr_t *laddr, int *mask);
 
 /*
  * Compare two lisp_addr_t.
@@ -159,8 +150,6 @@ int compare_lisp_addr_t (lisp_addr_t *addr1, lisp_addr_t *addr2);
  * Parse address and fill lisp_addr and mask.
  * Return GOOD if no error has been found
  */
-
-int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int *mask);
 
 
 

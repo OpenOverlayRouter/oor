@@ -36,8 +36,6 @@
 #include <lisp_ms.h>
 #include <lisp_rtr.h>
 
-extern lisp_ctrl_t *ctrl;
-
 /* services lisp_ctrl offers to lisp_ctrl_dev_t */
 typedef struct lisp_ctrl_class_ {
     int (*send_msg)(lisp_ctrl_t *, lbuf_t *, uconn_t *);
@@ -46,14 +44,24 @@ typedef struct lisp_ctrl_class_ {
 typedef struct lisp_control_ {
     glist_t *devices;
     /* move ctrl interface here */
+
+    int ipv4_control_input_fd;
+    int ipv6_control_input_fd;
+
+    glist_t *rlocs;
+    glist_t *default_rlocs;
 } lisp_ctrl_t;
 
 int process_lisp_ctr_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
 mapping_t **ctrl_get_mappings_to_smr(lisp_ctrl_t *);
 
-void ctrl_if_addr_update(lispd_iface_elt *, lisp_addr_t *);
-void ctrl_if_status_update();
+
+glist_t *ctrl_default_rlocs(lisp_ctrl_t *c);
+lisp_addr_t *ctrl_default_rloc(lisp_ctrl_t *c, int afi);
+void ctrl_if_addr_update(lisp_ctrl_t *, iface_t *, lisp_addr_t *,
+        lisp_addr_t *);
+void ctrl_if_status_update(lisp_ctrl_t *, iface_t *);
 forwarding_entry *ctrl_get_forwarding_entry(packet_tuple *);
 forwarding_entry *ctrl_get_reencap_forwarding_entry(packet_tuple *);
 

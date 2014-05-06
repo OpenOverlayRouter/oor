@@ -63,9 +63,6 @@ struct lisp_ctrl_device_ {
     lisp_dev_type mode;
     ctrl_dev_class_t *ctrl_class;
 
-    glist_t *rlocs;
-    glist_t *default_rlocs;
-
     /* pointer to lisp ctrl */
     lisp_ctrl_t *ctrl;
 };

@@ -125,14 +125,7 @@ void mapping_extended_info_del(mapping_t *);
 int balancing_vectors_calculate(mapping_t *, balancing_locators_vecs *);
 void balancing_vectors_to_char(balancing_locators_vecs, mapping_t *, int );
 
-
-
-int mapping_get_size_in_record(mapping_t *);
-uint8_t *mapping_fill_record_in_pkt(mapping_record_hdr_t *rec, mapping_t *m, lisp_addr_t *probed_rloc);
-void mapping_write_to_record(mapping_record *, mapping_t *);
-
 void mapping_to_char(mapping_t *m, int log_level);
-
 
 static inline void *mapping_extended_info(mapping_t *m);
 static inline void mapping_set_extended_info(mapping_t *, void *,

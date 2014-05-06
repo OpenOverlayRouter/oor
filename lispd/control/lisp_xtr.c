@@ -61,6 +61,12 @@ static void program_mapping_rloc_probing(lisp_xtr_t *, mapping_t *);
 static void program_petr_rloc_probing(lisp_xtr_t *, int time);
 static inline struct lisp_xtr_t *lisp_xtr_cast(lisp_ctrl_dev_t *dev);
 
+void lisp_addr_list_to_char(lisp_addr_list_t *, const char *, int);
+void dump_proxy_etrs(int log_level);
+void dump_map_servers(int log_level);
+
+
+
 /* Called when the timer associated with an EID entry expires. */
 static int
 mc_entry_expiration_timer_cb(timer *t, void *arg)
@@ -113,11 +119,11 @@ handle_petr_probe_reply(lisp_xtr_t *xtr, mapping_t *m, locator_t *probed,
     locator_t *loc = NULL, *aux_loc = NULL;
     int ctr;
 
-    pmap = mcache_entry_mapping(proxy_etrs);
-    if (proxy_etrs && lisp_addr_cmp(src_eid, mapping_eid(pmap)) == 0) {
+    pmap = mcache_entry_mapping(xtr->petrs);
+    if (xtr->petrs && lisp_addr_cmp(src_eid, mapping_eid(pmap)) == 0) {
 
         /* find locator */
-        old_map = mcache_entry_mapping(proxy_etrs);
+        old_map = pmap;
         loc_list[0] = pmap->head_v4_locators_list;
         loc_list[1] = pmap->head_v6_locators_list;
         for (ctr = 0; ctr < 2; ctr++) {
@@ -516,7 +522,7 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *b)
 
     /* TODO: compare nonces in all cases not only NAT */
     if (MNTF_XTR_ID_PRESENT(hdr) == TRUE) {
-        if (nonce_check(nat_emr_nonce, MNTF_NONCE(hdr)) == GOOD){
+        if (nonce_check(xtr->nat_emr_nonces, MNTF_NONCE(hdr)) == GOOD){
             lmlog(DBG_3, "Correct nonce");
             /* Free nonce if authentication is ok */
         } else {
@@ -527,7 +533,7 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *b)
     }
 
     /* TODO: match eid/nonce to ms-key */
-    if (lisp_msg_check_auth_field(b, map_servers->key) != GOOD) {
+    if (lisp_msg_check_auth_field(b, xtr->map_servers->key) != GOOD) {
         lmlog(DBG_1, "Map-Notify message is invalid");
         program_map_register(xtr, LISPD_INITIAL_EMR_TIMEOUT);
         return(BAD);
@@ -593,8 +599,8 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *b)
             }
         }
 
-        free(nat_emr_nonce);
-        nat_emr_nonce = NULL;
+        free(xtr->nat_emr_nonces);
+        xtr->nat_emr_nonces = NULL;
         program_map_register(xtr, MAP_REGISTER_INTERVAL);
 
     }
@@ -640,9 +646,9 @@ send_map_request_to_mr(lisp_xtr_t *xtr, lbuf_t *b, lisp_addr_t *in_srloc,
     lisp_msg_push_ecm_encap(b, in_uc);
 
     /* prepare outer headers */
-    drloc = xtr->map_resolver;
+    drloc = xtr->map_resolvers->address;
     afi = lisp_addr_ip_afi(drloc);
-    srloc = ctrl_dev_default_rloc(xtr->super, afi);
+    srloc = ctrl_default_rloc(xtr->super, afi);
 
     return(send_map_request(xtr, b, srloc, drloc));
 
@@ -730,7 +736,7 @@ build_and_send_smr_mreq(lisp_xtr_t *xtr, mapping_t *src_map,
                 hdr = lisp_msg_hdr(b);
                 MREQ_SMR(hdr) = 1;
 
-                srloc = ctrl_dev_default_rloc(xtr->super, lisp_addr_ip_afi(drloc));
+                srloc = ctrl_default_rloc(xtr->super, lisp_addr_ip_afi(drloc));
                 if (!srloc) {
                     lmlog(DBG_1, "No compatible RLOC was found to send SMR Map-Request "
                             "for local EID %s", lisp_addr_to_char(seid));
@@ -841,7 +847,7 @@ send_all_smr(lisp_xtr_t *xtr)
         } mcache_foreach_active_entry_in_ip_eid_db_end;
 
         /* SMR proxy-itr */
-        pitr_elt = proxy_itrs;
+        pitr_elt = xtr->pitrs;
 
         while (pitr_elt) {
             if (build_and_send_smr_mreq(xtr, mlist[i], pitr_elt->address)
@@ -912,7 +918,7 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
         b = lisp_msg_create(LISP_MAP_REQUEST);
 
         /* no source EID and mapping, so put default control rlocs */
-        rlocs = ctrl_dev_default_rlocs(xtr->super);
+        rlocs = ctrl_default_rlocs(xtr->super);
         lisp_msg_mreq_init(&empty, rlocs, mapping_eid(m));
         glist_destroy(rlocs);
 
@@ -998,7 +1004,7 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
         }
     }
 
-    if (nonces->retransmits - 1 < map_request_retries) {
+    if (nonces->retransmits - 1 < xtr->map_request_retries) {
         if (nonces->retransmits > 0) {
             lmlog(DBG_1, "Retransmiting Map Request for EID: %s (%d retries)",
                     lisp_addr_to_char(eid), nonces->retransmits);
@@ -1007,7 +1013,7 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
         /* build Map-Request */
         b = lisp_msg_create(LISP_MAP_REQUEST);
         lisp_msg_mreq_init(b, tr_main_eid(xtr),
-                ctrl_dev_default_rlocs(xtr->super), mapping_eid(m));
+                ctrl_default_rlocs(xtr->super), mapping_eid(m));
 
         mr_hdr = lisp_msg_hdr(b);
         MREQ_NONCE(mr_hdr) = nonces->nonce[nonces->retransmits];
@@ -1107,7 +1113,7 @@ map_register_process_default(lisp_xtr_t *xtr)
         m = it;
         if (m->locator_count != 0) {
             err = build_and_send_map_reg(xtr, &mreg, m,
-                    map_servers->key, keyid);
+                    xtr->map_servers->key, keyid);
             if (err != GOOD) {
                 lmlog(LERR, "Coudn't send Map-Register for EID  %s!",
                         lisp_addr_to_char(mapping_eid(m)));
@@ -1132,7 +1138,7 @@ map_register_process_encap(lisp_xtr_t *xtr)
     void *it = NULL;
     nonces_list_t *nemrn;
 
-    nemrn = xtr->nat_nonces;
+    nemrn = xtr->nat_emr_nonces;
     if (!nemrn) {
         lmlog(LWRN,"map_register_process_encap: nonces unallocated!"
                 " Aborting!");
@@ -1172,11 +1178,11 @@ map_register_process_encap(lisp_xtr_t *xtr)
                     nat_rtr = &(((lcl_locator_extended_info *)loc->extended_info)->rtr_locators_list->locator->address);
                     /* ECM map register only sent to the first Map Server */
                     err = build_and_send_ecm_map_register(m,
-                            map_servers,
+                            xtr->map_servers,
                             nat_rtr,
                             default_ctrl_iface_v4,
-                            &site_ID,
-                            &xTR_ID,
+                            &xtr->site_ID,
+                            &xtr->xTR_ID,
                             &(nemrn->nonce[nemrn->retransmits]));
                     if (err != GOOD){
                         lmlog(LERR,"encapsulated_map_register_process: "
@@ -1217,10 +1223,11 @@ static int
 map_register_process(lisp_xtr_t *xtr)
 {
     int ret = 0;
-    lispd_map_server_list_t *ms;
+    map_server_list_t *ms;
     int nat_aw, nat_stat;
 
-    ms = xtr->map_server;
+    /* FIXME: select map server */
+    ms = xtr->map_servers->address;
     if (!ms) {
         lmlog(LISP_LOG_CRIT, "map_register: No Map Servers configured!");
         exit_cleanup();
@@ -1282,7 +1289,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
 
     deid = mapping_eid(mapping);
 
-    if (rloc_probe_interval == 0) {
+    if (xtr->probe_interval == 0) {
         lmlog(DBG_2, "rloc_probing: No RLOC Probing for %s cache entry. "
                 "RLOC Probing disabled",  lisp_addr_to_char(deid));
         return (GOOD);
@@ -1302,7 +1309,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         if (!nonces) {
             lmlog(LWRN,"rloc_probing: Unable to allocate memory "
                     "for nonces. Reprogramming RLOC Probing");
-            start_timer(t, rloc_probe_interval, rloc_probing_cb, arg);
+            start_timer(t, xtr->probe_interval, rloc_probing_cb, arg);
             return(BAD);
         }
         locator_ext_inf->rloc_probing_nonces = nonces;
@@ -1311,7 +1318,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
 
     /* If the number of retransmits is less than rloc_probe_retries, then try
      * to send the Map Request Probe again */
-    if (nonces->retransmits - 1 < rloc_probe_retries ) {
+    if (nonces->retransmits - 1 < xtr->probe_retries ) {
         if (nonces->retransmits > 0) {
             lmlog(DBG_1,"Retransmiting Map-Request Probe for locator %s and "
                     "EID: %s (%d retries)", lisp_addr_to_char(drloc),
@@ -1319,7 +1326,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         }
 
         b = lisp_msg_create(LISP_MAP_REQUEST);
-        rlocs = ctrl_dev_default_rlocs(xtr->super);
+        rlocs = ctrl_default_rlocs(xtr->super);
         lisp_msg_mreq_init(b, empty, rlocs, deid);
         glist_destroy(rlocs);
 
@@ -1337,7 +1344,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         nonces->retransmits++;
 
         /* Reprogram time for next retry */
-        start_timer(t, rloc_probe_retries_interval, rloc_probing_cb, arg);
+        start_timer(t, xtr->probe_retries_interval, rloc_probing_cb, arg);
     } else {
         /* If we have reached maximum number of retransmissions, change remote
          *  locator status */
@@ -1356,10 +1363,10 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         locator_ext_inf->rloc_probing_nonces = NULL;
 
         /* Reprogram time for next probe interval */
-        start_timer(t, rloc_probe_interval, rloc_probing_cb, arg);
+        start_timer(t, xtr->probe_interval, rloc_probing_cb, arg);
         lmlog(DBG_2,"Reprogramed RLOC probing of the locator %s of the EID %s "
                 "in %d seconds", lisp_addr_to_char(drloc),
-                lisp_addr_to_char(deid), rloc_probe_interval);
+                lisp_addr_to_char(deid), xtr->probe_interval);
     }
 
     return (GOOD);
@@ -1405,7 +1412,7 @@ program_mapping_rloc_probing(lisp_xtr_t *tr, mapping_t *mapping)
     rmt_locator_extended_info *locator_ext_inf = NULL;
     int ctr = 0;
 
-    if (rloc_probe_interval == 0) {
+    if (tr->probe_interval == 0) {
         return;
     }
 
@@ -1422,7 +1429,7 @@ program_mapping_rloc_probing(lisp_xtr_t *tr, mapping_t *mapping)
                 continue;
             }
 
-            program_rloc_probing(tr, mapping, locator, rloc_probe_interval);
+            program_rloc_probing(tr, mapping, locator, tr->probe_interval);
             locators_lists[ctr] = locators_lists[ctr]->next;
         }
     }
@@ -1438,17 +1445,17 @@ program_petr_rloc_probing(lisp_xtr_t *xtr, int time)
     rmt_locator_extended_info *locator_ext_inf = NULL;
     int ctr = 0;
 
-    if (rloc_probe_interval == 0 || proxy_etrs == NULL) {
+    if (xtr->probe_interval == 0 || xtr->petrs == NULL) {
         return;
     }
 
-    locators_lists[0] = proxy_etrs->mapping->head_v4_locators_list;
-    locators_lists[1] = proxy_etrs->mapping->head_v6_locators_list;
+    locators_lists[0] = xtr->petrs->mapping->head_v4_locators_list;
+    locators_lists[1] = xtr->petrs->mapping->head_v6_locators_list;
     /* Start rloc probing for each locator of the mapping */
     for (ctr = 0; ctr < 2; ctr++) {
         while (locators_lists[ctr] != NULL) {
             locator = locators_lists[ctr]->locator;
-            program_rloc_probing(xtr, proxy_etrs->mapping, locator, time);
+            program_rloc_probing(xtr, xtr->petrs->mapping, locator, time);
         }
     }
 }
@@ -1489,8 +1496,7 @@ tr_mcache_add_static_mapping(lisp_xtr_t *xtr, mapping_t *mapping)
     lisp_addr_t *addr;
 
     addr = mapping_eid(mapping);
-    mce = mcache_entry_new();
-    mcache_entry_init_static(mce, mapping);
+    mcache_entry_init_static(&mce, mapping);
 
     if (mcache_add_entry(xtr->map_cache, addr, mce) != GOOD) {
         return(BAD);
@@ -1639,9 +1645,89 @@ xtr_ctrl_dealloc(lisp_ctrl_dev_t *dev) {
 }
 
 static void
+xtr_ctrl_init(lisp_ctrl_dev_t *dev)
+{
+    lisp_xtr_t *xtr = lisp_xtr_cast(dev);
+
+    if (xtr->map_servers == NULL){
+        lmlog(LCRIT, "No Map Server configured. Exiting...");
+        exit_cleanup();
+    }
+
+    if (xtr->map_resolvers == NULL){
+        lmlog(LCRIT, "No Map Resolver configured. Exiting...");
+        exit_cleanup();
+    }
+
+    if (xtr->petrs == NULL) {
+        lmlog(LWRN, "No Proxy-ETR defined. Packets to non-LISP destinations "
+                "will be forwarded natively (no LISP encapsulation). This "
+                "may prevent mobility in some scenarios.");
+        sleep(3);
+    } else {
+        mapping_compute_balancing_vectors(xtr->petrs->mapping);
+    }
+
+
+    /* Check configured parameters when NAT-T activated. */
+    if (xtr->nat_aware == TRUE) {
+        if (0) {
+            lmlog(LCRIT, "NAT aware on -> This version of LISPmob is limited to"
+                    " one EID prefix and one interface when NAT-T is enabled");
+            exit_cleanup();
+        }
+
+        if (xtr->map_servers->next != NULL
+                || xtr->map_servers->address->afi != AF_INET) {
+            lmlog(LINF, "NAT aware on -> This version of LISPmob is limited to "
+                    "one IPv4 Map Server.");
+            exit_cleanup();
+        }
+
+        if (xtr->map_resolvers->next != NULL
+                || xtr->map_resolvers->address->afi != AF_INET) {
+            lmlog(LINF, "NAT aware on -> This version of LISPmob is limited to "
+                    "one IPv4 Map Resolver.");
+            exit_cleanup();
+        }
+
+        if (xtr->probe_interval > 0) {
+            xtr->probe_interval = 0;
+            lmlog(LINF, "NAT aware on -> disabling RLOC Probing");
+        }
+    }
+
+#ifndef ROUTER
+    /* Check number of EID prefixes */
+    if (local_map_db_num_ip_eids(xtr->local_mdb, AF_INET) > 1) {
+        lmlog(LERR, "LISPmob in mobile node mode only supports one IPv4 EID "
+                "prefix and one IPv6 EID prefix");
+        exit_cleanup();
+    }
+    if (local_map_db_num_ip_eids(xtr->local_mdb, AF_INET6) > 1) {
+        lmlog(LERR, "LISPmob in mobile node mode only supports one IPv4 EID "
+                "prefix and one IPv6 EID prefix");
+        exit_cleanup();
+    }
+#endif
+
+    lmlog (DBG_1, "****** Summary of the configuration ******");
+    local_map_db_dump(xtr->local_mdb, DBG_1);
+    if (is_loggable(DBG_1)){
+        mcache_dump_db(xtr->map_cache, DBG_1);
+    }
+
+    dump_map_servers(xtr, DBG_1);
+    lisp_addr_list_to_char(xtr->map_resolvers, "Map-Resolvers", DBG_1);
+    dump_proxy_etrs(xtr, DBG_1);
+    lisp_addr_list_to_char(xtr->pitrs, "Proxy-ITRs", DBG_1);
+}
+
+static void
 xtr_ctrl_run(lisp_ctrl_dev_t *dev)
 {
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
+
     lmlog(DBG_1, "Starting xTR ...");
 
     /*  Register to the Map-Server(s) */
@@ -1652,7 +1738,6 @@ xtr_ctrl_run(lisp_ctrl_dev_t *dev)
 
     /* RLOC Probing proxy ETRs */
     program_petr_rloc_probing(xtr, 0);
-
 }
 
 /* implementation of ctrl base functions */
@@ -1665,4 +1750,56 @@ ctrl_dev_class_t xtr_ctrl_class = {
         .recv_msg = xtr_recv_msg
 };
 
+
+void
+dump_proxy_etrs(lisp_xtr_t *xtr, int log_level)
+{
+    locators_list_t *locator_lst_elt[2] = { NULL, NULL };
+    int ctr = 0;
+
+    if (xtr->petrs == NULL || is_loggable(log_level) == FALSE) {
+        return;
+    }
+
+    locator_lst_elt[0] = xtr->petrs->mapping->head_v4_locators_list;
+    locator_lst_elt[1] = xtr->petrs->mapping->head_v6_locators_list;
+
+    lmlog(log_level, "************************* Proxy ETRs List ****************************");
+    lmlog(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
+
+    for (ctr = 0 ; ctr<2 ; ctr++){
+        while (locator_lst_elt[ctr]){
+            locator_to_char(locator_lst_elt[ctr]->locator);
+            locator_lst_elt[ctr] = locator_lst_elt[ctr]->next;
+        }
+    }
+}
+
+void
+dump_map_servers(lisp_xtr_t *xtr, int log_level)
+{
+    map_server_list_t *ms = NULL;
+    char str[80];
+
+    if (xtr->map_servers == NULL || is_loggable(log_level) == FALSE) {
+        return;
+    }
+
+    lmlog(log_level, "******************* Map-Servers list ********************************");
+    lmlog(log_level, "|               Locator (RLOC)            |       Key Type          |");
+    ms = xtr->map_servers;
+
+    while (ms) {
+        sprintf(str, "| %39s |", lisp_addr_to_char(ms->address));
+        if (ms->key_type == NO_KEY){
+            sprintf(str + strlen(str),"          NONE           |");
+        }else if (ms->key_type == HMAC_SHA_1_96){
+            sprintf(str + strlen(str),"     HMAC-SHA-1-96       |");
+        }else{
+            sprintf(str + strlen(str),"    HMAC-SHA-256-128     |");
+        }
+        ms = ms->next;
+        lmlog(log_level,"%s",str);
+    }
+}
 

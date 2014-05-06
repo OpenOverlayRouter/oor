@@ -53,7 +53,7 @@ typedef struct lispd_iface_mappings_list_ {
  * locator address (rloc) is linked to the interface address. If changes the address of the interface
  * , the locator address change automatically
  */
-typedef struct lispd_iface_elt_ {
+typedef struct iface_t_ {
     char                        *iface_name;
     uint32_t                    iface_index;
     uint8_t                     status;
@@ -68,14 +68,14 @@ typedef struct lispd_iface_elt_ {
     uint8_t                     ipv6_changed:1;
     int                         out_socket_v4;
     int                         out_socket_v6;
-}lispd_iface_elt;
+} iface_t;
 
 /*
  * List of interfaces
  */
-typedef struct lispd_iface_list_elt_ {
-    lispd_iface_elt                  *iface;
-    struct lispd_iface_list_elt_     *next;
+typedef struct iface_list_elt_ {
+    iface_t *iface;
+    struct iface_list_elt_ *next;
 }iface_list_elt;
 
 
@@ -85,7 +85,7 @@ typedef struct lispd_iface_list_elt_ {
  * create and add an interface element to the list of interfaces.
  */
 
-lispd_iface_elt *add_interface(char *iface_name);
+iface_t *add_interface(char *iface_name);
 
 
 
@@ -95,27 +95,27 @@ lispd_iface_elt *add_interface(char *iface_name);
  * Return the iface element if it is found or NULL if not.
  */
 
-lispd_iface_elt *get_interface(char *iface_name);
+iface_t *get_interface(char *iface_name);
 
 /*
  * Look up an interface based in the index of the iface.
  * Return the iface element if it is found or NULL if not.
  */
 
-lispd_iface_elt *get_interface_from_index(int iface_index);
+iface_t *get_interface_from_index(int iface_index);
 
 /*
  * Return the interface belonging the address passed as a parameter
  */
 
-lispd_iface_elt *get_interface_with_address(lisp_addr_t *address);
+iface_t *get_interface_with_address(lisp_addr_t *address);
 
 /*
  * Add the mapping to the list of mappings of the interface according to the afi.
  * The mapping is added just one time
  */
 
-int add_mapping_to_interface (lispd_iface_elt *interface, mapping_t *mapping, int afi);
+int add_mapping_to_interface (iface_t *interface, mapping_t *mapping, int afi);
 
 
 
@@ -128,9 +128,9 @@ void dump_iface_list(int log_level);
 
 void open_iface_binded_sockets();
 
-lispd_iface_elt *get_any_output_iface(int afi);
+iface_t *get_any_output_iface(int afi);
 
-lispd_iface_elt *get_default_ctrl_iface(int afi);
+iface_t *get_default_ctrl_iface(int afi);
 
 lisp_addr_t *get_default_ctrl_address(int afi);
 
@@ -145,9 +145,8 @@ void set_default_output_ifaces();
  */
 void set_default_ctrl_ifaces();
 
-lisp_addr_t *get_iface_address(lispd_iface_elt *iface, int afi);
-
-int get_iface_socket(lispd_iface_elt *iface, int afi);
+lisp_addr_t *iface_address(iface_t *iface, int afi);
+int iface_socket(iface_t *iface, int afi);
 
 /*
  * Return the list of interfaces
@@ -159,7 +158,7 @@ iface_list_elt *get_head_interface_list();
  * Recalculate balancing vector of the mappings assorciated to iface
  */
 
-void iface_balancing_vectors_calc(lispd_iface_elt  *iface);
+void iface_balancing_vectors_calc(iface_t  *iface);
 
 /*
  * Close all the open output sockets associated to interfaces

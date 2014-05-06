@@ -33,33 +33,75 @@
 #include <lbuf.h>
 #include <cksum.h>
 
-/* only one instance for now */
-lisp_ctrl_t *ctrl = lisp_ctrl_create();
+static void set_default_rlocs(lisp_ctrl_t *ctrl);
 
-lisp_ctrl_t *
-lisp_ctrl_create() {
-    lisp_ctrl_t *ctrl = calloc(1, sizeof(lisp_ctrl_t));
-    ctrl->devices = glist_new_managed(lisp_ctrl_destroy);
-    return(ctrl);
+static void set_default_rlocs(lisp_ctrl_t *ctrl)
+{
+    glist_remove_all(ctrl->default_rlocs);
+    if (default_ctrl_iface_v4) {
+        glist_add(ctrl->default_rlocs, default_ctrl_iface_v4->ipv4_address);
+    }
+
+    if (default_ctrl_iface_v6) {
+        glist_add_tail(ctrl->default_rlocs,
+                default_ctrl_iface_v6->ipv6_address);
+    }
 }
 
-void
-lisp_ctrl_destroy(lisp_ctrl_t *ctrl) {
-    glist_del(ctrl->devices);
+lisp_ctrl_t *
+lisp_ctrl_create()
+{
+    lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
+    ctrl->devices = glist_new_managed((glist_del_fct) ctrl_dev_destroy);
+    ctrl->default_rlocs = glist_new_managed((glist_del_fct) lisp_addr_del);
+
+    return (ctrl);
+}
+
+void lisp_ctrl_destroy(lisp_ctrl_t *ctrl)
+{
+    glist_destroy(ctrl->devices);
+    glist_destroy(ctrl->default_rlocs);
+    close(ctrl->ipv4_control_input_fd);
+    close(ctrl->ipv6_control_input_fd);
     free(ctrl);
 }
 
+void ctrl_init(lisp_ctrl_t *ctrl)
+{
+    set_default_ctrl_ifaces();
+
+    /* Generate receive sockets for control (4342) and data port (4341) */
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
+        ctrl->ipv4_control_input_fd = open_control_input_socket(AF_INET);
+        sock_register_read_listener(smaster, ctrl_recv_msg, ctrl,
+                ctrl->ipv4_control_input_fd);
+    }
+
+    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
+        ctrl->ipv6_control_input_fd = open_control_input_socket(AF_INET6);
+        sock_register_read_listener(smaster, ctrl_recv_msg, ctrl,
+                ctrl->ipv6_control_input_fd);
+    }
+
+    set_default_rlocs(ctrl);
+}
 
 /*  Process a LISP protocol message sitting on
  *  socket s with address family afi */
-int
-process_lisp_ctr_msg(struct sock *sl) {
-
+int ctrl_recv_msg(struct sock *sl)
+{
     lisp_msg *msg;
     uconn_t uc;
     struct lbuf *packet;
     uint8_t type;
     lisp_msg_type_t type;
+    lisp_ctrl_t *ctrl;
+    lisp_ctrl_dev_t *dev;
+
+    ctrl = sl->arg;
+    /* Only one device supported for now */
+    dev = glist_first_data(ctrl->devices);
 
     uc.rp = LISP_CONTROL_PORT;
 
@@ -74,46 +116,45 @@ process_lisp_ctr_msg(struct sock *sl) {
 
     /* direct call of ctrl device
      * TODO: check type to decide where to send msg*/
-    ctrl_dev_recv(ctrl_dev, packet, &uc);
+    ctrl_dev_recv(dev, packet, &uc);
 
     lbuf_del(packet);
 
     return (GOOD);
 }
 
-int
-ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc) {
+int ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
+{
     int sk;
     int dst_afi = lisp_addr_ip_afi(&uc->ra);
-    lispd_iface_elt *iface;
+    iface_t *iface;
 
     if (lisp_addr_afi(&uc->rp) != LM_AFI_IP) {
         lmlog(DBG_1, "sock_send: dst % of UDP connection is not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->ra));
-        return(BAD);
+        return (BAD);
     }
 
-    /* FIND the socket where to output the packet
-     * TODO: sockmgr should deal with this, once it's
-     *       implemented */
+    /* FIND the socket where to output the packet */
     if (lisp_addr_afi(uc->la) == LM_AFI_NO_ADDR) {
         lisp_addr_copy(&uc->la, get_default_ctrl_address(dst_afi));
-        sk =  get_default_ctrl_socket(dst_afi);
+        sk = get_default_ctrl_socket(dst_afi);
     } else {
         iface = get_interface_with_address(&uc->la);
         if (iface) {
-            sk = get_iface_socket(iface, dst_afi);
+            sk = iface_socket(iface, dst_afi);
         } else {
             sk = get_default_ctrl_socket(dst_afi);
         }
     }
 
-    return(sock_send(sk, b, uc));
+    return (sock_send(sk, b, uc));
 }
 
 /* TODO: should change to get_updated_interfaces */
-int
-ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr, int *mcount) {
+int ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr,
+        int *mcount)
+{
     iface_list_elt *iface_list = NULL;
     mapping_t *m;
     iface_mappings_list *mlist;
@@ -123,22 +164,24 @@ ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr, int *mc
 
     while (iface_list) {
         if ((iface_list->iface->status_changed == TRUE)
-             || (iface_list->iface->ipv4_changed == TRUE)
-             || (iface_list->iface->ipv6_changed == TRUE)) {
+                || (iface_list->iface->ipv4_changed == TRUE)
+                || (iface_list->iface->ipv6_changed == TRUE)) {
             mlist = iface_list->iface->head_mappings_list;
             while (mlist != NULL && mappings_ctr < nb_mappings) {
                 if (iface_list->iface->status_changed == TRUE
-                    || (iface_list->iface->ipv4_changed == TRUE && mlist->use_ipv4_address == TRUE)
-                    || (iface_list->iface->ipv6_changed == TRUE && mlist->use_ipv6_address == TRUE)) {
+                        || (iface_list->iface->ipv4_changed == TRUE
+                                && mlist->use_ipv4_address == TRUE)
+                        || (iface_list->iface->ipv6_changed == TRUE
+                                && mlist->use_ipv6_address == TRUE)) {
                     m = mlist->mapping;
-                    for (ctr=0; ctr< mappings_ctr; ctr++) {
+                    for (ctr = 0; ctr < mappings_ctr; ctr++) {
                         if (mappings_to_smr[ctr] == m) {
                             break;
                         }
                     }
                     if (mappings_to_smr[ctr] != m) {
                         mappings_to_smr[mappings_ctr] = m;
-                        mappings_ctr ++;
+                        mappings_ctr++;
                     }
                 }
                 mlist = mlist->next;
@@ -151,17 +194,25 @@ ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr, int *mc
         iface_list = iface_list->next;
     }
     *mcount = mappings_ctr;
-    return(GOOD);
+    return (GOOD);
 }
 
 void
-ctrl_if_addr_update(lispd_iface_elt *iface, lisp_addr_t *old) {
+ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
+        lisp_addr_t *new)
+{
+    lisp_ctrl_dev_t *dev;
+    iface_mappings_list *mapping_list = NULL;
+    int aux_afi = 0;
+
+    dev = glist_first_data(ctrl->devices);
 
     /* Check if the new address is behind NAT */
-    if(nat_aware==TRUE){
-        // TODO : To be modified when implementing NAT per multiple interfaces
+    if (nat_aware == TRUE) {
+        /* TODO : To be modified when implementing NAT per multiple
+         * interfaces */
         nat_status = UNKNOWN;
-        if (iface->status == UP){
+        if (iface->status == UP) {
             initial_info_request_process();
         }
     }
@@ -171,35 +222,62 @@ ctrl_if_addr_update(lispd_iface_elt *iface, lisp_addr_t *old) {
      * and iface to identify mapping_t(s) for which SMRs have to be sent. In
      * the future this should be decoupled and only the affected RLOC should
      * be passed to ctrl_dev */
-    ctrl_dev_program_smr();
+    ctrl_dev_program_smr(dev);
+    set_default_rlocs(ctrl);
 }
 
 void
-ctrl_if_status_update() {
-    ctrl_dev_program_smr();
+ctrl_if_status_update(lisp_ctrl_t *ctrl, iface_t *iface)
+{
+    lisp_ctrl_dev_t *dev;
+    dev = glist_first_data(ctrl->devices);
+    ctrl_dev_program_smr(dev);
+    set_default_rlocs(lctrl);
+}
+
+glist_t *
+ctrl_default_rlocs(lisp_ctrl_t *c)
+{
+    return (c->default_rlocs);
+}
+
+lisp_addr_t *
+ctrl_default_rloc(lisp_ctrl_t *c, int afi)
+{
+    lisp_addr_t *loc = NULL;
+    if (lisp_addr_ip_afi(glist_first_data(c->default_rlocs)) == afi) {
+        loc = glist_first_data(c->default_rlocs);
+    } else if (lisp_addr_ip_afi(glist_last_data(c->default_rlocs)) == afi) {
+        loc = glist_last_data(c->default_rlocs);
+    }
+    return (loc);
 }
 
 forwarding_entry *
-ctrl_get_forwarding_entry(packet_tuple *tuple) {
-    return(tr_get_forwarding_entry(ctrl_dev, tuple));
+ctrl_get_forwarding_entry(packet_tuple *tuple)
+{
+    return (tr_get_forwarding_entry(ctrl_dev, tuple));
 }
 
 forwarding_entry *
-ctrl_get_reencap_forwarding_entry(packet_tuple *tuple) {
-    return(tr_get_reencap_forwarding_entry(ctrl_dev, tuple));
+ctrl_get_reencap_forwarding_entry(packet_tuple *tuple)
+{
+    return (tr_get_reencap_forwarding_entry(ctrl_dev, tuple));
 }
 
 /*
  * Multicast Interface to end-hosts
  */
 
-void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp) {
+void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp)
+{
     lisp_addr_t *mceid = lisp_addr_build_mc(src, grp);
     re_join_channel(mceid);
     lisp_addr_del(mceid);
 }
 
-void multicast_leave_channel(lisp_addr_t *src, lisp_addr_t *grp) {
+void multicast_leave_channel(lisp_addr_t *src, lisp_addr_t *grp)
+{
     lisp_addr_t *mceid = lisp_addr_build_mc(src, grp);
     re_leave_channel(mceid);
     lisp_addr_del(mceid);

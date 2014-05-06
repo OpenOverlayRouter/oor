@@ -281,7 +281,7 @@ int del_rule(
 void remove_created_rules()
 {
     iface_list_elt    *interface_list = NULL;
-    lispd_iface_elt         *iface          = NULL;
+    iface_t         *iface          = NULL;
 
     interface_list = head_interface_list;
     while (interface_list != NULL){

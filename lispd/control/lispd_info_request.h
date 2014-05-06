@@ -60,11 +60,11 @@ typedef struct lispd_pkt_info_request_lcaf_t_ {
 } PACKED lispd_pkt_info_request_lcaf_t;
 
 int  build_and_send_info_request(
-        lispd_map_server_list_t     *map_server,
+        map_server_list_t     *map_server,
         uint32_t                    ttl,
         uint8_t                     eid_mask_length,
         lisp_addr_t                 *eid_prefix,
-        lispd_iface_elt             *src_iface,
+        iface_t             *src_iface,
         uint64_t                    *nonce);
 
 

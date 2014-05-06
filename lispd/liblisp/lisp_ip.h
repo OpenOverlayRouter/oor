@@ -87,8 +87,7 @@ inline void              ip_addr_copy_to(void *dst, ip_addr_t *src);
 inline int               ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert);
 inline int               ip_addr_parse(void *offset, uint16_t afi, ip_addr_t *dst);
 inline int               ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2);
-inline uint16_t          ip_sock_to_iana_afi(uint16_t afi);
-inline uint16_t          ip_iana_to_sock_afi(uint16_t afi);
+
 inline uint8_t          ip_addr_afi_to_default_mask(ip_addr_t *ip);
 char                    *ip_to_char(void *ip, int afi);
 char                    *ip_addr_to_char (ip_addr_t *addr);
@@ -111,6 +110,8 @@ char                     *ip_prefix_to_char(ip_prefix_t *pref);
 /*
  * other
  */
+inline uint16_t     ip_sock_to_iana_afi(uint16_t afi);
+inline uint16_t     ip_iana_to_sock_afi(uint16_t afi);
 inline uint8_t      ip_sock_afi_to_size(uint16_t afi);
 inline uint8_t      ip_iana_afi_to_size(uint16_t afi);
 inline int          ip_addr_is_link_local (ip_addr_t *addr);
@@ -118,7 +119,10 @@ inline uint8_t      ip_addr_is_multicast(ip_addr_t *addr);
 inline uint8_t      ipv4_addr_is_multicast(struct in_addr *addr);
 inline uint8_t      ipv6_addr_is_multicast(struct in6_addr *addr);
 
+
 uint8_t ip_version_to_sock_afi(uint8_t ver);
+int ip_afi_to_default_mask(int afi);
+uint8_t ip_is_link_local(void *addr, int afi);
 
 
 #endif /* LISPD_IP_H_ */

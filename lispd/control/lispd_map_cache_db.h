@@ -45,9 +45,6 @@ map_cache_db_t *mcache_new();
 void mcache_del(map_cache_db_t *mcdb);
 
 
-void mc_entry_start_expiration_timer(lisp_ctrl_dev_t *, mcache_entry_t *);
-
-
 int mcache_add_entry(map_cache_db_t *, mcache_entry_t *entry);
 void mcache_remove_entry(map_cache_db_t *, lisp_addr_t *key);
 void map_cache_del_entry(map_cache_db_t *, lisp_addr_t *laddr);

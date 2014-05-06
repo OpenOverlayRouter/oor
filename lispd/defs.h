@@ -194,17 +194,6 @@ int err;
 #define LISP_CONTROL_PORT               4342
 #define LISP_DATA_PORT                  4341
 
-/*
- *  locator_types
- */
-
-#define STATIC_LOCATOR                  0
-#define DYNAMIC_LOCATOR                 1
-#define PETR_LOCATOR                    2
-#define LOCAL_LOCATOR                   3
-
-
-
 
 ///*
 // * Map register Key type
@@ -249,13 +238,13 @@ typedef struct lispd_site_ID_
 {
     uint8_t byte[8];
 
-} lispd_site_ID;
+} lisp_site_ID;
 
 typedef struct lispd_xTR_ID_
 {
     uint8_t byte[16];
 
-} lispd_xTR_ID;
+} lisp_xTR_ID;
 
 /*
  *  for map-register auth data...

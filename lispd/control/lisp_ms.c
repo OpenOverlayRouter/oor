@@ -461,6 +461,15 @@ ms_ctrl_dealloc(lisp_ctrl_dev_t *dev) {
     free(ms);
 }
 
+ms_ctr_init(lisp_ctrl_dev_t *dev)
+{
+    lisp_ms_t *ms = lisp_ms_cast(dev);
+
+    lmlog (DBG_1, "****** Summary of the configuration ******");
+    ms_dump_configured_sites(ms, DBG_1);
+    ms_dump_registered_sites(ms, DBG_1);
+}
+
 void
 ms_ctrl_run(lisp_ctrl_dev_t *dev) {
     lmlog(DBG_1, "Starting Map-Server ...");

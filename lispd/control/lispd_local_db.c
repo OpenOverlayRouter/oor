@@ -70,7 +70,7 @@ local_map_db_add_mapping(local_map_db_t *lmdb, mapping_t *mapping)
         return(BAD);
     }
 
-    total_mappings ++;
+//    total_mappings ++;
     return(GOOD);
 }
 
@@ -114,7 +114,7 @@ local_map_db_del_mapping(local_map_db_t *lmdb, lisp_addr_t *eid)
     mapping = mdb_remove_entry(lmdb->db, eid);
     if (mapping) {
         mapping_del(mapping);
-        total_mappings--;
+//        total_mappings--;
     }
 }
 

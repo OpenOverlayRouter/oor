@@ -80,7 +80,7 @@ inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
 inline int ip_addr_set_afi(ip_addr_t *ipaddr, int afi) {
     assert(ipaddr);
     if (afi != AF_INET && afi != AF_INET6 && afi != AF_UNSPEC) {
-        lmlog(LISP_LOG_WARNING, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
+        lmlog(LWRN, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
         return(BAD);
     }
     ipaddr->afi = afi;
@@ -109,7 +109,7 @@ inline void ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi) {
             ip_addr_set_v6(ipaddr, src);
             break;
         default:
-            lmlog(LISP_LOG_WARNING, "ip_addr_init: unknown IP AFI (%d)", afi);
+            lmlog(LWRN, "ip_addr_init: unknown IP AFI (%d)", afi);
             break;
     }
 }
@@ -182,16 +182,19 @@ inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
 }
 
 
-inline int ip_addr_parse(void *offset, uint16_t iana_afi, ip_addr_t *dst) {
+inline int
+ip_addr_parse(void *offset, uint16_t iana_afi, ip_addr_t *dst)
+{
     if(ip_addr_set_afi(dst, ip_iana_to_sock_afi(iana_afi)) == BAD)
         return(0);
     memcpy(ip_addr_get_addr(dst), CO(offset, sizeof(uint16_t)), ip_iana_afi_to_size(iana_afi));
     return(sizeof(uint16_t) + ip_iana_afi_to_size(iana_afi));
 }
 
-inline uint8_t ip_addr_afi_to_default_mask(ip_addr_t *ip) {
-    assert(ip);
-    return(ip_addr_get_size(ip)*8);
+inline uint8_t
+ip_addr_afi_to_default_mask(ip_addr_t *ip)
+{
+    return(ip_afi_to_default_mask(ip_addr_afi(ip)));
 }
 
 
@@ -258,47 +261,56 @@ char *ip_prefix_to_char(ip_prefix_t *pref) {
 
 
 
+
 /*
  * other ip functions
  */
 
-inline uint16_t ip_sock_to_iana_afi(uint16_t afi) {
+inline uint16_t
+ip_sock_to_iana_afi(uint16_t afi)
+{
     switch (afi){
         case AF_INET:
             return(LISP_AFI_IP);
         case AF_INET6:
             return(LISP_AFI_IPV6);
         default:
-            lmlog(LISP_LOG_WARNING, "ip_addr_sock_afi_to_iana_afi: unknown IP AFI (%d)", afi);
+            lmlog(LWRN, "ip_sock_to_iana_afi: unknown IP AFI (%d)", afi);
             return(0);
     }
 }
 
-inline uint16_t ip_iana_to_sock_afi(uint16_t afi) {
+inline uint16_t
+ip_iana_to_sock_afi(uint16_t afi)
+{
     switch (afi) {
         case LISP_AFI_IP:
             return(AF_INET);
         case LISP_AFI_IPV6:
             return(AF_INET6);
         default:
-            lmlog(LISP_LOG_WARNING, "ip_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
+            lmlog(LWRN, "ip_iana_to_sock_afi: unknown IP AFI (%d)", afi);
             return(0);
     }
 }
 
-inline uint8_t ip_sock_afi_to_size(uint16_t afi){
+inline uint8_t
+ip_sock_afi_to_size(uint16_t afi)
+{
     switch (afi) {
     case AF_INET:
         return(sizeof(struct in_addr));
     case AF_INET6:
         return(sizeof(struct in6_addr));
     default:
-        lmlog(LISP_LOG_WARNING, "ip_addr_get_size: unknown IP AFI (%d)", afi);
+        lmlog(LWRN, "ip_sock_afi_to_size: unknown IP AFI (%d)", afi);
         return(0);
     }
 }
 
-inline uint8_t ip_iana_afi_to_size(uint16_t afi) {
+inline uint8_t
+ip_iana_afi_to_size(uint16_t afi)
+{
     switch(afi) {
     case LISP_AFI_IP:
         return(sizeof(struct in_addr));
@@ -311,37 +323,15 @@ inline uint8_t ip_iana_afi_to_size(uint16_t afi) {
     return(0);
 }
 
-int ip_addr_is_link_local(ip_addr_t *ipaddr) {
-    /*
-     * Return TRUE if the address belongs to:
-     *          IPv4: 169.254.0.0/16
-     *          IPv6: fe80::/10
-     */
-    int         is_link_local = FALSE;
-    uint32_t    ipv4_network  = 0;
-    uint32_t    mask          = 0;
-
-    switch (ip_addr_afi(ipaddr)){
-        case AF_INET:
-            inet_pton(AF_INET,"169.254.0.0",&(ipv4_network));
-            inet_pton(AF_INET,"255.255.0.0",&(mask));
-            if ((ipaddr->addr.v4.s_addr & mask) == ipv4_network){
-                is_link_local = TRUE;
-            }
-            break;
-        case AF_INET6:
-//            if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
-//                    ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
-//            }
-            if (IN6_IS_ADDR_LINKLOCAL(ip_addr_get_v6(ipaddr)))
-                is_link_local = TRUE;
-            break;
-    }
-
-    return (is_link_local);
+int
+ip_addr_is_link_local(ip_addr_t *ip)
+{
+    return(ip_is_link_local(ip_addr_get_addr(ip), ip_addr_get_afi(ip)));
 }
 
-inline uint8_t ip_addr_is_multicast(ip_addr_t *addr) {
+inline uint8_t
+ip_addr_is_multicast(ip_addr_t *addr)
+{
     switch(ip_addr_afi(addr)) {
     case AF_INET:
         return ipv4_addr_is_multicast(ip_addr_get_v4(addr));
@@ -350,29 +340,31 @@ inline uint8_t ip_addr_is_multicast(ip_addr_t *addr) {
         return ipv6_addr_is_multicast(ip_addr_get_v6(addr));
         break;
     default:
-        lmlog(LISP_LOG_WARNING, "is_multicast_addr: Unknown afi %s",
+        lmlog(LWRN, "is_multicast_addr: Unknown afi %s",
                 ip_addr_afi(addr));
         break;
     }
     return(0);
 }
 
-inline uint8_t ipv4_addr_is_multicast(struct in_addr *addr) {
+inline uint8_t
+ipv4_addr_is_multicast(struct in_addr *addr)
+{
     if (ntohl(addr->s_addr)>=MCASTMIN4 && ntohl(addr->s_addr)<=MCASTMAX4)
         return(1);
     else
         return(0);
 }
 
-inline uint8_t ipv6_addr_is_multicast(struct in6_addr *addr) {
-    /* TODO fcoras: implement this */
-    lmlog(LISP_LOG_WARNING, "is_multicast_addr6 : THIS IS A STUB for "
-            "IPv6 multicast address test!");
-    return(0);
+inline uint8_t
+ipv6_addr_is_multicast(struct in6_addr *addr)
+{
+    return(IN6_IS_ADDR_MULTICAST(addr));
 }
 
 uint8_t
-ip_version_to_sock_afi(uint8_t ver) {
+ip_version_to_sock_afi(uint8_t ver)
+{
     switch(ver) {
     case IPVERSION:
         return(AF_INET);
@@ -381,4 +373,49 @@ ip_version_to_sock_afi(uint8_t ver) {
     default:
         return(0);
     }
+}
+
+int
+ip_afi_to_default_mask(int afi)
+{
+    switch (afi) {
+    case AF_INET:
+        return(32);
+    case AF_INET6:
+        return(128);
+    }
+//    return(ip_sock_afi_to_size(afi)*8);
+}
+
+/* Return TRUE if the address belongs to:
+ *          IPv4: 169.254.0.0/16
+ *          IPv6: fe80::/10
+ */
+uint8_t
+ip_is_link_local(void *addr, int afi)
+{
+    int         is_link_local = FALSE;
+    uint32_t    ipv4_network  = 0;
+    uint32_t    mask          = 0;
+    struct in_addr *ipv4;
+
+    switch (afi) {
+    case AF_INET:
+        ipv4 = addr;
+        inet_pton(AF_INET,"169.254.0.0", &ipv4_network);
+        inet_pton(AF_INET,"255.255.0.0", &mask);
+        if ((ipv4->s_addr & mask) == ipv4_network) {
+            is_link_local = TRUE;
+        }
+        break;
+    case AF_INET6:
+        /* if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
+                ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
+        } */
+        if (IN6_IS_ADDR_LINKLOCAL(addr)) {
+            is_link_local = TRUE;
+        }
+        break;
+    }
+    return(is_link_local);
 }

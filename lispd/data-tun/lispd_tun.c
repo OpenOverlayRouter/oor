@@ -262,7 +262,7 @@ int set_tun_default_route_v4()
     prefix_len = 1;
     metric = 0;
     
-    get_lisp_addr_from_char("0.0.0.0",&gw);
+    get_ip_addr_from_char("0.0.0.0",&gw);
 
 #ifdef ROUTER
     if (default_out_iface_v4 != NULL){
@@ -270,7 +270,7 @@ int set_tun_default_route_v4()
     }
 #endif
 
-    get_lisp_addr_from_char("0.0.0.0",&dest);
+    get_ip_addr_from_char("0.0.0.0",&dest);
 
     add_route(AF_INET,
             tun_ifindex,
@@ -281,7 +281,7 @@ int set_tun_default_route_v4()
             metric,
             RT_TABLE_MAIN);
 
-    get_lisp_addr_from_char("128.0.0.0",&dest);
+    get_ip_addr_from_char("128.0.0.0",&dest);
 
     add_route(AF_INET,
             tun_ifindex,
@@ -313,7 +313,7 @@ int set_tun_default_route_v6()
     prefix_len = 1;
     metric = 512;
 
-    get_lisp_addr_from_char("::",&gw);
+    get_ip_addr_from_char("::",&gw);
 
 #ifdef ROUTER
     if (default_out_iface_v6 != NULL){
@@ -321,7 +321,7 @@ int set_tun_default_route_v6()
     }
 #endif
 
-    get_lisp_addr_from_char("::",&dest);
+    get_ip_addr_from_char("::",&dest);
 
     add_route(AF_INET6,
             tun_ifindex,
@@ -332,7 +332,7 @@ int set_tun_default_route_v6()
             metric,
             RT_TABLE_MAIN);
 
-    get_lisp_addr_from_char("8000::",&dest);
+    get_ip_addr_from_char("8000::",&dest);
 
     add_route(AF_INET6,
             tun_ifindex,
@@ -363,9 +363,9 @@ int del_tun_default_route_v6()
     prefix_len = 1;
     metric = 512;
 
-    get_lisp_addr_from_char("::",&gw);
+    get_ip_addr_from_char("::",&gw);
 
-    get_lisp_addr_from_char("::",&dest);
+    get_ip_addr_from_char("::",&dest);
 
     del_route(AF_INET6,
             tun_ifindex,
@@ -376,7 +376,7 @@ int del_tun_default_route_v6()
             metric,
             RT_TABLE_MAIN);
 
-    get_lisp_addr_from_char("8000::",&dest);
+    get_ip_addr_from_char("8000::",&dest);
 
     del_route(AF_INET6,
             tun_ifindex,

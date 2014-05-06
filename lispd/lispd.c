@@ -70,30 +70,29 @@
  *      config paramaters
  */
 
-lisp_addr_list_t          *map_resolvers   = NULL;
-lisp_addr_list_t          *proxy_itrs      = NULL;
-mcache_entry_t      *proxy_etrs      = NULL;
-lispd_map_server_list_t    *map_servers     = NULL;
+//lisp_addr_list_t            *map_resolvers   = NULL;
+//lisp_addr_list_t            *proxy_itrs      = NULL;
+//mcache_entry_t              *proxy_etrs      = NULL;
 char    *config_file                        = NULL;
 int      debug_level                        = 0;
 int      default_rloc_afi                   = -1;
 int      daemonize                          = FALSE;
-int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
+//int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
 
 /* RLOC probing parameters */
-int      rloc_probe_interval                = RLOC_PROBING_INTERVAL;
-int      rloc_probe_retries                 = DEFAULT_RLOC_PROBING_RETRIES;
-int      rloc_probe_retries_interval        = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+//int      rloc_probe_interval                = RLOC_PROBING_INTERVAL;
+//int      rloc_probe_retries                 = DEFAULT_RLOC_PROBING_RETRIES;
+//int      rloc_probe_retries_interval        = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
 
 int      control_port                       = LISP_CONTROL_PORT;
 uint32_t iseed                              = 0;  /* initial random number generator */
-int      total_mappings                     = 0;
+//int      total_mappings                     = 0;
 
 /*
  *      various globals
  */
 
-char   msg[128];                                /* syslog msg buffer */
+//char   msg[128];                                /* syslog msg buffer */
 pid_t  pid                                  = 0;    /* child pid */
 pid_t  sid                                  = 0;
 
@@ -102,23 +101,23 @@ pid_t  sid                                  = 0;
  */
 int     ipv4_data_input_fd                  = 0;
 int     ipv6_data_input_fd                  = 0;
-int     ipv4_control_input_fd               = 0;
-int     ipv6_control_input_fd               = 0;
+//int     ipv4_control_input_fd               = 0;
+//int     ipv6_control_input_fd               = 0;
 int     netlink_fd                          = 0;
 fd_set  readfds;
-struct  sockaddr_nl dst_addr;
-struct  sockaddr_nl src_addr;
-nlsock_handle nlh;
+//struct  sockaddr_nl dst_addr;
+//struct  sockaddr_nl src_addr;
+//nlsock_handle nlh;
 
 /* NAT */
 
 int             nat_aware   = FALSE;
 int             nat_status  = UNKNOWN;
-lispd_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
-lispd_xTR_ID    xTR_ID      = {.byte = {0}};
+//lisp_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
+//lisp_xTR_ID    xTR_ID      = {.byte = {0}};
 // Global variables used to store nonces of encapsulated map register and info request.
 // To be removed when NAT with multihoming supported.
-nonces_list_t     *nat_emr_nonce  = NULL;
+//nonces_list_t     *nat_emr_nonce  = NULL;
 nonces_list_t     *nat_ir_nonce   = NULL;
 
 
@@ -131,8 +130,11 @@ int     timers_fd                       = 0;
 struct sock_master  *smaster            = NULL;
 HashTable           *iface_addr_ht      = NULL;
 
+lisp_ctrl_dev_t *ctrl_dev;
+lisp_ctrl_t *lctrl;
 
-void init_tun() {
+void init_tun()
+{
     lisp_addr_t *tun_v4_addr;
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
@@ -159,12 +161,12 @@ void init_tun() {
     tun_v4_addr = local_map_db_get_main_eid(AF_INET);
     if (tun_v4_addr != NULL){
         tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_lisp_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+        get_ip_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
     }
     tun_v6_addr = local_map_db_get_main_eid(AF_INET6);
     if (tun_v6_addr != NULL){
         tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_lisp_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
+        get_ip_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
     }
 #else
     tun_v4_addr = local_map_db_get_main_eid(AF_INET);
@@ -192,29 +194,10 @@ void init_tun() {
     sock_register_read_listener(smaster, process_output_packet, NULL, tun_receive_fd);
 }
 
-int init_xtr() {
-
+int
+init_xtr()
+{
     struct sock *nl_sl;
-
-    if (map_servers == NULL){
-        lmlog(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
-        exit_cleanup();
-    }
-
-    if (map_resolvers == NULL){
-        lmlog(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        exit_cleanup();
-    }
-
-    if (proxy_etrs == NULL){
-        lmlog(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
-                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-        sleep(3);
-    }else{
-        balancing_vectors_calculate (
-                proxy_etrs->mapping,
-                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
-    }
 
 
     /*
@@ -222,25 +205,18 @@ int init_xtr() {
      */
 
     set_default_output_ifaces();
-    set_default_ctrl_ifaces();
 
     init_tun();
 
-    /*
-     * Generate receive sockets for control (4342) and data port (4341)
-     */
+    /* Generate receive sockets for control (4342) and data port (4341) */
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
-        ipv4_control_input_fd = open_control_input_socket(AF_INET);
-        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
 
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
-        sock_register_read_listener(smaster, process_input_packet, NULL, ipv4_data_input_fd); // will use data_dev
+        sock_register_read_listener(smaster, process_input_packet, NULL,
+                ipv4_data_input_fd); // will use data_dev
     }
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
-        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
-
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
         sock_register_read_listener(smaster, process_input_packet, NULL, ipv6_data_input_fd);
     }
@@ -264,36 +240,36 @@ int init_xtr() {
     return(GOOD);
 }
 
-int init_ms() {
-    set_default_ctrl_ifaces();
-
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
-        ipv4_control_input_fd = open_control_input_socket(AF_INET);
-        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
-    }
-
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
-        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
-    }
-    return(GOOD);
-}
+//int init_ms() {
+//    set_default_ctrl_ifaces();
+//
+//    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
+//        ipv4_control_input_fd = open_control_input_socket(AF_INET);
+//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
+//    }
+//
+//    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
+//        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
+//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
+//    }
+//    return(GOOD);
+//}
 
 int init_rtr() {
     struct sock *nl_sl;
 
 //    if (map_servers == NULL){
-//        lispd_log_msg(LISP_LOG_CRIT, "No Map Server configured. Exiting...");
+//        lispd_log_msg(LCRIT, "No Map Server configured. Exiting...");
 //        exit_cleanup();
 //    }
 
-    if (map_resolvers == NULL){
-        lmlog(LISP_LOG_CRIT, "No Map Resolver configured. Exiting...");
-        exit_cleanup();
-    }
+//    if (map_resolvers == NULL){
+//        lmlog(LCRIT, "No Map Resolver configured. Exiting...");
+//        exit_cleanup();
+//    }
 
 //    if (proxy_etrs == NULL){
-//        lispd_log_msg(LISP_LOG_WARNING, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
+//        lispd_log_msg(LWRN, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
 //                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
 //        sleep(3);
 //    }else{
@@ -319,16 +295,16 @@ int init_rtr() {
      * Generate receive sockets for control (4342) and data port (4341)
      */
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
-        ipv4_control_input_fd = open_control_input_socket(AF_INET);
-        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
+//        ipv4_control_input_fd = open_control_input_socket(AF_INET);
+//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
 
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
         sock_register_read_listener(smaster, rtr_process_input_packet, NULL, ipv4_data_input_fd);
     }
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
-        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
+//        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
+//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
 
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
         sock_register_read_listener(smaster, rtr_process_input_packet, NULL, ipv6_data_input_fd);
@@ -353,14 +329,16 @@ int init_rtr() {
     return(GOOD);
 }
 
-int build_iface_addr_hash_table() {
+int
+build_iface_addr_hash_table()
+{
     struct  ifaddrs *ifaddr, *ifa;
     int     family, s;
     char    host[NI_MAXHOST];
 
-    lmlog(LISP_LOG_INFO, "Building address to interface hash table");
+    lmlog(LINF, "Building address to interface hash table");
     if (getifaddrs(&ifaddr) == -1) {
-        lmlog(LISP_LOG_CRIT, "Can't read the interfaces of the system. Exiting .. ");
+        lmlog(LCRIT, "Can't read the interfaces of the system. Exiting .. ");
         exit_cleanup();
     }
 
@@ -377,13 +355,14 @@ int build_iface_addr_hash_table() {
                                           sizeof(struct sockaddr_in6),
                     host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
             if (s != 0) {
-                lmlog(LISP_LOG_WARNING, "getnameinfo() failed: %s. Skipping interface. ", gai_strerror(s));
+                lmlog(LWRN, "getnameinfo() failed: %s. Skipping interface. ",
+                        gai_strerror(s));
                 continue;
             }
             /* make a copy */
             hash_table_insert(iface_addr_ht, strdup(host), strdup(ifa->ifa_name));
 
-            lmlog(LISP_LOG_INFO, "Found interface %s with address %s", ifa->ifa_name, host);
+            lmlog(LINF, "Found interface %s with address %s", ifa->ifa_name, host);
         }
     }
 
@@ -402,45 +381,45 @@ void test_elp() {
 
     elp_node_t *en1 = calloc(1, sizeof(elp_node_t));
     en1->L = 0; en1->P = 0; en1->S = 1;
-    en1->addr = lisp_addr_new(); get_lisp_addr_from_char("1.1.1.1", en1->addr);
+    en1->addr = lisp_addr_new(); get_ip_addr_from_char("1.1.1.1", en1->addr);
 
     elp_node_t *en2 = calloc(1, sizeof(elp_node_t));
     en2->L = 0; en2->P = 0; en2->S = 1;
-    en2->addr = lisp_addr_new(); get_lisp_addr_from_char("2.2.2.2", en2->addr);
+    en2->addr = lisp_addr_new(); get_ip_addr_from_char("2.2.2.2", en2->addr);
 
     elp_node_t *en3 = calloc(1, sizeof(elp_node_t));
     en3->L = 0; en1->P = 0; en3->S = 1;
-    en3->addr = lisp_addr_new(); get_lisp_addr_from_char("3.3.3.3", en3->addr);
+    en3->addr = lisp_addr_new(); get_ip_addr_from_char("3.3.3.3", en3->addr);
 
     glist_add_tail(en1, elp->nodes);
     glist_add_tail(en2, elp->nodes);
     glist_add_tail(en3, elp->nodes);
     lcaf->addr = elp;
 
-    lmlog(LISP_LOG_WARNING, "the generated lcaf: %s", lisp_addr_to_char(laddr));
-    lmlog(LISP_LOG_WARNING, "let's see now!");
+    lmlog(LWRN, "the generated lcaf: %s", lisp_addr_to_char(laddr));
+    lmlog(LWRN, "let's see now!");
 
-    lisp_addr_t *eid = lisp_addr_new(); get_lisp_addr_from_char("4.5.6.7", eid);
+    lisp_addr_t *eid = lisp_addr_new(); get_ip_addr_from_char("4.5.6.7", eid);
     uint8_t status = 1; int sock = 1;
     locator_t *locator = new_local_locator(laddr, &status, 1, 100, 1, 100, &sock);
     mapping_t *mapping = mapping_init_local(eid);
-    lmlog(LISP_LOG_WARNING, "mapping created!");
+    lmlog(LWRN, "mapping created!");
 
     mapping_add_locator(mapping, locator);
-    lmlog(LISP_LOG_WARNING, "locator added!");
+    lmlog(LWRN, "locator added!");
     local_map_db_add_mapping(NULL, mapping);
-    local_map_db_dump(LISP_LOG_WARNING);
+    local_map_db_dump(LWRN);
 
     program_map_register(NULL, 0);
 
-    lmlog(LISP_LOG_WARNING, "removing mapping!");
+    lmlog(LWRN, "removing mapping!");
     local_map_db_del_mapping(eid);
 
-    lmlog(LISP_LOG_WARNING, "done. Sending map-request!");
+    lmlog(LWRN, "done. Sending map-request!");
     handle_map_cache_miss(eid, local_map_db_get_main_eid(AF_INET));
 
 
-    lmlog(LISP_LOG_WARNING, "finished!");
+    lmlog(LWRN, "finished!");
 //    lisp_addr_del(laddr);
 //    free_mapping_elt(mapping, 1);
 //    for(;;) {
@@ -481,20 +460,20 @@ void signal_handler(int sig) {
     switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
-        lmlog(LISP_LOG_DEBUG_1, "Received SIGHUP signal.");
+        lmlog(DBG_1, "Received SIGHUP signal.");
         break;
     case SIGTERM:
         /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
-        lmlog(LISP_LOG_DEBUG_1, "Received SIGTERM signal. Cleaning up...");
+        lmlog(DBG_1, "Received SIGTERM signal. Cleaning up...");
         exit_cleanup();
         break;
     case SIGINT:
         /* SIGINT is sent by pressing Ctrl-C. Exit cleanly */
-        lmlog(LISP_LOG_DEBUG_1, "Terminal interrupt. Cleaning up...");
+        lmlog(DBG_1, "Terminal interrupt. Cleaning up...");
         exit_cleanup();
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_1,"Unhandled signal (%d)", sig);
+        lmlog(DBG_1,"Unhandled signal (%d)", sig);
         exit(EXIT_FAILURE);
     }
 }
@@ -513,74 +492,76 @@ void exit_cleanup(void) {
     /* Close receive sockets */
     close(tun_receive_fd);
     close(ipv4_data_input_fd);
-    close(ipv4_control_input_fd);
+//    close(ipv4_control_input_fd);
     close(ipv6_data_input_fd);
-    close(ipv6_control_input_fd);
+//    close(ipv6_control_input_fd);
     /* Close send sockets */
     close_output_sockets();
     /* Close netlink socket */
     close(netlink_fd);
-    if (ctrl_dev) ctrl_dev_destroy(ctrl_dev);
+    lisp_ctrl_destroy(lctrl);
+    ctrl_dev_destroy(ctrl_dev);
     if (iface_addr_ht) hash_table_destroy(iface_addr_ht);
-    lmlog(LISP_LOG_INFO,"Exiting ...");
+    lmlog(LINF,"Exiting ...");
 
     exit(EXIT_SUCCESS);
 }
 
+/*
+ *  handle_lispd_command_line --
+ *
+ *  Get command line args and set up whatever is needed
+ *
+ *  David Meyer
+ *  dmm@1-4-5.net
+ *  Wed Apr 21 13:31:00 2010
+ *
+ *  $Header: /usr/local/src/lispd/RCS/lispd_config.c,v 1.16 2010/04/21 23:32:08 root Exp $
+ *
+ */
 
-int main(int argc, char **argv)
+static void
+handle_lispd_command_line(int argc, char **argv)
 {
-    int ret = 0;
+    struct gengetopt_args_info args_info;
 
-#ifdef ROUTER
-#ifdef OPENWRT
-    lmlog(LISP_LOG_INFO,"LISPmob compiled for openWRT xTR\n");
-#else
-    lmlog(LISP_LOG_INFO,"LISPmob compiled for linux xTR\n");
-#endif
-#else
-    lmlog(LISP_LOG_INFO,"LISPmob compiled for mobile node\n");
-#endif
-
-
-    /*
-     *  Check for superuser privileges
-     */
-
-    if (geteuid()) {
-        lmlog(LISP_LOG_INFO,"Running %s requires superuser privileges! Exiting...\n", LISPD);
+    if (cmdline_parser(argc, argv, &args_info) != 0) {
         exit_cleanup();
     }
 
-    /*
-     *  Initialize the random number generator
-     */
+    if (args_info.daemonize_given) {
+        daemonize = TRUE;
+    }
+    if (args_info.config_file_given) {
+        config_file = strdup(args_info.config_file_arg);
+    }
+    if (args_info.debug_given) {
+        debug_level = args_info.debug_arg;
+    } else {
+        debug_level = -1;
+    }
+    if (args_info.afi_given) {
+        switch (args_info.afi_arg) {
+        case 0: /* afi given = 4 */
+            default_rloc_afi = AF_INET;
+            break;
+        case 1: /* afi given = 6 */
+            default_rloc_afi = AF_INET6;
+            break;
+        default:
+            lmlog(LINF, "AFI must be IPv4 (-a 4) or IPv6 (-a 6)\n");
+            break;
+        }
+    } else {
+        default_rloc_afi = -1;
+    }
+}
 
-    iseed = (unsigned int) time (NULL);
-    srandom(iseed);
-
-    /*
-     * Set up signal handlers
-     */
-
-    signal(SIGHUP,  signal_handler);
-    signal(SIGTERM, signal_handler);
-    signal(SIGINT,  signal_handler);
-    signal(SIGQUIT, signal_handler);
-
-    /*
-     *  Parse command line options
-     */
-
-    handle_lispd_command_line(argc, argv);
-
-
-    /*
-     *  see if we need to daemonize, and if so, do it
-     */
-
+static void
+demonize_start()
+{
     if (daemonize) {
-        lmlog(LISP_LOG_DEBUG_1, "Starting the daemonizing process");
+        lmlog(DBG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
             exit_cleanup();
         }
@@ -595,29 +576,38 @@ int main(int argc, char **argv)
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
     }
+}
 
-    /* create socket master */
-    smaster = sock_master_new();
+static void
+setup_signal_handlers()
+{
+    signal(SIGHUP,  signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGINT,  signal_handler);
+    signal(SIGQUIT, signal_handler);
 
-    /* map addr to interfaces */
-    build_iface_addr_hash_table();
+}
 
-    /*
-     *  create timers event socket
-     */
+static void
+init_timer_wheel()
+{
 
-    if (build_timers_event_socket(&timers_fd) == 0)
-    {
-        lmlog(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
+    /* create timers event socket */
+    if (build_timers_event_socket(&timers_fd) == 0) {
+        lmlog(LCRIT, " Error programming the timer signal. Exiting...");
         exit_cleanup();
     }
 
     init_timers();
+}
 
+static void
+parse_config_file()
+{
+    int ret = 0;
 
-    /*
-     *  Parse config file. Format of the file depends on the node: Linux Box or OpenWRT router
-     */
+    /* Parse config file. Format of the file depends on the node: Linux Box
+     * or OpenWRT router */
 
 #ifdef OPENWRT
     if (config_file == NULL){
@@ -642,22 +632,67 @@ int main(int argc, char **argv)
         ret = init_rtr();
         break;
     default:
-        lmlog(LISP_LOG_CRIT, "No active control device configured. Exiting ... ");
+        lmlog(LCRIT, "No active control device configured. Exiting ... ");
         exit_cleanup();
     }
 
     if (ret != GOOD)
         exit_cleanup();
+}
 
-    lmlog(LISP_LOG_INFO,"LISPmob (0.5): 'lispd' started...");
+int main(int argc, char **argv)
+{
+
+#ifdef ROUTER
+#ifdef OPENWRT
+    lmlog(LINF,"LISPmob compiled for openWRT xTR\n");
+#else
+    lmlog(LINF,"LISPmob compiled for linux xTR\n");
+#endif
+#else
+    lmlog(LINF,"LISPmob compiled for mobile node\n");
+#endif
+
+
+    /* Check for superuser privileges */
+
+    if (geteuid()) {
+        lmlog(LINF,"Running %s requires superuser privileges! Exiting...\n",
+                LISPD);
+        exit_cleanup();
+    }
+
+    /* Initialize the random number generator  */
+    iseed = (unsigned int) time (NULL);
+    srandom(iseed);
+
+    setup_signal_handlers();
+    handle_lispd_command_line(argc, argv);
+
+    /* see if we need to daemonize, and if so, do it */
+    demonize_start();
+
+    /* create socket master */
+    smaster = sock_master_new();
+
+    /* map addr to interfaces */
+    build_iface_addr_hash_table();
+
+    init_timer_wheel();
+
+    /* only one instance for now */
+    lctrl = lisp_ctrl_create();
+    parse_config_file();
+
+    lmlog(LINF,"LISPmob (0.5): 'lispd' started...");
 
 
     /* activate lisp control device xtr/ms */
-    ctrl_dev_start(ctrl_dev);
+    ctrl_dev_run(ctrl_dev);
 
     event_loop();
 
-    lmlog(LISP_LOG_INFO, "Exiting...");         /* event_loop returned bad */
+    lmlog(LINF, "Exiting...");         /* event_loop returned bad */
     closelog();
     return(0);
 }

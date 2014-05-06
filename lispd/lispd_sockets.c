@@ -107,15 +107,18 @@ sock_process_all(struct sock_master *m) {
 }
 
 void
-sock_fdset_all_read(struct sock_master *m) {
+sock_fdset_all_read(struct sock_master *m)
+{
 
     struct sock *sit;
-    for (sit = m->read.head; sit; sit = sit->next)
+    for (sit = m->read.head; sit; sit = sit->next) {
         FD_SET(sit->fd, &m->readfds);
+    }
 }
 
 int
-open_control_input_socket(int afi) {
+open_control_input_socket(int afi)
+{
 
     const int on = 1;
     int sock = 0;
@@ -123,24 +126,26 @@ open_control_input_socket(int afi) {
     sock = open_udp_socket(afi);
     sock = bind_socket(sock, afi, LISP_CONTROL_PORT);
 
-    if (sock == BAD)
+    if (sock == BAD) {
         return (BAD);
+    }
 
     switch (afi) {
     case AF_INET:
-        /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
+        /* IP_PKTINFO is requiered to get later the IPv4 destination address
+         * of incoming control packets */
         if (setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on)) < 0) {
             lmlog(LWRN, "setsockopt IP_PKTINFO: %s", strerror(errno));
         }
         break;
     case AF_INET6:
-        /* IPV6_RECVPKTINFO is requiered to get later the IPv6 destination address of incoming control packets*/
+        /* IPV6_RECVPKTINFO is requiered to get later the IPv6 destination
+         * address of incoming control packets */
         if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on))
                 < 0) {
             lmlog(LWRN, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
         }
         break;
-
     default:
         return (BAD);
     }
@@ -148,7 +153,8 @@ open_control_input_socket(int afi) {
 }
 
 int
-open_data_input_socket(int afi) {
+open_data_input_socket(int afi)
+{
 
     int sock = 0;
     int dummy_sock = 0; /* To avoid ICMP port unreacheable packets */
@@ -202,10 +208,8 @@ open_data_input_socket(int afi) {
     return (sock);
 }
 
-/*
- * Get a packet from the socket. It also returns the destination addres and source port of the packet
- */
-
+/* Get a packet from the socket. It also returns the destination addres and
+ * source port of the packet */
 int
 sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
 {

@@ -130,10 +130,12 @@ lcaf_addr_t *lcaf_addr_new_type(uint8_t type) {
 }
 
 /* free only the address part */
-void lcaf_addr_del_addr(lcaf_addr_t *lcaf) {
-    assert(lcaf);
-    if (!lcaf->addr)
+void
+lcaf_addr_del_addr(lcaf_addr_t *lcaf) {
+    if (!lcaf->addr) {
         return;
+    }
+
     if (!del_fcts[get_type_(lcaf)]) {
         return;
     }

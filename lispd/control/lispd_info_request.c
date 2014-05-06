@@ -38,6 +38,8 @@
 #include "lispd_local_db.h"
 
 
+map_server_list_t           *map_servers     = NULL;
+
 /*
  *  build_info_request_pkt
  *
@@ -130,11 +132,11 @@ lispd_pkt_info_nat_t *build_info_request_pkt(
 
 
 int build_and_send_info_request(
-        lispd_map_server_list_t     *map_server,
+        map_server_list_t     *map_server,
         uint32_t                    ttl,
         uint8_t                     eid_mask_length,
         lisp_addr_t                 *eid_prefix,
-        lispd_iface_elt             *src_iface,
+        iface_t             *src_iface,
         uint64_t                    *nonce)
 {
     uint8_t                 *packet                 = NULL;
@@ -175,8 +177,8 @@ int build_and_send_info_request(
 
     /* Get src interface information */
 
-    src_addr    = get_iface_address (src_iface, map_server->address->afi);
-    out_socket  = get_iface_socket (src_iface, map_server->address->afi);
+    src_addr    = iface_address (src_iface, map_server->address->afi);
+    out_socket  = iface_socket (src_iface, map_server->address->afi);
 
     if (src_addr == NULL){
         lmlog(LISP_LOG_DEBUG_2, "build_and_send_info_request: No output interface for afi %d",map_server->address->afi);

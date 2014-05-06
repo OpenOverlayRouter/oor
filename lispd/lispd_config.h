@@ -35,12 +35,6 @@
 
 #ifndef LISPD_CONFIG_H_
 #define LISPD_CONFIG_H_
-/*
- *  Get command line args and set up whatever is needed
- */
-void handle_lispd_command_line(int argc, char **argv);
-
-
 
 #ifdef OPENWRT
 

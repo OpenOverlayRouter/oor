@@ -54,7 +54,8 @@ glist_init_managed(glist_t *lst, glist_del_fct del_fct) {
  * @del_fct: function to deallocate a data entry
  */
 
-glist_t *glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
+glist_t *
+glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
     glist_t    *glist  = NULL;
 
     if (!(glist = calloc(1, sizeof(glist_t))))
@@ -63,11 +64,13 @@ glist_t *glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
     return(glist);
 }
 
-glist_t *glist_new() {
+glist_t *
+glist_new() {
     return(glist_new_complete(NO_CMP, NO_DEL));
 }
 
 /* memory managed. when destroy is called all inner data is freed*/
+glist_t *
 glist_new_managed(glist_del_fct *del) {
     return(glist_new_complete(NO_CMP, del));
 }
@@ -84,7 +87,8 @@ glist_new_managed(glist_del_fct *del) {
  * at the head head, the position where cmp_fct fails and
  * inserts the new element there.
  */
-int glist_add(void *data, glist_t *glist) {
+int
+glist_add(void *data, glist_t *glist) {
     glist_entry_t    *new    = NULL;
     glist_entry_t    *tmp    = NULL;
 
@@ -117,7 +121,8 @@ int glist_add(void *data, glist_t *glist) {
  * Append a new entry to the end of the list.
  * If cmp_fct is defined, the element is not added
  */
-int glist_add_tail(void *data, glist_t *glist) {
+int
+glist_add_tail(void *data, glist_t *glist) {
     glist_entry_t    *new    = NULL;
 
     if (glist->cmp_fct)
@@ -141,14 +146,16 @@ int glist_add_tail(void *data, glist_t *glist) {
  * If del_fct is defined, entry->data will be freed using it
  *
  */
-void glist_remove(glist_entry_t *entry, glist_t *list) {
+void
+glist_remove(glist_entry_t *entry, glist_t *list) {
     if (!entry || !list) {
         return;
     }
 
     list_del(&(entry->list));
-    if(list->del_fct)
+    if(list->del_fct) {
         (*list->del_fct)(entry->data);
+    }
 //    else
 //        free(entry->data);
 
@@ -171,7 +178,8 @@ glist_remove_all(glist_t *lst) {
     }
 }
 
-void glist_destroy(glist_t *lst) {
+void
+glist_destroy(glist_t *lst) {
     if (!lst) {
         return;
     }

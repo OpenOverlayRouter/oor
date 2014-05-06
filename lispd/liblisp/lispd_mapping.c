@@ -698,85 +698,6 @@ balancing_locators_vec_to_char(balancing_locators_vecs b_locators_vecs,
 
 /********************************************************************************************/
 
-uint8_t *mapping_fill_record_in_pkt(
-    mapping_record_hdr_t        *rec,
-    mapping_t                   *mapping,
-    lisp_addr_t                 *probed_rloc)
-{
-    uint8_t                     *cur_ptr            = NULL;
-    int                         cpy_len             = 0;
-    locator_hdr_t                 *loc_ptr            = NULL;
-    locators_list_t         *locators_list[2]   = {NULL,NULL};
-    locator_t                   *locator            = NULL;
-    lcl_locator_extended_info   *lct_extended_info  = NULL;
-    lisp_addr_t                 *itr_address        = NULL;
-    int                         ctr                 = 0;
-    lisp_addr_t                 *eid                = NULL;
-
-
-    if ((rec == NULL) || (mapping == NULL))
-        return NULL;
-
-
-    eid = mapping_eid(mapping);
-
-    rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
-    rec->locator_count          = mapping->locator_count;
-    rec->eid_prefix_length      = lisp_addr_get_plen(eid);
-    rec->action                 = 0;
-    rec->authoritative          = 1;
-    rec->version_hi             = 0;
-    rec->version_low            = 0;
-
-    cur_ptr = CO(rec, sizeof(mapping_record_hdr_t));
-    cur_ptr = CO(cur_ptr, lisp_addr_write(cur_ptr, eid));
-    loc_ptr = (locator_hdr_t *)cur_ptr;
-
-    if (loc_ptr == NULL)
-        return(NULL);
-
-    locators_list[0] = mapping->head_v4_locators_list;
-    locators_list[1] = mapping->head_v6_locators_list;
-    for (ctr = 0 ; ctr < 2 ; ctr++){
-        while (locators_list[ctr]) {
-            locator              = locators_list[ctr]->locator;
-
-            if (*(locator->state) == UP){
-                loc_ptr->priority    = locator->priority;
-            }else{
-                /* If the locator is DOWN, set the priority to 255 -> Locator should not be used */
-                loc_ptr->priority    = UNUSED_RLOC_PRIORITY;
-            }
-            loc_ptr->weight      = locator->weight;
-            loc_ptr->mpriority   = locator->mpriority;
-            loc_ptr->mweight     = locator->mweight;
-            loc_ptr->local       = 1;
-            if (probed_rloc != NULL && lisp_addr_cmp(locator->addr,probed_rloc)==0)
-                loc_ptr->probed  = 1;
-
-            loc_ptr->reachable   = *(locator->state);
-
-            lct_extended_info = (lcl_locator_extended_info *)(locator->extended_info);
-            if (lct_extended_info->rtr_locators_list != NULL){
-                itr_address = &(lct_extended_info->rtr_locators_list->locator->address);
-            }else{
-                itr_address = locator->addr;
-            }
-
-            if ((cpy_len = lisp_addr_write(CO(loc_ptr, sizeof(locator_hdr_t)), itr_address)) <= 0) {
-                lmlog(DBG_3, "pkt_fill_mapping_record: copy_addr failed for locator %s",
-                        lisp_addr_to_char(locator->addr));
-                return(NULL);
-            }
-
-            loc_ptr = (locator_hdr_t *)CO(loc_ptr, sizeof(locator_hdr_t)+cpy_len);
-            locators_list[ctr] = locators_list[ctr]->next;
-
-        }
-    }
-    return ((void *)loc_ptr);
-}
-
 
 /*
  * lispd_mapping_elt set/get functions
@@ -786,8 +707,8 @@ inline mapping_t *
 mapping_new()
 {
     mapping_t *mapping;
-    mapping = calloc(1, sizeof(mapping_t));
-    return (mapping);
+    mapping = xzalloc(sizeof(mapping_t));
+    return(mapping);
 }
 
 static inline mapping_t *
@@ -910,29 +831,6 @@ mapping_clone(mapping_t *m) {
 }
 
 
-int
-mapping_get_size_in_record(mapping_t *mapping)
-{
-    int locs_length = 0;
-
-    if (!mapping) {
-        return (0);
-    }
-
-    if (mapping->head_v4_locators_list) {
-        locs_length += locator_list_get_size_in_field(
-                mapping->head_v4_locators_list);
-    }
-
-    if (mapping->head_v6_locators_list) {
-        locs_length += locator_list_get_size_in_field(
-                mapping->head_v6_locators_list);
-    }
-
-    return (sizeof(mapping_record_hdr_t)
-            + lisp_addr_size_to_write(mapping_eid(mapping)) + locs_length);
-}
-
 void mapping_del(mapping_t *m)
 {
     /* Free the locators list*/
@@ -989,18 +887,19 @@ void mapping_update_locators(mapping_t *mapping, locators_list_t *locv4, locator
 }
 
 /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
-int mapping_compute_balancing_vectors(mapping_t *mapping) {
+int
+mapping_compute_balancing_vectors(mapping_t *mapping) {
     switch (mapping->type) {
     case MAPPING_REMOTE:
         if (!mapping->extended_info)
-            mapping->extended_info = calloc(1, sizeof(rmt_mapping_extended_info));
+            mapping->extended_info = xzalloc(sizeof(rmt_mapping_extended_info));
         if (mapping->locator_count != 0)
             return(balancing_vectors_calculate(mapping,
                     &(((rmt_mapping_extended_info *)mapping->extended_info)->rmt_balancing_locators_vecs)));
         break;
     case MAPPING_LOCAL:
         if (!mapping->extended_info)
-            mapping->extended_info = calloc(1, sizeof(lcl_mapping_extended_info));
+            mapping->extended_info = xzalloc(sizeof(lcl_mapping_extended_info));
         if (mapping->locator_count > 0)
             return(balancing_vectors_calculate(mapping,
                     &((lcl_mapping_extended_info *)mapping->extended_info)->outgoing_balancing_locators_vecs));

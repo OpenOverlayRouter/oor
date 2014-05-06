@@ -41,11 +41,7 @@ inline mcache_entry_t *
 mcache_entry_new()
 {
     mcache_entry_t *mce;
-    if ((mce = calloc(1, sizeof(mcache_entry_t))) == NULL) {
-        lmlog(LWRN,"new_map_cache_entry: Unable to allocate memory"
-                " for lispd_map_cache_entry: %s", strerror(errno));
-        return(NULL);
-    }
+    mce = xzalloc(sizeof(mcache_entry_t));
 
     mce->active = NOT_ACTIVE;
     mce->timestamp = time(NULL);
@@ -73,20 +69,18 @@ mcache_entry_init(mcache_entry_t *mce, mapping_t *mapping)
 }
 
 void
-mcache_entry_init_static(mcache_entry_t *mce, mapping_t *mapping)
+mcache_entry_init_static(mcache_entry_t **mce_, mapping_t *mapping)
 {
+    mcache_entry_t *mce = *mce_;
     if (!mce) {
-        return;
+        mce = mcache_entry_new();
     }
 
     mce->active = ACTIVE;
     mce->mapping = mapping;
     mce->how_learned = STATIC_MAP_CACHE_ENTRY;
     mce->ttl = 255; /* XXX: why 255? */
-
 }
-
-
 
 
 /*
