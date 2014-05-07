@@ -35,7 +35,7 @@
 struct sock_master *
 sock_master_new() {
     struct sock_master *sm;
-    sm = calloc(1, sizeof(struct sock_master));
+    sm = xzalloc(sizeof(struct sock_master));
     return (sm);
 }
 
@@ -43,15 +43,17 @@ static void
 sock_list_add(struct sock_list *lst, struct sock *sock) {
     sock->next = NULL;
     sock->prev = lst->tail;
-    if (lst->tail)
+    if (lst->tail) {
         lst->tail->next = sock;
-    else
+    } else {
         lst->head = sock;
+    }
 
     lst->tail = sock;
     lst->count++;
-    if (sock->fd > lst->maxfd)
+    if (sock->fd > lst->maxfd) {
         lst->maxfd = sock->fd;
+    }
 
 }
 
@@ -59,7 +61,7 @@ struct sock *
 sock_register_read_listener(struct sock_master *m,
         int (*func)(struct sock *), void *arg, int fd) {
     struct sock *sock;
-    sock = calloc(1, sizeof(struct sock));
+    sock = xzalloc(sizeof(struct sock));
     sock->recv_cb = func;
     sock->type = SOCK_READ;
     sock->arg = arg;
@@ -109,7 +111,6 @@ sock_process_all(struct sock_master *m) {
 void
 sock_fdset_all_read(struct sock_master *m)
 {
-
     struct sock *sit;
     for (sit = m->read.head; sit; sit = sit->next) {
         FD_SET(sit->fd, &m->readfds);

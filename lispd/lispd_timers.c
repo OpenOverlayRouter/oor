@@ -14,9 +14,8 @@
 #include "defs.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_log.h"
-#include "lispd_rloc_probing.h"
 #include "lispd_timers.h"
-#include "lispd_control.h"
+//#include "lispd_control.h"
 
 
 const int TimerTickInterval = 1;  // Seconds
@@ -217,8 +216,7 @@ void stop_timer(timer *tptr)
         return;
     }
 
-
-
+/*
     if (strcmp(tptr->name, MAP_REQUEST_RETRY_TIMER)==0){
         ((timer_mreq_arg_t *)tptr->cb_argument)->arg_free_fct(tptr->cb_argument);
 //        free ((timer_map_request_argument *)tptr->cb_argument);
@@ -227,7 +225,7 @@ void stop_timer(timer *tptr)
     } else {
         free(tptr->cb_argument);
     }
-
+*/
     next = tptr->links.next;
     prev = tptr->links.prev;
     if (next != NULL){

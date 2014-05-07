@@ -35,17 +35,68 @@
 #include "lispd_routing_tables_lib.h"
 #include "lispd_sockets.h"
 #include "lispd_tun.h"
+#include <elibs/htable/hash_table.h>
 #include <string.h>
 
 
-iface_list_elt    *head_interface_list    = NULL;
+iface_list_elt *head_interface_list = NULL;
 
-iface_t         *default_out_iface_v4   = NULL;
-iface_t         *default_out_iface_v6   = NULL;
+iface_t *default_out_iface_v4 = NULL;
+iface_t *default_out_iface_v6 = NULL;
 
-iface_t         *default_ctrl_iface_v4  = NULL;
-iface_t         *default_ctrl_iface_v6  = NULL;
+iface_t *default_ctrl_iface_v4 = NULL;
+iface_t *default_ctrl_iface_v6 = NULL;
 
+shash_t *iface_addr_ht = NULL;
+
+int
+build_iface_addr_hash_table()
+{
+    struct  ifaddrs *ifaddr, *ifa;
+    int     family, s;
+    char    host[NI_MAXHOST];
+
+    lmlog(LINF, "Building address to interface hash table");
+    if (getifaddrs(&ifaddr) == -1) {
+        lmlog(LCRIT, "Can't read the interfaces of the system. Exiting .. ");
+        exit_cleanup();
+    }
+
+    iface_addr_ht = shash_new_managed(free);
+
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL) {
+            continue;
+        }
+        family = ifa->ifa_addr->sa_family;
+
+        if (family == AF_INET || family == AF_INET6) {
+            s = getnameinfo(ifa->ifa_addr,
+                    (family == AF_INET) ? sizeof(struct sockaddr_in) :
+                                          sizeof(struct sockaddr_in6),
+                    host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+            if (s != 0) {
+                lmlog(LWRN, "getnameinfo() failed: %s. Skipping interface. ",
+                        gai_strerror(s));
+                continue;
+            }
+
+            shash_insert(iface_addr_ht, host, strdup(ifa->ifa_name));
+
+            lmlog(LINF, "Found interface %s with address %s", ifa->ifa_name,
+                    host);
+        }
+    }
+
+    freeifaddrs(ifaddr);
+    return(GOOD);
+}
+
+int
+init_ifaces() {
+    build_iface_addr_hash_table();
+    return(GOOD);
+}
 
 /* set address, open socket, insert rule */
 static int
@@ -82,6 +133,8 @@ iface_setup(iface_t *iface, char* iface_name,
     return(GOOD);
 }
 
+/* Return the interface if it already exists. If it doesn't exist,
+ * create and add an interface element to the list of interfaces. */
 iface_t *
 add_interface(char *iface_name)
 {
@@ -143,81 +196,74 @@ add_interface(char *iface_name)
     return (iface);
 }
 
-/*
- * Add the mapping to the list of mappings of the interface according to the afi.
- * The mapping is added just one time
- */
 
+/* Add the mapping to the list of mappings of the interface according to the
+ * afi. The mapping is added just one time */
 int
-add_mapping_to_interface(iface_t *interface, mapping_t *mapping,
-        int afi)
+add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
 {
-    iface_mappings_list *mappings_list = NULL;
-    iface_mappings_list *prev_mappings_list = NULL;
+    iface_mappings_list *map_list = NULL;
+    iface_mappings_list *prev_map_list = NULL;
 
-    mappings_list = interface->head_mappings_list;
-    while (mappings_list != NULL){
+    map_list = iface->head_mappings_list;
+    while (map_list != NULL) {
         // Check if the mapping is already installed in the list
         // XXX: this is risky stuff
-        if (mappings_list->mapping == mapping){
-            switch(afi){
+        if (map_list->mapping == m) {
+            switch (afi) {
             case AF_INET:
-                mappings_list->use_ipv4_address = TRUE;
+                map_list->use_ipv4_address = TRUE;
                 break;
             case AF_INET6:
-                mappings_list->use_ipv6_address = TRUE;
+                map_list->use_ipv6_address = TRUE;
                 break;
             }
-            lmlog(DBG_2,"The EID %s has been previously assigned to the RLOCs"
-                    " of the interface %s",
-                    lisp_addr_to_char(mapping_eid(mapping)),
-                    interface->iface_name);
+            lmlog(DBG_2, "The EID %s has been previously assigned to the RLOCs"
+                    " of the iface %s", lisp_addr_to_char(mapping_eid(m)),
+                    iface->iface_name);
             return (GOOD);
         }
-        prev_mappings_list = mappings_list;
-        mappings_list = mappings_list->next;
+        prev_map_list = map_list;
+        map_list = map_list->next;
     }
 
-    mappings_list = xmalloc(1, sizeof(iface_mappings_list));
-    mappings_list->mapping = mapping;
-    mappings_list->next = NULL;
+    map_list = xmalloc(1, sizeof(iface_mappings_list));
+    map_list->mapping = m;
+    map_list->next = NULL;
 
-    switch(afi){
+    switch (afi) {
     case AF_INET:
-        mappings_list->use_ipv4_address = TRUE;
-        mappings_list->use_ipv6_address = FALSE;
+        map_list->use_ipv4_address = TRUE;
+        map_list->use_ipv6_address = FALSE;
         break;
     case AF_INET6:
-        mappings_list->use_ipv4_address = FALSE;
-        mappings_list->use_ipv6_address = TRUE;
+        map_list->use_ipv4_address = FALSE;
+        map_list->use_ipv6_address = TRUE;
         break;
     }
 
-    if (prev_mappings_list != NULL){
-        prev_mappings_list->next =  mappings_list;
-    }else{
-        interface->head_mappings_list = mappings_list;
+    if (prev_map_list != NULL) {
+        prev_map_list->next = map_list;
+    } else {
+        iface->head_mappings_list = map_list;
     }
 
-    lmlog(DBG_2,"The EID %s has been assigned to the RLOCs of the interface "
-            "%s", lisp_addr_to_char(mapping_eid(mapping)),
-            interface->iface_name);
+    lmlog(DBG_2, "The EID %s has been assigned to the RLOCs of the interface "
+            "%s", lisp_addr_to_char(mapping_eid(m)), iface->iface_name);
 
     return (GOOD);
 }
 
-/*
- * Look up an interface based in the iface_name.
- * Return the iface element if it is found or NULL if not.
- */
 
+/* Look up an interface based in the iface_name.
+ * Return the iface element if it is found or NULL if not. */
 iface_t *get_interface(char *iface_name)
 {
     iface_list_elt *iface_list = head_interface_list;
-    iface_t      *iface      = NULL;
+    iface_t *iface = NULL;
 
-    while (iface_list != NULL){
-        if (strcmp (iface_list->iface->iface_name , iface_name) == 0){
+    while (iface_list != NULL) {
+        if (strcmp(iface_list->iface->iface_name, iface_name) == 0) {
             iface = iface_list->iface;
             break;
         }
@@ -227,24 +273,21 @@ iface_t *get_interface(char *iface_name)
     return (iface);
 }
 
-/*
- * Look up an interface based in the index of the iface.
- * Return the iface element if it is found or NULL if not.
- */
-
+/* Look up an interface based in the index of the iface.
+ * Return the iface element if it is found or NULL if not. */
 iface_t *get_interface_from_index(int iface_index)
 {
-
-    iface_t         *iface          = NULL;
-    iface_list_elt    *iface_lst_elt  = NULL;
+    iface_t *iface = NULL;
+    iface_list_elt *iface_lst_elt = NULL;
 
     iface_lst_elt = head_interface_list;
-    while (iface_lst_elt != NULL){
-        if (iface_lst_elt->iface->iface_index == 0){
-            iface_lst_elt->iface->iface_index = if_nametoindex (iface_lst_elt->iface->iface_name);
+    while (iface_lst_elt != NULL) {
+        if (iface_lst_elt->iface->iface_index == 0) {
+            iface_lst_elt->iface->iface_index = if_nametoindex(
+                    iface_lst_elt->iface->iface_name);
         }
 
-        if (iface_lst_elt->iface->iface_index == iface_index){
+        if (iface_lst_elt->iface->iface_index == iface_index) {
             iface = iface_lst_elt->iface;
             break;
         }
@@ -253,26 +296,25 @@ iface_t *get_interface_from_index(int iface_index)
 
     return iface;
 }
-/*
- * Return the interface belonging the address passed as a parameter
- */
 
-iface_t *get_interface_with_address(lisp_addr_t *address)
+/* Return the interface having assigned the address passed as a parameter  */
+iface_t *
+get_interface_with_address(lisp_addr_t *address)
 {
-    iface_t         *iface          = NULL;
-    iface_list_elt    *iface_lst_elt  = NULL;
+    iface_t *iface = NULL;
+    iface_list_elt *iface_lst_elt = NULL;
 
     iface_lst_elt = head_interface_list;
     while (iface_lst_elt != NULL){
         iface = iface_lst_elt->iface;
-        switch (address->afi) {
+        switch (lisp_addr_ip_afi(address)) {
         case AF_INET:
-            if (compare_lisp_addr_t (address,iface->ipv4_address) == 0){
+            if (compare_lisp_addr_t(address, iface->ipv4_address) == 0) {
                 return (iface);
             }
             break;
         case AF_INET6:
-            if (compare_lisp_addr_t (address,iface->ipv6_address) == 0){
+            if (compare_lisp_addr_t(address, iface->ipv6_address) == 0) {
                 return (iface);
             }
             break;
@@ -290,10 +332,9 @@ iface_t *get_interface_with_address(lisp_addr_t *address)
 
 void dump_iface_list(int log_level)
 {
-
-    iface_list_elt        *interface_list    = head_interface_list;
-    iface_mappings_list   *mapping_list      = NULL;
-    char                        str[4000];
+    iface_list_elt *interface_list = head_interface_list;
+    iface_mappings_list *mapping_list = NULL;
+    char str[4000];
 
     if (head_interface_list == NULL || is_loggable(log_level) == FALSE){
         return;
@@ -333,46 +374,9 @@ void dump_iface_list(int log_level)
 }
 
 
-/* Search the iface list for the first UP iface that has an 'afi' address*/
-iface_t *
-get_any_output_iface(int afi)
-{
-    iface_t *iface = NULL;
-    iface_list_elt *iface_list_elt = head_interface_list;
-    
-    switch (afi) {
-    case AF_INET:
-        while (iface_list_elt != NULL) {
-            if ((iface_list_elt->iface->ipv4_address->afi != AF_UNSPEC)
-                    && (iface_list_elt->iface->status == UP)) {
-                iface = iface_list_elt->iface;
-                break;
-            }
-            iface_list_elt = iface_list_elt->next;
-        }
-        break;
-    case AF_INET6:
-        while (iface_list_elt != NULL) {
-            if ((iface_list_elt->iface->ipv6_address->afi != AF_UNSPEC)
-                    && (iface_list_elt->iface->status == UP)) {
-                iface = iface_list_elt->iface;
-                break;
-            }
-            iface_list_elt = iface_list_elt->next;
-        }
-        break;
-    default:
-        lmlog(DBG_2, "get_output_iface: unknown afi %d", afi);
-        break;
-    }
-
-    return (iface);
-}
-
 iface_t *
 get_default_ctrl_iface(int afi)
 {
-
     iface_t *iface = NULL;
 
     switch (afi){
@@ -437,6 +441,67 @@ get_default_ctrl_socket(int afi)
     return (socket);
 }
 
+/* Search the iface list for the first UP iface that has an 'afi' address*/
+iface_t *
+get_any_output_iface(int afi)
+{
+    iface_t *iface = NULL, *tif;
+    iface_list_elt *iface_list_elt = head_interface_list;
+
+    switch (afi) {
+    case AF_INET:
+        while (iface_list_elt != NULL) {
+            tif = iface_list_elt->iface;
+            if ((lisp_addr_ip_afi(tif->ipv4_address) != AF_UNSPEC)
+                    && (tif->status == UP)) {
+                iface = tif;
+                break;
+            }
+            iface_list_elt = iface_list_elt->next;
+        }
+        break;
+    case AF_INET6:
+        while (iface_list_elt != NULL) {
+            tif = iface_list_elt->iface;
+            if ((lisp_addr_ip_afi(tif->ipv6_address) != AF_UNSPEC)
+                    && (tif->status == UP)) {
+                iface = tif;
+                break;
+            }
+            iface_list_elt = iface_list_elt->next;
+        }
+        break;
+    default:
+        lmlog(DBG_2, "get_output_iface: unknown afi %d", afi);
+        break;
+    }
+
+    return (iface);
+}
+
+lisp_addr_t *
+get_default_output_address(int afi) {
+    lisp_addr_t *addr = NULL;
+
+    switch (afi) {
+    case AF_INET:
+        if (default_out_iface_v4 != NULL) {
+            addr = default_out_iface_v4->ipv4_address;
+        }
+        break;
+    case AF_INET6:
+        if (default_out_iface_v6 != NULL) {
+            addr = default_out_iface_v6->ipv6_address;
+        }
+        break;
+    default:
+        lmlog(DBG_2, "get_default_output_address: AFI %s not valid", afi);
+        return(NULL);
+    }
+
+    return(addr);
+}
+
 int
 get_default_output_socket(int afi)
 {
@@ -454,8 +519,7 @@ get_default_output_socket(int afi)
         }
         break;
     default:
-        lmlog(DBG_2, "get_default_output_socket: Packet with not valid AFI:"
-                " %d", afi);
+        lmlog(DBG_2, "get_default_output_socket: AFI %s not valid", afi);
         break;
     }
 

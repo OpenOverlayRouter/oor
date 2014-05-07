@@ -30,31 +30,50 @@
 #include "shash.h"
 #include <defs.h>
 
-shash_t *shash_new() {
+shash_t *
+shash_new()
+{
     shash_t *sh;
     sh = hash_table_new(g_str_hash, g_str_equal, free, NULL);
     return(sh);
 }
 
-shash_t *shash_new_managed(DestroyFunc *df) {
+shash_t *
+shash_new_managed(DestroyFunc *df)
+{
     shash_t *sh;
     sh = hash_table_new(g_str_hash, g_str_equal, free, df);
     return(sh);
 }
 
-void shash_del(shash_t *sh) {
+void
+shash_del(shash_t *sh) {
     hash_table_destroy(sh);
     free(sh);
 }
 
-void shash_insert(shash_t *sh, const char *key, const void *val) {
+void
+shash_insert(shash_t *sh, const char *key, const void *val)
+{
     hash_table_insert(sh, strdup(key), val);
 }
 
-void shash_remove(shash_t *sh, const char *key) {
+void
+shash_remove(shash_t *sh, const char *key)
+{
     hash_table_remove(sh, key);
 }
 
-void *shash_lookup(shash_t *sh, const char *key) {
+void *
+shash_lookup(shash_t *sh, const char *key)
+{
     return hash_table_lookup(sh, key);
+}
+
+void
+shash_destroy(shash_t *sh)
+{
+    if (sh) {
+        hash_table_destroy(sh);
+    }
 }

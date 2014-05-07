@@ -80,7 +80,7 @@ extern iface_t          *default_out_iface_v6;
 
 extern lisp_ctrl_dev_t *ctrl_dev;
 extern lisp_ctrl_t *lctrl;
-extern HashTable *iface_addr_ht;
+extern shash_t *iface_addr_ht;
 
 #endif /*LISPD_EXTERNAL_H_*/
 

@@ -32,9 +32,10 @@
 
 #include <defs.h>
 #include <liblisp.h>
-#include "lispd_map_cache_db.h"
-#include "lispd_local_db.h"
-#include "lispd_re.h"
+#include "lisp_map_cache.h"
+#include "lisp_local_db.h"
+#include "lisp_control.h"
+
 #include "lispd_info_nat.h"
 
 typedef enum {
@@ -52,6 +53,7 @@ typedef struct ctrl_dev_class_t_ {
     int (*construct)(lisp_ctrl_dev_t *);
     void (*dealloc)(lisp_ctrl_dev_t *);
     void (*destruct)(lisp_ctrl_dev_t *);
+    void (*init)(lisp_ctrl_dev_t *);
 
     void (*run)(lisp_ctrl_dev_t *dev);
     int (*recv_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
@@ -70,9 +72,10 @@ struct lisp_ctrl_device_ {
 extern ctrl_dev_class_t ms_ctrl_class;
 extern ctrl_dev_class_t xtr_ctrl_class;
 
-static ctrl_dev_class_t **reg_ctrl_dev_cls = {
+static ctrl_dev_class_t *reg_ctrl_dev_cls[3] = {
         &xtr_ctrl_class,
-        &ms_ctrl_class
+        &ms_ctrl_class,
+        &xtr_ctrl_class,
 };
 
 

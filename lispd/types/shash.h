@@ -38,5 +38,6 @@ void shash_del(shash_t *);
 void shash_insert(shash_t *, const char *, const void *);
 void shash_remove(shash_t *, const char *);
 void *shash_lookup(shash_t *, const char *);
+void shash_destroy(shash_t *sh);
 
 #endif /* SHASH_H_ */

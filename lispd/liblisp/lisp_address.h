@@ -89,6 +89,7 @@ typedef struct _lispd_addr_list_t {
 inline lisp_addr_t *lisp_addr_new();
 inline lisp_addr_t *lisp_addr_new_afi(uint8_t afi);
 inline void lisp_addr_del(lisp_addr_t *laddr);
+void lisp_addr_dealloc(lisp_addr_t *addr);
 inline lm_afi_t lisp_addr_afi(lisp_addr_t *addr);
 void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
 lisp_addr_t *lisp_addr_clone(lisp_addr_t *src);
@@ -133,6 +134,8 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr);
 
 inline int lisp_addr_is_mc(lisp_addr_t *addr);
 lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr);
+
+void lisp_addr_list_to_char(lisp_addr_list_t *, const char *, int);
 
 
 

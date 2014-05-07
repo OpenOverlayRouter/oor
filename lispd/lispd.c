@@ -56,11 +56,11 @@
 #include "lispd_log.h"
 #include "lispd_sockets.h"
 #include "lispd_timers.h"
-#include "lispd_control.h"
 #include "lispd_tun.h"
 #include "lispd_output.h"
 #include "lispd_routing_tables_lib.h"
-#include <lisp_address.h>
+#include <liblisp.h>
+#include <lisp_control.h>
 #include <lisp_xtr.h>
 #include <lisp_ms.h>
 #include <elibs/htable/hash_table.h>
@@ -128,7 +128,7 @@ nonces_list_t     *nat_ir_nonce   = NULL;
 int     timers_fd                       = 0;
 
 struct sock_master  *smaster            = NULL;
-HashTable           *iface_addr_ht      = NULL;
+
 
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
@@ -191,26 +191,22 @@ void init_tun()
     }
 #endif
 
-    sock_register_read_listener(smaster, process_output_packet, NULL, tun_receive_fd);
+    sock_register_read_listener(smaster, recv_output_packet, NULL, tun_receive_fd);
 }
 
 int
-init_xtr()
+init_tr_data_plane(lisp_dev_type mode)
 {
-    struct sock *nl_sl;
-
-
-    /*
-     * Select the default rlocs for output data packets and output control packets
-     */
-
+    /* Select the default rlocs for output data packets and output control
+     * packets */
     set_default_output_ifaces();
 
-    init_tun();
+    if (mode == xTR_MODE) {
+        init_tun();
+    }
 
     /* Generate receive sockets for control (4342) and data port (4341) */
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
-
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
         sock_register_read_listener(smaster, process_input_packet, NULL,
                 ipv4_data_input_fd); // will use data_dev
@@ -218,155 +214,10 @@ init_xtr()
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
-        sock_register_read_listener(smaster, process_input_packet, NULL, ipv6_data_input_fd);
+        sock_register_read_listener(smaster, process_input_packet, NULL,
+                ipv6_data_input_fd);
     }
 
-    /*
-     * Create net_link socket to receive notifications of changes of RLOC status.
-     */
-    netlink_fd = opent_netlink_socket();
-
-    /*
-     * Request to dump the routing tables to obtain the gatways when processing the netlink messages
-     */
-    nl_sl = sock_register_read_listener(smaster, process_netlink_msg, NULL, netlink_fd);
-
-    request_route_table(RT_TABLE_MAIN, AF_INET);
-    process_netlink_msg(nl_sl);
-    request_route_table(RT_TABLE_MAIN, AF_INET6);
-    process_netlink_msg(nl_sl);
-
-
-    return(GOOD);
-}
-
-//int init_ms() {
-//    set_default_ctrl_ifaces();
-//
-//    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET){
-//        ipv4_control_input_fd = open_control_input_socket(AF_INET);
-//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
-//    }
-//
-//    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6){
-//        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
-//    }
-//    return(GOOD);
-//}
-
-int init_rtr() {
-    struct sock *nl_sl;
-
-//    if (map_servers == NULL){
-//        lispd_log_msg(LCRIT, "No Map Server configured. Exiting...");
-//        exit_cleanup();
-//    }
-
-//    if (map_resolvers == NULL){
-//        lmlog(LCRIT, "No Map Resolver configured. Exiting...");
-//        exit_cleanup();
-//    }
-
-//    if (proxy_etrs == NULL){
-//        lispd_log_msg(LWRN, "No Proxy-ETR defined. Packets to non-LISP destinations will be "
-//                "forwarded natively (no LISP encapsulation). This may prevent mobility in some scenarios.");
-//        sleep(3);
-//    }else{
-//        calculate_balancing_vectors (
-//                proxy_etrs->mapping,
-//                &(((rmt_mapping_extended_info *)(proxy_etrs->mapping->extended_info))->rmt_balancing_locators_vecs));
-//    }
-
-
-    /*
-     * Select the default rlocs for output data packets and output control packets
-     */
-
-    set_default_output_ifaces();
-    set_default_ctrl_ifaces();
-
-    /*
-     * NO TUN!
-     */
-
-
-    /*
-     * Generate receive sockets for control (4342) and data port (4341)
-     */
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
-//        ipv4_control_input_fd = open_control_input_socket(AF_INET);
-//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv4_control_input_fd);
-
-        ipv4_data_input_fd = open_data_input_socket(AF_INET);
-        sock_register_read_listener(smaster, rtr_process_input_packet, NULL, ipv4_data_input_fd);
-    }
-
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
-//        ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-//        sock_register_read_listener(smaster, process_lisp_ctr_msg, ctrl_dev, ipv6_control_input_fd);
-
-        ipv6_data_input_fd = open_data_input_socket(AF_INET6);
-        sock_register_read_listener(smaster, rtr_process_input_packet, NULL, ipv6_data_input_fd);
-    }
-
-    /*
-     * Create net_link socket to receive notifications of changes of RLOC status.
-     */
-    netlink_fd = opent_netlink_socket();
-
-    /*
-     * Request to dump the routing tables to obtain the gatways when processing the netlink messages
-     */
-    nl_sl = sock_register_read_listener(smaster, process_netlink_msg, NULL, netlink_fd);
-
-    request_route_table(RT_TABLE_MAIN, AF_INET);
-    process_netlink_msg(nl_sl);
-    request_route_table(RT_TABLE_MAIN, AF_INET6);
-    process_netlink_msg(nl_sl);
-
-
-    return(GOOD);
-}
-
-int
-build_iface_addr_hash_table()
-{
-    struct  ifaddrs *ifaddr, *ifa;
-    int     family, s;
-    char    host[NI_MAXHOST];
-
-    lmlog(LINF, "Building address to interface hash table");
-    if (getifaddrs(&ifaddr) == -1) {
-        lmlog(LCRIT, "Can't read the interfaces of the system. Exiting .. ");
-        exit_cleanup();
-    }
-
-    iface_addr_ht = hash_table_new(g_str_hash, g_str_equal, free, free);
-
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr == NULL)
-            continue;
-        family = ifa->ifa_addr->sa_family;
-
-        if (family == AF_INET || family == AF_INET6) {
-            s = getnameinfo(ifa->ifa_addr,
-                    (family == AF_INET) ? sizeof(struct sockaddr_in) :
-                                          sizeof(struct sockaddr_in6),
-                    host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-            if (s != 0) {
-                lmlog(LWRN, "getnameinfo() failed: %s. Skipping interface. ",
-                        gai_strerror(s));
-                continue;
-            }
-            /* make a copy */
-            hash_table_insert(iface_addr_ht, strdup(host), strdup(ifa->ifa_name));
-
-            lmlog(LINF, "Found interface %s with address %s", ifa->ifa_name, host);
-        }
-    }
-
-    freeifaddrs(ifaddr);
     return(GOOD);
 }
 
@@ -427,34 +278,7 @@ void test_elp() {
 //    }
 }
 
-/*
- *      main event loop
- *
- *      should never return (in theory)
- */
 
-void event_loop()
-{
-
-//    test_elp();
-
-    /*
-     *  calculate the max_fd for select.
-     */
-    
-    /* register timer fd with the socket master */
-    sock_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
-
-    for (;;) {
-        sock_fdset_all_read(smaster);
-        sock_process_all(smaster);
-    }
-}
-
-/*
- *      signal_handler --
- *
- */
 
 void signal_handler(int sig) {
     switch (sig) {
@@ -499,9 +323,9 @@ void exit_cleanup(void) {
     close_output_sockets();
     /* Close netlink socket */
     close(netlink_fd);
-    lisp_ctrl_destroy(lctrl);
+    ctrl_destroy(lctrl);
     ctrl_dev_destroy(ctrl_dev);
-    if (iface_addr_ht) hash_table_destroy(iface_addr_ht);
+    shash_destroy(iface_addr_ht);
     lmlog(LINF,"Exiting ...");
 
     exit(EXIT_SUCCESS);
@@ -591,7 +415,6 @@ setup_signal_handlers()
 static void
 init_timer_wheel()
 {
-
     /* create timers event socket */
     if (build_timers_event_socket(&timers_fd) == 0) {
         lmlog(LCRIT, " Error programming the timer signal. Exiting...");
@@ -599,12 +422,34 @@ init_timer_wheel()
     }
 
     init_timers();
+
+    /* register timer fd with the socket master */
+    sock_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
+}
+
+static void
+init_netlink()
+{
+    struct sock *nl_sl;
+
+    /* Create net_link socket to receive notifications of changes of RLOC
+     * status. */
+    netlink_fd = opent_netlink_socket();
+
+    /* Request to dump the routing tables to obtain the gatways when
+     * processing the netlink messages  */
+    nl_sl = sock_register_read_listener(smaster, process_netlink_msg, NULL,
+            netlink_fd);
+
+    request_route_table(RT_TABLE_MAIN, AF_INET);
+    process_netlink_msg(nl_sl);
+    request_route_table(RT_TABLE_MAIN, AF_INET6);
+    process_netlink_msg(nl_sl);
 }
 
 static void
 parse_config_file()
 {
-    int ret = 0;
 
     /* Parse config file. Format of the file depends on the node: Linux Box
      * or OpenWRT router */
@@ -621,28 +466,15 @@ parse_config_file()
     handle_lispd_config_file(config_file);
 #endif
 
-    switch (ctrl_dev->mode) {
-    case 1:
-        ret = init_xtr();
-        break;
-    case 2:
-        ret = init_ms();
-        break;
-    case 3:
-        ret = init_rtr();
-        break;
-    default:
-        lmlog(LCRIT, "No active control device configured. Exiting ... ");
-        exit_cleanup();
+    if (ctrl_dev->mode == xTR_MODE || ctrl_dev->mode == RTR_MODE) {
+        init_tr_data_plane(ctrl_dev->mode);
     }
 
-    if (ret != GOOD)
-        exit_cleanup();
 }
 
-int main(int argc, char **argv)
+static void
+initial_setup()
 {
-
 #ifdef ROUTER
 #ifdef OPENWRT
     lmlog(LINF,"LISPmob compiled for openWRT xTR\n");
@@ -653,9 +485,7 @@ int main(int argc, char **argv)
     lmlog(LINF,"LISPmob compiled for mobile node\n");
 #endif
 
-
     /* Check for superuser privileges */
-
     if (geteuid()) {
         lmlog(LINF,"Running %s requires superuser privileges! Exiting...\n",
                 LISPD);
@@ -663,37 +493,51 @@ int main(int argc, char **argv)
     }
 
     /* Initialize the random number generator  */
-    iseed = (unsigned int) time (NULL);
+    iseed = (unsigned int) time(NULL);
     srandom(iseed);
 
     setup_signal_handlers();
+}
+
+int
+main(int argc, char **argv)
+{
+
+    initial_setup();
+
     handle_lispd_command_line(argc, argv);
 
     /* see if we need to daemonize, and if so, do it */
     demonize_start();
 
-    /* create socket master */
+    /* create socket master, timer wheel, initialize interfaces */
     smaster = sock_master_new();
-
-    /* map addr to interfaces */
-    build_iface_addr_hash_table();
-
     init_timer_wheel();
+    init_ifaces();
 
-    /* only one instance for now */
-    lctrl = lisp_ctrl_create();
+    /* create control. Only one instance for now */
+    lctrl = ctrl_create();
+
+    /* parse config and create ctrl_dev */
     parse_config_file();
 
     lmlog(LINF,"LISPmob (0.5): 'lispd' started...");
 
+    init_netlink();
+    ctrl_init(lctrl);
 
-    /* activate lisp control device xtr/ms */
+    /* run lisp control device xtr/ms */
     ctrl_dev_run(ctrl_dev);
 
-    event_loop();
+    /* EVENT LOOP */
+    for (;;) {
+        sock_fdset_all_read(smaster);
+        sock_process_all(smaster);
+    }
 
-    lmlog(LINF, "Exiting...");         /* event_loop returned bad */
-    closelog();
+    /* event_loop returned: bad! */
+    lmlog(LINF, "Exiting...");
+    exit_cleanup();
     return(0);
 }
 

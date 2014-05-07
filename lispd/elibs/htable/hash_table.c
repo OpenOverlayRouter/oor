@@ -87,7 +87,9 @@ static unsigned int spaced_primes_closest(unsigned int num) {
 }
 
 HashTable*
-hash_table_new(HashFunc hash_func, EqualFunc key_equal_func, DestroyFunc key_destroy_func, DestroyFunc val_destroy_func) {
+hash_table_new(HashFunc hash_func, EqualFunc key_equal_func,
+        DestroyFunc key_destroy_func, DestroyFunc val_destroy_func)
+{
     HashTable *hash_table;
     unsigned int i;
 
@@ -115,7 +117,8 @@ void hash_table_destroy(HashTable *hash_table) {
         return;
 
     for (i = 0; i < hash_table->size; i++)
-        hash_nodes_destroy(hash_table->nodes[i], hash_table->key_destroy_func, hash_table->val_destroy_func);
+        hash_nodes_destroy(hash_table->nodes[i], hash_table->key_destroy_func,
+                hash_table->val_destroy_func);
 
     /* free allocated nodes */
     it = chunk_lst;

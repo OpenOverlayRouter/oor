@@ -37,83 +37,54 @@
 #include <lispd_mapping.h>
 #include "lispd_timers.h"
 
-/*
- * list of mappings associated to the interface containin this structure.
- */
-typedef struct lispd_iface_mappings_list_ {
-    mapping_t                       *mapping;
-    uint8_t                                 use_ipv4_address:1;// The mapping has a locator that use the IPv4 address of iface
-    uint8_t                                 use_ipv6_address:1;// The mapping has a locator that use the IPv6 address of iface
-    struct lispd_iface_mappings_list_       *next;
+/* list of mappings associated an interface */
+typedef struct iface_mappings_list_ {
+    mapping_t *mapping;
+    /* The mapping has a locator that use the IPv4 address of iface */
+    uint8_t use_ipv4_address :1;
+    /* The mapping has a locator that use the IPv6 address of iface */
+    uint8_t use_ipv6_address :1;
+    struct iface_mappings_list_ *next;
 } iface_mappings_list;
 
 
-/*
- * Interface structure
- * locator address (rloc) is linked to the interface address. If changes the address of the interface
- * , the locator address change automatically
- */
+/* Interface structure
+ * ===================
+ * Locator address (rloc) is linked to the interface address. If the address
+ * of the interface changes, the locator address changes automatically */
 typedef struct iface_t_ {
-    char                        *iface_name;
-    uint32_t                    iface_index;
-    uint8_t                     status;
-    lisp_addr_t                 *ipv4_address;
-    lisp_addr_t                 *ipv6_address;
-    lisp_addr_t                 *ipv4_gateway;
-    lisp_addr_t                 *ipv6_gateway;
-    /* List of mappings that have a locator associated with this interface. Used to do SMR  when interface changes*/
-    iface_mappings_list   *head_mappings_list;
-    uint8_t                     status_changed:1;  /*detect changes on flapping interfaces*/
-    uint8_t                     ipv4_changed:1;
-    uint8_t                     ipv6_changed:1;
-    int                         out_socket_v4;
-    int                         out_socket_v6;
+    char *iface_name;
+    uint32_t iface_index;
+    uint8_t status;
+    lisp_addr_t *ipv4_address;
+    lisp_addr_t *ipv6_address;
+    lisp_addr_t *ipv4_gateway;
+    lisp_addr_t *ipv6_gateway;
+
+    /* List of mappings that have a locator associated with this interface.
+     * Used to do SMR  when interface changes*/
+    iface_mappings_list *head_mappings_list;
+
+    /*detect changes on flapping interfaces*/
+    uint8_t status_changed :1;
+    uint8_t ipv4_changed :1;
+    uint8_t ipv6_changed :1;
+    int out_socket_v4;
+    int out_socket_v6;
 } iface_t;
 
-/*
- * List of interfaces
- */
+/* List of interfaces */
 typedef struct iface_list_elt_ {
     iface_t *iface;
     struct iface_list_elt_ *next;
-}iface_list_elt;
+} iface_list_elt;
 
 
-
-/*
- * Return the interface if it already exists. If it doesn't exist,
- * create and add an interface element to the list of interfaces.
- */
 
 iface_t *add_interface(char *iface_name);
-
-
-
-
-/*
- * Look up an interface based in the iface_name.
- * Return the iface element if it is found or NULL if not.
- */
-
 iface_t *get_interface(char *iface_name);
-
-/*
- * Look up an interface based in the index of the iface.
- * Return the iface element if it is found or NULL if not.
- */
-
 iface_t *get_interface_from_index(int iface_index);
-
-/*
- * Return the interface belonging the address passed as a parameter
- */
-
 iface_t *get_interface_with_address(lisp_addr_t *address);
-
-/*
- * Add the mapping to the list of mappings of the interface according to the afi.
- * The mapping is added just one time
- */
 
 int add_mapping_to_interface (iface_t *interface, mapping_t *mapping, int afi);
 
@@ -126,31 +97,22 @@ int add_mapping_to_interface (iface_t *interface, mapping_t *mapping, int afi);
 void dump_iface_list(int log_level);
 
 
-void open_iface_binded_sockets();
-
-iface_t *get_any_output_iface(int afi);
 
 iface_t *get_default_ctrl_iface(int afi);
-
 lisp_addr_t *get_default_ctrl_address(int afi);
-
 int get_default_ctrl_socket(int afi);
+void set_default_ctrl_ifaces();
 
-int get_default_output_socket(int afi);
 
+iface_t *get_any_output_iface(int);
+lisp_addr_t *get_default_output_address(int);
+int get_default_output_socket(int);
 void set_default_output_ifaces();
 
-/*
- * Init the default interfaces to send control packets
- */
-void set_default_ctrl_ifaces();
 
 lisp_addr_t *iface_address(iface_t *iface, int afi);
 int iface_socket(iface_t *iface, int afi);
 
-/*
- * Return the list of interfaces
- */
 
 iface_list_elt *get_head_interface_list();
 

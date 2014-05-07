@@ -34,7 +34,7 @@
 #include "liblisp/lispd_mapping.h"
 #include "liblisp/lispd_nonce.h"
 #include "types/lispd_mdb.h"
-#include "types/lispd_remdb.h"
+//#include "types/lispd_remdb.h"
 
 
 typedef struct map_server_list_t_ {

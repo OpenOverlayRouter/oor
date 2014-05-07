@@ -36,25 +36,26 @@
 #include <packets.h>
 #include <lispd_sockets.h>
 #include <lispd_info_nat.h>
-#include <lispd_re.h>
-#include <lispd_control.h>
+//#include <lispd_re.h>
+#include <lisp_control.h>
 #include <netinet/tcp.h>
 #include "lispd_tun.h"
 
 
+int lisp_output_multicast(uint8_t *pkt, int plen, lisp_addr_t *dst_eid);
+
 /*
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
  */
-int extract_5_tuples_from_packet (
-        uint8_t         *packet ,
-        packet_tuple    *tuple)
+int
+extract_5_tuples_from_packet(uint8_t *packet, packet_tuple *tuple)
 {
     /* TODO: would be nice for this to use ip_addr_t in the future */
-    struct iphdr        *iph    = NULL;
-    struct ip6_hdr      *ip6h   = NULL;
-    struct udphdr       *udp    = NULL;
-    struct tcphdr       *tcp    = NULL;
-    int                 len     = 0;
+    struct iphdr *iph = NULL;
+    struct ip6_hdr *ip6h = NULL;
+    struct udphdr *udp = NULL;
+    struct tcphdr *tcp = NULL;
+    int len = 0;
 
     iph = (struct iphdr *) packet;
 
@@ -62,77 +63,38 @@ int extract_5_tuples_from_packet (
     lisp_addr_set_afi(&tuple->dst_addr, LM_AFI_IP);
 
     switch (iph->version) {
-        case 4:
-            ip_addr_set_v4(lisp_addr_ip(&tuple->src_addr), &iph->saddr);
-            ip_addr_set_v4(lisp_addr_ip(&tuple->dst_addr), &iph->daddr);
-//            tuple->src_addr.afi = AF_INET;
-//            tuple->dst_addr.afi = AF_INET;
-//            tuple->src_addr.address.ip.s_addr = iph->saddr;
-//            tuple->dst_addr.address.ip.s_addr = iph->daddr;
-            tuple->protocol = iph->protocol;
-            len = iph->ihl*4;
-            break;
-        case 6:
-            ip6h = (struct ip6_hdr *) packet;
-            ip_addr_set_v6(lisp_addr_ip(&tuple->src_addr), &ip6h->ip6_src);
-            ip_addr_set_v6(lisp_addr_ip(&tuple->dst_addr), &ip6h->ip6_dst);
-//            tuple->src_addr.afi = AF_INET6;
-//            tuple->dst_addr.afi = AF_INET6;
-//            memcpy(&(tuple->src_addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
-//            memcpy(&(tuple->dst_addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
-            tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-            len = sizeof(struct ip6_hdr);
-            break;
-        default:
-            lmlog(DBG_2,"extract_5_tuples_from_packet: No ip packet identified");
-            return (BAD);
+    case 4:
+        ip_addr_set_v4(lisp_addr_ip(&tuple->src_addr), &iph->saddr);
+        ip_addr_set_v4(lisp_addr_ip(&tuple->dst_addr), &iph->daddr);
+        tuple->protocol = iph->protocol;
+        len = iph->ihl * 4;
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *) packet;
+        ip_addr_set_v6(lisp_addr_ip(&tuple->src_addr), &ip6h->ip6_src);
+        ip_addr_set_v6(lisp_addr_ip(&tuple->dst_addr), &ip6h->ip6_dst);
+        tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+        len = sizeof(struct ip6_hdr);
+        break;
+    default:
+        lmlog(DBG_2, "extract_5_tuples_from_packet: No ip packet identified");
+        return (BAD);
     }
 
-    if (tuple->protocol == IPPROTO_UDP){
-        udp = (struct udphdr *)CO(packet,len);
+    if (tuple->protocol == IPPROTO_UDP) {
+        udp = (struct udphdr *) CO(packet, len);
         tuple->src_port = ntohs(udp->source);
         tuple->dst_port = ntohs(udp->dest);
-    }else if (tuple->protocol == IPPROTO_TCP){
-        tcp = (struct tcphdr *)CO(packet,len);
+    } else if (tuple->protocol == IPPROTO_TCP) {
+        tcp = (struct tcphdr *) CO(packet, len);
         tuple->src_port = ntohs(tcp->source);
         tuple->dst_port = ntohs(tcp->dest);
-    }else{//If protocol is not TCP or UDP, ports of the tuple set to 0
+    } else { //If protocol is not TCP or UDP, ports of the tuple set to 0
         tuple->src_port = 0;
         tuple->dst_port = 0;
     }
     return (GOOD);
 }
-
-
-/*
- * Select the source RLOC according to the priority and weight.
- */
-
-int select_src_locators_from_balancing_locators_vec (
-        mapping_t   *src_mapping,
-        packet_tuple        tuple,
-        locator_t   **src_locator);
-
-
-/*
- * Select the source and destination RLOC according to the priority and weight.
- * The destination RLOC is selected according to the AFI of the selected source RLOC
- */
-
-int select_rmt_srloc_from_bvec (
-        mapping_t   *src_mapping,
-        mapping_t   *dst_mapping,
-        packet_tuple        tuple,
-        locator_t   **src_locator,
-        locator_t   **dst_locator);
-
-/*
- * Output multicast packets (for now only SSM)
- */
-int lisp_output_multicast (
-        uint8_t         *original_packet,
-        int             original_packet_length,
-        lisp_addr_t     *dst_eid);
 
 
 void add_ip_header (
@@ -328,13 +290,15 @@ int encapsulate_packet(
 }
 
 
-int get_afi_from_packet(uint8_t *packet){
-    int             afi     = 0;
-    struct iphdr    *iph    = NULL;
+int
+get_afi_from_packet(uint8_t *packet)
+{
+    int afi = 0;
+    struct iphdr *iph = NULL;
 
     iph = (struct iphdr *) packet;
 
-    switch (iph->version){
+    switch (iph->version) {
     case 4:
         afi = AF_INET;
         break;
@@ -349,14 +313,14 @@ int get_afi_from_packet(uint8_t *packet){
 }
 
 
-int forward_native(uint8_t *packet_buf, int pckt_length)
+int
+forward_native(uint8_t *pbuf, int plen)
 {
-
     int ret = 0;
     int output_socket = 0;
     int packet_afi = 0;
 
-    packet_afi = get_afi_from_packet(packet_buf);
+    packet_afi = get_afi_from_packet(pbuf);
     output_socket = get_default_output_socket(packet_afi);
 
     if (output_socket == -1) {
@@ -366,139 +330,19 @@ int forward_native(uint8_t *packet_buf, int pckt_length)
     }
 
     lmlog(DBG_3, "Fordwarding native for destination %s",
-            get_char_from_lisp_addr_t(
-                    extract_dst_addr_from_packet(packet_buf)));
+            get_char_from_lisp_addr_t(extract_dst_addr_from_packet(pbuf)));
 
-    ret = send_packet(output_socket, packet_buf, pckt_length);
+    ret = send_packet(output_socket, pbuf, plen);
     return (ret);
-
 }
 
-/*
- * Send a packet to a proxy etr
- */
 
-
-int fordward_to_petr(
-        uint8_t                 *original_packet,
-        int                     original_packet_length,
-        mapping_t               *src_mapping,
-        packet_tuple            tuple)
+lisp_addr_t
+extract_dst_addr_from_packet(uint8_t *packet)
 {
-    locator_t           *outer_src_locator  = NULL;
-    locator_t           *outer_dst_locator  = NULL;
-    lisp_addr_t                 *src_addr           = NULL;
-    lisp_addr_t                 *dst_addr           = NULL;
-    lcl_locator_extended_info   *loc_extended_info  = NULL;
-    uint8_t                     *encap_packet       = NULL;
-    int                         encap_packet_size   = 0;
-    int                         output_socket       = 0;
-
-    if (proxy_etrs == NULL){
-        lmlog(DBG_3, "fordward_to_petr: Proxy-etr not found");
-        return (BAD);
-    }
-
-    if ((select_rmt_srloc_from_bvec (
-                src_mapping,
-                proxy_etrs->mapping,
-                tuple,
-                &outer_src_locator,
-                &outer_dst_locator)) != GOOD){
-        lmlog(DBG_3, "fordward_to_petr: No Proxy-etr compatible with local locators afi");
-        return (BAD);
-    }
-    src_addr = outer_src_locator->addr;
-    dst_addr = outer_dst_locator->addr;
-
-    /* If the selected src locator is behind NAT, fordware to the RTR */
-    loc_extended_info = (lcl_locator_extended_info *)outer_src_locator->extended_info;
-    if (loc_extended_info->rtr_locators_list != NULL){
-        dst_addr = &(loc_extended_info->rtr_locators_list->locator->address);
-    }
-
-    if (encapsulate_packet(original_packet,
-            original_packet_length,
-            src_addr,
-            dst_addr,
-            LISP_DATA_PORT,
-            LISP_DATA_PORT,
-            0,
-            &encap_packet,
-            &encap_packet_size) != GOOD){
-        return (BAD);
-    }
-
-    output_socket = *(((lcl_locator_extended_info *)(outer_src_locator->extended_info))->out_socket);
-
-    if (send_packet (output_socket,encap_packet,encap_packet_size ) != GOOD){
-        free (encap_packet );
-        return (BAD);
-    }
-
-    lmlog(DBG_3, "Fordwarded eid %s to petr",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
-    free (encap_packet );
-
-    return (GOOD);
-}
-
-int forward_to_natt_rtr(
-        uint8_t             *original_packet,
-        int                 original_packet_length,
-        locator_t   *src_locator)
-{
-
-    uint8_t                     *encap_packet       = NULL;
-    int                         encap_packet_size   = 0;
-    lcl_locator_extended_info   *extended_info      = NULL;
-    rtr_locators_list     *rtr_locators_list  = NULL;
-    int                         output_socket       = 0;
-    
-    lisp_addr_t                 *src_addr;
-    lisp_addr_t                 *dst_addr;
-
-    extended_info = (lcl_locator_extended_info *)src_locator->extended_info;
-    rtr_locators_list = extended_info->rtr_locators_list;
-    if (rtr_locators_list == NULL){
-        //Could be due to RTR discarded by source afi type
-        lmlog(DBG_2,"forward_to_natt_rtr: No RTR for the selected src locator (%s).",
-                get_char_from_lisp_addr_t(*(src_locator->addr)));
-        return (BAD);
-    }
-    src_addr = src_locator->addr;
-    dst_addr = &(rtr_locators_list->locator->address);
-
-    lmlog(DBG_3, "Forwarding eid %s to NAT RTR",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
-
-    if (encapsulate_packet(original_packet,
-        original_packet_length,
-        src_addr,
-        dst_addr,
-        LISP_DATA_PORT,
-        LISP_DATA_PORT,
-        0,
-        &encap_packet,
-        &encap_packet_size) != GOOD){
-        return (BAD);
-    }
-
-    output_socket = *(extended_info->out_socket);
-    if (send_packet (output_socket,encap_packet,encap_packet_size ) != GOOD){
-        free (encap_packet );
-        return (BAD);
-    }
-
-    lmlog(DBG_3, "Fordwarded eid %s to NAT RTR",get_char_from_lisp_addr_t(extract_dst_addr_from_packet(original_packet)));
-    free (encap_packet );
-
-    return (GOOD);
-} 
-
-lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
-{
-    lisp_addr_t     addr    = {.afi=AF_UNSPEC, .lafi=LM_AFI_IP};
-    struct iphdr    *iph    = NULL;
-    struct ip6_hdr  *ip6h   = NULL;
+    lisp_addr_t addr = { .afi = AF_UNSPEC, .lafi = LM_AFI_IP };
+    struct iphdr *iph = NULL;
+    struct ip6_hdr *ip6h = NULL;
 
     iph = (struct iphdr *) packet;
 
@@ -510,7 +354,8 @@ lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
         ip_addr_set_v6(lisp_addr_ip(&addr), &ip6h->ip6_dst);
         break;
     default:
-        lmlog(DBG_3,"extract_dst_addr_from_packet: uknown ip version %d", iph->version);
+        lmlog(DBG_3, "extract_dst_addr_from_packet: uknown ip version %d",
+                iph->version);
         break;
     }
 
@@ -519,73 +364,8 @@ lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
 
 
 
-/*
- * Calculate the hash of the 5 tuples of a packet
- */
-
-uint32_t get_hash_from_tuple (packet_tuple tuple)
-{
-    int         hash    = 0;
-    int         len     = 0;
-    int         port    = tuple.src_port;
-    uint32_t    *tuples = NULL;
-
-    port = port + ((int)tuple.dst_port << 16);
-    switch (tuple.src_addr.afi){
-    case AF_INET:
-        len = 4; // 1 integer src_addr + 1 integer dst_adr + 1 integer (ports) + 1 integer protocol
-        if ((tuples = (uint32_t *)malloc(sizeof(uint32_t)*(4))) == NULL ){
-            lmlog(LWRN,"get_hash_from_tuple: Couldn't allocate memory for tuples array: %s", strerror(errno));
-            return (0);
-        }
-        tuples[0] = tuple.src_addr.address.ip.s_addr;
-        tuples[1] = tuple.dst_addr.address.ip.s_addr;
-        tuples[2] = port;
-        tuples[3] = tuple.protocol;
-        break;
-    case AF_INET6:
-        len = 10; // 4 integer src_addr + 4 integer dst_adr + 1 integer (ports) + 1 integer protocol
-        if ((tuples = (uint32_t *)malloc(sizeof(uint32_t)*(10))) == NULL ){
-            lmlog(LWRN,"get_hash_from_tuple: Couldn't allocate memory for tuples array: %s", strerror(errno));
-            return (0);
-        }
-        memcpy(&tuples[0],&(tuple.src_addr.address.ipv6),sizeof(struct in6_addr));
-        memcpy(&tuples[4],&(tuple.dst_addr.address.ipv6),sizeof(struct in6_addr));
-        tuples[8] = port;
-        tuples[9] = tuple.protocol;
-        break;
-    }
-
-    hash = hashword (tuples,len, 2013); //2013 used as initial value
-    free (tuples);
-
-    return (hash);
-}
-
-
-lisp_addr_t *get_default_locator_addr(
-        mcache_entry_t   *entry,
-        int                     afi)
-{
-
-    lisp_addr_t *addr   = NULL;
-
-    switch(afi){ 
-    case AF_INET:
-        addr = entry->mapping->head_v4_locators_list->locator->addr;
-        break;
-    case AF_INET6:
-        addr = entry->mapping->head_v6_locators_list->locator->addr;
-        break;
-    }
-
-    return (addr);
-}
-
-
-int is_lisp_packet(
-        uint8_t *packet,
-        int     packet_length)
+int
+is_lisp_packet(uint8_t *packet, int packet_length)
 {
 
     struct iphdr        *iph        = NULL;
@@ -633,22 +413,17 @@ int is_lisp_packet(
 }
 
 
-int lisp_output_multicast (
-        uint8_t         *original_packet,
-        int             original_packet_length,
-        lisp_addr_t     *dst_eid)
+int
+lisp_output_multicast(uint8_t *pkt, int plen, lisp_addr_t *dst_eid)
 {
-    glist_t                     *or_list            = NULL;
-    uint8_t                     *encap_packet       = NULL;
-    lisp_addr_t                 *src_rloc           = NULL;
-    lisp_addr_t                 *dst_rloc           = NULL;
-    locator_t                   *locator            = NULL;
-    glist_entry_t               *it                 = NULL;
-//    mc_t                        *mcaddr             = NULL;
-//    lispd_iface_elt             *outiface           = NULL;
-
-    int                     encap_packet_size   = 0;
-    int                     output_socket       = 0;
+    glist_t *or_list = NULL;
+    uint8_t *encap_packet = NULL;
+    lisp_addr_t *src_rloc = NULL;
+    lisp_addr_t *dst_rloc = NULL;
+    locator_t *locator = NULL;
+    glist_entry_t *it = NULL;
+    int encap_plen = 0;
+    int osock = 0;
 
     /* get the output RLOC list */
     or_list = re_get_orlist(dst_eid);
@@ -658,11 +433,10 @@ int lisp_output_multicast (
     glist_for_each_entry(it, or_list){
         /* TODO: take locator out, just send mcaddr and out socket */
         locator =  (locator_t *)glist_entry_data(it);
-//        mcaddr = lcaf_addr_get_mc(lisp_addr_get_lcaf(locator_addr(locator)));
         src_rloc = lcaf_mc_get_src(lisp_addr_get_lcaf(locator_addr(locator)));
         dst_rloc = lcaf_mc_get_grp(lisp_addr_get_lcaf(locator_addr(locator)));
-        encapsulate_packet(original_packet,
-                original_packet_length,
+        encapsulate_packet(pkt,
+                plen,
                 src_rloc,
                 dst_rloc,
                 LISP_DATA_PORT, //TODO: UDP src port based on hash?
@@ -670,11 +444,10 @@ int lisp_output_multicast (
                 //entry->mapping->iid, //XXX iid not supported yet
                 0,
                 &encap_packet,
-                &encap_packet_size);
+                &encap_plen);
 
-//        output_socket = *(((lcl_locator_extended_info *)(locator->extended_info))->out_socket);
-        output_socket = iface_socket(get_interface_with_address(src_rloc), lisp_addr_ip_afi(src_rloc));
-        send_packet(output_socket,encap_packet,encap_packet_size);
+        osock = iface_socket(get_interface_with_address(src_rloc), lisp_addr_ip_afi(src_rloc));
+        send_packet(osock, encap_packet, encap_plen);
 
         free (encap_packet);
     }
@@ -688,12 +461,13 @@ int lisp_output_multicast (
 
 
 int
-lisp_output_unicast(uint8_t *original_packet, int original_packet_length,
-        packet_tuple *tuple)
+lisp_output_unicast(uint8_t *pkt, int plen, packet_tuple *tuple)
 {
     forwarding_entry *fwd_entry = NULL;
-    uint8_t *encap_packet = NULL;
-    int encap_packet_size = 0;
+    uint8_t *encap_pkt = NULL;
+    int encap_plen = 0, dafi;
+    iface_t *iface;
+    int osock;
 
     /* find a forwarding entry, either in cache or ask control */
     if (ctrl_dev->mode == RTR_MODE) {
@@ -702,126 +476,137 @@ lisp_output_unicast(uint8_t *original_packet, int original_packet_length,
         fwd_entry = ctrl_get_forwarding_entry(tuple);
     }
 
-    /* FC: should we forward natively all packets with no forwarding entry or not? */
-    if (!fwd_entry)
-        return (BAD);
-
-    /* Packets with no source RLOC OR
-     * Packets with negative map cache entry, no active map cache entry or no map cache entry and no PETR
+    /* Packets with no/negative map cache entry AND no PETR
+     * OR packets with missing src or dst RLOCs
      * forward them natively */
-    if (!fwd_entry->src_rloc) {
-        return (forward_native(original_packet, original_packet_length));
-
-        /* TODO XXX: temporary! When it will be part of a cache, no need to free */
-        free(fwd_entry);
-        return (GOOD);
+    if (!fwd_entry || (!fwd_entry->srloc && !fwd_entry->drloc)) {
+        return(forward_native(pkt, plen));
     }
 
-    encapsulate_packet(original_packet, original_packet_length,
-            fwd_entry->src_rloc, fwd_entry->dst_rloc,
-            LISP_DATA_PORT, //TODO: UDP src port based on hash?
+    dafi = lisp_addr_ip_afi(fwd_entry->drloc);
+
+    /* if no srloc, choose default */
+    if (!fwd_entry->srloc) {
+        fwd_entry->srloc = get_default_output_address(dafi);
+        if (!fwd_entry->srloc) {
+            free(fwd_entry);
+            lmlog(DBG_1, "Failed to set source RLOC with afi %d", dafi);
+            return(BAD);
+        }
+    }
+
+    iface = get_interface_with_address(fwd_entry->srloc);
+    osock = iface_socket(iface, dafi);
+
+    encapsulate_packet(pkt, plen,
+            fwd_entry->srloc, fwd_entry->drloc,
             LISP_DATA_PORT,
-            //entry->mapping->iid, //XXX iid not supported yet
-            0, &encap_packet, &encap_packet_size);
+            LISP_DATA_PORT,
+            0, &encap_pkt, &encap_plen);
 
-    send_packet(fwd_entry->out_socket, encap_packet, encap_packet_size);
+    send_packet(osock, encap_pkt, encap_plen);
 
-    free(encap_packet);
-    /* TODO TEMPORARY, up to when we have cache */
+    free(encap_pkt);
     free(fwd_entry);
     return (GOOD);
 }
 
-int tuple_get_dst_lisp_addr(packet_tuple tuple, lisp_addr_t *addr){
+int
+tuple_get_dst_lisp_addr(packet_tuple *tuple, lisp_addr_t *addr){
 
     /* TODO this really needs optimization */
 
     uint16_t    plen;
     lcaf_addr_t *lcaf;
 
-    if (ip_addr_is_multicast(lisp_addr_ip(&(tuple.dst_addr)))) {
-        if (lisp_addr_afi(&tuple.src_addr) != LM_AFI_IP || lisp_addr_afi(&tuple.src_addr) != LM_AFI_IP) {
-           lmlog(DBG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not of IP syntax!",
-                   lisp_addr_to_char(&tuple.src_addr), lisp_addr_to_char(&tuple.dst_addr));
+    if (ip_addr_is_multicast(lisp_addr_ip(&tuple->dst_addr))) {
+        if (lisp_addr_afi(&tuple->src_addr) != LM_AFI_IP
+            || lisp_addr_afi(&tuple->src_addr) != LM_AFI_IP) {
+           lmlog(DBG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not "
+                   "of IP syntax!", lisp_addr_to_char(&tuple->src_addr),
+                   lisp_addr_to_char(&tuple->dst_addr));
            return(BAD);
         }
 
         lisp_addr_set_afi(addr, LM_AFI_LCAF);
-        plen = (tuple.dst_addr.afi == AF_INET) ? 32 : 128;
+        plen = ip_afi_to_default_mask(lisp_addr_ip_afi(tuple->dst_addr));
         lcaf = lisp_addr_get_lcaf(addr);
         lcaf_addr_set_mc(lcaf, &tuple.src_addr, &tuple.dst_addr, plen, plen, 0);
 
     } else {
-        /* XXX this converts from old lisp_addr_t to new struct, potential source for errors*/
-//        addr->lafi = tuple->src_addr.lafi;
         lisp_addr_set_afi(addr, LM_AFI_IP);
-        ip_addr_copy(lisp_addr_ip(addr), lisp_addr_ip(&(tuple.dst_addr)));
+        ip_addr_copy(lisp_addr_ip(addr), lisp_addr_ip(&tuple->dst_addr));
     }
 
     return(GOOD);
 }
 
-int lisp_output(uint8_t *original_packet, int original_packet_length)
+int
+lisp_output(uint8_t *pkt, int plen)
 {
-    packet_tuple        tuple;
-    lisp_addr_t         *dst_addr           = NULL;
+    packet_tuple tuple;
+    lisp_addr_t *daddr = NULL;
 
     /* fcoras TODO: should use get_dst_lisp_addr instead of tuple */
-    if (extract_5_tuples_from_packet(original_packet, &tuple) != GOOD)
+    if (extract_5_tuples_from_packet(pkt, &tuple) != GOOD)
         return (BAD);
 
     lmlog(DBG_3,"OUTPUT: Orig src: %s | Orig dst: %s",
-            lisp_addr_to_char(&tuple.src_addr), lisp_addr_to_char(&tuple.dst_addr));
+            lisp_addr_to_char(&tuple.src_addr),
+            lisp_addr_to_char(&tuple.dst_addr));
 
 
     /* If already LISP packet, do not encapsulate again */
-
-    if (is_lisp_packet(original_packet,original_packet_length))
-        return (forward_native(original_packet,original_packet_length));
-
+    if (is_lisp_packet(pkt, plen)) {
+        return (forward_native(pkt, plen));
+    }
 
     /* convert tuple to lisp_addr_t, to be used for map-cache lookup
-     * TODO: should be a tad more efficient
-     */
-
-    dst_addr = lisp_addr_new();
-    if (tuple_get_dst_lisp_addr(tuple, dst_addr) != GOOD) {
+     * TODO: should be a tad more efficient  */
+    daddr = lisp_addr_new();
+    if (tuple_get_dst_lisp_addr(&tuple, daddr) != GOOD) {
         lmlog(LWRN, "lisp_output: Unable to determine "
                 "destination address from tuple: src %s dst %s",
-                lisp_addr_to_char(&tuple.src_addr), lisp_addr_to_char(&tuple.dst_addr));
+                lisp_addr_to_char(&tuple.src_addr),
+                lisp_addr_to_char(&tuple.dst_addr));
         return(BAD);
     }
 
-    switch (lisp_addr_afi(dst_addr)) {
+    switch (lisp_addr_afi(daddr)) {
         case LM_AFI_IP:
         case LM_AFI_IP6:
-            lisp_output_unicast(original_packet, original_packet_length, &tuple);
+            lisp_output_unicast(pkt, plen, &tuple);
             break;
         case LM_AFI_LCAF:
-            if(lcaf_addr_get_type(lisp_addr_get_lcaf(dst_addr)) == LCAF_MCAST_INFO)
-                lisp_output_multicast(original_packet, original_packet_length, dst_addr);
+            if(lisp_addr_lcaf_get_type(daddr) == LCAF_MCAST_INFO) {
+                lisp_output_multicast(pkt, plen, daddr);
+            }
             break;
         default:
-            lmlog(LWRN, "lisp_output: Unable to forward anything but IP and mcast packets!");
+            lmlog(LWRN, "lisp_output: Unable to forward anything but IP "
+                    "and mcast packets!");
             break;
     }
 
-    lisp_addr_del(dst_addr);
+    lisp_addr_del(daddr);
 
     return(GOOD);
 }
 
-int process_output_packet (struct sock *sl)
+int
+recv_output_packet(struct sock *sl)
 {
-    int         nread   = 0;
+    int nread = 0;
 
-    if ((nread = read(sl->fd, tun_receive_buf, TUN_RECEIVE_SIZE)) == 0) {
-        lmlog(LWRN, "OUTPUT: Error while reading from tun:%s", strerror(errno));
-        return(BAD);
+    nread = read(sl->fd, tun_receive_buf, TUN_RECEIVE_SIZE);
+    if (nread == 0) {
+        lmlog(LWRN, "OUTPUT: Error while reading from tun:%s",
+                strerror(errno));
+        return (BAD);
     }
 
     lisp_output(tun_receive_buf, nread);
-    return(GOOD);
+    return (GOOD);
 }
 
 

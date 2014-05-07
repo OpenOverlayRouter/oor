@@ -41,28 +41,24 @@
 #include <lispd_iface_list.h>
 #include <lispd_lib.h>
 #include <cksum.h>
-#include <lispd_map_cache_db.h>
+//#include <lispd_map_cache_db.h>
 #include <lispd_external.h>
-#include <lispd_control.h>
+#include <lisp_control.h>
 
 
 typedef struct _forwarding_entry {
-    lisp_addr_t *src_rloc;
-    lisp_addr_t *dst_rloc;
-    int         out_socket;
+    lisp_addr_t *srloc;
+    lisp_addr_t *drloc;
+//    int         out_socket;
     /* fill in other stuff */
     int natt_flag;
 } forwarding_entry;
 
-int process_output_packet(struct sock *sl);
+int recv_output_packet(struct sock *sl);
 int lisp_output(uint8_t *original_packet, int original_packet_length);
 
-lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet );
-
-lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet );
-
-lisp_addr_t *get_proxy_etr(int afi);
-
+lisp_addr_t extract_dst_addr_from_packet(uint8_t *packet);
+lisp_addr_t extract_src_addr_from_packet(uint8_t *packet);
 
 
 

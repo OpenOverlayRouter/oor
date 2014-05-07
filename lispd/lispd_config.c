@@ -1253,7 +1253,7 @@ get_interface_name_from_address(lisp_addr_t *addr)
         return(NULL);
     }
 
-    iface = hash_table_lookup(iface_addr_ht, lisp_addr_to_char(addr));
+    iface = shash_lookup(iface_addr_ht, lisp_addr_to_char(addr));
     if (iface) {
         return((char *)iface);
     } else {

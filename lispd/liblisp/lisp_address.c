@@ -29,21 +29,20 @@
 #include "lisp_address.h"
 #include "defs.h"
 
-/*
- * lisp_addr_t functions
- */
-
-static inline lm_afi_t get_afi_(lisp_addr_t *laddr)
+static inline lm_afi_t
+get_afi_(lisp_addr_t *laddr)
 {
     return (laddr->lafi);
 }
 
-static inline void set_afi_(lisp_addr_t *laddr, lm_afi_t lafi)
+static inline void
+set_afi_(lisp_addr_t *laddr, lm_afi_t lafi)
 {
     laddr->lafi = lafi;
 }
 
-static inline lisp_addr_t *new_ip_()
+static inline lisp_addr_t *
+new_ip_()
 {
     lisp_addr_t *laddr = lisp_addr_new();
     set_afi_(laddr, LM_AFI_IP);
@@ -51,14 +50,16 @@ static inline lisp_addr_t *new_ip_()
     return (laddr);
 }
 
-static inline lisp_addr_t *new_ippref_()
+static inline lisp_addr_t *
+new_ippref_()
 {
     lisp_addr_t *laddr = lisp_addr_new();
     set_afi_(laddr, LM_AFI_IPPREF);
     return (laddr);
 }
 
-static inline lisp_addr_t *new_lcaf_()
+static inline lisp_addr_t *
+new_lcaf_()
 {
     lisp_addr_t *laddr;
 
@@ -67,7 +68,8 @@ static inline lisp_addr_t *new_lcaf_()
     return (laddr);
 }
 
-static inline lisp_addr_t *new_afi_(lm_afi_t afi)
+static inline lisp_addr_t *
+new_afi_(lm_afi_t afi)
 {
     switch (afi) {
     case LM_AFI_IP:
@@ -83,32 +85,38 @@ static inline lisp_addr_t *new_afi_(lm_afi_t afi)
     return (NULL);
 }
 
-static inline ip_addr_t *get_ip_(lisp_addr_t *addr)
+static inline ip_addr_t *
+get_ip_(lisp_addr_t *addr)
 {
     return (&addr->ip);
 }
 
-static inline ip_addr_t *get_ippref_(lisp_addr_t *addr)
+static inline ip_addr_t *
+get_ippref_(lisp_addr_t *addr)
 {
     return (&addr->ippref);
 }
 
-static inline ip_addr_t *get_lcaf_(lisp_addr_t *addr)
+static inline ip_addr_t *
+get_lcaf_(lisp_addr_t *addr)
 {
     return (&addr->lcaf);
 }
 
-inline lisp_addr_t *lisp_addr_new_afi(uint8_t afi)
+inline lisp_addr_t *
+lisp_addr_new_afi(uint8_t afi)
 {
     return (new_afi_(afi));
 }
 
-inline lisp_addr_t *lisp_addr_new()
+inline lisp_addr_t *
+lisp_addr_new()
 {
     return (xzalloc(sizeof(lisp_addr_t)));
 }
 
-inline void lisp_addr_del(lisp_addr_t *laddr)
+inline void
+lisp_addr_del(lisp_addr_t *laddr)
 {
     if (!laddr)
         return;
@@ -131,28 +139,33 @@ inline void lisp_addr_del(lisp_addr_t *laddr)
     }
 }
 
-inline lm_afi_t lisp_addr_afi(lisp_addr_t *addr)
+inline lm_afi_t
+lisp_addr_afi(lisp_addr_t *addr)
 {
     assert(addr);
     return (addr->lafi);
 }
 
-inline ip_addr_t *lisp_addr_ip(lisp_addr_t *addr)
+inline ip_addr_t *
+lisp_addr_ip(lisp_addr_t *addr)
 {
     return (get_ip_(addr));
 }
 
-inline ip_prefix_t *lisp_addr_get_ippref(lisp_addr_t *addr)
+inline ip_prefix_t *
+lisp_addr_get_ippref(lisp_addr_t *addr)
 {
     return (get_ippref_(addr));
 }
 
-inline lcaf_addr_t *lisp_addr_get_lcaf(lisp_addr_t *addr)
+inline lcaf_addr_t *
+lisp_addr_get_lcaf(lisp_addr_t *addr)
 {
     return (get_lcaf_(addr));
 }
 
-inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr)
+inline uint16_t
+lisp_addr_get_iana_afi(lisp_addr_t *laddr)
 {
 
     switch (lisp_addr_afi(laddr)) {
@@ -173,7 +186,8 @@ inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr)
     }
 }
 
-inline uint32_t lisp_addr_size_to_write(lisp_addr_t *laddr)
+inline uint32_t
+lisp_addr_size_to_write(lisp_addr_t *laddr)
 {
     switch (lisp_addr_afi(laddr)) {
     case LM_AFI_NO_ADDR:
@@ -195,7 +209,8 @@ inline uint32_t lisp_addr_size_to_write(lisp_addr_t *laddr)
     return (0);
 }
 
-inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr)
+inline uint16_t
+lisp_addr_get_plen(lisp_addr_t *laddr)
 {
     assert(laddr);
     switch (lisp_addr_afi(laddr)) {
@@ -211,7 +226,8 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr)
     return (0);
 }
 
-char *lisp_addr_to_char(lisp_addr_t *addr)
+char *
+lisp_addr_to_char(lisp_addr_t *addr)
 {
     if (!addr) {
         lmlog(DBG_3, "lisp_addr_to_char: called with uninitialized address");
@@ -238,12 +254,14 @@ char *lisp_addr_to_char(lisp_addr_t *addr)
     return (NULL);
 }
 
-inline void lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi)
+inline void
+lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi)
 {
     set_afi_(addr, afi);
 }
 
-inline void lisp_addr_ip_to_ippref(lisp_addr_t *laddr)
+inline void
+lisp_addr_ip_to_ippref(lisp_addr_t *laddr)
 {
     assert(laddr);
     if (lisp_addr_afi(laddr) != LM_AFI_IP
@@ -257,7 +275,8 @@ inline void lisp_addr_ip_to_ippref(lisp_addr_t *laddr)
             ip_addr_afi_to_default_mask(lisp_addr_ip(laddr)));
 }
 
-inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr)
+inline uint16_t
+lisp_addr_ip_afi(lisp_addr_t *addr)
 {
     switch (get_afi_(addr)) {
     case LM_AFI_IP:
@@ -271,7 +290,8 @@ inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr)
     }
 }
 
-void lisp_addr_set_ip_afi(lisp_addr_t *la, int afi)
+void
+lisp_addr_set_ip_afi(lisp_addr_t *la, int afi)
 {
     switch (get_afi_(la)) {
     case LM_AFI_IP:
@@ -313,7 +333,8 @@ lisp_addr_ip_get_addr(lisp_addr_t *laddr)
     return (NULL);
 }
 
-inline uint8_t lisp_addr_ip_get_plen(lisp_addr_t *laddr)
+inline uint8_t
+lisp_addr_ip_get_plen(lisp_addr_t *laddr)
 {
     switch (get_afi_(laddr)) {
     case LM_AFI_IP:
@@ -331,7 +352,8 @@ inline uint8_t lisp_addr_ip_get_plen(lisp_addr_t *laddr)
     return (0);
 }
 
-inline void lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi)
+inline void
+lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi)
 {
     switch (get_afi_(laddr)) {
     case LM_AFI_IP:
@@ -347,12 +369,14 @@ inline void lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi)
     }
 }
 
-int lisp_addr_is_ip(lisp_addr_t *addr)
+int
+lisp_addr_is_ip(lisp_addr_t *addr)
 {
     return (get_afi_(addr) == LM_AFI_IP);
 }
 
-inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen)
+inline void
+lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen)
 {
     assert(laddr);
     switch (get_afi_(laddr)) {
@@ -374,7 +398,8 @@ inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen)
  * lisp_addr_copy - copies src to dst. Still works if they have different internal
  * structures. Note that dst MUST be allocated prior to calling the function
  */
-void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
+void
+lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
 {
     assert(src);
 
@@ -396,7 +421,8 @@ void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
     }
 }
 
-lisp_addr_t *lisp_addr_clone(lisp_addr_t *src)
+lisp_addr_t *
+lisp_addr_clone(lisp_addr_t *src)
 {
     assert(src);
     lisp_addr_t *dst;
@@ -406,7 +432,8 @@ lisp_addr_t *lisp_addr_clone(lisp_addr_t *src)
     return (dst);
 }
 
-inline uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src)
+inline uint32_t
+lisp_addr_copy_to(void *dst, lisp_addr_t *src)
 {
     assert(dst);
     assert(src);
@@ -438,7 +465,8 @@ inline uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src)
  * Description: The function copies what is *CONTAINED* in a lisp address
  * to a certain memory location, NOT the whole structure!
  */
-inline int lisp_addr_write(void *offset, lisp_addr_t *laddr)
+inline int
+lisp_addr_write(void *offset, lisp_addr_t *laddr)
 {
     switch (lisp_addr_afi(laddr)) {
     case LM_AFI_IP:
