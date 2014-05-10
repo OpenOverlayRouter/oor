@@ -288,7 +288,7 @@ sock_send(int sock, struct lbuf *b, uconn_t *uc)
 
     if (lisp_addr_afi(&uc->la) != LM_AFI_IP
         || lisp_addr_afi(&uc->rp) != LM_AFI_IP) {
-        lmlog(DBG_1, "sock_send: src %s and dst % of UDP are not IP. "
+        lmlog(DBG_2, "sock_send: src %s and dst % of UDP are not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra));
         return(BAD);
@@ -297,7 +297,7 @@ sock_send(int sock, struct lbuf *b, uconn_t *uc)
     dst = lisp_addr_ip(&uc->ra);
 
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
-        lmglog(DBG_1, "sock_send: src %s and dst %s of UDP connection have"
+        lmglog(DBG_2, "sock_send: src %s and dst %s of UDP connection have"
                 "different IP AFI. Discarding!", ip_addr_to_char(src),
                 ip_addr_to_char(dst));
         return(BAD);

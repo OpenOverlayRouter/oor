@@ -234,24 +234,6 @@ typedef struct lisphdr {
 
 
 
-typedef struct lispd_site_ID_
-{
-    uint8_t byte[8];
-
-} lisp_site_ID;
-
-typedef struct lispd_xTR_ID_
-{
-    uint8_t byte[16];
-
-} lisp_xTR_ID;
-
-/*
- *  for map-register auth data...
- */
-
-
-
 /*
  * Structure to simplify netlink processing
  */
@@ -318,7 +300,5 @@ typedef struct lisp_data_hdr {
 
 
 
-
-extern void exit_cleanup();
 
 #endif /* DEFS_H_ */

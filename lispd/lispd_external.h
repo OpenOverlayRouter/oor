@@ -35,16 +35,19 @@
 
 #include "lispd.h"
 #include <lispd_iface_list.h>
-#include <lispd_map_cache_entry.h>
-#include <lisp_ctrl_device.h>
+//#include <map_cache_entry.h>
 #include <elibs/htable/hash_table.h>
 
 
+typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
+typedef struct lisp_ctrl lisp_ctrl_t;
+typedef struct htable_t shash_t;
+typedef struct fwd_entry fwd_entry_t;
 
 //extern  lisp_addr_list_t       *map_resolvers;
 extern  lisp_addr_list_t       *proxy_itrs;
 //extern  mcache_entry_t   *proxy_etrs;
-extern  map_server_list_t *map_servers;
+extern  map_server_list_t       *map_servers;
 extern  char                    *config_file;
 //extern  char                    msg[];
 //extern  int                     map_request_retries;
@@ -78,9 +81,13 @@ extern iface_t          *default_out_iface_v4;
 extern iface_t          *default_out_iface_v6;
 //extern timer                    *smr_timer;
 
+extern sock_master_t *smaster;
 extern lisp_ctrl_dev_t *ctrl_dev;
 extern lisp_ctrl_t *lctrl;
 extern shash_t *iface_addr_ht;
+
+
+extern void exit_cleanup();
 
 #endif /*LISPD_EXTERNAL_H_*/
 

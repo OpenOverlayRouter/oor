@@ -99,6 +99,9 @@ typedef struct _lcaf_afi_list_hdr_t {
     uint16_t    length;
 } __attribute__ ((__packed__)) lcaf_afi_list_hdr_t;
 
+#define LCAF_CAST(ptr_) ((lcaf_hdr_t *)(ptr_))
+#define LCAF_TYPE(ptr_) LCAF_CAST((ptr_))->type
+#define LCAF_AFI(ptr_) LCAF_CAST((ptr_))->afi
 
 /* Instance ID
  * Only the low order 24 bits should be used
@@ -228,6 +231,17 @@ typedef struct _lcaf_mcinfo_hdr_t{
     uint8_t     src_mlen;
     uint8_t     grp_mlen;
 } __attribute__ ((__packed__)) lcaf_mcinfo_hdr_t;
+
+typedef struct mrsignaling_flags_t_ {
+    uint8_t rbit;
+    uint8_t jbit;
+    uint8_t lbit;
+} mrsignaling_flags_t;
+
+#define MCINFO_CAST(ptr_)((lcaf_mcinfo_hdr_t *)(ptr_))
+#define MCINFO_RBIT(ptr_) MCINFO_CAST((ptr_))->R
+#define MCINFO_LBIT(ptr_) MCINFO_CAST((ptr_))->L
+#define MCINFO_JBIT(ptr_) MCINFO_CAST((ptr_))->J
 
 
 /* Explicit Locator Path (ELP)
@@ -507,6 +521,15 @@ typedef struct _rtr_auth_field_hdr {
     uint16_t rtr_auth_data_len;
 } __attribute__ ((__packed__)) rtr_auth_field_hdr;
 
+
+/* NAT MAP-REGISTER FIELDS */
+typedef struct lispd_site_ID_{
+    uint8_t byte[8];
+} lisp_site_id;
+
+typedef struct lispd_xTR_ID_{
+    uint8_t byte[16];
+} lisp_xtr_id;
 
 char *locator_record_hdr_to_char(locator_hdr_t *h);
 

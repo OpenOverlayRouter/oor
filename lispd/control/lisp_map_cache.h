@@ -28,25 +28,24 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  *    Florin Coras      <fcoras@ac.upc.edu>
  */
+
 #ifndef LISPD_MAP_CACAHE_DB_H_
 #define LISPD_MAP_CACAHE_DB_H_
 
-#include <lispd_map_cache_entry.h>
 #include <defs.h>
-#include <lispd_types.h>
-#include <lispd_timers.h>
+#include <liblisp.h>
+#include <map_cache_entry.h>
 
-typedef struct _map_cache_db {
+typedef struct map_cache_db {
     mdb_t *db;
-    lisp_xtr_t *dev;
 } map_cache_db_t;
 
 map_cache_db_t *mcache_new();
 void mcache_del(map_cache_db_t *mcdb);
 
 
-int mcache_add_entry(map_cache_db_t *, mcache_entry_t *entry);
-void mcache_remove_entry(map_cache_db_t *, lisp_addr_t *key);
+int mcache_add_entry(map_cache_db_t *, lisp_addr_t *key, mcache_entry_t *entry);
+void *mcache_remove_entry(map_cache_db_t *, lisp_addr_t *key);
 void map_cache_del_entry(map_cache_db_t *, lisp_addr_t *laddr);
 mcache_entry_t *mcache_lookup_exact(map_cache_db_t *, lisp_addr_t *addr);
 mcache_entry_t *mcache_lookup(map_cache_db_t *, lisp_addr_t *addr);

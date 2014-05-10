@@ -64,13 +64,8 @@ typedef struct map_cache_entry_ {
 
     /* timers */
     timer *expiry_cache_timer;
-    timer_arg_t expiry_cache_arg;
-
     timer *request_retry_timer;
-    timer_arg_t request_retry_arg;
-
     timer *smr_inv_timer;
-    timer_arg_t smr_inv_arg;
 
     nonces_list_t *nonces;
 
@@ -79,8 +74,8 @@ typedef struct map_cache_entry_ {
 } mcache_entry_t;
 
 mcache_entry_t *mcache_entry_new();
-void mcache_entry_init(mcache_entry_t *mce, mapping_t *mapping);
-void mcache_entry_init_static(mcache_entry_t *mce, mapping_t *mapping);
+void mcache_entry_init(mcache_entry_t **, mapping_t *);
+void mcache_entry_init_static(mcache_entry_t **, mapping_t *);
 
 
 mcache_entry_t *new_map_cache_entry_no_db(lisp_addr_t eid_prefix,
@@ -91,10 +86,9 @@ void map_cache_entry_to_char(mcache_entry_t *entry, int log_level);
 
 static inline mapping_t *mcache_entry_mapping(mcache_entry_t*);
 static inline void mcache_entry_set_mapping(mcache_entry_t* , mapping_t *);
-static inline lisp_addr_t *mcache_entry_get_eid_addr(mcache_entry_t*);
 static inline nonces_list_t *mcache_entry_nonces(mcache_entry_t *);
 static inline uint8_t mcache_entry_active(mcache_entry_t *);
-static inline uint8_t mcache_entry_set_active(mcache_entry_t *, int);
+static inline void mcache_entry_set_active(mcache_entry_t *, int);
 static inline void mcache_entry_init_nonces(mcache_entry_t *);
 static inline void mcache_entry_destroy_nonces(mcache_entry_t *);
 static inline void mcache_entry_set_requester(mcache_entry_t *,
@@ -104,11 +98,9 @@ static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *);
 /* timer accessors */
 static inline timer *mcache_entry_req_retry_timer(mcache_entry_t *);
 static inline timer *mcache_entry_init_req_retry_timer(mcache_entry_t *);
-static inline timer_arg_t *mcache_entry_req_retry_timer_arg(mcache_entry_t *);
 static inline timer *mcache_entry_smr_inv_timer(mcache_entry_t *);
 static inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *);
 static inline timer *mcache_entry_init_smr_inv_timer(mcache_entry_t *);
-static inline timer_arg_t *mcache_entry_smr_inv_timer_arg(mcache_entry_t *);
 
 static inline mapping_t *mcache_entry_mapping(mcache_entry_t* mce)
 {
@@ -182,11 +174,6 @@ static inline timer *mcache_entry_init_req_retry_timer(mcache_entry_t *m)
 }
 
 
-static inline timer_arg_t *mcache_entry_req_retry_timer_arg(mcache_entry_t *m)
-{
-    return(&m->request_retry_arg);
-}
-
 static inline timer *mcache_entry_smr_inv_timer(mcache_entry_t *m)
 {
     return(m->smr_inv_timer);
@@ -205,11 +192,6 @@ static inline timer *mcache_entry_init_smr_inv_timer(mcache_entry_t *m)
     }
     m->smr_inv_timer = create_timer(SMR_INV_RETRY_TIMER);
     return(m->smr_inv_timer);
-}
-
-static inline timer_arg_t *mcache_entry_smr_inv_timer_arg(mcache_entry_t *m)
-{
-    return(&m->smr_inv_arg);
 }
 
 

@@ -37,12 +37,9 @@
 
 
 
-/*
- * Returns the length of the auth data field based on the key_id value
- */
-
-uint16_t get_auth_data_len(int key_id)
-
+/* Returns the length of the auth data field based on the key_id value */
+uint16_t
+get_auth_data_len(int key_id)
 {
     switch (key_id) {
     default: // HMAC_SHA_1_96
@@ -56,26 +53,19 @@ uint16_t get_auth_data_len(int key_id)
  * using key and puting the output in auth_data
  *
  */
-int compute_sha1_hmac(char *key,
-                      void *packet,
-                      int pckt_len,
-                      void *auth_data_pos)
+int
+compute_sha1_hmac(char *key, void *pkt, int pkt_len, void *ad_pos)
 
 {
-	uint16_t auth_data_len;
-    unsigned int md_len;    /* Length of the HMAC output.  */
+    uint16_t auth_data_len;
+    unsigned int md_len; /* Length of the HMAC output.  */
 
     auth_data_len = get_auth_data_len(HMAC_SHA_1_96);
 
-    memset(auth_data_pos, 0, auth_data_len);    /* make sure */
+    memset(ad_pos, 0, auth_data_len); /* make sure */
 
-    if (!HMAC((const EVP_MD *) EVP_sha1(),
-              (const void *) key,
-              strlen(key),
-              (uchar *) packet,
-              pckt_len,
-              (uchar *) auth_data_pos,
-              &md_len)) {
+    if (!HMAC((const EVP_MD *) EVP_sha1(), (const void *) key, strlen(key),
+            (uchar *) pkt, pkt_len, (uchar *) ad_pos, &md_len)) {
         lmlog(LISP_LOG_DEBUG_2, "HMAC failed");
 
         return (BAD);
@@ -91,13 +81,8 @@ int compute_sha1_hmac(char *key,
  * TODO Support more than SHA1
  */
 
-int complete_auth_fields(int key_id,
-                         uint16_t * key_id_pos,
-                         char *key,
-                         void *packet,
-                         int pckt_len,
-                         void *auth_data_pos)
-
+int complete_auth_fields(int key_id, uint16_t * key_id_pos, char *key,
+        void *packet, int pckt_len, void *auth_data_pos)
 {
     int err;
 
@@ -105,73 +90,61 @@ int complete_auth_fields(int key_id,
 
     switch (key_id) {
     default:   //HMAC_SHA_1_96     /* TODO support more auth algorithms */
-        err =
-            compute_sha1_hmac(key, packet, pckt_len, auth_data_pos);
+        err = compute_sha1_hmac(key, packet, pckt_len, auth_data_pos);
         return (err);
 
     }
-
 
 }
 
 
 
-int check_sha1_hmac(char *key,
-                    void *packet,
-                    int pckt_len,
-                    void *auth_data_pos)
+int
+check_sha1_hmac(char *key, void *packet, int pckt_len, void *auth_data_pos)
 {
     uint16_t auth_data_len;
-    unsigned int md_len;    /* Length of the HMAC output.  */
+    unsigned int md_len; /* Length of the HMAC output.  */
 
     uint8_t* auth_data_copy;
 
     auth_data_len = get_auth_data_len(HMAC_SHA_1_96);
 
-    auth_data_copy = (uint8_t *) malloc(auth_data_len*sizeof(uint8_t));
+    auth_data_copy = (uint8_t *) malloc(auth_data_len * sizeof(uint8_t));
     if (auth_data_copy == NULL) {
         lmlog(LISP_LOG_ERR, "check_sha1_hmac: malloc() failed");
-        return(BAD);
+        return (BAD);
     }
 
     /* Copy the data to another location and put 0's on the auth data field of the packet */
-    memcpy(auth_data_copy,auth_data_pos,auth_data_len);
-    memset(auth_data_pos,0,auth_data_len);
+    memcpy(auth_data_copy, auth_data_pos, auth_data_len);
+    memset(auth_data_pos, 0, auth_data_len);
 
-    if (!HMAC((const EVP_MD *) EVP_sha1(),
-              (const void *) key,
-              strlen(key),
-              (uchar *) packet,
-              pckt_len,
-              (uchar *) auth_data_pos,
-              &md_len)) {
+    if (!HMAC((const EVP_MD *) EVP_sha1(), (const void *) key, strlen(key),
+            (uchar *) packet, pckt_len, (uchar *) auth_data_pos, &md_len)) {
         lmlog(LISP_LOG_DEBUG_2, "SHA1 HMAC failed");
         free(auth_data_copy);
-        return(BAD);
+        return (BAD);
     }
-    if ((strncmp((char *)auth_data_pos, (char *)auth_data_copy, (size_t)auth_data_len)) == 0) {
+    if ((strncmp((char *) auth_data_pos, (char *) auth_data_copy,
+            (size_t) auth_data_len)) == 0) {
         free(auth_data_copy);
-        return(GOOD);
+        return (GOOD);
     } else {
         free(auth_data_copy);
-        return(BAD);
+        return (BAD);
     }
 }
 
-int check_auth_field(int key_id,
-                     char *key,
-                     void *packet,
-                     int pckt_len,
-                     void *auth_data_pos)
-
+int
+check_auth_field(int key_id, char *key, void *packet, int pckt_len,
+        void *auth_data_pos)
 {
 
-    switch (key_id){
-        default:      /* Only sha1 hmac supported at the moment */
-            return(check_sha1_hmac(key, packet, pckt_len,  auth_data_pos));
+    switch (key_id) {
+    default: /* Only sha1 hmac supported at the moment */
+        return (check_sha1_hmac(key, packet, pckt_len, auth_data_pos));
 
     }
-
 
 }
 

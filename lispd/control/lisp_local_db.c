@@ -30,26 +30,26 @@
  */
 
 
-#include "lispd_local_db.h"
-#include <netinet/in.h>
+#include "lisp_local_db.h"
 #include "lispd_external.h"
-#include "lispd_lib.h"
+//#include "lispd_lib.h"
+#include <netinet/in.h>
 
 
 local_map_db_t *
 local_map_db_new()
 {
     local_map_db_t *db;
-    db = calloc(1, sizeof(local_map_db_t));
+    db = xzalloc(sizeof(local_map_db_t));
     if (!db) {
         lmlog(LCRIT, "Could allocate map cache db ");
-        exit_cleanup();
+        return(NULL);
     }
 
     db->db = mdb_new();
     if (!db->db) {
         lmlog(LCRIT, "Could allocate map cache db ");
-        exit_cleanup();
+        return(NULL);
     }
 
     return(db);
@@ -57,7 +57,7 @@ local_map_db_new()
 
 void local_map_db_del(local_map_db_t *lmdb)
 {
-    mdb_del(lmdb->db, mapping_del);
+    mdb_del(lmdb->db, (mdb_del_fct)mapping_del);
 }
 
 

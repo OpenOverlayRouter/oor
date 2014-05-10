@@ -239,9 +239,9 @@ ecm_hdr_to_char(ecm_hdr_t *h) {
 /* Given the start of an address field, @addr, checks if the address is an
  * MCAST_INFO LCAF that carries mrsignaling flags */
 uint8_t is_mrsignaling(address_hdr_t *addr) {
-    return( address_field_afi(addr) == LISP_AFI_LCAF
-            && address_field_lcaf_type(addr) == LCAF_MCAST_INFO
-            && (address_field_get_mc_hdr(addr)->J || address_field_get_mc_hdr(addr)->L));
+    return(ntohs(LCAF_AFI(addr)) == LISP_AFI_LCAF
+            && LCAF_TYPE(addr) == LCAF_MCAST_INFO
+            && (MCINFO_JBIT(addr) || MCINF_LBIT(addr)));
 }
 
 /* Given the start of an address field, @addr, checks if the address is used

@@ -93,7 +93,7 @@ hash_table_new(HashFunc hash_func, EqualFunc key_equal_func,
     HashTable *hash_table;
     unsigned int i;
 
-    hash_table = calloc(1, sizeof(HashTable));
+    hash_table = xzalloc(sizeof(HashTable));
     hash_table->size = HASH_TABLE_MIN_SIZE;
     hash_table->nnodes = 0;
     hash_table->frozen = 0;
@@ -101,7 +101,7 @@ hash_table_new(HashFunc hash_func, EqualFunc key_equal_func,
     hash_table->key_equal_func = key_equal_func;
     hash_table->key_destroy_func = key_destroy_func;
     hash_table->val_destroy_func = val_destroy_func;
-    hash_table->nodes = calloc(hash_table->size, sizeof(HashNode*));
+    hash_table->nodes = xcalloc(hash_table->size, sizeof(HashNode*));
 
     for (i = 0; i < hash_table->size; i++)
         hash_table->nodes[i] = NULL;

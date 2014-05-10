@@ -41,18 +41,94 @@ static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
 static void mc_add_rlocs_to_rle(mapping_t *, mapping_t *);
 static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);
 static int ms_recv_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+static inline struct lisp_ms_t *lisp_ms_cast(lisp_ctrl_dev_t *dev);
+
+
+static int
+get_locator_pair(glist_t *lrlocs, mapping_t *m, lisp_addr_t **la,
+        lisp_addr_t **ra)
+{
+    glist_entry_t *it;
+    locators_list_t *llist;
+    locator_t *loc;
+    lisp_addr_t *laddr, *raddr;
+
+    glist_for_each_entry(it, lrlocs) {
+        laddr = glist_entry_data(it);
+        if (lisp_addr_ip_afi(laddr) == AF_INET) {
+            llist = m->head_v4_locators_list;
+        } else {
+            llist = m->head_v6_locators_list;
+        }
+
+        while (llist) {
+            loc = llist->locator;
+            if (loc->state == UP) {
+                *la = laddr;
+                *ra = loc->addr;
+                return(GOOD);
+            }
+            llist = llist->next;
+        }
+
+    }
+
+    return(BAD);
+}
+
+static lisp_addr_t *
+get_locator_with_afi(mapping_t *m, int afi)
+{
+    locators_list_t *llist;
+    locator_t *loc;
+
+    if (afi== AF_INET) {
+        llist = m->head_v4_locators_list;
+    } else {
+        llist = m->head_v6_locators_list;
+    }
+
+    while (llist) {
+        loc = llist->locator;
+        if (loc->state == UP) {
+            return(locator_addr(loc));
+        }
+        llist = llist->next;
+    }
+
+    return(NULL);
+}
+
+static int
+forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
+{
+    lisp_addr_t *srloc, *drloc;
+    uconn_t fwd_uc;
+    glist_t *lrlocs;
+    lrlocs = ctrl_default_rlocs(ms->super.ctrl);
+
+    if (get_locator_with_afi(&uc->ra, m, &srloc, &drloc) != GOOD) {
+        lmlog(DBG_1, "Can't find valid RLOC pair to foward Map-Request. "
+                "Discarding!");
+        return(BAD);
+    }
+
+
+    return(GOOD);
+}
 
 static int
 ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
 
-    lisp_addr_t *seid, *deid, *tloc;
+    lisp_addr_t *seid, *deid;
     mapping_t *map;
     glist_t *itr_rlocs = NULL;
-    void *mreq_hdr, *mrep_hdr, *paddr, *per;
+    void *mreq_hdr, *mrep_hdr;
     int i;
     lbuf_t *mrep = NULL;
     lbuf_t  b;
+    lisp_site_prefix *site;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -60,7 +136,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     seid = lisp_addr_new();
     deid = lisp_addr_new();
 
-    mreq_hdr = lisp_msg_pull_hdr(&b, sizeof(map_request_hdr_t));
+    mreq_hdr = lisp_msg_pull_hdr(&b);
 
     if (lisp_msg_parse_addr(&b, seid) != GOOD) {
         goto err;
@@ -78,20 +154,50 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         return(BAD);
     }
 
-    /* Process additional ITR RLOCs */
+    /* PROCESS ITR RLOCs */
     itr_rlocs = lisp_addr_list_new();
     lisp_msg_parse_itr_rlocs(&b, itr_rlocs);
 
-    /* Process records and build Map-Reply */
+    lisp_msg_parse_eid_rec(&b, deid);
+
+    /* CHECK IF WE NEED TO PROXY REPLY */
+    site = mdb_lookup_entry(ms->lisp_sites_db, deid);
+    if (!site) {
+        lmlog(DBG_3, "No site configured for EID %s. Sending Negative "
+                "Map-Reply!", lisp_addr_to_char(deid));
+        /* send negative map-reply with TTL 15 min */
+        goto done;
+    }
+
+    /* Find if the site actually registered */
+    if (!(map = mdb_lookup_entry_exact(ms->reg_sites_db, deid))) {
+        lmlog(DBG_1,"EID %s not registered by any site! Sending Negative "
+                "Map-Reply", lisp_addr_to_char(deid));
+
+        /* send negative map-reply with TTL 1 min */
+        goto done;
+    }
+
+    /* IF *NOT* PROXY REPLY: forward the message to an xTR */
+    if (!site->proxy_reply) {
+        /* FIXME: once locs become one object, send that instead of mapping */
+        forward_mreq(ms, buf, map);
+        goto done;
+    }
+
+    /* IF PROXY REPLY: build Map-Reply */
     mrep = lisp_msg_create(LISP_MAP_REPLY);
-    for (i = 0; i < MREQ_REC_COUNT(mreq_hdr); i++) {
-        if (lisp_msg_parse_eid_rec(b, deid, paddr) != GOOD) {
+    lisp_msg_put_mapping(mrep, map, NULL);
+
+    /* .. and process the remaining records */
+    for (i = 1; i < MREQ_REC_COUNT(mreq_hdr); i++) {
+        if (lisp_msg_parse_eid_rec(&b, deid) != GOOD) {
             goto err;
         }
 
         lmlog(DBG_1, " dst-eid: %s", lisp_addr_to_char(deid));
 
-        /* Check the existence of the requested EID */
+        /* FIND REGISTERED SITE */
         if (!(map = mdb_lookup_entry_exact(ms->reg_sites_db, deid))) {
             lmlog(DBG_1,"Unknown EID %s requested!",
                     lisp_addr_to_char(deid));
@@ -105,11 +211,13 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     MREP_RLOC_PROBE(mrep_hdr) = 0;
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
-    /* send map-reply */
-    select_remote_rloc(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc.ra);
-    if (send_msg(ms->super, b, uc) != GOOD) {
+    /* SEND MAP-REPLY */
+    lisp_addr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
+    if (send_msg(&ms->super, mrep, uc) != GOOD) {
         lmlog(DBG_1, "Couldn't send Map-Reply!");
     }
+
+
 done:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
@@ -118,7 +226,7 @@ done:
 err:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
-    lisp_addr_free(deid);
+    lisp_addr_del(deid);
     return(BAD);
 
 }
@@ -441,6 +549,10 @@ ms_ctrl_construct(lisp_ctrl_dev_t *dev)
     ms->reg_sites_db = mdb_new();
     ms->lisp_sites_db = mdb_new();
 
+    if (!ms->reg_sites_db || !ms->lisp_sites_db) {
+        return(BAD);
+    }
+
     lmlog(DBG_1, "Finished Constructing Map-Server");
 
     return(GOOD);
@@ -482,5 +594,7 @@ ctrl_dev_class_t ms_ctrl_class = {
         .dealloc = ms_ctrl_dealloc,
         .deconstruct = ms_ctrl_destruct,
         .run = ms_ctrl_run,
-        .recv_msg = ms_recv_msg
+        .recv_msg = ms_recv_msg,
+        .if_event = NULL,
+        .get_fwd_entry = NULL
 };

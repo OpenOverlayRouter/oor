@@ -32,8 +32,8 @@
 
 #include <defs.h>
 #include <liblisp.h>
-#include "lisp_map_cache.h"
 #include "lisp_local_db.h"
+#include "lisp_map_cache.h"
 #include "lisp_control.h"
 
 #include "lispd_info_nat.h"
@@ -44,11 +44,10 @@ typedef enum {
     RTR_MODE
 } lisp_dev_type;
 
-struct lisp_ctrl_device_;
-typedef struct lisp_ctrl_device_ lisp_ctrl_dev_t;
+typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
 
 /* functions to control lisp control devices*/
-typedef struct ctrl_dev_class_t_ {
+typedef struct ctrl_dev_class_t {
     lisp_ctrl_dev_t *(*alloc)(void);
     int (*construct)(lisp_ctrl_dev_t *);
     void (*dealloc)(lisp_ctrl_dev_t *);
@@ -58,10 +57,15 @@ typedef struct ctrl_dev_class_t_ {
     void (*run)(lisp_ctrl_dev_t *dev);
     int (*recv_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
     int (*send_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+
+    /* underlying system (interface) event */
+    int (*if_event)(lisp_ctrl_dev_t *);
+
+    fwd_entry_t *(*get_fwd_entry)(lisp_ctrl_dev_t *, packet_tuple_t *);
 } ctrl_dev_class_t;
 
 
-struct lisp_ctrl_device_ {
+struct lisp_ctrl_dev {
     lisp_dev_type mode;
     ctrl_dev_class_t *ctrl_class;
 
@@ -72,25 +76,22 @@ struct lisp_ctrl_device_ {
 extern ctrl_dev_class_t ms_ctrl_class;
 extern ctrl_dev_class_t xtr_ctrl_class;
 
-static ctrl_dev_class_t *reg_ctrl_dev_cls[3] = {
-        &xtr_ctrl_class,
-        &ms_ctrl_class,
-        &xtr_ctrl_class,
-};
 
+///* Generic timer argument that includes the device as parameter. As a rule,
+// * both 'dev' and 'data' should be pointers to existing data structure that
+// * don't require the caller to free them */
+//typedef struct timer_arg_t_ {
+//    lisp_ctrl_dev_t *dev;
+//    void *data;
+//} timer_arg_t;
 
-/* Generic timer argument that includes the device as parameter. As a rule,
- * both 'dev' and 'data' should be pointers to existing data structure that
- * don't require the caller to free them */
-typedef struct timer_arg_t_ {
-    lisp_ctrl_dev_t *dev;
-    void *data;
-} timer_arg_t;
 
 int ctrl_dev_create(lisp_dev_type , lisp_ctrl_dev_t **);
 void ctrl_dev_destroy(lisp_ctrl_dev_t *);
 int ctrl_dev_recv(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 void ctrl_dev_run(lisp_ctrl_dev_t *);
+int ctrl_if_event(lisp_ctrl_dev_t *);
+fwd_entry_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);
 
 /* interface to lisp_ctrl */
 //int recv_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);

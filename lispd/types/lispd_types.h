@@ -45,13 +45,6 @@ typedef struct map_server_list_t_ {
     struct map_server_list_t_ *next;
 } map_server_list_t;
 
-typedef struct packet_tuple_ {
-    lisp_addr_t                     src_addr;
-    lisp_addr_t                     dst_addr;
-    uint16_t                        src_port;
-    uint16_t                        dst_port;
-    uint8_t                         protocol;
-} packet_tuple;
 
 
 

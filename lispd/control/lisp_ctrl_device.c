@@ -33,6 +33,13 @@
 #include <packets.h>
 #include <lispd_lib.h>
 
+
+static ctrl_dev_class_t *reg_ctrl_dev_cls[3] = {
+        &xtr_ctrl_class,
+        &ms_ctrl_class,
+        &xtr_ctrl_class,
+};
+
 static ctrl_dev_class_t *
 ctrl_dev_class_find(lisp_dev_type type)
 {
@@ -82,24 +89,22 @@ ctrl_dev_destroy(lisp_ctrl_dev_t *dev)
 }
 
 int
-send_msg(lisp_ctrl_dev_t *dev, lisp_msg *msg, uconn_t *uc)
+send_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc)
 {
-    ctrl_send_msg(dev->ctrl, msg, uc);
-    return(GOOD);
+    return(ctrl_send_msg(dev->ctrl, b, uc));
 }
 
 
 int
-ctrl_dev_program_smr(lisp_ctrl_dev_t *dev)
+ctrl_if_event(lisp_ctrl_dev_t *dev)
 {
-    void *arg;
-    timer *t;
+    dev->ctrl_class->if_event(dev);
+    return(GOOD);
+}
 
-    /* used only with tunnel routers */
-    if (dev->mode != xTR_MODE && dev->mode != RTR_MODE) {
-        return(GOOD);
-    }
-
-    return(program_smr(dev, LISPD_SMR_TIMEOUT));
+fwd_entry_t *
+ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
+{
+    return(dev->ctrl_class->get_fwd_entry(dev, tuple));
 }
 

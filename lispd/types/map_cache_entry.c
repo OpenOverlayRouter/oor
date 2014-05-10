@@ -30,10 +30,10 @@
 
 //#include "lispd.h"
 //#include "lispd_log.h"
-#include "lispd_map_cache_entry.h"
+#include "map_cache_entry.h"
 #include "defs.h"
-#include "lispd_map_cache_db.h"
-#include "lispd_lib.h"
+//#include "lisp_map_cache.h"
+//#include "lispd_lib.h"
 
 
 
@@ -56,15 +56,15 @@ mcache_entry_new()
 }
 
 void
-mcache_entry_init(mcache_entry_t *mce, mapping_t *mapping)
+mcache_entry_init(mcache_entry_t **mce, mapping_t *mapping)
 {
-    if (!mce) {
-        return;
+    if (!*mce) {
+        *mce = mcache_new();
     }
 
-    mce->mapping = mapping;
-    mce->how_learned = DYNAMIC_MAP_CACHE_ENTRY;
-    mce->ttl = DEFAULT_DATA_CACHE_TTL;
+    *mce->mapping = mapping;
+    *mce->how_learned = DYNAMIC_MAP_CACHE_ENTRY;
+    *mce->ttl = DEFAULT_DATA_CACHE_TTL;
 
 }
 

@@ -32,6 +32,19 @@
 #include "lispd_info_nat.h"
 #include <lbuf.h>
 #include <cksum.h>
+#include <lisp_ctrl_device.h>
+
+
+struct lisp_ctrl {
+    glist_t *devices;
+    /* move ctrl interface here */
+
+    int ipv4_control_input_fd;
+    int ipv6_control_input_fd;
+
+    glist_t *rlocs;
+    glist_t *default_rlocs;
+};
 
 static void set_default_rlocs(lisp_ctrl_t *ctrl);
 
@@ -40,12 +53,12 @@ set_default_rlocs(lisp_ctrl_t *ctrl)
 {
     glist_remove_all(ctrl->default_rlocs);
     if (default_ctrl_iface_v4) {
-        glist_add(ctrl->default_rlocs, default_ctrl_iface_v4->ipv4_address);
+        glist_add(default_ctrl_iface_v4->ipv4_address, ctrl->default_rlocs);
     }
 
     if (default_ctrl_iface_v6) {
-        glist_add_tail(ctrl->default_rlocs,
-                default_ctrl_iface_v6->ipv6_address);
+        glist_add_tail(default_ctrl_iface_v6->ipv6_address,
+                ctrl->default_rlocs);
     }
 }
 
@@ -95,10 +108,8 @@ ctrl_init(lisp_ctrl_t *ctrl)
 int
 ctrl_recv_msg(struct sock *sl)
 {
-    lisp_msg *msg;
     uconn_t uc;
     struct lbuf *packet;
-    uint8_t type;
     lisp_msg_type_t type;
     lisp_ctrl_t *ctrl;
     lisp_ctrl_dev_t *dev;
@@ -130,18 +141,18 @@ ctrl_recv_msg(struct sock *sl)
 int
 ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
 {
-    int sk;
+    int sk, ret;
     int dst_afi = lisp_addr_ip_afi(&uc->ra);
     iface_t *iface;
 
-    if (lisp_addr_afi(&uc->rp) != LM_AFI_IP) {
-        lmlog(DBG_1, "sock_send: dst % of UDP connection is not IP. "
+    if (lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
+        lmlog(DBG_2, "sock_send: dst % of UDP connection is not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->ra));
         return (BAD);
     }
 
     /* FIND the socket where to output the packet */
-    if (lisp_addr_afi(uc->la) == LM_AFI_NO_ADDR) {
+    if (lisp_addr_afi(&uc->la) == LM_AFI_NO_ADDR) {
         lisp_addr_copy(&uc->la, get_default_ctrl_address(dst_afi));
         sk = get_default_ctrl_socket(dst_afi);
     } else {
@@ -153,7 +164,18 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
         }
     }
 
-    return (sock_send(sk, b, uc));
+    ret = sock_send(sk, b, uc);
+
+    if (ret != GOOD) {
+        lmlog(DBG_1, "FAILED TO SEND \n %s "
+                " RLOC: %s -> %s",
+                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
+        return(BAD);
+    } else {
+        lmlog(DBG_1, " RLOC: %s -> %s",
+                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
+        return(GOOD);
+    }
 }
 
 /* TODO: should change to get_updated_interfaces */
@@ -164,7 +186,7 @@ ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr,
     iface_list_elt *iface_list = NULL;
     mapping_t *m;
     iface_mappings_list *mlist;
-    int mappings_ctr, ctr, nb_mappings;
+    int mappings_ctr, ctr;
 
     iface_list = get_head_interface_list();
 
@@ -173,7 +195,7 @@ ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr,
                 || (iface_list->iface->ipv4_changed == TRUE)
                 || (iface_list->iface->ipv6_changed == TRUE)) {
             mlist = iface_list->iface->head_mappings_list;
-            while (mlist != NULL && mappings_ctr < nb_mappings) {
+            while (mlist != NULL) {
                 if (iface_list->iface->status_changed == TRUE
                         || (iface_list->iface->ipv4_changed == TRUE
                                 && mlist->use_ipv4_address == TRUE)
@@ -208,8 +230,6 @@ ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
         lisp_addr_t *new)
 {
     lisp_ctrl_dev_t *dev;
-    iface_mappings_list *mapping_list = NULL;
-    int aux_afi = 0;
 
     dev = glist_first_data(ctrl->devices);
 
@@ -219,7 +239,8 @@ ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
          * interfaces */
         nat_status = UNKNOWN;
         if (iface->status == UP) {
-            initial_info_request_process();
+            /* TODO: fix nat
+            initial_info_request_process(); */
         }
     }
 
@@ -228,7 +249,7 @@ ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
      * and iface to identify mapping_t(s) for which SMRs have to be sent. In
      * the future this should be decoupled and only the affected RLOC should
      * be passed to ctrl_dev */
-    ctrl_dev_program_smr(dev);
+    ctrl_if_event(dev);
     set_default_rlocs(ctrl);
 }
 
@@ -237,7 +258,7 @@ ctrl_if_status_update(lisp_ctrl_t *ctrl, iface_t *iface)
 {
     lisp_ctrl_dev_t *dev;
     dev = glist_first_data(ctrl->devices);
-    ctrl_dev_program_smr(dev);
+    ctrl_if_event(dev);
     set_default_rlocs(lctrl);
 }
 
@@ -259,17 +280,14 @@ ctrl_default_rloc(lisp_ctrl_t *c, int afi)
     return (loc);
 }
 
-forwarding_entry *
-ctrl_get_forwarding_entry(packet_tuple *tuple)
+fwd_entry_t *
+ctrl_get_forwarding_entry(packet_tuple_t *tuple)
 {
-    return (tr_get_forwarding_entry(ctrl_dev, tuple));
+    lisp_ctrl_dev_t *dev;
+    dev = glist_first_data(lctrl->devices);
+    return (ctrl_dev_get_fwd_entry(dev, tuple));
 }
 
-forwarding_entry *
-ctrl_get_reencap_forwarding_entry(packet_tuple *tuple)
-{
-    return (tr_get_reencap_forwarding_entry(ctrl_dev, tuple));
-}
 
 /*
  * Multicast Interface to end-hosts

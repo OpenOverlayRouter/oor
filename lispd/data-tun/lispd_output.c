@@ -48,7 +48,7 @@ int lisp_output_multicast(uint8_t *pkt, int plen, lisp_addr_t *dst_eid);
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
  */
 int
-extract_5_tuples_from_packet(uint8_t *packet, packet_tuple *tuple)
+extract_5_tuples_from_packet(uint8_t *packet, packet_tuple_t *tuple)
 {
     /* TODO: would be nice for this to use ip_addr_t in the future */
     struct iphdr *iph = NULL;
@@ -461,20 +461,15 @@ lisp_output_multicast(uint8_t *pkt, int plen, lisp_addr_t *dst_eid)
 
 
 int
-lisp_output_unicast(uint8_t *pkt, int plen, packet_tuple *tuple)
+lisp_output_unicast(uint8_t *pkt, int plen, packet_tuple_t *tuple)
 {
-    forwarding_entry *fwd_entry = NULL;
+    fwd_entry_t *fwd_entry = NULL;
     uint8_t *encap_pkt = NULL;
     int encap_plen = 0, dafi;
     iface_t *iface;
     int osock;
 
-    /* find a forwarding entry, either in cache or ask control */
-    if (ctrl_dev->mode == RTR_MODE) {
-        fwd_entry = ctrl_get_reencap_forwarding_entry(tuple);
-    } else {
-        fwd_entry = ctrl_get_forwarding_entry(tuple);
-    }
+    fwd_entry = ctrl_get_forwarding_entry(tuple);
 
     /* Packets with no/negative map cache entry AND no PETR
      * OR packets with missing src or dst RLOCs
@@ -512,7 +507,7 @@ lisp_output_unicast(uint8_t *pkt, int plen, packet_tuple *tuple)
 }
 
 int
-tuple_get_dst_lisp_addr(packet_tuple *tuple, lisp_addr_t *addr){
+tuple_get_dst_lisp_addr(packet_tuple_t *tuple, lisp_addr_t *addr){
 
     /* TODO this really needs optimization */
 
@@ -544,7 +539,7 @@ tuple_get_dst_lisp_addr(packet_tuple *tuple, lisp_addr_t *addr){
 int
 lisp_output(uint8_t *pkt, int plen)
 {
-    packet_tuple tuple;
+    packet_tuple_t tuple;
     lisp_addr_t *daddr = NULL;
 
     /* fcoras TODO: should use get_dst_lisp_addr instead of tuple */

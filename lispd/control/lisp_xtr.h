@@ -34,8 +34,17 @@
 #include <defs.h>
 #include "lisp_ctrl_device.h"
 
-typedef struct _lisp_xtr {
+typedef enum tr_type {
+    xTR_TYPE,
+    RTR_TYPE,
+    PITR_TYPE,
+    PETR_TYPE
+} tr_type_e;
+
+typedef struct lisp_xtr {
     lisp_ctrl_dev_t super; /* base "class" */
+
+    tr_type_e tr_type;
 
     /* xtr interface */
     mapping_t *(*lookup_eid_map_cache)(lisp_addr_t *eid);
@@ -48,8 +57,6 @@ typedef struct _lisp_xtr {
     int probe_retries;
     int probe_retries_interval;
 
-    lisp_site_ID site_ID;
-    lisp_xTR_ID xTR_ID;
     mcache_entry_t *petrs;
     lisp_addr_list_t *pitrs;
 
@@ -68,8 +75,9 @@ typedef struct _lisp_xtr {
     /* NAT */
     int nat_aware;
     int nat_status;
-    char *nat_site_ID;
-    char *nat_xTR_ID;
+    lisp_site_id site_id;
+    lisp_xtr_id xtr_id;
+
     nonces_list_t *nat_emr_nonces;
     nonces_list_t *nat_ir_nonces;
 
@@ -84,11 +92,10 @@ typedef struct _timer_rloc_prob_argument{
     locator_t   *locator;
 } timer_rloc_probe_argument;
 
-
-int tr_mcache_add_mapping(map_cache_db_t *, mapping_t *);
-int tr_mcache_add_static_mapping(map_cache_db_t *, mapping_t *);
-int tr_mcache_remove_mapping(map_cache_db_t *, lisp_addr_t *);
-mapping_t *tr_mcache_lookup_mapping(map_cache_db_t *, lisp_addr_t *);
-mapping_t *tr_mcache_lookup_mapping_exact(map_cache_db_t *, lisp_addr_t *);
+int tr_mcache_add_mapping(lisp_xtr_t *, mapping_t *);
+int tr_mcache_add_static_mapping(lisp_xtr_t *, mapping_t *);
+int tr_mcache_remove_mapping(lisp_xtr_t *, lisp_addr_t *);
+mapping_t *tr_mcache_lookup_mapping(lisp_xtr_t *, lisp_addr_t *);
+mapping_t *tr_mcache_lookup_mapping_exact(lisp_xtr_t *, lisp_addr_t *);
 
 #endif /* LISP_XTR_H_ */

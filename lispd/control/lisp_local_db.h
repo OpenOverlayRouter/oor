@@ -31,7 +31,7 @@
 #define LISPD_LOCAL_DB_H_
 
 #include <defs.h>
-#include <lispd_types.h>
+#include <liblisp.h>
 #include <lispd_mdb.h>
 
 
@@ -52,11 +52,12 @@ lisp_addr_t *local_map_db_get_main_eid(local_map_db_t *, int );
 int local_map_db_num_ip_eids(local_map_db_t *, int );
 void local_map_db_dump(local_map_db_t *, int );
 
-static int local_map_db_n_entries(local_map_db_t *);
+inline int local_map_db_n_entries(local_map_db_t *);
 
 
 
-static int local_map_db_n_entries(local_map_db_t *lmdb) {
+inline int local_map_db_n_entries(local_map_db_t *lmdb)
+{
     return(lmdb->db->n_entries);
 }
 

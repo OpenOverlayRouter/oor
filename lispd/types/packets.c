@@ -167,7 +167,9 @@ udp_ipv6_checksum(const struct ip6_hdr *ip6, const struct udphdr *up,
  *  upd_checksum
  *
  *  Calculate the IPv4 or IPv6 UDP checksum  */
-uint16_t udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi) {
+uint16_t
+udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi)
+{
     switch (afi) {
     case AF_INET:
         return (udp_ipv4_checksum(udph, udp_len,
@@ -517,7 +519,8 @@ pkt_compute_udp_cksum(lbuf_t *b, int afi)
     struct udphdr *uh;
 
     uh = lbuf_udp(b);
-    if ((udpsum = udp_checksum(uh, ntoh(uh->len), lbuf_ip(b), afi)) == -1) {
+    udpsum = udp_checksum(uh, ntoh(uh->len), lbuf_ip(b), afi);
+    if (udpsum == -1) {
         return (BAD);
     }
     udpsum(uh) = udpsum;

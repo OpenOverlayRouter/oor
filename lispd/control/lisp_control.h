@@ -32,24 +32,20 @@
 
 #include <defs.h>
 #include <lispd_sockets.h>
-#include <lisp_xtr.h>
-#include <lisp_ms.h>
-#include <lisp_rtr.h>
+#include <liblisp.h>
+#include <lispd_iface_list.h>
+#include <lispd_external.h>
+//#include <lisp_xtr.h>
+//#include <lisp_ms.h>
+//#include <lisp_rtr.h>
 
-typedef struct lisp_control_ {
-    glist_t *devices;
-    /* move ctrl interface here */
+typedef struct lisp_ctrl lisp_ctrl_t;
 
-    int ipv4_control_input_fd;
-    int ipv6_control_input_fd;
 
-    glist_t *rlocs;
-    glist_t *default_rlocs;
-} lisp_ctrl_t;
-
-int process_lisp_ctr_msg(struct sock *sl);
+int ctrl_recv_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
-mapping_t **ctrl_get_mappings_to_smr(lisp_ctrl_t *);
+int ctrl_get_mappings_to_smr(lisp_ctrl_t *, mapping_t **mappings_to_smr,
+        int *mcount);
 
 
 glist_t *ctrl_default_rlocs(lisp_ctrl_t *c);
@@ -57,8 +53,7 @@ lisp_addr_t *ctrl_default_rloc(lisp_ctrl_t *c, int afi);
 void ctrl_if_addr_update(lisp_ctrl_t *, iface_t *, lisp_addr_t *,
         lisp_addr_t *);
 void ctrl_if_status_update(lisp_ctrl_t *, iface_t *);
-forwarding_entry *ctrl_get_forwarding_entry(packet_tuple *);
-forwarding_entry *ctrl_get_reencap_forwarding_entry(packet_tuple *);
+fwd_entry_t *ctrl_get_forwarding_entry(packet_tuple_t *);
 
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);

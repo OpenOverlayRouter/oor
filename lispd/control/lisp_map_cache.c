@@ -28,25 +28,25 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#include "lispd_map_cache_db.h"
-#include "lispd_lib.h"
-#include "lispd_rloc_probing.h"
+#include "lisp_map_cache.h"
+//#include "lispd_lib.h"
 #include <math.h>
+
 
 
 map_cache_db_t*
 mcache_new()
 {
-    map_cache_db_t *mcdb = calloc(1, sizeof(map_cache_db_t));
+    map_cache_db_t *mcdb = xzalloc(sizeof(map_cache_db_t));
     if (!mcdb) {
         lmlog(LCRIT, "Could allocate map cache db ");
-        exit_cleanup();
+        return(NULL);
     }
 
     mcdb->db = mdb_new();
     if (!mcdb->db) {
         lmlog(LCRIT, "Could create map cache db ");
-        exit_cleanup();
+        return(NULL);
     }
 
     return(mcdb);
@@ -60,18 +60,15 @@ mcache_del(map_cache_db_t *mcdb)
 
 
 int
-mcache_add_entry(map_cache_db_t *mcdb, mcache_entry_t *mce)
+mcache_add_entry(map_cache_db_t *mcdb, lisp_addr_t *key, mcache_entry_t *mce)
 {
-    lisp_addr_t *eid;
-
-    eid = mapping_eid(mcache_entry_mapping(mce));
-    return(mdb_add_entry(mcdb->db, eid, mce));
+    return(mdb_add_entry(mcdb->db, key, mce));
 }
 
-void
+void *
 mcache_remove_entry(map_cache_db_t *mcdb, lisp_addr_t *key)
 {
-    mdb_remove_entry(mcdb->db, key);
+    return(mdb_remove_entry(mcdb->db, key));
 }
 
 

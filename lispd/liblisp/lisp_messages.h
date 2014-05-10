@@ -29,10 +29,6 @@
 
 #include <stdlib.h>
 #include "lisp_message_fields.h"
-#include "lisp_map_reply.h"
-#include "lisp_map_request.h"
-#include "lisp_map_register.h"
-#include "lisp_map_notify.h"
 #include <defs.h>
 
 /* LISP Types */
@@ -455,6 +451,9 @@ char *map_register_hdr_to_char(map_register_hdr_t *h);
 #define MREG_REC_COUNT(h_) MREG_HDR_CAST((h_))->record_count
 #define MREG_WANT_MAP_NOTIFY(h_) (MREG_HDR_CAST(h_))->map_notify
 #define MREG_NONCE(h_) (MREG_HDR_CAST(h_))->nonce
+#define MREG_PROXY_REPLY(h_)(MREG_HDR_CAST(h_))->proxy_reply
+#define MREG_IBIT(h_)(MREG_HDR_CAST(h_))->ibit
+#define MREG_RBIT(h_)(MREG_HDR_CAST(h_))->rbit
 
 
 

@@ -39,7 +39,7 @@
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
  */
 
-int extract_5_tuples_from_packet(uint8_t *packet, packet_tuple *tuple);
+int extract_5_tuples_from_packet(uint8_t *packet, packet_tuple_t *tuple);
 
 /*
  * Generate IP header. Returns the poninter to the transport header

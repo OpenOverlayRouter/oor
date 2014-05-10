@@ -38,29 +38,12 @@ typedef struct {
     uint64_t nonce[LISPD_MAX_RETRANSMITS + 1];
 } nonces_list_t;
 
-/*
- *      Generates a nonce random number
- *      requires librt
- */
 
 uint64_t nonce_build(int seed);
-
-/*
- * Create and reserve space for a nonces_lits structure
- */
+uint64_t nonce_build_time();
 nonces_list_t *nonces_list_new();
-
-/*
- * Return true if nonce is found in the nonces list
- */
-
 int nonce_check(nonces_list_t *nonces, uint64_t nonce);
-
-/*
- * Print 64-bit nonce in 0x%08x-0x%08x format.
- */
 void lispd_print_nonce(uint64_t nonce, int log_level);
-
 char *nonce_to_char(uint64_t nonce);
 
 #endif /* LISPD_NONCE_H_ */

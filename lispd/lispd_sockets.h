@@ -77,19 +77,30 @@ typedef struct _udpsock_t {
     uint16_t rp;        /* remote port */
 } uconn_t;
 
-struct sock_master {
+typedef struct sock_master {
     struct sock_list read;
 //    struct sock_list *write;
 //    struct sock_list *netlink;
     fd_set readfds;
 //    fd_set *writefds;
 //    fd_set *netlinkfds;
-};
+} sock_master_t;
 
 union sockunion {
     struct sockaddr_in s4;
     struct sockaddr_in6 s6;
 };
+
+/* shared between data and control */
+typedef struct packet_tuple {
+    lisp_addr_t                     src_addr;
+    lisp_addr_t                     dst_addr;
+    uint16_t                        src_port;
+    uint16_t                        dst_port;
+    uint8_t                         protocol;
+} packet_tuple_t;
+
+
 
 extern struct sock_master *sock_master_new();
 extern struct sock *sock_register_read_listener(struct sock_master *m,
@@ -102,11 +113,7 @@ int open_control_input_socket(int afi);
 
 
 
-/*
- * Get a packet from the socket. It also returns the destination addres and source port of the packet.
- * Used for control packets
- */
-
+int sock_send(int sock, struct lbuf *b, uconn_t *uc);
 int sock_recv(int, struct lbuf *, uconn_t *);
 
 int get_data_packet(int sock, int *afi, uint8_t *packet, int *length,

@@ -61,12 +61,12 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
 void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
 void *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr);
 void *mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr);
-static int mdb_nb_entries(mdb_t *);
+inline int mdb_n_entries(mdb_t *);
 
 patricia_tree_t *_get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf);
 patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);
 
-static int mdb_n_entries(mdb_t *mdb) {
+inline int mdb_n_entries(mdb_t *mdb) {
     return(mdb->n_entries);
 }
 
@@ -96,9 +96,9 @@ static int mdb_n_entries(mdb_t *mdb) {
             PATRICIA_WALK(_ptstack[_i]->head, _node) {  \
                 if ((_it = _node->data))
 
-#define mdb_foreach_ip_entry_end \
-            }PATRICIA_WALK_END;  \
-        }   \
+#define mdb_foreach_ip_entry_end            \
+            } PATRICIA_WALK_END;            \
+        }                                   \
     } while (0)
 
 #define mdb_foreach_mc_entry(_mdb, _it) \

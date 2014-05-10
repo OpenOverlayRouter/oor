@@ -128,6 +128,7 @@ void balancing_vectors_to_char(balancing_locators_vecs, mapping_t *, int );
 
 void mapping_to_char(mapping_t *m, int log_level);
 
+static inline lisp_addr_t *mapping_eid(mapping_t *m);
 static inline void *mapping_extended_info(mapping_t *m);
 static inline void mapping_set_extended_info(mapping_t *, void *,
         extended_info_del_fct);
@@ -176,7 +177,7 @@ static inline void mapping_set_eid_plen(mapping_t *m, uint8_t plen)
 
 static inline lisp_addr_t *mapping_eid(mapping_t *m)
 {
-    return (&(m->eid_prefix));
+    return (&m->eid_prefix);
 }
 
 static inline uint16_t mapping_locator_count(mapping_t *m)

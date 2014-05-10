@@ -48,11 +48,6 @@ typedef struct _lcaf_addr_t {
 
 #define MAX_IID             16777215
 
-typedef struct {
-    uint8_t rbit;
-    uint8_t jbit;
-    uint8_t lbit;
-} mrsignaling_flags_t;
 
 /*
  * Abstract representation of LCAFs

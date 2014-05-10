@@ -31,7 +31,10 @@ lisp-site {
 # RTR config
 #
 
-rtr-data-iface = <iface name>
+rtr-ifaces = {
+	 <iface name>
+	...
+}
 
 rtr-database-mapping {
         eid-prefix         = <prefix>  

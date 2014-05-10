@@ -108,7 +108,7 @@ int init_timers()
  */
 timer *create_timer(char *name)
 {
-    timer *new_timer = malloc(sizeof(timer));
+    timer *new_timer = xzalloc(sizeof(timer));
     memset(new_timer, 0, sizeof(timer));
     strncpy(new_timer->name, name, TIMER_NAME_LEN - 1);
     new_timer->links.prev = NULL;
@@ -167,11 +167,8 @@ void insert_timer(timer *tptr)
  * and arguments. Returns a pointer to the new timer, which must be kept
  * to stop the timer later if desired.
  */
-void start_timer(
-    timer               *tptr,
-    int                 seconds_to_expiry,
-    timer_callback      cb,
-    void                *cb_arg)
+void
+start_timer(timer *tptr, int sexpiry, timer_callback cb, void *cb_arg)
 {
     timer_links *next, *prev;
 
@@ -196,12 +193,22 @@ void start_timer(
      */
     tptr->cb      = cb;
     tptr->cb_argument     = cb_arg;
-    tptr->duration = seconds_to_expiry;
+    tptr->duration = sexpiry;
     insert_timer(tptr);
 
     timer_wheel.running_timers++;
     return;
 }
+
+void
+start_timer_new(timer *tptr, int sec, timer_callback cb,
+        void *owner, void *cb_arg)
+{
+    start_timer(tptr, sec, cb, cb_arg);
+    tptr->owner = owner;
+}
+
+
 
 /*
  * stop_timer()
@@ -291,7 +298,7 @@ void handle_timers(void)
 
 
 
-int process_timer_signal(struct sock *sl)
+int process_timer_signal(sock_t *sl)
 {
     int sig;
     int bytes;

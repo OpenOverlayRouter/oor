@@ -37,7 +37,7 @@
 typedef void (*glist_del_fct)(void *);
 typedef int  (*glist_cmp_fct)(void *, void *);
 
-typedef struct {
+typedef struct glist_entry_t_ {
     struct list_head    list;
     void                *data;
 } glist_entry_t;
@@ -50,50 +50,56 @@ typedef struct {
 } glist_t;
 
 
-glist_t                 *glist_new();
-glist_t                 *glist_new_managed(glist_del_fct);
-glist_t                 *glist_new_complete(glist_cmp_fct, glist_del_fct);
-void                    glist_init_complete(glist_t *, glist_cmp_fct, glist_del_fct);
-void                    glist_init(glist_t *);
-void                    glist_init_managed(glist_t *lst, glist_del_fct del_fct);
-int                     glist_add(void *data, glist_t *list);
-int                     glist_add_tail(void *data, glist_t *glist);
-void                    glist_remove(glist_entry_t *entry, glist_t *list);
-void                    glist_destroy(glist_t *lst);
-void                    glist_remove_all(glist_t *lst);
-//inline int              glist_size(glist_t *list);
-//inline void             *glist_entry_data(glist_entry_t *entry);
+glist_t *glist_new();
+glist_t *glist_new_managed(glist_del_fct);
+glist_t *glist_new_complete(glist_cmp_fct, glist_del_fct);
+void glist_init_complete(glist_t *, glist_cmp_fct, glist_del_fct);
+void glist_init(glist_t *);
+void glist_init_managed(glist_t *lst, glist_del_fct del_fct);
+int glist_add(void *data, glist_t *list);
+int glist_add_tail(void *data, glist_t *glist);
+void glist_remove(glist_entry_t *entry, glist_t *list);
+void glist_destroy(glist_t *lst);
+void glist_remove_all(glist_t *lst);
 
+static inline int glist_size(glist_t *list);
+static inline void *glist_entry_data(glist_entry_t *entry);
+static inline glist_entry_t *glist_head(glist_t *lst);
+static inline glist_entry_t *glist_first(glist_t *lst);
+static inline void *glist_first_data(glist_t *lst);
+static inline glist_entry_t *glist_last(glist_t *lst);
+static inline void *glist_last_data(glist_t *lst);
+static inline glist_entry_t *glist_next(glist_entry_t *entry);
 
-inline static int glist_size(glist_t *list) {
+static inline int glist_size(glist_t *list) {
     return(list->size);
 }
 
-inline static void *glist_entry_data(glist_entry_t *entry) {
+static inline void *glist_entry_data(glist_entry_t *entry) {
     return(entry->data);
 }
 
-inline static glist_entry_t *glist_head(glist_t *lst) {
-    return(lst->head);
+static inline glist_entry_t *glist_head(glist_t *lst) {
+    return(&lst->head);
 }
 
-inline static glist_entry_t *glist_first(glist_t *lst) {
+static inline glist_entry_t *glist_first(glist_t *lst) {
     return(list_entry(lst->head.list.next, glist_entry_t, list));
 }
 
-inline static void *glist_first_data(glist_t *lst) {
+static inline void *glist_first_data(glist_t *lst) {
     return(glist_entry_data(glist_first(lst)));
 }
 
-inline static glist_entry_t *glist_last(glist_t *lst) {
+static inline glist_entry_t *glist_last(glist_t *lst) {
     return(list_entry(lst->head.list.prev, glist_entry_t, list));
 }
 
-inline static void *glist_last_data(glist_t *lst) {
+static inline void *glist_last_data(glist_t *lst) {
     return(glist_entry_data(glist_last(lst)));
 }
 
-inline static glist_entry_t *glist_next(glist_entry_t *entry) {
+static inline glist_entry_t *glist_next(glist_entry_t *entry) {
     return(list_entry(entry->list.next, glist_entry_t, list));
 }
 

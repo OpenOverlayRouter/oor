@@ -36,9 +36,7 @@
 #include "lispd_lib.h"
 #include "lispd_re.h"
 
-int pkt_process_eid_afi(
-        uint8_t                 **offset,
-        mapping_t       *mapping)
+int pkt_process_eid_afi(uint8_t **offset, mapping_t *mapping)
 {
 
     uint8_t                 *cur_ptr;
@@ -238,50 +236,26 @@ int extract_nat_lcaf_data(
     return (GOOD);
 }
 
-int extract_mcast_info_lcaf_data(
-        uint8_t             **offset,
-        mapping_t   *mapping){
+int
+extract_mcast_info_lcaf_data(uint8_t **offset, mapping_t *mapping)
+{
 
-//    lispd_lcaf_mcinfo_hdr_t         *mcinfohdr          = NULL;
-    re_mapping_data    *extended_info      = NULL;
-//    uint16_t                        safi                = 0;
-    lisp_addr_t                     *eid_prefix         = NULL;
-    uint8_t                         *cur_ptr            = NULL;
+    re_mapping_data *extended_info = NULL;
+    lisp_addr_t *eid_prefix = NULL;
+    uint8_t *cur_ptr = NULL;
 
     cur_ptr = *offset;
-//    mcinfohdr = (lispd_lcaf_mcinfo_hdr_t *)cur_ptr;
 
-    if ((extended_info=(re_mapping_data *)malloc(sizeof(re_mapping_data)))==NULL){
-        lmlog(LISP_LOG_WARNING,"extract_mcast_info_lcaf_data: Couldn't allocate memory for mcinfo_mapping_extended_info: %s",
+    if ((extended_info = (re_mapping_data *) malloc(sizeof(re_mapping_data)))
+            == NULL) {
+        lmlog(LISP_LOG_WARNING,
+                "extract_mcast_info_lcaf_data: Couldn't allocate memory for mcinfo_mapping_extended_info: %s",
                 strerror(errno));
         return (BAD);
     }
 
-//    extended_info->grp_plen = mcinfohdr->grp_mlen;
-//    extended_info->jbit = mcinfohdr->jbit;
-//    extended_info->rbit = mcinfohdr->rbit;
-//    extended_info->lbit = mcinfohdr->lbit;
-
-
-//    mapping_set_extended_info(mapping, (void *)extended_info);
-//    mapping_set_iid(mapping, ntohl(mcinfohdr->iid));
-//    mapping_set_eid_plen(mapping, mcinfohdr->src_mlen);
-
     cur_ptr = CO(cur_ptr, lisp_addr_parse(cur_ptr, eid_prefix));
     mapping_set_eid_addr(mapping, eid_prefix);
-
-//    lisp_addr_set_afi(eid_prefix, LM_AFI_MC);
-//
-//    safi = ntohs(mcinfohdr->src_afi);
-//    cur_ptr = CO(cur_ptr, sizeof(mcinfohdr));
-//
-//    if (extract_ip_addr_to(&cur_ptr, safi, lisp_addr_get_mc_src(eid_prefix)) != GOOD)
-//        return (BAD);
-//
-//    safi = ntohs(*(uint16_t *)cur_ptr);
-//    cur_ptr = CO(cur_ptr, sizeof(safi));
-//    if (extract_ip_addr_to(&cur_ptr, safi, lisp_addr_get_mc_grp(eid_prefix)) != GOOD)
-//        return (BAD);
 
     *offset = cur_ptr;
     return (GOOD);

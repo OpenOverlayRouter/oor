@@ -43,23 +43,22 @@ typedef struct _timer {
     int             rotation_count;
     timer_callback  cb;
     void           *cb_argument;
+    void            *owner;
     char            name[TIMER_NAME_LEN];
 } timer;
+
+
 
 
 int init_timers();
 
 timer *create_timer(char *);
 
-void start_timer(
-    timer               *tptr,
-    int                 seconds_to_expiry,
-    timer_callback      cb,
-    void                *cb_arg);
+void start_timer(timer *tptr, int, timer_callback, void *);
+void start_timer_new(timer *, int, timer_callback, void *, void *);
 
 void stop_timer(timer *);
-
-int process_timer_signal(struct sock *sl);
+int process_timer_signal(sock_t *sl);
 
 /*
  * build_timer_event_socket

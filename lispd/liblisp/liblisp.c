@@ -28,28 +28,33 @@
 
 #include "liblisp.h"
 
-static lisp_msg_type_t
-lisp_msg_type(lbuf_t *b) {
+lisp_msg_type_t
+lisp_msg_type(lbuf_t *b)
+{
     ecm_hdr_t *hdr = lbuf_lisp(b);
     return(hdr->type);
 }
 
 int
-lisp_msg_parse_type(lbuf_t *b, lisp_msg_type_t *t) {
+lisp_msg_parse_type(lbuf_t *b, lisp_msg_type_t *t)
+{
     lbuf_reset_lisp(b);
     lbuf_pull(b, sizeof(uint8_t));
     t = lisp_msg_type(b);
     return(GOOD);
 }
 
-static void *lbuf_pull_ecm_hdr(struct lbuf *b) {
+static void *
+lbuf_pull_ecm_hdr(lbuf_t *b)
+{
     return(lbuf_pull(b, sizeof(ecm_hdr_t)));
 }
 
 /* Process encapsulated map request header:  lisp header and the interal IP and
  * UDP header */
 int
-lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port) {
+lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port)
+{
     uint16_t ipsum = 0;
     uint16_t udpsum = 0;
     int udp_len = 0;
@@ -57,6 +62,8 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port) {
     struct ip *iph;
     void *hdr;
 
+    /* this is the new start of the packet */
+    lbuf_reset_lisp_hdr(pkt);
     hdr = lbuf_pull_ecm_hdr(pkt);
     iph = pkt_pull_ip(pkt);
     udph = lbuf_data(pkt);
@@ -73,10 +80,8 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port) {
 
  #ifdef BSD
     udp_len = ntohs(udph->uh_ulen);
-    // sport   = ntohs(udph->uh_sport);
  #else
     udp_len = ntohs(udph->len);
-    // sport   = ntohs(udph->source);
  #endif
 
     /* Verify the checksums. */
@@ -85,36 +90,29 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port) {
         if (ipsum != 0) {
             lmlog(DBG_2, "IP checksum failed.");
         }
-        if ((udpsum = udp_checksum(udph, udp_len, iph, AF_INET))
-                == -1) {
-            return (BAD);
-        }
+
+    }
+
+    /* Verify UDP checksum only if different from 0.
+     * This means we ACCEPT UDP checksum 0! */
+    if (udph->check != 0) {
+        udpsum = udp_checksum(udph, udp_len, iph,
+                ip_version_to_sock_afi(iph->ip_v));
         if (udpsum != 0) {
             lmlog(DBG_2, "UDP checksum failed.");
             return (BAD);
         }
     }
 
-    //Pranathi: Added this
-    if (iph->ip_v == IP6VERSION) {
-
-        if ((udpsum = udp_checksum(udph, udp_len, iph, AF_INET6))
-                == -1) {
-            return (BAD);
-        }
-        if (udpsum != 0) {
-            lmlog(DBG_2, "v6 UDP checksum failed.");
-            return (BAD);
-        }
-    }
-
     /* jump the udp header */
     lbuf_pull(pkt, udp_len);
+    lbuf_reset_lisp(pkt);
     return (GOOD);
 }
 
 int
-lisp_msg_parse_addr(lbuf_t *msg, lisp_addr_t *eid) {
+lisp_msg_parse_addr(lbuf_t *msg, lisp_addr_t *eid)
+{
     int len = lisp_addr_parse(lbuf_data(msg), eid);
     if (len < 0)
         return(BAD);
@@ -122,10 +120,11 @@ lisp_msg_parse_addr(lbuf_t *msg, lisp_addr_t *eid) {
     return(GOOD);
 }
 
-/* Given a message buffer @msg, extracts the EID out of an EID prefix field
- * and stores it in @eid. */
+/* Given a message buffer 'msg', extracts the EID out of an EID prefix field
+ * and stores it in 'eid'. */
 int
-lisp_msg_parse_eid_rec(lbuf_t *msg, lisp_addr_t *eid) {
+lisp_msg_parse_eid_rec(lbuf_t *msg, lisp_addr_t *eid)
+{
     eid_record_hdr_t *hdr = lbuf_data(msg);
     int len = lisp_addr_parse(EID_REC_ADDR(hdr), eid);
     lbuf_pull(msg, len);
@@ -134,7 +133,8 @@ lisp_msg_parse_eid_rec(lbuf_t *msg, lisp_addr_t *eid) {
 }
 
 int
-lisp_msg_parse_itr_rlocs(lbuf_t *b, glist_t *rlocs) {
+lisp_msg_parse_itr_rlocs(lbuf_t *b, glist_t *rlocs)
+{
     lisp_addr_t tloc;
     void *mreq_hdr = lbuf_lisp(b);
     int i;
@@ -151,7 +151,8 @@ lisp_msg_parse_itr_rlocs(lbuf_t *b, glist_t *rlocs) {
 
 
 int
-lisp_msg_parse_loc(lbuf_t *b, locator_t *loc) {
+lisp_msg_parse_loc(lbuf_t *b, locator_t *loc)
+{
     int len;
     void *hdr;
     lisp_addr_t addr;
@@ -173,13 +174,14 @@ lisp_msg_parse_loc(lbuf_t *b, locator_t *loc) {
 
 int
 lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
-        glist_t *loc_list, locator_t *probed) {
+        glist_t *loc_list, locator_t **probed_)
+{
     lisp_addr_t eid;
     void *mrec_hdr, *loc_hdr;
-    locator_t *loc;
+    locator_t *loc, *probed;
     int i;
 
-    probed = NULL;
+    *probed_ = probed = NULL;
     mrec_hdr = lbuf_data(b);
     lbuf_pull(b, sizeof(mapping_record_hdr_t));
 
@@ -217,7 +219,8 @@ lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
  * be preallocated. If a locator is probed, a pointer to it is stored in
  * @probed. */
 int
-lisp_msg_parse_mapping_record(lbuf_t *b, mapping_t *m, locator_t *probed) {
+lisp_msg_parse_mapping_record(lbuf_t *b, mapping_t *m, locator_t **probed)
+{
     glist_t *loc_list;
     glist_entry_t *lit;
     int ret;
@@ -255,7 +258,8 @@ err:
 }
 
 static unsigned int
-msg_type_to_hdr_len(lisp_msg_type_t type) {
+msg_type_to_hdr_len(lisp_msg_type_t type)
+{
     switch(type) {
     case LISP_MAP_REQUEST:
         return(sizeof(map_request_hdr_t));
@@ -271,13 +275,15 @@ msg_type_to_hdr_len(lisp_msg_type_t type) {
 }
 
 void *
-lisp_msg_pull_hdr(lbuf_t *b) {
+lisp_msg_pull_hdr(lbuf_t *b)
+{
     lisp_msg_type_t type = lisp_msg_type(b);
     return(lbuf_pull(b, msg_type_to_hdr_len(type)));
 }
 
 void *
-lisp_msg_pull_auth_field(lbuf_t *b) {
+lisp_msg_pull_auth_field(lbuf_t *b)
+{
     void *hdr;
     lisp_key_type keyid;
 
@@ -289,7 +295,8 @@ lisp_msg_pull_auth_field(lbuf_t *b) {
 
 
 void *
-lisp_msg_put_addr(lbuf_t *b, lisp_addr_t *addr) {
+lisp_msg_put_addr(lbuf_t *b, lisp_addr_t *addr)
+{
     void *ptr;
     int len;
 
@@ -305,7 +312,8 @@ lisp_msg_put_addr(lbuf_t *b, lisp_addr_t *addr) {
 }
 
 void *
-lisp_msg_put_locator(lbuf_t *msg, locator_t *locator) {
+lisp_msg_put_locator(lbuf_t *msg, locator_t *locator)
+{
     locator_hdr_t *loc_ptr;
     lisp_addr_t *addr;
     int len = 0;
@@ -341,7 +349,8 @@ lisp_msg_put_locator(lbuf_t *msg, locator_t *locator) {
 
 
 static void
-increment_record_count(lbuf_t *b) {
+increment_record_count(lbuf_t *b)
+{
     void *hdr = lbuf_lisp(b);
 
     switch(lisp_msg_type(b)) {
@@ -364,14 +373,16 @@ increment_record_count(lbuf_t *b) {
 }
 
 void *
-lisp_msg_put_mapping_hdr(lbuf_t *b) {
+lisp_msg_put_mapping_hdr(lbuf_t *b)
+{
     void *hdr = lbuf_put_uninit(b, sizeof(mapping_record_hdr_t));
     mapping_record_init_hdr(lbuf_data(b));
     return(hdr);
 }
 
 void *
-lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, locator_t *probed_loc) {
+lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, lisp_addr_t *probed_loc)
+{
 
     locators_list_t *loc_list[2]   = {NULL,NULL};
     locator_t loc;
@@ -409,7 +420,8 @@ lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, locator_t *probed_loc) {
 }
 
 void *
-lisp_msg_put_itr_rlocs(lbuf_t *b, glist_t *itr_rlocs) {
+lisp_msg_put_itr_rlocs(lbuf_t *b, glist_t *itr_rlocs)
+{
     glist_entry_t *it;
     lisp_addr_t *rloc;
     void *hdr, *data;
@@ -426,7 +438,8 @@ lisp_msg_put_itr_rlocs(lbuf_t *b, glist_t *itr_rlocs) {
 }
 
 void *
-lisp_msg_put_eid_rec(lbuf_t *b, lisp_addr_t *eid) {
+lisp_msg_put_eid_rec(lbuf_t *b, lisp_addr_t *eid)
+{
     eid_record_hdr_t *hdr;
     hdr = lbuf_put_uinit(b, sizeof(eid_record_hdr_t));
     hdr->eid_prefix_length = lisp_addr_get_plen(eid);
@@ -435,14 +448,15 @@ lisp_msg_put_eid_rec(lbuf_t *b, lisp_addr_t *eid) {
 }
 
 void *
-lisp_msg_push_ecm_encap(lbuf_t *b, uconn_t *uc) {
+lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la,
+        lisp_addr_t *ra)
+{
     void *data, *hdr;
 
     data = lbuf_data(b);
 
     /* inner hdr */
-    pkt_push_udp_and_ip(b, &uc->lp, &uc->rp, lisp_addr_ip(&uc->la),
-            lisp_addr_ip(&uc->ra));
+    pkt_push_udp_and_ip(b, lp, rp, lisp_addr_ip(la), lisp_addr_ip(ra));
 
     hdr = lbuf_push_uninit(b, sizeof(ecm_hdr_t));
     ecm_hdr_init(hdr);
@@ -452,7 +466,8 @@ lisp_msg_push_ecm_encap(lbuf_t *b, uconn_t *uc) {
 
 
 lbuf_t*
-lisp_msg_create(lisp_msg_type_t type) {
+lisp_msg_create(lisp_msg_type_t type)
+{
     lbuf_t* b;
     void *hdr;
 
@@ -491,17 +506,72 @@ lisp_msg_create(lisp_msg_type_t type) {
     return(b);
 }
 
-int
-lisp_msg_mreq_init(lbuf_t *b, lisp_addr_t *seid, glist_t *itr_rlocs,
-        lisp_addr_t *deid) {
+lbuf_t *
+lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs,
+        lisp_addr_t *deid)
+{
+
+    lbuf_t *b = lisp_msg_create(LISP_MAP_REQUEST);
     lisp_msg_put_addr(b, seid);
     lisp_msg_put_itr_rlocs(b, itr_rlocs);
     lisp_msg_put_eid_rec(b, deid);
-    return(GOOD);
+    return(b);
+}
+
+lbuf_t *
+lisp_msg_mreg_create(mapping_t *m, char *key, lisp_key_type keyid)
+{
+    void *hdr;
+    lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
+    hdr = lisp_msg_put_empty_auth_record(b, keyid);
+
+    if (!hdr) {
+        return(BAD);
+    }
+
+    if (!lisp_msg_put_mapping(b, m, NULL)) {
+        return(BAD);
+    }
+    if (lisp_msg_fill_auth_data(b, keyid, key) != GOOD) {
+        return(BAD);
+    }
+
+    return(b);
+}
+
+lbuf_t *
+lisp_msg_nat_mreg_create(mapping_t *m, char *key, lisp_site_id *site_id,
+        lisp_xtr_id *xtr_id, lisp_key_type keyid)
+{
+    void *hdr, *ptr;
+    lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
+    hdr = lisp_msg_put_empty_auth_record(b, keyid);
+
+    if (!hdr) {
+        return(NULL);
+    }
+
+    MREG_PROXY_REPLY(hdr) = 1;
+    MREG_IBIT(hdr) = 1;
+    MREG_RBIT(hdr) = 1;
+
+    if (!lisp_msg_put_mapping(b, m, NULL)) {
+        return(NULL);
+    }
+
+    lbuf_put(b, xtr_id, sizeof(lisp_xtr_id));
+    lbuf_put(b, site_id, sizeof(lisp_site_id));
+
+    if (lisp_msg_fill_auth_data(b, keyid, key) != GOOD) {
+        return(NULL);
+    }
+
+    return(b);
 }
 
 char *
-lisp_msg_hdr_to_char(lbuf_t *b) {
+lisp_msg_hdr_to_char(lbuf_t *b)
+{
     void *h = lbuf_lisp(b);
     switch(lisp_msg_type(b)) {
     case LISP_MAP_REQUEST:
@@ -529,7 +599,8 @@ lisp_msg_hdr_to_char(lbuf_t *b) {
  * TODO Support more than SHA1 */
 static int
 auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id,
-        const char *key, uint8_t *md, uint32_t *md_len) {
+        const char *key, uint8_t *md, uint32_t *md_len)
+{
     switch(key_id) {
     case NO_KEY:
         /* FC XXX: what happens here? */
@@ -553,7 +624,8 @@ auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id,
 }
 
 int
-lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type keyid, const char *key) {
+lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type keyid, const char *key)
+{
     uint32_t    md_len  = 0;
 
     void *hdr = lisp_msg_auth_record(b);
@@ -573,7 +645,8 @@ lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type keyid, const char *key) {
 /* Checks auth field of Map-Reply and Map-Request messages
  * Returns 1 if validation succeeded and 0 otherwise */
 int
-lisp_msg_check_auth_field(lbuf_t *b, const char *key) {
+lisp_msg_check_auth_field(lbuf_t *b, const char *key)
+{
     uint8_t     *auth_data_cpy;
     uint32_t    md_len  = 0;
     uint8_t     *adptr  = NULL;
@@ -589,7 +662,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key) {
     if (ad_len != ntohs(AUTH_REC_DATA_LEN(hdr))) {
         return(0);
     }
-    auth_data_cpy = calloc(1, ad_len*sizeof(uint8_t));
+    auth_data_cpy = xzalloc(ad_len*sizeof(uint8_t));
 
     /* set auth field in 0 prior to computing the HMAC (see draft) */
     adptr = lbuf_data(b);
@@ -608,7 +681,8 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key) {
 }
 
 void *
-lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type keyid) {
+lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type keyid)
+{
     void *hdr;
     int len = auth_data_get_len_for_type(keyid);
     hdr = lbuf_put(b, sizeof(auth_record_hdr_t) + len);
@@ -618,6 +692,33 @@ lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type keyid) {
     return(hdr);
 }
 
+/* returns in 'addr_' the first element of the list 'l' to have AFI 'afi'
+ * caller must allocate and free 'addr_' */
+int
+lisp_addr_list_get_addr(glist_t *l, int afi, lisp_addr_t *addr)
+{
+    glist_entry_t *it;
+    lisp_addr_t *ait;
+    int found = 0;
 
+    if (!addr) {
+        return(BAD);
+    }
+
+    glist_for_each_entry(it, l) {
+        ait = glist_entry_data(it);
+        if (lisp_addr_ip_afi(ait) == afi) {
+            lisp_addr_copy(addr, ait);
+            found = 1;
+            break;
+        }
+    }
+
+    if (found) {
+        return(GOOD);
+    } else {
+        return(BAD);
+    }
+}
 
 

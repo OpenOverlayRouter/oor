@@ -35,19 +35,19 @@
 #include <defs.h>
 
 struct lbuf {
-    struct list_head list;      /* for queueing*/
+    struct list_head list;      /* for queueing, to be implemented*/
 
     uint32_t allocated;         /* allocated size */
     uint32_t size;              /* size in-use */
 
-    uint16_t ip;                /* IP hdr offset*/
-    uint16_t udp;               /* UDP hdr offset*/
-//
-//    uint16_t lh;                /* lisp hdr offset*/
-//    uint16_t ip_ihdr;           /* inner IP hdr offset */
-//    uint16_t udp_ihdr;          /* inner UDP hdr offset */
-//
-    uint16_t lisp;              /* lisp payload (msg or pkt) offset */
+    uint16_t ip;                /* IP hdr offset */
+    uint16_t udp;               /* UDP hdr offset */
+
+    uint16_t lhdr;              /* lisp hdr offset */
+    uint16_t in_ip;             /* inner IP hdr offset */
+    uint16_t in_udp;            /* inner UDP hdr offset */
+
+    uint16_t lisp;              /* lisp payload offset */
 
     void *base;                 /* start of allocated space */
     void *data;                 /* start of in-use space */
@@ -64,97 +64,130 @@ lbuf_t *lbuf_clone(lbuf_t *);
 static void lbuf_del(lbuf_t *);
 
 
-static void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
-static void *lbuf_tail(const lbuf_t *);
-static uint32_t lbuf_end(const lbuf_t *);
-static void *lbuf_data(const lbuf_t *);
-static int lbuf_size(const lbuf_t *);
-
-void lbuf_prealloc_tailroom(lbuf_t *b, uint32_t);
-void lbuf_prealloc_headroom(lbuf_t *b, uint32_t);
+static inline void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
+static inline void *lbuf_tail(const lbuf_t *);
+static inline void *lbuf_end(const lbuf_t *);
+static inline void *lbuf_data(const lbuf_t *);
+static inline int lbuf_size(const lbuf_t *);
 
 void *lbuf_put_uninit(lbuf_t *, uint32_t);
 void *lbuf_put(lbuf_t *, void *, uint32_t);
 void *lbuf_push_uninit(lbuf_t *, uint32_t);
 void *lbuf_push(lbuf_t *, void *, uint32_t);
-static void *lbuf_pull(lbuf_t *b, uint32_t);
-
+static inline void *lbuf_pull(lbuf_t *b, uint32_t);
 
 void lbuf_reserve(lbuf_t *b, uint32_t size);
 lbuf_t *lbuf_clone(lbuf_t *b);
 
-static void *lbuf_lisp(lbuf_t*);
+void lbuf_prealloc_tailroom(lbuf_t *b, uint32_t);
+void lbuf_prealloc_headroom(lbuf_t *b, uint32_t);
 
+static inline void lbuf_reset_ip(lbuf_t *b);
+static inline void *lbuf_ip(lbuf_t *b);
+static inline void lbuf_reset_udp(lbuf_t *b);
+static inline void *lbuf_udp(lbuf_t *b);
+static inline void lbuf_reset_lisp(lbuf_t *b);
+static inline void *lbuf_lisp(lbuf_t*);
+static inline void lbuf_reset_lisp_hdr(lbuf_t *b);
+static inline void *lbuf_lisp_hdr(lbuf_t*);
 
-static void *lbuf_at(const lbuf_t *buf, uint32_t offset, uint32_t size) {
-    return offset+size <= buf->size ? (uint8_t *) buf->data + offset : NULL;
+static inline void *lbuf_at(const lbuf_t *buf, uint32_t offset, uint32_t size)
+{
+    return offset + size <= buf->size ? (uint8_t *) buf->data + offset : NULL;
 }
 
-
-static void *lbuf_tail(const lbuf_t *b) {
+static inline void *lbuf_tail(const lbuf_t *b)
+{
     return (uint8_t *) b->data + b->size;
 }
 
-static void *lbuf_end(const lbuf_t *b) {
+static inline void *lbuf_end(const lbuf_t *b)
+{
     return (uint8_t *) b->base + b->allocated;
 }
 
-static uint32_t lbuf_headroom(const lbuf_t *b) {
-    return (uint8_t *)b->base - (uint8_t *)b->data;
+static inline uint32_t lbuf_headroom(const lbuf_t *b)
+{
+    return (uint8_t *) b->base - (uint8_t *) b->data;
 }
 
-static uint32_t lbuf_tailroom(const lbuf_t *b) {
-    return lbuf_end(b)-lbuf_tail(b);
+static inline uint32_t lbuf_tailroom(const lbuf_t *b)
+{
+    return lbuf_end(b) - lbuf_tail(b);
 }
 
-static void lbuf_del(lbuf_t *b) {
+static void lbuf_del(lbuf_t *b)
+{
     if (b) {
         lbuf_uninit(b);
         free(b);
     }
 }
 
-static void *lbuf_data(const lbuf_t *b) {
+static inline void *lbuf_data(const lbuf_t *b)
+{
     return b->data;
 }
 
-static int lbuf_size(const lbuf_t *b) {
+static inline int lbuf_size(const lbuf_t *b)
+{
     return b->size;
 }
 
 /* moves 'data' pointer by 'size'. Returns first byte
  * of data removed */
-static void *lbuf_pull(lbuf_t *b, uint32_t size) {
-    if (size > b->size)
+static inline void *lbuf_pull(lbuf_t *b, uint32_t size)
+{
+    if (size > b->size) {
         return NULL;
+    }
+
     void *data = b->data;
-    b->data = (uint8_t *)b->data + size;
+    b->data = (uint8_t *) b->data + size;
     b->size -= size;
     return data;
 }
 
-static void lbuf_reset_ip(lbuf_t *b) {
-    b->ip = (uint8_t *)b->data - (uint8_t *)b->base;
+static inline void lbuf_reset_ip(lbuf_t *b)
+{
+    b->ip = (uint8_t *) b->data - (uint8_t *) b->base;
 }
 
-static void *lbuf_ip(lbuf_t *b) {
-    return(b->ip ? (uint8_t *)b->allocated + b->ip : NULL);
+static inline void *lbuf_ip(lbuf_t *b)
+{
+    return (b->ip ? (uint8_t *) b->base + b->ip : NULL);
 }
 
-static void lbuf_reset_udp(lbuf_t *b) {
-    b->udp = (uint8_t *)b->data - (uint8_t *)b->base;
+static inline void lbuf_reset_udp(lbuf_t *b)
+{
+    b->udp = (uint8_t *) b->data - (uint8_t *) b->base;
 }
 
-static void *lbuf_udp(lbuf_t *b) {
-    return(b->udp ? (uint8_t *)b->allocated + b->udp : NULL);
+static inline void *lbuf_udp(lbuf_t *b)
+{
+    return (b->udp ? (uint8_t *) b->base + b->udp : NULL);
 }
 
-static void lbuf_reset_lisp(lbuf_t *b) {
-    b->lisp = (uint8_t *)b->data - (uint8_t *)b->base;
+static inline void lbuf_reset_lisp(lbuf_t *b)
+{
+    b->lisp = (uint8_t *) b->data - (uint8_t *) b->base;
 }
 
-static void *lbuf_lisp(lbuf_t *b) {
-    return(b->lisp ? (uint8_t *)b->allocated + b->lisp : NULL);
+static inline void *lbuf_lisp(lbuf_t *b)
+{
+    return (b->lisp ? (uint8_t *) b->base + b->lisp : NULL);
 }
+
+static inline void lbuf_reset_lisp_hdr(lbuf_t *b)
+{
+    b->lhdr = (uint8_t *) b->data - (uint8_t *) b->base;
+}
+
+static inline void *lbuf_lisp_hdr(lbuf_t *b)
+{
+    return (b->lhdr ? (uint8_t *) b->base + b->lhdr : NULL);
+}
+
+
 
 #endif /* LBUF_H_ */

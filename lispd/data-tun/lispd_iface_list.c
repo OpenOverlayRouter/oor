@@ -52,9 +52,9 @@ shash_t *iface_addr_ht = NULL;
 int
 build_iface_addr_hash_table()
 {
-    struct  ifaddrs *ifaddr, *ifa;
-    int     family, s;
-    char    host[NI_MAXHOST];
+    struct ifaddrs *ifaddr, *ifa;
+    int family, s;
+    char host[NI_MAXHOST];
 
     lmlog(LINF, "Building address to interface hash table");
     if (getifaddrs(&ifaddr) == -1) {
@@ -141,6 +141,12 @@ add_interface(char *iface_name)
     iface_list_elt *iface_list = NULL;
     iface_list_elt *aux_iface_list = NULL;
     iface_t *iface = NULL;
+
+    if (if_nametoindex(iface_name) == 0) {
+        lmlog(LERR, "Configuration file: INVALID INTERFACE or not initialized "
+                "virtual interface: %s ", iface_name);
+        return(NULL);
+    }
 
     /* Creating the new interface*/
     iface_list = xzalloc(sizeof(iface_list_elt));
