@@ -28,6 +28,8 @@
 
 #include "liblisp.h"
 
+static void increment_record_count(lbuf_t *b);
+
 lisp_msg_type_t
 lisp_msg_type(lbuf_t *b)
 {
@@ -395,6 +397,7 @@ lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, lisp_addr_t *probed_loc)
     rec = lisp_msg_put_mapping_hdr(b);
     MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
     MAP_REC_LOC_COUNT(rec) = m->locator_count;
+    MAP_REC_TTL(rec) = htonl(m->ttl);
 
     if (lisp_msg_put_addr(b, eid) != GOOD) {
         return(NULL);
@@ -412,6 +415,27 @@ lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, lisp_addr_t *probed_loc)
             }
             loc_list[ctr] = loc_list[ctr]->next;
         }
+    }
+
+    increment_record_count(b);
+
+    return(rec);
+}
+
+void *
+lisp_msg_put_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
+        lisp_action_e act)
+{
+    void *rec;
+
+    rec = lisp_msg_put_mapping_hdr(b);
+    MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
+    MAP_REC_LOC_COUNT(rec) = 0;
+    MAP_REC_TTL(rec) = htonl(ttl);
+    MAP_REC_ACTION(rec) = act;
+
+    if (lisp_msg_put_addr(b, eid) != GOOD) {
+        return(NULL);
     }
 
     increment_record_count(b);
@@ -515,6 +539,15 @@ lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs,
     lisp_msg_put_addr(b, seid);
     lisp_msg_put_itr_rlocs(b, itr_rlocs);
     lisp_msg_put_eid_rec(b, deid);
+    return(b);
+}
+
+lbuf_t *
+lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac)
+{
+    lbuf_t *b;
+    b = lisp_msg_create(LISP_MAP_REPLY);
+    lisp_msg_put_neg_mapping(b, eid, ttl, ac);
     return(b);
 }
 

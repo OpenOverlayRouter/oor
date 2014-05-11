@@ -49,16 +49,16 @@ static char *
 action_to_char(int act) {
     static char buf[10];
     switch(act) {
-    case 0:
+    case ACT_NO_ACTION:
         sprintf(buf, "no-action");
         break;
-    case 1:
+    case ACT_NATIVE_FWD:
         sprintf(buf, "native-forward");
         break;
-    case 2:
+    case ACT_SEND_MREQ:
         sprintf(buf, "send-map-request");
         break;
-    case 3:
+    case ACT_DROP:
         sprintf(buf, "drop");
         break;
     default:

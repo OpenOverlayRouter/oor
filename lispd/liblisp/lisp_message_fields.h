@@ -421,10 +421,16 @@ char *mapping_record_hdr_to_char(mapping_record_hdr_t *h);
 #define MAP_REC_LOC_COUNT(h) ((mapping_record_hdr_t *)(h))->locator_count
 #define MAP_REC_ACTION(h) ((mapping_record_hdr_t *)(h))->action
 #define MAP_REC_AUTH(h) ((mapping_record_hdr_t *)(h))->authoritative
-#define MAP_REC_TTL(h) ((mapping_record_hdr_t *)(h))->action
+#define MAP_REC_TTL(h) ((mapping_record_hdr_t *)(h))->ttl
 #define MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mapping_record_hdr_t)
 #define MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
 
+typedef enum lisp_actions {
+    ACT_NO_ACTION = 0,
+    ACT_NATIVE_FWD,
+    ACT_SEND_MREQ,
+    ACT_DROP
+} lisp_action_e;
 
 /*
  * EID RECORD FIELD

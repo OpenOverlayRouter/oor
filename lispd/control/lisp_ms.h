@@ -42,9 +42,9 @@ typedef struct _lisp_ms {
 } lisp_ms_t;
 
 /* ms interface */
-int ms_add_lisp_site_prefix(lisp_ctrl_dev_t *ms, lisp_site_prefix *site);
-int ms_add_registered_site_prefix(lisp_ctrl_dev_t *dev, mapping_t *sp);
-void ms_dump_configured_sites(lisp_ctrl_dev_t *dev, int log_level);
-void ms_dump_registered_sites(lisp_ctrl_dev_t *dev, int log_level);
+int ms_add_lisp_site_prefix(lisp_ms_t *ms, lisp_site_prefix *site);
+int ms_add_registered_site_prefix(lisp_ms_t *dev, mapping_t *sp);
+void ms_dump_configured_sites(lisp_ms_t *dev, int log_level);
+void ms_dump_registered_sites(lisp_ms_t *dev, int log_level);
 
 #endif /* LISP_MS_H_ */

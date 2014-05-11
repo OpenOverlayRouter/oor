@@ -142,13 +142,6 @@ int err;
 #define ERR_CTR_IFACE       -7
 #define ERR_NOT_LISP        -8
 
-/***** Negative Map-Reply actions ***/
-#define ACT_NO_ACTION           0
-#define ACT_NATIVELY_FORWARD    1
-#define ACT_SEND_MAP_REQUEST    2
-#define ACT_DROP                3
-
-
 #define TRUE                1
 #define FALSE               0
 #define UP                  1

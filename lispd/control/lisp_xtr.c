@@ -43,8 +43,7 @@ static int tr_recv_map_reply(lisp_xtr_t *, lbuf_t *);
 static int tr_reply_to_smr(lisp_xtr_t *, lisp_addr_t *);
 static int tr_recv_map_request(lisp_xtr_t *, lbuf_t *, uconn_t *);
 static int tr_recv_map_notify(lisp_xtr_t *, lbuf_t *);
-static int send_map_request(lisp_xtr_t *, lbuf_t *, lisp_addr_t *,
-        lisp_addr_t *);
+
 static int send_map_request_to_mr(lisp_xtr_t *, lbuf_t *, lisp_addr_t *,
         lisp_addr_t *);
 static glist_t *build_rloc_list(mapping_t *m);
@@ -443,7 +442,8 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
         lmlog(DBG_1, " dst-eid: %s", lisp_addr_to_char(deid));
 
         /* Check the existence of the requested EID */
-        if (!(map = local_map_db_lookup_eid_exact(xtr->local_mdb, deid))) {
+        map = local_map_db_lookup_eid_exact(xtr->local_mdb, deid);
+        if (!map) {
             lmlog(DBG_1,"EID %s not locally configured!",
                     lisp_addr_to_char(deid));
             continue;
@@ -457,7 +457,7 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     MREP_RLOC_PROBE(mrep_hdr) = MREQ_RLOC_PROBE(mreq_hdr);
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
-    /* send map-reply */
+    /* SEND MAP-REPLY */
     lisp_addr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
     if (send_msg(&xtr->super, mrep, uc) != GOOD) {
         lmlog(DBG_1, "Couldn't send Map-Reply!");
@@ -578,23 +578,6 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *b)
 }
 
 
-static int
-send_map_request(lisp_xtr_t *xtr, lbuf_t *b, lisp_addr_t *srloc,
-        lisp_addr_t *drloc) {
-    uconn_t uc;
-
-    uc.lp = uc.rp = LISP_CONTROL_PORT;
-    if (srloc) {
-        lisp_addr_copy(&uc.la, srloc);
-    } else {
-        lisp_addr_set_afi(&uc.la, LM_AFI_NO_ADDR);
-    }
-
-    lisp_addr_copy(&uc.ra, drloc);
-    return(send_msg(&xtr->super, b, &uc));
-}
-
-
 
 static int
 send_map_request_to_mr(lisp_xtr_t *xtr, lbuf_t *b, lisp_addr_t *in_srloc,
@@ -613,7 +596,7 @@ send_map_request_to_mr(lisp_xtr_t *xtr, lbuf_t *b, lisp_addr_t *in_srloc,
     lmlog(DBG_1, " Encap: %s -> %s", lisp_addr_to_char(in_srloc),
             lisp_addr_to_char(in_drloc));
 
-    return(send_map_request(xtr, b, srloc, drloc));
+    return(send_map_request(&xtr->super, b, srloc, drloc));
 }
 
 int
@@ -692,7 +675,7 @@ build_and_send_smr_mreq(lisp_xtr_t *xtr, mapping_t *smap,
     lmlog(DBG_1, "%s EID: %s -> %s ", lisp_msg_hdr_to_char(hdr),
             lisp_addr_to_char(seid), lisp_addr_to_char(deid));
 
-    return(send_map_request(xtr, b, srloc, drloc));
+    return(send_map_request(&xtr->super, b, srloc, drloc));
 
 }
 
@@ -1292,7 +1275,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         MREQ_NONCE(hdr) = nonces->nonce[nonces->retransmits];
         MREQ_RLOC_PROBE(hdr) = 1;
 
-        err = send_map_request(xtr, b, NULL, locator_addr(locator));
+        err = send_map_request(&xtr->super, b, NULL, locator_addr(locator));
 
         if (err != GOOD) {
             lmlog(DBG_1,"rloc_probing: Couldn't send Map-Request Probe for "

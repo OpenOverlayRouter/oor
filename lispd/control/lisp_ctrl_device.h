@@ -77,14 +77,6 @@ extern ctrl_dev_class_t ms_ctrl_class;
 extern ctrl_dev_class_t xtr_ctrl_class;
 
 
-///* Generic timer argument that includes the device as parameter. As a rule,
-// * both 'dev' and 'data' should be pointers to existing data structure that
-// * don't require the caller to free them */
-//typedef struct timer_arg_t_ {
-//    lisp_ctrl_dev_t *dev;
-//    void *data;
-//} timer_arg_t;
-
 
 int ctrl_dev_create(lisp_dev_type , lisp_ctrl_dev_t **);
 void ctrl_dev_destroy(lisp_ctrl_dev_t *);
@@ -93,9 +85,10 @@ void ctrl_dev_run(lisp_ctrl_dev_t *);
 int ctrl_if_event(lisp_ctrl_dev_t *);
 fwd_entry_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);
 
-/* interface to lisp_ctrl */
-//int recv_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+
+/* PRIVATE functions, used by xtr and ms */
 int send_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
+int send_map_request(lisp_ctrl_dev_t *, lbuf_t *, lisp_addr_t *, lisp_addr_t *);
 
 
 #endif /* LISP_CTRL_DEVICE_H_ */

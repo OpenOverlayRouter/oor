@@ -35,7 +35,7 @@
 //#include "lispd_address.h"
 #include "lispd_types.h"
 //#include "lispd_remdb.h"
-#include <liblisp.h>
+#include "lisp_address.h"
 
 
 

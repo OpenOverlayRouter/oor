@@ -60,6 +60,7 @@ void *lisp_msg_put_addr(lbuf_t *, lisp_addr_t *addr);
 void *lisp_msg_put_locator(lbuf_t *, locator_t *locator);
 void *lisp_msg_put_mapping_hdr(lbuf_t *b, int plen) ;
 void *lisp_msg_put_mapping(lbuf_t *, mapping_t *, lisp_addr_t *);
+void *lisp_msg_put_neg_mapping(lbuf_t *, lisp_addr_t *, int, lisp_action_e);
 void *lisp_msg_put_itr_rlocs(lbuf_t *, glist_t *);
 void *lisp_msg_put_eid_rec(lbuf_t *, lisp_addr_t *);
 void *lisp_msg_encap(lbuf_t *, int, int, lisp_addr_t *, lisp_addr_t *);
@@ -69,6 +70,7 @@ static inline void lisp_msg_destroy(lbuf_t *);
 static inline void *lisp_msg_hdr(lbuf_t *b);
 
 lbuf_t *lisp_msg_mreq_create(lisp_addr_t *, glist_t *, lisp_addr_t *);
+lbuf_t *lisp_msg_neg_mrep_create(lisp_addr_t *, int, lisp_action_e);
 lbuf_t *lisp_msg_mreg_create(mapping_t *, char *, lisp_key_type);
 lbuf_t *lisp_msg_nat_mreg_create(mapping_t *, char *, lisp_site_id *,
         lisp_xtr_id *, lisp_key_type );

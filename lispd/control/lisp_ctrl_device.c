@@ -108,3 +108,20 @@ ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
     return(dev->ctrl_class->get_fwd_entry(dev, tuple));
 }
 
+
+int
+send_map_request(lisp_ctrl_dev_t *dev, lbuf_t *b, lisp_addr_t *srloc,
+        lisp_addr_t *drloc) {
+    uconn_t uc;
+
+    uc.lp = uc.rp = LISP_CONTROL_PORT;
+    if (srloc) {
+        lisp_addr_copy(&uc.la, srloc);
+    } else {
+        lisp_addr_set_afi(&uc.la, LM_AFI_NO_ADDR);
+    }
+
+    lisp_addr_copy(&uc.ra, drloc);
+    return(send_msg(dev, b, &uc));
+}
+
