@@ -1,10 +1,11 @@
 /*
- * sockets-util.h
+ * lispd_nonce.h
  *
  * This file is part of LISP Mobile Node Implementation.
+ * Send registration messages for each database mapping to
+ * configured map-servers.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
- * All rights reserved.
+ * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,24 +25,25 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
- *    Florin Coras <fcoras@ac.upc.edu>
+ *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
+#ifndef LISPD_NONCE_H_
+#define LISPD_NONCE_H_
 
-#ifndef SOCKETS_UTIL_H_
-#define SOCKETS_UTIL_H_
+#include <defs.h>
 
-#include "lisp_address.h"
+typedef struct {
+    uint8_t retransmits;
+    uint64_t nonce[LISPD_MAX_RETRANSMITS + 1];
+} nonces_list_t;
 
-int open_device_bound_raw_socket(char *device, int afi);
-int open_raw_socket(int afi);
 
-int open_udp_socket(int afi);
-int bind_socket_address(int sock, lisp_addr_t *);
-int bind_socket(int sock, int afi, int port);
-int send_raw(int, uint8_t *, int, ip_addr_t *);
+uint64_t nonce_build(int seed);
+uint64_t nonce_build_time();
+nonces_list_t *nonces_list_new();
+int nonce_check(nonces_list_t *nonces, uint64_t nonce);
+void lispd_print_nonce(uint64_t nonce, int log_level);
+char *nonce_to_char(uint64_t nonce);
 
-int send_packet(int sock, uint8_t *packet, int packet_length);
-
-#endif /* SOCKETS_UTIL_H_ */
+#endif /* LISPD_NONCE_H_ */

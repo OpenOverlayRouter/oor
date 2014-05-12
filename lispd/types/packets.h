@@ -33,8 +33,19 @@
 #define LISPD_PKT_LIB_H_
 
 #include "defs.h"
+#include "lisp_address.h"
+#include "lbuf.h"
 //#include "lispd_local_db.h"
 
+
+/* shared between data and control */
+typedef struct packet_tuple {
+    lisp_addr_t                     src_addr;
+    lisp_addr_t                     dst_addr;
+    uint16_t                        src_port;
+    uint16_t                        dst_port;
+    uint8_t                         protocol;
+} packet_tuple_t;
 
 /*
  * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)

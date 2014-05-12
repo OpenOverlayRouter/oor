@@ -242,7 +242,7 @@ int add_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
     if (result == GOOD){
-        lmlog(LISP_LOG_DEBUG_1, "add_rule: Add rule for source routing of src addr: %s",
+        lmlog(DBG_1, "add_rule: Add rule for source routing of src addr: %s",
                 lisp_addr_to_char(src_addr));
     }
 
@@ -268,8 +268,8 @@ int del_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_DELRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
     if (result == GOOD){
-        lmlog(LISP_LOG_DEBUG_1, "del_rule: Removed rule for source routing of src addr: %s",
-                get_char_from_lisp_addr_t(*src_addr));
+        lmlog(DBG_1, "del_rule: Removed rule for source routing of src addr: %s",
+                lisp_addr_to_char(src_addr));
     }
 
     return (result);
@@ -531,7 +531,7 @@ int add_route(
     int result = BAD;
     result = modify_route(RTM_NEWROUTE, afi,ifindex, dest, src, gw, prefix_len, metric, table);
     if (result == GOOD){
-        lmlog(LISP_LOG_DEBUG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
+        lmlog(DBG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
                 (src != NULL) ? lisp_addr_to_char(src) : "-",
                 (dest != NULL) ? lisp_addr_to_char(dest) : "-",
                 prefix_len,
@@ -555,7 +555,7 @@ int del_route(
     int result = BAD;
     result = modify_route(RTM_DELROUTE, afi, ifindex, dest, src, gw, prefix_len, metric, table);
     if (result == GOOD){
-        lmlog(LISP_LOG_DEBUG_1, "del_route: deleted route  from the system");
+        lmlog(DBG_1, "del_route: deleted route  from the system");
     }
     return (result);
 }

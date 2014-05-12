@@ -124,9 +124,9 @@ inline void *lisp_addr_lcaf_get_addr(lisp_addr_t *laddr);
 inline lcaf_type lisp_addr_lcaf_get_type(lisp_addr_t *laddr);
 inline void lisp_addr_lcaf_set_type(lisp_addr_t *laddr, int type);
 
-inline lisp_addr_t *lisp_addr_init_from_ip(ip_addr_t *ip);
-inline lisp_addr_t *lisp_addr_init_from_ippref(ip_addr_t *ip, uint8_t plen);
-inline lisp_addr_t *lisp_addr_init_from_lcaf(lcaf_addr_t *lcaf);
+inline int lisp_addr_init_from_ip(lisp_addr_t *, ip_addr_t *);
+inline int lisp_addr_init_from_ippref(lisp_addr_t *, ip_addr_t *, uint8_t);
+inline int lisp_addr_init_from_lcaf(lisp_addr_t *, lcaf_addr_t *);
 
 inline uint16_t lisp_addr_iana_afi_to_lm_afi(uint16_t afi);
 inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr);

@@ -315,7 +315,7 @@ mdb_new()
     if (!db->AF4_ip_db->head->data || !db->AF6_ip_db->head->data
         || !db->AF4_mc_db || !db->AF6_mc_db) {
         lmlog(LCRIT, "mdb_init: Unable to allocate memory for mdb");
-        exit_cleanup();
+        return(BAD);
     }
 
     db->n_entries = 0;
@@ -435,6 +435,10 @@ mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr)
         return(NULL);
 }
 
+inline int
+mdb_n_entries(mdb_t *mdb) {
+    return(mdb->n_entries);
+}
 
 
 /*

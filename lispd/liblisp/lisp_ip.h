@@ -72,7 +72,7 @@ typedef struct {
 inline ip_addr_t         *ip_addr_new();
 inline void              ip_addr_del(ip_addr_t *ip);
 inline int               ip_addr_afi(ip_addr_t *ipaddr);
-inline uint8_t           *ip_addr_get_addr(ip_addr_t *ipaddr);
+inline void              *ip_addr_get_addr(ip_addr_t *ipaddr);
 inline struct in_addr    *ip_addr_get_v4(ip_addr_t *ipaddr);
 inline struct in6_addr   *ip_addr_get_v6(ip_addr_t *ipaddr);
 inline uint8_t           ip_addr_get_size(ip_addr_t *ipaddr);
@@ -117,6 +117,7 @@ inline uint8_t ip_addr_is_multicast(ip_addr_t *addr);
 inline uint16_t ip_sock_to_iana_afi(uint16_t afi);
 inline uint16_t ip_iana_to_sock_afi(uint16_t afi);
 inline uint8_t ip_sock_afi_to_size(uint16_t afi);
+inline int ip_sock_afi_to_hdr_len(int afi);
 inline uint8_t ip_iana_afi_to_size(uint16_t afi);
 uint8_t ip_is_multicast(void *ip, int afi);
 uint8_t ipv4_is_multicast(struct in_addr *addr);

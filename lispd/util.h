@@ -113,6 +113,17 @@
     ((OBJECT) = OBJECT_CONTAINING(POINTER, OBJECT, MEMBER), (void) 0)
 
 
+/* Casts 'pointer' to 'type' and issues a compiler warning if the cast changes
+ * anything other than an outermost "const" or "volatile" qualifier.
+ *
+ * The cast to int is present only to suppress an "expression using sizeof
+ * bool" warning from "sparse" (see
+ * http://permalink.gmane.org/gmane.comp.parsers.sparse/2967). */
+#define CONST_CAST(TYPE, POINTER)                               \
+    ((void) sizeof ((int) ((POINTER) == (TYPE) (POINTER))),     \
+     (TYPE) (POINTER))
+
+
 /* Expands to a string that looks like "<file>:<line>", e.g. "tmp.c:10".
  *
  * See http://c-faq.com/ansi/stringize.html for an explanation of STRINGIZE and

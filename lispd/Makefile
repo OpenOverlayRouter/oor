@@ -53,6 +53,7 @@ OBJS		= cmdline.o				\
 		  data-tun/lispd_routing_tables_lib.o 	\
 		  elibs/htable/hash_table.o		\
 		  elibs/patricia/patricia.o		\
+		  liblisp/liblisp.o			\
 		  liblisp/lisp_address.o		\
 		  liblisp/lisp_ip.o			\
 		  liblisp/lisp_lcaf.o			\
@@ -60,6 +61,7 @@ OBJS		= cmdline.o				\
 		  liblisp/lisp_mapping.o 		\
 		  liblisp/lisp_messages.o		\
 		  liblisp/lisp_message_fields.o 	\
+		  liblisp/lisp_nonce.o 			\
 		  lispd.o				\
 		  lispd_config.o			\
 		  lispd_iface_mgmt.o 			\
@@ -67,18 +69,19 @@ OBJS		= cmdline.o				\
 		  lispd_sockets.o 			\
 		  lispd_timers.o 			\
 		  types/generic_list.o			\
-		  types/lisp_map_cache_entry.o		\
+		  types/map_cache_entry.o		\
+		  types/lbuf.o				\
 		  types/lisp_site.o			\
 		  types/lispd_mdb.o			\
-		  types/lispd_nonce.o 			\
-		  types/lispd_remdb.o			\
 		  types/packets.o 			\
+		  types/sockets-util.o			\
 		  types/shash.o 			\
 		  util.o
 #		  control/lispd_info_nat.o		\
 #		  control/lispd_info_request.o 		\
 #		  control/lispd_info_reply.o		\
 #		  lispd_lib.o				\
+#		  types/lispd_remdb.o			\
 
 EXE		= lispd
 PREFIX		= /usr/local/sbin

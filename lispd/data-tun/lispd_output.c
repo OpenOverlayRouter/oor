@@ -30,7 +30,7 @@
 
 
 #include "lispd_output.h"
-#include <elibs/bob/lookup3.c>
+//#include <elibs/bob/lookup3.c>
 #include <liblisp.h>
 #include <packets.h>
 #include <lispd_sockets.h>
@@ -329,7 +329,7 @@ forward_native(uint8_t *pbuf, int plen)
     }
 
     lmlog(DBG_3, "Fordwarding native for destination %s",
-            get_char_from_lisp_addr_t(extract_dst_addr_from_packet(pbuf)));
+            lisp_addr_to_char((lisp_addr_t[]){extract_dst_addr_from_packet(pbuf)}));
 
     ret = send_packet(output_socket, pbuf, plen);
     return (ret);

@@ -66,9 +66,6 @@ inline int mdb_n_entries(mdb_t *);
 patricia_tree_t *_get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf);
 patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);
 
-inline int mdb_n_entries(mdb_t *mdb) {
-    return(mdb->n_entries);
-}
 
 #define mdb_foreach_entry(_mdb, _it) \
     do { \

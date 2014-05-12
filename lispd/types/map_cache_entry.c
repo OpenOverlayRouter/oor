@@ -59,12 +59,12 @@ void
 mcache_entry_init(mcache_entry_t **mce, mapping_t *mapping)
 {
     if (!*mce) {
-        *mce = mcache_new();
+        *mce = mcache_entry_new();
     }
 
-    *mce->mapping = mapping;
-    *mce->how_learned = DYNAMIC_MAP_CACHE_ENTRY;
-    *mce->ttl = DEFAULT_DATA_CACHE_TTL;
+    (*mce)->mapping = mapping;
+    (*mce)->how_learned = DYNAMIC_MAP_CACHE_ENTRY;
+    (*mce)->ttl = DEFAULT_DATA_CACHE_TTL;
 
 }
 

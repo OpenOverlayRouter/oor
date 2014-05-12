@@ -81,6 +81,10 @@ typedef struct iface_list_elt_ {
 
 
 int init_ifaces();
+
+/*  Fill the parameter addr with the lisp_addr_t of the interface with afi.
+ *  Return BAD if no address is present in the interface. */
+int get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
 iface_t *add_interface(char *iface_name);
 iface_t *get_interface(char *iface_name);
 iface_t *get_interface_from_index(int iface_index);
@@ -90,9 +94,7 @@ int add_mapping_to_interface (iface_t *interface, mapping_t *mapping, int afi);
 
 
 
-/*
- * Print the interfaces and locators of the lisp node
- */
+/* Print the interfaces and locators of the lisp node */
 
 void dump_iface_list(int log_level);
 

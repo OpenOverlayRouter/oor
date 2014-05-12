@@ -495,7 +495,7 @@ lisp_ms_cast(lisp_ctrl_dev_t *dev)
 static int
 ms_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc) {
     int ret = BAD;
-    lisp_msg_type_t type;
+    lisp_msg_type_e type;
     lisp_ms_t *ms;
 
     ms = lisp_ms_cast(dev);

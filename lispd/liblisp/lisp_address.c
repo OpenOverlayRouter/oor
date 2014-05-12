@@ -620,35 +620,28 @@ lisp_addr_ip_init(lisp_addr_t *addr, void *data, int afi)
     ip_addr_init(get_ip_(addr), data, afi);
 }
 
-inline lisp_addr_t *
-lisp_addr_init_from_ip(ip_addr_t *ip)
+inline int
+lisp_addr_init_from_ip(lisp_addr_t *laddr, ip_addr_t *ip)
 {
-    assert(ip);
-    lisp_addr_t *laddr;
-    laddr = new_afi_(LM_AFI_IP);
+    set_afi_(laddr, LM_AFI_IP);
     ip_addr_copy(get_ip_(laddr), ip);
-    return (laddr);
+    return (GOOD);
 }
 
-inline lisp_addr_t *
-lisp_addr_init_from_ippref(ip_addr_t *ip, uint8_t plen)
+inline int
+lisp_addr_init_from_ippref(lisp_addr_t *laddr, ip_addr_t *ip, uint8_t plen)
 {
-    assert(ip);
-    lisp_addr_t *laddr;
-    laddr = new_afi_(LM_AFI_IPPREF);
+    set_afi_(laddr, LM_AFI_IPPREF);
     ip_prefix_set(get_ippref_(laddr), ip, plen);
-    return (laddr);
+    return (GOOD);
 }
 
-inline lisp_addr_t *
-lisp_addr_init_from_lcaf(lcaf_addr_t *lcaf)
+inline int
+lisp_addr_init_from_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf)
 {
-    assert(lcaf);
-    lisp_addr_t *laddr;
-
-    laddr = new_afi_(LM_AFI_LCAF);
+    set_afi_(laddr, LM_AFI_LCAF);
     lcaf_addr_copy(get_lcaf_(laddr), lcaf);
-    return (laddr);
+    return (GOOD);
 }
 
 inline uint16_t

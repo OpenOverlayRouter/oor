@@ -110,7 +110,7 @@ ctrl_recv_msg(struct sock *sl)
 {
     uconn_t uc;
     struct lbuf *packet;
-    lisp_msg_type_t type;
+    lisp_msg_type_e type;
     lisp_ctrl_t *ctrl;
     lisp_ctrl_dev_t *dev;
 

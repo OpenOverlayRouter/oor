@@ -30,17 +30,19 @@
 #ifndef LISPD_SOCKETS_H_
 #define LISPD_SOCKETS_H_
 
-/* Define _GNU_SOURCE in order to use in6_pktinfo (get destinatio address of received ctrl packets*/
+/* Define _GNU_SOURCE in order to use in6_pktinfo (get destination address of
+ * received ctrl packets) */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
 
 #include "defs.h"
 #include "sockets-util.h"
+#include "packets.h"
 #include <lisp_address.h>
 #include <lbuf.h>
 
-//#include "lispd_output.h"
+
 
 typedef enum {
     SOCK_READ, SOCK_WRITE,
@@ -91,15 +93,6 @@ union sockunion {
     struct sockaddr_in s4;
     struct sockaddr_in6 s6;
 };
-
-/* shared between data and control */
-typedef struct packet_tuple {
-    lisp_addr_t                     src_addr;
-    lisp_addr_t                     dst_addr;
-    uint16_t                        src_port;
-    uint16_t                        dst_port;
-    uint8_t                         protocol;
-} packet_tuple_t;
 
 
 

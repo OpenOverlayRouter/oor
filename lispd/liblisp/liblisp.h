@@ -56,8 +56,8 @@ typedef struct fwd_entry {
 #define LISP_DATA_PORT                  4341
 
 
-lisp_msg_type_t lisp_msg_type(lbuf_t *);
-int lisp_msg_parse_type(lbuf_t *b, lisp_msg_type_t *);
+lisp_msg_type_e lisp_msg_type(lbuf_t *);
+int lisp_msg_parse_type(lbuf_t *b, lisp_msg_type_e *);
 int lisp_msg_parse_addr(lbuf_t *, lisp_addr_t *);
 int lisp_msg_parse_eid_rec(lbuf_t *, lisp_addr_t *);
 int lisp_msg_parse_itr_rlocs(lbuf_t *, glist_t *);
@@ -68,9 +68,9 @@ int lisp_msg_parse_mapping_record(lbuf_t *, mapping_t *, locator_t **);
 
 int lisp_msg_ecm_decap(struct lbuf *, uint16_t *);
 
-void *lisp_msg_put_addr(lbuf_t *, lisp_addr_t *addr);
-void *lisp_msg_put_locator(lbuf_t *, locator_t *locator);
-void *lisp_msg_put_mapping_hdr(lbuf_t *b, int plen) ;
+void *lisp_msg_put_addr(lbuf_t *, lisp_addr_t *);
+void *lisp_msg_put_locator(lbuf_t *, locator_t *);
+void *lisp_msg_put_mapping_hdr(lbuf_t *) ;
 void *lisp_msg_put_mapping(lbuf_t *, mapping_t *, lisp_addr_t *);
 void *lisp_msg_put_neg_mapping(lbuf_t *, lisp_addr_t *, int, lisp_action_e);
 void *lisp_msg_put_itr_rlocs(lbuf_t *, glist_t *);

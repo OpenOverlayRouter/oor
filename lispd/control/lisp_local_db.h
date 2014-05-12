@@ -56,11 +56,6 @@ inline int local_map_db_n_entries(local_map_db_t *);
 
 
 
-inline int local_map_db_n_entries(local_map_db_t *lmdb)
-{
-    return(lmdb->db->n_entries);
-}
-
 #define local_map_db_foreach_entry(LMDB, EIT)           \
     mdb_foreach_entry((LMDB)->db, (EIT)) {              \
         if ((EIT))

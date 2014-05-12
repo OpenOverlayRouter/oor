@@ -38,7 +38,7 @@ typedef enum {
     LISP_MAP_NOTIFY,
     LISP_INFO_NAT = 7,
     LISP_ENCAP_CONTROL_TYPE
-} lisp_msg_type_t;
+} lisp_msg_type_e;
 
 /*
  * ENCAPSULATED CONTROL MESSAGE
@@ -84,7 +84,7 @@ typedef struct _lisp_encap_data {
 typedef struct _lisp_msg {
     uint8_t         encap;
     lisp_encap_data *encapdata;
-    lisp_msg_type_t  type;
+    lisp_msg_type_e  type;
     void            *msg;
 } lisp_msg;
 

@@ -485,7 +485,7 @@ uint16_t auth_data_get_len_for_type(lisp_key_type key_id);
 
 #define AUTH_REC_KEY_ID(h_) ((auth_record_hdr_t *)(h_))->key_id
 #define AUTH_REC_DATA_LEN(h_) ((auth_record_hdr_t *)(h_))->auth_data_len
-#define AUTH_REC_DATA(h_) (uint8_t *(h_))+sizeof(auth_record_hdr_t)
+#define AUTH_REC_DATA(h_) ((uint8_t *)(h_))+sizeof(auth_record_hdr_t)
 
 
 

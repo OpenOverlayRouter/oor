@@ -73,11 +73,7 @@ int copy_addr(void *a1, lisp_addr_t *a2, int convert);
  */
 int lispd_get_address(char *host, lisp_addr_t *addr);
 
-/*
- *  Fill the parameter addr with the lisp_addr_t of the interface with afi.
- *  Return BAD if no address is present in the interface.
- */
-int get_iface_address(char *ifacename, lisp_addr_t *addr, int afi);
+
 
 
 

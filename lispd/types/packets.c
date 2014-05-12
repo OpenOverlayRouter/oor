@@ -50,13 +50,11 @@ get_IP_ID() {
 void *
 pkt_pull_ipv4(lbuf_t *b)
 {
-    void *data = lbuf_data(b);
     return(lbuf_pull(b, sizeof(struct ip)));
 }
 
 void *
 pkt_pull_ipv6(lbuf_t *b) {
-    void *data = lbuf_data(b);
     return(lbuf_pull(b, sizeof(struct ip6_hdr)));
 }
 
@@ -166,7 +164,7 @@ pkt_compute_udp_cksum(lbuf_t *b, int afi)
     struct udphdr *uh;
 
     uh = lbuf_udp(b);
-    udpsum = udp_checksum(uh, ntoh(uh->len), lbuf_ip(b), afi);
+    udpsum = udp_checksum(uh, ntohs(uh->len), lbuf_ip(b), afi);
     if (udpsum == -1) {
         return (BAD);
     }
@@ -289,7 +287,7 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
 
     /* Headers lengths */
 
-    ip_hdr_len = get_ip_header_len(addr_from->afi);
+    ip_hdr_len = ip_sock_afi_to_hdr_len(lisp_addr_ip_afi(addr_from));
 
     udp_hdr_len = sizeof(struct udphdr);
 

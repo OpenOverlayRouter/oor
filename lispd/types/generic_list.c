@@ -71,7 +71,7 @@ glist_new() {
 
 /* memory managed. when destroy is called all inner data is freed*/
 glist_t *
-glist_new_managed(glist_del_fct *del) {
+glist_new_managed(glist_del_fct del) {
     return(glist_new_complete(NO_CMP, del));
 }
 

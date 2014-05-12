@@ -55,7 +55,7 @@ shash_del(shash_t *sh) {
 void
 shash_insert(shash_t *sh, const char *key, const void *val)
 {
-    hash_table_insert(sh, strdup(key), val);
+    hash_table_insert(sh, strdup(key), CONST_CAST(void *, val));
 }
 
 void

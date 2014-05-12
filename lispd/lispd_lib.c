@@ -253,79 +253,7 @@ int lispd_get_address(
     return(BAD);
 }
 
-/*
- *  lispd_get_iface_address
- *
- *  fill the parameter addr with the lisp_addr_t of the interface with afi.
- *  Return BAD if no address is present in the interface.
- */
 
-int
-get_iface_address(char *ifacename, lisp_addr_t *addr, int afi)
-{
-    struct ifaddrs *ifaddr;
-    struct ifaddrs *ifa;
-    struct sockaddr_in *s4;
-    struct sockaddr_in6 *s6;
-    lisp_addr_t ip;
-    char addr_str[MAX_INET_ADDRSTRLEN];
-
-    /* search for the interface */
-    if (getifaddrs(&ifaddr) !=0) {
-        lmlog(DBG_2, "lispd_get_iface_address: getifaddrs error: %s",
-                strerror(errno));
-        return(BAD);
-    }
-
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if ((ifa->ifa_addr == NULL)
-             || ((ifa->ifa_flags & IFF_UP) == 0)
-             || (ifa->ifa_addr->sa_family != afi)
-             || strcmp(ifa->ifa_name, ifacename) != 0) {
-            continue;
-        }
-
-        switch (ifa->ifa_addr->sa_family) {
-        case AF_INET:
-            s4 = (struct sockaddr_in *)(ifa->ifa_addr);
-            lisp_addr_ip_init(&ip, &(s4->sin_addr), AF_INET);
-
-            if (is_link_local_addr(&ip) == TRUE) {
-                lmlog(DBG_2, "lispd_get_iface_address: interface address from "
-                        "%s discarded (%s)", ifacename, lisp_addr_to_char(&ip));
-                continue;
-            }
-
-            lisp_addr_copy(addr, &ip);
-            freeifaddrs(ifaddr);
-            return(GOOD);
-        case AF_INET6:
-            s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
-            lisp_addr_ip_init(&ip, &(s6->sin6_addr), AF_INET6);
-
-            /* XXX sin6_scope_id is an ID depending on the scope of the
-             * address.  Linux only supports it for link-local addresses, in
-             * that case sin6_scope_id contains the interface index.
-             * --> If sin6_scope_id is not zero, is a link-local address */
-            if (s6->sin6_scope_id != 0) {
-                lmlog(DBG_2, "lispd_get_iface_address: interface address from "
-                        "%s discarded (%s)", ifacename, lisp_addr_to_char(&ip));
-                continue;
-            }
-
-            lisp_addr_copy(addr, &ip);
-            freeifaddrs(ifaddr);
-            return(GOOD);
-
-        default:
-            continue;                   /* XXX */
-        }
-    }
-    freeifaddrs(ifaddr);
-    lmlog(DBG_3, "lispd_get_iface_address: No %s RLOC configured for interface "
-            "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", ifacename);
-    return(BAD);
-}
 
 /*
  *      dump_X

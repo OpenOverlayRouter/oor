@@ -1485,7 +1485,7 @@ xtr_if_event(lisp_ctrl_dev_t *dev) {
 static int
 xtr_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc) {
     int ret = 0;
-    lisp_msg_type_t type;
+    lisp_msg_type_e type;
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
 
     type = lisp_msg_type(msg);

@@ -37,7 +37,7 @@ static void
 out_of_memory(void)
 {
     lmlog(LCRIT, "virtual memory exhausted");
-    exit_cleanup();
+    abort();
 }
 
 void *

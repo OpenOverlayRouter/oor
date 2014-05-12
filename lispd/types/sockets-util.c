@@ -306,21 +306,22 @@ build_sockaddr(ip_addr_t *addr, struct sockaddr *sa, int *sa_len) {
     struct sockaddr_in *sa4;
     struct sockaddr_in6 *sa6;
 
-
     switch (ip_addr_afi(addr)) {
     case AF_INET:
         sa4 = (struct sockaddr_in *)sa;
-        memset(sa4, 0, sizeof(sa4));
+        memset(sa4, 0, sizeof(*sa4));
         sa4->sin_family = AF_INET;
-        sa4->sin_addr.s_addr = ip_addr_get_addr(addr);
-        sa_len = sizeof(sa4);
+        ip_addr_copy_to(&sa4->sin_addr, addr);
+//        sa4->sin_addr.s_addr = ip_addr_get_addr(addr);
+        *sa_len = sizeof(*sa4);
         break;
     case 6:
         sa6 = (struct sockaddr_in6 *)sa;
-        memset(sa6, 0, sizeof(sa6));
+        memset(sa6, 0, sizeof(*sa6));
         sa6->sin6_family = AF_INET6;
-        sa6->sin6_addr = ip_addr_get_addr(addr);
-        sa_len = sizeof(sa6);
+        ip_addr_copy_to(&sa6->sin6_addr, addr);
+//        sa6->sin6_addr = ip_addr_get_addr(addr);
+        *sa_len = sizeof(*sa6);
         break;
     }
 
@@ -328,16 +329,16 @@ build_sockaddr(ip_addr_t *addr, struct sockaddr *sa, int *sa_len) {
 }
 
 
-/*
- * Sends a raw packet out the socket file descriptor @sfd  */
+/* Sends a raw packet out the socket file descriptor 'sfd'  */
 int
-send_raw(int sfd, uint8_t *pkt, int plen, ip_addr_t *dip) {
-    struct sockaddr daddr;
-    int dlen = 0;
+send_raw(int sfd, uint8_t *pkt, int plen, ip_addr_t *dip)
+{
+    struct sockaddr saddr;
+    int slen = 0;
     int nbytes = 0;
 
-    build_sockaddr(dip, &daddr, &dlen);
-    nbytes = sendto(sfd, (const void *) pkt, plen, 0, &daddr, dlen);
+    build_sockaddr(dip, &saddr, &slen);
+    nbytes = sendto(sfd, (const void *) pkt, plen, 0, &saddr, slen);
 
     return (nbytes);
 

@@ -34,7 +34,7 @@
 
 static uint8_t pkt_recv_buf[MAX_IP_PKT_LEN+1];
 
-lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
+lisp_addr_t extract_src_addr_from_packet( uint8_t *packet )
 {
     lisp_addr_t         addr    = {.afi=AF_UNSPEC, .lafi=LM_AFI_IP};
     struct iphdr        *iph    = NULL;
@@ -50,7 +50,7 @@ lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
         ip_addr_set_v6(lisp_addr_ip(&addr), &ip6h->ip6_src);
         break;
     default:
-        lmlog(LISP_LOG_DEBUG_3,"extract_src_addr_from_packet: uknown ip version %d", iph->version);
+        lmlog(DBG_3,"extract_src_addr_from_packet: uknown ip version %d", iph->version);
         break;
     }
 
@@ -71,7 +71,7 @@ int read_and_decap_lisp_data_packet(int sock, struct iphdr **iph, int *length) {
     memset(pkt_recv_buf, 0, MAX_IP_PKT_LEN);
 
     if (get_data_packet(sock, &afi, pkt_recv_buf, length, &ttl, &tos) != GOOD) {
-        lmlog(LISP_LOG_DEBUG_2,"process_input_packet: get_data_packet error: %s", strerror(errno));
+        lmlog(DBG_2,"process_input_packet: get_data_packet error: %s", strerror(errno));
         return(BAD);
     }
 
@@ -85,7 +85,7 @@ int read_and_decap_lisp_data_packet(int sock, struct iphdr **iph, int *length) {
 
     /* With input RAW UDP sockets, we receive all UDP packets, we only want lisp data ones */
     if(ntohs(udph->dest) != LISP_DATA_PORT){
-        //lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (No LISP data): UDP dest: %d ",ntohs(udph->dest));
+        //lispd_log_msg(DBG_3,"INPUT (No LISP data): UDP dest: %d ",ntohs(udph->dest));
         return(ERR_NOT_LISP);
     }
 
@@ -113,34 +113,32 @@ int read_and_decap_lisp_data_packet(int sock, struct iphdr **iph, int *length) {
     }
 
     if (lisp_hdr->instance_id == 1){ //Poor discriminator for data map notify...
-        lmlog(LISP_LOG_DEBUG_2,"Data-Map-Notify received\n ");
+        lmlog(DBG_2,"Data-Map-Notify received\n ");
         //Is there something to do here?
     }
 
     return(GOOD);
 }
 
-int process_input_packet(struct sock *sl)
+int
+process_input_packet(struct sock *sl)
 {
-    struct iphdr        *iph    = NULL;
-    int                 length  = 0;
-    
+    struct iphdr *iph = NULL;
+    int length = 0;
+
     if (read_and_decap_lisp_data_packet(sl->fd, &iph, &length) != GOOD)
-        return(BAD);
+        return (BAD);
 
-    lmlog(LISP_LOG_DEBUG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
-                  get_char_from_lisp_addr_t(extract_src_addr_from_packet((uint8_t *)iph)),
-                  get_char_from_lisp_addr_t(extract_dst_addr_from_packet((uint8_t *)iph)));
+    lmlog(DBG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
+                  lisp_addr_to_char((lisp_addr_t[]){extract_src_addr_from_packet((uint8_t *)iph)}),
+                  lisp_addr_to_char((lisp_addr_t[]){extract_dst_addr_from_packet((uint8_t *)iph)}));
 
-//    lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
-//                  lisp_addr_to_char((lisp_addr_t[]){extract_src_addr_from_packet((uint8_t *)iph)}),
-//                  lisp_addr_to_char((lisp_addr_t[]){extract_dst_addr_from_packet((uint8_t *)iph)}));
-
-    if ((write(tun_receive_fd, iph, length)) < 0){
-        lmlog(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
+    if ((write(tun_receive_fd, iph, length)) < 0) {
+        lmlog(DBG_2, "lisp_input: write error: %s\n ",
+                strerror(errno));
     }
-    
-    return(GOOD);
+
+    return (GOOD);
 }
 
 int rtr_process_input_packet(struct sock *sl)
@@ -151,11 +149,11 @@ int rtr_process_input_packet(struct sock *sl)
     if (read_and_decap_lisp_data_packet(sl->fd, &iph, &length) != GOOD)
         return(BAD);
 
-    lmlog(LISP_LOG_DEBUG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
+    lmlog(DBG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
                   lisp_addr_to_char((lisp_addr_t[]){extract_src_addr_from_packet((uint8_t *)iph)}),
                   lisp_addr_to_char((lisp_addr_t[]){extract_dst_addr_from_packet((uint8_t *)iph)}));
 
-    lmlog(LISP_LOG_DEBUG_3, "INPUT (4341): Forwarding to OUPUT for re-encapsulation");
+    lmlog(DBG_3, "INPUT (4341): Forwarding to OUPUT for re-encapsulation");
     lisp_output((uint8_t *)iph, length);
 
     return(GOOD);

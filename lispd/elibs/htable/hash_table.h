@@ -35,22 +35,26 @@ struct _HashTableIter
   void      *dummy6;
 };
 
-HashTable*  hash_table_new(HashFunc hash_func, EqualFunc key_equal_func, DestroyFunc key_destroy_func, DestroyFunc val_destroy_func);
-void        hash_table_destroy(HashTable *hash_table);
-void        hash_table_insert(HashTable *hash_table, void *key, void *value);
-void        hash_table_replace(HashTable *hash_table, void *key, void *value);
-void        hash_table_add(HashTable *hash_table, void *key);
-void        hash_table_remove(HashTable *hash_table, const void *key);
-void        hash_table_remove_all(HashTable *hash_table);
-int         hash_table_steal(HashTable *hash_table, const void *key);
-void        hash_table_steal_all(HashTable *hash_table);
-void        *hash_table_lookup(HashTable *hash_table, const void *key);
-int         hash_table_contains(HashTable *hash_table, const void *key);
-int         hash_table_lookup_extended(HashTable *hash_table, const void *lookup_key, void **orig_key, void **value);
-void        hash_table_foreach(HashTable *hash_table, HFunc func, void *user_data);
-void       *hash_table_find(HashTable *hash_table, HRFunc predicate, void *user_data);
-unsigned int hash_table_foreach_remove(HashTable *hash_table, HRFunc func, void *user_data);
-unsigned int hash_table_foreach_steal(HashTable *hash_table, HRFunc func, void *user_data);
+HashTable* hash_table_new(HashFunc hash_func, EqualFunc key_equal_func,
+        DestroyFunc key_destroy_func, DestroyFunc val_destroy_func);
+void hash_table_destroy(HashTable *hash_table);
+void hash_table_insert(HashTable *hash_table, void *key, void *value);
+void hash_table_replace(HashTable *hash_table, void *key, void *value);
+void hash_table_add(HashTable *hash_table, void *key);
+void hash_table_remove(HashTable *hash_table, const void *key);
+void hash_table_remove_all(HashTable *hash_table);
+int hash_table_steal(HashTable *hash_table, const void *key);
+void hash_table_steal_all(HashTable *hash_table);
+void *hash_table_lookup(HashTable *hash_table, const void *key);
+int hash_table_contains(HashTable *hash_table, const void *key);
+int hash_table_lookup_extended(HashTable *hash_table, const void *lookup_key,
+        void **orig_key, void **value);
+void hash_table_foreach(HashTable *hash_table, HFunc func, void *user_data);
+void *hash_table_find(HashTable *hash_table, HRFunc predicate, void *user_data);
+unsigned int hash_table_foreach_remove(HashTable *hash_table, HRFunc func,
+        void *user_data);
+unsigned int hash_table_foreach_steal(HashTable *hash_table, HRFunc func,
+        void *user_data);
 unsigned int hash_table_size(HashTable *hash_table);
 //GList       *hash_table_get_keys(HashTable *hash_table);
 //GList       *hash_table_get_values(HashTable *hash_table);

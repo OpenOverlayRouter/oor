@@ -53,10 +53,10 @@ ip_addr_afi(ip_addr_t *ipaddr)
     return(ipaddr->afi);
 }
 
-inline uint8_t *
+inline void *
 ip_addr_get_addr(ip_addr_t *ipaddr)
 {
-    return ((uint8_t *)&(ipaddr->addr));
+    return (&(ipaddr->addr));
 }
 
 inline struct in_addr *
@@ -399,6 +399,23 @@ ip_sock_afi_to_size(uint16_t afi)
         return(0);
     }
 }
+
+/* given afi, get the IP header length */
+inline int
+ip_sock_afi_to_hdr_len(int afi)
+{
+    switch (afi) {                      /* == eid_afi */
+    case AF_INET:
+        return(sizeof(struct ip));
+    case AF_INET6:
+        return(sizeof(struct ip6_hdr));
+    default:
+        lmlog(DBG_2, "get_ip_header_len: unknown AFI (%d)", afi);
+        return(ERR_AFI);
+    }
+}
+
+
 
 inline uint8_t
 ip_iana_afi_to_size(uint16_t afi)
