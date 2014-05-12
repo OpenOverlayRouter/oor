@@ -34,6 +34,7 @@
 #define UTIL_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 /* Calculate Offset: Try not to make dumb mistakes with  pointer arithmetic */
 #define CO(addr,len) (((uint8_t *) addr + len))
@@ -139,5 +140,7 @@ void *xmemdup(const void *p_, size_t size);
 char *xmemdup0(const char *p_, size_t length);
 char *xstrdup(const char *s);
 
+
+int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
 
 #endif /* UTIL_H_ */

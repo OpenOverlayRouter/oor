@@ -11,8 +11,8 @@
 
 #define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
-typedef struct _HashTable HashTable;
-typedef struct _HashTable htable_t;
+typedef struct htable HashTable;
+typedef struct htable htable_t;
 
 typedef unsigned int (*HashFunc)(const void *);
 //typedef unsigned int (*CompareFunc) (const void *, const void *);

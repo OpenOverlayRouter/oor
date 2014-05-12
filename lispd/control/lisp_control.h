@@ -41,6 +41,9 @@
 
 typedef struct lisp_ctrl lisp_ctrl_t;
 
+lisp_ctrl_t *ctrl_create();
+void ctrl_destroy(lisp_ctrl_t *ctrl);
+void ctrl_init(lisp_ctrl_t *ctrl);
 
 int ctrl_recv_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);

@@ -35,50 +35,64 @@
  * ip_addr_t functions
  */
 
-inline ip_addr_t *ip_addr_new() {
-    return(calloc(1, sizeof(ip_addr_t)));
+inline ip_addr_t *
+ip_addr_new()
+{
+    return(xzalloc(sizeof(ip_addr_t)));
 }
 
-inline void ip_addr_del(ip_addr_t *ip) {
+inline void
+ip_addr_del(ip_addr_t *ip)
+{
     free(ip);
 }
 
-inline int ip_addr_afi(ip_addr_t *ipaddr) {
-//    assert(ipaddr);
+inline int
+ip_addr_afi(ip_addr_t *ipaddr)
+{
     return(ipaddr->afi);
 }
 
-inline uint8_t *ip_addr_get_addr(ip_addr_t *ipaddr) {
+inline uint8_t *
+ip_addr_get_addr(ip_addr_t *ipaddr)
+{
     return ((uint8_t *)&(ipaddr->addr));
 }
 
-inline struct in_addr *ip_addr_get_v4(ip_addr_t *ipaddr) {
-    assert(ipaddr);
+inline struct in_addr *
+ip_addr_get_v4(ip_addr_t *ipaddr)
+{
     return(&(ipaddr->addr.v4));
 }
 
-inline struct in6_addr *ip_addr_get_v6(ip_addr_t *ipaddr) {
-    assert(ipaddr);
+inline struct in6_addr *
+ip_addr_get_v6(ip_addr_t *ipaddr)
+{
     return(&(ipaddr->addr.v6));
 }
 
-inline uint8_t ip_addr_get_size(ip_addr_t *ipaddr) {
-    assert(ipaddr);
+inline uint8_t
+ip_addr_get_size(ip_addr_t *ipaddr)
+{
     return(ip_sock_afi_to_size(ip_addr_afi(ipaddr)));
 }
 
-inline uint8_t ip_addr_get_size_to_write(ip_addr_t *ipaddr) {
+inline uint8_t
+ip_addr_get_size_to_write(ip_addr_t *ipaddr)
+{
     /* includes afi size */
     return(ip_sock_afi_to_size(ip_addr_afi(ipaddr))+sizeof(uint16_t));
 }
 
-inline uint16_t ip_addr_get_iana_afi(ip_addr_t *ipaddr) {
-    assert(ipaddr);
+inline uint16_t
+ip_addr_get_iana_afi(ip_addr_t *ipaddr)
+{
     return(ip_sock_to_iana_afi(ip_addr_afi(ipaddr)));
 }
 
-inline int ip_addr_set_afi(ip_addr_t *ipaddr, int afi) {
-    assert(ipaddr);
+inline int
+ip_addr_set_afi(ip_addr_t *ipaddr, int afi)
+{
     if (afi != AF_INET && afi != AF_INET6 && afi != AF_UNSPEC) {
         lmlog(LWRN, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
         return(BAD);
@@ -87,20 +101,23 @@ inline int ip_addr_set_afi(ip_addr_t *ipaddr, int afi) {
     return(GOOD);
 }
 
-void ip_addr_set_v4(ip_addr_t *ipaddr, void *src) {
-    assert(ipaddr);
+void
+ip_addr_set_v4(ip_addr_t *ipaddr, void *src)
+{
     ip_addr_set_afi(ipaddr, AF_INET);
     memcpy(ip_addr_get_v4(ipaddr), src, sizeof(struct in_addr));
 }
 
-inline void ip_addr_set_v6(ip_addr_t *ipaddr, void *src) {
-    assert(ipaddr);
+inline void
+ip_addr_set_v6(ip_addr_t *ipaddr, void *src)
+{
     ip_addr_set_afi(ipaddr, AF_INET6);
     memcpy(ip_addr_get_v6(ipaddr), src, sizeof(struct in6_addr));
 }
 
-inline void ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi) {
-    assert(ipaddr);
+inline void
+ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi)
+{
     switch(afi) {
         case AF_INET:
             ip_addr_set_v4(ipaddr, src);
@@ -115,22 +132,26 @@ inline void ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi) {
 }
 
 char *
-ip_to_char(void *ip, int afi) {
+ip_to_char(void *ip, int afi)
+{
     static char address[10][INET6_ADDRSTRLEN];
     static unsigned int i;
 
-    switch(afi){
+    switch (afi) {
     case AF_INET:
         inet_ntop(AF_INET, ip, address[i], INET_ADDRSTRLEN);
         return(address[i]);
     case AF_INET6:
         inet_ntop(AF_INET6, ip, address[i], INET6_ADDRSTRLEN);
-        return (address[i]);
+        return(address[i]);
     }
+
+    return(NULL);
 }
 
 char *
-ip_addr_to_char(ip_addr_t *addr){
+ip_addr_to_char(ip_addr_t *addr)
+{
     return(ip_to_char(ip_addr_get_addr(addr), ip_addr_afi(addr)));
 }
 
@@ -141,9 +162,12 @@ ip_addr_to_char(ip_addr_t *addr){
  * Description: The function copies src structure to dst
  * structure. It does a full memory copy
  */
-inline void ip_addr_copy(ip_addr_t *dst, ip_addr_t *src) {
-    assert(src);
-    assert(dst);
+inline void
+ip_addr_copy(ip_addr_t *dst, ip_addr_t *src)
+{
+    if (!dst || !src) {
+        return;
+    }
     memcpy(dst, src, sizeof(ip_addr_t));
 }
 
@@ -155,13 +179,18 @@ inline void ip_addr_copy(ip_addr_t *dst, ip_addr_t *src) {
  * to a given memory location, NOT the whole structure! See ip_addr_copy
  * for copying ip addresses
  */
-inline void ip_addr_copy_to(void *dst, ip_addr_t *src) {
-    assert(dst);
-    assert(src);
+inline void
+ip_addr_copy_to(void *dst, ip_addr_t *src)
+{
+    if (!dst || !src) {
+        return;
+    }
     memcpy(dst, ip_addr_get_addr(src), ip_addr_get_size(src));
 }
 
-inline int ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
+inline int
+ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert)
+{
     *(uint16_t *)dst = htons(ip_addr_get_iana_afi(src));
     dst = CO(dst, sizeof(uint16_t));
 
@@ -173,7 +202,9 @@ inline int ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert) {
     return(sizeof(uint16_t)+ip_addr_get_size(src));
 }
 
-inline int ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2) {
+inline int
+ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2)
+{
     if (ip_addr_afi(ip1) != ip_addr_afi(ip2))
         return(-1);
     return(memcmp(ip_addr_get_addr(ip1),
@@ -205,59 +236,120 @@ ip_addr_afi_to_default_mask(ip_addr_t *ip)
  * ip_prefix_t functions
  */
 
-inline uint8_t ip_prefix_get_plen(ip_prefix_t *pref) {
+inline uint8_t
+ip_prefix_get_plen(ip_prefix_t *pref)
+{
     assert(pref);
     return(pref->plen);
 }
 
-inline ip_addr_t *ip_prefix_get_addr(ip_prefix_t *pref) {
-    assert(pref);
+inline ip_addr_t *
+ip_prefix_addr(ip_prefix_t *pref)
+{
     return(&(pref->prefix));
 }
 
-inline uint8_t ip_prefix_afi(ip_prefix_t *pref) {
-    assert(pref);
-    return(ip_addr_afi(ip_prefix_get_addr(pref)));
+inline uint8_t
+ip_prefix_afi(ip_prefix_t *pref)
+{
+    return(ip_addr_afi(ip_prefix_addr(pref)));
 }
 
-inline void ip_prefix_set(ip_prefix_t *pref, ip_addr_t *ipaddr, uint8_t plen) {
-    assert(pref);
-    assert(ipaddr);
-    ip_addr_copy(ip_prefix_get_addr(pref), ipaddr);
+inline void
+ip_prefix_set(ip_prefix_t *pref, ip_addr_t *ipaddr, uint8_t plen)
+{
+    ip_addr_copy(ip_prefix_addr(pref), ipaddr);
     ip_prefix_set_plen(pref, plen);
 }
 
-inline void ip_prefix_set_plen(ip_prefix_t *pref, uint8_t plen) {
-    assert(pref);
+inline void
+ip_prefix_set_plen(ip_prefix_t *pref, uint8_t plen)
+{
     pref->plen = plen;
 }
 
-inline void ip_prefix_set_afi(ip_prefix_t *pref, int afi) {
+inline void
+ip_prefix_set_afi(ip_prefix_t *pref, int afi)
+{
     ip_addr_set_afi(&pref->prefix, afi);
 }
 
-inline void ip_prefix_copy(ip_prefix_t *dst, ip_prefix_t *src) {
-    assert(src);
-    assert(dst);
+inline void
+ip_prefix_copy(ip_prefix_t *dst, ip_prefix_t *src)
+{
     ip_prefix_set_plen(dst, ip_prefix_get_plen(src));
-    ip_addr_copy(ip_prefix_get_addr(dst), ip_prefix_get_addr(src));
+    ip_addr_copy(ip_prefix_addr(dst), ip_prefix_addr(src));
 }
 
-char *ip_prefix_to_char(ip_prefix_t *pref) {
+char *
+ip_prefix_to_char(ip_prefix_t *pref)
+{
     static char address[10][INET6_ADDRSTRLEN+5];
     static unsigned int i;
 
-    /* Hack to allow more than one addresses per printf line. Now maximum = 5 */
+    /* Hack to allow more than one addresses per printf line.
+     * Now maximum = 5 */
     i++;
     i = i % 10;
 
-    sprintf(address[i], "%s/%d", ip_addr_to_char(ip_prefix_get_addr(pref)), ip_prefix_get_plen(pref));
+    sprintf(address[i], "%s/%d", ip_addr_to_char(ip_prefix_addr(pref)),
+            ip_prefix_get_plen(pref));
     return(address[i]);
 }
 
 
 
+int
+ip_addr_from_char(char *addr, ip_addr_t *ip)
+{
+    int afi;
 
+    afi = ip_afi_from_char(addr);
+
+    if (inet_pton(afi, addr, ip_addr_get_addr(ip)) == 1) {
+        ip_addr_set_afi(ip, afi);
+    } else{
+        return(BAD);
+    }
+
+    return(GOOD);
+}
+
+int
+ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
+{
+    char *token;
+    int mask;
+
+    if ((token = strtok(addr, "/")) == NULL) {
+        lmlog(DBG_1, "ip_prefix_from_char: Prefix not of the form "
+                "prefix/length: %s", addr);
+        return (BAD);
+    }
+
+    if (ip_addr_from_char(token, ip_prefix_addr(ippref)) == BAD) {
+        return (BAD);
+    }
+
+    if ((token = strtok(NULL, "/")) == NULL) {
+        lmlog(DBG_1, "ip_prefix_from_char: strtok: %s", strerror(errno));
+        return (BAD);
+    }
+
+    mask = atoi(token);
+
+    if (ip_addr_afi(ip_prefix_addr(ippref)) == AF_INET) {
+        if (mask < 1 || mask > 32)
+            return (BAD);
+    } else {
+        if (mask < 1 || mask > 128)
+            return (BAD);
+    }
+
+    /* convert the ip addr into a prefix */
+    ip_prefix_set_plen(ippref, mask);
+    return (GOOD);
+}
 
 
 
@@ -326,29 +418,34 @@ ip_iana_afi_to_size(uint16_t afi)
 int
 ip_addr_is_link_local(ip_addr_t *ip)
 {
-    return(ip_is_link_local(ip_addr_get_addr(ip), ip_addr_get_afi(ip)));
+    return(ip_is_link_local(ip_addr_get_addr(ip), ip_addr_afi(ip)));
 }
 
 inline uint8_t
 ip_addr_is_multicast(ip_addr_t *addr)
 {
-    switch(ip_addr_afi(addr)) {
+    return(ip_is_multicast(ip_addr_get_addr(addr), ip_addr_afi(addr)));
+}
+
+uint8_t
+ip_is_multicast(void *ip, int afi)
+{
+    switch (afi) {
     case AF_INET:
-        return ipv4_addr_is_multicast(ip_addr_get_v4(addr));
+        return ipv4_is_multicast(ip);
         break;
     case AF_INET6:
-        return ipv6_addr_is_multicast(ip_addr_get_v6(addr));
+        return ipv6_is_multicast(ip);
         break;
     default:
-        lmlog(LWRN, "is_multicast_addr: Unknown afi %s",
-                ip_addr_afi(addr));
+        lmlog(LWRN, "is_multicast_addr: Unknown afi %s", afi);
         break;
     }
     return(0);
 }
 
-inline uint8_t
-ipv4_addr_is_multicast(struct in_addr *addr)
+uint8_t
+ipv4_is_multicast(struct in_addr *addr)
 {
     if (ntohl(addr->s_addr)>=MCASTMIN4 && ntohl(addr->s_addr)<=MCASTMAX4)
         return(1);
@@ -356,8 +453,8 @@ ipv4_addr_is_multicast(struct in_addr *addr)
         return(0);
 }
 
-inline uint8_t
-ipv6_addr_is_multicast(struct in6_addr *addr)
+uint8_t
+ipv6_is_multicast(struct in6_addr *addr)
 {
     return(IN6_IS_ADDR_MULTICAST(addr));
 }
@@ -383,6 +480,8 @@ ip_afi_to_default_mask(int afi)
         return(32);
     case AF_INET6:
         return(128);
+    default:
+        return(0);
     }
 //    return(ip_sock_afi_to_size(afi)*8);
 }
@@ -419,3 +518,33 @@ ip_is_link_local(void *addr, int afi)
     }
     return(is_link_local);
 }
+
+int
+ip_hdr_ver_to_len(int ih_ver)
+{
+    switch (ih_ver) {
+    case IPVERSION:
+        return(sizeof(struct ip));
+    case IP6VERSION:
+        return(sizeof(struct ip6_hdr));
+        break;
+    default:
+        lmlog(DBG_2, "ip_hdr_ver_to_len: Unknown IP version %d!",
+                ih_ver);
+        return(BAD);
+    }
+}
+
+/* Assume if there's a colon in str that its an IPv6
+ * address. Otherwise its v4. */
+int ip_afi_from_char(char *str)
+{
+    if (strchr(str,':'))                /* poor-man's afi discriminator */
+        return(AF_INET6);
+    else
+        return(AF_INET);
+}
+
+
+
+

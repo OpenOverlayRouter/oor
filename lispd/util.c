@@ -31,7 +31,7 @@
  */
 
 #include "util.h"
-#include "lispd_log.h"
+#include "defs.h"
 
 static void
 out_of_memory(void)
@@ -122,3 +122,75 @@ lm_assert_failure(const char *where, const char *function,
         abort();
     }
 }
+
+static inline int
+convert_hex_char_to_byte (char val)
+{
+    val = (char)toupper (val);
+
+    switch (val){
+    case '0':
+        return (0);
+    case '1':
+        return (1);
+    case '2':
+        return (2);
+    case '3':
+        return (3);
+    case '4':
+        return (4);
+    case '5':
+        return (5);
+    case '6':
+        return (6);
+    case '7':
+        return (7);
+    case '8':
+        return (8);
+    case '9':
+        return (9);
+    case 'A':
+        return (10);
+    case 'B':
+        return (11);
+    case 'C':
+        return (12);
+    case 'D':
+        return (13);
+    case 'E':
+        return (14);
+    case 'F':
+        return (15);
+    default:
+        return (-1);
+    }
+}
+
+int
+convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
+{
+    int         ctr = 0;
+    char        hex_digit[2];
+    int         partial_byte[2] = {0,0};
+
+    while (hex[ctr] != '\0' && ctr <= bytes_len*2){
+        ctr++;
+    }
+    if (hex[ctr] != '\0' && ctr != bytes_len*2){
+        return (BAD);
+    }
+
+    for (ctr = 0; ctr < bytes_len; ctr++){
+        hex_digit[0] = hex[ctr*2];
+        hex_digit[1] = hex[ctr*2+1];
+        partial_byte[0] = convert_hex_char_to_byte(hex_digit[0]);
+        partial_byte[1] = convert_hex_char_to_byte(hex_digit[1]);
+        if (partial_byte[0] == -1 || partial_byte[1] == -1){
+            lmlog(DBG_2,"convert_hex_string_to_bytes: Invalid hexadecimal number");
+            return (BAD);
+        }
+        bytes[ctr] = partial_byte[0]*16 + partial_byte[1];
+    }
+    return (GOOD);
+}
+

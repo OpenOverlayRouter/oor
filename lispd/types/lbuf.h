@@ -61,7 +61,7 @@ void lbuf_uninit(lbuf_t *);
 lbuf_t *lbuf_new(uint32_t);
 lbuf_t *lbuf_new_with_headroom(uint32_t, uint32_t);
 lbuf_t *lbuf_clone(lbuf_t *);
-static void lbuf_del(lbuf_t *);
+static inline void lbuf_del(lbuf_t *);
 
 
 static inline void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
@@ -116,7 +116,7 @@ static inline uint32_t lbuf_tailroom(const lbuf_t *b)
     return lbuf_end(b) - lbuf_tail(b);
 }
 
-static void lbuf_del(lbuf_t *b)
+static inline void lbuf_del(lbuf_t *b)
 {
     if (b) {
         lbuf_uninit(b);

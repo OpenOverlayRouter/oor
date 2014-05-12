@@ -39,7 +39,7 @@ shash_new()
 }
 
 shash_t *
-shash_new_managed(DestroyFunc *df)
+shash_new_managed(DestroyFunc df)
 {
     shash_t *sh;
     sh = hash_table_new(g_str_hash, g_str_equal, free, df);

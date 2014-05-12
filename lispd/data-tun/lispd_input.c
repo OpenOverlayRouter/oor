@@ -30,6 +30,7 @@
 #include "lispd_input.h"
 #include "lispd_tun.h"
 #include "lispd_output.h"
+#include "packets.h"
 
 static uint8_t pkt_recv_buf[MAX_IP_PKT_LEN+1];
 

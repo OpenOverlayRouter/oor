@@ -29,13 +29,14 @@
  *
  */
 
+#include "lispd_iface_list.h"
 #include "lispd_external.h"
 #include "lispd_info_request.h"
 #include "lispd_lib.h"
 #include "lispd_routing_tables_lib.h"
 #include "lispd_sockets.h"
 #include "lispd_tun.h"
-#include <elibs/htable/hash_table.h>
+#include "shash.h"
 #include <string.h>
 
 
@@ -119,12 +120,12 @@ iface_setup(iface_t *iface, char* iface_name,
 
     err = get_iface_address(iface_name, addr, afi);
     if (err != BAD) {
-        sock = open_device_bound_raw_socket(iface_name, afi);
-        bind_socket_address(sock, addr);
+        *sock = open_device_bound_raw_socket(iface_name, afi);
+        bind_socket_address(*sock, addr);
         add_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
                 addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
     } else {
-        sock = -1;
+        *sock = -1;
         lisp_addr_ip_set_afi(addr, AF_UNSPEC);
         lisp_addr_set_afi(addr, LM_AFI_NO_ADDR);
         return(BAD);
@@ -233,7 +234,7 @@ add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
         map_list = map_list->next;
     }
 
-    map_list = xmalloc(1, sizeof(iface_mappings_list));
+    map_list = xmalloc(sizeof(iface_mappings_list));
     map_list->mapping = m;
     map_list->next = NULL;
 

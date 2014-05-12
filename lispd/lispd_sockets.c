@@ -31,6 +31,7 @@
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
 #include "sockets-util.h"
+#include "liblisp.h"
 
 struct sock_master *
 sock_master_new() {
@@ -259,8 +260,7 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
             }
         }
 
-        lisp_addr_set_afi(&uc->la, LM_AFI_IP);
-        lisp_addr_ip_init(&uc->la, &su.s4.sin_addr);
+        lisp_addr_ip_init(&uc->la, &su.s4.sin_addr, AF_INET);
         uc->lp = ntohs(su.s4.sin_port);
     } else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
@@ -273,8 +273,7 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
                 break;
             }
         }
-        lisp_addr_set_afi(&uc->la, LM_AFI_IP);
-        lisp_addr_ip_init(&uc->la, &su.s6.sin6_addr);
+        lisp_addr_ip_init(&uc->la, &su.s6.sin6_addr, AF_INET6);
         uc->lp = ntohs(su.s6.sin6_port);
     }
 
@@ -287,7 +286,7 @@ sock_send(int sock, struct lbuf *b, uconn_t *uc)
     ip_addr_t *src, *dst;
 
     if (lisp_addr_afi(&uc->la) != LM_AFI_IP
-        || lisp_addr_afi(&uc->rp) != LM_AFI_IP) {
+        || lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
         lmlog(DBG_2, "sock_send: src %s and dst % of UDP are not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra));

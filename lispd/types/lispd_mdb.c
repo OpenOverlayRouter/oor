@@ -446,7 +446,7 @@ mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr)
 int pt_add_ippref(patricia_tree_t *pt, ip_prefix_t *ippref, void *data) {
     patricia_node_t *node       = NULL;
 
-    node = pt_add_node(pt, ip_prefix_get_addr(ippref), ip_prefix_get_plen(ippref), data);
+    node = pt_add_node(pt, ip_prefix_addr(ippref), ip_prefix_get_plen(ippref), data);
 
     if (!node)
         return(BAD);
@@ -521,7 +521,7 @@ void *pt_remove_ippref(patricia_tree_t *pt, ip_prefix_t *ippref) {
     patricia_node_t         *node   = NULL;
     void                    *data   = NULL;
 
-    node = pt_find_ip_node_exact(pt, ip_prefix_get_addr(ippref), ip_prefix_get_plen(ippref));
+    node = pt_find_ip_node_exact(pt, ip_prefix_addr(ippref), ip_prefix_get_plen(ippref));
 
     if (node == NULL){
         lmlog(DBG_3,"pt_remove_ip_addr: Unable to locate cache entry %s for deletion",

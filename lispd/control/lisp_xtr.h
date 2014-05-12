@@ -87,10 +87,19 @@ typedef struct lisp_xtr {
 
 } lisp_xtr_t;
 
-typedef struct _timer_rloc_prob_argument{
+typedef struct _timer_rloc_prob_argument {
     mapping_t   *mapping;
     locator_t   *locator;
 } timer_rloc_probe_argument;
+
+typedef struct map_server_list {
+    lisp_addr_t *address;
+    uint8_t key_type;
+    char *key;
+    uint8_t proxy_reply;
+    struct map_server_list *next;
+} map_server_list_t;
+
 
 int tr_mcache_add_mapping(lisp_xtr_t *, mapping_t *);
 int tr_mcache_add_static_mapping(lisp_xtr_t *, mapping_t *);

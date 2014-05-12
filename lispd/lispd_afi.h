@@ -35,7 +35,7 @@
 
 #include "defs.h"
 //#include "lispd_lcaf.h"
-#include "lispd_mapping.h"
+#include "lisp_mapping.h"
 
 
 

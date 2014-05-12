@@ -36,12 +36,13 @@
 #include "lispd.h"
 #include <lispd_iface_list.h>
 //#include <map_cache_entry.h>
-#include <elibs/htable/hash_table.h>
+//#include <elibs/htable/hash_table.h>
 
 
+typedef struct map_server_list map_server_list_t;
 typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
 typedef struct lisp_ctrl lisp_ctrl_t;
-typedef struct htable_t shash_t;
+typedef struct htable shash_t;
 typedef struct fwd_entry fwd_entry_t;
 
 //extern  lisp_addr_list_t       *map_resolvers;

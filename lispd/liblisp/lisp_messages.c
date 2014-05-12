@@ -25,9 +25,10 @@
  */
 
 #include "lisp_messages.h"
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
+#include "lisp_nonce.h"
+//#include <defs.h>
 #include <string.h>
+
 
 
 /* The maximum length of the headers, when we have IPv6 encapsulated control messages
@@ -36,7 +37,8 @@
 #define MAX_HEADERS_LEN 150
 
 
-void map_request_hdr_init(uint8_t *ptr)
+void
+map_request_hdr_init(void *ptr)
 {
     map_request_hdr_t *mrp = ptr;
 
@@ -55,7 +57,7 @@ void map_request_hdr_init(uint8_t *ptr)
 }
 
 void
-map_reply_hdr_init(uint8_t *ptr)
+map_reply_hdr_init(void *ptr)
 {
     map_reply_hdr_t *mrp = ptr;
 
@@ -73,7 +75,7 @@ map_reply_hdr_init(uint8_t *ptr)
 }
 
 void
-map_register_hdr_init(uint8_t *ptr)
+map_register_hdr_init(void *ptr)
 {
     map_register_hdr_t *mrp = ptr;
 
@@ -91,7 +93,7 @@ map_register_hdr_init(uint8_t *ptr)
 }
 
 void
-map_notify_hdr_init(uint8_t *ptr)
+map_notify_hdr_init(void *ptr)
 {
     map_notify_hdr_t *mrp = ptr;
 
@@ -106,20 +108,22 @@ map_notify_hdr_init(uint8_t *ptr)
 }
 
 void
-ecm_hdr_init(uint8_t *ptr)
+ecm_hdr_init(void *ptr)
 {
     ecm_hdr_t *ecm = ptr;
     ecm->type = LISP_ENCAP_CONTROL_TYPE;
     ecm->s_bit = 0;
     ecm->reserved = 0;
-    ecm->reserved2 = 0;
+    memset(ecm->reserved2, 0, sizeof(ecm->reserved2));
 }
 
 
-char *
-mreq_flags_to_char(map_request_hdr_t *h) {
+static char *
+mreq_flags_to_char(map_request_hdr_t *h)
+{
     static char buf[10];
-    h->authoritative ? sprintf(buf+strlen(buf), "A") : sprintf(buf+strlen(buf), "a") ;
+
+    h->authoritative ? sprintf(buf+strlen(buf), "A") : sprintf(buf+strlen(buf), "a");
     h->map_data_present ?  sprintf(buf+strlen(buf), "M") : sprintf(buf+strlen(buf), "m");
     h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
     h->solicit_map_request ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
@@ -130,21 +134,23 @@ mreq_flags_to_char(map_request_hdr_t *h) {
 
 
 char *
-map_request_hdr_to_char(map_request_hdr_t *h) {
+map_request_hdr_to_char(map_request_hdr_t *h)
+{
     static char buf[100];
 
     if (!h) {
         return(NULL);
     }
 
-    sprintf(buf, "Map-Request -> flags:%s irc: %d (+1) record-count: %d nonce %s",
-            mreq_flags_to_char(h), h->additional_itr_rloc_count, h->record_count,
-            nonce_to_char(h->nonce));
+    sprintf(buf, "Map-Request -> flags:%s irc: %d (+1) record-count: %d "
+            "nonce %s", mreq_flags_to_char(h), h->additional_itr_rloc_count,
+            h->record_count,  nonce_to_char(h->nonce));
     return(buf);
 }
 
 char *
-mrep_flags_to_char(map_reply_hdr_t *h) {
+mrep_flags_to_char(map_reply_hdr_t *h)
+{
     static char buf[10];
     h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
     h->echo_nonce ? sprintf(buf+strlen(buf), "E") : sprintf(buf+strlen(buf), "e");
@@ -153,7 +159,8 @@ mrep_flags_to_char(map_reply_hdr_t *h) {
 }
 
 char *
-map_reply_hdr_to_char(map_reply_hdr_t *h) {
+map_reply_hdr_to_char(map_reply_hdr_t *h)
+{
     static char buf[100];
 
     if (!h) {
@@ -161,12 +168,13 @@ map_reply_hdr_to_char(map_reply_hdr_t *h) {
     }
 
     sprintf(buf, "Map-Reply -> flags:%s record-count: %d nonce %s",
-            mreq_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+            mrep_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
 
 char *
-mreg_flags_to_char(map_register_hdr_t *h) {
+mreg_flags_to_char(map_register_hdr_t *h)
+{
     static char buf[10];
     h->proxy_reply ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
     h->ibit ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
@@ -176,7 +184,8 @@ mreg_flags_to_char(map_register_hdr_t *h) {
 }
 
 char *
-map_register_hdr_to_char(map_reply_hdr_t *h) {
+map_register_hdr_to_char(map_register_hdr_t *h)
+{
     static char buf[100];
 
     if (!h) {
@@ -184,12 +193,13 @@ map_register_hdr_to_char(map_reply_hdr_t *h) {
     }
 
     sprintf(buf, "Map-Register -> flags:%s record-count: %d nonce %s",
-            mreq_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+            mreg_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
 
 char *
-mntf_flags_to_char(map_notify_hdr_t *h) {
+mntf_flags_to_char(map_notify_hdr_t *h)
+{
     static char buf[5];
     h->xtr_id_present ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
     h->rtr_auth_present ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
@@ -197,7 +207,8 @@ mntf_flags_to_char(map_notify_hdr_t *h) {
 }
 
 char *
-map_notify_hdr_to_char(map_notify_hdr_t *h) {
+map_notify_hdr_to_char(map_notify_hdr_t *h)
+{
     static char buf[100];
 
     if (!h) {
@@ -205,13 +216,14 @@ map_notify_hdr_to_char(map_notify_hdr_t *h) {
     }
 
     sprintf(buf, "Map-Notify -> flags:%s record-count: %d nonce %s",
-            mreq_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+            mntf_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
 
 
 char *
-ecm_flags_to_char(ecm_hdr_t *h) {
+ecm_flags_to_char(ecm_hdr_t *h)
+{
     static char buf[10];
     if (!h) {
         return(NULL);
@@ -221,14 +233,15 @@ ecm_flags_to_char(ecm_hdr_t *h) {
 }
 
 char *
-ecm_hdr_to_char(ecm_hdr_t *h) {
+ecm_hdr_to_char(ecm_hdr_t *h)
+{
     static char buf[50];
 
     if (!h) {
         return(NULL);
     }
 
-    sprintf(buf, "ECM -> flags:%s", mreq_flags_to_char(h));
+    sprintf(buf, "ECM -> flags:%s", ecm_flags_to_char(h));
     return(buf);
 }
 
@@ -238,16 +251,18 @@ ecm_hdr_to_char(ecm_hdr_t *h) {
 
 /* Given the start of an address field, @addr, checks if the address is an
  * MCAST_INFO LCAF that carries mrsignaling flags */
-uint8_t is_mrsignaling(address_hdr_t *addr) {
+uint8_t is_mrsignaling(address_hdr_t *addr)
+{
     return(ntohs(LCAF_AFI(addr)) == LISP_AFI_LCAF
             && LCAF_TYPE(addr) == LCAF_MCAST_INFO
-            && (MCINFO_JBIT(addr) || MCINF_LBIT(addr)));
+            && (MCINFO_JBIT(addr) || MCINFO_LBIT(addr)));
 }
 
 /* Given the start of an address field, @addr, checks if the address is used
  * for mrsignaling, in which case it returns the mrsignaling flags */
 mrsignaling_flags_t
-mrsignaling_flags(address_hdr_t *addr) {
+mrsignaling_flags(address_hdr_t *addr)
+{
     lcaf_mcinfo_hdr_t   *hdr;
     mrsignaling_flags_t mc_flags = {.rbit = 0, .jbit = 0, .lbit = 0};
 
@@ -255,11 +270,11 @@ mrsignaling_flags(address_hdr_t *addr) {
         return(mc_flags);
     }
 
-    hdr = addr;
+    hdr = (lcaf_mcinfo_hdr_t *)addr;
 
     if (hdr->J == 1 && hdr->L == 1) {
-        lmlog(LISP_LOG_DEBUG_1, "Both join and leave flags are set in "
-                "mrsignaling msg. Discarding!");
+//        lmlog(DBG_1, "Both join and leave flags are set in "
+//                "mrsignaling msg. Discarding!");
         return(mc_flags);
     }
 
@@ -272,7 +287,8 @@ mrsignaling_flags(address_hdr_t *addr) {
  * @offset: pointer to start of the mapping record
  */
 void
-mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig) {
+mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig)
+{
 
     lcaf_mcinfo_hdr_t *mc_ptr;
 

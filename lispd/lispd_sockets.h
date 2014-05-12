@@ -36,6 +36,7 @@
 #endif
 
 #include "defs.h"
+#include "sockets-util.h"
 #include <lisp_address.h>
 #include <lbuf.h>
 

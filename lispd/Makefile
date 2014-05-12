@@ -46,9 +46,6 @@ OBJS		= cmdline.o				\
 		  control/lisp_map_cache.o 		\
 		  control/lisp_xtr.o			\
 		  control/lisp_ms.o			\
-		  control/lispd_info_nat.o		\
-		  control/lispd_info_request.o 		\
-		  control/lispd_info_reply.o		\
 		  data-tun/lispd_iface_list.o		\
 		  data-tun/lispd_input.o		\
 		  data-tun/lispd_output.o		\
@@ -59,15 +56,13 @@ OBJS		= cmdline.o				\
 		  liblisp/lisp_address.o		\
 		  liblisp/lisp_ip.o			\
 		  liblisp/lisp_lcaf.o			\
+		  liblisp/lisp_locator.o		\
+		  liblisp/lisp_mapping.o 		\
 		  liblisp/lisp_messages.o		\
 		  liblisp/lisp_message_fields.o 	\
-		  liblisp/lispd_locator.o		\
-		  liblisp/lispd_mapping.o 		\
 		  lispd.o				\
-		  lispd_afi.o				\
 		  lispd_config.o			\
 		  lispd_iface_mgmt.o 			\
-		  lispd_lib.o				\
 		  lispd_log.o				\
 		  lispd_sockets.o 			\
 		  lispd_timers.o 			\
@@ -80,6 +75,10 @@ OBJS		= cmdline.o				\
 		  types/packets.o 			\
 		  types/shash.o 			\
 		  util.o
+#		  control/lispd_info_nat.o		\
+#		  control/lispd_info_request.o 		\
+#		  control/lispd_info_reply.o		\
+#		  lispd_lib.o				\
 
 EXE		= lispd
 PREFIX		= /usr/local/sbin

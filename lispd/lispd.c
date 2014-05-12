@@ -49,6 +49,7 @@
 #include <net/if.h>
 #include "lispd.h"
 #include "lispd_config.h"
+#include "cmdline.h"
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
 #include "lispd_input.h"
@@ -63,7 +64,8 @@
 #include <lisp_control.h>
 #include <lisp_xtr.h>
 #include <lisp_ms.h>
-#include <elibs/htable/hash_table.h>
+#include <shash.h>
+//#include <elibs/htable/hash_table.h>
 
 
 /*
@@ -138,17 +140,19 @@ void init_tun()
     lisp_addr_t *tun_v4_addr;
     lisp_addr_t *tun_v6_addr;
     char *tun_dev_name = TUN_IFACE_NAME;
+    lisp_xtr_t *xtr;
 
-    /*
-     * Create tun interface
-     */
+    if (ctrl_dev->mode != xTR_MODE) {
+        lmlog(LCRIT, "Trying to active LISP data plane for device type %d. "
+                "Aborting!", ctrl_dev->mode);
+        exit_cleanup();
+    }
 
-    create_tun(tun_dev_name,
-            TUN_RECEIVE_SIZE,
-            TUN_MTU,
-            &tun_receive_fd,
-            &tun_ifindex,
-            &tun_receive_buf);
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    /* Create tun interface */
+    create_tun(tun_dev_name, TUN_RECEIVE_SIZE, TUN_MTU, &tun_receive_fd,
+            &tun_ifindex, &tun_receive_buf);
 
 
     /*
@@ -160,26 +164,26 @@ void init_tun()
 #ifdef ROUTER
     tun_v4_addr = local_map_db_get_main_eid(AF_INET);
     if (tun_v4_addr != NULL){
-        tun_v4_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_ip_addr_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
+        tun_v4_addr = lisp_addr_new();
+        lisp_addr_ip_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
     }
     tun_v6_addr = local_map_db_get_main_eid(AF_INET6);
     if (tun_v6_addr != NULL){
-        tun_v6_addr = (lisp_addr_t *)malloc(sizeof(lisp_addr_t));
-        get_ip_addr_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
+        tun_v6_addr = lisp_addr_new();
+        lisp_addr_ip_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
     }
 #else
-    tun_v4_addr = local_map_db_get_main_eid(AF_INET);
-    tun_v6_addr = local_map_db_get_main_eid(AF_INET6);
+    tun_v4_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET);
+    tun_v6_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET6);
 #endif
 
     tun_bring_up_iface(tun_dev_name);
-    if (tun_v4_addr != NULL){
-        tun_add_eid_to_iface(*tun_v4_addr,tun_dev_name);
+    if (tun_v4_addr != NULL) {
+        tun_add_eid_to_iface(*tun_v4_addr, tun_dev_name);
         set_tun_default_route_v4();
     }
-    if (tun_v6_addr != NULL){
-        tun_add_eid_to_iface(*tun_v6_addr,tun_dev_name);
+    if (tun_v6_addr != NULL) {
+        tun_add_eid_to_iface(*tun_v6_addr, tun_dev_name);
         set_tun_default_route_v6();
     }
 #ifdef ROUTER
@@ -222,25 +226,27 @@ init_tr_data_plane(lisp_dev_type mode)
 }
 
 
-void test_elp() {
-
+void test_elp()
+{
+    lisp_xtr_t *xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
     lisp_addr_t *laddr = lisp_addr_new_afi(LM_AFI_LCAF);
     lcaf_addr_t *lcaf = lisp_addr_get_lcaf(laddr);
+    packet_tuple_t tuple;
     lcaf_addr_set_type(lcaf, LCAF_EXPL_LOC_PATH);
 
     elp_t *elp = elp_type_new();
 
-    elp_node_t *en1 = calloc(1, sizeof(elp_node_t));
+    elp_node_t *en1 = xzalloc(sizeof(elp_node_t));
     en1->L = 0; en1->P = 0; en1->S = 1;
-    en1->addr = lisp_addr_new(); get_ip_addr_from_char("1.1.1.1", en1->addr);
+    en1->addr = lisp_addr_new(); lisp_addr_ip_from_char("1.1.1.1", en1->addr);
 
-    elp_node_t *en2 = calloc(1, sizeof(elp_node_t));
+    elp_node_t *en2 = xzalloc(sizeof(elp_node_t));
     en2->L = 0; en2->P = 0; en2->S = 1;
-    en2->addr = lisp_addr_new(); get_ip_addr_from_char("2.2.2.2", en2->addr);
+    en2->addr = lisp_addr_new(); lisp_addr_ip_from_char("2.2.2.2", en2->addr);
 
-    elp_node_t *en3 = calloc(1, sizeof(elp_node_t));
+    elp_node_t *en3 = xzalloc(sizeof(elp_node_t));
     en3->L = 0; en1->P = 0; en3->S = 1;
-    en3->addr = lisp_addr_new(); get_ip_addr_from_char("3.3.3.3", en3->addr);
+    en3->addr = lisp_addr_new(); lisp_addr_ip_from_char("3.3.3.3", en3->addr);
 
     glist_add_tail(en1, elp->nodes);
     glist_add_tail(en2, elp->nodes);
@@ -250,25 +256,27 @@ void test_elp() {
     lmlog(LWRN, "the generated lcaf: %s", lisp_addr_to_char(laddr));
     lmlog(LWRN, "let's see now!");
 
-    lisp_addr_t *eid = lisp_addr_new(); get_ip_addr_from_char("4.5.6.7", eid);
-    uint8_t status = 1; int sock = 1;
-    locator_t *locator = new_local_locator(laddr, &status, 1, 100, 1, 100, &sock);
+    lisp_addr_t *eid = lisp_addr_new(); lisp_addr_ip_from_char("4.5.6.7", eid);
+    uint8_t status = 1;
+    locator_t *locator = locator_init_remote_full(laddr, status, 1, 100, 1, 100);
     mapping_t *mapping = mapping_init_local(eid);
     lmlog(LWRN, "mapping created!");
 
     mapping_add_locator(mapping, locator);
     lmlog(LWRN, "locator added!");
-    local_map_db_add_mapping(NULL, mapping);
-    local_map_db_dump(LWRN);
+    local_map_db_add_mapping(xtr->local_mdb, mapping);
+    local_map_db_dump(xtr->local_mdb, LWRN);
 
-    program_map_register(NULL, 0);
+//    program_map_register(xtr, 0);
 
     lmlog(LWRN, "removing mapping!");
-    local_map_db_del_mapping(eid);
+    local_map_db_del_mapping(xtr->local_mdb, eid);
+
+    lisp_addr_copy(&tuple.dst_addr, eid);
+    lisp_addr_set_afi(&tuple.src_addr, LM_AFI_NO_ADDR);
 
     lmlog(LWRN, "done. Sending map-request!");
-    handle_map_cache_miss(eid, local_map_db_get_main_eid(AF_INET));
-
+    ctrl_get_forwarding_entry(&tuple);
 
     lmlog(LWRN, "finished!");
 //    lisp_addr_del(laddr);

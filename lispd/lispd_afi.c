@@ -255,7 +255,7 @@ extract_mcast_info_lcaf_data(uint8_t **offset, mapping_t *mapping)
     }
 
     cur_ptr = CO(cur_ptr, lisp_addr_parse(cur_ptr, eid_prefix));
-    mapping_set_eid_addr(mapping, eid_prefix);
+    mapping_set_eid(mapping, eid_prefix);
 
     *offset = cur_ptr;
     return (GOOD);

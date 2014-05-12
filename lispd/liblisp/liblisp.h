@@ -30,8 +30,8 @@
 #define LIBLISP_H_
 
 #include "lisp_address.h"
-#include "lispd_locator.h"
-#include "lispd_mapping.h"
+#include "lisp_locator.h"
+#include "lisp_mapping.h"
 #include "lisp_messages.h"
 #include "generic_list.h"
 #include "lbuf.h"
@@ -43,6 +43,18 @@ typedef struct fwd_entry {
     /* fill in other stuff */
     int natt_flag;
 } fwd_entry_t;
+
+#define MAX_IP_PKT_LEN          4096
+#define MAX_IP_HDR_LEN          40  /* without options or IPv6 hdr extensions */
+#define UDP_HDR_LEN             8
+#define LISP_DATA_HDR_LEN       8
+#define LISP_ECM_HDR_LEN        4
+#define MAX_LISP_MSG_ENCAP_LEN  2*(MAX_IP_HDR_LEN + UDP_HDR_LEN)+ LISP_ECM_HDR_LEN
+#define MAX_LISP_PKT_ENCAP_LEN  MAX_IP_HDR_LEN + UDP_HDR_LEN + LISP_DATA_HDR_LEN
+
+#define LISP_CONTROL_PORT               4342
+#define LISP_DATA_PORT                  4341
+
 
 lisp_msg_type_t lisp_msg_type(lbuf_t *);
 int lisp_msg_parse_type(lbuf_t *b, lisp_msg_type_t *);

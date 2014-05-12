@@ -27,9 +27,8 @@
 #ifndef LISP_MESSAGES_H_
 #define LISP_MESSAGES_H_
 
-#include <stdlib.h>
 #include "lisp_message_fields.h"
-#include <defs.h>
+#include <stdlib.h>
 
 /* LISP Types */
 typedef enum {
@@ -115,7 +114,7 @@ typedef struct lisp_encap_control_hdr {
 
 
 char *ecm_hdr_to_char(ecm_hdr_t *h);
-void ecm_hdr_init(uint8_t *ptr);
+void ecm_hdr_init(void *ptr);
 
 #define ECM_TYPE(h_) ((ecm_hdr_t *)(h_))->type
 
@@ -195,7 +194,7 @@ typedef struct _map_request_msg_hdr {
 } __attribute__ ((__packed__)) map_request_hdr_t;
 
 
-void map_request_hdr_init(uint8_t *ptr);
+void map_request_hdr_init(void *ptr);
 char *map_request_hdr_to_char(map_request_hdr_t *h);
 
 
@@ -276,7 +275,7 @@ char *map_request_hdr_to_char(map_request_hdr_t *h);
      uint64_t nonce;
  } __attribute__ ((__packed__)) map_reply_hdr_t;
 
- void map_reply_hdr_init(uint8_t *ptr);
+ void map_reply_hdr_init(void *ptr);
  char *map_reply_hdr_to_char(map_reply_hdr_t *h);
 
 #define MREP_HDR_CAST(h) ((map_reply_hdr_t *)(h))
@@ -341,7 +340,7 @@ typedef struct _map_notify_msg_hdr {
     uint64_t nonce;
 } __attribute__ ((__packed__)) map_notify_hdr_t;
 
-void map_notify_hdr_init(uint8_t *ptr);
+void map_notify_hdr_init(void *ptr);
 char *map_notify_hdr_to_char(map_notify_hdr_t *h);
 
 #define MNTF_HDR_CAST(h_) ((map_notify_hdr_t *)(h_))
@@ -443,7 +442,7 @@ typedef struct _map_register_msg_hdr {
 } __attribute__ ((__packed__)) map_register_hdr_t;
 
 
-void map_register_hdr_init(uint8_t *ptr);
+void map_register_hdr_init(void *ptr);
 char *map_register_hdr_to_char(map_register_hdr_t *h);
 
 

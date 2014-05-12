@@ -34,7 +34,7 @@
 #define LISPD_IFACE_LIST_H_
 
 #include "defs.h"
-#include <lispd_mapping.h>
+#include <lisp_mapping.h>
 #include "lispd_timers.h"
 
 /* list of mappings associated an interface */
@@ -80,7 +80,7 @@ typedef struct iface_list_elt_ {
 } iface_list_elt;
 
 
-
+int init_ifaces();
 iface_t *add_interface(char *iface_name);
 iface_t *get_interface(char *iface_name);
 iface_t *get_interface_from_index(int iface_index);

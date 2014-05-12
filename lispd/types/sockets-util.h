@@ -32,10 +32,14 @@
 #ifndef SOCKETS_UTIL_H_
 #define SOCKETS_UTIL_H_
 
+#include "lisp_address.h"
+
 int open_device_bound_raw_socket(char *device, int afi);
+int open_raw_socket(int afi);
 
 int open_udp_socket(int afi);
 int bind_socket_address(int sock, lisp_addr_t *addr);
+int bind_socket(int sock, int afi, int port);
 
 int send_packet(int sock, uint8_t *packet, int packet_length);
 

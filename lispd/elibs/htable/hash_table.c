@@ -10,21 +10,22 @@
  */
 
 #include "hash_table.h"
+#include "util.h"
 #include "stdlib.h"
 #include <string.h>
 
 #define HASH_TABLE_MIN_SIZE 11
 #define HASH_TABLE_MAX_SIZE 13845163
 
-typedef struct _HashNode HashNode;
+typedef struct hnode HashNode;
 
-struct _HashNode {
+struct hnode {
     void *key;
     void *value;
     HashNode *next;
 };
 
-struct _HashTable {
+struct htable {
     int size;
     int nnodes;
     unsigned int frozen;

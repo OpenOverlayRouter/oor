@@ -137,6 +137,8 @@ lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr);
 
 void lisp_addr_list_to_char(lisp_addr_list_t *, const char *, int);
 
+int lisp_addr_ip_from_char(char *, lisp_addr_t *);
+int lisp_addr_ippref_from_char(char *, lisp_addr_t *);
 
 
 #endif /* LISPD_ADDRESS_H_ */

@@ -36,17 +36,15 @@
 
 #include "cmdline.h"
 #include "confuse.h"
-#include "lispd_afi.h"
 #include "lispd_config.h"
 #include "lispd_external.h"
 #include "lispd_iface_list.h"
 #include "lispd_lib.h"
-#include "lispd_local_db.h"
-#include "lispd_map_cache_entry.h"
-#include "lispd_map_cache_db.h"
-#include "lispd_mapping.h"
-#include "lisp_address.h"
-#include "lispd_control.h"
+#include "lisp_ctrl_device.h"
+#include "lisp_xtr.h"
+#include "lisp_ms.h"
+#include "lisp_control.h"
+#include "shash.h"
 #include "elibs/htable/hash_table.h"
 
 
@@ -61,18 +59,18 @@
 
 static int add_database_mapping(lisp_xtr_t *, char *, int, char *, int, int,
         int, int);
-static int add_local_db_mapping(lisp_xtr_t *, cfg_t *, HashTable *);
+static int add_local_db_mapping(lisp_xtr_t *, cfg_t *, htable_t *);
 static int add_map_server(lisp_xtr_t *, char *, int, char *, uint8_t);
 static int add_proxy_etr_entry(lisp_xtr_t *, char *, int, int);
 static int add_static_map_cache_entry(lisp_xtr_t *, char *, int, char *, int,
-        int, HashTable *);
+        int, htable_t *);
 static int add_server(char *server, lisp_addr_list_t **list);
 
 static void validate_rloc_probing_parameters(int *, int *, int *);
 
-lisp_site_prefix *build_lisp_site_prefix(lisp_ms_t *, char *, uint32_t, int,
-        char *, uint8_t, uint8_t, uint8_t, HashTable *);
-mapping_t *build_mapping_from_config(cfg_t *, HashTable *, int );
+static lisp_site_prefix *build_lisp_site_prefix(lisp_ms_t *, char *, uint32_t,
+        int, char *, uint8_t, uint8_t, uint8_t, htable_t *);
+static mapping_t *build_mapping_from_config(cfg_t *, htable_t *, int);
 
 static int link_iface_and_mapping(iface_t *, mapping_t *, int, int, int, int);
 static int add_rtr_iface(lisp_xtr_t *, char *, int p, int w);
@@ -379,7 +377,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
 
 
 static void
-parse_elp_list(cfg_t *cfg, HashTable *ht)
+parse_elp_list(cfg_t *cfg, htable_t *ht)
 {
     elp_node_t  *enode  = NULL;
     elp_t       *elp    = NULL;
@@ -400,7 +398,7 @@ parse_elp_list(cfg_t *cfg, HashTable *ht)
             cfg_t *senode = cfg_getnsec(selp, "elp-node", j);
             enode = calloc(1, sizeof(elp_node_t));
             enode->addr = lisp_addr_new();
-            if (get_ip_addr_from_char(cfg_getstr(senode, "address"),
+            if (lisp_addr_ip_from_char(cfg_getstr(senode, "address"),
                     enode->addr) != GOOD) {
                 elp_node_del(enode);
                 lmlog(DBG_1, "parse_elp_list: Couldn't parse ELP node %s",
@@ -424,7 +422,7 @@ parse_elp_list(cfg_t *cfg, HashTable *ht)
 }
 
 static void
-parse_rle_list(cfg_t *cfg, HashTable *ht)
+parse_rle_list(cfg_t *cfg, htable_t *ht)
 {
     rle_node_t  *rnode  = NULL;
     rle_t       *rle    = NULL;
@@ -444,7 +442,7 @@ parse_rle_list(cfg_t *cfg, HashTable *ht)
         for (j = 0; j < cfg_size(selp, "rle-node"); j++) {
             cfg_t *rlenode = cfg_getnsec(selp, "rle-node", j);
             rnode = rle_node_new();
-            if (get_ip_addr_from_char(cfg_getstr(rlenode, "address"),
+            if (lisp_addr_ip_from_char(cfg_getstr(rlenode, "address"),
                     rnode->addr) != GOOD) {
                 rle_node_del(rnode);
                 lmlog(DBG_1, "parse_rle_list: Couldn't parse RLE node %s",
@@ -464,7 +462,7 @@ parse_rle_list(cfg_t *cfg, HashTable *ht)
 }
 
 static void
-parse_mcinfo_list(cfg_t *cfg, HashTable *ht)
+parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
 {
     mc_t        *mc     = NULL;
     lisp_addr_t *laddr  = NULL;
@@ -479,9 +477,9 @@ parse_mcinfo_list(cfg_t *cfg, HashTable *ht)
         lisp_addr_lcaf_set_type(laddr, LCAF_MCAST_INFO);
 
         mc = mc_type_new();
-        get_ip_addr_from_char(cfg_getstr(mcnode, "source"), mc->src);
+        lisp_addr_ip_from_char(cfg_getstr(mcnode, "source"), mc->src);
         mc->src_plen = cfg_getint(mcnode, "source-mask-length");
-        get_ip_addr_from_char(cfg_getstr(mcnode, "group"), mc->grp);
+        lisp_addr_ip_from_char(cfg_getstr(mcnode, "group"), mc->grp);
         mc->src_plen = cfg_getint(mcnode, "group-mask-length");
         mc->iid = cfg_getint(mcnode, "iid");
 
@@ -495,10 +493,10 @@ parse_mcinfo_list(cfg_t *cfg, HashTable *ht)
     lmlog(LINF, "Parsed configured multicast addresses");
 }
 
-static HashTable *
+static htable_t *
 parse_lcafs(cfg_t *cfg)
 {
-    HashTable *lcaf_ht = NULL;
+    htable_t *lcaf_ht = NULL;
 
     /* create lcaf hash table */
     lcaf_ht = hash_table_new(g_str_hash, g_str_equal, free,
@@ -516,12 +514,8 @@ configure_rtr(cfg_t *cfg)
     int                     i                       = 0;
     int                     n                       = 0;
     int                     ret                     = 0;
-    int                     probe_int               = 0;
-    int                     probe_retries           = 0;
-    int                     probe_retries_interval  = 0;
     char                    *map_resolver           = NULL;
-    HashTable               *lcaf_ht                = NULL;
-    char                    *iface                  = NULL;
+    htable_t               *lcaf_ht                = NULL;
     lisp_xtr_t *xtr;
 
 
@@ -593,7 +587,7 @@ configure_rtr(cfg_t *cfg)
     for (i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
 
-        if (!add_static_map_cache_entry(ctrl_dev,
+        if (!add_static_map_cache_entry(xtr,
                 cfg_getstr(smc, "eid-prefix"),
                 cfg_getint(smc, "iid"),
                 cfg_getstr(smc, "rloc"),
@@ -649,10 +643,8 @@ configure_xtr(cfg_t *cfg)
     int ret = 0;
     char *map_resolver = NULL;
     char *proxy_itr = NULL;
-    int probe_retries = 0;
-    int probe_retries_interval = 0;
     int ctr = 0;
-    HashTable *lcaf_ht = NULL;
+    htable_t *lcaf_ht = NULL;
     lisp_xtr_t *xtr;
 
     /* CREATE AND CONFIGURE XTR */
@@ -800,7 +792,7 @@ configure_xtr(cfg_t *cfg)
     for (i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
 
-        if (!add_static_map_cache_entry(ctrl_dev,
+        if (!add_static_map_cache_entry(xtr,
                 cfg_getstr(smc, "eid-prefix"),
                 cfg_getint(smc, "iid"),
                 cfg_getstr(smc, "rloc"),
@@ -831,11 +823,10 @@ configure_ms(cfg_t *cfg)
 {
     char *iface = NULL;
     lisp_site_prefix *site = NULL;
-    HashTable *lcaf_ht = NULL;
+    htable_t *lcaf_ht = NULL;
     int i;
     lisp_ms_t *ms;
 
-    ctrl_dev = (lisp_ctrl_dev_t *)ms_ctrl_init();
     /* create and configure xtr */
     if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
         lmlog(LCRIT, "Failed to create MS. Aborting!");
@@ -1189,7 +1180,6 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
     mapping_t *m = NULL;
     iface_t *interface = NULL;
     lisp_addr_t eid;
-    uint8_t is_new_mapping = FALSE;
 
 
     /* XXX: Don't use IIDs with this method */
@@ -1223,7 +1213,7 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
         return(BAD);
     }
 
-    if (get_ippref_from_char(eid_str, &eid) !=GOOD) {
+    if (lisp_addr_ippref_from_char(eid_str, &eid) !=GOOD) {
         lmlog(LERR, "Configuration file: Error parsing EID address");
         return (BAD);
     }
@@ -1231,15 +1221,15 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
     if (iid != -1) {
         lisp_addr_set_afi(&eid, LM_AFI_LCAF);
         /* XXX: mask not defined. Just filling in a value for now */
-        lisp_addr_lcaf_set_addr(&eid, iid_type_init(iid, eid,
-                ip_afi_to_default_mask(lisp_addr_ip_afi(eid))));
+        lisp_addr_lcaf_set_addr(&eid, iid_type_init(iid, &eid,
+                ip_afi_to_default_mask(lisp_addr_ip_afi(&eid))));
     }
 
     /* Lookup if the mapping exists. If not, a new mapping is created. */
     m = local_map_db_lookup_eid_exact(xtr->local_mdb, &eid);
 
     if (!m) {
-        m = mapping_init_local(eid);
+        m = mapping_init_local(&eid);
         if (!m) {
             lmlog(LERR, "Configuration file: mapping %s could not be created",
                     eid_str);
@@ -1260,8 +1250,7 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
 
     /* BIND MAPPING TO IFACE */
     /* FIXME: build rloc to mapping hash */
-    if (link_iface_and_mapping(interface, m, AF_INET, p4, w4, p6, w6)
-            != GOOD) {
+    if (link_iface_and_mapping(interface, m, p4, w4, p6, w6) != GOOD) {
         return(BAD);
     }
 
@@ -1287,14 +1276,14 @@ get_interface_name_from_address(lisp_addr_t *addr)
 
     iface = shash_lookup(iface_addr_ht, lisp_addr_to_char(addr));
     if (iface) {
-        return((char *)iface);
+        return(iface);
     } else {
         return(NULL);
     }
 }
 
 static locator_t *
-parse_locator(char *address, int priority, int weight, HashTable *lcaf_ht,
+parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
         int local)
 {
     char *iface_name = NULL;
@@ -1320,7 +1309,7 @@ parse_locator(char *address, int priority, int weight, HashTable *lcaf_ht,
     }
 
     rloc = lisp_addr_new();
-    if (get_ip_addr_from_char(address, rloc)!=GOOD) {
+    if (lisp_addr_ip_from_char(address, rloc)!=GOOD) {
         lisp_addr_del(rloc);
         lcaf_rloc = hash_table_lookup(lcaf_ht, address);
         if(!lcaf_rloc){
@@ -1393,7 +1382,7 @@ parse_locator(char *address, int priority, int weight, HashTable *lcaf_ht,
 }
 
 static mapping_t *
-build_mapping_from_config(cfg_t *map, HashTable *lcaf_ht, int local)
+build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
 {
     int i;
     mapping_t *mapping = NULL;
@@ -1405,7 +1394,7 @@ build_mapping_from_config(cfg_t *map, HashTable *lcaf_ht, int local)
 
     address = cfg_getstr(map, "eid-prefix");
     eid_prefix = lisp_addr_new();
-    if (get_ippref_from_char(address, eid_prefix) != GOOD) {
+    if (lisp_addr_ippref_from_char(address, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
         eid_prefix = hash_table_lookup(lcaf_ht, address);
@@ -1469,7 +1458,7 @@ build_mapping_from_config(cfg_t *map, HashTable *lcaf_ht, int local)
 }
 
 static int
-add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, HashTable *lcaf_ht)
+add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
 {
     int i;
     mapping_t *mapping = NULL;
@@ -1481,7 +1470,7 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, HashTable *lcaf_ht)
 
     address = cfg_getstr(map, "eid-prefix");
     eid_prefix = lisp_addr_new();
-    if (get_ippref_from_char(address, eid_prefix) != GOOD) {
+    if (lisp_addr_ippref_from_char(address, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
         eid_prefix = hash_table_lookup(lcaf_ht, address);
@@ -1549,7 +1538,7 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, HashTable *lcaf_ht)
 
 static int
 add_static_map_cache_entry(lisp_xtr_t *xtr, char *eid, int iid,
-        char *rloc_addr, int priority, int weight, HashTable *elp_hash)
+        char *rloc_addr, int priority, int weight, htable_t *elp_hash)
 {
     mapping_t *mapping;
     locator_t *locator;
@@ -1574,7 +1563,7 @@ add_static_map_cache_entry(lisp_xtr_t *xtr, char *eid, int iid,
         priority = MIN_PRIORITY;
     }
 
-    if (get_ippref_from_char(eid, &eid_prefix) !=GOOD) {
+    if (lisp_addr_ippref_from_char(eid, &eid_prefix) !=GOOD) {
         lmlog(LERR, "Configuration file: Error parsing EID address ..."
                 "Ignoring static map cache entry");
         return (BAD);
@@ -1583,8 +1572,8 @@ add_static_map_cache_entry(lisp_xtr_t *xtr, char *eid, int iid,
     if (iid != 0) {
         lisp_addr_set_afi(&eid_prefix, LM_AFI_LCAF);
         /* XXX: mask not defined. Just filling in a value for now */
-        lisp_addr_lcaf_set_addr(&eid_prefix, iid_type_init(iid, eid_prefix,
-                ip_afi_to_default_mask(lisp_addr_ip_afi(eid_prefix))));
+        lisp_addr_lcaf_set_addr(&eid_prefix, iid_type_init(iid, &eid_prefix,
+                ip_afi_to_default_mask(lisp_addr_ip_afi(&eid_prefix))));
     }
 
 
@@ -1592,7 +1581,7 @@ add_static_map_cache_entry(lisp_xtr_t *xtr, char *eid, int iid,
         return(BAD);
     }
 
-    if (get_ip_addr_from_char(rloc_addr, &rloc) == BAD) {
+    if (lisp_addr_ip_from_char(rloc_addr, &rloc) == BAD) {
         lcaf_rloc = hash_table_lookup(elp_hash, rloc_addr);
         if (!lcaf_rloc) {
             lmlog(LERR, "Error parsing RLOC address ..."
@@ -1633,7 +1622,7 @@ add_server(char *server, lisp_addr_list_t **list)
     lisp_addr_t *addr;
     lisp_addr_list_t *list_elt;
 
-    afi = get_afi(server);
+    afi = ip_afi_from_char(server);
     addr = lisp_addr_new_afi(LM_AFI_IP);
     lisp_addr_ip_set_afi(addr, afi);
 
@@ -1720,7 +1709,7 @@ add_map_server(lisp_xtr_t *xtr, char *map_server, int key_type,
 static int
 add_proxy_etr_entry(lisp_xtr_t *xtr, char *address, int priority, int weight)
 {
-    lisp_addr_t aux_address;
+    lisp_addr_t aux_addr;
     lisp_addr_t rloc;
     locator_t *locator = NULL;
     int ret;
@@ -1737,7 +1726,8 @@ add_proxy_etr_entry(lisp_xtr_t *xtr, char *address, int priority, int weight)
 
     /* Check that the afi of the map server matches with the default rloc afi
      * (if it's defined). */
-    if (default_rloc_afi != -1 && default_rloc_afi != get_afi(address)){
+    if (default_rloc_afi != -1
+        && default_rloc_afi != ip_afi_from_char(address)) {
         lmlog(LWRN, "The PETR %s will not be added due to the selected "
                 "default rloc afi", address);
         return(BAD);
@@ -1745,11 +1735,11 @@ add_proxy_etr_entry(lisp_xtr_t *xtr, char *address, int priority, int weight)
 
     /* Create the proxy-etrs map cache structure if it doesn't exist */
     if (xtr->petrs == NULL) {
-        get_ip_addr_from_char("0.0.0.0", &aux_address);
-        mcache_entry_init_static(&xtr->petrs, mapping_init(&aux_address));
+        lisp_addr_ip_from_char("0.0.0.0", &aux_addr);
+        mcache_entry_init_static(&xtr->petrs, mapping_init_remote(&aux_addr));
     }
 
-    if (get_ip_addr_from_char(address, &rloc) == BAD) {
+    if (lisp_addr_ip_from_char(address, &rloc) == BAD) {
         lmlog(LERR, "Error parsing RLOC address. Ignoring proxy-ETR %s",
                 address);
         return (BAD);
@@ -1771,12 +1761,10 @@ static int
 add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
 {
     lisp_addr_t aux_address;
-    lisp_addr_t rloc;
     mapping_t *m;
     iface_t *iface;
-    int ret;
 
-    if (iface == NULL){
+    if (iface_name == NULL){
         lmlog(LERR, "Configuration file: No interface specified for RTR. "
                 "Discarding!");
         return (BAD);
@@ -1798,7 +1786,7 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
 
 
     /* Lookup if the mapping exists. If not, a new mapping is created. */
-    get_ip_addr_from_char("0.0.0.0", &aux_address);
+    lisp_addr_ip_from_char("0.0.0.0", &aux_address);
     m = local_map_db_lookup_eid_exact(xtr->local_mdb, &aux_address);
 
     if (!m) {
@@ -1806,7 +1794,7 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
         local_map_db_add_mapping(xtr->local_mdb, m);
     }
 
-    if (link_iface_and_mapping(iface, m, AF_INET, p, w, p, w)
+    if (link_iface_and_mapping(iface, m, p, w, p, w)
             != GOOD) {
         return(BAD);
     }
@@ -1819,40 +1807,40 @@ validate_rloc_probing_parameters(int *interval, int *retries,
         int *retries_int)
 {
 
-    if (interval < 0) {
-        interval = 0;
+    if (*interval < 0) {
+        *interval = 0;
     }
 
-    if (interval > 0) {
-        lmlog(DBG_1, "RLOC Probing Interval: %d", interval);
+    if (*interval > 0) {
+        lmlog(DBG_1, "RLOC Probing Interval: %d", *interval);
     } else {
         lmlog(DBG_1, "RLOC Probing disabled");
     }
 
-    if (interval != 0) {
-        if (retries > LISPD_MAX_RETRANSMITS) {
-            retries = LISPD_MAX_RETRANSMITS;
+    if (*interval != 0) {
+        if (*retries > LISPD_MAX_RETRANSMITS) {
+            *retries = LISPD_MAX_RETRANSMITS;
             lmlog(LWRN, "RLOC Probing retries should be between 0 and %d. "
                     "Using %d retries", LISPD_MAX_RETRANSMITS,
                     LISPD_MAX_RETRANSMITS);
-        } else if (retries < 0) {
-            retries = 0;
+        } else if (*retries < 0) {
+            *retries = 0;
             lmlog(LWRN, "RLOC Probing retries should be between 0 and %d. "
                     "Using 0 retries", LISPD_MAX_RETRANSMITS);
         }
 
-        if (retries > 0) {
-            if (retries_int < LISPD_MIN_RETRANSMIT_INTERVAL) {
-                retries_int = LISPD_MIN_RETRANSMIT_INTERVAL;
+        if (*retries > 0) {
+            if (*retries_int < LISPD_MIN_RETRANSMIT_INTERVAL) {
+                *retries_int = LISPD_MIN_RETRANSMIT_INTERVAL;
                 lmlog(LWRN, "RLOC Probing interval retries should be between "
                         "%d and RLOC Probing interval. Using %d seconds",
                         LISPD_MIN_RETRANSMIT_INTERVAL,
                         LISPD_MIN_RETRANSMIT_INTERVAL);
-            } else if (retries_int > interval) {
-                retries_int = interval;
+            } else if (*retries_int > *interval) {
+                *retries_int = *interval;
                 lmlog(LWRN, "RLOC Probing interval retries should be between "
                         "%d and RLOC Probing interval. Using %d seconds",
-                         LISPD_MIN_RETRANSMIT_INTERVAL, interval);
+                         LISPD_MIN_RETRANSMIT_INTERVAL, *interval);
             }
         }
     }
@@ -1861,7 +1849,7 @@ validate_rloc_probing_parameters(int *interval, int *retries,
 static lisp_site_prefix *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
-        HashTable *lcaf_ht)
+        htable_t *lcaf_ht)
 {
     lisp_addr_t *eid_prefix = NULL;
     lisp_addr_t *ht_prefix = NULL;
@@ -1879,7 +1867,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
 
     /* DON'T DELETE eid_prefix */
     eid_prefix = lisp_addr_new();
-    if (get_ippref_from_char(eidstr, eid_prefix) != GOOD) {
+    if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
         ht_prefix = hash_table_lookup(lcaf_ht, eidstr);

@@ -25,6 +25,7 @@
  *
  * Written or modified by:
  *    Lorand Jakab  <ljakab@ac.upc.edu>
+ *    Florin Coras  <fcoras@ac.upc.edu>
  *
  */
 
@@ -50,31 +51,17 @@ struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
 
 /*
  * Generates an IP header and an UDP header
- * and copies the original packet at the end
- */
-
+ * and copies the original packet at the end */
 uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
         lisp_addr_t *addr_from, lisp_addr_t *addr_dest, int port_from,
         int port_dest, int *pkt_len);
 
-/*
- * Encapsulates a control lisp message
- */
-
-uint8_t *build_control_encap_pkt(uint8_t *orig_pkt, int orig_pkt_len,
-        lisp_addr_t *addr_from, lisp_addr_t *addr_dest, int port_from,
-        int port_dest, int *control_encap_pkt_len);
 
 /* Returns IP ID for the packet */
 uint16_t get_IP_ID();
 
 
-uint16_t ip_checksum(uint16_t *buffer, int size);
 
-/* Calculate the IPv4 or IPv6 UDP checksum */
-uint16_t udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi);
-
-int ip_hdr_ver_to_len(int ih_ver);
 void *pkt_pull_ipv4(struct lbuf *b);
 void *pkt_pull_ipv6(struct lbuf *b);
 void *pkt_pull_ip(struct lbuf *);

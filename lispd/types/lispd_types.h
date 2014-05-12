@@ -30,20 +30,12 @@
 #define LISPD_TYPES_H_
 
 #include "liblisp/lisp_address.h"
-#include "liblisp/lispd_locator.h"
-#include "liblisp/lispd_mapping.h"
-#include "liblisp/lispd_nonce.h"
+//#include "liblisp/lispd_locator.h"
+//#include "liblisp/lispd_mapping.h"
+//#include "liblisp/lispd_nonce.h"
 #include "types/lispd_mdb.h"
 //#include "types/lispd_remdb.h"
 
-
-typedef struct map_server_list_t_ {
-    lisp_addr_t                     *address;
-    uint8_t                         key_type;
-    char                            *key;
-    uint8_t                         proxy_reply;
-    struct map_server_list_t_ *next;
-} map_server_list_t;
 
 
 

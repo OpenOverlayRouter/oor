@@ -31,10 +31,8 @@
 #ifndef LISPD_MAP_CACHE_H_
 #define LISPD_MAP_CACHE_H_
 
-#include <lispd_types.h>
 #include <lispd_timers.h>
-//#include "lispd_afi.h"
-//#include "lispd_address.h"
+#include "lisp_mapping.h"
 
 /*
  *  map-cache entry types (how_learned)

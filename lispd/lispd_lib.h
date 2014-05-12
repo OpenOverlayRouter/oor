@@ -37,12 +37,8 @@
 #include "lispd_types.h"
 
 
-/*
- *      Assume if there's a colon in str that its an IPv6
- *      address. Otherwise its v4.
- */
 
-int get_afi(char *str);
+
 
 
 /*
@@ -134,8 +130,6 @@ lisp_addr_t *get_map_resolver();
 char *get_char_from_lisp_addr_t (lisp_addr_t addr);
 
 
-int get_ip_addr_from_char(char *address, lisp_addr_t *lisp_addr);
-int get_ippref_from_char(char *address, lisp_addr_t *laddr, int *mask);
 
 /*
  * Compare two lisp_addr_t.
@@ -193,7 +187,6 @@ int extract_lisp_address(
 
 void free_lisp_addr_list(lisp_addr_list_t * list);
 
-int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
 
 
 #endif /*LISPD_LIB_H_*/

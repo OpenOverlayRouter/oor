@@ -98,7 +98,7 @@ char                    *ip_addr_to_char (ip_addr_t *addr);
  * ip_prefix_t functions
  */
 inline uint8_t           ip_prefix_get_plen(ip_prefix_t *pref);
-inline ip_addr_t         *ip_prefix_get_addr(ip_prefix_t *pref);
+inline ip_addr_t         *ip_prefix_addr(ip_prefix_t *pref);
 inline uint8_t           ip_prefix_afi(ip_prefix_t *pref);
 inline void              ip_prefix_set(ip_prefix_t *pref, ip_addr_t *ipaddr, uint8_t plen);
 inline void              ip_prefix_set_plen(ip_prefix_t *pref, uint8_t plen);
@@ -107,22 +107,29 @@ inline void             ip_prefix_copy(ip_prefix_t *dst, ip_prefix_t *src);
 
 char                     *ip_prefix_to_char(ip_prefix_t *pref);
 
-/*
- * other
- */
-inline uint16_t     ip_sock_to_iana_afi(uint16_t afi);
-inline uint16_t     ip_iana_to_sock_afi(uint16_t afi);
-inline uint8_t      ip_sock_afi_to_size(uint16_t afi);
-inline uint8_t      ip_iana_afi_to_size(uint16_t afi);
-inline int          ip_addr_is_link_local (ip_addr_t *addr);
-inline uint8_t      ip_addr_is_multicast(ip_addr_t *addr);
-inline uint8_t      ipv4_addr_is_multicast(struct in_addr *addr);
-inline uint8_t      ipv6_addr_is_multicast(struct in6_addr *addr);
+int                      ip_addr_from_char(char *address, ip_addr_t *ip);
+int                      ip_prefix_from_char(char *address, ip_prefix_t *ippref);
+
+inline int ip_addr_is_link_local(ip_addr_t *addr);
+inline uint8_t ip_addr_is_multicast(ip_addr_t *addr);
+
+/* IP-UTIL functions*/
+inline uint16_t ip_sock_to_iana_afi(uint16_t afi);
+inline uint16_t ip_iana_to_sock_afi(uint16_t afi);
+inline uint8_t ip_sock_afi_to_size(uint16_t afi);
+inline uint8_t ip_iana_afi_to_size(uint16_t afi);
+uint8_t ip_is_multicast(void *ip, int afi);
+uint8_t ipv4_is_multicast(struct in_addr *addr);
+uint8_t ipv6_is_multicast(struct in6_addr *addr);
 
 
 uint8_t ip_version_to_sock_afi(uint8_t ver);
 int ip_afi_to_default_mask(int afi);
-uint8_t ip_is_link_local(void *addr, int afi);
+uint8_t ip_is_link_local(void *, int afi);
+int ip_hdr_ver_to_len(int ih_ver);
+int ip_afi_from_char(char *str);
+
+
 
 
 #endif /* LISPD_IP_H_ */

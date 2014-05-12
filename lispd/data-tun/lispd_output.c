@@ -31,8 +31,7 @@
 
 #include "lispd_output.h"
 #include <elibs/bob/lookup3.c>
-#include <lispd_locator.h>
-#include <lispd_mapping.h>
+#include <liblisp.h>
 #include <packets.h>
 #include <lispd_sockets.h>
 #include <lispd_info_nat.h>
@@ -425,8 +424,11 @@ lisp_output_multicast(uint8_t *pkt, int plen, lisp_addr_t *dst_eid)
     int encap_plen = 0;
     int osock = 0;
 
+    lmlog(DBG_1, "Multicast packets not supported!");
+    return(GOOD);
+
     /* get the output RLOC list */
-    or_list = re_get_orlist(dst_eid);
+    /* or_list = re_get_orlist(dst_eid); */
     if (!or_list)
         return(BAD);
 
@@ -524,9 +526,9 @@ tuple_get_dst_lisp_addr(packet_tuple_t *tuple, lisp_addr_t *addr){
         }
 
         lisp_addr_set_afi(addr, LM_AFI_LCAF);
-        plen = ip_afi_to_default_mask(lisp_addr_ip_afi(tuple->dst_addr));
+        plen = ip_afi_to_default_mask(lisp_addr_ip_afi(&tuple->dst_addr));
         lcaf = lisp_addr_get_lcaf(addr);
-        lcaf_addr_set_mc(lcaf, &tuple.src_addr, &tuple.dst_addr, plen, plen, 0);
+        lcaf_addr_set_mc(lcaf, &tuple->src_addr, &tuple->dst_addr, plen, plen, 0);
 
     } else {
         lisp_addr_set_afi(addr, LM_AFI_IP);

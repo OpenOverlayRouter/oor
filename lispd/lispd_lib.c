@@ -61,14 +61,13 @@
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
 #include "lispd_info_nat.h" 
-#include <lispd_locator.h>
+#include <lisp_locator.h>
 
 
 
 
 int isfqdn(char *s);
 inline lisp_addr_t *get_server(lisp_addr_list_t *server_list,int afi);
-inline int convert_hex_char_to_byte (char val);
 
 
 
@@ -86,13 +85,7 @@ inline int convert_hex_char_to_byte (char val);
  *
  */
 
-int get_afi(char *str)
-{ 
-    if (strchr(str,':'))                /* poor-man's afi discriminator */
-        return(AF_INET6);
-    else        
-        return(AF_INET);
-}
+
 
 /*
  *      copy_lisp_addr_t
@@ -226,74 +219,7 @@ void memcopy_lisp_addr(void *dest,
     }
 }
 
-int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
-{
-    int         ctr = 0;
-    char        hex_digit[2];
-    int         partial_byte[2] = {0,0};
 
-    while (hex[ctr] != '\0' && ctr <= bytes_len*2){
-        ctr++;
-    }
-    if (hex[ctr] != '\0' && ctr != bytes_len*2){
-        return (BAD);
-    }
-
-    for (ctr = 0; ctr < bytes_len; ctr++){
-        hex_digit[0] = hex[ctr*2];
-        hex_digit[1] = hex[ctr*2+1];
-        partial_byte[0] = convert_hex_char_to_byte(hex_digit[0]);
-        partial_byte[1] = convert_hex_char_to_byte(hex_digit[1]);
-        if (partial_byte[0] == -1 || partial_byte[1] == -1){
-            lmlog(DBG_2,"convert_hex_string_to_bytes: Invalid hexadecimal number");
-            return (BAD);
-        }
-        bytes[ctr] = partial_byte[0]*16 + partial_byte[1];
-    }
-    return (GOOD);
-}
-
-inline int convert_hex_char_to_byte (char val)
-{
-    val = (char)toupper (val);
-
-    switch (val){
-    case '0':
-        return (0);
-    case '1':
-        return (1);
-    case '2':
-        return (2);
-    case '3':
-        return (3);
-    case '4':
-        return (4);
-    case '5':
-        return (5);
-    case '6':
-        return (6);
-    case '7':
-        return (7);
-    case '8':
-        return (8);
-    case '9':
-        return (9);
-    case 'A':
-        return (10);
-    case 'B':
-        return (11);
-    case 'C':
-        return (12);
-    case 'D':
-        return (13);
-    case 'E':
-        return (14);
-    case 'F':
-        return (15);
-    default:
-        return (-1);
-    }
-}
 
 /*
  *      lispd_get_address
@@ -525,70 +451,6 @@ char *get_char_from_lisp_addr_t (lisp_addr_t addr)
 //    }
 }
 
-/*
- * Fill lisp_addr with the address.
- * Return GOOD if no error has been found
- */
-
-
-int
-get_ip_addr_from_char(char *address, lisp_addr_t *lisp_addr)
-{
-    ip_addr_t *ip;
-    int afi;
-
-    afi = get_afi(address);
-
-    ip = lisp_addr_ip(lisp_addr);
-    if (inet_pton(afi, address, ip_addr_get_addr(ip)) == 1) {
-        ip_addr_set_afi(ip, afi);
-        lisp_addr_set_afi(lisp_addr, LM_AFI_IP);
-    } else{
-        lisp_addr_set_afi(lisp_addr, LM_AFI_NO_ADDR);
-        return(BAD);
-    }
-
-    return(GOOD);
-}
-
-
-/* Parse address and fill lisp_addr and mask.
- * Return GOOD if no error */
-int
-get_ippref_from_char(char *address, lisp_addr_t *laddr)
-{
-    char *token;
-    int mask;
-
-    if ((token = strtok(address, "/")) == NULL) {
-        lmlog(DBG_1, "get_lisp_addr_and_mask_from_char: Prefix not of the "
-                "form prefix/length: %s", address);
-        return (BAD);
-    }
-
-    if (get_ip_addr_from_char(token, laddr) == BAD) {
-        return (BAD);
-    }
-
-    if ((token = strtok(NULL, "/")) == NULL) {
-        lmlog(DBG_1, "get_lisp_addr_and_mask_from_char: strtok: %s",
-                strerror(errno));
-        return (BAD);
-    }
-
-    mask = atoi(token);
-    if (lisp_addr_ip_afi(laddr) == AF_INET) {
-        if (mask < 1 || mask > 32)
-            return (BAD);
-    } else {
-        if (mask < 1 || mask > 128)
-            return (BAD);
-    }
-
-    /* convert the ip addr into a prefix */
-    lisp_addr_set_plen(laddr, mask);
-    return (GOOD);
-}
 
 /*
  * Compare two lisp_addr_t.

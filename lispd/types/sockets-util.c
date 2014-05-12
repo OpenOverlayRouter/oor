@@ -32,8 +32,8 @@
 #include <defs.h>
 
 int
-open_device_bound_raw_socket(char *device, int afi) {
-
+open_device_bound_raw_socket(char *device, int afi)
+{
     //char *device = OUTPUT_IFACE;
 
     int device_len = 0;
@@ -83,7 +83,8 @@ open_device_bound_raw_socket(char *device, int afi) {
 }
 
 int
-open_raw_socket(int afi) {
+open_raw_socket(int afi)
+{
 
     struct protoent *proto = NULL;
     int sock = 0;
@@ -144,7 +145,8 @@ open_udp_socket(int afi) {
 }
 
 int
-bind_socket_address(int sock, lisp_addr_t *addr) {
+bind_socket_address(int sock, lisp_addr_t *addr)
+{
     int result = TRUE;
     struct sockaddr *src_addr = NULL;
     int src_addr_len = 0;
@@ -183,7 +185,8 @@ bind_socket_address(int sock, lisp_addr_t *addr) {
 }
 
 int
-bind_socket(int sock, int afi, int port) {
+bind_socket(int sock, int afi, int port)
+{
     struct sockaddr_in sock_addr_v4;
     struct sockaddr_in6 sock_addr_v6;
     struct sockaddr *sock_addr = NULL;

@@ -32,11 +32,11 @@
 #include <lispd_info_request.h>
 #include "lispd_lib.h"
 #include "defs.h"
-#include <lispd_mapping.h>
+#include <lisp_mapping.h>
 #include <lispd_routing_tables_lib.h>
 #include "lispd_timers.h"
 #include "lispd_tun.h"
-#include <lispd_control.h>
+#include <lisp_control.h>
 
 /************************* FUNCTION DECLARTAION ********************************/
 
@@ -74,7 +74,7 @@ void process_new_gateway(lisp_addr_t gateway, iface_t *iface);
  * Activate the locators associated with the interface using the new address
  * This function is only used when an interface is down during the initial configuration process and then is activated
  */
-void activate_interface_address(iface_t *iface,lisp_addr_t new_address);
+void activate_interface_address(iface_t *iface,lisp_addr_t *);
 
 
 /*******************************************************************************/
@@ -200,7 +200,7 @@ process_nl_add_address (struct nlmsghdr *nlh)
     for (; rt_length && RTA_OK(rth, rt_length);
             rth = RTA_NEXT(rth, rt_length)) {
         if (rth->rta_type == IFA_ADDRESS) {
-            lisp_addr_ip_init(new_addr, RTA_DATA(rth), rth->rta_type);
+            lisp_addr_ip_init(&new_addr, RTA_DATA(rth), rth->rta_type);
             process_address_change(iface, &new_addr);
         }
     }

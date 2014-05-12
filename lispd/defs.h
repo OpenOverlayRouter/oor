@@ -66,11 +66,7 @@
 
 
 
-/*
- *  Protocols constants related with timeouts
- *
- */
-
+/* Protocols constants related with timeouts */
 #define LISPD_INITIAL_MRQ_TIMEOUT       2  // Initial expiration timer for the first MRq
 #define LISPD_INITIAL_SMR_TIMEOUT       3  // Initial expiration timer for the first MRq SMR
 #define LISPD_INITIAL_PROBE_TIMEOUT     3  // Initial expiration timer for the first MRq RLOC probe
@@ -84,10 +80,7 @@
 #define LISPD_MAX_RETRANSMITS           5  // Maximum amount of retransmits of a message
 #define LISPD_MIN_RETRANSMIT_INTERVAL   1  // Minimum time between retransmits of control messages
 
-/*
- *  Determine endianness
- */
-
+/* Determine endianness */
 #if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
 #define BIG_ENDIANS  2
 #elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN
@@ -155,14 +148,6 @@ int err;
 #define FULL_NAT            2
 
 
-#define MAX_IP_PKT_LEN          4096
-#define MAX_IP_HDR_LEN          40      /* without options or IPv6 hdr extensions */
-#define UDP_HDR_LEN             8
-#define LISP_DATA_HDR_LEN       8
-#define LISP_ECM_HDR_LEN        4
-#define MAX_LISP_MSG_ENCAP_LEN  2*(MAX_IP_HDR_LEN + UDP_HDR_LEN)+ LISP_ECM_HDR_LEN
-#define MAX_LISP_PKT_ENCAP_LEN  MAX_IP_HDR_LEN + UDP_HDR_LEN + LISP_DATA_HDR_LEN
-
 
 #define DEFAULT_MAP_REQUEST_RETRIES             3
 #define DEFAULT_RLOC_PROBING_RETRIES            1
@@ -184,9 +169,6 @@ int err;
 #define DEFAULT_SELECT_TIMEOUT                  1000/* ms */
 
 
-#define LISP_CONTROL_PORT               4342
-#define LISP_DATA_PORT                  4341
-
 
 ///*
 // * Map register Key type
@@ -196,11 +178,6 @@ int err;
 //#define HMAC_SHA_256_128     2
 
 
-#define MAX_PRIORITY 0
-#define MIN_PRIORITY 254
-#define UNUSED_RLOC_PRIORITY 255
-#define MIN_WEIGHT 0
-#define MAX_WEIGHT 255
 
 
 /* LISP data packet header */
