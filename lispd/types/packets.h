@@ -76,6 +76,7 @@ uint16_t get_IP_ID();
 void *pkt_pull_ipv4(struct lbuf *b);
 void *pkt_pull_ipv6(struct lbuf *b);
 void *pkt_pull_ip(struct lbuf *);
+struct udphdr *pkt_pull_udp(lbuf_t *);
 
 void *pkt_push_ipv4(lbuf_t *, struct in_addr *, struct in_addr *);
 void *pkt_push_ipv6(lbuf_t *, struct in6_addr *, struct in6_addr *);

@@ -169,7 +169,7 @@ local_map_db_dump(local_map_db_t *lmdb, int log_level)
 
     mdb_foreach_entry(lmdb->db, it) {
         mapping = it;
-        mapping_to_char(mapping, log_level);
+        lmlog(log_level, "%s", mapping_to_char(mapping));
     } mdb_foreach_entry_end;
     lmlog(log_level,"*******************************************************\n");
 }

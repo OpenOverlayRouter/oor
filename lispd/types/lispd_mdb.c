@@ -185,7 +185,7 @@ _add_ippref_entry(mdb_t *db, void *entry, ip_prefix_t *ippref)
 {
     if (pt_add_ippref(get_ip_pt_from_afi(db, ip_prefix_afi(ippref)), ippref,
             entry) != GOOD) {
-        lmlog(LWRN, "_add_ippref_entry: Attempting to insert (%s) in the "
+        lmlog(DBG_3, "_add_ippref_entry: Attempting to insert (%s) in the "
                 "map-cache but couldn't add the entry to the pt!",
                 ip_prefix_to_char(ippref));
         return (BAD);
@@ -291,7 +291,7 @@ mdb_t *
 mdb_new()
 {
     mdb_t *db = calloc(1, sizeof(mdb_t));
-    lmlog(DBG_1, " Creating mdb...");
+    lmlog(DBG_3, " Creating mdb...");
 
     db->AF4_ip_db = New_Patricia(sizeof(struct in_addr) * 8);
     db->AF6_ip_db = New_Patricia(sizeof(struct in6_addr) * 8);
@@ -447,19 +447,25 @@ mdb_n_entries(mdb_t *mdb) {
 
 
 /* interface to insert entries into patricia */
-int pt_add_ippref(patricia_tree_t *pt, ip_prefix_t *ippref, void *data) {
-    patricia_node_t *node       = NULL;
+int
+pt_add_ippref(patricia_tree_t *pt, ip_prefix_t *ippref, void *data)
+{
+    patricia_node_t *node = NULL;
 
-    node = pt_add_node(pt, ip_prefix_addr(ippref), ip_prefix_get_plen(ippref), data);
+    node = pt_add_node(pt, ip_prefix_addr(ippref), ip_prefix_get_plen(ippref),
+            data);
 
-    if (!node)
+    if (!node) {
         return(BAD);
-    else
+    } else {
         return(GOOD);
+    }
 
 }
 
-int pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data) {
+int
+pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data)
+{
     patricia_node_t     *snode          = NULL;
     patricia_node_t     *gnode          = NULL;
     lisp_addr_t         *src            = NULL;
@@ -488,7 +494,7 @@ int pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data) {
 
     /* insert src prefix in main db but without any data*/
     snode = pt_add_node(strie, srcip, splen, NULL);
-    if (snode == NULL){
+    if (snode == NULL) {
         lmlog(DBG_3, "pt_add_mc_addr: Attempting to "
                 "insert S-EID %s/%d in strie pt but failed", ip_addr_to_char(srcip), splen);
         return(BAD);
@@ -521,7 +527,9 @@ int pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data) {
     return(GOOD);
 }
 
-void *pt_remove_ippref(patricia_tree_t *pt, ip_prefix_t *ippref) {
+void *
+pt_remove_ippref(patricia_tree_t *pt, ip_prefix_t *ippref)
+{
     patricia_node_t         *node   = NULL;
     void                    *data   = NULL;
 
@@ -532,7 +540,7 @@ void *pt_remove_ippref(patricia_tree_t *pt, ip_prefix_t *ippref) {
                 ip_prefix_to_char(ippref));
         return(BAD);
     } else {
-        lmlog(DBG_3,"pt_remove_ip_addr: Deleting map cache entry: %s",
+        lmlog(DBG_3,"pt_remove_ip_addr: removing entry with key: %s",
                 ip_prefix_to_char(ippref));
     }
 
@@ -542,7 +550,9 @@ void *pt_remove_ippref(patricia_tree_t *pt, ip_prefix_t *ippref) {
     return(data);
 }
 
-void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
+void *
+pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr)
+{
     patricia_node_t *gnode  = NULL;
     patricia_tree_t *gtrie  = NULL;
     lisp_addr_t     *src    = NULL;
@@ -567,16 +577,17 @@ void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
     gtrie = _get_grp_pt_for_mc_addr(strie, mcaddr, 1);
 
     if (!gtrie){
-        lmlog(DBG_3, "pt_remove_mc_addr: Couldn't find a group trie for mc address %s",
-                lcaf_addr_to_char(mcaddr));
+        lmlog(DBG_3, "pt_remove_mc_addr: Couldn't find a group trie for mc "
+                "address %s", lcaf_addr_to_char(mcaddr));
         return(NULL);
     }
 
-    gnode = pt_find_ip_node_exact(gtrie, lisp_addr_ip(grp), lcaf_mc_get_grp_plen(mcaddr));
+    gnode = pt_find_ip_node_exact(gtrie, lisp_addr_ip(grp),
+            lcaf_mc_get_grp_plen(mcaddr));
 
     if (!gnode){
-        lmlog(DBG_3, "pt_remove_mc_addr: The multicast address %s could not be found!",
-                lcaf_addr_to_char(mcaddr));
+        lmlog(DBG_3, "pt_remove_mc_addr: The multicast address %s could not"
+                " be found!", lcaf_addr_to_char(mcaddr));
         return(NULL);
     }
 
@@ -586,36 +597,50 @@ void *pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr) {
 
     if (pt_test_if_empty(gtrie)){
         Destroy_Patricia(gtrie, NULL);
-        pt_remove_node(strie, pt_find_ip_node_exact(strie, lisp_addr_ip(src), lcaf_mc_get_src_plen(mcaddr)));
+        pt_remove_node(strie, pt_find_ip_node_exact(strie, lisp_addr_ip(src),
+                lcaf_mc_get_src_plen(mcaddr)));
     }
 
     return(data);
 }
 
-patricia_node_t *pt_add_node(patricia_tree_t *pt, ip_addr_t *ipaddr, uint8_t prefixlen, void *data) {
+patricia_node_t *
+pt_add_node(patricia_tree_t *pt, ip_addr_t *ipaddr, uint8_t prefixlen,
+        void *data)
+{
     patricia_node_t *node;
-    prefix_t        *prefix;
+    prefix_t *prefix;
 
     prefix = pt_make_ip_prefix(ipaddr, prefixlen);
     node = patricia_lookup(pt, prefix);
     Deref_Prefix(prefix);
 
-    /* node already exists */
-    if (node->data){
-        lmlog(DBG_3, "pt_add_node: Trying to overwrite a pt entry!");
+    if (!node) {
+        lmlog(DBG_3, "pt_add_node: patricia_lookup did not return a node!");
         return(NULL);
+    }
+
+    /* node already exists */
+    if (node->data) {
+        lmlog(DBG_3, "pt_add_node: Node with prefix %s exists! Data won't be"
+                " changed", ip_addr_to_char(ipaddr));
+        return(node);
     }
 
     node->data = data;
     return(node);
 }
 
-inline void pt_remove_node(patricia_tree_t *pt, patricia_node_t *node) {
+inline void
+pt_remove_node(patricia_tree_t *pt, patricia_node_t *node)
+{
     patricia_remove(pt, node);
 }
 
 
-patricia_node_t *pt_find_ip_node(patricia_tree_t *pt, ip_addr_t *ipaddr) {
+patricia_node_t *
+pt_find_ip_node(patricia_tree_t *pt, ip_addr_t *ipaddr)
+{
     patricia_node_t *node;
     prefix_t        *prefix;
     uint8_t         default_plen;

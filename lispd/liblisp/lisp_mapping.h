@@ -119,7 +119,7 @@ void mapping_extended_info_del(mapping_t *);
 int balancing_vectors_calculate(mapping_t *, balancing_locators_vecs *);
 void balancing_vectors_to_char(balancing_locators_vecs, mapping_t *, int );
 
-void mapping_to_char(mapping_t *m, int log_level);
+char *mapping_to_char(mapping_t *m);
 
 static inline lisp_addr_t *mapping_eid(mapping_t *m);
 static inline void *mapping_extended_info(mapping_t *m);
@@ -133,6 +133,7 @@ static inline uint32_t mapping_ttl(mapping_t *);
 static inline void mapping_set_ttl(mapping_t *, uint32_t);
 static inline uint8_t mapping_action(mapping_t *);
 static inline void mapping_set_action(mapping_t *, uint8_t);
+static inline uint8_t mapping_auth(const mapping_t *);
 static inline void mapping_set_auth(mapping_t *, uint8_t);
 static inline uint16_t mapping_locator_count(mapping_t *);
 
@@ -198,6 +199,11 @@ static inline uint8_t mapping_action(mapping_t *m)
 static inline void mapping_set_action(mapping_t *m, uint8_t a)
 {
     m->action = a;
+}
+
+static inline uint8_t mapping_auth(const mapping_t *m)
+{
+    return(m->authoritative);
 }
 
 static inline void mapping_set_auth(mapping_t *m, uint8_t a)

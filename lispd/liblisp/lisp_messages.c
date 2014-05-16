@@ -44,7 +44,7 @@ map_request_hdr_init(void *ptr)
 
     mrp->type = LISP_MAP_REQUEST;
     mrp->authoritative = 0;
-    mrp->map_data_present = 1;          /* default not mrsig */
+    mrp->map_data_present = 0;          /* default no map-data present */
     mrp->rloc_probe = 0;                /* default not rloc probe */
     mrp->solicit_map_request = 0;       /* default not smr */
     mrp->smr_invoked = 0;               /* default not smr-invoked */
@@ -123,6 +123,7 @@ mreq_flags_to_char(map_request_hdr_t *h)
 {
     static char buf[10];
 
+    *buf = '\0';
     h->authoritative ? sprintf(buf+strlen(buf), "A") : sprintf(buf+strlen(buf), "a");
     h->map_data_present ?  sprintf(buf+strlen(buf), "M") : sprintf(buf+strlen(buf), "m");
     h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
@@ -142,8 +143,8 @@ map_request_hdr_to_char(map_request_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "Map-Request -> flags:%s irc: %d (+1) record-count: %d "
-            "nonce %s", mreq_flags_to_char(h), h->additional_itr_rloc_count,
+    sprintf(buf, "Map-Request -> flags:%s, irc: %d (+1), record-count: %d, "
+            "nonce: %s", mreq_flags_to_char(h), h->additional_itr_rloc_count,
             h->record_count,  nonce_to_char(h->nonce));
     return(buf);
 }
@@ -152,6 +153,7 @@ char *
 mrep_flags_to_char(map_reply_hdr_t *h)
 {
     static char buf[10];
+    *buf = '\0';
     h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
     h->echo_nonce ? sprintf(buf+strlen(buf), "E") : sprintf(buf+strlen(buf), "e");
     h->security ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
@@ -167,7 +169,7 @@ map_reply_hdr_to_char(map_reply_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "Map-Reply -> flags:%s record-count: %d nonce %s",
+    sprintf(buf, "Map-Reply -> flags:%s, record-count: %d, nonce: %s",
             mrep_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
@@ -176,6 +178,8 @@ char *
 mreg_flags_to_char(map_register_hdr_t *h)
 {
     static char buf[10];
+    *buf = '\0';
+
     h->proxy_reply ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
     h->ibit ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
     h->rbit ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
@@ -201,6 +205,8 @@ char *
 mntf_flags_to_char(map_notify_hdr_t *h)
 {
     static char buf[5];
+    *buf = '\0';
+
     h->xtr_id_present ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
     h->rtr_auth_present ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
     return(buf);
@@ -215,7 +221,7 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "Map-Notify -> flags:%s record-count: %d nonce %s",
+    sprintf(buf, "Map-Notify -> flags:%s, record-count: %d, nonce %s",
             mntf_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
@@ -225,9 +231,8 @@ char *
 ecm_flags_to_char(ecm_hdr_t *h)
 {
     static char buf[10];
-    if (!h) {
-        return(NULL);
-    }
+    *buf = '\0';
+
     h->s_bit ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
     return(buf);
 }

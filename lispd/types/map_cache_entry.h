@@ -41,6 +41,11 @@
 #define STATIC_MAP_CACHE_ENTRY          0
 #define DYNAMIC_MAP_CACHE_ENTRY         1
 
+typedef enum mce_type {
+    MCE_STATIC = 0,
+    MCE_DYNAMIC
+} mce_type_e;
+
 /*
  *  map-cache entry activated  (received map reply)
  */
@@ -72,12 +77,9 @@ typedef struct map_cache_entry_ {
 } mcache_entry_t;
 
 mcache_entry_t *mcache_entry_new();
-void mcache_entry_init(mcache_entry_t **, mapping_t *);
-void mcache_entry_init_static(mcache_entry_t **, mapping_t *);
+void mcache_entry_init(mcache_entry_t *, mapping_t *);
+void mcache_entry_init_static(mcache_entry_t *, mapping_t *);
 
-
-mcache_entry_t *new_map_cache_entry_no_db(lisp_addr_t eid_prefix,
-        int eid_prefix_length, int how_learned, uint16_t ttl);
 
 void mcache_entry_del(mcache_entry_t *entry);
 void map_cache_entry_to_char(mcache_entry_t *entry, int log_level);
@@ -121,7 +123,7 @@ static inline void mcache_entry_init_nonces(mcache_entry_t *mce)
     if (mce->nonces) {
         free(mce->nonces);
     }
-    mce->nonces = nonces_list_new();;
+    mce->nonces = nonces_list_new();
 }
 
 static inline uint8_t mcache_entry_active(mcache_entry_t *mce)
@@ -141,7 +143,8 @@ static inline void mcache_entry_destroy_nonces(mcache_entry_t *mce)
 }
 
 static inline void mcache_entry_set_requester(mcache_entry_t *m,
-        lisp_addr_t *addr) {
+        lisp_addr_t *addr)
+{
     m->requester = addr;
 }
 
@@ -157,7 +160,9 @@ static inline timer *mcache_entry_req_retry_timer(mcache_entry_t *m)
 
 static inline void mcache_entry_stop_req_retry_timer(mcache_entry_t *m)
 {
-     stop_timer(m->smr_inv_timer);
+    lmlog(DBG_1, "\n\nSTOPPING RETRY TIMER \n\n");
+
+     stop_timer(m->request_retry_timer);
      m->request_retry_timer = NULL;
 
 }

@@ -41,7 +41,8 @@ uint16_t ip_id = 0;
 
 
 uint16_t
-get_IP_ID() {
+get_IP_ID()
+{
     ip_id++;
     return (ip_id);
 }
@@ -73,6 +74,17 @@ pkt_pull_ip(lbuf_t *b)
     return(lbuf_pull(b, ip_hdr_len));
 }
 
+struct udphdr *
+pkt_pull_udp(lbuf_t *b)
+{
+    struct udphdr *udph;
+    udph = lbuf_data(b);
+
+    /* Jump the UDP header */
+    lbuf_pull(b, sizeof(struct udphdr));
+    return(udph);
+}
+
 void *
 pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst)
 {
@@ -83,7 +95,7 @@ pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst)
     iph->ip_hl = 5;
     iph->ip_v = IPVERSION;
     iph->ip_tos = 0;
-    iph->ip_len = htons(sizeof(struct ip) + lbuf_size(b));
+    iph->ip_len = htons(lbuf_size(b));
     iph->ip_id = htons(get_IP_ID());
     iph->ip_off = 0; /* XXX Control packets can be fragmented  */
     iph->ip_ttl = 255;

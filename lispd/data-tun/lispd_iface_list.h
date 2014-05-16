@@ -95,8 +95,7 @@ int add_mapping_to_interface (iface_t *interface, mapping_t *mapping, int afi);
 
 
 /* Print the interfaces and locators of the lisp node */
-
-void dump_iface_list(int log_level);
+void iface_list_to_char(int log_level);
 
 
 

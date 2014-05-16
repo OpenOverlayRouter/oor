@@ -104,6 +104,8 @@ static int
 forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
 {
     lisp_addr_t *drloc;
+    uconn_t fwd_uc;
+
 
     drloc = get_locator_with_afi(m, lisp_addr_ip_afi(&uc->ra));
     if (!drloc) {
@@ -112,7 +114,8 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
         return(BAD);
     }
 
-    return(send_map_request(&ms->super, b, &uc->ra, drloc));
+    uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
+    return(send_msg(&ms->super, b, &fwd_uc));
 }
 
 static int
@@ -140,7 +143,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         goto err;
     }
 
-    lmlog(DBG_1, "%s src-eid: %s", lisp_msg_hdr_to_char(mreq_hdr),
+    lmlog(DBG_1, "%s src-eid: %s", lisp_msg_hdr_to_char(&b),
             lisp_addr_to_char(seid));
     if (MREQ_RLOC_PROBE(mreq_hdr)) {
         lmlog(DBG_3, "Probe bit set. Discarding!");
@@ -326,7 +329,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         /* check auth */
         if (!key) {
-            if (!lisp_msg_check_auth_field(&b, reg_pref->key)) {
+            if (lisp_msg_check_auth_field(&b, reg_pref->key) != GOOD) {
                 lmlog(DBG_1, "Message validation failed for EID %s with key %s."
                         " Stopping processing!", lisp_addr_to_char(eid),
                         reg_pref->key);
@@ -478,7 +481,7 @@ ms_dump_registered_sites(lisp_ms_t *ms, int log_level) {
     lmlog(log_level,"**************** MS registered sites ******************\n");
     mdb_foreach_entry(ms->reg_sites_db, it) {
         mapping = it;
-        mapping_to_char(mapping, log_level);
+        lmlog(log_level, "%s", mapping_to_char(mapping));
     } mdb_foreach_entry_end;
     lmlog(log_level,"*******************************************************\n");
 

@@ -42,15 +42,14 @@ inline void lispd_log(
         va_list     args);
 
 
-void lmlog(
-        int lisp_log_level, const char *format, ...)
+void lmlog(int lisp_log_level, const char *format, ...)
 {
     va_list args;
     char *log_name; /* To store the log level in string format for printf output */
     int log_level;
 
 
-    va_start (args, format);
+    va_start(args, format);
 
     switch (lisp_log_level){
     case LISP_LOG_CRIT:

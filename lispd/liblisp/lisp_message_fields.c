@@ -45,8 +45,8 @@ mapping_record_init_hdr(mapping_record_hdr_t *h) {
     h->reserved3 = 0;
 }
 
-static char *
-action_to_char(int act) {
+char *
+mapping_action_to_char(int act) {
     static char buf[10];
     switch(act) {
     case ACT_NO_ACTION:
@@ -77,7 +77,8 @@ mapping_record_hdr_to_char(mapping_record_hdr_t *h)
 
     sprintf(buf, "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d"
             " map-version: %d", ntohl(h->ttl), h->locator_count,
-            action_to_char(h->action), h->authoritative, MAP_REC_VERSION(h));
+            mapping_action_to_char(h->action), h->authoritative,
+            MAP_REC_VERSION(h));
     return(buf);
 }
 
@@ -87,6 +88,7 @@ char *
 locator_record_flags_to_char(locator_hdr_t *h)
 {
     static char buf[5];
+    *buf = '\0';
     h->local ? sprintf(buf+strlen(buf), "L") : sprintf(buf+strlen(buf), "l");
     h->probed ? sprintf(buf+strlen(buf), "p") : sprintf(buf+strlen(buf), "P");
     h->reachable ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
@@ -101,7 +103,7 @@ locator_record_hdr_to_char(locator_hdr_t *h)
        return(NULL);
    }
 
-   sprintf(buf, "Locator-record -> flags: %s p/w: %d/%d %d/%d",
+   sprintf(buf, "Locator-record -> flags: %s, p/w: %d/%d %d/%d",
            locator_record_flags_to_char(h), h->priority, h->weight,
            h->mpriority, h->mweight);
    return(buf);
@@ -115,6 +117,13 @@ auth_data_get_len_for_type(lisp_key_type key_id)
     default: // HMAC_SHA_1_96
         return (LISP_SHA1_AUTH_DATA_LEN);   //TODO support more auth algorithms
     }
+}
+
+void
+eid_rec_hdr_init(eid_record_hdr_t *ptr)
+{
+    ptr->eid_prefix_length = 0;
+    ptr->reserved = 0;
 }
 
 

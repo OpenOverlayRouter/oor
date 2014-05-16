@@ -65,6 +65,7 @@
 #include <lisp_xtr.h>
 #include <lisp_ms.h>
 #include <shash.h>
+#include <generic_list.h>
 //#include <elibs/htable/hash_table.h>
 
 
@@ -199,8 +200,10 @@ void init_tun()
 }
 
 int
-init_tr_data_plane(lisp_dev_type mode)
+init_tr_data_plane(lisp_dev_type_e mode)
 {
+    lmlog(LINF, "\nIntializing data plane\n");
+
     /* Select the default rlocs for output data packets and output control
      * packets */
     set_default_output_ifaces();
@@ -213,7 +216,7 @@ init_tr_data_plane(lisp_dev_type mode)
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
         sock_register_read_listener(smaster, process_input_packet, NULL,
-                ipv4_data_input_fd); // will use data_dev
+                ipv4_data_input_fd);
     }
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
@@ -529,12 +532,18 @@ main(int argc, char **argv)
     /* parse config and create ctrl_dev */
     parse_config_file();
 
-    lmlog(LINF,"LISPmob (0.5): 'lispd' started...");
+    lmlog(LINF,"\n\n LISPmob (0.5): 'lispd' started... \n\n");
 
-    init_netlink();
+    ctrl_dev_set_ctrl(ctrl_dev, lctrl);
+
     ctrl_init(lctrl);
+    init_netlink();
 
     /* run lisp control device xtr/ms */
+    if (!ctrl_dev) {
+        lmlog(DBG_1, "device NULL");
+        exit(0);
+    }
     ctrl_dev_run(ctrl_dev);
 
     /* EVENT LOOP */

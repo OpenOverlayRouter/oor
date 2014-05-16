@@ -48,10 +48,12 @@
 #define MIN_WEIGHT 0
 #define MAX_WEIGHT 255
 
-typedef struct lispd_locator_elt_ {
+typedef struct locator_ {
     lisp_addr_t *addr;
-    uint8_t *state; /* UP , DOWN */
-    uint8_t type :2;
+
+    /* UP , DOWN */
+    uint8_t *state;
+    uint8_t type;
     uint8_t priority;
     uint8_t weight;
     uint8_t mpriority;
@@ -92,7 +94,7 @@ typedef struct rmt_locator_extended_info_ {
 
 
 locator_t *locator_new();
-char *locator_to_char(locator_t *locator);
+char *locator_to_char(locator_t *);
 int locator_cmp(locator_t *l1, locator_t *l2);
 int locator_parse(void *ptr, locator_t *loc);
 

@@ -136,6 +136,7 @@ ip_to_char(void *ip, int afi)
 {
     static char address[10][INET6_ADDRSTRLEN];
     static unsigned int i;
+    i++; i = i % 10;
 
     switch (afi) {
     case AF_INET:

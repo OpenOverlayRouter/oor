@@ -101,20 +101,20 @@ locator_new() {
 
 
 char *
-locator_to_char(locator_t *locator)
+locator_to_char(locator_t *l)
 {
-    static char locator_str[5][2000];
+    static char buf[5][2000];
     static int i;
 
     /* hack to allow more than one locator per line */
     i++; i = i%5;
 
-    sprintf(locator_str[i], "%s, ", lisp_addr_to_char(locator_addr(locator)));
-    sprintf(locator_str[i] + strlen(locator_str[i]), "%s, ",
-            locator->state ? "Up" : "Down");
-    sprintf(locator_str[i] + strlen(locator_str[i]), "%d/%-d",
-            locator->priority, locator->weight);
-    return(locator_str[i]);
+    sprintf(buf[i], "%s, ", lisp_addr_to_char(locator_addr(l)));
+    sprintf(buf[i] + strlen(buf[i]), "%s, ",
+            l->state ? "Up" : "Down");
+    sprintf(buf[i] + strlen(buf[i]), "%d/%-d, %d/%d",
+            l->priority, l->weight, l->mpriority, l->mweight);
+    return(buf[i]);
 }
 
 int
@@ -144,6 +144,8 @@ locator_parse(void *ptr, locator_t *loc)
     loc->weight = LOC_WEIGHT(hdr);
     loc->mpriority = LOC_MPRIORITY(hdr);
     loc->mweight = LOC_MWEIGHT(hdr);
+    loc->extended_info = new_rmt_locator_extended_info();
+
 
     /* TODO: should we remove these? */
     loc->data_packets_in = 0;
@@ -174,11 +176,6 @@ locator_init_remote(lisp_addr_t *addr)
     locator->addr = addr;
     locator->state = xmalloc(sizeof(uint8_t));
     locator->extended_info = new_rmt_locator_extended_info();
-    if (!locator->extended_info){
-        locator_del(locator);
-        return (NULL);
-    }
-
     locator->type = DYNAMIC_LOCATOR;
 
     return(locator);

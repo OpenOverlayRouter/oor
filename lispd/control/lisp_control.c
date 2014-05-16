@@ -35,31 +35,29 @@
 #include <lisp_ctrl_device.h>
 
 
-struct lisp_ctrl {
-    glist_t *devices;
-    /* move ctrl interface here */
-
-    int ipv4_control_input_fd;
-    int ipv6_control_input_fd;
-
-    glist_t *rlocs;
-    glist_t *default_rlocs;
-};
-
 static void set_default_rlocs(lisp_ctrl_t *ctrl);
 
 static void
 set_default_rlocs(lisp_ctrl_t *ctrl)
 {
     glist_remove_all(ctrl->default_rlocs);
-    if (default_ctrl_iface_v4) {
+    if (default_ctrl_iface_v4
+        && lisp_addr_is_ip(default_ctrl_iface_v4->ipv4_address)) {
         glist_add(default_ctrl_iface_v4->ipv4_address, ctrl->default_rlocs);
     }
 
-    if (default_ctrl_iface_v6) {
+    if (default_ctrl_iface_v6
+        && lisp_addr_is_ip(default_ctrl_iface_v6->ipv6_address)) {
         glist_add_tail(default_ctrl_iface_v6->ipv6_address,
                 ctrl->default_rlocs);
     }
+
+    glist_entry_t *it;
+    lmlog(DBG_2, "Recomputing default interfaces");
+    glist_for_each_entry(it, ctrl->default_rlocs) {
+        lmlog(DBG_2, "  Default iface: %s", lisp_addr_to_char(glist_entry_data(it)));
+    }
+
 }
 
 lisp_ctrl_t *
@@ -67,7 +65,8 @@ ctrl_create()
 {
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
     ctrl->devices = glist_new_managed((glist_del_fct) ctrl_dev_destroy);
-    ctrl->default_rlocs = glist_new_managed((glist_del_fct) lisp_addr_del);
+    ctrl->default_rlocs = glist_new((glist_del_fct) lisp_addr_del);
+    lmlog(LINF, "Control initialized!");
 
     return (ctrl);
 }
@@ -101,6 +100,8 @@ ctrl_init(lisp_ctrl_t *ctrl)
     }
 
     set_default_rlocs(ctrl);
+
+    lmlog(DBG_1, "Control initialized");
 }
 
 /*  Process a LISP protocol message sitting on
@@ -109,8 +110,7 @@ int
 ctrl_recv_msg(struct sock *sl)
 {
     uconn_t uc;
-    struct lbuf *packet;
-    lisp_msg_type_e type;
+    lbuf_t *b;
     lisp_ctrl_t *ctrl;
     lisp_ctrl_dev_t *dev;
 
@@ -120,20 +120,25 @@ ctrl_recv_msg(struct sock *sl)
 
     uc.rp = LISP_CONTROL_PORT;
 
-    packet = lbuf_new(MAX_IP_PKT_LEN);
-    if (sock_recv(sl->fd, packet, &uc) != GOOD) {
+    b = lisp_msg_create_buf();
+
+    if (sock_recv(sl->fd, b, &uc) != GOOD) {
         lmlog(DBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
         return (BAD);
     }
 
-    lisp_msg_parse_type(packet, &type);
+    lbuf_reset_lisp(b);
+
+    lmlog(DBG_1, "Received %s, IP: %s -> %s, UDP: %d -> %d",
+            lisp_msg_hdr_to_char(b), lisp_addr_to_char(&uc.ra),
+            lisp_addr_to_char(&uc.la), uc.rp, uc.lp);
 
     /* direct call of ctrl device
      * TODO: check type to decide where to send msg*/
-    ctrl_dev_recv(dev, packet, &uc);
+    ctrl_dev_recv(dev, b, &uc);
 
-    lbuf_del(packet);
+    lbuf_del(b);
 
     return (GOOD);
 }
@@ -168,25 +173,25 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
 
     if (ret != GOOD) {
         lmlog(DBG_1, "FAILED TO SEND \n %s "
-                " RLOC: %s -> %s",
+                "From RLOC: %s -> %s",
                 lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
         return(BAD);
     } else {
-        lmlog(DBG_1, " RLOC: %s -> %s",
-                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
+        lmlog(DBG_1, "Sending message IP: %s -> %s UDP: %d -> %d",
+                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra),
+                uc->lp, uc->rp);
         return(GOOD);
     }
 }
 
 /* TODO: should change to get_updated_interfaces */
 int
-ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr,
-        int *mcount)
+ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, glist_t *mappings_to_smr)
 {
     iface_list_elt *iface_list = NULL;
     mapping_t *m;
     iface_mappings_list *mlist;
-    int mappings_ctr, ctr;
+    glist_entry_t *it;
 
     iface_list = get_head_interface_list();
 
@@ -202,14 +207,15 @@ ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr,
                         || (iface_list->iface->ipv6_changed == TRUE
                                 && mlist->use_ipv6_address == TRUE)) {
                     m = mlist->mapping;
-                    for (ctr = 0; ctr < mappings_ctr; ctr++) {
-                        if (mappings_to_smr[ctr] == m) {
+
+                    glist_for_each_entry(it, mappings_to_smr) {
+                        if (glist_entry_data(it) == m) {
                             break;
                         }
                     }
-                    if (mappings_to_smr[ctr] != m) {
-                        mappings_to_smr[mappings_ctr] = m;
-                        mappings_ctr++;
+
+                    if (glist_entry_data(it) != m) {
+                        glist_add(m, mappings_to_smr);
                     }
                 }
                 mlist = mlist->next;
@@ -221,7 +227,7 @@ ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, mapping_t **mappings_to_smr,
         iface_list->iface->ipv6_changed = FALSE;
         iface_list = iface_list->next;
     }
-    *mcount = mappings_ctr;
+
     return (GOOD);
 }
 
@@ -259,7 +265,7 @@ ctrl_if_status_update(lisp_ctrl_t *ctrl, iface_t *iface)
     lisp_ctrl_dev_t *dev;
     dev = glist_first_data(ctrl->devices);
     ctrl_if_event(dev);
-    set_default_rlocs(lctrl);
+    set_default_rlocs(ctrl);
 }
 
 glist_t *
@@ -286,6 +292,14 @@ ctrl_get_forwarding_entry(packet_tuple_t *tuple)
     lisp_ctrl_dev_t *dev;
     dev = glist_first_data(lctrl->devices);
     return (ctrl_dev_get_fwd_entry(dev, tuple));
+}
+
+int
+ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev)
+{
+    lmlog(LINF, "Device working in mode %d registering with control", dev->mode);
+    glist_add(dev, ctrl->devices);
+    return(GOOD);
 }
 
 

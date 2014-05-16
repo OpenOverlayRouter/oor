@@ -31,13 +31,14 @@
 #include <stdlib.h>
 
 /* LISP Types */
-typedef enum {
+typedef enum lisp_msg_type_ {
+    NOT_LISP_MSG,
     LISP_MAP_REQUEST = 1,
     LISP_MAP_REPLY,
     LISP_MAP_REGISTER,
     LISP_MAP_NOTIFY,
     LISP_INFO_NAT = 7,
-    LISP_ENCAP_CONTROL_TYPE
+    LISP_ENCAP_CONTROL_TYPE = 8
 } lisp_msg_type_e;
 
 /*
@@ -70,25 +71,6 @@ typedef enum {
 *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 */
 
-typedef struct _lisp_encap_data {
-    uint8_t         *ecmh;
-    uint8_t         *iph;
-    uint8_t         ip_afi;
-    int             ip_header_len;
-    struct udphdr   *udph;
-    int             udp_len;
-    int             len;
-} lisp_encap_data;
-
-
-typedef struct _lisp_msg {
-    uint8_t         encap;
-    lisp_encap_data *encapdata;
-    lisp_msg_type_e  type;
-    void            *msg;
-} lisp_msg;
-
-
 
 /*
  * Encapsulated control message header. This is followed by the IP
@@ -99,7 +81,7 @@ typedef struct _lisp_msg {
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef struct lisp_encap_control_hdr {
+typedef struct ecm_hdr {
 #ifdef LITTLE_ENDIANS
     uint8_t reserved:3;
     uint8_t s_bit:1;
@@ -159,7 +141,7 @@ void ecm_hdr_init(void *ptr);
  * address, originating ITR RLOC AFIs and addresses and then map
  * request records follow.
  */
-typedef struct _map_request_msg_hdr {
+typedef struct map_request_hdr {
 #ifdef LITTLE_ENDIANS
     uint8_t solicit_map_request:1;
     uint8_t rloc_probe:1;
@@ -256,7 +238,7 @@ char *map_request_hdr_to_char(map_request_hdr_t *h);
  /*
   * Fixed size portion of the map reply.
   */
- typedef struct map_reply_hdr_ {
+ typedef struct map_reply_hdr {
  #ifdef LITTLE_ENDIANS
      uint8_t reserved1:1;
      uint8_t security:1;
@@ -278,10 +260,10 @@ char *map_request_hdr_to_char(map_request_hdr_t *h);
  void map_reply_hdr_init(void *ptr);
  char *map_reply_hdr_to_char(map_reply_hdr_t *h);
 
-#define MREP_HDR_CAST(h) ((map_reply_hdr_t *)(h))
-#define MREP_REC_COUNT(h) ((map_reply_hdr_t *)(h))->record_count
-#define MREP_RLOC_PROBE(h) ((map_reply_hdr_t *)(h))->rloc_probe
-#define MREP_NONCE(h) ((map_reply_hdr_t *)(h))->nonce
+#define MREP_HDR_CAST(h_) ((map_reply_hdr_t *)(h_))
+#define MREP_REC_COUNT(h_) MREP_HDR_CAST(h_)->record_count
+#define MREP_RLOC_PROBE(h_) MREP_HDR_CAST(h_)->rloc_probe
+#define MREP_NONCE(h_) MREP_HDR_CAST(h_)->nonce
 
 
 
@@ -323,7 +305,7 @@ char *map_request_hdr_to_char(map_request_hdr_t *h);
  *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef struct _map_notify_msg_hdr {
+typedef struct map_notify_hdr {
 #ifdef LITTLE_ENDIANS
     uint8_t  reserved1:2;
     uint8_t  rtr_auth_present:1;
@@ -413,7 +395,7 @@ char *map_notify_hdr_to_char(map_notify_hdr_t *h);
 
 /* I and R bit are defined on NAT tarversal draft*/
 
-typedef struct _map_register_msg_hdr {
+typedef struct map_register_hdr {
 #ifdef LITTLE_ENDIANS
     uint8_t  rbit:1;
     uint8_t  ibit:1;

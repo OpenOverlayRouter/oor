@@ -41,7 +41,7 @@ static ctrl_dev_class_t *reg_ctrl_dev_cls[3] = {
 };
 
 static ctrl_dev_class_t *
-ctrl_dev_class_find(lisp_dev_type type)
+ctrl_dev_class_find(lisp_dev_type_e type)
 {
     return(reg_ctrl_dev_cls[type]);
 }
@@ -59,7 +59,7 @@ ctrl_dev_run(lisp_ctrl_dev_t *dev)
 }
 
 int
-ctrl_dev_create(lisp_dev_type type, lisp_ctrl_dev_t **devp)
+ctrl_dev_create(lisp_dev_type_e type, lisp_ctrl_dev_t **devp)
 {
     lisp_ctrl_dev_t *dev;
     ctrl_dev_class_t *class;
@@ -110,18 +110,10 @@ ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
 
 
 int
-send_map_request(lisp_ctrl_dev_t *dev, lbuf_t *b, lisp_addr_t *srloc,
-        lisp_addr_t *drloc) {
-    uconn_t uc;
-
-    uc.lp = uc.rp = LISP_CONTROL_PORT;
-    if (srloc) {
-        lisp_addr_copy(&uc.la, srloc);
-    } else {
-        lisp_addr_set_afi(&uc.la, LM_AFI_NO_ADDR);
-    }
-
-    lisp_addr_copy(&uc.ra, drloc);
-    return(send_msg(dev, b, &uc));
+ctrl_dev_set_ctrl(lisp_ctrl_dev_t *dev, lisp_ctrl_t *ctrl)
+{
+    dev->ctrl = ctrl;
+    ctrl_register_device(ctrl, dev);
+    return(GOOD);
 }
 

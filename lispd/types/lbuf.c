@@ -34,6 +34,7 @@ lbuf_init(lbuf_t *b, uint32_t size)
     b->data = b->base = size ? xzalloc(size) : NULL;
     b->allocated = size;
     b->size = 0;
+    b->lisp = b->ip = b->udp = b->lhdr = b->in_ip = b->in_udp = UINT16_MAX;
 }
 
 void

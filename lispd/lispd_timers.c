@@ -204,8 +204,8 @@ void
 start_timer_new(timer *tptr, int sec, timer_callback cb,
         void *owner, void *cb_arg)
 {
-    start_timer(tptr, sec, cb, cb_arg);
     tptr->owner = owner;
+    start_timer(tptr, sec, cb, cb_arg);
 }
 
 

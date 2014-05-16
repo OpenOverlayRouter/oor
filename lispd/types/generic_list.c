@@ -28,10 +28,12 @@
 
 #include "generic_list.h"
 #include <stdlib.h>
+#include <util.h>
 
 
 void
-glist_init_complete(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
+glist_init_complete(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct)
+{
     lst->cmp_fct = cmp_fct;
     lst->del_fct = del_fct;
     lst->size = 0;
@@ -39,12 +41,14 @@ glist_init_complete(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct) 
 }
 
 void
-glist_init(glist_t *lst) {
+glist_init(glist_t *lst)
+{
     glist_init_complete(lst, NULL, NULL);
 }
 
 void
-glist_init_managed(glist_t *lst, glist_del_fct del_fct) {
+glist_init_managed(glist_t *lst, glist_del_fct del_fct)
+{
     glist_init_complete(lst, NULL, del_fct);
 }
 
@@ -55,23 +59,27 @@ glist_init_managed(glist_t *lst, glist_del_fct del_fct) {
  */
 
 glist_t *
-glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct) {
-    glist_t    *glist  = NULL;
+glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct)
+{
+    glist_t *glist = NULL;
 
-    if (!(glist = calloc(1, sizeof(glist_t))))
+    if (!(glist = xzalloc(sizeof(glist_t)))) {
         return(NULL);
+    }
     glist_init_complete(glist, cmp_fct, del_fct);
     return(glist);
 }
 
 glist_t *
-glist_new() {
+glist_new()
+{
     return(glist_new_complete(NO_CMP, NO_DEL));
 }
 
 /* memory managed. when destroy is called all inner data is freed*/
 glist_t *
-glist_new_managed(glist_del_fct del) {
+glist_new_managed(glist_del_fct del)
+{
     return(glist_new_complete(NO_CMP, del));
 }
 
@@ -88,25 +96,24 @@ glist_new_managed(glist_del_fct del) {
  * inserts the new element there.
  */
 int
-glist_add(void *data, glist_t *glist) {
-    glist_entry_t    *new    = NULL;
-    glist_entry_t    *tmp    = NULL;
+glist_add(void *data, glist_t *glist)
+{
+    glist_entry_t *new = NULL;
+    glist_entry_t *tmp = NULL;
 
-    if (!(new = calloc(1, sizeof(glist_entry_t))))
-        return(-1);
-
+    new = xzalloc(sizeof(glist_entry_t));
     new->data = data;
     INIT_LIST_HEAD(&new->list);
 
     if (!glist->cmp_fct) {
-        list_add(&(new->list), &(glist->head.list));
+        list_add(&new->list, &glist->head.list);
     } else {
-        list_for_each_entry(tmp, &(glist->head.list), list) {
+        list_for_each_entry(tmp, &glist->head.list, list) {
             /* insert where cmp fails */
             if((*glist->cmp_fct)(data, tmp->data) <= 0)
                 break;
         }
-        list_add(&(new->list), &(tmp->list));
+        list_add(&new->list, &tmp->list);
     }
     glist->size++;
 
@@ -122,16 +129,18 @@ glist_add(void *data, glist_t *glist) {
  * If cmp_fct is defined, the element is not added
  */
 int
-glist_add_tail(void *data, glist_t *glist) {
-    glist_entry_t    *new    = NULL;
+glist_add_tail(void *data, glist_t *glist)
+{
+    glist_entry_t *new = NULL;
 
-    if (glist->cmp_fct)
+    if (glist->cmp_fct) {
         return(-1);
-    if (!(new = calloc(1, sizeof(glist_entry_t))))
-        return(-1);
+    }
 
+    new = xzalloc(sizeof(glist_entry_t));
     new->data = data;
     INIT_LIST_HEAD(&new->list);
+
     list_add_tail(&(new->list), &(glist->head.list));
     glist->size++;
 
@@ -147,7 +156,8 @@ glist_add_tail(void *data, glist_t *glist) {
  *
  */
 void
-glist_remove(glist_entry_t *entry, glist_t *list) {
+glist_remove(glist_entry_t *entry, glist_t *list)
+{
     if (!entry || !list) {
         return;
     }
@@ -156,19 +166,18 @@ glist_remove(glist_entry_t *entry, glist_t *list) {
     if(list->del_fct) {
         (*list->del_fct)(entry->data);
     }
-//    else
-//        free(entry->data);
 
     free(entry);
     list->size--;
 }
 
 void
-glist_remove_all(glist_t *lst) {
+glist_remove_all(glist_t *lst)
+{
     struct list_head *buf, *it;
     glist_entry_t *tmp;
 
-    if (!lst) {
+    if (!lst || lst->size == 0) {
         return;
     }
 
@@ -179,7 +188,8 @@ glist_remove_all(glist_t *lst) {
 }
 
 void
-glist_destroy(glist_t *lst) {
+glist_destroy(glist_t *lst)
+{
     if (!lst) {
         return;
     }

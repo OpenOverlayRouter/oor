@@ -490,7 +490,9 @@ parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
         hash_table_insert(ht, strdup(name), laddr);
     }
 
-    lmlog(LINF, "Parsed configured multicast addresses");
+    if (hash_table_size(ht) !=0) {
+        lmlog(LINF, "Parsed configured multicast addresses");
+    }
 }
 
 static htable_t *
@@ -520,7 +522,11 @@ configure_rtr(cfg_t *cfg)
 
 
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
-    ctrl_dev_create(xTR_MODE, &ctrl_dev);
+    if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
+        lmlog(LCRIT, "Failed to create RTR. Aborting!");
+        exit_cleanup();
+    }
+
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
 
     /* CREATE LCAFS HTABLE */
@@ -1061,10 +1067,7 @@ handle_lispd_config_file(char *lispdconf_conf_file)
      */
 
 
-    /*
-     * Debug level
-     */
-
+    /* Debug level */
     if (debug_level == -1){
         ret = cfg_getint(cfg, "debug");
         if (ret > 0)
@@ -1088,11 +1091,9 @@ handle_lispd_config_file(char *lispdconf_conf_file)
     if (mode) {
         if (strcmp(mode, "xTR") == 0) {
             ret=configure_xtr(cfg);
-        }
-        if (strcmp(mode, "MS") == 0) {
+        } else if (strcmp(mode, "MS") == 0) {
             ret=configure_ms(cfg);
-        }
-        if (strcmp(mode, "RTR") == 0) {
+        } else if (strcmp(mode, "RTR") == 0) {
             ret=configure_rtr(cfg);
         }
     }
@@ -1235,6 +1236,7 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
                     eid_str);
             return(BAD);
         }
+        mapping_set_ttl(m, DEFAULT_MAP_REGISTER_TIMEOUT);
         /* Add the mapping to the local database */
         if (local_map_db_add_mapping(xtr->local_mdb, m) != GOOD) {
             mapping_del(m);
@@ -1735,8 +1737,9 @@ add_proxy_etr_entry(lisp_xtr_t *xtr, char *address, int priority, int weight)
 
     /* Create the proxy-etrs map cache structure if it doesn't exist */
     if (xtr->petrs == NULL) {
+        xtr->petrs = mcache_entry_new();
         lisp_addr_ip_from_char("0.0.0.0", &aux_addr);
-        mcache_entry_init_static(&xtr->petrs, mapping_init_remote(&aux_addr));
+        mcache_entry_init_static(xtr->petrs, mapping_init_remote(&aux_addr));
     }
 
     if (lisp_addr_ip_from_char(address, &rloc) == BAD) {

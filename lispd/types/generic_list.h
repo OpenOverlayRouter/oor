@@ -70,37 +70,51 @@ static inline void *glist_first_data(glist_t *lst);
 static inline glist_entry_t *glist_last(glist_t *lst);
 static inline void *glist_last_data(glist_t *lst);
 static inline glist_entry_t *glist_next(glist_entry_t *entry);
+static inline glist_entry_t *glist_prev(glist_entry_t *entry);
 
-static inline int glist_size(glist_t *list) {
+static inline int glist_size(glist_t *list)
+{
     return(list->size);
 }
 
-static inline void *glist_entry_data(glist_entry_t *entry) {
+static inline void *glist_entry_data(glist_entry_t *entry)
+{
     return(entry->data);
 }
 
-static inline glist_entry_t *glist_head(glist_t *lst) {
+static inline glist_entry_t *glist_head(glist_t *lst)
+{
     return(&lst->head);
 }
 
-static inline glist_entry_t *glist_first(glist_t *lst) {
-    return(list_entry(lst->head.list.next, glist_entry_t, list));
+static inline glist_entry_t *glist_first(glist_t *lst)
+{
+    return(list_entry(glist_next(&lst->head), glist_entry_t, list));
 }
 
-static inline void *glist_first_data(glist_t *lst) {
+static inline void *glist_first_data(glist_t *lst)
+{
     return(glist_entry_data(glist_first(lst)));
 }
 
-static inline glist_entry_t *glist_last(glist_t *lst) {
-    return(list_entry(lst->head.list.prev, glist_entry_t, list));
+static inline glist_entry_t *glist_last(glist_t *lst)
+{
+    return(list_entry(glist_prev(&lst->head), glist_entry_t, list));
 }
 
-static inline void *glist_last_data(glist_t *lst) {
+static inline void *glist_last_data(glist_t *lst)
+{
     return(glist_entry_data(glist_last(lst)));
 }
 
-static inline glist_entry_t *glist_next(glist_entry_t *entry) {
+static inline glist_entry_t *glist_next(glist_entry_t *entry)
+{
     return(list_entry(entry->list.next, glist_entry_t, list));
+}
+
+static inline glist_entry_t *glist_prev(glist_entry_t *entry)
+{
+    return(list_entry(entry->list.prev, glist_entry_t, list));
 }
 
 /**
@@ -108,8 +122,8 @@ static inline glist_entry_t *glist_next(glist_entry_t *entry) {
  * @ iter:  * of glist_entry_t type, to use as loop iterator
  * @ lst:   * the list of glist_t type, over whose elements to iterate
  */
-#define glist_for_each_entry(iter, lst) \
-    list_for_each_entry(iter, &((lst)->head.list), list)
+#define glist_for_each_entry(iter_, lst_) \
+    list_for_each_entry(iter_, &((lst_)->head.list), list)
 
 /*
 #define glist_for_each(pos, lst)              \

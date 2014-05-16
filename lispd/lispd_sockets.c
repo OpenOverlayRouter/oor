@@ -230,7 +230,7 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
     int nbytes = 0;
 
     iov[0].iov_base = lbuf_data(buf);
-    iov[0].iov_len = buf->size;
+    iov[0].iov_len = lbuf_tailroom(buf);
 
     memset(&msg, 0, sizeof msg);
     msg.msg_iov = iov;
@@ -246,34 +246,34 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
         return (BAD);
     }
 
-    buf->size += nbytes;
+    lbuf_set_size(buf, lbuf_size(buf) + nbytes);
 
     if (su.s4.sin_family == AF_INET) {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
                 cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IP
                     && cmsgptr->cmsg_type == IP_PKTINFO) {
-                lisp_addr_ip_init(&uc->ra,
+                lisp_addr_ip_init(&uc->la,
                         &(((struct in_pktinfo *) (CMSG_DATA(cmsgptr)))->ipi_addr),
                         AF_INET);
                 break;
             }
         }
 
-        lisp_addr_ip_init(&uc->la, &su.s4.sin_addr, AF_INET);
+        lisp_addr_ip_init(&uc->ra, &su.s4.sin_addr, AF_INET);
         uc->lp = ntohs(su.s4.sin_port);
     } else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
                 cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
             if (cmsgptr->cmsg_level == IPPROTO_IPV6
                     && cmsgptr->cmsg_type == IPV6_PKTINFO) {
-                lisp_addr_ip_init(&uc->ra,
+                lisp_addr_ip_init(&uc->la,
                         &(((struct in6_pktinfo *) (CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr),
                         AF_INET6);
                 break;
             }
         }
-        lisp_addr_ip_init(&uc->la, &su.s6.sin6_addr, AF_INET6);
+        lisp_addr_ip_init(&uc->ra, &su.s6.sin6_addr, AF_INET6);
         uc->lp = ntohs(su.s6.sin6_port);
     }
 

@@ -33,6 +33,7 @@
 
 #include <llist/list.h>
 #include <defs.h>
+#include <stdint.h>
 
 struct lbuf {
     struct list_head list;      /* for queueing, to be implemented*/
@@ -68,7 +69,9 @@ static inline void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
 static inline void *lbuf_tail(const lbuf_t *);
 static inline void *lbuf_end(const lbuf_t *);
 static inline void *lbuf_data(const lbuf_t *);
-static inline int lbuf_size(const lbuf_t *);
+static inline void *lbuf_base(const lbuf_t *);
+static inline uint32_t lbuf_size(const lbuf_t *);
+static inline void lbuf_set_size(lbuf_t *, uint32_t);
 
 void *lbuf_put_uninit(lbuf_t *, uint32_t);
 void *lbuf_put(lbuf_t *, void *, uint32_t);
@@ -91,29 +94,29 @@ static inline void *lbuf_lisp(lbuf_t*);
 static inline void lbuf_reset_lisp_hdr(lbuf_t *b);
 static inline void *lbuf_lisp_hdr(lbuf_t*);
 
-static inline void *lbuf_at(const lbuf_t *buf, uint32_t offset, uint32_t size)
+static inline void *lbuf_at(const lbuf_t *b, uint32_t offset, uint32_t size)
 {
-    return offset + size <= buf->size ? (uint8_t *) buf->data + offset : NULL;
+    return offset + size <= lbuf_size(b) ? (char *)lbuf_data(b) + offset : NULL;
 }
 
 static inline void *lbuf_tail(const lbuf_t *b)
 {
-    return (uint8_t *) b->data + b->size;
+    return (char *)lbuf_data(b) + lbuf_size(b);
 }
 
 static inline void *lbuf_end(const lbuf_t *b)
 {
-    return (uint8_t *) b->base + b->allocated;
+    return (char *)lbuf_base(b) + b->allocated;
 }
 
 static inline uint32_t lbuf_headroom(const lbuf_t *b)
 {
-    return (uint8_t *) b->base - (uint8_t *) b->data;
+    return (char *)lbuf_base(b) - (char *)lbuf_data(b);
 }
 
 static inline uint32_t lbuf_tailroom(const lbuf_t *b)
 {
-    return lbuf_end(b) - lbuf_tail(b);
+    return (char *)lbuf_end(b) - (char *)lbuf_tail(b);
 }
 
 static inline void lbuf_del(lbuf_t *b)
@@ -129,9 +132,19 @@ static inline void *lbuf_data(const lbuf_t *b)
     return b->data;
 }
 
-static inline int lbuf_size(const lbuf_t *b)
+static inline void *lbuf_base(const lbuf_t *b)
+{
+    return b->base;
+}
+
+static inline uint32_t lbuf_size(const lbuf_t *b)
 {
     return b->size;
+}
+
+static inline void lbuf_set_size(lbuf_t *b, uint32_t sz)
+{
+    b->size = sz;
 }
 
 /* moves 'data' pointer by 'size'. Returns first byte
@@ -150,42 +163,42 @@ static inline void *lbuf_pull(lbuf_t *b, uint32_t size)
 
 static inline void lbuf_reset_ip(lbuf_t *b)
 {
-    b->ip = (uint8_t *) b->data - (uint8_t *) b->base;
+    b->ip = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
 static inline void *lbuf_ip(lbuf_t *b)
 {
-    return (b->ip ? (uint8_t *) b->base + b->ip : NULL);
+    return b->ip != UINT16_MAX ? (char *)lbuf_base(b) + b->ip : NULL;
 }
 
 static inline void lbuf_reset_udp(lbuf_t *b)
 {
-    b->udp = (uint8_t *) b->data - (uint8_t *) b->base;
+    b->udp = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
 static inline void *lbuf_udp(lbuf_t *b)
 {
-    return (b->udp ? (uint8_t *) b->base + b->udp : NULL);
+    return b->udp != UINT16_MAX ? (char *)lbuf_base(b) + b->udp : NULL;
 }
 
 static inline void lbuf_reset_lisp(lbuf_t *b)
 {
-    b->lisp = (uint8_t *) b->data - (uint8_t *) b->base;
+    b->lisp = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
 static inline void *lbuf_lisp(lbuf_t *b)
 {
-    return (b->lisp ? (uint8_t *) b->base + b->lisp : NULL);
+    return b->lisp != UINT16_MAX ? (char *)lbuf_base(b) + b->lisp : NULL;
 }
 
 static inline void lbuf_reset_lisp_hdr(lbuf_t *b)
 {
-    b->lhdr = (uint8_t *) b->data - (uint8_t *) b->base;
+    b->lhdr = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
 static inline void *lbuf_lisp_hdr(lbuf_t *b)
 {
-    return (b->lhdr ? (uint8_t *) b->base + b->lhdr : NULL);
+    return b->lhdr != UINT16_MAX ? (char *)lbuf_base(b) + b->lhdr : NULL;
 }
 
 

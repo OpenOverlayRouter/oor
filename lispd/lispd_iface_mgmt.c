@@ -48,32 +48,22 @@ void process_nl_new_unicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_new_multicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_del_route (struct nlmsghdr *nlh);
 void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length);
-int  process_nl_mcast_route_attributes (struct rtmsg *rtm, int rt_length, lisp_addr_t *src, lisp_addr_t *grp);
+int process_nl_mcast_route_attributes(struct rtmsg *rtm, int rt_length,
+        lisp_addr_t *src, lisp_addr_t *grp);
 
-/*
- * Change the address of the interface. If the address belongs to a not initialized locator, activate it.
- * Program SMR
- */
-
+/* Change the address of the interface. If the address belongs to a not
+ * initialized locator, activate it. Program SMR */
 void process_address_change(iface_t *iface, lisp_addr_t *new_addr);
 
-
-/*
- * Change the satus of the interface. Recalculate default control and output interfaces if it's needed.
- * Program SMR
- */
-
+/* Change the satus of the interface. Recalculate default control and output
+ * interfaces if it's needed. Program SMR */
 void process_link_status_change(iface_t *iface, int new_status);
 
-/*
- *
- */
-
 void process_new_gateway(lisp_addr_t gateway, iface_t *iface);
-/*
- * Activate the locators associated with the interface using the new address
- * This function is only used when an interface is down during the initial configuration process and then is activated
- */
+
+/* Activate the locators associated with the interface using the new address
+ * This function is only used when an interface is down during the initial
+ * configuration process and then is activated */
 void activate_interface_address(iface_t *iface,lisp_addr_t *);
 
 
@@ -131,27 +121,27 @@ process_netlink_msg(struct sock *sl)
                 nlh = NLMSG_NEXT(nlh, len)) {
             switch (nlh->nlmsg_type) {
             case RTM_NEWADDR:
-                lmlog(DBG_2, "=>process_netlink_msg: Received new address "
+                lmlog(DBG_3, "=>process_netlink_msg: Received new address "
                         "message");
                 process_nl_add_address(nlh);
                 break;
             case RTM_DELADDR:
-                lmlog(DBG_2, "=>process_netlink_msg: Received del address "
+                lmlog(DBG_3, "=>process_netlink_msg: Received del address "
                         "message");
                 process_nl_del_address(nlh);
                 break;
             case RTM_NEWLINK:
-                lmlog(DBG_2, "=>process_netlink_msg: Received link "
+                lmlog(DBG_3, "=>process_netlink_msg: Received link "
                         "message");
                 process_nl_new_link(nlh);
                 break;
             case RTM_NEWROUTE:
-                lmlog(DBG_2, "=>process_netlink_msg: Received new route "
+                lmlog(DBG_3, "=>process_netlink_msg: Received new route "
                         "message");
                 process_nl_new_route(nlh);
                 break;
             case RTM_DELROUTE:
-                lmlog(DBG_2, "=>process_netlink_msg: Received delete route "
+                lmlog(DBG_3, "=>process_netlink_msg: Received delete route "
                         "message");
                 process_nl_del_route(nlh);
                 break;
@@ -187,7 +177,7 @@ process_nl_add_address (struct nlmsghdr *nlh)
 
     iface = get_interface_from_index(iface_index);
 
-    if (iface == NULL){
+    if (iface == NULL) {
         if_indextoname(iface_index, iface_name);
         lmlog(DBG_2, "process_nl_add_address: netlink message not for an "
                 "interface with associated RLOCs (%s / %d)", iface_name,
@@ -340,7 +330,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
 #endif
 
 
-    lmlog(DBG_1,"process_address_change: New address detected for interface "
+    lmlog(DBG_2,"process_address_change: New address detected for interface "
             "%s -> %s", iface->iface_name, lisp_addr_to_char(new_addr));
 
     afi = lisp_addr_ip_afi(iface_addr);
@@ -511,7 +501,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
         return;
 
     if ( rtm->rtm_family != AF_INET && rtm->rtm_family != AF_INET6 ) {
-        lmlog(DBG_2,"process_nl_new_unicast_route: New unicast route of "
+        lmlog(DBG_3,"process_nl_new_unicast_route: New unicast route of "
                 "unknown adddress family %d", rtm->rtm_family);
         return;
     }
@@ -526,7 +516,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
             iface = get_interface_from_index(iface_index);
             if_indextoname(iface_index, iface_name);
             if (iface == NULL){
-                lmlog(DBG_2, "process_nl_new_unicast_route: the netlink "
+                lmlog(DBG_3, "process_nl_new_unicast_route: the netlink "
                         "message is not for any interface associated with "
                         "RLOCs (%s)", iface_name);
                 return;
@@ -560,7 +550,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
 
         /* Check if the addres is a global address*/
         if (ip_addr_is_link_local(lisp_addr_ip(&gateway)) == TRUE) {
-            lmlog(DBG_2,"process_nl_new_unicast_route: the extractet address "
+            lmlog(DBG_3,"process_nl_new_unicast_route: the extractet address "
                     "from the netlink messages is a local link address: %s "
                     "discarded", lisp_addr_to_char(&gateway));
             return;
@@ -682,7 +672,9 @@ process_nl_mcast_route_attributes(struct rtmsg *rtm, int rt_length,
     return GOOD;
 }
 
-void process_nl_del_route (struct nlmsghdr *nlh) {
+void
+process_nl_del_route(struct nlmsghdr *nlh)
+{
 
     struct rtmsg             *rtm                       = NULL;
     int                      rt_length                  = 0;
@@ -695,7 +687,9 @@ void process_nl_del_route (struct nlmsghdr *nlh) {
         process_nl_del_multicast_route (rtm, rt_length);
 }
 
-void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length) {
+void
+process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length)
+{
 
     lisp_addr_t  rt_groupaddr               = {.lafi=LM_AFI_IP};
     lisp_addr_t  rt_srcaddr                 = {.lafi=LM_AFI_IP};
@@ -712,9 +706,8 @@ void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length) {
 }
 
 
-void process_new_gateway (
-        lisp_addr_t         gateway,
-        iface_t     *iface )
+void
+process_new_gateway(lisp_addr_t gateway, iface_t *iface)
 {
     lisp_addr_t **gw_addr   = NULL;
     int         afi         = AF_UNSPEC;

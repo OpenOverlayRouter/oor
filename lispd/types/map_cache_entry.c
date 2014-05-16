@@ -56,81 +56,32 @@ mcache_entry_new()
 }
 
 void
-mcache_entry_init(mcache_entry_t **mce, mapping_t *mapping)
+mcache_entry_init(mcache_entry_t *mce, mapping_t *mapping)
 {
-    if (!*mce) {
-        *mce = mcache_entry_new();
-    }
 
-    (*mce)->mapping = mapping;
-    (*mce)->how_learned = DYNAMIC_MAP_CACHE_ENTRY;
-    (*mce)->ttl = DEFAULT_DATA_CACHE_TTL;
+    mce->mapping = mapping;
+    mce->how_learned = MCE_DYNAMIC;
+    mce->ttl = DEFAULT_DATA_CACHE_TTL;
 
 }
 
 void
-mcache_entry_init_static(mcache_entry_t **mce_, mapping_t *mapping)
+mcache_entry_init_static(mcache_entry_t *mce, mapping_t *mapping)
 {
-    mcache_entry_t *mce = *mce_;
-    if (!mce) {
-        mce = mcache_entry_new();
-    }
 
     mce->active = ACTIVE;
     mce->mapping = mapping;
-    mce->how_learned = STATIC_MAP_CACHE_ENTRY;
+    mce->how_learned = MCE_STATIC;
     mce->ttl = 255; /* XXX: why 255? */
 }
 
-
-/*
- * Creates a map cache entry structure without adding it to the data base
- */
-mcache_entry_t *
-new_map_cache_entry_no_db(lisp_addr_t eid_prefix, int eid_prefix_length,
-        int how_learned, uint16_t ttl)
-{
-    mcache_entry_t *map_cache_entry;
-    /* Create map cache entry */
-    if ((map_cache_entry = calloc(1, sizeof(map_cache_entry))) == NULL) {
-        lmlog(LWRN,"new_map_cache_entry: Unable to allocate memory for lispd_map_cache_entry: %s", strerror(errno));
-        return(NULL);
-    }
-//    memset(map_cache_entry,0,sizeof(lispd_map_cache_entry));
-
-    /* Create themapping for this map-cache */
-    if (lisp_addr_afi(&eid_prefix) == LM_AFI_IP)
-        lisp_addr_set_plen(&eid_prefix, eid_prefix_length);
-    //    map_cache_entry->mapping = new_map_cache_mapping (eid_prefix, eid_prefix_length, -1);
-    map_cache_entry->mapping = mapping_init_remote(&eid_prefix);
-    if (!map_cache_entry->mapping)
-        return(NULL);
-
-    map_cache_entry->active_witin_period = FALSE;
-    map_cache_entry->how_learned = how_learned;
-    map_cache_entry->ttl = ttl;
-    if (how_learned == DYNAMIC_MAP_CACHE_ENTRY){
-        map_cache_entry->active = NOT_ACTIVE;
-    }
-    else{
-        map_cache_entry->active = ACTIVE;
-    }
-    map_cache_entry->expiry_cache_timer = NULL;
-    map_cache_entry->smr_inv_timer = NULL;
-    map_cache_entry->request_retry_timer = NULL;
-    map_cache_entry->nonces = NULL;
-
-    map_cache_entry->timestamp = time(NULL);
-
-    return (map_cache_entry);
-}
 
 void
 mcache_entry_del(mcache_entry_t *entry)
 {
     mapping_del(mcache_entry_mapping(entry));
 
-    if (entry->how_learned == DYNAMIC_MAP_CACHE_ENTRY) {
+    if (entry->how_learned == MCE_DYNAMIC) {
         if (entry->expiry_cache_timer){
             stop_timer(entry->expiry_cache_timer);
             entry->expiry_cache_timer = NULL;
@@ -143,7 +94,7 @@ mcache_entry_del(mcache_entry_t *entry)
         }
     }
 
-    if (entry->nonces != NULL){
+    if (entry->nonces != NULL) {
         free(entry->nonces);
     }
     free(entry);
@@ -152,16 +103,11 @@ mcache_entry_del(mcache_entry_t *entry)
 void
 map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
 {
-    char                buf[256], buf2[256];
-    time_t              expiretime;
-    time_t              uptime;
-    int                 ctr = 0;
-    char                str[400];
-//    char                fmt[200];
-    locators_list_t         *locator_iterator_array[2]  = {NULL,NULL};
-    locators_list_t         *locator_iterator           = NULL;
-    locator_t           *locator                    = NULL;
-    mapping_t           *mapping                    = NULL;
+    char buf[256], buf2[256];
+    time_t expiretime;
+    time_t uptime;
+    char str[400];
+    mapping_t *mapping = NULL;
 
     if (is_loggable(log_level) == FALSE){
         return;
@@ -169,39 +115,25 @@ map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
 
     mapping = mcache_entry_mapping(entry);
 
-    sprintf(str,"IDENTIFIER (EID): %s (IID = %d), ",
-            lisp_addr_to_char(mapping_eid(mapping)), mapping->iid );
     uptime = time(NULL);
     uptime = uptime - entry->timestamp;
     strftime(buf, 20, "%H:%M:%S", localtime(&uptime));
     expiretime = (entry->ttl * 60) - uptime;
-    if (expiretime > 0)
+    if (expiretime > 0) {
         strftime(buf2, 20, "%H:%M:%S", localtime(&expiretime));
-
-    sprintf(str + strlen(str),"  UPTIME: %s, EXPIRES: %s   ", buf, buf2);
-
-    if (entry->how_learned == STATIC_LOCATOR)
-        sprintf(str + strlen(str),"   TYPE: Static ");
-    else
-        sprintf(str + strlen(str),"   TYPE: Dynamic ");
-    sprintf(str + strlen(str),"   ACTIVE: %s\n", entry->active == TRUE ? "Yes" : "No");
-    lmlog(log_level,"%s",str);
-
-    if (entry->mapping->locator_count > 0){
-        locator_iterator_array[0] = entry->mapping->head_v4_locators_list;
-        locator_iterator_array[1] = entry->mapping->head_v6_locators_list;
-        lmlog(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
-        // Loop through the locators and print each
-        for (ctr = 0 ; ctr < 2 ; ctr++){
-            locator_iterator = locator_iterator_array[ctr];
-            while (locator_iterator != NULL) {
-                locator = locator_iterator->locator;
-                locator_to_char(locator);
-                locator_iterator = locator_iterator->next;
-            }
-        }
-        lmlog(log_level,"\n");
     }
+
+    sprintf(str, "ENTRY UPTIME: %s, EXPIRES: %s, ", buf, buf2);
+
+    if (entry->how_learned == MCE_STATIC) {
+        sprintf(str + strlen(str),"TYPE: Static, ");
+    } else {
+        sprintf(str + strlen(str),"TYPE: Dynamic, ");
+    }
+    sprintf(str + strlen(str),"ACTIVE: %s",
+            entry->active == TRUE ? "Yes" : "No");
+
+    lmlog(log_level, "%s\n%s\n", str, mapping_to_char(mapping));
 }
 
 

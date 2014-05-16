@@ -39,10 +39,10 @@
 #include "lispd_info_nat.h"
 
 typedef enum {
-    xTR_MODE = 1,
+    xTR_MODE ,
     MS_MODE,
     RTR_MODE
-} lisp_dev_type;
+} lisp_dev_type_e;
 
 typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
 
@@ -66,8 +66,8 @@ typedef struct ctrl_dev_class_t {
 
 
 struct lisp_ctrl_dev {
-    lisp_dev_type mode;
-    ctrl_dev_class_t *ctrl_class;
+    lisp_dev_type_e mode;
+    const ctrl_dev_class_t *ctrl_class;
 
     /* pointer to lisp ctrl */
     lisp_ctrl_t *ctrl;
@@ -78,17 +78,17 @@ extern ctrl_dev_class_t xtr_ctrl_class;
 
 
 
-int ctrl_dev_create(lisp_dev_type , lisp_ctrl_dev_t **);
+int ctrl_dev_create(lisp_dev_type_e , lisp_ctrl_dev_t **);
 void ctrl_dev_destroy(lisp_ctrl_dev_t *);
 int ctrl_dev_recv(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 void ctrl_dev_run(lisp_ctrl_dev_t *);
 int ctrl_if_event(lisp_ctrl_dev_t *);
+int ctrl_dev_set_ctrl(lisp_ctrl_dev_t *, lisp_ctrl_t *);
 fwd_entry_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);
 
 
 /* PRIVATE functions, used by xtr and ms */
 int send_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
-int send_map_request(lisp_ctrl_dev_t *, lbuf_t *, lisp_addr_t *, lisp_addr_t *);
 
 
 #endif /* LISP_CTRL_DEVICE_H_ */

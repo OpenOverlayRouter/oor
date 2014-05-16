@@ -348,15 +348,15 @@ typedef struct _locator_hdr {
 #endif
 } __attribute__ ((__packed__)) locator_hdr_t;
 
-
-#define LOC_PROBED(h) ((locator_hdr_t *)(h))->probed
-#define LOC_PRIORITY(h) ((locator_hdr_t *)(h))->priority
-#define LOC_WEIGHT(h) ((locator_hdr_t *)(h))->weight
-#define LOC_MPRIORITY(h) ((locator_hdr_t *)(h))->mpriority
-#define LOC_MWEIGHT(h) ((locator_hdr_t *)(h))->mweight
-#define LOC_REACHABLE(h) ((locator_hdr_t *)(h))->reachable
-#define LOC_LOCAL(h) ((locator_hdr_t *)(h))->local
-#define LOC_ADDR(h) ((uint8_t *)(h)  + sizeof(locator_hdr_t))
+#define LOC_CAST(h_) ((locator_hdr_t *)(h_))
+#define LOC_PROBED(h_) LOC_CAST(h_)->probed
+#define LOC_PRIORITY(h_) LOC_CAST(h_)->priority
+#define LOC_WEIGHT(h_) LOC_CAST(h_)->weight
+#define LOC_MPRIORITY(h_) LOC_CAST(h_)->mpriority
+#define LOC_MWEIGHT(h_) LOC_CAST(h_)->mweight
+#define LOC_REACHABLE(h_) LOC_CAST(h_)->reachable
+#define LOC_LOCAL(h_) LOC_CAST(h_)->local
+#define LOC_ADDR(h_) ((uint8_t *)(h_)  + sizeof(locator_hdr_t))
 
 
 /*
@@ -415,6 +415,7 @@ typedef struct _mapping_record_hdr_t {
 
 
 void mapping_record_init_hdr(mapping_record_hdr_t *h);
+char *mapping_action_to_char(int act);
 char *mapping_record_hdr_to_char(mapping_record_hdr_t *h);
 
 #define MAP_REC_EID_PLEN(h) ((mapping_record_hdr_t *)(h))->eid_prefix_length
@@ -450,6 +451,10 @@ typedef struct _eid_prefix_record_hdr {
     uint8_t eid_prefix_length;
 } __attribute__ ((__packed__)) eid_record_hdr_t;
 
+void eid_rec_hdr_init(eid_record_hdr_t *ptr);
+
+#define EID_REC_CAST(h_) ((eid_record_hdr_t *)(h_))
+#define EID_REC_MLEN(h_) EID_REC_CAST((h_))->eid_prefix_length
 #define EID_REC_ADDR(h) (uint8_t *)(h) + sizeof(eid_record_hdr_t)
 
 
@@ -483,8 +488,9 @@ typedef enum lisp_key_type_{
 
 uint16_t auth_data_get_len_for_type(lisp_key_type key_id);
 
-#define AUTH_REC_KEY_ID(h_) ((auth_record_hdr_t *)(h_))->key_id
-#define AUTH_REC_DATA_LEN(h_) ((auth_record_hdr_t *)(h_))->auth_data_len
+#define AUTH_REC_CAST(h_) ((auth_record_hdr_t *)(h_))
+#define AUTH_REC_KEY_ID(h_) AUTH_REC_CAST((h_))->key_id
+#define AUTH_REC_DATA_LEN(h_) AUTH_REC_CAST((h_))->auth_data_len
 #define AUTH_REC_DATA(h_) ((uint8_t *)(h_))+sizeof(auth_record_hdr_t)
 
 

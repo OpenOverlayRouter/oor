@@ -41,14 +41,24 @@
 
 typedef struct lisp_ctrl lisp_ctrl_t;
 
+struct lisp_ctrl {
+    glist_t *devices;
+    /* move ctrl interface here */
+
+    int ipv4_control_input_fd;
+    int ipv6_control_input_fd;
+
+    glist_t *rlocs;
+    glist_t *default_rlocs;
+};
+
 lisp_ctrl_t *ctrl_create();
 void ctrl_destroy(lisp_ctrl_t *ctrl);
 void ctrl_init(lisp_ctrl_t *ctrl);
 
 int ctrl_recv_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
-int ctrl_get_mappings_to_smr(lisp_ctrl_t *, mapping_t **mappings_to_smr,
-        int *mcount);
+int ctrl_get_mappings_to_smr(lisp_ctrl_t *, glist_t *);
 
 
 glist_t *ctrl_default_rlocs(lisp_ctrl_t *c);
@@ -57,6 +67,7 @@ void ctrl_if_addr_update(lisp_ctrl_t *, iface_t *, lisp_addr_t *,
         lisp_addr_t *);
 void ctrl_if_status_update(lisp_ctrl_t *, iface_t *);
 fwd_entry_t *ctrl_get_forwarding_entry(packet_tuple_t *);
+int ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev);
 
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);
