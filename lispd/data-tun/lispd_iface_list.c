@@ -175,8 +175,7 @@ get_iface_address(char *ifacename, lisp_addr_t *addr, int afi)
 
 /* set address, open socket, insert rule */
 static int
-iface_setup(iface_t *iface, char* iface_name,
-        int afi)
+iface_setup(iface_t *iface, char* iface_name, int afi)
 {
     lisp_addr_t *addr;
     int *sock;
@@ -226,23 +225,26 @@ add_interface(char *iface_name)
     /* Creating the new interface*/
     iface_list = xzalloc(sizeof(iface_list_elt));
     iface = xzalloc(sizeof(iface_t));
-    iface->ipv4_address = lisp_addr_new_afi(LM_AFI_IP);
-    iface->ipv6_address = lisp_addr_new_afi(LM_AFI_IP);
 
     iface->iface_name = strdup(iface_name); /* MUST FREE */
     iface->iface_index = if_nametoindex(iface_name);
 
-    lisp_addr_set_ip_afi(iface->ipv4_address, AF_UNSPEC);
-    iface->out_socket_v4 = -1;
-    lisp_addr_set_ip_afi(iface->ipv6_address, AF_UNSPEC);
-    iface->out_socket_v6 = -1;
+    lmlog(DBG_2, "Adding interface %s with index %d to iface list",
+            iface_name, iface->iface_index);
+
 
     if (iface->iface_index != 0) {
         if (default_rloc_afi != AF_INET6) {
+            iface->ipv4_address = lisp_addr_new_afi(LM_AFI_IP);
+            lisp_addr_set_ip_afi(iface->ipv4_address, AF_UNSPEC);
+            iface->out_socket_v4 = -1;
             iface_setup(iface, iface_name, AF_INET);
         }
 
         if (default_rloc_afi != AF_INET) {
+            iface->ipv6_address = lisp_addr_new_afi(LM_AFI_IP);
+            lisp_addr_set_ip_afi(iface->ipv6_address, AF_UNSPEC);
+            iface->out_socket_v6 = -1;
             iface_setup(iface, iface_name, AF_INET6);
         }
     }
@@ -268,12 +270,13 @@ add_interface(char *iface_name)
         head_interface_list = iface_list;
     } else {
         aux_iface_list = head_interface_list;
-        while (aux_iface_list->next)
+        while (aux_iface_list->next) {
             aux_iface_list = aux_iface_list->next;
+        }
         aux_iface_list->next = iface_list;
     }
-    lmlog(DBG_2, "add_interface: Interface %s with interface index %d added to"
-            " interfaces lists", iface_name, iface->iface_index);
+    lmlog(DBG_2, "Interface %s with index %d added to interfaces lists\n",
+            iface_name, iface->iface_index);
     return (iface);
 }
 
@@ -649,7 +652,6 @@ void
 set_default_ctrl_ifaces()
 {
     default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
-
     if (default_ctrl_iface_v4 != NULL) {
        lmlog(DBG_2,"Default IPv4 control iface %s: %s\n",
                default_ctrl_iface_v4->iface_name,
@@ -657,7 +659,6 @@ set_default_ctrl_ifaces()
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
-
     if (default_ctrl_iface_v6 != NULL) {
         lmlog(DBG_2,"Default IPv6 control iface %s: %s\n",
                 default_ctrl_iface_v6->iface_name,

@@ -50,7 +50,7 @@ typedef struct {
 } glist_t;
 
 
-glist_t *glist_new();
+glist_t *glist_new(void);
 glist_t *glist_new_managed(glist_del_fct);
 glist_t *glist_new_complete(glist_cmp_fct, glist_del_fct);
 void glist_init_complete(glist_t *, glist_cmp_fct, glist_del_fct);

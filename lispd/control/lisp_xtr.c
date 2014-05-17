@@ -166,7 +166,7 @@ handle_petr_probe_reply(lisp_xtr_t *xtr, mapping_t *m, locator_t *probed,
     }
 
     /* Reprogramming timers of rloc probing */
-    program_rloc_probing(xtr, old_map, probed, 0);
+    program_rloc_probing(xtr, old_map, probed, xtr->probe_interval);
 
     return (GOOD);
 }
@@ -219,8 +219,8 @@ handle_locator_probe_reply(lisp_xtr_t *xtr, mapping_t *m,
         return (BAD);
     }
 
-    lmlog(DBG_1," Successfully pobed RLOC %s of cache entry with EID %s",
-                lisp_addr_to_char(locator_addr(probed)),
+    lmlog(DBG_1," Successfully probed RLOC %s of cache entry with EID %s",
+                lisp_addr_to_char(locator_addr(loc)),
                 lisp_addr_to_char(mapping_eid(old_map)));
 
 
@@ -240,7 +240,7 @@ handle_locator_probe_reply(lisp_xtr_t *xtr, mapping_t *m,
     }
 
     /* Reprogramming timers of rloc probing */
-    program_rloc_probing(xtr, old_map, probed, xtr->probe_interval);
+    program_rloc_probing(xtr, old_map, loc, xtr->probe_interval);
 
     return (GOOD);
 
@@ -458,7 +458,7 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* SEND MAP-REPLY */
-//    lisp_addr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
+    lisp_addr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
     lmlog(DBG_1, "Sending %s", lisp_msg_hdr_to_char(mrep));
     send_msg(&xtr->super, mrep, uc);
 
@@ -1286,13 +1286,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
 
     /* If the number of retransmits is less than rloc_probe_retries, then try
      * to send the Map Request Probe again */
-    if (nonces->retransmits - 1 < xtr->probe_retries ) {
-        if (nonces->retransmits > 0) {
-            lmlog(DBG_1,"Retransmiting Map-Request Probe for locator %s and "
-                    "EID: %s (%d retries)", lisp_addr_to_char(drloc),
-                    lisp_addr_to_char(deid), nonces->retransmits);
-        }
-
+    if (nonces->retransmits - 1 < xtr->probe_retries) {
         rlocs = ctrl_default_rlocs(xtr->super.ctrl);
         b = lisp_msg_mreq_create(&empty, rlocs, deid);
 
@@ -1301,7 +1295,17 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         MREQ_NONCE(hdr) = nonces->nonce[nonces->retransmits];
         MREQ_RLOC_PROBE(hdr) = 1;
 
-        send_map_request(&xtr->super, b, NULL, locator_addr(loc));
+        if (nonces->retransmits > 0) {
+            lmlog(DBG_1,"Retry Map-Request Probe for locator %s and "
+                    "EID: %s (%d retries)", lisp_addr_to_char(drloc),
+                    lisp_addr_to_char(deid), nonces->retransmits);
+        } else {
+            lmlog(DBG_1,"Map-Request Probe for locator %s and "
+                    "EID: %s", lisp_addr_to_char(drloc),
+                    lisp_addr_to_char(deid));
+        }
+
+        send_map_request(&xtr->super, b, NULL, drloc);
         nonces->retransmits++;
 
         /* Reprogram time for next retry */
@@ -1349,18 +1353,20 @@ program_rloc_probing(lisp_xtr_t *xtr, mapping_t *m,
     if (!einf->probe_timer) {
         einf->probe_timer = create_timer(RLOC_PROBING_TIMER);
         arg = xzalloc(sizeof(timer_rloc_probe_argument));
+        lmlog(DBG_2,"Programming probing of EID's %s locator %s (%d seconds)",
+                    lisp_addr_to_char(mapping_eid(m)),
+                    lisp_addr_to_char(locator_addr(loc)), time);
+    } else {
+        arg = einf->probe_timer->cb_argument;
+        lmlog(DBG_2,"Reprogramming probing of EID's %s locator %s (%d seconds)",
+                    lisp_addr_to_char(mapping_eid(m)),
+                    lisp_addr_to_char(locator_addr(loc)), time);
     }
 
     arg->locator = loc;
     arg->mapping = m;
-//        arg = locator_ext_inf->probe_timer->cb_argument;
-
-    lmlog(DBG_2,"(Re)programmed probing of EID's %s locator %s (%d seconds)",
-                lisp_addr_to_char(mapping_eid(m)),
-                lisp_addr_to_char(locator_addr(loc)),
-                time);
-
     start_timer_new(einf->probe_timer, time, rloc_probing_cb, xtr, arg);
+
 }
 
 /* Program RLOC probing for each locator of the mapping */
@@ -1604,8 +1610,8 @@ xtr_ctrl_destruct(lisp_ctrl_dev_t *dev)
 static void
 xtr_ctrl_dealloc(lisp_ctrl_dev_t *dev) {
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
-    lmlog(DBG_1, "Freeing Map-Server ...");
     free(xtr);
+    lmlog(DBG_1, "Freed xTR ...");
 }
 
 

@@ -111,13 +111,16 @@ void *
 pkt_push_ipv6(lbuf_t *b, struct in6_addr *src, struct in6_addr *dst)
 {
     struct ip6_hdr *ip6h;
+    int len;
+
+    len = lbuf_size(b);
     ip6h = lbuf_push_uninit(b, sizeof(struct ip6_hdr));
     lbuf_reset_ip(b);
 
     ip6h->ip6_hops = 255;
     ip6h->ip6_vfc = (IP6VERSION << 4);
     ip6h->ip6_nxt = IPPROTO_UDP;
-    ip6h->ip6_plen = htons(lbuf_size(b));
+    ip6h->ip6_plen = htons(len);
     memcpy(ip6h->ip6_src.s6_addr, src->s6_addr, sizeof(struct in6_addr));
     memcpy(ip6h->ip6_dst.s6_addr, dst->s6_addr, sizeof(struct in6_addr));
     return(ip6h);
@@ -188,9 +191,18 @@ int
 pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
         ip_addr_t *dip)
 {
-    pkt_push_udp(b, sp, dp);
-    pkt_push_ip(b, sip, dip);
-    pkt_compute_udp_cksum(b, ip_addr_afi(sip));
+    if (pkt_push_udp(b, sp, dp) == NULL) {
+        lmlog(DBG_1, "Failed to push UDP header! Discarding");
+        return(BAD);
+    }
+    if (pkt_push_ip(b, sip, dip) == NULL) {
+        lmlog(DBG_1, "Failed to push IP header! Discarding");
+        return(BAD);
+    }
+    if (pkt_compute_udp_cksum(b, ip_addr_afi(sip)) != GOOD) {
+        lmlog(DBG_1, "Failed UDP checksum! Discarding");
+        return(BAD);
+    }
     return(GOOD);
 }
 

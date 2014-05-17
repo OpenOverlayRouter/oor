@@ -132,6 +132,9 @@
 #define STRINGIZE(ARG) STRINGIZE2(ARG)
 #define STRINGIZE2(ARG) #ARG
 
+#define BOLD "\033[1m"
+#define RESET "\033[0m"
+
 /* Like the standard assert macro, except:
  *
  *   - Writes the failure message to the log.

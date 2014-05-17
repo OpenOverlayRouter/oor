@@ -89,7 +89,6 @@ inline int               ip_addr_parse(void *offset, uint16_t afi, ip_addr_t *ds
 inline int               ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2);
 
 inline uint8_t          ip_addr_afi_to_default_mask(ip_addr_t *ip);
-char                    *ip_to_char(void *ip, int afi);
 char                    *ip_addr_to_char (ip_addr_t *addr);
 
 
@@ -114,6 +113,7 @@ inline int ip_addr_is_link_local(ip_addr_t *addr);
 inline uint8_t ip_addr_is_multicast(ip_addr_t *addr);
 
 /* IP-UTIL functions*/
+char *ip_to_char(void *ip, int afi);
 inline uint16_t ip_sock_to_iana_afi(uint16_t afi);
 inline uint16_t ip_iana_to_sock_afi(uint16_t afi);
 inline uint8_t ip_sock_afi_to_size(uint16_t afi);

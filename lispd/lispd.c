@@ -78,7 +78,7 @@
 //mcache_entry_t              *proxy_etrs      = NULL;
 char    *config_file                        = NULL;
 int      debug_level                        = 0;
-int      default_rloc_afi                   = -1;
+int      default_rloc_afi                   = AF_INET6;
 int      daemonize                          = FALSE;
 //int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
 
@@ -334,9 +334,9 @@ exit_cleanup(void) {
     close_output_sockets();
     /* Close netlink socket */
     close(netlink_fd);
+    shash_destroy(iface_addr_ht);
     ctrl_destroy(lctrl);
     ctrl_dev_destroy(ctrl_dev);
-    shash_destroy(iface_addr_ht);
     lmlog(LINF,"Exiting ...");
 
     exit(EXIT_SUCCESS);

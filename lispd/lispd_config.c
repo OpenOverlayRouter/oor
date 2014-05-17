@@ -725,6 +725,19 @@ configure_xtr(cfg_t *cfg)
         }
     }
 
+    /* MAP-SERVER CONFIG */
+    n = cfg_size(cfg, "map-server");
+    for (i = 0; i < n; i++) {
+        cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
+        if (add_map_server(xtr, cfg_getstr(ms, "address"),
+                cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
+                (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
+            lmlog(DBG_1, "Added %s to map-server list",
+                    cfg_getstr(ms, "address"));
+        } else {
+            lmlog(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
+        }
+    }
 
     /* PROXY-ETR CONFIG */
     n = cfg_size(cfg, "proxy-etr");
@@ -777,20 +790,6 @@ configure_xtr(cfg_t *cfg)
     for (i = 0; i < n; i++) {
         add_local_db_mapping(xtr, cfg_getnsec(cfg, "database-mapping-new", i),
                 lcaf_ht);
-    }
-
-    /* MAP-SERVER CONFIG */
-    n = cfg_size(cfg, "map-server");
-    for (i = 0; i < n; i++) {
-        cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-        if (add_map_server(xtr, cfg_getstr(ms, "address"),
-                cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
-                (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
-            lmlog(DBG_1, "Added %s to map-server list",
-                    cfg_getstr(ms, "address"));
-        } else {
-            lmlog(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
-        }
     }
 
     /* STATIC MAP-CACHE CONFIG */
@@ -1135,7 +1134,7 @@ link_iface_and_mapping(iface_t *iface, mapping_t *m, int p4, int w4,
 
     /* Assign the mapping to the v4 mappings of the interface. Create IPv4
      * locator and assign to the mapping  */
-    if (p4 >= 0 && default_rloc_afi != AF_INET6) {
+    if ((p4 >= 0) && (default_rloc_afi != AF_INET6)) {
         if (add_mapping_to_interface(iface, m, AF_INET) != GOOD) {
             return(BAD);
         }
@@ -1153,7 +1152,7 @@ link_iface_and_mapping(iface_t *iface, mapping_t *m, int p4, int w4,
 
     /* Assign the mapping to the v6 mappings of the interface. Create IPv6
      * locator and assign to the mapping  */
-    if (p6 >= 0 && default_rloc_afi != AF_INET) {
+    if ((p6 >= 0) && (default_rloc_afi != AF_INET)) {
         if (add_mapping_to_interface(iface, m, AF_INET6) != GOOD) {
             return(BAD);
         }

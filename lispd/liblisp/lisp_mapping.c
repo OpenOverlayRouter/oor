@@ -83,7 +83,7 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
         auxaddr = lcaf_rloc_get_ip_addr(addr);
         break;
     default:
-        lmlog(DBG_1, "add_locator_to_mapping: AFI %d not supported",
+        lmlog(DBG_1, "mapping_add_locator: AFI %d not supported",
                 lisp_addr_afi(addr));
     }
 
@@ -110,13 +110,9 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
 
     if (err == GOOD) {
         m->locator_count++;
-        lmlog(DBG_3, "add_locator_to_mapping: The locator %s has been added "
-                "for the EID %s.", lisp_addr_to_char(locator_addr(loc)),
-                lisp_addr_to_char(mapping_eid(m)));
-
         result = GOOD;
     } else if (err == ERR_EXIST) {
-        lmlog(DBG_3, "add_locator_to_mapping: The locator %s already exists "
+        lmlog(DBG_3, "mapping_add_locator: The locator %s already exists "
                 "for the EID %s.", lisp_addr_to_char(locator_addr(loc)),
                 lisp_addr_to_char(mapping_eid(m)));
         locator_del(loc);

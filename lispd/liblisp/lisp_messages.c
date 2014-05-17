@@ -29,8 +29,6 @@
 //#include <defs.h>
 #include <string.h>
 
-
-
 /* The maximum length of the headers, when we have IPv6 encapsulated control messages
  * is 100 bytes. Allocate 150 for safety
  */
@@ -143,7 +141,7 @@ map_request_hdr_to_char(map_request_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "Map-Request -> flags:%s, irc: %d (+1), record-count: %d, "
+    sprintf(buf, BOLD "Map-Request" RESET " -> flags:%s, irc: %d (+1), record-count: %d, "
             "nonce: %s", mreq_flags_to_char(h), h->additional_itr_rloc_count,
             h->record_count,  nonce_to_char(h->nonce));
     return(buf);
@@ -169,7 +167,7 @@ map_reply_hdr_to_char(map_reply_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "Map-Reply -> flags:%s, record-count: %d, nonce: %s",
+    sprintf(buf, BOLD "Map-Reply" RESET "-> flags:%s, record-count: %d, nonce: %s",
             mrep_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
@@ -196,7 +194,7 @@ map_register_hdr_to_char(map_register_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "Map-Register -> flags:%s record-count: %d nonce %s",
+    sprintf(buf, BOLD "Map-Register" RESET " -> flags:%s record-count: %d nonce %s",
             mreg_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
@@ -221,7 +219,7 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "Map-Notify -> flags:%s, record-count: %d, nonce %s",
+    sprintf(buf, BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %s",
             mntf_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
 }
@@ -246,7 +244,7 @@ ecm_hdr_to_char(ecm_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, "ECM -> flags:%s", ecm_flags_to_char(h));
+    sprintf(buf, BOLD "ECM" RESET " -> flags:%s", ecm_flags_to_char(h));
     return(buf);
 }
 

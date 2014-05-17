@@ -71,7 +71,7 @@ glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct)
 }
 
 glist_t *
-glist_new()
+glist_new(void)
 {
     return(glist_new_complete(NO_CMP, NO_DEL));
 }

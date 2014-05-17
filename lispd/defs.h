@@ -268,7 +268,4 @@ typedef struct lisp_data_hdr {
  */
 #define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
 
-
-
-
 #endif /* DEFS_H_ */

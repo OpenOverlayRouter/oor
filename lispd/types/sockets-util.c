@@ -34,14 +34,10 @@
 int
 open_device_bound_raw_socket(char *device, int afi)
 {
-    //char *device = OUTPUT_IFACE;
-
     int device_len = 0;
-
     int s = 0;
     int on = 1;
 
-    //TODO arnatal to merge if this still the same after testing IPv6 RLOCs
     switch (afi) {
     case AF_INET:
         if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
@@ -66,7 +62,7 @@ open_device_bound_raw_socket(char *device, int afi)
         return (BAD);
     }
 
-    // bind a socket to a device name (might not work on all systems):
+    /* XXX: binding might not work on all devices */
     device_len = strlen(device);
     if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
         lmlog(LWRN, "open_device_binded_raw_socket: socket option device %s",
@@ -116,8 +112,8 @@ open_raw_socket(int afi)
 }
 
 int
-open_udp_socket(int afi) {
-
+open_udp_socket(int afi)
+{
     struct protoent *proto = NULL;
     int sock = 0;
     int tr = 1;
@@ -290,7 +286,7 @@ int send_packet (
             break;
         }
 
-        lmlog(LISP_LOG_DEBUG_2,
+        lmlog(DBG_2,
                 "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d, packet len %d",
                 strerror(errno), ip_addr_to_char(&pkt_src_addr),
                 ip_addr_to_char(&pkt_dst_addr), sock, packet_length);
@@ -301,45 +297,37 @@ int send_packet (
 
 }
 
-static int
-build_sockaddr(ip_addr_t *addr, struct sockaddr *sa, int *sa_len) {
-    struct sockaddr_in *sa4;
-    struct sockaddr_in6 *sa6;
-
-    switch (ip_addr_afi(addr)) {
-    case AF_INET:
-        sa4 = (struct sockaddr_in *)sa;
-        memset(sa4, 0, sizeof(*sa4));
-        sa4->sin_family = AF_INET;
-        ip_addr_copy_to(&sa4->sin_addr, addr);
-//        sa4->sin_addr.s_addr = ip_addr_get_addr(addr);
-        *sa_len = sizeof(*sa4);
-        break;
-    case 6:
-        sa6 = (struct sockaddr_in6 *)sa;
-        memset(sa6, 0, sizeof(*sa6));
-        sa6->sin6_family = AF_INET6;
-        ip_addr_copy_to(&sa6->sin6_addr, addr);
-//        sa6->sin6_addr = ip_addr_get_addr(addr);
-        *sa_len = sizeof(*sa6);
-        break;
-    }
-
-    return(GOOD);
-}
-
-
 /* Sends a raw packet out the socket file descriptor 'sfd'  */
 int
-send_raw(int sfd, uint8_t *pkt, int plen, ip_addr_t *dip)
+send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
 {
-    struct sockaddr saddr;
+    struct sockaddr *saddr;
     int slen = 0;
     int nbytes = 0;
 
-    build_sockaddr(dip, &saddr, &slen);
-    nbytes = sendto(sfd, (const void *) pkt, plen, 0, &saddr, slen);
+    struct sockaddr_in sa4;
+    struct sockaddr_in6 sa6;
+
+    /* build sock addr */
+    switch (ip_addr_afi(dip)) {
+    case AF_INET:
+        memset(&sa4, 0, sizeof(sa4));
+        sa4.sin_family = AF_INET;
+        ip_addr_copy_to(&sa4.sin_addr, dip);
+        slen = sizeof(struct sockaddr_in);
+        saddr = (struct sockaddr *)&sa4;
+        break;
+    case AF_INET6:
+        memset(&sa6, 0, sizeof(sa6));
+        sa6.sin6_family = AF_INET6;
+        ip_addr_copy_to(&sa6.sin6_addr, dip);
+        slen = sizeof(struct sockaddr_in6);
+        saddr = (struct sockaddr *)&sa6;
+        break;
+    }
+
+    lmlog(DBG_1, "Sending out socket %d", sfd);
+    nbytes = sendto(sfd, pkt, plen, 0, saddr, slen);
 
     return (nbytes);
-
 }

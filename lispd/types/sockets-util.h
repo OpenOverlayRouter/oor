@@ -40,7 +40,7 @@ int open_raw_socket(int afi);
 int open_udp_socket(int afi);
 int bind_socket_address(int sock, lisp_addr_t *);
 int bind_socket(int sock, int afi, int port);
-int send_raw(int, uint8_t *, int, ip_addr_t *);
+int send_raw(int, const void *, int, ip_addr_t *);
 
 int send_packet(int sock, uint8_t *packet, int packet_length);
 

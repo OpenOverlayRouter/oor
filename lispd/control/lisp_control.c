@@ -55,7 +55,8 @@ set_default_rlocs(lisp_ctrl_t *ctrl)
     glist_entry_t *it;
     lmlog(DBG_2, "Recomputing default interfaces");
     glist_for_each_entry(it, ctrl->default_rlocs) {
-        lmlog(DBG_2, "  Default iface: %s", lisp_addr_to_char(glist_entry_data(it)));
+        lmlog(DBG_2, "  Default iface: %s",
+                lisp_addr_to_char(glist_entry_data(it)));
     }
 
 }
@@ -64,8 +65,8 @@ lisp_ctrl_t *
 ctrl_create()
 {
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
-    ctrl->devices = glist_new_managed((glist_del_fct) ctrl_dev_destroy);
-    ctrl->default_rlocs = glist_new((glist_del_fct) lisp_addr_del);
+    ctrl->devices = glist_new();
+    ctrl->default_rlocs = glist_new();
     lmlog(LINF, "Control initialized!");
 
     return (ctrl);
@@ -172,12 +173,11 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     ret = sock_send(sk, b, uc);
 
     if (ret != GOOD) {
-        lmlog(DBG_1, "FAILED TO SEND \n %s "
-                "From RLOC: %s -> %s",
+        lmlog(DBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",
                 lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
         return(BAD);
     } else {
-        lmlog(DBG_1, "Sending message IP: %s -> %s UDP: %d -> %d",
+        lmlog(DBG_1, "Sent message IP: %s -> %s UDP: %d -> %d",
                 lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra),
                 uc->lp, uc->rp);
         return(GOOD);

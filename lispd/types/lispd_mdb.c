@@ -301,9 +301,9 @@ mdb_new()
      */
     ip_addr_t ipv4, ipv6;
     memset(&ipv4, 0, sizeof(ip_addr_t));
-    ipv4.afi = AF_INET;
+    ip_addr_set_afi(&ipv4, AF_INET);
     memset(&ipv6, 0, sizeof(ip_addr_t));
-    ipv6.afi = AF_INET6;
+    ip_addr_set_afi(&ipv6, AF_INET6);
     pt_add_node(db->AF4_ip_db, &ipv4, 0,
             (void *) New_Patricia(sizeof(struct in_addr) * 8));
     pt_add_node(db->AF6_ip_db, &ipv6, 0,
@@ -323,23 +323,29 @@ mdb_new()
     return (db);
 }
 
-void mdb_del(mdb_t *db, mdb_del_fct del_fct) {
+void
+mdb_del(mdb_t *db, mdb_del_fct del_fct)
+{
     patricia_node_t *node;
-    PATRICIA_WALK(db->AF4_ip_db->head, node) {
-        Destroy_Patricia(node->data, del_fct);
-    }PATRICIA_WALK_END;
+    Destroy_Patricia(db->AF4_ip_db->head->data, NULL);
+    Destroy_Patricia(db->AF4_ip_db, NULL);
 
-    PATRICIA_WALK(db->AF6_ip_db->head, node) {
-        Destroy_Patricia(node->data, del_fct);
-    }PATRICIA_WALK_END;
+    Destroy_Patricia(db->AF6_ip_db->head->data, NULL);
+    Destroy_Patricia(db->AF6_ip_db, NULL);
 
-    PATRICIA_WALK(db->AF4_mc_db->head, node) {
-        Destroy_Patricia(node->data, del_fct);
-    }PATRICIA_WALK_END;
+    if (db->AF6_mc_db->head) {
+        PATRICIA_WALK(db->AF4_mc_db->head, node) {
+            Destroy_Patricia(node->data, del_fct);
+        }PATRICIA_WALK_END;
+    }
+    Destroy_Patricia(db->AF4_mc_db, NULL);
 
-    PATRICIA_WALK(db->AF6_mc_db->head, node) {
-        Destroy_Patricia(node->data, del_fct);
-    }PATRICIA_WALK_END;
+    if (db->AF6_mc_db->head) {
+        PATRICIA_WALK(db->AF6_mc_db->head, node) {
+            Destroy_Patricia(node->data, del_fct);
+        }PATRICIA_WALK_END;
+    }
+    Destroy_Patricia(db->AF6_mc_db, NULL);
 
 }
 

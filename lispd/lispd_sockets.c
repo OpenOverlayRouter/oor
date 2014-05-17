@@ -305,6 +305,7 @@ sock_send(int sock, struct lbuf *b, uconn_t *uc)
     /* TODO, XXX: this assumes RAW sockets. Change for android!*/
     pkt_push_udp_and_ip(b, uc->lp, uc->rp, src, dst);
     send_raw(sock, lbuf_data(b), lbuf_size(b), dst);
+
     return(GOOD);
 }
 

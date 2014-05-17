@@ -132,25 +132,6 @@ ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi)
 }
 
 char *
-ip_to_char(void *ip, int afi)
-{
-    static char address[10][INET6_ADDRSTRLEN];
-    static unsigned int i;
-    i++; i = i % 10;
-
-    switch (afi) {
-    case AF_INET:
-        inet_ntop(AF_INET, ip, address[i], INET_ADDRSTRLEN);
-        return(address[i]);
-    case AF_INET6:
-        inet_ntop(AF_INET6, ip, address[i], INET6_ADDRSTRLEN);
-        return(address[i]);
-    }
-
-    return(NULL);
-}
-
-char *
 ip_addr_to_char(ip_addr_t *addr)
 {
     return(ip_to_char(ip_addr_get_addr(addr), ip_addr_afi(addr)));
@@ -195,11 +176,12 @@ ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert)
     *(uint16_t *)dst = htons(ip_addr_get_iana_afi(src));
     dst = CO(dst, sizeof(uint16_t));
 
-    if (convert && ip_addr_afi(src) == AF_INET)
+    if (convert && ip_addr_afi(src) == AF_INET) {
         /* XXX: haven't encountered a case when this is used */
         *((uint32_t *)dst) = htonl(ip_addr_get_v4(src)->s_addr);
-    else
+    } else {
         memcpy(dst, ip_addr_get_addr(src), ip_addr_get_size(src));
+    }
     return(sizeof(uint16_t)+ip_addr_get_size(src));
 }
 
@@ -358,6 +340,25 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
 /*
  * other ip functions
  */
+
+char *
+ip_to_char(void *ip, int afi)
+{
+    static char address[10][INET6_ADDRSTRLEN+1];
+    static unsigned int i;
+    i++; i = i % 10;
+
+    switch (afi) {
+    case AF_INET:
+        inet_ntop(AF_INET, ip, address[i], INET_ADDRSTRLEN);
+        return(address[i]);
+    case AF_INET6:
+        inet_ntop(AF_INET6, ip, address[i], INET6_ADDRSTRLEN);
+        return(address[i]);
+    }
+
+    return(NULL);
+}
 
 inline uint16_t
 ip_sock_to_iana_afi(uint16_t afi)
