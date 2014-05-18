@@ -27,7 +27,10 @@
  */
 
 #include "lisp_xtr.h"
-#include "lispd_sockets.h"
+#include "sockets.h"
+#include "util.h"
+#include <unistd.h>
+#include "lmlog.h"
 
 /* needed for hashword */
 #include "bob/lookup3.c"
@@ -788,11 +791,12 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
 
         /* For each map cache entry with same afi as local EID mapping */
         if (lisp_addr_afi(eid) == LM_AFI_IP ) {
-            lmlog(DBG_3, "init_smr: SMR request for %s. Shouldn't receive SMR "
-                    "for IP in mapping?!", lisp_addr_to_char(eid));
+            lmlog(DBG_3, "send_all_smr_and_reg: SMR request for %s. Shouldn't "
+                    "receive SMR for IP in mapping?!", lisp_addr_to_char(eid));
         } else if (lisp_addr_afi(eid) != LM_AFI_IPPREF) {
-            lmlog(DBG_3, "init_smr: SMR request for %s. SMR supported only for "
-                    "IP-prefixes for now!",  lisp_addr_to_char(eid));
+            lmlog(DBG_3, "send_all_smr_and_reg: SMR request for %s. SMR "
+                    "supported only for IP-prefixes for now!",
+                    lisp_addr_to_char(eid));
             continue;
         }
 

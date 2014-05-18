@@ -38,7 +38,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <defs.h>
-#include <lispd_iface_list.h>
+#include <iface_list.h>
 #include <lispd_lib.h>
 #include <cksum.h>
 //#include <lisp_map_cache.h>

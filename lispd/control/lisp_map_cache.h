@@ -1,5 +1,5 @@
 /*
- * lispd_map_cache_db.h
+ * lisp_map_cache_db.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Send registration messages for each database mapping to
@@ -32,9 +32,10 @@
 #ifndef LISPD_MAP_CACAHE_DB_H_
 #define LISPD_MAP_CACAHE_DB_H_
 
-#include <defs.h>
-#include <liblisp.h>
-#include <map_cache_entry.h>
+#include "defs.h"
+#include "liblisp.h"
+#include "map_cache_entry.h"
+#include "mapping_db.h"
 
 typedef struct map_cache_db {
     mdb_t *db;

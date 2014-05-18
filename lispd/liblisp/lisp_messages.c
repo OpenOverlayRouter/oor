@@ -24,10 +24,13 @@
  *
  */
 
+#include <string.h>
+#include <netinet/in.h>
+
 #include "lisp_messages.h"
 #include "lisp_nonce.h"
+#include "util.h"
 //#include <defs.h>
-#include <string.h>
 
 /* The maximum length of the headers, when we have IPv6 encapsulated control messages
  * is 100 bytes. Allocate 150 for safety

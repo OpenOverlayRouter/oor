@@ -34,21 +34,20 @@
  *
  */
 
+#include <netdb.h>
+
 #include "cmdline.h"
 #include "confuse.h"
 #include "lispd_config.h"
 #include "lispd_external.h"
-#include "lispd_iface_list.h"
-#include "lispd_lib.h"
+#include "iface_list.h"
 #include "lisp_ctrl_device.h"
 #include "lisp_xtr.h"
 #include "lisp_ms.h"
 #include "lisp_control.h"
 #include "shash.h"
-#include "elibs/htable/hash_table.h"
-
-
-
+#include "hash_table.h"
+#include "lmlog.h"
 
 #ifdef OPENWRT
 #include <uci.h>

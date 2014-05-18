@@ -26,7 +26,8 @@
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  */
 
-#pragma once
+#ifndef LISPD_TUN_H_
+#define LISPD_TUN_H_
 
 #include <stdio.h>
 #include <net/if.h>
@@ -36,13 +37,10 @@
 #include <fcntl.h>
 #include <linux/if_tun.h>
 #include "lispd.h"
-#include "lispd_lib.h"
 
 #define CLONEDEV                "/dev/net/tun"
-
 #define TUN_IFACE_NAME          "lispTun0"
-
-#define TUN_RECEIVE_SIZE        2048 // Should probably tune to match largest MTU
+#define TUN_RECEIVE_SIZE        2048 /* XXX: Should probably tune to match largest MTU */
 
 /*
  * From section 5.4.1 of LISP RFC (6830)
@@ -118,3 +116,6 @@ int tun_add_v6_eid_to_iface(
 int set_tun_default_route_v4();
 int set_tun_default_route_v6();
 int del_tun_default_route_v6();
+
+#endif /* LISPD_TUN_H_ */
+

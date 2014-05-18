@@ -28,9 +28,9 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#include "lispd_lib.h"
+//#include "lispd_lib.h"
 //#include "lispd_local_db.h"
-#include "lispd_log.h"
+#include "lmlog.h"
 #include "lisp_mapping.h"
 
 

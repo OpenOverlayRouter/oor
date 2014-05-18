@@ -32,7 +32,7 @@
 #define LISPD_INFO_NAT_H_
 
 #include <defs.h>
-#include <lispd_timers.h>
+#include <timers.h>
 #include <lisp_address.h>
 
 

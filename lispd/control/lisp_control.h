@@ -30,10 +30,9 @@
 #ifndef LISPD_CONTROL_H_
 #define LISPD_CONTROL_H_
 
-#include <defs.h>
-#include <lispd_sockets.h>
+#include <sockets.h>
 #include <liblisp.h>
-#include <lispd_iface_list.h>
+#include <iface_list.h>
 #include <lispd_external.h>
 //#include <lisp_xtr.h>
 //#include <lisp_ms.h>

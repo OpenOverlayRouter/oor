@@ -33,9 +33,9 @@
 #include <lispd_external.h>
 #include <lispd_lib.h>
 #include <packets.h>
-#include <lispd_sockets.h>
+#include <sockets.h>
 #include <cksum.h>
-#include "lispd_local_db.h"
+#include "lisp_local_db.h"
 
 
 map_server_list_t           *map_servers     = NULL;

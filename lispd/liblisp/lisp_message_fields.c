@@ -28,7 +28,10 @@
  *
  */
 
+#include <netinet/in.h>
+
 #include "lisp_message_fields.h"
+
 
 void
 mapping_record_init_hdr(mapping_record_hdr_t *h) {
@@ -111,7 +114,7 @@ locator_record_hdr_to_char(locator_hdr_t *h)
 
 /* Returns the length of the auth data field based on the key_id value */
 uint16_t
-auth_data_get_len_for_type(lisp_key_type key_id)
+auth_data_get_len_for_type(lisp_key_type_e key_id)
 {
     switch (key_id) {
     default: // HMAC_SHA_1_96

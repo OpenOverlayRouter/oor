@@ -1,5 +1,5 @@
 /*
- * lispd_local_db.h
+ * lisp_local_db.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Send registration messages for each database mapping to
@@ -32,8 +32,7 @@
 
 #include "lisp_local_db.h"
 #include "lispd_external.h"
-//#include "lispd_lib.h"
-#include <netinet/in.h>
+#include "lmlog.h"
 
 
 local_map_db_t *

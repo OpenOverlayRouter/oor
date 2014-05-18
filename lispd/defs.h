@@ -1,10 +1,11 @@
 /*
- * lispd_defs.h
+ * defs.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Necessary logic to handle incoming map replies.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -31,40 +32,13 @@
 #ifndef DEFS_H_
 #define DEFS_H_
 
-#include <assert.h>
-#include <ctype.h>
-#include <errno.h>
-#include <ifaddrs.h>
-#include <inttypes.h>
-#include <netdb.h>
-#include <netinet/udp.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/ioctl.h>
-#include <syslog.h>
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <endian.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip6.h>
-#include <netinet/ip.h>
 #include <stdint.h>
-#include <sys/select.h>
 
-#include "lispd_log.h"
-#include "util.h"
-//#include "lispd_external.h"
-
-
+typedef struct map_server_list map_server_list_t;
+typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
+typedef struct lisp_ctrl lisp_ctrl_t;
+typedef struct htable shash_t;
+typedef struct fwd_entry fwd_entry_t;
 
 /* Protocols constants related with timeouts */
 #define LISPD_INITIAL_MRQ_TIMEOUT       2  // Initial expiration timer for the first MRq
@@ -80,32 +54,9 @@
 #define LISPD_MAX_RETRANSMITS           5  // Maximum amount of retransmits of a message
 #define LISPD_MIN_RETRANSMIT_INTERVAL   1  // Minimum time between retransmits of control messages
 
-/* Determine endianness */
-#if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
-#define BIG_ENDIANS  2
-#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN
-#define LITTLE_ENDIANS 1
-#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN
-#define BIG_ENDIANS  2
-#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN
-#define LITTLE_ENDIANS 1
-#elif defined(BYTE_ORDR) && BYTE_ORDER == BIG_ENDIAN
-#define BIG_ENDIANS  2
-#elif defined(BYTE_ORDER) && BYTE_ORDER == LITTLE_ENDIAN
-#define LITTLE_ENDIANS 1
-#elif defined(__386__)
-#define LITTLE_ENDIANS 1
-#else
-# error "Can't determine endianness"
-#endif
-
-
 
 #define FIELD_AFI_LEN                    2
 #define FIELD_PORT_LEN                   2
-
-
-
 
 /*
  *  lispd constants
@@ -170,39 +121,27 @@ int err;
 
 
 
-///*
-// * Map register Key type
-// */
-//#define NO_KEY               0
-//#define HMAC_SHA_1_96        1
-//#define HMAC_SHA_256_128     2
+ /* LISP data packet header */
 
-
-
-
-/* LISP data packet header */
-
-typedef struct lisphdr {
-    #ifdef __LITTLE_ENDIAN_BITFIELD
-    uint8_t rflags:3;
-    uint8_t instance_id:1;
-    uint8_t map_version:1;
-    uint8_t echo_nonce:1;
-    uint8_t lsb:1;
-    uint8_t nonce_present:1;
-    #else
-    uint8_t nonce_present:1;
-    uint8_t lsb:1;
-    uint8_t echo_nonce:1;
-    uint8_t map_version:1;
-    uint8_t instance_id:1;
-    uint8_t rflags:3;
-    #endif
-    uint8_t nonce[3];
-    uint32_t lsb_bits;
-} lisphdr_t;
-
-
+ typedef struct lisphdr {
+     #ifdef __LITTLE_ENDIAN_BITFIELD
+     uint8_t rflags:3;
+     uint8_t instance_id:1;
+     uint8_t map_version:1;
+     uint8_t echo_nonce:1;
+     uint8_t lsb:1;
+     uint8_t nonce_present:1;
+     #else
+     uint8_t nonce_present:1;
+     uint8_t lsb:1;
+     uint8_t echo_nonce:1;
+     uint8_t map_version:1;
+     uint8_t instance_id:1;
+     uint8_t rflags:3;
+     #endif
+     uint8_t nonce[3];
+     uint32_t lsb_bits;
+ } lisphdr_t;
 
 /*
  * Structure to simplify netlink processing
@@ -239,33 +178,11 @@ typedef struct lisp_data_hdr {
     uint32_t lsb_bits;
 } lisp_data_hdr_t;
 
-/*
- * Homeless (for now) variables and parameters
- */
 
-/*
- * Fixed size portion of map request ITR RLOC.
- */
-//typedef struct lispd_pkt_map_request_itr_rloc_t_ {
-//    uint16_t afi;
-//    /*    uint8_t address[0]; */
-//} PACKED lispd_pkt_map_request_itr_rloc_t;
-
-
-/*
- * Use the nonce to calculate the source port for a map request
- * message.
- */
+/* Use the nonce to calculate the source port for a map request
+ * message. */
 #define LISP_PKT_MAP_REQUEST_UDP_SPORT(Nonce) (0xf000 | (Nonce & 0xfff))
-
 #define LISP_PKT_MAP_REQUEST_TTL 32
-
-
-/*
- * The IRC value above is set to one less than the number of ITR-RLOC
- * fields (an IRC of zero means one ITR-RLOC). In 5 bits we can encode
- * the number 15 which means we can have up to 16 ITR-RLOCs.
- */
-#define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 16
+#define LISP_PKT_MAP_REQUEST_MAX_ITR_RLOCS 31
 
 #endif /* DEFS_H_ */

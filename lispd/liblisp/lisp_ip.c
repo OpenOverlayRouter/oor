@@ -27,9 +27,11 @@
  *    Florin Coras  <fcoras@ac.upc.edu>
  *
  */
+#include <errno.h>
 
 #include "lisp_address.h"
-#include "defs.h"
+#include "util.h"
+#include "lmlog.h"
 
 /*
  * ip_addr_t functions
@@ -222,7 +224,6 @@ ip_addr_afi_to_default_mask(ip_addr_t *ip)
 inline uint8_t
 ip_prefix_get_plen(ip_prefix_t *pref)
 {
-    assert(pref);
     return(pref->plen);
 }
 

@@ -28,72 +28,23 @@
  */
 
 
+#include <errno.h>
 
 #include "lispd_output.h"
 //#include <elibs/bob/lookup3.c>
-#include <liblisp.h>
-#include <packets.h>
-#include <lispd_sockets.h>
-#include <lispd_info_nat.h>
+#include "liblisp.h"
+#include "packets.h"
+#include "sockets.h"
+#include "lispd_info_nat.h"
 //#include <lispd_re.h>
-#include <lisp_control.h>
-#include <netinet/tcp.h>
+#include "lisp_control.h"
 #include "lispd_tun.h"
+#include "lmlog.h"
+
+#include "sockets-util.h"
 
 
 int lisp_output_multicast(uint8_t *pkt, int plen, lisp_addr_t *dst_eid);
-
-/*
- * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
- */
-int
-extract_5_tuples_from_packet(uint8_t *packet, packet_tuple_t *tuple)
-{
-    /* TODO: would be nice for this to use ip_addr_t in the future */
-    struct iphdr *iph = NULL;
-    struct ip6_hdr *ip6h = NULL;
-    struct udphdr *udp = NULL;
-    struct tcphdr *tcp = NULL;
-    int len = 0;
-
-    iph = (struct iphdr *) packet;
-
-    lisp_addr_set_afi(&tuple->src_addr, LM_AFI_IP);
-    lisp_addr_set_afi(&tuple->dst_addr, LM_AFI_IP);
-
-    switch (iph->version) {
-    case 4:
-        ip_addr_set_v4(lisp_addr_ip(&tuple->src_addr), &iph->saddr);
-        ip_addr_set_v4(lisp_addr_ip(&tuple->dst_addr), &iph->daddr);
-        tuple->protocol = iph->protocol;
-        len = iph->ihl * 4;
-        break;
-    case 6:
-        ip6h = (struct ip6_hdr *) packet;
-        ip_addr_set_v6(lisp_addr_ip(&tuple->src_addr), &ip6h->ip6_src);
-        ip_addr_set_v6(lisp_addr_ip(&tuple->dst_addr), &ip6h->ip6_dst);
-        tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-        len = sizeof(struct ip6_hdr);
-        break;
-    default:
-        lmlog(DBG_2, "extract_5_tuples_from_packet: No ip packet identified");
-        return (BAD);
-    }
-
-    if (tuple->protocol == IPPROTO_UDP) {
-        udp = (struct udphdr *) CO(packet, len);
-        tuple->src_port = ntohs(udp->source);
-        tuple->dst_port = ntohs(udp->dest);
-    } else if (tuple->protocol == IPPROTO_TCP) {
-        tcp = (struct tcphdr *) CO(packet, len);
-        tuple->src_port = ntohs(tcp->source);
-        tuple->dst_port = ntohs(tcp->dest);
-    } else { //If protocol is not TCP or UDP, ports of the tuple set to 0
-        tuple->src_port = 0;
-        tuple->dst_port = 0;
-    }
-    return (GOOD);
-}
 
 
 void add_ip_header (

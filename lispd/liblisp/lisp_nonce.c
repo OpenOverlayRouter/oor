@@ -28,8 +28,15 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#include "lisp_nonce.h"
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/ip6.h>
+#include <netinet/ip.h>
 #include <time.h>
+
+#include "lisp_nonce.h"
+#include "util.h"
+#include "lmlog.h"
 
 /*  Generates a nonce random number. Requires librt */
 uint64_t

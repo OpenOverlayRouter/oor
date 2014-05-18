@@ -1,5 +1,5 @@
 /*
- * lispd_map_cache_db.c
+ * lisp_map_cache_db.c
  *
  * This file is part of LISP Mobile Node Implementation.
  * Send registration messages for each database mapping to
@@ -26,12 +26,12 @@
  *
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Florin Coras      <fcoras@ac.upc.edu>
  */
 
 #include "lisp_map_cache.h"
-//#include "lispd_lib.h"
+#include "lmlog.h"
 #include <math.h>
-
 
 
 map_cache_db_t*

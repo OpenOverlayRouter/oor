@@ -28,9 +28,13 @@
  *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  */
 
+#include <errno.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+
 #include "lispd_external.h"
-#include "lispd_log.h"
-#include "lispd_routing_tables_lib.h"
+#include "lmlog.h"
+#include "routing_tables_lib.h"
 #include "lispd_tun.h"
 
 

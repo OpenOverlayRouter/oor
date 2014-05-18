@@ -28,9 +28,8 @@
 
 
 #include "lisp_ctrl_device.h"
-//#include <lispd_external.h>
-#include <lispd_sockets.h>
-#include <packets.h>
+#include "sockets.h"
+#include "packets.h"
 #include <lispd_lib.h>
 
 

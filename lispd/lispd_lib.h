@@ -34,7 +34,6 @@
 #define LISPD_LIB_H_
 
 #include "defs.h"
-#include "lispd_types.h"
 
 
 

@@ -32,107 +32,56 @@
  *
  */
 
-
-#include <stdlib.h>
 #include <signal.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <syslog.h>
-#include <inttypes.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-//#include <sys/timerfd.h>
-#include <netinet/in.h>
-#include <net/if.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+
 #include "lispd.h"
 #include "lispd_config.h"
 #include "cmdline.h"
-#include "lispd_iface_list.h"
-#include "lispd_iface_mgmt.h"
+#include "iface_list.h"
+#include "iface_mgmt.h"
 #include "lispd_input.h"
 #include "lispd_lib.h"
-#include "lispd_log.h"
-#include "lispd_sockets.h"
-#include "lispd_timers.h"
+#include "lmlog.h"
+#include "sockets.h"
+#include "timers.h"
 #include "lispd_tun.h"
 #include "lispd_output.h"
-#include "lispd_routing_tables_lib.h"
+#include "routing_tables_lib.h"
 #include <liblisp.h>
 #include <lisp_control.h>
 #include <lisp_xtr.h>
 #include <lisp_ms.h>
 #include <shash.h>
 #include <generic_list.h>
-//#include <elibs/htable/hash_table.h>
 
-
-/*
- *      config paramaters
- */
-
-//lisp_addr_list_t            *map_resolvers   = NULL;
-//lisp_addr_list_t            *proxy_itrs      = NULL;
-//mcache_entry_t              *proxy_etrs      = NULL;
+/* config paramaters */
 char    *config_file                        = NULL;
 int      debug_level                        = 0;
-int      default_rloc_afi                   = AF_INET6;
+int      default_rloc_afi                   = -1;
 int      daemonize                          = FALSE;
-//int      map_request_retries                = DEFAULT_MAP_REQUEST_RETRIES;
 
-/* RLOC probing parameters */
-//int      rloc_probe_interval                = RLOC_PROBING_INTERVAL;
-//int      rloc_probe_retries                 = DEFAULT_RLOC_PROBING_RETRIES;
-//int      rloc_probe_retries_interval        = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
-
-int      control_port                       = LISP_CONTROL_PORT;
 uint32_t iseed                              = 0;  /* initial random number generator */
-//int      total_mappings                     = 0;
 
-/*
- *      various globals
- */
-
-//char   msg[128];                                /* syslog msg buffer */
+/* various globals */
 pid_t  pid                                  = 0;    /* child pid */
 pid_t  sid                                  = 0;
 
-/*
- *      sockets (fds)
- */
+/* sockets (fds)  */
 int     ipv4_data_input_fd                  = 0;
 int     ipv6_data_input_fd                  = 0;
-//int     ipv4_control_input_fd               = 0;
-//int     ipv6_control_input_fd               = 0;
 int     netlink_fd                          = 0;
-fd_set  readfds;
-//struct  sockaddr_nl dst_addr;
-//struct  sockaddr_nl src_addr;
-//nlsock_handle nlh;
 
 /* NAT */
+int nat_aware = FALSE;
+int nat_status = UNKNOWN;
+nonces_list_t *nat_ir_nonce = NULL;
 
-int             nat_aware   = FALSE;
-int             nat_status  = UNKNOWN;
-//lisp_site_ID   site_ID     = {.byte = {0}}; //XXX Check if this works
-//lisp_xTR_ID    xTR_ID      = {.byte = {0}};
-// Global variables used to store nonces of encapsulated map register and info request.
-// To be removed when NAT with multihoming supported.
-//nonces_list_t     *nat_emr_nonce  = NULL;
-nonces_list_t     *nat_ir_nonce   = NULL;
+/* timers (fds) */
+int timers_fd = 0;
 
-
-/*
- *      timers (fds)
- */
-
-int     timers_fd                       = 0;
-
-struct sock_master  *smaster            = NULL;
-
-
+struct sock_master *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
 

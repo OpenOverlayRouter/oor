@@ -33,54 +33,24 @@
 #ifndef LISPD_EXTERNAL_H_
 #define LISPD_EXTERNAL_H_
 
-#include "lispd.h"
-#include <lispd_iface_list.h>
-//#include <map_cache_entry.h>
-//#include <elibs/htable/hash_table.h>
+#include <iface_list.h>
 
-
-typedef struct map_server_list map_server_list_t;
-typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
-typedef struct lisp_ctrl lisp_ctrl_t;
-typedef struct htable shash_t;
-typedef struct fwd_entry fwd_entry_t;
-
-//extern  lisp_addr_list_t       *map_resolvers;
-extern  lisp_addr_list_t       *proxy_itrs;
-//extern  mcache_entry_t   *proxy_etrs;
-extern  map_server_list_t       *map_servers;
-extern  char                    *config_file;
-//extern  char                    msg[];
-//extern  int                     map_request_retries;
-extern  int                     control_port;
-extern  int                     debug_level;
-extern  int                     daemonize;
-extern  int                     default_rloc_afi;
-//extern  int                     rloc_probe_interval;
-//extern  int                     rloc_probe_retries;
-//extern  int                     rloc_probe_retries_interval;
-//extern  int                     total_mappings;
-extern  int                     netlink_fd;
-extern  int                     ipv6_data_input_fd;
-extern  int                     ipv4_data_input_fd;
-//extern  int                     ipv6_control_input_fd;
-//extern  int                     ipv4_control_input_fd;
-extern  int                     nat_aware;
-extern  int                     nat_status;
-//extern  lisp_site_ID           site_ID;
-//extern  lisp_xTR_ID            xTR_ID;
-//extern  nonces_list_t             *nat_emr_nonce;
-extern  nonces_list_t             *nat_ir_nonce;
-extern  int                     timers_fd;
-//extern  struct sockaddr_nl      dst_addr;
-//extern  struct sockaddr_nl      src_addr;
-extern  nlsock_handle           nlh;
-extern iface_list_elt     *head_interface_list;
-extern iface_t          *default_ctrl_iface_v4 ;
-extern iface_t          *default_ctrl_iface_v6;
-extern iface_t          *default_out_iface_v4;
-extern iface_t          *default_out_iface_v6;
-//extern timer                    *smr_timer;
+extern map_server_list_t *map_servers;
+extern char *config_file;
+extern int debug_level;
+extern int daemonize;
+extern int default_rloc_afi;
+extern int netlink_fd;
+extern int ipv6_data_input_fd;
+extern int ipv4_data_input_fd;
+extern int nat_aware;
+extern int nat_status;
+extern nonces_list_t *nat_ir_nonce;
+extern iface_list_elt *head_interface_list;
+extern iface_t *default_ctrl_iface_v4;
+extern iface_t *default_ctrl_iface_v6;
+extern iface_t *default_out_iface_v4;
+extern iface_t *default_out_iface_v6;
 
 extern sock_master_t *smaster;
 extern lisp_ctrl_dev_t *ctrl_dev;

@@ -28,9 +28,13 @@
  *
  */
 
-#include "defs.h"
+#include <assert.h>
+
 #include "lisp_lcaf.h"
 #include "lisp_address.h"
+#include "defs.h"
+#include "util.h"
+#include "lmlog.h"
 
 
 typedef void    (*del_fct)(void *);

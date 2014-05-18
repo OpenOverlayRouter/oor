@@ -83,16 +83,16 @@ static inline void *lisp_msg_hdr(lbuf_t *b);
 
 lbuf_t *lisp_msg_mreq_create(lisp_addr_t *, glist_t *, lisp_addr_t *);
 lbuf_t *lisp_msg_neg_mrep_create(lisp_addr_t *, int, lisp_action_e);
-lbuf_t *lisp_msg_mreg_create(mapping_t *, lisp_key_type);
+lbuf_t *lisp_msg_mreg_create(mapping_t *, lisp_key_type_e);
 lbuf_t *lisp_msg_nat_mreg_create(mapping_t *, char *, lisp_site_id *,
-        lisp_xtr_id *, lisp_key_type );
+        lisp_xtr_id *, lisp_key_type_e );
 
 char *lisp_msg_hdr_to_char(lbuf_t *b);
 char *lisp_msg_ecm_hdr_to_char(lbuf_t *b);
 
-int lisp_msg_fill_auth_data(lbuf_t *, lisp_key_type , const char *);
+int lisp_msg_fill_auth_data(lbuf_t *, lisp_key_type_e , const char *);
 int lisp_msg_check_auth_field(lbuf_t *, const char *);
-void *lisp_msg_put_empty_auth_record(lbuf_t *, lisp_key_type);
+void *lisp_msg_put_empty_auth_record(lbuf_t *, lisp_key_type_e);
 static inline void *lisp_msg_auth_record(lbuf_t *);
 
 void *lisp_msg_pull_hdr(lbuf_t *b);

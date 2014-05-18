@@ -1,5 +1,5 @@
 /*
- * lispd_locator.h
+ * lisp_locator.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Send registration messages for each database mapping to
@@ -29,12 +29,13 @@
  *    Florin Coras      <fcoras@ac.upc.edu>
  */
 
-#ifndef LISPD_LOCATOR_H_
-#define LISPD_LOCATOR_H_
+#ifndef LISP_LOCATOR_H_
+#define LISP_LOCATOR_H_
 
 #include "lisp_address.h"
 #include "lisp_nonce.h"
-#include <lispd_timers.h>
+#include "util.h"
+#include "timers.h"
 
 /* locator_types */
 #define STATIC_LOCATOR                  0
@@ -48,7 +49,7 @@
 #define MIN_WEIGHT 0
 #define MAX_WEIGHT 255
 
-typedef struct locator_ {
+typedef struct locator {
     lisp_addr_t *addr;
 
     /* UP , DOWN */
@@ -162,4 +163,4 @@ static inline void locator_set_type(locator_t *l, int type)
 
 
 
-#endif /* LISPD_LOCATOR_H_ */
+#endif /* LISP_LOCATOR_H_ */

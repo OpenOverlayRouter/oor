@@ -39,19 +39,15 @@ endif
 INC		= defs.h
 MAKEFILE	= Makefile
 OBJS		= cmdline.o				\
-		  cksum.o				\
 		  control/lisp_control.o		\
 		  control/lisp_ctrl_device.o		\
 		  control/lisp_local_db.o		\
 		  control/lisp_map_cache.o 		\
 		  control/lisp_xtr.o			\
 		  control/lisp_ms.o			\
-		  data-tun/lispd_iface_list.o		\
 		  data-tun/lispd_input.o		\
 		  data-tun/lispd_output.o		\
 		  data-tun/lispd_tun.o			\
-		  data-tun/lispd_routing_tables_lib.o 	\
-		  elibs/htable/hash_table.o		\
 		  elibs/patricia/patricia.o		\
 		  liblisp/liblisp.o			\
 		  liblisp/lisp_address.o		\
@@ -62,30 +58,34 @@ OBJS		= cmdline.o				\
 		  liblisp/lisp_messages.o		\
 		  liblisp/lisp_message_fields.o 	\
 		  liblisp/lisp_nonce.o 			\
+		  lib/cksum.o				\
+		  lib/generic_list.o			\
+		  lib/hash_table.o			\
+		  lib/lbuf.o				\
+		  lib/lisp_site.o			\
+		  lib/lmlog.o				\
+		  lib/mapping_db.o			\
+		  lib/map_cache_entry.o			\
+		  lib/routing_tables_lib.o 		\
+		  lib/packets.o 			\
+		  lib/sockets.o 			\
+		  lib/sockets-util.o			\
+		  lib/shash.o 				\
+		  lib/timers.o 				\
+		  lib/util.o				\
+		  iface_list.o				\
+		  iface_mgmt.o 				\
 		  lispd.o				\
-		  lispd_config.o			\
-		  lispd_iface_mgmt.o 			\
-		  lispd_log.o				\
-		  lispd_sockets.o 			\
-		  lispd_timers.o 			\
-		  types/generic_list.o			\
-		  types/map_cache_entry.o		\
-		  types/lbuf.o				\
-		  types/lisp_site.o			\
-		  types/lispd_mdb.o			\
-		  types/packets.o 			\
-		  types/sockets-util.o			\
-		  types/shash.o 			\
-		  util.o
+		  lispd_config.o			
 #		  control/lispd_info_nat.o		\
 #		  control/lispd_info_request.o 		\
 #		  control/lispd_info_reply.o		\
 #		  lispd_lib.o				\
-#		  types/lispd_remdb.o			\
+#		  lib/lispd_remdb.o			\
 
 EXE		= lispd
 PREFIX		= /usr/local/sbin
-INCLUDE		= -I. -Iliblisp -Ielibs -Itypes -Icontrol -Idata-tun
+INCLUDE		= -I. -Iliblisp -Ielibs -Ilib -Icontrol -Idata-tun
 
 $(EXE): $(OBJS) 
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS) 

@@ -1,5 +1,5 @@
 /*
- * lispd_mapping.h
+ * lisp_mapping.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Send registration messages for each database mapping to
@@ -26,15 +26,12 @@
  *
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Florin Coras      <fcoras@ac.upc.edu>
  */
 
-#ifndef LISPD_MAPPING_H_
-#define LISPD_MAPPING_H_
+#ifndef MAPPING_H_
+#define MAPPING_H_
 
-//#include "lispd_locator.h"
-//#include "lispd_address.h"
-#include "lispd_types.h"
-//#include "lispd_remdb.h"
 #include "lisp_address.h"
 #include "lisp_locator.h"
 
@@ -47,7 +44,7 @@ typedef enum {
 
 typedef void (*extended_info_del_fct)(void *);
 
-typedef struct lispd_mapping_elt_ {
+typedef struct mapping {
     lisp_addr_t                     eid_prefix;
     uint16_t                        locator_count;
     locators_list_t                 *head_v4_locators_list;
@@ -212,6 +209,4 @@ static inline void mapping_set_auth(mapping_t *m, uint8_t a)
 }
 
 
-
-
-#endif /* LISPD_MAPPING_H_ */
+#endif /* MAPPING_H_ */

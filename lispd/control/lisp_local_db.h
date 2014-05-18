@@ -1,5 +1,5 @@
 /*
- * lispd_local_db.h
+ * lisp_local_db.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Send registration messages for each database mapping to
@@ -26,13 +26,15 @@
  *
  * Written or modified by:
  *    Albert Lopez      <alopez@ac.upc.edu>
+ *    Florin Coras      <fcoras@ac.upc.edu>
  */
-#ifndef LISPD_LOCAL_DB_H_
-#define LISPD_LOCAL_DB_H_
+
+#ifndef LISP_LOCAL_DB_H_
+#define LISP_LOCAL_DB_H_
 
 #include <defs.h>
 #include <liblisp.h>
-#include <lispd_mdb.h>
+#include <mapping_db.h>
 
 
 typedef struct local_map_db_t_ {
@@ -70,4 +72,4 @@ inline int local_map_db_n_entries(local_map_db_t *);
 #define local_map_db_foreach_ip_end                     \
     } mdb_foreach_ip_entry_end
 
-#endif /*LISPD_LOCAL_DB_H_*/
+#endif /*LISP_LOCAL_DB_H_*/

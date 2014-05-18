@@ -30,6 +30,7 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include "cksum.h"
+#include "lmlog.h"
 
 static void increment_record_count(lbuf_t *b);
 
@@ -292,7 +293,7 @@ void *
 lisp_msg_pull_auth_field(lbuf_t *b)
 {
     void *hdr;
-    lisp_key_type keyid;
+    lisp_key_type_e keyid;
 
     hdr = lbuf_pull(b, sizeof(auth_record_hdr_t));
     keyid = ntohs(AUTH_REC_KEY_ID(hdr));
@@ -568,7 +569,7 @@ lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac)
 }
 
 lbuf_t *
-lisp_msg_mreg_create(mapping_t *m, lisp_key_type keyid)
+lisp_msg_mreg_create(mapping_t *m, lisp_key_type_e keyid)
 {
     lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
 
@@ -585,7 +586,7 @@ lisp_msg_mreg_create(mapping_t *m, lisp_key_type keyid)
 
 lbuf_t *
 lisp_msg_nat_mreg_create(mapping_t *m, char *key, lisp_site_id *site_id,
-        lisp_xtr_id *xtr_id, lisp_key_type keyid)
+        lisp_xtr_id *xtr_id, lisp_key_type_e keyid)
 {
     void *hdr;
     lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
@@ -657,7 +658,7 @@ lisp_msg_ecm_hdr_to_char(lbuf_t *b)
 /* Compute and fill auth data field
  * TODO Support more than SHA1 */
 static int
-auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id,
+auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type_e key_id,
         const char *key, uint8_t *md, uint32_t *md_len)
 {
     switch(key_id) {
@@ -683,7 +684,7 @@ auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type key_id,
 }
 
 int
-lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type keyid, const char *key)
+lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_e keyid, const char *key)
 {
     uint32_t    md_len  = 0;
 
@@ -709,7 +710,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
     uint32_t    md_len  = 0;
     uint8_t     *adptr  = NULL;
     uint16_t    ad_len;
-    lisp_key_type keyid;
+    lisp_key_type_e keyid;
 
     auth_record_hdr_t *hdr;
 
@@ -740,7 +741,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
 }
 
 void *
-lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type keyid)
+lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type_e keyid)
 {
     void *hdr;
     uint16_t len = auth_data_get_len_for_type(keyid);

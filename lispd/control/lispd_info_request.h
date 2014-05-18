@@ -1,7 +1,7 @@
 #pragma once
 
 #include <defs.h>
-#include <lispd_iface_list.h>
+#include <iface_list.h>
 #include <cksum.h>
 #include "lispd_info_nat.h"
 

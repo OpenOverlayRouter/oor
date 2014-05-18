@@ -27,15 +27,16 @@
  */
 
 #include "lisp_ms.h"
-#include <cksum.h>
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
+#include "cksum.h"
+#include "lmlog.h"
+//#include <openssl/hmac.h>
+//#include <openssl/evp.h>
 
 
 /* for testing, should move them out */
-#include <lispd_lib.h>
-#include <packets.h>
-#include <lispd_sockets.h>
+//#include <lispd_lib.h>
+#include "packets.h"
+#include "sockets.h"
 
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
 static void mc_add_rlocs_to_rle(mapping_t *, mapping_t *);
@@ -43,38 +44,6 @@ static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);
 static int ms_recv_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ms_t *lisp_ms_cast(lisp_ctrl_dev_t *dev);
 
-
-//static int
-//get_locator_pair(glist_t *lrlocs, mapping_t *m, lisp_addr_t **la,
-//        lisp_addr_t **ra)
-//{
-//    glist_entry_t *it;
-//    locators_list_t *llist;
-//    locator_t *loc;
-//    lisp_addr_t *laddr, *raddr;
-//
-//    glist_for_each_entry(it, lrlocs) {
-//        laddr = glist_entry_data(it);
-//        if (lisp_addr_ip_afi(laddr) == AF_INET) {
-//            llist = m->head_v4_locators_list;
-//        } else {
-//            llist = m->head_v6_locators_list;
-//        }
-//
-//        while (llist) {
-//            loc = llist->locator;
-//            if (loc->state == UP) {
-//                *la = laddr;
-//                *ra = loc->addr;
-//                return(GOOD);
-//            }
-//            llist = llist->next;
-//        }
-//
-//    }
-//
-//    return(BAD);
-//}
 
 static lisp_addr_t *
 get_locator_with_afi(mapping_t *m, int afi)
@@ -300,7 +269,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     mapping_t *m;
     locator_t *probed;
     lbuf_t *mntf;
-    lisp_key_type keyid = HMAC_SHA_1_96; /* TODO configurable */
+    lisp_key_type_e keyid = HMAC_SHA_1_96; /* TODO configurable */
 
 
     b = *buf;

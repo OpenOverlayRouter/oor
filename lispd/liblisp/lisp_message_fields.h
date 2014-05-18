@@ -31,8 +31,11 @@
 #ifndef LISP_MESSAGE_FIELDS_H_
 #define LISP_MESSAGE_FIELDS_H_
 
-#include <defs.h>
+//#include <defs.h>
 #include <generic_list.h>
+#include <stdint.h>
+
+#include "util.h"
 
 
 /*
@@ -472,21 +475,21 @@ void eid_rec_hdr_init(eid_record_hdr_t *ptr);
  */
 
 
-typedef struct _auth_field_hdr {
+typedef struct auth_field_hdr {
     uint16_t key_id;
     uint16_t auth_data_len;
 } __attribute__ ((__packed__)) auth_record_hdr_t;
 
 
-typedef enum lisp_key_type_{
+typedef enum lisp_key_type {
     NO_KEY,
     HMAC_SHA_1_96,
     HMAC_SHA_256_128
-} lisp_key_type;
+} lisp_key_type_e;
 
 #define LISP_SHA1_AUTH_DATA_LEN         20
 
-uint16_t auth_data_get_len_for_type(lisp_key_type key_id);
+uint16_t auth_data_get_len_for_type(lisp_key_type_e key_id);
 
 #define AUTH_REC_CAST(h_) ((auth_record_hdr_t *)(h_))
 #define AUTH_REC_KEY_ID(h_) AUTH_REC_CAST((h_))->key_id
@@ -527,7 +530,7 @@ typedef struct _rtr_auth_field_hdr {
     uint8_t     ad_type:5;
     uint8_t     reserved3:3;
     uint8_t     reserved2;
-    uint16_t    reserved3;
+    uint16_t    reserved1;
 #endif
     uint16_t key_id;
     uint16_t rtr_auth_data_len;

@@ -27,12 +27,15 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
+#include <unistd.h>
+
 #include "lisp_control.h"
+#include "lisp_ctrl_device.h"
+#include "util.h"
+#include "lmlog.h"
+
 #include <lispd_external.h>
 #include "lispd_info_nat.h"
-#include <lbuf.h>
-#include <cksum.h>
-#include <lisp_ctrl_device.h>
 
 
 static void set_default_rlocs(lisp_ctrl_t *ctrl);
@@ -147,9 +150,7 @@ ctrl_recv_msg(struct sock *sl)
 int
 ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
 {
-    int sk, ret;
-    int dst_afi = lisp_addr_ip_afi(&uc->ra);
-    iface_t *iface;
+    int ret;
 
     if (lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
         lmlog(DBG_2, "sock_send: dst % of UDP connection is not IP. "
@@ -157,20 +158,7 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
         return (BAD);
     }
 
-    /* FIND the socket where to output the packet */
-    if (lisp_addr_afi(&uc->la) == LM_AFI_NO_ADDR) {
-        lisp_addr_copy(&uc->la, get_default_ctrl_address(dst_afi));
-        sk = get_default_ctrl_socket(dst_afi);
-    } else {
-        iface = get_interface_with_address(&uc->la);
-        if (iface) {
-            sk = iface_socket(iface, dst_afi);
-        } else {
-            sk = get_default_ctrl_socket(dst_afi);
-        }
-    }
-
-    ret = sock_send(sk, b, uc);
+    ret = sock_send(uc, b);
 
     if (ret != GOOD) {
         lmlog(DBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",

@@ -37,7 +37,7 @@
 #include <fcntl.h>
 #include <linux/if_tun.h>
 #include <defs.h>
-#include "lispd_sockets.h"
+#include "sockets.h"
 #include "cksum.h"
 #include "lispd_output.h"
 

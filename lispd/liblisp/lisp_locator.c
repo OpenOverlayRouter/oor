@@ -28,9 +28,11 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
+#include <errno.h>
+
 #include "lisp_locator.h"
 #include "lispd_lib.h"
-#include "lispd_log.h"
+#include "lmlog.h"
 
 
 static lcl_locator_extended_info *new_lcl_locator_extended_info(int *);
