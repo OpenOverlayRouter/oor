@@ -30,7 +30,7 @@
 #define LISPD_INPUT_H_
 
 #include <stdio.h>
-#include <net/if.h>
+//#include <net/if.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>

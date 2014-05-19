@@ -35,6 +35,11 @@
 #include <defs.h>
 #include <stdint.h>
 
+typedef enum lbuf_source {
+    LBUF_MALLOC,
+    LBUF_STACK
+} lbuf_source_e;
+
 struct lbuf {
     struct list_head list;      /* for queueing, to be implemented*/
 
@@ -50,13 +55,15 @@ struct lbuf {
 
     uint16_t lisp;              /* lisp payload offset */
 
+    lbuf_source_e source;       /* source of memory allocated as 'base' */
     void *base;                 /* start of allocated space */
     void *data;                 /* start of in-use space */
 };
 
 typedef struct lbuf lbuf_t;
 
-
+void lbuf_use(lbuf_t *, void *, uint32_t);
+void lbuf_use_stack(lbuf_t *, void *, uint32_t);
 void lbuf_init(lbuf_t *, uint32_t);
 void lbuf_uninit(lbuf_t *);
 lbuf_t *lbuf_new(uint32_t);
@@ -85,6 +92,9 @@ lbuf_t *lbuf_clone(lbuf_t *b);
 void lbuf_prealloc_tailroom(lbuf_t *b, uint32_t);
 void lbuf_prealloc_headroom(lbuf_t *b, uint32_t);
 
+static inline void lbuf_set_base(lbuf_t *, void *);
+static inline void lbuf_set_data(lbuf_t *, void *);
+
 static inline void lbuf_reset_ip(lbuf_t *b);
 static inline void *lbuf_ip(lbuf_t *b);
 static inline void lbuf_reset_udp(lbuf_t *b);
@@ -93,6 +103,16 @@ static inline void lbuf_reset_lisp(lbuf_t *b);
 static inline void *lbuf_lisp(lbuf_t*);
 static inline void lbuf_reset_lisp_hdr(lbuf_t *b);
 static inline void *lbuf_lisp_hdr(lbuf_t*);
+
+static inline void lbuf_set_base(lbuf_t *b, void *bs)
+{
+    b->base = bs;
+}
+
+static inline void lbuf_set_data(lbuf_t *b, void *dt)
+{
+    b->data = dt;
+}
 
 static inline void *lbuf_at(const lbuf_t *b, uint32_t offset, uint32_t size)
 {

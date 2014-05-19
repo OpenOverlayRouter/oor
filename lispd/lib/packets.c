@@ -29,15 +29,23 @@
  */
 
 #include <errno.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+//#include <net/if.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include "packets.h"
 #include "lispd_external.h"
 #include "sockets.h"
 #include "lisp_address.h"
 #include "cksum.h"
+#include "util.h"
 #include "lmlog.h"
-#include <netinet/udp.h>
-#include <netinet/tcp.h>
+
 
 
 uint16_t ip_id = 0;
@@ -71,8 +79,9 @@ pkt_pull_ip(lbuf_t *b)
     data = lbuf_data(b);
     ip_hdr_len = ip_hdr_ver_to_len(((struct ip *)data)->ip_v);
 
-    if (ip_hdr_len < 1)
+    if (ip_hdr_len < 1) {
         return(NULL);
+    }
 
     return(lbuf_pull(b, ip_hdr_len));
 }
@@ -209,6 +218,59 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
     return(GOOD);
 }
 
+
+int
+pkt_update_ttl_and_tos(lbuf_t *b, int ttl, int tos)
+{
+    struct ip6_hdr *ip6h = NULL;
+    struct iphdr *iph;
+    lbuf_t lb;
+
+    /* make local copy not to alter the packet's size */
+    lb = *b;
+    iph = pkt_pull_ip(&lb);
+
+    if (iph->version == 4) {
+        /*XXX It seems that there is a bug in uClibc that causes ttl=0 in
+         * OpenWRT. This is a quick workaround */
+        if (ttl != 0) {
+            iph->ttl = ttl;
+        }
+
+        iph->tos = tos;
+
+        /* We need to recompute the checksum since we have changed the TTL
+         * and TOS header fields.
+         *
+         * New checksum must be computed with the checksum header field
+         * with 0s */
+        iph->check = 0;
+        iph->check = ip_checksum((uint16_t*) iph, sizeof(struct iphdr));
+
+        lmlog(DBG_3, "INPUT (4341): Inner src: %s | Inner dst: %s ",
+                ip_to_char(&iph->saddr, AF_INET),
+                ip_to_char(&iph->daddr, AF_INET));
+    } else if (iph->version == 6) {
+        ip6h = (struct ip6_hdr *) iph;
+
+        /*XXX It seems that there is a bug in uClibc that causes ttl=0 in
+         * OpenWRT. This is a quick workaround */
+        if (ttl != 0) {
+            /* ttl = Hops limit in IPv6 */
+            ip6h->ip6_hops = ttl;
+        }
+
+        /* tos = Traffic class field in IPv6 */
+        IPV6_SET_TC(ip6h, tos);
+        lmlog(DBG_3, "INPUT (4341): Inner src: %s | Inner dst: %s ",
+                ip_to_char(&ip6h->ip6_src, AF_INET6),
+                ip_to_char(&ip6h->ip6_dst, AF_INET6));
+    } else {
+        return(BAD);
+    }
+
+    return(GOOD);
+}
 
 
 

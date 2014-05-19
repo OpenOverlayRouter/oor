@@ -31,10 +31,12 @@
  *
  */
 
+#include <errno.h>
+
 #include "lispd_afi.h"
 #include "lisp_lcaf.h"
-#include "lispd_lib.h"
 #include "lispd_re.h"
+#include "lmlog.h"
 
 int pkt_process_eid_afi(uint8_t **offset, mapping_t *mapping)
 {

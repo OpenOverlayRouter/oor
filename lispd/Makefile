@@ -103,7 +103,7 @@ endif
 	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $< 
 
 clean:
-	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o liblisp/*o elibs/llist/*o types/*o control/*o data-tun/*o
+	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o liblisp/*o lib/*o control/*o data-tun/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

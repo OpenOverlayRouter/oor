@@ -38,7 +38,6 @@
 #include "iface_list.h"
 #include "lispd_external.h"
 #include "lispd_info_request.h"
-#include "lispd_lib.h"
 #include "routing_tables_lib.h"
 #include "sockets.h"
 #include "lispd_tun.h"

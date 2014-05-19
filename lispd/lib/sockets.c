@@ -335,10 +335,8 @@ sock_send(uconn_t *uc, struct lbuf *b)
 }
 
 int
-get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
-        uint8_t *ttl, uint8_t *tos)
+sock_recv_data_packet(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
 {
-
     /* Space for TTL and TOS data */
     union control_data {
         struct cmsghdr cmsg;
@@ -352,8 +350,8 @@ get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
     struct cmsghdr *cmsgptr = NULL;
     int nbytes = 0;
 
-    iov[0].iov_base = packet;
-    iov[0].iov_len = MAX_IP_PKT_LEN;
+    iov[0].iov_base = lbuf_data(b);
+    iov[0].iov_len = lbuf_tailroom(b);
 
     memset(&msg, 0, sizeof msg);
     msg.msg_iov = iov;
@@ -369,9 +367,9 @@ get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
         return (BAD);
     }
 
-    *length = nbytes;
-    *afi = su.s4.sin_family;
-    if (*afi == AF_INET) {
+    lbuf_set_size(b, lbuf_size(b) + nbytes);
+
+    if (su.s4.sin_family == AF_INET) {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr =
                 CMSG_NXTHDR(&msg, cmsgptr)) {
 
@@ -386,6 +384,11 @@ get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
             }
         }
 
+        /* With input RAW UDP sockets in IPv4, we get the whole external
+         * IPv4 packet */
+        lbuf_reset_ip(b);
+        pkt_pull_ip(b);
+        lbuf_reset_udp(b);
     } else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL; cmsgptr =
                 CMSG_NXTHDR(&msg, cmsgptr)) {
@@ -400,6 +403,9 @@ get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
                 *tos = *((uint8_t *) CMSG_DATA(cmsgptr));
             }
         }
+        /* With input RAW UDP sockets in IPv6, we get the whole external
+         * UDP packet */
+        lbuf_reset_udp(b);
     }
 
     return (GOOD);

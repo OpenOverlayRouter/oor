@@ -32,19 +32,57 @@
 #include "lbuf.h"
 #include "util.h"
 
+
+static void
+lbuf_init__(lbuf_t *b, uint32_t allocated, lbuf_source_e source)
+{
+    b->allocated = allocated;
+    b->source = source;
+    b->size = 0;
+    b->lisp = b->ip = b->udp = b->lhdr = b->in_ip = b->in_udp = UINT16_MAX;
+}
+
+static void
+lbuf_use__(lbuf_t *b, void *data, uint32_t allocated, lbuf_source_e source)
+{
+    lbuf_set_base(b, data);
+    lbuf_set_data(b, data);
+
+    lbuf_init__(b, allocated, source);
+}
+
+/* Initializes 'b' as an epty lbuf that contains the 'allocated' bytes of
+ * memory starting at 'base'. 'base' should be obtained with malloc(). It
+ * will be freed on resized or freed */
+void
+lbuf_use(lbuf_t *b, void *base, uint32_t allocated)
+{
+    lbuf_use__(b, base, allocated, LBUF_MALLOC);
+}
+
+/* Initializes 'b' as an empty lbuf that contains the 'allocated' bytes of
+ * memory starting at 'base'. 'base' should point to a buffer allocated on
+ * the stack. There's no need to uninit the buffer */
+void
+lbuf_use_stack(lbuf_t *b, void *base, uint32_t allocated)
+{
+    lbuf_use__(b, base, allocated, LBUF_STACK);
+}
+
 void
 lbuf_init(lbuf_t *b, uint32_t size)
 {
-    b->data = b->base = size ? xzalloc(size) : NULL;
-    b->allocated = size;
-    b->size = 0;
-    b->lisp = b->ip = b->udp = b->lhdr = b->in_ip = b->in_udp = UINT16_MAX;
+    lbuf_use(b, size ? xzalloc(size) : NULL, size);
 }
 
 void
 lbuf_uninit(lbuf_t *b)
 {
-    free(b->base);
+    if (b) {
+        if (b->source == LBUF_MALLOC) {
+            free(b->base);
+        }
+    }
 }
 
 lbuf_t *

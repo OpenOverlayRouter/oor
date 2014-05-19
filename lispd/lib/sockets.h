@@ -50,8 +50,9 @@ typedef enum {
  * It might be a little bit of an overkill for now
  * but it could prove useful in the future
  */
-struct sock;
+
 typedef struct sock sock_t;
+typedef struct sock_list sock_list_t;
 
 struct sock_list {
     struct sock *head;
@@ -78,7 +79,7 @@ typedef struct uconn {
 } uconn_t;
 
 typedef struct sock_master {
-    struct sock_list read;
+    sock_list_t read;
 //    struct sock_list *write;
 //    struct sock_list *netlink;
     fd_set readfds;
@@ -107,8 +108,7 @@ int open_control_input_socket(int afi);
 int sock_send(uconn_t *uc, struct lbuf *b);
 int sock_recv(int, struct lbuf *, uconn_t *);
 
-int get_data_packet(int sock, int *afi, uint8_t *packet, int *length,
-        uint8_t *ttl, uint8_t *tos);
+int sock_recv_data_packet(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
 
 static inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
         lisp_addr_t *ra)

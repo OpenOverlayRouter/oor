@@ -42,7 +42,6 @@
 #include "iface_list.h"
 #include "iface_mgmt.h"
 #include "lispd_input.h"
-#include "lispd_lib.h"
 #include "lmlog.h"
 #include "sockets.h"
 #include "timers.h"

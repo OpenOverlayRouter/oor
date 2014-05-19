@@ -44,9 +44,7 @@ typedef struct fwd_entry {
     int natt_flag;
 } fwd_entry_t;
 
-#define MAX_IP_PKT_LEN          4096
-#define MAX_IP_HDR_LEN          40  /* without options or IPv6 hdr extensions */
-#define UDP_HDR_LEN             8
+
 #define LISP_DATA_HDR_LEN       8
 #define LISP_ECM_HDR_LEN        4
 #define MAX_LISP_MSG_ENCAP_LEN  2*(MAX_IP_HDR_LEN + UDP_HDR_LEN)+ LISP_ECM_HDR_LEN
