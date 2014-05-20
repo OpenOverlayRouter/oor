@@ -1608,12 +1608,8 @@ static int
 add_server(char *server, lisp_addr_list_t **list)
 {
 
-//    uint afi;
     lisp_addr_t *addr;
     lisp_addr_list_t *list_elt;
-
-//    afi = ip_afi_from_char(server);
-//    lisp_addr_ip_set_afi(addr, afi);
 
     addr = lisp_addr_new();
     if (lisp_addr_ip_from_char(server, addr) != GOOD) {
@@ -1621,11 +1617,6 @@ add_server(char *server, lisp_addr_list_t **list)
         return(BAD);
     }
 
-//    if (inet_pton(afi, server, ip_addr_get_addr(lisp_addr_ip(addr))) != 1) {
-//        lmlog(LERR, "add_server: Wrong address format: %s", strerror(errno));
-//        lisp_addr_del(addr);
-//        return(BAD);
-//    }
 
     /* Check that the afi of the map server matches with the default rloc afi
      * (if it's defined). */
