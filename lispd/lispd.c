@@ -144,12 +144,15 @@ void init_tun()
     }
 #endif
 
-    sockmstr_register_read_listener(smaster, recv_output_packet, NULL, tun_receive_fd);
+    sockmstr_register_read_listener(smaster, recv_output_packet, NULL,
+            tun_receive_fd);
 }
 
 int
 init_tr_data_plane(lisp_dev_type_e mode)
 {
+    int (*cb_func)(sock_t *);
+
     lmlog(LINF, "\nIntializing data plane\n");
 
     /* Select the default rlocs for output data packets and output control
@@ -158,18 +161,21 @@ init_tr_data_plane(lisp_dev_type_e mode)
 
     if (mode == xTR_MODE) {
         init_tun();
+        cb_func = process_input_packet;
+    } else if (mode == RTR_MODE) {
+        cb_func = rtr_process_input_packet;
     }
 
     /* Generate receive sockets for control (4342) and data port (4341) */
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
-        sockmstr_register_read_listener(smaster, process_input_packet, NULL,
+        sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv4_data_input_fd);
     }
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
-        sockmstr_register_read_listener(smaster, process_input_packet, NULL,
+        sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);
     }
 
