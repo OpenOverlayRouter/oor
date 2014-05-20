@@ -143,7 +143,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     }
 
     /* Find if the site actually registered */
-    if (!(map = mdb_lookup_entry_exact(ms->reg_sites_db, deid))) {
+    if (!(map = mdb_lookup_entry(ms->reg_sites_db, deid))) {
         lmlog(DBG_1,"EID %s not registered by any site! Sending Negative "
                 "Map-Reply", lisp_addr_to_char(deid));
 
@@ -465,7 +465,8 @@ lisp_ms_cast(lisp_ctrl_dev_t *dev)
 }
 
 static int
-ms_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc) {
+ms_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
+{
     int ret = BAD;
     lisp_msg_type_e type;
     lisp_ms_t *ms;
@@ -476,6 +477,7 @@ ms_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc) {
     if (type == LISP_ENCAP_CONTROL_TYPE) {
         if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD)
             return (BAD);
+        type = lisp_msg_type(msg);
     }
 
      switch(type) {

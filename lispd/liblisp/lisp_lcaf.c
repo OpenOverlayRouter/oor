@@ -1376,7 +1376,9 @@ int afi_list_type_cmp(void *elp1, void *elp2) {
 }
 
 /* obtain IP address from LCAF EIDs */
-lisp_addr_t *lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf) {
+lisp_addr_t *
+lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf)
+{
     switch(lcaf_addr_get_type(lcaf)) {
     case LCAF_MCAST_INFO:
         return(lcaf_mc_get_src(lcaf));
@@ -1388,7 +1390,9 @@ lisp_addr_t *lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf) {
 }
 
 /* obtain IP address from LCAF RLOCs */
-lisp_addr_t *lcaf_rloc_get_ip_addr(lisp_addr_t *addr) {
+lisp_addr_t *
+lcaf_rloc_get_ip_addr(lisp_addr_t *addr)
+{
     lisp_addr_t     *rloc = NULL;
     lcaf_addr_t     *lcaf = lisp_addr_get_lcaf(addr);
     glist_entry_t   *it = NULL;
