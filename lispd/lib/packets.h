@@ -61,11 +61,6 @@ typedef struct packet_tuple {
     uint8_t                         protocol;
 } packet_tuple_t;
 
-/*
- * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
- */
-
-int extract_5_tuples_from_packet(uint8_t *packet, packet_tuple_t *tuple);
 
 /*
  * Generate IP header. Returns the poninter to the transport header
@@ -87,19 +82,22 @@ uint16_t get_IP_ID();
 
 
 
-void *pkt_pull_ipv4(struct lbuf *b);
-void *pkt_pull_ipv6(struct lbuf *b);
-void *pkt_pull_ip(struct lbuf *);
+void *pkt_pull_ipv4(lbuf_t *b);
+void *pkt_pull_ipv6(lbuf_t *b);
+void *pkt_pull_ip(lbuf_t *);
 struct udphdr *pkt_pull_udp(lbuf_t *);
 
-void *pkt_push_ipv4(lbuf_t *, struct in_addr *, struct in_addr *);
-void *pkt_push_ipv6(lbuf_t *, struct in6_addr *, struct in6_addr *);
-void *pkt_push_udp(lbuf_t *, uint16_t , uint16_t );
-void *pkt_push_ip(lbuf_t *, ip_addr_t *, ip_addr_t *);
-int pkt_compute_udp_cksum(lbuf_t *, int afi);
-int pkt_push_udp_and_ip(lbuf_t *, uint16_t , uint16_t , ip_addr_t *,
+struct ip *pkt_push_ipv4(lbuf_t *, struct in_addr *, struct in_addr *, int);
+struct ip6_hdr *pkt_push_ipv6(lbuf_t *, struct in6_addr *, struct in6_addr *,
+        int);
+void *pkt_push_udp(lbuf_t *, uint16_t , uint16_t);
+void *pkt_push_ip(lbuf_t *, ip_addr_t *, ip_addr_t *, int proto);
+int pkt_push_udp_and_ip(lbuf_t *, uint16_t, uint16_t, ip_addr_t *,
         ip_addr_t *);
-int pkt_update_ttl_and_tos(lbuf_t *, int ttl, int tos);
+int ip_hdr_set_ttl_and_tos(struct iphdr *, int ttl, int tos);
+int ip_hdr_ttl_and_tos(struct iphdr *, int *ttl, int *tos);
+int pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
+
 
 
 

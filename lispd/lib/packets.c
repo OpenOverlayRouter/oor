@@ -1,5 +1,5 @@
 /*
- * lispd_pkt_lib.c
+ * packets.c
  *
  * This file is part of LISP Mobile Node Implementation.
  * Necessary logic to handle incoming map replies.
@@ -25,6 +25,7 @@
  *
  * Written or modified by:
  *    Lorand Jakab  <ljakab@ac.upc.edu>
+ *    Florin Cora   <fcoras@ac.upc.edu>
  *
  */
 
@@ -98,54 +99,13 @@ pkt_pull_udp(lbuf_t *b)
 }
 
 void *
-pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst)
+pkt_push_udp(lbuf_t *b, uint16_t sp, uint16_t dp)
 {
-    struct ip *iph;
-    iph = lbuf_push_uninit(b, sizeof(struct ip));
-    lbuf_reset_ip(b);
-
-    iph->ip_hl = 5;
-    iph->ip_v = IPVERSION;
-    iph->ip_tos = 0;
-    iph->ip_len = htons(lbuf_size(b));
-    iph->ip_id = htons(get_IP_ID());
-    iph->ip_off = 0; /* XXX Control packets can be fragmented  */
-    iph->ip_ttl = 255;
-    iph->ip_p = IPPROTO_UDP;
-    iph->ip_src.s_addr = src->s_addr;
-    iph->ip_dst.s_addr = dst->s_addr;
-    iph->ip_sum = 0;
-    iph->ip_sum = ip_checksum((uint16_t *) iph, sizeof(struct ip));
-    return(iph);
-}
-
-void *
-pkt_push_ipv6(lbuf_t *b, struct in6_addr *src, struct in6_addr *dst)
-{
-    struct ip6_hdr *ip6h;
-    int len;
-
-    len = lbuf_size(b);
-    ip6h = lbuf_push_uninit(b, sizeof(struct ip6_hdr));
-    lbuf_reset_ip(b);
-
-    ip6h->ip6_hops = 255;
-    ip6h->ip6_vfc = (IP6VERSION << 4);
-    ip6h->ip6_nxt = IPPROTO_UDP;
-    ip6h->ip6_plen = htons(len);
-    memcpy(ip6h->ip6_src.s6_addr, src->s6_addr, sizeof(struct in6_addr));
-    memcpy(ip6h->ip6_dst.s6_addr, dst->s6_addr, sizeof(struct in6_addr));
-    return(ip6h);
-}
-
-void *
-pkt_push_udp(lbuf_t *b, uint16_t sp, uint16_t dp) {
     struct udphdr *uh;
     int udp_len;
 
     udp_len = sizeof(struct udphdr) + lbuf_size(b);
     uh = lbuf_push_uninit(b, sizeof(struct udphdr));
-    lbuf_reset_udp(b);
 
 #ifdef BSD
     uh->uh_sport = htons(port_from);
@@ -161,10 +121,52 @@ pkt_push_udp(lbuf_t *b, uint16_t sp, uint16_t dp) {
     return(uh);
 }
 
-void *
-pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst)
+struct ip *
+pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst, int proto)
 {
+    struct ip *iph;
+    iph = lbuf_push_uninit(b, sizeof(struct ip));
 
+    /* XXX: assume no other headers */
+    iph->ip_hl = 5;
+    iph->ip_v = IPVERSION;
+    iph->ip_tos = 0;
+    iph->ip_len = htons(lbuf_size(b));
+    iph->ip_id = htons(get_IP_ID());
+    /* Do not fragment flag. See 5.4.1 in LISP RFC (6830)
+     * TODO: decide if we allow fragments in case of control */
+    iph->ip_off = htons(IP_DF);
+    iph->ip_ttl = 255;
+    iph->ip_p = proto;
+    iph->ip_src.s_addr = src->s_addr;
+    iph->ip_dst.s_addr = dst->s_addr;
+    /* FIXME: ip checksum could be offloaded to NIC*/
+    /* iph->ip_sum = 0; */
+    iph->ip_sum = ip_checksum((uint16_t *) iph, sizeof(struct ip));
+    return(iph);
+}
+
+struct ip6_hdr *
+pkt_push_ipv6(lbuf_t *b, struct in6_addr *src, struct in6_addr *dst, int proto)
+{
+    struct ip6_hdr *ip6h;
+    int len;
+
+    len = lbuf_size(b);
+    ip6h = lbuf_push_uninit(b, sizeof(struct ip6_hdr));
+
+    ip6h->ip6_hops = 255;
+    ip6h->ip6_vfc = (IP6VERSION << 4);
+    ip6h->ip6_nxt = proto;
+    ip6h->ip6_plen = htons(len);
+    memcpy(ip6h->ip6_src.s6_addr, src->s6_addr, sizeof(struct in6_addr));
+    memcpy(ip6h->ip6_dst.s6_addr, dst->s6_addr, sizeof(struct in6_addr));
+    return(ip6h);
+}
+
+void *
+pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst, int proto)
+{
     void *iph;
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
         lmlog(DBG_1, "src %s and dst % IP have different AFI! Discarding!",
@@ -174,10 +176,12 @@ pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst)
 
     switch (ip_addr_afi(src)) {
     case AF_INET:
-        iph = pkt_push_ipv4(b, ip_addr_get_addr(src), ip_addr_get_addr(dst));
+        iph = pkt_push_ipv4(b, ip_addr_get_addr(src), ip_addr_get_addr(dst),
+                proto);
         break;
     case AF_INET6:
-        iph = pkt_push_ipv6(b, ip_addr_get_addr(src), ip_addr_get_addr(dst));
+        iph = pkt_push_ipv6(b, ip_addr_get_addr(src), ip_addr_get_addr(dst),
+                proto);
         break;
     }
 
@@ -185,50 +189,92 @@ pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst)
 }
 
 int
-pkt_compute_udp_cksum(lbuf_t *b, int afi)
+pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
+        ip_addr_t *dip)
 {
     uint16_t udpsum;
     struct udphdr *uh;
 
+    if (pkt_push_udp(b, sp, dp) == NULL) {
+        lmlog(DBG_1, "Failed to push UDP header! Discarding");
+        return(BAD);
+    }
+
+    lbuf_reset_udp(b);
+
+    if (pkt_push_ip(b, sip, dip, IPPROTO_UDP) == NULL) {
+        lmlog(DBG_1, "Failed to push IP header! Discarding");
+        return(BAD);
+    }
+
+    lbuf_reset_ip(b);
+
     uh = lbuf_udp(b);
-    udpsum = udp_checksum(uh, ntohs(uh->len), lbuf_ip(b), afi);
+    udpsum = udp_checksum(uh, ntohs(uh->len), lbuf_ip(b), ip_addr_afi(sip));
     if (udpsum == -1) {
+        lmlog(DBG_1, "Failed UDP checksum! Discarding");
         return (BAD);
     }
     udpsum(uh) = udpsum;
     return(GOOD);
 }
 
+/* Fill the tuple with the 5 tuples of a packet:
+ * (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT) */
 int
-pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
-        ip_addr_t *dip)
+pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
 {
-    if (pkt_push_udp(b, sp, dp) == NULL) {
-        lmlog(DBG_1, "Failed to push UDP header! Discarding");
-        return(BAD);
+    struct iphdr *iph = NULL;
+    struct ip6_hdr *ip6h = NULL;
+    struct udphdr *udp = NULL;
+    struct tcphdr *tcp = NULL;
+    lbuf_t packet = *b;
+
+    iph = lbuf_ip(&packet);
+
+    lisp_addr_set_afi(&tuple->src_addr, LM_AFI_IP);
+    lisp_addr_set_afi(&tuple->dst_addr, LM_AFI_IP);
+
+    switch (iph->version) {
+    case 4:
+        lisp_addr_ip_init(&tuple->src_addr, &iph->saddr, AF_INET);
+        lisp_addr_ip_init(&tuple->dst_addr, &iph->daddr, AF_INET);
+        tuple->protocol = iph->protocol;
+        lbuf_pull(&packet, iph->ihl * 4);
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *)iph;
+        lisp_addr_ip_init(&tuple->src_addr, &ip6h->ip6_src, AF_INET6);
+        lisp_addr_ip_init(&tuple->dst_addr, &ip6h->ip6_dst, AF_INET6);
+        /* XXX: assuming no extra headers */
+        tuple->protocol = ip6h->ip6_nxt;
+        lbuf_pull(&packet, sizeof(struct ip6_hdr));
+        break;
+    default:
+        lmlog(DBG_2, "pkt_parse_5_tuple: Not an IP packet!");
+        return (BAD);
     }
-    if (pkt_push_ip(b, sip, dip) == NULL) {
-        lmlog(DBG_1, "Failed to push IP header! Discarding");
-        return(BAD);
+
+    if (tuple->protocol == IPPROTO_UDP) {
+        udp = lbuf_data(&packet);
+        tuple->src_port = ntohs(udp->source);
+        tuple->dst_port = ntohs(udp->dest);
+    } else if (tuple->protocol == IPPROTO_TCP) {
+        tcp = lbuf_data(&packet);
+        tuple->src_port = ntohs(tcp->source);
+        tuple->dst_port = ntohs(tcp->dest);
+    } else {
+        /* If protocol is not TCP or UDP, ports of the tuple set to 0 */
+        tuple->src_port = 0;
+        tuple->dst_port = 0;
     }
-    if (pkt_compute_udp_cksum(b, ip_addr_afi(sip)) != GOOD) {
-        lmlog(DBG_1, "Failed UDP checksum! Discarding");
-        return(BAD);
-    }
-    return(GOOD);
+    return (GOOD);
 }
 
-
 int
-pkt_update_ttl_and_tos(lbuf_t *b, int ttl, int tos)
+ip_hdr_set_ttl_and_tos(struct iphdr *iph, int ttl, int tos)
 {
     struct ip6_hdr *ip6h = NULL;
-    struct iphdr *iph;
-    lbuf_t lb;
-
-    /* make local copy not to alter the packet's size */
-    lb = *b;
-    iph = pkt_pull_ip(&lb);
 
     if (iph->version == 4) {
         /*XXX It seems that there is a bug in uClibc that causes ttl=0 in
@@ -247,9 +293,6 @@ pkt_update_ttl_and_tos(lbuf_t *b, int ttl, int tos)
         iph->check = 0;
         iph->check = ip_checksum((uint16_t*) iph, sizeof(struct iphdr));
 
-        lmlog(DBG_3, "INPUT (4341): Inner src: %s | Inner dst: %s ",
-                ip_to_char(&iph->saddr, AF_INET),
-                ip_to_char(&iph->daddr, AF_INET));
     } else if (iph->version == 6) {
         ip6h = (struct ip6_hdr *) iph;
 
@@ -262,14 +305,31 @@ pkt_update_ttl_and_tos(lbuf_t *b, int ttl, int tos)
 
         /* tos = Traffic class field in IPv6 */
         IPV6_SET_TC(ip6h, tos);
-        lmlog(DBG_3, "INPUT (4341): Inner src: %s | Inner dst: %s ",
-                ip_to_char(&ip6h->ip6_src, AF_INET6),
-                ip_to_char(&ip6h->ip6_dst, AF_INET6));
     } else {
         return(BAD);
     }
 
     return(GOOD);
+}
+
+int
+ip_hdr_ttl_and_tos(struct iphdr *iph, int *ttl, int *tos)
+{
+    struct ip6_hdr *ip6h;
+
+    switch (iph->version) {
+    case 4:
+        *tos = iph->tos;
+        *ttl = iph->ttl;
+        return(GOOD);
+    case 6:
+        ip6h = (struct ip6_hdr *) iph;
+        *ttl = ip6h->ip6_hops;
+        *tos = IPV6_GET_TC(*ip6h);
+        return(GOOD);
+    default:
+        return(BAD);
+    }
 }
 
 
@@ -442,57 +502,8 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
 }
 
 
-/*
- * Fill the tuple with the 5 tuples of a packet: (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT)
- */
-int
-extract_5_tuples_from_packet(uint8_t *packet, packet_tuple_t *tuple)
-{
-    /* TODO: would be nice for this to use ip_addr_t in the future */
-    struct iphdr *iph = NULL;
-    struct ip6_hdr *ip6h = NULL;
-    struct udphdr *udp = NULL;
-    struct tcphdr *tcp = NULL;
-    int len = 0;
 
-    iph = (struct iphdr *) packet;
 
-    lisp_addr_set_afi(&tuple->src_addr, LM_AFI_IP);
-    lisp_addr_set_afi(&tuple->dst_addr, LM_AFI_IP);
-
-    switch (iph->version) {
-    case 4:
-        ip_addr_set_v4(lisp_addr_ip(&tuple->src_addr), &iph->saddr);
-        ip_addr_set_v4(lisp_addr_ip(&tuple->dst_addr), &iph->daddr);
-        tuple->protocol = iph->protocol;
-        len = iph->ihl * 4;
-        break;
-    case 6:
-        ip6h = (struct ip6_hdr *) packet;
-        ip_addr_set_v6(lisp_addr_ip(&tuple->src_addr), &ip6h->ip6_src);
-        ip_addr_set_v6(lisp_addr_ip(&tuple->dst_addr), &ip6h->ip6_dst);
-        tuple->protocol = ip6h->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-        len = sizeof(struct ip6_hdr);
-        break;
-    default:
-        lmlog(DBG_2, "extract_5_tuples_from_packet: No ip packet identified");
-        return (BAD);
-    }
-
-    if (tuple->protocol == IPPROTO_UDP) {
-        udp = (struct udphdr *) CO(packet, len);
-        tuple->src_port = ntohs(udp->source);
-        tuple->dst_port = ntohs(udp->dest);
-    } else if (tuple->protocol == IPPROTO_TCP) {
-        tcp = (struct tcphdr *) CO(packet, len);
-        tuple->src_port = ntohs(tcp->source);
-        tuple->dst_port = ntohs(tcp->dest);
-    } else { //If protocol is not TCP or UDP, ports of the tuple set to 0
-        tuple->src_port = 0;
-        tuple->dst_port = 0;
-    }
-    return (GOOD);
-}
 
 /*
  * Editor modelines

@@ -33,6 +33,7 @@
 #include "lisp_locator.h"
 #include "lisp_mapping.h"
 #include "lisp_messages.h"
+#include "lisp_data.h"
 #include "generic_list.h"
 #include "lbuf.h"
 
@@ -95,6 +96,10 @@ static inline void *lisp_msg_auth_record(lbuf_t *);
 
 void *lisp_msg_pull_hdr(lbuf_t *b);
 void *lisp_msg_pull_auth_field(lbuf_t *b);
+
+void *lisp_data_push_hdr(lbuf_t *b);
+void *lisp_data_pull_hdr(lbuf_t *b);
+void *lisp_data_encap(lbuf_t *, int, int, lisp_addr_t *, lisp_addr_t *);
 
 static inline glist_t *lisp_addr_list_new();
 static inline void lisp_addr_list_init(glist_t *);

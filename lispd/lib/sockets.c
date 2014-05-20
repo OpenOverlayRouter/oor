@@ -43,14 +43,16 @@
 #include "lmlog.h"
 
 struct sock_master *
-sock_master_new() {
+sock_master_new()
+{
     struct sock_master *sm;
     sm = xzalloc(sizeof(struct sock_master));
     return (sm);
 }
 
 static void
-sock_list_add(struct sock_list *lst, struct sock *sock) {
+sock_list_add(struct sock_list *lst, struct sock *sock)
+{
     sock->next = NULL;
     sock->prev = lst->tail;
     if (lst->tail) {
@@ -69,7 +71,8 @@ sock_list_add(struct sock_list *lst, struct sock *sock) {
 
 struct sock *
 sock_register_read_listener(struct sock_master *m,
-        int (*func)(struct sock *), void *arg, int fd) {
+        int (*func)(struct sock *), void *arg, int fd)
+{
     struct sock *sock;
     sock = xzalloc(sizeof(struct sock));
     sock->recv_cb = func;
@@ -82,7 +85,8 @@ sock_register_read_listener(struct sock_master *m,
 }
 
 static void
-sock_process_fd(struct sock_list *lst, fd_set *fdset) {
+sock_process_fd(struct sock_list *lst, fd_set *fdset)
+{
     struct sock *sit;
 
     for (sit = lst->head; sit; sit = sit->next) {
@@ -92,7 +96,8 @@ sock_process_fd(struct sock_list *lst, fd_set *fdset) {
 }
 
 void
-sock_process_all(struct sock_master *m) {
+sock_process_all(struct sock_master *m)
+{
 //    fd_set          readfds;
     struct timeval tv;
 
@@ -219,10 +224,24 @@ open_data_input_socket(int afi)
     return (sock);
 }
 
+int
+sock_recv(int sfd, lbuf_t *b)
+{
+    int nread;
+    nread = read(sfd, lbuf_data(b), lbuf_tailroom(b));
+    if (nread == 0) {
+        lmlog(LWRN, "sock_recv: recvmsg error: %s", strerror(errno));
+        return (BAD);
+    }
+
+    lbuf_set_size(b, lbuf_size(b) + nread);
+    return(GOOD);
+}
+
 /* Get a packet from the socket. It also returns the destination addres and
  * source port of the packet */
 int
-sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
+sock_recv_ctrl(int sock, struct lbuf *buf, uconn_t *uc)
 {
 
     union control_data {
@@ -251,12 +270,13 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        lmlog(LWRN, "read_packet: recvmsg error: %s", strerror(errno));
+        lmlog(LWRN, "sock_recv_ctrl: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
 
     lbuf_set_size(buf, lbuf_size(buf) + nbytes);
 
+    /* read local address, remote port and remote address */
     if (su.s4.sin_family == AF_INET) {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
                 cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
@@ -270,7 +290,7 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
         }
 
         lisp_addr_ip_init(&uc->ra, &su.s4.sin_addr, AF_INET);
-        uc->lp = ntohs(su.s4.sin_port);
+        uc->rp = ntohs(su.s4.sin_port);
     } else {
         for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr;
                 cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
@@ -283,59 +303,14 @@ sock_recv(int sock, struct lbuf *buf, uconn_t *uc)
             }
         }
         lisp_addr_ip_init(&uc->ra, &su.s6.sin6_addr, AF_INET6);
-        uc->lp = ntohs(su.s6.sin6_port);
+        uc->rp = ntohs(su.s6.sin6_port);
     }
 
     return (GOOD);
 }
 
 int
-sock_send(uconn_t *uc, struct lbuf *b)
-{
-    ip_addr_t *src, *dst;
-    int sock, dst_afi;
-    iface_t *iface;
-
-    /* FIND the socket where to output the packet */
-    dst_afi = lisp_addr_ip_afi(&uc->ra);
-    if (lisp_addr_afi(&uc->la) == LM_AFI_NO_ADDR) {
-        lisp_addr_copy(&uc->la, get_default_ctrl_address(dst_afi));
-        sock = get_default_ctrl_socket(dst_afi);
-    } else {
-        iface = get_interface_with_address(&uc->la);
-        if (iface) {
-            sock = iface_socket(iface, dst_afi);
-        } else {
-            sock = get_default_ctrl_socket(dst_afi);
-        }
-    }
-
-    if (lisp_addr_afi(&uc->la) != LM_AFI_IP
-        || lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
-        lmlog(DBG_2, "sock_send: src %s and dst % of UDP are not IP. "
-                "Discarding!", lisp_addr_to_char(&uc->la),
-                lisp_addr_to_char(&uc->ra));
-        return(BAD);
-    }
-    src = lisp_addr_ip(&uc->la);
-    dst = lisp_addr_ip(&uc->ra);
-
-    if (ip_addr_afi(src) != ip_addr_afi(dst)) {
-        lmlog(DBG_2, "sock_send: src %s and dst %s of UDP connection have"
-                "different IP AFI. Discarding!", ip_addr_to_char(src),
-                ip_addr_to_char(dst));
-        return(BAD);
-    }
-
-    /* TODO, XXX: this assumes RAW sockets. Change for android!*/
-    pkt_push_udp_and_ip(b, uc->lp, uc->rp, src, dst);
-    send_raw(sock, lbuf_data(b), lbuf_size(b), dst);
-
-    return(GOOD);
-}
-
-int
-sock_recv_data_packet(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
+sock_recv_data(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
 {
     /* Space for TTL and TOS data */
     union control_data {
@@ -410,4 +385,51 @@ sock_recv_data_packet(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
 
     return (GOOD);
 }
+
+int
+sock_send(uconn_t *uc, struct lbuf *b)
+{
+    ip_addr_t *src, *dst;
+    int sock, dst_afi;
+    iface_t *iface;
+
+    /* FIND the socket where to output the packet */
+    dst_afi = lisp_addr_ip_afi(&uc->ra);
+    if (lisp_addr_afi(&uc->la) == LM_AFI_NO_ADDR) {
+        lisp_addr_copy(&uc->la, get_default_ctrl_address(dst_afi));
+        sock = get_default_ctrl_socket(dst_afi);
+    } else {
+        iface = get_interface_with_address(&uc->la);
+        if (iface) {
+            sock = iface_socket(iface, dst_afi);
+        } else {
+            sock = get_default_ctrl_socket(dst_afi);
+        }
+    }
+
+    if (lisp_addr_afi(&uc->la) != LM_AFI_IP
+        || lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
+        lmlog(DBG_2, "sock_send: src %s and dst % of UDP are not IP. "
+                "Discarding!", lisp_addr_to_char(&uc->la),
+                lisp_addr_to_char(&uc->ra));
+        return(BAD);
+    }
+    src = lisp_addr_ip(&uc->la);
+    dst = lisp_addr_ip(&uc->ra);
+
+    if (ip_addr_afi(src) != ip_addr_afi(dst)) {
+        lmlog(DBG_2, "sock_send: src %s and dst %s of UDP connection have"
+                "different IP AFI. Discarding!", ip_addr_to_char(src),
+                ip_addr_to_char(dst));
+        return(BAD);
+    }
+
+    /* TODO, XXX: this assumes RAW sockets. Change for android!*/
+    pkt_push_udp_and_ip(b, uc->lp, uc->rp, src, dst);
+    send_raw(sock, lbuf_data(b), lbuf_size(b), dst);
+
+    return(GOOD);
+}
+
+
 

@@ -474,7 +474,7 @@ ms_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc) {
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-        if (lisp_msg_ecm_decap(msg, &uc->lp) != GOOD)
+        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD)
             return (BAD);
     }
 

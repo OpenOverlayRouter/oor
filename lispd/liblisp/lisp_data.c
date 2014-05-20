@@ -1,9 +1,9 @@
 /*
- * lispd_output.h
+ * lisp_data.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2014 Universitat Politècnica de Catalunya.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,34 +23,22 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 
-#ifndef LISPD_OUTPUT_H_
-#define LISPD_OUTPUT_H_
+#include "lisp_data.h"
 
-#include <stdio.h>
-#include <net/if.h>
-#include <netinet/ip.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <defs.h>
-#include <iface_list.h>
-#include <lispd_lib.h>
-#include <cksum.h>
-//#include <lisp_map_cache.h>
-#include <lispd_external.h>
-#include <lisp_control.h>
-
-
-int recv_output_packet(struct sock *sl);
-int lisp_output(lbuf_t *);
-
-lisp_addr_t extract_dst_addr_from_packet(uint8_t *packet);
-lisp_addr_t extract_src_addr_from_packet(uint8_t *packet);
-
-
-#endif /*LISPD_OUTPUT_H_*/
+void
+lisp_data_hdr_init(lisphdr_t *lhdr)
+{
+    lhdr->echo_nonce = 0;
+    lhdr->lsb = 0;
+    lhdr->lsb_bits = 0;
+    lhdr->map_version = 0;
+    lhdr->nonce[0] = 0;
+    lhdr->nonce[1] = 0;
+    lhdr->nonce[2] = 0;
+    lhdr->nonce_present = 0;
+    lhdr->rflags = 0;
+}

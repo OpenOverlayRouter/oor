@@ -54,7 +54,7 @@ lisp_msg_pull_ecm_hdr(lbuf_t *b)
 /* Process encapsulated map request header:  lisp header and the interal IP and
  * UDP header */
 int
-lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port)
+lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
 {
     uint16_t ipsum = 0;
     uint16_t udpsum = 0;
@@ -72,7 +72,7 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *dst_port)
 
     /* This should overwrite the external port (dst_port in map-reply =
      * inner src_port in encap map-request) */
-    *dst_port = ntohs(udph->source);
+    *src_port = ntohs(udph->source);
 
  #ifdef BSD
     udp_len = ntohs(udph->uh_ulen);
@@ -114,8 +114,9 @@ int
 lisp_msg_parse_addr(lbuf_t *msg, lisp_addr_t *eid)
 {
     int len = lisp_addr_parse(lbuf_data(msg), eid);
-    if (len < 0)
+    if (len < 0) {
         return(BAD);
+    }
     lbuf_pull(msg, len);
     return(GOOD);
 }
@@ -752,6 +753,44 @@ lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type_e keyid)
     return(hdr);
 }
 
+
+void *
+lisp_data_push_hdr(lbuf_t *b)
+{
+    lisphdr_t *lhdr;
+    lhdr = lbuf_push_uninit(b, sizeof(lisphdr_t));
+    lisp_data_hdr_init(lhdr);
+    return(lhdr);
+}
+
+void *
+lisp_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
+{
+    int ttl = 0, tos = 0;
+
+    /* read ttl and tos */
+    ip_hdr_ttl_and_tos(lbuf_data(b), &ttl, &tos);
+
+    /* push lisp data hdr */
+    lisp_data_push_hdr(b);
+
+    /* push outer UDP and IP */
+    pkt_push_udp_and_ip(b, lp, rp, lisp_addr_ip(la), lisp_addr_ip(ra));
+
+    ip_hdr_set_ttl_and_tos(lbuf_data(b), ttl, tos);
+
+    return(lbuf_data(b));
+}
+
+void *
+lisp_data_pull_hdr(lbuf_t *b)
+{
+    void *dt = lbuf_pull(b, sizeof(lisphdr_t));
+    return(dt);
+}
+
+
+
 /* returns in 'addr_' the first element of the list 'l' to have AFI 'afi'
  * caller must allocate and free 'addr_' */
 int
@@ -803,5 +842,6 @@ laddr_list_to_char(glist_t *l)
     }
     return(buf);
 }
+
 
 

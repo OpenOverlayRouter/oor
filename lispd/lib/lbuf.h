@@ -50,8 +50,8 @@ struct lbuf {
     uint16_t udp;               /* UDP hdr offset */
 
     uint16_t lhdr;              /* lisp hdr offset */
-    uint16_t in_ip;             /* inner IP hdr offset */
-    uint16_t in_udp;            /* inner UDP hdr offset */
+    uint16_t l3;                /* (inner) l3 hdr offset */
+    uint16_t l4;                /* (inner) l4 hdr offset */
 
     uint16_t lisp;              /* lisp payload offset */
 
@@ -99,6 +99,8 @@ static inline void lbuf_reset_ip(lbuf_t *b);
 static inline void *lbuf_ip(lbuf_t *b);
 static inline void lbuf_reset_udp(lbuf_t *b);
 static inline void *lbuf_udp(lbuf_t *b);
+static inline void lbuf_reset_l3(lbuf_t *b);
+static inline void *lbuf_l3(lbuf_t *b);
 static inline void lbuf_reset_lisp(lbuf_t *b);
 static inline void *lbuf_lisp(lbuf_t*);
 static inline void lbuf_reset_lisp_hdr(lbuf_t *b);
@@ -199,6 +201,16 @@ static inline void lbuf_reset_udp(lbuf_t *b)
 static inline void *lbuf_udp(lbuf_t *b)
 {
     return b->udp != UINT16_MAX ? (char *)lbuf_base(b) + b->udp : NULL;
+}
+
+static inline void lbuf_reset_l3(lbuf_t *b)
+{
+    b->l3 = (char *)lbuf_data(b) - (char *)lbuf_base(b);
+}
+
+static inline void *lbuf_l3(lbuf_t *b)
+{
+    return b->l3 != UINT16_MAX ? (char *)lbuf_base(b) + b->l3 : NULL;
 }
 
 static inline void lbuf_reset_lisp(lbuf_t *b)

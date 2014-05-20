@@ -39,7 +39,7 @@ lbuf_init__(lbuf_t *b, uint32_t allocated, lbuf_source_e source)
     b->allocated = allocated;
     b->source = source;
     b->size = 0;
-    b->lisp = b->ip = b->udp = b->lhdr = b->in_ip = b->in_udp = UINT16_MAX;
+    b->lisp = b->ip = b->udp = b->lhdr = b->l3 = b->l4 = UINT16_MAX;
 }
 
 static void
@@ -166,7 +166,7 @@ void *
 lbuf_push_uninit(lbuf_t *b, uint32_t size)
 {
     lbuf_prealloc_headroom(b, size);
-    b->data = (uint8_t *)b->data - size;
+    b->data = (char *)b->data - size;
     b->size += size;
     return b->data;
 }
@@ -183,7 +183,7 @@ void
 lbuf_reserve(lbuf_t *b, uint32_t size)
 {
     lbuf_prealloc_tailroom(b, size);
-    b->data = (uint8_t *)b->base + size;
+    b->data = (char *)b->base + size;
 }
 
 lbuf_t *

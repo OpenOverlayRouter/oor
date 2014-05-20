@@ -103,12 +103,10 @@ extern void sock_fdset_all_read(struct sock_master *m);
 int open_data_input_socket(int afi);
 int open_control_input_socket(int afi);
 
-
-
 int sock_send(uconn_t *uc, struct lbuf *b);
-int sock_recv(int, struct lbuf *, uconn_t *);
-
-int sock_recv_data_packet(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
+int sock_recv(int, lbuf_t *);
+int sock_recv_ctrl(int, lbuf_t *, uconn_t *);
+int sock_recv_data(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
 
 static inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
         lisp_addr_t *ra)

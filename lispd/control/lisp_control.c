@@ -122,11 +122,11 @@ ctrl_recv_msg(struct sock *sl)
     /* Only one device supported for now */
     dev = glist_first_data(ctrl->devices);
 
-    uc.rp = LISP_CONTROL_PORT;
+    uc.lp = LISP_CONTROL_PORT;
 
     b = lisp_msg_create_buf();
 
-    if (sock_recv(sl->fd, b, &uc) != GOOD) {
+    if (sock_recv_ctrl(sl->fd, b, &uc) != GOOD) {
         lmlog(DBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
         return (BAD);

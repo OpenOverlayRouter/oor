@@ -51,6 +51,7 @@ OBJS		= cmdline.o				\
 		  elibs/patricia/patricia.o		\
 		  liblisp/liblisp.o			\
 		  liblisp/lisp_address.o		\
+		  liblisp/lisp_data.o			\
 		  liblisp/lisp_ip.o			\
 		  liblisp/lisp_lcaf.o			\
 		  liblisp/lisp_locator.o		\

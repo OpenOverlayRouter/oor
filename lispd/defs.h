@@ -121,27 +121,6 @@ int err;
 
 
 
- /* LISP data packet header */
-
- typedef struct lisphdr {
-     #ifdef __LITTLE_ENDIAN_BITFIELD
-     uint8_t rflags:3;
-     uint8_t instance_id:1;
-     uint8_t map_version:1;
-     uint8_t echo_nonce:1;
-     uint8_t lsb:1;
-     uint8_t nonce_present:1;
-     #else
-     uint8_t nonce_present:1;
-     uint8_t lsb:1;
-     uint8_t echo_nonce:1;
-     uint8_t map_version:1;
-     uint8_t instance_id:1;
-     uint8_t rflags:3;
-     #endif
-     uint8_t nonce[3];
-     uint32_t lsb_bits;
- } lisphdr_t;
 
 /*
  * Structure to simplify netlink processing
@@ -153,30 +132,6 @@ typedef struct nlsock_handle
 } nlsock_handle;
 
 
-//modified by arnatal for NATT
-/*
- * LISP Data header structure
- */
-
-typedef struct lisp_data_hdr {
-#ifdef LITTLE_ENDIANS
-    uint8_t rflags:3;
-    uint8_t instance_id:1;
-    uint8_t map_version:1;
-    uint8_t echo_nonce:1;
-    uint8_t lsb:1;
-    uint8_t nonce_present:1;
-#else
-    uint8_t nonce_present:1;
-    uint8_t lsb:1;
-    uint8_t echo_nonce:1;
-    uint8_t map_version:1;
-    uint8_t instance_id:1;
-    uint8_t rflags:3;
-#endif
-    uint8_t nonce[3];
-    uint32_t lsb_bits;
-} lisp_data_hdr_t;
 
 
 /* Use the nonce to calculate the source port for a map request

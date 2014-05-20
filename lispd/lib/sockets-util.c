@@ -278,7 +278,6 @@ int send_packet (
             dst_addr_len);
 
     if (nbytes != packet_length) {
-
         switch (iph->version) {
         case 4:
             ip_addr_set_v4(&pkt_src_addr, &iph->saddr);
@@ -307,8 +306,7 @@ int
 send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
 {
     struct sockaddr *saddr;
-    int slen = 0;
-    int nbytes = 0;
+    int slen = 0, nbytes = 0;
 
     struct sockaddr_in sa4;
     struct sockaddr_in6 sa6;
@@ -331,8 +329,12 @@ send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
         break;
     }
 
-    lmlog(DBG_1, "Sending out socket %d", sfd);
     nbytes = sendto(sfd, pkt, plen, 0, saddr, slen);
+    if (nbytes != plen) {
+        lmlog(DBG_2, "send_raw: send to %s failed %s", ip_addr_to_char(dip),
+                strerror(errno));
+        return(BAD);
+    }
 
     return (nbytes);
 }

@@ -1,5 +1,5 @@
 /*
- * lispd_addr.h
+ * lisp_addr.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
