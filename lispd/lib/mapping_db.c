@@ -292,15 +292,14 @@ _get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr)
 mdb_t *
 mdb_new()
 {
-    mdb_t *db = calloc(1, sizeof(mdb_t));
+    mdb_t *db = xzalloc(sizeof(mdb_t));
     lmlog(DBG_3, " Creating mdb...");
 
     db->AF4_ip_db = New_Patricia(sizeof(struct in_addr) * 8);
     db->AF6_ip_db = New_Patricia(sizeof(struct in6_addr) * 8);
 
     /* MC is stored as patricia in patricia, what follows is a HACK
-     * to have compatible walk methods for both IP and MC.
-     */
+     * to have compatible walk methods for both IP and MC. */
     ip_addr_t ipv4, ipv6;
     memset(&ipv4, 0, sizeof(ip_addr_t));
     ip_addr_set_afi(&ipv4, AF_INET);
@@ -329,26 +328,26 @@ void
 mdb_del(mdb_t *db, mdb_del_fct del_fct)
 {
     patricia_node_t *node;
-    Destroy_Patricia(db->AF4_ip_db->head->data, NULL);
+    Destroy_Patricia(db->AF4_ip_db->head->data, del_fct);
     Destroy_Patricia(db->AF4_ip_db, NULL);
 
-    Destroy_Patricia(db->AF6_ip_db->head->data, NULL);
+    Destroy_Patricia(db->AF6_ip_db->head->data, del_fct);
     Destroy_Patricia(db->AF6_ip_db, NULL);
 
-    if (db->AF6_mc_db->head) {
+    if (db->AF4_mc_db->head) {
         PATRICIA_WALK(db->AF4_mc_db->head, node) {
             Destroy_Patricia(node->data, del_fct);
-        }PATRICIA_WALK_END;
+        } PATRICIA_WALK_END;
     }
     Destroy_Patricia(db->AF4_mc_db, NULL);
 
     if (db->AF6_mc_db->head) {
         PATRICIA_WALK(db->AF6_mc_db->head, node) {
             Destroy_Patricia(node->data, del_fct);
-        }PATRICIA_WALK_END;
+        } PATRICIA_WALK_END;
     }
     Destroy_Patricia(db->AF6_mc_db, NULL);
-
+    free(db);
 }
 
 int
@@ -720,9 +719,11 @@ uint8_t pt_test_if_empty(patricia_tree_t *pt) {
         return(1);
 }
 
-prefix_t *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
-    int             afi         = 0;
-    prefix_t        *prefix     = NULL;
+prefix_t
+*pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen)
+{
+    int afi = 0;
+    prefix_t *prefix = NULL;
 
     afi = ip_addr_afi(ipaddr);
 
@@ -734,8 +735,8 @@ prefix_t *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen) {
     (afi == AF_INET) ? assert(prefixlen <= 32) : assert(prefixlen <= 128);
     prefix = New_Prefix(afi, ip_addr_get_addr(ipaddr), prefixlen);
     if (!prefix) {
-        lmlog(LWRN, "make_ip_prefix_for_pt: Unable to allocate memory for prefix %s: %s",
-                ip_addr_to_char(ipaddr), strerror(errno));
+        lmlog(LWRN, "make_ip_prefix_for_pt: Unable to allocate memory for "
+                "prefix %s: %s", ip_addr_to_char(ipaddr), strerror(errno));
         return(NULL);
     }
 

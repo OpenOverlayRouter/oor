@@ -56,6 +56,7 @@ void
 mcache_del(map_cache_db_t *mcdb)
 {
     mdb_del(mcdb->db, (mdb_del_fct)mcache_entry_del);
+    free(mcdb);
 }
 
 

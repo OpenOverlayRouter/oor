@@ -125,7 +125,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     }
 
     /* PROCESS ITR RLOCs */
-    itr_rlocs = lisp_addr_list_new();
+    itr_rlocs = laddr_list_new();
     lisp_msg_parse_itr_rlocs(&b, itr_rlocs);
 
     /* PROCESS EID REC */
@@ -187,7 +187,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* SEND MAP-REPLY */
-    lisp_addr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
+    laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
     if (send_msg(&ms->super, mrep, uc) != GOOD) {
         lmlog(DBG_1, "Couldn't send Map-Reply!");
     }

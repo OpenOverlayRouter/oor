@@ -692,26 +692,7 @@ int extract_lisp_address(
     return (result);
 }
 
-/*
- * Loop to free all the members of a lispd_addr_list_t
- */
 
-void free_lisp_addr_list(lisp_addr_list_t * list)
-
-{
-
-    lisp_addr_list_t *list_pre;
-
-    while (list->next != NULL) {
-
-        list_pre = list;
-
-        list = list->next;
-
-        free(list_pre->address);
-        free(list_pre);
-    }
-}
 
 
 /*

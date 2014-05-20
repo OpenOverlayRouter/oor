@@ -101,11 +101,11 @@ void *lisp_data_push_hdr(lbuf_t *b);
 void *lisp_data_pull_hdr(lbuf_t *b);
 void *lisp_data_encap(lbuf_t *, int, int, lisp_addr_t *, lisp_addr_t *);
 
-static inline glist_t *lisp_addr_list_new();
-static inline void lisp_addr_list_init(glist_t *);
-static inline glist_t *list_addr_sorted_list_new();
-static inline void lisp_addr_list_del(glist_t *);
-int lisp_addr_list_get_addr(glist_t *, int, lisp_addr_t *);
+static inline glist_t *laddr_list_new();
+static inline void laddr_list_init(glist_t *);
+static inline glist_t *laddr_sorted_list_new();
+static inline void laddr_list_del(glist_t *);
+int laddr_list_get_addr(glist_t *, int, lisp_addr_t *);
 char *laddr_list_to_char(glist_t *l);
 
 static inline void lisp_msg_destroy(lbuf_t *b)
@@ -136,22 +136,22 @@ static inline void *lisp_msg_auth_record(lbuf_t *b)
 
 
 
-static inline glist_t *lisp_addr_list_new()
+static inline glist_t *laddr_list_new()
 {
     return(glist_new_managed((glist_del_fct)lisp_addr_del));
 }
 
-static inline void lisp_addr_list_del(glist_t *lst)
+static inline void laddr_list_del(glist_t *lst)
 {
     glist_destroy(lst);
 }
 
-static inline void lisp_addr_list_init(glist_t *lst)
+static inline void laddr_list_init(glist_t *lst)
 {
     glist_init_managed(lst, (glist_del_fct)lisp_addr_del);
 }
 
-static inline glist_t *list_addr_sorted_list_new()
+static inline glist_t *laddr_sorted_list_new()
 {
     return(glist_new_complete((glist_cmp_fct)lisp_addr_cmp,
             (glist_del_fct)lisp_addr_del));

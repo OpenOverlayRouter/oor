@@ -180,7 +180,6 @@ int extract_lisp_address(
         uint8_t         *ptr,
         lisp_addr_t     *addr);
 
-void free_lisp_addr_list(lisp_addr_list_t * list);
 
 
 

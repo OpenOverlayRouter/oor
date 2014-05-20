@@ -175,7 +175,7 @@ locator_t *
 locator_init_remote(lisp_addr_t *addr)
 {
     locator_t *locator = locator_new();
-    locator->addr = addr;
+    locator->addr = lisp_addr_clone(addr);
     locator->state = xmalloc(sizeof(uint8_t));
     locator->extended_info = new_rmt_locator_extended_info();
     locator->type = DYNAMIC_LOCATOR;
@@ -201,7 +201,7 @@ locator_init_local(lisp_addr_t *addr)
 {
     locator_t *locator = locator_new();
     /* Initialize locator */
-    locator->addr = addr;
+    locator->addr = lisp_addr_clone(addr);
     locator->type = LOCAL_LOCATOR;
 
     return(locator);

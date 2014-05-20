@@ -137,10 +137,12 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr);
 inline int lisp_addr_is_mc(lisp_addr_t *addr);
 lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr);
 
-void lisp_addr_list_to_char(lisp_addr_list_t *, const char *, int);
-
 int lisp_addr_ip_from_char(char *, lisp_addr_t *);
 int lisp_addr_ippref_from_char(char *, lisp_addr_t *);
+
+/* OLD format lisp addr */
+void lisp_addr_list_to_char(lisp_addr_list_t *, const char *, int);
+void lisp_addr_list_del(lisp_addr_list_t * list);
 
 
 #endif /* LISPD_ADDRESS_H_ */

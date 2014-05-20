@@ -707,11 +707,12 @@ lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_e keyid, const char *key)
 int
 lisp_msg_check_auth_field(lbuf_t *b, const char *key)
 {
-    uint8_t     *auth_data_cpy;
-    uint32_t    md_len  = 0;
-    uint8_t     *adptr  = NULL;
-    uint16_t    ad_len;
+    uint8_t *adata_cpy;
+    uint32_t md_len = 0;
+    uint8_t *adptr = NULL;
+    uint16_t ad_len;
     lisp_key_type_e keyid;
+    int ret;
 
     auth_record_hdr_t *hdr;
 
@@ -724,9 +725,9 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
     }
 
     /* set auth field in 0 prior to computing the HMAC (see draft) */
-    auth_data_cpy = xzalloc(ad_len*sizeof(uint8_t));
+    adata_cpy = xzalloc(ad_len*sizeof(uint8_t));
     adptr = AUTH_REC_DATA(hdr);
-    memcpy(auth_data_cpy, adptr, ad_len * sizeof(uint8_t));
+    memcpy(adata_cpy, adptr, ad_len * sizeof(uint8_t));
     memset(adptr, 0, ad_len * sizeof(uint8_t));
 
     if (auth_data_fill(lbuf_lisp(b), lbuf_size(b), keyid, key, adptr, &md_len)
@@ -734,11 +735,13 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
         return(BAD);
     }
 
-    if ((strncmp((char *)adptr, (char *)auth_data_cpy, (size_t)ad_len)) == 0) {
-        return(GOOD);
-    } else {
-        return(BAD);
+    ret = GOOD;
+    if ((strncmp((char *)adptr, (char *)adata_cpy, (size_t)ad_len)) != 0) {
+        ret = BAD;
     }
+
+    free(adata_cpy);
+    return(ret);
 }
 
 void *
@@ -794,7 +797,7 @@ lisp_data_pull_hdr(lbuf_t *b)
 /* returns in 'addr_' the first element of the list 'l' to have AFI 'afi'
  * caller must allocate and free 'addr_' */
 int
-lisp_addr_list_get_addr(glist_t *l, int afi, lisp_addr_t *addr)
+laddr_list_get_addr(glist_t *l, int afi, lisp_addr_t *addr)
 {
     glist_entry_t *it;
     lisp_addr_t *ait;

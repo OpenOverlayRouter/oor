@@ -298,7 +298,7 @@ tr_recv_map_reply(lisp_xtr_t *xtr, lbuf_t *buf)
 {
     void *mrep_hdr;
     int i;
-    locator_t *probed;
+    locator_t *probed = NULL;
     lisp_addr_t *eid;
     mapping_t *m;
     lbuf_t b;
@@ -343,18 +343,21 @@ tr_recv_map_reply(lisp_xtr_t *xtr, lbuf_t *buf)
             } */
         } else {
             if (mapping_locator_count(m) > 0) {
-                handle_locator_probe_reply(xtr, m, probed, MREP_NONCE(mrep_hdr));
+                handle_locator_probe_reply(xtr, m, probed,
+                        MREP_NONCE(mrep_hdr));
             } else {
                 /* If negative probe map-reply, then the probe was for
                  * proxy-ETR (PETR) */
                 handle_petr_probe_reply(xtr, m, probed, MREP_NONCE(mrep_hdr));
             }
+
+            /* No need to free 'probed' since it's a pointer to a locator in
+             * of m's */
             mapping_del(m);
         }
 
     }
 
-    locator_del(probed);
     return(GOOD);
 err:
     locator_del(probed);
@@ -432,7 +435,7 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     }
 
     /* Process additional ITR RLOCs */
-    itr_rlocs = lisp_addr_list_new();
+    itr_rlocs = laddr_list_new();
     lisp_msg_parse_itr_rlocs(&b, itr_rlocs);
 
     /* Process records and build Map-Reply */
@@ -461,7 +464,7 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* SEND MAP-REPLY */
-    lisp_addr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
+    laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
     lmlog(DBG_1, "Sending %s", lisp_msg_hdr_to_char(mrep));
     send_msg(&xtr->super, mrep, uc);
 
@@ -1565,7 +1568,18 @@ xtr_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc) {
     }
 }
 
+static void map_server_list_del (map_server_list_t *map_servers)
+{
+    map_server_list_t *next_map_server = NULL;
 
+    while (map_servers != NULL){
+        free(map_servers->address);
+        free(map_servers->key);
+        next_map_server = map_servers->next;
+        free(map_servers);
+        map_servers = next_map_server;
+    }
+}
 
 static inline lisp_xtr_t *
 lisp_xtr_cast(lisp_ctrl_dev_t *dev)
@@ -1609,6 +1623,8 @@ xtr_ctrl_destruct(lisp_ctrl_dev_t *dev)
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
     mcache_del(xtr->map_cache);
     local_map_db_del(xtr->local_mdb);
+    lisp_addr_list_del(xtr->map_resolvers);
+    map_server_list_del(xtr->map_servers);
 }
 
 static void

@@ -712,6 +712,19 @@ lisp_addr_list_to_char(lisp_addr_list_t *list, const char *list_name,
     }
 }
 
+/* Loop to free all the members of a lispd_addr_list_t */
+void lisp_addr_list_del(lisp_addr_list_t *list)
+{
+    lisp_addr_list_t *list_next;
+
+    while (list != NULL) {
+        list_next = list->next;
+        free(list->address);
+        free(list);
+        list = list_next;
+    }
+}
+
 /* Fill lisp_addr with the address.
  * Return GOOD if no error has been found */
 int

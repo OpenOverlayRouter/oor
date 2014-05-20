@@ -500,6 +500,7 @@ main(int argc, char **argv)
     }
     ctrl_dev_run(ctrl_dev);
 
+    exit_cleanup();
     /* EVENT LOOP */
     for (;;) {
         sockmstr_wait_on_all_read(smaster);

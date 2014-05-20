@@ -57,6 +57,7 @@ local_map_db_new()
 void local_map_db_del(local_map_db_t *lmdb)
 {
     mdb_del(lmdb->db, (mdb_del_fct)mapping_del);
+    free(lmdb);
 }
 
 

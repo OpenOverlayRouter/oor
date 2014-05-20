@@ -1293,26 +1293,15 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
     lisp_addr_t *rloc = NULL; /* for IP RLOCS */
     lisp_addr_t *aux_rloc = NULL;
 
-
-    if (priority < (MAX_PRIORITY - 1) || priority > UNUSED_RLOC_PRIORITY) {
-        lmlog(LERR, "Configuration file: Priority %d out of range [%d..%d], "
-                "set minimum priority...", priority, MAX_PRIORITY,
-                UNUSED_RLOC_PRIORITY);
-        priority = MIN_PRIORITY;
-    }
-
-
-    if (weight < (MIN_WEIGHT) || weight > MAX_WEIGHT) {
-        lmlog(LERR, "Configuration file: Weight %d out of range [%d..%d], set "
-                "weight to 100...",  weight, MIN_WEIGHT, MAX_WEIGHT);
-        weight = 100;
+    if (validate_priority_weight(priority, weight) != GOOD) {
+        return(BAD);
     }
 
     rloc = lisp_addr_new();
-    if (lisp_addr_ip_from_char(address, rloc)!=GOOD) {
+    if (lisp_addr_ip_from_char(address, rloc) != GOOD) {
         lisp_addr_del(rloc);
         lcaf_rloc = hash_table_lookup(lcaf_ht, address);
-        if(!lcaf_rloc){
+        if(!lcaf_rloc) {
             lmlog(LERR, "Configuration file: Error parsing RLOC address %s",
                     address);
             return (NULL);
@@ -1351,7 +1340,7 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
             locator = locator_init_local_full(rloc, &(interface->status),
                     priority, weight, 255, 0, &(interface->out_socket_v4));
         } else {
-            locator = locator_init_local_full(lisp_addr_clone(lcaf_rloc),
+            locator = locator_init_local_full(lcaf_rloc,
                     &(interface->status), priority, weight, 255, 0,
                     &(interface->out_socket_v4));
             if (!locator) {
@@ -1367,13 +1356,14 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
             locator = locator_init_remote_full(rloc, 1, priority, weight, 255,
                     0);
         } else {
-            locator = locator_init_remote_full(lisp_addr_clone(lcaf_rloc), 1,
+            locator = locator_init_remote_full(lcaf_rloc, 1,
                     priority, weight, 255, 0);
         }
 
         if (!locator) {
             lmlog(DBG_1, "Configuration file: failed to create locator with "
                     "addr %s", lisp_addr_to_char(rloc));
+            lisp_addr_del(rloc);
             return(NULL);
         }
     }
@@ -1618,19 +1608,24 @@ static int
 add_server(char *server, lisp_addr_list_t **list)
 {
 
-    uint afi;
+//    uint afi;
     lisp_addr_t *addr;
     lisp_addr_list_t *list_elt;
 
-    afi = ip_afi_from_char(server);
-    addr = lisp_addr_new_afi(LM_AFI_IP);
-    lisp_addr_ip_set_afi(addr, afi);
+//    afi = ip_afi_from_char(server);
+//    lisp_addr_ip_set_afi(addr, afi);
 
-    if (inet_pton(afi, server, ip_addr_get_addr(lisp_addr_ip(addr))) != 1) {
-        lmlog(LERR, "add_server: Wrong address format: %s", strerror(errno));
+    addr = lisp_addr_new();
+    if (lisp_addr_ip_from_char(server, addr) != GOOD) {
         lisp_addr_del(addr);
         return(BAD);
     }
+
+//    if (inet_pton(afi, server, ip_addr_get_addr(lisp_addr_ip(addr))) != 1) {
+//        lmlog(LERR, "add_server: Wrong address format: %s", strerror(errno));
+//        lisp_addr_del(addr);
+//        return(BAD);
+//    }
 
     /* Check that the afi of the map server matches with the default rloc afi
      * (if it's defined). */
