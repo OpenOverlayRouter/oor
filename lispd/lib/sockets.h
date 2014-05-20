@@ -78,14 +78,14 @@ typedef struct uconn {
     uint16_t rp;        /* remote port */
 } uconn_t;
 
-typedef struct sock_master {
+typedef struct sockmstr {
     sock_list_t read;
 //    struct sock_list *write;
 //    struct sock_list *netlink;
     fd_set readfds;
 //    fd_set *writefds;
 //    fd_set *netlinkfds;
-} sock_master_t;
+} sockmstr_t;
 
 union sockunion {
     struct sockaddr_in s4;
@@ -94,19 +94,19 @@ union sockunion {
 
 
 
-extern struct sock_master *sock_master_new();
-extern struct sock *sock_register_read_listener(struct sock_master *m,
+sockmstr_t *sockmstr_new();
+struct sock *sockmstr_register_read_listener(sockmstr_t *m,
         int (*)(struct sock *), void *arg, int fd);
-extern void sock_process_all(struct sock_master *m);
-extern void sock_fdset_all_read(struct sock_master *m);
+void sockmstr_process_all(sockmstr_t *m);
+void sockmstr_wait_on_all_read(sockmstr_t *m);
 
 int open_data_input_socket(int afi);
 int open_control_input_socket(int afi);
 
-int sock_send(uconn_t *uc, struct lbuf *b);
+int sock_ctrl_send(uconn_t *uc, struct lbuf *b);
 int sock_recv(int, lbuf_t *);
-int sock_recv_ctrl(int, lbuf_t *, uconn_t *);
-int sock_recv_data(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
+int sock_ctrl_recv(int, lbuf_t *, uconn_t *);
+int sock_data_recv(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
 
 static inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
         lisp_addr_t *ra)

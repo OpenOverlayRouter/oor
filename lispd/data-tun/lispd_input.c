@@ -71,7 +71,7 @@ read_and_decap_pkt(int sock, lbuf_t *b)
     lisphdr_t *lisp_hdr;
     struct udphdr *udph;
 
-    if (sock_recv_data(sock, b, &ttl, &tos) != GOOD) {
+    if (sock_data_recv(sock, b, &ttl, &tos) != GOOD) {
         return(BAD);
     }
 

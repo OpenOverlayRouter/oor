@@ -93,13 +93,13 @@ ctrl_init(lisp_ctrl_t *ctrl)
     /* Generate receive sockets for control (4342) and data port (4341) */
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
         ctrl->ipv4_control_input_fd = open_control_input_socket(AF_INET);
-        sock_register_read_listener(smaster, ctrl_recv_msg, ctrl,
+        sockmstr_register_read_listener(smaster, ctrl_recv_msg, ctrl,
                 ctrl->ipv4_control_input_fd);
     }
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
         ctrl->ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-        sock_register_read_listener(smaster, ctrl_recv_msg, ctrl,
+        sockmstr_register_read_listener(smaster, ctrl_recv_msg, ctrl,
                 ctrl->ipv6_control_input_fd);
     }
 
@@ -126,7 +126,7 @@ ctrl_recv_msg(struct sock *sl)
 
     b = lisp_msg_create_buf();
 
-    if (sock_recv_ctrl(sl->fd, b, &uc) != GOOD) {
+    if (sock_ctrl_recv(sl->fd, b, &uc) != GOOD) {
         lmlog(DBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
         return (BAD);
@@ -158,7 +158,7 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
         return (BAD);
     }
 
-    ret = sock_send(uc, b);
+    ret = sock_ctrl_send(uc, b);
 
     if (ret != GOOD) {
         lmlog(DBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",

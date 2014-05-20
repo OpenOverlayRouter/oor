@@ -52,7 +52,7 @@ extern iface_t *default_ctrl_iface_v6;
 extern iface_t *default_out_iface_v4;
 extern iface_t *default_out_iface_v6;
 
-extern sock_master_t *smaster;
+extern sockmstr_t *smaster;
 extern lisp_ctrl_dev_t *ctrl_dev;
 extern lisp_ctrl_t *lctrl;
 extern shash_t *iface_addr_ht;

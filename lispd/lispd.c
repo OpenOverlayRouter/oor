@@ -80,7 +80,7 @@ nonces_list_t *nat_ir_nonce = NULL;
 /* timers (fds) */
 int timers_fd = 0;
 
-struct sock_master *smaster = NULL;
+sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
 
@@ -144,7 +144,7 @@ void init_tun()
     }
 #endif
 
-    sock_register_read_listener(smaster, recv_output_packet, NULL, tun_receive_fd);
+    sockmstr_register_read_listener(smaster, recv_output_packet, NULL, tun_receive_fd);
 }
 
 int
@@ -163,13 +163,13 @@ init_tr_data_plane(lisp_dev_type_e mode)
     /* Generate receive sockets for control (4342) and data port (4341) */
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
-        sock_register_read_listener(smaster, process_input_packet, NULL,
+        sockmstr_register_read_listener(smaster, process_input_packet, NULL,
                 ipv4_data_input_fd);
     }
 
     if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
-        sock_register_read_listener(smaster, process_input_packet, NULL,
+        sockmstr_register_read_listener(smaster, process_input_packet, NULL,
                 ipv6_data_input_fd);
     }
 
@@ -383,7 +383,7 @@ init_timer_wheel()
     init_timers();
 
     /* register timer fd with the socket master */
-    sock_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
+    sockmstr_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
 }
 
 static void
@@ -397,7 +397,7 @@ init_netlink()
 
     /* Request to dump the routing tables to obtain the gatways when
      * processing the netlink messages  */
-    nl_sl = sock_register_read_listener(smaster, process_netlink_msg, NULL,
+    nl_sl = sockmstr_register_read_listener(smaster, process_netlink_msg, NULL,
             netlink_fd);
 
     request_route_table(RT_TABLE_MAIN, AF_INET);
@@ -470,7 +470,7 @@ main(int argc, char **argv)
     demonize_start();
 
     /* create socket master, timer wheel, initialize interfaces */
-    smaster = sock_master_new();
+    smaster = sockmstr_new();
     init_timer_wheel();
     init_ifaces();
 
@@ -496,8 +496,8 @@ main(int argc, char **argv)
 
     /* EVENT LOOP */
     for (;;) {
-        sock_fdset_all_read(smaster);
-        sock_process_all(smaster);
+        sockmstr_wait_on_all_read(smaster);
+        sockmstr_process_all(smaster);
     }
 
     /* event_loop returned: bad! */

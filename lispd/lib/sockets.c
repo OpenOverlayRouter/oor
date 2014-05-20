@@ -42,11 +42,11 @@
 #include "iface_list.h"
 #include "lmlog.h"
 
-struct sock_master *
-sock_master_new()
+sockmstr_t *
+sockmstr_new()
 {
-    struct sock_master *sm;
-    sm = xzalloc(sizeof(struct sock_master));
+    sockmstr_t *sm;
+    sm = xzalloc(sizeof(sockmstr_t));
     return (sm);
 }
 
@@ -70,7 +70,7 @@ sock_list_add(struct sock_list *lst, struct sock *sock)
 }
 
 struct sock *
-sock_register_read_listener(struct sock_master *m,
+sockmstr_register_read_listener(sockmstr_t *m,
         int (*func)(struct sock *), void *arg, int fd)
 {
     struct sock *sock;
@@ -80,7 +80,6 @@ sock_register_read_listener(struct sock_master *m,
     sock->arg = arg;
     sock->fd = fd;
     sock_list_add(&m->read, sock);
-//    FD_SET(fd, &m->readfds);
     return (sock);
 }
 
@@ -96,15 +95,12 @@ sock_process_fd(struct sock_list *lst, fd_set *fdset)
 }
 
 void
-sock_process_all(struct sock_master *m)
+sockmstr_process_all(sockmstr_t *m)
 {
-//    fd_set          readfds;
     struct timeval tv;
 
     tv.tv_sec = 0;
     tv.tv_usec = DEFAULT_SELECT_TIMEOUT;
-
-//    readfds = m->readfds;
 
     while (1) {
         if (select(m->read.maxfd + 1, &m->readfds, NULL, NULL, &tv) == -1) {
@@ -124,7 +120,7 @@ sock_process_all(struct sock_master *m)
 }
 
 void
-sock_fdset_all_read(struct sock_master *m)
+sockmstr_wait_on_all_read(sockmstr_t *m)
 {
     struct sock *sit;
     for (sit = m->read.head; sit; sit = sit->next) {
@@ -241,7 +237,7 @@ sock_recv(int sfd, lbuf_t *b)
 /* Get a packet from the socket. It also returns the destination addres and
  * source port of the packet */
 int
-sock_recv_ctrl(int sock, struct lbuf *buf, uconn_t *uc)
+sock_ctrl_recv(int sock, struct lbuf *buf, uconn_t *uc)
 {
 
     union control_data {
@@ -297,7 +293,7 @@ sock_recv_ctrl(int sock, struct lbuf *buf, uconn_t *uc)
             if (cmsgptr->cmsg_level == IPPROTO_IPV6
                     && cmsgptr->cmsg_type == IPV6_PKTINFO) {
                 lisp_addr_ip_init(&uc->la,
-                        &(((struct in6_pktinfo *) (CMSG_DATA(cmsgptr)))->ipi6_addr.s6_addr),
+                        &(((struct in6_pktinfo *) (CMSG_DATA(cmsgptr)))->ipi6_addr),
                         AF_INET6);
                 break;
             }
@@ -310,7 +306,7 @@ sock_recv_ctrl(int sock, struct lbuf *buf, uconn_t *uc)
 }
 
 int
-sock_recv_data(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
+sock_data_recv(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
 {
     /* Space for TTL and TOS data */
     union control_data {
@@ -387,7 +383,7 @@ sock_recv_data(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
 }
 
 int
-sock_send(uconn_t *uc, struct lbuf *b)
+sock_ctrl_send(uconn_t *uc, struct lbuf *b)
 {
     ip_addr_t *src, *dst;
     int sock, dst_afi;
