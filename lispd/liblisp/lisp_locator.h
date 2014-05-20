@@ -65,32 +65,32 @@ typedef struct locator {
     void *extended_info;
 } locator_t;
 
-typedef struct lispd_locators_list_ {
+typedef struct locators_list {
     locator_t *locator;
-    struct lispd_locators_list_ *next;
+    struct locators_list *next;
 } locators_list_t;
 
-typedef struct lispd_rtr_locator_ {
+typedef struct rtr_locator {
     lisp_addr_t address;
     uint8_t state; /* UP , DOWN */
     uint32_t latency;
-} rtr_locator;
+} rtr_locator_t;
 
-typedef struct lispd_rtr_locators_list_ {
-    rtr_locator *locator;
-    struct lispd_rtr_locators_list_ *next;
-} rtr_locators_list;
+typedef struct rtr_locators_list {
+    rtr_locator_t *locator;
+    struct rtr_locators_list *next;
+} rtr_locators_list_t;
 
-typedef struct lcl_locator_extended_info_ {
+typedef struct lcl_locator_extended_info {
     int *out_socket;
-    rtr_locators_list *rtr_locators_list;
-} lcl_locator_extended_info;
+    rtr_locators_list_t *rtr_locators_list;
+} lcl_locator_extended_info_t;
 
 /* Structure to expand lispd_locator_elt for remote locators */
-typedef struct rmt_locator_extended_info_ {
+typedef struct rmt_locator_extended_info {
     nonces_list_t *rloc_probing_nonces;
     timer *probe_timer;
-} rmt_locator_extended_info;
+} rmt_locator_extended_info_t;
 
 
 
@@ -119,11 +119,11 @@ static inline void locator_set_state_static(locator_t *locator, uint8_t state);
 static inline void locator_set_type(locator_t *, int);
 
 
-rtr_locator *rtr_locator_new(lisp_addr_t address);
-rtr_locators_list *rtr_locator_list_new();
-int rtr_list_add(rtr_locators_list **, rtr_locator *);
-void rtr_list_del(rtr_locators_list *rtr_list_elt);
-void rtr_list_remove_locs_with_afi_different_to(rtr_locators_list **, int);
+rtr_locator_t *rtr_locator_new(lisp_addr_t address);
+rtr_locators_list_t *rtr_locator_list_new();
+int rtr_list_add(rtr_locators_list_t **, rtr_locator_t *);
+void rtr_list_del(rtr_locators_list_t *rtr_list_elt);
+void rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **, int);
 
 
 static inline lisp_addr_t *locator_addr(locator_t *locator)

@@ -116,7 +116,7 @@ handle_petr_probe_reply(lisp_xtr_t *xtr, mapping_t *m, locator_t *probed,
         uint64_t nonce)
 {
     mapping_t *old_map = NULL, *pmap = NULL;
-    rmt_locator_extended_info *rmt_ext_inf = NULL;
+    rmt_locator_extended_info_t *rmt_ext_inf = NULL;
     locators_list_t *loc_list[2] = { NULL, NULL };
     lisp_addr_t *src_eid = NULL;
     locator_t *loc = NULL, *aux_loc = NULL;
@@ -182,7 +182,7 @@ handle_locator_probe_reply(lisp_xtr_t *xtr, mapping_t *m,
     lisp_addr_t *src_eid = NULL;
     locator_t *loc = NULL;
     mapping_t *old_map = NULL;
-    rmt_locator_extended_info *rmt_ext_inf = NULL;
+    rmt_locator_extended_info_t *rmt_ext_inf = NULL;
 
     src_eid = mapping_eid(m);
 
@@ -1119,7 +1119,7 @@ get_locator_behind_nat(mapping_t *m)
 {
     locators_list_t *loc_list[2] = { NULL, NULL };
     locator_t *loc = NULL;
-    lcl_locator_extended_info *leinf;
+    lcl_locator_extended_info_t *leinf;
     int ctr1;
 
     if (mapping_locator_count(m) == 0) {
@@ -1156,7 +1156,7 @@ map_register_process_encap(lisp_xtr_t *xtr)
     int next_timer_time = 0;
     void *it = NULL;
     nonces_list_t *nemrn;
-    lcl_locator_extended_info *leinf;
+    lcl_locator_extended_info_t *leinf;
 
     nemrn = xtr->nat_emr_nonces;
     if (!nemrn) {
@@ -1255,7 +1255,7 @@ rloc_probing_cb(timer *t, void *arg)
 static int
 rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
 {
-    rmt_locator_extended_info *einf = NULL;
+    rmt_locator_extended_info_t *einf = NULL;
     nonces_list_t *nonces = NULL;
     lisp_addr_t *deid, empty, *drloc;
     lbuf_t *b;
@@ -1351,7 +1351,7 @@ static void
 program_rloc_probing(lisp_xtr_t *xtr, mapping_t *m,
         locator_t *loc, int time)
 {
-    rmt_locator_extended_info *einf = NULL;
+    rmt_locator_extended_info_t *einf = NULL;
     timer_rloc_probe_argument *arg;
 
     einf = loc->extended_info;
@@ -2034,7 +2034,7 @@ get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
 static fwd_entry_t*
 get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
     locator_t *srloc = NULL;
-    lcl_locator_extended_info *leinfo;
+    lcl_locator_extended_info_t *leinfo;
     fwd_entry_t *fwd_entry = NULL;
     mapping_t *smap = NULL;
 

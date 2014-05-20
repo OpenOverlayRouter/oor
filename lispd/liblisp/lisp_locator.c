@@ -35,17 +35,17 @@
 #include "lmlog.h"
 
 
-static lcl_locator_extended_info *new_lcl_locator_extended_info(int *);
-static rmt_locator_extended_info *new_rmt_locator_extended_info();
-static void free_lcl_locator_extended_info(lcl_locator_extended_info *);
-static void free_rmt_locator_extended_info(rmt_locator_extended_info *);
+static lcl_locator_extended_info_t *new_lcl_locator_extended_info(int *);
+static rmt_locator_extended_info_t *new_rmt_locator_extended_info();
+static void free_lcl_locator_extended_info(lcl_locator_extended_info_t *);
+static void free_rmt_locator_extended_info(rmt_locator_extended_info_t *);
 
 
-static lcl_locator_extended_info *
+static lcl_locator_extended_info_t *
 new_lcl_locator_extended_info(int *out_socket)
 {
-    lcl_locator_extended_info *lcl_loc_ext_inf;
-    lcl_loc_ext_inf = xmalloc(sizeof(lcl_locator_extended_info));
+    lcl_locator_extended_info_t *lcl_loc_ext_inf;
+    lcl_loc_ext_inf = xmalloc(sizeof(lcl_locator_extended_info_t));
 
     lcl_loc_ext_inf->out_socket = out_socket;
     lcl_loc_ext_inf->rtr_locators_list = NULL;
@@ -53,11 +53,11 @@ new_lcl_locator_extended_info(int *out_socket)
     return lcl_loc_ext_inf;
 }
 
-static rmt_locator_extended_info *
+static rmt_locator_extended_info_t *
 new_rmt_locator_extended_info()
 {
-    rmt_locator_extended_info *rmt_loc_ext_inf;
-    rmt_loc_ext_inf = xmalloc(sizeof(rmt_locator_extended_info));
+    rmt_locator_extended_info_t *rmt_loc_ext_inf;
+    rmt_loc_ext_inf = xmalloc(sizeof(rmt_locator_extended_info_t));
     rmt_loc_ext_inf->rloc_probing_nonces = NULL;
     rmt_loc_ext_inf->probe_timer = NULL;
 
@@ -66,7 +66,7 @@ new_rmt_locator_extended_info()
 
 
 static void
-free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info)
+free_lcl_locator_extended_info(lcl_locator_extended_info_t *extended_info)
 {
     if (!extended_info) {
         return;
@@ -78,7 +78,7 @@ free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info)
 
 
 static void
-free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info)
+free_rmt_locator_extended_info(rmt_locator_extended_info_t *extended_info)
 {
     if (!extended_info) {
         return;
@@ -376,10 +376,10 @@ void locator_list_del(locators_list_t     *locator_list)
     }
 }
 
-rtr_locator *
+rtr_locator_t *
 rtr_locator_new(lisp_addr_t address)
 {
-    rtr_locator *rtr_locator = NULL;
+    rtr_locator_t *rtr_locator = NULL;
 
     rtr_locator = malloc(sizeof(rtr_locator));
     if (rtr_locator == NULL) {
@@ -394,19 +394,19 @@ rtr_locator_new(lisp_addr_t address)
     return (rtr_locator);
 }
 
-rtr_locators_list*
+rtr_locators_list_t*
 rtr_locator_list_new()
 {
-    rtr_locators_list *rtr_list;
-    rtr_list = xmalloc(sizeof(rtr_locators_list));
+    rtr_locators_list_t *rtr_list;
+    rtr_list = xmalloc(sizeof(rtr_locators_list_t));
     return(rtr_list);
 }
 
 int
-rtr_list_add(rtr_locators_list **list, rtr_locator *locator)
+rtr_list_add(rtr_locators_list_t **list, rtr_locator_t *locator)
 {
-    rtr_locators_list *loc_list_elt = NULL;
-    rtr_locators_list *loc_list = *list;
+    rtr_locators_list_t *loc_list_elt = NULL;
+    rtr_locators_list_t *loc_list = *list;
 
 
     loc_list = rtr_locator_list_new();
@@ -426,9 +426,9 @@ rtr_list_add(rtr_locators_list **list, rtr_locator *locator)
 
 
 void
-rtr_list_del(rtr_locators_list *rtr_list_elt)
+rtr_list_del(rtr_locators_list_t *rtr_list_elt)
 {
-    rtr_locators_list *aux_rtr_list_elt   = NULL;
+    rtr_locators_list_t *aux_rtr_list_elt   = NULL;
 
     while (rtr_list_elt != NULL){
         aux_rtr_list_elt = rtr_list_elt->next;
@@ -441,12 +441,12 @@ rtr_list_del(rtr_locators_list *rtr_list_elt)
 
 /* Leave in the list, rtr with afi equal to the afi passed as a parameter */
 void
-rtr_list_remove_locs_with_afi_different_to(rtr_locators_list **rtr_list,
+rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **rtr_list,
         int afi)
 {
-    rtr_locators_list *rtr_list_elt = *rtr_list;
-    rtr_locators_list *prev_rtr_list_elt = NULL;
-    rtr_locators_list *aux_rtr_list_elt = NULL;
+    rtr_locators_list_t *rtr_list_elt = *rtr_list;
+    rtr_locators_list_t *prev_rtr_list_elt = NULL;
+    rtr_locators_list_t *aux_rtr_list_elt = NULL;
 
     while (rtr_list_elt != NULL) {
         if (rtr_list_elt->locator->address.afi == afi) {

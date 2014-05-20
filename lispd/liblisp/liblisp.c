@@ -326,7 +326,7 @@ lisp_msg_put_locator(lbuf_t *b, locator_t *locator)
     locator_hdr_t *loc_ptr;
     lisp_addr_t *addr;
 
-    lcl_locator_extended_info * lct_extended_info;
+    lcl_locator_extended_info_t * lct_extended_info;
 
     loc_ptr = lbuf_put_uninit(b, sizeof(locator_hdr_t));
 

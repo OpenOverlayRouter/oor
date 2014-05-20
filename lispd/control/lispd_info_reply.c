@@ -38,11 +38,10 @@
 #include "lispd_info_reply.h"
 #include "lispd_info_request.h"
 #include "lispd_lib.h"
-#include "lispd_local_db.h"
-#include "lispd_map_register.h"
-#include "lispd_nonce.h"
-#include "lispd_smr.h"
+#include "lisp_local_db.h"
+#include "lisp_nonce.h"
 #include "cksum.h"
+#include "lmlog.h"
 
 
 
@@ -84,15 +83,15 @@ int process_info_reply_msg(
     lisp_addr_t                 global_etr_rloc         = {.afi=AF_UNSPEC};
     lisp_addr_t                 ms_rloc                 = {.afi=AF_UNSPEC};
     lisp_addr_t                 private_etr_rloc        = {.afi=AF_UNSPEC};
-    rtr_locators_list     *rtr_locators_list      = NULL;
+    rtr_locators_list_t     *rtr_locators_list      = NULL;
 
     mapping_t           *mapping                = NULL;
     locator_t           *locator                = NULL;
-    lcl_locator_extended_info   *lcl_locator_ext_inf    = NULL;
+    lcl_locator_extended_info_t   *lcl_locator_ext_inf    = NULL;
 
     char                        rtrs_list_str[2000];
     int                         rtrs_list_str_size = 0;
-    rtr_locators_list     *aux_rtr_locators_list  = NULL;
+    rtr_locators_list_t     *aux_rtr_locators_list  = NULL;
 
     uint8_t                     is_behind_nat           = FALSE;
 
@@ -231,7 +230,7 @@ int process_info_reply_msg(
             return (BAD);
         }
 
-        lcl_locator_ext_inf = (lcl_locator_extended_info *)locator->extended_info;
+        lcl_locator_ext_inf = (lcl_locator_extended_info_t *)locator->extended_info;
         if (lcl_locator_ext_inf->rtr_locators_list != NULL){
             rtr_list_del(lcl_locator_ext_inf->rtr_locators_list);
         }

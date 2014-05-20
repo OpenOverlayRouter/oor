@@ -107,7 +107,7 @@ int extract_nat_lcaf_data(
         lisp_addr_t                     *global_etr_rloc,
         lisp_addr_t                     *ms_rloc,
         lisp_addr_t                     *private_etr_rloc,
-        rtr_locators_list         **rtr_list,
+        rtr_locators_list_t         **rtr_list,
         uint32_t                        *length);
 
 
