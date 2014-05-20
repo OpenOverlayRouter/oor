@@ -77,6 +77,7 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
     addr = locator_addr(loc);
     switch (lisp_addr_afi(addr)) {
     case LM_AFI_IP:
+    case LM_AFI_NO_ADDR:
         auxaddr = addr;
         break;
     case LM_AFI_LCAF:
@@ -88,24 +89,24 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
     }
 
     switch (lisp_addr_ip_afi(auxaddr)) {
-        case AF_INET:
-            err = locator_list_add(&m->head_v4_locators_list, loc);
-            break;
-        case AF_INET6:
-            err = locator_list_add(&m->head_v6_locators_list, loc);
-            break;
-        case AF_UNSPEC:
-            leinf = m->extended_info;
-            err = locator_list_add(&leinf->head_not_init_locators_list, loc);
-            if (err == GOOD){
-                return (GOOD);
-            }else{
-                locator_del(loc);
-                return (BAD);
-            }
-        default:
-            lmlog(DBG_1, "Unknown locator afi %d", lisp_addr_ip_afi(auxaddr));
-            err = BAD;
+    case AF_INET:
+        err = locator_list_add(&m->head_v4_locators_list, loc);
+        break;
+    case AF_INET6:
+        err = locator_list_add(&m->head_v6_locators_list, loc);
+        break;
+    case AF_UNSPEC:
+        leinf = m->extended_info;
+        err = locator_list_add(&leinf->head_not_init_locators_list, loc);
+        if (err == GOOD) {
+            return (GOOD);
+        } else {
+            locator_del(loc);
+            return (BAD);
+        }
+    default:
+        lmlog(DBG_1, "Unknown locator afi %d", lisp_addr_ip_afi(auxaddr));
+        err = BAD;
     }
 
     if (err == GOOD) {

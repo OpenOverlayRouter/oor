@@ -125,7 +125,7 @@ nonce_to_char(uint64_t nonce)
     i++;
     i = i % 2;
 
-    sprintf(nonce_char[i], "0x%lx", nonce);
+    sprintf(nonce_char[i], "0x%#" PRIx64, nonce);
 
     return (nonce_char[i]);
 }

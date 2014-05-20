@@ -1212,7 +1212,7 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
         return(BAD);
     }
 
-    if (lisp_addr_ippref_from_char(eid_str, &eid) !=GOOD) {
+    if (lisp_addr_ippref_from_char(eid_str, &eid) != GOOD) {
         lmlog(LERR, "Configuration file: Error parsing EID address");
         return (BAD);
     }
@@ -1235,6 +1235,7 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
             return(BAD);
         }
         mapping_set_ttl(m, DEFAULT_MAP_REGISTER_TIMEOUT);
+
         /* Add the mapping to the local database */
         if (local_map_db_add_mapping(xtr->local_mdb, m) != GOOD) {
             mapping_del(m);
@@ -1288,10 +1289,9 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
 {
     char *iface_name = NULL;
     locator_t *locator = NULL;
-    lisp_addr_t *lcaf_rloc = NULL;
     iface_t *interface = NULL;
     lisp_addr_t *rloc = NULL; /* for IP RLOCS */
-    lisp_addr_t *aux_rloc = NULL;
+    lisp_addr_t *aux_rloc = NULL, *addr, *lcaf_rloc = NULL;
 
     if (validate_priority_weight(priority, weight) != GOOD) {
         return(BAD);
@@ -1336,18 +1336,14 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
             }
         }
 
-        if (!lcaf_rloc) {
-            locator = locator_init_local_full(rloc, &(interface->status),
-                    priority, weight, 255, 0, &(interface->out_socket_v4));
-        } else {
-            locator = locator_init_local_full(lcaf_rloc,
-                    &(interface->status), priority, weight, 255, 0,
-                    &(interface->out_socket_v4));
-            if (!locator) {
-                lmlog(DBG_1, "Configuration file: failed to create locator"
-                        " with addr %s", lisp_addr_to_char(lcaf_rloc));
-                return(NULL);
-            }
+        addr = iface_address(interface, lisp_addr_ip_afi(aux_rloc));
+        locator = locator_init_local_full(addr , &(interface->status),
+                priority, weight, 255, 0, &(interface->out_socket_v4));
+
+        if (!locator) {
+            lmlog(DBG_1, "Configuration file: failed to create locator"
+                    " with addr %s", address);
+            return(NULL);
         }
     /* REMOTE locator */
     } else {
@@ -1368,6 +1364,7 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
         }
     }
 
+    lisp_addr_del(rloc);
     return(locator);
 }
 
@@ -1535,6 +1532,7 @@ add_static_map_cache_entry(lisp_xtr_t *xtr, char *eid, int iid,
     lisp_addr_t rloc;
     lisp_addr_t *lcaf_rloc;
     lisp_addr_t eid_prefix;
+    int err;
 
     if (iid > MAX_IID) {
         lmlog(LERR, "Configuration file: Instance ID %d out of range [0..%d],"

@@ -201,7 +201,7 @@ locator_init_local(lisp_addr_t *addr)
 {
     locator_t *locator = locator_new();
     /* Initialize locator */
-    locator->addr = lisp_addr_clone(addr);
+    locator->addr = addr;
     locator->type = LOCAL_LOCATOR;
 
     return(locator);

@@ -184,7 +184,7 @@ static int
 iface_setup(iface_t *iface, char* iface_name, int afi)
 {
     lisp_addr_t *addr;
-    int *sock;
+    int *sock, ret;
 
     switch (afi) {
     case AF_INET:
@@ -197,8 +197,8 @@ iface_setup(iface_t *iface, char* iface_name, int afi)
         break;
     }
 
-    err = get_iface_address(iface_name, addr, afi);
-    if (err != BAD) {
+    ret = get_iface_address(iface_name, addr, afi);
+    if (ret == GOOD) {
         *sock = open_device_bound_raw_socket(iface_name, afi);
         bind_socket_address(*sock, addr);
         add_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
@@ -235,22 +235,25 @@ add_interface(char *iface_name)
     iface->iface_name = strdup(iface_name); /* MUST FREE */
     iface->iface_index = if_nametoindex(iface_name);
 
+    /* set up all fields to default, null values */
+    iface->ipv4_address = lisp_addr_new_afi(LM_AFI_IP);
+    lisp_addr_set_ip_afi(iface->ipv4_address, AF_UNSPEC);
+    iface->ipv6_address = lisp_addr_new_afi(LM_AFI_IP);
+    lisp_addr_set_ip_afi(iface->ipv6_address, AF_UNSPEC);
+    iface->out_socket_v4 = -1;
+    iface->out_socket_v6 = -1;
+
+
     lmlog(DBG_2, "Adding interface %s with index %d to iface list",
             iface_name, iface->iface_index);
 
 
     if (iface->iface_index != 0) {
         if (default_rloc_afi != AF_INET6) {
-            iface->ipv4_address = lisp_addr_new_afi(LM_AFI_IP);
-            lisp_addr_set_ip_afi(iface->ipv4_address, AF_UNSPEC);
-            iface->out_socket_v4 = -1;
             iface_setup(iface, iface_name, AF_INET);
         }
 
         if (default_rloc_afi != AF_INET) {
-            iface->ipv6_address = lisp_addr_new_afi(LM_AFI_IP);
-            lisp_addr_set_ip_afi(iface->ipv6_address, AF_UNSPEC);
-            iface->out_socket_v6 = -1;
             iface_setup(iface, iface_name, AF_INET6);
         }
     }
@@ -297,8 +300,8 @@ add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
 
     map_list = iface->head_mappings_list;
     while (map_list != NULL) {
-        // Check if the mapping is already installed in the list
-        // XXX: this is risky stuff
+        /* Check if the mapping is already installed in the list
+         * XXX: this is risky stuff */
         if (map_list->mapping == m) {
             switch (afi) {
             case AF_INET:
