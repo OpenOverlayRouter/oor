@@ -174,6 +174,10 @@ locator_cmp(locator_t *l1, locator_t *l2)
 locator_t *
 locator_init_remote(lisp_addr_t *addr)
 {
+    if (!addr) {
+        return (NULL);
+    }
+
     locator_t *locator = locator_new();
     locator->addr = lisp_addr_clone(addr);
     locator->state = xmalloc(sizeof(uint8_t));
@@ -183,11 +187,17 @@ locator_init_remote(lisp_addr_t *addr)
     return(locator);
 }
 
+/* Initializes a remote locator. 'addr' is cloned so it can be freed by the
+ * caller*/
 locator_t *
 locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
         uint8_t weight, uint8_t mpriority, uint8_t mweight)
 {
     locator_t *locator = locator_init_remote(addr);
+    if (!locator) {
+        return(NULL);
+    }
+
     *(locator->state) = state;
     locator->priority = priority;
     locator->weight = weight;
@@ -199,6 +209,10 @@ locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
 locator_t *
 locator_init_local(lisp_addr_t *addr)
 {
+    if (!addr) {
+        return (NULL);
+    }
+
     locator_t *locator = locator_new();
     /* Initialize locator */
     locator->addr = addr;
@@ -207,11 +221,17 @@ locator_init_local(lisp_addr_t *addr)
     return(locator);
 }
 
+/* Initializes a local locator. 'addr' should point to one of the
+ * addresses of an interface thereby it is NOT cloned so it cannot be
+ * freed by the caller */
 locator_t *
 locator_init_local_full(lisp_addr_t *addr, uint8_t *state, uint8_t priority,
         uint8_t weight, uint8_t mpriority, uint8_t mweight, int *out_socket)
 {
     locator_t *locator = locator_init_local(addr);
+    if (!locator) {
+        return(NULL);
+    }
     /* Initialize locator */
     locator->priority = priority;
     locator->weight = weight;
@@ -250,12 +270,7 @@ locator_list_add(locators_list_t **list, locator_t *loc) {
             *aux_llist_next = NULL;
     int cmp = 0;
 
-    if ((loc_list = malloc(sizeof(locators_list_t))) == NULL) {
-        lmlog(LWRN, "add_locator_to_list: Unable to allocate memory for "
-                "lispd_locator_list: %s", strerror(errno));
-        return (ERR_MALLOC);
-    }
-
+    loc_list = xmalloc(sizeof(locators_list_t));
     loc_list->next = NULL;
     loc_list->locator = loc;
 

@@ -423,10 +423,10 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
 static void
 parse_rle_list(cfg_t *cfg, htable_t *ht)
 {
-    rle_node_t  *rnode  = NULL;
-    rle_t       *rle    = NULL;
-    lisp_addr_t *laddr  = NULL;
-    char        *name   = NULL;
+    rle_node_t *rnode = NULL;
+    rle_t *rle = NULL;
+    lisp_addr_t *laddr = NULL;
+    char *name = NULL;
     int i, j;
 
     for (i = 0; i < cfg_size(cfg, "replication-list"); i++) {
@@ -463,11 +463,12 @@ parse_rle_list(cfg_t *cfg, htable_t *ht)
 static void
 parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
 {
-    mc_t        *mc     = NULL;
-    lisp_addr_t *laddr  = NULL;
-    char        *name   = NULL;
-    int i;
+    mc_t *mc = NULL;
+    lisp_addr_t *laddr = NULL;
+    char *name = NULL;
+    int i, count;
 
+    count = 0;
     for (i = 0; i < cfg_size(cfg, "multicast-info"); i++) {
         cfg_t *mcnode = cfg_getnsec(cfg, "multicast-info", i);
         name = cfg_getstr(mcnode, "mc-info-name");
@@ -487,9 +488,10 @@ parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
                 lisp_addr_to_char(laddr));
 
         hash_table_insert(ht, strdup(name), laddr);
+        count ++;
     }
 
-    if (hash_table_size(ht) !=0) {
+    if (count != 0) {
         lmlog(LINF, "Parsed configured multicast addresses");
     }
 }
@@ -1364,7 +1366,10 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
         }
     }
 
-    lisp_addr_del(rloc);
+    if (!lcaf_rloc) {
+        lisp_addr_del(rloc);
+    }
+
     return(locator);
 }
 
@@ -1372,7 +1377,7 @@ static mapping_t *
 build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
 {
     int i;
-    mapping_t *mapping = NULL;
+    mapping_t *m = NULL;
     locator_t *locator = NULL;
     lisp_addr_t *eid_prefix;
     lisp_addr_t *new_eid = NULL;
@@ -1410,38 +1415,39 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
         eid_prefix = new_eid;
     }
 
-    mapping = (local) ? mapping_init_local(eid_prefix) :
+    m = (local) ? mapping_init_local(eid_prefix) :
                         mapping_init_remote(eid_prefix);
 
     for (i = 0; i < cfg_size(map, "rloc"); i++) {
         cfg_t *rl = cfg_getnsec(map, "rloc", i);
-        if (local)
+        if (local) {
             locator = parse_locator(cfg_getstr(rl, "address"),
                     cfg_getint(rl, "priority"),
                     cfg_getint(rl, "weight"),
                     lcaf_ht, 1);
-        else
+        } else {
             locator = parse_locator(cfg_getstr(rl, "address"),
                     cfg_getint(rl, "priority"),
                     cfg_getint(rl, "weight"),
                     lcaf_ht, 0);
-
+        }
         if (!locator) {
             lmlog(LWRN, "Configuration file: couldn't parse locator %s",
                     cfg_getstr(rl, "address"));
             continue;
         }
 
-        mapping_add_locator(mapping, locator);
+        mapping_add_locator(m, locator);
     }
 
-    if (mapping_compute_balancing_vectors(mapping) != GOOD) {
-        lmlog(LWRN,"build_mapping_from_config: Couldn't calculate balancing "
+    if (mapping_compute_balancing_vectors(m) != GOOD) {
+        lmlog(LWRN, "build_mapping_from_config: Couldn't calculate balancing "
                 "vectors");
+        mapping_del(m);
         return(BAD);
     }
 
-    return(mapping);
+    return(m);
 }
 
 static int

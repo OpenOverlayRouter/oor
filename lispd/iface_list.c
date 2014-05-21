@@ -205,7 +205,7 @@ iface_setup(iface_t *iface, char* iface_name, int afi)
                 addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
     } else {
         *sock = -1;
-        lisp_addr_ip_set_afi(addr, AF_UNSPEC);
+//        lisp_addr_ip_set_afi(addr, AF_UNSPEC);
         lisp_addr_set_afi(addr, LM_AFI_NO_ADDR);
         return(BAD);
     }
@@ -237,9 +237,9 @@ add_interface(char *iface_name)
 
     /* set up all fields to default, null values */
     iface->ipv4_address = lisp_addr_new_afi(LM_AFI_IP);
-    lisp_addr_set_ip_afi(iface->ipv4_address, AF_UNSPEC);
+    lisp_addr_set_afi(iface->ipv4_address, LM_AFI_NO_ADDR);
     iface->ipv6_address = lisp_addr_new_afi(LM_AFI_IP);
-    lisp_addr_set_ip_afi(iface->ipv6_address, AF_UNSPEC);
+    lisp_addr_set_afi(iface->ipv6_address, LM_AFI_NO_ADDR);
     iface->out_socket_v4 = -1;
     iface->out_socket_v6 = -1;
 
@@ -258,8 +258,8 @@ add_interface(char *iface_name)
         }
     }
 
-    if (lisp_addr_ip_afi(iface->ipv4_address) == AF_UNSPEC
-            && lisp_addr_ip_afi(iface->ipv6_address) == AF_UNSPEC) {
+    if (lisp_addr_afi(iface->ipv4_address) == LM_AFI_NO_ADDR
+        && lisp_addr_afi(iface->ipv6_address) == LM_AFI_NO_ADDR) {
         iface->status = DOWN;
     } else {
         iface->status = UP;
@@ -554,7 +554,7 @@ get_any_output_iface(int afi)
     case AF_INET:
         while (iface_list_elt != NULL) {
             tif = iface_list_elt->iface;
-            if ((lisp_addr_ip_afi(tif->ipv4_address) != AF_UNSPEC)
+            if ((lisp_addr_afi(tif->ipv4_address) != LM_AFI_NO_ADDR)
                     && (tif->status == UP)) {
                 iface = tif;
                 break;
@@ -565,7 +565,7 @@ get_any_output_iface(int afi)
     case AF_INET6:
         while (iface_list_elt != NULL) {
             tif = iface_list_elt->iface;
-            if ((lisp_addr_ip_afi(tif->ipv6_address) != AF_UNSPEC)
+            if ((lisp_addr_afi(tif->ipv6_address) != LM_AFI_NO_ADDR)
                     && (tif->status == UP)) {
                 iface = tif;
                 break;
@@ -582,7 +582,8 @@ get_any_output_iface(int afi)
 }
 
 lisp_addr_t *
-get_default_output_address(int afi) {
+get_default_output_address(int afi)
+{
     lisp_addr_t *addr = NULL;
 
     switch (afi) {

@@ -141,7 +141,7 @@ static int get_level_from_mapping(mapping_t *mapping) {
     else
         rloc = locator_addr(mapping->head_v6_locators_list->locator);
 
-    if (lisp_addr_afi(rloc) != LM_AFI_LCAF && lisp_addr_lcaf_get_type(rloc) != LCAF_RLE)
+    if (lisp_addr_afi(rloc) != LM_AFI_LCAF && lisp_addr_lcaf_type(rloc) != LCAF_RLE)
         return(-1);
 
     node_list = lcaf_rle_node_list(lisp_addr_get_lcaf(rloc));
@@ -230,7 +230,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
 
         while(ll) {
             if (lisp_addr_afi(locator_addr(ll->locator)) == LM_AFI_LCAF &&
-                    lisp_addr_lcaf_get_type(locator_addr(ll->locator)) == LCAF_RLE)
+                    lisp_addr_lcaf_type(locator_addr(ll->locator)) == LCAF_RLE)
                 break;
             ll = ll->next;
         }

@@ -122,8 +122,8 @@ inline void lisp_addr_ip_init(lisp_addr_t *addr, void *data, int afi);
 
 inline int lisp_addr_is_lcaf(lisp_addr_t *laddr);
 inline void lisp_addr_lcaf_set_addr(lisp_addr_t *laddr, void *addr);
-inline void *lisp_addr_lcaf_get_addr(lisp_addr_t *laddr);
-inline lcaf_type lisp_addr_lcaf_get_type(lisp_addr_t *laddr);
+inline void *lisp_addr_lcaf_addr(lisp_addr_t *laddr);
+inline lcaf_type_e lisp_addr_lcaf_type(lisp_addr_t *laddr);
 inline void lisp_addr_lcaf_set_type(lisp_addr_t *laddr, int type);
 
 inline int lisp_addr_init_from_ip(lisp_addr_t *, ip_addr_t *);

@@ -48,7 +48,7 @@ typedef enum {
     LISP_AFI_IP,
     LISP_AFI_IPV6,
     LISP_AFI_LCAF = 16387
-} lisp_afi_t;
+} lisp_afi_e;
 
 /* LCAF types */
 typedef enum {
@@ -68,7 +68,7 @@ typedef enum {
     LCAF_RLE,
     LCAF_DATA_MODEL,
     LCAF_KEY_VALUE
-} lcaf_type;
+} lcaf_type_e;
 
 /*
  * LISP Canonical Address Format

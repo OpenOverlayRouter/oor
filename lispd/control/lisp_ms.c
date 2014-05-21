@@ -513,7 +513,7 @@ static lisp_ctrl_dev_t *
 ms_ctrl_alloc()
 {
     lisp_ms_t *ms;
-    ms = xzalloc(sizeof(ms));
+    ms = xzalloc(sizeof(lisp_ms_t));
     return(&ms->super);
 }
 
@@ -538,8 +538,8 @@ static void
 ms_ctrl_destruct(lisp_ctrl_dev_t *dev)
 {
     lisp_ms_t *ms = lisp_ms_cast(dev);
-    mdb_del(ms->lisp_sites_db, (mdb_del_fct)mapping_del);
-    mdb_del(ms->reg_sites_db, (mdb_del_fct)lisp_site_prefix_del);
+    mdb_del(ms->lisp_sites_db, (mdb_del_fct)lisp_site_prefix_del);
+    mdb_del(ms->reg_sites_db, (mdb_del_fct)mapping_del);
 }
 
 void

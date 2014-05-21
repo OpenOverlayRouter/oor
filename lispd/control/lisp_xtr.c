@@ -2008,29 +2008,6 @@ select_locs_from_maps(mapping_t *smap, mapping_t *dmap,
     return (GOOD);
 }
 
-static int
-get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
-{
-    lcaf_addr_t *lcaf = NULL;
-    elp_node_t *enode;
-
-    lcaf = lisp_addr_get_lcaf(laddr);
-    switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_EXPL_LOC_PATH:
-        /* we're the ITR, so the destination is the first elp hop, the src we
-         * choose outside */
-        enode = glist_first_data(lcaf_elp_node_list(lcaf));
-        *dst = enode->addr;
-        break;
-    default:
-        *dst = NULL;
-        lmlog(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
-                lcaf_addr_get_type(lcaf));
-        return (BAD);
-    }
-    return (GOOD);
-}
-
 static fwd_entry_t*
 get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
     locator_t *srloc = NULL;
@@ -2108,6 +2085,29 @@ rtr_get_src_and_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **src,
     }
 }
 
+static int
+get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
+{
+    lcaf_addr_t *lcaf = NULL;
+    elp_node_t *enode;
+
+    lcaf = lisp_addr_get_lcaf(laddr);
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH:
+        /* we're the ITR, so the destination is the first elp hop, the src we
+         * choose outside */
+        enode = glist_first_data(lcaf_elp_node_list(lcaf));
+        *dst = enode->addr;
+        break;
+    default:
+        *dst = NULL;
+        lmlog(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
+                lcaf_addr_get_type(lcaf));
+        return (BAD);
+    }
+    return (GOOD);
+}
+
 static fwd_entry_t *
 tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
 {
@@ -2174,14 +2174,27 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
     if (safi == LM_AFI_IP) {
         fwd_entry->srloc = locator_addr(srloc);
     } else if (safi == LM_AFI_LCAF) {
-        /* LET data plane choose source RLOC */
+        /* XXX: can this happen? */
         fwd_entry = NULL;
     }
 
     if (dafi == LM_AFI_IP) {
         fwd_entry->drloc = locator_addr(drloc);
     } else if (dafi == LM_AFI_LCAF) {
-        get_dst_from_lcaf(locator_addr(drloc), &fwd_entry->drloc);
+        switch (xtr->super.mode) {
+        case xTR_MODE:
+            get_dst_from_lcaf(locator_addr(drloc), &fwd_entry->drloc);
+            break;
+        case RTR_MODE:
+            rtr_get_src_and_dst_from_lcaf(locator_addr(drloc),
+                    &fwd_entry->srloc, &fwd_entry->drloc);
+            break;
+        default:
+            lmlog(DBG_2, "Forwarding using LCAF Type %d not supported",
+                    lisp_addr_lcaf_type(locator_addr(drloc)));
+            return(NULL);
+        }
+
     }
 
     return (fwd_entry);
