@@ -30,11 +30,11 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  *
  */
-#pragma once
 
-#ifndef LISPD_LOG_H_
-#define LISPD_LOG_H_
+#ifndef LMLOG_H_
+#define LMLOG_H_
 
+#include "lispd_external.h"
 
 
 // If these set of defines is modified, check the function is_loggable()
@@ -57,14 +57,27 @@
 
 
 
+#define LMLOG(...) LLOG(__VA_ARGS__)
 
-void lmlog(int lisp_log_level, const char *format, ...);
+#define LLOG(level__, ...)                  \
+    do {                                    \
+        if (is_loggable(level__)) {         \
+            llog(level__, __VA_ARGS__);     \
+        }                                   \
+    } while (0)
 
-/*
- * True if log_level is enough to print results
- */
-
-int is_loggable (int log_level);
+void llog(int lisp_log_level, const char *format, ...);
 
 
-#endif /*LISPD_LOG_H_*/
+/* True if log_level is enough to print results */
+static inline int is_loggable(int log_level)
+{
+    if (log_level < LISP_LOG_DEBUG_1)
+        return (1);
+    else if (log_level <= LISP_LOG_INFO + debug_level)
+        return (1);
+    return (0);
+}
+
+
+#endif /*LMLOG_H_*/

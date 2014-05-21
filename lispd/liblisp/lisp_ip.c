@@ -96,7 +96,7 @@ inline int
 ip_addr_set_afi(ip_addr_t *ipaddr, int afi)
 {
     if (afi != AF_INET && afi != AF_INET6 && afi != AF_UNSPEC) {
-        lmlog(LWRN, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
+        LMLOG(LWRN, "ip_addr_set_afi: unknown IP AFI (%d)", afi);
         return(BAD);
     }
     ipaddr->afi = afi;
@@ -128,7 +128,7 @@ ip_addr_init(ip_addr_t *ipaddr, void *src, uint8_t afi)
             ip_addr_set_v6(ipaddr, src);
             break;
         default:
-            lmlog(LWRN, "ip_addr_init: unknown IP AFI (%d)", afi);
+            LMLOG(LWRN, "ip_addr_init: unknown IP AFI (%d)", afi);
             break;
     }
 }
@@ -306,7 +306,7 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
     int mask;
 
     if ((token = strtok(addr, "/")) == NULL) {
-        lmlog(DBG_1, "ip_prefix_from_char: Prefix not of the form "
+        LMLOG(DBG_1, "ip_prefix_from_char: Prefix not of the form "
                 "prefix/length: %s", addr);
         return (BAD);
     }
@@ -316,7 +316,7 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
     }
 
     if ((token = strtok(NULL, "/")) == NULL) {
-        lmlog(DBG_1, "ip_prefix_from_char: strtok: %s", strerror(errno));
+        LMLOG(DBG_1, "ip_prefix_from_char: strtok: %s", strerror(errno));
         return (BAD);
     }
 
@@ -370,7 +370,7 @@ ip_sock_to_iana_afi(uint16_t afi)
         case AF_INET6:
             return(LISP_AFI_IPV6);
         default:
-            lmlog(LWRN, "ip_sock_to_iana_afi: unknown IP AFI (%d)", afi);
+            LMLOG(LWRN, "ip_sock_to_iana_afi: unknown IP AFI (%d)", afi);
             return(0);
     }
 }
@@ -384,7 +384,7 @@ ip_iana_to_sock_afi(uint16_t afi)
         case LISP_AFI_IPV6:
             return(AF_INET6);
         default:
-            lmlog(LWRN, "ip_iana_to_sock_afi: unknown IP AFI (%d)", afi);
+            LMLOG(LWRN, "ip_iana_to_sock_afi: unknown IP AFI (%d)", afi);
             return(0);
     }
 }
@@ -398,7 +398,7 @@ ip_sock_afi_to_size(uint16_t afi)
     case AF_INET6:
         return(sizeof(struct in6_addr));
     default:
-        lmlog(LWRN, "ip_sock_afi_to_size: unknown IP AFI (%d)", afi);
+        LMLOG(LWRN, "ip_sock_afi_to_size: unknown IP AFI (%d)", afi);
         return(0);
     }
 }
@@ -413,7 +413,7 @@ ip_sock_afi_to_hdr_len(int afi)
     case AF_INET6:
         return(sizeof(struct ip6_hdr));
     default:
-        lmlog(DBG_2, "get_ip_header_len: unknown AFI (%d)", afi);
+        LMLOG(DBG_2, "get_ip_header_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -429,7 +429,7 @@ ip_iana_afi_to_size(uint16_t afi)
     case LISP_AFI_IPV6:
         return(sizeof(struct in6_addr));
     default:
-        lmlog(LISP_LOG_DEBUG_3, "ip_iana_afi_to_size: unknown AFI (%d)", afi);
+        LMLOG(LISP_LOG_DEBUG_3, "ip_iana_afi_to_size: unknown AFI (%d)", afi);
         return(0);
     }
     return(0);
@@ -458,7 +458,7 @@ ip_is_multicast(void *ip, int afi)
         return ipv6_is_multicast(ip);
         break;
     default:
-        lmlog(LWRN, "is_multicast_addr: Unknown afi %s", afi);
+        LMLOG(LWRN, "is_multicast_addr: Unknown afi %s", afi);
         break;
     }
     return(0);
@@ -549,7 +549,7 @@ ip_hdr_ver_to_len(int ih_ver)
         return(sizeof(struct ip6_hdr));
         break;
     default:
-        lmlog(DBG_2, "ip_hdr_ver_to_len: Unknown IP version %d!",
+        LMLOG(DBG_2, "ip_hdr_ver_to_len: Unknown IP version %d!",
                 ih_ver);
         return(BAD);
     }

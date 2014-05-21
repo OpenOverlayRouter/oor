@@ -177,13 +177,13 @@ int lcaf_addr_parse(uint8_t *offset, lcaf_addr_t *lcaf) {
 
     lcaf_addr_set_type(lcaf, ((lcaf_hdr_t *)offset)->type);
     if (!parse_fcts[lcaf_addr_get_type(lcaf)]) {
-        lmlog(DBG_3, "lcaf_addr_read_from_pkt: Cannot parse LCAF type %d:",
+        LMLOG(DBG_3, "lcaf_addr_read_from_pkt: Cannot parse LCAF type %d:",
                 lcaf_addr_get_type(lcaf));
         return(BAD);
     }
     len = parse_fcts[lcaf_addr_get_type(lcaf)](offset, &lcaf->addr);
     if (len != ntohs(((lcaf_hdr_t *)offset)->len) + sizeof(lcaf_hdr_t)) {
-        lmlog(DBG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of "
+        LMLOG(DBG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of "
                 "bytes read %d don't differ by 8 bytes!", ntohs(((lcaf_hdr_t *)offset)->len), len);
         return(BAD);
     }
@@ -253,7 +253,7 @@ inline void lcaf_addr_set_type(lcaf_addr_t *lcaf, uint8_t type) {
 inline uint32_t lcaf_addr_get_size_to_write(lcaf_addr_t *lcaf) {
 
     if (!size_in_pkt_fcts[get_type_(lcaf)]) {
-        lmlog(LISP_LOG_WARNING, "lcaf_addr_get_size_to_write: size not implemented for LCAF type %d",
+        LMLOG(LISP_LOG_WARNING, "lcaf_addr_get_size_to_write: size not implemented for LCAF type %d",
                 get_type_(lcaf));
         return(BAD);
     }
@@ -265,7 +265,7 @@ int lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src) {
 
     assert(src);
     if (!copy_fcts[lcaf_addr_get_type(src)]) {
-        lmlog(LISP_LOG_WARNING, "lcaf_addr_copy: copy not implemented for LCAF type %s",lcaf_addr_get_type(src));
+        LMLOG(LISP_LOG_WARNING, "lcaf_addr_copy: copy not implemented for LCAF type %s",lcaf_addr_get_type(src));
         return(BAD);
     }
 
@@ -283,7 +283,7 @@ int lcaf_addr_copy(lcaf_addr_t *dst, lcaf_addr_t *src) {
 inline int lcaf_addr_write(void *offset, lcaf_addr_t *lcaf) {
     assert(lcaf);
     if (!write_fcts[get_type_(lcaf)]) {
-        lmlog(LISP_LOG_WARNING, "lcaf_addr_write_to_pkt: write not implemented for LCAF type %d",
+        LMLOG(LISP_LOG_WARNING, "lcaf_addr_write_to_pkt: write not implemented for LCAF type %d",
                 get_type_(lcaf));
         return(BAD);
     }
@@ -295,7 +295,7 @@ inline int lcaf_addr_cmp(lcaf_addr_t *addr1, lcaf_addr_t *addr2) {
     if (lcaf_addr_get_type(addr1) != lcaf_addr_get_type(addr2))
         return(-1);
     if (!(cmp_fcts[lcaf_addr_get_type(addr1)])) {
-        lmlog(DBG_1, "lcaf_addr_cmp: cmp not implemented for type %d", lcaf_addr_get_type(addr1));
+        LMLOG(DBG_1, "lcaf_addr_cmp: cmp not implemented for type %d", lcaf_addr_get_type(addr1));
         return(-1);
     }
     return((*cmp_fcts[lcaf_addr_get_type(addr1)])(lcaf_addr_get_addr(addr1), lcaf_addr_get_addr(addr2)));
@@ -951,7 +951,7 @@ int elp_type_parse(uint8_t *offset, void **elp) {
 
     }
     if (totallen !=0)
-        lmlog(DBG_1, "elp_type_read_from_pkt: Error encountered!");
+        LMLOG(DBG_1, "elp_type_read_from_pkt: Error encountered!");
 
     return(readlen);
 
@@ -1115,7 +1115,7 @@ rle_type_parse(uint8_t *offset, void **rle)
         glist_add_tail(rnode, rle_ptr->nodes);
     }
     if (totallen !=0) {
-        lmlog(DBG_1, "rle_type_read_from_pkt: Error encountered!");
+        LMLOG(DBG_1, "rle_type_read_from_pkt: Error encountered!");
     }
 
     return(readlen);
@@ -1467,7 +1467,7 @@ lcaf_rloc_get_ip_addr(lisp_addr_t *addr)
         rloc = lcaf_mc_get_grp(lcaf);
         break;
     default:
-        lmlog(DBG_1, "lcaf_rloc_get_ip_addr: lcaf type %d not supported",
+        LMLOG(DBG_1, "lcaf_rloc_get_ip_addr: lcaf type %d not supported",
                 lcaf_addr_get_type(lcaf));
     }
     return(rloc);

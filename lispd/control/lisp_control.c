@@ -56,9 +56,9 @@ set_default_rlocs(lisp_ctrl_t *ctrl)
     }
 
     glist_entry_t *it;
-    lmlog(DBG_2, "Recomputing default interfaces");
+    LMLOG(DBG_2, "Recomputing default interfaces");
     glist_for_each_entry(it, ctrl->default_rlocs) {
-        lmlog(DBG_2, "  Default iface: %s",
+        LMLOG(DBG_2, "  Default iface: %s",
                 lisp_addr_to_char(glist_entry_data(it)));
     }
 
@@ -70,7 +70,7 @@ ctrl_create()
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
     ctrl->devices = glist_new();
     ctrl->default_rlocs = glist_new();
-    lmlog(LINF, "Control initialized!");
+    LMLOG(LINF, "Control initialized!");
 
     return (ctrl);
 }
@@ -105,7 +105,7 @@ ctrl_init(lisp_ctrl_t *ctrl)
 
     set_default_rlocs(ctrl);
 
-    lmlog(DBG_1, "Control initialized");
+    LMLOG(DBG_1, "Control initialized");
 }
 
 /*  Process a LISP protocol message sitting on
@@ -127,14 +127,14 @@ ctrl_recv_msg(struct sock *sl)
     b = lisp_msg_create_buf();
 
     if (sock_ctrl_recv(sl->fd, b, &uc) != GOOD) {
-        lmlog(DBG_1, "Couldn't retrieve socket information"
+        LMLOG(DBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
         return (BAD);
     }
 
     lbuf_reset_lisp(b);
 
-    lmlog(DBG_1, "Received %s, IP: %s -> %s, UDP: %d -> %d",
+    LMLOG(DBG_1, "Received %s, IP: %s -> %s, UDP: %d -> %d",
             lisp_msg_hdr_to_char(b), lisp_addr_to_char(&uc.ra),
             lisp_addr_to_char(&uc.la), uc.rp, uc.lp);
 
@@ -153,7 +153,7 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     int ret;
 
     if (lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
-        lmlog(DBG_2, "sock_send: dst % of UDP connection is not IP. "
+        LMLOG(DBG_2, "sock_send: dst % of UDP connection is not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->ra));
         return (BAD);
     }
@@ -161,11 +161,11 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     ret = sock_ctrl_send(uc, b);
 
     if (ret != GOOD) {
-        lmlog(DBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",
+        LMLOG(DBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",
                 lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
         return(BAD);
     } else {
-        lmlog(DBG_1, "Sent message IP: %s -> %s UDP: %d -> %d",
+        LMLOG(DBG_1, "Sent message IP: %s -> %s UDP: %d -> %d",
                 lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra),
                 uc->lp, uc->rp);
         return(GOOD);
@@ -285,7 +285,7 @@ ctrl_get_forwarding_entry(packet_tuple_t *tuple)
 int
 ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev)
 {
-    lmlog(LINF, "Device working in mode %d registering with control", dev->mode);
+    LMLOG(LINF, "Device working in mode %d registering with control", dev->mode);
     glist_add(dev, ctrl->devices);
     return(GOOD);
 }

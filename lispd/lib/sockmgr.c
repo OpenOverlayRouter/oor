@@ -61,13 +61,13 @@ int sockmgr_open_ctrl_sock(sockmgr_t *mgr, int afi) {
     case AF_INET:
         /* IP_PKTINFO is requiered to get later the IPv4 destination address of incoming control packets*/
         if(setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on))< 0){
-            lmlog(LISP_LOG_WARNING, "setsockopt IP_PKTINFO: %s", strerror(errno));
+            LMLOG(LISP_LOG_WARNING, "setsockopt IP_PKTINFO: %s", strerror(errno));
         }
         break;
     case AF_INET6:
         /* IPV6_RECVPKTINFO is requiered to get later the IPv6 destination address of incoming control packets*/
         if(setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) < 0){
-            lmlog(LISP_LOG_WARNING, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
+            LMLOG(LISP_LOG_WARNING, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
         }
     break;
 

@@ -289,7 +289,7 @@ locator_list_add(locators_list_t **list, locator_t *loc) {
                 if (cmp < 0) {
                     break;
                 } else if (cmp == 0) {
-                    lmlog(DBG_3,"add_locator_to_list: The locator %s already exists.",
+                    LMLOG(DBG_3,"add_locator_to_list: The locator %s already exists.",
                             lisp_addr_to_char(locator_addr(loc)));
                     free(loc_list);
                     return (ERR_EXIST);
@@ -398,7 +398,7 @@ rtr_locator_new(lisp_addr_t address)
 
     rtr_locator = malloc(sizeof(rtr_locator));
     if (rtr_locator == NULL) {
-        lmlog(LWRN, "new_rtr_locator: Unable to allocate memory for "
+        LMLOG(LWRN, "new_rtr_locator: Unable to allocate memory for "
                 "lispd_rtr_locator: %s", strerror(errno));
         return (NULL);
     }

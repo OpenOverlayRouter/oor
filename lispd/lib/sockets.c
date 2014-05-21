@@ -107,7 +107,7 @@ sockmstr_process_all(sockmstr_t *m)
             if (errno == EINTR) {
                 continue;
             } else {
-                lmlog(DBG_2, "sock_process_all: select error: %s",
+                LMLOG(DBG_2, "sock_process_all: select error: %s",
                         strerror(errno));
                 return;
             }
@@ -147,7 +147,7 @@ open_control_input_socket(int afi)
         /* IP_PKTINFO is requiered to get later the IPv4 destination address
          * of incoming control packets */
         if (setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on)) < 0) {
-            lmlog(LWRN, "setsockopt IP_PKTINFO: %s", strerror(errno));
+            LMLOG(LWRN, "setsockopt IP_PKTINFO: %s", strerror(errno));
         }
         break;
     case AF_INET6:
@@ -155,7 +155,7 @@ open_control_input_socket(int afi)
          * address of incoming control packets */
         if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on))
                 < 0) {
-            lmlog(LWRN, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
+            LMLOG(LWRN, "setsockopt IPV6_RECVPKTINFO: %s", strerror(errno));
         }
         break;
     default:
@@ -186,12 +186,12 @@ open_data_input_socket(int afi)
 
         /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
         if (setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on)) < 0) {
-            lmlog(LWRN, "setsockopt IP_RECVTOS: %s", strerror(errno));
+            LMLOG(LWRN, "setsockopt IP_RECVTOS: %s", strerror(errno));
         }
 
         /* IP_RECVTTL is requiered to get later the IPv4 original TTL */
         if (setsockopt(sock, IPPROTO_IP, IP_RECVTTL, &on, sizeof(on)) < 0) {
-            lmlog(LWRN, "setsockopt IP_RECVTTL: %s", strerror(errno));
+            LMLOG(LWRN, "setsockopt IP_RECVTTL: %s", strerror(errno));
         }
 
         break;
@@ -201,13 +201,13 @@ open_data_input_socket(int afi)
         /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
         if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))
                 < 0) {
-            lmlog(LWRN, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+            LMLOG(LWRN, "setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
         }
 
         /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
         if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))
                 < 0) {
-            lmlog(LWRN, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+            LMLOG(LWRN, "setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
         }
 
         break;
@@ -226,7 +226,7 @@ sock_recv(int sfd, lbuf_t *b)
     int nread;
     nread = read(sfd, lbuf_data(b), lbuf_tailroom(b));
     if (nread == 0) {
-        lmlog(LWRN, "sock_recv: recvmsg error: %s", strerror(errno));
+        LMLOG(LWRN, "sock_recv: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
 
@@ -266,7 +266,7 @@ sock_ctrl_recv(int sock, struct lbuf *buf, uconn_t *uc)
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        lmlog(LWRN, "sock_recv_ctrl: recvmsg error: %s", strerror(errno));
+        LMLOG(LWRN, "sock_recv_ctrl: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
 
@@ -334,7 +334,7 @@ sock_data_recv(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos)
 
     nbytes = recvmsg(sock, &msg, 0);
     if (nbytes == -1) {
-        lmlog(LWRN, "read_packet: recvmsg error: %s", strerror(errno));
+        LMLOG(LWRN, "read_packet: recvmsg error: %s", strerror(errno));
         return (BAD);
     }
 
@@ -405,7 +405,7 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
 
     if (lisp_addr_afi(&uc->la) != LM_AFI_IP
         || lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
-        lmlog(DBG_2, "sock_send: src %s and dst % of UDP are not IP. "
+        LMLOG(DBG_2, "sock_send: src %s and dst % of UDP are not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra));
         return(BAD);
@@ -414,7 +414,7 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
     dst = lisp_addr_ip(&uc->ra);
 
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
-        lmlog(DBG_2, "sock_send: src %s and dst %s of UDP connection have"
+        LMLOG(DBG_2, "sock_send: src %s and dst %s of UDP connection have"
                 "different IP AFI. Discarding!", ip_addr_to_char(src),
                 ip_addr_to_char(dst));
         return(BAD);

@@ -36,7 +36,7 @@ void remdb_add_member(lisp_addr_t *peer, lisp_addr_t *rloc_pair, remdb_t *jib) {
 
     remdb_member_t *member;
 
-    lmlog(LISP_LOG_DEBUG_2, "Adding peer %s requesting replication to %s to the re joining information base",
+    LMLOG(LISP_LOG_DEBUG_2, "Adding peer %s requesting replication to %s to the re joining information base",
             lisp_addr_to_char(peer), lisp_addr_to_char(rloc_pair));
 
     assert(jib);
@@ -101,12 +101,12 @@ void remdb_dump(remdb_t *remdb, int log_level) {
     glist_entry_t *it;
     remdb_member_t *rmem;
 
-    lmlog(log_level, "************************************* REMDB ****************************");
+    LMLOG(log_level, "************************************* REMDB ****************************");
     glist_for_each_entry(it, remdb) {
         rmem = glist_entry_data(it);
-        lmlog(log_level, "downstream: %s locator: %s", lisp_addr_to_char(rmem->addr),
+        LMLOG(log_level, "downstream: %s locator: %s", lisp_addr_to_char(rmem->addr),
                 lisp_addr_to_char(locator_addr(rmem->locators->locator)));
     }
-    lmlog(log_level, "************************************************************************");
+    LMLOG(log_level, "************************************************************************");
 
 }

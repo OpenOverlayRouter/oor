@@ -180,7 +180,7 @@ udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi)
     case AF_INET6:
         return (udp_ipv6_checksum(iphdr, udph, udp_len));
     default:
-        lmlog(DBG_2, "udp_checksum: Unknown AFI");
+        LMLOG(DBG_2, "udp_checksum: Unknown AFI");
         return (-1);
     }
 }
@@ -225,7 +225,7 @@ compute_sha1_hmac(char *key, void *pkt, int pkt_len, void *ad_pos)
 
     if (!HMAC((const EVP_MD *) EVP_sha1(), (const void *) key, strlen(key),
             (uchar *) pkt, pkt_len, (uchar *) ad_pos, &md_len)) {
-        lmlog(LISP_LOG_DEBUG_2, "HMAC failed");
+        LMLOG(LISP_LOG_DEBUG_2, "HMAC failed");
 
         return (BAD);
     }
@@ -270,7 +270,7 @@ check_sha1_hmac(char *key, void *packet, int pckt_len, void *auth_data_pos)
 
     auth_data_copy = (uint8_t *) malloc(auth_data_len * sizeof(uint8_t));
     if (auth_data_copy == NULL) {
-        lmlog(LISP_LOG_ERR, "check_sha1_hmac: malloc() failed");
+        LMLOG(LISP_LOG_ERR, "check_sha1_hmac: malloc() failed");
         return (BAD);
     }
 
@@ -280,7 +280,7 @@ check_sha1_hmac(char *key, void *packet, int pckt_len, void *auth_data_pos)
 
     if (!HMAC((const EVP_MD *) EVP_sha1(), (const void *) key, strlen(key),
             (uchar *) packet, pckt_len, (uchar *) auth_data_pos, &md_len)) {
-        lmlog(LISP_LOG_DEBUG_2, "SHA1 HMAC failed");
+        LMLOG(LISP_LOG_DEBUG_2, "SHA1 HMAC failed");
         free(auth_data_copy);
         return (BAD);
     }

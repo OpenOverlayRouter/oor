@@ -112,7 +112,7 @@ inline int modify_rule (
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
     if (sockfd < 0) {
-        lmlog(LCRIT, "Failed to connect to netlink socket for creating route");
+        LMLOG(LCRIT, "Failed to connect to netlink socket for creating route");
         exit_cleanup();
     }
 
@@ -219,7 +219,7 @@ inline int modify_rule (
     result = send(sockfd, buf, NLMSG_LENGTH(rta_len), 0);
 
     if (result < 0) {
-        lmlog(LCRIT, "mod_route: send netlink command failed %s", strerror(errno));
+        LMLOG(LCRIT, "mod_route: send netlink command failed %s", strerror(errno));
         close(sockfd);
         exit_cleanup();
     }
@@ -246,7 +246,7 @@ int add_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
     if (result == GOOD){
-        lmlog(DBG_1, "add_rule: Add rule for source routing of src addr: %s",
+        LMLOG(DBG_1, "add_rule: Add rule for source routing of src addr: %s",
                 lisp_addr_to_char(src_addr));
     }
 
@@ -272,7 +272,7 @@ int del_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_DELRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
     if (result == GOOD){
-        lmlog(DBG_1, "del_rule: Removed rule for source routing of src addr: %s",
+        LMLOG(DBG_1, "del_rule: Removed rule for source routing of src addr: %s",
                 lisp_addr_to_char(src_addr));
     }
 
@@ -351,7 +351,7 @@ int request_route_table(uint32_t table, int afi)
     retval = send(netlink_fd, sndbuf, NLMSG_LENGTH(rta_len), 0);
 
     if (retval < 0) {
-        lmlog(LCRIT, "request_route_table: send netlink command failed %s", strerror(errno));
+        LMLOG(LCRIT, "request_route_table: send netlink command failed %s", strerror(errno));
         exit_cleanup();
     }
     return(GOOD);
@@ -400,7 +400,7 @@ inline int modify_route(
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
     if (sockfd < 0) {
-        lmlog(LCRIT, "modify_route: Failed to connect to netlink socket");
+        LMLOG(LCRIT, "modify_route: Failed to connect to netlink socket");
         exit_cleanup();
     }
 
@@ -514,7 +514,7 @@ inline int modify_route(
     retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
 
     if (retval < 0) {
-        lmlog(LCRIT, "modify_route: send netlink command failed %s", strerror(errno));
+        LMLOG(LCRIT, "modify_route: send netlink command failed %s", strerror(errno));
         close(sockfd);
         exit_cleanup();
     }
@@ -535,7 +535,7 @@ int add_route(
     int result = BAD;
     result = modify_route(RTM_NEWROUTE, afi,ifindex, dest, src, gw, prefix_len, metric, table);
     if (result == GOOD){
-        lmlog(DBG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
+        LMLOG(DBG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
                 (src != NULL) ? lisp_addr_to_char(src) : "-",
                 (dest != NULL) ? lisp_addr_to_char(dest) : "-",
                 prefix_len,
@@ -559,7 +559,7 @@ int del_route(
     int result = BAD;
     result = modify_route(RTM_DELROUTE, afi, ifindex, dest, src, gw, prefix_len, metric, table);
     if (result == GOOD){
-        lmlog(DBG_1, "del_route: deleted route  from the system");
+        LMLOG(DBG_1, "del_route: deleted route  from the system");
     }
     return (result);
 }

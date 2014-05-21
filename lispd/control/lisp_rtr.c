@@ -30,7 +30,7 @@
 #include "lisp_xtr.h"
 
 void rtr_ctrl_start(lisp_ctrl_dev_t *dev) {
-    lmlog(LISP_LOG_DEBUG_1, "Starting RTR...");
+    LMLOG(LISP_LOG_DEBUG_1, "Starting RTR...");
     program_map_register(dev, 0);
 }
 
@@ -50,7 +50,7 @@ lisp_ctrl_dev_t *rtr_ctrl_init() {
     rtr = calloc(1, sizeof(lisp_rtr));
     rtr->super.ctrl_class = &rtr_vtable;
     rtr->super.mode = RTR_MODE;
-    lmlog(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
+    LMLOG(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
 
     /* set up databases */
 

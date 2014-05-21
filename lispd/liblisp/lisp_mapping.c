@@ -92,7 +92,7 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
         auxaddr = lcaf_rloc_get_ip_addr(addr);
         break;
     default:
-        lmlog(DBG_1, "mapping_add_locator: AFI %d not supported",
+        LMLOG(DBG_1, "mapping_add_locator: AFI %d not supported",
                 lisp_addr_afi(addr));
     }
 
@@ -113,7 +113,7 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
             return (BAD);
         }
     default:
-        lmlog(DBG_1, "Unknown locator afi %d", lisp_addr_ip_afi(auxaddr));
+        LMLOG(DBG_1, "Unknown locator afi %d", lisp_addr_ip_afi(auxaddr));
         err = BAD;
     }
 
@@ -121,7 +121,7 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
         m->locator_count++;
         result = GOOD;
     } else if (err == ERR_EXIST) {
-        lmlog(DBG_3, "mapping_add_locator: The locator %s already exists "
+        LMLOG(DBG_3, "mapping_add_locator: The locator %s already exists "
                 "for the EID %s.", lisp_addr_to_char(locator_addr(loc)),
                 lisp_addr_to_char(mapping_eid(m)));
         locator_del(loc);
@@ -161,7 +161,7 @@ sort_locators_list_elt(mapping_t *mapping, lisp_addr_t *changed_loc_addr)
     }
 
     if (current_locators_list_elt == NULL) {
-        lmlog(DBG_1, "sort_locators_list_elt: It should never reach "
+        LMLOG(DBG_1, "sort_locators_list_elt: It should never reach "
                 "this point");
         return;
     }
@@ -547,7 +547,7 @@ balancing_locators_vec_to_char(balancing_locators_vecs b_locators_vecs,
     char str[3000];
 
     if (is_loggable(log_level)) {
-        lmlog(log_level, "Balancing locator vector for %s: ",
+        LMLOG(log_level, "Balancing locator vector for %s: ",
                 lisp_addr_to_char(mapping_eid(mapping)));
 
         sprintf(str, "  IPv4 locators vector (%d locators):  ",
@@ -561,7 +561,7 @@ balancing_locators_vec_to_char(balancing_locators_vecs b_locators_vecs,
                     lisp_addr_to_char(
                             b_locators_vecs.v4_balancing_locators_vec[ctr]->addr));
         }
-        lmlog(log_level, "%s", str);
+        LMLOG(log_level, "%s", str);
         sprintf(str, "  IPv6 locators vector (%d locators):  ",
                 b_locators_vecs.v6_locators_vec_length);
         for (ctr = 0; ctr < b_locators_vecs.v6_locators_vec_length; ctr++) {
@@ -573,7 +573,7 @@ balancing_locators_vec_to_char(balancing_locators_vecs b_locators_vecs,
                     lisp_addr_to_char(
                             b_locators_vecs.v6_balancing_locators_vec[ctr]->addr));
         }
-        lmlog(log_level, "%s", str);
+        LMLOG(log_level, "%s", str);
         sprintf(str, "  IPv4 & IPv6 locators vector (%d locators):  ",
                 b_locators_vecs.locators_vec_length);
         for (ctr = 0; ctr < b_locators_vecs.locators_vec_length; ctr++) {
@@ -585,7 +585,7 @@ balancing_locators_vec_to_char(balancing_locators_vecs b_locators_vecs,
                     lisp_addr_to_char(
                             b_locators_vecs.balancing_locators_vec[ctr]->addr));
         }
-        lmlog(log_level, "%s", str);
+        LMLOG(log_level, "%s", str);
     }
 }
 
@@ -641,7 +641,7 @@ mapping_t *mapping_init_local(lisp_addr_t *eid)
     mapping_t *mapping = mapping_init(eid);
 
     if (!mapping) {
-        lmlog(LWRN, "mapping_init_local: Can't allocate mapping!");
+        LMLOG(LWRN, "mapping_init_local: Can't allocate mapping!");
         return (NULL);
     }
 
@@ -674,7 +674,7 @@ mapping_init_static(lisp_addr_t *eid)
     mapping_t *mapping = mapping_init(eid);
 
     if (!mapping) {
-        lmlog(LWRN, "mapping_init_static: Can't allocate mapping!");
+        LMLOG(LWRN, "mapping_init_static: Can't allocate mapping!");
         return (NULL);
     }
 
@@ -691,7 +691,7 @@ mapping_init_remote(lisp_addr_t *eid)
     mapping_t *mapping = mapping_init(eid);
 
     if (!mapping) {
-        lmlog(LWRN, "mapping_init_learned: Can't allocate mapping!");
+        LMLOG(LWRN, "mapping_init_learned: Can't allocate mapping!");
         return (NULL);
     }
 
@@ -758,7 +758,7 @@ mapping_extended_info_del(mapping_t *mapping)
                 mapping->extended_info_del(mapping->extended_info);
             break;
         default:
-            lmlog(DBG_1, "mapping_del: unknown mapping type %d. Can't free "
+            LMLOG(DBG_1, "mapping_del: unknown mapping type %d. Can't free "
                     "extended info!", mapping->type);
             break;
         }
@@ -814,7 +814,7 @@ mapping_compute_balancing_vectors(mapping_t *mapping)
     case MAPPING_RE:
         return(GOOD);
     default:
-        lmlog(DBG_1, "mapping_compute_balancing_vectors: Mapping type %d "
+        LMLOG(DBG_1, "mapping_compute_balancing_vectors: Mapping type %d "
                 "unknown. Aborting!",  mapping->type);
         return(BAD);
     }

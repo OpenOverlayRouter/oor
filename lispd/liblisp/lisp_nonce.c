@@ -112,7 +112,7 @@ lispd_print_nonce(uint64_t nonce, int log_level)
 
     lower = nonce & 0xffffffff;
     upper = (nonce >> 32) & 0xffffffff;
-    lmlog(log_level, "nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
+    LMLOG(log_level, "nonce: 0x%08x-0x%08x\n", htonl(upper), htonl(lower));
 }
 
 char *

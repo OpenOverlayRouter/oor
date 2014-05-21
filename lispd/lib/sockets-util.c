@@ -46,14 +46,14 @@ open_device_bound_raw_socket(char *device, int afi)
     switch (afi) {
     case AF_INET:
         if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-            lmlog(LERR, "open_device_bound_raw_socket: socket creation failed"
+            LMLOG(LERR, "open_device_bound_raw_socket: socket creation failed"
                     " %s", strerror(errno));
             return (BAD);
         }
         break;
     case AF_INET6:
         if ((s = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW)) < 0) {
-            lmlog(LERR, "open_device_bound_raw_socket: socket creation failed"
+            LMLOG(LERR, "open_device_bound_raw_socket: socket creation failed"
                     " %s", strerror(errno));
             return (BAD);
         }
@@ -61,7 +61,7 @@ open_device_bound_raw_socket(char *device, int afi)
     }
 
     if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
-        lmlog(LWRN, "open_device_bound_raw_socket: socket option reuse %s",
+        LMLOG(LWRN, "open_device_bound_raw_socket: socket option reuse %s",
                 strerror(errno));
         close(s);
         return (BAD);
@@ -70,13 +70,13 @@ open_device_bound_raw_socket(char *device, int afi)
     /* XXX: binding might not work on all devices */
     device_len = strlen(device);
     if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
-        lmlog(LWRN, "open_device_binded_raw_socket: socket option device %s",
+        LMLOG(LWRN, "open_device_binded_raw_socket: socket option device %s",
                 strerror(errno));
         close(s);
         return (BAD);
     }
 
-    lmlog(DBG_2, "open_device_binded_raw_socket: open socket %d in interface"
+    LMLOG(DBG_2, "open_device_binded_raw_socket: open socket %d in interface"
             " %s with afi: %d", s, device, afi);
 
     return s;
@@ -92,7 +92,7 @@ open_raw_socket(int afi)
     int tr = 1;
 
     if ((proto = getprotobyname("UDP")) == NULL) {
-        lmlog(LERR, "open_raw_socket: getprotobyname: %s", strerror(errno));
+        LMLOG(LERR, "open_raw_socket: getprotobyname: %s", strerror(errno));
         return (BAD);
     }
 
@@ -101,13 +101,13 @@ open_raw_socket(int afi)
      */
 
     if ((sock = socket(afi, SOCK_RAW, proto->p_proto)) < 0) {
-        lmlog(LERR, "open_raw_input_socket: socket: %s", strerror(errno));
+        LMLOG(LERR, "open_raw_input_socket: socket: %s", strerror(errno));
         return (BAD);
     }
-    lmlog(DBG_3, "open_raw_socket: socket at creation: %d\n", sock);
+    LMLOG(DBG_3, "open_raw_socket: socket at creation: %d\n", sock);
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
-        lmlog(LWRN,"open_raw_socket: setsockopt SO_REUSEADDR: %s",
+        LMLOG(LWRN,"open_raw_socket: setsockopt SO_REUSEADDR: %s",
                 strerror(errno));
         close(sock);
         return (BAD);
@@ -124,19 +124,19 @@ open_udp_socket(int afi)
     int tr = 1;
 
     if ((proto = getprotobyname("UDP")) == NULL) {
-        lmlog(LERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
+        LMLOG(LERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
         return (BAD);
     }
 
     /* build the ipv4_data_input_fd, and make the port reusable */
     if ((sock = socket(afi, SOCK_DGRAM, proto->p_proto)) < 0) {
-        lmlog(LERR, "open_udp_socket: socket: %s", strerror(errno));
+        LMLOG(LERR, "open_udp_socket: socket: %s", strerror(errno));
         return (BAD);
     }
-    lmlog(DBG_3, "open_udp_socket: socket at creation: %d\n", sock);
+    LMLOG(DBG_3, "open_udp_socket: socket at creation: %d\n", sock);
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
-        lmlog(LWRN, "open_udp_socket: setsockopt SO_REUSEADDR: %s",
+        LMLOG(LWRN, "open_udp_socket: setsockopt SO_REUSEADDR: %s",
                 strerror(errno));
 
         return (BAD);
@@ -179,7 +179,7 @@ bind_socket_address(int sock, lisp_addr_t *addr)
     }
 
     if (bind(sock, src_addr, src_addr_len) != 0) {
-        lmlog(LWRN, "bind_socket_src_address: %s", strerror(errno));
+        LMLOG(LWRN, "bind_socket_src_address: %s", strerror(errno));
         result = BAD;
     }
     return (result);
@@ -219,7 +219,7 @@ bind_socket(int sock, int afi, int port)
     }
 
     if (bind(sock, sock_addr, sock_addr_len) == -1) {
-        lmlog(LWRN, "bind input socket: %s", strerror(errno));
+        LMLOG(LWRN, "bind input socket: %s", strerror(errno));
         return (BAD);
     }
 
@@ -290,7 +290,7 @@ int send_packet (
             break;
         }
 
-        lmlog(DBG_2,
+        LMLOG(DBG_2,
                 "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d, packet len %d",
                 strerror(errno), ip_addr_to_char(&pkt_src_addr),
                 ip_addr_to_char(&pkt_dst_addr), sock, packet_length);
@@ -331,7 +331,7 @@ send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
 
     nbytes = sendto(sfd, pkt, plen, 0, saddr, slen);
     if (nbytes != plen) {
-        lmlog(DBG_2, "send_raw: send to %s failed %s", ip_addr_to_char(dip),
+        LMLOG(DBG_2, "send_raw: send to %s failed %s", ip_addr_to_char(dip),
                 strerror(errno));
         return(BAD);
     }

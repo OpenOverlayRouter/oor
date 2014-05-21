@@ -72,7 +72,7 @@ create_wheel_timer(void)
     sev.sigev_signo = SIGRTMIN;
     sev.sigev_value.sival_ptr = &tid;
     if (timer_create(CLOCK_REALTIME, &sev, &tid) == -1) {
-        lmlog(DBG_1, "timer_create(): %s", strerror(errno));
+        LMLOG(DBG_1, "timer_create(): %s", strerror(errno));
         return (timer_t)0;
     }
 
@@ -83,7 +83,7 @@ create_wheel_timer(void)
 
 
     if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
-        lmlog(DBG_2, "create_wheel_timer: timer start failed for %d %s",
+        LMLOG(DBG_2, "create_wheel_timer: timer start failed for %d %s",
                tid, strerror(errno));
         return (timer_t)0;
     }
@@ -97,10 +97,10 @@ init_timers()
     int i = 0;
     timer_links *spoke;
 
-    lmlog(DBG_1, "Initializing lispd timers...");
+    LMLOG(DBG_1, "Initializing lispd timers...");
 
     if (create_wheel_timer() == 0) {
-        lmlog(LINF, "Failed to set up lispd timers.");
+        LMLOG(LINF, "Failed to set up lispd timers.");
         return(BAD);
     }
 
@@ -322,7 +322,7 @@ process_timer_signal(sock_t *sl)
     bytes = read(sl->fd, &sig, sizeof(sig));
 
     if (bytes != sizeof(sig)) {
-        lmlog(LWRN, "process_event_signal(): nothing to read");
+        LMLOG(LWRN, "process_event_signal(): nothing to read");
         return(-1);
     }
 
@@ -342,7 +342,7 @@ process_timer_signal(sock_t *sl)
 static void event_sig_handler(int sig)
 {
     if (write(signal_pipe[1], &sig, sizeof(sig)) != sizeof(sig)) {
-        lmlog(LWRN, "write signal %d: %s", sig, strerror(errno));
+        LMLOG(LWRN, "write signal %d: %s", sig, strerror(errno));
     }
 }
 
@@ -363,17 +363,17 @@ build_timers_event_socket(int *timers_fd)
     struct sigaction sa;
 
     if (pipe(signal_pipe) == -1) {
-        lmlog(LERR, "build_timers_event_socket: signal pipe setup failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: signal pipe setup failed %s", strerror(errno));
         return (BAD);
     }
     *timers_fd = signal_pipe[0];
 
     if ((flags = fcntl(*timers_fd, F_GETFL, 0)) == -1) {
-        lmlog(LERR, "build_timers_event_socket: fcntl() F_GETFL failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: fcntl() F_GETFL failed %s", strerror(errno));
         return (BAD);
     }
     if (fcntl(*timers_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        lmlog(LERR, "build_timers_event_socket: fcntl() set O_NONBLOCK failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: fcntl() set O_NONBLOCK failed %s", strerror(errno));
         return (BAD);
     }
 
@@ -383,7 +383,7 @@ build_timers_event_socket(int *timers_fd)
     sigemptyset(&sa.sa_mask);
 
     if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
-        lmlog(LERR, "build_timers_event_socket: sigaction() failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: sigaction() failed %s", strerror(errno));
     }
     return(GOOD);
 }

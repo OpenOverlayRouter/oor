@@ -38,7 +38,7 @@
 static void
 out_of_memory(void)
 {
-    lmlog(LCRIT, "virtual memory exhausted");
+    LMLOG(LCRIT, "virtual memory exhausted");
     abort();
 }
 
@@ -111,7 +111,7 @@ lm_assert_failure(const char *where, const char *function,
 
     switch (reentry++) {
     case 0:
-        lmlog(LCRIT, "%s: assertion %s failed in %s()",
+        LMLOG(LCRIT, "%s: assertion %s failed in %s()",
                 where, condition, function);
         abort();
 
@@ -188,7 +188,7 @@ convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
         partial_byte[0] = convert_hex_char_to_byte(hex_digit[0]);
         partial_byte[1] = convert_hex_char_to_byte(hex_digit[1]);
         if (partial_byte[0] == -1 || partial_byte[1] == -1) {
-            lmlog(DBG_2, "convert_hex_string_to_bytes: Invalid hexadecimal"
+            LMLOG(DBG_2, "convert_hex_string_to_bytes: Invalid hexadecimal"
                     " number");
             return (BAD);
         }

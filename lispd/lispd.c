@@ -92,7 +92,7 @@ void init_tun()
     lisp_xtr_t *xtr;
 
     if (ctrl_dev->mode != xTR_MODE) {
-        lmlog(LCRIT, "Trying to active LISP data plane for device type %d. "
+        LMLOG(LCRIT, "Trying to active LISP data plane for device type %d. "
                 "Aborting!", ctrl_dev->mode);
         exit_cleanup();
     }
@@ -153,7 +153,7 @@ init_tr_data_plane(lisp_dev_type_e mode)
 {
     int (*cb_func)(sock_t *);
 
-    lmlog(LINF, "\nIntializing data plane\n");
+    LMLOG(LINF, "\nIntializing data plane\n");
 
     /* Select the default rlocs for output data packets and output control
      * packets */
@@ -210,32 +210,32 @@ void test_elp()
     glist_add_tail(en3, elp->nodes);
     lcaf->addr = elp;
 
-    lmlog(LWRN, "the generated lcaf: %s", lisp_addr_to_char(laddr));
-    lmlog(LWRN, "let's see now!");
+    LMLOG(LWRN, "the generated lcaf: %s", lisp_addr_to_char(laddr));
+    LMLOG(LWRN, "let's see now!");
 
     lisp_addr_t *eid = lisp_addr_new(); lisp_addr_ip_from_char("4.5.6.7", eid);
     uint8_t status = 1;
     locator_t *locator = locator_init_remote_full(laddr, status, 1, 100, 1, 100);
     mapping_t *mapping = mapping_init_local(eid);
-    lmlog(LWRN, "mapping created!");
+    LMLOG(LWRN, "mapping created!");
 
     mapping_add_locator(mapping, locator);
-    lmlog(LWRN, "locator added!");
+    LMLOG(LWRN, "locator added!");
     local_map_db_add_mapping(xtr->local_mdb, mapping);
     local_map_db_dump(xtr->local_mdb, LWRN);
 
 //    program_map_register(xtr, 0);
 
-    lmlog(LWRN, "removing mapping!");
+    LMLOG(LWRN, "removing mapping!");
     local_map_db_del_mapping(xtr->local_mdb, eid);
 
     lisp_addr_copy(&tuple.dst_addr, eid);
     lisp_addr_set_afi(&tuple.src_addr, LM_AFI_NO_ADDR);
 
-    lmlog(LWRN, "done. Sending map-request!");
+    LMLOG(LWRN, "done. Sending map-request!");
     ctrl_get_forwarding_entry(&tuple);
 
-    lmlog(LWRN, "finished!");
+    LMLOG(LWRN, "finished!");
 //    lisp_addr_del(laddr);
 //    free_mapping_elt(mapping, 1);
 //    for(;;) {
@@ -249,20 +249,20 @@ void signal_handler(int sig) {
     switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
-        lmlog(DBG_1, "Received SIGHUP signal.");
+        LMLOG(DBG_1, "Received SIGHUP signal.");
         break;
     case SIGTERM:
         /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
-        lmlog(DBG_1, "Received SIGTERM signal. Cleaning up...");
+        LMLOG(DBG_1, "Received SIGTERM signal. Cleaning up...");
         exit_cleanup();
         break;
     case SIGINT:
         /* SIGINT is sent by pressing Ctrl-C. Exit cleanly */
-        lmlog(DBG_1, "Terminal interrupt. Cleaning up...");
+        LMLOG(DBG_1, "Terminal interrupt. Cleaning up...");
         exit_cleanup();
         break;
     default:
-        lmlog(DBG_1,"Unhandled signal (%d)", sig);
+        LMLOG(DBG_1,"Unhandled signal (%d)", sig);
         exit(EXIT_FAILURE);
     }
 }
@@ -291,7 +291,7 @@ exit_cleanup(void) {
     shash_destroy(iface_addr_ht);
     ctrl_destroy(lctrl);
     ctrl_dev_destroy(ctrl_dev);
-    lmlog(LINF,"Exiting ...");
+    LMLOG(LINF,"Exiting ...");
 
     exit(EXIT_SUCCESS);
 }
@@ -338,7 +338,7 @@ handle_lispd_command_line(int argc, char **argv)
             default_rloc_afi = AF_INET6;
             break;
         default:
-            lmlog(LINF, "AFI must be IPv4 (-a 4) or IPv6 (-a 6)\n");
+            LMLOG(LINF, "AFI must be IPv4 (-a 4) or IPv6 (-a 6)\n");
             break;
         }
     } else {
@@ -350,7 +350,7 @@ static void
 demonize_start()
 {
     if (daemonize) {
-        lmlog(DBG_1, "Starting the daemonizing process");
+        LMLOG(DBG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
             exit_cleanup();
         }
@@ -382,7 +382,7 @@ init_timer_wheel()
 {
     /* create timers event socket */
     if (build_timers_event_socket(&timers_fd) == 0) {
-        lmlog(LCRIT, " Error programming the timer signal. Exiting...");
+        LMLOG(LCRIT, " Error programming the timer signal. Exiting...");
         exit_cleanup();
     }
 
@@ -442,17 +442,17 @@ initial_setup()
 {
 #ifdef ROUTER
 #ifdef OPENWRT
-    lmlog(LINF,"LISPmob compiled for openWRT xTR\n");
+    LMLOG(LINF,"LISPmob compiled for openWRT xTR\n");
 #else
-    lmlog(LINF,"LISPmob compiled for linux xTR\n");
+    LMLOG(LINF,"LISPmob compiled for linux xTR\n");
 #endif
 #else
-    lmlog(LINF,"LISPmob compiled for mobile node\n");
+    LMLOG(LINF,"LISPmob compiled for mobile node\n");
 #endif
 
     /* Check for superuser privileges */
     if (geteuid()) {
-        lmlog(LINF,"Running %s requires superuser privileges! Exiting...\n",
+        LMLOG(LINF,"Running %s requires superuser privileges! Exiting...\n",
                 LISPD);
         exit_cleanup();
     }
@@ -486,7 +486,7 @@ main(int argc, char **argv)
     /* parse config and create ctrl_dev */
     parse_config_file();
 
-    lmlog(LINF,"\n\n LISPmob (0.5): 'lispd' started... \n\n");
+    LMLOG(LINF,"\n\n LISPmob (0.5): 'lispd' started... \n\n");
 
     ctrl_dev_set_ctrl(ctrl_dev, lctrl);
 
@@ -495,7 +495,7 @@ main(int argc, char **argv)
 
     /* run lisp control device xtr/ms */
     if (!ctrl_dev) {
-        lmlog(DBG_1, "device NULL");
+        LMLOG(DBG_1, "device NULL");
         exit(0);
     }
     ctrl_dev_run(ctrl_dev);
@@ -507,7 +507,7 @@ main(int argc, char **argv)
     }
 
     /* event_loop returned: bad! */
-    lmlog(LINF, "Exiting...");
+    LMLOG(LINF, "Exiting...");
     exit_cleanup();
     return(0);
 }

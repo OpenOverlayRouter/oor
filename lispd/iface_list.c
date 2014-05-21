@@ -63,9 +63,9 @@ build_iface_addr_hash_table()
     int family, s;
     char host[NI_MAXHOST];
 
-    lmlog(LINF, "Building address to interface hash table");
+    LMLOG(LINF, "Building address to interface hash table");
     if (getifaddrs(&ifaddr) == -1) {
-        lmlog(LCRIT, "Can't read the interfaces of the system. Exiting .. ");
+        LMLOG(LCRIT, "Can't read the interfaces of the system. Exiting .. ");
         exit_cleanup();
     }
 
@@ -83,14 +83,14 @@ build_iface_addr_hash_table()
                                           sizeof(struct sockaddr_in6),
                     host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
             if (s != 0) {
-                lmlog(LWRN, "getnameinfo() failed: %s. Skipping interface. ",
+                LMLOG(LWRN, "getnameinfo() failed: %s. Skipping interface. ",
                         gai_strerror(s));
                 continue;
             }
 
             shash_insert(iface_addr_ht, host, strdup(ifa->ifa_name));
 
-            lmlog(LINF, "Found interface %s with address %s", ifa->ifa_name,
+            LMLOG(DBG_2, "Found interface %s with address %s", ifa->ifa_name,
                     host);
         }
     }
@@ -124,7 +124,7 @@ get_iface_address(char *ifacename, lisp_addr_t *addr, int afi)
 
     /* search for the interface */
     if (getifaddrs(&ifaddr) !=0) {
-        lmlog(DBG_2, "lispd_get_iface_address: getifaddrs error: %s",
+        LMLOG(DBG_2, "lispd_get_iface_address: getifaddrs error: %s",
                 strerror(errno));
         return(BAD);
     }
@@ -143,7 +143,7 @@ get_iface_address(char *ifacename, lisp_addr_t *addr, int afi)
             ip_addr_init(&ip, &s4->sin_addr, AF_INET);
 
             if (ip_addr_is_link_local(&ip) == TRUE) {
-                lmlog(DBG_2, "lispd_get_iface_address: interface address from "
+                LMLOG(DBG_2, "lispd_get_iface_address: interface address from "
                         "%s discarded (%s)", ifacename, ip_addr_to_char(&ip));
                 continue;
             }
@@ -160,7 +160,7 @@ get_iface_address(char *ifacename, lisp_addr_t *addr, int afi)
              * that case sin6_scope_id contains the interface index.
              * --> If sin6_scope_id is not zero, is a link-local address */
             if (s6->sin6_scope_id != 0) {
-                lmlog(DBG_2, "lispd_get_iface_address: interface address from "
+                LMLOG(DBG_2, "lispd_get_iface_address: interface address from "
                         "%s discarded (%s)", ifacename, ip_addr_to_char(&ip));
                 continue;
             }
@@ -174,7 +174,7 @@ get_iface_address(char *ifacename, lisp_addr_t *addr, int afi)
         }
     }
     freeifaddrs(ifaddr);
-    lmlog(DBG_3, "lispd_get_iface_address: No %s RLOC configured for interface "
+    LMLOG(DBG_3, "lispd_get_iface_address: No %s RLOC configured for interface "
             "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", ifacename);
     return(BAD);
 }
@@ -223,7 +223,7 @@ add_interface(char *iface_name)
     iface_t *iface = NULL;
 
     if (if_nametoindex(iface_name) == 0) {
-        lmlog(LERR, "Configuration file: INVALID INTERFACE or not initialized "
+        LMLOG(LERR, "Configuration file: INVALID INTERFACE or not initialized "
                 "virtual interface: %s ", iface_name);
         return(NULL);
     }
@@ -244,7 +244,7 @@ add_interface(char *iface_name)
     iface->out_socket_v6 = -1;
 
 
-    lmlog(DBG_2, "Adding interface %s with index %d to iface list",
+    LMLOG(DBG_2, "Adding interface %s with index %d to iface list",
             iface_name, iface->iface_index);
 
 
@@ -284,7 +284,7 @@ add_interface(char *iface_name)
         }
         aux_iface_list->next = iface_list;
     }
-    lmlog(DBG_2, "Interface %s with index %d added to interfaces lists\n",
+    LMLOG(DBG_2, "Interface %s with index %d added to interfaces lists\n",
             iface_name, iface->iface_index);
     return (iface);
 }
@@ -311,7 +311,7 @@ add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
                 map_list->use_ipv6_address = TRUE;
                 break;
             }
-            lmlog(DBG_2, "The EID %s has been previously assigned to the RLOCs"
+            LMLOG(DBG_2, "The EID %s has been previously assigned to the RLOCs"
                     " of the iface %s", lisp_addr_to_char(mapping_eid(m)),
                     iface->iface_name);
             return (GOOD);
@@ -341,7 +341,7 @@ add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
         iface->head_mappings_list = map_list;
     }
 
-    lmlog(DBG_2, "The EID %s has been assigned to the RLOCs of the interface "
+    LMLOG(DBG_2, "The EID %s has been assigned to the RLOCs of the interface "
             "%s", lisp_addr_to_char(mapping_eid(m)), iface->iface_name);
 
     return (GOOD);
@@ -472,7 +472,7 @@ iface_list_to_char(int log_level)
         }
         interface_list = interface_list->next;
     }
-    lmlog(log_level, "%s", str);
+    LMLOG(log_level, "%s", str);
 }
 
 
@@ -574,7 +574,7 @@ get_any_output_iface(int afi)
         }
         break;
     default:
-        lmlog(DBG_2, "get_output_iface: unknown afi %d", afi);
+        LMLOG(DBG_2, "get_output_iface: unknown afi %d", afi);
         break;
     }
 
@@ -598,7 +598,7 @@ get_default_output_address(int afi)
         }
         break;
     default:
-        lmlog(DBG_2, "get_default_output_address: AFI %s not valid", afi);
+        LMLOG(DBG_2, "get_default_output_address: AFI %s not valid", afi);
         return(NULL);
     }
 
@@ -622,7 +622,7 @@ get_default_output_socket(int afi)
         }
         break;
     default:
-        lmlog(DBG_2, "get_default_output_socket: AFI %s not valid", afi);
+        LMLOG(DBG_2, "get_default_output_socket: AFI %s not valid", afi);
         break;
     }
 
@@ -636,7 +636,7 @@ set_default_output_ifaces()
     default_out_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_out_iface_v4 != NULL) {
-       lmlog(DBG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
+       LMLOG(DBG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
 #ifdef ROUTER
        set_tun_default_route_v4();
 #endif
@@ -644,7 +644,7 @@ set_default_output_ifaces()
     
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_out_iface_v6 != NULL) {
-       lmlog(DBG_2,"Default IPv6 iface %s\n", default_out_iface_v6->iface_name);
+       LMLOG(DBG_2,"Default IPv6 iface %s\n", default_out_iface_v6->iface_name);
 #ifdef ROUTER
        /* For IPv6, the route is not updated and should be removed before
         * adding the new one */
@@ -654,7 +654,7 @@ set_default_output_ifaces()
     }
 
     if (!default_out_iface_v4 && !default_out_iface_v6){
-        lmlog(LCRIT,"NO OUTPUT IFACE: all the locators are down");
+        LMLOG(LCRIT,"NO OUTPUT IFACE: all the locators are down");
     }
 }
 
@@ -663,20 +663,20 @@ set_default_ctrl_ifaces()
 {
     default_ctrl_iface_v4 = get_any_output_iface(AF_INET);
     if (default_ctrl_iface_v4 != NULL) {
-       lmlog(DBG_2,"Default IPv4 control iface %s: %s\n",
+       LMLOG(DBG_2,"Default IPv4 control iface %s: %s\n",
                default_ctrl_iface_v4->iface_name,
                lisp_addr_to_char(default_ctrl_iface_v4->ipv4_address));
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_ctrl_iface_v6 != NULL) {
-        lmlog(DBG_2,"Default IPv6 control iface %s: %s\n",
+        LMLOG(DBG_2,"Default IPv6 control iface %s: %s\n",
                 default_ctrl_iface_v6->iface_name,
                 lisp_addr_to_char(default_ctrl_iface_v6->ipv6_address));
     }
 
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6) {
-        lmlog(LERR, "NO CONTROL IFACE: all the locators are down");
+        LMLOG(LERR, "NO CONTROL IFACE: all the locators are down");
     }
 }
 

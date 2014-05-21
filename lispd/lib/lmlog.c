@@ -35,14 +35,11 @@
 #include <syslog.h>
 #include <stdarg.h>
 
-inline void lispd_log(
-        int         log_level,
-        char        *log_name,
-        const char  *format,
-        va_list     args);
+inline void lispd_log(int log_level, char *log_name, const char *format,
+        va_list args);
 
 
-void lmlog(int lisp_log_level, const char *format, ...)
+void llog(int lisp_log_level, const char *format, ...)
 {
     va_list args;
     char *log_name; /* To store the log level in string format for printf output */
@@ -103,17 +100,15 @@ void lmlog(int lisp_log_level, const char *format, ...)
     va_end (args);
 }
 
-inline void lispd_log(
-        int         log_level,
-        char        *log_name,
-        const char  *format,
-        va_list     args)
+inline void
+lispd_log(int log_level, char *log_name, const char *format,
+        va_list args)
 {
-    if (daemonize){
-        vsyslog(log_level,format,args);
-    }else{
-        printf("%s: ",log_name);
-        vfprintf(stdout,format,args);
+    if (daemonize) {
+        vsyslog(log_level, format, args);
+    } else {
+        printf("%s: ", log_name);
+        vfprintf(stdout, format, args);
         printf("\n");
     }
 }
@@ -122,13 +117,13 @@ inline void lispd_log(
  * True if log_level is enough to print results
  */
 
-int is_loggable (int log_level){
-    if (log_level < LISP_LOG_DEBUG_1)
-        return (TRUE);
-    else if (log_level <= LISP_LOG_INFO + debug_level)
-        return (TRUE);
-    return (FALSE);
-}
+//int is_loggable (int log_level){
+//    if (log_level < LISP_LOG_DEBUG_1)
+//        return (TRUE);
+//    else if (log_level <= LISP_LOG_INFO + debug_level)
+//        return (TRUE);
+//    return (FALSE);
+//}
 
 /*
  * Editor modelines

@@ -59,11 +59,11 @@ forward_native(lbuf_t *b, lisp_addr_t *dst)
     ofd = get_default_output_socket(afi);
 
     if (ofd == -1) {
-        lmlog(DBG_2, "fordward_native: No output interface for afi %d", afi);
+        LMLOG(DBG_2, "fordward_native: No output interface for afi %d", afi);
         return (BAD);
     }
 
-    lmlog(DBG_3, "Fordwarding native to destination %s",
+    LMLOG(DBG_3, "Fordwarding native to destination %s",
             lisp_addr_to_char(dst));
 
     ret = send_raw(ofd, lbuf_data(b), lbuf_size(b), lisp_addr_ip(dst));
@@ -103,7 +103,7 @@ make_mcast_addr(packet_tuple_t *tuple, lisp_addr_t *addr){
     if (ip_addr_is_multicast(lisp_addr_ip(&tuple->dst_addr))) {
         if (lisp_addr_afi(&tuple->src_addr) != LM_AFI_IP
             || lisp_addr_afi(&tuple->src_addr) != LM_AFI_IP) {
-           lmlog(DBG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not "
+           LMLOG(DBG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not "
                    "of IP syntax!", lisp_addr_to_char(&tuple->src_addr),
                    lisp_addr_to_char(&tuple->dst_addr));
            return(BAD);
@@ -133,14 +133,14 @@ lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
     int encap_plen = 0;
     int osock = 0;
 
-    lmlog(DBG_1, "Multicast packets not supported for now!");
+    LMLOG(DBG_1, "Multicast packets not supported for now!");
     return(GOOD);
 
     /* convert tuple to lisp_addr_t, to be used for map-cache lookup
      * TODO: should be a tad more efficient  */
     daddr = lisp_addr_new();
     if (make_mcast_addr(tuple, daddr) != GOOD) {
-        lmlog(LWRN, "lisp_output: Unable to determine "
+        LMLOG(LWRN, "lisp_output: Unable to determine "
                 "destination address from tuple: src %s dst %s",
                 lisp_addr_to_char(&tuple->src_addr),
                 lisp_addr_to_char(&tuple->dst_addr));
@@ -201,7 +201,7 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         fwd_entry->srloc = get_default_output_address(dafi);
         if (!fwd_entry->srloc) {
             free(fwd_entry);
-            lmlog(DBG_1, "Failed to set source RLOC with afi %d", dafi);
+            LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
             return(BAD);
         }
     }
@@ -213,7 +213,7 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fwd_entry->srloc,
             fwd_entry->drloc);
 
-    lmlog(DBG_3,"OUTPUT: Sending encapsulated packet: RLOC %s -> %s\n",
+    LMLOG(DBG_3,"OUTPUT: Sending encapsulated packet: RLOC %s -> %s\n",
             lisp_addr_to_char(fwd_entry->srloc),
             lisp_addr_to_char(fwd_entry->drloc));
 
@@ -234,7 +234,7 @@ lisp_output(lbuf_t *b)
         return (BAD);
     }
 
-    lmlog(DBG_3,"OUTPUT: Received EID %s -> %s",
+    LMLOG(DBG_3,"OUTPUT: Received EID %s -> %s",
             lisp_addr_to_char(&tuple.src_addr),
             lisp_addr_to_char(&tuple.dst_addr));
 
@@ -260,7 +260,7 @@ recv_output_packet(struct sock *sl)
     lbuf_reserve(&pkt_buf, MAX_LISP_PKT_ENCAP_LEN);
 
     if (sock_recv(sl->fd, &pkt_buf) != GOOD) {
-        lmlog(LWRN, "OUTPUT: Error while reading from tun!");
+        LMLOG(LWRN, "OUTPUT: Error while reading from tun!");
         return (BAD);
     }
     lbuf_reset_ip(&pkt_buf);

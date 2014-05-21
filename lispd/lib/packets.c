@@ -169,7 +169,7 @@ pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst, int proto)
 {
     void *iph;
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
-        lmlog(DBG_1, "src %s and dst % IP have different AFI! Discarding!",
+        LMLOG(DBG_1, "src %s and dst % IP have different AFI! Discarding!",
                 ip_addr_to_char(src), ip_addr_to_char(dst));
         return(NULL);
     }
@@ -196,14 +196,14 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
     struct udphdr *uh;
 
     if (pkt_push_udp(b, sp, dp) == NULL) {
-        lmlog(DBG_1, "Failed to push UDP header! Discarding");
+        LMLOG(DBG_1, "Failed to push UDP header! Discarding");
         return(BAD);
     }
 
     lbuf_reset_udp(b);
 
     if (pkt_push_ip(b, sip, dip, IPPROTO_UDP) == NULL) {
-        lmlog(DBG_1, "Failed to push IP header! Discarding");
+        LMLOG(DBG_1, "Failed to push IP header! Discarding");
         return(BAD);
     }
 
@@ -212,7 +212,7 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
     uh = lbuf_udp(b);
     udpsum = udp_checksum(uh, ntohs(uh->len), lbuf_ip(b), ip_addr_afi(sip));
     if (udpsum == -1) {
-        lmlog(DBG_1, "Failed UDP checksum! Discarding");
+        LMLOG(DBG_1, "Failed UDP checksum! Discarding");
         return (BAD);
     }
     udpsum(uh) = udpsum;
@@ -251,7 +251,7 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
         lbuf_pull(&packet, sizeof(struct ip6_hdr));
         break;
     default:
-        lmlog(DBG_2, "pkt_parse_5_tuple: Not an IP packet!");
+        LMLOG(DBG_2, "pkt_parse_5_tuple: Not an IP packet!");
         return (BAD);
     }
 
@@ -393,7 +393,7 @@ struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
         udph = (struct udphdr *) CO(ip6h, sizeof(struct ip6_hdr));
         break;
     default:
-        lmlog(DBG_2,
+        LMLOG(DBG_2,
                 "build_ip_header: Uknown AFI of the source address: %d",
                 src_addr->afi);
         return (NULL);
@@ -420,7 +420,7 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
     uint16_t udpsum = 0;
 
     if (lisp_addr_ip_afi(addr_from) != lisp_addr_ip_afi(addr_dest)) {
-        lmlog(DBG_2,
+        LMLOG(DBG_2,
                 "add_ip_udp_header: Different AFI addresses %d (%s) and %d (%s)",
                 lisp_addr_ip_afi(addr_from), lisp_addr_to_char(addr_from),
                 lisp_addr_ip_afi(addr_dest), lisp_addr_to_char(addr_dest));
@@ -429,7 +429,7 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
 
     if ((lisp_addr_ip_afi(addr_from) != AF_INET)
             && (lisp_addr_ip_afi(addr_from) != AF_INET6)) {
-        lmlog(DBG_2, "add_ip_udp_header: Unknown AFI %d",
+        LMLOG(DBG_2, "add_ip_udp_header: Unknown AFI %d",
                 lisp_addr_ip_afi(addr_from));
         return (NULL);
     }
@@ -447,7 +447,7 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
     *encap_pkt_len = ip_hdr_len + udp_hdr_len + orig_pkt_len;
 
     if ((encap_pkt = (uint8_t *) malloc(*encap_pkt_len)) == NULL) {
-        lmlog(DBG_2,
+        LMLOG(DBG_2,
                 "add_ip_udp_header: Couldn't allocate memory for the packet to be generated %s",
                 strerror(errno));
         return (NULL);
@@ -463,7 +463,7 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
 
     if ((udph_ptr = build_ip_header(iph_ptr, addr_from, addr_dest,
             udp_hdr_and_payload_len)) == NULL) {
-        lmlog(DBG_2,
+        LMLOG(DBG_2,
                 "add_ip_udp_header: Couldn't build the inner ip header");
         free(encap_pkt);
         return (NULL);

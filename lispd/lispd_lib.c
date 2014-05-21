@@ -113,7 +113,7 @@ int copy_lisp_addr_t(
                sizeof(struct in6_addr));
         break;
     default:
-        lmlog(DBG_2, "copy_lisp_addr_t: Unknown AFI (%d)", a2->afi);
+        LMLOG(DBG_2, "copy_lisp_addr_t: Unknown AFI (%d)", a2->afi);
         return(BAD);
     }
     return(GOOD);
@@ -134,7 +134,7 @@ int copy_addr(
      int            convert)
 {
 
-    lmlog(LISP_LOG_WARNING, "copy_addr: IS OBSOLETE!!!!");
+    LMLOG(LISP_LOG_WARNING, "copy_addr: IS OBSOLETE!!!!");
     return(0);
 //    /* XXX: this doesn't start from EID!! */
 //    return(lisp_addr_copy_to_pkt(a2, a1, convert));
@@ -348,9 +348,9 @@ void print_hmac(
     int i;
 
     for (i = 0; i < len; i += 4) {
-        lmlog(DBG_3,"i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
+        LMLOG(DBG_3,"i = %d\t(0x%04x)\n", i, (unsigned int) hmac[i]);
     }
-    lmlog(DBG_3,"\n");
+    LMLOG(DBG_3,"\n");
 }
 
 /*
@@ -446,7 +446,7 @@ uint16_t get_lisp_afi(
         }
         return((uint16_t)LISP_AFI_IPV6);
     default:
-        lmlog(DBG_2, "get_lisp_afi: unknown AFI (%d)", afi);
+        LMLOG(DBG_2, "get_lisp_afi: unknown AFI (%d)", afi);
         return (BAD);
     }
 }
@@ -470,7 +470,7 @@ int lisp2inetafi(uint16_t afi)
     case LISP_AFI_LCAF:
         return(LISP_AFI_LCAF);
     default:
-        lmlog(DBG_2, "lisp2inetafi: unknown AFI (%d)", afi);
+        LMLOG(DBG_2, "lisp2inetafi: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -492,7 +492,7 @@ int inet2lispafi(int afi)
     case LISP_AFI_LCAF:
         return(LISP_AFI_LCAF);
     default:
-        lmlog(DBG_2, "inet2lispafi: unknown AFI (%d)", afi);
+        LMLOG(DBG_2, "inet2lispafi: unknown AFI (%d)", afi);
         return (0);
     }
 }
@@ -509,7 +509,7 @@ int get_ip_header_len(int afi)
     case AF_INET6:
         return(sizeof(struct ip6_hdr));
     default:
-        lmlog(DBG_2, "get_ip_header_len: unknown AFI (%d)", afi);
+        LMLOG(DBG_2, "get_ip_header_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -529,7 +529,7 @@ int get_addr_len(int afi)
     case AF_INET6:
         return(sizeof(struct in6_addr));
     default:
-        lmlog(DBG_2, "get_addr_len: unknown AFI (%d)", afi);
+        LMLOG(DBG_2, "get_addr_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -605,7 +605,7 @@ int have_input(
                 continue;
             }
             else {
-                lmlog(DBG_2, "have_input: select error: %s", strerror(errno));
+                LMLOG(DBG_2, "have_input: select error: %s", strerror(errno));
                 return(BAD);
             }
         }else{
@@ -649,7 +649,7 @@ int inaddr2sockaddr(
         memcpy(&(ipv6->sin6_addr), &(inaddr->address.ipv6), sizeof(struct in6_addr));
         return(GOOD);
     default:
-        lmlog(DBG_2, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
+        LMLOG(DBG_2, "inaddr2sockaddr: unknown AFI %d", inaddr->afi);
         return(ERR_AFI);
     }
 }
@@ -680,11 +680,11 @@ int extract_lisp_address(
     case AF_UNSPEC:
         break;
     case LISP_AFI_LCAF:
-        lmlog(DBG_2, "extract_lisp_address: Couldn't process lcaf address");
+        LMLOG(DBG_2, "extract_lisp_address: Couldn't process lcaf address");
         result  = ERR_AFI;
         break;
     default:
-        lmlog(DBG_2, "extract_lisp_address: Coudn't extract address. Unknown afi");
+        LMLOG(DBG_2, "extract_lisp_address: Coudn't extract address. Unknown afi");
         result  = ERR_AFI;
         break;
     }

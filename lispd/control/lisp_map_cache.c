@@ -39,13 +39,13 @@ mcache_new()
 {
     map_cache_db_t *mcdb = xzalloc(sizeof(map_cache_db_t));
     if (!mcdb) {
-        lmlog(LCRIT, "Could allocate map cache db ");
+        LMLOG(LCRIT, "Could allocate map cache db ");
         return(NULL);
     }
 
     mcdb->db = mdb_new();
     if (!mcdb->db) {
-        lmlog(LCRIT, "Could create map cache db ");
+        LMLOG(LCRIT, "Could create map cache db ");
         return(NULL);
     }
 
@@ -122,12 +122,12 @@ void mcache_dump_db(map_cache_db_t *mcdb, int log_level)
     mcache_entry_t *mce;
     void *it;
 
-    lmlog(log_level,"**************** LISP Mapping Cache ******************\n");
+    LMLOG(log_level,"**************** LISP Mapping Cache ******************\n");
     mdb_foreach_entry(mcdb->db, it) {
         mce = (mcache_entry_t *)it;
         map_cache_entry_to_char(mce, log_level);
     } mdb_foreach_entry_end;
-    lmlog(log_level,"*******************************************************\n");
+    LMLOG(log_level,"*******************************************************\n");
 
 }
 

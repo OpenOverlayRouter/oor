@@ -131,7 +131,7 @@ map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
     sprintf(str + strlen(str),"ACTIVE: %s",
             entry->active == TRUE ? "Yes" : "No");
 
-    lmlog(log_level, "%s\n%s\n", str, mapping_to_char(mapping));
+    LMLOG(log_level, "%s\n%s\n", str, mapping_to_char(mapping));
 }
 
 
