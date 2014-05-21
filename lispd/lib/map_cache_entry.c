@@ -95,6 +95,7 @@ mcache_entry_del(mcache_entry_t *entry)
     if (entry->nonces != NULL) {
         free(entry->nonces);
     }
+    lisp_addr_del(entry->requester);
     free(entry);
 }
 

@@ -102,6 +102,7 @@ static inline timer *mcache_entry_init_req_retry_timer(mcache_entry_t *);
 static inline timer *mcache_entry_smr_inv_timer(mcache_entry_t *);
 static inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *);
 static inline timer *mcache_entry_init_smr_inv_timer(mcache_entry_t *);
+static inline void mcache_entry_requester_del(mcache_entry_t *m);
 
 static inline mapping_t *mcache_entry_mapping(mcache_entry_t* mce)
 {
@@ -146,7 +147,15 @@ static inline void mcache_entry_destroy_nonces(mcache_entry_t *mce)
 static inline void mcache_entry_set_requester(mcache_entry_t *m,
         lisp_addr_t *addr)
 {
+    if (m->requester) {
+        lisp_addr_del(m->requester);
+    }
     m->requester = addr;
+}
+
+static inline void mcache_entry_requester_del(mcache_entry_t *m)
+{
+    lisp_addr_del(m->requester);
 }
 
 static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *m)

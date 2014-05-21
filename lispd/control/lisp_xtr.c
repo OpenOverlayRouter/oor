@@ -249,7 +249,6 @@ handle_locator_probe_reply(lisp_xtr_t *xtr, mapping_t *m,
 static int
 update_mcache_entry(lisp_xtr_t *xtr, mapping_t *m, uint64_t nonce)
 {
-
     mcache_entry_t *mce = NULL;
     mapping_t *old_map, *new_map;
     lisp_addr_t *eid;
@@ -269,6 +268,7 @@ update_mcache_entry(lisp_xtr_t *xtr, mapping_t *m, uint64_t nonce)
         return(BAD);
     } else {
         mcache_entry_destroy_nonces(mce);
+        mcache_entry_requester_del(mce);
     }
 
     LMLOG(DBG_2, "Mapping with EID %s already exists, replacing!",
@@ -591,6 +591,7 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
             xtr->nat_emr_nonces = NULL;
         }
 
+        mapping_del(m);
         program_map_register(xtr, MAP_REGISTER_INTERVAL);
 
     }
