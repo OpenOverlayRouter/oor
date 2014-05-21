@@ -1219,7 +1219,7 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
         return (BAD);
     }
 
-    if (iid != -1) {
+    if (iid > 0) {
         lisp_addr_set_afi(&eid, LM_AFI_LCAF);
         /* XXX: mask not defined. Just filling in a value for now */
         lisp_addr_lcaf_set_addr(&eid, iid_type_init(iid, &eid,

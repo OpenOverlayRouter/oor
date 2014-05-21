@@ -275,7 +275,7 @@ locator_list_add(locators_list_t **list, locator_t *loc) {
     loc_list->locator = loc;
 
     if (loc->type == LOCAL_LOCATOR
-        && lisp_addr_ip_afi(locator_addr(loc)) != AF_UNSPEC) {
+        && lisp_addr_afi(locator_addr(loc)) != LM_AFI_NO_ADDR) {
         /* If it's a local initialized locator, we should store it in order*/
 
         if (*list == NULL) {

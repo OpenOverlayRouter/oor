@@ -73,9 +73,19 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
     int result = GOOD;
 
     addr = locator_addr(loc);
+
     switch (lisp_addr_afi(addr)) {
-    case LM_AFI_IP:
     case LM_AFI_NO_ADDR:
+        /* address not initialized */
+        leinf = m->extended_info;
+        err = locator_list_add(&leinf->head_not_init_locators_list, loc);
+        if (err == GOOD) {
+            return (GOOD);
+        } else {
+            locator_del(loc);
+            return (BAD);
+        }
+    case LM_AFI_IP:
         auxaddr = addr;
         break;
     case LM_AFI_LCAF:
