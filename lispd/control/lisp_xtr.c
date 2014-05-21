@@ -428,7 +428,7 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 
     if (MREQ_RLOC_PROBE(mreq_hdr) && MREQ_REC_COUNT(mreq_hdr) > 1) {
         LMLOG(DBG_1, "More than one EID record in RLOC probe. Discarding!");
-        return(BAD);
+        goto err;
     }
 
     /* Process additional ITR RLOCs */
@@ -469,10 +469,12 @@ done:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
     lisp_addr_del(seid);
+    lisp_addr_del(deid);
     return(GOOD);
 err:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
+    lisp_addr_del(seid);
     lisp_addr_del(deid);
     return(BAD);
 }
