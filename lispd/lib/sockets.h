@@ -105,6 +105,8 @@ int sock_ctrl_send(uconn_t *uc, struct lbuf *b);
 int sock_recv(int, lbuf_t *);
 int sock_ctrl_recv(int, lbuf_t *, uconn_t *);
 int sock_data_recv(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
+int sock_lisp_data_send(lbuf_t *b, fwd_entry_t *fe);
+int sock_data_send(lbuf_t *b, lisp_addr_t *dst);
 
 static inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
         lisp_addr_t *ra)

@@ -628,6 +628,7 @@ send_map_request_to_mr(lisp_xtr_t *xtr, lbuf_t *b, lisp_addr_t *in_srloc,
             lisp_addr_to_char(in_drloc), LISP_CONTROL_PORT,
             LISP_CONTROL_PORT);
 
+    LMLOG(DBG_1, "resolver is %s", lisp_addr_to_char(drloc));
     return(send_map_request(&xtr->super, b, srloc, drloc));
 }
 

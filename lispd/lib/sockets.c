@@ -403,18 +403,11 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
         }
     }
 
-    if (lisp_addr_afi(&uc->la) != LM_AFI_IP
-        || lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
-        LMLOG(DBG_2, "sock_send: src %s and dst % of UDP are not IP. "
-                "Discarding!", lisp_addr_to_char(&uc->la),
-                lisp_addr_to_char(&uc->ra));
-        return(BAD);
-    }
     src = lisp_addr_ip(&uc->la);
     dst = lisp_addr_ip(&uc->ra);
 
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
-        LMLOG(DBG_2, "sock_send: src %s and dst %s of UDP connection have"
+        LMLOG(DBG_2, "sock_ctrl_send: src %s and dst %s of UDP connection have"
                 "different IP AFI. Discarding!", ip_addr_to_char(src),
                 ip_addr_to_char(dst));
         return(BAD);
@@ -425,6 +418,60 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
     send_raw(sock, lbuf_data(b), lbuf_size(b), dst);
 
     return(GOOD);
+}
+
+/* lisp encapsulates and forwards a packet */
+int
+sock_lisp_data_send(lbuf_t *b, fwd_entry_t *fe)
+{
+    int dafi, osock, ret;
+    iface_t *iface;
+
+    dafi = lisp_addr_ip_afi(fe->drloc);
+
+    /* if no srloc, choose default */
+    if (!fe->srloc) {
+        fe->srloc = get_default_output_address(dafi);
+        if (!fe->srloc) {
+            free(fe);
+            LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
+            return(BAD);
+        }
+    }
+
+    iface = get_interface_with_address(fe->srloc);
+    osock = iface_socket(iface, dafi);
+
+    /* FIXME: this works only with RAW sockets */
+    lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fe->srloc,
+            fe->drloc);
+
+    ret = send_raw(osock, lbuf_data(b), lbuf_size(b),
+            lisp_addr_ip(fe->drloc));
+
+    if (ret) {
+        return(GOOD);
+    } else {
+        return(BAD);
+    }
+}
+
+/* forwards natively a packet */
+int
+sock_data_send(lbuf_t *b, lisp_addr_t *dst)
+{
+    int ret = 0, ofd = 0, afi = 0;
+
+    afi = lisp_addr_ip_afi(dst);
+    ofd = get_default_output_socket(afi);
+
+    if (ofd == -1) {
+        LMLOG(DBG_2, "sock_data_send: No output interface for afi %d", afi);
+        return (BAD);
+    }
+
+    ret = send_raw(ofd, lbuf_data(b), lbuf_size(b), lisp_addr_ip(dst));
+    return (ret);
 }
 
 

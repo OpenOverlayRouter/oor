@@ -152,9 +152,10 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     int ret;
 
     if (lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
-        LMLOG(DBG_2, "sock_send: dst % of UDP connection is not IP. "
-                "Discarding!", lisp_addr_to_char(&uc->ra));
-        return (BAD);
+        LMLOG(DBG_2, "ctrl_send_msg: dst %s of UDP connection not IP. "
+                "Discarding!", lisp_addr_to_char(&uc->la),
+                lisp_addr_to_char(&uc->ra));
+        return(BAD);
     }
 
     ret = sock_ctrl_send(uc, b);

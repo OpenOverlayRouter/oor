@@ -53,21 +53,13 @@ static inline int is_lisp_packet(packet_tuple_t *tpl);
 static int
 forward_native(lbuf_t *b, lisp_addr_t *dst)
 {
-    int ret = 0, ofd = 0, afi = 0;
-
-    afi = lisp_addr_ip_afi(dst);
-    ofd = get_default_output_socket(afi);
-
-    if (ofd == -1) {
-        LMLOG(DBG_2, "fordward_native: No output interface for afi %d", afi);
-        return (BAD);
-    }
-
-    LMLOG(DBG_3, "Fordwarding native to destination %s",
+    LMLOG(DBG_3, "Forwarding native to destination %s",
             lisp_addr_to_char(dst));
-
-    ret = send_raw(ofd, lbuf_data(b), lbuf_size(b), lisp_addr_ip(dst));
-    return (ret);
+    if (sock_data_send(b, dst)) {
+        return(GOOD);
+    } else {
+        return(BAD);
+    }
 }
 
 
@@ -180,47 +172,24 @@ lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
 static int
 lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
-    fwd_entry_t *fwd_entry = NULL;
-    int dafi, osock;
-    iface_t *iface;
+    fwd_entry_t *fe = NULL;
 
-    fwd_entry = ctrl_get_forwarding_entry(tuple);
+    fe = ctrl_get_forwarding_entry(tuple);
 
     /* Packets with no/negative map cache entry AND no PETR
      * OR packets with missing src or dst RLOCs
      * forward them natively */
-    if (!fwd_entry || (!fwd_entry->srloc && !fwd_entry->drloc)) {
+    if (!fe || (!fe->srloc && !fe->drloc)) {
         return(forward_native(b, &tuple->dst_addr));
     }
 
-
-    dafi = lisp_addr_ip_afi(fwd_entry->drloc);
-
-    /* if no srloc, choose default */
-    if (!fwd_entry->srloc) {
-        fwd_entry->srloc = get_default_output_address(dafi);
-        if (!fwd_entry->srloc) {
-            free(fwd_entry);
-            LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
-            return(BAD);
-        }
-    }
-
-    iface = get_interface_with_address(fwd_entry->srloc);
-    osock = iface_socket(iface, dafi);
-
-    /* FIXME: this works only with RAW sockets */
-    lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fwd_entry->srloc,
-            fwd_entry->drloc);
-
     LMLOG(DBG_3,"OUTPUT: Sending encapsulated packet: RLOC %s -> %s\n",
-            lisp_addr_to_char(fwd_entry->srloc),
-            lisp_addr_to_char(fwd_entry->drloc));
+            lisp_addr_to_char(fe->srloc),
+            lisp_addr_to_char(fe->drloc));
 
-    send_raw(osock, lbuf_data(b), lbuf_size(b),
-            lisp_addr_ip(fwd_entry->drloc));
+    sock_lisp_data_send(b, fe);
 
-    free(fwd_entry);
+    free(fe);
     return (GOOD);
 }
 
@@ -228,7 +197,6 @@ int
 lisp_output(lbuf_t *b)
 {
     packet_tuple_t tuple;
-    /* fcoras TODO: should use get_dst_lisp_addr instead of tuple */
 
     if (pkt_parse_5_tuple(b, &tuple) != GOOD) {
         return (BAD);
