@@ -422,32 +422,31 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
 
 /* lisp encapsulates and forwards a packet */
 int
-sock_lisp_data_send(lbuf_t *b, fwd_entry_t *fe)
+sock_lisp_data_send(lbuf_t *b, lisp_addr_t *src, lisp_addr_t *dst)
 {
     int dafi, osock, ret;
     iface_t *iface;
 
-    dafi = lisp_addr_ip_afi(fe->drloc);
+    dafi = lisp_addr_ip_afi(dst);
 
     /* if no srloc, choose default */
-    if (!fe->srloc) {
-        fe->srloc = get_default_output_address(dafi);
-        if (!fe->srloc) {
-            free(fe);
+    if (!src) {
+        src = get_default_output_address(dafi);
+        if (!src) {
             LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
             return(BAD);
         }
     }
 
-    iface = get_interface_with_address(fe->srloc);
+    iface = get_interface_with_address(src);
     osock = iface_socket(iface, dafi);
 
     /* FIXME: this works only with RAW sockets */
-    lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fe->srloc,
-            fe->drloc);
+    lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, src,
+            dst);
 
     ret = send_raw(osock, lbuf_data(b), lbuf_size(b),
-            lisp_addr_ip(fe->drloc));
+            lisp_addr_ip(dst));
 
     if (ret) {
         return(GOOD);

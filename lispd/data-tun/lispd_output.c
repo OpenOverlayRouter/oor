@@ -118,12 +118,9 @@ static int
 lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
 {
     glist_t *or_list = NULL;
-    uint8_t *encap_packet = NULL;
     lisp_addr_t *src_rloc = NULL, *daddr = NULL, *dst_rloc = NULL;
     locator_t *locator = NULL;
     glist_entry_t *it = NULL;
-    int encap_plen = 0;
-    int osock = 0;
 
     LMLOG(DBG_1, "Multicast packets not supported for now!");
     return(GOOD);
@@ -151,17 +148,7 @@ lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
         locator = (locator_t *) glist_entry_data(it);
         src_rloc = lcaf_mc_get_src(lisp_addr_get_lcaf(locator_addr(locator)));
         dst_rloc = lcaf_mc_get_grp(lisp_addr_get_lcaf(locator_addr(locator)));
-
-        /* FIXME: this works only with RAW sockets */
-        lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, src_rloc, dst_rloc);
-
-        send_raw(osock, lbuf_data(b), lbuf_size(b), lisp_addr_ip(dst_rloc));
-
-        osock = iface_socket(get_interface_with_address(src_rloc),
-                lisp_addr_ip_afi(src_rloc));
-        send_packet(osock, encap_packet, encap_plen);
-
-        free(encap_packet);
+        sock_lisp_data_send(b, src_rloc, dst_rloc);
     }
 
     glist_destroy(or_list);
@@ -187,7 +174,7 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             lisp_addr_to_char(fe->srloc),
             lisp_addr_to_char(fe->drloc));
 
-    sock_lisp_data_send(b, fe);
+    sock_lisp_data_send(b, fe->srloc, fe->drloc);
 
     free(fe);
     return (GOOD);
