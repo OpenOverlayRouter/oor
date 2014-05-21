@@ -30,10 +30,12 @@
  *
  */
 
-#include "lmlog.h"
-#include "lispd_external.h"
+
 #include <syslog.h>
 #include <stdarg.h>
+#include <stdio.h>
+
+#include "lmlog.h"
 
 inline void lispd_log(int log_level, char *log_name, const char *format,
         va_list args);
@@ -112,18 +114,6 @@ lispd_log(int log_level, char *log_name, const char *format,
         printf("\n");
     }
 }
-
-/*
- * True if log_level is enough to print results
- */
-
-//int is_loggable (int log_level){
-//    if (log_level < LISP_LOG_DEBUG_1)
-//        return (TRUE);
-//    else if (log_level <= LISP_LOG_INFO + debug_level)
-//        return (TRUE);
-//    return (FALSE);
-//}
 
 /*
  * Editor modelines

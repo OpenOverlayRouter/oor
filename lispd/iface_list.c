@@ -46,7 +46,7 @@
 #include "lmlog.h"
 
 
-iface_list_elt *head_interface_list = NULL;
+iface_list_elt_t *head_interface_list = NULL;
 
 iface_t *default_out_iface_v4 = NULL;
 iface_t *default_out_iface_v6 = NULL;
@@ -218,8 +218,8 @@ iface_setup(iface_t *iface, char* iface_name, int afi)
 iface_t *
 add_interface(char *iface_name)
 {
-    iface_list_elt *iface_list = NULL;
-    iface_list_elt *aux_iface_list = NULL;
+    iface_list_elt_t *iface_list = NULL;
+    iface_list_elt_t *aux_iface_list = NULL;
     iface_t *iface = NULL;
 
     if (if_nametoindex(iface_name) == 0) {
@@ -229,7 +229,7 @@ add_interface(char *iface_name)
     }
 
     /* Creating the new interface*/
-    iface_list = xzalloc(sizeof(iface_list_elt));
+    iface_list = xzalloc(sizeof(iface_list_elt_t));
     iface = xzalloc(sizeof(iface_t));
 
     iface->iface_name = strdup(iface_name); /* MUST FREE */
@@ -352,7 +352,7 @@ add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
  * Return the iface element if it is found or NULL if not. */
 iface_t *get_interface(char *iface_name)
 {
-    iface_list_elt *iface_list = head_interface_list;
+    iface_list_elt_t *iface_list = head_interface_list;
     iface_t *iface = NULL;
 
     while (iface_list != NULL) {
@@ -371,7 +371,7 @@ iface_t *get_interface(char *iface_name)
 iface_t *get_interface_from_index(int iface_index)
 {
     iface_t *iface = NULL;
-    iface_list_elt *iface_lst_elt = NULL;
+    iface_list_elt_t *iface_lst_elt = NULL;
 
     iface_lst_elt = head_interface_list;
     while (iface_lst_elt != NULL) {
@@ -395,7 +395,7 @@ iface_t *
 get_interface_with_address(lisp_addr_t *address)
 {
     iface_t *iface = NULL;
-    iface_list_elt *iface_lst_elt = NULL;
+    iface_list_elt_t *iface_lst_elt = NULL;
 
     iface_lst_elt = head_interface_list;
     while (iface_lst_elt != NULL){
@@ -428,7 +428,7 @@ iface_list_to_char(int log_level)
 {
     iface_t *iface;
     mapping_t *m;
-    iface_list_elt *interface_list = head_interface_list;
+    iface_list_elt_t *interface_list = head_interface_list;
     iface_mappings_list *mapping_list = NULL;
     char str[4000];
 
@@ -548,7 +548,7 @@ iface_t *
 get_any_output_iface(int afi)
 {
     iface_t *iface = NULL, *tif;
-    iface_list_elt *iface_list_elt = head_interface_list;
+    iface_list_elt_t *iface_list_elt = head_interface_list;
 
     switch (afi) {
     case AF_INET:
@@ -722,7 +722,7 @@ iface_socket(iface_t *iface, int afi)
  * Return the list of interfaces
  */
 
-iface_list_elt *get_head_interface_list()
+iface_list_elt_t *get_head_interface_list()
 {
     return head_interface_list;
 }
@@ -746,7 +746,7 @@ iface_balancing_vectors_calc(iface_t *iface) {
 /* Close all the open output sockets associated to interfaces */
 void
 close_output_sockets() {
-    iface_list_elt *interface_list_elt = NULL;
+    iface_list_elt_t *interface_list_elt = NULL;
     iface_t *iface = NULL;
 
     interface_list_elt = head_interface_list;

@@ -33,30 +33,19 @@
 #ifndef LISPD_EXTERNAL_H_
 #define LISPD_EXTERNAL_H_
 
-#include <iface_list.h>
+#include "defs.h"
 
-extern map_server_list_t *map_servers;
 extern char *config_file;
-extern int debug_level;
 extern int daemonize;
 extern int default_rloc_afi;
 extern int netlink_fd;
-extern int ipv6_data_input_fd;
-extern int ipv4_data_input_fd;
 extern int nat_aware;
 extern int nat_status;
-extern nonces_list_t *nat_ir_nonce;
-extern iface_list_elt *head_interface_list;
-extern iface_t *default_ctrl_iface_v4;
-extern iface_t *default_ctrl_iface_v6;
-extern iface_t *default_out_iface_v4;
-extern iface_t *default_out_iface_v6;
+extern iface_list_elt_t *head_interface_list;
 
 extern sockmstr_t *smaster;
 extern lisp_ctrl_dev_t *ctrl_dev;
 extern lisp_ctrl_t *lctrl;
-extern shash_t *iface_addr_ht;
-
 
 extern void exit_cleanup();
 

@@ -5,6 +5,9 @@
 #include <cksum.h>
 #include "lispd_info_nat.h"
 
+extern nonces_list_t *nat_ir_nonce;
+extern map_server_list_t *map_servers;
+
 
 #define DEFAULT_INFO_REQUEST_TIMEOUT    10 
 

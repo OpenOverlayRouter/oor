@@ -36,8 +36,9 @@
 
 #include "lispd_external.h"
 
+extern int debug_level;
 
-// If these set of defines is modified, check the function is_loggable()
+/* If these set of defines is modified, check the function is_loggable() */
 
 #define LISP_LOG_CRIT        1       /* critical conditions -> Exit program */
 #define LISP_LOG_ERR         2       /* error conditions -> Not exit but should be considered by user */

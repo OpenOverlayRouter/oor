@@ -77,10 +77,6 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
         int port_dest, int *pkt_len);
 
 
-/* Returns IP ID for the packet */
-uint16_t get_IP_ID();
-
-
 
 void *pkt_pull_ipv4(lbuf_t *b);
 void *pkt_pull_ipv6(lbuf_t *b);
@@ -97,7 +93,7 @@ int pkt_push_udp_and_ip(lbuf_t *, uint16_t, uint16_t, ip_addr_t *,
 int ip_hdr_set_ttl_and_tos(struct iphdr *, int ttl, int tos);
 int ip_hdr_ttl_and_tos(struct iphdr *, int *ttl, int *tos);
 int pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
-uint32_t get_hash_from_tuple(packet_tuple_t *tuple);
+uint32_t pkt_tuple_hash(packet_tuple_t *tuple);
 
 
 

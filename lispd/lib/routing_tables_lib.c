@@ -37,6 +37,7 @@
 
 #include "routing_tables_lib.h"
 #include "lispd_external.h"
+#include "iface_list.h"
 #include "lmlog.h"
 
 
@@ -284,8 +285,8 @@ int del_rule(
  */
 void remove_created_rules()
 {
-    iface_list_elt    *interface_list = NULL;
-    iface_t         *iface          = NULL;
+    iface_list_elt_t *interface_list = NULL;
+    iface_t *iface = NULL;
 
     interface_list = head_interface_list;
     while (interface_list != NULL){

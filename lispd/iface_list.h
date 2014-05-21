@@ -33,8 +33,8 @@
 #ifndef IFACE_LIST_H_
 #define IFACE_LIST_H_
 
+#include "lisp_mapping.h"
 #include "defs.h"
-#include <lisp_mapping.h>
 #include "timers.h"
 
 /* list of mappings associated an interface */
@@ -74,10 +74,20 @@ typedef struct iface {
 } iface_t;
 
 /* List of interfaces */
-typedef struct iface_list_elt_ {
+typedef struct iface_list_elt {
     iface_t *iface;
-    struct iface_list_elt_ *next;
-} iface_list_elt;
+    struct iface_list_elt *next;
+} iface_list_elt_t;
+
+extern iface_list_elt_t *head_interface_list;
+
+extern iface_t *default_out_iface_v4;
+extern iface_t *default_out_iface_v6;
+
+extern iface_t *default_ctrl_iface_v4;
+extern iface_t *default_ctrl_iface_v6;
+
+extern shash_t *iface_addr_ht;
 
 
 int init_ifaces();
@@ -115,7 +125,7 @@ lisp_addr_t *iface_address(iface_t *iface, int afi);
 int iface_socket(iface_t *iface, int afi);
 
 
-iface_list_elt *get_head_interface_list();
+iface_list_elt_t *get_head_interface_list();
 
 /*
  * Recalculate balancing vector of the mappings assorciated to iface

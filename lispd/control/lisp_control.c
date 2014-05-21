@@ -31,11 +31,10 @@
 
 #include "lisp_control.h"
 #include "lisp_ctrl_device.h"
+#include "lispd_info_nat.h"
+#include "iface_list.h"
 #include "util.h"
 #include "lmlog.h"
-
-#include <lispd_external.h>
-#include "lispd_info_nat.h"
 
 
 static void set_default_rlocs(lisp_ctrl_t *ctrl);
@@ -176,7 +175,7 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
 int
 ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, glist_t *mappings_to_smr)
 {
-    iface_list_elt *iface_list = NULL;
+    iface_list_elt_t *iface_list = NULL;
     mapping_t *m;
     iface_mappings_list *mlist;
     glist_entry_t *it;

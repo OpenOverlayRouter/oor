@@ -38,8 +38,6 @@
 #include "lbuf.h"
 
 
-
-
 typedef enum {
     SOCK_READ,
     SOCK_WRITE,

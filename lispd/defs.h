@@ -39,6 +39,8 @@ typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
 typedef struct lisp_ctrl lisp_ctrl_t;
 typedef struct htable shash_t;
 typedef struct fwd_entry fwd_entry_t;
+typedef struct iface_list_elt iface_list_elt_t;
+typedef struct sockmstr sockmstr_t;
 
 /* Protocols constants related with timeouts */
 #define LISPD_INITIAL_MRQ_TIMEOUT       2  // Initial expiration timer for the first MRq

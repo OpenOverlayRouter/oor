@@ -32,9 +32,6 @@
 #include <unistd.h>
 #include "lmlog.h"
 
-/* needed for hashword */
-#include "bob/lookup3.c"
-
 static int mc_entry_expiration_timer_cb(timer *t, void *arg);
 static void mc_entry_start_expiration_timer(lisp_xtr_t *, mcache_entry_t *);
 static int handle_petr_probe_reply(lisp_xtr_t *, mapping_t *, locator_t *,
@@ -1826,7 +1823,7 @@ select_srloc_from_bvec(mapping_t *smap, packet_tuple_t *tuple,
                 "source locators available to send packet");
         return (BAD);
     }
-    hash = get_hash_from_tuple(tuple);
+    hash = pkt_tuple_hash(tuple);
     if (hash == 0) {
         LMLOG(DBG_1, "select_src_locators_from_balancing_locators_vec: "
                 "Couldn't get the hash of the tuple to select the rloc. "
@@ -1896,7 +1893,7 @@ select_locs_from_maps(mapping_t *smap, mapping_t *dmap,
         return (BAD);
     }
 
-    hash = get_hash_from_tuple(tuple);
+    hash = pkt_tuple_hash(tuple);
     if (hash == 0) {
         LMLOG(DBG_1, "select_locs_from_maps: Couldn't get the hash of the tuple "
                 "to select the rloc. Using the default rloc");
@@ -2004,7 +2001,7 @@ rtr_get_src_and_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **src,
 {
     lcaf_addr_t *lcaf = NULL;
     elp_node_t *elp_node, *next_elp;
-    iface_list_elt *iface = NULL;
+    iface_list_elt_t *iface = NULL;
     glist_entry_t *it = NULL;
     lisp_addr_t *if_v4, *if_v6;
 

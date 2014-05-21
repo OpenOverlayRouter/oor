@@ -47,12 +47,14 @@
 #include "util.h"
 #include "lmlog.h"
 
+/* needed for hashword */
+#include "bob/lookup3.c"
 
 
 uint16_t ip_id = 0;
 
-
-uint16_t
+/* Returns IP ID for the packet */
+static inline uint16_t
 get_IP_ID()
 {
     ip_id++;
@@ -274,7 +276,7 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
 
 /* Calculate the hash of the 5 tuples of a packet */
 uint32_t
-get_hash_from_tuple(packet_tuple_t *tuple)
+pkt_tuple_hash(packet_tuple_t *tuple)
 {
     int hash = 0;
     int len = 0;
