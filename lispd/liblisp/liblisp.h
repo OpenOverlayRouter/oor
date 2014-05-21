@@ -63,6 +63,7 @@ int lisp_msg_parse_loc(lbuf_t *, locator_t *);
 int lisp_msg_parse_mapping_record_split(lbuf_t *, lisp_addr_t *, glist_t *,
                                         locator_t **);
 int lisp_msg_parse_mapping_record(lbuf_t *, mapping_t *, locator_t **);
+int lisp_msg_parse_auth_field(lbuf_t *, int *keyid);
 
 int lisp_msg_ecm_decap(struct lbuf *, uint16_t *);
 

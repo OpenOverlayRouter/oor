@@ -290,6 +290,7 @@ lisp_msg_pull_hdr(lbuf_t *b)
     return(lbuf_pull(b, msg_type_to_hdr_len(type)));
 }
 
+
 void *
 lisp_msg_pull_auth_field(lbuf_t *b)
 {
@@ -721,6 +722,8 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
     keyid = ntohs(AUTH_REC_KEY_ID(hdr));
     ad_len = auth_data_get_len_for_type(keyid);
     if (ad_len != ntohs(AUTH_REC_DATA_LEN(hdr))) {
+        lmlog(DBG_1, "Auth Record record length is wrong: %d instead of %d",
+                ntohs(AUTH_REC_DATA_LEN(hdr)), ad_len);
         return(BAD);
     }
 

@@ -280,9 +280,11 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         lisp_msg_put_empty_auth_record(mntf, keyid);
     }
 
+    lisp_msg_pull_auth_field(&b);
+
     for (i = 0; i < MREG_REC_COUNT(hdr); i++) {
         m = mapping_new();
-        if (lisp_msg_parse_mapping_record(&b, m, &probed) != GOOD){
+        if (lisp_msg_parse_mapping_record(&b, m, &probed) != GOOD) {
             goto err;
         }
 
@@ -296,9 +298,11 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             continue;
         }
 
-        /* check auth */
+        /* CHECK AUTH */
+
+        /* if first record, lookup the key */
         if (!key) {
-            if (lisp_msg_check_auth_field(&b, reg_pref->key) != GOOD) {
+            if (lisp_msg_check_auth_field(buf, reg_pref->key) != GOOD) {
                 lmlog(DBG_1, "Message validation failed for EID %s with key %s."
                         " Stopping processing!", lisp_addr_to_char(eid),
                         reg_pref->key);
@@ -371,11 +375,11 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         mapping_del(m);
     }
 
-
-    if (mntf) {
+    /* check if key is initialized, otherwise registration failed */
+    if (mntf && key) {
         mntf_hdr = lisp_msg_hdr(mntf);
         MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
-        lisp_msg_fill_auth_data(&b, keyid, key);
+        lisp_msg_fill_auth_data(mntf, keyid, key);
         send_msg(&ms->super, mntf, uc);
         lisp_msg_destroy(mntf);
 
