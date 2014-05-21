@@ -388,7 +388,7 @@ mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
 {
     ip_prefix_t *ippref;
     lisp_addr_t *taddr;
-    void *ret;
+    void *ret = NULL;
 
     switch (lisp_addr_afi(laddr)) {
     case LM_AFI_IP:

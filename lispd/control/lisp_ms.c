@@ -268,7 +268,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     int i;
     mapping_t *m;
     locator_t *probed;
-    lbuf_t *mntf;
+    lbuf_t *mntf = NULL;
     lisp_key_type_e keyid = HMAC_SHA_1_96; /* TODO configurable */
 
 
@@ -341,13 +341,13 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                     m->head_v6_locators_list = NULL;
                 } else {
                     /* TREAT MERGE SEMANTICS */
-                    LMLOG(LISP_LOG_WARNING, "Prefix %s has merge semantics",
+                    LMLOG(LWRN, "Prefix %s has merge semantics",
                             lisp_addr_to_char(eid));
                     /* MCs EIDs have their RLOCs aggregated into an RLE */
                     if (lisp_addr_is_mc(eid)) {
                         mc_add_rlocs_to_rle(mentry, m);
                     } else {
-                        LMLOG(LISP_LOG_WARNING, "MS: Registered %s requires "
+                        LMLOG(LWRN, "MS: Registered %s requires "
                                 "merge semantics but we don't know how to "
                                 "handle! Discarding!", lisp_addr_to_char(eid));
                         goto bad;

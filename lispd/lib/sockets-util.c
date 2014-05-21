@@ -305,7 +305,7 @@ int send_packet (
 int
 send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
 {
-    struct sockaddr *saddr;
+    struct sockaddr *saddr = NULL;
     int slen = 0, nbytes = 0;
 
     struct sockaddr_in sa4;

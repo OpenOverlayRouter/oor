@@ -563,6 +563,7 @@ lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2)
         cmp = lcaf_addr_cmp(get_lcaf_(addr1), get_lcaf_(addr2));
         break;
     default:
+        cmp = -1;
         break;
     }
 

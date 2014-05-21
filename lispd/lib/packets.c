@@ -167,7 +167,7 @@ pkt_push_ipv6(lbuf_t *b, struct in6_addr *src, struct in6_addr *dst, int proto)
 void *
 pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst, int proto)
 {
-    void *iph;
+    void *iph = NULL;
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
         LMLOG(DBG_1, "src %s and dst % IP have different AFI! Discarding!",
                 ip_addr_to_char(src), ip_addr_to_char(dst));
@@ -269,6 +269,51 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
         tuple->dst_port = 0;
     }
     return (GOOD);
+}
+
+
+/* Calculate the hash of the 5 tuples of a packet */
+uint32_t
+get_hash_from_tuple(packet_tuple_t *tuple)
+{
+    int hash = 0;
+    int len = 0;
+    int port = tuple->src_port;
+    uint32_t *tuples = NULL;
+
+    port = port + ((int)tuple->dst_port << 16);
+    switch (lisp_addr_ip_afi(&tuple->src_addr)){
+    case AF_INET:
+        /* 1 integer src_addr
+         * + 1 integer dst_adr
+         * + 1 integer (ports)
+         * + 1 integer protocol */
+        len = 4;
+        tuples = xmalloc(len * sizeof(uint32_t));
+        lisp_addr_copy_to(&tuples[0], &tuple->src_addr);
+        lisp_addr_copy_to(&tuples[1], &tuple->dst_addr);
+        tuples[2] = port;
+        tuples[3] = tuple->protocol;
+        break;
+    case AF_INET6:
+        /* 4 integer src_addr
+         * + 4 integer dst_adr
+         * + 1 integer (ports)
+         * + 1 integer protocol */
+        len = 10;
+        tuples = xmalloc(len * sizeof(uint32_t));
+        lisp_addr_copy_to(&tuples[0], &tuple->src_addr);
+        lisp_addr_copy_to(&tuples[4], &tuple->dst_addr);
+        tuples[8] = port;
+        tuples[9] = tuple->protocol;
+        break;
+    }
+
+    /* XXX: why 2013 used as initial value? */
+    hash = hashword(tuples, len, 2013);
+    free(tuples);
+
+    return (hash);
 }
 
 int

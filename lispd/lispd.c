@@ -151,7 +151,7 @@ void init_tun()
 int
 init_tr_data_plane(lisp_dev_type_e mode)
 {
-    int (*cb_func)(sock_t *);
+    int (*cb_func)(sock_t *) = NULL;
 
     LMLOG(LINF, "\nIntializing data plane\n");
 

@@ -1792,50 +1792,6 @@ map_servers_to_char(lisp_xtr_t *xtr, int log_level)
     }
 }
 
-/* Calculate the hash of the 5 tuples of a packet */
-static uint32_t
-get_hash_from_tuple(packet_tuple_t *tuple)
-{
-    int hash = 0;
-    int len = 0;
-    int port = tuple->src_port;
-    uint32_t *tuples = NULL;
-
-    port = port + ((int)tuple->dst_port << 16);
-    switch (lisp_addr_ip_afi(&tuple->src_addr)){
-    case AF_INET:
-        /* 1 integer src_addr
-         * + 1 integer dst_adr
-         * + 1 integer (ports)
-         * + 1 integer protocol */
-        len = 4;
-        tuples = xmalloc(len * sizeof(uint32_t));
-        lisp_addr_copy_to(&tuples[0], &tuple->src_addr);
-        lisp_addr_copy_to(&tuples[1], &tuple->dst_addr);
-        tuples[2] = port;
-        tuples[3] = tuple->protocol;
-        break;
-    case AF_INET6:
-        /* 4 integer src_addr
-         * + 4 integer dst_adr
-         * + 1 integer (ports)
-         * + 1 integer protocol */
-        len = 10;
-        tuples = xmalloc(len * sizeof(uint32_t));
-        lisp_addr_copy_to(&tuples[0], &tuple->src_addr);
-        lisp_addr_copy_to(&tuples[4], &tuple->dst_addr);
-        tuples[8] = port;
-        tuples[9] = tuple->protocol;
-        break;
-    }
-
-    /* XXX: why 2013 used as initial value? */
-    hash = hashword(tuples, len, 2013);
-    free(tuples);
-
-    return (hash);
-}
-
 /* Select the source RLOC according to the priority and weight. */
 static int
 select_srloc_from_bvec(mapping_t *smap, packet_tuple_t *tuple,

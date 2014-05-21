@@ -50,7 +50,7 @@ mapping_record_init_hdr(mapping_record_hdr_t *h) {
 
 char *
 mapping_action_to_char(int act) {
-    static char buf[10];
+    static char buf[30];
     switch(act) {
     case ACT_NO_ACTION:
         sprintf(buf, "no-action");
