@@ -573,21 +573,28 @@ configure_rtr(cfg_t *cfg)
 
 
     /* INTERFACES CONFIG */
-//    cfg_t *rifs = cfg_getsec(cfg, "rtr-ifaces");
-//    n = cfg_size(rifs, "rtr-iface");
-//    for(i = 0; i < n; i++) {
-//        cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
-//        if (add_rtr_iface(xtr,
-//                cfg_getstr(ri, "iface"),
-//                cfg_getint(ri, "priority"),
-//                cfg_getint(ri, "weight")) == GOOD) {
-//            LMLOG(DBG_1, "Configured interface %s for RTR",
-//                    cfg_getstr(ri, "iface"));
-//        } else{
-//            LMLOG(LERR, "Can't configure iface %s for RTR",
-//                    cfg_getstr(ri, "iface"));
-//        }
-//    }
+    n = cfg_size(cfg, "rtr-ifaces");
+    if (n) {
+        cfg_t *rifs = cfg_getsec(cfg, "rtr-ifaces");
+        int nr = cfg_size(rifs, "rtr-iface");
+        for(i = 0; i < nr; i++) {
+            cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
+            if (add_rtr_iface(xtr,
+                    cfg_getstr(ri, "iface"),
+                    cfg_getint(ri, "priority"),
+                    cfg_getint(ri, "weight")) == GOOD) {
+                LMLOG(DBG_1, "Configured interface %s for RTR",
+                        cfg_getstr(ri, "iface"));
+            } else{
+                LMLOG(LERR, "Can't configure iface %s for RTR",
+                        cfg_getstr(ri, "iface"));
+            }
+        }
+    }
+    if (xtr->all_locs_map) {
+        mapping_compute_balancing_vectors(xtr->all_locs_map);
+        LMLOG(DBG_1, "%s", mapping_to_char(xtr->all_locs_map));
+    }
 
     char *iface = cfg_getstr(cfg, "rtr-data-iface");
     if (iface) {
@@ -963,6 +970,11 @@ handle_lispd_config_file(char *lispdconf_conf_file)
             CFG_END()
     };
 
+    static cfg_opt_t rtr_ifaces_opts[] = {
+            CFG_SEC("rtr-iface",    rtr_iface_opts, CFGF_MULTI),
+            CFG_END()
+    };
+
     static cfg_opt_t nat_traversal_opts[] = {
             CFG_BOOL("nat_aware",   cfg_false, CFGF_NONE),
             CFG_STR("site_ID",              0, CFGF_NONE),
@@ -1032,7 +1044,7 @@ handle_lispd_config_file(char *lispdconf_conf_file)
             CFG_SEC("rtr-database-mapping", db_mapping_opts_new,    CFGF_MULTI),
             CFG_SEC("static-map-cache",     mc_mapping_opts,        CFGF_MULTI),
             CFG_SEC("map-server",           map_server_opts,        CFGF_MULTI),
-            CFG_SEC("rtr-ifaces",           rtr_iface_opts,         CFGF_MULTI),
+            CFG_SEC("rtr-ifaces",           rtr_ifaces_opts,        CFGF_MULTI),
             CFG_SEC("proxy-etr",            petr_mapping_opts,      CFGF_MULTI),
             CFG_SEC("nat-traversal",        nat_traversal_opts,     CFGF_MULTI),
             CFG_SEC("rloc-probing",         rloc_probing_opts,      CFGF_MULTI),
@@ -1771,7 +1783,6 @@ static int
 add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
 {
     lisp_addr_t aux_address;
-    mapping_t *m;
     iface_t *iface;
 
     if (iface_name == NULL){
@@ -1794,17 +1805,12 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
         }
     }
 
-
-    /* Lookup if the mapping exists. If not, a new mapping is created. */
-    lisp_addr_ip_from_char("0.0.0.0", &aux_address);
-    m = local_map_db_lookup_eid_exact(xtr->local_mdb, &aux_address);
-
-    if (!m) {
-        m = mapping_init_local(&aux_address);
-        local_map_db_add_mapping(xtr->local_mdb, m);
+    if (!xtr->all_locs_map) {
+        lisp_addr_ip_from_char("0.0.0.0", &aux_address);
+        xtr->all_locs_map = mapping_init_local(&aux_address);
     }
 
-    if (link_iface_and_mapping(iface, m, p, w, p, w)
+    if (link_iface_and_mapping(iface, xtr->all_locs_map, p, w, p, w)
             != GOOD) {
         return(BAD);
     }

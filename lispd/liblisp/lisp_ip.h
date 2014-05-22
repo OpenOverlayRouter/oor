@@ -110,6 +110,7 @@ int                      ip_addr_from_char(char *address, ip_addr_t *ip);
 int                      ip_prefix_from_char(char *address, ip_prefix_t *ippref);
 
 inline int ip_addr_is_link_local(ip_addr_t *addr);
+int ip_addr_is_any(ip_addr_t *ip);
 inline uint8_t ip_addr_is_multicast(ip_addr_t *addr);
 
 /* IP-UTIL functions*/

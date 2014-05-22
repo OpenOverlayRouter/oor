@@ -110,7 +110,7 @@ ctrl_init(lisp_ctrl_t *ctrl)
 /*  Process a LISP protocol message sitting on
  *  socket s with address family afi */
 int
-ctrl_recv_msg(struct sock *sl)
+ctrl_recv_msg(sock_t *sl)
 {
     uconn_t uc;
     lbuf_t *b;

@@ -85,6 +85,10 @@ typedef struct lisp_xtr {
     timer *map_register_timer;
     timer *smr_timer;
 
+    /* LOCAL IFACE MAPPING */
+    /* in case of RTR can be used for outgoing load balancing */
+    mapping_t *all_locs_map;
+
 } lisp_xtr_t;
 
 typedef struct _timer_rloc_prob_argument {

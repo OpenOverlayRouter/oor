@@ -1516,6 +1516,11 @@ tr_mcache_lookup_mapping_exact(lisp_xtr_t *xtr, lisp_addr_t *laddr)
 static int
 xtr_if_event(lisp_ctrl_dev_t *dev) {
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
+
+    if (xtr->super.mode == RTR_MODE && xtr->all_locs_map) {
+        mapping_compute_balancing_vectors(xtr->all_locs_map);
+    }
+
     return(program_smr(xtr, LISPD_SMR_TIMEOUT));
 }
 
@@ -1629,6 +1634,7 @@ xtr_ctrl_destruct(lisp_ctrl_dev_t *dev)
     local_map_db_del(xtr->local_mdb);
     lisp_addr_list_del(xtr->map_resolvers);
     map_server_list_del(xtr->map_servers);
+    mapping_del(xtr->all_locs_map);
 }
 
 static void
@@ -2046,6 +2052,8 @@ rtr_get_src_and_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **src,
     }
 }
 
+/* Used by ITRs to determine the destination IP RLOC if the locator is
+ * an LCAF */
 static int
 get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
 {
@@ -2123,7 +2131,7 @@ get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     mapping_t *dmap = NULL;
     locator_t *srloc = NULL;
     locator_t *drloc = NULL;
-    fwd_entry_t *fwd_entry = NULL;
+    fwd_entry_t *fe = NULL;
     int safi, dafi;
 
     mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
@@ -2141,21 +2149,25 @@ get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
 
     dmap = mcache_entry_mapping(mce);
 
-    /* lookup local mapping for source EID */
-    smap = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
+    if (xtr->super.mode == xTR_MODE) {
+        /* lookup local mapping for source EID */
+        smap = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
+    } else {
+        smap = xtr->all_locs_map;
+    }
 
     if (select_locs_from_maps(smap, dmap, tuple, &srloc, &drloc) != GOOD) {
         return(NULL);
         /* Try PETRs */
-//        if (!xtr->petrs) {
-//            lmlog(DBG_3, "Trying to forward to PETR but none found ...");
-//            return (NULL);
-//        }
-//        if ((select_locs_from_maps(smap, xtr->petrs->mapping, tuple,
-//                &srloc, &drloc)) != GOOD) {
-//            lmlog(DBG_3, "No PETR compatible with local locators afi");
-//            return (NULL);
-//        }
+        if (!xtr->petrs) {
+            LMLOG(DBG_3, "Trying to forward to PETR but none found ...");
+            return (NULL);
+        }
+        if ((select_locs_from_maps(smap, xtr->petrs->mapping, tuple,
+                &srloc, &drloc)) != GOOD) {
+            LMLOG(DBG_3, "No PETR compatible with local locators afi");
+            return (NULL);
+        }
     }
 
     if (!srloc || !drloc) {
@@ -2164,25 +2176,31 @@ get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
         return(NULL);
     }
 
-    fwd_entry = xzalloc(sizeof(fwd_entry_t));
+    fe = xzalloc(sizeof(fwd_entry_t));
 
     safi = lisp_addr_afi(locator_addr(srloc));
     dafi = lisp_addr_afi(locator_addr(drloc));
 
     if (safi == LM_AFI_IP) {
-        fwd_entry->srloc = locator_addr(srloc);
+        fe->srloc = locator_addr(srloc);
     } else if (safi == LM_AFI_LCAF) {
-        /* XXX: can this happen? */
-        fwd_entry->srloc = NULL;
+        /* XXX: should choose the interface associated to this LCAF,
+         * if one exists */
+        fe->srloc = NULL;
     }
 
     if (dafi == LM_AFI_IP) {
-        fwd_entry->drloc = locator_addr(drloc);
+        fe->drloc = locator_addr(drloc);
     } else if (dafi == LM_AFI_LCAF) {
-        get_dst_from_lcaf(locator_addr(drloc), &fwd_entry->drloc);
+        if (xtr->super.mode == xTR_MODE) {
+            get_dst_from_lcaf(locator_addr(drloc), &fe->drloc);
+        } else if (xtr->super.mode == RTR_MODE) {
+            rtr_get_src_and_dst_from_lcaf(locator_addr(drloc),
+                    &fe->srloc, &fe->drloc);
+        }
     }
 
-    return (fwd_entry);
+    return (fe);
 }
 
 
@@ -2197,13 +2215,9 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
      * the RTR */
     if (xtr->nat_aware && xtr->nat_status == FULL_NAT) {
         return(get_natt_forwarding_entry(xtr, tuple));
-    } else if (xtr->super.mode == RTR_MODE) {
-        return(get_rtr_fwd_entry(xtr, tuple));
     } else {
         return(get_xtr_fwd_entry(xtr, tuple));
     }
-
-
 }
 
 

@@ -441,6 +441,23 @@ ip_addr_is_link_local(ip_addr_t *ip)
     return(ip_is_link_local(ip_addr_get_addr(ip), ip_addr_afi(ip)));
 }
 
+int
+ip_addr_is_any(ip_addr_t *ip)
+{
+    switch (ip_addr_afi(ip)) {
+    case AF_INET: {
+        struct in_addr *ip4 = (struct in_addr *) ip_addr_get_addr(ip);
+        return(ip4->s_addr == 0);
+        break;
+    }
+    case AF_INET6:
+        return(IN6_IS_ADDR_UNSPECIFIED(ip_addr_get_addr(ip)));
+        break;
+    }
+    return(0);
+}
+
+
 inline uint8_t
 ip_addr_is_multicast(ip_addr_t *addr)
 {
