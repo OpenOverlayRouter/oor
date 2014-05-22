@@ -29,14 +29,12 @@
 #include "lisp_ms.h"
 #include "cksum.h"
 #include "lmlog.h"
-//#include <openssl/hmac.h>
-//#include <openssl/evp.h>
 
 
 /* for testing, should move them out */
 //#include <lispd_lib.h>
-#include "packets.h"
-#include "sockets.h"
+//#include "packets.h"
+//#include "sockets.h"
 
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
 static void mc_add_rlocs_to_rle(mapping_t *, mapping_t *);
@@ -226,11 +224,13 @@ done:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
     lisp_addr_del(seid);
+    lisp_addr_del(deid);
     return(GOOD);
 err:
     glist_destroy(itr_rlocs);
     lisp_msg_destroy(mrep);
     lisp_addr_del(deid);
+    lisp_addr_del(seid);
     return(BAD);
 
 }
@@ -332,8 +332,8 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         /* if first record, lookup the key */
         if (!key) {
             if (lisp_msg_check_auth_field(buf, reg_pref->key) != GOOD) {
-                LMLOG(DBG_1, "Message validation failed for EID %s with key %s."
-                        " Stopping processing!", lisp_addr_to_char(eid),
+                LMLOG(DBG_1, "Message validation failed for EID %s with key "
+                        "%s. Stopping processing!", lisp_addr_to_char(eid),
                         reg_pref->key);
                 goto bad;
             }
@@ -361,8 +361,8 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         if (mentry) {
             if (mapping_cmp(mentry, m) != 0) {
                 if (!reg_pref->merge) {
-                    LMLOG(DBG_3, "Prefix %s already registered, updating locators",
-                            lisp_addr_to_char(eid));
+                    LMLOG(DBG_3, "Prefix %s already registered, updating "
+                            "locators", lisp_addr_to_char(eid));
                     mapping_update_locators(mentry, m->head_v4_locators_list,
                             m->head_v6_locators_list, m->locator_count);
                     /* cheap hack to avoid cloning */
@@ -410,9 +410,9 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         mntf_hdr = lisp_msg_hdr(mntf);
         MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
         lisp_msg_fill_auth_data(mntf, keyid, key);
-        LMLOG(DBG_1, "%s, IP: %s -> %s, UDP: %d -> %d", lisp_msg_hdr(mntf),
-                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra),
-                uc->lp, uc->rp);
+        LMLOG(DBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
+                lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
+                lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
         send_msg(&ms->super, mntf, uc);
     }
     lisp_msg_destroy(mntf);

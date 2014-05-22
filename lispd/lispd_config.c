@@ -1392,7 +1392,7 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
     int i;
     mapping_t *m = NULL;
     locator_t *locator = NULL;
-    lisp_addr_t *eid_prefix;
+    lisp_addr_t *eid_prefix, *lcaf;
     lisp_addr_t *new_eid = NULL;
     int iid = 0;
     char *address = NULL;
@@ -1402,12 +1402,13 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
     if (lisp_addr_ippref_from_char(address, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
-        eid_prefix = hash_table_lookup(lcaf_ht, address);
-        if (!eid_prefix) {
+        lcaf = hash_table_lookup(lcaf_ht, address);
+        if (!lcaf) {
             LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
                     address);
             return (NULL);
         }
+        lisp_addr_copy(eid_prefix, lcaf);
     }
 
     /* add iid to eid-prefix if different from 0 */
@@ -1419,17 +1420,22 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
         iid = 0;
     }
 
-    if (iid != 0) {
+    if (iid > 0) {
         new_eid = lisp_addr_new_afi(LM_AFI_LCAF);
         lisp_addr_lcaf_set_type(new_eid, LCAF_IID);
         /* XXX: mask not defined. Just filling in a value for now */
         lisp_addr_lcaf_set_addr(new_eid, iid_type_init(iid, eid_prefix,
                 ip_afi_to_default_mask(lisp_addr_ip_afi(eid_prefix))));
+
+        /* free the old container */
+        lisp_addr_del(eid_prefix);
         eid_prefix = new_eid;
     }
 
     m = (local) ? mapping_init_local(eid_prefix) :
                         mapping_init_remote(eid_prefix);
+
+    lisp_addr_del(eid_prefix);
 
     for (i = 0; i < cfg_size(map, "rloc"); i++) {
         cfg_t *rl = cfg_getnsec(map, "rloc", i);

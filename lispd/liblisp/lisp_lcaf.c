@@ -706,7 +706,7 @@ void iid_type_copy(void **dst, void *src) {
 iid_t *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen) {
     iid_t *iidt = iid_type_new();
     iidt->iid = iid;
-    iidt->iidaddr = addr;
+    iidt->iidaddr = lisp_addr_clone(addr);
     iidt->mlen = mlen;
     return(iidt);
 }

@@ -27,4 +27,5 @@ void lisp_site_prefix_del(lisp_site_prefix *sp) {
         lisp_addr_del(sp->eid_prefix);
     if (sp->key)
         free(sp->key);
+    free(sp);
 }
