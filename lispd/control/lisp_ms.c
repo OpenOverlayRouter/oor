@@ -68,13 +68,34 @@ get_locator_with_afi(mapping_t *m, int afi)
     return(NULL);
 }
 
+static int
+get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
+{
+    lcaf_addr_t *lcaf = NULL;
+    elp_node_t *enode;
+
+    lcaf = lisp_addr_get_lcaf(laddr);
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH:
+        /* we're looking for the ETR, so the destination is the last elp hop */
+        enode = glist_last_data(lcaf_elp_node_list(lcaf));
+        *dst = enode->addr;
+        break;
+    default:
+        *dst = NULL;
+        LMLOG(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
+                lcaf_addr_get_type(lcaf));
+        return (BAD);
+    }
+    return (GOOD);
+}
+
 /* forward encapsulated Map-Request to ETR */
 static int
 forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
 {
     lisp_addr_t *drloc;
     uconn_t fwd_uc;
-
 
     drloc = get_locator_with_afi(m, lisp_addr_ip_afi(&uc->ra));
     if (!drloc) {
@@ -83,6 +104,12 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
         return(BAD);
     }
 
+    if (lisp_addr_afi(drloc) == LM_AFI_LCAF) {
+        get_etr_from_lcaf(drloc, &drloc);
+    }
+
+    LMLOG(DBG_3, "Found xTR with locator %s to forward Map-Request",
+            lisp_addr_to_char(drloc));
     uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
     return(send_msg(&ms->super, b, &fwd_uc));
 }
@@ -137,7 +164,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         LMLOG(DBG_3, "No site configured for EID %s. Sending Negative "
                 "Map-Reply!", lisp_addr_to_char(deid));
         /* send negative map-reply with TTL 15 min */
-        mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD);
+        mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD,
+                MREQ_NONCE(mreq_hdr));
         send_msg(&ms->super, mrep, uc);
         goto done;
     }
@@ -148,7 +176,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                 "Map-Reply", lisp_addr_to_char(deid));
 
         /* send negative map-reply with TTL 1 min */
-        mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD);
+        mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,
+                MREQ_NONCE(mreq_hdr));
         send_msg(&ms->super, mrep, uc);
         goto done;
     }
@@ -357,22 +386,23 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                 ms_dump_registered_sites(ms, DBG_3);
             }
 
-            mapping_del(m);
 
         } else if (!mentry) {
             /* save prefix to the registered sites db */
             mdb_add_entry(ms->reg_sites_db, mapping_eid(m), m);
             ms_dump_registered_sites(ms, DBG_3);
-            mentry = m;
         }
 
         if (MREG_WANT_MAP_NOTIFY(hdr)) {
             lisp_msg_put_mapping(mntf, m, NULL);
         }
 
+        if (mentry) {
+            mapping_del(m);
+        }
+
         /* TODO: start timers */
 
-        mapping_del(m);
     }
 
     /* check if key is initialized, otherwise registration failed */
@@ -380,10 +410,12 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         mntf_hdr = lisp_msg_hdr(mntf);
         MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
         lisp_msg_fill_auth_data(mntf, keyid, key);
+        LMLOG(DBG_1, "%s, IP: %s -> %s, UDP: %d -> %d", lisp_msg_hdr(mntf),
+                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra),
+                uc->lp, uc->rp);
         send_msg(&ms->super, mntf, uc);
-        lisp_msg_destroy(mntf);
-
     }
+    lisp_msg_destroy(mntf);
 
     return(GOOD);
 err:
@@ -430,11 +462,14 @@ ms_add_registered_site_prefix(lisp_ms_t *ms, mapping_t *sp)
 void
 ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
 {
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
+
     void *it = NULL;
     lisp_site_prefix *site = NULL;
 
     LMLOG(log_level,"****************** MS configured prefixes **************\n");
-
     mdb_foreach_entry(ms->lisp_sites_db, it) {
         site = it;
         LMLOG(log_level, "Prefix: %s, accept specifics: %s merge: %s, proxy: %s",
@@ -448,6 +483,10 @@ ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
 
 void
 ms_dump_registered_sites(lisp_ms_t *ms, int log_level) {
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
+
     void *it = NULL;
     mapping_t *mapping = NULL;
 

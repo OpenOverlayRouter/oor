@@ -183,26 +183,26 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 int
 lisp_output(lbuf_t *b)
 {
-    packet_tuple_t tuple;
+    packet_tuple_t tpl;
 
-    if (pkt_parse_5_tuple(b, &tuple) != GOOD) {
+    if (pkt_parse_5_tuple(b, &tpl) != GOOD) {
         return (BAD);
     }
 
-    LMLOG(DBG_3,"OUTPUT: Received EID %s -> %s",
-            lisp_addr_to_char(&tuple.src_addr),
-            lisp_addr_to_char(&tuple.dst_addr));
+    LMLOG(DBG_3,"OUTPUT: Received EID %s -> %s, Proto: %d, Port: %d -> %d ",
+            lisp_addr_to_char(&tpl.src_addr), lisp_addr_to_char(&tpl.dst_addr),
+            tpl.protocol, tpl.src_port, tpl.dst_port);
 
 
     /* If already LISP packet, do not encapsulate again */
-    if (is_lisp_packet(&tuple)) {
-        return (forward_native(b, &tuple.dst_addr));
+    if (is_lisp_packet(&tpl)) {
+        return (forward_native(b, &tpl.dst_addr));
     }
 
-    if (ip_addr_is_multicast(lisp_addr_ip(&tuple.dst_addr))) {
-        lisp_output_multicast(b, &tuple);
+    if (ip_addr_is_multicast(lisp_addr_ip(&tpl.dst_addr))) {
+        lisp_output_multicast(b, &tpl);
     } else {
-        lisp_output_unicast(b, &tuple);
+        lisp_output_unicast(b, &tpl);
     }
 
     return(GOOD);

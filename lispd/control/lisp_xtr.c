@@ -445,7 +445,7 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
         LMLOG(DBG_1, " dst-eid: %s", lisp_addr_to_char(deid));
 
         /* Check the existence of the requested EID */
-        map = local_map_db_lookup_eid_exact(xtr->local_mdb, deid);
+        map = local_map_db_lookup_eid(xtr->local_mdb, deid);
         if (!map) {
             LMLOG(DBG_1,"EID %s not locally configured!",
                     lisp_addr_to_char(deid));
@@ -940,7 +940,7 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
     timer *t;
     nonces_list_t *nonces;
     mapping_t *m;
-    lisp_addr_t *deid, *seid;
+    lisp_addr_t *deid, *seid, empty = {.lafi = LM_AFI_NO_ADDR};
     glist_t *rlocs;
     lbuf_t *b;
     void *mr_hdr;
@@ -964,6 +964,9 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
         /* BUILD Map-Request */
         afi = lisp_addr_ip_afi(mapping_eid(m));
         seid = local_map_db_get_main_eid(xtr->local_mdb, afi);
+        if (!seid) {
+            seid = &empty;
+        }
         rlocs = ctrl_default_rlocs(xtr->super.ctrl);
         b = lisp_msg_mreq_create(seid, rlocs, deid);
 
@@ -1705,7 +1708,7 @@ xtr_ctrl_run(lisp_ctrl_dev_t *dev)
     }
 #endif
 
-    LMLOG (DBG_1, "****** Summary of the configuration ******");
+    LMLOG(DBG_1, "****** Summary of the configuration ******");
     local_map_db_dump(xtr->local_mdb, DBG_1);
     if (is_loggable(DBG_1)){
         mcache_dump_db(xtr->map_cache, DBG_1);
@@ -1793,52 +1796,47 @@ map_servers_to_char(lisp_xtr_t *xtr, int log_level)
     }
 }
 
-/* Select the source RLOC according to the priority and weight. */
+/* Select 'locp' according to the priority and weight. */
 static int
-select_srloc_from_bvec(mapping_t *smap, packet_tuple_t *tuple,
-        locator_t **slocp)
+select_rloc_from_bvec(balancing_locators_vecs *blv, packet_tuple_t *tuple,
+        locator_t **locp)
 {
-    int src_vec_len = 0;
+    int vec_len = 0;
     uint32_t pos = 0;
     uint32_t hash = 0;
-    balancing_locators_vecs *src_blv = NULL;
-    locator_t **src_loc_vec = NULL;
-    lcl_mapping_extended_info *leinf;
+    locator_t **loc_vec = NULL;
 
-    if (!smap) {
+    if (!blv) {
         return(BAD);
     }
 
-    leinf = smap->extended_info;
-    src_blv = &leinf->outgoing_balancing_locators_vecs;
-
-    if (src_blv->balancing_locators_vec != NULL) {
-        src_loc_vec = src_blv->balancing_locators_vec;
-        src_vec_len = src_blv->locators_vec_length;
-    } else if (src_blv->v6_balancing_locators_vec != NULL) {
-        src_loc_vec = src_blv->v6_balancing_locators_vec;
-        src_vec_len = src_blv->v6_locators_vec_length;
+    if (blv->balancing_locators_vec != NULL) {
+        loc_vec = blv->balancing_locators_vec;
+        vec_len = blv->locators_vec_length;
+    } else if (blv->v6_balancing_locators_vec != NULL) {
+        loc_vec = blv->v6_balancing_locators_vec;
+        vec_len = blv->v6_locators_vec_length;
     } else {
-        src_loc_vec = src_blv->v4_balancing_locators_vec;
-        src_vec_len = src_blv->v4_locators_vec_length;
+        loc_vec = blv->v4_balancing_locators_vec;
+        vec_len = blv->v4_locators_vec_length;
     }
-    if (src_vec_len == 0) {
-        LMLOG(DBG_3, "select_src_locators_from_balancing_locators_vec: No "
-                "source locators available to send packet");
+    if (vec_len == 0) {
+        LMLOG(DBG_3, "select_rloc_from_bvec: No locators available to send"
+                " packet");
         return (BAD);
     }
     hash = pkt_tuple_hash(tuple);
     if (hash == 0) {
-        LMLOG(DBG_1, "select_src_locators_from_balancing_locators_vec: "
-                "Couldn't get the hash of the tuple to select the rloc. "
-                "Using the default rloc");
+        LMLOG(DBG_1, "select_rloc_from_bvec: Couldn't hash tuple to select"
+                " the rloc. Using the default rloc");
     }
 
-    pos = hash % src_vec_len; // if hash = 0 then pos = 0
-    *slocp = src_loc_vec[pos];
+    /* if hash = 0 then pos = 0 */
+    pos = hash % vec_len;
+    *locp = loc_vec[pos];
 
-    LMLOG(DBG_3, "select_src_locators_from_balancing_locators_vec: src RLOC: "
-            "%s", lisp_addr_to_char(locator_addr(*slocp)));
+    LMLOG(DBG_3, "select_rloc_from_bvec: src RLOC: %s",
+            lisp_addr_to_char(locator_addr(*locp)));
 
     return (GOOD);
 }
@@ -1968,9 +1966,12 @@ select_locs_from_maps(mapping_t *smap, mapping_t *dmap,
 static fwd_entry_t*
 get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
     locator_t *srloc = NULL;
-    lcl_locator_extended_info_t *leinfo;
+    lcl_locator_extended_info_t *loc_leinf;
     fwd_entry_t *fwd_entry = NULL;
     mapping_t *smap = NULL;
+    lcl_mapping_extended_info *map_leinf;
+    balancing_locators_vecs *src_blv = NULL;
+
 
     /* If the packet doesn't have an EID source, forward it natively */
     smap = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
@@ -1978,13 +1979,16 @@ get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
         return(NULL);
     }
 
-    if (select_srloc_from_bvec(smap, tuple, &srloc) != GOOD) {
+    map_leinf = smap->extended_info;
+    src_blv = &map_leinf->outgoing_balancing_locators_vecs;
+
+    if (select_rloc_from_bvec(src_blv, tuple, &srloc) != GOOD) {
         return (NULL);
     }
 
-    leinfo = srloc->extended_info;
+    loc_leinf = srloc->extended_info;
 
-    if (!srloc || !leinfo || !leinfo->rtr_locators_list->locator) {
+    if (!srloc || !loc_leinf || !loc_leinf->rtr_locators_list->locator) {
         LMLOG(DBG_2, "No RTR for the selected src locator (%s).",
                 lisp_addr_to_char(srloc->addr));
         return (NULL);
@@ -1993,7 +1997,7 @@ get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
     fwd_entry = xzalloc(sizeof(fwd_entry_t));
 
     fwd_entry->srloc = srloc->addr;
-    fwd_entry->drloc = &leinfo->rtr_locators_list->locator->address;
+    fwd_entry->drloc = &loc_leinf->rtr_locators_list->locator->address;
 //    fwd_entry->out_socket = *(leinfo->out_socket);
 
     return (fwd_entry);
@@ -2065,8 +2069,54 @@ get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
     return (GOOD);
 }
 
+/* the difference with the xtr case is that we typically don't have
+ * a mapping for the source in the local mapping database */
 static fwd_entry_t *
-tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
+get_rtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
+{
+    mcache_entry_t *mce;
+    mapping_t *dmap = NULL;
+    fwd_entry_t *fe = NULL;
+    balancing_locators_vecs *blv = NULL;
+    rmt_mapping_extended_info *reinf;
+    locator_t *drloc;
+    int dafi;
+
+    mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
+
+    if (!mce) {
+        LMLOG(DBG_1, "No map cache for EID %s. Sending Map-Request!",
+                lisp_addr_to_char(&tuple->dst_addr));
+        handle_map_cache_miss(xtr, &tuple->dst_addr, &tuple->src_addr);
+        return(NULL);
+    } else if (mce->active == NOT_ACTIVE) {
+        LMLOG(DBG_3, "Already sent Map-Request for %s. Waiting for reply!",
+                lisp_addr_to_char(&tuple->dst_addr));
+        return(NULL);
+    }
+
+    dmap = mcache_entry_mapping(mce);
+    reinf = dmap->extended_info;
+    blv = &reinf->rmt_balancing_locators_vecs;
+    if (select_rloc_from_bvec(blv, tuple, &drloc) != GOOD) {
+        return (NULL);
+    }
+
+    fe = xzalloc(sizeof(fwd_entry_t));
+
+    dafi = lisp_addr_afi(locator_addr(drloc));
+    if (dafi == LM_AFI_IP) {
+        fe->srloc = NULL;
+        fe->drloc = locator_addr(drloc);
+    } else if (dafi == LM_AFI_LCAF) {
+        rtr_get_src_and_dst_from_lcaf(locator_addr(drloc),
+                &fe->srloc, &fe->drloc);
+    }
+    return(fe);
+}
+
+static fwd_entry_t *
+get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
 {
     mcache_entry_t *mce;
     mapping_t *smap = NULL;
@@ -2074,16 +2124,7 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
     locator_t *srloc = NULL;
     locator_t *drloc = NULL;
     fwd_entry_t *fwd_entry = NULL;
-    lisp_xtr_t *xtr;
     int safi, dafi;
-
-    xtr = lisp_xtr_cast(dev);
-
-    /* If we are behind a full NAT system, send the message directly to
-     * the RTR */
-    if (xtr->nat_aware && xtr->nat_status == FULL_NAT) {
-        return(get_natt_forwarding_entry(xtr, tuple));
-    }
 
     mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
 
@@ -2132,29 +2173,37 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
         fwd_entry->srloc = locator_addr(srloc);
     } else if (safi == LM_AFI_LCAF) {
         /* XXX: can this happen? */
-        fwd_entry = NULL;
+        fwd_entry->srloc = NULL;
     }
 
     if (dafi == LM_AFI_IP) {
         fwd_entry->drloc = locator_addr(drloc);
     } else if (dafi == LM_AFI_LCAF) {
-        switch (xtr->super.mode) {
-        case xTR_MODE:
-            get_dst_from_lcaf(locator_addr(drloc), &fwd_entry->drloc);
-            break;
-        case RTR_MODE:
-            rtr_get_src_and_dst_from_lcaf(locator_addr(drloc),
-                    &fwd_entry->srloc, &fwd_entry->drloc);
-            break;
-        default:
-            LMLOG(DBG_2, "Forwarding using LCAF Type %d not supported",
-                    lisp_addr_lcaf_type(locator_addr(drloc)));
-            return(NULL);
-        }
-
+        get_dst_from_lcaf(locator_addr(drloc), &fwd_entry->drloc);
     }
 
     return (fwd_entry);
+}
+
+
+static fwd_entry_t *
+tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
+{
+    lisp_xtr_t *xtr;
+
+    xtr = lisp_xtr_cast(dev);
+
+    /* If we are behind a full NAT system, send the message directly to
+     * the RTR */
+    if (xtr->nat_aware && xtr->nat_status == FULL_NAT) {
+        return(get_natt_forwarding_entry(xtr, tuple));
+    } else if (xtr->super.mode == RTR_MODE) {
+        return(get_rtr_fwd_entry(xtr, tuple));
+    } else {
+        return(get_xtr_fwd_entry(xtr, tuple));
+    }
+
+
 }
 
 

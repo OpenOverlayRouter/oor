@@ -102,15 +102,15 @@ mcache_entry_del(mcache_entry_t *entry)
 void
 map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
 {
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
+
     char buf[256], buf2[256];
     time_t expiretime;
     time_t uptime;
     char str[400];
     mapping_t *mapping = NULL;
-
-    if (is_loggable(log_level) == FALSE){
-        return;
-    }
 
     mapping = mcache_entry_mapping(entry);
 

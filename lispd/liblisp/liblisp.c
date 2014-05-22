@@ -562,11 +562,14 @@ lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs,
 }
 
 lbuf_t *
-lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac)
+lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac, uint64_t nonce)
 {
     lbuf_t *b;
+    void *hdr;
     b = lisp_msg_create(LISP_MAP_REPLY);
     lisp_msg_put_neg_mapping(b, eid, ttl, ac);
+    hdr = lisp_msg_hdr(b);
+    MREP_NONCE(hdr) = nonce;
     return(b);
 }
 

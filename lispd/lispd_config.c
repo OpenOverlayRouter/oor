@@ -523,7 +523,7 @@ configure_rtr(cfg_t *cfg)
 
 
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
-    if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
+    if (ctrl_dev_create(RTR_MODE, &ctrl_dev) != GOOD) {
         LMLOG(LCRIT, "Failed to create RTR. Aborting!");
         exit_cleanup();
     }
@@ -573,20 +573,26 @@ configure_rtr(cfg_t *cfg)
 
 
     /* INTERFACES CONFIG */
-    cfg_t *rifs = cfg_getsec(cfg, "rtr-ifaces");
-    n = cfg_size(rifs, "rtr-iface");
-    for(i = 0; i < n; i++) {
-        cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
-        if (add_rtr_iface(xtr,
-                cfg_getstr(ri, "iface"),
-                cfg_getint(ri, "priority"),
-                cfg_getint(ri, "weight")) == GOOD) {
-            LMLOG(DBG_1, "Configured interface %s for RTR",
-                    cfg_getstr(ri, "iface"));
-        } else{
-            LMLOG(LERR, "Can't configure iface %s for RTR",
-                    cfg_getstr(ri, "iface"));
-        }
+//    cfg_t *rifs = cfg_getsec(cfg, "rtr-ifaces");
+//    n = cfg_size(rifs, "rtr-iface");
+//    for(i = 0; i < n; i++) {
+//        cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
+//        if (add_rtr_iface(xtr,
+//                cfg_getstr(ri, "iface"),
+//                cfg_getint(ri, "priority"),
+//                cfg_getint(ri, "weight")) == GOOD) {
+//            LMLOG(DBG_1, "Configured interface %s for RTR",
+//                    cfg_getstr(ri, "iface"));
+//        } else{
+//            LMLOG(LERR, "Can't configure iface %s for RTR",
+//                    cfg_getstr(ri, "iface"));
+//        }
+//    }
+
+    char *iface = cfg_getstr(cfg, "rtr-data-iface");
+    if (iface) {
+      if (!add_interface(iface))
+          return(BAD);
     }
 
     /* STATIC MAP-CACHE CONFIG */
@@ -1338,9 +1344,16 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
             }
         }
 
-        addr = iface_address(interface, lisp_addr_ip_afi(aux_rloc));
-        locator = locator_init_local_full(addr , &(interface->status),
-                priority, weight, 255, 0, &(interface->out_socket_v4));
+        if (!lcaf_rloc) {
+            addr = iface_address(interface, lisp_addr_ip_afi(aux_rloc));
+            locator = locator_init_local_full(addr , &(interface->status),
+                    priority, weight, 255, 0, &(interface->out_socket_v4));
+        } else {
+            /* XXX, TODO : locator addr not linked to interface */
+            locator = locator_init_local_full(lisp_addr_clone(lcaf_rloc) ,
+                    &(interface->status), priority, weight, 255, 0,
+                    &(interface->out_socket_v4));
+        }
 
         if (!locator) {
             LMLOG(DBG_1, "Configuration file: failed to create locator"

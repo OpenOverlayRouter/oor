@@ -123,6 +123,8 @@ process_input_packet(sock_t *sl)
 
 int rtr_process_input_packet(struct sock *sl)
 {
+    int size;
+
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
 
     if (read_and_decap_pkt(sl->fd, &pkt_buf) != GOOD) {
@@ -130,6 +132,11 @@ int rtr_process_input_packet(struct sock *sl)
     }
 
     LMLOG(DBG_3, "INPUT (4341): Forwarding to OUPUT for re-encapsulation");
+
+    size = lbuf_tail(&pkt_buf) - lbuf_l3(&pkt_buf);
+    lbuf_set_data(&pkt_buf, lbuf_l3(&pkt_buf));
+    lbuf_set_size(&pkt_buf, size);
+    lbuf_reset_ip(&pkt_buf);
     lisp_output(&pkt_buf);
 
     return(GOOD);
