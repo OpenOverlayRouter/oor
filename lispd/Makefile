@@ -61,6 +61,7 @@ OBJS		= cmdline.o				\
 		  liblisp/lisp_nonce.o 			\
 		  lib/cksum.o				\
 		  lib/generic_list.o			\
+		  lib/hash.o			\
 		  lib/hash_table.o			\
 		  lib/lbuf.o				\
 		  lib/lisp_site.o			\

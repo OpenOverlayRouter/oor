@@ -1646,18 +1646,16 @@ xtr_ctrl_dealloc(lisp_ctrl_dev_t *dev) {
 
 
 static void
-xtr_ctrl_run(lisp_ctrl_dev_t *dev)
+xtr_run(lisp_xtr_t *xtr)
 {
-    lisp_xtr_t *xtr = lisp_xtr_cast(dev);
-
     LMLOG(DBG_1, "\nStarting xTR ...\n");
 
-    if (xtr->map_servers == NULL){
+    if (xtr->map_servers == NULL) {
         LMLOG(LCRIT, "No Map Server configured. Exiting...");
         exit_cleanup();
     }
 
-    if (xtr->map_resolvers == NULL){
+    if (xtr->map_resolvers == NULL) {
         LMLOG(LCRIT, "No Map Resolver configured. Exiting...");
         exit_cleanup();
     }
@@ -1670,7 +1668,6 @@ xtr_ctrl_run(lisp_ctrl_dev_t *dev)
     } else {
         mapping_compute_balancing_vectors(xtr->petrs->mapping);
     }
-
 
     /* Check configured parameters when NAT-T activated. */
     if (xtr->nat_aware == TRUE) {
@@ -1730,10 +1727,51 @@ xtr_ctrl_run(lisp_ctrl_dev_t *dev)
     program_map_register(xtr, 1);
 
     /* SMR proxy-ITRs list to be updated with new mappings */
-    program_smr(xtr, 0);
+    program_smr(xtr, 1);
 
     /* RLOC Probing proxy ETRs */
-    program_petr_rloc_probing(xtr, 0);
+    program_petr_rloc_probing(xtr, 1);
+}
+
+static void
+rtr_run(lisp_xtr_t *xtr)
+{
+    LMLOG(LINF, "\nStarting RTR ...\n");
+
+    if (xtr->map_servers == NULL) {
+        LMLOG(LCRIT, "No Map Server configured. Exiting...");
+        exit_cleanup();
+    }
+
+    if (xtr->map_resolvers == NULL) {
+        LMLOG(LCRIT, "No Map Resolver configured. Exiting...");
+        exit_cleanup();
+    }
+
+    if (xtr->all_locs_map) {
+    }
+
+    LMLOG(LINF, "****** Summary of the configuration ******");
+    local_map_db_dump(xtr->local_mdb, LINF);
+    mcache_dump_db(xtr->map_cache, LINF);
+    if (xtr->all_locs_map) {
+        LMLOG(LINF, "Active interfaces status");
+        mapping_compute_balancing_vectors(xtr->all_locs_map);
+        LMLOG(LINF, "%s", mapping_to_char(xtr->all_locs_map));
+    }
+
+}
+
+static void
+xtr_ctrl_run(lisp_ctrl_dev_t *dev)
+{
+    lisp_xtr_t *xtr = lisp_xtr_cast(dev);
+
+    if (xtr->super.mode == xTR_MODE) {
+        xtr_run(xtr);
+    } else if (xtr->super.mode == RTR_MODE) {
+        rtr_run(xtr);
+    }
 
 }
 

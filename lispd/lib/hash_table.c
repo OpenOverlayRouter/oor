@@ -9,8 +9,6 @@
  * GLib at ftp://ftp.gtk.org/pub/gtk/.
  */
 
-#include <string.h>
-
 #include "hash_table.h"
 #include "util.h"
 #include "stdlib.h"
@@ -18,49 +16,48 @@
 #define HASH_TABLE_MIN_SIZE 11
 #define HASH_TABLE_MAX_SIZE 13845163
 
-typedef struct hnode HashNode;
+typedef struct hnode hnode_t;
 
 struct hnode {
     void *key;
     void *value;
-    HashNode *next;
+    hnode_t *next;
 };
 
 struct htable {
     int size;
     int nnodes;
     unsigned int frozen;
-    HashNode **nodes;
-    HashFunc hash_func;
-    EqualFunc key_equal_func;
-    DestroyFunc key_destroy_func;
-    DestroyFunc val_destroy_func;
+    hnode_t **nodes;
+    hash_fct hash_func;
+    h_eq_fct key_equal_func;
+    h_del_fct key_destroy_func;
+    h_del_fct val_destroy_func;
 };
 
-static void hash_table_resize(HashTable *hash_table);
-static HashNode** hash_table_lookup_node(HashTable *hash_table,
+static void htable_resize(htable_t *hash_table);
+static hnode_t** htable_lookup_node(htable_t *hash_table,
         const void * key);
-static HashNode* hash_node_new(void * key, void * value);
-static void hash_node_destroy(HashNode *hash_node, DestroyFunc key_destroy_func,
-        DestroyFunc val_destroy_func);
-static void hash_nodes_destroy(HashNode *hash_node,
-        DestroyFunc key_destroy_func, DestroyFunc val_destroy_func);
-static HashNode *get_node_in_chunk();
+static hnode_t* hnode_new(void * key, void * value);
+static void hnode_destroy(hnode_t *hash_node, h_del_fct key_destroy_func,
+        h_del_fct val_destroy_func);
+static void hnodes_destroy(hnode_t *hash_node,
+        h_del_fct key_destroy_func, h_del_fct val_destroy_func);
+static hnode_t *get_node_in_chunk();
 static void get_new_chunk();
 
 #define CHUNK_SIZE 100
-#define ARRAY_SIZE(x) ((sizeof x) / (sizeof *x))
 
 /* keep track of chunks allocated, to free on destroy*/
 struct mem_chunk_lst {
-    struct mem_chunk_lst    *next;
-    HashNode                *chunk;
+    struct mem_chunk_lst *next;
+    hnode_t *chunk;
 };
 
 static struct mem_chunk_lst *chunk_lst = NULL;
 static unsigned int chunk_index;
-static HashNode *node_mem_chunk = NULL;
-static HashNode *node_free_list = NULL;
+static hnode_t *node_mem_chunk = NULL;
+static hnode_t *node_free_list = NULL;
 
 static const unsigned int g_primes[] = { 11, 19, 37, 73, 109, 163, 251, 367,
         557, 823, 1237, 1861, 2777, 4177, 6247, 9371, 14057, 21089, 31627,
@@ -73,7 +70,7 @@ static const unsigned int g_primes[] = { 11, 19, 37, 73, 109, 163, 251, 367,
  *
  * Gets the smallest prime number from a built-in array of primes which
  * is larger than @num. This is used within GLib to calculate the optimum
- * size of a #GHashTable.
+ * size of a #htable_t.
  *
  * The built-in array of primes ranges from 11 to 13845163 such that
  * each prime is approximately 1.5-2 times the previous prime.
@@ -93,14 +90,14 @@ spaced_primes_closest(unsigned int num)
     return g_primes[ARRAY_SIZE(g_primes) - 1];
 }
 
-HashTable*
-hash_table_new(HashFunc hash_func, EqualFunc key_equal_func,
-        DestroyFunc key_destroy_func, DestroyFunc val_destroy_func)
+htable_t*
+htable_new(hash_fct hash_func, h_eq_fct key_equal_func,
+        h_del_fct key_destroy_func, h_del_fct val_destroy_func)
 {
-    HashTable *hash_table;
+    htable_t *hash_table;
     unsigned int i;
 
-    hash_table = xzalloc(sizeof(HashTable));
+    hash_table = xzalloc(sizeof(htable_t));
     hash_table->size = HASH_TABLE_MIN_SIZE;
     hash_table->nnodes = 0;
     hash_table->frozen = 0;
@@ -108,7 +105,7 @@ hash_table_new(HashFunc hash_func, EqualFunc key_equal_func,
     hash_table->key_equal_func = key_equal_func;
     hash_table->key_destroy_func = key_destroy_func;
     hash_table->val_destroy_func = val_destroy_func;
-    hash_table->nodes = xcalloc(hash_table->size, sizeof(HashNode*));
+    hash_table->nodes = xcalloc(hash_table->size, sizeof(hnode_t*));
 
     for (i = 0; i < hash_table->size; i++)
         hash_table->nodes[i] = NULL;
@@ -117,7 +114,7 @@ hash_table_new(HashFunc hash_func, EqualFunc key_equal_func,
 }
 
 void
-hash_table_destroy(HashTable *hash_table) {
+htable_destroy(htable_t *hash_table) {
     unsigned int i;
     struct mem_chunk_lst *it, *next;
 
@@ -125,7 +122,7 @@ hash_table_destroy(HashTable *hash_table) {
         return;
 
     for (i = 0; i < hash_table->size; i++)
-        hash_nodes_destroy(hash_table->nodes[i], hash_table->key_destroy_func,
+        hnodes_destroy(hash_table->nodes[i], hash_table->key_destroy_func,
                 hash_table->val_destroy_func);
 
     /* free allocated nodes */
@@ -141,10 +138,10 @@ hash_table_destroy(HashTable *hash_table) {
     free(hash_table);
 }
 
-static inline HashNode**
-hash_table_lookup_node(HashTable *hash_table, const void * key)
+static inline hnode_t**
+htable_lookup_node(htable_t *hash_table, const void * key)
 {
-    HashNode **node;
+    hnode_t **node;
 
     node = &hash_table->nodes[(*hash_table->hash_func)(key) % hash_table->size];
 
@@ -164,27 +161,27 @@ hash_table_lookup_node(HashTable *hash_table, const void * key)
 }
 
 void *
-hash_table_lookup(HashTable *hash_table, const void * key)
+htable_lookup(htable_t *hash_table, const void * key)
 {
-    HashNode *node;
+    hnode_t *node;
 
     if (!hash_table)
         return NULL ;
 
-    node = *hash_table_lookup_node(hash_table, key);
+    node = *htable_lookup_node(hash_table, key);
 
     return node ? node->value : NULL ;
 }
 
 void
-hash_table_insert(HashTable *hash_table, void *key, void *value)
+htable_insert(htable_t *hash_table, void *key, void *value)
 {
-    HashNode **node;
+    hnode_t **node;
 
     if (!hash_table)
         return;
 
-    node = hash_table_lookup_node(hash_table, key);
+    node = htable_lookup_node(hash_table, key);
 
     if (*node) {
         /* do not reset node->key in this place, keeping
@@ -195,45 +192,45 @@ hash_table_insert(HashTable *hash_table, void *key, void *value)
          * node->key = key; */
         (*node)->value = value;
     } else {
-        *node = hash_node_new(key, value);
+        *node = hnode_new(key, value);
         hash_table->nnodes++;
         if (!hash_table->frozen)
-            hash_table_resize(hash_table);
+            htable_resize(hash_table);
     }
 }
 
 void
-hash_table_remove(HashTable *hash_table, const void * key)
+htable_remove(htable_t *hash_table, const void * key)
 {
-    HashNode **node, *dest;
+    hnode_t **node, *dest;
 
     if (!hash_table)
         return;
 
-    node = hash_table_lookup_node(hash_table, key);
+    node = htable_lookup_node(hash_table, key);
 
     if (*node) {
         dest = *node;
         (*node) = dest->next;
-        hash_node_destroy(dest, hash_table->key_destroy_func,
+        hnode_destroy(dest, hash_table->key_destroy_func,
                 hash_table->val_destroy_func);
         hash_table->nnodes--;
 
         if (!hash_table->frozen)
-            hash_table_resize(hash_table);
+            htable_resize(hash_table);
     }
 }
 
 int
-hash_table_lookup_extended(HashTable *hash_table, const void * lookup_key,
+htable_lookup_extended(htable_t *hash_table, const void * lookup_key,
         void **orig_key, void **value)
 {
-    HashNode *node;
+    hnode_t *node;
 
     if (!hash_table)
         return 0;
 
-    node = *hash_table_lookup_node(hash_table, lookup_key);
+    node = *htable_lookup_node(hash_table, lookup_key);
 
     if (node) {
         if (orig_key)
@@ -246,28 +243,28 @@ hash_table_lookup_extended(HashTable *hash_table, const void * lookup_key,
 }
 
 void
-hash_table_freeze(HashTable *hash_table)
+hash_table_freeze(htable_t *hash_table)
 {
     if (!hash_table)
         return;
     hash_table->frozen++;
 }
 
-void hash_table_thaw(HashTable *hash_table)
+void hash_table_thaw(htable_t *hash_table)
 {
     if (!hash_table)
         return;
 
     if (hash_table->frozen)
         if (!(--hash_table->frozen))
-            hash_table_resize(hash_table);
+            htable_resize(hash_table);
 }
 
 unsigned int
-hash_table_foreach_remove(HashTable *hash_table, HRFunc func,
+htable_foreach_remove(htable_t *hash_table, h_usr_del_fct func,
         void * user_data)
 {
-    HashNode *node, *prev;
+    hnode_t *node, *prev;
     unsigned int i;
     unsigned int deleted = 0;
 
@@ -287,11 +284,11 @@ hash_table_foreach_remove(HashTable *hash_table, HRFunc func,
 
                 if (prev) {
                     prev->next = node->next;
-                    hash_node_destroy(node, hash_table->key_destroy_func, hash_table->val_destroy_func);
+                    hnode_destroy(node, hash_table->key_destroy_func, hash_table->val_destroy_func);
                     node = prev;
                 } else {
                     hash_table->nodes[i] = node->next;
-                    hash_node_destroy(node, hash_table->key_destroy_func, hash_table->val_destroy_func);
+                    hnode_destroy(node, hash_table->key_destroy_func, hash_table->val_destroy_func);
                     goto restart;
                 }
             }
@@ -299,15 +296,15 @@ hash_table_foreach_remove(HashTable *hash_table, HRFunc func,
     }
 
     if (!hash_table->frozen)
-        hash_table_resize(hash_table);
+        htable_resize(hash_table);
 
     return deleted;
 }
 
 void
-hash_table_foreach(HashTable *hash_table, HFunc func, void * user_data)
+htable_foreach(htable_t *hash_table, h_usr_fct func, void * user_data)
 {
-    HashNode *node;
+    hnode_t *node;
     int i;
 
     if (!hash_table || !func)
@@ -320,7 +317,7 @@ hash_table_foreach(HashTable *hash_table, HFunc func, void * user_data)
 
 /* Returns the number of elements contained in the hash table. */
 unsigned int
-hash_table_size(HashTable *hash_table)
+htable_size(htable_t *hash_table)
 {
     if (!hash_table)
         return 0;
@@ -329,11 +326,11 @@ hash_table_size(HashTable *hash_table)
 }
 
 static void
-hash_table_resize(HashTable *hash_table)
+htable_resize(htable_t *hash_table)
 {
-    HashNode **new_nodes;
-    HashNode *node;
-    HashNode *next;
+    hnode_t **new_nodes;
+    hnode_t *node;
+    hnode_t *next;
     float nodes_per_list;
     unsigned int hash_val;
     int new_size;
@@ -342,13 +339,13 @@ hash_table_resize(HashTable *hash_table)
     nodes_per_list = (float) hash_table->nnodes / (float) hash_table->size;
 
     if ((nodes_per_list > 0.3 || hash_table->size <= HASH_TABLE_MIN_SIZE)
-            && (nodes_per_list < 3.0 || hash_table->size >= HASH_TABLE_MAX_SIZE))
+         && (nodes_per_list < 3.0 || hash_table->size >= HASH_TABLE_MAX_SIZE))
         return;
 
     new_size = CLAMP(spaced_primes_closest (hash_table->nnodes),
             HASH_TABLE_MIN_SIZE,
             HASH_TABLE_MAX_SIZE);
-    new_nodes = calloc(new_size, sizeof(HashNode*));
+    new_nodes = xcalloc(new_size, sizeof(hnode_t*));
 
     for (i = 0; i < hash_table->size; i++)
         for (node = hash_table->nodes[i]; node; node = next) {
@@ -365,10 +362,10 @@ hash_table_resize(HashTable *hash_table)
     hash_table->size = new_size;
 }
 
-static HashNode*
-hash_node_new(void * key, void * value)
+static hnode_t*
+hnode_new(void * key, void * value)
 {
-    HashNode *hash_node;
+    hnode_t *hash_node;
 
     if (node_free_list) {
         hash_node = node_free_list;
@@ -392,8 +389,8 @@ hash_node_new(void * key, void * value)
 }
 
 static void
-hash_node_destroy(HashNode *hash_node, DestroyFunc key_destroy_func,
-        DestroyFunc val_destroy_func)
+hnode_destroy(hnode_t *hash_node, h_del_fct key_destroy_func,
+        h_del_fct val_destroy_func)
 {
     if (key_destroy_func) key_destroy_func(hash_node->key);
     if (val_destroy_func) val_destroy_func(hash_node->value);
@@ -402,11 +399,11 @@ hash_node_destroy(HashNode *hash_node, DestroyFunc key_destroy_func,
 }
 
 static void
-hash_nodes_destroy(HashNode *hash_node,
-        DestroyFunc key_destroy_func, DestroyFunc val_destroy_func)
+hnodes_destroy(hnode_t *hash_node,
+        h_del_fct key_destroy_func, h_del_fct val_destroy_func)
 {
     if (hash_node) {
-        HashNode *node = hash_node;
+        hnode_t *node = hash_node;
 
         while (node->next) {
             node = node->next;
@@ -420,10 +417,10 @@ hash_nodes_destroy(HashNode *hash_node,
 
 }
 
-static HashNode *
+static hnode_t *
 get_node_in_chunk()
 {
-    HashNode *ret = NULL;
+    hnode_t *ret = NULL;
     if (chunk_index < CHUNK_SIZE - 1) {
         ret = &node_mem_chunk[chunk_index];
         chunk_index++;
@@ -438,10 +435,10 @@ get_new_chunk()
 {
     struct mem_chunk_lst *chunk, *it;
 
-    node_mem_chunk = calloc(CHUNK_SIZE, sizeof(HashNode));
+    node_mem_chunk = xcalloc(CHUNK_SIZE, sizeof(hnode_t));
     chunk_index = 0;
 
-    chunk = calloc(1, sizeof(struct mem_chunk_lst));
+    chunk = xzalloc(sizeof(struct mem_chunk_lst));
     chunk->chunk = node_mem_chunk;
 
     if (!chunk_lst)
@@ -455,104 +452,4 @@ get_new_chunk()
     }
 
 }
-
-
-/**
- * g_str_hash:
- * @v: a string key
- *
- * Converts a string to a hash value.
- *
- * This function implements the widely used "djb" hash apparently
- * posted by Daniel Bernstein to comp.lang.c some time ago.  The 32
- * bit unsigned hash value starts at 5381 and for each byte 'c' in
- * the string, is updated: `hash = hash * 33 + c`. This function
- * uses the signed value of each byte.
- *
- * It can be passed to g_hash_table_new() as the @hash_func parameter,
- * when using non-%NULL strings as keys in a #GHashTable.
- *
- * Returns: a hash value corresponding to the key
- */
-unsigned int
-g_str_hash (const void *v)
-{
-  const signed char *p;
-  unsigned int h = 5381;
-
-  for (p = v; *p != '\0'; p++)
-    h = (h << 5) + h + *p;
-
-  return h;
-}
-
-/**
- * g_str_equal:
- * @v1: a key
- * @v2: a key to compare with @v1
- *
- * Compares two strings for byte-by-byte equality and returns %TRUE
- * if they are equal. It can be passed to g_hash_table_new() as the
- * @key_equal_func parameter, when using non-%NULL strings as keys in a
- * #GHashTable.
- *
- * Note that this function is primarily meant as a hash table comparison
- * function. For a general-purpose, %NULL-safe string comparison function,
- * see g_strcmp0().
- *
- * Returns: %TRUE if the two keys match
- */
-int
-g_str_equal(const void *v1, const void *v2)
-{
-  const char *string1 = v1;
-  const char *string2 = v2;
-
-  return strcmp (string1, string2) == 0;
-}
-
-
-/**
- * g_int_equal:
- * @v1: a pointer to a #gint key
- * @v2: a pointer to a #gint key to compare with @v1
- *
- * Compares the two #gint values being pointed to and returns
- * %TRUE if they are equal.
- * It can be passed to g_hash_table_new() as the @key_equal_func
- * parameter, when using non-%NULL pointers to integers as keys in a
- * #GHashTable.
- *
- * Note that this function acts on pointers to #gint, not on #gint
- * directly: if your hash table's keys are of the form
- * `GINT_TO_POINTER (n)`, use g_direct_equal() instead.
- *
- * Returns: %TRUE if the two keys match.
- */
-int
-g_int_equal(const void *v1, const void *v2)
-{
-  return *((const int*) v1) == *((const int*) v2);
-}
-
-/**
- * g_int_hash:
- * @v: a pointer to a #gint key
- *
- * Converts a pointer to a #gint to a hash value.
- * It can be passed to g_hash_table_new() as the @hash_func parameter,
- * when using non-%NULL pointers to integer values as keys in a #GHashTable.
- *
- * Note that this function acts on pointers to #gint, not on #gint
- * directly: if your hash table's keys are of the form
- * `GINT_TO_POINTER (n)`, use g_direct_hash() instead.
- *
- * Returns: a hash value corresponding to the key.
- */
-unsigned int
-g_int_hash (const void *v)
-{
-  return *(const int*) v;
-}
-
 

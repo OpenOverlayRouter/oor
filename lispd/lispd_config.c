@@ -415,7 +415,7 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
         LMLOG(DBG_1, "Configuration file: parsed explicit-locator-path: %s",
                 lisp_addr_to_char(laddr));
 
-        hash_table_insert(ht, strdup(name), laddr);
+        htable_insert(ht, strdup(name), laddr);
     }
 
 }
@@ -455,7 +455,7 @@ parse_rle_list(cfg_t *cfg, htable_t *ht)
         LMLOG(DBG_1, "Configuration file: parsed replication-list: %s",
                 lisp_addr_to_char(laddr));
 
-        hash_table_insert(ht, strdup(name), laddr);
+        htable_insert(ht, strdup(name), laddr);
     }
 
 }
@@ -487,7 +487,7 @@ parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
         LMLOG(DBG_1, "Configuration file: parsed multicast-info: %s",
                 lisp_addr_to_char(laddr));
 
-        hash_table_insert(ht, strdup(name), laddr);
+        htable_insert(ht, strdup(name), laddr);
         count ++;
     }
 
@@ -502,8 +502,8 @@ parse_lcafs(cfg_t *cfg)
     htable_t *lcaf_ht = NULL;
 
     /* create lcaf hash table */
-    lcaf_ht = hash_table_new(g_str_hash, g_str_equal, free,
-            (DestroyFunc)lisp_addr_del);
+    lcaf_ht = htable_new(g_str_hash, g_str_equal, free,
+            (h_del_fct)lisp_addr_del);
     parse_elp_list(cfg, lcaf_ht);
     parse_rle_list(cfg, lcaf_ht);
     parse_mcinfo_list(cfg, lcaf_ht);
@@ -591,10 +591,6 @@ configure_rtr(cfg_t *cfg)
             }
         }
     }
-    if (xtr->all_locs_map) {
-        mapping_compute_balancing_vectors(xtr->all_locs_map);
-        LMLOG(DBG_1, "%s", mapping_to_char(xtr->all_locs_map));
-    }
 
     char *iface = cfg_getstr(cfg, "rtr-data-iface");
     if (iface) {
@@ -649,7 +645,7 @@ configure_rtr(cfg_t *cfg)
         }
     }
 
-    hash_table_destroy(lcaf_ht);
+    htable_destroy(lcaf_ht);
 
     return(GOOD);
 }
@@ -831,7 +827,7 @@ configure_xtr(cfg_t *cfg)
     }
 
     /* destroy the hash table */
-    hash_table_destroy(lcaf_ht);
+    htable_destroy(lcaf_ht);
 
     return(GOOD);
 
@@ -902,7 +898,7 @@ configure_ms(cfg_t *cfg)
     }
 
     /* destroy the hash table */
-    hash_table_destroy(lcaf_ht);
+    htable_destroy(lcaf_ht);
     return(GOOD);
 }
 
@@ -1320,7 +1316,7 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
     rloc = lisp_addr_new();
     if (lisp_addr_ip_from_char(address, rloc) != GOOD) {
         lisp_addr_del(rloc);
-        lcaf_rloc = hash_table_lookup(lcaf_ht, address);
+        lcaf_rloc = htable_lookup(lcaf_ht, address);
         if(!lcaf_rloc) {
             LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
                     address);
@@ -1414,7 +1410,7 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
     if (lisp_addr_ippref_from_char(address, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
-        lcaf = hash_table_lookup(lcaf_ht, address);
+        lcaf = htable_lookup(lcaf_ht, address);
         if (!lcaf) {
             LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
                     address);
@@ -1497,7 +1493,7 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
     if (lisp_addr_ippref_from_char(address, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
-        eid_prefix = hash_table_lookup(lcaf_ht, address);
+        eid_prefix = htable_lookup(lcaf_ht, address);
         if (!eid_prefix) {
             LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
                     address);
@@ -1607,7 +1603,7 @@ add_static_map_cache_entry(lisp_xtr_t *xtr, char *eid, int iid,
     }
 
     if (lisp_addr_ip_from_char(rloc_addr, &rloc) == BAD) {
-        lcaf_rloc = hash_table_lookup(elp_hash, rloc_addr);
+        lcaf_rloc = htable_lookup(elp_hash, rloc_addr);
         if (!lcaf_rloc) {
             LMLOG(LERR, "Error parsing RLOC address ..."
                     " Ignoring static map cache entry");
@@ -1886,7 +1882,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
-        ht_prefix = hash_table_lookup(lcaf_ht, eidstr);
+        ht_prefix = htable_lookup(lcaf_ht, eidstr);
         if (!ht_prefix) {
             LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
                     eidstr);

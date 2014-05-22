@@ -35,7 +35,7 @@
 typedef htable_t shash_t;
 
 shash_t *shash_new();
-shash_t *shash_new_managed(DestroyFunc df);
+shash_t *shash_new_managed(h_del_fct df);
 void shash_del(shash_t *);
 void shash_insert(shash_t *, const char *, const void *);
 void shash_remove(shash_t *, const char *);

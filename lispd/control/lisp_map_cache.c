@@ -119,7 +119,7 @@ lookup_nonce_in_no_active_map_caches(map_cache_db_t *mcdb, lisp_addr_t *eid,
 
 void mcache_dump_db(map_cache_db_t *mcdb, int log_level)
 {
-    if (is_loggable(log_level) == FALSE){
+    if (is_loggable(log_level) == FALSE) {
         return;
     }
 

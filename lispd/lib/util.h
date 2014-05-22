@@ -71,6 +71,9 @@
 /* sockaddr length */
 #define SA_LEN(a) ((a == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
 
+#define ARRAY_SIZE(x) ((sizeof x) / (sizeof *x))
+
+
 /*  names for where the udp checksum goes */
 #ifdef BSD
 #define udpsum(x) x->uh_sum
