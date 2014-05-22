@@ -39,7 +39,7 @@ shash_new()
 }
 
 shash_t *
-shash_new_managed(h_del_fct df)
+shash_new_managed(h_key_del_fct df)
 {
     shash_t *sh;
     sh = htable_new(g_str_hash, g_str_equal, free, df);

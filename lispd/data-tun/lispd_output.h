@@ -41,16 +41,13 @@
 #include <iface_list.h>
 #include <lispd_lib.h>
 #include <cksum.h>
-//#include <lisp_map_cache.h>
 #include <lispd_external.h>
 #include <lisp_control.h>
 
 
-int recv_output_packet(struct sock *sl);
+int lisp_output_recv(struct sock *sl);
 int lisp_output(lbuf_t *);
-
-lisp_addr_t extract_dst_addr_from_packet(uint8_t *packet);
-lisp_addr_t extract_src_addr_from_packet(uint8_t *packet);
-
+void lisp_output_init();
+void lisp_output_uninit();
 
 #endif /*LISPD_OUTPUT_H_*/

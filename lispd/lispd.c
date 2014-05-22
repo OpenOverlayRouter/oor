@@ -144,7 +144,7 @@ void init_tun()
     }
 #endif
 
-    sockmstr_register_read_listener(smaster, recv_output_packet, NULL,
+    sockmstr_register_read_listener(smaster, lisp_output_recv, NULL,
             tun_receive_fd);
 }
 
@@ -178,6 +178,8 @@ init_tr_data_plane(lisp_dev_type_e mode)
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);
     }
+
+    lisp_output_init();
 
     return(GOOD);
 }
@@ -291,8 +293,9 @@ exit_cleanup(void) {
     shash_destroy(iface_addr_ht);
     ctrl_destroy(lctrl);
     ctrl_dev_destroy(ctrl_dev);
+    lisp_output_uninit();
     LMLOG(LINF,"Exiting ...");
-
+    sleep(1);
     exit(EXIT_SUCCESS);
 }
 

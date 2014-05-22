@@ -40,8 +40,6 @@
 typedef struct fwd_entry {
     lisp_addr_t *srloc;
     lisp_addr_t *drloc;
-//    int         out_socket;
-    /* fill in other stuff */
     int natt_flag;
 } fwd_entry_t;
 

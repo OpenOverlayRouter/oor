@@ -92,9 +92,12 @@ int pkt_push_udp_and_ip(lbuf_t *, uint16_t, uint16_t, ip_addr_t *,
         ip_addr_t *);
 int ip_hdr_set_ttl_and_tos(struct iphdr *, int ttl, int tos);
 int ip_hdr_ttl_and_tos(struct iphdr *, int *ttl, int *tos);
+
 int pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
 uint32_t pkt_tuple_hash(packet_tuple_t *tuple);
-
+int pkt_tuple_cmp(packet_tuple_t *t1, packet_tuple_t *t2);
+packet_tuple_t *pkt_tuple_clone(packet_tuple_t *);
+void pkt_tuple_del(packet_tuple_t *tpl);
 
 
 /* Macros extracted from ROHC library code: http://rohc-lib.org/ */

@@ -74,6 +74,7 @@ OBJS		= cmdline.o				\
 		  lib/sockets-util.o			\
 		  lib/shash.o 				\
 		  lib/timers.o 				\
+		  lib/ttable.o				\
 		  lib/util.o				\
 		  iface_list.o				\
 		  iface_mgmt.o 				\

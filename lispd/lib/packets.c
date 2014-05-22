@@ -314,9 +314,38 @@ pkt_tuple_hash(packet_tuple_t *tuple)
     /* XXX: why 2013 used as initial value? */
     hash = hashword(tuples, len, 2013);
     free(tuples);
-
     return (hash);
 }
+
+int
+pkt_tuple_cmp(packet_tuple_t *t1, packet_tuple_t *t2)
+{
+    return(t1->src_port == t2->src_port
+           && t1->dst_port == t2->dst_port
+           && (lisp_addr_cmp(&t1->src_addr, &t2->src_addr) == 0)
+           && (lisp_addr_cmp(&t1->dst_addr, &t2->dst_addr) == 0));
+}
+
+packet_tuple_t *
+pkt_tuple_clone(packet_tuple_t *tpl)
+{
+    packet_tuple_t *cpy = xzalloc(sizeof(packet_tuple_t));
+    cpy->src_port = tpl->src_port;
+    cpy->dst_port = tpl->dst_port;
+    cpy->protocol = tpl->protocol;
+    lisp_addr_copy(&cpy->src_addr, &tpl->src_addr);
+    lisp_addr_copy(&cpy->dst_addr, &tpl->dst_addr);
+    return(cpy);
+}
+
+void
+pkt_tuple_del(packet_tuple_t *tpl)
+{
+    lisp_addr_dealloc(&tpl->dst_addr);
+    lisp_addr_dealloc(&tpl->src_addr);
+    free(tpl);
+}
+
 
 int
 ip_hdr_set_ttl_and_tos(struct iphdr *iph, int ttl, int tos)

@@ -16,7 +16,6 @@
 #include "iface_mgmt.h"
 #include "lmlog.h"
 #include "timers.h"
-//#include "lispd_control.h"
 
 
 const int TimerTickInterval = 1;  /* Seconds */
@@ -34,26 +33,6 @@ struct {
 void handle_timers(void);
 
 static int signal_pipe[2]; /* We don't have signalfd in bionic, fake it. */
-
-char *
-time_to_char(time_t *t)
-{
-    static char buf[10][256];
-    static int i;
-    i++; i = i%10;
-    strftime(buf[i], 20, "%H:%M:%S", localtime(t));
-    return(buf[i]);
-}
-
-char *
-time_diff(time_t *t1, time_t *t2)
-{
-    time_t diff;
-
-    diff = time(NULL);
-    diff = t2 - t1;
-    return(time_to_char(&diff));
-}
 
 /*
  * create_timer_wheel()

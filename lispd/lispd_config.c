@@ -503,7 +503,7 @@ parse_lcafs(cfg_t *cfg)
 
     /* create lcaf hash table */
     lcaf_ht = htable_new(g_str_hash, g_str_equal, free,
-            (h_del_fct)lisp_addr_del);
+            (h_key_del_fct)lisp_addr_del);
     parse_elp_list(cfg, lcaf_ht);
     parse_rle_list(cfg, lcaf_ht);
     parse_mcinfo_list(cfg, lcaf_ht);

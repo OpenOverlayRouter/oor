@@ -37,6 +37,7 @@
 #include "lispd_info_nat.h"
 #include "lisp_control.h"
 #include "lispd_tun.h"
+#include "ttable.h"
 #include "lmlog.h"
 
 #include "sockets-util.h"
@@ -44,11 +45,25 @@
 /* static buffer to receive packets */
 static uint8_t pkt_recv_buf[TUN_RECEIVE_SIZE];
 static lbuf_t pkt_buf;
+ttable_t ttable;
 
 static int lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple);
 static int lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple);
 static int forward_native(lbuf_t *b, lisp_addr_t *dst);
 static inline int is_lisp_packet(packet_tuple_t *tpl);
+
+
+void
+lisp_output_init()
+{
+    ttable_init(&ttable);
+}
+
+void
+lisp_output_uninit()
+{
+    ttable_uninit(&ttable);
+}
 
 static int
 forward_native(lbuf_t *b, lisp_addr_t *dst)
@@ -160,8 +175,13 @@ static int
 lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
     fwd_entry_t *fe = NULL;
+    int not_found = 0;
 
-    fe = ctrl_get_forwarding_entry(tuple);
+    fe = ttable_lookup(&ttable, tuple);
+    if (!fe) {
+        fe = ctrl_get_forwarding_entry(tuple);
+        ttable_insert(&ttable, pkt_tuple_clone(tuple), fe);
+    }
 
     /* Packets with no/negative map cache entry AND no PETR
      * OR packets with missing src or dst RLOCs
@@ -176,7 +196,6 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 
     sock_lisp_data_send(b, fe->srloc, fe->drloc);
 
-    free(fe);
     return (GOOD);
 }
 
@@ -209,7 +228,7 @@ lisp_output(lbuf_t *b)
 }
 
 int
-recv_output_packet(struct sock *sl)
+lisp_output_recv(struct sock *sl)
 {
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, TUN_RECEIVE_SIZE);
     lbuf_reserve(&pkt_buf, MAX_LISP_PKT_ENCAP_LEN);

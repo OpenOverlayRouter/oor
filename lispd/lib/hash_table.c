@@ -29,20 +29,20 @@ struct htable {
     int nnodes;
     unsigned int frozen;
     hnode_t **nodes;
-    hash_fct hash_func;
-    h_eq_fct key_equal_func;
-    h_del_fct key_destroy_func;
-    h_del_fct val_destroy_func;
+    h_key_fct hash_func;
+    h_key_eq_fct key_equal_func;
+    h_key_del_fct key_destroy_func;
+    h_key_del_fct val_destroy_func;
 };
 
 static void htable_resize(htable_t *hash_table);
 static hnode_t** htable_lookup_node(htable_t *hash_table,
         const void * key);
 static hnode_t* hnode_new(void * key, void * value);
-static void hnode_destroy(hnode_t *hash_node, h_del_fct key_destroy_func,
-        h_del_fct val_destroy_func);
+static void hnode_destroy(hnode_t *hash_node, h_key_del_fct key_destroy_func,
+        h_key_del_fct val_destroy_func);
 static void hnodes_destroy(hnode_t *hash_node,
-        h_del_fct key_destroy_func, h_del_fct val_destroy_func);
+        h_key_del_fct key_destroy_func, h_key_del_fct val_destroy_func);
 static hnode_t *get_node_in_chunk();
 static void get_new_chunk();
 
@@ -91,8 +91,8 @@ spaced_primes_closest(unsigned int num)
 }
 
 htable_t*
-htable_new(hash_fct hash_func, h_eq_fct key_equal_func,
-        h_del_fct key_destroy_func, h_del_fct val_destroy_func)
+htable_new(h_key_fct hash_func, h_key_eq_fct key_equal_func,
+        h_key_del_fct key_destroy_func, h_val_del_fct val_destroy_func)
 {
     htable_t *hash_table;
     unsigned int i;
@@ -200,7 +200,7 @@ htable_insert(htable_t *hash_table, void *key, void *value)
 }
 
 void
-htable_remove(htable_t *hash_table, const void * key)
+htable_remove(htable_t *hash_table, const void *key)
 {
     hnode_t **node, *dest;
 
@@ -262,7 +262,7 @@ void hash_table_thaw(htable_t *hash_table)
 
 unsigned int
 htable_foreach_remove(htable_t *hash_table, h_usr_del_fct func,
-        void * user_data)
+        void *user_data)
 {
     hnode_t *node, *prev;
     unsigned int i;
@@ -363,7 +363,7 @@ htable_resize(htable_t *hash_table)
 }
 
 static hnode_t*
-hnode_new(void * key, void * value)
+hnode_new(void *key, void *value)
 {
     hnode_t *hash_node;
 
@@ -389,8 +389,8 @@ hnode_new(void * key, void * value)
 }
 
 static void
-hnode_destroy(hnode_t *hash_node, h_del_fct key_destroy_func,
-        h_del_fct val_destroy_func)
+hnode_destroy(hnode_t *hash_node, h_key_del_fct key_destroy_func,
+        h_key_del_fct val_destroy_func)
 {
     if (key_destroy_func) key_destroy_func(hash_node->key);
     if (val_destroy_func) val_destroy_func(hash_node->value);
@@ -400,7 +400,7 @@ hnode_destroy(hnode_t *hash_node, h_del_fct key_destroy_func,
 
 static void
 hnodes_destroy(hnode_t *hash_node,
-        h_del_fct key_destroy_func, h_del_fct val_destroy_func)
+        h_key_del_fct key_destroy_func, h_key_del_fct val_destroy_func)
 {
     if (hash_node) {
         hnode_t *node = hash_node;

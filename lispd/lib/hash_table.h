@@ -15,15 +15,16 @@
 
 typedef struct htable htable_t;
 
-typedef unsigned int (*hash_fct)(const void *);
-typedef int (*h_eq_fct)(const void *, const void *);
-typedef void (*h_del_fct)(void *);
+typedef unsigned int (*h_key_fct)(const void *);
+typedef int (*h_key_eq_fct)(const void *, const void *);
+typedef void (*h_key_del_fct)(void *);
+typedef void (*h_val_del_fct)(void *);
 typedef void (*h_usr_fct)(void *key, void *value, void *user_data);
 typedef int (*h_usr_del_fct)(void *key, void *value, void *user_data);
 
 
-htable_t* htable_new(hash_fct hash_func, h_eq_fct key_equal_func,
-        h_del_fct key_destroy_func, h_del_fct val_destroy_func);
+htable_t* htable_new(h_key_fct hash_func, h_key_eq_fct key_equal_func,
+        h_key_del_fct key_destroy_func, h_val_del_fct val_destroy_func);
 void htable_destroy(htable_t *hash_table);
 void htable_insert(htable_t *hash_table, void *key, void *value);
 void htable_remove(htable_t *hash_table, const void *key);

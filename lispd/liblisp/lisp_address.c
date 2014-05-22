@@ -679,7 +679,7 @@ lisp_addr_to_ip_addr(lisp_addr_t *addr)
     return (NULL);
 }
 
-/* deallocates the lcaf's address or does nothing for other AFIs*/
+/* Deallocates the address for LCAFs. Does nothing for other AFIs*/
 void
 lisp_addr_dealloc(lisp_addr_t *addr)
 {

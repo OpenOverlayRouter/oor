@@ -1,10 +1,9 @@
 /*
- * shash.h
+ * ttable.h
  *
  * This file is part of LISP Mobile Node Implementation.
  *
  * Copyright (C) 2014 Universitat Politècnica de Catalunya.
- * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,19 +26,32 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#ifndef SHASH_H_
-#define SHASH_H_
 
+#ifndef TTABLE_H_
+#define TTABLE_H_
+
+#include <time.h>
 #include "hash_table.h"
+#include "packets.h"
 
-typedef htable_t shash_t;
+typedef struct fwd_entry fwd_entry_t;
 
-shash_t *shash_new();
-shash_t *shash_new_managed(h_key_del_fct df);
-void shash_del(shash_t *);
-void shash_insert(shash_t *, const char *, const void *);
-void shash_remove(shash_t *, const char *);
-void *shash_lookup(shash_t *, const char *);
-void shash_destroy(shash_t *sh);
+typedef struct ttable {
+    htable_t *htable;
+} ttable_t;
 
-#endif /* SHASH_H_ */
+typedef struct ttable_node {
+    fwd_entry_t *fe;
+    struct timespec ts;
+} ttable_node_t;
+
+void ttable_init(ttable_t *tt);
+void ttable_uninit(ttable_t *tt);
+ttable_t *ttable_create();
+void ttable_destroy(ttable_t *tt);
+void ttable_insert(ttable_t *, packet_tuple_t *tpl, fwd_entry_t *fe);
+void ttable_remove(ttable_t *tt, packet_tuple_t *tpl);
+fwd_entry_t *ttable_lookup(ttable_t *tt, packet_tuple_t *tpl);
+
+
+#endif /* TTABLE_H_ */
