@@ -156,30 +156,6 @@ lisp_addr_del(lisp_addr_t *laddr)
 
 }
 
-inline lm_afi_t
-lisp_addr_afi(lisp_addr_t *addr)
-{
-    return (addr->lafi);
-}
-
-inline ip_addr_t *
-lisp_addr_ip(lisp_addr_t *addr)
-{
-    return (get_ip_(addr));
-}
-
-inline ip_prefix_t *
-lisp_addr_get_ippref(lisp_addr_t *addr)
-{
-    return (get_ippref_(addr));
-}
-
-inline lcaf_addr_t *
-lisp_addr_get_lcaf(lisp_addr_t *addr)
-{
-    return (get_lcaf_(addr));
-}
-
 inline uint16_t
 lisp_addr_get_iana_afi(lisp_addr_t *laddr)
 {
@@ -382,18 +358,6 @@ lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi)
     }
 }
 
-int
-lisp_addr_is_ip(lisp_addr_t *addr)
-{
-    return (get_afi_(addr) == LM_AFI_IP);
-}
-
-int
-lisp_addr_is_no_addr(lisp_addr_t *addr)
-{
-    return (get_afi_(addr) == LM_AFI_NO_ADDR);
-}
-
 inline void
 lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen)
 {
@@ -582,11 +546,6 @@ lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2)
     }
 }
 
-inline int
-lisp_addr_is_lcaf(lisp_addr_t *laddr)
-{
-    return (get_afi_(laddr) == LM_AFI_LCAF);
-}
 
 inline void
 lisp_addr_lcaf_set_addr(lisp_addr_t *laddr, void *addr)

@@ -90,7 +90,6 @@ inline lisp_addr_t *lisp_addr_new();
 inline lisp_addr_t *lisp_addr_new_afi(uint8_t afi);
 inline void lisp_addr_del(lisp_addr_t *laddr);
 void lisp_addr_dealloc(lisp_addr_t *addr);
-inline lm_afi_t lisp_addr_afi(lisp_addr_t *addr);
 void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
 lisp_addr_t *lisp_addr_clone(lisp_addr_t *src);
 inline uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src);
@@ -100,17 +99,44 @@ inline int lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2);
 inline uint32_t lisp_addr_size_to_write(lisp_addr_t *laddr);
 char *lisp_addr_to_char(lisp_addr_t *addr);
 
-inline ip_addr_t *lisp_addr_ip(lisp_addr_t *addr);
-inline ip_prefix_t *lisp_addr_get_ippref(lisp_addr_t *addr);
-inline lcaf_addr_t *lisp_addr_get_lcaf(lisp_addr_t *addr);
-
 inline void lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi);
 inline void lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf);
 inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen);
 inline void lisp_addr_set_ip(lisp_addr_t *addr, ip_addr_t *ip);
 
-int lisp_addr_is_ip(lisp_addr_t *addr);
-int lisp_addr_is_no_addr(lisp_addr_t *addr);
+static inline lm_afi_t lisp_addr_afi(lisp_addr_t *addr)
+{
+    return (addr->lafi);
+}
+
+static inline ip_addr_t *lisp_addr_ip(lisp_addr_t *addr)
+{
+    return (&addr->ip);
+}
+
+static inline ip_prefix_t *lisp_addr_get_ippref(lisp_addr_t *addr)
+{
+    return (&addr->ippref);
+}
+
+static inline lcaf_addr_t *lisp_addr_get_lcaf(lisp_addr_t *addr)
+{
+    return (&addr->lcaf);
+}
+
+static inline int lisp_addr_is_ip(lisp_addr_t *addr)
+{
+    return (addr->afi == LM_AFI_IP);
+}
+
+static inline int lisp_addr_is_no_addr(lisp_addr_t *addr)
+{
+    return (addr->afi == LM_AFI_NO_ADDR);
+}
+static inline int lisp_addr_is_lcaf(lisp_addr_t *addr)
+{
+    return (addr->afi == LM_AFI_LCAF);
+}
 
 inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr);
 inline ip_addr_t *lisp_addr_ip_get_addr(lisp_addr_t *laddr);
@@ -141,7 +167,9 @@ lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr);
 int lisp_addr_ip_from_char(char *, lisp_addr_t *);
 int lisp_addr_ippref_from_char(char *, lisp_addr_t *);
 
-/* OLD format lisp addr */
+
+
+/* OLD format lisp addr list*/
 void lisp_addr_list_to_char(lisp_addr_list_t *, const char *, int);
 void lisp_addr_list_del(lisp_addr_list_t * list);
 

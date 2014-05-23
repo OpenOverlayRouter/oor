@@ -105,15 +105,18 @@ locator_t *locator_init_remote_full(lisp_addr_t *, uint8_t, uint8_t, uint8_t,
 locator_t *locator_init_local(lisp_addr_t *);
 locator_t *locator_init_local_full(lisp_addr_t *, uint8_t *, uint8_t, uint8_t,
         uint8_t, uint8_t, int *);
-void locator_del(locator_t *locator);
+void locator_del(locator_t *loc);
+locator_t *locator_clone(locator_t *loc);
 
 locator_t *locator_list_extract_locator(locators_list_t **, lisp_addr_t);
 locator_t *locator_list_get_locator(locators_list_t *, lisp_addr_t *);
 void locator_list_del(locators_list_t *list);
 int locator_list_add(locators_list_t **, locator_t *);
+locators_list_t *locator_list_clone(locators_list_t *llist);
 
 static inline lisp_addr_t *locator_addr(locator_t *);
-static inline void locator_set_addr(locator_t *, lisp_addr_t *);
+static inline void locator_remote_set_addr(locator_t *, lisp_addr_t *);
+static inline void locator_local_set_addr(locator_t *loc, lisp_addr_t *addr);
 static inline void locator_set_state(locator_t *locator, uint8_t *state);
 static inline void locator_set_state_static(locator_t *locator, uint8_t state);
 static inline void locator_set_type(locator_t *, int);
@@ -124,6 +127,7 @@ rtr_locators_list_t *rtr_locator_list_new();
 int rtr_list_add(rtr_locators_list_t **, rtr_locator_t *);
 void rtr_list_del(rtr_locators_list_t *rtr_list_elt);
 void rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **, int);
+rtr_locators_list_t *rtr_locator_list_clone(rtr_locators_list_t *rtr_list);
 
 
 static inline lisp_addr_t *locator_addr(locator_t *locator)
@@ -131,15 +135,18 @@ static inline lisp_addr_t *locator_addr(locator_t *locator)
     return (locator->addr);
 }
 
-static inline void locator_set_addr(locator_t *locator, lisp_addr_t *addr)
+static inline void locator_remote_set_addr(locator_t *loc, lisp_addr_t *addr)
 {
-    /* TODO: locator_addr should be a static field.
-     * The code now acts as if it were because it does a copy @addr. It also
-     * the address won't go NULL if by mistake @addr is freed outside */
-    if (!locator->addr) {
-        locator->addr = lisp_addr_new();
+    /* Addr is linked to corresponding interface address */
+    loc->addr = addr;
+}
+
+static inline void locator_local_set_addr(locator_t *loc, lisp_addr_t *addr)
+{
+    if (!loc->addr) {
+        loc->addr = lisp_addr_new();
     }
-    lisp_addr_copy(locator->addr, addr);
+    lisp_addr_copy(loc->addr, addr);
 }
 
 static inline void locator_set_state(locator_t *locator, uint8_t *state)
