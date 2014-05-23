@@ -38,6 +38,7 @@
 
 
 static void set_default_rlocs(lisp_ctrl_t *ctrl);
+static void set_rlocs(lisp_ctrl_t *ctrl);
 
 static void
 set_default_rlocs(lisp_ctrl_t *ctrl)
@@ -60,7 +61,31 @@ set_default_rlocs(lisp_ctrl_t *ctrl)
         LMLOG(DBG_2, "  Default iface: %s",
                 lisp_addr_to_char(glist_entry_data(it)));
     }
+}
 
+static void
+set_rlocs(lisp_ctrl_t *ctrl)
+{
+    iface_list_elt_t *iface_elt;
+    iface_t *iface;
+
+    glist_remove_all(ctrl->ipv4_rlocs);
+    glist_remove_all(ctrl->ipv6_rlocs);
+
+    iface_elt = head_interface_list;
+    while (iface_elt) {
+        iface = iface_elt->iface;
+        if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
+            glist_add_tail(iface->ipv4_address, ctrl->ipv4_rlocs);
+        }
+        if (!lisp_addr_is_no_addr(iface->ipv6_address)) {
+            glist_add_tail(iface->ipv6_address, ctrl->ipv6_rlocs);
+        }
+
+        iface_elt = iface_elt->next;
+    }
+
+    set_default_rlocs(ctrl);
 }
 
 lisp_ctrl_t *
@@ -69,6 +94,9 @@ ctrl_create()
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
     ctrl->devices = glist_new();
     ctrl->default_rlocs = glist_new();
+    ctrl->ipv4_rlocs = glist_new();
+    ctrl->ipv6_rlocs = glist_new();
+
     LMLOG(LINF, "Control initialized!");
 
     return (ctrl);
@@ -79,6 +107,9 @@ ctrl_destroy(lisp_ctrl_t *ctrl)
 {
     glist_destroy(ctrl->devices);
     glist_destroy(ctrl->default_rlocs);
+    glist_destroy(ctrl->ipv4_rlocs);
+    glist_destroy(ctrl->ipv6_rlocs);
+
     close(ctrl->ipv4_control_input_fd);
     close(ctrl->ipv6_control_input_fd);
     free(ctrl);
@@ -102,7 +133,7 @@ ctrl_init(lisp_ctrl_t *ctrl)
                 ctrl->ipv6_control_input_fd);
     }
 
-    set_default_rlocs(ctrl);
+    set_rlocs(ctrl);
 
     LMLOG(DBG_1, "Control initialized");
 }
@@ -244,7 +275,7 @@ ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
      * the future this should be decoupled and only the affected RLOC should
      * be passed to ctrl_dev */
     ctrl_if_event(dev);
-    set_default_rlocs(ctrl);
+    set_rlocs(ctrl);
 }
 
 void
@@ -253,13 +284,25 @@ ctrl_if_status_update(lisp_ctrl_t *ctrl, iface_t *iface)
     lisp_ctrl_dev_t *dev;
     dev = glist_first_data(ctrl->devices);
     ctrl_if_event(dev);
-    set_default_rlocs(ctrl);
+    set_rlocs(ctrl);
 }
 
 glist_t *
 ctrl_default_rlocs(lisp_ctrl_t *c)
 {
     return (c->default_rlocs);
+}
+
+glist_t *
+ctrl_rlocs(lisp_ctrl_t *c, int afi)
+{
+    switch(afi) {
+    case AF_INET:
+        return(c->ipv4_rlocs);
+    case AF_INET6:
+        return(c->ipv6_rlocs);
+    }
+    return(NULL);
 }
 
 lisp_addr_t *

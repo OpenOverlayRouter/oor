@@ -30,13 +30,9 @@
 #ifndef LISPD_CONTROL_H_
 #define LISPD_CONTROL_H_
 
-#include <sockets.h>
-#include <liblisp.h>
-#include <iface_list.h>
-#include <lispd_external.h>
-//#include <lisp_xtr.h>
-//#include <lisp_ms.h>
-//#include <lisp_rtr.h>
+#include "sockets.h"
+#include "liblisp.h"
+#include "iface_list.h"
 
 typedef struct lisp_ctrl lisp_ctrl_t;
 
@@ -48,6 +44,8 @@ struct lisp_ctrl {
     int ipv6_control_input_fd;
 
     glist_t *rlocs;
+    glist_t *ipv4_rlocs;
+    glist_t *ipv6_rlocs;
     glist_t *default_rlocs;
 };
 
@@ -62,6 +60,8 @@ int ctrl_get_mappings_to_smr(lisp_ctrl_t *, glist_t *);
 
 glist_t *ctrl_default_rlocs(lisp_ctrl_t *c);
 lisp_addr_t *ctrl_default_rloc(lisp_ctrl_t *c, int afi);
+glist_t *ctrl_rlocs(lisp_ctrl_t *c, int afi) ;
+
 void ctrl_if_addr_update(lisp_ctrl_t *, iface_t *, lisp_addr_t *,
         lisp_addr_t *);
 void ctrl_if_status_update(lisp_ctrl_t *, iface_t *);

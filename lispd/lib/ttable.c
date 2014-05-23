@@ -33,10 +33,16 @@
 
 
 #include "liblisp.h"
+
 /* Time after which an entry is considered to have timed out and
  * is removed from the table */
 #define TIMEOUT 3
+
+/* Time after which a negative entry is considered to have timed
+ * out and is removed from the table */
 #define NEGATIVE_TIMEOUT 1
+
+/* Maximum size of the tuple table */
 #define MAX_SIZE 10000
 
 static double

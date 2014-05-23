@@ -41,7 +41,6 @@ extern int default_rloc_afi;
 extern int netlink_fd;
 extern int nat_aware;
 extern int nat_status;
-extern iface_list_elt_t *head_interface_list;
 
 extern sockmstr_t *smaster;
 extern lisp_ctrl_dev_t *ctrl_dev;

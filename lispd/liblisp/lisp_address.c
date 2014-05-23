@@ -388,6 +388,12 @@ lisp_addr_is_ip(lisp_addr_t *addr)
     return (get_afi_(addr) == LM_AFI_IP);
 }
 
+int
+lisp_addr_is_no_addr(lisp_addr_t *addr)
+{
+    return (get_afi_(addr) == LM_AFI_NO_ADDR);
+}
+
 inline void
 lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen)
 {

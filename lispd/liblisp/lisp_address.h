@@ -110,6 +110,7 @@ inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen);
 inline void lisp_addr_set_ip(lisp_addr_t *addr, ip_addr_t *ip);
 
 int lisp_addr_is_ip(lisp_addr_t *addr);
+int lisp_addr_is_no_addr(lisp_addr_t *addr);
 
 inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr);
 inline ip_addr_t *lisp_addr_ip_get_addr(lisp_addr_t *laddr);

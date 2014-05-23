@@ -26,10 +26,11 @@
  *    Florin Coras <fcoras@ac.upc.edu>
  */
 
+#include <unistd.h>
+
 #include "lisp_xtr.h"
 #include "sockets.h"
 #include "util.h"
-#include <unistd.h>
 #include "lmlog.h"
 
 static int mc_entry_expiration_timer_cb(timer *t, void *arg);
@@ -2048,14 +2049,14 @@ get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
 }
 
 int
-rtr_get_src_and_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **src,
+rtr_get_src_and_dst_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **src,
         lisp_addr_t **dst)
 {
     lcaf_addr_t *lcaf = NULL;
     elp_node_t *elp_node, *next_elp;
-    iface_list_elt_t *iface = NULL;
-    glist_entry_t *it = NULL;
-    lisp_addr_t *if_v4, *if_v6;
+    glist_entry_t *it = NULL, *rit;
+    lisp_addr_t *raddr;
+    glist_t *rlocs;
 
     lcaf = lisp_addr_get_lcaf(laddr);
     switch (lcaf_addr_get_type(lcaf)) {
@@ -2063,23 +2064,17 @@ rtr_get_src_and_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **src,
         /* lookup in the elp list the first RLOC to also pertain to the RTR */
         glist_for_each_entry(it, lcaf_elp_node_list(lcaf)) {
             elp_node = glist_entry_data(it);
-            iface = head_interface_list;
-            while (iface) {
-                if_v4 = iface->iface->ipv4_address;
-                if (lisp_addr_cmp(if_v4, elp_node->addr) == 0) {
+            rlocs = ctrl_rlocs(xtr->super.ctrl,
+                    lisp_addr_ip_afi(elp_node->addr));
+
+            glist_for_each_entry(rit, rlocs) {
+                raddr = glist_entry_data(rit);
+                if (lisp_addr_cmp(raddr, elp_node->addr) == 0) {
                     next_elp = glist_entry_data(glist_next(it));
                     *dst = next_elp->addr;
                     *src = elp_node->addr;
                     return (GOOD);
                 }
-                if_v6 = iface->iface->ipv6_address;
-                if (lisp_addr_cmp(if_v6, elp_node->addr) == 0) {
-                    next_elp = glist_entry_data(glist_next(it));
-                    *dst = next_elp->addr;
-                    *dst = elp_node->addr;
-                    return (GOOD);
-                }
-                iface = iface->next;
             }
         }
         return (GOOD);
@@ -2113,52 +2108,6 @@ get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
         return (BAD);
     }
     return (GOOD);
-}
-
-/* the difference with the xtr case is that we typically don't have
- * a mapping for the source in the local mapping database */
-static fwd_entry_t *
-get_rtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
-{
-    mcache_entry_t *mce;
-    mapping_t *dmap = NULL;
-    fwd_entry_t *fe = NULL;
-    balancing_locators_vecs *blv = NULL;
-    rmt_mapping_extended_info *reinf;
-    locator_t *drloc;
-    int dafi;
-
-    mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
-
-    if (!mce) {
-        LMLOG(DBG_1, "No map cache for EID %s. Sending Map-Request!",
-                lisp_addr_to_char(&tuple->dst_addr));
-        handle_map_cache_miss(xtr, &tuple->dst_addr, &tuple->src_addr);
-        return(NULL);
-    } else if (mce->active == NOT_ACTIVE) {
-        LMLOG(DBG_3, "Already sent Map-Request for %s. Waiting for reply!",
-                lisp_addr_to_char(&tuple->dst_addr));
-        return(NULL);
-    }
-
-    dmap = mcache_entry_mapping(mce);
-    reinf = dmap->extended_info;
-    blv = &reinf->rmt_balancing_locators_vecs;
-    if (select_rloc_from_bvec(blv, tuple, &drloc) != GOOD) {
-        return (NULL);
-    }
-
-    fe = xzalloc(sizeof(fwd_entry_t));
-
-    dafi = lisp_addr_afi(locator_addr(drloc));
-    if (dafi == LM_AFI_IP) {
-        fe->srloc = NULL;
-        fe->drloc = locator_addr(drloc);
-    } else if (dafi == LM_AFI_LCAF) {
-        rtr_get_src_and_dst_from_lcaf(locator_addr(drloc),
-                &fe->srloc, &fe->drloc);
-    }
-    return(fe);
 }
 
 static fwd_entry_t *
@@ -2233,7 +2182,7 @@ get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
         if (xtr->super.mode == xTR_MODE) {
             get_dst_from_lcaf(locator_addr(drloc), &fe->drloc);
         } else if (xtr->super.mode == RTR_MODE) {
-            rtr_get_src_and_dst_from_lcaf(locator_addr(drloc),
+            rtr_get_src_and_dst_from_lcaf(xtr, locator_addr(drloc),
                     &fe->srloc, &fe->drloc);
         }
     }
