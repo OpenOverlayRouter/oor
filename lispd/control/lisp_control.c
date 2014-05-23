@@ -86,6 +86,10 @@ set_rlocs(lisp_ctrl_t *ctrl)
     }
 
     set_default_rlocs(ctrl);
+
+    LMLOG(DBG_1, "Rlocs\n ipv4: %s ", laddr_list_to_char(ctrl->ipv4_rlocs));
+    LMLOG(DBG_1, "Rlocs\n ipv6: %s ", laddr_list_to_char(ctrl->ipv6_rlocs) );
+    LMLOG(DBG_1, "default rlocs: %s", laddr_list_to_char(ctrl->default_rlocs) );
 }
 
 lisp_ctrl_t *

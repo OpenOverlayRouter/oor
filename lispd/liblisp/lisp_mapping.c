@@ -636,6 +636,8 @@ extended_info_init_local()
     return (ei);
 }
 
+/* Initializes a local mapping with 'eid' and no locators. 'eid' is
+ * copied so, if needed, it should be freed outside  */
 mapping_t *mapping_init_local(lisp_addr_t *eid)
 {
     mapping_t *mapping = mapping_init(eid);
@@ -720,6 +722,10 @@ mapping_clone(mapping_t *m) {
 
 void mapping_del(mapping_t *m)
 {
+    if (!m) {
+        return;
+    }
+
     /* Free the locators list*/
     locator_list_del(m->head_v4_locators_list);
     locator_list_del(m->head_v6_locators_list);

@@ -126,16 +126,16 @@ static inline lcaf_addr_t *lisp_addr_get_lcaf(lisp_addr_t *addr)
 
 static inline int lisp_addr_is_ip(lisp_addr_t *addr)
 {
-    return (addr->afi == LM_AFI_IP);
+    return (addr->lafi == LM_AFI_IP);
 }
 
 static inline int lisp_addr_is_no_addr(lisp_addr_t *addr)
 {
-    return (addr->afi == LM_AFI_NO_ADDR);
+    return (addr->lafi == LM_AFI_NO_ADDR);
 }
 static inline int lisp_addr_is_lcaf(lisp_addr_t *addr)
 {
-    return (addr->afi == LM_AFI_LCAF);
+    return (addr->lafi == LM_AFI_LCAF);
 }
 
 inline uint16_t lisp_addr_ip_afi(lisp_addr_t *addr);

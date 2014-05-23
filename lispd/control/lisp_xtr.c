@@ -977,7 +977,11 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
             seid = &empty;
         }
         rlocs = ctrl_default_rlocs(xtr->super.ctrl);
+        LMLOG(DBG_1, "locators for req: %s", laddr_list_to_char(rlocs));
         b = lisp_msg_mreq_create(seid, rlocs, deid);
+        if (!b) {
+            return(BAD);
+        }
 
         mr_hdr = lisp_msg_hdr(b);
         nonces->nonce[nonces->retransmits] = nonce_build_time();

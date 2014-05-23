@@ -40,7 +40,7 @@
 
 /* Time after which a negative entry is considered to have timed
  * out and is removed from the table */
-#define NEGATIVE_TIMEOUT 1
+#define NEGATIVE_TIMEOUT 0.5
 
 /* Maximum size of the tuple table */
 #define MAX_SIZE 10000

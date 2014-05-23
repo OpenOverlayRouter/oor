@@ -1521,10 +1521,10 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
     if (!mapping) {
         mapping = mapping_init_local(eid_prefix);
         local_map_db_add_mapping(xtr->local_mdb, mapping);
-    } else {
-        /* no need for the prefix */
-        lisp_addr_del(eid_prefix);
     }
+
+    /* no need for the prefix */
+    lisp_addr_del(eid_prefix);
 
     for (i = 0; i < cfg_size(map, "rloc"); i++) {
         cfg_t *rl = cfg_getnsec(map, "rloc", i);

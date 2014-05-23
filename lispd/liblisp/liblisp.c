@@ -459,7 +459,9 @@ lisp_msg_put_itr_rlocs(lbuf_t *b, glist_t *itr_rlocs)
     data = lbuf_data(b);
     glist_for_each_entry(it, itr_rlocs) {
         rloc = glist_entry_data(it);
-        lisp_msg_put_addr(b, rloc);
+        if (lisp_msg_put_addr(b, rloc) == NULL) {
+            return(NULL);
+        }
     }
 
     hdr = lisp_msg_hdr(b);
@@ -555,9 +557,18 @@ lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs,
 {
 
     lbuf_t *b = lisp_msg_create(LISP_MAP_REQUEST);
-    lisp_msg_put_addr(b, seid);
-    lisp_msg_put_itr_rlocs(b, itr_rlocs);
-    lisp_msg_put_eid_rec(b, deid);
+    if (lisp_msg_put_addr(b, seid) == NULL) {
+        return(NULL);
+    }
+
+    if (lisp_msg_put_itr_rlocs(b, itr_rlocs) == NULL) {
+        return(NULL);
+    }
+
+    if (lisp_msg_put_eid_rec(b, deid) == NULL) {
+        return(NULL);
+    }
+
     return(b);
 }
 
