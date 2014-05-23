@@ -35,7 +35,8 @@
 #include "liblisp.h"
 /* Time after which an entry is considered to have timed out and
  * is removed from the table */
-#define TIMEOUT 10
+#define TIMEOUT 3
+#define NEGATIVE_TIMEOUT 1
 #define MAX_SIZE 10000
 
 static double
@@ -109,7 +110,7 @@ ttable_insert(ttable_t *tt, packet_tuple_t *tpl, fwd_entry_t *fe)
 
     htable_insert(tt->htable, tpl, node);
 
-    /* If table full remove lookup and remove expired entries */
+    /* If table is full, lookup and remove expired entries */
     if (htable_size(tt->htable) >= MAX_SIZE) {
         htable_foreach_remove(tt->htable, (h_usr_del_fct)tnode_expired, NULL);
     }
@@ -125,12 +126,14 @@ fwd_entry_t *
 ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
 {
     ttable_node_t *tn = htable_lookup(tt->htable, tpl);
-
+    double elapsed;
     if (!tn) {
         return(NULL);
     }
 
-    if (time_elapsed(&tn->ts) > TIMEOUT) {
+    elapsed = time_elapsed(&tn->ts);
+    if (elapsed > TIMEOUT
+        || (!tn->fe && elapsed > NEGATIVE_TIMEOUT)) {
         htable_remove(tt->htable, tpl);
         return(NULL);
     } else {

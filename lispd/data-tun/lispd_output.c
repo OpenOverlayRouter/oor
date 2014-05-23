@@ -175,7 +175,6 @@ static int
 lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
     fwd_entry_t *fe = NULL;
-    int not_found = 0;
 
     fe = ttable_lookup(&ttable, tuple);
     if (!fe) {
