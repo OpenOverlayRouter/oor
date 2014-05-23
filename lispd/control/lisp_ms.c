@@ -28,6 +28,7 @@
 
 #include "lisp_ms.h"
 #include "cksum.h"
+#include "defs.h"
 #include "lmlog.h"
 
 
@@ -112,6 +113,44 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
     return(send_msg(&ms->super, b, &fwd_uc));
 }
 
+
+/* Called when the timer associated with a registered lisp site expires. */
+static int
+lsite_entry_expiration_timer_cb(timer *t, void *arg)
+{
+    lisp_reg_site_t *rsite = NULL;
+    lisp_addr_t *addr = NULL;
+    lisp_ms_t *ms = t->owner;
+
+    rsite = arg;
+    addr = mapping_eid(rsite->site_map);
+    LMLOG(DBG_1,"Registration of site with EID %s timed out",
+            lisp_addr_to_char(addr));
+
+    mdb_remove_entry(ms->reg_sites_db, addr);
+    lisp_reg_site_del(rsite);
+    ms_dump_registered_sites(ms, DBG_3);
+    return(GOOD);
+}
+
+static void
+lsite_entry_start_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
+{
+    /* Expiration cache timer */
+    if (!rsite->expiry_timer) {
+        rsite->expiry_timer = create_timer(REG_SITE_EXPRY_TIMER);
+    }
+
+    /* Give a 2s margin before purging the registered site */
+    start_timer_new(rsite->expiry_timer, MAP_REGISTER_INTERVAL + 2,
+            lsite_entry_expiration_timer_cb, ms, rsite);
+
+    LMLOG(DBG_1,"The map cache entry of EID %s will expire in %ld minutes.",
+            lisp_addr_to_char(mapping_eid(rsite->site_map)),
+            MAP_REGISTER_INTERVAL);
+}
+
+
 static int
 ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
@@ -123,7 +162,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     int i;
     lbuf_t *mrep = NULL;
     lbuf_t  b;
-    lisp_site_prefix *site;
+    lisp_site_prefix_t *site;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -159,23 +198,22 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     /* CHECK IF WE NEED TO PROXY REPLY */
     site = mdb_lookup_entry(ms->lisp_sites_db, deid);
     if (!site) {
-        LMLOG(DBG_3, "No site configured for EID %s. Sending Negative "
-                "Map-Reply!", lisp_addr_to_char(deid));
         /* send negative map-reply with TTL 15 min */
         mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD,
                 MREQ_NONCE(mreq_hdr));
+        LMLOG(DBG_3, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+                lisp_addr_to_char(deid));
         send_msg(&ms->super, mrep, uc);
         goto done;
     }
 
     /* Find if the site actually registered */
     if (!(map = mdb_lookup_entry(ms->reg_sites_db, deid))) {
-        LMLOG(DBG_1,"EID %s not registered by any site! Sending Negative "
-                "Map-Reply", lisp_addr_to_char(deid));
-
         /* send negative map-reply with TTL 1 min */
         mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,
                 MREQ_NONCE(mreq_hdr));
+        LMLOG(DBG_3, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+                lisp_addr_to_char(deid));
         send_msg(&ms->super, mrep, uc);
         goto done;
     }
@@ -288,8 +326,8 @@ mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
 static int
 ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
-    mapping_t *mentry = NULL;
-    lisp_site_prefix *reg_pref = NULL;
+    lisp_reg_site_t *rsite = NULL, *new_rsite;
+    lisp_site_prefix_t *reg_pref = NULL;
     char *key = NULL;
     lisp_addr_t *eid = NULL;
     lbuf_t b;
@@ -351,19 +389,21 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         if (!reg_pref->accept_more_specifics
                 && lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
             LMLOG(DBG_1, "EID %s is a more specific of %s. However more "
-                    "specifics not configured! Discarding", lisp_addr_to_char(eid),
+                    "specifics not configured! Discarding",
+                    lisp_addr_to_char(eid),
                     lisp_addr_to_char(reg_pref->eid_prefix));
             lisp_addr_del(eid);
             continue;
         }
 
-        mentry = mdb_lookup_entry_exact(ms->reg_sites_db, eid);
-        if (mentry) {
-            if (mapping_cmp(mentry, m) != 0) {
+        rsite = mdb_lookup_entry_exact(ms->reg_sites_db, eid);
+        if (rsite) {
+            if (mapping_cmp(rsite->site_map, m) != 0) {
                 if (!reg_pref->merge) {
                     LMLOG(DBG_3, "Prefix %s already registered, updating "
                             "locators", lisp_addr_to_char(eid));
-                    mapping_update_locators(mentry, m->head_v4_locators_list,
+                    mapping_update_locators(rsite->site_map,
+                            m->head_v4_locators_list,
                             m->head_v6_locators_list, m->locator_count);
                     /* cheap hack to avoid cloning */
                     m->head_v4_locators_list = NULL;
@@ -374,7 +414,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                             lisp_addr_to_char(eid));
                     /* MCs EIDs have their RLOCs aggregated into an RLE */
                     if (lisp_addr_is_mc(eid)) {
-                        mc_add_rlocs_to_rle(mentry, m);
+                        mc_add_rlocs_to_rle(rsite->site_map, m);
                     } else {
                         LMLOG(LWRN, "MS: Registered %s requires "
                                 "merge semantics but we don't know how to "
@@ -386,10 +426,14 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                 ms_dump_registered_sites(ms, DBG_3);
             }
 
-
-        } else if (!mentry) {
+            /* update registration timer */
+            lsite_entry_start_expiration_timer(ms, rsite);
+        } else {
             /* save prefix to the registered sites db */
-            mdb_add_entry(ms->reg_sites_db, mapping_eid(m), m);
+            new_rsite = xzalloc(sizeof(lisp_reg_site_t));
+            new_rsite->site_map = m;
+            mdb_add_entry(ms->reg_sites_db, mapping_eid(m), new_rsite);
+            lsite_entry_start_expiration_timer(ms, new_rsite);
             ms_dump_registered_sites(ms, DBG_3);
         }
 
@@ -397,11 +441,10 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             lisp_msg_put_mapping(mntf, m, NULL);
         }
 
-        if (mentry) {
+        /* if site previously registered, just remove the parsed mapping */
+        if (rsite) {
             mapping_del(m);
         }
-
-        /* TODO: start timers */
 
     }
 
@@ -420,26 +463,17 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     return(GOOD);
 err:
     return(BAD);
-    if (m) {
-        mapping_del(m);
-    }
-    if (mntf) {
-        lisp_msg_destroy(mntf);
-    }
+    mapping_del(m);
+    lisp_msg_destroy(mntf);
 bad: /* could return different error */
-    if(m) {
-        mapping_del(m);
-    }
-    if (mntf) {
-        lisp_msg_destroy(mntf);
-    }
+    mapping_del(m);
+    lisp_msg_destroy(mntf);
     return(BAD);
-
 }
 
 
 int
-ms_add_lisp_site_prefix(lisp_ms_t *ms, lisp_site_prefix *sp)
+ms_add_lisp_site_prefix(lisp_ms_t *ms, lisp_site_prefix_t *sp)
 {
     if (!sp)
         return(BAD);
@@ -452,9 +486,13 @@ ms_add_lisp_site_prefix(lisp_ms_t *ms, lisp_site_prefix *sp)
 int
 ms_add_registered_site_prefix(lisp_ms_t *ms, mapping_t *sp)
 {
-    if (!sp)
+    if (!sp) {
         return(BAD);
-    if (!mdb_add_entry(ms->reg_sites_db, mapping_eid(sp), sp))
+    }
+
+    lisp_reg_site_t *rs = xzalloc(sizeof(lisp_reg_site_t));
+    rs->site_map = sp;
+    if (!mdb_add_entry(ms->reg_sites_db, mapping_eid(sp), rs))
         return(BAD);
     return(GOOD);
 }
@@ -467,7 +505,7 @@ ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
     }
 
     void *it = NULL;
-    lisp_site_prefix *site = NULL;
+    lisp_site_prefix_t *site = NULL;
 
     LMLOG(log_level,"****************** MS configured prefixes **************\n");
     mdb_foreach_entry(ms->lisp_sites_db, it) {
@@ -482,18 +520,19 @@ ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
 }
 
 void
-ms_dump_registered_sites(lisp_ms_t *ms, int log_level) {
+ms_dump_registered_sites(lisp_ms_t *ms, int log_level)
+{
     if (is_loggable(log_level) == FALSE){
         return;
     }
 
     void *it = NULL;
-    mapping_t *mapping = NULL;
+    lisp_reg_site_t *rsite = NULL;
 
     LMLOG(log_level,"**************** MS registered sites ******************\n");
     mdb_foreach_entry(ms->reg_sites_db, it) {
-        mapping = it;
-        LMLOG(log_level, "%s", mapping_to_char(mapping));
+        rsite = it;
+        LMLOG(log_level, "%s", mapping_to_char(rsite->site_map));
     } mdb_foreach_entry_end;
     LMLOG(log_level,"*******************************************************\n");
 
@@ -582,7 +621,7 @@ ms_ctrl_destruct(lisp_ctrl_dev_t *dev)
 {
     lisp_ms_t *ms = lisp_ms_cast(dev);
     mdb_del(ms->lisp_sites_db, (mdb_del_fct)lisp_site_prefix_del);
-    mdb_del(ms->reg_sites_db, (mdb_del_fct)mapping_del);
+    mdb_del(ms->reg_sites_db, (mdb_del_fct)lisp_reg_site_del);
 }
 
 void

@@ -40,7 +40,6 @@ static rmt_locator_extended_info_t *new_rmt_locator_extended_info();
 static void free_lcl_locator_extended_info(lcl_locator_extended_info_t *);
 static void free_rmt_locator_extended_info(rmt_locator_extended_info_t *);
 
-
 static lcl_locator_extended_info_t *
 new_lcl_locator_extended_info(int *out_socket)
 {
@@ -64,43 +63,40 @@ new_rmt_locator_extended_info()
     return rmt_loc_ext_inf;
 }
 
-
-static void
-free_lcl_locator_extended_info(lcl_locator_extended_info_t *extended_info)
+static void free_lcl_locator_extended_info(
+        lcl_locator_extended_info_t *extended_info)
 {
     if (!extended_info) {
         return;
     }
 
     rtr_list_del(extended_info->rtr_locators_list);
-    free (extended_info);
+    free(extended_info);
 }
 
-
-static void
-free_rmt_locator_extended_info(rmt_locator_extended_info_t *extended_info)
+static void free_rmt_locator_extended_info(
+        rmt_locator_extended_info_t *extended_info)
 {
     if (!extended_info) {
         return;
     }
 
-    if (extended_info->probe_timer != NULL){
+    if (extended_info->probe_timer != NULL) {
         free(extended_info->probe_timer->cb_argument);
         stop_timer(extended_info->probe_timer);
         extended_info->probe_timer = NULL;
     }
-    if (extended_info->rloc_probing_nonces != NULL){
-        free (extended_info->rloc_probing_nonces);
+    if (extended_info->rloc_probing_nonces != NULL) {
+        free(extended_info->rloc_probing_nonces);
     }
-    free (extended_info);
+    free(extended_info);
 }
-
 
 locator_t *
-locator_new() {
-    return(xzalloc(sizeof(locator_t)));
+locator_new()
+{
+    return (xzalloc(sizeof(locator_t)));
 }
-
 
 char *
 locator_to_char(locator_t *l)
@@ -109,21 +105,20 @@ locator_to_char(locator_t *l)
     static int i;
 
     /* hack to allow more than one locator per line */
-    i++; i = i%5;
+    i++;
+    i = i % 5;
 
     sprintf(buf[i], "%s, ", lisp_addr_to_char(locator_addr(l)));
-    sprintf(buf[i] + strlen(buf[i]), "%s, ",
-            l->state ? "Up" : "Down");
-    sprintf(buf[i] + strlen(buf[i]), "%d/%-d, %d/%d",
-            l->priority, l->weight, l->mpriority, l->mweight);
-    return(buf[i]);
+    sprintf(buf[i] + strlen(buf[i]), "%s, ", l->state ? "Up" : "Down");
+    sprintf(buf[i] + strlen(buf[i]), "%d/%-d, %d/%d", l->priority, l->weight,
+            l->mpriority, l->mweight);
+    return (buf[i]);
 }
 
-int
-locator_parse(void *ptr, locator_t *loc)
+int locator_parse(void *ptr, locator_t *loc)
 {
     locator_hdr_t *hdr;
-    uint8_t status  = UP;
+    uint8_t status = UP;
     int len;
 
     hdr = ptr;
@@ -135,8 +130,8 @@ locator_parse(void *ptr, locator_t *loc)
     }
 
     len = lisp_addr_parse(LOC_ADDR(hdr), loc->addr);
-    if (len <=0) {
-        return(BAD);
+    if (len <= 0) {
+        return (BAD);
     }
 
     loc->state = xzalloc(sizeof(uint8_t));
@@ -148,27 +143,29 @@ locator_parse(void *ptr, locator_t *loc)
     loc->mweight = LOC_MWEIGHT(hdr);
     loc->extended_info = new_rmt_locator_extended_info();
 
-
     /* TODO: should we remove these? */
     loc->data_packets_in = 0;
     loc->data_packets_out = 0;
 
-    return(sizeof(locator_hdr_t) + len);
+    return (sizeof(locator_hdr_t) + len);
 }
 
-int
-locator_cmp(locator_t *l1, locator_t *l2)
+int locator_cmp(locator_t *l1, locator_t *l2)
 {
     int ret = 0;
     if ((ret = lisp_addr_cmp(locator_addr(l1), locator_addr(l2))) != 0) {
-        return(1);
+        return (1);
     }
 
-    if (l1->priority != l2->priority)   return(1);
-    if (l1->weight != l2->weight)   return(1);
-    if (l1->mpriority != l2->mpriority)   return(1);
-    if (l1->mweight != l2->mweight)   return(1);
-    return(0);
+    if (l1->priority != l2->priority)
+        return (1);
+    if (l1->weight != l2->weight)
+        return (1);
+    if (l1->mpriority != l2->mpriority)
+        return (1);
+    if (l1->mweight != l2->mweight)
+        return (1);
+    return (0);
 }
 
 locator_t *
@@ -184,7 +181,7 @@ locator_init_remote(lisp_addr_t *addr)
     locator->extended_info = new_rmt_locator_extended_info();
     locator->type = DYNAMIC_LOCATOR;
 
-    return(locator);
+    return (locator);
 }
 
 /* Initializes a remote locator. 'addr' is cloned so it can be freed by the
@@ -195,7 +192,7 @@ locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
 {
     locator_t *locator = locator_init_remote(addr);
     if (!locator) {
-        return(NULL);
+        return (NULL);
     }
 
     *(locator->state) = state;
@@ -203,7 +200,7 @@ locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
     locator->weight = weight;
     locator->mpriority = mpriority;
     locator->mweight = mweight;
-    return(locator);
+    return (locator);
 }
 
 locator_t *
@@ -218,7 +215,7 @@ locator_init_local(lisp_addr_t *addr)
     locator->addr = addr;
     locator->type = LOCAL_LOCATOR;
 
-    return(locator);
+    return (locator);
 }
 
 /* Initializes a local locator. 'addr' should point to one of the
@@ -230,7 +227,7 @@ locator_init_local_full(lisp_addr_t *addr, uint8_t *state, uint8_t priority,
 {
     locator_t *locator = locator_init_local(addr);
     if (!locator) {
-        return(NULL);
+        return (NULL);
     }
     /* Initialize locator */
     locator->priority = priority;
@@ -242,10 +239,8 @@ locator_init_local_full(lisp_addr_t *addr, uint8_t *state, uint8_t priority,
     locator->state = state;
     locator->extended_info = (void *) new_lcl_locator_extended_info(out_socket);
 
-    return(locator);
+    return (locator);
 }
-
-
 
 void
 locator_del(locator_t *locator)
@@ -265,9 +260,10 @@ locator_del(locator_t *locator)
 }
 
 int
-locator_list_add(locators_list_t **list, locator_t *loc) {
-    locators_list_t *loc_list = NULL, *aux_llist_prev = NULL,
-            *aux_llist_next = NULL;
+locator_list_add(locators_list_t **list, locator_t *loc)
+{
+    locators_list_t *loc_list = NULL, *aux_llist_prev = NULL, *aux_llist_next =
+            NULL;
     int cmp = 0;
 
     loc_list = xmalloc(sizeof(locators_list_t));
@@ -275,7 +271,7 @@ locator_list_add(locators_list_t **list, locator_t *loc) {
     loc_list->locator = loc;
 
     if (loc->type == LOCAL_LOCATOR
-        && lisp_addr_afi(locator_addr(loc)) != LM_AFI_NO_ADDR) {
+            && lisp_addr_afi(locator_addr(loc)) != LM_AFI_NO_ADDR) {
         /* If it's a local initialized locator, we should store it in order*/
 
         if (*list == NULL) {
@@ -284,12 +280,12 @@ locator_list_add(locators_list_t **list, locator_t *loc) {
             aux_llist_prev = NULL;
             aux_llist_next = *list;
             while (aux_llist_next != NULL) {
-                cmp = lisp_addr_cmp(loc->addr,
-                        aux_llist_next->locator->addr);
+                cmp = lisp_addr_cmp(loc->addr, aux_llist_next->locator->addr);
                 if (cmp < 0) {
                     break;
                 } else if (cmp == 0) {
-                    LMLOG(DBG_3,"add_locator_to_list: The locator %s already exists.",
+                    LMLOG(DBG_3,
+                            "add_locator_to_list: The locator %s already exists.",
                             lisp_addr_to_char(locator_addr(loc)));
                     free(loc_list);
                     return (ERR_EXIST);
@@ -320,29 +316,27 @@ locator_list_add(locators_list_t **list, locator_t *loc) {
     return (GOOD);
 }
 
-
-
 /* Extract the locator from a locators list that match with the address.
  * The locator is removed from the list */
-locator_t *locator_list_extract_locator(
-        locators_list_t     **head_locator_list,
-        lisp_addr_t             addr)
+locator_t *
+locator_list_extract_locator(locators_list_t **head_locator_list,
+        lisp_addr_t addr)
 {
-    locator_t       *locator                = NULL;
-    locators_list_t     *locator_list           = NULL;
-    locators_list_t     *prev_locator_list_elt  = NULL;
+    locator_t *locator = NULL;
+    locators_list_t *locator_list = NULL;
+    locators_list_t *prev_locator_list_elt = NULL;
 
     locator_list = *head_locator_list;
-    while (locator_list != NULL){
-        if (lisp_addr_cmp(locator_list->locator->addr,&addr)==0){
+    while (locator_list != NULL) {
+        if (lisp_addr_cmp(locator_list->locator->addr, &addr) == 0) {
             locator = locator_list->locator;
             /* Extract the locator from the list */
-            if (prev_locator_list_elt != NULL){
+            if (prev_locator_list_elt != NULL) {
                 prev_locator_list_elt->next = locator_list->next;
-            }else{
+            } else {
                 *head_locator_list = locator_list->next;
             }
-            free (locator_list);
+            free(locator_list);
             break;
         }
         prev_locator_list_elt = locator_list;
@@ -372,21 +366,13 @@ locator_t *locator_list_get_locator(locators_list_t *locator_list,
     return (locator);
 }
 
-/*
- * Free memory of lispd_locator_list.
- */
-
-void locator_list_del(locators_list_t     *locator_list)
+void locator_list_del(locators_list_t *locator_list)
 {
-    locators_list_t  * aux_locator_list     = NULL;
-    /*
-     * Free the locators
-     */
-    while (locator_list)
-    {
+    locators_list_t * aux_locator_list = NULL;
+    while (locator_list) {
         aux_locator_list = locator_list->next;
         locator_del(locator_list->locator);
-        free (locator_list);
+        free(locator_list);
         locator_list = aux_locator_list;
     }
 }
@@ -396,7 +382,7 @@ rtr_locator_new(lisp_addr_t address)
 {
     rtr_locator_t *rtr_locator = NULL;
 
-    rtr_locator = malloc(sizeof(rtr_locator));
+    rtr_locator = xmalloc(sizeof(rtr_locator));
     if (rtr_locator == NULL) {
         LMLOG(LWRN, "new_rtr_locator: Unable to allocate memory for "
                 "lispd_rtr_locator: %s", strerror(errno));
@@ -414,15 +400,13 @@ rtr_locator_list_new()
 {
     rtr_locators_list_t *rtr_list;
     rtr_list = xmalloc(sizeof(rtr_locators_list_t));
-    return(rtr_list);
+    return (rtr_list);
 }
 
-int
-rtr_list_add(rtr_locators_list_t **list, rtr_locator_t *locator)
+int rtr_list_add(rtr_locators_list_t **list, rtr_locator_t *locator)
 {
     rtr_locators_list_t *loc_list_elt = NULL;
     rtr_locators_list_t *loc_list = *list;
-
 
     loc_list = rtr_locator_list_new();
     loc_list_elt->locator = locator;
@@ -439,13 +423,11 @@ rtr_list_add(rtr_locators_list_t **list, rtr_locator_t *locator)
     return (GOOD);
 }
 
-
-void
-rtr_list_del(rtr_locators_list_t *rtr_list_elt)
+void rtr_list_del(rtr_locators_list_t *rtr_list_elt)
 {
-    rtr_locators_list_t *aux_rtr_list_elt   = NULL;
+    rtr_locators_list_t *aux_rtr_list_elt = NULL;
 
-    while (rtr_list_elt != NULL){
+    while (rtr_list_elt != NULL) {
         aux_rtr_list_elt = rtr_list_elt->next;
         free(rtr_list_elt->locator);
         free(rtr_list_elt);
@@ -453,10 +435,8 @@ rtr_list_del(rtr_locators_list_t *rtr_list_elt)
     }
 }
 
-
 /* Leave in the list, rtr with afi equal to the afi passed as a parameter */
-void
-rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **rtr_list,
+void rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **rtr_list,
         int afi)
 {
     rtr_locators_list_t *rtr_list_elt = *rtr_list;
@@ -490,7 +470,4 @@ rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **rtr_list,
         *rtr_list = NULL;
     }
 }
-
-
-
 

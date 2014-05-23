@@ -703,7 +703,7 @@ mapping_init_remote(lisp_addr_t *eid)
 /* Clones a mapping_t data structure
  * NOTE: it does not clone the 'extended_info'! This should be done by the
  * caller and in the future it shouldn't be done at all. 'extended_info'
- * should be moved into map_cache_entry */
+ * should be moved out */
 mapping_t *
 mapping_clone(mapping_t *m) {
     mapping_t *cm = mapping_new();
@@ -713,6 +713,7 @@ mapping_clone(mapping_t *m) {
     cm->locator_count = m->locator_count;
     cm->ttl = m->ttl;
     cm->type = m->type;
+
     return(cm);
 }
 
@@ -770,14 +771,18 @@ void
 mapping_update_locators(mapping_t *mapping, locators_list_t *locv4,
         locators_list_t *locv6, int nb_locators)
 {
-    if (!mapping)
+    if (!mapping) {
         return;
+    }
 
     /* TODO: do a comparison first */
-    if (mapping->head_v4_locators_list)
+    if (mapping->head_v4_locators_list) {
         locator_list_del(mapping->head_v4_locators_list);
-    if (mapping->head_v6_locators_list)
+    }
+
+    if (mapping->head_v6_locators_list) {
         locator_list_del(mapping->head_v6_locators_list);
+    }
     mapping->head_v4_locators_list = locv4;
     mapping->head_v6_locators_list = locv6;
     mapping->locator_count = nb_locators;

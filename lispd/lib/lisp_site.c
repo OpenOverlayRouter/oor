@@ -30,13 +30,13 @@
 #include "lisp_site.h"
 #include "defs.h"
 
-lisp_site_prefix *lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid,
+lisp_site_prefix_t *lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid,
         int key_type, char *key, uint8_t more_specifics, uint8_t proxy_reply,
         uint8_t merge)
 {
 
-    lisp_site_prefix *sp = NULL;
-    sp = xzalloc(sizeof(lisp_site_prefix));
+    lisp_site_prefix_t *sp = NULL;
+    sp = xzalloc(sizeof(lisp_site_prefix_t));
 
     sp->eid_prefix = lisp_addr_clone(eid);
     sp->iid = iid;
@@ -49,7 +49,7 @@ lisp_site_prefix *lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid,
     return(sp);
 }
 
-void lisp_site_prefix_del(lisp_site_prefix *sp) {
+void lisp_site_prefix_del(lisp_site_prefix_t *sp) {
     if (!sp)
         return;
     if (sp->eid_prefix)
@@ -57,4 +57,12 @@ void lisp_site_prefix_del(lisp_site_prefix *sp) {
     if (sp->key)
         free(sp->key);
     free(sp);
+}
+
+void
+lisp_reg_site_del(lisp_reg_site_t *rs)
+{
+    stop_timer(rs->expiry_timer);
+    mapping_del(rs->site_map);
+    free(rs);
 }

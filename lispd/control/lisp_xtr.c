@@ -251,7 +251,7 @@ static int
 update_mcache_entry(lisp_xtr_t *xtr, mapping_t *m, uint64_t nonce)
 {
     mcache_entry_t *mce = NULL;
-    mapping_t *old_map, *new_map;
+    mapping_t *old_map;
     lisp_addr_t *eid;
 
     eid = mapping_eid(m);
@@ -262,10 +262,11 @@ update_mcache_entry(lisp_xtr_t *xtr, mapping_t *m, uint64_t nonce)
         LMLOG(DBG_2,"No map cache entry for %s", lisp_addr_to_char(eid));
         return (BAD);
     }
+
     /* Check if map cache entry contains the nonce*/
     if (nonce_check(mce->nonces, nonce) == BAD) {
-        LMLOG(DBG_2, " Nonce doesn't match nonce of the Map-Request. "
-                "Discarding message ...");
+        LMLOG(DBG_2, " Nonce doesn't match the Map-Request nonce. "
+                "Discarding message!");
         return(BAD);
     } else {
         mcache_entry_destroy_nonces(mce);
@@ -274,19 +275,24 @@ update_mcache_entry(lisp_xtr_t *xtr, mapping_t *m, uint64_t nonce)
 
     LMLOG(DBG_2, "Mapping with EID %s already exists, replacing!",
             lisp_addr_to_char(eid));
+
     old_map = mcache_entry_mapping(mce);
-    mapping_del(old_map);
 
-    mcache_entry_set_mapping(mce, mapping_clone(m));
-    new_map = mcache_entry_mapping(mce);
+    /* DISCARD all locator state */
+    mapping_update_locators(old_map, m->head_v4_locators_list,
+            m->head_v6_locators_list, m->locator_count);
 
-    mapping_compute_balancing_vectors(new_map);
+    /* Steal the locators from the parsed mapping */
+    m->head_v4_locators_list = NULL;
+    m->head_v6_locators_list = NULL;
+
+    mapping_compute_balancing_vectors(old_map);
 
     /* Reprogramming timers */
     mc_entry_start_expiration_timer(xtr, mce);
 
     /* RLOC probing timer */
-    program_mapping_rloc_probing(xtr, new_map);
+    program_mapping_rloc_probing(xtr, old_map);
 
     return (GOOD);
 }
@@ -318,6 +324,7 @@ tr_recv_map_reply(lisp_xtr_t *xtr, lbuf_t *buf)
             mce = lookup_nonce_in_no_active_map_caches(xtr->map_cache,
                     mapping_eid(m), MREP_NONCE(mrep_hdr));
 
+            /* Mapping is NOT ACTIVE */
             if (mce) {
                 /* delete placeholder/dummy mapping and install the new one */
                 eid = mapping_eid(mcache_entry_mapping(mce));
@@ -325,8 +332,9 @@ tr_recv_map_reply(lisp_xtr_t *xtr, lbuf_t *buf)
 
                 /* DO NOT free mapping in this case */
                 tr_mcache_add_mapping(xtr, m);
-            } else {
 
+            /* Mapping is ACTIVE */
+            } else {
                 /* the reply might be for an active mapping (SMR)*/
                 update_mcache_entry(xtr, m, MREP_NONCE(mrep_hdr));
                 mapping_del(m);

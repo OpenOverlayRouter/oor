@@ -499,6 +499,7 @@ lisp_addr_write(void *offset, lisp_addr_t *laddr)
     return (0);
 }
 
+/* Parses a LISP address and returns number of bytes read */
 int
 lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr)
 {
@@ -507,7 +508,7 @@ lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr)
 
     if (!laddr) {
         LMLOG(DBG_3, "lisp_addr_parse: Called with unallocated address!");
-        return (BAD);
+        return (0);
     }
 
     afi = ntohs(*((uint16_t *) offset));
@@ -530,7 +531,6 @@ lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr)
     default:
         LMLOG(DBG_2, "lisp_addr_read_from_pkt:  Unknown AFI type %d in EID",
                 afi);
-        return (BAD);
         break;
     }
 

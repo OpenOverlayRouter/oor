@@ -67,7 +67,7 @@ static int add_server(char *server, lisp_addr_list_t **list);
 
 static void validate_rloc_probing_parameters(int *, int *, int *);
 
-static lisp_site_prefix *build_lisp_site_prefix(lisp_ms_t *, char *, uint32_t,
+static lisp_site_prefix_t *build_lisp_site_prefix(lisp_ms_t *, char *, uint32_t,
         int, char *, uint8_t, uint8_t, uint8_t, htable_t *);
 static mapping_t *build_mapping_from_config(cfg_t *, htable_t *, int);
 
@@ -837,7 +837,7 @@ int
 configure_ms(cfg_t *cfg)
 {
     char *iface = NULL;
-    lisp_site_prefix *site = NULL;
+    lisp_site_prefix_t *site = NULL;
     htable_t *lcaf_ht = NULL;
     int i;
     lisp_ms_t *ms;
@@ -1858,14 +1858,14 @@ validate_rloc_probing_parameters(int *interval, int *retries,
     }
 }
 
-static lisp_site_prefix *
+static lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
         htable_t *lcaf_ht)
 {
     lisp_addr_t *eid_prefix = NULL;
     lisp_addr_t *ht_prefix = NULL;
-    lisp_site_prefix *site = NULL;
+    lisp_site_prefix_t *site = NULL;
 
     if (iid > MAX_IID) {
         LMLOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
