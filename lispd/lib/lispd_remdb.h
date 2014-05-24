@@ -42,7 +42,7 @@ typedef struct {
     locators_list_t *locators;
 
     /* status fields */
-    timer               *rt_timer;
+    lmtimer_t               *rt_timer;
     nonces_list_t         *nonces;
     uint8_t             join_pending;
     uint8_t             leave_pending;

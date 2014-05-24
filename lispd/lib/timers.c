@@ -11,28 +11,43 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <time.h>
 
 #include "defs.h"
-#include "iface_mgmt.h"
 #include "lmlog.h"
 #include "timers.h"
+#include "util.h"
+#include "lispd_external.h"
 
 
-const int TimerTickInterval = 1;  /* Seconds */
-const int WheelSize = 4096;       /* Good for a little over an hour */
+/* Seconds */
+#define TICK_INTERVAL 1
+
+/* Good for a little over an hour */
+#define WHEEL_SIZE 4096
 
 struct {
     int num_spokes;
     int current_spoke;
-    timer_links *spokes;
+    lmtimer_links_t *spokes;
     timer_t tick_timer_id;
     int running_timers;
     int expirations;
 } timer_wheel;
 
-void handle_timers(void);
+/* We don't have signalfd in bionic, fake it. */
+static int signal_pipe[2];
 
-static int signal_pipe[2]; /* We don't have signalfd in bionic, fake it. */
+static timer_t *timer_id;
+
+/* timers file descriptor */
+int timers_fd = 0;
+
+static int destroy_timers_event_socket();
+static int build_timers_event_socket(int *timers_fd);
+static int process_timer_signal(sock_t *sl);
+static void handle_timers(void);
+
 
 /*
  * create_timer_wheel()
@@ -40,8 +55,8 @@ static int signal_pipe[2]; /* We don't have signalfd in bionic, fake it. */
  * Creates the timer wheel structure and starts
  * the rotation timer.
  */
-timer_t
-create_wheel_timer(void)
+static timer_t
+create_timer_wheel(void)
 {
     timer_t tid;
     struct sigevent sev;
@@ -56,9 +71,9 @@ create_wheel_timer(void)
     }
 
     timerspec.it_value.tv_nsec = 0;
-    timerspec.it_value.tv_sec = TimerTickInterval;
+    timerspec.it_value.tv_sec = TICK_INTERVAL;
     timerspec.it_interval.tv_nsec = 0;
-    timerspec.it_interval.tv_sec = TimerTickInterval;
+    timerspec.it_interval.tv_sec = TICK_INTERVAL;
 
 
     if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
@@ -71,31 +86,73 @@ create_wheel_timer(void)
 
 
 int
-init_timers()
+timers_init()
 {
     int i = 0;
-    timer_links *spoke;
+    lmtimer_links_t *spoke;
 
-    LMLOG(DBG_1, "Initializing lispd timers...");
+    LMLOG(DBG_1, "Initializing lmtimers...");
 
-    if (create_wheel_timer() == 0) {
-        LMLOG(LINF, "Failed to set up lispd timers.");
+    /* create timers event socket */
+    if (build_timers_event_socket(&timers_fd) == 0) {
+        LMLOG(LCRIT, " Error programming the timer signal. Exiting...");
+        exit_cleanup();
+    }
+
+
+    timer_id = create_timer_wheel();
+    if (timer_id == 0) {
+        LMLOG(LINF, "Failed to set up timers.");
         return(BAD);
     }
 
-    timer_wheel.num_spokes = WheelSize;
-    timer_wheel.spokes = (timer_links *)xmalloc(sizeof(timer_links) * WheelSize);
+    timer_wheel.num_spokes = WHEEL_SIZE;
+    timer_wheel.spokes = xmalloc(sizeof(lmtimer_links_t) * WHEEL_SIZE);
     timer_wheel.current_spoke = 0;
     timer_wheel.running_timers = 0;
     timer_wheel.expirations = 0;
 
     spoke = &timer_wheel.spokes[0];
-    for (i = 0; i < WheelSize; i++) {
+    for (i = 0; i < WHEEL_SIZE; i++) {
         spoke->next = spoke;
         spoke->prev = spoke;
         spoke++;
     }
+
+
+    /* register timer fd with the socket master */
+    sockmstr_register_read_listener(smaster, process_timer_signal, NULL,
+            timers_fd);
+
     return(GOOD);
+}
+
+void
+timers_destroy()
+{
+    int i;
+    lmtimer_links_t *spoke, *sit, *next;
+    lmtimer_t *t;
+
+    LMLOG(DBG_1, "Destroying lmtimers ... ");
+
+    destroy_timers_event_socket();
+
+    spoke = &timer_wheel.spokes[0];
+    for (i = 0; i < WHEEL_SIZE; i++) {
+        /* the first link is NOT a timer */
+        sit = spoke->next;
+        while (sit != spoke){
+            next = sit->next;
+            t = CONTAINER_OF(sit, lmtimer_t, links);
+            stop_timer(t);
+            sit = next;
+        }
+        spoke++;
+    }
+    free(timer_wheel.spokes);
+    timer_delete(timer_id);
+    close(timers_fd);
 }
 
 /*
@@ -103,10 +160,10 @@ init_timers()
  *
  * Convenience function to allocate and zero a new timer.
  */
-timer *
+lmtimer_t *
 create_timer(char *name)
 {
-    timer *new_timer = xzalloc(sizeof(timer));
+    lmtimer_t *new_timer = xzalloc(sizeof(lmtimer_t));
     strncpy(new_timer->name, name, TIMER_NAME_LEN - 1);
     new_timer->links.prev = NULL;
     new_timer->links.next = NULL;
@@ -114,10 +171,10 @@ create_timer(char *name)
 }
 
 /* Insert a timer in the wheel at the appropriate location. */
-void
-insert_timer(timer *tptr)
+static void
+insert_timer(lmtimer_t *tptr)
 {
-    timer_links *prev, *spoke;
+    lmtimer_links_t *prev, *spoke;
     uint32_t pos;
     uint32_t ticks;
     uint32_t td;
@@ -125,33 +182,24 @@ insert_timer(timer *tptr)
     /* Number of ticks for this timer. */
     ticks = tptr->duration;
 
-     /*
-      * tick position, referenced from the
-      * current index.
-      */
-     td = (ticks % timer_wheel.num_spokes);
+    /* tick position, referenced from the
+     * current index. */
+    td = (ticks % timer_wheel.num_spokes);
 
-     /*
-      * Full rotations required before this timer expires
-      */
-     tptr->rotation_count = (ticks / timer_wheel.num_spokes);
+    /* Full rotations required before this timer expires */
+    tptr->rotation_count = (ticks / timer_wheel.num_spokes);
 
-     /*
-      * Find the right spoke
-      */
-     pos = ((timer_wheel.current_spoke + td) % timer_wheel.num_spokes);
-     spoke = &timer_wheel.spokes[pos];
+    /* Find the right spoke, and link the timer into the list at this position */
+    pos = ((timer_wheel.current_spoke + td) % timer_wheel.num_spokes);
+    spoke = &timer_wheel.spokes[pos];
 
-     /*
-      * Link the timer into the list at this position
-      */
-
-     prev = spoke->prev;
-     tptr->links.next = spoke;      /* append to end of spoke  */
-     tptr->links.prev = prev;
-     prev->next   = (timer_links *)tptr;
-     spoke->prev = (timer_links *)tptr;
-     return;
+    /* append to end of spoke  */
+    prev = spoke->prev;
+    tptr->links.next = spoke;
+    tptr->links.prev = prev;
+    prev->next = (lmtimer_links_t *) tptr;
+    spoke->prev = (lmtimer_links_t *) tptr;
+    return;
 }
 
 /*
@@ -162,13 +210,11 @@ insert_timer(timer *tptr)
  * to stop the timer later if desired.
  */
 void
-start_timer(timer *tptr, int sexpiry, timer_callback cb, void *cb_arg)
+start_timer(lmtimer_t *tptr, int sexpiry, lmtimer_callback_t cb, void *cb_arg)
 {
-    timer_links *next, *prev;
+    lmtimer_links_t *next, *prev;
 
-    /*
-     * See if this timer is also running.
-     */
+    /* See if this timer is also running. */
     next = tptr->links.next;
 
     if (next != NULL) {
@@ -176,9 +222,7 @@ start_timer(timer *tptr, int sexpiry, timer_callback cb, void *cb_arg)
         next->prev = prev;
         prev->next = next;
 
-        /*
-         * Update stats
-         */
+        /* Update stats */
         timer_wheel.running_timers--;
     }
 
@@ -193,7 +237,7 @@ start_timer(timer *tptr, int sexpiry, timer_callback cb, void *cb_arg)
 }
 
 void
-start_timer_new(timer *tptr, int sec, timer_callback cb,
+start_timer_new(lmtimer_t *tptr, int sec, lmtimer_callback_t cb,
         void *owner, void *cb_arg)
 {
     tptr->owner = owner;
@@ -208,42 +252,30 @@ start_timer_new(timer *tptr, int sec, timer_callback cb,
  * Mark one of the global timers as stopped and remove it.
  */
 void
-stop_timer(timer *tptr)
+stop_timer(lmtimer_t *tptr)
 {
-    timer_links *next, *prev;
+    lmtimer_links_t *next, *prev;
 
     if (tptr == NULL) {
         return;
     }
 
-/*
-    if (strcmp(tptr->name, MAP_REQUEST_RETRY_TIMER)==0){
-        ((timer_mreq_arg_t *)tptr->cb_argument)->arg_free_fct(tptr->cb_argument);
-//        free ((timer_map_request_argument *)tptr->cb_argument);
-    }else if (strcmp(tptr->name, RLOC_PROBING_TIMER)==0){
-        free ((timer_rloc_probe_argument *)tptr->cb_argument);
-    } else {
-        free(tptr->cb_argument);
-    }
-*/
     next = tptr->links.next;
     prev = tptr->links.prev;
-    if (next != NULL){
+    if (next != NULL) {
         next->prev = prev;
     }
-    if (prev != NULL){
+    if (prev != NULL) {
         prev->next = next;
     }
     tptr->links.next = NULL;
     tptr->links.prev = NULL;
 
-    /*
-     * Update stats
-     */
-    if (next != NULL || prev != NULL){
+    /* Update stats */
+    if (next != NULL || prev != NULL) {
         timer_wheel.running_timers--;
     }
-    free (tptr);
+    free(tptr);
 }
 
 
@@ -253,20 +285,20 @@ stop_timer(timer *tptr)
  * Update the wheel index, and expire any timers there, calling
  * the appropriate function to deal with it.
  */
-void
+static void
 handle_timers(void)
 {
     struct timeval  nowtime;
-    timer_links    *current_spoke, *next, *prev;
-    timer          *tptr;
-    timer_callback  callback;
+    lmtimer_links_t    *current_spoke, *next, *prev;
+    lmtimer_t          *tptr;
+    lmtimer_callback_t  callback;
 
     gettimeofday(&nowtime, NULL);
     timer_wheel.current_spoke = (timer_wheel.current_spoke + 1) % timer_wheel.num_spokes;
     current_spoke = &timer_wheel.spokes[timer_wheel.current_spoke];
 
-    tptr = (timer *)current_spoke->next;
-    while ((timer_links *)tptr != current_spoke) {
+    tptr = (lmtimer_t *)current_spoke->next;
+    while ((lmtimer_links_t *)tptr != current_spoke) {
         next = tptr->links.next;
         prev = tptr->links.prev;
 
@@ -288,11 +320,11 @@ handle_timers(void)
         }
         /* We can not use directly "next" as it could be released  in the
          *  callback function  previously to be used */
-        tptr = (timer *)(prev->next);
+        tptr = (lmtimer_t *)(prev->next);
     }
 }
 
-int
+static int
 process_timer_signal(sock_t *sl)
 {
     int sig;
@@ -335,24 +367,27 @@ static void event_sig_handler(int sig)
  * having to deal with all sorts of locking and multithreading
  * nonsense.
  */
-int
+static int
 build_timers_event_socket(int *timers_fd)
 {
     int flags;
     struct sigaction sa;
 
     if (pipe(signal_pipe) == -1) {
-        LMLOG(LERR, "build_timers_event_socket: signal pipe setup failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: signal pipe setup failed %s",
+                strerror(errno));
         return (BAD);
     }
     *timers_fd = signal_pipe[0];
 
     if ((flags = fcntl(*timers_fd, F_GETFL, 0)) == -1) {
-        LMLOG(LERR, "build_timers_event_socket: fcntl() F_GETFL failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: fcntl() F_GETFL failed %s",
+                strerror(errno));
         return (BAD);
     }
     if (fcntl(*timers_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        LMLOG(LERR, "build_timers_event_socket: fcntl() set O_NONBLOCK failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: fcntl() set O_NONBLOCK failed "
+                "%s", strerror(errno));
         return (BAD);
     }
 
@@ -362,7 +397,29 @@ build_timers_event_socket(int *timers_fd)
     sigemptyset(&sa.sa_mask);
 
     if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
-        LMLOG(LERR, "build_timers_event_socket: sigaction() failed %s", strerror(errno));
+        LMLOG(LERR, "build_timers_event_socket: sigaction() failed %s",
+                strerror(errno));
+        exit_cleanup();
     }
+    return(GOOD);
+}
+
+static int
+destroy_timers_event_socket()
+{
+    struct sigaction sa;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = NULL;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+
+    if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
+        LMLOG(LERR, "destroy_timers_event_socket: sigaction() failed %s",
+                strerror(errno));
+    }
+
+    close(signal_pipe[0]);
+    close(signal_pipe[1]);
     return(GOOD);
 }

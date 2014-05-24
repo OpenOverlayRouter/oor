@@ -76,7 +76,7 @@ int initial_info_request_process();
 
 /* Send Info Request */
 int info_request(
-        timer   *ttl_timer,
+        lmtimer_t   *ttl_timer,
         void    *arg);
 
 

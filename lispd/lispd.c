@@ -35,6 +35,7 @@
 #include <signal.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <time.h>
 
 #include "lispd.h"
 #include "lispd_config.h"
@@ -76,9 +77,6 @@ int     netlink_fd                          = 0;
 int nat_aware = FALSE;
 int nat_status = UNKNOWN;
 nonces_list_t *nat_ir_nonce = NULL;
-
-/* timers (fds) */
-int timers_fd = 0;
 
 sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
@@ -278,8 +276,9 @@ void signal_handler(int sig) {
 void
 exit_cleanup(void) {
 
+    free(config_file);
+
     /* close sockets */
-    close(timers_fd);
     close(netlink_fd);
 
     close(tun_receive_fd);
@@ -293,6 +292,8 @@ exit_cleanup(void) {
 
     lisp_output_uninit();
     sockmstr_destroy(smaster);
+
+    timers_destroy();
 
     LMLOG(LINF,"Exiting ...");
     exit(EXIT_SUCCESS);
@@ -346,6 +347,8 @@ handle_lispd_command_line(int argc, char **argv)
     } else {
         default_rloc_afi = -1;
     }
+
+    cmdline_parser_free(&args_info);
 }
 
 static void
@@ -379,20 +382,20 @@ setup_signal_handlers()
 
 }
 
-static void
-init_timer_wheel()
-{
-    /* create timers event socket */
-    if (build_timers_event_socket(&timers_fd) == 0) {
-        LMLOG(LCRIT, " Error programming the timer signal. Exiting...");
-        exit_cleanup();
-    }
-
-    init_timers();
-
-    /* register timer fd with the socket master */
-    sockmstr_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
-}
+//static void
+//init_timer_wheel()
+//{
+//    /* create timers event socket */
+//    if (build_timers_event_socket(&timers_fd) == 0) {
+//        LMLOG(LCRIT, " Error programming the timer signal. Exiting...");
+//        exit_cleanup();
+//    }
+//
+//    timers_init();
+//
+//    /* register timer fd with the socket master */
+//    sockmstr_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
+//}
 
 static void
 init_netlink()
@@ -479,7 +482,7 @@ main(int argc, char **argv)
 
     /* create socket master, timer wheel, initialize interfaces */
     smaster = sockmstr_create();
-    init_timer_wheel();
+    timers_init();
     ifaces_init();
 
     /* create control. Only one instance for now */

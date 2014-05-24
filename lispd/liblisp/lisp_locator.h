@@ -89,7 +89,7 @@ typedef struct lcl_locator_extended_info {
 /* Structure to expand lispd_locator_elt for remote locators */
 typedef struct rmt_locator_extended_info {
     nonces_list_t *rloc_probing_nonces;
-    timer *probe_timer;
+    lmtimer_t *probe_timer;
 } rmt_locator_extended_info_t;
 
 

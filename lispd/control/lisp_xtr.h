@@ -82,8 +82,8 @@ typedef struct lisp_xtr {
     nonces_list_t *nat_ir_nonces;
 
     /* TIMERS */
-    timer *map_register_timer;
-    timer *smr_timer;
+    lmtimer_t *map_register_timer;
+    lmtimer_t *smr_timer;
 
     /* LOCAL IFACE MAPPING */
     /* in case of RTR can be used for outgoing load balancing */

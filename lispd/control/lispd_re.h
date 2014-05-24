@@ -54,7 +54,7 @@ typedef struct {
     int             leave_pending;
     mapping_t       *mapping;
 
-    timer           *join_upstream_timer;
+    lmtimer_t           *join_upstream_timer;
 } re_upstream_t;
 
 typedef struct mcinfo_mapping_exteded_info_ {
@@ -63,7 +63,7 @@ typedef struct mcinfo_mapping_exteded_info_ {
     uint8_t         level;
     uint8_t         is_itr;
 
-    timer           *itr_solve_timer;
+    lmtimer_t           *itr_solve_timer;
     uint8_t         resolution_pending;
 } re_mapping_data;
 

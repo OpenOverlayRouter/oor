@@ -242,7 +242,7 @@ int initial_info_request_process()
 
 
 int info_request(
-        timer   *ttl_timer,
+        lmtimer_t   *ttl_timer,
         void    *arg)
 {
     mapping_t           *mapping         = NULL;

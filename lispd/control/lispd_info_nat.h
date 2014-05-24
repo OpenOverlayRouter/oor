@@ -39,7 +39,7 @@
 #define NAT_REPLY                        1
 #define NAT_NO_REPLY                     0 
 
-extern  timer *info_reply_ttl_timer;
+extern  lmtimer_t *info_reply_ttl_timer;
 
 
 /* NAT traversal Info-Request message

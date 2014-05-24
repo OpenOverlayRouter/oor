@@ -116,7 +116,7 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
 
 /* Called when the timer associated with a registered lisp site expires. */
 static int
-lsite_entry_expiration_timer_cb(timer *t, void *arg)
+lsite_entry_expiration_timer_cb(lmtimer_t *t, void *arg)
 {
     lisp_reg_site_t *rsite = NULL;
     lisp_addr_t *addr = NULL;

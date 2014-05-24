@@ -46,7 +46,7 @@
  *
  */
 
-timer *info_reply_ttl_timer = NULL;
+lmtimer_t *info_reply_ttl_timer = NULL;
 
 
 /*

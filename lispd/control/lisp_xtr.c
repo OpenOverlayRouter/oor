@@ -33,7 +33,7 @@
 #include "util.h"
 #include "lmlog.h"
 
-static int mc_entry_expiration_timer_cb(timer *t, void *arg);
+static int mc_entry_expiration_timer_cb(lmtimer_t *t, void *arg);
 static void mc_entry_start_expiration_timer(lisp_xtr_t *, mcache_entry_t *);
 static int handle_petr_probe_reply(lisp_xtr_t *, mapping_t *, locator_t *,
         uint64_t);
@@ -54,7 +54,7 @@ static int build_and_send_smr_mreq(lisp_xtr_t *, mapping_t *, lisp_addr_t *,
         lisp_addr_t *);
 static int build_and_send_smr_mreq_to_map(lisp_xtr_t *, mapping_t *,
         mapping_t *);
-static int send_all_smr_cb(timer *, void *arg);
+static int send_all_smr_cb(lmtimer_t *, void *arg);
 static void send_all_smr_and_reg(lisp_xtr_t *);
 static int send_smr_invoked_map_request(lisp_xtr_t *, mcache_entry_t *);
 static int program_smr(lisp_xtr_t *, int time);
@@ -79,7 +79,7 @@ static fwd_entry_t *tr_get_forwarding_entry(lisp_ctrl_dev_t *,
 
 /* Called when the timer associated with an EID entry expires. */
 static int
-mc_entry_expiration_timer_cb(timer *t, void *arg)
+mc_entry_expiration_timer_cb(lmtimer_t *t, void *arg)
 {
     mapping_t *mapping = NULL;
     lisp_addr_t *addr = NULL;
@@ -753,7 +753,7 @@ build_and_send_smr_mreq_to_map(lisp_xtr_t *xtr, mapping_t *src_map,
 }
 
 static int
-send_all_smr_cb(timer *t, void *arg)
+send_all_smr_cb(lmtimer_t *t, void *arg)
 {
     send_all_smr_and_reg(arg);
     stop_timer(t);
@@ -841,7 +841,7 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
 }
 
 static int
-smr_invoked_map_request_cb(timer *t, void *arg)
+smr_invoked_map_request_cb(lmtimer_t *t, void *arg)
 {
     return(send_smr_invoked_map_request(t->owner, arg));
 }
@@ -854,7 +854,7 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
     nonces_list_t *nonces;
     mapping_t *m;
     lisp_addr_t *deid, empty, *srloc, *drloc;
-    timer *t;
+    lmtimer_t *t;
     glist_t *rlocs;
     int afi;
 
@@ -920,7 +920,7 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
 
 static int
 program_smr(lisp_xtr_t *xtr, int time) {
-    timer *t;
+    lmtimer_t *t;
     t = xtr->smr_timer;
     if (!t) {
         xtr->smr_timer = create_timer(SMR_TIMER);
@@ -933,7 +933,7 @@ program_smr(lisp_xtr_t *xtr, int time) {
 
 
 static int
-send_map_request_retry_cb(timer *t, void *arg) {
+send_map_request_retry_cb(lmtimer_t *t, void *arg) {
     int ret;
 
     ret = send_map_request_retry(t->owner, arg);
@@ -945,7 +945,7 @@ send_map_request_retry_cb(timer *t, void *arg) {
 static int
 send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
 {
-    timer *t;
+    lmtimer_t *t;
     nonces_list_t *nonces;
     mapping_t *m;
     lisp_addr_t *deid, *seid, empty = {.lafi = LM_AFI_NO_ADDR};
@@ -1084,7 +1084,7 @@ build_and_send_ecm_map_reg(lisp_xtr_t *xtr, mapping_t *m, lisp_addr_t *dst,
 }
 
 static int
-map_register_cb(timer *t, void *arg)
+map_register_cb(lmtimer_t *t, void *arg)
 {
     return(map_register_process(t->owner));
 }
@@ -1092,7 +1092,7 @@ map_register_cb(timer *t, void *arg)
 static int
 program_map_register(lisp_xtr_t *xtr, int time)
 {
-    timer *t = xtr->map_register_timer;
+    lmtimer_t *t = xtr->map_register_timer;
     if (!t) {
         xtr->map_register_timer = create_timer(MAP_REGISTER_TIMER);
         t = xtr->map_register_timer;
@@ -1259,7 +1259,7 @@ map_register_process(lisp_xtr_t *xtr)
 }
 
 static int
-rloc_probing_cb(timer *t, void *arg)
+rloc_probing_cb(lmtimer_t *t, void *arg)
 {
     timer_rloc_probe_argument *rparg = arg;
     return(rloc_probing(t->owner, rparg->mapping, rparg->locator));
@@ -1276,7 +1276,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
     lisp_addr_t *deid, empty, *drloc;
     lbuf_t *b;
     glist_t *rlocs;
-    timer *t;
+    lmtimer_t *t;
     void *hdr, *arg;
 
 
@@ -1942,7 +1942,11 @@ select_locs_from_maps(mapping_t *smap, mapping_t *dmap,
     } else {
         if (src_blv->v4_balancing_locators_vec == NULL
                 && src_blv->v6_balancing_locators_vec == NULL) {
-            LMLOG(DBG_2, "select_locs_from_maps: No src locators "
+            LMLOG(DBG_2, "select_locs_from_maps: No SRC locators "
+                    "available");
+        }else if (dst_blv->v4_balancing_locators_vec == NULL
+                && dst_blv->v6_balancing_locators_vec == NULL) {
+            LMLOG(DBG_2, "select_locs_from_maps: No DST locators "
                     "available");
         } else {
             LMLOG(DBG_2, "select_locs_from_maps: Source and "
@@ -2148,6 +2152,11 @@ get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     }
 
     dmap = mcache_entry_mapping(mce);
+    if (mapping_locator_count(dmap) == 0) {
+        LMLOG(DBG_3, "Destination %s has a NEGATIVE mapping!",
+                lisp_addr_to_char(&tuple->dst_addr));
+        return(fe);
+    }
 
     if (xtr->super.mode == xTR_MODE) {
         /* lookup local mapping for source EID */

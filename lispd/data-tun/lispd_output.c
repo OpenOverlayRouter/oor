@@ -180,8 +180,6 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     if (!fe) {
         fe = ctrl_get_forwarding_entry(tuple);
         ttable_insert(&ttable, pkt_tuple_clone(tuple), fe);
-    } else {
-        LMLOG(DBG_1, "HIT!");
     }
 
 

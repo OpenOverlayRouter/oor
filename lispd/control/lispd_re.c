@@ -38,7 +38,7 @@
  */
 
 
-int start_join_upstream(timer *t, void *arg) {
+int start_join_upstream(lmtimer_t *t, void *arg) {
     re_upstream_t *upstream = arg;
     re_join_upstream(upstream->mapping);
     start_timer(upstream->join_upstream_timer, RE_UPSTREAM_JOIN_TIMEOUT, start_join_upstream, upstream);
@@ -63,7 +63,7 @@ int begin_upstream_join_loop(mapping_t *mapping) {
     return(GOOD);
 }
 
-int re_upstream_join_cb(timer *t, void *arg) {
+int re_upstream_join_cb(lmtimer_t *t, void *arg) {
     timer_upstream_join *argtimer = arg;
 
     mapping_t *mapping = tr_mcache_lookup_mapping(argtimer->mceid);
@@ -83,7 +83,7 @@ int re_upstream_join_cb(timer *t, void *arg) {
 int re_join_channel(lisp_addr_t *mceid) {
     mapping_t           *mapping     = NULL;
     lisp_addr_t         *src            = NULL;
-    timer               *t = NULL;
+    lmtimer_t               *t = NULL;
     timer_upstream_join *argtimer = NULL;
 
     /* FIRST STEP

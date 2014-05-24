@@ -29,6 +29,8 @@
  *    Florin Coras      <fcoras@ac.upc.edu>
  */
 
+#include <time.h>
+
 #include "map_cache_entry.h"
 #include "lmlog.h"
 #include "defs.h"

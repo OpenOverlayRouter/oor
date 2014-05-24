@@ -131,6 +131,8 @@ iface_remove_routing_rules(iface_t *iface)
 void
 iface_destroy(iface_t *iface)
 {
+    iface_map_list_t *it, *next;
+
     /* Remove routing rules */
     iface_remove_routing_rules(iface);
 
@@ -142,11 +144,23 @@ iface_destroy(iface_t *iface)
         close(iface->out_socket_v6);
     }
 
+    it = iface->head_mappings_list;
+    while (it) {
+        next = it->next;
+        free(it);
+        /* DO NOT free the mapping. It will be freed when
+         * the local database is destroyed */
+        it = next;
+    }
+
     /* Free data structure */
     free(iface->iface_name);
-    lisp_addr_del(iface->ipv4_address);
+    /* DO NOT FREE THE INTERFACES' ADDRESSES
+     * They are freed when the local database is destroyed */
+
+    /* lisp_addr_del(iface->ipv4_address);
+     * lisp_addr_del(iface->ipv6_address); */
     lisp_addr_del(iface->ipv4_gateway);
-    lisp_addr_del(iface->ipv6_address);
     lisp_addr_del(iface->ipv6_gateway);
 
     free(iface);

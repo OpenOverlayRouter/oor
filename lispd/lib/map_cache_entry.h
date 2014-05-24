@@ -67,9 +67,9 @@ typedef struct map_cache_entry_ {
     time_t timestamp;
 
     /* timers */
-    timer *expiry_cache_timer;
-    timer *request_retry_timer;
-    timer *smr_inv_timer;
+    lmtimer_t *expiry_cache_timer;
+    lmtimer_t *request_retry_timer;
+    lmtimer_t *smr_inv_timer;
 
     nonces_list_t *nonces;
 
@@ -97,11 +97,11 @@ static inline void mcache_entry_set_requester(mcache_entry_t *,
 static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *);
 
 /* timer accessors */
-static inline timer *mcache_entry_req_retry_timer(mcache_entry_t *);
-static inline timer *mcache_entry_init_req_retry_timer(mcache_entry_t *);
-static inline timer *mcache_entry_smr_inv_timer(mcache_entry_t *);
+static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *);
+static inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *);
+static inline lmtimer_t *mcache_entry_smr_inv_timer(mcache_entry_t *);
 static inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *);
-static inline timer *mcache_entry_init_smr_inv_timer(mcache_entry_t *);
+static inline lmtimer_t *mcache_entry_init_smr_inv_timer(mcache_entry_t *);
 static inline void mcache_entry_requester_del(mcache_entry_t *m);
 
 static inline mapping_t *mcache_entry_mapping(mcache_entry_t* mce)
@@ -163,7 +163,7 @@ static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *m)
     return(m->requester);
 }
 
-static inline timer *mcache_entry_req_retry_timer(mcache_entry_t *m)
+static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *m)
 {
     return(m->request_retry_timer);
 }
@@ -175,7 +175,7 @@ static inline void mcache_entry_stop_req_retry_timer(mcache_entry_t *m)
 
 }
 
-static inline timer *mcache_entry_init_req_retry_timer(mcache_entry_t *m)
+static inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *m)
 {
     if (m->request_retry_timer) {
         mcache_entry_stop_req_retry_timer(m);
@@ -185,7 +185,7 @@ static inline timer *mcache_entry_init_req_retry_timer(mcache_entry_t *m)
 }
 
 
-static inline timer *mcache_entry_smr_inv_timer(mcache_entry_t *m)
+static inline lmtimer_t *mcache_entry_smr_inv_timer(mcache_entry_t *m)
 {
     return(m->smr_inv_timer);
 }
@@ -196,7 +196,7 @@ static inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *m)
     m->smr_inv_timer = NULL;
 }
 
-static inline timer *mcache_entry_init_smr_inv_timer(mcache_entry_t *m)
+static inline lmtimer_t *mcache_entry_init_smr_inv_timer(mcache_entry_t *m)
 {
     if (m->smr_inv_timer) {
         mcache_entry_stop_smr_inv_timer(m);

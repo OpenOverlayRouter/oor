@@ -40,7 +40,7 @@
 
 /* Time after which a negative entry is considered to have timed
  * out and is removed from the table */
-#define NEGATIVE_TIMEOUT 0.5
+#define NEGATIVE_TIMEOUT 0.1
 
 /* Maximum size of the tuple table */
 #define MAX_SIZE 10000
@@ -114,8 +114,6 @@ ttable_insert(ttable_t *tt, packet_tuple_t *tpl, fwd_entry_t *fe)
     node->fe = fe;
     clock_gettime(CLOCK_MONOTONIC, &node->ts);
 
-    LMLOG(DBG_1, "INSERTING NODE %s -> %s\n", lisp_addr_to_char(&tpl->src_addr),
-            lisp_addr_to_char(&tpl->dst_addr));
     htable_insert(tt->htable, tpl, node);
 
     /* If table is full, lookup and remove expired entries */
@@ -143,8 +141,6 @@ ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
     if (elapsed > TIMEOUT
         || (!tn->fe && elapsed > NEGATIVE_TIMEOUT)) {
         htable_remove(tt->htable, tpl);
-        LMLOG(DBG_1, "REMOVING NODE %s -> %s\n", lisp_addr_to_char(&tpl->src_addr),
-                lisp_addr_to_char(&tpl->dst_addr));
         return(NULL);
     } else {
         return(tn->fe);

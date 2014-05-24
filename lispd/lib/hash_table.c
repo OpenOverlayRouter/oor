@@ -10,7 +10,6 @@
 #include "hash_table.h"
 #include "util.h"
 #include "stdlib.h"
-#include "lmlog.h"
 
 #define HASH_TABLE_MIN_SIZE 11
 #define HASH_TABLE_MAX_SIZE 13845163
@@ -198,7 +197,6 @@ htable_insert(htable_t *ht, void *key, void *value)
          * can be used otherwise.
          *
          * node->key = key; */
-        LMLOG(DBG_1, "NODE EXISTS!!!!!\n\n");
         (*node)->value = value;
     } else {
         *node = hnode_new(ht, key, value);
