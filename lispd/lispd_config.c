@@ -388,14 +388,11 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
         cfg_t *selp = cfg_getnsec(cfg, "explicit-locator-path", i);
         name = cfg_getstr(selp, "elp-name");
 
-        laddr = lisp_addr_new_afi(LM_AFI_LCAF);
-        lisp_addr_lcaf_set_type(laddr, LCAF_EXPL_LOC_PATH);
-
         elp = elp_type_new();
 
         for (j = 0; j < cfg_size(selp, "elp-node");j++) {
             cfg_t *senode = cfg_getnsec(selp, "elp-node", j);
-            enode = calloc(1, sizeof(elp_node_t));
+            enode = xzalloc(sizeof(elp_node_t));
             enode->addr = lisp_addr_new();
             if (lisp_addr_ip_from_char(cfg_getstr(senode, "address"),
                     enode->addr) != GOOD) {
@@ -411,7 +408,9 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
             glist_add_tail(enode, elp->nodes);
         }
 
-        lisp_addr_lcaf_set_addr(laddr, (void *)elp);
+        laddr = lisp_addr_new_afi(LM_AFI_LCAF);
+        lisp_addr_lcaf_set_type(laddr, LCAF_EXPL_LOC_PATH);
+        lisp_addr_lcaf_set_addr(laddr, elp);
         LMLOG(DBG_1, "Configuration file: parsed explicit-locator-path: %s",
                 lisp_addr_to_char(laddr));
 
@@ -503,7 +502,7 @@ parse_lcafs(cfg_t *cfg)
 
     /* create lcaf hash table */
     lcaf_ht = htable_new(g_str_hash, g_str_equal, free,
-            (h_key_del_fct)lisp_addr_del);
+            (h_val_del_fct)lisp_addr_del);
     parse_elp_list(cfg, lcaf_ht);
     parse_rle_list(cfg, lcaf_ht);
     parse_mcinfo_list(cfg, lcaf_ht);

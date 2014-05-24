@@ -344,6 +344,7 @@ pkt_tuple_del(packet_tuple_t *tpl)
     lisp_addr_dealloc(&tpl->dst_addr);
     lisp_addr_dealloc(&tpl->src_addr);
     free(tpl);
+    tpl = NULL;
 }
 
 

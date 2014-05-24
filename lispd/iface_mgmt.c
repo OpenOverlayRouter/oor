@@ -210,7 +210,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
 {
     lisp_addr_t *iface_addr = NULL, old_addr;
     int afi, aux_afi;
-    iface_mappings_list *mapping_list = NULL;
+    iface_map_list_t *mapping_list = NULL;
 
     /* XXX To be modified when full NAT implemented --> When Nat Aware active
      * no IPv6 RLOCs supported */
@@ -800,7 +800,7 @@ process_link_status_change(iface_t *iface, int new_status)
 void
 activate_interface_address(iface_t *iface, lisp_addr_t *new_address)
 {
-    iface_mappings_list *mapping_list = NULL;
+    iface_map_list_t *mapping_list = NULL;
     mapping_t *mapping = NULL;
     locators_list_t **not_init_locators_list = NULL;
     locators_list_t **locators_list = NULL;

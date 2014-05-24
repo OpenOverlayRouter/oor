@@ -38,14 +38,14 @@
 #include "timers.h"
 
 /* list of mappings associated an interface */
-typedef struct iface_mappings_list_ {
+typedef struct iface_map_list {
     mapping_t *mapping;
     /* The mapping has a locator that use the IPv4 address of iface */
     uint8_t use_ipv4_address :1;
     /* The mapping has a locator that use the IPv6 address of iface */
     uint8_t use_ipv6_address :1;
-    struct iface_mappings_list_ *next;
-} iface_mappings_list;
+    struct iface_map_list *next;
+} iface_map_list_t;
 
 
 /* Interface structure
@@ -63,7 +63,7 @@ typedef struct iface {
 
     /* List of mappings that have a locator associated with this interface.
      * Used to do SMR  when interface changes*/
-    iface_mappings_list *head_mappings_list;
+    iface_map_list_t *head_mappings_list;
 
     /*detect changes on flapping interfaces*/
     uint8_t status_changed :1;
@@ -90,7 +90,13 @@ extern iface_t *default_ctrl_iface_v6;
 extern shash_t *iface_addr_ht;
 
 
-int init_ifaces();
+int ifaces_init();
+void ifaces_destroy();
+iface_list_elt_t *ifaces_list_head();
+
+
+void iface_destroy(iface_t *iface);
+void iface_remove_routing_rules(iface_t *iface);
 
 /*  Fill the parameter addr with the lisp_addr_t of the interface with afi.
  *  Return BAD if no address is present in the interface. */
@@ -125,7 +131,6 @@ lisp_addr_t *iface_address(iface_t *iface, int afi);
 int iface_socket(iface_t *iface, int afi);
 
 
-iface_list_elt_t *get_head_interface_list();
 
 /*
  * Recalculate balancing vector of the mappings assorciated to iface
@@ -137,6 +142,5 @@ void iface_balancing_vectors_calc(iface_t  *iface);
  * Close all the open output sockets associated to interfaces
  */
 
-void close_output_sockets();
 
 #endif /*IFACE_LIST_H_*/

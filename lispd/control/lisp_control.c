@@ -86,10 +86,6 @@ set_rlocs(lisp_ctrl_t *ctrl)
     }
 
     set_default_rlocs(ctrl);
-
-    LMLOG(DBG_1, "Rlocs\n ipv4: %s ", laddr_list_to_char(ctrl->ipv4_rlocs));
-    LMLOG(DBG_1, "Rlocs\n ipv6: %s ", laddr_list_to_char(ctrl->ipv6_rlocs) );
-    LMLOG(DBG_1, "default rlocs: %s", laddr_list_to_char(ctrl->default_rlocs) );
 }
 
 lisp_ctrl_t *
@@ -213,10 +209,10 @@ ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, glist_t *mappings_to_smr)
 {
     iface_list_elt_t *iface_list = NULL;
     mapping_t *m;
-    iface_mappings_list *mlist;
+    iface_map_list_t *mlist;
     glist_entry_t *it;
 
-    iface_list = get_head_interface_list();
+    iface_list = ifaces_list_head();
 
     while (iface_list) {
         if ((iface_list->iface->status_changed == TRUE)

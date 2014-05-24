@@ -163,6 +163,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lbuf_t *mrep = NULL;
     lbuf_t  b;
     lisp_site_prefix_t *site;
+    lisp_reg_site_t *rsite;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -208,7 +209,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     }
 
     /* Find if the site actually registered */
-    if (!(map = mdb_lookup_entry(ms->reg_sites_db, deid))) {
+    if (!(rsite = mdb_lookup_entry(ms->reg_sites_db, deid))) {
         /* send negative map-reply with TTL 1 min */
         mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,
                 MREQ_NONCE(mreq_hdr));
@@ -217,6 +218,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         send_msg(&ms->super, mrep, uc);
         goto done;
     }
+
+    map = rsite->site_map;
 
     /* IF *NOT* PROXY REPLY: forward the message to an xTR */
     if (!site->proxy_reply) {

@@ -277,25 +277,24 @@ void signal_handler(int sig) {
 
 void
 exit_cleanup(void) {
-    /* Remove source routing tables */
-    remove_created_rules();
-    /* Close timer file descriptors */
-    close(timers_fd);
 
-    /* Close receive sockets */
+    /* close sockets */
+    close(timers_fd);
+    close(netlink_fd);
+
     close(tun_receive_fd);
     close(ipv4_data_input_fd);
     close(ipv6_data_input_fd);
-    /* Close send sockets */
-    close_output_sockets();
-    /* Close netlink socket */
-    close(netlink_fd);
-    shash_destroy(iface_addr_ht);
+
+    ifaces_destroy();
+
     ctrl_destroy(lctrl);
     ctrl_dev_destroy(ctrl_dev);
+
     lisp_output_uninit();
+    sockmstr_destroy(smaster);
+
     LMLOG(LINF,"Exiting ...");
-    sleep(1);
     exit(EXIT_SUCCESS);
 }
 
@@ -479,9 +478,9 @@ main(int argc, char **argv)
     demonize_start();
 
     /* create socket master, timer wheel, initialize interfaces */
-    smaster = sockmstr_new();
+    smaster = sockmstr_create();
     init_timer_wheel();
-    init_ifaces();
+    ifaces_init();
 
     /* create control. Only one instance for now */
     lctrl = ctrl_create();

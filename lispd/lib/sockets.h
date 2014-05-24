@@ -92,7 +92,8 @@ union sockunion {
 
 
 
-sockmstr_t *sockmstr_new();
+sockmstr_t *sockmstr_create();
+void sockmstr_destroy(sockmstr_t *sm);
 struct sock *sockmstr_register_read_listener(sockmstr_t *m,
         int (*)(struct sock *), void *arg, int fd);
 void sockmstr_process_all(sockmstr_t *m);

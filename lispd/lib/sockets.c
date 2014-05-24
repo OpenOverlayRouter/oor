@@ -43,15 +43,30 @@
 #include "lmlog.h"
 
 sockmstr_t *
-sockmstr_new()
+sockmstr_create()
 {
     sockmstr_t *sm;
     sm = xzalloc(sizeof(sockmstr_t));
     return (sm);
 }
 
+
+
 static void
-sock_list_add(struct sock_list *lst, struct sock *sock)
+sock_list_remove_all(sock_list_t *lst)
+{
+    sock_t *sk, *next;
+
+    sk = lst->head;
+    while(sk) {
+        next = sk->next;
+        free(sk);
+        sk = next;
+    }
+}
+
+static void
+sock_list_add(sock_list_t *lst, sock_t *sock)
 {
     sock->next = NULL;
     sock->prev = lst->tail;
@@ -67,6 +82,13 @@ sock_list_add(struct sock_list *lst, struct sock *sock)
         lst->maxfd = sock->fd;
     }
 
+}
+
+void
+sockmstr_destroy(sockmstr_t *sm)
+{
+    sock_list_remove_all(&sm->read);
+    free(sm);
 }
 
 struct sock *

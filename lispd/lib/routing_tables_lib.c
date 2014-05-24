@@ -283,26 +283,31 @@ int del_rule(
 /*
  * Remove all the created rules to the source routing tables
  */
-void remove_created_rules()
+void
+routing_rules_remove()
 {
     iface_list_elt_t *interface_list = NULL;
     iface_t *iface = NULL;
 
     interface_list = head_interface_list;
-    while (interface_list != NULL){
+    while (interface_list != NULL) {
         iface = interface_list->iface;
 
-        if (iface->ipv4_address->afi != AF_UNSPEC){
-            if (iface->ipv4_gateway != NULL){
-                del_route(AF_INET,iface->iface_index,NULL,NULL,iface->ipv4_gateway,0,0,iface->iface_index);
+        if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
+            if (iface->ipv4_gateway != NULL) {
+                del_route(AF_INET, iface->iface_index, NULL, NULL,
+                        iface->ipv4_gateway, 0, 0, iface->iface_index);
             }
-            del_rule(AF_INET,0,iface->iface_index,iface->iface_index,RTN_UNICAST,iface->ipv4_address,32,NULL,0,0);
+            del_rule(AF_INET, 0, iface->iface_index, iface->iface_index,
+                    RTN_UNICAST, iface->ipv4_address, 32, NULL, 0, 0);
         }
-        if (iface->ipv6_address->afi != AF_UNSPEC){
-            if (iface->ipv6_gateway != NULL){
-                del_route(AF_INET6,iface->iface_index,NULL,NULL,iface->ipv6_gateway,0,0,iface->iface_index);
+        if (!lisp_addr_is_no_addr(iface->ipv6_address)) {
+            if (iface->ipv6_gateway != NULL) {
+                del_route(AF_INET6, iface->iface_index, NULL, NULL,
+                        iface->ipv6_gateway, 0, 0, iface->iface_index);
             }
-            del_rule(AF_INET6,0,iface->iface_index,iface->iface_index,RTN_UNICAST,iface->ipv6_address,128,NULL,0,0);
+            del_rule(AF_INET6, 0, iface->iface_index, iface->iface_index,
+                    RTN_UNICAST, iface->ipv6_address, 128, NULL, 0, 0);
         }
         interface_list = interface_list->next;
     }

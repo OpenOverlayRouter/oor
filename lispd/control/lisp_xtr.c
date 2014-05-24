@@ -639,7 +639,6 @@ send_map_request_to_mr(lisp_xtr_t *xtr, lbuf_t *b, lisp_addr_t *in_srloc,
             lisp_addr_to_char(in_drloc), LISP_CONTROL_PORT,
             LISP_CONTROL_PORT);
 
-    LMLOG(DBG_1, "resolver is %s", lisp_addr_to_char(drloc));
     return(send_map_request(&xtr->super, b, srloc, drloc));
 }
 
@@ -2060,7 +2059,7 @@ get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
     return (fwd_entry);
 }
 
-int
+static int
 rtr_get_src_and_dst_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **src,
         lisp_addr_t **dst)
 {
@@ -2123,7 +2122,7 @@ get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
 }
 
 static fwd_entry_t *
-get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
+get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
 {
     mcache_entry_t *mce;
     mapping_t *smap = NULL;
@@ -2133,17 +2132,19 @@ get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     fwd_entry_t *fe = NULL;
     int safi, dafi;
 
+    fe = xzalloc(sizeof(fwd_entry_t));
+
     mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
 
     if (!mce) {
         LMLOG(DBG_1, "No map cache for EID %s. Sending Map-Request!",
                 lisp_addr_to_char(&tuple->dst_addr));
         handle_map_cache_miss(xtr, &tuple->dst_addr, &tuple->src_addr);
-        return(NULL);
+        return(fe);
     } else if (mce->active == NOT_ACTIVE) {
         LMLOG(DBG_3, "Already sent Map-Request for %s. Waiting for reply!",
                 lisp_addr_to_char(&tuple->dst_addr));
-        return(NULL);
+        return(fe);
     }
 
     dmap = mcache_entry_mapping(mce);
@@ -2156,26 +2157,25 @@ get_xtr_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     }
 
     if (select_locs_from_maps(smap, dmap, tuple, &srloc, &drloc) != GOOD) {
-        return(NULL);
+        return(fe);
         /* Try PETRs */
         if (!xtr->petrs) {
             LMLOG(DBG_3, "Trying to forward to PETR but none found ...");
-            return (NULL);
+            return (fe);
         }
         if ((select_locs_from_maps(smap, xtr->petrs->mapping, tuple,
                 &srloc, &drloc)) != GOOD) {
             LMLOG(DBG_3, "No PETR compatible with local locators afi");
-            return (NULL);
+            return (fe);
         }
     }
 
     if (!srloc || !drloc) {
         LMLOG(DBG_2, "get_forwarding_entry: No valid source and destination "
                 "RLOC pair");
-        return(NULL);
+        return(fe);
     }
 
-    fe = xzalloc(sizeof(fwd_entry_t));
 
     safi = lisp_addr_afi(locator_addr(srloc));
     dafi = lisp_addr_afi(locator_addr(drloc));
@@ -2215,7 +2215,7 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
     if (xtr->nat_aware && xtr->nat_status == FULL_NAT) {
         return(get_natt_forwarding_entry(xtr, tuple));
     } else {
-        return(get_xtr_fwd_entry(xtr, tuple));
+        return(get_fwd_entry(xtr, tuple));
     }
 }
 

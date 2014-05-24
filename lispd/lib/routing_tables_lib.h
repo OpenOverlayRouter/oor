@@ -71,7 +71,7 @@ int del_rule(
 /*
  * Remove all the created rules to the source routing tables
  */
-void remove_created_rules();
+void routing_rules_remove();
 
 /*
  * Request to the kernel the routing table with the selected afi

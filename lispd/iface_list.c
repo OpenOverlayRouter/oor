@@ -100,9 +100,72 @@ build_iface_addr_hash_table()
 }
 
 int
-init_ifaces() {
+ifaces_init()
+{
     build_iface_addr_hash_table();
     return(GOOD);
+}
+
+
+void
+iface_remove_routing_rules(iface_t *iface)
+{
+    if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
+        if (iface->ipv4_gateway != NULL) {
+            del_route(AF_INET, iface->iface_index, NULL, NULL,
+                    iface->ipv4_gateway, 0, 0, iface->iface_index);
+        }
+        del_rule(AF_INET, 0, iface->iface_index, iface->iface_index,
+                RTN_UNICAST, iface->ipv4_address, 32, NULL, 0, 0);
+    }
+    if (!lisp_addr_is_no_addr(iface->ipv6_address)) {
+        if (iface->ipv6_gateway != NULL) {
+            del_route(AF_INET6, iface->iface_index, NULL, NULL,
+                    iface->ipv6_gateway, 0, 0, iface->iface_index);
+        }
+        del_rule(AF_INET6, 0, iface->iface_index, iface->iface_index,
+                RTN_UNICAST, iface->ipv6_address, 128, NULL, 0, 0);
+    }
+}
+
+void
+iface_destroy(iface_t *iface)
+{
+    /* Remove routing rules */
+    iface_remove_routing_rules(iface);
+
+    /* Close sockets */
+    if (iface->out_socket_v4 != -1) {
+        close(iface->out_socket_v4);
+    }
+    if (iface->out_socket_v6 != -1) {
+        close(iface->out_socket_v6);
+    }
+
+    /* Free data structure */
+    free(iface->iface_name);
+    lisp_addr_del(iface->ipv4_address);
+    lisp_addr_del(iface->ipv4_gateway);
+    lisp_addr_del(iface->ipv6_address);
+    lisp_addr_del(iface->ipv6_gateway);
+
+    free(iface);
+}
+
+
+void
+ifaces_destroy()
+{
+    iface_list_elt_t *elt, *next;
+    elt = head_interface_list;
+    while(elt) {
+        next = elt->next;
+        iface_destroy(elt->iface);
+        free(elt);
+        elt = next;
+    }
+
+    shash_destroy(iface_addr_ht);
 }
 
 
@@ -295,8 +358,8 @@ add_interface(char *iface_name)
 int
 add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
 {
-    iface_mappings_list *map_list = NULL;
-    iface_mappings_list *prev_map_list = NULL;
+    iface_map_list_t *map_list = NULL;
+    iface_map_list_t *prev_map_list = NULL;
 
     map_list = iface->head_mappings_list;
     while (map_list != NULL) {
@@ -320,7 +383,7 @@ add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
         map_list = map_list->next;
     }
 
-    map_list = xmalloc(sizeof(iface_mappings_list));
+    map_list = xmalloc(sizeof(iface_map_list_t));
     map_list->mapping = m;
     map_list->next = NULL;
 
@@ -429,7 +492,7 @@ iface_list_to_char(int log_level)
     iface_t *iface;
     mapping_t *m;
     iface_list_elt_t *interface_list = head_interface_list;
-    iface_mappings_list *mapping_list = NULL;
+    iface_map_list_t *mapping_list = NULL;
     char str[4000];
 
     if (head_interface_list == NULL || is_loggable(log_level) == FALSE) {
@@ -722,7 +785,7 @@ iface_socket(iface_t *iface, int afi)
  * Return the list of interfaces
  */
 
-iface_list_elt_t *get_head_interface_list()
+iface_list_elt_t *ifaces_list_head()
 {
     return head_interface_list;
 }
@@ -731,7 +794,7 @@ iface_list_elt_t *get_head_interface_list()
 /* Recalculate balancing vector of the mappings associated to iface */
 void
 iface_balancing_vectors_calc(iface_t *iface) {
-    iface_mappings_list *mapping_list = NULL;
+    iface_map_list_t *mapping_list = NULL;
     lcl_mapping_extended_info *lcl_extended_info = NULL;
 
     mapping_list = iface->head_mappings_list;
@@ -741,28 +804,6 @@ iface_balancing_vectors_calc(iface_t *iface) {
                 &(lcl_extended_info->outgoing_balancing_locators_vecs));
         mapping_list = mapping_list->next;
     }
-}
-
-/* Close all the open output sockets associated to interfaces */
-void
-close_output_sockets() {
-    iface_list_elt_t *interface_list_elt = NULL;
-    iface_t *iface = NULL;
-
-    interface_list_elt = head_interface_list;
-    while (interface_list_elt != NULL) {
-        iface = interface_list_elt->iface;
-        if (iface->out_socket_v4 != -1) {
-            close(iface->out_socket_v4);
-        }
-        if (iface->out_socket_v6 != -1) {
-            close(iface->out_socket_v6);
-        }
-
-        interface_list_elt = interface_list_elt->next;
-    }
-
-    return;
 }
 
 
