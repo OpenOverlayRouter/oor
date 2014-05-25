@@ -47,8 +47,8 @@ typedef void (*extended_info_del_fct)(void *);
 typedef struct mapping {
     lisp_addr_t                     eid_prefix;
     uint16_t                        locator_count;
-    locators_list_t                 *head_v4_locators_list;
-    locators_list_t                 *head_v6_locators_list;
+    locator_list_t                 *head_v4_locators_list;
+    locator_list_t                 *head_v6_locators_list;
 
     uint32_t                        ttl;
     uint8_t                         action;
@@ -84,7 +84,7 @@ typedef struct balancing_locators_vecs_ {
 typedef struct lcl_mapping_extended_info_ {
     balancing_locators_vecs outgoing_balancing_locators_vecs;
     /* List of locators not initialized: interface without ip */
-    locators_list_t *head_not_init_locators_list;
+    locator_list_t *head_not_init_locators_list;
 } lcl_mapping_extended_info;
 
 /* Structure to expand the lispd_mapping_elt used in lispd_map_cache_entry */
@@ -103,18 +103,15 @@ void mapping_del(mapping_t *);
 int mapping_cmp(mapping_t *, mapping_t *);
 
 int mapping_add_locator(mapping_t *, locator_t *);
-int mapping_add_locators(mapping_t *, locators_list_t *);
-void mapping_update_locators(mapping_t *, locators_list_t *,
-        locators_list_t *, int);
+int mapping_add_locators(mapping_t *, locator_list_t *);
+void mapping_update_locators(mapping_t *, locator_list_t *,
+        locator_list_t *, int);
 locator_t *mapping_get_locator(mapping_t *, lisp_addr_t *);
-void mapping_sort_locators(mapping_t *, lisp_addr_t *);
 void mapping_del_locators(mapping_t *);
-void sort_locators_list_elt(mapping_t *, lisp_addr_t *);
+void mapping_sort_locators(mapping_t *, lisp_addr_t *);
 
 int mapping_compute_balancing_vectors(mapping_t *);
 void mapping_extended_info_del(mapping_t *);
-int balancing_vectors_calculate(mapping_t *, balancing_locators_vecs *);
-void balancing_vectors_to_char(balancing_locators_vecs, mapping_t *, int );
 
 char *mapping_to_char(mapping_t *m);
 

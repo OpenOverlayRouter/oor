@@ -49,15 +49,14 @@ typedef struct lmtimer {
 
 
 
-int timers_init();
-void timers_destroy();
+int lmtimers_init();
+void lmtimers_destroy();
 
-lmtimer_t *create_timer(char *);
+lmtimer_t *lmtimer_create(char *);
 
-void start_timer(lmtimer_t *tptr, int, lmtimer_callback_t, void *);
-void start_timer_new(lmtimer_t *, int, lmtimer_callback_t, void *, void *);
+void lmtimer_start(lmtimer_t *, int, lmtimer_callback_t, void *, void *);
 
-void stop_timer(lmtimer_t *);
+void lmtimer_stop(lmtimer_t *);
 
 
 #endif /*TIMERS_H_*/

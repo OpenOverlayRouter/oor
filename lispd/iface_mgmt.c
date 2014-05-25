@@ -303,7 +303,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
         if (aux_afi != AF_UNSPEC  // When the locator is activated, it is automatically sorted
             && ((lisp_addr_ip_afi(new_addr) == AF_INET && mapping_list->use_ipv4_address == TRUE)
             || (lisp_addr_ip_afi(new_addr) == AF_INET6 && mapping_list->use_ipv6_address == TRUE))) {
-            sort_locators_list_elt(mapping_list->mapping, iface_addr);
+            mapping_sort_locators(mapping_list->mapping, iface_addr);
         }
         mapping_list = mapping_list->next;
     }
@@ -802,8 +802,8 @@ activate_interface_address(iface_t *iface, lisp_addr_t *new_address)
 {
     iface_map_list_t *mapping_list = NULL;
     mapping_t *mapping = NULL;
-    locators_list_t **not_init_locators_list = NULL;
-    locators_list_t **locators_list = NULL;
+    locator_list_t **not_init_locators_list = NULL;
+    locator_list_t **locators_list = NULL;
     locator_t *locator = NULL;
     lcl_mapping_extended_info *leif;
 

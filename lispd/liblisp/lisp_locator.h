@@ -68,7 +68,7 @@ typedef struct locator {
 typedef struct locators_list {
     locator_t *locator;
     struct locators_list *next;
-} locators_list_t;
+} locator_list_t;
 
 typedef struct rtr_locator {
     lisp_addr_t address;
@@ -108,11 +108,11 @@ locator_t *locator_init_local_full(lisp_addr_t *, uint8_t *, uint8_t, uint8_t,
 void locator_del(locator_t *loc);
 locator_t *locator_clone(locator_t *loc);
 
-locator_t *locator_list_extract_locator(locators_list_t **, lisp_addr_t);
-locator_t *locator_list_get_locator(locators_list_t *, lisp_addr_t *);
-void locator_list_del(locators_list_t *list);
-int locator_list_add(locators_list_t **, locator_t *);
-locators_list_t *locator_list_clone(locators_list_t *llist);
+locator_t *locator_list_extract_locator(locator_list_t **, lisp_addr_t);
+locator_t *locator_list_get_locator(locator_list_t *, lisp_addr_t *);
+void locator_list_del(locator_list_t *list);
+int locator_list_add(locator_list_t **, locator_t *);
+locator_list_t *locator_list_clone(locator_list_t *llist);
 
 static inline lisp_addr_t *locator_addr(locator_t *);
 static inline void locator_remote_set_addr(locator_t *, lisp_addr_t *);

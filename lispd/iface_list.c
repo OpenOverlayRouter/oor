@@ -155,11 +155,9 @@ iface_destroy(iface_t *iface)
 
     /* Free data structure */
     free(iface->iface_name);
-    /* DO NOT FREE THE INTERFACES' ADDRESSES
-     * They are freed when the local database is destroyed */
 
-    /* lisp_addr_del(iface->ipv4_address);
-     * lisp_addr_del(iface->ipv6_address); */
+    lisp_addr_del(iface->ipv4_address);
+    lisp_addr_del(iface->ipv6_address);
     lisp_addr_del(iface->ipv4_gateway);
     lisp_addr_del(iface->ipv6_gateway);
 
@@ -377,8 +375,7 @@ add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
 
     map_list = iface->head_mappings_list;
     while (map_list != NULL) {
-        /* Check if the mapping is already installed in the list
-         * XXX: this is risky stuff */
+        /* Check if the mapping is already installed in the list */
         if (map_list->mapping == m) {
             switch (afi) {
             case AF_INET:
@@ -809,13 +806,10 @@ iface_list_elt_t *ifaces_list_head()
 void
 iface_balancing_vectors_calc(iface_t *iface) {
     iface_map_list_t *mapping_list = NULL;
-    lcl_mapping_extended_info *lcl_extended_info = NULL;
 
     mapping_list = iface->head_mappings_list;
     while (mapping_list != NULL) {
-        lcl_extended_info = mapping_list->mapping->extended_info;
-        balancing_vectors_calculate(mapping_list->mapping,
-                &(lcl_extended_info->outgoing_balancing_locators_vecs));
+        mapping_compute_balancing_vectors(mapping_list->mapping);
         mapping_list = mapping_list->next;
     }
 }

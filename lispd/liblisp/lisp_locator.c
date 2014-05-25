@@ -82,8 +82,10 @@ free_rmt_locator_extended_info(rmt_locator_extended_info_t *extended_info)
     }
 
     if (extended_info->probe_timer != NULL) {
+        /* This is needed because in case of RLOC probing we allocate
+         * a struct pointing to the mapping and the locator */
         free(extended_info->probe_timer->cb_argument);
-        stop_timer(extended_info->probe_timer);
+        lmtimer_stop(extended_info->probe_timer);
         extended_info->probe_timer = NULL;
     }
     if (extended_info->rloc_probing_nonces != NULL) {
@@ -129,13 +131,12 @@ locator_new()
 char *
 locator_to_char(locator_t *l)
 {
-    static char buf[5][2000];
-    static int i;
+    static char buf[5][500];
+    static int i=0;
 
     /* hack to allow more than one locator per line */
-    i++;
-    i = i % 5;
-
+    i++; i = i % 5;
+    *buf[i] = '\0';
     sprintf(buf[i], "%s, ", lisp_addr_to_char(locator_addr(l)));
     sprintf(buf[i] + strlen(buf[i]), "%s, ", l->state ? "Up" : "Down");
     sprintf(buf[i] + strlen(buf[i]), "%d/%-d, %d/%d", l->priority, l->weight,
@@ -279,14 +280,16 @@ locator_del(locator_t *locator)
         return;
     }
 
-    lisp_addr_del(locator->addr);
     if (locator->type != LOCAL_LOCATOR) {
+        lisp_addr_del(locator->addr);
         free_rmt_locator_extended_info(locator->extended_info);
         free(locator->state);
     } else {
         free_lcl_locator_extended_info(locator->extended_info);
+        /* DO NOT free the interface's address */
     }
     free(locator);
+    locator = NULL;
 }
 
 locator_t *
@@ -319,13 +322,13 @@ locator_clone(locator_t *loc)
 }
 
 int
-locator_list_add(locators_list_t **list, locator_t *loc)
+locator_list_add(locator_list_t **list, locator_t *loc)
 {
-    locators_list_t *loc_list = NULL, *aux_llist_prev = NULL, *aux_llist_next =
+    locator_list_t *loc_list = NULL, *aux_llist_prev = NULL, *aux_llist_next =
             NULL;
     int cmp = 0;
 
-    loc_list = xmalloc(sizeof(locators_list_t));
+    loc_list = xmalloc(sizeof(locator_list_t));
     loc_list->next = NULL;
     loc_list->locator = loc;
 
@@ -378,12 +381,12 @@ locator_list_add(locators_list_t **list, locator_t *loc)
 /* Extract the locator from a locators list that match with the address.
  * The locator is removed from the list */
 locator_t *
-locator_list_extract_locator(locators_list_t **head_locator_list,
+locator_list_extract_locator(locator_list_t **head_locator_list,
         lisp_addr_t addr)
 {
     locator_t *locator = NULL;
-    locators_list_t *locator_list = NULL;
-    locators_list_t *prev_locator_list_elt = NULL;
+    locator_list_t *locator_list = NULL;
+    locator_list_t *prev_locator_list_elt = NULL;
 
     locator_list = *head_locator_list;
     while (locator_list != NULL) {
@@ -407,7 +410,7 @@ locator_list_extract_locator(locators_list_t **head_locator_list,
 /* Return the locator from the list that contains the address passed as a
  * parameter */
 locator_t *
-locator_list_get_locator(locators_list_t *llist, lisp_addr_t *addr)
+locator_list_get_locator(locator_list_t *llist, lisp_addr_t *addr)
 {
     locator_t *locator = NULL;
     int cmp = 0;
@@ -426,27 +429,27 @@ locator_list_get_locator(locators_list_t *llist, lisp_addr_t *addr)
 }
 
 void
-locator_list_del(locators_list_t *locator_list)
+locator_list_del(locator_list_t *locator_list)
 {
-    locators_list_t * aux_locator_list = NULL;
+    locator_list_t * next = NULL;
     while (locator_list) {
-        aux_locator_list = locator_list->next;
+        next = locator_list->next;
         locator_del(locator_list->locator);
         free(locator_list);
-        locator_list = aux_locator_list;
+        locator_list = next;
     }
 }
 
 /* Clones locators list BUT it DISCARDS probing nonces and timers! */
-locators_list_t *
-locator_list_clone(locators_list_t *llist)
+locator_list_t *
+locator_list_clone(locator_list_t *llist)
 {
-    locators_list_t *llist_elt = NULL;
-    locators_list_t *first = NULL;
-    locators_list_t *last = NULL;
+    locator_list_t *llist_elt = NULL;
+    locator_list_t *first = NULL;
+    locator_list_t *last = NULL;
 
     while (llist != NULL){
-        llist_elt = xzalloc(sizeof(locators_list_t));
+        llist_elt = xzalloc(sizeof(locator_list_t));
         llist_elt->locator = locator_clone(llist->locator);
 
         if (first == NULL) {

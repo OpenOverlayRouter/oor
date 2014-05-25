@@ -252,12 +252,12 @@ int process_info_reply_msg(
     /* If we are behind NAT, the program timer to send Info Request after TTL minutes */
     if (is_behind_nat == TRUE){
         if (info_reply_ttl_timer == NULL) {
-            info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
+            info_reply_ttl_timer = lmtimer_create(INFO_REPLY_TTL_TIMER);
         }
-        start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
+        lmtimer_start(info_reply_ttl_timer, ttl*60, info_request, NULL, (void *)mapping);
         LMLOG(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
     }else{
-        stop_timer(info_reply_ttl_timer);
+        lmtimer_stop(info_reply_ttl_timer);
         info_reply_ttl_timer = NULL;
     }
 

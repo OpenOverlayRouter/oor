@@ -82,14 +82,14 @@ mcache_entry_del(mcache_entry_t *entry)
     mapping_del(mcache_entry_mapping(entry));
 
     if (entry->how_learned == MCE_DYNAMIC) {
-        if (entry->expiry_cache_timer){
-            stop_timer(entry->expiry_cache_timer);
+        if (entry->expiry_cache_timer) {
+            lmtimer_stop(entry->expiry_cache_timer);
             entry->expiry_cache_timer = NULL;
         }
-        if (entry->request_retry_timer){
+        if (entry->request_retry_timer) {
             mcache_entry_stop_req_retry_timer(entry);
         }
-        if (entry->smr_inv_timer){
+        if (entry->smr_inv_timer) {
             mcache_entry_stop_smr_inv_timer(entry);
         }
     }

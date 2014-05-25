@@ -41,7 +41,7 @@
 int start_join_upstream(lmtimer_t *t, void *arg) {
     re_upstream_t *upstream = arg;
     re_join_upstream(upstream->mapping);
-    start_timer(upstream->join_upstream_timer, RE_UPSTREAM_JOIN_TIMEOUT, start_join_upstream, upstream);
+    lmtimer_start(upstream->join_upstream_timer, RE_UPSTREAM_JOIN_TIMEOUT, start_join_upstream, NULL, upstream);
     return(GOOD);
 }
 
@@ -58,7 +58,7 @@ int begin_upstream_join_loop(mapping_t *mapping) {
     redata->upstream->mapping = mapping;
 
 
-    redata->upstream->join_upstream_timer = create_timer(RE_UPSTREAM_JOIN_TIMER);
+    redata->upstream->join_upstream_timer = lmtimer_create(RE_UPSTREAM_JOIN_TIMER);
     start_join_upstream(redata->upstream->join_upstream_timer, redata->upstream);
     return(GOOD);
 }
@@ -96,11 +96,11 @@ int re_join_channel(lisp_addr_t *mceid) {
             return(BAD);
 
         /* SECOND STEP IF FAILURE */
-        t = create_timer(RE_UPSTREAM_JOIN_TIMER);
+        t = lmtimer_create(RE_UPSTREAM_JOIN_TIMER);
 
         argtimer = calloc(1, sizeof(timer_upstream_join));
         argtimer->mceid = lisp_addr_clone(mceid);
-        start_timer(t, RE_ITR_MR_SOLVE_TIMEOUT, re_upstream_join_cb, (void *)argtimer);
+        lmtimer_start(t, RE_ITR_MR_SOLVE_TIMEOUT, re_upstream_join_cb, NULL, (void *)argtimer);
     }
 
     /* SECOND STEP
@@ -159,7 +159,7 @@ static int re_select_upstream(re_upstream_t *upstream, mapping_t *ch_mapping, ma
     lisp_addr_t         *mceid = NULL, *src_rloc = NULL, *dst_rloc = NULL, *rleaddr = NULL, *itr_eid = NULL;
     mapping_t           *itr_mapping = NULL;
     lcaf_addr_t         *rle            = NULL;
-    locators_list_t *ll             = NULL;
+    locator_list_t *ll             = NULL;
     glist_entry_t       *it             = NULL;
     rle_node_t          *rnode          = NULL;
     int                 level = 0, local_level = 0;

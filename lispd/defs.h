@@ -56,6 +56,24 @@ typedef struct sockmstr sockmstr_t;
 #define LISPD_MIN_RETRANSMIT_INTERVAL   1  // Minimum time between retransmits of control messages
 
 
+#define DEFAULT_MAP_REQUEST_RETRIES             3
+#define DEFAULT_MAP_REGISTER_TIMEOUT            10
+
+//#define MAP_REGISTER_INTERVAL                   60  /* LJ: sets the interval at which periodic
+//                                                     * map register messages are sent (seconds).
+//                                                     * The spec recommends 1 minute
+//                                                     */
+//#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
+//                                                     * RLOC probes are sent (seconds) */
+#define MAP_REGISTER_INTERVAL                   60
+
+#define RLOC_PROBING_INTERVAL                   30
+#define DEFAULT_RLOC_PROBING_RETRIES            1
+#define DEFAULT_RLOC_PROBING_RETRIES_INTERVAL   5   /* Interval in seconds between RLOC probing retries  */
+
+#define DEFAULT_DATA_CACHE_TTL                  60  /* seconds */
+#define DEFAULT_SELECT_TIMEOUT                  1000/* ms */
+
 #define FIELD_AFI_LEN                    2
 #define FIELD_PORT_LEN                   2
 
@@ -98,29 +116,6 @@ int err;
 #define NO_NAT              0
 #define PARTIAL_NAT         1
 #define FULL_NAT            2
-
-
-
-#define DEFAULT_MAP_REQUEST_RETRIES             3
-#define DEFAULT_RLOC_PROBING_RETRIES            1
-#define DEFAULT_MAP_REGISTER_TIMEOUT            10  /* PN: expected to be in minutes; however,
-                                                     * lisp_mod treats this as seconds instead of
-                                                     * minutes
-                                                     */
-//#define MAP_REGISTER_INTERVAL                   60  /* LJ: sets the interval at which periodic
-//                                                     * map register messages are sent (seconds).
-//                                                     * The spec recommends 1 minute
-//                                                     */
-//#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
-//                                                     * RLOC probes are sent (seconds) */
-#define MAP_REGISTER_INTERVAL                   6000
-#define RLOC_PROBING_INTERVAL                   3000
-
-#define DEFAULT_RLOC_PROBING_RETRIES_INTERVAL   5   /* Interval in seconds between RLOC probing retries  */
-#define DEFAULT_DATA_CACHE_TTL                  60  /* seconds */
-#define DEFAULT_SELECT_TIMEOUT                  1000/* ms */
-
-
 
 
 /*

@@ -62,7 +62,7 @@ void lisp_site_prefix_del(lisp_site_prefix_t *sp) {
 void
 lisp_reg_site_del(lisp_reg_site_t *rs)
 {
-    stop_timer(rs->expiry_timer);
+    lmtimer_stop(rs->expiry_timer);
     mapping_del(rs->site_map);
     free(rs);
 }

@@ -86,7 +86,7 @@ create_timer_wheel(void)
 
 
 int
-timers_init()
+lmtimers_init()
 {
     int i = 0;
     lmtimer_links_t *spoke;
@@ -128,7 +128,7 @@ timers_init()
 }
 
 void
-timers_destroy()
+lmtimers_destroy()
 {
     int i;
     lmtimer_links_t *spoke, *sit, *next;
@@ -145,7 +145,7 @@ timers_destroy()
         while (sit != spoke){
             next = sit->next;
             t = CONTAINER_OF(sit, lmtimer_t, links);
-            stop_timer(t);
+            lmtimer_stop(t);
             sit = next;
         }
         spoke++;
@@ -161,7 +161,7 @@ timers_destroy()
  * Convenience function to allocate and zero a new timer.
  */
 lmtimer_t *
-create_timer(char *name)
+lmtimer_create(char *name)
 {
     lmtimer_t *new_timer = xzalloc(sizeof(lmtimer_t));
     strncpy(new_timer->name, name, TIMER_NAME_LEN - 1);
@@ -210,7 +210,8 @@ insert_timer(lmtimer_t *tptr)
  * to stop the timer later if desired.
  */
 void
-start_timer(lmtimer_t *tptr, int sexpiry, lmtimer_callback_t cb, void *cb_arg)
+lmtimer_start(lmtimer_t *tptr, int sexpiry, lmtimer_callback_t cb,
+        void *owner, void *cb_arg)
 {
     lmtimer_links_t *next, *prev;
 
@@ -226,6 +227,8 @@ start_timer(lmtimer_t *tptr, int sexpiry, lmtimer_callback_t cb, void *cb_arg)
         timer_wheel.running_timers--;
     }
 
+    tptr->owner = owner;
+
     /* Hook up the callback  */
     tptr->cb = cb;
     tptr->cb_argument = cb_arg;
@@ -236,15 +239,6 @@ start_timer(lmtimer_t *tptr, int sexpiry, lmtimer_callback_t cb, void *cb_arg)
     return;
 }
 
-void
-start_timer_new(lmtimer_t *tptr, int sec, lmtimer_callback_t cb,
-        void *owner, void *cb_arg)
-{
-    tptr->owner = owner;
-    start_timer(tptr, sec, cb, cb_arg);
-}
-
-
 
 /*
  * stop_timer()
@@ -252,7 +246,7 @@ start_timer_new(lmtimer_t *tptr, int sec, lmtimer_callback_t cb,
  * Mark one of the global timers as stopped and remove it.
  */
 void
-stop_timer(lmtimer_t *tptr)
+lmtimer_stop(lmtimer_t *tptr)
 {
     lmtimer_links_t *next, *prev;
 

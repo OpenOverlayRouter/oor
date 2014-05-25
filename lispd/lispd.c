@@ -293,7 +293,7 @@ exit_cleanup(void) {
     lisp_output_uninit();
     sockmstr_destroy(smaster);
 
-    timers_destroy();
+    lmtimers_destroy();
 
     LMLOG(LINF,"Exiting ...");
     exit(EXIT_SUCCESS);
@@ -382,21 +382,6 @@ setup_signal_handlers()
 
 }
 
-//static void
-//init_timer_wheel()
-//{
-//    /* create timers event socket */
-//    if (build_timers_event_socket(&timers_fd) == 0) {
-//        LMLOG(LCRIT, " Error programming the timer signal. Exiting...");
-//        exit_cleanup();
-//    }
-//
-//    timers_init();
-//
-//    /* register timer fd with the socket master */
-//    sockmstr_register_read_listener(smaster, process_timer_signal, NULL, timers_fd);
-//}
-
 static void
 init_netlink()
 {
@@ -482,7 +467,7 @@ main(int argc, char **argv)
 
     /* create socket master, timer wheel, initialize interfaces */
     smaster = sockmstr_create();
-    timers_init();
+    lmtimers_init();
     ifaces_init();
 
     /* create control. Only one instance for now */

@@ -39,7 +39,7 @@ typedef glist_t        remdb_t;
 typedef struct {
     /* actual data */
     lisp_addr_t         *addr;
-    locators_list_t *locators;
+    locator_list_t *locators;
 
     /* status fields */
     lmtimer_t               *rt_timer;
@@ -54,7 +54,7 @@ void                    remdb_del(remdb_t *db);
 void                    remdb_add_member(lisp_addr_t *addr, lisp_addr_t *rloc_pair, remdb_t *jib);
 void                    remdb_del_member(lisp_addr_t *addr, remdb_t *jib);
 remdb_member_t          *remdb_find_member(lisp_addr_t *peer, remdb_t *jib);
-void                    remdb_update_member(lisp_addr_t *addr, locators_list_t *loc_list);
+void                    remdb_update_member(lisp_addr_t *addr, locator_list_t *loc_list);
 inline uint32_t         remdb_size(remdb_t *jib);
 remdb_member_t          *remdb_member_init(lisp_addr_t *src, lisp_addr_t *rloc_pair);
 void                    remdb_dump(remdb_t *remdb, int log_level);

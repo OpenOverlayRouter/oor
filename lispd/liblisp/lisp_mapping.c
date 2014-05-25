@@ -34,24 +34,25 @@
 
 /* Free the dinamic arrays that contains the balancing_locators_vecs structure; */
 
-locator_t **set_balancing_vector(locator_t **, int, int, int *);
-int select_best_priority_locators(locators_list_t *, locator_t **);
+static locator_t **set_balancing_vector(locator_t **, int, int, int *);
+static int select_best_priority_locators(locator_list_t *, locator_t **);
 static inline void get_hcf_locators_weight(locator_t **, int *, int *);
 static int highest_common_factor(int a, int b);
 
 /* Initialize to 0 balancing_locators_vecs */
-void reset_balancing_locators_vecs (balancing_locators_vecs *blv);
+static void reset_balancing_locators_vecs (balancing_locators_vecs *blv);
 static void free_balancing_locators_vecs(balancing_locators_vecs);
 static void balancing_locators_vec_to_char(balancing_locators_vecs,
         mapping_t *, int);
+static int balancing_vectors_calculate(mapping_t *, balancing_locators_vecs *);
 
 
 
 /* Add a locator into the locators list of the mapping. */
 int
-mapping_add_locators(mapping_t *mapping, locators_list_t *locators)
+mapping_add_locators(mapping_t *mapping, locator_list_t *locators)
 {
-    locators_list_t *it;
+    locator_list_t *it;
 
     it = locators;
     while (it) {
@@ -137,13 +138,13 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
 
 /* This function sorts the locator list with IP = changed_loc_addr */
 void
-sort_locators_list_elt(mapping_t *mapping, lisp_addr_t *changed_loc_addr)
+mapping_sort_locators(mapping_t *mapping, lisp_addr_t *changed_loc_addr)
 {
-    locators_list_t *current_locators_list_elt = NULL;
-    locators_list_t *prev_locators_list_elt = NULL;
-    locators_list_t *changed_locator = NULL;
-    locators_list_t *prev_changed_locator = NULL;
-    locators_list_t *new_prev_changed_locator = NULL;
+    locator_list_t *current_locators_list_elt = NULL;
+    locator_list_t *prev_locators_list_elt = NULL;
+    locator_list_t *changed_locator = NULL;
+    locator_list_t *prev_changed_locator = NULL;
+    locator_list_t *new_prev_changed_locator = NULL;
     int changed_locator_updated = FALSE;
     int new_prev_changed_lct_updated = FALSE;
     int afi_length = 0;
@@ -236,7 +237,7 @@ locator_t *
 mapping_get_locator(mapping_t *mapping, lisp_addr_t *address)
 {
     locator_t *locator = NULL;
-    locators_list_t *locator_list = NULL;
+    locator_list_t *locator_list = NULL;
 
     switch (lisp_addr_ip_afi(address)) {
     case AF_INET:
@@ -276,7 +277,7 @@ free_balancing_locators_vecs(balancing_locators_vecs locs_vec)
 }
 
 /* Initialize to 0 balancing_locators_vecs */
-void
+static void
 reset_balancing_locators_vecs(balancing_locators_vecs *blv)
 {
     free_balancing_locators_vecs(*blv);
@@ -291,8 +292,8 @@ reset_balancing_locators_vecs(balancing_locators_vecs *blv)
 char *
 mapping_to_char(mapping_t *m)
 {
-    locators_list_t *locator_iterator_array[2] = { NULL, NULL };
-    locators_list_t *locator_iterator = NULL;
+    locator_list_t *locator_iterator_array[2] = { NULL, NULL };
+    locator_list_t *locator_iterator = NULL;
     locator_t *locator = NULL;
     int ctr = 0;
     static char buf[100];
@@ -321,93 +322,44 @@ mapping_to_char(mapping_t *m)
 
 /**************************************** TRAFFIC BALANCING FUNCTIONS ************************/
 
-/*
- * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
- */
-int
-balancing_vectors_calculate(mapping_t *mapping,
-        balancing_locators_vecs *b_locators_vecs)
+static int
+select_best_priority_locators(locator_list_t *locators_list_elt,
+        locator_t **selected_locators)
 {
-    // Store locators with same priority. Maximum 32 locators (33 to no get out of array)
-    locator_t *locators[3][33];
-
-    int min_priority[2] = { 255, 255 };
-    int total_weight[3] = { 0, 0, 0 };
-    int hcf[3] = { 0, 0, 0 };
-    int ctr = 0;
-    int ctr1 = 0;
+    locator_list_t *list_elt = locators_list_elt;
+    int min_priority = UNUSED_RLOC_PRIORITY;
     int pos = 0;
 
-    locators[0][0] = NULL;
-    locators[1][0] = NULL;
-
-    reset_balancing_locators_vecs(b_locators_vecs);
-
-    /* Fill the locator balancing vec using only IPv4 locators and according
-     * to their priority and weight */
-    if (mapping->head_v4_locators_list != NULL) {
-        min_priority[0] = select_best_priority_locators(
-                mapping->head_v4_locators_list, locators[0]);
-        if (min_priority[0] != UNUSED_RLOC_PRIORITY) {
-            get_hcf_locators_weight(locators[0], &total_weight[0], &hcf[0]);
-            b_locators_vecs->v4_balancing_locators_vec = set_balancing_vector(
-                    locators[0], total_weight[0], hcf[0],
-                    &(b_locators_vecs->v4_locators_vec_length));
+    while (list_elt != NULL) {
+        /* Only use locators with status UP */
+        if (*(list_elt->locator->state) == DOWN
+                || list_elt->locator->priority == UNUSED_RLOC_PRIORITY) {
+            list_elt = list_elt->next;
+            continue;
         }
-    }
-    /* Fill the locator balancing vec using only IPv6 locators and according
-     * to their priority and weight*/
-    if (mapping->head_v6_locators_list != NULL) {
-        min_priority[1] = select_best_priority_locators(
-                mapping->head_v6_locators_list, locators[1]);
-        if (min_priority[1] != UNUSED_RLOC_PRIORITY) {
-            get_hcf_locators_weight(locators[1], &total_weight[1], &hcf[1]);
-            b_locators_vecs->v6_balancing_locators_vec = set_balancing_vector(
-                    locators[1], total_weight[1], hcf[1],
-                    &(b_locators_vecs->v6_locators_vec_length));
+        /* If priority of the locator equal to min_priority, then add the
+         * locator to the list */
+        if (list_elt->locator->priority == min_priority) {
+            selected_locators[pos] = list_elt->locator;
+            pos++;
+            selected_locators[pos] = NULL;
         }
-    }
-    /* Fill the locator balancing vec using IPv4 and IPv6 locators and according
-     * to their priority and weight*/
-    if (b_locators_vecs->v4_balancing_locators_vec != NULL
-            && b_locators_vecs->v6_balancing_locators_vec != NULL) {
-        //Only IPv4 locators are involved (due to priority reasons)
-        if (min_priority[0] < min_priority[1]) {
-            b_locators_vecs->balancing_locators_vec =
-                    b_locators_vecs->v4_balancing_locators_vec;
-            b_locators_vecs->locators_vec_length =
-                    b_locators_vecs->v4_locators_vec_length;
-        } //Only IPv6 locators are involved (due to priority reasons)
-        else if (min_priority[0] > min_priority[1]) {
-            b_locators_vecs->balancing_locators_vec =
-                    b_locators_vecs->v6_balancing_locators_vec;
-            b_locators_vecs->locators_vec_length =
-                    b_locators_vecs->v6_locators_vec_length;
-        } //IPv4 and IPv6 locators are involved
-        else {
-            hcf[2] = highest_common_factor(hcf[0], hcf[1]);
-            total_weight[2] = total_weight[0] + total_weight[1];
-            for (ctr = 0; ctr < 2; ctr++) {
-                ctr1 = 0;
-                while (locators[ctr][ctr1] != NULL) {
-                    locators[2][pos] = locators[ctr][ctr1];
-                    ctr1++;
-                    pos++;
-                }
-            }
-            locators[2][pos] = NULL;
-            b_locators_vecs->balancing_locators_vec = set_balancing_vector(
-                    locators[2], total_weight[2], hcf[2],
-                    &(b_locators_vecs->locators_vec_length));
+        /* If priority of the locator is minor than the min_priority, then
+         * min_priority and list of rlocs is updated */
+        if (list_elt->locator->priority < min_priority) {
+            pos = 0;
+            min_priority = list_elt->locator->priority;
+            selected_locators[pos] = list_elt->locator;
+            pos++;
+            selected_locators[pos] = NULL;
         }
+        list_elt = list_elt->next;
     }
 
-    balancing_locators_vec_to_char(*b_locators_vecs, mapping, DBG_1);
-
-    return (GOOD);
+    return (min_priority);
 }
 
-locator_t **
+static locator_t **
 set_balancing_vector(locator_t **locators, int total_weight, int hcf,
         int *locators_vec_length)
 {
@@ -454,41 +406,90 @@ set_balancing_vector(locator_t **locators, int total_weight, int hcf,
     return (balancing_locators_vec);
 }
 
-int
-select_best_priority_locators(locators_list_t *locators_list_elt,
-        locator_t **selected_locators)
+
+/*
+ * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
+ */
+static int
+balancing_vectors_calculate(mapping_t *m, balancing_locators_vecs *blv)
 {
-    locators_list_t *list_elt = locators_list_elt;
-    int min_priority = UNUSED_RLOC_PRIORITY;
+    // Store locators with same priority. Maximum 32 locators (33 to no get out of array)
+    locator_t *locators[3][33];
+
+    int min_priority[2] = { 255, 255 };
+    int total_weight[3] = { 0, 0, 0 };
+    int hcf[3] = { 0, 0, 0 };
+    int ctr = 0;
+    int ctr1 = 0;
     int pos = 0;
 
-    while (list_elt != NULL) {
-        /* Only use locators with status UP */
-        if (*(list_elt->locator->state) == DOWN
-                || list_elt->locator->priority == UNUSED_RLOC_PRIORITY) {
-            list_elt = list_elt->next;
-            continue;
+    locators[0][0] = NULL;
+    locators[1][0] = NULL;
+
+    reset_balancing_locators_vecs(blv);
+
+    /* Fill the locator balancing vec using only IPv4 locators and according
+     * to their priority and weight */
+    if (m->head_v4_locators_list != NULL) {
+        min_priority[0] = select_best_priority_locators(
+                m->head_v4_locators_list, locators[0]);
+        if (min_priority[0] != UNUSED_RLOC_PRIORITY) {
+            get_hcf_locators_weight(locators[0], &total_weight[0], &hcf[0]);
+            blv->v4_balancing_locators_vec = set_balancing_vector(
+                    locators[0], total_weight[0], hcf[0],
+                    &(blv->v4_locators_vec_length));
         }
-        /* If priority of the locator equal to min_priority, then add the
-         * locator to the list */
-        if (list_elt->locator->priority == min_priority) {
-            selected_locators[pos] = list_elt->locator;
-            pos++;
-            selected_locators[pos] = NULL;
+    }
+    /* Fill the locator balancing vec using only IPv6 locators and according
+     * to their priority and weight*/
+    if (m->head_v6_locators_list != NULL) {
+        min_priority[1] = select_best_priority_locators(
+                m->head_v6_locators_list, locators[1]);
+        if (min_priority[1] != UNUSED_RLOC_PRIORITY) {
+            get_hcf_locators_weight(locators[1], &total_weight[1], &hcf[1]);
+            blv->v6_balancing_locators_vec = set_balancing_vector(
+                    locators[1], total_weight[1], hcf[1],
+                    &(blv->v6_locators_vec_length));
         }
-        /* If priority of the locator is minor than the min_priority, then
-         * min_priority and list of rlocs is updated */
-        if (list_elt->locator->priority < min_priority) {
-            pos = 0;
-            min_priority = list_elt->locator->priority;
-            selected_locators[pos] = list_elt->locator;
-            pos++;
-            selected_locators[pos] = NULL;
+    }
+    /* Fill the locator balancing vec using IPv4 and IPv6 locators and according
+     * to their priority and weight*/
+    if (blv->v4_balancing_locators_vec != NULL
+            && blv->v6_balancing_locators_vec != NULL) {
+        //Only IPv4 locators are involved (due to priority reasons)
+        if (min_priority[0] < min_priority[1]) {
+            blv->balancing_locators_vec =
+                    blv->v4_balancing_locators_vec;
+            blv->locators_vec_length =
+                    blv->v4_locators_vec_length;
+        } //Only IPv6 locators are involved (due to priority reasons)
+        else if (min_priority[0] > min_priority[1]) {
+            blv->balancing_locators_vec =
+                    blv->v6_balancing_locators_vec;
+            blv->locators_vec_length =
+                    blv->v6_locators_vec_length;
+        } //IPv4 and IPv6 locators are involved
+        else {
+            hcf[2] = highest_common_factor(hcf[0], hcf[1]);
+            total_weight[2] = total_weight[0] + total_weight[1];
+            for (ctr = 0; ctr < 2; ctr++) {
+                ctr1 = 0;
+                while (locators[ctr][ctr1] != NULL) {
+                    locators[2][pos] = locators[ctr][ctr1];
+                    ctr1++;
+                    pos++;
+                }
+            }
+            locators[2][pos] = NULL;
+            blv->balancing_locators_vec = set_balancing_vector(
+                    locators[2], total_weight[2], hcf[2],
+                    &(blv->locators_vec_length));
         }
-        list_elt = list_elt->next;
     }
 
-    return (min_priority);
+    balancing_locators_vec_to_char(*blv, m, DBG_1);
+
+    return (GOOD);
 }
 
 static inline void
@@ -592,9 +593,6 @@ balancing_locators_vec_to_char(balancing_locators_vecs b_locators_vecs,
 /********************************************************************************************/
 
 
-/*
- * lispd_mapping_elt set/get functions
- */
 
 inline mapping_t *
 mapping_new()
@@ -732,9 +730,8 @@ void mapping_del(mapping_t *m)
 
     mapping_extended_info_del(m);
 
-    /*  need hack to free lcaf addr */
-    if (lisp_addr_afi(mapping_eid(m)) == LM_AFI_LCAF)
-        lisp_addr_dealloc(mapping_eid(m));
+    /*  MUST free lcaf addr */
+    lisp_addr_dealloc(mapping_eid(m));
     free(m);
 
 }
@@ -774,8 +771,8 @@ mapping_extended_info_del(mapping_t *mapping)
 
 
 void
-mapping_update_locators(mapping_t *mapping, locators_list_t *locv4,
-        locators_list_t *locv6, int nb_locators)
+mapping_update_locators(mapping_t *mapping, locator_list_t *locv4,
+        locator_list_t *locv6, int nb_locators)
 {
     if (!mapping) {
         return;
@@ -789,36 +786,36 @@ mapping_update_locators(mapping_t *mapping, locators_list_t *locv4,
     if (mapping->head_v6_locators_list) {
         locator_list_del(mapping->head_v6_locators_list);
     }
-    mapping->head_v4_locators_list = locv4;
-    mapping->head_v6_locators_list = locv6;
+    mapping->head_v4_locators_list = locator_list_clone(locv4);
+    mapping->head_v6_locators_list = locator_list_clone(locv6);
     mapping->locator_count = nb_locators;
 }
 
 /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
 int
-mapping_compute_balancing_vectors(mapping_t *mapping)
+mapping_compute_balancing_vectors(mapping_t *m)
 {
     rmt_mapping_extended_info *reinf;
     lcl_mapping_extended_info *leinf;
 
-    switch (mapping->type) {
+    switch (m->type) {
     case MAPPING_REMOTE:
-        if (!mapping->extended_info) {
-            mapping->extended_info = xzalloc(sizeof(rmt_mapping_extended_info));
+        if (!m->extended_info) {
+            m->extended_info = xzalloc(sizeof(rmt_mapping_extended_info));
         }
-        if (mapping->locator_count != 0) {
-            reinf = mapping->extended_info;
-            return(balancing_vectors_calculate(mapping,
+        if (m->locator_count != 0) {
+            reinf = m->extended_info;
+            return(balancing_vectors_calculate(m,
                     &reinf->rmt_balancing_locators_vecs));
         }
         break;
     case MAPPING_LOCAL:
-        if (!mapping->extended_info) {
-            mapping->extended_info = xzalloc(sizeof(lcl_mapping_extended_info));
+        if (!m->extended_info) {
+            m->extended_info = xzalloc(sizeof(lcl_mapping_extended_info));
         }
-        if (mapping->locator_count > 0) {
-            leinf = mapping->extended_info;
-            return(balancing_vectors_calculate(mapping,
+        if (m->locator_count > 0) {
+            leinf = m->extended_info;
+            return(balancing_vectors_calculate(m,
                     &leinf->outgoing_balancing_locators_vecs));
         }
         break;
@@ -826,7 +823,7 @@ mapping_compute_balancing_vectors(mapping_t *mapping)
         return(GOOD);
     default:
         LMLOG(DBG_1, "mapping_compute_balancing_vectors: Mapping type %d "
-                "unknown. Aborting!",  mapping->type);
+                "unknown. Aborting!",  m->type);
         return(BAD);
     }
     return(GOOD);
@@ -838,7 +835,7 @@ int
 mapping_cmp(mapping_t *m1, mapping_t *m2)
 {
     int ret = 0, ctr = 0;
-    locators_list_t *ll1[2] = { NULL, NULL }, *ll2[2] = { NULL, NULL };
+    locator_list_t *ll1[2] = { NULL, NULL }, *ll2[2] = { NULL, NULL };
     locator_t *l1 = NULL, *l2 = NULL;
 
     if ((ret = lisp_addr_cmp(mapping_eid(m1), mapping_eid(m2))) != 0)

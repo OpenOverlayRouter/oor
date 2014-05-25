@@ -170,7 +170,7 @@ static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *m)
 
 static inline void mcache_entry_stop_req_retry_timer(mcache_entry_t *m)
 {
-     stop_timer(m->request_retry_timer);
+     lmtimer_stop(m->request_retry_timer);
      m->request_retry_timer = NULL;
 
 }
@@ -180,7 +180,7 @@ static inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *m)
     if (m->request_retry_timer) {
         mcache_entry_stop_req_retry_timer(m);
     }
-    m->request_retry_timer = create_timer(MAP_REQUEST_RETRY_TIMER);
+    m->request_retry_timer = lmtimer_create(MAP_REQUEST_RETRY_TIMER);
     return(m->request_retry_timer);
 }
 
@@ -192,7 +192,7 @@ static inline lmtimer_t *mcache_entry_smr_inv_timer(mcache_entry_t *m)
 
 static inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *m)
 {
-    stop_timer(m->smr_inv_timer);
+    lmtimer_stop(m->smr_inv_timer);
     m->smr_inv_timer = NULL;
 }
 
@@ -201,7 +201,7 @@ static inline lmtimer_t *mcache_entry_init_smr_inv_timer(mcache_entry_t *m)
     if (m->smr_inv_timer) {
         mcache_entry_stop_smr_inv_timer(m);
     }
-    m->smr_inv_timer = create_timer(SMR_INV_RETRY_TIMER);
+    m->smr_inv_timer = lmtimer_create(SMR_INV_RETRY_TIMER);
     return(m->smr_inv_timer);
 }
 

@@ -285,9 +285,9 @@ int info_request(
      * Configure timer to send the next map register.
      */
     if (info_reply_ttl_timer == NULL) {
-        info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
+        info_reply_ttl_timer = lmtimer_create(INFO_REPLY_TTL_TIMER);
     }
-    start_timer(info_reply_ttl_timer, next_timer_time, info_request, mapping);
+    lmtimer_start(info_reply_ttl_timer, next_timer_time, info_request, NULL, mapping);
     LMLOG(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d seconds",next_timer_time);
     return(GOOD);
 }

@@ -47,7 +47,7 @@ static inline lisp_ms_t *lisp_ms_cast(lisp_ctrl_dev_t *dev);
 static lisp_addr_t *
 get_locator_with_afi(mapping_t *m, int afi)
 {
-    locators_list_t *llist;
+    locator_list_t *llist;
     locator_t *loc;
 
     if (afi== AF_INET) {
@@ -138,11 +138,11 @@ lsite_entry_start_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
 {
     /* Expiration cache timer */
     if (!rsite->expiry_timer) {
-        rsite->expiry_timer = create_timer(REG_SITE_EXPRY_TIMER);
+        rsite->expiry_timer = lmtimer_create(REG_SITE_EXPRY_TIMER);
     }
 
     /* Give a 2s margin before purging the registered site */
-    start_timer_new(rsite->expiry_timer, MAP_REGISTER_INTERVAL + 2,
+    lmtimer_start(rsite->expiry_timer, MAP_REGISTER_INTERVAL + 2,
             lsite_entry_expiration_timer_cb, ms, rsite);
 
     LMLOG(DBG_1,"The map cache entry of EID %s will expire in %ld minutes.",
@@ -177,8 +177,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         goto err;
     }
 
-    LMLOG(DBG_1, "%s src-eid: %s", lisp_msg_hdr_to_char(&b),
-            lisp_addr_to_char(seid));
+    LMLOG(DBG_1, " src-eid: %s", lisp_addr_to_char(seid));
     if (MREQ_RLOC_PROBE(mreq_hdr)) {
         LMLOG(DBG_3, "Probe bit set. Discarding!");
         return(BAD);
@@ -408,9 +407,6 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                     mapping_update_locators(rsite->site_map,
                             m->head_v4_locators_list,
                             m->head_v6_locators_list, m->locator_count);
-                    /* cheap hack to avoid cloning */
-                    m->head_v4_locators_list = NULL;
-                    m->head_v6_locators_list = NULL;
                 } else {
                     /* TREAT MERGE SEMANTICS */
                     LMLOG(LWRN, "Prefix %s has merge semantics",

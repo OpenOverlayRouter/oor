@@ -97,10 +97,10 @@ mc_entry_start_expiration_timer(lisp_xtr_t *xtr, mcache_entry_t *mce)
 {
     /* Expiration cache timer */
     if (!mce->expiry_cache_timer) {
-        mce->expiry_cache_timer = create_timer(EXPIRE_MAP_CACHE_TIMER);
+        mce->expiry_cache_timer = lmtimer_create(EXPIRE_MAP_CACHE_TIMER);
     }
 
-    start_timer_new(mce->expiry_cache_timer, mce->ttl*60,
+    lmtimer_start(mce->expiry_cache_timer, mce->ttl*60,
             mc_entry_expiration_timer_cb, xtr, mce);
 
     LMLOG(DBG_1,"The map cache entry of EID %s will expire in %ld minutes.",
@@ -115,7 +115,7 @@ handle_petr_probe_reply(lisp_xtr_t *xtr, mapping_t *m, locator_t *probed,
 {
     mapping_t *old_map = NULL, *pmap = NULL;
     rmt_locator_extended_info_t *rmt_ext_inf = NULL;
-    locators_list_t *loc_list[2] = { NULL, NULL };
+    locator_list_t *loc_list[2] = { NULL, NULL };
     lisp_addr_t *src_eid = NULL;
     locator_t *loc = NULL, *aux_loc = NULL;
     int ctr;
@@ -281,10 +281,6 @@ update_mcache_entry(lisp_xtr_t *xtr, mapping_t *m, uint64_t nonce)
     /* DISCARD all locator state */
     mapping_update_locators(old_map, m->head_v4_locators_list,
             m->head_v6_locators_list, m->locator_count);
-
-    /* Steal the locators from the parsed mapping */
-    m->head_v4_locators_list = NULL;
-    m->head_v6_locators_list = NULL;
 
     mapping_compute_balancing_vectors(old_map);
 
@@ -672,7 +668,7 @@ handle_map_cache_miss(lisp_xtr_t *xtr, lisp_addr_t *requested_eid,
 static glist_t *
 build_rloc_list(mapping_t *m) {
     glist_t *rlocs = glist_new();
-    locators_list_t *llist[2] = {NULL, NULL};
+    locator_list_t *llist[2] = {NULL, NULL};
     int ctr;
     lisp_addr_t *loc;
 
@@ -729,7 +725,7 @@ build_and_send_smr_mreq_to_map(lisp_xtr_t *xtr, mapping_t *src_map,
 {
     int  j;
     lisp_addr_t *deid, *drloc;
-    locators_list_t *llists[2], *lit;
+    locator_list_t *llists[2], *lit;
     locator_t *loc;
 
     deid = mapping_eid(dst_map);
@@ -756,7 +752,7 @@ static int
 send_all_smr_cb(lmtimer_t *t, void *arg)
 {
     send_all_smr_and_reg(arg);
-    stop_timer(t);
+    lmtimer_stop(t);
     return(GOOD);
 }
 
@@ -905,7 +901,7 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
         /* init or delete and init, if needed, the timer */
         t = mcache_entry_init_smr_inv_timer(mce);
 
-        start_timer_new(t, LISPD_INITIAL_SMR_TIMEOUT,
+        lmtimer_start(t, LISPD_INITIAL_SMR_TIMEOUT,
                 smr_invoked_map_request_cb, xtr, mce);
         nonces->retransmits ++;
 
@@ -923,11 +919,11 @@ program_smr(lisp_xtr_t *xtr, int time) {
     lmtimer_t *t;
     t = xtr->smr_timer;
     if (!t) {
-        xtr->smr_timer = create_timer(SMR_TIMER);
+        xtr->smr_timer = lmtimer_create(SMR_TIMER);
         t = xtr->smr_timer;
     }
 
-    start_timer_new(t, LISPD_SMR_TIMEOUT, send_all_smr_cb, xtr, xtr);
+    lmtimer_start(t, LISPD_SMR_TIMEOUT, send_all_smr_cb, xtr, xtr);
     return(GOOD);
 }
 
@@ -997,7 +993,7 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
         /* prepare callback
          * init or delete and init, if needed, the timer */
         t = mcache_entry_init_req_retry_timer(mce);
-        start_timer_new(t, LISPD_INITIAL_SMR_TIMEOUT,
+        lmtimer_start(t, LISPD_INITIAL_SMR_TIMEOUT,
                 send_map_request_retry_cb, xtr, mce);
 
         nonces->retransmits++;
@@ -1094,12 +1090,12 @@ program_map_register(lisp_xtr_t *xtr, int time)
 {
     lmtimer_t *t = xtr->map_register_timer;
     if (!t) {
-        xtr->map_register_timer = create_timer(MAP_REGISTER_TIMER);
+        xtr->map_register_timer = lmtimer_create(MAP_REGISTER_TIMER);
         t = xtr->map_register_timer;
     }
 
     /* Configure timer to send the next map register. */
-    start_timer_new(t, time, map_register_cb, xtr, NULL);
+    lmtimer_start(t, time, map_register_cb, xtr, NULL);
     LMLOG(DBG_1, "(Re)programmed Map-Register process in %d seconds", time);
     return(GOOD);
 }
@@ -1133,7 +1129,7 @@ map_register_process_default(lisp_xtr_t *xtr)
 static locator_t *
 get_locator_behind_nat(mapping_t *m)
 {
-    locators_list_t *loc_list[2] = { NULL, NULL };
+    locator_list_t *loc_list[2] = { NULL, NULL };
     locator_t *loc = NULL;
     lcl_locator_extended_info_t *leinf;
     int ctr1;
@@ -1301,7 +1297,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         if (!nonces) {
             LMLOG(LWRN,"rloc_probing: Unable to allocate memory "
                     "for nonces. Reprogramming RLOC Probing");
-            start_timer_new(t, xtr->probe_interval, rloc_probing_cb, xtr, arg);
+            lmtimer_start(t, xtr->probe_interval, rloc_probing_cb, xtr, arg);
             return(BAD);
         }
     }
@@ -1332,7 +1328,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         nonces->retransmits++;
 
         /* Reprogram time for next retry */
-        start_timer_new(t, xtr->probe_retries_interval, rloc_probing_cb, xtr,
+        lmtimer_start(t, xtr->probe_retries_interval, rloc_probing_cb, xtr,
                 arg);
 
         lisp_msg_destroy(b);
@@ -1354,7 +1350,7 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
         einf->rloc_probing_nonces = NULL;
 
         /* Reprogram time for next probe interval */
-        start_timer_new(t, xtr->probe_interval, rloc_probing_cb, xtr, arg);
+        lmtimer_start(t, xtr->probe_interval, rloc_probing_cb, xtr, arg);
         LMLOG(DBG_2,"Reprogramed RLOC probing of the locator %s of the EID %s "
                 "in %d seconds", lisp_addr_to_char(drloc),
                 lisp_addr_to_char(deid), xtr->probe_interval);
@@ -1374,7 +1370,7 @@ program_rloc_probing(lisp_xtr_t *xtr, mapping_t *m,
 
     /* create timer and arg if needed*/
     if (!einf->probe_timer) {
-        einf->probe_timer = create_timer(RLOC_PROBING_TIMER);
+        einf->probe_timer = lmtimer_create(RLOC_PROBING_TIMER);
         arg = xzalloc(sizeof(timer_rloc_probe_argument));
         LMLOG(DBG_2,"Programming probing of EID's %s locator %s (%d seconds)",
                     lisp_addr_to_char(mapping_eid(m)),
@@ -1388,7 +1384,7 @@ program_rloc_probing(lisp_xtr_t *xtr, mapping_t *m,
 
     arg->locator = loc;
     arg->mapping = m;
-    start_timer_new(einf->probe_timer, time, rloc_probing_cb, xtr, arg);
+    lmtimer_start(einf->probe_timer, time, rloc_probing_cb, xtr, arg);
 
 }
 
@@ -1396,7 +1392,7 @@ program_rloc_probing(lisp_xtr_t *xtr, mapping_t *m,
 static void
 program_mapping_rloc_probing(lisp_xtr_t *xtr, mapping_t *m)
 {
-    locators_list_t *llists[2] = { NULL, NULL };
+    locator_list_t *llists[2] = { NULL, NULL };
     locator_t *locator = NULL;
     int ctr = 0;
 
@@ -1427,7 +1423,7 @@ program_mapping_rloc_probing(lisp_xtr_t *xtr, mapping_t *m)
 static void
 program_petr_rloc_probing(lisp_xtr_t *xtr, int time)
 {
-    locators_list_t *locators_lists[2] = { NULL, NULL };
+    locator_list_t *locators_lists[2] = { NULL, NULL };
     locator_t *locator = NULL;
     int ctr = 0;
 
@@ -1493,6 +1489,8 @@ tr_mcache_remove_mapping(lisp_xtr_t *xtr, lisp_addr_t *laddr)
 
     data = mcache_remove_entry(xtr->map_cache, laddr);
     mcache_entry_del(data);
+    mcache_dump_db(xtr->map_cache, DBG_1);
+
     return (GOOD);
 }
 
@@ -1803,7 +1801,7 @@ ctrl_dev_class_t xtr_ctrl_class = {
 static void
 proxy_etrs_to_char(lisp_xtr_t *xtr, int log_level)
 {
-    locators_list_t *locator_lst_elt[2] = { NULL, NULL };
+    locator_list_t *locator_lst_elt[2] = { NULL, NULL };
     int ctr = 0;
 
     if (xtr->petrs == NULL || is_loggable(log_level) == FALSE) {

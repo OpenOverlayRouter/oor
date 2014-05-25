@@ -392,7 +392,7 @@ lisp_msg_put_mapping_hdr(lbuf_t *b)
 void *
 lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, lisp_addr_t *probed_loc)
 {
-    locators_list_t *loc_list[2]   = {NULL,NULL};
+    locator_list_t *loc_list[2]   = {NULL,NULL};
     locator_t *loc;
     int i;
     mapping_record_hdr_t *rec;

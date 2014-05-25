@@ -235,7 +235,7 @@ lisp_addr_to_char(lisp_addr_t *addr)
         return (lcaf_addr_to_char(get_lcaf_(addr)));
         break;
     case LM_AFI_NO_ADDR:
-        return ("_EMPTY_ADDR_");
+        return ("_NO_ADDR_");
     default:
         LMLOG(DBG_3, "lisp_addr_to_char: Trying to convert"
                 " to string unknown LISP AFI %d", lisp_addr_afi(addr));

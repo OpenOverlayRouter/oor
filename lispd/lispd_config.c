@@ -74,6 +74,11 @@ static mapping_t *build_mapping_from_config(cfg_t *, htable_t *, int);
 static int link_iface_and_mapping(iface_t *, mapping_t *, int, int, int, int);
 static int add_rtr_iface(lisp_xtr_t *, char *, int p, int w);
 
+static lisp_addr_t *parse_lisp_addr(char *address, htable_t *lcaf_ht);
+static lisp_addr_t *parse_eid_in_mapping(cfg_t *map, htable_t *lcaf_ht);
+static locator_t *parse_locator(char *address, int priority, int weight,
+        htable_t *lcaf_ht, int local, iface_t **iface_);
+
 
 #ifdef OPENWRT
 /* Compiling for OpenWRT */
@@ -555,6 +560,10 @@ configure_rtr(cfg_t *cfg)
         LMLOG(DBG_1, "Configuration file: RLOC probing not defined. "
                 "Setting default values: RLOC Probing Interval: %d sec.",
         RLOC_PROBING_INTERVAL);
+        xtr->probe_interval = RLOC_PROBING_INTERVAL;
+        xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+        xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+
     }
 
 
@@ -1298,101 +1307,8 @@ get_interface_name_from_address(lisp_addr_t *addr)
     }
 }
 
-static locator_t *
-parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
-        int local)
-{
-    char *iface_name = NULL;
-    locator_t *locator = NULL;
-    iface_t *interface = NULL;
-    lisp_addr_t *rloc = NULL; /* for IP RLOCS */
-    lisp_addr_t *aux_rloc = NULL, *addr, *lcaf_rloc = NULL;
-
-    if (validate_priority_weight(priority, weight) != GOOD) {
-        return(BAD);
-    }
-
-    rloc = lisp_addr_new();
-    if (lisp_addr_ip_from_char(address, rloc) != GOOD) {
-        lisp_addr_del(rloc);
-        lcaf_rloc = htable_lookup(lcaf_ht, address);
-        if(!lcaf_rloc) {
-            LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
-                    address);
-            return (NULL);
-        }
-    }
-
-    /* LOCAL locator */
-    if (local) {
-        /* decide rloc to be used to lookup the interface */
-        if (lcaf_rloc) {
-            aux_rloc = lcaf_rloc_get_ip_addr(lcaf_rloc);
-            if (!aux_rloc) {
-                LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
-                        "address %s", lisp_addr_to_char(lcaf_rloc));
-                lisp_addr_del(lcaf_rloc);
-                return(NULL);
-            }
-        } else {
-            aux_rloc = rloc;
-        }
-
-        if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
-            LMLOG(LERR, "Configuration file: Can't find interface for RLOC %s",
-                    lisp_addr_to_char(aux_rloc));
-            lisp_addr_del(aux_rloc);
-            return(NULL);
-        }
-
-        if (!(interface = get_interface(iface_name))) {
-            if (!(interface = add_interface(iface_name))) {
-                lisp_addr_del(aux_rloc);
-            }
-        }
-
-        if (!lcaf_rloc) {
-            addr = iface_address(interface, lisp_addr_ip_afi(aux_rloc));
-            locator = locator_init_local_full(addr , &(interface->status),
-                    priority, weight, 255, 0, &(interface->out_socket_v4));
-        } else {
-            /* XXX, TODO : locator addr not linked to interface */
-            locator = locator_init_local_full(lisp_addr_clone(lcaf_rloc) ,
-                    &(interface->status), priority, weight, 255, 0,
-                    &(interface->out_socket_v4));
-        }
-
-        if (!locator) {
-            LMLOG(DBG_1, "Configuration file: failed to create locator"
-                    " with addr %s", address);
-            return(NULL);
-        }
-    /* REMOTE locator */
-    } else {
-
-        if (!lcaf_rloc) {
-            locator = locator_init_remote_full(rloc, 1, priority, weight, 255,
-                    0);
-        } else {
-            locator = locator_init_remote_full(lcaf_rloc, 1,
-                    priority, weight, 255, 0);
-        }
-
-        if (!locator) {
-            LMLOG(DBG_1, "Configuration file: failed to create locator with "
-                    "addr %s", lisp_addr_to_char(rloc));
-            lisp_addr_del(rloc);
-            return(NULL);
-        }
-    }
-
-    if (!lcaf_rloc) {
-        lisp_addr_del(rloc);
-    }
-
-    return(locator);
-}
-
+/* FOR NOW only used for building Map-Server mappings. It does not link
+ * local mappings to local interfaces */
 static mapping_t *
 build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
 {
@@ -1446,16 +1362,17 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
 
     for (i = 0; i < cfg_size(map, "rloc"); i++) {
         cfg_t *rl = cfg_getnsec(map, "rloc", i);
+        iface_t *iface;
         if (local) {
             locator = parse_locator(cfg_getstr(rl, "address"),
                     cfg_getint(rl, "priority"),
                     cfg_getint(rl, "weight"),
-                    lcaf_ht, 1);
+                    lcaf_ht, 1, &iface);
         } else {
             locator = parse_locator(cfg_getstr(rl, "address"),
                     cfg_getint(rl, "priority"),
                     cfg_getint(rl, "weight"),
-                    lcaf_ht, 0);
+                    lcaf_ht, 0, &iface);
         }
         if (!locator) {
             LMLOG(LWRN, "Configuration file: couldn't parse locator %s",
@@ -1466,38 +1383,53 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
         mapping_add_locator(m, locator);
     }
 
-    if (mapping_compute_balancing_vectors(m) != GOOD) {
-        LMLOG(LWRN, "build_mapping_from_config: Couldn't calculate balancing "
-                "vectors");
-        mapping_del(m);
-        return(BAD);
-    }
+//    if (mapping_compute_balancing_vectors(m) != GOOD) {
+//        LMLOG(LWRN, "build_mapping_from_config: Couldn't calculate balancing "
+//                "vectors");
+//        mapping_del(m);
+//        return(BAD);
+//    }
 
     return(m);
 }
 
-static int
-add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
-{
-    int i;
-    mapping_t *mapping = NULL;
-    locator_t *locator = NULL;
-    lisp_addr_t *eid_prefix;
-    lisp_addr_t *new_eid = NULL;
-    int iid = 0;
-    char *address = NULL;
 
-    address = cfg_getstr(map, "eid-prefix");
+/* Parses an EID (IP or LCAF) and returns an 'lisp_addr_t'. Caller must free
+ * the returned value */
+static lisp_addr_t *
+parse_lisp_addr(char *address, htable_t *lcaf_ht)
+{
+    lisp_addr_t *eid_prefix, *lcaf;
+
     eid_prefix = lisp_addr_new();
     if (lisp_addr_ippref_from_char(address, eid_prefix) != GOOD) {
         lisp_addr_del(eid_prefix);
         /* if not found, try in the hash table */
-        eid_prefix = htable_lookup(lcaf_ht, address);
-        if (!eid_prefix) {
+        lcaf = htable_lookup(lcaf_ht, address);
+        if (!lcaf) {
             LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
                     address);
-            return (BAD);
+            return (NULL);
         }
+        eid_prefix = lisp_addr_clone(lcaf);
+    }
+
+    return(eid_prefix);
+}
+
+/* Parses an eid from a mapping configuration and returns it in '_eid'.
+ *'_eid' must be freed by the caller. */
+static lisp_addr_t *
+parse_eid_in_mapping(cfg_t *map, htable_t *lcaf_ht)
+{
+    lisp_addr_t *new_eid = NULL;
+    int iid = 0;
+    lisp_addr_t *eid_prefix;
+
+    eid_prefix = parse_lisp_addr(cfg_getstr(map, "eid-prefix"), lcaf_ht);
+
+    if (!eid_prefix) {
+        return(NULL);
     }
 
     /* add iid to eid-prefix if different from 0 */
@@ -1513,13 +1445,128 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
         new_eid = lisp_addr_new_afi(LM_AFI_LCAF);
         /* XXX: mask not defined. Just filling in a value for now */
         lisp_addr_lcaf_set_addr(new_eid, iid_type_init(iid, eid_prefix, 32));
+        /* free the old container */
+        lisp_addr_del(eid_prefix);
         eid_prefix = new_eid;
     }
 
-    mapping = local_map_db_lookup_eid_exact(xtr->local_mdb, eid_prefix);
-    if (!mapping) {
-        mapping = mapping_init_local(eid_prefix);
-        local_map_db_add_mapping(xtr->local_mdb, mapping);
+    return(eid_prefix);
+}
+
+static locator_t *
+parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
+        int local, iface_t **iface_)
+{
+    char *iface_name = NULL;
+    locator_t *locator = NULL;
+    iface_t *iface = NULL;
+    lisp_addr_t *rloc = NULL; /* for IP RLOCS */
+    lisp_addr_t *aux_rloc = NULL, *addr, *lcaf_clone;
+
+    if (validate_priority_weight(priority, weight) != GOOD) {
+        return(BAD);
+    }
+
+    rloc = parse_lisp_addr(address, lcaf_ht);
+    if (!rloc) {
+        return(NULL);
+    }
+//    rloc = lisp_addr_new();
+//    if (lisp_addr_ip_from_char(address, rloc) != GOOD) {
+//        lisp_addr_del(rloc);
+//        lcaf_rloc = htable_lookup(lcaf_ht, address);
+//        if(!lcaf_rloc) {
+//            LMLOG(LERR, "Configuration file: Error parsing RLOC address %s",
+//                    address);
+//            return (NULL);
+//        }
+//    }
+
+    /* LOCAL locator */
+    if (local) {
+        /* Decide IP address to be used to lookup the interface */
+        if (lisp_addr_is_lcaf(rloc)) {
+            aux_rloc = lcaf_rloc_get_ip_addr(rloc);
+            if (!aux_rloc) {
+                LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
+                        "address %s", lisp_addr_to_char(rloc));
+                lisp_addr_del(rloc);
+                return(NULL);
+            }
+        } else {
+            aux_rloc = rloc;
+        }
+
+        /* Find the interface name associated to the RLOC */
+        if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
+            LMLOG(LERR, "Configuration file: Can't find interface for RLOC %s",
+                    lisp_addr_to_char(aux_rloc));
+            lisp_addr_del(aux_rloc);
+            return(NULL);
+        }
+
+        /* Find the interface */
+        if (!(iface = get_interface(iface_name))) {
+            if (!(iface = add_interface(iface_name))) {
+                lisp_addr_del(aux_rloc);
+            }
+        }
+
+        if (!lisp_addr_is_lcaf(rloc)) {
+            addr = iface_address(iface, lisp_addr_ip_afi(aux_rloc));
+            locator = locator_init_local_full(addr , &(iface->status),
+                    priority, weight, 255, 0, &(iface->out_socket_v4));
+        } else {
+            addr = iface_address(iface, lisp_addr_ip_afi(aux_rloc));
+            lcaf_clone = lisp_addr_clone(rloc);
+            lcaf_rloc_set_ip_addr(lcaf_clone, addr);
+            locator = locator_init_local_full(lcaf_clone ,
+                    &(iface->status), priority, weight, 255, 0,
+                    &(iface->out_socket_v4));
+        }
+
+        if (!locator) {
+            LMLOG(DBG_1, "Configuration file: failed to create locator"
+                    " with addr %s", address);
+            return(NULL);
+        }
+
+        *iface_ = iface;
+    /* REMOTE locator */
+    } else {
+        locator = locator_init_remote_full(rloc, 1, priority, weight, 255, 0);
+
+        if (!locator) {
+            LMLOG(DBG_1, "Configuration file: failed to create locator with "
+                    "addr %s", lisp_addr_to_char(rloc));
+            lisp_addr_del(rloc);
+            return(NULL);
+        }
+        *iface_ = NULL;
+    }
+
+    lisp_addr_del(rloc);
+    return(locator);
+}
+static int
+add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
+{
+    int i;
+    mapping_t *m = NULL;
+    locator_t *loc = NULL;
+    lisp_addr_t *eid_prefix;
+    iface_t *iface;
+    int afi;
+
+    eid_prefix = parse_eid_in_mapping(map, lcaf_ht);
+    if (!eid_prefix) {
+        return(BAD);
+    }
+
+    m = local_map_db_lookup_eid_exact(xtr->local_mdb, eid_prefix);
+    if (!m) {
+        m = mapping_init_local(eid_prefix);
+        local_map_db_add_mapping(xtr->local_mdb, m);
     }
 
     /* no need for the prefix */
@@ -1527,18 +1574,22 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
 
     for (i = 0; i < cfg_size(map, "rloc"); i++) {
         cfg_t *rl = cfg_getnsec(map, "rloc", i);
-        locator = parse_locator(cfg_getstr(rl, "address"),
+        loc = parse_locator(cfg_getstr(rl, "address"),
                 cfg_getint(rl, "priority"), cfg_getint(rl, "weight"),
-                lcaf_ht, 1);
+                lcaf_ht, 1, &iface);
 
-        if (!locator) {
+        if (!loc) {
             continue;
         }
 
-        mapping_add_locator(mapping, locator);
+        mapping_add_locator(m, loc);
+        afi = lisp_addr_ip_afi(lcaf_rloc_get_ip_addr(locator_addr(loc)));
+        if (add_mapping_to_interface(iface, m, afi) != GOOD) {
+            return(BAD);
+        }
     }
 
-    return(mapping_compute_balancing_vectors(mapping));
+    return(mapping_compute_balancing_vectors(m));
 }
 
 

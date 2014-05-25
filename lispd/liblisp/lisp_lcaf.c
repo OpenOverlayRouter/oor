@@ -982,7 +982,7 @@ char *elp_type_to_char(void *elp) {
 }
 
 elp_node_t *elp_node_clone(elp_node_t *sen) {
-    elp_node_t *en = calloc(1, sizeof(elp_node_t));
+    elp_node_t *en = xzalloc(sizeof(elp_node_t));
     en->L = sen->L;
     en->P = sen->P;
     en->S = sen->S;
@@ -1439,21 +1439,22 @@ lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf)
     return(NULL);
 }
 
-/* obtain IP address from LCAF RLOCs */
+/* Obtain IP address from LCAF RLOCs */
 lisp_addr_t *
 lcaf_rloc_get_ip_addr(lisp_addr_t *addr)
 {
     lisp_addr_t     *rloc = NULL;
     lcaf_addr_t     *lcaf = lisp_addr_get_lcaf(addr);
-    glist_entry_t   *it = NULL;
-    rle_node_t      *rnode  = NULL;
-    int             level   = -1;
 
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_EXPL_LOC_PATH:
         rloc = ((elp_node_t *)glist_last_data(lcaf_elp_node_list(lcaf)))->addr;
         break;
-    case LCAF_RLE:
+    case LCAF_RLE: {
+        glist_entry_t   *it = NULL;
+        rle_node_t      *rnode  = NULL;
+        int             level   = -1;
+
         /* find the first highest level replication node */
         glist_for_each_entry(it, lcaf_rle_node_list(lcaf)) {
             rnode = glist_entry_data(it);
@@ -1463,12 +1464,50 @@ lcaf_rloc_get_ip_addr(lisp_addr_t *addr)
             }
         }
         break;
-    case LCAF_MCAST_INFO:
-        rloc = lcaf_mc_get_grp(lcaf);
-        break;
+    }
     default:
         LMLOG(DBG_1, "lcaf_rloc_get_ip_addr: lcaf type %d not supported",
                 lcaf_addr_get_type(lcaf));
     }
     return(rloc);
+}
+
+/* Set IP address in LCAF RLOCs. When LCAFs are used as local locators, the
+ * address that determines the interface to which the LCAF is associated, must
+ * be updated to point to the interface, instead of being static */
+int
+lcaf_rloc_set_ip_addr(lisp_addr_t *addr, lisp_addr_t *if_addr)
+{
+    lcaf_addr_t     *lcaf = lisp_addr_get_lcaf(addr);
+
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH: {
+        elp_node_t *enode;
+        enode = ((elp_node_t *)glist_last_data(lcaf_elp_node_list(lcaf)));
+        lisp_addr_del(enode->addr);
+        enode->addr = if_addr;
+        break;
+    }
+    case LCAF_RLE: {
+        rle_node_t *rit = NULL, *rnode = NULL;
+        int level = -1;
+        glist_entry_t   *it = NULL;
+
+        /* Find the first highest level replication node */
+        glist_for_each_entry(it, lcaf_rle_node_list(lcaf)) {
+            rit = glist_entry_data(it);
+            if (rit->level > level) {
+                rnode = rit;
+            }
+            lisp_addr_del(rnode->addr);
+            rnode->addr = if_addr;
+        }
+        break;
+    }
+    default:
+        LMLOG(DBG_1, "lcaf_rloc_get_ip_addr: lcaf type %d not supported",
+                lcaf_addr_get_type(lcaf));
+        return(BAD);
+    }
+    return(GOOD);
 }
