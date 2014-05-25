@@ -292,7 +292,7 @@ char                        *afi_list_type_to_char(void *afil);
 void                        afi_list_type_copy(void **dst, void *src);
 int                         afi_list_type_cmp(void *afil1, void *afil2);
 
-lisp_addr_t                 *lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf);
-lisp_addr_t                 *lcaf_rloc_get_ip_addr(lisp_addr_t *addr);
+lisp_addr_t *lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf);
+lisp_addr_t *lcaf_rloc_get_ip_addr(lisp_addr_t *addr);
 int lcaf_rloc_set_ip_addr(lisp_addr_t *, lisp_addr_t *if_addr);
 #endif /* LISPD_LCAF_H_ */

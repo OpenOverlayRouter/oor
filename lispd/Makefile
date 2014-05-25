@@ -20,7 +20,7 @@ ERROR		= false
 
 
 ifeq "$(platform)" ""
-CFLAGS		+= -Wall -g 
+CFLAGS		+= -Wall -g
 LIBS		= -lconfuse -lssl -lcrypto -lrt -lm
 else
 ifeq "$(platform)" "router"
