@@ -410,11 +410,17 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
     ip_addr_t *src, *dst;
     int sock, dst_afi;
     iface_t *iface;
+    lisp_addr_t *ctrl_addr;
 
     /* FIND the socket where to output the packet */
     dst_afi = lisp_addr_ip_afi(&uc->ra);
-    if (lisp_addr_afi(&uc->la) == LM_AFI_NO_ADDR) {
-        lisp_addr_copy(&uc->la, get_default_ctrl_address(dst_afi));
+    if (lisp_addr_is_no_addr(&uc->la)) {
+        ctrl_addr = get_default_ctrl_address(dst_afi);
+        if (!ctrl_addr) {
+            LMLOG(LERR, "No control address found, send aborted!");
+            return(BAD);
+        }
+        lisp_addr_copy(&uc->la, ctrl_addr);
         sock = get_default_ctrl_socket(dst_afi);
     } else {
         iface = get_interface_with_address(&uc->la);
@@ -422,6 +428,10 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
             sock = iface_socket(iface, dst_afi);
         } else {
             sock = get_default_ctrl_socket(dst_afi);
+        }
+        if (sock < 0) {
+            LMLOG(LERR, "No output socket found, send aborted!");
+            return(BAD);
         }
     }
 
