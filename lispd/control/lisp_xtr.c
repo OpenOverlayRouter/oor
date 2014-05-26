@@ -1642,6 +1642,7 @@ xtr_ctrl_destruct(lisp_ctrl_dev_t *dev)
     lisp_addr_list_del(xtr->map_resolvers);
     map_server_list_del(xtr->map_servers);
     mapping_del(xtr->all_locs_map);
+    stop_timer(xtr->smr_timer);
 }
 
 static void
