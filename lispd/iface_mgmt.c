@@ -197,7 +197,7 @@ process_nl_add_address (struct nlmsghdr *nlh)
     for (; rt_length && RTA_OK(rth, rt_length);
             rth = RTA_NEXT(rth, rt_length)) {
         if (rth->rta_type == IFA_ADDRESS) {
-            lisp_addr_ip_init(&new_addr, RTA_DATA(rth), rth->rta_type);
+            lisp_addr_ip_init(&new_addr, RTA_DATA(rth), ifa->ifa_family);
             process_address_change(iface, &new_addr);
         }
     }
