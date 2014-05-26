@@ -88,9 +88,11 @@ mcache_entry_del(mcache_entry_t *entry)
         }
         if (entry->request_retry_timer) {
             mcache_entry_stop_req_retry_timer(entry);
+            entry->request_retry_timer = NULL;
         }
         if (entry->smr_inv_timer) {
             mcache_entry_stop_smr_inv_timer(entry);
+            entry->smr_inv_timer = NULL;
         }
     }
 

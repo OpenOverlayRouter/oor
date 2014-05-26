@@ -752,7 +752,6 @@ static int
 send_all_smr_cb(lmtimer_t *t, void *arg)
 {
     send_all_smr_and_reg(arg);
-    lmtimer_stop(t);
     return(GOOD);
 }
 
@@ -916,14 +915,12 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
 
 static int
 program_smr(lisp_xtr_t *xtr, int time) {
-    lmtimer_t *t;
-    t = xtr->smr_timer;
-    if (!t) {
+    if (!xtr->smr_timer) {
         xtr->smr_timer = lmtimer_create(SMR_TIMER);
-        t = xtr->smr_timer;
     }
 
-    lmtimer_start(t, LISPD_SMR_TIMEOUT, send_all_smr_cb, xtr, xtr);
+    lmtimer_start(xtr->smr_timer, LISPD_SMR_TIMEOUT, send_all_smr_cb, xtr,
+            xtr);
     return(GOOD);
 }
 
