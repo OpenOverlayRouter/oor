@@ -1686,14 +1686,14 @@ xtr_run(lisp_xtr_t *xtr)
         }
 
         if (xtr->map_servers->next != NULL
-                || xtr->map_servers->address->afi != AF_INET) {
+                || lisp_addr_ip_afi(xtr->map_servers->address) != AF_INET) {
             LMLOG(LINF, "NAT aware on -> This version of LISPmob is limited to "
                     "one IPv4 Map Server.");
             exit_cleanup();
         }
 
         if (xtr->map_resolvers->next != NULL
-                || xtr->map_resolvers->address->afi != AF_INET) {
+                || lisp_addr_ip_afi(xtr->map_resolvers->address) != AF_INET) {
             LMLOG(LINF, "NAT aware on -> This version of LISPmob is limited to "
                     "one IPv4 Map Resolver.");
             exit_cleanup();
