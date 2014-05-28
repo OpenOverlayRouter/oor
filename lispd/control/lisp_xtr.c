@@ -1486,7 +1486,7 @@ tr_mcache_remove_mapping(lisp_xtr_t *xtr, lisp_addr_t *laddr)
 
     data = mcache_remove_entry(xtr->map_cache, laddr);
     mcache_entry_del(data);
-    mcache_dump_db(xtr->map_cache, DBG_1);
+    mcache_dump_db(xtr->map_cache, DBG_3);
 
     return (GOOD);
 }
@@ -1642,7 +1642,7 @@ xtr_ctrl_destruct(lisp_ctrl_dev_t *dev)
     lisp_addr_list_del(xtr->map_resolvers);
     map_server_list_del(xtr->map_servers);
     mapping_del(xtr->all_locs_map);
-    stop_timer(xtr->smr_timer);
+    lmtimer_stop(xtr->smr_timer);
 }
 
 static void
@@ -1721,9 +1721,7 @@ xtr_run(lisp_xtr_t *xtr)
 
     LMLOG(DBG_1, "****** Summary of the configuration ******");
     local_map_db_dump(xtr->local_mdb, DBG_1);
-    if (is_loggable(DBG_1)){
-        mcache_dump_db(xtr->map_cache, DBG_1);
-    }
+    mcache_dump_db(xtr->map_cache, DBG_1);
 
     map_servers_to_char(xtr, DBG_1);
     lisp_addr_list_to_char(xtr->map_resolvers, "Map-Resolvers", DBG_1);
