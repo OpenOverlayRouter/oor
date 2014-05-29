@@ -1286,7 +1286,7 @@ inline afi_list_t *afi_list_type_new() {
 }
 
 void afi_list_type_del(void *afil) {
-    afi_list_node *node = NULL, *aux_node = NULL;
+    afi_list_node_t *node = NULL, *aux_node = NULL;
     node = ((afi_list_t *)afil)->list;
     while(node) {
         aux_node = node->next;
@@ -1301,7 +1301,7 @@ void afi_list_type_del(void *afil) {
 
 int afi_list_type_get_size_to_write(void *afil) {
     int len = 0;
-    afi_list_node *node = NULL;
+    afi_list_node_t *node = NULL;
     len += sizeof(lcaf_afi_list_hdr_t);
     while(node) {
         len += lisp_addr_size_to_write(node->addr);
@@ -1311,7 +1311,7 @@ int afi_list_type_get_size_to_write(void *afil) {
 }
 
 int afi_list_type_write_to_pkt(uint8_t *offset, void *afil) {
-    afi_list_node   *node = NULL;
+    afi_list_node_t   *node = NULL;
     uint8_t         *cur_ptr = NULL;
     int             len = 0, lenw = 0;
 
@@ -1337,7 +1337,7 @@ int afi_list_type_write_to_pkt(uint8_t *offset, void *afil) {
 }
 
 int afi_list_type_parse(uint8_t *offset, void **afilptr) {
-    afi_list_node   *node   = NULL;
+    afi_list_node_t   *node   = NULL;
     afi_list_t      *afil   = NULL;
     uint8_t         *cur_ptr = NULL;
     int len = 0, rlen = 0;
@@ -1352,7 +1352,7 @@ int afi_list_type_parse(uint8_t *offset, void **afilptr) {
     cur_ptr = CO(cur_ptr, sizeof(lcaf_afi_list_hdr_t));
     node = afil->list;
     while(len > 0) {
-        node = calloc(1,sizeof(afi_list_node));
+        node = calloc(1,sizeof(afi_list_node_t));
         node->addr = lisp_addr_new();
         if (!node->addr)
             goto err;
@@ -1375,7 +1375,7 @@ char *afi_list_type_to_char(void *afil) {
     static char buf[3][500];
     static int i;
     int j = 0;
-    afi_list_node *node = NULL;
+    afi_list_node_t *node = NULL;
 
     i++; i = i % 10;
 
@@ -1389,8 +1389,8 @@ char *afi_list_type_to_char(void *afil) {
 }
 
 void afi_list_type_copy(void **dst, void *src) {
-    afi_list_node *node = NULL;
-    afi_list_node *dnode = NULL;
+    afi_list_node_t *node = NULL;
+    afi_list_node_t *dnode = NULL;
 
     if (!*dst)
         *dst = afi_list_type_new();
@@ -1404,8 +1404,8 @@ void afi_list_type_copy(void **dst, void *src) {
 }
 
 int afi_list_type_cmp(void *al1, void *al2) {
-    afi_list_node *node1 = NULL;
-    afi_list_node *node2 = NULL;
+    afi_list_node_t *node1 = NULL;
+    afi_list_node_t *node2 = NULL;
     int ret = 0;
 
     node1 = ((afi_list_t *)al1)->list;

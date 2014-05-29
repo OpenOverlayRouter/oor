@@ -54,17 +54,17 @@ typedef struct _lcaf_addr_t {
  */
 
 /* AFI-list */
-typedef struct _afi_list_node {
-    lisp_addr_t             *addr;
-    struct _afi_list_node   *next;
-} afi_list_node;
+typedef struct afi_list_node {
+    lisp_addr_t            *addr;
+    struct afi_list_node   *next;
+} afi_list_node_t;
 
-typedef struct _afi_list_t {
-    afi_list_node   *list;
+typedef struct afi_list {
+    afi_list_node_t   *list;
 } afi_list_t;
 
 
-typedef struct _iit_t {
+typedef struct _iid_t {
     uint32_t    iid;
     uint8_t     mlen;
     lisp_addr_t *iidaddr;
@@ -95,7 +95,7 @@ typedef struct {
 
 
 /* ELP */
-typedef struct _elp_node_t{
+typedef struct elp_node {
     uint8_t             L:1;
     uint8_t             P:1;
     uint8_t             S:1;

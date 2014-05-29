@@ -361,7 +361,7 @@ demonize_start()
         }
         umask(0);
         if (pid > 0)
-            exit_cleanup();
+            exit(EXIT_SUCCESS);
         if ((sid = setsid()) < 0)
             exit_cleanup();
         if ((chdir("/")) < 0)
