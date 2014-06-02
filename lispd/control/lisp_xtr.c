@@ -497,7 +497,7 @@ handle_merge_semantics(lisp_xtr_t *xtr, mapping_t *rec_map)
     LMLOG(DBG_1, "Merge-Semantics on, moving returned mapping to "
             "map-cache");
 
-    /* XXX, TODO: done thining of lisp-re, MUST change to be more general */
+    /* XXX, TODO: done thinking of lisp-re, MUST change to be more general */
     /* Save the mapping returned by the map-notify in the mapping
      * cache */
     mcache_map = tr_mcache_lookup_mapping(xtr, eid);
@@ -516,7 +516,6 @@ handle_merge_semantics(lisp_xtr_t *xtr, mapping_t *rec_map)
         /* cheap hack to avoid cloning */
         rec_map->head_v4_locators_list = NULL;
         rec_map->head_v6_locators_list = NULL;
-        mapping_del(rec_map);
     } else if (!mcache_map) {
         /* FIRST registration */
         if (tr_mcache_add_mapping(xtr, rec_map) != GOOD) {
@@ -588,8 +587,8 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
         LMLOG(DBG_1, "Map-Notify message confirms correct registration of %s",
                 lisp_addr_to_char(eid));
 
-        /* MERGE SEMANTICS */
-        if (mapping_cmp(local_map, m) != 0 || lisp_addr_is_mc(eid)) {
+        /* MULTICAST MERGE SEMANTICS */
+        if (lisp_addr_is_mc(eid) && mapping_cmp(local_map, m) != 0) {
             handle_merge_semantics(xtr, m);
         }
 

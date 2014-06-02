@@ -834,14 +834,17 @@ mapping_compute_balancing_vectors(mapping_t *m)
 int
 mapping_cmp(mapping_t *m1, mapping_t *m2)
 {
-    int ret = 0, ctr = 0;
+    int ctr = 0;
     locator_list_t *ll1[2] = { NULL, NULL }, *ll2[2] = { NULL, NULL };
     locator_t *l1 = NULL, *l2 = NULL;
 
-    if ((ret = lisp_addr_cmp(mapping_eid(m1), mapping_eid(m2))) != 0)
+    if (lisp_addr_cmp(mapping_eid(m1), mapping_eid(m2)) != 0) {
         return (1);
-    if (m1->locator_count != m2->locator_count)
+    }
+
+    if (m1->locator_count != m2->locator_count) {
         return (1);
+    }
 
     ll1[0] = m1->head_v4_locators_list;
     ll1[1] = m1->head_v6_locators_list;
@@ -853,14 +856,16 @@ mapping_cmp(mapping_t *m1, mapping_t *m2)
         while (ll1[ctr] && ll2[ctr]) {
             l1 = ll1[ctr]->locator;
             l2 = ll2[ctr]->locator;
-            if ((ret = locator_cmp(l1, l2)) != 0)
-                return (ret);
+            if (locator_cmp(l1, l2) != 0) {
+                return (1);
+            }
             ll1[ctr] = ll1[ctr]->next;
             ll2[ctr] = ll2[ctr]->next;
         }
 
-        if ((ll1[ctr] && !ll2[ctr]) || (!ll1[ctr] && ll2[ctr]))
+        if ((ll1[ctr] && !ll2[ctr]) || (!ll1[ctr] && ll2[ctr])) {
             return (1);
+        }
     }
     return (0);
 
