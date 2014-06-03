@@ -37,12 +37,6 @@
 #include "generic_list.h"
 #include "lbuf.h"
 
-typedef struct fwd_entry {
-    lisp_addr_t *srloc;
-    lisp_addr_t *drloc;
-    int natt_flag;
-} fwd_entry_t;
-
 
 #define LISP_DATA_HDR_LEN       8
 #define LISP_ECM_HDR_LEN        4

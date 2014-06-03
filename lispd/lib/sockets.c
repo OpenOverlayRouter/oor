@@ -42,6 +42,7 @@
 #include "iface_list.h"
 #include "lmlog.h"
 
+
 sockmstr_t *
 sockmstr_create()
 {
@@ -454,23 +455,23 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
 
 /* lisp encapsulates and forwards a packet */
 int
-sock_lisp_data_send(lbuf_t *b, lisp_addr_t *src, lisp_addr_t *dst)
+sock_lisp_data_send(lbuf_t *b, lisp_addr_t *src, lisp_addr_t *dst, iface_t *iface)
 {
     int dafi, osock, ret;
-    iface_t *iface;
+//    iface_t *iface;
 
     dafi = lisp_addr_ip_afi(dst);
 
-    /* if no srloc, choose default */
-    if (!src) {
-        src = get_default_output_address(dafi);
-        if (!src) {
-            LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
-            return(BAD);
-        }
-    }
-
-    iface = get_interface_with_address(src);
+//    /* if no srloc, choose default */
+//    if (!src) {
+//        src = get_default_output_address(dafi);
+//        if (!src) {
+//            LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
+//            return(BAD);
+//        }
+//    }
+//
+//    iface = get_interface_with_address(src);
     osock = iface_socket(iface, dafi);
 
     /* FIXME: this works only with RAW sockets */
