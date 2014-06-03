@@ -139,7 +139,7 @@ ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
 
     elapsed = time_elapsed(&tn->ts);
     if (elapsed > TIMEOUT
-        || ((!tn || !tn->fe->srloc || !tn->fe->drloc)
+        || ((!tn->fe || !tn->fe->srloc || !tn->fe->drloc)
                 && elapsed > NEGATIVE_TIMEOUT)) {
         htable_remove(tt->htable, tpl);
         return(NULL);
