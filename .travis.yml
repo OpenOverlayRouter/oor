@@ -1,0 +1,19 @@
+# This project is implemented in C
+language: c
+
+# Test build with both GCC and Clang
+compiler:
+  - gcc
+  - clang
+
+# Build using this command
+script: make
+
+# Install our build dependencies
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq libssl-dev libconfuse-dev gengetopt
+
+# Since we don't build for Android yet, disable Git modules
+git:
+  submodules: false

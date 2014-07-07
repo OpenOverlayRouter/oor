@@ -38,7 +38,7 @@
 
 FILE *fp = NULL;
 
-inline void lispd_log(
+static inline void lispd_log(
         int         log_level,
         char        *log_name,
         const char  *format,
@@ -109,7 +109,7 @@ void lispd_log_msg1(int lisp_log_level, const char *format, ...)
     va_end (args);
 }
 
-inline void lispd_log(
+static inline void lispd_log(
         int         log_level,
         char        *log_name,
         const char  *format,

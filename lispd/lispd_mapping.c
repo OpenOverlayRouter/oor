@@ -38,7 +38,7 @@
 /*
  * Reseve and fill the memory required by a lcl_mapping_extended_info
  */
-inline lcl_mapping_extended_info *new_lcl_mapping_extended_info();
+static inline lcl_mapping_extended_info *new_lcl_mapping_extended_info();
 
 /*
  * Generates a copy of a local mapping extended info. Some parameters should be initialized after
@@ -54,7 +54,7 @@ void free_lcl_mapping_extended_info(lcl_mapping_extended_info *extended_info);
 /*
  * Reseve and fill the memory required by a rmt_mapping_extended_info
  */
-inline rmt_mapping_extended_info *new_rmt_mapping_extended_info();
+static inline rmt_mapping_extended_info *new_rmt_mapping_extended_info();
 
 /*
  * Generates a copy of a remote mapping extended info. Some parameters should be initialized after
@@ -83,7 +83,7 @@ int select_best_priority_locators (
         lispd_locators_list     *locators_list_elt,
         lispd_locator_elt       **selected_locators);
 
-inline void get_hcf_locators_weight (
+static inline void get_hcf_locators_weight (
         lispd_locator_elt   **locators,
         int                 *total_weight,
         int                 *highest_common_factor);
@@ -243,7 +243,7 @@ void free_mapping_elt(lispd_mapping_elt *mapping)
 /*
  * Reseve and fill the memory required by a lcl_mapping_extended_info
  */
-inline lcl_mapping_extended_info *new_lcl_mapping_extended_info()
+static inline lcl_mapping_extended_info *new_lcl_mapping_extended_info()
 {
     lcl_mapping_extended_info   *extended_info  = NULL;
     if ((extended_info=(lcl_mapping_extended_info *)calloc(1,sizeof(lcl_mapping_extended_info)))==NULL){
@@ -288,7 +288,7 @@ void free_lcl_mapping_extended_info(lcl_mapping_extended_info *extended_info)
 /*
  * Reseve and fill the memory required by a rmt_mapping_extended_info
  */
-inline rmt_mapping_extended_info *new_rmt_mapping_extended_info()
+static inline rmt_mapping_extended_info *new_rmt_mapping_extended_info()
 {
     rmt_mapping_extended_info   *extended_info  = NULL;
 
@@ -776,7 +776,7 @@ int select_best_priority_locators (
     return (min_priority);
 }
 
-inline void get_hcf_locators_weight (
+static inline void get_hcf_locators_weight (
         lispd_locator_elt   **locators,
         int                 *total_weight,
         int                 *hcf)

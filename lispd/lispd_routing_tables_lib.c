@@ -53,7 +53,7 @@
  */
 
 
-inline int modify_route(
+static inline int modify_route(
         int                 command,                    /* add or del */
         int                 afi,
         uint32_t            ifindex,
@@ -68,7 +68,7 @@ inline int modify_route(
 /*
  * This function modifies kernel's list of ip rules
  */
-inline int modify_rule (
+static inline int modify_rule (
         int             afi,
         int             if_index,       // interface index
         int             command,            // add or del the rule?
@@ -86,7 +86,7 @@ inline int modify_rule (
 /*
  * This function modifies kernel's list of ip rules
  */
-inline int modify_rule (
+static inline int modify_rule (
         int             afi,
         int             if_index,       // interface index
         int             command,        // add or del the rule?
@@ -416,7 +416,7 @@ int request_route_table(uint32_t table, int afi)
  *
  */
 
-inline int modify_route(
+static inline int modify_route(
         int                 command,                    /* add or del */
         int                 afi,
         uint32_t            ifindex,

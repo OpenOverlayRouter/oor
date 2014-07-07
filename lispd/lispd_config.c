@@ -501,7 +501,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     int                     probe_int               = 0;
     int                     probe_retries           = 0;
     int                     probe_retries_interval  = 0;
-    int                     ctr                     = 0;
 
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
@@ -735,7 +734,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
 
     n = cfg_size(cfg, "database-mapping");
     for(i = 0; i < n; i++) {
-        ctr ++;
         cfg_t *dm = cfg_getnsec(cfg, "database-mapping", i);
         if (add_database_mapping(cfg_getstr(dm, "eid-prefix"),
                 cfg_getint(dm, "iid"),
@@ -824,6 +822,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }
 
     cfg_free(cfg);
+
     err = validate_configuration();
     return(err);
 }

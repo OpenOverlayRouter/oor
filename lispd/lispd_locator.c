@@ -39,12 +39,12 @@
 /*
  * Reseve and fill the memory required by a lcl_locator_extended_info
  */
-inline lcl_locator_extended_info *new_lcl_locator_extended_info(int *out_socket);
+static inline lcl_locator_extended_info *new_lcl_locator_extended_info(int *out_socket);
 
 /*
  * Reseve and fill the memory required by a rmt_locator_extended_info
  */
-inline rmt_locator_extended_info *new_rmt_locator_extended_info();
+static inline rmt_locator_extended_info *new_rmt_locator_extended_info();
 
 /*
  * Generates a clone of local localtor extended info
@@ -64,12 +64,12 @@ rmt_locator_extended_info *copy_rmt_locator_extended_info(rmt_locator_extended_i
 /*
  * Free memory of a lcl_locator_extended_info structure
  */
-inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info);
+static inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info);
 
 /*
  * Free memory of a rmt_locator_extended_info structure
  */
-inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info);
+static inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info);
 
 /**********************************************************************************/
 
@@ -307,7 +307,7 @@ lispd_locator_elt *copy_locator_elt(lispd_locator_elt *loc)
 /*
  * Reseve and fill the memory required by a lcl_locator_extended_info
  */
-inline lcl_locator_extended_info *new_lcl_locator_extended_info(int *out_socket)
+static inline lcl_locator_extended_info *new_lcl_locator_extended_info(int *out_socket)
 {
     lcl_locator_extended_info *lcl_loc_ext_inf;
     if ((lcl_loc_ext_inf = (lcl_locator_extended_info *)calloc(1,sizeof(lcl_locator_extended_info))) == NULL) {
@@ -355,7 +355,7 @@ lcl_locator_extended_info *copy_lcl_locator_extended_info(lcl_locator_extended_i
 /*
  * Reseve and fill the memory required by a rmt_locator_extended_info
  */
-inline rmt_locator_extended_info *new_rmt_locator_extended_info()
+static inline rmt_locator_extended_info *new_rmt_locator_extended_info()
 {
     rmt_locator_extended_info *rmt_loc_ext_inf;
     if ((rmt_loc_ext_inf = (rmt_locator_extended_info *)malloc(sizeof(rmt_locator_extended_info))) == NULL) {
@@ -485,7 +485,7 @@ void free_locator(lispd_locator_elt   *locator)
 /*
  * Free memory of a lcl_locator_extended_info structure
  */
-inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info)
+static inline void free_lcl_locator_extended_info(lcl_locator_extended_info *extended_info)
 {
     if(extended_info == NULL){
         return;
@@ -568,7 +568,7 @@ nat_info_str *copy_nat_info_str(nat_info_str *nat_info)
 /*
  * Free memory of a rmt_locator_extended_info structure
  */
-inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info)
+static inline void free_rmt_locator_extended_info(rmt_locator_extended_info *extended_info)
 {
     if (extended_info == NULL){
         return;
