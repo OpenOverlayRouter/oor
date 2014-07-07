@@ -390,3 +390,15 @@ void dump_map_cache_db(int log_level)
     }
     lispd_log_msg(log_level,"*******************************************************\n");
 }
+
+
+void drop_map_cache()
+{
+	lispd_log_msg(LISP_LOG_DEBUG_3,"free_map_cache_db: Releasing memory of map cache\n");
+	if (AF4_map_cache != NULL)
+		Destroy_Patricia(AF4_map_cache,free_map_cache_entry);
+	if (AF6_map_cache != NULL)
+		Destroy_Patricia(AF6_map_cache,free_map_cache_entry);
+	AF4_map_cache = NULL;
+	AF6_map_cache = NULL;
+}

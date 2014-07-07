@@ -63,14 +63,17 @@ void init_referral_cache()
  */
 void drop_referral_cache()
 {
-    patricia_tree_t                 *dbs [4]        = {ipv4_referral_cache, ipv6_referral_cache,
-            ipv4_ms_referral_cache, ipv6_ms_referral_cache};
+    patricia_tree_t                 **dbs [4]        = {&ipv4_referral_cache, &ipv6_referral_cache,
+            &ipv4_ms_referral_cache, &ipv6_ms_referral_cache};
     int                             ctr             = 0;
 
     lispd_log_msg(LISP_LOG_DEBUG_2,  " Droping referral cache...");
 
     for (ctr = 0 ; ctr < 4 ; ctr++){
-        Destroy_Patricia (dbs[ctr], free_referral_cache_entry);
+        if (*dbs[ctr] != NULL){
+            Destroy_Patricia (*dbs[ctr], free_referral_cache_entry);
+            *dbs[ctr] = NULL;
+        }
     }
 }
 
@@ -153,7 +156,6 @@ int add_update_ddt_static_entry_to_db (
     lispd_referral_cache_entry      *referral_cache_entry   = NULL;
     lispd_mapping_elt               *mapping                = NULL;
     lispd_locator_elt               *locator                = NULL;
-    uint8_t                         *state                  = NULL;
     uint8_t                         is_new                  = FALSE;
 
     referral_cache_entry = lookup_referral_cache_exact (eid_prefix, eid_prefix_length,DDT_NOT_END_PREFIX_DATABASES);
@@ -175,28 +177,18 @@ int add_update_ddt_static_entry_to_db (
         }
         is_new = TRUE;
     }
-    /* Generate and add the locator of the ddt node to the list of locators of the referral cache */
-    if((state = (uint8_t *)malloc(sizeof(uint8_t))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING,"add_update_ddt_static_entry_to_db: Unable to allocate memory for uint8_t: %s", strerror(errno));
-        if (is_new == TRUE){
-            del_referral_cache_entry_from_db(referral_cache_entry);
-        }
-        return (BAD);
-    }
-    *state = UP;
-    if ((locator = new_locator ( ddt_locator_address, state, priority, weight, 255, 0)) == NULL){
+
+    if ((locator = new_static_rmt_locator ( ddt_locator_address, UP, priority, weight, 255, 0)) == NULL){
         lispd_log_msg(LISP_LOG_DEBUG_2,"add_update_ddt_static_entry_to_db: Unable to generate locator");
         if (is_new == TRUE){
             del_referral_cache_entry_from_db(referral_cache_entry);
-            free (state);
         }
         return (BAD);
     }
 
     if ((err=add_locator_to_mapping (referral_cache_entry->mapping,locator))!=GOOD){
         // We don't call free_locator because ddt_locator_address is allocated outside this function
-        free(state);
-        free(locator);
+    	free_locator(locator);
         if (is_new == TRUE){
             del_referral_cache_entry_from_db(referral_cache_entry);
         }
@@ -518,4 +510,3 @@ void dump_referral_cache_db(int log_level)
     }
     lispd_log_msg(log_level,"*******************************************************\n");
 }
-

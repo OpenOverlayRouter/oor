@@ -5,7 +5,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -174,6 +177,44 @@ public class ConfigTools {
 	    }
 	    Matcher m3 = VALID_IPV6_COMP_PATTERN.matcher(ip);
 	    return m3.matches();
+	}
+	
+	/*
+	 * Convination of two technics to get the list of interfaces. 
+	 *  getNetworkInterfaces: in some devices it doesn't return down interfaces 
+	 *  /proc/net/xt_qtaguid/iface_stat_all is not used in all versions of android
+	 */
+	public static List<String> get_ifaces_list()
+	{
+		
+		List<String> iface_list = new ArrayList<String>();
+		try {
+			Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces();
+			while (en.hasMoreElements())
+			{
+				NetworkInterface intf = en.nextElement();
+				iface_list.add(intf.getName());
+			}
+			
+			try{
+				FileReader reader = new FileReader("/proc/net/xt_qtaguid/iface_stat_all");
+				BufferedReader in = new BufferedReader(reader);
+				String line = null;
+				String device;
+				while( (line = in.readLine()) != null) {
+					device = line.substring(0,line.indexOf(" "));
+					if (!iface_list.contains(device)){
+						iface_list.add(device);
+					}
+				}
+				reader.close();
+			}catch (Exception e){e.printStackTrace();};
+		} catch (SocketException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return (iface_list);
 	}
 
 }

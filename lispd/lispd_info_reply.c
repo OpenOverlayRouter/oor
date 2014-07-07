@@ -86,15 +86,19 @@ int process_info_reply_msg(
     lispd_rtr_locators_list     *rtr_locators_list      = NULL;
 
     lispd_mapping_elt           *mapping                = NULL;
-    lispd_locator_elt           *locator                = NULL;
-    lcl_locator_extended_info   *lcl_locator_ext_inf    = NULL;
+    lcl_mapping_extended_info   *mapping_ext_inf        = NULL;
+    lispd_locator_elt           *src_locator            = NULL;
+    nat_info_str                *nat_info               = NULL;
+
 
     char                        rtrs_list_str[2000];
     int                         rtrs_list_str_size = 0;
     lispd_rtr_locators_list     *aux_rtr_locators_list  = NULL;
 
     uint8_t                     is_behind_nat           = FALSE;
+    uint8_t                     need_smr                = FALSE;
 
+    timer_map_register_argument *timer_arg              = NULL;
 
     /*
      * Get source port and address.
@@ -166,17 +170,55 @@ int process_info_reply_msg(
                 get_char_from_lisp_addr_t(ms_rloc),get_char_from_lisp_addr_t(private_etr_rloc),rtrs_list_str);
     }
 
-
-    /* Checking the nonce */
-
-    if (check_nonce(nat_ir_nonce,nonce) == GOOD ){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Correct nonce field checking ");
-        free(nat_ir_nonce);
-        nat_ir_nonce = NULL;
-    }else{
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Info-Reply: Error checking nonce field. No Info Request generated with nonce: %s",
-                get_char_from_nonce (nonce));
+    mapping = lookup_eid_exact_in_db(eid_prefix, eid_mask_len);
+    if (mapping == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
+        free_rtr_list(rtr_locators_list);
         return (BAD);
+    }
+
+#ifndef VPNAPI
+    src_locator = get_locator_from_mapping(mapping, &local_rloc);
+#else
+    /*
+     * With VPN-API, we only have one listening socket for all interfaces. In order to not modify structures and behaviour of LISPmob,
+     * we use nonce to find the interface associated with the received message, even if the message has been receiven in a different interface, we accept it.
+     */
+    switch(local_rloc.afi){
+    case AF_INET:
+        src_locator = nat_get_locator_with_nonce(mapping->head_v4_locators_list,nonce);
+        break;
+    case AF_INET6:
+        src_locator = nat_get_locator_with_nonce(mapping->head_v6_locators_list,nonce);
+        break;
+    }
+
+#endif
+
+    if (src_locator == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any locator associated with the EID: %s/%d. "
+                "Received into the interface with IP address: %s",
+                get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length,
+                get_char_from_lisp_addr_t(local_rloc));
+        free_rtr_list(rtr_locators_list);
+        return (BAD);
+    }
+
+    nat_info = ((lcl_locator_extended_info *)src_locator->extended_info)->nat_info;
+    if (nat_info == NULL){
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Received a info reply in a not NAT enabled device");
+        free_rtr_list(rtr_locators_list);
+        return (BAD);
+    }
+
+    if(nat_info->inf_req_timer == NULL){
+    	/*
+    	 * We send two consecutive info request through a not nated interface. The first info reply remove
+    	 * mapping_ext_inf->inf_req_timer. The second info reply should be ignored to avoid seg fault
+    	 */
+    	lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: A previous Info Reply message confirms that we are not behind a NAT interface");
+    	free_rtr_list(rtr_locators_list);
+    	return (GOOD);
     }
 
     /* Check authentication data */
@@ -190,7 +232,21 @@ int process_info_reply_msg(
         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Correct auth data field checking");
     }
 
-	
+    /* Checking the nonce */
+
+     if (check_nonce(nat_info->inf_req_nonce,nonce) == GOOD ){
+         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Correct nonce field checking ");
+         free(nat_info->inf_req_nonce);
+         nat_info->inf_req_nonce = NULL;
+     }else{
+         lispd_log_msg(LISP_LOG_DEBUG_1, "Info-Reply: Error checking nonce field. No Info Request generated with nonce: %s "
+                 "and source IP address: %s",
+                 get_char_from_nonce (nonce),
+                 get_char_from_lisp_addr_t(local_rloc));
+         return (BAD);
+     }
+
+
 	// TODO  Select the best RTR from the list retrieved from the Info-Reply
 
 
@@ -212,57 +268,81 @@ int process_info_reply_msg(
         break;
     }
 
+
     if (is_behind_nat == TRUE){
 
-        if (rtr_locators_list == NULL){
-            lispd_log_msg(LISP_LOG_WARNING, "process_info_reply_msg: The interface with IP address %s is behind NAT"
-                    " but there is no RTR compatible with local AFI", get_char_from_lisp_addr_t(local_rloc));
-        }
 
-        mapping = lookup_eid_exact_in_db(eid_prefix, eid_mask_len);
-        if (mapping == NULL){
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
-            return (BAD);
-        }
-        locator = get_locator_from_mapping(mapping,local_rloc);
-        if (locator == NULL){
-            lispd_log_msg(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply received in the wrong locator");
-            return (BAD);
-        }
-
-        lcl_locator_ext_inf = (lcl_locator_extended_info *)locator->extended_info;
-        if (lcl_locator_ext_inf->rtr_locators_list != NULL){
-            free_rtr_list(lcl_locator_ext_inf->rtr_locators_list);
-        }
-        lcl_locator_ext_inf->rtr_locators_list = rtr_locators_list;
-
-        if (nat_status == NO_NAT || nat_status == PARTIAL_NAT){
-            nat_status = PARTIAL_NAT;
-        }else{
-            nat_status = FULL_NAT;
-        }
+        nat_info->status= NAT;
     }else{
-        if (nat_status == FULL_NAT || nat_status == PARTIAL_NAT){
-            nat_status = PARTIAL_NAT;
-        }else{
-            nat_status = NO_NAT;
-        }
+        nat_info->status= NO_NAT;
+    }
+
+    /*
+     * We add the list of RTRs even if the locator is not behind NAT
+     * In mobile node mode, we use always RTRs
+     */
+
+    if (rtr_locators_list == NULL){
+        lispd_log_msg(LISP_LOG_WARNING, "process_info_reply_msg: The interface with IP address %s don't have any RTR compatible"
+                " with local AFI", get_char_from_lisp_addr_t(local_rloc));
+    }
+
+    if (nat_info->rtr_locators_list != NULL){
+        free_rtr_list(nat_info->rtr_locators_list);
+    }
+    nat_info->rtr_locators_list = rtr_locators_list;
+
+    /* Reinsert the locator in the correct position of the list */
+    if (reinsert_locator_to_mapping(mapping, src_locator)!=GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_1, "process_info_reply_msg: Error reinserting locator into the correct position of the list of locators");
+        return (BAD);
     }
 
     /* If we are behind NAT, the program timer to send Info Request after TTL minutes */
-    if (is_behind_nat == TRUE){
-        if (info_reply_ttl_timer == NULL) {
-            info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
-        }
-        start_timer(info_reply_ttl_timer, ttl*60, info_request, (void *)mapping);
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
-    }else{
-        stop_timer(info_reply_ttl_timer);
-        info_reply_ttl_timer = NULL;
+    // XXX We send always Inf Req, even if we are not behind NAT
+    if (nat_info->inf_req_timer == NULL) {
+        nat_info->inf_req_timer = create_timer(INFO_REPLY_TTL_TIMER);
+    }
+    start_timer(nat_info->inf_req_timer, ttl*60, info_request, nat_info->inf_req_timer->cb_argument);
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d minutes",ttl);
+
+
+
+    /* If there is a change of global address -> SMR */
+    /* Encap Map Register change RTR cache but need to SMR pXTR. It seems that is not done by the RTR */
+
+    if (nat_info->public_addr != NULL){
+    	if (compare_lisp_addr_t(&global_etr_rloc, nat_info->public_addr) != 0){
+    		need_smr = TRUE;
+    	}
+    	free(nat_info->public_addr);
+    }else {
+    	// First info reply
+    	need_smr = TRUE;
     }
 
-    /* Once we know the NAT state we send a Map-Register */
-    map_register(NULL,NULL);
+    nat_info->public_addr = clone_lisp_addr(&global_etr_rloc);
+
+    if (need_smr){
+        smr_send_map_reg(mapping);
+    }else{
+        /* In SMR process we already send Map Register. It doesn't have to be send again */
+
+        mapping_ext_inf = (lcl_mapping_extended_info *)mapping->extended_info;
+        /* Once we know the NAT state we send a Map-Register */
+        if (mapping_ext_inf->map_reg_timer == NULL){
+            timer_arg = new_timer_map_reg_arg(mapping,src_locator);
+            if (timer_arg == NULL){
+                return (BAD);
+            }
+        }else{
+            timer_arg = (timer_map_register_argument *)mapping_ext_inf->map_reg_timer->cb_argument;
+            timer_arg->src_locator = src_locator;
+        }
+
+
+        map_register(NULL,(void *)timer_arg);
+    }
 
     return (GOOD);
 }

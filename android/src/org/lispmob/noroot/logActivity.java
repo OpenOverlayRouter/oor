@@ -29,6 +29,8 @@
 package org.lispmob.noroot;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -40,8 +42,28 @@ import java.io.*;
 
 public class logActivity extends Activity {
 
+
+	private ProgressDialog myDialog = null;
+	private Handler mHandler = new Handler();
+
+
 	private static File log_file = null;
 	public static final int maxReadBytes = 200000;
+	
+	
+	public void onConfigurationChanged(Configuration newConfig) {
+		super.onConfigurationChanged(newConfig);
+		setContentView(R.layout.log);
+		if (myDialog == null){
+			myDialog = ProgressDialog.show( logActivity.this, null, null,true );
+		}
+		new Thread(new Runnable() {
+			public void run() {
+				refresh();
+			}
+		}).start();
+	}
+	
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -50,7 +72,8 @@ public class logActivity extends Activity {
 		log_file = new File(sdcardDir, "lispd.log");
 
 		setContentView(R.layout.log);
-		MyDialog = progressDialog.show( logActivity.this, " " , " Loading. Please wait ... ", true);
+		//myDialog = ProgressDialog.show( logActivity.this, " " , " Loading. Please wait ... ", true);
+		myDialog = ProgressDialog.show( logActivity.this, null, null,true );
 
 		new Thread(new Runnable() {
 			public void run() {
@@ -59,7 +82,10 @@ public class logActivity extends Activity {
 		}).start();
 	}
 	public void refresh() {
+	
 		StringBuffer contents = new StringBuffer();
+
+		final StringBuffer fixedContents = contents;
 
 		try { 
 			RandomAccessFile logFile = new RandomAccessFile(log_file, "r");
@@ -89,9 +115,10 @@ public class logActivity extends Activity {
 		} finally {
 
 		}
-
-		final StringBuffer fixedContents = contents;
+		
 		mHandler.post(new Runnable() { public void run() {
+			
+			
 			// Put the file contents into the TextView
 			TextView log = (TextView) findViewById(R.id.logView); 
 			log.setText(fixedContents);
@@ -103,17 +130,17 @@ public class logActivity extends Activity {
 					scroll.fullScroll(View.FOCUS_DOWN);              
 				}
 			});
-			MyDialog.dismiss();
+			if (myDialog != null){
+				myDialog.dismiss();
+				myDialog = null;
+			}
 		}
 		}
 				);
 	}
 
-	private Handler mHandler = new Handler();
-	private progressDialog MyDialog = null;
-
 	public void refreshClicked(View v) {
-		MyDialog = progressDialog.show( logActivity.this, null, null );
+		myDialog = ProgressDialog.show( logActivity.this, null, null );
 
 		new Thread(new Runnable() {
 			public void run() {

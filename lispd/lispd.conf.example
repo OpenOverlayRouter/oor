@@ -43,7 +43,7 @@ rloc-probing {
 #
 #   nat_aware: check if the node is behind NAT
 #
-# Limitation of version 0.3.3 when nat_aware is enabled: 
+# Limitation of version 0.4.1 when nat_aware is enabled: 
 #   - Only one interface is supported.
 #   - Only one Map-Server and one Map-Resolver
 

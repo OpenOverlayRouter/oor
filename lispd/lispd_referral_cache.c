@@ -76,11 +76,12 @@ void free_referral_cache_entry(lispd_referral_cache_entry *referral_cache_entry)
 {
     lispd_referral_cache_list *list_elt          = referral_cache_entry->children_nodes;
     lispd_referral_cache_list *aux_list_elt      = NULL;
+
     free_mapping_elt (referral_cache_entry->mapping);
     /* We remove the list of childs (lispd_referral_cache_list) but not the childs  (lispd_referral_cache_entry)*/
     while (list_elt != NULL){
         aux_list_elt = list_elt->next;
-        free(aux_list_elt);
+        free(list_elt);
         list_elt = aux_list_elt;
     }
     if (referral_cache_entry->expiry_ddt_cache_timer != NULL){
@@ -97,6 +98,7 @@ void free_referral_cache_entry_recursive(lispd_referral_cache_entry *referral_ca
     free_mapping_elt (referral_cache_entry->mapping);
     if (referral_cache_entry->expiry_ddt_cache_timer != NULL){
         stop_timer(referral_cache_entry->expiry_ddt_cache_timer);
+        referral_cache_entry->expiry_ddt_cache_timer = NULL;
     }
     remove_referral_cache_entry_from_parent_node(referral_cache_entry);
     free_lispd_referral_cache_list(referral_cache_entry->children_nodes);

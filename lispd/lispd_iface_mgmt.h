@@ -35,6 +35,26 @@
 
 
 int opent_netlink_socket();
+
 void process_netlink_msg(int netlink_fd);
+
+int lispd_get_iface_address_nl(
+        char                *ifacename,
+        lisp_addr_t         *addr,
+        int                 afi);
+
+/*
+ * Get MAC address of an interface
+ */
+void iface_mac_address(
+		char 	*iface_name,
+		uint8_t *mac);
+
+/*
+ * Return a list of ifaces names
+ */
+int get_all_ifaces_name_list(
+        char ***ifaces,
+        int *count);
 
 #endif /* LISPD_IFACE_MGMT_H_ */

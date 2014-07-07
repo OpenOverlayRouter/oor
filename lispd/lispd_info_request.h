@@ -1,4 +1,34 @@
-#pragma once
+/*
+ * lispd_info_request.h
+ *
+ * This file is part of LISP Mobile Node Implementation.
+ *
+ * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Written or modified by:
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Albert López Brescó <alopez@ac.upc.edu>
+ */
+
+#ifndef LISPD_INFO_REQUEST_H_
+#define LISPD_INFO_REQUEST_H_
 
 #include "lispd.h"
 
@@ -58,17 +88,29 @@ typedef struct lispd_pkt_info_request_lcaf_t_ {
 */ 
 } PACKED lispd_pkt_info_request_lcaf_t;
 
+typedef struct _timer_info_request_argument{
+    lispd_mapping_elt   *mapping;
+    lispd_locator_elt   *src_locator;
+} timer_info_request_argument;
+
 int  build_and_send_info_request(
         lispd_map_server_list_t     *map_server,
         uint32_t                    ttl,
         uint8_t                     eid_mask_length,
         lisp_addr_t                 *eid_prefix,
-        lispd_iface_elt             *src_iface,
+        lisp_addr_t		            *src_rloc,
         uint64_t                    *nonce);
+
+/*
+ * Initiate procedure to know status of each locator of every EID
+ */
+int initial_info_request_process();
 
 
 /* Send initial Info Request message to know nat status*/
-int initial_info_request_process();
+void restart_info_request_process(
+		lispd_mapping_list 	*mapping_list,
+		lisp_addr_t 		*src_addr);
 
 /* Send Info Request */
 int info_request(
@@ -76,11 +118,8 @@ int info_request(
         void    *arg);
 
 
-/*
- * Given an interface, it looks for all the locators associated with this interface and remove its
- * RTR information. Use this function befor starting info request process in interface change
- */
+timer_info_request_argument * new_timer_inf_req_arg(
+		lispd_mapping_elt *mapping,
+		lispd_locator_elt *src_locator);
 
-void clear_rtr_from_locators (lispd_iface_elt     *iface);
-
-
+#endif /* LISPD_INFO_REQUEST_H_*/

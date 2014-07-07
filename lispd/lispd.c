@@ -54,6 +54,7 @@
 #include "lispd_config.h"
 #include "lispd_iface_list.h"
 #include "lispd_iface_mgmt.h"
+#include "lispd_info_request.h"
 #include "lispd_input.h"
 #ifdef VPNAPI
  #include "lispd_jni.h"
@@ -95,6 +96,7 @@ uint8_t                      router_mode;
 lispd_addr_list_t            *map_resolvers;
 int                          ddt_client;
 lispd_addr_list_t            *proxy_itrs;
+lispd_addr_list_t            *rtrs_list;
 lispd_map_cache_entry        *proxy_etrs;
 lispd_map_server_list_t      *map_servers;
 char                         *config_file;
@@ -145,6 +147,7 @@ lispd_xTR_ID                xTR_ID;
  * smr_timer is used to avoid sending SMRs during transition period.
  */
 timer                         *smr_timer;
+timer                         *smr_retry_timer;
 
 /*
  *      timers (fds)
@@ -251,7 +254,7 @@ int main(int argc, char **argv)
      *  create timers
      */
 
-    if (build_timers_event_socket(&timers_fd) == 0)
+    if (build_timers_event_socket(&timers_fd) != GOOD)
     {
     	lispd_log_msg(LISP_LOG_CRIT, " Error programing the timer signal. Exiting...");
     	exit_cleanup();
@@ -263,7 +266,10 @@ int main(int argc, char **argv)
     /*
      * Create net_link socket to receive notifications of changes of RLOC status.
      */
-    netlink_fd = opent_netlink_socket();
+    if ((netlink_fd = opent_netlink_socket()) == -1){
+        lispd_log_msg(LISP_LOG_CRIT, " Error programing netlink socket. Exiting...");
+        exit_cleanup();
+    }
 
     /*
      *  Parse config file. Format of the file depends on the node: Linux Box or OpenWRT router
@@ -293,7 +299,6 @@ int main(int argc, char **argv)
     if (nat_aware == TRUE){
     	nat_set_xTR_ID();
     }
-
     /*
      * Select the default rlocs for output data packets and output control packets
      */
@@ -355,7 +360,12 @@ int main(int argc, char **argv)
     /*
      *  Register to the Map-Server(s)
      */
-    initial_map_register_process();
+
+    if (nat_aware == TRUE){
+        initial_info_request_process();
+    }else{
+        initial_map_register_process();
+    }
 
     init_smr(NULL,NULL);
 
@@ -440,16 +450,25 @@ JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
     /*
      * Create net_link socket to receive notifications of changes of RLOC status.
      */
-	netlink_fd 		  = opent_netlink_socket();
+	if ((netlink_fd = opent_netlink_socket()) == -1){
+        lispd_log_msg(LISP_LOG_CRIT, " Error programing netlink socket. Exiting...");
+        exit_cleanup();
+        return (NULL);
+    }
 
-    ipc_control_fd    = open_ipc_socket(IPC_CONTROL_RX_PORT);
+	if ((ipc_control_fd    = open_ipc_socket(IPC_CONTROL_RX_PORT)) == -1){
+	    lispd_log_msg(LISP_LOG_CRIT, " Error programing IPC socket. Exiting...");
+	    exit_cleanup();
+	    return (NULL);
+	}
 
 	err = handle_lispd_config_file(config_file);
 
 
 	if (err != GOOD){
 		lispd_log_msg(LISP_LOG_CRIT,"Wrong configurationn.");
-        ipc_send_log_msg("Configuration file error. Check logs for more details",1);
+        ipc_send_log_msg(WRONG_CONF);
+        sleep(2);
 		exit_cleanup();
 		return (NULL);
 	}
@@ -473,11 +492,21 @@ JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
     if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET){
         ipv4_control_input_fd = open_control_input_socket(AF_INET);
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
+        if (ipv4_control_input_fd == -1 || ipv4_data_input_fd == -1){
+            lispd_log_msg(LISP_LOG_CRIT, " Error programing IPv4 sockets. Exiting...");
+            exit_cleanup();
+            return (NULL);
+        }
     }
 
     if (default_rloc_afi == AF_UNSPEC || default_rloc_afi == AF_INET6){
         ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
+        if (ipv6_control_input_fd == -1 || ipv6_data_input_fd == -1){
+            lispd_log_msg(LISP_LOG_CRIT, " Error programing IPv6 sockets. Exiting...");
+            exit_cleanup();
+            return (NULL);
+        }
     }
 
     tun_fd = vpn_tun_fd;
@@ -499,10 +528,18 @@ JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
 		return NULL; /* out of memory error thrown */
 	}
 
-	sockets_fds[0] = ipv4_control_input_fd;
-	sockets_fds[1] = ipv4_data_input_fd;
-	sockets_fds[2] = ipv6_control_input_fd;
-	sockets_fds[3] = ipv6_data_input_fd;
+	if (default_ctrl_iface_v4 != NULL ||  default_ctrl_iface_v6 != NULL){
+	    sockets_fds[0] = ipv4_control_input_fd;
+	    sockets_fds[1] = ipv4_data_input_fd;
+	    sockets_fds[2] = ipv6_control_input_fd;
+	    sockets_fds[3] = ipv6_data_input_fd;
+	}else{ // We started LISPmob without any interface UP */
+	    ipc_send_log_msg(NO_NETWORK);
+	    sockets_fds[0] = -1;
+	    sockets_fds[1] = -1;
+	    sockets_fds[2] = -1;
+	    sockets_fds[3] = -1;
+	}
 
 	(*env)->SetIntArrayRegion(env, fd_list, 0, 4, sockets_fds);
 	return fd_list;
@@ -528,11 +565,15 @@ void event_loop()
      *  calculate the max_fd for select.
      */
 
-    max_fd = ipv4_data_input_fd;
-    max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
-    max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
-    max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
-    max_fd = (max_fd > tun_fd)          		? max_fd : tun_fd;
+    max_fd = tun_fd;
+    if (default_rloc_afi != AF_INET6){
+        max_fd = (max_fd > ipv4_data_input_fd)      ? max_fd : ipv4_data_input_fd;
+        max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
+    }
+    if (default_rloc_afi != AF_INET){
+        max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
+        max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
+    }
     max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
     max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
 
@@ -541,10 +582,14 @@ void event_loop()
     while (lispd_running) {
         FD_ZERO(&readfds);
         FD_SET(tun_fd, &readfds);
-        FD_SET(ipv4_data_input_fd, &readfds);
-        FD_SET(ipv6_data_input_fd, &readfds);
-        FD_SET(ipv4_control_input_fd, &readfds);
-        FD_SET(ipv6_control_input_fd, &readfds);
+        if (default_rloc_afi != AF_INET6){
+            FD_SET(ipv4_data_input_fd, &readfds);
+            FD_SET(ipv4_control_input_fd, &readfds);
+        }
+        if (default_rloc_afi != AF_INET){
+            FD_SET(ipv6_data_input_fd, &readfds);
+            FD_SET(ipv6_control_input_fd, &readfds);
+        }
         FD_SET(timers_fd, &readfds);
         FD_SET(netlink_fd, &readfds);
 
@@ -553,22 +598,25 @@ void event_loop()
         if (retval != GOOD) {
             continue;        /* interrupted */
         }
-
-        if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
-            process_input_packet(ipv4_data_input_fd, AF_INET);
+        if (default_rloc_afi != AF_INET6){
+            if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
+                //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
+                process_input_packet(ipv4_data_input_fd, AF_INET);
+            }
+            if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
+                lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
+                process_ctr_msg(ipv4_control_input_fd, AF_INET);
+            }
         }
-        if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
-            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
-            process_input_packet(ipv6_data_input_fd, AF_INET6);
-        }
-        if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
-            process_ctr_msg(ipv4_control_input_fd, AF_INET);
-        }
-        if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
-            lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
-            process_ctr_msg(ipv6_control_input_fd, AF_INET6);
+        if (default_rloc_afi != AF_INET){
+            if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
+                //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
+                process_input_packet(ipv6_data_input_fd, AF_INET6);
+            }
+            if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
+                lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
+                process_ctr_msg(ipv6_control_input_fd, AF_INET6);
+            }
         }
         if (FD_ISSET(tun_fd, &readfds)) {
             lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
@@ -595,13 +643,16 @@ JNIEXPORT void JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_lispd_1loop(JNIEnv *
 	fd_set readfds;
 	int    retval;
 
-	initial_map_register_process ();
+    if (nat_aware == TRUE){
+        initial_info_request_process();
+    }else{
+        initial_map_register_process();
+        /*
+         * SMR proxy-ITRs list to be updated with new mappings
+         */
 
-	/*
-	 * SMR proxy-ITRs list to be updated with new mappings
-	 */
-
-	init_smr(NULL,NULL);
+        init_smr(NULL,NULL);
+    }
 
 	/*
 	 * RLOC Probing proxy ETRs
@@ -612,68 +663,76 @@ JNIEXPORT void JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_lispd_1loop(JNIEnv *
 	 *  calculate the max_fd for select.
 	 */
 
-	 max_fd = tun_fd;
-	 max_fd = (max_fd > ipv4_data_input_fd)      ? max_fd : ipv4_data_input_fd;
-	 max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
-	 max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
-	 max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
-	 max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
-	 max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
+	    max_fd = tun_fd;
+	    if (default_rloc_afi != AF_INET6){
+	        max_fd = (max_fd > ipv4_data_input_fd)      ? max_fd : ipv4_data_input_fd;
+	        max_fd = (max_fd > ipv4_control_input_fd)   ? max_fd : ipv4_control_input_fd;
+	    }
+	    if (default_rloc_afi != AF_INET){
+	        max_fd = (max_fd > ipv6_data_input_fd)      ? max_fd : ipv6_data_input_fd;
+	        max_fd = (max_fd > ipv6_control_input_fd)   ? max_fd : ipv6_control_input_fd;
+	    }
+	    max_fd = (max_fd > timers_fd)               ? max_fd : timers_fd;
+	    max_fd = (max_fd > netlink_fd)              ? max_fd : netlink_fd;
 
+	    lispd_running = TRUE;
 
-	 lispd_running = TRUE;
+	    while (lispd_running) {
+	        FD_ZERO(&readfds);
+	        FD_SET(tun_fd, &readfds);
+	        if (default_rloc_afi != AF_INET6){
+	            FD_SET(ipv4_data_input_fd, &readfds);
+	            FD_SET(ipv4_control_input_fd, &readfds);
+	        }
+	        if (default_rloc_afi != AF_INET){
+	            FD_SET(ipv6_data_input_fd, &readfds);
+	            FD_SET(ipv6_control_input_fd, &readfds);
+	        }
+	        FD_SET(timers_fd, &readfds);
+	        FD_SET(netlink_fd, &readfds);
 
-	 while (lispd_running){
-	         FD_ZERO(&readfds);
-	         FD_SET(tun_fd, &readfds);
-	         FD_SET(ipv4_data_input_fd, &readfds);
-	         FD_SET(ipv6_data_input_fd, &readfds);
-	         FD_SET(ipv4_control_input_fd, &readfds);
-	         FD_SET(ipv6_control_input_fd, &readfds);
-	         FD_SET(timers_fd, &readfds);
-	         FD_SET(netlink_fd, &readfds);
+	        retval = have_input(max_fd, &readfds);
 
+	        if (retval != GOOD) {
+	            continue;        /* interrupted */
+	        }
+	        if (default_rloc_afi != AF_INET6){
+	            if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
+	                lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
+	                process_input_packet(ipv4_data_input_fd, AF_INET);
+	            }
+	            if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
+	                lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
+	                process_ctr_msg(ipv4_control_input_fd, AF_INET);
+	            }
+	        }
+	        if (default_rloc_afi != AF_INET){
 
-	         retval = have_input(max_fd, &readfds);
-//
-//	         if (retval != GOOD) {
-//	        	 continue;        /* interrupted */
-//	         }
+	            if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
+	                //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
+	                process_input_packet(ipv6_data_input_fd, AF_INET6);
+	            }
 
-	         if (FD_ISSET(tun_fd, &readfds)) {
-	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
-	        	 process_output_packet();
-	         }
+	            if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
+	                lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
+	                process_ctr_msg(ipv6_control_input_fd, AF_INET6);
+	            }
+	        }
 
-	         if (FD_ISSET(ipv4_data_input_fd, &readfds)) {
-	        	 //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv4 packet");
-	        	 process_input_packet(ipv4_data_input_fd, AF_INET);
-	         }
+	        if (FD_ISSET(tun_fd, &readfds)) {
+	            lispd_log_msg(LISP_LOG_DEBUG_3,"Received packet in the tun buffer");
+	            process_output_packet(tun_fd);
+	        }
 
-	         if (FD_ISSET(ipv6_data_input_fd, &readfds)) {
-	        	 //lispd_log_msg(LISP_LOG_DEBUG_3,"Received input IPv6 packet");
-	        	 process_input_packet(ipv6_data_input_fd, AF_INET6);
-	         }
+	        if (FD_ISSET(timers_fd,&readfds)){
+	            //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
+	            process_timer_signal(timers_fd);
+	        }
 
-	         if (FD_ISSET(ipv4_control_input_fd, &readfds)) {
-	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv4 packet in the control input buffer (4342)");
-	        	 process_ctr_msg(ipv4_control_input_fd, AF_INET);
-	         }
-
-	         if (FD_ISSET(ipv6_control_input_fd, &readfds)) {
-	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received IPv6 packet in the control input buffer (4342)");
-	        	 process_ctr_msg(ipv6_control_input_fd, AF_INET6);
-	         }
-
-	         if (FD_ISSET(timers_fd,&readfds)){
-	        	 //lispd_log_msg(LISP_LOG_DEBUG_3,"Received something in the timer fd");
-	        	 process_timer_signal(timers_fd);
-	         }
-
-	         if (FD_ISSET(netlink_fd,&readfds)){
-	        	 lispd_log_msg(LISP_LOG_DEBUG_3,"Received notification from net link");
-	        	 process_netlink_msg(netlink_fd);
-	         }
+	        if (FD_ISSET(netlink_fd,&readfds)){
+	            lispd_log_msg(LISP_LOG_DEBUG_3,"Received notification from net link");
+	            process_netlink_msg(netlink_fd);
+	        }
 	 }
 	 lispd_log_msg(LISP_LOG_DEBUG_2,"event_loop: Exiting from event loop");
 }
@@ -789,15 +848,15 @@ void exit_cleanup(void) {
     	remove_sig_timer();
     }
     /* Close receive sockets */
-    close(tun_fd);
-    close(ipv4_data_input_fd);
-    close(ipv4_control_input_fd);
-    close(ipv6_data_input_fd);
-    close(ipv6_control_input_fd);
+    close_socket(tun_fd);
+    close_socket(ipv4_data_input_fd);
+    close_socket(ipv4_control_input_fd);
+    close_socket(ipv6_data_input_fd);
+    close_socket(ipv6_control_input_fd);
     /* Close send sockets */
     close_output_sockets();
     /* Close netlink socket */
-    close(netlink_fd);
+    close_socket(netlink_fd);
 
     free_map_cache_entry(proxy_etrs);
     free_lisp_addr_list(proxy_itrs, TRUE);
@@ -821,13 +880,13 @@ void exit_cleanup(void) {
 		remove_sig_timer();
 	}
 	/* Close receive sockets */
-	close(tun_fd);
-	close(ipv4_data_input_fd);
-	close(ipv4_control_input_fd);
-	close(ipv6_data_input_fd);
-	close(ipv6_control_input_fd);
+	close_socket(tun_fd);
+	close_socket(ipv4_data_input_fd);
+	close_socket(ipv4_control_input_fd);
+	close_socket(ipv6_data_input_fd);
+	close_socket(ipv6_control_input_fd);
 	/* Close netlink socket */
-	close(netlink_fd);
+	close_socket(netlink_fd);
 
 	free_ifaces_list();
 	drop_map_cache();

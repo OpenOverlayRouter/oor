@@ -31,9 +31,37 @@
 #include "lispd_map_cache_db.h"
 #include "lispd_map_register.h"
 #include "lispd_map_request.h"
+#include "lispd_timers.h"
 #include "lispd_smr.h"
 #include "lispd_external.h"
 #include "lispd_log.h"
+
+/********************************** Function declaration ********************************/
+
+/*
+ * Retry SMR procedure for the list of mappings
+ */
+int retry_smr(
+        timer *timer_elt,
+        void  *arg);
+
+/*
+ * Send a solicit map request of the mapping for each rloc of all eids in the map cahce database
+ */
+int smr_send_map_req(lispd_mapping_elt *mapping);
+
+/*
+ * Creates and initialize a timer_smr_retry_arg
+ */
+timer_smr_retry_arg * new_timer_smr_retry_arg(lispd_mapping_list *list);
+
+/*
+ *
+ * Free memory of a timer_smr_retry_arg structure
+ */
+void free_timer_smr_retry_arg(timer_smr_retry_arg *timer_arg);
+
+/****************************************************************************************/
 
 
 /*
@@ -45,23 +73,11 @@ void init_smr(
 {
     lispd_iface_list_elt        *iface_list         = NULL;
     lispd_iface_mappings_list   *mappings_list      = NULL;
-    patricia_tree_t             *map_cache_dbs [2]  = {NULL,NULL};
-    lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
+    lispd_mapping_list          *err_mappings_list  = NULL;
     lispd_mapping_elt           *mapping            = NULL;
-    uint64_t                    nonce               = 0;
-    patricia_node_t             *map_cache_node     = NULL;
-    lispd_map_cache_entry       *map_cache_entry    = NULL;
-    lispd_locators_list         *locator_iterator   = NULL;
-    lispd_locator_elt           *locator            = NULL;
-    lispd_mapping_elt           **mappings_to_smr   = NULL;
-    lispd_addr_list_t           *pitr_elt           = NULL;
-    int                         mappings_ctr        = 0;
-    int                         ctr=0,ctr1=0;
-    int                         afi_db              = 0;
-    map_request_opts            opts;
-
-    memset ( &opts, FALSE, sizeof(map_request_opts));
-    opts.solicit_map_request = TRUE;
+    lispd_mapping_list          *smr_mapping_list   = NULL;
+    lispd_mapping_list          *aux_mapping_list   = NULL;
+    timer_smr_retry_arg         *smr_retry_arg      = NULL;
 
     lispd_log_msg(LISP_LOG_DEBUG_2,"*** Init SMR notification ***");
 
@@ -71,30 +87,19 @@ void init_smr(
 
     iface_list = get_head_interface_list();
 
-    if ((mappings_to_smr = (lispd_mapping_elt **)malloc(total_mappings*sizeof(lispd_mapping_elt *))) == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "init_smr: Unable to allocate memory for lispd_mapping_elt **: %s", strerror(errno));
-        return;
-    }
-    memset (mappings_to_smr,0,total_mappings*sizeof(lispd_mapping_elt *));
-
     while (iface_list != NULL){
         if ( (iface_list->iface->status_changed == TRUE) ||
                 (iface_list->iface->ipv4_changed == TRUE) ||
                 (iface_list->iface->ipv6_changed == TRUE)){
             mappings_list = iface_list->iface->head_mappings_list;
-            while(mappings_list != NULL && mappings_ctr<total_mappings){
+            while(mappings_list != NULL){
                 if (iface_list->iface->status_changed == TRUE ||
                         (iface_list->iface->ipv4_changed == TRUE && mappings_list->use_ipv4_address == TRUE) ||
                         (iface_list->iface->ipv6_changed == TRUE && mappings_list->use_ipv6_address == TRUE)){
                     mapping = mappings_list->mapping;
-                    for ( ctr=0 ; ctr< mappings_ctr ; ctr++){
-                        if ( mappings_to_smr[ctr]==mapping ){
-                            break;
-                        }
-                    }
-                    if (mappings_to_smr[ctr]!=mapping){
-                        mappings_to_smr[mappings_ctr] = mapping;
-                        mappings_ctr ++;
+
+                    if (is_mapping_in_the_list(mapping,smr_mapping_list) == FALSE){
+                        add_mapping_to_list(mapping, &smr_mapping_list);
                     }
                 }
                 mappings_list = mappings_list->next;
@@ -106,78 +111,229 @@ void init_smr(
         iface_list = iface_list->next;
     }
 
-    map_cache_dbs[0] = get_map_cache_db(AF_INET);
-    map_cache_dbs[1] = get_map_cache_db(AF_INET6);
+    /*
+     * Reset smr retry mapping list: Remove mappings to be SMRed in this iteration
+     */
+    if(smr_retry_timer != NULL){
+        smr_retry_arg = (timer_smr_retry_arg *)smr_retry_timer->cb_argument;
+        err_mappings_list = smr_retry_arg->mapping_list;
+        aux_mapping_list = smr_mapping_list;
+        while(aux_mapping_list != NULL){
+            remove_mapping_from_list(aux_mapping_list->mapping,&err_mappings_list);
+            aux_mapping_list = aux_mapping_list->next;
+        }
+    }
+
 
     /*
      * Send map register and SMR request for each affected mapping
      */
 
-    for (ctr = 0 ; ctr < mappings_ctr ; ctr++){
-        /* Send map register for the affected mapping */
-        if (nat_aware == FALSE || nat_status == NO_NAT){
-            build_and_send_map_register_msg(mappings_to_smr[ctr]);
-        }else if (nat_status != UNKNOWN){
-            // TODO : We suppose one EID and one interface. To be modified when multiple elements
-            map_register(NULL,NULL);
-        }
-
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s/%d",
-                get_char_from_lisp_addr_t(mappings_to_smr[ctr]->eid_prefix),
-                mappings_to_smr[ctr]->eid_prefix_length);
-
-        /* For each map cache entry with same afi as local EID mapping */
-        if (mappings_to_smr[ctr]->eid_prefix.afi ==AF_INET){
-            afi_db = 0;
-        }else{
-            afi_db = 1;
-        }
-        PATRICIA_WALK(map_cache_dbs[afi_db]->head, map_cache_node) {
-            map_cache_entry = ((lispd_map_cache_entry *)(map_cache_node->data));
-            locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
-            locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
-            for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){ /*For echa IPv4 and IPv6 locator*/
-
-                if (map_cache_entry->active && locators_lists[ctr1] != NULL){
-                    locator_iterator = locators_lists[ctr1];
-
-                    while (locator_iterator){
-                        locator = locator_iterator->locator;
-                        if (build_and_send_map_request_msg(map_cache_entry->mapping,&(mappings_to_smr[ctr]->eid_prefix),locator->locator_addr,opts,&nonce)==GOOD){
-                            lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s from EID %s/%d",
-                                    get_char_from_lisp_addr_t(*(locator->locator_addr)),
-                                    get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
-                                    map_cache_entry->mapping->eid_prefix_length);
-                        }
-
-                        locator_iterator = locator_iterator->next;
-                    }
-                }
-            }
-        }PATRICIA_WALK_END;
-        /* SMR proxy-itr */
-        pitr_elt  = proxy_itrs;
-
-        while (pitr_elt) {
-            if (build_and_send_map_request_msg(mappings_to_smr[ctr],&(mappings_to_smr[ctr]->eid_prefix),pitr_elt->address,opts,&nonce)==GOOD){
-                lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s/%d",
-                        get_char_from_lisp_addr_t(*(pitr_elt->address)),
-                        get_char_from_lisp_addr_t(mappings_to_smr[ctr]->eid_prefix),
-                        mappings_to_smr[ctr]->eid_prefix_length);
-            }else {
-                lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s/%d",
-                        get_char_from_lisp_addr_t(*(pitr_elt->address)),
-                        get_char_from_lisp_addr_t(mappings_to_smr[ctr]->eid_prefix),
-                        mappings_to_smr[ctr]->eid_prefix_length);
-            }
-            pitr_elt = pitr_elt->next;
-        }
-
+    while(smr_mapping_list != NULL){
+    	mapping = smr_mapping_list->mapping;
+    	if ((err = smr_send_map_reg(mapping))!=GOOD){
+    	    add_mapping_to_list(mapping, &err_mappings_list);
+    	}
+        smr_mapping_list = smr_mapping_list->next;
     }
-    free (mappings_to_smr);
+
+    free_mapping_list(smr_mapping_list, FALSE);
+
+    if(err_mappings_list != NULL){
+        if (smr_retry_timer == NULL){
+            if ((smr_retry_timer = create_timer (SMR_RETRY_TIMER)) == NULL){
+                return;
+            }
+            if ((smr_retry_arg = new_timer_smr_retry_arg(err_mappings_list))==NULL){
+                free(smr_retry_timer);
+                return;
+            }
+        }else{
+            smr_retry_arg->retries = 0;
+        }
+
+        start_timer(smr_retry_timer, LISPD_MIN_RETRANSMIT_INTERVAL,retry_smr, (void *)smr_retry_arg);
+    }else{
+        if (smr_retry_timer != NULL){
+            stop_timer(smr_retry_timer);
+            smr_retry_timer = NULL;
+        }
+    }
+
+
     lispd_log_msg(LISP_LOG_DEBUG_2,"*** Finish SMR notification ***");
 }
 
+/*
+ * Retry SMR procedure for the list of mappings
+ */
+int retry_smr(
+        timer *timer_elt,
+        void  *arg)
+{
+    timer_smr_retry_arg    *smr_retry_arg       = (timer_smr_retry_arg *)arg;
+    lispd_mapping_list     *smr_mapping_list    = smr_retry_arg->mapping_list;
+    lispd_mapping_list     *err_mappings_list   = NULL;
+    lispd_mapping_elt      *mapping             = NULL;
+
+    if (smr_retry_arg->retries > 3){
+        free_timer_smr_retry_arg(smr_retry_arg);
+        free(smr_retry_timer);
+        smr_retry_timer = NULL;
+        return (BAD);
+    }
+    lispd_log_msg(LISP_LOG_DEBUG_1, "retry_smr: Retrying SMR");
+    while(smr_mapping_list != NULL){
+        mapping = smr_mapping_list->mapping;
+        if (smr_send_map_reg(mapping)!=GOOD){
+            add_mapping_to_list(mapping, &err_mappings_list);
+        }
+        smr_mapping_list = smr_mapping_list->next;
+    }
+    if (err_mappings_list != NULL){
+        free_mapping_list(smr_mapping_list, FALSE);
+        smr_retry_arg->retries = smr_retry_arg->retries +1;
+        smr_retry_arg->mapping_list = err_mappings_list;
+        start_timer(smr_retry_timer, LISPD_MIN_RETRANSMIT_INTERVAL,retry_smr, (void *)smr_retry_arg);
+    }else{
+        free_timer_smr_retry_arg(smr_retry_arg);
+        free(smr_retry_timer);
+        smr_retry_timer = NULL;
+    }
+    return(GOOD);
+}
+
+/*
+ * Send initial Map Register associated to the SMR process
+ * We notify to the mapping system the change of mapping
+ */
+int smr_send_map_reg(lispd_mapping_elt *mapping)
+{
+    lcl_mapping_extended_info   *map_ext_inf       = NULL;
+    timer_map_register_argument *timer_arg         = NULL;
+
+    map_ext_inf = (lcl_mapping_extended_info *)(mapping->extended_info);
+    map_ext_inf->to_do_smr = TRUE;
+
+    if(map_ext_inf->map_reg_timer != NULL){
+        timer_arg = (timer_map_register_argument *)map_ext_inf->map_reg_timer->cb_argument;
+    }else{
+        timer_arg = new_timer_map_reg_arg(mapping,NULL);
+        if (timer_arg == NULL){
+            return  (BAD);
+        }
+    }
+    if (map_register(NULL,(void *)timer_arg) != GOOD){
+        return (BAD);
+    }
+
+    return (GOOD);
+}
+
+/*
+ * Send a solicit map request of the mapping for each rloc of all eids in the map cahce database
+ */
+int smr_send_map_req(lispd_mapping_elt *mapping)
+{
+    lcl_mapping_extended_info   *map_ext_inf 		= NULL;
+    patricia_tree_t             *map_cache_dbs [2]  = {NULL,NULL};
+    patricia_node_t             *map_cache_node     = NULL;
+    lispd_map_cache_entry       *map_cache_entry    = NULL;
+    lispd_locators_list         *locator_iterator   = NULL;
+    lispd_locator_elt           *locator            = NULL;
+    lispd_addr_list_t           *pitr_elt           = NULL;
+    lispd_locators_list         *locators_lists[2]  = {NULL,NULL};
+    lispd_rtr_locators_list     *rtr_list           = NULL;
+
+    uint64_t                    nonce               = 0;
+    int                         afi_db              = 0;
+    int                         ctr					= 0;
+    map_request_opts            opts;
+
+    lispd_log_msg(LISP_LOG_DEBUG_1, "Start SMR for local EID %s/%d",
+        			get_char_from_lisp_addr_t(mapping->eid_prefix),
+        			mapping->eid_prefix_length);
+
+    memset ( &opts, FALSE, sizeof(map_request_opts));
+    opts.solicit_map_request = TRUE;
+
+    map_cache_dbs[0] = get_map_cache_db(AF_INET);
+    map_cache_dbs[1] = get_map_cache_db(AF_INET6);
+
+
+	map_ext_inf = (lcl_mapping_extended_info *)(mapping->extended_info);
+	map_ext_inf->to_do_smr = FALSE;
+
+
+
+	/* For each map cache entry with same afi as local EID mapping */
+	if (mapping->eid_prefix.afi ==AF_INET){
+		afi_db = 0;
+	}else{
+		afi_db = 1;
+	}
+	PATRICIA_WALK(map_cache_dbs[afi_db]->head, map_cache_node) {
+		map_cache_entry = ((lispd_map_cache_entry *)(map_cache_node->data));
+		locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
+		locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
+		for (ctr = 0 ; ctr < 2 ; ctr++){ /*For echa IPv4 and IPv6 locator*/
+
+			if (map_cache_entry->active && locators_lists[ctr] != NULL){
+				locator_iterator = locators_lists[ctr];
+
+				while (locator_iterator){
+					locator = locator_iterator->locator;
+					if (build_and_send_map_request_msg(map_cache_entry->mapping,&(mapping->eid_prefix),locator->locator_addr,opts,&nonce)==GOOD){
+						lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RLOC %s from EID %s/%d",
+								get_char_from_lisp_addr_t(*(locator->locator_addr)),
+								get_char_from_lisp_addr_t(map_cache_entry->mapping->eid_prefix),
+								map_cache_entry->mapping->eid_prefix_length);
+					}
+
+					locator_iterator = locator_iterator->next;
+				}
+			}
+		}
+	}PATRICIA_WALK_END;
+	/* SMR proxy-itr */
+	pitr_elt  = proxy_itrs;
+
+	while (pitr_elt) {
+		if (build_and_send_map_request_msg(mapping,&(mapping->eid_prefix),pitr_elt->address,opts,&nonce)==GOOD){
+			lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing Proxy ITR %s for EID %s/%d",
+					get_char_from_lisp_addr_t(*(pitr_elt->address)),
+					get_char_from_lisp_addr_t(mapping->eid_prefix),
+					mapping->eid_prefix_length);
+		}else {
+			lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s/%d",
+					get_char_from_lisp_addr_t(*(pitr_elt->address)),
+					get_char_from_lisp_addr_t(mapping->eid_prefix),
+					mapping->eid_prefix_length);
+		}
+		pitr_elt = pitr_elt->next;
+	}
+
+	if (nat_aware == TRUE){
+	    rtr_list = get_rtr_list_from_mapping(mapping);
+
+	    while (rtr_list!=NULL){
+	        if (build_and_send_map_request_msg(mapping,&(mapping->eid_prefix),&(rtr_list->locator->address),opts,&nonce)==GOOD){
+	            lispd_log_msg(LISP_LOG_DEBUG_1, "  SMR'ing RTR %s for EID %s/%d",
+	                    get_char_from_lisp_addr_t(rtr_list->locator->address),
+	                    get_char_from_lisp_addr_t(mapping->eid_prefix),
+	                    mapping->eid_prefix_length);
+	        }else {
+	            lispd_log_msg(LISP_LOG_DEBUG_1, "  Coudn't SMR Proxy ITR %s for EID %s/%d",
+	                    get_char_from_lisp_addr_t(rtr_list->locator->address),
+	                    get_char_from_lisp_addr_t(mapping->eid_prefix),
+	                    mapping->eid_prefix_length);
+	        }
+	        rtr_list = rtr_list->next;
+	    }
+	}
+	return (GOOD);
+	/* We don't have to SMR RTR. They are updated automatically with the encapsulated map register */
+}
 
 int solicit_map_request_reply(
         timer *timer,
@@ -232,4 +388,28 @@ int solicit_map_request_reply(
     return (GOOD);
 }
 
+/*
+ * Creates and initialize a timer_smr_retry_arg
+ */
+timer_smr_retry_arg * new_timer_smr_retry_arg(lispd_mapping_list *list)
+{
+    timer_smr_retry_arg *timer_arg = (timer_smr_retry_arg *)malloc(sizeof(timer_smr_retry_arg));
+    if (timer_arg == NULL){
+        lispd_log_msg(LISP_LOG_WARNING,"new_timer_smr_retry_arg: Couldn't allocate memory for timer_smr_retry_arg: %s", strerror(errno));
+        return (NULL);
+    }
+    timer_arg->retries = 0;
+    timer_arg->mapping_list = list;
 
+    return(timer_arg);
+}
+
+/*
+ *
+ * Free memory of a timer_smr_retry_arg structure
+ */
+void free_timer_smr_retry_arg(timer_smr_retry_arg *timer_arg)
+{
+    free_mapping_list(timer_arg->mapping_list, FALSE);
+    free(timer_arg);
+}

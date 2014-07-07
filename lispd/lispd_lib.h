@@ -37,6 +37,29 @@
 #include "lispd_locator.h"
 
 
+#ifdef ANDROID
+
+/*
+ * Different from lispd_if_t to maintain
+ * linux system call compatibility.
+ */
+typedef struct ifaddrs {
+    struct ifaddrs      *ifa_next;
+    char                *ifa_name;
+    unsigned int         ifa_flags;
+    struct sockaddr      *ifa_addr;
+    int                  ifa_index;
+} ifaddrs;
+
+
+typedef struct {
+    struct nlmsghdr nlh;
+    struct rtgenmsg  rtmsg;
+} request_struct;
+
+#endif
+
+
 /**
  * Add an address (lisp_addr_t *) into a list of addresses (lispd_addr_list_t **)
  * @param addr Pointer to the address to be added into the list
@@ -46,6 +69,13 @@
 int add_lisp_addr_to_list(
         lisp_addr_t         *addr,
         lispd_addr_list_t   **list );
+
+/*
+ * Return TRUE if an address already exists in the list
+ */
+uint8_t is_addr_in_list (
+        lisp_addr_t         *addr,
+        lispd_addr_list_t   *list);
 
 /**
  *  Converts the hostname into IPs which are added to a list of lisp_addr_t
@@ -177,11 +207,22 @@ int get_lisp_addr_and_mask_from_char (char *address, lisp_addr_t *lisp_addr, int
  */
 int have_input(int max_fd,fd_set *readfds);
 
+
 /*
- *  Process a LISP protocol message sitting on
- *  socket s with address family afi
+ *  Read a control message from a socket and process it
  */
-int process_lisp_ctr_msg(int sock, int afi);
+
+int process_ctr_msg(
+		int sock,
+		int afi);
+/*
+ *  Process a LISP protocol message
+ */
+int process_lisp_ctr_msg(
+		uint8_t      	*packet,
+		lisp_addr_t     local_rloc,
+		uint16_t        remote_port);
+
 
 /*
  *  Retrieve a mesage from socket s
@@ -229,6 +270,8 @@ int extract_lisp_address(
 
 void free_lisp_addr_list(lispd_addr_list_t *list, uint8_t free_address);
 
+void free_map_server_list (lispd_map_server_list_t *map_servers);
+
 int convert_hex_string_to_bytes(
         char        *hex,
         uint8_t     *bytes,
@@ -244,6 +287,27 @@ lisp_addr_t get_network_address(
         lisp_addr_t address,
         int prefix_length);
 
+
+/*
+ * Convert a raw packet to base64
+ */
+char *base64_encode(const unsigned char *data,
+                    int input_length,
+                    int *output_length);
+
+/*
+ * Decode a base64 string to a raw packet
+ */
+unsigned char *base64_decode(const char *data,
+                             int input_length,
+                             int *output_length);
+
+/*
+ * Calculates a unique xTR_ID value based on the MAC address of all the interfaces
+ */
+void nat_set_xTR_ID();
+
+char * get_char_from_xTR_ID (lispd_xTR_ID *xtrid);
 
 #endif /*LISPD_LIB_H_*/
 

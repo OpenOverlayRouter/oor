@@ -101,5 +101,10 @@ void map_cache_entry_expiration(timer *t, void *arg);
 
 void dump_map_cache_db(int log_level);
 
+/*
+ * Free memory of all map cache databases
+ */
+void drop_map_cache();
+
 
 #endif /*LISPD_MAP_CACAHE_DB_H_*/

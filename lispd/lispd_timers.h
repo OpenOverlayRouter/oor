@@ -24,6 +24,7 @@
 #define DDT_EXPIRE_MAP_REFERRAL             "DDT_EXPIRE_MAP_REFERRAL"
 #define RLOC_PROBING_TIMER                  "RLOC_PROBING_TIMER"
 #define SMR_TIMER                           "SMR_TIMER"
+#define SMR_RETRY_TIMER                     "SMR_RETRY_TIMER"
 #define SMR_INV_RETRY_TIMER                 "SMR_INV_RETRY_TIMER"
 #define INFO_REPLY_TTL_TIMER                "INFO_REPLY_TTL_TIMER"
 
@@ -72,5 +73,10 @@ int process_timer_signal();
  * nonsense.
  */
 int build_timers_event_socket(int *timers_fd);
+
+/*
+ * Restore previous action of SIGRTMIN signl
+ */
+int remove_sig_timer();
 
 #endif /*LISPD_TIMERS_H_*/

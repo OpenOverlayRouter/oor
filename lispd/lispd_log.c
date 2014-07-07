@@ -35,6 +35,7 @@
 #include <syslog.h>
 #include <stdarg.h>
 
+
 FILE *fp = NULL;
 
 inline void lispd_log(
@@ -44,8 +45,7 @@ inline void lispd_log(
         va_list     args);
 
 
-void lispd_log_msg(
-        int lisp_log_level, const char *format, ...)
+void lispd_log_msg1(int lisp_log_level, const char *format, ...)
 {
     va_list args;
     char *log_name; /* To store the log level in string format for printf output */
@@ -102,7 +102,10 @@ void lispd_log_msg(
         lispd_log(log_level, log_name, format, args);
         break;
     }
-
+//#ifdef VPNAPI
+//    //if (lisp_log_level != LISP_LOG_DEBUG_3)
+//    	__android_log_vprint(ANDROID_LOG_INFO, "LISPmob-C ==>", format,args);
+//#endif
     va_end (args);
 }
 
@@ -112,29 +115,28 @@ inline void lispd_log(
         const char  *format,
         va_list     args)
 {
-    if (daemonize){
 #ifdef ANDROID
-    	fprintf(fp,"%s: ",log_name);
-    	vfprintf(fp,format,args);
-    	fprintf(fp,"\n");
-    	fflush(fp);
+	fprintf(fp,"%s: ",log_name);
+	vfprintf(fp,format,args);
+	fprintf(fp,"\n");
+	fflush(fp);
 #else
-        vsyslog(log_level,format,args);
+	if (daemonize){
+		vsyslog(log_level,format,args);
+	}else{
+		printf("%s: ",log_name);
+		vfprintf(stdout,format,args);
+		printf("\n");
+	}
 #endif
-
-    }else{
-        printf("%s: ",log_name);
-        vfprintf(stdout,format,args);
-        printf("\n");
-    }
 }
 
-void open_log_file()
+void open_log_file(char *log_file)
 {
 	if (fp == NULL){
-		fp = freopen(LOGFILE_LOCATION, "w", stderr);
+		fp = freopen(log_file, "w", stderr);
 	}else{
-		fp = freopen(LOGFILE_LOCATION, "a", stderr);
+		fp = freopen(log_file, "a", stderr);
 	}
 }
 
@@ -147,14 +149,15 @@ void close_log_file()
  * True if log_level is enough to print results
  */
 
-int is_loggable (int log_level){
+/* True if log_level is enough to print results */
+inline int is_loggable(int log_level)
+{
     if (log_level < LISP_LOG_DEBUG_1)
         return (TRUE);
     else if (log_level <= LISP_LOG_INFO + debug_level)
         return (TRUE);
     return (FALSE);
 }
-
 /*
  * Editor modelines
  *

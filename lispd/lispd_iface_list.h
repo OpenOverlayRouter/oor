@@ -174,6 +174,11 @@ int get_iface_socket(lispd_iface_elt *iface, int afi);
 int get_interface_list_length();
 
 /*
+ * UP Interface list length
+ */
+int get_up_interface_list_length();
+
+/*
  * Return the list of interfaces
  */
 

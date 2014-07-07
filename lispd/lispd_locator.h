@@ -78,10 +78,18 @@ typedef struct lispd_rtr_locators_list_ {
     struct lispd_rtr_locators_list_ *next;
 } lispd_rtr_locators_list;
 
+typedef struct nat_info_str_ {
+    uint8_t                     status;
+    lispd_rtr_locators_list     *rtr_locators_list;
+    lisp_addr_t                 *public_addr;
+    nonces_list                 *inf_req_nonce;
+    timer                       *inf_req_timer;
+}nat_info_str;
+
 
 typedef struct lcl_locator_extended_info_ {
     int                         *out_socket;
-    lispd_rtr_locators_list     *rtr_locators_list;
+    nat_info_str                *nat_info;
 }lcl_locator_extended_info;
 
 /*
@@ -152,6 +160,15 @@ lispd_locator_elt *copy_locator_elt(lispd_locator_elt *loc);
 lispd_rtr_locator *new_rtr_locator(lisp_addr_t address);
 
 /*
+ * Generates a new nat status structure
+ */
+
+nat_info_str *new_nat_info_str(
+        int                         status,
+        lisp_addr_t                 *public_address,
+        lispd_rtr_locators_list     *rtr_locators_list);
+
+/*
  * Leave in the list, rtr with afi equal to the afi passed as a parameter
  */
 void remove_rtr_locators_with_afi_different_to(lispd_rtr_locators_list **rtr_list, int afi);
@@ -166,6 +183,17 @@ void free_locator(lispd_locator_elt   *locator);
  * Free memory of all the elements of a lispd_rtr_locators_list structure
  */
 void free_rtr_list(lispd_rtr_locators_list *rtr_list_elt);
+
+/*
+ * Free memory of a nat_info_str structure
+ */
+void free_nat_info_str(nat_info_str *nat_info);
+
+
+/*
+ * Generates a clone of a nat_ localtors list. Timers and nonces not cloned
+ */
+nat_info_str *copy_nat_info_str(nat_info_str *nat_info);
 
 /*
  * Print the information of a locator element
@@ -189,6 +217,13 @@ int add_locator_to_list (
         lispd_locator_elt           *locator);
 
 /*
+ * Reinsert a locator to a locators list. It take into account the presence of RTRs to sort locators
+ */
+int reinsert_locator_to_list (
+        lispd_locators_list         **list,
+        lispd_locator_elt           *locator);
+
+/*
  * Generates a clone of a list of locators.
  */
 lispd_locators_list *copy_locators_list(lispd_locators_list *locator_list);
@@ -200,20 +235,42 @@ int add_rtr_locator_to_list(
         lispd_rtr_locators_list **rtr_list,
         lispd_rtr_locator       *rtr_locator);
 
+
+/*
+ * Return TRUE if a rtr with specified address is already in the list
+ */
+int is_rtr_locator_in_the_list(
+		lispd_rtr_locators_list *rtr_list,
+		lisp_addr_t       		*rtr_addr);
+
 /*
  * Extract the locator from a locators list that match with the address.
  * The locator is removed from the list
  */
 lispd_locator_elt *extract_locator_from_list(
         lispd_locators_list     **head_locator_list,
-        lisp_addr_t             addr);
+        lisp_addr_t             *addr);
 
 /*
  * Return the locator from the list that contains the address passed as a parameter
  */
 lispd_locator_elt *get_locator_from_list(
         lispd_locators_list    *locator_list,
-        lisp_addr_t             addr);
+        lisp_addr_t            *addr);
+
+/*
+ * Return the locator from the list that contains the nonce passed as a parameter
+ */
+lispd_locator_elt *nat_get_locator_with_nonce(
+        lispd_locators_list    *locator_list,
+        uint64_t                nonce);
+
+/*
+ * Remove the locator from the list matching the specified address.
+ */
+int remove_locator_from_list(
+        lispd_locators_list    **head_locator_list,
+        lisp_addr_t            *addr);
 
 /*
  * Free memory of lispd_locator_list.

@@ -48,6 +48,15 @@ lispd_iface_elt         *default_out_iface_v6;
 lispd_iface_elt         *default_ctrl_iface_v4;
 lispd_iface_elt         *default_ctrl_iface_v6;
 
+#ifdef VPNAPI
+lispd_iface_elt         *prev_default_out_iface_v4 = NULL;
+lispd_iface_elt         *prev_default_out_iface_v6 = NULL;
+
+lispd_iface_elt         *prev_default_ctrl_iface_v4 = NULL;
+lispd_iface_elt         *prev_default_ctrl_iface_v6 = NULL;
+#endif
+
+
 
 lispd_iface_elt *add_interface(char *iface_name)
 {
@@ -557,7 +566,6 @@ int get_default_output_socket(int afi)
 
 void set_default_output_ifaces()
 {
-
     default_out_iface_v4 = get_any_output_iface(AF_INET);
 
     if (default_out_iface_v4 != NULL) {
@@ -565,11 +573,23 @@ void set_default_output_ifaces()
         if (router_mode == TRUE){
             set_tun_default_route_v4();
         }
+#ifdef VPNAPI
+       if (prev_default_out_iface_v4 != default_out_iface_v4 && ipv4_data_input_fd != -1){
+            reset_socket(ipv4_data_input_fd);
+       }
+       prev_default_out_iface_v4 = default_out_iface_v4;
+#endif
     }
 
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_out_iface_v6 != NULL) {
         lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv6 iface %s\n",default_out_iface_v6->iface_name);
+#ifdef VPNAPI
+       if (prev_default_out_iface_v6 != default_out_iface_v6 && ipv6_data_input_fd != -1){
+            reset_socket(ipv6_data_input_fd);
+       }
+       prev_default_out_iface_v6 = default_out_iface_v6;
+#endif
     }
 
     if (!default_out_iface_v4 && !default_out_iface_v6){
@@ -586,6 +606,12 @@ void set_default_ctrl_ifaces()
        lispd_log_msg(LISP_LOG_DEBUG_2,"Default IPv4 control iface %s: %s\n",
                default_ctrl_iface_v4->iface_name, get_char_from_lisp_addr_t(*(default_ctrl_iface_v4->ipv4_address)));
        ctrl_supported_afi = AFI_SUPPORT_4;
+#ifdef VPNAPI
+       if (prev_default_ctrl_iface_v4 != default_ctrl_iface_v4 && ipv4_control_input_fd != -1){
+            reset_socket(ipv4_control_input_fd);
+       }
+       prev_default_ctrl_iface_v4 = default_ctrl_iface_v4;
+#endif
     }
 
     default_ctrl_iface_v6 = get_any_output_iface(AF_INET6);
@@ -598,6 +624,12 @@ void set_default_ctrl_ifaces()
         }else{
             ctrl_supported_afi = AFI_SUPPORT_6;
         }
+#ifdef VPNAPI
+       if (prev_default_ctrl_iface_v6 != default_ctrl_iface_v6 && ipv6_control_input_fd != -1){
+            reset_socket(ipv6_control_input_fd);
+       }
+       prev_default_ctrl_iface_v6 = default_ctrl_iface_v6;
+#endif
     }
 
     if (!default_ctrl_iface_v4 && !default_ctrl_iface_v6){
@@ -671,6 +703,23 @@ int get_interface_list_length()
 		iface = iface->next;
 	}
 	return (ctr);
+}
+
+/*
+ * UP Interface list length
+ */
+int get_up_interface_list_length()
+{
+    int ctr = 0;
+    lispd_iface_list_elt *iface = head_interface_list;
+
+    while(iface != NULL){
+        if(iface->iface->status == UP){
+            ctr ++;
+        }
+        iface = iface->next;
+    }
+    return (ctr);
 }
 
 /*

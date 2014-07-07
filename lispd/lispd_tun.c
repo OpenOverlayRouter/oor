@@ -38,9 +38,7 @@
 int create_tun(
     char                *tun_dev_name,
     unsigned int        tun_receive_size,
-    int                 tun_mtu,
-    int                 *tun_receive_fd,
-    uint8_t             **tun_receive_buf)
+    int                 tun_mtu)
 {
 
     struct ifreq ifr;
@@ -58,7 +56,7 @@ int create_tun(
      */
 
     /* open the clone device */
-    if( (*tun_receive_fd = open(clonedev, O_RDWR)) < 0 ) {
+    if( (tun_fd = open(clonedev, O_RDWR)) < 0 ) {
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: Failed to open clone device");
         return (BAD);
     }
@@ -69,8 +67,8 @@ int create_tun(
     strncpy(ifr.ifr_name, tun_dev_name, IFNAMSIZ - 1);
 
     // try to create the device
-    if ((error = ioctl(*tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
-        close(*tun_receive_fd);
+    if ((error = ioctl(tun_fd, TUNSETIFF, (void *) &ifr)) < 0) {
+        close(tun_fd);
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: Failed to create tunnel interface, errno: %d.", errno);
         if (errno == 16){
             lispd_log_msg(LISP_LOG_CRIT, "Check no other instance of lispd is running. Exiting ...");
@@ -81,7 +79,7 @@ int create_tun(
     // get the ifindex for the tun/tap
     tmpsocket = socket(AF_INET, SOCK_DGRAM, 0); // Dummy socket for the ioctl, type/details unimportant
     if ((error = ioctl(tmpsocket, SIOCGIFINDEX, (void *)&ifr)) < 0) {
-        close(*tun_receive_fd);
+        close(tun_fd);
         close(tmpsocket);
         lispd_log_msg(LISP_LOG_CRIT, "TUN/TAP: unable to determine ifindex for tunnel interface, errno: %d.", errno);
         return (BAD);
@@ -103,16 +101,9 @@ int create_tun(
 
     close(tmpsocket);
 
-    *tun_receive_buf = (uint8_t *)malloc(tun_receive_size);
-
-    if (tun_receive_buf == NULL){
-        lispd_log_msg(LISP_LOG_WARNING, "create_tun: Unable to allocate memory for tun_receive_buf: %s", strerror(errno));
-        return(BAD);
-    }
-
     /* this is the special file descriptor that the caller will use to talk
      * with the virtual interface */
-    lispd_log_msg(LISP_LOG_DEBUG_2, "Tunnel fd at creation is %d", *tun_receive_fd);
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Tunnel fd at creation is %d", tun_fd);
 
 
     return(GOOD);

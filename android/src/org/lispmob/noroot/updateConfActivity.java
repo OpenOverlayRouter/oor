@@ -38,6 +38,8 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -62,11 +64,11 @@ public class updateConfActivity extends Activity {
 	
 	public static String eidIPv4 = "";
 	public static String eidIPv6 = "";
+	public static List<String> ifaces = null;
 	public static String MR = "";
 	public static String MS = "";
 	public static String MSKey = "password";
 	public static String proxyETR = "";
-	public static String iface_name = "wlan0";
 	public static String DNS1 = "";
 	public static String DNS2 = "";
 	public static boolean overrideDNS = false; 
@@ -77,6 +79,7 @@ public class updateConfActivity extends Activity {
 	public static String logLevel = "1";
 	public static final int CONFIG_UPDATED = 1;
 	public static File conf_file = null;
+	public static List<String> iface_list = null;
 	
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -88,25 +91,18 @@ public class updateConfActivity extends Activity {
 		conf_file = new File(sdcardDir, confFile);
 		
 		
-		List<String> iface_list = new ArrayList<String>();
+		iface_list = ConfigTools.get_ifaces_list();
 		
-		try {
-			Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces();
-			while (en.hasMoreElements())
-			{
-				NetworkInterface intf = en.nextElement();
-				iface_list.add(intf.getName());
-			}
-			Spinner spinner = (Spinner) findViewById(R.id.IfaceNameSpinner);
-			ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,iface_list);
-			// Specify the layout to use when the list of choices appears
-			adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-			// Apply the adapter to the spinner
-			spinner.setAdapter(adapter);			
-		} catch (SocketException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+
+		//Spinner spinner = (Spinner) findViewById(R.id.IfaceNameSpinner);
+		MultiSelectionSpinner spinner = (MultiSelectionSpinner) findViewById(R.id.IfaceNameSpinner);
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,iface_list);
+		// Specify the layout to use when the list of choices appears
+		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		// Apply the adapter to the spinner
+		//spinner.setAdapter(adapter);
+		spinner.setItems(iface_list);
+
 		Spinner logSpinner = (Spinner) findViewById(R.id.LogSpinner);
 		ArrayAdapter<CharSequence> logAdapter = ArrayAdapter.createFromResource(this,R.array.LogLevelArray, android.R.layout.simple_spinner_item);
 		logSpinner.setAdapter(logAdapter);
@@ -130,6 +126,7 @@ public class updateConfActivity extends Activity {
 			String line 	= br.readLine();
 			String sub_line	= null;
 			String sub_line_1 = null;
+			ifaces = new ArrayList<String>();
 			
 			while ( line != null ) {
 				if (line.startsWith("#")){
@@ -170,19 +167,18 @@ public class updateConfActivity extends Activity {
 							String[] tmp 	= sub_line.split("=");
 							if (tmp.length < 2)
 								continue;
-							iface_name = tmp[1];
-							Spinner spinner = (Spinner) findViewById(R.id.IfaceNameSpinner);
-							Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces();
-							int position = 0;
-							while (en.hasMoreElements())
+							String iface_name = tmp[1];
+							
+							Iterator <String>iface_it = iface_list.iterator();
+							while (iface_it.hasNext())
 							{
-								NetworkInterface intf = en.nextElement();
-								if (intf.getName().equals(iface_name)){
-									spinner.setSelection(position);
+								if (iface_it.next().equals(iface_name)){
+									if (!ifaces.contains(iface_name)){
+										ifaces.add(iface_name);
+									}
 									break;
 								}
-								position++;
-							}
+							}	
 						}
 					}while (!sub_line.contains("}"));
 				}else if (line.contains("map-resolver")) {
@@ -321,6 +317,9 @@ public class updateConfActivity extends Activity {
 				
 				line = br.readLine();
 			}
+			MultiSelectionSpinner spinner = (MultiSelectionSpinner) findViewById(R.id.IfaceNameSpinner);
+			spinner.setSelection(ifaces);
+			
 			EditText e = (EditText)findViewById(R.id.updateConfDNS1Text);
 			e.setEnabled(overrideDNS);
 			e = (EditText)findViewById(R.id.updateConfDNS2Text);
@@ -432,7 +431,7 @@ public class updateConfActivity extends Activity {
 						.append("#   address: IPv4 or IPv6 address of the Proxy-ITR\n")
 						.append("#   Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses\n\n")
 						.append("proxy-itrs = {\n")
-						.append("        69.31.31.98,\n")
+						.append("        69.31.31.98,\n") 
 						.append("        149.20.48.60,\n")
 						.append("        198.6.255.37,\n")
 						.append("        173.36.193.25,\n")
@@ -440,6 +439,8 @@ public class updateConfActivity extends Activity {
 						.append("        217.8.98.33,\n")
 						.append("        217.8.98.35,\n")
 						.append("        193.162.145.46,\n")
+						.append("        193.34.30.222,\n")
+						.append("        193.34.31.222,\n")
 						.append("        147.83.131.32,\n")
 						.append("        158.38.1.92,\n")
 						.append("        203.181.249.172,\n")
@@ -457,27 +458,34 @@ public class updateConfActivity extends Activity {
 						.append("#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight\n")
 						.append("#     indicates how to balance unicast traffic between them.\n\n")
 						.toString();
-			if (!eidIPv4.equals("")){
-				defText= defText.concat("database-mapping {\n")
-						.concat("        eid-prefix     = "+eidIPv4+"/32\n")
-						.concat("        interface      = "+iface_name+"\n")
-						.concat("        priority_v4    = 1\n")
-						.concat("        weight_v4      = 100\n")
-						.concat("        priority_v6    = 1\n")
-						.concat("        weight_v6      = 100\n")
-						.concat("}\n\n");
-			}
-			if (!eidIPv6.equals("")){
-				defText= defText.concat("database-mapping {\n")
-						.concat("        eid-prefix     = "+eidIPv6+"/128\n")
-						.concat("        interface      = "+iface_name+"\n")
-						.concat("        priority_v4    = 1\n")
-						.concat("        weight_v4      = 100\n")
-						.concat("        priority_v6    = 1\n")
-						.concat("        weight_v6      = 100\n")
-						.concat("}\n\n\n");
-			}
 			
+			if (ifaces != null){
+				Iterator <String> it = ifaces.iterator();
+				while (it.hasNext()){
+					String iface_name = it.next();
+
+					if (!eidIPv4.equals("")){
+						defText= defText.concat("database-mapping {\n")
+								.concat("        eid-prefix     = "+eidIPv4+"/32\n")
+								.concat("        interface      = "+iface_name+"\n")
+								.concat("        priority_v4    = 1\n")
+								.concat("        weight_v4      = 100\n")
+								.concat("        priority_v6    = 1\n")
+								.concat("        weight_v6      = 100\n")
+								.concat("}\n\n");
+					}
+					if (!eidIPv6.equals("")){
+						defText= defText.concat("database-mapping {\n")
+								.concat("        eid-prefix     = "+eidIPv6+"/128\n")
+								.concat("        interface      = "+iface_name+"\n")
+								.concat("        priority_v4    = 1\n")
+								.concat("        weight_v4      = 100\n")
+								.concat("        priority_v6    = 1\n")
+								.concat("        weight_v6      = 100\n")
+								.concat("}\n\n\n");
+					}
+				}
+			}
 			defText= defText.concat("override-dns     		 = "+overrideDNS+"\n");
 			if (!DNS1.equals(""))
 				defText= defText.concat("override-dns-primary    = "+DNS1+"\n");
@@ -528,7 +536,8 @@ public class updateConfActivity extends Activity {
 	public boolean get_and_validate_parameters(){
 		EditText e;
 		CheckBox c;
-		Spinner spinner;
+		MultiSelectionSpinner multi_spinner;
+		Spinner	spinner;
 		String eidv4 = "";
 		String eidv6 = "";
 		String mapResolver = "";
@@ -537,8 +546,6 @@ public class updateConfActivity extends Activity {
 		String pETR = "";
 		String DNS_1 = "";
 		String DNS_2 = "";
-		String natSiteID = "0000000000000000";
-		String natXTRid  = "00000000000000000000000000000000";
 		boolean overrideDNS_bool = false; 
 		boolean nat_aware_bool = false;
 
@@ -577,8 +584,8 @@ public class updateConfActivity extends Activity {
 		e = (EditText) findViewById(R.id.updateConfDNS2Text);
 		DNS_2 = e.getText().toString();
 		
-		spinner = (Spinner)findViewById(R.id.IfaceNameSpinner);
-		iface_name = spinner.getSelectedItem().toString();
+		multi_spinner = (MultiSelectionSpinner)findViewById(R.id.IfaceNameSpinner);
+		ifaces = multi_spinner.getSelectedStrings();
 		
 		spinner = (Spinner)findViewById(R.id.LogSpinner);
 		logLevel = spinner.getSelectedItem().toString();
@@ -587,9 +594,8 @@ public class updateConfActivity extends Activity {
 		
 		if (!eidv4.equals("") && !ConfigTools.validate_IP_Address(eidv4)){
 			error = error.concat("  - EID-IPv4\n");
-		}
-		
-		if (!eidv6.equals("") &&!ConfigTools.validate_IP_Address(eidv6)){
+		}		
+		if (!eidv6.equals("") && !ConfigTools.validate_IP_Address(eidv6)){
 			error = error.concat("  - EID-IPv6\n");
 		}
 		if (!ConfigTools.validate_IP_Address(mapResolver)){
@@ -598,7 +604,7 @@ public class updateConfActivity extends Activity {
 		if (!ConfigTools.validate_IP_Address(mapServer)){
 			error = error.concat("  - Map-Server\n");
 		}
-		if (pETR.equals("") && !ConfigTools.validate_IP_Address(pETR)){
+		if (!ConfigTools.validate_IP_Address(pETR)){
 			error = error.concat("  - Proxy ETR\n");
 		}
 		if (overrideDNS_bool && ( DNS_1.equals("") || !ConfigTools.validate_IP_Address(DNS_1))){
@@ -607,14 +613,12 @@ public class updateConfActivity extends Activity {
 		if ((overrideDNS_bool &&  !DNS_2.equals("") && !ConfigTools.validate_IP_Address(DNS_2))){
 			error = error.concat("  - Secondary DNS\n");
 		}
+		if (nat_aware_bool == true && !eidv4.equals("") && !eidv6.equals("")){
+			error = error.concat("  - Only one EID is supported\n");
+		}
 		
-		Pattern hex_patern = Pattern.compile("[0-9a-f]*", Pattern.CASE_INSENSITIVE);
-		if (natSiteID.length() != 16 || !hex_patern.matcher(natSiteID).matches()){
-			error = error.concat("  - NAT Site ID\n");
-		}
-		if (natXTRid.length() != 32 || !hex_patern.matcher(natXTRid).matches()){
-			error = error.concat("  - NAT xTR ID\n");
-		}
+		
+
 		
 		if (!error.equals("")){
 			displayMessage(message+error, false, null);

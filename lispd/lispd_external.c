@@ -35,6 +35,7 @@ void init_globales()
     router_mode                         = FALSE;
 	map_resolvers						= NULL;
 	ddt_client                          = FALSE;
+	rtrs_list                           = NULL;
 	proxy_itrs							= NULL;
 	proxy_etrs							= NULL;
 	map_servers							= NULL;
@@ -49,14 +50,14 @@ void init_globales()
 	rloc_probe_interval                	= RLOC_PROBING_INTERVAL;
 	rloc_probe_retries                 	= DEFAULT_RLOC_PROBING_RETRIES;
 	rloc_probe_retries_interval       	= DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
-	netlink_fd                          = 0;
-	ipv4_data_input_fd                  = 0;
-	ipv6_data_input_fd                  = 0;
-	ipc_data_fd							= 0;
-	ipc_control_fd						= 0;
-	ipv4_control_input_fd               = 0;
-	ipv6_control_input_fd               = 0;
-	timers_fd                       	= 0;
+	netlink_fd                          = -1;
+	ipv4_data_input_fd                  = -1;
+	ipv6_data_input_fd                  = -1;
+	ipc_data_fd                         = -1;
+	ipc_control_fd                      = -1;
+	ipv4_control_input_fd               = -1;
+	ipv6_control_input_fd               = -1;
+	timers_fd                           = -1;
 
 	/* NAT */
 
@@ -66,12 +67,13 @@ void init_globales()
 
 
 
-	head_interface_list					= NULL;
-	default_ctrl_iface_v4 				= NULL;
-	default_ctrl_iface_v6				= NULL;
-	default_out_iface_v4				= NULL;
-	default_out_iface_v6				= NULL;
-	smr_timer							= NULL;
+	head_interface_list                 = NULL;
+	default_ctrl_iface_v4               = NULL;
+	default_ctrl_iface_v6               = NULL;
+	default_out_iface_v4                = NULL;
+	default_out_iface_v6                = NULL;
+	smr_timer                           = NULL;
+	smr_retry_timer                     = NULL;
 
 
 	memset (msg,0,sizeof(char)*128);

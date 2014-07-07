@@ -98,4 +98,9 @@ int num_entries_in_db(patricia_tree_t *database);
  */
 void dump_local_db(int log_level);
 
+/*
+ * Free memory of all local mappings
+ */
+void drop_local_mappings();
+
 #endif /*LISPD_LOCAL_DB_H_*/

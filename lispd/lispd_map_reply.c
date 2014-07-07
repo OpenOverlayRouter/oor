@@ -355,6 +355,11 @@ int process_map_reply_probe_record(
                 return (BAD);
             }
         }
+        if (locator ==  NULL){
+            lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: Invalid Map-Reply Probe. No probed locator of the received message matches with the "
+                    "locators of the mapping  stored in the map cahce database.");
+            return (BAD);
+        }
         lispd_log_msg(LISP_LOG_DEBUG_1,"Map-Reply probe reachability to RLOC %s of the EID cache entry %s/%d",
                     get_char_from_lisp_addr_t(*(locator->locator_addr)),
                     get_char_from_lisp_addr_t(cache_entry->mapping->eid_prefix),
@@ -507,7 +512,7 @@ int process_map_reply_probe_locator(
     if (aux_locator != NULL){
         /* If the locator of the packed is probed, search the structure of the locator that represents the locator of tha packet */
         if (pkt_locator->probed == TRUE){
-            *locator = get_locator_from_mapping(mapping, *(aux_locator->locator_addr));
+            *locator = get_locator_from_mapping(mapping, aux_locator->locator_addr);
             if (*locator == NULL){
                 lispd_log_msg(LISP_LOG_DEBUG_2,"get_map_reply_locator_from_mapping: The locator %s is not found in the mapping %s/%d",
                         get_char_from_lisp_addr_t(*(aux_locator->locator_addr)),
@@ -532,21 +537,16 @@ int process_map_reply_probe_locator(
  */
 
 int build_and_send_map_reply_msg(
-        lispd_mapping_elt *requested_mapping,
-        lisp_addr_t *src_rloc_addr,
-        lisp_addr_t *dst_rloc_addr,
-        uint16_t dport,
-        uint64_t nonce,
-        map_reply_opts opts)
+        lispd_mapping_elt   *requested_mapping,
+        lisp_addr_t         *src_rloc_addr,
+        lisp_addr_t         *dst_rloc_addr,
+        uint16_t            dport,
+        uint64_t            nonce,
+        map_reply_opts      opts)
 {
-    uint8_t         *packet             = NULL;
     uint8_t         *map_reply_pkt      = NULL;
     int             map_reply_pkt_len   = 0;
-    int             packet_len          = 0;
     int             result              = 0;
-    lisp_addr_t     *src_addr           = NULL;
-    int             out_socket          = 0;
-    lispd_iface_elt *iface              = NULL;
 
     /* Build the packet */
     if (opts.rloc_probe == TRUE){
@@ -562,49 +562,17 @@ int build_and_send_map_reply_msg(
         return (BAD);
     }
 
-    /* Get src interface information */
 
-    if (src_rloc_addr == NULL){
-        src_addr   = get_default_ctrl_address(dst_rloc_addr->afi);
-        out_socket = get_default_ctrl_socket (dst_rloc_addr->afi);
-    }else{
-        iface = get_interface_with_address(src_rloc_addr);
-        if (iface != NULL){
-            src_addr = src_rloc_addr;
-            out_socket = get_iface_socket(iface, dst_rloc_addr->afi);
-        }else{
-            src_addr   = get_default_ctrl_address(dst_rloc_addr->afi);
-            out_socket = get_default_ctrl_socket (dst_rloc_addr->afi);
-        }
-    }
-
-    if (src_addr == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_reply_msg: Couldn't send Map Reply. No output interface with afi %d.",
-                dst_rloc_addr->afi);
-        free (map_reply_pkt);
-        return (BAD);
-    }
-
-    /*  Add UDP and IP header to the Map Request message */
-
-    packet = build_ip_udp_pcket(map_reply_pkt,
+    err = send_control_msg(map_reply_pkt,
             map_reply_pkt_len,
-            src_addr,
+            src_rloc_addr,
             dst_rloc_addr,
             LISP_CONTROL_PORT,
-            dport,
-            &packet_len);
+            dport);
     free (map_reply_pkt);
 
-    if (packet == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_reply_msg: Couldn't send Map Reply. Error adding IP and UDP header to the message");
-        return (BAD);
-    }
 
-
-    /* Send the packet */
-
-    if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
+    if (err == GOOD){
         if (opts.rloc_probe == TRUE){
             lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Reply packet for %s/%d probing local locator %s",
                     get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
@@ -625,15 +593,17 @@ int build_and_send_map_reply_msg(
         result = BAD;
     }
 
-    free(packet);
-
     return (result);
 }
 
 
-uint8_t *build_map_reply_pkt(lispd_mapping_elt *mapping,
-         lisp_addr_t *probed_rloc, map_reply_opts opts, uint64_t nonce,
-         int *map_reply_msg_len) {
+uint8_t *build_map_reply_pkt(
+         lispd_mapping_elt   *mapping,
+         lisp_addr_t        *probed_rloc,
+         map_reply_opts     opts,
+         uint64_t           nonce,
+         int                *map_reply_msg_len)
+{
     uint8_t *packet;
     lispd_pkt_map_reply_t *map_reply_msg;
     lispd_pkt_mapping_record_t *mapping_record;

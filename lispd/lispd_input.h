@@ -42,6 +42,17 @@
 #include "lispd_output.h"
 
 
-void process_input_packet(int fd, int afi, int tun_receive_fd);
+#ifndef VPNAPI
 
+void process_input_packet(
+		int 	fd,
+		int 	afi);
+
+#else
+
+void process_input_packet(
+		int 	fd,
+		int 	afi);
+
+#endif
 #endif /*LISPD_IFACE_LIST_H_*/

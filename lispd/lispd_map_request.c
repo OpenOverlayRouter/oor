@@ -247,7 +247,6 @@ int process_map_request_record(
          lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_request_msg: Map Request doesn't contain any ITR-RLOC with afi "
                  "equal to the local RLOC where the message has been received. Trying to use first ITR of the list.");
          remote_rloc = &itr_rloc[0];
-         local_rloc = NULL; // The process will select the appropriate local rloc to reach the remote rloc
      }
 
      /* Process record and send Map Reply for each one */
@@ -308,7 +307,6 @@ int process_map_request_record(
      opts.send_rec   = 1;
      opts.echo_nonce = 0;
      opts.rloc_probe = rloc_probe;
-
      err = build_and_send_map_reply_msg(mapping, local_rloc, remote_rloc, dst_port, nonce, opts);
 
      return (err);
@@ -329,11 +327,7 @@ int build_and_send_map_request_msg(
         uint64_t                *nonce)
 {
 
-    uint8_t     *packet         = NULL;
     uint8_t     *map_req_pkt    = NULL;
-    lisp_addr_t *src_addr       = NULL;
-    int         out_socket      = 0;
-    int         packet_len      = 0;
     int         mrp_len         = 0;               /* return the length here */
     int         result          = 0;
     map_req_pkt = build_map_request_pkt(
@@ -355,37 +349,16 @@ int build_and_send_map_request_msg(
         return (BAD);
     }
 
-    /* Get src interface information */
-
-    src_addr    = get_default_ctrl_address(dst_rloc_addr->afi);
-    out_socket  = get_default_ctrl_socket(dst_rloc_addr->afi);
-
-
-    if (src_addr == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_request_msg: Couden't send Map Request. No output interface with afi %d.",
-                dst_rloc_addr->afi);
-        free (map_req_pkt);
-        return (BAD);
-    }
-
-    /*  Add UDP and IP header to the Map Request message */
-
-    packet = build_ip_udp_pcket(map_req_pkt,
+    err = send_control_msg(map_req_pkt,
                                 mrp_len,
-                                src_addr,
+                                NULL,
                                 dst_rloc_addr,
                                 LISP_CONTROL_PORT,
-                                LISP_CONTROL_PORT,
-                                &packet_len);
+                                LISP_CONTROL_PORT);
     free (map_req_pkt);
 
-    if (packet == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_map_request_msg: Couldn't send Map Request. Error adding IP and UDP header to the message");
-        return (BAD);
-    }
 
-    /* Send the packet */
-    if ((err = send_packet(out_socket,packet,packet_len)) == GOOD){
+    if (err == GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_1, "Sent Map-Request packet for %s/%d to %s: Encap: %c, Probe: %c, SMR: %c, SMR-inv: %c . Nonce: %s",
                         get_char_from_lisp_addr_t(requested_mapping->eid_prefix),
                         requested_mapping->eid_prefix_length,
@@ -406,7 +379,7 @@ int build_and_send_map_request_msg(
                 (opts.smr_invoked == TRUE ? 'Y' : 'N'));
         result = BAD;
     }
-    free (packet);
+
 
     return (result);
 }
@@ -427,6 +400,7 @@ uint8_t *build_map_request_pkt(
     lispd_pkt_mapping_record_t                  *rec                    = NULL;
     lispd_pkt_map_request_itr_rloc_t            *itr_rloc               = NULL;
     lispd_pkt_map_request_eid_prefix_record_t   *request_eid_record     = NULL;
+    nat_info_str                                *nat_info               = NULL;
     uint8_t                                     *cur_ptr                = NULL;
 
     int                     map_request_msg_len = 0;
@@ -438,6 +412,7 @@ uint8_t *build_map_request_pkt(
     lispd_locators_list     *locators_list[2]   = {NULL,NULL};
     lispd_locator_elt       *locator            = NULL;
     lisp_addr_t             *ih_src_ip          = NULL;
+    lisp_addr_t             *aux_itr_addr       = NULL;
 
 
     /*
@@ -501,7 +476,9 @@ uint8_t *build_map_request_pkt(
                     continue;
                 }
                 /* Remove ITR locators behind NAT: No control message (4342) can be received in these interfaces */
-                if (((lcl_locator_extended_info *)locator->extended_info)->rtr_locators_list != NULL){
+                nat_info = ((lcl_locator_extended_info *)locator->extended_info)->nat_info;
+                if (nat_info != NULL && nat_info->rtr_locators_list != NULL){
+                    aux_itr_addr = ((lcl_locator_extended_info *)locator->extended_info)->nat_info->public_addr;
                     locators_list[ctr] = locators_list[ctr]->next;
                     continue;
                 }
@@ -515,6 +492,18 @@ uint8_t *build_map_request_pkt(
                 locators_ctr ++;
                 locators_list[ctr] = locators_list[ctr]->next;
             }
+        }
+        /*
+         * XXX Hack to send a MR if we only have one interface and it is behind NAT.
+         * We will not receive reply but we can notify an SMR. We also modify get_up_locators_length()
+         */
+        if (locators_ctr == 0 && aux_itr_addr != NULL){
+            itr_rloc = (lispd_pkt_map_request_itr_rloc_t *)cur_ptr;
+            itr_rloc->afi = htons(get_lisp_afi(aux_itr_addr->afi,NULL));
+            cur_ptr = CO(itr_rloc,sizeof(lispd_pkt_map_request_itr_rloc_t));
+            cpy_len = copy_addr((void *) cur_ptr ,aux_itr_addr, 0);
+            cur_ptr = CO(cur_ptr, cpy_len);
+            locators_ctr ++;
         }
     }else {
         // XXX If no source EID is used, then we only use one ITR-RLOC for IPv4 and one for IPv6-> Default control RLOC

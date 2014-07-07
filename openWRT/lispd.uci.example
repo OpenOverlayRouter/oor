@@ -27,16 +27,12 @@ config 'rloc-probing'
         
 # NAT Traversl configuration. 
 #   nat_aware: check if the node is behind NAT
-#   site_ID: 64 bits to identify the site where the node is connected to. In hexadecimal
-#   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal
-# Limitation of version 0.3.3 when nat_aware is enabled: 
+# Limitation of version 0.4.1 when nat_aware is enabled: 
 #   Only one interface is supported.
 #   Only one Map Server and one Map Resolver
         
 config 'nat-traversal'
         option  'nat_aware'	'on'
-        option  'site_ID'   '0000000000000001'                  #In doubt, keep the default value
-        option  'xTR_ID'    '00000000000000000000000000000001'  #In doubt, keep the default value
         
         
 # Encapsulated Map-Requests are sent to this map-resolver

@@ -60,6 +60,7 @@
 #include "lispd_afi.h"
 #include "lispd_lib.h"
 #include "lispd_external.h"
+#include "lispd_iface_mgmt.h"
 #include "lispd_map_referral.h"
 #include "lispd_map_request.h"
 #include "lispd_map_reply.h"
@@ -67,6 +68,7 @@
 #include "lispd_sockets.h"
 #include "patricia/patricia.h"
 #include "lispd_info_nat.h"
+#include "api/ipc.h"
 
 /********************************** Function declaration ********************************/
 
@@ -85,23 +87,6 @@ inline lisp_addr_t get_network_address_v6(
 /****************************************************************************************/
 
 #ifdef ANDROID
-/*
- * Different from lispd_if_t to maintain
- * linux system call compatibility.
- */
-typedef struct ifaddrs {
-    struct ifaddrs      *ifa_next;
-    char                *ifa_name;
-    unsigned int         ifa_flags;
-    struct sockaddr      *ifa_addr;
-    int                  ifa_index;
-} ifaddrs;
-
-
-typedef struct {
-    struct nlmsghdr nlh;
-    struct rtgenmsg  rtmsg;
-} request_struct;
 
 /*
  * populate_ifaddr_entry()
@@ -118,43 +103,42 @@ int populate_ifaddr_entry(ifaddrs *ifaddr, int family, void *data, int ifindex, 
     struct ifreq ifr;
     int   retval;
 
-    if (!((family == AF_INET) || (family == AF_INET6))) {
-        return -1;
-    }
+
     name = if_indextoname(ifindex, buf);
     if (name == NULL) {
-        return -1;
+        return (BAD);
     }
-    ifaddr->ifa_name = malloc(strlen(name) + 1);   // Must free elsewhere XXX
-    strcpy(ifaddr->ifa_name, name);
+    ifaddr->ifa_name = strdup(name); // Must free elsewhere XXX
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == -1) {
         free(ifaddr->ifa_name);
         close(sockfd);
-        return -1;
+        return (BAD);
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strcpy(ifr.ifr_name, name);
+    strcpy(ifr.ifr_name, name); //ifr_name space reserved by the structure
 
     retval = ioctl(sockfd, SIOCGIFFLAGS, &ifr);
     if (retval == -1) {
         free(ifaddr->ifa_name);
         close(sockfd);
-        return -1;
+        return (BAD);
 
     }
     ifaddr->ifa_flags = ifr.ifr_flags;
     ifaddr->ifa_index = ifindex;
+
     ifaddr->ifa_addr = malloc(sizeof(struct sockaddr));
     ifaddr->ifa_addr->sa_family = family;
-
-    dst = &((struct sockaddr_in *)(ifaddr->ifa_addr))->sin_addr;
-    memcpy(dst, data, count);
+    if (family == AF_INET || family == AF_INET6) {
+        dst = &((struct sockaddr_in *)(ifaddr->ifa_addr))->sin_addr;
+        memcpy(dst, data, count);
+    }
 
     close(sockfd);
-    return 0;
+    return (0);
 }
 
 /*
@@ -236,17 +220,18 @@ int getifaddrs(ifaddrs **addrlist) {
                      */
                     if (rta->rta_type == IFA_LOCAL) {
                         afi = addr->ifa_family;
-                        if ((afi == AF_INET) || (afi == AF_INET6)) {
 
-                            if (*addrlist) {
-                                prev = *addrlist;
-                            } else {
-                                prev = NULL;
-                            }
-                            *addrlist = malloc(sizeof(ifaddrs));  // Must free elsewhere XXX
-                            memset(*addrlist, 0, sizeof(ifaddrs));
-                            (*addrlist)->ifa_next = prev;
-                            populate_ifaddr_entry(*addrlist, afi, RTA_DATA(rta), addr->ifa_index, RTA_PAYLOAD(rta));
+                        if (*addrlist) {
+                            prev = *addrlist;
+                        } else {
+                            prev = NULL;
+                        }
+                        *addrlist = malloc(sizeof(ifaddrs));  // Must free elsewhere XXX
+                        memset(*addrlist, 0, sizeof(ifaddrs));
+                        (*addrlist)->ifa_next = prev;
+
+                        if ((populate_ifaddr_entry(*addrlist, afi, RTA_DATA(rta), addr->ifa_index, RTA_PAYLOAD(rta)))!=GOOD){
+                            free (addrlist);
                         }
                     }
                     rta = RTA_NEXT(rta, msglen);
@@ -304,6 +289,21 @@ int add_lisp_addr_to_list(
 }
 
 
+uint8_t is_addr_in_list (
+        lisp_addr_t         *addr,
+        lispd_addr_list_t   *list)
+{
+    if (addr == NULL){
+        return (FALSE);
+    }
+    while (list != NULL){
+        if (compare_lisp_addr_t(addr, list->address) == 0){
+            return (TRUE);
+        }
+        list = list->next;
+    }
+    return (FALSE);
+}
 /*
  *      get_afi
  *
@@ -1178,7 +1178,6 @@ int have_input(
 
     while (1)
     {
-
         if (select(max_fd+1,readfds,NULL,NULL,&tv) == -1) {
             if (errno == EINTR){
                 continue;
@@ -1196,71 +1195,80 @@ int have_input(
 
 
 /*
- *  Process a LISP protocol message sitting on
- *  socket s with address family afi
+ *  Read a control message from a socket and process it
  */
 
-int process_lisp_ctr_msg(
+int process_ctr_msg(
         int sock,
         int afi)
 {
 
-    uint8_t             packet[MAX_IP_PACKET];
-    lisp_addr_t         local_rloc;
-    uint16_t            remote_port;
+    uint8_t             *packet			= NULL;
+    lisp_addr_t         local_rloc		= {.afi = AF_UNSPEC};
+    uint16_t            remote_port 	= 0;
+    int					result 			= BAD;
 
-    if  ( get_packet_and_socket_inf (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
+    packet = (uint8_t *)calloc(MAX_IP_PACKET,sizeof (uint8_t));
+    if (packet == NULL){
+    	return (ERR_MALLOC);
+    }
+    if  ( get_control_packet (sock, afi, packet, &local_rloc, &remote_port) != GOOD ){
+    	free(packet);
         return BAD;
     }
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message at %s", get_char_from_lisp_addr_t(local_rloc));
 
-    lispd_log_msg(LISP_LOG_DEBUG_2, "Received a LISP control message");
+    result = process_lisp_ctr_msg(packet, local_rloc, remote_port);
+    free(packet);
+
+    return (result);
+
+}
+
+
+/*
+ *  Process a LISP protocol message
+ */
+int process_lisp_ctr_msg(
+		uint8_t      	*packet,
+		lisp_addr_t     local_rloc,
+		uint16_t        remote_port)
+{
+	int result = GOOD;
 
     switch (((lisp_encap_control_hdr_t *) packet)->type) {
     case LISP_MAP_REQUEST:      //Got Map-Request
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Request message");
-        if(process_map_request_msg(packet, &local_rloc, remote_port) != GOOD){
-            return (BAD);
-        }
+        result = process_map_request_msg(packet, &local_rloc, remote_port);
         break;
     case LISP_MAP_REPLY:    //Got Map Reply
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Reply message");
-        if (process_map_reply(packet) != GOOD){
-            return (BAD);
-        }
+        result = process_map_reply(packet);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
         break;
     case LISP_MAP_NOTIFY:
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Notify message");
-        if(process_map_notify(packet) != GOOD){
-            return(BAD);
-        }
+        result = process_map_notify(packet);
         break;
     case LISP_MAP_REFERRAL:
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Map-Referral message");
-        if(process_map_referral(packet) != GOOD){
-            return(BAD);
-        }
+        result = process_map_referral(packet);
         break;
     case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Info-Request/Info-Reply message");
-        if(process_info_nat_msg(packet, local_rloc) != GOOD){
-            return (BAD);
-        }
+        result = process_info_nat_msg(packet, local_rloc);
         break;
     case LISP_ENCAP_CONTROL_TYPE:   //Got Encapsulated Control Message
         lispd_log_msg(LISP_LOG_DEBUG_1, "Received a LISP Encapsulated Map-Request message");
-        if(process_map_request_msg(packet, &local_rloc, remote_port) != GOOD){
-            return (BAD);
-        }
+        result = process_map_request_msg(packet, &local_rloc, remote_port);
         break;
     default:
         lispd_log_msg(LISP_LOG_DEBUG_1, "Unidentified type control message received");
         break;
     }
     lispd_log_msg(LISP_LOG_DEBUG_2, "Completed processing of LISP control message");
-
-    return(GOOD);
+    return(result);
 }
 
 
@@ -1350,6 +1358,19 @@ void free_lisp_addr_list(lispd_addr_list_t * list, uint8_t free_address)
         free(list);
         list = aux_list;
     }
+}
+
+void free_map_server_list (lispd_map_server_list_t *map_servers)
+{
+	lispd_map_server_list_t *next_map_server = NULL;
+
+	while (map_servers != NULL){
+		free(map_servers->address);
+		free(map_servers->key);
+		next_map_server = map_servers->next;
+		free(map_servers);
+		map_servers = next_map_server;
+	}
 }
 
 /*
@@ -1451,6 +1472,166 @@ inline lisp_addr_t get_network_address_v6(
 }
 
 
+
+
+static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+                                'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+                                'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+                                'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+                                'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                                'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+                                'w', 'x', 'y', 'z', '0', '1', '2', '3',
+                                '4', '5', '6', '7', '8', '9', '+', '/'};
+static char *decoding_table = NULL;
+static int mod_table[] = {0, 2, 1};
+
+void build_decoding_table() {
+	int i = 0;
+    decoding_table = malloc(256);
+
+    for (i = 0; i < 64; i++)
+        decoding_table[(unsigned char) encoding_table[i]] = i;
+}
+
+
+void base64_cleanup() {
+    free(decoding_table);
+}
+
+
+/*
+ * Convert a raw packet to base64
+ */
+char *base64_encode(const unsigned char *data,
+                    int input_length,
+                    int *output_length)
+{
+	int i = 0;
+	int j = 0;
+
+    *output_length = 4 * ((input_length + 2) / 3);
+
+    char *encoded_data = malloc(*output_length);
+    if (encoded_data == NULL) return NULL;
+
+    for (i = 0, j = 0; i < input_length;) {
+
+        uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
+        uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
+        uint32_t octet_c = i < input_length ? (unsigned char)data[i++] : 0;
+
+        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+
+        encoded_data[j++] = encoding_table[(triple >> 3 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 2 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
+    }
+
+    for (i = 0; i < mod_table[input_length % 3]; i++)
+        encoded_data[*output_length - 1 - i] = '=';
+
+    return encoded_data;
+}
+
+/*
+ * Decode a base64 string to a raw packet
+ */
+unsigned char *base64_decode(const char *data,
+                             int input_length,
+                             int *output_length)
+{
+	int i,j = 0;
+
+    if (decoding_table == NULL)
+    	build_decoding_table();
+
+    if (input_length % 4 != 0){
+    	return NULL;
+    }
+
+    *output_length = input_length / 4 * 3;
+    if (data[input_length - 1] == '=') (*output_length)--;
+    if (data[input_length - 2] == '=') (*output_length)--;
+
+    unsigned char *decoded_data = malloc(*output_length);
+    if (decoded_data == NULL) return NULL;
+
+    for (i = 0, j = 0; i < input_length;) {
+
+        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(uint8_t)data[i++]];
+        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(uint8_t)data[i++]];
+        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(uint8_t)data[i++]];
+        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(uint8_t)data[i++]];
+
+        uint32_t triple = (sextet_a << 3 * 6)
+        + (sextet_b << 2 * 6)
+        + (sextet_c << 1 * 6)
+        + (sextet_d << 0 * 6);
+
+        if (j < *output_length) decoded_data[j++] = (triple >> 2 * 8) & 0xFF;
+        if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
+        if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
+    }
+    return decoded_data;
+}
+
+
+
+size_t calcDecodeLength(const char* b64input) { //Calculates the length of a decoded string
+	size_t len = strlen(b64input),
+			padding = 0;
+
+	if (b64input[len-1] == '=' && b64input[len-2] == '=') //last two chars are =
+		padding = 2;
+	else if (b64input[len-1] == '=') //last char is =
+		padding = 1;
+
+	return (size_t)len*0.75 - padding;
+}
+
+/*
+ * Calculates a unique xTR_ID value based on the MAC address of all the interfaces
+ */
+void nat_set_xTR_ID()
+{
+    uint8_t mac_bytes[6];
+    char **ifaces_names = NULL;
+    int num_ifaces  = 0;
+    int ctr = 0;
+    int ctr2 = 0;
+    int byte_pos = 0;
+
+    get_all_ifaces_name_list(&ifaces_names, &num_ifaces);
+    for (ctr=0; ctr<num_ifaces; ctr++){
+        iface_mac_address(ifaces_names[ctr], mac_bytes);
+        for (ctr2 = 0; ctr2 < 6 ; ctr2++){
+            xTR_ID.byte[byte_pos] = xTR_ID.byte[byte_pos] ^ mac_bytes[ctr2];
+            byte_pos++;
+            if (byte_pos == 16){
+                byte_pos = 0;
+            }
+        }
+        free(ifaces_names[ctr]);
+    }
+    lispd_log_msg(LISP_LOG_DEBUG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
+            get_char_from_xTR_ID(&xTR_ID));
+    free(ifaces_names);
+}
+
+char * get_char_from_xTR_ID (lispd_xTR_ID *xtrid)
+{
+    static char         xTR_ID_str[200];
+    int                 ctr             = 0;
+
+    memset (xTR_ID_str,0,200);
+
+    for (ctr = 0 ; ctr < 16; ctr++){
+        sprintf(xTR_ID_str, "%s%02x", xTR_ID_str, xtrid->byte[ctr]);
+    }
+    sprintf(xTR_ID_str, "%s", xTR_ID_str);
+    return (xTR_ID_str);
+}
 /*
  * Editor modelines
  *

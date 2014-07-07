@@ -34,6 +34,8 @@
 #include "lispd.h"
 #include "lispd_local_db.h"
 
+#define IN_PACK_BUFF_OFFSET     1000
+
 int pkt_get_mapping_record_length(lispd_mapping_elt *mapping);
 
 /*
@@ -85,6 +87,43 @@ int extract_5_tuples_from_packet (
         packet_tuple    *tuple);
 
 /*
+ * Add lisp header to a packet. The header is added in the position indicated by the parameter
+ */
+void add_lisp_header(
+        uint8_t *position,
+        int     iid);
+
+/*
+ * Add the IP and UDP header in a data packet
+ */
+
+int encapsulate_packet(
+        uint8_t     *packet, // Original packet + lisp header
+        int         packet_length, // Size of original packet + size of lisp header
+        lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr,
+        int         src_port,
+        int         dst_port,
+        int         iid,
+        uint8_t     **encap_packet,
+        int         *encap_packet_size);
+
+/*
+ * Returns the afi of a packet
+ */
+int get_afi_from_packet(uint8_t *packet);
+
+/*
+ * Returns the destination address of a packet
+ */
+lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet );
+
+/*
+ * Returns the source address of a packet
+ */
+lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet );
+
+/*
  * Generate IP header. Returns the poninter to the transport header
  */
 
@@ -134,5 +173,7 @@ int process_encapsulated_map_request_headers(
 /* Returns IP ID for the packet */
 uint16_t get_IP_ID();
 
+/* Check if the packet is a control msg */
+uint8_t is_ctrl_packet (uint8_t *packet);
 
 #endif /*LISPD_PKT_LIB_H_*/

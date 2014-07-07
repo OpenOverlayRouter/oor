@@ -83,8 +83,11 @@ typedef struct balancing_locators_vecs_ {
  */
 
 typedef struct lcl_mapping_extended_info_ {
-    balancing_locators_vecs               outgoing_balancing_locators_vecs;
-    lispd_locators_list                   *head_not_init_locators_list; //List of locators not initialized: interface without ip
+    balancing_locators_vecs         outgoing_balancing_locators_vecs;
+    lispd_locators_list             *head_not_init_locators_list; //List of locators not initialized: interface without ip
+    nonces_list                     *map_reg_nonce;
+    timer                           *map_reg_timer;
+    uint8_t                         to_do_smr;
 }lcl_mapping_extended_info;
 
 /*
@@ -139,6 +142,20 @@ int add_locator_to_mapping(
         lispd_locator_elt           *locator);
 
 /*
+ * Reinsert a locator into the locators list of the mapping.
+ */
+int reinsert_locator_to_mapping(
+        lispd_mapping_elt           *mapping,
+        lispd_locator_elt           *locator);
+
+/*
+ * Remove (free memory) the locator from the mapping with the specified address
+ */
+int remove_locator_from_mapping(
+        lispd_mapping_elt       *mapping,
+        lisp_addr_t             *loc_addr);
+
+/*
  * This function sort the locator list elt with IP = changed_loc_addr
  */
 
@@ -152,7 +169,7 @@ void sort_locators_list_elt (
 
 lispd_locator_elt *get_locator_from_mapping(
         lispd_mapping_elt   *mapping,
-        lisp_addr_t         address);
+        lisp_addr_t         *address);
 
 /*
  * Free memory of lispd_mapping_elt.
@@ -192,12 +209,44 @@ void dump_balancing_locators_vec(
 
 int add_mapping_to_list(lispd_mapping_elt *mapping, lispd_mapping_list **list);
 
+/*
+ * Remove a mapping from a mapping list
+ * @param mapping Mapping to be removed
+ * @param list Pointer to the first element of the list where to remove the mapping list elt
+ */
+void remove_mapping_from_list(
+        lispd_mapping_elt    *mapping,
+        lispd_mapping_list   **list);
+
+/**
+ * Check if a mapping is already in the list
+ * @param mapping Mapping element to be found
+ * @param list List where to find the mapping
+ * @retun TRUE if the mapping belongs to the list
+ */
+uint8_t is_mapping_in_the_list(
+        lispd_mapping_elt   *mapping,
+        lispd_mapping_list  *list);
+
+/**
+ * Retun the number of mappings of the list
+ * @param list Mapping element to be added
+ * @param list Pointer to the first element of the list where to add the mapping
+ * @retun Number of mappings of the list
+ */
+int get_mapping_list_length(lispd_mapping_list   *list);
+
 /**
  * Release the memory of a list of mappings
  * @param list First element of the list to be released
  * @param free_mappings If TRUE the elements stored in the list are also released
  */
 void free_mapping_list(lispd_mapping_list *list, uint8_t free_mappings);
+
+/*
+ * Return the list of unique RTRs of the mapping
+ */
+lispd_rtr_locators_list *get_rtr_list_from_mapping(lispd_mapping_elt *mapping);
 
 
 #endif /* LISPD_MAPPING_H_ */

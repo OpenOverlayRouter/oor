@@ -32,12 +32,23 @@
 
 #include "lispd_timers.h"
 
+typedef struct _timer_smr_retry_arg{
+    lispd_mapping_list   *mapping_list;
+    int                  retries;
+} timer_smr_retry_arg;
+
 /*
  * Send a solicit map request for each rloc of all eids in the map cahce database
  */
 void init_smr(
         timer *timer_elt,
         void  *arg);
+
+/*
+ * Send initial Map Register associated to the SMR process
+ * We notify to the mapping system the change of mapping
+ */
+int smr_send_map_reg(lispd_mapping_elt *mapping);
 
 /*
  * Send a map request smr invoked and reprogram the timer to retransmit in case

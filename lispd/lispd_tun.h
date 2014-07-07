@@ -84,18 +84,15 @@
 
 /* Tun MN variables */
 
-int tun_receive_fd;
+int tun_fd;
 int tun_ifindex;
-uint8_t *tun_receive_buf;
 
 
 
 int create_tun(
     char                *tun_dev_name,
     unsigned int        tun_receive_size,
-    int                 tun_mtu,
-    int                 *tun_receive_fd,
-    uint8_t             **tun_receive_buf);
+    int                 tun_mtu);
 
 /**
  * Creates the routes to send the traffic to the tun interface to be encapsulated

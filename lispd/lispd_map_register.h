@@ -127,7 +127,15 @@ typedef struct lispd_pkt_map_register_t_ {
     uint8_t  auth_data[LISP_SHA1_AUTH_DATA_LEN];
 } PACKED lispd_pkt_map_register_t;
 
+typedef struct _timer_map_register_argument{
+    lispd_mapping_elt   *mapping;
+    lispd_locator_elt   *src_locator;
+} timer_map_register_argument;
 
+/*
+ * Send a Map Register to all the local mappings of the database
+ */
+int initial_map_register_process();
 
 int map_register(timer *t, void *arg);
 
@@ -145,9 +153,13 @@ int build_and_send_ecm_map_register(
         lispd_mapping_elt           *mapping,
         lispd_map_server_list_t     *map_servers,
         lisp_addr_t                 *nat_rtr_addr,
-        lispd_iface_elt             *src_iface,
+        lisp_addr_t                 *src_add,
         lispd_site_ID               *site_ID,
         lispd_xTR_ID                *xTR_ID,
         uint64_t                    *nonce);
+
+timer_map_register_argument * new_timer_map_reg_arg(
+		lispd_mapping_elt *mapping,
+		lispd_locator_elt *src_locator);
 
 #endif /*LISPD_MAP_REGISTER_H_*/

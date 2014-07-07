@@ -37,6 +37,10 @@
 #include "lispd_mapping.h"
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
+#ifdef VPNAPI
+#include "api/ipc.h"
+#endif
+
 
 
 /*
@@ -135,17 +139,12 @@ int build_and_send_info_request(
         uint32_t                    ttl,
         uint8_t                     eid_mask_length,
         lisp_addr_t                 *eid_prefix,
-        lispd_iface_elt             *src_iface,
+        lisp_addr_t		            *src_rloc,
         uint64_t                    *nonce)
 {
-    uint8_t                 *packet                 = NULL;
-    int                     packet_len              = 0;
     lispd_pkt_info_nat_t    *info_request_pkt       = NULL;
     uint32_t                info_request_pkt_len    = 0;
     uint16_t                auth_data_len           = 0;
-    lisp_addr_t             *src_addr               = NULL;
-    int                     out_socket              = 0;
-    int                     result                  = 0;
 
     auth_data_len = get_auth_data_len(map_server->key_type);
 
@@ -174,171 +173,191 @@ int build_and_send_info_request(
         return (BAD);
     }
 
-    /* Get src interface information */
+    err = send_control_msg((uint8_t *)info_request_pkt,
+            info_request_pkt_len,
+            src_rloc,
+            map_server->address,
+            LISP_CONTROL_PORT,
+            LISP_CONTROL_PORT);
 
-    src_addr    = get_iface_address (src_iface, map_server->address->afi);
-    out_socket  = get_iface_socket (src_iface, map_server->address->afi);
-
-    if (src_addr == NULL){
-        lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_info_request: No output interface for afi %d",map_server->address->afi);
-        free(info_request_pkt);
-        return (BAD);
-    }
-
-    /* Add UDP and IP header to the RAW paket */
-    packet = build_ip_udp_pcket((uint8_t *)info_request_pkt,
-                                info_request_pkt_len,
-                                src_addr,
-                                map_server->address,
-                                LISP_CONTROL_PORT,
-                                LISP_CONTROL_PORT,
-                                &packet_len);
-    free(info_request_pkt);
-
-
-    if (packet != NULL){
-            err = send_packet(out_socket,packet,packet_len);
-            free(packet);
-    }else {
-        err = BAD;
-    }
+    free (info_request_pkt);
 
     if (err == GOOD){
-        lispd_log_msg(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s/%d and Nonce %s",
+        lispd_log_msg(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s with EID %s/%d and Nonce %s. Src RLOC: %s",
                         get_char_from_lisp_addr_t(*(map_server->address)),
-                        get_char_from_lisp_addr_t(*src_addr),
                         get_char_from_lisp_addr_t(*eid_prefix),
                         eid_mask_length,
-                        get_char_from_nonce(*nonce));
-        result = GOOD;
+                        get_char_from_nonce(*nonce),
+                        get_char_from_lisp_addr_t(*src_rloc));
     }else{
-        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s from locator %s with EID %s/%d and Nonce %s",
+        lispd_log_msg(LISP_LOG_DEBUG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s with EID %s/%d and Nonce %s. Src RLOC: %s",
                         get_char_from_lisp_addr_t(*(map_server->address)),
-                        get_char_from_lisp_addr_t(*src_addr),
                         get_char_from_lisp_addr_t(*eid_prefix),
                         eid_mask_length,
-                        get_char_from_nonce(*nonce));
-        result = BAD;
+                        get_char_from_nonce(*nonce),
+                        get_char_from_lisp_addr_t(*src_rloc));
     }
 
-    return (result);
+    return (err);
 }
-
 int initial_info_request_process()
 {
-    int result = 0;
-    patricia_tree_t           *dbs[2]           = {NULL,NULL};
-    int                       ctr               = 0;
-    patricia_tree_t           *tree             = NULL;
-    patricia_node_t           *node             = NULL;
-    lispd_mapping_elt         *mapping          = NULL;
+    int                         ctr                 = 0;
+    int                         ctr1                = 0;
+    lispd_mapping_list          *mapping_list[2]    = {NULL, NULL};
+    lispd_mapping_elt           *mapping            = NULL;
+    lispd_locators_list         *locators_list[2]   = {NULL, NULL};
+    lispd_locator_elt           *locator            = NULL;
+    timer_info_request_argument *timer_arg          = NULL;
 
-    dbs[0] = get_local_db(AF_INET);
-    dbs[1] = get_local_db(AF_INET6);
+
+    mapping_list[0] = get_all_mappings(AF_INET);
+    mapping_list[1] = get_all_mappings(AF_INET6);
 
     for (ctr = 0 ; ctr < 2 ; ctr++) {
-        tree = dbs[ctr];
-        if (!tree){
-            continue;
-        }
-        PATRICIA_WALK(tree->head, node) {
-            mapping = ((lispd_mapping_elt *)(node->data));
-            if (mapping->locator_count != 0){
-                result = info_request(NULL,mapping);
-                return (result);
+        while (mapping_list[ctr]!=NULL){
+            mapping = mapping_list[ctr]->mapping;
+            locators_list[0] = mapping->head_v4_locators_list;
+            locators_list[1] = mapping->head_v6_locators_list;
+            for (ctr1 = 0 ; ctr1 < 2 ; ctr1++){
+                while(locators_list[ctr1] != NULL){
+                    locator = locators_list[ctr1]->locator;
+                    if (*(locator->state) == UP){
+                        timer_arg = new_timer_inf_req_arg(mapping, locator);
+                        if (timer_arg == NULL){
+                            locators_list[ctr1] = locators_list[ctr1]->next;
+                            continue;
+                        }
+                        info_request(NULL,timer_arg);
+                    }
+                    locators_list[ctr1] = locators_list[ctr1]->next;
+                }
             }
-        }PATRICIA_WALK_END;
+            mapping_list[ctr] = mapping_list[ctr]->next;
+        }
     }
     return(GOOD);
 }
 
+void  restart_info_request_process(
+		lispd_mapping_list 	*mapping_list,
+		lisp_addr_t 		*src_addr)
+{
+	lispd_mapping_elt           *mapping            = NULL;
+	void                        *timer_arg          = NULL;
+	lispd_locator_elt           *src_locator        = NULL;
+	nat_info_str                *nat_info           = NULL;
+
+	lispd_log_msg(LISP_LOG_DEBUG_1,"restart_info_request_process: Restart info request process for  "
+			"mappings associated with address %s", get_char_from_lisp_addr_t(*src_addr));
+
+	if (src_addr == NULL){
+		lispd_log_msg(LISP_LOG_DEBUG_1,"restart_info_request_process: No source address specified");
+		return;
+	}
+
+	while (mapping_list != NULL){
+		mapping = mapping_list->mapping;
+		src_locator = get_locator_from_mapping(mapping,src_addr);
+		if (src_locator == NULL){
+		    mapping_list = mapping_list->next;
+		    continue;
+		}
+		nat_info = ((lcl_locator_extended_info *)src_locator->extended_info)->nat_info;
+
+		if (nat_info->inf_req_timer == NULL){
+		    nat_info->inf_req_timer = create_timer(INFO_REPLY_TTL_TIMER);
+			if (nat_info->inf_req_timer == NULL){
+				mapping_list = mapping_list->next;
+				continue;
+			}
+
+			timer_arg = (void *)new_timer_inf_req_arg(mapping, src_locator);
+			if (timer_arg == NULL){
+				free(nat_info->inf_req_timer);
+				nat_info->inf_req_timer = NULL;
+				mapping_list = mapping_list->next;
+				continue;
+			}
+		}else{
+			free(nat_info->inf_req_nonce);
+			nat_info->inf_req_nonce = NULL;
+			timer_arg = nat_info->inf_req_timer->cb_argument;
+		}
+
+		start_timer(nat_info->inf_req_timer, LISPD_INF_REQ_HANDOVER_TIMEOUT, info_request, timer_arg);
+		mapping_list = mapping_list->next;
+	}
+}
 
 
 int info_request(
-        timer   *ttl_timer,
-        void    *arg)
+		timer   *ttl_timer,
+		void    *arg)
 {
-    lispd_mapping_elt  *mapping         = NULL;
-    int                next_timer_time  = 0;
+	lispd_mapping_elt           *mapping            = ((timer_info_request_argument *)arg)->mapping;
+	lispd_locator_elt           *src_locator        = ((timer_info_request_argument *)arg)->src_locator;
+	nat_info_str                *nat_info           = ((lcl_locator_extended_info*)src_locator->extended_info)->nat_info;
+	nonces_list                 *nonces             = nat_info->inf_req_nonce;
+	int                         next_timer_time     = 0;
 
-    mapping = (lispd_mapping_elt *)arg;
+	if (nonces == NULL){
+		nonces = new_nonces_list();
+		if (nonces == NULL){
+			lispd_log_msg(LISP_LOG_WARNING,"info_request: Unable to allocate memory for nonces.");
+			return (BAD);
+		}
+		nat_info->inf_req_nonce = nonces;
+		nat_info->status = UNKNOWN;
+	}
 
-    if (default_ctrl_iface_v4 != NULL){
-        if (nat_ir_nonce == NULL){
-            nat_ir_nonce = new_nonces_list();
-            if (nat_ir_nonce == NULL){
-                lispd_log_msg(LISP_LOG_WARNING,"info_request: Unable to allocate memory for nonces.");
-                return (BAD);
-            }
-        }
-
-        if (nat_ir_nonce->retransmits <= LISPD_MAX_RETRANSMITS){
-            if ((err=build_and_send_info_request(
-                    map_servers,
-                    DEFAULT_INFO_REQUEST_TIMEOUT,
-                    mapping->eid_prefix_length,
-                    &(mapping->eid_prefix),
-                    default_ctrl_iface_v4,
-                    &(nat_ir_nonce->nonce[nat_ir_nonce->retransmits])))!=GOOD){
-                lispd_log_msg(LISP_LOG_DEBUG_1,"info_request: Couldn't send info request message.");
-            }
-            nat_ir_nonce->retransmits++;
-            next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
-        } else{
-            free (nat_ir_nonce);
-            nat_ir_nonce = NULL;
-            lispd_log_msg(LISP_LOG_ERR,"info_request: Communication error between LISPmob and RTR. Retry after %d seconds",MAP_REGISTER_INTERVAL);
-            next_timer_time = MAP_REGISTER_INTERVAL;
-        }
-    }else {
-        return (BAD);
-    }
+	if (nonces->retransmits <= LISPD_MAX_RETRANSMITS){
+		if ((err=build_and_send_info_request(
+				map_servers,
+				DEFAULT_INFO_REQUEST_TIMEOUT,
+				mapping->eid_prefix_length,
+				&(mapping->eid_prefix),
+				src_locator->locator_addr,
+				&(nonces->nonce[nonces->retransmits])))!=GOOD){
+			lispd_log_msg(LISP_LOG_DEBUG_1,"info_request: Couldn't send info request message.");
+		}
+		nonces->retransmits++;
+		next_timer_time = LISPD_INITIAL_MR_TIMEOUT;
+	} else{
+		free (nonces);
+		nat_info->inf_req_nonce = NULL;
+		lispd_log_msg(LISP_LOG_ERR,"info_request: Communication error between LISPmob and Map Server. Retry after %d seconds",MAP_REGISTER_INTERVAL);
+//#ifdef VPNAPI
+//        ipc_send_log_msg(INF_REQ_ERR);
+//#endif
+		next_timer_time = MAP_REGISTER_INTERVAL;
+		nat_info->status = NO_INFO_REPLY;
+	}
 
     /*
      * Configure timer to send the next map register.
      */
-    if (info_reply_ttl_timer == NULL) {
-        info_reply_ttl_timer = create_timer(INFO_REPLY_TTL_TIMER);
+    if (nat_info->inf_req_timer == NULL) {
+        nat_info->inf_req_timer = create_timer(INFO_REPLY_TTL_TIMER);
     }
-    start_timer(info_reply_ttl_timer, next_timer_time, info_request, mapping);
+    start_timer(nat_info->inf_req_timer, next_timer_time, info_request, arg);
     lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d seconds",next_timer_time);
     return(GOOD);
 }
 
-
-/* Given an interface, it looks for all the locators associated with this interface and remove its
- * RTR information. Use this function befor starting info request process in interface change
- */
-
-void clear_rtr_from_locators (lispd_iface_elt     *iface){
-	lispd_iface_mappings_list 	*mappings_list  	= NULL;
-	lispd_locator_elt 			*locator 			= NULL;
-	lcl_locator_extended_info	*local_etended_inf 	= NULL;
-
-	mappings_list = iface->head_mappings_list;
-	while (mappings_list != NULL){
-		if (mappings_list->use_ipv4_address == TRUE){
-			locator = get_locator_from_mapping(	mappings_list->mapping, *(iface->ipv4_address));
-			if (locator != NULL){
-				local_etended_inf = (lcl_locator_extended_info *)locator->extended_info;
-				if (local_etended_inf != NULL && local_etended_inf->rtr_locators_list != NULL){
-					free_rtr_list (local_etended_inf->rtr_locators_list);
-					local_etended_inf->rtr_locators_list = NULL;
-				}
-			}
-		}
-		if (mappings_list->use_ipv6_address == TRUE){
-			locator = get_locator_from_mapping(	mappings_list->mapping, *(iface->ipv6_address));
-			if (locator != NULL){
-				local_etended_inf = (lcl_locator_extended_info *)locator->extended_info;
-				if (local_etended_inf != NULL && local_etended_inf->rtr_locators_list != NULL){
-					free_rtr_list (local_etended_inf->rtr_locators_list);
-					local_etended_inf->rtr_locators_list = NULL;
-				}
-			}
-		}
-		mappings_list = mappings_list->next;
+timer_info_request_argument * new_timer_inf_req_arg(
+		lispd_mapping_elt *mapping,
+		lispd_locator_elt *src_locator)
+{
+	timer_info_request_argument * timer_arg = (timer_info_request_argument *)calloc(1,sizeof(timer_info_request_argument));
+	if (timer_arg == NULL){
+		lispd_log_msg(LISP_LOG_WARNING,"new_timer_inf_req_arg: Unable to allocate memory for a timer_map_register_argument");
+		return (NULL);
 	}
+	timer_arg->mapping = mapping;
+	timer_arg->src_locator = src_locator;
+
+	return (timer_arg);
 }
 
 /*

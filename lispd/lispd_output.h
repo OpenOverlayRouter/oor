@@ -44,12 +44,12 @@
 #include "lispd_map_cache_db.h"
 #include "lispd_external.h"
 
+int lisp_output (
+        uint8_t *original_packet,
+        int     original_packet_length );
 
-void process_output_packet(int fd, uint8_t *tun_receive_buf, unsigned int tun_receive_size);
+void process_output_packet();
 
-lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet );
-
-lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet );
 
 /*
  * Add a not active map cache entry and init the process to request to the mapping system the information

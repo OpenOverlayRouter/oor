@@ -28,10 +28,13 @@
 
 
 #include "lispd_input.h"
+#include "lispd_map_notify.h"
+#include "lispd_pkt_lib.h"
+#include "api/ipc.h"
 
+#ifndef VPNAPI
 void process_input_packet(int fd,
-                          int afi,
-                          int tun_receive_fd)
+                          int afi)
 {
     uint8_t             *packet = NULL;
     int                 length = 0;
@@ -50,7 +53,7 @@ void process_input_packet(int fd,
     }
 
     memset(packet,0,MAX_IP_PACKET);
-    
+
     if (get_data_packet (fd,
                          afi,
                          packet,
@@ -69,7 +72,7 @@ void process_input_packet(int fd,
         /* With input RAW UDP sockets in IPv6, we get the whole external UDP packet */
         udph = (struct udphdr *) packet;
     }
-    
+
     /* With input RAW UDP sockets, we receive all UDP packets, we only want lisp data ones */
     if(ntohs(udph->dest) != LISP_DATA_PORT){
         free(packet);
@@ -80,15 +83,15 @@ void process_input_packet(int fd,
     lisp_hdr = (struct lisphdr *) CO(udph,sizeof(struct udphdr));
 
     length = length - sizeof(struct udphdr) - sizeof(struct lisphdr);
-    
+
     iph = (struct iphdr *) CO(lisp_hdr,sizeof(struct lisphdr));
 
     lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
                   get_char_from_lisp_addr_t(extract_src_addr_from_packet((uint8_t *)iph)),
                   get_char_from_lisp_addr_t(extract_dst_addr_from_packet((uint8_t *)iph)));
-    
+
     if (iph->version == 4) {
-        
+
         if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
             iph->ttl = ttl;
         }
@@ -97,26 +100,115 @@ void process_input_packet(int fd,
         /* We need to recompute the checksum since we have changed the TTL and TOS header fields */
         iph->check = 0; /* New checksum must be computed with the checksum header field with 0s */
         iph->check = ip_checksum((uint16_t*) iph, sizeof(struct iphdr));
-        
+
     }else{
         ip6h = ( struct ip6_hdr *) iph;
 
         if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
             ip6h->ip6_hops = ttl; /* ttl = Hops limit in IPv6 */
         }
-        
+
         IPV6_SET_TC(ip6h,tos); /* tos = Traffic class field in IPv6 */
     }
+
 
     if (lisp_hdr->instance_id == 1){ //Poor discriminator for data map notify...
         lispd_log_msg(LISP_LOG_DEBUG_2,"Data-Map-Notify received\n ");
         //Is there something to do here?
     }
-    
-    if ((write(tun_receive_fd, iph, length)) < 0){
+
+    if ((write(tun_fd, iph, length)) < 0){
         lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
     }
-    
+
     free(packet);
 }
 
+#else
+void process_input_packet(int fd,
+                          int afi)
+{
+    uint8_t             *packet = NULL;
+    int                 length = 0;
+    uint8_t             ttl = 0;
+    uint8_t             tos = 0;
+
+
+    int len = 0;
+
+    struct lisphdr      *lisp_hdr = NULL;
+    struct iphdr        *iph = NULL;
+    struct ip6_hdr      *ip6h = NULL;
+    struct udphdr       *udph = NULL;
+    uint8_t             *ctr_msg = NULL;
+
+
+
+    if ((packet = (uint8_t *) calloc(MAX_IP_PACKET,sizeof (uint8_t)))==NULL){
+        lispd_log_msg(LISP_LOG_ERR,"process_input_packet: Couldn't allocate space for packet: %s", strerror(errno));
+        return;
+    }
+
+    if (get_data_packet (fd,
+                         afi,
+                         packet,
+                         &length,
+                         &ttl,
+                         &tos) != GOOD){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"process_input_packet: get_data_packet error: %s", strerror(errno));
+        free(packet);
+        return;
+    }
+
+    lisp_hdr = (struct lisphdr *)packet;
+
+    iph = (struct iphdr *) CO(lisp_hdr,sizeof(struct lisphdr));
+
+    lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (4341): Inner src: %s | Inner dst: %s ",
+                  get_char_from_lisp_addr_t(extract_src_addr_from_packet((uint8_t *)iph)),
+                  get_char_from_lisp_addr_t(extract_dst_addr_from_packet((uint8_t *)iph)));
+
+    if (iph->version == 4) {
+
+        if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
+            iph->ttl = ttl;
+        }
+        iph->tos = tos;
+
+        /* We need to recompute the checksum since we have changed the TTL and TOS header fields */
+        iph->check = 0; /* New checksum must be computed with the checksum header field with 0s */
+        iph->check = ip_checksum((uint16_t*) iph, sizeof(struct iphdr));
+
+    }else{
+        ip6h = ( struct ip6_hdr *) iph;
+
+        if(ttl!=0){ /*XXX It seems that there is a bug in uClibc that causes ttl=0 in OpenWRT. This is a quick workaround */
+            ip6h->ip6_hops = ttl; /* ttl = Hops limit in IPv6 */
+        }
+
+        IPV6_SET_TC(ip6h,tos); /* tos = Traffic class field in IPv6 */
+    }
+
+    if (lisp_hdr->instance_id == 1){ //Poor discriminator for data map notify...
+
+    	if (ip6h != NULL){
+    		ctr_msg = CO(iph,sizeof(struct ip6_hdr)+sizeof(struct udphdr));
+    	}else{
+    		ctr_msg = CO(iph,sizeof(struct iphdr)+sizeof(struct udphdr));
+    	}
+    	if ((is_ctrl_packet((uint8_t*)iph) == TRUE) &&
+    			((lisp_encap_control_hdr_t *) ctr_msg)->type == LISP_MAP_NOTIFY){
+    		lispd_log_msg(LISP_LOG_DEBUG_2,"Data-Map-Notify received\n ");
+    		process_map_notify(ctr_msg);
+    		free(packet);
+    		return;
+    	}
+    }
+
+    if ((len = write(tun_fd, iph, length)) < 0){
+        lispd_log_msg(LISP_LOG_DEBUG_2,"lisp_input: write error: %s\n ", strerror(errno));
+    }
+    free(packet);
+}
+
+#endif

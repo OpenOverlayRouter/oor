@@ -204,9 +204,7 @@ int ipc_send_decap_packet(
 	return (result);
 }
 
-int ipc_send_log_msg (
-		char 	*log_msg,
-		int 	log_level)
+int ipc_send_log_msg (int     error_code)
 {
 	json_object *jobj 	= NULL;
 	const char  *msg	= NULL;
@@ -216,8 +214,7 @@ int ipc_send_log_msg (
 	jobj = json_object_new_object();
 
 	json_object_object_add(jobj,"type",json_object_new_int(IPC_LOG_MSG));
-	json_object_object_add(jobj,"log_msg",json_object_new_string((const char *)log_msg));
-	json_object_object_add(jobj,"log_level",json_object_new_int(log_level));
+	json_object_object_add(jobj,"err_msg_code",json_object_new_int(error_code));
 
 	msg = json_object_to_json_string(jobj);
 	msg_len = strlen(msg);
@@ -229,7 +226,27 @@ int ipc_send_log_msg (
 	return (result);
 }
 
+int ipc_protect_socket (int socket)
+{
+    json_object *jobj   = NULL;
+    const char  *msg    = NULL;
+    int         msg_len = 0;
+    int         result  = 0;
 
+    jobj = json_object_new_object();
+
+    json_object_object_add(jobj,"type",json_object_new_int(IPC_PROTECT_SOCK));
+    json_object_object_add(jobj,"socket",json_object_new_int(socket));
+
+    msg = json_object_to_json_string(jobj);
+    msg_len = strlen(msg);
+
+    lispd_log_msg(LISP_LOG_DEBUG_3,"ipc_protect_socket: %s",msg);
+    result = send_packet_ipc (ipc_control_fd,IPC_CONTROL_TX_PORT,(uint8_t *)msg, msg_len);
+    json_object_put(jobj);
+
+    return (result);
+}
 
 inline void print_json_message(json_object *jobj){
 	if (debug_level == 3){

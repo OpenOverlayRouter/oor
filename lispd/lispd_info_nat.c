@@ -42,13 +42,6 @@
 #include "lispd_log.h"
 
 
-/*
- *  info_request_ttl (tree)
- *
- */
-
-timer *info_reply_ttl_timer = NULL;
-
 
 /*
  *  Process Info-Request Message

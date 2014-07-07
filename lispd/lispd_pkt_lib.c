@@ -35,6 +35,7 @@
 #include "lispd_map_register.h"
 #include "lispd_external.h"
 #include "lispd_sockets.h"
+#include "api/ipc.h"
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 
@@ -46,7 +47,9 @@ uint16_t ip_id = 0;
  *  Compute the sum of the lengths of the locators
  *  so we can allocate  memory for the packet....
  */
-int get_locators_length(lispd_locators_list *locators_list);
+int get_locators_length(
+        lispd_locators_list *locators_list,
+        int                 *loc_count);
 
 
 int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
@@ -54,21 +57,20 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
     lispd_locators_list *locators_list[2] = {
             mapping->head_v4_locators_list,
             mapping->head_v6_locators_list};
-    int length          = 0;
-    int loc_length      = 0;
-    int eid_length      = 0;
-    int ctr;
+    int             length          = 0;
+    int             loc_length      = 0;
+    int             eid_length      = 0;
+    int             ctr             = 0;
+    int             locator_count   = 0;
+    int             aux_loc_count   = 0;
 
     for (ctr = 0 ; ctr < 2 ; ctr ++){
-        if (locators_list[ctr] == NULL){
-            continue;
-        }
-        loc_length += get_locators_length(locators_list[ctr]);
+        loc_length += get_locators_length(locators_list[ctr], &aux_loc_count);
+        locator_count += aux_loc_count;
     }
     eid_length = get_mapping_length(mapping);
     length = sizeof(lispd_pkt_mapping_record_t) + eid_length +
-            (mapping->locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +
-            loc_length;
+            (locator_count * sizeof(lispd_pkt_mapping_record_locator_t)) +loc_length;
 
     return (length);
 }
@@ -81,25 +83,62 @@ int pkt_get_mapping_record_length(lispd_mapping_elt *mapping)
  *  so we can allocate  memory for the packet....
  */
 
-int get_locators_length(lispd_locators_list *locators_list)
+int get_locators_length(
+        lispd_locators_list *locators_list,
+        int                 *loc_count)
 {
-    int sum = 0;
+    int                 sum             = 0;
+    int                 num_loc         = 0;
+    lisp_addr_t         *prev_rtr_addr  = NULL;
+    lispd_locator_elt   *locator        = NULL;
+    nat_info_str        *nat_info       = NULL;
+
     while (locators_list) {
-        switch (locators_list->locator->locator_addr->afi) {
+        locator = locators_list->locator;
+
+        /* Only consider locators with status UP */
+        if(*(locator->state) != UP){
+            locators_list = locators_list->next;
+            continue;
+        }
+        /*
+         * If we have enabled nat_aware, we only add locators with status known.
+         * A same RTR can only be added one time
+         */
+        if (nat_aware == TRUE ){
+            nat_info = ((lcl_locator_extended_info *)locator->extended_info)->nat_info;
+            if (nat_info->status == UNKNOWN || nat_info->status == NO_INFO_REPLY){
+                locators_list = locators_list->next;
+                continue;
+            }
+            // Even a RTR is associated with more than one interface, we only add the same RTR one time
+            if (compare_lisp_addr_t (prev_rtr_addr, &(nat_info->rtr_locators_list->locator->address))== 0){
+                locators_list = locators_list->next;
+                continue;
+            }else{
+                prev_rtr_addr = &(nat_info->rtr_locators_list->locator->address);
+            }
+        }
+    	/* If the locator is behind NAT, the afi of the RTR is the same of the local locator */
+        switch (locator->locator_addr->afi) {
         case AF_INET:
             sum += sizeof(struct in_addr);
+            num_loc++;
             break;
         case AF_INET6:
             sum += sizeof(struct in6_addr);
+            num_loc++;
             break;
         default:
             /* It should never happen*/
             lispd_log_msg(LISP_LOG_DEBUG_2, "get_locators_length: Uknown AFI (%d) - It should never happen",
-               locators_list->locator->locator_addr->afi);
+               locator->locator_addr->afi);
             break;
         }
         locators_list = locators_list->next;
     }
+    *loc_count = num_loc;
+
     return(sum);
 }
 
@@ -108,19 +147,33 @@ int get_locators_length(lispd_locators_list *locators_list)
  *
  *  Compute the sum of the lengths of the locators that has the status up
  *  so we can allocate  memory for the packet....
+ *  We remove locators behind NAT except when it is the only one UP
  */
 
 int get_up_locators_length(
         lispd_locators_list *locators_list,
         int                 *loc_count)
 {
-    int sum = 0;
-    int counter = 0;
+    int 						sum 		 = 0;
+    int 						counter 	 = 0;
+    lisp_addr_t  				*aux_addr 	 = NULL;
+    lcl_locator_extended_info	*loc_ext_inf = NULL;
+
+
+
     while (locators_list) {
         if (*(locators_list->locator->state)== DOWN){
             locators_list = locators_list->next;
             continue;
         }
+
+        loc_ext_inf = (lcl_locator_extended_info *)(locators_list->locator->extended_info);
+        if (loc_ext_inf->nat_info != NULL && loc_ext_inf->nat_info->rtr_locators_list != NULL){
+            aux_addr =  loc_ext_inf->nat_info->public_addr;
+            locators_list = locators_list->next;
+            continue;
+        }
+
 
         switch (locators_list->locator->locator_addr->afi) {
         case AF_INET:
@@ -138,6 +191,11 @@ int get_up_locators_length(
             break;
         }
         locators_list = locators_list->next;
+    }
+
+    if (counter == 0  && aux_addr != NULL){
+        sum += get_addr_len(aux_addr->afi);
+        counter++;
     }
     *loc_count = counter;
     return(sum);
@@ -219,22 +277,22 @@ uint8_t *pkt_fill_mapping_record(
     lispd_mapping_elt                       *mapping,
     lisp_addr_t                             *probed_rloc)
 {
-    uint8_t                                 *cur_ptr             = NULL;
+    uint8_t                                 *cur_ptr            = NULL;
     int                                     cpy_len             = 0;
     lispd_pkt_mapping_record_locator_t      *loc_ptr            = NULL;
     lispd_locators_list                     *locators_list[2]   = {NULL,NULL};
     lispd_locator_elt                       *locator            = NULL;
-    lcl_locator_extended_info               *lct_extended_info  = NULL;
-    lisp_addr_t                             *itr_address    = NULL;
+    nat_info_str                            *nat_info           = NULL;
+    lisp_addr_t                             *itr_address        = NULL;
+    lisp_addr_t                             *last_rtr_addr      = NULL;
     int                                     ctr                 = 0;
-
+    int                                     locator_count       = 0;
 
     if ((rec == NULL) || (mapping == NULL)){
         return NULL;
     }
 
     rec->ttl                    = htonl(DEFAULT_MAP_REGISTER_TIMEOUT);
-    rec->locator_count          = mapping->locator_count;
     rec->eid_prefix_length      = mapping->eid_prefix_length;
     rec->action                 = 0;
     rec->authoritative          = 1;
@@ -249,18 +307,40 @@ uint8_t *pkt_fill_mapping_record(
         return NULL;
     }
 
+    lispd_log_msg(LISP_LOG_DEBUG_2, "Record information EID: %s/%d",
+            get_char_from_lisp_addr_t(mapping->eid_prefix),
+            rec->eid_prefix_length);
+
     locators_list[0] = mapping->head_v4_locators_list;
     locators_list[1] = mapping->head_v6_locators_list;
     for (ctr = 0 ; ctr < 2 ; ctr++){
         while (locators_list[ctr]) {
             locator              = locators_list[ctr]->locator;
+            nat_info             = ((lcl_locator_extended_info *)(locator->extended_info))->nat_info;
 
-            if (*(locator->state) == UP){
-                loc_ptr->priority    = locator->priority;
-            }else{
-                /* If the locator is DOWN, set the priority to 255 -> Locator should not be used */
-                loc_ptr->priority    = UNUSED_RLOC_PRIORITY;
+            if (*(locator->state) != UP){
+                locators_list[ctr] = locators_list[ctr]->next;
+                continue;
             }
+
+            if (nat_info != NULL){
+                nat_info = ((lcl_locator_extended_info *)locator->extended_info)->nat_info;
+                // XXX Locators using RTR whose interface is down are not added
+                // XXX When locator don't use RTR, it is added with R bit = 0 and priority 255
+                if (nat_info->status == UNKNOWN || nat_info->status == NO_INFO_REPLY){
+                    locators_list[ctr] = locators_list[ctr]->next;
+                    continue;
+                }
+                // Even a RTR is associated with more than one interface, we only add the same RTR one time
+                if (compare_lisp_addr_t (last_rtr_addr, &(nat_info->rtr_locators_list->locator->address))== 0){
+                    locators_list[ctr] = locators_list[ctr]->next;
+                    continue;
+                }else{
+                    last_rtr_addr = &(nat_info->rtr_locators_list->locator->address);
+                }
+            }
+
+            loc_ptr->priority    = locator->priority;
             loc_ptr->weight      = locator->weight;
             loc_ptr->mpriority   = locator->mpriority;
             loc_ptr->mweight     = locator->mweight;
@@ -270,14 +350,14 @@ uint8_t *pkt_fill_mapping_record(
             }
 
             loc_ptr->reachable   = *(locator->state);
-            loc_ptr->locator_afi = htons(get_lisp_afi(locator->locator_addr->afi,NULL));
 
-            lct_extended_info = (lcl_locator_extended_info *)(locator->extended_info);
-            if (lct_extended_info->rtr_locators_list != NULL){
-                itr_address = &(lct_extended_info->rtr_locators_list->locator->address);
+
+            if (nat_info != NULL && nat_info->rtr_locators_list != NULL){
+                itr_address = &(nat_info->rtr_locators_list->locator->address);
             }else{
                 itr_address = locator->locator_addr;
             }
+            loc_ptr->locator_afi = htons(get_lisp_afi(itr_address->afi,NULL));
 
             if ((cpy_len = copy_addr((void *) CO(loc_ptr,
                     sizeof(lispd_pkt_mapping_record_locator_t)), itr_address, 0)) == 0) {
@@ -286,11 +366,20 @@ uint8_t *pkt_fill_mapping_record(
                 return(NULL);
             }
 
+            lispd_log_msg(LISP_LOG_DEBUG_2, "Record information Locator: %s  P:%d-W:%d-MP:%d-MW:%d  Reachable: %d Probed: %d",
+                                    get_char_from_lisp_addr_t(*(locators_list[ctr]->locator->locator_addr)),
+                                    loc_ptr->priority, loc_ptr->weight, loc_ptr->mpriority, loc_ptr->mweight, loc_ptr->reachable, loc_ptr->probed);
+
+            locator_count++;
             loc_ptr = (lispd_pkt_mapping_record_locator_t *)
                             CO(loc_ptr, (sizeof(lispd_pkt_mapping_record_locator_t) + cpy_len));
+
+
             locators_list[ctr] = locators_list[ctr]->next;
+
         }
     }
+    rec->locator_count          = locator_count;
     return ((void *)loc_ptr);
 }
 /*
@@ -345,6 +434,268 @@ int extract_5_tuples_from_packet (
     }
     return (GOOD);
 }
+
+
+
+void add_ip_header (
+        uint8_t         *position,
+        uint8_t         *original_packet_position,
+        int             ip_payload_length,
+        lisp_addr_t     *src_addr,
+        lisp_addr_t     *dst_addr)
+{
+
+    struct ip       *iph        = NULL;
+    struct ip       *inner_iph  = NULL;
+    struct ip6_hdr  *ip6h       = NULL;
+    struct ip6_hdr  *inner_ip6h = NULL;
+
+    int     ip_len  = 0;
+    uint8_t tos     = 0;
+    uint8_t ttl     = 0;
+
+
+    inner_iph = (struct ip *) original_packet_position;
+
+    /* We SHOULD copy ttl and tos fields from the inner packet to the encapsulated one */
+
+    if (inner_iph->ip_v == 4 ) {
+        tos = inner_iph->ip_tos;
+        ttl = inner_iph->ip_ttl;
+
+    } else {
+        inner_ip6h = (struct ip6_hdr *) original_packet_position;
+        ttl = inner_ip6h->ip6_hops; /* ttl = Hops limit in IPv6 */
+
+        //tos = (inner_ip6h->ip6_flow & 0x0ff00000) >> 20;  /* 4 bits version, 8 bits Traffic Class, 20 bits flow-ID */
+        tos = IPV6_GET_TC(*inner_ip6h); /* tos = Traffic class field in IPv6 */
+    }
+
+    /*
+     * Construct and add the outer ip header
+     */
+
+    switch (dst_addr->afi){
+    case AF_INET:
+        ip_len = ip_payload_length + sizeof(struct ip);
+        iph = (struct ip *) position;
+
+        iph->ip_v               = IPVERSION;
+        iph->ip_hl              = 5; /* Minimal IPv4 header */ /*XXX Beware, hardcoded. Supposing no IP options */
+        iph->ip_tos             = tos;
+        iph->ip_len             = htons(ip_len);
+        iph->ip_id              = htons(get_IP_ID());
+        iph->ip_off             = htons(IP_DF);   /* Do not fragment flag. See 5.4.1 in LISP RFC (6830) */
+        iph->ip_ttl             = ttl;
+        iph->ip_p               = IPPROTO_UDP;
+        iph->ip_sum             = 0; //Computed by the NIC (checksum offloading)
+        iph->ip_dst.s_addr      = dst_addr->address.ip.s_addr;
+        iph->ip_src.s_addr      = src_addr->address.ip.s_addr;
+        break;
+    case AF_INET6:
+        ip6h = ( struct ip6_hdr *) position;
+
+        IPV6_SET_VERSION(ip6h, 6);
+        IPV6_SET_TC(ip6h,tos);
+        IPV6_SET_FLOW_LABEL(ip6h,0);
+        ip6h->ip6_plen = htons(ip_payload_length);
+        ip6h->ip6_nxt = IPPROTO_UDP;
+        ip6h->ip6_hops = ttl;
+        memcopy_lisp_addr(&(ip6h->ip6_dst),dst_addr);
+        memcopy_lisp_addr(&(ip6h->ip6_src),src_addr);
+
+        break;
+    default:
+        break;
+    }
+}
+
+void add_udp_header(
+        uint8_t *position,
+        int     length,
+        int     src_port,
+        int     dst_port)
+{
+
+    struct udphdr *udh  = NULL;
+
+
+    /*
+     * Construct and add the udp header
+     */
+    udh = ( struct udphdr * ) position;
+
+    /*
+     * Hash of inner header source/dest addr. This needs thought.
+     */
+    udh->source = htons ( src_port ); //arnatal TODO: Selec source port based on tuple?
+    udh->dest =  htons ( dst_port );
+    udh->len = htons ( sizeof ( struct udphdr ) + length );
+    udh->check = 0; // SHOULD be 0 as in LISP ID
+    /* With IPv6 this MUST be calculated (or disabled at all). Calculated later */
+
+}
+
+void add_lisp_header(
+        uint8_t *position,
+        int     iid)
+{
+
+    struct lisphdr  *lisphdr = NULL;
+
+    lisphdr = (struct lisphdr *) position;
+
+    lisphdr->instance_id = 0;
+    //lisphdr->instance_id = iid; //XXX iid not supported yet
+
+    /* arnatal TODO: support for the rest of values*/
+    lisphdr->echo_nonce = 0;
+    lisphdr->lsb = 0;
+    lisphdr->lsb_bits = 0;
+    lisphdr->map_version = 0;
+    lisphdr->nonce[0] = 0;
+    lisphdr->nonce[1] = 0;
+    lisphdr->nonce[2] = 0;
+    lisphdr->nonce_present = 0;
+    lisphdr->rflags = 0;
+
+}
+
+int encapsulate_packet(
+        uint8_t     *buffer, // Original packet + lisp header
+        int         packet_length, // Size of original packet + size of lisp header
+        lisp_addr_t *src_addr,
+        lisp_addr_t *dst_addr,
+        int         src_port,
+        int         dst_port,
+        int         iid,
+        uint8_t     **encap_packet,
+        int         *encap_packet_size)
+{
+    uint8_t     *original_packet    = NULL;
+    uint8_t     *udp_hdr            = NULL;
+    uint8_t     *ip_hdr             = NULL;
+    struct      udphdr *udh         = NULL;
+    int         encap_afi           = 0;
+
+    int         iphdr_len           = 0;
+
+    encap_afi = src_addr->afi;
+
+    switch (encap_afi){
+    case AF_INET:
+        iphdr_len = sizeof(struct iphdr);
+        break;
+    case AF_INET6:
+        iphdr_len = sizeof(struct ip6_hdr);
+        break;
+    }
+
+    original_packet    = CO(buffer,IN_PACK_BUFF_OFFSET);
+    udp_hdr            = CO(buffer,(IN_PACK_BUFF_OFFSET - sizeof(struct lisphdr) - sizeof(struct udphdr)));
+    ip_hdr             = CO(buffer,(IN_PACK_BUFF_OFFSET - sizeof(struct lisphdr) - sizeof(struct udphdr) - iphdr_len));
+
+    *encap_packet = ip_hdr;
+    *encap_packet_size = packet_length +  sizeof(struct udphdr) + iphdr_len;
+
+    add_udp_header(udp_hdr,packet_length,src_port,dst_port);
+
+    add_ip_header(ip_hdr,
+            original_packet, //dest packet
+            packet_length+sizeof(struct udphdr),
+            src_addr,
+            dst_addr);
+
+    /* UDP checksum mandatory for IPv6. Could be skipped if check disabled on receiver */
+    udh = (struct udphdr *)udp_hdr;
+    udh->check = udp_checksum(udh,ntohs(udh->len),ip_hdr,encap_afi);
+
+
+
+    lispd_log_msg(LISP_LOG_DEBUG_3,"OUTPUT: Encap src: %s | Encap dst: %s\n",
+            get_char_from_lisp_addr_t(*src_addr),get_char_from_lisp_addr_t(*dst_addr));
+
+    return (GOOD);
+}
+
+int get_afi_from_packet(uint8_t *packet)
+{
+    int             afi     = 0;
+    struct iphdr    *iph    = NULL;
+
+    iph = (struct iphdr *) packet;
+
+    switch (iph->version){
+    case 4:
+        afi = AF_INET;
+        break;
+    case 6:
+        afi = AF_INET6;
+        break;
+    default:
+        afi = AF_UNSPEC;
+    }
+
+    return (afi);
+}
+
+
+
+lisp_addr_t extract_dst_addr_from_packet ( uint8_t *packet )
+{
+    lisp_addr_t     addr    = {.afi=AF_UNSPEC};
+    struct iphdr    *iph    = NULL;
+    struct ip6_hdr  *ip6h   = NULL;
+
+    iph = (struct iphdr *) packet;
+
+    switch (iph->version) {
+    case 4:
+        addr.afi = AF_INET;
+        addr.address.ip.s_addr = iph->daddr;
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *) packet;
+        addr.afi = AF_INET6;
+        memcpy(&(addr.address.ipv6),&(ip6h->ip6_dst),sizeof(struct in6_addr));
+        break;
+
+    default:
+        break;
+    }
+
+    //arnatal TODO: check errors (afi unsupported)
+
+    return (addr);
+}
+
+
+lisp_addr_t extract_src_addr_from_packet ( uint8_t *packet )
+{
+    lisp_addr_t         addr    = {.afi=AF_UNSPEC};
+    struct iphdr        *iph    = NULL;
+    struct ip6_hdr      *ip6h   = NULL;
+
+    iph = (struct iphdr *) packet;
+
+    switch (iph->version) {
+    case 4:
+        addr.afi = AF_INET;
+        addr.address.ip.s_addr = iph->saddr;
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *) packet;
+        addr.afi = AF_INET6;
+        memcpy(&(addr.address.ipv6),&(ip6h->ip6_src),sizeof(struct in6_addr));
+    default:
+        break;
+    }
+
+    //arnatal TODO: check errors (afi unsupported)
+
+    return (addr);
+}
+
 
 /*
  * Generate IP header. Returns the poninter to the transport header
@@ -559,6 +910,7 @@ uint8_t *build_control_encap_pkt(
     return (lisp_encap_pkt_ptr);
 }
 
+
 /*
  * Process encapsulated map request header:  lisp header and the interal IP and UDP header
  */
@@ -651,11 +1003,34 @@ int process_encapsulated_map_request_headers(
     return (GOOD);
 }
 
-
 uint16_t get_IP_ID()
 {
     ip_id ++;
     return (ip_id);
+}
+
+
+uint8_t is_ctrl_packet (uint8_t *packet)
+{
+	struct iphdr        *iph 	= NULL;
+	struct udphdr       *udph 	= NULL;
+
+	iph = (struct iphdr *)packet;
+	switch (iph->version){
+	case 4:
+		udph = (struct udphdr *) CO(packet,sizeof(struct iphdr));
+		break;
+	case 6:
+		udph = (struct udphdr *) CO(packet,sizeof(struct ip6_hdr));
+		break;
+	default:
+		return (FALSE);
+	}
+	if (ntohs(udph->dest) == LISP_CONTROL_PORT || ntohs(udph->source) == LISP_CONTROL_PORT){
+		return (TRUE);
+	}else{
+		return (FALSE);
+	}
 }
 
 /*

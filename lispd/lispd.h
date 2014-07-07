@@ -128,6 +128,18 @@
 
 #define CO(addr,len) (((uint8_t *) addr + len))
 
+/*
+ *  CNO --
+ *
+ *  Calculate Negative Offset
+ *
+ *  Try not to make dumb mistakes with
+ *  pointer arithmetic
+ *
+ */
+
+#define CNO(addr,len) (((uint8_t *) addr - len))
+
 
 /*
  *  SA_LEN --
@@ -188,13 +200,16 @@ int err;
 #define FALSE               0
 #define UP                  1
 #define DOWN                0
-#define UNKNOWN            -1  
+#define UNKNOWN           255
 
 /***** NAT status *******/
-//#define UNKNOWN          -1
+//#define UNKNOWN         255
 #define NO_NAT              0
-#define PARTIAL_NAT         1
-#define FULL_NAT            2
+#define NAT                 1
+#define PARTIAL_NAT         2
+#define FULL_NAT            3
+#define NO_INFO_REPLY       4   /* NAT status of a locator change from UNKNOWN to NO_INFO_REPLY when
+                                 * reached the maximum number of retransmits of info request */
 
 
 #define MAX_IP_PACKET       4096
@@ -202,7 +217,7 @@ int err;
 
 #define DEFAULT_MAP_REQUEST_RETRIES             3
 #define DEFAULT_RLOC_PROBING_RETRIES            2
-#define DEFAULT_MAP_REGISTER_TIMEOUT            10  /* PN: expected to be in minutes; however,
+#define DEFAULT_MAP_REGISTER_TIMEOUT            5  /* PN: expected to be in minutes; however,
                                                      * lisp_mod treats this as seconds instead of
                                                      * minutes
                                                      */

@@ -36,17 +36,24 @@
 #include "lispd_afi.h"
 #include "lispd_external.h"
 #include "lispd_lib.h"
+#include "lispd_local_db.h"
 #include "lispd_map_notify.h"
 #include "lispd_map_register.h"
+#include "lispd_smr.h"
 
 
 int process_map_notify(uint8_t *packet)
 {
 
-    lispd_pkt_map_notify_t              *map_notify                         = NULL;
+    lispd_pkt_map_notify_t              *map_notify                 = NULL;
     lispd_pkt_mapping_record_t          *record                     = NULL;
     lispd_pkt_mapping_record_locator_t  *locator                    = NULL;
-
+    lisp_addr_t                         eid_prefix;
+    uint8_t                             eid_prefix_length           = 0;
+    uint8_t                             *eid_ptr                    = NULL;
+    lispd_mapping_elt                   *mapping                    = NULL;
+    lispd_mapping_list                  *mappings_list              = NULL;
+    lcl_mapping_extended_info           *extended_info              = NULL;
 
     int                                 eid_afi                     = 0;
     int                                 loc_afi                     = 0;
@@ -61,25 +68,12 @@ int process_map_notify(uint8_t *packet)
     uint32_t                            md_len                      = 0;
     lispd_site_ID                       *site_ID_msg                = NULL;
     lispd_xTR_ID                        *xTR_ID_msg                 = NULL;
-    int                                 next_timer_time             = 0;
     int                                 result                      = BAD;
 
 
 
     map_notify = (lispd_pkt_map_notify_t *)packet;
     record_count = map_notify->record_count;
-
-    /* Check the nonce of data Map Notify*/
-    if (map_notify->xtr_id_present == TRUE){
-        if (check_nonce(nat_emr_nonce,map_notify->nonce) == GOOD){
-            lispd_log_msg(LISP_LOG_DEBUG_2, "Data Map Notify: Correct nonce field checking ");
-            /* Free nonce if authentication is ok */
-        }else{
-            lispd_log_msg(LISP_LOG_DEBUG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
-                    get_char_from_nonce (map_notify->nonce));
-            return (BAD);
-        }
-    }
 
     map_notify_length = sizeof(lispd_pkt_map_notify_t);
 
@@ -89,16 +83,31 @@ int process_map_notify(uint8_t *packet)
         partial_map_notify_length1 = sizeof(lispd_pkt_mapping_record_t);
         eid_afi = lisp2inetafi(ntohs(record->eid_prefix_afi));
 
+        eid_ptr = CO(&(record->eid_prefix_afi),sizeof(uint16_t));
+        memset (&eid_prefix,0,sizeof(lisp_addr_t));
+        eid_prefix_length = record->eid_prefix_length;
         switch (eid_afi) {
         case AF_INET:
+        	memcpy(&(eid_prefix.address.ip),eid_ptr,sizeof(struct in_addr));
+        	eid_prefix.afi = AF_INET;
             partial_map_notify_length1 += sizeof(struct in_addr);
             break;
         case AF_INET6:
+        	memcpy(&(eid_prefix.address.ip),eid_ptr,sizeof(struct in6_addr));
+        	eid_prefix.afi = AF_INET6;
             partial_map_notify_length1 += sizeof(struct in6_addr);
             break;
         default:
             lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: Unknown AFI (%d) - EID", record->eid_prefix_afi);
+            free_mapping_list(mappings_list, FALSE);
             return(ERR_AFI);
+        }
+        mapping = lookup_eid_exact_in_db(eid_prefix,eid_prefix_length);
+        if (mapping != NULL){
+        	if (add_mapping_to_list(mapping,&mappings_list)!=GOOD){
+        		free_mapping_list(mappings_list, FALSE);
+        		return(BAD);
+        	}
         }
 
         locator_count = record->locator_count;
@@ -116,6 +125,7 @@ int process_map_notify(uint8_t *packet)
                 break;
             default:
                 lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: Unknown AFI (%d) - Locator", htons(locator->locator_afi));
+                free_mapping_list(mappings_list, FALSE);
                 return(ERR_AFI);
             }
             locator = (lispd_pkt_mapping_record_locator_t *)CO(locator, partial_map_notify_length2);
@@ -136,10 +146,12 @@ int process_map_notify(uint8_t *packet)
         site_ID_msg = (lispd_site_ID *)CO(packet,map_notify_length + sizeof(lispd_xTR_ID));
         if (memcmp(site_ID_msg, &site_ID, sizeof(lispd_site_ID))!= 0){
             lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_notify: Site ID of the map notify doesn't match");
+            free_mapping_list(mappings_list, FALSE);
             return (BAD);
         }
         if (memcmp(xTR_ID_msg, &xTR_ID, sizeof(lispd_xTR_ID))!= 0){
             lispd_log_msg(LISP_LOG_DEBUG_1, "process_map_notify: xTR ID of the map notify doesn't match");
+            free_mapping_list(mappings_list, FALSE);
             return (BAD);
         }
         map_notify_length = map_notify_length + sizeof(lispd_site_ID) + sizeof (lispd_xTR_ID);
@@ -155,29 +167,66 @@ int process_map_notify(uint8_t *packet)
             map_notify_length,
             (uchar *) map_notify->auth_data,
             &md_len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: HMAC failed for Map-Notify");
+        lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: HMAC failed for Map-Notify with nonce %s", get_char_from_nonce(map_notify->nonce));
+        free_mapping_list(mappings_list, FALSE);
         return(BAD);
     }
+    /* Valid message */
     if ((strncmp((char *)map_notify->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0){
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message confirms correct registration");
-        next_timer_time = MAP_REGISTER_INTERVAL;
-        free (nat_emr_nonce);
-        nat_emr_nonce = NULL;
-        result = GOOD;
+    	while (mappings_list != NULL){
+    		mapping = mappings_list->mapping;
+    		extended_info = (lcl_mapping_extended_info *)mapping->extended_info;
+
+
+    		/* Check the nonce of data Map Notify*/
+    		if (map_notify->xtr_id_present == TRUE){
+    			if (check_nonce(extended_info->map_reg_nonce,map_notify->nonce) == GOOD){
+    				lispd_log_msg(LISP_LOG_DEBUG_2, "Data Map Notify with nonce %s confirms correct registration of the prefix %s/%d",
+    				        get_char_from_nonce(map_notify->nonce),
+    						get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length);
+    				free(extended_info->map_reg_nonce);
+    				extended_info->map_reg_nonce = NULL;
+        			start_timer(extended_info->map_reg_timer, MAP_REGISTER_INTERVAL, map_register, extended_info->map_reg_timer->cb_argument);
+        			lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed encapsulated map register for %s/%d in %d seconds",
+        			    		get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length,MAP_REGISTER_INTERVAL);
+
+        			/* If the Map Notify is received due to a Map Register of a SMR process, continue with the SMR process*/
+        			if (extended_info->to_do_smr == TRUE){
+        			    smr_send_map_req(mapping);
+        			}
+    			}else{
+    				lispd_log_msg(LISP_LOG_DEBUG_1, "Data Map Notify: Error checking nonce field. No (Encapsulated) Map Register generated with nonce: %s",
+    						get_char_from_nonce (map_notify->nonce));
+    			}
+    		}else{
+    		    /* We don't have to check nonce. Map Register is send with nonce 0 */
+    		    lispd_log_msg(LISP_LOG_DEBUG_2, "Map Notify confirms correct registration of the prefix %s/%d",
+    		            get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length);
+    		    free(extended_info->map_reg_nonce);
+    		    extended_info->map_reg_nonce = NULL;
+    		    start_timer(extended_info->map_reg_timer, MAP_REGISTER_INTERVAL, map_register, extended_info->map_reg_timer->cb_argument);
+    		    lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed map register for %s/%d in %d seconds",
+    		            get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length,MAP_REGISTER_INTERVAL);
+
+    		    /* If the Map Notify is received due to a Map Register of a SMR process, continue with the SMR process*/
+    		    if (extended_info->to_do_smr == TRUE){
+    		        smr_send_map_req(mapping);
+    		    }
+    		}
+
+    		mappings_list = mappings_list->next;
+    	}
+    	result = GOOD;
 
     } else{
-        lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message is invalid");
-        next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
+        lispd_log_msg(LISP_LOG_DEBUG_1, "Map-Notify message with nonce %s is invalid", get_char_from_nonce(map_notify->nonce));
         result = BAD;
     }
-
-    if (map_register_timer == NULL) {
-        map_register_timer = create_timer(MAP_REGISTER_TIMER);
-    }
-    start_timer(map_register_timer, next_timer_time, map_register, NULL);
-
+    free_mapping_list(mappings_list, FALSE);
     return(result);
 }
+
+
 
 
 /*

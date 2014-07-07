@@ -30,6 +30,7 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 	private static ParcelFileDescriptor mInterface = null;
 
 	public static boolean    vpn_running	  = false;
+	public static int        err_msg_code     = 0;
 	
 	private IPC ipc_channel = null;
 	
@@ -83,20 +84,17 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 
 	@Override
 	public void onDestroy() {
+		if (vpn_running == true){
+			vpn_running = false;
+			LISPmob_JNI.lispd_exit();
+		}
 		if (ipc_channel != null && ipc_channel.is_IPC_running()){
 			ipc_channel.stop();
 		}
-		if (vpn_running == true){
-			LISPmob_JNI.lispd_exit();
-			vpn_running = false;
-		}
+
 		Log.d(TAG, "Destroying VPN Service thread");
 		if (mThread != null) {
 			mThread.interrupt();
-		}
-		if (vpn_running == true){
-			LISPmob_JNI.lispd_exit();
-			vpn_running = false;
 		}
 		mInterface = null;
 		mThread = null;
@@ -124,7 +122,6 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 			ipc_channel.start();
 			
 			int sockets[] = LISPmob_JNI.startLispd(tunfd, storage_path);
-
 			
 			if (sockets == null){
 				Log.e(TAG, "LISPmob error, check configuration file");
@@ -135,9 +132,8 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 			// Now we are connected. Set the flag and show the message.
 			vpn_running = true;
 			
-
 			for (int i = 0 ; i < 4 ; i++){
-				if (sockets[i] != 0){
+				if (sockets[i] != -1){
 					if (!protect(sockets[i])) {
 						throw new IllegalStateException("Cannot protect the tunnel");
 					}
@@ -151,11 +147,12 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 			// We keep forwarding packets till something goes wrong.
 
 		}catch(IllegalArgumentException e){
-			notify_msg(e.getMessage());
+			Log.e(TAG, e.getMessage());
 		}catch (Exception e) {
 			e.printStackTrace();
 		}finally{
 			if (vpn_running == true){
+				vpn_running = false;
 				LISPmob_JNI.lispd_exit();
 			}
 			mThread = null;
@@ -188,12 +185,19 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 				eid = eids.next();
 				Log.i(TAG, "Assigning EID "+eid+" to the TUN interface");
 				if (eid.contains(":")){
-					builder.addAddress(eid, 128);
-					ipv6_eids = true;
+					if (ipv6_eids == false){
+						builder.addAddress(eid, 128);
+						ipv6_eids = true;
+					}
 				}else{
-					builder.addAddress(eid, 32);
-					ipv4_eids = true;
+					if (ipv4_eids == false){
+						builder.addAddress(eid, 32);
+						ipv4_eids = true;
+					}
 				}
+			}
+			if (ipv4_eids == false && ipv6_eids == false){
+				throw new Exception("At least one EID is required");
 			}
 			dns_list = ConfigTools.getDNS();
 			if (dns_list != null){
@@ -216,9 +220,10 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 			}
 			builder.setMtu(1440);
 		}catch (FileNotFoundException e){ 
+			LISPmobVPNService.err_msg_code = 1;
 			throw new IllegalArgumentException("Configuration file not exist");
 		}catch (Exception e) {
-			e.printStackTrace();
+			LISPmobVPNService.err_msg_code = 2;
 			throw new IllegalArgumentException("Wrong configuration");
 		}
 

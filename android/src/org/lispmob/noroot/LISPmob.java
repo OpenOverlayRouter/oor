@@ -49,6 +49,7 @@ import android.os.Handler;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.widget.CheckBox;
 import android.widget.Button;
@@ -60,11 +61,11 @@ import android.view.View.OnClickListener;
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 public class LISPmob extends Activity implements OnClickListener {
 
-	protected static SuShell shell;
 	public static String lispd_path = null;
 	private static String system_dns[] = new String[2];
 	private boolean lispdWasRunning = false;
 	private static boolean lispdRunning = false;
+	private static boolean err_msg_detected = false;
 	private static boolean startVPN = false;
 	private Intent vpn_intent	= null;
 	private static final int CONF_ACT = 1;
@@ -203,10 +204,9 @@ public class LISPmob extends Activity implements OnClickListener {
 		final CheckBox lispCheckBox = (CheckBox) findViewById(R.id.startStopCheckbox);
 		final TextView lispCheckBoxLabel = (TextView) findViewById(R.id.startStopCheckboxLabel);
 		final TextView statusView = (TextView) findViewById(R.id.infoView);
+		
 
 		lispdRunning = LISPmobVPNService.vpn_running;
-		
-			
 
 		if (LISPmobVPNService.vpn_running) {
 			lispCheckBoxLabel.setText(R.string.lispRunning);
@@ -228,6 +228,19 @@ public class LISPmob extends Activity implements OnClickListener {
 			//updateInfoView();
 			statusView.setText("");
 		}
+		
+		if (!err_msg_detected && LISPmobVPNService.err_msg_code != 0){
+			err_msg_detected = true;
+			Resources res = getResources();
+			String[] err_msg = res.getStringArray(R.array.ErrMsgArray);
+			showMessage(err_msg[LISPmobVPNService.err_msg_code],
+					false, new Runnable() { public void run() {
+						LISPmobVPNService.err_msg_code =0;
+						err_msg_detected = false;
+					}
+			});
+		}
+
 	}
 	
 	

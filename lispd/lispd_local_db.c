@@ -271,10 +271,8 @@ void del_mapping_entry_from_db(
         patricia_remove(EIDv4_database, result);
     else
         patricia_remove(EIDv6_database, result);
-    free_locator_list(entry->head_v4_locators_list);
-    free_locator_list(entry->head_v6_locators_list);
-    total_mappings--;
-    free(entry);
+
+    free_mapping_elt(entry);
 }
 
 /**
@@ -390,3 +388,13 @@ void dump_local_db(int log_level)
     lispd_log_msg(log_level,"*******************************************************\n");
 }
 
+void drop_local_mappings()
+{
+	lispd_log_msg(LISP_LOG_DEBUG_3,"free_local_db: Releasing memory of local mappings\n");
+	if (EIDv4_database != NULL)
+		Destroy_Patricia(EIDv4_database,free_mapping_elt);
+	if (EIDv6_database != NULL)
+		Destroy_Patricia(EIDv6_database,free_mapping_elt);
+	EIDv4_database = NULL;
+	EIDv6_database = NULL;
+}

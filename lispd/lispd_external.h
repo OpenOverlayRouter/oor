@@ -42,6 +42,7 @@
 extern  uint8_t                 router_mode;
 extern  lispd_addr_list_t       *map_resolvers;
 extern  int                     ddt_client;
+extern  lispd_addr_list_t       *rtrs_list;
 extern  lispd_addr_list_t       *proxy_itrs;
 extern  lispd_map_cache_entry   *proxy_etrs;
 extern  lispd_map_server_list_t *map_servers;
@@ -56,7 +57,6 @@ extern  int                     default_rloc_afi;
 extern  int                     rloc_probe_interval;
 extern  int                     rloc_probe_retries;
 extern  int                     rloc_probe_retries_interval;
-extern  int                     total_mappings;
 extern  int                     netlink_fd;
 extern  int                     ipv6_data_input_fd;
 extern  int                     ipv4_data_input_fd;
@@ -78,6 +78,7 @@ extern lispd_iface_elt          *default_ctrl_iface_v6;
 extern lispd_iface_elt          *default_out_iface_v4;
 extern lispd_iface_elt          *default_out_iface_v6;
 extern timer                    *smr_timer;
+extern timer                    *smr_retry_timer;
 extern timer                    *info_reply_ttl_timer;
 
 void init_globales();

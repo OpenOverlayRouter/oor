@@ -654,6 +654,9 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
     if (nt != NULL){
         nat_aware   = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
+        if (nat_aware == TRUE){
+            default_rloc_afi = AF_INET;
+        }
     }else {
         nat_aware = FALSE;
     }

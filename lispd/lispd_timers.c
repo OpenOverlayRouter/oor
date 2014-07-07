@@ -13,9 +13,12 @@
 
 #include "lispd.h"
 #include "lispd_iface_mgmt.h"
+#include "lispd_info_request.h"
 #include "lispd_log.h"
+#include "lispd_map_register.h"
 #include "lispd_map_request.h"
 #include "lispd_rloc_probing.h"
+#include "lispd_smr.h"
 #include "lispd_timers.h"
 
 
@@ -33,8 +36,8 @@ struct {
 
 void     handle_timers(void);
 
-static int signal_pipe[2]; // We don't have signalfd in bionic, fake it.
-
+static int 			signal_pipe[2]; // We don't have signalfd in bionic, fake it.
+static timer_t      tid;
 
 /*
  * create_timer_wheel()
@@ -42,19 +45,20 @@ static int signal_pipe[2]; // We don't have signalfd in bionic, fake it.
  * Creates the timer wheel structure and starts
  * the rotation timer.
  */
-timer_t create_wheel_timer(void)
+int create_wheel_timer(void)
 {
-    timer_t tid;
+
     struct sigevent sev;
     struct itimerspec timerspec;
+    //memset(&tid,0,sizeof(timer_t));
 
     sev.sigev_notify = SIGEV_SIGNAL;
     sev.sigev_signo = SIGRTMIN;
     sev.sigev_value.sival_ptr = &tid;
-    if (timer_create(CLOCK_REALTIME, &sev, &tid) == -1)
+    if (timer_create(CLOCK_MONOTONIC, &sev, &tid) == -1)
     {
         lispd_log_msg(LISP_LOG_INFO, "timer_create(): %s", strerror(errno));
-        return (timer_t)(-1);
+        return (BAD);
     }
 
     timerspec.it_value.tv_nsec = 0;
@@ -66,9 +70,9 @@ timer_t create_wheel_timer(void)
     if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
         lispd_log_msg(LISP_LOG_INFO, "create_wheel_timer: timer start failed for %d %s",
                tid, strerror(errno));
-        return (timer_t)(-1);
+        return (BAD);
     }
-    return(tid);
+    return(GOOD);
 }
 
 /*
@@ -82,7 +86,7 @@ int init_timers()
 
     lispd_log_msg(LISP_LOG_DEBUG_1, "Initializing lispd timers...");
 
-    if (create_wheel_timer() == (timer_t)-1) {
+    if (create_wheel_timer() != GOOD) {
         lispd_log_msg(LISP_LOG_INFO, "Failed to set up lispd timers.");
         return(BAD);
     }
@@ -221,6 +225,12 @@ void stop_timer(timer *tptr)
         free ((timer_map_request_argument *)tptr->cb_argument);
     }else if (strcmp(tptr->name,RLOC_PROBING_TIMER)==0){
         free ((timer_rloc_probe_argument *)tptr->cb_argument);
+    }else if (strcmp(tptr->name,MAP_REGISTER_TIMER)==0){
+        free ((timer_map_register_argument *)tptr->cb_argument);
+    }else if (strcmp(tptr->name,INFO_REPLY_TTL_TIMER)==0){
+        free ((timer_info_request_argument *)tptr->cb_argument);
+    }else if (strcmp(tptr->name,SMR_RETRY_TIMER)==0){
+        free_timer_smr_retry_arg ((timer_smr_retry_arg *)tptr->cb_argument);
     }
 
     next = tptr->links.next;
@@ -295,7 +305,6 @@ int process_timer_signal(int timers_fd)
     int bytes;
 
     bytes = read(timers_fd, &sig, sizeof(sig));
-
     if (bytes != sizeof(sig)) {
         lispd_log_msg(LISP_LOG_WARNING, "process_event_signal(): nothing to read");
         return(-1);
@@ -355,9 +364,44 @@ int build_timers_event_socket(int *timers_fd)
     sa.sa_handler = event_sig_handler;
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
-
     if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
         lispd_log_msg(LISP_LOG_ERR, "build_timers_event_socket: sigaction() failed %s", strerror(errno));
     }
     return(GOOD);
+}
+
+int remove_sig_timer()
+{
+    struct itimerspec timerspec;
+
+    timerspec.it_value.tv_nsec = 0;
+    timerspec.it_value.tv_sec = 0;
+    timerspec.it_interval.tv_nsec = 0;
+    timerspec.it_interval.tv_sec = 0;
+
+
+    if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
+        lispd_log_msg(LISP_LOG_INFO, "remove_sig_timer: timer stop failed for %d %s",
+                tid, strerror(errno));
+        return (BAD);
+    }
+
+
+
+
+
+
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = SIG_IGN;
+
+	if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
+		lispd_log_msg(LISP_LOG_ERR, "remove_sig_timer: sigaction() failed %s", strerror(errno));
+		return (BAD);
+	}
+
+	close (signal_pipe[0]);
+	close (signal_pipe[1]);
+
+	return(GOOD);
 }

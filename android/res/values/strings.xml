@@ -24,6 +24,7 @@
     <string name="updateConfMRString">Map-Resolver:</string> 
     <string name="updateConfMSString">Map-Server:</string>
     <string name="updateConfMSKeyString">Map-Server Key:</string>
+    <string name="or">Or</string> 
     <string-array name="keytypearray">
         <item>Cleartext</item>
         <item>SHA1</item>
@@ -33,6 +34,14 @@
         <item>1</item>
         <item>2</item>
         <item>3</item>
+    </string-array>
+    <string-array name="ErrMsgArray">
+    	<item>No error</item>
+        <item>Configuration file not exist.\nUse\"Edit LISP Configuration\"</item>
+        <item>Wrong configuration.</item>
+        <item>None of the configured interfaces is available. Check your network settings</item>
+        <item>Registraion process error. Check:\n  - Configuration\n  - Network connectivity</item>
+        <item>Find out NAT process error. Check:\n  - Configuration\n  - Network connectivity</item>
     </string-array>
     
 </resources>

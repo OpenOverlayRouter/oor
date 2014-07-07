@@ -246,19 +246,12 @@ void free_mapping_elt(lispd_mapping_elt *mapping)
 inline lcl_mapping_extended_info *new_lcl_mapping_extended_info()
 {
     lcl_mapping_extended_info   *extended_info  = NULL;
-    if ((extended_info=(lcl_mapping_extended_info *)malloc(sizeof(lcl_mapping_extended_info)))==NULL){
+    if ((extended_info=(lcl_mapping_extended_info *)calloc(1,sizeof(lcl_mapping_extended_info)))==NULL){
         lispd_log_msg(LISP_LOG_WARNING,"new_lcl_mapping_extended_info: Couldn't allocate memory for lcl_mapping_extended_info: %s", strerror(errno));
         err = ERR_MALLOC;
         return (NULL);
     }
-    extended_info->outgoing_balancing_locators_vecs.v4_balancing_locators_vec = NULL;
-    extended_info->outgoing_balancing_locators_vecs.v6_balancing_locators_vec = NULL;
-    extended_info->outgoing_balancing_locators_vecs.balancing_locators_vec = NULL;
-    extended_info->outgoing_balancing_locators_vecs.v4_locators_vec_length = 0;
-    extended_info->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
-    extended_info->outgoing_balancing_locators_vecs.locators_vec_length = 0;
-    extended_info->head_not_init_locators_list = NULL;
-
+    extended_info->to_do_smr = TRUE;
     return(extended_info);
 }
 
@@ -283,6 +276,12 @@ void free_lcl_mapping_extended_info(lcl_mapping_extended_info *extended_info)
 {
     free_locator_list(extended_info->head_not_init_locators_list);
     free_balancing_locators_vecs(extended_info->outgoing_balancing_locators_vecs);
+    if (extended_info->map_reg_timer != NULL){
+        stop_timer(extended_info->map_reg_timer);
+    }
+    if (extended_info->map_reg_nonce != NULL){
+        free(extended_info->map_reg_nonce);
+    }
     free (extended_info);
 }
 
@@ -376,6 +375,59 @@ int add_locator_to_mapping(
     return (result);
 }
 
+/*
+ * Reinsert a locator into the locators list of the mapping.
+ */
+int reinsert_locator_to_mapping(
+        lispd_mapping_elt           *mapping,
+        lispd_locator_elt           *locator)
+{
+    switch (locator->locator_addr->afi){
+    case AF_INET:
+        err = reinsert_locator_to_list (&(mapping->head_v4_locators_list), locator);
+        break;
+    case AF_INET6:
+        err = reinsert_locator_to_list (&(mapping->head_v6_locators_list), locator);
+        break;
+    }
+    if (err == ERR_NO_EXIST){
+        return (BAD);
+    }
+    if (err != GOOD){
+        mapping->locator_count--;
+        return (BAD);
+    }
+    lispd_log_msg(LISP_LOG_DEBUG_3, "reinsert_locator_to_mapping: The locator %s has been reinserted to the EID %s/%d.",
+                    get_char_from_lisp_addr_t(*(locator->locator_addr)),
+                    get_char_from_lisp_addr_t(mapping->eid_prefix),
+                    mapping->eid_prefix_length);
+
+    return (GOOD);
+}
+
+
+int remove_locator_from_mapping(
+        lispd_mapping_elt       *mapping,
+        lisp_addr_t		 		*loc_addr)
+{
+	int result = BAD;
+	switch (loc_addr->afi){
+	case AF_INET:
+		result = remove_locator_from_list(&(mapping->head_v4_locators_list),loc_addr);
+		break;
+	case AF_INET6:
+		result = remove_locator_from_list(&(mapping->head_v4_locators_list),loc_addr);
+		break;
+	default:
+		break;
+	}
+	if (result != GOOD){
+		lispd_log_msg(LISP_LOG_DEBUG_2,"remove_locator_from_mapping: The locator %s has not been found in the "
+				"mapping with EID prefix %s/%d.", get_char_from_lisp_addr_t(*loc_addr),
+				get_char_from_lisp_addr_t(mapping->eid_prefix),	mapping->eid_prefix_length);
+	}
+	return (result);
+}
 
 /*
  * This function sort the locator list elt with IP = changed_loc_addr
@@ -479,12 +531,12 @@ void sort_locators_list_elt (
  */
 lispd_locator_elt *get_locator_from_mapping(
         lispd_mapping_elt   *mapping,
-        lisp_addr_t         address)
+        lisp_addr_t         *address)
 {
     lispd_locator_elt   *locator        = NULL;
     lispd_locators_list *locator_list   = NULL;
 
-    switch (address.afi){
+    switch (address->afi){
     case AF_INET:
         locator_list = mapping->head_v4_locators_list;
         break;
@@ -497,6 +549,7 @@ lispd_locator_elt *get_locator_from_mapping(
 
     return (locator);
 }
+
 
 /*
  * Free the dinamic arrays that contains the balancing_locators_vecs structure;
@@ -851,6 +904,77 @@ int add_mapping_to_list(
 }
 
 /*
+ * Remove a mapping from a mapping list
+ * @param mapping Mapping to be removed
+ * @param list Pointer to the first element of the list where to remove the mapping list elt
+ */
+void remove_mapping_from_list(
+        lispd_mapping_elt    *mapping,
+        lispd_mapping_list   **list)
+{
+    lispd_mapping_list *list_elt        = *list;
+    lispd_mapping_list *prev_list_elt   = NULL;
+
+    while(list_elt != NULL){
+        if (list_elt->mapping == mapping){
+            break;
+        }
+        prev_list_elt = list_elt;
+        list_elt =  list_elt->next;
+    }
+
+    if(list_elt == NULL){
+        return;
+    }
+
+    if (prev_list_elt == NULL){
+        *list = list_elt->next;
+        free(list_elt);
+        return;
+    }
+
+    prev_list_elt->next = list_elt->next;
+    free(list_elt);
+    return;
+}
+
+/*
+ * Check if a mapping is already in the list
+ * @param mapping Mapping element to be found
+ * @param list List where to find the mapping
+ * @retun TRUE if the mapping belongs to the list
+ */
+uint8_t	is_mapping_in_the_list(
+		lispd_mapping_elt    *mapping,
+        lispd_mapping_list   *list)
+{
+	while (list != NULL){
+		if (list->mapping == mapping){
+			return (TRUE);
+		}
+		list = list->next;
+	}
+	return (FALSE);
+}
+
+/*
+ * Retun the number of mappings of the list
+ * @param list Mapping element to be added
+ * @param list Pointer to the first element of the list where to add the mapping
+ * @retun Number of mappings of the list
+ */
+int get_mapping_list_length(lispd_mapping_list   *list)
+{
+	int ctr = 0;
+	while (list != NULL){
+		ctr++;
+		list = list->next;
+	}
+
+	return (ctr);
+}
+
+/*
  * Release the memory of a list of mappings
  * @param list First element of the list to be released
  * @param free_mappings If TRUE the elements stored in the list are also released
@@ -872,3 +996,33 @@ void free_mapping_list(
     }
 }
 
+/*
+ * Return the list of unique RTRs of the mapping
+ */
+lispd_rtr_locators_list *get_rtr_list_from_mapping(lispd_mapping_elt *mapping)
+{
+	lispd_rtr_locators_list     *rtr_list           = NULL;
+	lispd_rtr_locators_list     *aux_rtr_list       = NULL;
+	lispd_locators_list         *locator_list[2]    = {mapping->head_v4_locators_list, mapping->head_v6_locators_list};
+	int                         ctr                 = 0;
+	lispd_locator_elt           *locator            = NULL;
+	lcl_locator_extended_info   *loct_ext_inf       = NULL;
+
+	for (ctr = 0 ; ctr < 2 ; ctr++){
+		while (locator_list[ctr] != NULL){
+			locator = locator_list[ctr]->locator;
+			loct_ext_inf = (lcl_locator_extended_info *)(locator->extended_info);
+			if (loct_ext_inf != NULL && loct_ext_inf->nat_info->rtr_locators_list != NULL){
+				aux_rtr_list = loct_ext_inf->nat_info->rtr_locators_list;
+				while (aux_rtr_list != NULL){
+					if (is_rtr_locator_in_the_list(rtr_list, &(aux_rtr_list->locator->address)) == FALSE){
+						add_rtr_locator_to_list(&rtr_list, aux_rtr_list->locator);
+					}
+					aux_rtr_list = aux_rtr_list->next;
+				}
+			}
+			locator_list[ctr] = locator_list[ctr]->next;
+		}
+	}
+	return (rtr_list);
+}

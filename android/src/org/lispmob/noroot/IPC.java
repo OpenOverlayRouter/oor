@@ -12,10 +12,11 @@ import org.json.JSONObject;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
+import android.content.res.Resources;
 
 public class IPC implements Runnable {
 	
-	private Context context = null;
+	private LISPmobVPNService vpn_service = null;
 	private Notifications notifications = null;
 	private boolean isRunning	= false;
 	private Thread ipc_thread;
@@ -26,11 +27,12 @@ public class IPC implements Runnable {
 	
 	
 	private static final int IPC_LOG_MSG = 6;
+	private static final int IPC_PROTECT_SOCKS 	= 7;
 
 	
-	public IPC(Context context){
-		this.context = context;
-		notifications = new Notifications(this.context);
+	public IPC(LISPmobVPNService vpn_service){
+		this.vpn_service = vpn_service;
+		notifications = new Notifications(this.vpn_service);
 		try {
 			ipc_channel = DatagramChannel.open();
 			ipc_channel.socket().bind(new InetSocketAddress(ipc_addr, ipc_src_port));
@@ -49,7 +51,9 @@ public class IPC implements Runnable {
 	public void stop(){
 		ipc_thread.interrupt();
 		try {
-			ipc_channel.close();
+			if (ipc_channel.isOpen()){
+				ipc_channel.close();
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -74,8 +78,32 @@ public class IPC implements Runnable {
 				System.out.println("LISPmob: Received IPC message: "+ipc_type);
 				switch (ipc_type){
 				case IPC_LOG_MSG:
-					String log_msg = jObj.getString("log_msg");
-					notifications.notify_msg(log_msg);
+					LISPmobVPNService.err_msg_code = jObj.getInt("err_msg_code");
+					Thread.sleep(1000);
+					if (LISPmobVPNService.err_msg_code != 0){
+						/* If LISPmob is not the active windows, the error msg code is not clean
+						 * and we send a notification of the error */
+						Resources res = vpn_service.getResources();
+						String[] err_msg = res.getStringArray(R.array.ErrMsgArray);
+						String msg =  err_msg[LISPmobVPNService.err_msg_code];
+						//notifications.notify_msg( msg);
+					}	
+					break;
+				case IPC_PROTECT_SOCKS:
+					int socket = jObj.getInt("socket");
+					if (socket != -1){
+						boolean sock_protect = false;
+						int retry = 0;
+						while (!sock_protect && retry < 30){		
+							if (!vpn_service.protect(socket)) {
+								retry++;
+								Thread.sleep(200);
+							}else{
+								sock_protect = true;
+								System.out.println("LISPmob: The socket "+socket+" has been protected (VPN Service)");
+							}
+						}
+					}
 					break;
 				default:
 					System.out.println("***** Unknown IPC message: "+ipc_type);

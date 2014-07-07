@@ -68,7 +68,5 @@ s = m:section(TypedSection, "nat-traversal", "NAT Traversal")
       mode.override_values = true   
       mode:value("on", translate("on"))   
       mode:value("off", translate("off"))
-   s:option(Value, "site_ID","Site ID" ,"64 bits to identify the site where the node is connected to. In hexadecimal. In doubt, keep the default value")
-   s:option(Value, "xTR_ID","xTR ID" ,"128 bits to identify the xTR inside the site. In hexadecimal. In hexadecimal. In doubt, keep the default value")
 
 return m -- Returns the map

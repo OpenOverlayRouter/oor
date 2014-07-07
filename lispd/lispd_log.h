@@ -35,7 +35,6 @@
 #define LISPD_LOG_H_
 
 
-
 // If these set of defines is modified, check the function is_loggable()
 
 #define LISP_LOG_CRIT        1       /* critical conditions -> Exit program */
@@ -47,13 +46,29 @@
 #define LISP_LOG_DEBUG_3     7       /* high debug-level messages -> Log for each received or generated packet */
 
 
-#define LOGFILE_LOCATION	"/sdcard/lispd.log"
+#define LOG_FILE_NAME	"lispd.log"
 
 
-void lispd_log_msg(int lisp_log_level, const char *format, ...);
+//void lispd_log_msg(int lisp_log_level, const char *format, ...);
 
-void open_log_file();
 
+
+#define lispd_log_msg(...) LLOG(__VA_ARGS__)
+
+void lispd_log_msg1(int lisp_log_level, const char *format, ...);
+
+#define LLOG(level__, ...)              \
+    do {                                \
+        if (is_loggable(level__)) {     \
+            lispd_log_msg1(level__, __VA_ARGS__); \
+        }                               \
+    } while (0)
+
+void llog(int lisp_log_level, const char *format, ...);
+
+
+
+void open_log_file(char *log_file);
 void close_log_file();
 
 /*
