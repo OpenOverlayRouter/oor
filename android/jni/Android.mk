@@ -3,7 +3,6 @@
 LOCAL_PATH:= $(call my-dir)
 LOCAL_PATH2:= $(LOCAL_PATH)
 subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, /confuse_android )) \
-		$(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, /android-external-openssl )) \
 		$(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, /json-c )) 
 	
 include $(subdirs)	
@@ -47,12 +46,13 @@ LOCAL_SRC_FILES = \
 		  	lispd_tun.c \
 		  	lispd.c \
 		  	api/ipc.c \
+		  	hmac/hmac.c \
+		  	hmac/hmac-sha1.c \
 		  	patricia/patricia.c
 
 LOCAL_CFLAGS += -g -DANDROID -DVPNAPI
-LOCAL_C_INCLUDES := android-external-openssl/include/
 LOCAL_LDLIBS := -llog
-LOCAL_STATIC_LIBRARIES := libconfuse libopenssl-static libjson-c 
+LOCAL_STATIC_LIBRARIES := libconfuse libjson-c 
 LOCAL_SHARED_LIBRARIES := libcutils
 LOCAL_MODULE = lispd
 #include $(BUILD_EXECUTABLE)

@@ -21,11 +21,11 @@ ERROR		= false
 
 ifeq "$(platform)" ""
 CFLAGS		+= -Wall -g
-LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -ljson
+LIBS		= -lconfuse -lrt -lm
 else
 ifeq "$(platform)" "openwrt"
 CFLAGS		+= -Wall -g -DOPENWRT
-LIBS		= -lconfuse -lssl -lcrypto -lrt -lm -luci
+LIBS		= -lconfuse -lrt -lm -luci
 else
 ERROR		= true
 endif
