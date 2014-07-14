@@ -40,7 +40,7 @@
 #ifdef VPNAPI
 #include "api/ipc.h"
 #endif
-
+#include "hmac/hmac.h"
 
 
 /*
@@ -54,7 +54,7 @@
 
 
 lispd_pkt_info_nat_t *build_info_request_pkt(
-        uint16_t        auth_data_len,
+        uint8_t         key_type,
         uint32_t        ttl,
         uint8_t         eid_mask_length,
         lisp_addr_t     *eid_prefix,
@@ -72,7 +72,7 @@ lispd_pkt_info_nat_t *build_info_request_pkt(
     irp = create_and_fill_info_nat_header(LISP_INFO_NAT,
                                           NAT_NO_REPLY,
                                           *nonce,
-                                          auth_data_len,
+                                          key_type,
                                           ttl,
                                           eid_mask_length,
                                           eid_prefix,
@@ -144,13 +144,10 @@ int build_and_send_info_request(
 {
     lispd_pkt_info_nat_t    *info_request_pkt       = NULL;
     uint32_t                info_request_pkt_len    = 0;
-    uint16_t                auth_data_len           = 0;
-
-    auth_data_len = get_auth_data_len(map_server->key_type);
 
 
     info_request_pkt = build_info_request_pkt(
-            auth_data_len,
+            map_server->key_type,
             ttl,
             eid_mask_length,
             eid_prefix,
@@ -162,12 +159,13 @@ int build_and_send_info_request(
         return (BAD);
     }
 
-    if (BAD == complete_auth_fields(map_server->key_type,
-                                      &(info_request_pkt->key_id),
-                                      map_server->key,
-                                      info_request_pkt,
-                                      info_request_pkt_len,
-                                      info_request_pkt->auth_data)) {
+    err = complete_auth_fields(map_server->key_type,
+            map_server->key,
+            (void *)(info_request_pkt),
+            info_request_pkt_len,
+            (void *)(info_request_pkt->auth_data));
+
+    if (err != GOOD){
         lispd_log_msg(LISP_LOG_DEBUG_2, "build_and_send_info_request: HMAC failed for info-request");
         free(info_request_pkt);
         return (BAD);

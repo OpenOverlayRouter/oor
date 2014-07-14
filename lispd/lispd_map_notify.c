@@ -31,8 +31,6 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
 #include "lispd_afi.h"
 #include "lispd_external.h"
 #include "lispd_lib.h"
@@ -40,6 +38,7 @@
 #include "lispd_map_notify.h"
 #include "lispd_map_register.h"
 #include "lispd_smr.h"
+#include "hmac/hmac.h"
 
 
 int process_map_notify(uint8_t *packet)
@@ -61,11 +60,9 @@ int process_map_notify(uint8_t *packet)
     int                                 locator_count               = 0;
     int                                 i                           = 0;
     int                                 j                           = 0;
-    uint8_t                             auth_data[LISP_SHA1_AUTH_DATA_LEN];
     int                                 map_notify_length           = 0;
     int                                 partial_map_notify_length1  = 0;
     int                                 partial_map_notify_length2  = 0;
-    uint32_t                            md_len                      = 0;
     lispd_site_ID                       *site_ID_msg                = NULL;
     lispd_xTR_ID                        *xTR_ID_msg                 = NULL;
     int                                 result                      = BAD;
@@ -135,12 +132,6 @@ int process_map_notify(uint8_t *packet)
         record = (lispd_pkt_mapping_record_t *)locator;
     }
 
-    for (i=0 ; i < LISP_SHA1_AUTH_DATA_LEN; i++)
-    {
-        auth_data[i] = map_notify->auth_data[i];
-        map_notify->auth_data[i] = 0;
-    }
-
     if (map_notify->xtr_id_present == TRUE){
         xTR_ID_msg  = (lispd_xTR_ID *)CO(packet,map_notify_length);
         site_ID_msg = (lispd_site_ID *)CO(packet,map_notify_length + sizeof(lispd_xTR_ID));
@@ -160,19 +151,14 @@ int process_map_notify(uint8_t *packet)
         // Nothing to be done
     }
 
-    if (!HMAC((const EVP_MD *) EVP_sha1(),
-            (const void *) map_servers->key,
-            strlen(map_servers->key),
-            (uchar *) packet,
-            map_notify_length,
-            (uchar *) map_notify->auth_data,
-            &md_len)) {
-        lispd_log_msg(LISP_LOG_DEBUG_2, "process_map_notify: HMAC failed for Map-Notify with nonce %s", get_char_from_nonce(map_notify->nonce));
-        free_mapping_list(mappings_list, FALSE);
-        return(BAD);
-    }
+    err = check_auth_field(map_servers->key_type,
+                         map_servers->key,
+                         (void *)packet,
+                         map_notify_length,
+                         (void *)map_notify->auth_data);
+
     /* Valid message */
-    if ((strncmp((char *)map_notify->auth_data, (char *)auth_data, (size_t)LISP_SHA1_AUTH_DATA_LEN)) == 0){
+    if (err == GOOD){
     	while (mappings_list != NULL){
     		mapping = mappings_list->mapping;
     		extended_info = (lcl_mapping_extended_info *)mapping->extended_info;

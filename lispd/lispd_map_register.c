@@ -32,13 +32,6 @@
  *    Alberto Rodriguez Natal   <arnatal@ac.upc.edu>
  */
 
-#ifdef ANDROID
-    #include "../android/jni/android-external-openssl/include/openssl/hmac.h"
-    #include "../android/jni/android-external-openssl/include/openssl/evp.h"
-#else
-    #include <openssl/hmac.h>
-    #include <openssl/evp.h>
-#endif
 #include "lispd_external.h"
 #include "lispd_info_request.h"
 #include "lispd_lib.h"
@@ -48,6 +41,7 @@
 #include "lispd_pkt_lib.h"
 #include "lispd_sockets.h"
 #include "api/ipc.h"
+#include "hmac/hmac.h"
 #include "patricia/patricia.h"
 
 int map_register_process(timer_map_register_argument *timer_arg);
@@ -304,7 +298,6 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
     int                       map_reg_packet_len    = 0;
     lispd_pkt_map_register_t  *map_register         = NULL;
     lispd_map_server_list_t   *ms                   = NULL;
-    uint32_t                  md_len                = 0;
     int                       sent_map_registers    = 0;
 
 
@@ -315,27 +308,23 @@ int build_and_send_map_register_msg(lispd_mapping_elt *mapping)
 
     map_register = (lispd_pkt_map_register_t *)map_register_pkt;
 
-    //  for each map server, send a register, and if verify
-    //  send a map-request for our eid prefix
-
     ms = map_servers;
 
     while (ms != NULL) {
+
+        map_register->proxy_reply = ms->proxy_reply;
 
         /*
          * Fill in proxy_reply and compute the HMAC with SHA-1.
          */
 
-        map_register->proxy_reply = ms->proxy_reply;
-        memset(map_register->auth_data,0,LISP_SHA1_AUTH_DATA_LEN);   /* make sure */
-
-        if (!HMAC((const EVP_MD *) EVP_sha1(),
-                (const void *) ms->key,
-                strlen(ms->key),
-                (uchar *) map_register,
+        err = complete_auth_fields(ms->key_type,
+                ms->key,
+                (void *)map_register,
                 map_reg_packet_len,
-                (uchar *) map_register->auth_data,
-                &md_len)) {
+                (void *)map_register->auth_data);
+
+        if (err != GOOD){
             lispd_log_msg(LISP_LOG_DEBUG_1, "build_and_send_map_register_msg: HMAC failed for map-register");
             ms = ms->next;
             continue;
@@ -499,11 +488,10 @@ int build_and_send_ecm_map_register(
 
 
     complete_auth_fields(map_server->key_type,
-                         &(map_register_pkt->key_id),
                          map_server->key,
-                         (void *) (map_register_pkt),
+                         (void *)(map_register_pkt),
                          map_register_pkt_len,
-                         &(map_register_pkt->auth_data));
+                         (void *)(map_register_pkt->auth_data));
 
 
     if (src_addr == NULL){

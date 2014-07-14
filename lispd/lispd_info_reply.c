@@ -30,8 +30,6 @@
  */
 
 
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
 #include "lispd_afi.h"
 #include "lispd_external.h"
 #include "lispd_info_reply.h"
@@ -42,7 +40,7 @@
 #include "lispd_nonce.h"
 #include "lispd_smr.h"
 #include "cksum.h"
-
+#include "hmac/hmac.h"
 
 
 
@@ -225,7 +223,7 @@ int process_info_reply_msg(
 
     pckt_len = info_reply_hdr_len + lcaf_addr_len;
 
-    if(BAD == check_auth_field(key_id, map_servers->key, (void *) packet, pckt_len, auth_data_pos)){
+    if(BAD == check_auth_field(key_id, map_servers->key, (void *) packet, pckt_len, (void *)auth_data_pos)){
         lispd_log_msg(LISP_LOG_DEBUG_2, "Info-Reply: Error checking auth data field");
         return(BAD);
     }else{

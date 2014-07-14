@@ -30,8 +30,7 @@
  */
 
 
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
+
 #include <endian.h>
 
 #include "lispd_external.h"
@@ -40,7 +39,7 @@
 #include "lispd_info_reply.h"
 #include "lispd_lib.h"
 #include "lispd_log.h"
-
+#include "hmac/hmac.h"
 
 
 /*
@@ -80,7 +79,7 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
         int             lisp_type,
         int             reply,
         uint64_t        nonce,
-        uint16_t        auth_data_len,
+        uint16_t        key_type,
         uint32_t        ttl,
         uint8_t         eid_mask_length,
         lisp_addr_t     *eid_prefix,
@@ -93,6 +92,7 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
     uint32_t                    eid_afi_lisp    = 0;
     uint32_t                    afi_len         = 0;
     uint32_t                    hdr_len         = 0;
+    uint16_t                    auth_data_len   = 0;
 
     /* get the length of the eid prefix and map to LISP_AFI types */
 
@@ -131,7 +131,9 @@ lispd_pkt_info_nat_t *create_and_fill_info_nat_header(
     hdr->rbit = reply;
     hdr->nonce = nonce;
 
-    hdr->key_id = 0;            /* XXX not sure */
+    auth_data_len = get_auth_data_len(key_type);
+
+    hdr->key_id = htons((uint16_t)key_type);
     hdr->auth_data_len = htons(auth_data_len);
 
     /* skip over the fixed part */

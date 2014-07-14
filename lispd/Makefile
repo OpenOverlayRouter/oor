@@ -69,6 +69,9 @@ OBJS		= 	cksum.o \
 				lispd_timers.o \
 				lispd_tun.o \
 				api/ipc.o \
+				hmac/hmac.o \
+				hmac/hmac-sha1.o \
+				hmac/hmac-sha256.o \
 				patricia/patricia.o \
 
 EXE		= lispd
@@ -90,7 +93,7 @@ endif
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o $(EXE) patricia/*.o bob/*o api/*.o
+	rm -f *.o $(EXE) patricia/*.o bob/*o api/*.o hmac/*.o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

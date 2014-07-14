@@ -1,5 +1,5 @@
 /*
- * cksum.h
+ * hmac.h
  *
  * This file is part of LISP Mobile Node Implementation.
  * Implementation for UDP checksum.
@@ -24,26 +24,27 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer   <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
+ *    Albert López   <alopez@ac.upc.edu>
  *
  */
 
-#ifndef CKSUM_H_
-#define CKSUM_H_
+#ifndef HMAC_H_
+#define HMAC_H_
 
-#include "lispd.h"
+#include <stdint.h>
 
-uint16_t ip_checksum(uint16_t *buffer,int size);
+uint16_t get_auth_data_len(uint8_t key_id);
 
-/*
- *  Calculate the IPv4 or IPv6 UDP checksum
- */
+int complete_auth_fields(uint8_t key_id,
+                         char *key,
+                         void *packet,
+                         int pckt_len,
+                         void *auth_data_pos);
 
-uint16_t udp_checksum (
-     struct udphdr *udph,
-     int       udp_len,
-     void      *iphdr,
-     int       afi);
+int check_auth_field(uint8_t key_id,
+                     char *key,
+                     void *packet,
+                     int pckt_len,
+                     void *auth_data_pos);
 
-#endif /* CKSUM_H_ */
+#endif /* HMAC_H_ */

@@ -46,20 +46,10 @@ int retry_smr(
         void  *arg);
 
 /*
- * Send a solicit map request of the mapping for each rloc of all eids in the map cahce database
- */
-int smr_send_map_req(lispd_mapping_elt *mapping);
-
-/*
  * Creates and initialize a timer_smr_retry_arg
  */
 timer_smr_retry_arg * new_timer_smr_retry_arg(lispd_mapping_list *list);
 
-/*
- *
- * Free memory of a timer_smr_retry_arg structure
- */
-void free_timer_smr_retry_arg(timer_smr_retry_arg *timer_arg);
 
 /****************************************************************************************/
 

@@ -393,6 +393,7 @@ typedef struct lispd_xTR_ID_
  */
 
 #define LISP_SHA1_AUTH_DATA_LEN         20
+#define LISP_SHA256_AUTH_DATA_LEN       32
 
 
 /*
