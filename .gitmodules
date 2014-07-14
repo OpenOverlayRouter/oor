@@ -1,4 +1,3 @@
-[submodule "android/jni/android-external-openssl"]
-	path = android/jni/android-external-openssl
-	url = git://github.com/fries/android-external-openssl.git
-	ignore = dirty
+[submodule "android/jni/json-c"]
+	path = android/jni/json-c
+	url = git://github.com/json-c/json-c.git
