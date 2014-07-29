@@ -38,6 +38,8 @@ import java.io.InputStreamReader;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import org.lispmob.root.R;
+
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -168,7 +170,7 @@ public class LISPmob extends Activity implements OnClickListener {
 			mUpdateTimer.cancel();
 		}
 		mUpdateTimer = new Timer();
-		mUpdateTimer.scheduleAtFixedRate(new statusTask(), 0, fONCE_PER_SECOND);
+		mUpdateTimer.scheduleAtFixedRate(new statusTask(), 0, 1000);
 	}
 
 	static public String runTask(String command, String args, boolean ignoreOutput) {
@@ -337,59 +339,21 @@ public class LISPmob extends Activity implements OnClickListener {
 			break;
 		}
     }
-	
-	//expressed in milliseconds
-	private final static long fONCE_PER_SECOND = 1000;
 
 	public void onClick(View V) {
 		CheckBox lispCheckBox = (CheckBox)findViewById(R.id.startStopCheckbox);
 		if (V == findViewById(R.id.startStopCheckbox)) {
 			if (lispCheckBox.isChecked()) {
-//				if (updateConfActivity.isOverrideDNS()){
-//					String dns[] = updateConfActivity.getNewDNS();
-//					set_dns_servers(dns[0],dns[1]);
-//				}
 				startVPN();
 				return;
 			}
-			showMessage("Stop the LISP service?",
+			showMessage(this.getString(R.string.askStopServiceString),
 					true, new Runnable() { public void run() {
-//						if (updateConfActivity.isOverrideDNS()){
-//							set_dns_servers(system_dns[0],system_dns[1]);
-//						}
 						stopVPN();
 						lispdWasRunning = false;
 					}
 			});
 		}
-	}
-
-	public String[] get_dns_servers(){
-		String command = null;
-		String dns[] = new String[2];
-		
-		command = "getprop net.dns1";
-		//dns[0] = shell.run(command);
-		
-		command = "getprop net.dns2";
-		//dns[1] = shell.run(command);
-		
-		System.out.println("LISPmob: DNS Server 1: "+dns[0]+", DNS Server 2: "+dns[1]);
-		
-		return dns;
-	}
-	
-	public static void set_dns_servers(String dns1, String dns2){
-		String command = null;
-						
-		command = "setprop net.dns1 \""+dns1+"\"";
-		//shell.run_no_output(command);
-		
-		command = "setprop net.dns2 \""+dns2+"\"";
-		//shell.run_no_output(command);
-		
-		System.out.println("LISPmob: Set DNS Server 1: "+dns1+" and  DNS Server 2: "+dns2);
-	
 	}
 }
 

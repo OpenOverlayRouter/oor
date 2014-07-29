@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/LISPmob/lispmob.png)](https://travis-ci.org/LISPmob/lispmob)
+
 
 Overview
 --------
@@ -9,11 +9,11 @@ It uses the concept of Endpoint IDentifiers (EIDs) to name hosts in edge
 networks, and Routing LOCators (RLOCs) for nodes in transit networks. EIDs and
 RLOCs are syntactically indistinguishable from current IPv4 and IPv6 addresses,
 enabling backwards compatibility with the existing Internet architecture. A
-distributed database, the mapping system, is responsible for maintaining the
+distributed database, the Mapping System, is responsible for maintaining the
 associations between EIDs and RLOCs. LISP Mobile Node (LISP-MN) is a
 specification to enable fast host mobility using LISP. Among other nice 
 features, LISP provides interruption-free global provider-independent roaming
-of IP-addresses with different networks.
+of IP addresses with different networks.
 
 The LISPmob project aims to deliver a full implementation of both LISP and
 LISP-MN for Linux-like systems, but parts of the implementation may be reusable
@@ -22,8 +22,8 @@ on other Unix-like operating systems.
 In version 0.3 the code was generalized and now it not only serves to MNs (Linux 
 or Android), but also can be used in a domestic router (Linux or OpenWRT) to 
 provide LISP routing capabilities (xTR). Please refer to "Router mode" section 
-for details on xTR funcionality, and to section "OpenWRT" or "Android" for specific 
-details on OpenWRT or Android configuration.
+for details on xTR functionality, and to section "OpenWRT" or "Android" for 
+specific details on OpenWRT or Android configuration.
 
 LISPmob consists of three major components:
 
@@ -33,26 +33,25 @@ LISPmob consists of three major components:
 
 Since version 0.3, the user space daemon 'lispd' is responsible for both control
 plane and data plane functionality. It is responsible for creating a virtual
-interface for the EID(s), encapsulating/decapsulating packets, maintaining the
-mapping cache, etc. (data plane functionality) and for sending and receiving
+interface to handle EID traffic, encapsulating/decapsulating packets, maintaining
+the mapping cache, etc. (data plane functionality) and for sending and receiving
 control messages, managing interfaces, etc. (control plane functionality), among
 other functionalities.
 
 The distribution offers some external tools as well, which can be used for
 various testing and debugging purposes.
 
-The current reference platform for LISPmob development is Ubuntu Server 12.04.1
-LTS (Precise Pangolin), OpenWRT 12.09 (Attitude Adjustment) and Android 4.2
-(Jelly Bean). 
+The current reference platform for LISPmob development is Ubuntu 14.04 LTS 
+(Trusty Tahr), OpenWRT 12.09 (Attitude Adjustment) and Android 4.4 (KitKat). 
 
 Network Prerequisites
 ---------------------
 
 Running LISPmob host on the public Internet requires the following:
 
-  * an EID from a Mapping Service Provider (MSP),
+  * an EID from a Mapping Service provider,
   * the RLOC of the Map-Server that will accept the registration of this EID,
-  * an authentication token to register the EID with the Map-Server,
+  * an authentication password to register the EID with the Map-Server,
   * the RLOC of a Map-Resolver,
   * the RLOC of a Proxy-ETR,
   * a publicly routable RLOC for the host, which is neither firewalled, nor
@@ -76,11 +75,10 @@ Software Prerequisites
 
 To build LISPmob for a standard Linux, you will need:
 
-  * a Linux hosts with a fairly recent kernel (tested with 3.2.0)
+  * a Linux host with a fairly recent kernel (tested with 3.2.0)
   * a C compiler (tested with `gcc`)
   * GNU make
   * git, unless you use a tarball
-  * OpenSSL development headers
   * libConfuse
   * gengetopt
   * libcap v2+
@@ -90,7 +88,6 @@ following packages will provide all necessary dependencies:
 
   * 'build-essential'
   * 'git'
-  * 'libssl-dev'
   * 'libconfuse-dev'
   * 'gengetopt'
   * 'libcap2-bin'
@@ -116,18 +113,19 @@ To build the code for OpenWRT you will need the OpenWRT official SDK. However,
 for your convenience, we encourage you to install the precompiled .ipk, from our
 website. Check section "OpenWRT" for details.
 
-To build the code for Android, read the specific file dedicated to this platform:
+To build the code for Android, read the specific file dedicated to that platform,
 README.android.md
+. Note that you can get a precompiled Android application through Google Play.
 
 Running LISPmob
 ---------------
 
 Once the code is successfully installed on the host, `lispd.conf.example` should
-be copied to `/etc/lispd.conf` and edited with the values obtained from the MSP
-(see "Network Prerequisites"). Again, see section 'OpenWRT' for OpenWRT details
-about this. Additionally the host interface used for physical network
-connectivity (such as 'eth0', 'wlan0' or 'ppp0') must also be specified in the
-configuration file.
+be copied to `/etc/lispd.conf` and edited with the values obtained from the 
+Mapping System provider (see "Network Prerequisites"). Again, see section 
+'OpenWRT' for OpenWRT details about this. Additionally the host interface used 
+for physical network connectivity (such as 'eth0', 'wlan0' or 'ppp0') must also 
+be specified in the configuration file.
 
 Prior to execute LISPmob, make sure that each external interface (such as
 'wan0') has defined a default route with different metric in the routing
@@ -148,18 +146,19 @@ reboot your system after adding these lines.
     net.ipv4.ip_forward=1
     net.ipv6.conf.all.forwarding=1   
 
-The user space daemon can be started by not privileged users. Such user can run 
-the daemon with: 
+The user space daemon can be started by a non privileged user with the 
+appropriate permissions (particularly CAP_NET_ADMIN and CAP_NET_RAW). Such user 
+can run the daemon with: 
 
     lispd -f /etc/lispd.conf
 
-It will set up networking and register to the mapping system, after which you
+It will set up networking and register to the Mapping System, after which you
 can enjoy all the benefits of LISP. When 'lispd' is running in MN mode, the
-EID obtained from the MSP is associated to the 'lispTun0' virtual interface. Two
-/1 routes covering the full IP addresses space should appear in the routing
-table. These routes should be pointing to 'lispTun0' device. The following lines
-shows an example of how 'ip addr' and 'ip route' will look like with IPv4,
-expect a similar output with IPv6:
+EID obtained from the Mapping System provider is associated to the 'lispTun0' 
+virtual interface. Two /1 routes covering the full IP addresses space should 
+appear in the routing table. These routes should be pointing to 'lispTun0' 
+device. The following lines shows an example of how 'ip addr' and 'ip route' 
+will look like with IPv4, expect a similar output with IPv6:
 
     $ ip addr
     1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
@@ -170,7 +169,7 @@ expect a similar output with IPv6:
         link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
         inet <RLOC> brd <RLOC_BROADCAST> scope global eth0
            valid_lft forever preferred_lft forever
-    3: lispTun0: <POINTOPOINT,UP,LOWER_UP> mtu 1450 qdisc pfifo_fast state UNKNOWN qlen 500
+    3: lispTun0: <POINTOPOINT,UP,LOWER_UP> mtu 1440 qdisc pfifo_fast state UNKNOWN qlen 500
         link/none 
         inet <EID> scope host lispTun0
 
@@ -181,21 +180,16 @@ expect a similar output with IPv6:
     0.0.0.0/1 dev lispTun0
     128.0.0.0/1 dev lispTun0
     default via <RLOC_GW> dev eth0  metric 100
+    
+    $ ip rule
+    0:      from all lookup local 
+    x:      from <RLOC> lookup x 
+    32766:  from all lookup main 
+    32767:  from all lookup default 
 
 
-Version 0.3
------------
-
-Version 0.3 introduced major changes into LISPmob. The most important was to
-discontinue the separation of data-plane in kernel-space and control-plane in
-user-space. This resulted in a merged data+control user-space daemon. This is
-possible thanks to the use of TUN/TAP, creating a TUN virtual interface to deal
-with data-plane.
-
-This big architectural change was also used to perform a general clean-up and
-restructuring for most of the code. Due to this, existing (or partially
-developed) functionalities should be adapted to the new architecture and
-structure. 
+Features
+--------
 
 This is the list of supported features at this moment: 
 
@@ -215,13 +209,12 @@ This is the list of supported features at this moment:
 Router mode
 -----------
 
-Since version 0.3, LISPmob can be also used to operate as a router. This mode is
-available to both standard Linux boxes configured as a router as well as OpenWRT
-capable home routers. When running in router mode, LISPmob serves as a xTR
-(Ingress/Egress Tunnel Router) that performs LISP encapsulation/decapsulation of
-packets generated by hosts behind the router. 
+This mode is available to both standard Linux boxes configured as a router as 
+well as OpenWRT capable home routers. When running in router mode, LISPmob 
+serves as a xTR (Ingress/Egress Tunnel Router) that performs LISP encapsulation/
+decapsulation of packets generated by hosts behind the router. 
 
-To enable router operation in a common Linux host, set the the router-mode 
+To enable router operation in a common Linux host, set the router-mode 
 attribute of the configuration file to 'on'. To configure LISPmob to use it on 
 router mode use the general LISPmob configuration instructions considering the
 following exception.
@@ -233,6 +226,47 @@ the router are allocated. Assign it to an interface and configure it as you
 would do for a normal network prefix (static configuration, DHCP, etc...). 
 No EID is used for the 'lispTun0' interface in router mode (a local address is 
 automatically used by LISPmob instead).
+
+The following lines shows an example of how 'ip addr' and 'ip route' will look 
+like with IPv4, expect a similar output with IPv6:
+
+    $ ip addr
+    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+        link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+        inet 127.0.0.1/8 scope host lo
+           valid_lft forever preferred_lft forever
+    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <RLOC> brd <RLOC_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <EID1> brd <EID1_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <EID2> brd <EID2_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    5: lispTun0: <POINTOPOINT,UP,LOWER_UP> mtu 1440 qdisc pfifo_fast state UNKNOWN qlen 500
+        link/none 
+        
+
+    $ ip route
+    <RLOC_Network> dev eth0  proto kernel  scope link  src <RLOC>
+    <EID1_Network> dev eth1  proto kernel  scope link  src <EID1>
+    <EID2_Network> dev eth2  proto kernel  scope link  src <EID2>
+    default via <RLOC_GW> dev eth0  metric 100
+    
+    
+    $ ip rule
+    0:      from all lookup local 
+    x:      from <RLOC> lookup x 
+    99:     from all to <EID1_Network> lookup main
+    99:     from all to <EID2_Network> lookup main  
+    100:    from <EID1_Network> lookup 100
+    100:    from <EID2_Network> lookup 100 
+    32766:  from all lookup main 
+    32767:  from all lookup default 
 
 OpenWRT 
 -------
@@ -246,7 +280,7 @@ note that the best way to get LISPmob on OpenWRT is get a precompiled binary
 (http://lispmob.org/downloads/openwrt). 
 
 LISPmob is also available on official OpenWRT repositories, but it is not
-guaranteed that this version would be the latest one. You can try to install
+guaranteed that this version will be the latest one. You can try to install
 LISPmob from OpenWRT package feeds with:
 
     opkg update
@@ -261,41 +295,28 @@ to those in the 'lispd.conf' file.
 Android
 -------
 
-Since version 0.4, LISPmob can be run on mobile node mode on Android devices. 
-Functionality is limited to one IPv4 EID and one IPv6 EID mapped to the RLOCs of one 
-interface (no multihoming support). If you require NAT traversal, it is 
-recommended for you to first read the NAT traversal section.
-
-To install LISPmob on your device, you need root access and Android version 
-2.3.6 or higher. LISPmob can be directly installed from Google Play. You can also 
-download the APK file from the LISPmob website or compile the code yourself
-following the instructions on the README.android.md file.
-
-The Android graphical application allows you to start and stop the lispd daemon
-and to edit the most important parameters on the configuration file.
-To configure to the full list of options you have to manually edit the configuration
-file located in /sdcard/lispd.conf. Please note that if you use the graphical interface,
-configuration parameters not present there will be reset to their default values.
-
-Due to the large amount of data generated by the lispd daemon, it is recommended to 
-set "log level" to 0 when not debugging.
+Since version 0.4, LISPmob includes support for Android devices operating as 
+LISP-MN. Please see the README.android.md file to get details on LISPmob for 
+Android installation, compilation and usage. 
 
 NAT traversal
 -------------
 
 Since version 0.3.3, LISPmob includes experimental NAT traversal capabilities
 (see LISP NAT traversal draft). In order to use NAT traversal with LISPmob you
-will need a MS and a RTR (Re-encapsulating Tunnel Router) that are NAT traversal
-capable. If you are using the beta-network, please take into account that, at
-the time of this writing (release 0.3.3), not all devices on the beta-network
-have been updated to support NAT traversal yet.
+will need a MS and an RTR (Re-encapsulating Tunnel Router) that are NAT 
+traversal capable. If you are using the beta-network, please take into account 
+that, at the time of this writing (release 0.4.1), not all devices on the 
+beta-network have been updated to support NAT traversal yet.
 
-On its current form, NAT traversal support on LISPmob allows to use just one
-RLOC interface and one EID prefix. If you want to use more than one RLOC
-interface or to configure several EID prefixes you will need to deactivate the
-NAT traversal feature (via the config file). If NAT traversal feature is
-enabled, all IPv6 addresses configured in the RLOC interface will be ignored.
 
+If NAT traversal feature is enabled, LISPmob is configured to send all data 
+traffic through RTRs even if the interface has been provisioned with a public 
+address. This behavior is a consequence of the lack mechanisms to update the 
+cache of peers when there is an RTR involved in the data exchange. On its 
+current form, NAT traversal support on LISPmob ignores IPv6 addresses of
+RLOC interfaces, besides, the current NAT traversal implementation in the 
+beta-network only supports the registration of a single EID per interface. 
 
 Contact
 -------

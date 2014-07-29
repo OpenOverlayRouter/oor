@@ -172,8 +172,12 @@ void programming_rloc_probing(lispd_map_cache_entry *map_cache_entry)
     rmt_locator_extended_info   *locator_ext_inf    = NULL;
     int                         ctr                 = 0;
 
-    locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
-    locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
+    if (default_rloc_afi != AF_INET6){
+        locators_lists[0] = map_cache_entry->mapping->head_v4_locators_list;
+    }
+    if (default_rloc_afi != AF_INET){
+        locators_lists[1] = map_cache_entry->mapping->head_v6_locators_list;
+    }
     /* Start rloc probing for each locator of the mapping */
     for (ctr=0; ctr < 2 ; ctr++){
         while (locators_lists[ctr] != NULL){

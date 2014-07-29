@@ -20,7 +20,7 @@ ERROR		= false
 
 
 ifeq "$(platform)" ""
-CFLAGS		+= -Wall -g
+CFLAGS		+= -Wall -g 
 LIBS		= -lconfuse -lrt -lm
 else
 ifeq "$(platform)" "openwrt"
@@ -68,7 +68,6 @@ OBJS		= 	cksum.o \
 				lispd_sockets.o \
 				lispd_timers.o \
 				lispd_tun.o \
-				api/ipc.o \
 				hmac/hmac.o \
 				hmac/hmac-sha1.o \
 				hmac/hmac-sha256.o \

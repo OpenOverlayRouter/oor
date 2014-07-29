@@ -17,11 +17,14 @@
 #     reports, the value should be raised gradually. When reporting bugs,
 #     developers may ask a specific value to be configured and logs be sent.
 #     [0..3]
+#   log-file: Specify log file used in daemon mode. If it is not specified,  
+#     messages are written in syslog file
 #   map-request-retries: The number of additional Map-Requests to send if the
 #     first one times out. The non-configurable timeout value is 2 seconds.
 
 router-mode            = off
-debug                  = 0 
+debug                  = 0
+log-file               = /var/log/lispd.log 
 map-request-retries    = 2
 
 # RLOC Probing configuration.
@@ -88,13 +91,13 @@ ddt-client  = on
 # Some LISP beta-network (lisp4.net/lisp6.net) DDT root nodes
 
 ddt-root-node {
-        address     = 193.0.0.170
+        address     = 84.88.16.10
         priority    = 1
         weight      = 100
 }
 
 ddt-root-node {
-        address     = 2001:610:240:5:193::170
+        address     = 2001:40B0:1::F0F2
         priority    = 1
         weight      = 100
 }
@@ -195,7 +198,7 @@ proxy-itrs = {
         193.162.145.46,                 # tdc-pxtr
         158.38.1.92,                    # uninett-pxtr
         203.181.249.172,                # apan-pxtr
-        202.51.247.10                   # sg-nus-pxtr
+        202.51.247.10,                   # sg-nus-pxtr
         2001:590::451f:1f62,            # eqx-ash-pxtr
         2001:4f8:3:d::60,               # isc-pxtr
         2001:418:4:1:deaf:bebe::10d,    # asp-pxtr

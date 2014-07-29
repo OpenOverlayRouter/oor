@@ -253,11 +253,12 @@ void  restart_info_request_process(
 		lispd_log_msg(LISP_LOG_DEBUG_1,"restart_info_request_process: No source address specified");
 		return;
 	}
-
 	while (mapping_list != NULL){
 		mapping = mapping_list->mapping;
 		src_locator = get_locator_from_mapping(mapping,src_addr);
 		if (src_locator == NULL){
+		    lispd_log_msg(LISP_LOG_DEBUG_2,"restart_info_request_process: The mapping %s/%d doesn't have locator with address %s",
+		            get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length, get_char_from_lisp_addr_t(*src_addr));
 		    mapping_list = mapping_list->next;
 		    continue;
 		}
@@ -282,7 +283,6 @@ void  restart_info_request_process(
 			nat_info->inf_req_nonce = NULL;
 			timer_arg = nat_info->inf_req_timer->cb_argument;
 		}
-
 		start_timer(nat_info->inf_req_timer, LISPD_INF_REQ_HANDOVER_TIMEOUT, info_request, timer_arg);
 		mapping_list = mapping_list->next;
 	}

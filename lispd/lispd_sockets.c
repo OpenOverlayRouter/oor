@@ -90,7 +90,7 @@ int new_raw_input_socket(int afi){
      *  build the ipv4_data_input_fd, and make the port reusable
      */
     if ((sock = socket(afi,SOCK_RAW,protonum)) < 0) {
-        lispd_log_msg(LISP_LOG_ERR, "open_udp_socket: socket: %s", strerror(errno));
+        lispd_log_msg(LISP_LOG_ERR, "new_raw_input_socket: socket: %s", strerror(errno));
         return(-1);
     }
     lispd_log_msg(LISP_LOG_DEBUG_3,"new_raw_input_socket: socket at creation: %d\n",sock);

@@ -102,10 +102,10 @@ void lispd_log_msg1(int lisp_log_level, const char *format, ...)
         lispd_log(log_level, log_name, format, args);
         break;
     }
-//#ifdef VPNAPI
-//    //if (lisp_log_level != LISP_LOG_DEBUG_3)
-//    	__android_log_vprint(ANDROID_LOG_INFO, "LISPmob-C ==>", format,args);
-//#endif
+#ifdef ANDROID
+    //if (lisp_log_level != LISP_LOG_DEBUG_3)
+    	__android_log_vprint(ANDROID_LOG_INFO, "LISPmob-C ==>", format,args);
+#endif
     va_end (args);
 }
 
@@ -116,16 +116,27 @@ static inline void lispd_log(
         va_list     args)
 {
 #ifdef ANDROID
-	fprintf(fp,"%s: ",log_name);
-	vfprintf(fp,format,args);
-	fprintf(fp,"\n");
-	fflush(fp);
+    if (fp != NULL){
+        fprintf(fp,"%s: ",log_name);
+        vfprintf(fp,format,args);
+        fprintf(fp,"\n");
+        fflush(fp);
+    }else{
+        vsyslog(log_level,format,args);
+    }
 #else
 	if (daemonize){
-		vsyslog(log_level,format,args);
+	    if (fp != NULL){
+	        fprintf(fp,"%s: ",log_name);
+	        vfprintf(fp,format,args);
+	        fprintf(fp,"\n");
+	        fflush(fp);
+	    }else{
+	        vsyslog(log_level,format,args);
+	    }
 	}else{
-		printf("%s: ",log_name);
-		vfprintf(stdout,format,args);
+	    printf("%s: ",log_name);
+	    vfprintf(stdout,format,args);
 		printf("\n");
 	}
 #endif
@@ -133,10 +144,14 @@ static inline void lispd_log(
 
 void open_log_file(char *log_file)
 {
+    if (log_file == NULL){
+        return;
+    }
+    /* Overwrite log file in each start */
+	fp = freopen(log_file, "w", stderr);
 	if (fp == NULL){
-		fp = freopen(log_file, "w", stderr);
-	}else{
-		fp = freopen(log_file, "a", stderr);
+	    printf("ERR: Couldn't open log file: %s. Using  syslog\n", log_file);
+	    lispd_log_msg1(LISP_LOG_ERR,"Couldn't open log file: %s. Using  syslog", log_file);
 	}
 }
 

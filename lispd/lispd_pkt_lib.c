@@ -366,9 +366,14 @@ uint8_t *pkt_fill_mapping_record(
                 return(NULL);
             }
 
-            lispd_log_msg(LISP_LOG_DEBUG_2, "Record information Locator: %s  P:%d-W:%d-MP:%d-MW:%d  Reachable: %d Probed: %d",
-                                    get_char_from_lisp_addr_t(*(locators_list[ctr]->locator->locator_addr)),
-                                    loc_ptr->priority, loc_ptr->weight, loc_ptr->mpriority, loc_ptr->mweight, loc_ptr->reachable, loc_ptr->probed);
+            if (nat_info == NULL || (nat_info != NULL && nat_info->rtr_locators_list == NULL)){
+                lispd_log_msg(LISP_LOG_DEBUG_2, "Record information Locator: %s  P:%d-W:%d-MP:%d-MW:%d  Reachable: %d Probed: %d",
+                        get_char_from_lisp_addr_t(*(locators_list[ctr]->locator->locator_addr)),
+                        loc_ptr->priority, loc_ptr->weight, loc_ptr->mpriority, loc_ptr->mweight, loc_ptr->reachable, loc_ptr->probed);
+            }else {
+                lispd_log_msg(LISP_LOG_DEBUG_2, "Record information Locator: %s (RTR)",
+                        get_char_from_lisp_addr_t(nat_info->rtr_locators_list->locator->address));
+            }
 
             locator_count++;
             loc_ptr = (lispd_pkt_mapping_record_locator_t *)

@@ -43,7 +43,7 @@ patricia_tree_t *AF6_map_cache           = NULL;
 /*
  * create_tables
  */
-void map_cache_init()
+int map_cache_init()
 {
   lispd_log_msg(LISP_LOG_DEBUG_2,  " Creating map cache...");
 
@@ -53,8 +53,9 @@ void map_cache_init()
 
   if (!AF4_map_cache || !AF6_map_cache){
       lispd_log_msg(LISP_LOG_CRIT, "map_cache_init: Unable to allocate memory for map cache database");
-      exit_cleanup();
+      return (BAD);
   }
+  return (GOOD);
 }
 
 /*

@@ -42,7 +42,7 @@ patricia_node_t *lookup_referral_cache_exact_node(
 /*
  * Create referral cache database
  */
-void init_referral_cache()
+int init_referral_cache()
 {
     lispd_log_msg(LISP_LOG_DEBUG_2,  " Creating referral cache...");
 
@@ -54,8 +54,9 @@ void init_referral_cache()
 
     if (ipv4_referral_cache == NULL || ipv6_referral_cache == NULL || ipv4_ms_referral_cache == NULL || ipv6_ms_referral_cache == NULL ){
         lispd_log_msg(LISP_LOG_CRIT, "init_referral_cache: Unable to allocate memory for referral cache database");
-        exit_cleanup();
+        return (BAD);
     }
+    return (GOOD);
 }
 
 /*

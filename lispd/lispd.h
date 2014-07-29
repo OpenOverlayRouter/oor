@@ -80,7 +80,7 @@
 #define LISPD_INITIAL_PROBE_TIMEOUT     3  // Initial expiration timer for the first MRq RLOC probe
 #define LISPD_INITIAL_MR_TIMEOUT        3  // Initial expiration timer for the first Map Register
 #define LISPD_SMR_TIMEOUT               6  // Time since interface status change until balancing arrays and SMR is done
-#define LISPD_INF_REQ_HANDOVER_TIMEOUT	1  // Timeout to init info request When NAT aware is true
+#define LISPD_INF_REQ_HANDOVER_TIMEOUT	 1  // Timeout to init info request When NAT aware is true
 #define LISPD_EXPIRE_TIMEOUT            1  // Time interval in which events are expired
 #define LISPD_MAX_MR_RETRANSMIT         2  // Maximum amount of Map Request retransmissions
 #define LISPD_MAX_SMR_RETRANSMIT        2  // Maximum amount of SMR MRq retransmissions

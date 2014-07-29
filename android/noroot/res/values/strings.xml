@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="hello">Hello World, LISPmob!</string>
     <string name="app_name">LISPmob</string>
-    <string name="koInstalledString">Kernel Module Installed</string>
-    <string name="kernelModule">Kernel Module</string>
     <string name="installed">Installed</string>
     <string name="notInstalled">Not Installed</string>
     <string name="NullString"> </string>
@@ -14,7 +11,9 @@
     <string name="showLogString">Show lispd logfile</string>
     <string name="lispRunning">LISP is running</string>
     <string name="lispNotRunning">LISP is NOT running</string>
-    
+    <string name="noConfFile">No configuration file.\nUse \"Edit LISP Configuration\" section to generate it</string>
+    <string name="noRootedString">Not rooted device. Could not start LISPmob</string>
+    <string name="askStopServiceString">Stop the LISP service?</string>
     <string name="updateConfTitleString">Current LISP Configuration</string>
     <string name="updateConfString">Edit LISP Configuration</string>
     <string name="updateConfeid4String">EID-IPv4: </string>

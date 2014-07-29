@@ -172,6 +172,14 @@ lispd_locator_elt *get_locator_from_mapping(
         lisp_addr_t         *address);
 
 /*
+ * Returns the locators with the nonce passed as a parameter
+ */
+lispd_locator_elt *get_locator_from_mapping_with_nonce(
+        lispd_mapping_elt   *mapping,
+        uint64_t            nonce,
+        uint8_t             msg_type);
+
+/*
  * Free memory of lispd_mapping_elt.
  */
 void free_mapping_elt(lispd_mapping_elt *mapping);

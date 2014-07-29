@@ -17,7 +17,7 @@
 /**
  * Creates referral cache databases
  */
-void init_referral_cache();
+int init_referral_cache();
 
 /**
  * Removes referral cache databases

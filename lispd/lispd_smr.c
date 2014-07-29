@@ -69,7 +69,7 @@ void init_smr(
     lispd_mapping_list          *aux_mapping_list   = NULL;
     timer_smr_retry_arg         *smr_retry_arg      = NULL;
 
-    lispd_log_msg(LISP_LOG_DEBUG_2,"*** Init SMR notification ***");
+    lispd_log_msg(LISP_LOG_DEBUG_2,"**** Init SMR notification ****");
 
     /*
      * Check which mappings should be SMRed and put in a list without duplicate elements
@@ -121,7 +121,7 @@ void init_smr(
 
     while(smr_mapping_list != NULL){
     	mapping = smr_mapping_list->mapping;
-    	if ((err = smr_send_map_reg(mapping))!=GOOD){
+    	if ((err = smr_send_map_reg(mapping, NULL))!=GOOD){
     	    add_mapping_to_list(mapping, &err_mappings_list);
     	}
         smr_mapping_list = smr_mapping_list->next;
@@ -175,7 +175,7 @@ int retry_smr(
     lispd_log_msg(LISP_LOG_DEBUG_1, "retry_smr: Retrying SMR");
     while(smr_mapping_list != NULL){
         mapping = smr_mapping_list->mapping;
-        if (smr_send_map_reg(mapping)!=GOOD){
+        if (smr_send_map_reg(mapping, NULL)!=GOOD){
             add_mapping_to_list(mapping, &err_mappings_list);
         }
         smr_mapping_list = smr_mapping_list->next;
@@ -193,26 +193,63 @@ int retry_smr(
     return(GOOD);
 }
 
-/*
+/**
  * Send initial Map Register associated to the SMR process
  * We notify to the mapping system the change of mapping
+ * @param mapping Mapping modified
+ * @param src_locator Locator to be used to send the control messages. If NULL, default iface
+ * @return GOOD if finish correctly or an error code otherwise
  */
-int smr_send_map_reg(lispd_mapping_elt *mapping)
+int smr_send_map_reg(lispd_mapping_elt *mapping, lispd_locator_elt *src_locator)
 {
     lcl_mapping_extended_info   *map_ext_inf       = NULL;
     timer_map_register_argument *timer_arg         = NULL;
+    nat_info_str                *nat_info          = NULL;
+    lispd_locators_list         *locator_list      = NULL;
+    lispd_locator_elt           *locator           = NULL;
 
     map_ext_inf = (lcl_mapping_extended_info *)(mapping->extended_info);
     map_ext_inf->to_do_smr = TRUE;
 
-    if(map_ext_inf->map_reg_timer != NULL){
-        timer_arg = (timer_map_register_argument *)map_ext_inf->map_reg_timer->cb_argument;
+    /* If NAT aware and not src locator provided, we select first IPv4 locator of the mapping */
+    if (nat_aware == TRUE){
+        if (src_locator == NULL) {
+            locator_list = mapping->head_v4_locators_list;
+            while (locator_list != NULL){
+                locator = locator_list->locator;
+                if (*(locator->state) == UP){
+                    src_locator = locator;
+                    break;
+                }
+                locator_list = locator_list->next;
+            }
+            if (src_locator == NULL){
+                lispd_log_msg(LISP_LOG_DEBUG_1,"smr_send_map_reg: Couldn't sent Encap Map Register for EID %s/%d. No src locator",
+                        get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length);
+                dump_mapping_entry(mapping, LISP_LOG_DEBUG_2);
+                return (BAD);
+            }
+        }
+        nat_info = ((lcl_locator_extended_info*)src_locator->extended_info)->nat_info;
+        if(nat_info->emap_reg_timer != NULL){
+            timer_arg = (timer_map_register_argument *)nat_info->emap_reg_timer->cb_argument;
+        }else{
+            timer_arg = new_timer_map_reg_arg(mapping,src_locator);
+            if (timer_arg == NULL){
+                return  (BAD);
+            }
+        }
     }else{
-        timer_arg = new_timer_map_reg_arg(mapping,NULL);
-        if (timer_arg == NULL){
-            return  (BAD);
+        if(map_ext_inf->map_reg_timer != NULL){
+            timer_arg = (timer_map_register_argument *)map_ext_inf->map_reg_timer->cb_argument;
+        }else{
+            timer_arg = new_timer_map_reg_arg(mapping,src_locator);
+            if (timer_arg == NULL){
+                return  (BAD);
+            }
         }
     }
+
     if (map_register(NULL,(void *)timer_arg) != GOOD){
         return (BAD);
     }

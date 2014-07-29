@@ -76,7 +76,7 @@ void process_input_packet(int fd,
     /* With input RAW UDP sockets, we receive all UDP packets, we only want lisp data ones */
     if(ntohs(udph->dest) != LISP_DATA_PORT){
         free(packet);
-        //lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (No LISP data): UDP dest: %d ",ntohs(udph->dest));
+        lispd_log_msg(LISP_LOG_DEBUG_3,"INPUT (No LISP data): UDP dest: %d ",ntohs(udph->dest));
         return;
     }
 
@@ -140,7 +140,7 @@ void process_input_packet(int fd,
     struct iphdr        *iph = NULL;
     struct ip6_hdr      *ip6h = NULL;
     struct udphdr       *udph = NULL;
-    uint8_t             *ctr_msg = NULL;
+    uint8_t              *ctr_msg = NULL;
 
 
 

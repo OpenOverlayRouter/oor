@@ -58,7 +58,6 @@ public class LISPmobVPNService extends VpnService implements Handler.Callback, R
 				}
 				Log.i(TAG, "Service already running");
 				//return (START_STICKY);
-				System.out.println("sssssssssssssssssssssssssssssssssssssssssssssssssssssss");
 				vpn_running = true;
 			}else{
 				mThread = new Thread(this, "LISPmobVpnThread");

@@ -393,7 +393,7 @@ public class updateConfActivity extends Activity {
 						.append("#}\n\n")
 						.append("# Some LISP beta-network (lisp4.net/lisp6.net) DDT root nodes\n")
 						.append("ddt-root-node {\n")
-						.append("        address     = 193.0.0.170\n")
+						.append("        address     = 84.88.16.10\n")
 						.append("        priority    = 1\n")
 						.append("        weight      = 100\n")
 						.append("}\n\n")
@@ -649,9 +649,6 @@ public class updateConfActivity extends Activity {
 			createConfFile();
 			setResult(CONFIG_UPDATED);
 			finish();
-//			View view = getWindow().getDecorView().findViewById(android.R.id.content);
-//			Intent myIntent = new Intent(view.getContext(),LISPmob.class);
-//			startActivityForResult(myIntent, 0);
 		}		
 	}
 	

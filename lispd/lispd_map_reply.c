@@ -246,6 +246,10 @@ int process_map_reply_record(uint8_t **cur_ptr, uint64_t nonce)
         }
     }
 
+    if (is_loggable(LISP_LOG_DEBUG_2)){
+        dump_map_cache_entry(cache_entry, LISP_LOG_DEBUG_2);
+    }
+
     /* [re]Calculate balancing locator vectors  if it is not a negative map reply*/
     if (cache_entry->mapping->locator_count != 0){
         calculate_balancing_vectors (
@@ -344,6 +348,7 @@ int process_map_reply_probe_record(
                 free(rmt_locator_ext_inf->rloc_probing_nonces);
                 rmt_locator_ext_inf->rloc_probing_nonces = NULL;
                 if (locators_probed == 0){
+                    aux_locator = locator;
                     locators_probed ++;
                 }else{
                     lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: Invalid Map-Reply Probe. Only one locator can be probed per message");
@@ -354,6 +359,7 @@ int process_map_reply_probe_record(
                 return (BAD);
             }
         }
+        locator = aux_locator;
         if (locator ==  NULL){
             lispd_log_msg(LISP_LOG_DEBUG_1,"process_map_reply_probe_record: Invalid Map-Reply Probe. No probed locator of the received message matches with the "
                     "locators of the mapping  stored in the map cahce database.");
@@ -466,6 +472,19 @@ int process_map_reply_locator(
             pkt_locator->mpriority, pkt_locator->mweight);
 
     if (locator != NULL){
+        /*
+         * Use default_rloc_afi to set status of locators
+         */
+
+        if (locator->locator_addr->afi == AF_INET && default_rloc_afi == AF_INET6){
+            *(locator->state) = DOWN;
+        }
+
+        if (locator->locator_addr->afi == AF_INET6 && default_rloc_afi == AF_INET){
+            *(locator->state) = DOWN;
+        }
+
+
         if ((err=add_locator_to_mapping (mapping, locator)) != GOOD){
             free_locator(locator);
             /* If we couldn't add the locator because it use an unsupported lcaf address, just ignore this locator */
@@ -522,6 +541,7 @@ int process_map_reply_probe_locator(
         }
     }else{
         if (err != ERR_AFI_LCAF_TYPE){
+
             return (err);
         }
     }
@@ -546,6 +566,8 @@ int build_and_send_map_reply_msg(
     uint8_t         *map_reply_pkt      = NULL;
     int             map_reply_pkt_len   = 0;
     int             result              = 0;
+
+    lispd_log_msg(LISP_LOG_DEBUG_2,"Build Map Reply Packet");
 
     /* Build the packet */
     if (opts.rloc_probe == TRUE){

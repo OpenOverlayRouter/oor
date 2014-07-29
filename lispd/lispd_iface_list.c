@@ -641,7 +641,6 @@ lispd_mapping_list *get_mappings_from_iface(lispd_iface_elt     *iface)
 {
 	lispd_mapping_list 			*mappings_list 	= NULL;
 	lispd_iface_mappings_list 	*list			= iface->head_mappings_list;
-
 	while (list != NULL){
 		add_mapping_to_list(list->mapping, &mappings_list);
 		list = list->next;

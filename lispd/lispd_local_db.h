@@ -41,7 +41,7 @@
  * Initialize databases
  */
 
-void db_init(void);
+int db_init(void);
 
 
 /*

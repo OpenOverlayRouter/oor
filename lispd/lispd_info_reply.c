@@ -84,7 +84,6 @@ int process_info_reply_msg(
     lispd_rtr_locators_list     *rtr_locators_list      = NULL;
 
     lispd_mapping_elt           *mapping                = NULL;
-    lcl_mapping_extended_info   *mapping_ext_inf        = NULL;
     lispd_locator_elt           *src_locator            = NULL;
     nat_info_str                *nat_info               = NULL;
 
@@ -184,10 +183,10 @@ int process_info_reply_msg(
      */
     switch(local_rloc.afi){
     case AF_INET:
-        src_locator = nat_get_locator_with_nonce(mapping->head_v4_locators_list,nonce);
+        src_locator = get_locator_with_nonce(mapping->head_v4_locators_list,nonce,LISP_INFO_NAT);
         break;
     case AF_INET6:
-        src_locator = nat_get_locator_with_nonce(mapping->head_v6_locators_list,nonce);
+        src_locator = get_locator_with_nonce(mapping->head_v6_locators_list,nonce,LISP_INFO_NAT);
         break;
     }
 
@@ -268,8 +267,6 @@ int process_info_reply_msg(
 
 
     if (is_behind_nat == TRUE){
-
-
         nat_info->status= NAT;
     }else{
         nat_info->status= NO_NAT;
@@ -322,20 +319,18 @@ int process_info_reply_msg(
     nat_info->public_addr = clone_lisp_addr(&global_etr_rloc);
 
     if (need_smr){
-        smr_send_map_reg(mapping);
+        smr_send_map_reg(mapping, src_locator);
     }else{
         /* In SMR process we already send Map Register. It doesn't have to be send again */
 
-        mapping_ext_inf = (lcl_mapping_extended_info *)mapping->extended_info;
         /* Once we know the NAT state we send a Map-Register */
-        if (mapping_ext_inf->map_reg_timer == NULL){
+        if (nat_info->emap_reg_timer == NULL){
             timer_arg = new_timer_map_reg_arg(mapping,src_locator);
             if (timer_arg == NULL){
                 return (BAD);
             }
         }else{
-            timer_arg = (timer_map_register_argument *)mapping_ext_inf->map_reg_timer->cb_argument;
-            timer_arg->src_locator = src_locator;
+            timer_arg = (timer_map_register_argument *)nat_info->emap_reg_timer->cb_argument;
         }
 
 

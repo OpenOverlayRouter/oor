@@ -124,14 +124,14 @@ int validate_configuration();
  *
  */
 
-void handle_lispd_command_line(
+int handle_lispd_command_line(
         int     argc,
         char    **argv)
 {
     struct gengetopt_args_info args_info;
 
     if (cmdline_parser(argc, argv, &args_info) != 0){
-        exit_cleanup();
+        return (BAD);
     }
 
     if (args_info.daemonize_given) {
@@ -160,6 +160,8 @@ void handle_lispd_command_line(
     }else{
         default_rloc_afi = AF_UNSPEC;
     }
+
+    return (GOOD);
 }
 
 
@@ -176,6 +178,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     struct uci_section  *s                              = NULL;
     struct uci_element  *e                              = NULL;
     int                 uci_debug                       = 0;
+    const char*        uci_log_file                     = NULL;
     int                 uci_retries                     = 0;
     int                 uci_rloc_probe_int              = 0;
     int                 uci_rloc_probe_retries          = 0;
@@ -270,6 +273,11 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
                     debug_level = 0;
                 if (debug_level > 3)
                     debug_level = 3;
+            }
+
+            uci_log_file = uci_lookup_option_string(ctx, s, "log_file");
+            if (daemonize == TRUE){
+                open_log_file(uci_log_file);
             }
 
             uci_retries = strtol(uci_lookup_option_string(ctx, s, "map_request_retries"),NULL,10);
@@ -501,6 +509,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     int                     probe_int               = 0;
     int                     probe_retries           = 0;
     int                     probe_retries_interval  = 0;
+    char                    *log_file               = NULL;
 
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
@@ -568,6 +577,7 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
+            CFG_STR("log-file",             0, CFGF_NONE),
             CFG_BOOL("router-mode",         cfg_false, CFGF_NONE),
             CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
@@ -631,6 +641,16 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     }
 
     /*
+     * Log file
+     */
+
+    log_file = cfg_getstr(cfg, "log-file");
+    if (daemonize == TRUE){
+        open_log_file(log_file);
+    }
+
+
+    /*
      *  RLOC Probing options
      */
 
@@ -653,9 +673,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
     cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
     if (nt != NULL){
         nat_aware   = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
-        if (nat_aware == TRUE){
-            default_rloc_afi = AF_INET;
-        }
     }else {
         nat_aware = FALSE;
     }
@@ -1392,6 +1409,17 @@ int validate_configuration()
 
     /* Check configured parameters when NAT-T activated. These limitations will be removed in future release */
     if (nat_aware == TRUE){
+        default_rloc_afi = AF_INET;
+
+        if (ddt_client == TRUE){
+            lispd_log_msg(LISP_LOG_INFO,"NAT aware on -> No DDT client available");
+            ddt_client = FALSE;
+        }
+        if (map_resolvers == NULL){
+            lispd_log_msg(LISP_LOG_CRIT, "No Map Resolver configured.");
+            result = BAD;
+        }
+
         if (num_entries_in_db(get_local_db(AF_INET)) > 1 || num_entries_in_db(get_local_db(AF_INET6)) > 1){
             lispd_log_msg(LISP_LOG_CRIT,"NAT aware on -> This version of LISPmob is limited to one IPv4 EID prefix "
                     "and one IPv6 EID prefix when NAT-T is enabled");

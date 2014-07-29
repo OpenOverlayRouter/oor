@@ -60,15 +60,16 @@ patricia_node_t *lookup_eid_exact_node(
  * Initialize databases
  */
 
-void db_init(void)
+int db_init(void)
 {
     EIDv4_database  = New_Patricia(sizeof(struct in_addr)  * 8);
     EIDv6_database  = New_Patricia(sizeof(struct in6_addr) * 8);
 
     if (!EIDv4_database || !EIDv6_database) {
         lispd_log_msg(LISP_LOG_CRIT, "db_init: Unable to allocate memory for database");
-        exit_cleanup();
+        return (BAD);
     };
+    return (GOOD);
 }
 
 patricia_tree_t* get_local_db(int afi)

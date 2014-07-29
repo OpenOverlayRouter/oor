@@ -7,12 +7,15 @@ package 'lispd'
 #   router-mode: on  -> LISP routing capabilities enabled: xTR
 #                off -> LISP mobile node. 
 #	debug: Debug levels [0..3]
+#   log_file: Specify log file used in daemon mode. If it is not specified,  
+#     messages are written in syslog file
 #	map_request_retries: Additional Map-Requests to send per map cache miss
 #	rloc_probing_interval: Period in seconds between RLOC probes. A value of 0 will dissable RLOC probing 
 
 config 'daemon'
         option  'router_mode'           'on'                  #In doubt, keep the default value
         option  'debug'                 '0' 
+        option  'log_file'              '/tmp/lispd.log' 
         option  'map_request_retries'   '2'
         
 # RLOC Probing configuration
@@ -65,12 +68,12 @@ config 'ddt-client'
 # Some LISP beta-network (lisp4.net/lisp6.net) DDT root nodes
 
 config 'ddt-root-node'
-        option   'address'              '193.0.0.170'
+        option   'address'              '84.88.16.10'
         option   'priority'             '1'
         option   'weight'               '100' 
         
 config 'ddt-root-node'
-        option   'address'              '2001:610:240:5:193::170'
+        option   'address'              '2001:40B0:1::F0F2'
         option   'priority'             '1'
         option   'weight'               '100'
 

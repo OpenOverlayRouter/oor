@@ -552,6 +552,25 @@ lispd_locator_elt *get_locator_from_mapping(
 
 
 /*
+ * Returns the locators with the nonce passed as a parameter
+ */
+lispd_locator_elt *get_locator_from_mapping_with_nonce(
+        lispd_mapping_elt   *mapping,
+        uint64_t            nonce,
+        uint8_t             msg_type)
+{
+    lispd_locator_elt   *locator        = NULL;
+
+    locator = get_locator_with_nonce (mapping->head_v4_locators_list, nonce, msg_type);
+    if (locator == NULL){
+        locator = get_locator_with_nonce (mapping->head_v6_locators_list, nonce, msg_type);
+    }
+
+    return (locator);
+}
+
+
+/*
  * Free the dinamic arrays that contains the balancing_locators_vecs structure;
  */
 void free_balancing_locators_vecs (balancing_locators_vecs locators_vec)

@@ -534,6 +534,12 @@ void free_nat_info_str(nat_info_str *nat_info)
     if (nat_info->inf_req_timer != NULL){
         stop_timer(nat_info->inf_req_timer);
     }
+    if (nat_info->emap_reg_nonce != NULL){
+        free(nat_info->emap_reg_nonce);
+    }
+    if (nat_info->emap_reg_timer != NULL){
+        stop_timer(nat_info->emap_reg_timer);
+    }
     free(nat_info);
 }
 
@@ -593,7 +599,7 @@ void dump_locator (
     char locator_str [2000];
     if (is_loggable(log_level)){
         sprintf(locator_str, "| %39s |", get_char_from_lisp_addr_t(*(locator->locator_addr)));
-        sprintf(locator_str + strlen(locator_str), "  %5s ", locator->state ? "Up" : "Down");
+        sprintf(locator_str + strlen(locator_str), "  %5s ", *(locator->state) == UP ? "Up" : "Down");
         sprintf(locator_str + strlen(locator_str), "|     %3d/%-3d     |", locator->priority, locator->weight);
         lispd_log_msg(log_level,"%s",locator_str);
     }
@@ -864,7 +870,8 @@ lispd_locator_elt *get_locator_from_list(
         if (cmp == 0){
             locator = locator_list->locator;
             break;
-        }else if (cmp == 1){
+            // With Nat Aware, locators are ordered according RTR address and not the locator
+        }else if (cmp == 1 && nat_aware == FALSE){
             break;
         }
         locator_list = locator_list->next;
@@ -872,22 +879,52 @@ lispd_locator_elt *get_locator_from_list(
     return (locator);
 }
 
-
-lispd_locator_elt *nat_get_locator_with_nonce(
+/*
+ * Get the locator that contains the specified nonce
+ * Only use if we don't know in which interface the packet is received
+ */
+lispd_locator_elt *get_locator_with_nonce(
         lispd_locators_list    *locator_list,
-        uint64_t                nonce)
+        uint64_t                nonce,
+        uint8_t                 msg_type)
 {
-    lispd_locator_elt           *locator    = NULL;
-    lcl_locator_extended_info   *ext_info   = NULL;
+    lispd_locator_elt           *locator        = NULL;
+    nat_info_str                *nat_info       = NULL;
+    rmt_locator_extended_info   *rmt_ext_info   = NULL;
 
-    while (locator_list != NULL){
-        locator = locator_list->locator;
-        ext_info = (lcl_locator_extended_info *)(locator->extended_info);
-        if (ext_info->nat_info != NULL && check_nonce(ext_info->nat_info->inf_req_nonce,nonce) == GOOD){
-            return (locator);
+    switch (msg_type){
+    case LISP_MAP_NOTIFY:
+        while (locator_list != NULL){
+            locator = locator_list->locator;
+            nat_info = ((lcl_locator_extended_info *)(locator->extended_info))->nat_info;
+            if (nat_info != NULL && check_nonce(nat_info->emap_reg_nonce,nonce) == GOOD){
+                return (locator);
+            }
+            locator_list = locator_list->next;
         }
-        locator_list = locator_list->next;
+        break;
+    case LISP_INFO_NAT:
+        while (locator_list != NULL){
+            locator = locator_list->locator;
+            nat_info = ((lcl_locator_extended_info *)(locator->extended_info))->nat_info;
+            if (nat_info != NULL && check_nonce(nat_info->inf_req_nonce,nonce) == GOOD){
+                return (locator);
+            }
+            locator_list = locator_list->next;
+        }
+        break;
+    case LISP_MAP_REPLY:
+        while (locator_list != NULL){
+            locator = locator_list->locator;
+            rmt_ext_info = (rmt_locator_extended_info *)(locator->extended_info);
+            if (check_nonce(rmt_ext_info->rloc_probing_nonces,nonce) == GOOD){
+                return (locator);
+            }
+            locator_list = locator_list->next;
+        }
+        break;
     }
+
 
     return (NULL);
 }

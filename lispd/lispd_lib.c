@@ -559,8 +559,8 @@ lispd_addr_list_t *lispd_get_address(
     hints.ai_flags = (disable_name_resolution == TRUE) ? AI_NUMERICHOST : AI_PASSIVE;
     hints.ai_protocol = IPPROTO_UDP;    /* we are interested in UDP only */
 
-    if (getaddrinfo( addr_str, 0, &hints, &servinfo) != 0) {
-        lispd_log_msg( LISP_LOG_WARNING, "get_addr_info: %s", strerror(errno) );
+    if ((err = getaddrinfo( addr_str, 0, &hints, &servinfo)) != 0) {
+        lispd_log_msg( LISP_LOG_WARNING, "get_addr_info: %s %d", strerror(err) );
         return( NULL );
     }
     /* iterate over addresses */
@@ -960,14 +960,14 @@ int compare_lisp_addr_t (
 	    return (-1);
 	}
 	if (addr1->afi != addr2->afi){
-		return (-1);
+	    return (-1);
 	}
 	if (addr1->afi == AF_INET){
-		cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
+	    cmp = memcmp(&(addr1->address.ip),&(addr2->address.ip),sizeof(struct in_addr));
 	}else if (addr1->afi == AF_INET6){
-			cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
+	    cmp = memcmp(&(addr1->address.ipv6),&(addr2->address.ipv6),sizeof(struct in6_addr));
 	}else{
-		return (-1);
+	    return (-1);
 	}
 	if (cmp == 0){
 		return (0);

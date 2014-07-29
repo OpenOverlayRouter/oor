@@ -44,11 +44,14 @@ void init_smr(
         timer *timer_elt,
         void  *arg);
 
-/*
+/**
  * Send initial Map Register associated to the SMR process
  * We notify to the mapping system the change of mapping
+ * @param mapping Mapping modified
+ * @param src_locator Locator to be used to send the control messages. If NULL, default iface
+ * @return GOOD if finish correctly or an error code otherwise
  */
-int smr_send_map_reg(lispd_mapping_elt *mapping);
+int smr_send_map_reg(lispd_mapping_elt *mapping, lispd_locator_elt *src_locator);
 
 /*
  * Send a map request smr invoked and reprogram the timer to retransmit in case

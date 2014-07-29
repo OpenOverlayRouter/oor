@@ -487,7 +487,8 @@ void process_nl_new_link (struct nlmsghdr *nlh)
         }
     }
 
-    if ((ifi->ifi_flags & IFF_RUNNING) != 0){
+    // We relaxed condition to be UP from IFF_RUNNING to only IFF_UP
+    if ((ifi->ifi_flags & IFF_UP) != 0){
         lispd_log_msg(LISP_LOG_DEBUG_1, "process_nl_new_link: Interface %s changes its status to UP",iface->iface_name);
         status = UP;
     }
@@ -675,7 +676,6 @@ void process_new_gateway (
     if (smr_timer == NULL){
         smr_timer = create_timer (SMR_TIMER);
     }
-
     start_timer(smr_timer, LISPD_SMR_TIMEOUT,(timer_callback)init_smr, NULL);
 
 }
@@ -909,7 +909,6 @@ void process_link_status_change(
     if (smr_timer == NULL){
         smr_timer = create_timer (SMR_TIMER);
     }
-
     start_timer(smr_timer, LISPD_SMR_TIMEOUT,(timer_callback)init_smr, NULL);
 
 }

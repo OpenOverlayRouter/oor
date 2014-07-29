@@ -33,7 +33,7 @@ define Package/lispmob
   CATEGORY:=Network
   TITLE:=Locator/ID separation protocol (using TUN)
   URL:=https://github.com/LISPmob
-  DEPENDS:= +librt +libopenssl +confuse +kmod-tun +uci +kmod-ipv6 +luci
+  DEPENDS:= +librt +confuse +kmod-tun +uci +kmod-ipv6 +luci
   $(call Package/lispmob/default)
 endef
 

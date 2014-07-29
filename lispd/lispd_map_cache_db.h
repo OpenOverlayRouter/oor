@@ -41,7 +41,7 @@
 /*
  * create database
  */
-void map_cache_init();
+int map_cache_init();
 
 /*
  * Return map cache data base

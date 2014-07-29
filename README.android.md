@@ -1,48 +1,63 @@
-Android
+﻿Android
 --------
 
-Since version 0.4, LISPmob integrates support for Android devices as LISP
-mobile nodes. Functionalities are limited to one IPv4 and one IPv6 EID mapped
-to RLOCs of one interface (no multihoming support). If you require NAT
-functionality, it is recommended you first read the NAT traversal section of
-the README.md file.
+Since version 0.4.0, LISPmob includes support for Android devices operating as 
+LISP mobile nodes (LISP-MN). There are two different editions of the LISPmob 
+Android application, for rooted devices and for non-rooted devices. It is 
+expected that in the future the root version will provide features beyond those 
+available on the non-root version, however on LISPmob 0.4.1 there is just one 
+root-only feature, support for IPv6 RLOCs. In both editions, there is a limit of
+one IPv4 EID and one IPv6 EID mapped to one or more RLOC interfaces. Even though
+ several interfaces can be managed by LISPmob at the same time, they can only be
+ used in an active-backup fashion (no more than one interface used at once). 
+Should you need to use NAT traversal functionality, please read first the NAT 
+traversal section on the general LISPmob README.md file.
 
 Installation
 ------------
 
-To install LISPmob on your device, you require root access and Android version 
-2.3.6 or higher. You can download a precompiled APK package file from the LISPmob
-website or compile it yourself. In both cases the device must be configured to
-allow the installation of packages from "unknown sources" (System Settings ->
-Security -> Device Administration).
+The two different editions of the LISPmob application have different 
+requirements. LISPmob for rooted devices requires root access and Android 
+version 2.3.6 or higher, while LISPmob for non-rooted devices requires Android 
+4.0 or higher. Please note that due to a bug on Android 4.4.0 and onwards, the 
+non-rooted version of LISPmob will not work on Android 4.4.0, 4.4.1, 4.4.2 or 
+4.4.3. The bug was fixed on Android 4.4.4. To ease the installation process we 
+strongly recommend installing LISPmob through Google Play (search for “lispmob”),
+however you can also download a precompiled APK package file from the LISPmob 
+website or compile the app from sources yourself. In any case, if you choose to 
+install LISPmob without using Google Play, the device must be configured to 
+allow the installation of packages from "unknown sources" (System Settings -> 
+Security -> Device Administration). 
 
-To build LISPmob for Android from source code you require some extra packages
-apart from the ones specified in the main README.md file.
+Building the code from source is supported on Linux and Mac OS X. To build 
+LISPmob for Android from source code you require some extra packages beside 
+those specified in the main README.md file.
 
   * Android SDK: [http://developer.android.com/sdk/]
   * Android NDK: [http://developer.android.com/tools/sdk/ndk/]
   * Apache Ant
 
-Since the Android code uses git submodules, you need to build from a git
-repository checkout.  Get the latest version of the LISPmob source from
-Github:
+Since the Android code uses git submodules, you need to build from a git 
+repository checkout. To get the latest version of the LISPmob source from Github:
 
     git clone git://github.com/LISPmob/lispmob.git
     cd lispmob
     git submodule init
     git submodule update
 
-To build the code, enter the `android/` directory located in the top-level
-directory and modify the `local.properties` file with the path to your Android
-SDK and Android NDK.  In the Android SDK Manager you should either have
-Android 4.2.2 (API 17) installed, or update the `project.properties` file to
-specify the target API you have installed. Please note that regardless of the
-target API you have installed, LISPmob should still work on all Android
-releases from API 9 (Android 2.3 Gingerbread) and above.
+To build the code, go to the `android/` directory located in the top-level 
+directory and modify the `local.properties` file with the correct path to your 
+Android SDK and Android NDK.  In the Android SDK Manager you should either have
+installed Android 4.2.2 (API 17), or update the `project.properties` file to
+specify your currently installed API. Please note that regardless of the target 
+API, LISPmob for rooted devices should still work on all Android releases from 
+API 9 (Android 2.3 Gingerbread) and above, and the non-rooted version should 
+work on releases from API 14 (Android 4.0 Ice Cream Sandwich) and above.
 
-Compile the code:
+Compile the code with:
 
     cd android
+    ./select_appl.bash
     ant debug
 
 This command generates an APK file called `lispmob-debug.apk` in the folder
@@ -51,16 +66,16 @@ the android application manager, or run:
 
     adb install [-r] bin/lispmob-debug.apk
 
-Building the code from source is supported on Linux and Mac OS X.
 
 Running LISPmob
 ---------------
 
-LISPmob Android application allows you to start and stop lispd daemon and edit the 
-most important parameters of the configuration file. To access to the full list of 
-features you have to edit manually the configuration file located in 
-/sdcard/lispd.conf.  Manually edited parameters not present in the configuration 
-form will be overwritten when using the application configuration editor. 
+LISPmob Android application allows you to start and stop the lispd daemon and 
+edit the most important parameters of the configuration file. To access the full
+list of configurable parameters you have to edit manually the configuration file
+located in /sdcard/lispd.conf.  Manually edited parameters not present in the 
+graphical configuration interface will be overwritten when using the graphical 
+configuration editor. 
 
 Due to the large amount of data generated by the lispd daemon, it is recommended 
 to set "log level" to 0 when not debugging.

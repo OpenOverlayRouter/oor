@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="lispmob" default="help">
-
+    
     <!-- The local.properties file is created and updated by the 'android' tool.
          It contains the path to the SDK. It should *NOT* be checked into
          Version Control Systems. -->
@@ -68,18 +68,17 @@
     -->
 
     <target name="-pre-build">
-    	<exec executable="${ndk.dir}/ndk-build" dir="./jni/" failonerror="true">
-		<arg value="NDK_DEBUG=1"/>
-	</exec>
-        <!--<move file="./libs/armeabi/lispd" tofile="./libs/armeabi/liblispd.so"/>-->
+        <exec executable="${ndk.dir}/ndk-build" dir="./jni/" failonerror="true">
+            <arg value="NDK_DEBUG=1"/>
+        </exec>
     </target>
     
     
-	<target name="clean" depends="android_rules.clean">
-    	<exec executable="${ndk.dir}/ndk-build" dir="./jni/" failonerror="true">
-        	<arg value="clean"/>
-    	</exec>
-	</target>
+    <target name="clean" depends="android_rules.clean">
+        <exec executable="${ndk.dir}/ndk-build" dir="./jni/" failonerror="true">
+            <arg value="clean"/>
+        </exec>
+    </target>
 
     <import file="custom_rules.xml" optional="true" />
 

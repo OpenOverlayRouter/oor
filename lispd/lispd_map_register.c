@@ -49,6 +49,7 @@ int encapsulated_map_register_process(timer_map_register_argument *timer_arg);
 
 /*
  * Send a Map Register to all the local mappings of the database
+ * (no nat aware)
  */
 int initial_map_register_process()
 {
@@ -85,7 +86,7 @@ int map_register(
     int result = 0;
     timer_map_register_argument *timer_arg       = (timer_map_register_argument *)arg;
     lispd_mapping_elt           *mapping         = timer_arg->mapping;
-    lcl_mapping_extended_info   *map_ext_inf     = (lcl_mapping_extended_info *)(mapping->extended_info);
+    lispd_locator_elt           *src_locator     = timer_arg->src_locator;
     lispd_locators_list         *loc_list[2]     = {mapping->head_v4_locators_list, mapping->head_v6_locators_list};
     lispd_locator_elt           *locator         = NULL;
     nat_info_str                *nat_info        = NULL;
@@ -94,12 +95,12 @@ int map_register(
     uint8_t                     all_loc_ready    = TRUE;
 
 
-    if (!map_servers) {
-        lispd_log_msg(LISP_LOG_CRIT, "map_register: No Map Servers conifgured!");
-        exit_cleanup();
-    }
-
     if(nat_aware==TRUE){ /* NAT procedure instead of the standard one */
+
+        if (src_locator == NULL){
+            lispd_log_msg(LISP_LOG_ERR, "map_register: Init Encap Map Register process without source locator. It should never happen");
+            exit_cleanup();
+        }
 
         for (ctr=0; ctr < 2; ctr ++){
             /* Check the NAT status of all locators. We should have information of all of them to proceed */
@@ -117,10 +118,11 @@ int map_register(
             result = encapsulated_map_register_process(timer_arg);
         }else{
             // XXX To check the number of retries. If we never receive a Map Reply --> New status in Inf req?
-            if (map_ext_inf->map_reg_timer == NULL) {
-                map_ext_inf->map_reg_timer = create_timer(MAP_REGISTER_TIMER);
+            nat_info = ((lcl_locator_extended_info *)src_locator->extended_info)->nat_info;
+            if (nat_info->emap_reg_timer == NULL) {
+                nat_info->emap_reg_timer = create_timer(MAP_REGISTER_TIMER);
             }
-            start_timer(map_ext_inf->map_reg_timer, LISPD_INITIAL_MR_TIMEOUT, map_register, timer_arg);
+            start_timer(nat_info->emap_reg_timer, LISPD_INITIAL_MR_TIMEOUT, map_register, timer_arg);
             lispd_log_msg(LISP_LOG_DEBUG_1, "NAT locators status unknown. Reprogrammed map register for %s/%d in %d seconds",
                     get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length,LISPD_INITIAL_MR_TIMEOUT);
             return(BAD);
@@ -191,14 +193,10 @@ int encapsulated_map_register_process(timer_map_register_argument *timer_arg)
 {
     lispd_mapping_elt         *mapping          = timer_arg->mapping;
     lispd_locator_elt         *src_locator      = timer_arg->src_locator;
-    lcl_mapping_extended_info *extended_info    = (lcl_mapping_extended_info *)mapping->extended_info;
-    nonces_list               *nonces           = extended_info->map_reg_nonce;
-    lispd_locators_list       *locators_list[2] = {NULL, NULL};
-    lispd_locator_elt         *locator          = NULL;
-    lispd_locator_elt         *aux_locator      = NULL;
+    nat_info_str              *nat_info         = ((lcl_locator_extended_info *)src_locator->extended_info)->nat_info;;
+    nonces_list               *nonces           = nat_info->emap_reg_nonce;
     lisp_addr_t               *rtr_addr          = NULL;
     int                       next_timer_time   = 0;
-    int                       ctr               = 0;
 
     if (nonces == NULL){
         nonces = new_nonces_list();
@@ -206,7 +204,7 @@ int encapsulated_map_register_process(timer_map_register_argument *timer_arg)
             lispd_log_msg(LISP_LOG_WARNING,"encapsulated_map_register_process: Unable to allocate memory for nonces.");
             return (BAD);
         }
-        extended_info->map_reg_nonce = nonces;
+        nat_info->emap_reg_nonce = nonces;
     }
     if (nonces->retransmits <= LISPD_MAX_RETRANSMITS){
 
@@ -217,35 +215,14 @@ int encapsulated_map_register_process(timer_map_register_argument *timer_arg)
 
         if (mapping->locator_count != 0){
 
-            if (src_locator != NULL && ((lcl_locator_extended_info *)src_locator->extended_info)->nat_info->rtr_locators_list != NULL){
-                locator = src_locator;
-            }else{
-                /* Find the locator behind NAT */
-                locators_list[0] = mapping->head_v4_locators_list;
-                locators_list[1] = mapping->head_v6_locators_list;
-                for (ctr = 0 ; ctr < 2 ; ctr++){
-                    while (locators_list[ctr] != NULL){
-                        aux_locator = locators_list[ctr]->locator;
-                        if ((((lcl_locator_extended_info *)aux_locator->extended_info)->nat_info->rtr_locators_list) != NULL){
-                            locator = aux_locator;
-                            break;
-                        }
-                        locators_list[ctr] = locators_list[ctr]->next;
-                    }
-                    if (locator != NULL){
-                        timer_arg->src_locator = locator;
-                        break;
-                    }
-                }
-            }
             /* If found a locator behind NAT, send Encapsulated Map Register */
-            if (locator != NULL){
-                rtr_addr = &(((lcl_locator_extended_info *)locator->extended_info)->nat_info->rtr_locators_list->locator->address);
+            if (nat_info->rtr_locators_list != NULL){
+                rtr_addr = &(nat_info->rtr_locators_list->locator->address);
                 /* ECM map register only sent to the first Map Server */
                 err = build_and_send_ecm_map_register(mapping,
                         map_servers,
                         rtr_addr,
-                        locator->locator_addr,
+                        src_locator->locator_addr,
                         &site_ID,
                         &xTR_ID,
                         &(nonces->nonce[nonces->retransmits]));
@@ -253,18 +230,14 @@ int encapsulated_map_register_process(timer_map_register_argument *timer_arg)
                     lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register.");
                 }
             }else{
-                if (locator == NULL){
-                    lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No RTR found");
-                }else{
-                    lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No output interface found");
-                }
+                lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Couldn't send encapsulated map register. No RTR found");
             }
             nonces->retransmits++;
             next_timer_time = LISPD_INITIAL_MR_TIMEOUT;
         }
     }else{
         free (nonces);
-        extended_info->map_reg_nonce = NULL;
+        nat_info->emap_reg_nonce = NULL;
         lispd_log_msg(LISP_LOG_ERR,"encapsulated_map_register_process: Communication error between LISPmob and RTR/MS. Retry after %d seconds",MAP_REGISTER_INTERVAL);
 //#ifdef VPNAPI
 //        ipc_send_log_msg(MAP_REG_ERR);
@@ -275,10 +248,10 @@ int encapsulated_map_register_process(timer_map_register_argument *timer_arg)
     /*
      * Configure timer to send the next map register.
      */
-    if (extended_info->map_reg_timer == NULL) {
-        extended_info->map_reg_timer = create_timer(MAP_REGISTER_TIMER);
+    if (nat_info->emap_reg_timer == NULL) {
+        nat_info->emap_reg_timer = create_timer(MAP_REGISTER_TIMER);
     }
-    start_timer(extended_info->map_reg_timer, next_timer_time, map_register, timer_arg);
+    start_timer(nat_info->emap_reg_timer, next_timer_time, map_register, timer_arg);
     return(GOOD);
 }
 

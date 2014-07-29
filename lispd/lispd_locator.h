@@ -84,6 +84,8 @@ typedef struct nat_info_str_ {
     lisp_addr_t                 *public_addr;
     nonces_list                 *inf_req_nonce;
     timer                       *inf_req_timer;
+    nonces_list                 *emap_reg_nonce;
+    timer                       *emap_reg_timer;
 }nat_info_str;
 
 
@@ -261,9 +263,10 @@ lispd_locator_elt *get_locator_from_list(
 /*
  * Return the locator from the list that contains the nonce passed as a parameter
  */
-lispd_locator_elt *nat_get_locator_with_nonce(
+lispd_locator_elt *get_locator_with_nonce(
         lispd_locators_list    *locator_list,
-        uint64_t                nonce);
+        uint64_t                nonce,
+        uint8_t                 msg_type);
 
 /*
  * Remove the locator from the list matching the specified address.

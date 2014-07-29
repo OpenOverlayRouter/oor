@@ -53,6 +53,8 @@ int process_map_notify(uint8_t *packet)
     lispd_mapping_elt                   *mapping                    = NULL;
     lispd_mapping_list                  *mappings_list              = NULL;
     lcl_mapping_extended_info           *extended_info              = NULL;
+    lispd_locator_elt                   *src_locator                = NULL;
+    nat_info_str                        *nat_info                   = NULL;
 
     int                                 eid_afi                     = 0;
     int                                 loc_afi                     = 0;
@@ -166,13 +168,16 @@ int process_map_notify(uint8_t *packet)
 
     		/* Check the nonce of data Map Notify*/
     		if (map_notify->xtr_id_present == TRUE){
-    			if (check_nonce(extended_info->map_reg_nonce,map_notify->nonce) == GOOD){
+    		    // XXX We find the src_locator from the nonce instead of from the received interface
+    		    src_locator = get_locator_from_mapping_with_nonce(mapping, map_notify->nonce, LISP_MAP_NOTIFY);
+    			if (src_locator != NULL){
+    			    nat_info = ((lcl_locator_extended_info *)src_locator->extended_info)->nat_info;
     				lispd_log_msg(LISP_LOG_DEBUG_2, "Data Map Notify with nonce %s confirms correct registration of the prefix %s/%d",
     				        get_char_from_nonce(map_notify->nonce),
     						get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length);
-    				free(extended_info->map_reg_nonce);
-    				extended_info->map_reg_nonce = NULL;
-        			start_timer(extended_info->map_reg_timer, MAP_REGISTER_INTERVAL, map_register, extended_info->map_reg_timer->cb_argument);
+    				free(nat_info->emap_reg_nonce);
+    				nat_info->emap_reg_nonce = NULL;
+        			start_timer(nat_info->emap_reg_timer, MAP_REGISTER_INTERVAL, map_register, nat_info->emap_reg_timer->cb_argument);
         			lispd_log_msg(LISP_LOG_DEBUG_1, "Reprogrammed encapsulated map register for %s/%d in %d seconds",
         			    		get_char_from_lisp_addr_t(mapping->eid_prefix), mapping->eid_prefix_length,MAP_REGISTER_INTERVAL);
 

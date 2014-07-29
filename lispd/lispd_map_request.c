@@ -648,7 +648,7 @@ int send_map_request_miss(timer *t, void *arg)
         map_cache_entry->nonces = nonces;
     }
 
-    if ( nonces->retransmits - 1 <= map_request_retries ){
+    if ( nonces->retransmits  <= map_request_retries ){
 
         if (map_cache_entry->request_retry_timer == NULL){
             map_cache_entry->request_retry_timer = create_timer (MAP_REQUEST_RETRY_TIMER);
@@ -737,7 +737,7 @@ int send_ddt_map_request_miss(timer *t, void *arg)
         map_cache_entry->nonces = nonces_map_cache;
         nonces_map_cache->retransmits = 1;
     }
-    if ( nonces_referral->retransmits - 1 <= map_request_retries ){
+    if ( nonces_referral->retransmits <= map_request_retries ){
 
         if (nonces_referral->retransmits > 0){
             lispd_log_msg(LISP_LOG_DEBUG_1,"send_ddt_map_request_miss: Retransmiting DDT Map Request for EID: %s (%d retries)",

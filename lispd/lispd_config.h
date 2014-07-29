@@ -42,7 +42,7 @@
 /*
  *  Get command line args and set up whatever is needed
  */
-void handle_lispd_command_line(int argc, char **argv);
+int handle_lispd_command_line(int argc, char **argv);
 
 
 
