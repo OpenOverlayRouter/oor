@@ -44,7 +44,21 @@ repository checkout. To get the latest version of the LISPmob source from Github
     cd lispmob
     git submodule init
     git submodule update
+    
+Install androgenizer in order to compile json-c:
 
+    cd android/jni/androgenizer
+    autoreconf -i
+    ./configure
+    make
+    make install
+    
+Compile json-c
+
+    cd android/jni/json-c
+    ./autogen.sh os=-linux-android
+    make Android.mk
+            
 To build the code, go to the `android/` directory located in the top-level 
 directory and modify the `local.properties` file with the correct path to your 
 Android SDK and Android NDK.  In the Android SDK Manager you should either have
