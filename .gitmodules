@@ -1,3 +1,6 @@
 [submodule "android/jni/json-c"]
 	path = android/jni/json-c
 	url = git://github.com/json-c/json-c.git
+[submodule "android/jni/androgenizer"]
+	path = android/jni/androgenizer
+	url = https://github.com/qdii/androgenizer

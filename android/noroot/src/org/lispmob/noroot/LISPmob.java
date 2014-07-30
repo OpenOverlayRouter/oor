@@ -38,7 +38,7 @@ import java.io.InputStreamReader;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import org.lispmob.root.R;
+import org.lispmob.noroot.R;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
