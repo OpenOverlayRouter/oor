@@ -62,10 +62,8 @@ glist_t *
 glist_new_complete(glist_cmp_fct cmp_fct, glist_del_fct del_fct)
 {
     glist_t *glist = NULL;
+    glist = xzalloc(sizeof(glist_t));
 
-    if (!(glist = xzalloc(sizeof(glist_t)))) {
-        return(NULL);
-    }
     glist_init_complete(glist, cmp_fct, del_fct);
     return(glist);
 }
@@ -117,7 +115,7 @@ glist_add(void *data, glist_t *glist)
     }
     glist->size++;
 
-    return(0);
+    return(GOOD);
 }
 
 /**
@@ -134,7 +132,7 @@ glist_add_tail(void *data, glist_t *glist)
     glist_entry_t *new = NULL;
 
     if (glist->cmp_fct) {
-        return(-1);
+        return(BAD);
     }
 
     new = xzalloc(sizeof(glist_entry_t));
@@ -144,7 +142,25 @@ glist_add_tail(void *data, glist_t *glist)
     list_add_tail(&(new->list), &(glist->head.list));
     glist->size++;
 
-    return(0);
+    return(GOOD);
+}
+
+uint8_t
+glist_contain(void *data, glist_t *list)
+{
+    glist_entry_t *entry = NULL;
+    glist_for_each_entry(entry,list){
+        if(list->cmp_fct) {
+            if((*list->cmp_fct)(data, entry->data) == 0){
+                return(TRUE);
+            }
+        }else{
+            if(entry->data == data){
+                return(TRUE);
+            }
+        }
+    }
+    return(FALSE);
 }
 
 /**

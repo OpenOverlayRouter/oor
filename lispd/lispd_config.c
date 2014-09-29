@@ -71,7 +71,7 @@ static lisp_site_prefix_t *build_lisp_site_prefix(lisp_ms_t *, char *, uint32_t,
         int, char *, uint8_t, uint8_t, uint8_t, htable_t *);
 static mapping_t *build_mapping_from_config(cfg_t *, htable_t *, int);
 
-static int link_iface_and_mapping(iface_t *, mapping_t *, int, int, int, int);
+static int link_iface_and_mapping(iface_t *, iface_locators *,mapping_t *, int, int, int, int);
 static int add_rtr_iface(lisp_xtr_t *, char *, int p, int w);
 
 static lisp_addr_t *parse_lisp_addr(char *address, htable_t *lcaf_ht);
@@ -110,7 +110,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
     int                 uci_priority                    = 0;
     int                 uci_weigth                      = 0;
     const char*         uci_interface                   = NULL;
-    int                 uci_iid                         = -1;
+    int                 uci_iid                         = 0;
     const char*         uci_rloc                        = NULL;
     const char*         uci_eid_prefix                  = NULL;
 
@@ -163,7 +163,7 @@ int handle_uci_lispd_config_file(char *uci_conf_file_path) {
         uci_weigth_v6 = 0;
         uci_priority = 0;
         uci_weigth = 0;
-        uci_iid = -1;
+        uci_iid = 0;
         uci_interface = NULL;
         uci_rloc = NULL;
         uci_eid_prefix = NULL;
@@ -929,7 +929,7 @@ handle_lispd_config_file(char *lispdconf_conf_file)
 
     static cfg_opt_t db_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                 -1, CFGF_NONE),
+            CFG_INT("iid",                  0, CFGF_NONE),
             CFG_STR("interface",            0, CFGF_NONE),
             CFG_INT("priority_v4",          0, CFGF_NONE),
             CFG_INT("weight_v4",            0, CFGF_NONE),
@@ -953,7 +953,7 @@ handle_lispd_config_file(char *lispdconf_conf_file)
 
     static cfg_opt_t mc_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
-            CFG_INT("iid",                 -1, CFGF_NONE),
+            CFG_INT("iid",                  0, CFGF_NONE),
             CFG_STR("rloc",                 0, CFGF_NONE),
             CFG_INT("priority",             0, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
@@ -1148,21 +1148,39 @@ validate_priority_weight(int p, int w)
     return (GOOD);
 }
 
-
+/*
+ * Create the locators associated with the address of the iface and assign them
+ * to the mapping_t and the iface_locators
+ * @param iface Interface containing the rlocs associated to the mapping
+ * @param if_loct Structure that associate iface with locators
+ * @param m Mapping where to add the new locators
+ * @param p4 priority of the IPv4 RLOC. 1..255 -1 the IPv4 address is not used
+ * @param w4 weight of the IPv4 RLOC
+ * @param p4 priority of the IPv6 RLOC. 1..255 -1 the IPv6 address is not used
+ * @param w4 weight of the IPv6 RLOC
+ * @return GOOD if finish correctly or an error code otherwise
+ */
 static int
-link_iface_and_mapping(iface_t *iface, mapping_t *m, int p4, int w4,
-        int p6, int w6)
+link_iface_and_mapping(
+        iface_t *iface,
+        iface_locators *if_loct,
+        mapping_t *m,
+        int p4,
+        int w4,
+        int p6,
+        int w6)
 {
     locator_t *locator = NULL;
 
-    /* Assign the mapping to the v4 mappings of the interface. Create IPv4
-     * locator and assign to the mapping  */
+    /* Add mapping to the list of mappings associated to the interface */
+    if (glist_contain(m, if_loct->mappings) == FALSE){
+        glist_add(m,if_loct->mappings);
+    }
+
+    /* Create IPv4 locator and assign to the mapping */
     if ((p4 >= 0) && (default_rloc_afi != AF_INET6)) {
-        if (add_mapping_to_interface(iface, m, AF_INET) != GOOD) {
-            return(BAD);
-        }
         locator = locator_init_local_full(iface->ipv4_address,
-                &(iface->status), p4, w4, 255, 0,
+                iface->status, p4, w4, 255, 0,
                 &(iface->out_socket_v4));
         if (!locator) {
             return(BAD);
@@ -1171,16 +1189,14 @@ link_iface_and_mapping(iface_t *iface, mapping_t *m, int p4, int w4,
         if (mapping_add_locator(m, locator) != GOOD) {
             return(BAD);
         }
+        glist_add(locator,if_loct->ipv4_locators);
     }
 
-    /* Assign the mapping to the v6 mappings of the interface. Create IPv6
-     * locator and assign to the mapping  */
+    /* Create IPv6 locator and assign to the mapping  */
     if ((p6 >= 0) && (default_rloc_afi != AF_INET)) {
-        if (add_mapping_to_interface(iface, m, AF_INET6) != GOOD) {
-            return(BAD);
-        }
+
         locator = locator_init_local_full(iface->ipv6_address,
-                &(iface->status), p6, w6, 255, 0,
+                iface->status, p6, w6, 255, 0,
                 &(iface->out_socket_v6));
 
         if (!locator) {
@@ -1190,19 +1206,28 @@ link_iface_and_mapping(iface_t *iface, mapping_t *m, int p4, int w4,
         if (mapping_add_locator(m, locator) != GOOD) {
             return(BAD);
         }
+        glist_add(locator,if_loct->ipv6_locators);
     }
 
     return(GOOD);
-
 }
 
 static int
-add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
-        int p4, int w4, int p6, int w6)
+add_database_mapping(
+        lisp_xtr_t  *xtr,
+        char        *eid_str,
+        int         iid,
+        char        *iface_name,
+        int         p4,
+        int         w4,
+        int         p6,
+        int         w6)
 {
-    mapping_t *m = NULL;
-    iface_t *interface = NULL;
-    lisp_addr_t eid;
+    mapping_t       *m          = NULL;
+    iface_t         *interface  = NULL;
+    iface_locators  *if_loct    = NULL;
+    lisp_addr_t     eid;
+
 
 
     /* XXX: Don't use IIDs with this method */
@@ -1223,12 +1248,17 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
             return(BAD);
         }
     }
+    if_loct = (iface_locators *)shash_lookup(xtr->iface_locators_table,iface_name);
+    if (if_loct == NULL){
+        if_loct = iface_locators_new(iface_name);
+        shash_insert(xtr->iface_locators_table, iface_name, if_loct);
+    }
 
     /* PARSE AND ADD MAPPING TO XTR*/
-    if (iid > MAX_IID || iid < -1) {
+    if (iid > MAX_IID || iid < 0) {
         LMLOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
                 "disabling...", iid, MAX_IID);
-        iid = -1;
+        iid = 0;
     }
 
     if (validate_priority_weight(p4, w4) != GOOD
@@ -1274,8 +1304,7 @@ add_database_mapping(lisp_xtr_t *xtr, char *eid_str, int iid, char *iface_name,
     }
 
     /* BIND MAPPING TO IFACE */
-    /* FIXME: build rloc to mapping hash */
-    if (link_iface_and_mapping(interface, m, p4, w4, p6, w6) != GOOD) {
+    if (link_iface_and_mapping(interface, if_loct, m, p4, w4, p6, w6) != GOOD) {
         return(BAD);
     }
 
@@ -1337,7 +1366,7 @@ build_mapping_from_config(cfg_t *map, htable_t *lcaf_ht, int local)
     /* add iid to eid-prefix if different from 0 */
     iid = cfg_getint(map, "iid");
 
-    if (iid > MAX_IID || iid < -1) {
+    if (iid > MAX_IID || iid < 0) {
         LMLOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
                 "disabling...", iid, MAX_IID);
         iid = 0;
@@ -1435,7 +1464,7 @@ parse_eid_in_mapping(cfg_t *map, htable_t *lcaf_ht)
     /* add iid to eid-prefix if different from 0 */
     iid = cfg_getint(map, "iid");
 
-    if (iid > MAX_IID || iid < -1) {
+    if (iid > MAX_IID || iid < 0) {
         LMLOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
                 "disabling...", iid, MAX_IID);
         iid = 0;
@@ -1514,14 +1543,14 @@ parse_locator(char *address, int priority, int weight, htable_t *lcaf_ht,
 
         if (!lisp_addr_is_lcaf(rloc)) {
             addr = iface_address(iface, lisp_addr_ip_afi(aux_rloc));
-            locator = locator_init_local_full(addr , &(iface->status),
+            locator = locator_init_local_full(addr , iface->status,
                     priority, weight, 255, 0, &(iface->out_socket_v4));
         } else {
             addr = iface_address(iface, lisp_addr_ip_afi(aux_rloc));
             lcaf_clone = lisp_addr_clone(rloc);
             lcaf_rloc_set_ip_addr(lcaf_clone, addr);
             locator = locator_init_local_full(lcaf_clone ,
-                    &(iface->status), priority, weight, 255, 0,
+                    iface->status, priority, weight, 255, 0,
                     &(iface->out_socket_v4));
         }
 
@@ -1556,7 +1585,6 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
     locator_t *loc = NULL;
     lisp_addr_t *eid_prefix;
     iface_t *iface;
-    int afi;
 
     eid_prefix = parse_eid_in_mapping(map, lcaf_ht);
     if (!eid_prefix) {
@@ -1583,10 +1611,6 @@ add_local_db_mapping(lisp_xtr_t *xtr, cfg_t *map, htable_t *lcaf_ht)
         }
 
         mapping_add_locator(m, loc);
-        afi = lisp_addr_ip_afi(lcaf_rloc_get_ip_addr(locator_addr(loc)));
-        if (add_mapping_to_interface(iface, m, afi) != GOOD) {
-            return(BAD);
-        }
     }
 
     return(mapping_compute_balancing_vectors(m));
@@ -1620,11 +1644,11 @@ add_static_map_cache_entry(lisp_xtr_t *xtr, char *eid, int iid,
     if (iid > MAX_IID) {
         LMLOG(LERR, "Configuration file: Instance ID %d out of range [0..%d],"
                 " disabling...", iid, MAX_IID);
-        iid = -1;
+        iid = 0;
     }
 
     if (iid < 0) {
-        iid = -1;
+        iid = 0;
     }
 
     if (priority < MAX_PRIORITY || priority > UNUSED_RLOC_PRIORITY) {
@@ -1826,10 +1850,15 @@ add_proxy_etr_entry(lisp_xtr_t *xtr, char *address, int priority, int weight)
 }
 
 static int
-add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
+add_rtr_iface(
+        lisp_xtr_t  *xtr,
+        char        *iface_name,
+        int         p,
+        int         w)
 {
-    lisp_addr_t aux_address;
-    iface_t *iface;
+    iface_t         *iface   = NULL;
+    iface_locators  *if_loct = NULL;
+    lisp_addr_t     aux_address;
 
     if (iface_name == NULL){
         LMLOG(LERR, "Configuration file: No interface specified for RTR. "
@@ -1845,10 +1874,16 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
     if ((iface = get_interface(iface_name)) == NULL) {
         iface = add_interface(iface_name);
         if (!iface) {
-            LMLOG(LWRN, "add_database_mapping: Can't create interface %s",
+            LMLOG(LWRN, "add_rtr_iface: Can't create interface %s",
                     iface_name);
             return(BAD);
         }
+    }
+
+    if_loct = (iface_locators *)shash_lookup(xtr->iface_locators_table,iface_name);
+    if (if_loct == NULL){
+        if_loct = iface_locators_new(iface_name);
+        shash_insert(xtr->iface_locators_table, iface_name, if_loct);
     }
 
     if (!xtr->all_locs_map) {
@@ -1856,7 +1891,7 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name, int p, int w)
         xtr->all_locs_map = mapping_init_local(&aux_address);
     }
 
-    if (link_iface_and_mapping(iface, xtr->all_locs_map, p, w, p, w)
+    if (link_iface_and_mapping(iface, if_loct, xtr->all_locs_map, p, w, p, w)
             != GOOD) {
         return(BAD);
     }
@@ -1920,7 +1955,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     if (iid > MAX_IID) {
         LMLOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
                 "disabling...", iid, MAX_IID);
-        iid = -1;
+        iid = 0;
     }
 
     if (iid < 0) {

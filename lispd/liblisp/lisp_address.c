@@ -33,6 +33,7 @@
 
 static inline lm_afi_t get_afi_(lisp_addr_t *laddr);
 static inline void set_afi_(lisp_addr_t *laddr, lm_afi_t lafi);
+static inline lisp_addr_t *new_no_addr_();
 static inline lisp_addr_t *new_ip_();
 static inline lisp_addr_t *new_ippref_();
 static inline lisp_addr_t *new_lcaf_();
@@ -53,6 +54,14 @@ static inline void
 set_afi_(lisp_addr_t *laddr, lm_afi_t lafi)
 {
     laddr->lafi = lafi;
+}
+
+static inline lisp_addr_t *
+new_no_addr_()
+{
+    lisp_addr_t *laddr = lisp_addr_new();
+    set_afi_(laddr, LM_AFI_NO_ADDR);
+    return (laddr);
 }
 
 static inline lisp_addr_t *
@@ -86,6 +95,8 @@ static inline lisp_addr_t *
 new_afi_(lm_afi_t afi)
 {
     switch (afi) {
+    case LM_AFI_NO_ADDR:
+        return (new_no_addr_());
     case LM_AFI_IP:
         return (new_ip_());
     case LM_AFI_IPPREF:
@@ -274,7 +285,7 @@ lisp_addr_ip_afi(lisp_addr_t *addr)
     case LM_AFI_IPPREF:
         return (ip_prefix_afi(get_ippref_(addr)));
     default:
-        LMLOG(LWRN, "lisp_addr_ip_afi: not supported for afi %d",
+        LMLOG(DBG_1, "lisp_addr_ip_afi: not supported for afi %d",
                 get_afi_(addr));
         return (0);
     }
@@ -385,6 +396,9 @@ lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
 {
     set_afi_(dst, lisp_addr_afi(src));
     switch (lisp_addr_afi(dst)) {
+    case LM_AFI_NO_ADDR:
+        LMLOG(DBG_2, "lisp_addr_copy:  No address element copied");
+        break;
     case LM_AFI_IP:
         ip_addr_copy(get_ip_(dst), get_ip_(src));
         break;

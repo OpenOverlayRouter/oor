@@ -31,6 +31,7 @@
 #define SHASH_H_
 
 #include "hash_table.h"
+#include "generic_list.h"
 
 typedef htable_t shash_t;
 
@@ -41,5 +42,9 @@ void shash_insert(shash_t *, const char *, const void *);
 void shash_remove(shash_t *, const char *);
 void *shash_lookup(shash_t *, const char *);
 void shash_destroy(shash_t *sh);
+glist_t *shash_keys(shash_t *sh);
+glist_t *shash_values(shash_t *sh);
+
+
 
 #endif /* SHASH_H_ */

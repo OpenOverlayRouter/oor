@@ -150,7 +150,7 @@ explicit-locator-path {
 		address = <prefix>
 		strict 	= <bool>
 		probe	= <bool>
-		lookup 	= <bool
+		lookup 	= <bool>
 	} 
 ...
 }

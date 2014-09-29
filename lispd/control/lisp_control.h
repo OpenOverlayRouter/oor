@@ -55,7 +55,6 @@ void ctrl_init(lisp_ctrl_t *ctrl);
 
 int ctrl_recv_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
-int ctrl_get_mappings_to_smr(lisp_ctrl_t *, glist_t *);
 
 
 glist_t *ctrl_default_rlocs(lisp_ctrl_t *c);

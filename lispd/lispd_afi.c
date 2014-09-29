@@ -138,11 +138,11 @@ int extract_nat_lcaf_data(
         rtr_locators_list_t         **rtr_list,
         uint32_t                        *length)
 {
-    lcaf_hdr_t         *pkt_lcaf               = NULL;
+    lcaf_hdr_t               *pkt_lcaf               = NULL;
     lispd_pkt_nat_lcaf_t     *pkt_nat_lcaf           = NULL;
-    rtr_locators_list_t  *rtr_locator_list       = NULL;
-    rtr_locator_t        *rtr_locator            = NULL;
-    lisp_addr_t              rtr_address             = {.afi=AF_UNSPEC};
+    rtr_locators_list_t      *rtr_locator_list       = NULL;
+    rtr_locator_t            *rtr_locator            = NULL;
+    lisp_addr_t              rtr_address             = {.afi=LM_AFI_NO_ADDR};
     uint8_t                  *ptr                    = offset;
     uint32_t                 lcaf_length             = 0;
     uint32_t                 cumulative_add_length   = 0;

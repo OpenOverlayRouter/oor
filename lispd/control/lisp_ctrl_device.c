@@ -95,9 +95,9 @@ send_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc)
 
 
 int
-ctrl_if_event(lisp_ctrl_dev_t *dev)
+ctrl_if_event(lisp_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr, lisp_addr_t *new_addr, uint8_t status)
 {
-    dev->ctrl_class->if_event(dev);
+    dev->ctrl_class->if_event(dev, iface_name, old_addr, new_addr, status);
     return(GOOD);
 }
 

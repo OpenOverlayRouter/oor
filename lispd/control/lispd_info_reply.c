@@ -69,7 +69,7 @@ int process_info_reply_msg(
 
     uint32_t                    ttl                     = 0;
     uint8_t                     eid_mask_len            = 0;
-    lisp_addr_t                 eid_prefix              = {.afi=AF_UNSPEC};
+    lisp_addr_t                 eid_prefix              = {.afi=LM_AFI_NO_ADDR};
 
     uint16_t                    ms_udp_port             = 0;
     uint16_t                    etr_udp_port            = 0;
@@ -80,9 +80,9 @@ int process_info_reply_msg(
 
 	uint16_t                    *lcaf_afi               = NULL;
 
-    lisp_addr_t                 global_etr_rloc         = {.afi=AF_UNSPEC};
-    lisp_addr_t                 ms_rloc                 = {.afi=AF_UNSPEC};
-    lisp_addr_t                 private_etr_rloc        = {.afi=AF_UNSPEC};
+    lisp_addr_t                 global_etr_rloc         = {.afi=LM_AFI_NO_ADDR};
+    lisp_addr_t                 ms_rloc                 = {.afi=LM_AFI_NO_ADDR};
+    lisp_addr_t                 private_etr_rloc        = {.afi=LM_AFI_NO_ADDR};
     rtr_locators_list_t     *rtr_locators_list      = NULL;
 
     mapping_t           *mapping                = NULL;

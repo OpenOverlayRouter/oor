@@ -77,3 +77,13 @@ shash_destroy(shash_t *sh)
         htable_destroy(sh);
     }
 }
+
+glist_t *shash_keys(shash_t *sh)
+{
+    return (htable_keys(sh));
+}
+
+glist_t *shash_values(shash_t *sh)
+{
+    return (htable_values(sh));
+}

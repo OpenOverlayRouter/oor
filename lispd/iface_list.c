@@ -131,8 +131,6 @@ iface_remove_routing_rules(iface_t *iface)
 void
 iface_destroy(iface_t *iface)
 {
-    iface_map_list_t *it, *next;
-
     /* Remove routing rules */
     iface_remove_routing_rules(iface);
 
@@ -142,15 +140,6 @@ iface_destroy(iface_t *iface)
     }
     if (iface->out_socket_v6 != -1) {
         close(iface->out_socket_v6);
-    }
-
-    it = iface->head_mappings_list;
-    while (it) {
-        next = it->next;
-        free(it);
-        /* DO NOT free the mapping. It will be freed when
-         * the local database is destroyed */
-        it = next;
     }
 
     /* Free data structure */
@@ -280,7 +269,6 @@ iface_setup(iface_t *iface, char* iface_name, int afi)
                 addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
     } else {
         *sock = -1;
-//        lisp_addr_ip_set_afi(addr, AF_UNSPEC);
         lisp_addr_set_afi(addr, LM_AFI_NO_ADDR);
         return(BAD);
     }
@@ -311,10 +299,8 @@ add_interface(char *iface_name)
     iface->iface_index = if_nametoindex(iface_name);
 
     /* set up all fields to default, null values */
-    iface->ipv4_address = lisp_addr_new_afi(LM_AFI_IP);
-    lisp_addr_set_afi(iface->ipv4_address, LM_AFI_NO_ADDR);
-    iface->ipv6_address = lisp_addr_new_afi(LM_AFI_IP);
-    lisp_addr_set_afi(iface->ipv6_address, LM_AFI_NO_ADDR);
+    iface->ipv4_address = lisp_addr_new_afi(LM_AFI_NO_ADDR);
+    iface->ipv6_address = lisp_addr_new_afi(LM_AFI_NO_ADDR);
     iface->out_socket_v4 = -1;
     iface->out_socket_v6 = -1;
 
@@ -340,10 +326,6 @@ add_interface(char *iface_name)
         iface->status = UP;
     }
 
-    iface->head_mappings_list = NULL;
-    iface->status_changed = TRUE;
-    iface->ipv4_changed = TRUE;
-    iface->ipv6_changed = TRUE;
     iface->ipv4_gateway = NULL;
     iface->ipv6_gateway = NULL;
     iface_list->iface = iface;
@@ -362,63 +344,6 @@ add_interface(char *iface_name)
     LMLOG(DBG_2, "Interface %s with index %d added to interfaces lists\n",
             iface_name, iface->iface_index);
     return (iface);
-}
-
-
-/* Add the mapping to the list of mappings of the interface according to the
- * afi. The mapping is added just one time */
-int
-add_mapping_to_interface(iface_t *iface, mapping_t *m, int afi)
-{
-    iface_map_list_t *map_list = NULL;
-    iface_map_list_t *prev_map_list = NULL;
-
-    map_list = iface->head_mappings_list;
-    while (map_list != NULL) {
-        /* Check if the mapping is already installed in the list */
-        if (map_list->mapping == m) {
-            switch (afi) {
-            case AF_INET:
-                map_list->use_ipv4_address = TRUE;
-                break;
-            case AF_INET6:
-                map_list->use_ipv6_address = TRUE;
-                break;
-            }
-            LMLOG(DBG_2, "The EID %s has been previously assigned to the RLOCs"
-                    " of the iface %s", lisp_addr_to_char(mapping_eid(m)),
-                    iface->iface_name);
-            return (GOOD);
-        }
-        prev_map_list = map_list;
-        map_list = map_list->next;
-    }
-
-    map_list = xmalloc(sizeof(iface_map_list_t));
-    map_list->mapping = m;
-    map_list->next = NULL;
-
-    switch (afi) {
-    case AF_INET:
-        map_list->use_ipv4_address = TRUE;
-        map_list->use_ipv6_address = FALSE;
-        break;
-    case AF_INET6:
-        map_list->use_ipv4_address = FALSE;
-        map_list->use_ipv6_address = TRUE;
-        break;
-    }
-
-    if (prev_map_list != NULL) {
-        prev_map_list->next = map_list;
-    } else {
-        iface->head_mappings_list = map_list;
-    }
-
-    LMLOG(DBG_2, "The EID %s has been assigned to the RLOCs of the interface "
-            "%s", lisp_addr_to_char(mapping_eid(m)), iface->iface_name);
-
-    return (GOOD);
 }
 
 
@@ -501,9 +426,7 @@ void
 iface_list_to_char(int log_level)
 {
     iface_t *iface;
-    mapping_t *m;
     iface_list_elt_t *interface_list = head_interface_list;
-    iface_map_list_t *mapping_list = NULL;
     char str[4000];
 
     if (head_interface_list == NULL || is_loggable(log_level) == FALSE) {
@@ -519,30 +442,10 @@ iface_list_to_char(int log_level)
         if (iface->ipv4_address) {
             sprintf(str + strlen(str), "  IPv4 RLOC: %s \n",
                     lisp_addr_to_char(iface->ipv4_address));
-            sprintf(str + strlen(str), "    -- LIST mappings -- \n");
-            mapping_list = iface->head_mappings_list;
-            while (mapping_list) {
-                m = mapping_list->mapping;
-                if (mapping_list->use_ipv4_address == TRUE) {
-                    sprintf(str + strlen(str), "    %s\n",
-                            lisp_addr_to_char(mapping_eid(m)));
-                }
-                mapping_list = mapping_list->next;
-            }
         }
         if (iface->ipv6_address) {
             sprintf(str + strlen(str), "  IPv6 RLOC: %s \n",
                     lisp_addr_to_char(iface->ipv6_address));
-            sprintf(str + strlen(str), "    -- LIST mappings -- \n");
-            mapping_list = iface->head_mappings_list;
-            while (mapping_list) {
-                m = mapping_list->mapping;
-                if (mapping_list->use_ipv6_address == TRUE) {
-                    sprintf(str + strlen(str), "    %s\n",
-                            lisp_addr_to_char(mapping_eid(m)));
-                }
-                mapping_list = mapping_list->next;
-            }
         }
         interface_list = interface_list->next;
     }
@@ -799,19 +702,6 @@ iface_socket(iface_t *iface, int afi)
 iface_list_elt_t *ifaces_list_head()
 {
     return head_interface_list;
-}
-
-
-/* Recalculate balancing vector of the mappings associated to iface */
-void
-iface_balancing_vectors_calc(iface_t *iface) {
-    iface_map_list_t *mapping_list = NULL;
-
-    mapping_list = iface->head_mappings_list;
-    while (mapping_list != NULL) {
-        mapping_compute_balancing_vectors(mapping_list->mapping);
-        mapping_list = mapping_list->next;
-    }
 }
 
 

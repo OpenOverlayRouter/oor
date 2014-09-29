@@ -460,6 +460,47 @@ get_new_chunk(htable_t *ht)
         }
         it->next = chunk;
     }
+}
 
+glist_t *htable_keys(htable_t *hash_table)
+{
+    glist_t *keys_list = NULL;
+    hnode_t *node      = NULL;
+    int     i;
+
+    keys_list = glist_new();
+
+    if (!hash_table){
+        return keys_list;
+    }
+
+    for (i = 0; i < hash_table->size; i++){
+        for (node = hash_table->nodes[i]; node; node = node->next){
+            glist_add(node->key,keys_list);
+        }
+    }
+
+    return (keys_list);
+}
+
+glist_t *htable_values(htable_t *hash_table)
+{
+    glist_t *values_list = NULL;
+    hnode_t *node      = NULL;
+    int     i;
+
+    values_list = glist_new();
+
+    if (!hash_table){
+        return values_list;
+    }
+
+    for (i = 0; i < hash_table->size; i++){
+        for (node = hash_table->nodes[i]; node; node = node->next){
+            glist_add(node->value,values_list);
+        }
+    }
+
+    return (values_list);
 }
 

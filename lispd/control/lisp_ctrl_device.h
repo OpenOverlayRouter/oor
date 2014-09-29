@@ -59,7 +59,7 @@ typedef struct ctrl_dev_class_t {
     int (*send_msg)(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
     /* underlying system (interface) event */
-    int (*if_event)(lisp_ctrl_dev_t *);
+    int (*if_event)(lisp_ctrl_dev_t *, char *, lisp_addr_t *, lisp_addr_t *, uint8_t );
 
     fwd_entry_t *(*get_fwd_entry)(lisp_ctrl_dev_t *, packet_tuple_t *);
 } ctrl_dev_class_t;
@@ -82,7 +82,7 @@ int ctrl_dev_create(lisp_dev_type_e , lisp_ctrl_dev_t **);
 void ctrl_dev_destroy(lisp_ctrl_dev_t *);
 int ctrl_dev_recv(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 void ctrl_dev_run(lisp_ctrl_dev_t *);
-int ctrl_if_event(lisp_ctrl_dev_t *);
+int ctrl_if_event(lisp_ctrl_dev_t *, char *iface_name, lisp_addr_t *old_addr, lisp_addr_t *new_addr, uint8_t status);
 int ctrl_dev_set_ctrl(lisp_ctrl_dev_t *, lisp_ctrl_t *);
 fwd_entry_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);
 

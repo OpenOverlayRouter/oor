@@ -52,7 +52,7 @@ get_locator_with_afi(mapping_t *m, int afi)
 
     while (llist) {
         loc = llist->locator;
-        if (*loc->state == UP) {
+        if (loc->state == UP) {
             return(locator_addr(loc));
         }
         llist = llist->next;

@@ -68,10 +68,6 @@ void process_link_status_change(iface_t *iface, int new_status);
 
 void process_new_gateway(lisp_addr_t gateway, iface_t *iface);
 
-/* Activate the locators associated with the interface using the new address
- * This function is only used when an interface is down during the initial
- * configuration process and then is activated */
-void activate_interface_address(iface_t *iface,lisp_addr_t *);
 
 
 /*******************************************************************************/
@@ -208,9 +204,13 @@ process_nl_add_address (struct nlmsghdr *nlh)
 void
 process_address_change(iface_t *iface, lisp_addr_t *new_addr)
 {
-    lisp_addr_t *iface_addr = NULL, old_addr;
-    int afi, aux_afi;
-    iface_map_list_t *mapping_list = NULL;
+    lisp_addr_t *iface_addr = NULL;
+    lisp_addr_t *new_addr_cpy   = NULL;
+    lisp_addr_t *old_addr_cpy   = NULL;
+    int new_addr_ip_afi;
+    int afi;
+
+    new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
 
     /* XXX To be modified when full NAT implemented --> When Nat Aware active
      * no IPv6 RLOCs supported */
@@ -237,7 +237,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
     }
 
     /* Actions to be done due to a change of address: SMR  */
-    switch (lisp_addr_ip_afi(new_addr)){
+    switch (new_addr_ip_afi){
         case AF_INET:
             iface_addr = iface->ipv4_address;
             break;
@@ -252,7 +252,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
                 "for interface %s doesn't affect", iface->iface_name);
         /* We must rebind the socket just in case the address is from a
          * virtual interface which has changed its interface number */
-        switch (lisp_addr_ip_afi(new_addr)) {
+        switch (new_addr_ip_afi) {
         case AF_INET:
             bind_socket_address(iface->out_socket_v4, new_addr);
             break;
@@ -262,66 +262,48 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
         }
 
         return;
-    }
-
-    /* FIXME: CODE THAT TOUCHES MAPPINGS SHOULD BE MOVED OUT */
-
+    };
     /* The interface was down during initial configuration process and now it
-     * is up. Activate address */
-    aux_afi = lisp_addr_ip_afi(iface_addr);
-    if (aux_afi == AF_UNSPEC) {
-        LMLOG(DBG_1, "process_address_change: Activating the locator address "
+     * is up. Create sockets */
+    if (lisp_addr_is_no_addr(iface_addr)) {
+        lisp_addr_copy(iface_addr, new_addr);
+        LMLOG(DBG_2, "process_address_change: Generating sockets for the initialized interface "
                 "%s", lisp_addr_to_char(new_addr));
-        activate_interface_address(iface, new_addr);
-        if (iface->status == UP) {
-            iface_balancing_vectors_calc(iface);
 
+        switch(new_addr_ip_afi){
+        case AF_INET:
+            iface->out_socket_v4 = open_device_bound_raw_socket(iface->iface_name,AF_INET);
+            break;
+        case AF_INET6:
+            iface->out_socket_v6 = open_device_bound_raw_socket(iface->iface_name,AF_INET6);
+            break;
+        }
+
+        if (iface->status == UP) {
             /* If no default control and data interface, recalculate it */
             if ((default_ctrl_iface_v4 == NULL
-                    && lisp_addr_ip_afi(new_addr) == AF_INET)
+                    && new_addr_ip_afi == AF_INET)
                  || (default_ctrl_iface_v6 == NULL
-                            && lisp_addr_ip_afi(new_addr) == AF_INET6)) {
+                            && new_addr_ip_afi == AF_INET6)) {
                 LMLOG(DBG_2, "No default control interface. Recalculate new "
                         "control interface");
                 set_default_ctrl_ifaces();
             }
 
             if ((default_out_iface_v4 == NULL
-                    && lisp_addr_ip_afi(new_addr) == AF_INET)
+                    && new_addr_ip_afi == AF_INET)
                  || (default_out_iface_v6 == NULL
-                         && lisp_addr_ip_afi(new_addr) == AF_INET6)) {
+                         && new_addr_ip_afi == AF_INET6)) {
                 LMLOG(DBG_2, "No default output interface. Recalculate new "
                         "output interface");
                 set_default_output_ifaces();
             }
         }
     }
-
-    mapping_list = iface->head_mappings_list;
-    /* Sort again the locators list of the affected mappings*/
-    while (mapping_list) {
-        if (aux_afi != AF_UNSPEC  // When the locator is activated, it is automatically sorted
-            && ((lisp_addr_ip_afi(new_addr) == AF_INET && mapping_list->use_ipv4_address == TRUE)
-            || (lisp_addr_ip_afi(new_addr) == AF_INET6 && mapping_list->use_ipv6_address == TRUE))) {
-            mapping_sort_locators(mapping_list->mapping, iface_addr);
-        }
-        mapping_list = mapping_list->next;
-    }
-
-    /* Indicate change of address in the interface */
-    switch (lisp_addr_ip_afi(new_addr)) {
-    case AF_INET:
-        iface->ipv4_changed = TRUE;
-        break;
-    case AF_INET6:
-        iface->ipv6_changed = TRUE;
-        break;
-    }
-
     /* If code is compiled in router mode, then recompile default routes
      * changing the indicated src address*/
 #ifdef ROUTER
-    switch (lisp_addr_ip_afi(new_addr)) {
+    switch (new_addr_ip_afi) {
     case AF_INET:
         if (iface == default_out_iface_v4) {
             set_tun_default_route_v4();
@@ -342,14 +324,14 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
 
     afi = lisp_addr_ip_afi(iface_addr);
     /* Change source routing rules for this interface and binding */
-    if (afi != AF_UNSPEC) {
+    if (afi != LM_AFI_NO_ADDR) {
         del_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
                 iface_addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
     }
     add_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
             new_addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
 
-    switch (lisp_addr_ip_afi(new_addr)) {
+    switch (new_addr_ip_afi) {
     case AF_INET:
         bind_socket_address(iface->out_socket_v4, new_addr);
         break;
@@ -358,11 +340,13 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
         break;
     }
 
-    lisp_addr_copy(&old_addr, iface_addr);
-    lisp_addr_copy(iface_addr, new_addr);
+
+    old_addr_cpy = lisp_addr_clone(iface_addr);
+    new_addr_cpy = lisp_addr_clone(new_addr);
+
 
     /* raise event in ctrl */
-    ctrl_if_addr_update(lctrl, iface, &old_addr, iface_addr);
+    ctrl_if_addr_update(lctrl, iface, old_addr_cpy, new_addr_cpy);
 
 }
 
@@ -438,7 +422,7 @@ process_nl_new_link(struct nlmsghdr *nlh)
                     "%s is: %d. Updating tables", iface_name,
                     iface->iface_index);
             /* Update routing tables and reopen sockets*/
-            if (lisp_addr_ip_afi(iface->ipv4_address) != AF_UNSPEC) {
+            if (lisp_addr_ip_afi(iface->ipv4_address) != LM_AFI_NO_ADDR) {
                 del_rule(AF_INET, 0, old_iface_index, old_iface_index,
                         RTN_UNICAST, iface->ipv4_address, 32, NULL, 0, 0);
                 add_rule(AF_INET, 0, iface_index, iface_index, RTN_UNICAST,
@@ -448,7 +432,7 @@ process_nl_new_link(struct nlmsghdr *nlh)
                         iface->iface_name, AF_INET);
                 bind_socket_address(iface->out_socket_v4, iface->ipv4_address);
             }
-            if (lisp_addr_ip_afi(iface->ipv6_address) != AF_UNSPEC) {
+            if (lisp_addr_ip_afi(iface->ipv6_address) != LM_AFI_NO_ADDR) {
                 del_rule(AF_INET6, 0, old_iface_index, old_iface_index,
                         RTN_UNICAST, iface->ipv6_address, 128, NULL, 0, 0);
                 add_rule(AF_INET6, 0, iface_index, iface_index, RTN_UNICAST,
@@ -543,8 +527,8 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
         }
     }
 
-    if (lisp_addr_ip_afi(&gateway) != AF_UNSPEC
-        && iface_index != 0 && lisp_addr_ip_afi(&dst) == AF_UNSPEC) {
+    if (lisp_addr_ip_afi(&gateway) != LM_AFI_NO_ADDR
+        && iface_index != 0 && lisp_addr_ip_afi(&dst) == LM_AFI_NO_ADDR) {
         /* Check default afi*/
         if (default_rloc_afi != -1
             && default_rloc_afi != lisp_addr_ip_afi(&gateway)) {
@@ -717,7 +701,7 @@ void
 process_new_gateway(lisp_addr_t gateway, iface_t *iface)
 {
     lisp_addr_t **gw_addr   = NULL;
-    int         afi         = AF_UNSPEC;
+    int         afi         = LM_AFI_NO_ADDR;
 
     switch(gateway.afi){
         case AF_INET:
@@ -753,12 +737,6 @@ process_link_status_change(iface_t *iface, int new_status)
         return;
     }
 
-    if (iface->status_changed == TRUE){
-        iface->status_changed = FALSE;
-    }else{
-        iface->status_changed = TRUE;
-    }
-
     /* Change status of the interface */
     iface->status = new_status;
 
@@ -783,82 +761,9 @@ process_link_status_change(iface_t *iface, int new_status)
         set_default_output_ifaces();
     }
 
-    iface_balancing_vectors_calc(iface);
-
     /* raise event in ctrl */
     ctrl_if_status_update(lctrl, iface);
 
-}
-
-
-
-/*
- * Activate the locators associated with the interface using the new address
- * This function is only used when an interface is down during the initial configuration process and then is activated
- */
-
-void
-activate_interface_address(iface_t *iface, lisp_addr_t *new_address)
-{
-    iface_map_list_t *mapping_list = NULL;
-    mapping_t *mapping = NULL;
-    locator_list_t **not_init_locators_list = NULL;
-    locator_list_t **locators_list = NULL;
-    locator_t *locator = NULL;
-    lcl_mapping_extended_info *leif;
-
-    switch (lisp_addr_ip_afi(new_address)) {
-    case AF_INET:
-        iface->out_socket_v4 = open_device_bound_raw_socket(iface->iface_name,
-                                    AF_INET);
-        bind_socket_address(iface->out_socket_v4, new_address);
-        break;
-    case AF_INET6:
-        iface->out_socket_v6 = open_device_bound_raw_socket(iface->iface_name,
-                                    AF_INET6);
-        bind_socket_address(iface->out_socket_v6, new_address);
-        break;
-    }
-
-    mapping_list = iface->head_mappings_list;
-    /*
-     * Activate the locator for each mapping associated with the interface
-     */
-    while (mapping_list != NULL){
-        mapping = mapping_list->mapping;
-        LMLOG(DBG_2,"Activating locator %s associated to the EID %s\n",
-                lisp_addr_to_char(new_address),
-                lisp_addr_to_char(mapping_eid(mapping)));
-        leif = mapping->extended_info;
-        not_init_locators_list = &(leif->head_not_init_locators_list);
-        locator = locator_list_extract_locator(not_init_locators_list,
-                *new_address);
-        if (locator != NULL){
-            switch(lisp_addr_ip_afi(new_address)){
-            case AF_INET:
-                mapping_list->use_ipv4_address = TRUE;
-                locators_list = &mapping->head_v4_locators_list;
-                break;
-            case AF_INET6:
-                mapping_list->use_ipv6_address = TRUE;
-                locators_list = &mapping->head_v6_locators_list;
-                break;
-            }
-            /* Add the activated locator */
-            if (locator_list_add(locators_list, locator) == GOOD) {
-                mapping->locator_count = mapping->locator_count + 1;
-            } else {
-                locator_del(locator);
-            }
-        }else{
-            LMLOG(DBG_1,"activate_interface_address: No locator with address "
-                    "%s has been found in the not init locators list of the "
-                    "mapping %s. Is priority equal to -1 for this EID and"
-                    " afi?", lisp_addr_to_char(new_address),
-                    lisp_addr_to_char(mapping_eid(mapping)));
-        }
-        mapping_list = mapping_list->next;
-    }
 }
 
 

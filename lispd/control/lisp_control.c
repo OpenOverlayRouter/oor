@@ -203,55 +203,12 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     }
 }
 
-/* TODO: should change to get_updated_interfaces */
-int
-ctrl_get_mappings_to_smr(lisp_ctrl_t *ctrl, glist_t *mappings_to_smr)
-{
-    iface_list_elt_t *iface_list = NULL;
-    mapping_t *m;
-    iface_map_list_t *mlist;
-    glist_entry_t *it;
-
-    iface_list = ifaces_list_head();
-
-    while (iface_list) {
-        if ((iface_list->iface->status_changed == TRUE)
-                || (iface_list->iface->ipv4_changed == TRUE)
-                || (iface_list->iface->ipv6_changed == TRUE)) {
-            mlist = iface_list->iface->head_mappings_list;
-            while (mlist != NULL) {
-                if (iface_list->iface->status_changed == TRUE
-                        || (iface_list->iface->ipv4_changed == TRUE
-                                && mlist->use_ipv4_address == TRUE)
-                        || (iface_list->iface->ipv6_changed == TRUE
-                                && mlist->use_ipv6_address == TRUE)) {
-                    m = mlist->mapping;
-
-                    glist_for_each_entry(it, mappings_to_smr) {
-                        if (glist_entry_data(it) == m) {
-                            break;
-                        }
-                    }
-
-                    if (glist_entry_data(it) != m) {
-                        glist_add(m, mappings_to_smr);
-                    }
-                }
-                mlist = mlist->next;
-            }
-        }
-
-        iface_list->iface->status_changed = FALSE;
-        iface_list->iface->ipv4_changed = FALSE;
-        iface_list->iface->ipv6_changed = FALSE;
-        iface_list = iface_list->next;
-    }
-
-    return (GOOD);
-}
 
 void
-ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
+ctrl_if_addr_update(
+        lisp_ctrl_t *ctrl,
+        iface_t     *iface,
+        lisp_addr_t *old,
         lisp_addr_t *new)
 {
     lisp_ctrl_dev_t *dev;
@@ -263,7 +220,7 @@ ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
         /* TODO : To be modified when implementing NAT per multiple
          * interfaces */
         nat_status = UNKNOWN;
-        if (iface->status == UP) {
+        if (iface_status(iface) == UP) {
             /* TODO: fix nat
             initial_info_request_process(); */
         }
@@ -274,16 +231,19 @@ ctrl_if_addr_update(lisp_ctrl_t *ctrl, iface_t *iface, lisp_addr_t *old,
      * and iface to identify mapping_t(s) for which SMRs have to be sent. In
      * the future this should be decoupled and only the affected RLOC should
      * be passed to ctrl_dev */
-    ctrl_if_event(dev);
+    ctrl_if_event(dev, strdup(iface->iface_name), old, new, iface_status(iface));
     set_rlocs(ctrl);
 }
 
 void
-ctrl_if_status_update(lisp_ctrl_t *ctrl, iface_t *iface)
+ctrl_if_status_update(
+        lisp_ctrl_t     *ctrl,
+        iface_t         *iface)
 {
-    lisp_ctrl_dev_t *dev;
+    lisp_ctrl_dev_t *dev        = NULL;
+
     dev = glist_first_data(ctrl->devices);
-    ctrl_if_event(dev);
+    ctrl_if_event(dev, strdup(iface->iface_name), NULL, NULL, iface_status(iface));
     set_rlocs(ctrl);
 }
 

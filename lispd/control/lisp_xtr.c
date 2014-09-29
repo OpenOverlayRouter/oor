@@ -77,6 +77,11 @@ static void map_servers_to_char(lisp_xtr_t *, int log_level);
 static fwd_entry_t *tr_get_forwarding_entry(lisp_ctrl_dev_t *,
         packet_tuple_t *);
 
+static glist_t *get_local_locators_with_address(local_map_db_t *local_db, lisp_addr_t *addr);
+static mapping_t *get_mapping_containing_locator_ptr(local_map_db_t *local_db, locator_t *locator);
+glist_t *get_mappings_to_smr(lisp_xtr_t *xtr);
+
+
 /* Called when the timer associated with an EID entry expires. */
 static int
 mc_entry_expiration_timer_cb(lmtimer_t *t, void *arg)
@@ -225,8 +230,8 @@ handle_locator_probe_reply(lisp_xtr_t *xtr, mapping_t *m,
                 lisp_addr_to_char(mapping_eid(old_map)));
 
 
-    if (*(loc->state) == DOWN) {
-        *(loc->state) = UP;
+    if (loc->state == DOWN) {
+        loc->state = UP;
 
         LMLOG(DBG_1," Locator %s state changed to UP",
                 lisp_addr_to_char(locator_addr(loc)));
@@ -675,8 +680,12 @@ build_rloc_list(mapping_t *m) {
     llist[1] = m->head_v6_locators_list;
     for (ctr = 0 ; ctr < 2 ; ctr++){
         while (llist[ctr]) {
+            if(locator_state(llist[ctr]->locator) == DOWN){
+                llist[ctr] = llist[ctr]->next;
+                continue;
+            }
             loc = locator_addr(llist[ctr]->locator);
-            glist_add(loc, rlocs);
+            glist_add_tail(loc, rlocs);
             llist[ctr] = llist[ctr]->next;
         }
     }
@@ -719,8 +728,10 @@ build_and_send_smr_mreq(lisp_xtr_t *xtr, mapping_t *smap,
 
 /* solicit SMRs for 'src_map' to all locators of 'dst_map'*/
 static int
-build_and_send_smr_mreq_to_map(lisp_xtr_t *xtr, mapping_t *src_map,
-        mapping_t *dst_map)
+build_and_send_smr_mreq_to_map(
+        lisp_xtr_t  *xtr,
+        mapping_t   *src_map,
+        mapping_t   *dst_map)
 {
     int  j;
     lisp_addr_t *deid, *drloc;
@@ -750,7 +761,7 @@ build_and_send_smr_mreq_to_map(lisp_xtr_t *xtr, mapping_t *src_map,
 static int
 send_all_smr_cb(lmtimer_t *t, void *arg)
 {
-    send_all_smr_and_reg(arg);
+    send_all_smr_and_reg((lisp_xtr_t *)arg);
     return(GOOD);
 }
 
@@ -760,38 +771,32 @@ static void
 send_all_smr_and_reg(lisp_xtr_t *xtr)
 {
     mcache_entry_t *mce = NULL;
-    mapping_t *mit, *m;
-    glist_t *mlist;
+    mapping_t *mcache_map, *map;
+    glist_t *mapping_list;
     glist_entry_t *it;
     lisp_addr_list_t *pitr = NULL;
     lisp_addr_t *eid = NULL;
-
 
     LMLOG(DBG_2,"\n*** Re-Register and send SMRs for mappings with updated "
             "RLOCs ***");
 
     /* Get a list of mappings that require smrs */
-    mlist = glist_new();
-
-    if (ctrl_get_mappings_to_smr(xtr->super.ctrl, mlist) != GOOD) {
-        glist_destroy(mlist);
-        return;
-    }
+    mapping_list = get_mappings_to_smr(xtr);
 
     /* Send map register and SMR request for each mapping */
-    glist_for_each_entry(it, mlist) {
-        m = glist_entry_data(it);
+    glist_for_each_entry(it, mapping_list) {
+        map = (mapping_t *)glist_entry_data(it);
 
         /* Send map register for all mappings */
         if (nat_aware == FALSE || nat_status == NO_NAT) {
-            build_and_send_map_reg(xtr, m);
+            build_and_send_map_reg(xtr, map);
         } else if (nat_status != UNKNOWN) {
             /* TODO : We suppose one EID and one interface.
              * To be modified when multiple elements */
             map_register_process(xtr);
         }
 
-        eid = mapping_eid(m);
+        eid = mapping_eid(map);
 
         LMLOG(DBG_1, "Start SMR for local EID %s", lisp_addr_to_char(eid));
 
@@ -815,22 +820,21 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
          * traffic in the last minute. Should change this in the future*/
         /* XXX: works ONLY with IP */
         mcache_foreach_active_entry_in_ip_eid_db(xtr->map_cache, eid, mce) {
-            mit = mcache_entry_mapping(mce);
-            build_and_send_smr_mreq_to_map(xtr, m, mit);
-
+            mcache_map = mcache_entry_mapping(mce);
+            build_and_send_smr_mreq_to_map(xtr, map, mcache_map);
         } mcache_foreach_active_entry_in_ip_eid_db_end;
 
         /* SMR proxy-itr */
         LMLOG(DBG_1, "Sending SMRs to PITRs");
         pitr = xtr->pitrs;
         while (pitr) {
-            build_and_send_smr_mreq(xtr, m, eid, pitr->address);
+            build_and_send_smr_mreq(xtr, map, eid, pitr->address);
             pitr = pitr->next;
         }
 
     }
 
-    glist_destroy(mlist);
+    glist_destroy(mapping_list);
     LMLOG(DBG_2,"*** Finished sending notifications ***\n");
 }
 
@@ -1011,7 +1015,6 @@ build_and_send_map_reg(lisp_xtr_t *xtr, mapping_t *m)
     void *hdr;
     lisp_addr_t *drloc;
     uconn_t uc;
-
     b = lisp_msg_mreg_create(m, xtr->map_servers->key_type);
 
     if (!b) {
@@ -1331,8 +1334,8 @@ rloc_probing(lisp_xtr_t *xtr, mapping_t *m, locator_t *loc)
     } else {
         /* If we have reached maximum number of retransmissions, change remote
          *  locator status */
-        if (*(loc->state) == UP) {
-            *(loc->state) = DOWN;
+        if (locator_state(loc) == UP) {
+            locator_set_state(loc, DOWN);
             LMLOG(DBG_1,"rloc_probing: No Map-Reply Probe received for locator"
                     " %s and EID: %s -> Locator state changes to DOWN",
                     lisp_addr_to_char(drloc), lisp_addr_to_char(deid));
@@ -1518,16 +1521,143 @@ tr_mcache_lookup_mapping_exact(lisp_xtr_t *xtr, lisp_addr_t *laddr)
         return (mcache_entry_mapping(mce));
     }
 }
+/*
+ * Notify an event in a interface (changes are monolitic):
+ *    Old Addr     New Addr     Status
+ *     x            x           V        ---> Change of status
+ *     V            V           V        ---> Change of address
+ *     X            V           V        ---> Activation of address (iface down when LISP start)
+ * @param dev General control device
+ * @param iface_name Name of the modified interface
+ * @param old_addr Address of the interface before changing. Null if iface was not initialized
+ *                 or no address change
+ * @paran new_addr Address of the interface after changing. Null if address not changed
+ * @param status Status of the interfac
+ * @return GOOD if finish correctly or an error code otherwise
+ */
+static int xtr_if_event(
+        lisp_ctrl_dev_t     *dev,
+        char                *iface_name,
+        lisp_addr_t         *old_addr,
+        lisp_addr_t         *new_addr,
+        uint8_t             status)
+{
+    lisp_xtr_t      *xtr                = lisp_xtr_cast(dev);
+    iface_locators  *if_loct            = NULL;
+    glist_t         *locators           = NULL;
+    locator_t       *locator            = NULL;
+    mapping_t       *mapping            = NULL;
+    int             afi                 = AF_UNSPEC;
+    glist_entry_t   *it                 = NULL;
+    glist_entry_t   *it_m               = NULL;
+    lisp_addr_t     **prev_addr              = NULL;
 
-static int
-xtr_if_event(lisp_ctrl_dev_t *dev) {
-    lisp_xtr_t *xtr = lisp_xtr_cast(dev);
 
+    if_loct = (iface_locators *)shash_lookup(xtr->iface_locators_table,iface_name);
+    if (if_loct  == NULL){
+        LMLOG(DBG_2, "xtr_if_event: Iface %s not found in the list of ifaces for xTR device",
+                        iface_name);
+        goto out;
+    }
+
+    /*
+     * Update locators with the new interface status.
+     */
+    /* New address*/
+    if (new_addr != NULL){
+        afi = lisp_addr_afi(new_addr) == LM_AFI_IP ? lisp_addr_ip_afi(new_addr)  : AF_UNSPEC;
+        switch(afi){
+        case AF_INET:
+            locators = if_loct->ipv4_locators;
+            prev_addr = &(if_loct->ipv4_prev_addr);
+            break;
+        case AF_INET6:
+            locators = if_loct->ipv6_locators;
+            prev_addr = &(if_loct->ipv6_prev_addr);
+            break;
+        default:
+            LMLOG(DBG_2, "xtr_if_event: Afi of the new address not known");
+            goto out;
+        }
+        glist_for_each_entry(it,locators){
+            locator = (locator_t *)glist_entry_data(it);
+            if (lisp_addr_is_no_addr(locator_addr(locator))==TRUE){
+                /* If locator was not active, activate it */
+                mapping = get_mapping_containing_locator_ptr(xtr->local_mdb,locator);
+                if(mapping == NULL){
+                    continue;
+                }
+                locator_clone_addr(locator,new_addr);
+                mapping_activate_locator(mapping,locator);
+
+            }else{
+                locator_clone_addr(locator,new_addr);
+            }
+
+        }
+        /* Transition check */
+        if (*prev_addr != NULL){
+            if (lisp_addr_cmp(*prev_addr, new_addr) == 0){
+                lisp_addr_del(*prev_addr);
+                *prev_addr = NULL;
+            }else{
+                if (old_addr != NULL){
+                    lisp_addr_copy(*prev_addr,old_addr);
+                }else{
+                    /* Iface was not initialized. Add a value to prev_addr in order to do SMR */
+                    lisp_addr_copy(*prev_addr,new_addr);
+                }
+            }
+        }else{
+            if (old_addr != NULL){
+                *prev_addr = lisp_addr_clone(old_addr);
+            }else{
+                /* Iface was not initialized. Add a value to prev_addr in order to do SMR */
+                *prev_addr = lisp_addr_clone(new_addr);
+            }
+        }
+        /* Reorder locators */
+        glist_for_each_entry(it_m, if_loct->mappings){
+            mapping = (mapping_t *)glist_entry_data(it_m);
+            mapping_sort_locators(mapping, new_addr);
+        }
+
+    /* New status */
+    }else{
+        glist_for_each_entry(it,if_loct->ipv4_locators){
+            locator = (locator_t *)glist_entry_data(it);
+            locator_set_state(locator,status);
+        }
+        glist_for_each_entry(it,if_loct->ipv6_locators){
+            locator = (locator_t *)glist_entry_data(it);
+            locator_set_state(locator,status);
+        }
+        /* Transition check */
+        if (if_loct->status_changed == TRUE){
+            if_loct->status_changed = FALSE;
+        }else{
+            if_loct->status_changed = TRUE;
+        }
+        /* Recalculate balancing vectors */
+        glist_for_each_entry(it_m, if_loct->mappings){
+            mapping = (mapping_t *)glist_entry_data(it_m);
+            mapping_compute_balancing_vectors(mapping);
+        }
+    }
     if (xtr->super.mode == RTR_MODE && xtr->all_locs_map) {
         mapping_compute_balancing_vectors(xtr->all_locs_map);
     }
 
+    free(iface_name);
+    lisp_addr_del(old_addr);
+    lisp_addr_del(new_addr);
+
     return(program_smr(xtr, LISPD_SMR_TIMEOUT));
+out:
+    free(iface_name);
+    lisp_addr_del(old_addr);
+    lisp_addr_del(new_addr);
+    return (BAD);
 }
 
 static int
@@ -1627,6 +1757,9 @@ xtr_ctrl_construct(lisp_ctrl_dev_t *dev)
         return(BAD);
     }
 
+    //xtr->iface_locators_table = shash_new();
+    xtr->iface_locators_table = shash_new_managed((h_key_del_fct)iface_locators_del);
+
     LMLOG(DBG_1, "Finished Constructing xTR");
 
     return(GOOD);
@@ -1718,7 +1851,7 @@ xtr_run(lisp_xtr_t *xtr)
     }
 #endif
 
-    LMLOG(DBG_1, "****** Summary of the configuration ******");
+    LMLOG(DBG_1, "****** Summary of the xTR configuration ******");
     local_map_db_dump(xtr->local_mdb, DBG_1);
     mcache_dump_db(xtr->map_cache, DBG_1);
 
@@ -1726,7 +1859,6 @@ xtr_run(lisp_xtr_t *xtr)
     lisp_addr_list_to_char(xtr->map_resolvers, "Map-Resolvers", DBG_1);
     proxy_etrs_to_char(xtr, DBG_1);
     lisp_addr_list_to_char(xtr->pitrs, "Proxy-ITRs", DBG_1);
-
 
     /*  Register to the Map-Server(s) */
     program_map_register(xtr, 1);
@@ -2221,6 +2353,147 @@ tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
     }
 }
 
+/*
+ * Return the list of locators from the local mappings containing addr
+ * @param local_db Database where to search locators
+ * @param addr Address used during the search
+ * @return Generic list containg locator_t elements
+ */
+glist_t *
+get_local_locators_with_address(
+        local_map_db_t      *local_db,
+        lisp_addr_t         *addr)
+{
+    glist_t     *locators   = NULL;
+    locator_t   *locator    = NULL;
+    mapping_t   *mapping    = NULL;
+    void        *it         = NULL;
+
+    locators = glist_new();
+
+    local_map_db_foreach_entry(local_db, it) {
+        mapping = (mapping_t *)it;
+        locator = mapping_get_locator(mapping, addr);
+        if (locator != NULL){
+            glist_add_tail(locator,locators);
+        }
+    } local_map_db_foreach_end;
+
+    return (locators);
+}
+
+static mapping_t *
+get_mapping_containing_locator_ptr(
+        local_map_db_t      *local_db,
+        locator_t           *locator)
+{
+    mapping_t   *mapping        = NULL;
+    void        *it             = NULL;
+
+    local_map_db_foreach_entry(local_db, it) {
+        mapping = (mapping_t *)it;
+        if (mapping_has_locator(mapping, locator) == TRUE){
+            return (mapping);
+        }
+    } local_map_db_foreach_end;
+    LMLOG(DBG_2, "get_mapping_with_locator: No mapping has been found with locator %s",
+            lisp_addr_to_char(locator_addr(locator)));
+    return (NULL);
+}
 
 
 
+/*
+ * Return the list of mappings that has experimented changes in their
+ * locators. At the same time iface_locators status is reseted
+ * @param xtr
+ * @return glist_t with the list of modified mappings (mapping_t *)
+ */
+glist_t *get_mappings_to_smr(lisp_xtr_t *xtr)
+{
+    glist_t         *mappings_to_smr        = glist_new();
+    glist_t         *iface_locators_list    = NULL;
+    iface_locators  *if_loct                = NULL;
+    glist_entry_t   *it                     = NULL;
+    glist_entry_t   *it_loc                 = NULL;
+    glist_t         *locators[2]            = {NULL,NULL};
+    mapping_t       *mapping                = NULL;
+    locator_t       *locator                = NULL;
+    int             ctr;
+
+    iface_locators_list = shash_values(xtr->iface_locators_table);
+
+    glist_for_each_entry(it,iface_locators_list){
+        if_loct = (iface_locators *)glist_entry_data(it);
+        /* Select affected locators */
+        if (if_loct->status_changed == TRUE){
+            locators[0] = if_loct->ipv4_locators;
+            locators[1] = if_loct->ipv6_locators;
+        }else{
+            if(if_loct->ipv4_prev_addr != NULL){
+                locators[0] = if_loct->ipv4_locators;
+            }
+            if(if_loct->ipv6_prev_addr != NULL){
+                locators[1] = if_loct->ipv6_locators;
+            }
+        }
+        /* Reset iface_locators status */
+        if_loct->status_changed = FALSE;
+        lisp_addr_del(if_loct->ipv4_prev_addr);
+        lisp_addr_del(if_loct->ipv6_prev_addr);
+        if_loct->ipv4_prev_addr = NULL;
+        if_loct->ipv6_prev_addr = NULL;
+
+        /* Select not repeated mappings*/
+        for (ctr=0 ; ctr<2 ; ctr++){
+            if (locators[ctr] != NULL){
+                glist_for_each_entry(it_loc,locators[ctr]){
+                    locator = (locator_t *)glist_entry_data(it_loc);
+                    mapping = get_mapping_containing_locator_ptr(xtr->local_mdb, locator);
+                    if (mapping != NULL && glist_contain(mapping, mappings_to_smr) == FALSE){
+                        glist_add(mapping, mappings_to_smr);
+                    }
+                }
+            }
+        }
+    }
+    return (mappings_to_smr);
+}
+
+
+
+/*
+ * Creates and initialize a new iface_locator
+ * @param iface_name Name of the interface
+ * @return iface_locators element
+ */
+iface_locators *iface_locators_new(char *iface_name)
+{
+    iface_locators *if_loct = NULL;
+    if_loct = xzalloc(sizeof(iface_locators));
+    if_loct->iface_name = xstrdup(iface_name);
+    if_loct->mappings = glist_new();
+    if_loct->ipv4_locators = glist_new();
+    if_loct->ipv6_locators = glist_new();
+    if_loct->status_changed = TRUE;
+    return(if_loct);
+}
+
+/*
+ * Release memory of an iface_locators structure
+ * @param if_loct Element to be released
+ */
+void iface_locators_del(iface_locators *if_loct)
+{
+    free(if_loct->iface_name);
+    glist_destroy(if_loct->mappings);
+    glist_destroy(if_loct->ipv4_locators);
+    glist_destroy(if_loct->ipv6_locators);
+    if (if_loct->ipv4_prev_addr != NULL){
+        lisp_addr_del(if_loct->ipv4_prev_addr);
+    }
+    if (if_loct->ipv6_prev_addr != NULL){
+        lisp_addr_del(if_loct->ipv6_prev_addr);
+    }
+    free(if_loct);
+}

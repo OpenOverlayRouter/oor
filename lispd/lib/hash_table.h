@@ -10,6 +10,7 @@
 #define HASH_TABLE_H_
 
 #include "hash.h"
+#include "generic_list.h"
 
 #define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
@@ -37,5 +38,7 @@ unsigned int htable_foreach_remove(htable_t *hash_table, h_usr_del_fct func,
         void *user_data);
 unsigned int htable_size(htable_t *hash_table);
 
+glist_t *htable_keys(htable_t *hash_table);
+glist_t *htable_values(htable_t *hash_table);
 
 #endif /* HASH_TABLE_H_ */

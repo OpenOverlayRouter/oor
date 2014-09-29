@@ -29,6 +29,7 @@
 #ifndef LISPD_GENERIC_LIST_H_
 #define LISPD_GENERIC_LIST_H_
 
+#include <stdint.h>
 #include "list.h"
 
 #define NO_CMP NULL
@@ -58,6 +59,7 @@ void glist_init(glist_t *);
 void glist_init_managed(glist_t *lst, glist_del_fct del_fct);
 int glist_add(void *data, glist_t *list);
 int glist_add_tail(void *data, glist_t *glist);
+uint8_t glist_contain(void *data, glist_t *list);
 void glist_remove(glist_entry_t *entry, glist_t *list);
 void glist_destroy(glist_t *lst);
 void glist_remove_all(glist_t *lst);

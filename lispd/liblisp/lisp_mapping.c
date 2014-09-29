@@ -65,11 +65,12 @@ mapping_add_locators(mapping_t *mapping, locator_list_t *locators)
 
 
 int
-mapping_add_locator(mapping_t *m, locator_t *loc)
+mapping_add_locator(
+        mapping_t *m,
+        locator_t *loc)
 {
     lisp_addr_t *addr = NULL;
     lisp_addr_t *auxaddr = NULL;
-    lcl_mapping_extended_info *leinf;
 
     int result = GOOD;
 
@@ -78,8 +79,7 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
     switch (lisp_addr_afi(addr)) {
     case LM_AFI_NO_ADDR:
         /* address not initialized */
-        leinf = m->extended_info;
-        err = locator_list_add(&leinf->head_not_init_locators_list, loc);
+        err = locator_list_add(&m->head_no_addr_locators_list, loc);
         if (err == GOOD) {
             return (GOOD);
         } else {
@@ -105,8 +105,7 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
         err = locator_list_add(&m->head_v6_locators_list, loc);
         break;
     case AF_UNSPEC:
-        leinf = m->extended_info;
-        err = locator_list_add(&leinf->head_not_init_locators_list, loc);
+        err = locator_list_add(&m->head_no_addr_locators_list, loc);
         if (err == GOOD) {
             return (GOOD);
         } else {
@@ -137,95 +136,29 @@ mapping_add_locator(mapping_t *m, locator_t *loc)
 
 
 /* This function sorts the locator list with IP = changed_loc_addr */
-void
+int
 mapping_sort_locators(mapping_t *mapping, lisp_addr_t *changed_loc_addr)
 {
-    locator_list_t *current_locators_list_elt = NULL;
-    locator_list_t *prev_locators_list_elt = NULL;
-    locator_list_t *changed_locator = NULL;
-    locator_list_t *prev_changed_locator = NULL;
-    locator_list_t *new_prev_changed_locator = NULL;
-    int changed_locator_updated = FALSE;
-    int new_prev_changed_lct_updated = FALSE;
-    int afi_length = 0;
-    int cmp = 0;
+    locator_list_t **head_locators_list = NULL;
+    locator_t      *locator = NULL;
+    int            res = 0;
 
     switch (lisp_addr_ip_afi(changed_loc_addr)) {
     case AF_INET:
-        current_locators_list_elt = mapping->head_v4_locators_list;
-        afi_length = sizeof(struct in_addr);
+        head_locators_list = &(mapping->head_v4_locators_list);
         break;
     case AF_INET6:
-        current_locators_list_elt = mapping->head_v6_locators_list;
-        afi_length = sizeof(struct in6_addr);
+        head_locators_list = &(mapping->head_v6_locators_list);
         break;
     }
 
-    if (current_locators_list_elt == NULL) {
-        LMLOG(DBG_1, "sort_locators_list_elt: It should never reach "
-                "this point");
-        return;
+    locator = locator_list_extract_locator_with_addr(head_locators_list, changed_loc_addr);
+    if (locator != NULL){
+        res = locator_list_add(head_locators_list,locator);
+    }else{
+        res = BAD;
     }
-
-    while (current_locators_list_elt != NULL) {
-        cmp = memcmp(&(current_locators_list_elt->locator->addr->address),
-                &(changed_loc_addr->address), afi_length);
-        if (cmp == 0) {
-            changed_locator = current_locators_list_elt;
-            prev_changed_locator = prev_locators_list_elt;
-            changed_locator_updated = TRUE;
-            if (new_prev_changed_lct_updated == TRUE) {
-                break;
-            }
-
-        } else if (cmp > 0 && new_prev_changed_lct_updated == FALSE) {
-            new_prev_changed_locator = prev_locators_list_elt;
-            new_prev_changed_lct_updated = TRUE;
-            if (changed_locator_updated == TRUE) {
-                break;
-            }
-        }
-        prev_locators_list_elt = current_locators_list_elt;
-        current_locators_list_elt = current_locators_list_elt->next;
-    }
-
-    /* The new locator goes to the last position */
-    if (new_prev_changed_locator == NULL
-            && new_prev_changed_lct_updated == FALSE) {
-        new_prev_changed_locator = prev_locators_list_elt;
-    }
-
-    if (new_prev_changed_locator == changed_locator) {
-        new_prev_changed_locator = prev_changed_locator;
-    }
-
-    if (prev_changed_locator != NULL) {
-        prev_changed_locator->next = changed_locator->next;
-    } else {
-        switch (changed_loc_addr->afi) {
-        case AF_INET:
-            mapping->head_v4_locators_list = changed_locator->next;
-            break;
-        case AF_INET6:
-            mapping->head_v6_locators_list = changed_locator->next;
-            break;
-        }
-    }
-    if (new_prev_changed_locator != NULL) {
-        changed_locator->next = new_prev_changed_locator->next;
-        new_prev_changed_locator->next = changed_locator;
-    } else {
-        switch (changed_loc_addr->afi) {
-        case AF_INET:
-            changed_locator->next = mapping->head_v4_locators_list;
-            mapping->head_v4_locators_list = changed_locator;
-            break;
-        case AF_INET6:
-            changed_locator->next = mapping->head_v6_locators_list;
-            mapping->head_v6_locators_list = changed_locator;
-            break;
-        }
-    }
+    return (res);
 }
 
 
@@ -251,6 +184,47 @@ mapping_get_locator(mapping_t *mapping, lisp_addr_t *address)
     locator = locator_list_get_locator(locator_list, address);
 
     return (locator);
+}
+
+/*
+ * Check if the locator is part of the mapping
+ */
+uint8_t
+mapping_has_locator(
+        mapping_t *mapping,
+        locator_t *loct)
+{
+    locator_list_t *locator_list = NULL;
+    lisp_addr_t *addr = locator_addr(loct);
+
+    switch (lisp_addr_afi(addr)) {
+    case LM_AFI_NO_ADDR:
+        locator_list = mapping->head_no_addr_locators_list;
+        break;
+    case LM_AFI_IP:
+        switch (lisp_addr_ip_afi(addr)){
+        case AF_INET:
+            locator_list = mapping->head_v4_locators_list;
+            break;
+        case AF_INET6:
+            locator_list = mapping->head_v6_locators_list;
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    if (locator_list == NULL){
+        return (FALSE);
+    }
+    while (locator_list != NULL){
+        if (locator_list->locator == loct){
+            return (TRUE);
+        }
+        locator_list = locator_list->next;
+    }
+
+    return (FALSE);
 }
 
 
@@ -323,33 +297,36 @@ mapping_to_char(mapping_t *m)
 /**************************************** TRAFFIC BALANCING FUNCTIONS ************************/
 
 static int
-select_best_priority_locators(locator_list_t *locators_list_elt,
-        locator_t **selected_locators)
+select_best_priority_locators(
+        locator_list_t  *locators_list_elt,
+        locator_t       **selected_locators)
 {
-    locator_list_t *list_elt = locators_list_elt;
-    int min_priority = UNUSED_RLOC_PRIORITY;
-    int pos = 0;
+    locator_list_t      *list_elt   = locators_list_elt;
+    locator_t           *locator    = NULL;
+    int                 min_priority = UNUSED_RLOC_PRIORITY;
+    int                 pos = 0;
 
     while (list_elt != NULL) {
-        /* Only use locators with status UP */
-        if (*(list_elt->locator->state) == DOWN
-                || list_elt->locator->priority == UNUSED_RLOC_PRIORITY) {
+        locator = list_elt->locator;
+        /* Only use locators with status UP  */
+        if (locator_state(locator) == DOWN
+                || locator_priority(locator) == UNUSED_RLOC_PRIORITY) {
             list_elt = list_elt->next;
             continue;
         }
         /* If priority of the locator equal to min_priority, then add the
          * locator to the list */
-        if (list_elt->locator->priority == min_priority) {
-            selected_locators[pos] = list_elt->locator;
+        if (locator_priority(locator) == min_priority) {
+            selected_locators[pos] = locator;
             pos++;
             selected_locators[pos] = NULL;
         }
         /* If priority of the locator is minor than the min_priority, then
          * min_priority and list of rlocs is updated */
-        if (list_elt->locator->priority < min_priority) {
+        if (locator_priority(locator) < min_priority) {
             pos = 0;
-            min_priority = list_elt->locator->priority;
-            selected_locators[pos] = list_elt->locator;
+            min_priority = locator_priority(locator);
+            selected_locators[pos] = locator;
             pos++;
             selected_locators[pos] = NULL;
         }
@@ -389,7 +366,7 @@ set_balancing_vector(locator_t **locators, int total_weight, int hcf,
 
     while (locators[ctr] != NULL) {
         if (total_weight != 0) {
-            used_pos = locators[ctr]->weight / hcf;
+            used_pos = locator_weight(locators[ctr]) / hcf;
         } else {
             /* If all locators has weight equal to 0, we assign one position
              * for each locator. Simetric balancing */
@@ -501,10 +478,10 @@ get_hcf_locators_weight(locator_t **locators, int *total_weight,
     int tmp_hcf = 0;
 
     if (locators[0] != NULL) {
-        tmp_hcf = locators[0]->weight;
+        tmp_hcf = locator_weight(locators[0]);
         while (locators[ctr] != NULL) {
-            weight = weight + locators[ctr]->weight;
-            tmp_hcf = highest_common_factor(tmp_hcf, locators[ctr]->weight);
+            weight = weight + locator_weight(locators[ctr]);
+            tmp_hcf = highest_common_factor(tmp_hcf, locator_weight(locators[ctr]));
             ctr++;
         }
     }
@@ -630,7 +607,6 @@ extended_info_init_local()
     ei->outgoing_balancing_locators_vecs.v4_locators_vec_length = 0;
     ei->outgoing_balancing_locators_vecs.v6_locators_vec_length = 0;
     ei->outgoing_balancing_locators_vecs.locators_vec_length = 0;
-    ei->head_not_init_locators_list = NULL;
     return (ei);
 }
 
@@ -746,7 +722,6 @@ mapping_extended_info_del(mapping_t *mapping)
         switch (mapping->type) {
         case MAPPING_LOCAL:
             leinf = mapping->extended_info;
-            locator_list_del(leinf->head_not_init_locators_list);
             free_balancing_locators_vecs(leinf->outgoing_balancing_locators_vecs);
             free (leinf);
             break;
@@ -881,4 +856,30 @@ mapping_del_locators(mapping_t *m)
 }
 
 
+/*
+ * Remove the locator from the non active locators list and reinsert in the correct list
+ * The address of the locator should be modified before calling this function
+ * This function is only used when an interface is down during the initial configuration
+ * process and then is activated
+ */
 
+int
+mapping_activate_locator(
+        mapping_t *map,
+        locator_t *loct)
+{
+    int res = GOOD;
+
+    if (locator_list_remove(&(map->head_no_addr_locators_list),loct) == BAD){
+        LMLOG(DBG_1,"mapping_activate_locator: Couldn't activate locator %s",
+                lisp_addr_to_char(locator_addr(loct)));
+        return (BAD);
+    }
+    res = mapping_add_locator(map, loct);
+    if (res == GOOD){
+        LMLOG(DBG_1,"mapping_activate_locator: The locator %s of the mapping %s has been activated",
+                lisp_addr_to_char(locator_addr(loct)),
+                lisp_addr_to_char(&(map->eid_prefix)));
+    }
+    return (res);
+}

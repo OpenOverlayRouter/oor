@@ -331,7 +331,7 @@ lisp_msg_put_locator(lbuf_t *b, locator_t *locator)
 
     loc_ptr = lbuf_put_uninit(b, sizeof(locator_hdr_t));
 
-    if (*(locator->state) == UP) {
+    if (locator->state == UP) {
         loc_ptr->priority    = locator->priority;
     } else {
         /* If the locator is DOWN, set the priority to 255
@@ -342,7 +342,7 @@ lisp_msg_put_locator(lbuf_t *b, locator_t *locator)
     loc_ptr->mpriority = locator->mpriority;
     loc_ptr->mweight = locator->mweight;
     loc_ptr->local = 1;
-    loc_ptr->reachable = *(locator->state);
+    loc_ptr->reachable = locator->state;
 
     /* TODO: FC should take RTR stuff out in the near future */
     lct_extended_info = locator->extended_info;
@@ -390,14 +390,17 @@ lisp_msg_put_mapping_hdr(lbuf_t *b)
 }
 
 void *
-lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, lisp_addr_t *probed_loc)
+lisp_msg_put_mapping(
+        lbuf_t      *b,
+        mapping_t   *m,
+        lisp_addr_t *probed_loc)
 {
-    locator_list_t *loc_list[2]   = {NULL,NULL};
-    locator_t *loc;
-    int i;
-    mapping_record_hdr_t *rec;
-    locator_hdr_t *ploc;
-    lisp_addr_t *eid;
+    locator_list_t          *loc_list[2]    = {NULL,NULL};
+    locator_t               *loc            = NULL ;
+    int                     i               = 0;
+    mapping_record_hdr_t    *rec            = NULL;
+    locator_hdr_t           *ploc           = NULL;
+    lisp_addr_t             *eid            = NULL;
 
     eid = mapping_eid(m);
     rec = lisp_msg_put_mapping_hdr(b);
@@ -408,7 +411,6 @@ lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, lisp_addr_t *probed_loc)
     if (lisp_msg_put_addr(b, eid) == NULL) {
         return(NULL);
     }
-
     loc_list[0] = m->head_v4_locators_list;
     loc_list[1] = m->head_v6_locators_list;
     for (i = 0 ; i < 2 ; i++){
@@ -416,13 +418,12 @@ lisp_msg_put_mapping(lbuf_t *b, mapping_t *m, lisp_addr_t *probed_loc)
             loc = loc_list[i]->locator;
             ploc = lisp_msg_put_locator(b, loc);
             if (probed_loc
-                && lisp_addr_cmp(locator_addr(loc), probed_loc) == 0) {
+                    && lisp_addr_cmp(locator_addr(loc), probed_loc) == 0) {
                 LOC_PROBED(ploc) = 1;
             }
             loc_list[i] = loc_list[i]->next;
         }
     }
-
     increment_record_count(b);
 
     return(rec);
