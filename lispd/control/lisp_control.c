@@ -28,13 +28,16 @@
  */
 
 #include <unistd.h>
+#include <linux/rtnetlink.h>
 
+#include "iface_list.h"
 #include "lisp_control.h"
 #include "lisp_ctrl_device.h"
 #include "lispd_info_nat.h"
-#include "iface_list.h"
-#include "util.h"
 #include "lmlog.h"
+#include "routing_tables_lib.h"
+#include "util.h"
+
 
 
 static void set_default_rlocs(lisp_ctrl_t *ctrl);
@@ -92,7 +95,7 @@ lisp_ctrl_t *
 ctrl_create()
 {
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
-    ctrl->devices = glist_new();
+    ctrl->devices = glist_new_managed((glist_del_fct)ctrl_dev_destroy);
     ctrl->default_rlocs = glist_new();
     ctrl->ipv4_rlocs = glist_new();
     ctrl->ipv6_rlocs = glist_new();
@@ -110,9 +113,8 @@ ctrl_destroy(lisp_ctrl_t *ctrl)
     glist_destroy(ctrl->ipv4_rlocs);
     glist_destroy(ctrl->ipv6_rlocs);
 
-    close(ctrl->ipv4_control_input_fd);
-    close(ctrl->ipv6_control_input_fd);
     free(ctrl);
+    LMLOG(DBG_1,"Lisp controler destroyed");
 }
 
 void
@@ -291,6 +293,84 @@ ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev)
     LMLOG(LINF, "Device working in mode %d registering with control", dev->mode);
     glist_add(dev, ctrl->devices);
     return(GOOD);
+}
+
+int
+ctrl_register_eid_prefix(
+        lisp_ctrl_dev_t *dev,
+        lisp_addr_t     *eid_prefix)
+{
+    switch(dev->mode){
+    case xTR_MODE:
+        /* Route to send dtraffic to TUN */
+        if (add_rule(lisp_addr_ip_afi(eid_prefix),
+                0,
+                LISP_TABLE,
+                RULE_TO_LISP_TABLE_PRIORITY,
+                RTN_UNICAST,
+                eid_prefix,
+                NULL,0)!=GOOD){
+            return (BAD);
+        }
+        /* Route to avoid to encapsulate traffic destined to the RLOC lan */
+        if (add_rule(lisp_addr_ip_afi(eid_prefix),
+                0,
+                RT_TABLE_MAIN,
+                RULE_AVOID_LISP_TABLE_PRIORITY,
+                RTN_UNICAST,
+                NULL,
+                eid_prefix,
+                0)!=GOOD){
+            return (BAD);
+        }
+        break;
+    case MS_MODE:
+    case RTR_MODE:
+    case MN_MODE:
+    default:
+        LMLOG(LINF, "Current version only supports the registration in control of"
+                "EID prefixes from xTRs");
+        break;
+    }
+    return (GOOD);
+}
+
+int
+ctrl_unregister_eid_prefix(
+        lisp_ctrl_dev_t *dev,
+        lisp_addr_t     *eid_prefix)
+{
+    switch(dev->mode){
+    case xTR_MODE:
+        if (del_rule(lisp_addr_ip_afi(eid_prefix),
+                0,
+                LISP_TABLE,
+                RULE_TO_LISP_TABLE_PRIORITY,
+                RTN_UNICAST,
+                eid_prefix,
+                NULL,0)!=GOOD){
+            return (BAD);
+        }
+        if (del_rule(lisp_addr_ip_afi(eid_prefix),
+                0,
+                RT_TABLE_MAIN,
+                RULE_AVOID_LISP_TABLE_PRIORITY,
+                RTN_UNICAST,
+                NULL,
+                eid_prefix,
+                0)!=GOOD){
+            return (BAD);
+        }
+        break;
+    case MS_MODE:
+    case RTR_MODE:
+    case MN_MODE:
+    default:
+        LMLOG(LINF, "Current version only supports the unregistration in control of"
+                "EID prefixes from xTRs");
+        break;
+    }
+    return (GOOD);
 }
 
 

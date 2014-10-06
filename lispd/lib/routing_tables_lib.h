@@ -37,6 +37,10 @@
 #include <defs.h>
 #include <lisp_address.h>
 
+#define RULE_AVOID_LISP_TABLE_PRIORITY 99
+#define RULE_TO_LISP_TABLE_PRIORITY 100
+#define LISP_TABLE 100
+
 /*
  * This function adds a specific ip rule to
  * kernel's rule list
@@ -47,10 +51,8 @@ int add_rule(
         uint8_t     table,
         uint32_t    priority,
         uint8_t     type,
-        lisp_addr_t *src_addr,
-        int         src_plen,
-        lisp_addr_t *dst_addr,
-        int         dst_plen,
+        lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref,
         int         flags);
 
 /*
@@ -63,15 +65,9 @@ int del_rule(
         uint8_t     table,
         uint32_t    priority,
         uint8_t     type,
-        lisp_addr_t *src_addr,
-        int         src_plen,
-        lisp_addr_t *dst_addr,
-        int         dst_plen,
+        lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref,
         int         flags);
-/*
- * Remove all the created rules to the source routing tables
- */
-void routing_rules_remove();
 
 /*
  * Request to the kernel the routing table with the selected afi
@@ -95,7 +91,6 @@ int add_route(
         lisp_addr_t         *dest,
         lisp_addr_t         *src,
         lisp_addr_t         *gw,
-        uint32_t            prefix_len,
         uint32_t            metric,
         uint32_t            table);
 
@@ -112,10 +107,9 @@ int add_route(
 int del_route(
         int                 afi,
         uint32_t            ifindex,
-        lisp_addr_t         *dest,
+        lisp_addr_t         *dest_pref,
         lisp_addr_t         *src,
         lisp_addr_t         *gw,
-        uint32_t            prefix_len,
         uint32_t            metric,
         uint32_t            table);
 

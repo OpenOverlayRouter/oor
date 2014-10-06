@@ -67,6 +67,14 @@ void ctrl_if_status_update(lisp_ctrl_t *, iface_t *);
 fwd_entry_t *ctrl_get_forwarding_entry(packet_tuple_t *);
 int ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev);
 
+int ctrl_register_eid_prefix(
+        lisp_ctrl_dev_t *dev,
+        lisp_addr_t     *eid_prefix);
+
+int ctrl_unregister_eid_prefix(
+        lisp_ctrl_dev_t *dev,
+        lisp_addr_t     *eid_prefix);
+
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);
 void multicast_leave_channel(lisp_addr_t *src, lisp_addr_t *grp);

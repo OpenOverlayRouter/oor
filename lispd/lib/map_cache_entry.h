@@ -170,9 +170,8 @@ static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *m)
 
 static inline void mcache_entry_stop_req_retry_timer(mcache_entry_t *m)
 {
-     lmtimer_stop(m->request_retry_timer);
-     m->request_retry_timer = NULL;
-
+    lmtimer_stop(m->request_retry_timer);
+    m->request_retry_timer = NULL;
 }
 
 static inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *m)

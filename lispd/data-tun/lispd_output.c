@@ -239,6 +239,7 @@ lisp_output(lbuf_t *b)
 
     /* If already LISP packet, do not encapsulate again */
     if (is_lisp_packet(&tpl)) {
+        LMLOG(DBG_3,"OUTPUT: Is a lisp packet, do not encapsulate again");
         return (forward_native(b, &tpl.dst_addr));
     }
 

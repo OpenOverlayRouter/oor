@@ -302,23 +302,29 @@ ip_addr_from_char(char *addr, ip_addr_t *ip)
 int
 ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
 {
+    char *address = strdup(addr);
     char *token;
     int mask;
 
-    if ((token = strtok(addr, "/")) == NULL) {
+    if ((token = strtok(address, "/")) == NULL) {
         LMLOG(DBG_1, "ip_prefix_from_char: Prefix not of the form "
                 "prefix/length: %s", addr);
+        free(address);
         return (BAD);
     }
 
     if (ip_addr_from_char(token, ip_prefix_addr(ippref)) == BAD) {
+        free(address);
         return (BAD);
     }
 
     if ((token = strtok(NULL, "/")) == NULL) {
         LMLOG(DBG_1, "ip_prefix_from_char: strtok: %s", strerror(errno));
+        free(address);
         return (BAD);
     }
+
+    free(address);
 
     mask = atoi(token);
 

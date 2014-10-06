@@ -77,8 +77,8 @@ static void map_servers_to_char(lisp_xtr_t *, int log_level);
 static fwd_entry_t *tr_get_forwarding_entry(lisp_ctrl_dev_t *,
         packet_tuple_t *);
 
-static glist_t *get_local_locators_with_address(local_map_db_t *local_db, lisp_addr_t *addr);
-static mapping_t *get_mapping_containing_locator_ptr(local_map_db_t *local_db, locator_t *locator);
+glist_t *get_local_locators_with_address(local_map_db_t *local_db, lisp_addr_t *addr);
+mapping_t *get_mapping_containing_locator_ptr(local_map_db_t *local_db, locator_t *locator);
 glist_t *get_mappings_to_smr(lisp_xtr_t *xtr);
 
 
@@ -289,6 +289,10 @@ update_mcache_entry(lisp_xtr_t *xtr, mapping_t *m, uint64_t nonce)
 
     mapping_compute_balancing_vectors(old_map);
 
+    /* Remove Map Request retry timer */
+    mcache_entry_stop_req_retry_timer(mce);
+    mcache_entry_stop_smr_inv_timer(mce);
+
     /* Reprogramming timers */
     mc_entry_start_expiration_timer(xtr, mce);
 
@@ -395,7 +399,6 @@ tr_reply_to_smr(lisp_xtr_t *xtr, lisp_addr_t *eid)
         if (!mcache_entry_nonces(mce)) {
             return(BAD);
         }
-
         send_smr_invoked_map_request(xtr, mce);
     }
 
@@ -884,6 +887,7 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
 
         hdr = lisp_msg_hdr(b);
         MREQ_SMR_INVOKED(hdr) = 1;
+        nonces->nonce[nonces->retransmits] = nonce_build_time();
         MREQ_NONCE(hdr) = nonces->nonce[nonces->retransmits];
 
         /* we could put anything here. Still, better put something that
@@ -1768,13 +1772,23 @@ xtr_ctrl_construct(lisp_ctrl_dev_t *dev)
 static void
 xtr_ctrl_destruct(lisp_ctrl_dev_t *dev)
 {
-    lisp_xtr_t *xtr = lisp_xtr_cast(dev);
+    mapping_t  *mapping     = NULL;
+    void       *it          = NULL;
+    lisp_xtr_t *xtr         = lisp_xtr_cast(dev);
+
+
+    local_map_db_foreach_entry(xtr->local_mdb, it) {
+        mapping = (mapping_t *)it;
+        ctrl_unregister_eid_prefix(dev,mapping_eid(mapping));
+    } local_map_db_foreach_end;
+
     mcache_del(xtr->map_cache);
     local_map_db_del(xtr->local_mdb);
     lisp_addr_list_del(xtr->map_resolvers);
     map_server_list_del(xtr->map_servers);
     mapping_del(xtr->all_locs_map);
     lmtimer_stop(xtr->smr_timer);
+    LMLOG(DBG_1,"xTR device destroyed");
 }
 
 static void
@@ -1788,6 +1802,10 @@ xtr_ctrl_dealloc(lisp_ctrl_dev_t *dev) {
 static void
 xtr_run(lisp_xtr_t *xtr)
 {
+    mapping_t   *mapping = NULL;
+    void        *it      = NULL;
+
+
     LMLOG(DBG_1, "\nStarting xTR ...\n");
 
     if (xtr->map_servers == NULL) {
@@ -1837,19 +1855,19 @@ xtr_run(lisp_xtr_t *xtr)
         }
     }
 
-#ifndef ROUTER
-    /* Check number of EID prefixes */
-    if (local_map_db_num_ip_eids(xtr->local_mdb, AF_INET) > 1) {
-        LMLOG(LERR, "LISPmob in mobile node mode only supports one IPv4 EID "
-                "prefix and one IPv6 EID prefix");
-        exit_cleanup();
+    if (xtr->super.mode == MN_MODE){
+        /* Check number of EID prefixes */
+        if (local_map_db_num_ip_eids(xtr->local_mdb, AF_INET) > 1) {
+            LMLOG(LERR, "LISPmob in mobile node mode only supports one IPv4 EID "
+                    "prefix and one IPv6 EID prefix");
+            exit_cleanup();
+        }
+        if (local_map_db_num_ip_eids(xtr->local_mdb, AF_INET6) > 1) {
+            LMLOG(LERR, "LISPmob in mobile node mode only supports one IPv4 EID "
+                    "prefix and one IPv6 EID prefix");
+            exit_cleanup();
+        }
     }
-    if (local_map_db_num_ip_eids(xtr->local_mdb, AF_INET6) > 1) {
-        LMLOG(LERR, "LISPmob in mobile node mode only supports one IPv4 EID "
-                "prefix and one IPv6 EID prefix");
-        exit_cleanup();
-    }
-#endif
 
     LMLOG(DBG_1, "****** Summary of the xTR configuration ******");
     local_map_db_dump(xtr->local_mdb, DBG_1);
@@ -1859,6 +1877,12 @@ xtr_run(lisp_xtr_t *xtr)
     lisp_addr_list_to_char(xtr->map_resolvers, "Map-Resolvers", DBG_1);
     proxy_etrs_to_char(xtr, DBG_1);
     lisp_addr_list_to_char(xtr->pitrs, "Proxy-ITRs", DBG_1);
+
+    /* Register EIDs prefixes to control */
+    local_map_db_foreach_entry(xtr->local_mdb, it) {
+        mapping = it;
+        ctrl_register_eid_prefix(&(xtr->super),mapping_eid(mapping));
+    } local_map_db_foreach_end;
 
     /*  Register to the Map-Server(s) */
     program_map_register(xtr, 1);
@@ -1904,7 +1928,7 @@ xtr_ctrl_run(lisp_ctrl_dev_t *dev)
 {
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
 
-    if (xtr->super.mode == xTR_MODE) {
+    if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
         xtr_run(xtr);
     } else if (xtr->super.mode == RTR_MODE) {
         rtr_run(xtr);
@@ -2283,7 +2307,7 @@ get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
         return(fe);
     }
 
-    if (xtr->super.mode == xTR_MODE) {
+    if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
         /* lookup local mapping for source EID */
         smap = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
     } else {
@@ -2382,7 +2406,7 @@ get_local_locators_with_address(
     return (locators);
 }
 
-static mapping_t *
+mapping_t *
 get_mapping_containing_locator_ptr(
         local_map_db_t      *local_db,
         locator_t           *locator)

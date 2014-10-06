@@ -66,7 +66,7 @@ void process_address_change(iface_t *iface, lisp_addr_t *new_addr);
  * interfaces if it's needed. Program SMR */
 void process_link_status_change(iface_t *iface, int new_status);
 
-void process_new_gateway(lisp_addr_t gateway, iface_t *iface);
+void process_new_gateway(iface_t *iface,lisp_addr_t *gateway);
 
 
 
@@ -190,9 +190,10 @@ process_nl_add_address (struct nlmsghdr *nlh)
     rth = IFA_RTA (ifa);
 
     rt_length = IFA_PAYLOAD(nlh);
-    for (; rt_length && RTA_OK(rth, rt_length);
-            rth = RTA_NEXT(rth, rt_length)) {
-        if (rth->rta_type == IFA_ADDRESS) {
+    for (;rt_length && RTA_OK (rth, rt_length);rth = RTA_NEXT (rth,rt_length))
+    {
+        if ((ifa->ifa_family == AF_INET && rth->rta_type == IFA_LOCAL)
+                || (ifa->ifa_family == AF_INET6 && rth->rta_type == IFA_ADDRESS)){
             lisp_addr_ip_init(&new_addr, RTA_DATA(rth), ifa->ifa_family);
             process_address_change(iface, &new_addr);
         }
@@ -208,7 +209,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
     lisp_addr_t *new_addr_cpy   = NULL;
     lisp_addr_t *old_addr_cpy   = NULL;
     int new_addr_ip_afi;
-    int afi;
+    int old_lafi;
 
     new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
 
@@ -228,15 +229,17 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
     /* If default RLOC afi defined (-a 4 or 6), only accept addresses of the
      * specified afi */
     if (default_rloc_afi != -1
-        && default_rloc_afi != lisp_addr_ip_afi(new_addr)) {
+        && default_rloc_afi != new_addr_ip_afi) {
         LMLOG(DBG_2,"precess_address_change: Default RLOC afi defined (-a #): "
                 "Skipped %s address in iface %s",
-                (lisp_addr_ip_afi(new_addr) == AF_INET) ? "IPv4" : "IPv6",
+                (new_addr_ip_afi == AF_INET) ? "IPv4" : "IPv6",
                 iface->iface_name);
         return;
     }
 
     /* Actions to be done due to a change of address: SMR  */
+
+
     switch (new_addr_ip_afi){
         case AF_INET:
             iface_addr = iface->ipv4_address;
@@ -263,10 +266,13 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
 
         return;
     };
+
+    old_lafi = lisp_addr_afi(iface_addr);
+
     /* The interface was down during initial configuration process and now it
      * is up. Create sockets */
-    if (lisp_addr_is_no_addr(iface_addr)) {
-        lisp_addr_copy(iface_addr, new_addr);
+    if (old_lafi == LM_AFI_NO_ADDR) {
+
         LMLOG(DBG_2, "process_address_change: Generating sockets for the initialized interface "
                 "%s", lisp_addr_to_char(new_addr));
 
@@ -300,37 +306,20 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
             }
         }
     }
-    /* If code is compiled in router mode, then recompile default routes
-     * changing the indicated src address*/
-#ifdef ROUTER
-    switch (new_addr_ip_afi) {
-    case AF_INET:
-        if (iface == default_out_iface_v4) {
-            set_tun_default_route_v4();
-        }
-        break;
-    case AF_INET6:
-        if (iface == default_out_iface_v6) {
-            del_tun_default_route_v6();
-            set_tun_default_route_v6();
-        }
-        break;
-    }
-#endif
-
 
     LMLOG(DBG_2,"process_address_change: New address detected for interface "
             "%s -> %s", iface->iface_name, lisp_addr_to_char(new_addr));
 
-    afi = lisp_addr_ip_afi(iface_addr);
-    /* Change source routing rules for this interface and binding */
-    if (afi != LM_AFI_NO_ADDR) {
-        del_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
-                iface_addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
-    }
-    add_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
-            new_addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
 
+    /* Change source routing rules for this interface and binding */
+    if (lisp_addr_is_no_addr(iface_addr) == FALSE) {
+        del_rule(new_addr_ip_afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
+                iface_addr, NULL, 0);
+    }
+    add_rule(new_addr_ip_afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
+            new_addr, NULL, 0);
+
+    /* Rebind sockets */
     switch (new_addr_ip_afi) {
     case AF_INET:
         bind_socket_address(iface->out_socket_v4, new_addr);
@@ -340,10 +329,9 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
         break;
     }
 
-
+    lisp_addr_copy(iface_addr, new_addr);
     old_addr_cpy = lisp_addr_clone(iface_addr);
     new_addr_cpy = lisp_addr_clone(new_addr);
-
 
     /* raise event in ctrl */
     ctrl_if_addr_update(lctrl, iface, old_addr_cpy, new_addr_cpy);
@@ -376,9 +364,9 @@ process_nl_del_address(struct nlmsghdr *nlh)
 
     rth = IFA_RTA(ifa);
     rt_length = IFA_PAYLOAD(nlh);
-    for (; rt_length && RTA_OK(rth, rt_length);
-            rth = RTA_NEXT(rth, rt_length)) {
-        if (rth->rta_type == IFA_ADDRESS) {
+    for (; rt_length && RTA_OK(rth, rt_length);rth = RTA_NEXT(rth, rt_length)) {
+        if ((ifa->ifa_family == AF_INET && rth->rta_type == IFA_LOCAL)
+                        || (ifa->ifa_family == AF_INET6 && rth->rta_type == IFA_ADDRESS)){
             lisp_addr_ip_init(&new_addr, RTA_DATA(rth), ifa->ifa_family);
             break;
         }
@@ -424,9 +412,9 @@ process_nl_new_link(struct nlmsghdr *nlh)
             /* Update routing tables and reopen sockets*/
             if (lisp_addr_ip_afi(iface->ipv4_address) != LM_AFI_NO_ADDR) {
                 del_rule(AF_INET, 0, old_iface_index, old_iface_index,
-                        RTN_UNICAST, iface->ipv4_address, 32, NULL, 0, 0);
+                        RTN_UNICAST, iface->ipv4_address, NULL, 0);
                 add_rule(AF_INET, 0, iface_index, iface_index, RTN_UNICAST,
-                        iface->ipv4_address, 32, NULL, 0, 0);
+                        iface->ipv4_address, NULL, 0);
                 close(iface->out_socket_v4);
                 iface->out_socket_v4 = open_device_bound_raw_socket(
                         iface->iface_name, AF_INET);
@@ -434,9 +422,9 @@ process_nl_new_link(struct nlmsghdr *nlh)
             }
             if (lisp_addr_ip_afi(iface->ipv6_address) != LM_AFI_NO_ADDR) {
                 del_rule(AF_INET6, 0, old_iface_index, old_iface_index,
-                        RTN_UNICAST, iface->ipv6_address, 128, NULL, 0, 0);
+                        RTN_UNICAST, iface->ipv6_address, NULL, 0);
                 add_rule(AF_INET6, 0, iface_index, iface_index, RTN_UNICAST,
-                        iface->ipv6_address, 128, NULL, 0, 0);
+                        iface->ipv6_address, NULL, 0);
                 close(iface->out_socket_v6);
                 iface->out_socket_v6 = open_device_bound_raw_socket(
                         iface->iface_name, AF_INET6);
@@ -551,7 +539,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
         LMLOG(DBG_1,  "process_nl_new_unicast_route: Process new gateway "
                 "associated to the interface %s:  %s", iface_name,
                 lisp_addr_to_char(&gateway));
-        process_new_gateway(gateway,iface);
+        process_new_gateway(iface,&gateway);
     }
 }
 
@@ -698,12 +686,13 @@ process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length)
 
 
 void
-process_new_gateway(lisp_addr_t gateway, iface_t *iface)
+process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
 {
-    lisp_addr_t **gw_addr   = NULL;
-    int         afi         = LM_AFI_NO_ADDR;
+    lisp_addr_t **gw_addr    = NULL;
+    int         afi          = LM_AFI_NO_ADDR;
+    int         route_metric = 100;
 
-    switch(gateway.afi){
+    switch(lisp_addr_ip_afi(gateway)){
         case AF_INET:
             gw_addr = &(iface->ipv4_gateway);
             afi = AF_INET;
@@ -717,12 +706,13 @@ process_new_gateway(lisp_addr_t gateway, iface_t *iface)
     }
     if (*gw_addr == NULL) { // The default gateway of this interface is not deffined yet
         *gw_addr = lisp_addr_new();
-        lisp_addr_copy(*gw_addr,&gateway);
+        lisp_addr_copy(*gw_addr,gateway);
     }else{
-        lisp_addr_copy(*gw_addr,&gateway);
+        lisp_addr_copy(*gw_addr,gateway);
     }
+    // XXX Add NAT and android stuff
 
-    add_route(afi,iface->iface_index,NULL,NULL,*gw_addr,0,100,iface->iface_index);
+    add_route(afi,iface->iface_index,NULL,NULL,*gw_addr,route_metric,iface->iface_index);
 }
 
 /*

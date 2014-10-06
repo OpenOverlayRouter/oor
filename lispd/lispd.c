@@ -82,74 +82,11 @@ sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
 
-void init_tun()
-{
-    lisp_addr_t *tun_v4_addr;
-    lisp_addr_t *tun_v6_addr;
-    char *tun_dev_name = TUN_IFACE_NAME;
-    lisp_xtr_t *xtr;
-
-    if (ctrl_dev->mode != xTR_MODE) {
-        LMLOG(LCRIT, "Trying to active LISP data plane for device type %d. "
-                "Aborting!", ctrl_dev->mode);
-        exit_cleanup();
-    }
-
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-
-    /* Create tun interface */
-    create_tun(tun_dev_name, TUN_RECEIVE_SIZE, TUN_MTU, &tun_receive_fd,
-            &tun_ifindex, &tun_receive_buf);
-
-
-    /*
-     * Assign address to the tun interface
-     * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
-     *                 ::/1      and 8000::/1
-     */
-
-#ifdef ROUTER
-    tun_v4_addr = local_map_db_get_main_eid(AF_INET);
-    if (tun_v4_addr != NULL){
-        tun_v4_addr = lisp_addr_new();
-        lisp_addr_ip_from_char(TUN_LOCAL_V4_ADDR,tun_v4_addr);
-    }
-    tun_v6_addr = local_map_db_get_main_eid(AF_INET6);
-    if (tun_v6_addr != NULL){
-        tun_v6_addr = lisp_addr_new();
-        lisp_addr_ip_from_char(TUN_LOCAL_V6_ADDR,tun_v6_addr);
-    }
-#else
-    tun_v4_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET);
-    tun_v6_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET6);
-#endif
-
-    tun_bring_up_iface(tun_dev_name);
-    if (tun_v4_addr != NULL) {
-        tun_add_eid_to_iface(*tun_v4_addr, tun_dev_name);
-        set_tun_default_route_v4();
-    }
-    if (tun_v6_addr != NULL) {
-        tun_add_eid_to_iface(*tun_v6_addr, tun_dev_name);
-        set_tun_default_route_v6();
-    }
-#ifdef ROUTER
-    if (tun_v4_addr != NULL){
-        free(tun_v4_addr);
-    }
-    if (tun_v6_addr != NULL){
-        free(tun_v6_addr);
-    }
-#endif
-
-    sockmstr_register_read_listener(smaster, lisp_output_recv, NULL,
-            tun_receive_fd);
-}
-
 int
 init_tr_data_plane(lisp_dev_type_e mode)
 {
     int (*cb_func)(sock_t *) = NULL;
+    uint8_t router_mode = FALSE;
 
     LMLOG(LINF, "\nIntializing data plane\n");
 
@@ -157,8 +94,25 @@ init_tr_data_plane(lisp_dev_type_e mode)
      * packets */
     set_default_output_ifaces();
 
-    if (mode == xTR_MODE) {
-        init_tun();
+    if (mode == xTR_MODE || mode == MN_MODE) {
+        lisp_xtr_t  *xtr         = NULL;
+        lisp_addr_t *tun_v4_addr = NULL;
+        lisp_addr_t *tun_v6_addr = NULL;
+        xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+        tun_v4_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET);
+        tun_v6_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET6);
+
+        if (mode == xTR_MODE){
+            router_mode = TRUE;
+        }
+
+        if (tun_configure_data_plane(router_mode, tun_v4_addr, tun_v6_addr)!=GOOD){
+            return(BAD);
+        }
+        sockmstr_register_read_listener(smaster, lisp_output_recv, NULL,
+                    tun_receive_fd);
+
         cb_func = process_input_packet;
     } else if (mode == RTR_MODE) {
         cb_func = rtr_process_input_packet;
@@ -275,20 +229,11 @@ void signal_handler(int sig) {
 
 void
 exit_cleanup(void) {
-
-    free(config_file);
-
-    /* close sockets */
-    close(netlink_fd);
-
-    close(tun_receive_fd);
-    close(ipv4_data_input_fd);
-    close(ipv6_data_input_fd);
-
-    ifaces_destroy();
+    LMLOG(DBG_2,"Exist Clenup");
 
     ctrl_destroy(lctrl);
-    ctrl_dev_destroy(ctrl_dev);
+
+    ifaces_destroy();
 
     lisp_output_uninit();
     sockmstr_destroy(smaster);
@@ -421,8 +366,10 @@ parse_config_file()
     handle_lispd_config_file(config_file);
 #endif
 
-    if (ctrl_dev->mode == xTR_MODE || ctrl_dev->mode == RTR_MODE) {
-        init_tr_data_plane(ctrl_dev->mode);
+    if (ctrl_dev->mode == xTR_MODE || ctrl_dev->mode == RTR_MODE || ctrl_dev->mode == MN_MODE) {
+        if (init_tr_data_plane(ctrl_dev->mode)!=GOOD){
+            exit_cleanup();
+        }
     }
 
 }

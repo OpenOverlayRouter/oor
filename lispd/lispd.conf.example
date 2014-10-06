@@ -6,7 +6,7 @@ debug                  = 0
 map-request-retries    = 2
 # 
 # operating mode can be any of:
-# xTR, RTR, MS
+# xTR, RTR, MN, MS
 #
 operating-mode         = xTR
 
@@ -48,7 +48,7 @@ rtr-database-mapping {
 
 ###############################################
 #
-# xTR config
+# xTR & MN config
 #
 
 # RLOC Probing configuration

@@ -129,6 +129,11 @@ static inline int lisp_addr_is_ip(lisp_addr_t *addr)
     return (addr->lafi == LM_AFI_IP);
 }
 
+static inline int lisp_addr_is_ip_pref(lisp_addr_t *addr)
+{
+    return (addr->lafi == LM_AFI_IPPREF);
+}
+
 static inline int lisp_addr_is_no_addr(lisp_addr_t *addr)
 {
     return (addr->lafi == LM_AFI_NO_ADDR);

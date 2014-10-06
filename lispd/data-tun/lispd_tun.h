@@ -38,9 +38,15 @@
 #include <linux/if_tun.h>
 #include "lispd.h"
 
+#ifdef ANDROID
+#define CLONEDEV                "/dev/tun"
+#else
 #define CLONEDEV                "/dev/net/tun"
+#endif
+
 #define TUN_IFACE_NAME          "lispTun0"
-#define TUN_RECEIVE_SIZE        2048 /* XXX: Should probably tune to match largest MTU */
+
+#define TUN_RECEIVE_SIZE        2048 // Should probably tune to match largest MTU
 
 /*
  * From section 5.4.1 of LISP RFC (6830)
@@ -68,13 +74,6 @@
 
 #define TUN_MTU                 1440 /* 1500 - 60 = 1440 */
 
-/* Local OpenWRT tun IPv4 address
- *
- * Local IPv4 address for tun interface when running on OpenWRT
- */
-
-#define TUN_LOCAL_V4_ADDR "127.0.0.127"
-#define TUN_LOCAL_V6_ADDR "::127"
 
 /* Tun MN variables */
 
@@ -82,40 +81,10 @@ int tun_receive_fd;
 int tun_ifindex;
 uint8_t *tun_receive_buf;
 
-
-
-int create_tun(
-    char                *tun_dev_name,
-    unsigned int        tun_receive_size,
-    int                 tun_mtu,
-    int                 *tun_receive_fd,
-    int                 *tun_ifindex,
-    uint8_t             **tun_receive_buf);
-
-
-/*
- * tun_bring_up_iface()
- *
- * Bring up interface
- */
-int tun_bring_up_iface(char *tun_dev_name);
-
-/*
- * tun_add_eid_to_iface()
- *
- * Add an EID to the TUN/TAP interface
- */
-int tun_add_eid_to_iface(
-    lisp_addr_t         eid_address,
-    char                *tun_dev_name);
-
-int tun_add_v6_eid_to_iface(
-    lisp_addr_t         eid_address_v6,
-    char                *tun_dev_name);
-
-int set_tun_default_route_v4();
-int set_tun_default_route_v6();
-int del_tun_default_route_v6();
+int tun_configure_data_plane(
+        uint8_t router_mode,
+        lisp_addr_t *ipv4_addr,
+        lisp_addr_t *ipv6_addr);
 
 #endif /* LISPD_TUN_H_ */
 

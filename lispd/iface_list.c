@@ -113,18 +113,19 @@ iface_remove_routing_rules(iface_t *iface)
     if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
         if (iface->ipv4_gateway != NULL) {
             del_route(AF_INET, iface->iface_index, NULL, NULL,
-                    iface->ipv4_gateway, 0, 0, iface->iface_index);
+                    iface->ipv4_gateway, 0, iface->iface_index);
         }
+
         del_rule(AF_INET, 0, iface->iface_index, iface->iface_index,
-                RTN_UNICAST, iface->ipv4_address, 32, NULL, 0, 0);
+                RTN_UNICAST, iface->ipv4_address, NULL, 0);
     }
     if (!lisp_addr_is_no_addr(iface->ipv6_address)) {
         if (iface->ipv6_gateway != NULL) {
             del_route(AF_INET6, iface->iface_index, NULL, NULL,
-                    iface->ipv6_gateway, 0, 0, iface->iface_index);
+                    iface->ipv6_gateway, 0, iface->iface_index);
         }
         del_rule(AF_INET6, 0, iface->iface_index, iface->iface_index,
-                RTN_UNICAST, iface->ipv6_address, 128, NULL, 0, 0);
+                RTN_UNICAST, iface->ipv6_address, NULL, 0);
     }
 }
 
@@ -266,7 +267,7 @@ iface_setup(iface_t *iface, char* iface_name, int afi)
         *sock = open_device_bound_raw_socket(iface_name, afi);
         bind_socket_address(*sock, addr);
         add_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
-                addr, ip_afi_to_default_mask(afi), NULL, 0, 0);
+                addr, NULL, 0);
     } else {
         *sock = -1;
         lisp_addr_set_afi(addr, LM_AFI_NO_ADDR);
@@ -614,20 +615,11 @@ set_default_output_ifaces()
 
     if (default_out_iface_v4 != NULL) {
        LMLOG(DBG_2,"Default IPv4 iface %s\n",default_out_iface_v4->iface_name);
-#ifdef ROUTER
-       set_tun_default_route_v4();
-#endif
     }
     
     default_out_iface_v6 = get_any_output_iface(AF_INET6);
     if (default_out_iface_v6 != NULL) {
        LMLOG(DBG_2,"Default IPv6 iface %s\n", default_out_iface_v6->iface_name);
-#ifdef ROUTER
-       /* For IPv6, the route is not updated and should be removed before
-        * adding the new one */
-       del_tun_default_route_v6();
-       set_tun_default_route_v6();
-#endif
     }
 
     if (!default_out_iface_v4 && !default_out_iface_v6){

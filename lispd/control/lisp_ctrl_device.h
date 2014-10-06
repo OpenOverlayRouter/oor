@@ -41,7 +41,8 @@
 typedef enum {
     xTR_MODE ,
     MS_MODE,
-    RTR_MODE
+    RTR_MODE,
+    MN_MODE
 } lisp_dev_type_e;
 
 typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;

@@ -34,10 +34,10 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "routing_tables_lib.h"
 #include "lispd_external.h"
-#include "iface_list.h"
 #include "lmlog.h"
 
 
@@ -58,10 +58,9 @@ inline int modify_route(
         int                 command,                    /* add or del */
         int                 afi,
         uint32_t            ifindex,
-        lisp_addr_t         *dest,
+        lisp_addr_t         *dest_pref,
         lisp_addr_t         *src,
         lisp_addr_t         *gw,
-        uint32_t            prefix_len,
         uint32_t            metric,
         uint32_t            table);
 
@@ -72,15 +71,13 @@ inline int modify_route(
 inline int modify_rule (
         int             afi,
         int             if_index,       // interface index
-        int             command,            // add or del the rule?
+        int             command,        // add or del the rule?
         uint8_t         table,          // rule for which routing table?
         uint32_t        priority,       // rule priority
         uint8_t         type,           // type of route
-        lisp_addr_t     *src_addr,      // src addr to match
-        int             src_plen,       // src addr prefix length
-        lisp_addr_t     *dst_addr,      // dst addr to match
-        int             dst_plen,       // dst addr prefix length
-        int             flags);          // flags, if any
+        lisp_addr_t     *src_pref,      // src prefix to match
+        lisp_addr_t     *dst_pref,      // dst prefix to match
+        int             flags);         // flags, if any
 
 /*****************************************************************************/
 
@@ -94,10 +91,8 @@ inline int modify_rule (
         uint8_t         table,          // rule for which routing table?
         uint32_t        priority,       // rule priority
         uint8_t         type,           // type of route
-        lisp_addr_t     *src_addr,      // src addr to match
-        int             src_plen,       // src addr prefix length
-        lisp_addr_t     *dst_addr,      // dst addr to match
-        int             dst_plen,       // dst addr prefix length
+        lisp_addr_t     *src_pref,      // src addr prefix
+        lisp_addr_t     *dst_pref,      // dst addr prefix
         int             flags)          // flags, if any
 {
     struct nlmsghdr     *nlh            = NULL;
@@ -108,7 +103,8 @@ inline int modify_rule (
     int                 addr_size       = 0;
     int                 sockfd          = 0;
     int                 result          = BAD;
-
+    int                 src_pref_len    = 0;
+    int                 dst_pref_len    = 0;
 
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
@@ -142,24 +138,26 @@ inline int modify_rule (
     /*
      * Add src address for the route
      */
-    if (src_addr != NULL){
+    if (src_pref != NULL){
         rta->rta_type = RTA_SRC;
         rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &src_addr->address, addr_size);
+        lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr),src_pref);
         rta_len += rta->rta_len;
+        src_pref_len = lisp_addr_ip_get_plen(src_pref);
     }
 
     /*
      * Add the destination
      */
-    if (dst_addr != NULL){
+    if (dst_pref != NULL){
         if (rta_len > sizeof(struct rtmsg)){
             rta = (struct rtattr *)(CO(rta, rta->rta_len));
         }
         rta->rta_type = RTA_DST;
         rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &dst_addr->address, addr_size);
+        lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr),dst_pref);
         rta_len += rta->rta_len;
+        dst_pref_len = lisp_addr_ip_get_plen(dst_pref);
     }
 
     /*
@@ -202,8 +200,8 @@ inline int modify_rule (
     }
 
     rtm->rtm_family = afi;
-    rtm->rtm_dst_len = dst_plen;
-    rtm->rtm_src_len = src_plen;
+    rtm->rtm_dst_len = dst_pref_len;
+    rtm->rtm_src_len = src_pref_len;
     if (table == 0){
         rtm->rtm_table     = RT_TABLE_MAIN;
     }else{
@@ -238,17 +236,15 @@ int add_rule(
         uint8_t     table,
         uint32_t    priority,
         uint8_t     type,
-        lisp_addr_t *src_addr,
-        int         src_plen,
-        lisp_addr_t *dst_addr,
-        int         dst_plen,
+        lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref,
         int         flags)
 {
     int result = BAD;
-    result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
+    result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_pref, dst_pref, flags);
     if (result == GOOD){
         LMLOG(DBG_1, "add_rule: Add rule for source routing of src addr: %s",
-                lisp_addr_to_char(src_addr));
+                lisp_addr_to_char(src_pref));
     }
 
     return (result);
@@ -264,54 +260,22 @@ int del_rule(
         uint8_t     table,
         uint32_t    priority,
         uint8_t     type,
-        lisp_addr_t *src_addr,
-        int         src_plen,
-        lisp_addr_t *dst_addr,
-        int         dst_plen,
+        lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref,
         int         flags)
 {
     int result = BAD;
-    result = modify_rule(afi, if_index, RTM_DELRULE, table,priority, type, src_addr, src_plen, dst_addr, dst_plen, flags);
+    result = modify_rule(afi, if_index, RTM_DELRULE, table,priority, type, src_pref, dst_pref, flags);
     if (result == GOOD){
         LMLOG(DBG_1, "del_rule: Removed rule for source routing of src addr: %s",
-                lisp_addr_to_char(src_addr));
+                lisp_addr_to_char(src_pref));
     }
 
     return (result);
 }
 
-/*
- * Remove all the created rules to the source routing tables
- */
-void
-routing_rules_remove()
-{
-    iface_list_elt_t *interface_list = NULL;
-    iface_t *iface = NULL;
 
-    interface_list = head_interface_list;
-    while (interface_list != NULL) {
-        iface = interface_list->iface;
 
-        if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
-            if (iface->ipv4_gateway != NULL) {
-                del_route(AF_INET, iface->iface_index, NULL, NULL,
-                        iface->ipv4_gateway, 0, 0, iface->iface_index);
-            }
-            del_rule(AF_INET, 0, iface->iface_index, iface->iface_index,
-                    RTN_UNICAST, iface->ipv4_address, 32, NULL, 0, 0);
-        }
-        if (!lisp_addr_is_no_addr(iface->ipv6_address)) {
-            if (iface->ipv6_gateway != NULL) {
-                del_route(AF_INET6, iface->iface_index, NULL, NULL,
-                        iface->ipv6_gateway, 0, 0, iface->iface_index);
-            }
-            del_rule(AF_INET6, 0, iface->iface_index, iface->iface_index,
-                    RTN_UNICAST, iface->ipv6_address, 128, NULL, 0, 0);
-        }
-        interface_list = interface_list->next;
-    }
-}
 
 /*
  * Request to the kernel the routing table with the selected afi
@@ -377,10 +341,9 @@ inline int modify_route(
         int                 command,                    /* add or del */
         int                 afi,
         uint32_t            ifindex,
-        lisp_addr_t         *dest,
-        lisp_addr_t         *src,
-        lisp_addr_t         *gw,
-        uint32_t            prefix_len,
+        lisp_addr_t         *dest_pref,
+        lisp_addr_t         *src_addr,
+        lisp_addr_t         *gw_addr,
         uint32_t            metric,
         uint32_t            table)
 {
@@ -392,6 +355,7 @@ inline int modify_route(
     int    retval           = 0;
     int    sockfd           = 0;
     int    addr_size        = 0;
+    int    dst_pref_len     = 0;
 
     if (afi == AF_INET){
         addr_size = sizeof(struct in_addr);
@@ -426,25 +390,25 @@ inline int modify_route(
      * Add the destination
      */
 
-    if (dest != NULL){
+    if (dest_pref != NULL){
         rta->rta_type = RTA_DST;
         rta->rta_len = sizeof(struct rtattr) + addr_size;
-//        memcpy(((char *)rta) + sizeof(struct rtattr), &dest->address, addr_size);
-        lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr), dest);
+        lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr), dest_pref);
         rta_len += rta->rta_len;
+        dst_pref_len = lisp_addr_ip_get_plen(dest_pref);
     }
 
 
     /*
      * Add src address for the route
      */
-    if (src != NULL){
+    if (src_addr != NULL){
         if (rta_len > sizeof(struct rtmsg)){
             rta = (struct rtattr *)(CO(rta, rta->rta_len));
         }
         rta->rta_type = RTA_PREFSRC;
         rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &src->address, addr_size);
+        lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr), src_addr);
         rta_len += rta->rta_len;
     }
 
@@ -466,13 +430,13 @@ inline int modify_route(
      * Add the gateway
      */
 
-    if (gw != NULL){
+    if (gw_addr != NULL){
         if (rta_len > sizeof(struct rtmsg)){
             rta = (struct rtattr *)(CO(rta, rta->rta_len));
         }
         rta->rta_type = RTA_GATEWAY;
         rta->rta_len = sizeof(struct rtattr) + addr_size;
-        memcpy(((char *)rta) + sizeof(struct rtattr), &gw->address, addr_size);
+        lisp_addr_copy_to(((char *)rta) + sizeof(struct rtattr), gw_addr);
         rta_len += rta->rta_len;
     }
 
@@ -514,7 +478,7 @@ inline int modify_route(
     rtm->rtm_src_len   = 0;
     rtm->rtm_tos       = 0;
 
-    rtm->rtm_dst_len   = prefix_len;
+    rtm->rtm_dst_len   = dst_pref_len;
 
 
     retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
@@ -531,20 +495,18 @@ inline int modify_route(
 int add_route(
         int                 afi,
         uint32_t            ifindex,
-        lisp_addr_t         *dest,
+        lisp_addr_t         *dest_pref,
         lisp_addr_t         *src,
         lisp_addr_t         *gw,
-        uint32_t            prefix_len,
         uint32_t            metric,
         uint32_t            table)
 {
     int result = BAD;
-    result = modify_route(RTM_NEWROUTE, afi,ifindex, dest, src, gw, prefix_len, metric, table);
+    result = modify_route(RTM_NEWROUTE, afi,ifindex, dest_pref, src, gw, metric, table);
     if (result == GOOD){
-        LMLOG(DBG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s/%d, gw: %s, table: %d",
+        LMLOG(DBG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s, gw: %s, table: %d",
                 (src != NULL) ? lisp_addr_to_char(src) : "-",
-                (dest != NULL) ? lisp_addr_to_char(dest) : "-",
-                prefix_len,
+                (dest_pref != NULL) ? lisp_addr_to_char(dest_pref) : "-",
                 (gw != NULL) ? lisp_addr_to_char(gw) : "-",
                 table);
     }
@@ -555,15 +517,14 @@ int add_route(
 int del_route(
         int                 afi,
         uint32_t            ifindex,
-        lisp_addr_t         *dest,
+        lisp_addr_t         *dest_pref,
         lisp_addr_t         *src,
         lisp_addr_t         *gw,
-        uint32_t            prefix_len,
         uint32_t            metric,
         uint32_t            table)
 {
     int result = BAD;
-    result = modify_route(RTM_DELROUTE, afi, ifindex, dest, src, gw, prefix_len, metric, table);
+    result = modify_route(RTM_DELROUTE, afi, ifindex, dest_pref, src, gw, metric, table);
     if (result == GOOD){
         LMLOG(DBG_1, "del_route: deleted route  from the system");
     }

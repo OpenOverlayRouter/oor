@@ -152,7 +152,7 @@ lmtimers_destroy()
     }
     free(timer_wheel.spokes);
     timer_delete(timer_id);
-    close(timers_fd);
+
 }
 
 /*

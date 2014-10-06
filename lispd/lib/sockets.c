@@ -61,6 +61,7 @@ sock_list_remove_all(sock_list_t *lst)
     sk = lst->head;
     while(sk) {
         next = sk->next;
+        close(sk->fd);
         free(sk);
         sk = next;
     }
@@ -90,6 +91,7 @@ sockmstr_destroy(sockmstr_t *sm)
 {
     sock_list_remove_all(&sm->read);
     free(sm);
+    LMLOG(DBG_1,"Sockets closed");
 }
 
 struct sock *
