@@ -1,10 +1,8 @@
 /*
- * lispd_config.h
+ * hmac.h
  *
  * This file is part of LISP Mobile Node Implementation.
- * Handle lispd command line and config file
- * Parse command line args using gengetopt.
- * Handle config file with libconfuse.
+ * Implementation for UDP checksum.
  *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
@@ -26,31 +24,30 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Albert López   <alopez@ac.upc.edu>
  *
  */
 
-#ifndef LISPD_CONFIG_H_
-#define LISPD_CONFIG_H_
+#ifndef HMAC_H_
+#define HMAC_H_
 
-#ifdef OPENWRT
+#include <stdint.h>
 
-/* Parse OpenWRT UCI config file */
+#define SHA1_AUTH_DATA_LEN         20
+#define SHA256_AUTH_DATA_LEN       32
 
-int handle_uci_lispd_config_file(char *uci_conf_file_path);
+uint16_t get_auth_data_len(uint8_t key_id);
 
-#else
+int complete_auth_fields(uint8_t key_id,
+                         const char *key,
+                         void *packet,
+                         int pckt_len,
+                         void *auth_data_pos);
 
-/*
- *  Parse config file and set up whatever is needed
- */
-int handle_lispd_config_file(char * lispdconf_conf_file);
+int check_auth_field(uint8_t key_id,
+                     const char *key,
+                     void *packet,
+                     int pckt_len,
+                     void *auth_data_pos);
 
-#endif
-
-
-
-#endif /*LISPD_CONFIG_H_*/
+#endif /* HMAC_H_ */

@@ -260,7 +260,7 @@ static inline glist_t *lcaf_rle_node_list(lcaf_addr_t *lcaf)
 /*
  *  ELP type functions
  */
-
+inline lisp_addr_t *        lisp_addr_elp_new();
 inline elp_t                *elp_type_new();
 void                        elp_type_del(void *elp);
 int                         elp_type_get_size_to_write(void *elp);
@@ -276,6 +276,7 @@ inline void                 lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *eno
 static inline glist_t *lcaf_elp_node_list(lcaf_addr_t *lcaf) {
     return(((elp_t *)lcaf->addr)->nodes);
 }
+inline int                  lisp_addr_is_elp(lisp_addr_t *addr);
 
 
 

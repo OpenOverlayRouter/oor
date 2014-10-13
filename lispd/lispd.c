@@ -38,7 +38,11 @@
 #include <time.h>
 
 #include "lispd.h"
-#include "lispd_config.h"
+#ifdef OPENWRT
+#include "lispd_config_uci.h"
+#else
+#include "lispd_config_confuse.h"
+#endif
 #include "cmdline.h"
 #include "iface_list.h"
 #include "iface_mgmt.h"
@@ -350,28 +354,17 @@ init_netlink()
 static void
 parse_config_file()
 {
+    err = handle_config_file(config_file);
 
-    /* Parse config file. Format of the file depends on the node: Linux Box
-     * or OpenWRT router */
-
-#ifdef OPENWRT
-    if (config_file == NULL){
-        config_file = "/etc/config/lispd";
+    if (err != GOOD){
+        exit_cleanup();
     }
-    handle_uci_lispd_config_file(config_file);
-#else
-    if (config_file == NULL){
-        config_file = "/etc/lispd.conf";
-    }
-    handle_lispd_config_file(config_file);
-#endif
 
     if (ctrl_dev->mode == xTR_MODE || ctrl_dev->mode == RTR_MODE || ctrl_dev->mode == MN_MODE) {
         if (init_tr_data_plane(ctrl_dev->mode)!=GOOD){
             exit_cleanup();
         }
     }
-
 }
 
 static void

@@ -37,7 +37,6 @@
 
 #include "iface_list.h"
 #include "lispd_external.h"
-#include "lispd_info_request.h"
 #include "routing_tables_lib.h"
 #include "sockets.h"
 #include "lispd_tun.h"
@@ -260,6 +259,9 @@ iface_setup(iface_t *iface, char* iface_name, int afi)
         addr = iface->ipv6_address;
         sock = &iface->out_socket_v6;
         break;
+    default:
+        LMLOG(DBG_2,"iface_setup: Unknown afi: %d", afi);
+        return (BAD);
     }
 
     ret = get_iface_address(iface_name, addr, afi);

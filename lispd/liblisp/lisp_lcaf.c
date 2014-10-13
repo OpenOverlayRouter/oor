@@ -588,12 +588,6 @@ inline int lisp_addr_is_mcinfo(lisp_addr_t *addr) {
 
 
 
-
-
-
-
-
-
 /*
  * iid_addr_t functions
  */
@@ -859,10 +853,32 @@ void geo_type_copy(void **dst, void *src) {
  * elp_addr_t functions
  */
 
+lisp_addr_t *        lisp_addr_elp_new()
+{
+    lisp_addr_t *   address     = NULL;
+    elp_t       *   elp_list    = NULL;
+
+    elp_list = elp_type_new();
+    if(elp_list == NULL){
+        return (NULL);
+    }
+    address = lisp_addr_new_afi(LM_AFI_LCAF);
+    if (address == NULL){
+        elp_type_del(elp_list);
+        return (NULL);
+    }
+    lisp_addr_lcaf_set_type(address, LCAF_EXPL_LOC_PATH);
+    lisp_addr_lcaf_set_addr(address, elp_list);
+
+    return (address);
+}
+
+
+
 elp_t *elp_type_new() {
     elp_t *elp;
     elp = xzalloc(sizeof(elp_t));
-    elp->nodes = glist_new_complete(NO_CMP, (glist_del_fct)elp_node_del);
+    elp->nodes = glist_new_managed((glist_del_fct)elp_node_del);
     return(elp);
 }
 
@@ -1057,6 +1073,10 @@ lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode)
     glist_add_tail(enode, elp->nodes);
 }
 
+
+inline int lisp_addr_is_elp(lisp_addr_t *addr) {
+    return(lisp_addr_afi(addr) == LM_AFI_LCAF && lisp_addr_lcaf_type(addr) == LCAF_EXPL_LOC_PATH);
+}
 
 
 

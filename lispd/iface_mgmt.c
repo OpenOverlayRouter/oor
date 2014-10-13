@@ -34,7 +34,6 @@
 
 #include "lispd_external.h"
 #include "iface_mgmt.h"
-#include "lispd_info_request.h"
 //#include "lispd_lib.h"
 #include "defs.h"
 #include "lisp_mapping.h"

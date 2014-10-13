@@ -95,6 +95,16 @@ typedef struct rmt_locator_extended_info {
 
 
 locator_t *locator_new();
+locator_t *
+locator_init(
+        lisp_addr_t*    addr,
+        uint8_t         state,
+        uint8_t         priority,
+        uint8_t         weight,
+        uint8_t         mpriority,
+        uint8_t         mweight,
+        uint8_t         type
+        );
 char *locator_to_char(locator_t *);
 int locator_cmp(locator_t *l1, locator_t *l2);
 int locator_parse(void *ptr, locator_t *loc);

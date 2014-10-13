@@ -128,6 +128,34 @@ locator_new()
     return (xzalloc(sizeof(locator_t)));
 }
 
+locator_t *
+locator_init(
+        lisp_addr_t*    addr,
+        uint8_t         state,
+        uint8_t         priority,
+        uint8_t         weight,
+        uint8_t         mpriority,
+        uint8_t         mweight,
+        uint8_t         type
+        )
+{
+    locator_t*  locator = NULL;
+
+    locator = locator_new();
+    if (locator == NULL){
+        return (NULL);
+    }
+    locator->addr = lisp_addr_clone(addr);
+    locator->state = state;
+    locator->priority = priority;
+    locator->weight = weight;
+    locator->mpriority = mpriority;
+    locator->mweight = mweight;
+    locator->type = type;
+
+    return (locator);
+}
+
 char *
 locator_to_char(locator_t *l)
 {

@@ -32,16 +32,20 @@ lisp-site {
 #
 
 rtr-ifaces = {
-	 <iface name>
+    rtr-iface {
+        iface           = <iface name>
+        priority        = <int>
+        weight          = <int>
+	}
 	...
 }
 
 rtr-database-mapping {
-        eid-prefix         = <prefix>  
-	rloc {
-		address 	= <string>
-		priority        = <int>
-		weight          = <int>
+    eid-prefix          = <prefix>
+    rloc {
+        address         = <string>
+        priority        = <int>
+        weight          = <int>
 	}
 }
 

@@ -410,23 +410,6 @@ ip_hdr_ttl_and_tos(struct iphdr *iph, int *ttl, int *tos)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /*
  * Generate IP header. Returns the pointer to the transport header
  */

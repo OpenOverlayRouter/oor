@@ -6,10 +6,33 @@ package 'lispd'
 # General configuration
 #	debug: Debug levels [0..3]
 #	map_request_retries: Additional Map-Requests to send per map cache miss
-#	rloc_probing_interval: Period in seconds between RLOC probes. A value of 0 will dissable RLOC probing 
+#	operating_mode: Operating mode can be any of: xTR, RTR, MN, MS
 config 'daemon'
         option  'debug'                 '0' 
         option  'map_request_retries'   '2'
+        option  'operating_mode'        'xTR'
+
+#---------------------------------------------------------------------------------------------------------------------
+
+# Map Server (MS) configuration
+
+config 'ms_basic'
+        option  'control_iface'         'eth0'
+
+config 'lisp-site'
+        option   'eid-prefix'               'IPv4 or IPv6 address /mask length'
+        option   'key_type'                 '1'
+        option   'key'                      'password'
+        option   'accept_more_specifics'    'off'
+
+config 'ms-static-registered-site'
+        option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
+        option   'rloc_set'                 'name'
+
+#---------------------------------------------------------------------------------------------------------------------
+
+# Tunnel Router general configuration: In common with xTR, RTR & MN
+
         
 # RLOC Probing configuration
 #   rloc_probe_interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 disables RLOC Probing
@@ -20,6 +43,23 @@ config 'rloc-probing'
         option  'rloc_probe_interval'           '30'
         option  'rloc_probe_retries'            '2'
         option  'rloc_probe_retries_interval'   '5'
+
+
+# Encapsulated Map-Requests are sent to this map-resolver
+# You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
+#   address: IPv4 or IPv6 address of the map resolver
+config 'map-resolver'
+        option  'address'               'IPv4 or IPv6 address'
+
+config 'static-map-cache'
+        option   'eid-prefix'           'IPv4 or IPv6 address /mask length'
+        option   'rloc'                 'IPv4 or IPv6 address'
+        option   'priority'             '1'
+        option   'weight'               '100'
+
+#---------------------------------------------------------------------------------------------------------------------
+
+# Configuration parameters for xTR and MN
         
 # NAT Traversl configuration. 
 #   nat_aware: check if the node is behind NAT
@@ -30,40 +70,25 @@ config 'rloc-probing'
 #   Only one Map Server and one Map Resolver
         
 config 'nat-traversal'
-        option  'nat_aware'	'on'
+        option  'nat_aware'	'off'
         option  'site_ID'   '0000000000000001'                  #In doubt, keep the default value
         option  'xTR_ID'    '00000000000000000000000000000001'  #In doubt, keep the default value
         
         
-
-# Encapsulated Map-Requests are sent to this map-resolver
-# You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
-#	address: IPv4 or IPv6 address of the map resolver     
-config 'map-resolver'
-        option  'address'               'IPv4 or IPv6 address'
-
 # Map-Registers are sent to this map-server
 # You can define several map-servers. Map-Register messages will be sent to all of them.
 #	address: IPv4 or IPv6 address of the map-server
 #   key_type: Only 1 supported (HMAC-SHA-1-96)
 #	key: password to authenticate with the map-server
 #   proxy_reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
+
 config 'map-server'
         option   'address'              'IPv4 or IPv6 address'
         option   'key_type'             '1'			
         option   'key'                  'password'
         option   'proxy_reply'          'on'
 
-# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
-# You can define several Proxy-ETR. Traffic will be balanced according to priority and weight.
-#	address: IPv4 or IPv6 address of the Proxy-ETR
-#   priority [0-255]: Proxy-ETR with lower values are more preferable.
-#	weight [0-255]: When priorities are the same for multiple Proxy-ETRs, the Weight indicates how to balance 
-#    unicast traffic between them.
-config 'proxy-etr'
-        option   'address'              'IPv4 or IPv6 address'
-        option   'priority'             '1'
-        option   'weight'               '100'     
+
 
 # IPv4 / IPv6 EID of the node.
 # One database-mapping structure is defined for each interface with RLOCs associated to this EID
@@ -74,8 +99,7 @@ config 'proxy-etr'
 #      (A value of -1  means that IPvX address of that interface is not used)
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight indicates how to balance unicast 
 #        traffic between them.
- 
-         
+
 config 'database-mapping'
         option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
         option   'interface'            'eth0'	
@@ -86,13 +110,16 @@ config 'database-mapping'
 
 
 
-        
+
+config 'static-database-mapping'
+        option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
+        option   'rloc_set'             'name'
+
 # List of PITRs to SMR on handover
-#	address: IPv4 or IPv6 address of the Proxy-ITR
+#   address: IPv4 or IPv6 address of the Proxy-ITR
 
 config 'proxy-itr'
-        option   'address'              'IPv4 or IPv6 PITR address' 
-
+        list   'address'              'IPv4 or IPv6 PITR address'
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
 # Uncomment the IPv4 or IPv6 list based on your current locators
@@ -100,57 +127,62 @@ config 'proxy-itr'
 # LISP beta-network IPv4 PITRs
 
 #config 'proxy-itr'
-#        option   'address'              '69.31.31.98'           # eqx-ash-pxtr
+#        list     'address'              '69.31.31.98'                   # eqx-ash-pxtr
+#        list     'address'              '149.20.48.60'                  # isc-pxtr
+#        list     'address'              '198.6.255.37'                  # asp-pxtr
+#        list     'address'              '173.36.193.25'                 # sjc-pxtr
+#        list     'address'              '129.250.1.63'                  # ntt-amer-pxtr
+#        list     'address'              '217.8.98.33'                   # intouch-pxtr-1
+#        list     'address'              '217.8.98.35'                   # intouch-pxtr-2
+#        list     'address'              '193.162.145.46'                # tdc-pxtr
+#        list     'address'              '158.38.1.92'                   # uninett-pxtr
+#        list     'address'              '203.181.249.172'               # apan-pxtr
+#        list     'address'              '202.51.247.10'                 # sg-nus-pxtr
+#        list     'address'              '2001:590::451f:1f62'           # eqx-ash-pxtr
+#        list     'address'              '2001:4f8:3:d::60'              # isc-pxtr
+#        list     'address'              '2001:418:4:1:deaf:bebe::10d'   # asp-pxtr
+#        list     'address'              '2001:418:0:1000::613'          # ntt-amer-pxtr
+#        list     'address'              '2001:200:e000:17::17'          # intouch-pxtr-1
+#        list     'address'              '2001:67C:21B4:108::b'          # intouch-pxtr-2
+#        list     'address'              '2001:6c8:41:100:0:2:1:c'       # tdc-pxtr
+#        list     'address'              '2001:700:0:52E::4'             # uninett-pxtr
+#        list     'address'              '2001:67C:21B4:107::b'          # apan-pxtr
 
-#config 'proxy-itr'
-#        option   'address'              '149.20.48.60'          # isc-pxtr
+# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
+# You can define several Proxy-ETR. Traffic will be balanced according to priority and weight.
+#   address: IPv4 or IPv6 address of the Proxy-ETR
+#   priority [0-255]: Proxy-ETR with lower values are more preferable.
+#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs, the Weight indicates how to balance 
+#    unicast traffic between them.
+config 'proxy-etr'
+        option   'address'              'IPv4 or IPv6 address'
+        option   'priority'             '1'
+        option   'weight'               '100'
+        
+#---------------------------------------------------------------------------------------------------------------------
 
-#config 'proxy-itr'
-#        option   'address'              '198.6.255.37'          # asp-pxtr
+# Configuration parameters for RTR
         
-#config 'proxy-itr'
-#        option   'address'              '173.36.193.25'         # sjc-pxtr
+config 'rtr-iface'
+        option   'iface'                'eth0'
+        option   'priority'             '1'
+        option   'weight'               '100'
+        
+#---------------------------------------------------------------------------------------------------------------------
 
-#config 'proxy-itr'
-#        option   'address'              '129.250.1.63'          # ntt-amer-pxtr
-        
-#config 'proxy-itr'
-#        option   'address'              '217.8.98.33'           # intouch-pxtr-1
-        
-#config 'proxy-itr'
-#        option   'address'              '217.8.98.35'           # intouch-pxtr-2
-        
-#config 'proxy-itr'
-#        option   'address'              '193.162.145.46'        # tdc-pxtr 
-        
-#config 'proxy-itr'
-#        option   'address'              '158.38.1.92'           # uninett-pxtr
-        
-#config 'proxy-itr'
-#        option   'address'              '203.181.249.172'       # apan-pxtr        
-        
-#config 'proxy-itr'
-#        option   'address'              '202.51.247.10'         # sg-nus-pxtr
-                 
-# LISP beta-network IPv6 PITRs 
+config 'rloc-set'
+        option   'name'             'name'
+        list     'rloc_name'        'name'
 
-#config 'proxy-itr'
-#       option   'address'              '2001:590::451f:1f62' 			# eqx-ash-pxtr
-#config 'proxy-itr'
-#       option   'address'              '2001:4f8:3:d::60'				# isc-pxtr
-#config 'proxy-itr'
-#       option   'address'              '2001:418:4:1:deaf:bebe::10d' 	# asp-pxtr
-#config 'proxy-itr'
-#       option   'address'              '2001:418:0:1000::613' 			# ntt-amer-pxtr
-#config 'proxy-itr'
-#       option   'address'              '2001:200:e000:17::17'   		# intouch-pxtr-1
-#config 'proxy-itr'
-#       option   'address'              '2001:67C:21B4:108::b'    		# intouch-pxtr-2
-#config 'proxy-itr'
-#       option   'address'              '2001:6c8:41:100:0:2:1:c' 		# tdc-pxtr
-#config 'proxy-itr'
-#       option   'address'              '2001:700:0:52E::4' 			# uninett-pxtr
-#config 'proxy-itr'
-#       option   'address'              '2001:67C:21B4:107::b'    		# apan-pxtr
+config 'rloc'
+        option   'name'                 'name'
+        option   'address'              'IPv4 or IPv6 address /mask length'
+        option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
+        option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
         
-        
+config 'elp-node'
+        option   'elp_name'             'name'
+        option   'address'              'IPv4 or IPv6 address'
+        option   'strict'               'off'
+        option   'probe'                'off'
+        option   'lookup'               'off'

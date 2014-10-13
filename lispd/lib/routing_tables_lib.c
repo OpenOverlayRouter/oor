@@ -243,8 +243,9 @@ int add_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_pref, dst_pref, flags);
     if (result == GOOD){
-        LMLOG(DBG_1, "add_rule: Add rule for source routing of src addr: %s",
-                lisp_addr_to_char(src_pref));
+        LMLOG(DBG_1, "add_rule: Add rule -> Send packets with source address %s and destination address %s"
+                " to the table %d with priority %d.",lisp_addr_to_char(src_pref),
+                lisp_addr_to_char(dst_pref),table,priority);
     }
 
     return (result);

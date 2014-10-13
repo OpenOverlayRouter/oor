@@ -27,9 +27,8 @@
  */
 
 #include "liblisp.h"
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
 #include "cksum.h"
+#include "hmac/hmac.h"
 #include "lmlog.h"
 
 static void increment_record_count(lbuf_t *b);
@@ -407,7 +406,6 @@ lisp_msg_put_mapping(
     MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
     MAP_REC_LOC_COUNT(rec) = m->locator_count;
     MAP_REC_TTL(rec) = htonl(m->ttl);
-
     if (lisp_msg_put_addr(b, eid) == NULL) {
         return(NULL);
     }
@@ -670,49 +668,19 @@ lisp_msg_ecm_hdr_to_char(lbuf_t *b)
     return(ecm_hdr_to_char(h));
 }
 
-
-
-/* Compute and fill auth data field
- * TODO Support more than SHA1 */
-static int
-auth_data_fill(uint8_t *msg, int msg_len, lisp_key_type_e key_id,
-        const char *key, uint8_t *md, uint32_t *md_len)
-{
-    switch(key_id) {
-    case NO_KEY:
-        /* FC XXX: what happens here? */
-        *md_len = 0;
-        return(GOOD);
-    case HMAC_SHA_1_96:
-        if (!HMAC((const EVP_MD *) EVP_sha1(),
-                (const void *) key, strlen(key),
-                (uchar *) msg, msg_len,
-                (uchar *) md, md_len)) {
-            LMLOG(DBG_1, "HMAC_SHA_1_96 computation failed!");
-            return(BAD);
-        }
-        break;
-    case HMAC_SHA_256_128:
-        return(BAD);
-    default:
-        return(BAD);
-    }
-    return(GOOD);
-}
-
 int
 lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_e keyid, const char *key)
 {
-    uint32_t    md_len  = 0;
-
     void *hdr = lisp_msg_auth_record(b);
-    if (auth_data_fill(lbuf_lisp(b), lbuf_size(b), keyid, key,
-            AUTH_REC_DATA(hdr), &md_len) != GOOD) {
+
+    if (complete_auth_fields(
+            keyid,
+            key,
+            lbuf_lisp(b),
+            lbuf_size(b),
+            AUTH_REC_DATA(hdr)) != GOOD) {
         return(BAD);
     }
-
-//    AUTH_REC_KEY_ID(hdr) = htons(keyid);
-//    AUTH_REC_DATA_LEN(hdr) = htons(md_len);
 
     return(GOOD);
 }
@@ -723,12 +691,9 @@ lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_e keyid, const char *key)
 int
 lisp_msg_check_auth_field(lbuf_t *b, const char *key)
 {
-    uint8_t *adata_cpy;
-    uint32_t md_len = 0;
-    uint8_t *adptr = NULL;
-    uint16_t ad_len;
     lisp_key_type_e keyid;
-    int ret;
+    uint16_t        ad_len  = 0;
+    int             ret     = BAD;
 
     auth_record_hdr_t *hdr;
 
@@ -742,23 +707,13 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
         return(BAD);
     }
 
-    /* set auth field in 0 prior to computing the HMAC (see draft) */
-    adata_cpy = xzalloc(ad_len*sizeof(uint8_t));
-    adptr = AUTH_REC_DATA(hdr);
-    memcpy(adata_cpy, adptr, ad_len * sizeof(uint8_t));
-    memset(adptr, 0, ad_len * sizeof(uint8_t));
+    ret = check_auth_field(
+            keyid,
+            key,
+            lbuf_lisp(b),
+            lbuf_size(b),
+            AUTH_REC_DATA(hdr));
 
-    if (auth_data_fill(lbuf_lisp(b), lbuf_size(b), keyid, key, adptr, &md_len)
-            != GOOD) {
-        return(BAD);
-    }
-
-    ret = GOOD;
-    if ((strncmp((char *)adptr, (char *)adata_cpy, (size_t)ad_len)) != 0) {
-        ret = BAD;
-    }
-
-    free(adata_cpy);
     return(ret);
 }
 

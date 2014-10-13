@@ -1,0 +1,1340 @@
+/*
+ * lispd_config_uci.c
+ *
+ * This file is part of LISP Mobile Node Implementation.
+ * Handle lispd command line and config file
+ * Parse command line args using gengetopt.
+ * Handle config file with libconfuse.
+ *
+ * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Please send any bug reports or fixes you make to the email address(es):
+ *    LISP-MN developers <devel@lispmob.org>
+ *
+ * Written or modified by:
+ *    David Meyer       <dmm@cisco.com>
+ *    Preethi Natarajan <prenatar@cisco.com>
+ *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ *    Florin Coras <fcoras@ac.upc.edu>
+ *    Albert López <alopez@ac.upc.edu>
+ *
+ */
+
+
+#include "cmdline.h"
+#include "lispd_config_functions.h"
+#include "lispd_config_uci.h"
+#include "lispd_external.h"
+#include "iface_list.h"
+#include "lisp_ctrl_device.h"
+#include "lisp_xtr.h"
+#include "lisp_ms.h"
+#include "lisp_control.h"
+#include "shash.h"
+#include "hash_table.h"
+#include "lmlog.h"
+#include <uci.h>
+#include <libgen.h>
+#include <string.h>
+
+/***************************** FUNCTIONS DECLARATION *************************/
+
+int
+configure_xtr(
+        struct uci_context      *ctx,
+        struct uci_package      *pck);
+int
+configure_mn(
+        struct uci_context      *ctx,
+        struct uci_package      *pck);
+int
+configure_rtr(
+        struct uci_context      *ctx,
+        struct uci_package      *pck);
+int
+configure_ms(
+        struct uci_context      *ctx,
+        struct uci_package      *pck);
+static mapping_t*
+parse_mapping(
+        struct uci_context      *ctx,
+        struct uci_section      *sect,
+        htable_t                *rloc_set_ht,
+        htable_t                *lcaf_ht,
+        uint8_t                 type);
+
+static htable_t *
+parse_rlocs(
+        struct uci_context      *ctx,
+        struct uci_package      *pck,
+        htable_t                *lcaf_ht);
+
+static htable_t *
+parse_rloc_sets(
+        struct uci_context      *ctx,
+        struct uci_package      *pck,
+        htable_t                *rlocs_ht,
+        htable_t                *lcaf_ht);
+static htable_t *
+parse_lcafs(
+        struct uci_context      *ctx,
+        struct uci_package      *pck);
+
+static int
+parse_elp_node(
+        struct uci_context      *ctx,
+        struct uci_section      *section,
+        htable_t                *ht);
+
+static lisp_addr_t *
+parse_lisp_addr(char *address, htable_t *lcaf_ht);
+
+locator_t*
+clone_customize_locator(locator_t* locator, uint8_t type);
+
+/********************************** FUNCTIONS ********************************/
+
+int
+handle_config_file(char *uci_conf_file_path)
+{
+    char*               uci_conf_dir                   = NULL;
+    char*               uci_conf_file                  = NULL;
+    struct uci_context* ctx                            = NULL;
+    struct uci_package* pck                            = NULL;
+    struct uci_section* sect                           = NULL;
+    struct uci_element* element                        = NULL;
+    int                 uci_debug                      = 0;
+    const char*         uci_op_mode                    = NULL;
+    int                 res                            = 0;
+
+
+    if (uci_conf_file_path == NULL){
+        uci_conf_file_path = "/etc/config/lispd";
+    }
+
+    ctx = uci_alloc_context();
+
+    if (ctx == NULL) {
+        LMLOG(LCRIT, "Could not create UCI context. Exiting ...");
+        exit_cleanup();
+    }
+
+    uci_conf_dir = dirname(strdup(uci_conf_file_path));
+    uci_conf_file = basename(strdup(uci_conf_file_path));
+
+
+    uci_set_confdir(ctx, uci_conf_dir);
+
+    LMLOG(DBG_1,"Conf dir: %s\n",ctx->confdir);
+
+    uci_load(ctx,uci_conf_file,&pck);
+
+    if (pck == NULL) {
+        LMLOG(LCRIT, "Could not load conf file: %s. Exiting ...",uci_conf_file);
+        uci_perror(ctx,"Error while loading packet ");
+        uci_free_context(ctx);
+        exit_cleanup();
+    }
+
+
+    LMLOG(DBG_3,"package uci: %s\n",pck->ctx->confdir);
+
+
+    uci_foreach_element(&pck->sections, element) {
+        uci_debug = 0;
+        uci_op_mode = NULL;
+
+        sect = uci_to_section(element);
+
+        if (strcmp(sect->type, "daemon") == 0){
+
+            uci_debug = strtol(uci_lookup_option_string(ctx, sect, "debug"),NULL,10);
+
+
+            if (debug_level == -1){//Used to not overwrite debug level passed by console
+                if (uci_debug > 0)
+                    debug_level = uci_debug;
+                else
+                    debug_level = 0;
+                if (debug_level > 3)
+                    debug_level = 3;
+            }
+
+            uci_op_mode = uci_lookup_option_string(ctx, sect, "operating_mode");
+
+            if (uci_op_mode != NULL) {
+                if (strcmp(uci_op_mode, "xTR") == 0) {
+                    res = configure_xtr(ctx, pck);
+                } else if (strcmp(uci_op_mode, "MS") == 0) {
+                    res = configure_ms(ctx, pck);
+                } else if (strcmp(uci_op_mode, "RTR") == 0) {
+                    res = configure_rtr(ctx, pck);
+                }else if (strcmp(uci_op_mode, "MN") == 0) {
+                    res = configure_mn(ctx, pck);
+                }else {
+                    LMLOG(LCRIT, "Configuration file: Unknown operating mode: %s",uci_op_mode);
+                    return (BAD);
+                }
+            }
+            continue;
+        }
+    }
+    return (res);
+}
+
+int
+configure_xtr(
+        struct uci_context      *ctx,
+        struct uci_package      *pck)
+{
+    struct uci_section  *sect               = NULL;
+    struct uci_element  *element            = NULL;
+    struct uci_element  *elem_addr          = NULL;
+    struct uci_option   *opt                = NULL;
+    int uci_retries = 0;
+    const char*         uci_address                     = NULL;
+    int                 uci_key_type                    = 0;
+    const char*         uci_key                         = NULL;
+    int                 uci_proxy_reply                 = 0;
+    int                 uci_priority_v4                 = 0;
+    int                 uci_weigth_v4                   = 0;
+    int                 uci_priority_v6                 = 0;
+    int                 uci_weigth_v6                   = 0;
+    int                 uci_priority                    = 0;
+    int                 uci_weigth                      = 0;
+    const char*         uci_eid_prefix                  = NULL;
+    const char*         uci_interface                   = NULL;
+    const char*         uci_rloc                        = NULL;
+    int                 uci_iid                         = 0;
+    htable_t *lcaf_ht = NULL;
+    htable_t *rlocs_ht = NULL;
+    htable_t *rloc_set_ht = NULL;
+    lisp_xtr_t *xtr;
+    mapping_t* mapping = NULL;
+
+    /* CREATE AND CONFIGURE XTR */
+    if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
+        LMLOG(LCRIT, "Failed to create xTR. Aborting!");
+        exit_cleanup();
+    }
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    /* CREATE LCAFS HTABLE */
+
+    /* get a hash table of all the elps. If any are configured,
+     * their names could appear in the rloc field of database mappings
+     * or static map cache entries  */
+    lcaf_ht = parse_lcafs(ctx,pck);
+
+    /* CREATE RLOCs sets HTABLE */
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+
+
+    uci_foreach_element(&pck->sections, element) {
+            sect = uci_to_section(element);
+            if (strcmp(sect->type, "daemon") == 0){
+
+                /* RETRIES */
+                uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+
+                if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = uci_retries;
+                }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
+                    LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                            "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+                }
+            }
+
+            /* RLOC PROBING CONFIG */
+
+            if (strcmp(sect->type, "rloc-probing") == 0){
+                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+
+                validate_rloc_probing_parameters(&xtr->probe_interval,
+                                &xtr->probe_retries, &xtr->probe_retries_interval);
+                continue;
+            }
+
+            /* NAT Traversal options */
+            if (strcmp(sect->type, "nat-traversal") == 0){
+                if (strcmp(uci_lookup_option_string(ctx, sect, "nat_aware"), "on") == 0){
+                    nat_aware = TRUE;
+                }else{
+                    nat_aware = FALSE;
+                }
+                continue;
+            }
+
+            /* MAP-RESOLVER CONFIG */
+            if (strcmp(sect->type, "map-resolver") == 0){
+                uci_address = uci_lookup_option_string(ctx, sect, "address");
+
+                if (add_server((char *)uci_address, &xtr->map_resolvers) != GOOD){
+                    LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
+                }else{
+                    LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
+                }
+                continue;
+            }
+
+            /* MAP-SERVER CONFIG */
+            if (strcmp(sect->type, "map-server") == 0){
+
+                uci_address = uci_lookup_option_string(ctx, sect, "address");
+                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+                uci_key = uci_lookup_option_string(ctx, sect, "key");
+
+                if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
+                    uci_proxy_reply = TRUE;
+                }else{
+                    uci_proxy_reply = FALSE;
+                }
+
+                if (add_map_server(xtr,(char *)uci_address,
+                        uci_key_type,
+                        (char *)uci_key,
+                        uci_proxy_reply) != GOOD ){
+                    LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
+                }else{
+                    LMLOG(DBG_1, "Added %s to map-server list", uci_address);
+                }
+                continue;
+            }
+
+            /* PROXY-ETR CONFIG */
+
+            if (strcmp(sect->type, "proxy-etr") == 0){
+                uci_address = uci_lookup_option_string(ctx, sect, "address");
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+
+                if (add_proxy_etr_entry(xtr,
+                        (char *)uci_address,
+                        uci_priority,
+                        uci_weigth) != GOOD ){
+                    LMLOG(LERR, "Can't add proxy-etr %s", uci_address);
+                }else{
+                    LMLOG(DBG_1, "Added %s to proxy-etr list", uci_address);
+                }
+                continue;
+            }
+
+            /* PROXY-ITR CONFIG */
+            if (strcmp(sect->type, "proxy-itr") == 0){
+                opt  = uci_lookup_option(ctx, sect, "address");
+                if (opt != NULL){
+                    uci_foreach_element(&(opt->v.list), elem_addr){
+                        if (add_server(elem_addr->name, &xtr->pitrs) != GOOD){
+                            LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
+                        }else{
+                            LMLOG(DBG_1, "Added %s to proxy-itr list", uci_address);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            /* DATABASE MAPPING CONFIG */
+            if (strcmp(sect->type, "database-mapping") == 0){
+                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+                uci_interface = uci_lookup_option_string(ctx, sect, "interface");
+                uci_priority_v4 = strtol(uci_lookup_option_string(ctx, sect, "priority_v4"),NULL,10);
+                uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, sect, "weight_v4"),NULL,10);
+                uci_priority_v6 = strtol(uci_lookup_option_string(ctx, sect, "priority_v6"),NULL,10);
+                uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, sect, "weight_v6"),NULL,10);
+
+                if (add_database_mapping(xtr,
+                        (char *)uci_eid_prefix,
+                        uci_iid,
+                        (char *)uci_interface,
+                        uci_priority_v4,
+                        uci_weigth_v4,
+                        uci_priority_v6,
+                        uci_weigth_v6) != GOOD ){
+                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
+                            uci_eid_prefix);
+                }else{
+                    LMLOG(DBG_1, "Added EID prefix %s in the database.",
+                            uci_eid_prefix);
+                }
+                continue;
+            }
+
+            if (strcmp(sect->type, "static-database-mapping") == 0){
+                mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,LOCAL_LOCATOR);
+                if (mapping == NULL){
+                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
+                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                    continue;
+                }
+                if (local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(mapping)) == NULL){
+                    if (local_map_db_add_mapping(xtr->local_mdb, mapping) == GOOD){
+                        LMLOG(DBG_1, "Added EID prefix %s in the database.",mapping_eid(mapping));
+                    }else{
+                        LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",mapping_eid(mapping));
+                        mapping_del(mapping);
+                    }
+                }else{
+                    LMLOG(LERR, "Configuration file: Duplicated EID prefix %s. Discarded ...",
+                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                    mapping_del(mapping);
+                    continue;
+                }
+                continue;
+            }
+
+            /* STATIC MAP-CACHE CONFIG */
+            if (strcmp(sect->type, "static-map-cache") == 0){
+                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+                uci_rloc = uci_lookup_option_string(ctx, sect, "rloc");
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+
+                if (add_static_map_cache_entry(xtr,
+                        (char *)uci_eid_prefix,
+                        uci_iid,
+                        (char *)uci_rloc,
+                        uci_priority,
+                        uci_weigth,
+                        lcaf_ht) != GOOD ){
+                    LMLOG(LWRN,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
+                            uci_eid_prefix,
+                            uci_rloc);
+
+                }else{
+                    LMLOG(DBG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
+                            uci_eid_prefix,
+                            uci_rloc);
+                }
+                continue;
+            }
+    }
+
+    /* destroy the hash table */
+    htable_destroy(lcaf_ht);
+    htable_destroy(rlocs_ht);
+    htable_destroy(rloc_set_ht);
+
+
+    return(GOOD);
+
+}
+
+int
+configure_mn(
+        struct uci_context      *ctx,
+        struct uci_package      *pck)
+{
+    struct uci_section  *sect               = NULL;
+    struct uci_element  *element            = NULL;
+    struct uci_element  *elem_addr          = NULL;
+    struct uci_option   *opt                = NULL;
+    int uci_retries = 0;
+    const char*         uci_address                     = NULL;
+    int                 uci_key_type                    = 0;
+    const char*         uci_key                         = NULL;
+    int                 uci_proxy_reply                 = 0;
+    int                 uci_priority_v4                 = 0;
+    int                 uci_weigth_v4                   = 0;
+    int                 uci_priority_v6                 = 0;
+    int                 uci_weigth_v6                   = 0;
+    int                 uci_priority                    = 0;
+    int                 uci_weigth                      = 0;
+    const char*         uci_eid_prefix                  = NULL;
+    const char*         uci_interface                   = NULL;
+    const char*         uci_rloc                        = NULL;
+    int                 uci_iid                         = 0;
+    htable_t *lcaf_ht = NULL;
+    htable_t *rlocs_ht = NULL;
+    htable_t *rloc_set_ht = NULL;
+    lisp_xtr_t *xtr;
+    mapping_t* mapping = NULL;
+
+    /* CREATE AND CONFIGURE XTR */
+    if (ctrl_dev_create(MN_MODE, &ctrl_dev) != GOOD) {
+        LMLOG(LCRIT, "Failed to create Mobile Node device. Aborting!");
+        exit_cleanup();
+    }
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    /* CREATE LCAFS HTABLE */
+
+    /* get a hash table of all the elps. If any are configured,
+     * their names could appear in the rloc field of database mappings
+     * or static map cache entries  */
+    lcaf_ht = parse_lcafs(ctx,pck);
+
+    /* CREATE RLOCs sets HTABLE */
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+
+
+    uci_foreach_element(&pck->sections, element) {
+            sect = uci_to_section(element);
+            if (strcmp(sect->type, "daemon") == 0){
+
+                /* RETRIES */
+                uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+
+                if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = uci_retries;
+                }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
+                    LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                            "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+                }
+            }
+
+            /* RLOC PROBING CONFIG */
+
+            if (strcmp(sect->type, "rloc-probing") == 0){
+                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+
+                validate_rloc_probing_parameters(&xtr->probe_interval,
+                                &xtr->probe_retries, &xtr->probe_retries_interval);
+                continue;
+            }
+
+            /* NAT Traversal options */
+            if (strcmp(sect->type, "nat-traversal") == 0){
+                if (strcmp(uci_lookup_option_string(ctx, sect, "nat_aware"), "on") == 0){
+                    nat_aware = TRUE;
+                }else{
+                    nat_aware = FALSE;
+                }
+                continue;
+            }
+
+            /* MAP-RESOLVER CONFIG */
+            if (strcmp(sect->type, "map-resolver") == 0){
+                uci_address = uci_lookup_option_string(ctx, sect, "address");
+
+                if (add_server((char *)uci_address, &xtr->map_resolvers) != GOOD){
+                    LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
+                }else{
+                    LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
+                }
+                continue;
+            }
+
+            /* MAP-SERVER CONFIG */
+            if (strcmp(sect->type, "map-server") == 0){
+
+                uci_address = uci_lookup_option_string(ctx, sect, "address");
+                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+                uci_key = uci_lookup_option_string(ctx, sect, "key");
+
+                if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
+                    uci_proxy_reply = TRUE;
+                }else{
+                    uci_proxy_reply = FALSE;
+                }
+
+                if (add_map_server(xtr,(char *)uci_address,
+                        uci_key_type,
+                        (char *)uci_key,
+                        uci_proxy_reply) != GOOD ){
+                    LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
+                }else{
+                    LMLOG(DBG_1, "Added %s to map-server list", uci_address);
+                }
+                continue;
+            }
+
+            /* PROXY-ETR CONFIG */
+
+            if (strcmp(sect->type, "proxy-etr") == 0){
+                uci_address = uci_lookup_option_string(ctx, sect, "address");
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+
+                if (add_proxy_etr_entry(xtr,
+                        (char *)uci_address,
+                        uci_priority,
+                        uci_weigth) != GOOD ){
+                    LMLOG(LERR, "Can't add proxy-etr %s", uci_address);
+                }else{
+                    LMLOG(DBG_1, "Added %s to proxy-etr list", uci_address);
+                }
+                continue;
+            }
+
+            /* PROXY-ITR CONFIG */
+            if (strcmp(sect->type, "proxy-itr") == 0){
+                opt  = uci_lookup_option(ctx, sect, "address");
+                if (opt != NULL){
+                    uci_foreach_element(&(opt->v.list), elem_addr){
+                        if (add_server(elem_addr->name, &xtr->pitrs) != GOOD){
+                            LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
+                        }else{
+                            LMLOG(DBG_1, "Added %s to proxy-itr list", uci_address);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            /* DATABASE MAPPING CONFIG */
+            if (strcmp(sect->type, "database-mapping") == 0){
+                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+                uci_interface = uci_lookup_option_string(ctx, sect, "interface");
+                uci_priority_v4 = strtol(uci_lookup_option_string(ctx, sect, "priority_v4"),NULL,10);
+                uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, sect, "weight_v4"),NULL,10);
+                uci_priority_v6 = strtol(uci_lookup_option_string(ctx, sect, "priority_v6"),NULL,10);
+                uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, sect, "weight_v6"),NULL,10);
+
+                if (add_database_mapping(xtr,
+                        (char *)uci_eid_prefix,
+                        uci_iid,
+                        (char *)uci_interface,
+                        uci_priority_v4,
+                        uci_weigth_v4,
+                        uci_priority_v6,
+                        uci_weigth_v6) != GOOD ){
+                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
+                            uci_eid_prefix);
+                }else{
+                    LMLOG(DBG_1, "Added EID prefix %s in the database.",
+                            uci_eid_prefix);
+                }
+                continue;
+            }
+
+            if (strcmp(sect->type, "static-database-mapping") == 0){
+                mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,LOCAL_LOCATOR);
+                if (mapping == NULL){
+                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
+                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                    continue;
+                }
+                if (local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(mapping)) == NULL){
+                    if (local_map_db_add_mapping(xtr->local_mdb, mapping) == GOOD){
+                        LMLOG(DBG_1, "Added EID prefix %s in the database.",mapping_eid(mapping));
+                    }else{
+                        LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",mapping_eid(mapping));
+                        mapping_del(mapping);
+                    }
+                }else{
+                    LMLOG(LERR, "Configuration file: Duplicated EID prefix %s. Discarded ...",
+                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                    mapping_del(mapping);
+                    continue;
+                }
+                continue;
+            }
+
+            /* STATIC MAP-CACHE CONFIG */
+            if (strcmp(sect->type, "static-map-cache") == 0){
+                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+                uci_rloc = uci_lookup_option_string(ctx, sect, "rloc");
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+
+                if (add_static_map_cache_entry(xtr,
+                        (char *)uci_eid_prefix,
+                        uci_iid,
+                        (char *)uci_rloc,
+                        uci_priority,
+                        uci_weigth,
+                        lcaf_ht) != GOOD ){
+                    LMLOG(LWRN,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
+                            uci_eid_prefix,
+                            uci_rloc);
+
+                }else{
+                    LMLOG(DBG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
+                            uci_eid_prefix,
+                            uci_rloc);
+                }
+                continue;
+            }
+    }
+
+    /* destroy the hash table */
+    htable_destroy(lcaf_ht);
+    htable_destroy(rlocs_ht);
+    htable_destroy(rloc_set_ht);
+
+    return(GOOD);
+
+}
+
+int
+configure_rtr(
+        struct uci_context      *ctx,
+        struct uci_package      *pck)
+{
+    lisp_xtr_t*             xtr                     = NULL;
+    struct uci_section*     sect                    = NULL;
+    struct uci_element*     element                 = NULL;
+    htable_t*               lcaf_ht                 = NULL;
+    htable_t*               rlocs_ht                = NULL;
+    htable_t*               rloc_set_ht             = NULL;
+    int                     uci_retries             = 0;
+    const char*             uci_address             = NULL;
+    int                     uci_key_type            = 0;
+    const char*             uci_key                 = NULL;
+    int                     uci_proxy_reply         = 0;
+    const char*             uci_iface               = NULL;
+
+
+    int                 uci_priority                    = 0;
+    int                 uci_weigth                      = 0;
+    const char*         uci_eid_prefix                  = NULL;
+    const char*         uci_rloc                        = NULL;
+    int                 uci_iid                         = 0;
+
+
+    /* CREATE AND CONFIGURE RTR (xTR in fact) */
+    if (ctrl_dev_create(RTR_MODE, &ctrl_dev) != GOOD) {
+        LMLOG(LCRIT, "Failed to create RTR. Aborting!");
+        exit_cleanup();
+    }
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    /* CREATE LCAFS HTABLE */
+
+    /* get a hash table of all the elps. If any are configured,
+     * their names could appear in the rloc field of database mappings
+     * or static map cache entries  */
+    lcaf_ht = parse_lcafs(ctx,pck);
+
+    /* CREATE RLOCs sets HTABLE */
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+        if (strcmp(sect->type, "daemon") == 0){
+
+            /* RETRIES */
+            uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+
+            if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
+                xtr->map_request_retries = uci_retries;
+            }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
+                LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                        "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+            }
+        }
+
+        /* RLOC PROBING CONFIG */
+
+        if (strcmp(sect->type, "rloc-probing") == 0){
+            xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+            xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+            xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+
+            validate_rloc_probing_parameters(&xtr->probe_interval,
+                    &xtr->probe_retries, &xtr->probe_retries_interval);
+            continue;
+        }
+
+        /* MAP-RESOLVER CONFIG */
+        if (strcmp(sect->type, "map-resolver") == 0){
+            uci_address = uci_lookup_option_string(ctx, sect, "address");
+
+            if (add_server((char *)uci_address, &xtr->map_resolvers) != GOOD){
+                LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
+            }else{
+                LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
+            }
+            continue;
+        }
+
+        /* MAP-SERVER CONFIG */
+        if (strcmp(sect->type, "map-server") == 0){
+
+            uci_address = uci_lookup_option_string(ctx, sect, "address");
+            uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            uci_key = uci_lookup_option_string(ctx, sect, "key");
+
+            if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
+                uci_proxy_reply = TRUE;
+            }else{
+                uci_proxy_reply = FALSE;
+            }
+
+            if (add_map_server(xtr,(char *)uci_address,
+                    uci_key_type,
+                    (char *)uci_key,
+                    uci_proxy_reply) != GOOD ){
+                LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
+            }else{
+                LMLOG(DBG_1, "Added %s to map-server list", uci_address);
+            }
+            continue;
+        }
+
+        /* STATIC MAP-CACHE CONFIG */
+        if (strcmp(sect->type, "static-map-cache") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+            uci_rloc = uci_lookup_option_string(ctx, sect, "rloc");
+            uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            if (validate_priority_weight(uci_priority, uci_weigth) != GOOD) {
+                continue;
+            }
+            if (add_static_map_cache_entry(xtr,
+                    (char *)uci_eid_prefix,
+                    uci_iid,
+                    (char *)uci_rloc,
+                    uci_priority,
+                    uci_weigth,
+                    lcaf_ht) != GOOD ){
+                LMLOG(LWRN,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
+                        uci_eid_prefix,
+                        uci_rloc);
+
+            }else{
+                LMLOG(DBG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
+                        uci_eid_prefix,
+                        uci_rloc);
+            }
+            continue;
+        }
+
+        /* INTERFACES CONFIG */
+        if (strcmp(sect->type, "rtr-iface") == 0){
+            uci_iface = uci_lookup_option_string(ctx, sect, "iface");
+            uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            if (add_rtr_iface(xtr,
+                    (char *)uci_iface,
+                    uci_priority,
+                    uci_weigth) == GOOD) {
+                LMLOG(DBG_1, "Configured interface %s for RTR",uci_iface);
+            } else{
+                LMLOG(LERR, "Can't configure iface %s for RTR",uci_iface);
+            }
+        }
+    }
+
+    /* destroy the hash table */
+    htable_destroy(lcaf_ht);
+    htable_destroy(rlocs_ht);
+    htable_destroy(rloc_set_ht);
+
+    return(GOOD);
+}
+
+int
+configure_ms(
+        struct uci_context      *ctx,
+        struct uci_package      *pck)
+{
+    lisp_ms_t*              ms                  = NULL;
+    struct uci_section*     sect                = NULL;
+    struct uci_element*     element             = NULL;
+    const char*             uci_iface           = NULL;
+    const char*             uci_eid_prefix      = NULL;
+    int                     uci_iid             = 0;
+    int                     uci_key_type        = 0;
+    const char*             uci_key             = NULL;
+    uint8_t                 uci_more_specifics  = 0;
+    uint8_t                 uci_proxy_reply     = 0;
+    uint8_t                 uci_merge           = 0;
+    mapping_t*              mapping             = NULL;
+    lisp_site_prefix_t *    site                = NULL;
+    htable_t *              lcaf_ht             = NULL;
+    htable_t *              rlocs_ht            = NULL;
+    htable_t *              rloc_set_ht         = NULL;
+
+    /* create and configure xtr */
+    if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
+        LMLOG(LCRIT, "Failed to create MS. Aborting!");
+        exit_cleanup();
+    }
+    ms = CONTAINER_OF(ctrl_dev, lisp_ms_t, super);
+
+
+    /* create lcaf hash table */
+    lcaf_ht = parse_lcafs(ctx,pck);
+
+    /* CREATE RLOCs sets HTABLE */
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+
+        /* CONTROL INTERFACE */
+        /* TODO: should work with all interfaces in the future */
+        if (strcmp(sect->type, "ms_basic") == 0){
+            uci_iface = uci_lookup_option_string(ctx, sect, "control-iface");
+            if (!add_interface((char *)uci_iface)) {
+                return(BAD);
+            }
+        }
+
+        /* LISP-SITE CONFIG */
+        if (strcmp(sect->type, "lisp-site") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+            uci_key_type =  strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            uci_key = uci_lookup_option_string(ctx, sect, "key");
+            if (strcmp(uci_lookup_option_string(ctx, sect, "accept_more_specifics"), "on") == 0){
+                uci_more_specifics = TRUE;
+            }else{
+                uci_more_specifics = FALSE;
+            }
+            if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
+                uci_proxy_reply = TRUE;
+            }else{
+                uci_proxy_reply = FALSE;
+            }
+            if (strcmp(uci_lookup_option_string(ctx, sect, "uci_merge"), "on") == 0){
+                uci_merge = TRUE;
+            }else{
+                uci_merge = FALSE;
+            }
+
+            site = build_lisp_site_prefix(ms,
+                    (char *)uci_eid_prefix,
+                    uci_iid,
+                    uci_key_type,
+                    (char *)uci_key,
+                    uci_more_specifics,
+                    uci_proxy_reply,
+                    uci_merge,
+                    lcaf_ht);
+            if (site) {
+                LMLOG(DBG_1, "Adding lisp site prefix %s to the lisp-sites "
+                        "database", lisp_addr_to_char(site->eid_prefix));
+                ms_add_lisp_site_prefix(ms, site);
+            }else{
+                LMLOG(LERR, "Can't add lisp-site prefix %s. Discarded ...",
+                        uci_eid_prefix);
+            }
+        }
+
+        /* LISP REGISTERED SITES CONFIG */
+        if (strcmp(sect->type, "ms-static-registered-site") == 0){
+            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+            if (mapping == NULL){
+                LMLOG(LERR, "Can't create static register site for %!",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                continue;
+            }
+            if (mdb_lookup_entry_exact(ms->reg_sites_db, mapping_eid(mapping)) == NULL){
+                if (ms_add_registered_site_prefix(ms, mapping) == GOOD){
+                    LMLOG(DBG_1, "Added static registered site for %s to the registered sites list!",
+                                        lisp_addr_to_char(mapping_eid(mapping)));
+                }else{
+                    LMLOG(LERR, "Failed to add static registered site for %s to the registered sites list!",
+                            lisp_addr_to_char(mapping_eid(mapping)));
+                    mapping_del(mapping);
+                }
+            }else{
+                LMLOG(LERR, "Configuration file: Duplicated static registered site for %s. Discarded ...",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                mapping_del(mapping);
+                continue;
+            }
+            continue;
+        }
+    }
+
+    /* destroy the hash table */
+    htable_destroy(lcaf_ht);
+    htable_destroy(rlocs_ht);
+    htable_destroy(rloc_set_ht);
+    return(GOOD);
+}
+
+static mapping_t*
+parse_mapping(
+        struct uci_context      *ctx,
+        struct uci_section      *sect,
+        htable_t                *rloc_set_ht,
+        htable_t                *lcaf_ht,
+        uint8_t                 type)
+{
+    mapping_t*          map             = NULL;
+    locator_t*          loct            = NULL;
+    locator_t*          aux_loct        = NULL;
+    lisp_addr_t*        eid_prefix      = NULL;
+    const char*         uci_eid         = NULL;
+    const char*         uci_rloc_set    = NULL;
+    glist_t*            rloc_list       = NULL;
+    glist_entry_t*      it              = NULL;
+
+    uci_eid = uci_lookup_option_string(ctx, sect, "eid_prefix");
+    uci_rloc_set = uci_lookup_option_string(ctx, sect, "rloc_set");
+    if (uci_eid == NULL || uci_rloc_set == NULL){
+        return (NULL);
+    }
+    /* Check if the rloc-set exists */
+    rloc_list = (glist_t *)htable_lookup(rloc_set_ht,uci_rloc_set);
+    if (rloc_list == NULL){
+        LMLOG(LWRN,"Configuration file: The rloc set %s doesn't exist", uci_rloc_set);
+        return (NULL);
+    }
+    /* Get EID prefix */
+    eid_prefix = parse_lisp_addr((char *)uci_eid, lcaf_ht);
+    if (eid_prefix == NULL) {
+        return(NULL);
+    }
+    /* Create mapping */
+    if ( type == LOCAL_LOCATOR){
+        map = mapping_init_local(eid_prefix);
+        if (map != NULL){
+            mapping_set_ttl(map, DEFAULT_MAP_REGISTER_TIMEOUT);
+        }
+    }else{
+        map = mapping_init_remote(eid_prefix);
+    }
+    /* no need for the prefix */
+    lisp_addr_del(eid_prefix);
+
+    if (map == NULL){
+        return (NULL);
+    }
+
+    /* Add the locators of the rloc-set to the mapping */
+    glist_for_each_entry(it,rloc_list){
+        aux_loct = (locator_t*)glist_entry_data(it);
+        loct = clone_customize_locator(aux_loct,type);
+        if (loct == NULL){
+            continue;
+        }
+        if (mapping_add_locator(map, loct) != GOOD){
+            locator_del(loct);
+            continue;
+        }
+    }
+    mapping_compute_balancing_vectors(map);
+
+    return(map);
+}
+
+static htable_t *
+parse_rlocs(
+        struct uci_context      *ctx,
+        struct uci_package      *pck,
+        htable_t                *lcaf_ht)
+{
+    struct uci_section  *section            = NULL;
+    struct uci_element  *element            = NULL;
+    htable_t            *rlocs_ht           = NULL;
+    locator_t*          locator             = NULL;
+    lisp_addr_t*        address             = NULL;
+    const char*         uci_rloc_name       = NULL;
+    const char*         uci_address         = NULL;
+    int                 uci_priority        = 0;
+    int                 uci_weight          = 0;
+
+
+    /* create lcaf hash table */
+    rlocs_ht = htable_new(g_str_hash, g_str_equal, free,
+            (h_val_del_fct)locator_del);
+
+    uci_foreach_element(&pck->sections, element) {
+        section = uci_to_section(element);
+
+        if (strcmp(section->type, "rloc") == 0){
+            uci_rloc_name = uci_lookup_option_string(ctx, section, "name");
+            uci_address = uci_lookup_option_string(ctx, section, "address");
+            uci_priority = strtol(uci_lookup_option_string(ctx, section, "priority"),NULL,10);
+            uci_weight = strtol(uci_lookup_option_string(ctx, section, "weight"),NULL,10);
+
+            if (validate_priority_weight(uci_priority, uci_weight) != GOOD) {
+                continue;
+            }
+            if (htable_lookup(rlocs_ht,uci_rloc_name) != NULL){
+                LMLOG(DBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
+                continue;
+            }
+            address = parse_lisp_addr((char *)uci_address, lcaf_ht);
+            if (address == NULL){
+                continue;
+            }
+            /* Create a basic locator. Locaor or remote information will be added later according
+             * who is using the locator*/
+            locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
+            if (locator != NULL){
+                htable_insert(rlocs_ht, strdup(uci_rloc_name), locator);
+            }
+            lisp_addr_del(address);
+        }
+    }
+
+    return (rlocs_ht);
+}
+
+static htable_t *
+parse_rloc_sets(
+        struct uci_context      *ctx,
+        struct uci_package      *pck,
+        htable_t                *rlocs_ht,
+        htable_t                *lcaf_ht)
+{
+    struct uci_section *    section            = NULL;
+    struct uci_element *    element            = NULL;
+    struct uci_element *    element_loct       = NULL;
+    struct uci_option *     opt                = NULL;
+    const char *            uci_rloc_set_name  = NULL;
+
+    htable_t *              rloc_sets_ht       = NULL;
+    glist_t *               rloc_list          = NULL;
+    locator_t *             loct               = NULL;
+
+
+
+    /* create lcaf hash table */
+    rloc_sets_ht = htable_new(g_str_hash, g_str_equal, free,
+            (h_val_del_fct)glist_destroy);
+
+    uci_foreach_element(&pck->sections, element) {
+        section = uci_to_section(element);
+
+        if (strcmp(section->type, "rloc-set") == 0){
+            uci_rloc_set_name = uci_lookup_option_string(ctx, section, "name");
+            if (uci_rloc_set_name == NULL){
+                continue;
+            }
+            rloc_list = (glist_t*)htable_lookup(rloc_sets_ht,uci_rloc_set_name);
+            if (rloc_list == NULL){
+                rloc_list = glist_new();
+                if (rloc_list != NULL){
+                    htable_insert(rloc_sets_ht, strdup(uci_rloc_set_name), rloc_list);
+                }else{
+                    LMLOG(LWRN, "parse_rloc_sets: Error creating rloc list");
+                    continue;
+                }
+            }else{
+                LMLOG(LWRN, "Configuration file: The RLOC set %s is duplicated. Discarding... ",
+                        uci_rloc_set_name);
+                continue;
+            }
+            opt  = uci_lookup_option(ctx, section, "rloc_name");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), element_loct){
+                    loct = htable_lookup(rlocs_ht, element_loct->name);
+                    if (loct == NULL){
+                        LMLOG(LWRN,"Configuration file: The RLOC name %s of the RLOC set %s doesn't exist",
+                                element_loct->name, uci_rloc_set_name);
+                        continue;
+                    }
+
+                    if (glist_add_tail(loct,rloc_list)!=GOOD){
+                        LMLOG(DBG_1,"parse_rloc_sets: Error adding locator to the rloc-set");
+                    }
+                }
+            }else{
+                LMLOG(LWRN, "Configuration file: The RLOC set %s has no rlocs "
+                        "associated.",uci_rloc_set_name);
+            }
+
+        }
+    }
+
+    return (rloc_sets_ht);
+}
+
+static htable_t *
+parse_lcafs(
+        struct uci_context      *ctx,
+        struct uci_package      *pck)
+{
+    struct uci_section  *section          = NULL;
+    struct uci_element  *element          = NULL;
+    htable_t            *lcaf_ht          = NULL;
+
+    /* create lcaf hash table */
+    lcaf_ht = htable_new(g_str_hash, g_str_equal, free,
+            (h_val_del_fct)lisp_addr_del);
+
+    uci_foreach_element(&pck->sections, element) {
+        section = uci_to_section(element);
+
+        if (strcmp(section->type, "elp-node") == 0){
+            parse_elp_node(ctx,section,lcaf_ht);
+        }
+    }
+
+    //parse_rle_list(cfg, lcaf_ht);
+    //parse_mcinfo_list(cfg, lcaf_ht);
+
+    return(lcaf_ht);
+}
+
+static int
+parse_elp_node(
+        struct uci_context      *ctx,
+        struct uci_section      *section,
+        htable_t                *ht)
+{
+    const char *    uci_elp_name    = NULL;
+    const char *    uci_address     = NULL;
+    lisp_addr_t *   laddr           = NULL;
+    elp_node_t *    elp_node        = NULL;
+
+
+    uci_elp_name = uci_lookup_option_string(ctx, section, "elp_name");
+    laddr = (lisp_addr_t *)htable_lookup(ht, uci_elp_name);
+
+    if (laddr == NULL){
+        laddr = lisp_addr_elp_new();
+        if (laddr == NULL){
+            LMLOG(LWRN,"parse_elp_node: Couldn't create ELP address");
+            return (BAD);
+        }
+        htable_insert(ht, strdup(uci_elp_name), laddr);
+    }else {
+        if (lisp_addr_is_elp(laddr) == FALSE){
+            LMLOG(LWRN,"Configuration file: Address %s composed of LCAF addresses of different type",
+                    uci_elp_name);
+            return (BAD);
+        }
+    }
+
+    elp_node = xzalloc(sizeof(elp_node_t));
+    elp_node->addr = lisp_addr_new();
+
+    uci_address = uci_lookup_option_string(ctx, section, "address");
+
+    if (lisp_addr_ip_from_char((char *)uci_address, elp_node->addr) != GOOD) {
+        elp_node_del(elp_node);
+        LMLOG(DBG_1, "parse_elp_list: Couldn't parse ELP node %s",
+                uci_address);
+        return (BAD);
+    }
+
+    if (strcmp(uci_lookup_option_string(ctx, section, "strict"), "on") == 0){
+        elp_node->S = TRUE;
+    }else{
+        elp_node->S = FALSE;
+    }
+
+    if (strcmp(uci_lookup_option_string(ctx, section, "probe"), "on") == 0){
+        elp_node->P = TRUE;
+    }else{
+        elp_node->P = FALSE;
+    }
+
+    if (strcmp(uci_lookup_option_string(ctx, section, "lookup"), "on") == 0){
+        elp_node->L = TRUE;
+    }else{
+        elp_node->L = FALSE;
+    }
+
+    lcaf_elp_add_node(lisp_addr_get_lcaf(laddr),elp_node);
+
+    return (GOOD);
+}
+
+/* Parses an EID (IP or LCAF) and returns an 'lisp_addr_t'. Caller must free
+ * the returned value */
+static lisp_addr_t *
+parse_lisp_addr(char *address, htable_t *lcaf_ht)
+{
+    lisp_addr_t *addr, *lcaf;
+    int res = 0;
+
+    addr = lisp_addr_new();
+
+    if (strstr(address,"/") == NULL){
+        // Address may be an IP
+        res = lisp_addr_ip_from_char(address, addr);
+    }else{
+        // Address may be a prefix
+        res = lisp_addr_ippref_from_char(address, addr);
+    }
+
+    if (res != GOOD){
+        lisp_addr_del(addr);
+        /* if not found, try in the hash table */
+        lcaf = htable_lookup(lcaf_ht, address);
+        if (!lcaf) {
+            LMLOG(LERR, "Configuration file: Error parsing address %s",address);
+            return (NULL);
+        }
+        addr = lisp_addr_clone(lcaf);
+    }
+
+    return(addr);
+}
+
+locator_t*
+clone_customize_locator(locator_t* locator, uint8_t type)
+{
+    char*           iface_name      = NULL;
+    locator_t*      new_locator     = NULL;
+    iface_t*        iface           = NULL;
+    lisp_addr_t*    rloc            = NULL;
+    lisp_addr_t*    aux_rloc        = NULL;
+    int*            out_socket      = 0;
+
+    rloc = locator_addr(locator);
+    /* LOCAL locator */
+    if (type == LOCAL_LOCATOR) {
+        /* Decide IP address to be used to lookup the interface */
+        if (lisp_addr_is_lcaf(rloc) == TRUE) {
+            aux_rloc = lcaf_rloc_get_ip_addr(rloc);
+            if (aux_rloc == NULL) {
+                LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
+                        "address %s", lisp_addr_to_char(rloc));
+                lisp_addr_del(rloc);
+                return(NULL);
+            }
+        } else {
+            aux_rloc = rloc;
+        }
+
+        /* Find the interface name associated to the RLOC */
+        if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
+            LMLOG(LERR, "Configuration file: Can't find interface for RLOC %s",
+                    lisp_addr_to_char(aux_rloc));
+            return(NULL);
+        }
+
+        /* Find the interface */
+        if (!(iface = get_interface(iface_name))) {
+            if (!(iface = add_interface(iface_name))) {
+                return(NULL);
+            }
+        }
+
+        out_socket = (lisp_addr_ip_afi(aux_rloc) == AF_INET) ? &(iface->out_socket_v4) : &(iface->out_socket_v6);
+
+        new_locator = locator_init_local_full(rloc, iface->status,
+                            locator_priority(locator), locator_weight(locator),
+                            255, 0, out_socket);
+    /* REMOTE locator */
+    } else {
+        new_locator = locator_init_remote_full(rloc, UP, locator_priority(locator), locator_weight(locator), 255, 0);
+        if (new_locator != NULL) {
+            locator_set_type(locator,type);
+        }
+
+    }
+
+    return(new_locator);
+}
+
+

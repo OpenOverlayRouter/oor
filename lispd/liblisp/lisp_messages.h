@@ -90,7 +90,7 @@ typedef struct ecm_hdr {
 #else
     uint8_t type:4;
     uint8_t s_bit:1;
-    uint8_t reserved1:3;
+    uint8_t reserved:3;
 #endif
     uint8_t reserved2[3];
 } ecm_hdr_t;
@@ -250,7 +250,8 @@ char *map_request_hdr_to_char(map_request_hdr_t *h);
      uint8_t type:4;
      uint8_t rloc_probe:1;
      uint8_t echo_nonce:1;
-     uint8_t reserved1:2;
+     uint8_t security:1;
+     uint8_t reserved1:1;
  #endif
      uint8_t reserved2;
      uint8_t reserved3;

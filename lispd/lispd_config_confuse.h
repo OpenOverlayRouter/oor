@@ -1,8 +1,10 @@
 /*
- * cksum.h
+ * lispd_config_confuse.h
  *
  * This file is part of LISP Mobile Node Implementation.
- * Implementation for UDP checksum.
+ * Handle lispd command line and config file
+ * Parse command line args using gengetopt.
+ * Handle config file with libconfuse.
  *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
@@ -24,20 +26,21 @@
  *    LISP-MN developers <devel@lispmob.org>
  *
  * Written or modified by:
- *    David Meyer   <dmm@cisco.com>
+ *    David Meyer       <dmm@cisco.com>
  *    Preethi Natarajan <prenatar@cisco.com>
+ *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
 
-#ifndef CKSUM_H_
-#define CKSUM_H_
+#ifndef LISPD_CONFIG_CONFUSE_H_
+#define LISPD_CONFIG_CONFUSE_H_
 
-#include <defs.h>
-
-uint16_t ip_checksum(uint16_t *buffer, int size);
-
-/* Calculate the IPv4 or IPv6 UDP checksum */
-uint16_t udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi);
+/*
+ *  Parse config file and set up whatever is needed
+ */
+int handle_config_file(char * lispdconf_conf_file);
 
 
-#endif /* CKSUM_H_ */
+
+#endif /*LISPD_CONFIG_CONFUSE_H_*/
