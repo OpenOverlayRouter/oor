@@ -33,8 +33,10 @@
  */
 
 #include <signal.h>
+#include <linux/capability.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <sys/prctl.h>
 #include <time.h>
 
 #include "lispd.h"
@@ -59,6 +61,13 @@
 #include <lisp_ms.h>
 #include <shash.h>
 #include <generic_list.h>
+
+/* system calls - look to libc for function to system call mapping */
+extern int capset(cap_user_header_t header, cap_user_data_t data);
+extern int capget(cap_user_header_t header, const cap_user_data_t data);
+#ifdef ANDROID
+#define CAP_TO_MASK(x)      (1 << ((x) & 31))
+#endif
 
 /* config paramaters */
 char    *config_file                        = NULL;
@@ -140,6 +149,75 @@ init_tr_data_plane(lisp_dev_type_e mode)
     return(GOOD);
 }
 
+/*
+ *  Check for superuser privileges
+ */
+#ifndef ANDROID
+int check_capabilities()
+{
+    struct __user_cap_header_struct cap_header;
+    struct __user_cap_data_struct cap_data;
+
+    cap_header.pid = getpid();
+    cap_header.version = _LINUX_CAPABILITY_VERSION;
+    if (capget(&cap_header, &cap_data) < 0)
+    {
+        LMLOG(LCRIT, "Could not retrieve capabilities");
+        return BAD;
+    }
+
+    LMLOG(LWRN, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    /* check for capabilities */
+    if(  (cap_data.effective & CAP_TO_MASK(CAP_NET_ADMIN)) && (cap_data.effective & CAP_TO_MASK(CAP_NET_RAW))  )  {
+    }
+    else {
+        LMLOG(LCRIT, "Insufficient rights, you need CAP_NET_ADMIN and CAP_NET_RAW. See README");
+        return BAD;
+    }
+
+    /* Clear all but the capability to bind to low ports */
+    cap_data.effective = CAP_TO_MASK(CAP_NET_ADMIN) | CAP_TO_MASK(CAP_NET_RAW);
+    cap_data.permitted = cap_data.effective ;
+    cap_data.inheritable = 0;
+    if (capset(&cap_header, &cap_data) < 0) {
+        LMLOG(LWRN, "Could not drop privileges");
+        return BAD;
+    }
+
+    /* Tell kernel not clear permitted capabilities when dropping root */
+    if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
+        LMLOG(LWRN, "Sprctl(PR_SET_KEEPCAPS) failed");
+        return GOOD;
+    }
+
+    /* Now we can drop privilege, drop effective rights even with KEEPCAPS */
+    if (setuid(getuid()) < 0) {
+        LMLOG(LWRN, "Could not drop privileges");
+    }
+
+    /* that's why we need to set effective rights equal to permitted rights */
+    if (capset(&cap_header, &cap_data) < 0)
+    {
+        LMLOG(LCRIT,"Could not set effective rights to permitted ones");
+        return (BAD);
+    }
+
+    LMLOG(DBG_1, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+
+    return GOOD;
+}
+#else
+int check_capabilities()
+{
+    if (geteuid() != 0) {
+        LMLOG(LCRIT,"Running %s requires superuser privileges! Exiting...\n", LISPD);
+        return (BAD);
+    }
+
+    return (GOOD);
+}
+#endif
 
 void test_elp()
 {
@@ -376,11 +454,7 @@ initial_setup()
     LMLOG(LINF,"LISPmob compiled for linux xTR\n");
 #endif
 
-
-    /* Check for superuser privileges */
-    if (geteuid()) {
-        LMLOG(LINF,"Running %s requires superuser privileges! Exiting...\n",
-                LISPD);
+    if (check_capabilities() != GOOD){
         exit_cleanup();
     }
 
