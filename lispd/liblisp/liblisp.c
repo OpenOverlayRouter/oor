@@ -702,7 +702,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
     keyid = ntohs(AUTH_REC_KEY_ID(hdr));
     ad_len = auth_data_get_len_for_type(keyid);
     if (ad_len != ntohs(AUTH_REC_DATA_LEN(hdr))) {
-        LMLOG(DBG_1, "Auth Record record length is wrong: %d instead of %d",
+        LMLOG(DBG_3, "Auth Record record length is wrong: %d instead of %d",
                 ntohs(AUTH_REC_DATA_LEN(hdr)), ad_len);
         return(BAD);
     }

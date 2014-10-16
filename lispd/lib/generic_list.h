@@ -37,6 +37,7 @@
 
 typedef void (*glist_del_fct)(void *);
 typedef int  (*glist_cmp_fct)(void *, void *);
+typedef char *(*glist_to_char_fct)(void *);
 
 typedef struct glist_entry_t_ {
     struct list_head    list;
@@ -61,6 +62,7 @@ int glist_add(void *data, glist_t *list);
 int glist_add_tail(void *data, glist_t *glist);
 uint8_t glist_contain(void *data, glist_t *list);
 void glist_remove(glist_entry_t *entry, glist_t *list);
+void glist_dump(glist_t *list, glist_to_char_fct dump_fct, int log_level);
 void glist_destroy(glist_t *lst);
 void glist_remove_all(glist_t *lst);
 

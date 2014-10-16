@@ -52,12 +52,12 @@ validate_priority_weight(
 int
 add_server(
         char *              server,
-        lisp_addr_list_t ** list);
+        glist_t *           list);
 
 int
 add_map_server(
         lisp_xtr_t *xtr,
-        char *map_server,
+        char *str_addr,
         int key_type,
         char *key,
         uint8_t proxy_reply);
@@ -65,7 +65,7 @@ add_map_server(
 int
 add_proxy_etr_entry(
         lisp_xtr_t *    xtr,
-        char *          address,
+        char *          str_addr,
         int             priority,
         int             weight);
 
@@ -79,16 +79,6 @@ add_database_mapping(
         int         weight4,
         int         priority6,
         int         weight6);
-
-int
-add_static_map_cache_entry(
-        lisp_xtr_t *        xtr,
-        char *              eid,
-        int                 iid,
-        char *              rloc_addr,
-        int                 priority,
-        int                 weight,
-        htable_t *          elp_hash);
 
 /*
  * Create the locators associated with the address of the iface and assign them
@@ -134,6 +124,22 @@ build_lisp_site_prefix(
 
 char *
 get_interface_name_from_address(lisp_addr_t *addr);
+
+
+/* Parses an EID/RLOC (IP or LCAF) and returns a list of 'lisp_addr_t'.
+ * Caller must free the returned value */
+glist_t *
+parse_lisp_addr(char *address, htable_t *lcaf_ht);
+
+/* Parses a char (IP or FQDN) into a list of 'lisp_addr_t'.
+ * Caller must free the returned value */
+glist_t *
+parse_ip_addr(char *addr_str);
+
+locator_t*
+clone_customize_locator(
+        locator_t*  locator,
+        uint8_t     type);
 
 
 #endif /* LISPD_CONFIG_FUNCTIONS_H_ */

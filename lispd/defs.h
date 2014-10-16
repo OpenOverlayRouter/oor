@@ -34,7 +34,6 @@
 
 #include <stdint.h>
 
-typedef struct map_server_list map_server_list_t;
 typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
 typedef struct lisp_ctrl lisp_ctrl_t;
 typedef struct htable shash_t;

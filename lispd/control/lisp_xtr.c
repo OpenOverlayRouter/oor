@@ -71,8 +71,9 @@ static void program_mapping_rloc_probing(lisp_xtr_t *, mapping_t *);
 static void program_petr_rloc_probing(lisp_xtr_t *, int time);
 static inline lisp_xtr_t *lisp_xtr_cast(lisp_ctrl_dev_t *);
 
-static void proxy_etrs_to_char(lisp_xtr_t *, int log_level);
-static void map_servers_to_char(lisp_xtr_t *, int log_level);
+static void proxy_etrs_dump(lisp_xtr_t *, int log_level);
+static void map_servers_dump(lisp_xtr_t *, int log_level);
+static char *map_server_to_char(map_server_elt * ms);
 
 static fwd_entry_t *tr_get_forwarding_entry(lisp_ctrl_dev_t *,
         packet_tuple_t *);
@@ -80,7 +81,7 @@ static fwd_entry_t *tr_get_forwarding_entry(lisp_ctrl_dev_t *,
 glist_t *get_local_locators_with_address(local_map_db_t *local_db, lisp_addr_t *addr);
 mapping_t *get_mapping_containing_locator_ptr(local_map_db_t *local_db, locator_t *locator);
 glist_t *get_mappings_to_smr(lisp_xtr_t *xtr);
-
+static lisp_addr_t * get_map_resolver(lisp_xtr_t *xtr);
 
 /* Called when the timer associated with an EID entry expires. */
 static int
@@ -542,14 +543,20 @@ handle_merge_semantics(lisp_xtr_t *xtr, mapping_t *rec_map)
 }
 
 static int
-tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
+tr_recv_map_notify(
+        lisp_xtr_t      *xtr,
+        lbuf_t          *buf)
 {
-    lisp_addr_t *eid;
-    mapping_t *m, *local_map;
-    void *hdr;
-    int i;
-    locator_t *probed;
-    lbuf_t b;
+    lisp_addr_t *       eid         = NULL;
+    mapping_t *         m           = NULL;
+    mapping_t *         local_map   = NULL;
+    void *              hdr         = NULL;
+    locator_t *         probed      = 0;
+    glist_entry_t *     it          = NULL;
+    map_server_elt *    ms          = NULL;
+    int                 i           = 0;
+    int                 res         = BAD;
+    lbuf_t              b;
 
     /* local copy */
     b = *buf;
@@ -568,7 +575,14 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
     }
 
     /* TODO: match eid/nonce to ms-key */
-    if (lisp_msg_check_auth_field(buf, xtr->map_servers->key) != GOOD) {
+    glist_for_each_entry(it,xtr->map_servers){
+        ms = (map_server_elt *)glist_entry_data(it);
+        res = lisp_msg_check_auth_field(buf, ms->key);
+        if (res == GOOD){
+            break;
+        }
+    }
+    if (res != GOOD){
         LMLOG(DBG_1, "Map-Notify message is invalid");
         program_map_register(xtr, LISPD_INITIAL_EMR_TIMEOUT);
         return(BAD);
@@ -634,7 +648,7 @@ send_map_request_to_mr(lisp_xtr_t *xtr, lbuf_t *b, lisp_addr_t *in_srloc,
             in_drloc);
 
     /* prepare outer headers */
-    drloc = xtr->map_resolvers->address;
+    drloc = get_map_resolver(xtr);
     srloc = NULL;
 
     LMLOG(DBG_1, "%s, inner IP: %s -> %s, inner UDP: %d -> %d",
@@ -773,12 +787,14 @@ send_all_smr_cb(lmtimer_t *t, void *arg)
 static void
 send_all_smr_and_reg(lisp_xtr_t *xtr)
 {
-    mcache_entry_t *mce = NULL;
-    mapping_t *mcache_map, *map;
-    glist_t *mapping_list;
-    glist_entry_t *it;
-    lisp_addr_list_t *pitr = NULL;
-    lisp_addr_t *eid = NULL;
+    mcache_entry_t *    mce             = NULL;
+    mapping_t *         mcache_map      = NULL;
+    mapping_t *         map             = NULL;
+    glist_t *           mapping_list    = NULL;
+    glist_entry_t *     it              = NULL;
+    glist_entry_t *     it_pitr         = NULL;
+    lisp_addr_t *       pitr_addr       = NULL;
+    lisp_addr_t *       eid             = NULL;
 
     LMLOG(DBG_2,"\n*** Re-Register and send SMRs for mappings with updated "
             "RLOCs ***");
@@ -787,6 +803,9 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
     mapping_list = get_mappings_to_smr(xtr);
 
     /* Send map register and SMR request for each mapping */
+    glist_dump(mapping_list,(glist_to_char_fct)mapping_to_char,DBG_1);
+
+
     glist_for_each_entry(it, mapping_list) {
         map = (mapping_t *)glist_entry_data(it);
 
@@ -818,6 +837,8 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
         if (lisp_addr_is_mc(eid))
             continue;
 
+        glist_dump(mapping_list,(glist_to_char_fct)mapping_to_char,DBG_1);
+
 
         /* TODO: spec says SMRs should be sent only to peer ITRs that sent us
          * traffic in the last minute. Should change this in the future*/
@@ -829,12 +850,10 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
 
         /* SMR proxy-itr */
         LMLOG(DBG_1, "Sending SMRs to PITRs");
-        pitr = xtr->pitrs;
-        while (pitr) {
-            build_and_send_smr_mreq(xtr, map, eid, pitr->address);
-            pitr = pitr->next;
+        glist_for_each_entry(it_pitr, xtr->pitrs){
+            pitr_addr = (lisp_addr_t *)glist_entry_data(it_pitr);
+            build_and_send_smr_mreq(xtr, map, eid, pitr_addr);
         }
-
     }
 
     glist_destroy(mapping_list);
@@ -1011,74 +1030,93 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
     return(GOOD);
 }
 
-/* build and send generic map-register with one record */
+/* build and send generic map-register with one record
+ * for each map server */
 static int
-build_and_send_map_reg(lisp_xtr_t *xtr, mapping_t *m)
+build_and_send_map_reg(
+        lisp_xtr_t *    xtr,
+        mapping_t *     m)
 {
-    lbuf_t *b;
-    void *hdr;
-    lisp_addr_t *drloc;
-    uconn_t uc;
-    b = lisp_msg_mreg_create(m, xtr->map_servers->key_type);
+    lbuf_t *            b       = NULL;
+    void *              hdr     = NULL;
+    lisp_addr_t *       drloc   = NULL;
+    glist_entry_t *     it      = NULL;
+    map_server_elt *    ms      = NULL;
+    uconn_t         uc;
 
-    if (!b) {
-        return(BAD);
+    glist_for_each_entry(it, xtr->map_servers) {
+        ms = (map_server_elt *)glist_entry_data(it);
+
+        b = lisp_msg_mreg_create(m, ms->key_type);
+
+        if (!b) {
+            return(BAD);
+        }
+
+        hdr = lisp_msg_hdr(b);
+        MREG_PROXY_REPLY(hdr) = ms->proxy_reply;
+
+        if (lisp_msg_fill_auth_data(b, ms->key_type,
+                ms->key) != GOOD) {
+            return(BAD);
+        }
+        drloc =  ms->address;
+
+        LMLOG(DBG_1, "%s, EID: %s, MS: %s", lisp_msg_hdr_to_char(b),
+                lisp_addr_to_char(mapping_eid(m)), lisp_addr_to_char(drloc));
+
+        uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
+        send_msg(&xtr->super, b, &uc);
+
+        lisp_msg_destroy(b);
     }
-
-    hdr = lisp_msg_hdr(b);
-    MREG_PROXY_REPLY(hdr) = xtr->map_servers->proxy_reply;
-
-    if (lisp_msg_fill_auth_data(b, xtr->map_servers->key_type,
-            xtr->map_servers->key) != GOOD) {
-        return(BAD);
-    }
-    drloc =  xtr->map_servers->address;
-
-    LMLOG(DBG_1, "%s, EID: %s, MS: %s", lisp_msg_hdr_to_char(b),
-            lisp_addr_to_char(mapping_eid(m)), lisp_addr_to_char(drloc));
-
-    uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-    send_msg(&xtr->super, b, &uc);
-
-    lisp_msg_destroy(b);
     return(GOOD);
 }
 
 static int
-build_and_send_ecm_map_reg(lisp_xtr_t *xtr, mapping_t *m, lisp_addr_t *dst,
-        uint64_t nonce)
+build_and_send_ecm_map_reg(
+        lisp_xtr_t *    xtr,
+        mapping_t *     m,
+        lisp_addr_t *   dst,
+        uint64_t        nonce)
 {
-    lbuf_t *b;
-    void *hdr;
-    lisp_addr_t *in_drloc, *in_srloc;
-    uconn_t uc;
+    lbuf_t *            b           = NULL;
+    void *              hdr         = NULL;
+    lisp_addr_t *       in_drloc    = NULL;
+    lisp_addr_t *       in_srloc    = NULL;
+    glist_entry_t *     it          = NULL;
+    map_server_elt *    ms          = NULL;
+    uconn_t             uc;
 
-    b = lisp_msg_nat_mreg_create(m, xtr->map_servers->key, &xtr->site_id,
-            &xtr->xtr_id, xtr->map_servers->key_type);
-    hdr = lisp_msg_hdr(b);
+    glist_for_each_entry(it, xtr->map_servers) {
+        ms = (map_server_elt *)glist_entry_data(it);
+        b = lisp_msg_nat_mreg_create(m, ms->key, &xtr->site_id,
+                &xtr->xtr_id, ms->key_type);
+        hdr = lisp_msg_hdr(b);
 
-    /* XXX Quick hack */
-    /* Cisco IOS RTR implementation drops Data-Map-Notify if ECM Map Register
-     * nonce = 0 */
+        /* XXX Quick hack */
+        /* Cisco IOS RTR implementation drops Data-Map-Notify if ECM Map Register
+         * nonce = 0 */
 
-    MREG_NONCE(hdr) = nonce;
-    MREG_PROXY_REPLY(hdr) = 1;
+        MREG_NONCE(hdr) = nonce;
+        MREG_PROXY_REPLY(hdr) = 1;
 
-    in_drloc = xtr->map_servers->address;
-    in_srloc = ctrl_default_rloc(xtr->super.ctrl, lisp_addr_ip_afi(in_drloc));
+        in_drloc = ms->address;
+        in_srloc = ctrl_default_rloc(xtr->super.ctrl, lisp_addr_ip_afi(in_drloc));
 
-    lisp_msg_encap(b, LISP_CONTROL_PORT, LISP_CONTROL_PORT, in_srloc,
-            in_drloc);
+        lisp_msg_encap(b, LISP_CONTROL_PORT, LISP_CONTROL_PORT, in_srloc,
+                in_drloc);
 
-    LMLOG(DBG_1, "%s, Inner IP: %s -> %s, EID: %s, RTR: %s",
-            lisp_msg_hdr_to_char(b), lisp_addr_to_char(in_srloc),
-            lisp_addr_to_char(in_drloc), lisp_addr_to_char(mapping_eid(m)),
-            lisp_addr_to_char(dst));
+        LMLOG(DBG_1, "%s, Inner IP: %s -> %s, EID: %s, RTR: %s",
+                lisp_msg_hdr_to_char(b), lisp_addr_to_char(in_srloc),
+                lisp_addr_to_char(in_drloc), lisp_addr_to_char(mapping_eid(m)),
+                lisp_addr_to_char(dst));
 
-    uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, dst);
-    send_msg(&xtr->super, b, &uc);
+        uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, dst);
+        send_msg(&xtr->super, b, &uc);
 
-    lisp_msg_destroy(b);
+        lisp_msg_destroy(b);
+    }
     return(GOOD);
 }
 
@@ -1231,7 +1269,7 @@ map_register_process(lisp_xtr_t *xtr)
 {
     int ret = 0;
 
-    if (!xtr->map_servers) {
+    if (glist_size(xtr->map_servers) == 0) {
         LMLOG(LCRIT, "No Map Servers configured!");
         exit_cleanup();
     }
@@ -1717,17 +1755,11 @@ xtr_recv_msg(lisp_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc) {
     }
 }
 
-static void map_server_list_del (map_server_list_t *map_servers)
+void map_server_elt_del (map_server_elt *map_server)
 {
-    map_server_list_t *next_map_server = NULL;
-
-    while (map_servers != NULL){
-        free(map_servers->address);
-        free(map_servers->key);
-        next_map_server = map_servers->next;
-        free(map_servers);
-        map_servers = next_map_server;
-    }
+    lisp_addr_del (map_server->address);
+    free(map_server->key);
+    free(map_server);
 }
 
 static inline lisp_xtr_t *
@@ -1757,6 +1789,10 @@ xtr_ctrl_construct(lisp_ctrl_dev_t *dev)
     xtr->local_mdb = local_map_db_new();
     xtr->map_cache = mcache_new();
 
+    xtr->map_servers = glist_new_managed((glist_del_fct)map_server_elt_del);
+    xtr->pitrs = glist_new_managed((glist_del_fct)lisp_addr_del);
+    xtr->map_resolvers = glist_new_managed((glist_del_fct)lisp_addr_del);
+
     if (!xtr->local_mdb || !xtr->map_cache) {
         return(BAD);
     }
@@ -1784,8 +1820,9 @@ xtr_ctrl_destruct(lisp_ctrl_dev_t *dev)
 
     mcache_del(xtr->map_cache);
     local_map_db_del(xtr->local_mdb);
-    lisp_addr_list_del(xtr->map_resolvers);
-    map_server_list_del(xtr->map_servers);
+    glist_destroy(xtr->map_resolvers);
+    glist_destroy(xtr->pitrs);
+    glist_destroy(xtr->map_servers);
     mapping_del(xtr->all_locs_map);
     lmtimer_stop(xtr->smr_timer);
     LMLOG(DBG_1,"xTR device destroyed");
@@ -1808,12 +1845,12 @@ xtr_run(lisp_xtr_t *xtr)
 
     LMLOG(DBG_1, "\nStarting xTR ...\n");
 
-    if (xtr->map_servers == NULL) {
+    if (glist_size(xtr->map_servers) == 0) {
         LMLOG(LCRIT, "No Map Server configured. Exiting...");
         exit_cleanup();
     }
 
-    if (xtr->map_resolvers == NULL) {
+    if (glist_size(xtr->map_resolvers) == 0) {
         LMLOG(LCRIT, "No Map Resolver configured. Exiting...");
         exit_cleanup();
     }
@@ -1835,15 +1872,15 @@ xtr_run(lisp_xtr_t *xtr)
             exit_cleanup();
         }
 
-        if (xtr->map_servers->next != NULL
-                || lisp_addr_ip_afi(xtr->map_servers->address) != AF_INET) {
+        if (glist_size(xtr->map_servers) > 1
+                || lisp_addr_ip_afi(((map_server_elt *)glist_first_data(xtr->map_servers))->address) != AF_INET) {
             LMLOG(LINF, "NAT aware on -> This version of LISPmob is limited to "
                     "one IPv4 Map Server.");
             exit_cleanup();
         }
 
-        if (xtr->map_resolvers->next != NULL
-                || lisp_addr_ip_afi(xtr->map_resolvers->address) != AF_INET) {
+        if (glist_size(xtr->map_resolvers) > 1
+                || lisp_addr_ip_afi((lisp_addr_t *)glist_first_data(xtr->map_resolvers)) != AF_INET) {
             LMLOG(LINF, "NAT aware on -> This version of LISPmob is limited to "
                     "one IPv4 Map Resolver.");
             exit_cleanup();
@@ -1873,10 +1910,12 @@ xtr_run(lisp_xtr_t *xtr)
     local_map_db_dump(xtr->local_mdb, DBG_1);
     mcache_dump_db(xtr->map_cache, DBG_1);
 
-    map_servers_to_char(xtr, DBG_1);
-    lisp_addr_list_to_char(xtr->map_resolvers, "Map-Resolvers", DBG_1);
-    proxy_etrs_to_char(xtr, DBG_1);
-    lisp_addr_list_to_char(xtr->pitrs, "Proxy-ITRs", DBG_1);
+    map_servers_dump(xtr, DBG_1);
+    LMLOG(DBG_1, "************* %13s ***************", "Map Resolvers");
+        glist_dump(xtr->map_resolvers, (glist_to_char_fct)lisp_addr_to_char, DBG_1);
+    proxy_etrs_dump(xtr, DBG_1);
+    LMLOG(DBG_1, "************* %13s ***************", "Proxy-ITRs");
+    glist_dump(xtr->pitrs, (glist_to_char_fct)lisp_addr_to_char, DBG_1);
 
     /* Register EIDs prefixes to control */
     local_map_db_foreach_entry(xtr->local_mdb, it) {
@@ -1899,12 +1938,8 @@ rtr_run(lisp_xtr_t *xtr)
 {
     LMLOG(LINF, "\nStarting RTR ...\n");
 
-    if (xtr->map_servers == NULL) {
-        LMLOG(LCRIT, "No Map Server configured. Exiting...");
-        exit_cleanup();
-    }
 
-    if (xtr->map_resolvers == NULL) {
+    if (glist_size(xtr->map_resolvers) == 0) {
         LMLOG(LCRIT, "No Map Resolver configured. Exiting...");
         exit_cleanup();
     }
@@ -1950,7 +1985,7 @@ ctrl_dev_class_t xtr_ctrl_class = {
 
 
 static void
-proxy_etrs_to_char(lisp_xtr_t *xtr, int log_level)
+proxy_etrs_dump(lisp_xtr_t *xtr, int log_level)
 {
     locator_list_t *locator_lst_elt[2] = { NULL, NULL };
     int ctr = 0;
@@ -1974,20 +2009,21 @@ proxy_etrs_to_char(lisp_xtr_t *xtr, int log_level)
 }
 
 static void
-map_servers_to_char(lisp_xtr_t *xtr, int log_level)
+map_servers_dump(lisp_xtr_t *xtr, int log_level)
 {
-    map_server_list_t *ms = NULL;
-    char str[80];
+    map_server_elt *    ms          = NULL;
+    glist_entry_t *     it          = NULL;
+    char                str[80];
 
-    if (xtr->map_servers == NULL || is_loggable(log_level) == FALSE) {
+    if (glist_size(xtr->map_servers) == 0 || is_loggable(log_level) == FALSE) {
         return;
     }
 
     LMLOG(log_level, "******************* Map-Servers list ********************************");
     LMLOG(log_level, "|               Locator (RLOC)            |       Key Type          |");
-    ms = xtr->map_servers;
 
-    while (ms) {
+    glist_for_each_entry(it, xtr->map_servers) {
+        ms = (map_server_elt *)glist_entry_data(it);
         sprintf(str, "| %39s |", lisp_addr_to_char(ms->address));
         if (ms->key_type == NO_KEY) {
             sprintf(str + strlen(str), "          NONE           |");
@@ -1996,10 +2032,31 @@ map_servers_to_char(lisp_xtr_t *xtr, int log_level)
         } else {
             sprintf(str + strlen(str), "    HMAC-SHA-256-128     |");
         }
-        ms = ms->next;
         LMLOG(log_level, "%s", str);
     }
 }
+
+
+static char *
+map_server_to_char(map_server_elt * ms)
+{
+    static char buf[100];
+
+    sprintf(buf, "MS: %s, Key type: ", lisp_addr_to_char(ms->address));
+    if (ms->key_type == NO_KEY) {
+        sprintf(buf + strlen(buf), " NONE ");
+    } else if (ms->key_type == HMAC_SHA_1_96) {
+        sprintf(buf + strlen(buf), " HMAC-SHA-1-96 ");
+    } else {
+        sprintf(buf + strlen(buf), " HMAC-SHA-256-128 ");
+    }
+    sprintf(buf + strlen(buf),", Proxy Reply: %s", (ms->proxy_reply == TRUE) ? "TRUE" : "FALSE" );
+
+    return (buf);
+}
+
+
+
 
 /* Select 'locp' according to the priority and weight. */
 static int
@@ -2520,4 +2577,29 @@ void iface_locators_del(iface_locators *if_loct)
         lisp_addr_del(if_loct->ipv6_prev_addr);
     }
     free(if_loct);
+}
+
+
+
+static lisp_addr_t *
+get_map_resolver(lisp_xtr_t *xtr)
+{
+    uint16_t        afi         = AF_UNSPEC;
+    glist_entry_t * it          = NULL;
+    lisp_addr_t *   addr        = NULL;
+
+    if (default_ctrl_iface_v4 != NULL){
+        afi = AF_INET;
+    }else if (default_ctrl_iface_v6 != NULL){
+        afi = AF_INET6;
+    }
+
+    glist_for_each_entry(it,xtr->map_resolvers){
+        addr = (lisp_addr_t *)glist_entry_data(it);
+        if (lisp_addr_ip_afi(addr) == afi){
+            return (addr);
+        }
+    }
+    LMLOG (DBG_1,"get_map_resolver: No map resolver reachable");
+    return (NULL);
 }

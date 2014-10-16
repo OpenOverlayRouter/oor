@@ -323,10 +323,9 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
         free(address);
         return (BAD);
     }
+    mask = atoi(token);
 
     free(address);
-
-    mask = atoi(token);
 
     if (ip_addr_afi(ip_prefix_addr(ippref)) == AF_INET) {
         if (mask < 1 || mask > 32)

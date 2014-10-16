@@ -29,6 +29,7 @@
 #include "generic_list.h"
 #include <stdlib.h>
 #include <util.h>
+#include "lmlog.h"
 
 
 void
@@ -161,6 +162,20 @@ glist_contain(void *data, glist_t *list)
         }
     }
     return(FALSE);
+}
+
+void
+glist_dump(glist_t *list, glist_to_char_fct dump_fct, int log_level)
+{
+    glist_entry_t *     it          = NULL;
+    void *              data        = NULL;
+    int                 ctr         = 0;
+
+    glist_for_each_entry(it,list){
+        ctr++;
+        data = glist_entry_data (it);
+        LMLOG(log_level,"[%d] =>  %s",ctr,dump_fct(data));
+    }
 }
 
 /**

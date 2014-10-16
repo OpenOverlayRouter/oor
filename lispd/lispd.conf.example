@@ -161,12 +161,21 @@ explicit-locator-path {
 		
 
 database-mapping-new {
-        eid-prefix         = <prefix>  
+    eid-prefix          = <prefix>  
 	rloc {
-		address 	= <string>
-		priority        = <int>
-		weight          = <int>
+        address 	    = <string>
+        priority        = <int>
+        weight          = <int>
 	}
+}
+
+static-map-cache {
+    eid-prefix          = <prefix>  
+    rloc {
+        address         = <string>
+        priority        = <int>
+        weight          = <int>
+    }
 }
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses

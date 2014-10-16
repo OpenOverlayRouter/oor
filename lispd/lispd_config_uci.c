@@ -101,12 +101,6 @@ parse_elp_node(
         struct uci_section      *section,
         htable_t                *ht);
 
-static lisp_addr_t *
-parse_lisp_addr(char *address, htable_t *lcaf_ht);
-
-locator_t*
-clone_customize_locator(locator_t* locator, uint8_t type);
-
 /********************************** FUNCTIONS ********************************/
 
 int
@@ -289,7 +283,7 @@ configure_xtr(
             if (strcmp(sect->type, "map-resolver") == 0){
                 uci_address = uci_lookup_option_string(ctx, sect, "address");
 
-                if (add_server((char *)uci_address, &xtr->map_resolvers) != GOOD){
+                if (add_server((char *)uci_address, xtr->map_resolvers) != GOOD){
                     LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
                 }else{
                     LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
@@ -344,7 +338,7 @@ configure_xtr(
                 opt  = uci_lookup_option(ctx, sect, "address");
                 if (opt != NULL){
                     uci_foreach_element(&(opt->v.list), elem_addr){
-                        if (add_server(elem_addr->name, &xtr->pitrs) != GOOD){
+                        if (add_server(elem_addr->name, xtr->pitrs) != GOOD){
                             LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
                         }else{
                             LMLOG(DBG_1, "Added %s to proxy-itr list", uci_address);
@@ -380,7 +374,7 @@ configure_xtr(
                 continue;
             }
 
-            if (strcmp(sect->type, "static-database-mapping") == 0){
+            if (strcmp(sect->type, "database-mapping-new") == 0){
                 mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,LOCAL_LOCATOR);
                 if (mapping == NULL){
                     LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
@@ -405,26 +399,26 @@ configure_xtr(
 
             /* STATIC MAP-CACHE CONFIG */
             if (strcmp(sect->type, "static-map-cache") == 0){
-                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
-                uci_rloc = uci_lookup_option_string(ctx, sect, "rloc");
-                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
-
-                if (add_static_map_cache_entry(xtr,
-                        (char *)uci_eid_prefix,
-                        uci_iid,
-                        (char *)uci_rloc,
-                        uci_priority,
-                        uci_weigth,
-                        lcaf_ht) != GOOD ){
-                    LMLOG(LWRN,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
-                            uci_eid_prefix,
-                            uci_rloc);
-
+                mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+                if (mapping == NULL){
+                    LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                    continue;
+                }
+                if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
+                    if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
+                        LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                                lisp_addr_to_char(mapping_eid(mapping)));
+                    }else{
+                        LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                                mapping_eid(mapping));
+                        mapping_del(mapping);
+                    }
                 }else{
-                    LMLOG(DBG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
-                            uci_eid_prefix,
-                            uci_rloc);
+                    LMLOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
+                            "Discarded ...",uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                    mapping_del(mapping);
+                    continue;
                 }
                 continue;
             }
@@ -491,186 +485,186 @@ configure_mn(
 
 
     uci_foreach_element(&pck->sections, element) {
-            sect = uci_to_section(element);
-            if (strcmp(sect->type, "daemon") == 0){
+        sect = uci_to_section(element);
+        if (strcmp(sect->type, "daemon") == 0){
 
-                /* RETRIES */
-                uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+            /* RETRIES */
+            uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
 
-                if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
-                    xtr->map_request_retries = uci_retries;
-                }else if (uci_retries > LISPD_MAX_RETRANSMITS){
-                    xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
-                    LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
-                            "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
-                }
+            if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
+                xtr->map_request_retries = uci_retries;
+            }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
+                LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                        "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+            }
+        }
+
+        /* RLOC PROBING CONFIG */
+
+        if (strcmp(sect->type, "rloc-probing") == 0){
+            xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+            xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+            xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+
+            validate_rloc_probing_parameters(&xtr->probe_interval,
+                    &xtr->probe_retries, &xtr->probe_retries_interval);
+            continue;
+        }
+
+        /* NAT Traversal options */
+        if (strcmp(sect->type, "nat-traversal") == 0){
+            if (strcmp(uci_lookup_option_string(ctx, sect, "nat_aware"), "on") == 0){
+                nat_aware = TRUE;
+            }else{
+                nat_aware = FALSE;
+            }
+            continue;
+        }
+
+        /* MAP-RESOLVER CONFIG */
+        if (strcmp(sect->type, "map-resolver") == 0){
+            uci_address = uci_lookup_option_string(ctx, sect, "address");
+
+            if (add_server((char *)uci_address, xtr->map_resolvers) != GOOD){
+                LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
+            }else{
+                LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
+            }
+            continue;
+        }
+
+        /* MAP-SERVER CONFIG */
+        if (strcmp(sect->type, "map-server") == 0){
+
+            uci_address = uci_lookup_option_string(ctx, sect, "address");
+            uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            uci_key = uci_lookup_option_string(ctx, sect, "key");
+
+            if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
+                uci_proxy_reply = TRUE;
+            }else{
+                uci_proxy_reply = FALSE;
             }
 
-            /* RLOC PROBING CONFIG */
-
-            if (strcmp(sect->type, "rloc-probing") == 0){
-                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
-                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
-                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
-
-                validate_rloc_probing_parameters(&xtr->probe_interval,
-                                &xtr->probe_retries, &xtr->probe_retries_interval);
-                continue;
+            if (add_map_server(xtr,(char *)uci_address,
+                    uci_key_type,
+                    (char *)uci_key,
+                    uci_proxy_reply) != GOOD ){
+                LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
+            }else{
+                LMLOG(DBG_1, "Added %s to map-server list", uci_address);
             }
+            continue;
+        }
 
-            /* NAT Traversal options */
-            if (strcmp(sect->type, "nat-traversal") == 0){
-                if (strcmp(uci_lookup_option_string(ctx, sect, "nat_aware"), "on") == 0){
-                    nat_aware = TRUE;
-                }else{
-                    nat_aware = FALSE;
-                }
-                continue;
+        /* PROXY-ETR CONFIG */
+
+        if (strcmp(sect->type, "proxy-etr") == 0){
+            uci_address = uci_lookup_option_string(ctx, sect, "address");
+            uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+
+            if (add_proxy_etr_entry(xtr,
+                    (char *)uci_address,
+                    uci_priority,
+                    uci_weigth) != GOOD ){
+                LMLOG(LERR, "Can't add proxy-etr %s", uci_address);
+            }else{
+                LMLOG(DBG_1, "Added %s to proxy-etr list", uci_address);
             }
+            continue;
+        }
 
-            /* MAP-RESOLVER CONFIG */
-            if (strcmp(sect->type, "map-resolver") == 0){
-                uci_address = uci_lookup_option_string(ctx, sect, "address");
-
-                if (add_server((char *)uci_address, &xtr->map_resolvers) != GOOD){
-                    LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
-                }else{
-                    LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
-                }
-                continue;
-            }
-
-            /* MAP-SERVER CONFIG */
-            if (strcmp(sect->type, "map-server") == 0){
-
-                uci_address = uci_lookup_option_string(ctx, sect, "address");
-                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
-                uci_key = uci_lookup_option_string(ctx, sect, "key");
-
-                if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
-                    uci_proxy_reply = TRUE;
-                }else{
-                    uci_proxy_reply = FALSE;
-                }
-
-                if (add_map_server(xtr,(char *)uci_address,
-                        uci_key_type,
-                        (char *)uci_key,
-                        uci_proxy_reply) != GOOD ){
-                    LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
-                }else{
-                    LMLOG(DBG_1, "Added %s to map-server list", uci_address);
-                }
-                continue;
-            }
-
-            /* PROXY-ETR CONFIG */
-
-            if (strcmp(sect->type, "proxy-etr") == 0){
-                uci_address = uci_lookup_option_string(ctx, sect, "address");
-                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
-
-                if (add_proxy_etr_entry(xtr,
-                        (char *)uci_address,
-                        uci_priority,
-                        uci_weigth) != GOOD ){
-                    LMLOG(LERR, "Can't add proxy-etr %s", uci_address);
-                }else{
-                    LMLOG(DBG_1, "Added %s to proxy-etr list", uci_address);
-                }
-                continue;
-            }
-
-            /* PROXY-ITR CONFIG */
-            if (strcmp(sect->type, "proxy-itr") == 0){
-                opt  = uci_lookup_option(ctx, sect, "address");
-                if (opt != NULL){
-                    uci_foreach_element(&(opt->v.list), elem_addr){
-                        if (add_server(elem_addr->name, &xtr->pitrs) != GOOD){
-                            LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
-                        }else{
-                            LMLOG(DBG_1, "Added %s to proxy-itr list", uci_address);
-                        }
-                    }
-                }
-                continue;
-            }
-
-            /* DATABASE MAPPING CONFIG */
-            if (strcmp(sect->type, "database-mapping") == 0){
-                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
-                uci_interface = uci_lookup_option_string(ctx, sect, "interface");
-                uci_priority_v4 = strtol(uci_lookup_option_string(ctx, sect, "priority_v4"),NULL,10);
-                uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, sect, "weight_v4"),NULL,10);
-                uci_priority_v6 = strtol(uci_lookup_option_string(ctx, sect, "priority_v6"),NULL,10);
-                uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, sect, "weight_v6"),NULL,10);
-
-                if (add_database_mapping(xtr,
-                        (char *)uci_eid_prefix,
-                        uci_iid,
-                        (char *)uci_interface,
-                        uci_priority_v4,
-                        uci_weigth_v4,
-                        uci_priority_v6,
-                        uci_weigth_v6) != GOOD ){
-                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
-                            uci_eid_prefix);
-                }else{
-                    LMLOG(DBG_1, "Added EID prefix %s in the database.",
-                            uci_eid_prefix);
-                }
-                continue;
-            }
-
-            if (strcmp(sect->type, "static-database-mapping") == 0){
-                mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,LOCAL_LOCATOR);
-                if (mapping == NULL){
-                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
-                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                    continue;
-                }
-                if (local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(mapping)) == NULL){
-                    if (local_map_db_add_mapping(xtr->local_mdb, mapping) == GOOD){
-                        LMLOG(DBG_1, "Added EID prefix %s in the database.",mapping_eid(mapping));
+        /* PROXY-ITR CONFIG */
+        if (strcmp(sect->type, "proxy-itr") == 0){
+            opt  = uci_lookup_option(ctx, sect, "address");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    if (add_server(elem_addr->name, xtr->pitrs) != GOOD){
+                        LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
                     }else{
-                        LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",mapping_eid(mapping));
-                        mapping_del(mapping);
+                        LMLOG(DBG_1, "Added %s to proxy-itr list", uci_address);
                     }
+                }
+            }
+            continue;
+        }
+
+        /* DATABASE MAPPING CONFIG */
+        if (strcmp(sect->type, "database-mapping") == 0){
+            uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+            uci_interface = uci_lookup_option_string(ctx, sect, "interface");
+            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, sect, "priority_v4"),NULL,10);
+            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, sect, "weight_v4"),NULL,10);
+            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, sect, "priority_v6"),NULL,10);
+            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, sect, "weight_v6"),NULL,10);
+
+            if (add_database_mapping(xtr,
+                    (char *)uci_eid_prefix,
+                    uci_iid,
+                    (char *)uci_interface,
+                    uci_priority_v4,
+                    uci_weigth_v4,
+                    uci_priority_v6,
+                    uci_weigth_v6) != GOOD ){
+                LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
+                        uci_eid_prefix);
+            }else{
+                LMLOG(DBG_1, "Added EID prefix %s in the database.",
+                        uci_eid_prefix);
+            }
+            continue;
+        }
+
+        if (strcmp(sect->type, "database-mapping-new") == 0){
+            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,LOCAL_LOCATOR);
+            if (mapping == NULL){
+                LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                continue;
+            }
+            if (local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(mapping)) == NULL){
+                if (local_map_db_add_mapping(xtr->local_mdb, mapping) == GOOD){
+                    LMLOG(DBG_1, "Added EID prefix %s in the database.",mapping_eid(mapping));
                 }else{
-                    LMLOG(LERR, "Configuration file: Duplicated EID prefix %s. Discarded ...",
-                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",mapping_eid(mapping));
                     mapping_del(mapping);
-                    continue;
                 }
+            }else{
+                LMLOG(LERR, "Configuration file: Duplicated EID prefix %s. Discarded ...",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                mapping_del(mapping);
                 continue;
             }
+            continue;
+        }
 
-            /* STATIC MAP-CACHE CONFIG */
-            if (strcmp(sect->type, "static-map-cache") == 0){
-                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
-                uci_rloc = uci_lookup_option_string(ctx, sect, "rloc");
-                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
-
-                if (add_static_map_cache_entry(xtr,
-                        (char *)uci_eid_prefix,
-                        uci_iid,
-                        (char *)uci_rloc,
-                        uci_priority,
-                        uci_weigth,
-                        lcaf_ht) != GOOD ){
-                    LMLOG(LWRN,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
-                            uci_eid_prefix,
-                            uci_rloc);
-
+        /* STATIC MAP-CACHE CONFIG */
+        if (strcmp(sect->type, "static-map-cache") == 0){
+            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+            if (mapping == NULL){
+                LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                continue;
+            }
+            if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
+                if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
+                    LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                            lisp_addr_to_char(mapping_eid(mapping)));
                 }else{
-                    LMLOG(DBG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
-                            uci_eid_prefix,
-                            uci_rloc);
+                    LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                            mapping_eid(mapping));
+                    mapping_del(mapping);
                 }
+            }else{
+                LMLOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
+                        "Discarded ...",uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                mapping_del(mapping);
                 continue;
             }
+            continue;
+        }
     }
 
     /* destroy the hash table */
@@ -678,8 +672,8 @@ configure_mn(
     htable_destroy(rlocs_ht);
     htable_destroy(rloc_set_ht);
 
-    return(GOOD);
 
+    return(GOOD);
 }
 
 int
@@ -687,25 +681,25 @@ configure_rtr(
         struct uci_context      *ctx,
         struct uci_package      *pck)
 {
-    lisp_xtr_t*             xtr                     = NULL;
-    struct uci_section*     sect                    = NULL;
-    struct uci_element*     element                 = NULL;
-    htable_t*               lcaf_ht                 = NULL;
-    htable_t*               rlocs_ht                = NULL;
-    htable_t*               rloc_set_ht             = NULL;
+    lisp_xtr_t *            xtr                     = NULL;
+    struct uci_section *    sect                    = NULL;
+    struct uci_element *    element                 = NULL;
+    htable_t *              lcaf_ht                 = NULL;
+    htable_t *              rlocs_ht                = NULL;
+    htable_t *              rloc_set_ht             = NULL;
     int                     uci_retries             = 0;
-    const char*             uci_address             = NULL;
+    const char *            uci_address             = NULL;
     int                     uci_key_type            = 0;
-    const char*             uci_key                 = NULL;
+    const char *            uci_key                 = NULL;
     int                     uci_proxy_reply         = 0;
-    const char*             uci_iface               = NULL;
+    const char *            uci_iface               = NULL;
+    mapping_t *             mapping                 = NULL;
 
-
-    int                 uci_priority                    = 0;
-    int                 uci_weigth                      = 0;
-    const char*         uci_eid_prefix                  = NULL;
-    const char*         uci_rloc                        = NULL;
-    int                 uci_iid                         = 0;
+    int                     uci_priority            = 0;
+    int                     uci_weigth              = 0;
+    const char*             uci_eid_prefix          = NULL;
+    const char*             uci_rloc                = NULL;
+    int                     uci_iid                 = 0;
 
 
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
@@ -759,7 +753,7 @@ configure_rtr(
         if (strcmp(sect->type, "map-resolver") == 0){
             uci_address = uci_lookup_option_string(ctx, sect, "address");
 
-            if (add_server((char *)uci_address, &xtr->map_resolvers) != GOOD){
+            if (add_server((char *)uci_address, xtr->map_resolvers) != GOOD){
                 LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
             }else{
                 LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
@@ -793,28 +787,26 @@ configure_rtr(
 
         /* STATIC MAP-CACHE CONFIG */
         if (strcmp(sect->type, "static-map-cache") == 0){
-            uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
-            uci_rloc = uci_lookup_option_string(ctx, sect, "rloc");
-            uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-            uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
-            if (validate_priority_weight(uci_priority, uci_weigth) != GOOD) {
+            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+            if (mapping == NULL){
+                LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
                 continue;
             }
-            if (add_static_map_cache_entry(xtr,
-                    (char *)uci_eid_prefix,
-                    uci_iid,
-                    (char *)uci_rloc,
-                    uci_priority,
-                    uci_weigth,
-                    lcaf_ht) != GOOD ){
-                LMLOG(LWRN,"Can't add static-map-cache (EID:%s -> RLOC:%s). Discarded ...",
-                        uci_eid_prefix,
-                        uci_rloc);
-
+            if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
+                if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
+                    LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                            lisp_addr_to_char(mapping_eid(mapping)));
+                }else{
+                    LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                            mapping_eid(mapping));
+                    mapping_del(mapping);
+                }
             }else{
-                LMLOG(DBG_1,"Added static-map-cache (EID:%s -> RLOC:%s)",
-                        uci_eid_prefix,
-                        uci_rloc);
+                LMLOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
+                        "Discarded ...",uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                mapping_del(mapping);
+                continue;
             }
             continue;
         }
@@ -936,7 +928,7 @@ configure_ms(
         if (strcmp(sect->type, "ms-static-registered-site") == 0){
             mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
             if (mapping == NULL){
-                LMLOG(LERR, "Can't create static register site for %!",
+                LMLOG(LERR, "Can't create static register site for %s",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
                 continue;
             }
@@ -974,13 +966,14 @@ parse_mapping(
         htable_t                *lcaf_ht,
         uint8_t                 type)
 {
-    mapping_t*          map             = NULL;
-    locator_t*          loct            = NULL;
-    locator_t*          aux_loct        = NULL;
-    lisp_addr_t*        eid_prefix      = NULL;
-    const char*         uci_eid         = NULL;
-    const char*         uci_rloc_set    = NULL;
-    glist_t*            rloc_list       = NULL;
+    mapping_t *         map             = NULL;
+    locator_t *         loct            = NULL;
+    locator_t *         aux_loct        = NULL;
+    glist_t *           addr_list       = NULL;
+    lisp_addr_t *       eid_prefix      = NULL;
+    const char *        uci_eid         = NULL;
+    const char *        uci_rloc_set    = NULL;
+    glist_t *           rloc_list       = NULL;
     glist_entry_t*      it              = NULL;
 
     uci_eid = uci_lookup_option_string(ctx, sect, "eid_prefix");
@@ -995,10 +988,12 @@ parse_mapping(
         return (NULL);
     }
     /* Get EID prefix */
-    eid_prefix = parse_lisp_addr((char *)uci_eid, lcaf_ht);
-    if (eid_prefix == NULL) {
-        return(NULL);
+    addr_list = parse_lisp_addr((char *)uci_eid, lcaf_ht);
+    if (addr_list == NULL || glist_size(addr_list) != 1){
+        return (NULL);
     }
+    eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
+
     /* Create mapping */
     if ( type == LOCAL_LOCATOR){
         map = mapping_init_local(eid_prefix);
@@ -1008,8 +1003,9 @@ parse_mapping(
     }else{
         map = mapping_init_remote(eid_prefix);
     }
+
     /* no need for the prefix */
-    lisp_addr_del(eid_prefix);
+    glist_destroy(addr_list);
 
     if (map == NULL){
         return (NULL);
@@ -1038,13 +1034,14 @@ parse_rlocs(
         struct uci_package      *pck,
         htable_t                *lcaf_ht)
 {
-    struct uci_section  *section            = NULL;
-    struct uci_element  *element            = NULL;
-    htable_t            *rlocs_ht           = NULL;
-    locator_t*          locator             = NULL;
-    lisp_addr_t*        address             = NULL;
-    const char*         uci_rloc_name       = NULL;
-    const char*         uci_address         = NULL;
+    struct uci_section *section             = NULL;
+    struct uci_element *element             = NULL;
+    htable_t *          rlocs_ht            = NULL;
+    locator_t *         locator             = NULL;
+    glist_t *           addr_list           = NULL;
+    lisp_addr_t *       address             = NULL;
+    const char *        uci_rloc_name       = NULL;
+    const char *        uci_address         = NULL;
     int                 uci_priority        = 0;
     int                 uci_weight          = 0;
 
@@ -1069,10 +1066,16 @@ parse_rlocs(
                 LMLOG(DBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
                 continue;
             }
-            address = parse_lisp_addr((char *)uci_address, lcaf_ht);
-            if (address == NULL){
+            addr_list = parse_lisp_addr((char *)uci_address, lcaf_ht);
+            if (addr_list == NULL || glist_size(addr_list) == 0){
                 continue;
             }
+            if (glist_size(addr_list) > 1){
+                LMLOG(DBG_1,"Configuration file: With OpenWrt, RLOCs configured with FQDN address "
+                        "only use the first IP of the DNS resolution.");
+            }
+            address = (lisp_addr_t *)glist_first_data(addr_list);
+
             /* Create a basic locator. Locaor or remote information will be added later according
              * who is using the locator*/
             locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
@@ -1247,94 +1250,3 @@ parse_elp_node(
 
     return (GOOD);
 }
-
-/* Parses an EID (IP or LCAF) and returns an 'lisp_addr_t'. Caller must free
- * the returned value */
-static lisp_addr_t *
-parse_lisp_addr(char *address, htable_t *lcaf_ht)
-{
-    lisp_addr_t *addr, *lcaf;
-    int res = 0;
-
-    addr = lisp_addr_new();
-
-    if (strstr(address,"/") == NULL){
-        // Address may be an IP
-        res = lisp_addr_ip_from_char(address, addr);
-    }else{
-        // Address may be a prefix
-        res = lisp_addr_ippref_from_char(address, addr);
-    }
-
-    if (res != GOOD){
-        lisp_addr_del(addr);
-        /* if not found, try in the hash table */
-        lcaf = htable_lookup(lcaf_ht, address);
-        if (!lcaf) {
-            LMLOG(LERR, "Configuration file: Error parsing address %s",address);
-            return (NULL);
-        }
-        addr = lisp_addr_clone(lcaf);
-    }
-
-    return(addr);
-}
-
-locator_t*
-clone_customize_locator(locator_t* locator, uint8_t type)
-{
-    char*           iface_name      = NULL;
-    locator_t*      new_locator     = NULL;
-    iface_t*        iface           = NULL;
-    lisp_addr_t*    rloc            = NULL;
-    lisp_addr_t*    aux_rloc        = NULL;
-    int*            out_socket      = 0;
-
-    rloc = locator_addr(locator);
-    /* LOCAL locator */
-    if (type == LOCAL_LOCATOR) {
-        /* Decide IP address to be used to lookup the interface */
-        if (lisp_addr_is_lcaf(rloc) == TRUE) {
-            aux_rloc = lcaf_rloc_get_ip_addr(rloc);
-            if (aux_rloc == NULL) {
-                LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
-                        "address %s", lisp_addr_to_char(rloc));
-                lisp_addr_del(rloc);
-                return(NULL);
-            }
-        } else {
-            aux_rloc = rloc;
-        }
-
-        /* Find the interface name associated to the RLOC */
-        if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
-            LMLOG(LERR, "Configuration file: Can't find interface for RLOC %s",
-                    lisp_addr_to_char(aux_rloc));
-            return(NULL);
-        }
-
-        /* Find the interface */
-        if (!(iface = get_interface(iface_name))) {
-            if (!(iface = add_interface(iface_name))) {
-                return(NULL);
-            }
-        }
-
-        out_socket = (lisp_addr_ip_afi(aux_rloc) == AF_INET) ? &(iface->out_socket_v4) : &(iface->out_socket_v6);
-
-        new_locator = locator_init_local_full(rloc, iface->status,
-                            locator_priority(locator), locator_weight(locator),
-                            255, 0, out_socket);
-    /* REMOTE locator */
-    } else {
-        new_locator = locator_init_remote_full(rloc, UP, locator_priority(locator), locator_weight(locator), 255, 0);
-        if (new_locator != NULL) {
-            locator_set_type(locator,type);
-        }
-
-    }
-
-    return(new_locator);
-}
-
-

@@ -544,27 +544,6 @@ int get_prefix_len(int afi)
     return(get_addr_len(afi) * 8);
 }
 
-/*
- * Return the first Map Resolver. If no default rloc afi is specified, then IPv4 has more priority than IPv6
- */
-
-
-//lisp_addr_t *get_map_resolver()
-//{
-//    lisp_addr_t *dst_rloc = NULL;
-//
-//    if (default_ctrl_iface_v4 != NULL){
-//        dst_rloc = get_server(map_resolvers, AF_INET);
-//    }
-//    if (dst_rloc == NULL && default_ctrl_iface_v6 != NULL){
-//        dst_rloc = get_server(map_resolvers, AF_INET6);
-//    }
-//
-//    if (dst_rloc == NULL){
-//        lmlog(LISP_LOG_ERR,"No Map Resolver with a RLOC compatible with local RLOCs");
-//    }
-//    return dst_rloc;
-//}
 
 inline lisp_addr_t *get_server(
         lisp_addr_list_t   *server_list,

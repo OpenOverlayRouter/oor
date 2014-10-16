@@ -53,9 +53,7 @@ config 'map-resolver'
 
 config 'static-map-cache'
         option   'eid-prefix'           'IPv4 or IPv6 address /mask length'
-        option   'rloc'                 'IPv4 or IPv6 address'
-        option   'priority'             '1'
-        option   'weight'               '100'
+        option   'rloc_set'             'name'
 
 #---------------------------------------------------------------------------------------------------------------------
 
@@ -111,7 +109,7 @@ config 'database-mapping'
 
 
 
-config 'static-database-mapping'
+config 'database-mapping-new'
         option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
         option   'rloc_set'             'name'
 

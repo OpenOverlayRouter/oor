@@ -118,6 +118,9 @@ mapping_add_locator(
     }
 
     if (err == GOOD) {
+        LMLOG(DBG_3, "mapping_add_locator: Added locator %s to the mapping with"
+                       " EID %s.", lisp_addr_to_char(locator_addr(loc)),
+                       lisp_addr_to_char(mapping_eid(m)));
         m->locator_count++;
         result = GOOD;
     } else if (err == ERR_EXIST) {

@@ -60,6 +60,9 @@ OBJS		= cmdline.o                  \
 		  liblisp/lisp_messages.o        \
 		  liblisp/lisp_message_fields.o  \
 		  liblisp/lisp_nonce.o           \
+		  liblisp/hmac/hmac.o            \
+		  liblisp/hmac/hmac-sha1.o       \
+		  liblisp/hmac/hmac-sha256.o     \
 		  lib/cksum.o                    \
 		  lib/generic_list.o             \
 		  lib/hash.o                     \
@@ -77,9 +80,6 @@ OBJS		= cmdline.o                  \
 		  lib/timers.o                   \
 		  lib/ttable.o                   \
 		  lib/util.o                     \
-		  lib/hmac/hmac.o                \
-		  lib/hmac/hmac-sha1.o           \
-		  lib/hmac/hmac-sha256.o         \
 		  iface_list.o                   \
 		  iface_mgmt.o                   \
 		  lispd.o                        \
@@ -107,6 +107,9 @@ OBJS		= cmdline.o                  \
 		  liblisp/lisp_messages.o        \
 		  liblisp/lisp_message_fields.o  \
 		  liblisp/lisp_nonce.o           \
+		  liblisp/hmac/hmac.o            \
+		  liblisp/hmac/hmac-sha1.o       \
+		  liblisp/hmac/hmac-sha256.o     \
 		  lib/cksum.o                    \
 		  lib/generic_list.o             \
 		  lib/hash.o                     \
@@ -124,9 +127,6 @@ OBJS		= cmdline.o                  \
 		  lib/timers.o                   \
 		  lib/ttable.o                   \
 		  lib/util.o                     \
-		  lib/hmac/hmac.o                \
-		  lib/hmac/hmac-sha1.o           \
-		  lib/hmac/hmac-sha256.o         \
 		  iface_list.o                   \
 		  iface_mgmt.o                   \
 		  lispd.o                        \

@@ -63,7 +63,7 @@
 /* config paramaters */
 char    *config_file                        = NULL;
 int      debug_level                        = 0;
-int      default_rloc_afi                   = -1;
+int      default_rloc_afi                   = AF_UNSPEC;
 int      daemonize                          = FALSE;
 
 uint32_t iseed                              = 0;  /* initial random number generator */
@@ -123,13 +123,13 @@ init_tr_data_plane(lisp_dev_type_e mode)
     }
 
     /* Generate receive sockets for control (4342) and data port (4341) */
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET) {
+    if (default_rloc_afi != AF_INET6) {
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv4_data_input_fd);
     }
 
-    if (default_rloc_afi == -1 || default_rloc_afi == AF_INET6) {
+    if (default_rloc_afi == AF_INET) {
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);
@@ -294,7 +294,7 @@ handle_lispd_command_line(int argc, char **argv)
             break;
         }
     } else {
-        default_rloc_afi = -1;
+        default_rloc_afi = AF_UNSPEC;
     }
 
     cmdline_parser_free(&args_info);
@@ -370,15 +370,12 @@ parse_config_file()
 static void
 initial_setup()
 {
-#ifdef ROUTER
 #ifdef OPENWRT
     LMLOG(LINF,"LISPmob compiled for openWRT xTR\n");
 #else
     LMLOG(LINF,"LISPmob compiled for linux xTR\n");
 #endif
-#else
-    LMLOG(LINF,"LISPmob compiled for mobile node\n");
-#endif
+
 
     /* Check for superuser privileges */
     if (geteuid()) {

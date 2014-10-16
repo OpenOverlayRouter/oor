@@ -74,9 +74,6 @@ int copy_addr(void *a1, lisp_addr_t *a2, int convert);
 int lispd_get_address(char *host, lisp_addr_t *addr);
 
 
-
-
-
 /*
  *      Map from Internet AFI -> LISP_AFI
  *
@@ -112,12 +109,6 @@ int get_addr_len(int afi);
  *      given afi, get prefix len
  */
 int get_prefix_len(int afi);
-
-/*
- * Return the first Map Resolver with the correct AFI
- */
-
-lisp_addr_t *get_map_resolver();
 
 /*
  * Return lisp_addr_t in a char format;

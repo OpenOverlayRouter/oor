@@ -227,7 +227,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
     }
     /* If default RLOC afi defined (-a 4 or 6), only accept addresses of the
      * specified afi */
-    if (default_rloc_afi != -1
+    if (default_rloc_afi != AF_UNSPEC
         && default_rloc_afi != new_addr_ip_afi) {
         LMLOG(DBG_2,"precess_address_change: Default RLOC afi defined (-a #): "
                 "Skipped %s address in iface %s",
@@ -517,7 +517,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
     if (lisp_addr_ip_afi(&gateway) != LM_AFI_NO_ADDR
         && iface_index != 0 && lisp_addr_ip_afi(&dst) == LM_AFI_NO_ADDR) {
         /* Check default afi*/
-        if (default_rloc_afi != -1
+        if (default_rloc_afi != AF_UNSPEC
             && default_rloc_afi != lisp_addr_ip_afi(&gateway)) {
             LMLOG(DBG_1, "process_nl_new_unicast_route: Default RLOC afi "
                     "defined (-a #): Skipped %s gateway in iface %s",

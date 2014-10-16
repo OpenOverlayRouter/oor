@@ -33,10 +33,13 @@
 #include <netdb.h>
 
 #include "lispd_config_functions.h"
+#include "lispd_lib.h"
 #include "lmlog.h"
 
 /***************************** FUNCTIONS DECLARATION *************************/
-
+glist_t *fqdn_to_addresses(
+        char        *addr_str,
+        const int   preferred_afi);
 /********************************** FUNCTIONS ********************************/
 
 void
@@ -108,90 +111,95 @@ validate_priority_weight(int p, int w)
  */
 
 int
-add_server(char *server, lisp_addr_list_t **list)
+add_server(
+        char                *str_addr,
+        glist_t             *list)
 {
+    lisp_addr_t *       addr        = NULL;
+    glist_t *           addr_list   = NULL;
+    glist_entry_t *     it          = NULL;
 
-    lisp_addr_t *addr;
-    lisp_addr_list_t *list_elt;
+    addr_list = parse_ip_addr(str_addr);
 
-    addr = lisp_addr_new();
-    if (lisp_addr_ip_from_char(server, addr) != GOOD) {
-        lisp_addr_del(addr);
-        return(BAD);
-    }
-
-
-    /* Check that the afi of the map server matches with the default rloc afi
-     * (if it's defined). */
-    if (default_rloc_afi != -1 && default_rloc_afi != lisp_addr_ip_afi(addr)) {
-        LMLOG(LWRN, "The server %s will not be added due to the selected "
-                "default rloc afi", server);
-        lisp_addr_del(addr);
+    if (addr_list == NULL){
+        LMLOG(LERR, "Error parsing address. Ignoring server with address %s",
+                        str_addr);
         return (BAD);
     }
+    glist_for_each_entry(it, addr_list) {
+        addr = glist_entry_data(it);
 
-    list_elt = xzalloc(sizeof(lisp_addr_list_t));
-    list_elt->address = addr;
-
-    /* hook this one to the front of the list  */
-    if (*list) {
-        list_elt->next = *list;
-        *list = list_elt;
-    } else {
-        *list = list_elt;
+        /* Check that the afi of the map server matches with the default rloc afi
+         * (if it's defined). */
+        if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != lisp_addr_ip_afi(addr)){
+            LMLOG(LWRN, "The server %s will not be added due to the selected "
+                    "default rloc afi (-a option)", str_addr);
+            continue;
+        }
+        glist_add_tail(lisp_addr_clone(addr), list);
+        LMLOG(DBG_3,"The server %s has been added to the list",lisp_addr_to_char(addr));
     }
+
+    glist_destroy(addr_list);
+
 
     return(GOOD);
 }
 
 
 int
-add_map_server(lisp_xtr_t *xtr, char *map_server, int key_type,
-        char *key, uint8_t proxy_reply)
+add_map_server(
+        lisp_xtr_t *    xtr,
+        char *          str_addr,
+        int             key_type,
+        char *          key,
+        uint8_t         proxy_reply)
 {
-    lisp_addr_t *addr;
-    map_server_list_t *list_elt;
-    struct hostent *hptr;
+    lisp_addr_t *       addr        = NULL;
+    map_server_elt *    ms          = NULL;
+    glist_t *           addr_list   = NULL;
+    glist_entry_t *     it          = NULL;
 
-    if (map_server == NULL || key_type == 0 || key == NULL){
+    if (str_addr == NULL || key_type == 0 || key == NULL){
         LMLOG(LERR, "Configuraton file: Wrong Map Server configuration. "
                 "Check configuration file");
         exit_cleanup();
     }
 
-    if (((hptr = gethostbyname2(map_server, AF_INET)) == NULL) && ((hptr =
-            gethostbyname2(map_server, AF_INET6)) == NULL)) {
-        LMLOG(LWRN, "can gethostbyname2 for map_server (%s)", map_server);
+    if (key_type != HMAC_SHA_1_96){
+        LMLOG(LERR, "Configuraton file: Only SHA-1 (1) authentication is supported");
+        exit_cleanup();
+    }
+
+    addr_list = parse_ip_addr(str_addr);
+
+    if (addr_list == NULL){
+        LMLOG(LERR, "Error parsing address. Ignoring Map Server %s",
+                        str_addr);
         return (BAD);
     }
+    glist_for_each_entry(it, addr_list) {
+        addr = glist_entry_data(it);
 
-    addr = lisp_addr_new_afi(LM_AFI_IP);
-    lisp_addr_ip_init(addr, *(hptr->h_addr_list), hptr->h_addrtype);
+        /* Check that the afi of the map server matches with the default rloc afi
+         * (if it's defined). */
+        if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != lisp_addr_ip_afi(addr)){
+            LMLOG(LWRN, "The map server %s will not be added due to the selected "
+                    "default rloc afi (-a option)", str_addr);
+            continue;
+        }
+        // XXX Create method to do it authomatically
+        ms = xzalloc(sizeof(map_server_elt));
 
-    /* Check that the afi of the map server matches with the default rloc afi
-     * (if it's defined). */
-    if (default_rloc_afi != -1 && default_rloc_afi != addr->afi){
-        LMLOG(LWRN, "The map server %s will not be added due to the selected "
-                "default rloc afi", map_server);
-        lisp_addr_del(addr);
-        return(BAD);
+        ms->address     = lisp_addr_clone(addr);
+        ms->key_type    = key_type;
+        ms->key         = strdup(key);
+        ms->proxy_reply = proxy_reply;
+
+        glist_add(ms, xtr->map_servers);
     }
 
-    list_elt = xzalloc(sizeof(map_server_list_t));
-
-    list_elt->address     = addr;
-    list_elt->key_type    = key_type;
-    list_elt->key         = strdup(key);
-    list_elt->proxy_reply = proxy_reply;
-
-    /* hook this one to the front of the list */
-
-    if (xtr->map_servers) {
-        list_elt->next = xtr->map_servers;
-        xtr->map_servers = list_elt;
-    } else {
-        xtr->map_servers = list_elt;
-    }
+    glist_destroy(addr_list);
 
     return(GOOD);
 }
@@ -200,31 +208,23 @@ add_map_server(lisp_xtr_t *xtr, char *map_server, int key_type,
 int
 add_proxy_etr_entry(
         lisp_xtr_t *    xtr,
-        char *          address,
+        char *          str_addr,
         int             priority,
         int             weight)
 {
-    lisp_addr_t aux_addr;
-    lisp_addr_t rloc;
-    locator_t *locator = NULL;
-    int ret;
+    lisp_addr_t         aux_addr;
+    glist_t *           addr_list   = NULL;
+    glist_entry_t *     it          = NULL;
+    lisp_addr_t *       addr        = NULL;
+    locator_t *         locator     = NULL;
 
-    if (address == NULL){
+    if (str_addr == NULL){
         LMLOG(LERR, "Configuration file: No interface specified for PETR. "
                 "Discarding!");
         return (BAD);
     }
 
     if (validate_priority_weight(priority, weight) != GOOD) {
-        return(BAD);
-    }
-
-    /* Check that the afi of the map server matches with the default rloc afi
-     * (if it's defined). */
-    if (default_rloc_afi != -1
-        && default_rloc_afi != ip_afi_from_char(address)) {
-        LMLOG(LWRN, "The PETR %s will not be added due to the selected "
-                "default rloc afi", address);
         return(BAD);
     }
 
@@ -235,22 +235,35 @@ add_proxy_etr_entry(
         mcache_entry_init_static(xtr->petrs, mapping_init_remote(&aux_addr));
     }
 
-    if (lisp_addr_ip_from_char(address, &rloc) == BAD) {
+    addr_list = parse_ip_addr(str_addr);
+    if (addr_list == NULL){
         LMLOG(LERR, "Error parsing RLOC address. Ignoring proxy-ETR %s",
-                address);
+                        str_addr);
         return (BAD);
     }
+    glist_for_each_entry(it, addr_list) {
+        addr = glist_entry_data(it);
+        if (default_rloc_afi != AF_UNSPEC
+                && default_rloc_afi != lisp_addr_ip_afi(addr)) {
+            LMLOG(LWRN, "The PETR %s will not be added due to the selected "
+                    "default rloc afi", str_addr);
+            continue;
+        }
 
-    /* Create locator representing the proxy-etr and add it to the mapping */
-    locator = locator_init_remote_full(&rloc, UP, priority, weight, 255, 0);
+        /* Create locator representing the proxy-etr and add it to the mapping */
+        locator = locator_init_remote_full(addr, UP, priority, weight, 255, 0);
 
-    if (locator) {
-        ret =  mapping_add_locator(xtr->petrs->mapping, locator);
-    } else {
-        ret = BAD;
+        if (locator != NULL) {
+            if (mapping_add_locator(xtr->petrs->mapping, locator)!= GOOD){
+                locator_del(locator);
+                continue;
+            }
+        }
     }
 
-    return(ret);
+    glist_destroy(addr_list);
+
+    return(GOOD);
 }
 
 int
@@ -354,87 +367,6 @@ add_database_mapping(
 
     /* in case we converted it to an LCAF, need to free memory */
     lisp_addr_dealloc(&eid);
-    return(GOOD);
-}
-
-int
-add_static_map_cache_entry(
-        lisp_xtr_t *        xtr,
-        char *              eid,
-        int                 iid,
-        char *              rloc_addr,
-        int                 priority,
-        int                 weight,
-        htable_t *          elp_hash)
-{
-    mapping_t *mapping;
-    locator_t *locator;
-    lisp_addr_t rloc;
-    lisp_addr_t *lcaf_rloc;
-    lisp_addr_t eid_prefix;
-    int err;
-
-    if (iid > MAX_IID) {
-        LMLOG(LERR, "Configuration file: Instance ID %d out of range [0..%d],"
-                " disabling...", iid, MAX_IID);
-        iid = 0;
-    }
-
-    if (iid < 0) {
-        iid = 0;
-    }
-
-    if (priority < MAX_PRIORITY || priority > UNUSED_RLOC_PRIORITY) {
-        LMLOG(LERR, "Configuration file: Priority %d out of range [%d..%d], "
-                "set minimum priority...", priority, MAX_PRIORITY,
-                UNUSED_RLOC_PRIORITY);
-        priority = MIN_PRIORITY;
-    }
-
-    if (lisp_addr_ippref_from_char(eid, &eid_prefix) !=GOOD) {
-        LMLOG(LERR, "Configuration file: Error parsing EID address ..."
-                "Ignoring static map cache entry");
-        return (BAD);
-    }
-
-    if (iid != 0) {
-        lisp_addr_set_afi(&eid_prefix, LM_AFI_LCAF);
-        /* XXX: mask not defined. Just filling in a value for now */
-        lisp_addr_lcaf_set_addr(&eid_prefix, iid_type_init(iid, &eid_prefix,
-                ip_afi_to_default_mask(lisp_addr_ip_afi(&eid_prefix))));
-    }
-
-
-    if (!(mapping = mapping_init_static(&eid_prefix))) {
-        return(BAD);
-    }
-
-    if (lisp_addr_ip_from_char(rloc_addr, &rloc) == BAD) {
-        lcaf_rloc = htable_lookup(elp_hash, rloc_addr);
-        if (!lcaf_rloc) {
-            LMLOG(LERR, "Error parsing RLOC address ..."
-                    " Ignoring static map cache entry");
-            return (BAD);
-        }
-        locator = locator_init_remote_full(lcaf_rloc, UP, priority, weight, 255,
-                0);
-    } else {
-        locator = locator_init_remote_full(&rloc, UP, priority, weight, 255, 0);
-
-    }
-
-    if (locator != NULL) {
-        locator_set_type(locator, STATIC_LOCATOR);
-        if ((err = mapping_add_locator(mapping, locator)) != GOOD) {
-            return(BAD);
-        }
-    } else {
-        return(BAD);
-    }
-
-    tr_mcache_add_static_mapping(xtr, mapping);
-    /* if it was converted to IID LCAF */
-    lisp_addr_dealloc(&eid_prefix);
     return(GOOD);
 }
 
@@ -619,3 +551,202 @@ get_interface_name_from_address(lisp_addr_t *addr)
         return(NULL);
     }
 }
+
+
+/* Parses an EID/RLOC (IP or LCAF) and returns a list of 'lisp_addr_t'.
+ * Caller must free the returned value */
+glist_t *
+parse_lisp_addr(
+        char *      addr_str,
+        htable_t *  lcaf_ht)
+{
+    glist_t *       addr_list   = NULL;
+    lisp_addr_t *   addr        = NULL;
+    lisp_addr_t *   lcaf        = NULL;
+    int             res         = 0;
+
+    addr = lisp_addr_new();
+
+    if (strstr(addr_str,"/") == NULL){
+        // Address may be an IP
+        res = lisp_addr_ip_from_char(addr_str, addr);
+    }else{
+        // Address may be a prefix
+        res = lisp_addr_ippref_from_char(addr_str, addr);
+    }
+
+    if (res != GOOD){
+        lisp_addr_del(addr);
+        addr = NULL;
+        /* if not found, try in the hash table */
+        lcaf = htable_lookup(lcaf_ht, addr_str);
+        if (lcaf != NULL) {
+            addr = lisp_addr_clone(lcaf);
+        }
+    }
+
+    if (addr != NULL){
+        addr_list = glist_new_managed((glist_del_fct)lisp_addr_del);
+        if (addr_list != NULL){
+            glist_add (addr,addr_list);
+        }
+    }else{
+        addr_list = fqdn_to_addresses(addr_str,default_rloc_afi);
+    }
+
+    if (addr_list == NULL || glist_size(addr_list) == 0){
+        LMLOG(LERR, "Configuration file: Error parsing address %s",addr_str);
+    }
+
+    return(addr_list);
+}
+
+
+/* Parses a char (IP or FQDN) into a list of 'lisp_addr_t'.
+ * Caller must free the returned value */
+glist_t *
+parse_ip_addr(char *addr_str)
+{
+    glist_t *       addr_list   = NULL;
+    lisp_addr_t *   addr        = NULL;
+    int             res         = 0;
+
+    addr = lisp_addr_new();
+
+    res = lisp_addr_ip_from_char(addr_str, addr);
+
+    if (res == GOOD){
+        addr_list = glist_new_managed((glist_del_fct)lisp_addr_del);
+        if (addr_list != NULL){
+            glist_add (addr,addr_list);
+        }
+    }else{
+        lisp_addr_del(addr);
+        addr_list = fqdn_to_addresses(addr_str,default_rloc_afi);
+    }
+
+    if (addr_list == NULL || glist_size(addr_list) == 0){
+        LMLOG(LERR, "Configuration file: Error parsing address %s",addr_str);
+    }
+
+    return(addr_list);
+}
+
+locator_t*
+clone_customize_locator(
+        locator_t*  locator,
+        uint8_t     type)
+{
+    char *          iface_name      = NULL;
+    locator_t *     new_locator     = NULL;
+    iface_t *       iface           = NULL;
+    lisp_addr_t *   rloc            = NULL;
+    lisp_addr_t *   aux_rloc        = NULL;
+    int *           out_socket      = 0;
+
+    rloc = locator_addr(locator);
+    /* LOCAL locator */
+    if (type == LOCAL_LOCATOR) {
+        /* Decide IP address to be used to lookup the interface */
+        if (lisp_addr_is_lcaf(rloc) == TRUE) {
+            aux_rloc = lcaf_rloc_get_ip_addr(rloc);
+            if (aux_rloc == NULL) {
+                LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
+                        "address %s", lisp_addr_to_char(rloc));
+                lisp_addr_del(rloc);
+                return(NULL);
+            }
+        } else {
+            aux_rloc = rloc;
+        }
+
+        /* Find the interface name associated to the RLOC */
+        if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
+            LMLOG(LERR, "Configuration file: Can't find interface for RLOC %s",
+                    lisp_addr_to_char(aux_rloc));
+            return(NULL);
+        }
+
+        /* Find the interface */
+        if (!(iface = get_interface(iface_name))) {
+            if (!(iface = add_interface(iface_name))) {
+                return(NULL);
+            }
+        }
+
+        out_socket = (lisp_addr_ip_afi(aux_rloc) == AF_INET) ? &(iface->out_socket_v4) : &(iface->out_socket_v6);
+
+        new_locator = locator_init_local_full(rloc, iface->status,
+                            locator_priority(locator), locator_weight(locator),
+                            255, 0, out_socket);
+    /* REMOTE locator */
+    } else {
+        new_locator = locator_init_remote_full(rloc, UP, locator_priority(locator), locator_weight(locator), 255, 0);
+        if (new_locator != NULL) {
+            locator_set_type(new_locator,type);
+        }
+
+    }
+
+    return(new_locator);
+}
+
+/*
+ *  Converts the hostname into IPs which are added to a list of lisp_addr_t
+ *  @param addr_str String conating fqdn address or de IP address
+ *  @param preferred_afi Indicates the afi of the IPs to be added in the list
+ *  @return List of addresses (glist_t *)
+ */
+glist_t *fqdn_to_addresses(
+        char        *addr_str,
+        const int   preferred_afi)
+{
+    glist_t *           addr_list               = NULL;
+    lisp_addr_t *       addr                    = NULL;
+    struct addrinfo     hints;
+    struct addrinfo *   servinfo                = NULL;
+    struct addrinfo *   p                       = NULL;
+    struct sockaddr *   s_addr                  = NULL;
+
+    addr_list = glist_new_managed((glist_del_fct)lisp_addr_del);
+
+    memset(&hints, 0, sizeof hints);
+
+    hints.ai_family = preferred_afi;
+    hints.ai_flags = AI_PASSIVE;
+    hints.ai_protocol = IPPROTO_UDP;    /* we are interested in UDP only */
+
+    if ((err = getaddrinfo( addr_str, 0, &hints, &servinfo)) != 0) {
+        LMLOG( LWRN, "fqdn_to_addresses: %s", gai_strerror(err));
+        return( NULL );
+    }
+    /* iterate over addresses */
+    for (p = servinfo; p != NULL; p = p->ai_next) {
+
+        if ((addr = lisp_addr_new_afi(LM_AFI_IP))== NULL){
+            LMLOG( LWRN, "fqdn_to_addresses: Unable to allocate memory for lisp_addr_t");
+            continue;
+        }
+
+        s_addr = p->ai_addr;
+
+        switch(s_addr->sa_family){
+        case AF_INET:
+            ip_addr_init(lisp_addr_ip(addr),&(((struct sockaddr_in *)s_addr)->sin_addr),s_addr->sa_family);
+            break;
+        case AF_INET6:
+            ip_addr_init(lisp_addr_ip(addr),&(((struct sockaddr_in6 *)s_addr)->sin6_addr),s_addr->sa_family);
+            break;
+        default:
+            break;
+        }
+
+        LMLOG( DBG_1, "converted addr_str [%s] to address [%s]", addr_str, lisp_addr_to_char(addr));
+        /* depending on callback return, we continue or not */
+
+        glist_add(addr,addr_list);
+    }
+    freeaddrinfo(servinfo); /* free the linked list */
+    return (addr_list);
+}
+

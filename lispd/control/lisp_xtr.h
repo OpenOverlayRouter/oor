@@ -59,19 +59,17 @@ typedef struct lisp_xtr {
     int probe_retries_interval;
 
     mcache_entry_t *petrs;
-    lisp_addr_list_t *pitrs;
+    glist_t *pitrs; // <lisp_addr_t *>
 
     /* DATABASES */
     map_cache_db_t *map_cache;
     local_map_db_t *local_mdb;
 
     /* MAP RESOLVERS */
-    lisp_addr_list_t *map_resolvers;
+    glist_t *map_resolvers; // <lisp_addr_t *>
 
     /* MAP SERVERs */
-    map_server_list_t *map_servers;
-    char *map_server_key;
-    int map_server_key_type;
+    glist_t *map_servers; // <map_server_elt *>
 
     /* NAT */
     int nat_aware;
@@ -100,13 +98,12 @@ typedef struct _timer_rloc_prob_argument {
     locator_t   *locator;
 } timer_rloc_probe_argument;
 
-typedef struct map_server_list {
-    lisp_addr_t *address;
-    uint8_t key_type;
-    char *key;
-    uint8_t proxy_reply;
-    struct map_server_list *next;
-} map_server_list_t;
+typedef struct map_server_elt_t {
+    lisp_addr_t *   address;
+    uint8_t         key_type;
+    char *          key;
+    uint8_t         proxy_reply;
+} map_server_elt;
 
 typedef struct iface_locators_{
     char        *iface_name;
