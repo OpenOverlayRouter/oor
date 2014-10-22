@@ -87,29 +87,7 @@ config 'map-server'
         option   'proxy_reply'          'on'
 
 
-
-# IPv4 / IPv6 EID of the node.
-# One database-mapping structure is defined for each interface with RLOCs associated to this EID
-#	eid_prefix: EID prefix (IPvX/mask) of the mapping 
-#   interface: interface containing the RLOCs associated to this mapping 
-#   priority_vX [0-255]: Priority for the IPvX RLOC of the interface. Locators with lower values are more preferable. 
-#      This is used for both incoming policy announcements and outcoming traffic policy management.
-#      (A value of -1  means that IPvX address of that interface is not used)
-#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight indicates how to balance unicast 
-#        traffic between them.
-
 config 'database-mapping'
-        option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
-        option   'interface'            'eth0'	
-        option   'priority_v4'          '1'		# Priority of IPv4 locator of the interface eth0 for this EID
-        option   'weight_v4'            '100' 	# Weight of IPv4 locator of the interface eth0 for this EID
-        option   'priority_v6'          '1'		# Priority of IPv6 locator of the interface eth0 for this EID
-        option   'weight_v6'            '100' 	# Weight of IPv6 locator of the interface eth0 for this EID
-
-
-
-
-config 'database-mapping-new'
         option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
         option   'rloc_set'             'name'
 
@@ -172,9 +150,16 @@ config 'rloc-set'
         option   'name'             'name'
         list     'rloc_name'        'name'
 
-config 'rloc'
+config 'rloc-address'
         option   'name'                 'name'
-        option   'address'              'IPv4 or IPv6 address /mask length'
+        option   'address'              'IPv4 or IPv6 address'
+        option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
+        option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
+        
+config 'rloc-iface'
+        option   'name'                 'name'
+        option   'interface'            'eth0'
+        option   'afi'                  '<4/6>'
         option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
         option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
         
