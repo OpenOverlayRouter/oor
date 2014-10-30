@@ -74,15 +74,18 @@ static mapping_t*
 parse_mapping(
         struct uci_context      *ctx,
         struct uci_section      *sect,
+        lisp_ctrl_dev_t         *dev,
         htable_t                *rloc_set_ht,
         htable_t                *lcaf_ht,
+        glist_t                 *no_addr_loct_l,
         uint8_t                 type);
 
 static htable_t *
 parse_rlocs(
         struct uci_context      *ctx,
         struct uci_package      *pck,
-        htable_t                *lcaf_ht);
+        htable_t                *lcaf_ht,
+        glist_t                 *no_addr_loct_list);
 
 static htable_t *
 parse_rloc_sets(
@@ -200,26 +203,19 @@ configure_xtr(
     struct uci_element  *element            = NULL;
     struct uci_element  *elem_addr          = NULL;
     struct uci_option   *opt                = NULL;
-    int uci_retries = 0;
-    const char*         uci_address                     = NULL;
-    int                 uci_key_type                    = 0;
-    const char*         uci_key                         = NULL;
-    int                 uci_proxy_reply                 = 0;
-    int                 uci_priority_v4                 = 0;
-    int                 uci_weigth_v4                   = 0;
-    int                 uci_priority_v6                 = 0;
-    int                 uci_weigth_v6                   = 0;
-    int                 uci_priority                    = 0;
-    int                 uci_weigth                      = 0;
-    const char*         uci_eid_prefix                  = NULL;
-    const char*         uci_interface                   = NULL;
-    const char*         uci_rloc                        = NULL;
-    int                 uci_iid                         = 0;
-    htable_t *lcaf_ht = NULL;
-    htable_t *rlocs_ht = NULL;
-    htable_t *rloc_set_ht = NULL;
-    lisp_xtr_t *xtr;
-    mapping_t* mapping = NULL;
+    int                 uci_retries         = 0;
+    const char*         uci_address         = NULL;
+    int                 uci_key_type        = 0;
+    const char*         uci_key             = NULL;
+    int                 uci_proxy_reply     = 0;
+    int                 uci_priority        = 0;
+    int                 uci_weigth          = 0;
+    htable_t *          lcaf_ht             = NULL;
+    htable_t *          rlocs_ht            = NULL;
+    htable_t *          rloc_set_ht         = NULL;
+    lisp_xtr_t *        xtr                 = NULL;
+    mapping_t *         mapping             = NULL;
+    glist_t *           no_addr_loct_list   = NULL;
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
@@ -237,7 +233,8 @@ configure_xtr(
     lcaf_ht = parse_lcafs(ctx,pck);
 
     /* CREATE RLOCs sets HTABLE */
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
 
 
@@ -246,26 +243,51 @@ configure_xtr(
             if (strcmp(sect->type, "daemon") == 0){
 
                 /* RETRIES */
-                uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
-
-                if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
-                    xtr->map_request_retries = uci_retries;
-                }else if (uci_retries > LISPD_MAX_RETRANSMITS){
-                    xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
-                    LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
-                            "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+                if (uci_lookup_option_string(ctx, sect, "map_request_retries") != NULL){
+                    uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+                    if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
+                        xtr->map_request_retries = uci_retries;
+                    }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                        xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
+                        LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                                "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+                    }
+                }else{
+                    LMLOG(LWRN,"Configuration file: Map Request Retries not specified."
+                            " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
+                    xtr->map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
+                    continue;
                 }
             }
 
             /* RLOC PROBING CONFIG */
 
             if (strcmp(sect->type, "rloc-probing") == 0){
-                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
-                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
-                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+                if (uci_lookup_option_string(ctx, sect, "rloc_probe_interval") != NULL){
+                    xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+                }else{
+                    LMLOG(LWRN,"Configuration file: RLOC probe interval not specified."
+                            " Disabling RLOC Probing");
+                    xtr->probe_interval = 0;
+                    continue;
+                }
+                if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries") != NULL){
+                    xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+                }else{
+                    LMLOG(LWRN,"Configuration file: RLOC Probe Retries not specified."
+                            " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES);
+                    xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+                }
+                if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval") != NULL){
+                    xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+                }else{
+                    LMLOG(LWRN,"Configuration file: RLOC Probe Retries Intervals not specified."
+                            " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES_INTERVAL);
+                    xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+                }
 
                 validate_rloc_probing_parameters(&xtr->probe_interval,
-                                &xtr->probe_retries, &xtr->probe_retries_interval);
+                        &xtr->probe_retries, &xtr->probe_retries_interval);
                 continue;
             }
 
@@ -295,7 +317,14 @@ configure_xtr(
             if (strcmp(sect->type, "map-server") == 0){
 
                 uci_address = uci_lookup_option_string(ctx, sect, "address");
-                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+                if (uci_lookup_option_string(ctx, sect, "key_type") != NULL){
+                    uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+                }else{
+                    LMLOG(LWRN,"Configuration file: No ket type assigned to the map server \"%s\"."
+                            " Set default value: HMAC_SHA_1_96",uci_address);
+                    uci_key_type = HMAC_SHA_1_96;
+                }
+
                 uci_key = uci_lookup_option_string(ctx, sect, "key");
 
                 if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
@@ -319,8 +348,20 @@ configure_xtr(
 
             if (strcmp(sect->type, "proxy-etr") == 0){
                 uci_address = uci_lookup_option_string(ctx, sect, "address");
-                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+                if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
+                    uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+                }else{
+                    LMLOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
+                            " Set default value: 10",uci_address);
+                    uci_priority = 10;
+                }
+                if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
+                    uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+                }else{
+                    LMLOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
+                            " Set default value: 100",uci_address);
+                    uci_weigth = 100;
+                }
 
                 if (add_proxy_etr_entry(xtr,
                         (char *)uci_address,
@@ -348,34 +389,8 @@ configure_xtr(
                 continue;
             }
 
-            /* DATABASE MAPPING CONFIG */
             if (strcmp(sect->type, "database-mapping") == 0){
-                uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
-                uci_interface = uci_lookup_option_string(ctx, sect, "interface");
-                uci_priority_v4 = strtol(uci_lookup_option_string(ctx, sect, "priority_v4"),NULL,10);
-                uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, sect, "weight_v4"),NULL,10);
-                uci_priority_v6 = strtol(uci_lookup_option_string(ctx, sect, "priority_v6"),NULL,10);
-                uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, sect, "weight_v6"),NULL,10);
-
-                if (add_database_mapping(xtr,
-                        (char *)uci_eid_prefix,
-                        uci_iid,
-                        (char *)uci_interface,
-                        uci_priority_v4,
-                        uci_weigth_v4,
-                        uci_priority_v6,
-                        uci_weigth_v6) != GOOD ){
-                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
-                            uci_eid_prefix);
-                }else{
-                    LMLOG(DBG_1, "Added EID prefix %s in the database.",
-                            uci_eid_prefix);
-                }
-                continue;
-            }
-
-            if (strcmp(sect->type, "database-mapping-new") == 0){
-                mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,LOCAL_LOCATOR);
+                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,LOCAL_LOCATOR);
                 if (mapping == NULL){
                     LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
                             uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -399,7 +414,7 @@ configure_xtr(
 
             /* STATIC MAP-CACHE CONFIG */
             if (strcmp(sect->type, "static-map-cache") == 0){
-                mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
                 if (mapping == NULL){
                     LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                             uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -428,10 +443,9 @@ configure_xtr(
     htable_destroy(lcaf_ht);
     htable_destroy(rlocs_ht);
     htable_destroy(rloc_set_ht);
-
+    glist_destroy(no_addr_loct_list);
 
     return(GOOD);
-
 }
 
 int
@@ -439,30 +453,23 @@ configure_mn(
         struct uci_context      *ctx,
         struct uci_package      *pck)
 {
-    struct uci_section  *sect               = NULL;
-    struct uci_element  *element            = NULL;
-    struct uci_element  *elem_addr          = NULL;
-    struct uci_option   *opt                = NULL;
-    int uci_retries = 0;
-    const char*         uci_address                     = NULL;
-    int                 uci_key_type                    = 0;
-    const char*         uci_key                         = NULL;
-    int                 uci_proxy_reply                 = 0;
-    int                 uci_priority_v4                 = 0;
-    int                 uci_weigth_v4                   = 0;
-    int                 uci_priority_v6                 = 0;
-    int                 uci_weigth_v6                   = 0;
-    int                 uci_priority                    = 0;
-    int                 uci_weigth                      = 0;
-    const char*         uci_eid_prefix                  = NULL;
-    const char*         uci_interface                   = NULL;
-    const char*         uci_rloc                        = NULL;
-    int                 uci_iid                         = 0;
-    htable_t *lcaf_ht = NULL;
-    htable_t *rlocs_ht = NULL;
-    htable_t *rloc_set_ht = NULL;
-    lisp_xtr_t *xtr;
-    mapping_t* mapping = NULL;
+    struct uci_section *sect                = NULL;
+    struct uci_element *element             = NULL;
+    struct uci_element *elem_addr           = NULL;
+    struct uci_option * opt                 = NULL;
+    int                 uci_retries         = 0;
+    const char *        uci_address         = NULL;
+    int                 uci_key_type        = 0;
+    const char *        uci_key             = NULL;
+    int                 uci_proxy_reply     = 0;
+    int                 uci_priority        = 0;
+    int                 uci_weigth          = 0;
+    htable_t *          lcaf_ht             = NULL;
+    htable_t *          rlocs_ht            = NULL;
+    htable_t *          rloc_set_ht         = NULL;
+    lisp_xtr_t *        xtr                 = NULL;
+    mapping_t *         mapping             = NULL;
+    glist_t *           no_addr_loct_list   = NULL;
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(MN_MODE, &ctrl_dev) != GOOD) {
@@ -480,7 +487,8 @@ configure_mn(
     lcaf_ht = parse_lcafs(ctx,pck);
 
     /* CREATE RLOCs sets HTABLE */
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
 
 
@@ -489,23 +497,48 @@ configure_mn(
         if (strcmp(sect->type, "daemon") == 0){
 
             /* RETRIES */
-            uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
-
-            if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
-                xtr->map_request_retries = uci_retries;
-            }else if (uci_retries > LISPD_MAX_RETRANSMITS){
-                xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
-                LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
-                        "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+            if (uci_lookup_option_string(ctx, sect, "map_request_retries") != NULL){
+                uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+                if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = uci_retries;
+                }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
+                    LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                            "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+                }
+            }else{
+                LMLOG(LWRN,"Configuration file: Map Request Retries not specified."
+                        " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
+                xtr->map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
+                continue;
             }
         }
 
         /* RLOC PROBING CONFIG */
 
         if (strcmp(sect->type, "rloc-probing") == 0){
-            xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
-            xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
-            xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_interval") != NULL){
+                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: RLOC probe interval not specified."
+                        " Disabling RLOC Probing");
+                xtr->probe_interval = 0;
+                continue;
+            }
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries") != NULL){
+                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: RLOC Probe Retries not specified."
+                        " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES);
+                xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+            }
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval") != NULL){
+                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: RLOC Probe Retries Intervals not specified."
+                        " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES_INTERVAL);
+                xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+            }
 
             validate_rloc_probing_parameters(&xtr->probe_interval,
                     &xtr->probe_retries, &xtr->probe_retries_interval);
@@ -538,7 +571,13 @@ configure_mn(
         if (strcmp(sect->type, "map-server") == 0){
 
             uci_address = uci_lookup_option_string(ctx, sect, "address");
-            uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            if (uci_lookup_option_string(ctx, sect, "key_type") != NULL){
+                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: No ket type assigned to the map server \"%s\"."
+                        " Set default value: HMAC_SHA_1_96",uci_address);
+                uci_key_type = HMAC_SHA_1_96;
+            }
             uci_key = uci_lookup_option_string(ctx, sect, "key");
 
             if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
@@ -562,8 +601,20 @@ configure_mn(
 
         if (strcmp(sect->type, "proxy-etr") == 0){
             uci_address = uci_lookup_option_string(ctx, sect, "address");
-            uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-            uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
+                        " Set default value: 10",uci_address);
+                uci_priority = 10;
+            }
+            if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
+                        " Set default value: 100",uci_address);
+                uci_weigth = 100;
+            }
 
             if (add_proxy_etr_entry(xtr,
                     (char *)uci_address,
@@ -591,34 +642,8 @@ configure_mn(
             continue;
         }
 
-        /* DATABASE MAPPING CONFIG */
         if (strcmp(sect->type, "database-mapping") == 0){
-            uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
-            uci_interface = uci_lookup_option_string(ctx, sect, "interface");
-            uci_priority_v4 = strtol(uci_lookup_option_string(ctx, sect, "priority_v4"),NULL,10);
-            uci_weigth_v4 = strtol(uci_lookup_option_string(ctx, sect, "weight_v4"),NULL,10);
-            uci_priority_v6 = strtol(uci_lookup_option_string(ctx, sect, "priority_v6"),NULL,10);
-            uci_weigth_v6 = strtol(uci_lookup_option_string(ctx, sect, "weight_v6"),NULL,10);
-
-            if (add_database_mapping(xtr,
-                    (char *)uci_eid_prefix,
-                    uci_iid,
-                    (char *)uci_interface,
-                    uci_priority_v4,
-                    uci_weigth_v4,
-                    uci_priority_v6,
-                    uci_weigth_v6) != GOOD ){
-                LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
-                        uci_eid_prefix);
-            }else{
-                LMLOG(DBG_1, "Added EID prefix %s in the database.",
-                        uci_eid_prefix);
-            }
-            continue;
-        }
-
-        if (strcmp(sect->type, "database-mapping-new") == 0){
-            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,LOCAL_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,LOCAL_LOCATOR);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -642,7 +667,7 @@ configure_mn(
 
         /* STATIC MAP-CACHE CONFIG */
         if (strcmp(sect->type, "static-map-cache") == 0){
-            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -671,7 +696,7 @@ configure_mn(
     htable_destroy(lcaf_ht);
     htable_destroy(rlocs_ht);
     htable_destroy(rloc_set_ht);
-
+    glist_destroy(no_addr_loct_list);
 
     return(GOOD);
 }
@@ -694,12 +719,9 @@ configure_rtr(
     int                     uci_proxy_reply         = 0;
     const char *            uci_iface               = NULL;
     mapping_t *             mapping                 = NULL;
-
     int                     uci_priority            = 0;
     int                     uci_weigth              = 0;
-    const char*             uci_eid_prefix          = NULL;
-    const char*             uci_rloc                = NULL;
-    int                     uci_iid                 = 0;
+    glist_t *               no_addr_loct_list       = NULL;
 
 
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
@@ -718,7 +740,8 @@ configure_rtr(
     lcaf_ht = parse_lcafs(ctx,pck);
 
     /* CREATE RLOCs sets HTABLE */
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
 
     uci_foreach_element(&pck->sections, element) {
@@ -726,23 +749,48 @@ configure_rtr(
         if (strcmp(sect->type, "daemon") == 0){
 
             /* RETRIES */
-            uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
-
-            if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
-                xtr->map_request_retries = uci_retries;
-            }else if (uci_retries > LISPD_MAX_RETRANSMITS){
-                xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
-                LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
-                        "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+            if (uci_lookup_option_string(ctx, sect, "map_request_retries") != NULL){
+                uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+                if (uci_retries >= 0 && uci_retries <= LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = uci_retries;
+                }else if (uci_retries > LISPD_MAX_RETRANSMITS){
+                    xtr->map_request_retries = LISPD_MAX_RETRANSMITS;
+                    LMLOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                            "Using default value: %d",LISPD_MAX_RETRANSMITS, LISPD_MAX_RETRANSMITS);
+                }
+            }else{
+                LMLOG(LWRN,"Configuration file: Map Request Retries not specified."
+                        " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
+                xtr->map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
+                continue;
             }
         }
 
         /* RLOC PROBING CONFIG */
 
         if (strcmp(sect->type, "rloc-probing") == 0){
-            xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
-            xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
-            xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_interval") != NULL){
+                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: RLOC probe interval not specified."
+                        " Disabling RLOC Probing");
+                xtr->probe_interval = 0;
+                continue;
+            }
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries") != NULL){
+                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: RLOC Probe Retries not specified."
+                        " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES);
+                xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+            }
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval") != NULL){
+                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: RLOC Probe Retries Intervals not specified."
+                        " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES_INTERVAL);
+                xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+            }
 
             validate_rloc_probing_parameters(&xtr->probe_interval,
                     &xtr->probe_retries, &xtr->probe_retries_interval);
@@ -765,7 +813,13 @@ configure_rtr(
         if (strcmp(sect->type, "map-server") == 0){
 
             uci_address = uci_lookup_option_string(ctx, sect, "address");
-            uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            if (uci_lookup_option_string(ctx, sect, "key_type") != NULL){
+                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: No ket type assigned to the map server \"%s\"."
+                        " Set default value: HMAC_SHA_1_96",uci_address);
+                uci_key_type = HMAC_SHA_1_96;
+            }
             uci_key = uci_lookup_option_string(ctx, sect, "key");
 
             if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
@@ -787,7 +841,7 @@ configure_rtr(
 
         /* STATIC MAP-CACHE CONFIG */
         if (strcmp(sect->type, "static-map-cache") == 0){
-            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -814,8 +868,21 @@ configure_rtr(
         /* INTERFACES CONFIG */
         if (strcmp(sect->type, "rtr-iface") == 0){
             uci_iface = uci_lookup_option_string(ctx, sect, "iface");
-            uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-            uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+
+            if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: No priority assigned to the rtr-iface \"%s\"."
+                        " Set default value: 10",uci_iface);
+                uci_priority = 10;
+            }
+            if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: No weight assigned to the rtr-iface \"%s\"."
+                        " Set default value: 100",uci_iface);
+                uci_weigth = 100;
+            }
             if (add_rtr_iface(xtr,
                     (char *)uci_iface,
                     uci_priority,
@@ -831,6 +898,7 @@ configure_rtr(
     htable_destroy(lcaf_ht);
     htable_destroy(rlocs_ht);
     htable_destroy(rloc_set_ht);
+    glist_destroy(no_addr_loct_list);
 
     return(GOOD);
 }
@@ -856,6 +924,7 @@ configure_ms(
     htable_t *              lcaf_ht             = NULL;
     htable_t *              rlocs_ht            = NULL;
     htable_t *              rloc_set_ht         = NULL;
+    glist_t *               no_addr_loct_list   = NULL;
 
     /* create and configure xtr */
     if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
@@ -869,7 +938,8 @@ configure_ms(
     lcaf_ht = parse_lcafs(ctx,pck);
 
     /* CREATE RLOCs sets HTABLE */
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht);
+    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
+    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
 
     uci_foreach_element(&pck->sections, element) {
@@ -887,6 +957,10 @@ configure_ms(
         /* LISP-SITE CONFIG */
         if (strcmp(sect->type, "lisp-site") == 0){
             uci_eid_prefix = uci_lookup_option_string(ctx, sect, "eid_prefix");
+            if (uci_lookup_option_string(ctx, sect, "key_type") == NULL){
+                LMLOG(LERR,"Configuration file: No key type assigned");
+                return (BAD);
+            }
             uci_key_type =  strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
             uci_key = uci_lookup_option_string(ctx, sect, "key");
             if (strcmp(uci_lookup_option_string(ctx, sect, "accept_more_specifics"), "on") == 0){
@@ -926,7 +1000,7 @@ configure_ms(
 
         /* LISP REGISTERED SITES CONFIG */
         if (strcmp(sect->type, "ms-static-registered-site") == 0){
-            mapping = parse_mapping(ctx,sect,rloc_set_ht,lcaf_ht,STATIC_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(ms->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't create static register site for %s",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -955,6 +1029,8 @@ configure_ms(
     htable_destroy(lcaf_ht);
     htable_destroy(rlocs_ht);
     htable_destroy(rloc_set_ht);
+    glist_destroy(no_addr_loct_list);
+
     return(GOOD);
 }
 
@@ -962,8 +1038,10 @@ static mapping_t*
 parse_mapping(
         struct uci_context      *ctx,
         struct uci_section      *sect,
+        lisp_ctrl_dev_t         *dev,
         htable_t                *rloc_set_ht,
         htable_t                *lcaf_ht,
+        glist_t                 *no_addr_loct_l,
         uint8_t                 type)
 {
     mapping_t *         map             = NULL;
@@ -975,6 +1053,16 @@ parse_mapping(
     const char *        uci_rloc_set    = NULL;
     glist_t *           rloc_list       = NULL;
     glist_entry_t*      it              = NULL;
+    lisp_xtr_t *        xtr             = NULL;
+
+    switch (dev->mode){
+    case xTR_MODE:
+    case MN_MODE:
+        xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+        break;
+    default:
+        break;
+    }
 
     uci_eid = uci_lookup_option_string(ctx, sect, "eid_prefix");
     uci_rloc_set = uci_lookup_option_string(ctx, sect, "rloc_set");
@@ -1014,14 +1102,18 @@ parse_mapping(
     /* Add the locators of the rloc-set to the mapping */
     glist_for_each_entry(it,rloc_list){
         aux_loct = (locator_t*)glist_entry_data(it);
-        loct = clone_customize_locator(aux_loct,type);
+        loct = clone_customize_locator(dev,aux_loct,no_addr_loct_l,type);
         if (loct == NULL){
             continue;
         }
         if (mapping_add_locator(map, loct) != GOOD){
+            if (xtr != NULL && type == LOCAL_LOCATOR){
+                iface_locators_unattach_locator(xtr->iface_locators_table,loct);
+            }
             locator_del(loct);
             continue;
         }
+
     }
     mapping_compute_balancing_vectors(map);
 
@@ -1032,7 +1124,8 @@ static htable_t *
 parse_rlocs(
         struct uci_context      *ctx,
         struct uci_package      *pck,
-        htable_t                *lcaf_ht)
+        htable_t                *lcaf_ht,
+        glist_t                 *no_addr_loct_l)
 {
     struct uci_section *section             = NULL;
     struct uci_element *element             = NULL;
@@ -1040,10 +1133,15 @@ parse_rlocs(
     locator_t *         locator             = NULL;
     glist_t *           addr_list           = NULL;
     lisp_addr_t *       address             = NULL;
+    iface_t*            iface               = NULL;
     const char *        uci_rloc_name       = NULL;
     const char *        uci_address         = NULL;
+    const char *        uci_iface_name      = NULL;
+    int                 uci_afi             = AF_UNSPEC;
     int                 uci_priority        = 0;
     int                 uci_weight          = 0;
+    int                 afi                 = AF_UNSPEC;
+    no_addr_loct *      nloct               = NULL;
 
 
     /* create lcaf hash table */
@@ -1053,10 +1151,18 @@ parse_rlocs(
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
 
-        if (strcmp(section->type, "rloc") == 0){
+        if (strcmp(section->type, "rloc-address") == 0){
             uci_rloc_name = uci_lookup_option_string(ctx, section, "name");
             uci_address = uci_lookup_option_string(ctx, section, "address");
+            if (uci_lookup_option_string(ctx, section, "priority") == NULL){
+                LMLOG(LERR,"Configuration file: No priority assigned to the rloc \"%s\"",uci_rloc_name);
+                return (BAD);
+            }
             uci_priority = strtol(uci_lookup_option_string(ctx, section, "priority"),NULL,10);
+            if (uci_lookup_option_string(ctx, section, "weight") == NULL){
+                LMLOG(LERR,"Configuration file: No weight assigned to the rloc \"%s\"",uci_rloc_name);
+                return (BAD);
+            }
             uci_weight = strtol(uci_lookup_option_string(ctx, section, "weight"),NULL,10);
 
             if (validate_priority_weight(uci_priority, uci_weight) != GOOD) {
@@ -1076,6 +1182,12 @@ parse_rlocs(
             }
             address = (lisp_addr_t *)glist_first_data(addr_list);
 
+            if (lisp_addr_afi(address) == LM_AFI_IPPREF){
+                LMLOG(LERR, "Configuration file: RLOC address can not be a prefix: %s ",
+                        lisp_addr_to_char(address));
+                continue;
+            }
+
             /* Create a basic locator. Locaor or remote information will be added later according
              * who is using the locator*/
             locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
@@ -1083,6 +1195,70 @@ parse_rlocs(
                 htable_insert(rlocs_ht, strdup(uci_rloc_name), locator);
             }
             lisp_addr_del(address);
+        }
+
+        if (strcmp(section->type, "rloc-iface") == 0){
+            uci_rloc_name = uci_lookup_option_string(ctx, section, "name");
+            uci_iface_name = uci_lookup_option_string(ctx, section, "interface");
+            if (uci_lookup_option_string(ctx, section, "afi") == NULL){
+                LMLOG(LERR,"Configuration file: No afi assigned to the rloc \"%s\"",uci_rloc_name);
+                return (BAD);
+            }
+            uci_afi = strtol(uci_lookup_option_string(ctx, section, "afi"),NULL,10);
+            if (uci_lookup_option_string(ctx, section, "priority") == NULL){
+                LMLOG(LERR,"Configuration file: No priority assigned to the rloc \"%s\"",uci_rloc_name);
+                return (BAD);
+            }
+            uci_priority = strtol(uci_lookup_option_string(ctx, section, "priority"),NULL,10);
+            if (uci_lookup_option_string(ctx, section, "weight") == NULL){
+                LMLOG(LERR,"Configuration file: No weight assigned to the rloc \"%s\"",uci_rloc_name);
+                return (BAD);
+            }
+            uci_weight = strtol(uci_lookup_option_string(ctx, section, "weight"),NULL,10);
+
+            if (validate_priority_weight(uci_priority, uci_weight) != GOOD) {
+                continue;
+            }
+
+            if (uci_afi != 4 && uci_afi !=6){
+                LMLOG(LERR, "Configuration file: The afi of the locator should be \"4\" (IPv4)"
+                        " or \"6\" (IPv6)");
+                return (NULL);
+            }
+
+            if (htable_lookup(rlocs_ht,uci_rloc_name) != NULL){
+                LMLOG(DBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
+                continue;
+            }
+
+            /* Find the interface */
+            if (!(iface = get_interface((char *)uci_iface_name))) {
+                if (!(iface = add_interface((char *)uci_iface_name))) {
+                    return (BAD);
+                }
+            }
+
+            if (uci_afi == 4){
+                address = iface->ipv4_address;
+                afi = AF_INET;
+            }else{
+                address = iface->ipv6_address;
+                afi = AF_INET6;
+            }
+
+            /* Create a basic locator. Locaor or remote information will be added later according
+             * who is using the locator*/
+            locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
+            if (locator != NULL){
+                htable_insert(rlocs_ht, strdup(uci_rloc_name), locator);
+            }
+            /* If iface is not initialized, modify addres of the aux locator indicating the IP afi.
+             * This information will be used during the process of association of the cloned locator
+             * with the iface */
+            if (lisp_addr_is_no_addr(address)){
+                nloct = no_addr_loct_new_init(locator, uci_iface_name, afi);
+                glist_add(nloct,no_addr_loct_l);
+            }
         }
     }
 

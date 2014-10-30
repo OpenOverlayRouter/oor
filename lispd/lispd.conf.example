@@ -19,12 +19,19 @@ control-iface = <iface name>
 
 lisp-site {
     eid-prefix            = <prefix>
-    iid                   = <int>
     key-type              = <int>
     key                   = <string>
     accept-more-specifics = <bool>
 }
 
+ms-static-registered-site {
+    eid-prefix            = <prefix>
+     rloc-address {
+        address         = <string>
+        priority        = <int>
+        weight          = <int>
+    }
+}
 ###############################################
 
 #
@@ -42,7 +49,7 @@ rtr-ifaces = {
 
 rtr-database-mapping {
     eid-prefix          = <prefix>
-    rloc {
+    rloc-address {
         address         = <string>
         priority        = <int>
         weight          = <int>
@@ -122,25 +129,39 @@ map-server {
 
 # IPv4 / IPv6 EID of the node.
 # One database-mapping structure is defined for each interface with RLOCs
-# associated to this EID
-#   eid-prefix: EID prefix (IPvX/mask) of the mapping 
+# associated to this EID.
+# Two kind of rlocs can be defined:
+#   -> rloc-address: Specifies directly the rloc of the interface
+#   -> rloc-iface: Specifies the interface associated with the RLOC
+#
+#   eid-prefix: EID prefix (IPvX/mask) of the mapping
+#   address: IPv4 or IPv6 address of the rloc. Address should exist and
+#      be assigned to an UP interface during starting process otherwise
+#      it is discarded
 #   interface: interface containing the RLOCs associated to this mapping 
-#   priority_vX [0-255]: Priority for the IPvX RLOC of the interface. Locators
+#   afi: 4 to use IPv4 address of the interface and 6 to use IPv6 address
+#     of the interface
+#   priority [0-255]: Priority for the IPvX RLOC of the interface. Locators
 #     with lower values are more preferable. This is used for both incoming
-#     policy announcements and outcoming traffic policy management. (A value
-#     of -1  means that IPvX address of that interface is not used)
+#     policy announcements and outcoming traffic policy management.
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.
 
-	 #eid-prefix = fd00:4:1::1/128 # dst:fd00:101::1
 database-mapping {
-         eid-prefix         = 10.100.100.1/24
-         interface          = eth1
-         priority_v4        = 1         # Priority of IPv4 locator of the interface eth0 for this EID
-         weight_v4          = 100       # Weight of IPv4 locator of the interface eth0 for this EID
-         priority_v6        = 1         # Priority of IPv6 locator of the interface eth0 for this EID
-         weight_v6          = 100       # Weight of IPv6 locator of the interface eth0 for this EID
+    eid-prefix          = <prefix>
+    rloc-address {
+        address         = <string>
+        priority        = <int>
+        weight          = <int>
+    }
+    rloc-iface{
+        interface       = <string>
+        afi             = <4/6>
+        priority        = <int>
+        weight          = <int>
+    }
 }
+
 
 explicit-locator-path {
 	elp-name = <string>
@@ -158,20 +179,10 @@ explicit-locator-path {
 	} 
 ...
 }
-		
-
-database-mapping-new {
-    eid-prefix          = <prefix>  
-	rloc {
-        address 	    = <string>
-        priority        = <int>
-        weight          = <int>
-	}
-}
 
 static-map-cache {
     eid-prefix          = <prefix>  
-    rloc {
+    rloc-address {
         address         = <string>
         priority        = <int>
         weight          = <int>

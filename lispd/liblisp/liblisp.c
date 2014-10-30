@@ -63,7 +63,11 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
 
     /* this is the new start of the packet */
     lisp_msg_pull_ecm_hdr(pkt);
+    /* Set and extract inner layer 3 packet */
+    lbuf_reset_l3(pkt);
     iph = pkt_pull_ip(pkt);
+    /* Set and extract inner layer 4 packet */
+    lbuf_reset_l4(pkt);
     udph = pkt_pull_udp(pkt);
 
     /* Set the beginning of the LISP msg*/
@@ -406,6 +410,8 @@ lisp_msg_put_mapping(
     MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
     MAP_REC_LOC_COUNT(rec) = m->locator_count;
     MAP_REC_TTL(rec) = htonl(m->ttl);
+    MAP_REC_AUTH(rec) = m->authoritative;
+
     if (lisp_msg_put_addr(b, eid) == NULL) {
         return(NULL);
     }

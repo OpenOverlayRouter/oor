@@ -91,5 +91,8 @@ fwd_entry_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);
 /* PRIVATE functions, used by xtr and ms */
 int send_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
+char *
+ctrl_dev_type_to_char(lisp_dev_type_e type);
+
 
 #endif /* LISP_CTRL_DEVICE_H_ */

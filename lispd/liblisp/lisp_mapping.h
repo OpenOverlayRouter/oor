@@ -106,6 +106,8 @@ int mapping_add_locators(mapping_t *, locator_list_t *);
 void mapping_update_locators(mapping_t *, locator_list_t *,
         locator_list_t *, int);
 locator_t *mapping_get_locator(mapping_t *, lisp_addr_t *);
+locator_list_t *
+mapping_get_locators_with_afi(mapping_t *mapping, int lafi, int afi);
 uint8_t mapping_has_locator(mapping_t *mapping, locator_t *loct);
 void mapping_del_locators(mapping_t *);
 int mapping_sort_locators(mapping_t *, lisp_addr_t *);

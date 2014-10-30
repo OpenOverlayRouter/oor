@@ -202,6 +202,42 @@ glist_remove(glist_entry_t *entry, glist_t *list)
     list->size--;
 }
 
+/**
+ * glist_remove_obj - remove object from list. The comparison function is used to get the entry to
+ * be removed. If comparition function is not deffined, the value of the pointer is used to get the
+ * elemnt to be removed
+ * @data: object to be removed
+ * @list: list from which the entry is to be removed
+ */
+int
+glist_remove_obj(
+        void *      data,
+        glist_t *   list)
+{
+    glist_entry_t   *remove_entry   = NULL;
+    glist_entry_t   *entry          = NULL;
+    int             res             = FALSE;
+
+    glist_for_each_entry(entry,list){
+        if(list->cmp_fct) {
+            if((*list->cmp_fct)(data, entry->data) == 0){
+                remove_entry = entry;
+                break;
+            }
+        }else{
+            if(entry->data == data){
+                remove_entry = entry;
+                break;
+            }
+        }
+    }
+    if (remove_entry != NULL){
+        glist_remove(remove_entry,list);
+    }
+    return (res);
+}
+
+
 void
 glist_remove_all(glist_t *lst)
 {

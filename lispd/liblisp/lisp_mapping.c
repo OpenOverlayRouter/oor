@@ -118,13 +118,13 @@ mapping_add_locator(
     }
 
     if (err == GOOD) {
-        LMLOG(DBG_3, "mapping_add_locator: Added locator %s to the mapping with"
+        LMLOG(DBG_2, "mapping_add_locator: Added locator %s to the mapping with"
                        " EID %s.", lisp_addr_to_char(locator_addr(loc)),
                        lisp_addr_to_char(mapping_eid(m)));
         m->locator_count++;
         result = GOOD;
     } else if (err == ERR_EXIST) {
-        LMLOG(DBG_3, "mapping_add_locator: The locator %s already exists "
+        LMLOG(DBG_2, "mapping_add_locator: The locator %s already exists "
                 "for the EID %s.", lisp_addr_to_char(locator_addr(loc)),
                 lisp_addr_to_char(mapping_eid(m)));
         locator_del(loc);
@@ -187,6 +187,33 @@ mapping_get_locator(mapping_t *mapping, lisp_addr_t *address)
     locator = locator_list_get_locator(locator_list, address);
 
     return (locator);
+}
+
+locator_list_t *
+mapping_get_locators_with_afi(
+        mapping_t * mapping,
+        int         lafi,
+        int         afi)
+{
+    switch (lafi){
+    case LM_AFI_NO_ADDR:
+        return (mapping->head_no_addr_locators_list);
+    case LM_AFI_IP:
+        switch (afi){
+        case AF_INET:
+            return (mapping->head_v4_locators_list);
+        case AF_INET6:
+            return (mapping->head_v6_locators_list);
+        default:
+            LMLOG(DBG_1,"mapping_get_locators_with_afi: Afi not supported: %d",
+                    afi);
+            return (NULL);
+        }
+    default:
+        LMLOG(DBG_1,"mapping_get_locators_with_afi: LAfi not supported: %d",
+                lafi);
+        return (NULL);
+    }
 }
 
 /*

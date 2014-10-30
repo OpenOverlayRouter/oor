@@ -139,12 +139,11 @@ local_map_db_num_ip_eids(local_map_db_t *lmdb, int afi)
     void *it = NULL;
     lisp_addr_t *eid = NULL;
     int ctr = 0;
-
     /* search could be better implemented but local db is small
      * so this should do for now  */
     mdb_foreach_ip_entry(lmdb->db, it) {
         eid = mapping_eid((mapping_t *)it);
-        if (eid && lisp_addr_afi(eid) == LM_AFI_IP
+        if (eid && lisp_addr_afi(eid) == LM_AFI_IPPREF
             && lisp_addr_ip_afi(eid) == afi) {
             ctr ++;
         }

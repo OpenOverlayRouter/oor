@@ -105,24 +105,10 @@ typedef struct map_server_elt_t {
     uint8_t         proxy_reply;
 } map_server_elt;
 
-typedef struct iface_locators_{
-    char        *iface_name;
-    glist_t     *mappings;          /*Mappings associated to this iface*/
-    glist_t     *ipv4_locators;     /*IPv4 locators associated with this iface*/
-    glist_t     *ipv6_locators;     /*IPv6 locators associated with this iface*/
-    uint8_t     status_changed:1;   /*Iface change status --> Used to avioid transitions*/
-    lisp_addr_t *ipv4_prev_addr;    /*Previous IPv4 address of the iface --> Used to avoid transitions A->B->A*/
-    lisp_addr_t *ipv6_prev_addr;    /*Previous IPv6 address of the iface --> Used to avoid transitions A->B->A*/
-}iface_locators;
-
-
-
 int tr_mcache_add_mapping(lisp_xtr_t *, mapping_t *);
 int tr_mcache_add_static_mapping(lisp_xtr_t *, mapping_t *);
 int tr_mcache_remove_mapping(lisp_xtr_t *, lisp_addr_t *);
 mapping_t *tr_mcache_lookup_mapping(lisp_xtr_t *, lisp_addr_t *);
 mapping_t *tr_mcache_lookup_mapping_exact(lisp_xtr_t *, lisp_addr_t *);
 
-iface_locators *iface_locators_new(char *iface_name);
-void iface_locators_del(iface_locators *if_loct);
 #endif /* LISP_XTR_H_ */

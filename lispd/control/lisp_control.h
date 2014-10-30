@@ -46,7 +46,9 @@ struct lisp_ctrl {
     glist_t *rlocs;
     glist_t *ipv4_rlocs;
     glist_t *ipv6_rlocs;
-    glist_t *default_rlocs;
+    lisp_addr_t *ipv4_default_rloc;
+    lisp_addr_t *ipv6_default_rloc;
+
 };
 
 lisp_ctrl_t *ctrl_create();
@@ -57,8 +59,14 @@ int ctrl_recv_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
 
 
-glist_t *ctrl_default_rlocs(lisp_ctrl_t *c);
 lisp_addr_t *ctrl_default_rloc(lisp_ctrl_t *c, int afi);
+/*
+ * Return the default control rlocs in a list that shoud be released
+ * by the user.
+ * @param ctrl Lisp controler to be used
+ * @return glist_t * with the lisp_addr_t * of the default rlocs
+ */
+glist_t *ctrl_default_rlocs(lisp_ctrl_t * ctrl);
 glist_t *ctrl_rlocs(lisp_ctrl_t *c, int afi) ;
 
 void ctrl_if_addr_update(lisp_ctrl_t *, iface_t *, lisp_addr_t *,

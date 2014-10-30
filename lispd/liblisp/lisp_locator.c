@@ -161,10 +161,13 @@ locator_to_char(locator_t *l)
 {
     static char buf[5][500];
     static int i=0;
-
     /* hack to allow more than one locator per line */
     i++; i = i % 5;
     *buf[i] = '\0';
+    if (l == NULL){
+        sprintf(buf[i], "_NULL_");
+        return (buf[i]);
+    }
     sprintf(buf[i], "%s, ", lisp_addr_to_char(locator_addr(l)));
     sprintf(buf[i] + strlen(buf[i]), "%s, ", l->state ? "Up" : "Down");
     sprintf(buf[i] + strlen(buf[i]), "%d/%-d, %d/%d", l->priority, l->weight,

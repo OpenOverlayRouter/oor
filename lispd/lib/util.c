@@ -33,6 +33,12 @@
 #include "util.h"
 //#include "defs.h"
 #include "lmlog.h"
+#include "sockets.h"
+
+
+static inline lisp_addr_t *get_network_address(lisp_addr_t *address);
+static inline lisp_addr_t *get_network_address_v4(lisp_addr_t *address);
+static inline lisp_addr_t *get_network_address_v6(lisp_addr_t *address);
 
 
 static void
@@ -195,5 +201,125 @@ convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
         bytes[ctr] = partial_byte[0] * 16 + partial_byte[1];
     }
     return (GOOD);
+}
+
+/*
+ * If prefix b is contained in prefix a, then return TRUE. Otherwise return FALSE.
+ * If both prefixs are the same it also returns TRUE
+ */
+int is_prefix_b_part_of_a (
+        lisp_addr_t *a_prefix,
+        lisp_addr_t *b_prefix)
+{
+    lisp_addr_t *a_network_addr;
+    lisp_addr_t *b_network_addr_prefix_a;
+    int a_prefix_length = 0;
+    int b_prefix_length = 0;
+    int res = FALSE;
+
+    if (lisp_addr_is_ip_pref(a_prefix) == FALSE ||
+            lisp_addr_is_ip_pref(b_prefix) == FALSE){
+        return (FALSE);
+    }
+
+    a_prefix_length = lisp_addr_ip_get_plen(a_prefix);
+    b_prefix_length = lisp_addr_ip_get_plen(b_prefix);
+
+    if (lisp_addr_ip_afi(a_prefix) != lisp_addr_ip_afi(b_prefix)){
+        return FALSE;
+    }
+
+    if (a_prefix_length > b_prefix_length){
+        return FALSE;
+    }
+
+    a_network_addr = get_network_address(a_prefix);
+    lisp_addr_set_plen(b_prefix,a_prefix_length);
+    b_network_addr_prefix_a = get_network_address(b_prefix);
+    lisp_addr_set_plen(b_prefix,b_prefix_length);
+
+    if (lisp_addr_cmp (a_network_addr, b_network_addr_prefix_a) == 0){
+        res = TRUE;
+    }
+
+    lisp_addr_del(a_network_addr);
+    lisp_addr_del(b_network_addr_prefix_a);
+
+    return (res);
+}
+
+static inline lisp_addr_t *get_network_address(lisp_addr_t *address)
+{
+    lisp_addr_t *network_address = NULL;
+
+    switch (lisp_addr_ip_afi(address)){
+    case AF_INET:
+        network_address = get_network_address_v4(address);
+        break;
+    case AF_INET6:
+        network_address = get_network_address_v6(address);
+        break;
+    default:
+        LMLOG(DBG_1, "get_network_address: Afi not supported (%d). It should never "
+                "reach this point", lisp_addr_ip_afi(address));
+        break;
+    }
+
+    return (network_address);
+}
+
+static inline lisp_addr_t *get_network_address_v4(lisp_addr_t *address)
+{
+    lisp_addr_t *network_address = lisp_addr_new_afi(LM_AFI_IP);
+    int prefix_length = lisp_addr_ip_get_plen(address);
+    ip_addr_t   *ip_addr = lisp_addr_ip(address);
+    ip_addr_t   *net_ip_addr = lisp_addr_ip(network_address);
+
+    uint32_t mask = 0xFFFFFFFF;
+    uint32_t addr = ntohl((ip_addr_get_v4(ip_addr))->s_addr);
+    if (prefix_length != 0){
+        mask = mask << (32 - prefix_length);
+    }else{
+        mask = 0;
+    }
+    addr = htonl(addr & mask);
+
+    ip_addr_set_afi(net_ip_addr,AF_INET);
+    ip_addr_set_v4(net_ip_addr,&addr);
+
+    return network_address;
+}
+
+static inline lisp_addr_t *get_network_address_v6(lisp_addr_t *address)
+{
+    lisp_addr_t *network_address = lisp_addr_new_afi(LM_AFI_IP);
+    ip_addr_t   *net_ip_addr = lisp_addr_ip(network_address);
+    ip_addr_t   *ip_addr = lisp_addr_ip(address);
+    struct in6_addr  *i6_addr = ip_addr_get_v6(ip_addr);
+    struct in6_addr  net_i6_addr;
+    int prefix_length = lisp_addr_ip_get_plen(address);
+    uint32_t mask[4] = {0,0,0,0};
+    int ctr = 0;
+    int a,b;
+
+
+    a = (prefix_length) / 32;
+    b = (prefix_length) % 32;
+
+    for (ctr = 0; ctr<a ; ctr++){
+        mask[ctr] = 0xFFFFFFFF;
+    }
+    if (b != 0){
+        mask[a] = 0xFFFFFFFF<<(32-b);
+    }
+
+    for (ctr = 0 ; ctr < 4 ; ctr++){
+        net_i6_addr.s6_addr32[ctr] = htonl(ntohl(i6_addr->s6_addr32[ctr]) & mask[ctr]);
+    }
+
+    ip_addr_set_afi(net_ip_addr,AF_INET6);
+    ip_addr_set_v6(net_ip_addr,&net_i6_addr);
+
+    return network_address;
 }
 

@@ -97,14 +97,22 @@ static inline void lbuf_set_data(lbuf_t *, void *);
 
 static inline void lbuf_reset_ip(lbuf_t *b);
 static inline void *lbuf_ip(lbuf_t *b);
+inline int lbuf_point_to_ip(lbuf_t *b);
 static inline void lbuf_reset_udp(lbuf_t *b);
 static inline void *lbuf_udp(lbuf_t *b);
+inline int lbuf_point_to_udp(lbuf_t *b);
 static inline void lbuf_reset_l3(lbuf_t *b);
 static inline void *lbuf_l3(lbuf_t *b);
+inline int lbuf_point_to_l3(lbuf_t *b);
+static inline void lbuf_reset_l4(lbuf_t *b);
+static inline void *lbuf_l4(lbuf_t *b);
+inline int lbuf_point_to_l4(lbuf_t *b);
 static inline void lbuf_reset_lisp(lbuf_t *b);
 static inline void *lbuf_lisp(lbuf_t*);
+inline int lbuf_point_to_lisp(lbuf_t *b);
 static inline void lbuf_reset_lisp_hdr(lbuf_t *b);
 static inline void *lbuf_lisp_hdr(lbuf_t*);
+inline int lbuf_point_to_lisp_hdr(lbuf_t *b);
 
 static inline void lbuf_set_base(lbuf_t *b, void *bs)
 {
@@ -211,6 +219,16 @@ static inline void lbuf_reset_l3(lbuf_t *b)
 static inline void *lbuf_l3(lbuf_t *b)
 {
     return b->l3 != UINT16_MAX ? (char *)lbuf_base(b) + b->l3 : NULL;
+}
+
+static inline void lbuf_reset_l4(lbuf_t *b)
+{
+    b->l4 = (char *)lbuf_data(b) - (char *)lbuf_base(b);
+}
+
+static inline void *lbuf_l4(lbuf_t *b)
+{
+    return b->l4 != UINT16_MAX ? (char *)lbuf_base(b) + b->l4 : NULL;
 }
 
 static inline void lbuf_reset_lisp(lbuf_t *b)

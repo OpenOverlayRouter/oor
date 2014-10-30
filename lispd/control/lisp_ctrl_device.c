@@ -117,3 +117,27 @@ ctrl_dev_set_ctrl(lisp_ctrl_dev_t *dev, lisp_ctrl_t *ctrl)
     return(GOOD);
 }
 
+char *
+ctrl_dev_type_to_char(lisp_dev_type_e type)
+{
+    static char device[15];
+    switch (type){
+    case xTR_MODE:
+        strcpy(device,"xTR");
+        break;
+    case MS_MODE:
+        strcpy(device,"Map Server");
+        break;
+    case RTR_MODE:
+        strcpy(device,"RTR");
+        break;
+    case MN_MODE:
+        strcpy(device,"Mobile Node");
+        break;
+    default:
+        strcpy(device,"Unknown");
+        break;
+    }
+
+    return (device);
+}

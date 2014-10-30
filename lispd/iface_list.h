@@ -113,5 +113,7 @@ static inline uint8_t iface_status(iface_t *iface)
     return (iface->status);
 }
 
+char *
+get_interface_name_from_address(lisp_addr_t *addr);
 
 #endif /*IFACE_LIST_H_*/

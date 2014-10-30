@@ -65,9 +65,10 @@ typedef struct sockmstr sockmstr_t;
 //#define RLOC_PROBING_INTERVAL                   30  /* LJ: sets the interval at which periodic
 //                                                     * RLOC probes are sent (seconds) */
 #define MAP_REGISTER_INTERVAL                   60
+#define MS_SITE_EXPIRATION                      180
 
 #define RLOC_PROBING_INTERVAL                   30
-#define DEFAULT_RLOC_PROBING_RETRIES            1
+#define DEFAULT_RLOC_PROBING_RETRIES            2
 #define DEFAULT_RLOC_PROBING_RETRIES_INTERVAL   5   /* Interval in seconds between RLOC probing retries  */
 
 #define DEFAULT_DATA_CACHE_TTL                  60  /* seconds */

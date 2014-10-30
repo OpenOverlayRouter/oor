@@ -90,6 +90,7 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
     lisp_addr_t *drloc;
     uconn_t fwd_uc;
 
+    //XXX Remote rloc compatible with MS rlocs
     drloc = get_locator_with_afi(m, lisp_addr_ip_afi(&uc->ra));
     if (!drloc) {
         LMLOG(DBG_1, "Can't find valid RLOC to forward Map-Request to "
@@ -101,8 +102,12 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
         get_etr_from_lcaf(drloc, &drloc);
     }
 
-    LMLOG(DBG_3, "Found xTR with locator %s to forward Map-Request",
+    LMLOG(DBG_3, "Found xTR with locator %s to forward Encap Map-Request",
             lisp_addr_to_char(drloc));
+
+    /* Set buffer to forward the encapsulated message*/
+    lbuf_point_to_lisp_hdr(b);
+
     uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
     return(send_msg(&ms->super, b, &fwd_uc));
 }
@@ -136,12 +141,12 @@ lsite_entry_start_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
     }
 
     /* Give a 2s margin before purging the registered site */
-    lmtimer_start(rsite->expiry_timer, MAP_REGISTER_INTERVAL + 2,
+    lmtimer_start(rsite->expiry_timer, MS_SITE_EXPIRATION + 2,
             lsite_entry_expiration_timer_cb, ms, rsite);
 
-    LMLOG(DBG_1,"The map cache entry of EID %s will expire in %ld minutes.",
+    LMLOG(DBG_1,"The map cache entry of EID %s will expire in %ld seconds.",
             lisp_addr_to_char(mapping_eid(rsite->site_map)),
-            MAP_REGISTER_INTERVAL);
+            MS_SITE_EXPIRATION);
 }
 
 
@@ -153,6 +158,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     mapping_t *map;
     glist_t *itr_rlocs = NULL;
     void *mreq_hdr, *mrep_hdr;
+    mapping_record_hdr_t    *rec            = NULL;
     int i;
     lbuf_t *mrep = NULL;
     lbuf_t  b;
@@ -163,7 +169,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     b = *buf;
 
     seid = lisp_addr_new();
-    deid = lisp_addr_new();
+
 
     mreq_hdr = lisp_msg_pull_hdr(&b);
 
@@ -173,12 +179,12 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     LMLOG(DBG_1, " src-eid: %s", lisp_addr_to_char(seid));
     if (MREQ_RLOC_PROBE(mreq_hdr)) {
-        LMLOG(DBG_3, "Probe bit set. Discarding!");
+        LMLOG(DBG_2, "Probe bit set. Discarding!");
         return(BAD);
     }
 
     if (MREQ_SMR(mreq_hdr)) {
-        LMLOG(DBG_3, "SMR bit set. Discarding!");
+        LMLOG(DBG_2, "SMR bit set. Discarding!");
         return(BAD);
     }
 
@@ -186,79 +192,79 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     itr_rlocs = laddr_list_new();
     lisp_msg_parse_itr_rlocs(&b, itr_rlocs);
 
-    /* PROCESS EID REC */
-    lisp_msg_parse_eid_rec(&b, deid);
+    for (i = 0; i < MREQ_REC_COUNT(mreq_hdr); i++) {
 
-    /* CHECK IF WE NEED TO PROXY REPLY */
-    site = mdb_lookup_entry(ms->lisp_sites_db, deid);
-    if (!site) {
-        /* send negative map-reply with TTL 15 min */
-        mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD,
-                MREQ_NONCE(mreq_hdr));
-        LMLOG(DBG_3, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
-                lisp_addr_to_char(deid));
-        send_msg(&ms->super, mrep, uc);
-        goto done;
-    }
+        deid = lisp_addr_new();
 
-    /* Find if the site actually registered */
-    if (!(rsite = mdb_lookup_entry(ms->reg_sites_db, deid))) {
-        /* send negative map-reply with TTL 1 min */
-        mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,
-                MREQ_NONCE(mreq_hdr));
-        LMLOG(DBG_3, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
-                lisp_addr_to_char(deid));
-        send_msg(&ms->super, mrep, uc);
-        goto done;
-    }
-
-    map = rsite->site_map;
-
-    /* IF *NOT* PROXY REPLY: forward the message to an xTR */
-    if (!site->proxy_reply) {
-        /* FIXME: once locs become one object, send that instead of mapping */
-        forward_mreq(ms, buf, map, uc);
-        goto done;
-    }
-
-    /* IF PROXY REPLY: build Map-Reply */
-    mrep = lisp_msg_create(LISP_MAP_REPLY);
-    lisp_msg_put_mapping(mrep, map, NULL);
-
-    /* .. and process the remaining records */
-    for (i = 1; i < MREQ_REC_COUNT(mreq_hdr); i++) {
+        /* PROCESS EID REC */
         if (lisp_msg_parse_eid_rec(&b, deid) != GOOD) {
             goto err;
         }
 
-        LMLOG(DBG_1, " dst-eid: %s", lisp_addr_to_char(deid));
-
-        /* FIND REGISTERED SITE */
-        if (!(map = mdb_lookup_entry_exact(ms->reg_sites_db, deid))) {
-            LMLOG(DBG_1,"Unknown EID %s requested!",
+        /* CHECK IF WE NEED TO PROXY REPLY */
+        site = mdb_lookup_entry(ms->lisp_sites_db, deid);
+        rsite = mdb_lookup_entry(ms->reg_sites_db, deid);
+        /* Static entries will have null site and not null rsite */
+        if (!site && !rsite) {
+            /* send negative map-reply with TTL 15 min */
+            mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD,
+                    MREQ_NONCE(mreq_hdr));
+            LMLOG(DBG_1,"The requested EID %s doesn't belong to this Map Server",
                     lisp_addr_to_char(deid));
+            LMLOG(DBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+                    lisp_addr_to_char(deid));
+            send_msg(&ms->super, mrep, uc);
             continue;
         }
 
-        lisp_msg_put_mapping(mrep, map, NULL);
+        /* Find if the site actually registered */
+        if (!rsite) {
+            /* send negative map-reply with TTL 1 min */
+            mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,
+                    MREQ_NONCE(mreq_hdr));
+            LMLOG(DBG_1,"The requested EID %s is not registered",
+                                lisp_addr_to_char(deid));
+            LMLOG(DBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+                    lisp_addr_to_char(deid));
+            send_msg(&ms->super, mrep, uc);
+            continue;
+        }
+
+        map = rsite->site_map;
+        /* If site is null, the request is for a static entry */
+
+        /* IF *NOT* PROXY REPLY: forward the message to an xTR */
+        if (site != NULL && site->proxy_reply == FALSE) {
+            /* FIXME: once locs become one object, send that instead of mapping */
+            forward_mreq(ms, buf, map, uc);
+            continue;
+        }
+
+        LMLOG(DBG_1,"The requested EID %s belongs to the registered prefix %s. Send Map Reply",
+                lisp_addr_to_char(deid), lisp_addr_to_char(mapping_eid(map)));
+
+        /* IF PROXY REPLY: build Map-Reply */
+        mrep = lisp_msg_create(LISP_MAP_REPLY);
+        rec = lisp_msg_put_mapping(mrep, map, NULL);
+        /* Set the authoritative bit of the record to false*/
+        MAP_REC_AUTH(rec) = 0;
+
+        mrep_hdr = lisp_msg_hdr(mrep);
+        MREP_RLOC_PROBE(mrep_hdr) = 0;
+        MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
+
+        /* SEND MAP-REPLY */
+        laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
+        if (send_msg(&ms->super, mrep, uc) != GOOD) {
+            LMLOG(DBG_1, "Couldn't send Map-Reply!");
+        }
+        lisp_msg_destroy(mrep);
+        lisp_addr_del(deid);
     }
 
-    mrep_hdr = lisp_msg_hdr(mrep);
-    MREP_RLOC_PROBE(mrep_hdr) = 0;
-    MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
-
-    /* SEND MAP-REPLY */
-    laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
-    if (send_msg(&ms->super, mrep, uc) != GOOD) {
-        LMLOG(DBG_1, "Couldn't send Map-Reply!");
-    }
-
-
-done:
     glist_destroy(itr_rlocs);
-    lisp_msg_destroy(mrep);
     lisp_addr_del(seid);
-    lisp_addr_del(deid);
+
     return(GOOD);
 err:
     glist_destroy(itr_rlocs);
@@ -351,6 +357,11 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             goto err;
         }
 
+        if (mapping_auth(m) == 0){
+            LMLOG(LWRN,"ms_recv_map_register: Received a none authoritative record in a Map Register: %s",
+                    lisp_addr_to_char(mapping_eid(m)));
+        }
+
         eid = mapping_eid(m);
         /* find configured prefix */
         reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid);
@@ -371,7 +382,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                         reg_pref->key);
                 goto bad;
             }
-            LMLOG(DBG_3, "Message validated with key associated to EID %s",
+            LMLOG(DBG_2, "Message validated with key associated to EID %s",
                     lisp_addr_to_char(eid));
             key = reg_pref->key;
         } else if (strncmp(key, reg_pref->key, strlen(key)) !=0 ) {
@@ -381,9 +392,10 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         }
 
 
-        /* check if more specific */
-        if (!reg_pref->accept_more_specifics
-                && lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
+        /* check more specific */
+        if (reg_pref->accept_more_specifics == TRUE){
+            // XXX To check if the more specific prefix is valid
+        }else if(lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
             LMLOG(DBG_1, "EID %s is a more specific of %s. However more "
                     "specifics not configured! Discarding",
                     lisp_addr_to_char(eid),
@@ -415,7 +427,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                         goto bad;
                     }
                 }
-
+                reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
                 ms_dump_registered_sites(ms, DBG_3);
             }
 
@@ -427,6 +439,8 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             new_rsite->site_map = m;
             mdb_add_entry(ms->reg_sites_db, mapping_eid(m), new_rsite);
             lsite_entry_start_expiration_timer(ms, new_rsite);
+
+            reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
             ms_dump_registered_sites(ms, DBG_3);
         }
 

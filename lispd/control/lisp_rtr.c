@@ -28,6 +28,7 @@
 
 #include "lisp_rtr.h"
 #include "lisp_xtr.h"
+#include "lmlog.h"
 
 void rtr_ctrl_start(lisp_ctrl_dev_t *dev) {
     LMLOG(LISP_LOG_DEBUG_1, "Starting RTR...");
@@ -50,7 +51,7 @@ lisp_ctrl_dev_t *rtr_ctrl_init() {
     rtr = calloc(1, sizeof(lisp_rtr));
     rtr->super.ctrl_class = &rtr_vtable;
     rtr->super.mode = RTR_MODE;
-    LMLOG(LISP_LOG_DEBUG_1, "Finished Initializing xTR");
+    LMLOG(DBG_1, "Finished Initializing xTR");
 
     /* set up databases */
 

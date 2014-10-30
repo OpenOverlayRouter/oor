@@ -46,24 +46,24 @@ static void set_rlocs(lisp_ctrl_t *ctrl);
 static void
 set_default_rlocs(lisp_ctrl_t *ctrl)
 {
-    glist_remove_all(ctrl->default_rlocs);
-    if (default_ctrl_iface_v4
-        && lisp_addr_is_ip(default_ctrl_iface_v4->ipv4_address)) {
-        glist_add(default_ctrl_iface_v4->ipv4_address, ctrl->default_rlocs);
+    if (default_ctrl_iface_v4 != NULL && default_ctrl_iface_v4->status==UP){
+        ctrl->ipv4_default_rloc = default_ctrl_iface_v4->ipv4_address;
+    }else{
+        ctrl->ipv4_default_rloc = NULL;
     }
 
-    if (default_ctrl_iface_v6
-        && lisp_addr_is_ip(default_ctrl_iface_v6->ipv6_address)) {
-        glist_add_tail(default_ctrl_iface_v6->ipv6_address,
-                ctrl->default_rlocs);
+    if (default_ctrl_iface_v6 != NULL && default_ctrl_iface_v6->status==UP){
+        ctrl->ipv6_default_rloc = default_ctrl_iface_v6->ipv6_address;
+    }else{
+        ctrl->ipv6_default_rloc = NULL;
     }
 
-    glist_entry_t *it;
-    LMLOG(DBG_2, "Recomputing default interfaces");
-    glist_for_each_entry(it, ctrl->default_rlocs) {
-        LMLOG(DBG_2, "  Default iface: %s",
-                lisp_addr_to_char(glist_entry_data(it)));
-    }
+
+    LMLOG(DBG_3, "Recomputing default rlocs:");
+    LMLOG(DBG_3, "  Default IPv4 rloc: %s",
+            lisp_addr_to_char(ctrl->ipv4_default_rloc));
+    LMLOG(DBG_3, "  Default IPv6 rloc: %s",
+            lisp_addr_to_char(ctrl->ipv6_default_rloc));
 }
 
 static void
@@ -96,7 +96,6 @@ ctrl_create()
 {
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
     ctrl->devices = glist_new_managed((glist_del_fct)ctrl_dev_destroy);
-    ctrl->default_rlocs = glist_new();
     ctrl->ipv4_rlocs = glist_new();
     ctrl->ipv6_rlocs = glist_new();
 
@@ -109,7 +108,6 @@ void
 ctrl_destroy(lisp_ctrl_t *ctrl)
 {
     glist_destroy(ctrl->devices);
-    glist_destroy(ctrl->default_rlocs);
     glist_destroy(ctrl->ipv4_rlocs);
     glist_destroy(ctrl->ipv6_rlocs);
 
@@ -249,10 +247,44 @@ ctrl_if_status_update(
     set_rlocs(ctrl);
 }
 
-glist_t *
-ctrl_default_rlocs(lisp_ctrl_t *c)
+lisp_addr_t *
+ctrl_default_rloc(
+        lisp_ctrl_t *   ctrl,
+        int             afi)
 {
-    return (c->default_rlocs);
+    switch (afi){
+    case AF_INET:
+        return (ctrl->ipv4_default_rloc);
+    case AF_INET6:
+        return (ctrl->ipv6_default_rloc);
+    default:
+        LMLOG(DBG_2,"ctrl_default_rloc: Unsupported afi: %d",afi);
+        return (NULL);
+    }
+}
+/*
+ * Return the default control rlocs in a list that shoud be released
+ * by the user.
+ * @param ctrl Lisp controler to be used
+ * @return glist_t * with the lisp_addr_t * of the default rlocs
+ */
+glist_t *
+ctrl_default_rlocs(lisp_ctrl_t * ctrl)
+{
+    glist_t *   dflt_rlocs  = glist_new();
+
+    if (dflt_rlocs == NULL){
+        return (NULL);
+    }
+
+    if (ctrl->ipv4_default_rloc != NULL){
+        glist_add(ctrl->ipv4_default_rloc, dflt_rlocs);
+    }
+    if (ctrl->ipv6_default_rloc != NULL){
+        glist_add(ctrl->ipv6_default_rloc, dflt_rlocs);
+    }
+
+    return (dflt_rlocs);
 }
 
 glist_t *
@@ -267,17 +299,6 @@ ctrl_rlocs(lisp_ctrl_t *c, int afi)
     return(NULL);
 }
 
-lisp_addr_t *
-ctrl_default_rloc(lisp_ctrl_t *c, int afi)
-{
-    lisp_addr_t *loc = NULL;
-    if (lisp_addr_ip_afi(glist_first_data(c->default_rlocs)) == afi) {
-        loc = glist_first_data(c->default_rlocs);
-    } else if (lisp_addr_ip_afi(glist_last_data(c->default_rlocs)) == afi) {
-        loc = glist_last_data(c->default_rlocs);
-    }
-    return (loc);
-}
 
 fwd_entry_t *
 ctrl_get_forwarding_entry(packet_tuple_t *tuple)
@@ -290,7 +311,8 @@ ctrl_get_forwarding_entry(packet_tuple_t *tuple)
 int
 ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev)
 {
-    LMLOG(LINF, "Device working in mode %d registering with control", dev->mode);
+    LMLOG(LINF, "Device working in mode %s registering with control",
+            ctrl_dev_type_to_char(dev->mode));
     glist_add(dev, ctrl->devices);
     return(GOOD);
 }
@@ -328,7 +350,7 @@ ctrl_register_eid_prefix(
     case RTR_MODE:
     case MN_MODE:
     default:
-        LMLOG(LINF, "Current version only supports the registration in control of"
+        LMLOG(DBG_1, "Current version only supports the registration in control of "
                 "EID prefixes from xTRs");
         break;
     }
@@ -366,7 +388,7 @@ ctrl_unregister_eid_prefix(
     case RTR_MODE:
     case MN_MODE:
     default:
-        LMLOG(LINF, "Current version only supports the unregistration in control of"
+        LMLOG(DBG_1, "Current version only supports the unregistration in control of "
                 "EID prefixes from xTRs");
         break;
     }

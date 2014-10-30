@@ -397,7 +397,7 @@ lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
     set_afi_(dst, lisp_addr_afi(src));
     switch (lisp_addr_afi(dst)) {
     case LM_AFI_NO_ADDR:
-        LMLOG(DBG_2, "lisp_addr_copy:  No address element copied");
+        LMLOG(DBG_3, "lisp_addr_copy:  No address element copied");
         break;
     case LM_AFI_IP:
         ip_addr_copy(get_ip_(dst), get_ip_(src));

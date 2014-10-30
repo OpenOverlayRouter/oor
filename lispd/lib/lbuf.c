@@ -30,6 +30,7 @@
 #include <stdlib.h>
 
 #include "lbuf.h"
+#include "lmlog.h"
 #include "util.h"
 
 
@@ -51,7 +52,7 @@ lbuf_use__(lbuf_t *b, void *data, uint32_t allocated, lbuf_source_e source)
     lbuf_init__(b, allocated, source);
 }
 
-/* Initializes 'b' as an epty lbuf that contains the 'allocated' bytes of
+/* Initializes 'b' as an empty lbuf that contains the 'allocated' bytes of
  * memory starting at 'base'. 'base' should be obtained with malloc(). It
  * will be freed on resized or freed */
 void
@@ -195,5 +196,74 @@ lbuf_clone(lbuf_t *b)
     return new_buf;
 }
 
+inline int lbuf_point_to_ip(lbuf_t *b)
+{
+    if (b->ip == UINT16_MAX){
+        LMLOG(DBG_2,"lbuf_data_to_ip: IP header not specified in buffer");
+        return (BAD);
+    }
+    b->size = lbuf_tail(b) - lbuf_ip(b);
+    b->data = lbuf_ip(b);
 
+    return (GOOD);
+}
 
+inline int lbuf_point_to_udp(lbuf_t *b)
+{
+    if (b->udp == UINT16_MAX){
+        LMLOG(DBG_2,"lbuf_data_to_udp: UDP header not specified in buffer");
+        return (BAD);
+    }
+    b->size = lbuf_tail(b) - lbuf_udp(b);
+    b->data = lbuf_udp(b);
+
+    return (GOOD);
+}
+
+inline int lbuf_point_to_lisp_hdr(lbuf_t *b)
+{
+    if (b->lhdr == UINT16_MAX){
+        LMLOG(DBG_2,"lbuf_data_to_lisp_hdr: LISP Encap header not specified in buffer");
+        return (BAD);
+    }
+    b->size = lbuf_tail(b) - lbuf_lisp_hdr(b);
+    b->data = lbuf_lisp_hdr(b);
+
+    return (GOOD);
+}
+
+inline int lbuf_point_to_l3(lbuf_t *b)
+{
+    if (b->l3 == UINT16_MAX){
+        LMLOG(DBG_2,"lbuf_data_to_l3: Inner IP header not specified in buffer");
+        return (BAD);
+    }
+    b->size = lbuf_tail(b) - lbuf_l3(b);
+    b->data = lbuf_l3(b);
+
+    return (GOOD);
+}
+
+inline int lbuf_point_to_l4(lbuf_t *b)
+{
+    if (b->l4 == UINT16_MAX){
+        LMLOG(DBG_2,"lbuf_data_to_l4: Inner UDP header not specified in buffer");
+        return (BAD);
+    }
+    b->size = lbuf_tail(b) - lbuf_l4(b);
+    b->data = lbuf_l4(b);
+
+    return (GOOD);
+}
+
+inline int lbuf_point_to_lisp(lbuf_t *b)
+{
+    if (b->lisp == UINT16_MAX){
+        LMLOG(DBG_2,"lbuf_data_to_lisp: LISP header not specified in buffer");
+        return (BAD);
+    }
+    b->size = lbuf_tail(b) - lbuf_lisp(b);
+    b->data = lbuf_lisp(b);
+
+    return (GOOD);
+}

@@ -699,6 +699,25 @@ iface_list_elt_t *ifaces_list_head()
 }
 
 
+char *
+get_interface_name_from_address(lisp_addr_t *addr)
+{
+    char *iface  = NULL;
+
+    if (lisp_addr_afi(addr) != LM_AFI_IP) {
+        LMLOG(DBG_1, "get_interface_name_from_address: failed for %s. Function"
+                " only supports IP syntax addresses!", lisp_addr_to_char(addr));
+        return(NULL);
+    }
+
+    iface = shash_lookup(iface_addr_ht, lisp_addr_to_char(addr));
+    if (iface) {
+        return(iface);
+    } else {
+        return(NULL);
+    }
+}
+
 /*
  * Editor modelines
  *

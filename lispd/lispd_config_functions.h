@@ -33,10 +33,30 @@
 #ifndef LISPD_CONFIG_FUNCTIONS_H_
 #define LISPD_CONFIG_FUNCTIONS_H_
 
+#include "iface_locators.h"
 #include "lisp_ms.h"
 #include "lisp_site.h"
 #include "lisp_xtr.h"
 
+typedef struct no_addr_loct_ {
+    locator_t *     locator;
+    char *          iface_name;
+    int             afi;
+}no_addr_loct;
+
+no_addr_loct *
+no_addr_loct_new_init(
+        locator_t * loct,
+        char *      iface,
+        int         afi);
+
+void
+no_addr_loct_del(no_addr_loct * nloct);
+
+no_addr_loct *
+get_no_addr_loct_from_list(
+        glist_t     *list,
+        locator_t   *locator);
 
 void
 validate_rloc_probing_parameters(
@@ -69,16 +89,6 @@ add_proxy_etr_entry(
         int             priority,
         int             weight);
 
-int
-add_database_mapping(
-        lisp_xtr_t  *xtr,
-        char        *eid_str,
-        int         iid,
-        char        *iface_name,
-        int         priority4,
-        int         weight4,
-        int         priority6,
-        int         weight6);
 
 /*
  * Create the locators associated with the address of the iface and assign them
@@ -138,8 +148,10 @@ parse_ip_addr(char *addr_str);
 
 locator_t*
 clone_customize_locator(
-        locator_t*  locator,
-        uint8_t     type);
+        lisp_ctrl_dev_t     *dev,
+        locator_t*          locator,
+        glist_t*            no_addr_loct_l,
+        uint8_t             type);
 
 
 #endif /* LISPD_CONFIG_FUNCTIONS_H_ */

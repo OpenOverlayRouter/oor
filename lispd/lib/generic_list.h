@@ -62,6 +62,7 @@ int glist_add(void *data, glist_t *list);
 int glist_add_tail(void *data, glist_t *glist);
 uint8_t glist_contain(void *data, glist_t *list);
 void glist_remove(glist_entry_t *entry, glist_t *list);
+int glist_remove_obj(void * data,glist_t * list);
 void glist_dump(glist_t *list, glist_to_char_fct dump_fct, int log_level);
 void glist_destroy(glist_t *lst);
 void glist_remove_all(glist_t *lst);
@@ -128,6 +129,16 @@ static inline glist_entry_t *glist_prev(glist_entry_t *entry)
  */
 #define glist_for_each_entry(iter_, lst_) \
     list_for_each_entry(iter_, &((lst_)->head.list), list)
+
+/**
+ * generic_list_for_each_entry  - iterates over list in generic_list_t
+ * safe against removal of list entry
+ * @ iter:  * of glist_entry_t type, to use as loop iterator
+ * @ aux_iter: * of glist_entry_t type, to use as temporary storage
+ * @ lst:   * the list of glist_t type, over whose elements to iterate
+ */
+#define glist_for_each_entry_safe(iter_, aux_iter_, lst_) \
+    list_for_each_entry_safe(iter_, aux_iter_, &((lst_)->head.list), list)
 
 /*
 #define glist_for_each(pos, lst)              \

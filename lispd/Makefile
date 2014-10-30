@@ -67,6 +67,7 @@ OBJS		= cmdline.o                  \
 		  lib/generic_list.o             \
 		  lib/hash.o                     \
 		  lib/hash_table.o               \
+		  lib/iface_locators.o           \
 		  lib/lbuf.o                     \
 		  lib/lisp_site.o                \
 		  lib/lmlog.o                    \
@@ -114,6 +115,7 @@ OBJS		= cmdline.o                  \
 		  lib/generic_list.o             \
 		  lib/hash.o                     \
 		  lib/hash_table.o               \
+		  lib/iface_locators.o           \
 		  lib/lbuf.o                     \
 		  lib/lisp_site.o                \
 		  lib/lmlog.o                    \
@@ -154,7 +156,7 @@ endif
 	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $< 
 
 clean:
-	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o liblisp/*o lib/*o control/*o data-tun/*o
+	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o liblisp/*o liblisp/hmac/*o lib/*o control/*o data-tun/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out
