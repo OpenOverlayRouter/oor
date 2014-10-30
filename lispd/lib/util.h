@@ -189,12 +189,4 @@ char *xstrdup(const char *s);
 
 int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
 
-/*
- * If prefix b is contained in prefix a, then return TRUE. Otherwise return FALSE.
- * If both prefixs are the same it also returns TRUE
- */
-int is_prefix_b_part_of_a (
-        lisp_addr_t *a_prefix,
-        lisp_addr_t *b_prefix);
-
 #endif /* UTIL_H_ */
