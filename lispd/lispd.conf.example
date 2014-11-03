@@ -38,7 +38,7 @@ ms-static-registered-site {
 # RTR config
 #
 
-rtr-ifaces = {
+rtr-ifaces {
     rtr-iface {
         iface           = <iface name>
         priority        = <int>

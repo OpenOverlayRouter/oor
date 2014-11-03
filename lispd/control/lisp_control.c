@@ -120,14 +120,14 @@ ctrl_init(lisp_ctrl_t *ctrl)
 {
     set_default_ctrl_ifaces();
 
-    /* Generate receive sockets for control (4342) and data port (4341) */
+    /* Generate receive sockets for control port (4342)*/
     if (default_rloc_afi != AF_INET6) {
         ctrl->ipv4_control_input_fd = open_control_input_socket(AF_INET);
         sockmstr_register_read_listener(smaster, ctrl_recv_msg, ctrl,
                 ctrl->ipv4_control_input_fd);
     }
 
-    if (default_rloc_afi == AF_INET) {
+    if (default_rloc_afi != AF_INET) {
         ctrl->ipv6_control_input_fd = open_control_input_socket(AF_INET6);
         sockmstr_register_read_listener(smaster, ctrl_recv_msg, ctrl,
                 ctrl->ipv6_control_input_fd);

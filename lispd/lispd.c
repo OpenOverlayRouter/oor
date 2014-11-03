@@ -131,14 +131,14 @@ init_tr_data_plane(lisp_dev_type_e mode)
         cb_func = rtr_process_input_packet;
     }
 
-    /* Generate receive sockets for control (4342) and data port (4341) */
+    /* Generate receive sockets for data port (4341) */
     if (default_rloc_afi != AF_INET6) {
         ipv4_data_input_fd = open_data_input_socket(AF_INET);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv4_data_input_fd);
     }
 
-    if (default_rloc_afi == AF_INET) {
+    if (default_rloc_afi != AF_INET) {
         ipv6_data_input_fd = open_data_input_socket(AF_INET6);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);

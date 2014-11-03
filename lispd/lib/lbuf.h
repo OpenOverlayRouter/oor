@@ -141,7 +141,7 @@ static inline void *lbuf_end(const lbuf_t *b)
 
 static inline uint32_t lbuf_headroom(const lbuf_t *b)
 {
-    return (char *)lbuf_base(b) - (char *)lbuf_data(b);
+    return ((char *)lbuf_data(b) - (char *)lbuf_base(b));
 }
 
 static inline uint32_t lbuf_tailroom(const lbuf_t *b)

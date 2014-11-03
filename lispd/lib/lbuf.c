@@ -108,8 +108,9 @@ lbuf_new_with_headroom(uint32_t size, uint32_t headroom)
 static void
 lbuf_resize_(lbuf_t *b, uint32_t new_headroom, size_t new_tailroom)
 {
-    uint8_t *new_base, *new_data;
+    uint8_t *new_base;
     uint32_t new_allocated = new_headroom + b->size + new_tailroom;
+    uint32_t diff_offset = new_headroom - lbuf_headroom(b);
 
     if (new_headroom == lbuf_headroom(b)) {
         b->base = xrealloc(b->base, new_allocated);
@@ -118,14 +119,29 @@ lbuf_resize_(lbuf_t *b, uint32_t new_headroom, size_t new_tailroom)
         memcpy((uint8_t *)new_base + new_headroom, b->data, b->size);
         free(b->base);
         b->base = new_base;
+        if (b->ip != UINT16_MAX){
+            b->ip = b->ip + diff_offset;
+        }
+        if (b->udp != UINT16_MAX){
+            b->udp = b->udp + diff_offset;
+        }
+        if (b->lhdr != UINT16_MAX){
+            b->lhdr = b->lhdr + diff_offset;
+        }
+        if (b->l3 != UINT16_MAX){
+            b->l3 = b->l3 + diff_offset;
+        }
+        if (b->l4 != UINT16_MAX){
+            b->l4 = b->l4 + diff_offset;
+        }
+        if (b->lisp != UINT16_MAX){
+            b->lisp = b->lisp + diff_offset;
+        }
     }
 
     b->allocated = new_allocated;
-    new_data = (uint8_t *)b->base + new_headroom;
-    if (b->data != new_data)
-        b->data = new_data;
-    /* XXX: other private fields (if any) should be updated
-     * if b->data != new_data */
+    b->data = (uint8_t *)b->base + new_headroom;
+
 }
 
 void

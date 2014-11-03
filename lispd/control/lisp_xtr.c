@@ -2330,7 +2330,6 @@ get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
 {
     lcaf_addr_t *lcaf = NULL;
     elp_node_t *enode;
-
     lcaf = lisp_addr_get_lcaf(laddr);
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_EXPL_LOC_PATH:
@@ -2389,7 +2388,6 @@ get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     }
 
     if (select_locs_from_maps(smap, dmap, tuple, &srloc, &drloc) != GOOD) {
-        return(fe);
         /* Try PETRs */
         if (!xtr->petrs) {
             LMLOG(DBG_3, "Trying to forward to PETR but none found ...");
@@ -2400,6 +2398,7 @@ get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
             LMLOG(DBG_3, "No PETR compatible with local locators afi");
             return (fe);
         }
+        LMLOG(DBG_3, "Forwarding packet to PeTR");
     }
 
     if (!srloc || !drloc) {
@@ -2407,7 +2406,6 @@ get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
                 "RLOC pair");
         return(fe);
     }
-
 
     safi = lisp_addr_afi(locator_addr(srloc));
     dafi = lisp_addr_afi(locator_addr(drloc));
@@ -2423,14 +2421,13 @@ get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     if (dafi == LM_AFI_IP) {
         fe->drloc = locator_addr(drloc);
     } else if (dafi == LM_AFI_LCAF) {
-        if (xtr->super.mode == xTR_MODE) {
+        if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
             get_dst_from_lcaf(locator_addr(drloc), &fe->drloc);
         } else if (xtr->super.mode == RTR_MODE) {
             rtr_get_src_and_dst_from_lcaf(xtr, locator_addr(drloc),
                     &fe->srloc, &fe->drloc);
         }
     }
-
     return (fe);
 }
 

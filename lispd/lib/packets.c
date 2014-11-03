@@ -85,7 +85,6 @@ pkt_pull_ip(lbuf_t *b)
     if (ip_hdr_len < 1) {
         return(NULL);
     }
-
     return(lbuf_pull(b, ip_hdr_len));
 }
 
@@ -171,7 +170,7 @@ pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst, int proto)
 {
     void *iph = NULL;
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
-        LMLOG(DBG_1, "src %s and dst % IP have different AFI! Discarding!",
+        LMLOG(DBG_1, "src %s and dst %s IP have different AFI! Discarding!",
                 ip_addr_to_char(src), ip_addr_to_char(dst));
         return(NULL);
     }
@@ -345,6 +344,42 @@ pkt_tuple_del(packet_tuple_t *tpl)
     lisp_addr_dealloc(&tpl->src_addr);
     free(tpl);
     tpl = NULL;
+}
+
+char *
+pkt_tuple_to_char(packet_tuple_t *tpl)
+{
+    static char buf[2][200];
+    static int i=0;
+    /* hack to allow more than one locator per line */
+    i++; i = i % 2;
+    *buf[i] = '\0';
+    if (tpl == NULL){
+        sprintf(buf[i], "_NULL_");
+        return (buf[i]);
+    }
+    sprintf(buf[i], "Src_addr: %s, ", lisp_addr_to_char(&tpl->src_addr));
+    sprintf(buf[i] + strlen(buf[i]), "Dst addr: %s, ", lisp_addr_to_char(&tpl->dst_addr));
+    sprintf(buf[i] + strlen(buf[i]), "Proto: ");
+
+    switch (tpl->protocol){
+    case IPPROTO_UDP:
+        sprintf(buf[i] + strlen(buf[i]), "UDP, ");
+        break;
+    case IPPROTO_TCP:
+        sprintf(buf[i] + strlen(buf[i]), "TCP, ");
+        break;
+    case IPPROTO_ICMP:
+        sprintf(buf[i] + strlen(buf[i]), "ICMP, ");
+        break;
+    default:
+        sprintf(buf[i] + strlen(buf[i]), "%d, ",tpl->protocol);
+        break;
+    }
+    sprintf(buf[i] + strlen(buf[i]), "Src Port: %d, ",tpl->src_port);
+    sprintf(buf[i] + strlen(buf[i]), "Dst Port: %d\n",tpl->dst_port);
+
+    return (buf[i]);
 }
 
 
