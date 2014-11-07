@@ -210,7 +210,7 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     /* Packets with no/negative map cache entry AND no PETR
      * OR packets with missing src or dst RLOCs
      * forward them natively */
-    if (!fe || (!fe->srloc && !fe->drloc)) {
+    if (!fe || (!fe->srloc || !fe->drloc)) {
         return(forward_native(b, &tuple->dst_addr));
     }
 

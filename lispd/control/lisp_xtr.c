@@ -2286,61 +2286,126 @@ get_natt_forwarding_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple) {
     return (fwd_entry);
 }
 
+//static int
+//rtr_get_src_and_dst_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **src,
+//        lisp_addr_t **dst)
+//{
+//    lcaf_addr_t *lcaf = NULL;
+//    elp_node_t *elp_node, *next_elp;
+//    glist_entry_t *it = NULL, *rit;
+//    lisp_addr_t *raddr;
+//    glist_t *rlocs;
+//
+//    lcaf = lisp_addr_get_lcaf(laddr);
+//    switch (lcaf_addr_get_type(lcaf)) {
+//    case LCAF_EXPL_LOC_PATH:
+//        /* lookup in the elp list the first RLOC to also pertain to the RTR */
+//        glist_for_each_entry(it, lcaf_elp_node_list(lcaf)) {
+//            elp_node = glist_entry_data(it);
+//            rlocs = ctrl_rlocs(xtr->super.ctrl,
+//                    lisp_addr_ip_afi(elp_node->addr));
+//
+//            glist_for_each_entry(rit, rlocs) {
+//                raddr = glist_entry_data(rit);
+//                if (lisp_addr_cmp(raddr, elp_node->addr) == 0) {
+//                    next_elp = glist_entry_data(glist_next(it));
+//                    *dst = next_elp->addr;
+//                    *src = elp_node->addr;
+//                    return (GOOD);
+//                }
+//            }
+//        }
+//        return (GOOD);
+//    default:
+//        LMLOG(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
+//                lcaf_addr_get_type(lcaf));
+//        return (BAD);
+//    }
+//}
+
+/* Used by ITRs to determine the src IP RLOC if the locator is
+ * an LCAF */
 static int
-rtr_get_src_and_dst_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **src,
-        lisp_addr_t **dst)
+get_src_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **src)
 {
     lcaf_addr_t *lcaf = NULL;
-    elp_node_t *elp_node, *next_elp;
-    glist_entry_t *it = NULL, *rit;
-    lisp_addr_t *raddr;
+    glist_entry_t *it_elp = NULL;
+    glist_entry_t *it_rlocs = NULL;
+    elp_node_t *elp_node = NULL;
+    lisp_addr_t *addr;
     glist_t *rlocs;
-
     lcaf = lisp_addr_get_lcaf(laddr);
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_EXPL_LOC_PATH:
-        /* lookup in the elp list the first RLOC to also pertain to the RTR */
-        glist_for_each_entry(it, lcaf_elp_node_list(lcaf)) {
-            elp_node = glist_entry_data(it);
-            rlocs = ctrl_rlocs(xtr->super.ctrl,
-                    lisp_addr_ip_afi(elp_node->addr));
+        /* lookup in the elp list the first RLOC to also pertain to the device */
+        glist_for_each_entry(it_elp, lcaf_elp_node_list(lcaf)) {
+            elp_node = (elp_node_t *)glist_entry_data(it_elp);
+            rlocs = ctrl_rlocs(xtr->super.ctrl,lisp_addr_ip_afi(elp_node->addr));
 
-            glist_for_each_entry(rit, rlocs) {
-                raddr = glist_entry_data(rit);
-                if (lisp_addr_cmp(raddr, elp_node->addr) == 0) {
-                    next_elp = glist_entry_data(glist_next(it));
-                    *dst = next_elp->addr;
+            glist_for_each_entry(it_rlocs, rlocs) {
+                addr = glist_entry_data(it_rlocs);
+                if (lisp_addr_cmp(addr, elp_node->addr) == 0) {
                     *src = elp_node->addr;
                     return (GOOD);
                 }
             }
         }
-        return (GOOD);
+        LMLOG(DBG_2, "get_src_from_lcaf: Not found any RLOC from the ELP belonging to the device: %s",
+                lisp_addr_to_char(laddr));
+        *src = NULL;
+        return (BAD);
     default:
-        LMLOG(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
+        *src = NULL;
+        LMLOG(DBG_1, "get_src_from_lcaf: LCAF type %d not supported!, ",
                 lcaf_addr_get_type(lcaf));
         return (BAD);
     }
+    return (GOOD);
 }
 
 /* Used by ITRs to determine the destination IP RLOC if the locator is
  * an LCAF */
 static int
-get_dst_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
+get_dst_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **dst)
 {
     lcaf_addr_t *lcaf = NULL;
-    elp_node_t *enode;
+    glist_entry_t *it_elp = NULL;
+    glist_entry_t *it_rlocs = NULL;
+    elp_node_t *elp_node = NULL;
+    elp_node_t *next_elp = NULL;
+    lisp_addr_t *addr;
+    glist_t *rlocs;
+
     lcaf = lisp_addr_get_lcaf(laddr);
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_EXPL_LOC_PATH:
-        /* we're the ITR, so the destination is the first elp hop, the src we
-         * choose outside */
-        enode = glist_first_data(lcaf_elp_node_list(lcaf));
-        *dst = enode->addr;
-        break;
+
+        /* If the device is a MN or xTR. Destination is the first node */
+        if (xtr->super.mode != RTR_MODE){
+            elp_node = (elp_node_t *)glist_first_data(lcaf_elp_node_list(lcaf));
+            *dst = elp_node->addr;
+            return (GOOD);
+        }
+        /* lookup in the elp list the first RLOC to also pertain to the device */
+        glist_for_each_entry(it_elp, lcaf_elp_node_list(lcaf)) {
+            elp_node = (elp_node_t *)glist_entry_data(it_elp);
+            rlocs = ctrl_rlocs(xtr->super.ctrl,lisp_addr_ip_afi(elp_node->addr));
+            glist_for_each_entry(it_rlocs, rlocs) {
+                addr = glist_entry_data(it_rlocs);
+                if (lisp_addr_cmp(addr, elp_node->addr) == 0) {
+                    next_elp = glist_entry_data(glist_next(it_elp));
+                    *dst = next_elp->addr;
+                    return (GOOD);
+                }
+            }
+        }
+        LMLOG(DBG_2, "get_dst_from_lcaf: Not found any RLOC from the ELP belonging to the device: %s",
+                lisp_addr_to_char(laddr));
+        *dst = NULL;
+        return (BAD);
     default:
         *dst = NULL;
-        LMLOG(DBG_1, "get_locator_from_lcaf: Type % not supported!, ",
+        LMLOG(DBG_1, "get_dst_from_lcaf: LCAF type %d not supported!, ",
                 lcaf_addr_get_type(lcaf));
         return (BAD);
     }
@@ -2413,20 +2478,13 @@ get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     if (safi == LM_AFI_IP) {
         fe->srloc = locator_addr(srloc);
     } else if (safi == LM_AFI_LCAF) {
-        /* XXX: should choose the interface associated to this LCAF,
-         * if one exists */
-        fe->srloc = NULL;
+        get_src_from_lcaf(xtr,locator_addr(srloc), &fe->srloc);
     }
 
     if (dafi == LM_AFI_IP) {
         fe->drloc = locator_addr(drloc);
     } else if (dafi == LM_AFI_LCAF) {
-        if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
-            get_dst_from_lcaf(locator_addr(drloc), &fe->drloc);
-        } else if (xtr->super.mode == RTR_MODE) {
-            rtr_get_src_and_dst_from_lcaf(xtr, locator_addr(drloc),
-                    &fe->srloc, &fe->drloc);
-        }
+        get_dst_from_lcaf(xtr,locator_addr(drloc), &fe->drloc);
     }
     return (fe);
 }
