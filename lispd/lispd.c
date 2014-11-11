@@ -95,6 +95,17 @@ sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
 
+/**************************** FUNCTION DECLARATION ***************************/
+/* Check if lispmob is already running: /var/run/lispd.pid */
+int pid_file_check_not_exist();
+
+/* Creates the PID file of the process */
+int pid_file_create();
+
+/* Remove the PID file of the process */
+void pid_file_remove();
+/*****************************************************************************/
+
 int
 init_tr_data_plane(lisp_dev_type_e mode)
 {
@@ -149,6 +160,76 @@ init_tr_data_plane(lisp_dev_type_e mode)
     return(GOOD);
 }
 
+/* Check if lispmob is already running: /var/run/lispd.pid */
+int pid_file_check_not_exist()
+{
+    FILE *pid_file = NULL;
+
+    pid_file = fopen("/var/run/lispd.pid", "r");
+    if (pid_file != NULL)
+    {
+        LMLOG(LCRIT, "Check no other instance of lispd is running. If no instance is running, remove /var/run/lispd.pid");
+        fclose(pid_file);
+        return (BAD);
+    }
+
+    return (GOOD);
+}
+
+/* Creates the PID file of the process */
+int pid_file_create()
+{
+    FILE *pid_file = NULL;
+    int pid = getpid();
+
+    pid_file = fopen("/var/run/lispd.pid", "w");
+    if (pid_file == NULL){
+        LMLOG(LCRIT, "pid_file_create: Error creating PID file: %s",strerror(errno));
+        return (BAD);
+    }
+    fprintf(pid_file, "%d\n",pid);
+    fclose(pid_file);
+
+    LMLOG(DBG_1, "PID file created: /var/run/lispd.pid -> %d",pid);
+
+    return (GOOD);
+}
+
+/* Remove the PID file of the process */
+void pid_file_remove()
+{
+    FILE *pid_file = NULL;
+    char * line = NULL;
+    ssize_t read;
+    size_t len;
+    long int pid;
+
+    pid_file = fopen("/var/run/lispd.pid", "r");
+    if (pid_file == NULL){
+        return;
+    }
+
+    read = getline(&line, &len, pid_file);
+    if (read == -1){
+        LMLOG(LWRN, "pid_file_remove: Couldn't read PID number from file");
+        fclose(pid_file);
+        return;
+    }
+    pid = strtol(line,NULL,10);
+    free(line);
+    fclose(pid_file);
+
+    if (pid != getpid()){
+        return;
+    }
+
+    if (remove("/var/run/lispd.pid") != 0){
+        LMLOG(LWRN,"pid_file_remove: PID file couldn't be removed: /var/run/lispd.pid");
+    }else{
+        LMLOG(DBG_1,"PID file removed");
+    }
+}
+
 /*
  *  Check for superuser privileges
  */
@@ -160,6 +241,9 @@ int check_capabilities()
 
     cap_header.pid = getpid();
     cap_header.version = _LINUX_CAPABILITY_VERSION;
+
+    /* Check if lispmob is already running: /var/run/lispd.pid */
+
     if (capget(&cap_header, &cap_data) < 0)
     {
         LMLOG(LCRIT, "Could not retrieve capabilities");
@@ -218,6 +302,7 @@ int check_capabilities()
     return (GOOD);
 }
 #endif
+
 
 void test_elp()
 {
@@ -312,6 +397,8 @@ void signal_handler(int sig) {
 void
 exit_cleanup(void) {
     LMLOG(DBG_2,"Exist Clenup");
+
+    pid_file_remove();
 
     ctrl_destroy(lctrl);
 
@@ -453,6 +540,11 @@ initial_setup()
 #else
     LMLOG(LINF,"LISPmob compiled for linux xTR\n");
 #endif
+
+    if(pid_file_check_not_exist() == BAD){
+        exit_cleanup();
+    }
+    pid_file_create();
 
     if (check_capabilities() != GOOD){
         exit_cleanup();

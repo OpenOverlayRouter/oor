@@ -126,7 +126,7 @@ int rtr_process_input_packet(struct sock *sl)
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
     /* Reserve space in case the received packet was IPv6. In this case the IPv6 header is
      * not provided */
-    lbuf_reserve(&pkt_buf,MAX_IP_HDR_LEN);
+    lbuf_reserve(&pkt_buf,LBUF_STACK_OFFSET);
 
     if (read_and_decap_pkt(sl->fd, &pkt_buf) != GOOD) {
         return (BAD);

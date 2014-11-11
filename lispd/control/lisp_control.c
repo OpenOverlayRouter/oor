@@ -107,6 +107,9 @@ ctrl_create()
 void
 ctrl_destroy(lisp_ctrl_t *ctrl)
 {
+    if (ctrl == NULL){
+        return;
+    }
     glist_destroy(ctrl->devices);
     glist_destroy(ctrl->ipv4_rlocs);
     glist_destroy(ctrl->ipv6_rlocs);

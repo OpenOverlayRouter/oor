@@ -196,7 +196,6 @@ static int
 lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
     fwd_entry_t *fe = NULL;
-
     fe = ttable_lookup(&ttable, tuple);
     if (!fe) {
         fe = ctrl_get_forwarding_entry(tuple);
@@ -220,6 +219,7 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 
     sock_lisp_data_send(b, fe->srloc, fe->drloc, fe->iface);
 
+
     return (GOOD);
 }
 
@@ -235,7 +235,6 @@ lisp_output(lbuf_t *b)
     LMLOG(DBG_3,"OUTPUT: Received EID %s -> %s, Proto: %d, Port: %d -> %d ",
             lisp_addr_to_char(&tpl.src_addr), lisp_addr_to_char(&tpl.dst_addr),
             tpl.protocol, tpl.src_port, tpl.dst_port);
-
 
     /* If already LISP packet, do not encapsulate again */
     if (is_lisp_packet(&tpl)) {
@@ -256,7 +255,7 @@ int
 lisp_output_recv(struct sock *sl)
 {
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, TUN_RECEIVE_SIZE);
-    lbuf_reserve(&pkt_buf, MAX_LISP_PKT_ENCAP_LEN);
+    lbuf_reserve(&pkt_buf, LBUF_STACK_OFFSET);
 
     if (sock_recv(sl->fd, &pkt_buf) != GOOD) {
         LMLOG(LWRN, "OUTPUT: Error while reading from tun!");
