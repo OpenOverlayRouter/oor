@@ -107,12 +107,12 @@ mc_entry_start_expiration_timer(lisp_xtr_t *xtr, mcache_entry_t *mce)
         mce->expiry_cache_timer = lmtimer_create(EXPIRE_MAP_CACHE_TIMER);
     }
 
-    lmtimer_start(mce->expiry_cache_timer, mce->ttl*60,
+    lmtimer_start(mce->expiry_cache_timer, mapping_ttl(mcache_entry_mapping(mce))*60,
             mc_entry_expiration_timer_cb, xtr, mce);
 
-    LMLOG(DBG_1,"The map cache entry of EID %s will expire in %ld minutes.",
+    LMLOG(DBG_1,"The map cache entry of EID %s will expire in %d minutes.",
             lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))),
-            mce->ttl);
+            mapping_ttl(mcache_entry_mapping(mce)));
 }
 
 

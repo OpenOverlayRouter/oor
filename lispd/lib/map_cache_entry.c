@@ -61,8 +61,6 @@ mcache_entry_init(mcache_entry_t *mce, mapping_t *mapping)
 
     mce->mapping = mapping;
     mce->how_learned = MCE_DYNAMIC;
-    mce->ttl = DEFAULT_DATA_CACHE_TTL;
-
 }
 
 void
@@ -72,7 +70,6 @@ mcache_entry_init_static(mcache_entry_t *mce, mapping_t *mapping)
     mce->active = ACTIVE;
     mce->mapping = mapping;
     mce->how_learned = MCE_STATIC;
-    mce->ttl = 255; /* XXX: why 255? */
 }
 
 
@@ -121,7 +118,7 @@ map_cache_entry_to_char (mcache_entry_t *entry, int log_level)
     uptime = time(NULL);
     uptime = uptime - entry->timestamp;
     strftime(buf, 20, "%H:%M:%S", localtime(&uptime));
-    expiretime = (entry->ttl * 60) - uptime;
+    expiretime = (mapping_ttl(mcache_entry_mapping(entry)) * 60) - uptime;
     if (expiretime > 0) {
         strftime(buf2, 20, "%H:%M:%S", localtime(&expiretime));
     }
