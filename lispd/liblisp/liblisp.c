@@ -398,12 +398,13 @@ lisp_msg_put_mapping(
         mapping_t   *m,
         lisp_addr_t *probed_loc)
 {
-    locator_list_t          *loc_list[2]    = {NULL,NULL};
-    locator_t               *loc            = NULL ;
-    int                     i               = 0;
     mapping_record_hdr_t    *rec            = NULL;
     locator_hdr_t           *ploc           = NULL;
     lisp_addr_t             *eid            = NULL;
+    glist_entry_t   		*it_list        = NULL;
+    glist_entry_t   		*it_loct        = NULL;
+    glist_t					*loct_list		= NULL;
+    locator_t				*loct			= NULL;
 
     eid = mapping_eid(m);
     rec = lisp_msg_put_mapping_hdr(b);
@@ -415,19 +416,24 @@ lisp_msg_put_mapping(
     if (lisp_msg_put_addr(b, eid) == NULL) {
         return(NULL);
     }
-    loc_list[0] = m->head_v4_locators_list;
-    loc_list[1] = m->head_v6_locators_list;
-    for (i = 0 ; i < 2 ; i++){
-        while (loc_list[i]) {
-            loc = loc_list[i]->locator;
-            ploc = lisp_msg_put_locator(b, loc);
-            if (probed_loc
-                    && lisp_addr_cmp(locator_addr(loc), probed_loc) == 0) {
-                LOC_PROBED(ploc) = 1;
-            }
-            loc_list[i] = loc_list[i]->next;
-        }
+
+    /* Add locators */
+    glist_for_each_entry(it_list,mapping_locators(m)){
+    	loct_list = (glist_t *)glist_entry_data(it_list);
+    	loct = (locator_t *)glist_first_data(loct_list);
+    	if (lisp_addr_is_no_addr(locator_addr(loct)) == TRUE){
+    		continue;
+    	}
+    	glist_for_each_entry(it_loct,loct_list){
+    		loct = (locator_t *)glist_entry_data(it_loct);
+    		ploc = lisp_msg_put_locator(b, loct);
+    		if (probed_loc
+    				&& lisp_addr_cmp(locator_addr(loct), probed_loc) == 0) {
+    			LOC_PROBED(ploc) = 1;
+    		}
+    	}
     }
+
     increment_record_count(b);
 
     return(rec);
@@ -462,6 +468,9 @@ lisp_msg_put_itr_rlocs(lbuf_t *b, glist_t *itr_rlocs)
     void *hdr, *data;
 
     data = lbuf_data(b);
+    if(glist_size(itr_rlocs) == 0){
+        return (NULL);
+    }
     glist_for_each_entry(it, itr_rlocs) {
         rloc = glist_entry_data(it);
         if (lisp_msg_put_addr(b, rloc) == NULL) {
@@ -563,14 +572,17 @@ lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs,
 
     lbuf_t *b = lisp_msg_create(LISP_MAP_REQUEST);
     if (lisp_msg_put_addr(b, seid) == NULL) {
+        lbuf_del(b);
         return(NULL);
     }
 
     if (lisp_msg_put_itr_rlocs(b, itr_rlocs) == NULL) {
+        lbuf_del(b);
         return(NULL);
     }
 
     if (lisp_msg_put_eid_rec(b, deid) == NULL) {
+        lbuf_del(b);
         return(NULL);
     }
 

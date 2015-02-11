@@ -34,12 +34,17 @@
 #include "liblisp.h"
 #include "iface_list.h"
 
+#define NO_AFI_SUPPOT  	0
+#define IPv4_SUPPORT	1
+#define IPv6_SUPPORT	2
+
 typedef struct lisp_ctrl lisp_ctrl_t;
 
 struct lisp_ctrl {
     glist_t *devices;
     /* move ctrl interface here */
 
+    int supported_afis;
     int ipv4_control_input_fd;
     int ipv6_control_input_fd;
 
@@ -67,7 +72,9 @@ lisp_addr_t *ctrl_default_rloc(lisp_ctrl_t *c, int afi);
  * @return glist_t * with the lisp_addr_t * of the default rlocs
  */
 glist_t *ctrl_default_rlocs(lisp_ctrl_t * ctrl);
-glist_t *ctrl_rlocs(lisp_ctrl_t *c, int afi) ;
+glist_t *ctrl_rlocs(lisp_ctrl_t *ctrl);
+glist_t *ctrl_rlocs_with_afi(lisp_ctrl_t *c, int afi) ;
+inline int ctrl_supported_afis(lisp_ctrl_t *ctrl);
 
 void ctrl_if_addr_update(lisp_ctrl_t *, iface_t *, lisp_addr_t *,
         lisp_addr_t *);

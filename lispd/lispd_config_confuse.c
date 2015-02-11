@@ -103,7 +103,7 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
             glist_add_tail(enode, elp->nodes);
         }
 
-        laddr = lisp_addr_new_afi(LM_AFI_LCAF);
+        laddr = lisp_addr_new_lafi(LM_AFI_LCAF);
         lisp_addr_lcaf_set_type(laddr, LCAF_EXPL_LOC_PATH);
         lisp_addr_lcaf_set_addr(laddr, elp);
         LMLOG(DBG_1, "Configuration file: parsed explicit-locator-path: %s",
@@ -127,7 +127,7 @@ parse_rle_list(cfg_t *cfg, htable_t *ht)
         cfg_t *selp = cfg_getnsec(cfg, "replication-list", i);
         name = cfg_getstr(selp, "rle-name");
 
-        laddr = lisp_addr_new_afi(LM_AFI_LCAF);
+        laddr = lisp_addr_new_lafi(LM_AFI_LCAF);
         lisp_addr_lcaf_set_type(laddr, LCAF_RLE);
 
         rle = rle_type_new();
@@ -167,7 +167,7 @@ parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
         cfg_t *mcnode = cfg_getnsec(cfg, "multicast-info", i);
         name = cfg_getstr(mcnode, "mc-info-name");
 
-        laddr = lisp_addr_new_afi(LM_AFI_LCAF);
+        laddr = lisp_addr_new_lafi(LM_AFI_LCAF);
         lisp_addr_lcaf_set_type(laddr, LCAF_MCAST_INFO);
 
         mc = mc_type_new();
@@ -1058,7 +1058,7 @@ parse_mapping(
                 continue;
             }
             /* Check that the locator is not already added */
-            if (mapping_get_locator(mapping, locator_addr(locator)) != NULL){
+            if (mapping_get_loct_with_addr(mapping, locator_addr(locator)) != NULL){
                 LMLOG(LERR,"Configuration file: Duplicated RLOC with address %s "
                         "for EID prefix %s. Discarded ...",
                         lisp_addr_to_char(locator_addr(locator)),
@@ -1093,7 +1093,7 @@ parse_mapping(
                 continue;
             }
             /* Check that the locator is not already added */
-            if (mapping_get_locator(mapping, locator_addr(locator)) != NULL){
+            if (mapping_get_loct_with_addr(mapping, locator_addr(locator)) != NULL){
                 LMLOG(LERR,"Configuration file: Duplicated RLOC with address %s "
                         "for EID prefix %s. Discarded ...",
                         lisp_addr_to_char(locator_addr(locator)),
@@ -1170,7 +1170,7 @@ parse_rloc_address(
         if (address == NULL){
             continue;
         }
-        if (lisp_addr_afi(address) == LM_AFI_IPPREF){
+        if (lisp_addr_lafi(address) == LM_AFI_IPPREF){
             LMLOG(LERR, "Configuration file: RLOC address can not be a prefix: %s ",
                     lisp_addr_to_char(address));
             continue;
@@ -1178,16 +1178,13 @@ parse_rloc_address(
 
         if (type == LOCAL_LOCATOR){
             /* Decide IP address to be used to lookup the interface */
-            if (lisp_addr_is_lcaf(address) == TRUE) {
-                ip_addr = lcaf_rloc_get_ip_addr(address);
-                if (ip_addr == NULL) {
-                    LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
-                            "address %s", lisp_addr_to_char(address));
-                    return(NULL);
-                }
-            } else {
-                ip_addr = address;
-            }
+
+        	ip_addr = lisp_addr_get_ip_addr(address);
+        	if (ip_addr == NULL) {
+        		LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
+        				"address %s", lisp_addr_to_char(address));
+        		return (NULL);
+        	}
 
             /* Find the interface name associated to the RLOC */
             if (!(iface_name = get_interface_name_from_address(ip_addr))) {

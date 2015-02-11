@@ -53,14 +53,8 @@ typedef struct _lcaf_addr_t {
  * Abstract representation of LCAFs
  */
 
-/* AFI-list */
-typedef struct afi_list_node {
-    lisp_addr_t            *addr;
-    struct afi_list_node   *next;
-} afi_list_node_t;
-
 typedef struct afi_list {
-    afi_list_node_t   *list;
+    glist_t   *list_addr;
 } afi_list_t;
 
 
@@ -179,9 +173,11 @@ inline void             mc_type_copy(void **dst, void *src);
 inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 int                     mc_type_parse(uint8_t *offset, void **mc);
+lisp_addr_t *			mc_type_get_ip_addr (void *mc);
 int                     lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 lisp_addr_t             *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp);
 inline int              lisp_addr_is_mcinfo(lisp_addr_t *addr);
+
 
 
 /*
@@ -206,6 +202,8 @@ char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);
 iid_t                       *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen);
 lcaf_addr_t                 *lcaf_iid_init(int iid, lisp_addr_t *addr, uint8_t mlen);
+lisp_addr_t *				iid_type_get_ip_addr(void *iid);
+lisp_addr_t *				iid_type_get_fwd_ip_addr(void *iid,glist_t *locl_rlocs_addr);
 
 
 
@@ -237,20 +235,21 @@ char                    *geo_coord_to_char(geo_coordinates *coord);
 /*
  * RLE type functions
  */
-inline rle_t *rle_type_new();
-inline void rle_type_del(void *rleaddr);
-int rle_type_parse(uint8_t *offset, void **rle);
-int rle_type_write_to_pkt(uint8_t *offset, void *rle);
-int rle_type_get_size_to_write(void *elp);
-char *rle_type_to_char(void *rle);
-void rle_type_copy(void **dst, void *src);
-int rle_type_cmp(void *elp1, void *elp2);
+inline rle_t *			rle_type_new();
+inline void 			rle_type_del(void *rleaddr);
+int 					rle_type_parse(uint8_t *offset, void **rle);
+int 					rle_type_write_to_pkt(uint8_t *offset, void *rle);
+int 					rle_type_get_size_to_write(void *elp);
+char *					rle_type_to_char(void *rle);
+void 					rle_type_copy(void **dst, void *src);
+int 					rle_type_cmp(void *elp1, void *elp2);
+lisp_addr_t * 			rle_type_get_fwd_ip_addr(void *rle, glist_t *locl_rlocs_addr);
 
-rle_node_t *rle_node_clone(rle_node_t *srn);
-inline rle_node_t *rle_node_new();
-inline void rle_node_del(rle_node_t *rnode);
+rle_node_t *			rle_node_clone(rle_node_t *srn);
+inline rle_node_t *		rle_node_new();
+inline void 			rle_node_del(rle_node_t *rnode);
 
-static inline glist_t *lcaf_rle_node_list(lcaf_addr_t *lcaf)
+static inline glist_t *	lcaf_rle_node_list(lcaf_addr_t *lcaf)
 {
     return(((rle_t *)lcaf->addr)->nodes);
 }
@@ -269,11 +268,13 @@ int                         elp_type_parse(uint8_t *offset, void **elp);
 char                        *elp_type_to_char(void *elp);
 void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
+lisp_addr_t *				elp_type_get_ip_addr(void *elp);
+lisp_addr_t *				elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr);
 
 inline void                 elp_node_del(elp_node_t *enode);
 inline void                 lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode);
 
-static inline glist_t *lcaf_elp_node_list(lcaf_addr_t *lcaf) {
+static inline glist_t *		lcaf_elp_node_list(lcaf_addr_t *lcaf) {
     return(((elp_t *)lcaf->addr)->nodes);
 }
 inline int                  lisp_addr_is_elp(lisp_addr_t *addr);
@@ -292,8 +293,11 @@ int                         afi_list_type_parse(uint8_t *offset, void **afil);
 char                        *afi_list_type_to_char(void *afil);
 void                        afi_list_type_copy(void **dst, void *src);
 int                         afi_list_type_cmp(void *afil1, void *afil2);
+lisp_addr_t *				afi_list_type_get_ip_addr(void *afi_list);
+lisp_addr_t *				afi_list_type_get_fwd_ip_addr(void *afi_list, glist_t *locl_rlocs_addr);
 
-lisp_addr_t *lcaf_eid_get_ip_addr(lcaf_addr_t *lcaf);
-lisp_addr_t *lcaf_rloc_get_ip_addr(lisp_addr_t *addr);
+lisp_addr_t *				lcaf_get_ip_addr(lcaf_addr_t *lcaf);
+lisp_addr_t * 				lcaf_get_fwd_ip_addr(lcaf_addr_t *lcaf, glist_t *locl_rlocs_addr);
+
 int lcaf_rloc_set_ip_addr(lisp_addr_t *, lisp_addr_t *if_addr);
 #endif /* LISPD_LCAF_H_ */

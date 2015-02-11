@@ -190,11 +190,23 @@ ip_addr_write_to_pkt(void *dst, ip_addr_t *src, uint8_t convert)
 inline int
 ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2)
 {
-    if (ip_addr_afi(ip1) != ip_addr_afi(ip2))
+    int res = 0;
+    if (ip_addr_afi(ip1) != ip_addr_afi(ip2)){
+        LMLOG(DBG_3,"ip_addr_cmp: Addresses with different afi: %d - %d",
+                ip_addr_afi(ip1),ip_addr_afi(ip2));
         return(-1);
-    return(memcmp(ip_addr_get_addr(ip1),
-                  ip_addr_get_addr(ip2),
-                  ip_addr_get_size(ip1)) );
+    }
+    res = memcmp(ip_addr_get_addr(ip1),
+                      ip_addr_get_addr(ip2),
+                      ip_addr_get_size(ip1));
+
+    if (res < 0){
+        res = 2;
+    }else if (res > 0){
+        res = 1;
+    }
+
+    return(res);
 }
 
 

@@ -44,8 +44,6 @@ typedef enum {
     LM_AFI_IP,
     LM_AFI_IPPREF,
     LM_AFI_LCAF,
-    /* compatibiliy */
-    LM_AFI_IP6 = AF_INET6
 } lm_afi_t;
 
 
@@ -78,16 +76,10 @@ struct _lisp_addr_t {
     };
 };
 
-/* generic list of addresses */
-typedef struct _lispd_addr_list_t {
-    lisp_addr_t                 *address;
-    struct _lispd_addr_list_t   *next;
-} lisp_addr_list_t;
-
 
 
 inline lisp_addr_t *lisp_addr_new();
-inline lisp_addr_t *lisp_addr_new_afi(uint8_t afi);
+inline lisp_addr_t *lisp_addr_new_lafi(uint8_t lafi);
 inline void lisp_addr_del(lisp_addr_t *laddr);
 void lisp_addr_dealloc(lisp_addr_t *addr);
 void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
@@ -99,12 +91,12 @@ inline int lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2);
 inline uint32_t lisp_addr_size_to_write(lisp_addr_t *laddr);
 char *lisp_addr_to_char(lisp_addr_t *addr);
 
-inline void lisp_addr_set_afi(lisp_addr_t *addr, lm_afi_t afi);
+inline void lisp_addr_set_lafi(lisp_addr_t *addr, lm_afi_t afi);
 inline void lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf);
 inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen);
 inline void lisp_addr_set_ip(lisp_addr_t *addr, ip_addr_t *ip);
 
-static inline lm_afi_t lisp_addr_afi(lisp_addr_t *addr)
+static inline lm_afi_t lisp_addr_lafi(lisp_addr_t *addr)
 {
     return (addr->lafi);
 }
@@ -167,16 +159,13 @@ inline uint16_t lisp_addr_get_iana_afi(lisp_addr_t *laddr);
 inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr);
 
 inline int lisp_addr_is_mc(lisp_addr_t *addr);
-lisp_addr_t *lisp_addr_to_ip_addr(lisp_addr_t *addr);
+lisp_addr_t *lisp_addr_get_ip_addr(lisp_addr_t *addr);
+lisp_addr_t *lisp_addr_get_fwd_ip_addr(lisp_addr_t *addr, glist_t *locl_rlocs_addr);
 
 int lisp_addr_ip_from_char(char *, lisp_addr_t *);
 int lisp_addr_ippref_from_char(char *, lisp_addr_t *);
 
-
-
-/* OLD format lisp addr list*/
-void lisp_addr_list_to_char(lisp_addr_list_t *, const char *, int);
-void lisp_addr_list_del(lisp_addr_list_t * list);
+inline int lisp_addr_ip_afi_lcaf_type(lisp_addr_t *addr);
 
 
 #endif /* LISPD_ADDRESS_H_ */

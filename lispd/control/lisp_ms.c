@@ -29,34 +29,45 @@
 #include "lisp_ms.h"
 #include "cksum.h"
 #include "defs.h"
+//#include "generic_list.h"
 #include "lmlog.h"
 
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
-static void mc_add_rlocs_to_rle(mapping_t *, mapping_t *);
 static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);
 static int ms_recv_msg(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ms_t *lisp_ms_cast(lisp_ctrl_dev_t *dev);
 
 
-static lisp_addr_t *
+static locator_t *
 get_locator_with_afi(mapping_t *m, int afi)
 {
-    locator_list_t *llist;
-    locator_t *loc;
+	glist_t *loct_list = NULL;
+	glist_entry_t *it_list = NULL;
+	glist_entry_t *it_loct = NULL;
+    locator_t *loct = NULL;
+    lisp_addr_t *addr = NULL;
+    int lafi = 0;
+    int afi_type = 0;
 
-    if (afi== AF_INET) {
-        llist = m->head_v4_locators_list;
-    } else {
-        llist = m->head_v6_locators_list;
+    glist_for_each_entry(it_list,mapping_locators(m)){
+    	loct_list = (glist_t *)glist_entry_data(it_list);
+    	locator_list_lafi_type(loct_list,&lafi,&afi_type);
+    	if (lafi == LM_AFI_NO_ADDR || (lafi == LM_AFI_IP && afi_type != afi)){
+    		continue;
+    	}
+    	glist_for_each_entry(it_loct,loct_list){
+    		loct = (locator_t *)glist_entry_data(it_loct);
+    		if (locator_state(loct) == DOWN){
+    			continue;
+    		}
+    		addr = locator_addr(loct);
+    		addr = lisp_addr_get_ip_addr(addr);
+    		if (lisp_addr_ip_afi (addr) == afi){
+    			return (loct);
+    		}
+    	}
     }
 
-    while (llist) {
-        loc = llist->locator;
-        if (loc->state == UP) {
-            return(locator_addr(loc));
-        }
-        llist = llist->next;
-    }
 
     return(NULL);
 }
@@ -85,20 +96,30 @@ get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
 
 /* forward encapsulated Map-Request to ETR */
 static int
-forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m, uconn_t *uc)
+forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m)
 {
-    lisp_addr_t *drloc;
+	lisp_ctrl_t *ctrl = NULL;
+    lisp_addr_t *drloc = NULL;
+    locator_t *loct = NULL;
     uconn_t fwd_uc;
 
-    //XXX Remote rloc compatible with MS rlocs
-    drloc = get_locator_with_afi(m, lisp_addr_ip_afi(&uc->ra));
-    if (!drloc) {
-        LMLOG(DBG_1, "Can't find valid RLOC to forward Map-Request to "
-                "ETR. Discarding!");
-        return(BAD);
+    ctrl = ctrl_dev_ctrl(&(ms->super));
+
+    if ((ctrl_supported_afis(ctrl) & IPv4_SUPPORT) != 0){
+    	loct = get_locator_with_afi(m, AF_INET);
+    }
+    if (loct == NULL && (ctrl_supported_afis(ctrl) & IPv6_SUPPORT) != 0){
+    	loct = get_locator_with_afi(m, AF_INET6);
+    }
+    if (loct == NULL){
+    	LMLOG(DBG_1, "Can't find valid RLOC to forward Map-Request to "
+    	                "ETR. Discarding!");
+    	return(BAD);
     }
 
-    if (lisp_addr_afi(drloc) == LM_AFI_LCAF) {
+    drloc = lisp_addr_get_ip_addr(locator_addr(loct));
+
+    if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
         get_etr_from_lcaf(drloc, &drloc);
     }
 
@@ -236,7 +257,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         /* IF *NOT* PROXY REPLY: forward the message to an xTR */
         if (site != NULL && site->proxy_reply == FALSE) {
             /* FIXME: once locs become one object, send that instead of mapping */
-            forward_mreq(ms, buf, map, uc);
+            forward_mreq(ms, buf, map);
             continue;
         }
 
@@ -275,55 +296,53 @@ err:
 
 }
 
-static void
-mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
-    locator_t       *cloc = NULL, *rtrloc = NULL;
-    lcaf_addr_t     *crle = NULL, *rtrrle = NULL;
-    glist_entry_t   *it = NULL;
-    rle_node_t      *rtrnode = NULL, *itnode;
-    int             found = 0;
-
-    if (!lisp_addr_is_mc(mapping_eid(rtrmap)))
-        return;
-
-    if (rtrmap->head_v4_locators_list)
-        rtrloc = rtrmap->head_v4_locators_list->locator;
-    else if (rtrmap->head_v6_locators_list)
-        rtrloc = rtrmap->head_v6_locators_list->locator;
-
-    if (!rtrloc) {
-        LMLOG(DBG_1, "mc_add_rlocs_to_rle: NO rloc for mc channel %s. Aborting!",
-                lisp_addr_to_char(mapping_eid(rtrmap)));
-        return;
-    }
-
-    if (cmap->head_v4_locators_list)
-        cloc = cmap->head_v4_locators_list->locator;
-    else if (cmap->head_v6_locators_list)
-        cloc = cmap->head_v6_locators_list->locator;
-
-    if (!cloc) {
-        LMLOG(DBG_1, "mc_add_rlocs_to_rle: RLOC for mc channel %s is not initialized. Aborting!",
-                lisp_addr_to_char(mapping_eid(rtrmap)));
-    }
-
-    rtrrle = lisp_addr_get_lcaf(locator_addr(rtrloc));
-    crle = lisp_addr_get_lcaf(locator_addr(cloc));
-    rtrnode = glist_first_data(lcaf_rle_node_list(rtrrle));
-
-    glist_for_each_entry(it, lcaf_rle_node_list(crle)) {
-        itnode = glist_entry_data(it);
-        if (lisp_addr_cmp(itnode->addr, rtrnode->addr) == 0
-                && itnode->level == rtrnode->level)
-            found = 1;
-    }
-
-    if (!found) {
-        glist_add_tail(rle_node_clone(rtrnode), lcaf_rle_node_list(crle));
-    }
-
-
-}
+//static void
+//mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
+//    locator_t       *cloc = NULL, *rtrloc = NULL;
+//    lcaf_addr_t     *crle = NULL, *rtrrle = NULL;
+//    glist_entry_t   *it = NULL;
+//    rle_node_t      *rtrnode = NULL, *itnode;
+//    int             found = 0;
+//
+//    if (!lisp_addr_is_mc(mapping_eid(rtrmap)))
+//        return;
+//
+//    if (rtrmap->head_v4_locators_list)
+//        rtrloc = rtrmap->head_v4_locators_list->locator;
+//    else if (rtrmap->head_v6_locators_list)
+//        rtrloc = rtrmap->head_v6_locators_list->locator;
+//
+//    if (!rtrloc) {
+//        LMLOG(DBG_1, "mc_add_rlocs_to_rle: NO rloc for mc channel %s. Aborting!",
+//                lisp_addr_to_char(mapping_eid(rtrmap)));
+//        return;
+//    }
+//
+//    if (cmap->head_v4_locators_list)
+//        cloc = cmap->head_v4_locators_list->locator;
+//    else if (cmap->head_v6_locators_list)
+//        cloc = cmap->head_v6_locators_list->locator;
+//
+//    if (!cloc) {
+//        LMLOG(DBG_1, "mc_add_rlocs_to_rle: RLOC for mc channel %s is not initialized. Aborting!",
+//                lisp_addr_to_char(mapping_eid(rtrmap)));
+//    }
+//
+//    rtrrle = lisp_addr_get_lcaf(locator_addr(rtrloc));
+//    crle = lisp_addr_get_lcaf(locator_addr(cloc));
+//    rtrnode = glist_first_data(lcaf_rle_node_list(rtrrle));
+//
+//    glist_for_each_entry(it, lcaf_rle_node_list(crle)) {
+//        itnode = glist_entry_data(it);
+//        if (lisp_addr_cmp(itnode->addr, rtrnode->addr) == 0
+//                && itnode->level == rtrnode->level)
+//            found = 1;
+//    }
+//
+//    if (!found) {
+//        glist_add_tail(rle_node_clone(rtrnode), lcaf_rle_node_list(crle));
+//    }
+//}
 
 static int
 ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
@@ -410,22 +429,20 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                 if (!reg_pref->merge) {
                     LMLOG(DBG_3, "Prefix %s already registered, updating "
                             "locators", lisp_addr_to_char(eid));
-                    mapping_update_locators(rsite->site_map,
-                            m->head_v4_locators_list,
-                            m->head_v6_locators_list, m->locator_count);
+                    mapping_update_locators(rsite->site_map,mapping_locators_lists(m));
                 } else {
                     /* TREAT MERGE SEMANTICS */
                     LMLOG(LWRN, "Prefix %s has merge semantics",
                             lisp_addr_to_char(eid));
                     /* MCs EIDs have their RLOCs aggregated into an RLE */
-                    if (lisp_addr_is_mc(eid)) {
-                        mc_add_rlocs_to_rle(rsite->site_map, m);
-                    } else {
-                        LMLOG(LWRN, "MS: Registered %s requires "
-                                "merge semantics but we don't know how to "
-                                "handle! Discarding!", lisp_addr_to_char(eid));
-                        goto bad;
-                    }
+//                    if (lisp_addr_is_mc(eid)) {
+//                        mc_add_rlocs_to_rle(rsite->site_map, m);
+//                    } else {
+//                        LMLOG(LWRN, "MS: Registered %s requires "
+//                                "merge semantics but we don't know how to "
+//                                "handle! Discarding!", lisp_addr_to_char(eid));
+//                        goto bad;
+//                    }
                 }
                 reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
                 ms_dump_registered_sites(ms, DBG_3);

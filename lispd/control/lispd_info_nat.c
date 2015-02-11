@@ -219,7 +219,7 @@ int extract_info_nat_header(
         return (BAD);
     }
 
-    if (lisp_addr_afi(eid_prefix) == LM_AFI_IP)
+    if (lisp_addr_lafi(eid_prefix) == LM_AFI_IP)
         lisp_addr_set_plen(eid_prefix, *eid_mask_len);
 
     *hdr_len = sizeof(lispd_pkt_info_nat_t) + sizeof(lispd_pkt_info_nat_eid_t) + len - sizeof(uint16_t);

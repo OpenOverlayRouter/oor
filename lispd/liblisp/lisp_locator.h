@@ -65,11 +65,6 @@ typedef struct locator {
     void *extended_info;
 } locator_t;
 
-typedef struct locators_list {
-    locator_t *locator;
-    struct locators_list *next;
-} locator_list_t;
-
 typedef struct rtr_locator {
     lisp_addr_t address;
     uint8_t state; /* UP , DOWN */
@@ -117,15 +112,16 @@ locator_t *locator_init_local_full(lisp_addr_t *, uint8_t, uint8_t, uint8_t,
         uint8_t, uint8_t, int *);
 void locator_del(locator_t *loc);
 locator_t *locator_clone(locator_t *loc);
-
-locator_t *locator_list_extract_locator_with_addr(locator_list_t **, lisp_addr_t *);
-locator_t *locator_list_get_locator(locator_list_t *, lisp_addr_t *);
-void locator_list_del(locator_list_t *list);
-int locator_list_add(locator_list_t **, locator_t *);
-int locator_list_remove(locator_list_t  **, locator_t *);
-locator_list_t *locator_list_clone(locator_list_t *llist);
+void locator_list_lafi_type (glist_t *loct_list, int *lafi, int	*type);
+locator_t *locator_list_get_locator_with_addr(glist_t *loct_list, lisp_addr_t *addr);
+locator_t *locator_list_extract_locator_with_addr(glist_t *loct_list,lisp_addr_t *addr);
+int locator_list_extract_locator_with_ptr(glist_t *loct_list,locator_t *locator);
+inline int locator_cmp_addr (locator_t *loct1,locator_t *loct2);
+glist_t *locator_list_clone(glist_t *llist);
+int locator_list_cmp_afi(glist_t *loct_list_a, glist_t *loct_list_b);
 
 static inline lisp_addr_t *locator_addr(locator_t *);
+static inline uint8_t locator_type(locator_t *);
 static inline uint8_t locator_state(locator_t *);
 static inline uint8_t locator_priority(locator_t *);
 static inline uint8_t locator_weight(locator_t *);
@@ -135,6 +131,7 @@ static inline void locator_set_addr(locator_t *, lisp_addr_t *);
 static inline void locator_clone_addr(locator_t *loc, lisp_addr_t *addr);
 static inline void locator_set_state(locator_t *locator, uint8_t state);
 static inline void locator_set_type(locator_t *, int);
+static inline uint8_t locator_is_local(locator_t *);
 
 
 rtr_locator_t *rtr_locator_new(lisp_addr_t address);
@@ -148,6 +145,10 @@ rtr_locators_list_t *rtr_locator_list_clone(rtr_locators_list_t *rtr_list);
 static inline lisp_addr_t *locator_addr(locator_t *locator)
 {
     return (locator->addr);
+}
+
+static inline uint8_t locator_type(locator_t *locator){
+    return (locator->type);
 }
 
 static inline uint8_t locator_state(locator_t *locator)
@@ -199,6 +200,10 @@ static inline void locator_set_type(locator_t *l, int type)
     l->type = type;
 }
 
+static inline uint8_t locator_is_local(locator_t *locator)
+{
+    return (locator->type == LOCAL_LOCATOR);
+}
 
 
 #endif /* LISP_LOCATOR_H_ */

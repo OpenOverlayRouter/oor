@@ -108,6 +108,11 @@ ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
     return(dev->ctrl_class->get_fwd_entry(dev, tuple));
 }
 
+inline lisp_ctrl_t *
+ctrl_dev_ctrl(lisp_ctrl_dev_t *dev)
+{
+    return (dev->ctrl);
+}
 
 int
 ctrl_dev_set_ctrl(lisp_ctrl_dev_t *dev, lisp_ctrl_t *ctrl)

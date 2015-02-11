@@ -108,22 +108,22 @@ make_mcast_addr(packet_tuple_t *tuple, lisp_addr_t *addr){
     lcaf_addr_t *lcaf;
 
     if (ip_addr_is_multicast(lisp_addr_ip(&tuple->dst_addr))) {
-        if (lisp_addr_afi(&tuple->src_addr) != LM_AFI_IP
-            || lisp_addr_afi(&tuple->src_addr) != LM_AFI_IP) {
+        if (lisp_addr_lafi(&tuple->src_addr) != LM_AFI_IP
+            || lisp_addr_lafi(&tuple->src_addr) != LM_AFI_IP) {
            LMLOG(DBG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not "
                    "of IP syntax!", lisp_addr_to_char(&tuple->src_addr),
                    lisp_addr_to_char(&tuple->dst_addr));
            return(BAD);
         }
 
-        lisp_addr_set_afi(addr, LM_AFI_LCAF);
+        lisp_addr_set_lafi(addr, LM_AFI_LCAF);
         plen = ip_afi_to_default_mask(lisp_addr_ip_afi(&tuple->dst_addr));
         lcaf = lisp_addr_get_lcaf(addr);
         lcaf_addr_set_mc(lcaf, &tuple->src_addr, &tuple->dst_addr, plen, plen,
                 0);
 
     } else {
-        lisp_addr_set_afi(addr, LM_AFI_NO_ADDR);
+        lisp_addr_set_lafi(addr, LM_AFI_NO_ADDR);
     }
 
     return(GOOD);
@@ -232,6 +232,7 @@ lisp_output(lbuf_t *b)
         return (BAD);
     }
 
+
     LMLOG(DBG_3,"OUTPUT: Received EID %s -> %s, Proto: %d, Port: %d -> %d ",
             lisp_addr_to_char(&tpl.src_addr), lisp_addr_to_char(&tpl.dst_addr),
             tpl.protocol, tpl.src_port, tpl.dst_port);
@@ -242,7 +243,6 @@ lisp_output(lbuf_t *b)
         LMLOG(DBG_3,"OUTPUT: Is a lisp packet, do not encapsulate again");
         return (forward_native(b, &tpl.dst_addr));
     }
-
     if (ip_addr_is_multicast(lisp_addr_ip(&tpl.dst_addr))) {
         lisp_output_multicast(b, &tpl);
     } else {

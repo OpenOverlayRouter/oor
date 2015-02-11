@@ -67,7 +67,6 @@
 
 
 int isfqdn(char *s);
-inline lisp_addr_t *get_server(lisp_addr_list_t *server_list,int afi);
 
 
 
@@ -543,24 +542,6 @@ int get_prefix_len(int afi)
 {
     return(get_addr_len(afi) * 8);
 }
-
-
-inline lisp_addr_t *get_server(
-        lisp_addr_list_t   *server_list,
-        int                 afi)
-{
-    lisp_addr_list_t *server_elt;
-
-    server_elt = server_list;
-    while (server_elt != NULL){
-        if (server_elt->address->afi == afi){
-            return (server_elt->address);
-        }
-        server_elt = server_elt->next;
-    }
-    return (NULL);
-}
-
 
 
 /*

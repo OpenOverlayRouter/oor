@@ -222,7 +222,7 @@ int check_capabilities()
 void test_elp()
 {
     lisp_xtr_t *xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-    lisp_addr_t *laddr = lisp_addr_new_afi(LM_AFI_LCAF);
+    lisp_addr_t *laddr = lisp_addr_new_lafi(LM_AFI_LCAF);
     lcaf_addr_t *lcaf = lisp_addr_get_lcaf(laddr);
     packet_tuple_t tuple;
     lcaf_addr_set_type(lcaf, LCAF_EXPL_LOC_PATH);
@@ -266,7 +266,7 @@ void test_elp()
     local_map_db_del_mapping(xtr->local_mdb, eid);
 
     lisp_addr_copy(&tuple.dst_addr, eid);
-    lisp_addr_set_afi(&tuple.src_addr, LM_AFI_NO_ADDR);
+    lisp_addr_set_lafi(&tuple.src_addr, LM_AFI_NO_ADDR);
 
     LMLOG(LWRN, "done. Sending map-request!");
     ctrl_get_forwarding_entry(&tuple);

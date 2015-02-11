@@ -91,14 +91,15 @@ glist_new_managed(glist_del_fct del)
  *
  * Append a new entry to the list.
  * If cmp_fct is defined, it seeks incrementally, starting
- * at the head head, the position where cmp_fct fails and
- * inserts the new element there.
+ * at the head head.
  */
 int
 glist_add(void *data, glist_t *glist)
 {
     glist_entry_t *new = NULL;
     glist_entry_t *tmp = NULL;
+    int ctr = 0;
+    int cmp = 0;
 
     new = xzalloc(sizeof(glist_entry_t));
     new->data = data;
@@ -107,12 +108,26 @@ glist_add(void *data, glist_t *glist)
     if (!glist->cmp_fct) {
         list_add(&new->list, &glist->head.list);
     } else {
-        list_for_each_entry(tmp, &glist->head.list, list) {
-            /* insert where cmp fails */
-            if((*glist->cmp_fct)(data, tmp->data) <= 0)
-                break;
+        if (glist->size != 0) {
+            list_for_each_entry(tmp, &glist->head.list, list) {
+                /* insert where new element is bigger than current one */
+                cmp = (*glist->cmp_fct)(data, tmp->data);
+                if( cmp == 1){
+                    break;
+                }else if (cmp < 0){
+                    return (BAD);
+                }
+                ctr++;
+            }
+            if (ctr != glist->size){
+                list_add(&new->list, tmp->list.prev);
+            }else{
+                // Add at the end of the list
+                list_add(&new->list, &tmp->list);
+            }
+        }else{
+            list_add(&new->list, &glist->head.list);
         }
-        list_add(&new->list, &tmp->list);
     }
     glist->size++;
 
@@ -150,9 +165,33 @@ uint8_t
 glist_contain(void *data, glist_t *list)
 {
     glist_entry_t *entry = NULL;
+    if (list->size == 0){
+        return (FALSE);
+    }
     glist_for_each_entry(entry,list){
         if(list->cmp_fct) {
             if((*list->cmp_fct)(data, entry->data) == 0){
+                return(TRUE);
+            }
+        }else{
+            if(entry->data == data){
+                return(TRUE);
+            }
+        }
+    }
+    return(FALSE);
+}
+
+uint8_t
+glist_contain_using_cmp_fct(void *data, glist_t *list,glist_cmp_fct  cmp_fct)
+{
+    glist_entry_t *entry = NULL;
+    if (list->size == 0){
+        return (FALSE);
+    }
+    glist_for_each_entry(entry,list){
+        if(cmp_fct) {
+            if((*cmp_fct)(data, entry->data) == 0){
                 return(TRUE);
             }
         }else{
@@ -176,6 +215,25 @@ glist_dump(glist_t *list, glist_to_char_fct dump_fct, int log_level)
         data = glist_entry_data (it);
         LMLOG(log_level,"[%d] =>  %s",ctr,dump_fct(data));
     }
+}
+
+
+/**
+ * glist_extract - remove entry from list without deleting object
+ * @entry: entry to be removed
+ * @list: list from which the entry is to be removed
+ */
+void
+glist_extract(glist_entry_t *entry, glist_t *list)
+{
+    if (!entry || !list) {
+        return;
+    }
+
+    list_del(&(entry->list));
+
+    free(entry);
+    list->size--;
 }
 
 /**
@@ -209,14 +267,17 @@ glist_remove(glist_entry_t *entry, glist_t *list)
  * @data: object to be removed
  * @list: list from which the entry is to be removed
  */
-int
+void
 glist_remove_obj(
         void *      data,
         glist_t *   list)
 {
     glist_entry_t   *remove_entry   = NULL;
     glist_entry_t   *entry          = NULL;
-    int             res             = FALSE;
+
+    if (!list || list->size == 0) {
+        return;
+    }
 
     glist_for_each_entry(entry,list){
         if(list->cmp_fct) {
@@ -234,7 +295,36 @@ glist_remove_obj(
     if (remove_entry != NULL){
         glist_remove(remove_entry,list);
     }
-    return (res);
+}
+
+/**
+ * glist_remove_obj_with_ptr - remove object from list. The comparison function is
+ * used to get the entry to be removed. IThe value of the pointer is used to get the
+ * elemnt to be removed
+ * @data: object to be removed
+ * @list: list from which the entry is to be removed
+ */
+void
+glist_remove_obj_with_ptr(
+        void *      data,
+        glist_t *   list)
+{
+    glist_entry_t   *remove_entry   = NULL;
+    glist_entry_t   *entry          = NULL;
+
+    if (!list || list->size == 0) {
+        return;
+    }
+
+    glist_for_each_entry(entry,list){
+        if(entry->data == data){
+            remove_entry = entry;
+            break;
+        }
+    }
+    if (remove_entry != NULL){
+        glist_remove(remove_entry,list);
+    }
 }
 
 

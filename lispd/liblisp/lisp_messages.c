@@ -125,12 +125,12 @@ mreq_flags_to_char(map_request_hdr_t *h)
     static char buf[10];
 
     *buf = '\0';
-    h->authoritative ? sprintf(buf+strlen(buf), "A") : sprintf(buf+strlen(buf), "a");
-    h->map_data_present ?  sprintf(buf+strlen(buf), "M") : sprintf(buf+strlen(buf), "m");
-    h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
-    h->solicit_map_request ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
-    h->pitr ? sprintf(buf+strlen(buf), "p") : sprintf(buf+strlen(buf), "P");
-    h->smr_invoked ? sprintf(buf+strlen(buf), "s") : sprintf(buf+strlen(buf), "S");
+    h->authoritative ? sprintf(buf+strlen(buf), "a1") : sprintf(buf+strlen(buf), "a0");
+    h->map_data_present ?  sprintf(buf+strlen(buf), "m1") : sprintf(buf+strlen(buf), "m0");
+    h->rloc_probe ? sprintf(buf+strlen(buf), "p1") : sprintf(buf+strlen(buf), "p0");
+    h->solicit_map_request ? sprintf(buf+strlen(buf), "s1") : sprintf(buf+strlen(buf), "s0");
+    h->pitr ? sprintf(buf+strlen(buf), "P1") : sprintf(buf+strlen(buf), "P0");
+    h->smr_invoked ? sprintf(buf+strlen(buf), "S1") : sprintf(buf+strlen(buf), "S0");
     return(buf);
 }
 

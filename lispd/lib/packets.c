@@ -233,8 +233,8 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
 
     iph = lbuf_ip(&packet);
 
-    lisp_addr_set_afi(&tuple->src_addr, LM_AFI_IP);
-    lisp_addr_set_afi(&tuple->dst_addr, LM_AFI_IP);
+    lisp_addr_set_lafi(&tuple->src_addr, LM_AFI_IP);
+    lisp_addr_set_lafi(&tuple->dst_addr, LM_AFI_IP);
 
     switch (iph->version) {
     case 4:

@@ -224,7 +224,7 @@ int process_info_reply_msg(
             LMLOG(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply is not for any local EID");
             return (BAD);
         }
-        locator = mapping_get_locator(mapping, &local_rloc);
+        locator = mapping_get_loct_with_addr(mapping, &local_rloc);
         if (locator == NULL){
             LMLOG(LISP_LOG_DEBUG_2, "process_info_reply_msg: Info Reply received in the wrong locator");
             return (BAD);

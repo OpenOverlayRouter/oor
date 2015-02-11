@@ -93,7 +93,7 @@ local_map_db_lookup_eid_exact(local_map_db_t *lmdb, lisp_addr_t *eid)
 {
     mapping_t *mapping = NULL;
 
-    if (lisp_addr_afi(eid) == LM_AFI_IP) {
+    if (lisp_addr_lafi(eid) == LM_AFI_IP) {
         LMLOG(LWRN, "Called with IP EID %s, probably it should've been an "
                 "IPPREF", lisp_addr_to_char(eid));
     }
@@ -143,7 +143,7 @@ local_map_db_num_ip_eids(local_map_db_t *lmdb, int afi)
      * so this should do for now  */
     mdb_foreach_ip_entry(lmdb->db, it) {
         eid = mapping_eid((mapping_t *)it);
-        if (eid && lisp_addr_afi(eid) == LM_AFI_IPPREF
+        if (eid && lisp_addr_lafi(eid) == LM_AFI_IPPREF
             && lisp_addr_ip_afi(eid) == afi) {
             ctr ++;
         }

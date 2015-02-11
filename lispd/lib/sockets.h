@@ -124,9 +124,9 @@ static inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
     uc->lp = lp;
     uc->rp = rp;
     la ? lisp_addr_copy(&uc->la, la) :
-            lisp_addr_set_afi(&uc->la, LM_AFI_NO_ADDR);
+            lisp_addr_set_lafi(&uc->la, LM_AFI_NO_ADDR);
     ra ? lisp_addr_copy(&uc->ra, ra) :
-            lisp_addr_set_afi(&uc->ra, LM_AFI_NO_ADDR);
+            lisp_addr_set_lafi(&uc->ra, LM_AFI_NO_ADDR);
     return(GOOD);
 }
 #endif /*SOCKETS_H_*/

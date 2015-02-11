@@ -266,7 +266,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
         return;
     };
 
-    old_lafi = lisp_addr_afi(iface_addr);
+    old_lafi = lisp_addr_lafi(iface_addr);
 
     /* The interface was down during initial configuration process and now it
      * is up. Create sockets */

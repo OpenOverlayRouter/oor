@@ -72,22 +72,32 @@ set_rlocs(lisp_ctrl_t *ctrl)
     iface_list_elt_t *iface_elt;
     iface_t *iface;
 
+    glist_remove_all(ctrl->rlocs);
     glist_remove_all(ctrl->ipv4_rlocs);
     glist_remove_all(ctrl->ipv6_rlocs);
+    ctrl->supported_afis = NO_AFI_SUPPOT;
 
     iface_elt = head_interface_list;
     while (iface_elt) {
         iface = iface_elt->iface;
         if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
             glist_add_tail(iface->ipv4_address, ctrl->ipv4_rlocs);
+            glist_add_tail(iface->ipv4_address, ctrl->rlocs);
         }
         if (!lisp_addr_is_no_addr(iface->ipv6_address)) {
             glist_add_tail(iface->ipv6_address, ctrl->ipv6_rlocs);
+            glist_add_tail(iface->ipv6_address, ctrl->rlocs);
         }
 
         iface_elt = iface_elt->next;
     }
 
+    if (glist_size(ctrl->ipv4_rlocs) > 0){
+    	ctrl->supported_afis = ctrl->supported_afis | IPv4_SUPPORT;
+    }
+    if (glist_size(ctrl->ipv6_rlocs) > 0){
+    	ctrl->supported_afis = ctrl->supported_afis | IPv6_SUPPORT;
+    }
     set_default_rlocs(ctrl);
 }
 
@@ -96,6 +106,7 @@ ctrl_create()
 {
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
     ctrl->devices = glist_new_managed((glist_del_fct)ctrl_dev_destroy);
+    ctrl->rlocs = glist_new();
     ctrl->ipv4_rlocs = glist_new();
     ctrl->ipv6_rlocs = glist_new();
 
@@ -108,6 +119,7 @@ void
 ctrl_destroy(lisp_ctrl_t *ctrl)
 {
     glist_destroy(ctrl->devices);
+    glist_destroy(ctrl->rlocs);
     glist_destroy(ctrl->ipv4_rlocs);
     glist_destroy(ctrl->ipv6_rlocs);
 
@@ -159,6 +171,7 @@ ctrl_recv_msg(sock_t *sl)
     if (sock_ctrl_recv(sl->fd, b, &uc) != GOOD) {
         LMLOG(DBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
+        lbuf_del(b);
         return (BAD);
     }
 
@@ -182,7 +195,7 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
 {
     int ret;
 
-    if (lisp_addr_afi(&uc->ra) != LM_AFI_IP) {
+    if (lisp_addr_lafi(&uc->ra) != LM_AFI_IP) {
         LMLOG(DBG_2, "ctrl_send_msg: dst %s of UDP connection not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra));
@@ -288,7 +301,12 @@ ctrl_default_rlocs(lisp_ctrl_t * ctrl)
 }
 
 glist_t *
-ctrl_rlocs(lisp_ctrl_t *c, int afi)
+ctrl_rlocs(lisp_ctrl_t *ctrl){
+	return (ctrl->rlocs);
+}
+
+glist_t *
+ctrl_rlocs_with_afi(lisp_ctrl_t *c, int afi)
 {
     switch(afi) {
     case AF_INET:
@@ -299,6 +317,10 @@ ctrl_rlocs(lisp_ctrl_t *c, int afi)
     return(NULL);
 }
 
+inline int ctrl_supported_afis(lisp_ctrl_t *ctrl)
+{
+	return (ctrl->supported_afis);
+}
 
 fwd_entry_t *
 ctrl_get_forwarding_entry(packet_tuple_t *tuple)

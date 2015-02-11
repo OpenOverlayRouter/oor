@@ -36,6 +36,13 @@
 #define NO_DEL NULL
 
 typedef void (*glist_del_fct)(void *);
+/*
+ * Return:
+ *      -1 if error in the comparison
+ *       0 if both elements are equal
+ *       1 if first element is bigger than the second one
+ *       2 if second element is bigger than the first one
+ */
 typedef int  (*glist_cmp_fct)(void *, void *);
 typedef char *(*glist_to_char_fct)(void *);
 
@@ -61,8 +68,11 @@ void glist_init_managed(glist_t *lst, glist_del_fct del_fct);
 int glist_add(void *data, glist_t *list);
 int glist_add_tail(void *data, glist_t *glist);
 uint8_t glist_contain(void *data, glist_t *list);
+uint8_t glist_contain_using_cmp_fct(void *data, glist_t *list, glist_cmp_fct  cmp_fct);
+void glist_extract(glist_entry_t *entry, glist_t *list);
 void glist_remove(glist_entry_t *entry, glist_t *list);
-int glist_remove_obj(void * data,glist_t * list);
+void glist_remove_obj(void * data,glist_t * list);
+void glist_remove_obj_with_ptr(void * data, glist_t * list);
 void glist_dump(glist_t *list, glist_to_char_fct dump_fct, int log_level);
 void glist_destroy(glist_t *lst);
 void glist_remove_all(glist_t *lst);

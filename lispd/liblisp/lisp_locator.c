@@ -349,188 +349,224 @@ locator_clone(locator_t *loc)
     return (locator);
 }
 
-int
-locator_list_add(
-        locator_list_t  **list,
-        locator_t       *loc)
+/*
+ * Compare lisp_addr_t of two locators.
+ * Returns:
+ *          -1: If they are from different afi
+ *           0: Both address are the same
+ *           1: Addr1 is bigger than addr2
+ *           2: Addr2 is bigger than addr1
+ */
+inline int
+locator_cmp_addr (
+        locator_t *loct1,
+        locator_t *loct2)
 {
-    locator_list_t *loc_list = NULL, *aux_llist_prev = NULL, *aux_llist_next =
-            NULL;
-    int cmp = 0;
-
-    loc_list = xmalloc(sizeof(locator_list_t));
-    loc_list->next = NULL;
-    loc_list->locator = loc;
-
-
-    if (loc->type == LOCAL_LOCATOR
-        && !lisp_addr_is_no_addr(locator_addr(loc))) {
-        /* If it's a local initialized locator, we should store it in order */
-
-        if (*list == NULL) {
-            *list = loc_list;
-        } else {
-            aux_llist_prev = NULL;
-            aux_llist_next = *list;
-            while (aux_llist_next != NULL) {
-                cmp = lisp_addr_cmp(loc->addr, aux_llist_next->locator->addr);
-                if (cmp ==-1){
-                    LMLOG(DBG_3, "add_locator_to_list: The AFI of the locator is differnet from the afi of the list.");
-                    free(loc_list);
-                    return (ERR_AFI);
-                }else if(cmp == 0){
-                    LMLOG(DBG_3,
-                            "add_locator_to_list: The locator %s already exists.",
-                            lisp_addr_to_char(locator_addr(loc)));
-                    free(loc_list);
-                    return (ERR_EXIST);
-                }else if(cmp == 2){
-                    break;
-                }
-                aux_llist_prev = aux_llist_next;
-                aux_llist_next = aux_llist_next->next;
-            }
-            if (aux_llist_prev == NULL) {
-                loc_list->next = aux_llist_next;
-                *list = loc_list;
-            } else {
-                aux_llist_prev->next = loc_list;
-                loc_list->next = aux_llist_next;
-            }
-        }
-    } else { /* Remote locators and not initialized local locators */
-        if (*list == NULL) {
-            *list = loc_list;
-        } else {
-            aux_llist_prev = *list;
-            while (aux_llist_prev->next != NULL) {
-                aux_llist_prev = aux_llist_prev->next;
-            }
-            aux_llist_prev->next = loc_list;
-        }
-    }
-
-    return (GOOD);
+    return (lisp_addr_cmp(locator_addr(loct1),locator_addr(loct2)));
 }
 
 /*
- * Extrect locator from the list
- * @param list List from where to extract locator
- * @param loct Pointer of the locator to be removed
- * @return GOOD if the pointer has been found and extracted, BAD otherwise
+ * Get lafi and type of a list
  */
-int locator_list_remove(
-        locator_list_t  **list,
-        locator_t       *loct)
+void locator_list_lafi_type (
+		glist_t         *loct_list,
+		int				*lafi,
+		int				*type)
 {
-    locator_list_t  *locator_list           = NULL;
-    locator_list_t  *prev_locator_list_elt  = NULL;
+	locator_t *loct = NULL;
+	lisp_addr_t *addr = NULL;
 
-    locator_list = *list;
-    while (locator_list != NULL) {
-        if (locator_list->locator == loct) {
-            /* Extract the locator from the list */
-            if (prev_locator_list_elt != NULL) {
-                prev_locator_list_elt->next = locator_list->next;
-            } else {
-                *list = locator_list->next;
-            }
-            free(locator_list);
-            return (GOOD);
-        }
-        prev_locator_list_elt = locator_list;
-        locator_list = locator_list->next;
+	*lafi = 0;
+	*type = 0;
+	if (loct_list == NULL || glist_size(loct_list) == 0){
+		return;
+	}
+
+    loct = (locator_t *)glist_first_data(loct_list);
+    addr = locator_addr(loct);
+    *lafi = lisp_addr_lafi(addr);
+    switch(*lafi){
+    case LM_AFI_NO_ADDR:
+    	*type = 0;
+    	return;
+    case LM_AFI_IP:
+    	*type = lisp_addr_ip_afi(addr);
+    	return;
+    case LM_AFI_IPPREF:
+    	LMLOG(DBG_2, "locator_list_lafi_type: locator list should not contain prefixes");
+    	return;
+    case LM_AFI_LCAF:
+    	*type = lisp_addr_lcaf_type(addr);
+    	return;
     }
-    LMLOG(DBG_3,"locator_list_remove: Locator has not been found in the list: %s",
-            lisp_addr_to_char(locator_addr(loct)));
-    return (BAD);
+
+
 }
+
+
+/* Return the locator from the list that contains the address passed as a
+ * parameter */
+locator_t *
+locator_list_get_locator_with_addr(
+        glist_t         *loct_list,
+        lisp_addr_t     *addr)
+{
+    locator_t       *locator                = NULL;
+    glist_entry_t   *it                     = NULL;
+
+    if (!loct_list || glist_size(loct_list) == 0 || addr == NULL){
+        return (NULL);
+    }
+
+    glist_for_each_entry(it,loct_list){
+        locator = (locator_t *)glist_entry_data(it);
+        if (lisp_addr_cmp(locator_addr(locator), addr) == 0) {
+            return (locator);
+        }
+    }
+
+    return (NULL);
+}
+
+
 
 /* Extract the locator of locators list that match with the address.
  * The locator is removed from the list */
 locator_t *
 locator_list_extract_locator_with_addr(
-        locator_list_t  **head_locator_list,
+        glist_t         *loct_list,
         lisp_addr_t     *addr)
 {
     locator_t       *locator                = NULL;
-    locator_list_t  *locator_list           = NULL;
-    locator_list_t  *prev_locator_list_elt  = NULL;
+    glist_entry_t   *it                     = NULL;
 
-    locator_list = *head_locator_list;
-    while (locator_list != NULL) {
-        if (lisp_addr_cmp(locator_list->locator->addr, addr) == 0) {
-            locator = locator_list->locator;
-            /* Extract the locator from the list */
-            if (prev_locator_list_elt != NULL) {
-                prev_locator_list_elt->next = locator_list->next;
-            } else {
-                *head_locator_list = locator_list->next;
-            }
-            free(locator_list);
-            break;
+    if (!loct_list || glist_size(loct_list) == 0 || addr == NULL){
+        return (NULL);
+    }
+
+    glist_for_each_entry(it,loct_list){
+        locator = (locator_t *)glist_entry_data(it);
+        if (lisp_addr_cmp(locator_addr(locator), addr) == 0) {
+            glist_extract(it,loct_list);
+            return (locator);
         }
-        prev_locator_list_elt = locator_list;
-        locator_list = locator_list->next;
     }
-    return (locator);
+
+    return (NULL);
 }
 
-/* Return the locator from the list that contains the address passed as a
- * parameter */
-locator_t *
-locator_list_get_locator(locator_list_t *llist, lisp_addr_t *addr)
-{
-    locator_t *locator = NULL;
-    int cmp = 0;
 
-    while (llist != NULL) {
-        cmp = lisp_addr_cmp(llist->locator->addr, addr);
-        if (cmp == 0) {
-            locator = llist->locator;
-            break;
-        } else if (cmp == 1) {
-            break;
+/* Extract the locator of locators list comparing the pointer to the structure.
+ * The locator is removed from the list */
+int
+locator_list_extract_locator_with_ptr(
+        glist_t         *loct_list,
+        locator_t       *locator)
+{
+    glist_entry_t   *it                     = NULL;
+    locator_t       *loct                   = NULL;
+
+    if (!loct_list || glist_size(loct_list) == 0 || locator == NULL){
+        return (BAD);
+    }
+
+    glist_for_each_entry(it,loct_list){
+        locator = (locator_t *)glist_entry_data(it);
+        if (loct == locator){
+            glist_extract(it,loct_list);
+            return(GOOD);
         }
-        llist = llist->next;
     }
-    return (locator);
+
+    return(ERR_NO_EXIST);
 }
 
-void
-locator_list_del(locator_list_t *locator_list)
-{
-    locator_list_t * next = NULL;
-    while (locator_list) {
-        next = locator_list->next;
-        locator_del(locator_list->locator);
-        free(locator_list);
-        locator_list = next;
-    }
-}
 
 /* Clones locators list BUT it DISCARDS probing nonces and timers! */
-locator_list_t *
-locator_list_clone(locator_list_t *llist)
+glist_t *
+locator_list_clone(glist_t *loct_list)
 {
-    locator_list_t *llist_elt = NULL;
-    locator_list_t *first = NULL;
-    locator_list_t *last = NULL;
+    glist_t *new_loct_list = NULL;
+    glist_entry_t *it_loct = NULL;
+    locator_t *loct1 = NULL;
+    locator_t *loct2 = NULL;
 
-    while (llist != NULL){
-        llist_elt = xzalloc(sizeof(locator_list_t));
-        llist_elt->locator = locator_clone(llist->locator);
-
-        if (first == NULL) {
-            first = llist_elt;
-        } else {
-            last->next = llist_elt;
-        }
-        last = llist_elt;
-        llist = llist->next;
+    if (loct_list == NULL || glist_size(loct_list) == 0){
+        return (NULL);
     }
 
-    return (first);
+    new_loct_list = glist_new_complete(
+            (glist_cmp_fct)locator_cmp_addr,
+            (glist_del_fct)locator_del);
+
+    glist_for_each_entry(it_loct, loct_list){
+        loct1 = (locator_t *)glist_entry_data(it_loct);
+        loct2 = locator_clone(loct1);
+        glist_add(loct2,new_loct_list);
+    }
+
+    return (new_loct_list);
+}
+
+int
+locator_list_cmp_afi(
+        glist_t *loct_list_a,
+        glist_t *loct_list_b)
+{
+	locator_t *		loct_a = NULL;
+	locator_t *		loct_b = NULL;
+    lisp_addr_t *   addr_a = NULL;
+    lisp_addr_t *   addr_b = NULL;
+    int             lafi_a;
+    int             lafi_b;
+    int             afi_a;
+    int             afi_b;
+
+    if (loct_list_a == NULL || loct_list_b == NULL){
+        return (-2);
+    }
+
+    if(glist_size(loct_list_a) == 0 || glist_size(loct_list_b) == 0){
+    	LMLOG(DBG_2, "locator_list_cmp_afi: One of the compared list is empty");
+    	return (-2);
+    }
+    loct_a = (locator_t *)glist_first_data(loct_list_a);
+    loct_b = (locator_t *)glist_first_data(loct_list_b);
+    addr_a = locator_addr(loct_a);
+    addr_b = locator_addr(loct_b);
+    lafi_a = lisp_addr_lafi(addr_a);
+    lafi_b = lisp_addr_lafi(addr_a);
+
+    if (lafi_a > lafi_b){
+        return (1);
+    }
+    if (lafi_a < lafi_b){
+        return (2);
+    }
+
+    switch(lafi_a){
+    case LM_AFI_NO_ADDR:
+        return (0);
+    case LM_AFI_IP:
+        afi_a = lisp_addr_ip_afi(addr_a);
+        afi_b = lisp_addr_ip_afi(addr_b);
+        break;
+    case LM_AFI_IPPREF:
+        LMLOG(DBG_1,"locator_list_cmp_afi: No locators of type prefix");
+        return (-2);
+    case LM_AFI_LCAF:
+        afi_a = lisp_addr_lcaf_type(addr_a);
+        afi_b = lisp_addr_lcaf_type(addr_b);
+    }
+
+    if (afi_a > afi_b){
+        return (1);
+    }
+    if (afi_a < afi_b){
+        return (2);
+    }
+
+    return (0);
 }
 
 rtr_locator_t *

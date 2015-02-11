@@ -255,7 +255,6 @@ add_proxy_etr_entry(
         int             priority,
         int             weight)
 {
-    lisp_addr_t         aux_addr;
     glist_t *           addr_list   = NULL;
     glist_entry_t *     it          = NULL;
     lisp_addr_t *       addr        = NULL;
@@ -269,13 +268,6 @@ add_proxy_etr_entry(
 
     if (validate_priority_weight(priority, weight) != GOOD) {
         return(BAD);
-    }
-
-    /* Create the proxy-etrs map cache structure if it doesn't exist */
-    if (xtr->petrs == NULL) {
-        xtr->petrs = mcache_entry_new();
-        lisp_addr_ip_from_char("0.0.0.0", &aux_addr);
-        mcache_entry_init_static(xtr->petrs, mapping_init_remote(&aux_addr));
     }
 
     addr_list = parse_ip_addr(str_addr);
@@ -575,7 +567,7 @@ clone_customize_locator(
     if (type == LOCAL_LOCATOR) {
         /* Decide IP address to be used to lookup the interface */
         if (lisp_addr_is_lcaf(rloc) == TRUE) {
-            aux_rloc = lcaf_rloc_get_ip_addr(rloc);
+            aux_rloc = lcaf_get_ip_addr(lisp_addr_get_lcaf(rloc));
             if (aux_rloc == NULL) {
                 LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
                         "address %s", lisp_addr_to_char(rloc));
@@ -677,7 +669,7 @@ glist_t *fqdn_to_addresses(
     /* iterate over addresses */
     for (p = servinfo; p != NULL; p = p->ai_next) {
 
-        if ((addr = lisp_addr_new_afi(LM_AFI_IP))== NULL){
+        if ((addr = lisp_addr_new_lafi(LM_AFI_IP))== NULL){
             LMLOG( LWRN, "fqdn_to_addresses: Unable to allocate memory for lisp_addr_t");
             continue;
         }

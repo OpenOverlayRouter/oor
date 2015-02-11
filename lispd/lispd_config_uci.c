@@ -1182,7 +1182,7 @@ parse_rlocs(
             }
             address = (lisp_addr_t *)glist_first_data(addr_list);
 
-            if (lisp_addr_afi(address) == LM_AFI_IPPREF){
+            if (lisp_addr_lafi(address) == LM_AFI_IPPREF){
                 LMLOG(LERR, "Configuration file: RLOC address can not be a prefix: %s ",
                         lisp_addr_to_char(address));
                 continue;

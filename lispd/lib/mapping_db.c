@@ -127,7 +127,7 @@ _find_lcaf_node(mdb_t *db, lcaf_addr_t *lcaf, uint8_t exact)
 static patricia_node_t *
 _find_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exact)
 {
-    switch (lisp_addr_afi(laddr)) {
+    switch (lisp_addr_lafi(laddr)) {
     case LM_AFI_IP:
     case LM_AFI_IPPREF:
         return (_find_ip_node(db, laddr, exact));
@@ -135,7 +135,7 @@ _find_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exact)
         return (_find_lcaf_node(db, lisp_addr_get_lcaf(laddr), exact));
         break;
     default:
-        LMLOG(LWRN, "_find_node: unsupported AFI %d", lisp_addr_afi(laddr));
+        LMLOG(LWRN, "_find_node: unsupported AFI %d", lisp_addr_lafi(laddr));
         break;
     }
 
@@ -156,7 +156,7 @@ _get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr,
     src = lcaf_mc_get_src(mcaddr);
     srcip = lisp_addr_ip(src);
 
-    if (lisp_addr_afi(src) != LM_AFI_IP) {
+    if (lisp_addr_lafi(src) != LM_AFI_IP) {
         LMLOG(DBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return (NULL);
     }
@@ -276,7 +276,7 @@ _get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf)
 patricia_tree_t *
 _get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr)
 {
-    switch (lisp_addr_afi(addr)) {
+    switch (lisp_addr_lafi(addr)) {
     case LM_AFI_IP:
     case LM_AFI_IPPREF:
         return (get_ip_pt_from_afi(db, lisp_addr_ip_afi(addr)));
@@ -284,7 +284,7 @@ _get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr)
         return (_get_local_db_for_lcaf_addr(db, lisp_addr_get_lcaf(addr)));
     default:
         LMLOG(DBG_3, "_get_db_for_addr: called with unsupported afi(%d)",
-                lisp_addr_afi(addr));
+                lisp_addr_lafi(addr));
     }
     return (NULL);
 }
@@ -354,9 +354,8 @@ int
 mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
 {
     int retval = 0;
-    switch (lisp_addr_afi(addr)) {
+    switch (lisp_addr_lafi(addr)) {
     case LM_AFI_IP:
-    case LM_AFI_IP6:
         LMLOG(LWRN, "mdb_add_entry: mapping stores an IP prefix not an IP!");
         break;
     case LM_AFI_IPPREF:
@@ -368,7 +367,7 @@ mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
     default:
         retval = BAD;
         LMLOG(LWRN, "mdb_add_entry: called with unknown AFI:%u",
-                lisp_addr_afi(addr));
+                lisp_addr_lafi(addr));
         break;
     }
 
@@ -390,7 +389,7 @@ mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
     lisp_addr_t *taddr;
     void *ret = NULL;
 
-    switch (lisp_addr_afi(laddr)) {
+    switch (lisp_addr_lafi(laddr)) {
     case LM_AFI_IP:
         /* make ippref */
         taddr = lisp_addr_clone(laddr);
@@ -409,7 +408,7 @@ mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
         break;
     default:
         LMLOG(LWRN, "mdb_del_entry: called with unknown AFI:%u",
-                lisp_addr_afi(laddr));
+                lisp_addr_lafi(laddr));
         break;
     }
 
@@ -485,7 +484,7 @@ pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data)
     src = lcaf_mc_get_src(mcaddr);
     grp = lcaf_mc_get_grp(mcaddr);
 
-    if (lisp_addr_afi(src) != LM_AFI_IP || lisp_addr_afi(grp) != LM_AFI_IP) {
+    if (lisp_addr_lafi(src) != LM_AFI_IP || lisp_addr_lafi(grp) != LM_AFI_IP) {
         LMLOG(LWRN, "pt_add_mc_addr: only IP type supported for S %s and G %s for now!",
                 lisp_addr_to_char(src), lisp_addr_to_char(grp));
         return(BAD);
@@ -575,7 +574,7 @@ pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr)
     src = lcaf_mc_get_src(mcaddr);
     grp = lcaf_mc_get_grp(mcaddr);
 
-    if (lisp_addr_afi(src) != LM_AFI_IP || lisp_addr_afi(grp) != LM_AFI_IP) {
+    if (lisp_addr_lafi(src) != LM_AFI_IP || lisp_addr_lafi(grp) != LM_AFI_IP) {
         LMLOG(DBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return(NULL);
     }
@@ -689,7 +688,7 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
 //    src = lcaf_mc_get_src(mcaddr);
 //    grp = lcaf_mc_get_grp(mcaddr);
 
-    if (lisp_addr_afi(src) != LM_AFI_IP || lisp_addr_afi(grp) != LM_AFI_IP) {
+    if (lisp_addr_lafi(src) != LM_AFI_IP || lisp_addr_lafi(grp) != LM_AFI_IP) {
         LMLOG(DBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return(NULL);
     }

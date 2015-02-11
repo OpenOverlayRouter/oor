@@ -272,7 +272,7 @@ iface_setup(iface_t *iface, char* iface_name, int afi)
                 addr, NULL, 0);
     } else {
         *sock = -1;
-        lisp_addr_set_afi(addr, LM_AFI_NO_ADDR);
+        lisp_addr_set_lafi(addr, LM_AFI_NO_ADDR);
         return(BAD);
     }
 
@@ -302,8 +302,8 @@ add_interface(char *iface_name)
     iface->iface_index = if_nametoindex(iface_name);
 
     /* set up all fields to default, null values */
-    iface->ipv4_address = lisp_addr_new_afi(LM_AFI_NO_ADDR);
-    iface->ipv6_address = lisp_addr_new_afi(LM_AFI_NO_ADDR);
+    iface->ipv4_address = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+    iface->ipv6_address = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
     iface->out_socket_v4 = -1;
     iface->out_socket_v6 = -1;
 
@@ -322,8 +322,8 @@ add_interface(char *iface_name)
         }
     }
 
-    if (lisp_addr_afi(iface->ipv4_address) == LM_AFI_NO_ADDR
-        && lisp_addr_afi(iface->ipv6_address) == LM_AFI_NO_ADDR) {
+    if (lisp_addr_lafi(iface->ipv4_address) == LM_AFI_NO_ADDR
+        && lisp_addr_lafi(iface->ipv6_address) == LM_AFI_NO_ADDR) {
         iface->status = DOWN;
     } else {
         iface->status = UP;
@@ -534,7 +534,7 @@ get_any_output_iface(int afi)
     case AF_INET:
         while (iface_list_elt != NULL) {
             tif = iface_list_elt->iface;
-            if ((lisp_addr_afi(tif->ipv4_address) != LM_AFI_NO_ADDR)
+            if ((lisp_addr_lafi(tif->ipv4_address) != LM_AFI_NO_ADDR)
                     && (tif->status == UP)) {
                 iface = tif;
                 break;
@@ -545,7 +545,7 @@ get_any_output_iface(int afi)
     case AF_INET6:
         while (iface_list_elt != NULL) {
             tif = iface_list_elt->iface;
-            if ((lisp_addr_afi(tif->ipv6_address) != LM_AFI_NO_ADDR)
+            if ((lisp_addr_lafi(tif->ipv6_address) != LM_AFI_NO_ADDR)
                     && (tif->status == UP)) {
                 iface = tif;
                 break;
@@ -704,7 +704,7 @@ get_interface_name_from_address(lisp_addr_t *addr)
 {
     char *iface  = NULL;
 
-    if (lisp_addr_afi(addr) != LM_AFI_IP) {
+    if (lisp_addr_lafi(addr) != LM_AFI_IP) {
         LMLOG(DBG_1, "get_interface_name_from_address: failed for %s. Function"
                 " only supports IP syntax addresses!", lisp_addr_to_char(addr));
         return(NULL);

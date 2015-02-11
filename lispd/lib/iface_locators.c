@@ -80,27 +80,23 @@ iface_locators_attach_mapping(
         shash_t *   iface_locators_table,
         mapping_t * mapping)
 {
-    locator_list_t *    locators_lists[3]   = {NULL,NULL,NULL};
     locator_t *         locator             = NULL;
     iface_locators *    iface_loct          = NULL;
-    int                 ctr                 = 0;
+    glist_t *			loct_list 			= NULL;
+    glist_entry_t *		it_list 			= NULL;
+    glist_entry_t *		it_loct 			= NULL;
 
-    locators_lists[0] = mapping_get_locators_with_afi(mapping,LM_AFI_NO_ADDR,0);
-    locators_lists[1] = mapping_get_locators_with_afi(mapping,LM_AFI_IP,AF_INET);
-    locators_lists[2] = mapping_get_locators_with_afi(mapping,LM_AFI_IP,AF_INET6);
-
-    for (ctr = 0 ; ctr < 3 ; ctr++){
-        while (locators_lists[ctr] != NULL){
-            locator = locators_lists[ctr]->locator;
-            iface_loct = iface_locators_get_element_with_loct(
-                                   iface_locators_table, locator);
-            if (iface_loct != NULL &&
-                    glist_contain(mapping, iface_loct->mappings) == FALSE){
-                glist_add(mapping, iface_loct->mappings);
-            }
-
-            locators_lists[ctr] = locators_lists[ctr]->next;
-        }
+    glist_for_each_entry(it_list,mapping_locators(mapping)){
+    	loct_list = (glist_t *)glist_entry_data(it_list);
+    	glist_for_each_entry(it_loct,loct_list){
+    		locator = (locator_t *)glist_entry_data(it_loct);
+    		iface_loct = iface_locators_get_element_with_loct(
+    				iface_locators_table, locator);
+    		if (iface_loct != NULL &&
+    				glist_contain(mapping, iface_loct->mappings) == FALSE){
+    			glist_add(mapping, iface_loct->mappings);
+    		}
+    	}
     }
 }
 
@@ -109,23 +105,20 @@ iface_locators_unattach_mapping_and_loct(
         shash_t *   iface_locators_table,
         mapping_t * mapping)
 {
-    locator_list_t *    locators_lists[3]   = {NULL,NULL,NULL};
     glist_t *           iface_loct_list     = NULL;
     glist_entry_t *     it_if_loct          = NULL;
     iface_locators *    iface_loct          = NULL;
-    int                 ctr                 = 0;
+    glist_t *			loct_list 			= NULL;
+    glist_entry_t *		it_list 			= NULL;
+    glist_entry_t *		it_loct 			= NULL;
+    locator_t *			locator				= NULL;
 
-    locators_lists[0] = mapping_get_locators_with_afi(mapping,LM_AFI_NO_ADDR,0);
-    locators_lists[1] = mapping_get_locators_with_afi(mapping,LM_AFI_IP,AF_INET);
-    locators_lists[2] = mapping_get_locators_with_afi(mapping,LM_AFI_IP,AF_INET6);
-
-    for (ctr=0;ctr<3;ctr++){
-        while(locators_lists[ctr] != NULL){
-            iface_locators_unattach_locator(
-                    iface_locators_table,
-                    locators_lists[ctr]->locator);
-            locators_lists[ctr] = locators_lists[ctr]->next;
-        }
+    glist_for_each_entry(it_list,mapping_locators(mapping)){
+    	loct_list = (glist_t *)glist_entry_data(it_list);
+    	glist_for_each_entry(it_loct,loct_list){
+    		locator = (locator_t *)glist_entry_data(it_loct);
+    		iface_locators_unattach_locator(iface_locators_table, locator);
+    	}
     }
 
     iface_loct_list = shash_values(iface_locators_table);
@@ -160,16 +153,12 @@ iface_locators_unattach_locator(
     }
 
     if (lisp_addr_is_no_addr(addr) == FALSE){
-        if (lisp_addr_is_lcaf(addr) == TRUE) {
-            ip_addr = lcaf_rloc_get_ip_addr(addr);
-            if (ip_addr == NULL) {
-                LMLOG(LERR, "unattach_locator_from_iface: Can't determine RLOC's IP "
-                        "address %s", lisp_addr_to_char(addr));
-                return;
-            }
-        } else {
-            ip_addr = addr;
-        }
+    	ip_addr = lisp_addr_get_ip_addr(addr);
+    	if (ip_addr == NULL) {
+    		LMLOG(LERR, "unattach_locator_from_iface: Can't determine RLOC's IP "
+    				"address %s", lisp_addr_to_char(addr));
+    		return;
+    	}
         afi = lisp_addr_ip_afi(ip_addr);
     }else{
         loct_lists[0] = iface_loct->ipv4_locators;
@@ -222,16 +211,13 @@ iface_locators_get_element_with_loct(
 
     if (lisp_addr_is_no_addr(addr) == FALSE)
     {
-        if (lisp_addr_is_lcaf(addr) == TRUE) {
-            ip_addr = lcaf_rloc_get_ip_addr(addr);
-            if (ip_addr == NULL) {
-                LMLOG(LERR, "iface_locators_get_element_with_loct: Can't determine RLOC's IP "
-                        "address %s", lisp_addr_to_char(addr));
-                return (NULL);
-            }
-        } else {
-            ip_addr = addr;
-        }
+    	ip_addr = lisp_addr_get_ip_addr(addr);
+    	if (ip_addr == NULL) {
+    		LMLOG(LERR, "iface_locators_get_element_with_loct: Can't determine RLOC's IP "
+                    "address %s", lisp_addr_to_char(addr));
+    		return (NULL);
+    	}
+
         /* Find the interface name associated to the RLOC */
         iface_name = get_interface_name_from_address(ip_addr);
 
