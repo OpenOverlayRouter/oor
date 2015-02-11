@@ -63,7 +63,6 @@ typedef struct map_cache_entry_ {
     /* TRUE if we have received a map reply for this entry */
     uint8_t active;
     uint8_t active_witin_period;
-    uint32_t ttl;
     time_t timestamp;
 
     /* timers */

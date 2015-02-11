@@ -35,6 +35,8 @@
 #include <defs.h>
 #include <stdint.h>
 
+#define LBUF_STACK_OFFSET 100
+
 typedef enum lbuf_source {
     LBUF_MALLOC,
     LBUF_STACK

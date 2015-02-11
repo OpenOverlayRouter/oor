@@ -89,6 +89,9 @@ sock_list_add(sock_list_t *lst, sock_t *sock)
 void
 sockmstr_destroy(sockmstr_t *sm)
 {
+    if (sm == NULL){
+        return;
+    }
     sock_list_remove_all(&sm->read);
     free(sm);
     LMLOG(DBG_1,"Sockets closed");

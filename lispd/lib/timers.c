@@ -138,6 +138,10 @@ lmtimers_destroy()
 
     destroy_timers_event_socket();
 
+    if (timer_id == NULL){
+        return;
+    }
+
     spoke = &timer_wheel.spokes[0];
     for (i = 0; i < WHEEL_SIZE; i++) {
         /* the first link is NOT a timer */
