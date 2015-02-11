@@ -30,9 +30,9 @@
 #ifndef LISPD_CONTROL_H_
 #define LISPD_CONTROL_H_
 
-#include "sockets.h"
-#include "liblisp.h"
-#include "iface_list.h"
+#include "../lib/sockets.h"
+#include "../liblisp/liblisp.h"
+#include "../iface_list.h"
 
 typedef struct lisp_ctrl lisp_ctrl_t;
 

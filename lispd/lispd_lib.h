@@ -34,7 +34,7 @@
 #define LISPD_LIB_H_
 
 #include "defs.h"
-#include "liblisp.h"
+#include "liblisp/liblisp.h"
 
 
 

@@ -28,7 +28,7 @@
 
 #include "lisp_rtr.h"
 #include "lisp_xtr.h"
-#include "lmlog.h"
+#include "../lib/lmlog.h"
 
 void rtr_ctrl_start(lisp_ctrl_dev_t *dev) {
     LMLOG(LISP_LOG_DEBUG_1, "Starting RTR...");

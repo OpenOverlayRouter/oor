@@ -32,7 +32,7 @@
 #include "lmlog.h"
 
 
-#include "liblisp.h"
+#include "../liblisp/liblisp.h"
 
 /* Time after which an entry is considered to have timed out and
  * is removed from the table */

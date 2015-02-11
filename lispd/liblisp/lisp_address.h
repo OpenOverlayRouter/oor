@@ -31,7 +31,7 @@
 
 #include "lisp_ip.h"
 #include "lisp_lcaf.h"
-#include <lisp_messages.h>
+#include "lisp_messages.h"
 
 
 /*

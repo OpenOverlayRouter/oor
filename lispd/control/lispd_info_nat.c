@@ -35,9 +35,9 @@
 #include <endian.h>
 #include "lispd_info_nat.h"
 #include "lispd_info_reply.h"
-#include <lispd_lib.h>
+#include "../lispd_lib.h"
 #include <errno.h>
-#include "lmlog.h"
+#include "../lib/lmlog.h"
 
 
 

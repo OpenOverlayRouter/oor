@@ -31,8 +31,8 @@
 #include <errno.h>
 
 #include "lisp_locator.h"
-#include "lispd_lib.h"
-#include "lmlog.h"
+#include "../lispd_lib.h"
+#include "../lib/lmlog.h"
 
 
 static lcl_locator_extended_info_t *new_lcl_locator_extended_info(int *);
@@ -303,6 +303,8 @@ locator_init_local_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
 void
 locator_del(locator_t *locator)
 {
+    //XXX Check problem with locator free (double free of extended info) (locator former address still in locator lists)
+
     if (!locator) {
         return;
     }

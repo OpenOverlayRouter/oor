@@ -31,16 +31,16 @@
 #include <errno.h>
 
 #include "lispd_output.h"
-#include "liblisp.h"
-#include "packets.h"
-#include "sockets.h"
-#include "lispd_info_nat.h"
-#include "lisp_control.h"
+#include "../liblisp/liblisp.h"
+#include "../lib/packets.h"
+#include "../lib/sockets.h"
+#include "../control/lispd_info_nat.h"
+#include "../control/lisp_control.h"
 #include "lispd_tun.h"
-#include "ttable.h"
-#include "lmlog.h"
+#include "../lib/ttable.h"
+#include "../lib/lmlog.h"
 
-#include "sockets-util.h"
+#include "../lib/sockets-util.h"
 
 /* static buffer to receive packets */
 static uint8_t pkt_recv_buf[TUN_RECEIVE_SIZE];

@@ -28,7 +28,7 @@
 
 #include "generic_list.h"
 #include <stdlib.h>
-#include <util.h>
+#include "util.h"
 #include "lmlog.h"
 
 

@@ -29,7 +29,7 @@
 #ifndef LISP_SITE_H_
 #define LISP_SITE_H_
 
-#include "liblisp.h"
+#include "../liblisp/liblisp.h"
 #include "timers.h"
 
 typedef struct lisp_site_prefix {

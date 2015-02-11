@@ -43,8 +43,8 @@
 //#include <netinet/in_systm.h>
 
 #include "util.h"
-#include "defs.h"
-#include "lisp_address.h"
+#include "../defs.h"
+#include "../liblisp/lisp_address.h"
 #include "lbuf.h"
 
 

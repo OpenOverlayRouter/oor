@@ -30,8 +30,8 @@
 #ifndef LISP_CTRL_DEVICE_H_
 #define LISP_CTRL_DEVICE_H_
 
-#include "defs.h"
-#include "liblisp.h"
+#include "../defs.h"
+#include "../liblisp/liblisp.h"
 #include "lisp_local_db.h"
 #include "lisp_map_cache.h"
 #include "lisp_control.h"

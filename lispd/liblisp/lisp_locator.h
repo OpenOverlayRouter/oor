@@ -34,8 +34,8 @@
 
 #include "lisp_address.h"
 #include "lisp_nonce.h"
-#include "util.h"
-#include "timers.h"
+#include "../lib/util.h"
+#include "../lib/timers.h"
 
 /* locator_types */
 #define STATIC_LOCATOR                  0

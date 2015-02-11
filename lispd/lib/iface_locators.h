@@ -29,7 +29,7 @@
 #ifndef IFACE_LOCATORS_H_
 #define IFACE_LOCATORS_H_
 
-#include "liblisp.h"
+#include "../liblisp/liblisp.h"
 #include "shash.h"
 
 typedef struct iface_locators_{

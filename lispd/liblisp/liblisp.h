@@ -34,8 +34,8 @@
 #include "lisp_mapping.h"
 #include "lisp_messages.h"
 #include "lisp_data.h"
-#include "generic_list.h"
-#include "lbuf.h"
+#include "../lib/generic_list.h"
+#include "../lib/lbuf.h"
 
 
 #define LISP_DATA_HDR_LEN       8

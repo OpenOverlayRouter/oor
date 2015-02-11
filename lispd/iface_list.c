@@ -37,12 +37,12 @@
 
 #include "iface_list.h"
 #include "lispd_external.h"
-#include "routing_tables_lib.h"
-#include "sockets.h"
-#include "lispd_tun.h"
-#include "shash.h"
-#include "sockets-util.h"
-#include "lmlog.h"
+#include "lib/routing_tables_lib.h"
+#include "lib/sockets.h"
+#include "data-tun/lispd_tun.h"
+#include "lib/shash.h"
+#include "lib/sockets-util.h"
+#include "lib/lmlog.h"
 
 
 iface_list_elt_t *head_interface_list = NULL;

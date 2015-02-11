@@ -28,7 +28,7 @@
  *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#include "lmlog.h"
+#include "../lib/lmlog.h"
 #include "lisp_mapping.h"
 
 
@@ -71,6 +71,7 @@ mapping_add_locator(
 {
     lisp_addr_t *addr = NULL;
     lisp_addr_t *auxaddr = NULL;
+    int err;
 
     int result = GOOD;
 
@@ -99,7 +100,7 @@ mapping_add_locator(
 
     switch (lisp_addr_ip_afi(auxaddr)) {
     case AF_INET:
-        err = locator_list_add(&m->head_v4_locators_list, loc);
+        err = locator_list_add(&(m->head_v4_locators_list), loc);
         break;
     case AF_INET6:
         err = locator_list_add(&m->head_v6_locators_list, loc);

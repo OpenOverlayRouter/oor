@@ -35,8 +35,8 @@
 #include <time.h>
 
 #include "lisp_nonce.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 /*  Generates a nonce random number. Requires librt */
 uint64_t

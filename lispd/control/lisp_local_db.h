@@ -32,9 +32,9 @@
 #ifndef LISP_LOCAL_DB_H_
 #define LISP_LOCAL_DB_H_
 
-#include <defs.h>
-#include <liblisp.h>
-#include <mapping_db.h>
+#include "../defs.h"
+#include "../liblisp/liblisp.h"
+#include "../lib/mapping_db.h"
 
 
 typedef struct local_map_db_t_ {

@@ -32,7 +32,7 @@
 #ifndef SOCKETS_UTIL_H_
 #define SOCKETS_UTIL_H_
 
-#include "lisp_address.h"
+#include "../liblisp/lisp_address.h"
 
 int open_device_bound_raw_socket(char *device, int afi);
 int open_raw_socket(int afi);

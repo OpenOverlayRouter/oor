@@ -29,7 +29,7 @@
 #ifndef LISP_RTR_H_
 #define LISP_RTR_H_
 
-#include <defs.h>
+#include "../defs.h"
 #include "lisp_ctrl_device.h"
 
 typedef struct _lisp_rtr {

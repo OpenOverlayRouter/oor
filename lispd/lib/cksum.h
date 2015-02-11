@@ -32,7 +32,7 @@
 #ifndef CKSUM_H_
 #define CKSUM_H_
 
-#include <defs.h>
+#include "../defs.h"
 
 uint16_t ip_checksum(uint16_t *buffer, int size);
 

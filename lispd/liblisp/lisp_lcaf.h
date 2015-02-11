@@ -32,8 +32,8 @@
 #define LISPD_LCAF_H_
 
 #include "lisp_ip.h"
-#include "generic_list.h"
-#include <lisp_messages.h>
+#include "../lib/generic_list.h"
+#include "lisp_messages.h"
 
 
 #define MAX_LCAFS 16

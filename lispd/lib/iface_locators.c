@@ -26,8 +26,8 @@
  *    Albert López <alopez@ac.upc.edu>
  */
 
-#include "defs.h"
-#include "iface_list.h"
+#include "../defs.h"
+#include "../iface_list.h"
 #include "iface_locators.h"
 #include "lmlog.h"
 #include "sockets.h"

@@ -28,7 +28,7 @@
 
 
 #include "lisp_site.h"
-#include "defs.h"
+#include "../defs.h"
 
 lisp_site_prefix_t *lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid,
         int key_type, char *key, uint8_t more_specifics, uint8_t proxy_reply,

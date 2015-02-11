@@ -28,11 +28,11 @@
 
 #include <unistd.h>
 
-#include "iface_locators.h"
+#include "../lib/iface_locators.h"
 #include "lisp_xtr.h"
-#include "sockets.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../lib/sockets.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 static int mc_entry_expiration_timer_cb(lmtimer_t *t, void *arg);
 static void mc_entry_start_expiration_timer(lisp_xtr_t *, mcache_entry_t *);

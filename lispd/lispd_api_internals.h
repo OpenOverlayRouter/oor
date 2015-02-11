@@ -1,11 +1,10 @@
 /*
- * lispd_nonce.h
+ * lispd_api.h
  *
- * This file is part of LISP Mobile Node Implementation.
- * Send registration messages for each database mapping to
- * configured map-servers.
+ * This file is part of LISPmob implementation. It defines the API to
+ * interact with LISPmob internals.
  *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Copyright (C) The LISPmob project, 2014. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,26 +23,15 @@
  * Please send any bug reports or fixes you make to the email address(es):
  *    LISP-MN developers <devel@lispmob.org>
  *
- * Written or modified by:
- *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
-#ifndef LISPD_NONCE_H_
-#define LISPD_NONCE_H_
-
-#include "../defs.h"
-
-typedef struct {
-    uint8_t retransmits;
-    uint64_t nonce[LISPD_MAX_RETRANSMITS + 1];
-} nonces_list_t;
+#include "lispd_api.h"
 
 
-uint64_t nonce_build(int seed);
-uint64_t nonce_build_time();
-nonces_list_t *nonces_list_new();
-int nonce_check(nonces_list_t *nonces, uint64_t nonce);
-void lispd_print_nonce(uint64_t nonce, int log_level);
-char *nonce_to_char(uint64_t nonce);
+/* API main loop */
+void lmapi_loop(lmapi_connection_t *conn);
 
-#endif /* LISPD_NONCE_H_ */
+/* Initialize API system (server) */
+int lmapi_init_server(lmapi_connection_t *conn);
+
+

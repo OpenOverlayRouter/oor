@@ -33,16 +33,76 @@
 #ifndef LISPD_CONFIG_FUNCTIONS_H_
 #define LISPD_CONFIG_FUNCTIONS_H_
 
-#include "iface_locators.h"
-#include "lisp_ms.h"
-#include "lisp_site.h"
-#include "lisp_xtr.h"
+#include "lib/iface_locators.h"
+#include "control/lisp_ms.h"
+#include "lib/lisp_site.h"
+#include "control/lisp_xtr.h"
+
+#define MAX_CFG_STRING 100
 
 typedef struct no_addr_loct_ {
     locator_t *     locator;
     char *          iface_name;
     int             afi;
 }no_addr_loct;
+
+typedef struct conf_loc_ {
+    char * address;
+    int priority;
+    int weight;
+}conf_loc_t;
+
+typedef struct conf_loc_iface_ {
+    char * interface;
+    int afi;
+    int priority;
+    int weight;
+}conf_loc_iface_t;
+
+typedef struct conf_mapping_ {
+    char    *eid_prefix;
+    glist_t *conf_loc_list;
+    glist_t *conf_loc_iface_list;
+}conf_mapping_t;
+
+static inline conf_loc_t * conf_loc_new(){
+    return ((conf_loc_t *)xzalloc(sizeof(conf_loc_t)));
+}
+
+static inline void conf_loc_destroy(conf_loc_t *conf_loc){
+    if (conf_loc == NULL) return;
+    free(conf_loc->address);
+    free(conf_loc);
+}
+
+char *conf_loc_dump(conf_loc_t * loc);
+
+static inline conf_loc_iface_t * conf_loc_iface_new(){
+    return ((conf_loc_iface_t *)xzalloc(sizeof(conf_loc_iface_t)));
+}
+
+static inline void conf_loc_iface_destroy(conf_loc_iface_t *conf_loc_iface){
+    if (conf_loc_iface == NULL) return;
+    free(conf_loc_iface->interface);
+    free(conf_loc_iface);
+}
+
+char *conf_loc_iface_dump(conf_loc_iface_t * loc_iface);
+
+static inline conf_mapping_t *conf_mapping_new(){
+    conf_mapping_t * conf_map = (conf_mapping_t *)xzalloc(sizeof(conf_mapping_t));
+    conf_map->eid_prefix = (char *)xzalloc(MAX_CFG_STRING);
+    conf_map->conf_loc_list = glist_new_managed((glist_del_fct) conf_loc_destroy);
+    conf_map->conf_loc_iface_list = glist_new_managed((glist_del_fct) conf_loc_iface_destroy);
+    return (conf_map);
+}
+
+static inline void conf_mapping_destroy(conf_mapping_t * conf_map){
+    glist_destroy(conf_map->conf_loc_list);
+    glist_destroy(conf_map->conf_loc_iface_list);
+    free(conf_map->eid_prefix);
+    free(conf_map);
+}
 
 no_addr_loct *
 no_addr_loct_new_init(
@@ -152,6 +212,13 @@ clone_customize_locator(
         locator_t*          locator,
         glist_t*            no_addr_loct_l,
         uint8_t             type);
+
+mapping_t * process_mapping_config(lisp_ctrl_dev_t *, htable_t *,uint8_t,conf_mapping_t *);
+
+int
+add_local_db_mapping(mapping_t *mapping, lisp_xtr_t *xtr);
+
+
 
 
 #endif /* LISPD_CONFIG_FUNCTIONS_H_ */

@@ -27,9 +27,9 @@
  */
 
 #include "liblisp.h"
-#include "cksum.h"
+#include "../lib/cksum.h"
 #include "hmac/hmac.h"
-#include "lmlog.h"
+#include "../lib/lmlog.h"
 
 static void increment_record_count(lbuf_t *b);
 
@@ -219,7 +219,9 @@ lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
         }
     }
 
-    *probed_ = probed;
+    if (probed_ != NULL) {
+        *probed_ = probed;
+    }
 
     return(GOOD);
 }

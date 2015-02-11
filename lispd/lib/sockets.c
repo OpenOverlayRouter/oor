@@ -38,8 +38,8 @@
 
 #include "sockets.h"
 #include "sockets-util.h"
-#include "liblisp.h"
-#include "iface_list.h"
+#include "../liblisp/liblisp.h"
+#include "../iface_list.h"
 #include "lmlog.h"
 
 

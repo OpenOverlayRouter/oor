@@ -30,11 +30,11 @@
  */
 
 #include "lispd_info_request.h"
-#include <lispd_external.h>
-#include <lispd_lib.h>
-#include <packets.h>
-#include <sockets.h>
-#include <cksum.h>
+#include "../lispd_external.h"
+#include "../lispd_lib.h"
+#include "../lib/packets.h"
+#include "../lib/sockets.h"
+#include "../lib/cksum.h"
 #include "lisp_local_db.h"
 
 
@@ -147,6 +147,7 @@ int build_and_send_info_request(
     lisp_addr_t             *src_addr               = NULL;
     int                     out_socket              = 0;
     int                     result                  = 0;
+    int err;
 
     auth_data_len = get_auth_data_len(map_server->key_type);
 
@@ -247,6 +248,7 @@ int info_request(
 {
     mapping_t           *mapping         = NULL;
     int                 next_timer_time  = 0;
+    int err;
 
     mapping = (mapping_t *)arg;
 

@@ -33,15 +33,15 @@
 #include <sys/timerfd.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
-#include "lispd_afi.h"
-#include "lispd_external.h"
+#include "../lispd_afi.h"
+#include "../lispd_external.h"
 #include "lispd_info_reply.h"
 #include "lispd_info_request.h"
-#include "lispd_lib.h"
+#include "../lispd_lib.h"
 #include "lisp_local_db.h"
-#include "lisp_nonce.h"
+#include "../liblisp/lisp_nonce.h"
 #include "cksum.h"
-#include "lmlog.h"
+#include "../lib/lmlog.h"
 
 
 
@@ -94,6 +94,7 @@ int process_info_reply_msg(
     rtr_locators_list_t     *aux_rtr_locators_list  = NULL;
 
     uint8_t                     is_behind_nat           = FALSE;
+    int err;
 
 
     /*

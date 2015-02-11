@@ -21,7 +21,7 @@ ERROR		= false
 
 ifeq "$(platform)" ""
 CFLAGS		+= -Wall -g
-LIBS		= -lconfuse -lrt -lm
+LIBS		= -lconfuse -lrt -lm -lzmq
 else
 ifeq "$(platform)" "router"
 CFLAGS		+= -Wall -g -DROUTER
@@ -133,7 +133,9 @@ OBJS		= cmdline.o                  \
 		  iface_mgmt.o                   \
 		  lispd.o                        \
 		  lispd_config_confuse.o         \
-		  lispd_config_functions.o
+		  lispd_config_functions.o       \
+		  lispd_api.o					 \
+		  lispd_api_internals.o
 endif
 
 EXE		= lispd

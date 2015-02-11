@@ -30,7 +30,7 @@
  */
 
 #include "lisp_map_cache.h"
-#include "lmlog.h"
+#include "../lib/lmlog.h"
 #include <math.h>
 
 

@@ -48,19 +48,20 @@
 #include "cmdline.h"
 #include "iface_list.h"
 #include "iface_mgmt.h"
-#include "lispd_input.h"
-#include "lmlog.h"
-#include "sockets.h"
-#include "timers.h"
-#include "lispd_tun.h"
-#include "lispd_output.h"
-#include "routing_tables_lib.h"
-#include <liblisp.h>
-#include <lisp_control.h>
-#include <lisp_xtr.h>
-#include <lisp_ms.h>
-#include <shash.h>
-#include <generic_list.h>
+#include "data-tun/lispd_input.h"
+#include "lib/lmlog.h"
+#include "lib/sockets.h"
+#include "lib/timers.h"
+#include "data-tun/lispd_tun.h"
+#include "data-tun/lispd_output.h"
+#include "lib/routing_tables_lib.h"
+#include "lispd_api_internals.h"
+#include "liblisp/liblisp.h"
+#include "control/lisp_control.h"
+#include "control/lisp_xtr.h"
+#include "control/lisp_ms.h"
+#include "lib/shash.h"
+#include "lib/generic_list.h"
 
 /* system calls - look to libc for function to system call mapping */
 extern int capset(cap_user_header_t header, cap_user_data_t data);
@@ -94,6 +95,9 @@ nonces_list_t *nat_ir_nonce = NULL;
 sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
+
+/* LISPmob's API connection structure */
+lmapi_connection_t lmapi_connection;
 
 /**************************** FUNCTION DECLARATION ***************************/
 /* Check if lispmob is already running: /var/run/lispd.pid */
@@ -396,7 +400,9 @@ void signal_handler(int sig) {
 
 void
 exit_cleanup(void) {
-    LMLOG(DBG_2,"Exist Clenup");
+    LMLOG(DBG_2,"Exit Cleanup");
+
+    lmapi_end(&lmapi_connection);
 
     pid_file_remove();
 
@@ -519,6 +525,8 @@ init_netlink()
 static void
 parse_config_file()
 {
+    int err;
+
     err = handle_config_file(config_file);
 
     if (err != GOOD){
@@ -593,10 +601,15 @@ main(int argc, char **argv)
     }
     ctrl_dev_run(ctrl_dev);
 
+    /* Initialize API for external access */
+
+    lmapi_init_server(&lmapi_connection);
+
     /* EVENT LOOP */
     for (;;) {
         sockmstr_wait_on_all_read(smaster);
         sockmstr_process_all(smaster);
+        lmapi_loop(&lmapi_connection);
     }
 
     /* event_loop returned: bad! */

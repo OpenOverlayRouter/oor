@@ -28,9 +28,9 @@
 
 
 #include "lisp_ctrl_device.h"
-#include "sockets.h"
-#include "packets.h"
-#include <lispd_lib.h>
+#include "../lib/sockets.h"
+#include "../lib/packets.h"
+#include "../lispd_lib.h"
 
 
 static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {

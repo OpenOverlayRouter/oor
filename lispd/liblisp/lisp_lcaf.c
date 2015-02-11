@@ -32,9 +32,9 @@
 
 #include "lisp_lcaf.h"
 #include "lisp_address.h"
-#include "defs.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../defs.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 
 typedef void    (*del_fct)(void *);

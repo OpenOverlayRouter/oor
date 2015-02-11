@@ -33,7 +33,7 @@
 #define MAP_CACHE_ENTRY_H_
 
 #include "timers.h"
-#include "lisp_mapping.h"
+#include "../liblisp/lisp_mapping.h"
 
 /*
  *  map-cache entry types (how_learned)

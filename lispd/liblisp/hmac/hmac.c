@@ -28,11 +28,11 @@
  *
  */
 
-#include "lmlog.h"
+#include "../../lib/lmlog.h"
 #include "hmac.h"
 #include "hmac-sha1.h"
 #include "hmac-sha256.h"
-#include "lisp_message_fields.h"
+#include "../lisp_message_fields.h"
 #include <stdlib.h>
 
 /*

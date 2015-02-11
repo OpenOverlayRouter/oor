@@ -27,8 +27,8 @@
  */
 
 #include "lisp_address.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 
 static inline lm_afi_t get_afi_(lisp_addr_t *laddr);

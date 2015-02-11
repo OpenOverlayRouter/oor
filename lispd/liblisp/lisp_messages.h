@@ -28,7 +28,7 @@
 #define LISP_MESSAGES_H_
 
 #include "lisp_message_fields.h"
-#include "util.h"
+#include "../lib/util.h"
 #include <stdlib.h>
 
 /* LISP Types */

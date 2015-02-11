@@ -29,7 +29,7 @@
 
 #include "lisp_messages.h"
 #include "lisp_nonce.h"
-#include "util.h"
+#include "../lib/util.h"
 //#include <defs.h>
 
 /* The maximum length of the headers, when we have IPv6 encapsulated control messages

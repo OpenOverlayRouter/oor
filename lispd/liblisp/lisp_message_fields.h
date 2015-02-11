@@ -32,10 +32,10 @@
 #define LISP_MESSAGE_FIELDS_H_
 
 //#include <defs.h>
-#include <generic_list.h>
+#include "../lib/generic_list.h"
 #include <stdint.h>
 
-#include "util.h"
+#include "../lib/util.h"
 
 
 /*

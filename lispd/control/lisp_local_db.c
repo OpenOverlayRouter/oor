@@ -31,8 +31,8 @@
 
 
 #include "lisp_local_db.h"
-#include "lispd_external.h"
-#include "lmlog.h"
+#include "../lispd_external.h"
+#include "../lib/lmlog.h"
 
 
 local_map_db_t *

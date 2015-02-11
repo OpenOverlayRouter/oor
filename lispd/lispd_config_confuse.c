@@ -38,37 +38,14 @@
 #include "lispd_config_functions.h"
 #include "lispd_external.h"
 #include "iface_list.h"
-#include "lisp_ctrl_device.h"
-#include "lisp_xtr.h"
-#include "lisp_ms.h"
-#include "lisp_control.h"
-#include "shash.h"
-#include "hash_table.h"
-#include "lmlog.h"
+#include "control/lisp_ctrl_device.h"
+#include "control/lisp_xtr.h"
+#include "control/lisp_ms.h"
+#include "control/lisp_control.h"
+#include "lib/shash.h"
+#include "lib/hash_table.h"
+#include "lib/lmlog.h"
 
-/***************************** FUNCTIONS DECLARATION *************************/
-
-static int add_local_db_mapping(cfg_t *,lisp_xtr_t *, htable_t *);
-mapping_t *
-parse_mapping(
-        cfg_t *             map,
-        lisp_ctrl_dev_t *   dev,
-        htable_t *          lcaf_ht,
-        uint8_t             type);
-
-static glist_t *
-parse_rloc_address(
-        cfg_t *             rloc,
-        lisp_ctrl_dev_t *   dev,
-        htable_t *          lcaf_ht,
-        uint8_t             type);
-
-static locator_t *
-parse_rloc_interface(
-        cfg_t *             rloc,
-        lisp_ctrl_dev_t *   dev);
-
-/********************************** FUNCTIONS ********************************/
 
 static void
 parse_elp_list(cfg_t *cfg, htable_t *ht)
@@ -205,6 +182,72 @@ parse_lcafs(cfg_t *cfg)
     return(lcaf_ht);
 }
 
+
+int parse_mapping_cfg_params(
+        cfg_t       *map,
+        uint8_t     type,
+        conf_mapping_t *conf_mapping)
+{
+
+    int                 ctr             = 0;
+    cfg_t *             rl              = NULL;
+    conf_loc_t *         conf_loc         = NULL;
+    conf_loc_iface_t *   conf_loc_iface   = NULL;
+
+    strcpy(conf_mapping->eid_prefix,cfg_getstr(map, "eid-prefix"));
+
+    for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
+        conf_loc = conf_loc_new();
+
+        rl = cfg_getnsec(map, "rloc-address", ctr);
+        conf_loc->address = strdup(cfg_getstr(rl, "address"));
+        conf_loc->priority = cfg_getint(rl, "priority");
+        conf_loc->weight = cfg_getint(rl, "weight");
+
+        glist_add_tail(conf_loc,conf_mapping->conf_loc_list);
+    }
+
+    if (type == LOCAL_LOCATOR){
+
+        for (ctr = 0; ctr < cfg_size(map, "rloc-iface"); ctr++){
+            conf_loc_iface = conf_loc_iface_new();
+
+            rl = cfg_getnsec(map, "rloc-iface", ctr);
+            conf_loc_iface->interface = strdup(cfg_getstr(rl, "interface"));
+            conf_loc_iface->afi = cfg_getint(rl, "afi");
+            conf_loc_iface->priority = cfg_getint(rl, "priority");
+            conf_loc_iface->weight = cfg_getint(rl, "weight");
+
+            glist_add_tail(conf_loc_iface,conf_mapping->conf_loc_iface_list);
+        }
+    }
+
+    return GOOD;
+}
+
+
+mapping_t *
+parse_mapping(
+        cfg_t *             map,
+        lisp_ctrl_dev_t *   dev,
+        htable_t *          lcaf_ht,
+        uint8_t             type)
+{
+    mapping_t           *mapping        = NULL;
+    conf_mapping_t      *conf_mapping   = NULL;
+
+    conf_mapping = conf_mapping_new();
+
+    parse_mapping_cfg_params(map, type, conf_mapping);
+    mapping = process_mapping_config(dev, lcaf_ht, type, conf_mapping);
+
+    conf_mapping_destroy(conf_mapping);
+
+    return (mapping);
+
+}
+
+
 int
 configure_rtr(cfg_t *cfg)
 {
@@ -330,7 +373,10 @@ configure_rtr(cfg_t *cfg)
     /* RTR DATABASE MAPPINGS (like for instance replication lists) */
     n = cfg_size(cfg, "rtr-database-mapping");
     for (i = 0; i < n; i++) {
-        add_local_db_mapping(cfg_getnsec(cfg, "rtr-database-mapping",i),xtr,lcaf_ht);
+        mapping = parse_mapping(cfg_getnsec(cfg, "rtr-database-mapping",i),&(xtr->super),lcaf_ht,LOCAL_LOCATOR);
+        if (add_local_db_mapping(mapping,xtr) != GOOD){
+            mapping_del(mapping);
+        }
     }
 
 
@@ -482,7 +528,10 @@ configure_xtr(cfg_t *cfg)
 
     n = cfg_size(cfg, "database-mapping");
     for (i = 0; i < n; i++) {
-        add_local_db_mapping(cfg_getnsec(cfg, "database-mapping", i),xtr,lcaf_ht);
+        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,LOCAL_LOCATOR);
+        if (add_local_db_mapping(mapping,xtr) != GOOD){
+            mapping_del(mapping);
+        }
     }
 
     /* STATIC MAP-CACHE CONFIG */
@@ -649,7 +698,10 @@ configure_mn(cfg_t *cfg)
 
     n = cfg_size(cfg, "database-mapping");
     for (i = 0; i < n; i++) {
-        add_local_db_mapping(cfg_getnsec(cfg, "database-mapping", i),xtr,lcaf_ht);
+        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,LOCAL_LOCATOR);
+        if (add_local_db_mapping(mapping,xtr) != GOOD){
+            mapping_del(mapping);
+        }
     }
 
     /* STATIC MAP-CACHE CONFIG */
@@ -996,367 +1048,9 @@ handle_config_file(char *lispdconf_conf_file)
     return(GOOD);
 }
 
-mapping_t *
-parse_mapping(
-        cfg_t *             map,
-        lisp_ctrl_dev_t *   dev,
-        htable_t *          lcaf_ht,
-        uint8_t             type)
-{
-    mapping_t *     mapping         = NULL;
-    glist_t *       loct_list       = NULL;
-    glist_entry_t * it              = NULL;
-    locator_t *     locator         = NULL;
-    glist_t *       addr_list       = NULL;
-    lisp_addr_t *   eid_prefix      = NULL;
-    int             ctr             = 0;
-    cfg_t *         rl              = NULL;
-    lisp_xtr_t *    xtr             = NULL;
-
-    switch (dev->mode){
-    case xTR_MODE:
-    case MN_MODE:
-        xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-        break;
-    default:
-        break;
-    }
-
-    addr_list = parse_lisp_addr(cfg_getstr(map, "eid-prefix"), lcaf_ht);
-    if (addr_list == NULL || glist_size(addr_list) != 1){
-        return (NULL);
-    }
-    eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
-
-    /* Create mapping */
-    if ( type == LOCAL_LOCATOR){
-        mapping = mapping_init_local(eid_prefix);
-        if (mapping != NULL){
-            mapping_set_ttl(mapping, DEFAULT_MAP_REGISTER_TIMEOUT);
-        }
-    }else{
-        mapping = mapping_init_remote(eid_prefix);
-    }
-
-    /* no need for the prefix */
-    glist_destroy(addr_list);
-
-
-    if (mapping == NULL){
-        return (NULL);
-    }
-    /* Create and add locators */
-    for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++) {
-        rl = cfg_getnsec(map, "rloc-address", ctr);
-        loct_list = parse_rloc_address(rl,dev,lcaf_ht,type);
-        if (loct_list == NULL){
-            continue;
-        }
-        glist_for_each_entry(it,loct_list){
-            locator = (locator_t *)glist_entry_data(it);
-            if (locator == NULL){
-                continue;
-            }
-            /* Check that the locator is not already added */
-            if (mapping_get_locator(mapping, locator_addr(locator)) != NULL){
-                LMLOG(LERR,"Configuration file: Duplicated RLOC with address %s "
-                        "for EID prefix %s. Discarded ...",
-                        lisp_addr_to_char(locator_addr(locator)),
-                        lisp_addr_to_char(mapping_eid(mapping)));
-                if (xtr != NULL && type == LOCAL_LOCATOR){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
-                }
-                locator_del(locator);
-                continue;
-            }
-            if (mapping_add_locator(mapping, locator) != GOOD){
-                LMLOG(DBG_1,"parse_mapping: Couldn't add RLOC with address %s "
-                        "to the mapping with EID prefix %s. Discarded ...",
-                        lisp_addr_to_char(locator_addr(locator)),
-                        lisp_addr_to_char(mapping_eid(mapping)));
-                if (xtr != NULL && type == LOCAL_LOCATOR){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
-                }
-                locator_del(locator);
-                continue;
-            }
-
-        }
-        glist_destroy(loct_list);
-    }
-
-    if (type == LOCAL_LOCATOR){
-        for (ctr = 0; ctr < cfg_size(map, "rloc-iface"); ctr++) {
-            rl = cfg_getnsec(map, "rloc-iface", ctr);
-            locator = parse_rloc_interface(rl,dev);
-            if (locator == NULL){
-                continue;
-            }
-            /* Check that the locator is not already added */
-            if (mapping_get_locator(mapping, locator_addr(locator)) != NULL){
-                LMLOG(LERR,"Configuration file: Duplicated RLOC with address %s "
-                        "for EID prefix %s. Discarded ...",
-                        lisp_addr_to_char(locator_addr(locator)),
-                        lisp_addr_to_char(mapping_eid(mapping)));
-                if (xtr != NULL){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
-                }
-                locator_del(locator);
-                continue;
-            }
-            if (mapping_add_locator(mapping, locator) != GOOD){
-                LMLOG(DBG_1,"parse_mapping: Couldn't add RLOC with address %s "
-                        "to the mapping with EID prefix %s. Discarded ...",
-                        lisp_addr_to_char(locator_addr(locator)),
-                        lisp_addr_to_char(mapping_eid(mapping)));
-                if (xtr != NULL){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
-                }
-                locator_del(locator);
-                continue;
-            }
-        }
-    }
-
-    mapping_compute_balancing_vectors(mapping);
-
-    return (mapping);
-}
-
-static glist_t *
-parse_rloc_address(
-        cfg_t *             rloc,
-        lisp_ctrl_dev_t *   dev,
-        htable_t *          lcaf_ht,
-        uint8_t             type)
-{
-    glist_t *           loct_list       = NULL;
-    locator_t *         locator         = NULL;
-    glist_t *           addr_list       = NULL;
-    glist_entry_t *     it              = NULL;
-    lisp_addr_t *       address         = NULL;
-    lisp_addr_t *       ip_addr        = NULL;
-    iface_t*            iface           = NULL;
-    int *               out_socket      = 0;
-    char *              addr_str        = NULL;
-    char*               iface_name      = NULL;
-    int                 priority        = 0;
-    int                 weight          = 0;
-
-    lisp_xtr_t *        xtr             = NULL;
-    shash_t *           iface_lctrs     = NULL;
-    iface_locators *    if_loct         = NULL;
-
-    addr_str = cfg_getstr(rloc, "address");
-    priority = cfg_getint(rloc, "priority");
-    weight = cfg_getint(rloc, "weight");
-
-    if (validate_priority_weight(priority, weight) != GOOD) {
-        return (NULL);
-    }
-
-    addr_list = parse_lisp_addr(addr_str, lcaf_ht);
-    if (addr_list == NULL || glist_size(addr_list) == 0){
-        return (NULL);
-    }
-
-    loct_list = glist_new();
-    if (loct_list == NULL){
-        return (NULL);
-    }
-
-    glist_for_each_entry(it,addr_list){
-        address = (lisp_addr_t *)glist_entry_data(it);
-        if (address == NULL){
-            continue;
-        }
-        if (lisp_addr_afi(address) == LM_AFI_IPPREF){
-            LMLOG(LERR, "Configuration file: RLOC address can not be a prefix: %s ",
-                    lisp_addr_to_char(address));
-            continue;
-        }
-
-        if (type == LOCAL_LOCATOR){
-            /* Decide IP address to be used to lookup the interface */
-            if (lisp_addr_is_lcaf(address) == TRUE) {
-                ip_addr = lcaf_rloc_get_ip_addr(address);
-                if (ip_addr == NULL) {
-                    LMLOG(LERR, "Configuration file: Can't determine RLOC's IP "
-                            "address %s", lisp_addr_to_char(address));
-                    return(NULL);
-                }
-            } else {
-                ip_addr = address;
-            }
-
-            /* Find the interface name associated to the RLOC */
-            if (!(iface_name = get_interface_name_from_address(ip_addr))) {
-                LMLOG(LERR, "Configuration file: Can't find interface for RLOC %s",
-                        lisp_addr_to_char(ip_addr));
-                continue;
-            }
-
-            /* Find the interface */
-            if (!(iface = get_interface(iface_name))) {
-                if (!(iface = add_interface(iface_name))) {
-                    continue;
-                }
-            }
-
-            out_socket = (lisp_addr_ip_afi(ip_addr) == AF_INET) ? &(iface->out_socket_v4) : &(iface->out_socket_v6);
-
-            locator = locator_init_local_full(address, iface->status,priority, weight,255, 0, out_socket);
-
-            /* If the locator is for a local mapping, associate the locator with the interface */
-            if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-                xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-                iface_lctrs = xtr->iface_locators_table;
-                if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
-                if (if_loct == NULL){
-                    if_loct = iface_locators_new(iface_name);
-                    shash_insert(xtr->iface_locators_table, iface_name, if_loct);
-                }
-                if (lisp_addr_ip_afi(ip_addr) == AF_INET){
-                    glist_add(locator,if_loct->ipv4_locators);
-                }else{
-                    glist_add(locator,if_loct->ipv6_locators);
-                }
-            }
-        } else {
-            locator = locator_init_remote_full(address, UP, priority, weight, 255, 0);
-            if (locator != NULL) {
-                locator_set_type(locator,type);
-            }
-        }
-        if (locator != NULL){
-            glist_add(locator,loct_list);
-            LMLOG(DBG_2,"parse_rloc_address: Locator stucture created: \n %s",
-                    locator_to_char(locator));
-        }
-    }
-    glist_destroy(addr_list);
-
-    return (loct_list);
-}
-
-static locator_t *
-parse_rloc_interface(
-        cfg_t *             rloc,
-        lisp_ctrl_dev_t *   dev)
-{
-    locator_t *         locator         = NULL;
-    lisp_addr_t *       address         = NULL;
-    iface_t*            iface           = NULL;
-    int *               out_socket      = 0;
-    char *              iface_name      = NULL;
-    int                 afi             = AF_UNSPEC;
-    int                 priority        = 0;
-    int                 weight          = 0;
-
-    lisp_xtr_t *        xtr             = NULL;
-    shash_t *           iface_lctrs     = NULL;
-    iface_locators *    if_loct         = NULL;
-
-    iface_name = cfg_getstr(rloc, "interface");
-    afi =  cfg_getint(rloc, "afi");
-    priority = cfg_getint(rloc, "priority");
-    weight = cfg_getint(rloc, "weight");
-
-    if (validate_priority_weight(priority, weight) != GOOD) {
-        return (NULL);
-    }
-
-    if (afi != 4 && afi !=6){
-        LMLOG(LERR, "Configuration file: The afi of the locator should be \"4\" (IPv4)"
-                " or \"6\" (IPv6)");
-        return (NULL);
-    }
-
-    /* Find the interface */
-    if (!(iface = get_interface(iface_name))) {
-        if (!(iface = add_interface(iface_name))) {
-            return (BAD);
-        }
-    }
-
-    if (afi == 4){
-        out_socket = &(iface->out_socket_v4);
-        address = iface->ipv4_address;
-        afi = AF_INET;
-    }else{
-        out_socket = &(iface->out_socket_v4);
-        address = iface->ipv6_address;
-        afi = AF_INET6;
-    }
-
-    locator = locator_init_local_full(address, iface->status,priority, weight,255, 0, out_socket);
-
-    LMLOG(DBG_2,"parse_rloc_address: Locator stucture created: \n %s",
-                        locator_to_char(locator));
-
-    /* If the locator is for a local mapping, associate the locator with the interface */
-    if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-        xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-        iface_lctrs = xtr->iface_locators_table;
-        if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
-        if (if_loct == NULL){
-            if_loct = iface_locators_new(iface_name);
-            shash_insert(xtr->iface_locators_table, iface_name, if_loct);
-        }
-        if (afi == AF_INET){
-            glist_add(locator,if_loct->ipv4_locators);
-        }else{
-            glist_add(locator,if_loct->ipv6_locators);
-        }
-    }
-
-    return (locator);
-}
 
 
 
-
-static int
-add_local_db_mapping(
-        cfg_t *         map,
-        lisp_xtr_t *    xtr,
-        htable_t *      lcaf_ht)
-{
-    mapping_t       *mapping        = NULL;
-
-
-    mapping = parse_mapping(map,&(xtr->super),lcaf_ht,LOCAL_LOCATOR);
-
-    if (mapping == NULL){
-        LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
-                cfg_getstr(map, "eid-prefix"));
-        return (BAD);
-    }
-
-    if (local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(mapping)) == NULL){
-        if (local_map_db_add_mapping(xtr->local_mdb, mapping) == GOOD){
-            LMLOG(DBG_1, "Added EID prefix %s in the database.",
-                    lisp_addr_to_char(mapping_eid(mapping)));
-            iface_locators_attach_mapping(xtr->iface_locators_table,mapping);
-        }else{
-            LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
-                    lisp_addr_to_char(mapping_eid(mapping)));
-            goto err;
-        }
-    }else{
-        LMLOG(LERR, "Configuration file: Duplicated EID prefix %s. Discarded ...",
-                cfg_getstr(map, "eid-prefix"));
-        goto err;
-    }
-
-    return(GOOD);
-err:
-    iface_locators_unattach_mapping_and_loct(
-            xtr->iface_locators_table,
-            mapping);
-    mapping_del(mapping);
-    return(BAD);
-}
 
 
 

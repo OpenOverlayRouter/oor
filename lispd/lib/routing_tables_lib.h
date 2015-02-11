@@ -34,8 +34,8 @@
 #ifndef ROUTING_TABLES_LIB_H_
 #define ROUTING_TABLES_LIB_H_
 
-#include <defs.h>
-#include <lisp_address.h>
+#include "../defs.h"
+#include "../liblisp/lisp_address.h"
 
 #define RULE_AVOID_LISP_TABLE_PRIORITY 99
 #define RULE_TO_LISP_TABLE_PRIORITY 100

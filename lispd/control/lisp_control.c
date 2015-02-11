@@ -30,13 +30,12 @@
 #include <unistd.h>
 #include <linux/rtnetlink.h>
 
-#include "iface_list.h"
 #include "lisp_control.h"
 #include "lisp_ctrl_device.h"
 #include "lispd_info_nat.h"
-#include "lmlog.h"
-#include "routing_tables_lib.h"
-#include "util.h"
+#include "../lib/lmlog.h"
+#include "../lib/routing_tables_lib.h"
+#include "../lib/util.h"
 
 
 

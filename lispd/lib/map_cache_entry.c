@@ -33,7 +33,7 @@
 
 #include "map_cache_entry.h"
 #include "lmlog.h"
-#include "defs.h"
+#include "../defs.h"
 
 
 

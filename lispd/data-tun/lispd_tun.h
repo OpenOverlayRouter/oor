@@ -36,7 +36,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
-#include "lispd.h"
+#include "../lispd.h"
 
 #ifdef ANDROID
 #define CLONEDEV                "/dev/tun"
@@ -85,6 +85,11 @@ int tun_configure_data_plane(
         uint8_t router_mode,
         lisp_addr_t *ipv4_addr,
         lisp_addr_t *ipv6_addr);
+
+int configure_routing_to_tun(
+        uint8_t router_mode,
+        lisp_addr_t *tun_v4_addr,
+        lisp_addr_t *tun_v6_addr);
 
 #endif /* LISPD_TUN_H_ */
 

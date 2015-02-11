@@ -36,7 +36,7 @@
 
 #include "cksum.h"
 #include "lmlog.h"
-#include "lisp_messages.h"
+#include "../liblisp/lisp_messages.h"
 
 
 

@@ -31,9 +31,9 @@
 #ifndef LISP_XTR_H_
 #define LISP_XTR_H_
 
-#include "defs.h"
+#include "../defs.h"
 #include "lisp_ctrl_device.h"
-#include "shash.h"
+#include "../lib/shash.h"
 
 typedef enum tr_type {
     xTR_TYPE,

@@ -27,9 +27,9 @@
  */
 
 #include "lisp_ms.h"
-#include "cksum.h"
-#include "defs.h"
-#include "lmlog.h"
+#include "../lib/cksum.h"
+#include "../defs.h"
+#include "../lib/lmlog.h"
 
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
 static void mc_add_rlocs_to_rle(mapping_t *, mapping_t *);

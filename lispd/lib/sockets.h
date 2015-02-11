@@ -31,10 +31,10 @@
 #ifndef SOCKETS_H_
 #define SOCKETS_H_
 
-#include "defs.h"
+#include "../defs.h"
 #include "sockets-util.h"
 #include "packets.h"
-#include "lisp_address.h"
+#include "../liblisp/lisp_address.h"
 #include "lbuf.h"
 
 
