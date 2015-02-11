@@ -41,13 +41,13 @@ local_map_db_new()
     local_map_db_t *db;
     db = xzalloc(sizeof(local_map_db_t));
     if (!db) {
-        LMLOG(LCRIT, "Could allocate map cache db ");
+        LMLOG(LCRIT, "Could allocate map cache database ");
         return(NULL);
     }
 
     db->db = mdb_new();
     if (!db->db) {
-        LMLOG(LCRIT, "Could allocate map cache db ");
+        LMLOG(LCRIT, "Could allocate map cache database ");
         return(NULL);
     }
 
@@ -62,59 +62,56 @@ void local_map_db_del(local_map_db_t *lmdb)
 
 
 int
-local_map_db_add_mapping(local_map_db_t *lmdb, mapping_t *mapping)
+local_map_db_add_entry(local_map_db_t *lmdb, map_local_entry_t *map_loc_e)
 {
-    if (mdb_add_entry(lmdb->db, mapping_eid(mapping), mapping) != GOOD) {
-        LMLOG(DBG_3, "Couldn't add mapping for EID %s to local mappings db",
-                lisp_addr_to_char(mapping_eid(mapping)));
+    if (mdb_add_entry(lmdb->db, map_local_entry_eid(map_loc_e), map_loc_e) != GOOD) {
+        LMLOG(DBG_3, "Couldn't add mapping for EID %s to local mappings database",
+                lisp_addr_to_char(map_local_entry_eid(map_loc_e)));
         return(BAD);
     }
-
-//    total_mappings ++;
     return(GOOD);
 }
 
-mapping_t *
+map_local_entry_t *
 local_map_db_lookup_eid(local_map_db_t *lmdb, lisp_addr_t *eid)
 {
-    mapping_t *mapping = NULL;
+	map_local_entry_t *map_loc_e = NULL;
 
-    mapping = mdb_lookup_entry(lmdb->db, eid);
-    if (!mapping) {
-        LMLOG(DBG_3, "Couldn't find mapping for EID %s in local mappings db",
+	map_loc_e = (map_local_entry_t *)mdb_lookup_entry(lmdb->db, eid);
+    if (!map_loc_e) {
+        LMLOG(DBG_3, "Couldn't find mapping for EID %s in local mappings database",
                 lisp_addr_to_char(eid));
         return (NULL);
     }
-    return (mapping);
+    return (map_loc_e);
 }
 
-mapping_t *
+map_local_entry_t *
 local_map_db_lookup_eid_exact(local_map_db_t *lmdb, lisp_addr_t *eid)
 {
-    mapping_t *mapping = NULL;
+	map_local_entry_t *map_loc_e = NULL;
 
     if (lisp_addr_lafi(eid) == LM_AFI_IP) {
         LMLOG(LWRN, "Called with IP EID %s, probably it should've been an "
                 "IPPREF", lisp_addr_to_char(eid));
     }
 
-    mapping = mdb_lookup_entry_exact(lmdb->db, eid);
-    if (!mapping) {
-        LMLOG(DBG_3, "Couldn't find mapping for EID %s in local mappings db",
+    map_loc_e = (map_local_entry_t *)mdb_lookup_entry_exact(lmdb->db, eid);
+    if (!map_loc_e) {
+        LMLOG(DBG_3, "Couldn't find mapping for EID %s in local mappings database",
                 lisp_addr_to_char(eid));
         return (NULL);
     }
-    return (mapping);
+    return (map_loc_e);
 }
 
 void
-local_map_db_del_mapping(local_map_db_t *lmdb, lisp_addr_t *eid)
+local_map_db_del_entry(local_map_db_t *lmdb, lisp_addr_t *eid)
 {
-    mapping_t *mapping = NULL;
-    mapping = mdb_remove_entry(lmdb->db, eid);
-    if (mapping) {
-        mapping_del(mapping);
-//        total_mappings--;
+	map_local_entry_t *map_loc_e = NULL;
+	map_loc_e = (map_local_entry_t *)mdb_remove_entry(lmdb->db, eid);
+    if (map_loc_e) {
+    	map_local_entry_del(map_loc_e);
     }
 }
 
@@ -125,7 +122,7 @@ local_map_db_get_main_eid(local_map_db_t *lmdb, int afi)
     lisp_addr_t *eid = NULL;
 
     mdb_foreach_ip_entry(lmdb->db, it) {
-        eid = mapping_eid((mapping_t *)it);
+        eid = map_local_entry_eid((map_local_entry_t *)it);
         if (eid && lisp_addr_ip_afi(eid) == afi) {
             return(eid);
         }
@@ -142,7 +139,7 @@ local_map_db_num_ip_eids(local_map_db_t *lmdb, int afi)
     /* search could be better implemented but local db is small
      * so this should do for now  */
     mdb_foreach_ip_entry(lmdb->db, it) {
-        eid = mapping_eid((mapping_t *)it);
+        eid = map_local_entry_eid((map_local_entry_t *)it);
         if (eid && lisp_addr_lafi(eid) == LM_AFI_IPPREF
             && lisp_addr_ip_afi(eid) == afi) {
             ctr ++;
@@ -161,14 +158,14 @@ local_map_db_n_entries(local_map_db_t *lmdb)
 void
 local_map_db_dump(local_map_db_t *lmdb, int log_level)
 {
-    mapping_t *mapping = NULL;
+	map_local_entry_t *map_loc_e = NULL;
     void *it = NULL;
 
     LMLOG(log_level,"****************** LISP Local Mappings ****************\n");
 
     mdb_foreach_entry(lmdb->db, it) {
-        mapping = it;
-        LMLOG(log_level, "%s", mapping_to_char(mapping));
+    	map_loc_e = (map_local_entry_t *)it;
+    	map_local_entry_dump(map_loc_e,log_level);
     } mdb_foreach_entry_end;
     LMLOG(log_level,"*******************************************************\n");
 }

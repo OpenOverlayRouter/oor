@@ -410,11 +410,14 @@ tr_reply_to_smr(lisp_xtr_t *xtr, lisp_addr_t *eid)
 static int
 tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 {
-    lisp_addr_t *seid, *deid;
-    mapping_t *map;
+    lisp_addr_t *seid = NULL;
+    lisp_addr_t *deid = NULL;
+    map_local_entry_t *map_loc_e = NULL;
+    mapping_t *map = NULL;
     glist_t *itr_rlocs = NULL;
-    void *mreq_hdr, *mrep_hdr;
-    int i;
+    void *mreq_hdr = NULL;
+    void *mrep_hdr = NULL;
+    int i = 0;
     lbuf_t *mrep = NULL;
     lbuf_t  b;
 
@@ -460,13 +463,13 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
         LMLOG(DBG_1, " dst-eid: %s", lisp_addr_to_char(deid));
 
         /* Check the existence of the requested EID */
-        map = local_map_db_lookup_eid(xtr->local_mdb, deid);
-        if (!map) {
+        map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, deid);
+        if (!map_loc_e) {
             LMLOG(DBG_1,"EID %s not locally configured!",
                     lisp_addr_to_char(deid));
             continue;
         }
-
+        map = map_local_entry_mapping(map_loc_e);
         lisp_msg_put_mapping(mrep, map, MREQ_RLOC_PROBE(mreq_hdr)
                 ? &uc->la: NULL);
     }
@@ -2320,7 +2323,7 @@ get_src_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **src)
         /* lookup in the elp list the first RLOC to also pertain to the device */
         glist_for_each_entry(it_elp, lcaf_elp_node_list(lcaf)) {
             elp_node = (elp_node_t *)glist_entry_data(it_elp);
-            rlocs = ctrl_rlocs(xtr->super.ctrl,lisp_addr_ip_afi(elp_node->addr));
+            rlocs = ctrl_rlocs_with_afi(xtr->super.ctrl,lisp_addr_ip_afi(elp_node->addr));
 
             glist_for_each_entry(it_rlocs, rlocs) {
                 addr = glist_entry_data(it_rlocs);
@@ -2369,7 +2372,7 @@ get_dst_from_lcaf(lisp_xtr_t *xtr, lisp_addr_t *laddr, lisp_addr_t **dst)
         /* lookup in the elp list the first RLOC to also pertain to the device */
         glist_for_each_entry(it_elp, lcaf_elp_node_list(lcaf)) {
             elp_node = (elp_node_t *)glist_entry_data(it_elp);
-            rlocs = ctrl_rlocs(xtr->super.ctrl,lisp_addr_ip_afi(elp_node->addr));
+            rlocs = ctrl_rlocs_with_afi(xtr->super.ctrl,lisp_addr_ip_afi(elp_node->addr));
             glist_for_each_entry(it_rlocs, rlocs) {
                 addr = glist_entry_data(it_rlocs);
                 if (lisp_addr_cmp(addr, elp_node->addr) == 0) {

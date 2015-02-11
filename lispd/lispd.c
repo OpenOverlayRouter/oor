@@ -338,11 +338,12 @@ void test_elp()
     uint8_t status = 1;
     locator_t *locator = locator_init_remote_full(laddr, status, 1, 100, 1, 100);
     mapping_t *mapping = mapping_init_local(eid);
-    LMLOG(LWRN, "mapping created!");
 
+    LMLOG(LWRN, "mapping created!");
     mapping_add_locator(mapping, locator);
     LMLOG(LWRN, "locator added!");
-    local_map_db_add_mapping(xtr->local_mdb, mapping);
+    map_local_entry_t *map_loc_e = map_local_entry_new_init(mapping);
+    local_map_db_add_entry(xtr->local_mdb, map_loc_e);
     local_map_db_dump(xtr->local_mdb, LWRN);
 
 //    program_map_register(xtr, 0);
