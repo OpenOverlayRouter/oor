@@ -33,7 +33,7 @@
 #include "util.h"
 //#include "defs.h"
 #include "lmlog.h"
-#include "sockets.h"
+//#include "sockets.h"
 
 
 static void

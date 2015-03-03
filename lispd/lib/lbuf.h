@@ -31,8 +31,8 @@
 #ifndef LBUF_H_
 #define LBUF_H_
 
-#include <list.h>
-#include <defs.h>
+#include "list.h"
+#include "../defs.h"
 #include <stdint.h>
 
 #define LBUF_STACK_OFFSET 100

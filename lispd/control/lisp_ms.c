@@ -27,10 +27,10 @@
  */
 
 #include "lisp_ms.h"
-#include "cksum.h"
-#include "defs.h"
-//#include "generic_list.h"
-#include "lmlog.h"
+#include "../lib/cksum.h"
+#include "../defs.h"
+#include "../lib/lmlog.h"
+
 
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
 static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);
@@ -49,7 +49,7 @@ get_locator_with_afi(mapping_t *m, int afi)
     int lafi = 0;
     int afi_type = 0;
 
-    glist_for_each_entry(it_list,mapping_locators(m)){
+    glist_for_each_entry(it_list,mapping_locators_lists(m)){
     	loct_list = (glist_t *)glist_entry_data(it_list);
     	locator_list_lafi_type(loct_list,&lafi,&afi_type);
     	if (lafi == LM_AFI_NO_ADDR || (lafi == LM_AFI_IP && afi_type != afi)){
@@ -175,16 +175,18 @@ static int
 ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
 
-    lisp_addr_t *seid, *deid;
-    mapping_t *map;
-    glist_t *itr_rlocs = NULL;
-    void *mreq_hdr, *mrep_hdr;
-    mapping_record_hdr_t    *rec            = NULL;
-    int i;
-    lbuf_t *mrep = NULL;
+    lisp_addr_t *   seid        = NULL;
+    lisp_addr_t *   deid        = NULL;
+    mapping_t *     map         = NULL;
+    glist_t *       itr_rlocs   = NULL;
+    void *          mreq_hdr    = NULL;
+    void *          mrep_hdr    = NULL;
+    mapping_record_hdr_t *  rec            = NULL;
+    int             i           = 0;
+    lbuf_t *        mrep        = NULL;
     lbuf_t  b;
-    lisp_site_prefix_t *site;
-    lisp_reg_site_t *rsite;
+    lisp_site_prefix_t *    site            = NULL;
+    lisp_reg_site_t *       rsite           = NULL;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -235,6 +237,9 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             LMLOG(DBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
                     lisp_addr_to_char(deid));
             send_msg(&ms->super, mrep, uc);
+            lisp_msg_destroy(mrep);
+            lisp_addr_del(deid);
+
             continue;
         }
 
@@ -248,6 +253,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             LMLOG(DBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
                     lisp_addr_to_char(deid));
             send_msg(&ms->super, mrep, uc);
+            lisp_msg_destroy(mrep);
+            lisp_addr_del(deid);
             continue;
         }
 
@@ -258,6 +265,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         if (site != NULL && site->proxy_reply == FALSE) {
             /* FIXME: once locs become one object, send that instead of mapping */
             forward_mreq(ms, buf, map);
+            lisp_msg_destroy(mrep);
+            lisp_addr_del(deid);
             continue;
         }
 
@@ -347,17 +356,18 @@ err:
 static int
 ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
-    lisp_reg_site_t *rsite = NULL, *new_rsite;
+    lisp_reg_site_t *rsite = NULL, *new_rsite = NULL;
     lisp_site_prefix_t *reg_pref = NULL;
     char *key = NULL;
     lisp_addr_t *eid = NULL;
     lbuf_t b;
-    void *hdr, *mntf_hdr;
-    int i;
-    mapping_t *m;
-    locator_t *probed;
+    void *hdr = NULL, *mntf_hdr = NULL;
+    int i = 0;
+    mapping_t *m = NULL;
+    locator_t *probed = NULL;
     lbuf_t *mntf = NULL;
     lisp_key_type_e keyid = HMAC_SHA_1_96; /* TODO configurable */
+    int valid_records = FALSE;
 
 
     b = *buf;
@@ -463,6 +473,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         if (MREG_WANT_MAP_NOTIFY(hdr)) {
             lisp_msg_put_mapping(mntf, m, NULL);
+            valid_records = TRUE;
         }
 
         /* if site previously registered, just remove the parsed mapping */
@@ -473,7 +484,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     }
 
     /* check if key is initialized, otherwise registration failed */
-    if (mntf && key) {
+    if (mntf && key && valid_records) {
         mntf_hdr = lisp_msg_hdr(mntf);
         MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
         lisp_msg_fill_auth_data(mntf, keyid, key);

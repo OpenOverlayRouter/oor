@@ -30,7 +30,7 @@
 #define LISP_MS_H_
 
 #include "lisp_ctrl_device.h"
-#include <lisp_site.h>
+#include "../lib/lisp_site.h"
 
 
 typedef struct _lisp_ms {

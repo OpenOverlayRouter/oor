@@ -30,9 +30,9 @@
 #ifndef LISPD_CONTROL_H_
 #define LISPD_CONTROL_H_
 
-#include "sockets.h"
-#include "liblisp.h"
-#include "iface_list.h"
+#include "../lib/sockets.h"
+#include "../liblisp/liblisp.h"
+#include "../iface_list.h"
 
 #define NO_AFI_SUPPOT  	0
 #define IPv4_SUPPORT	1

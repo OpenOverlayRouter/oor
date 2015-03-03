@@ -35,8 +35,8 @@
 #ifndef LISPD_MDB_H_
 #define LISPD_MDB_H_
 
-#include "patricia/patricia.h"
-#include "lisp_address.h"
+#include "../elibs/patricia/patricia.h"
+#include "../liblisp/lisp_address.h"
 
 #define NOT_EXACT 0
 #define EXACT 1

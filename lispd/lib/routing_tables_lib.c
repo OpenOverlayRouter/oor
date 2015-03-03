@@ -37,7 +37,7 @@
 #include <unistd.h>
 
 #include "routing_tables_lib.h"
-#include "lispd_external.h"
+#include "../lispd_external.h"
 #include "lmlog.h"
 
 

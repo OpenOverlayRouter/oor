@@ -36,13 +36,13 @@
 #include "iface_mgmt.h"
 //#include "lispd_lib.h"
 #include "defs.h"
-#include "lisp_mapping.h"
-#include "routing_tables_lib.h"
-#include "timers.h"
-#include "lispd_tun.h"
-#include "lisp_control.h"
-#include "sockets-util.h"
-#include "lmlog.h"
+#include "liblisp/lisp_mapping.h"
+#include "lib/routing_tables_lib.h"
+#include "lib/timers.h"
+#include "data-tun/lispd_tun.h"
+#include "control/lisp_control.h"
+#include "lib/sockets-util.h"
+#include "lib/lmlog.h"
 
 /************************* FUNCTION DECLARTAION ********************************/
 

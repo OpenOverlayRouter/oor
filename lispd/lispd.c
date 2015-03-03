@@ -48,19 +48,20 @@
 #include "cmdline.h"
 #include "iface_list.h"
 #include "iface_mgmt.h"
-#include "lispd_input.h"
-#include "lmlog.h"
-#include "sockets.h"
-#include "timers.h"
-#include "lispd_tun.h"
-#include "lispd_output.h"
-#include "routing_tables_lib.h"
-#include <liblisp.h>
-#include <lisp_control.h>
-#include <lisp_xtr.h>
-#include <lisp_ms.h>
-#include <shash.h>
-#include <generic_list.h>
+#include "data-tun/lispd_input.h"
+#include "lib/lmlog.h"
+#include "lib/sockets.h"
+#include "lib/timers.h"
+#include "data-tun/lispd_tun.h"
+#include "data-tun/lispd_output.h"
+#include "lib/routing_tables_lib.h"
+//#include "lispd_api_internals.h"
+#include "liblisp/liblisp.h"
+#include "control/lisp_control.h"
+#include "control/lisp_xtr.h"
+#include "control/lisp_ms.h"
+#include "lib/shash.h"
+#include "lib/generic_list.h"
 
 /* system calls - look to libc for function to system call mapping */
 extern int capset(cap_user_header_t header, cap_user_data_t data);
@@ -94,6 +95,9 @@ nonces_list_t *nat_ir_nonce = NULL;
 sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
+
+/* LISPmob's API connection structure */
+//lmapi_connection_t lmapi_connection;
 
 /**************************** FUNCTION DECLARATION ***************************/
 /* Check if lispmob is already running: /var/run/lispd.pid */
@@ -199,9 +203,7 @@ int pid_file_create()
 void pid_file_remove()
 {
     FILE *pid_file = NULL;
-    char * line = NULL;
-    ssize_t read;
-    size_t len;
+    char line[80];
     long int pid;
 
     pid_file = fopen("/var/run/lispd.pid", "r");
@@ -209,14 +211,13 @@ void pid_file_remove()
         return;
     }
 
-    read = getline(&line, &len, pid_file);
-    if (read == -1){
+    if (fgets(line, 80, pid_file) == NULL){
         LMLOG(LWRN, "pid_file_remove: Couldn't read PID number from file");
         fclose(pid_file);
         return;
     }
-    pid = strtol(line,NULL,10);
-    free(line);
+    sscanf (line, "%ld", &pid);
+
     fclose(pid_file);
 
     if (pid != getpid()){
@@ -304,68 +305,6 @@ int check_capabilities()
 #endif
 
 
-void test_elp()
-{
-    lisp_xtr_t *xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-    lisp_addr_t *laddr = lisp_addr_new_lafi(LM_AFI_LCAF);
-    lcaf_addr_t *lcaf = lisp_addr_get_lcaf(laddr);
-    packet_tuple_t tuple;
-    lcaf_addr_set_type(lcaf, LCAF_EXPL_LOC_PATH);
-
-    elp_t *elp = elp_type_new();
-
-    elp_node_t *en1 = xzalloc(sizeof(elp_node_t));
-    en1->L = 0; en1->P = 0; en1->S = 1;
-    en1->addr = lisp_addr_new(); lisp_addr_ip_from_char("1.1.1.1", en1->addr);
-
-    elp_node_t *en2 = xzalloc(sizeof(elp_node_t));
-    en2->L = 0; en2->P = 0; en2->S = 1;
-    en2->addr = lisp_addr_new(); lisp_addr_ip_from_char("2.2.2.2", en2->addr);
-
-    elp_node_t *en3 = xzalloc(sizeof(elp_node_t));
-    en3->L = 0; en1->P = 0; en3->S = 1;
-    en3->addr = lisp_addr_new(); lisp_addr_ip_from_char("3.3.3.3", en3->addr);
-
-    glist_add_tail(en1, elp->nodes);
-    glist_add_tail(en2, elp->nodes);
-    glist_add_tail(en3, elp->nodes);
-    lcaf->addr = elp;
-
-    LMLOG(LWRN, "the generated lcaf: %s", lisp_addr_to_char(laddr));
-    LMLOG(LWRN, "let's see now!");
-
-    lisp_addr_t *eid = lisp_addr_new(); lisp_addr_ip_from_char("4.5.6.7", eid);
-    uint8_t status = 1;
-    locator_t *locator = locator_init_remote_full(laddr, status, 1, 100, 1, 100);
-    mapping_t *mapping = mapping_init_local(eid);
-
-    LMLOG(LWRN, "mapping created!");
-    mapping_add_locator(mapping, locator);
-    LMLOG(LWRN, "locator added!");
-    map_local_entry_t *map_loc_e = map_local_entry_new_init(mapping);
-    local_map_db_add_entry(xtr->local_mdb, map_loc_e);
-    local_map_db_dump(xtr->local_mdb, LWRN);
-
-//    program_map_register(xtr, 0);
-
-    LMLOG(LWRN, "removing mapping!");
-    local_map_db_del_mapping(xtr->local_mdb, eid);
-
-    lisp_addr_copy(&tuple.dst_addr, eid);
-    lisp_addr_set_lafi(&tuple.src_addr, LM_AFI_NO_ADDR);
-
-    LMLOG(LWRN, "done. Sending map-request!");
-    ctrl_get_forwarding_entry(&tuple);
-
-    LMLOG(LWRN, "finished!");
-//    lisp_addr_del(laddr);
-//    free_mapping_elt(mapping, 1);
-//    for(;;) {
-//        sleep(1);
-//    }
-}
-
-
 
 void signal_handler(int sig) {
     switch (sig) {
@@ -397,7 +336,9 @@ void signal_handler(int sig) {
 
 void
 exit_cleanup(void) {
-    LMLOG(DBG_2,"Exist Clenup");
+    LMLOG(DBG_2,"Exit Cleanup");
+
+    //lmapi_end(&lmapi_connection);
 
     pid_file_remove();
 
@@ -520,6 +461,8 @@ init_netlink()
 static void
 parse_config_file()
 {
+    int err;
+
     err = handle_config_file(config_file);
 
     if (err != GOOD){
@@ -582,8 +525,6 @@ main(int argc, char **argv)
 
     LMLOG(LINF,"\n\n LISPmob (0.5): 'lispd' started... \n\n");
 
-    ctrl_dev_set_ctrl(ctrl_dev, lctrl);
-
     ctrl_init(lctrl);
     init_netlink();
 
@@ -594,10 +535,15 @@ main(int argc, char **argv)
     }
     ctrl_dev_run(ctrl_dev);
 
+    /* Initialize API for external access */
+
+    //lmapi_init_server(&lmapi_connection);
+
     /* EVENT LOOP */
     for (;;) {
         sockmstr_wait_on_all_read(smaster);
         sockmstr_process_all(smaster);
+        //lmapi_loop(&lmapi_connection);
     }
 
     /* event_loop returned: bad! */

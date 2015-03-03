@@ -32,8 +32,8 @@
 #define LISPD_LCAF_H_
 
 #include "lisp_ip.h"
-#include "generic_list.h"
-#include <lisp_messages.h>
+#include "../lib/generic_list.h"
+#include "lisp_messages.h"
 
 
 #define MAX_LCAFS 16
@@ -203,7 +203,6 @@ void                        iid_type_copy(void **dst, void *src);
 iid_t                       *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen);
 lcaf_addr_t                 *lcaf_iid_init(int iid, lisp_addr_t *addr, uint8_t mlen);
 lisp_addr_t *				iid_type_get_ip_addr(void *iid);
-lisp_addr_t *				iid_type_get_fwd_ip_addr(void *iid,glist_t *locl_rlocs_addr);
 
 
 
@@ -243,7 +242,6 @@ int 					rle_type_get_size_to_write(void *elp);
 char *					rle_type_to_char(void *rle);
 void 					rle_type_copy(void **dst, void *src);
 int 					rle_type_cmp(void *elp1, void *elp2);
-lisp_addr_t * 			rle_type_get_fwd_ip_addr(void *rle, glist_t *locl_rlocs_addr);
 
 rle_node_t *			rle_node_clone(rle_node_t *srn);
 inline rle_node_t *		rle_node_new();
@@ -269,8 +267,8 @@ char                        *elp_type_to_char(void *elp);
 void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
 lisp_addr_t *				elp_type_get_ip_addr(void *elp);
-lisp_addr_t *				elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr);
 
+inline lisp_addr_t *        elp_node_addr(elp_node_t *enode);
 inline void                 elp_node_del(elp_node_t *enode);
 inline void                 lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode);
 
@@ -294,10 +292,8 @@ char                        *afi_list_type_to_char(void *afil);
 void                        afi_list_type_copy(void **dst, void *src);
 int                         afi_list_type_cmp(void *afil1, void *afil2);
 lisp_addr_t *				afi_list_type_get_ip_addr(void *afi_list);
-lisp_addr_t *				afi_list_type_get_fwd_ip_addr(void *afi_list, glist_t *locl_rlocs_addr);
 
 lisp_addr_t *				lcaf_get_ip_addr(lcaf_addr_t *lcaf);
-lisp_addr_t * 				lcaf_get_fwd_ip_addr(lcaf_addr_t *lcaf, glist_t *locl_rlocs_addr);
 
 int lcaf_rloc_set_ip_addr(lisp_addr_t *, lisp_addr_t *if_addr);
 #endif /* LISPD_LCAF_H_ */

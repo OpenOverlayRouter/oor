@@ -31,9 +31,9 @@
 #ifndef LISPD_INFO_NAT_H_
 #define LISPD_INFO_NAT_H_
 
-#include <defs.h>
-#include <timers.h>
-#include <lisp_address.h>
+#include "../defs.h"
+#include "../lib/timers.h"
+#include "../liblisp/lisp_address.h"
 
 
 #define NAT_REPLY                        1

@@ -28,7 +28,7 @@
 
 #include "generic_list.h"
 #include <stdlib.h>
-#include <util.h>
+#include "util.h"
 #include "lmlog.h"
 
 
@@ -112,9 +112,11 @@ glist_add(void *data, glist_t *glist)
             list_for_each_entry(tmp, &glist->head.list, list) {
                 /* insert where new element is bigger than current one */
                 cmp = (*glist->cmp_fct)(data, tmp->data);
-                if( cmp == 1){
+                if( cmp == 2){
                     break;
                 }else if (cmp < 0){
+                    printf("================================================\n\n\n");
+                    free(new);
                     return (BAD);
                 }
                 ctr++;
@@ -123,14 +125,13 @@ glist_add(void *data, glist_t *glist)
                 list_add(&new->list, tmp->list.prev);
             }else{
                 // Add at the end of the list
-                list_add(&new->list, &tmp->list);
+                list_add_tail(&(new->list), &(glist->head.list));
             }
         }else{
             list_add(&new->list, &glist->head.list);
         }
     }
     glist->size++;
-
     return(GOOD);
 }
 

@@ -93,7 +93,6 @@ typedef struct sockmstr sockmstr_t;
 #define PACKED          __attribute__ ((__packed__))
 #define uchar           u_char
 
-int err;
 #define GOOD                1
 #define BAD                 0
 #define ERR_SRC_ADDR        -1

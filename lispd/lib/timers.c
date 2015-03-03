@@ -13,11 +13,11 @@
 #include <errno.h>
 #include <time.h>
 
-#include "defs.h"
+#include "../defs.h"
 #include "lmlog.h"
 #include "timers.h"
 #include "util.h"
-#include "lispd_external.h"
+#include "../lispd_external.h"
 
 
 /* Seconds */

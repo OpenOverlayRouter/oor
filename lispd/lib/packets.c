@@ -40,15 +40,15 @@
 #include <netinet/udp.h>
 
 #include "packets.h"
-#include "lispd_external.h"
+#include "../lispd_external.h"
 #include "sockets.h"
-#include "lisp_address.h"
+#include "../liblisp/lisp_address.h"
 #include "cksum.h"
 #include "util.h"
 #include "lmlog.h"
 
 /* needed for hashword */
-#include "bob/lookup3.c"
+#include "../elibs/bob/lookup3.c"
 
 
 uint16_t ip_id = 0;

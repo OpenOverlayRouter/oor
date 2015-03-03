@@ -27,9 +27,9 @@
  */
 
 #include "liblisp.h"
-#include "cksum.h"
+#include "../lib/cksum.h"
 #include "hmac/hmac.h"
-#include "lmlog.h"
+#include "../lib/lmlog.h"
 
 static void increment_record_count(lbuf_t *b);
 
@@ -182,9 +182,9 @@ int
 lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
         glist_t *loc_list, locator_t **probed_)
 {
-    void *mrec_hdr, *loc_hdr;
-    locator_t *loc, *probed;
-    int i, len;
+    void *mrec_hdr = NULL, *loc_hdr = NULL;
+    locator_t *loc = NULL, *probed = NULL;
+    int i = 0, len = 0;
 
     probed = NULL;
     mrec_hdr = lbuf_data(b);
@@ -219,7 +219,9 @@ lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
         }
     }
 
-    *probed_ = probed;
+    if (probed_ != NULL) {
+        *probed_ = probed;
+    }
 
     return(GOOD);
 }
@@ -257,6 +259,7 @@ lisp_msg_parse_mapping_record(lbuf_t *b, mapping_t *m, locator_t **probed)
     glist_for_each_entry(lit, loc_list) {
         loc = glist_entry_data(lit);
         if (mapping_add_locator(m, loc) != GOOD) {
+            locator_del(loc);
             goto err;
         }
     }
@@ -418,7 +421,7 @@ lisp_msg_put_mapping(
     }
 
     /* Add locators */
-    glist_for_each_entry(it_list,mapping_locators(m)){
+    glist_for_each_entry(it_list,mapping_locators_lists(m)){
     	loct_list = (glist_t *)glist_entry_data(it_list);
     	loct = (locator_t *)glist_first_data(loct_list);
     	if (lisp_addr_is_no_addr(locator_addr(loct)) == TRUE){

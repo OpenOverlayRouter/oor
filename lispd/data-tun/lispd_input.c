@@ -32,10 +32,10 @@
 #include "lispd_input.h"
 #include "lispd_tun.h"
 #include "lispd_output.h"
-#include "packets.h"
-#include "util.h"
-#include "liblisp.h"
-#include "lmlog.h"
+#include "../lib/packets.h"
+#include "../lib/util.h"
+#include "../liblisp/liblisp.h"
+#include "../lib/lmlog.h"
 
 /* static buffer to receive packets */
 static uint8_t pkt_recv_buf[MAX_IP_PKT_LEN+1];

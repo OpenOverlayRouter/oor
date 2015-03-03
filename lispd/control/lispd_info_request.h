@@ -1,8 +1,8 @@
 #pragma once
 
-#include <defs.h>
-#include <iface_list.h>
-#include <cksum.h>
+#include "../defs.h"
+#include "../iface_list.h"
+#include "../cksum.h"
 #include "lispd_info_nat.h"
 
 extern nonces_list_t *nat_ir_nonce;

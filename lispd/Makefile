@@ -21,7 +21,7 @@ ERROR		= false
 
 ifeq "$(platform)" ""
 CFLAGS		+= -Wall -g
-LIBS		= -lconfuse -lrt -lm
+LIBS		= -lconfuse -lrt -lm -lzmq
 else
 ifeq "$(platform)" "router"
 CFLAGS		+= -Wall -g -DROUTER
@@ -50,6 +50,9 @@ OBJS		= cmdline.o                  \
 		  data-tun/lispd_output.o        \
 		  data-tun/lispd_tun.o           \
 		  elibs/patricia/patricia.o      \
+		  fwd_policies/fwd_policy.o      \
+		  fwd_policies/flow_balancing/fb_lisp_addr_func.o    \
+		  fwd_policies/flow_balancing/flow_balancing.o  \
 		  liblisp/liblisp.o              \
 		  liblisp/lisp_address.o         \
 		  liblisp/lisp_data.o            \
@@ -73,6 +76,7 @@ OBJS		= cmdline.o                  \
 		  lib/lmlog.o                    \
 		  lib/mapping_db.o               \
 		  lib/map_cache_entry.o          \
+		  lib/map_local_entry.o			 \
 		  lib/routing_tables_lib.o       \
 		  lib/packets.o                  \
 		  lib/sockets.o                  \
@@ -98,6 +102,9 @@ OBJS		= cmdline.o                  \
 		  data-tun/lispd_output.o        \
 		  data-tun/lispd_tun.o           \
 		  elibs/patricia/patricia.o      \
+		  fwd_policies/fwd_policy.o	     \
+		  fwd_policies/flow_balancing/fb_lisp_addr_func.o    \
+		  fwd_policies/flow_balancing/flow_balancing.o  \
 		  liblisp/liblisp.o              \
 		  liblisp/lisp_address.o         \
 		  liblisp/lisp_data.o            \
@@ -121,6 +128,7 @@ OBJS		= cmdline.o                  \
 		  lib/lmlog.o                    \
 		  lib/mapping_db.o               \
 		  lib/map_cache_entry.o          \
+		  lib/map_local_entry.o			 \
 		  lib/routing_tables_lib.o       \
 		  lib/packets.o                  \
 		  lib/sockets.o                  \
@@ -133,12 +141,14 @@ OBJS		= cmdline.o                  \
 		  iface_mgmt.o                   \
 		  lispd.o                        \
 		  lispd_config_confuse.o         \
-		  lispd_config_functions.o
+		  lispd_config_functions.o       
+		  #lispd_api.o					 \
+		  #lispd_api_internals.o
 endif
 
 EXE		= lispd
 PREFIX		= /usr/local/sbin
-INCLUDE		= -I. -Iliblisp -Ielibs -Ilib -Icontrol -Idata-tun
+INCLUDE		= -I. -Iliblisp -Ielibs -Ilib -Icontrol -Idata-tun -Ifwd_balancing -Ifwd_balancing/flow_balancing
 
 $(EXE): $(OBJS) 
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS) 
@@ -156,7 +166,8 @@ endif
 	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $< 
 
 clean:
-	rm -f *.o $(EXE) elibs/patricia/*.o bob/*o liblisp/*o liblisp/hmac/*o lib/*o control/*o data-tun/*o
+	rm -f *.o $(EXE) elibs/patricia/*o bob/*o liblisp/*o liblisp/hmac/*o lib/*o control/*o data-tun/*o \
+	    fwd_policies/*o fwd_policies/flow_balancing/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

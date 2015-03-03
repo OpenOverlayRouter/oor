@@ -28,9 +28,10 @@
 
 
 #include "lisp_ctrl_device.h"
-#include "sockets.h"
-#include "packets.h"
-#include <lispd_lib.h>
+#include "../lib/sockets.h"
+#include "../lib/packets.h"
+#include "../lispd_external.h"
+#include "../lispd_lib.h"
 
 
 static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
@@ -73,6 +74,8 @@ ctrl_dev_create(lisp_dev_type_e type, lisp_ctrl_dev_t **devp)
     dev->ctrl_class = class;
     dev->ctrl_class->construct(dev);
 
+    ctrl_dev_set_ctrl(dev, lctrl);
+
     *devp = dev;
     return(GOOD);
 }
@@ -106,6 +109,11 @@ fwd_entry_t *
 ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
 {
     return(dev->ctrl_class->get_fwd_entry(dev, tuple));
+}
+
+inline lisp_dev_type_e ctrl_dev_mode(lisp_ctrl_dev_t *dev)
+{
+    return (dev->mode);
 }
 
 inline lisp_ctrl_t *

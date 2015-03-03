@@ -32,10 +32,10 @@
 #ifndef LISPD_MAP_CACAHE_DB_H_
 #define LISPD_MAP_CACAHE_DB_H_
 
-#include "defs.h"
-#include "liblisp.h"
-#include "map_cache_entry.h"
-#include "mapping_db.h"
+#include "../defs.h"
+#include "../liblisp/liblisp.h"
+#include "../lib/map_cache_entry.h"
+#include "../lib/mapping_db.h"
 
 typedef struct map_cache_db {
     mdb_t *db;

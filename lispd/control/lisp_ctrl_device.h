@@ -30,8 +30,8 @@
 #ifndef LISP_CTRL_DEVICE_H_
 #define LISP_CTRL_DEVICE_H_
 
-#include "defs.h"
-#include "liblisp.h"
+#include "../defs.h"
+#include "../liblisp/liblisp.h"
 #include "lisp_local_db.h"
 #include "lisp_map_cache.h"
 #include "lisp_control.h"
@@ -84,6 +84,7 @@ void ctrl_dev_destroy(lisp_ctrl_dev_t *);
 int ctrl_dev_recv(lisp_ctrl_dev_t *, lbuf_t *, uconn_t *);
 void ctrl_dev_run(lisp_ctrl_dev_t *);
 int ctrl_if_event(lisp_ctrl_dev_t *, char *iface_name, lisp_addr_t *old_addr, lisp_addr_t *new_addr, uint8_t status);
+inline lisp_dev_type_e ctrl_dev_mode(lisp_ctrl_dev_t *dev);
 inline lisp_ctrl_t * ctrl_dev_ctrl(lisp_ctrl_dev_t *dev);
 int ctrl_dev_set_ctrl(lisp_ctrl_dev_t *, lisp_ctrl_t *);
 fwd_entry_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);

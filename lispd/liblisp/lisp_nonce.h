@@ -31,7 +31,7 @@
 #ifndef LISPD_NONCE_H_
 #define LISPD_NONCE_H_
 
-#include <defs.h>
+#include "../defs.h"
 
 typedef struct {
     uint8_t retransmits;

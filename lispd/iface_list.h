@@ -33,9 +33,9 @@
 #ifndef IFACE_LIST_H_
 #define IFACE_LIST_H_
 
-#include "lisp_mapping.h"
+#include "liblisp/lisp_mapping.h"
 #include "defs.h"
-#include "timers.h"
+#include "lib/timers.h"
 
 /* Interface structure
  * ===================

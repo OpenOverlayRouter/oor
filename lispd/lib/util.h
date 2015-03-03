@@ -43,7 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "defs.h"
+#include "../defs.h"
 
 /* Determine endianness */
 #if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN

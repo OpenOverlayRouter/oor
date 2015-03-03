@@ -32,7 +32,7 @@
 #define IFACE_MGMT_H_
 
 #include "iface_list.h"
-#include "sockets.h"
+#include "lib/sockets.h"
 
 
 int opent_netlink_socket();

@@ -31,9 +31,11 @@
 #ifndef LISP_XTR_H_
 #define LISP_XTR_H_
 
-#include "defs.h"
+#include "../defs.h"
 #include "lisp_ctrl_device.h"
-#include "shash.h"
+#include "../fwd_policies/fwd_policy.h"
+#include "../lib/shash.h"
+
 
 typedef enum tr_type {
     xTR_TYPE,
@@ -65,6 +67,10 @@ typedef struct lisp_xtr {
     map_cache_db_t *map_cache;
     local_map_db_t *local_mdb;
 
+    /* FWD POLICY */
+    fwd_policy_class *fwd_policy;
+    void *fwd_policy_dev_parm;
+
     /* MAP RESOLVERS */
     glist_t *map_resolvers; // <lisp_addr_t *>
 
@@ -89,7 +95,7 @@ typedef struct lisp_xtr {
 
     /* LOCAL IFACE MAPPING */
     /* in case of RTR can be used for outgoing load balancing */
-    mapping_t *all_locs_map;
+    map_local_entry_t *all_locs_map;
 
 } lisp_xtr_t;
 

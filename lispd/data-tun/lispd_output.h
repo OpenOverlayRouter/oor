@@ -37,12 +37,12 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <defs.h>
-#include <lispd_lib.h>
-#include <cksum.h>
-#include <lispd_external.h>
-#include <lisp_control.h>
-#include "iface_list.h"
+#include "../defs.h"
+#include "../lispd_lib.h"
+#include "../lib/cksum.h"
+#include "../lispd_external.h"
+#include "../control/lisp_control.h"
+#include "../iface_list.h"
 
 
 int lisp_output_recv(struct sock *sl);

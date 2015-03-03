@@ -31,8 +31,8 @@
 
 
 #include "lisp_local_db.h"
-#include "lispd_external.h"
-#include "lmlog.h"
+#include "../lispd_external.h"
+#include "../lib/lmlog.h"
 
 
 local_map_db_t *
@@ -56,7 +56,7 @@ local_map_db_new()
 
 void local_map_db_del(local_map_db_t *lmdb)
 {
-    mdb_del(lmdb->db, (mdb_del_fct)mapping_del);
+    mdb_del(lmdb->db, (mdb_del_fct)map_local_entry_del);
     free(lmdb);
 }
 
@@ -110,7 +110,7 @@ local_map_db_del_entry(local_map_db_t *lmdb, lisp_addr_t *eid)
 {
 	map_local_entry_t *map_loc_e = NULL;
 	map_loc_e = (map_local_entry_t *)mdb_remove_entry(lmdb->db, eid);
-    if (map_loc_e) {
+    if (map_loc_e != NULL) {
     	map_local_entry_del(map_loc_e);
     }
 }

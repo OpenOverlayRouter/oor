@@ -26,8 +26,8 @@
  *    Albert López <alopez@ac.upc.edu>
  */
 
-#include "defs.h"
-#include "iface_list.h"
+#include "../defs.h"
+#include "../iface_list.h"
 #include "iface_locators.h"
 #include "lmlog.h"
 #include "sockets.h"
@@ -47,7 +47,7 @@ iface_locators *iface_locators_new(char *iface_name)
     iface_locators *if_loct = NULL;
     if_loct = xzalloc(sizeof(iface_locators));
     if_loct->iface_name = xstrdup(iface_name);
-    if_loct->mappings = glist_new();
+    if_loct->map_loc_entries = glist_new();
     if_loct->ipv4_locators = glist_new();
     if_loct->ipv6_locators = glist_new();
     if_loct->status_changed = TRUE;
@@ -61,7 +61,7 @@ iface_locators *iface_locators_new(char *iface_name)
 void iface_locators_del(iface_locators *if_loct)
 {
     free(if_loct->iface_name);
-    glist_destroy(if_loct->mappings);
+    glist_destroy(if_loct->map_loc_entries);
     glist_destroy(if_loct->ipv4_locators);
     glist_destroy(if_loct->ipv6_locators);
     if (if_loct->ipv4_prev_addr != NULL){
@@ -76,25 +76,28 @@ void iface_locators_del(iface_locators *if_loct)
 
 
 void
-iface_locators_attach_mapping(
-        shash_t *   iface_locators_table,
-        mapping_t * mapping)
+iface_locators_attach_map_local_entry(
+        shash_t *           iface_locators_table,
+        map_local_entry_t * map_loc_e)
 {
+    mapping_t *         mapping             = NULL;
     locator_t *         locator             = NULL;
     iface_locators *    iface_loct          = NULL;
     glist_t *			loct_list 			= NULL;
     glist_entry_t *		it_list 			= NULL;
     glist_entry_t *		it_loct 			= NULL;
 
-    glist_for_each_entry(it_list,mapping_locators(mapping)){
+    mapping = map_local_entry_mapping(map_loc_e);
+
+    glist_for_each_entry(it_list,mapping_locators_lists(mapping)){
     	loct_list = (glist_t *)glist_entry_data(it_list);
     	glist_for_each_entry(it_loct,loct_list){
     		locator = (locator_t *)glist_entry_data(it_loct);
     		iface_loct = iface_locators_get_element_with_loct(
     				iface_locators_table, locator);
     		if (iface_loct != NULL &&
-    				glist_contain(mapping, iface_loct->mappings) == FALSE){
-    			glist_add(mapping, iface_loct->mappings);
+    				glist_contain(map_loc_e, iface_loct->map_loc_entries) == FALSE){
+    			glist_add(map_loc_e, iface_loct->map_loc_entries);
     		}
     	}
     }
@@ -103,7 +106,7 @@ iface_locators_attach_mapping(
 void
 iface_locators_unattach_mapping_and_loct(
         shash_t *   iface_locators_table,
-        mapping_t * mapping)
+        map_local_entry_t * map_loc_e)
 {
     glist_t *           iface_loct_list     = NULL;
     glist_entry_t *     it_if_loct          = NULL;
@@ -111,9 +114,12 @@ iface_locators_unattach_mapping_and_loct(
     glist_t *			loct_list 			= NULL;
     glist_entry_t *		it_list 			= NULL;
     glist_entry_t *		it_loct 			= NULL;
+    mapping_t *         mapping             = NULL;
     locator_t *			locator				= NULL;
 
-    glist_for_each_entry(it_list,mapping_locators(mapping)){
+    mapping = map_local_entry_mapping(map_loc_e);
+
+    glist_for_each_entry(it_list,mapping_locators_lists(mapping)){
     	loct_list = (glist_t *)glist_entry_data(it_list);
     	glist_for_each_entry(it_loct,loct_list){
     		locator = (locator_t *)glist_entry_data(it_loct);
@@ -124,7 +130,7 @@ iface_locators_unattach_mapping_and_loct(
     iface_loct_list = shash_values(iface_locators_table);
     glist_for_each_entry(it_if_loct,iface_loct_list){
         iface_loct = (iface_locators *)glist_entry_data(it_if_loct);
-        glist_remove_obj(mapping,iface_loct->mappings);
+        glist_remove_obj(map_loc_e,iface_loct->map_loc_entries);
     }
 }
 
@@ -226,7 +232,6 @@ iface_locators_get_element_with_loct(
 
         return (iface_loct);
     }else{
-
         iface_loct_list = shash_values(iface_locators_table);
         glist_for_each_entry(it,iface_loct_list){
             iface_loct = (iface_locators *)glist_entry_data(it);
@@ -236,13 +241,14 @@ iface_locators_get_element_with_loct(
                 glist_for_each_entry(it_loct,loct_lists[ctr]){
                     loct = (locator_t *)glist_entry_data(it_loct);
                     if (loct == locator){
+                        glist_destroy(iface_loct_list);
                         return (iface_loct);
                     }
                 }
             }
         }
     }
-
+    glist_destroy(iface_loct_list);
     return (NULL);
 }
 

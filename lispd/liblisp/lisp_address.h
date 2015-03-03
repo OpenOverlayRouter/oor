@@ -31,7 +31,7 @@
 
 #include "lisp_ip.h"
 #include "lisp_lcaf.h"
-#include <lisp_messages.h>
+#include "lisp_messages.h"
 
 
 /*
@@ -88,6 +88,7 @@ inline uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src);
 inline int lisp_addr_write(void *offset, lisp_addr_t *laddr);
 int lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr);
 inline int lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2);
+inline int lisp_addr_cmp_afi(lisp_addr_t *addr1, lisp_addr_t *addr2);
 inline uint32_t lisp_addr_size_to_write(lisp_addr_t *laddr);
 char *lisp_addr_to_char(lisp_addr_t *addr);
 
@@ -160,7 +161,6 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr);
 
 inline int lisp_addr_is_mc(lisp_addr_t *addr);
 lisp_addr_t *lisp_addr_get_ip_addr(lisp_addr_t *addr);
-lisp_addr_t *lisp_addr_get_fwd_ip_addr(lisp_addr_t *addr, glist_t *locl_rlocs_addr);
 
 int lisp_addr_ip_from_char(char *, lisp_addr_t *);
 int lisp_addr_ippref_from_char(char *, lisp_addr_t *);

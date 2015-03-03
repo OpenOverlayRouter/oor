@@ -35,8 +35,8 @@
 #include <time.h>
 
 #include "lisp_nonce.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 /*  Generates a nonce random number. Requires librt */
 uint64_t
@@ -89,8 +89,9 @@ int
 nonce_check(nonces_list_t *nonces, uint64_t nonce)
 {
     int i;
-    if (nonces == NULL)
+    if (nonces == NULL){
         return (BAD);
+    }
     for (i = 0; i < nonces->retransmits; i++) {
         if (nonces->nonce[i] == nonce) {
             return (GOOD);

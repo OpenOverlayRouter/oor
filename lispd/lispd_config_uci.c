@@ -214,7 +214,9 @@ configure_xtr(
     htable_t *          rlocs_ht            = NULL;
     htable_t *          rloc_set_ht         = NULL;
     lisp_xtr_t *        xtr                 = NULL;
+    map_local_entry_t * map_loc_e           = NULL;
     mapping_t *         mapping             = NULL;
+    void *              fwd_map_inf         = NULL;
     glist_t *           no_addr_loct_list   = NULL;
 
     /* CREATE AND CONFIGURE XTR */
@@ -396,19 +398,26 @@ configure_xtr(
                             uci_lookup_option_string(ctx, sect, "eid_prefix"));
                     continue;
                 }
-                if (local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(mapping)) == NULL){
-                    if (local_map_db_add_mapping(xtr->local_mdb, mapping) == GOOD){
-                        LMLOG(DBG_1, "Added EID prefix %s in the database.",mapping_eid(mapping));
-                    }else{
-                        LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",mapping_eid(mapping));
-                        mapping_del(mapping);
-                    }
-                }else{
-                    LMLOG(LERR, "Configuration file: Duplicated EID prefix %s. Discarded ...",
-                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                map_loc_e = map_local_entry_new_init(mapping);
+                if (map_loc_e == NULL){
                     mapping_del(mapping);
                     continue;
                 }
+
+                fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
+                if (fwd_map_inf == NULL){
+                    LMLOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
+                            lisp_addr_to_char(mapping_eid(mapping)));
+                    map_local_entry_del(map_loc_e);
+                    continue;
+                }
+                map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
+
+                if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
+                    map_local_entry_del(map_loc_e);
+                    continue;
+                }
+
                 continue;
             }
 
@@ -468,7 +477,9 @@ configure_mn(
     htable_t *          rlocs_ht            = NULL;
     htable_t *          rloc_set_ht         = NULL;
     lisp_xtr_t *        xtr                 = NULL;
+    map_local_entry_t * map_loc_e           = NULL;
     mapping_t *         mapping             = NULL;
+    void *              fwd_map_inf         = NULL;
     glist_t *           no_addr_loct_list   = NULL;
 
     /* CREATE AND CONFIGURE XTR */
@@ -649,19 +660,27 @@ configure_mn(
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
                 continue;
             }
-            if (local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(mapping)) == NULL){
-                if (local_map_db_add_mapping(xtr->local_mdb, mapping) == GOOD){
-                    LMLOG(DBG_1, "Added EID prefix %s in the database.",mapping_eid(mapping));
-                }else{
-                    LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",mapping_eid(mapping));
-                    mapping_del(mapping);
-                }
-            }else{
-                LMLOG(LERR, "Configuration file: Duplicated EID prefix %s. Discarded ...",
-                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+
+            map_loc_e = map_local_entry_new_init(mapping);
+            if (map_loc_e == NULL){
                 mapping_del(mapping);
                 continue;
             }
+
+            fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
+            if (fwd_map_inf == NULL){
+                LMLOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
+                        lisp_addr_to_char(mapping_eid(mapping)));
+                map_local_entry_del(map_loc_e);
+                continue;
+            }
+            map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
+
+            if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
+                map_local_entry_del(map_loc_e);
+                continue;
+            }
+
             continue;
         }
 
@@ -719,6 +738,7 @@ configure_rtr(
     int                     uci_proxy_reply         = 0;
     const char *            uci_iface               = NULL;
     mapping_t *             mapping                 = NULL;
+    int                     uci_afi                 = 0;
     int                     uci_priority            = 0;
     int                     uci_weigth              = 0;
     glist_t *               no_addr_loct_list       = NULL;
@@ -869,6 +889,13 @@ configure_rtr(
         if (strcmp(sect->type, "rtr-iface") == 0){
             uci_iface = uci_lookup_option_string(ctx, sect, "iface");
 
+            if (uci_lookup_option_string(ctx, sect, "afi") != NULL){
+                uci_afi = strtol(uci_lookup_option_string(ctx, sect, "afi"),NULL,10);
+            }else{
+                LMLOG(LWRN,"Configuration file: No priority assigned to the rtr-iface \"%s\"."
+                        " Set default value: 10",uci_iface);
+                return (BAD);
+            }
             if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
                 uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
             }else{
@@ -885,6 +912,7 @@ configure_rtr(
             }
             if (add_rtr_iface(xtr,
                     (char *)uci_iface,
+                    uci_afi,
                     uci_priority,
                     uci_weigth) == GOOD) {
                 LMLOG(DBG_1, "Configured interface %s for RTR",uci_iface);
@@ -1084,12 +1112,12 @@ parse_mapping(
 
     /* Create mapping */
     if ( type == LOCAL_LOCATOR){
-        map = mapping_init_local(eid_prefix);
+        map = mapping_new_init(eid_prefix);
         if (map != NULL){
             mapping_set_ttl(map, DEFAULT_MAP_REGISTER_TIMEOUT);
         }
     }else{
-        map = mapping_init_remote(eid_prefix);
+        map = mapping_new_init(eid_prefix);
     }
 
     /* no need for the prefix */
@@ -1115,7 +1143,6 @@ parse_mapping(
         }
 
     }
-    mapping_compute_balancing_vectors(map);
 
     return(map);
 }

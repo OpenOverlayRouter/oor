@@ -34,7 +34,7 @@
 #ifndef LMLOG_H_
 #define LMLOG_H_
 
-#include "lispd_external.h"
+#include "../lispd_external.h"
 
 extern int debug_level;
 

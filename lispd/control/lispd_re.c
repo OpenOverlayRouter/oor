@@ -31,7 +31,7 @@
 #include "lispd_re.h"
 #include "lispd_map_cache_db.h"
 #include "lisp_ctrl_device.h"
-#include "lispd_external.h"
+#include "../lispd_external.h"
 
 /*
  * Interface to end-hosts

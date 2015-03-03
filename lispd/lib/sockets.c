@@ -38,9 +38,20 @@
 
 #include "sockets.h"
 #include "sockets-util.h"
-#include "liblisp.h"
-#include "iface_list.h"
+#include "../liblisp/liblisp.h"
+#include "../iface_list.h"
 #include "lmlog.h"
+
+
+inline void fwd_entry_del(fwd_entry_t *fwd_entry)
+{
+    if (fwd_entry == NULL){
+        return;
+    }
+    lisp_addr_del(fwd_entry->srloc);
+    lisp_addr_del(fwd_entry->drloc);
+    free(fwd_entry);
+}
 
 
 sockmstr_t *

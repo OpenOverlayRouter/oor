@@ -32,9 +32,9 @@
 
 #include "lisp_lcaf.h"
 #include "lisp_address.h"
-#include "defs.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../defs.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 
 typedef void    	(*del_fct)(void *);
@@ -45,7 +45,7 @@ typedef int     	(*cmp_fct)(void *, void *);
 typedef int     	(*write_fct)(uint8_t *, void *);
 typedef int     	(*size_in_pkt_fct)(void *);
 typedef lisp_addr_t	*(*get_ip_addr_fct)(void *);
-typedef lisp_addr_t	*(*get_fwd_ip_addr_fct)(void *, glist_t *);
+
 
 del_fct del_fcts[MAX_LCAFS] = {
         0, afi_list_type_del,
@@ -103,13 +103,6 @@ get_ip_addr_fct get_ip_addr_fcts[MAX_LCAFS] = {
         0, 0, 0,
         mc_type_get_ip_addr, elp_type_get_ip_addr, 0, 0,
         0, 0, 0};
-
-get_fwd_ip_addr_fct get_fwd_ip_addr_fcts[MAX_LCAFS] = {
-        0, afi_list_type_get_fwd_ip_addr,
-        iid_type_get_fwd_ip_addr, 0, 0, 0,
-        0, 0, 0,
-        0, elp_type_get_fwd_ip_addr, 0, 0,
-        rle_type_get_fwd_ip_addr, 0, 0};
 
 
 static inline lcaf_type_e get_type_(lcaf_addr_t *lcaf) {
@@ -519,10 +512,12 @@ inline uint8_t mc_type_get_grp_plen(mc_t *mc) {
 /* set functions common to all types */
 
 char *mc_type_to_char(void *mc){
-    static char buf[10][INET6_ADDRSTRLEN*2+4];
-    static unsigned int i;
+    static char         buf[10][INET6_ADDRSTRLEN*2+4];
+    static unsigned int i   = 0;
 
-    i++; i = i % 10;
+    i++;
+    i = i % 10;
+
     sprintf(buf[i], "(%s/%d,%s/%d)",
             lisp_addr_to_char(mc_type_get_src((mc_t *)mc)),
             mc_type_get_src_plen((mc_t *)mc),
@@ -705,10 +700,12 @@ int iid_type_parse(uint8_t *offset, void **iid) {
 }
 
 char *iid_type_to_char(void *iid) {
-    static char buf[10][INET6_ADDRSTRLEN*2+4];
-    static unsigned int i;
+    static char         buf[10][INET6_ADDRSTRLEN*2+4];
+    static unsigned int i   = 0;
 
-    i++; i = i % 10;
+    i++;
+    i = i % 10;
+
     sprintf(buf[i], "(IID %d/%d, EID %s)",
             iid_type_get_iid(iid),
             iid_type_get_mlen(iid),
@@ -745,13 +742,6 @@ lcaf_addr_t *lcaf_iid_init(int iid, lisp_addr_t *addr, uint8_t mlen) {
 lisp_addr_t *iid_type_get_ip_addr(void *iid)
 {
 	return (lisp_addr_get_ip_addr(((iid_t *)iid)->iidaddr));
-}
-
-
-lisp_addr_t *iid_type_get_fwd_ip_addr(void *iid,glist_t *locl_rlocs_addr)
-{
-	// XXX Is it possible?
-	return (NULL);
 }
 
 /*
@@ -853,10 +843,12 @@ inline lisp_addr_t *geo_type_get_addr(geo_t *geo) {
 
 
 char *geo_type_to_char(void *geo) {
-    static char buf[10][INET6_ADDRSTRLEN*2+4];
-    static unsigned int i;
+    static char         buf[10][INET6_ADDRSTRLEN*2+4];
+    static unsigned int i   = 0;
 
-    i++; i = i % 10;
+    i++;
+    i = i % 10;
+
     sprintf(buf[i], "(latitude: %s | longitude: %s | altitude: %d, EID %s)",
             geo_coord_to_char(geo_type_get_lat(geo)),
             geo_coord_to_char(geo_type_get_long(geo)),
@@ -1012,19 +1004,20 @@ err:
 }
 
 char *elp_type_to_char(void *elp) {
-    static char buf[3][500];
-    static unsigned int i;
-    i++; i = i % 10;
+    static char         buf[5][500];
+    static unsigned int i               = 0;
+    int                 j               = 0;
+    glist_entry_t *     it              = NULL;
+    elp_node_t *        node            = NULL;
 
-    glist_entry_t *it;
-    elp_node_t *node;
-    int j = 0;
 
+    i++;
+    i = i % 5;
     sprintf(buf[i], "ELP:");
 
     glist_for_each_entry(it, ((elp_t *)elp)->nodes) {
         j++;
-        node = glist_entry_data(it);
+        node = (elp_node_t *)glist_entry_data(it);
 //        sprintf(buf[i]+strlen(buf[i]), "[%d] %s f: %s%s%s", j, lisp_addr_to_char(node->addr),
 //                (node->L) ? "L" : "l", (node->P) ? "P" : "p", (node->S) ? "S" : "s");
         sprintf(buf[i]+strlen(buf[i]), "[%d] %s ", j, lisp_addr_to_char(node->addr));
@@ -1049,12 +1042,13 @@ elp_type_copy(void **dst, void *src)
     elp_node_t  *cp_node    = NULL;
     glist_entry_t *it       = NULL;
 
-    if (!*dst)
+    if (!*dst){
         *dst = elp_type_new();
+    }
     elp_ptr = *dst;
 
     glist_for_each_entry(it, ((elp_t *)src)->nodes) {
-        node = glist_entry_data(it);
+        node = (elp_node_t  *)glist_entry_data(it);
         cp_node = elp_node_clone(node);
         glist_add_tail(cp_node, elp_ptr->nodes);
     }
@@ -1070,25 +1064,35 @@ elp_type_cmp(void *elp1, void *elp2)
     glist_entry_t   *it2    = NULL;
     int ret = 0;
 
-
-    it1 = glist_first(((elp_t*)elp1)->nodes);
-    it2 = glist_first(((elp_t*)elp2)->nodes);
+    it1 = glist_last(((elp_t*)elp1)->nodes);
+    it2 = glist_last(((elp_t*)elp2)->nodes);
 
     while(it1 != glist_head(((elp_t*)elp1)->nodes)
           && it2 != glist_head(((elp_t*)elp2)->nodes)) {
         node1 = glist_entry_data(it1);
         node2 = glist_entry_data(it2);
+
+        if ((ret = lisp_addr_cmp(node1->addr, node2->addr)) != 0){
+           if (ret < 0){
+               return (lisp_addr_cmp_afi(node1->addr,node2->addr));
+           }
+           return (ret);
+        }
         if (node1->L != node2->L
             || node1->S != node2->S
             || node1->P != node2->P)
             return(1);
-        if ((ret = lisp_addr_cmp(node1->addr, node2->addr)) != 0)
-            return(ret);
-        it1 = glist_next(it1);
-        it2 = glist_next(it2);
+        it1 = glist_prev(it1);
+        it2 = glist_prev(it2);
     }
 
     return(0);
+}
+
+inline lisp_addr_t *
+elp_node_addr(elp_node_t *enode)
+{
+    return (enode->addr);
 }
 
 inline void
@@ -1116,38 +1120,11 @@ inline int lisp_addr_is_elp(lisp_addr_t *addr) {
 
 lisp_addr_t *elp_type_get_ip_addr(void *elp)
 {
+    elp_node_t *elp_node = NULL;
 	lisp_addr_t *addr = NULL;
-	addr = (lisp_addr_t *)glist_last_data(((elp_t *)elp)->nodes);
+	elp_node = (elp_node_t *)glist_last_data(((elp_t *)elp)->nodes);
+	addr = elp_node->addr;
 	return (lisp_addr_get_ip_addr(addr));
-}
-
-lisp_addr_t *elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr)
-{
-	lisp_addr_t *addr = NULL;
-	glist_entry_t *it = NULL;
-	glist_t *elp_list = ((elp_t *)elp)->nodes;
-	// XXX to be checked
-	glist_for_each_entry(it,elp_list){
-		addr = (lisp_addr_t *)glist_entry_data(it);
-		if (lisp_addr_lcaf_type(addr) == LCAF_EXPL_LOC_PATH){
-			addr = lisp_addr_get_fwd_ip_addr(addr, locl_rlocs_addr);
-			if (addr != NULL){
-				return (addr);
-			}
-			continue;
-		}
-		addr = lisp_addr_get_ip_addr(addr);
-		if (glist_contain_using_cmp_fct(addr, locl_rlocs_addr,(glist_cmp_fct)lisp_addr_cmp) == TRUE){
-			if (lisp_addr_cmp(addr, (lisp_addr_t *)glist_last_data(locl_rlocs_addr))){
-				LMLOG(DBG_1, "relp_type_get_fwd_ip_addr: Error - command invoked by the ETR");
-				return (NULL);
-			}
-			it = glist_next(it);
-			return ((lisp_addr_t *)glist_entry_data(it));
-		}
-	}
-
-	return (NULL);
 }
 
 /*
@@ -1267,13 +1244,14 @@ rle_type_get_size_to_write(void *rle)
 char *
 rle_type_to_char(void *rle)
 {
-    static char buf[3][500];
-    static unsigned int i;
-    i++; i = i % 10;
+    static char         buf[3][500];
+    static unsigned int i       = 0;
+    int                 j       = 0;
+    glist_entry_t *     it      = NULL;
+    rle_node_t *        node    = NULL;
 
-    glist_entry_t   *it     = NULL;
-    rle_node_t      *node   = NULL;
-    int j = 0;
+    i++;
+    i = i % 10;
 
     sprintf(buf[i], "RLE:");
 
@@ -1361,27 +1339,6 @@ rle_type_cmp(void *rle1, void *rle2)
 
     return(0);
 }
-
-lisp_addr_t * rle_type_get_fwd_ip_addr(void *rle, glist_t *locl_rlocs_addr)
-{
-	lisp_addr_t     *addr = NULL;
-	glist_entry_t   *it = NULL;
-	rle_node_t      *rnode  = NULL;
-	int             level   = -1;
-
-	/* find the first highest level replication node */
-	glist_for_each_entry(it, ((rle_t *)rle)->nodes) {
-		rnode = glist_entry_data(it);
-		if (rnode->level > level) {
-			level = rnode->level;
-			addr = rnode->addr;
-		}
-	}
-	return(addr);
-}
-
-
-
 
 /*
  * AFI-list type functions
@@ -1473,13 +1430,14 @@ err:
 }
 
 char *afi_list_type_to_char(void *afil) {
-	lisp_addr_t 	*addr = NULL;
-	glist_entry_t   *it = NULL;
+	lisp_addr_t *           addr    = NULL;
+	glist_entry_t *         it      = NULL;
     static char buf[3][500];
-    static int i;
-    int j = 0;
+    static int              i       = 0;
+    int                     j       = 0;
 
-    i++; i = i % 10;
+    i++;
+    i = i % 10;
 
     glist_for_each_entry(it, ((afi_list_t *)afil)->list_addr){
     	addr = (lisp_addr_t *)glist_entry_data(it);
@@ -1560,27 +1518,6 @@ lisp_addr_t *afi_list_type_get_ip_addr(void *afi_list)
 	return (NULL);
 }
 
-/*
- * Returns the first IPv4 or IPv6 address of the list
- */
-lisp_addr_t *afi_list_type_get_fwd_ip_addr(void *afi_list, glist_t *locl_rlocs_addr)
-{
-	glist_entry_t	*it 		= NULL;
-	lisp_addr_t     *addr   	= NULL;
-	lisp_addr_t     *ip_addr   	= NULL;
-
-	glist_for_each_entry(it, ((afi_list_t *)afi_list)->list_addr){
-		addr = (lisp_addr_t *)glist_entry_data(it);
-		ip_addr = lisp_addr_get_ip_addr(addr);
-		if (ip_addr != NULL){
-			// XXX Study if this behaviour is correct
-			return (ip_addr);
-		}
-	}
-
-	return (NULL);
-}
-
 /* obtain IP address from LCAF EIDs */
 lisp_addr_t *
 lcaf_get_ip_addr(lcaf_addr_t *lcaf)
@@ -1593,17 +1530,7 @@ lcaf_get_ip_addr(lcaf_addr_t *lcaf)
 	return (*get_ip_addr_fcts[get_type_(lcaf)])(get_addr_(lcaf));
 }
 
-/* obtain fwd IP address from LCAF*/
-lisp_addr_t *
-lcaf_get_fwd_ip_addr(lcaf_addr_t *lcaf, glist_t *locl_rlocs_addr)
-{
-	if (!get_fwd_ip_addr_fcts[get_type_(lcaf)]) {
-		LMLOG(DBG_1, "lcaf_get_fwd_ip_addr: lcaf type %d not supported", get_type_(lcaf));
-		return (NULL);
-	}
 
-	return (*get_fwd_ip_addr_fcts[get_type_(lcaf)])(get_addr_(lcaf), locl_rlocs_addr);
-}
 
 
 /* Set IP address in LCAF RLOCs. When LCAFs are used as local locators, the

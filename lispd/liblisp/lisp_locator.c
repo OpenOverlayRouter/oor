@@ -31,8 +31,8 @@
 #include <errno.h>
 
 #include "lisp_locator.h"
-#include "lispd_lib.h"
-#include "lmlog.h"
+#include "../lispd_lib.h"
+#include "../lib/lmlog.h"
 
 
 static lcl_locator_extended_info_t *new_lcl_locator_extended_info(int *);
@@ -168,7 +168,7 @@ locator_to_char(locator_t *l)
         sprintf(buf[i], "_NULL_");
         return (buf[i]);
     }
-    sprintf(buf[i], "%s, ", lisp_addr_to_char(locator_addr(l)));
+    sprintf(buf[i] + strlen(buf[i]), "%s, ", lisp_addr_to_char(locator_addr(l)));
     sprintf(buf[i] + strlen(buf[i]), "%s, ", l->state ? "Up" : "Down");
     sprintf(buf[i] + strlen(buf[i]), "%d/%-d, %d/%d", l->priority, l->weight,
             l->mpriority, l->mweight);
@@ -303,6 +303,8 @@ locator_init_local_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
 void
 locator_del(locator_t *locator)
 {
+    //XXX Check problem with locator free (double free of extended info) (locator former address still in locator lists)
+
     if (!locator) {
         return;
     }
@@ -471,7 +473,7 @@ locator_list_extract_locator_with_ptr(
     }
 
     glist_for_each_entry(it,loct_list){
-        locator = (locator_t *)glist_entry_data(it);
+        loct = (locator_t *)glist_entry_data(it);
         if (loct == locator){
             glist_extract(it,loct_list);
             return(GOOD);
@@ -517,10 +519,6 @@ locator_list_cmp_afi(
 	locator_t *		loct_b = NULL;
     lisp_addr_t *   addr_a = NULL;
     lisp_addr_t *   addr_b = NULL;
-    int             lafi_a;
-    int             lafi_b;
-    int             afi_a;
-    int             afi_b;
 
     if (loct_list_a == NULL || loct_list_b == NULL){
         return (-2);
@@ -534,39 +532,8 @@ locator_list_cmp_afi(
     loct_b = (locator_t *)glist_first_data(loct_list_b);
     addr_a = locator_addr(loct_a);
     addr_b = locator_addr(loct_b);
-    lafi_a = lisp_addr_lafi(addr_a);
-    lafi_b = lisp_addr_lafi(addr_a);
 
-    if (lafi_a > lafi_b){
-        return (1);
-    }
-    if (lafi_a < lafi_b){
-        return (2);
-    }
-
-    switch(lafi_a){
-    case LM_AFI_NO_ADDR:
-        return (0);
-    case LM_AFI_IP:
-        afi_a = lisp_addr_ip_afi(addr_a);
-        afi_b = lisp_addr_ip_afi(addr_b);
-        break;
-    case LM_AFI_IPPREF:
-        LMLOG(DBG_1,"locator_list_cmp_afi: No locators of type prefix");
-        return (-2);
-    case LM_AFI_LCAF:
-        afi_a = lisp_addr_lcaf_type(addr_a);
-        afi_b = lisp_addr_lcaf_type(addr_b);
-    }
-
-    if (afi_a > afi_b){
-        return (1);
-    }
-    if (afi_a < afi_b){
-        return (2);
-    }
-
-    return (0);
+    return (lisp_addr_cmp_afi(addr_a,addr_b));
 }
 
 rtr_locator_t *

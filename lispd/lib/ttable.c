@@ -30,9 +30,10 @@
 #include "util.h"
 #include "packets.h"
 #include "lmlog.h"
+#include "sockets.h"
 
 
-#include "liblisp.h"
+#include "../liblisp/liblisp.h"
 
 /* Time after which an entry is considered to have timed out and
  * is removed from the table */
@@ -69,7 +70,7 @@ time_elapsed(struct timespec *time_node)
 static void
 ttable_node_del(ttable_node_t *tn)
 {
-    free(tn->fe);
+    fwd_entry_del(tn->fe);
     free(tn);
 }
 

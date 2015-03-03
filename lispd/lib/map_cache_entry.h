@@ -33,18 +33,16 @@
 #define MAP_CACHE_ENTRY_H_
 
 #include "timers.h"
-#include "lisp_mapping.h"
+#include "../liblisp/lisp_mapping.h"
 
 /*
  *  map-cache entry types (how_learned)
  */
 
-#define STATIC_MAP_CACHE_ENTRY          0
-#define DYNAMIC_MAP_CACHE_ENTRY         1
-
 typedef enum mce_type {
-    MCE_STATIC = 0,
-    MCE_DYNAMIC
+    MCE_= 0,
+    MCE_DYNAMIC,
+    MCE_STATIC
 } mce_type_e;
 
 /*
@@ -52,6 +50,8 @@ typedef enum mce_type {
  */
 #define NOT_ACTIVE                      0
 #define ACTIVE                          1
+
+typedef void (*routing_info_del_fct)(void *);
 
 typedef struct map_cache_entry_ {
     uint8_t how_learned;
@@ -64,6 +64,10 @@ typedef struct map_cache_entry_ {
     uint8_t active;
     uint8_t active_witin_period;
     time_t timestamp;
+
+    /* Routing info */
+    void *                  routing_info;
+    routing_info_del_fct    routing_inf_del;
 
     /* timers */
     lmtimer_t *expiry_cache_timer;
@@ -94,13 +98,16 @@ static inline void mcache_entry_destroy_nonces(mcache_entry_t *);
 static inline void mcache_entry_set_requester(mcache_entry_t *,
         lisp_addr_t *);
 static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *);
+static inline void *mcache_entry_routing_info(mcache_entry_t *);
+static inline void mcache_entry_set_routing_info(mcache_entry_t *, void *, routing_info_del_fct);
 
 /* timer accessors */
 static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *);
-static inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *);
+inline void mcache_entry_stop_req_retry_timer(mcache_entry_t *m);
+inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *);
 static inline lmtimer_t *mcache_entry_smr_inv_timer(mcache_entry_t *);
-static inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *);
-static inline lmtimer_t *mcache_entry_init_smr_inv_timer(mcache_entry_t *);
+inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *);
+inline lmtimer_t *mcache_entry_init_smr_inv_timer(mcache_entry_t *);
 static inline void mcache_entry_requester_del(mcache_entry_t *m);
 
 static inline mapping_t *mcache_entry_mapping(mcache_entry_t* mce)
@@ -162,23 +169,19 @@ static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *m)
     return(m->requester);
 }
 
+static inline void *mcache_entry_routing_info(mcache_entry_t *m)
+{
+    return (m->routing_info);
+}
+
+static inline void mcache_entry_set_routing_info(mcache_entry_t *m, void *routing_inf, routing_info_del_fct del_fct)
+{
+    m->routing_info = routing_inf;
+    m->routing_inf_del = del_fct;
+}
+
 static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *m)
 {
-    return(m->request_retry_timer);
-}
-
-static inline void mcache_entry_stop_req_retry_timer(mcache_entry_t *m)
-{
-    lmtimer_stop(m->request_retry_timer);
-    m->request_retry_timer = NULL;
-}
-
-static inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *m)
-{
-    if (m->request_retry_timer) {
-        mcache_entry_stop_req_retry_timer(m);
-    }
-    m->request_retry_timer = lmtimer_create(MAP_REQUEST_RETRY_TIMER);
     return(m->request_retry_timer);
 }
 
@@ -188,20 +191,7 @@ static inline lmtimer_t *mcache_entry_smr_inv_timer(mcache_entry_t *m)
     return(m->smr_inv_timer);
 }
 
-static inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *m)
-{
-    lmtimer_stop(m->smr_inv_timer);
-    m->smr_inv_timer = NULL;
-}
 
-static inline lmtimer_t *mcache_entry_init_smr_inv_timer(mcache_entry_t *m)
-{
-    if (m->smr_inv_timer) {
-        mcache_entry_stop_smr_inv_timer(m);
-    }
-    m->smr_inv_timer = lmtimer_create(SMR_INV_RETRY_TIMER);
-    return(m->smr_inv_timer);
-}
 
 
 #endif /* MAP_CACHE_ENTRY_H_ */

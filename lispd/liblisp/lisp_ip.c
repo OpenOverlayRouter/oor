@@ -30,8 +30,8 @@
 #include <errno.h>
 
 #include "lisp_address.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 /*
  * ip_addr_t functions

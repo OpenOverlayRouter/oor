@@ -54,75 +54,29 @@ typedef struct mapping {
     uint8_t                         action;
     uint8_t                         authoritative;
 
-    uint8_t                         eid_prefix_length;  /*to remove in future*/
     uint32_t                        iid;                /*to remove in future*/
-    mapping_type                    type;               /*to remove in future*/
-    void                            *extended_info;     /*to remove in future*/
-    extended_info_del_fct           extended_info_del;  /*to remove in future*/
 } mapping_t;
 
-/*
- * Used to select the locator to be used for an identifier according to locators' priority and weight.
- *  v4_balancing_locators_vec: If we just have IPv4 RLOCs
- *  v6_balancing_locators_vec: If we just hace IPv6 RLOCs
- *  balancing_locators_vec: If we have IPv4 & IPv6 RLOCs
- *  For each packet, a hash of its tuppla is calculaed. The result of this hash is one position of the array.
- */
-
-typedef struct balancing_locators_vecs_ {
-    locator_t **v4_balancing_locators_vec;
-    locator_t **v6_balancing_locators_vec;
-    locator_t **balancing_locators_vec;
-    int v4_locators_vec_length;
-    int v6_locators_vec_length;
-    int locators_vec_length;
-} balancing_locators_vecs;
-
-
-/* Structure to expand the lispd_mapping_elt used in lispd_map_cache_entry */
-typedef struct lcl_mapping_extended_info_ {
-    balancing_locators_vecs outgoing_balancing_locators_vecs;
-} lcl_mapping_extended_info;
-
-/* Structure to expand the lispd_mapping_elt used in lispd_map_cache_entry */
-typedef struct rmt_mapping_extended_info_ {
-    balancing_locators_vecs rmt_balancing_locators_vecs;
-} rmt_mapping_extended_info;
-
-
-
 inline mapping_t *mapping_new();
-mapping_t *mapping_init_local(lisp_addr_t *);
-mapping_t *mapping_init_static(lisp_addr_t *);
-mapping_t *mapping_init_remote(lisp_addr_t *);
-mapping_t *mapping_clone(mapping_t *);
+inline mapping_t *mapping_new_init(lisp_addr_t *);
 void mapping_del(mapping_t *);
 int mapping_cmp(mapping_t *, mapping_t *);
+mapping_t *mapping_clone(mapping_t *);
+char *mapping_to_char(mapping_t *m);
 
 int mapping_add_locator(mapping_t *, locator_t *);
 void mapping_update_locators(mapping_t *, glist_t *);
-inline glist_t *mapping_locators(mapping_t *);
 locator_t *mapping_get_loct_with_addr(mapping_t *, lisp_addr_t *);
 glist_t *mapping_get_loct_lst_with_afi(mapping_t *mapping, lm_afi_t lafi, int afi);
-inline glist_t *mapping_get_loct_lst_with_addr_type(mapping_t * mapping,lisp_addr_t *addr);
+glist_t *mapping_get_loct_lst_with_addr_type(mapping_t * mapping,lisp_addr_t *addr);
 uint8_t mapping_has_locator(mapping_t *mapping, locator_t *loct);
 int mapping_sort_locators(mapping_t *, lisp_addr_t *);
 int mapping_activate_locator(mapping_t *map,locator_t *loct);
 
-void locators_classify_in_4_6(mapping_t * mapping, glist_t ** ipv4_loct_list, glist_t ** ipv6_loct_list);
-int mapping_compute_balancing_vectors(mapping_t *);
-void mapping_extended_info_del(mapping_t *);
-
-char *mapping_to_char(mapping_t *m);
-
 static inline lisp_addr_t *mapping_eid(mapping_t *m);
-static inline glist_t *mapping_locators_lists(mapping_t *m);
-static inline void *mapping_extended_info(mapping_t *m);
-static inline void mapping_set_extended_info(mapping_t *, void *,
-        extended_info_del_fct);
-static inline void mapping_set_iid(mapping_t *m, uint32_t iid);
 static inline void mapping_set_eid(mapping_t *m, lisp_addr_t *addr);
-static inline void mapping_set_eid_plen(mapping_t *m, uint8_t plen);
+static inline void mapping_set_iid(mapping_t *m, uint32_t iid);
+static inline glist_t *mapping_locators_lists(mapping_t *m);
 static inline uint16_t mapping_locator_count(mapping_t *);
 static inline uint32_t mapping_ttl(mapping_t *);
 static inline void mapping_set_ttl(mapping_t *, uint32_t);
@@ -130,29 +84,12 @@ static inline uint8_t mapping_action(mapping_t *);
 static inline void mapping_set_action(mapping_t *, uint8_t);
 static inline uint8_t mapping_auth(const mapping_t *);
 static inline void mapping_set_auth(mapping_t *, uint8_t);
-static inline uint16_t mapping_locator_count(mapping_t *);
 
+/*****************************************************************************/
 
-
-static inline void *mapping_extended_info(mapping_t *m)
+static inline lisp_addr_t *mapping_eid(mapping_t *m)
 {
-    if (m) {
-        return (m->extended_info);
-    } else {
-        return (NULL);
-    }
-}
-
-static inline void mapping_set_extended_info(mapping_t *m, void *ei,
-        extended_info_del_fct ei_del_fct)
-{
-    m->extended_info = ei;
-    m->extended_info_del = ei_del_fct;
-}
-
-static inline void mapping_set_iid(mapping_t *m, uint32_t iid)
-{
-    m->iid = iid;
+    return (&m->eid_prefix);
 }
 
 static inline void mapping_set_eid(mapping_t *m, lisp_addr_t *addr)
@@ -160,15 +97,11 @@ static inline void mapping_set_eid(mapping_t *m, lisp_addr_t *addr)
     lisp_addr_copy(mapping_eid(m), addr);
 }
 
-static inline void mapping_set_eid_plen(mapping_t *m, uint8_t plen)
+static inline void mapping_set_iid(mapping_t *m, uint32_t iid)
 {
-    m->eid_prefix_length = plen;
+    m->iid = iid;
 }
 
-static inline lisp_addr_t *mapping_eid(mapping_t *m)
-{
-    return (&m->eid_prefix);
-}
 
 static inline glist_t *mapping_locators_lists(mapping_t *m)
 {

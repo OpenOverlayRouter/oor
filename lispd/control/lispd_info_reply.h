@@ -31,7 +31,7 @@
 #ifndef LISPD_INFO_REPLY_H_
 #define LISPD_INFO_REPLY_H_
 
-#include <defs.h>
+#include "../defs.h"
 #include "lispd_info_nat.h"
 
 

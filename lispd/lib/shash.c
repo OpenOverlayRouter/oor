@@ -49,7 +49,6 @@ shash_new_managed(h_key_del_fct df)
 void
 shash_del(shash_t *sh) {
     htable_destroy(sh);
-    free(sh);
 }
 
 void

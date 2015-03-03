@@ -30,7 +30,7 @@
 #define LISP_DATA_H_
 
 //#include "stdint.h"
-#include "util.h"
+#include "../lib/util.h"
 
  /* LISP data packet header */
 

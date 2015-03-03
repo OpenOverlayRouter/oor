@@ -27,8 +27,8 @@
  */
 
 #include "lisp_address.h"
-#include "util.h"
-#include "lmlog.h"
+#include "../lib/util.h"
+#include "../lib/lmlog.h"
 
 
 static inline lm_afi_t get_lafi_(lisp_addr_t *laddr);
@@ -393,7 +393,7 @@ void
 lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
 {
     set_lafi_(dst, lisp_addr_lafi(src));
-    switch (lisp_addr_lafi(dst)) {
+    switch (lisp_addr_lafi(src)) {
     case LM_AFI_NO_ADDR:
         LMLOG(DBG_3, "lisp_addr_copy:  No address element copied");
         break;
@@ -563,6 +563,62 @@ lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2)
 }
 
 
+/*
+ * Compare lafi and afit/type of two lisp_addr_t.
+ * Returns:
+ *           0: Both address has the same lafi and afi/type
+ *           1: Addr1 is bigger than addr2
+ *           2: Addr2 is bigger than addr1
+ */
+
+inline int
+lisp_addr_cmp_afi(lisp_addr_t *addr1, lisp_addr_t *addr2)
+{
+    int             lafi_a;
+    int             lafi_b;
+    int             afi_a;
+    int             afi_b;
+
+    if (addr1 == NULL || addr2 == NULL){
+        return (-2);
+    }
+
+    lafi_a = lisp_addr_lafi(addr1);
+    lafi_b = lisp_addr_lafi(addr2);
+
+    if (lafi_a > lafi_b){
+        return (1);
+    }
+    if (lafi_a < lafi_b){
+        return (2);
+    }
+
+    switch(lafi_a){
+    case LM_AFI_NO_ADDR:
+        return (0);
+    case LM_AFI_IP:
+        afi_a = lisp_addr_ip_afi(addr1);
+        afi_b = lisp_addr_ip_afi(addr2);
+        break;
+    case LM_AFI_IPPREF:
+        LMLOG(DBG_1,"locator_list_cmp_afi: No locators of type prefix");
+        return (-2);
+    case LM_AFI_LCAF:
+        afi_a = lisp_addr_lcaf_type(addr1);
+        afi_b = lisp_addr_lcaf_type(addr2);
+    }
+
+    if (afi_a > afi_b){
+        return (1);
+    }
+    if (afi_a < afi_b){
+        return (2);
+    }
+
+    return (0);
+}
+
+
 inline void
 lisp_addr_lcaf_set_addr(lisp_addr_t *laddr, void *addr)
 {
@@ -662,22 +718,7 @@ lisp_addr_get_ip_addr(lisp_addr_t *addr)
     return (NULL);
 }
 
-lisp_addr_t *
-lisp_addr_get_fwd_ip_addr(lisp_addr_t *addr, glist_t *locl_rlocs_addr)
-{
-    switch (lisp_addr_lafi(addr)) {
-    case LM_AFI_IP:
-    	return (addr);
-    case LM_AFI_IPPREF:
-    	LMLOG(LWRN, "lisp_addr_get_fwd_ip_addr: Not applicable to prefixes");
-        return (NULL);
-    case LM_AFI_LCAF:
-        return (lcaf_get_fwd_ip_addr(get_lcaf_(addr),locl_rlocs_addr));
-    default:
-        return (NULL);
-    }
-    return (NULL);
-}
+
 
 /* Deallocates the address for LCAFs. Does nothing for other AFIs*/
 void

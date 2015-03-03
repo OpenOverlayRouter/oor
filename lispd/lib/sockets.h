@@ -31,10 +31,10 @@
 #ifndef SOCKETS_H_
 #define SOCKETS_H_
 
-#include "defs.h"
+#include "../defs.h"
 #include "sockets-util.h"
 #include "packets.h"
-#include "lisp_address.h"
+#include "../liblisp/lisp_address.h"
 #include "lbuf.h"
 
 
@@ -95,9 +95,11 @@ typedef struct fwd_entry {
     lisp_addr_t *srloc;
     lisp_addr_t *drloc;
     void *iface;
-    int natt_flag;
 } fwd_entry_t;
 
+inline void fwd_entry_del(fwd_entry_t *fwd_entry);
+static inline void fwd_entry_set_srloc(fwd_entry_t *fwd_ent, lisp_addr_t * srloc);
+static inline void fwd_entry_set_drloc(fwd_entry_t *fwd_ent, lisp_addr_t * drloc);
 typedef struct iface iface_t;
 
 sockmstr_t *sockmstr_create();
@@ -117,6 +119,16 @@ int sock_data_recv(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
 int sock_lisp_data_send(lbuf_t *b,  lisp_addr_t *src, lisp_addr_t *dst,
         iface_t *iface);
 int sock_data_send(lbuf_t *b, lisp_addr_t *dst);
+
+static inline void fwd_entry_set_srloc(fwd_entry_t *fwd_ent, lisp_addr_t * srloc)
+{
+    fwd_ent->srloc = srloc;
+}
+
+static inline void fwd_entry_set_drloc(fwd_entry_t *fwd_ent, lisp_addr_t * drloc)
+{
+    fwd_ent->drloc = drloc;
+}
 
 static inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
         lisp_addr_t *ra)
