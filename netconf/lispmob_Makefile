@@ -1,0 +1,94 @@
+PKGNAME = lispsimple
+TARGET = lispsimple.la
+
+# Various configurable paths (remember to edit Makefile.in, not Makefile)
+prefix = /usr/local
+exec_prefix = ${prefix}
+datarootdir = ${prefix}/share
+datadir = ${datarootdir}
+bindir = ${exec_prefix}/bin
+includedir = ${prefix}/include
+libdir =  ${exec_prefix}/lib
+mandir = ${datarootdir}/man
+libtool = ./libtool
+
+CC = gcc
+INSTALL = /usr/bin/install -c
+INSTALL_PROGRAM = ${INSTALL}
+INSTALL_DATA = ${INSTALL} -m 644
+LIBS = -lxml2 -lnetconf -lzmq
+CFLAGS = -I/usr/include/libxml2  -O3
+CPPFLAGS = 
+LIBTOOL = $(libtool) --tag=CC --quiet
+
+SRCS = lispsimple.c lispd_api_netconf.c ../lispd/lib/util.c ../lispd/lispd_api.c \
+		  ../lispd/control/lisp_control.c         \
+		  ../lispd/control/lisp_ctrl_device.c     \
+		  ../lispd/control/lisp_local_db.c        \
+		  ../lispd/control/lisp_map_cache.c       \
+		  ../lispd/control/lisp_xtr.c             \
+		  ../lispd/control/lisp_ms.c              \
+		  ../lispd/data-tun/lispd_input.c         \
+		  ../lispd/data-tun/lispd_output.c        \
+		  ../lispd/data-tun/lispd_tun.c           \
+		  ../lispd/elibs/patricia/patricia.c      \
+		  ../lispd/liblisp/liblisp.c              \
+		  ../lispd/liblisp/lisp_address.c         \
+		  ../lispd/liblisp/lisp_data.c            \
+		  ../lispd/liblisp/lisp_ip.c              \
+		  ../lispd/liblisp/lisp_lcaf.c            \
+		  ../lispd/liblisp/lisp_locator.c         \
+		  ../lispd/liblisp/lisp_mapping.c         \
+		  ../lispd/liblisp/lisp_messages.c        \
+		  ../lispd/liblisp/lisp_message_fields.c  \
+		  ../lispd/liblisp/lisp_nonce.c           \
+		  ../lispd/liblisp/hmac/hmac.c            \
+		  ../lispd/liblisp/hmac/hmac-sha1.c       \
+		  ../lispd/liblisp/hmac/hmac-sha256.c     \
+		  ../lispd/lib/cksum.c                    \
+		  ../lispd/lib/generic_list.c             \
+		  ../lispd/lib/hash.c                     \
+		  ../lispd/lib/hash_table.c               \
+		  ../lispd/lib/iface_locators.c           \
+		  ../lispd/lib/lbuf.c                     \
+		  ../lispd/lib/lisp_site.c                \
+		  ../lispd/lib/lmlog.c                    \
+		  ../lispd/lib/mapping_db.c               \
+		  ../lispd/lib/map_cache_entry.c          \
+		  ../lispd/lib/routing_tables_lib.c       \
+		  ../lispd/lib/packets.c                  \
+		  ../lispd/lib/sockets.c                  \
+		  ../lispd/lib/sockets-util.c             \
+		  ../lispd/lib/shash.c                    \
+		  ../lispd/lib/timers.c                   \
+		  ../lispd/lib/ttable.c                   \
+		  ../lispd/lib/util.c                     \
+		  ../lispd/iface_list.c                   \
+		  ../lispd/iface_mgmt.c                   \
+		  ../lispd/lispd_api.c
+
+
+OBJDIR = .obj
+LOBJS = $(SRCS:%.c=$(OBJDIR)/%.lo)
+
+all: $(TARGET)
+
+$(TARGET): $(LOBJS) $(OBJS)
+	$(LIBTOOL) --mode=link $(CC) $(CFLAGS) $(CPPFLAGS) $(LIBS) -avoid-version -module -shared -export-dynamic --mode=link -o $@ $^ -rpath $(libdir)
+
+$(OBJDIR)/%.lo: %.c
+	@[ -d $$(dirname $@) ] || \
+		(mkdir -p $$(dirname $@))
+	$(LIBTOOL) --mode=compile $(CC) $(CFLAGS) $(CPPFLAGS) -fPIC -shared -c $< -o $@
+
+.PHONY: install
+install: $(TARGET)
+	$(INSTALL) -m 775 -d $(DESTDIR)/$(libdir)
+	$(LIBTOOL) --mode=install cp $(TARGET) $(DESTDIR)/$(libdir)/;
+
+.PHONY: clean
+clean:
+	$(LIBTOOL) --mode clean rm -f $(LOBJS)
+	$(LIBTOOL) --mode clean rm -f $(TARGET)
+	rm -rf $(TARGET) $(OBJDIR)
+

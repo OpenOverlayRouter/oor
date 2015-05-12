@@ -1,0 +1,626 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module name="iana-afn-safi"
+        xmlns="urn:ietf:params:xml:ns:yang:yin:1"
+        xmlns:ianaaf="urn:ietf:params:xml:ns:yang:iana-afn-safi">
+  <namespace uri="urn:ietf:params:xml:ns:yang:iana-afn-safi"/>
+  <prefix value="ianaaf"/>
+  <organization>
+    <text>IANA</text>
+  </organization>
+  <contact>
+    <text>        Internet Assigned Numbers Authority
+
+Postal: ICANN
+        4676 Admiralty Way, Suite 330
+        Marina del Rey, CA 90292
+
+Tel:    +1 310 823 9358
+E-Mail: iana&amp;iana.org</text>
+  </contact>
+  <description>
+    <text>This YANG module provides two typedefs containing YANG
+definitions for the following IANA-registered enumerations:
+
+- Address Family Numbers (AFN)
+
+- Subsequent Address Family Identifiers (SAFI)
+
+The latest revision of this YANG module can be obtained from the
+IANA web site.
+
+Copyright (c) 2012 IETF Trust and the persons identified as
+authors of the code. All rights reserved.
+
+Redistribution and use in source and binary forms, with or
+without modification, is permitted pursuant to, and subject to
+the license terms contained in, the Simplified BSD License set
+forth in Section 4.c of the IETF Trust's Legal Provisions
+Relating to IETF Documents
+(http://trustee.ietf.org/license-info).
+
+This version of this YANG module is part of RFC XXXX; see the
+RFC itself for full legal notices.</text>
+  </description>
+  <revision date="2013-07-04">
+    <description>
+      <text>Initial revision.</text>
+    </description>
+    <reference>
+      <text>RFC XXXX: IANA Address Family Numbers and
+          Subsequent Address Family Identifiers YANG Module</text>
+    </reference>
+  </revision>
+  <typedef name="address-family">
+    <type name="enumeration">
+      <enum name="ipV4">
+        <value value="1"/>
+        <description>
+          <text>IP version 4</text>
+        </description>
+      </enum>
+      <enum name="ipV6">
+        <value value="2"/>
+        <description>
+          <text>IP version 6</text>
+        </description>
+      </enum>
+      <enum name="nsap">
+        <value value="3"/>
+        <description>
+          <text>NSAP</text>
+        </description>
+      </enum>
+      <enum name="hdlc">
+        <value value="4"/>
+        <description>
+          <text>HDLC (8-bit multidrop)</text>
+        </description>
+      </enum>
+      <enum name="bbn1822">
+        <value value="5"/>
+        <description>
+          <text>BBN 1822</text>
+        </description>
+      </enum>
+      <enum name="all802">
+        <value value="6"/>
+        <description>
+          <text>802 (includes all 802 media plus Ethernet 'canonical
+format')</text>
+        </description>
+      </enum>
+      <enum name="e163">
+        <value value="7"/>
+        <description>
+          <text>E.163</text>
+        </description>
+      </enum>
+      <enum name="e164">
+        <value value="8"/>
+        <description>
+          <text>E.164 (SMDS, FrameRelay, ATM)</text>
+        </description>
+      </enum>
+      <enum name="f69">
+        <value value="9"/>
+        <description>
+          <text>F.69 (Telex)</text>
+        </description>
+      </enum>
+      <enum name="x121">
+        <value value="10"/>
+        <description>
+          <text>X.121 (X.25, Frame Relay)</text>
+        </description>
+      </enum>
+      <enum name="ipx">
+        <value value="11"/>
+        <description>
+          <text>IPX (Internetwork Packet Exchange)</text>
+        </description>
+      </enum>
+      <enum name="appletalk">
+        <value value="12"/>
+        <description>
+          <text>Appletalk</text>
+        </description>
+      </enum>
+      <enum name="decnetIV">
+        <value value="13"/>
+        <description>
+          <text>DECnet IV</text>
+        </description>
+      </enum>
+      <enum name="banyanVines">
+        <value value="14"/>
+        <description>
+          <text>Banyan Vines</text>
+        </description>
+      </enum>
+      <enum name="e164withNsap">
+        <value value="15"/>
+        <description>
+          <text>E.164 with NSAP format subaddress</text>
+        </description>
+        <reference>
+          <text>ATM Forum UNI 3.1</text>
+        </reference>
+      </enum>
+      <enum name="dns">
+        <value value="16"/>
+        <description>
+          <text>DNS (Domain Name System)</text>
+        </description>
+      </enum>
+      <enum name="distinguishedName">
+        <value value="17"/>
+        <description>
+          <text>Distinguished Name (per X.500)</text>
+        </description>
+      </enum>
+      <enum name="asNumber">
+        <value value="18"/>
+        <description>
+          <text>Autonomous System Number</text>
+        </description>
+      </enum>
+      <enum name="xtpOverIpv4">
+        <value value="19"/>
+        <description>
+          <text>XTP over IP version 4</text>
+        </description>
+      </enum>
+      <enum name="xtpOverIpv6">
+        <value value="20"/>
+        <description>
+          <text>XTP over IP version 6</text>
+        </description>
+      </enum>
+      <enum name="xtpNativeModeXTP">
+        <value value="21"/>
+        <description>
+          <text>XTP native mode XTP</text>
+        </description>
+      </enum>
+      <enum name="fibreChannelWWPN">
+        <value value="22"/>
+        <description>
+          <text>Fibre Channel World-Wide Port Name</text>
+        </description>
+      </enum>
+      <enum name="fibreChannelWWNN">
+        <value value="23"/>
+        <description>
+          <text>Fibre Channel World-Wide Node Name</text>
+        </description>
+      </enum>
+      <enum name="gwid">
+        <value value="24"/>
+        <description>
+          <text>Gateway Identifier</text>
+        </description>
+      </enum>
+      <enum name="l2vpn">
+        <value value="25"/>
+        <description>
+          <text>AFI for L2VPN information</text>
+        </description>
+        <reference>
+          <text>RFC 4761: Virtual Private LAN Service (VPLS): Using BGP
+for Auto-Discovery and Signaling
+
+RFC 6074: Provisioning, Auto-Discovery, and Signaling in
+Layer 2 Virtual Private Networks (L2VPNs)</text>
+        </reference>
+      </enum>
+      <enum name="mplsTpSectionEndpointIdentifier">
+        <value value="26"/>
+        <description>
+          <text>MPLS-TP Section Endpoint Identifier</text>
+        </description>
+        <reference>
+          <text>draft-ietf-mpls-gach-adv</text>
+        </reference>
+      </enum>
+      <enum name="mplsTpLspEndpointIdentifier">
+        <value value="27"/>
+        <description>
+          <text>MPLS-TP LSP Endpoint Identifier</text>
+        </description>
+        <reference>
+          <text>draft-ietf-mpls-gach-adv</text>
+        </reference>
+      </enum>
+      <enum name="mplsTpPseudowireEndpointIdentifier">
+        <value value="28"/>
+        <description>
+          <text>MPLS-TP Pseudowire Endpoint Identifier</text>
+        </description>
+        <reference>
+          <text>draft-ietf-mpls-gach-adv</text>
+        </reference>
+      </enum>
+      <enum name="eigrpCommonServiceFamily">
+        <value value="16384"/>
+        <description>
+          <text>EIGRP Common Service Family</text>
+        </description>
+      </enum>
+      <enum name="eigrpIpv4ServiceFamily">
+        <value value="16385"/>
+        <description>
+          <text>EIGRP IPv4 Service Family</text>
+        </description>
+      </enum>
+      <enum name="eigrpIpv6ServiceFamily">
+        <value value="16386"/>
+        <description>
+          <text>EIGRP IPv6 Service Family</text>
+        </description>
+      </enum>
+      <enum name="lispCanonicalAddressFormat">
+        <value value="16387"/>
+        <description>
+          <text>LISP Canonical Address Format (LCAF)</text>
+        </description>
+      </enum>
+      <enum name="bgpLs">
+        <value value="16388"/>
+        <description>
+          <text>BGP-LS</text>
+        </description>
+        <reference>
+          <text>draft-ietf-idr-ls-distribution</text>
+        </reference>
+      </enum>
+      <enum name="48BitMac">
+        <value value="16389"/>
+        <description>
+          <text>48-bit MAC</text>
+        </description>
+        <reference>
+          <text>draft-eastlake-rfc5342bis</text>
+        </reference>
+      </enum>
+      <enum name="64BitMac">
+        <value value="16390"/>
+        <description>
+          <text>64-bit MAC</text>
+        </description>
+        <reference>
+          <text>draft-eastlake-rfc5342bis</text>
+        </reference>
+      </enum>
+    </type>
+    <description>
+      <text>This typedef is a YANG enumeration of IANA-registered address
+family numbers (AFN).</text>
+    </description>
+    <reference>
+      <text>IANA Address Family Numbers registry.
+&lt;http://www.iana.org/assignments/address-family-numbers&gt;</text>
+    </reference>
+  </typedef>
+  <typedef name="subsequent-address-family">
+    <type name="enumeration">
+      <enum name="nlriUnicast">
+        <value value="1"/>
+        <description>
+          <text>Network Layer Reachability Information used for unicast
+forwarding</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="nlriMulticast">
+        <value value="2"/>
+        <description>
+          <text>Network Layer Reachability Information used for multicast
+forwarding</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="nlriMpls">
+        <value value="4"/>
+        <description>
+          <text>Network Layer Reachability Information (NLRI) with MPLS
+Labels</text>
+        </description>
+        <reference>
+          <text>RFC 3107: Carrying Label Information in BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="mcastVpn">
+        <value value="5"/>
+        <description>
+          <text>MCAST-VPN</text>
+        </description>
+        <reference>
+          <text>RFC 6514: BGP Encodings and Procedures for Multicast in
+MPLS/BGP IP VPNs</text>
+        </reference>
+      </enum>
+      <enum name="nlriDynamicMsPw">
+        <value value="6"/>
+        <status value="obsolete"/>
+        <description>
+          <text>Network Layer Reachability Information used for Dynamic
+Placement of Multi-Segment Pseudowires (TEMPORARY -
+Expires 2008-08-23)</text>
+        </description>
+        <reference>
+          <text>draft-ietf-pwe3-dynamic-ms-pw: Dynamic Placement of Multi
+Segment Pseudowires</text>
+        </reference>
+      </enum>
+      <enum name="encapsulation">
+        <value value="7"/>
+        <description>
+          <text>Encapsulation SAFI</text>
+        </description>
+        <reference>
+          <text>RFC 5512: The BGP Encapsulation Subsequent Address Family
+Identifier (SAFI) and the BGP Tunnel Encapsulation
+Attribute</text>
+        </reference>
+      </enum>
+      <enum name="tunnel">
+        <value value="64"/>
+        <status value="obsolete"/>
+        <description>
+          <text>Tunnel SAFI</text>
+        </description>
+        <reference>
+          <text>draft-nalawade-kapoor-tunnel-safi: BGP Tunnel SAFI</text>
+        </reference>
+      </enum>
+      <enum name="vpls">
+        <value value="65"/>
+        <description>
+          <text>Virtual Private LAN Service (VPLS)</text>
+        </description>
+        <reference>
+          <text>RFC 4761: Virtual Private LAN Service (VPLS): Using BGP
+for Auto-Discovery and Signaling
+
+RFC 6074: Provisioning, Auto-Discovery, and Signaling in
+Layer 2 Virtual Private Networks (L2VPNs)</text>
+        </reference>
+      </enum>
+      <enum name="bgpMdt">
+        <value value="66"/>
+        <description>
+          <text>BGP MDT SAFI</text>
+        </description>
+        <reference>
+          <text>RFC 6037: Cisco Systems' Solution for Multicast in
+BGP/MPLS IP VPNs</text>
+        </reference>
+      </enum>
+      <enum name="bgp4over6">
+        <value value="67"/>
+        <description>
+          <text>BGP 4over6 SAFI</text>
+        </description>
+        <reference>
+          <text>RFC 5747: 4over6 Transit Solution Using IP Encapsulation
+and MP-BGP Extensions</text>
+        </reference>
+      </enum>
+      <enum name="bgp6over4">
+        <value value="68"/>
+        <description>
+          <text>BGP 6over4 SAFI</text>
+        </description>
+      </enum>
+      <enum name="l1VpnAutoDiscovery">
+        <value value="69"/>
+        <description>
+          <text>Layer-1 VPN auto-discovery information</text>
+        </description>
+        <reference>
+          <text>RFC 5195: BGP-Based Auto-Discovery for Layer-1 VPNs</text>
+        </reference>
+      </enum>
+      <enum name="mplsVpn">
+        <value value="128"/>
+        <description>
+          <text>MPLS-labeled VPN address</text>
+        </description>
+        <reference>
+          <text>RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs)</text>
+        </reference>
+      </enum>
+      <enum name="multicastBgpMplsVpn">
+        <value value="129"/>
+        <description>
+          <text>Multicast for BGP/MPLS IP Virtual Private Networks
+(VPNs)</text>
+        </description>
+        <reference>
+          <text>RFC 6513: Multicast in MPLS/BGP IP VPNs
+
+RFC 6514: BGP Encodings and Procedures for Multicast in
+MPLS/BGP IP VPNs</text>
+        </reference>
+      </enum>
+      <enum name="routeTargetConstraints">
+        <value value="132"/>
+        <description>
+          <text>Route Target constraints</text>
+        </description>
+        <reference>
+          <text>RFC 4684: Constrained Route Distribution for Border
+Gateway Protocol/MultiProtocol Label Switching (BGP/MPLS)
+Internet Protocol (IP) Virtual Private Networks (VPNs)</text>
+        </reference>
+      </enum>
+      <enum name="ipv4DissFlow">
+        <value value="133"/>
+        <description>
+          <text>IPv4 dissemination of flow specification rules</text>
+        </description>
+        <reference>
+          <text>RFC 5575: Dissemination of Flow Specification Rules</text>
+        </reference>
+      </enum>
+      <enum name="vpnv4DissFlow">
+        <value value="134"/>
+        <description>
+          <text>VPNv4 dissemination of flow specification rules</text>
+        </description>
+        <reference>
+          <text>RFC 5575: Dissemination of Flow Specification Rules</text>
+        </reference>
+      </enum>
+      <enum name="vpnAutoDiscovery">
+        <value value="140"/>
+        <status value="obsolete"/>
+        <description>
+          <text>VPN auto-discovery</text>
+        </description>
+        <reference>
+          <text>draft-ietf-l3vpn-bgpvpn-auto: Using BGP as an
+Auto-Discovery Mechanism for VR-based Layer-3 VPNs</text>
+        </reference>
+      </enum>
+      <enum name="private241">
+        <value value="241"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private242">
+        <value value="242"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private243">
+        <value value="243"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private244">
+        <value value="244"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private245">
+        <value value="245"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private246">
+        <value value="246"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private247">
+        <value value="247"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private248">
+        <value value="248"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private249">
+        <value value="249"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private250">
+        <value value="250"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private251">
+        <value value="251"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private252">
+        <value value="252"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private253">
+        <value value="253"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+      <enum name="private254">
+        <value value="254"/>
+        <description>
+          <text>Reserved for Private Use</text>
+        </description>
+        <reference>
+          <text>RFC 4760: Multiprotocol Extensions for BGP-4</text>
+        </reference>
+      </enum>
+    </type>
+    <description>
+      <text>This typedef is a YANG enumeration of IANA-registered
+subsequent address family identifiers (SAFI).</text>
+    </description>
+    <reference>
+      <text>IANA SAFI Values registry.
+&lt;http://www.iana.org/assignments/safi-namespace&gt;</text>
+    </reference>
+  </typedef>
+</module>

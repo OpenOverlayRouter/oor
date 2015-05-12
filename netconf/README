@@ -1,0 +1,39 @@
+LIBNETCONF & NETOPEER INSTALLATION
+==================================
+#Get libnetconf 0.9.x and follow the instructions
+wget https://libnetconf.googlecode.com/archive/0.9.x.zip
+
+#Get netopeer-server for libnetconf 0.9.x and follow the instructions
+wget https://netopeer.googlecode.com/archive/libnetconf-0.9.x.zip
+
+
+LISPMOB MODULE INSTALLATION
+===========================
+#Full instructions at http://libnetconf.googlecode.com/git/doc/doxygen/html/d9/d25/transapi.html
+
+#Move to 'netconf' folder
+cd ./neteconf
+
+#Remove any previous instances
+sudo netopeer-manager rm --name lispsimple
+
+#Create skeleton files
+lnctool --model ./lispsimple.yang transapi --paths ./lispsimple.paths
+
+#Configure
+autoreconf && ./configure
+
+#Replace skeleton files
+mv lispmob_lispsimple.c lispsimple.c && mv lispmob_Makefile Makefile
+
+#Compile and install
+make clean && make && sudo make install && ./libtool --finish /usr/local/lib
+
+#Add the module to the server
+sudo netopeer-manager add --name lispsimple --model ./lispsimple.yin --transapi /usr/local/lib/lispsimple.so --datastore ./datastore.xml 
+
+#Import the dependences
+sudo netopeer-manager add --name lispsimple --import ./iana-afn-safi.yin
+
+#Run the server
+sudo netopeer-server

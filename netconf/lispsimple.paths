@@ -1,0 +1,5 @@
+lispsimple=urn:ietf:params:xml:ns:yang:lispsimple
+/lispsimple:itr/lispsimple:map-resolvers
+/lispsimple:itr/lispsimple:local-eid-database
+
+
