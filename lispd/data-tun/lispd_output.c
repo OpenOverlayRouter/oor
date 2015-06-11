@@ -68,7 +68,7 @@ lisp_output_uninit()
 static int
 forward_native(lbuf_t *b, lisp_addr_t *dst)
 {
-    LMLOG(DBG_3, "Forwarding native to destination %s",
+    LMLOG(LDBG_3, "Forwarding native to destination %s",
             lisp_addr_to_char(dst));
     if (sock_data_send(b, dst)) {
         return(GOOD);
@@ -110,7 +110,7 @@ make_mcast_addr(packet_tuple_t *tuple, lisp_addr_t *addr){
     if (ip_addr_is_multicast(lisp_addr_ip(&tuple->dst_addr))) {
         if (lisp_addr_lafi(&tuple->src_addr) != LM_AFI_IP
             || lisp_addr_lafi(&tuple->src_addr) != LM_AFI_IP) {
-           LMLOG(DBG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not "
+           LMLOG(LDBG_1, "tuple_get_dst_lisp_addr: (S,G) (%s, %s)pair is not "
                    "of IP syntax!", lisp_addr_to_char(&tuple->src_addr),
                    lisp_addr_to_char(&tuple->dst_addr));
            return(BAD);
@@ -137,7 +137,7 @@ lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
     locator_t *locator = NULL;
     glist_entry_t *it = NULL;
 
-    LMLOG(DBG_1, "Multicast packets not supported for now!");
+    LMLOG(LDBG_1, "Multicast packets not supported for now!");
     return(GOOD);
 
     /* convert tuple to lisp_addr_t, to be used for map-cache lookup
@@ -183,7 +183,7 @@ find_iface(lisp_addr_t *src, lisp_addr_t *dst)
     if (!src) {
         src = get_default_output_address(dafi);
         if (!src) {
-            LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
+            LMLOG(LDBG_1, "Failed to set source RLOC with afi %d", dafi);
             return(BAD);
         }
     }
@@ -213,12 +213,11 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         return(forward_native(b, &tuple->dst_addr));
     }
 
-    LMLOG(DBG_3,"OUTPUT: Sending encapsulated packet: RLOC %s -> %s\n",
+    LMLOG(LDBG_3,"OUTPUT: Sending encapsulated packet: RLOC %s -> %s\n",
             lisp_addr_to_char(fe->srloc),
             lisp_addr_to_char(fe->drloc));
 
     sock_lisp_data_send(b, fe->srloc, fe->drloc, fe->iface);
-
 
     return (GOOD);
 }
@@ -233,13 +232,13 @@ lisp_output(lbuf_t *b)
     }
 
 
-    LMLOG(DBG_3,"OUTPUT: Received EID %s -> %s, Proto: %d, Port: %d -> %d ",
+    LMLOG(LDBG_3,"OUTPUT: Received EID %s -> %s, Proto: %d, Port: %d -> %d ",
             lisp_addr_to_char(&tpl.src_addr), lisp_addr_to_char(&tpl.dst_addr),
             tpl.protocol, tpl.src_port, tpl.dst_port);
 
     /* If already LISP packet, do not encapsulate again */
     if (is_lisp_packet(&tpl)) {
-        LMLOG(DBG_3,"OUTPUT: Is a lisp packet, do not encapsulate again");
+        LMLOG(LDBG_3,"OUTPUT: Is a lisp packet, do not encapsulate again");
         return (forward_native(b, &tpl.dst_addr));
     }
     if (ip_addr_is_multicast(lisp_addr_ip(&tpl.dst_addr))) {

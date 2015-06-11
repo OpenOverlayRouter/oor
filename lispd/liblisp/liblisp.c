@@ -87,7 +87,7 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
     if (iph->ip_v == IPVERSION) {
         ipsum = ip_checksum((uint16_t *) iph, sizeof(struct ip));
         if (ipsum != 0) {
-            LMLOG(DBG_2, "IP checksum failed.");
+            LMLOG(LDBG_2, "IP checksum failed.");
         }
 
     }
@@ -98,13 +98,13 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
         udpsum = udp_checksum(udph, udp_len, iph,
                 ip_version_to_sock_afi(iph->ip_v));
         if (udpsum != 0) {
-            LMLOG(DBG_2, "UDP checksum failed.");
+            LMLOG(LDBG_2, "UDP checksum failed.");
             return (BAD);
         }
     }
 
 
-    LMLOG(DBG_2, "%s, inner IP: %s -> %s, inner UDP: %d -> %d",
+    LMLOG(LDBG_2, "%s, inner IP: %s -> %s, inner UDP: %d -> %d",
             lisp_msg_hdr_to_char(pkt),
             ip_to_char(&iph->ip_src, ip_version_to_sock_afi(iph->ip_v)),
             ip_to_char(&iph->ip_dst, ip_version_to_sock_afi(iph->ip_v)),
@@ -150,7 +150,7 @@ lisp_msg_parse_itr_rlocs(lbuf_t *b, glist_t *rlocs)
             return(BAD);
         }
         glist_add(lisp_addr_clone(tloc), rlocs);
-        LMLOG(DBG_1," itr-rloc: %s", lisp_addr_to_char(tloc));
+        LMLOG(LDBG_1," itr-rloc: %s", lisp_addr_to_char(tloc));
     }
     lisp_addr_del(tloc);
     return(GOOD);
@@ -172,7 +172,7 @@ lisp_msg_parse_loc(lbuf_t *b, locator_t *loc)
 
     lbuf_pull(b, len);
 
-    LMLOG(DBG_1, "    %s, addr: %s", locator_record_hdr_to_char(hdr),
+    LMLOG(LDBG_1, "    %s, addr: %s", locator_record_hdr_to_char(hdr),
             lisp_addr_to_char(locator_addr(loc)));
 
     return(GOOD);
@@ -197,7 +197,7 @@ lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
     lbuf_pull(b, len);
     lisp_addr_set_plen(eid, MAP_REC_EID_PLEN(mrec_hdr));
 
-    LMLOG(DBG_1, "  %s eid: %s", mapping_record_hdr_to_char(mrec_hdr),
+    LMLOG(LDBG_1, "  %s eid: %s", mapping_record_hdr_to_char(mrec_hdr),
             lisp_addr_to_char(eid));
 
     for (i = 0; i < MAP_REC_LOC_COUNT(mrec_hdr); i++) {
@@ -207,18 +207,16 @@ lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
         if (lisp_msg_parse_loc(b, loc) != GOOD) {
             return(BAD);
         }
-
         glist_add(loc, loc_list);
 
         if (LOC_PROBED(loc_hdr)) {
-            if (probed) {
-                LMLOG(DBG_1, "Multiple probed locators! Aborting");
+            if (probed != NULL) {
+                LMLOG(LDBG_1, "Multiple probed locators! Aborting");
                 return(BAD);
             }
             probed = loc;
         }
     }
-
     if (probed_ != NULL) {
         *probed_ = probed;
     }
@@ -319,7 +317,7 @@ lisp_msg_put_addr(lbuf_t *b, lisp_addr_t *addr)
     /* make sure there's enough space */
     ptr = lbuf_put_uninit(b, lisp_addr_size_to_write(addr));
     if ((len = lisp_addr_write(ptr, addr)) <= 0) {
-        LMLOG(DBG_3, "lisp_msg_put_addr: failed to write address %s",
+        LMLOG(LDBG_3, "lisp_msg_put_addr: failed to write address %s",
                 lisp_addr_to_char(addr));
         return(NULL);
     }
@@ -430,8 +428,9 @@ lisp_msg_put_mapping(
     	glist_for_each_entry(it_loct,loct_list){
     		loct = (locator_t *)glist_entry_data(it_loct);
     		ploc = lisp_msg_put_locator(b, loct);
-    		if (probed_loc
-    				&& lisp_addr_cmp(locator_addr(loct), probed_loc) == 0) {
+    		if (probed_loc)
+    		if (probed_loc != NULL
+    				&& lisp_addr_cmp(lisp_addr_get_ip_addr(locator_addr(loct)), probed_loc) == 0) {
     			LOC_PROBED(ploc) = 1;
     		}
     	}
@@ -561,7 +560,7 @@ lisp_msg_create(lisp_msg_type_e type)
         /* nothing to do */
         break;
     default:
-        LMLOG(DBG_3, "lisp_msg_create: Unknown LISP message "
+        LMLOG(LDBG_3, "lisp_msg_create: Unknown LISP message "
                 "type %s", type);
     }
 
@@ -673,7 +672,7 @@ lisp_msg_hdr_to_char(lbuf_t *b)
     case LISP_ENCAP_CONTROL_TYPE:
         return(ecm_hdr_to_char(h));
     default:
-        LMLOG(DBG_3, "Unknown LISP message type %d",
+        LMLOG(LDBG_3, "Unknown LISP message type %d",
                 lisp_msg_type(b));
         return(NULL);
     }
@@ -723,7 +722,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
     keyid = ntohs(AUTH_REC_KEY_ID(hdr));
     ad_len = auth_data_get_len_for_type(keyid);
     if (ad_len != ntohs(AUTH_REC_DATA_LEN(hdr))) {
-        LMLOG(DBG_3, "Auth Record record length is wrong: %d instead of %d",
+        LMLOG(LDBG_3, "Auth Record record length is wrong: %d instead of %d",
                 ntohs(AUTH_REC_DATA_LEN(hdr)), ad_len);
         return(BAD);
     }

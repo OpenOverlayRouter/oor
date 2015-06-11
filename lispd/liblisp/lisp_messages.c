@@ -125,12 +125,12 @@ mreq_flags_to_char(map_request_hdr_t *h)
     static char buf[10];
 
     *buf = '\0';
-    h->authoritative ? sprintf(buf+strlen(buf), "a1") : sprintf(buf+strlen(buf), "a0");
-    h->map_data_present ?  sprintf(buf+strlen(buf), "m1") : sprintf(buf+strlen(buf), "m0");
-    h->rloc_probe ? sprintf(buf+strlen(buf), "p1") : sprintf(buf+strlen(buf), "p0");
-    h->solicit_map_request ? sprintf(buf+strlen(buf), "s1") : sprintf(buf+strlen(buf), "s0");
-    h->pitr ? sprintf(buf+strlen(buf), "P1") : sprintf(buf+strlen(buf), "P0");
-    h->smr_invoked ? sprintf(buf+strlen(buf), "S1") : sprintf(buf+strlen(buf), "S0");
+    h->authoritative ? sprintf(buf+strlen(buf), "a=1,") : sprintf(buf+strlen(buf), "a=0,");
+    h->map_data_present ?  sprintf(buf+strlen(buf), "m=1,") : sprintf(buf+strlen(buf), "m=0,");
+    h->rloc_probe ? sprintf(buf+strlen(buf), "p=1,") : sprintf(buf+strlen(buf), "p=0,");
+    h->solicit_map_request ? sprintf(buf+strlen(buf), "s=1,") : sprintf(buf+strlen(buf), "s=0,");
+    h->pitr ? sprintf(buf+strlen(buf), "P=1,") : sprintf(buf+strlen(buf), "P=0,");
+    h->smr_invoked ? sprintf(buf+strlen(buf), "S=1") : sprintf(buf+strlen(buf), "S=0");
     return(buf);
 }
 
@@ -155,9 +155,9 @@ mrep_flags_to_char(map_reply_hdr_t *h)
 {
     static char buf[10];
     *buf = '\0';
-    h->rloc_probe ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
-    h->echo_nonce ? sprintf(buf+strlen(buf), "E") : sprintf(buf+strlen(buf), "e");
-    h->security ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
+    h->rloc_probe ? sprintf(buf+strlen(buf), "P=1,") : sprintf(buf+strlen(buf), "P=0,");
+    h->echo_nonce ? sprintf(buf+strlen(buf), "E=1,") : sprintf(buf+strlen(buf), "E=0,");
+    h->security ? sprintf(buf+strlen(buf), "S=1") : sprintf(buf+strlen(buf), "S=0,");
     return(buf);
 }
 
@@ -279,7 +279,7 @@ mrsignaling_flags(address_hdr_t *addr)
     hdr = (lcaf_mcinfo_hdr_t *)addr;
 
     if (hdr->J == 1 && hdr->L == 1) {
-//        lmlog(DBG_1, "Both join and leave flags are set in "
+//        lmlog(LDBG_1, "Both join and leave flags are set in "
 //                "mrsignaling msg. Discarding!");
         return(mc_flags);
     }

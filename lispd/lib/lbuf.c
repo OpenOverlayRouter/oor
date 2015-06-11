@@ -215,7 +215,7 @@ lbuf_clone(lbuf_t *b)
 inline int lbuf_point_to_ip(lbuf_t *b)
 {
     if (b->ip == UINT16_MAX){
-        LMLOG(DBG_2,"lbuf_data_to_ip: IP header not specified in buffer");
+        LMLOG(LDBG_2,"lbuf_data_to_ip: IP header not specified in buffer");
         return (BAD);
     }
     b->size = lbuf_tail(b) - lbuf_ip(b);
@@ -227,7 +227,7 @@ inline int lbuf_point_to_ip(lbuf_t *b)
 inline int lbuf_point_to_udp(lbuf_t *b)
 {
     if (b->udp == UINT16_MAX){
-        LMLOG(DBG_2,"lbuf_data_to_udp: UDP header not specified in buffer");
+        LMLOG(LDBG_2,"lbuf_data_to_udp: UDP header not specified in buffer");
         return (BAD);
     }
     b->size = lbuf_tail(b) - lbuf_udp(b);
@@ -239,7 +239,7 @@ inline int lbuf_point_to_udp(lbuf_t *b)
 inline int lbuf_point_to_lisp_hdr(lbuf_t *b)
 {
     if (b->lhdr == UINT16_MAX){
-        LMLOG(DBG_2,"lbuf_data_to_lisp_hdr: LISP Encap header not specified in buffer");
+        LMLOG(LDBG_2,"lbuf_data_to_lisp_hdr: LISP Encap header not specified in buffer");
         return (BAD);
     }
     b->size = lbuf_tail(b) - lbuf_lisp_hdr(b);
@@ -251,7 +251,7 @@ inline int lbuf_point_to_lisp_hdr(lbuf_t *b)
 inline int lbuf_point_to_l3(lbuf_t *b)
 {
     if (b->l3 == UINT16_MAX){
-        LMLOG(DBG_2,"lbuf_data_to_l3: Inner IP header not specified in buffer");
+        LMLOG(LDBG_2,"lbuf_data_to_l3: Inner IP header not specified in buffer");
         return (BAD);
     }
     b->size = lbuf_tail(b) - lbuf_l3(b);
@@ -263,7 +263,7 @@ inline int lbuf_point_to_l3(lbuf_t *b)
 inline int lbuf_point_to_l4(lbuf_t *b)
 {
     if (b->l4 == UINT16_MAX){
-        LMLOG(DBG_2,"lbuf_data_to_l4: Inner UDP header not specified in buffer");
+        LMLOG(LDBG_2,"lbuf_data_to_l4: Inner UDP header not specified in buffer");
         return (BAD);
     }
     b->size = lbuf_tail(b) - lbuf_l4(b);
@@ -275,7 +275,7 @@ inline int lbuf_point_to_l4(lbuf_t *b)
 inline int lbuf_point_to_lisp(lbuf_t *b)
 {
     if (b->lisp == UINT16_MAX){
-        LMLOG(DBG_2,"lbuf_data_to_lisp: LISP header not specified in buffer");
+        LMLOG(LDBG_2,"lbuf_data_to_lisp: LISP header not specified in buffer");
         return (BAD);
     }
     b->size = lbuf_tail(b) - lbuf_lisp(b);

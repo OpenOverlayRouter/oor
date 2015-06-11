@@ -31,7 +31,6 @@
 #include "../lib/sockets.h"
 #include "../lib/packets.h"
 #include "../lispd_external.h"
-#include "../lispd_lib.h"
 
 
 static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
@@ -73,9 +72,7 @@ ctrl_dev_create(lisp_dev_type_e type, lisp_ctrl_dev_t **devp)
     dev->mode =type;
     dev->ctrl_class = class;
     dev->ctrl_class->construct(dev);
-
     ctrl_dev_set_ctrl(dev, lctrl);
-
     *devp = dev;
     return(GOOD);
 }
@@ -151,6 +148,5 @@ ctrl_dev_type_to_char(lisp_dev_type_e type)
         strcpy(device,"Unknown");
         break;
     }
-
     return (device);
 }

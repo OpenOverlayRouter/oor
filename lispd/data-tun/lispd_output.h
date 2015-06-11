@@ -38,7 +38,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "../defs.h"
-#include "../lispd_lib.h"
 #include "../lib/cksum.h"
 #include "../lispd_external.h"
 #include "../control/lisp_control.h"

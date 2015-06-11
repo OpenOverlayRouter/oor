@@ -207,7 +207,7 @@ mapping_add_locator(
 
 	}else {
 		if (glist_contain(loct, loct_list) == TRUE){
-			LMLOG(DBG_2, "mapping_add_locator: The locator %s already exists "
+			LMLOG(LDBG_2, "mapping_add_locator: The locator %s already exists "
 					"for the EID %s.", lisp_addr_to_char(locator_addr(loct)),
 					lisp_addr_to_char(mapping_eid(mapping)));
 			return (ERR_EXIST);
@@ -215,7 +215,7 @@ mapping_add_locator(
 		result = glist_add(loct,loct_list);
 	}
 	if (result == GOOD) {
-		LMLOG(DBG_2, "mapping_add_locator: Added locator %s to the mapping with"
+		LMLOG(LDBG_2, "mapping_add_locator: Added locator %s to the mapping with"
 				" EID %s.", lisp_addr_to_char(locator_addr(loct)),
 				lisp_addr_to_char(mapping_eid(mapping)));
 		if (lisp_addr_is_no_addr(addr) == FALSE){
@@ -306,7 +306,7 @@ mapping_get_loct_lst_with_afi(
                 }
                 break;
             case LM_AFI_IPPREF:
-                LMLOG(DBG_1,"mapping_get_locators_with_afi: No locators of type prefix");
+                LMLOG(LDBG_1,"mapping_get_locators_with_afi: No locators of type prefix");
                 return (NULL);
             case LM_AFI_LCAF:
                 if (lisp_addr_lcaf_type(addr) == afi){
@@ -317,7 +317,7 @@ mapping_get_loct_lst_with_afi(
         }
     }
 
-    LMLOG(DBG_1,"mapping_get_locators_with_afi: List for Lisp Mob AFI %d and afi %d not yet created",lafi,afi);
+    LMLOG(LDBG_1,"mapping_get_locators_with_afi: List for Lisp Mob AFI %d and afi %d not yet created",lafi,afi);
     return (NULL);
 }
 
@@ -404,7 +404,7 @@ mapping_activate_locator(
     }
 
     if (locator_list_extract_locator_with_ptr(loct_list,loct) != GOOD){
-        LMLOG(DBG_1,"mapping_activate_locator: The locator %s has not been found",
+        LMLOG(LDBG_1,"mapping_activate_locator: The locator %s has not been found",
                         lisp_addr_to_char(locator_addr(loct)));
         return (BAD);
     }
@@ -412,12 +412,12 @@ mapping_activate_locator(
     res = mapping_add_locator(mapping,loct);
 
     if (res == GOOD){
-        LMLOG(DBG_1,"mapping_activate_locator: The locator %s of the mapping %s has been activated",
+        LMLOG(LDBG_1,"mapping_activate_locator: The locator %s of the mapping %s has been activated",
                 lisp_addr_to_char(locator_addr(loct)),
                 lisp_addr_to_char(&(mapping->eid_prefix)));
     }else{
         locator_del(loct);
-        LMLOG(DBG_1,"mapping_activate_locator: Error activating the locator %s of the mapping %s. Locator couldn't be reinserted",
+        LMLOG(LDBG_1,"mapping_activate_locator: Error activating the locator %s of the mapping %s. Locator couldn't be reinserted",
                         lisp_addr_to_char(locator_addr(loct)),
                         lisp_addr_to_char(&(mapping->eid_prefix)));
     }

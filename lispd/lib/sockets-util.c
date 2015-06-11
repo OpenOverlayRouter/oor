@@ -76,7 +76,7 @@ open_device_bound_raw_socket(char *device, int afi)
         return (BAD);
     }
 
-    LMLOG(DBG_2, "open_device_binded_raw_socket: open socket %d in interface"
+    LMLOG(LDBG_2, "open_device_binded_raw_socket: open socket %d in interface"
             " %s with afi: %d", s, device, afi);
 
     return s;
@@ -90,21 +90,27 @@ open_raw_socket(int afi)
     struct protoent *proto = NULL;
     int sock = 0;
     int tr = 1;
+    int protonum = 0;
 
+#ifdef ANDROID
+    protonum = IPPROTO_UDP;
+#else
     if ((proto = getprotobyname("UDP")) == NULL) {
         LMLOG(LERR, "open_raw_socket: getprotobyname: %s", strerror(errno));
-        return (BAD);
+        return(-1);
     }
+    protonum = proto->p_proto;
+#endif
 
     /*
      *  build the ipv4_data_input_fd, and make the port reusable
      */
 
-    if ((sock = socket(afi, SOCK_RAW, proto->p_proto)) < 0) {
+    if ((sock = socket(afi, SOCK_RAW, protonum)) < 0) {
         LMLOG(LERR, "open_raw_input_socket: socket: %s", strerror(errno));
         return (BAD);
     }
-    LMLOG(DBG_3, "open_raw_socket: socket at creation: %d\n", sock);
+    LMLOG(LDBG_3, "open_raw_socket: socket at creation: %d\n", sock);
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
         LMLOG(LWRN,"open_raw_socket: setsockopt SO_REUSEADDR: %s",
@@ -122,18 +128,24 @@ open_udp_socket(int afi)
     struct protoent *proto = NULL;
     int sock = 0;
     int tr = 1;
+    int protonum = 0;
 
+#ifdef ANDROID
+    protonum = IPPROTO_UDP;
+#else
     if ((proto = getprotobyname("UDP")) == NULL) {
         LMLOG(LERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
-        return (BAD);
+        return(-1);
     }
+    protonum = proto->p_proto;
+#endif
 
     /* build the ipv4_data_input_fd, and make the port reusable */
-    if ((sock = socket(afi, SOCK_DGRAM, proto->p_proto)) < 0) {
+    if ((sock = socket(afi, SOCK_DGRAM, protonum)) < 0) {
         LMLOG(LERR, "open_udp_socket: socket: %s", strerror(errno));
         return (BAD);
     }
-    LMLOG(DBG_3, "open_udp_socket: socket at creation: %d\n", sock);
+    LMLOG(LDBG_3, "open_udp_socket: socket at creation: %d\n", sock);
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
         LMLOG(LWRN, "open_udp_socket: setsockopt SO_REUSEADDR: %s",
@@ -290,7 +302,7 @@ int send_packet (
             break;
         }
 
-        LMLOG(DBG_2,
+        LMLOG(LDBG_2,
                 "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d, packet len %d",
                 strerror(errno), ip_addr_to_char(&pkt_src_addr),
                 ip_addr_to_char(&pkt_dst_addr), sock, packet_length);
@@ -331,7 +343,7 @@ send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
 
     nbytes = sendto(sfd, pkt, plen, 0, saddr, slen);
     if (nbytes != plen) {
-        LMLOG(DBG_2, "send_raw: send to %s failed %s", ip_addr_to_char(dip),
+        LMLOG(LDBG_2, "send_raw: send to %s failed %s", ip_addr_to_char(dip),
                 strerror(errno));
         return(BAD);
     }

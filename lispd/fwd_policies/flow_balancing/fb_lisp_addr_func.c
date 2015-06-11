@@ -53,7 +53,7 @@ fb_lcaf_get_fwd_ip_addr(lcaf_addr_t *lcaf, glist_t *locl_rlocs_addr)
 {
 
     if (!fb_get_fwd_ip_addr_fcts[lcaf_addr_get_type(lcaf)]) {
-        LMLOG(DBG_1, "fb_lcaf_get_fwd_ip_addr: lcaf type %d not supported", lcaf_addr_get_type(lcaf));
+        LMLOG(LDBG_1, "fb_lcaf_get_fwd_ip_addr: lcaf type %d not supported", lcaf_addr_get_type(lcaf));
         return (NULL);
     }
 
@@ -81,18 +81,21 @@ lisp_addr_t *fb_elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr)
             continue;
         }
         addr = lisp_addr_get_ip_addr(addr);
+        glist_dump(locl_rlocs_addr, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
         if (glist_contain_using_cmp_fct(addr, locl_rlocs_addr,(glist_cmp_fct)lisp_addr_cmp) == TRUE){
             if (elp_pos == elp_size){
-                // Command invoked by the ETR calculating local balancing vector.
-                // return the last address -> It will be used as the source address of the ELP
+                // Command invoked by xTR of the ELP (RTR-RTR-RTR-xTR).
+                // Return the last address -> It will be used as the source address of the ELP
                 return (addr);
             }
+            // Command invoked by an RTR of the ELP
+            // Return the next ip addr of the ELP
             it = glist_next(it);
             addr = elp_node_addr((elp_node_t *)glist_entry_data(it));
             return (lisp_addr_get_ip_addr(addr));
         }
     }
-    // Command invoked by an ITR
+    // Command invoked by an iTR
     return (lisp_addr_get_ip_addr(elp_node_addr((elp_node_t *)glist_first_data(elp_list))));
 }
 

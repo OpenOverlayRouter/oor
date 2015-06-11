@@ -36,6 +36,10 @@
 #include "liblisp/lisp_mapping.h"
 #include "defs.h"
 #include "lib/timers.h"
+#ifdef ANDROID
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#endif
 
 /* Interface structure
  * ===================
@@ -54,13 +58,30 @@ typedef struct iface {
     int out_socket_v6;
 } iface_t;
 
-/* List of interfaces */
-typedef struct iface_list_elt {
-    iface_t *iface;
-    struct iface_list_elt *next;
-} iface_list_elt_t;
 
-extern iface_list_elt_t *head_interface_list;
+#ifdef ANDROID
+
+/*
+ * Different from lispd_if_t to maintain
+ * linux system call compatibility.
+ */
+typedef struct ifaddrs {
+    struct ifaddrs      *ifa_next;
+    char                *ifa_name;
+    unsigned int         ifa_flags;
+    struct sockaddr      *ifa_addr;
+    int                  ifa_index;
+} ifaddrs;
+
+
+typedef struct {
+    struct nlmsghdr nlh;
+    struct rtgenmsg  rtmsg;
+} request_struct;
+
+#endif
+
+extern glist_t *interface_list;  //<iface_t *>
 
 extern iface_t *default_out_iface_v4;
 extern iface_t *default_out_iface_v6;
@@ -72,8 +93,7 @@ extern shash_t *iface_addr_ht;
 
 
 int ifaces_init();
-void ifaces_destroy();
-iface_list_elt_t *ifaces_list_head();
+inline void ifaces_destroy();
 
 
 void iface_destroy(iface_t *iface);

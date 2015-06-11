@@ -84,6 +84,10 @@ To build LISPmob for a standard Linux, you will need:
   * git, unless you use a tarball
   * OpenSSL development headers
   * libConfuse
+  * gengetopt
+  * libcap v2+
+  * libzmq v3
+  * libxml2
 
 On Debian-derived Linux distributions (including Ubuntu), installing the
 following packages will provide all necessary dependencies:
@@ -92,6 +96,10 @@ following packages will provide all necessary dependencies:
   * 'git-core'
   * 'libssl-dev'
   * 'libconfuse-dev'
+  * 'gengetopt'
+  * 'libcap2-bin'
+  * 'libzmq3-dev'
+  * 'libxml2-dev'
 
 The latest version of the LISPmob source code can be obtained from Github:
 

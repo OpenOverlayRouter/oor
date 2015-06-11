@@ -75,7 +75,7 @@ int pkt_process_eid_afi(uint8_t **offset, mapping_t *mapping)
             break;
         default:
             mapping->eid_prefix.afi = -1;
-            LMLOG(LISP_LOG_DEBUG_2,"pkt_process_eid_afi:  Unknown LCAF type %d in EID", lcaf_ptr->type);
+            LMLOG(LDBG_2,"pkt_process_eid_afi:  Unknown LCAF type %d in EID", lcaf_ptr->type);
             return (BAD);
         }
         break;
@@ -84,7 +84,7 @@ int pkt_process_eid_afi(uint8_t **offset, mapping_t *mapping)
         break;
     default:
         mapping->eid_prefix.afi = -1;
-        LMLOG(LISP_LOG_DEBUG_2,"pkt_process_eid_afi:  Unknown AFI type %d in EID", lisp_afi);
+        LMLOG(LDBG_2,"pkt_process_eid_afi:  Unknown AFI type %d in EID", lisp_afi);
         return (BAD);
     }
     *offset = cur_ptr;
@@ -117,10 +117,10 @@ int pkt_process_rloc_afi(
         cur_ptr  = CO(cur_ptr, sizeof(struct in6_addr));
         break;
     case LISP_AFI_LCAF:
-        LMLOG(LISP_LOG_DEBUG_2,"pkt_process_rloc_afi: LCAF address is not supported in locators");
+        LMLOG(LDBG_2,"pkt_process_rloc_afi: LCAF address is not supported in locators");
         return (BAD);
     default:
-        LMLOG(LISP_LOG_DEBUG_2,"pkt_process_rloc_afi: Unknown AFI type %d in locator", lisp_afi);
+        LMLOG(LDBG_2,"pkt_process_rloc_afi: Unknown AFI type %d in locator", lisp_afi);
         return (BAD);
     }
     *offset = cur_ptr;
@@ -151,7 +151,7 @@ int extract_nat_lcaf_data(
     pkt_lcaf = (lcaf_hdr_t *)ptr;
 
     if (pkt_lcaf->type != LCAF_NATT){
-        LMLOG(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Packet doesn't have NAT LCAF address");
+        LMLOG(LDBG_2, "extract_nat_lcaf_data: Packet doesn't have NAT LCAF address");
         return (BAD);
     }
 
@@ -171,7 +171,7 @@ int extract_nat_lcaf_data(
 
 
     if ((extract_lisp_address(ptr, global_etr_rloc)) != GOOD){
-        LMLOG(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Couldn't process Global ETR RLOC");
+        LMLOG(LDBG_2, "extract_nat_lcaf_data: Couldn't process Global ETR RLOC");
         return (BAD);
     }
 
@@ -182,7 +182,7 @@ int extract_nat_lcaf_data(
     /* Extract the MS RLOC */
 
     if ((extract_lisp_address(ptr, ms_rloc)) != GOOD){
-        LMLOG(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Couldn't process MS RLOC");
+        LMLOG(LDBG_2, "extract_nat_lcaf_data: Couldn't process MS RLOC");
         return (BAD);
     }
 
@@ -193,7 +193,7 @@ int extract_nat_lcaf_data(
     /* Extract the Private ETR RLOC */
 
     if (extract_lisp_address(ptr, private_etr_rloc) != GOOD){
-        LMLOG(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Couldn't process private ETR RLOC");
+        LMLOG(LDBG_2, "extract_nat_lcaf_data: Couldn't process private ETR RLOC");
         return (BAD);
     }
 
@@ -207,16 +207,16 @@ int extract_nat_lcaf_data(
 
     while (cumulative_add_length < lcaf_length) {
         if ((extract_lisp_address(ptr, &rtr_address))!= GOOD){
-            LMLOG(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Coudln't process rtr address");
+            LMLOG(LDBG_2, "extract_nat_lcaf_data: Coudln't process rtr address");
             return (BAD);
         }
         rtr_locator = rtr_locator_new (rtr_address);
         if (rtr_locator == NULL){
-            LMLOG(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Error malloc lispd_rtr_locator");
+            LMLOG(LDBG_2, "extract_nat_lcaf_data: Error malloc lispd_rtr_locator");
             return (BAD);
         }
         if ((rtr_list_add(&rtr_locator_list,rtr_locator))!=GOOD){
-            LMLOG(LISP_LOG_DEBUG_2, "extract_nat_lcaf_data: Error adding rtr_locator");
+            LMLOG(LDBG_2, "extract_nat_lcaf_data: Error adding rtr_locator");
             return (BAD);
         }
         // Return the first element of the list
@@ -224,7 +224,7 @@ int extract_nat_lcaf_data(
             *rtr_list = rtr_locator_list;
         }
 
-        LMLOG(LISP_LOG_DEBUG_3, "Added RTR with RLOC %s to the list of RTRs",
+        LMLOG(LDBG_3, "Added RTR with RLOC %s to the list of RTRs",
                 get_char_from_lisp_addr_t(rtr_locator->address));
 
         cumulative_add_length += get_addr_len(rtr_locator->address.afi) + FIELD_AFI_LEN;
@@ -250,7 +250,7 @@ extract_mcast_info_lcaf_data(uint8_t **offset, mapping_t *mapping)
 
     if ((extended_info = (re_mapping_data *) malloc(sizeof(re_mapping_data)))
             == NULL) {
-        LMLOG(LISP_LOG_WARNING,
+        LMLOG(LWRN,
                 "extract_mcast_info_lcaf_data: Couldn't allocate memory for mcinfo_mapping_extended_info: %s",
                 strerror(errno));
         return (BAD);

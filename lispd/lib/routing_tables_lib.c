@@ -33,6 +33,7 @@
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <sys/socket.h>
 #include <errno.h>
 #include <unistd.h>
 
@@ -243,7 +244,7 @@ int add_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_pref, dst_pref, flags);
     if (result == GOOD){
-        LMLOG(DBG_1, "add_rule: Add rule -> Send packets with source address %s and destination address %s"
+        LMLOG(LDBG_1, "add_rule: Add rule -> Send packets with source address %s and destination address %s"
                 " to the table %d with priority %d.",lisp_addr_to_char(src_pref),
                 lisp_addr_to_char(dst_pref),table,priority);
     }
@@ -268,15 +269,12 @@ int del_rule(
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_DELRULE, table,priority, type, src_pref, dst_pref, flags);
     if (result == GOOD){
-        LMLOG(DBG_1, "del_rule: Removed rule for source routing of src addr: %s",
+        LMLOG(LDBG_1, "del_rule: Removed rule for source routing of src addr: %s",
                 lisp_addr_to_char(src_pref));
     }
 
     return (result);
 }
-
-
-
 
 /*
  * Request to the kernel the routing table with the selected afi
@@ -289,6 +287,9 @@ int request_route_table(uint32_t table, int afi)
     int    rta_len          = 0;
     int    retval           = 0;
 
+    if (netlink_fd == -1){
+        LMLOG(LDBG_3, "request_route_table: Netlink message not configured yet");
+    }
     /*
      * Build the command
      */
@@ -327,6 +328,7 @@ int request_route_table(uint32_t table, int afi)
     }
     return(GOOD);
 }
+
 
 /*
  * ifindex:     Output interface
@@ -505,7 +507,7 @@ int add_route(
     int result = BAD;
     result = modify_route(RTM_NEWROUTE, afi,ifindex, dest_pref, src, gw, metric, table);
     if (result == GOOD){
-        LMLOG(DBG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s, gw: %s, table: %d",
+        LMLOG(LDBG_1, "add_route: added route to the system: src addr: %s, dst prefix:%s, gw: %s, table: %d",
                 (src != NULL) ? lisp_addr_to_char(src) : "-",
                 (dest_pref != NULL) ? lisp_addr_to_char(dest_pref) : "-",
                 (gw != NULL) ? lisp_addr_to_char(gw) : "-",
@@ -527,7 +529,7 @@ int del_route(
     int result = BAD;
     result = modify_route(RTM_DELROUTE, afi, ifindex, dest_pref, src, gw, metric, table);
     if (result == GOOD){
-        LMLOG(DBG_1, "del_route: deleted route  from the system");
+        LMLOG(LDBG_1, "del_route: deleted route  from the system");
     }
     return (result);
 }

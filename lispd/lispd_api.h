@@ -90,6 +90,33 @@ typedef struct lmapi_msg_hdr_t_ {
 
 } lmapi_msg_hdr_t;
 
+/*
+*      0                   1                   2                   3
+*       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+*      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*      |               Address AFI     |      MS Address  ...          |
+*      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*      |P|           Reserved          |            Key ID             |
+*      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*      |                          Key Length                           |
+*      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*      |                          Key  ...                             |
+*      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+
+typedef struct lmapi_msg_ms_t_{
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved:7;
+    uint8_t proxy_bit:1;
+#else
+    uint8_t proxy_bit:1;
+    uint8_t reserved:7;
+#endif
+    uint8_t reserved2;
+    uint16_t key_id;
+    uint32_t key_len;
+}lmapi_msg_ms_t;
+
 typedef struct lmapi_connection_t_ {
     void *context;
     void *socket;

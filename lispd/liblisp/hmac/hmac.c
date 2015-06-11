@@ -61,7 +61,7 @@ int complete_auth_fields(uint8_t key_id,
                 (unsigned char *) auth_data_pos);
         return(GOOD);
     default:
-        LMLOG(DBG_2, "complete_auth_fields: HMAC unknown key type: %d", (int)key_id);
+        LMLOG(LDBG_2, "complete_auth_fields: HMAC unknown key type: %d", (int)key_id);
         return(BAD);
     }
 }
@@ -97,7 +97,7 @@ int check_auth_field(uint8_t key_id,
                 (unsigned char *) auth_data_pos);
         break;
     default:
-        LMLOG(DBG_2, "check_auth_field: HMAC unknown key type: %d", (int)key_id);
+        LMLOG(LDBG_2, "check_auth_field: HMAC unknown key type: %d", (int)key_id);
         return(BAD);
     }
 

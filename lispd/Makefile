@@ -20,19 +20,14 @@ ERROR		= false
 
 
 ifeq "$(platform)" ""
-CFLAGS		+= -Wall -g
-LIBS		= -lconfuse -lrt -lm -lzmq
-else
-ifeq "$(platform)" "router"
-CFLAGS		+= -Wall -g -DROUTER
-LIBS		= -lconfuse -lrt -lm
+CFLAGS		+= -Wall -g -I/usr/include/libxml2
+LIBS		= -lconfuse -lrt -lm -lzmq -lxml2
 else
 ifeq "$(platform)" "openwrt"
-CFLAGS		+= -Wall -g -DROUTER -DOPENWRT
-LIBS		= -lrt -lm -luci
+CFLAGS		+= -Wall -g -I/usr/include/libxml2 -DOPENWRT 
+LIBS		= -lrt -lm -luci -lxml2
 else
 ERROR		= true
-endif
 endif
 endif
 
@@ -141,9 +136,9 @@ OBJS		= cmdline.o                  \
 		  iface_mgmt.o                   \
 		  lispd.o                        \
 		  lispd_config_confuse.o         \
-		  lispd_config_functions.o       
-		  #lispd_api.o					 \
-		  #lispd_api_internals.o
+		  lispd_config_functions.o       \
+		  lispd_api.o                    \
+		  lispd_api_internals.o
 endif
 
 EXE		= lispd

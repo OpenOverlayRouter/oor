@@ -6,7 +6,7 @@
  */
 #include "map_local_entry.h"
 #include "lmlog.h"
-#include "defs.h"
+#include "../defs.h"
 
 
 
@@ -35,7 +35,7 @@ inline void map_local_entry_set_fwd_info(
 {
     mle->fwd_info = fwd_info;
     if (fwd_del_fct == NULL){
-        LMLOG(DBG_1, "map_local_entry_set_fwd_info: No specified function to delete fwd info.");
+        LMLOG(LDBG_1, "map_local_entry_set_fwd_info: No specified function to delete fwd info.");
     }
     mle->fwd_inf_del = fwd_del_fct;
 }
@@ -57,7 +57,7 @@ map_local_entry_t *map_local_entry_new_init(mapping_t *map)
     map_local_entry_t *mle = NULL;
     mle = xzalloc(sizeof(map_local_entry_t));
     if (mle == NULL){
-        LMLOG(DBG_1, "map_local_entry_new_init: Can't create local database mapping with EID prefix %s.",
+        LMLOG(LDBG_1, "map_local_entry_new_init: Can't create local database mapping with EID prefix %s.",
             lisp_addr_to_char(mapping_eid(map)));
         return (NULL);
     }

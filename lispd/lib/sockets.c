@@ -105,7 +105,7 @@ sockmstr_destroy(sockmstr_t *sm)
     }
     sock_list_remove_all(&sm->read);
     free(sm);
-    LMLOG(DBG_1,"Sockets closed");
+    LMLOG(LDBG_1,"Sockets closed");
 }
 
 struct sock *
@@ -146,7 +146,7 @@ sockmstr_process_all(sockmstr_t *m)
             if (errno == EINTR) {
                 continue;
             } else {
-                LMLOG(DBG_2, "sock_process_all: select error: %s",
+                LMLOG(LDBG_2, "sock_process_all: select error: %s",
                         strerror(errno));
                 return;
             }
@@ -456,7 +456,7 @@ sock_ctrl_send(uconn_t *uc, struct lbuf *b)
     dst = lisp_addr_ip(&uc->ra);
 
     if (ip_addr_afi(src) != ip_addr_afi(dst)) {
-        LMLOG(DBG_2, "sock_ctrl_send: src %s and dst %s of UDP connection have"
+        LMLOG(LDBG_2, "sock_ctrl_send: src %s and dst %s of UDP connection have"
                 "different IP AFI. Discarding!", ip_addr_to_char(src),
                 ip_addr_to_char(dst));
         return(BAD);
@@ -482,7 +482,7 @@ sock_lisp_data_send(lbuf_t *b, lisp_addr_t *src, lisp_addr_t *dst, iface_t *ifac
 //    if (!src) {
 //        src = get_default_output_address(dafi);
 //        if (!src) {
-//            LMLOG(DBG_1, "Failed to set source RLOC with afi %d", dafi);
+//            LMLOG(LDBG_1, "Failed to set source RLOC with afi %d", dafi);
 //            return(BAD);
 //        }
 //    }
@@ -514,7 +514,7 @@ sock_data_send(lbuf_t *b, lisp_addr_t *dst)
     ofd = get_default_output_socket(afi);
 
     if (ofd == -1) {
-        LMLOG(DBG_2, "sock_data_send: No output interface for afi %d", afi);
+        LMLOG(LDBG_2, "sock_data_send: No output interface for afi %d", afi);
         return (BAD);
     }
 

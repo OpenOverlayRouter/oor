@@ -38,7 +38,7 @@ struct {
 /* We don't have signalfd in bionic, fake it. */
 static int signal_pipe[2];
 
-static timer_t *timer_id;
+static timer_t timer_id;
 
 /* timers file descriptor */
 int timers_fd = 0;
@@ -55,19 +55,18 @@ static void handle_timers(void);
  * Creates the timer wheel structure and starts
  * the rotation timer.
  */
-static timer_t
+static int
 create_timer_wheel(void)
 {
-    timer_t tid;
+    //timer_t tid;
     struct sigevent sev;
     struct itimerspec timerspec;
-
     sev.sigev_notify = SIGEV_SIGNAL;
     sev.sigev_signo = SIGRTMIN;
-    sev.sigev_value.sival_ptr = &tid;
-    if (timer_create(CLOCK_REALTIME, &sev, &tid) == -1) {
-        LMLOG(DBG_1, "timer_create(): %s", strerror(errno));
-        return (timer_t)0;
+    sev.sigev_value.sival_ptr = &timer_id;
+    if (timer_create(CLOCK_MONOTONIC, &sev, &timer_id) == -1) {
+        LMLOG(LINF, "timer_create(): %s", strerror(errno));
+        return (BAD);
     }
 
     timerspec.it_value.tv_nsec = 0;
@@ -75,14 +74,15 @@ create_timer_wheel(void)
     timerspec.it_interval.tv_nsec = 0;
     timerspec.it_interval.tv_sec = TICK_INTERVAL;
 
-
-    if (timer_settime(tid, 0, &timerspec, NULL) == -1) {
-        LMLOG(DBG_2, "create_wheel_timer: timer start failed for %d %s",
-               tid, strerror(errno));
-        return (timer_t)0;
+    if (timer_settime(timer_id, 0, &timerspec, NULL) == -1) {
+        LMLOG(LINF, "create_wheel_timer: timer start failed for %d %s",
+                timer_id, strerror(errno));
+        return (BAD);
     }
-    return(tid);
+
+    return(GOOD);
 }
+
 
 
 int
@@ -91,7 +91,7 @@ lmtimers_init()
     int i = 0;
     lmtimer_links_t *spoke;
 
-    LMLOG(DBG_1, "Initializing lmtimers...");
+    LMLOG(LDBG_1, "Initializing lmtimers...");
 
     /* create timers event socket */
     if (build_timers_event_socket(&timers_fd) == 0) {
@@ -99,9 +99,7 @@ lmtimers_init()
         exit_cleanup();
     }
 
-
-    timer_id = create_timer_wheel();
-    if (timer_id == 0) {
+    if (create_timer_wheel() != GOOD) {
         LMLOG(LINF, "Failed to set up timers.");
         return(BAD);
     }
@@ -134,13 +132,9 @@ lmtimers_destroy()
     lmtimer_links_t *spoke, *sit, *next;
     lmtimer_t *t;
 
-    LMLOG(DBG_1, "Destroying lmtimers ... ");
+    LMLOG(LDBG_1, "Destroying lmtimers ... ");
 
     destroy_timers_event_socket();
-
-    if (timer_id == NULL){
-        return;
-    }
 
     spoke = &timer_wheel.spokes[0];
     for (i = 0; i < WHEEL_SIZE; i++) {

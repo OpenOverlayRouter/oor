@@ -7,8 +7,8 @@
 
 #include "flow_balancing.h"
 #include "fb_lisp_addr_func.h"
-#include "liblisp.h"
-#include "../lib/lmlog.h"
+#include "../../liblisp/liblisp.h"
+#include "../../lib/lmlog.h"
 
 inline fb_dev_parm *fb_dev_parm_new();
 void *fb_dev_parm_new_init(
@@ -125,7 +125,7 @@ balancing_locators_vecs_new_init(
 
     if (balancing_vectors_calculate((fb_dev_parm *)dev_parm, bal_vec, map) != GOOD){
         balancing_locators_vecs_del(bal_vec);
-        LMLOG(DBG_1,"balancing_locators_vecs_new_init: Error calculating balancing vectors");
+        LMLOG(LDBG_1,"balancing_locators_vecs_new_init: Error calculating balancing vectors");
         return (NULL);
     }
 
@@ -413,7 +413,7 @@ balancing_vectors_calculate(
         }
     }
 
-    balancing_locators_vec_dump(*blv, map, DBG_1);
+    balancing_locators_vec_dump(*blv, map, LDBG_1);
 
     glist_destroy(ipv4_loct_list);
     glist_destroy(ipv6_loct_list);
@@ -482,7 +482,7 @@ fb_locators_classify_in_4_6(
     lisp_addr_t *           ip_addr     = NULL;
 
     if (glist_size(mapping->locators_lists) == 0){
-        LMLOG(DBG_3,"locators_classify_in_4_6: No locators to classify for mapping with eid %s",
+        LMLOG(LDBG_3,"locators_classify_in_4_6: No locators to classify for mapping with eid %s",
                 lisp_addr_to_char(mapping_eid(mapping)));
         return;
     }
@@ -500,7 +500,7 @@ fb_locators_classify_in_4_6(
             addr = locator_addr(locator);
             ip_addr = fb_lisp_addr_get_fwd_ip_addr(addr,loc_loct_addr);
             if (ip_addr == NULL){
-                LMLOG(DBG_2,"locators_classify_in_4_6: No IP address for %s", lisp_addr_to_char(addr));
+                LMLOG(LDBG_2,"locators_classify_in_4_6: No IP address for %s", lisp_addr_to_char(addr));
                 continue;
             }
 
@@ -538,7 +538,7 @@ fb_get_fw_entry(
     locator_t **                    src_loc_vec     = NULL;
     locator_t **                    dst_loc_vec     = NULL;
     locator_t *                     src_loct        = NULL;
-    locator_t *                     dst_loct         = NULL;
+    locator_t *                     dst_loct        = NULL;
 
     lisp_addr_t *                   src_addr        = NULL;
     lisp_addr_t *                   dst_addr        = NULL;
@@ -561,14 +561,14 @@ fb_get_fw_entry(
     } else {
         if (src_blv->v4_balancing_locators_vec == NULL
                 && src_blv->v6_balancing_locators_vec == NULL) {
-            LMLOG(DBG_3, "fb_get_fw_entry: No SRC locators "
+            LMLOG(LDBG_3, "fb_get_fw_entry: No SRC locators "
                     "available");
         }else if (dst_blv->v4_balancing_locators_vec == NULL
                 && dst_blv->v6_balancing_locators_vec == NULL) {
-            LMLOG(DBG_3, "fb_get_fw_entry: No DST locators "
+            LMLOG(LDBG_3, "fb_get_fw_entry: No DST locators "
                     "available");
         } else {
-            LMLOG(DBG_3, "fb_get_fw_entry: Source and "
+            LMLOG(LDBG_3, "fb_get_fw_entry: Source and "
                     "destination RLOCs are not compatible");
         }
         return (NULL);
@@ -576,7 +576,7 @@ fb_get_fw_entry(
 
     hash = pkt_tuple_hash(tuple);
     if (hash == 0) {
-        LMLOG(DBG_1, "fb_get_fw_entry: Couldn't get the hash of the tuple "
+        LMLOG(LDBG_1, "fb_get_fw_entry: Couldn't get the hash of the tuple "
                 "to select the rloc. Using the default rloc");
         //pos = hash%x_vec_len -> 0%x_vec_len = 0;
     }
@@ -601,7 +601,7 @@ fb_get_fw_entry(
         dst_vec_len = dst_blv->v6_locators_vec_length;
         break;
     default:
-        LMLOG(DBG_2, "select_locs_from_maps: Unknown IP AFI %d",
+        LMLOG(LDBG_2, "select_locs_from_maps: Unknown IP AFI %d",
                 lisp_addr_ip_afi(src_addr));
         return (NULL);
     }
@@ -620,7 +620,7 @@ fb_get_fw_entry(
     fwd_entry_set_srloc(fwd_entry, lisp_addr_clone(src_ip_addr));
     fwd_entry_set_drloc(fwd_entry, lisp_addr_clone(dst_ip_addr));
 
-    LMLOG(DBG_3, "select_locs_from_maps: EID: %s -> %s, protocol: %d, "
+    LMLOG(LDBG_3, "select_locs_from_maps: EID: %s -> %s, protocol: %d, "
             "port: %d -> %d\n  --> RLOC: %s -> %s",
             lisp_addr_to_char(&(tuple->src_addr)),
             lisp_addr_to_char(&(tuple->dst_addr)), tuple->protocol,

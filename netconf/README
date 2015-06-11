@@ -24,7 +24,7 @@ lnctool --model ./lispsimple.yang transapi --paths ./lispsimple.paths
 autoreconf && ./configure
 
 #Replace skeleton files
-mv lispmob_lispsimple.c lispsimple.c && mv lispmob_Makefile Makefile
+cp lispmob_lispsimple.c lispsimple.c && cp lispmob_Makefile Makefile
 
 #Compile and install
 make clean && make && sudo make install && ./libtool --finish /usr/local/lib

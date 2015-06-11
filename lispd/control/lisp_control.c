@@ -58,27 +58,26 @@ set_default_rlocs(lisp_ctrl_t *ctrl)
     }
 
 
-    LMLOG(DBG_3, "Recomputing default rlocs:");
-    LMLOG(DBG_3, "  Default IPv4 rloc: %s",
+    LMLOG(LDBG_3, "Recomputing default rlocs:");
+    LMLOG(LDBG_3, "  Default IPv4 rloc: %s",
             lisp_addr_to_char(ctrl->ipv4_default_rloc));
-    LMLOG(DBG_3, "  Default IPv6 rloc: %s",
+    LMLOG(LDBG_3, "  Default IPv6 rloc: %s",
             lisp_addr_to_char(ctrl->ipv6_default_rloc));
 }
 
 static void
 set_rlocs(lisp_ctrl_t *ctrl)
 {
-    iface_list_elt_t *iface_elt;
-    iface_t *iface;
+    iface_t *           iface       = NULL;
+    glist_entry_t *     iface_it    = NULL;
 
     glist_remove_all(ctrl->rlocs);
     glist_remove_all(ctrl->ipv4_rlocs);
     glist_remove_all(ctrl->ipv6_rlocs);
     ctrl->supported_afis = NO_AFI_SUPPOT;
 
-    iface_elt = head_interface_list;
-    while (iface_elt) {
-        iface = iface_elt->iface;
+    glist_for_each_entry(iface_it,interface_list){
+        iface = (iface_t *)glist_entry_data(iface_it);
         if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
             glist_add_tail(iface->ipv4_address, ctrl->ipv4_rlocs);
             glist_add_tail(iface->ipv4_address, ctrl->rlocs);
@@ -87,8 +86,6 @@ set_rlocs(lisp_ctrl_t *ctrl)
             glist_add_tail(iface->ipv6_address, ctrl->ipv6_rlocs);
             glist_add_tail(iface->ipv6_address, ctrl->rlocs);
         }
-
-        iface_elt = iface_elt->next;
     }
 
     if (glist_size(ctrl->ipv4_rlocs) > 0){
@@ -109,7 +106,7 @@ ctrl_create()
     ctrl->ipv4_rlocs = glist_new();
     ctrl->ipv6_rlocs = glist_new();
 
-    LMLOG(LINF, "Control initialized!");
+    LMLOG(LINF, "Control created!");
 
     return (ctrl);
 }
@@ -126,7 +123,7 @@ ctrl_destroy(lisp_ctrl_t *ctrl)
     glist_destroy(ctrl->ipv6_rlocs);
 
     free(ctrl);
-    LMLOG(DBG_1,"Lisp controler destroyed");
+    LMLOG(LDBG_1,"Lisp controler destroyed");
 }
 
 void
@@ -149,7 +146,7 @@ ctrl_init(lisp_ctrl_t *ctrl)
 
     set_rlocs(ctrl);
 
-    LMLOG(DBG_1, "Control initialized");
+    LMLOG(LDBG_1, "Control initialized");
 }
 
 /*  Process a LISP protocol message sitting on
@@ -171,7 +168,7 @@ ctrl_recv_msg(sock_t *sl)
     b = lisp_msg_create_buf();
 
     if (sock_ctrl_recv(sl->fd, b, &uc) != GOOD) {
-        LMLOG(DBG_1, "Couldn't retrieve socket information"
+        LMLOG(LDBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
         lbuf_del(b);
         return (BAD);
@@ -179,7 +176,7 @@ ctrl_recv_msg(sock_t *sl)
 
     lbuf_reset_lisp(b);
 
-    LMLOG(DBG_1, "Received %s, IP: %s -> %s, UDP: %d -> %d",
+    LMLOG(LDBG_1, "Received %s, IP: %s -> %s, UDP: %d -> %d",
             lisp_msg_hdr_to_char(b), lisp_addr_to_char(&uc.ra),
             lisp_addr_to_char(&uc.la), uc.rp, uc.lp);
 
@@ -198,7 +195,7 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     int ret;
 
     if (lisp_addr_lafi(&uc->ra) != LM_AFI_IP) {
-        LMLOG(DBG_2, "ctrl_send_msg: dst %s of UDP connection not IP. "
+        LMLOG(LDBG_2, "ctrl_send_msg: dst %s of UDP connection not IP. "
                 "Discarding!", lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra));
         return(BAD);
@@ -207,14 +204,48 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     ret = sock_ctrl_send(uc, b);
 
     if (ret != GOOD) {
-        LMLOG(DBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",
+        LMLOG(LDBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",
                 lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
         return(BAD);
     } else {
-        LMLOG(DBG_1, "Sent message IP: %s -> %s UDP: %d -> %d",
+        LMLOG(LDBG_1, "Sent message IP: %s -> %s UDP: %d -> %d",
                 lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra),
                 uc->lp, uc->rp);
         return(GOOD);
+    }
+}
+
+/*
+ * This function should be called when a new mapping is added during running process.
+ * It checks if a new interface has been added and it updates the list of rlocs of ctrl
+ * and ask routing info to obtain gateway of new interfaces
+ */
+void
+ctrl_update_iface_info(lisp_ctrl_t *ctrl)
+{
+    glist_entry_t *     iface_it    = NULL;
+    iface_t *           iface       = NULL;
+    uint8_t             new_ifaces  = FALSE;
+
+    glist_for_each_entry(iface_it,interface_list){
+        iface = (iface_t *)glist_entry_data(iface_it);
+        if (lisp_addr_lafi(iface->ipv4_address) != LM_AFI_NO_ADDR){
+            if (glist_contain_using_cmp_fct(iface->ipv4_address, ctrl->ipv4_rlocs, (glist_cmp_fct)lisp_addr_cmp) == FALSE){
+                new_ifaces = TRUE;
+                break;
+            }
+        }
+        if (lisp_addr_lafi(iface->ipv6_address) != LM_AFI_NO_ADDR){
+            if (glist_contain_using_cmp_fct(iface->ipv6_address, ctrl->ipv6_rlocs, (glist_cmp_fct)lisp_addr_cmp) == FALSE){
+                new_ifaces = TRUE;
+                break;
+            }
+        }
+    }
+    if (new_ifaces == TRUE){
+        set_rlocs(ctrl);
+        request_route_table(RT_TABLE_MAIN,AF_INET);
+        request_route_table(RT_TABLE_MAIN,AF_INET6);
     }
 }
 
@@ -273,7 +304,7 @@ ctrl_default_rloc(
     case AF_INET6:
         return (ctrl->ipv6_default_rloc);
     default:
-        LMLOG(DBG_2,"ctrl_default_rloc: Unsupported afi: %d",afi);
+        LMLOG(LDBG_2,"ctrl_default_rloc: Unsupported afi: %d",afi);
         return (NULL);
     }
 }
@@ -335,8 +366,10 @@ ctrl_get_forwarding_entry(packet_tuple_t *tuple)
 int
 ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev)
 {
+    char *device = NULL;
+    device = ctrl_dev_type_to_char(dev->mode);
     LMLOG(LINF, "Device working in mode %s registering with control",
-            ctrl_dev_type_to_char(dev->mode));
+            device);
     glist_add(dev, ctrl->devices);
     return(GOOD);
 }
@@ -374,7 +407,7 @@ ctrl_register_eid_prefix(
     case RTR_MODE:
     case MN_MODE:
     default:
-        LMLOG(DBG_1, "Current version only supports the registration in control of "
+        LMLOG(LDBG_1, "Current version only supports the registration in control of "
                 "EID prefixes from xTRs");
         break;
     }
@@ -412,7 +445,7 @@ ctrl_unregister_eid_prefix(
     case RTR_MODE:
     case MN_MODE:
     default:
-        LMLOG(DBG_1, "Current version only supports the unregistration in control of "
+        LMLOG(LDBG_1, "Current version only supports the unregistration in control of "
                 "EID prefixes from xTRs");
         break;
     }

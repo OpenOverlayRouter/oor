@@ -17,7 +17,7 @@ INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
 LIBS = -lxml2 -lnetconf -lzmq
-CFLAGS = -I/usr/include/libxml2  -O3
+CFLAGS = -g -I/usr/include/libxml2  -O3
 CPPFLAGS = 
 LIBTOOL = $(libtool) --tag=CC --quiet
 
@@ -54,6 +54,7 @@ SRCS = lispsimple.c lispd_api_netconf.c ../lispd/lib/util.c ../lispd/lispd_api.c
 		  ../lispd/lib/lisp_site.c                \
 		  ../lispd/lib/lmlog.c                    \
 		  ../lispd/lib/mapping_db.c               \
+		  ../lispd/lib/map_local_entry.c          \
 		  ../lispd/lib/map_cache_entry.c          \
 		  ../lispd/lib/routing_tables_lib.c       \
 		  ../lispd/lib/packets.c                  \

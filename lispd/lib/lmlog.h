@@ -40,21 +40,13 @@ extern int debug_level;
 
 /* If these set of defines is modified, check the function is_loggable() */
 
-#define LISP_LOG_CRIT        1       /* critical conditions -> Exit program */
-#define LISP_LOG_ERR         2       /* error conditions -> Not exit but should be considered by user */
-#define LISP_LOG_WARNING     3       /* warning conditions -> Low level errors. Program doesn't finish */
-#define LISP_LOG_INFO        4       /* informational -> Initial configuration, SMRs, interface change status*/
-#define LISP_LOG_DEBUG_1     5       /* low debug-level messages -> Control message */
-#define LISP_LOG_DEBUG_2     6       /* medium debug-level messages -> Errors in received packets. Wrong AFI, ...  */
-#define LISP_LOG_DEBUG_3     7       /* high debug-level messages -> Log for each received or generated packet */
-
-#define LCRIT    1
-#define LERR     2
-#define LWRN     3
-#define LINF     4
-#define DBG_1   5
-#define DBG_2   6
-#define DBG_3   7
+#define LCRIT   1   /* critical conditions -> Exit program */
+#define LERR    2   /* error conditions -> Not exit but should be considered by user */
+#define LWRN    3   /* warning conditions -> Low level errors. Program doesn't finish */
+#define LINF    4   /* informational -> Initial configuration, SMRs, interface change status*/
+#define LDBG_1  5   /* low debug-level messages -> Control message */
+#define LDBG_2  6   /* medium debug-level messages -> Errors in received packets. Wrong AFI, ...  */
+#define LDBG_3  7   /* high debug-level messages -> Log for each received or generated packet */
 
 
 
@@ -73,11 +65,11 @@ void llog(int lisp_log_level, const char *format, ...);
 /* True if log_level is enough to print results */
 static inline int is_loggable(int log_level)
 {
-    if (log_level < LISP_LOG_DEBUG_1)
-        return (1);
-    else if (log_level <= LISP_LOG_INFO + debug_level)
-        return (1);
-    return (0);
+    if (log_level < LDBG_1)
+        return (TRUE);
+    else if (log_level <= LINF + debug_level)
+        return (TRUE);
+    return (FALSE);
 }
 
 

@@ -69,7 +69,7 @@ get_ip_pt_from_afi(mdb_t *db, uint16_t afi)
         return (db->AF6_ip_db->head->data);
         break;
     default:
-        LMLOG(DBG_1, "get_ip_pt_from_afi: AFI %u not recognized!", afi);
+        LMLOG(LDBG_1, "get_ip_pt_from_afi: AFI %u not recognized!", afi);
         break;
     }
 
@@ -87,7 +87,7 @@ get_mc_pt_from_afi(mdb_t *db, uint16_t afi)
         return (db->AF6_mc_db);
         break;
     default:
-        LMLOG(DBG_1, "_get_mc_pt_from_afi: AFI %u not recognized!", afi);
+        LMLOG(LDBG_1, "_get_mc_pt_from_afi: AFI %u not recognized!", afi);
         break;
     }
 
@@ -157,7 +157,7 @@ _get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr,
     srcip = lisp_addr_ip(src);
 
     if (lisp_addr_lafi(src) != LM_AFI_IP) {
-        LMLOG(DBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
+        LMLOG(LDBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return (NULL);
     }
 
@@ -171,7 +171,7 @@ _get_grp_pt_for_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr,
     }
 
     if (snode == NULL) {
-        LMLOG(DBG_3, "_get_pt_for_mc_addr: The source prefix %s/%d does not"
+        LMLOG(LDBG_3, "_get_pt_for_mc_addr: The source prefix %s/%d does not"
                 " exist in the map cache", ip_addr_to_char(srcip), splen);
         return (NULL);
     }
@@ -187,13 +187,13 @@ _add_ippref_entry(mdb_t *db, void *entry, ip_prefix_t *ippref)
 {
     if (pt_add_ippref(get_ip_pt_from_afi(db, ip_prefix_afi(ippref)), ippref,
             entry) != GOOD) {
-        LMLOG(DBG_3, "_add_ippref_entry: Attempting to insert (%s) in the "
+        LMLOG(LDBG_3, "_add_ippref_entry: Attempting to insert (%s) in the "
                 "map-cache but couldn't add the entry to the pt!",
                 ip_prefix_to_char(ippref));
         return (BAD);
     }
 
-    LMLOG(DBG_3, "_add_ippref_entry: Added map cache data for %s",
+    LMLOG(LDBG_3, "_add_ippref_entry: Added map cache data for %s",
             ip_prefix_to_char(ippref));
     return (GOOD);
 }
@@ -209,11 +209,11 @@ _add_mc_entry(mdb_t *db, void *entry, lcaf_addr_t *mcaddr)
 
     if (pt_add_mc_addr(get_mc_pt_from_afi(db, ip_addr_afi(srcip)), mcaddr,
             entry) != GOOD) {
-        LMLOG(DBG_2, "_add_mc_entry: Attempting to insert %s to map cache "
+        LMLOG(LDBG_2, "_add_mc_entry: Attempting to insert %s to map cache "
                 "but failed! ", mc_type_to_char(mcaddr));
         return (BAD);
     } else {
-        LMLOG(DBG_3, "_add_mc_entry: Added entry %s to mdb!",
+        LMLOG(LDBG_3, "_add_mc_entry: Added entry %s to mdb!",
                 lcaf_addr_to_char(mcaddr));
     }
 
@@ -225,12 +225,12 @@ _add_lcaf_entry(mdb_t *db, void *entry, lcaf_addr_t *lcaf)
 {
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_IID:
-        LMLOG(DBG_3, "_add_lcaf_entry: IID support to implement!");
+        LMLOG(LDBG_3, "_add_lcaf_entry: IID support to implement!");
         break;
     case LCAF_MCAST_INFO:
         return (_add_mc_entry(db, entry, lcaf));
     default:
-        LMLOG(DBG_3, "_add_lcaf_entry: LCAF type %d not supported!",
+        LMLOG(LDBG_3, "_add_lcaf_entry: LCAF type %d not supported!",
                 lcaf_addr_get_type(lcaf));
     }
     return (BAD);
@@ -245,10 +245,10 @@ _del_lcaf_entry(mdb_t *db, lcaf_addr_t *lcaf)
                 lisp_addr_ip_afi(lcaf_mc_get_src(lcaf))), lcaf));
         break;
     case LCAF_IID:
-        LMLOG(DBG_3, "pbmdb_del_entry: IID support to implement!");
+        LMLOG(LDBG_3, "pbmdb_del_entry: IID support to implement!");
         break;
     default:
-        LMLOG(DBG_3, "pbmdb_del_entry: called with unknown LCAF type:%u",
+        LMLOG(LDBG_3, "pbmdb_del_entry: called with unknown LCAF type:%u",
                 lcaf_addr_get_type(lcaf));
         break;
         return (NULL);
@@ -263,10 +263,10 @@ _get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf)
     case LCAF_MCAST_INFO:
         return (get_mc_pt_from_afi(db, lcaf_mc_get_afi(lcaf)));
     case LCAF_IID:
-        LMLOG(DBG_3, "_get_local_db_for_lcaf_addr: IID support to implement!");
+        LMLOG(LDBG_3, "_get_local_db_for_lcaf_addr: IID support to implement!");
         break;
     default:
-        LMLOG(DBG_3, "_get_local_db_for_lcaf_addr: LCAF type %d not supported!",
+        LMLOG(LDBG_3, "_get_local_db_for_lcaf_addr: LCAF type %d not supported!",
                 lcaf_addr_get_type(lcaf));
         break;
     }
@@ -283,7 +283,7 @@ _get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr)
     case LM_AFI_LCAF:
         return (_get_local_db_for_lcaf_addr(db, lisp_addr_get_lcaf(addr)));
     default:
-        LMLOG(DBG_3, "_get_db_for_addr: called with unsupported afi(%d)",
+        LMLOG(LDBG_3, "_get_db_for_addr: called with unsupported afi(%d)",
                 lisp_addr_lafi(addr));
     }
     return (NULL);
@@ -293,7 +293,7 @@ mdb_t *
 mdb_new()
 {
     mdb_t *db = xzalloc(sizeof(mdb_t));
-    LMLOG(DBG_3, " Creating mdb...");
+    LMLOG(LDBG_3, " Creating mdb...");
 
     db->AF4_ip_db = New_Patricia(sizeof(struct in_addr) * 8);
     db->AF6_ip_db = New_Patricia(sizeof(struct in6_addr) * 8);
@@ -372,11 +372,11 @@ mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data)
     }
 
     if (retval != GOOD) {
-        LMLOG(DBG_3, "mdb_add_entry: failed to insert entry %s",
+        LMLOG(LDBG_3, "mdb_add_entry: failed to insert entry %s",
                 lisp_addr_to_char(addr));
         return (BAD);
     } else {
-        LMLOG(DBG_3, "mdb_add_entry: inserted %s", lisp_addr_to_char(addr));
+        LMLOG(LDBG_3, "mdb_add_entry: inserted %s", lisp_addr_to_char(addr));
         db->n_entries++;
         return (GOOD);
     }
@@ -501,7 +501,7 @@ pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data)
     /* insert src prefix in main db but without any data*/
     snode = pt_add_node(strie, srcip, splen, NULL);
     if (snode == NULL) {
-        LMLOG(DBG_3, "pt_add_mc_addr: Attempting to "
+        LMLOG(LDBG_3, "pt_add_mc_addr: Attempting to "
                 "insert S-EID %s/%d in strie pt but failed", ip_addr_to_char(srcip), splen);
         return(BAD);
     }
@@ -512,7 +512,7 @@ pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data)
         snode->data = (patricia_tree_t *)New_Patricia(ip_addr_get_size(grpip) * 8);
 
         if (!snode->data){
-            LMLOG(DBG_3, "pt_add_mc_addr: Can't create group pt!");
+            LMLOG(LDBG_3, "pt_add_mc_addr: Can't create group pt!");
             return(BAD);
         }
     }
@@ -520,7 +520,7 @@ pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data)
     /* insert grp in node->user1 db with the entry*/
     gnode = pt_add_node((patricia_tree_t *)snode->data, grpip, gplen, data);
     if (gnode == NULL){
-        LMLOG(DBG_3, "pt_add_mc_addr: Attempting to "
+        LMLOG(LDBG_3, "pt_add_mc_addr: Attempting to "
                 "insert G %s/%d in the group pt but failed! ", ip_addr_to_char(grpip), gplen);
         return(BAD);
     }
@@ -542,11 +542,11 @@ pt_remove_ippref(patricia_tree_t *pt, ip_prefix_t *ippref)
     node = pt_find_ip_node_exact(pt, ip_prefix_addr(ippref), ip_prefix_get_plen(ippref));
 
     if (node == NULL){
-        LMLOG(DBG_3,"pt_remove_ip_addr: Unable to locate cache entry %s for deletion",
+        LMLOG(LDBG_3,"pt_remove_ip_addr: Unable to locate cache entry %s for deletion",
                 ip_prefix_to_char(ippref));
         return(BAD);
     } else {
-        LMLOG(DBG_3,"pt_remove_ip_addr: removing entry with key: %s",
+        LMLOG(LDBG_3,"pt_remove_ip_addr: removing entry with key: %s",
                 ip_prefix_to_char(ippref));
     }
 
@@ -566,7 +566,7 @@ pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr)
     void            *data   = NULL;
 
     if (!strie) {
-        LMLOG(DBG_3, "pt_remove_mc_addr: strie for %s not initialized. Aborting!",
+        LMLOG(LDBG_3, "pt_remove_mc_addr: strie for %s not initialized. Aborting!",
                 lcaf_addr_to_char(mcaddr));
         return(NULL);
     }
@@ -575,7 +575,7 @@ pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr)
     grp = lcaf_mc_get_grp(mcaddr);
 
     if (lisp_addr_lafi(src) != LM_AFI_IP || lisp_addr_lafi(grp) != LM_AFI_IP) {
-        LMLOG(DBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
+        LMLOG(LDBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return(NULL);
     }
 
@@ -583,7 +583,7 @@ pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr)
     gtrie = _get_grp_pt_for_mc_addr(strie, mcaddr, 1);
 
     if (!gtrie){
-        LMLOG(DBG_3, "pt_remove_mc_addr: Couldn't find a group trie for mc "
+        LMLOG(LDBG_3, "pt_remove_mc_addr: Couldn't find a group trie for mc "
                 "address %s", lcaf_addr_to_char(mcaddr));
         return(NULL);
     }
@@ -592,7 +592,7 @@ pt_remove_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr)
             lcaf_mc_get_grp_plen(mcaddr));
 
     if (!gnode){
-        LMLOG(DBG_3, "pt_remove_mc_addr: The multicast address %s could not"
+        LMLOG(LDBG_3, "pt_remove_mc_addr: The multicast address %s could not"
                 " be found!", lcaf_addr_to_char(mcaddr));
         return(NULL);
     }
@@ -622,13 +622,13 @@ pt_add_node(patricia_tree_t *pt, ip_addr_t *ipaddr, uint8_t prefixlen,
     Deref_Prefix(prefix);
 
     if (!node) {
-        LMLOG(DBG_3, "pt_add_node: patricia_lookup did not return a node!");
+        LMLOG(LDBG_3, "pt_add_node: patricia_lookup did not return a node!");
         return(NULL);
     }
 
     /* node already exists */
     if (node->data) {
-        LMLOG(DBG_3, "pt_add_node: Node with prefix %s exists! Data won't be"
+        LMLOG(LDBG_3, "pt_add_node: Node with prefix %s exists! Data won't be"
                 " changed", ip_addr_to_char(ipaddr));
         return(node);
     }
@@ -678,7 +678,7 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
     patricia_tree_t         *gtrie  = NULL;
 
     if (!strie) {
-        LMLOG(DBG_3, "pt_remove_mc_addr: no S trie. Aborting");
+        LMLOG(LDBG_3, "pt_remove_mc_addr: no S trie. Aborting");
         return(NULL);
     }
 
@@ -689,14 +689,14 @@ patricia_node_t *pt_find_mc_node(patricia_tree_t *strie, lcaf_addr_t *mcaddr, ui
 //    grp = lcaf_mc_get_grp(mcaddr);
 
     if (lisp_addr_lafi(src) != LM_AFI_IP || lisp_addr_lafi(grp) != LM_AFI_IP) {
-        LMLOG(DBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
+        LMLOG(LDBG_3, "pt_remove_mc_addr: only IP AFI supported for S and G");
         return(NULL);
     }
 
     gtrie = _get_grp_pt_for_mc_addr(strie, mcaddr, exact);
 
     if (!gtrie){
-        LMLOG(DBG_3, "pt_find_mc_node: Couldn't find a group trie for mc address %s",
+        LMLOG(LDBG_3, "pt_find_mc_node: Couldn't find a group trie for mc address %s",
                 lcaf_addr_to_char(mcaddr));
         return(NULL);
     }

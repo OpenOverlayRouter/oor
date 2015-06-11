@@ -55,13 +55,17 @@
 #include "data-tun/lispd_tun.h"
 #include "data-tun/lispd_output.h"
 #include "lib/routing_tables_lib.h"
-//#include "lispd_api_internals.h"
+#include "lispd_api_internals.h"
 #include "liblisp/liblisp.h"
 #include "control/lisp_control.h"
 #include "control/lisp_xtr.h"
 #include "control/lisp_ms.h"
 #include "lib/shash.h"
 #include "lib/generic_list.h"
+#ifdef VPNAPI
+ #include "lispd_jni.h"
+#endif
+
 
 /* system calls - look to libc for function to system call mapping */
 extern int capset(cap_user_header_t header, cap_user_data_t data);
@@ -83,9 +87,9 @@ pid_t  pid                                  = 0;    /* child pid */
 pid_t  sid                                  = 0;
 
 /* sockets (fds)  */
-int     ipv4_data_input_fd                  = 0;
-int     ipv6_data_input_fd                  = 0;
-int     netlink_fd                          = 0;
+int     ipv4_data_input_fd                  = -1;
+int     ipv6_data_input_fd                  = -1;
+int     netlink_fd                          = -1;
 
 /* NAT */
 int nat_aware = FALSE;
@@ -97,7 +101,7 @@ lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
 
 /* LISPmob's API connection structure */
-//lmapi_connection_t lmapi_connection;
+lmapi_connection_t lmapi_connection;
 
 /**************************** FUNCTION DECLARATION ***************************/
 /* Check if lispmob is already running: /var/run/lispd.pid */
@@ -194,7 +198,7 @@ int pid_file_create()
     fprintf(pid_file, "%d\n",pid);
     fclose(pid_file);
 
-    LMLOG(DBG_1, "PID file created: /var/run/lispd.pid -> %d",pid);
+    LMLOG(LDBG_1, "PID file created: /var/run/lispd.pid -> %d",pid);
 
     return (GOOD);
 }
@@ -227,7 +231,7 @@ void pid_file_remove()
     if (remove("/var/run/lispd.pid") != 0){
         LMLOG(LWRN,"pid_file_remove: PID file couldn't be removed: /var/run/lispd.pid");
     }else{
-        LMLOG(DBG_1,"PID file removed");
+        LMLOG(LDBG_1,"PID file removed");
     }
 }
 
@@ -288,7 +292,7 @@ int check_capabilities()
         return (BAD);
     }
 
-    LMLOG(DBG_1, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+    LMLOG(LDBG_1, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
 
     return GOOD;
 }
@@ -310,20 +314,20 @@ void signal_handler(int sig) {
     switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
-        LMLOG(DBG_1, "Received SIGHUP signal.");
+        LMLOG(LDBG_1, "Received SIGHUP signal.");
         break;
     case SIGTERM:
         /* SIGTERM is the default signal sent by 'kill'. Exit cleanly */
-        LMLOG(DBG_1, "Received SIGTERM signal. Cleaning up...");
+        LMLOG(LDBG_1, "Received SIGTERM signal. Cleaning up...");
         exit_cleanup();
         break;
     case SIGINT:
         /* SIGINT is sent by pressing Ctrl-C. Exit cleanly */
-        LMLOG(DBG_1, "Terminal interrupt. Cleaning up...");
+        LMLOG(LDBG_1, "Terminal interrupt. Cleaning up...");
         exit_cleanup();
         break;
     default:
-        LMLOG(DBG_1,"Unhandled signal (%d)", sig);
+        LMLOG(LDBG_1,"Unhandled signal (%d)", sig);
         exit(EXIT_FAILURE);
     }
 }
@@ -336,11 +340,12 @@ void signal_handler(int sig) {
 
 void
 exit_cleanup(void) {
-    LMLOG(DBG_2,"Exit Cleanup");
+    LMLOG(LDBG_2,"Exit Cleanup");
 
     //lmapi_end(&lmapi_connection);
-
+#ifndef ANDROID
     pid_file_remove();
+#endif
 
     ctrl_destroy(lctrl);
 
@@ -411,7 +416,7 @@ static void
 demonize_start()
 {
     if (daemonize) {
-        LMLOG(DBG_1, "Starting the daemonizing process");
+        LMLOG(LDBG_1, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
             exit_cleanup();
         }
@@ -435,7 +440,6 @@ setup_signal_handlers()
     signal(SIGTERM, signal_handler);
     signal(SIGINT,  signal_handler);
     signal(SIGQUIT, signal_handler);
-
 }
 
 static void
@@ -462,13 +466,10 @@ static void
 parse_config_file()
 {
     int err;
-
-    err = handle_config_file(config_file);
-
+    err = handle_config_file(config_file);;
     if (err != GOOD){
         exit_cleanup();
     }
-
     if (ctrl_dev->mode == xTR_MODE || ctrl_dev->mode == RTR_MODE || ctrl_dev->mode == MN_MODE) {
         if (init_tr_data_plane(ctrl_dev->mode)!=GOOD){
             exit_cleanup();
@@ -479,20 +480,23 @@ parse_config_file()
 static void
 initial_setup()
 {
+#ifndef ANDROID
 #ifdef OPENWRT
     LMLOG(LINF,"LISPmob compiled for openWRT xTR\n");
 #else
     LMLOG(LINF,"LISPmob compiled for linux xTR\n");
 #endif
-
     if(pid_file_check_not_exist() == BAD){
         exit_cleanup();
     }
     pid_file_create();
+#endif
 
+#ifndef VPNAPI
     if (check_capabilities() != GOOD){
         exit_cleanup();
     }
+#endif
 
     /* Initialize the random number generator  */
     iseed = (unsigned int) time(NULL);
@@ -530,20 +534,20 @@ main(int argc, char **argv)
 
     /* run lisp control device xtr/ms */
     if (!ctrl_dev) {
-        LMLOG(DBG_1, "device NULL");
+        LMLOG(LDBG_1, "device NULL");
         exit(0);
     }
     ctrl_dev_run(ctrl_dev);
 
     /* Initialize API for external access */
 
-    //lmapi_init_server(&lmapi_connection);
+    lmapi_init_server(&lmapi_connection);
 
     /* EVENT LOOP */
     for (;;) {
         sockmstr_wait_on_all_read(smaster);
         sockmstr_process_all(smaster);
-        //lmapi_loop(&lmapi_connection);
+        lmapi_loop(&lmapi_connection);
     }
 
     /* event_loop returned: bad! */
@@ -551,6 +555,63 @@ main(int argc, char **argv)
     exit_cleanup();
     return(0);
 }
+
+#ifdef VPNAPI
+JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
+  (JNIEnv *env, jclass cl, jint vpn_tun_fd, jstring storage_path)
+{
+    jintArray           fd_list;
+    jint                sockets_fds[4];
+    uint32_t            iseed         = 0;  /* initial random number generator */
+    pid_t               pid           = 0;    /* child pid */
+    pid_t               sid           = 0;
+    char                log_file[1024];
+    const char          *path         = NULL;
+
+    memset (log_file,0,sizeof(char)*1024);
+    init_globales();
+
+    path = (*env)->GetStringUTFChars(env, storage_path, 0);
+    config_file = calloc(1024, sizeof(char));
+    strcat(config_file,path);
+    strcat(config_file,CONF_FILE_NAME);
+    strcat(log_file,path);
+    strcat(log_file,LOG_FILE_NAME);
+    (*env)->ReleaseStringUTFChars(env, storage_path, path);
+
+    LMLOG(LINF,"LISPmob %s compiled for not rooted Android", LISPD_VERSION);
+
+    initial_setup();
+
+    /* create socket master, timer wheel, initialize interfaces */
+    smaster = sockmstr_create();
+    lmtimers_init();
+    ifaces_init();
+
+    /* create control. Only one instance for now */
+    lctrl = ctrl_create();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+#endif
 
 
 /*

@@ -115,7 +115,6 @@ glist_add(void *data, glist_t *glist)
                 if( cmp == 2){
                     break;
                 }else if (cmp < 0){
-                    printf("================================================\n\n\n");
                     free(new);
                     return (BAD);
                 }

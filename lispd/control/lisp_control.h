@@ -62,6 +62,7 @@ void ctrl_init(lisp_ctrl_t *ctrl);
 
 int ctrl_recv_msg(struct sock *sl);
 int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
+void ctrl_update_iface_info(lisp_ctrl_t *ctrl);
 
 
 lisp_addr_t *ctrl_default_rloc(lisp_ctrl_t *c, int afi);

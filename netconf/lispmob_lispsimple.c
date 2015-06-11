@@ -69,7 +69,7 @@ int transapi_init(xmlDocPtr *running)
 
     printf("LISP-NC: Started client-side API \n");
 
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 /**
@@ -83,7 +83,7 @@ void transapi_close(void)
 
     printf("Unload done \n");
 
-	return;
+    return;
 }
 
 /**
@@ -111,7 +111,7 @@ struct ns_pair namespace_mapping[] = {{"lispsimple", "urn:ietf:params:xml:ns:yan
  */
 
 /**
- * @brief This callback will be run when node in path /lispsimple:itr/lispsimple:map-resolvers changes
+ * @brief This callback will be run when node in path /lispsimple:itr-cfg/lispsimple:map-resolvers changes
  *
  * @param[in] data	Double pointer to void. Its passed to every callback. You can share data using it.
  * @param[in] op	Observed change in path. XMLDIFF_OP type.
@@ -121,16 +121,14 @@ struct ns_pair namespace_mapping[] = {{"lispsimple", "urn:ietf:params:xml:ns:yan
  * @return EXIT_SUCCESS or EXIT_FAILURE
  */
 /* !DO NOT ALTER FUNCTION SIGNATURE! */
-int callback_lispsimple_itr_lispsimple_map_resolvers(void **data, XMLDIFF_OP op, xmlNodePtr node, struct nc_err **error)
+int callback_lispsimple_itr_cfg_lispsimple_map_resolvers(void **data, XMLDIFF_OP op, xmlNodePtr node, struct nc_err **error)
 {
     printf("Node accessed %s\n",node->name);
-    //printf("Node content : %s\n",(char*)xmlNodeGetContent(node));
-
     return (lmapi_nc_node_accessed(&connection,LMAPI_DEV_XTR,LMAPI_TRGT_MRLIST,op,node,error));
 }
 
 /**
- * @brief This callback will be run when node in path /lispsimple:itr/lispsimple:local-eid-database changes
+ * @brief This callback will be run when node in path /lispsimple:etr-cfg/lispsimple:local-eids changes
  *
  * @param[in] data	Double pointer to void. Its passed to every callback. You can share data using it.
  * @param[in] op	Observed change in path. XMLDIFF_OP type.
@@ -140,12 +138,27 @@ int callback_lispsimple_itr_lispsimple_map_resolvers(void **data, XMLDIFF_OP op,
  * @return EXIT_SUCCESS or EXIT_FAILURE
  */
 /* !DO NOT ALTER FUNCTION SIGNATURE! */
-int callback_lispsimple_itr_lispsimple_local_eid_database(void **data, XMLDIFF_OP op, xmlNodePtr node, struct nc_err **error)
+int callback_lispsimple_etr_cfg_lispsimple_local_eids(void **data, XMLDIFF_OP op, xmlNodePtr node, struct nc_err **error)
 {
     printf("Node accessed %s\n",node->name);
-    //printf("Node content : %s\n",(char*)xmlNodeGetContent(node));
-
     return (lmapi_nc_node_accessed(&connection,LMAPI_DEV_XTR,LMAPI_TRGT_MAPDB,op,node,error));
+}
+
+/**
+ * @brief This callback will be run when node in path /lispsimple:etr-cfg/lispsimple:map-servers changes
+ *
+ * @param[in] data	Double pointer to void. Its passed to every callback. You can share data using it.
+ * @param[in] op	Observed change in path. XMLDIFF_OP type.
+ * @param[in] node	Modified node. if op == XMLDIFF_REM its copy of node removed.
+ * @param[out] error	If callback fails, it can return libnetconf error structure with a failure description.
+ *
+ * @return EXIT_SUCCESS or EXIT_FAILURE
+ */
+/* !DO NOT ALTER FUNCTION SIGNATURE! */
+int callback_lispsimple_etr_cfg_lispsimple_map_servers(void **data, XMLDIFF_OP op, xmlNodePtr node, struct nc_err **error)
+{
+    printf("Node accessed %s\n",node->name);
+    return (lmapi_nc_node_accessed(&connection,LMAPI_DEV_XTR,LMAPI_TRGT_MSLIST,op,node,error));
 }
 
 /*
@@ -154,11 +167,12 @@ int callback_lispsimple_itr_lispsimple_local_eid_database(void **data, XMLDIFF_O
  * DO NOT alter this structure
  */
 struct transapi_data_callbacks clbks =  {
-	.callbacks_count = 2,
+	.callbacks_count = 3,
 	.data = NULL,
 	.callbacks = {
-		{.path = "/lispsimple:itr/lispsimple:map-resolvers", .func = callback_lispsimple_itr_lispsimple_map_resolvers},
-		{.path = "/lispsimple:itr/lispsimple:local-eid-database", .func = callback_lispsimple_itr_lispsimple_local_eid_database}
+		{.path = "/lispsimple:itr-cfg/lispsimple:map-resolvers", .func = callback_lispsimple_itr_cfg_lispsimple_map_resolvers},
+		{.path = "/lispsimple:etr-cfg/lispsimple:local-eids", .func = callback_lispsimple_etr_cfg_lispsimple_local_eids},
+		{.path = "/lispsimple:etr-cfg/lispsimple:map-servers", .func = callback_lispsimple_etr_cfg_lispsimple_map_servers}
 	}
 };
 

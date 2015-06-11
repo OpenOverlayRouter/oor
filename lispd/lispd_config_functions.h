@@ -51,6 +51,8 @@ typedef struct conf_loc_ {
     char * address;
     int priority;
     int weight;
+    int mpriority;
+    int mweight;
 }conf_loc_t;
 
 typedef struct conf_loc_iface_ {
@@ -58,10 +60,13 @@ typedef struct conf_loc_iface_ {
     int afi;
     int priority;
     int weight;
+    int mpriority;
+    int mweight;
 }conf_loc_iface_t;
 
 typedef struct conf_mapping_ {
     char    *eid_prefix;
+    int     ttl;
     glist_t *conf_loc_list;
     glist_t *conf_loc_iface_list;
 }conf_mapping_t;
@@ -70,17 +75,23 @@ static inline conf_loc_t * conf_loc_new(){
     return ((conf_loc_t *)xzalloc(sizeof(conf_loc_t)));
 }
 
+inline conf_loc_t * conf_loc_new_init(char *addr, uint8_t priority,
+        uint8_t weight, uint8_t mpriority, uint8_t mweight);
+
 static inline void conf_loc_destroy(conf_loc_t *conf_loc){
     if (conf_loc == NULL) return;
     free(conf_loc->address);
     free(conf_loc);
 }
 
-char *conf_loc_dump(conf_loc_t * loc);
+char *conf_loc_to_char(conf_loc_t * loc);
 
 static inline conf_loc_iface_t * conf_loc_iface_new(){
     return ((conf_loc_iface_t *)xzalloc(sizeof(conf_loc_iface_t)));
 }
+
+inline conf_loc_iface_t * conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
+        uint8_t weight, uint8_t mpriority, uint8_t mweight);
 
 static inline void conf_loc_iface_destroy(conf_loc_iface_t *conf_loc_iface){
     if (conf_loc_iface == NULL) return;
@@ -88,22 +99,14 @@ static inline void conf_loc_iface_destroy(conf_loc_iface_t *conf_loc_iface){
     free(conf_loc_iface);
 }
 
-char *conf_loc_iface_dump(conf_loc_iface_t * loc_iface);
+char *conf_loc_iface_to_char(conf_loc_iface_t * loc_iface);
 
-static inline conf_mapping_t *conf_mapping_new(){
-    conf_mapping_t * conf_map = (conf_mapping_t *)xzalloc(sizeof(conf_mapping_t));
-    conf_map->eid_prefix = (char *)xzalloc(MAX_CFG_STRING);
-    conf_map->conf_loc_list = glist_new_managed((glist_del_fct) conf_loc_destroy);
-    conf_map->conf_loc_iface_list = glist_new_managed((glist_del_fct) conf_loc_iface_destroy);
-    return (conf_map);
-}
 
-static inline void conf_mapping_destroy(conf_mapping_t * conf_map){
-    glist_destroy(conf_map->conf_loc_list);
-    glist_destroy(conf_map->conf_loc_iface_list);
-    free(conf_map->eid_prefix);
-    free(conf_map);
-}
+inline conf_mapping_t *conf_mapping_new();
+
+inline void conf_mapping_destroy(conf_mapping_t * conf_map);
+
+inline void conf_mapping_dump(conf_mapping_t * conf_map, int log_level);
 
 no_addr_loct *
 no_addr_loct_new_init(
@@ -137,7 +140,7 @@ add_server(
 
 int
 add_map_server(
-        lisp_xtr_t *xtr,
+        glist_t * ms_list,
         char *str_addr,
         int key_type,
         char *key,
@@ -145,7 +148,7 @@ add_map_server(
 
 int
 add_proxy_etr_entry(
-        lisp_xtr_t *    xtr,
+        mcache_entry_t *petrs,
         char *          str_addr,
         int             priority,
         int             weight);

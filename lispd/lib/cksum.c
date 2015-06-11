@@ -29,15 +29,16 @@
  *
  */
 
-#include <netinet/udp.h>
-#include <netinet/in.h>
-#include <netinet/ip6.h>
-#include <netinet/ip.h>
+
 
 #include "cksum.h"
 #include "lmlog.h"
 #include "../liblisp/lisp_messages.h"
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/ip6.h>
+#include <netinet/ip.h>
 
 
 uint16_t
@@ -75,7 +76,7 @@ ip_checksum(uint16_t *buffer, int size)
  *
  */
 
-static uint16_t
+uint16_t
 udp_ipv4_checksum(const void *b, unsigned int len,
         in_addr_t src, in_addr_t dst)
 {
@@ -178,7 +179,7 @@ udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi)
     case AF_INET6:
         return (udp_ipv6_checksum(iphdr, udph, udp_len));
     default:
-        LMLOG(DBG_2, "udp_checksum: Unknown AFI");
+        LMLOG(LDBG_2, "udp_checksum: Unknown AFI");
         return (-1);
     }
 }

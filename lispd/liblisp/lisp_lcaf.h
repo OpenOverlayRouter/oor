@@ -258,6 +258,7 @@ static inline glist_t *	lcaf_rle_node_list(lcaf_addr_t *lcaf)
  *  ELP type functions
  */
 inline lisp_addr_t *        lisp_addr_elp_new();
+inline elp_t *              lcaf_elp_get_elp(lcaf_addr_t *elp);
 inline elp_t                *elp_type_new();
 void                        elp_type_del(void *elp);
 int                         elp_type_get_size_to_write(void *elp);
@@ -268,9 +269,10 @@ void                        elp_type_copy(void **dst, void *src);
 int                         elp_type_cmp(void *elp1, void *elp2);
 lisp_addr_t *				elp_type_get_ip_addr(void *elp);
 
+inline elp_node_t *         elp_node_new_init(lisp_addr_t *addr, uint8_t lookup, uint8_t rloc_probe, uint8_t strict);
 inline lisp_addr_t *        elp_node_addr(elp_node_t *enode);
 inline void                 elp_node_del(elp_node_t *enode);
-inline void                 lcaf_elp_add_node(lcaf_addr_t *lcaf, elp_node_t *enode);
+inline void                 elp_add_node(elp_t *elp, elp_node_t *enode);
 
 static inline glist_t *		lcaf_elp_node_list(lcaf_addr_t *lcaf) {
     return(((elp_t *)lcaf->addr)->nodes);

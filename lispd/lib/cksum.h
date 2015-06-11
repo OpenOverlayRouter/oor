@@ -33,6 +33,12 @@
 #define CKSUM_H_
 
 #include "../defs.h"
+#include <sys/types.h>
+#include <netinet/udp.h>
+
+
+
+
 
 uint16_t ip_checksum(uint16_t *buffer, int size);
 

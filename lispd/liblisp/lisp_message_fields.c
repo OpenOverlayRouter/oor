@@ -92,9 +92,9 @@ locator_record_flags_to_char(locator_hdr_t *h)
 {
     static char buf[5];
     *buf = '\0';
-    h->local ? sprintf(buf+strlen(buf), "L") : sprintf(buf+strlen(buf), "l");
-    h->probed ? sprintf(buf+strlen(buf), "p") : sprintf(buf+strlen(buf), "P");
-    h->reachable ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
+    h->local ? sprintf(buf+strlen(buf), "L=1,") : sprintf(buf+strlen(buf), "L=0,");
+    h->probed ? sprintf(buf+strlen(buf), "p=1,") : sprintf(buf+strlen(buf), "p=0,");
+    h->reachable ? sprintf(buf+strlen(buf), "R=1") : sprintf(buf+strlen(buf), "R=0");
     return(buf);
 }
 

@@ -33,7 +33,6 @@
 #include <netdb.h>
 
 #include "lispd_config_functions.h"
-#include "lispd_lib.h"
 #include "lib/lmlog.h"
 
 /***************************** FUNCTIONS DECLARATION *************************/
@@ -42,7 +41,74 @@ glist_t *fqdn_to_addresses(
         const int   preferred_afi);
 /********************************** FUNCTIONS ********************************/
 
-char *conf_loc_dump(conf_loc_t * loc){
+inline conf_mapping_t *conf_mapping_new()
+{
+    conf_mapping_t * conf_map = (conf_mapping_t *)xzalloc(sizeof(conf_mapping_t));
+    if (conf_map == NULL){
+        LMLOG(LWRN,"conf_mapping_new: Couldn't allocate memory for a conf_mapping_t structure");
+        return (NULL);
+    }
+    conf_map->eid_prefix = (char *)xzalloc(MAX_CFG_STRING);
+    conf_map->conf_loc_list = glist_new_managed((glist_del_fct) conf_loc_destroy);
+    conf_map->conf_loc_iface_list = glist_new_managed((glist_del_fct) conf_loc_iface_destroy);
+    return (conf_map);
+}
+
+inline void conf_mapping_destroy(conf_mapping_t * conf_map)
+{
+    glist_destroy(conf_map->conf_loc_list);
+    glist_destroy(conf_map->conf_loc_iface_list);
+    free(conf_map->eid_prefix);
+    free(conf_map);
+}
+
+
+inline void conf_mapping_dump(conf_mapping_t * conf_map, int log_level)
+{
+    char buf[2000];
+    conf_loc_t * conf_loct = NULL;
+    conf_loc_iface_t * conf_loct_iface = NULL;
+    glist_entry_t * it_loct_addr = NULL;
+    glist_entry_t * it_loct_iface = NULL;
+
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
+
+    sprintf(buf, "EID: %s, ttl: %d\n", conf_map->eid_prefix, conf_map->ttl);
+
+    glist_for_each_entry(it_loct_addr,conf_map->conf_loc_list){
+        conf_loct = (conf_loc_t *)glist_entry_data(it_loct_addr);
+        sprintf(buf+strlen(buf),"\n  %s",conf_loc_to_char(conf_loct));
+    }
+    glist_for_each_entry(it_loct_iface,conf_map->conf_loc_iface_list){
+        conf_loct_iface = (conf_loc_iface_t *)glist_entry_data(it_loct_iface);
+        sprintf(buf+strlen(buf),"\n  %s",conf_loc_iface_to_char(conf_loct_iface));
+    }
+    LMLOG(log_level,"%s\n",buf);
+}
+
+
+inline conf_loc_t * conf_loc_new_init(char *addr, uint8_t priority,
+        uint8_t weight, uint8_t mpriority, uint8_t mweight)
+{
+    conf_loc_t * conf_loc = NULL;
+    conf_loc = (conf_loc_t *)xzalloc(sizeof(conf_loc_t));
+    if (conf_loc == NULL){
+        LMLOG(LWRN,"conf_loc_new_init: Couldn't allocate memory for a conf_loc_t structure");
+        return (NULL);
+    }
+    conf_loc->address = strdup(addr);
+    conf_loc->priority = priority;
+    conf_loc->weight = weight;
+    conf_loc->mpriority = mpriority;
+    conf_loc->mweight = mweight;
+
+    return (conf_loc);
+}
+
+char *conf_loc_to_char(conf_loc_t * loc)
+{
     static char buf[100];
 
     sprintf(buf,"Locator address: %s, Priority: %d, Weight: %d",
@@ -51,7 +117,32 @@ char *conf_loc_dump(conf_loc_t * loc){
     return (buf);
 }
 
-char *conf_loc_iface_dump(conf_loc_iface_t * loc_iface){
+inline conf_loc_iface_t * conf_loc_iface_new_init(
+        char *  iface_name,
+        int     afi,
+        uint8_t priority,
+        uint8_t weight,
+        uint8_t mpriority,
+        uint8_t mweight)
+{
+    conf_loc_iface_t * conf_loc_iface = NULL;
+    conf_loc_iface = (conf_loc_iface_t *)xzalloc(sizeof(conf_loc_iface_t));
+    if (conf_loc_iface == NULL){
+        LMLOG(LWRN,"conf_loc_iface_new_init: Couldn't allocate memory for a conf_loc_iface_t structure");
+        return (NULL);
+    }
+    conf_loc_iface->interface = strdup(iface_name);
+    conf_loc_iface->afi = afi;
+    conf_loc_iface->priority = priority;
+    conf_loc_iface->weight = weight;
+    conf_loc_iface->mpriority = mpriority;
+    conf_loc_iface->mweight = mweight;
+
+    return (conf_loc_iface);
+}
+
+char *conf_loc_iface_to_char(conf_loc_iface_t * loc_iface)
+{
     static char buf[100];
 
     sprintf(buf,"Locator interface: %s, AFI: %d, Priority: %d, Weight: %d",
@@ -60,7 +151,6 @@ char *conf_loc_iface_dump(conf_loc_iface_t * loc_iface){
     return (buf);
 
 }
-
 
 no_addr_loct *
 no_addr_loct_new_init(
@@ -117,9 +207,9 @@ validate_rloc_probing_parameters(
     }
 
     if (*interval > 0) {
-        LMLOG(DBG_1, "RLOC Probing Interval: %d", *interval);
+        LMLOG(LDBG_1, "RLOC Probing Interval: %d", *interval);
     } else {
-        LMLOG(DBG_1, "RLOC Probing disabled");
+        LMLOG(LDBG_1, "RLOC Probing disabled");
     }
 
     if (*interval != 0) {
@@ -201,7 +291,7 @@ add_server(
         }
 
         glist_add_tail(lisp_addr_clone(addr), list);
-        LMLOG(DBG_3,"The server %s has been added to the list",lisp_addr_to_char(addr));
+        LMLOG(LDBG_3,"The server %s has been added to the list",lisp_addr_to_char(addr));
     }
 
     glist_destroy(addr_list);
@@ -213,7 +303,7 @@ add_server(
 
 int
 add_map_server(
-        lisp_xtr_t *    xtr,
+        glist_t *       ms_list,
         char *          str_addr,
         int             key_type,
         char *          key,
@@ -252,15 +342,13 @@ add_map_server(
                     "default rloc afi (-a option)", str_addr);
             continue;
         }
-        // XXX Create method to do it authomatically
-        ms = xzalloc(sizeof(map_server_elt));
 
-        ms->address     = lisp_addr_clone(addr);
-        ms->key_type    = key_type;
-        ms->key         = strdup(key);
-        ms->proxy_reply = proxy_reply;
+        ms = map_server_elt_new_init(addr,key_type,key,proxy_reply);
+        if (ms == NULL){
+            continue;
+        }
 
-        glist_add(ms, xtr->map_servers);
+        glist_add(ms, ms_list);
     }
 
     glist_destroy(addr_list);
@@ -271,7 +359,7 @@ add_map_server(
 
 int
 add_proxy_etr_entry(
-        lisp_xtr_t *    xtr,
+        mcache_entry_t *petrs,
         char *          str_addr,
         int             priority,
         int             weight)
@@ -310,7 +398,7 @@ add_proxy_etr_entry(
         locator = locator_init_remote_full(addr, UP, priority, weight, 255, 0);
 
         if (locator != NULL) {
-            if (mapping_add_locator(mcache_entry_mapping(xtr->petrs), locator)!= GOOD){
+            if (mapping_add_locator(mcache_entry_mapping(petrs), locator)!= GOOD){
                 locator_del(locator);
                 continue;
             }
@@ -443,12 +531,12 @@ add_rtr_iface(
         lisp_addr_ip_from_char("0.0.0.0", &aux_address);
         mapping = mapping_new_init(&aux_address);
         if (mapping == NULL){
-            LMLOG(DBG_1, "add_rtr_iface: Can't allocate mapping!");
+            LMLOG(LDBG_1, "add_rtr_iface: Can't allocate mapping!");
             return (BAD);
         }
         xtr->all_locs_map = map_local_entry_new_init(mapping);
         if(xtr->all_locs_map == NULL){
-            LMLOG(DBG_1, "add_rtr_iface: Can't allocate map_local_entry_t!");
+            LMLOG(LDBG_1, "add_rtr_iface: Can't allocate map_local_entry_t!");
             return (BAD);
         }
         fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
@@ -746,7 +834,7 @@ glist_t *fqdn_to_addresses(
             break;
         }
 
-        LMLOG( DBG_1, "converted addr_str [%s] to address [%s]", addr_str, lisp_addr_to_char(addr));
+        LMLOG(LDBG_1, "converted addr_str [%s] to address [%s]", addr_str, lisp_addr_to_char(addr));
         /* depending on callback return, we continue or not */
 
         glist_add(addr,addr_list);
@@ -768,7 +856,7 @@ process_rloc_address(
     glist_t *           addr_list       = NULL;
     glist_entry_t *     it              = NULL;
     lisp_addr_t *       address         = NULL;
-    lisp_addr_t *       ip_addr        = NULL;
+    lisp_addr_t *       ip_addr         = NULL;
     iface_t*            iface           = NULL;
     int *               out_socket      = 0;
     char*               iface_name      = NULL;
@@ -835,7 +923,7 @@ process_rloc_address(
 
             out_socket = (lisp_addr_ip_afi(ip_addr) == AF_INET) ? &(iface->out_socket_v4) : &(iface->out_socket_v6);
 
-            locator = locator_init_local_full(address, iface->status,conf_loc->priority, conf_loc->weight,255, 0, out_socket);
+            locator = locator_init_local_full(address, iface->status,conf_loc->priority, conf_loc->weight, conf_loc->mpriority, conf_loc->mweight, out_socket);
 
             /* If the locator is for a local mapping, associate the locator with the interface */
             if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
@@ -860,7 +948,7 @@ process_rloc_address(
         }
         if (locator != NULL){
             glist_add(locator,loct_list);
-            LMLOG(DBG_2,"parse_rloc_address: Locator stucture created: \n %s",
+            LMLOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
                     locator_to_char(locator));
         }
     }
@@ -893,12 +981,6 @@ process_rloc_interface(
         return (NULL);
     }
 
-    if (conf_loc_iface->afi != 4 && conf_loc_iface->afi !=6){
-        LMLOG(LERR, "Configuration file: The conf_loc_iface->afi of the locator should be \"4\" (IPv4)"
-                " or \"6\" (IPv6)");
-        return (NULL);
-    }
-
     /* Find the interface */
     if (!(iface = get_interface(conf_loc_iface->interface))) {
         if (!(iface = add_interface(conf_loc_iface->interface))) {
@@ -906,19 +988,17 @@ process_rloc_interface(
         }
     }
 
-    if (conf_loc_iface->afi == 4){
+    if (conf_loc_iface->afi == AF_INET){
         out_socket = &(iface->out_socket_v4);
         address = iface->ipv4_address;
-        conf_loc_iface->afi = AF_INET;
     }else{
         out_socket = &(iface->out_socket_v4);
         address = iface->ipv6_address;
-        conf_loc_iface->afi = AF_INET6;
     }
 
-    locator = locator_init_local_full(address, iface->status,conf_loc_iface->priority, conf_loc_iface->weight,255, 0, out_socket);
+    locator = locator_init_local_full(address, iface->status,conf_loc_iface->priority, conf_loc_iface->weight,conf_loc_iface->mpriority, conf_loc_iface->mweight, out_socket);
 
-    LMLOG(DBG_2,"parse_rloc_address: Locator stucture created: \n %s",
+    LMLOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
                         locator_to_char(locator));
 
     /* If the locator is for a local mapping, associate the locator with the interface */
@@ -1022,7 +1102,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, htable_t * lcaf_ht,
                 continue;
             }
             if (mapping_add_locator(mapping, locator) != GOOD){
-                LMLOG(DBG_1,"parse_mapping: Couldn't add RLOC with address %s "
+                LMLOG(LDBG_1,"parse_mapping: Couldn't add RLOC with address %s "
                         "to the mapping with EID prefix %s. Discarded ...",
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
@@ -1037,9 +1117,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, htable_t * lcaf_ht,
         glist_destroy(loct_list);
     }
 
-
     if (type == LOCAL_LOCATOR){
-
         glist_for_each_entry(conf_it,conf_mapping->conf_loc_iface_list){
             conf_loc_iface = (conf_loc_iface_t *)glist_entry_data(conf_it);
             locator = process_rloc_interface(conf_loc_iface, dev);
@@ -1059,7 +1137,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, htable_t * lcaf_ht,
                 continue;
             }
             if (mapping_add_locator(mapping, locator) != GOOD){
-                LMLOG(DBG_1,"parse_mapping: Couldn't add RLOC with address %s "
+                LMLOG(LDBG_1,"parse_mapping: Couldn't add RLOC with address %s "
                         "to the mapping with EID prefix %s. Discarded ...",
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
@@ -1073,7 +1151,6 @@ process_mapping_config(lisp_ctrl_dev_t * dev, htable_t * lcaf_ht,
     }
 
     return (mapping);
-
 }
 
 
@@ -1092,7 +1169,7 @@ add_local_db_map_local_entry(
 
     if (local_map_db_lookup_eid_exact(xtr->local_mdb, eid) == NULL){
         if (local_map_db_add_entry(xtr->local_mdb, map_loca_entry) == GOOD){
-            LMLOG(DBG_1, "Added EID prefix %s in the database.",
+            LMLOG(LDBG_1, "Added EID prefix %s in the database.",
                     lisp_addr_to_char(eid));
             iface_locators_attach_map_local_entry(xtr->iface_locators_table,map_loca_entry);
         }else{

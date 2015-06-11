@@ -74,7 +74,7 @@ void process_new_gateway(iface_t *iface,lisp_addr_t *gateway);
 int
 opent_netlink_socket()
 {
-    int netlink_fd = 0;
+    int netlink_fd = -1;
     struct sockaddr_nl addr;
 
     memset(&addr, 0, sizeof(addr));
@@ -123,27 +123,27 @@ process_netlink_msg(struct sock *sl)
                 nlh = NLMSG_NEXT(nlh, len)) {
             switch (nlh->nlmsg_type) {
             case RTM_NEWADDR:
-                LMLOG(DBG_3, "=>process_netlink_msg: Received new address "
+                LMLOG(LDBG_3, "=>process_netlink_msg: Received new address "
                         "message");
                 process_nl_add_address(nlh);
                 break;
             case RTM_DELADDR:
-                LMLOG(DBG_3, "=>process_netlink_msg: Received del address "
+                LMLOG(LDBG_3, "=>process_netlink_msg: Received del address "
                         "message");
                 process_nl_del_address(nlh);
                 break;
             case RTM_NEWLINK:
-                LMLOG(DBG_3, "=>process_netlink_msg: Received link "
+                LMLOG(LDBG_3, "=>process_netlink_msg: Received link "
                         "message");
                 process_nl_new_link(nlh);
                 break;
             case RTM_NEWROUTE:
-                LMLOG(DBG_3, "=>process_netlink_msg: Received new route "
+                LMLOG(LDBG_3, "=>process_netlink_msg: Received new route "
                         "message");
                 process_nl_new_route(nlh);
                 break;
             case RTM_DELROUTE:
-                LMLOG(DBG_3, "=>process_netlink_msg: Received delete route "
+                LMLOG(LDBG_3, "=>process_netlink_msg: Received delete route "
                         "message");
                 process_nl_del_route(nlh);
                 break;
@@ -181,7 +181,7 @@ process_nl_add_address (struct nlmsghdr *nlh)
 
     if (iface == NULL) {
         if_indextoname(iface_index, iface_name);
-        LMLOG(DBG_2, "process_nl_add_address: netlink message not for an "
+        LMLOG(LDBG_2, "process_nl_add_address: netlink message not for an "
                 "interface with associated RLOCs (%s / %d)", iface_name,
                 iface_index);
         return;
@@ -220,7 +220,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
 
     /* Check if the addres is a global address*/
     if (ip_addr_is_link_local(lisp_addr_ip(new_addr)) == TRUE) {
-        LMLOG(DBG_2,"precess_address_change: the address in netlink messages "
+        LMLOG(LDBG_2,"precess_address_change: the address in netlink messages "
                 "is a local link address: %s discarded",
                 lisp_addr_to_char(new_addr));
         return;
@@ -229,7 +229,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
      * specified afi */
     if (default_rloc_afi != AF_UNSPEC
         && default_rloc_afi != new_addr_ip_afi) {
-        LMLOG(DBG_2,"precess_address_change: Default RLOC afi defined (-a #): "
+        LMLOG(LDBG_2,"precess_address_change: Default RLOC afi defined (-a #): "
                 "Skipped %s address in iface %s",
                 (new_addr_ip_afi == AF_INET) ? "IPv4" : "IPv6",
                 iface->iface_name);
@@ -250,7 +250,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
 
     /* Same address that we already have */
     if (lisp_addr_cmp(iface_addr, new_addr) == 0) {
-        LMLOG(DBG_2, "precess_address_change: The change of address detected "
+        LMLOG(LDBG_2, "precess_address_change: The change of address detected "
                 "for interface %s doesn't affect", iface->iface_name);
         /* We must rebind the socket just in case the address is from a
          * virtual interface which has changed its interface number */
@@ -272,7 +272,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
      * is up. Create sockets */
     if (old_lafi == LM_AFI_NO_ADDR) {
 
-        LMLOG(DBG_2, "process_address_change: Generating sockets for the initialized interface "
+        LMLOG(LDBG_2, "process_address_change: Generating sockets for the initialized interface "
                 "%s", lisp_addr_to_char(new_addr));
 
         switch(new_addr_ip_afi){
@@ -290,7 +290,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
                     && new_addr_ip_afi == AF_INET)
                  || (default_ctrl_iface_v6 == NULL
                             && new_addr_ip_afi == AF_INET6)) {
-                LMLOG(DBG_2, "No default control interface. Recalculate new "
+                LMLOG(LDBG_2, "No default control interface. Recalculate new "
                         "control interface");
                 set_default_ctrl_ifaces();
             }
@@ -299,14 +299,14 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
                     && new_addr_ip_afi == AF_INET)
                  || (default_out_iface_v6 == NULL
                          && new_addr_ip_afi == AF_INET6)) {
-                LMLOG(DBG_2, "No default output interface. Recalculate new "
+                LMLOG(LDBG_2, "No default output interface. Recalculate new "
                         "output interface");
                 set_default_output_ifaces();
             }
         }
     }
 
-    LMLOG(DBG_2,"process_address_change: New address detected for interface "
+    LMLOG(LDBG_2,"process_address_change: New address detected for interface "
             "%s -> %s", iface->iface_name, lisp_addr_to_char(new_addr));
 
 
@@ -356,7 +356,7 @@ process_nl_del_address(struct nlmsghdr *nlh)
 
     if (iface == NULL) {
         if_indextoname(iface_index, iface_name);
-        LMLOG(DBG_2, "process_nl_add_address: the netlink message is not "
+        LMLOG(LDBG_2, "process_nl_add_address: the netlink message is not "
                 "for any interface associated with RLOCs (%s)", iface_name);
         return;
     }
@@ -371,7 +371,7 @@ process_nl_del_address(struct nlmsghdr *nlh)
         }
     }
     /* Actions to be done when address is removed */
-    LMLOG(DBG_2, "   deleted address: %s\n", lisp_addr_to_char(&new_addr));
+    LMLOG(LDBG_2, "   deleted address: %s\n", lisp_addr_to_char(&new_addr));
 }
 
 void
@@ -399,13 +399,13 @@ process_nl_new_link(struct nlmsghdr *nlh)
             iface = get_interface(iface_name);
         }
         if (iface == NULL) {
-            LMLOG(DBG_2, "process_nl_new_link: the netlink message is not for "
+            LMLOG(LDBG_2, "process_nl_new_link: the netlink message is not for "
                     "any interface associated with RLOCs  (%s)", iface_name);
             return;
         } else {
             old_iface_index = iface->iface_index;
             iface->iface_index = iface_index;
-            LMLOG(DBG_2, "process_nl_new_link: The new index of the interface "
+            LMLOG(LDBG_2, "process_nl_new_link: The new index of the interface "
                     "%s is: %d. Updating tables", iface_name,
                     iface->iface_index);
             /* Update routing tables and reopen sockets*/
@@ -433,11 +433,11 @@ process_nl_new_link(struct nlmsghdr *nlh)
     }
 
     if ((ifi->ifi_flags & IFF_RUNNING) != 0) {
-        LMLOG(DBG_1, "process_nl_new_link: Interface %s changes its status to "
+        LMLOG(LDBG_1, "process_nl_new_link: Interface %s changes its status to "
                 "UP", iface->iface_name);
         status = UP;
     } else {
-        LMLOG(DBG_1, "process_nl_new_link: Interface %s changes its status to "
+        LMLOG(LDBG_1, "process_nl_new_link: Interface %s changes its status to "
                 "DOWN", iface->iface_name);
         status = DOWN;
     }
@@ -479,7 +479,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
         return;
 
     if ( rtm->rtm_family != AF_INET && rtm->rtm_family != AF_INET6 ) {
-        LMLOG(DBG_3,"process_nl_new_unicast_route: New unicast route of "
+        LMLOG(LDBG_3,"process_nl_new_unicast_route: New unicast route of "
                 "unknown adddress family %d", rtm->rtm_family);
         return;
     }
@@ -494,7 +494,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
             iface = get_interface_from_index(iface_index);
             if_indextoname(iface_index, iface_name);
             if (iface == NULL){
-                LMLOG(DBG_3, "process_nl_new_unicast_route: the netlink "
+                LMLOG(LDBG_3, "process_nl_new_unicast_route: the netlink "
                         "message is not for any interface associated with "
                         "RLOCs (%s)", iface_name);
                 return;
@@ -519,7 +519,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
         /* Check default afi*/
         if (default_rloc_afi != AF_UNSPEC
             && default_rloc_afi != lisp_addr_ip_afi(&gateway)) {
-            LMLOG(DBG_1, "process_nl_new_unicast_route: Default RLOC afi "
+            LMLOG(LDBG_1, "process_nl_new_unicast_route: Default RLOC afi "
                     "defined (-a #): Skipped %s gateway in iface %s",
                     (lisp_addr_ip_afi(&gateway)== AF_INET) ? "IPv4" : "IPv6",
                     iface->iface_name);
@@ -528,14 +528,14 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
 
         /* Check if the addres is a global address*/
         if (ip_addr_is_link_local(lisp_addr_ip(&gateway)) == TRUE) {
-            LMLOG(DBG_3,"process_nl_new_unicast_route: the extractet address "
+            LMLOG(LDBG_3,"process_nl_new_unicast_route: the extractet address "
                     "from the netlink messages is a local link address: %s "
                     "discarded", lisp_addr_to_char(&gateway));
             return;
         }
 
         /* Process the new gateway */
-        LMLOG(DBG_1,  "process_nl_new_unicast_route: Process new gateway "
+        LMLOG(LDBG_1,  "process_nl_new_unicast_route: Process new gateway "
                 "associated to the interface %s:  %s", iface_name,
                 lisp_addr_to_char(&gateway));
         process_new_gateway(iface,&gateway);
@@ -638,7 +638,7 @@ process_nl_mcast_route_attributes(struct rtmsg *rtm, int rt_length,
     }
 
     if (nb_oifs == 0){
-        LMLOG(DBG_1, "process_nl_new_multicast_route: New multicast route has "
+        LMLOG(LDBG_1, "process_nl_new_multicast_route: New multicast route has "
                 "no output interface list, ignored!");
         return BAD;
     }
@@ -706,6 +706,10 @@ process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     if (*gw_addr == NULL) { // The default gateway of this interface is not deffined yet
         *gw_addr = lisp_addr_new();
         lisp_addr_copy(*gw_addr,gateway);
+    }else if (lisp_addr_cmp(*gw_addr, gateway) == 0){
+        LMLOG(LDBG_3,"process_new_gateway: the gatweay address has not changed: %s. Discard message.",
+                            lisp_addr_to_char(gateway));
+        return;
     }else{
         lisp_addr_copy(*gw_addr,gateway);
     }
@@ -721,7 +725,7 @@ void
 process_link_status_change(iface_t *iface, int new_status)
 {
     if (iface->status == new_status){
-        LMLOG(DBG_2,"process_link_status_change: The detected change of status"
+        LMLOG(LDBG_2,"process_link_status_change: The detected change of status"
                 " doesn't affect");
         return;
     }
@@ -736,7 +740,7 @@ process_link_status_change(iface_t *iface, int new_status)
             || default_ctrl_iface_v6 == iface
             || default_ctrl_iface_v4 == NULL
             || default_ctrl_iface_v6 == NULL){
-        LMLOG(DBG_2,"Default control interface down. Recalculate new control"
+        LMLOG(LDBG_2,"Default control interface down. Recalculate new control"
                 " interface");
         set_default_ctrl_ifaces();
     }
@@ -745,7 +749,7 @@ process_link_status_change(iface_t *iface, int new_status)
             || default_out_iface_v6 == iface
             || default_out_iface_v4 == NULL
             || default_out_iface_v6 == NULL){
-        LMLOG(DBG_2,"Default output interface down. Recalculate new output "
+        LMLOG(LDBG_2,"Default output interface down. Recalculate new output "
                 "interface");
         set_default_output_ifaces();
     }

@@ -137,7 +137,7 @@ handle_config_file(char *uci_conf_file_path)
 
     uci_set_confdir(ctx, uci_conf_dir);
 
-    LMLOG(DBG_1,"Conf dir: %s\n",ctx->confdir);
+    LMLOG(LDBG_1,"Conf dir: %s\n",ctx->confdir);
 
     uci_load(ctx,uci_conf_file,&pck);
 
@@ -149,7 +149,7 @@ handle_config_file(char *uci_conf_file_path)
     }
 
 
-    LMLOG(DBG_3,"package uci: %s\n",pck->ctx->confdir);
+    LMLOG(LDBG_3,"package uci: %s\n",pck->ctx->confdir);
 
 
     uci_foreach_element(&pck->sections, element) {
@@ -308,9 +308,9 @@ configure_xtr(
                 uci_address = uci_lookup_option_string(ctx, sect, "address");
 
                 if (add_server((char *)uci_address, xtr->map_resolvers) != GOOD){
-                    LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
+                    LMLOG(LCRIT,"Can't add %s Map Resolver.",uci_address);
                 }else{
-                    LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
+                    LMLOG(LDBG_1, "Added %s to map-resolver list", uci_address);
                 }
                 continue;
             }
@@ -335,13 +335,13 @@ configure_xtr(
                     uci_proxy_reply = FALSE;
                 }
 
-                if (add_map_server(xtr,(char *)uci_address,
+                if (add_map_server(xtr->map_servers,(char *)uci_address,
                         uci_key_type,
                         (char *)uci_key,
                         uci_proxy_reply) != GOOD ){
-                    LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
+                    LMLOG(LCRIT, "Can't add %s Map Server.", uci_address);
                 }else{
-                    LMLOG(DBG_1, "Added %s to map-server list", uci_address);
+                    LMLOG(LDBG_1, "Added %s to map-server list", uci_address);
                 }
                 continue;
             }
@@ -365,13 +365,13 @@ configure_xtr(
                     uci_weigth = 100;
                 }
 
-                if (add_proxy_etr_entry(xtr,
+                if (add_proxy_etr_entry(xtr->petrs,
                         (char *)uci_address,
                         uci_priority,
                         uci_weigth) != GOOD ){
                     LMLOG(LERR, "Can't add proxy-etr %s", uci_address);
                 }else{
-                    LMLOG(DBG_1, "Added %s to proxy-etr list", uci_address);
+                    LMLOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
                 }
                 continue;
             }
@@ -384,7 +384,7 @@ configure_xtr(
                         if (add_server(elem_addr->name, xtr->pitrs) != GOOD){
                             LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
                         }else{
-                            LMLOG(DBG_1, "Added %s to proxy-itr list", uci_address);
+                            LMLOG(LDBG_1, "Added %s to proxy-itr list", uci_address);
                         }
                     }
                 }
@@ -431,7 +431,7 @@ configure_xtr(
                 }
                 if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
                     if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                        LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                        LMLOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                                 lisp_addr_to_char(mapping_eid(mapping)));
                     }else{
                         LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -571,9 +571,9 @@ configure_mn(
             uci_address = uci_lookup_option_string(ctx, sect, "address");
 
             if (add_server((char *)uci_address, xtr->map_resolvers) != GOOD){
-                LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
+                LMLOG(LCRIT,"Can't add %s Map Resolver.",uci_address);
             }else{
-                LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
+                LMLOG(LDBG_1, "Added %s to map-resolver list", uci_address);
             }
             continue;
         }
@@ -597,13 +597,13 @@ configure_mn(
                 uci_proxy_reply = FALSE;
             }
 
-            if (add_map_server(xtr,(char *)uci_address,
+            if (add_map_server(xtr->map_servers,(char *)uci_address,
                     uci_key_type,
                     (char *)uci_key,
                     uci_proxy_reply) != GOOD ){
-                LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
+                LMLOG(LCRIT, "Can't add %s Map Server.", uci_address);
             }else{
-                LMLOG(DBG_1, "Added %s to map-server list", uci_address);
+                LMLOG(LDBG_1, "Added %s to map-server list", uci_address);
             }
             continue;
         }
@@ -627,13 +627,13 @@ configure_mn(
                 uci_weigth = 100;
             }
 
-            if (add_proxy_etr_entry(xtr,
+            if (add_proxy_etr_entry(xtr->petrs,
                     (char *)uci_address,
                     uci_priority,
                     uci_weigth) != GOOD ){
                 LMLOG(LERR, "Can't add proxy-etr %s", uci_address);
             }else{
-                LMLOG(DBG_1, "Added %s to proxy-etr list", uci_address);
+                LMLOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
             }
             continue;
         }
@@ -646,7 +646,7 @@ configure_mn(
                     if (add_server(elem_addr->name, xtr->pitrs) != GOOD){
                         LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", uci_address);
                     }else{
-                        LMLOG(DBG_1, "Added %s to proxy-itr list", uci_address);
+                        LMLOG(LDBG_1, "Added %s to proxy-itr list", uci_address);
                     }
                 }
             }
@@ -694,7 +694,7 @@ configure_mn(
             }
             if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
                 if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                    LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                    LMLOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                             lisp_addr_to_char(mapping_eid(mapping)));
                 }else{
                     LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -822,9 +822,9 @@ configure_rtr(
             uci_address = uci_lookup_option_string(ctx, sect, "address");
 
             if (add_server((char *)uci_address, xtr->map_resolvers) != GOOD){
-                LMLOG(LISP_LOG_CRIT,"Can't add %s Map Resolver.",uci_address);
+                LMLOG(LCRIT,"Can't add %s Map Resolver.",uci_address);
             }else{
-                LMLOG(DBG_1, "Added %s to map-resolver list", uci_address);
+                LMLOG(LDBG_1, "Added %s to map-resolver list", uci_address);
             }
             continue;
         }
@@ -848,13 +848,13 @@ configure_rtr(
                 uci_proxy_reply = FALSE;
             }
 
-            if (add_map_server(xtr,(char *)uci_address,
+            if (add_map_server(xtr->map_servers,(char *)uci_address,
                     uci_key_type,
                     (char *)uci_key,
                     uci_proxy_reply) != GOOD ){
-                LMLOG(LISP_LOG_CRIT, "Can't add %s Map Server.", uci_address);
+                LMLOG(LCRIT, "Can't add %s Map Server.", uci_address);
             }else{
-                LMLOG(DBG_1, "Added %s to map-server list", uci_address);
+                LMLOG(LDBG_1, "Added %s to map-server list", uci_address);
             }
             continue;
         }
@@ -869,7 +869,7 @@ configure_rtr(
             }
             if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
                 if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                    LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                    LMLOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                             lisp_addr_to_char(mapping_eid(mapping)));
                 }else{
                     LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -915,7 +915,7 @@ configure_rtr(
                     uci_afi,
                     uci_priority,
                     uci_weigth) == GOOD) {
-                LMLOG(DBG_1, "Configured interface %s for RTR",uci_iface);
+                LMLOG(LDBG_1, "Configured interface %s for RTR",uci_iface);
             } else{
                 LMLOG(LERR, "Can't configure iface %s for RTR",uci_iface);
             }
@@ -1017,7 +1017,7 @@ configure_ms(
                     uci_merge,
                     lcaf_ht);
             if (site) {
-                LMLOG(DBG_1, "Adding lisp site prefix %s to the lisp-sites "
+                LMLOG(LDBG_1, "Adding lisp site prefix %s to the lisp-sites "
                         "database", lisp_addr_to_char(site->eid_prefix));
                 ms_add_lisp_site_prefix(ms, site);
             }else{
@@ -1036,7 +1036,7 @@ configure_ms(
             }
             if (mdb_lookup_entry_exact(ms->reg_sites_db, mapping_eid(mapping)) == NULL){
                 if (ms_add_registered_site_prefix(ms, mapping) == GOOD){
-                    LMLOG(DBG_1, "Added static registered site for %s to the registered sites list!",
+                    LMLOG(LDBG_1, "Added static registered site for %s to the registered sites list!",
                                         lisp_addr_to_char(mapping_eid(mapping)));
                 }else{
                     LMLOG(LERR, "Failed to add static registered site for %s to the registered sites list!",
@@ -1196,7 +1196,7 @@ parse_rlocs(
                 continue;
             }
             if (htable_lookup(rlocs_ht,uci_rloc_name) != NULL){
-                LMLOG(DBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
+                LMLOG(LDBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
                 continue;
             }
             addr_list = parse_lisp_addr((char *)uci_address, lcaf_ht);
@@ -1204,7 +1204,7 @@ parse_rlocs(
                 continue;
             }
             if (glist_size(addr_list) > 1){
-                LMLOG(DBG_1,"Configuration file: With OpenWrt, RLOCs configured with FQDN address "
+                LMLOG(LDBG_1,"Configuration file: With OpenWrt, RLOCs configured with FQDN address "
                         "only use the first IP of the DNS resolution.");
             }
             address = (lisp_addr_t *)glist_first_data(addr_list);
@@ -1254,7 +1254,7 @@ parse_rlocs(
             }
 
             if (htable_lookup(rlocs_ht,uci_rloc_name) != NULL){
-                LMLOG(DBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
+                LMLOG(LDBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
                 continue;
             }
 
@@ -1348,7 +1348,7 @@ parse_rloc_sets(
                     }
 
                     if (glist_add_tail(loct,rloc_list)!=GOOD){
-                        LMLOG(DBG_1,"parse_rloc_sets: Error adding locator to the rloc-set");
+                        LMLOG(LDBG_1,"parse_rloc_sets: Error adding locator to the rloc-set");
                     }
                 }
             }else{
@@ -1426,7 +1426,7 @@ parse_elp_node(
 
     if (lisp_addr_ip_from_char((char *)uci_address, elp_node->addr) != GOOD) {
         elp_node_del(elp_node);
-        LMLOG(DBG_1, "parse_elp_list: Couldn't parse ELP node %s",
+        LMLOG(LDBG_1, "parse_elp_list: Couldn't parse ELP node %s",
                 uci_address);
         return (BAD);
     }
@@ -1449,7 +1449,7 @@ parse_elp_node(
         elp_node->L = FALSE;
     }
 
-    lcaf_elp_add_node(lisp_addr_get_lcaf(laddr),elp_node);
+    elp_add_node(lcaf_elp_get_elp(lisp_addr_get_lcaf(laddr)),elp_node);
 
     return (GOOD);
 }

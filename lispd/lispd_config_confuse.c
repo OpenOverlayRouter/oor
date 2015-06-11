@@ -31,9 +31,12 @@
  */
 
 #include <netdb.h>
-
+#ifdef ANDROID
+#include "../android/jni/confuse_android/src/confuse.h"
+#else
+#include <confuse.h>
+#endif
 #include "cmdline.h"
-#include "confuse.h"
 #include "lispd_config_confuse.h"
 #include "lispd_config_functions.h"
 #include "lispd_external.h"
@@ -69,7 +72,7 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
             if (lisp_addr_ip_from_char(cfg_getstr(senode, "address"),
                     enode->addr) != GOOD) {
                 elp_node_del(enode);
-                LMLOG(DBG_1, "parse_elp_list: Couldn't parse ELP node %s",
+                LMLOG(LDBG_1, "parse_elp_list: Couldn't parse ELP node %s",
                         cfg_getstr(senode, "address"));
                 continue;
             }
@@ -83,7 +86,7 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
         laddr = lisp_addr_new_lafi(LM_AFI_LCAF);
         lisp_addr_lcaf_set_type(laddr, LCAF_EXPL_LOC_PATH);
         lisp_addr_lcaf_set_addr(laddr, elp);
-        LMLOG(DBG_1, "Configuration file: parsed explicit-locator-path: %s",
+        LMLOG(LDBG_1, "Configuration file: parsed explicit-locator-path: %s",
                 lisp_addr_to_char(laddr));
 
         htable_insert(ht, strdup(name), laddr);
@@ -115,7 +118,7 @@ parse_rle_list(cfg_t *cfg, htable_t *ht)
             if (lisp_addr_ip_from_char(cfg_getstr(rlenode, "address"),
                     rnode->addr) != GOOD) {
                 rle_node_del(rnode);
-                LMLOG(DBG_1, "parse_rle_list: Couldn't parse RLE node %s",
+                LMLOG(LDBG_1, "parse_rle_list: Couldn't parse RLE node %s",
                         cfg_getstr(rlenode, "address"));
             }
             rnode->level = cfg_getint(rlenode, "level");
@@ -123,7 +126,7 @@ parse_rle_list(cfg_t *cfg, htable_t *ht)
             glist_add_tail(rnode, rle->nodes);
         }
         lisp_addr_lcaf_set_addr(laddr, (void *)rle);
-        LMLOG(DBG_1, "Configuration file: parsed replication-list: %s",
+        LMLOG(LDBG_1, "Configuration file: parsed replication-list: %s",
                 lisp_addr_to_char(laddr));
 
         htable_insert(ht, strdup(name), laddr);
@@ -155,7 +158,7 @@ parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
         mc->iid = cfg_getint(mcnode, "iid");
 
         lisp_addr_lcaf_set_addr(laddr, mc);
-        LMLOG(DBG_1, "Configuration file: parsed multicast-info: %s",
+        LMLOG(LDBG_1, "Configuration file: parsed multicast-info: %s",
                 lisp_addr_to_char(laddr));
 
         htable_insert(ht, strdup(name), laddr);
@@ -189,35 +192,43 @@ int parse_mapping_cfg_params(
         conf_mapping_t *conf_mapping)
 {
 
-    int                 ctr             = 0;
-    cfg_t *             rl              = NULL;
-    conf_loc_t *         conf_loc         = NULL;
-    conf_loc_iface_t *   conf_loc_iface   = NULL;
+    int                  ctr             = 0;
+    cfg_t *              rl              = NULL;
+    conf_loc_t *         conf_loc        = NULL;
+    conf_loc_iface_t *   conf_loc_iface  = NULL;
+    int                  afi             = AF_UNSPEC;
 
     strcpy(conf_mapping->eid_prefix,cfg_getstr(map, "eid-prefix"));
 
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
-        conf_loc = conf_loc_new();
-
         rl = cfg_getnsec(map, "rloc-address", ctr);
-        conf_loc->address = strdup(cfg_getstr(rl, "address"));
-        conf_loc->priority = cfg_getint(rl, "priority");
-        conf_loc->weight = cfg_getint(rl, "weight");
-
+        conf_loc = conf_loc_new_init(
+                strdup(cfg_getstr(rl, "address")),
+                cfg_getint(rl, "priority"),
+                cfg_getint(rl, "weight"),
+                255,0);
         glist_add_tail(conf_loc,conf_mapping->conf_loc_list);
     }
 
     if (type == LOCAL_LOCATOR){
 
         for (ctr = 0; ctr < cfg_size(map, "rloc-iface"); ctr++){
-            conf_loc_iface = conf_loc_iface_new();
-
             rl = cfg_getnsec(map, "rloc-iface", ctr);
-            conf_loc_iface->interface = strdup(cfg_getstr(rl, "interface"));
-            conf_loc_iface->afi = cfg_getint(rl, "afi");
-            conf_loc_iface->priority = cfg_getint(rl, "priority");
-            conf_loc_iface->weight = cfg_getint(rl, "weight");
-
+            afi = cfg_getint(rl, "afi");
+            if (afi == 4){
+                afi = AF_INET;
+            }else if (afi == 6){
+                afi = AF_INET6;
+            }else{
+                LMLOG(LERR,"Configuration file: The conf_loc_iface->afi of the locator should be 4 (IPv4) or 6 (IPv6)");
+                return (BAD);
+            }
+            conf_loc_iface = conf_loc_iface_new_init(
+                    strdup(cfg_getstr(rl, "interface")),
+                    afi,
+                    cfg_getint(rl, "priority"),
+                    cfg_getint(rl, "weight"),
+                    255,0);
             glist_add_tail(conf_loc_iface,conf_mapping->conf_loc_iface_list);
         }
     }
@@ -297,7 +308,7 @@ configure_rtr(cfg_t *cfg)
         validate_rloc_probing_parameters(&xtr->probe_interval,
                 &xtr->probe_retries, &xtr->probe_retries_interval);
     } else {
-        LMLOG(DBG_1, "Configuration file: RLOC probing not defined. "
+        LMLOG(LDBG_1, "Configuration file: RLOC probing not defined. "
                 "Setting default values: RLOC Probing Interval: %d sec.",
         RLOC_PROBING_INTERVAL);
         xtr->probe_interval = RLOC_PROBING_INTERVAL;
@@ -312,7 +323,7 @@ configure_rtr(cfg_t *cfg)
     for(i = 0; i < n; i++) {
         if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
             if (add_server(map_resolver, xtr->map_resolvers) == GOOD){
-                LMLOG(DBG_1, "Added %s to map-resolver list", map_resolver);
+                LMLOG(LDBG_1, "Added %s to map-resolver list", map_resolver);
             }else{
                 LMLOG(LCRIT,"Can't add %s Map Resolver.", map_resolver);
             }
@@ -332,7 +343,7 @@ configure_rtr(cfg_t *cfg)
                     cfg_getint(ri, "afi"),
                     cfg_getint(ri, "priority"),
                     cfg_getint(ri, "weight")) == GOOD) {
-                LMLOG(DBG_1, "Configured interface %s for RTR",
+                LMLOG(LDBG_1, "Configured interface %s for RTR",
                         cfg_getstr(ri, "iface"));
             } else{
                 LMLOG(LERR, "Can't configure iface %s for RTR",
@@ -360,7 +371,7 @@ configure_rtr(cfg_t *cfg)
         }
         if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
             if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                LMLOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                         lisp_addr_to_char(mapping_eid(mapping)));
             }else{
                 LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -415,10 +426,10 @@ configure_rtr(cfg_t *cfg)
     n = cfg_size(cfg, "map-server");
     for (i = 0; i < n; i++) {
         cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-        if (add_map_server(xtr, cfg_getstr(ms, "address"),
+        if (add_map_server(xtr->map_servers, cfg_getstr(ms, "address"),
                 cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
                 (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
-            LMLOG(DBG_1, "Added %s to map-server list",
+            LMLOG(LDBG_1, "Added %s to map-server list",
                     cfg_getstr(ms, "address"));
         } else {
             LMLOG(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
@@ -488,7 +499,7 @@ configure_xtr(cfg_t *cfg)
         validate_rloc_probing_parameters(&xtr->probe_interval,
                 &xtr->probe_retries, &xtr->probe_retries_interval);
     } else {
-        LMLOG(DBG_1, "Configuration file: RLOC probing not defined. "
+        LMLOG(LDBG_1, "Configuration file: RLOC probing not defined. "
                 "Setting default values: RLOC Probing Interval: %d sec.",
         RLOC_PROBING_INTERVAL);
     }
@@ -522,7 +533,7 @@ configure_xtr(cfg_t *cfg)
     for(i = 0; i < n; i++) {
         if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
             if (add_server(map_resolver, xtr->map_resolvers) == GOOD){
-                LMLOG(DBG_1, "Added %s to map-resolver list", map_resolver);
+                LMLOG(LDBG_1, "Added %s to map-resolver list", map_resolver);
             }else{
                 LMLOG(LCRIT,"Can't add %s Map Resolver.",map_resolver);
             }
@@ -533,10 +544,10 @@ configure_xtr(cfg_t *cfg)
     n = cfg_size(cfg, "map-server");
     for (i = 0; i < n; i++) {
         cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-        if (add_map_server(xtr, cfg_getstr(ms, "address"),
+        if (add_map_server(xtr->map_servers, cfg_getstr(ms, "address"),
                 cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
                 (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
-            LMLOG(DBG_1, "Added %s to map-server list",
+            LMLOG(LDBG_1, "Added %s to map-server list",
                     cfg_getstr(ms, "address"));
         } else {
             LMLOG(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
@@ -547,11 +558,11 @@ configure_xtr(cfg_t *cfg)
     n = cfg_size(cfg, "proxy-etr");
     for(i = 0; i < n; i++) {
         cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
-        if (add_proxy_etr_entry(xtr,
+        if (add_proxy_etr_entry(xtr->petrs,
                 cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
                 cfg_getint(petr, "weight")) == GOOD) {
-            LMLOG(DBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
+            LMLOG(LDBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
         } else{
             LMLOG(LERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
         }
@@ -560,7 +571,7 @@ configure_xtr(cfg_t *cfg)
     /* Calculate forwarding info for petrs */
     fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
     if (fwd_map_inf == NULL){
-        LMLOG(DBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
+        LMLOG(LDBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
         mcache_entry_del(xtr->petrs);
         return(BAD);
     }
@@ -572,7 +583,7 @@ configure_xtr(cfg_t *cfg)
     for(i = 0; i < n; i++) {
         if ((proxy_itr = cfg_getnstr(cfg, "proxy-itrs", i)) != NULL) {
             if (add_server(proxy_itr, xtr->pitrs)==GOOD){
-                LMLOG(DBG_1, "Added %s to proxy-itr list", proxy_itr);
+                LMLOG(LDBG_1, "Added %s to proxy-itr list", proxy_itr);
             }else {
                 LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", proxy_itr);
             }
@@ -619,7 +630,7 @@ configure_xtr(cfg_t *cfg)
         }
         if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
             if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                LMLOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                         lisp_addr_to_char(mapping_eid(mapping)));
             }else{
                 LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -680,7 +691,6 @@ configure_mn(cfg_t *cfg)
     ret = cfg_getint(cfg, "map-request-retries");
     xtr->map_request_retries = (ret != 0) ? ret : DEFAULT_MAP_REQUEST_RETRIES;
 
-
     /* RLOC PROBING CONFIG */
     cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
     if (dm != NULL) {
@@ -692,11 +702,10 @@ configure_mn(cfg_t *cfg)
         validate_rloc_probing_parameters(&xtr->probe_interval,
                 &xtr->probe_retries, &xtr->probe_retries_interval);
     } else {
-        LMLOG(DBG_1, "Configuration file: RLOC probing not defined. "
+        LMLOG(LDBG_1, "Configuration file: RLOC probing not defined. "
                 "Setting default values: RLOC Probing Interval: %d sec.",
         RLOC_PROBING_INTERVAL);
     }
-
 
     /* NAT Traversal options */
     cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
@@ -720,13 +729,12 @@ configure_mn(cfg_t *cfg)
         xtr->nat_aware = FALSE;
     }
 
-
     /* MAP-RESOLVER CONFIG  */
     n = cfg_size(cfg, "map-resolver");
     for(i = 0; i < n; i++) {
         if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
             if (add_server(map_resolver, xtr->map_resolvers) == GOOD){
-                LMLOG(DBG_1, "Added %s to map-resolver list", map_resolver);
+                LMLOG(LDBG_1, "Added %s to map-resolver list", map_resolver);
             }else{
                 LMLOG(LCRIT,"Can't add %s Map Resolver.",map_resolver);
             }
@@ -737,10 +745,10 @@ configure_mn(cfg_t *cfg)
     n = cfg_size(cfg, "map-server");
     for (i = 0; i < n; i++) {
         cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-        if (add_map_server(xtr, cfg_getstr(ms, "address"),
+        if (add_map_server(xtr->map_servers, cfg_getstr(ms, "address"),
                 cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
                 (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
-            LMLOG(DBG_1, "Added %s to map-server list",
+            LMLOG(LDBG_1, "Added %s to map-server list",
                     cfg_getstr(ms, "address"));
         } else {
             LMLOG(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
@@ -751,11 +759,11 @@ configure_mn(cfg_t *cfg)
     n = cfg_size(cfg, "proxy-etr");
     for(i = 0; i < n; i++) {
         cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
-        if (add_proxy_etr_entry(xtr,
+        if (add_proxy_etr_entry(xtr->petrs,
                 cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
                 cfg_getint(petr, "weight")) == GOOD) {
-            LMLOG(DBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
+            LMLOG(LDBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
         } else{
             LMLOG(LERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
         }
@@ -764,7 +772,7 @@ configure_mn(cfg_t *cfg)
     /* Calculate forwarding info for petrs */
     fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
     if (fwd_map_inf == NULL){
-        LMLOG(DBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
+        LMLOG(LDBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
         mcache_entry_del(xtr->petrs);
         return(BAD);
     }
@@ -776,7 +784,7 @@ configure_mn(cfg_t *cfg)
     for(i = 0; i < n; i++) {
         if ((proxy_itr = cfg_getnstr(cfg, "proxy-itrs", i)) != NULL) {
             if (add_server(proxy_itr, xtr->pitrs)==GOOD){
-                LMLOG(DBG_1, "Added %s to proxy-itr list", proxy_itr);
+                LMLOG(LDBG_1, "Added %s to proxy-itr list", proxy_itr);
             }else {
                 LMLOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", proxy_itr);
             }
@@ -820,7 +828,7 @@ configure_mn(cfg_t *cfg)
         }
         if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
             if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                LMLOG(DBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                LMLOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                         lisp_addr_to_char(mapping_eid(mapping)));
             }else{
                 LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -886,13 +894,13 @@ configure_ms(cfg_t *cfg)
                 lcaf_ht);
         if (site != NULL) {
             if (mdb_lookup_entry(ms->lisp_sites_db, site->eid_prefix) != NULL){
-                LMLOG(DBG_1, "Configuration file: Duplicated lisp-site: %s . Discarding...",
+                LMLOG(LDBG_1, "Configuration file: Duplicated lisp-site: %s . Discarding...",
                         lisp_addr_to_char(site->eid_prefix));
                 lisp_site_prefix_del(site);
                 continue;
             }
 
-            LMLOG(DBG_1, "Adding lisp site prefix %s to the lisp-sites "
+            LMLOG(LDBG_1, "Adding lisp site prefix %s to the lisp-sites "
                     "database", lisp_addr_to_char(site->eid_prefix));
             ms_add_lisp_site_prefix(ms, site);
         }else{
@@ -915,7 +923,7 @@ configure_ms(cfg_t *cfg)
         /* If the mapping doesn't exist, add it the the database */
         if (mdb_lookup_entry_exact(ms->reg_sites_db, mapping_eid(mapping)) == NULL){
             if (ms_add_registered_site_prefix(ms, mapping) == GOOD){
-                LMLOG(DBG_1, "Added static registered site for %s to the registered sites list!",
+                LMLOG(LDBG_1, "Added static registered site for %s to the registered sites list!",
                         lisp_addr_to_char(mapping_eid(mapping)));
             }else{
                 LMLOG(LERR, "Failed to add static registered site for %s to the registered sites list!",
@@ -1080,6 +1088,11 @@ handle_config_file(char *lispdconf_conf_file)
             CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
+#ifdef ANDROID
+            CFG_BOOL("override-dns",            cfg_false, CFGF_NONE),
+            CFG_STR("override-dns-primary",     0, CFGF_NONE),
+            CFG_STR("override-dns-secondary",   0, CFGF_NONE),
+#endif
             CFG_STR("operating-mode",       0, CFGF_NONE),
             CFG_STR("control-iface",        0, CFGF_NONE),
             CFG_STR("rtr-data-iface",        0, CFGF_NONE),
@@ -1089,6 +1102,7 @@ handle_config_file(char *lispdconf_conf_file)
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
             CFG_END()
     };
+
 
     if (lispdconf_conf_file == NULL){
         lispdconf_conf_file = "/etc/lispd.conf";
@@ -1100,6 +1114,7 @@ handle_config_file(char *lispdconf_conf_file)
 
     cfg = cfg_init(opts, CFGF_NOCASE);
     ret = cfg_parse(cfg, lispdconf_conf_file);
+
 
     if (ret == CFG_FILE_ERROR) {
         LMLOG(LCRIT, "Couldn't find config file %s, exiting...", config_file);

@@ -129,8 +129,6 @@ map-server {
 #}
 
 # IPv4 / IPv6 EID of the node.
-# One database-mapping structure is defined for each interface with RLOCs
-# associated to this EID.
 # Two kind of rlocs can be defined:
 #   -> rloc-address: Specifies directly the rloc of the interface
 #   -> rloc-iface: Specifies the interface associated with the RLOC

@@ -36,7 +36,7 @@ void remdb_add_member(lisp_addr_t *peer, lisp_addr_t *rloc_pair, remdb_t *jib) {
 
     remdb_member_t *member;
 
-    LMLOG(LISP_LOG_DEBUG_2, "Adding peer %s requesting replication to %s to the re joining information base",
+    LMLOG(LDBG_2, "Adding peer %s requesting replication to %s to the re joining information base",
             lisp_addr_to_char(peer), lisp_addr_to_char(rloc_pair));
 
     assert(jib);

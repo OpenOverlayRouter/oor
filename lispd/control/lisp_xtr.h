@@ -111,6 +111,16 @@ typedef struct map_server_elt_t {
     uint8_t         proxy_reply;
 } map_server_elt;
 
+map_server_elt * map_server_elt_new_init(
+        lisp_addr_t *   address,
+        uint8_t         key_type,
+        char *          key,
+        uint8_t         proxy_reply);
+void map_server_elt_del (map_server_elt *map_server);
+void map_servers_dump(lisp_xtr_t *, int log_level);
+
+int program_map_register(lisp_xtr_t *xtr, int time);
+
 int tr_mcache_add_mapping(lisp_xtr_t *, mapping_t *);
 int tr_mcache_add_static_mapping(lisp_xtr_t *, mapping_t *);
 int tr_mcache_remove_mapping(lisp_xtr_t *, lisp_addr_t *);

@@ -33,6 +33,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <endian.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -63,6 +64,7 @@
 #else
 # error "Can't determine endianness"
 #endif
+
 
 
 /* Calculate Offset: Try not to make dumb mistakes with  pointer arithmetic */

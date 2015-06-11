@@ -41,13 +41,13 @@ local_map_db_new()
     local_map_db_t *db;
     db = xzalloc(sizeof(local_map_db_t));
     if (!db) {
-        LMLOG(LCRIT, "Could allocate map cache database ");
+        LMLOG(LCRIT, "Could allocate local map database ");
         return(NULL);
     }
 
     db->db = mdb_new();
     if (!db->db) {
-        LMLOG(LCRIT, "Could allocate map cache database ");
+        LMLOG(LCRIT, "Could allocate local map database ");
         return(NULL);
     }
 
@@ -60,12 +60,11 @@ void local_map_db_del(local_map_db_t *lmdb)
     free(lmdb);
 }
 
-
 int
 local_map_db_add_entry(local_map_db_t *lmdb, map_local_entry_t *map_loc_e)
 {
     if (mdb_add_entry(lmdb->db, map_local_entry_eid(map_loc_e), map_loc_e) != GOOD) {
-        LMLOG(DBG_3, "Couldn't add mapping for EID %s to local mappings database",
+        LMLOG(LDBG_3, "Couldn't add mapping for EID %s to local mappings database",
                 lisp_addr_to_char(map_local_entry_eid(map_loc_e)));
         return(BAD);
     }
@@ -79,7 +78,7 @@ local_map_db_lookup_eid(local_map_db_t *lmdb, lisp_addr_t *eid)
 
 	map_loc_e = (map_local_entry_t *)mdb_lookup_entry(lmdb->db, eid);
     if (!map_loc_e) {
-        LMLOG(DBG_3, "Couldn't find mapping for EID %s in local mappings database",
+        LMLOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database",
                 lisp_addr_to_char(eid));
         return (NULL);
     }
@@ -98,7 +97,7 @@ local_map_db_lookup_eid_exact(local_map_db_t *lmdb, lisp_addr_t *eid)
 
     map_loc_e = (map_local_entry_t *)mdb_lookup_entry_exact(lmdb->db, eid);
     if (!map_loc_e) {
-        LMLOG(DBG_3, "Couldn't find mapping for EID %s in local mappings database",
+        LMLOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database",
                 lisp_addr_to_char(eid));
         return (NULL);
     }

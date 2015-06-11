@@ -76,7 +76,7 @@ lispd_pkt_info_nat_t *build_info_request_pkt(
                                           &header_len);
 
     if (irp == NULL) {
-        LMLOG(LISP_LOG_DEBUG_2, "Error building info-request header");
+        LMLOG(LDBG_2, "Error building info-request header");
         return (NULL);
     }
 
@@ -92,7 +92,7 @@ lispd_pkt_info_nat_t *build_info_request_pkt(
     irp = realloc(irp, irp_len);
 
     if (irp == NULL) {
-        LMLOG(LISP_LOG_DEBUG_2, "realloc (post-header info-nat packet): %s",
+        LMLOG(LDBG_2, "realloc (post-header info-nat packet): %s",
                strerror(errno));
         return (NULL);
     }
@@ -161,7 +161,7 @@ int build_and_send_info_request(
             nonce);
 
     if (info_request_pkt == NULL) {
-        LMLOG(LISP_LOG_DEBUG_2, "build_and_send_info_request: Couldn't build info request packet");
+        LMLOG(LDBG_2, "build_and_send_info_request: Couldn't build info request packet");
         return (BAD);
     }
 
@@ -171,7 +171,7 @@ int build_and_send_info_request(
                                       info_request_pkt,
                                       info_request_pkt_len,
                                       info_request_pkt->auth_data)) {
-        LMLOG(LISP_LOG_DEBUG_2, "build_and_send_info_request: HMAC failed for info-request");
+        LMLOG(LDBG_2, "build_and_send_info_request: HMAC failed for info-request");
         free(info_request_pkt);
         return (BAD);
     }
@@ -182,7 +182,7 @@ int build_and_send_info_request(
     out_socket  = iface_socket (src_iface, map_server->address->afi);
 
     if (src_addr == NULL){
-        LMLOG(LISP_LOG_DEBUG_2, "build_and_send_info_request: No output interface for afi %d",map_server->address->afi);
+        LMLOG(LDBG_2, "build_and_send_info_request: No output interface for afi %d",map_server->address->afi);
         free(info_request_pkt);
         return (BAD);
     }
@@ -206,14 +206,14 @@ int build_and_send_info_request(
     }
 
     if (err == GOOD){
-        LMLOG(LISP_LOG_DEBUG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s and Nonce %s",
+        LMLOG(LDBG_1,"Sent Info Request message to Map Server at %s from locator %s with EID %s and Nonce %s",
                         lisp_addr_to_char(map_server->address),
                         lisp_addr_to_char(src_addr),
                         lisp_addr_to_char(eid_prefix),
                         nonce_to_char(*nonce));
         result = GOOD;
     }else{
-        LMLOG(LISP_LOG_DEBUG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s from locator %s with EID %s and Nonce %s",
+        LMLOG(LDBG_1,"build_and_send_info_request: Couldn't sent Info Request message to Map Server at %s from locator %s with EID %s and Nonce %s",
                         lisp_addr_to_char(map_server->address),
                         lisp_addr_to_char(src_addr),
                         lisp_addr_to_char(eid_prefix),
@@ -256,7 +256,7 @@ int info_request(
         if (nat_ir_nonce == NULL){
             nat_ir_nonce = nonces_list_new();
             if (nat_ir_nonce == NULL){
-                LMLOG(LISP_LOG_WARNING,"info_request: Unable to allocate memory for nonces.");
+                LMLOG(LWRN,"info_request: Unable to allocate memory for nonces.");
                 return (BAD);
             }
         }
@@ -269,14 +269,14 @@ int info_request(
                     &(mapping->eid_prefix),
                     default_ctrl_iface_v4,
                     &(nat_ir_nonce->nonce[nat_ir_nonce->retransmits])))!=GOOD){
-                LMLOG(LISP_LOG_DEBUG_1,"info_request: Couldn't send info request message.");
+                LMLOG(LDBG_1,"info_request: Couldn't send info request message.");
             }
             nat_ir_nonce->retransmits++;
             next_timer_time = LISPD_INITIAL_EMR_TIMEOUT;
         } else{
             free (nat_ir_nonce);
             nat_ir_nonce = NULL;
-            LMLOG(LISP_LOG_ERR,"info_request: Communication error between LISPmob and RTR. Retry after %d seconds",MAP_REGISTER_INTERVAL);
+            LMLOG(LERR,"info_request: Communication error between LISPmob and RTR. Retry after %d seconds",MAP_REGISTER_INTERVAL);
             next_timer_time = MAP_REGISTER_INTERVAL;
         }
     }else {
@@ -290,7 +290,7 @@ int info_request(
         info_reply_ttl_timer = lmtimer_create(INFO_REPLY_TTL_TIMER);
     }
     lmtimer_start(info_reply_ttl_timer, next_timer_time, info_request, NULL, mapping);
-    LMLOG(LISP_LOG_DEBUG_1, "Reprogrammed info request in %d seconds",next_timer_time);
+    LMLOG(LDBG_1, "Reprogrammed info request in %d seconds",next_timer_time);
     return(GOOD);
 }
 

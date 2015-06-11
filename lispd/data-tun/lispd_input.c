@@ -93,12 +93,12 @@ read_and_decap_pkt(int sock, lbuf_t *b)
      * NOTE: we always assume an IP payload*/
     ip_hdr_set_ttl_and_tos(lbuf_data(b), ttl, tos);
 
-    LMLOG(DBG_3, "%s", ip_src_and_dst_to_char(lbuf_l3(b),
+    LMLOG(LDBG_3, "%s", ip_src_and_dst_to_char(lbuf_l3(b),
             "INPUT (4341): Inner IP: %s -> %s"));
 
     /* Poor discriminator for data map notify... */
     if (lisp_hdr->instance_id == 1){
-        LMLOG(DBG_2,"Data-Map-Notify received\n ");
+        LMLOG(LDBG_2,"Data-Map-Notify received\n ");
         /* XXX Is there something to do here? */
     }
 
@@ -115,7 +115,7 @@ process_input_packet(sock_t *sl)
     }
 
     if ((write(tun_receive_fd, lbuf_l3(&pkt_buf), lbuf_size(&pkt_buf))) < 0) {
-        LMLOG(DBG_2, "lisp_input: write error: %s\n ", strerror(errno));
+        LMLOG(LDBG_2, "lisp_input: write error: %s\n ", strerror(errno));
     }
 
     return (GOOD);
@@ -132,7 +132,7 @@ int rtr_process_input_packet(struct sock *sl)
         return (BAD);
     }
 
-    LMLOG(DBG_3, "INPUT (4341): Forwarding to OUPUT for re-encapsulation");
+    LMLOG(LDBG_3, "INPUT (4341): Forwarding to OUPUT for re-encapsulation");
 
     lbuf_point_to_l3(&pkt_buf);
     lbuf_reset_ip(&pkt_buf);

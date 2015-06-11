@@ -25,6 +25,7 @@
  *
  */
 
+#include "../lispd/defs.h"
 #include "../lispd/lispd_api.h"
 
 int lmapi_nc_node_accessed(lmapi_connection_t *conn, int dev, int trgt, XMLDIFF_OP op, xmlNodePtr node, struct nc_err** error);

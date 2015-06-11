@@ -189,7 +189,7 @@ convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
         partial_byte[0] = convert_hex_char_to_byte(hex_digit[0]);
         partial_byte[1] = convert_hex_char_to_byte(hex_digit[1]);
         if (partial_byte[0] == -1 || partial_byte[1] == -1) {
-            LMLOG(DBG_2, "convert_hex_string_to_bytes: Invalid hexadecimal"
+            LMLOG(LDBG_2, "convert_hex_string_to_bytes: Invalid hexadecimal"
                     " number");
             return (BAD);
         }

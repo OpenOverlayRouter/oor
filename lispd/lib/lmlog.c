@@ -34,8 +34,10 @@
 #include <syslog.h>
 #include <stdarg.h>
 #include <stdio.h>
-
 #include "lmlog.h"
+#ifdef ANDROID
+#include <android/log.h>
+#endif
 
 inline void lispd_log(int log_level, char *log_name, const char *format,
         va_list args);
@@ -47,45 +49,44 @@ void llog(int lisp_log_level, const char *format, ...)
     char *log_name; /* To store the log level in string format for printf output */
     int log_level;
 
-
     va_start(args, format);
 
     switch (lisp_log_level){
-    case LISP_LOG_CRIT:
+    case LCRIT:
         log_name = "CRIT";
         log_level = LOG_CRIT;
         lispd_log(log_level, log_name, format, args);
         break;
-    case LISP_LOG_ERR:
+    case LERR:
         log_name = "ERR";
         log_level = LOG_ERR;
         lispd_log(log_level, log_name, format, args);
         break;
-    case LISP_LOG_WARNING:
+    case LWRN:
         log_name = "WARNING";
         log_level = LOG_WARNING;
         lispd_log(log_level, log_name, format, args);
         break;
-    case LISP_LOG_INFO:
+    case LINF:
         log_name = "INFO";
         log_level = LOG_INFO;
         lispd_log(log_level, log_name, format, args);
         break;
-    case LISP_LOG_DEBUG_1:
+    case LDBG_1:
         if (debug_level > 0){
             log_name = "DEBUG";
             log_level = LOG_DEBUG;
             lispd_log(log_level, log_name, format, args);
         }
         break;
-    case LISP_LOG_DEBUG_2:
+    case LDBG_2:
         if (debug_level > 1){
             log_name = "DEBUG-2";
             log_level = LOG_DEBUG;
             lispd_log(log_level, log_name, format, args);
         }
         break;
-    case LISP_LOG_DEBUG_3:
+    case LDBG_3:
         if (debug_level > 2){
             log_name = "DEBUG-3";
             log_level = LOG_DEBUG;
@@ -99,6 +100,10 @@ void llog(int lisp_log_level, const char *format, ...)
         break;
     }
 
+#ifdef ANDROID
+    //if (lisp_log_level != LISP_LOG_DEBUG_3)
+        __android_log_vprint(ANDROID_LOG_INFO, "LISPmob-C ==>", format,args);
+#endif
     va_end (args);
 }
 

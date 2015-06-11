@@ -29,7 +29,6 @@
 #include "lib/lmlog.h"
 #include "liblisp/liblisp.h"
 #include "lib/util.h"
-
 #include <zmq.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -50,11 +49,11 @@ int lmapi_init_client(lmapi_connection_t *conn) {
     error = zmq_connect(conn->socket, IPC_FILE);
 
     if (error != 0){
-        LMLOG(DBG_2,"LMAPI: Error while ZMQ binding on client: %s\n",zmq_strerror (error));
+        LMLOG(LDBG_2,"LMAPI: Error while ZMQ binding on client: %s\n",zmq_strerror (error));
         goto err;
     }
 
-    LMLOG(DBG_2,"LMAPI: API client initiated using ZMQ\n");
+    LMLOG(LDBG_2,"LMAPI: API client initiated using ZMQ\n");
 
     return (GOOD);
 
@@ -67,12 +66,12 @@ err:
 
 void lmapi_end(lmapi_connection_t *conn) {
 
-    LMLOG(DBG_2,"LMAPI: Closing ZMQ-based API\n");
+    LMLOG(LDBG_2,"LMAPI: Closing ZMQ-based API\n");
 
     zmq_close (conn->socket);
     zmq_ctx_destroy (conn->context);
 
-    LMLOG(DBG_2,"LMAPI: Closed ZMQ-based API\n");
+    LMLOG(LDBG_2,"LMAPI: Closed ZMQ-based API\n");
 
 }
 
@@ -149,10 +148,10 @@ int lmapi_recv(lmapi_connection_t *conn, void *buffer, int flags) {
     	return (LMAPI_NOTHINGTOREAD);
     }
 
-    LMLOG(DBG_3,"LMAPI: Data available in API socket\n");
+    LMLOG(LDBG_3,"LMAPI: Data available in API socket\n");
 
     nbytes = zmq_recv(conn->socket, buffer, MAX_API_PKT_LEN, zmq_flags);
-    LMLOG(DBG_3,"LMAPI: Bytes read from API socket: %d. ",nbytes);
+    LMLOG(LDBG_3,"LMAPI: Bytes read from API socket: %d. ",nbytes);
 
 //    if ((errno == EAGAIN) && (zmq_flags == ZMQ_DONTWAIT)){
 //    	return (LMAPI_NOTHINGTOREAD); //Nothing to read on the socket
@@ -173,11 +172,11 @@ int lmapi_send(lmapi_connection_t *conn, void *msg, int len, int flags) {
 
     int nbytes = 0;
 
-    LMLOG(DBG_3,"LMAPI: Ready to send %d bytes through API socket\n",len);
+    LMLOG(LDBG_3,"LMAPI: Ready to send %d bytes through API socket\n",len);
 
     nbytes = zmq_send(conn->socket,msg,len,0);
 
-    LMLOG(DBG_3,"LMAPI: Bytes transmitted over API socket: %d. ",nbytes);
+    LMLOG(LDBG_3,"LMAPI: Bytes transmitted over API socket: %d. ",nbytes);
 
     if (nbytes == -1){
         	LMLOG(LERR,"LMAPI: Error while ZMQ sending: %s\n",zmq_strerror (errno));

@@ -192,7 +192,7 @@ ip_addr_cmp(ip_addr_t *ip1, ip_addr_t *ip2)
 {
     int res = 0;
     if (ip_addr_afi(ip1) != ip_addr_afi(ip2)){
-        LMLOG(DBG_3,"ip_addr_cmp: Addresses with different afi: %d - %d",
+        LMLOG(LDBG_3,"ip_addr_cmp: Addresses with different afi: %d - %d",
                 ip_addr_afi(ip1),ip_addr_afi(ip2));
         return(-1);
     }
@@ -319,7 +319,7 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
     int mask;
 
     if ((token = strtok(address, "/")) == NULL) {
-        LMLOG(DBG_1, "ip_prefix_from_char: Prefix not of the form "
+        LMLOG(LDBG_1, "ip_prefix_from_char: Prefix not of the form "
                 "prefix/length: %s", addr);
         free(address);
         return (BAD);
@@ -331,7 +331,7 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
     }
 
     if ((token = strtok(NULL, "/")) == NULL) {
-        LMLOG(DBG_1, "ip_prefix_from_char: strtok: %s", strerror(errno));
+        LMLOG(LDBG_1, "ip_prefix_from_char: strtok: %s", strerror(errno));
         free(address);
         return (BAD);
     }
@@ -430,7 +430,7 @@ ip_sock_afi_to_hdr_len(int afi)
     case AF_INET6:
         return(sizeof(struct ip6_hdr));
     default:
-        LMLOG(DBG_2, "get_ip_header_len: unknown AFI (%d)", afi);
+        LMLOG(LDBG_2, "get_ip_header_len: unknown AFI (%d)", afi);
         return(ERR_AFI);
     }
 }
@@ -446,7 +446,7 @@ ip_iana_afi_to_size(uint16_t afi)
     case LISP_AFI_IPV6:
         return(sizeof(struct in6_addr));
     default:
-        LMLOG(LISP_LOG_DEBUG_3, "ip_iana_afi_to_size: unknown AFI (%d)", afi);
+        LMLOG(LDBG_3, "ip_iana_afi_to_size: unknown AFI (%d)", afi);
         return(0);
     }
     return(0);
@@ -461,15 +461,14 @@ ip_addr_is_link_local(ip_addr_t *ip)
 int
 ip_addr_is_any(ip_addr_t *ip)
 {
+
     switch (ip_addr_afi(ip)) {
     case AF_INET: {
         struct in_addr *ip4 = (struct in_addr *) ip_addr_get_addr(ip);
         return(ip4->s_addr == 0);
-        break;
     }
     case AF_INET6:
-        return(IN6_IS_ADDR_UNSPECIFIED(ip_addr_get_addr(ip)));
-        break;
+        return(IN6_IS_ADDR_UNSPECIFIED((struct in6_addr *)ip_addr_get_addr(ip)));
     }
     return(0);
 }
@@ -550,7 +549,8 @@ ip_is_link_local(void *addr, int afi)
     int         is_link_local = FALSE;
     uint32_t    ipv4_network  = 0;
     uint32_t    mask          = 0;
-    struct in_addr *ipv4;
+    struct in_addr  *ipv4;
+    struct in6_addr *ipv6;
 
     switch (afi) {
     case AF_INET:
@@ -565,7 +565,8 @@ ip_is_link_local(void *addr, int afi)
         /* if (((addr.address.ipv6.__in6_u.__u6_addr8[0] & 0xff) == 0xfe) &&
                 ((addr.address.ipv6.__in6_u.__u6_addr8[1] & 0xc0) == 0x80)){
         } */
-        if (IN6_IS_ADDR_LINKLOCAL(addr)) {
+        ipv6 = addr;
+        if (IN6_IS_ADDR_LINKLOCAL(ipv6)) {
             is_link_local = TRUE;
         }
         break;
@@ -583,7 +584,7 @@ ip_hdr_ver_to_len(int ih_ver)
         return(sizeof(struct ip6_hdr));
         break;
     default:
-        LMLOG(DBG_2, "ip_hdr_ver_to_len: Unknown IP version %d!",
+        LMLOG(LDBG_2, "ip_hdr_ver_to_len: Unknown IP version %d!",
                 ih_ver);
         return(BAD);
     }
