@@ -677,6 +677,16 @@ send_map_request_to_mr(
     return(send_map_request(&xtr->super, b, srloc, drloc));
 }
 
+void
+send_map_request_for_not_active_mce(lisp_xtr_t *    xtr)
+{
+    mcache_entry_t *    mce             = NULL;
+
+    mcache_foreach_not_active_entry(xtr->map_cache, mce) {
+        send_map_request_retry(xtr, mce);
+    } mcache_foreach_end;
+}
+
 int
 handle_map_cache_miss(lisp_xtr_t *xtr, lisp_addr_t *requested_eid,
         lisp_addr_t *src_eid)
@@ -1023,6 +1033,11 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
     void *mr_hdr = NULL;
     int afi;
 
+    if (glist_size(xtr->map_resolvers) == 0){
+        LMLOG(LDBG_1, "Couldn't send map request: No map resolver configured");
+        return (BAD);
+    }
+
     nonces = mcache_entry_nonces(mce);
     m = mcache_entry_mapping(mce);
     deid = mapping_eid(m);
@@ -1184,6 +1199,9 @@ int
 program_map_register(lisp_xtr_t *xtr, int time)
 {
     lmtimer_t *t = xtr->map_register_timer;
+    if (glist_size(xtr->map_resolvers) == 0){
+        return (BAD);
+    }
     if (!t) {
         xtr->map_register_timer = lmtimer_create(MAP_REGISTER_TIMER);
         t = xtr->map_register_timer;
@@ -1329,7 +1347,7 @@ map_register_process(lisp_xtr_t *xtr)
 
     if (glist_size(xtr->map_servers) == 0) {
         LMLOG(LCRIT, "No Map Servers configured!");
-        exit_cleanup();
+        return (BAD);
     }
 
     if (xtr->nat_aware == TRUE) {
@@ -2015,13 +2033,13 @@ xtr_run(lisp_xtr_t *xtr)
     }
 
     if (glist_size(xtr->map_servers) == 0) {
-        LMLOG(LCRIT, "No Map Server configured. Exiting...");
-        exit_cleanup();
+        LMLOG(LCRIT, "**** NO MAP SERVER CONFIGURED. Your EID will not be registered in the Mapping System.");
+        sleep(3);
     }
 
     if (glist_size(xtr->map_resolvers) == 0) {
-        LMLOG(LCRIT, "No Map Resolver configured. Exiting...");
-        exit_cleanup();
+        LMLOG(LCRIT, "**** NO MAP RESOLVER CONFIGURES. You can not request mappings to the mapping system");
+        sleep(3);
     }
 
     if (xtr->petrs == NULL) {
@@ -2123,8 +2141,8 @@ rtr_run(lisp_xtr_t *xtr)
 
 
     if (glist_size(xtr->map_resolvers) == 0) {
-        LMLOG(LCRIT, "No Map Resolver configured. Exiting...");
-        exit_cleanup();
+        LMLOG(LCRIT, "**** NO MAP RESOLVER CONFIGURES. You can not request mappings to the mapping system");
+        sleep(3);
     }
 
     LMLOG(LINF, "****** Summary of the configuration ******");
@@ -2304,6 +2322,11 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
         /* lookup local mapping for source EID */
     	map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
+//    	/* This can only happend in a multithreded process when removing an EID */
+//        if (unlikely(map_loc_e == NULL)){
+//            LMLOG(LDBG_1, "The source address %s is not a local EID", lisp_addr_to_char(&tuple->src_addr));
+//            return (NULL);
+//        }
     } else {
         map_loc_e = xtr->all_locs_map;
     }

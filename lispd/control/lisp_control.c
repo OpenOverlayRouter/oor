@@ -33,6 +33,7 @@
 #include "lisp_control.h"
 #include "lisp_ctrl_device.h"
 #include "lispd_info_nat.h"
+#include "../data-tun/lispd_tun.h"
 #include "../lib/lmlog.h"
 #include "../lib/routing_tables_lib.h"
 #include "../lib/util.h"
@@ -215,11 +216,6 @@ ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
     }
 }
 
-/*
- * This function should be called when a new mapping is added during running process.
- * It checks if a new interface has been added and it updates the list of rlocs of ctrl
- * and ask routing info to obtain gateway of new interfaces
- */
 void
 ctrl_update_iface_info(lisp_ctrl_t *ctrl)
 {
@@ -403,12 +399,14 @@ ctrl_register_eid_prefix(
             return (BAD);
         }
         break;
+    case MN_MODE:
+        configure_routing_to_tun_mn(eid_prefix);
+        break;
     case MS_MODE:
     case RTR_MODE:
-    case MN_MODE:
     default:
         LMLOG(LDBG_1, "Current version only supports the registration in control of "
-                "EID prefixes from xTRs");
+                "EID prefixes from xTRs and MNs");
         break;
     }
     return (GOOD);
@@ -441,9 +439,11 @@ ctrl_unregister_eid_prefix(
             return (BAD);
         }
         break;
+    case MN_MODE:
+        remove_routing_to_tun_mn(eid_prefix);
+        break;
     case MS_MODE:
     case RTR_MODE:
-    case MN_MODE:
     default:
         LMLOG(LDBG_1, "Current version only supports the unregistration in control of "
                 "EID prefixes from xTRs");

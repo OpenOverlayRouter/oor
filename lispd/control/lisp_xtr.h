@@ -127,4 +127,6 @@ int tr_mcache_remove_mapping(lisp_xtr_t *, lisp_addr_t *);
 mapping_t *tr_mcache_lookup_mapping(lisp_xtr_t *, lisp_addr_t *);
 mapping_t *tr_mcache_lookup_mapping_exact(lisp_xtr_t *, lisp_addr_t *);
 
+void send_map_request_for_not_active_mce(lisp_xtr_t *xtr);
+
 #endif /* LISP_XTR_H_ */

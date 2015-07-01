@@ -214,13 +214,13 @@ int parse_mapping_cfg_params(
 
         for (ctr = 0; ctr < cfg_size(map, "rloc-iface"); ctr++){
             rl = cfg_getnsec(map, "rloc-iface", ctr);
-            afi = cfg_getint(rl, "afi");
+            afi = cfg_getint(rl, "ip_version");
             if (afi == 4){
                 afi = AF_INET;
             }else if (afi == 6){
                 afi = AF_INET6;
             }else{
-                LMLOG(LERR,"Configuration file: The conf_loc_iface->afi of the locator should be 4 (IPv4) or 6 (IPv6)");
+                LMLOG(LERR,"Configuration file: The conf_loc_iface->ip_version of the locator should be 4 (IPv4) or 6 (IPv6)");
                 return (BAD);
             }
             conf_loc_iface = conf_loc_iface_new_init(
@@ -340,7 +340,7 @@ configure_rtr(cfg_t *cfg)
             cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
             if (add_rtr_iface(xtr,
                     cfg_getstr(ri, "iface"),
-                    cfg_getint(ri, "afi"),
+                    cfg_getint(ri, "ip_version"),
                     cfg_getint(ri, "priority"),
                     cfg_getint(ri, "weight")) == GOOD) {
                 LMLOG(LDBG_1, "Configured interface %s for RTR",
@@ -969,7 +969,7 @@ handle_config_file(char *lispdconf_conf_file)
 
     static cfg_opt_t rloc_iface_opts[] = {
             CFG_STR("interface",     0, CFGF_NONE),
-            CFG_INT("afi",           0, CFGF_NONE),
+            CFG_INT("ip_version",    0, CFGF_NONE),
             CFG_INT("priority",      0, CFGF_NONE),
             CFG_INT("weight",        0, CFGF_NONE),
             CFG_END()
@@ -999,7 +999,7 @@ handle_config_file(char *lispdconf_conf_file)
 
     static cfg_opt_t rtr_iface_opts[] = {
             CFG_STR("iface",                0, CFGF_NONE),
-            CFG_INT("afi",                  0, CFGF_NONE),
+            CFG_INT("ip_version",           0, CFGF_NONE),
             CFG_INT("priority",             255, CFGF_NONE),
             CFG_INT("weight",               0, CFGF_NONE),
             CFG_END()

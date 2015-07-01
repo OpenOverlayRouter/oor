@@ -1227,11 +1227,11 @@ parse_rlocs(
         if (strcmp(section->type, "rloc-iface") == 0){
             uci_rloc_name = uci_lookup_option_string(ctx, section, "name");
             uci_iface_name = uci_lookup_option_string(ctx, section, "interface");
-            if (uci_lookup_option_string(ctx, section, "afi") == NULL){
+            if (uci_lookup_option_string(ctx, section, "ip_version") == NULL){
                 LMLOG(LERR,"Configuration file: No afi assigned to the rloc \"%s\"",uci_rloc_name);
                 return (BAD);
             }
-            uci_afi = strtol(uci_lookup_option_string(ctx, section, "afi"),NULL,10);
+            uci_afi = strtol(uci_lookup_option_string(ctx, section, "ip_version"),NULL,10);
             if (uci_lookup_option_string(ctx, section, "priority") == NULL){
                 LMLOG(LERR,"Configuration file: No priority assigned to the rloc \"%s\"",uci_rloc_name);
                 return (BAD);

@@ -2,4 +2,5 @@ lispsimple=urn:ietf:params:xml:ns:yang:lispsimple
 /lispsimple:itr-cfg/lispsimple:map-resolvers
 /lispsimple:etr-cfg/lispsimple:local-eids
 /lispsimple:etr-cfg/lispsimple:map-servers
+/lispsimple:rtr-cfg/lispsimple:map-resolvers
 

@@ -41,7 +41,7 @@ ms-static-registered-site {
 rtr-ifaces {
     rtr-iface {
         iface           = <iface name>
-        afi             = <4/6>
+        ip_version      = <4/6>
         priority        = <int>
         weight          = <int>
 	}
@@ -111,7 +111,7 @@ map-resolver        = {
 map-server {
         address 	= <ip>
         key-type   	= 1
-        key            	= lispmob
+        key         = lispmob
         proxy-reply	= off
 }
 
@@ -138,8 +138,8 @@ map-server {
 #      be assigned to an UP interface during starting process otherwise
 #      it is discarded
 #   interface: interface containing the RLOCs associated to this mapping 
-#   afi: 4 to use IPv4 address of the interface and 6 to use IPv6 address
-#     of the interface
+#   ip_version: 4 to use IPv4 address of the interface and 6 to use IPv6 
+#     address of the interface
 #   priority [0-255]: Priority for the IPvX RLOC of the interface. Locators
 #     with lower values are more preferable. This is used for both incoming
 #     policy announcements and outcoming traffic policy management.
@@ -155,7 +155,7 @@ database-mapping {
     }
     rloc-iface{
         interface       = <string>
-        afi             = <4/6>
+        ip_version      = <4/6>
         priority        = <int>
         weight          = <int>
     }

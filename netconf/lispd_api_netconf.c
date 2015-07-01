@@ -95,11 +95,6 @@ xmlNodePtr get_inner_xmlNodePtr(xmlNodePtr parent, char *name){
 
 }
 
-
-
-
-/******** TO REMOVE ********/
-
 int lmapi_nc_xtr_mr_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent, struct nc_err** error){
     uint8_t *data = NULL;
     int size = 0;
@@ -315,6 +310,74 @@ err:
 
 }
 
+int lmapi_nc_rtr_mr_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent, struct nc_err** error){
+    uint8_t *data = NULL;
+    int size = 0;
+    char *str_err = NULL;
+    int result = 0;
+    xmlDocPtr doc = NULL;
+    xmlNodePtr root_node = NULL;
+
+    printf("LMAPI: Add new Map Resolvers list to RTR\n");
+
+    doc = xmlNewDoc((xmlChar *)"1.0");
+    root_node = xmlNewNode(NULL, (xmlChar *)"root");
+    xmlDocSetRootElement(doc, root_node);
+    xmlAddChild(root_node,xmlCopyNode(mrs_parent,1));
+
+
+    xmlDocDumpMemoryEnc(doc, (xmlChar **)&data, &size,"UTF-8");
+    xmlFreeDoc(doc);
+
+    if ((size + sizeof(lmapi_msg_hdr_t)) > MAX_API_PKT_LEN){
+        str_err= strdup("Trying to send too many Map Resolvers");
+        goto err;
+    }
+    result = lmapi_apply_config(conn,
+            LMAPI_DEV_RTR,
+            LMAPI_TRGT_MRLIST,
+            LMAPI_OPR_CREATE,
+            data,
+            size);
+    free(data);
+    if (result != LMAPI_RES_OK){
+        str_err= strdup("Config couldn't be applied (new Map Resolvers list)");
+        goto err;
+    }
+    return EXIT_SUCCESS;
+err:
+    if (str_err == NULL){
+        str_err = strdup("Error while trying to add Map Resolver(s) to RTR");
+    }
+    *error = nc_err_new(NC_ERR_OP_FAILED);
+    nc_err_set(*error, NC_ERR_PARAM_MSG,str_err);
+    free(str_err);
+    return EXIT_FAILURE;
+}
+
+
+
+int lmapi_nc_rtr_mr_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error){
+
+    int result;
+    result = lmapi_apply_config(conn,
+            LMAPI_DEV_RTR,
+            LMAPI_TRGT_MRLIST,
+            LMAPI_OPR_DELETE,
+            NULL,
+            0);
+    printf("LMAPI: Remove Map Resolvers list\n");
+
+    if (result != LMAPI_RES_OK){
+        *error = nc_err_new(NC_ERR_OP_FAILED);
+        nc_err_set(*error, NC_ERR_PARAM_MSG, "Map Resolvers couldn't be removed from RTR.");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+
+}
+
 
 int lmapi_nc_node_accessed(lmapi_connection_t *conn, int dev, int trgt, XMLDIFF_OP op, xmlNodePtr node, struct nc_err** error){
 
@@ -323,7 +386,7 @@ int lmapi_nc_node_accessed(lmapi_connection_t *conn, int dev, int trgt, XMLDIFF_
     }
 
     if ((dev == LMAPI_DEV_XTR) && (trgt == LMAPI_TRGT_MRLIST) &&
-            ( (op & XMLDIFF_ADD) || (op & XMLDIFF_MOD) || (op & XMLDIFF_CHAIN) )) {;
+            ( (op & XMLDIFF_ADD) || (op & XMLDIFF_MOD) || (op & XMLDIFF_CHAIN) )) {
         return (lmapi_nc_xtr_mr_add(conn, node, error));
     }
 
@@ -350,6 +413,16 @@ int lmapi_nc_node_accessed(lmapi_connection_t *conn, int dev, int trgt, XMLDIFF_
     if ((dev == LMAPI_DEV_XTR) && (trgt == LMAPI_TRGT_MAPDB) &&
             ( (op & XMLDIFF_REM) )) {
         return (lmapi_nc_xtr_mapdb_rem(conn, node, error));
+    }
+
+    if ((dev == LMAPI_DEV_RTR) && (trgt == LMAPI_TRGT_MRLIST) &&
+            ( (op & XMLDIFF_ADD) || (op & XMLDIFF_MOD) || (op & XMLDIFF_CHAIN) )) {
+        return (lmapi_nc_rtr_mr_add(conn, node, error));
+    }
+
+    if ((dev == LMAPI_DEV_RTR) && (trgt == LMAPI_TRGT_MRLIST) &&
+            ( (op & XMLDIFF_REM) )) {
+        return (lmapi_nc_rtr_mr_rem(conn, node, error));
     }
 
     /* We should not reach here */

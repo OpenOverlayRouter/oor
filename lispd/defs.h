@@ -34,6 +34,14 @@
 
 #include <stdint.h>
 
+#ifdef __GNUC__
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
+#else
+#define likely(x)       (x)
+#define unlikely(x)     (x)
+#endif
+
 typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
 typedef struct lisp_ctrl lisp_ctrl_t;
 typedef struct htable shash_t;

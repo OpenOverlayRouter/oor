@@ -159,7 +159,7 @@ config 'rloc-address'
 config 'rloc-iface'
         option   'name'                 'name'
         option   'interface'            'eth0'
-        option   'afi'                  '<4/6>'
+        option   'ip_version'           '<4/6>'
         option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
         option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
         

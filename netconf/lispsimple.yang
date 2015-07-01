@@ -5,9 +5,6 @@ module lispsimple {
   import ietf-inet-types {
     prefix inet;
   }
-  import ietf-yang-types {
-    prefix yang;
-  }
 
   organization "IETF LISP (Locator/ID Separation Protocol) Working Group";
   contact "lisp@ietf.org";
@@ -352,6 +349,19 @@ module lispsimple {
         }
         leaf record-ttl {
           type uint32;
+        }
+      }
+    }
+  }
+  container rtr-cfg {
+    container map-resolvers {
+      list map-resolver {
+        key "id";
+        leaf id {
+          type eid-id;
+        }
+        leaf-list map-resolver-address {
+          type inet:ip-address;
         }
       }
     }

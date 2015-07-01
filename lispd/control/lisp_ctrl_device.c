@@ -40,6 +40,10 @@ static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
         &xtr_ctrl_class,/* MN */
 };
 
+inline lisp_dev_type_e lisp_ctrl_dev_mode(lisp_ctrl_dev_t *dev){
+    return dev->mode;
+}
+
 static ctrl_dev_class_t *
 ctrl_dev_class_find(lisp_dev_type_e type)
 {
