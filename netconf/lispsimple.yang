@@ -29,9 +29,9 @@ module lispsimple {
      
     ";
 
-  revision 2015-02-11 {
+  revision 2015-07-02 {
     description
-      "Initial revision.";
+      "LISPmob revision.";
   }
     
   typedef eid-id {

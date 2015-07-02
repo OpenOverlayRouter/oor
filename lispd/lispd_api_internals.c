@@ -820,6 +820,117 @@ int lmapi_xtr_mapdb_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
 
 }
 
+int lmapi_xtr_petrs_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
+
+    lisp_xtr_t *    xtr              = NULL;
+    uint8_t *       result_msg       = NULL;
+    int             result_msg_len   = 0;
+    glist_t *       str_addr_list    = NULL;
+    char *          str_addr         = NULL;
+    xmlDocPtr       doc              = NULL;
+    xmlNodePtr      root_element     = NULL;
+    xmlNodePtr      petr_list_xml    = NULL;
+    xmlNodePtr      petr_addr_xml    = NULL;
+    lisp_addr_t *   petr_addr        = NULL;
+    glist_entry_t * addr_it          = NULL;
+
+    LMLOG(LDBG_1, "LMAPI: Creating new list of Proxy ETRs");
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    str_addr_list = glist_new_managed(free);
+
+    doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL, "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
+    root_element = xmlDocGetRootElement(doc);
+
+    petr_list_xml = get_inner_xmlNodePtr(root_element,"proxy-etrs");
+    petr_list_xml = get_inner_xmlNodePtr(petr_list_xml,"proxy-etr");
+
+    while (petr_list_xml != NULL){
+
+        petr_addr_xml = get_inner_xmlNodePtr(petr_list_xml,"proxy-etr-address");
+        while (petr_addr_xml != NULL){
+            str_addr = (char*)xmlNodeGetContent(petr_addr_xml);
+            /* We do some checks before adding the address to the aux list */
+            petr_addr = lisp_addr_new();
+            if (lisp_addr_ip_from_char(str_addr,petr_addr) != GOOD){
+                LMLOG(LDBG_1,"lmapi_xtr_mr_create: Could not parse Proxy ETR address: %s", str_addr);
+                goto err;
+            }
+            if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != lisp_addr_ip_afi(petr_addr)){
+                LMLOG(LWRN, "lmapi_xtr_mr_create: The Proxy ETR %s will not be added due to the selected "
+                        "default rloc afi (-a option)", str_addr);
+                goto err;
+            }
+
+            if (glist_contain_using_cmp_fct(str_addr, str_addr_list, (glist_cmp_fct)strcmp)){
+                LMLOG(LWRN, "lmapi_xtr_petr_create: The Proxy ETR %s is duplicated. Descarding all the list.",
+                        str_addr);
+                goto err;
+            }
+            glist_add_tail(str_addr, str_addr_list);
+            lisp_addr_del(petr_addr);
+            petr_addr_xml = lxml_get_next_node(petr_addr_xml);
+        }
+        petr_list_xml = lxml_get_next_node(petr_list_xml);
+    }
+
+    xmlFreeDoc(doc);
+    doc = NULL;
+
+    //Everything fine. We replace the old list with the new one
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs)));
+    glist_for_each_entry(addr_it,str_addr_list){
+        str_addr = (char *)glist_entry_data(addr_it);
+        add_proxy_etr_entry(xtr->petrs,str_addr,1,100);
+    }
+
+    xtr->fwd_policy->updated_map_cache_inf(
+            xtr->fwd_policy_dev_parm,
+            mcache_entry_routing_info(xtr->petrs),
+            mcache_entry_mapping(xtr->petrs));
+
+    LMLOG(LDBG_1, "LMAPI: List of Proxy ETRs successfully created");
+    LMLOG(LDBG_1, "************************* Proxy ETRs List ****************************");
+    mapping_to_char(mcache_entry_mapping(xtr->petrs));
+
+    result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
+    lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
+
+    return (GOOD);
+
+err:
+    lisp_addr_del(petr_addr);
+    free(str_addr);
+    xmlFreeDoc(doc);
+    LMLOG(LERR, "LMAPI: Error while creating Map Resolver list");
+    glist_destroy(str_addr_list);
+    result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_ERR);
+    lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
+
+    return (BAD);
+
+}
+
+int lmapi_xtr_petrs_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
+
+    lisp_xtr_t *xtr = NULL;
+    uint8_t *result_msg;
+    int result_msg_len;
+
+    LMLOG(LDBG_2, "LMAPI: Deleting Proxy ETRs list");
+
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs)));
+
+    result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
+    lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
+
+    return GOOD;
+
+}
+
 
 int (*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,lmapi_msg_hdr_t *, uint8_t *){
 
@@ -880,6 +991,21 @@ int (*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,lmapi_msg_
                 default:
                     LMLOG(LWRN, "LMAPI call = (Device: xTR | Target: Mapping DB | Operation: Unsupported)");
                     break;
+            }
+            break;
+         case LMAPI_TRGT_PETRLIST:
+            switch (operation){
+            case LMAPI_OPR_CREATE:
+                LMLOG(LDBG_2, "LMAPI call = (Device: xTR | Target: Proxy ETRs | Operation: Create)");
+                process_func = lmapi_xtr_petrs_create;
+                break;
+            case LMAPI_OPR_DELETE:
+                LMLOG(LDBG_2, "LMAPI call = (Device: xTR | Target: Proxy ETRs | Operation: Delete)");
+                process_func = lmapi_xtr_petrs_delete;
+                break;
+            default:
+                LMLOG(LWRN, "LMAPI call = (Device: xTR | Target: Mapping DB | Operation: Unsupported)");
+                break;
             }
             break;
         default:

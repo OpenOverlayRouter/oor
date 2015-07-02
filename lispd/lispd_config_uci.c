@@ -447,6 +447,14 @@ configure_xtr(
                 continue;
             }
     }
+    /* Calculate forwarding info por proxy-etrs */
+    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
+    if (fwd_map_inf == NULL){
+        LMLOG(LDBG_1, "Couldn't create routing info for PeTRs!.");
+        mcache_entry_del(xtr->petrs);
+        return(BAD);
+    }
+    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
 
     /* destroy the hash table */
     htable_destroy(lcaf_ht);
@@ -710,6 +718,15 @@ configure_mn(
             continue;
         }
     }
+
+    /* Calculate forwarding info por proxy-etrs */
+    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
+    if (fwd_map_inf == NULL){
+        LMLOG(LDBG_1, "Couldn't create routing info for PeTRs!.");
+        mcache_entry_del(xtr->petrs);
+        return(BAD);
+    }
+    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
 
     /* destroy the hash table */
     htable_destroy(lcaf_ht);

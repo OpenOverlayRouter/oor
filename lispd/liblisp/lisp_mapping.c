@@ -247,10 +247,7 @@ mapping_update_locators(mapping_t *mapping, glist_t *locts_lists)
     }
 
     /* TODO: do a comparison first */
-    glist_destroy(mapping->locators_lists);
-    mapping->locators_lists = glist_new_complete(
-            (glist_cmp_fct) locator_list_cmp_afi,
-            (glist_del_fct) glist_destroy);
+    glist_remove_all(mapping->locators_lists);
 
     glist_for_each_entry(it_list,locts_lists){
         loct_list = (glist_t *)glist_entry_data(it_list);

@@ -128,6 +128,24 @@ int callback_lispsimple_itr_cfg_lispsimple_map_resolvers(void **data, XMLDIFF_OP
 }
 
 /**
+ * @brief This callback will be run when node in path /lispsimple:itr-cfg/lispsimple:proxy-etrs changes
+ *
+ * @param[in] data      Double pointer to void. Its passed to every callback. You can share data using it.
+ * @param[in] op        Observed change in path. XMLDIFF_OP type.
+ * @param[in] node      Modified node. if op == XMLDIFF_REM its copy of node removed.
+ * @param[out] error    If callback fails, it can return libnetconf error structure with a failure description.
+ *
+ * @return EXIT_SUCCESS or EXIT_FAILURE
+ */
+/* !DO NOT ALTER FUNCTION SIGNATURE! */
+int callback_lispsimple_itr_cfg_lispsimple_proxy_etrs(void **data, XMLDIFF_OP op, xmlNodePtr node, struct nc_err **error)
+{
+    printf("Node accessed %s\n",node->name);
+    return (lmapi_nc_node_accessed(&connection,LMAPI_DEV_XTR,LMAPI_TRGT_PETRLIST,op,node,error));
+}
+
+
+/**
  * @brief This callback will be run when node in path /lispsimple:etr-cfg/lispsimple:local-eids changes
  *
  * @param[in] data	Double pointer to void. Its passed to every callback. You can share data using it.
@@ -184,10 +202,11 @@ int callback_lispsimple_rtr_cfg_lispsimple_map_resolvers(void **data, XMLDIFF_OP
  * DO NOT alter this structure
  */
 struct transapi_data_callbacks clbks =  {
-	.callbacks_count = 4,
+	.callbacks_count = 5,
 	.data = NULL,
 	.callbacks = {
 		{.path = "/lispsimple:itr-cfg/lispsimple:map-resolvers", .func = callback_lispsimple_itr_cfg_lispsimple_map_resolvers},
+		{.path = "/lispsimple:itr-cfg/lispsimple:proxy-etrs", .func = callback_lispsimple_itr_cfg_lispsimple_proxy_etrs},
 		{.path = "/lispsimple:etr-cfg/lispsimple:local-eids", .func = callback_lispsimple_etr_cfg_lispsimple_local_eids},
 		{.path = "/lispsimple:etr-cfg/lispsimple:map-servers", .func = callback_lispsimple_etr_cfg_lispsimple_map_servers},
 		{.path = "/lispsimple:rtr-cfg/lispsimple:map-resolvers", .func = callback_lispsimple_rtr_cfg_lispsimple_map_resolvers}
