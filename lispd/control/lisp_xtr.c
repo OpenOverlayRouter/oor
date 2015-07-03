@@ -927,14 +927,14 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
     void *hdr = NULL;
     nonces_list_t *nonces = NULL;
     mapping_t *m = NULL;
-    lisp_addr_t *deid = NULL, empty, *srloc = NULL, *drloc = NULL;
+    lisp_addr_t *deid = NULL, empty, *s_in_addr = NULL, *d_in_addr = NULL;
     lmtimer_t *t = NULL;
     glist_t *rlocs = NULL;
-    int afi;
+    int afi ;
 
     m = mcache_entry_mapping(mce);
     deid = mapping_eid(m);
-    afi = lisp_addr_lafi(deid);
+    afi = lisp_addr_ip_afi(deid);
     lisp_addr_set_lafi(&empty, LM_AFI_NO_ADDR);
 
     nonces = mcache_entry_nonces(mce);
@@ -969,8 +969,17 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
 
         /* we could put anything here. Still, better put something that
          * makes a bit of sense .. */
-        srloc = local_map_db_get_main_eid(xtr->local_mdb, afi);
-        drloc = deid;
+        s_in_addr = local_map_db_get_main_eid(xtr->local_mdb, afi);
+        d_in_addr = deid;
+        /* If we don't have a source EID as an RTR, we use an RLOC. May be, RTR could have a loopback EID address */
+        if (s_in_addr == NULL){
+            s_in_addr = ctrl_default_rloc(lisp_ctrl_dev_get_ctrl_t(&(xtr->super)),afi);
+            if (s_in_addr == NULL){
+                LMLOG(LDBG_1,"SMR: Couldn't generate Map-Request for EID: %s. No source inner ip address available)",
+                               lisp_addr_to_char(deid));
+                return (BAD);
+            }
+        }
 
         /* SEND */
         LMLOG(LDBG_1, "%s, itr-rlocs:%s src-eid: %s, req-eid: %s",
@@ -978,7 +987,7 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, mcache_entry_t *mce)
                 lisp_addr_to_char(&empty), lisp_addr_to_char(mapping_eid(m)));
         glist_destroy(rlocs);
 
-        if (send_map_request_to_mr(xtr, b, srloc, drloc) != GOOD) {
+        if (send_map_request_to_mr(xtr, b, s_in_addr, d_in_addr) != GOOD) {
             return(BAD);
         }
         lisp_msg_destroy(b);

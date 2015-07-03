@@ -78,7 +78,7 @@ extern ctrl_dev_class_t ms_ctrl_class;
 extern ctrl_dev_class_t xtr_ctrl_class;
 
 inline lisp_dev_type_e lisp_ctrl_dev_mode(lisp_ctrl_dev_t *dev);
-
+inline lisp_ctrl_t *lisp_ctrl_dev_get_ctrl_t(lisp_ctrl_dev_t *dev);
 
 
 int ctrl_dev_create(lisp_dev_type_e , lisp_ctrl_dev_t **);
