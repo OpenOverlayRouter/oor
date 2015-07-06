@@ -1036,11 +1036,10 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
     lmtimer_t *t = NULL;
     nonces_list_t *nonces = NULL;
     mapping_t *m = NULL;
-    lisp_addr_t *deid = NULL, *seid = NULL, empty = {.lafi = LM_AFI_NO_ADDR};
+    lisp_addr_t *deid = NULL, *seid = NULL;
     glist_t *rlocs = NULL;
     lbuf_t *b = NULL;
     void *mr_hdr = NULL;
-    int afi;
 
     if (glist_size(xtr->map_resolvers) == 0){
         LMLOG(LDBG_1, "Couldn't send map request: No map resolver configured");
@@ -1063,11 +1062,8 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
         }
 
         /* BUILD Map-Request */
-        afi = lisp_addr_ip_afi(deid);
-        seid = local_map_db_get_main_eid(xtr->local_mdb, afi);
-        if (!seid) {
-            seid = &empty;
-        }
+        seid = mcache_entry_requester(mce);
+
         // Rlocs to be used as ITR of the map req.
         rlocs = ctrl_default_rlocs(xtr->super.ctrl);
         LMLOG(LDBG_1, "locators for req: %s", laddr_list_to_char(rlocs));
@@ -1088,7 +1084,7 @@ send_map_request_retry(lisp_xtr_t *xtr, mcache_entry_t *mce)
 
 
         /* SEND */
-        send_map_request_to_mr(xtr, b, mcache_entry_requester(mce), deid);
+        send_map_request_to_mr(xtr, b, seid, deid);
         lisp_msg_destroy(b);
 
         /* prepare callback
