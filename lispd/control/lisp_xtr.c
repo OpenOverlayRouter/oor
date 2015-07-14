@@ -2343,12 +2343,24 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
             tuple);
 
     if (fe == NULL){
-        if (mce == xtr->petrs){
-            LMLOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
+        if (mce != xtr->petrs){
+            if (xtr->petrs != NULL){
+                LMLOG(LDBG_3, "Forwarding packet to PeTR");
+                mce = xtr->petrs;
+                fe = xtr->fwd_policy->policy_get_fwd_entry(
+                        xtr->fwd_policy_dev_parm,
+                        map_local_entry_fwd_info(map_loc_e),
+                        mcache_entry_routing_info(mce),
+                        tuple);
+                if (fe == NULL){
+                    LMLOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
+                }
+            }else{
+                LMLOG(LDBG_3, "tr_get_fwd_entry: No compatible src and dst rlocs. No PeTRs configured");
+            }
         }else{
-            LMLOG(LDBG_3, "tr_get_fwd_entry: No valid source and destination RLOC pair");
+            LMLOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
         }
-        return (NULL);
     }
 
     return (fe);
