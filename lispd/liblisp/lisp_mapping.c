@@ -189,6 +189,7 @@ mapping_add_locator(
 {
 	lisp_addr_t *addr = NULL;
 	glist_t *loct_list = NULL;
+	locator_t *aux_loct = NULL;
 
 
 	int result = GOOD;
@@ -208,11 +209,20 @@ mapping_add_locator(
 	}else {
 		if (glist_contain(loct, loct_list) == TRUE){
 			LMLOG(LDBG_2, "mapping_add_locator: The locator %s already exists "
-					"for the EID %s.", lisp_addr_to_char(locator_addr(loct)),
+					"for the EID %s. Discarding the one with less priority", lisp_addr_to_char(locator_addr(loct)),
 					lisp_addr_to_char(mapping_eid(mapping)));
-			return (ERR_EXIST);
+			aux_loct = mapping_get_loct_with_addr(mapping, locator_addr(loct));
+			if (locator_priority(aux_loct) > locator_priority(loct)){
+			    /* Returns good in order the caller of this functione doesn't free the memory of the locator */
+			    glist_remove_obj_with_ptr(aux_loct,loct_list);
+			    return (glist_add(loct,loct_list));
+			}else{
+			    /* Return error in order the caller of this functione frees the memory of the locator */
+			    return (ERR_EXIST);
+			}
+		}else {
+		    result = glist_add(loct,loct_list);
 		}
-		result = glist_add(loct,loct_list);
 	}
 	if (result == GOOD) {
 		LMLOG(LDBG_2, "mapping_add_locator: Added locator %s to the mapping with"
