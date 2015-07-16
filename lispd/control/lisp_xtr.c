@@ -2290,6 +2290,26 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     mapping_t *dmap = NULL;
     fwd_entry_t *fe = NULL;
 
+    if (xtr->super.mode == xTR_MODE) {
+        /* lookup local mapping for source EID */
+        map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
+//      /* This can only happend in a multithreded process when removing an EID */
+//        if (unlikely(map_loc_e == NULL)){
+//            LMLOG(LDBG_1, "The source address %s is not a local EID", lisp_addr_to_char(&tuple->src_addr));
+//            return (NULL);
+//        }
+    }else if ( xtr->super.mode == MN_MODE ) {
+        /* lookup local mapping for source EID */
+        map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
+        /* Communications directly to the RLOC of the MN */
+        if (map_loc_e == NULL){
+            LMLOG(LDBG_3, "The source address %s is not a local EID", lisp_addr_to_char(&tuple->src_addr));
+            return (NULL);
+        }
+    }else {
+        map_loc_e = xtr->all_locs_map;
+    }
+
     mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
 
     if (!mce) {
@@ -2324,17 +2344,6 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
         mce = xtr->petrs;
     }
 
-    if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
-        /* lookup local mapping for source EID */
-    	map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
-//    	/* This can only happend in a multithreded process when removing an EID */
-//        if (unlikely(map_loc_e == NULL)){
-//            LMLOG(LDBG_1, "The source address %s is not a local EID", lisp_addr_to_char(&tuple->src_addr));
-//            return (NULL);
-//        }
-    } else {
-        map_loc_e = xtr->all_locs_map;
-    }
 
     fe = xtr->fwd_policy->policy_get_fwd_entry(
             xtr->fwd_policy_dev_parm,
