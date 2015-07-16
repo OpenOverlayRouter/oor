@@ -34,6 +34,7 @@
 #include <syslog.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <time.h>
 #include "lmlog.h"
 #ifdef ANDROID
 #include <android/log.h>
@@ -111,10 +112,16 @@ inline void
 lispd_log(int log_level, char *log_name, const char *format,
         va_list args)
 {
+    time_t t;
+    struct tm tm;
+
     if (daemonize) {
         vsyslog(log_level, format, args);
     } else {
-        printf("%s: ", log_name);
+        t = time(NULL);
+        tm = *localtime(&t);
+        printf("[%d/%d/%d %d:%d:%d] %s: ",
+                        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
         vfprintf(stdout, format, args);
         printf("\n");
     }
