@@ -488,7 +488,7 @@ int lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
 
     LMLOG(LDBG_1, "LMAPI: List of Map Resolvers successfully created");
     LMLOG(LDBG_2, "************* %13s ***************", "Map Resolvers");
-            glist_dump(xtr->map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
+    glist_dump(xtr->map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
 
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);

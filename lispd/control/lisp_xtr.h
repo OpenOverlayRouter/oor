@@ -104,6 +104,11 @@ typedef struct _timer_rloc_prob_argument {
     locator_t   *locator;
 } timer_rloc_probe_argument;
 
+typedef struct _timer_smr_invk_argument {
+    mcache_entry_t  *mce;
+    lisp_addr_t     *src_eid;
+} timer_smr_invk_argument;
+
 typedef struct map_server_elt_t {
     lisp_addr_t *   address;
     uint8_t         key_type;
