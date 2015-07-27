@@ -407,8 +407,24 @@ get_interface_with_address(lisp_addr_t *address)
             break;
         }
     }
-
+    LMLOG(LDBG_2,"get_interface_with_address: No interface found for the address %s", lisp_addr_to_char(address));
     return (NULL);
+}
+
+int *
+get_out_socket_ptr_from_address(lisp_addr_t *address)
+{
+    iface_t * iface = NULL;
+    int afi;
+
+    afi = lisp_addr_ip_afi(address);
+
+    iface = get_interface_with_address(address);
+    if (iface == NULL){
+        return (NULL);
+    }
+
+    return(iface_socket_pointer(iface, afi));
 }
 
 
@@ -675,6 +691,26 @@ iface_socket(iface_t *iface, int afi)
         break;
     }
     
+    return (out_socket);
+}
+
+int *
+iface_socket_pointer(iface_t *iface, int afi)
+{
+    int * out_socket   = NULL;
+
+    switch(afi){
+    case AF_INET:
+        out_socket = &(iface->out_socket_v4);
+        break;
+    case AF_INET6:
+        out_socket = &(iface->out_socket_v6);
+        break;
+    default:
+        out_socket = NULL;
+        break;
+    }
+
     return (out_socket);
 }
 

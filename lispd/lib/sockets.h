@@ -94,7 +94,7 @@ union sockunion {
 typedef struct fwd_entry {
     lisp_addr_t *srloc;
     lisp_addr_t *drloc;
-    void *iface;
+    int *out_sock;
 } fwd_entry_t;
 
 inline void fwd_entry_del(fwd_entry_t *fwd_entry);
@@ -116,8 +116,7 @@ int sock_ctrl_send(uconn_t *uc, struct lbuf *b);
 int sock_recv(int, lbuf_t *);
 int sock_ctrl_recv(int, lbuf_t *, uconn_t *);
 int sock_data_recv(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
-int sock_lisp_data_send(lbuf_t *b,  lisp_addr_t *src, lisp_addr_t *dst,
-        iface_t *iface);
+int sock_lisp_data_send(lbuf_t *b,  lisp_addr_t *src, lisp_addr_t *dst, int out_sock);
 int sock_data_send(lbuf_t *b, lisp_addr_t *dst);
 
 static inline void fwd_entry_set_srloc(fwd_entry_t *fwd_ent, lisp_addr_t * srloc)

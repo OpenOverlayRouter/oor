@@ -115,10 +115,16 @@ void pid_file_remove();
 /*****************************************************************************/
 
 int
-init_tr_data_plane(lisp_dev_type_e mode)
+init_data_plane(lisp_ctrl_dev_t *dev)
 {
     int (*cb_func)(sock_t *) = NULL;
     uint8_t router_mode = FALSE;
+    lisp_dev_type_e mode = ctrl_dev_mode(dev);
+
+    if (!(mode == xTR_MODE || mode == RTR_MODE || mode == MN_MODE)) {
+        /* No data plane required */
+        return (GOOD);
+    }
 
     LMLOG(LINF, "\nIntializing data plane\n");
 
@@ -451,11 +457,11 @@ init_netlink()
      * status. */
     netlink_fd = opent_netlink_socket();
 
-    /* Request to dump the routing tables to obtain the gatways when
-     * processing the netlink messages  */
     nl_sl = sockmstr_register_read_listener(smaster, process_netlink_msg, NULL,
             netlink_fd);
 
+    /* Request to dump the routing tables to obtain the gatways when
+     * processing the netlink messages  */
     request_route_table(RT_TABLE_MAIN, AF_INET);
     process_netlink_msg(nl_sl);
     request_route_table(RT_TABLE_MAIN, AF_INET6);
@@ -466,15 +472,14 @@ static void
 parse_config_file()
 {
     int err;
-    err = handle_config_file(config_file);;
+    err = handle_config_file(&config_file);
     if (err != GOOD){
+        if (config_file != NULL){
+            free(config_file);
+        }
         exit_cleanup();
     }
-    if (ctrl_dev->mode == xTR_MODE || ctrl_dev->mode == RTR_MODE || ctrl_dev->mode == MN_MODE) {
-        if (init_tr_data_plane(ctrl_dev->mode)!=GOOD){
-            exit_cleanup();
-        }
-    }
+    free(config_file);
 }
 
 static void
@@ -496,8 +501,8 @@ initial_setup()
     if (check_capabilities() != GOOD){
         exit_cleanup();
     }
-#endif
-
+#endif // VPNAPI
+    LMLOG(LINF,"LISPmob compiled for not rooted Android");
     /* Initialize the random number generator  */
     iseed = (unsigned int) time(NULL);
     srandom(iseed);
@@ -505,6 +510,7 @@ initial_setup()
     setup_signal_handlers();
 }
 
+#ifndef VPNAPI
 int
 main(int argc, char **argv)
 {
@@ -527,8 +533,10 @@ main(int argc, char **argv)
     /* parse config and create ctrl_dev */
     parse_config_file();
 
-    LMLOG(LINF,"\n\n LISPmob (0.5): 'lispd' started... \n\n");
+    LMLOG(LINF,"\n\n LISPmob (%s): 'lispd' started... \n\n",LISPD_VERSION);
 
+
+    init_data_plane(ctrl_dev->mode);
     ctrl_init(lctrl);
     init_netlink();
 
@@ -556,7 +564,7 @@ main(int argc, char **argv)
     return(0);
 }
 
-#ifdef VPNAPI
+#else
 JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
   (JNIEnv *env, jclass cl, jint vpn_tun_fd, jstring storage_path)
 {
@@ -571,16 +579,6 @@ JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
     memset (log_file,0,sizeof(char)*1024);
     init_globales();
 
-    path = (*env)->GetStringUTFChars(env, storage_path, 0);
-    config_file = calloc(1024, sizeof(char));
-    strcat(config_file,path);
-    strcat(config_file,CONF_FILE_NAME);
-    strcat(log_file,path);
-    strcat(log_file,LOG_FILE_NAME);
-    (*env)->ReleaseStringUTFChars(env, storage_path, path);
-
-    LMLOG(LINF,"LISPmob %s compiled for not rooted Android", LISPD_VERSION);
-
     initial_setup();
 
     /* create socket master, timer wheel, initialize interfaces */
@@ -591,24 +589,24 @@ JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
     /* create control. Only one instance for now */
     lctrl = ctrl_create();
 
+    /** parse config and create ctrl_dev **/
+
+    /* obtain the configuration file */
+    path = (*env)->GetStringUTFChars(env, storage_path, 0);
+    config_file = calloc(1024, sizeof(char));
+    strcat(config_file,path);
+    strcat(config_file,"lispd.conf");
+    strcat(log_file,path);
+    strcat(log_file,"lispd.log");
+    (*env)->ReleaseStringUTFChars(env, storage_path, path);
+
+    parse_config_file();
 
 
+    //XXX
+    ctrl_init(lctrl);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    init_netlink();
 
 }
 #endif

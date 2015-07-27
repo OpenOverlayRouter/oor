@@ -38,6 +38,6 @@
 #ifndef LISPD_CONFIG_UCI_H_
 #define LISPD_CONFIG_UCI_H_
 
-int handle_config_file(char *uci_conf_file_path);
+int handle_config_file(char **uci_conf_file_path);
 
 #endif /* LISPD_CONFIG_UCI_H_ */

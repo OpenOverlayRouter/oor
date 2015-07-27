@@ -944,7 +944,7 @@ configure_ms(cfg_t *cfg)
 }
 
 int
-handle_config_file(char *lispdconf_conf_file)
+handle_config_file(char **lispdconf_conf_file)
 {
     int ret = 0;
     cfg_t *cfg = 0;
@@ -1104,8 +1104,8 @@ handle_config_file(char *lispdconf_conf_file)
     };
 
 
-    if (lispdconf_conf_file == NULL){
-        lispdconf_conf_file = "/etc/lispd.conf";
+    if (*lispdconf_conf_file == NULL){
+        *lispdconf_conf_file = strdup("/etc/lispd.conf");
     }
 
     /*
@@ -1113,7 +1113,7 @@ handle_config_file(char *lispdconf_conf_file)
      */
 
     cfg = cfg_init(opts, CFGF_NOCASE);
-    ret = cfg_parse(cfg, lispdconf_conf_file);
+    ret = cfg_parse(cfg, *lispdconf_conf_file);
 
 
     if (ret == CFG_FILE_ERROR) {

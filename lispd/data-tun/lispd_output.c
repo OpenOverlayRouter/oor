@@ -51,7 +51,6 @@ static int lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple);
 static int lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple);
 static int forward_native(lbuf_t *b, lisp_addr_t *dst);
 static inline int is_lisp_packet(packet_tuple_t *tpl);
-static iface_t *find_iface(lisp_addr_t *src, lisp_addr_t *dst);
 
 void
 lisp_output_init()
@@ -136,6 +135,7 @@ lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
     lisp_addr_t *src_rloc = NULL, *daddr = NULL, *dst_rloc = NULL;
     locator_t *locator = NULL;
     glist_entry_t *it = NULL;
+    int *out_sock = NULL;
 
     LMLOG(LDBG_1, "Multicast packets not supported for now!");
     return(GOOD);
@@ -163,33 +163,16 @@ lisp_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
         locator = (locator_t *) glist_entry_data(it);
         src_rloc = lcaf_mc_get_src(lisp_addr_get_lcaf(locator_addr(locator)));
         dst_rloc = lcaf_mc_get_grp(lisp_addr_get_lcaf(locator_addr(locator)));
-        sock_lisp_data_send(b, src_rloc, dst_rloc, find_iface(src_rloc, dst_rloc));
+        out_sock = get_out_socket_ptr_from_address(src_rloc);
+        if (out_sock == NULL){
+            return (BAD);
+        }
+        sock_lisp_data_send(b, src_rloc, dst_rloc, *out_sock);
     }
 
     glist_destroy(or_list);
 
     return (GOOD);
-}
-
-static iface_t *
-find_iface(lisp_addr_t *src, lisp_addr_t *dst)
-{
-    int dafi;
-    iface_t *iface;
-
-    dafi = lisp_addr_ip_afi(dst);
-
-    /* if no srloc, choose default */
-    if (!src) {
-        src = get_default_output_address(dafi);
-        if (!src) {
-            LMLOG(LDBG_1, "Failed to set source RLOC with afi %d", dafi);
-            return(BAD);
-        }
-    }
-
-    iface = get_interface_with_address(src);
-    return(iface);
 }
 
 static int
@@ -200,7 +183,7 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     if (!fe) {
         fe = ctrl_get_forwarding_entry(tuple);
         if (fe && (fe->srloc && fe->drloc))  {
-            fe->iface = find_iface(fe->srloc, fe->drloc);
+            fe->out_sock = get_out_socket_ptr_from_address(fe->srloc);
         }
         ttable_insert(&ttable, pkt_tuple_clone(tuple), fe);
     }
@@ -217,7 +200,7 @@ lisp_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             lisp_addr_to_char(fe->srloc),
             lisp_addr_to_char(fe->drloc));
 
-    sock_lisp_data_send(b, fe->srloc, fe->drloc, fe->iface);
+    sock_lisp_data_send(b, fe->srloc, fe->drloc, *(fe->out_sock));
 
     return (GOOD);
 }

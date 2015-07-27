@@ -39,7 +39,7 @@
 /*
  *  Parse config file and set up whatever is needed
  */
-int handle_config_file(char * lispdconf_conf_file);
+int handle_config_file(char ** lispdconf_conf_file);
 
 
 

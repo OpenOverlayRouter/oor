@@ -106,6 +106,7 @@ iface_t *add_interface(char *iface_name);
 iface_t *get_interface(char *iface_name);
 iface_t *get_interface_from_index(int iface_index);
 iface_t *get_interface_with_address(lisp_addr_t *address);
+int *get_out_socket_ptr_from_address(lisp_addr_t *address);
 
 
 /* Print the interfaces and locators of the lisp node */
@@ -126,6 +127,7 @@ void set_default_output_ifaces();
 
 lisp_addr_t *iface_address(iface_t *iface, int afi);
 int iface_socket(iface_t *iface, int afi);
+int *iface_socket_pointer(iface_t *iface, int afi);
 static uint8_t iface_status(iface_t *iface);
 
 static inline uint8_t iface_status(iface_t *iface)

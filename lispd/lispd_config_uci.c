@@ -107,7 +107,7 @@ parse_elp_node(
 /********************************** FUNCTIONS ********************************/
 
 int
-handle_config_file(char *uci_conf_file_path)
+handle_config_file(char **uci_conf_file_path)
 {
     char*               uci_conf_dir                   = NULL;
     char*               uci_conf_file                  = NULL;
@@ -120,8 +120,8 @@ handle_config_file(char *uci_conf_file_path)
     int                 res                            = 0;
 
 
-    if (uci_conf_file_path == NULL){
-        uci_conf_file_path = "/etc/config/lispd";
+    if (*uci_conf_file_path == NULL){
+        *uci_conf_file_path = strdup("/etc/config/lispd");
     }
 
     ctx = uci_alloc_context();
@@ -131,8 +131,8 @@ handle_config_file(char *uci_conf_file_path)
         exit_cleanup();
     }
 
-    uci_conf_dir = dirname(strdup(uci_conf_file_path));
-    uci_conf_file = basename(strdup(uci_conf_file_path));
+    uci_conf_dir = dirname(strdup(*uci_conf_file_path));
+    uci_conf_file = basename(strdup(*uci_conf_file_path));
 
 
     uci_set_confdir(ctx, uci_conf_dir);
