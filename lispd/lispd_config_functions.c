@@ -51,6 +51,7 @@ inline conf_mapping_t *conf_mapping_new()
     conf_map->eid_prefix = (char *)xzalloc(MAX_CFG_STRING);
     conf_map->conf_loc_list = glist_new_managed((glist_del_fct) conf_loc_destroy);
     conf_map->conf_loc_iface_list = glist_new_managed((glist_del_fct) conf_loc_iface_destroy);
+    conf_map->ttl = DEFAULT_MAP_REGISTER_TIMEOUT;
     return (conf_map);
 }
 
@@ -1059,7 +1060,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, htable_t * lcaf_ht,
         if (mapping == NULL){
             return(NULL);
         }
-        mapping_set_ttl(mapping, DEFAULT_MAP_REGISTER_TIMEOUT);
+        mapping_set_ttl(mapping, conf_mapping->ttl);
         mapping_set_auth(mapping, 1);
     }else{
         mapping = mapping_new_init(eid_prefix);

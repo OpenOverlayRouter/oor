@@ -81,7 +81,6 @@ lisp_addr_t *fb_elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr)
             continue;
         }
         addr = lisp_addr_get_ip_addr(addr);
-        glist_dump(locl_rlocs_addr, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
         if (glist_contain_using_cmp_fct(addr, locl_rlocs_addr,(glist_cmp_fct)lisp_addr_cmp) == TRUE){
             if (elp_pos == elp_size){
                 // Command invoked by xTR of the ELP (RTR-RTR-RTR-xTR).

@@ -31,9 +31,8 @@
 #include "lib/lmlog.h"
 #include "liblisp/liblisp.h"
 #include "lib/util.h"
-#include "data-tun/lispd_tun.h"
-#include <libxml/tree.h>
-#include <libxml/parser.h>
+#include <libxml2/libxml/tree.h>
+#include <libxml2/libxml/parser.h>
 #include <zmq.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -428,15 +427,16 @@ err:
 
 int lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
 
-    lisp_xtr_t *    xtr             = NULL;
-    uint8_t *       result_msg      = NULL;
-    int             result_msg_len  = 0;
-    glist_t *       list            = NULL;
-    xmlDocPtr       doc             = NULL;
-    xmlNodePtr      root_element    = NULL;
-    xmlNodePtr      mr_list_xml     = NULL;
-    xmlNodePtr      mr_addr_xml     = NULL;
-    lisp_addr_t *   mr_addr         = NULL;
+    lisp_xtr_t *    xtr              = NULL;
+    uint8_t *       result_msg       = NULL;
+    int             result_msg_len   = 0;
+    glist_t *       list             = NULL;
+    xmlDocPtr       doc              = NULL;
+    xmlNodePtr      root_element     = NULL;
+    xmlNodePtr      mr_list_xml      = NULL;
+    xmlNodePtr      mr_addr_xml      = NULL;
+    lisp_addr_t *   mr_addr          = NULL;
+    int             prv_mr_list_size = 0;
 
     LMLOG(LDBG_1, "LMAPI: Creating new list of Map Resolvers");
 
@@ -448,6 +448,8 @@ int lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
 
     mr_list_xml = get_inner_xmlNodePtr(root_element,"map-resolvers");
     mr_list_xml = get_inner_xmlNodePtr(mr_list_xml,"map-resolver");
+
+    prv_mr_list_size = glist_size(xtr->map_resolvers);
 
     while (mr_list_xml != NULL){
 
@@ -486,12 +488,17 @@ int lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
 
     LMLOG(LDBG_1, "LMAPI: List of Map Resolvers successfully created");
     LMLOG(LDBG_2, "************* %13s ***************", "Map Resolvers");
-            glist_dump(xtr->map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
+    glist_dump(xtr->map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
 
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
 
-    return GOOD;
+    /* If there were no map resolvers, ask to map resolvers for non active entries */
+    if (prv_mr_list_size == 0){
+        send_map_request_for_not_active_mce(xtr);
+    }
+
+    return (GOOD);
 err:
     LMLOG(LERR, "LMAPI: Error while creating Map Resolver list");
 
@@ -503,7 +510,7 @@ err:
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_ERR);
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
 
-    return BAD;
+    return (BAD);
 
 }
 
@@ -641,19 +648,19 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
     map_local_entry_t * map_loc_e           = NULL;
     void *              fwd_info            = NULL;
     htable_t *          lcaf_ht             = NULL;
-
-    xmlDocPtr       doc             = NULL;
-    xmlNodePtr      root_element    = NULL;
-    xmlNodePtr      xml_local_eids  = NULL;
-    xmlNodePtr      xml_local_eid   = NULL;
-
-    conf_mapping_t * conf_mapping = NULL;
-
-    glist_t * conf_mapping_list = glist_new_managed((glist_del_fct)conf_mapping_destroy);
-    glist_entry_t * conf_map_it = NULL;
-
+    void *              it                  = NULL;
+    xmlDocPtr           doc                 = NULL;
+    xmlNodePtr          root_element        = NULL;
+    xmlNodePtr          xml_local_eids      = NULL;
+    xmlNodePtr          xml_local_eid       = NULL;
+    conf_mapping_t *    conf_mapping        = NULL;
+    glist_t *           conf_mapping_list   = glist_new_managed((glist_del_fct)conf_mapping_destroy);
+    glist_entry_t *     conf_map_it         = NULL;
     int                 result_msg_len      = 0;
     uint8_t *           result_msg          = NULL;
+    int                 ipv4_mapings        = 0;
+    int                 ipv6_mapings        = 0;
+    int                 eid_ip_afi          = AF_UNSPEC;
 
     LMLOG(LDBG_1, "LMAPI: Creating new local data base");
     lcaf_ht = htable_new(g_str_hash, g_str_equal, free,(h_val_del_fct)lisp_addr_del);
@@ -677,6 +684,19 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
     xmlFreeDoc(doc);
     doc = NULL;
 
+    /*
+     * Empty previous local database
+     */
+    /* Remove routing configuration for the eids */
+    local_map_db_foreach_entry(xtr->local_mdb, it) {
+        map_loc_e = (map_local_entry_t *)it;
+        ctrl_unregister_eid_prefix(ctrl_dev, map_local_entry_eid(map_loc_e));
+    } local_map_db_foreach_end;
+
+    /* Empty local database */
+    local_map_db_del(xtr->local_mdb);
+    xtr->local_mdb = local_map_db_new();
+
     /* We leverage on the LISPmob configuration subsystem to introduce
      * and process the configuration mappings into the system */
     glist_for_each_entry(conf_map_it, conf_mapping_list){
@@ -689,6 +709,19 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
             LMLOG(LDBG_3, "LMAPI: Couldn't process mapping %s",conf_mapping->eid_prefix);
             goto err;
         }
+        /* If dev is a mobile node, we can only have one IPv4 and one IPv6 mapping */
+        if (lisp_ctrl_dev_mode(ctrl_dev) == MN_MODE){
+            eid_ip_afi = ip_addr_afi(lisp_addr_ip_get_addr(mapping_eid(processed_mapping)));
+            if (eid_ip_afi == AF_INET){
+                ipv4_mapings ++;
+            }else if (eid_ip_afi == AF_INET6){
+                ipv6_mapings ++;
+            }
+            if (ipv4_mapings >1 || ipv6_mapings >1){
+                LMLOG(LWRN, "LMAPI: LISP Mobile Node only supports one IPv4 and one IPv6 EID prefix");
+                break;
+            }
+        }
 
         mapping_set_auth(processed_mapping, 1);
 
@@ -699,7 +732,6 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
         }
         fwd_info = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm, processed_mapping, NULL);
         map_local_entry_set_fwd_info(map_loc_e,fwd_info,xtr->fwd_policy->del_map_loc_policy_inf);
-
 
         if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
             LMLOG(LDBG_3, "LMAPI: Couldn't add mapping %s to local database",
@@ -751,7 +783,7 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
     LMLOG(LWRN, "LMAPI: Error while setting new Mapping Database content");
 
-    return BAD;
+    return (BAD);
 }
 
 
@@ -788,6 +820,117 @@ int lmapi_xtr_mapdb_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
 
 }
 
+int lmapi_xtr_petrs_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
+
+    lisp_xtr_t *    xtr              = NULL;
+    uint8_t *       result_msg       = NULL;
+    int             result_msg_len   = 0;
+    glist_t *       str_addr_list    = NULL;
+    char *          str_addr         = NULL;
+    xmlDocPtr       doc              = NULL;
+    xmlNodePtr      root_element     = NULL;
+    xmlNodePtr      petr_list_xml    = NULL;
+    xmlNodePtr      petr_addr_xml    = NULL;
+    lisp_addr_t *   petr_addr        = NULL;
+    glist_entry_t * addr_it          = NULL;
+
+    LMLOG(LDBG_1, "LMAPI: Creating new list of Proxy ETRs");
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    str_addr_list = glist_new_managed(free);
+
+    doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL, "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
+    root_element = xmlDocGetRootElement(doc);
+
+    petr_list_xml = get_inner_xmlNodePtr(root_element,"proxy-etrs");
+    petr_list_xml = get_inner_xmlNodePtr(petr_list_xml,"proxy-etr");
+
+    while (petr_list_xml != NULL){
+
+        petr_addr_xml = get_inner_xmlNodePtr(petr_list_xml,"proxy-etr-address");
+        while (petr_addr_xml != NULL){
+            str_addr = (char*)xmlNodeGetContent(petr_addr_xml);
+            /* We do some checks before adding the address to the aux list */
+            petr_addr = lisp_addr_new();
+            if (lisp_addr_ip_from_char(str_addr,petr_addr) != GOOD){
+                LMLOG(LDBG_1,"lmapi_xtr_mr_create: Could not parse Proxy ETR address: %s", str_addr);
+                goto err;
+            }
+            if (default_rloc_afi != AF_UNSPEC && default_rloc_afi != lisp_addr_ip_afi(petr_addr)){
+                LMLOG(LWRN, "lmapi_xtr_mr_create: The Proxy ETR %s will not be added due to the selected "
+                        "default rloc afi (-a option)", str_addr);
+                goto err;
+            }
+
+            if (glist_contain_using_cmp_fct(str_addr, str_addr_list, (glist_cmp_fct)strcmp)){
+                LMLOG(LWRN, "lmapi_xtr_petr_create: The Proxy ETR %s is duplicated. Descarding all the list.",
+                        str_addr);
+                goto err;
+            }
+            glist_add_tail(str_addr, str_addr_list);
+            lisp_addr_del(petr_addr);
+            petr_addr_xml = lxml_get_next_node(petr_addr_xml);
+        }
+        petr_list_xml = lxml_get_next_node(petr_list_xml);
+    }
+
+    xmlFreeDoc(doc);
+    doc = NULL;
+
+    //Everything fine. We replace the old list with the new one
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs)));
+    glist_for_each_entry(addr_it,str_addr_list){
+        str_addr = (char *)glist_entry_data(addr_it);
+        add_proxy_etr_entry(xtr->petrs,str_addr,1,100);
+    }
+
+    xtr->fwd_policy->updated_map_cache_inf(
+            xtr->fwd_policy_dev_parm,
+            mcache_entry_routing_info(xtr->petrs),
+            mcache_entry_mapping(xtr->petrs));
+
+    LMLOG(LDBG_1, "LMAPI: List of Proxy ETRs successfully created");
+    LMLOG(LDBG_1, "************************* Proxy ETRs List ****************************");
+    mapping_to_char(mcache_entry_mapping(xtr->petrs));
+
+    result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
+    lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
+
+    return (GOOD);
+
+err:
+    lisp_addr_del(petr_addr);
+    free(str_addr);
+    xmlFreeDoc(doc);
+    LMLOG(LERR, "LMAPI: Error while creating Map Resolver list");
+    glist_destroy(str_addr_list);
+    result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_ERR);
+    lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
+
+    return (BAD);
+
+}
+
+int lmapi_xtr_petrs_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
+
+    lisp_xtr_t *xtr = NULL;
+    uint8_t *result_msg;
+    int result_msg_len;
+
+    LMLOG(LDBG_2, "LMAPI: Deleting Proxy ETRs list");
+
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs)));
+
+    result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
+    lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
+
+    return GOOD;
+
+}
+
 
 int (*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,lmapi_msg_hdr_t *, uint8_t *){
 
@@ -800,6 +943,10 @@ int (*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,lmapi_msg_
 
     switch (device){
     case LMAPI_DEV_XTR:
+        if (lisp_ctrl_dev_mode(ctrl_dev) != xTR_MODE && lisp_ctrl_dev_mode(ctrl_dev) != MN_MODE){
+            LMLOG(LDBG_1, "LMAPI call = Call API from wrong device");
+            break;
+        }
         switch (target){
         case LMAPI_TRGT_MRLIST:
             switch (operation){
@@ -846,8 +993,49 @@ int (*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,lmapi_msg_
                     break;
             }
             break;
+         case LMAPI_TRGT_PETRLIST:
+            switch (operation){
+            case LMAPI_OPR_CREATE:
+                LMLOG(LDBG_2, "LMAPI call = (Device: xTR | Target: Proxy ETRs | Operation: Create)");
+                process_func = lmapi_xtr_petrs_create;
+                break;
+            case LMAPI_OPR_DELETE:
+                LMLOG(LDBG_2, "LMAPI call = (Device: xTR | Target: Proxy ETRs | Operation: Delete)");
+                process_func = lmapi_xtr_petrs_delete;
+                break;
+            default:
+                LMLOG(LWRN, "LMAPI call = (Device: xTR | Target: Mapping DB | Operation: Unsupported)");
+                break;
+            }
+            break;
         default:
         	LMLOG(LWRN, "LMAPI call = (Device: xTR | Target: Unsupported)");
+            break;
+        }
+        break;
+    case LMAPI_DEV_RTR:
+        if (lisp_ctrl_dev_mode(ctrl_dev) != RTR_MODE){
+            LMLOG(LDBG_1, "LMAPI call = Call API from wrong device");
+            break;
+        }
+        switch (target){
+        case LMAPI_TRGT_MRLIST:
+            switch (operation){
+            case LMAPI_OPR_CREATE:
+                LMLOG(LDBG_2, "LMAPI call = (Device: RTR | Target: MR list | Operation: Create)");
+                process_func = lmapi_xtr_mr_create;
+                break;
+            case LMAPI_OPR_DELETE:
+                LMLOG(LDBG_2, "LMAPI call = (Device: RTR | Target: MR list | Operation: Delete)");
+                process_func = lmapi_xtr_mr_delete;
+                break;
+            default:
+                LMLOG(LWRN, "LMAPI call = (Device: RTR | Target: MR list | Operation: Unsupported)");
+                break;
+            }
+            break;
+        default:
+            LMLOG(LWRN, "LMAPI call = (Device: RTR | Target: Unsupported)");
             break;
         }
         break;
@@ -867,6 +1055,8 @@ void lmapi_loop(lmapi_connection_t *conn) {
     int datalen;
     lmapi_msg_hdr_t *header;
     int (*process_func)(lmapi_connection_t *, lmapi_msg_hdr_t *, uint8_t *) = NULL;
+    uint8_t *       result_msg      = NULL;
+    int             result_msg_len  = 0;
 
     buffer = xzalloc(MAX_API_PKT_LEN);
 
@@ -898,6 +1088,9 @@ void lmapi_loop(lmapi_connection_t *conn) {
 
     if (process_func != NULL){
     	(*process_func)(conn,header,data);
+    }else {
+        result_msg_len = lmapi_result_msg_new(&result_msg,header->device,header->target,header->operation,LMAPI_RES_ERR);
+        lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
     }
 
 end:

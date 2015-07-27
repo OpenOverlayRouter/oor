@@ -91,5 +91,9 @@ int configure_routing_to_tun(
         lisp_addr_t *tun_v4_addr,
         lisp_addr_t *tun_v6_addr);
 
+int configure_routing_to_tun_mn(lisp_addr_t *eid_addr);
+
+int remove_routing_to_tun_mn(lisp_addr_t *eid_addr);
+
 #endif /* LISPD_TUN_H_ */
 

@@ -161,6 +161,7 @@ inline lmtimer_t *mcache_entry_init_req_retry_timer(mcache_entry_t *m)
 
 inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *m)
 {
+    free(m->smr_inv_timer->cb_argument);
     lmtimer_stop(m->smr_inv_timer);
     m->smr_inv_timer = NULL;
 }

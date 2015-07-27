@@ -65,8 +65,12 @@ void mcache_dump_db(map_cache_db_t *, int log_level);
     mdb_foreach_entry((MC)->db, (EIT))              \
         if (((mcache_entry_t *)(EIT))->active)
 
+#define mcache_foreach_not_active_entry(MC, EIT)        \
+    mdb_foreach_entry((MC)->db, (EIT))              \
+        if (((mcache_entry_t *)(EIT))->active == FALSE)
+
 #define mcache_foreach_end                          \
-    } mdb_foreach_entry_end
+    mdb_foreach_entry_end
 
 /* ugly .. */
 #define mcache_foreach_active_entry_in_ip_eid_db(MC, EID, EIT)  \

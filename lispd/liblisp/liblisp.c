@@ -256,9 +256,11 @@ lisp_msg_parse_mapping_record(lbuf_t *b, mapping_t *m, locator_t **probed)
 
     glist_for_each_entry(lit, loc_list) {
         loc = glist_entry_data(lit);
-        if (mapping_add_locator(m, loc) != GOOD) {
+        if ((ret = mapping_add_locator(m, loc)) != GOOD) {
             locator_del(loc);
-            goto err;
+            if (ret != ERR_EXIST){
+                goto err;
+            }
         }
     }
 
