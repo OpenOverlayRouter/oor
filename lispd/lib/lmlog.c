@@ -1,50 +1,41 @@
 /*
- * lmlog.c
  *
- * This file is part of LISP Mobile Node Implementation.
- * Write log messages
- * 
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Alberto Rodriguez Natal <arnatal@ac.ucp.edu>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
-
+#include <errno.h>
 #include <syslog.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include "lmlog.h"
 #ifdef ANDROID
 #include <android/log.h>
 #endif
 
+FILE *fp = NULL;
+
 inline void lispd_log(int log_level, char *log_name, const char *format,
         va_list args);
 
 
-void llog(int lisp_log_level, const char *format, ...)
+void
+llog(int lisp_log_level, const char *format, ...)
 {
     va_list args;
     char *log_name; /* To store the log level in string format for printf output */
@@ -101,10 +92,7 @@ void llog(int lisp_log_level, const char *format, ...)
         break;
     }
 
-#ifdef ANDROID
-    //if (lisp_log_level != LISP_LOG_DEBUG_3)
-        __android_log_vprint(ANDROID_LOG_INFO, "LISPmob-C ==>", format,args);
-#endif
+
     va_end (args);
 }
 
@@ -112,24 +100,59 @@ inline void
 lispd_log(int log_level, char *log_name, const char *format,
         va_list args)
 {
-    time_t t;
-    struct tm tm;
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
 
-    if (daemonize) {
-        vsyslog(log_level, format, args);
-    } else {
-        t = time(NULL);
-        tm = *localtime(&t);
+#ifdef ANDROID
+    __android_log_vprint(ANDROID_LOG_INFO, "LISPmob-C ==>", format,args);
+
+    if (fp != NULL){
+        fprintf(fp,"[%d/%d/%d %d:%d:%d] %s: ",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+        vfprintf(fp,format,args);
+        fprintf(fp,"\n");
+        fflush(fp);
+    }else{
+        vsyslog(log_level,format,args);
+    }
+#else
+    if (daemonize){
+        if (fp != NULL){
+            fprintf(fp,"[%d/%d/%d %d:%d:%d] %s: ",
+                    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+            vfprintf(fp,format,args);
+            fprintf(fp,"\n");
+            fflush(fp);
+        }else{
+            vsyslog(log_level,format,args);
+        }
+    }else{
         printf("[%d/%d/%d %d:%d:%d] %s: ",
-                        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
-        vfprintf(stdout, format, args);
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+        vfprintf(stdout,format,args);
         printf("\n");
+    }
+#endif
+}
+
+void
+open_log_file(char *log_file)
+{
+    if (log_file == NULL){
+        return;
+    }
+    /* Overwrite log file in each start */
+    fp = freopen(log_file, "w", stderr);
+    if (fp == NULL){
+        LMLOG(LERR,"Couldn't open the log file %s: %s. Using  syslog",
+                log_file, strerror(errno));
     }
 }
 
-/*
- * Editor modelines
- *
- * vi: set shiftwidth=4 tabstop=4 expandtab:
- * :indentSize=4:tabSize=4:noTabs=true:
- */
+void
+close_log_file()
+{
+    if (fp != NULL){
+        fclose (fp);
+    }
+}

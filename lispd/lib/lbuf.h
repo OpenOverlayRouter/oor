@@ -1,39 +1,30 @@
 /*
- * lbuf.h
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Inspired by ofpbuf from the OpenVSwitch project and sk_buff from the Linux Kernel
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #ifndef LBUF_H_
 #define LBUF_H_
 
-#include "list.h"
-#include "../defs.h"
 #include <stdint.h>
+#include <stdio.h>
+
+#include "../defs.h"
+#include "../elibs/ovs/list.h"
 
 #define LBUF_STACK_OFFSET 100
 
@@ -43,7 +34,7 @@ typedef enum lbuf_source {
 } lbuf_source_e;
 
 struct lbuf {
-    struct list_head list;      /* for queueing, to be implemented*/
+    struct ovs_list list;      /* for queueing, to be implemented*/
 
     uint32_t allocated;         /* allocated size */
     uint32_t size;              /* size in-use */
@@ -71,7 +62,7 @@ void lbuf_uninit(lbuf_t *);
 lbuf_t *lbuf_new(uint32_t);
 lbuf_t *lbuf_new_with_headroom(uint32_t, uint32_t);
 lbuf_t *lbuf_clone(lbuf_t *);
-static inline void lbuf_del(lbuf_t *);
+inline void lbuf_del(lbuf_t *);
 
 
 static inline void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
@@ -116,72 +107,76 @@ static inline void lbuf_reset_lisp_hdr(lbuf_t *b);
 static inline void *lbuf_lisp_hdr(lbuf_t*);
 inline int lbuf_point_to_lisp_hdr(lbuf_t *b);
 
-static inline void lbuf_set_base(lbuf_t *b, void *bs)
+static inline void
+lbuf_set_base(lbuf_t *b, void *bs)
 {
     b->base = bs;
 }
 
-static inline void lbuf_set_data(lbuf_t *b, void *dt)
+static inline void
+lbuf_set_data(lbuf_t *b, void *dt)
 {
     b->data = dt;
 }
 
-static inline void *lbuf_at(const lbuf_t *b, uint32_t offset, uint32_t size)
+static inline void *
+lbuf_at(const lbuf_t *b, uint32_t offset, uint32_t size)
 {
     return offset + size <= lbuf_size(b) ? (char *)lbuf_data(b) + offset : NULL;
 }
 
-static inline void *lbuf_tail(const lbuf_t *b)
+static inline void *
+lbuf_tail(const lbuf_t *b)
 {
     return (char *)lbuf_data(b) + lbuf_size(b);
 }
 
-static inline void *lbuf_end(const lbuf_t *b)
+static inline void *
+lbuf_end(const lbuf_t *b)
 {
     return (char *)lbuf_base(b) + b->allocated;
 }
 
-static inline uint32_t lbuf_headroom(const lbuf_t *b)
+static inline uint32_t
+lbuf_headroom(const lbuf_t *b)
 {
     return ((char *)lbuf_data(b) - (char *)lbuf_base(b));
 }
 
-static inline uint32_t lbuf_tailroom(const lbuf_t *b)
+static inline uint32_t
+lbuf_tailroom(const lbuf_t *b)
 {
     return (char *)lbuf_end(b) - (char *)lbuf_tail(b);
 }
 
-static inline void lbuf_del(lbuf_t *b)
-{
-    if (b) {
-        lbuf_uninit(b);
-        free(b);
-    }
-}
-
-static inline void *lbuf_data(const lbuf_t *b)
+static inline void *
+lbuf_data(const lbuf_t *b)
 {
     return b->data;
 }
 
-static inline void *lbuf_base(const lbuf_t *b)
+static inline void *
+lbuf_base(const lbuf_t *b)
 {
     return b->base;
 }
 
-static inline uint32_t lbuf_size(const lbuf_t *b)
+static inline uint32_t
+lbuf_size(const lbuf_t *b)
 {
     return b->size;
 }
 
-static inline void lbuf_set_size(lbuf_t *b, uint32_t sz)
+static inline void
+lbuf_set_size(lbuf_t *b, uint32_t sz)
 {
     b->size = sz;
 }
 
 /* moves 'data' pointer by 'size'. Returns first byte
  * of data removed */
-static inline void *lbuf_pull(lbuf_t *b, uint32_t size)
+static inline void *
+lbuf_pull(lbuf_t *b, uint32_t size)
 {
     if (size > b->size) {
         return NULL;
@@ -193,66 +188,76 @@ static inline void *lbuf_pull(lbuf_t *b, uint32_t size)
     return data;
 }
 
-static inline void lbuf_reset_ip(lbuf_t *b)
+static inline void
+lbuf_reset_ip(lbuf_t *b)
 {
     b->ip = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
-static inline void *lbuf_ip(lbuf_t *b)
+static inline void *
+lbuf_ip(lbuf_t *b)
 {
     return b->ip != UINT16_MAX ? (char *)lbuf_base(b) + b->ip : NULL;
 }
 
-static inline void lbuf_reset_udp(lbuf_t *b)
+static inline void
+lbuf_reset_udp(lbuf_t *b)
 {
     b->udp = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
-static inline void *lbuf_udp(lbuf_t *b)
+static inline void *
+lbuf_udp(lbuf_t *b)
 {
     return b->udp != UINT16_MAX ? (char *)lbuf_base(b) + b->udp : NULL;
 }
 
-static inline void lbuf_reset_l3(lbuf_t *b)
+static inline void
+lbuf_reset_l3(lbuf_t *b)
 {
     b->l3 = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
-static inline void *lbuf_l3(lbuf_t *b)
+static inline void *
+lbuf_l3(lbuf_t *b)
 {
     return b->l3 != UINT16_MAX ? (char *)lbuf_base(b) + b->l3 : NULL;
 }
 
-static inline void lbuf_reset_l4(lbuf_t *b)
+static inline void
+lbuf_reset_l4(lbuf_t *b)
 {
     b->l4 = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
-static inline void *lbuf_l4(lbuf_t *b)
+static inline void *
+lbuf_l4(lbuf_t *b)
 {
     return b->l4 != UINT16_MAX ? (char *)lbuf_base(b) + b->l4 : NULL;
 }
 
-static inline void lbuf_reset_lisp(lbuf_t *b)
+static inline void
+lbuf_reset_lisp(lbuf_t *b)
 {
     b->lisp = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
-static inline void *lbuf_lisp(lbuf_t *b)
+static inline void *
+lbuf_lisp(lbuf_t *b)
 {
     return b->lisp != UINT16_MAX ? (char *)lbuf_base(b) + b->lisp : NULL;
 }
 
-static inline void lbuf_reset_lisp_hdr(lbuf_t *b)
+static inline void
+lbuf_reset_lisp_hdr(lbuf_t *b)
 {
     b->lhdr = (char *)lbuf_data(b) - (char *)lbuf_base(b);
 }
 
-static inline void *lbuf_lisp_hdr(lbuf_t *b)
+static inline void *
+lbuf_lisp_hdr(lbuf_t *b)
 {
     return b->lhdr != UINT16_MAX ? (char *)lbuf_base(b) + b->lhdr : NULL;
 }
-
-
 
 #endif /* LBUF_H_ */

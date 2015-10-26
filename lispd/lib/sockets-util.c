@@ -1,31 +1,20 @@
 /*
- * sockets-util.h
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
- * All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #include <errno.h>
@@ -34,61 +23,39 @@
 
 #include "sockets-util.h"
 #include "lmlog.h"
-//#include <defs.h>
+
 
 int
-open_device_bound_raw_socket(char *device, int afi)
+open_ip_raw_socket(int afi)
 {
-    int device_len = 0;
-    int s = 0;
+    int s;
     int on = 1;
 
-    switch (afi) {
-    case AF_INET:
-        if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-            LMLOG(LERR, "open_device_bound_raw_socket: socket creation failed"
-                    " %s", strerror(errno));
-            return (BAD);
-        }
-        break;
-    case AF_INET6:
-        if ((s = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW)) < 0) {
-            LMLOG(LERR, "open_device_bound_raw_socket: socket creation failed"
-                    " %s", strerror(errno));
-            return (BAD);
-        }
-        break;
+    if ((s = socket(afi, SOCK_RAW, IPPROTO_RAW)) < 0) {
+        LMLOG(LERR, "open_ip_raw_socket: socket creation failed"
+                " %s", strerror(errno));
+        return (ERR_SOCKET);
     }
 
     if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) == -1) {
-        LMLOG(LWRN, "open_device_bound_raw_socket: socket option reuse %s",
+        LMLOG(LWRN, "open_ip_raw_socket: socket option reuse %s",
                 strerror(errno));
         close(s);
-        return (BAD);
+        return (ERR_SOCKET);
     }
 
-    /* XXX: binding might not work on all devices */
-    device_len = strlen(device);
-    if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
-        LMLOG(LWRN, "open_device_binded_raw_socket: socket option device %s",
-                strerror(errno));
-        close(s);
-        return (BAD);
-    }
-
-    LMLOG(LDBG_2, "open_device_binded_raw_socket: open socket %d in interface"
-            " %s with afi: %d", s, device, afi);
+    LMLOG(LDBG_3, "open_ip_raw_socket: open socket %d with afi: %d", s, afi);
 
     return s;
 
 }
 
-int
-open_raw_socket(int afi)
-{
 
+int
+open_udp_raw_socket(int afi)
+{
     struct protoent *proto = NULL;
-    int sock = 0;
+    int sock = ERR_SOCKET;
     int tr = 1;
     int protonum = 0;
 
@@ -96,7 +63,7 @@ open_raw_socket(int afi)
     protonum = IPPROTO_UDP;
 #else
     if ((proto = getprotobyname("UDP")) == NULL) {
-        LMLOG(LERR, "open_raw_socket: getprotobyname: %s", strerror(errno));
+        LMLOG(LERR, "open_udp_raw_socket: getprotobyname: %s", strerror(errno));
         return(-1);
     }
     protonum = proto->p_proto;
@@ -107,26 +74,27 @@ open_raw_socket(int afi)
      */
 
     if ((sock = socket(afi, SOCK_RAW, protonum)) < 0) {
-        LMLOG(LERR, "open_raw_input_socket: socket: %s", strerror(errno));
-        return (BAD);
+        LMLOG(LERR, "open_udp_raw_socket: socket: %s", strerror(errno));
+        return (ERR_SOCKET);
     }
-    LMLOG(LDBG_3, "open_raw_socket: socket at creation: %d\n", sock);
+    LMLOG(LDBG_3, "open_udp_raw_socket: Created socket %d associated to %s addresses\n",
+            sock, (afi == AF_INET) ? "IPv4":"IPv6");
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
-        LMLOG(LWRN,"open_raw_socket: setsockopt SO_REUSEADDR: %s",
+        LMLOG(LWRN,"open_udp_raw_socket: setsockopt SO_REUSEADDR: %s",
                 strerror(errno));
         close(sock);
-        return (BAD);
+        return (ERR_SOCKET);
     }
 
     return (sock);
 }
 
 int
-open_udp_socket(int afi)
+open_udp_datagram_socket(int afi)
 {
     struct protoent *proto = NULL;
-    int sock = 0;
+    int sock = ERR_SOCKET;
     int tr = 1;
     int protonum = 0;
 
@@ -134,191 +102,160 @@ open_udp_socket(int afi)
     protonum = IPPROTO_UDP;
 #else
     if ((proto = getprotobyname("UDP")) == NULL) {
-        LMLOG(LERR, "open_udp_socket: getprotobyname: %s", strerror(errno));
-        return(-1);
+        LMLOG(LERR, "open_udp_datagram_socket: getprotobyname: %s", strerror(errno));
+        return(ERR_SOCKET);
     }
     protonum = proto->p_proto;
 #endif
 
-    /* build the ipv4_data_input_fd, and make the port reusable */
     if ((sock = socket(afi, SOCK_DGRAM, protonum)) < 0) {
-        LMLOG(LERR, "open_udp_socket: socket: %s", strerror(errno));
-        return (BAD);
+        LMLOG(LERR, "open_udp_datagram_socket: socket: %s", strerror(errno));
+        return (ERR_SOCKET);
     }
-    LMLOG(LDBG_3, "open_udp_socket: socket at creation: %d\n", sock);
+    LMLOG(LDBG_3, "open_udp_datagram_socket: Created socket %d associated to %s addresses\n",
+            sock, (afi == AF_INET) ? "IPv4":"IPv6");
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int)) == -1) {
-        LMLOG(LWRN, "open_udp_socket: setsockopt SO_REUSEADDR: %s",
+        LMLOG(LWRN, "open_udp_datagram_socket: setsockopt SO_REUSEADDR: %s",
                 strerror(errno));
 
-        return (BAD);
+        return (ERR_SOCKET);
     }
 
     return sock;
 }
 
-int
-bind_socket_address(int sock, lisp_addr_t *addr)
+/* XXX: binding might not work on all devices */
+inline int
+socket_bindtodevice(int sock, char *device)
 {
-    int result = TRUE;
-    struct sockaddr *src_addr = NULL;
-    int src_addr_len = 0;
-    struct sockaddr_in src_addr4;
-    struct sockaddr_in6 src_addr6;
+    int device_len = 0;
 
-    memset((char *) &src_addr, 0, sizeof(src_addr));
-
-    switch (addr->afi) {
-    case AF_INET:
-        memset((char *) &src_addr4, 0, sizeof(src_addr4));
-        src_addr4.sin_family = AF_INET;
-        src_addr4.sin_addr.s_addr = addr->address.ip.s_addr;
-
-        src_addr = (struct sockaddr *) &src_addr4;
-        src_addr_len = sizeof(struct sockaddr_in);
-
-        break;
-    case AF_INET6:
-        memset((char *) &src_addr6, 0, sizeof(src_addr6));
-        src_addr6.sin6_family = AF_INET6;
-        memcpy(&(src_addr6.sin6_addr), &(addr->address.ipv6),
-                sizeof(struct in6_addr));
-
-        src_addr = (struct sockaddr *) &src_addr6;
-        src_addr_len = sizeof(struct sockaddr_in6);
-
-        break;
+    device_len = strlen(device);
+    if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, device, device_len) == -1) {
+        LMLOG(LWRN, "socket_bindtodevice: Error binding socket to device %s:",
+                strerror(errno));
+        return (BAD);
     }
-
-    if (bind(sock, src_addr, src_addr_len) != 0) {
-        LMLOG(LWRN, "bind_socket_src_address: %s", strerror(errno));
-        result = BAD;
-    }
-    return (result);
+    return (GOOD);
 }
 
-int
-bind_socket(int sock, int afi, int port)
+inline int
+socket_conf_req_ttl_tos(int sock, int afi)
 {
-    struct sockaddr_in sock_addr_v4;
-    struct sockaddr_in6 sock_addr_v6;
-    struct sockaddr *sock_addr = NULL;
-    int sock_addr_len = 0;
+    const int on = 1;
 
     switch (afi) {
     case AF_INET:
-        memset(&sock_addr_v4, 0, sizeof(sock_addr_v4)); /* be sure */
-        sock_addr_v4.sin_port = htons(port);
-        sock_addr_v4.sin_family = AF_INET;
-        sock_addr_v4.sin_addr.s_addr = INADDR_ANY;
 
-        sock_addr = (struct sockaddr *) &sock_addr_v4;
-        sock_addr_len = sizeof(sock_addr_v4);
+        /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
+        if (setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on)) < 0) {
+            LMLOG(LWRN, "open_data_raw_input_socket: setsockopt IP_RECVTOS: %s", strerror(errno));
+            return (BAD);
+        }
+
+        /* IP_RECVTTL is requiered to get later the IPv4 original TTL */
+        if (setsockopt(sock, IPPROTO_IP, IP_RECVTTL, &on, sizeof(on)) < 0) {
+            LMLOG(LWRN, "open_data_raw_input_socket: setsockopt IP_RECVTTL: %s", strerror(errno));
+            return (BAD);
+        }
+
         break;
 
     case AF_INET6:
-        memset(&sock_addr_v6, 0, sizeof(sock_addr_v6)); /* be sure */
-        sock_addr_v6.sin6_family = AF_INET6;
-        sock_addr_v6.sin6_port = htons(port);
-        sock_addr_v6.sin6_addr = in6addr_any;
 
-        sock_addr = (struct sockaddr *) &sock_addr_v6;
-        sock_addr_len = sizeof(sock_addr_v6);
+        /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
+        if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))
+                < 0) {
+            LMLOG(LWRN, "open_data_raw_input_socket: setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+            return (BAD);
+        }
+
+        /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
+        if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))
+                < 0) {
+            LMLOG(LWRN, "open_data_raw_input_socket: setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+            return (BAD);
+        }
+
         break;
 
     default:
-        return BAD;
-    }
-
-    if (bind(sock, sock_addr, sock_addr_len) == -1) {
-        LMLOG(LWRN, "bind input socket: %s", strerror(errno));
-        return (BAD);
-    }
-
-    return (sock);
-}
-
-/*
- * Sends a raw packet through the specified interface
- * XXX: kept for backwards compatibiliy. Should be removed
- * in the future
- */
-int send_packet (
-        int     sock,
-        uint8_t *packet,
-        int     packet_length)
-{
-    struct sockaddr *dst_addr = NULL;
-    int dst_addr_len = 0;
-    struct sockaddr_in dst_addr4;
-    struct sockaddr_in6 dst_addr6;
-    ip_addr_t pkt_src_addr;
-    ip_addr_t pkt_dst_addr;
-    struct iphdr *iph = NULL;
-    struct ip6_hdr *ip6h = NULL;
-    int nbytes = 0;
-
-
-    memset((char *) &dst_addr, 0, sizeof(dst_addr));
-
-    iph = (struct iphdr *) packet;
-
-    switch (iph->version) {
-    case 4:
-        memset((char *) &dst_addr4, 0, sizeof(dst_addr4));
-        dst_addr4.sin_family = AF_INET;
-        dst_addr4.sin_addr.s_addr = iph->daddr;
-
-        dst_addr = (struct sockaddr *) &dst_addr4;
-        dst_addr_len = sizeof(struct sockaddr_in);
-
-        break;
-    case 6:
-        ip6h = (struct ip6_hdr *) packet;
-
-        memset((char *) &dst_addr6, 0, sizeof(dst_addr6));
-        dst_addr6.sin6_family = AF_INET6;
-        dst_addr6.sin6_addr = ip6h->ip6_dst;
-
-        dst_addr = (struct sockaddr *) &dst_addr6;
-        dst_addr_len = sizeof(struct sockaddr_in6);
-
-        break;
-    }
-
-    nbytes = sendto(sock, (const void *) packet, packet_length, 0, dst_addr,
-            dst_addr_len);
-
-    if (nbytes != packet_length) {
-        switch (iph->version) {
-        case 4:
-            ip_addr_set_v4(&pkt_src_addr, &iph->saddr);
-            ip_addr_set_v4(&pkt_dst_addr, &iph->daddr);
-            break;
-        case 6:
-            ip6h = (struct ip6_hdr *) packet;
-            ip_addr_set_v6(&pkt_src_addr, &ip6h->ip6_src);
-            ip_addr_set_v6(&pkt_dst_addr, &ip6h->ip6_dst);
-            break;
-        }
-
-        LMLOG(LDBG_2,
-                "send_packet: send failed %s. Src addr: %s, Dst addr: %s, Socket: %d, packet len %d",
-                strerror(errno), ip_addr_to_char(&pkt_src_addr),
-                ip_addr_to_char(&pkt_dst_addr), sock, packet_length);
         return (BAD);
     }
 
     return (GOOD);
-
 }
+
+
+/*
+ * Bind a socket to a specific address and port if specified
+ * Afi is used when the src address is not specified
+ */
+int
+bind_socket(int sock, int afi, lisp_addr_t *src_addr, int src_port)
+{
+    int result = TRUE;
+    struct sockaddr *sock_addr;
+    int sock_addr_len;
+    struct sockaddr_in sock_addr_v4;
+    struct sockaddr_in6 sock_addr_v6;
+
+    switch(afi){
+    case AF_INET:
+        memset ( ( char * ) &sock_addr_v4, 0, sizeof ( sock_addr_v4 ) );
+        sock_addr_v4.sin_family = AF_INET;
+        if (src_port != 0){
+            sock_addr_v4.sin_port        = htons(src_port);
+        }
+        if (src_addr != NULL){
+            sock_addr_v4.sin_addr.s_addr = ip_addr_get_v4(lisp_addr_ip(src_addr))->s_addr;
+        }else{
+            sock_addr_v4.sin_addr.s_addr = INADDR_ANY;
+        }
+
+        sock_addr = ( struct sockaddr * ) &sock_addr_v4;
+        sock_addr_len = sizeof ( struct sockaddr_in );
+
+        break;
+    case AF_INET6:
+        memset ( ( char * ) &sock_addr_v6, 0, sizeof ( sock_addr_v6 ) );
+        sock_addr_v6.sin6_family = AF_INET6;
+        if (src_port != 0){
+            sock_addr_v6.sin6_port     = htons(src_port);
+        }
+        if (src_addr != NULL){
+            memcpy(&(sock_addr_v6.sin6_addr),ip_addr_get_v6(lisp_addr_ip(src_addr)),sizeof(struct in6_addr));
+        }else{
+            sock_addr_v6.sin6_addr     = in6addr_any;
+        }
+
+        sock_addr = ( struct sockaddr * ) &sock_addr_v6;
+        sock_addr_len = sizeof ( struct sockaddr_in6 );
+
+        break;
+    default:
+        return (BAD);
+    }
+
+    if (bind(sock,sock_addr,sock_addr_len) != 0){
+        LMLOG(LDBG_1, "bind_socket: %s", strerror(errno));
+        result = BAD;
+    }else{
+        LMLOG(LDBG_1, "bind_socket: Binded socket %d to source address %s and port %d",
+                sock, lisp_addr_to_char(src_addr),src_port);
+    }
+
+    return (result);
+}
+
 
 /* Sends a raw packet out the socket file descriptor 'sfd'  */
 int
-send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
+send_raw_packet(int socket, const void *pkt, int plen, ip_addr_t *dip)
 {
     struct sockaddr *saddr = NULL;
-    int slen = 0, nbytes = 0;
+    int slen, nbytes;
 
     struct sockaddr_in sa4;
     struct sockaddr_in6 sa6;
@@ -341,12 +278,54 @@ send_raw(int sfd, const void *pkt, int plen, ip_addr_t *dip)
         break;
     }
 
-    nbytes = sendto(sfd, pkt, plen, 0, saddr, slen);
+    nbytes = sendto(socket, pkt, plen, 0, saddr, slen);
     if (nbytes != plen) {
-        LMLOG(LDBG_2, "send_raw: send to %s failed %s", ip_addr_to_char(dip),
-                strerror(errno));
+        LMLOG(LDBG_2, "send_raw_packet: send packet to %s using fail descriptor %d failed -> %s", ip_addr_to_char(dip),
+                socket, strerror(errno));
         return(BAD);
     }
 
-    return (nbytes);
+    return (GOOD);
 }
+
+int
+send_datagram_packet (int sock, const void *packet, int packet_length,
+        lisp_addr_t *addr_dest, int port_dest)
+{
+    struct sockaddr_in sock_addr_v4;
+    struct sockaddr_in6 sock_addr_v6;
+    struct sockaddr *sock_addr = NULL;
+    int sock_addr_len = 0;
+
+    switch (lisp_addr_ip_afi(addr_dest)){
+    case AF_INET:
+        memset(&sock_addr_v4,0,sizeof(sock_addr_v4));           /* be sure */
+        sock_addr_v4.sin_port        = htons(port_dest);
+        sock_addr_v4.sin_family      = AF_INET;
+        sock_addr_v4.sin_addr.s_addr = ip_addr_get_v4(lisp_addr_ip(addr_dest))->s_addr;
+        sock_addr = (struct sockaddr *) &sock_addr_v4;
+        sock_addr_len = sizeof(sock_addr_v4);
+        break;
+    case AF_INET6:
+        memset(&sock_addr_v6,0,sizeof(sock_addr_v6));                   /* be sure */
+        sock_addr_v6.sin6_family   = AF_INET6;
+        sock_addr_v6.sin6_port     = htons(port_dest);
+        memcpy(&sock_addr_v6.sin6_addr, ip_addr_get_v6(lisp_addr_ip(addr_dest)),sizeof(struct in6_addr));
+        sock_addr = (struct sockaddr *) &sock_addr_v6;
+        sock_addr_len = sizeof(sock_addr_v6);
+        break;
+    default:
+        LMLOG(LDBG_2, "send_datagram_packet: Unknown afi %d",lisp_addr_ip_afi(addr_dest));
+        return (BAD);
+    }
+
+    if (sendto(sock, packet, packet_length, 0, sock_addr, sock_addr_len) < 0){
+        LMLOG(LDBG_2, "send_datagram_packet: send failed %s.",strerror ( errno ));
+        return (BAD);
+    }
+    return (GOOD);
+}
+
+
+
+

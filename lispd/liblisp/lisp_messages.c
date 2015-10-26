@@ -1,26 +1,19 @@
 /*
- * lisp_messages.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -119,10 +112,10 @@ ecm_hdr_init(void *ptr)
 }
 
 
-static char *
+char *
 mreq_flags_to_char(map_request_hdr_t *h)
 {
-    static char buf[10];
+    static char buf[25];
 
     *buf = '\0';
     h->authoritative ? sprintf(buf+strlen(buf), "a=1,") : sprintf(buf+strlen(buf), "a=0,");
@@ -143,9 +136,9 @@ map_request_hdr_to_char(map_request_hdr_t *h)
     if (!h) {
         return(NULL);
     }
-
-    sprintf(buf, BOLD "Map-Request" RESET " -> flags:%s, irc: %d (+1), record-count: %d, "
-            "nonce: %s", mreq_flags_to_char(h), h->additional_itr_rloc_count,
+    *buf = '\0';
+    sprintf(buf+strlen(buf), BOLD "Map-Request" RESET"-> flags:%s, irc: %d (+1), record-count: %d, "
+            "nonce: %s      1 ", mreq_flags_to_char(h), h->additional_itr_rloc_count,
             h->record_count,  nonce_to_char(h->nonce));
     return(buf);
 }
@@ -154,6 +147,7 @@ char *
 mrep_flags_to_char(map_reply_hdr_t *h)
 {
     static char buf[10];
+
     *buf = '\0';
     h->rloc_probe ? sprintf(buf+strlen(buf), "P=1,") : sprintf(buf+strlen(buf), "P=0,");
     h->echo_nonce ? sprintf(buf+strlen(buf), "E=1,") : sprintf(buf+strlen(buf), "E=0,");
@@ -169,7 +163,7 @@ map_reply_hdr_to_char(map_reply_hdr_t *h)
     if (!h) {
         return(NULL);
     }
-
+    *buf = '\0';
     sprintf(buf, BOLD "Map-Reply" RESET "-> flags:%s, record-count: %d, nonce: %s",
             mrep_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
@@ -179,8 +173,8 @@ char *
 mreg_flags_to_char(map_register_hdr_t *h)
 {
     static char buf[10];
-    *buf = '\0';
 
+    *buf = '\0';
     h->proxy_reply ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
     h->ibit ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
     h->rbit ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
@@ -196,7 +190,7 @@ map_register_hdr_to_char(map_register_hdr_t *h)
     if (!h) {
         return(NULL);
     }
-
+    *buf = '\0';
     sprintf(buf, BOLD "Map-Register" RESET " -> flags:%s record-count: %d nonce %s",
             mreg_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
     return(buf);
@@ -206,8 +200,8 @@ char *
 mntf_flags_to_char(map_notify_hdr_t *h)
 {
     static char buf[5];
-    *buf = '\0';
 
+    *buf = '\0';
     h->xtr_id_present ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
     h->rtr_auth_present ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
     return(buf);
@@ -232,8 +226,8 @@ char *
 ecm_flags_to_char(ecm_hdr_t *h)
 {
     static char buf[10];
-    *buf = '\0';
 
+    *buf = '\0';
     h->s_bit ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
     return(buf);
 }
@@ -246,7 +240,7 @@ ecm_hdr_to_char(ecm_hdr_t *h)
     if (!h) {
         return(NULL);
     }
-
+    *buf = '\0';
     sprintf(buf, BOLD "ECM" RESET " -> flags:%s", ecm_flags_to_char(h));
     return(buf);
 }
@@ -257,7 +251,8 @@ ecm_hdr_to_char(ecm_hdr_t *h)
 
 /* Given the start of an address field, @addr, checks if the address is an
  * MCAST_INFO LCAF that carries mrsignaling flags */
-uint8_t is_mrsignaling(address_hdr_t *addr)
+uint8_t
+is_mrsignaling(address_hdr_t *addr)
 {
     return(ntohs(LCAF_AFI(addr)) == LISP_AFI_LCAF
             && LCAF_TYPE(addr) == LCAF_MCAST_INFO

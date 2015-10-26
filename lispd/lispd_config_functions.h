@@ -1,43 +1,32 @@
 /*
- * lispd_config_functions.h
  *
- * This file is part of LISP Mobile Node Implementation.
- * Handle lispd command line and config file
- * Parse command line args using gengetopt.
- * Handle config file with libconfuse.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Alberto López     <alopez@ac.upc.edu>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
 #ifndef LISPD_CONFIG_FUNCTIONS_H_
 #define LISPD_CONFIG_FUNCTIONS_H_
 
-#include "lib/iface_locators.h"
 #include "control/lisp_ms.h"
+#include "control/lisp_xtr.h"
+#include "lib/iface_locators.h"
 #include "lib/lisp_site.h"
 #include "lib/map_local_entry.h"
-#include "control/lisp_xtr.h"
+#include "lib/shash.h"
+
 
 #define MAX_CFG_STRING 100
 
@@ -109,49 +98,30 @@ inline void conf_mapping_destroy(conf_mapping_t * conf_map);
 inline void conf_mapping_dump(conf_mapping_t * conf_map, int log_level);
 
 no_addr_loct *
-no_addr_loct_new_init(
-        locator_t * loct,
-        char *      iface,
-        int         afi);
+no_addr_loct_new_init(locator_t * loct, char *iface, int afi);
 
 void
 no_addr_loct_del(no_addr_loct * nloct);
 
 no_addr_loct *
-get_no_addr_loct_from_list(
-        glist_t     *list,
-        locator_t   *locator);
+get_no_addr_loct_from_list(glist_t *list, locator_t *locator);
 
 void
-validate_rloc_probing_parameters(
-        int *interval,
-        int *retries,
-        int *retries_int);
+validate_rloc_probing_parameters(int *interval,int *retries,int *retries_int);
 
 int
-validate_priority_weight(
-        int priority,
-        int weight);
+validate_priority_weight(int p, int w);
 
 int
-add_server(
-        char *              server,
-        glist_t *           list);
+add_server(char *str_addr, glist_t *list);
 
 int
-add_map_server(
-        glist_t * ms_list,
-        char *str_addr,
-        int key_type,
-        char *key,
+add_map_server(glist_t *ms_list, char *str_addr, int key_type, char *key,
         uint8_t proxy_reply);
 
 int
-add_proxy_etr_entry(
-        mcache_entry_t *petrs,
-        char *          str_addr,
-        int             priority,
-        int             weight);
+add_proxy_etr_entry(mcache_entry_t *petrs, char *str_addr, int priority,
+        int weight);
 
 
 /*
@@ -168,33 +138,17 @@ add_proxy_etr_entry(
  */
 
 int
-link_iface_and_mapping(
-        iface_t *           iface,
-        iface_locators *    if_loct,
-        map_local_entry_t * map_loc_e,
-        int                 afi,
-        int                 priority,
-        int                 weight);
+link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
+        map_local_entry_t *map_loc_e, int afi, int priority, int weight);
 
 int
-add_rtr_iface(
-        lisp_xtr_t  *xtr,
-        char        *iface_name,
-        int         afi,
-        int         priority,
-        int         weight);
+add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
+        int weight);
 
 lisp_site_prefix_t *
-build_lisp_site_prefix(
-        lisp_ms_t *     ms,
-        char *          eidstr,
-        uint32_t        iid,
-        int             key_type,
-        char *          key,
-        uint8_t         more_specifics,
-        uint8_t         proxy_reply,
-        uint8_t         merge,
-        htable_t *      lcaf_ht);
+build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
+        char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
+        shash_t *lcaf_ht);
 
 char *
 get_interface_name_from_address(lisp_addr_t *addr);
@@ -203,7 +157,7 @@ get_interface_name_from_address(lisp_addr_t *addr);
 /* Parses an EID/RLOC (IP or LCAF) and returns a list of 'lisp_addr_t'.
  * Caller must free the returned value */
 glist_t *
-parse_lisp_addr(char *address, htable_t *lcaf_ht);
+parse_lisp_addr(char *address, shash_t *lcaf_ht);
 
 /* Parses a char (IP or FQDN) into a list of 'lisp_addr_t'.
  * Caller must free the returned value */
@@ -211,13 +165,12 @@ glist_t *
 parse_ip_addr(char *addr_str);
 
 locator_t*
-clone_customize_locator(
-        lisp_ctrl_dev_t     *dev,
-        locator_t*          locator,
-        glist_t*            no_addr_loct_l,
-        uint8_t             type);
+clone_customize_locator(lisp_ctrl_dev_t *dev, locator_t * locator,
+        glist_t * no_addr_loct_l, uint8_t type);
 
-mapping_t * process_mapping_config(lisp_ctrl_dev_t *, htable_t *,uint8_t,conf_mapping_t *);
+mapping_t *
+process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
+        uint8_t type, conf_mapping_t * conf_mapping);
 
 int
 add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr);

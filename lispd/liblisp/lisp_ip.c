@@ -1,32 +1,22 @@
 /*
- * lispd_ip.h
  *
- * This file is part of LISP Mobile Node Implementation.
- * Necessary logic to handle incoming map replies.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras  <fcoras@ac.upc.edu>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
+
 #include <errno.h>
 
 #include "lisp_address.h"
@@ -225,10 +215,6 @@ ip_addr_afi_to_default_mask(ip_addr_t *ip)
     return(ip_afi_to_default_mask(ip_addr_afi(ip)));
 }
 
-
-
-
-
 /*
  * ip_prefix_t functions
  */
@@ -287,7 +273,7 @@ ip_prefix_to_char(ip_prefix_t *pref)
      * Now maximum = 5 */
     i++;
     i = i % 10;
-
+    *address[i] = '\0';
     sprintf(address[i], "%s/%d", ip_addr_to_char(ip_prefix_addr(pref)),
             ip_prefix_get_plen(pref));
     return(address[i]);
@@ -352,9 +338,6 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
     return (GOOD);
 }
 
-
-
-
 /*
  * other ip functions
  */
@@ -365,7 +348,7 @@ ip_to_char(void *ip, int afi)
     static char address[10][INET6_ADDRSTRLEN+1];
     static unsigned int i;
     i++; i = i % 10;
-
+    *address[i] = '\0';
     switch (afi) {
     case AF_INET:
         inet_ntop(AF_INET, ip, address[i], INET_ADDRSTRLEN);
@@ -435,8 +418,6 @@ ip_sock_afi_to_hdr_len(int afi)
     }
 }
 
-
-
 inline uint8_t
 ip_iana_afi_to_size(uint16_t afi)
 {
@@ -472,7 +453,6 @@ ip_addr_is_any(ip_addr_t *ip)
     }
     return(0);
 }
-
 
 inline uint8_t
 ip_addr_is_multicast(ip_addr_t *addr)
@@ -582,7 +562,6 @@ ip_hdr_ver_to_len(int ih_ver)
         return(sizeof(struct ip));
     case IP6VERSION:
         return(sizeof(struct ip6_hdr));
-        break;
     default:
         LMLOG(LDBG_2, "ip_hdr_ver_to_len: Unknown IP version %d!",
                 ih_ver);
@@ -592,7 +571,8 @@ ip_hdr_ver_to_len(int ih_ver)
 
 /* Assume if there's a colon in str that its an IPv6
  * address. Otherwise its v4. */
-int ip_afi_from_char(char *str)
+int
+ip_afi_from_char(char *str)
 {
     if (strchr(str,':'))                /* poor-man's afi discriminator */
         return(AF_INET6);

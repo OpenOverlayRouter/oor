@@ -1,30 +1,20 @@
 /*
- * lispd_control.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
- * All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #include <unistd.h>
@@ -32,45 +22,20 @@
 
 #include "lisp_control.h"
 #include "lisp_ctrl_device.h"
-#include "lispd_info_nat.h"
-#include "../data-tun/lispd_tun.h"
+#include "../data-plane/data-plane.h"
 #include "../lib/lmlog.h"
 #include "../lib/routing_tables_lib.h"
 #include "../lib/util.h"
 
 
 
-static void set_default_rlocs(lisp_ctrl_t *ctrl);
 static void set_rlocs(lisp_ctrl_t *ctrl);
-
-static void
-set_default_rlocs(lisp_ctrl_t *ctrl)
-{
-    if (default_ctrl_iface_v4 != NULL && default_ctrl_iface_v4->status==UP){
-        ctrl->ipv4_default_rloc = default_ctrl_iface_v4->ipv4_address;
-    }else{
-        ctrl->ipv4_default_rloc = NULL;
-    }
-
-    if (default_ctrl_iface_v6 != NULL && default_ctrl_iface_v6->status==UP){
-        ctrl->ipv6_default_rloc = default_ctrl_iface_v6->ipv6_address;
-    }else{
-        ctrl->ipv6_default_rloc = NULL;
-    }
-
-
-    LMLOG(LDBG_3, "Recomputing default rlocs:");
-    LMLOG(LDBG_3, "  Default IPv4 rloc: %s",
-            lisp_addr_to_char(ctrl->ipv4_default_rloc));
-    LMLOG(LDBG_3, "  Default IPv6 rloc: %s",
-            lisp_addr_to_char(ctrl->ipv6_default_rloc));
-}
 
 static void
 set_rlocs(lisp_ctrl_t *ctrl)
 {
-    iface_t *           iface       = NULL;
-    glist_entry_t *     iface_it    = NULL;
+    iface_t *iface;
+    glist_entry_t *iface_it;
 
     glist_remove_all(ctrl->rlocs);
     glist_remove_all(ctrl->ipv4_rlocs);
@@ -79,11 +44,11 @@ set_rlocs(lisp_ctrl_t *ctrl)
 
     glist_for_each_entry(iface_it,interface_list){
         iface = (iface_t *)glist_entry_data(iface_it);
-        if (!lisp_addr_is_no_addr(iface->ipv4_address)) {
+        if (iface->ipv4_address && !lisp_addr_is_no_addr(iface->ipv4_address)) {
             glist_add_tail(iface->ipv4_address, ctrl->ipv4_rlocs);
             glist_add_tail(iface->ipv4_address, ctrl->rlocs);
         }
-        if (!lisp_addr_is_no_addr(iface->ipv6_address)) {
+        if (iface->ipv6_address && !lisp_addr_is_no_addr(iface->ipv6_address)) {
             glist_add_tail(iface->ipv6_address, ctrl->ipv6_rlocs);
             glist_add_tail(iface->ipv6_address, ctrl->rlocs);
         }
@@ -95,17 +60,20 @@ set_rlocs(lisp_ctrl_t *ctrl)
     if (glist_size(ctrl->ipv6_rlocs) > 0){
     	ctrl->supported_afis = ctrl->supported_afis | IPv6_SUPPORT;
     }
-    set_default_rlocs(ctrl);
 }
 
 lisp_ctrl_t *
 ctrl_create()
 {
     lisp_ctrl_t *ctrl = xzalloc(sizeof(lisp_ctrl_t));
+    if (ctrl == NULL){
+        return (NULL);
+    }
     ctrl->devices = glist_new_managed((glist_del_fct)ctrl_dev_destroy);
     ctrl->rlocs = glist_new();
     ctrl->ipv4_rlocs = glist_new();
     ctrl->ipv6_rlocs = glist_new();
+    ctrl->control_data_plane = control_dp_select();
 
     LMLOG(LINF, "Control created!");
 
@@ -122,6 +90,9 @@ ctrl_destroy(lisp_ctrl_t *ctrl)
     glist_destroy(ctrl->rlocs);
     glist_destroy(ctrl->ipv4_rlocs);
     glist_destroy(ctrl->ipv6_rlocs);
+    if (ctrl->control_data_plane != NULL){
+        ctrl->control_data_plane->control_dp_uninit(ctrl);
+    }
 
     free(ctrl);
     LMLOG(LDBG_1,"Lisp controler destroyed");
@@ -130,90 +101,10 @@ ctrl_destroy(lisp_ctrl_t *ctrl)
 void
 ctrl_init(lisp_ctrl_t *ctrl)
 {
-    set_default_ctrl_ifaces();
-
-    /* Generate receive sockets for control port (4342)*/
-    if (default_rloc_afi != AF_INET6) {
-        ctrl->ipv4_control_input_fd = open_control_input_socket(AF_INET);
-        sockmstr_register_read_listener(smaster, ctrl_recv_msg, ctrl,
-                ctrl->ipv4_control_input_fd);
-    }
-
-    if (default_rloc_afi != AF_INET) {
-        ctrl->ipv6_control_input_fd = open_control_input_socket(AF_INET6);
-        sockmstr_register_read_listener(smaster, ctrl_recv_msg, ctrl,
-                ctrl->ipv6_control_input_fd);
-    }
-
+    ctrl->control_data_plane->control_dp_init(ctrl,smaster);
     set_rlocs(ctrl);
 
     LMLOG(LDBG_1, "Control initialized");
-}
-
-/*  Process a LISP protocol message sitting on
- *  socket s with address family afi */
-int
-ctrl_recv_msg(sock_t *sl)
-{
-    uconn_t uc;
-    lbuf_t *b;
-    lisp_ctrl_t *ctrl;
-    lisp_ctrl_dev_t *dev;
-
-    ctrl = sl->arg;
-    /* Only one device supported for now */
-    dev = glist_first_data(ctrl->devices);
-
-    uc.lp = LISP_CONTROL_PORT;
-
-    b = lisp_msg_create_buf();
-
-    if (sock_ctrl_recv(sl->fd, b, &uc) != GOOD) {
-        LMLOG(LDBG_1, "Couldn't retrieve socket information"
-                "for control message! Discarding packet!");
-        lbuf_del(b);
-        return (BAD);
-    }
-
-    lbuf_reset_lisp(b);
-
-    LMLOG(LDBG_1, "Received %s, IP: %s -> %s, UDP: %d -> %d",
-            lisp_msg_hdr_to_char(b), lisp_addr_to_char(&uc.ra),
-            lisp_addr_to_char(&uc.la), uc.rp, uc.lp);
-
-    /* direct call of ctrl device
-     * TODO: check type to decide where to send msg*/
-    ctrl_dev_recv(dev, b, &uc);
-
-    lbuf_del(b);
-
-    return (GOOD);
-}
-
-int
-ctrl_send_msg(lisp_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
-{
-    int ret;
-
-    if (lisp_addr_lafi(&uc->ra) != LM_AFI_IP) {
-        LMLOG(LDBG_2, "ctrl_send_msg: dst %s of UDP connection not IP. "
-                "Discarding!", lisp_addr_to_char(&uc->la),
-                lisp_addr_to_char(&uc->ra));
-        return(BAD);
-    }
-
-    ret = sock_ctrl_send(uc, b);
-
-    if (ret != GOOD) {
-        LMLOG(LDBG_1, "FAILED TO SEND \n From RLOC: %s -> %s",
-                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra));
-        return(BAD);
-    } else {
-        LMLOG(LDBG_1, "Sent message IP: %s -> %s UDP: %d -> %d",
-                lisp_addr_to_char(&uc->la), lisp_addr_to_char(&uc->ra),
-                uc->lp, uc->rp);
-        return(GOOD);
-    }
 }
 
 void
@@ -225,13 +116,13 @@ ctrl_update_iface_info(lisp_ctrl_t *ctrl)
 
     glist_for_each_entry(iface_it,interface_list){
         iface = (iface_t *)glist_entry_data(iface_it);
-        if (lisp_addr_lafi(iface->ipv4_address) != LM_AFI_NO_ADDR){
+        if (iface->ipv4_address && !lisp_addr_is_no_addr(iface->ipv4_address)){
             if (glist_contain_using_cmp_fct(iface->ipv4_address, ctrl->ipv4_rlocs, (glist_cmp_fct)lisp_addr_cmp) == FALSE){
                 new_ifaces = TRUE;
                 break;
             }
         }
-        if (lisp_addr_lafi(iface->ipv6_address) != LM_AFI_NO_ADDR){
+        if (iface->ipv6_address && !lisp_addr_is_no_addr(iface->ipv6_address)){
             if (glist_contain_using_cmp_fct(iface->ipv6_address, ctrl->ipv6_rlocs, (glist_cmp_fct)lisp_addr_cmp) == FALSE){
                 new_ifaces = TRUE;
                 break;
@@ -245,64 +136,53 @@ ctrl_update_iface_info(lisp_ctrl_t *ctrl)
     }
 }
 
-
 void
-ctrl_if_addr_update(
-        lisp_ctrl_t *ctrl,
-        iface_t     *iface,
-        lisp_addr_t *old,
-        lisp_addr_t *new)
+ctrl_if_addr_update(lisp_ctrl_t *ctrl,iface_t *iface, lisp_addr_t *old_addr,
+        lisp_addr_t *new_addr)
 {
     lisp_ctrl_dev_t *dev;
 
     dev = glist_first_data(ctrl->devices);
 
-    /* Check if the new address is behind NAT */
-    if (nat_aware == TRUE) {
-        /* TODO : To be modified when implementing NAT per multiple
-         * interfaces */
-        nat_status = UNKNOWN;
-        if (iface_status(iface) == UP) {
-            /* TODO: fix nat
-            initial_info_request_process(); */
-        }
-    }
+    ctrl->control_data_plane->control_dp_updated_addr(ctrl, iface, old_addr, new_addr);
 
     /* TODO: should store and pass updated rloc in the future
      * The old, and current solution is to keep a mapping between mapping_t
      * and iface to identify mapping_t(s) for which SMRs have to be sent. In
      * the future this should be decoupled and only the affected RLOC should
      * be passed to ctrl_dev */
-    ctrl_if_event(dev, strdup(iface->iface_name), old, new, iface_status(iface));
+    ctrl_if_event(dev, iface->iface_name, old_addr, new_addr, iface_status(iface));
+
     set_rlocs(ctrl);
 }
 
 void
-ctrl_if_status_update(
-        lisp_ctrl_t     *ctrl,
-        iface_t         *iface)
+ctrl_if_link_update(lisp_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
+        int new_iface_index, int status)
 {
-    lisp_ctrl_dev_t *dev        = NULL;
+    lisp_ctrl_dev_t *dev;
 
     dev = glist_first_data(ctrl->devices);
+
+    ctrl->control_data_plane->control_dp_update_link(ctrl, iface, old_iface_index, new_iface_index, status);
+
     ctrl_if_event(dev, strdup(iface->iface_name), NULL, NULL, iface_status(iface));
     set_rlocs(ctrl);
 }
 
-lisp_addr_t *
-ctrl_default_rloc(
-        lisp_ctrl_t *   ctrl,
-        int             afi)
+
+void
+ctrl_route_update(lisp_ctrl_t *ctrl, int command, iface_t *iface,lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref, lisp_addr_t *gateway)
 {
-    switch (afi){
-    case AF_INET:
-        return (ctrl->ipv4_default_rloc);
-    case AF_INET6:
-        return (ctrl->ipv6_default_rloc);
-    default:
-        LMLOG(LDBG_2,"ctrl_default_rloc: Unsupported afi: %d",afi);
-        return (NULL);
-    }
+    ctrl->control_data_plane->control_dp_updated_route(ctrl, command, iface, src_pref, dst_pref, gateway);
+    set_rlocs(ctrl);
+}
+
+lisp_addr_t *
+ctrl_default_rloc(lisp_ctrl_t *ctrl, int afi)
+{
+    return (ctrl->control_data_plane->control_dp_get_default_addr(ctrl,afi));
 }
 /*
  * Return the default control rlocs in a list that shoud be released
@@ -313,19 +193,22 @@ ctrl_default_rloc(
 glist_t *
 ctrl_default_rlocs(lisp_ctrl_t * ctrl)
 {
-    glist_t *   dflt_rlocs  = glist_new();
+    lisp_addr_t *addr;
 
+    glist_t *   dflt_rlocs  = glist_new();
     if (dflt_rlocs == NULL){
         return (NULL);
     }
 
-    if (ctrl->ipv4_default_rloc != NULL){
-        glist_add(ctrl->ipv4_default_rloc, dflt_rlocs);
-    }
-    if (ctrl->ipv6_default_rloc != NULL){
-        glist_add(ctrl->ipv6_default_rloc, dflt_rlocs);
+    addr = ctrl->control_data_plane->control_dp_get_default_addr(ctrl,AF_INET);
+    if (addr != NULL){
+        glist_add(addr, dflt_rlocs);
     }
 
+    addr = ctrl->control_data_plane->control_dp_get_default_addr(ctrl,AF_INET6);
+    if (addr != NULL){
+        glist_add(addr, dflt_rlocs);
+    }
     return (dflt_rlocs);
 }
 
@@ -346,7 +229,8 @@ ctrl_rlocs_with_afi(lisp_ctrl_t *c, int afi)
     return(NULL);
 }
 
-inline int ctrl_supported_afis(lisp_ctrl_t *ctrl)
+inline int
+ctrl_supported_afis(lisp_ctrl_t *ctrl)
 {
 	return (ctrl->supported_afis);
 }
@@ -362,7 +246,7 @@ ctrl_get_forwarding_entry(packet_tuple_t *tuple)
 int
 ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev)
 {
-    char *device = NULL;
+    char *device;
     device = ctrl_dev_type_to_char(dev->mode);
     LMLOG(LINF, "Device working in mode %s registering with control",
             device);
@@ -371,84 +255,31 @@ ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev)
 }
 
 int
-ctrl_register_eid_prefix(
-        lisp_ctrl_dev_t *dev,
-        lisp_addr_t     *eid_prefix)
+ctrl_register_eid_prefix(lisp_ctrl_dev_t *dev, lisp_addr_t *eid_prefix)
 {
-    switch(dev->mode){
-    case xTR_MODE:
-        /* Route to send dtraffic to TUN */
-        if (add_rule(lisp_addr_ip_afi(eid_prefix),
-                0,
-                LISP_TABLE,
-                RULE_TO_LISP_TABLE_PRIORITY,
-                RTN_UNICAST,
-                eid_prefix,
-                NULL,0)!=GOOD){
-            return (BAD);
-        }
-        /* Route to avoid to encapsulate traffic destined to the RLOC lan */
-        if (add_rule(lisp_addr_ip_afi(eid_prefix),
-                0,
-                RT_TABLE_MAIN,
-                RULE_AVOID_LISP_TABLE_PRIORITY,
-                RTN_UNICAST,
-                NULL,
-                eid_prefix,
-                0)!=GOOD){
-            return (BAD);
-        }
-        break;
-    case MN_MODE:
-        configure_routing_to_tun_mn(eid_prefix);
-        break;
-    case MS_MODE:
-    case RTR_MODE:
-    default:
+    lisp_dev_type_e dev_type = dev->mode;
+    if (dev_type == xTR_MODE || dev_type == MN_MODE || dev_type == RTR_MODE){
+        data_plane->datap_add_eid_prefix(dev_type,eid_prefix);
+    }else{
         LMLOG(LDBG_1, "Current version only supports the registration in control of "
-                "EID prefixes from xTRs and MNs");
-        break;
+                        "EID prefixes from xTRs and MNs");
     }
+
     return (GOOD);
 }
 
 int
-ctrl_unregister_eid_prefix(
-        lisp_ctrl_dev_t *dev,
-        lisp_addr_t     *eid_prefix)
+ctrl_unregister_eid_prefix(lisp_ctrl_dev_t *dev, lisp_addr_t *eid_prefix)
 {
-    switch(dev->mode){
-    case xTR_MODE:
-        if (del_rule(lisp_addr_ip_afi(eid_prefix),
-                0,
-                LISP_TABLE,
-                RULE_TO_LISP_TABLE_PRIORITY,
-                RTN_UNICAST,
-                eid_prefix,
-                NULL,0)!=GOOD){
-            return (BAD);
-        }
-        if (del_rule(lisp_addr_ip_afi(eid_prefix),
-                0,
-                RT_TABLE_MAIN,
-                RULE_AVOID_LISP_TABLE_PRIORITY,
-                RTN_UNICAST,
-                NULL,
-                eid_prefix,
-                0)!=GOOD){
-            return (BAD);
-        }
-        break;
-    case MN_MODE:
-        remove_routing_to_tun_mn(eid_prefix);
-        break;
-    case MS_MODE:
-    case RTR_MODE:
-    default:
+    lisp_dev_type_e dev_type = dev->mode;
+
+    if (dev_type == xTR_MODE || dev_type == MN_MODE || dev_type == RTR_MODE){
+        data_plane->datap_remove_eid_prefix(dev_type,eid_prefix);
+    }else{
         LMLOG(LDBG_1, "Current version only supports the unregistration in control of "
                 "EID prefixes from xTRs");
-        break;
     }
+
     return (GOOD);
 }
 

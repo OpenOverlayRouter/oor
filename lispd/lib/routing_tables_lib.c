@@ -1,111 +1,88 @@
 /*
- * routing_tables_lib.c
  *
- * This file is part of LISP Mobile Node Implementation.
- * Various routines to manage the list of interfaces.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Preethi Natarajan         <prenatar@cisco.com>
- *    Lorand Jakab              <ljakab@ac.upc.edu>
- *    Albert López              <alopez@ac.upc.edu>
- *    Alberto Rodriguez Natal   <arnatal@ac.upc.edu>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
+#include <errno.h>
+#include <unistd.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <sys/socket.h>
-#include <errno.h>
-#include <unistd.h>
 
+#include "lmlog.h"
 #include "routing_tables_lib.h"
 #include "../lispd_external.h"
-#include "lmlog.h"
+
 
 
 /**************************** FUNCTION DECLARATION ***************************/
 
 /*
- * ifindex:     Output interface
- * dest:        Destination address
- * gw:          Gateway
- * prefix_len:  Destination address mask (/n)
- * metric:      Route metric
- * table:       Routing table. 0 = main table
+ * ifindex: Output interface
+ * dest: Destination address
+ * gw: Gateway
+ * prefix_len: Destination address mask (/n)
+ * metric: Route metric
+ * table: Routing table. 0 = main table
  *
  */
 
-
-inline int modify_route(
-        int                 command,                    /* add or del */
-        int                 afi,
-        uint32_t            ifindex,
-        lisp_addr_t         *dest_pref,
-        lisp_addr_t         *src,
-        lisp_addr_t         *gw,
-        uint32_t            metric,
-        uint32_t            table);
+/* command could be add or del */
+inline int modify_route(int command, int afi, uint32_t ifindex,
+        lisp_addr_t *dest_pref, lisp_addr_t *src, lisp_addr_t *gw,
+        uint32_t metric, uint32_t table);
 
 
 /*
  * This function modifies kernel's list of ip rules
+ * @param afi AF_INE or AF_INET6
+ * @paramif_index interface index
+ * @param command add or del the rule?
+ * @param table rule for which routing table?
+ * @param priority rule priority
+ * @param type type of route
+ * @param src_pref src prefix to match
+ * @param dst_pref dst prefix to match
+ * @param flags flags, if any
  */
-inline int modify_rule (
-        int             afi,
-        int             if_index,       // interface index
-        int             command,        // add or del the rule?
-        uint8_t         table,          // rule for which routing table?
-        uint32_t        priority,       // rule priority
-        uint8_t         type,           // type of route
-        lisp_addr_t     *src_pref,      // src prefix to match
-        lisp_addr_t     *dst_pref,      // dst prefix to match
-        int             flags);         // flags, if any
+inline int modify_rule (int afi, int if_index, int command, uint8_t table,
+        uint32_t priority, uint8_t type, lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref, int flags);
 
 /*****************************************************************************/
 
 /*
  * This function modifies kernel's list of ip rules
  */
-inline int modify_rule (
-        int             afi,
-        int             if_index,       // interface index
-        int             command,        // add or del the rule?
-        uint8_t         table,          // rule for which routing table?
-        uint32_t        priority,       // rule priority
-        uint8_t         type,           // type of route
-        lisp_addr_t     *src_pref,      // src addr prefix
-        lisp_addr_t     *dst_pref,      // dst addr prefix
-        int             flags)          // flags, if any
+inline int
+modify_rule (int afi, int if_index, int command, uint8_t table,
+        uint32_t priority, uint8_t type, lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref, int flags)
 {
-    struct nlmsghdr     *nlh            = NULL;
-    struct rtmsg        *rtm            = NULL;
-    struct rtattr       *rta            = NULL;
-    char                buf[4096];
-    int                 rta_len         = 0;
-    int                 addr_size       = 0;
-    int                 sockfd          = 0;
-    int                 result          = BAD;
-    int                 src_pref_len    = 0;
-    int                 dst_pref_len    = 0;
+    struct nlmsghdr *nlh = NULL;
+    struct rtmsg *rtm = NULL;
+    struct rtattr *rta = NULL;
+    char buf[4096];
+    int rta_len = 0;
+    int addr_size = 0;
+    int sockfd = 0;
+    int result = BAD;
+    int src_pref_len = 0;
+    int dst_pref_len = 0;
 
     sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
@@ -190,7 +167,7 @@ inline int modify_rule (
     /*
      * Fill up the netlink message flags and attributes
      */
-    nlh->nlmsg_len =  NLMSG_LENGTH(rta_len);
+    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
 
     if (command == RTM_NEWRULE) {
@@ -204,12 +181,12 @@ inline int modify_rule (
     rtm->rtm_dst_len = dst_pref_len;
     rtm->rtm_src_len = src_pref_len;
     if (table == 0){
-        rtm->rtm_table     = RT_TABLE_MAIN;
+        rtm->rtm_table = RT_TABLE_MAIN;
     }else{
-        rtm->rtm_table     = table;
+        rtm->rtm_table = table;
     }
     rtm->rtm_scope = RT_SCOPE_UNIVERSE;
-    rtm->rtm_type  = type;
+    rtm->rtm_type = type;
     rtm->rtm_flags = flags;
 
 
@@ -231,15 +208,9 @@ inline int modify_rule (
  * This function adds a specific ip rule to
  * kernel's rule list
  */
-int add_rule(
-        int         afi,
-        int         if_index,
-        uint8_t     table,
-        uint32_t    priority,
-        uint8_t     type,
-        lisp_addr_t *src_pref,
-        lisp_addr_t *dst_pref,
-        int         flags)
+int
+add_rule(int afi, int if_index, uint8_t table, uint32_t priority, uint8_t type,
+        lisp_addr_t *src_pref, lisp_addr_t *dst_pref, int flags)
 {
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_NEWRULE, table,priority, type, src_pref, dst_pref, flags);
@@ -256,15 +227,9 @@ int add_rule(
  * This function deletes a specific ip rule to
  * kernel's rule list
  */
-int del_rule(
-        int         afi,
-        int         if_index,
-        uint8_t     table,
-        uint32_t    priority,
-        uint8_t     type,
-        lisp_addr_t *src_pref,
-        lisp_addr_t *dst_pref,
-        int         flags)
+int
+del_rule(int afi, int if_index, uint8_t table, uint32_t priority, uint8_t type,
+        lisp_addr_t *src_pref, lisp_addr_t *dst_pref, int flags)
 {
     int result = BAD;
     result = modify_rule(afi, if_index, RTM_DELRULE, table,priority, type, src_pref, dst_pref, flags);
@@ -279,13 +244,14 @@ int del_rule(
 /*
  * Request to the kernel the routing table with the selected afi
  */
-int request_route_table(uint32_t table, int afi)
+int
+request_route_table(uint32_t table, int afi)
 {
-    struct nlmsghdr *nlh    = NULL;
-    struct rtmsg    *rtm    = NULL;
-    char   sndbuf[4096];
-    int    rta_len          = 0;
-    int    retval           = 0;
+    struct nlmsghdr *nlh = NULL;
+    struct rtmsg *rtm = NULL;
+    char sndbuf[4096];
+    int rta_len = 0;
+    int retval = 0;
 
     if (netlink_fd == -1){
         LMLOG(LDBG_3, "request_route_table: Netlink message not configured yet");
@@ -300,24 +266,24 @@ int request_route_table(uint32_t table, int afi)
 
     rta_len = sizeof(struct rtmsg);
 
-    nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
+    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-    nlh->nlmsg_type  = RTM_GETROUTE;
+    nlh->nlmsg_type = RTM_GETROUTE;
 
 
-    rtm->rtm_family    = afi;
+    rtm->rtm_family = afi;
     if (table == 0){
-        rtm->rtm_table     = RT_TABLE_MAIN;
+        rtm->rtm_table = RT_TABLE_MAIN;
     }else{
-        rtm->rtm_table     = table;
+        rtm->rtm_table = table;
     }
 
-    rtm->rtm_protocol  = RTPROT_STATIC;
-    rtm->rtm_scope     = RT_SCOPE_UNIVERSE;
-    rtm->rtm_type      = RTN_UNICAST;
-    rtm->rtm_src_len   = 0;
-    rtm->rtm_tos       = 0;
-    rtm->rtm_dst_len   = 0;
+    rtm->rtm_protocol = RTPROT_STATIC;
+    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_src_len = 0;
+    rtm->rtm_tos = 0;
+    rtm->rtm_dst_len = 0;
 
 
     retval = send(netlink_fd, sndbuf, NLMSG_LENGTH(rta_len), 0);
@@ -331,34 +297,29 @@ int request_route_table(uint32_t table, int afi)
 
 
 /*
- * ifindex:     Output interface
- * dest:        Destination address
- * gw:          Gateway
- * prefix_len:  Destination address mask (/n)
- * metric:      Route metric
- * table:       Routing table. 0 = main table
+ * ifindex: Output interface
+ * dest: Destination address
+ * gw: Gateway
+ * prefix_len: Destination address mask (/n)
+ * metric: Route metric
+ * table: Routing table. 0 = main table
  *
  */
 
-inline int modify_route(
-        int                 command,                    /* add or del */
-        int                 afi,
-        uint32_t            ifindex,
-        lisp_addr_t         *dest_pref,
-        lisp_addr_t         *src_addr,
-        lisp_addr_t         *gw_addr,
-        uint32_t            metric,
-        uint32_t            table)
+inline int
+modify_route(int  command, int  afi, uint32_t ifindex, lisp_addr_t *dest_pref,
+        lisp_addr_t *src_addr, lisp_addr_t *gw_addr, uint32_t metric,
+        uint32_t table)
 {
-    struct nlmsghdr *nlh    = NULL;
-    struct rtmsg    *rtm    = NULL;
-    struct rtattr   *rta    = NULL;
-    char   sndbuf[4096];
-    int    rta_len          = 0;
-    int    retval           = 0;
-    int    sockfd           = 0;
-    int    addr_size        = 0;
-    int    dst_pref_len     = 0;
+    struct nlmsghdr *nlh = NULL;
+    struct rtmsg *rtm = NULL;
+    struct rtattr *rta = NULL;
+    char sndbuf[4096];
+    int rta_len = 0;
+    int retval = 0;
+    int sockfd = 0;
+    int addr_size = 0;
+    int dst_pref_len = 0;
 
     if (afi == AF_INET){
         addr_size = sizeof(struct in_addr);
@@ -458,30 +419,30 @@ inline int modify_route(
     }
 
 
-    nlh->nlmsg_len =   NLMSG_LENGTH(rta_len);
+    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
     if ( command == RTM_NEWROUTE){
         nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
-        nlh->nlmsg_type  = RTM_NEWROUTE;
+        nlh->nlmsg_type = RTM_NEWROUTE;
     }else{
         nlh->nlmsg_flags = NLM_F_REQUEST;
-        nlh->nlmsg_type  = RTM_DELROUTE;
+        nlh->nlmsg_type = RTM_DELROUTE;
     }
 
 
-    rtm->rtm_family    = afi;
+    rtm->rtm_family = afi;
     if (table == 0){
-        rtm->rtm_table     = RT_TABLE_MAIN;
+        rtm->rtm_table = RT_TABLE_MAIN;
     }else{
-        rtm->rtm_table     = table;
+        rtm->rtm_table = table;
     }
 
-    rtm->rtm_protocol  = RTPROT_STATIC;
-    rtm->rtm_scope     = RT_SCOPE_UNIVERSE;
-    rtm->rtm_type      = RTN_UNICAST;
-    rtm->rtm_src_len   = 0;
-    rtm->rtm_tos       = 0;
+    rtm->rtm_protocol = RTPROT_STATIC;
+    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_src_len = 0;
+    rtm->rtm_tos = 0;
 
-    rtm->rtm_dst_len   = dst_pref_len;
+    rtm->rtm_dst_len = dst_pref_len;
 
 
     retval = send(sockfd, sndbuf, NLMSG_LENGTH(rta_len), 0);
@@ -495,14 +456,9 @@ inline int modify_route(
     return(GOOD);
 }
 
-int add_route(
-        int                 afi,
-        uint32_t            ifindex,
-        lisp_addr_t         *dest_pref,
-        lisp_addr_t         *src,
-        lisp_addr_t         *gw,
-        uint32_t            metric,
-        uint32_t            table)
+int
+add_route(int afi, uint32_t ifindex, lisp_addr_t *dest_pref, lisp_addr_t *src,
+        lisp_addr_t *gw, uint32_t metric, uint32_t table)
 {
     int result = BAD;
     result = modify_route(RTM_NEWROUTE, afi,ifindex, dest_pref, src, gw, metric, table);
@@ -517,19 +473,14 @@ int add_route(
     return (result);
 }
 
-int del_route(
-        int                 afi,
-        uint32_t            ifindex,
-        lisp_addr_t         *dest_pref,
-        lisp_addr_t         *src,
-        lisp_addr_t         *gw,
-        uint32_t            metric,
-        uint32_t            table)
+int
+del_route(int  afi, uint32_t ifindex, lisp_addr_t *dest_pref, lisp_addr_t *src,
+        lisp_addr_t *gw, uint32_t metric, uint32_t table)
 {
     int result = BAD;
     result = modify_route(RTM_DELROUTE, afi, ifindex, dest_pref, src, gw, metric, table);
     if (result == GOOD){
-        LMLOG(LDBG_1, "del_route: deleted route  from the system");
+        LMLOG(LDBG_1, "del_route: deleted route from the system");
     }
     return (result);
 }

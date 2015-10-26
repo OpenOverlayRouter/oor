@@ -1,35 +1,27 @@
 /*
- * lisp_ms.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #include "lisp_ms.h"
-#include "../lib/cksum.h"
 #include "../defs.h"
+#include "../lib/cksum.h"
 #include "../lib/lmlog.h"
+#include "../lib/prefixes.h"
 
 
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
@@ -230,7 +222,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         /* Static entries will have null site and not null rsite */
         if (!site && !rsite) {
             /* send negative map-reply with TTL 15 min */
-            mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD,
+            mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD,A_AUTHORITATIVE,
                     MREQ_NONCE(mreq_hdr));
             LMLOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
                     lisp_addr_to_char(deid));
@@ -246,7 +238,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         /* Find if the site actually registered */
         if (!rsite) {
             /* send negative map-reply with TTL 1 min */
-            mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,
+            mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
                     MREQ_NONCE(mreq_hdr));
             LMLOG(LDBG_1,"The requested EID %s is not registered",
                                 lisp_addr_to_char(deid));
@@ -277,7 +269,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         mrep = lisp_msg_create(LISP_MAP_REPLY);
         rec = lisp_msg_put_mapping(mrep, map, NULL);
         /* Set the authoritative bit of the record to false*/
-        MAP_REC_AUTH(rec) = 0;
+        MAP_REC_AUTH(rec) = A_NO_AUTHORITATIVE;
 
         mrep_hdr = lisp_msg_hdr(mrep);
         MREP_RLOC_PROBE(mrep_hdr) = 0;
@@ -305,54 +297,6 @@ err:
 
 }
 
-//static void
-//mc_add_rlocs_to_rle(mapping_t *cmap, mapping_t *rtrmap) {
-//    locator_t       *cloc = NULL, *rtrloc = NULL;
-//    lcaf_addr_t     *crle = NULL, *rtrrle = NULL;
-//    glist_entry_t   *it = NULL;
-//    rle_node_t      *rtrnode = NULL, *itnode;
-//    int             found = 0;
-//
-//    if (!lisp_addr_is_mc(mapping_eid(rtrmap)))
-//        return;
-//
-//    if (rtrmap->head_v4_locators_list)
-//        rtrloc = rtrmap->head_v4_locators_list->locator;
-//    else if (rtrmap->head_v6_locators_list)
-//        rtrloc = rtrmap->head_v6_locators_list->locator;
-//
-//    if (!rtrloc) {
-//        LMLOG(LDBG_1, "mc_add_rlocs_to_rle: NO rloc for mc channel %s. Aborting!",
-//                lisp_addr_to_char(mapping_eid(rtrmap)));
-//        return;
-//    }
-//
-//    if (cmap->head_v4_locators_list)
-//        cloc = cmap->head_v4_locators_list->locator;
-//    else if (cmap->head_v6_locators_list)
-//        cloc = cmap->head_v6_locators_list->locator;
-//
-//    if (!cloc) {
-//        LMLOG(LDBG_1, "mc_add_rlocs_to_rle: RLOC for mc channel %s is not initialized. Aborting!",
-//                lisp_addr_to_char(mapping_eid(rtrmap)));
-//    }
-//
-//    rtrrle = lisp_addr_get_lcaf(locator_addr(rtrloc));
-//    crle = lisp_addr_get_lcaf(locator_addr(cloc));
-//    rtrnode = glist_first_data(lcaf_rle_node_list(rtrrle));
-//
-//    glist_for_each_entry(it, lcaf_rle_node_list(crle)) {
-//        itnode = glist_entry_data(it);
-//        if (lisp_addr_cmp(itnode->addr, rtrnode->addr) == 0
-//                && itnode->level == rtrnode->level)
-//            found = 1;
-//    }
-//
-//    if (!found) {
-//        glist_add_tail(rle_node_clone(rtrnode), lcaf_rle_node_list(crle));
-//    }
-//}
-
 static int
 ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
@@ -360,6 +304,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lisp_site_prefix_t *reg_pref = NULL;
     char *key = NULL;
     lisp_addr_t *eid = NULL;
+    lisp_addr_t *eid_pref = NULL;
     lbuf_t b;
     void *hdr = NULL, *mntf_hdr = NULL;
     int i = 0;
@@ -380,6 +325,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     lisp_msg_pull_auth_field(&b);
 
+
     for (i = 0; i < MREG_REC_COUNT(hdr); i++) {
         m = mapping_new();
         if (lisp_msg_parse_mapping_record(&b, m, &probed) != GOOD) {
@@ -392,6 +338,10 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         }
 
         eid = mapping_eid(m);
+        eid_pref = pref_get_network_prefix(eid);
+        mapping_set_eid(m,eid_pref);
+        lisp_addr_del(eid_pref);
+
         /* find configured prefix */
         reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid);
         if (!reg_pref) {
@@ -423,7 +373,12 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         /* check more specific */
         if (reg_pref->accept_more_specifics == TRUE){
-            // XXX To check if the more specific prefix is valid
+            if (!pref_is_prefix_b_part_of_a(reg_pref->eid_prefix,mapping_eid(m))){
+                LMLOG(LDBG_1, "EID %s not in configured lisp-sites DB! "
+                        "Discarding mapping!", lisp_addr_to_char(eid));
+                mapping_del(m);
+                continue;
+            }
         }else if(lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
             LMLOG(LDBG_1, "EID %s is a more specific of %s. However more "
                     "specifics not configured! Discarding",
@@ -432,6 +387,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             lisp_addr_del(eid);
             continue;
         }
+
 
         rsite = mdb_lookup_entry_exact(ms->reg_sites_db, eid);
         if (rsite) {
@@ -444,15 +400,6 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                     /* TREAT MERGE SEMANTICS */
                     LMLOG(LWRN, "Prefix %s has merge semantics",
                             lisp_addr_to_char(eid));
-                    /* MCs EIDs have their RLOCs aggregated into an RLE */
-//                    if (lisp_addr_is_mc(eid)) {
-//                        mc_add_rlocs_to_rle(rsite->site_map, m);
-//                    } else {
-//                        LMLOG(LWRN, "MS: Registered %s requires "
-//                                "merge semantics but we don't know how to "
-//                                "handle! Discarding!", lisp_addr_to_char(eid));
-//                        goto bad;
-//                    }
                 }
                 reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
                 ms_dump_registered_sites(ms, LDBG_3);

@@ -1,36 +1,27 @@
 /*
- * lisp_ctrl_device.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 
-#include "lisp_ctrl_device.h"
-#include "../lib/sockets.h"
-#include "../lib/packets.h"
 #include "../lispd_external.h"
+#include "../lib/packets.h"
+#include "../lib/sockets.h"
+#include "lisp_ctrl_device.h"
 
 
 static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
@@ -40,10 +31,12 @@ static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
         &xtr_ctrl_class,/* MN */
 };
 
-inline lisp_dev_type_e lisp_ctrl_dev_mode(lisp_ctrl_dev_t *dev){
+inline lisp_dev_type_e
+lisp_ctrl_dev_mode(lisp_ctrl_dev_t *dev){
     return dev->mode;
 }
-inline lisp_ctrl_t *lisp_ctrl_dev_get_ctrl_t(lisp_ctrl_dev_t *dev){
+inline lisp_ctrl_t *
+lisp_ctrl_dev_get_ctrl_t(lisp_ctrl_dev_t *dev){
     return dev->ctrl;
 }
 
@@ -98,12 +91,13 @@ ctrl_dev_destroy(lisp_ctrl_dev_t *dev)
 int
 send_msg(lisp_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc)
 {
-    return(ctrl_send_msg(dev->ctrl, b, uc));
+    return(dev->ctrl->control_data_plane->control_dp_send_msg(dev->ctrl, b, uc));
 }
 
 
 int
-ctrl_if_event(lisp_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr, lisp_addr_t *new_addr, uint8_t status)
+ctrl_if_event(lisp_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
+        lisp_addr_t *new_addr, uint8_t status)
 {
     dev->ctrl_class->if_event(dev, iface_name, old_addr, new_addr, status);
     return(GOOD);
@@ -115,7 +109,8 @@ ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
     return(dev->ctrl_class->get_fwd_entry(dev, tuple));
 }
 
-inline lisp_dev_type_e ctrl_dev_mode(lisp_ctrl_dev_t *dev)
+inline lisp_dev_type_e
+ctrl_dev_mode(lisp_ctrl_dev_t *dev)
 {
     return (dev->mode);
 }
@@ -138,6 +133,7 @@ char *
 ctrl_dev_type_to_char(lisp_dev_type_e type)
 {
     static char device[15];
+    *device='\0';
     switch (type){
     case xTR_MODE:
         strcpy(device,"xTR");

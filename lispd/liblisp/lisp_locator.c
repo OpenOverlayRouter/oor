@@ -1,31 +1,20 @@
 /*
- * lispd_locator.c
  *
- * This file is part of LISP Mobile Node Implementation.
- * Send registration messages for each database mapping to
- * configured map-servers.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
 #include <errno.h>
@@ -34,18 +23,17 @@
 #include "../lib/lmlog.h"
 
 
-static lcl_locator_extended_info_t *new_lcl_locator_extended_info(int *);
+static lcl_locator_extended_info_t *new_lcl_locator_extended_info();
 static rmt_locator_extended_info_t *new_rmt_locator_extended_info();
 static void free_lcl_locator_extended_info(lcl_locator_extended_info_t *);
 static void free_rmt_locator_extended_info(rmt_locator_extended_info_t *);
 
 static lcl_locator_extended_info_t *
-new_lcl_locator_extended_info(int *out_socket)
+new_lcl_locator_extended_info()
 {
     lcl_locator_extended_info_t *lcl_loc_ext_inf;
     lcl_loc_ext_inf = xmalloc(sizeof(lcl_locator_extended_info_t));
 
-    lcl_loc_ext_inf->out_socket = out_socket;
     lcl_loc_ext_inf->rtr_locators_list = NULL;
 
     return lcl_loc_ext_inf;
@@ -99,7 +87,7 @@ lcl_locator_extended_info_clone(lcl_locator_extended_info_t *einf)
 {
     lcl_locator_extended_info_t *ei = NULL;
 
-    ei = new_lcl_locator_extended_info(einf->out_socket);
+    ei = new_lcl_locator_extended_info();
 
     if (einf->rtr_locators_list != NULL) {
         ei->rtr_locators_list = rtr_locator_list_clone(einf->rtr_locators_list);
@@ -280,7 +268,7 @@ locator_init_local(lisp_addr_t *addr)
 /* Initializes a local locator.*/
 locator_t *
 locator_init_local_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
-        uint8_t weight, uint8_t mpriority, uint8_t mweight, int *out_socket)
+        uint8_t weight, uint8_t mpriority, uint8_t mweight)
 {
     locator_t *locator = locator_init_local(addr);
     if (!locator) {
@@ -294,7 +282,7 @@ locator_init_local_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
     locator->data_packets_in = 0;
     locator->data_packets_out = 0;
     locator->state = state;
-    locator->extended_info = (void *) new_lcl_locator_extended_info(out_socket);
+    locator->extended_info = (void *) new_lcl_locator_extended_info();
 
     return (locator);
 }
@@ -329,9 +317,9 @@ locator_clone(locator_t *loc)
                 loc->priority, loc->weight, loc->mpriority, loc->mweight);
     } else {
         /* For local locators, address and state are LINKED to the associated
-         * interface. Socket is cloned with the extended info */
+         * interface.*/
         locator = locator_init_local_full(loc->addr, loc->state, loc->priority,
-                loc->weight, loc->mpriority, loc->mweight, NULL);
+                loc->weight, loc->mpriority, loc->mweight);
     }
 
     locator->type = loc->type;
@@ -603,7 +591,7 @@ rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **rtr_list,
     rtr_locators_list_t *aux_rtr_list_elt = NULL;
 
     while (rtr_list_elt != NULL) {
-        if (rtr_list_elt->locator->address.afi == afi) {
+        if (lisp_addr_ip_afi(&(rtr_list_elt->locator->address)) == afi) {
             if (prev_rtr_list_elt == NULL) {
                 prev_rtr_list_elt = rtr_list_elt;
                 if (rtr_list_elt != *rtr_list) {

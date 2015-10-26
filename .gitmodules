@@ -1,0 +1,4 @@
+[submodule "android/jni/zeromq3-x"]
+        path = android/jni/zeromq3-x
+        url = https://github.com/zeromq/zeromq3-x.git
+

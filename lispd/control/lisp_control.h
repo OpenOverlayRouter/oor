@@ -1,38 +1,29 @@
 /*
- * lispd_control.h
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
- * All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #ifndef LISPD_CONTROL_H_
 #define LISPD_CONTROL_H_
 
+#include "../iface_list.h"
 #include "../lib/sockets.h"
 #include "../liblisp/liblisp.h"
-#include "../iface_list.h"
+#include "control-data-plane/control-data-plane.h"
 
 #define NO_AFI_SUPPOT  	0
 #define IPv4_SUPPORT	1
@@ -45,23 +36,17 @@ struct lisp_ctrl {
     /* move ctrl interface here */
 
     int supported_afis;
-    int ipv4_control_input_fd;
-    int ipv6_control_input_fd;
 
     glist_t *rlocs;
     glist_t *ipv4_rlocs;
     glist_t *ipv6_rlocs;
-    lisp_addr_t *ipv4_default_rloc;
-    lisp_addr_t *ipv6_default_rloc;
-
+    control_dplane_struct_t *control_data_plane;
 };
 
 lisp_ctrl_t *ctrl_create();
 void ctrl_destroy(lisp_ctrl_t *ctrl);
 void ctrl_init(lisp_ctrl_t *ctrl);
 
-int ctrl_recv_msg(struct sock *sl);
-int ctrl_send_msg(lisp_ctrl_t *, lbuf_t *, uconn_t *);
 void ctrl_update_iface_info(lisp_ctrl_t *ctrl);
 
 
@@ -79,17 +64,16 @@ inline int ctrl_supported_afis(lisp_ctrl_t *ctrl);
 
 void ctrl_if_addr_update(lisp_ctrl_t *, iface_t *, lisp_addr_t *,
         lisp_addr_t *);
-void ctrl_if_status_update(lisp_ctrl_t *, iface_t *);
+void ctrl_if_link_update(lisp_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
+        int new_iface_index, int status);
+void ctrl_route_update(lisp_ctrl_t *ctrl, int command, iface_t *iface,lisp_addr_t *src_pref,
+        lisp_addr_t *dst_pref, lisp_addr_t *gateway);
 fwd_entry_t *ctrl_get_forwarding_entry(packet_tuple_t *);
 int ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev);
 
-int ctrl_register_eid_prefix(
-        lisp_ctrl_dev_t *dev,
-        lisp_addr_t     *eid_prefix);
+int ctrl_register_eid_prefix(lisp_ctrl_dev_t *dev, lisp_addr_t *eid_prefix);
 
-int ctrl_unregister_eid_prefix(
-        lisp_ctrl_dev_t *dev,
-        lisp_addr_t     *eid_prefix);
+int ctrl_unregister_eid_prefix(lisp_ctrl_dev_t *dev, lisp_addr_t *eid_prefix);
 
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);

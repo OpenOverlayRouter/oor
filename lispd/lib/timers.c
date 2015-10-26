@@ -1,22 +1,32 @@
 /*
- * timers.c
  *
- * Timer maintenance routines. A simple, fixed granularity (1 second)
- * timer wheel implementation for scalable timers.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Author: Chris White
- * Copyright 2012 Cisco Systems, Inc.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  */
+
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/time.h>
-#include <errno.h>
 #include <time.h>
 
-#include "../defs.h"
 #include "lmlog.h"
 #include "timers.h"
 #include "util.h"
+#include "../defs.h"
 #include "../lispd_external.h"
 
 
@@ -26,14 +36,14 @@
 /* Good for a little over an hour */
 #define WHEEL_SIZE 4096
 
-struct {
+struct timer_wheel_{
     int num_spokes;
     int current_spoke;
     lmtimer_links_t *spokes;
     timer_t tick_timer_id;
     int running_timers;
     int expirations;
-} timer_wheel;
+} timer_wheel = {.spokes=NULL};
 
 /* We don't have signalfd in bionic, fake it. */
 static int signal_pipe[2];
@@ -96,7 +106,7 @@ lmtimers_init()
     /* create timers event socket */
     if (build_timers_event_socket(&timers_fd) == 0) {
         LMLOG(LCRIT, " Error programming the timer signal. Exiting...");
-        exit_cleanup();
+        return(BAD);
     }
 
     if (create_timer_wheel() != GOOD) {
@@ -131,6 +141,10 @@ lmtimers_destroy()
     int i;
     lmtimer_links_t *spoke, *sit, *next;
     lmtimer_t *t;
+
+    if (timer_wheel.spokes == NULL){
+        return;
+    }
 
     LMLOG(LDBG_1, "Destroying lmtimers ... ");
 

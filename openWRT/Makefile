@@ -22,6 +22,8 @@ PKG_LICENSE:=GPLv2
 PKG_LICENSE_FILES:=LICENSE
 
 include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/nls.mk
+
 
 define Package/lispmob/default
   MAINTAINER:=Vasileios Lakafosis <lakafv@gmail.com>

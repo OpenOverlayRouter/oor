@@ -1,36 +1,26 @@
 /*
- * lispd_generic_list.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
-#include "generic_list.h"
 #include <stdlib.h>
-#include "util.h"
+#include "generic_list.h"
 #include "lmlog.h"
-
+#include "util.h"
 
 void
 glist_init_complete(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct)
@@ -38,7 +28,7 @@ glist_init_complete(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct)
     lst->cmp_fct = cmp_fct;
     lst->del_fct = del_fct;
     lst->size = 0;
-    INIT_LIST_HEAD(&(lst->head.list));
+    list_init(&(lst->head.list));
 }
 
 void
@@ -103,13 +93,13 @@ glist_add(void *data, glist_t *glist)
 
     new = xzalloc(sizeof(glist_entry_t));
     new->data = data;
-    INIT_LIST_HEAD(&new->list);
+    list_init(&new->list);
 
     if (!glist->cmp_fct) {
-        list_add(&new->list, &glist->head.list);
+        list_push_front(&glist->head.list, &new->list);
     } else {
         if (glist->size != 0) {
-            list_for_each_entry(tmp, &glist->head.list, list) {
+            glist_for_each_entry(tmp,glist){
                 /* insert where new element is bigger than current one */
                 cmp = (*glist->cmp_fct)(data, tmp->data);
                 if( cmp == 2){
@@ -121,13 +111,13 @@ glist_add(void *data, glist_t *glist)
                 ctr++;
             }
             if (ctr != glist->size){
-                list_add(&new->list, tmp->list.prev);
+                list_push_front(tmp->list.prev, &new->list);
             }else{
                 // Add at the end of the list
-                list_add_tail(&(new->list), &(glist->head.list));
+                list_push_back(&(glist->head.list), &(new->list));
             }
         }else{
-            list_add(&new->list, &glist->head.list);
+            list_push_front( &glist->head.list, &new->list);
         }
     }
     glist->size++;
@@ -153,9 +143,9 @@ glist_add_tail(void *data, glist_t *glist)
 
     new = xzalloc(sizeof(glist_entry_t));
     new->data = data;
-    INIT_LIST_HEAD(&new->list);
+    list_init(&(new->list));
 
-    list_add_tail(&(new->list), &(glist->head.list));
+    list_push_back(&(glist->head.list), &(new->list));
     glist->size++;
 
     return(GOOD);
@@ -230,7 +220,7 @@ glist_extract(glist_entry_t *entry, glist_t *list)
         return;
     }
 
-    list_del(&(entry->list));
+    list_remove(&(entry->list));
 
     free(entry);
     list->size--;
@@ -251,7 +241,7 @@ glist_remove(glist_entry_t *entry, glist_t *list)
         return;
     }
 
-    list_del(&(entry->list));
+    list_remove(&(entry->list));
     if(list->del_fct) {
         (*list->del_fct)(entry->data);
     }
@@ -268,12 +258,10 @@ glist_remove(glist_entry_t *entry, glist_t *list)
  * @list: list from which the entry is to be removed
  */
 void
-glist_remove_obj(
-        void *      data,
-        glist_t *   list)
+glist_remove_obj(void *data, glist_t *list)
 {
-    glist_entry_t   *remove_entry   = NULL;
-    glist_entry_t   *entry          = NULL;
+    glist_entry_t *remove_entry = NULL;
+    glist_entry_t *entry;
 
     if (!list || list->size == 0) {
         return;
@@ -305,12 +293,10 @@ glist_remove_obj(
  * @list: list from which the entry is to be removed
  */
 void
-glist_remove_obj_with_ptr(
-        void *      data,
-        glist_t *   list)
+glist_remove_obj_with_ptr(void *data, glist_t *list)
 {
-    glist_entry_t   *remove_entry   = NULL;
-    glist_entry_t   *entry          = NULL;
+    glist_entry_t *remove_entry = NULL;
+    glist_entry_t *entry;
 
     if (!list || list->size == 0) {
         return;
@@ -331,15 +317,13 @@ glist_remove_obj_with_ptr(
 void
 glist_remove_all(glist_t *lst)
 {
-    struct list_head *buf, *it;
-    glist_entry_t *tmp;
+    glist_entry_t *tmp, *aux_tmp;
 
     if (!lst || lst->size == 0) {
         return;
     }
 
-    list_for_each_safe(it, buf, &(lst->head.list)) {
-        tmp = list_entry(it, glist_entry_t, list);
+    glist_for_each_entry_safe(tmp, aux_tmp, lst) {
         glist_remove(tmp, lst);
     }
 }

@@ -1,31 +1,20 @@
 /*
- * lispd_mapping.c
  *
- * This file is part of LISP Mobile Node Implementation.
- * Send registration messages for each database mapping to
- * configured map-servers.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Albert Lopez      <alopez@ac.upc.edu>
  */
 
 #include "../lib/lmlog.h"
@@ -118,10 +107,11 @@ mapping_cmp(mapping_t *m1, mapping_t *m2)
         glist_for_each_entry(it_loct1,loct_list1){
             loct1 = (locator_t *)glist_entry_data(it_loct1);
             loct2 = (locator_t *)glist_entry_data(it_loct2);
+
             if (locator_cmp(loct1, loct2) != 0) {
                 return (1);
             }
-             it_loct2 = glist_next(it_loct2);
+            it_loct2 = glist_next(it_loct2);
         }
         it_list2 = glist_next(it_list2);
 
@@ -154,9 +144,9 @@ mapping_to_char(mapping_t *m)
     locator_t *locator = NULL;
     glist_entry_t * it_list = NULL;
     glist_entry_t * it_loct = NULL;
-
     static char buf[100];
 
+    *buf = '\0';
     sprintf(buf, "EID: %s, ttl: %d, loc-count: %d, action: %s, "
             "auth: %d", lisp_addr_to_char(mapping_eid(m)), mapping_ttl(m),
             mapping_locator_count(m),
@@ -240,6 +230,49 @@ mapping_add_locator(
 		result = BAD;
 	}
 	return (result);
+}
+
+/* This function extract the locator from the list of locators of the mapping */
+int
+mapping_remove_locator(
+        mapping_t *mapping,
+        locator_t *loct)
+{
+    lisp_addr_t *addr = NULL;
+    glist_t *loct_list = NULL;
+
+    addr = locator_addr(loct);
+
+    loct_list = mapping_get_loct_lst_with_addr_type(mapping,addr);
+    if (loct_list == NULL){
+        LMLOG(LDBG_2,"mapping_remove_locator: The locator %s has not been found in the mapping",
+                lisp_addr_to_char(locator_addr(loct)));
+        return (GOOD);
+    }
+
+    if (locator_list_extract_locator_with_ptr(loct_list,loct) != GOOD){
+        LMLOG(LDBG_2,"mapping_remove_locator: The locator %s has not been found in the mapping",
+                lisp_addr_to_char(locator_addr(loct)));
+        return (GOOD);
+    }
+
+    if (glist_size(loct_list) == 0){
+        glist_remove_obj_with_ptr(loct_list, mapping->locators_lists);
+    }
+
+    if (!lisp_addr_is_no_addr(addr)){
+        mapping->locator_count = mapping->locator_count - 1;
+    }
+
+    if (lisp_addr_is_no_addr(addr) == FALSE){
+        mapping->locator_count++;
+    }
+
+    LMLOG(LDBG_2, "mapping_remove_locator: Removed locator %s from the mapping with"
+                    " EID %s.", lisp_addr_to_char(locator_addr(loct)),
+                    lisp_addr_to_char(mapping_eid(mapping)));
+
+    return (GOOD);
 }
 
 void
@@ -399,23 +432,20 @@ mapping_sort_locators(mapping_t *mapping, lisp_addr_t *changed_loc_addr)
 int
 mapping_activate_locator(
         mapping_t *mapping,
-        locator_t *loct)
+        locator_t *loct,
+        lisp_addr_t *new_addr)
 {
     int res = GOOD;
 
     glist_t *loct_list = NULL;
-
     loct_list = mapping_get_loct_lst_with_afi(mapping,LM_AFI_NO_ADDR,0);
     if (loct_list == NULL){
         return (BAD);
     }
 
-    if (locator_list_extract_locator_with_ptr(loct_list,loct) != GOOD){
-        LMLOG(LDBG_1,"mapping_activate_locator: The locator %s has not been found",
-                        lisp_addr_to_char(locator_addr(loct)));
-        return (BAD);
-    }
+    mapping_remove_locator(mapping, loct);
 
+    locator_clone_addr(loct,new_addr);
     res = mapping_add_locator(mapping,loct);
 
     if (res == GOOD){

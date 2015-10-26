@@ -1,27 +1,19 @@
 /*
- * lispd_api_internals.c
  *
- * This file is part of LISPmob implementation. It implements
- * the API to interact with LISPmob internals.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) The LISPmob project, 2015. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISPmob developers <devel@lispmob.org>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -31,8 +23,8 @@
 #include "lib/lmlog.h"
 #include "liblisp/liblisp.h"
 #include "lib/util.h"
-#include <libxml2/libxml/tree.h>
-#include <libxml2/libxml/parser.h>
+#include <libxml/tree.h>
+#include <libxml/parser.h>
 #include <zmq.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -42,9 +34,11 @@
 
 lisp_addr_t * lxml_lcaf_get_lisp_addr (xmlNodePtr xml_lcaf);
 
-xmlNodePtr get_inner_xmlNodePtr(xmlNodePtr parent, char *name){
-    xmlNodePtr node = NULL;
-    xmlChar * xmlName = xmlCharStrdup(name);
+xmlNodePtr
+get_inner_xmlNodePtr(xmlNodePtr parent, char *name)
+{
+    xmlNodePtr node;
+    xmlChar *xmlName = xmlCharStrdup(name);
 
     node = xmlFirstElementChild(parent);
 
@@ -54,12 +48,12 @@ xmlNodePtr get_inner_xmlNodePtr(xmlNodePtr parent, char *name){
         }
         node = xmlNextElementSibling(node);
     }
-
     free(xmlName);
-    return node;
+    return (node);
 }
 
-inline xmlNodePtr lxml_get_next_node(xmlNodePtr node)
+inline xmlNodePtr
+lxml_get_next_node(xmlNodePtr node)
 {
     char * name = (char *)node->name;
     do {
@@ -68,11 +62,12 @@ inline xmlNodePtr lxml_get_next_node(xmlNodePtr node)
     return (node);
 }
 
-lisp_addr_t * lxml_get_lisp_addr(xmlNodePtr xml_address)
+lisp_addr_t *
+lxml_get_lisp_addr(xmlNodePtr xml_address)
 {
     lisp_addr_t *addr = NULL;
-    char * str_afi = NULL;
-    uint8_t mask = 0;
+    char *str_afi;
+    uint8_t mask;
 
     str_afi = (char*)xmlNodeGetContent(get_inner_xmlNodePtr(xml_address,"afi"));
 
@@ -96,18 +91,18 @@ lisp_addr_t * lxml_get_lisp_addr(xmlNodePtr xml_address)
         ip_prefix_set_plen(lisp_addr_get_ippref(addr),mask);
     }
 
-    return addr;
+    return (addr);
 }
 
-
-char * lxml_get_char_lisp_addr(xmlNodePtr xml_address, char *name, htable_t *lcaf_ht)
+char *
+lxml_get_char_lisp_addr(xmlNodePtr xml_address, char *name, shash_t *lcaf_ht)
 {
-    char * lisp_address_str = NULL;
-    char * addr = NULL;
-    char * mask = NULL;
-    char * str_afi = NULL;
-    xmlNodePtr xml_lcaf = NULL;
-    lisp_addr_t *laddr = NULL;
+    char *lisp_address_str;
+    char *addr;
+    char *mask;
+    char *str_afi;
+    xmlNodePtr xml_lcaf;
+    lisp_addr_t *laddr;
 
     str_afi = (char*)xmlNodeGetContent(get_inner_xmlNodePtr(xml_address,"afi"));
 
@@ -124,7 +119,7 @@ char * lxml_get_char_lisp_addr(xmlNodePtr xml_address, char *name, htable_t *lca
             LMLOG(LDBG_2,"LMAPI->lxml_get_char_lisp_addr: Error processing lcaf address");
             return (NULL);
         }
-        htable_insert(lcaf_ht,strdup(name),laddr);
+        shash_insert(lcaf_ht,name,laddr);
         return (strdup(name));
     }else{
         LMLOG(LDBG_2,"LMAPI->lxml_get_char_lisp_addr: Afi not suppoted: %s",str_afi);
@@ -147,21 +142,22 @@ char * lxml_get_char_lisp_addr(xmlNodePtr xml_address, char *name, htable_t *lca
     return lisp_address_str;
 }
 
-lisp_addr_t * lxml_lcaf_get_lisp_addr (xmlNodePtr xml_lcaf)
+lisp_addr_t *
+lxml_lcaf_get_lisp_addr (xmlNodePtr xml_lcaf)
 {
-    lisp_addr_t *lcaf_addr = NULL;
-    lisp_addr_t *addr = NULL;
-    char * str_addr = NULL;
-    char * lcaf_type = NULL;
-    char * elp_bits = NULL;
+    lisp_addr_t *lcaf_addr;
+    lisp_addr_t *addr;
+    char *str_addr;
+    char *lcaf_type;
+    char *elp_bits;
     uint8_t lookup_bit = FALSE;
     uint8_t rloc_probe_bit = FALSE;
     uint8_t strict_bit = FALSE;
 
-    xmlNodePtr xml_elp = NULL;
-    xmlNodePtr xml_elp_node = NULL;
-    elp_t       *elp    = NULL;
-    elp_node_t  *enode  = NULL;
+    xmlNodePtr xml_elp;
+    xmlNodePtr xml_elp_node;
+    elp_t *elp;
+    elp_node_t *enode;
 
     lcaf_type = (char*)xmlNodeGetContent(get_inner_xmlNodePtr(xml_lcaf,"lcaf-type"));
 
@@ -200,22 +196,24 @@ lisp_addr_t * lxml_lcaf_get_lisp_addr (xmlNodePtr xml_lcaf)
         return (NULL);
     }
     free(lcaf_type);
+
     return (lcaf_addr);
 }
 
-conf_mapping_t * lxml_get_conf_mapping (xmlNodePtr xml_local_eid, htable_t * lcaf_ht)
+conf_mapping_t *
+lxml_get_conf_mapping (xmlNodePtr xml_local_eid, shash_t * lcaf_ht)
 {
-    conf_mapping_t * conf_mapping = NULL;
-    conf_loc_t * conf_loct = NULL;
-    conf_loc_iface_t * conf_loct_iface = NULL;
-    xmlNodePtr      xml_rlocs       = NULL;
-    xmlNodePtr      xml_rloc        = NULL;
-    xmlNodePtr      xml_ifce_rloc   = NULL;
-    xmlNodePtr      xml_addr_rloc   = NULL;
-    char *          eid = NULL;
-    char *          rloc = NULL;
-    char *          eid_name = NULL;
-    char *          rloc_name = NULL;
+    conf_mapping_t *conf_mapping;
+    conf_loc_t *conf_loct;
+    conf_loc_iface_t *conf_loct_iface;
+    xmlNodePtr xml_rlocs;
+    xmlNodePtr xml_rloc;
+    xmlNodePtr xml_ifce_rloc;
+    xmlNodePtr xml_addr_rloc;
+    char *eid;
+    char *rloc;
+    char *eid_name;
+    char *rloc_name;
     int ttl = 0;
     int prty = 255;
     int wght = 0;
@@ -296,19 +294,21 @@ conf_mapping_t * lxml_get_conf_mapping (xmlNodePtr xml_local_eid, htable_t * lca
     return (conf_mapping);
 }
 
-int lxml_update_map_server_list(xmlNodePtr xml_map_servers, uint8_t proxy_reply, glist_t *map_servers_list)
+int
+lxml_update_map_server_list(xmlNodePtr xml_map_servers, uint8_t proxy_reply,
+        glist_t *map_servers_list)
 {
-    xmlNodePtr xml_map_sever = NULL;
-    xmlNodePtr xml_address = NULL;
-    xmlNodePtr xml_key_type = NULL;
-    xmlNodePtr xml_key = NULL;
-    map_server_elt * ms = NULL;
-    char * str_addr = NULL;
-    char * key_type_aux = NULL;
-    int key_type = 0;
-    char * key = NULL;
-    lisp_addr_t * ms_addr = NULL;
-    glist_entry_t *     ms_it          = NULL;
+    xmlNodePtr xml_map_sever;
+    xmlNodePtr xml_address;
+    xmlNodePtr xml_key_type;
+    xmlNodePtr xml_key;
+    map_server_elt *ms;
+    char *str_addr;
+    char *key_type_aux;
+    int key_type;
+    char *key;
+    lisp_addr_t *ms_addr;
+    glist_entry_t *ms_it;
 
     xml_map_sever = get_inner_xmlNodePtr(xml_map_servers,"map-server");
     while (xml_map_sever != NULL){
@@ -396,9 +396,11 @@ int lxml_update_map_server_list(xmlNodePtr xml_map_servers, uint8_t proxy_reply,
 }
 
 
-int lmapi_init_server(lmapi_connection_t *conn) {
+int
+lmapi_init_server(lmapi_connection_t *conn)
+{
 
-	int error = 0;
+	int error;
 
     conn->context = zmq_ctx_new();
     LMLOG(LDBG_3,"LMAPI: zmq_ctx_new errno: %s\n",zmq_strerror (errno));
@@ -425,18 +427,21 @@ err:
 
 }
 
-int lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
+int
+lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
 
-    lisp_xtr_t *    xtr              = NULL;
-    uint8_t *       result_msg       = NULL;
-    int             result_msg_len   = 0;
-    glist_t *       list             = NULL;
-    xmlDocPtr       doc              = NULL;
-    xmlNodePtr      root_element     = NULL;
-    xmlNodePtr      mr_list_xml      = NULL;
-    xmlNodePtr      mr_addr_xml      = NULL;
-    lisp_addr_t *   mr_addr          = NULL;
-    int             prv_mr_list_size = 0;
+    lisp_xtr_t *xtr;
+    uint8_t *result_msg;
+    int result_msg_len;
+    glist_t *list;
+    xmlDocPtr doc;
+    xmlNodePtr root_element;
+    xmlNodePtr mr_list_xml;
+    xmlNodePtr mr_addr_xml;
+    lisp_addr_t *mr_addr;
+    int prv_mr_list_size;
 
     LMLOG(LDBG_1, "LMAPI: Creating new list of Map Resolvers");
 
@@ -514,15 +519,16 @@ err:
 
 }
 
-int lmapi_xtr_mr_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
+int
+lmapi_xtr_mr_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
 
-	lisp_xtr_t *xtr = NULL;
+	lisp_xtr_t *xtr;
 	uint8_t *result_msg;
 	int result_msg_len;
 
 	LMLOG(LDBG_2, "LMAPI: Deleting Map Resolver list");
-
-
 	xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
 
 	if (glist_size(xtr->map_resolvers) == 0){
@@ -539,31 +545,30 @@ int lmapi_xtr_mr_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
 
 	LMLOG(LDBG_1, "LMAPI: Map Resolver list deleted");
 
-	return GOOD;
-
+	return (GOOD);
 }
 
-int lmapi_xtr_ms_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
-    lisp_xtr_t *        xtr                 = NULL;
-
-    xmlDocPtr       doc             = NULL;
-    xmlNodePtr      root_element    = NULL;
-    xmlNodePtr      xml_map_servers = NULL;
-    xmlNodePtr      xml_ms_proxy_reply = NULL;
-
-    int                 result_msg_len      = 0;
-    uint8_t *           result_msg          = NULL;
-
-    glist_t * map_servers_list = glist_new_managed((glist_del_fct)map_server_elt_del);
-
-    char * str_proxy_reply = NULL;
+int
+lmapi_xtr_ms_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
+    lisp_xtr_t *xtr;
+    xmlDocPtr doc;
+    xmlNodePtr root_element;
+    xmlNodePtr xml_map_servers;
+    xmlNodePtr xml_ms_proxy_reply;
+    int result_msg_len;
+    uint8_t *result_msg;
+    glist_t * map_servers_list;
+    char * str_proxy_reply;
     uint8_t proxy_reply = FALSE;
 
     LMLOG(LDBG_1, "LMAPI: Creating new map servers list");
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
 
-    doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL, "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
+    doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL,
+            "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
     root_element = xmlDocGetRootElement(doc);
 
     xml_map_servers = xmlFirstElementChild(root_element);
@@ -575,6 +580,7 @@ int lmapi_xtr_ms_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
         }
     }
 
+    map_servers_list = glist_new_managed((glist_del_fct)map_server_elt_del);
     if (lxml_update_map_server_list(xml_map_servers,proxy_reply, map_servers_list)!=GOOD){
         LMLOG(LDBG_1,"lmapi_xtr_ms_create: Error adding map servers");
         goto err;
@@ -595,7 +601,7 @@ int lmapi_xtr_ms_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
 
-    return GOOD;
+    return (GOOD);
 
     err:
      glist_destroy(map_servers_list);
@@ -608,13 +614,15 @@ int lmapi_xtr_ms_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
      lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
      LMLOG(LWRN, "LMAPI: Error while setting new Map Servers list");
 
-     return BAD;
+     return (BAD);
 }
 
 
-int lmapi_xtr_ms_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
-
-    lisp_xtr_t *xtr = NULL;
+int
+lmapi_xtr_ms_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
+    lisp_xtr_t *xtr;
     uint8_t *result_msg;
     int result_msg_len;
 
@@ -627,7 +635,7 @@ int lmapi_xtr_ms_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
         result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_ERR);
         lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
         LMLOG(LWRN, "LMAPI: Trying to remove Map Resolver list, but list was already empty");
-        return BAD;
+        return (BAD);
     }
 
     glist_remove_all(xtr->map_servers);
@@ -637,33 +645,36 @@ int lmapi_xtr_ms_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t 
 
     LMLOG(LDBG_1, "LMAPI: Map Servers list deleted");
 
-    return GOOD;
-
+    return (GOOD);
 }
 
 
-int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
-    lisp_xtr_t *        xtr                 = NULL;
-    mapping_t *         processed_mapping   = NULL;
-    map_local_entry_t * map_loc_e           = NULL;
-    void *              fwd_info            = NULL;
-    htable_t *          lcaf_ht             = NULL;
-    void *              it                  = NULL;
-    xmlDocPtr           doc                 = NULL;
-    xmlNodePtr          root_element        = NULL;
-    xmlNodePtr          xml_local_eids      = NULL;
-    xmlNodePtr          xml_local_eid       = NULL;
-    conf_mapping_t *    conf_mapping        = NULL;
-    glist_t *           conf_mapping_list   = glist_new_managed((glist_del_fct)conf_mapping_destroy);
-    glist_entry_t *     conf_map_it         = NULL;
-    int                 result_msg_len      = 0;
-    uint8_t *           result_msg          = NULL;
-    int                 ipv4_mapings        = 0;
-    int                 ipv6_mapings        = 0;
-    int                 eid_ip_afi          = AF_UNSPEC;
+int
+lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
+    lisp_xtr_t *xtr;
+    mapping_t *processed_mapping;
+    map_local_entry_t *map_loc_e;
+    void *fwd_info;
+    shash_t *lcaf_ht;
+    void *it;
+    xmlDocPtr doc;
+    xmlNodePtr root_element;
+    xmlNodePtr xml_local_eids;
+    xmlNodePtr xml_local_eid;
+    conf_mapping_t *conf_mapping;
+    glist_t *conf_mapping_list;
+    glist_entry_t *conf_map_it;
+    int result_msg_len;
+    uint8_t *result_msg;
+    int ipv4_mapings = 0;
+    int ipv6_mapings = 0;
+    int eid_ip_afi;
 
     LMLOG(LDBG_1, "LMAPI: Creating new local data base");
-    lcaf_ht = htable_new(g_str_hash, g_str_equal, free,(h_val_del_fct)lisp_addr_del);
+    lcaf_ht = shash_new_managed((hash_free_fn_t)lisp_addr_del);
+    conf_mapping_list = glist_new_managed((glist_del_fct)conf_mapping_destroy);
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
 
@@ -677,7 +688,6 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
         if (conf_mapping == NULL){
             goto err;
         }
-
         glist_add(conf_mapping,conf_mapping_list);
         xml_local_eid = lxml_get_next_node(xml_local_eid);
     }
@@ -754,7 +764,7 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
     ctrl_update_iface_info(ctrl_dev->ctrl);
 
     glist_destroy(conf_mapping_list);
-    htable_destroy(lcaf_ht);
+    shash_destroy(lcaf_ht);
 
     LMLOG(LDBG_1, "LMAPI: New local data base created");
     LMLOG(LDBG_2, "************* %20s ***************", "Local EID Database");
@@ -768,12 +778,12 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
 
-    return GOOD;
+    return (GOOD);
 
     err:
     //XXX if error, destroy mappings added to local mapdb? deattach locators from ifaces?
     glist_destroy(conf_mapping_list);
-    htable_destroy(lcaf_ht);
+    shash_destroy(lcaf_ht);
 
     if (doc != NULL){
         xmlFreeDoc(doc);
@@ -787,14 +797,15 @@ int lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
 }
 
 
-int lmapi_xtr_mapdb_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
-
-    lisp_xtr_t *        xtr         = NULL;
-    map_local_entry_t * map_loc_e   = NULL;
-    void *              it          = NULL;
-    uint8_t *           result_msg  = NULL;
-    int                 result_msg_len;
-
+int
+lmapi_xtr_mapdb_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
+    lisp_xtr_t *xtr;
+    map_local_entry_t *map_loc_e;
+    void *it;
+    uint8_t *result_msg;
+    int result_msg_len;
 
     LMLOG(LDBG_2, "LMAPI: Deleting local Mapping Database list");
 
@@ -816,23 +827,24 @@ int lmapi_xtr_mapdb_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
 
     LMLOG(LDBG_1, "LMAPI: Local Mapping Database deleted");
 
-    return GOOD;
-
+    return (GOOD);
 }
 
-int lmapi_xtr_petrs_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
-
-    lisp_xtr_t *    xtr              = NULL;
-    uint8_t *       result_msg       = NULL;
-    int             result_msg_len   = 0;
-    glist_t *       str_addr_list    = NULL;
-    char *          str_addr         = NULL;
-    xmlDocPtr       doc              = NULL;
-    xmlNodePtr      root_element     = NULL;
-    xmlNodePtr      petr_list_xml    = NULL;
-    xmlNodePtr      petr_addr_xml    = NULL;
-    lisp_addr_t *   petr_addr        = NULL;
-    glist_entry_t * addr_it          = NULL;
+int
+lmapi_xtr_petrs_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
+    lisp_xtr_t *xtr;
+    uint8_t *result_msg;
+    int result_msg_len;
+    glist_t *str_addr_list;
+    char *str_addr;
+    xmlDocPtr doc;
+    xmlNodePtr root_element;
+    xmlNodePtr petr_list_xml;
+    xmlNodePtr petr_addr_xml;
+    lisp_addr_t *petr_addr;
+    glist_entry_t *addr_it;
 
     LMLOG(LDBG_1, "LMAPI: Creating new list of Proxy ETRs");
 
@@ -908,12 +920,13 @@ err:
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
 
     return (BAD);
-
 }
 
-int lmapi_xtr_petrs_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8_t *data){
-
-    lisp_xtr_t *xtr = NULL;
+int
+lmapi_xtr_petrs_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
+        uint8_t *data)
+{
+    lisp_xtr_t *xtr;
     uint8_t *result_msg;
     int result_msg_len;
 
@@ -927,12 +940,14 @@ int lmapi_xtr_petrs_delete(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr, uint8
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
 
-    return GOOD;
-
+    return (GOOD);
 }
 
 
-int (*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,lmapi_msg_hdr_t *, uint8_t *){
+int
+(*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,
+        lmapi_msg_hdr_t *, uint8_t *)
+{
 
     int (*process_func)(lmapi_connection_t *, lmapi_msg_hdr_t *, uint8_t *) = NULL;
 
@@ -1044,19 +1059,20 @@ int (*lmapi_get_proc_func(lmapi_msg_hdr_t* hdr))(lmapi_connection_t *,lmapi_msg_
         break;
     }
 
-    return process_func;
+    return (process_func);
 }
 
-void lmapi_loop(lmapi_connection_t *conn) {
-
+void
+lmapi_loop(lmapi_connection_t *conn)
+{
     uint8_t *buffer;
     uint8_t *data;
     int nbytes;
     int datalen;
     lmapi_msg_hdr_t *header;
     int (*process_func)(lmapi_connection_t *, lmapi_msg_hdr_t *, uint8_t *) = NULL;
-    uint8_t *       result_msg      = NULL;
-    int             result_msg_len  = 0;
+    uint8_t *result_msg;
+    int result_msg_len;
 
     buffer = xzalloc(MAX_API_PKT_LEN);
 

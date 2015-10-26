@@ -1,8 +1,20 @@
 /*
- * fb_lisp_addr.c
  *
- *  Created on: 17/02/2015
- *      Author: albert
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  */
 
 #include "fb_lisp_addr_func.h"
@@ -51,7 +63,6 @@ fb_lisp_addr_get_fwd_ip_addr(lisp_addr_t *addr, glist_t *locl_rlocs_addr)
 lisp_addr_t *
 fb_lcaf_get_fwd_ip_addr(lcaf_addr_t *lcaf, glist_t *locl_rlocs_addr)
 {
-
     if (!fb_get_fwd_ip_addr_fcts[lcaf_addr_get_type(lcaf)]) {
         LMLOG(LDBG_1, "fb_lcaf_get_fwd_ip_addr: lcaf type %d not supported", lcaf_addr_get_type(lcaf));
         return (NULL);
@@ -61,10 +72,12 @@ fb_lcaf_get_fwd_ip_addr(lcaf_addr_t *lcaf, glist_t *locl_rlocs_addr)
 }
 
 
-lisp_addr_t *fb_elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr)
+lisp_addr_t *
+fb_elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr)
 {
-    lisp_addr_t *addr = NULL;
-    glist_entry_t *it = NULL;
+    lisp_addr_t *addr;
+    glist_entry_t *it;
+
     glist_t *elp_list = ((elp_t *)elp)->nodes;
     int elp_size = glist_size(elp_list);
     int elp_pos = 0;
@@ -98,12 +111,13 @@ lisp_addr_t *fb_elp_type_get_fwd_ip_addr(void *elp, glist_t *locl_rlocs_addr)
     return (lisp_addr_get_ip_addr(elp_node_addr((elp_node_t *)glist_first_data(elp_list))));
 }
 
-lisp_addr_t * fb_rle_type_get_fwd_ip_addr(void *rle, glist_t *locl_rlocs_addr)
+lisp_addr_t *
+fb_rle_type_get_fwd_ip_addr(void *rle, glist_t *locl_rlocs_addr)
 {
-    lisp_addr_t     *addr = NULL;
-    glist_entry_t   *it = NULL;
-    rle_node_t      *rnode  = NULL;
-    int             level   = -1;
+    lisp_addr_t *addr = NULL;
+    glist_entry_t *it;
+    rle_node_t *rnode;
+    int level   = -1;
 
     /* find the first highest level replication node */
     glist_for_each_entry(it, ((rle_t *)rle)->nodes) {

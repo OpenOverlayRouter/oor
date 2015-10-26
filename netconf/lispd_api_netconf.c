@@ -1,27 +1,19 @@
 /*
- * lispd_api_netconf.c
  *
- * This file is part of the LISPmob implementation.
- * It connects the LISPmob API to NETCONF
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) The LISPmob project, 2014. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -65,18 +57,9 @@ sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
 
-void
-exit_cleanup(void) {
-    LMLOG(LDBG_2,"Exit Cleanup");
-
-    //TODO delete connection on error
-    //lmapi_end(&lmapi_connection);
-
-    LMLOG(LINF,"Exiting ...");
-    exit(EXIT_SUCCESS);
-}
-
-xmlNodePtr get_inner_xmlNodePtr(xmlNodePtr parent, char *name){
+xmlNodePtr
+get_inner_xmlNodePtr(xmlNodePtr parent, char *name)
+{
 
     xmlNodePtr node = NULL;
     xmlChar * xmlName = xmlCharStrdup(name);
@@ -95,7 +78,9 @@ xmlNodePtr get_inner_xmlNodePtr(xmlNodePtr parent, char *name){
 
 }
 
-int lmapi_nc_xtr_mr_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent, struct nc_err** error){
+int
+lmapi_nc_xtr_mr_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent, struct nc_err** error)
+{
     uint8_t *data = NULL;
     int size = 0;
     char *str_err = NULL;
@@ -142,7 +127,9 @@ err:
 
 
 
-int lmapi_nc_xtr_mr_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error){
+int
+lmapi_nc_xtr_mr_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error)
+{
 
     int result;
     result = lmapi_apply_config(conn,
@@ -163,7 +150,9 @@ int lmapi_nc_xtr_mr_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err
 
 }
 
-int lmapi_nc_xtr_petrs_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent, struct nc_err** error){
+int
+lmapi_nc_xtr_petrs_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent, struct nc_err** error)
+{
     uint8_t *data = NULL;
     int size = 0;
     char *str_err = NULL;
@@ -210,7 +199,9 @@ err:
 
 
 
-int lmapi_nc_xtr_petrs_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error){
+int
+lmapi_nc_xtr_petrs_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error)
+{
 
     int result;
     result = lmapi_apply_config(conn,
@@ -231,7 +222,10 @@ int lmapi_nc_xtr_petrs_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_
 
 }
 
-int lmapi_nc_xtr_ms_add(lmapi_connection_t *conn, xmlNodePtr map_servers_parent, struct nc_err** error){
+int
+lmapi_nc_xtr_ms_add(lmapi_connection_t *conn, xmlNodePtr map_servers_parent,
+        struct nc_err** error)
+{
     uint8_t *data = NULL;
     int size = 0;
     char *str_err = NULL;
@@ -278,7 +272,9 @@ err:
 
 
 
-int lmapi_nc_xtr_ms_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error){
+int
+lmapi_nc_xtr_ms_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error)
+{
 
     int result;
 
@@ -302,7 +298,9 @@ int lmapi_nc_xtr_ms_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err
 
 }
 
-int lmapi_nc_xtr_mapdb_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error){
+int
+lmapi_nc_xtr_mapdb_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error)
+{
 
     int result;
 
@@ -325,7 +323,10 @@ int lmapi_nc_xtr_mapdb_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_
     return EXIT_SUCCESS;
 }
 
-int lmapi_nc_xtr_mapdb_add(lmapi_connection_t *conn, xmlNodePtr xml_local_eid_database, struct nc_err** error){
+int
+lmapi_nc_xtr_mapdb_add(lmapi_connection_t *conn, xmlNodePtr xml_local_eid_database,
+        struct nc_err** error)
+{
 
     int result;
     char *str_err = NULL;
@@ -378,7 +379,10 @@ err:
 
 }
 
-int lmapi_nc_rtr_mr_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent, struct nc_err** error){
+int
+lmapi_nc_rtr_mr_add(lmapi_connection_t *conn, xmlNodePtr mrs_parent,
+        struct nc_err** error)
+{
     uint8_t *data = NULL;
     int size = 0;
     char *str_err = NULL;
@@ -425,7 +429,9 @@ err:
 
 
 
-int lmapi_nc_rtr_mr_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error){
+int
+lmapi_nc_rtr_mr_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err** error)
+{
 
     int result;
     result = lmapi_apply_config(conn,
@@ -447,7 +453,10 @@ int lmapi_nc_rtr_mr_rem(lmapi_connection_t *conn, xmlNodePtr node, struct nc_err
 }
 
 
-int lmapi_nc_node_accessed(lmapi_connection_t *conn, int dev, int trgt, XMLDIFF_OP op, xmlNodePtr node, struct nc_err** error){
+int
+lmapi_nc_node_accessed(lmapi_connection_t *conn, int dev, int trgt, XMLDIFF_OP op,
+        xmlNodePtr node, struct nc_err** error)
+{
 
     if (op <= 0 || op > (XMLDIFF_MOD | XMLDIFF_CHAIN | XMLDIFF_ADD | XMLDIFF_REM) || ((op & XMLDIFF_ADD) && (op & XMLDIFF_REM))) {
         goto err;

@@ -1,9 +1,13 @@
 # General configuration
 #        debug: Debug levels [0..3]
 #        map-request-retries: Additional Map-Requests to send per map cache miss
+#        log-file: Specify log file used in daemon mode. If it is not specified,  
+#           messages are written in syslog file
 
 debug                  = 0 
 map-request-retries    = 2
+log-file               = /var/log/lispd.log
+ 
 # 
 # operating mode can be any of:
 # xTR, RTR, MN, MS
@@ -32,36 +36,13 @@ ms-static-registered-site {
         weight          = <int>
     }
 }
-###############################################
-
-#
-# RTR config
-#
-
-rtr-ifaces {
-    rtr-iface {
-        iface           = <iface name>
-        ip_version      = <4/6>
-        priority        = <int>
-        weight          = <int>
-	}
-	...
-}
-
-rtr-database-mapping {
-    eid-prefix          = <prefix>
-    rloc-address {
-        address         = <string>
-        priority        = <int>
-        weight          = <int>
-	}
-}
-
 
 ###############################################
 #
-# xTR & MN config
+# Tunnel Router general configuration
+# Common with xTR, RTR & MN
 #
+
 
 # RLOC Probing configuration
 #   rloc-probe-interval: interval at which periodic RLOC probes are sent
@@ -77,21 +58,6 @@ rloc-probing {
     rloc-probe-retries-interval     = 5
 }
 
-# NAT Traversal configuration. 
-#   nat_aware: check if the node is behind NAT
-#   site_ID: 64 bits to identify the site which the node is connected to. In
-#     hexadecimal
-#   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal
-# Limitation of version 0.3.3 when nat_aware is enabled: 
-#   - Only one interface is supported.
-#   - Only one Map Server and one Map Resolver
-
-nat-traversal {
-    nat_aware   = off
-    site_ID     = 0000000000000001                  #In doubt, keep the default value
-    xTR_ID      = 00000000000000000000000000000001  #In doubt, keep the default value
-}
-
 # Encapsulated Map-Requests are sent to this map-resolver
 # You can define several map-resolvers. Encapsulated Map-Request messages will
 # be sent to only one.
@@ -99,6 +65,26 @@ nat-traversal {
 map-resolver        = {
 	<ip>	
 }
+
+###############################################
+#
+# RTR config
+#
+
+rtr-ifaces {
+    rtr-iface {
+        iface           = <iface name>
+        ip_version      = <4/6>
+        priority        = <int>
+        weight          = <int>
+    }
+    ...
+}
+
+###############################################
+#
+# xTR & MN config
+#
 
 # Map-Registers are sent to this map-server
 # You can define several map-servers. Map-Register messages will be sent to all
@@ -161,6 +147,7 @@ database-mapping {
     }
 }
 
+# For scenarios involving LISPmob hops is recommended to set probe and lookup to false
 
 explicit-locator-path {
 	elp-name = <string>

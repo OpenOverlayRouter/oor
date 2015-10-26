@@ -1,32 +1,20 @@
 /*
- * map_cache_entry.h
  *
- * This file is part of LISP Mobile Node Implementation.
- * Send registration messages for each database mapping to
- * configured map-servers.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Albert Lopez      <alopez@ac.upc.edu>
- *    Florin Coras      <fcoras@ac.upc.edu>
  */
 
 #ifndef MAP_CACHE_ENTRY_H_
@@ -86,20 +74,22 @@ void mcache_entry_init_static(mcache_entry_t *, mapping_t *);
 
 
 void mcache_entry_del(mcache_entry_t *entry);
-void map_cache_entry_to_char(mcache_entry_t *entry, int log_level);
+void map_cache_entry_dump(mcache_entry_t *entry, int log_level);
 
 static inline mapping_t *mcache_entry_mapping(mcache_entry_t*);
 static inline void mcache_entry_set_mapping(mcache_entry_t* , mapping_t *);
 static inline nonces_list_t *mcache_entry_nonces(mcache_entry_t *);
 static inline uint8_t mcache_entry_active(mcache_entry_t *);
 static inline void mcache_entry_set_active(mcache_entry_t *, int);
+inline uint8_t mcache_has_locators(mcache_entry_t *m);
 static inline void mcache_entry_init_nonces(mcache_entry_t *);
 static inline void mcache_entry_destroy_nonces(mcache_entry_t *);
 static inline void mcache_entry_set_requester(mcache_entry_t *,
         lisp_addr_t *);
 static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *);
 static inline void *mcache_entry_routing_info(mcache_entry_t *);
-static inline void mcache_entry_set_routing_info(mcache_entry_t *, void *, routing_info_del_fct);
+static inline void mcache_entry_set_routing_info(mcache_entry_t *, void *,
+        routing_info_del_fct);
 
 /* timer accessors */
 static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *);
@@ -110,23 +100,28 @@ inline void  mcache_entry_stop_smr_inv_timer(mcache_entry_t *);
 inline lmtimer_t *mcache_entry_init_smr_inv_timer(mcache_entry_t *);
 static inline void mcache_entry_requester_del(mcache_entry_t *m);
 
-static inline mapping_t *mcache_entry_mapping(mcache_entry_t* mce)
+
+static inline mapping_t *
+mcache_entry_mapping(mcache_entry_t* mce)
 {
     return (mce->mapping);
 }
 
-static inline void mcache_entry_set_mapping(mcache_entry_t* mce,
+static inline void
+mcache_entry_set_mapping(mcache_entry_t* mce,
         mapping_t *m)
 {
     mce->mapping = m;
 }
 
-static inline nonces_list_t *mcache_entry_nonces(mcache_entry_t *mce)
+static inline nonces_list_t *
+mcache_entry_nonces(mcache_entry_t *mce)
 {
     return (mce->nonces);
 }
 
-static inline void mcache_entry_init_nonces(mcache_entry_t *mce)
+static inline void
+mcache_entry_init_nonces(mcache_entry_t *mce)
 {
     if (mce->nonces) {
         free(mce->nonces);
@@ -134,23 +129,27 @@ static inline void mcache_entry_init_nonces(mcache_entry_t *mce)
     mce->nonces = nonces_list_new();
 }
 
-static inline uint8_t mcache_entry_active(mcache_entry_t *mce)
+static inline uint8_t
+mcache_entry_active(mcache_entry_t *mce)
 {
     return (mce->active);
 }
 
-static inline void mcache_entry_set_active(mcache_entry_t *mce, int state)
+static inline void
+mcache_entry_set_active(mcache_entry_t *mce, int state)
 {
     mce->active = state;
 }
 
-static inline void mcache_entry_destroy_nonces(mcache_entry_t *mce)
+static inline void
+mcache_entry_destroy_nonces(mcache_entry_t *mce)
 {
     free(mce->nonces);
     mce->nonces = NULL;
 }
 
-static inline void mcache_entry_set_requester(mcache_entry_t *m,
+static inline void
+mcache_entry_set_requester(mcache_entry_t *m,
         lisp_addr_t *addr)
 {
     if (m->requester) {
@@ -159,39 +158,42 @@ static inline void mcache_entry_set_requester(mcache_entry_t *m,
     m->requester = addr;
 }
 
-static inline void mcache_entry_requester_del(mcache_entry_t *m)
+static inline void
+mcache_entry_requester_del(mcache_entry_t *m)
 {
     lisp_addr_del(m->requester);
 }
 
-static inline lisp_addr_t *mcache_entry_requester(mcache_entry_t *m)
+static inline lisp_addr_t *
+mcache_entry_requester(mcache_entry_t *m)
 {
     return(m->requester);
 }
 
-static inline void *mcache_entry_routing_info(mcache_entry_t *m)
+static inline void *
+mcache_entry_routing_info(mcache_entry_t *m)
 {
     return (m->routing_info);
 }
 
-static inline void mcache_entry_set_routing_info(mcache_entry_t *m, void *routing_inf, routing_info_del_fct del_fct)
+static inline void
+mcache_entry_set_routing_info(mcache_entry_t *m, void *routing_inf, routing_info_del_fct del_fct)
 {
     m->routing_info = routing_inf;
     m->routing_inf_del = del_fct;
 }
 
-static inline lmtimer_t *mcache_entry_req_retry_timer(mcache_entry_t *m)
+static inline lmtimer_t *
+mcache_entry_req_retry_timer(mcache_entry_t *m)
 {
     return(m->request_retry_timer);
 }
 
 
-static inline lmtimer_t *mcache_entry_smr_inv_timer(mcache_entry_t *m)
+static inline lmtimer_t *
+mcache_entry_smr_inv_timer(mcache_entry_t *m)
 {
     return(m->smr_inv_timer);
 }
-
-
-
 
 #endif /* MAP_CACHE_ENTRY_H_ */

@@ -1,168 +1,140 @@
 #
-#	Makefile for lispd
+#    Makefile for lispd
 #
 #
 #
-#	David Meyer
-#	dmm@1-4-5.net
-#	Mon Apr 19 11:40:19 2010
+#    David Meyer
+#    dmm@1-4-5.net
+#    Mon Apr 19 11:40:19 2010
 #
-#	$Header: /home/dmm/lisp/lispd/RCS/Makefile,v 1.2 2010/04/19 22:02:33 dmm Exp $
+#    $Header: /home/dmm/lisp/lispd/RCS/Makefile,v 1.2 2010/04/19 22:02:33 dmm Exp $
 #
 
 
 
 ifndef CC
-CC		= gcc
+CC          = gcc
 endif
-GENGETOPT	= gengetopt
-ERROR		= false
+GENGETOPT   = gengetopt
+ERROR       = false
 
 
 ifeq "$(platform)" ""
-CFLAGS		+= -Wall -g -I/usr/include/libxml2
-LIBS		= -lconfuse -lrt -lm -lzmq -lxml2
+CFLAGS     += -Wall -g -I/usr/include/libxml2
+LIBS        = -lconfuse -lrt -lm -lzmq -lxml2
 else
 ifeq "$(platform)" "openwrt"
-CFLAGS		+= -Wall -g -I/usr/include/libxml2 -DOPENWRT 
-LIBS		= -lrt -lm -luci -lxml2
+CFLAGS     += -Wall -g -I/usr/include/libxml2 -DOPENWRT 
+LIBS        = -lrt -lm -lzmq -lxml2 -luci
 else
-ERROR		= true
+ERROR       = true
 endif
 endif
 
-INC		= defs.h
-MAKEFILE	= Makefile
+INC         = defs.h
+MAKEFILE    = Makefile
+
+OBJS        = cmdline.o                  \
+          control/lisp_control.o         \
+          control/lisp_ctrl_device.o     \
+          control/lisp_local_db.o        \
+          control/lisp_map_cache.o       \
+          control/lisp_xtr.o             \
+          control/lisp_ms.o              \
+          control/control-data-plane/control-data-plane.o    \
+          control/control-data-plane/tun/cdp_tun.o           \
+          data-plane/data-plane.o        \
+          data-plane/tun/tun_input.o     \
+          data-plane/tun/tun_output.o    \
+          data-plane/tun/tun.o           \
+          elibs/libcfu/cfu.o             \
+          elibs/libcfu/cfuhash.o         \
+          elibs/libcfu/cfustring.o       \
+          elibs/mbedtls/md.o             \
+          elibs/mbedtls/sha1.o           \
+          elibs/mbedtls/sha256.o         \
+          elibs/mbedtls/md_wrap.o        \
+          elibs/patricia/patricia.o      \
+          fwd_policies/fwd_policy.o      \
+          fwd_policies/flow_balancing/fb_lisp_addr_func.o    \
+          fwd_policies/flow_balancing/flow_balancing.o       \
+          liblisp/liblisp.o              \
+          liblisp/lisp_address.o         \
+          liblisp/lisp_data.o            \
+          liblisp/lisp_ip.o              \
+          liblisp/lisp_lcaf.o            \
+          liblisp/lisp_locator.o         \
+          liblisp/lisp_mapping.o         \
+          liblisp/lisp_messages.o        \
+          liblisp/lisp_message_fields.o  \
+          liblisp/lisp_nonce.o           \
+          liblisp/hmac/hmac-sha1.o       \
+          liblisp/hmac/hmac-sha256.o     \
+          lib/cksum.o                    \
+          lib/generic_list.o             \
+          lib/hmac.o                     \
+          lib/iface_locators.o           \
+          lib/lbuf.o                     \
+          lib/lisp_site.o                \
+          lib/lmlog.o                    \
+          lib/mapping_db.o               \
+          lib/map_cache_entry.o          \
+          lib/map_local_entry.o          \
+          lib/packets.o                  \
+          lib/prefixes.o                 \
+          lib/routing_tables_lib.o       \
+          lib/sockets.o                  \
+          lib/sockets-util.o             \
+          lib/shash.o                    \
+          lib/timers.o                   \
+          lib/ttable.o                   \
+          lib/util.o                     \
+          iface_list.o                   \
+          iface_mgmt.o                   \
+          lispd.o                        \
+          lispd_config_functions.o       \
+          lispd_api.o                    \
+          lispd_api_internals.o
+          
 ifeq "$(platform)" "openwrt"
-OBJS		= cmdline.o                  \
-		  control/lisp_control.o         \
-		  control/lisp_ctrl_device.o     \
-		  control/lisp_local_db.o        \
-		  control/lisp_map_cache.o       \
-		  control/lisp_xtr.o             \
-		  control/lisp_ms.o              \
-		  data-tun/lispd_input.o         \
-		  data-tun/lispd_output.o        \
-		  data-tun/lispd_tun.o           \
-		  elibs/patricia/patricia.o      \
-		  fwd_policies/fwd_policy.o      \
-		  fwd_policies/flow_balancing/fb_lisp_addr_func.o    \
-		  fwd_policies/flow_balancing/flow_balancing.o  \
-		  liblisp/liblisp.o              \
-		  liblisp/lisp_address.o         \
-		  liblisp/lisp_data.o            \
-		  liblisp/lisp_ip.o              \
-		  liblisp/lisp_lcaf.o            \
-		  liblisp/lisp_locator.o         \
-		  liblisp/lisp_mapping.o         \
-		  liblisp/lisp_messages.o        \
-		  liblisp/lisp_message_fields.o  \
-		  liblisp/lisp_nonce.o           \
-		  liblisp/hmac/hmac.o            \
-		  liblisp/hmac/hmac-sha1.o       \
-		  liblisp/hmac/hmac-sha256.o     \
-		  lib/cksum.o                    \
-		  lib/generic_list.o             \
-		  lib/hash.o                     \
-		  lib/hash_table.o               \
-		  lib/iface_locators.o           \
-		  lib/lbuf.o                     \
-		  lib/lisp_site.o                \
-		  lib/lmlog.o                    \
-		  lib/mapping_db.o               \
-		  lib/map_cache_entry.o          \
-		  lib/map_local_entry.o			 \
-		  lib/routing_tables_lib.o       \
-		  lib/packets.o                  \
-		  lib/sockets.o                  \
-		  lib/sockets-util.o             \
-		  lib/shash.o                    \
-		  lib/timers.o                   \
-		  lib/ttable.o                   \
-		  lib/util.o                     \
-		  iface_list.o                   \
-		  iface_mgmt.o                   \
-		  lispd.o                        \
-		  lispd_config_functions.o       \
-		  lispd_config_uci.o
+OBJS    := $(OBJS) \
+          lispd_config_uci.o
 else
-OBJS		= cmdline.o                  \
-		  control/lisp_control.o         \
-		  control/lisp_ctrl_device.o     \
-		  control/lisp_local_db.o        \
-		  control/lisp_map_cache.o       \
-		  control/lisp_xtr.o             \
-		  control/lisp_ms.o              \
-		  data-tun/lispd_input.o         \
-		  data-tun/lispd_output.o        \
-		  data-tun/lispd_tun.o           \
-		  elibs/patricia/patricia.o      \
-		  fwd_policies/fwd_policy.o	     \
-		  fwd_policies/flow_balancing/fb_lisp_addr_func.o    \
-		  fwd_policies/flow_balancing/flow_balancing.o  \
-		  liblisp/liblisp.o              \
-		  liblisp/lisp_address.o         \
-		  liblisp/lisp_data.o            \
-		  liblisp/lisp_ip.o              \
-		  liblisp/lisp_lcaf.o            \
-		  liblisp/lisp_locator.o         \
-		  liblisp/lisp_mapping.o         \
-		  liblisp/lisp_messages.o        \
-		  liblisp/lisp_message_fields.o  \
-		  liblisp/lisp_nonce.o           \
-		  liblisp/hmac/hmac.o            \
-		  liblisp/hmac/hmac-sha1.o       \
-		  liblisp/hmac/hmac-sha256.o     \
-		  lib/cksum.o                    \
-		  lib/generic_list.o             \
-		  lib/hash.o                     \
-		  lib/hash_table.o               \
-		  lib/iface_locators.o           \
-		  lib/lbuf.o                     \
-		  lib/lisp_site.o                \
-		  lib/lmlog.o                    \
-		  lib/mapping_db.o               \
-		  lib/map_cache_entry.o          \
-		  lib/map_local_entry.o			 \
-		  lib/routing_tables_lib.o       \
-		  lib/packets.o                  \
-		  lib/sockets.o                  \
-		  lib/sockets-util.o             \
-		  lib/shash.o                    \
-		  lib/timers.o                   \
-		  lib/ttable.o                   \
-		  lib/util.o                     \
-		  iface_list.o                   \
-		  iface_mgmt.o                   \
-		  lispd.o                        \
-		  lispd_config_confuse.o         \
-		  lispd_config_functions.o       \
-		  lispd_api.o                    \
-		  lispd_api_internals.o
+OBJS    := $(OBJS) \
+          lispd_config_confuse.o
 endif
 
-EXE		= lispd
-PREFIX		= /usr/local/sbin
-INCLUDE		= -I. -Iliblisp -Ielibs -Ilib -Icontrol -Idata-tun -Ifwd_balancing -Ifwd_balancing/flow_balancing
+EXE        	= lispd
+PREFIX      = /usr/local/sbin
+INCLUDE     = -I. -Iliblisp -Ielibs -Ilib -Icontrol -Idata-tun -Ifwd_balancing -Ifwd_balancing/flow_balancing
 
-$(EXE): $(OBJS) 
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS) 
+$(EXE): $(OBJS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)   
 
 #
-#	gengetops generates this...
+#    gengetops generates this...
 #
 cmdline.c: lispd.ggo
 	$(GENGETOPT) -i $<
 
 %.o: %.c $(DEPS)  $(INC) $(MAKEFILE)
 ifeq "$(ERROR)" "true"
-		$(error  Invalid value of platform parameter)
+        $(error  Invalid value of platform parameter)
 endif
 	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $< 
 
 clean:
-	rm -f *.o $(EXE) elibs/patricia/*o bob/*o liblisp/*o liblisp/hmac/*o lib/*o control/*o data-tun/*o \
-	    fwd_policies/*o fwd_policies/flow_balancing/*o
+	rm -f *.o $(EXE) \
+        elibs/patricia/*o \
+        elibs/bob/*o \
+        elibs/libcfu/*o \
+        elibs/mbedtls/*o \
+        liblisp/*o liblisp/hmac/*o \
+        lib/*o \
+        control/*o control/control-data-plane/*o \
+        control/control-data-plane/tun/*o control/control-data-plane/vpnapi/*o \
+        data-plane/*o data-plane/tun/*o data-plane/vpnapi/*o\
+        fwd_policies/*o fwd_policies/flow_balancing/*o
 
 distclean: clean
 	rm -f cmdline.[ch] cscope.out

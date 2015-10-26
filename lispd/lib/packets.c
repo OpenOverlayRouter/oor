@@ -1,31 +1,19 @@
 /*
- * packets.c
  *
- * This file is part of LISP Mobile Node Implementation.
- * Necessary logic to handle incoming map replies.
- * 
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Lorand Jakab  <ljakab@ac.upc.edu>
- *    Florin Cora   <fcoras@ac.upc.edu>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -35,7 +23,6 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
-//#include <net/if.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 
@@ -69,7 +56,8 @@ pkt_pull_ipv4(lbuf_t *b)
 }
 
 void *
-pkt_pull_ipv6(lbuf_t *b) {
+pkt_pull_ipv6(lbuf_t *b)
+{
     return(lbuf_pull(b, sizeof(struct ip6_hdr)));
 }
 
@@ -386,7 +374,7 @@ pkt_tuple_to_char(packet_tuple_t *tpl)
 int
 ip_hdr_set_ttl_and_tos(struct iphdr *iph, int ttl, int tos)
 {
-    struct ip6_hdr *ip6h = NULL;
+    struct ip6_hdr *ip6h;
 
     if (iph->version == 4) {
         /*XXX It seems that there is a bug in uClibc that causes ttl=0 in
@@ -449,14 +437,15 @@ ip_hdr_ttl_and_tos(struct iphdr *iph, int *ttl, int *tos)
  * Generate IP header. Returns the pointer to the transport header
  */
 
-struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
-        lisp_addr_t *dst_addr, int ip_len)
+struct udphdr *
+build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr, lisp_addr_t *dst_addr,
+        int ip_len)
 {
     struct ip *iph;
     struct ip6_hdr *ip6h;
     struct udphdr *udph;
 
-    switch (src_addr->afi) {
+    switch (lisp_addr_ip_afi(src_addr)) {
     case AF_INET:
         ip_len = ip_len + sizeof(struct ip);
         iph = (struct ip *) cur_ptr;
@@ -468,8 +457,8 @@ struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
         iph->ip_off = 0; /* XXX Control packets can be fragmented  */
         iph->ip_ttl = 255;
         iph->ip_p = IPPROTO_UDP;
-        iph->ip_src.s_addr = src_addr->address.ip.s_addr;
-        iph->ip_dst.s_addr = dst_addr->address.ip.s_addr;
+        iph->ip_src.s_addr = ip_addr_get_v4(lisp_addr_ip(src_addr))->s_addr;
+        iph->ip_dst.s_addr = ip_addr_get_v4(lisp_addr_ip(dst_addr))->s_addr;
         iph->ip_sum = 0;
         iph->ip_sum = ip_checksum((uint16_t *) cur_ptr, sizeof(struct ip));
 
@@ -481,16 +470,16 @@ struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
         ip6h->ip6_vfc = (IP6VERSION << 4);
         ip6h->ip6_nxt = IPPROTO_UDP;
         ip6h->ip6_plen = htons(ip_len);
-        memcpy(ip6h->ip6_src.s6_addr, src_addr->address.ipv6.s6_addr,
+        memcpy(ip6h->ip6_src.s6_addr,ip_addr_get_v6(lisp_addr_ip(src_addr)),
                 sizeof(struct in6_addr));
-        memcpy(ip6h->ip6_dst.s6_addr, dst_addr->address.ipv6.s6_addr,
+        memcpy(ip6h->ip6_dst.s6_addr,ip_addr_get_v6(lisp_addr_ip(dst_addr)),
                 sizeof(struct in6_addr));
         udph = (struct udphdr *) CO(ip6h, sizeof(struct ip6_hdr));
         break;
     default:
         LMLOG(LDBG_2,
                 "build_ip_header: Uknown AFI of the source address: %d",
-                src_addr->afi);
+                lisp_addr_ip_afi(src_addr));
         return (NULL);
     }
     return (udph);
@@ -501,18 +490,17 @@ struct udphdr *build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr,
  * and copies the original packet at the end
  */
 
-uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
-        lisp_addr_t *addr_from, lisp_addr_t *addr_dest, int port_from,
-        int port_dest, int *encap_pkt_len)
+uint8_t *
+build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,lisp_addr_t *addr_from,
+        lisp_addr_t *addr_dest, int port_from,int port_dest, int *encap_pkt_len)
 {
-
-    uint8_t *encap_pkt = NULL;
-    void *iph_ptr = NULL;
-    struct udphdr *udph_ptr = NULL;
-    int ip_hdr_len = 0;
-    int udp_hdr_len = 0;
-    int udp_hdr_and_payload_len = 0;
-    uint16_t udpsum = 0;
+    uint8_t *encap_pkt;
+    void *iph_ptr;
+    struct udphdr *udph_ptr;
+    int ip_hdr_len;
+    int udp_hdr_len;
+    int udp_hdr_and_payload_len;
+    uint16_t udpsum;
 
     if (lisp_addr_ip_afi(addr_from) != lisp_addr_ip_afi(addr_dest)) {
         LMLOG(LDBG_2,
@@ -586,7 +574,7 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
      */
 
     if ((udpsum = udp_checksum(udph_ptr, udp_hdr_and_payload_len, iph_ptr,
-            addr_from->afi)) == -1) {
+            lisp_addr_ip_afi(addr_from))) == -1) {
         free(encap_pkt);
         return (NULL);
     }
@@ -596,13 +584,26 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
 
 }
 
+char *
+ip_src_and_dst_to_char(struct iphdr *iph, char *fmt)
+{
+    static char buf[150];
+    struct ip6_hdr *ip6h;
 
+    *buf = '\0';
+    switch (iph->version) {
+    case 4:
+        sprintf(buf, fmt, ip_to_char(&iph->saddr, AF_INET),
+                ip_to_char(&iph->daddr, AF_INET));
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *)iph;
+        sprintf(buf, fmt, ip_to_char(&ip6h->ip6_src, AF_INET6),
+                ip_to_char(&ip6h->ip6_dst, AF_INET6));
+        break;
+    default:
+        sprintf(buf, fmt, "NOT IP", "NOT IP");
+    }
 
-
-
-/*
- * Editor modelines
- *
- * vi: set shiftwidth=4 tabstop=4 expandtab:
- * :indentSize=4:tabSize=4:noTabs=true:
- */
+    return(buf);
+}

@@ -10,6 +10,8 @@
  * I renamed it to "patricia.h" since it's not an implementation of a general
  * radix trie.  Also, pulled in various requirements from "mrt.h" and added
  * some other things it could be used as a standalone API.
+ *
+ * Original code by Dave Plonka. Modified by the LISPmob project.
  */
 
 #ifndef _PATRICIA_H

@@ -1,32 +1,19 @@
 /*
- * lispd_config_confuse.c
  *
- * This file is part of LISP Mobile Node Implementation.
- * Handle lispd command line and config file
- * Parse command line args using gengetopt.
- * Handle config file with libconfuse.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Alberto López     <alopez@ac.upc.edu>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -37,26 +24,25 @@
 #include <confuse.h>
 #endif
 #include "cmdline.h"
+#include "iface_list.h"
 #include "lispd_config_confuse.h"
 #include "lispd_config_functions.h"
 #include "lispd_external.h"
-#include "iface_list.h"
-#include "control/lisp_ctrl_device.h"
-#include "control/lisp_xtr.h"
-#include "control/lisp_ms.h"
 #include "control/lisp_control.h"
-#include "lib/shash.h"
-#include "lib/hash_table.h"
+#include "control/lisp_ctrl_device.h"
+#include "control/lisp_ms.h"
+#include "control/lisp_xtr.h"
+#include "data-plane/data-plane.h"
 #include "lib/lmlog.h"
-
+#include "lib/shash.h"
 
 static void
-parse_elp_list(cfg_t *cfg, htable_t *ht)
+parse_elp_list(cfg_t *cfg, shash_t *ht)
 {
-    elp_node_t  *enode  = NULL;
-    elp_t       *elp    = NULL;
-    lisp_addr_t *laddr  = NULL;
-    char        *name   = NULL;
+    elp_node_t *enode;
+    elp_t *elp;
+    lisp_addr_t *laddr;
+    char *name;
     int i, j;
 
     for(i = 0; i < cfg_size(cfg, "explicit-locator-path"); i++) {
@@ -89,18 +75,17 @@ parse_elp_list(cfg_t *cfg, htable_t *ht)
         LMLOG(LDBG_1, "Configuration file: parsed explicit-locator-path: %s",
                 lisp_addr_to_char(laddr));
 
-        htable_insert(ht, strdup(name), laddr);
+        shash_insert(ht, name, laddr);
     }
-
 }
 
 static void
-parse_rle_list(cfg_t *cfg, htable_t *ht)
+parse_rle_list(cfg_t *cfg, shash_t *ht)
 {
-    rle_node_t *rnode = NULL;
-    rle_t *rle = NULL;
-    lisp_addr_t *laddr = NULL;
-    char *name = NULL;
+    rle_node_t *rnode;
+    rle_t *rle;
+    lisp_addr_t *laddr;
+    char *name;
     int i, j;
 
     for (i = 0; i < cfg_size(cfg, "replication-list"); i++) {
@@ -129,17 +114,17 @@ parse_rle_list(cfg_t *cfg, htable_t *ht)
         LMLOG(LDBG_1, "Configuration file: parsed replication-list: %s",
                 lisp_addr_to_char(laddr));
 
-        htable_insert(ht, strdup(name), laddr);
+        shash_insert(ht, name, laddr);
     }
 
 }
 
 static void
-parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
+parse_mcinfo_list(cfg_t *cfg, shash_t *ht)
 {
-    mc_t *mc = NULL;
-    lisp_addr_t *laddr = NULL;
-    char *name = NULL;
+    mc_t *mc;
+    lisp_addr_t *laddr;
+    char *name;
     int i, count;
 
     count = 0;
@@ -161,7 +146,7 @@ parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
         LMLOG(LDBG_1, "Configuration file: parsed multicast-info: %s",
                 lisp_addr_to_char(laddr));
 
-        htable_insert(ht, strdup(name), laddr);
+        shash_insert(ht, name, laddr);
         count ++;
     }
 
@@ -170,14 +155,13 @@ parse_mcinfo_list(cfg_t *cfg, htable_t *ht)
     }
 }
 
-static htable_t *
+static shash_t *
 parse_lcafs(cfg_t *cfg)
 {
-    htable_t *lcaf_ht = NULL;
+    shash_t *lcaf_ht;
 
     /* create lcaf hash table */
-    lcaf_ht = htable_new(g_str_hash, g_str_equal, free,
-            (h_val_del_fct)lisp_addr_del);
+    lcaf_ht = shash_new_managed((hash_free_fn_t)lisp_addr_del);
     parse_elp_list(cfg, lcaf_ht);
     parse_rle_list(cfg, lcaf_ht);
     parse_mcinfo_list(cfg, lcaf_ht);
@@ -186,17 +170,15 @@ parse_lcafs(cfg_t *cfg)
 }
 
 
-int parse_mapping_cfg_params(
-        cfg_t       *map,
-        uint8_t     type,
-        conf_mapping_t *conf_mapping)
+int
+parse_mapping_cfg_params(cfg_t *map, uint8_t type, conf_mapping_t *conf_mapping)
 {
 
-    int                  ctr             = 0;
-    cfg_t *              rl              = NULL;
-    conf_loc_t *         conf_loc        = NULL;
-    conf_loc_iface_t *   conf_loc_iface  = NULL;
-    int                  afi             = AF_UNSPEC;
+    int ctr;
+    cfg_t *rl;
+    conf_loc_t *conf_loc;
+    conf_loc_iface_t *conf_loc_iface;
+    int afi;
 
     strcpy(conf_mapping->eid_prefix,cfg_getstr(map, "eid-prefix"));
 
@@ -233,19 +215,16 @@ int parse_mapping_cfg_params(
         }
     }
 
-    return GOOD;
+    return (GOOD);
 }
 
 
 mapping_t *
-parse_mapping(
-        cfg_t *             map,
-        lisp_ctrl_dev_t *   dev,
-        htable_t *          lcaf_ht,
-        uint8_t             type)
+parse_mapping(cfg_t *map, lisp_ctrl_dev_t *dev, shash_t * lcaf_ht,
+        uint8_t type)
 {
-    mapping_t           *mapping        = NULL;
-    conf_mapping_t      *conf_mapping   = NULL;
+    mapping_t *mapping;
+    conf_mapping_t *conf_mapping;
 
     conf_mapping = conf_mapping_new();
 
@@ -255,22 +234,19 @@ parse_mapping(
     conf_mapping_destroy(conf_mapping);
 
     return (mapping);
-
 }
 
 
 int
 configure_rtr(cfg_t *cfg)
 {
-    int                     i                       = 0;
-    int                     n                       = 0;
-    int                     ret                     = 0;
-    char *                  map_resolver            = NULL;
-    map_local_entry_t *     map_loc_e               = NULL;
-    mapping_t *             mapping                 = NULL;
-    htable_t *              lcaf_ht                 = NULL;
-    lisp_xtr_t *            xtr                     = NULL;
-    void *                  fwd_map_inf             = NULL;
+    int i,n,ret;
+    char *map_resolver;
+    map_local_entry_t *map_loc_e;
+    mapping_t *mapping;
+    shash_t *lcaf_ht;
+    lisp_xtr_t * xtr;
+    void *fwd_map_inf;
 
 
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
@@ -352,12 +328,6 @@ configure_rtr(cfg_t *cfg)
         }
     }
 
-    char *iface = cfg_getstr(cfg, "rtr-data-iface");
-    if (iface) {
-      if (!add_interface(iface))
-          return(BAD);
-    }
-
     /* STATIC MAP-CACHE CONFIG */
     n = cfg_size(cfg, "static-map-cache");
     for (i = 0; i < n; i++) {
@@ -437,12 +407,10 @@ configure_rtr(cfg_t *cfg)
     }
 
     /* Deallocate PiTRs and PeTRs elements */
-    mcache_entry_del(xtr->petrs);
-    xtr->petrs = NULL;
     glist_destroy(xtr->pitrs);
     xtr->pitrs = NULL;
 
-    htable_destroy(lcaf_ht);
+    shash_destroy(lcaf_ht);
 
     return(GOOD);
 }
@@ -450,17 +418,14 @@ configure_rtr(cfg_t *cfg)
 int
 configure_xtr(cfg_t *cfg)
 {
-
-    int                 i               = 0;
-    int                 n               = 0;
-    int                 ret             = 0;
-    char *              map_resolver    = NULL;
-    char *              proxy_itr       = NULL;
-    htable_t *          lcaf_ht         = NULL;
-    lisp_xtr_t *        xtr             = NULL;
-    map_local_entry_t * map_loc_e       = NULL;
-    mapping_t *         mapping         = NULL;
-    void *              fwd_map_inf     = NULL;
+    int i, n, ret;
+    char *map_resolver;
+    char *proxy_itr;
+    shash_t *lcaf_ht;
+    lisp_xtr_t *xtr;
+    map_local_entry_t *map_loc_e;
+    mapping_t *mapping;
+    void *fwd_map_inf;
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
@@ -647,7 +612,7 @@ configure_xtr(cfg_t *cfg)
     }
 
     /* destroy the hash table */
-    htable_destroy(lcaf_ht);
+    shash_destroy(lcaf_ht);
 
     return(GOOD);
 }
@@ -655,17 +620,14 @@ configure_xtr(cfg_t *cfg)
 int
 configure_mn(cfg_t *cfg)
 {
-
-    int             	i               = 0;
-    int            	 	n               = 0;
-    int                 ret             = 0;
-    char *              map_resolver    = NULL;
-    char *              proxy_itr       = NULL;
-    htable_t *          lcaf_ht         = NULL;
-    lisp_xtr_t *        xtr             = NULL;
-    map_local_entry_t * map_loc_e	    = NULL;
-    mapping_t *         mapping         = NULL;
-    void *              fwd_map_inf     = NULL;
+    int i, n, ret;
+    char *map_resolver;
+    char *proxy_itr;
+    shash_t *lcaf_ht;
+    lisp_xtr_t *xtr;
+    map_local_entry_t *map_loc_e;
+    mapping_t *mapping;
+    void *fwd_map_inf;
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(MN_MODE, &ctrl_dev) != GOOD) {
@@ -845,7 +807,7 @@ configure_mn(cfg_t *cfg)
     }
 
     /* destroy the hash table */
-    htable_destroy(lcaf_ht);
+    shash_destroy(lcaf_ht);
 
     return(GOOD);
 }
@@ -853,12 +815,13 @@ configure_mn(cfg_t *cfg)
 int
 configure_ms(cfg_t *cfg)
 {
-    char *                  iface       = NULL;
-    lisp_site_prefix_t *    site        = NULL;
-    htable_t *              lcaf_ht     = NULL;
-    int                     i           = 0;
-    lisp_ms_t *             ms          = NULL;
-    mapping_t *             mapping     = NULL;
+    char *iface_name;
+    iface_t *iface;
+    lisp_site_prefix_t *site;
+    shash_t *lcaf_ht;
+    int i;
+    lisp_ms_t *ms;
+    mapping_t *mapping;
 
     /* create and configure xtr */
     if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
@@ -873,11 +836,24 @@ configure_ms(cfg_t *cfg)
 
     /* CONTROL INTERFACE */
     /* TODO: should work with all interfaces in the future */
-    iface = cfg_getstr(cfg, "control-iface");
-    if (iface) {
-        if (!add_interface(iface)) {
+    iface_name = cfg_getstr(cfg, "control-iface");
+    if (iface_name) {
+        iface = add_interface(iface_name);
+        if (iface == NULL) {
             return(BAD);
         }
+    }
+
+    if (iface_address(iface, AF_INET) == NULL){
+        iface_setup_addr(iface, AF_INET);
+        data_plane->datap_add_iface_addr(iface,AF_INET);
+        lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET);
+    }
+
+    if (iface_address(iface, AF_INET6) == NULL){
+        iface_setup_addr(iface, AF_INET6);
+        data_plane->datap_add_iface_addr(iface,AF_INET6);
+        lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET6);
     }
 
     /* LISP-SITE CONFIG */
@@ -939,17 +915,17 @@ configure_ms(cfg_t *cfg)
     }
 
     /* destroy the hash table */
-    htable_destroy(lcaf_ht);
+    shash_destroy(lcaf_ht);
     return(GOOD);
 }
 
 int
 handle_config_file(char **lispdconf_conf_file)
 {
-    int ret = 0;
-    cfg_t *cfg = 0;
-    char *mode = NULL;
-
+    int ret;
+    cfg_t *cfg;
+    char *mode;
+    char *log_file;
 
     /* xTR specific */
     static cfg_opt_t map_server_opts[] = {
@@ -1085,6 +1061,7 @@ handle_config_file(char **lispdconf_conf_file)
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
+            CFG_STR("log-file",             0, CFGF_NONE),
             CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
@@ -1102,7 +1079,6 @@ handle_config_file(char **lispdconf_conf_file)
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
             CFG_END()
     };
-
 
     if (*lispdconf_conf_file == NULL){
         *lispdconf_conf_file = strdup("/etc/lispd.conf");
@@ -1124,11 +1100,9 @@ handle_config_file(char **lispdconf_conf_file)
         exit_cleanup();
     }
 
-
     /*
      *  lispd config options
      */
-
 
     /* Debug level */
     if (debug_level == -1){
@@ -1149,6 +1123,14 @@ handle_config_file(char **lispdconf_conf_file)
         LMLOG (LINF, "Log level: High Debug");
     }
 
+    /*
+     * Log file
+     */
+
+    log_file = cfg_getstr(cfg, "log-file");
+    if (daemonize == TRUE){
+        open_log_file(log_file);
+    }
 
     mode = cfg_getstr(cfg, "operating-mode");
     if (mode) {

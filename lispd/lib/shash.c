@@ -34,55 +34,50 @@ shash_t *
 shash_new()
 {
     shash_t *sh;
-    sh = htable_new(g_str_hash, g_str_equal, free, NULL);
+    sh = hash_new(NULL, NULL, (hash_free_key_fn_t)free, NULL, NULL, 0);
     return(sh);
 }
 
 shash_t *
-shash_new_managed(h_key_del_fct df)
+shash_new_managed(hash_free_fn_t df)
 {
     shash_t *sh;
-    sh = htable_new(g_str_hash, g_str_equal, free, df);
+    sh = hash_new(NULL, NULL, (hash_free_key_fn_t)free, df, NULL, 0);
     return(sh);
-}
-
-void
-shash_del(shash_t *sh) {
-    htable_destroy(sh);
 }
 
 void
 shash_insert(shash_t *sh, const char *key, const void *val)
 {
-    htable_insert(sh, strdup(key), CONST_CAST(void *, val));
+    hash_put(sh, key, CONST_CAST(void *, val));
 }
 
 void
 shash_remove(shash_t *sh, const char *key)
 {
-    htable_remove(sh, key);
+    hash_delete(sh, key);
 }
 
 void *
 shash_lookup(shash_t *sh, const char *key)
 {
-    return htable_lookup(sh, key);
+    return hash_get(sh, key);
 }
 
 void
 shash_destroy(shash_t *sh)
 {
     if (sh) {
-        htable_destroy(sh);
+        hash_destroy(sh);
     }
 }
 
 glist_t *shash_keys(shash_t *sh)
 {
-    return (htable_keys(sh));
+    return (hash_keys(sh,1));
 }
 
 glist_t *shash_values(shash_t *sh)
 {
-    return (htable_values(sh));
+    return (hash_values(sh));
 }

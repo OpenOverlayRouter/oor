@@ -1,29 +1,20 @@
 /*
- * iface_locators.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Albert López <alopez@ac.upc.edu>
  */
 
 #include "../defs.h"
@@ -32,25 +23,26 @@
 #include "lmlog.h"
 #include "sockets.h"
 
-iface_locators *
-iface_locators_get_element_with_loct(
-        shash_t *       iface_locators_table,
-        locator_t *     locator);
+iface_locators *iface_locators_get_element_with_loct(shash_t *iface_locators_table,
+        locator_t *locator);
 
 /*
  * Creates and initialize a new iface_locator
  * @param iface_name Name of the interface
  * @return iface_locators element
  */
-iface_locators *iface_locators_new(char *iface_name)
+iface_locators *
+iface_locators_new(char *iface_name)
 {
-    iface_locators *if_loct = NULL;
+    iface_locators *if_loct;
+
     if_loct = xzalloc(sizeof(iface_locators));
     if_loct->iface_name = xstrdup(iface_name);
     if_loct->map_loc_entries = glist_new();
     if_loct->ipv4_locators = glist_new();
     if_loct->ipv6_locators = glist_new();
     if_loct->status_changed = TRUE;
+
     return(if_loct);
 }
 
@@ -58,7 +50,8 @@ iface_locators *iface_locators_new(char *iface_name)
  * Release memory of an iface_locators structure
  * @param if_loct Element to be released
  */
-void iface_locators_del(iface_locators *if_loct)
+void
+iface_locators_del(iface_locators *if_loct)
 {
     free(if_loct->iface_name);
     glist_destroy(if_loct->map_loc_entries);
@@ -76,16 +69,15 @@ void iface_locators_del(iface_locators *if_loct)
 
 
 void
-iface_locators_attach_map_local_entry(
-        shash_t *           iface_locators_table,
+iface_locators_attach_map_local_entry(shash_t *iface_locators_table,
         map_local_entry_t * map_loc_e)
 {
-    mapping_t *         mapping             = NULL;
-    locator_t *         locator             = NULL;
-    iface_locators *    iface_loct          = NULL;
-    glist_t *			loct_list 			= NULL;
-    glist_entry_t *		it_list 			= NULL;
-    glist_entry_t *		it_loct 			= NULL;
+    mapping_t * mapping;
+    locator_t * locator;
+    iface_locators * iface_loct;
+    glist_t *loct_list;
+    glist_entry_t *it_list;
+    glist_entry_t *it_loct;
 
     mapping = map_local_entry_mapping(map_loc_e);
 
@@ -104,18 +96,17 @@ iface_locators_attach_map_local_entry(
 }
 
 void
-iface_locators_unattach_mapping_and_loct(
-        shash_t *   iface_locators_table,
+iface_locators_unattach_mapping_and_loct(shash_t *iface_locators_table,
         map_local_entry_t * map_loc_e)
 {
-    glist_t *           iface_loct_list     = NULL;
-    glist_entry_t *     it_if_loct          = NULL;
-    iface_locators *    iface_loct          = NULL;
-    glist_t *			loct_list 			= NULL;
-    glist_entry_t *		it_list 			= NULL;
-    glist_entry_t *		it_loct 			= NULL;
-    mapping_t *         mapping             = NULL;
-    locator_t *			locator				= NULL;
+    glist_t *iface_loct_list;
+    glist_entry_t *it_if_loct;
+    iface_locators *iface_loct;
+    glist_t *loct_list;
+    glist_entry_t *it_list;
+    glist_entry_t *it_loct;
+    mapping_t *mapping;
+    locator_t *locator;
 
     mapping = map_local_entry_mapping(map_loc_e);
 
@@ -138,18 +129,16 @@ iface_locators_unattach_mapping_and_loct(
  * Remove a locator from the structure iface_locators associated to it.
  */
 void
-iface_locators_unattach_locator(
-        shash_t *       iface_locators_table,
-        locator_t *     locator)
+iface_locators_unattach_locator(shash_t *iface_locators_table, locator_t *locator)
 {
-    lisp_addr_t *       ip_addr         = NULL;
-    lisp_addr_t *       addr            = locator_addr(locator);
-    iface_locators *    iface_loct      = NULL;
-    glist_t *           loct_lists[2]   = {NULL,NULL};
-    glist_entry_t *     it_loct         = NULL;
-    locator_t *         loct            = NULL;
-    int                 ctr             = 0;
-    uint16_t            afi             = AF_UNSPEC;
+    lisp_addr_t * ip_addr;
+    lisp_addr_t * addr = locator_addr(locator);
+    iface_locators * iface_loct;
+    glist_t * loct_lists[2];
+    glist_entry_t * it_loct;
+    locator_t * loct;
+    int ctr;
+    uint16_t afi = AF_UNSPEC;
 
 
     /* Get structure from where the locator is removed */
@@ -200,20 +189,19 @@ iface_locators_unattach_locator(
 }
 
 iface_locators *
-iface_locators_get_element_with_loct(
-        shash_t *       iface_locators_table,
-        locator_t *     locator)
+iface_locators_get_element_with_loct(shash_t *iface_locators_table,
+        locator_t *locator)
 {
-    glist_t *           iface_loct_list = NULL;
-    glist_entry_t *     it              = NULL;
-    glist_entry_t *     it_loct         = NULL;
-    iface_locators *    iface_loct      = NULL;
-    glist_t *           loct_lists[2]   = {NULL,NULL};
-    locator_t *         loct            = NULL;
-    lisp_addr_t *       addr            = locator_addr(locator);
-    lisp_addr_t *       ip_addr         = NULL;
-    char *              iface_name      = NULL;
-    int                 ctr             = 0;
+    glist_t * iface_loct_list;
+    glist_entry_t * it;
+    glist_entry_t * it_loct;
+    iface_locators * iface_loct;
+    glist_t * loct_lists[2];
+    locator_t * loct;
+    lisp_addr_t * addr = locator_addr(locator);
+    lisp_addr_t * ip_addr;
+    char * iface_name;
+    int ctr;
 
     if (lisp_addr_is_no_addr(addr) == FALSE)
     {
@@ -226,6 +214,11 @@ iface_locators_get_element_with_loct(
 
         /* Find the interface name associated to the RLOC */
         iface_name = get_interface_name_from_address(ip_addr);
+        if (iface_name == NULL){
+            LMLOG(LERR, "iface_locators_get_element_with_loct: Can't find iface associated to "
+                                "address %s", lisp_addr_to_char(addr));
+            return (NULL);
+        }
 
         /* Get iface-locators structure and add the mapping */
         iface_loct = shash_lookup(iface_locators_table, iface_name);

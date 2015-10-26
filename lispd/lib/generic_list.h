@@ -1,36 +1,27 @@
 /*
- * lispd_generic_list.h
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #ifndef LISPD_GENERIC_LIST_H_
 #define LISPD_GENERIC_LIST_H_
 
 #include <stdint.h>
-#include "list.h"
+#include "../elibs/ovs/list.h"
 
 #define NO_CMP NULL
 #define NO_DEL NULL
@@ -47,7 +38,7 @@ typedef int  (*glist_cmp_fct)(void *, void *);
 typedef char *(*glist_to_char_fct)(void *);
 
 typedef struct glist_entry_t_ {
-    struct list_head    list;
+    struct ovs_list    list;
     void                *data;
 } glist_entry_t;
 
@@ -68,7 +59,8 @@ void glist_init_managed(glist_t *lst, glist_del_fct del_fct);
 int glist_add(void *data, glist_t *list);
 int glist_add_tail(void *data, glist_t *glist);
 uint8_t glist_contain(void *data, glist_t *list);
-uint8_t glist_contain_using_cmp_fct(void *data, glist_t *list, glist_cmp_fct  cmp_fct);
+uint8_t glist_contain_using_cmp_fct(void *data, glist_t *list,
+        glist_cmp_fct  cmp_fct);
 void glist_extract(glist_entry_t *entry, glist_t *list);
 void glist_remove(glist_entry_t *entry, glist_t *list);
 void glist_remove_obj(void * data,glist_t * list);
@@ -87,49 +79,58 @@ static inline void *glist_last_data(glist_t *lst);
 static inline glist_entry_t *glist_next(glist_entry_t *entry);
 static inline glist_entry_t *glist_prev(glist_entry_t *entry);
 
-static inline int glist_size(glist_t *list)
+static inline int
+glist_size(glist_t *list)
 {
     return(list->size);
 }
 
-static inline void *glist_entry_data(glist_entry_t *entry)
+static inline void *
+glist_entry_data(glist_entry_t *entry)
 {
     return(entry->data);
 }
 
-static inline glist_entry_t *glist_head(glist_t *lst)
+static inline glist_entry_t *
+glist_head(glist_t *lst)
 {
     return(&lst->head);
 }
 
-static inline glist_entry_t *glist_first(glist_t *lst)
+static inline glist_entry_t *
+glist_first(glist_t *lst)
 {
-    return(list_entry(glist_next(&lst->head), glist_entry_t, list));
+    return (CONTAINER_OF(glist_next(&lst->head), glist_entry_t, list));
 }
 
-static inline void *glist_first_data(glist_t *lst)
+static inline void *
+glist_first_data(glist_t *lst)
 {
     return(glist_entry_data(glist_first(lst)));
 }
 
-static inline glist_entry_t *glist_last(glist_t *lst)
+static inline glist_entry_t *
+glist_last(glist_t *lst)
 {
-    return(list_entry(glist_prev(&lst->head), glist_entry_t, list));
+    return (CONTAINER_OF(glist_prev(&lst->head), glist_entry_t, list));
 }
 
-static inline void *glist_last_data(glist_t *lst)
+static inline void *
+glist_last_data(glist_t *lst)
 {
     return(glist_entry_data(glist_last(lst)));
 }
 
-static inline glist_entry_t *glist_next(glist_entry_t *entry)
+static inline glist_entry_t *
+glist_next(glist_entry_t *entry)
 {
-    return(list_entry(entry->list.next, glist_entry_t, list));
+    return(CONTAINER_OF(entry->list.next, glist_entry_t, list));
 }
 
-static inline glist_entry_t *glist_prev(glist_entry_t *entry)
+static inline glist_entry_t *
+glist_prev(glist_entry_t *entry)
 {
-    return(list_entry(entry->list.prev, glist_entry_t, list));
+    return(CONTAINER_OF(entry->list.prev, glist_entry_t, list));
 }
 
 /**
@@ -138,7 +139,7 @@ static inline glist_entry_t *glist_prev(glist_entry_t *entry)
  * @ lst:   * the list of glist_t type, over whose elements to iterate
  */
 #define glist_for_each_entry(iter_, lst_) \
-    list_for_each_entry(iter_, &((lst_)->head.list), list)
+        LIST_FOR_EACH(iter_,list,&((lst_)->head.list))
 
 /**
  * generic_list_for_each_entry  - iterates over list in generic_list_t
@@ -148,14 +149,6 @@ static inline glist_entry_t *glist_prev(glist_entry_t *entry)
  * @ lst:   * the list of glist_t type, over whose elements to iterate
  */
 #define glist_for_each_entry_safe(iter_, aux_iter_, lst_) \
-    list_for_each_entry_safe(iter_, aux_iter_, &((lst_)->head.list), list)
-
-/*
-#define glist_for_each(pos, lst)              \
-    for (pos = list_entry((lst->head)->next, glist_entry_t, list);  \
-         &pos->list != (lst->head);                    \
-         pos = list_entry(pos->member.next, glist_entry_t, list))
- *
- */
+        LIST_FOR_EACH_SAFE(iter_, aux_iter_, list,&((lst_)->head.list))
 
 #endif /* LISPD_GENERIC_LIST_H_ */

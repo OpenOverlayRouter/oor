@@ -1,55 +1,50 @@
 /*
- * flow_balancing.c
  *
- *  Created on: 29/01/2015
- *      Author: albert
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  */
 
 #include "flow_balancing.h"
 #include "fb_lisp_addr_func.h"
-#include "../../liblisp/liblisp.h"
 #include "../../lib/lmlog.h"
+#include "../../liblisp/liblisp.h"
 
 inline fb_dev_parm *fb_dev_parm_new();
-void *fb_dev_parm_new_init(
-        lisp_ctrl_dev_t *ctrl_dev,
+void *fb_dev_parm_new_init(lisp_ctrl_dev_t *ctrl_dev,
         fwd_policy_dev_parm *dev_parm_inf);
 inline void fb_dev_parm_del(void *dev_parm);
 inline balancing_locators_vecs *balancing_locators_vecs_new();
-void *balancing_locators_vecs_new_init(
-        void *                  dev_parm,
-        mapping_t *             map,
-        fwd_policy_map_parm *   map_param);
-void *rmt_balancing_locators_vecs_new_init(
-        void *              dev_parm,
-        mapping_t *         map);
+void *balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map,
+        fwd_policy_map_parm *map_param);
+void *rmt_balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map);
 void balancing_locators_vecs_del(void * bal_vec);
-fwd_entry_t *fb_get_fw_entry(
-        void *              fwd_dev_parm,
-        void *              src_map_parm,
-        void *              dst_map_parm,
-        packet_tuple_t *    tuple);
-
-
+fwd_entry_t *fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm,
+        void *dst_map_parm, packet_tuple_t *tuple);
 static locator_t **set_balancing_vector(locator_t **, int, int, int *);
 static int select_best_priority_locators(glist_t *, locator_t **);
 static inline void get_hcf_locators_weight(locator_t **, int *, int *);
 static int highest_common_factor(int a, int b);
-
 /* Initialize to 0 balancing_locators_vecs */
 static void balancing_locators_vecs_reset (balancing_locators_vecs *blv);
 static void balancing_locators_vec_dump(balancing_locators_vecs,
         mapping_t *, int);
 
-int balancing_vectors_calculate(
-        void *           dev_parm,
-        void *           map_parm,
-        mapping_t *      map);
-void fb_locators_classify_in_4_6(
-        mapping_t *     mapping,
-        glist_t *       loc_loct_addr, //<lisp_addr_t>
-        glist_t *      ipv4_loct_list,
-        glist_t *      ipv6_loct_list);
+int balancing_vectors_calculate(void *dev_parm, void *map_parm, mapping_t *map);
+void fb_locators_classify_in_4_6(mapping_t *mapping,glist_t *loc_loct_addr,
+        glist_t *ipv4_loct_list,glist_t *ipv6_loct_list);
 
 fwd_policy_class  fwd_policy_flow_balancing = {
         .new_dev_policy_inf = fb_dev_parm_new_init,
@@ -68,7 +63,7 @@ fwd_policy_class  fwd_policy_flow_balancing = {
 inline fb_dev_parm *
 fb_dev_parm_new()
 {
-    fb_dev_parm *   dev_parm    = NULL;
+    fb_dev_parm *dev_parm;
     dev_parm = (fb_dev_parm *)xzalloc(sizeof(fb_dev_parm));
     if(dev_parm == NULL){
         LMLOG(LWRN, "fb_dev_parm_new: Couldn't allocate memory for fb_dev_parm");
@@ -78,11 +73,11 @@ fb_dev_parm_new()
 }
 
 void *
-fb_dev_parm_new_init(
-        lisp_ctrl_dev_t *ctrl_dev,
+fb_dev_parm_new_init(lisp_ctrl_dev_t *ctrl_dev,
         fwd_policy_dev_parm *dev_parm_inf)
 {
-    fb_dev_parm *   dev_parm    = NULL;
+    fb_dev_parm *   dev_parm;
+
     dev_parm = fb_dev_parm_new();
     if(dev_parm == NULL){
         return (NULL);
@@ -102,21 +97,21 @@ fb_dev_parm_del(void *dev_parm)
 inline balancing_locators_vecs *
 balancing_locators_vecs_new()
 {
-    balancing_locators_vecs * bal_loct_vec  = NULL;
+    balancing_locators_vecs * bal_loct_vec;
+
     bal_loct_vec = (balancing_locators_vecs *)xzalloc(sizeof(balancing_locators_vecs));
     if (bal_loct_vec == NULL){
         LMLOG(LWRN, "balancing_locators_vecs_new: Couldn't allocate memory for balancing_locators_vecs");
     }
+
     return (bal_loct_vec);
 }
 
 void *
-balancing_locators_vecs_new_init(
-        void *                  dev_parm,
-        mapping_t *             map,
-        fwd_policy_map_parm *   map_param)
+balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map,
+        fwd_policy_map_parm *map_param)
 {
-    balancing_locators_vecs *   bal_vec = NULL;
+    balancing_locators_vecs *bal_vec;
 
     bal_vec = balancing_locators_vecs_new();
     if (bal_vec == NULL){
@@ -133,9 +128,7 @@ balancing_locators_vecs_new_init(
 }
 
 void *
-rmt_balancing_locators_vecs_new_init(
-        void *              dev_parm,
-        mapping_t *         map)
+rmt_balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map)
 {
     return (balancing_locators_vecs_new_init(dev_parm,map,NULL));
 }
@@ -180,7 +173,7 @@ void
 balancing_locators_vec_dump(balancing_locators_vecs b_locators_vecs,
         mapping_t *mapping, int log_level)
 {
-    int ctr = 0;
+    int ctr;
     char str[3000];
 
     if (is_loggable(log_level)) {
@@ -229,14 +222,12 @@ balancing_locators_vec_dump(balancing_locators_vecs b_locators_vecs,
 /**************************************** TRAFFIC BALANCING FUNCTIONS ************************/
 
 static int
-select_best_priority_locators(
-        glist_t         *loct_list,
-        locator_t       **selected_locators)
+select_best_priority_locators(glist_t *loct_list, locator_t **selected_locators)
 {
-    glist_entry_t       *it_loct    = NULL;
-    locator_t           *locator    = NULL;
-    int                 min_priority = UNUSED_RLOC_PRIORITY;
-    int                 pos = 0;
+    glist_entry_t *it_loct;
+    locator_t *locator;
+    int min_priority = UNUSED_RLOC_PRIORITY;
+    int pos = 0;
 
     if (glist_size(loct_list) == 0){
         return (BAD);
@@ -274,7 +265,7 @@ static locator_t **
 set_balancing_vector(locator_t **locators, int total_weight, int hcf,
         int *locators_vec_length)
 {
-    locator_t **balancing_locators_vec = NULL;
+    locator_t **balancing_locators_vec;
     int vector_length = 0;
     int used_pos = 0;
     int ctr = 0;
@@ -322,19 +313,15 @@ set_balancing_vector(locator_t **locators, int total_weight, int hcf,
  * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
  */
 int
-balancing_vectors_calculate(
-        void *           dev_parm,
-        void *           map_parm,
-        mapping_t *      map)
+balancing_vectors_calculate(void *dev_parm, void *map_parm, mapping_t *map)
 {
     // Store locators with same priority. Maximum 32 locators (33 to no get out of array)
-    locator_t *                 locators[3][33];
+    locator_t *locators[3][33];
     // Aux list to classify all locators between IP4 and IPv6
-    glist_t *                   ipv4_loct_list  = glist_new();
-    glist_t *                   ipv6_loct_list  = glist_new();
-    fb_dev_parm *               fw_dev_parm     = (fb_dev_parm *)dev_parm;
-    balancing_locators_vecs *   blv             = (balancing_locators_vecs *)map_parm;
-
+    glist_t *ipv4_loct_list  = glist_new();
+    glist_t *ipv6_loct_list  = glist_new();
+    fb_dev_parm *fw_dev_parm = (fb_dev_parm *)dev_parm;
+    balancing_locators_vecs *blv = (balancing_locators_vecs *)map_parm;
 
     int min_priority[2] = { 255, 255 };
     int total_weight[3] = { 0, 0, 0 };
@@ -468,18 +455,15 @@ highest_common_factor(int a, int b)
 }
 
 void
-fb_locators_classify_in_4_6(
-        mapping_t *     mapping,
-        glist_t *       loc_loct_addr, //<lisp_addr_t>
-        glist_t *      ipv4_loct_list,
-        glist_t *      ipv6_loct_list)
+fb_locators_classify_in_4_6(mapping_t *mapping, glist_t *loc_loct_addr,
+        glist_t *ipv4_loct_list, glist_t *ipv6_loct_list)
 {
-    glist_t *               loct_list   = NULL;
-    glist_entry_t *         it_list     = NULL;
-    glist_entry_t *         it_loct     = NULL;
-    locator_t *             locator     = NULL;
-    lisp_addr_t *           addr        = NULL;
-    lisp_addr_t *           ip_addr     = NULL;
+    glist_t *loct_list;
+    glist_entry_t *it_list;
+    glist_entry_t *it_loct;
+    locator_t *locator;
+    lisp_addr_t *addr;
+    lisp_addr_t *ip_addr;
 
     if (glist_size(mapping->locators_lists) == 0){
         LMLOG(LDBG_3,"locators_classify_in_4_6: No locators to classify for mapping with eid %s",
@@ -521,30 +505,25 @@ fb_locators_classify_in_4_6(
 
 
 fwd_entry_t *
-fb_get_fw_entry(
-        void *              fwd_dev_parm,
-        void *              src_map_parm,
-        void *              dst_map_parm,
-        packet_tuple_t *    tuple)
+fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
+        packet_tuple_t *tuple)
 {
-    fwd_entry_t *                   fwd_entry       = NULL;
-    fb_dev_parm *                   dev_parm        = (fb_dev_parm *)fwd_dev_parm;
-    balancing_locators_vecs *       src_blv         = (balancing_locators_vecs *)src_map_parm;
-    balancing_locators_vecs *       dst_blv         = (balancing_locators_vecs *)dst_map_parm;
-    int                             src_vec_len     = 0;
-    int                             dst_vec_len     = 0;
-    uint32_t                        pos             = 0;
-    uint32_t                        hash            = 0;
-    locator_t **                    src_loc_vec     = NULL;
-    locator_t **                    dst_loc_vec     = NULL;
-    locator_t *                     src_loct        = NULL;
-    locator_t *                     dst_loct        = NULL;
+    fwd_entry_t * fwd_entry;
+    fb_dev_parm * dev_parm = (fb_dev_parm *)fwd_dev_parm;
+    balancing_locators_vecs * src_blv = (balancing_locators_vecs *)src_map_parm;
+    balancing_locators_vecs * dst_blv = (balancing_locators_vecs *)dst_map_parm;
+    int src_vec_len, dst_vec_len;
+    uint32_t pos, hash;
+    locator_t ** src_loc_vec;
+    locator_t ** dst_loc_vec;
+    locator_t * src_loct;
+    locator_t * dst_loct;
 
-    lisp_addr_t *                   src_addr        = NULL;
-    lisp_addr_t *                   dst_addr        = NULL;
-    lisp_addr_t *                   src_ip_addr     = NULL;
-    lisp_addr_t *                   dst_ip_addr     = NULL;
-    int                             afi             = 0;
+    lisp_addr_t * src_addr;
+    lisp_addr_t * dst_addr;
+    lisp_addr_t * src_ip_addr;
+    lisp_addr_t * dst_ip_addr;
+    int afi;
 
     if (src_blv->balancing_locators_vec != NULL
             && dst_blv->balancing_locators_vec != NULL) {

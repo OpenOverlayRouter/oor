@@ -1,34 +1,25 @@
 /*
- * liblisp.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #include "liblisp.h"
 #include "../lib/cksum.h"
-#include "hmac/hmac.h"
+#include "../lib/hmac.h"
 #include "../lib/lmlog.h"
 
 static void increment_record_count(lbuf_t *b);
@@ -102,7 +93,6 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
             return (BAD);
         }
     }
-
 
     LMLOG(LDBG_2, "%s, inner IP: %s -> %s, inner UDP: %d -> %d",
             lisp_msg_hdr_to_char(pkt),
@@ -211,10 +201,11 @@ lisp_msg_parse_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
 
         if (LOC_PROBED(loc_hdr)) {
             if (probed != NULL) {
-                LMLOG(LDBG_1, "Multiple probed locators! Aborting");
-                return(BAD);
+                LMLOG(LDBG_1, "Multiple probed locators! Probing only the first one: %s",
+                        lisp_addr_to_char(locator_addr(loc)));
+            }else{
+                probed = loc;
             }
-            probed = loc;
         }
     }
     if (probed_ != NULL) {
@@ -445,7 +436,7 @@ lisp_msg_put_mapping(
 
 void *
 lisp_msg_put_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
-        lisp_action_e act)
+        lisp_action_e act, lisp_authoritative_e a)
 {
     void *rec;
 
@@ -454,6 +445,7 @@ lisp_msg_put_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
     MAP_REC_LOC_COUNT(rec) = 0;
     MAP_REC_TTL(rec) = htonl(ttl);
     MAP_REC_ACTION(rec) = act;
+    MAP_REC_AUTH(rec) = a;
 
     if (lisp_msg_put_addr(b, eid) == NULL) {
         return(NULL);
@@ -500,8 +492,7 @@ lisp_msg_put_eid_rec(lbuf_t *b, lisp_addr_t *eid)
 }
 
 void *
-lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la,
-        lisp_addr_t *ra)
+lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
 {
     void *hdr;
 
@@ -570,8 +561,7 @@ lisp_msg_create(lisp_msg_type_e type)
 }
 
 lbuf_t *
-lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs,
-        lisp_addr_t *deid)
+lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs, lisp_addr_t *deid)
 {
 
     lbuf_t *b = lisp_msg_create(LISP_MAP_REQUEST);
@@ -594,12 +584,13 @@ lisp_msg_mreq_create(lisp_addr_t *seid, glist_t *itr_rlocs,
 }
 
 lbuf_t *
-lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac, uint64_t nonce)
+lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
+        lisp_authoritative_e a, uint64_t nonce)
 {
     lbuf_t *b;
     void *hdr;
     b = lisp_msg_create(LISP_MAP_REPLY);
-    lisp_msg_put_neg_mapping(b, eid, ttl, ac);
+    lisp_msg_put_neg_mapping(b, eid, ttl, ac, a);
     hdr = lisp_msg_hdr(b);
     MREP_NONCE(hdr) = nonce;
     return(b);
@@ -803,7 +794,7 @@ laddr_list_get_addr(glist_t *l, int afi, lisp_addr_t *addr)
     }
 
     glist_for_each_entry(it, l) {
-        ait = glist_entry_data(it);
+        ait = (lisp_addr_t *)glist_entry_data(it);
         if (lisp_addr_ip_afi(ait) == afi) {
             lisp_addr_copy(addr, ait);
             found = 1;
@@ -840,6 +831,3 @@ laddr_list_to_char(glist_t *l)
     }
     return(buf);
 }
-
-
-

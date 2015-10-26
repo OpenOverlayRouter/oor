@@ -1,29 +1,20 @@
 /*
- * ttable.c
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2014 Universitat Politècnica de Catalunya.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Florin Coras <fcoras@ac.upc.edu>
  */
 
 #include "ttable.h"
@@ -77,14 +68,15 @@ ttable_node_del(ttable_node_t *tn)
 void
 ttable_init(ttable_t *tt)
 {
-    tt->htable = htable_new((h_key_fct)pkt_tuple_hash, (h_key_eq_fct)pkt_tuple_cmp,
-            (h_key_del_fct)pkt_tuple_del, (h_val_del_fct)ttable_node_del);
+    tt->htable = hash_new((hash_function_t)pkt_tuple_hash, (hash_cmp_key_fn_t) pkt_tuple_cmp,
+            (hash_free_key_fn_t)pkt_tuple_del, (hash_free_fn_t) ttable_node_del,
+            (hash_clone_key_fn_t) pkt_tuple_clone, 0);
 }
 
 void
 ttable_uninit(ttable_t *tt)
 {
-    htable_destroy(tt->htable);
+    hash_destroy(tt->htable);
 }
 
 ttable_t *
@@ -115,24 +107,24 @@ ttable_insert(ttable_t *tt, packet_tuple_t *tpl, fwd_entry_t *fe)
     node->fe = fe;
     clock_gettime(CLOCK_MONOTONIC, &node->ts);
 
-    htable_insert(tt->htable, tpl, node);
+    hash_put(tt->htable, tpl, node);
 
     /* If table is full, lookup and remove expired entries */
-    if (htable_size(tt->htable) >= MAX_SIZE) {
-        htable_foreach_remove(tt->htable, (h_usr_del_fct)tnode_expired, NULL);
+    if (hash_num_entries(tt->htable) >= MAX_SIZE) {
+        hash_foreach_remove(tt->htable, (hash_remove_fn_t)tnode_expired, NULL);
     }
 }
 
 void
 ttable_remove(ttable_t *tt, packet_tuple_t *tpl)
 {
-    htable_remove(tt->htable, tpl);
+    hash_delete(tt->htable, tpl);
 }
 
 fwd_entry_t *
 ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
 {
-    ttable_node_t *tn = htable_lookup(tt->htable, tpl);
+    ttable_node_t *tn = hash_get(tt->htable, tpl);
     double elapsed;
     if (!tn) {
         return(NULL);
@@ -142,7 +134,7 @@ ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
     if (elapsed > TIMEOUT
         || ((!tn->fe || !tn->fe->srloc || !tn->fe->drloc)
                 && elapsed > NEGATIVE_TIMEOUT)) {
-        htable_remove(tt->htable, tpl);
+        hash_delete(tt->htable, tpl);
         return(NULL);
     } else {
         return(tn->fe);

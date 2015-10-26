@@ -1,31 +1,20 @@
 /*
- * sockets.h
  *
- * This file is part of LISP Mobile Node Implementation.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) 2012 Cisco Systems, Inc, 2012. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    Alberto Rodriguez Natal   <arnatal@ac.upc.edu>
- *    Albert López              <alopez@ac.upc.edu>
- *    Florin Coras              <fcoras@ac.upc.edu>
  */
 
 #ifndef SOCKETS_H_
@@ -49,24 +38,22 @@ typedef enum {
  * but it could prove useful in the future
  */
 
-typedef struct sock sock_t;
-typedef struct sock_list sock_list_t;
 
-struct sock_list {
+typedef struct sock_list {
     struct sock *head;
     struct sock *tail;
     int count;
     int maxfd;
-};
+}sock_list_t;
 
-struct sock {
+typedef struct sock {
     sock_type_e type;
     int (*recv_cb)(struct sock *);
     void *arg;
     int fd;
     struct sock *next;
     struct sock *prev;
-};
+}sock_t;
 
 typedef struct uconn {
     /* TODO: decide if la, ra should be IP */
@@ -104,40 +91,33 @@ typedef struct iface iface_t;
 
 sockmstr_t *sockmstr_create();
 void sockmstr_destroy(sockmstr_t *sm);
+struct sock *sockmstr_register_get_by_fd(sockmstr_t *m, int fd);
 struct sock *sockmstr_register_read_listener(sockmstr_t *m,
         int (*)(struct sock *), void *arg, int fd);
+int sockmstr_unregister_read_listenedr(sockmstr_t *m, struct sock *sock);
 void sockmstr_process_all(sockmstr_t *m);
 void sockmstr_wait_on_all_read(sockmstr_t *m);
 
-int open_data_input_socket(int afi);
+int open_data_raw_input_socket(int afi);
+int open_data_datagram_input_socket(int afi);
 int open_control_input_socket(int afi);
 
-int sock_ctrl_send(uconn_t *uc, struct lbuf *b);
 int sock_recv(int, lbuf_t *);
 int sock_ctrl_recv(int, lbuf_t *, uconn_t *);
-int sock_data_recv(int sock, lbuf_t *b, uint8_t *ttl, uint8_t *tos);
-int sock_lisp_data_send(lbuf_t *b,  lisp_addr_t *src, lisp_addr_t *dst, int out_sock);
-int sock_data_send(lbuf_t *b, lisp_addr_t *dst);
+int sock_data_recv(int sock, lbuf_t *b, int *afi, uint8_t *ttl, uint8_t *tos);
+inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
+        lisp_addr_t *ra);
 
-static inline void fwd_entry_set_srloc(fwd_entry_t *fwd_ent, lisp_addr_t * srloc)
+static inline void
+fwd_entry_set_srloc(fwd_entry_t *fwd_ent, lisp_addr_t * srloc)
 {
     fwd_ent->srloc = srloc;
 }
 
-static inline void fwd_entry_set_drloc(fwd_entry_t *fwd_ent, lisp_addr_t * drloc)
+static inline void
+fwd_entry_set_drloc(fwd_entry_t *fwd_ent, lisp_addr_t * drloc)
 {
     fwd_ent->drloc = drloc;
 }
 
-static inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
-        lisp_addr_t *ra)
-{
-    uc->lp = lp;
-    uc->rp = rp;
-    la ? lisp_addr_copy(&uc->la, la) :
-            lisp_addr_set_lafi(&uc->la, LM_AFI_NO_ADDR);
-    ra ? lisp_addr_copy(&uc->ra, ra) :
-            lisp_addr_set_lafi(&uc->ra, LM_AFI_NO_ADDR);
-    return(GOOD);
-}
 #endif /*SOCKETS_H_*/

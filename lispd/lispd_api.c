@@ -1,44 +1,38 @@
 /*
- * lispd_api.c
  *
- * This file is part of LISPmob implementation. It defines the API to
- * interact with LISPmob internals.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) The LISPmob project, 2015. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISPmob developers <devel@lispmob.org>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <zmq.h>
+
 #include "lispd_api.h"
 #include "lib/lmlog.h"
-#include "liblisp/liblisp.h"
 #include "lib/util.h"
-#include <zmq.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <assert.h>
+#include "liblisp/liblisp.h"
 
 
-int lmapi_init_client(lmapi_connection_t *conn) {
-
-    int error = 0;
+int
+lmapi_init_client(lmapi_connection_t *conn)
+{
+    int error;
 
     conn->context = zmq_ctx_new();
 
@@ -60,57 +54,48 @@ int lmapi_init_client(lmapi_connection_t *conn) {
 err:
     LMLOG(LERR,"LMAPI: The API client couldn't be initialized.\n");
     return (BAD);
-
 }
 
 
-void lmapi_end(lmapi_connection_t *conn) {
-
+void
+lmapi_end(lmapi_connection_t *conn)
+{
     LMLOG(LDBG_2,"LMAPI: Closing ZMQ-based API\n");
 
     zmq_close (conn->socket);
     zmq_ctx_destroy (conn->context);
 
     LMLOG(LDBG_2,"LMAPI: Closed ZMQ-based API\n");
-
 }
 
-uint8_t *lmapi_hdr_push(uint8_t *buf, lmapi_msg_hdr_t * hdr)
+uint8_t *
+lmapi_hdr_push(uint8_t *buf, lmapi_msg_hdr_t * hdr)
 {
-    uint8_t *ptr = NULL;
+    uint8_t *ptr;
 
     memcpy(buf,hdr,sizeof(lmapi_msg_hdr_t));
 
     ptr = CO(buf,sizeof(lmapi_msg_hdr_t));
 
-    return ptr;
+    return (ptr);
 }
 
-void fill_lmapi_hdr(
-        lmapi_msg_hdr_t *   hdr,
-        lmapi_msg_device_e  dev,
-        lmapi_msg_target_e  trgt,
-        lmapi_msg_opr_e     opr,
-        lmapi_msg_type_e    type,
-        int dlen)
+void fill_lmapi_hdr(lmapi_msg_hdr_t *hdr, lmapi_msg_device_e dev,
+        lmapi_msg_target_e trgt, lmapi_msg_opr_e opr,
+        lmapi_msg_type_e type, int dlen)
 {
-
     hdr->device = (uint8_t) dev;
     hdr->target = (uint8_t) trgt;
     hdr->operation = (uint8_t) opr;
     hdr->type = (uint8_t) type;
     hdr->datalen = (uint32_t) dlen;
-
 }
 
-int lmapi_result_msg_new(
-        uint8_t **          buf,
-        lmapi_msg_device_e  dev,
-        lmapi_msg_target_e  trgt,
-        lmapi_msg_opr_e     opr,
-        lmapi_msg_result_e  res)
+int
+lmapi_result_msg_new(uint8_t **buf,lmapi_msg_device_e  dev,
+        lmapi_msg_target_e trgt, lmapi_msg_opr_e opr,
+        lmapi_msg_result_e res)
 {
-
     lmapi_msg_hdr_t hdr;
     uint8_t *ptr;
 
@@ -123,8 +108,9 @@ int lmapi_result_msg_new(
 }
 
 
-int lmapi_recv(lmapi_connection_t *conn, void *buffer, int flags) {
-
+int
+lmapi_recv(lmapi_connection_t *conn, void *buffer, int flags)
+{
     int nbytes;
     int zmq_flags = 0;
     zmq_pollitem_t items [1];
@@ -153,11 +139,6 @@ int lmapi_recv(lmapi_connection_t *conn, void *buffer, int flags) {
     nbytes = zmq_recv(conn->socket, buffer, MAX_API_PKT_LEN, zmq_flags);
     LMLOG(LDBG_3,"LMAPI: Bytes read from API socket: %d. ",nbytes);
 
-//    if ((errno == EAGAIN) && (zmq_flags == ZMQ_DONTWAIT)){
-//    	return (LMAPI_NOTHINGTOREAD); //Nothing to read on the socket
-//    }
-//
-
     if (nbytes == -1){
     	LMLOG(LERR,"LMAPI: Error while ZMQ receiving: %s\n",zmq_strerror (errno));
     	return (LMAPI_ERROR);
@@ -168,9 +149,10 @@ int lmapi_recv(lmapi_connection_t *conn, void *buffer, int flags) {
 
 
 
-int lmapi_send(lmapi_connection_t *conn, void *msg, int len, int flags) {
-
-    int nbytes = 0;
+int
+lmapi_send(lmapi_connection_t *conn, void *msg, int len, int flags)
+{
+    int nbytes;
 
     LMLOG(LDBG_3,"LMAPI: Ready to send %d bytes through API socket\n",len);
 
@@ -182,16 +164,13 @@ int lmapi_send(lmapi_connection_t *conn, void *msg, int len, int flags) {
         	LMLOG(LERR,"LMAPI: Error while ZMQ sending: %s\n",zmq_strerror (errno));
     }
 
-    return GOOD;
+    return (GOOD);
 }
 
-int lmapi_apply_config(lmapi_connection_t *conn,
-                       int dev,
-					   int trgt,
-					   int opr,
-					   uint8_t *data,
-					   int dlen ){
-
+int
+lmapi_apply_config(lmapi_connection_t *conn, int dev, int trgt, int opr,
+        uint8_t *data, int dlen)
+{
 	lmapi_msg_hdr_t *hdr;
 	uint8_t *buffer;
 	uint8_t *dta_ptr;
@@ -229,11 +208,11 @@ int lmapi_apply_config(lmapi_connection_t *conn,
 
 	// All good
 	free (buffer);
-	return LMAPI_RES_OK;
+	return (LMAPI_RES_OK);
 
 err:
 
     free (buffer);
-    return LMAPI_RES_ERR;
+    return (LMAPI_RES_ERR);
 
 }

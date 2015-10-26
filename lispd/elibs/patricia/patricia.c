@@ -15,6 +15,7 @@
  *	Bunch of mods from David Meyer (dmm613@gmail.com) to make 
  *	this deal with IPv6 in a more friendly fashion
  *
+ *	Original code by Dave Plonka. Modified by the LISPmob project.
  *
  */
 
@@ -33,6 +34,7 @@
 #include <arpa/inet.h> /* BSD, Linux, Solaris: for inet_addr */
 
 #include "patricia.h"
+#include "../../lib/util.h"
 
 #define Delete free
 
@@ -181,7 +183,7 @@ prefix_t *New_Prefix2 (int family, void *dest, int bitlen, prefix_t *prefix)
 
     if (prefix == NULL) {
 	/*	prefix = calloc(1, sizeof (prefix_t)); */
-        if ((prefix = (prefix_t *) malloc(sizeof(prefix_t))) == NULL) {
+        if ((prefix = (prefix_t *) xmalloc(sizeof(prefix_t))) == NULL) {
 	    syslog(LOG_DAEMON, "New_Prefix2: can't allocate new prefix");
 	    return(0);
 	}
@@ -317,7 +319,7 @@ static int num_active_patricia = 0;
 patricia_tree_t *
 New_Patricia (int maxbits)
 {
-    patricia_tree_t *patricia = calloc(1, sizeof *patricia);
+    patricia_tree_t *patricia = xcalloc(1, sizeof *patricia);
 
     patricia->maxbits = maxbits;
     patricia->head = NULL;
@@ -604,7 +606,7 @@ patricia_lookup (patricia_tree_t *patricia, prefix_t *prefix)
     assert (prefix->bitlen <= patricia->maxbits);
 
     if (patricia->head == NULL) {
-	node = calloc(1, sizeof *node);
+	node = xcalloc(1, sizeof *node);
 	node->bit = prefix->bitlen;
 	node->prefix = Ref_Prefix (prefix);
 	node->parent = NULL;
@@ -715,7 +717,7 @@ patricia_lookup (patricia_tree_t *patricia, prefix_t *prefix)
 	return (node);
     }
 
-    new_node = calloc(1, sizeof *new_node);
+    new_node = xcalloc(1, sizeof *new_node);
     new_node->bit = prefix->bitlen;
     new_node->prefix = Ref_Prefix (prefix);
     new_node->parent = NULL;
@@ -767,7 +769,7 @@ patricia_lookup (patricia_tree_t *patricia, prefix_t *prefix)
 #endif /* PATRICIA_DEBUG */
     }
     else {
-        glue = calloc(1, sizeof *glue);
+        glue = xcalloc(1, sizeof *glue);
         glue->bit = differ_bit;
         glue->prefix = NULL;
         glue->parent = node->parent;

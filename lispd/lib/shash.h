@@ -30,13 +30,13 @@
 #ifndef SHASH_H_
 #define SHASH_H_
 
-#include "hash_table.h"
+#include "../elibs/libcfu/cfuhash.h"
 #include "generic_list.h"
 
-typedef htable_t shash_t;
+typedef hash_table_t shash_t;
 
 shash_t *shash_new();
-shash_t *shash_new_managed(h_key_del_fct df);
+shash_t *shash_new_managed(hash_free_fn_t df);
 void shash_del(shash_t *);
 void shash_insert(shash_t *, const char *, const void *);
 void shash_remove(shash_t *, const char *);

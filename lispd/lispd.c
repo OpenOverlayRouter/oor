@@ -1,34 +1,19 @@
 /*
- * lispd.c 
  *
- * This file is part of LISP Mobile Node Implementation.
- * lispd Implementation
- * 
- * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISP-MN developers <devel@lispmob.org>
- *
- * Written or modified by:
- *    David Meyer       <dmm@cisco.com>
- *    Preethi Natarajan <prenatar@cisco.com>
- *    Albert Cabellos   <acabello@ac.upc.edu>
- *    Lorand Jakab      <ljakab@ac.upc.edu>
- *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -37,6 +22,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
 #include <time.h>
 
 #include "lispd.h"
@@ -48,12 +34,10 @@
 #include "cmdline.h"
 #include "iface_list.h"
 #include "iface_mgmt.h"
-#include "data-tun/lispd_input.h"
+#include "data-plane/data-plane.h"
 #include "lib/lmlog.h"
 #include "lib/sockets.h"
 #include "lib/timers.h"
-#include "data-tun/lispd_tun.h"
-#include "data-tun/lispd_output.h"
 #include "lib/routing_tables_lib.h"
 #include "lispd_api_internals.h"
 #include "liblisp/liblisp.h"
@@ -76,7 +60,7 @@ extern int capget(cap_user_header_t header, const cap_user_data_t data);
 
 /* config paramaters */
 char    *config_file                        = NULL;
-int      debug_level                        = 0;
+int      debug_level                        = -1;
 int      default_rloc_afi                   = AF_UNSPEC;
 int      daemonize                          = FALSE;
 
@@ -99,6 +83,9 @@ nonces_list_t *nat_ir_nonce = NULL;
 sockmstr_t *smaster = NULL;
 lisp_ctrl_dev_t *ctrl_dev;
 lisp_ctrl_t *lctrl;
+#ifdef VPNAPI
+int lispd_running;
+#endif
 
 /* LISPmob's API connection structure */
 lmapi_connection_t lmapi_connection;
@@ -114,70 +101,12 @@ int pid_file_create();
 void pid_file_remove();
 /*****************************************************************************/
 
-int
-init_data_plane(lisp_ctrl_dev_t *dev)
-{
-    int (*cb_func)(sock_t *) = NULL;
-    uint8_t router_mode = FALSE;
-    lisp_dev_type_e mode = ctrl_dev_mode(dev);
-
-    if (!(mode == xTR_MODE || mode == RTR_MODE || mode == MN_MODE)) {
-        /* No data plane required */
-        return (GOOD);
-    }
-
-    LMLOG(LINF, "\nIntializing data plane\n");
-
-    /* Select the default rlocs for output data packets and output control
-     * packets */
-    set_default_output_ifaces();
-
-    if (mode == xTR_MODE || mode == MN_MODE) {
-        lisp_xtr_t  *xtr         = NULL;
-        lisp_addr_t *tun_v4_addr = NULL;
-        lisp_addr_t *tun_v6_addr = NULL;
-        xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-
-        tun_v4_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET);
-        tun_v6_addr = local_map_db_get_main_eid(xtr->local_mdb, AF_INET6);
-
-        if (mode == xTR_MODE){
-            router_mode = TRUE;
-        }
-
-        if (tun_configure_data_plane(router_mode, tun_v4_addr, tun_v6_addr)!=GOOD){
-            return(BAD);
-        }
-        sockmstr_register_read_listener(smaster, lisp_output_recv, NULL,
-                    tun_receive_fd);
-
-        cb_func = process_input_packet;
-    } else if (mode == RTR_MODE) {
-        cb_func = rtr_process_input_packet;
-    }
-
-    /* Generate receive sockets for data port (4341) */
-    if (default_rloc_afi != AF_INET6) {
-        ipv4_data_input_fd = open_data_input_socket(AF_INET);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,
-                ipv4_data_input_fd);
-    }
-
-    if (default_rloc_afi != AF_INET) {
-        ipv6_data_input_fd = open_data_input_socket(AF_INET6);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,
-                ipv6_data_input_fd);
-    }
-
-    lisp_output_init();
-
-    return(GOOD);
-}
 
 /* Check if lispmob is already running: /var/run/lispd.pid */
-int pid_file_check_not_exist()
+int
+pid_file_check_not_exist()
 {
-    FILE *pid_file = NULL;
+    FILE *pid_file;
 
     pid_file = fopen("/var/run/lispd.pid", "r");
     if (pid_file != NULL)
@@ -191,9 +120,10 @@ int pid_file_check_not_exist()
 }
 
 /* Creates the PID file of the process */
-int pid_file_create()
+int
+pid_file_create()
 {
-    FILE *pid_file = NULL;
+    FILE *pid_file;
     int pid = getpid();
 
     pid_file = fopen("/var/run/lispd.pid", "w");
@@ -210,9 +140,10 @@ int pid_file_create()
 }
 
 /* Remove the PID file of the process */
-void pid_file_remove()
+void
+pid_file_remove()
 {
-    FILE *pid_file = NULL;
+    FILE *pid_file;
     char line[80];
     long int pid;
 
@@ -245,7 +176,8 @@ void pid_file_remove()
  *  Check for superuser privileges
  */
 #ifndef ANDROID
-int check_capabilities()
+int
+check_capabilities()
 {
     struct __user_cap_header_struct cap_header;
     struct __user_cap_data_struct cap_data;
@@ -271,39 +203,11 @@ int check_capabilities()
         return BAD;
     }
 
-    /* Clear all but the capability to bind to low ports */
-    cap_data.effective = CAP_TO_MASK(CAP_NET_ADMIN) | CAP_TO_MASK(CAP_NET_RAW);
-    cap_data.permitted = cap_data.effective ;
-    cap_data.inheritable = 0;
-    if (capset(&cap_header, &cap_data) < 0) {
-        LMLOG(LWRN, "Could not drop privileges");
-        return BAD;
-    }
-
-    /* Tell kernel not clear permitted capabilities when dropping root */
-    if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) < 0) {
-        LMLOG(LWRN, "Sprctl(PR_SET_KEEPCAPS) failed");
-        return GOOD;
-    }
-
-    /* Now we can drop privilege, drop effective rights even with KEEPCAPS */
-    if (setuid(getuid()) < 0) {
-        LMLOG(LWRN, "Could not drop privileges");
-    }
-
-    /* that's why we need to set effective rights equal to permitted rights */
-    if (capset(&cap_header, &cap_data) < 0)
-    {
-        LMLOG(LCRIT,"Could not set effective rights to permitted ones");
-        return (BAD);
-    }
-
-    LMLOG(LDBG_1, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
-
     return GOOD;
 }
 #else
-int check_capabilities()
+int
+check_capabilities()
 {
     if (geteuid() != 0) {
         LMLOG(LCRIT,"Running %s requires superuser privileges! Exiting...\n", LISPD);
@@ -316,7 +220,8 @@ int check_capabilities()
 
 
 
-void signal_handler(int sig) {
+void
+signal_handler(int sig) {
     switch (sig) {
     case SIGHUP:
         /* TODO: SIGHUP should trigger reloading the configuration file */
@@ -357,13 +262,22 @@ exit_cleanup(void) {
 
     ifaces_destroy();
 
-    lisp_output_uninit();
+    if (data_plane != NULL){
+        data_plane->datap_uninit();
+    }
+
     sockmstr_destroy(smaster);
 
     lmtimers_destroy();
 
+    close_log_file();
+#ifndef VPNAPI
     LMLOG(LINF,"Exiting ...");
     exit(EXIT_SUCCESS);
+#else
+    jni_uninit();
+#endif
+
 }
 
 /*
@@ -396,8 +310,6 @@ handle_lispd_command_line(int argc, char **argv)
     }
     if (args_info.debug_given) {
         debug_level = args_info.debug_arg;
-    } else {
-        debug_level = -1;
     }
     if (args_info.afi_given) {
         switch (args_info.afi_arg) {
@@ -427,12 +339,15 @@ demonize_start()
             exit_cleanup();
         }
         umask(0);
-        if (pid > 0)
+        if (pid > 0){
             exit(EXIT_SUCCESS);
-        if ((sid = setsid()) < 0)
+        }
+        if ((sid = setsid()) < 0){
             exit_cleanup();
-        if ((chdir("/")) < 0)
+        }
+        if ((chdir("/")) < 0){
             exit_cleanup();
+        }
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
@@ -468,45 +383,50 @@ init_netlink()
     process_netlink_msg(nl_sl);
 }
 
-static void
+static int
 parse_config_file()
 {
     int err;
     err = handle_config_file(&config_file);
-    if (err != GOOD){
-        if (config_file != NULL){
-            free(config_file);
-        }
-        exit_cleanup();
+    if (config_file != NULL){
+        free(config_file);
     }
-    free(config_file);
+
+    return (err);
 }
 
 static void
 initial_setup()
 {
-#ifndef ANDROID
+
 #ifdef OPENWRT
-    LMLOG(LINF,"LISPmob compiled for openWRT xTR\n");
+    LMLOG(LINF,"LISPmob %s compiled for openWRT\n", LISPD_VERSION);
 #else
-    LMLOG(LINF,"LISPmob compiled for linux xTR\n");
+#ifdef ANDROID
+#ifdef VPNAPI
+    LMLOG(LINF,"LISPmob %s compiled for not rooted Android\n", LISPD_VERSION);
+#else
+    LMLOG(LINF,"LISPmob %s compiled for rooted Android\n", LISPD_VERSION);
+
 #endif
-    if(pid_file_check_not_exist() == BAD){
-        exit_cleanup();
-    }
-    pid_file_create();
+#else
+    LMLOG(LINF,"LISPmob %s compiled for Linux\n", LISPD_VERSION);
+#endif
 #endif
 
 #ifndef VPNAPI
     if (check_capabilities() != GOOD){
-        exit_cleanup();
+        exit(EXIT_SUCCESS);
     }
-#endif // VPNAPI
-    LMLOG(LINF,"LISPmob compiled for not rooted Android");
+    if(pid_file_check_not_exist() == BAD){
+        exit(EXIT_SUCCESS);
+    }
+    pid_file_create();
+#endif
+
     /* Initialize the random number generator  */
     iseed = (unsigned int) time(NULL);
     srandom(iseed);
-
     setup_signal_handlers();
 }
 
@@ -514,6 +434,7 @@ initial_setup()
 int
 main(int argc, char **argv)
 {
+    lisp_dev_type_e dev_type;
 
     initial_setup();
 
@@ -528,15 +449,24 @@ main(int argc, char **argv)
     ifaces_init();
 
     /* create control. Only one instance for now */
-    lctrl = ctrl_create();
+    if ((lctrl = ctrl_create())==NULL){
+        exit_cleanup();
+    }
+
+    /* Detect the data plane type */
+    data_plane_select();
 
     /* parse config and create ctrl_dev */
-    parse_config_file();
+    if (parse_config_file() != GOOD){
+        exit_cleanup();
+    }
 
-    LMLOG(LINF,"\n\n LISPmob (%s): 'lispd' started... \n\n",LISPD_VERSION);
 
+    dev_type = ctrl_dev_mode(ctrl_dev);
+    if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
+        data_plane->datap_init(dev_type);
+    }
 
-    init_data_plane(ctrl_dev->mode);
     ctrl_init(lctrl);
     init_netlink();
 
@@ -550,6 +480,8 @@ main(int argc, char **argv)
     /* Initialize API for external access */
 
     lmapi_init_server(&lmapi_connection);
+
+    LMLOG(LINF,"\n\n LISPmob (%s): 'lispd' started... \n\n",LISPD_VERSION);
 
     /* EVENT LOOP */
     for (;;) {
@@ -565,21 +497,22 @@ main(int argc, char **argv)
 }
 
 #else
-JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
-  (JNIEnv *env, jclass cl, jint vpn_tun_fd, jstring storage_path)
+JNIEXPORT jint JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
+  (JNIEnv *env, jobject thisObj, jint vpn_tun_fd, jstring storage_path)
 {
-    jintArray           fd_list;
-    jint                sockets_fds[4];
-    uint32_t            iseed         = 0;  /* initial random number generator */
-    pid_t               pid           = 0;    /* child pid */
-    pid_t               sid           = 0;
-    char                log_file[1024];
-    const char          *path         = NULL;
+    lisp_dev_type_e dev_type;
+    jintArray fd_list;
+    uint32_t iseed = 0;  /* initial random number generator */
+    pid_t pid = 0;    /* child pid */
+    pid_t sid = 0;
+    char log_file[1024];
+    const char *path = NULL;
 
     memset (log_file,0,sizeof(char)*1024);
-    init_globales();
+
 
     initial_setup();
+    jni_init(env,thisObj);
 
     /* create socket master, timer wheel, initialize interfaces */
     smaster = sockmstr_create();
@@ -588,6 +521,9 @@ JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
 
     /* create control. Only one instance for now */
     lctrl = ctrl_create();
+
+    /* Detect the data plane type */
+    data_plane_select();
 
     /** parse config and create ctrl_dev **/
 
@@ -599,18 +535,53 @@ JNIEXPORT jintArray JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_startLispd
     strcat(log_file,path);
     strcat(log_file,"lispd.log");
     (*env)->ReleaseStringUTFChars(env, storage_path, path);
+    open_log_file(log_file);
 
-    parse_config_file();
+    if (parse_config_file()!=GOOD){
+        exit_cleanup();
+        return (BAD);
+    }
 
+    dev_type = ctrl_dev_mode(ctrl_dev);
+    if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
+        data_plane->datap_init(dev_type, vpn_tun_fd);
+    }
 
-    //XXX
     ctrl_init(lctrl);
-
     init_netlink();
 
-}
-#endif
+    /* run lisp control device xtr/ms */
+     if (!ctrl_dev) {
+         LMLOG(LDBG_1, "device NULL");
+         return (BAD);
+     }
 
+     return (GOOD);
+}
+
+
+JNIEXPORT void JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_lispd_1loop(JNIEnv * env, jclass cl)
+{
+    lispd_running = TRUE;
+    ctrl_dev_run(ctrl_dev);
+
+    /* EVENT LOOP */
+    while (lispd_running) {
+        sockmstr_wait_on_all_read(smaster);
+        sockmstr_process_all(smaster);
+    }
+
+    /* event_loop returned: bad! */
+    LMLOG(LINF, "Exiting...");
+    exit_cleanup();
+}
+
+JNIEXPORT void JNICALL Java_org_lispmob_noroot_LISPmob_1JNI_lispd_1exit
+   (JNIEnv * env, jclass cl){
+    lispd_running = false;
+}
+
+#endif
 
 /*
  * Editor modelines

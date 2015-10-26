@@ -1,29 +1,23 @@
 /*
- * lispd_api.h
  *
- * This file is part of LISPmob implementation. It defines the API to
- * interact with LISPmob internals.
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
  *
- * Copyright (C) The LISPmob project, 2015. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * Please send any bug reports or fixes you make to the email address(es):
- *    LISPmob developers <devel@lispmob.org>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
+#ifndef LISPD_API_H_
+#define LISPD_API_H_
 
 #include <stdint.h>
 
@@ -134,25 +128,15 @@ int lmapi_send(lmapi_connection_t *conn, void *msg, int len, int flags);
 
 int lmapi_recv(lmapi_connection_t *conn, void *buffer, int flags);
 
-void fill_lmapi_hdr(
-        lmapi_msg_hdr_t *   hdr,
-        lmapi_msg_device_e  dev,
-        lmapi_msg_target_e  trgt,
-        lmapi_msg_opr_e     opr,
-        lmapi_msg_type_e    type,
-        int dlen);
+void fill_lmapi_hdr(lmapi_msg_hdr_t *hdr, lmapi_msg_device_e dev,
+        lmapi_msg_target_e trgt, lmapi_msg_opr_e opr,
+        lmapi_msg_type_e type, int dlen);
 
-int lmapi_result_msg_new(
-        uint8_t **          buf,
-        lmapi_msg_device_e  dev,
-        lmapi_msg_target_e  trgt,
-        lmapi_msg_opr_e     opr,
-        lmapi_msg_result_e  res);
+int lmapi_result_msg_new(uint8_t **buf,lmapi_msg_device_e  dev,
+        lmapi_msg_target_e trgt, lmapi_msg_opr_e opr,
+        lmapi_msg_result_e res);
 
-int lmapi_apply_config(lmapi_connection_t *conn,
-                       int dev,
-					   int trgt,
-					   int opr,
-					   uint8_t *data,
-					   int dlen);
+int lmapi_apply_config(lmapi_connection_t *conn, int dev, int trgt, int opr,
+        uint8_t *data, int dlen);
 
+#endif /*LISPD_API_H_*/

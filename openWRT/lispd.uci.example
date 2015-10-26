@@ -5,10 +5,13 @@ package 'lispd'
 
 # General configuration
 #	debug: Debug levels [0..3]
+#   log_file: Specify log file used in daemon mode. If it is not specified,  
+#     messages are written in syslog file
 #	map_request_retries: Additional Map-Requests to send per map cache miss
 #	operating_mode: Operating mode can be any of: xTR, RTR, MN, MS
 config 'daemon'
-        option  'debug'                 '0' 
+        option  'debug'                 '0'
+        option  'log_file'              '/tmp/lispd.log'  
         option  'map_request_retries'   '2'
         option  'operating_mode'        'xTR'
 
@@ -20,7 +23,7 @@ config 'ms_basic'
         option  'control_iface'         'eth0'
 
 config 'lisp-site'
-        option   'eid-prefix'               'IPv4 or IPv6 address /mask length'
+        option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
         option   'key_type'                 '1'
         option   'key'                      'password'
         option   'accept_more_specifics'    'off'
@@ -49,29 +52,13 @@ config 'rloc-probing'
 # You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
 #   address: IPv4 or IPv6 address of the map resolver
 config 'map-resolver'
-        option  'address'               'IPv4 or IPv6 address'
+        list  'address'               'IPv4 or IPv6 address'
 
 config 'static-map-cache'
-        option   'eid-prefix'           'IPv4 or IPv6 address /mask length'
+        option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
         option   'rloc_set'             'name'
 
 #---------------------------------------------------------------------------------------------------------------------
-
-# Configuration parameters for xTR and MN
-        
-# NAT Traversl configuration. 
-#   nat_aware: check if the node is behind NAT
-#   site_ID: 64 bits to identify the site where the node is connected to. In hexadecimal
-#   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal
-# Limitation of version 0.3.3 when nat_aware is enabled: 
-#   Only one interface is supported.
-#   Only one Map Server and one Map Resolver
-        
-config 'nat-traversal'
-        option  'nat_aware'	'off'
-        option  'site_ID'   '0000000000000001'                  #In doubt, keep the default value
-        option  'xTR_ID'    '00000000000000000000000000000001'  #In doubt, keep the default value
-        
         
 # Map-Registers are sent to this map-server
 # You can define several map-servers. Map-Register messages will be sent to all of them.
@@ -141,6 +128,7 @@ config 'proxy-etr'
         
 config 'rtr-iface'
         option   'iface'                'eth0'
+        option   'ip_version'           '<4/6>'
         option   'priority'             '1'
         option   'weight'               '100'
         
