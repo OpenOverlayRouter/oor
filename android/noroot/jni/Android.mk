@@ -2,8 +2,7 @@
 
 LOCAL_PATH:= $(call my-dir)
 LOCAL_PATH2:= $(LOCAL_PATH)
-subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, confuse_android )) \
-	$(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, zeromq3-x/src ))
+subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, confuse_android )) 
 include $(subdirs)	
 
 LOCAL_PATH:= $(LOCAL_PATH2)/../../lispd
@@ -67,13 +66,12 @@ LOCAL_SRC_FILES = \
 		  lispd.c                        \
 		  lispd_config_confuse.c         \
 		  lispd_config_functions.c       \
-		  lispd_api.c                    \
 		  lispd_jni.c 
 
 LOCAL_CFLAGS += -g -DANDROID -DVPNAPI
 LOCAL_C_INCLUDES += $(LOCAL_PATH2)/zeromq3-x/include
 LOCAL_LDLIBS := -llog
-LOCAL_STATIC_LIBRARIES := libconfuse zeromq
+LOCAL_STATIC_LIBRARIES := libconfuse
 LOCAL_SHARED_LIBRARIES := libcutils
 LOCAL_MODULE = lispd
 

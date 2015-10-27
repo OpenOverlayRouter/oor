@@ -2,8 +2,7 @@
 
 LOCAL_PATH:= $(call my-dir)
 LOCAL_PATH2:= $(call my-dir)
-subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, confuse_android )) \
-	$(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, zeromq3-x/src ))
+subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, confuse_android ))
 include $(subdirs)	
 
 LOCAL_PATH:= $(LOCAL_PATH2)/../../lispd
@@ -16,11 +15,11 @@ LOCAL_SRC_FILES = \
 		  control/lisp_xtr.c             \
 		  control/lisp_ms.c              \
 		  control/control-data-plane/control-data-plane.c    \
-		  control/control-data-plane/vpnapi/cdp_vpnapi.c     \
+		  control/control-data-plane/tun/cdp_tun.c     \
 		  data-plane/data-plane.c        \
-		  data-plane/vpnapi/vpnapi.c     \
-		  data-plane/vpnapi/vpnapi_input.c                   \
-		  data-plane/vpnapi/vpnapi_output.c                  \
+		  data-plane/tun/tun.c     \
+		  data-plane/tun/tun_input.c                   \
+		  data-plane/tun/tun_output.c                  \
 		  elibs/libcfu/cfu.c             \
 		  elibs/libcfu/cfuhash.c         \
 		  elibs/libcfu/cfustring.c       \
@@ -66,13 +65,12 @@ LOCAL_SRC_FILES = \
 		  iface_mgmt.c                   \
 		  lispd.c                        \
 		  lispd_config_confuse.c         \
-		  lispd_config_functions.c       \
-		  lispd_api.c                    
+		  lispd_config_functions.c       
 
 LOCAL_CFLAGS += -g -DANDROID
 LOCAL_C_INCLUDES += $(LOCAL_PATH2)/zeromq3-x/include 
 LOCAL_LDLIBS := -llog
-LOCAL_STATIC_LIBRARIES := libconfuse zeromq
+LOCAL_STATIC_LIBRARIES := libconfuse
 LOCAL_SHARED_LIBRARIES := libcutils
 LOCAL_MODULE = lispd
 include $(BUILD_EXECUTABLE)

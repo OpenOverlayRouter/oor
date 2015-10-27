@@ -39,7 +39,9 @@
 #include "lib/sockets.h"
 #include "lib/timers.h"
 #include "lib/routing_tables_lib.h"
-#include "lispd_api_internals.h"
+#ifndef ANDROID
+ #include "lispd_api_internals.h"
+#endif
 #include "liblisp/liblisp.h"
 #include "control/lisp_control.h"
 #include "control/lisp_xtr.h"
@@ -86,9 +88,10 @@ lisp_ctrl_t *lctrl;
 #ifdef VPNAPI
 int lispd_running;
 #endif
-
+#ifndef ANDROID
 /* LISPmob's API connection structure */
 lmapi_connection_t lmapi_connection;
+#endif
 
 /**************************** FUNCTION DECLARATION ***************************/
 /* Check if lispmob is already running: /var/run/lispd.pid */
@@ -477,17 +480,33 @@ main(int argc, char **argv)
     }
     ctrl_dev_run(ctrl_dev);
 
-    /* Initialize API for external access */
+    LMLOG(LINF,"\n\n LISPmob (%s): 'lispd' started... \n\n",LISPD_VERSION);
 
+#ifndef ANDROID
+    /* Initialize API for external access */
     lmapi_init_server(&lmapi_connection);
 
-    LMLOG(LINF,"\n\n LISPmob (%s): 'lispd' started... \n\n",LISPD_VERSION);
+    for (;;) {
+        sockmstr_wait_on_all_read(smaster);
+        sockmstr_process_all(smaster);
+        lmapi_loop(&lmapi_connection);
+    }
+#else
+    for (;;) {
+        sockmstr_wait_on_all_read(smaster);
+        sockmstr_process_all(smaster);
+    }
+#endif
+
+
 
     /* EVENT LOOP */
     for (;;) {
         sockmstr_wait_on_all_read(smaster);
         sockmstr_process_all(smaster);
+#ifndef ANDROID
         lmapi_loop(&lmapi_connection);
+#endif
     }
 
     /* event_loop returned: bad! */
