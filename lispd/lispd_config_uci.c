@@ -1017,11 +1017,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
                 LMLOG(LERR,"Configuration file: No eid_prefix assigned");
                 return (BAD);
             }
-            if (uci_lookup_option_string(ctx, sect, "key_type") == NULL){
-                LMLOG(LERR,"Configuration file: No key type assigned");
-                return (BAD);
-            }
-            if (uci_lookup_option_string(ctx, sect, "key_type") == NULL){
+            if (uci_lookup_option_string(ctx, sect, "key_type") != NULL){
                 uci_key_type =  strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
             }else {
                 LMLOG(LERR,"Configuration file: No key-type specified");

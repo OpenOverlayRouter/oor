@@ -8,9 +8,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lispmob
-PKG_REV:=8ebe5ee4b39bd9ca47b1d4d005a292c031c05bd8
-PKG_VERSION:=0.3
-PKG_RELEASE:=3
+PKG_REV:=33feaa5fc953213791d171422ae5413ab435f3df
+PKG_VERSION:=0.5.0
+PKG_RELEASE:=4
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=git://github.com/LISPmob/lispmob.git
@@ -18,7 +18,7 @@ PKG_SOURCE_PROTO:=git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_REV)
 
-PKG_LICENSE:=GPLv2
+PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
 
 include $(INCLUDE_DIR)/package.mk
@@ -35,7 +35,7 @@ define Package/lispmob
   CATEGORY:=Network
   TITLE:=Locator/ID separation protocol (using TUN)
   URL:=https://github.com/LISPmob
-  DEPENDS:= +librt +libopenssl +confuse +kmod-tun +uci +kmod-ipv6 +luci
+  DEPENDS:= +librt +confuse +kmod-tun +uci +kmod-ipv6 +libzmq-nc +libxml2
   $(call Package/lispmob/default)
 endef
 
