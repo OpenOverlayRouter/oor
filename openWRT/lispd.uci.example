@@ -1,14 +1,14 @@
 #
-#       lispd example config file
+#       lispd example config file for OpenWRT
 #
 package 'lispd'
 
 # General configuration
-#	debug: Debug levels [0..3]
-#   log_file: Specify log file used in daemon mode. If it is not specified,  
+#   debug: Debug levels [0..3]
+#   log_file: Specifies log file used in daemon mode. If it is not specified,  
 #     messages are written in syslog file
-#	map_request_retries: Additional Map-Requests to send per map cache miss
-#	operating_mode: Operating mode can be any of: xTR, RTR, MN, MS
+#   map_request_retries: Additional Map-Requests to send per map cache miss
+#   operating_mode: Operating mode can be any of: xTR, RTR, MN, MS
 config 'daemon'
         option  'debug'                 '0'
         option  'log_file'              '/tmp/lispd.log'  
@@ -19,28 +19,43 @@ config 'daemon'
 
 # Map Server (MS) configuration
 
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
 config 'ms_basic'
         option  'control_iface'         'eth0'
 
+# Define an allowed lisp site to be registered into the Map Server
+#   eid_prefix: Accepted EID prefix (IPvX/mask)
+#   key_type: Only 1 supported (HMAC-SHA-1-96)
+#   key: Password to authenticate the received Map Registers
+#   accept_more_specifics [true/false]: Accept more specific prefixes
+#     with same authentication information 
 config 'lisp-site'
         option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
         option   'key_type'                 '1'
         option   'key'                      'password'
         option   'accept_more_specifics'    'off'
 
+
+# Define a staticly registered mapping. New can Map Registers overwrite
+# the information of this mapping
+#   eid_prefix: EID prefix (IPvX/mask) of the mapping
+#   rloc_set: Name of the set of rlocs to be used
 config 'ms-static-registered-site'
         option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
         option   'rloc_set'                 'name'
 
 #---------------------------------------------------------------------------------------------------------------------
 
-# Tunnel Router general configuration: In common with xTR, RTR & MN
+# Tunnel Router general configuration
+# Common for xTR, RTR & MN
 
         
 # RLOC Probing configuration
 #   rloc_probe_interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 disables RLOC Probing
 #   rloc_probe_retries: RLOC Probe retries before setting the locator with status down. [0..5]
-#   rloc_probe_retries_interval: interval at which RLOC probes retries are sent (seconds) [1..#rloc_probe_interval]
+#   rloc_probe_retries_interval: interval at which RLOC probes retries are sent (seconds) [1..rloc_probe_interval]
         
 config 'rloc-probing'        
         option  'rloc_probe_interval'           '30'
@@ -54,12 +69,19 @@ config 'rloc-probing'
 config 'map-resolver'
         list  'address'               'IPv4 or IPv6 address'
 
+
+# Static Map Entry of the Map Cache
+#   eid-prefix: EID prefix (IPvX/mask) of the mapping
+#   rloc_set: Name of the set of rlocs to be used
 config 'static-map-cache'
         option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
         option   'rloc_set'             'name'
 
 #---------------------------------------------------------------------------------------------------------------------
         
+# xTR configuration
+
+
 # Map-Registers are sent to this map-server
 # You can define several map-servers. Map-Register messages will be sent to all of them.
 #	address: IPv4 or IPv6 address of the map-server
@@ -73,21 +95,20 @@ config 'map-server'
         option   'key'                  'password'
         option   'proxy_reply'          'on'
 
-
+# IPv4 / IPv6 EID of the node.
+#   eid-prefix: EID prefix (IPvX/mask) of the mapping
+#   rloc_set: Name of the set of rlocs to be used
 config 'database-mapping'
         option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
         option   'rloc_set'             'name'
 
 # List of PITRs to SMR on handover
 #   address: IPv4 or IPv6 address of the Proxy-ITR
-
 config 'proxy-itr'
         list   'address'              'IPv4 or IPv6 PITR address'
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
 # Uncomment the IPv4 or IPv6 list based on your current locators
-
-# LISP beta-network IPv4 PITRs
 
 #config 'proxy-itr'
 #        list     'address'              '69.31.31.98'                   # eqx-ash-pxtr
@@ -124,33 +145,82 @@ config 'proxy-etr'
         
 #---------------------------------------------------------------------------------------------------------------------
 
-# Configuration parameters for RTR
-        
+# RTR configuration
+
+
+# List of interafaces to be used as outgoing interfaces of the packets sent
+# by the RTR. One for each RLOC
+#   iface: interface containing the RLOCs to be used for outgoing traffic 
+#   ip_version: 4 to use IPv4 address of the interface and 6 to use IPv6 
+#     address of the interface
+#   priority [0-255]: Priority for the IPvX RLOC of the interface. Locators
+#     with lower values are more preferable. This is used for outgoing 
+#     traffic policy management.
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
+#     indicates how to balance unicast traffic between them.        
 config 'rtr-iface'
         option   'iface'                'eth0'
         option   'ip_version'           '<4/6>'
         option   'priority'             '1'
         option   'weight'               '100'
+               
         
 #---------------------------------------------------------------------------------------------------------------------
 
+# Miscellaneous configuration
+
+
+# Set of rlocs to be used in mappings
+#   name: Name of the set of rlocs
+#   rloc_name: List of each of the names of the rlocs to be used in the set.
+#     It can be used rloc-address or rloc-iface
 config 'rloc-set'
         option   'name'             'name'
         list     'rloc_name'        'name'
 
+# RLOC defined with an IP address
+#   name: Name of the rloc to be used in rloc-set
+#   address: It could be one of the following cases
+#      - IPv4 or IPv6 address of the rloc.
+#      - ELP name
+#   priority [0-255]: Priority for the IPvX RLOC. Locators with
+#     lower values are more preferable. This is used for both incoming
+#     policy announcements and outgoing traffic policy management.
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
+#     indicates how to balance unicast traffic between them.
 config 'rloc-address'
         option   'name'                 'name'
         option   'address'              'IPv4 or IPv6 address'
         option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
         option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
-        
+
+# RLOC defined with a network interface
+#   name: Name of the rloc to be used in rloc-set
+#   interface: interface containing the RLOCs to be used 
+#   ip_version: 4 to use IPv4 address of the interface and 6 to use IPv6 
+#     address of the interface
+#   priority [0-255]: Priority for the IPvX RLOC. Locatorsn with
+#     lower values are more preferable. This is used for both incoming
+#     policy announcements and outgoing traffic policy management.
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
+#     indicates how to balance unicast traffic between them.        
 config 'rloc-iface'
         option   'name'                 'name'
         option   'interface'            'eth0'
         option   'ip_version'           '<4/6>'
         option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
         option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
-        
+
+
+# Structure to define a path involving multiple hops.
+#   elp_name: Name used to define the ELP used as a reference in the address of the rloc-address 
+#        structure. For each hope use same elp_name. They should appear in order.
+#   address: IPv4 or IPv6 address of the rloc. The address of the last element of the path should
+#       exist and be assigned to an UP interface during starting process otherwise
+#       it is discarded.
+#   strict [true/false]: Not yet implemented. Use false
+#   probe [true/false]: Not yet implemented. Use false
+#   lookup [true/false]: Not yet implemented. Use false        
 config 'elp-node'
         option   'elp_name'             'name'
         option   'address'              'IPv4 or IPv6 address'

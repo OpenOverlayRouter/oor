@@ -12,6 +12,10 @@ one IPv4 EID and one IPv6 EID mapped to one or more RLOC interfaces. Even though
  used in an active-backup fashion (no more than one interface used at once). 
 Should you need to use NAT traversal functionality, please read first the NAT 
 traversal section on the general LISPmob README.md file.
+Version 0.5 maintains Android support however, given that NAT traversal is not 
+yet available for this version, the usage of LISPmob 0.5 on Android is limited to 
+devices with a public address. For production environments is recommended to use 
+version 0.4.x. that does not have this limitation.
 
 Installation
 ------------
