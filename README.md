@@ -240,45 +240,47 @@ interface in router mode (a local address is automatically used by LISPmob inste
 The following lines show an example of how 'ip addr' and 'ip route' will look like 
 with IPv4, expect a similar output with IPv6:
 
-$ ip addr
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
-    inet <RLOC> brd <RLOC_BROADCAST> scope global eth0
-       valid_lft forever preferred_lft forever
-3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
-    inet <EID1> brd <EID1_BROADCAST> scope global eth0
-       valid_lft forever preferred_lft forever
-4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
-    inet <EID2> brd <EID2_BROADCAST> scope global eth0
-       valid_lft forever preferred_lft forever
-5: lispTun0: <POINTOPOINT,UP,LOWER_UP> mtu 1440 qdisc pfifo_fast state UNKNOWN qlen 500
-    link/none 
+    $ ip addr
+    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+        link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+        inet 127.0.0.1/8 scope host lo
+           valid_lft forever preferred_lft forever
+    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <RLOC> brd <RLOC_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <EID1> brd <EID1_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <EID2> brd <EID2_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    5: lispTun0: <POINTOPOINT,UP,LOWER_UP> mtu 1440 qdisc pfifo_fast state UNKNOWN qlen 500
+        link/none 
 
 
-$ ip route
-<RLOC_Network> dev eth0  proto kernel  scope link  src <RLOC>
-<EID1_Network> dev eth1  proto kernel  scope link  src <EID1>
-<EID2_Network> dev eth2  proto kernel  scope link  src <EID2>
-default via <RLOC_GW> dev eth0  metric 100
+    $ ip route
+    <RLOC_Network> dev eth0  proto kernel  scope link  src <RLOC>
+    <EID1_Network> dev eth1  proto kernel  scope link  src <EID1>
+    <EID2_Network> dev eth2  proto kernel  scope link  src <EID2>
+    default via <RLOC_GW> dev eth0  metric 100
 
 
-$ ip rule
-0:      from all lookup local 
-x:      from <RLOC> lookup x 
-99:     from all to <EID1_Network> lookup main
-99:     from all to <EID2_Network> lookup main  
-100:    from <EID1_Network> lookup 100
-100:    from <EID2_Network> lookup 100 
-32766:  from all lookup main 
-32767:  from all lookup default
+    $ ip rule
+    0:      from all lookup local 
+    x:      from <RLOC> lookup x 
+    99:     from all to <EID1_Network> lookup main
+    99:     from all to <EID2_Network> lookup main  
+    100:    from <EID1_Network> lookup 100
+    100:    from <EID2_Network> lookup 100 
+    32766:  from all lookup main 
+    32767:  from all lookup default
+
 RTR mode
 --------
+
 When running in RTR mode, LISPmob serves as a Re-encapsulating Tunnel Router that 
 decapsulates the received traffic to reencapsulate it again towards the next hop. 
 To configure an RTR, select the corresponding operating-mode and fill the parameters 
@@ -286,43 +288,44 @@ of the RTR section and Tunnel Router general configuration of the configuration 
 The following lines show an example of how 'ip addr' and 'ip route' will look like 
 with IPv4, expect a similar output with IPv6:
 
-$ ip addr
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
-    inet <RLOC1> brd <RLOC1_BROADCAST> scope global eth0
-       valid_lft forever preferred_lft forever
-3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
-    inet <RLOC2> brd <RLOC2_BROADCAST> scope global eth0
-       valid_lft forever preferred_lft forever
-4: lispTun0: <POINTOPOINT,UP,LOWER_UP> mtu 1440 qdisc pfifo_fast state UNKNOWN qlen 500
-    link/none 
+    $ ip addr
+    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+        link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+        inet 127.0.0.1/8 scope host lo
+           valid_lft forever preferred_lft forever
+    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <RLOC1> brd <RLOC1_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+        link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+        inet <RLOC2> brd <RLOC2_BROADCAST> scope global eth0
+           valid_lft forever preferred_lft forever
+    4: lispTun0: <POINTOPOINT,UP,LOWER_UP> mtu 1440 qdisc pfifo_fast state UNKNOWN qlen 500
+        link/none 
 
+    $ ip route
+    <RLOC1_Network> dev eth0  proto kernel  scope link  src <RLOC1>
+    <RLOC2_Network> dev eth1  proto kernel  scope link  src <RLOC2>
+    default via <RLOC_GW_1> dev eth0  metric 100
+    default via <RLOC_GW_2> dev eth1  metric 110
 
-$ ip route
-<RLOC1_Network> dev eth0  proto kernel  scope link  src <RLOC1>
-<RLOC2_Network> dev eth1  proto kernel  scope link  src <RLOC2>
-default via <RLOC_GW_1> dev eth0  metric 100
-default via <RLOC_GW_2> dev eth1  metric 110
+    $ ip rule
+    0:      from all lookup local 
+    x:      from <RLOC1> lookup x 
+    y:     from <RLOC2> lookup y
+    32766:  from all lookup main 
+    32767:  from all lookup default
 
-
-$ ip rule
-0:      from all lookup local 
-x:      from <RLOC1> lookup x 
-y:     from <RLOC2> lookup y
-32766:  from all lookup main 
-32767:  from all lookup default
 MS/MR mode 
 ----------
+
 LISPmob 0.5 can be configured as a basic MS/MR where configured EID prefixes can 
 be registered by xTRs. LISPmob will also reply to MapRequests addressed to those 
 prefixes.
 To configure LISPmob as a MS/MR, select the corresponding operating-mode and fill 
 the parameters of the MS section of the configuration file
+
 OpenWRT 
 -------
 
