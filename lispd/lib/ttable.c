@@ -36,6 +36,9 @@
 
 /* Maximum size of the tuple table */
 #define MAX_SIZE 10000
+#define OLD_ENTRIES 1000
+
+static void ttable_remove_with_khiter(ttable_t *tt, khiter_t k);
 
 static double
 time_diff(struct timespec *x , struct timespec *y)
@@ -61,6 +64,7 @@ time_elapsed(struct timespec *time_node)
 static void
 ttable_node_del(ttable_node_t *tn)
 {
+    pkt_tuple_del(tn->tpl);
     fwd_entry_del(tn->fe);
     free(tn);
 }
@@ -68,15 +72,21 @@ ttable_node_del(ttable_node_t *tn)
 void
 ttable_init(ttable_t *tt)
 {
-    tt->htable = hash_new((hash_function_t)pkt_tuple_hash, (hash_cmp_key_fn_t) pkt_tuple_cmp,
-            (hash_free_key_fn_t)pkt_tuple_del, (hash_free_fn_t) ttable_node_del,
-            (hash_clone_key_fn_t) pkt_tuple_clone, 0);
+    tt->htable =  kh_init(ttable);
+    list_init(&tt->head_list);
 }
 
 void
 ttable_uninit(ttable_t *tt)
 {
-    hash_destroy(tt->htable);
+    khiter_t k;
+
+    for (k = kh_begin(tt->htable); k != kh_end(tt->htable); ++k){
+        if (kh_exist(tt->htable, k)){
+            ttable_node_del(kh_value(tt->htable,k));
+        }
+    }
+    kh_destroy(ttable, tt->htable);
 }
 
 ttable_t *
@@ -95,7 +105,7 @@ ttable_destroy(ttable_t *tt)
 }
 
 static int
-tnode_expired(packet_tuple_t *tpl, ttable_node_t *tn, void *ud)
+tnode_expired(ttable_node_t *tn)
 {
     return(time_elapsed(&tn->ts) > TIMEOUT);
 }
@@ -103,41 +113,109 @@ tnode_expired(packet_tuple_t *tpl, ttable_node_t *tn, void *ud)
 void
 ttable_insert(ttable_t *tt, packet_tuple_t *tpl, fwd_entry_t *fe)
 {
-    ttable_node_t *node = xzalloc(sizeof(ttable_node_t));
+    khiter_t k;
+    int ret,i,removed,to_remove;
+    ttable_node_t *node;
+    struct ovs_list *list_elt;
+
+    /* If table is full, lookup and remove expired entries. If it is still
+     * full, remove old entries */
+    if (kh_size(tt->htable) >= MAX_SIZE) {
+        LMLOG(LDBG_1,"ttable_insert: Max size of forwarding table reached. Removing expired entries");
+        removed = 0;
+        for (k = kh_begin(tt->htable); k != kh_end(tt->htable); ++k){
+            if (!kh_exist(tt->htable, k)){
+                continue;
+            }
+            if (tnode_expired(kh_value(tt->htable,k))){
+                ttable_remove_with_khiter(tt,k);
+                removed++;
+            }
+        }
+        if (removed <  OLD_ENTRIES){
+            LMLOG(LDBG_1,"ttable_insert: Max size of forwarding table reached. Removing older entries");
+            to_remove = OLD_ENTRIES - removed;
+            for (i = 0 ; i < to_remove ; i++){
+                list_elt = list_back(&tt->head_list);
+                node = CONTAINER_OF(list_elt, ttable_node_t, list_elt);
+                ttable_remove(tt, node->tpl);
+            }
+        }
+    }
+
+    node = xzalloc(sizeof(ttable_node_t));
     node->fe = fe;
+    node->tpl = tpl;
     clock_gettime(CLOCK_MONOTONIC, &node->ts);
 
-    hash_put(tt->htable, tpl, node);
+    list_init(&node->list_elt);
+    list_push_front(&tt->head_list, &node->list_elt);
 
-    /* If table is full, lookup and remove expired entries */
-    if (hash_num_entries(tt->htable) >= MAX_SIZE) {
-        hash_foreach_remove(tt->htable, (hash_remove_fn_t)tnode_expired, NULL);
-    }
+    k = kh_put(ttable,tt->htable,tpl,&ret);
+    kh_value(tt->htable, k) = node;
+    LMLOG(LDBG_3,"ttable_insert: Inserted tupla: %s ", pkt_tuple_to_char(tpl));
 }
 
 void
 ttable_remove(ttable_t *tt, packet_tuple_t *tpl)
 {
-    hash_delete(tt->htable, tpl);
+    khiter_t k;
+    ttable_node_t *tn;
+
+    k = kh_get(ttable,tt->htable, tpl);
+    if (k == kh_end(tt->htable)){
+        return;
+    }
+    tn = kh_value(tt->htable,k);
+    LMLOG(LDBG_3,"ttable_remove: Remove tupla: %s ", pkt_tuple_to_char(tn->tpl));
+    list_remove(&tn->list_elt);
+    ttable_node_del(tn);
+    kh_del(ttable,tt->htable,k);
+}
+
+static void
+ttable_remove_with_khiter(ttable_t *tt, khiter_t k)
+{
+    ttable_node_t *node;
+
+    node = kh_value(tt->htable,k);
+    LMLOG(LDBG_3,"ttable_remove_with_khiter: Remove tupla: %s ", pkt_tuple_to_char(node->tpl));
+    list_remove(&node->list_elt);
+    ttable_node_del(node);
+    kh_del(ttable,tt->htable,k);
 }
 
 fwd_entry_t *
 ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
 {
-    ttable_node_t *tn = hash_get(tt->htable, tpl);
+    ttable_node_t *tn;
+    khiter_t k;
     double elapsed;
-    if (!tn) {
-        return(NULL);
+
+    k = kh_get(ttable,tt->htable, tpl);
+    if (k == kh_end(tt->htable)){
+        return (NULL);
     }
+    tn = kh_value(tt->htable,k);
 
     elapsed = time_elapsed(&tn->ts);
-    if (elapsed > TIMEOUT
-        || ((!tn->fe || !tn->fe->srloc || !tn->fe->drloc)
-                && elapsed > NEGATIVE_TIMEOUT)) {
-        hash_delete(tt->htable, tpl);
-        return(NULL);
-    } else {
-        return(tn->fe);
+    if (!tn->fe->temporary){
+        if (elapsed > TIMEOUT){
+            goto expired;
+        }
+    }else{
+        if (elapsed > NEGATIVE_TIMEOUT){
+            goto expired;
+        }
     }
+
+    list_remove(&tn->list_elt);
+    list_push_front(&tt->head_list, &tn->list_elt);
+
+    return (tn->fe);
+
+expired:
+    ttable_remove_with_khiter(tt, k);
+    return(NULL);
 }
 

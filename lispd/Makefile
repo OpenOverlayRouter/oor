@@ -47,9 +47,6 @@ OBJS        = cmdline.o                  \
           data-plane/tun/tun_input.o     \
           data-plane/tun/tun_output.o    \
           data-plane/tun/tun.o           \
-          elibs/libcfu/cfu.o             \
-          elibs/libcfu/cfuhash.o         \
-          elibs/libcfu/cfustring.o       \
           elibs/mbedtls/md.o             \
           elibs/mbedtls/sha1.o           \
           elibs/mbedtls/sha256.o         \

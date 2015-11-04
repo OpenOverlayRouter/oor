@@ -119,7 +119,7 @@ lxml_get_char_lisp_addr(xmlNodePtr xml_address, char *name, shash_t *lcaf_ht)
             LMLOG(LDBG_2,"LMAPI->lxml_get_char_lisp_addr: Error processing lcaf address");
             return (NULL);
         }
-        shash_insert(lcaf_ht,name,laddr);
+        shash_insert(lcaf_ht,strdup(name),laddr);
         return (strdup(name));
     }else{
         LMLOG(LDBG_2,"LMAPI->lxml_get_char_lisp_addr: Afi not suppoted: %s",str_afi);
@@ -673,7 +673,7 @@ lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
     int eid_ip_afi;
 
     LMLOG(LDBG_1, "LMAPI: Creating new local data base");
-    lcaf_ht = shash_new_managed((hash_free_fn_t)lisp_addr_del);
+    lcaf_ht = shash_new_managed((free_key_fn_t)lisp_addr_del);
     conf_mapping_list = glist_new_managed((glist_del_fct)conf_mapping_destroy);
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);

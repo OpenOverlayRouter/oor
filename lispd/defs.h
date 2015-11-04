@@ -39,7 +39,7 @@ typedef enum {
 
 typedef struct lisp_ctrl_dev lisp_ctrl_dev_t;
 typedef struct lisp_ctrl lisp_ctrl_t;
-typedef struct hash_table shash_t;
+typedef struct shash shash_t;
 typedef struct fwd_entry fwd_entry_t;
 typedef struct sockmstr sockmstr_t;
 typedef struct data_plane_struct data_plane_struct_t;

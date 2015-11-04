@@ -34,50 +34,108 @@ shash_t *
 shash_new()
 {
     shash_t *sh;
-    sh = hash_new(NULL, NULL, (hash_free_key_fn_t)free, NULL, NULL, 0);
+
+    sh =xcalloc(1,sizeof(shash_t));
+    sh->htable = kh_init(str);
     return(sh);
 }
 
 shash_t *
-shash_new_managed(hash_free_fn_t df)
+shash_new_managed(free_key_fn_t df)
 {
     shash_t *sh;
-    sh = hash_new(NULL, NULL, (hash_free_key_fn_t)free, df, NULL, 0);
+
+    sh =xcalloc(1,sizeof(shash_t));
+    sh->htable = kh_init(str);
+    sh->free_key_fn = df;
     return(sh);
 }
 
 void
-shash_insert(shash_t *sh, const char *key, const void *val)
+shash_insert(shash_t *sh, char *key, void *val)
 {
-    hash_put(sh, key, CONST_CAST(void *, val));
+    khiter_t k;
+    int ret;
+
+    k = kh_put(str,sh->htable,key,&ret);
+    kh_value(sh->htable, k) = val;
 }
 
 void
-shash_remove(shash_t *sh, const char *key)
+shash_remove(shash_t *sh, char *key)
 {
-    hash_delete(sh, key);
+    khiter_t k;
+
+    k = kh_get(str,sh->htable, key);
+    if (k == kh_end(sh->htable)){
+        return;
+    }
+    free(kh_key(sh->htable,k));
+    if (sh->free_key_fn){
+        sh->free_key_fn(kh_value(sh->htable,k));
+    }
+    kh_del(str,sh->htable,k);
 }
 
 void *
-shash_lookup(shash_t *sh, const char *key)
+shash_lookup(shash_t *sh, char *key)
 {
-    return hash_get(sh, key);
+    khiter_t k;
+
+    k = kh_get(str,sh->htable, key);
+    if (k == kh_end(sh->htable)){
+        return (NULL);
+    }
+    return (kh_value(sh->htable,k));
 }
 
 void
 shash_destroy(shash_t *sh)
 {
-    if (sh) {
-        hash_destroy(sh);
+    khiter_t k;
+
+    if (!sh) {
+        return;
     }
+
+    for (k = kh_begin(sh->htable); k != kh_end(sh->htable); ++k){
+        if (kh_exist(sh->htable, k)){
+            free(kh_key(sh->htable,k));
+            if (sh->free_key_fn){
+                sh->free_key_fn(kh_value(sh->htable,k));
+            }
+        }
+    }
+    kh_destroy(str, sh->htable);
 }
 
-glist_t *shash_keys(shash_t *sh)
+glist_t *
+shash_keys(shash_t *sh)
 {
-    return (hash_keys(sh,1));
+    glist_t *list;
+    khiter_t k;
+
+    list = glist_new();
+    for (k = kh_begin(sh->htable); k != kh_end(sh->htable); ++k){
+        if (kh_exist(sh->htable, k)){
+            glist_add(kh_key(sh->htable,k), list);
+        }
+    }
+
+    return (list);
 }
 
 glist_t *shash_values(shash_t *sh)
 {
-    return (hash_values(sh));
+    glist_t *list;
+    khiter_t k;
+
+    list = glist_new();
+    for (k = kh_begin(sh->htable); k != kh_end(sh->htable); ++k){
+        if (kh_exist(sh->htable, k)){
+            glist_add(kh_value(sh->htable,k), list);
+        }
+    }
+
+    return (list);
 }

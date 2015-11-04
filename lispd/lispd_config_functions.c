@@ -496,7 +496,7 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
     if_loct = (iface_locators *)shash_lookup(xtr->iface_locators_table,iface_name);
     if (if_loct == NULL){
         if_loct = iface_locators_new(iface_name);
-        shash_insert(xtr->iface_locators_table, iface_name, if_loct);
+        shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
     }
 
     if (!xtr->all_locs_map) {
@@ -732,7 +732,7 @@ clone_customize_locator(lisp_ctrl_dev_t *dev, locator_t * locator,
 
             if (if_loct == NULL){
                 if_loct = iface_locators_new(iface_name);
-                shash_insert(xtr->iface_locators_table, iface_name, if_loct);
+                shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
             }
 
             if (rloc_ip_afi == AF_INET){
@@ -905,7 +905,7 @@ process_rloc_address(conf_loc_t *conf_loc, lisp_ctrl_dev_t *dev,
                 if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
                 if (if_loct == NULL){
                     if_loct = iface_locators_new(iface_name);
-                    shash_insert(xtr->iface_locators_table, iface_name, if_loct);
+                    shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
                 }
                 if (lisp_addr_ip_afi(ip_addr) == AF_INET){
                     glist_add(locator,if_loct->ipv4_locators);
@@ -982,7 +982,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, lisp_ctrl_dev_t * dev)
         if_loct = (iface_locators *)shash_lookup(iface_lctrs, conf_loc_iface->interface);
         if (if_loct == NULL){
             if_loct = iface_locators_new(conf_loc_iface->interface);
-            shash_insert(xtr->iface_locators_table, conf_loc_iface->interface, if_loct);
+            shash_insert(xtr->iface_locators_table, strdup(conf_loc_iface->interface), if_loct);
         }
         if (conf_loc_iface->afi == AF_INET){
             glist_add(locator,if_loct->ipv4_locators);
@@ -1041,6 +1041,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
         if (mapping == NULL){
             return(NULL);
         }
+        mapping_set_ttl(mapping, conf_mapping->ttl);
     }
 
     /* no need for the prefix */

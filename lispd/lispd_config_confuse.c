@@ -75,7 +75,7 @@ parse_elp_list(cfg_t *cfg, shash_t *ht)
         LMLOG(LDBG_1, "Configuration file: parsed explicit-locator-path: %s",
                 lisp_addr_to_char(laddr));
 
-        shash_insert(ht, name, laddr);
+        shash_insert(ht, strdup(name), laddr);
     }
 }
 
@@ -114,7 +114,7 @@ parse_rle_list(cfg_t *cfg, shash_t *ht)
         LMLOG(LDBG_1, "Configuration file: parsed replication-list: %s",
                 lisp_addr_to_char(laddr));
 
-        shash_insert(ht, name, laddr);
+        shash_insert(ht, strdup(name), laddr);
     }
 
 }
@@ -146,7 +146,7 @@ parse_mcinfo_list(cfg_t *cfg, shash_t *ht)
         LMLOG(LDBG_1, "Configuration file: parsed multicast-info: %s",
                 lisp_addr_to_char(laddr));
 
-        shash_insert(ht, name, laddr);
+        shash_insert(ht, strdup(name), laddr);
         count ++;
     }
 
@@ -161,7 +161,7 @@ parse_lcafs(cfg_t *cfg)
     shash_t *lcaf_ht;
 
     /* create lcaf hash table */
-    lcaf_ht = shash_new_managed((hash_free_fn_t)lisp_addr_del);
+    lcaf_ht = shash_new_managed((free_key_fn_t)lisp_addr_del);
     parse_elp_list(cfg, lcaf_ht);
     parse_rle_list(cfg, lcaf_ht);
     parse_mcinfo_list(cfg, lcaf_ht);

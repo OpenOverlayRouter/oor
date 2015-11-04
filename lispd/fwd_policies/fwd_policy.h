@@ -52,7 +52,8 @@ typedef struct fwd_policy_class {
     void (*del_map_cache_policy_inf)(void *);
     int (*updated_map_loc_inf)(void *dev_parm, void *map_parm, mapping_t *map);
     int (*updated_map_cache_inf)(void *dev_parm, void *map_parm, mapping_t *map);
-    fwd_entry_t *(*policy_get_fwd_entry)(void *dev_parm, void *src_map_parm, void *dst_map_parm, packet_tuple_t *tuple);
+    void(*policy_get_fwd_entry)(void *dev_parm, void *src_map_parm, void *dst_map_parm,
+            packet_tuple_t *tuple, fwd_entry_t **fwd_entry);
     lisp_addr_t *(*get_fwd_ip_addr)(lisp_addr_t *addr, glist_t *locl_rlocs_addr);
 } fwd_policy_class;
 

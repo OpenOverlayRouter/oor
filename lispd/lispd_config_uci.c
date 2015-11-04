@@ -1205,7 +1205,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
 
     /* create lcaf hash table */
-    rlocs_ht = shash_new_managed((hash_free_fn_t)locator_del);
+    rlocs_ht = shash_new_managed((free_key_fn_t)locator_del);
 
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
@@ -1251,7 +1251,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
              * who is using the locator*/
             locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
             if (locator != NULL){
-                shash_insert(rlocs_ht, uci_rloc_name, locator);
+                shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
             }
             lisp_addr_del(address);
         }
@@ -1321,7 +1321,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
              * who is using the locator*/
             locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
             if (locator != NULL){
-                shash_insert(rlocs_ht, uci_rloc_name, locator);
+                shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
             }
             /* If iface is not initialized, modify addres of the aux locator indicating the IP afi.
              * This information will be used during the process of association of the cloned locator
@@ -1350,7 +1350,7 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
     locator_t *loct;
 
     /* create lcaf hash table */
-    rloc_sets_ht = shash_new_managed((hash_free_fn_t)glist_destroy);
+    rloc_sets_ht = shash_new_managed((free_key_fn_t)glist_destroy);
 
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
@@ -1364,7 +1364,7 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
             if (rloc_list == NULL){
                 rloc_list = glist_new();
                 if (rloc_list != NULL){
-                    shash_insert(rloc_sets_ht, uci_rloc_set_name, rloc_list);
+                    shash_insert(rloc_sets_ht, strdup(uci_rloc_set_name), rloc_list);
                 }else{
                     LMLOG(LWRN, "parse_rloc_sets: Error creating rloc list");
                     continue;
@@ -1407,7 +1407,7 @@ parse_lcafs(struct uci_context *ctx, struct uci_package *pck)
     shash_t *lcaf_ht;
 
     /* create lcaf hash table */
-    lcaf_ht = shash_new_managed((hash_free_fn_t)lisp_addr_del);
+    lcaf_ht = shash_new_managed((free_key_fn_t)lisp_addr_del);
 
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
@@ -1440,7 +1440,7 @@ parse_elp_node(struct uci_context *ctx, struct uci_section *section, shash_t *ht
             LMLOG(LWRN,"parse_elp_node: Couldn't create ELP address");
             return (BAD);
         }
-        shash_insert(ht, uci_elp_name, laddr);
+        shash_insert(ht, strdup(uci_elp_name), laddr);
         LMLOG(LDBG_3,"parse_elp_node: Added ELP %s to the hash table of LCAF addresses",uci_elp_name);
     }else {
         if (lisp_addr_is_elp(laddr) == FALSE){

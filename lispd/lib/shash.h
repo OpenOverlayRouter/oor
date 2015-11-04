@@ -30,17 +30,30 @@
 #ifndef SHASH_H_
 #define SHASH_H_
 
-#include "../elibs/libcfu/cfuhash.h"
+#include "../elibs/khash/khash.h"
 #include "generic_list.h"
 
-typedef hash_table_t shash_t;
+//KHASH_MAP_INIT_STR(str, void *)
+KHASH_INIT(str, char *, void *, 1, kh_str_hash_func, kh_str_hash_equal)
+
+/* Prototype for a pointer to a free key function. */
+typedef void (*free_key_fn_t)(const void *key);
+
+
+typedef struct shash {
+    khash_t(str) *htable;
+    free_key_fn_t free_key_fn;
+} shash_t;
+
+
+
 
 shash_t *shash_new();
-shash_t *shash_new_managed(hash_free_fn_t df);
+shash_t *shash_new_managed(free_key_fn_t df);
 void shash_del(shash_t *);
-void shash_insert(shash_t *, const char *, const void *);
-void shash_remove(shash_t *, const char *);
-void *shash_lookup(shash_t *, const char *);
+void shash_insert(shash_t *, char *,  void *);
+void shash_remove(shash_t *, char *);
+void *shash_lookup(shash_t *, char *);
 void shash_destroy(shash_t *sh);
 glist_t *shash_keys(shash_t *sh);
 glist_t *shash_values(shash_t *sh);

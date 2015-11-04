@@ -182,7 +182,10 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     fe = ttable_lookup(&ttable, tuple);
     if (!fe) {
         fe = ctrl_get_forwarding_entry(tuple);
-        if (fe && (fe->srloc && fe->drloc))  {
+        if (fe == NULL){
+            return (BAD);
+        }
+        if (fe->srloc && fe->drloc)  {
             fe->out_sock = get_out_socket_ptr_from_address(fe->srloc);
         }
         // XXX Should packets to be send natively be added to the table?
@@ -193,7 +196,7 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     /* Packets with no/negative map cache entry AND no PETR
      * OR packets with missing src or dst RLOCs
      * forward them natively */
-    if (!fe || (!fe->srloc || !fe->drloc)) {
+    if (!fe->srloc || !fe->drloc) {
         return(tun_forward_native(b, &tuple->dst_addr));
     }
 

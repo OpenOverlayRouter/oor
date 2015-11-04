@@ -31,8 +31,8 @@ void *balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map,
         fwd_policy_map_parm *map_param);
 void *rmt_balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map);
 void balancing_locators_vecs_del(void * bal_vec);
-fwd_entry_t *fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm,
-        void *dst_map_parm, packet_tuple_t *tuple);
+void fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm,
+        void *dst_map_parm, packet_tuple_t *tuple, fwd_entry_t **fwd_entry);
 static locator_t **set_balancing_vector(locator_t **, int, int, int *);
 static int select_best_priority_locators(glist_t *, locator_t **);
 static inline void get_hcf_locators_weight(locator_t **, int *, int *);
@@ -504,11 +504,10 @@ fb_locators_classify_in_4_6(mapping_t *mapping, glist_t *loc_loct_addr,
  * RLOC */
 
 
-fwd_entry_t *
+void
 fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
-        packet_tuple_t *tuple)
+        packet_tuple_t *tuple, fwd_entry_t **fwd_entry)
 {
-    fwd_entry_t * fwd_entry;
     fb_dev_parm * dev_parm = (fb_dev_parm *)fwd_dev_parm;
     balancing_locators_vecs * src_blv = (balancing_locators_vecs *)src_map_parm;
     balancing_locators_vecs * dst_blv = (balancing_locators_vecs *)dst_map_parm;
@@ -550,7 +549,7 @@ fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
             LMLOG(LDBG_3, "fb_get_fw_entry: Source and "
                     "destination RLOCs are not compatible");
         }
-        return (NULL);
+        return;
     }
 
     hash = pkt_tuple_hash(tuple);
@@ -582,7 +581,7 @@ fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
     default:
         LMLOG(LDBG_2, "select_locs_from_maps: Unknown IP AFI %d",
                 lisp_addr_ip_afi(src_addr));
-        return (NULL);
+        return;
     }
 
     pos = hash % dst_vec_len;
@@ -590,14 +589,10 @@ fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
     dst_addr = locator_addr(dst_loct);
     dst_ip_addr = fb_lisp_addr_get_fwd_ip_addr(dst_addr,dev_parm->loc_loct);
 
-    fwd_entry = (fwd_entry_t *)xzalloc(sizeof(fwd_entry_t));
-    if(fwd_entry == NULL){
-        LMLOG(LWRN, "fb_get_fw_entry: Couldn't allocate memory for fwd_entry_t");
-        return (NULL);
-    }
 
-    fwd_entry_set_srloc(fwd_entry, lisp_addr_clone(src_ip_addr));
-    fwd_entry_set_drloc(fwd_entry, lisp_addr_clone(dst_ip_addr));
+
+    fwd_entry_set_srloc(*fwd_entry, lisp_addr_clone(src_ip_addr));
+    fwd_entry_set_drloc(*fwd_entry, lisp_addr_clone(dst_ip_addr));
 
     LMLOG(LDBG_3, "select_locs_from_maps: EID: %s -> %s, protocol: %d, "
             "port: %d -> %d\n  --> RLOC: %s -> %s",
@@ -607,5 +602,5 @@ fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
             lisp_addr_to_char(src_ip_addr),
             lisp_addr_to_char(dst_ip_addr));
 
-    return (fwd_entry);
+    return;
 }

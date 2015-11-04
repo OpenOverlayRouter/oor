@@ -57,7 +57,7 @@ build_iface_addr_hash_table()
         exit_cleanup();
     }
 
-    iface_addr_ht = shash_new_managed(free);
+    iface_addr_ht = shash_new_managed((free_key_fn_t)free);
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == NULL) {
@@ -76,7 +76,7 @@ build_iface_addr_hash_table()
                 continue;
             }
 
-            shash_insert(iface_addr_ht, host, strdup(ifa->ifa_name));
+            shash_insert(iface_addr_ht, strdup(host), strdup(ifa->ifa_name));
 
             LMLOG(LDBG_2, "Found interface %s with address %s", ifa->ifa_name,
                     host);

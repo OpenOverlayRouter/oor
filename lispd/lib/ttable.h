@@ -22,18 +22,24 @@
 
 #include <time.h>
 #include "packets.h"
-#include "../elibs/libcfu/cfuhash.h"
+#include "../elibs/khash/khash.h"
+#include "../elibs/ovs/list.h"
 
 typedef struct fwd_entry fwd_entry_t;
 
-typedef struct ttable {
-    struct hash_table *htable;
-} ttable_t;
-
 typedef struct ttable_node {
+    struct ovs_list list_elt;
+    packet_tuple_t *tpl;
     fwd_entry_t *fe;
     struct timespec ts;
 } ttable_node_t;
+
+KHASH_INIT(ttable, packet_tuple_t *, ttable_node_t *, 1, pkt_tuple_hash, pkt_tuple_cmp)
+
+typedef struct ttable {
+    khash_t(ttable) *htable;
+    struct ovs_list head_list; /* To order flows */
+} ttable_t;
 
 void ttable_init(ttable_t *tt);
 void ttable_uninit(ttable_t *tt);
