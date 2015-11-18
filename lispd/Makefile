@@ -20,11 +20,11 @@ ERROR       = false
 
 
 ifeq "$(platform)" ""
-CFLAGS     += -Wall -g -I/usr/include/libxml2
+CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2
 LIBS        = -lconfuse -lrt -lm -lzmq -lxml2
 else
 ifeq "$(platform)" "openwrt"
-CFLAGS     += -Wall -g -I/usr/include/libxml2 -DOPENWRT 
+CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -DOPENWRT 
 LIBS        = -lrt -lm -lzmq -lxml2 -luci
 else
 ERROR       = true
