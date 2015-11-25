@@ -21,6 +21,7 @@
 #include "../defs.h"
 #include "../lib/cksum.h"
 #include "../lib/lmlog.h"
+#include "../lib/pointers_table.h"
 #include "../lib/prefixes.h"
 
 
@@ -128,13 +129,13 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m)
 
 /* Called when the timer associated with a registered lisp site expires. */
 static int
-lsite_entry_expiration_timer_cb(lmtimer_t *t, void *arg)
+lsite_entry_expiration_timer_cb(lmtimer_t *t)
 {
     lisp_reg_site_t *rsite = NULL;
     lisp_addr_t *addr = NULL;
     lisp_ms_t *ms = t->owner;
 
-    rsite = arg;
+    rsite = lmtimer_cb_argument(t);
     addr = mapping_eid(rsite->site_map);
     LMLOG(LDBG_1,"Registration of site with EID %s timed out",
             lisp_addr_to_char(addr));
@@ -148,20 +149,47 @@ lsite_entry_expiration_timer_cb(lmtimer_t *t, void *arg)
 static void
 lsite_entry_start_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
 {
-    /* Expiration cache timer */
-    if (!rsite->expiry_timer) {
-        rsite->expiry_timer = lmtimer_create(REG_SITE_EXPRY_TIMER);
-    }
+    lmtimer_t *timer;
+
+
+    timer = lmtimer_create(REG_SITE_EXPRY_TIMER);
+    lmtimer_init(timer, ms, lsite_entry_expiration_timer_cb, rsite,
+            NULL, NULL);
+    htable_ptrs_timers_add(ptrs_to_timers_ht,rsite, timer);
 
     /* Give a 2s margin before purging the registered site */
-    lmtimer_start(rsite->expiry_timer, MS_SITE_EXPIRATION + 2,
-            lsite_entry_expiration_timer_cb, ms, rsite);
+    lmtimer_start(timer, MS_SITE_EXPIRATION + 2);
 
-    LMLOG(LDBG_1,"The map cache entry of EID %s will expire in %ld seconds.",
+    LMLOG(LDBG_2,"The map cache entry of EID %s will expire in %ld seconds.",
             lisp_addr_to_char(mapping_eid(rsite->site_map)),
             MS_SITE_EXPIRATION);
 }
 
+static void
+lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
+{
+    lmtimer_t *timer;
+    glist_t *timer_lst;
+
+    timer_lst = htable_ptrs_timers_get_timers_of_type(ptrs_to_timers_ht,rsite,
+            REG_SITE_EXPRY_TIMER);
+
+    if (glist_size(timer_lst) != 1){
+        LMLOG(LDBG_1,"lsite_entry_start_expiration_timer: %d timers for same site."
+                "It should never happen", glist_size(timer_lst));
+        glist_destroy(timer_lst);
+        return;
+    }
+    timer = (lmtimer_t *)glist_first_data(timer_lst);
+    glist_destroy(timer_lst);
+
+    /* Give a 2s margin before purging the registered site */
+    lmtimer_start(timer, MS_SITE_EXPIRATION + 2);
+
+    LMLOG(LDBG_2,"The map cache entry of EID %s will expire in %ld seconds.",
+            lisp_addr_to_char(mapping_eid(rsite->site_map)),
+            MS_SITE_EXPIRATION);
+}
 
 static int
 ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
@@ -406,7 +434,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             }
 
             /* update registration timer */
-            lsite_entry_start_expiration_timer(ms, rsite);
+            lsite_entry_update_expiration_timer(ms, rsite);
         } else {
             /* save prefix to the registered sites db */
             new_rsite = xzalloc(sizeof(lisp_reg_site_t));

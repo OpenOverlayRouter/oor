@@ -36,6 +36,8 @@
 #include "iface_mgmt.h"
 #include "data-plane/data-plane.h"
 #include "lib/lmlog.h"
+#include "lib/nonces_table.h"
+#include "lib/pointers_table.h"
 #include "lib/sockets.h"
 #include "lib/timers.h"
 #include "lib/routing_tables_lib.h"
@@ -92,6 +94,9 @@ int lispd_running;
 /* LISPmob's API connection structure */
 lmapi_connection_t lmapi_connection;
 #endif
+
+htable_nonces_t *nonces_ht;
+htable_ptrs_t *ptrs_to_timers_ht;
 
 /**************************** FUNCTION DECLARATION ***************************/
 /* Check if lispmob is already running: /var/run/lispd.pid */
@@ -265,13 +270,16 @@ exit_cleanup(void) {
 
     ifaces_destroy();
 
-    if (data_plane != NULL){
+    if (!data_plane){
         data_plane->datap_uninit();
     }
 
     sockmstr_destroy(smaster);
 
     lmtimers_destroy();
+
+    htable_ptrs_destroy(ptrs_to_timers_ht);
+    htable_nonces_destroy(nonces_ht);
 
     close_log_file();
 #ifndef VPNAPI
@@ -401,7 +409,6 @@ parse_config_file()
 static void
 initial_setup()
 {
-
 #ifdef OPENWRT
     LMLOG(LINF,"LISPmob %s compiled for openWRT\n", LISPD_VERSION);
 #else
@@ -417,6 +424,15 @@ initial_setup()
 #endif
 #endif
 
+#if UINTPTR_MAX == 0xffffffff
+    LMLOG(LDBG_1,"x32 system");
+#elif UINTPTR_MAX == 0xffffffffffffffff
+    LMLOG(LDBG_1,"x64 system");
+#else
+    LMLOG(LERR,"Unknow system. Please contact the LISPmob team providing your hardware");
+#endif
+    printf("-----------------------------------------------------0\n");
+
 #ifndef VPNAPI
     if (check_capabilities() != GOOD){
         exit(EXIT_SUCCESS);
@@ -431,6 +447,10 @@ initial_setup()
     iseed = (unsigned int) time(NULL);
     srandom(iseed);
     setup_signal_handlers();
+
+    /* Initialize hash table that control timers */
+    nonces_ht = htable_nonces_new();
+    ptrs_to_timers_ht = htable_ptrs_new();
 }
 
 #ifndef VPNAPI

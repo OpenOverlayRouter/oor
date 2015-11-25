@@ -18,7 +18,9 @@
  */
 
 #include "lisp_site.h"
+#include "timers_utils.h"
 #include "../defs.h"
+#include "../lispd_external.h"
 
 lisp_site_prefix_t *
 lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
@@ -54,7 +56,7 @@ lisp_site_prefix_del(lisp_site_prefix_t *sp)
 void
 lisp_reg_site_del(lisp_reg_site_t *rs)
 {
-    lmtimer_stop(rs->expiry_timer);
+    stop_timers_from_obj(rs,ptrs_to_timers_ht,nonces_ht);
     mapping_del(rs->site_map);
     free(rs);
 }

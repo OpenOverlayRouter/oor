@@ -266,14 +266,15 @@ glist_remove_obj(void *data, glist_t *list)
     if (!list || list->size == 0) {
         return;
     }
-
-    glist_for_each_entry(entry,list){
-        if(list->cmp_fct) {
+    if(list->cmp_fct) {
+        glist_for_each_entry(entry,list){
             if((*list->cmp_fct)(data, entry->data) == 0){
                 remove_entry = entry;
                 break;
             }
-        }else{
+        }
+    }else{
+        glist_for_each_entry(entry,list){
             if(entry->data == data){
                 remove_entry = entry;
                 break;

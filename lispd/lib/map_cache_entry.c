@@ -21,6 +21,7 @@
 
 #include "map_cache_entry.h"
 #include "lmlog.h"
+#include "timers_utils.h"
 #include "../defs.h"
 
 
@@ -33,12 +34,6 @@ mcache_entry_new()
 
     mce->active = NOT_ACTIVE;
     mce->timestamp = time(NULL);
-
-    mce->nonces = NULL;
-
-    mce->expiry_cache_timer = NULL;
-    mce->smr_inv_timer = NULL;
-    mce->request_retry_timer = NULL;
 
     return(mce);
 }
@@ -68,31 +63,14 @@ mcache_entry_del(mcache_entry_t *entry)
         return;
     }
 
-    mapping_del(mcache_entry_mapping(entry));
+    stop_timers_from_obj(entry,ptrs_to_timers_ht, nonces_ht);
 
-    if (entry->how_learned == MCE_DYNAMIC) {
-        if (entry->expiry_cache_timer) {
-            lmtimer_stop(entry->expiry_cache_timer);
-            entry->expiry_cache_timer = NULL;
-        }
-        if (entry->request_retry_timer) {
-            mcache_entry_stop_req_retry_timer(entry);
-            entry->request_retry_timer = NULL;
-        }
-        if (entry->smr_inv_timer) {
-            mcache_entry_stop_smr_inv_timer(entry);
-            entry->smr_inv_timer = NULL;
-        }
-    }
+    mapping_del(mcache_entry_mapping(entry));
 
     if (entry->routing_info != NULL){
         entry->routing_inf_del(entry->routing_info);
     }
 
-    if (entry->nonces != NULL) {
-        free(entry->nonces);
-    }
-    lisp_addr_del(entry->requester);
     free(entry);
 }
 
@@ -143,38 +121,6 @@ map_cache_entry_dump (mcache_entry_t *entry, int log_level)
     LMLOG(log_level, "%s\n%s\n", str, mapping_to_char(mapping));
 }
 
-inline void
-mcache_entry_stop_req_retry_timer(mcache_entry_t *m)
-{
-    lmtimer_stop(m->request_retry_timer);
-    m->request_retry_timer = NULL;
-}
 
-inline lmtimer_t *
-mcache_entry_init_req_retry_timer(mcache_entry_t *m)
-{
-    if (m->request_retry_timer) {
-        mcache_entry_stop_req_retry_timer(m);
-    }
-    m->request_retry_timer = lmtimer_create(MAP_REQUEST_RETRY_TIMER);
-    return(m->request_retry_timer);
-}
 
-inline void
-mcache_entry_stop_smr_inv_timer(mcache_entry_t *m)
-{
-    free(m->smr_inv_timer->cb_argument);
-    lmtimer_stop(m->smr_inv_timer);
-    m->smr_inv_timer = NULL;
-}
-
-inline lmtimer_t *
-mcache_entry_init_smr_inv_timer(mcache_entry_t *m)
-{
-    if (m->smr_inv_timer) {
-        mcache_entry_stop_smr_inv_timer(m);
-    }
-    m->smr_inv_timer = lmtimer_create(SMR_INV_RETRY_TIMER);
-    return(m->smr_inv_timer);
-}
 

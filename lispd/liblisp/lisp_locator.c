@@ -23,92 +23,6 @@
 #include "../lib/lmlog.h"
 
 
-static lcl_locator_extended_info_t *new_lcl_locator_extended_info();
-static rmt_locator_extended_info_t *new_rmt_locator_extended_info();
-static void free_lcl_locator_extended_info(lcl_locator_extended_info_t *);
-static void free_rmt_locator_extended_info(rmt_locator_extended_info_t *);
-
-static lcl_locator_extended_info_t *
-new_lcl_locator_extended_info()
-{
-    lcl_locator_extended_info_t *lcl_loc_ext_inf;
-    lcl_loc_ext_inf = xmalloc(sizeof(lcl_locator_extended_info_t));
-
-    lcl_loc_ext_inf->rtr_locators_list = NULL;
-
-    return lcl_loc_ext_inf;
-}
-
-static rmt_locator_extended_info_t *
-new_rmt_locator_extended_info()
-{
-    rmt_locator_extended_info_t *rmt_loc_ext_inf;
-    rmt_loc_ext_inf = xmalloc(sizeof(rmt_locator_extended_info_t));
-    rmt_loc_ext_inf->rloc_probing_nonces = NULL;
-    rmt_loc_ext_inf->probe_timer = NULL;
-
-    return rmt_loc_ext_inf;
-}
-
-static void
-free_lcl_locator_extended_info(lcl_locator_extended_info_t *extended_info)
-{
-    if (!extended_info) {
-        return;
-    }
-
-    rtr_list_del(extended_info->rtr_locators_list);
-    free(extended_info);
-}
-
-static void
-free_rmt_locator_extended_info(rmt_locator_extended_info_t *extended_info)
-{
-    if (!extended_info) {
-        return;
-    }
-
-    if (extended_info->probe_timer != NULL) {
-        /* This is needed because in case of RLOC probing we allocate
-         * a struct pointing to the mapping and the locator */
-        free(extended_info->probe_timer->cb_argument);
-        lmtimer_stop(extended_info->probe_timer);
-        extended_info->probe_timer = NULL;
-    }
-    if (extended_info->rloc_probing_nonces != NULL) {
-        free(extended_info->rloc_probing_nonces);
-    }
-    free(extended_info);
-}
-
-/* Clones of local locator extended info */
-static lcl_locator_extended_info_t *
-lcl_locator_extended_info_clone(lcl_locator_extended_info_t *einf)
-{
-    lcl_locator_extended_info_t *ei = NULL;
-
-    ei = new_lcl_locator_extended_info();
-
-    if (einf->rtr_locators_list != NULL) {
-        ei->rtr_locators_list = rtr_locator_list_clone(einf->rtr_locators_list);
-    }
-
-    return (ei);
-}
-
-/* Clone remote locator extended info. Actually it just allocates memory for a
- * extended info and does't clone anything, THAT IS, probing nonces ARE NOT
- * copied */
-static rmt_locator_extended_info_t *
-rmt_locator_extended_info_clone(rmt_locator_extended_info_t *einf)
-{
-    rmt_locator_extended_info_t *ei = NULL;
-
-    ei = new_rmt_locator_extended_info();
-
-    return (ei);
-}
-
 locator_t *
 locator_new()
 {
@@ -116,17 +30,10 @@ locator_new()
 }
 
 locator_t *
-locator_init(
-        lisp_addr_t*    addr,
-        uint8_t         state,
-        uint8_t         priority,
-        uint8_t         weight,
-        uint8_t         mpriority,
-        uint8_t         mweight,
-        uint8_t         type
-        )
+locator_new_init(lisp_addr_t* addr,uint8_t state, uint8_t priority, uint8_t weight,
+        uint8_t mpriority, uint8_t mweight)
 {
-    locator_t*  locator = NULL;
+    locator_t*  locator;
 
     locator = locator_new();
     if (locator == NULL){
@@ -138,7 +45,6 @@ locator_init(
     locator->weight = weight;
     locator->mpriority = mpriority;
     locator->mweight = mweight;
-    locator->type = type;
 
     return (locator);
 }
@@ -182,16 +88,10 @@ int locator_parse(void *ptr, locator_t *loc)
     }
 
     loc->state = status;
-    loc->type = DYNAMIC_LOCATOR;
     loc->priority = LOC_PRIORITY(hdr);
     loc->weight = LOC_WEIGHT(hdr);
     loc->mpriority = LOC_MPRIORITY(hdr);
     loc->mweight = LOC_MWEIGHT(hdr);
-    loc->extended_info = new_rmt_locator_extended_info();
-
-    /* TODO: should we remove these? */
-    loc->data_packets_in = 0;
-    loc->data_packets_out = 0;
 
     return (sizeof(locator_hdr_t) + len);
 }
@@ -214,93 +114,13 @@ int locator_cmp(locator_t *l1, locator_t *l2)
     return (0);
 }
 
-locator_t *
-locator_init_remote(lisp_addr_t *addr)
-{
-    if (!addr) {
-        return (NULL);
-    }
-
-    locator_t *locator = locator_new();
-    locator->addr = lisp_addr_clone(addr);
-    locator->extended_info = new_rmt_locator_extended_info();
-    locator->type = DYNAMIC_LOCATOR;
-
-    return (locator);
-}
-
-/* Initializes a remote locator. 'addr' is cloned so it can be freed by the
- * caller*/
-locator_t *
-locator_init_remote_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
-        uint8_t weight, uint8_t mpriority, uint8_t mweight)
-{
-    locator_t *locator = locator_init_remote(addr);
-    if (!locator) {
-        return (NULL);
-    }
-
-    locator->state = state;
-    locator->priority = priority;
-    locator->weight = weight;
-    locator->mpriority = mpriority;
-    locator->mweight = mweight;
-    return (locator);
-}
-
-/* For local locators address is NOT CLONED, since it is
- * linked to that of the associated interface */
-locator_t *
-locator_init_local(lisp_addr_t *addr)
-{
-    if (!addr) {
-        return (NULL);
-    }
-
-    locator_t *locator = locator_new();
-    /* Initialize locator */
-    locator->addr = lisp_addr_clone(addr);
-    locator->type = LOCAL_LOCATOR;
-
-    return (locator);
-}
-
-/* Initializes a local locator.*/
-locator_t *
-locator_init_local_full(lisp_addr_t *addr, uint8_t state, uint8_t priority,
-        uint8_t weight, uint8_t mpriority, uint8_t mweight)
-{
-    locator_t *locator = locator_init_local(addr);
-    if (!locator) {
-        return (NULL);
-    }
-    /* Initialize locator */
-    locator->priority = priority;
-    locator->weight = weight;
-    locator->mpriority = mpriority;
-    locator->mweight = mweight;
-    locator->data_packets_in = 0;
-    locator->data_packets_out = 0;
-    locator->state = state;
-    locator->extended_info = (void *) new_lcl_locator_extended_info();
-
-    return (locator);
-}
-
 void
 locator_del(locator_t *locator)
 {
-    //XXX Check problem with locator free (double free of extended info) (locator former address still in locator lists)
-
     if (!locator) {
         return;
     }
 
-    if (locator->type != LOCAL_LOCATOR) {
-        free_rmt_locator_extended_info(locator->extended_info);
-    } else {
-        free_lcl_locator_extended_info(locator->extended_info);
-    }
     lisp_addr_del(locator->addr);
     free(locator);
     locator = NULL;
@@ -310,30 +130,8 @@ locator_del(locator_t *locator)
 locator_t *
 locator_clone(locator_t *loc)
 {
-    locator_t *locator = NULL;
-
-    if (loc->type != LOCAL_LOCATOR) {
-        locator = locator_init_remote_full(loc->addr, loc->state,
-                loc->priority, loc->weight, loc->mpriority, loc->mweight);
-    } else {
-        /* For local locators, address and state are LINKED to the associated
-         * interface.*/
-        locator = locator_init_local_full(loc->addr, loc->state, loc->priority,
-                loc->weight, loc->mpriority, loc->mweight);
-    }
-
-    locator->type = loc->type;
-    if (loc->extended_info != NULL){
-        if (locator->type == LOCAL_LOCATOR){
-            free_lcl_locator_extended_info((lcl_locator_extended_info_t *)locator->extended_info);
-            locator->extended_info =
-                    lcl_locator_extended_info_clone(loc->extended_info);
-        }else{
-            free_rmt_locator_extended_info((rmt_locator_extended_info_t *)locator->extended_info);
-            locator->extended_info =
-                    rmt_locator_extended_info_clone(loc->extended_info);
-        }
-    }
+    locator_t *locator = locator_new_init(loc->addr, loc->state,
+            loc->priority, loc->weight, loc->mpriority, loc->mweight);
 
     return (locator);
 }
@@ -522,114 +320,3 @@ locator_list_cmp_afi(
 
     return (lisp_addr_cmp_afi(addr_a,addr_b));
 }
-
-rtr_locator_t *
-rtr_locator_new(lisp_addr_t address)
-{
-    rtr_locator_t *rtr_locator = NULL;
-
-    rtr_locator = xmalloc(sizeof(rtr_locator));
-    if (rtr_locator == NULL) {
-        LMLOG(LWRN, "new_rtr_locator: Unable to allocate memory for "
-                "lispd_rtr_locator: %s", strerror(errno));
-        return (NULL);
-    }
-    rtr_locator->address = address;
-    rtr_locator->latency = 0;
-    rtr_locator->state = UP;
-
-    return (rtr_locator);
-}
-
-rtr_locators_list_t*
-rtr_locator_list_new()
-{
-    rtr_locators_list_t *rtr_list;
-    rtr_list = xmalloc(sizeof(rtr_locators_list_t));
-    return (rtr_list);
-}
-
-int rtr_list_add(rtr_locators_list_t **list, rtr_locator_t *locator)
-{
-    rtr_locators_list_t *loc_list_elt = NULL;
-    rtr_locators_list_t *loc_list = *list;
-
-    loc_list = rtr_locator_list_new();
-    loc_list_elt->locator = locator;
-    loc_list_elt->next = NULL;
-    if (loc_list != NULL) {
-        while (loc_list->next != NULL) {
-            loc_list = loc_list->next;
-        }
-        loc_list->next = loc_list_elt;
-    } else {
-        *list = loc_list_elt;
-    }
-
-    return (GOOD);
-}
-
-void rtr_list_del(rtr_locators_list_t *rtr_list_elt)
-{
-    rtr_locators_list_t *aux_rtr_list_elt = NULL;
-
-    while (rtr_list_elt != NULL) {
-        aux_rtr_list_elt = rtr_list_elt->next;
-        free(rtr_list_elt->locator);
-        free(rtr_list_elt);
-        rtr_list_elt = aux_rtr_list_elt;
-    }
-}
-
-/* Leave in the list, rtr with afi equal to the afi passed as a parameter */
-void
-rtr_list_remove_locs_with_afi_different_to(rtr_locators_list_t **rtr_list,
-        int afi)
-{
-    rtr_locators_list_t *rtr_list_elt = *rtr_list;
-    rtr_locators_list_t *prev_rtr_list_elt = NULL;
-    rtr_locators_list_t *aux_rtr_list_elt = NULL;
-
-    while (rtr_list_elt != NULL) {
-        if (lisp_addr_ip_afi(&(rtr_list_elt->locator->address)) == afi) {
-            if (prev_rtr_list_elt == NULL) {
-                prev_rtr_list_elt = rtr_list_elt;
-                if (rtr_list_elt != *rtr_list) {
-                    *rtr_list = rtr_list_elt;
-                }
-            } else {
-                prev_rtr_list_elt->next = rtr_list_elt;
-                prev_rtr_list_elt = prev_rtr_list_elt->next;
-            }
-            rtr_list_elt = rtr_list_elt->next;
-        } else {
-            aux_rtr_list_elt = rtr_list_elt;
-            rtr_list_elt = rtr_list_elt->next;
-            free(aux_rtr_list_elt->locator);
-            free(aux_rtr_list_elt);
-        }
-    }
-    /* Put the next element of the last rtr_locators_list found with afi X
-     * to NULL*/
-    if (prev_rtr_list_elt != NULL) {
-        prev_rtr_list_elt->next = NULL;
-    } else {
-        *rtr_list = NULL;
-    }
-}
-
-/* Clone RTR locator list */
-rtr_locators_list_t *
-rtr_locator_list_clone(rtr_locators_list_t *rtr_list)
-{
-    rtr_locators_list_t *rtr_locator_list = NULL;
-    rtr_locator_t *rtr_locator = NULL;
-
-    while (rtr_list != NULL){
-        rtr_locator = rtr_locator_new(rtr_list->locator->address);
-        rtr_list_add(&rtr_locator_list,rtr_locator);
-        rtr_list = rtr_list->next;
-    }
-    return (rtr_locator_list);
-}
-

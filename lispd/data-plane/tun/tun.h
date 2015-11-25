@@ -76,6 +76,8 @@ uint8_t *tun_receive_buf;
 lisp_addr_t * tun_get_default_output_address(int afi);
 int tun_get_default_output_socket(int);
 
+typedef struct iface iface_t;
+
 typedef struct tun_dplane_data_{
     iface_t *default_out_iface_v4;
     iface_t *default_out_iface_v6;

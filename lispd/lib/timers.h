@@ -22,18 +22,18 @@
 
 #include "sockets.h"
 
-#define RLOC_PROBE_CHECK_INTERVAL 1 /* 1 second */
-
-#define EXPIRE_MAP_CACHE_TIMER  "EXPIRE_MAP_CACHE_TIMER"
-#define MAP_REGISTER_TIMER      "MAP_REGISTER_TIMER"
-#define MAP_REQUEST_RETRY_TIMER "MAP_REQUEST_RETRY_TIMER"
-#define RLOC_PROBING_TIMER      "RLOC_PROBING_TIMER"
-#define SMR_TIMER               "SMR_TIMER"
-#define SMR_INV_RETRY_TIMER     "SMR_INV_RETRY_TIMER"
-#define INFO_REPLY_TTL_TIMER    "INFO_REPLY_TTL_TIMER"
-#define RE_UPSTREAM_JOIN_TIMER  "RE_UPSTREAM_JOIN_TIMER"
-#define RE_ITR_RESOLUTION_TIMER "RE_ITR_RESOLUTION_TIMER"
-#define REG_SITE_EXPRY_TIMER    "REG_SITE_EXPIRY_TIMER"
+typedef enum {
+    EXPIRE_MAP_CACHE_TIMER,
+    MAP_REGISTER_TIMER,
+    MAP_REQUEST_RETRY_TIMER,
+    RLOC_PROBING_TIMER,
+    SMR_TIMER,
+    SMR_INV_RETRY_TIMER,
+    INFO_REPLY_TTL_TIMER,
+    RE_UPSTREAM_JOIN_TIMER,
+    RE_ITR_RESOLUTION_TIMER,
+    REG_SITE_EXPRY_TIMER
+} timer_type;
 
 #define TIMER_NAME_LEN          64
 
@@ -43,16 +43,19 @@ typedef struct lmtimer_links {
 } lmtimer_links_t;
 
 struct lmtimer;
-typedef int (*lmtimer_callback_t)(struct lmtimer *t, void *arg);
+typedef int (*lmtimer_callback_t)(struct lmtimer *t);
+typedef void (*lmtimer_del_cb_arg_fn)(void *arg);
 
 typedef struct lmtimer {
     lmtimer_links_t links;
     int duration;
     int rotation_count;
     lmtimer_callback_t cb;
+    lmtimer_del_cb_arg_fn del_arg_fn;
     void *cb_argument;
     void *owner;
-    char name[TIMER_NAME_LEN];
+    void *nonces_lst;
+    timer_type type;
 } lmtimer_t;
 
 
@@ -60,11 +63,18 @@ typedef struct lmtimer {
 int lmtimers_init();
 void lmtimers_destroy();
 
-lmtimer_t *lmtimer_create(char *);
+lmtimer_t *lmtimer_create(timer_type type);
+void lmtimer_init(lmtimer_t *new_timer, void *owner, lmtimer_callback_t cb_fn,
+        void *arg, lmtimer_del_cb_arg_fn del_arg_fn, void *nonces_lst);
 
-void lmtimer_start(lmtimer_t *, int, lmtimer_callback_t, void *, void *);
+void lmtimer_start(lmtimer_t *, int);
 
 void lmtimer_stop(lmtimer_t *);
+
+inline void *lmtimer_owner(lmtimer_t *);
+inline void *lmtimer_cb_argument(lmtimer_t *);
+inline timer_type lmtimer_type(lmtimer_t *);
+inline void *lmtimer_nonces(lmtimer_t *);
 
 
 #endif /*TIMERS_H_*/

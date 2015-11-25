@@ -39,11 +39,6 @@ void map_cache_del_entry(map_cache_db_t *, lisp_addr_t *laddr);
 mcache_entry_t *mcache_lookup_exact(map_cache_db_t *, lisp_addr_t *addr);
 mcache_entry_t *mcache_lookup(map_cache_db_t *, lisp_addr_t *addr);
 
-/* Lookup if there is a no active cache entry with the provided nonce and
- * return it */
-mcache_entry_t *lookup_nonce_in_no_active_map_caches(map_cache_db_t *,
-        lisp_addr_t *, uint64_t);
-
 void mcache_dump_db(map_cache_db_t *, int log_level);
 
 #define mcache_foreach_entry(MC, EIT)               \

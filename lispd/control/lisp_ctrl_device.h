@@ -50,7 +50,6 @@ typedef struct ctrl_dev_class_t {
 struct lisp_ctrl_dev {
     lisp_dev_type_e mode;
     const ctrl_dev_class_t *ctrl_class;
-
     /* pointer to lisp ctrl */
     lisp_ctrl_t *ctrl;
 };

@@ -64,7 +64,6 @@ OBJS        = cmdline.o                  \
           liblisp/lisp_mapping.o         \
           liblisp/lisp_messages.o        \
           liblisp/lisp_message_fields.o  \
-          liblisp/lisp_nonce.o           \
           liblisp/hmac/hmac-sha1.o       \
           liblisp/hmac/hmac-sha256.o     \
           lib/cksum.o                    \
@@ -77,13 +76,16 @@ OBJS        = cmdline.o                  \
           lib/mapping_db.o               \
           lib/map_cache_entry.o          \
           lib/map_local_entry.o          \
+          lib/nonces_table.o             \
           lib/packets.o                  \
+          lib/pointers_table.o           \
           lib/prefixes.o                 \
           lib/routing_tables_lib.o       \
           lib/sockets.o                  \
           lib/sockets-util.o             \
           lib/shash.o                    \
           lib/timers.o                   \
+          lib/timers_utils.o             \
           lib/ttable.o                   \
           lib/util.o                     \
           iface_list.o                   \

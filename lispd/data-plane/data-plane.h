@@ -21,6 +21,8 @@
 #define DATA_PLANE_H_
 
 #include "../liblisp/liblisp.h"
+typedef struct iface iface_t;
+typedef struct sock sock_t;
 
 /* functions to manipulate routing */
 typedef struct data_plane_struct {

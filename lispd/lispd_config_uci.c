@@ -60,7 +60,7 @@ parse_mapping(
         shash_t                *rloc_set_ht,
         shash_t                *lcaf_ht,
         glist_t                 *no_addr_loct_l,
-        uint8_t                 type);
+        uint8_t                 is_local);
 
 static shash_t *
 parse_rlocs(
@@ -380,7 +380,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
             }
 
             if (strcmp(sect->type, "database-mapping") == 0){
-                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,LOCAL_LOCATOR);
+                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,TRUE);
                 if (mapping == NULL){
                     LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
                             uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -411,7 +411,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
 
             /* STATIC MAP-CACHE CONFIG */
             if (strcmp(sect->type, "static-map-cache") == 0){
-                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
+                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
                 if (mapping == NULL){
                     LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                             uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -652,7 +652,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
         }
 
         if (strcmp(sect->type, "database-mapping") == 0){
-            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,LOCAL_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,TRUE);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't add EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -684,7 +684,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
 
         /* STATIC MAP-CACHE CONFIG */
         if (strcmp(sect->type, "static-map-cache") == 0){
-            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -874,7 +874,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
 
         /* STATIC MAP-CACHE CONFIG */
         if (strcmp(sect->type, "static-map-cache") == 0){
-            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -1069,7 +1069,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
 
         /* LISP REGISTERED SITES CONFIG */
         if (strcmp(sect->type, "ms-static-registered-site") == 0){
-            mapping = parse_mapping(ctx,sect,&(ms->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,STATIC_LOCATOR);
+            mapping = parse_mapping(ctx,sect,&(ms->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
             if (mapping == NULL){
                 LMLOG(LERR, "Can't create static register site for %s",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -1106,7 +1106,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
 static mapping_t*
 parse_mapping(struct uci_context *ctx, struct uci_section *sect,
         lisp_ctrl_dev_t *dev, shash_t *rloc_set_ht, shash_t *lcaf_ht,
-        glist_t *no_addr_loct_l, uint8_t type)
+        glist_t *no_addr_loct_l, uint8_t is_local)
 {
     mapping_t *map;
     locator_t *loct;
@@ -1147,7 +1147,7 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
 
     /* Create mapping */
-    if ( type == LOCAL_LOCATOR){
+    if ( is_local){
         map = mapping_new_init(eid_prefix);
         if (map != NULL){
             mapping_set_ttl(map, DEFAULT_DATA_CACHE_TTL);
@@ -1166,12 +1166,12 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     /* Add the locators of the rloc-set to the mapping */
     glist_for_each_entry(it,rloc_list){
         aux_loct = (locator_t*)glist_entry_data(it);
-        loct = clone_customize_locator(dev,aux_loct,no_addr_loct_l,type);
+        loct = clone_customize_locator(dev,aux_loct,no_addr_loct_l,is_local);
         if (loct == NULL){
             continue;
         }
         if (mapping_add_locator(map, loct) != GOOD){
-            if (xtr != NULL && type == LOCAL_LOCATOR){
+            if (xtr != NULL && is_local){
                 iface_locators_unattach_locator(xtr->iface_locators_table,loct);
             }
             locator_del(loct);
@@ -1249,7 +1249,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
             /* Create a basic locator. Locaor or remote information will be added later according
              * who is using the locator*/
-            locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
+            locator = locator_new_init(address,UP,uci_priority,uci_weight,255,0);
             if (locator != NULL){
                 shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
             }
@@ -1319,7 +1319,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
             /* Create a basic locator. Locaor or remote information will be added later according
              * who is using the locator*/
-            locator = locator_init(address,UP,uci_priority,uci_weight,255,0,STATIC_LOCATOR);
+            locator = locator_new_init(address,UP,uci_priority,uci_weight,255,0);
             if (locator != NULL){
                 shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
             }

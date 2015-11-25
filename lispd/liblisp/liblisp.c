@@ -21,6 +21,7 @@
 #include "../lib/cksum.h"
 #include "../lib/hmac.h"
 #include "../lib/lmlog.h"
+#include "../lib/packets.h"
 
 static void increment_record_count(lbuf_t *b);
 
@@ -322,34 +323,17 @@ void *
 lisp_msg_put_locator(lbuf_t *b, locator_t *locator)
 {
     locator_hdr_t *loc_ptr;
-    lisp_addr_t *addr;
-
-    lcl_locator_extended_info_t * lct_extended_info;
 
     loc_ptr = lbuf_put_uninit(b, sizeof(locator_hdr_t));
 
-    if (locator->state == UP) {
-        loc_ptr->priority    = locator->priority;
-    } else {
-        /* If the locator is DOWN, set the priority to 255
-         * -> Locator should not be used */
-        loc_ptr->priority    = UNUSED_RLOC_PRIORITY;
-    }
+    loc_ptr->priority    = locator->priority;
     loc_ptr->weight = locator->weight;
     loc_ptr->mpriority = locator->mpriority;
     loc_ptr->mweight = locator->mweight;
     loc_ptr->local = 1;
     loc_ptr->reachable = locator->state;
 
-    /* TODO: FC should take RTR stuff out in the near future */
-    lct_extended_info = locator->extended_info;
-    if (lct_extended_info->rtr_locators_list != NULL){
-        addr = &(lct_extended_info->rtr_locators_list->locator->address);
-    } else {
-        addr = locator_addr(locator);
-    }
-
-    lisp_msg_put_addr(b, addr);
+    lisp_msg_put_addr(b, locator_addr(locator));
     return(loc_ptr);
 }
 
@@ -399,11 +383,11 @@ lisp_msg_put_mapping(
     glist_entry_t   		*it_loct        = NULL;
     glist_t					*loct_list		= NULL;
     locator_t				*loct			= NULL;
+    int                     locator_count   = 0;
 
     eid = mapping_eid(m);
     rec = lisp_msg_put_mapping_hdr(b);
     MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
-    MAP_REC_LOC_COUNT(rec) = m->locator_count;
     MAP_REC_TTL(rec) = htonl(m->ttl);
     MAP_REC_AUTH(rec) = m->authoritative;
 
@@ -420,15 +404,19 @@ lisp_msg_put_mapping(
     	}
     	glist_for_each_entry(it_loct,loct_list){
     		loct = (locator_t *)glist_entry_data(it_loct);
+    		if (locator_state(loct) == DOWN){
+    		    continue;
+    		}
     		ploc = lisp_msg_put_locator(b, loct);
     		if (probed_loc)
     		if (probed_loc != NULL
     				&& lisp_addr_cmp(lisp_addr_get_ip_addr(locator_addr(loct)), probed_loc) == 0) {
     			LOC_PROBED(ploc) = 1;
     		}
+    		locator_count++;
     	}
     }
-
+    MAP_REC_LOC_COUNT(rec) = locator_count;
     increment_record_count(b);
 
     return(rec);
@@ -506,6 +494,11 @@ lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
     hdr = lbuf_push_uninit(b, sizeof(ecm_hdr_t));
     ecm_hdr_init(hdr);
     lbuf_reset_lisp_hdr(b);
+
+    LMLOG(LDBG_1, "%s, inner IP: %s -> %s, inner UDP: %d -> %d",
+                lisp_msg_ecm_hdr_to_char(b), lisp_addr_to_char(la),
+                lisp_addr_to_char(ra), LISP_CONTROL_PORT,
+                LISP_CONTROL_PORT);
 
     return(lbuf_data(b));
 }

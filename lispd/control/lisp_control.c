@@ -166,7 +166,7 @@ ctrl_if_link_update(lisp_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
 
     ctrl->control_data_plane->control_dp_update_link(ctrl, iface, old_iface_index, new_iface_index, status);
 
-    ctrl_if_event(dev, strdup(iface->iface_name), NULL, NULL, iface_status(iface));
+    ctrl_if_event(dev, iface->iface_name, NULL, NULL, iface_status(iface));
     set_rlocs(ctrl);
 }
 

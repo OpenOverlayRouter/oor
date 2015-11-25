@@ -73,11 +73,7 @@ typedef struct lisp_xtr {
     lisp_site_id site_id;
     lisp_xtr_id xtr_id;
 
-    nonces_list_t *nat_emr_nonces;
-    nonces_list_t *nat_ir_nonces;
-
     /* TIMERS */
-    lmtimer_t *map_register_timer;
     lmtimer_t *smr_timer;
 
     /* MAPPING IFACE TO LOCATORS */
@@ -88,16 +84,6 @@ typedef struct lisp_xtr {
     map_local_entry_t *all_locs_map;
 } lisp_xtr_t;
 
-typedef struct _timer_rloc_prob_argument {
-    mapping_t   *mapping;
-    locator_t   *locator;
-} timer_rloc_probe_argument;
-
-typedef struct _timer_smr_invk_argument {
-    mcache_entry_t  *mce;
-    lisp_addr_t     *src_eid;
-} timer_smr_invk_argument;
-
 typedef struct map_server_elt_t {
     lisp_addr_t *   address;
     uint8_t         key_type;
@@ -105,19 +91,32 @@ typedef struct map_server_elt_t {
     uint8_t         proxy_reply;
 } map_server_elt;
 
+typedef struct _timer_rloc_prob_argument {
+    mcache_entry_t *mce;
+    locator_t      *locator;
+} timer_rloc_probe_argument;
+
+typedef struct _timer_map_req_argument {
+    mcache_entry_t  *mce;
+    lisp_addr_t     *src_eid;
+} timer_map_req_argument;
+
+typedef struct _timer_map_reg_argument {
+    map_local_entry_t  *mle;
+    map_server_elt     *ms;
+} timer_map_reg_argument;
+
 map_server_elt * map_server_elt_new_init(lisp_addr_t *address,uint8_t key_type,
         char *key, uint8_t proxy_reply);
 void map_server_elt_del (map_server_elt *map_server);
 void map_servers_dump(lisp_xtr_t *, int log_level);
 
-int program_map_register(lisp_xtr_t *xtr, int time);
+int program_map_register(lisp_xtr_t *xtr);
 
 int tr_mcache_add_mapping(lisp_xtr_t *, mapping_t *);
 int tr_mcache_add_static_mapping(lisp_xtr_t *, mapping_t *);
-int tr_mcache_remove_mapping(lisp_xtr_t *, lisp_addr_t *);
+int tr_mcache_remove_entry(lisp_xtr_t *xtr, mcache_entry_t *mce);
 mapping_t *tr_mcache_lookup_mapping(lisp_xtr_t *, lisp_addr_t *);
 mapping_t *tr_mcache_lookup_mapping_exact(lisp_xtr_t *, lisp_addr_t *);
-
-void send_map_request_for_not_active_mce(lisp_xtr_t *xtr);
 
 #endif /* LISP_XTR_H_ */

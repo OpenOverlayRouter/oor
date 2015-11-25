@@ -441,7 +441,6 @@ lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
     xmlNodePtr mr_list_xml;
     xmlNodePtr mr_addr_xml;
     lisp_addr_t *mr_addr;
-    int prv_mr_list_size;
 
     LMLOG(LDBG_1, "LMAPI: Creating new list of Map Resolvers");
 
@@ -454,7 +453,6 @@ lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
     mr_list_xml = get_inner_xmlNodePtr(root_element,"map-resolvers");
     mr_list_xml = get_inner_xmlNodePtr(mr_list_xml,"map-resolver");
 
-    prv_mr_list_size = glist_size(xtr->map_resolvers);
 
     while (mr_list_xml != NULL){
 
@@ -498,10 +496,6 @@ lmapi_xtr_mr_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);
     lmapi_send(conn,result_msg,result_msg_len,LMAPI_NOFLAGS);
 
-    /* If there were no map resolvers, ask to map resolvers for non active entries */
-    if (prv_mr_list_size == 0){
-        send_map_request_for_not_active_mce(xtr);
-    }
 
     return (GOOD);
 err:
@@ -589,7 +583,7 @@ lmapi_xtr_ms_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
     doc = NULL;
 
     /* Reprogram Map Register for local EIDs */
-    program_map_register(xtr, 1);
+    program_map_register(xtr);
 
     //Everything fine. We replace the old list with the new one
     glist_destroy(xtr->map_servers);
@@ -713,7 +707,7 @@ lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
         conf_mapping = (conf_mapping_t *) glist_entry_data(conf_map_it);
 
         //XXX Beware the NULL in lcaf_ht. No LCAF support yet
-        processed_mapping = process_mapping_config(&(xtr->super),lcaf_ht,LOCAL_LOCATOR,conf_mapping);
+        processed_mapping = process_mapping_config(&(xtr->super),lcaf_ht,conf_mapping, TRUE);
 
         if (processed_mapping == NULL){
             LMLOG(LDBG_3, "LMAPI: Couldn't process mapping %s",conf_mapping->eid_prefix);
@@ -772,7 +766,7 @@ lmapi_xtr_mapdb_create(lmapi_connection_t *conn, lmapi_msg_hdr_t *hdr,
 
 
     /* Reprogram Map Register for local EIDs */
-    program_map_register(xtr, 1);
+    program_map_register(xtr);
 
 
     result_msg_len = lmapi_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,LMAPI_RES_OK);

@@ -21,7 +21,6 @@
 #include <netinet/in.h>
 
 #include "lisp_messages.h"
-#include "lisp_nonce.h"
 #include "../lib/util.h"
 //#include <defs.h>
 
@@ -138,8 +137,8 @@ map_request_hdr_to_char(map_request_hdr_t *h)
     }
     *buf = '\0';
     sprintf(buf+strlen(buf), BOLD "Map-Request" RESET"-> flags:%s, irc: %d (+1), record-count: %d, "
-            "nonce: %s      1 ", mreq_flags_to_char(h), h->additional_itr_rloc_count,
-            h->record_count,  nonce_to_char(h->nonce));
+            "nonce: %"PRIx64, mreq_flags_to_char(h), h->additional_itr_rloc_count,
+            h->record_count,  h->nonce);
     return(buf);
 }
 
@@ -164,8 +163,8 @@ map_reply_hdr_to_char(map_reply_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    sprintf(buf, BOLD "Map-Reply" RESET "-> flags:%s, record-count: %d, nonce: %s",
-            mrep_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+    sprintf(buf, BOLD "Map-Reply" RESET "-> flags:%s, record-count: %d, nonce: %"PRIx64,
+            mrep_flags_to_char(h), h->record_count, h->nonce);
     return(buf);
 }
 
@@ -191,8 +190,8 @@ map_register_hdr_to_char(map_register_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    sprintf(buf, BOLD "Map-Register" RESET " -> flags:%s record-count: %d nonce %s",
-            mreg_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+    sprintf(buf, BOLD "Map-Register" RESET " -> flags:%s record-count: %d nonce %"PRIx64,
+            mreg_flags_to_char(h), h->record_count, h->nonce);
     return(buf);
 }
 
@@ -216,8 +215,8 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %s",
-            mntf_flags_to_char(h), h->record_count, nonce_to_char(h->nonce));
+    sprintf(buf, BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %"PRIX64,
+            mntf_flags_to_char(h), h->record_count, h->nonce);
     return(buf);
 }
 

@@ -372,7 +372,7 @@ add_proxy_etr_entry(mcache_entry_t *petrs, char *str_addr, int priority,
         }
 
         /* Create locator representing the proxy-etr and add it to the mapping */
-        locator = locator_init_remote_full(addr, UP, priority, weight, 255, 0);
+        locator = locator_new_init(addr, UP, priority, weight, 255, 0);
 
         if (locator != NULL) {
             if (mapping_add_locator(mcache_entry_mapping(petrs), locator)!= GOOD){
@@ -415,7 +415,7 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
     /* Create locator and assign to the mapping and  to iface_loct*/
     if (priority >= 0){
         if (afi == AF_INET){
-            locator = locator_init_local_full(iface->ipv4_address,
+            locator = locator_new_init(iface->ipv4_address,
                     iface->status, priority, weight, 255, 0);
             if (locator == NULL){
                 return (BAD);
@@ -426,7 +426,7 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
             }
             glist_add(locator,if_loct->ipv4_locators);
         }else{
-            locator = locator_init_local_full(iface->ipv6_address,
+            locator = locator_new_init(iface->ipv6_address,
                     iface->status, priority, weight, 255, 0);
             if (locator == NULL){
                 return (BAD);
@@ -653,7 +653,7 @@ parse_ip_addr(char *addr_str)
 
 locator_t*
 clone_customize_locator(lisp_ctrl_dev_t *dev, locator_t * locator,
-        glist_t * no_addr_loct_l, uint8_t type)
+        glist_t * no_addr_loct_l, uint8_t is_local)
 {
     char *iface_name;
     locator_t *new_locator;
@@ -668,7 +668,7 @@ clone_customize_locator(lisp_ctrl_dev_t *dev, locator_t * locator,
 
     rloc = locator_addr(locator);
     /* LOCAL locator */
-    if (type == LOCAL_LOCATOR) {
+    if (is_local) {
         /* Decide IP address to be used to lookup the interface */
         if (lisp_addr_is_lcaf(rloc) == TRUE) {
             aux_rloc = lisp_addr_get_ip_addr(rloc);
@@ -720,7 +720,7 @@ clone_customize_locator(lisp_ctrl_dev_t *dev, locator_t * locator,
             lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,rloc_ip_afi);
         }
 
-        new_locator = locator_init_local_full(rloc, iface->status,
+        new_locator = locator_new_init(rloc, iface->status,
                             locator_priority(locator), locator_weight(locator),255, 0);
 
         /* Associate locator with iface */
@@ -743,11 +743,7 @@ clone_customize_locator(lisp_ctrl_dev_t *dev, locator_t * locator,
         }
     /* REMOTE locator */
     } else {
-        new_locator = locator_init_remote_full(rloc, UP, locator_priority(locator), locator_weight(locator), 255, 0);
-        if (new_locator != NULL) {
-            locator_set_type(new_locator,type);
-        }
-
+        new_locator = locator_new_init(rloc, UP, locator_priority(locator), locator_weight(locator), 255, 0);
     }
 
     return(new_locator);
@@ -815,7 +811,7 @@ glist_t *fqdn_to_addresses(char *addr_str, const int preferred_afi)
 
 static glist_t *
 process_rloc_address(conf_loc_t *conf_loc, lisp_ctrl_dev_t *dev,
-        shash_t *lcaf_ht, uint8_t type)
+        shash_t *lcaf_ht, uint8_t is_local)
 {
     glist_t *loct_list;
     locator_t *locator;
@@ -856,7 +852,7 @@ process_rloc_address(conf_loc_t *conf_loc, lisp_ctrl_dev_t *dev,
             continue;
         }
 
-        if (type == LOCAL_LOCATOR){
+        if (is_local){
             /* Decide IP address to be used to lookup the interface */
             if (lisp_addr_is_lcaf(address) == TRUE) {
                 ip_addr = lisp_addr_get_ip_addr(address);
@@ -895,7 +891,7 @@ process_rloc_address(conf_loc_t *conf_loc, lisp_ctrl_dev_t *dev,
                 lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,ip_afi);
             }
 
-            locator = locator_init_local_full(address, iface->status,conf_loc->priority, conf_loc->weight,
+            locator = locator_new_init(address, iface->status,conf_loc->priority, conf_loc->weight,
                     conf_loc->mpriority, conf_loc->mweight);
 
             /* If the locator is for a local mapping, associate the locator with the interface */
@@ -914,10 +910,7 @@ process_rloc_address(conf_loc_t *conf_loc, lisp_ctrl_dev_t *dev,
                 }
             }
         } else {
-            locator = locator_init_remote_full(address, UP, conf_loc->priority, conf_loc->weight, 255, 0);
-            if (locator != NULL) {
-                locator_set_type(locator,type);
-            }
+            locator = locator_new_init(address, UP, conf_loc->priority, conf_loc->weight, 255, 0);
         }
         if (locator != NULL){
             glist_add(locator,loct_list);
@@ -969,7 +962,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, lisp_ctrl_dev_t * dev)
         address = iface->ipv6_address;
     }
 
-    locator = locator_init_local_full(address, iface->status,conf_loc_iface->priority,
+    locator = locator_new_init(address, iface->status,conf_loc_iface->priority,
             conf_loc_iface->weight,conf_loc_iface->mpriority, conf_loc_iface->mweight);
 
     LMLOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
@@ -997,7 +990,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, lisp_ctrl_dev_t * dev)
 
 mapping_t *
 process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
-        uint8_t type, conf_mapping_t * conf_mapping)
+        conf_mapping_t * conf_mapping, uint8_t is_local)
 {
 
     mapping_t *mapping;
@@ -1029,7 +1022,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
     eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
 
     /* Create mapping */
-    if ( type == LOCAL_LOCATOR){
+    if (is_local){
         mapping = mapping_new_init(eid_prefix);
         if (mapping == NULL){
             return(NULL);
@@ -1056,7 +1049,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
     glist_for_each_entry(conf_it,conf_mapping->conf_loc_list){
         conf_loc = (conf_loc_t *)glist_entry_data(conf_it);
 
-        loct_list = process_rloc_address(conf_loc, dev, lcaf_ht, type);
+        loct_list = process_rloc_address(conf_loc, dev, lcaf_ht, is_local);
         if (loct_list == NULL){
             continue;
         }
@@ -1071,7 +1064,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         "for EID prefix %s. Discarded ...",
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
-                if (xtr != NULL && type == LOCAL_LOCATOR){
+                if (xtr != NULL && is_local){
                     iface_locators_unattach_locator(xtr->iface_locators_table,locator);
                 }
                 locator_del(locator);
@@ -1082,7 +1075,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         "to the mapping with EID prefix %s. Discarded ...",
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
-                if (xtr != NULL && type == LOCAL_LOCATOR){
+                if (xtr != NULL && is_local){
                     iface_locators_unattach_locator(xtr->iface_locators_table,locator);
                 }
                 locator_del(locator);
@@ -1093,7 +1086,7 @@ process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
         glist_destroy(loct_list);
     }
 
-    if (type == LOCAL_LOCATOR){
+    if (is_local){
         glist_for_each_entry(conf_it,conf_mapping->conf_loc_iface_list){
             conf_loc_iface = (conf_loc_iface_t *)glist_entry_data(conf_it);
             locator = process_rloc_interface(conf_loc_iface, dev);

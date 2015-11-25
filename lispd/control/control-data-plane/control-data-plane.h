@@ -22,6 +22,10 @@
 
 #include "../../liblisp/liblisp.h"
 
+typedef struct iface iface_t;
+typedef struct uconn uconn_t;
+typedef struct sock sock_t;
+
 /* functions to manipulate routing */
 typedef struct control_dplane_struct {
     int (*control_dp_init)(lisp_ctrl_t *ctrl, ...);

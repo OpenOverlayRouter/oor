@@ -21,6 +21,8 @@
    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
+   -------------------------------------------------------------------------
+   Original code by Attractive Chaos. Modified by the LISPmob project.
 */
 
 /*
@@ -157,7 +159,7 @@ typedef khint_t khiter_t;
 static const double __ac_HASH_UPPER = 0.77;
 
 #define KHASH_DECLARE(name, khkey_t, khval_t)		 					\
-	typedef struct {													\
+	typedef struct{													\
 		khint_t n_buckets, size, n_occupied, upper_bound;				\
 		khint32_t *flags;												\
 		khkey_t *keys;													\
@@ -331,7 +333,10 @@ static const double __ac_HASH_UPPER = 0.77;
   @param  key   The integer [khint64_t]
   @return       The hash value [khint_t]
  */
-#define kh_int64_hash_func(key) (khint32_t)((key)>>33^(key)^(key)<<11)
+//#define kh_int64_hash_func(key) (khint32_t)((key)>>33^(key)^(key)<<11)
+
+//#define kh_int64_hash_func(key) (khint32_t)(((size_t)key)>>33^((size_t)key)^((size_t)key)<<11)
+#define kh_int64_hash_func(key) (khint32_t)(((uint64_t)key)>>33^((uint64_t)key)^((uint64_t)key)<<11)
 /*! @function
   @abstract     64-bit integer comparison function
  */

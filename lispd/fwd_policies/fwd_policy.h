@@ -24,6 +24,8 @@
 #include "../lib/shash.h"
 #include "../liblisp/liblisp.h"
 
+typedef struct packet_tuple packet_tuple_t;
+
 typedef lisp_addr_t *(*get_fwd_ip_addr_fct)(void *, glist_t *);
 
 typedef struct fwd_policy_dev_parm_t{

@@ -81,30 +81,6 @@ mcache_lookup_exact(map_cache_db_t *mcdb, lisp_addr_t *laddr)
 }
 
 
-
-/* Looks up @nonce among the not active cache entries having afi @afi. Return
- * the entry if any is found */
-mcache_entry_t *
-lookup_nonce_in_no_active_map_caches(map_cache_db_t *mcdb, lisp_addr_t *eid,
-        uint64_t nonce) {
-    void *it;
-    mcache_entry_t *mce;
-
-    mdb_foreach_entry(mcdb->db, it){
-        mce = it;
-        if (mce->active == FALSE) {
-            if (nonce_check(mce->nonces,nonce) == GOOD) {
-                free(mce->nonces);
-                mce->nonces = NULL;
-                return(mce);
-            }
-        }
-    } mdb_foreach_entry_end;
-
-    return (NULL);
-}
-
-
 void mcache_dump_db(map_cache_db_t *mcdb, int log_level)
 {
     if (is_loggable(log_level) == FALSE) {

@@ -35,6 +35,8 @@ extern lisp_ctrl_t *lctrl;
 extern data_plane_struct_t *data_plane;
 
 extern void exit_cleanup();
+extern htable_nonces_t *nonces_ht;
+extern htable_ptrs_t *ptrs_to_timers_ht;
 
 #endif /*LISPD_EXTERNAL_H_*/
 

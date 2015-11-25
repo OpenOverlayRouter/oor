@@ -107,6 +107,7 @@ shash_destroy(shash_t *sh)
         }
     }
     kh_destroy(str, sh->htable);
+    free(sh);
 }
 
 glist_t *

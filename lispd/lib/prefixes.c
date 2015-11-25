@@ -36,6 +36,7 @@ pref_is_prefix_b_part_of_a (lisp_addr_t *a_prefix,lisp_addr_t *b_prefix)
     lisp_addr_t * b_network_addr_prefix_a;
     int a_pref_len;
     int b_pref_len;
+    int res;
 
 
     if (!lisp_addr_is_ip_pref(a_prefix) || !lisp_addr_is_ip_pref(b_prefix)){
@@ -62,10 +63,14 @@ pref_is_prefix_b_part_of_a (lisp_addr_t *a_prefix,lisp_addr_t *b_prefix)
     lisp_addr_set_plen(b_prefix, b_pref_len);
 
     if (lisp_addr_cmp (a_network_addr, b_network_addr_prefix_a) == 0){
-        return (TRUE);
+        res = TRUE;
     }else{
-        return (FALSE);
+        res = FALSE;
     }
+    lisp_addr_del(a_network_addr);
+    lisp_addr_del(b_network_addr_prefix_a);
+
+    return (res);
 }
 
 lisp_addr_t *

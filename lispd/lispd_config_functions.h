@@ -166,11 +166,11 @@ parse_ip_addr(char *addr_str);
 
 locator_t*
 clone_customize_locator(lisp_ctrl_dev_t *dev, locator_t * locator,
-        glist_t * no_addr_loct_l, uint8_t type);
+        glist_t * no_addr_loct_l, uint8_t is_local);
 
 mapping_t *
 process_mapping_config(lisp_ctrl_dev_t * dev, shash_t * lcaf_ht,
-        uint8_t type, conf_mapping_t * conf_mapping);
+        conf_mapping_t * conf_mapping, uint8_t is_local);
 
 int
 add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr);

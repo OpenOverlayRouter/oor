@@ -19,6 +19,7 @@
 
 #include "lmlog.h"
 #include "map_local_entry.h"
+#include "timers_utils.h"
 #include "../defs.h"
 
 inline mapping_t *
@@ -95,6 +96,7 @@ map_local_entry_del(map_local_entry_t *mle)
     if (mle == NULL){
         return;
     }
+    stop_timers_from_obj(mle,ptrs_to_timers_ht, nonces_ht);
 	mapping_del(mle->mapping);
 	if (mle->fwd_info != NULL){
 	    mle->fwd_inf_del(mle->fwd_info);

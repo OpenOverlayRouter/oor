@@ -17,22 +17,22 @@
  *
  */
 
-#ifndef LISPD_NONCE_H_
-#define LISPD_NONCE_H_
 
-#include "../defs.h"
+#ifndef TIMERS_UTILS_H_
+#define TIMERS_UTILS_H_
 
-typedef struct {
-    uint8_t retransmits;
-    uint64_t nonce[LISPD_MAX_RETRANSMITS + 1];
-} nonces_list_t;
+#include "nonces_table.h"
+#include "pointers_table.h"
+
+lmtimer_t * lmtimer_with_nonce_new(timer_type type, void *owner,
+        lmtimer_callback_t cb_fn, void *timer_arg,
+        lmtimer_del_cb_arg_fn free_arg_fn);
 
 
-uint64_t nonce_build(int seed);
-uint64_t nonce_build_time();
-nonces_list_t *nonces_list_new();
-int nonce_check(nonces_list_t *nonces, uint64_t nonce);
-void lispd_print_nonce(uint64_t nonce, int log_level);
-char *nonce_to_char(uint64_t nonce);
+int stop_timer_from_obj(void *obj,lmtimer_t *timer,htable_ptrs_t *ptrs_ht,
+        htable_nonces_t *nonce_ht);
+int stop_timers_from_obj(void *obj,htable_ptrs_t *ptrs_ht, htable_nonces_t *nonce_ht);
+int stop_timers_of_type_from_obj(void *obj, timer_type type,
+        htable_ptrs_t *ptrs_ht, htable_nonces_t *nonce_ht);
 
-#endif /* LISPD_NONCE_H_ */
+#endif /* TIMERS_UTILS_H_ */

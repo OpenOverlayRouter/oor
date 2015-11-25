@@ -173,13 +173,48 @@ lmtimers_destroy()
  * Convenience function to allocate and zero a new timer.
  */
 lmtimer_t *
-lmtimer_create(char *name)
+lmtimer_create(timer_type type)
 {
     lmtimer_t *new_timer = xzalloc(sizeof(lmtimer_t));
-    strncpy(new_timer->name, name, TIMER_NAME_LEN - 1);
+    new_timer->type = type;
     new_timer->links.prev = NULL;
     new_timer->links.next = NULL;
     return(new_timer);
+}
+
+void
+lmtimer_init(lmtimer_t *new_timer, void *owner, lmtimer_callback_t cb_fn, void *arg,
+        lmtimer_del_cb_arg_fn del_arg_fn, void *nonces_lst)
+{
+    new_timer->cb = cb_fn;
+    new_timer->del_arg_fn = del_arg_fn;
+    new_timer->cb_argument = arg;
+    new_timer->owner = owner;
+    new_timer->nonces_lst = nonces_lst;
+}
+
+
+inline void *
+lmtimer_owner(lmtimer_t *timer)
+{
+    return(timer->owner);
+}
+
+inline void *
+lmtimer_cb_argument(lmtimer_t *timer)
+{
+    return (timer->cb_argument);
+}
+
+inline timer_type
+lmtimer_type(lmtimer_t *timer)
+{
+    return (timer->type);
+}
+inline void *
+lmtimer_nonces(lmtimer_t *timer)
+{
+    return (timer->nonces_lst);
 }
 
 /* Insert a timer in the wheel at the appropriate location. */
@@ -222,8 +257,7 @@ insert_timer(lmtimer_t *tptr)
  * to stop the timer later if desired.
  */
 void
-lmtimer_start(lmtimer_t *tptr, int sexpiry, lmtimer_callback_t cb,
-        void *owner, void *cb_arg)
+lmtimer_start(lmtimer_t *tptr, int sexpiry)
 {
     lmtimer_links_t *next, *prev;
 
@@ -239,11 +273,8 @@ lmtimer_start(lmtimer_t *tptr, int sexpiry, lmtimer_callback_t cb,
         timer_wheel.running_timers--;
     }
 
-    tptr->owner = owner;
-
     /* Hook up the callback  */
-    tptr->cb = cb;
-    tptr->cb_argument = cb_arg;
+
     tptr->duration = sexpiry;
     insert_timer(tptr);
 
@@ -281,6 +312,11 @@ lmtimer_stop(lmtimer_t *tptr)
     if (next != NULL || prev != NULL) {
         timer_wheel.running_timers--;
     }
+    /* Free timer argument */
+    if (tptr->del_arg_fn){
+        tptr->del_arg_fn(tptr->cb_argument);
+    }
+
     free(tptr);
 }
 
@@ -322,7 +358,7 @@ handle_timers(void)
             timer_wheel.expirations++;
 
             callback = tptr->cb;
-            (*callback)(tptr, tptr->cb_argument);
+            (*callback)(tptr);
         }
         /* We can not use directly "next" as it could be released  in the
          *  callback function  previously to be used */

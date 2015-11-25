@@ -171,7 +171,7 @@ parse_lcafs(cfg_t *cfg)
 
 
 int
-parse_mapping_cfg_params(cfg_t *map, uint8_t type, conf_mapping_t *conf_mapping)
+parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_local)
 {
 
     int ctr;
@@ -185,14 +185,14 @@ parse_mapping_cfg_params(cfg_t *map, uint8_t type, conf_mapping_t *conf_mapping)
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
         rl = cfg_getnsec(map, "rloc-address", ctr);
         conf_loc = conf_loc_new_init(
-                strdup(cfg_getstr(rl, "address")),
+                cfg_getstr(rl, "address"),
                 cfg_getint(rl, "priority"),
                 cfg_getint(rl, "weight"),
                 255,0);
         glist_add_tail(conf_loc,conf_mapping->conf_loc_list);
     }
 
-    if (type == LOCAL_LOCATOR){
+    if (is_local){
 
         for (ctr = 0; ctr < cfg_size(map, "rloc-iface"); ctr++){
             rl = cfg_getnsec(map, "rloc-iface", ctr);
@@ -206,7 +206,7 @@ parse_mapping_cfg_params(cfg_t *map, uint8_t type, conf_mapping_t *conf_mapping)
                 return (BAD);
             }
             conf_loc_iface = conf_loc_iface_new_init(
-                    strdup(cfg_getstr(rl, "interface")),
+                    cfg_getstr(rl, "interface"),
                     afi,
                     cfg_getint(rl, "priority"),
                     cfg_getint(rl, "weight"),
@@ -221,15 +221,15 @@ parse_mapping_cfg_params(cfg_t *map, uint8_t type, conf_mapping_t *conf_mapping)
 
 mapping_t *
 parse_mapping(cfg_t *map, lisp_ctrl_dev_t *dev, shash_t * lcaf_ht,
-        uint8_t type)
+        uint8_t is_local)
 {
     mapping_t *mapping;
     conf_mapping_t *conf_mapping;
 
     conf_mapping = conf_mapping_new();
 
-    parse_mapping_cfg_params(map, type, conf_mapping);
-    mapping = process_mapping_config(dev, lcaf_ht, type, conf_mapping);
+    parse_mapping_cfg_params(map, conf_mapping, is_local);
+    mapping = process_mapping_config(dev, lcaf_ht, conf_mapping, is_local);
 
     conf_mapping_destroy(conf_mapping);
 
@@ -332,7 +332,7 @@ configure_rtr(cfg_t *cfg)
     n = cfg_size(cfg, "static-map-cache");
     for (i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,STATIC_LOCATOR);
+        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,FALSE);
 
         if (mapping == NULL){
             LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -361,7 +361,7 @@ configure_rtr(cfg_t *cfg)
     /* RTR DATABASE MAPPINGS (like for instance replication lists) */
     n = cfg_size(cfg, "rtr-database-mapping");
     for (i = 0; i < n; i++) {
-        mapping = parse_mapping(cfg_getnsec(cfg, "rtr-database-mapping",i),&(xtr->super),lcaf_ht,LOCAL_LOCATOR);
+        mapping = parse_mapping(cfg_getnsec(cfg, "rtr-database-mapping",i),&(xtr->super),lcaf_ht,TRUE);
         if (mapping == NULL){
             continue;
         }
@@ -557,7 +557,7 @@ configure_xtr(cfg_t *cfg)
 
     n = cfg_size(cfg, "database-mapping");
     for (i = 0; i < n; i++) {
-        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,LOCAL_LOCATOR);
+        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE);
         if (mapping == NULL){
             continue;
         }
@@ -586,7 +586,7 @@ configure_xtr(cfg_t *cfg)
     n = cfg_size(cfg, "static-map-cache");
     for (i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,STATIC_LOCATOR);
+        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,FALSE);
 
         if (mapping == NULL){
             LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -755,7 +755,7 @@ configure_mn(cfg_t *cfg)
 
     n = cfg_size(cfg, "database-mapping");
     for (i = 0; i < n; i++) {
-        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,LOCAL_LOCATOR);
+        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE);
         if (mapping == NULL){
             continue;
         }
@@ -781,7 +781,7 @@ configure_mn(cfg_t *cfg)
     n = cfg_size(cfg, "static-map-cache");
     for (i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,STATIC_LOCATOR);
+        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,FALSE);
 
         if (mapping == NULL){
             LMLOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -889,7 +889,7 @@ configure_ms(cfg_t *cfg)
     for (i = 0; i< cfg_size(cfg, "ms-static-registered-site"); i++ ) {
         cfg_t *mss = cfg_getnsec(cfg, "ms-static-registered-site", i);
 
-        mapping = parse_mapping(mss,&(ms->super),lcaf_ht,STATIC_LOCATOR);
+        mapping = parse_mapping(mss,&(ms->super),lcaf_ht,FALSE);
 
         if (mapping == NULL){
             LMLOG(LERR, "Can't create static register site for %s",
