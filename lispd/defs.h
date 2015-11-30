@@ -80,7 +80,7 @@ typedef struct htable_nonces_ htable_nonces_t;
  */
 
 #define EVER            ;;
-#define LISPD_VERSION   "v0.5"
+#define LISPD_VERSION   "v0.5.1"
 #define LISPD           "lispd"
 #define PID_FILE        "/var/run/lispd.pid"
 

@@ -431,7 +431,6 @@ initial_setup()
 #else
     LMLOG(LERR,"Unknow system. Please contact the LISPmob team providing your hardware");
 #endif
-    printf("-----------------------------------------------------0\n");
 
 #ifndef VPNAPI
     if (check_capabilities() != GOOD){
