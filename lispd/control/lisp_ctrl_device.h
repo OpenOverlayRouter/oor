@@ -43,7 +43,7 @@ typedef struct ctrl_dev_class_t {
     /* underlying system (interface) event */
     int (*if_event)(lisp_ctrl_dev_t *, char *, lisp_addr_t *, lisp_addr_t *, uint8_t );
 
-    fwd_entry_t *(*get_fwd_entry)(lisp_ctrl_dev_t *, packet_tuple_t *);
+    fwd_info_t *(*get_fwd_entry)(lisp_ctrl_dev_t *, packet_tuple_t *);
 } ctrl_dev_class_t;
 
 
@@ -70,7 +70,7 @@ int ctrl_if_event(lisp_ctrl_dev_t *, char *iface_name, lisp_addr_t *old_addr,
 inline lisp_dev_type_e ctrl_dev_mode(lisp_ctrl_dev_t *dev);
 inline lisp_ctrl_t * ctrl_dev_ctrl(lisp_ctrl_dev_t *dev);
 int ctrl_dev_set_ctrl(lisp_ctrl_dev_t *, lisp_ctrl_t *);
-fwd_entry_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);
+fwd_info_t *ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *, packet_tuple_t *);
 
 
 /* PRIVATE functions, used by xtr and ms */

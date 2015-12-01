@@ -22,6 +22,7 @@
 
 #include "tun_output.h"
 #include "tun.h"
+#include "../../fwd_policies/fwd_policy.h"
 #include "../../liblisp/liblisp.h"
 #include "../../lib/packets.h"
 #include "../../lib/sockets.h"
@@ -178,25 +179,29 @@ tun_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
 static int
 tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
-    fwd_entry_t *fe = NULL;
-    fe = ttable_lookup(&ttable, tuple);
-    if (!fe) {
-        fe = ctrl_get_forwarding_entry(tuple);
-        if (fe == NULL){
+    fwd_info_t *fi;
+    fwd_entry_t *fe;
+
+    fi = ttable_lookup(&ttable, tuple);
+    if (!fi) {
+        fi = (fwd_info_t *)ctrl_get_forwarding_info(tuple);
+        if (fi == NULL){
             return (BAD);
         }
-        if (fe->srloc && fe->drloc)  {
+        fe = fi->fwd_info;
+        if (fe && fe->srloc && fe->drloc)  {
             fe->out_sock = get_out_socket_ptr_from_address(fe->srloc);
         }
         // XXX Should packets to be send natively be added to the table?
-        ttable_insert(&ttable, pkt_tuple_clone(tuple), fe);
+        ttable_insert(&ttable, pkt_tuple_clone(tuple), fi);
+    }else{
+        fe = fi->fwd_info;
     }
-
 
     /* Packets with no/negative map cache entry AND no PETR
      * OR packets with missing src or dst RLOCs
      * forward them natively */
-    if (!fe->srloc || !fe->drloc) {
+    if (!fe || !fe->srloc || !fe->drloc) {
         return(tun_forward_native(b, &tuple->dst_addr));
     }
 

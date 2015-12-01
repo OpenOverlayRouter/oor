@@ -63,7 +63,7 @@ int map_reply_fill_uconn(lisp_xtr_t *xtr, glist_t *itr_rlocs, uconn_t *uc);
 
 static void proxy_etrs_dump(lisp_xtr_t *, int log_level);
 
-static fwd_entry_t *tr_get_forwarding_entry(lisp_ctrl_dev_t *,
+static fwd_info_t *tr_get_forwarding_entry(lisp_ctrl_dev_t *,
         packet_tuple_t *);
 
 glist_t *get_local_locators_with_address(local_map_db_t *local_db, lisp_addr_t *addr);
@@ -2085,35 +2085,26 @@ map_servers_dump(lisp_xtr_t *xtr, int log_level)
 //}
 
 
-static fwd_entry_t *
+static fwd_info_t *
 tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
 {
-    fwd_entry_t * fwd_entry;
+    fwd_info_t  *fwd_info;
     mcache_entry_t *mce = NULL;
     map_local_entry_t *map_loc_e = NULL;
     mapping_t *dmap = NULL;
 
-    fwd_entry = (fwd_entry_t *)xzalloc(sizeof(fwd_entry_t));
-    if(fwd_entry == NULL){
-        LMLOG(LWRN, "tr_get_fwd_entry: Couldn't allocate memory for fwd_entry_t");
+    fwd_info = fwd_info_new();
+    if(fwd_info == NULL){
+        LMLOG(LWRN, "tr_get_fwd_entry: Couldn't allocate memory for fwd_info_t");
         return (NULL);
     }
 
-    if (xtr->super.mode == xTR_MODE) {
+    if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
         /* lookup local mapping for source EID */
         map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
-//      /* This can only happend in a multithreded process when removing an EID */
-//        if (unlikely(map_loc_e == NULL)){
-//            LMLOG(LDBG_1, "The source address %s is not a local EID", lisp_addr_to_char(&tuple->src_addr));
-//            return (NULL);
-//        }
-    }else if ( xtr->super.mode == MN_MODE ) {
-        /* lookup local mapping for source EID */
-        map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
-        /* Communications directly to the RLOC of the MN */
         if (map_loc_e == NULL){
             LMLOG(LDBG_3, "The source address %s is not a local EID", lisp_addr_to_char(&tuple->src_addr));
-            return (fwd_entry);
+            return (fwd_info);
         }
     }else {
         map_loc_e = xtr->all_locs_map;
@@ -2122,22 +2113,22 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
 
     if (!mce) {
-        fwd_entry->temporary = TRUE;
+        fwd_info->temporal = TRUE;
         LMLOG(LDBG_1, "No map cache for EID %s. Sending Map-Request!",
                 lisp_addr_to_char(&tuple->dst_addr));
         handle_map_cache_miss(xtr, &tuple->dst_addr, &tuple->src_addr);
         if (mcache_has_locators(xtr->petrs) == FALSE){
             LMLOG(LDBG_3, "Trying to forward to PETR but none found ...");
-            return (fwd_entry);
+            return (fwd_info);
         }
         mce = xtr->petrs;
     } else if (mce->active == NOT_ACTIVE) {
-        fwd_entry->temporary = TRUE;
+        fwd_info->temporal = TRUE;
         LMLOG(LDBG_2, "Already sent Map-Request for %s. Waiting for reply!",
                 lisp_addr_to_char(&tuple->dst_addr));
         if (mcache_has_locators(xtr->petrs) == FALSE){
             LMLOG(LDBG_3, "Trying to forward to PETR but none found ...");
-            return (fwd_entry);
+            return (fwd_info);
         }
         LMLOG(LDBG_3, "Forwarding packet to PeTR");
         mce = xtr->petrs;
@@ -2149,32 +2140,31 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
                 lisp_addr_to_char(&tuple->dst_addr));
         if (mcache_has_locators(xtr->petrs) == FALSE){
             LMLOG(LDBG_3, "Trying to forward to PETR but none found ...");
-            return (fwd_entry);
+            return (fwd_info);
         }
         LMLOG(LDBG_3, "Forwarding packet to PeTR");
         mce = xtr->petrs;
     }
 
 
-    xtr->fwd_policy->policy_get_fwd_entry(
+    xtr->fwd_policy->policy_get_fwd_info(
             xtr->fwd_policy_dev_parm,
             map_local_entry_fwd_info(map_loc_e),
             mcache_entry_routing_info(mce),
-            tuple, &fwd_entry);
+            tuple, fwd_info);
 
 
-
-    if (!fwd_entry->srloc || !fwd_entry->drloc){
+    if (!fwd_info->fwd_info){
         if (mce != xtr->petrs){
             if (mcache_has_locators(xtr->petrs) == FALSE){
                 LMLOG(LDBG_3, "Forwarding packet to PeTR");
                 mce = xtr->petrs;
-                xtr->fwd_policy->policy_get_fwd_entry(
+                xtr->fwd_policy->policy_get_fwd_info(
                         xtr->fwd_policy_dev_parm,
                         map_local_entry_fwd_info(map_loc_e),
                         mcache_entry_routing_info(mce),
-                        tuple, &fwd_entry);
-                if (!fwd_entry->srloc || !fwd_entry->drloc){
+                        tuple, fwd_info);
+                if (!fwd_info->fwd_info){
                     LMLOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
                 }
             }else{
@@ -2184,11 +2174,11 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
             LMLOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
         }
     }
-    return (fwd_entry);
+    return (fwd_info);
 }
 
 
-static fwd_entry_t *
+static fwd_info_t *
 tr_get_forwarding_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
 {
     lisp_xtr_t *xtr;

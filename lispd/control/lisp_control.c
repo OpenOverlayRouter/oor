@@ -235,8 +235,8 @@ ctrl_supported_afis(lisp_ctrl_t *ctrl)
 	return (ctrl->supported_afis);
 }
 
-fwd_entry_t *
-ctrl_get_forwarding_entry(packet_tuple_t *tuple)
+fwd_info_t *
+ctrl_get_forwarding_info(packet_tuple_t *tuple)
 {
     lisp_ctrl_dev_t *dev;
     dev = glist_first_data(lctrl->devices);

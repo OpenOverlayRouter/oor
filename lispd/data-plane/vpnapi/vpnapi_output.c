@@ -82,12 +82,17 @@ is_lisp_packet(packet_tuple_t *tpl)
 static int
 vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
+    fwd_info_t *fi;
     fwd_entry_t *fe;
 
-    fe = ttable_lookup(&ttable, tuple);
-    if (!fe) {
-        fe = ctrl_get_forwarding_entry(tuple);
-        if (fe && (fe->srloc && fe->drloc))  {
+    fi = ttable_lookup(&ttable, tuple);
+    if (!fi) {
+        fi = ctrl_get_forwarding_info(tuple);
+        if (!fi){
+            return (BAD);
+        }
+        fe = fi->fwd_info;
+        if (fe->srloc && fe->drloc)  {
             switch (lisp_addr_ip_afi(fe->srloc)){
             case AF_INET:
                 fe->out_sock = &(((vpnapi_data_t *)dplane_vpnapi.datap_data)->ipv4_data_socket);
@@ -101,13 +106,15 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             }
         }
 
-        ttable_insert(&ttable, pkt_tuple_clone(tuple), fe);
+        ttable_insert(&ttable, pkt_tuple_clone(tuple), fi);
+    }else{
+        fe = fi->fwd_info;
     }
 
     /* Packets with no/negative map cache entry AND no PETR
      * OR packets with missing src or dst RLOCs
      * forward them natively */
-    if (!fe || (!fe->srloc || !fe->drloc)) {
+    if (!fe || !fe->srloc || !fe->drloc) {
         LMLOG(LDBG_3,"OUTPUT: Packet with non lisp destination. No PeTRs compatibles to be used. Discarding packet");
         return(BAD);
     }

@@ -22,8 +22,7 @@
 #include "packets.h"
 #include "lmlog.h"
 #include "sockets.h"
-
-
+#include "../fwd_policies/fwd_policy.h"
 #include "../liblisp/liblisp.h"
 
 /* Time after which an entry is considered to have timed out and
@@ -65,7 +64,7 @@ static void
 ttable_node_del(ttable_node_t *tn)
 {
     pkt_tuple_del(tn->tpl);
-    fwd_entry_del(tn->fe);
+    fwd_info_del(tn->fi,(fwd_info_data_del)fwd_entry_del);
     free(tn);
 }
 
@@ -111,7 +110,7 @@ tnode_expired(ttable_node_t *tn)
 }
 
 void
-ttable_insert(ttable_t *tt, packet_tuple_t *tpl, fwd_entry_t *fe)
+ttable_insert(ttable_t *tt, packet_tuple_t *tpl, fwd_info_t *fi)
 {
     khiter_t k;
     int ret,i,removed,to_remove;
@@ -144,7 +143,7 @@ ttable_insert(ttable_t *tt, packet_tuple_t *tpl, fwd_entry_t *fe)
     }
 
     node = xzalloc(sizeof(ttable_node_t));
-    node->fe = fe;
+    node->fi = fi;
     node->tpl = tpl;
     clock_gettime(CLOCK_MONOTONIC, &node->ts);
 
@@ -185,7 +184,7 @@ ttable_remove_with_khiter(ttable_t *tt, khiter_t k)
     kh_del(ttable,tt->htable,k);
 }
 
-fwd_entry_t *
+fwd_info_t *
 ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
 {
     ttable_node_t *tn;
@@ -199,7 +198,7 @@ ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
     tn = kh_value(tt->htable,k);
 
     elapsed = time_elapsed(&tn->ts);
-    if (!tn->fe->temporary){
+    if (!tn->fi->temporal){
         if (elapsed > TIMEOUT){
             goto expired;
         }
@@ -212,7 +211,7 @@ ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
     list_remove(&tn->list_elt);
     list_push_front(&tt->head_list, &tn->list_elt);
 
-    return (tn->fe);
+    return (tn->fi);
 
 expired:
     ttable_remove_with_khiter(tt, k);

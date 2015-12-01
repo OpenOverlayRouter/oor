@@ -68,7 +68,7 @@ void ctrl_if_link_update(lisp_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
         int new_iface_index, int status);
 void ctrl_route_update(lisp_ctrl_t *ctrl, int command, iface_t *iface,lisp_addr_t *src_pref,
         lisp_addr_t *dst_pref, lisp_addr_t *gateway);
-fwd_entry_t *ctrl_get_forwarding_entry(packet_tuple_t *);
+fwd_info_t *ctrl_get_forwarding_info(packet_tuple_t *);
 int ctrl_register_device(lisp_ctrl_t *ctrl, lisp_ctrl_dev_t *dev);
 
 int ctrl_register_eid_prefix(lisp_ctrl_dev_t *dev, lisp_addr_t *eid_prefix);

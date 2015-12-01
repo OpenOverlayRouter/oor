@@ -25,12 +25,12 @@
 #include "../elibs/khash/khash.h"
 #include "../elibs/ovs/list.h"
 
-typedef struct fwd_entry fwd_entry_t;
+typedef struct fwd_info_ fwd_info_t;
 
 typedef struct ttable_node {
     struct ovs_list list_elt;
     packet_tuple_t *tpl;
-    fwd_entry_t *fe;
+    fwd_info_t *fi;
     struct timespec ts;
 } ttable_node_t;
 
@@ -45,9 +45,9 @@ void ttable_init(ttable_t *tt);
 void ttable_uninit(ttable_t *tt);
 ttable_t *ttable_create();
 void ttable_destroy(ttable_t *tt);
-void ttable_insert(ttable_t *, packet_tuple_t *tpl, fwd_entry_t *fe);
+void ttable_insert(ttable_t *, packet_tuple_t *tpl, fwd_info_t *fe);
 void ttable_remove(ttable_t *tt, packet_tuple_t *tpl);
-fwd_entry_t *ttable_lookup(ttable_t *tt, packet_tuple_t *tpl);
+fwd_info_t *ttable_lookup(ttable_t *tt, packet_tuple_t *tpl);
 
 
 #endif /* TTABLE_H_ */

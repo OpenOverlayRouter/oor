@@ -103,7 +103,7 @@ ctrl_if_event(lisp_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
     return(GOOD);
 }
 
-fwd_entry_t *
+fwd_info_t *
 ctrl_dev_get_fwd_entry(lisp_ctrl_dev_t *dev, packet_tuple_t *tuple)
 {
     return(dev->ctrl_class->get_fwd_entry(dev, tuple));

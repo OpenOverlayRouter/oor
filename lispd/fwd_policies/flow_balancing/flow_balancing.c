@@ -32,7 +32,7 @@ void *balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map,
 void *rmt_balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map);
 void balancing_locators_vecs_del(void * bal_vec);
 void fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm,
-        void *dst_map_parm, packet_tuple_t *tuple, fwd_entry_t **fwd_entry);
+        void *dst_map_parm, packet_tuple_t *tuple, fwd_info_t *fwd_info);
 static locator_t **set_balancing_vector(locator_t **, int, int, int *);
 static int select_best_priority_locators(glist_t *, locator_t **);
 static inline void get_hcf_locators_weight(locator_t **, int *, int *);
@@ -55,7 +55,7 @@ fwd_policy_class  fwd_policy_flow_balancing = {
         .del_map_cache_policy_inf = balancing_locators_vecs_del,
         .updated_map_loc_inf = balancing_vectors_calculate,
         .updated_map_cache_inf = balancing_vectors_calculate,
-        .policy_get_fwd_entry = fb_get_fw_entry,
+        .policy_get_fwd_info = fb_get_fw_entry,
         .get_fwd_ip_addr = fb_lisp_addr_get_fwd_ip_addr
 };
 
@@ -506,8 +506,9 @@ fb_locators_classify_in_4_6(mapping_t *mapping, glist_t *loc_loct_addr,
 
 void
 fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
-        packet_tuple_t *tuple, fwd_entry_t **fwd_entry)
+        packet_tuple_t *tuple, fwd_info_t *fwd_info)
 {
+    fwd_entry_t *fwd_entry;
     fb_dev_parm * dev_parm = (fb_dev_parm *)fwd_dev_parm;
     balancing_locators_vecs * src_blv = (balancing_locators_vecs *)src_map_parm;
     balancing_locators_vecs * dst_blv = (balancing_locators_vecs *)dst_map_parm;
@@ -590,9 +591,8 @@ fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
     dst_ip_addr = fb_lisp_addr_get_fwd_ip_addr(dst_addr,dev_parm->loc_loct);
 
 
-
-    fwd_entry_set_srloc(*fwd_entry, lisp_addr_clone(src_ip_addr));
-    fwd_entry_set_drloc(*fwd_entry, lisp_addr_clone(dst_ip_addr));
+    fwd_entry = fwd_entry_new_init(src_ip_addr, dst_ip_addr, NULL);
+    fwd_info->fwd_info = fwd_entry;
 
     LMLOG(LDBG_3, "select_locs_from_maps: EID: %s -> %s, protocol: %d, "
             "port: %d -> %d\n  --> RLOC: %s -> %s",
