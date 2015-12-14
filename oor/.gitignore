@@ -1,0 +1,20 @@
+# Object files
+*.o
+
+# Vi(m) swap files
+.*.swp
+
+# CScope file
+cscope.out
+
+# Compiled executable
+oor
+
+# Local configuration file
+oor.conf
+
+#temp kate files
+*~
+
+#kdev
+*.kdev4

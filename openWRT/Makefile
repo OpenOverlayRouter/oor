@@ -7,13 +7,13 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=lispmob
-PKG_REV:=27a213c1352871a5775fd14f4b71cdc7be5ba1e8
-PKG_VERSION:=0.5.1
-PKG_RELEASE:=5
+PKG_NAME:=oor
+PKG_REV:=41b88dfcad67a1ac1faef9f77aba86c48feb2b1d
+PKG_VERSION:=0.5.0
+PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
-PKG_SOURCE_URL:=git://github.com/LISPmob/lispmob.git
+PKG_SOURCE_URL:=git://github.com/OpenOverlayRouter/oor.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_REV)
@@ -25,22 +25,22 @@ include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/nls.mk
 
 
-define Package/lispmob/default
-  MAINTAINER:=Vasileios Lakafosis <lakafv@gmail.com>
-  URL:=http://lisp.cisco.com/
+define Package/oor/default
+  MAINTAINER:=Albert Lóepz <alopez@ac.upc.edu>
+  URL:=http://www.openoverlayrouter.org
 endef
 
-define Package/lispmob
+define Package/oor
   SECTION:=net
   CATEGORY:=Network
-  TITLE:=Locator/ID separation protocol (using TUN)
-  URL:=https://github.com/LISPmob
+  TITLE:=Open Overlay Router
+  URL:=https://github.com/OpenOverlayRouter
   DEPENDS:= +librt +confuse +kmod-tun +uci +kmod-ipv6 +libzmq-nc +libxml2
   $(call Package/lispmob/default)
 endef
 
-define Package/lispmob/description
-  This packet provides support for the Locator-ID Separation Protocol.
+define Package/oor/description
+  This packet provides support for the Locator-ID Separation Protocol, VXLAN-GPE.
 endef
 
 
@@ -49,17 +49,13 @@ define Build/Compile
 endef
 
 
-define Package/lispmob/install
+define Package/oor/install
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/lispd/lispd $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/oor/oor $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/lispd.uci.example $(1)/etc/config/lispd
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/oor.uci.example $(1)/etc/config/oor
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openWRT/openwrt.init.script $(1)/etc/init.d/lisp
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller/lisp
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/controller-lisp.lua $(1)/usr/lib/lua/luci/controller/lisp/lisp.lua
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/lisp
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/openWRT/model-cbi-lisp.lua $(1)/usr/lib/lua/luci/model/cbi/lisp/lisp.lua
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openWRT/openwrt.init.script $(1)/etc/init.d/oor
 endef
 
-$(eval $(call BuildPackage,lispmob))
+$(eval $(call BuildPackage,oor))

@@ -1,17 +1,19 @@
-# Android makefile for lispmob
+# Android makefile for Open Overlay Router
 
 LOCAL_PATH:= $(call my-dir)
 LOCAL_PATH2:= $(LOCAL_PATH)
 subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, confuse_android )) 
 include $(subdirs)	
 
-LOCAL_PATH:= $(LOCAL_PATH2)/../../lispd
+LOCAL_PATH:= $(LOCAL_PATH2)/../../oor
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES = \
-		  control/lisp_control.c         \
-		  control/lisp_ctrl_device.c     \
-		  control/lisp_local_db.c        \
-		  control/lisp_map_cache.c       \
+		  config/oor_config_confuse.c    \
+		  config/oor_config_functions.c  \
+   		  control/oor_control.c         \
+		  control/oor_ctrl_device.c     \
+		  control/oor_local_db.c        \
+		  control/oor_map_cache.c       \
 		  control/lisp_xtr.c             \
 		  control/lisp_ms.c              \
 		  control/control-data-plane/control-data-plane.c    \
@@ -20,16 +22,13 @@ LOCAL_SRC_FILES = \
 		  data-plane/vpnapi/vpnapi.c     \
 		  data-plane/vpnapi/vpnapi_input.c                   \
 		  data-plane/vpnapi/vpnapi_output.c                  \
-		  elibs/libcfu/cfu.c             \
-		  elibs/libcfu/cfuhash.c         \
-		  elibs/libcfu/cfustring.c       \
 		  elibs/mbedtls/md.c             \
 		  elibs/mbedtls/sha1.c           \
 		  elibs/mbedtls/sha256.c         \
 		  elibs/mbedtls/md_wrap.c        \
 		  elibs/patricia/patricia.c      \
-		  fwd_policies/fwd_policy.c	     \
-		  fwd_policies/flow_balancing/fb_lisp_addr_func.c    \
+		  fwd_policies/fwd_policy.c	 \
+		  fwd_policies/flow_balancing/fb_addr_func.c         \
 		  fwd_policies/flow_balancing/flow_balancing.c       \
 		  liblisp/liblisp.c              \
 		  liblisp/lisp_address.c         \
@@ -40,40 +39,40 @@ LOCAL_SRC_FILES = \
 		  liblisp/lisp_mapping.c         \
 		  liblisp/lisp_messages.c        \
 		  liblisp/lisp_message_fields.c  \
-		  liblisp/lisp_nonce.c           \
 		  lib/cksum.c                    \
 		  lib/generic_list.c             \
 		  lib/hmac.c                     \
 		  lib/iface_locators.c           \
 		  lib/lbuf.c                     \
 		  lib/lisp_site.c                \
-		  lib/lmlog.c                    \
+		  lib/oor_log.c                  \
 		  lib/mapping_db.c               \
 		  lib/map_cache_entry.c          \
-		  lib/map_local_entry.c			 \
+		  lib/map_local_entry.c		     \
+          lib/nonces_table.c             \
+          lib/packets.c                  \
+          lib/pointers_table.c           \
 		  lib/prefixes.c                 \
 		  lib/routing_tables_lib.c       \
-		  lib/packets.c                  \
 		  lib/sockets.c                  \
 		  lib/sockets-util.c             \
 		  lib/shash.c                    \
 		  lib/timers.c                   \
+          lib/timers_utils.c              \
 		  lib/ttable.c                   \
 		  lib/util.c                     \
 		  cmdline.c                      \
 		  iface_list.c                   \
 		  iface_mgmt.c                   \
-		  lispd.c                        \
-		  lispd_config_confuse.c         \
-		  lispd_config_functions.c       \
-		  lispd_jni.c 
+		  oor.c                          \
+		  oor_jni.c 
 
 LOCAL_CFLAGS += -g -DANDROID -DVPNAPI
 LOCAL_C_INCLUDES += $(LOCAL_PATH2)/zeromq3-x/include
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := libconfuse
 LOCAL_SHARED_LIBRARIES := libcutils
-LOCAL_MODULE = lispd
+LOCAL_MODULE = oor
 
 include $(BUILD_SHARED_LIBRARY)
 

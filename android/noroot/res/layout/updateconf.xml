@@ -129,11 +129,11 @@
 					    android:textSize="25px" 
 					    android:padding="7dip"> 
 				</TextView>
-        		<org.lispmob.noroot.MultiSelectionSpinner 
+        		<org.openoverlayrouter.noroot.MultiSelectionSpinner 
         		    android:id="@+id/IfaceNameSpinner"
         		    android:layout_height="wrap_content" 
         		    android:layout_width="match_parent"> 
-        		</org.lispmob.noroot.MultiSelectionSpinner>
+        		</org.openoverlayrouter.noroot.MultiSelectionSpinner>
     		</LinearLayout>
 			
 			<LinearLayout 

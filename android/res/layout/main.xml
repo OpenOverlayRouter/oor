@@ -22,14 +22,14 @@
 
         <ImageView
             android:id="@+id/Logo"
-            android:src="@drawable/lispmob_logo_small"
+            android:src="@drawable/oor_logo_small"
             android:layout_width="wrap_content"
     		android:layout_height="wrap_content"
     		android:paddingTop="15dip"
     		android:paddingLeft="8dip">
         	</ImageView>
         
-	    <!-- Start/Stop Lisp Process Checkbox -->
+	    <!-- Start/Stop OOR Process Checkbox -->
 	    <LinearLayout
 	        android:orientation="horizontal"
 	    	android:layout_width="fill_parent"
@@ -38,7 +38,7 @@
 	    	android:gravity="right">
 	
 	        <TextView
-	            android:text="@string/lispRunning"
+	            android:text="@string/oorRunning"
 	            android:layout_width="wrap_content"
 	        	android:layout_height="wrap_content"
 	        	android:textColor="#FFFFFF" android:id="@+id/startStopCheckboxLabel">

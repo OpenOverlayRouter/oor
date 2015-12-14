@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="org.lispmob.root" android:versionCode="4" android:versionName="0.5.0">
+      package="org.openoverlayrouter.root" android:versionCode="4" android:versionName="0.5.0">
     <uses-sdk android:minSdkVersion="9" />
 
     <application android:icon="@drawable/icon" android:theme="@android:style/Theme.NoTitleBar">
-        <activity android:name=".LISPmob"
+        <activity android:name=".OOR"
                   android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -14,7 +14,7 @@
         <activity android:name="logActivity" android:configChanges="keyboardHidden|orientation"></activity>
         <activity android:name="confActivity"></activity>               
         <activity android:name="updateConfActivity"></activity>
-        <service  android:name="org.lispmob.root.LISPmobService"></service>
+        <service  android:name="org.openoverlayrouter.root.OORService"></service>
     </application>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

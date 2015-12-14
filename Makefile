@@ -1,4 +1,4 @@
-DIRS = lispd
+DIRS = oor
 BUILDDIRS = $(DIRS:%=build-%)
 INSTALLDIRS = $(DIRS:%=install-%)
 CLEANDIRS = $(DIRS:%=clean-%)

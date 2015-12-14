@@ -40,7 +40,7 @@ LTS (Trusty Tahr), OpenWRT 15.05 (Chaos Calmer) and Android 4.3 (Jelly Bean).
 Network Prerequisites
 ---------------------
 
-Running a LISPmob device on the public Internet requires the following:
+Running a Open Overlay Router device on the public Internet requires the following:
 
 xTR - MN
 
@@ -62,8 +62,8 @@ MS/MR
   * a publicly routable RLOC for the device running LISPmob, which is neither 
   firewalled, nor behind NAT.
 
-The above information is used for configuring 'lispd' via the configuration file 
-'lispd.conf'. See section "OpenWRT" for OpenWRT configuration details and "Android" 
+The above information is used for configuring 'oor' via the configuration file 
+'oor.conf'. See section "OpenWRT" for OpenWRT configuration details and "Android" 
 for Android configuration details.
 
 Visit http://www.lisp4.net/ for more info on the deployment status of the LISP
@@ -72,7 +72,7 @@ beta-network and how you can join the testbed.
 Software Prerequisites
 ----------------------
 
-To build LISPmob for a standard Linux, you will need:
+To build Open Overlay Router for a standard Linux, you will need:
 
   * a Linux hosts
   * a C compiler (tested with `gcc`)
@@ -95,9 +95,10 @@ following packages will provide all necessary dependencies:
   * 'libzmq3-dev'
   * 'libxml2-dev'
 
-The latest version of the LISPmob source code can be obtained from Github:
+The latest version of the Open Overlay Router source code can be obtained 
+from Github:
 
-    git clone git://github.com/LISPmob/lispmob.git
+    git clone git://github.com/OpenOverlayRouter/oor.git
 
 
 Installation
@@ -115,17 +116,17 @@ To build the code for OpenWRT you will need the OpenWRT official SDK. However,
 for your convenience, we encourage you to install the precompiled .ipk, from our
 website. Check section "OpenWRT" for details.
 
-Running LISPmob
----------------
+Running Open Overlay Router
+---------------------------
 
-Once the code is successfully installed on the device, `lispd.conf.example` should 
-be copied to `/etc/lispd.conf` and edited with the proper values. Again, see 
+Once the code is successfully installed on the device, `oor.conf.example` should 
+be copied to `/etc/oor.conf` and edited with the proper values. Again, see 
 section 'OpenWRT' for OpenWRT details about this. Additionally the device's 
 interface used for physical network connectivity (such as 'eth0', 'wlan0' or 'ppp0')
  must also be specified in the configuration file.
 
-Prior to execute LISPmob, make sure that each external interface (such as
-'wan0') has defined a default route with different 'metric' in the routing
+Prior to execute Open Overlay Router, make sure that each external interface (such 
+as 'wan0') has defined a default route with different 'metric' in the routing
 table (there is a 'default' entry for each outgoing interface). In most cases,
 this is auto-configured by the operating system during start-up.
 
@@ -147,18 +148,14 @@ The user space daemon can be started by a non privileged user with the appropria
 permissions (particularly CAP_NET_ADMIN and CAP_NET_RAW). Such user can run the 
 daemon with: 
 
-    lispd -f /etc/lispd.conf
+    oor -f /etc/oor.conf
 
 It will set up networking and register to the mapping system, after which you
 can enjoy all the benefits of LISP. 
 
 
-Version 0.5
------------
-
-Version 0.5 introduced major changes in LISPmob. The code was abstracted and 
-modularized in order to provide support for different LISP devices and to facilitate
-the implementation of new functionalities.
+Features
+--------
 
 This is the list of supported features at this moment
 
@@ -199,7 +196,7 @@ This is the list of supported features at this moment
 
 Mobile Node mode (MN)
 ---------------------
-When 'lispd' is running in MN mode, the EID obtained configured is associated to 
+When 'oor' is running in MN mode, the EID obtained configured is associated to 
 the 'lispTun0' virtual interface. Two /1 routes covering the full IP addresses 
 space should appear in the routing table. These routes should be pointing to 
 'lispTun0' device. The following lines show an example of how 'ip addr' and 'ip 
@@ -229,8 +226,8 @@ route' will look like with IPv4, expect a similar output with IPv6:
 xTR mode
 --------
  
-To configure LISPmob to use it on xTR mode take into account the following 
-considerations.
+To configure Open Overlay Router to use it on xTR mode take into account the 
+following considerations.
 An EID /30 (at least) prefix is required for IPv4 EIDs. For IPv6 you should have 
 a /126 (at least). This prefix should be used as the network prefix for the subnet
 where the hosts on the EID space connected to the router are allocated. Assign 
@@ -281,8 +278,8 @@ with IPv4, expect a similar output with IPv6:
 RTR mode
 --------
 
-When running in RTR mode, LISPmob serves as a Re-encapsulating Tunnel Router that 
-decapsulates the received traffic to reencapsulate it again towards the next hop. 
+When running in RTR mode, Open Overlay Router serves as a Re-encapsulating Tunnel Router 
+that decapsulates the received traffic to reencapsulate it again towards the next hop. 
 To configure an RTR, select the corresponding operating-mode and fill the parameters 
 of the RTR section and Tunnel Router general configuration of the configuration file
 The following lines show an example of how 'ip addr' and 'ip route' will look like 
@@ -320,77 +317,56 @@ with IPv4, expect a similar output with IPv6:
 MS/MR mode 
 ----------
 
-LISPmob 0.5 can be configured as a basic MS/MR where configured EID prefixes can 
+Open Overlay Router can be configured as a basic MS/MR where configured EID prefixes can 
 be registered by xTRs. LISPmob will also reply to MapRequests addressed to those 
 prefixes.
-To configure LISPmob as a MS/MR, select the corresponding operating-mode and fill 
-the parameters of the MS section of the configuration file
+To configure Open Overlay Router as a MS/MR, select the corresponding operating-mode and 
+fill the parameters of the MS section of the configuration file.
 
 OpenWRT 
 -------
 
 To enable OpenWRT configuration mode and the specific routing
 operations, the code should have been compiled with the
-`platform=openwrt` option during OpenWRT package creation. Please
-note that the best way to get LISPmob on OpenWRT is get a precompiled binary
-(either the full system or just the LISPmob package) from the LISPmob website
-(http://lispmob.org/downloads/openwrt). 
-
-LISPmob is also available on the official OpenWRT repositories, but it is not
-guaranteed that this version would be the latest one. You can try to install
-LISPmob from OpenWRT package feeds with:
-
-    opkg update
-    opkg install lispd
+`platform=openwrt` option during OpenWRT package creation. Please note that the best 
+way to get Open Overlay Router on OpenWRT is get a precompiled binary (either the 
+full system or just the Open Overlay Router package) from the  github website
+(https://github.com/OpenOverlayRouter/oor/wiki/Downloads). 
 
 In OpenWRT, the configuration is performed through the OpenWRT standard
-configuration tool UCI, instead of using 'lispd.conf' file. Configure the UCI
-file manually in '/etc/config/lispd' (by default), use the UCI CLI application,
+configuration tool UCI, instead of using 'oor.conf' file. Configure the UCI
+file manually in '/etc/config/oor' (by default), use the UCI CLI application,
 or use the web interface (if available). The configuration fields are analogue
-to those in the 'lispd.conf' file.
+to those in the 'oor.conf' file.
 
 Android
 -------
 
-Since version 0.4, LISPmob includes support for Android devices operating as LISP-MN. 
-Version 0.5 maintains Android support however, given that NAT traversal is not yet 
-available for this version, the usage of LISPmob 0.5 on Android is limited to devices 
-with a public address. For production environments is recommended to use version 
-0.4.x. that does not have this limitation.
-Please see the README.android.md file to get details on LISPmob for Android 
-installation, compilation and usage. 
+Open Overlay Router includes support for Android devices operating as LISP-MN. 
+Given that NAT traversal is not yet available for this version, the usage of 
+Open Overlay Router on Android is limited to devices with a public address. 
+Please see the README.android.md file to get details on Open Overlay Router 
+for Android installation, compilation and usage. 
 
-NAT traversal
--------------
 
-The NAT traversal support has not been yet implemented in LISPmob 0.5. If you 
-require this feature, please use the version 0.4.x.
 
 Contact
 -------
 
-Should you have questions regarding the use of the LISPmob distribution, please
-subscribe to the users@lispmob.org mailing list and ask there
-(https://lispmob.org/mailman/listinfo/users).
+Should you have questions regarding the use of the Open Overlay Router distribution, 
+please subscribe to the users@openoverlayrouter.org mailing list and ask there
+(http://mail.openoverlayrouter.org/mailman/listinfo/users).
 
-If you wish to participate in the development of LISPmob, use the dedicated
-mailing list, devel@lispmob.org (https://lispmob.org/mailman/listinfo/devel).
+If you wish to participate in the development of Open Overlay Router, use the 
+dedicated mailing list, devel@openoverlayrouter.org 
+(http://mail.openoverlayrouter.org/mailman/listinfo/devel).
 
 Additionally, important announcements are sent to the low volume mailing list
-announce@lispmob.org (https://lispmob.org/mailman/listinfo/announce).
+announce@openoverlayrouter.org 
+(http://mail.openoverlayrouter.org/mailman/listinfo/announce).
 
-More interactive help can sometimes be obtained on the '#lispmob' IRC channel on
+More interactive help can sometimes be obtained on the '#openoverlayrouter' IRC channel on
 FreeNode.
 
 Bugs you encounter should be filed at the [repository's issue tracker on
-Github](https://github.com/LISPmob/lispmob/issues).
-
-References
-----------
-
-1. [The Locator Identifier Separation Protocol (LISP)](http://www.cisco.com/web/about/ac123/ac147/archived_issues/ipj_11-1/111_lisp.html)
-2. [Locator/ID Separation Protocol](https://tools.ietf.org/html/rfc6830)
-3. [LISP Mobile Node](http://tools.ietf.org/html/draft-meyer-lisp-mn)
-4. [Interworking between Locator/ID Separation Protocol (LISP) and Non-LISP Sites](https://tools.ietf.org/html/rfc6832)
-5. [LISPmob Project](http://lispmob.org/)
-6. [LISP beta-network] http://www.lisp4.net/beta-network/
+Github](https://github.com/OpenOverlayRouter/oor/issues).

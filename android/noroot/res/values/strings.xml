@@ -1,21 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LISPmob</string>
+    <string name="app_name">Open Overlay Router</string>
     <string name="installed">Installed</string>
     <string name="notInstalled">Not Installed</string>
     <string name="NullString"> </string>
-    <string name="lispdRunning">lispd is Running</string>
     <string name="showMapCacheString">Show Map Cache</string>
     <string name="showDataCacheString"> Show Data Cache </string>
     <string name="showClearCacheString">Clear Map Cache</string>
-    <string name="showLogString">Show lispd logfile</string>
-    <string name="lispRunning">LISP is running</string>
-    <string name="lispNotRunning">LISP is NOT running</string>
-    <string name="noConfFile">No configuration file.\nUse \"Edit LISP Configuration\" section to generate it</string>
-    <string name="noRootedString">Not rooted device. Could not start LISPmob</string>
-    <string name="askStopServiceString">Stop the LISP service?</string>
-    <string name="updateConfTitleString">Current LISP Configuration</string>
-    <string name="updateConfString">Edit LISP Configuration</string>
+    <string name="showLogString">Show OOR logfile</string>
+    <string name="oorRunning">OOR is running</string>
+    <string name="oorNotRunning">OOR is NOT running</string>
+    <string name="noConfFile">No configuration file.\nUse \"Edit OOR Configuration\" section to generate it</string>
+    <string name="noRootedString">Not rooted device. Could not start Open Overlay Router</string>
+    <string name="askStopServiceString">Stop the OOR service?</string>
+    <string name="updateConfTitleString">Current OOR Configuration</string>
+    <string name="updateConfString">Edit OOR Configuration</string>
     <string name="updateConfeid4String">EID-IPv4: </string>
     <string name="updateConfeid6String">EID-IPv6: </string>
     <string name="updateConfChgString">Update Configuration</string> 
@@ -36,7 +35,7 @@
     </string-array>
     <string-array name="ErrMsgArray">
     	<item>No error</item>
-        <item>Configuration file not exist.\nUse\"Edit LISP Configuration\"</item>
+        <item>Configuration file not exist.\nUse\"Edit OOR Configuration\"</item>
         <item>Wrong configuration.</item>
         <item>None of the configured interfaces is available. Check your network settings</item>
         <item>Registraion process error. Check:\n  - Configuration\n  - Network connectivity</item>

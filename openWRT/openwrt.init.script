@@ -5,13 +5,13 @@ STOP=80
 
 
 start() {
-        echo "Stopping previous lispd process ..."
-        killall lispd &> /dev/null
-        echo "Starting lispd ..."
-        /usr/sbin/lispd -D
+        echo "Stopping previous oor process ..."
+        killall oor &> /dev/null
+        echo "Starting Open Overlay Router ..."
+        /usr/sbin/oor -D
 }
 
 stop() {
-        echo "Stopping lispd ..."
-        killall lispd
+        echo "Stopping Open Overlay Router ..."
+        killall oor
 }

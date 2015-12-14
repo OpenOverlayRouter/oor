@@ -2,7 +2,7 @@
 
 
 PS3='Please enter your choice: '
-echo "Select the LISPmob Android application to use:"
+echo "Select the Open Overlay Router Android application to use:"
 options=("No Root" "Root" )
 select opt in "${options[@]}"
 do
