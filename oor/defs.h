@@ -23,6 +23,11 @@
 #include <stdint.h>
 
 typedef enum {
+    ENCP_LISP,
+    ENCP_VXLAN_GPE
+}oor_encap_t;
+
+typedef enum {
     xTR_MODE ,
     MS_MODE,
     RTR_MODE,
@@ -101,7 +106,7 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define ERR_EXIST           -5
 #define ERR_NO_EXIST        -6
 #define ERR_CTR_IFACE       -7
-#define ERR_NOT_LISP        -8
+#define ERR_NOT_ENCAP       -8
 #define ERR_SOCKET          -9
 
 #define TRUE                1

@@ -2174,6 +2174,9 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
             OOR_LOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
         }
     }
+    /* Assign encapsulated that should be used */
+    fwd_info->encap = xtr->encap_type;
+
     return (fwd_info);
 }
 

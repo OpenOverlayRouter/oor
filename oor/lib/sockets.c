@@ -276,7 +276,7 @@ open_control_input_socket(int afi)
 }
 
 int
-open_data_raw_input_socket(int afi)
+open_data_raw_input_socket(int afi, uint16_t port)
 {
 
     int sock = ERR_SOCKET;
@@ -288,7 +288,7 @@ open_data_raw_input_socket(int afi)
     }
 
     dummy_sock = open_udp_datagram_socket(afi);
-    dummy_sock = bind_socket(dummy_sock, afi, NULL, LISP_DATA_PORT);
+    dummy_sock = bind_socket(dummy_sock, afi, NULL, port);
 
     if (socket_conf_req_ttl_tos(sock,afi)!= GOOD){
         close(sock);

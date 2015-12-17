@@ -82,6 +82,8 @@ typedef struct lisp_xtr {
     /* LOCAL IFACE MAPPING */
     /* in case of RTR can be used for outgoing load balancing */
     map_local_entry_t *all_locs_map;
+
+    oor_encap_t encap_type;
 } lisp_xtr_t;
 
 typedef struct map_server_elt_t {

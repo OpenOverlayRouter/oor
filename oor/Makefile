@@ -35,17 +35,18 @@ INC         = defs.h
 MAKEFILE    = Makefile
 
 OBJS        = cmdline.o                  \
-		  config/oor_config_functions.o \
-          config/oor_api.o             \
-          config/oor_api_internals.o   \
+          config/oor_config_functions.o  \
+          config/oor_api.o               \
+          config/oor_api_internals.o     \
           control/oor_control.o          \
           control/oor_ctrl_device.o      \
-          control/oor_local_db.o        \
-          control/oor_map_cache.o       \
+          control/oor_local_db.o         \
+          control/oor_map_cache.o        \
           control/lisp_xtr.o             \
           control/lisp_ms.o              \
           control/control-data-plane/control-data-plane.o    \
           control/control-data-plane/tun/cdp_tun.o           \
+          data-plane/encapsulations/vxlan-gpe.o              \
           data-plane/data-plane.o        \
           data-plane/tun/tun_input.o     \
           data-plane/tun/tun_output.o    \
@@ -130,6 +131,7 @@ clean:
         lib/*o \
         config/*o control/*o control/control-data-plane/*o \
         control/control-data-plane/tun/*o control/control-data-plane/vpnapi/*o \
+        data-plane/encapsulations/*o \
         data-plane/*o data-plane/tun/*o data-plane/vpnapi/*o\
         fwd_policies/*o fwd_policies/flow_balancing/*o
 

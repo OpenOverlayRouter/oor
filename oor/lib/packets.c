@@ -607,3 +607,20 @@ ip_src_and_dst_to_char(struct iphdr *iph, char *fmt)
 
     return(buf);
 }
+
+void
+pkt_add_uint32_in_3bytes (uint8_t *pkt, uint32_t val)
+{
+    uint8_t *val_bytes;
+    uint32_t net_val = htonl(val);
+    val_bytes = (uint8_t *)&net_val;
+    pkt[0] = val_bytes[1];
+    pkt[1] = val_bytes[2];
+    pkt[2] = val_bytes[3];
+}
+
+uint32_t
+pkt_get_uint32_from_3bytes (uint8_t *pkt)
+{
+    return (((uint32_t) pkt[0]) << 16) | (((uint32_t) pkt[1]) << 8) | ((uint32_t) pkt[2]);
+}

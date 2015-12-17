@@ -37,7 +37,6 @@ tun_read_and_decap_pkt(int sock, lbuf_t *b)
 {
     uint8_t ttl = 0, tos = 0;
     int afi;
-    lisphdr_t *lisp_hdr;
     struct udphdr *udph;
 
     if (sock_data_recv(sock, b, &afi, &ttl, &tos) != GOOD) {
@@ -60,11 +59,16 @@ tun_read_and_decap_pkt(int sock, lbuf_t *b)
 
     /* FILTER UDP: with input RAW UDP sockets, we receive all UDP packets,
      * we only want LISP data ones */
-    if (ntohs(udph->dest) != LISP_DATA_PORT) {
-        return (ERR_NOT_LISP);
+    switch (ntohs(udph->dest)){
+    case LISP_DATA_PORT:
+        lisp_data_pull_hdr(b);
+        break;
+    case VXLAN_GPE_DATA_PORT:
+        vxlan_gpe_data_pull_hdr(b);
+        break;
+    default:
+        return (ERR_NOT_ENCAP);
     }
-
-    lisp_hdr = lisp_data_pull_hdr(b);
 
     /* RESET L3: prepare for output */
     lbuf_reset_l3(b);
@@ -75,12 +79,6 @@ tun_read_and_decap_pkt(int sock, lbuf_t *b)
 
     OOR_LOG(LDBG_3, "%s", ip_src_and_dst_to_char(lbuf_l3(b),
             "INPUT (4341): Inner IP: %s -> %s"));
-
-    /* Poor discriminator for data map notify... */
-    if (lisp_hdr->instance_id == 1){
-        OOR_LOG(LDBG_2,"Data-Map-Notify received\n ");
-        /* XXX Is there something to do here? */
-    }
 
     return(GOOD);
 }

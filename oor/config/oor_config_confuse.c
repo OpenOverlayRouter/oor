@@ -238,35 +238,132 @@ parse_mapping(cfg_t *map, oor_ctrl_dev_t *dev, shash_t * lcaf_ht,
 
 
 int
-configure_rtr(cfg_t *cfg)
+parse_map_servers(cfg_t *cfg, lisp_xtr_t *xtr)
+{
+    int n,i;
+    /* MAP-SERVER CONFIG */
+    n = cfg_size(cfg, "map-server");
+    for (i = 0; i < n; i++) {
+        cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
+        if (add_map_server(xtr->map_servers, cfg_getstr(ms, "address"),
+                cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
+                (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
+            OOR_LOG(LDBG_1, "Added %s to map-server list",
+                    cfg_getstr(ms, "address"));
+        } else {
+            OOR_LOG(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
+        }
+    }
+    return (GOOD);
+}
+
+int
+parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
+{
+    int n,i;
+    void *fwd_map_inf;
+    /* PROXY-ETR CONFIG */
+    n = cfg_size(cfg, "proxy-etr");
+    for(i = 0; i < n; i++) {
+        cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
+        if (add_proxy_etr_entry(xtr->petrs,
+                cfg_getstr(petr, "address"),
+                cfg_getint(petr, "priority"),
+                cfg_getint(petr, "weight")) == GOOD) {
+            OOR_LOG(LDBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
+        } else{
+            OOR_LOG(LERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
+        }
+    }
+
+    /* Calculate forwarding info for petrs */
+    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
+    if (fwd_map_inf == NULL){
+        OOR_LOG(LDBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
+        mcache_entry_del(xtr->petrs);
+        return(BAD);
+    }
+    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
+    return (GOOD);
+}
+
+int
+parse_proxy_itrs(cfg_t *cfg, lisp_xtr_t *xtr)
+{
+    int n,i;
+    char *proxy_itr;
+    n = cfg_size(cfg, "proxy-itrs");
+    for(i = 0; i < n; i++) {
+        if ((proxy_itr = cfg_getnstr(cfg, "proxy-itrs", i)) != NULL) {
+            if (add_server(proxy_itr, xtr->pitrs)==GOOD){
+                OOR_LOG(LDBG_1, "Added %s to proxy-itr list", proxy_itr);
+            }else {
+                OOR_LOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", proxy_itr);
+            }
+        }
+    }
+    return (GOOD);
+}
+
+int
+parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
+{
+    int n,i;
+    mapping_t *mapping;
+    map_local_entry_t *map_loc_e;
+    void *fwd_map_inf;
+
+    n = cfg_size(cfg, "database-mapping");
+    for (i = 0; i < n; i++) {
+        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE);
+        if (mapping == NULL){
+            continue;
+        }
+        map_loc_e = map_local_entry_new_init(mapping);
+        if (map_loc_e == NULL){
+            mapping_del(mapping);
+            continue;
+        }
+        fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
+        if (fwd_map_inf == NULL){
+            OOR_LOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
+                    lisp_addr_to_char(mapping_eid(mapping)));
+            map_local_entry_del(map_loc_e);
+            continue;
+        }
+        map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
+
+        if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
+            map_local_entry_del(map_loc_e);
+            continue;
+        }
+    }
+
+    return (GOOD);
+}
+
+int
+configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
 {
     int i,n,ret;
     char *map_resolver;
-    map_local_entry_t *map_loc_e;
+    char *encap;
     mapping_t *mapping;
-    shash_t *lcaf_ht;
-    lisp_xtr_t * xtr;
-    void *fwd_map_inf;
-
-
-    /* CREATE AND CONFIGURE RTR (xTR in fact) */
-    if (ctrl_dev_create(RTR_MODE, &ctrl_dev) != GOOD) {
-        OOR_LOG(LCRIT, "Failed to create RTR. Aborting!");
-        exit_cleanup();
-    }
-
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
 
     /* FWD POLICY STRUCTURES */
     xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
     xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
 
-    /* CREATE LCAFS HTABLE */
-
-    /* get a hash table of all the elps. If any are configured,
-     * their names could appear in the rloc field of database mappings
-     * or static map cache entries  */
-    lcaf_ht = parse_lcafs(cfg);
+    if ((encap = cfg_getstr(cfg, "encapsulation")) != NULL) {
+        if (strcmp(encap, "LISP") == 0) {
+            xtr->encap_type = ENCP_LISP;
+        }else if (strcmp(encap, "VXLAN-GPE") == 0){
+            xtr->encap_type = ENCP_VXLAN_GPE;
+        }else{
+            OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
+            return (BAD);
+        }
+    }
 
     /* RETRIES */
     ret = cfg_getint(cfg, "map-request-retries");
@@ -286,7 +383,7 @@ configure_rtr(cfg_t *cfg)
     } else {
         OOR_LOG(LDBG_1, "Configuration file: RLOC probing not defined. "
                 "Setting default values: RLOC Probing Interval: %d sec.",
-        RLOC_PROBING_INTERVAL);
+                RLOC_PROBING_INTERVAL);
         xtr->probe_interval = RLOC_PROBING_INTERVAL;
         xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
         xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
@@ -301,29 +398,7 @@ configure_rtr(cfg_t *cfg)
             if (add_server(map_resolver, xtr->map_resolvers) == GOOD){
                 OOR_LOG(LDBG_1, "Added %s to map-resolver list", map_resolver);
             }else{
-                OOR_LOG(LCRIT,"Can't add %s Map Resolver.", map_resolver);
-            }
-        }
-    }
-
-
-    /* INTERFACES CONFIG */
-    n = cfg_size(cfg, "rtr-ifaces");
-    if (n) {
-        cfg_t *rifs = cfg_getsec(cfg, "rtr-ifaces");
-        int nr = cfg_size(rifs, "rtr-iface");
-        for(i = 0; i < nr; i++) {
-            cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
-            if (add_rtr_iface(xtr,
-                    cfg_getstr(ri, "iface"),
-                    cfg_getint(ri, "ip_version"),
-                    cfg_getint(ri, "priority"),
-                    cfg_getint(ri, "weight")) == GOOD) {
-                OOR_LOG(LDBG_1, "Configured interface %s for RTR",
-                        cfg_getstr(ri, "iface"));
-            } else{
-                OOR_LOG(LERR, "Can't configure iface %s for RTR",
-                        cfg_getstr(ri, "iface"));
+                OOR_LOG(LCRIT,"Can't add %s Map Resolver.",map_resolver);
             }
         }
     }
@@ -356,7 +431,52 @@ configure_rtr(cfg_t *cfg)
         }
         continue;
     }
+    return (GOOD);
+}
 
+int
+configure_rtr(cfg_t *cfg)
+{
+    lisp_xtr_t *xtr;
+    shash_t *lcaf_ht;
+    mapping_t *mapping;
+    map_local_entry_t *map_loc_e;
+    void *fwd_map_inf;
+    int n,i;
+
+    /* CREATE AND CONFIGURE RTR (xTR in fact) */
+    if (ctrl_dev_create(RTR_MODE, &ctrl_dev) != GOOD) {
+        OOR_LOG(LCRIT, "Failed to create RTR. Aborting!");
+        return (BAD);
+    }
+
+    lcaf_ht = parse_lcafs(cfg);
+
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
+        return (BAD);
+    }
+
+    /* INTERFACES CONFIG */
+    n = cfg_size(cfg, "rtr-ifaces");
+    if (n) {
+        cfg_t *rifs = cfg_getsec(cfg, "rtr-ifaces");
+        int nr = cfg_size(rifs, "rtr-iface");
+        for(i = 0; i < nr; i++) {
+            cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
+            if (add_rtr_iface(xtr,
+                    cfg_getstr(ri, "iface"),
+                    cfg_getint(ri, "ip_version"),
+                    cfg_getint(ri, "priority"),
+                    cfg_getint(ri, "weight")) == GOOD) {
+                OOR_LOG(LDBG_1, "Configured interface %s for RTR",
+                        cfg_getstr(ri, "iface"));
+            } else{
+                OOR_LOG(LERR, "Can't configure iface %s for RTR",
+                        cfg_getstr(ri, "iface"));
+            }
+        }
+    }
 
     /* RTR DATABASE MAPPINGS (like for instance replication lists) */
     n = cfg_size(cfg, "rtr-database-mapping");
@@ -391,21 +511,6 @@ configure_rtr(cfg_t *cfg)
         }
     }
 
-
-    /* MAP-SERVER CONFIG */
-    n = cfg_size(cfg, "map-server");
-    for (i = 0; i < n; i++) {
-        cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-        if (add_map_server(xtr->map_servers, cfg_getstr(ms, "address"),
-                cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
-                (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
-            OOR_LOG(LDBG_1, "Added %s to map-server list",
-                    cfg_getstr(ms, "address"));
-        } else {
-            OOR_LOG(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
-        }
-    }
-
     /* Deallocate PiTRs and PeTRs elements */
     glist_destroy(xtr->pitrs);
     xtr->pitrs = NULL;
@@ -418,14 +523,8 @@ configure_rtr(cfg_t *cfg)
 int
 configure_xtr(cfg_t *cfg)
 {
-    int i, n, ret;
-    char *map_resolver;
-    char *proxy_itr;
-    shash_t *lcaf_ht;
     lisp_xtr_t *xtr;
-    map_local_entry_t *map_loc_e;
-    mapping_t *mapping;
-    void *fwd_map_inf;
+    shash_t *lcaf_ht;
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
@@ -433,383 +532,68 @@ configure_xtr(cfg_t *cfg)
         exit_cleanup();
     }
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-
-    /* FWD POLICY STRUCTURES */
-    xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
-    xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
-
-
-    /* CREATE LCAFS HTABLE */
-
-    /* get a hash table of all the elps. If any are configured,
-     * their names could appear in the rloc field of database mappings
-     * or static map cache entries  */
     lcaf_ht = parse_lcafs(cfg);
 
-
-    /* RETRIES */
-    ret = cfg_getint(cfg, "map-request-retries");
-    xtr->map_request_retries = (ret != 0) ? ret : DEFAULT_MAP_REQUEST_RETRIES;
-
-
-    /* RLOC PROBING CONFIG */
-    cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
-    if (dm != NULL) {
-        xtr->probe_interval = cfg_getint(dm, "rloc-probe-interval");
-        xtr->probe_retries = cfg_getint(dm, "rloc-probe-retries");
-        xtr->probe_retries_interval = cfg_getint(dm,
-                "rloc-probe-retries-interval");
-
-        validate_rloc_probing_parameters(&xtr->probe_interval,
-                &xtr->probe_retries, &xtr->probe_retries_interval);
-    } else {
-        OOR_LOG(LDBG_1, "Configuration file: RLOC probing not defined. "
-                "Setting default values: RLOC Probing Interval: %d sec.",
-        RLOC_PROBING_INTERVAL);
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
+        return (BAD);
     }
 
-
-    /* NAT Traversal options */
-    cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
-    if (nt != NULL) {
-        xtr->nat_aware = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
-        char *nat_site_ID = cfg_getstr(nt, "site_ID");
-        char *nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
-        if (xtr->nat_aware == TRUE){
-            if ((convert_hex_string_to_bytes(nat_site_ID,
-                    xtr->site_id.byte, 8)) != GOOD){
-                OOR_LOG(LCRIT, "Configuration file: Wrong Site-ID format");
-                exit_cleanup();
-            }
-            if ((convert_hex_string_to_bytes(nat_xTR_ID,
-                    xtr->xtr_id.byte, 16)) != GOOD){
-                OOR_LOG(LCRIT, "Configuration file: Wrong xTR-ID format");
-                exit_cleanup();
-            }
-        }
-    }else {
-        xtr->nat_aware = FALSE;
+    if (parse_map_servers(cfg, xtr) != GOOD){
+        return (BAD);
     }
-
-
-    /* MAP-RESOLVER CONFIG  */
-    n = cfg_size(cfg, "map-resolver");
-    for(i = 0; i < n; i++) {
-        if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
-            if (add_server(map_resolver, xtr->map_resolvers) == GOOD){
-                OOR_LOG(LDBG_1, "Added %s to map-resolver list", map_resolver);
-            }else{
-                OOR_LOG(LCRIT,"Can't add %s Map Resolver.",map_resolver);
-            }
-        }
+    if (parse_proxy_etrs(cfg, xtr) != GOOD){
+        return (BAD);
     }
-
-    /* MAP-SERVER CONFIG */
-    n = cfg_size(cfg, "map-server");
-    for (i = 0; i < n; i++) {
-        cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-        if (add_map_server(xtr->map_servers, cfg_getstr(ms, "address"),
-                cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
-                (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
-            OOR_LOG(LDBG_1, "Added %s to map-server list",
-                    cfg_getstr(ms, "address"));
-        } else {
-            OOR_LOG(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
-        }
+    if (parse_proxy_itrs(cfg, xtr) != GOOD){
+        return (BAD);
     }
-
-    /* PROXY-ETR CONFIG */
-    n = cfg_size(cfg, "proxy-etr");
-    for(i = 0; i < n; i++) {
-        cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
-        if (add_proxy_etr_entry(xtr->petrs,
-                cfg_getstr(petr, "address"),
-                cfg_getint(petr, "priority"),
-                cfg_getint(petr, "weight")) == GOOD) {
-            OOR_LOG(LDBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
-        } else{
-            OOR_LOG(LERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
-        }
-    }
-
-    /* Calculate forwarding info for petrs */
-    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
-    if (fwd_map_inf == NULL){
-        OOR_LOG(LDBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
-        mcache_entry_del(xtr->petrs);
-        return(BAD);
-    }
-    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
-
-
-    /* PROXY-ITR CONFIG */
-    n = cfg_size(cfg, "proxy-itrs");
-    for(i = 0; i < n; i++) {
-        if ((proxy_itr = cfg_getnstr(cfg, "proxy-itrs", i)) != NULL) {
-            if (add_server(proxy_itr, xtr->pitrs)==GOOD){
-                OOR_LOG(LDBG_1, "Added %s to proxy-itr list", proxy_itr);
-            }else {
-                OOR_LOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", proxy_itr);
-            }
-        }
-    }
-
-    n = cfg_size(cfg, "database-mapping");
-    for (i = 0; i < n; i++) {
-        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE);
-        if (mapping == NULL){
-            continue;
-        }
-        map_loc_e = map_local_entry_new_init(mapping);
-        if (map_loc_e == NULL){
-            mapping_del(mapping);
-            continue;
-        }
-        fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
-        if (fwd_map_inf == NULL){
-            OOR_LOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
-                    lisp_addr_to_char(mapping_eid(mapping)));
-            map_local_entry_del(map_loc_e);
-            continue;
-        }
-        map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
-
-        if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
-            map_local_entry_del(map_loc_e);
-            continue;
-        }
-
-    }
-
-    /* STATIC MAP-CACHE CONFIG */
-    n = cfg_size(cfg, "static-map-cache");
-    for (i = 0; i < n; i++) {
-        cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,FALSE);
-
-        if (mapping == NULL){
-            OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
-                    cfg_getstr(smc, "eid-prefix"));
-            continue;
-        }
-        if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
-            if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
-                        lisp_addr_to_char(mapping_eid(mapping)));
-            }else{
-                OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
-                        mapping_eid(mapping));
-                mapping_del(mapping);
-            }
-        }else{
-            OOR_LOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
-                    "Discarded ...",cfg_getstr(smc, "eid-prefix"));
-            mapping_del(mapping);
-            continue;
-        }
-        continue;
+    if (parse_database_mapping(cfg, xtr, lcaf_ht) != GOOD){
+        return (BAD);
     }
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
 
-    return(GOOD);
+    return (GOOD);
 }
 
 int
 configure_mn(cfg_t *cfg)
 {
-    int i, n, ret;
-    char *map_resolver;
-    char *proxy_itr;
-    shash_t *lcaf_ht;
     lisp_xtr_t *xtr;
-    map_local_entry_t *map_loc_e;
-    mapping_t *mapping;
-    void *fwd_map_inf;
+    shash_t *lcaf_ht;
 
-    /* CREATE AND CONFIGURE XTR */
+    /* CREATE AND CONFIGURE MN */
     if (ctrl_dev_create(MN_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create mobile node. Aborting!");
         exit_cleanup();
     }
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-
-    /* FWD POLICY STRUCTURES */
-    xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
-    xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
-
-    /* CREATE LCAFS HTABLE */
-
-    /* get a hash table of all the elps. If any are configured,
-     * their names could appear in the rloc field of database mappings
-     * or static map cache entries  */
     lcaf_ht = parse_lcafs(cfg);
 
-
-    /* RETRIES */
-    ret = cfg_getint(cfg, "map-request-retries");
-    xtr->map_request_retries = (ret != 0) ? ret : DEFAULT_MAP_REQUEST_RETRIES;
-
-    /* RLOC PROBING CONFIG */
-    cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
-    if (dm != NULL) {
-        xtr->probe_interval = cfg_getint(dm, "rloc-probe-interval");
-        xtr->probe_retries = cfg_getint(dm, "rloc-probe-retries");
-        xtr->probe_retries_interval = cfg_getint(dm,
-                "rloc-probe-retries-interval");
-
-        validate_rloc_probing_parameters(&xtr->probe_interval,
-                &xtr->probe_retries, &xtr->probe_retries_interval);
-    } else {
-        OOR_LOG(LDBG_1, "Configuration file: RLOC probing not defined. "
-                "Setting default values: RLOC Probing Interval: %d sec.",
-        RLOC_PROBING_INTERVAL);
+    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
+        return (BAD);
     }
 
-    /* NAT Traversal options */
-    cfg_t *nt = cfg_getnsec(cfg, "nat-traversal", 0);
-    if (nt != NULL) {
-        xtr->nat_aware = cfg_getbool(nt, "nat_aware") ? TRUE:FALSE;
-        char *nat_site_ID = cfg_getstr(nt, "site_ID");
-        char *nat_xTR_ID  = cfg_getstr(nt, "xTR_ID");
-        if (xtr->nat_aware == TRUE){
-            if ((convert_hex_string_to_bytes(nat_site_ID,
-                    xtr->site_id.byte, 8)) != GOOD){
-                OOR_LOG(LCRIT, "Configuration file: Wrong Site-ID format");
-                exit_cleanup();
-            }
-            if ((convert_hex_string_to_bytes(nat_xTR_ID,
-                    xtr->xtr_id.byte, 16)) != GOOD){
-                OOR_LOG(LCRIT, "Configuration file: Wrong xTR-ID format");
-                exit_cleanup();
-            }
-        }
-    }else {
-        xtr->nat_aware = FALSE;
+    if (parse_map_servers(cfg, xtr) != GOOD){
+        return (BAD);
     }
-
-    /* MAP-RESOLVER CONFIG  */
-    n = cfg_size(cfg, "map-resolver");
-    for(i = 0; i < n; i++) {
-        if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
-            if (add_server(map_resolver, xtr->map_resolvers) == GOOD){
-                OOR_LOG(LDBG_1, "Added %s to map-resolver list", map_resolver);
-            }else{
-                OOR_LOG(LCRIT,"Can't add %s Map Resolver.",map_resolver);
-            }
-        }
+    if (parse_proxy_etrs(cfg, xtr) != GOOD){
+        return (BAD);
     }
-
-    /* MAP-SERVER CONFIG */
-    n = cfg_size(cfg, "map-server");
-    for (i = 0; i < n; i++) {
-        cfg_t *ms = cfg_getnsec(cfg, "map-server", i);
-        if (add_map_server(xtr->map_servers, cfg_getstr(ms, "address"),
-                cfg_getint(ms, "key-type"), cfg_getstr(ms, "key"),
-                (cfg_getbool(ms, "proxy-reply") ? 1 : 0)) == GOOD) {
-            OOR_LOG(LDBG_1, "Added %s to map-server list",
-                    cfg_getstr(ms, "address"));
-        } else {
-            OOR_LOG(LWRN, "Can't add %s Map Server.", cfg_getstr(ms, "address"));
-        }
+    if (parse_proxy_itrs(cfg, xtr) != GOOD){
+        return (BAD);
     }
-
-    /* PROXY-ETR CONFIG */
-    n = cfg_size(cfg, "proxy-etr");
-    for(i = 0; i < n; i++) {
-        cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
-        if (add_proxy_etr_entry(xtr->petrs,
-                cfg_getstr(petr, "address"),
-                cfg_getint(petr, "priority"),
-                cfg_getint(petr, "weight")) == GOOD) {
-            OOR_LOG(LDBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
-        } else{
-            OOR_LOG(LERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
-        }
-    }
-
-    /* Calculate forwarding info for petrs */
-    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
-    if (fwd_map_inf == NULL){
-        OOR_LOG(LDBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
-        mcache_entry_del(xtr->petrs);
-        return(BAD);
-    }
-    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
-
-
-    /* PROXY-ITR CONFIG */
-    n = cfg_size(cfg, "proxy-itrs");
-    for(i = 0; i < n; i++) {
-        if ((proxy_itr = cfg_getnstr(cfg, "proxy-itrs", i)) != NULL) {
-            if (add_server(proxy_itr, xtr->pitrs)==GOOD){
-                OOR_LOG(LDBG_1, "Added %s to proxy-itr list", proxy_itr);
-            }else {
-                OOR_LOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", proxy_itr);
-            }
-        }
-    }
-
-    n = cfg_size(cfg, "database-mapping");
-    for (i = 0; i < n; i++) {
-        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE);
-        if (mapping == NULL){
-            continue;
-        }
-        map_loc_e = map_local_entry_new_init(mapping);
-        if (map_loc_e == NULL){
-            mapping_del(mapping);
-            continue;
-        }
-        fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
-        if (fwd_map_inf == NULL){
-            OOR_LOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
-                    lisp_addr_to_char(mapping_eid(mapping)));
-            map_local_entry_del(map_loc_e);
-            continue;
-        }
-        map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
-        if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
-            map_local_entry_del(map_loc_e);
-        }
-    }
-
-    /* STATIC MAP-CACHE CONFIG */
-    n = cfg_size(cfg, "static-map-cache");
-    for (i = 0; i < n; i++) {
-        cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,FALSE);
-
-        if (mapping == NULL){
-            OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
-                    cfg_getstr(smc, "eid-prefix"));
-            continue;
-        }
-        if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
-            if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
-                        lisp_addr_to_char(mapping_eid(mapping)));
-            }else{
-                OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
-                        mapping_eid(mapping));
-                mapping_del(mapping);
-            }
-        }else{
-            OOR_LOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
-                    "Discarded ...",cfg_getstr(smc, "eid-prefix"));
-            mapping_del(mapping);
-            continue;
-        }
-        continue;
+    if (parse_database_mapping(cfg, xtr, lcaf_ht) != GOOD){
+        return (BAD);
     }
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
 
-    return(GOOD);
+    return (GOOD);
 }
 
 int
@@ -1057,6 +841,7 @@ handle_config_file(char **oor_conf_file)
             CFG_SEC("rtr-ifaces",           rtr_ifaces_opts,        CFGF_MULTI),
             CFG_SEC("proxy-etr",            petr_mapping_opts,      CFGF_MULTI),
             CFG_SEC("nat-traversal",        nat_traversal_opts,     CFGF_MULTI),
+            CFG_STR("encapsulation",        0,                      CFGF_NONE),
             CFG_SEC("rloc-probing",         rloc_probing_opts,      CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),

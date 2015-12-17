@@ -111,13 +111,13 @@ tun_configure_data_plane(oor_dev_type_e dev_type, ...)
 
     /* Generate receive sockets for data port (4341) */
     if (default_rloc_afi != AF_INET6) {
-        ipv4_data_input_fd = open_data_raw_input_socket(AF_INET);
+        ipv4_data_input_fd = open_data_raw_input_socket(AF_INET, LISP_DATA_PORT);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv4_data_input_fd);
     }
 
     if (default_rloc_afi != AF_INET) {
-        ipv6_data_input_fd = open_data_raw_input_socket(AF_INET6);
+        ipv6_data_input_fd = open_data_raw_input_socket(AF_INET6, VXLAN_GPE_DATA_PORT);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);
     }

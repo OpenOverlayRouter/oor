@@ -75,6 +75,11 @@ ms-static-registered-site {
 # Common for xTR, RTR & MN
 #
 
+# encapsulation: Encapsulation that will use OOR in the data plane. Could be
+#   LISP or VXLAN-GPE. LISP is selected by default
+
+encapsulation          = <LISP/VXLAN-GPE>
+
 
 # RLOC probing configuration
 #   rloc-probe-interval: interval at which periodic RLOC probes are sent

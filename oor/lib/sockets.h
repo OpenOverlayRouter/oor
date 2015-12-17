@@ -100,7 +100,7 @@ int sockmstr_unregister_read_listenedr(sockmstr_t *m, struct sock *sock);
 void sockmstr_process_all(sockmstr_t *m);
 void sockmstr_wait_on_all_read(sockmstr_t *m);
 
-int open_data_raw_input_socket(int afi);
+int open_data_raw_input_socket(int afi, uint16_t port);
 int open_data_datagram_input_socket(int afi);
 int open_control_input_socket(int afi);
 

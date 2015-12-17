@@ -89,6 +89,9 @@ char *pkt_tuple_to_char(packet_tuple_t *tpl);
 
 char * ip_src_and_dst_to_char(struct iphdr *iph, char *fmt);
 
+void pkt_add_uint32_in_3bytes (uint8_t *pkt, uint32_t val);
+uint32_t pkt_get_uint32_from_3bytes (uint8_t *pkt);
+
 
 
 /* Macros extracted from ROHC library code: http://rohc-lib.org/ */

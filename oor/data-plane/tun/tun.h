@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
+#include "../encapsulations/vxlan-gpe.h"
 #include "../../liblisp/liblisp.h"
 
 

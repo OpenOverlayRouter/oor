@@ -22,6 +22,7 @@
 
 #include "tun_output.h"
 #include "tun.h"
+#include "../encapsulations/vxlan-gpe.h"
 #include "../../fwd_policies/fwd_policy.h"
 #include "../../liblisp/liblisp.h"
 #include "../../lib/packets.h"
@@ -209,7 +210,15 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             lisp_addr_to_char(fe->srloc),
             lisp_addr_to_char(fe->drloc));
 
-    lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fe->srloc, fe->drloc);
+    switch (fi->encap){
+    case ENCP_LISP:
+        lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fe->srloc, fe->drloc);
+        break;
+    case ENCP_VXLAN_GPE:
+        vxlan_gpe_data_encap(b, VXLAN_GPE_DATA_PORT, VXLAN_GPE_DATA_PORT, fe->srloc, fe->drloc);
+        break;
+    }
+
 
     return(send_raw_packet(*(fe->out_sock), lbuf_data(b), lbuf_size(b),
                lisp_addr_ip(fe->drloc)));
