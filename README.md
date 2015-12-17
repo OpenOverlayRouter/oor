@@ -1,41 +1,37 @@
 Overview
 --------
 
-The Locator/ID Separation Protocol (LISP) is an IETF protocol that decouples the 
-semantics of identity and location on current IP addresses. It uses the concept 
-of Endpoint IDentifiers (EIDs) to name hosts in edge networks, and Routing LOCators 
-(RLOCs) for nodes in transit networks. EIDs and RLOCs are syntactically 
-indistinguishable from current IPv4 and IPv6 addresses, enabling backwards 
-compatibility with the existing Internet architecture. A distributed database, 
-the mapping system, is responsible for maintaining the associations between EIDs 
-and RLOCs. LISP Mobile Node (LISP-MN) is a specification to enable fast host mobility 
-using LISP.
+The OpenOverlayRouter (OOR) project aims to deliver a flexible and modular
+open-source implementation to deploy programmable overlay networks. It
+leverages on encapsulating overlay-specific packets into underlay-compatible
+packets at the edges of the instantiated overlay and route them over the
+physical underlying infrastructure. In order to do so, it maps overlay
+identifiers to underlay locators and keeps those mappings updated over 
+time. In the current version, OOR uses the LISP protocol for the 
+control-plane (e.g. mapping retrieval and updating, etc), NETCONF/YANG for 
+the management-plane (e.g. overlay identifiers provisioning, etc) and can 
+use both LISP and VXLAN-GPE headers for encapsulation. 
 
-The LISPmob project is an open source implementation of LISP (RFC6830) for Linux, 
-Android and OpenWRT. Since version 0.5, LISPmob can be used as an xTR, MS/MR, RTR 
-or LISP-MN
+Most of the OOR architecture revolves around the LISP protocol and its 
+components, that we introduce briefly here. The Locator/ID Separation 
+Protocol (LISP) is an IETF protocol (RFC6830) that decouples the semantics 
+of identity and location on current IP addresses. It uses the concept of 
+Endpoint IDentifiers (EIDs) to name hosts in edge networks, and Routing 
+LOCators (RLOCs) for nodes in transit networks. EIDs and RLOCs are 
+syntactically indistinguishable from current IPv4 and IPv6 addresses, 
+enabling backwards compatibility with the existing Internet architecture. 
+A distributed database, the Mapping System, is responsible for maintaining 
+the associations between EIDs and RLOCs. LISP Mobile Node (LISP-MN) is a 
+specification to enable fast host mobility using LISP. For convenience, OOR 
+uses terminology borrowed from the LISP protocol and thus uses the term EID 
+for the overlay identifiers and the term RLOC for the underlay locators. 
+Regarding the LISP devices that OOR implements, currently it can operate as 
+an xTR, MS/MR, RTR or LISP-MN.
 
-Please note that version 0.5 introduced major changes in the code architecture. Most 
-features present in previous version have been ported to 0.5, however not all of them 
-are currently supported (see section "Version 0.5" below for more details). If you are 
-interested in a specific function not yet implemented in version 0.5, use the latest 
-code in 'release-0.4.x' branch (currently 0.4.1) and refer to the README file there.
-
-LISPmob consists of three major components:
-
-  * data plane
-  * control plane
-  * tools
-
-The user space daemon 'lispd' is responsible for both control-plane and data-plane 
-functionality. It is responsible for creating a virtual interface for the EID(s), 
-encapsulating/decapsulating packets, maintaining the mapping cache, etc. (data plane 
-functionality) as well as for sending and receiving control messages, monitoring 
-interfaces, etc. (control plane functionality). Version 0.5 abstracts and modularizes 
-the data-plane in order to ease introduction of new implementations for the data-plane.
-
-The current reference platform for LISPmob development is Ubuntu Server 14.04.3
-LTS (Trusty Tahr), OpenWRT 15.05 (Chaos Calmer) and Android 4.3 (Jelly Bean). 
+Nowadays, OOR runs on desktop Linux, OpenWRT home routers and Android 
+devices. The current reference platform for OOR development is Ubuntu 
+Server 14.04.3 LTS (Trusty Tahr), OpenWRT 15.05 (Chaos Calmer) and 
+Android 4.3 (Jelly Bean). 
 
 Network Prerequisites
 ---------------------
