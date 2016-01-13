@@ -19,9 +19,16 @@
 
 
 #include "lisp_data.h"
+#include "../lib/packets.h"
+
+uint32_t
+lisp_data_hdr_get_iid(lisp_data_hdr_t *hdr)
+{
+    return (pkt_get_uint32_from_3bytes(hdr->iid));
+}
 
 void
-lisp_data_hdr_init(lisphdr_t *lhdr)
+lisp_data_hdr_init(lisp_data_hdr_t *lhdr, uint32_t iid)
 {
     lhdr->echo_nonce = 0;
     lhdr->lsb = 0;
@@ -30,6 +37,15 @@ lisp_data_hdr_init(lisphdr_t *lhdr)
     lhdr->nonce[0] = 0;
     lhdr->nonce[1] = 0;
     lhdr->nonce[2] = 0;
+    if (iid > 0){
+        lhdr->instance_id = 1;
+        pkt_add_uint32_in_3bytes (lhdr->iid, iid);;
+    }else{
+        lhdr->instance_id = 0;
+        lhdr->iid[0] = 0;
+        lhdr->iid[1] = 0;
+        lhdr->iid[2] = 0;
+    }
     lhdr->nonce_present = 0;
     lhdr->rflags = 0;
 }

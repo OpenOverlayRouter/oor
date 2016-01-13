@@ -40,7 +40,7 @@ vpnapi_read_and_decap_pkt(int sock, lbuf_t *b)
 {
     uint8_t ttl = 0, tos = 0;
     int afi;
-    lisphdr_t *lisp_hdr;
+    lisp_data_hdr_t *lisp_hdr;
 
     if (sock_data_recv(sock, b, &afi, &ttl, &tos) != GOOD) {
         return(BAD);

@@ -112,6 +112,7 @@ inline geo_t            *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
 inline iid_t            *lcaf_addr_get_iid(lcaf_addr_t *lcaf);
 
 inline int              lcaf_addr_is_mc(lcaf_addr_t *lcaf);
+inline int              lcaf_addr_is_iid(lcaf_addr_t *lcaf);
 
 inline void             lcaf_addr_set(lcaf_addr_t *lcaf, void *newaddr, uint8_t type);
 inline void             lcaf_addr_set_addr(lcaf_addr_t *lcaf, void *addr);
@@ -163,6 +164,7 @@ inline int              mc_type_cmp(void *mc1, void *mc2);
 inline void             mc_type_set(mc_t *dst, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 int                     mc_type_parse(uint8_t *offset, void **mc);
 lisp_addr_t *			mc_type_get_ip_addr (void *mc);
+lisp_addr_t *           mc_type_get_ip_pref_addr (void *mc);
 int                     lcaf_addr_set_mc(lcaf_addr_t *lcaf, lisp_addr_t *src, lisp_addr_t *grp, uint8_t splen, uint8_t gplen, uint32_t iid);
 lisp_addr_t             *lisp_addr_build_mc(lisp_addr_t *src, lisp_addr_t *grp);
 inline int              lisp_addr_is_mcinfo(lisp_addr_t *addr);
@@ -174,12 +176,12 @@ inline int              lisp_addr_is_mcinfo(lisp_addr_t *addr);
  */
 
 inline iid_t                *iid_type_new();
+iid_t *                     iid_type_new_init(int iid, lisp_addr_t *addr, uint8_t mlen);
 inline void                 iid_type_del(void *iid);
 inline uint8_t              iid_type_get_mlen(iid_t *iid);
 inline uint32_t             lcaf_iid_get_iid(lcaf_addr_t *iid);
 inline uint32_t             iid_type_get_iid(iid_t *iid);
 inline lisp_addr_t          *iid_type_get_addr(void *iid);
-
 inline void                 iid_type_set_iid(iid_t *addr, uint32_t iid);
 inline void                 iid_type_set_addr(iid_t *addr, lisp_addr_t *iidaddr);
 inline void                 iid_type_set_mlen(iid_t *addr, uint8_t mlen);
@@ -190,8 +192,11 @@ int                         iid_type_parse(uint8_t *offset, void **iid);
 char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);
 iid_t                       *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen);
-lcaf_addr_t                 *lcaf_iid_init(int iid, lisp_addr_t *addr, uint8_t mlen);
 lisp_addr_t *				iid_type_get_ip_addr(void *iid);
+lisp_addr_t *               iid_type_get_ip_pref_addr(void *iid);
+void                        lcaf_iid_init(lcaf_addr_t *iidaddr, int iid, lisp_addr_t *addr, uint8_t mlen);
+inline int                  lisp_addr_is_iid(lisp_addr_t *addr);
+lisp_addr_t *               lisp_addr_new_init_iid(int iid, lisp_addr_t *addr, uint8_t mlen);
 
 
 
@@ -283,8 +288,10 @@ char                        *afi_list_type_to_char(void *afil);
 void                        afi_list_type_copy(void **dst, void *src);
 int                         afi_list_type_cmp(void *afil1, void *afil2);
 lisp_addr_t *				afi_list_type_get_ip_addr(void *afi_list);
+lisp_addr_t *               afi_list_type_get_ip_pref_addr(void *afi_list);
 
 lisp_addr_t *				lcaf_get_ip_addr(lcaf_addr_t *lcaf);
+lisp_addr_t *               lcaf_get_ip_pref_addr(lcaf_addr_t *lcaf);
 
 int lcaf_rloc_set_ip_addr(lisp_addr_t *, lisp_addr_t *if_addr);
 #endif /* LISPD_LCAF_H_ */

@@ -82,9 +82,9 @@ static inline void *lisp_msg_auth_record(lbuf_t *);
 void *lisp_msg_pull_hdr(lbuf_t *b);
 void *lisp_msg_pull_auth_field(lbuf_t *b);
 
-void *lisp_data_push_hdr(lbuf_t *b);
+void *lisp_data_push_hdr(lbuf_t *b, uint32_t iid);
 void *lisp_data_pull_hdr(lbuf_t *b);
-void *lisp_data_encap(lbuf_t *, int, int, lisp_addr_t *, lisp_addr_t *);
+void *lisp_data_encap(lbuf_t *, int, int, lisp_addr_t *, lisp_addr_t *, uint32_t);
 
 static inline glist_t *laddr_list_new();
 static inline void laddr_list_init(glist_t *);

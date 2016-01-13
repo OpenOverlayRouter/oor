@@ -35,7 +35,7 @@
 
 
 int tun_output_recv(sock_t *sl);
-int tun_output(lbuf_t *);
+int tun_output(lbuf_t *, packet_tuple_t *);
 void tun_output_init();
 void tun_output_uninit();
 

@@ -43,6 +43,17 @@ inline mapping_t *
 mapping_new_init(lisp_addr_t *eid)
 {
     mapping_t *mapping;
+    lisp_addr_t *ip_pref;
+
+    if (lisp_addr_get_ip_pref_addr(eid) == NULL){
+        ip_pref = lisp_addr_get_ip_addr(eid);
+        if (!ip_pref){
+            OOR_LOG(LWRN, "mapping_new_init: Couldn't get eid prefix from %s", lisp_addr_to_char(eid));
+            return (NULL);
+        }
+        lisp_addr_ip_to_ippref(ip_pref);
+    }
+
     mapping = mapping_new();
     if (!mapping){
         OOR_LOG(LWRN, "mapping_new_init: Couldn't allocate mapping_t structure");
@@ -50,9 +61,6 @@ mapping_new_init(lisp_addr_t *eid)
     }
 
     lisp_addr_copy(&(mapping->eid_prefix), eid);
-    if (lisp_addr_lafi(&mapping->eid_prefix) == LM_AFI_IP){
-        lisp_addr_ip_to_ippref(&mapping->eid_prefix);
-    }
 
     return (mapping);
 }

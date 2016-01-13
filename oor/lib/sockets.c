@@ -33,7 +33,7 @@
 #include "../liblisp/liblisp.h"
 
 inline fwd_entry_t *
-fwd_entry_new_init(lisp_addr_t *srloc, lisp_addr_t *drloc, int *out_socket)
+fwd_entry_new_init(lisp_addr_t *srloc, lisp_addr_t *drloc, uint32_t iid, int *out_socket)
 {
     fwd_entry_t *fw_entry = xzalloc(sizeof(fwd_entry_t));
     if (!fw_entry){
@@ -41,6 +41,7 @@ fwd_entry_new_init(lisp_addr_t *srloc, lisp_addr_t *drloc, int *out_socket)
     }
     fw_entry->srloc = lisp_addr_clone(srloc);
     fw_entry->drloc = lisp_addr_clone(drloc);
+    fw_entry->iid = iid;
     fw_entry->out_sock = out_socket;
     return (fw_entry);
 }

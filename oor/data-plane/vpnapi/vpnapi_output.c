@@ -124,7 +124,7 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             lisp_addr_to_char(fe->drloc));
 
     /* push lisp data hdr */
-    lisp_data_push_hdr(b);
+    lisp_data_push_hdr(b, fe->iid);
 
     return(send_datagram_packet (*(fe->out_sock), lbuf_data(b), lbuf_size(b),
             fe->drloc, LISP_DATA_PORT));

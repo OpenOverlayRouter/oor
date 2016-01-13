@@ -33,11 +33,14 @@ static uint8_t pkt_recv_buf[MAX_IP_PKT_LEN+1];
 static lbuf_t pkt_buf;
 
 int
-tun_read_and_decap_pkt(int sock, lbuf_t *b)
+tun_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid)
 {
     uint8_t ttl = 0, tos = 0;
     int afi;
     struct udphdr *udph;
+    lisp_data_hdr_t *lisph;
+    vxlan_gpe_hdr_t *vxlanh;
+    int port;
 
     if (sock_data_recv(sock, b, &afi, &ttl, &tos) != GOOD) {
         return(BAD);
@@ -61,10 +64,22 @@ tun_read_and_decap_pkt(int sock, lbuf_t *b)
      * we only want LISP data ones */
     switch (ntohs(udph->dest)){
     case LISP_DATA_PORT:
-        lisp_data_pull_hdr(b);
+        lisph = lisp_data_pull_hdr(b);
+        if (LDHDR_LSB_BIT(lisph)){
+            *iid = lisp_data_hdr_get_iid(lisph);
+        }else{
+            *iid = 0;
+        }
+
+        port = LISP_DATA_PORT;
         break;
     case VXLAN_GPE_DATA_PORT:
-        vxlan_gpe_data_pull_hdr(b);
+
+        vxlanh = vxlan_gpe_data_pull_hdr(b);
+        if (VXLAN_HDR_VNI_BIT(vxlanh)){
+            *iid = vxlan_gpe_hdr_get_vni(vxlanh);
+        }
+        port = VXLAN_GPE_DATA_PORT;
         break;
     default:
         return (ERR_NOT_ENCAP);
@@ -77,8 +92,8 @@ tun_read_and_decap_pkt(int sock, lbuf_t *b)
      * NOTE: we always assume an IP payload*/
     ip_hdr_set_ttl_and_tos(lbuf_data(b), ttl, tos);
 
-    OOR_LOG(LDBG_3, "%s", ip_src_and_dst_to_char(lbuf_l3(b),
-            "INPUT (4341): Inner IP: %s -> %s"));
+    OOR_LOG(LDBG_3, "INPUT (%d): %s",port, ip_src_and_dst_to_char(lbuf_l3(b),
+            "Inner IP: %s -> %s"));
 
     return(GOOD);
 }
@@ -86,9 +101,10 @@ tun_read_and_decap_pkt(int sock, lbuf_t *b)
 int
 tun_process_input_packet(sock_t *sl)
 {
+    uint32_t iid;
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
 
-    if (tun_read_and_decap_pkt(sl->fd, &pkt_buf) != GOOD) {
+    if (tun_read_and_decap_pkt(sl->fd, &pkt_buf, &iid) != GOOD) {
         return (BAD);
     }
 
@@ -102,20 +118,25 @@ tun_process_input_packet(sock_t *sl)
 int
 tun_rtr_process_input_packet(struct sock *sl)
 {
+    packet_tuple_t tpl;
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
     /* Reserve space in case the received packet was IPv6. In this case the IPv6 header is
      * not provided */
     lbuf_reserve(&pkt_buf,LBUF_STACK_OFFSET);
 
-    if (tun_read_and_decap_pkt(sl->fd, &pkt_buf) != GOOD) {
+    if (tun_read_and_decap_pkt(sl->fd, &pkt_buf, &(tpl.iid)) != GOOD) {
         return (BAD);
     }
 
-    OOR_LOG(LDBG_3, "INPUT (4341): Forwarding to OUPUT for re-encapsulation");
+    OOR_LOG(LDBG_3, "Forwarding packet to OUPUT for re-encapsulation");
 
     lbuf_point_to_l3(&pkt_buf);
     lbuf_reset_ip(&pkt_buf);
-    tun_output(&pkt_buf);
+
+    if (pkt_parse_5_tuple(&pkt_buf, &tpl) != GOOD) {
+        return (BAD);
+    }
+    tun_output(&pkt_buf, &tpl);
 
     return(GOOD);
 }

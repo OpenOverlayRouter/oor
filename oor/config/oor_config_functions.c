@@ -22,6 +22,7 @@
 #include "oor_config_functions.h"
 #include "../data-plane/data-plane.h"
 #include "../lib/oor_log.h"
+#include "../lib/prefixes.h"
 
 /***************************** FUNCTIONS DECLARATION *************************/
 glist_t *fqdn_to_addresses(
@@ -543,13 +544,9 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     lisp_addr_t *ht_prefix;
     lisp_site_prefix_t *site;
 
-    if (iid > MAX_IID) {
+    if (iid > MAX_IID || iid < 0) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
                 "disabling...", iid, MAX_IID);
-        iid = 0;
-    }
-
-    if (iid < 0) {
         iid = 0;
     }
 
@@ -566,7 +563,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         }
         eid_prefix = lisp_addr_clone(ht_prefix);
     }
-
+    pref_conv_to_netw_pref(eid_prefix);
     site = lisp_site_prefix_init(eid_prefix, iid, key_type, key,
             more_specifics, proxy_reply, merge);
     lisp_addr_del(eid_prefix);
@@ -998,7 +995,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     glist_entry_t *it;
     locator_t *locator;
     glist_t *addr_list;
-    lisp_addr_t *eid_prefix;
+    lisp_addr_t *eid_prefix, *ip_eid_prefix;
     lisp_xtr_t *xtr;
     conf_loc_t *conf_loc;
     conf_loc_iface_t *conf_loc_iface;
@@ -1020,21 +1017,23 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     }
 
     eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
+    pref_conv_to_netw_pref(eid_prefix);
+    if (conf_mapping->iid > 0){
+        ip_eid_prefix = lisp_addr_clone(eid_prefix);
+        eid_prefix = lisp_addr_new_init_iid(conf_mapping->iid, ip_eid_prefix, 0);
+    }
 
     /* Create mapping */
+    mapping = mapping_new_init(eid_prefix);
+    if (conf_mapping->iid > 0){
+        lisp_addr_del(eid_prefix);
+    }
+    if (mapping == NULL){
+        return(NULL);
+    }
+    mapping_set_ttl(mapping, conf_mapping->ttl);
     if (is_local){
-        mapping = mapping_new_init(eid_prefix);
-        if (mapping == NULL){
-            return(NULL);
-        }
-        mapping_set_ttl(mapping, conf_mapping->ttl);
         mapping_set_auth(mapping, 1);
-    }else{
-        mapping = mapping_new_init(eid_prefix);
-        if (mapping == NULL){
-            return(NULL);
-        }
-        mapping_set_ttl(mapping, conf_mapping->ttl);
     }
 
     /* no need for the prefix */
@@ -1127,8 +1126,6 @@ int
 add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr)
 {
 	lisp_addr_t *eid = map_local_entry_eid(map_loca_entry);
-
-
     if (map_loca_entry == NULL){
         OOR_LOG(LERR, "Can't add mapping (NULL)");
         return (BAD);

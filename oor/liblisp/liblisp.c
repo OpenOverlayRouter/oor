@@ -737,16 +737,17 @@ lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type_e keyid)
 
 
 void *
-lisp_data_push_hdr(lbuf_t *b)
+lisp_data_push_hdr(lbuf_t *b, uint32_t iid)
 {
-    lisphdr_t *lhdr;
-    lhdr = lbuf_push_uninit(b, sizeof(lisphdr_t));
-    lisp_data_hdr_init(lhdr);
+    lisp_data_hdr_t *lhdr;
+    lhdr = lbuf_push_uninit(b, sizeof(lisp_data_hdr_t));
+
+    lisp_data_hdr_init(lhdr, iid);
     return(lhdr);
 }
 
 void *
-lisp_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
+lisp_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra, uint32_t iid)
 {
     int ttl = 0, tos = 0;
 
@@ -754,7 +755,7 @@ lisp_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
     ip_hdr_ttl_and_tos(lbuf_data(b), &ttl, &tos);
 
     /* push lisp data hdr */
-    lisp_data_push_hdr(b);
+    lisp_data_push_hdr(b, iid);
 
     /* push outer UDP and IP */
     pkt_push_udp_and_ip(b, lp, rp, lisp_addr_ip(la), lisp_addr_ip(ra));
@@ -767,7 +768,7 @@ lisp_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
 void *
 lisp_data_pull_hdr(lbuf_t *b)
 {
-    void *dt = lbuf_pull(b, sizeof(lisphdr_t));
+    void *dt = lbuf_pull(b, sizeof(lisp_data_hdr_t));
     return(dt);
 }
 

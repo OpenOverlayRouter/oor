@@ -29,9 +29,11 @@ lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
 
     lisp_site_prefix_t *sp = NULL;
     sp = xzalloc(sizeof(lisp_site_prefix_t));
-
-    sp->eid_prefix = lisp_addr_clone(eid);
-    sp->iid = iid;
+    if (iid > 0){
+        sp->eid_prefix = lisp_addr_new_init_iid(iid, lisp_addr_clone(eid), 0);
+    }else{
+        sp->eid_prefix = lisp_addr_clone(eid);
+    }
     sp->key_type = key_type;
     sp->key = strdup(key);
     sp->accept_more_specifics = more_specifics;

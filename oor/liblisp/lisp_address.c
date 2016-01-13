@@ -205,11 +205,18 @@ lisp_addr_size_to_write(lisp_addr_t *laddr)
 inline uint16_t
 lisp_addr_get_plen(lisp_addr_t *laddr)
 {
+    lisp_addr_t *pref_addr;
     switch (lisp_addr_lafi(laddr)) {
     case LM_AFI_IP:
         return (ip_addr_afi_to_default_mask(get_ip_(laddr)));
     case LM_AFI_IPPREF:
         return (ip_prefix_get_plen(get_ippref_(laddr)));
+    case LM_AFI_LCAF:
+        pref_addr = lisp_addr_get_ip_pref_addr(laddr);
+        if (pref_addr){
+            return (ip_prefix_get_plen(get_ippref_(pref_addr)));
+        }
+        break;
     default:
         break;
     }
@@ -359,6 +366,7 @@ lisp_addr_ip_set_afi(lisp_addr_t *laddr, int afi)
 inline void
 lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen)
 {
+    lisp_addr_t *laddr_pref;
     switch (get_lafi_(laddr)) {
     case LM_AFI_IP:
         set_lafi_(laddr, LM_AFI_IPPREF);
@@ -366,6 +374,17 @@ lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen)
         break;
     case LM_AFI_IPPREF:
         ip_prefix_set_plen(get_ippref_(laddr), plen);
+        break;
+    case LM_AFI_LCAF:
+        laddr_pref  = lisp_addr_get_ip_pref_addr(laddr);
+        if (!laddr_pref){
+            laddr_pref  = lisp_addr_get_ip_addr(laddr);
+            if (!laddr_pref){
+                OOR_LOG(LDBG_2, "lisp_addr_set_plen: lcaf address without prefix address");
+                return;
+            }
+        }
+        lisp_addr_set_plen(laddr_pref,plen);
         break;
     default:
         OOR_LOG(LDBG_2, "lisp_addr_set_plen: not supported for afi %d",
@@ -697,10 +716,27 @@ lisp_addr_get_ip_addr(lisp_addr_t *addr)
     case LM_AFI_IP:
     	return (addr);
     case LM_AFI_IPPREF:
-    	OOR_LOG(LWRN, "lisp_addr_get_ip_addr: Not applicable to prefixes");
+    	OOR_LOG(LDBG_2, "lisp_addr_get_ip_addr: Not applicable to prefixes");
         return (NULL);
     case LM_AFI_LCAF:
         return (lcaf_get_ip_addr(get_lcaf_(addr)));
+    default:
+        return (NULL);
+    }
+    return (NULL);
+}
+
+lisp_addr_t *
+lisp_addr_get_ip_pref_addr(lisp_addr_t *addr)
+{
+    switch (lisp_addr_lafi(addr)) {
+    case LM_AFI_IP:
+        OOR_LOG(LDBG_2, "lisp_addr_get_ip_pref_addr: Not applicable to ip addressess");
+        return (NULL);
+    case LM_AFI_IPPREF:
+        return (addr);
+    case LM_AFI_LCAF:
+        return (lcaf_get_ip_pref_addr(get_lcaf_(addr)));
     default:
         return (NULL);
     }

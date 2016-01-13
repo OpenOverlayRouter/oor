@@ -34,6 +34,7 @@ typedef int (*cmp_fct)(void *, void *);
 typedef int (*write_fct)(uint8_t *, void *);
 typedef int (*size_in_pkt_fct)(void *);
 typedef lisp_addr_t	*(*get_ip_addr_fct)(void *);
+typedef lisp_addr_t *(*get_ip_pref_addr_fct)(void *);
 
 
 del_fct del_fcts[MAX_LCAFS] = {
@@ -91,6 +92,13 @@ get_ip_addr_fct get_ip_addr_fcts[MAX_LCAFS] = {
         iid_type_get_ip_addr, 0, 0, 0,
         0, 0, 0,
         mc_type_get_ip_addr, elp_type_get_ip_addr, 0, 0,
+        0, 0, 0};
+
+get_ip_pref_addr_fct get_ip_pref_addr_fcts[MAX_LCAFS] = {
+        0, afi_list_type_get_ip_pref_addr,
+        iid_type_get_ip_pref_addr, 0, 0, 0,
+        0, 0, 0,
+        mc_type_get_ip_pref_addr,0, 0, 0,
         0, 0, 0};
 
 
@@ -182,6 +190,7 @@ lcaf_addr_parse(uint8_t *offset, lcaf_addr_t *lcaf)
                 lcaf_addr_get_type(lcaf));
         return(BAD);
     }
+
     len = parse_fcts[lcaf_addr_get_type(lcaf)](offset, &lcaf->addr);
     if (len != ntohs(((lcaf_hdr_t *)offset)->len) + sizeof(lcaf_hdr_t)) {
         OOR_LOG(LDBG_3, "lcaf_addr_read_from_pkt: len field %d, without header, and the number of "
@@ -240,9 +249,18 @@ inline int
 lcaf_addr_is_mc(lcaf_addr_t *lcaf)
 {
     if (lcaf_addr_get_type(lcaf) == LCAF_MCAST_INFO)
-        return(1);
+        return(TRUE);
     else
-        return(0);
+        return(FALSE);
+}
+
+inline int
+lcaf_addr_is_iid(lcaf_addr_t *lcaf)
+{
+    if (lcaf_addr_get_type(lcaf) == LCAF_IID)
+        return(TRUE);
+    else
+        return(FALSE);
 }
 
 
@@ -688,7 +706,12 @@ mc_type_get_ip_addr (void *mc)
 	return(lisp_addr_get_ip_addr(addr));
 }
 
-
+lisp_addr_t *
+mc_type_get_ip_pref_addr (void *mc)
+{
+    lisp_addr_t *addr = mc_type_get_src((mc_t*)(mc));
+    return(lisp_addr_get_ip_pref_addr(addr));
+}
 
 /*
  * iid_addr_t functions
@@ -698,8 +721,17 @@ iid_type_new()
 {
     iid_t *iid;
     iid = xzalloc(sizeof(iid_t));
-    iid->iidaddr = lisp_addr_new();
     return(iid);
+}
+
+iid_t *
+iid_type_new_init(int iid, lisp_addr_t *addr, uint8_t mlen)
+{
+    iid_t *iidt = iid_type_new();
+    iidt->iid = iid;
+    iidt->iidaddr = addr;
+    iidt->mlen = mlen;
+    return(iidt);
 }
 
 inline void
@@ -781,26 +813,35 @@ iid_type_get_size_to_write(void *iid)
 inline int
 iid_type_write_to_pkt(uint8_t *offset, void *iid)
 {
-    ((lcaf_iid_hdr_t *)offset)->afi = htons(LISP_AFI_LCAF);
-    ((lcaf_iid_hdr_t *)offset)->rsvd1 = 0;
-    ((lcaf_iid_hdr_t *)offset)->flags = 0;
-    ((lcaf_iid_hdr_t *)offset)->type = LCAF_IID;
-    ((lcaf_iid_hdr_t *)offset)->mlen = iid_type_get_mlen(iid);
-    ((lcaf_iid_hdr_t *)offset)->len = htons(iid_type_get_size_to_write(iid));
-    ((lcaf_iid_hdr_t *)offset)->iid = htonl(iid_type_get_iid(iid));
-    return(sizeof(lcaf_iid_hdr_t) +
-            lisp_addr_write(CO(offset, sizeof(lcaf_iid_hdr_t)), iid_type_get_addr(iid)));
+    int len;
+    uint8_t *cur_ptr = offset;
+    ((lcaf_iid_hdr_t *)cur_ptr)->afi = htons(LISP_AFI_LCAF);
+    ((lcaf_iid_hdr_t *)cur_ptr)->rsvd1 = 0;
+    ((lcaf_iid_hdr_t *)cur_ptr)->flags = 0;
+    ((lcaf_iid_hdr_t *)cur_ptr)->type = LCAF_IID;
+    ((lcaf_iid_hdr_t *)cur_ptr)->mlen = iid_type_get_mlen(iid);
+    ((lcaf_iid_hdr_t *)cur_ptr)->iid = htonl(iid_type_get_iid(iid));
+    offset = CO(offset, sizeof(lcaf_iid_hdr_t));
+    len = lisp_addr_write(offset, iid_type_get_addr(iid));
+    ((lcaf_iid_hdr_t *)cur_ptr)->len = htons(len + sizeof(uint32_t));
+    len += sizeof(lcaf_iid_hdr_t);
+
+    return(len);
 }
 
 int
 iid_type_parse(uint8_t *offset, void **iid)
 {
+    int len;
     *iid = iid_type_new();
+    iid_type_set_addr(*iid, lisp_addr_new());
+
     iid_type_set_mlen(*iid, ((lcaf_iid_hdr_t *)offset)->mlen);
-    iid_type_set_iid(*iid, ((lcaf_iid_hdr_t *)offset)->iid);
+    iid_type_set_iid(*iid, ntohl(((lcaf_iid_hdr_t *)offset)->iid));
 
     offset = CO(offset, sizeof(lcaf_iid_hdr_t));
-    return(lisp_addr_parse(offset, iid_type_get_addr(*iid)) + sizeof(lcaf_iid_hdr_t));
+    len = lisp_addr_parse(offset, iid_type_get_addr(*iid)) + sizeof(lcaf_iid_hdr_t);
+    return(len);
 }
 
 char *
@@ -822,40 +863,57 @@ iid_type_to_char(void *iid)
 void
 iid_type_copy(void **dst, void *src)
 {
-    if (!(*dst))
-        *dst = iid_type_new();
-    lisp_addr_copy(iid_type_get_addr((iid_t *)*dst), iid_type_get_addr((iid_t *)src));
-    iid_type_set_iid((iid_t *)*dst, iid_type_get_iid((iid_t *)src));
-    iid_type_set_mlen((iid_t*)*dst, iid_type_get_mlen(src));
+    if (!(*dst)){
+        *dst = iid_type_new_init(
+                iid_type_get_iid((iid_t *)src),
+                lisp_addr_clone(iid_type_get_addr((iid_t *)src)),
+                iid_type_get_mlen(src));
+    }else{
+        lisp_addr_copy(iid_type_get_addr((iid_t *)*dst), iid_type_get_addr((iid_t *)src));
+        iid_type_set_iid((iid_t *)*dst, iid_type_get_iid((iid_t *)src));
+        iid_type_set_mlen((iid_t*)*dst, iid_type_get_mlen(src));
+    }
 }
-
-iid_t *
-iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen)
-{
-    iid_t *iidt = iid_type_new();
-    iidt->iid = iid;
-    iidt->iidaddr = lisp_addr_clone(addr);
-    iidt->mlen = mlen;
-    return(iidt);
-}
-
-lcaf_addr_t *
-lcaf_iid_init(int iid, lisp_addr_t *addr, uint8_t mlen)
-{
-    lcaf_addr_t *iidaddr    = lcaf_addr_new();
-
-    iidaddr->type = LCAF_IID;
-    iidaddr->addr = iid_type_init(iid, addr, mlen);
-
-    return(iidaddr);
-}
-
 
 lisp_addr_t *
 iid_type_get_ip_addr(void *iid)
 {
 	return (lisp_addr_get_ip_addr(((iid_t *)iid)->iidaddr));
 }
+
+lisp_addr_t *
+iid_type_get_ip_pref_addr(void *iid)
+{
+    return (lisp_addr_get_ip_pref_addr(((iid_t *)iid)->iidaddr));
+}
+
+inline int
+lisp_addr_is_iid(lisp_addr_t *addr)
+{
+    return(lisp_addr_lafi(addr) == LM_AFI_LCAF && lisp_addr_lcaf_type(addr) == LCAF_IID);
+}
+
+
+
+void
+lcaf_iid_init(lcaf_addr_t *iidaddr, int iid, lisp_addr_t *addr, uint8_t mlen)
+{
+    iidaddr->type = LCAF_IID;
+    iidaddr->addr = iid_type_new_init(iid, addr, mlen);
+}
+
+
+inline lisp_addr_t *
+lisp_addr_new_init_iid(int iid, lisp_addr_t *addr, uint8_t mlen)
+{
+    lisp_addr_t *iid_addr;
+
+    iid_addr = lisp_addr_new_lafi(LM_AFI_LCAF);
+    lcaf_iid_init(&iid_addr->lcaf, iid, addr,mlen);
+
+    return (iid_addr);
+}
+
 
 /*
  * geo_addr_t functions
@@ -1727,7 +1785,28 @@ afi_list_type_get_ip_addr(void *afi_list)
 	return (NULL);
 }
 
-/* obtain IP address from LCAF EIDs */
+/*
+ * Returns the first IPv4 or IPv6 prefix of the list
+ */
+lisp_addr_t *
+afi_list_type_get_ip_pref_addr(void *afi_list)
+{
+    glist_entry_t *it = NULL;
+    lisp_addr_t *addr = NULL;
+    lisp_addr_t *ip_pref = NULL;
+
+    glist_for_each_entry(it, ((afi_list_t *)afi_list)->list_addr){
+        addr = (lisp_addr_t *)glist_entry_data(it);
+        ip_pref = lisp_addr_get_ip_pref_addr(addr);
+        if (ip_pref != NULL){
+            // XXX Study if this behaviour is correct
+            return (ip_pref);
+        }
+    }
+    return (NULL);
+}
+
+/* obtain IP address from LCAF */
 lisp_addr_t *
 lcaf_get_ip_addr(lcaf_addr_t *lcaf)
 {
@@ -1739,6 +1818,18 @@ lcaf_get_ip_addr(lcaf_addr_t *lcaf)
 	return (*get_ip_addr_fcts[get_type_(lcaf)])(get_addr_(lcaf));
 }
 
+
+/* obtain IP Prefix from LCAF */
+lisp_addr_t *
+lcaf_get_ip_pref_addr(lcaf_addr_t *lcaf)
+{
+    if (!get_ip_pref_addr_fcts[get_type_(lcaf)]) {
+        OOR_LOG(LDBG_1, "lcaf_get_ip_pref_addr: lcaf type %d not supported", get_type_(lcaf));
+        return (NULL);
+    }
+
+    return (*get_ip_pref_addr_fcts[get_type_(lcaf)])(get_addr_(lcaf));
+}
 
 
 

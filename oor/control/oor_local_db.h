@@ -36,7 +36,7 @@ local_map_db_t *local_map_db_new();
 void local_map_db_del(local_map_db_t *lmdb);
 int local_map_db_add_entry(local_map_db_t *, map_local_entry_t *);
 void local_map_db_del_entry(local_map_db_t *, lisp_addr_t *);
-map_local_entry_t *local_map_db_lookup_eid(local_map_db_t *, lisp_addr_t *);
+map_local_entry_t *local_map_db_lookup_eid(local_map_db_t *, lisp_addr_t *, uint8_t);
 map_local_entry_t *local_map_db_lookup_eid_exact(local_map_db_t *, lisp_addr_t *);
 
 
@@ -48,16 +48,22 @@ inline int local_map_db_n_entries(local_map_db_t *);
 
 
 
-#define local_map_db_foreach_entry(LMDB, EIT)           \
-    mdb_foreach_entry((LMDB)->db, (EIT)) {              \
-        if ((EIT))
+#define local_map_db_foreach_entry(_LMDB, _EIT)           \
+    mdb_foreach_entry((_LMDB)->db, (_EIT)) {              \
 
 #define local_map_db_foreach_end                        \
     } mdb_foreach_entry_end
 
+#define local_map_db_foreach_entry_with_break(_LMDB, _EIT, _break)           \
+    mdb_foreach_entry_with_break((_LMDB)->db, (_EIT), _break) {              \
+
+#define local_map_db_foreach_with_break_end(_break)                        \
+    } mdb_foreach_entry_with_break_end(_break)
+
+#define local_map_db_foreach_break
+
 #define local_map_db_foreach_ip_entry(LMDB, EIT)        \
     mdb_foreach_ip_entry((LMDB)->db, (EIT)) {           \
-        if ((EIT))
 
 #define local_map_db_foreach_ip_end                     \
     } mdb_foreach_ip_entry_end

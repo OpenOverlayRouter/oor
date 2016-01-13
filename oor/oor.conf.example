@@ -185,12 +185,14 @@ proxy-etr {
 
 # IPv4 / IPv6 EID of the node.
 #   eid-prefix: EID prefix (ip-prefix/mask) of the mapping
+#   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
+#     the VNI of the mapping.
 # Two types of RLOCs can be defined:
 #   rloc-address: Specifies directly the RLOC of the interface
 #     address: It could be one of the following cases
 #       - IPv4 or IPv6 address of the RLOC. Address should exist and
 #        be assigned to an UP interface during startup process otherwise
-  #      it is discarded.
+#        it is discarded.
 #       - ELP name
 #   rloc-iface: Specifies the interface associated with the RLOC
 #     interface: interface containing the RLOCs associated to this mapping 
@@ -205,6 +207,7 @@ proxy-etr {
 
 database-mapping {
     eid-prefix          = <ip-prefix/mask>
+    iid                 = 0
     rloc-address {
         address         = <string>
         priority        = <int>

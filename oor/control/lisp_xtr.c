@@ -407,7 +407,7 @@ tr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 
         if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
             /* Check the existence of the requested EID */
-            map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, deid);
+            map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, deid, TRUE);
             if (!map_loc_e) {
                 OOR_LOG(LDBG_1,"EID %s not locally configured!",
                         lisp_addr_to_char(deid));
@@ -591,13 +591,12 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
 
         eid = mapping_eid(m);
         map_loc_e = local_map_db_lookup_eid_exact(xtr->local_mdb, eid);
-        local_map = map_local_entry_mapping(map_loc_e);
-
-        if (!local_map) {
+        if (!map_loc_e) {
             OOR_LOG(LDBG_1, "Map-Notify confirms registration of UNKNOWN EID %s."
                     " Dropping!", lisp_addr_to_char(eid));
             continue;
         }
+        local_map = map_local_entry_mapping(map_loc_e);
 
         OOR_LOG(LDBG_1, "Map-Notify message confirms correct registration of %s."
                 "Programing next Map-Register in %d seconds",lisp_addr_to_char(eid),
@@ -612,9 +611,6 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
         mapping_del(m);
         htable_nonces_reset_nonces_lst(nonces_ht,nonces_lst);
         oor_timer_start(timer,MAP_REGISTER_INTERVAL);
-
-
-
     }
 
     return(GOOD);
@@ -641,13 +637,12 @@ handle_map_cache_miss(lisp_xtr_t *xtr, lisp_addr_t *requested_eid,
         return(BAD);
     }
     mcache_entry_set_routing_info(mce,routing_inf,xtr->fwd_policy->del_map_cache_policy_inf);
-    if (mcache_add_entry(xtr->map_cache, mapping_eid(m), mce) != GOOD) {
+    if (mcache_add_entry(xtr->map_cache, requested_eid, mce) != GOOD) {
         OOR_LOG(LWRN, "Couln't install temporary map cache entry for %s!",
                 lisp_addr_to_char(requested_eid));
         mcache_entry_del(mce);
         return(BAD);
     }
-
     timer_arg = timer_map_req_arg_new_init(mce,src_eid);
     timer = oor_timer_with_nonce_new(MAP_REQUEST_RETRY_TIMER,xtr,send_map_request_retry_cb,
             timer_arg,(oor_timer_del_cb_arg_fn)timer_map_req_arg_free);
@@ -800,22 +795,9 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
 
         OOR_LOG(LDBG_1, "Start SMR for local EID %s", lisp_addr_to_char(eid));
 
-        /* For each map cache entry with same afi as local EID mapping */
-        if (lisp_addr_lafi(eid) == LM_AFI_IP ) {
-            OOR_LOG(LDBG_3, "send_all_smr_and_reg: SMR request for %s. Shouldn't "
-                    "receive SMR for IP in mapping?!", lisp_addr_to_char(eid));
-        } else if (lisp_addr_lafi(eid) != LM_AFI_IPPREF) {
-            OOR_LOG(LDBG_3, "send_all_smr_and_reg: SMR request for %s. SMR "
-                    "supported only for IP-prefixes for now!",
-                    lisp_addr_to_char(eid));
-            continue;
-        }
-
         /* no SMRs for now for multicast */
         if (lisp_addr_is_mc(eid))
             continue;
-
-        glist_dump(map_loc_e_list,(glist_to_char_fct)map_local_entry_to_char,LDBG_1);
 
 
         /* TODO: spec says SMRs should be sent only to peer ITRs that sent us
@@ -2082,8 +2064,7 @@ map_servers_dump(lisp_xtr_t *xtr, int log_level)
 //                lcaf_addr_get_type(lcaf));
 //        return (BAD);
 //    }
-//}
-
+//
 
 static fwd_info_t *
 tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
@@ -2092,6 +2073,8 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     mcache_entry_t *mce = NULL;
     map_local_entry_t *map_loc_e = NULL;
     mapping_t *dmap = NULL;
+    lisp_addr_t *eid;
+    lisp_addr_t *src_eid, *dst_eid;
 
     fwd_info = fwd_info_new();
     if(fwd_info == NULL){
@@ -2101,33 +2084,49 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
 
     if (xtr->super.mode == xTR_MODE || xtr->super.mode == MN_MODE) {
         /* lookup local mapping for source EID */
-        map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr);
+        map_loc_e = local_map_db_lookup_eid(xtr->local_mdb, &tuple->src_addr, FALSE);
         if (map_loc_e == NULL){
             OOR_LOG(LDBG_3, "The source address %s is not a local EID", lisp_addr_to_char(&tuple->src_addr));
             return (fwd_info);
         }
+        eid = map_local_entry_eid(map_loc_e);
+        if (lisp_addr_is_iid(eid)){
+            tuple->iid = lcaf_iid_get_iid(lisp_addr_get_lcaf(eid));
+        }else{
+            tuple->iid = 0;
+        }
     }else {
         map_loc_e = xtr->all_locs_map;
     }
+    if (tuple->iid > 0){
+        src_eid = lisp_addr_new_init_iid(tuple->iid, lisp_addr_clone(&tuple->src_addr), 0);
+        dst_eid = lisp_addr_new_init_iid(tuple->iid, lisp_addr_clone(&tuple->dst_addr), 0);
+    }else{
+        src_eid = lisp_addr_clone(&tuple->src_addr);
+        dst_eid = lisp_addr_clone(&tuple->dst_addr);
+    }
 
-    mce = mcache_lookup(xtr->map_cache, &tuple->dst_addr);
-
+    mce = mcache_lookup(xtr->map_cache, dst_eid);
     if (!mce) {
         fwd_info->temporal = TRUE;
         OOR_LOG(LDBG_1, "No map cache for EID %s. Sending Map-Request!",
-                lisp_addr_to_char(&tuple->dst_addr));
-        handle_map_cache_miss(xtr, &tuple->dst_addr, &tuple->src_addr);
+                lisp_addr_to_char(dst_eid));
+        handle_map_cache_miss(xtr, dst_eid, src_eid);
         if (mcache_has_locators(xtr->petrs) == FALSE){
             OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+            lisp_addr_del(src_eid);
+            lisp_addr_del(dst_eid);
             return (fwd_info);
         }
         mce = xtr->petrs;
     } else if (mce->active == NOT_ACTIVE) {
         fwd_info->temporal = TRUE;
         OOR_LOG(LDBG_2, "Already sent Map-Request for %s. Waiting for reply!",
-                lisp_addr_to_char(&tuple->dst_addr));
+                lisp_addr_to_char(dst_eid));
         if (mcache_has_locators(xtr->petrs) == FALSE){
             OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+            lisp_addr_del(src_eid);
+            lisp_addr_del(dst_eid);
             return (fwd_info);
         }
         OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
@@ -2137,9 +2136,11 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     dmap = mcache_entry_mapping(mce);
     if (mapping_locator_count(dmap) == 0) {
         OOR_LOG(LDBG_3, "Destination %s has a NEGATIVE mapping!",
-                lisp_addr_to_char(&tuple->dst_addr));
+                lisp_addr_to_char(dst_eid));
         if (mcache_has_locators(xtr->petrs) == FALSE){
             OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+            lisp_addr_del(src_eid);
+            lisp_addr_del(dst_eid);
             return (fwd_info);
         }
         OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
@@ -2156,7 +2157,7 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
 
     if (!fwd_info->fwd_info){
         if (mce != xtr->petrs){
-            if (mcache_has_locators(xtr->petrs) == FALSE){
+            if (mcache_has_locators(xtr->petrs) == TRUE){
                 OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
                 mce = xtr->petrs;
                 xtr->fwd_policy->policy_get_fwd_info(
@@ -2176,7 +2177,8 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     }
     /* Assign encapsulated that should be used */
     fwd_info->encap = xtr->encap_type;
-
+    lisp_addr_del(src_eid);
+    lisp_addr_del(dst_eid);
     return (fwd_info);
 }
 
@@ -2223,19 +2225,25 @@ get_local_locators_with_address(local_map_db_t *local_db, lisp_addr_t *addr)
 map_local_entry_t *
 get_map_loc_ent_containing_loct_ptr(local_map_db_t *local_db, locator_t *locator)
 {
-    map_local_entry_t *map_loc_e = NULL;
+    map_local_entry_t *map_loc_e;
+    map_local_entry_t *map_loc_e_res = NULL;
     mapping_t *mapping = NULL;
+    uint8_t found = FALSE;
     void *it = NULL;
-    local_map_db_foreach_entry(local_db, it) {
+    local_map_db_foreach_entry_with_break(local_db, it, found) {
         map_loc_e = (map_local_entry_t *)it;
         mapping = map_local_entry_mapping(map_loc_e);
         if (mapping_has_locator(mapping, locator) == TRUE){
-            return (map_loc_e);
+            found = TRUE;
+            map_loc_e_res = map_loc_e;
         }
-    } local_map_db_foreach_end;
-    OOR_LOG(LDBG_2, "get_map_loc_ent_containing_loct_ptr: No mapping has been found with locator %s",
-            lisp_addr_to_char(locator_addr(locator)));
-    return (NULL);
+    } local_map_db_foreach_with_break_end(found);
+    if (!map_loc_e_res){
+        OOR_LOG(LDBG_2, "get_map_loc_ent_containing_loct_ptr: No mapping has been found with locator %s",
+                lisp_addr_to_char(locator_addr(locator)));
+    }
+    return (map_loc_e_res);
+
 }
 
 

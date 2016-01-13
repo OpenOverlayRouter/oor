@@ -184,32 +184,35 @@ tun_add_datap_iface_addr(iface_t *iface, int afi)
 
 int
 tun_add_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix){
+
+    lisp_addr_t *eid_ip_prefix = lisp_addr_get_ip_pref_addr(eid_prefix);
+
     switch(dev_type){
     case xTR_MODE:
         /* Route to send dtraffic to TUN */
-        if (add_rule(lisp_addr_ip_afi(eid_prefix),
+        if (add_rule(lisp_addr_ip_afi(eid_ip_prefix),
                 0,
                 LISP_TABLE,
                 RULE_TO_LISP_TABLE_PRIORITY,
                 RTN_UNICAST,
-                eid_prefix,
+                eid_ip_prefix,
                 NULL,0)!=GOOD){
             return (BAD);
         }
         /* Route to avoid to encapsulate traffic destined to the RLOC lan */
-        if (add_rule(lisp_addr_ip_afi(eid_prefix),
+        if (add_rule(lisp_addr_ip_afi(eid_ip_prefix),
                 0,
                 RT_TABLE_MAIN,
                 RULE_AVOID_LISP_TABLE_PRIORITY,
                 RTN_UNICAST,
                 NULL,
-                eid_prefix,
+                eid_ip_prefix,
                 0)!=GOOD){
             return (BAD);
         }
         break;
     case MN_MODE:
-        configure_routing_to_tun_mn(eid_prefix);
+        configure_routing_to_tun_mn(eid_ip_prefix);
         break;
     case RTR_MODE:
     default:

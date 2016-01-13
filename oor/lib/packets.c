@@ -276,25 +276,29 @@ pkt_tuple_hash(packet_tuple_t *tuple)
         /* 1 integer src_addr
          * + 1 integer dst_adr
          * + 1 integer (ports)
-         * + 1 integer protocol */
-        len = 4;
+         * + 1 integer protocol
+         * + 1 iid*/
+        len = 5;
         tuples = xmalloc(len * sizeof(uint32_t));
         lisp_addr_copy_to(&tuples[0], &tuple->src_addr);
         lisp_addr_copy_to(&tuples[1], &tuple->dst_addr);
         tuples[2] = port;
         tuples[3] = tuple->protocol;
+        tuples[4] = tuple->iid;
         break;
     case AF_INET6:
         /* 4 integer src_addr
          * + 4 integer dst_adr
          * + 1 integer (ports)
-         * + 1 integer protocol */
-        len = 10;
+         * + 1 integer protocol
+         * + 1 iid */
+        len = 11;
         tuples = xmalloc(len * sizeof(uint32_t));
         lisp_addr_copy_to(&tuples[0], &tuple->src_addr);
         lisp_addr_copy_to(&tuples[4], &tuple->dst_addr);
         tuples[8] = port;
         tuples[9] = tuple->protocol;
+        tuples[10] = tuple->iid;
         break;
     }
 
@@ -310,7 +314,8 @@ pkt_tuple_cmp(packet_tuple_t *t1, packet_tuple_t *t2)
     return(t1->src_port == t2->src_port
            && t1->dst_port == t2->dst_port
            && (lisp_addr_cmp(&t1->src_addr, &t2->src_addr) == 0)
-           && (lisp_addr_cmp(&t1->dst_addr, &t2->dst_addr) == 0));
+           && (lisp_addr_cmp(&t1->dst_addr, &t2->dst_addr) == 0)
+           && t1->iid == t2->iid);
 }
 
 packet_tuple_t *
@@ -322,6 +327,7 @@ pkt_tuple_clone(packet_tuple_t *tpl)
     cpy->protocol = tpl->protocol;
     lisp_addr_copy(&cpy->src_addr, &tpl->src_addr);
     lisp_addr_copy(&cpy->dst_addr, &tpl->dst_addr);
+    cpy->iid = tpl->iid;
     return(cpy);
 }
 
@@ -366,6 +372,7 @@ pkt_tuple_to_char(packet_tuple_t *tpl)
     }
     sprintf(buf[i] + strlen(buf[i]), "Src Port: %d, ",tpl->src_port);
     sprintf(buf[i] + strlen(buf[i]), "Dst Port: %d\n",tpl->dst_port);
+    sprintf(buf[i] + strlen(buf[i]), "IID|VNI: %d\n",tpl->iid);
 
     return (buf[i]);
 }

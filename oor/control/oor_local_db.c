@@ -52,7 +52,11 @@ local_map_db_del(local_map_db_t *lmdb)
 int
 local_map_db_add_entry(local_map_db_t *lmdb, map_local_entry_t *map_loc_e)
 {
-    if (mdb_add_entry(lmdb->db, map_local_entry_eid(map_loc_e), map_loc_e) != GOOD) {
+    lisp_addr_t *eid, *ip_pref;
+
+    eid = map_local_entry_eid(map_loc_e);
+    ip_pref = lisp_addr_get_ip_pref_addr(eid);
+    if (mdb_add_entry(lmdb->db, ip_pref, map_loc_e) != GOOD) {
         OOR_LOG(LDBG_3, "Couldn't add mapping for EID %s to local mappings database",
                 lisp_addr_to_char(map_local_entry_eid(map_loc_e)));
         return(BAD);
@@ -61,35 +65,80 @@ local_map_db_add_entry(local_map_db_t *lmdb, map_local_entry_t *map_loc_e)
 }
 
 map_local_entry_t *
-local_map_db_lookup_eid(local_map_db_t *lmdb, lisp_addr_t *eid)
+local_map_db_lookup_eid(local_map_db_t *lmdb, lisp_addr_t *eid, uint8_t check_iid)
 {
 	map_local_entry_t *map_loc_e = NULL;
+	uint32_t iid = 0;
+	lisp_addr_t *ip_pref_eid, *db_eid;
 
-	map_loc_e = (map_local_entry_t *)mdb_lookup_entry(lmdb->db, eid);
+
+	if (lisp_addr_is_lcaf(eid)){
+	    if (lcaf_addr_is_iid (lisp_addr_get_lcaf(eid)) == FALSE){
+	        OOR_LOG(LDBG_2, "local_map_db_lookup_eid: LCAF %d not supported for EID", lisp_addr_to_char(eid));
+	        return (NULL);
+	    }
+	    iid = lcaf_iid_get_iid(lisp_addr_get_lcaf(eid));
+	    ip_pref_eid = lisp_addr_get_ip_pref_addr(eid);
+	}else{
+	    ip_pref_eid = eid;
+	}
+
+	map_loc_e = (map_local_entry_t *)mdb_lookup_entry(lmdb->db, ip_pref_eid);
     if (!map_loc_e) {
         OOR_LOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database",
                 lisp_addr_to_char(eid));
         return (NULL);
     }
+
+    if (check_iid){
+        db_eid = map_local_entry_eid(map_loc_e);
+        if (iid > 0){
+            if (iid != lcaf_iid_get_iid(lisp_addr_get_lcaf(db_eid))){
+                OOR_LOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database. IID not match",
+                        lisp_addr_to_char(eid));
+                return (NULL);
+            }
+        }else if (lisp_addr_is_lcaf(db_eid)){
+            OOR_LOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database. Different IID",
+                    lisp_addr_to_char(eid));
+            return (NULL);
+        }
+    }
+
     return (map_loc_e);
 }
 
 map_local_entry_t *
 local_map_db_lookup_eid_exact(local_map_db_t *lmdb, lisp_addr_t *eid)
 {
-	map_local_entry_t *map_loc_e = NULL;
+	map_local_entry_t *map_loc_e;
+    lisp_addr_t *ip_pref_eid, *db_eid;
 
-    if (lisp_addr_lafi(eid) == LM_AFI_IP) {
-        OOR_LOG(LWRN, "Called with IP EID %s, probably it should've been an "
-                "IPPREF", lisp_addr_to_char(eid));
+
+    if (lisp_addr_is_lcaf(eid)){
+        if (lcaf_addr_is_iid (lisp_addr_get_lcaf(eid)) == FALSE){
+            OOR_LOG(LDBG_2, "local_map_db_lookup_eid: LCAF %d not supported for EID", lisp_addr_to_char(eid));
+            return (NULL);
+        }
+        ip_pref_eid = lisp_addr_get_ip_pref_addr(eid);
+    }else{
+        ip_pref_eid = eid;
     }
 
-    map_loc_e = (map_local_entry_t *)mdb_lookup_entry_exact(lmdb->db, eid);
+    map_loc_e = (map_local_entry_t *)mdb_lookup_entry_exact(lmdb->db, ip_pref_eid);
     if (!map_loc_e) {
         OOR_LOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database",
                 lisp_addr_to_char(eid));
         return (NULL);
     }
+    db_eid = map_local_entry_eid(map_loc_e);
+    /* To check IID of local database we should compare both addresses */
+    if (lisp_addr_cmp(db_eid,eid) != 0){
+        OOR_LOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database.",
+                        lisp_addr_to_char(eid));
+        return (NULL);
+    }
+
     return (map_loc_e);
 }
 
@@ -106,16 +155,18 @@ local_map_db_del_entry(local_map_db_t *lmdb, lisp_addr_t *eid)
 lisp_addr_t *
 local_map_db_get_main_eid(local_map_db_t *lmdb, int afi)
 {
-    void *it = NULL;
-    lisp_addr_t *eid = NULL;
+    void *it;
+    lisp_addr_t *eid , *eid_res = NULL;
+    uint8_t found = FALSE;
 
-    mdb_foreach_ip_entry(lmdb->db, it) {
+    mdb_foreach_ip_entry_with_break(lmdb->db, it, found) {
         eid = map_local_entry_eid((map_local_entry_t *)it);
         if (eid && lisp_addr_ip_afi(eid) == afi) {
-            return(eid);
+            found = TRUE;
+            eid_res = eid;
         }
-    } mdb_foreach_ip_entry_end;
-    return (NULL);
+    } mdb_foreach_ip_entry_with_break_end(found);
+    return (eid_res);
 }
 
 int

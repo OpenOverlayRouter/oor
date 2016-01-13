@@ -49,6 +49,10 @@ prefix_t *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen);
 void mdb_for_each_entry_cb(mdb_t *mdb, void (*callback)(void *, void *),
         void *cb_data);
 
+static int _add_iid_entry(mdb_t *db, void *entry, lcaf_addr_t *iidaddr);
+static void *_rm_iid_entry(mdb_t *db, lcaf_addr_t *iidaddr);
+static patricia_node_t *_find_iid_node(mdb_t *db, lcaf_addr_t *iidaddr, uint8_t exact);
+
 
 /*
  * Return map cache data base
@@ -71,9 +75,45 @@ get_ip_pt_from_afi(mdb_t *db, uint16_t afi)
     return (NULL);
 }
 
+
 static patricia_tree_t *
-get_mc_pt_from_afi(mdb_t *db, uint16_t afi)
+get_iid_pt_from_lcaf(mdb_t *db, lcaf_addr_t *iidaddr)
 {
+    patricia_tree_t *pt;
+    int_htable *ht;
+    lisp_addr_t *addr;
+    uint32_t iid;
+    uint16_t afi;
+    iid = iid_type_get_iid(lcaf_addr_get_iid(iidaddr));
+    addr = iid_type_get_addr(lcaf_addr_get_iid(iidaddr));
+    if (lisp_addr_lafi(addr) == LM_AFI_LCAF){
+        OOR_LOG(LDBG_1, "get_iid_pt_from_lcaf: Concurrent lcaf address not supported");
+        return (NULL);
+    }
+    afi = lisp_addr_ip_afi(addr);
+    switch (afi){
+    case AF_INET:
+        ht = db->AF4_iid_db;
+        break;
+    case AF_INET6:
+        ht = db->AF6_iid_db;
+        break;
+    default:
+        OOR_LOG(LDBG_1, "get_iid_pt_from_lcaf: AFI %u not recognized!", afi);
+        return (NULL);
+    }
+    pt = int_htable_lookup(ht,iid);
+    if (!pt){
+        return (NULL);
+    }
+    return (pt->head->data);
+}
+
+
+static patricia_tree_t *
+get_mc_pt_from_lcaf(mdb_t *db, lcaf_addr_t *lcaf)
+{
+    uint16_t afi = lcaf_mc_get_afi(lcaf);
     switch (afi) {
     case AF_INET:
         return (db->AF4_mc_db);
@@ -82,7 +122,7 @@ get_mc_pt_from_afi(mdb_t *db, uint16_t afi)
         return (db->AF6_mc_db);
         break;
     default:
-        OOR_LOG(LDBG_1, "_get_mc_pt_from_afi: AFI %u not recognized!", afi);
+        OOR_LOG(LDBG_1, "_get_mc_pt_from_lcaf: AFI %u not recognized!", afi);
         break;
     }
 
@@ -106,12 +146,11 @@ static patricia_node_t *
 _find_lcaf_node(mdb_t *db, lcaf_addr_t *lcaf, uint8_t exact)
 {
     switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_MCAST_INFO:
-        return (pt_find_mc_node(get_mc_pt_from_afi(db, lcaf_mc_get_afi(lcaf)),
-                lcaf, exact));
-        break;
     case LCAF_IID:
-        break;
+        return (_find_iid_node(db,lcaf,exact));
+    case LCAF_MCAST_INFO:
+        return (pt_find_mc_node(get_mc_pt_from_lcaf(db, lcaf),
+                lcaf, exact));
     default:
         OOR_LOG(LWRN, "_find_lcaf_node: Unknown LCAF type %u",
                 lcaf_addr_get_type(lcaf));
@@ -194,15 +233,138 @@ _add_ippref_entry(mdb_t *db, void *entry, ip_prefix_t *ippref)
 }
 
 static int
+_db_add_iid(mdb_t *db, uint32_t iid, uint16_t afi){
+    patricia_tree_t *pt;
+    int_htable *ht;
+    ip_addr_t ip;
+    size_t size;
+
+    memset(&ip, 0, sizeof(ip_addr_t));
+
+    switch (afi){
+    case AF_INET:
+        ip_addr_set_afi(&ip, AF_INET);
+        size = sizeof(struct in_addr);
+        pt = New_Patricia( size * 8);
+        ht = db->AF4_iid_db;
+        break;
+    case AF_INET6:
+        ip_addr_set_afi(&ip, AF_INET6);
+        size = sizeof(struct in6_addr);
+        pt = New_Patricia(size * 8);
+        ht = db->AF6_iid_db;
+        break;
+    default:
+        OOR_LOG(LDBG_1, "_db_add_iid: AFI %u not recognized!", afi);
+        return (BAD);
+    }
+
+    /* MC is stored as patricia in patricia, what follows is a HACK
+     * to have compatible walk methods for both IP and MC. */
+    pt_add_node(pt, &ip, 0,(void *) New_Patricia(size * 8));
+
+    int_htable_insert(ht, iid, pt);
+
+    return (GOOD);
+}
+
+
+static int
+_add_iid_entry(mdb_t *db, void *entry, lcaf_addr_t *iidaddr)
+{
+    uint32_t iid;
+    lisp_addr_t *ip_pref;
+    patricia_tree_t *pt;
+    uint16_t afi;
+
+    iid = lcaf_iid_get_iid(iidaddr);
+    ip_pref = lcaf_get_ip_pref_addr(iidaddr);
+    if (!ip_pref){
+        return (BAD);
+    }
+    afi = lisp_addr_ip_afi(ip_pref);
+    pt = get_iid_pt_from_lcaf(db, iidaddr);
+    if (!pt){
+        if ((_db_add_iid(db,iid,afi))!=GOOD){
+            return (BAD);
+        }
+        pt = get_iid_pt_from_lcaf(db, iidaddr);
+    }
+
+    if (pt_add_ippref(pt, lisp_addr_get_ippref(ip_pref),entry) != GOOD) {
+        OOR_LOG(LDBG_3, "_add_iid_entry: Attempting to insert (%s) in the "
+                "map-cache but couldn't add the entry to the patricia tree!",
+                lcaf_addr_to_char(iidaddr));
+        return (BAD);
+    }
+
+    OOR_LOG(LDBG_3, "_add_iid_entry: Added map cache data for %s",
+            lcaf_addr_to_char(iidaddr));
+    return (GOOD);
+}
+
+static void *
+_rm_iid_entry(mdb_t *db, lcaf_addr_t *iidaddr)
+{
+    lisp_addr_t *ip_pref;
+    patricia_tree_t *pt;
+
+    pt = get_iid_pt_from_lcaf(db, iidaddr);
+    if (!pt){
+        OOR_LOG(LDBG_3, "_rm_iid_entry: Attempting to remove (%s) in the "
+                "map-cache but it doesn't exist",
+                lcaf_addr_to_char(iidaddr));
+        return (NULL);
+    }
+    ip_pref = lcaf_get_ip_pref_addr(iidaddr);
+    if (!ip_pref){
+        return (NULL);
+    }
+
+    return (pt_remove_ippref(pt, lisp_addr_get_ippref(ip_pref)));
+}
+
+static patricia_node_t *
+_find_iid_node(mdb_t *db, lcaf_addr_t *iidaddr, uint8_t exact)
+{
+    patricia_node_t * node;
+    lisp_addr_t *ip_pref;
+    patricia_tree_t *pt;
+
+    pt = get_iid_pt_from_lcaf(db, iidaddr);
+    if (!pt){
+        OOR_LOG(LDBG_3, "_find_iid_entry: Couldn't find (%s) in the "
+                "map-cache. No iid",lcaf_addr_to_char(iidaddr));
+        return (NULL);
+    }
+
+
+    if (exact){
+        ip_pref = lcaf_get_ip_pref_addr(iidaddr);
+        if (!ip_pref){
+            return (NULL);
+        }
+        node = pt_find_ip_node_exact(pt, lisp_addr_ip_get_addr(ip_pref), lisp_addr_ip_get_plen(ip_pref));
+    }else{
+        ip_pref = lcaf_get_ip_addr(iidaddr);
+        if (!ip_pref){
+            ip_pref = lcaf_get_ip_pref_addr(iidaddr);
+            if (!ip_pref){
+                return (NULL);
+            }
+        }
+        node = pt_find_ip_node(pt, lisp_addr_ip_get_addr(ip_pref));
+    }
+
+    return (node);
+}
+
+
+
+static int
 _add_mc_entry(mdb_t *db, void *entry, lcaf_addr_t *mcaddr)
 {
-    lisp_addr_t *src = NULL;
-    ip_addr_t *srcip = NULL;
-
-    src = lcaf_mc_get_src(mcaddr);
-    srcip = lisp_addr_ip(src);
-
-    if (pt_add_mc_addr(get_mc_pt_from_afi(db, ip_addr_afi(srcip)), mcaddr,
+    if (pt_add_mc_addr(get_mc_pt_from_lcaf(db, mcaddr), mcaddr,
             entry) != GOOD) {
         OOR_LOG(LDBG_2, "_add_mc_entry: Attempting to insert %s to map cache "
                 "but failed! ", mc_type_to_char(mcaddr));
@@ -215,13 +377,22 @@ _add_mc_entry(mdb_t *db, void *entry, lcaf_addr_t *mcaddr)
     return (GOOD);
 }
 
+static void *
+_rm_mc_entry(mdb_t *db, lcaf_addr_t *mcaddr)
+{
+    patricia_tree_t *pt;
+
+    pt = get_mc_pt_from_lcaf(db,mcaddr);
+    return (pt_remove_mc_addr(pt, mcaddr));
+}
+
+
 static int
 _add_lcaf_entry(mdb_t *db, void *entry, lcaf_addr_t *lcaf)
 {
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_IID:
-        OOR_LOG(LDBG_3, "_add_lcaf_entry: IID support to implement!");
-        break;
+        return (_add_iid_entry(db, entry, lcaf));
     case LCAF_MCAST_INFO:
         return (_add_mc_entry(db, entry, lcaf));
     default:
@@ -235,18 +406,14 @@ static void *
 _del_lcaf_entry(mdb_t *db, lcaf_addr_t *lcaf)
 {
     switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_MCAST_INFO:
-        return (pt_remove_mc_addr(get_mc_pt_from_afi(db,
-                lisp_addr_ip_afi(lcaf_mc_get_src(lcaf))), lcaf));
-        break;
     case LCAF_IID:
-        OOR_LOG(LDBG_3, "pbmdb_del_entry: IID support to implement!");
-        break;
+        return (_rm_iid_entry(db,lcaf));
+    case LCAF_MCAST_INFO:
+        return (_rm_mc_entry(db,lcaf));
     default:
-        OOR_LOG(LDBG_3, "pbmdb_del_entry: called with unknown LCAF type:%u",
+        OOR_LOG(LDBG_3, "_del_lcaf_entry: called with unknown LCAF type:%u",
                 lcaf_addr_get_type(lcaf));
         break;
-        return (NULL);
     }
     return (NULL);
 }
@@ -255,11 +422,10 @@ patricia_tree_t *
 _get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf)
 {
     switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_MCAST_INFO:
-        return (get_mc_pt_from_afi(db, lcaf_mc_get_afi(lcaf)));
     case LCAF_IID:
-        OOR_LOG(LDBG_3, "_get_local_db_for_lcaf_addr: IID support to implement!");
-        break;
+        return (get_iid_pt_from_lcaf(db,lcaf));
+    case LCAF_MCAST_INFO:
+        return (get_mc_pt_from_lcaf(db, lcaf));
     default:
         OOR_LOG(LDBG_3, "_get_local_db_for_lcaf_addr: LCAF type %d not supported!",
                 lcaf_addr_get_type(lcaf));
@@ -292,6 +458,10 @@ mdb_new()
 
     db->AF4_ip_db = New_Patricia(sizeof(struct in_addr) * 8);
     db->AF6_ip_db = New_Patricia(sizeof(struct in6_addr) * 8);
+    /* IID TABLES*/
+    db->AF4_iid_db = int_htable_new();
+    db->AF6_iid_db = int_htable_new();
+
 
     /* MC is stored as patricia in patricia, what follows is a HACK
      * to have compatible walk methods for both IP and MC. */
@@ -323,11 +493,25 @@ void
 mdb_del(mdb_t *db, mdb_del_fct del_fct)
 {
     patricia_node_t *node;
+    void *value;
     Destroy_Patricia(db->AF4_ip_db->head->data, del_fct);
     Destroy_Patricia(db->AF4_ip_db, NULL);
 
     Destroy_Patricia(db->AF6_ip_db->head->data, del_fct);
     Destroy_Patricia(db->AF6_ip_db, NULL);
+
+    /* Remove IID db */
+    int_htable_foreach_value(db->AF4_iid_db, value){
+        Destroy_Patricia(((patricia_tree_t *)value)->head->data, del_fct);
+        Destroy_Patricia(value, NULL);
+    }int_htable_foreach_value_end;
+    int_htable_destroy(db->AF4_iid_db);
+
+    int_htable_foreach_value(db->AF6_iid_db, value){
+        Destroy_Patricia(((patricia_tree_t *)value)->head->data, del_fct);
+        Destroy_Patricia(value, NULL);
+    }int_htable_foreach_value_end;
+    int_htable_destroy(db->AF6_iid_db);
 
     if (db->AF4_mc_db->head) {
         PATRICIA_WALK(db->AF4_mc_db->head, node) {
@@ -419,10 +603,11 @@ mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr)
     patricia_node_t *node;
 
     node = _find_node(db, laddr, NOT_EXACT);
-    if (node)
+    if (node){
         return(node->data);
-    else
+    }else{
         return(NULL);
+    }
 }
 
 void *
@@ -430,10 +615,11 @@ mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr)
 {
     patricia_node_t *node;
     node = _find_node(db, laddr, EXACT);
-    if (node)
+    if (node){
         return(node->data);
-    else
+    }else{
         return(NULL);
+    }
 }
 
 inline int

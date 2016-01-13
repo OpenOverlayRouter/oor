@@ -46,6 +46,7 @@ typedef struct packet_tuple {
     uint16_t                        src_port;
     uint16_t                        dst_port;
     uint8_t                         protocol;
+    uint32_t                        iid;
 } packet_tuple_t;
 
 

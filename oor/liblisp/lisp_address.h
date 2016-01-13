@@ -75,7 +75,6 @@ inline uint32_t lisp_addr_size_to_write(lisp_addr_t *laddr);
 char *lisp_addr_to_char(lisp_addr_t *addr);
 
 inline void lisp_addr_set_lafi(lisp_addr_t *addr, lm_afi_t afi);
-inline void lisp_addr_set_lcaf(lisp_addr_t *laddr, lcaf_addr_t *lcaf);
 inline void lisp_addr_set_plen(lisp_addr_t *laddr, uint8_t plen);
 inline void lisp_addr_set_ip(lisp_addr_t *addr, ip_addr_t *ip);
 
@@ -151,6 +150,7 @@ inline uint16_t lisp_addr_get_plen(lisp_addr_t *laddr);
 
 inline int lisp_addr_is_mc(lisp_addr_t *addr);
 lisp_addr_t *lisp_addr_get_ip_addr(lisp_addr_t *addr);
+lisp_addr_t *lisp_addr_get_ip_pref_addr(lisp_addr_t *addr);
 
 int lisp_addr_ip_from_char(char *, lisp_addr_t *);
 int lisp_addr_ippref_from_char(char *, lisp_addr_t *);

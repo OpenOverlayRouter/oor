@@ -591,7 +591,7 @@ fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm, void *dst_map_parm,
     dst_ip_addr = fb_addr_get_fwd_ip_addr(dst_addr,dev_parm->loc_loct);
 
 
-    fwd_entry = fwd_entry_new_init(src_ip_addr, dst_ip_addr, NULL);
+    fwd_entry = fwd_entry_new_init(src_ip_addr, dst_ip_addr, tuple->iid, NULL);
     fwd_info->fwd_info = fwd_entry;
 
     OOR_LOG(LDBG_3, "select_locs_from_maps: EID: %s -> %s, protocol: %d, "

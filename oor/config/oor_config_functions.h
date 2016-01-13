@@ -56,6 +56,7 @@ typedef struct conf_loc_iface_ {
 typedef struct conf_mapping_ {
     char    *eid_prefix;
     int     ttl;
+    int     iid;
     glist_t *conf_loc_list;
     glist_t *conf_loc_iface_list;
 }conf_mapping_t;

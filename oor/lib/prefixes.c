@@ -175,3 +175,18 @@ pref_get_network_prefix(lisp_addr_t *address)
     return (prefix_addr);
 }
 
+int
+pref_conv_to_netw_pref(lisp_addr_t *addr)
+{
+    lisp_addr_t *ip_pref, *net_pref;
+    ip_pref = lisp_addr_get_ip_pref_addr(addr);
+    if (!ip_pref){
+        return (BAD);
+    }
+    net_pref = pref_get_network_prefix(ip_pref);
+    lisp_addr_copy(ip_pref, net_pref);
+    lisp_addr_del(net_pref);
+
+    return (GOOD);
+}
+

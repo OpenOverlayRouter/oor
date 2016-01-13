@@ -236,7 +236,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lisp_msg_parse_itr_rlocs(&b, itr_rlocs);
 
     for (i = 0; i < MREQ_REC_COUNT(mreq_hdr); i++) {
-
         deid = lisp_addr_new();
 
         /* PROCESS EID REC */
@@ -246,6 +245,9 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         /* CHECK IF WE NEED TO PROXY REPLY */
         site = mdb_lookup_entry(ms->lisp_sites_db, deid);
+        if (site == NULL){
+            ms_dump_configured_sites(ms, LDBG_1);
+        }
         rsite = mdb_lookup_entry(ms->reg_sites_db, deid);
         /* Static entries will have null site and not null rsite */
         if (!site && !rsite) {
@@ -331,8 +333,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lisp_reg_site_t *rsite = NULL, *new_rsite = NULL;
     lisp_site_prefix_t *reg_pref = NULL;
     char *key = NULL;
-    lisp_addr_t *eid = NULL;
-    lisp_addr_t *eid_pref = NULL;
+    lisp_addr_t *eid;
     lbuf_t b;
     void *hdr = NULL, *mntf_hdr = NULL;
     int i = 0;
@@ -365,16 +366,16 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                     lisp_addr_to_char(mapping_eid(m)));
         }
 
+        /* To be sure that we store the network address and not a IP-> 10.0.0.0/24 instead of 10.0.0.1/24 */
         eid = mapping_eid(m);
-        eid_pref = pref_get_network_prefix(eid);
-        mapping_set_eid(m,eid_pref);
-        lisp_addr_del(eid_pref);
+        pref_conv_to_netw_pref(eid);
 
         /* find configured prefix */
         reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid);
+
         if (!reg_pref) {
-            OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB! "
-                    "Discarding mapping!", lisp_addr_to_char(eid));
+            OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB "
+                    "Discarding mapping", lisp_addr_to_char(eid));
             mapping_del(m);
             continue;
         }
@@ -401,7 +402,9 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         /* check more specific */
         if (reg_pref->accept_more_specifics == TRUE){
-            if (!pref_is_prefix_b_part_of_a(reg_pref->eid_prefix,mapping_eid(m))){
+            if (!pref_is_prefix_b_part_of_a(
+                    lisp_addr_get_ip_pref_addr(reg_pref->eid_prefix),
+                    lisp_addr_get_ip_pref_addr(mapping_eid(m)))){
                 OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB! "
                         "Discarding mapping!", lisp_addr_to_char(eid));
                 mapping_del(m);

@@ -72,6 +72,7 @@ OBJS        = cmdline.o                  \
           lib/generic_list.o             \
           lib/hmac.o                     \
           lib/iface_locators.o           \
+          lib/int_table.o                \
           lib/lbuf.o                     \
           lib/lisp_site.o                \
           lib/oor_log.o                  \

@@ -46,22 +46,24 @@ void mcache_dump_db(map_cache_db_t *, int log_level);
 
 #define mcache_foreach_active_entry(MC, EIT)        \
     mdb_foreach_entry((MC)->db, (EIT))              \
-        if (((mcache_entry_t *)(EIT))->active)
+        if (((mcache_entry_t *)(EIT))->active){
 
 #define mcache_foreach_not_active_entry(MC, EIT)        \
     mdb_foreach_entry((MC)->db, (EIT))              \
-        if (((mcache_entry_t *)(EIT))->active == FALSE)
+        if (((mcache_entry_t *)(EIT))->active == FALSE){
 
-#define mcache_foreach_end                          \
+#define mcache_foreach_end          \
+        }                           \
     mdb_foreach_entry_end
 
 /* ugly .. */
-#define mcache_foreach_active_entry_in_ip_eid_db(MC, EID, EIT)  \
-    mdb_foreach_entry_in_ip_eid_db((MC)->db, (EID), (EIT))     \
-        if ((EIT)->active)
+#define mcache_foreach_active_entry_in_ip_eid_db(_MC_, _EID_, _EIT_)  \
+    mdb_foreach_entry_in_ip_eid_db((_MC_)->db, (_EID_), (_EIT_)){     \
+        if ((_EIT_)->active) {
 
 #define mcache_foreach_active_entry_in_ip_eid_db_end  \
-    mdb_foreach_entry_in_ip_eid_db_end
+        }                                             \
+    }mdb_foreach_entry_in_ip_eid_db_end
 
 
 #endif /*OOR_MAP_CACAHE_DB_H_*/

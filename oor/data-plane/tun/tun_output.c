@@ -167,7 +167,7 @@ tun_output_multicast(lbuf_t *b, packet_tuple_t *tuple)
         if (out_sock == NULL){
             return (BAD);
         }
-        lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, src_rloc, dst_rloc);
+        lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, src_rloc, dst_rloc, 0);
 
         send_raw_packet(*out_sock, lbuf_data(b), lbuf_size(b),lisp_addr_ip(dst_rloc));
     }
@@ -212,10 +212,10 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 
     switch (fi->encap){
     case ENCP_LISP:
-        lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fe->srloc, fe->drloc);
+        lisp_data_encap(b, LISP_DATA_PORT, LISP_DATA_PORT, fe->srloc, fe->drloc, fe->iid);
         break;
     case ENCP_VXLAN_GPE:
-        vxlan_gpe_data_encap(b, VXLAN_GPE_DATA_PORT, VXLAN_GPE_DATA_PORT, fe->srloc, fe->drloc);
+        vxlan_gpe_data_encap(b, VXLAN_GPE_DATA_PORT, VXLAN_GPE_DATA_PORT, fe->srloc, fe->drloc, fe->iid);
         break;
     }
 
@@ -226,36 +226,30 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 }
 
 int
-tun_output(lbuf_t *b)
+tun_output(lbuf_t *b, packet_tuple_t *tpl)
 {
-    packet_tuple_t tpl;
-
-    if (pkt_parse_5_tuple(b, &tpl) != GOOD) {
-        return (BAD);
-    }
-
-
     OOR_LOG(LDBG_3,"OUTPUT: Received EID %s -> %s, Proto: %d, Port: %d -> %d ",
-            lisp_addr_to_char(&tpl.src_addr), lisp_addr_to_char(&tpl.dst_addr),
-            tpl.protocol, tpl.src_port, tpl.dst_port);
+            lisp_addr_to_char(&tpl->src_addr), lisp_addr_to_char(&tpl->dst_addr),
+            tpl->protocol, tpl->src_port, tpl->dst_port);
 
     /* If already LISP packet, do not encapsulate again */
-    if (is_lisp_packet(&tpl)) {
+    if (is_lisp_packet(tpl)) {
         OOR_LOG(LDBG_3,"OUTPUT: Is a lisp packet, do not encapsulate again");
-        return (tun_forward_native(b, &tpl.dst_addr));
+        return (tun_forward_native(b, &tpl->dst_addr));
     }
-    if (ip_addr_is_multicast(lisp_addr_ip(&tpl.dst_addr))) {
-        tun_output_multicast(b, &tpl);
+    if (ip_addr_is_multicast(lisp_addr_ip(&tpl->dst_addr))) {
+        tun_output_multicast(b, tpl);
     } else {
-        tun_output_unicast(b, &tpl);
+        tun_output_unicast(b, tpl);
     }
-
     return(GOOD);
 }
 
 int
 tun_output_recv(sock_t *sl)
 {
+    packet_tuple_t tpl;
+
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, TUN_RECEIVE_SIZE);
     lbuf_reserve(&pkt_buf, LBUF_STACK_OFFSET);
 
@@ -264,6 +258,10 @@ tun_output_recv(sock_t *sl)
         return (BAD);
     }
     lbuf_reset_ip(&pkt_buf);
-    tun_output(&pkt_buf);
+    if (pkt_parse_5_tuple(&pkt_buf, &tpl) != GOOD) {
+        return (BAD);
+    }
+    tpl.iid = 0;
+    tun_output(&pkt_buf, &tpl);
     return (GOOD);
 }

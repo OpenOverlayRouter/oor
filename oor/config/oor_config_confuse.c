@@ -181,6 +181,7 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
     int afi;
 
     strcpy(conf_mapping->eid_prefix,cfg_getstr(map, "eid-prefix"));
+    conf_mapping->iid = cfg_getint(map, "iid");
 
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
         rl = cfg_getnsec(map, "rloc-address", ctr);
@@ -332,7 +333,6 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
             continue;
         }
         map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
-
         if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
             map_local_entry_del(map_loc_e);
             continue;

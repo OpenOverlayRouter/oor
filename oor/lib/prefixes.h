@@ -36,6 +36,8 @@ lisp_addr_t *pref_get_network_address(lisp_addr_t *address);
  */
 lisp_addr_t * pref_get_network_prefix(lisp_addr_t *address);
 
+int pref_conv_to_netw_pref(lisp_addr_t *addr);
+
 
 
 #endif /* PREFIXES_H_ */

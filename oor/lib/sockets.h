@@ -82,10 +82,11 @@ typedef struct fwd_entry {
     lisp_addr_t *srloc;
     lisp_addr_t *drloc;
     int *out_sock;
+    uint32_t iid;
 } fwd_entry_t;
 
 inline fwd_entry_t *fwd_entry_new_init(lisp_addr_t *srloc, lisp_addr_t *drloc,
-        int *out_socket);
+        uint32_t iid, int *out_socket);
 inline void fwd_entry_del(fwd_entry_t *fwd_entry);
 static inline void fwd_entry_set_srloc(fwd_entry_t *fwd_ent, lisp_addr_t * srloc);
 static inline void fwd_entry_set_drloc(fwd_entry_t *fwd_ent, lisp_addr_t * drloc);

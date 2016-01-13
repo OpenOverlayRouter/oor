@@ -25,7 +25,6 @@
 
 typedef struct lisp_site_prefix {
     lisp_addr_t *eid_prefix;
-    uint32_t iid;
     uint8_t proxy_reply;
     uint8_t accept_more_specifics;
     lisp_key_type_e key_type;
