@@ -21,7 +21,10 @@
 #ifndef VPN_API_H_
 #define VPN_API_H_
 
+#include "../../defs.h"
+
 typedef struct vpnapi_data_ {
+    oor_encap_t encap_type;
     int tun_socket;
     int ipv4_data_socket;
     int ipv6_data_socket;

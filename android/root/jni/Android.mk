@@ -19,6 +19,7 @@ config/oor_config_confuse.c    \
 		  control/control-data-plane/control-data-plane.c    \
 		  control/control-data-plane/tun/cdp_tun.c           \
 		  data-plane/data-plane.c        \
+		  data-plane/encapsulations/vxlan-gpe.c              \
 		  data-plane/tun/tun.c           \
 		  data-plane/tun/tun_input.c     \
 		  data-plane/tun/tun_output.c    \
@@ -43,6 +44,7 @@ config/oor_config_confuse.c    \
 		  lib/generic_list.c             \
 		  lib/hmac.c                     \
 		  lib/iface_locators.c           \
+		  lib/int_table.c                \
 		  lib/lbuf.c                     \
 		  lib/lisp_site.c                \
 		  lib/oor_log.c                  \

@@ -1,7 +1,7 @@
 #
 #       lispd example config file for OpenWRT
 #
-package 'lispd'
+package 'oor'
 
 # General configuration
 #   debug: Debug levels [0..3]
@@ -29,21 +29,25 @@ config 'ms_basic'
 #   eid_prefix: Accepted EID prefix (IPvX/mask)
 #   key_type: Only 1 supported (HMAC-SHA-1-96)
 #   key: Password to authenticate the received Map Registers
+#   iid: Instance ID associated with the lisp site [0-16777215]
 #   accept_more_specifics [true/false]: Accept more specific prefixes
 #     with same authentication information 
 config 'lisp-site'
         option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
         option   'key_type'                 '1'
         option   'key'                      'password'
+        option   'iid'                      '0'
         option   'accept_more_specifics'    'off'
 
 
 # Define a staticly registered mapping. New can Map Registers overwrite
 # the information of this mapping
 #   eid_prefix: EID prefix (IPvX/mask) of the mapping
+#   iid: Instance ID associated with the lisp site [0-16777215]
 #   rloc_set: Name of the set of rlocs to be used
 config 'ms-static-registered-site'
         option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
+        option   'iid'                      '0'
         option   'rloc_set'                 'name'
 
 #---------------------------------------------------------------------------------------------------------------------
@@ -72,9 +76,12 @@ config 'map-resolver'
 
 # Static Map Entry of the Map Cache
 #   eid-prefix: EID prefix (IPvX/mask) of the mapping
+#   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
+#     the VNI of the mapping. [0-16777215]
 #   rloc_set: Name of the set of rlocs to be used
 config 'static-map-cache'
         option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
+        option   'iid'                  '0'
         option   'rloc_set'             'name'
 
 #---------------------------------------------------------------------------------------------------------------------
@@ -97,9 +104,12 @@ config 'map-server'
 
 # IPv4 / IPv6 EID of the node.
 #   eid-prefix: EID prefix (IPvX/mask) of the mapping
+#   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
+#     the VNI of the mapping. [0-16777215]
 #   rloc_set: Name of the set of rlocs to be used
 config 'database-mapping'
         option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
+        option   'iid'                  '0'
         option   'rloc_set'             'name'
 
 # List of PITRs to SMR on handover

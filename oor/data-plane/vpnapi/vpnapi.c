@@ -22,13 +22,14 @@
 #include "vpnapi_input.h"
 #include "vpnapi_output.h"
 #include "../data-plane.h"
+#include "../encapsulations/vxlan-gpe.h"
 #include "../../iface_list.h"
 #include "../../oor_jni.h"
 #include "../../lib/oor_log.h"
 
 
 
-int vpnapi_configure_data_plane(oor_dev_type_e dev_type, ...);
+int vpnapi_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type,...);
 void vpnapi_uninit_data_plane();
 int vpnapi_add_datap_iface_addr(iface_t *iface, int afi);
 int vpnapi_add_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix);
@@ -57,12 +58,13 @@ data_plane_struct_t dplane_vpnapi = {
 };
 
 int
-vpnapi_configure_data_plane(oor_dev_type_e dev_type, ...)
+vpnapi_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
 {
     int (*cb_func)(sock_t *) = NULL;
     vpnapi_data_t *data;
     int tun_fd;
     va_list ap;
+    int data_port;
 
     data = (vpnapi_data_t *)xmalloc(sizeof(vpnapi_data_t));
     if (data == NULL){
@@ -90,9 +92,19 @@ vpnapi_configure_data_plane(oor_dev_type_e dev_type, ...)
         return (BAD);
     }
 
+    data->encap_type = encap_type;
+    switch (encap_type){
+    case ENCP_LISP:
+        data_port = LISP_DATA_PORT;
+        break;
+    case ENCP_VXLAN_GPE:
+        data_port = VXLAN_GPE_DATA_PORT;
+        break;
+    }
+
 
     if (default_rloc_afi != AF_INET6){
-        data->ipv4_data_socket = open_data_datagram_input_socket(AF_INET);
+        data->ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
         sockmstr_register_read_listener(smaster, cb_func, NULL,data->ipv4_data_socket);
         oor_jni_protect_socket(data->ipv4_data_socket);
     }else {
@@ -100,7 +112,7 @@ vpnapi_configure_data_plane(oor_dev_type_e dev_type, ...)
     }
 
     if (default_rloc_afi != AF_INET){
-        data->ipv6_data_socket = open_data_datagram_input_socket(AF_INET6);
+        data->ipv6_data_socket = open_data_datagram_input_socket(AF_INET6, data_port);
         sockmstr_register_read_listener(smaster, cb_func, NULL,data->ipv6_data_socket);
         oor_jni_protect_socket(data->ipv6_data_socket);
     }else {
@@ -289,7 +301,7 @@ vpnapi_reset_socket(int fd, int afi)
     switch (afi){
     case AF_INET:
         OOR_LOG(LDBG_2,"reset_socket: Reset IPv4 data socket");
-        new_fd = open_data_datagram_input_socket(AF_INET);
+        new_fd = open_data_datagram_input_socket(AF_INET,data->encap_type);
         if (new_fd == ERR_SOCKET){
             OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
             return (BAD);
@@ -298,7 +310,7 @@ vpnapi_reset_socket(int fd, int afi)
         break;
     case AF_INET6:
         OOR_LOG(LDBG_2,"reset_socket: Reset IPv6 data socket");
-        new_fd = open_data_datagram_input_socket(AF_INET6);
+        new_fd = open_data_datagram_input_socket(AF_INET6,data->encap_type);
         if (new_fd == ERR_SOCKET){
             OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
             return (BAD);

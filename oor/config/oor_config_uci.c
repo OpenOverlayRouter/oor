@@ -1047,6 +1047,11 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
             }else{
                 uci_merge = FALSE;
             }
+            if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
+                uci_iid = 0;
+            }else{
+                uci_iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
+            }
 
             site = build_lisp_site_prefix(ms,
                     uci_eid_prefix,
@@ -1112,9 +1117,10 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     locator_t *loct;
     locator_t *aux_loct;
     glist_t *addr_list;
-    lisp_addr_t *eid_prefix;
+    lisp_addr_t *eid_prefix, *ip_eid_prefix;
     char *uci_eid;
     char *uci_rloc_set;
+    int uci_iid;
     glist_t *rloc_list;
     glist_entry_t *it;
     lisp_xtr_t *xtr;
@@ -1129,6 +1135,7 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     }
 
     uci_eid = (char *)uci_lookup_option_string(ctx, sect, "eid_prefix");
+
     uci_rloc_set = (char *)uci_lookup_option_string(ctx, sect, "rloc_set");
     if (uci_eid == NULL || uci_rloc_set == NULL){
         return (NULL);
@@ -1145,6 +1152,21 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
         return (NULL);
     }
     eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
+
+    if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
+        uci_iid = 0;
+    }else{
+        uci_iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
+    }
+    if (uci_iid > MAX_IID || uci_iid < 0) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...",uci_iid, MAX_IID);
+        uci_iid = 0;
+    }
+    if (uci_iid > 0){
+        ip_eid_prefix = lisp_addr_clone(eid_prefix);
+        eid_prefix = lisp_addr_new_init_iid(uci_iid, ip_eid_prefix, 0);
+    }
 
     /* Create mapping */
     if ( is_local){

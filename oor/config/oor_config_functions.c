@@ -1018,6 +1018,12 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
 
     eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
     pref_conv_to_netw_pref(eid_prefix);
+
+    if (conf_mapping->iid > MAX_IID || conf_mapping->iid < 0) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...", conf_mapping->iid, MAX_IID);
+        conf_mapping->iid = 0;
+    }
     if (conf_mapping->iid > 0){
         ip_eid_prefix = lisp_addr_clone(eid_prefix);
         eid_prefix = lisp_addr_new_init_iid(conf_mapping->iid, ip_eid_prefix, 0);

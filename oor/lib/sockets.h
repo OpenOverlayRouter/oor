@@ -102,7 +102,7 @@ void sockmstr_process_all(sockmstr_t *m);
 void sockmstr_wait_on_all_read(sockmstr_t *m);
 
 int open_data_raw_input_socket(int afi, uint16_t port);
-int open_data_datagram_input_socket(int afi);
+int open_data_datagram_input_socket(int afi, int port);
 int open_control_input_socket(int afi);
 
 int sock_recv(int, lbuf_t *);

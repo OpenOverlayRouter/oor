@@ -80,6 +80,7 @@ int tun_get_default_output_socket(int);
 typedef struct iface iface_t;
 
 typedef struct tun_dplane_data_{
+    oor_encap_t encap_type;
     iface_t *default_out_iface_v4;
     iface_t *default_out_iface_v6;
 }tun_dplane_data_t;

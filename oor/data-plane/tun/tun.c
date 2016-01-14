@@ -31,7 +31,7 @@
 #include "../../lib/routing_tables_lib.h"
 
 
-int tun_configure_data_plane(oor_dev_type_e dev_type, ...);
+int tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...);
 void tun_uninit_data_plane();
 int tun_add_datap_iface_addr(iface_t *iface,int afi);
 int tun_add_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix);
@@ -78,11 +78,13 @@ data_plane_struct_t dplane_tun = {
  * tun_configure_data_plane not has variable list of parameters
  */
 int
-tun_configure_data_plane(oor_dev_type_e dev_type, ...)
+tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
 {
     int (*cb_func)(sock_t *) = NULL;
     int ipv4_data_input_fd = -1;
     int ipv6_data_input_fd = -1;
+    int data_port;
+    tun_dplane_data_t *data;
 
     /* Configure data plane */
     if (create_tun() <= BAD){
@@ -109,19 +111,30 @@ tun_configure_data_plane(oor_dev_type_e dev_type, ...)
         return (BAD);
     }
 
+    switch (encap_type){
+    case ENCP_LISP:
+        data_port = LISP_DATA_PORT;
+        break;
+    case ENCP_VXLAN_GPE:
+        data_port = VXLAN_GPE_DATA_PORT;
+        break;
+    }
+
     /* Generate receive sockets for data port (4341) */
     if (default_rloc_afi != AF_INET6) {
-        ipv4_data_input_fd = open_data_raw_input_socket(AF_INET, LISP_DATA_PORT);
+        ipv4_data_input_fd = open_data_raw_input_socket(AF_INET, data_port);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv4_data_input_fd);
     }
 
     if (default_rloc_afi != AF_INET) {
-        ipv6_data_input_fd = open_data_raw_input_socket(AF_INET6, VXLAN_GPE_DATA_PORT);
+        ipv6_data_input_fd = open_data_raw_input_socket(AF_INET6, data_port);
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);
     }
-    dplane_tun.datap_data = (void *)xmalloc(sizeof(tun_dplane_data_t));
+    data = xmalloc(sizeof(tun_dplane_data_t));
+    data->encap_type = encap_type;
+    dplane_tun.datap_data = (void *)data;
     tun_output_init();
 
     /* Select the default rlocs for output data packets and output control

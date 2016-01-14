@@ -347,9 +347,12 @@ public class updateConfActivity extends Activity {
 						.append("#       *** OOR EXAMPLE CONFIG FILE ***\n\n\n")
 						.append("# General configuration\n")
 						.append("#      debug: Debug levels [0..3]\n")
-						.append("#      map-request-retries: Additional Map-Requests to send per map cache miss\n\n")
+						.append("#      map-request-retries: Additional Map-Requests to send per map cache miss\n")
+						.append("#      encapsulation: Encapsulation that will use OOR in the data plane. Could \n")
+						.append("#        be LISP or VXLAN-GPE. LISP is selected by default\n\n")
 						.append("debug                  = "+logLevel+"\n")
-						.append("map-request-retries    = 2\n\n\n")
+						.append("map-request-retries    = 2\n")
+						.append("encapsulation          = LISP\n\n\n")
 						.append("#\n") 
 						.append("# operating mode can be any of:\n")
 						.append("# xTR, RTR, MN, MS\n")
@@ -477,20 +480,21 @@ public class updateConfActivity extends Activity {
 	{
 		String eid_statement = new String();
 		eid_statement= eid_statement.concat("database-mapping {\n")
-				.concat("        eid-prefix     = "+eid+"\n");
+				.concat("        eid-prefix     = "+eid+"\n")
+				.concat("        iid            = 0\n");
 		Iterator <String> it = ifaces.iterator();
 		while (it.hasNext()){
 			String iface_name = it.next();
 			eid_statement= eid_statement.concat("        rloc-iface{\n")
-					.concat("        	interface     = "+iface_name+"\n")
-					.concat("        	afi           = 4\n")
+					.concat("           interface     = "+iface_name+"\n")
+					.concat("           afi           = 4\n")
 					.concat("           priority      = 1\n")
 					.concat("           weight        = 100\n")
 					.concat("        }\n\n");
 			if (nat_aware == false){
 				eid_statement= eid_statement.concat("        rloc-iface{\n")
-						.concat("        	interface     = "+iface_name+"\n")
-						.concat("        	afi           = 6\n")
+						.concat("           interface     = "+iface_name+"\n")
+						.concat("           afi           = 6\n")
 						.concat("           priority      = 1\n")
 						.concat("           weight        = 100\n")
 						.concat("        }\n\n");

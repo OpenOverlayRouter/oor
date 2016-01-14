@@ -87,6 +87,11 @@ timer_map_reg_argument * timer_map_reg_argument_new_init(map_local_entry_t *mle,
 void timer_map_reg_arg_free(timer_map_reg_argument * timer_arg);
 
 
+inline oor_encap_t tr_get_encap_type(lisp_xtr_t *tr)
+{
+    return (tr->encap_type);
+}
+
 /* Called when the timer associated with an EID entry expires. */
 static int
 mc_entry_expiration_timer_cb(oor_timer_t *timer)
@@ -798,7 +803,6 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
         /* no SMRs for now for multicast */
         if (lisp_addr_is_mc(eid))
             continue;
-
 
         /* TODO: spec says SMRs should be sent only to peer ITRs that sent us
          * traffic in the last minute. Should change this in the future*/

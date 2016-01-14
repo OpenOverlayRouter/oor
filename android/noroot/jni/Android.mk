@@ -19,6 +19,7 @@ LOCAL_SRC_FILES = \
 		  control/control-data-plane/control-data-plane.c    \
 		  control/control-data-plane/vpnapi/cdp_vpnapi.c     \
 		  data-plane/data-plane.c        \
+		  data-plane/encapsulations/vxlan-gpe.c              \
 		  data-plane/vpnapi/vpnapi.c     \
 		  data-plane/vpnapi/vpnapi_input.c                   \
 		  data-plane/vpnapi/vpnapi_output.c                  \
@@ -43,6 +44,7 @@ LOCAL_SRC_FILES = \
 		  lib/generic_list.c             \
 		  lib/hmac.c                     \
 		  lib/iface_locators.c           \
+		  lib/int_table.c                \
 		  lib/lbuf.c                     \
 		  lib/lisp_site.c                \
 		  lib/oor_log.c                  \

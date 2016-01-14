@@ -448,6 +448,7 @@ int
 main(int argc, char **argv)
 {
     oor_dev_type_e dev_type;
+    lisp_xtr_t *tunnel_router;
 
     initial_setup();
 
@@ -477,7 +478,10 @@ main(int argc, char **argv)
 
     dev_type = ctrl_dev_mode(ctrl_dev);
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
-        data_plane->datap_init(dev_type);
+        OOR_LOG(LDBG_2, "Configuring data plane");
+        tunnel_router = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+        data_plane->datap_init(dev_type,tr_get_encap_type(tunnel_router));
+        OOR_LOG(LDBG_1, "Data plane initialized");
     }
 
     ctrl_init(lctrl);
@@ -525,6 +529,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     pid_t sid = 0;
     char log_file[1024];
     const char *path = NULL;
+    lisp_xtr_t *tunnel_router;
 
     memset (log_file,0,sizeof(char)*1024);
 
@@ -562,7 +567,11 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
 
     dev_type = ctrl_dev_mode(ctrl_dev);
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
-        data_plane->datap_init(dev_type, vpn_tun_fd);
+        OOR_LOG(LDBG_2, "Configuring data plane");
+        tunnel_router = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+        data_plane->datap_init(dev_type, tr_get_encap_type(tunnel_router), vpn_tun_fd);
+        OOR_LOG(LDBG_1, "Data plane initialized");
+
     }
 
     ctrl_init(lctrl);

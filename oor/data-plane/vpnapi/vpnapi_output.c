@@ -86,6 +86,9 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     fwd_info_t *fi;
     fwd_entry_t *fe;
 
+    /*XXX All the tuples are initialized with iid = 0. It will not be valid when implementing
+     * support for same EID prefixes with different iid in the same xTR */
+
     fi = ttable_lookup(&ttable, tuple);
     if (!fi) {
         fi = ctrl_get_forwarding_info(tuple);
@@ -131,25 +134,19 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 }
 
 int
-vpnapi_output(lbuf_t *b)
+vpnapi_output(lbuf_t *b, packet_tuple_t *tpl)
 {
-    packet_tuple_t tpl;
-
-    if (pkt_parse_5_tuple(b, &tpl) != GOOD) {
-        return (BAD);
-    }
-
     OOR_LOG(LDBG_3,"OUTPUT: Received EID %s -> %s, Proto: %d, Port: %d -> %d ",
-            lisp_addr_to_char(&tpl.src_addr), lisp_addr_to_char(&tpl.dst_addr),
-            tpl.protocol, tpl.src_port, tpl.dst_port);
+            lisp_addr_to_char(&tpl->src_addr), lisp_addr_to_char(&tpl->dst_addr),
+            tpl->protocol, tpl->src_port, tpl->dst_port);
 
     /* If already LISP packet, do not encapsulate again */
-    if (is_lisp_packet(&tpl)) {
+    if (is_lisp_packet(tpl)) {
         OOR_LOG(LDBG_3,"OUTPUT: Is a lisp packet, do not encapsulate again");
-        return (vpnapi_forward_native(b, &tpl.dst_addr));
+        return (vpnapi_forward_native(b, &tpl->dst_addr));
     }
 
-    vpnapi_output_unicast(b, &tpl);
+    vpnapi_output_unicast(b, tpl);
 
     return(GOOD);
 }
@@ -157,6 +154,7 @@ vpnapi_output(lbuf_t *b)
 int
 vpnapi_output_recv(struct sock *sl)
 {
+    packet_tuple_t tpl;
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, VPNAPI_RECEIVE_SIZE);
     lbuf_reserve(&pkt_buf, LBUF_STACK_OFFSET);
 
@@ -165,7 +163,12 @@ vpnapi_output_recv(struct sock *sl)
         return (BAD);
     }
     lbuf_reset_ip(&pkt_buf);
-    vpnapi_output(&pkt_buf);
+
+    if (pkt_parse_5_tuple(&pkt_buf, &tpl) != GOOD) {
+        return (BAD);
+    }
+    tpl.iid = 0;
+    vpnapi_output(&pkt_buf, &tpl);
     return (GOOD);
 }
 

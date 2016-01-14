@@ -26,7 +26,7 @@ typedef struct sock sock_t;
 
 /* functions to manipulate routing */
 typedef struct data_plane_struct {
-    int (*datap_init)(oor_dev_type_e dev_type, ...);
+    int (*datap_init)(oor_dev_type_e dev_type, oor_encap_t encap_type,  ...);
     void (*datap_uninit)();
     int (*datap_add_iface_addr)(iface_t *iface, int afi);
     int (*datap_add_eid_prefix)(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix);

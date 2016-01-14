@@ -38,6 +38,7 @@ control-iface = <iface name>
 #   eid-prefix: Accepted EID prefix (IPvX/mask)
 #   key-type: Only 1 supported (HMAC-SHA-1-96)
 #   key: Password to authenticate the received Map-Registers
+#   iid: Instance ID associated with the lisp site [0-16777215]
 #   accept-more-specifics [true/false]: Accept more specific prefixes
 #     with same authentication information 
 
@@ -45,12 +46,14 @@ lisp-site {
     eid-prefix            = <prefix>
     key-type              = 1
     key                   = <string>
+    iid                   = 0
     accept-more-specifics = <bool>
 }
 
 # Define a static registered mapping. New Map-Registers overwrites
 # the information of this mapping. You can define several eid-prefix.
 #   eid-prefix: EID prefix (IPvX/mask) of the mapping
+#   iid: Instance ID associated with the lisp site [0-16777215]
 #   address: It could be one of the following cases
 #      - IPv4 or IPv6 address of the RLOC
 #      - ELP name
@@ -62,6 +65,7 @@ lisp-site {
 
 ms-static-registered-site {
     eid-prefix          = <prefix>
+    iid                 = 0
      rloc-address {
         address         = <string>
         priority        = <int>
@@ -106,6 +110,8 @@ map-resolver        = {
 
 # Static Map Entry of the Map Cache. Several eid-prefix can be defined.
 #   eid-prefix: EID prefix (ip-prefix/mask) of the mapping
+#   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
+#     the VNI of the mapping. [0-16777215]
 #   address: It could be one of the following cases
 #      - IPv4 or IPv6 address of the RLOC
 #      - ELP name
@@ -117,6 +123,7 @@ map-resolver        = {
 
 static-map-cache {
     eid-prefix          = <ip-prefix/mask>  
+    iid                 = 0
     rloc-address {
         address         = <string>
         priority        = <int>
@@ -163,10 +170,10 @@ rtr-ifaces {
 #   proxy-reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
 
 map-server {
-        address 	= <ip-address>
-        key-type   	= 1
-        key             = <password>
-        proxy-reply	= <on/off>
+        address        = <ip-address>
+        key-type       = 1
+        key            = <password>
+        proxy-reply    = <on/off>
 }
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
@@ -186,7 +193,7 @@ proxy-etr {
 # IPv4 / IPv6 EID of the node.
 #   eid-prefix: EID prefix (ip-prefix/mask) of the mapping
 #   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
-#     the VNI of the mapping.
+#     the VNI of the mapping. [0-16777215]
 # Two types of RLOCs can be defined:
 #   rloc-address: Specifies directly the RLOC of the interface
 #     address: It could be one of the following cases

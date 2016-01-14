@@ -25,6 +25,7 @@
 #include "vpnapi_input.h"
 #include "vpnapi_output.h"
 #include "../data-plane.h"
+#include "../encapsulations/vxlan-gpe.h"
 #include "../../lib/packets.h"
 #include "../../lib/util.h"
 #include "../../liblisp/liblisp.h"
@@ -36,17 +37,43 @@ static lbuf_t pkt_buf;
 
 
 int
-vpnapi_read_and_decap_pkt(int sock, lbuf_t *b)
+vpnapi_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid)
 {
     uint8_t ttl = 0, tos = 0;
-    int afi;
+    int afi, port;
     lisp_data_hdr_t *lisp_hdr;
+    vxlan_gpe_hdr_t *vxlan_hdr;
+    vpnapi_data_t *data;
+
+    data = (vpnapi_data_t *)dplane_vpnapi.datap_data;
 
     if (sock_data_recv(sock, b, &afi, &ttl, &tos) != GOOD) {
         return(BAD);
     }
 
-    lisp_hdr = lisp_data_pull_hdr(b);
+
+    switch (data->encap_type){
+    case ENCP_LISP:
+        lisp_hdr = lisp_data_pull_hdr(b);
+        if (LDHDR_LSB_BIT(lisp_hdr)){
+            *iid = lisp_data_hdr_get_iid(lisp_hdr);
+        }else{
+            *iid = 0;
+        }
+
+        port = LISP_DATA_PORT;
+        break;
+    case ENCP_VXLAN_GPE:
+
+        vxlan_hdr = vxlan_gpe_data_pull_hdr(b);
+        if (VXLAN_HDR_VNI_BIT(vxlan_hdr)){
+            *iid = vxlan_gpe_hdr_get_vni(vxlan_hdr);
+        }
+        port = VXLAN_GPE_DATA_PORT;
+        break;
+    default:
+        return (ERR_NOT_ENCAP);
+    }
 
     /* RESET L3: prepare for output */
     lbuf_reset_l3(b);
@@ -55,14 +82,8 @@ vpnapi_read_and_decap_pkt(int sock, lbuf_t *b)
      * NOTE: we always assume an IP payload*/
     ip_hdr_set_ttl_and_tos(lbuf_data(b), ttl, tos);
 
-    OOR_LOG(LDBG_3, "%s", ip_src_and_dst_to_char(lbuf_l3(b),
-            "INPUT (4341): Inner IP: %s -> %s"));
-
-    /* Poor discriminator for data map notify... */
-    if (lisp_hdr->instance_id == 1){
-        OOR_LOG(LDBG_2,"Data-Map-Notify received\n ");
-        /* XXX Is there something to do here? */
-    }
+    OOR_LOG(LDBG_3, "INPUT (%d): %s",port, ip_src_and_dst_to_char(lbuf_l3(b),
+            "Inner IP: %s -> %s"));
 
     return(GOOD);
 }
@@ -70,12 +91,13 @@ vpnapi_read_and_decap_pkt(int sock, lbuf_t *b)
 int
 vpnapi_process_input_packet(sock_t *sl)
 {
+    uint32_t iid;
     vpnapi_data_t *data;
 
     data = (vpnapi_data_t *)dplane_vpnapi.datap_data;
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
 
-    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf) != GOOD) {
+    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf, &iid) != GOOD) {
         return (BAD);
     }
 
@@ -89,21 +111,27 @@ vpnapi_process_input_packet(sock_t *sl)
 int
 vpnapi_rtr_process_input_packet(sock_t *sl)
 {
+    packet_tuple_t tpl;
+
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
     /* Reserve space in case the received packet was IPv6. In this case the IPv6 header is
      * not provided */
     lbuf_reserve(&pkt_buf,LBUF_STACK_OFFSET);
 
-    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf) != GOOD) {
+    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf, &(tpl.iid)) != GOOD) {
         return (BAD);
     }
 
-    OOR_LOG(LDBG_3, "INPUT (4341): Forwarding to OUPUT for re-encapsulation");
+    OOR_LOG(LDBG_3, "Forwarding packet to OUPUT for re-encapsulation");
 
     lbuf_point_to_l3(&pkt_buf);
     lbuf_reset_ip(&pkt_buf);
-    vpnapi_output(&pkt_buf);
+
+    if (pkt_parse_5_tuple(&pkt_buf, &tpl) != GOOD) {
+        return (BAD);
+    }
+
+    vpnapi_output(&pkt_buf, &tpl);
 
     return(GOOD);
 }
-

@@ -301,7 +301,7 @@ open_data_raw_input_socket(int afi, uint16_t port)
 }
 
 int
-open_data_datagram_input_socket(int afi)
+open_data_datagram_input_socket(int afi, int port)
 {
 
     int sock = ERR_SOCKET;
@@ -309,7 +309,7 @@ open_data_datagram_input_socket(int afi)
     if ((sock = open_udp_datagram_socket(afi)) < 0){
         return(ERR_SOCKET);
     }
-    if(bind_socket(sock,afi,NULL,LISP_DATA_PORT) != GOOD){
+    if(bind_socket(sock,afi,NULL,port) != GOOD){
         close(sock);
         return(ERR_SOCKET);
     }
