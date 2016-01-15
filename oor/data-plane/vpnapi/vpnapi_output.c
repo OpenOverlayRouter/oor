@@ -85,9 +85,12 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
     fwd_info_t *fi;
     fwd_entry_t *fe;
+    uint32_t iid = tuple->iid;
 
-    /*XXX All the tuples are initialized with iid = 0. It will not be valid when implementing
-     * support for same EID prefixes with different iid in the same xTR */
+    /* XXX Since OOR doesn't support same local prefixes with different IIDs when
+     * operating as a XTR or MN, we use IID = 0 to calculate the hash of the ttable.
+     * The actual IID to be used on the encapsulation processed is already stored
+     * in the forwarding entry, which is obtained on a ttable miss.*/
 
     fi = ttable_lookup(&ttable, tuple);
     if (!fi) {
@@ -109,17 +112,23 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
                 return(BAD);
             }
         }
+        tuple->iid = iid;
         ttable_insert(&ttable, pkt_tuple_clone(tuple), fi);
     }else{
         fe = fi->fwd_info;
     }
 
     /* Packets with no/negative map cache entry AND no PETR
-     * OR packets with missing src or dst RLOCs
-     * forward them natively */
+     * OR packets with missing src or dst RLOCs*/
     if (!fe || !fe->srloc || !fe->drloc) {
-        OOR_LOG(LDBG_3,"OUTPUT: Packet with non lisp destination. No PeTRs compatibles to be used. Discarding packet");
-        return(BAD);
+        switch (fi->neg_map_reply_act){
+        case ACT_NO_ACTION:
+        case ACT_SEND_MREQ:
+        case ACT_NATIVE_FWD:
+        case ACT_DROP:
+            OOR_LOG(LDBG_3,"OUTPUT: Packet with non lisp destination. No PeTRs compatibles to be used. Discarding packet");
+            return (GOOD);
+        }
     }
 
     OOR_LOG(LDBG_3,"OUTPUT: Sending encapsulated packet: RLOC %s -> %s\n",

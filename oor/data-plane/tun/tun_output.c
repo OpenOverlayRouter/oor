@@ -182,6 +182,12 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
     fwd_info_t *fi;
     fwd_entry_t *fe;
+    uint32_t iid = tuple->iid;
+
+    /* XXX Since OOR doesn't support same local prefixes with different IIDs when
+     * operating as a XTR or MN, we use IID = 0 to calculate the hash of the ttable.
+     * The actual IID to be used on the encapsulation processed is already stored
+     * in the forwarding entry, which is obtained on a ttable miss.*/
 
     fi = ttable_lookup(&ttable, tuple);
     if (!fi) {
@@ -193,17 +199,24 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         if (fe && fe->srloc && fe->drloc)  {
             fe->out_sock = get_out_socket_ptr_from_address(fe->srloc);
         }
-        // XXX Should packets to be send natively be added to the table?
+        tuple->iid = iid;
         ttable_insert(&ttable, pkt_tuple_clone(tuple), fi);
     }else{
         fe = fi->fwd_info;
     }
 
     /* Packets with no/negative map cache entry AND no PETR
-     * OR packets with missing src or dst RLOCs
-     * forward them natively */
+     * OR packets with missing src or dst RLOCs*/
     if (!fe || !fe->srloc || !fe->drloc) {
-        return(tun_forward_native(b, &tuple->dst_addr));
+        switch (fi->neg_map_reply_act){
+        case ACT_NO_ACTION:
+        case ACT_SEND_MREQ:
+        case ACT_DROP:
+            OOR_LOG(LDBG_3, "tun_output_unicast: Packet droped");
+            return (GOOD);
+        case ACT_NATIVE_FWD:
+            return(tun_forward_native(b, &tuple->dst_addr));
+        }
     }
 
     OOR_LOG(LDBG_3,"OUTPUT: Sending encapsulated packet: RLOC %s -> %s\n",

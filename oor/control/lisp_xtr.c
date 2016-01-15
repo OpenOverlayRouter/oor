@@ -2094,12 +2094,14 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
             return (fwd_info);
         }
         eid = map_local_entry_eid(map_loc_e);
+
         if (lisp_addr_is_iid(eid)){
             tuple->iid = lcaf_iid_get_iid(lisp_addr_get_lcaf(eid));
         }else{
             tuple->iid = 0;
         }
     }else {
+        /* When RTR, iid is obtained from the desencapsulated packet */
         map_loc_e = xtr->all_locs_map;
     }
     if (tuple->iid > 0){
@@ -2112,43 +2114,85 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
 
     mce = mcache_lookup(xtr->map_cache, dst_eid);
     if (!mce) {
+        /* No map cache entry, initiate map cache miss process */
         fwd_info->temporal = TRUE;
         OOR_LOG(LDBG_1, "No map cache for EID %s. Sending Map-Request!",
                 lisp_addr_to_char(dst_eid));
         handle_map_cache_miss(xtr, dst_eid, src_eid);
-        if (mcache_has_locators(xtr->petrs) == FALSE){
-            OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+        /* If the EID is not from a iid net, try to fordward to the PeTR */
+        if (lisp_addr_is_iid(dst_eid) == FALSE){
+            if (mcache_has_locators(xtr->petrs) == FALSE){
+                OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+                lisp_addr_del(src_eid);
+                lisp_addr_del(dst_eid);
+                return (fwd_info);
+            }
+            OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
+            fwd_info->neg_map_reply_act = ACT_NATIVE_FWD;
+            mce = xtr->petrs;
+        }else{
             lisp_addr_del(src_eid);
             lisp_addr_del(dst_eid);
+            fwd_info->neg_map_reply_act = ACT_NO_ACTION;
             return (fwd_info);
         }
-        mce = xtr->petrs;
     } else if (mce->active == NOT_ACTIVE) {
         fwd_info->temporal = TRUE;
         OOR_LOG(LDBG_2, "Already sent Map-Request for %s. Waiting for reply!",
                 lisp_addr_to_char(dst_eid));
-        if (mcache_has_locators(xtr->petrs) == FALSE){
-            OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+        /* If the EID is not from a iid net, try to fordward to the PeTR */
+        if (lisp_addr_is_iid(dst_eid) == FALSE){
+            if (mcache_has_locators(xtr->petrs) == FALSE){
+                OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+                lisp_addr_del(src_eid);
+                lisp_addr_del(dst_eid);
+                return (fwd_info);
+            }
+            OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
+            fwd_info->neg_map_reply_act = ACT_NATIVE_FWD;
+            mce = xtr->petrs;
+        }else{
             lisp_addr_del(src_eid);
             lisp_addr_del(dst_eid);
+            fwd_info->neg_map_reply_act = ACT_NO_ACTION;
             return (fwd_info);
         }
-        OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
-        mce = xtr->petrs;
     }
 
     dmap = mcache_entry_mapping(mce);
     if (mapping_locator_count(dmap) == 0) {
         OOR_LOG(LDBG_3, "Destination %s has a NEGATIVE mapping!",
                 lisp_addr_to_char(dst_eid));
-        if (mcache_has_locators(xtr->petrs) == FALSE){
-            OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+        switch (mapping_action(dmap)){
+        case ACT_NO_ACTION:
             lisp_addr_del(src_eid);
             lisp_addr_del(dst_eid);
+            fwd_info->neg_map_reply_act = ACT_NO_ACTION;
+            return (fwd_info);
+        case ACT_NATIVE_FWD:
+            if (mcache_has_locators(xtr->petrs) == FALSE){
+                OOR_LOG(LDBG_3, "Trying to forward to PETR but none found ...");
+                lisp_addr_del(src_eid);
+                lisp_addr_del(dst_eid);
+                return (fwd_info);
+            }
+            OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
+            fwd_info->neg_map_reply_act = ACT_NATIVE_FWD;
+            mce = xtr->petrs;
+            break;
+        case ACT_SEND_MREQ:
+            // TODO: To be implemented. Now drop paquet
+            OOR_LOG(LDBG_2, "Recived a packet of an entry with ACT send map req. Drop packet");
+            lisp_addr_del(src_eid);
+            lisp_addr_del(dst_eid);
+            fwd_info->neg_map_reply_act = ACT_NO_ACTION;
+            return (fwd_info);
+        case ACT_DROP:
+            lisp_addr_del(src_eid);
+            lisp_addr_del(dst_eid);
+            fwd_info->neg_map_reply_act = ACT_DROP;
             return (fwd_info);
         }
-        OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
-        mce = xtr->petrs;
     }
 
 
@@ -2159,24 +2203,33 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
             tuple, fwd_info);
 
 
+    /* Problems obtaining fwd entry */
     if (!fwd_info->fwd_info){
+        /* If we didn't try to send to a PeTR, try now */
         if (mce != xtr->petrs){
-            if (mcache_has_locators(xtr->petrs) == TRUE){
-                OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
-                mce = xtr->petrs;
-                xtr->fwd_policy->policy_get_fwd_info(
-                        xtr->fwd_policy_dev_parm,
-                        map_local_entry_fwd_info(map_loc_e),
-                        mcache_entry_routing_info(mce),
-                        tuple, fwd_info);
-                if (!fwd_info->fwd_info){
-                    OOR_LOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
+            if (lisp_addr_is_iid(dst_eid) == FALSE){
+                if (mcache_has_locators(xtr->petrs) == TRUE){
+                    OOR_LOG(LDBG_3, "Forwarding packet to PeTR");
+                    mce = xtr->petrs;
+                    xtr->fwd_policy->policy_get_fwd_info(
+                            xtr->fwd_policy_dev_parm,
+                            map_local_entry_fwd_info(map_loc_e),
+                            mcache_entry_routing_info(mce),
+                            tuple, fwd_info);
+                    if (!fwd_info->fwd_info){
+                        OOR_LOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
+                        fwd_info->neg_map_reply_act = ACT_NATIVE_FWD;
+                    }
+                }else{
+                    OOR_LOG(LDBG_3, "tr_get_fwd_entry: No compatible src and dst rlocs. No PeTRs configured");
+                    fwd_info->neg_map_reply_act = ACT_NATIVE_FWD;
                 }
             }else{
-                OOR_LOG(LDBG_3, "tr_get_fwd_entry: No compatible src and dst rlocs. No PeTRs configured");
+                fwd_info->neg_map_reply_act = ACT_NO_ACTION;
             }
         }else{
             OOR_LOG(LDBG_3, "tr_get_fwd_entry: No PETR compatible with local locators afi");
+            fwd_info->neg_map_reply_act = ACT_NATIVE_FWD;
         }
     }
     /* Assign encapsulated that should be used */

@@ -60,6 +60,7 @@ typedef struct fwd_policy_loct_parm_t{
 typedef struct fwd_info_{
     void *fwd_info;
     uint8_t temporal;
+    lisp_action_e neg_map_reply_act;
     oor_encap_t encap;
 }fwd_info_t;
 

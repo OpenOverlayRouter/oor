@@ -207,6 +207,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lbuf_t  b;
     lisp_site_prefix_t *    site            = NULL;
     lisp_reg_site_t *       rsite           = NULL;
+    uint8_t act_flag;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -245,14 +246,17 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         /* CHECK IF WE NEED TO PROXY REPLY */
         site = mdb_lookup_entry(ms->lisp_sites_db, deid);
-        if (site == NULL){
-            ms_dump_configured_sites(ms, LDBG_1);
-        }
         rsite = mdb_lookup_entry(ms->reg_sites_db, deid);
         /* Static entries will have null site and not null rsite */
         if (!site && !rsite) {
             /* send negative map-reply with TTL 15 min */
-            mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NATIVE_FWD,A_AUTHORITATIVE,
+
+            if (lisp_addr_is_iid(deid)){
+                act_flag = ACT_NO_ACTION;
+            }else{
+                act_flag = ACT_NATIVE_FWD;
+            }
+            mrep = lisp_msg_neg_mrep_create(deid, 15, act_flag,A_AUTHORITATIVE,
                     MREQ_NONCE(mreq_hdr));
             OOR_LOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
                     lisp_addr_to_char(deid));
