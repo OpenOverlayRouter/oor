@@ -141,6 +141,20 @@ lxml_get_char_lisp_addr(xmlNodePtr xml_address, char *name, shash_t *lcaf_ht)
     return lisp_address_str;
 }
 
+int
+lxml_get_iid_lisp_addr(xmlNodePtr xml_address)
+{
+    int iid;
+
+    if (get_inner_xmlNodePtr(xml_address,"instance-id") != NULL){
+        iid = atoi((char*)xmlNodeGetContent(get_inner_xmlNodePtr(xml_address,"instance-id")));
+        return(iid);
+    }
+    return (0);
+}
+
+
+
 lisp_addr_t *
 lxml_lcaf_get_lisp_addr (xmlNodePtr xml_lcaf)
 {
@@ -221,6 +235,7 @@ lxml_get_conf_mapping (xmlNodePtr xml_local_eid, shash_t * lcaf_ht)
 
     eid_name = (char*)xmlNodeGetContent(get_inner_xmlNodePtr(xml_local_eid,"id"));
     eid = lxml_get_char_lisp_addr(get_inner_xmlNodePtr(xml_local_eid,"eid-address"),eid_name,lcaf_ht);
+
     free(eid_name);
     if (eid == NULL){
         OOR_LOG(LDBG_1,"OOR_API->oor_api_nc_xtr_mapdb_add: Error processing EID");
@@ -232,10 +247,12 @@ lxml_get_conf_mapping (xmlNodePtr xml_local_eid, shash_t * lcaf_ht)
         return NULL;
     }
     conf_mapping->eid_prefix = eid;
+    conf_mapping->iid = lxml_get_iid_lisp_addr(get_inner_xmlNodePtr(xml_local_eid,"eid-address"));
     if (get_inner_xmlNodePtr(xml_local_eid,"record-ttl") != NULL){
         ttl = atoi((char*)xmlNodeGetContent(get_inner_xmlNodePtr(xml_local_eid,"record-ttl")));
         conf_mapping->ttl = ttl;
     }
+
     /* Process locators */
     xml_rlocs = get_inner_xmlNodePtr(xml_local_eid,"rlocs");
     xml_rloc = get_inner_xmlNodePtr(xml_rlocs,"rloc");
@@ -714,7 +731,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         }
         /* If dev is a mobile node, we can only have one IPv4 and one IPv6 mapping */
         if (lisp_ctrl_dev_mode(ctrl_dev) == MN_MODE){
-            eid_ip_afi = ip_addr_afi(lisp_addr_ip_get_addr(mapping_eid(processed_mapping)));
+            eid_ip_afi = lisp_addr_ip_afi((lisp_addr_get_ip_pref_addr(mapping_eid(processed_mapping))));;
             if (eid_ip_afi == AF_INET){
                 ipv4_mapings ++;
             }else if (eid_ip_afi == AF_INET6){
