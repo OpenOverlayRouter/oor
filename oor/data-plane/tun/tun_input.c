@@ -108,6 +108,7 @@ tun_process_input_packet(sock_t *sl)
         return (BAD);
     }
 
+    /* XXX Destination packet should be checked it belongs to this xTR */
     if ((write(tun_receive_fd, lbuf_l3(&pkt_buf), lbuf_size(&pkt_buf))) < 0) {
         OOR_LOG(LDBG_2, "lisp_input: write error: %s\n ", strerror(errno));
     }

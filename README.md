@@ -160,24 +160,27 @@ This is the list of supported features at this moment
     - Register to the Mapping System
     - Request mappings
     - Reply to mapping requests
-    - Encapsulate data packets
-    - Decapsulate data packets
+    - Encapsulate data packets (LISP and VXLAN-GPE)
+    - Decapsulate data packets (LISP and VXLAN-GPE)
     - RLOC Probing (user configurable)
     - IPv6 full support (EIDs and RLOCs)
     - Interface management 
     - Multihoming
     - Explicit Locator Path (ELPs)
+    - Instance ID / VNI support
+    - NETCONF/YANG configurable
 
 * RTR
 
     - Request mappings
     - Reply to mapping requests
-    - Reencapsulate data packets
+    - Reencapsulate data packets (LISP and VXLAN-GPE)
     - RLOC Probing (user configurable)
     - IPv6 full support (EIDs and RLOCs)
     - Interface management 
     - Multihoming
     - Explicit Locator Path (ELPs)
+    - Instance ID / VNI support
 
 * MS / MR
 
@@ -189,6 +192,10 @@ This is the list of supported features at this moment
     - IPv6 full support (EIDs and RLOCs)
     - Interface management 
     - Explicit Locator Path (ELPs)
+    - Instance ID support
+    
+Note: OOR doesn't support overlapping local prefixes with different IIDs when operating as 
+a XTR or MN.    
 
 Mobile Node mode (MN)
 ---------------------

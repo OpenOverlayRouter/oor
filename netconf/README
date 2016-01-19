@@ -7,8 +7,8 @@ wget https://libnetconf.googlecode.com/archive/0.9.x.zip
 wget https://netopeer.googlecode.com/archive/libnetconf-0.9.x.zip
 
 
-LISPMOB MODULE INSTALLATION
-===========================
+OOR MODULE INSTALLATION
+=======================
 #Full instructions at http://libnetconf.googlecode.com/git/doc/doxygen/html/d9/d25/transapi.html
 
 #Move to 'netconf' folder
@@ -37,3 +37,7 @@ sudo netopeer-manager add --name lispsimple --import ./iana-afn-safi.yin
 
 #Run the server
 sudo netopeer-server
+
+
+
+

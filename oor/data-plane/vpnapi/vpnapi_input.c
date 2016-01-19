@@ -100,7 +100,7 @@ vpnapi_process_input_packet(sock_t *sl)
     if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf, &iid) != GOOD) {
         return (BAD);
     }
-
+    /* XXX Destination packet should be checked it belongs to this xTR */
     if ((write(data->tun_socket, lbuf_l3(&pkt_buf), lbuf_size(&pkt_buf))) < 0) {
         OOR_LOG(LDBG_2, "lisp_input: write error: %s\n ", strerror(errno));
     }
