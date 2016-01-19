@@ -21,11 +21,9 @@ The two different editions of the Open Overlay Router application have different
 requirements. Open Overlay Router for rooted devices requires root access and Android 
 version 2.3.6 or higher, while Open Overlay Router for non-rooted devices requires 
 Android 4.0 or higher. Please note that due to a bug on Android 4.4.0 and onwards, 
-the non-rooted version of LISPmob will not work on Android 4.4.0, 4.4.1, 4.4.2 or 
-4.4.3. The bug was fixed on Android 4.4.4. (for IPv4 EIDs). To ease the 
-installation process we strongly recommend installing LISPmob through Google Play 
-(search for “open overlay router”), however you can also download a precompiled APK 
-package file from the Open Overlay Router website or compile the app from sources 
+the non-rooted version of OOR will not work on Android 4.4.0, 4.4.1, 4.4.2 or 
+4.4.3. The bug was fixed on Android 4.4.4. (for IPv4 EIDs). You can download a precompiled
+APK package file from the Open Overlay Router website or compile the app from sources 
 yourself. In any case, if you choose to install Open Overlay Router without using 
 Google Play, the device must be configured to allow the installation of packages from 
 "unknown sources" (System Settings -> Security -> Device Administration). 
@@ -38,10 +36,10 @@ those specified in the main README.md file.
   * Android NDK: [http://developer.android.com/tools/sdk/ndk/]
   * Apache Ant
 
-To get the latest version of the LISPmob source from Github:
+To get the latest version of the OOR source from Github:
 
     git clone git://github.com/OpenOverlayRouter/oor.git
-    cd lispmob
+    cd oor
             
 To build the code, go to the `android/` directory located in the top-level 
 directory and modify the `local.properties` file with the correct path to your 
