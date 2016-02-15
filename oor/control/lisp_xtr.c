@@ -976,7 +976,7 @@ send_map_request_retry_cb(oor_timer_t *timer)
 }
 
 
-/* Sends a Map-Request for EID in 'mce' and sets-up a retry timer */
+/* Sends Encap Map-Request for EID in 'mce' and sets-up a retry timer */
 static int
 build_and_send_map_request(lisp_xtr_t *xtr, lisp_addr_t *seid,
         mcache_entry_t *mce, uint64_t nonce)
@@ -1004,6 +1004,7 @@ build_and_send_map_request(lisp_xtr_t *xtr, lisp_addr_t *seid,
     OOR_LOG(LDBG_1, "locators for req: %s", laddr_list_to_char(rlocs));
     b = lisp_msg_mreq_create(seid, rlocs, deid);
     if (b == NULL) {
+    	OOR_LOG(LDBG_1, "build_and_send_map_request: Couldn't create map request message");
         glist_destroy(rlocs);
         return(BAD);
     }
@@ -1017,6 +1018,9 @@ build_and_send_map_request(lisp_xtr_t *xtr, lisp_addr_t *seid,
 
 
     /* Encapsulate message and send it to the map resolver */
+
+    lisp_msg_encap(b, LISP_CONTROL_PORT, LISP_CONTROL_PORT, seid, deid);
+
     srloc = NULL;
     drloc = get_map_resolver(xtr);
     if (!drloc){
