@@ -31,7 +31,8 @@ an xTR, MS/MR, RTR or LISP-MN.
 Nowadays, OOR runs on desktop Linux, OpenWRT home routers and Android 
 devices. The current reference platform for OOR development is Ubuntu 
 Server 14.04.3 LTS (Trusty Tahr), OpenWRT 15.05 (Chaos Calmer) and 
-Android 4.3 (Jelly Bean). 
+Android 4.3 (Jelly Bean). OpenOverlayRouter is a rename of the LISPmob.org 
+project.
 
 Network Prerequisites
 ---------------------
@@ -45,17 +46,17 @@ xTR - MN
   * an authentication token to register the EID with the Map-Server,
   * the RLOC of a Map-Resolver,
   * the RLOC of a Proxy-ETR,
-  * a publicly routable RLOC for the device running LISPmob, which is neither 
+  * a publicly routable RLOC for the device running OOR, which is neither 
   firewalled, nor behind NAT (see however "NAT traversal" section for details on 
   this).
 
 RTR
   * the RLOC of a Map-Resolver,
-  * a publicly routable RLOC for the device running LISPmob, which is neither 
+  * a publicly routable RLOC for the device running OOR, which is neither 
   firewalled, nor behind NAT.
 
 MS/MR
-  * a publicly routable RLOC for the device running LISPmob, which is neither 
+  * a publicly routable RLOC for the device running OOR, which is neither 
   firewalled, nor behind NAT.
 
 The above information is used for configuring 'oor' via the configuration file 
@@ -236,7 +237,7 @@ a /126 (at least). This prefix should be used as the network prefix for the subn
 where the hosts on the EID space connected to the router are allocated. Assign 
 the EID to an interface on the router and configure it as you would do for a normal
 network prefix (static configuration, DHCP, etc...). No EID is used for the 'lispTun0' 
-interface in router mode (a local address is automatically used by LISPmob instead).
+interface in router mode (a local address is automatically used by OOR instead).
 The following lines show an example of how 'ip addr' and 'ip route' will look like 
 with IPv4, expect a similar output with IPv6:
 
@@ -321,7 +322,7 @@ MS/MR mode
 ----------
 
 Open Overlay Router can be configured as a basic MS/MR where configured EID prefixes can 
-be registered by xTRs. LISPmob will also reply to MapRequests addressed to those 
+be registered by xTRs. OOR will also reply to MapRequests addressed to those 
 prefixes.
 To configure Open Overlay Router as a MS/MR, select the corresponding operating-mode and 
 fill the parameters of the MS section of the configuration file.
