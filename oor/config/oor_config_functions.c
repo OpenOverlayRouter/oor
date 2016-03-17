@@ -1000,6 +1000,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     conf_loc_t *conf_loc;
     conf_loc_iface_t *conf_loc_iface;
     glist_entry_t *conf_it;
+    int iidmlen;
 
     switch (dev->mode){
         case xTR_MODE:
@@ -1026,7 +1027,8 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     }
     if (conf_mapping->iid > 0){
         ip_eid_prefix = lisp_addr_clone(eid_prefix);
-        eid_prefix = lisp_addr_new_init_iid(conf_mapping->iid, ip_eid_prefix, 0);
+        iidmlen = (lisp_addr_ip_afi(ip_eid_prefix) == AF_INET) ? 32: 128;
+        eid_prefix = lisp_addr_new_init_iid(conf_mapping->iid, ip_eid_prefix, iidmlen);
     }
 
     /* Create mapping */

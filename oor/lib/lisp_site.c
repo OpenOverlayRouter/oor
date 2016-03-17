@@ -26,11 +26,13 @@ lisp_site_prefix_t *
 lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
         uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge)
 {
-
     lisp_site_prefix_t *sp = NULL;
+    int iidmlen;
+
     sp = xzalloc(sizeof(lisp_site_prefix_t));
     if (iid > 0){
-        sp->eid_prefix = lisp_addr_new_init_iid(iid, lisp_addr_clone(eid), 0);
+        iidmlen = (lisp_addr_ip_afi(eid) == AF_INET) ? 32: 128;
+        sp->eid_prefix = lisp_addr_new_init_iid(iid, lisp_addr_clone(eid), iidmlen);
     }else{
         sp->eid_prefix = lisp_addr_clone(eid);
     }

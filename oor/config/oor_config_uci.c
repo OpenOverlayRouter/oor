@@ -1120,7 +1120,7 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     lisp_addr_t *eid_prefix, *ip_eid_prefix;
     char *uci_eid;
     char *uci_rloc_set;
-    int uci_iid;
+    int uci_iid,iidmlen;
     glist_t *rloc_list;
     glist_entry_t *it;
     lisp_xtr_t *xtr;
@@ -1165,7 +1165,8 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     }
     if (uci_iid > 0){
         ip_eid_prefix = lisp_addr_clone(eid_prefix);
-        eid_prefix = lisp_addr_new_init_iid(uci_iid, ip_eid_prefix, 0);
+        iidmlen = (lisp_addr_ip_afi(ip_eid_prefix) == AF_INET) ? 32: 128;
+        eid_prefix = lisp_addr_new_init_iid(uci_iid, ip_eid_prefix, iidmlen);
     }
 
     /* Create mapping */
