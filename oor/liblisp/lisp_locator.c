@@ -30,8 +30,8 @@ locator_new()
 }
 
 locator_t *
-locator_new_init(lisp_addr_t* addr,uint8_t state, uint8_t priority, uint8_t weight,
-        uint8_t mpriority, uint8_t mweight)
+locator_new_init(lisp_addr_t* addr,uint8_t state,uint8_t L_bit,uint8_t R_bit,
+        uint8_t priority, uint8_t weight,uint8_t mpriority, uint8_t mweight)
 {
     locator_t*  locator;
 
@@ -41,6 +41,8 @@ locator_new_init(lisp_addr_t* addr,uint8_t state, uint8_t priority, uint8_t weig
     }
     locator->addr = lisp_addr_clone(addr);
     locator->state = state;
+    locator->L_bit = L_bit;
+    locator->R_bit = R_bit;
     locator->priority = priority;
     locator->weight = weight;
     locator->mpriority = mpriority;
@@ -88,6 +90,8 @@ int locator_parse(void *ptr, locator_t *loc)
     }
 
     loc->state = status;
+    loc->L_bit = LOC_LOCAL(hdr);
+    loc->R_bit = LOC_REACHABLE(hdr);
     loc->priority = LOC_PRIORITY(hdr);
     loc->weight = LOC_WEIGHT(hdr);
     loc->mpriority = LOC_MPRIORITY(hdr);
@@ -130,7 +134,7 @@ locator_del(locator_t *locator)
 locator_t *
 locator_clone(locator_t *loc)
 {
-    locator_t *locator = locator_new_init(loc->addr, loc->state,
+    locator_t *locator = locator_new_init(loc->addr, loc->state,loc->L_bit, loc->R_bit,
             loc->priority, loc->weight, loc->mpriority, loc->mweight);
 
     return (locator);
@@ -145,9 +149,7 @@ locator_clone(locator_t *loc)
  *           2: Addr2 is bigger than addr1
  */
 inline int
-locator_cmp_addr (
-        locator_t *loct1,
-        locator_t *loct2)
+locator_cmp_addr (locator_t *loct1, locator_t *loct2)
 {
     return (lisp_addr_cmp(locator_addr(loct1),locator_addr(loct2)));
 }
@@ -155,10 +157,7 @@ locator_cmp_addr (
 /*
  * Get lafi and type of a list
  */
-void locator_list_lafi_type (
-		glist_t         *loct_list,
-		int				*lafi,
-		int				*type)
+void locator_list_lafi_type (glist_t *loct_list,int	*lafi,int *type)
 {
 	locator_t *loct = NULL;
 	lisp_addr_t *addr = NULL;
@@ -194,9 +193,7 @@ void locator_list_lafi_type (
 /* Return the locator from the list that contains the address passed as a
  * parameter */
 locator_t *
-locator_list_get_locator_with_addr(
-        glist_t         *loct_list,
-        lisp_addr_t     *addr)
+locator_list_get_locator_with_addr(glist_t *loct_list,lisp_addr_t *addr)
 {
     locator_t       *locator                = NULL;
     glist_entry_t   *it                     = NULL;
@@ -220,9 +217,7 @@ locator_list_get_locator_with_addr(
 /* Extract the locator of locators list that match with the address.
  * The locator is removed from the list */
 locator_t *
-locator_list_extract_locator_with_addr(
-        glist_t         *loct_list,
-        lisp_addr_t     *addr)
+locator_list_extract_locator_with_addr(glist_t *loct_list,lisp_addr_t *addr)
 {
     locator_t       *locator                = NULL;
     glist_entry_t   *it                     = NULL;
@@ -246,9 +241,7 @@ locator_list_extract_locator_with_addr(
 /* Extract the locator of locators list comparing the pointer to the structure.
  * The locator is removed from the list */
 int
-locator_list_extract_locator_with_ptr(
-        glist_t         *loct_list,
-        locator_t       *locator)
+locator_list_extract_locator_with_ptr(glist_t *loct_list,locator_t *locator)
 {
     glist_entry_t   *it                     = NULL;
     locator_t       *loct                   = NULL;
@@ -296,9 +289,7 @@ locator_list_clone(glist_t *loct_list)
 }
 
 int
-locator_list_cmp_afi(
-        glist_t *loct_list_a,
-        glist_t *loct_list_b)
+locator_list_cmp_afi(glist_t *loct_list_a,glist_t *loct_list_b)
 {
 	locator_t *		loct_a = NULL;
 	locator_t *		loct_b = NULL;

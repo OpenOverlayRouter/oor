@@ -25,7 +25,7 @@
 
 #include "oor_log.h"
 #include "timers.h"
-#include "util.h"
+#include "mem_util.h"
 #include "../defs.h"
 #include "../oor_external.h"
 
@@ -287,6 +287,7 @@ oor_timer_start(oor_timer_t *tptr, int sexpiry)
  * stop_timer()
  *
  * Mark one of the global timers as stopped and remove it.
+ * The nonces_lst should be removed outside the timer
  */
 void
 oor_timer_stop(oor_timer_t *tptr)

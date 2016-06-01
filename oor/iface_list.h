@@ -78,7 +78,6 @@ inline void ifaces_destroy();
 
 
 void iface_destroy(iface_t *iface);
-void iface_remove_routing_rules(iface_t *iface);
 char *iface_to_char(iface_t *iface);
 
 lisp_addr_t *get_iface_address(char *ifacename, int afi);

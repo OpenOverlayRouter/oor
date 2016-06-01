@@ -73,7 +73,7 @@ vpnapi_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
     dplane_vpnapi.datap_data = (void *)data;
 
     /* Get the extra parameter of the function */
-    va_start(ap, dev_type);
+    va_start(ap, encap_type);
     tun_fd = va_arg(ap, int);
     va_end(ap);
 
@@ -102,7 +102,6 @@ vpnapi_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
         break;
     }
 
-
     if (default_rloc_afi != AF_INET6){
         data->ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
         sockmstr_register_read_listener(smaster, cb_func, NULL,data->ipv4_data_socket);
@@ -128,11 +127,10 @@ void
 vpnapi_uninit_data_plane()
 {
     vpnapi_data_t *data = dplane_vpnapi.datap_data;
-    close (data->ipv4_data_socket);
-    close (data->ipv6_data_socket);
-    free (dplane_vpnapi.datap_data);
-
-    vpnapi_output_uninit();
+    if (data){
+        free (data);
+        vpnapi_output_uninit();
+    }
 }
 
 int
@@ -295,13 +293,24 @@ vpnapi_reset_socket(int fd, int afi)
     sock_t *old_sock;
     int new_fd;
     vpnapi_data_t * data;
+    int src_port;
 
     data = (vpnapi_data_t *)dplane_vpnapi.datap_data;
     old_sock = sockmstr_register_get_by_fd(smaster,fd);
+
+    switch (data->encap_type){
+    case ENCP_LISP:
+        src_port = LISP_DATA_PORT;
+        break;
+    case ENCP_VXLAN_GPE:
+        src_port = VXLAN_GPE_DATA_PORT;
+        break;
+    }
+
     switch (afi){
     case AF_INET:
         OOR_LOG(LDBG_2,"reset_socket: Reset IPv4 data socket");
-        new_fd = open_data_datagram_input_socket(AF_INET,data->encap_type);
+        new_fd = open_data_datagram_input_socket(AF_INET,src_port);
         if (new_fd == ERR_SOCKET){
             OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
             return (BAD);
@@ -310,7 +319,7 @@ vpnapi_reset_socket(int fd, int afi)
         break;
     case AF_INET6:
         OOR_LOG(LDBG_2,"reset_socket: Reset IPv6 data socket");
-        new_fd = open_data_datagram_input_socket(AF_INET6,data->encap_type);
+        new_fd = open_data_datagram_input_socket(AF_INET6,src_port);
         if (new_fd == ERR_SOCKET){
             OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
             return (BAD);

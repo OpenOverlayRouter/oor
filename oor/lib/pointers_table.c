@@ -105,7 +105,7 @@ htable_ptrs_timers_get_timers(htable_ptrs_t *ptr_ht, void *key)
 
 /* Return the list the timers of the requested type associated with the object */
 glist_t *
-htable_ptrs_timers_get_timers_of_type(htable_ptrs_t *ptr_ht, void *key,
+htable_ptrs_timers_get_timers_of_type_from_obj(htable_ptrs_t *ptr_ht, void *key,
         timer_type type)
 {
     oor_timer_t *timer;
@@ -113,12 +113,13 @@ htable_ptrs_timers_get_timers_of_type(htable_ptrs_t *ptr_ht, void *key,
     glist_t *timer_lst;
     glist_entry_t *timer_it, *timer_it_aux;
 
+    set_timers_lst = glist_new();
+
     timer_lst = htable_ptrs_lookup(ptr_ht, key);
     if (!timer_lst){
-        return (NULL);
+        return (set_timers_lst);
     }
 
-    set_timers_lst = glist_new();
     glist_for_each_entry_safe(timer_it,timer_it_aux,timer_lst){
         timer = (oor_timer_t*)glist_entry_data(timer_it);
         if (type == oor_timer_type(timer)){

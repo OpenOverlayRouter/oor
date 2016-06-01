@@ -30,6 +30,7 @@
 #include "../data-plane/data-plane.h"
 #include "../lib/shash.h"
 #include "../lib/oor_log.h"
+#include "../lib/prefixes.h"
 #include <libgen.h>
 #include <string.h>
 #include <uci.h>
@@ -111,7 +112,7 @@ handle_config_file(char **uci_conf_file_path)
 
     if (ctx == NULL) {
         OOR_LOG(LCRIT, "Could not create UCI context. Exiting ...");
-        exit_cleanup();
+        return (BAD);
     }
 
     uci_conf_dir = dirname(strdup(*uci_conf_file_path));
@@ -128,7 +129,7 @@ handle_config_file(char **uci_conf_file_path)
         OOR_LOG(LCRIT, "Could not load conf file: %s. Exiting ...",uci_conf_file);
         uci_perror(ctx,"Error while loading file ");
         uci_free_context(ctx);
-        exit_cleanup();
+        return (BAD);
     }
 
 
@@ -189,6 +190,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
     struct uci_option *opt;
     int uci_retries;
     char *uci_address;
+    char *uci_nat_aware;
     int uci_key_type;
     char *uci_key;
     int uci_proxy_reply;
@@ -200,13 +202,12 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
     lisp_xtr_t *xtr;
     map_local_entry_t *map_loc_e;
     mapping_t *mapping;
-    void *fwd_map_inf;
     glist_t *no_addr_loct_list;
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create xTR. Aborting!");
-        exit_cleanup();
+        return (BAD);
     }
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
@@ -226,6 +227,25 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
     no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
     rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+        /* NAT Traversal options */
+
+        if (strcmp(sect->type, "nat-traversal") == 0){
+            uci_nat_aware = uci_lookup_option_string(ctx, sect, "nat_traversal_support");
+            if (uci_nat_aware && strcmp(uci_nat_aware, "on") == 0){
+                xtr->nat_aware  = TRUE;
+                nat_set_xTR_ID(xtr);
+                nat_set_site_ID(xtr, 0);
+                default_rloc_afi = AF_INET;
+                OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
+            }else{
+                xtr->nat_aware = FALSE;
+            }
+            break;
+        }
+    }
 
 
     uci_foreach_element(&pck->sections, element) {
@@ -278,16 +298,6 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
 
                 validate_rloc_probing_parameters(&xtr->probe_interval,
                         &xtr->probe_retries, &xtr->probe_retries_interval);
-                continue;
-            }
-
-            /* NAT Traversal options */
-            if (strcmp(sect->type, "nat-traversal") == 0){
-                if (strcmp(uci_lookup_option_string(ctx, sect, "nat_aware"), "on") == 0){
-                    nat_aware = TRUE;
-                }else{
-                    nat_aware = FALSE;
-                }
                 continue;
             }
 
@@ -392,14 +402,14 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
                     continue;
                 }
 
-                fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
-                if (fwd_map_inf == NULL){
-                    OOR_LOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
+                if (xtr->fwd_policy->init_map_loc_policy_inf(
+                        xtr->fwd_policy_dev_parm,map_loc_e,NULL,
+                        xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+                    OOR_LOG(LERR, "Couldn't initiate forward information for mapping with EID: %s. Discarding it...",
                             lisp_addr_to_char(mapping_eid(mapping)));
                     map_local_entry_del(map_loc_e);
                     continue;
                 }
-                map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
 
                 if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
                     map_local_entry_del(map_loc_e);
@@ -436,13 +446,12 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
             }
     }
     /* Calculate forwarding info por proxy-etrs */
-    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
-    if (fwd_map_inf == NULL){
-        OOR_LOG(LDBG_1, "Couldn't create routing info for PeTRs!.");
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs,
+            xtr->fwd_policy->del_map_cache_policy_inf) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs!.");
         mcache_entry_del(xtr->petrs);
         return(BAD);
     }
-    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
@@ -464,6 +473,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     char *uci_address;
     int uci_key_type;
     char *uci_key;
+    char *uci_nat_aware;
     int uci_proxy_reply;
     int uci_priority;
     int uci_weigth;
@@ -473,13 +483,13 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     lisp_xtr_t *xtr;
     map_local_entry_t *map_loc_e;
     mapping_t *mapping;
-    void *fwd_map_inf;
     glist_t *no_addr_loct_list;
+
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(MN_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create Mobile Node device. Aborting!");
-        exit_cleanup();
+        return (BAD);
     }
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
@@ -499,6 +509,25 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
     rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+        /* NAT Traversal options */
+        /* NAT Traversal options */
+        if (strcmp(sect->type, "nat-traversal") == 0){
+            uci_nat_aware = uci_lookup_option_string(ctx, sect, "nat_traversal_support");
+            if (uci_nat_aware && strcmp(uci_nat_aware, "on") == 0){
+                xtr->nat_aware  = TRUE;
+                nat_set_xTR_ID(xtr);
+                nat_set_site_ID(xtr, 0);
+                default_rloc_afi = AF_INET;
+                OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
+            }else{
+                xtr->nat_aware = FALSE;
+            }
+            break;
+        }
+    }
 
 
     uci_foreach_element(&pck->sections, element) {
@@ -554,15 +583,6 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             continue;
         }
 
-        /* NAT Traversal options */
-        if (strcmp(sect->type, "nat-traversal") == 0){
-            if (strcmp(uci_lookup_option_string(ctx, sect, "nat_aware"), "on") == 0){
-                nat_aware = TRUE;
-            }else{
-                nat_aware = FALSE;
-            }
-            continue;
-        }
 
         /* MAP-RESOLVER CONFIG */
         if (strcmp(sect->type, "map-resolver") == 0){
@@ -665,14 +685,14 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
                 continue;
             }
 
-            fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
-            if (fwd_map_inf == NULL){
-                OOR_LOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
+            if ( xtr->fwd_policy->init_map_loc_policy_inf(
+                    xtr->fwd_policy_dev_parm,map_loc_e,NULL,
+                    xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+                OOR_LOG(LERR, "Couldn't initiate forward information for mapping with EID: %s. Discarding it...",
                         lisp_addr_to_char(mapping_eid(mapping)));
                 map_local_entry_del(map_loc_e);
                 continue;
             }
-            map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
 
             if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
                 map_local_entry_del(map_loc_e);
@@ -710,13 +730,12 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     }
 
     /* Calculate forwarding info por proxy-etrs */
-    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
-    if (fwd_map_inf == NULL){
-        OOR_LOG(LDBG_1, "Couldn't create routing info for PeTRs!.");
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs,
+            xtr->fwd_policy->del_map_cache_policy_inf) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs!.");
         mcache_entry_del(xtr->petrs);
         return(BAD);
     }
-    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
@@ -753,7 +772,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
     if (ctrl_dev_create(RTR_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create RTR. Aborting!");
-        exit_cleanup();
+        return (BAD);
     }
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
@@ -969,7 +988,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
     /* create and configure xtr */
     if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create MS. Aborting!");
-        exit_cleanup();
+        return (BAD);
     }
     ms = CONTAINER_OF(ctrl_dev, lisp_ms_t, super);
 
@@ -1151,7 +1170,8 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     if (addr_list == NULL || glist_size(addr_list) != 1){
         return (NULL);
     }
-    eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
+    ip_eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
+    pref_conv_to_netw_pref(ip_eid_prefix);
 
     if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
         uci_iid = 0;
@@ -1164,8 +1184,9 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
         uci_iid = 0;
     }
     if (uci_iid > 0){
-        ip_eid_prefix = lisp_addr_clone(eid_prefix);
         eid_prefix = lisp_addr_new_init_iid(uci_iid, ip_eid_prefix, 0);
+    }else{
+        eid_prefix = lisp_addr_clone(ip_eid_prefix);
     }
 
     /* Create mapping */
@@ -1173,12 +1194,14 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
         map = mapping_new_init(eid_prefix);
         if (map != NULL){
             mapping_set_ttl(map, DEFAULT_DATA_CACHE_TTL);
+            mapping_set_auth(map, 1);
         }
     }else{
         map = mapping_new_init(eid_prefix);
     }
 
     /* no need for the prefix */
+    lisp_addr_del(eid_prefix);
     glist_destroy(addr_list);
 
     if (map == NULL){
@@ -1227,7 +1250,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
 
     /* create lcaf hash table */
-    rlocs_ht = shash_new_managed((free_key_fn_t)locator_del);
+    rlocs_ht = shash_new_managed((free_value_fn_t)locator_del);
 
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
@@ -1271,7 +1294,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
             /* Create a basic locator. Locaor or remote information will be added later according
              * who is using the locator*/
-            locator = locator_new_init(address,UP,uci_priority,uci_weight,255,0);
+            locator = locator_new_init(address,UP,1,1,uci_priority,uci_weight,255,0);
             if (locator != NULL){
                 shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
             }
@@ -1341,7 +1364,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
             /* Create a basic locator. Locaor or remote information will be added later according
              * who is using the locator*/
-            locator = locator_new_init(address,UP,uci_priority,uci_weight,255,0);
+            locator = locator_new_init(address,UP,1,1,uci_priority,uci_weight,255,0);
             if (locator != NULL){
                 shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
             }
@@ -1372,7 +1395,7 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
     locator_t *loct;
 
     /* create lcaf hash table */
-    rloc_sets_ht = shash_new_managed((free_key_fn_t)glist_destroy);
+    rloc_sets_ht = shash_new_managed((free_value_fn_t)glist_destroy);
 
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
@@ -1429,7 +1452,7 @@ parse_lcafs(struct uci_context *ctx, struct uci_package *pck)
     shash_t *lcaf_ht;
 
     /* create lcaf hash table */
-    lcaf_ht = shash_new_managed((free_key_fn_t)lisp_addr_del);
+    lcaf_ht = shash_new_managed((free_value_fn_t)lisp_addr_del);
 
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
@@ -1507,3 +1530,4 @@ parse_elp_node(struct uci_context *ctx, struct uci_section *section, shash_t *ht
 
     return (GOOD);
 }
+

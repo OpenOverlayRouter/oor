@@ -25,6 +25,7 @@
 
 int open_ip_raw_socket(int afi);
 int open_udp_raw_socket(int afi);
+int opent_netlink_socket();
 
 int open_udp_datagram_socket(int afi);
 inline int socket_bindtodevice(int sock, char *device);

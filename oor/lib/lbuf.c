@@ -22,7 +22,7 @@
 
 #include "lbuf.h"
 #include "oor_log.h"
-#include "util.h"
+#include "mem_util.h"
 
 
 static void

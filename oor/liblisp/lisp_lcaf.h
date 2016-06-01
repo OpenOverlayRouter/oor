@@ -53,13 +53,30 @@ typedef struct _iid_t {
     lisp_addr_t *iidaddr;
 } iid_t;
 
-
+/* GEO */
 typedef struct {
     uint8_t     dir;
     uint16_t    deg;
     uint8_t     min;
     uint8_t     sec;
 } geo_coordinates;
+
+typedef struct {
+    geo_coordinates latitude;
+    geo_coordinates longitude;
+    uint32_t    altitude;
+    lisp_addr_t *addr;
+} geo_t;
+
+/* NAT */
+typedef struct {
+    uint16_t etr_pub_port;
+    lisp_addr_t *etr_pub_addr;
+    uint16_t ms_port;
+    lisp_addr_t *ms_addr;
+    lisp_addr_t *etr_prv_addr;
+    glist_t *rtr_addr_lst;
+} nat_t;
 
 typedef struct {
     uint8_t         src_plen;
@@ -69,12 +86,6 @@ typedef struct {
     lisp_addr_t     *grp;
 } mc_t;
 
-typedef struct {
-    geo_coordinates latitude;
-    geo_coordinates longitude;
-    uint32_t    altitude;
-    lisp_addr_t *addr;
-} geo_t;
 
 
 /* ELP */
@@ -110,6 +121,7 @@ inline void             *lcaf_addr_get_addr(lcaf_addr_t *lcaf);
 inline mc_t             *lcaf_addr_get_mc(lcaf_addr_t *lcaf);
 inline geo_t            *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
 inline iid_t            *lcaf_addr_get_iid(lcaf_addr_t *lcaf);
+inline nat_t            *lcaf_addr_get_nat(lcaf_addr_t *lcaf);
 
 inline int              lcaf_addr_is_mc(lcaf_addr_t *lcaf);
 inline int              lcaf_addr_is_iid(lcaf_addr_t *lcaf);
@@ -191,7 +203,6 @@ inline int                  iid_type_write_to_pkt(uint8_t *offset, void *iid);
 int                         iid_type_parse(uint8_t *offset, void **iid);
 char                        *iid_type_to_char(void *iid);
 void                        iid_type_copy(void **dst, void *src);
-iid_t                       *iid_type_init(int iid, lisp_addr_t *addr, uint8_t mlen);
 lisp_addr_t *				iid_type_get_ip_addr(void *iid);
 lisp_addr_t *               iid_type_get_ip_pref_addr(void *iid);
 void                        lcaf_iid_init(lcaf_addr_t *iidaddr, int iid, lisp_addr_t *addr, uint8_t mlen);
@@ -219,11 +230,50 @@ inline geo_coordinates  *geo_type_get_long(geo_t *geo);
 inline uint32_t         geo_type_get_altitude(geo_t *geo);
 int                     geo_type_parse(uint8_t *offset, void **geo);
 
-
-
 char                    *geo_type_to_char(void *geo);
 void                    geo_type_copy(void **dst, void *src);
 char                    *geo_coord_to_char(geo_coordinates *coord);
+
+
+/*
+ * NAT type functions
+ */
+
+inline nat_t * nat_type_new();
+nat_t * nat_type_new_init(uint16_t ms_port, lisp_addr_t *ms_addr, uint16_t etr_pub_port,
+        lisp_addr_t *etr_pub_addr, lisp_addr_t *etr_prv_addr, glist_t *rtr_addr_lst);
+inline void nat_type_del(void *nat);
+inline uint16_t nat_type_get_ms_port(nat_t *nat);
+inline uint16_t nat_type_get_etr_pub_port(nat_t *nat);
+inline lisp_addr_t * nat_type_get_ms_addr(nat_t *nat);
+inline lisp_addr_t * nat_type_get_etr_pub_addr(nat_t *nat);
+inline lisp_addr_t * nat_type_get_etr_priv_addr(nat_t *nat);
+inline glist_t * nat_type_get_rtr_addr_lst(nat_t *nat);
+inline void nat_type_set_ms_port(nat_t *nat, uint16_t ms_port);
+inline void nat_type_set_etr_pub_port(nat_t *nat, uint16_t etr_pub_port);
+inline void nat_type_set_ms_addr(nat_t *nat, lisp_addr_t * ms_addr);
+inline void nat_type_set_etr_pub_addr(nat_t *nat, lisp_addr_t * etr_pub_addr);
+inline void nat_type_set_etr_priv_addr(nat_t *nat, lisp_addr_t * etr_prv_addr);
+inline void nat_type_set_rtr_addr_lst(nat_t *nat, glist_t * rtr_addr_lst);
+inline int nat_type_cmp(void *nat1, void *nat2);
+int nat_type_get_size_to_write(void *nat);
+inline int nat_type_write_to_pkt(uint8_t *offset, void *nat);
+int nat_type_parse(uint8_t *offset, void **nat);
+char *nat_type_to_char(void *nat);
+void nat_type_copy(void **dst, void *src);
+lisp_addr_t * nat_type_get_ip_addr(void *nat);
+lisp_addr_t * nat_type_get_ip_pref_addr(void *nat);
+void lcaf_nat_init(lcaf_addr_t *nat_addr, uint16_t ms_port, lisp_addr_t *ms_addr,
+        uint16_t etr_pub_port, lisp_addr_t *etr_pub_addr, lisp_addr_t *etr_prv_addr,
+        glist_t *rtr_addr_lst);
+inline int lisp_addr_is_nat(lisp_addr_t *addr);
+lisp_addr_t * lisp_addr_new_init_nat(uint16_t ms_port, lisp_addr_t *ms_addr,
+        uint16_t etr_pub_port, lisp_addr_t *etr_pub_addr, lisp_addr_t *etr_prv_addr,
+        glist_t *rtr_addr_lst);
+
+
+
+
 
 /*
  * RLE type functions

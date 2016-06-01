@@ -21,7 +21,7 @@
 #define LISP_LOCATOR_H_
 
 #include "lisp_address.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 
 
 #define MAX_PRIORITY 0
@@ -34,6 +34,8 @@ typedef struct locator {
     lisp_addr_t *addr;
     /* UP , DOWN */
     uint8_t state;
+    uint8_t L_bit;
+    uint8_t R_bit;
     uint8_t priority;
     uint8_t weight;
     uint8_t mpriority;
@@ -43,8 +45,8 @@ typedef struct locator {
 
 locator_t *locator_new();
 locator_t *
-locator_new_init(lisp_addr_t* addr,uint8_t state, uint8_t priority, uint8_t weight,
-        uint8_t mpriority, uint8_t mweight);
+locator_new_init(lisp_addr_t* addr,uint8_t state,uint8_t L_bit,uint8_t R_bit,
+        uint8_t priority, uint8_t weight,uint8_t mpriority, uint8_t mweight);
 char *locator_to_char(locator_t *);
 int locator_cmp(locator_t *l1, locator_t *l2);
 int locator_parse(void *ptr, locator_t *loc);
@@ -60,6 +62,8 @@ int locator_list_cmp_afi(glist_t *loct_list_a, glist_t *loct_list_b);
 
 static inline lisp_addr_t *locator_addr(locator_t *);
 static inline uint8_t locator_state(locator_t *);
+static inline uint8_t locator_L_bit(locator_t *);
+static inline uint8_t locator_R_bit(locator_t *);
 static inline uint8_t locator_priority(locator_t *);
 static inline uint8_t locator_weight(locator_t *);
 static inline uint8_t locator_mpriority(locator_t *);
@@ -67,6 +71,8 @@ static inline uint8_t locator_mweight(locator_t *);
 static inline void locator_set_addr(locator_t *, lisp_addr_t *);
 static inline void locator_clone_addr(locator_t *loc, lisp_addr_t *addr);
 static inline void locator_set_state(locator_t *locator, uint8_t state);
+static inline void locator_set_L_bit(locator_t *locator, uint8_t L_bit);
+static inline void locator_set_R_bit(locator_t *locator, uint8_t R_bit);
 
 
 
@@ -79,6 +85,16 @@ static inline lisp_addr_t *locator_addr(locator_t *locator)
 static inline uint8_t locator_state(locator_t *locator)
 {
     return (locator->state);
+}
+
+static inline uint8_t locator_L_bit(locator_t *locator)
+{
+    return (locator->L_bit);
+}
+
+static inline uint8_t locator_R_bit(locator_t *locator)
+{
+    return (locator->R_bit);
 }
 
 static inline uint8_t locator_priority(locator_t *locator)
@@ -120,6 +136,14 @@ static inline void locator_set_state(locator_t *locator, uint8_t state)
     locator->state = state;
 }
 
+static inline void locator_set_L_bit(locator_t *locator, uint8_t L_bit)
+{
+    locator->L_bit = L_bit;
+}
 
+static inline void locator_set_R_bit(locator_t *locator, uint8_t R_bit)
+{
+    locator->R_bit = R_bit;
+}
 
 #endif /* LISP_LOCATOR_H_ */

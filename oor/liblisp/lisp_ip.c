@@ -20,7 +20,7 @@
 #include <errno.h>
 
 #include "lisp_address.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 #include "../lib/oor_log.h"
 
 /*
@@ -326,10 +326,13 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
     free(address);
 
     if (ip_addr_afi(ip_prefix_addr(ippref)) == AF_INET) {
-        if (mask < 1 || mask > 32)
+        if (mask < 0 || mask > 32){
+            OOR_LOG(LDBG_2, "ip_prefix_from_char: Invalid mask : %s",address);
             return (BAD);
+        }
     } else {
-        if (mask < 1 || mask > 128)
+        if (mask < 0 || mask > 128)
+            OOR_LOG(LDBG_2, "ip_prefix_from_char: Invalid mask : %s",address);
             return (BAD);
     }
 

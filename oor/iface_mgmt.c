@@ -17,9 +17,11 @@
  *
  */
 
+#include <errno.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 
 #include "iface_mgmt.h"
 #include "defs.h"
@@ -39,6 +41,7 @@ void process_nl_new_route (struct nlmsghdr *nlh);
 void process_nl_new_unicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_new_multicast_route (struct rtmsg *rtm, int rt_length);
 void process_nl_del_route (struct nlmsghdr *nlh);
+void process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length);
 void process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length);
 int process_nl_mcast_route_attributes(struct rtmsg *rtm, int rt_length,
         lisp_addr_t *src, lisp_addr_t *grp);
@@ -52,30 +55,6 @@ void process_address_change(iface_t *iface, lisp_addr_t *new_addr);
 
 /*******************************************************************************/
 
-int
-opent_netlink_socket()
-{
-    int netlink_fd;
-    struct sockaddr_nl addr;
-
-    memset(&addr, 0, sizeof(addr));
-    addr.nl_family = AF_NETLINK;
-    addr.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR
-                   | RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE
-                   | RTMGRP_IPV6_MROUTE;
-
-    netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-
-    if (netlink_fd < 0) {
-        OOR_LOG(LERR, "opent_netlink_socket: Failed to connect to "
-                "netlink socket");
-        return (ERR_SOCKET);
-    }
-
-    bind(netlink_fd, (struct sockaddr *) &addr, sizeof(addr));
-
-    return (netlink_fd);
-}
 
 int
 process_netlink_msg(struct sock *sl)
@@ -571,9 +550,107 @@ process_nl_del_route(struct nlmsghdr *nlh)
     rtm = (struct rtmsg *) NLMSG_DATA (nlh);
     rt_length = RTM_PAYLOAD(nlh);
 
-    /* Process removed routes only for multicast */
-    if (rtm->rtm_type == RTN_MULTICAST)
-        process_nl_del_multicast_route (rtm, rt_length);
+    /* Interested only in unicast or multicast updates */
+    if (rtm->rtm_type == RTN_UNICAST) {
+        process_nl_del_unicast_route(rtm, rt_length);
+    } else if (rtm->rtm_type == RTN_MULTICAST) {
+        process_nl_del_multicast_route(rtm, rt_length);
+    }
+}
+
+void
+process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
+{
+    struct rtattr *rt_attr;
+    iface_t *iface = NULL;
+    int iface_index;
+    char iface_name[IF_NAMESIZE];
+    lisp_addr_t gateway = { .lafi = LM_AFI_IP };
+    lisp_addr_t src = { .lafi = LM_AFI_IP };
+    lisp_addr_t dst = { .lafi = LM_AFI_IP };
+    int src_len;
+    int dst_len;
+
+    /* Interested only in main table updates for unicast */
+    if (rtm->rtm_table != RT_TABLE_MAIN)
+        return;
+
+    if ( rtm->rtm_family != AF_INET && rtm->rtm_family != AF_INET6 ) {
+        OOR_LOG(LDBG_3,"process_nl_del_unicast_route: New unicast route of "
+                "unknown adddress family %d", rtm->rtm_family);
+        return;
+    }
+
+    src_len = rtm->rtm_src_len;
+    dst_len = rtm->rtm_dst_len;
+
+    rt_attr = (struct rtattr *)RTM_RTA(rtm);
+
+    for (; RTA_OK(rt_attr, rt_length);
+            rt_attr = RTA_NEXT(rt_attr, rt_length)) {
+        switch (rt_attr->rta_type) {
+        case RTA_OIF:
+            iface_index = *(int *)RTA_DATA(rt_attr);
+            iface = get_interface_from_index(iface_index);
+            if_indextoname(iface_index, iface_name);
+            if (iface == NULL){
+                OOR_LOG(LDBG_3, "process_nl_del_unicast_route: the netlink "
+                        "message is not for any interface associated with "
+                        "RLOCs (%s)", iface_name);
+                return;
+            }
+            break;
+        case RTA_GATEWAY:
+            lisp_addr_ip_init(&gateway, RTA_DATA(rt_attr), rtm->rtm_family);
+            break;
+        case RTA_SRC:
+            lisp_addr_ip_init(&src, RTA_DATA(rt_attr), rtm->rtm_family);
+            lisp_addr_set_plen(&src,src_len);
+            break;
+        case RTA_DST:
+            lisp_addr_ip_init(&dst, RTA_DATA(rt_attr), rtm->rtm_family);
+            lisp_addr_set_plen(&dst,dst_len);
+            break;
+        default:
+            break;
+        }
+    }
+
+    /* Check default afi*/
+
+    if (lisp_addr_ip_afi(&src) != LM_AFI_NO_ADDR &&
+            default_rloc_afi != AF_UNSPEC &&
+            default_rloc_afi != lisp_addr_ip_afi(&src)) {
+        OOR_LOG(LDBG_1, "process_nl_del_unicast_route: Default RLOC afi "
+                "defined (-a #): Skipped route with source address %s in iface %s",
+                (lisp_addr_ip_afi(&src)== AF_INET) ? "IPv4" : "IPv6",
+                        iface->iface_name);
+        return;
+    }
+
+    if (lisp_addr_ip_afi(&dst) != LM_AFI_NO_ADDR &&
+            default_rloc_afi != AF_UNSPEC &&
+            default_rloc_afi != lisp_addr_ip_afi(&dst)) {
+        OOR_LOG(LDBG_1, "process_nl_del_unicast_route: Default RLOC afi "
+                "defined (-a #): Skipped route with destination address %s in iface %s",
+                (lisp_addr_ip_afi(&dst)== AF_INET) ? "IPv4" : "IPv6",
+                        iface->iface_name);
+        return;
+    }
+
+    if (lisp_addr_ip_afi(&gateway) != LM_AFI_NO_ADDR &&
+            default_rloc_afi != AF_UNSPEC &&
+            default_rloc_afi != lisp_addr_ip_afi(&gateway)) {
+        OOR_LOG(LDBG_1, "process_nl_del_unicast_route gateway %s  in iface %s",
+                (lisp_addr_ip_afi(&gateway)== AF_INET) ? "IPv4" : "IPv6",
+                        iface->iface_name);
+        return;
+    }
+
+    /* raise event to data plane */
+    data_plane->datap_updated_route(RTM_DELROUTE, iface, &src, &dst, &gateway);
+    /* raise event to control plane */
+    ctrl_route_update(lctrl, RTM_DELROUTE, iface, &src, &dst, &gateway);
 }
 
 void
@@ -592,4 +669,91 @@ process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length)
         return;
 
     multicast_leave_channel(&rt_srcaddr, &rt_groupaddr);
+}
+
+int
+get_all_ifaces_name_list(char ***ifaces,int *count)
+{
+    struct nlmsghdr *nlh, *rcvhdr;
+    struct ifinfomsg *ifm, *if_msg;
+    char sndbuf[4096],rcvbuf[4096],name[IF_NAMESIZE];
+    int ifa_len, retval,readlen;
+    int netlk_fd;
+
+    netlk_fd = opent_netlink_socket();
+    if (netlk_fd == ERR_SOCKET){
+        OOR_LOG(LERR, "get_all_ifaces_name_list: Error opening netlink socket");
+        return (BAD);
+    }
+
+    *ifaces = calloc(100,sizeof(char *));
+
+    /*
+     * Build the command
+     */
+    memset(sndbuf, 0, 4096);
+
+    nlh = (struct nlmsghdr *)sndbuf;
+    ifm = (struct ifinfomsg *)(CO(sndbuf,sizeof(struct nlmsghdr)));
+
+    ifa_len = sizeof(struct ifinfomsg);
+
+    nlh->nlmsg_len   = NLMSG_LENGTH(ifa_len);
+    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    nlh->nlmsg_type  = RTM_GETLINK;
+
+
+    ifm->ifi_family    = AF_PACKET;
+
+    retval = send(netlk_fd, sndbuf, NLMSG_LENGTH(ifa_len), 0);
+
+    if (retval < 0) {
+        OOR_LOG(LERR, "get_all_ifaces_name_list: send netlink command failed: %s", strerror(errno));
+        close(netlk_fd);
+        return(BAD);
+    }
+
+    /*
+     * Receive the responses from the kernel
+     */
+    while ((readlen = recv(netlk_fd,rcvbuf,4096,MSG_DONTWAIT)) > 0){
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            if (rcvhdr->nlmsg_type == RTM_NEWLINK) {
+                if_msg = (struct ifinfomsg *)NLMSG_DATA(rcvhdr);
+                if (if_indextoname(if_msg->ifi_index, name) != NULL){
+                    (*ifaces)[*count] = strdup(name);
+                    (*count)++;
+                }
+            }
+        }
+    }
+    close(netlk_fd);
+    return (GOOD);
+}
+
+void
+iface_mac_address(char *iface_name, uint8_t *mac)
+{
+     int fd;
+     struct ifreq ifr;
+     int i = 0;
+
+     fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+     memset(&ifr, 0, sizeof(ifr));
+     ifr.ifr_addr.sa_family = AF_INET;
+     strncpy(ifr.ifr_name, iface_name, IFNAMSIZ-1);
+
+     ioctl(fd, SIOCGIFHWADDR, &ifr);
+
+     close(fd);
+     for (i = 0 ; i < 6 ; i++){
+         mac[i] = (unsigned char)ifr.ifr_hwaddr.sa_data[i];
+     }
+
+     return;
 }

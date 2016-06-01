@@ -36,6 +36,7 @@ typedef void (*glist_del_fct)(void *);
  */
 typedef int  (*glist_cmp_fct)(void *, void *);
 typedef char *(*glist_to_char_fct)(void *);
+typedef void *(*glist_clone_obj)(void *);
 
 typedef struct glist_entry_t_ {
     struct ovs_list    list;
@@ -56,6 +57,11 @@ glist_t *glist_new_complete(glist_cmp_fct, glist_del_fct);
 void glist_init_complete(glist_t *, glist_cmp_fct, glist_del_fct);
 void glist_init(glist_t *);
 void glist_init_managed(glist_t *lst, glist_del_fct del_fct);
+inline glist_cmp_fct glist_get_cmp_fct(glist_t *lst);
+inline glist_del_fct glist_get_del_fct(glist_t *lst);
+inline void glist_set_cmp_fct(glist_t *lst, glist_cmp_fct cmp_fct);
+inline void glist_set_del_fct(glist_t *lst, glist_del_fct del_fct);
+glist_t *glist_clone(glist_t *, glist_clone_obj clone_obj);
 int glist_add(void *data, glist_t *list);
 int glist_add_tail(void *data, glist_t *glist);
 uint8_t glist_contain(void *data, glist_t *list);
@@ -100,12 +106,18 @@ glist_head(glist_t *lst)
 static inline glist_entry_t *
 glist_first(glist_t *lst)
 {
+    if (lst->size == 0){
+        return (NULL);
+    }
     return (CONTAINER_OF(glist_next(&lst->head), glist_entry_t, list));
 }
 
 static inline void *
 glist_first_data(glist_t *lst)
 {
+    if (lst->size == 0){
+        return (NULL);
+    }
     return(glist_entry_data(glist_first(lst)));
 }
 

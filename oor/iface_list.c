@@ -40,6 +40,7 @@
   int freeifaddrs(ifaddrs *addrlist);
 #endif
 
+/* List with all the interfaces used by OOR */
 glist_t *interface_list = NULL;
 
 shash_t *iface_addr_ht = NULL;
@@ -57,7 +58,7 @@ build_iface_addr_hash_table()
         exit_cleanup();
     }
 
-    iface_addr_ht = shash_new_managed((free_key_fn_t)free);
+    iface_addr_ht = shash_new_managed((free_value_fn_t)free);
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == NULL) {
@@ -97,33 +98,8 @@ ifaces_init()
 
 
 void
-iface_remove_routing_rules(iface_t *iface)
-{
-    if (iface->ipv4_address && !lisp_addr_is_no_addr(iface->ipv4_address)) {
-        if (iface->ipv4_gateway != NULL) {
-            del_route(AF_INET, iface->iface_index, NULL, NULL,
-                    iface->ipv4_gateway, 0, iface->iface_index);
-        }
-
-        del_rule(AF_INET, 0, iface->iface_index, iface->iface_index,
-                RTN_UNICAST, iface->ipv4_address, NULL, 0);
-    }
-    if (iface->ipv6_address && !lisp_addr_is_no_addr(iface->ipv6_address)) {
-        if (iface->ipv6_gateway != NULL) {
-            del_route(AF_INET6, iface->iface_index, NULL, NULL,
-                    iface->ipv6_gateway, 0, iface->iface_index);
-        }
-        del_rule(AF_INET6, 0, iface->iface_index, iface->iface_index,
-                RTN_UNICAST, iface->ipv6_address, NULL, 0);
-    }
-}
-
-void
 iface_destroy(iface_t *iface)
 {
-    /* Remove routing rules */
-    iface_remove_routing_rules(iface);
-
     /* Close sockets */
     if (iface->out_socket_v4 != -1) {
         close(iface->out_socket_v4);

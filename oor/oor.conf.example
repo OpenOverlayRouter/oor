@@ -161,6 +161,11 @@ rtr-ifaces {
 # xTR & MN configuration
 #
 
+# NAT Traversl configuration. 
+#   nat_traversal_support: check if the node is behind NAT.
+
+nat_traversal_support  = off
+
 # Map-Registers are sent to this Map-Server
 # You can define several Map-Servers. Map-Register messages will be sent to all
 # of them.

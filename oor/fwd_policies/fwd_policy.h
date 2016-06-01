@@ -20,9 +20,8 @@
 #ifndef ROUTING_POLICY_H_
 #define ROUTING_POLICY_H_
 
-#include "../lib/generic_list.h"
-#include "../lib/shash.h"
-#include "../liblisp/liblisp.h"
+#include "../lib/map_cache_entry.h"
+#include "../lib/map_local_entry.h"
 
 typedef struct packet_tuple packet_tuple_t;
 
@@ -69,12 +68,13 @@ typedef struct fwd_info_{
 typedef struct fwd_policy_class {
     void *(*new_dev_policy_inf)(oor_ctrl_dev_t *ctrl_dev, fwd_policy_dev_parm *dev_parm);
     void (*del_dev_policy_inf)(void *);
-    void *(*new_map_loc_policy_inf)(void *dev_parm, mapping_t *map, fwd_policy_map_parm *map_parm);
+    int (*init_map_loc_policy_inf)(void *dev_parm, map_local_entry_t *mle, fwd_policy_map_parm *map_parm,
+            fwd_info_del_fct fwd_del_fct);
     void (*del_map_loc_policy_inf)(void *);
-    void *(*new_map_cache_policy_inf)(void *dev_parm, mapping_t *map);
+    int (*init_map_cache_policy_inf)(void *dev_parm, mcache_entry_t *mce, routing_info_del_fct rt_del_fct);
     void (*del_map_cache_policy_inf)(void *);
-    int (*updated_map_loc_inf)(void *dev_parm, void *map_parm, mapping_t *map);
-    int (*updated_map_cache_inf)(void *dev_parm, void *map_parm, mapping_t *map);
+    int (*updated_map_loc_inf)(void *dev_parm, map_local_entry_t *mle);
+    int (*updated_map_cache_inf)(void *dev_parm, mcache_entry_t *mce);
     void (*policy_get_fwd_info)(void *dev_parm, void *src_map_parm, void *dst_map_parm,
             packet_tuple_t *tuple, fwd_info_t *fdw_info);
     lisp_addr_t *(*get_fwd_ip_addr)(lisp_addr_t *addr, glist_t *locl_rlocs_addr);

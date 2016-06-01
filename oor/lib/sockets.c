@@ -25,6 +25,7 @@
 #endif
 
 #include <errno.h>
+#include <sys/socket.h>
 
 #include "oor_log.h"
 #include "sockets.h"
@@ -150,7 +151,7 @@ sockmstr_destroy(sockmstr_t *sm)
     OOR_LOG(LDBG_1,"Sockets closed");
 }
 
-struct sock *
+sock_t *
 sockmstr_register_get_by_fd(sockmstr_t *m, int fd){
     sock_list_t *lst;
     sock_t * sock = NULL;
@@ -171,8 +172,41 @@ sockmstr_register_get_by_fd(sockmstr_t *m, int fd){
     return (sock);
 }
 
+sock_t *
+sockmstr_register_get_by_bind_port (sockmstr_t *m, int afi, uint16_t port)
+{
+    sock_list_t *lst;
+    sock_t * sock = NULL;
+    struct sockaddr sa;
+    socklen_t sa_len = sizeof(sa);
 
-struct sock *
+    lst = &m->read;
+    sock = lst->head;
+    if (sock == NULL){
+        return (NULL);
+    }
+
+    while (sock != NULL){
+        if (getsockname(sock->fd, (struct sockaddr *)&sa, &sa_len) == -1){
+            sock = sock->next;
+            continue;
+        }
+        if (sa_len == sizeof(struct sockaddr_in)){
+            if (afi == AF_INET && port == ntohs(((struct sockaddr_in *)&sa)->sin_port)){
+                return (sock);
+            }
+        }else{
+            if (afi == AF_INET6 && port == ntohs(((struct sockaddr_in6 *)&sa)->sin6_port)){
+                return (sock);
+            }
+        }
+        sock = sock->next;
+    }
+
+    return (sock);
+}
+
+sock_t *
 sockmstr_register_read_listener(sockmstr_t *m,int (*func)(struct sock *),
         void *arg, int fd)
 {
@@ -185,6 +219,13 @@ sockmstr_register_read_listener(sockmstr_t *m,int (*func)(struct sock *),
     sock_list_add(&m->read, sock);
     return (sock);
 }
+
+inline int
+sock_fd(struct sock * sock)
+{
+    return (sock->fd);
+}
+
 
 int
 sockmstr_unregister_read_listenedr(sockmstr_t *m, struct sock *sock)

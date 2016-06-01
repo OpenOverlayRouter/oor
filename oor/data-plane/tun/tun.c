@@ -54,8 +54,10 @@ int tun_updated_route (int command, iface_t *iface, lisp_addr_t *src_pref,
 int tun_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr);
 int tun_updated_link(iface_t *iface, int old_iface_index, int new_iface_index, int status);
 void tun_process_new_gateway(iface_t *iface,lisp_addr_t *gateway);
+void tun_process_rm_gateway(iface_t *iface,lisp_addr_t *gateway);
 
 void tun_set_default_output_ifaces();
+void tun_iface_remove_routing_rules(iface_t *iface);
 
 
 data_plane_struct_t dplane_tun = {
@@ -149,8 +151,19 @@ void
 tun_uninit_data_plane()
 {
     tun_dplane_data_t *data = (tun_dplane_data_t *)dplane_tun.datap_data;
-    tun_output_uninit();
-    free(data);
+    glist_entry_t *iface_it;
+    iface_t *iface;
+
+    if (data){
+        /* Remove routes associated to each interface */
+        glist_for_each_entry(iface_it, interface_list){
+            iface = (iface_t *)glist_entry_data(iface_it);
+            tun_iface_remove_routing_rules(iface);
+        }
+
+        tun_output_uninit();
+        free(data);
+    }
 }
 
 int
@@ -809,23 +822,44 @@ tun_updated_route (int command, iface_t *iface, lisp_addr_t *src_pref,
      * it is, then the gateway address is not a default route.
      * Discard it */
 
-    if (lisp_addr_ip_afi(gateway) != LM_AFI_NO_ADDR
-            && lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR) {
+    if (command == RTM_NEWROUTE){
+        if (lisp_addr_ip_afi(gateway) != LM_AFI_NO_ADDR
+                && lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR) {
 
-        /* Check if the addres is a global address*/
-        if (ip_addr_is_link_local(lisp_addr_ip(gateway)) == TRUE) {
-            OOR_LOG(LDBG_3,"tun_update_route: the extractet address "
-                    "from the netlink messages is a local link address: %s "
-                    "discarded", lisp_addr_to_char(gateway));
-            return (GOOD);
+            /* Check if the addres is a global address*/
+            if (ip_addr_is_link_local(lisp_addr_ip(gateway)) == TRUE) {
+                OOR_LOG(LDBG_3,"tun_update_route: the extractet address "
+                        "from the netlink messages is a local link address: %s "
+                        "discarded", lisp_addr_to_char(gateway));
+                return (GOOD);
+            }
+
+            /* Process the new gateway */
+            OOR_LOG(LDBG_1,  "tun_update_route: Process new gateway "
+                    "associated to the interface %s:  %s", iface->iface_name,
+                    lisp_addr_to_char(gateway));
+            tun_process_new_gateway(iface,gateway);
         }
+    }else{
+        if (lisp_addr_ip_afi(gateway) != LM_AFI_NO_ADDR
+                && lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR) {
 
-        /* Process the new gateway */
-        OOR_LOG(LDBG_1,  "tun_update_route: Process new gateway "
-                "associated to the interface %s:  %s", iface->iface_name,
-                lisp_addr_to_char(gateway));
-        tun_process_new_gateway(iface,gateway);
+            /* Check if the addres is a global address*/
+            if (ip_addr_is_link_local(lisp_addr_ip(gateway)) == TRUE) {
+                OOR_LOG(LDBG_3,"tun_update_route: the extractet address "
+                        "from the netlink messages is a local link address: %s "
+                        "discarded", lisp_addr_to_char(gateway));
+                return (GOOD);
+            }
+
+            /* Process the new gateway */
+            OOR_LOG(LDBG_1,  "tun_update_route: Process remove gateway "
+                    "associated to the interface %s:  %s", iface->iface_name,
+                    lisp_addr_to_char(gateway));
+            tun_process_rm_gateway(iface,gateway);
+        }
     }
+
     return (GOOD);
 }
 
@@ -998,8 +1032,34 @@ tun_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
         lisp_addr_copy(*gw_addr,gateway);
     }
 
-    add_route(afi,iface->iface_index,NULL,NULL,*gw_addr,route_metric,iface->iface_index);
+    add_route(afi,iface->iface_index,NULL,NULL,gateway,route_metric,iface->iface_index);
 }
+
+void
+tun_process_rm_gateway(iface_t *iface,lisp_addr_t *gateway)
+{
+    lisp_addr_t **gw_addr = NULL;
+    int afi = LM_AFI_NO_ADDR;
+    int route_metric = 100;
+
+    switch(lisp_addr_ip_afi(gateway)){
+        case AF_INET:
+            gw_addr = &(iface->ipv4_gateway);
+            afi = AF_INET;
+            break;
+        case AF_INET6:
+            gw_addr = &(iface->ipv6_gateway);
+            afi = AF_INET6;
+            break;
+        default:
+            return;
+    }
+
+    del_route(afi,iface->iface_index,NULL,NULL,gateway,route_metric,iface->iface_index);
+    lisp_addr_del(*gw_addr);
+    *gw_addr = NULL;
+}
+
 
 void
 tun_set_default_output_ifaces()
@@ -1075,6 +1135,29 @@ tun_get_default_output_socket(int afi)
     }
 
     return (out_socket);
+}
+
+
+void
+tun_iface_remove_routing_rules(iface_t *iface)
+{
+    if (iface->ipv4_address && !lisp_addr_is_no_addr(iface->ipv4_address)) {
+        if (iface->ipv4_gateway != NULL) {
+            del_route(AF_INET, iface->iface_index, NULL, NULL,
+                    iface->ipv4_gateway, 0, iface->iface_index);
+        }
+
+        del_rule(AF_INET, 0, iface->iface_index, iface->iface_index,
+                RTN_UNICAST, iface->ipv4_address, NULL, 0);
+    }
+    if (iface->ipv6_address && !lisp_addr_is_no_addr(iface->ipv6_address)) {
+        if (iface->ipv6_gateway != NULL) {
+            del_route(AF_INET6, iface->iface_index, NULL, NULL,
+                    iface->ipv6_gateway, 0, iface->iface_index);
+        }
+        del_rule(AF_INET6, 0, iface->iface_index, iface->iface_index,
+                RTN_UNICAST, iface->ipv6_address, NULL, 0);
+    }
 }
 
 /*

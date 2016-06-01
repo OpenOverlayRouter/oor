@@ -24,7 +24,7 @@
 #include "../lib/generic_list.h"
 #include <stdint.h>
 
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 
 
 /*
@@ -182,6 +182,48 @@ typedef struct _lcaf_geo_hdr_t{
 } __attribute__ ((__packed__)) lcaf_geo_hdr_t;
 
 
+/*
+ *
+ *  NAT-Traversal Canonical Address Format:
+ *
+ *    0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |           AFI = 16387         |     Rsvd1     |     Flags     |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |   Type = 7    |     Rsvd2     |             4 + n             |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |       MS UDP Port Number      |      ETR UDP Port Number      |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |  Global ETR RLOC Address  ... |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |       MS RLOC Address  ...    |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          | Private ETR RLOC Address  ... |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |      RTR RLOC Address 1 ...   |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |              AFI = x          |      RTR RLOC Address k ...   |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct _lcaf_nat_hdr_t{
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+    uint8_t     rsvd2;
+    uint16_t    length;
+    uint16_t    ms_port;
+    uint16_t    etr_port;
+} __attribute__ ((__packed__)) lcaf_nat_hdr_t;
+
+#define NAT_CAST(ptr_)((lcaf_nat_hdr_t *)(ptr_))
+#define NAT_LEN(ptr_) NAT_CAST((ptr_))->length
+#define NAT_MS_PORT(ptr_) NAT_CAST((ptr_))->ms_port
+#define NAT_ETR_PORT(ptr_) NAT_CAST((ptr_))->etr_port
+
+
 /*   Multicast Info Canonical Address Format:
  *
  *    0                   1                   2                   3
@@ -271,6 +313,11 @@ typedef struct _elp_node_flags {
     uint8_t S:1;
 #endif
 } elp_node_flags;
+
+#define ELP_NODE_CAST(ptr_)((elp_node_flags *)(ptr_))
+#define ELP_NODE_LBIT(ptr_) ELP_NODE_CAST((ptr_))->L
+#define ELP_NODE_PBIT(ptr_) ELP_NODE_CAST((ptr_))->P
+#define ELP_NODE_SBIT(ptr_) ELP_NODE_CAST((ptr_))->S
 
 
 
@@ -532,13 +579,12 @@ typedef struct _rtr_auth_field_hdr {
 
 
 /* NAT MAP-REGISTER FIELDS */
-typedef struct lispd_site_ID_{
-    uint8_t byte[8];
-} lisp_site_id;
 
 typedef struct lispd_xTR_ID_{
     uint8_t byte[16];
 } lisp_xtr_id;
+
+typedef uint64_t lisp_site_id;
 
 char *locator_record_hdr_to_char(locator_hdr_t *h);
 

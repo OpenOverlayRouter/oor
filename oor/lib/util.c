@@ -18,100 +18,8 @@
  */
 
 #include "util.h"
-//#include "defs.h"
 #include "oor_log.h"
-//#include "sockets.h"
 
-
-static void
-out_of_memory(void)
-{
-    OOR_LOG(LCRIT, "virtual memory exhausted");
-    abort();
-}
-
-void *
-xcalloc(size_t count, size_t size)
-{
-    void *p = count && size ? calloc(count, size) : malloc(1);
-    if (p == NULL) {
-        out_of_memory();
-    }
-    return p;
-}
-
-void *
-xzalloc(size_t size)
-{
-    return xcalloc(1, size);
-}
-
-void *
-xmalloc(size_t size)
-{
-    void *p = malloc(size ? size : 1);
-    if (p == NULL) {
-        out_of_memory();
-    }
-    return p;
-}
-
-void *
-xrealloc(void *p, size_t size)
-{
-    p = realloc(p, size ? size : 1);
-    if (p == NULL) {
-        out_of_memory();
-    }
-    return p;
-}
-
-void *
-xmemdup(const void *p_, size_t size)
-{
-    void *p = xmalloc(size);
-    memcpy(p, p_, size);
-    return p;
-}
-
-char *
-xmemdup0(const char *p_, size_t length)
-{
-    char *p = xmalloc(length + 1);
-    memcpy(p, p_, length);
-    p[length] = '\0';
-    return p;
-}
-
-char *
-xstrdup(const char *s)
-{
-    return xmemdup0(s, strlen(s));
-}
-
-void
-lm_assert_failure(const char *where, const char *function,
-                   const char *condition)
-{
-    /* Prevent an infinite loop (or stack overflow) in case VLOG_ABORT happens
-     * to trigger an assertion failure of its own. */
-    static int reentry = 0;
-
-    switch (reentry++) {
-    case 0:
-        OOR_LOG(LCRIT, "%s: assertion %s failed in %s()",
-                where, condition, function);
-        abort();
-
-    case 1:
-        fprintf(stderr, "%s: assertion %s failed in %s()",
-                where, condition, function);
-        abort();
-
-    default:
-        abort();
-    }
-}
 
 static inline int
 convert_hex_char_to_byte (char val)
@@ -184,5 +92,54 @@ convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
     }
     return (GOOD);
 }
+
+
+char *
+get_char_from_xTR_ID (lisp_xtr_id *xtrid)
+{
+    static char         xTR_ID_str[200];
+    int                 ctr             = 0;
+
+    memset (xTR_ID_str,0,200);
+
+    for (ctr = 0 ; ctr < 16; ctr++){
+        sprintf(xTR_ID_str, "%s%02x", xTR_ID_str, xtrid->byte[ctr]);
+    }
+    sprintf(xTR_ID_str, "%s", xTR_ID_str);
+    return (xTR_ID_str);
+}
+
+/* Remove the address from the list not compatible with the local RLOCs */
+
+void
+addr_list_rm_not_compatible_addr(glist_t *addr_lst, int compatible_addr_flags)
+{
+    glist_entry_t *it_addr, *aux_it_addr;
+    lisp_addr_t *addr;
+
+    glist_for_each_entry_safe(it_addr, aux_it_addr, addr_lst){
+        addr = (lisp_addr_t *)glist_entry_data(it_addr);
+        if (!is_compatible_addr(addr,compatible_addr_flags)){
+            glist_remove(it_addr,addr_lst);
+        }
+    }
+}
+
+uint8_t
+is_compatible_addr(lisp_addr_t *addr, int compatible_addr_flags)
+{
+    lisp_addr_t *ip_addr = lisp_addr_get_ip_addr(addr);
+    int afi = lisp_addr_ip_afi(ip_addr);
+    switch(afi){
+    case AF_INET:
+        return ((compatible_addr_flags & IPv4_SUPPORT) != 0);
+    case AF_INET6:
+        return ((compatible_addr_flags & IPv6_SUPPORT) != 0);
+    default:
+        return (FALSE);
+    }
+}
+
+
 
 

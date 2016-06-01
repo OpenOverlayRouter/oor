@@ -31,7 +31,7 @@
 #include "sockets.h"
 #include "../liblisp/lisp_address.h"
 #include "cksum.h"
-#include "util.h"
+#include "mem_util.h"
 #include "oor_log.h"
 
 /* needed for hashword */

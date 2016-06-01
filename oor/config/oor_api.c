@@ -25,7 +25,7 @@
 
 #include "oor_api.h"
 #include "../lib/oor_log.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 #include "../liblisp/liblisp.h"
 
 

@@ -276,6 +276,8 @@ msg_type_to_hdr_len(lisp_msg_type_e type)
         return(sizeof(map_register_hdr_t));
     case LISP_MAP_NOTIFY:
         return(sizeof(map_notify_hdr_t));
+    case LISP_INFO_NAT:
+        return(sizeof(info_nat_hdr_t));
     default:
         return(0);
     }
@@ -330,8 +332,8 @@ lisp_msg_put_locator(lbuf_t *b, locator_t *locator)
     loc_ptr->weight = locator->weight;
     loc_ptr->mpriority = locator->mpriority;
     loc_ptr->mweight = locator->mweight;
-    loc_ptr->local = 1;
-    loc_ptr->reachable = locator->state;
+    loc_ptr->local = locator->L_bit;
+    loc_ptr->reachable = locator->R_bit;
 
     lisp_msg_put_addr(b, locator_addr(locator));
     return(loc_ptr);
@@ -379,9 +381,6 @@ lisp_msg_put_mapping(
     mapping_record_hdr_t    *rec            = NULL;
     locator_hdr_t           *ploc           = NULL;
     lisp_addr_t             *eid            = NULL;
-    glist_entry_t   		*it_list        = NULL;
-    glist_entry_t   		*it_loct        = NULL;
-    glist_t					*loct_list		= NULL;
     locator_t				*loct			= NULL;
     int                     locator_count   = 0;
 
@@ -396,26 +395,18 @@ lisp_msg_put_mapping(
     }
 
     /* Add locators */
-    glist_for_each_entry(it_list,mapping_locators_lists(m)){
-    	loct_list = (glist_t *)glist_entry_data(it_list);
-    	loct = (locator_t *)glist_first_data(loct_list);
-    	if (lisp_addr_is_no_addr(locator_addr(loct)) == TRUE){
-    		continue;
-    	}
-    	glist_for_each_entry(it_loct,loct_list){
-    		loct = (locator_t *)glist_entry_data(it_loct);
-    		if (locator_state(loct) == DOWN){
-    		    continue;
-    		}
-    		ploc = lisp_msg_put_locator(b, loct);
-    		if (probed_loc)
-    		if (probed_loc != NULL
-    				&& lisp_addr_cmp(lisp_addr_get_ip_addr(locator_addr(loct)), probed_loc) == 0) {
-    			LOC_PROBED(ploc) = 1;
-    		}
-    		locator_count++;
-    	}
-    }
+    mapping_foreach_active_locator(m,loct){
+        if (locator_state(loct) == DOWN){
+            continue;
+        }
+        ploc = lisp_msg_put_locator(b, loct);
+        if (probed_loc)
+            if (probed_loc != NULL
+                    && lisp_addr_cmp(lisp_addr_get_ip_addr(locator_addr(loct)), probed_loc) == 0) {
+                LOC_PROBED(ploc) = 1;
+            }
+        locator_count++;
+    }mapping_foreach_active_locator_end;
     MAP_REC_LOC_COUNT(rec) = locator_count;
     increment_record_count(b);
 
@@ -539,8 +530,8 @@ lisp_msg_create(lisp_msg_type_e type)
         map_notify_hdr_init(hdr);
         break;
     case LISP_INFO_NAT:
-//        hdr = lbuf_put_uninit(b, sizeof(info_nat_hdr_t));
-//        info_nat_hdr_init(hdr);
+        hdr = lbuf_put_uninit(b, sizeof(info_nat_hdr_t));
+        info_nat_hdr_init(hdr);
         break;
     case LISP_ENCAP_CONTROL_TYPE:
         /* nothing to do */
@@ -590,6 +581,28 @@ lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
 }
 
 lbuf_t *
+lisp_msg_inf_req_create(mapping_t *m, lisp_key_type_e keyid)
+{
+    lbuf_t *b = lisp_msg_create(LISP_INFO_NAT);
+    lisp_addr_t addr;
+
+    if (!lisp_msg_put_empty_auth_record(b, keyid)) {
+        return(NULL);
+    }
+
+    if (!lisp_msg_put_inf_req_hdr_2(b, mapping_eid(m), 0)) {
+        return(NULL);
+    }
+
+    lisp_addr_set_lafi(&addr, LM_AFI_NO_ADDR);
+    if (lisp_msg_put_addr(b, &addr) == NULL) {
+        return(NULL);
+    }
+
+    return(b);
+}
+
+lbuf_t *
 lisp_msg_mreg_create(mapping_t *m, lisp_key_type_e keyid)
 {
     lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
@@ -606,31 +619,20 @@ lisp_msg_mreg_create(mapping_t *m, lisp_key_type_e keyid)
 }
 
 lbuf_t *
-lisp_msg_nat_mreg_create(mapping_t *m, char *key, lisp_site_id *site_id,
+lisp_msg_nat_mreg_create(mapping_t *m,lisp_site_id site_id,
         lisp_xtr_id *xtr_id, lisp_key_type_e keyid)
 {
-    void *hdr;
     lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
-    hdr = lisp_msg_put_empty_auth_record(b, keyid);
-
-    if (!hdr) {
+    if (!lisp_msg_put_empty_auth_record(b, keyid)){
         return(NULL);
     }
-
-    MREG_PROXY_REPLY(hdr) = 1;
-    MREG_IBIT(hdr) = 1;
-    MREG_RBIT(hdr) = 1;
 
     if (!lisp_msg_put_mapping(b, m, NULL)) {
         return(NULL);
     }
 
     lbuf_put(b, xtr_id, sizeof(lisp_xtr_id));
-    lbuf_put(b, site_id, sizeof(lisp_site_id));
-
-    if (lisp_msg_fill_auth_data(b, keyid, key) != GOOD) {
-        return(NULL);
-    }
+    lbuf_put(b, &site_id, sizeof(lisp_site_id));
 
     return(b);
 }
@@ -654,7 +656,7 @@ lisp_msg_hdr_to_char(lbuf_t *b)
     case LISP_MAP_NOTIFY:
         return(map_notify_hdr_to_char(h));
     case LISP_INFO_NAT:
-        return(NULL);
+        return(info_nat_hdr_to_char(h));
     case LISP_ENCAP_CONTROL_TYPE:
         return(ecm_hdr_to_char(h));
     default:
@@ -693,7 +695,7 @@ lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_e keyid, const char *key)
 
 
 
-/* Checks auth field of Map-Reply and Map-Request messages */
+/* Checks auth field of Map-Register, Map-Notify and Info-Reply messages */
 int
 lisp_msg_check_auth_field(lbuf_t *b, const char *key)
 {
@@ -732,6 +734,23 @@ lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type_e keyid)
     AUTH_REC_KEY_ID(hdr) = htons(keyid);
     AUTH_REC_DATA_LEN(hdr) = htons(len);
     memset(AUTH_REC_DATA(hdr), 0, len);
+    return(hdr);
+}
+
+void *
+lisp_msg_put_inf_req_hdr_2(lbuf_t *b, lisp_addr_t *eid_pref, uint8_t ttl)
+{
+    void *hdr;
+    lisp_addr_t *eid;
+    hdr = lbuf_put_uninit(b, sizeof(info_nat_hdr_2_t));
+
+    INF_REQ_2_TTL(hdr) = ttl;
+    eid = lisp_addr_get_ip_pref_addr(eid_pref);
+    INF_REQ_2_EID_MASK(hdr) = lisp_addr_ip_get_plen(eid);
+    if (lisp_msg_put_addr(b, eid) == NULL) {
+        return(NULL);
+    }
+
     return(hdr);
 }
 

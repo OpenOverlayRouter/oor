@@ -18,7 +18,7 @@
  */
 
 #include "shash.h"
-#include "util.h"
+#include "mem_util.h"
 
 shash_t *
 shash_new()
@@ -31,13 +31,13 @@ shash_new()
 }
 
 shash_t *
-shash_new_managed(free_key_fn_t df)
+shash_new_managed(free_value_fn_t df)
 {
     shash_t *sh;
 
     sh =xcalloc(1,sizeof(shash_t));
     sh->htable = kh_init(str);
-    sh->free_key_fn = df;
+    sh->free_value_fn = df;
     return(sh);
 }
 
@@ -46,7 +46,12 @@ shash_insert(shash_t *sh, char *key, void *val)
 {
     khiter_t k;
     int ret;
-
+    k = kh_get(str,sh->htable, key);
+    if (k == kh_end(sh->htable)){
+        k = kh_put(str,sh->htable,key,&ret);
+    }else{
+        free(key);
+    }
     k = kh_put(str,sh->htable,key,&ret);
     kh_value(sh->htable, k) = val;
 }
@@ -61,8 +66,8 @@ shash_remove(shash_t *sh, char *key)
         return;
     }
     free(kh_key(sh->htable,k));
-    if (sh->free_key_fn){
-        sh->free_key_fn(kh_value(sh->htable,k));
+    if (sh->free_value_fn){
+        sh->free_value_fn(kh_value(sh->htable,k));
     }
     kh_del(str,sh->htable,k);
 }
@@ -91,8 +96,8 @@ shash_destroy(shash_t *sh)
     for (k = kh_begin(sh->htable); k != kh_end(sh->htable); ++k){
         if (kh_exist(sh->htable, k)){
             free(kh_key(sh->htable,k));
-            if (sh->free_key_fn){
-                sh->free_key_fn(kh_value(sh->htable,k));
+            if (sh->free_value_fn){
+                sh->free_value_fn(kh_value(sh->htable,k));
             }
         }
     }

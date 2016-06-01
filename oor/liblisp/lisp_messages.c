@@ -21,7 +21,7 @@
 #include <netinet/in.h>
 
 #include "lisp_messages.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 //#include <defs.h>
 
 /* The maximum length of the headers, when we have IPv6 encapsulated control messages
@@ -106,8 +106,31 @@ ecm_hdr_init(void *ptr)
     ecm_hdr_t *ecm = ptr;
     ecm->type = LISP_ENCAP_CONTROL_TYPE;
     ecm->s_bit = 0;
-    ecm->reserved = 0;
+    ecm->d_bit = 0;
+    ecm->r_bit = 0;
     memset(ecm->reserved2, 0, sizeof(ecm->reserved2));
+}
+
+void
+info_nat_hdr_init(void *ptr)
+{
+    info_nat_hdr_t *irp = ptr;
+    irp->type = LISP_INFO_NAT;
+    irp->nonce = 0;
+    irp->r_bit_info_reply = INFO_REQUEST;
+    irp->reserved1 = 0;
+    irp->reserved2[0] = 0;
+    irp->reserved2[1] = 0;
+    irp->reserved2[2] = 0;
+}
+
+void
+info_nat_hdr_2_init(void *ptr)
+{
+    info_nat_hdr_2_t *irp = ptr;
+    irp->eid_mask_len = 0;
+    irp->ttl = 0;
+    irp->reserved = 0;
 }
 
 
@@ -169,6 +192,24 @@ map_reply_hdr_to_char(map_reply_hdr_t *h)
 }
 
 char *
+info_nat_hdr_to_char(info_nat_hdr_t *h)
+{
+    static char buf[100];
+
+    if (!h) {
+        return(NULL);
+    }
+    *buf = '\0';
+    if (INF_REQ_R_bit(h) == INFO_REQUEST){
+        sprintf(buf, BOLD "Info Request" RESET " -> nonce %"PRIx64,h->nonce);
+    }else{
+        sprintf(buf, BOLD "Info Reply" RESET " -> nonce %"PRIx64,h->nonce);
+    }
+
+    return(buf);
+}
+
+char *
 mreg_flags_to_char(map_register_hdr_t *h)
 {
     static char buf[10];
@@ -180,6 +221,7 @@ mreg_flags_to_char(map_register_hdr_t *h)
     h->map_notify ? sprintf(buf+strlen(buf), "M") : sprintf(buf+strlen(buf), "m");
     return(buf);
 }
+
 
 char *
 map_register_hdr_to_char(map_register_hdr_t *h)

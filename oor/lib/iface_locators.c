@@ -75,24 +75,17 @@ iface_locators_attach_map_local_entry(shash_t *iface_locators_table,
     mapping_t * mapping;
     locator_t * locator;
     iface_locators * iface_loct;
-    glist_t *loct_list;
-    glist_entry_t *it_list;
-    glist_entry_t *it_loct;
 
     mapping = map_local_entry_mapping(map_loc_e);
 
-    glist_for_each_entry(it_list,mapping_locators_lists(mapping)){
-    	loct_list = (glist_t *)glist_entry_data(it_list);
-    	glist_for_each_entry(it_loct,loct_list){
-    		locator = (locator_t *)glist_entry_data(it_loct);
+    mapping_foreach_locator(mapping,locator){
     		iface_loct = iface_locators_get_element_with_loct(
     				iface_locators_table, locator);
     		if (iface_loct != NULL &&
     				glist_contain(map_loc_e, iface_loct->map_loc_entries) == FALSE){
     			glist_add(map_loc_e, iface_loct->map_loc_entries);
     		}
-    	}
-    }
+    }mapping_foreach_locator_end;
 }
 
 void
@@ -102,21 +95,13 @@ iface_locators_unattach_mapping_and_loct(shash_t *iface_locators_table,
     glist_t *iface_loct_list;
     glist_entry_t *it_if_loct;
     iface_locators *iface_loct;
-    glist_t *loct_list;
-    glist_entry_t *it_list;
-    glist_entry_t *it_loct;
     mapping_t *mapping;
     locator_t *locator;
 
     mapping = map_local_entry_mapping(map_loc_e);
-
-    glist_for_each_entry(it_list,mapping_locators_lists(mapping)){
-    	loct_list = (glist_t *)glist_entry_data(it_list);
-    	glist_for_each_entry(it_loct,loct_list){
-    		locator = (locator_t *)glist_entry_data(it_loct);
-    		iface_locators_unattach_locator(iface_locators_table, locator);
-    	}
-    }
+    mapping_foreach_locator(mapping,locator){
+        iface_locators_unattach_locator(iface_locators_table, locator);
+    }mapping_foreach_locator_end;
 
     iface_loct_list = shash_values(iface_locators_table);
     glist_for_each_entry(it_if_loct,iface_loct_list){

@@ -27,14 +27,16 @@ void *fb_dev_parm_new_init(oor_ctrl_dev_t *ctrl_dev,
         fwd_policy_dev_parm *dev_parm_inf);
 inline void fb_dev_parm_del(void *dev_parm);
 inline balancing_locators_vecs *balancing_locators_vecs_new();
-void *balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map,
-        fwd_policy_map_parm *map_param);
-void *rmt_balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map);
+int mle_balancing_locators_vecs_new_init(void *dev_parm, map_local_entry_t *mle,
+        fwd_policy_map_parm *map_parm,fwd_info_del_fct fwd_del_fct);
+int mce_balancing_locators_vecs_new_init(void *dev_parm, mcache_entry_t *mce,
+        routing_info_del_fct del_fct);
+static void *balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map, uint8_t is_mce);
 void balancing_locators_vecs_del(void * bal_vec);
 void fb_get_fw_entry(void *fwd_dev_parm, void *src_map_parm,
         void *dst_map_parm, packet_tuple_t *tuple, fwd_info_t *fwd_info);
 static locator_t **set_balancing_vector(locator_t **, int, int, int *);
-static int select_best_priority_locators(glist_t *, locator_t **);
+static int select_best_priority_locators(glist_t *, locator_t **, uint8_t);
 static inline void get_hcf_locators_weight(locator_t **, int *, int *);
 static int highest_common_factor(int a, int b);
 /* Initialize to 0 balancing_locators_vecs */
@@ -42,19 +44,22 @@ static void balancing_locators_vecs_reset (balancing_locators_vecs *blv);
 static void balancing_locators_vec_dump(balancing_locators_vecs,
         mapping_t *, int);
 
-int balancing_vectors_calculate(void *dev_parm, void *map_parm, mapping_t *map);
+int mle_balancing_vectors_calculate(void *dev_parm, map_local_entry_t *mle);
+int mce_balancing_vectors_calculate(void *dev_parm, mcache_entry_t *mce);
+static int balancing_vectors_calculate(void *dev_parm, balancing_locators_vecs *blv,
+        mapping_t *map, uint8_t is_mce);
 void fb_locators_classify_in_4_6(mapping_t *mapping,glist_t *loc_loct_addr,
         glist_t *ipv4_loct_list,glist_t *ipv6_loct_list);
 
 fwd_policy_class  fwd_policy_flow_balancing = {
         .new_dev_policy_inf = fb_dev_parm_new_init,
         .del_dev_policy_inf = fb_dev_parm_del,
-        .new_map_loc_policy_inf = balancing_locators_vecs_new_init,
+        .init_map_loc_policy_inf = mle_balancing_locators_vecs_new_init,
         .del_map_loc_policy_inf = balancing_locators_vecs_del,
-        .new_map_cache_policy_inf = rmt_balancing_locators_vecs_new_init,
+        .init_map_cache_policy_inf = mce_balancing_locators_vecs_new_init,
         .del_map_cache_policy_inf = balancing_locators_vecs_del,
-        .updated_map_loc_inf = balancing_vectors_calculate,
-        .updated_map_cache_inf = balancing_vectors_calculate,
+        .updated_map_loc_inf = mle_balancing_vectors_calculate,
+        .updated_map_cache_inf = mce_balancing_vectors_calculate,
         .policy_get_fwd_info = fb_get_fw_entry,
         .get_fwd_ip_addr = fb_addr_get_fwd_ip_addr
 };
@@ -107,30 +112,46 @@ balancing_locators_vecs_new()
     return (bal_loct_vec);
 }
 
-void *
-balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map,
-        fwd_policy_map_parm *map_param)
+int
+mle_balancing_locators_vecs_new_init(void *dev_parm, map_local_entry_t *mle, fwd_policy_map_parm *map_parm,
+        fwd_info_del_fct fwd_del_fct)
+{
+    void * fwd_inf = balancing_locators_vecs_new_init(dev_parm, map_local_entry_mapping(mle), FALSE);
+    if (!fwd_inf){
+        return (BAD);
+    }
+    map_local_entry_set_fwd_info(mle, fwd_inf, fwd_del_fct);
+    return (GOOD);
+}
+
+int
+mce_balancing_locators_vecs_new_init(void *dev_parm, mcache_entry_t *mce, routing_info_del_fct del_fct)
+{
+    void * routing_inf =  balancing_locators_vecs_new_init(dev_parm, mcache_entry_mapping(mce), TRUE);
+    if (!routing_inf){
+        return (BAD);
+    }
+    mcache_entry_set_routing_info(mce, routing_inf, del_fct);
+    return (GOOD);
+}
+
+static void *
+balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map, uint8_t is_mce)
 {
     balancing_locators_vecs *bal_vec;
 
     bal_vec = balancing_locators_vecs_new();
-    if (bal_vec == NULL){
+    if (!bal_vec){
         return (NULL);
     }
 
-    if (balancing_vectors_calculate((fb_dev_parm *)dev_parm, bal_vec, map) != GOOD){
+    if (balancing_vectors_calculate(dev_parm, bal_vec, map, is_mce) != GOOD){
         balancing_locators_vecs_del(bal_vec);
-        OOR_LOG(LDBG_1,"balancing_locators_vecs_new_init: Error calculating balancing vectors");
+        OOR_LOG(LDBG_2,"balancing_locators_vecs_new_init: Error calculating balancing vectors");
         return (NULL);
     }
 
     return((void *)bal_vec);
-}
-
-void *
-rmt_balancing_locators_vecs_new_init(void *dev_parm, mapping_t *map)
-{
-    return (balancing_locators_vecs_new_init(dev_parm,map,NULL));
 }
 
 void
@@ -222,7 +243,7 @@ balancing_locators_vec_dump(balancing_locators_vecs b_locators_vecs,
 /**************************************** TRAFFIC BALANCING FUNCTIONS ************************/
 
 static int
-select_best_priority_locators(glist_t *loct_list, locator_t **selected_locators)
+select_best_priority_locators(glist_t *loct_list, locator_t **selected_locators, uint8_t is_mce)
 {
     glist_entry_t *it_loct;
     locator_t *locator;
@@ -237,7 +258,11 @@ select_best_priority_locators(glist_t *loct_list, locator_t **selected_locators)
         locator = (locator_t *)glist_entry_data(it_loct);
         /* Only use locators with status UP  */
         if (locator_state(locator) == DOWN
-                || locator_priority(locator) == UNUSED_RLOC_PRIORITY) {
+                || locator_priority(locator) == UNUSED_RLOC_PRIORITY ) {
+            continue;
+        }
+        /* For local mappings, the locator should be local */
+        if (!is_mce && locator_L_bit(locator) == 0){
             continue;
         }
         /* If priority of the locator equal to min_priority, then add the
@@ -308,12 +333,24 @@ set_balancing_vector(locator_t **locators, int total_weight, int hcf,
     return (balancing_locators_vec);
 }
 
+int
+mle_balancing_vectors_calculate(void *dev_parm,map_local_entry_t *mle){
+    return (balancing_vectors_calculate(dev_parm, map_local_entry_fwd_info(mle),
+            map_local_entry_mapping(mle),FALSE));
+}
+
+int
+mce_balancing_vectors_calculate(void *dev_parm,mcache_entry_t *mce){
+    return (balancing_vectors_calculate(dev_parm, mcache_entry_routing_info(mce),
+            mcache_entry_mapping(mce),TRUE));
+}
+
 
 /*
  * Calculate the vectors used to distribute the load from the priority and weight of the locators of the mapping
  */
-int
-balancing_vectors_calculate(void *dev_parm, void *map_parm, mapping_t *map)
+static int
+balancing_vectors_calculate(void *dev_parm, balancing_locators_vecs *blv, mapping_t * map, uint8_t is_mce)
 {
     // Store locators with same priority. Maximum 32 locators (33 to no get out of array)
     locator_t *locators[3][33];
@@ -321,7 +358,6 @@ balancing_vectors_calculate(void *dev_parm, void *map_parm, mapping_t *map)
     glist_t *ipv4_loct_list  = glist_new();
     glist_t *ipv6_loct_list  = glist_new();
     fb_dev_parm *fw_dev_parm = (fb_dev_parm *)dev_parm;
-    balancing_locators_vecs *blv = (balancing_locators_vecs *)map_parm;
 
     int min_priority[2] = { 255, 255 };
     int total_weight[3] = { 0, 0, 0 };
@@ -343,7 +379,7 @@ balancing_vectors_calculate(void *dev_parm, void *map_parm, mapping_t *map)
     if (glist_size(ipv4_loct_list) != 0)
     {
         min_priority[0] = select_best_priority_locators(
-                ipv4_loct_list, locators[0]);
+                ipv4_loct_list, locators[0], is_mce);
         if (min_priority[0] != UNUSED_RLOC_PRIORITY) {
             get_hcf_locators_weight(locators[0], &total_weight[0], &hcf[0]);
             blv->v4_balancing_locators_vec = set_balancing_vector(
@@ -357,7 +393,7 @@ balancing_vectors_calculate(void *dev_parm, void *map_parm, mapping_t *map)
     if (glist_size(ipv6_loct_list) != 0)
     {
         min_priority[1] = select_best_priority_locators(
-                ipv6_loct_list, locators[1]);
+                ipv6_loct_list, locators[1], is_mce);
         if (min_priority[1] != UNUSED_RLOC_PRIORITY) {
             get_hcf_locators_weight(locators[1], &total_weight[1], &hcf[1]);
             blv->v6_balancing_locators_vec = set_balancing_vector(
@@ -458,9 +494,6 @@ void
 fb_locators_classify_in_4_6(mapping_t *mapping, glist_t *loc_loct_addr,
         glist_t *ipv4_loct_list, glist_t *ipv6_loct_list)
 {
-    glist_t *loct_list;
-    glist_entry_t *it_list;
-    glist_entry_t *it_loct;
     locator_t *locator;
     lisp_addr_t *addr;
     lisp_addr_t *ip_addr;
@@ -470,31 +503,20 @@ fb_locators_classify_in_4_6(mapping_t *mapping, glist_t *loc_loct_addr,
                 lisp_addr_to_char(mapping_eid(mapping)));
         return;
     }
-    glist_for_each_entry(it_list,mapping->locators_lists){
-        loct_list = (glist_t *)glist_entry_data(it_list);
-        if (glist_size(loct_list) == 0){
+    mapping_foreach_active_locator(mapping,locator){
+        addr = locator_addr(locator);
+        ip_addr = fb_addr_get_fwd_ip_addr(addr,loc_loct_addr);
+        if (ip_addr == NULL){
+            OOR_LOG(LDBG_2,"locators_classify_in_4_6: No IP address for %s", lisp_addr_to_char(addr));
             continue;
         }
-        locator = (locator_t *)glist_first_data(loct_list);
-        if (lisp_addr_is_no_addr(locator_addr(locator)) == TRUE){
-            continue;
-        }
-        glist_for_each_entry(it_loct,loct_list){
-            locator = (locator_t *)glist_entry_data(it_loct);
-            addr = locator_addr(locator);
-            ip_addr = fb_addr_get_fwd_ip_addr(addr,loc_loct_addr);
-            if (ip_addr == NULL){
-                OOR_LOG(LDBG_2,"locators_classify_in_4_6: No IP address for %s", lisp_addr_to_char(addr));
-                continue;
-            }
 
-            if (lisp_addr_ip_afi(ip_addr) == AF_INET){
-                glist_add(locator,ipv4_loct_list);
-            }else{
-                glist_add(locator,ipv6_loct_list);
-            }
+        if (lisp_addr_ip_afi(ip_addr) == AF_INET){
+            glist_add(locator,ipv4_loct_list);
+        }else{
+            glist_add(locator,ipv6_loct_list);
         }
-    }
+    }mapping_foreach_active_locator_end;
 }
 
 /*************************** Forward Select Function *************************/

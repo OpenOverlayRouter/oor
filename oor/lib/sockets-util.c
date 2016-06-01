@@ -18,12 +18,13 @@
  */
 
 #include <errno.h>
-#include <unistd.h>
 #include <netdb.h>
+#include <unistd.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 
-#include "sockets-util.h"
 #include "oor_log.h"
-
+#include "sockets-util.h"
 
 int
 open_ip_raw_socket(int afi)
@@ -123,6 +124,31 @@ open_udp_datagram_socket(int afi)
     }
 
     return sock;
+}
+
+int
+opent_netlink_socket()
+{
+    int netlink_fd;
+    struct sockaddr_nl addr;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    addr.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR
+                   | RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE
+                   | RTMGRP_IPV6_MROUTE;
+
+    netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+    if (netlink_fd < 0) {
+        OOR_LOG(LERR, "opent_netlink_socket: Failed to connect to "
+                "netlink socket");
+        return (ERR_SOCKET);
+    }
+
+    bind(netlink_fd, (struct sockaddr *) &addr, sizeof(addr));
+
+    return (netlink_fd);
 }
 
 /* XXX: binding might not work on all devices */
@@ -242,8 +268,8 @@ bind_socket(int sock, int afi, lisp_addr_t *src_addr, int src_port)
         OOR_LOG(LDBG_1, "bind_socket: %s", strerror(errno));
         result = BAD;
     }else{
-        OOR_LOG(LDBG_1, "bind_socket: Binded socket %d to source address %s and port %d",
-                sock, lisp_addr_to_char(src_addr),src_port);
+        OOR_LOG(LDBG_1, "bind_socket: Binded socket %d to source address %s and port %d with afi %d",
+                sock, lisp_addr_to_char(src_addr),src_port, afi);
     }
 
     return (result);
@@ -259,6 +285,7 @@ send_raw_packet(int socket, const void *pkt, int plen, ip_addr_t *dip)
 
     struct sockaddr_in sa4;
     struct sockaddr_in6 sa6;
+
 
     /* build sock addr */
     switch (ip_addr_afi(dip)) {

@@ -23,6 +23,7 @@
 typedef struct vpnapi_ctr_dplane_data_{
     int ipv4_ctrl_socket;
     int ipv6_ctrl_socket;
+    int ipv4_data_socket; /* To send Encap Map Register */
 }vpnapi_ctr_dplane_data_t;
 
 #endif /* CDP_VPNAPI_H_ */

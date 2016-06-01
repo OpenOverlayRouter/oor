@@ -148,34 +148,19 @@ mapping_clone(mapping_t *m) {
 char *
 mapping_to_char(mapping_t *m)
 {
-    glist_t *loct_list = NULL;
     locator_t *locator = NULL;
-    glist_entry_t * it_list = NULL;
-    glist_entry_t * it_loct = NULL;
-    static char buf[100];
+    static char buf[200];
 
     *buf = '\0';
     sprintf(buf, "EID: %s, ttl: %d, loc-count: %d, action: %s, "
-            "auth: %d", lisp_addr_to_char(mapping_eid(m)), mapping_ttl(m),
+            "auth: %d\n", lisp_addr_to_char(mapping_eid(m)), mapping_ttl(m),
             mapping_locator_count(m),
             mapping_action_to_char(mapping_action(m)), mapping_auth(m));
 
-
     if (m->locator_count > 0) {
-        glist_for_each_entry(it_list,m->locators_lists){
-            loct_list = (glist_t *)glist_entry_data(it_list);
-            if (glist_size(loct_list) == 0){
-                continue;
-            }
-            locator = (locator_t *)glist_first_data(loct_list);
-            if (lisp_addr_is_no_addr(locator_addr(locator)) == TRUE){
-                continue;
-            }
-            glist_for_each_entry(it_loct,loct_list){
-                locator = (locator_t *)glist_entry_data(it_loct);
-                sprintf(buf+strlen(buf), "\n  RLOC: %s", locator_to_char(locator));
-            }
-        }
+        mapping_foreach_active_locator(m,locator){
+            sprintf(buf+strlen(buf), "  RLOC: %s\n", locator_to_char(locator));
+        }mapping_foreach_active_locator_end;
     }
     return(buf);
 }
@@ -282,6 +267,14 @@ mapping_remove_locator(
 
     return (GOOD);
 }
+
+void
+mapping_remove_locators(mapping_t *mapping)
+{
+    glist_remove_all(mapping->locators_lists);
+    mapping->locator_count = 0;
+}
+
 
 void
 mapping_update_locators(mapping_t *mapping, glist_t *locts_lists)

@@ -55,7 +55,10 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define OOR_INITIAL_MRQ_TIMEOUT       2  // Initial expiration timer for the first MRq
 #define OOR_INITIAL_SMR_TIMEOUT       3  // Initial expiration timer for the first MRq SMR
 #define OOR_INITIAL_MREG_TIMEOUT      3  // Initial expiration timer for the first Encapsulated Map Register
-#define OOR_SMR_TIMEOUT               5  // Time since interface status change until balancing arrays and SMR is done
+#define OOR_INITIAL_INF_REQ_TIMEOUT   3  // Initial expiration timer for the first info request
+#define OOR_INF_REQ_HANDOVER_TIMEOUT  2  // Time before sending an info request after a handover
+#define OOR_SLEEP_INF_REQ_TIMEOUT     60 // When no info reply received after x retries. Sleep for x seconds
+#define OOR_SMR_TIMEOUT               4  // Time since interface status change until balancing arrays and SMR is done
 #define OOR_MAX_MRQ_TIMEOUT           32 // Max expiration timer for the subsequent MRq
 #define OOR_EXPIRE_TIMEOUT            1  // Time interval in which events are expired
 #define OOR_MAX_MR_RETRANSMIT         2  // Maximum amount of Map Request retransmissions
@@ -85,7 +88,7 @@ typedef struct htable_nonces_ htable_nonces_t;
  */
 
 #define EVER            ;;
-#define OOR_VERSION   "v1.0"
+#define OOR_VERSION   "v1.1"
 #define OOR           "oor"
 #define PID_FILE      "/var/run/oor.pid"
 
@@ -114,6 +117,10 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define UP                  1
 #define DOWN                0
 #define UNKNOWN            -1
+
+#define NO_AFI_SUPPOT   0
+#define IPv4_SUPPORT    1
+#define IPv6_SUPPORT    2
 
 /***** NAT status *******/
 //#define UNKNOWN          -1

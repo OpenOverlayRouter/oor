@@ -30,7 +30,7 @@ lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
     lisp_site_prefix_t *sp = NULL;
     sp = xzalloc(sizeof(lisp_site_prefix_t));
     if (iid > 0){
-        sp->eid_prefix = lisp_addr_new_init_iid(iid, lisp_addr_clone(eid), 0);
+        sp->eid_prefix = lisp_addr_new_init_iid(iid, eid, 0);
     }else{
         sp->eid_prefix = lisp_addr_clone(eid);
     }

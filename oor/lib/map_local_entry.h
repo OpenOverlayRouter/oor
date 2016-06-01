@@ -21,13 +21,20 @@
 #define MAP_LOCAL_ENTRY_H_
 
 #include "../liblisp/lisp_mapping.h"
+#include "shash.h"
 
 typedef void (*fwd_info_del_fct)(void *);
+
+typedef struct nat_info_ {
+    shash_t *loct_addr_to_rtrs;
+    shash_t *rtr_addr_to_locts;
+}nat_info_t;
 
 typedef struct map_local_entry_ {
     mapping_t *         mapping;
     void *              fwd_info;
     fwd_info_del_fct    fwd_inf_del;
+    nat_info_t *        nat_info;
 } map_local_entry_t;
 
 map_local_entry_t *map_local_entry_new();
@@ -45,5 +52,7 @@ inline void map_local_entry_set_fwd_info(map_local_entry_t *mle, void *fwd_info,
 		fwd_info_del_fct fwd_del_fct);
 inline lisp_addr_t *map_local_entry_eid(map_local_entry_t *mle);
 
+void mle_nat_info_update(map_local_entry_t *mle, locator_t *loct, glist_t *new_rtr_list);
+glist_t * mle_rtr_addr_list(map_local_entry_t *mle);
 
 #endif /* MAP_LOCAL_ENTRY_H_ */

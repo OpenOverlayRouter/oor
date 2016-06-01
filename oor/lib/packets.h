@@ -29,7 +29,7 @@
 #include <netinet/udp.h>
 
 #include "lbuf.h"
-#include "util.h"
+#include "mem_util.h"
 #include "../defs.h"
 #include "../liblisp/lisp_address.h"
 

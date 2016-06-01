@@ -94,9 +94,11 @@ typedef struct iface iface_t;
 
 sockmstr_t *sockmstr_create();
 void sockmstr_destroy(sockmstr_t *sm);
-struct sock *sockmstr_register_get_by_fd(sockmstr_t *m, int fd);
-struct sock *sockmstr_register_read_listener(sockmstr_t *m,
+sock_t *sockmstr_register_get_by_fd(sockmstr_t *m, int fd);
+sock_t *sockmstr_register_get_by_bind_port (sockmstr_t *m, int afi, uint16_t port);
+sock_t *sockmstr_register_read_listener(sockmstr_t *m,
         int (*)(struct sock *), void *arg, int fd);
+inline int sock_fd(struct sock * sock);
 int sockmstr_unregister_read_listenedr(sockmstr_t *m, struct sock *sock);
 void sockmstr_process_all(sockmstr_t *m);
 void sockmstr_wait_on_all_read(sockmstr_t *m);

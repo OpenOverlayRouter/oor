@@ -51,6 +51,7 @@ LOCAL_SRC_FILES = \
 		  lib/mapping_db.c               \
 		  lib/map_cache_entry.c          \
 		  lib/map_local_entry.c		     \
+		  lib/mem_util.c	    	     \
           lib/nonces_table.c             \
           lib/packets.c                  \
           lib/pointers_table.c           \

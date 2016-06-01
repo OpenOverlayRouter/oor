@@ -204,28 +204,16 @@ public class updateConfActivity extends Activity {
 					
 					EditText e = (EditText) findViewById(R.id.updateConfMRText);
 					e.setText(MR);
-				} else if (line.contains("nat-traversal") && !line.startsWith("#")) {
-					do {
-						sub_line = br.readLine();
-						if (sub_line.startsWith("#")){
-							sub_line = br.readLine();
-							continue;
+				} else if (line.contains("nat_traversal_support") && !line.startsWith("#")) {
+					String[] tmp = line.split("=");
+					if(tmp.length > 1 ){
+						String nat_aware_aux = tmp[1];
+						if (nat_aware_aux.equals("on") || nat_aware_aux.equals("true")){
+							nat_aware = true;
+						}else{
+							nat_aware = false;
 						}
-						sub_line = sub_line.toLowerCase();
-						sub_line = sub_line.replaceAll("\\s", "");						
-
-						if (sub_line.contains("nat_aware")) {
-							String[] tmp = sub_line.split("=");
-							if(tmp.length < 2)
-								continue;
-							String nat_aware_aux = tmp[1];
-							if (nat_aware_aux.equals("on") || nat_aware_aux.equals("true")){
-								nat_aware = true;
-							}else{
-								nat_aware = false;
-							}
-						}
-					}while (!sub_line.contains("}"));
+					}
 					CheckBox c = (CheckBox)findViewById(R.id.updateConf_NAT_aware);
 					c.setChecked(nat_aware);
 				} else if (line.contains("map-server")) {
@@ -328,7 +316,10 @@ public class updateConfActivity extends Activity {
 			e.setEnabled(overrideDNS);
 			e = (EditText)findViewById(R.id.updateConfDNS2Text);
 			e.setEnabled(overrideDNS);
-			
+			e = (EditText)findViewById(R.id.updateConf_proxy_etr);
+			e.setEnabled(!nat_aware);
+			e = (EditText)findViewById(R.id.updateConfMRText);
+			e.setEnabled(!nat_aware);
 		}
 		catch (IOException e) {
 			;
@@ -371,15 +362,8 @@ public class updateConfActivity extends Activity {
 						.append("    rloc-probe-retries-interval     = "+rloc_prob_retries_interval+"\n")
 						.append("}\n\n\n")
 						.append("# NAT Traversal configuration. \n")
-						.append("#   nat_aware: check if the node is behind NAT\n")
-						.append("#   site_ID: 64 bits to identify the site which the node is connected to. In\n")
-						.append("#     hexadecimal\n")
-						.append("#   xTR_ID: 128 bits to identify the xTR inside the site. In hexadecimal\n\n")
-						.append("nat-traversal {\n")
-						.append("    nat_aware   = off\n")
-						.append("    site_ID     = 0000000000000001                  #In doubt, keep the default value\n")
-						.append("    xTR_ID      = 00000000000000000000000000000001  #In doubt, keep the default value\n")
-						.append("}\n\n\n")
+						.append("#   nat_traversal_support: check if the node is behind NAT\n\n")
+						.append("nat_traversal_support = "+nat_aware+"\n\n\n")
 						.append("# Encapsulated Map-Requests are sent to this map-resolver\n")
 						.append("# You can define several map-resolvers. Encapsulated Map-Request messages will\n")
 						.append("# be sent to only one.\n")
@@ -400,18 +384,6 @@ public class updateConfActivity extends Activity {
 						.append("        key         = "+MSKey+"\n")
 						.append("        proxy-reply = on\n")
 						.append("}\n\n\n")       
-						.append("# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR\n")
-						.append("# You can define several Proxy-ETR. Traffic will be balanced according to\n")
-						.append("# priority and weight.\n")
-						.append("#   address: IPv4 or IPv6 address of the Proxy-ETR\n")
-						.append("#   priority [0-255]: Proxy-ETR with lower values are more preferable.\n")
-						.append("#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,\n")
-						.append("#     the Weight indicates how to balance unicast traffic between them.\n")
-						.append("proxy-etr {\n")
-						.append("        address     = "+proxyETR+"\n")
-						.append("        priority    = 1\n")
-						.append("        weight      = 100\n")
-						.append("}\n\n\n")
 						.append("# List of PITRs to SMR on handover\n")
 						.append("#   address: IPv4 or IPv6 address of the Proxy-ITR\n")
 						.append("#   Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses\n\n")
@@ -449,6 +421,7 @@ public class updateConfActivity extends Activity {
 						.append("#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight\n")
 						.append("#     indicates how to balance unicast traffic between them.\n")
 						.toString();
+			
 			if (ifaces != null){
 				if (!eidIPv4.equals("")){
 					defText= defText.concat(createEIDConFile(eidIPv4+"/32"));
@@ -456,6 +429,26 @@ public class updateConfActivity extends Activity {
 				if (!eidIPv6.equals("")){
 					defText= defText.concat(createEIDConFile(eidIPv6+"/128"));
 				}
+			}
+			
+			if (!proxyETR.equals("")){
+				String proxyETRstr;
+				proxyETRstr = new StringBuilder()
+					.append("# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR\n")
+					.append("# You can define several Proxy-ETR. Traffic will be balanced according to\n")
+					.append("# priority and weight.\n")
+					.append("#   address: IPv4 or IPv6 address of the Proxy-ETR\n")
+					.append("#   priority [0-255]: Proxy-ETR with lower values are more preferable.\n")
+					.append("#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,\n")
+					.append("#     the Weight indicates how to balance unicast traffic between them.\n")
+					.append("proxy-etr {\n")
+					.append("        address     = "+proxyETR+"\n")
+					.append("        priority    = 1\n")
+					.append("        weight      = 100\n")
+					.append("}\n\n\n")
+					.toString();
+				
+				defText= defText.concat(proxyETRstr);
 			}
 			
 			
@@ -600,14 +593,16 @@ public class updateConfActivity extends Activity {
 		if (!eidv6.equals("") && !ConfigTools.validate_IP_Address(eidv6)){
 			error = error.concat("  - EID-IPv6\n");
 		}
-		if (!ConfigTools.validate_IP_Address(mapResolver)){
-			error = error.concat("  - Map-Resolver\n");
+		if (nat_aware_bool == false){
+			if (!ConfigTools.validate_IP_Address(mapResolver)){
+				error = error.concat("  - Map-Resolver\n");
+			}
+			if (!ConfigTools.validate_IP_Address(pETR)){
+				error = error.concat("  - Proxy ETR\n");
+			}
 		}
 		if (!ConfigTools.validate_IP_Address(mapServer)){
 			error = error.concat("  - Map-Server\n");
-		}
-		if (!ConfigTools.validate_IP_Address(pETR)){
-			error = error.concat("  - Proxy ETR\n");
 		}
 		if (overrideDNS_bool && ( DNS_1.equals("") || !ConfigTools.validate_IP_Address(DNS_1))){
 			error = error.concat("  - Primary DNS\n");
@@ -678,10 +673,16 @@ public class updateConfActivity extends Activity {
 	public void updateConfNATAwareClicked(View v)
 	{
 		CheckBox c = (CheckBox)v;
+		EditText e1 = (EditText)findViewById(R.id.updateConf_proxy_etr);
+		EditText e2 = (EditText)findViewById(R.id.updateConfMRText);
 		if (c.isChecked()) {
 			nat_aware = true;
+			e1.setEnabled(false);
+			e2.setEnabled(false);
 		} else {
 			nat_aware = false;
+			e1.setEnabled(true);
+			e2.setEnabled(true);
 		}
 	}
 	

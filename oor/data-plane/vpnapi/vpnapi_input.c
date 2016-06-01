@@ -27,7 +27,7 @@
 #include "../data-plane.h"
 #include "../encapsulations/vxlan-gpe.h"
 #include "../../lib/packets.h"
-#include "../../lib/util.h"
+#include "../../lib/mem_util.h"
 #include "../../liblisp/liblisp.h"
 #include "../../lib/oor_log.h"
 

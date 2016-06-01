@@ -18,7 +18,7 @@
  */
 
 #include "ttable.h"
-#include "util.h"
+#include "mem_util.h"
 #include "packets.h"
 #include "oor_log.h"
 #include "sockets.h"

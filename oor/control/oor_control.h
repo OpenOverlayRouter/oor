@@ -25,9 +25,6 @@
 #include "../liblisp/liblisp.h"
 #include "control-data-plane/control-data-plane.h"
 
-#define NO_AFI_SUPPOT  	0
-#define IPv4_SUPPORT	1
-#define IPv6_SUPPORT	2
 
 typedef struct oor_ctrl oor_ctrl_t;
 

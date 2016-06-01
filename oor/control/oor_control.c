@@ -25,7 +25,7 @@
 #include "../data-plane/data-plane.h"
 #include "../lib/oor_log.h"
 #include "../lib/routing_tables_lib.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 
 
 
@@ -151,8 +151,7 @@ ctrl_if_addr_update(oor_ctrl_t *ctrl,iface_t *iface, lisp_addr_t *old_addr,
      * and iface to identify mapping_t(s) for which SMRs have to be sent. In
      * the future this should be decoupled and only the affected RLOC should
      * be passed to ctrl_dev */
-    ctrl_if_event(dev, iface->iface_name, old_addr, new_addr, iface_status(iface));
-
+    ctrl_dev_if_addr_update(dev, iface->iface_name, old_addr,new_addr, iface_status(iface));
     set_rlocs(ctrl);
 }
 
@@ -165,17 +164,20 @@ ctrl_if_link_update(oor_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
     dev = glist_first_data(ctrl->devices);
 
     ctrl->control_data_plane->control_dp_update_link(ctrl, iface, old_iface_index, new_iface_index, status);
-
-    ctrl_if_event(dev, iface->iface_name, NULL, NULL, iface_status(iface));
+    ctrl_dev_if_link_update(dev, iface->iface_name, iface_status(iface));
     set_rlocs(ctrl);
 }
 
 
 void
-ctrl_route_update(oor_ctrl_t *ctrl, int command, iface_t *iface,lisp_addr_t *src_pref,
+ctrl_route_update(oor_ctrl_t *ctrl, int command, iface_t *iface,lisp_addr_t *src,
         lisp_addr_t *dst_pref, lisp_addr_t *gateway)
 {
-    ctrl->control_data_plane->control_dp_updated_route(ctrl, command, iface, src_pref, dst_pref, gateway);
+    oor_ctrl_dev_t *dev;
+
+    dev = glist_first_data(ctrl->devices);
+    ctrl->control_data_plane->control_dp_updated_route(ctrl, command, iface, src, dst_pref, gateway);
+    ctrl_dev_route_update(dev, command, iface->iface_name, src, dst_pref, gateway);
     set_rlocs(ctrl);
 }
 

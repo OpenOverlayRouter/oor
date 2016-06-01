@@ -40,8 +40,10 @@ typedef struct ctrl_dev_class_t {
     int (*recv_msg)(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
     int (*send_msg)(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
-    /* underlying system (interface) event */
-    int (*if_event)(oor_ctrl_dev_t *, char *, lisp_addr_t *, lisp_addr_t *, uint8_t );
+    int (*if_link_update)(oor_ctrl_dev_t *, char *, uint8_t );
+    int (*if_addr_update)(oor_ctrl_dev_t *, char *, lisp_addr_t *,lisp_addr_t *, uint8_t);
+    int (*route_update)(oor_ctrl_dev_t *, int , char *,lisp_addr_t *,
+            lisp_addr_t *, lisp_addr_t *);
 
     fwd_info_t *(*get_fwd_entry)(oor_ctrl_dev_t *, packet_tuple_t *);
 } ctrl_dev_class_t;
@@ -65,8 +67,13 @@ int ctrl_dev_create(oor_dev_type_e , oor_ctrl_dev_t **);
 void ctrl_dev_destroy(oor_ctrl_dev_t *);
 int ctrl_dev_recv(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 void ctrl_dev_run(oor_ctrl_dev_t *);
-int ctrl_if_event(oor_ctrl_dev_t *, char *iface_name, lisp_addr_t *old_addr,
-        lisp_addr_t *new_addr, uint8_t status);
+int ctrl_dev_if_link_update(oor_ctrl_dev_t *dev, char *iface_name, uint8_t status);
+int ctrl_dev_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name,
+        lisp_addr_t *old_addr, lisp_addr_t *new_addr, uint8_t status);
+int ctrl_dev_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name,
+        lisp_addr_t *src, lisp_addr_t *dst_pref, lisp_addr_t *gateway);
+
+
 inline oor_dev_type_e ctrl_dev_mode(oor_ctrl_dev_t *dev);
 inline oor_ctrl_t * ctrl_dev_ctrl(oor_ctrl_dev_t *dev);
 int ctrl_dev_set_ctrl(oor_ctrl_dev_t *, oor_ctrl_t *);

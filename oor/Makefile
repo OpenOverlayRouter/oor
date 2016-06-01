@@ -79,6 +79,7 @@ OBJS        = cmdline.o                  \
           lib/mapping_db.o               \
           lib/map_cache_entry.o          \
           lib/map_local_entry.o          \
+          lib/mem_util.o                 \
           lib/nonces_table.o             \
           lib/packets.o                  \
           lib/pointers_table.o           \

@@ -53,7 +53,6 @@ public class OORVPNService extends VpnService implements Handler.Callback, Runna
 	
 	public OOR_JNI 		jni = null;
 	
-	
 
 
 	@Override
@@ -106,10 +105,13 @@ public class OORVPNService extends VpnService implements Handler.Callback, Runna
 			vpn_running = false;
 			jni.oor_exit();
 		}
-
 		Log.d(TAG, "Destroying VPN Service thread");
 		if (mThread != null) {
-			mThread.interrupt();
+			try {
+				mThread.interrupt();
+			}catch (Exception e){
+				e.printStackTrace();
+			}
 		}
 		mInterface = null;
 		mThread = null;
@@ -144,9 +146,8 @@ public class OORVPNService extends VpnService implements Handler.Callback, Runna
 
 			System.out.println("====> Starting OOR event loop ");
 			jni.oor_loop();
-			System.out.println(" **************************  END *******************************************************************  ");
 
-			// We keep forwarding packets till something goes wrong.
+			System.out.println(" ************************** END ************************** ");
 
 		}catch(IllegalArgumentException e){
 			Log.e(TAG, e.getMessage());

@@ -34,7 +34,7 @@
 #include <arpa/inet.h> /* BSD, Linux, Solaris: for inet_addr */
 
 #include "patricia.h"
-#include "../../lib/util.h"
+#include "../../lib/mem_util.h"
 
 #define Delete free
 

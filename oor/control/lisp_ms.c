@@ -61,7 +61,6 @@ get_locator_with_afi(mapping_t *m, int afi)
     	}
     }
 
-
     return(NULL);
 }
 
@@ -171,7 +170,7 @@ lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
     oor_timer_t *timer;
     glist_t *timer_lst;
 
-    timer_lst = htable_ptrs_timers_get_timers_of_type(ptrs_to_timers_ht,rsite,
+    timer_lst = htable_ptrs_timers_get_timers_of_type_from_obj(ptrs_to_timers_ht,rsite,
             REG_SITE_EXPRY_TIMER);
 
     if (glist_size(timer_lst) != 1){
@@ -669,6 +668,8 @@ ctrl_dev_class_t ms_ctrl_class = {
         .destruct = ms_ctrl_destruct,
         .run = ms_ctrl_run,
         .recv_msg = ms_recv_msg,
-        .if_event = NULL,
+        .if_link_update = NULL,
+        .if_addr_update = NULL,
+        .route_update = NULL,
         .get_fwd_entry = NULL
 };

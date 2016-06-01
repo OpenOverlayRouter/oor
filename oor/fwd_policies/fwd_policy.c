@@ -41,7 +41,7 @@ fwd_policy_dev_parm *
 fwd_policy_dev_parm_new()
 {
 	fwd_policy_dev_parm *pol_dev = xzalloc(sizeof(fwd_policy_dev_parm));
-	pol_dev->paramiters = shash_new_managed((free_key_fn_t)free);
+	pol_dev->paramiters = shash_new_managed((free_value_fn_t)free);
 	return (pol_dev);
 }
 

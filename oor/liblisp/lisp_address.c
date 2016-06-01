@@ -18,7 +18,7 @@
  */
 
 #include "lisp_address.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 #include "../lib/oor_log.h"
 
 
@@ -504,7 +504,6 @@ lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr)
         set_lafi_(laddr, LM_AFI_IP);
         break;
     case LISP_AFI_LCAF:
-//        laddr->lcaf = lcaf_addr_new();
         len = lcaf_addr_parse(offset, get_lcaf_(laddr));
         set_lafi_(laddr, LM_AFI_LCAF);
         break;

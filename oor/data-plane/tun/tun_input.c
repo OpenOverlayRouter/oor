@@ -24,7 +24,7 @@
 #include "tun_input.h"
 #include "tun_output.h"
 #include "../../lib/packets.h"
-#include "../../lib/util.h"
+#include "../../lib/mem_util.h"
 #include "../../liblisp/liblisp.h"
 #include "../../lib/oor_log.h"
 

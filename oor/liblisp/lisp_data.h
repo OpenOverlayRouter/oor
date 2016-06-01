@@ -21,7 +21,7 @@
 #define LISP_DATA_H_
 
 
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 
  /* LISP data packet header */
 

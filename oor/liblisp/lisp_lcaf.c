@@ -22,7 +22,7 @@
 #include "lisp_lcaf.h"
 #include "lisp_address.h"
 #include "../defs.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 #include "../lib/oor_log.h"
 
 
@@ -41,41 +41,41 @@ del_fct del_fcts[MAX_LCAFS] = {
         0, afi_list_type_del,
         iid_type_del,
         0, 0, 0,
-        geo_type_del, 0, 0,
+        geo_type_del, nat_type_del, 0,
         mc_type_del, elp_type_del, 0, 0,
         rle_type_del, 0, 0};
 
 parse_fct parse_fcts[MAX_LCAFS] = {
         0, afi_list_type_parse,
         iid_type_parse, 0, 0, 0,
-        geo_type_parse, 0, 0,
+        geo_type_parse, nat_type_parse, 0,
         mc_type_parse, elp_type_parse, 0, 0,
         rle_type_parse, 0, 0};
 
 to_char_fct to_char_fcts[MAX_LCAFS] = {
         0, afi_list_type_to_char,
         iid_type_to_char, 0, 0, 0,
-        geo_type_to_char, 0, 0,
+        geo_type_to_char, nat_type_to_char, 0,
         mc_type_to_char, elp_type_to_char, 0, 0,
         rle_type_to_char, 0, 0 };
 
 write_fct write_fcts[MAX_LCAFS] = {
         0, afi_list_type_write_to_pkt,
         iid_type_write_to_pkt, 0, 0, 0,
-        0, 0, 0,
+        0, nat_type_write_to_pkt, 0,
         mc_type_write_to_pkt, elp_type_write_to_pkt, 0, 0,
         rle_type_write_to_pkt, 0, 0};
 
 copy_fct copy_fcts[MAX_LCAFS] = {
         0, afi_list_type_copy,
         iid_type_copy, 0, 0, 0,
-        geo_type_copy, 0, 0,
+        geo_type_copy, nat_type_copy, 0,
         mc_type_copy, elp_type_copy, 0, 0,
         rle_type_copy, 0, 0};
 
 cmp_fct cmp_fcts[MAX_LCAFS] = {
         0, afi_list_type_cmp,
-        iid_type_cmp, 0, 0, 0,
+        iid_type_cmp, nat_type_cmp, 0, 0,
         0, 0, 0,
         mc_type_cmp, elp_type_cmp, 0, 0,
         rle_type_cmp, 0, 0};
@@ -83,21 +83,21 @@ cmp_fct cmp_fcts[MAX_LCAFS] = {
 size_in_pkt_fct size_in_pkt_fcts[MAX_LCAFS] = {
         0, afi_list_type_get_size_to_write,
         iid_type_get_size_to_write, 0, 0, 0,
-        0, 0, 0,
+        0, nat_type_get_size_to_write, 0,
         mc_type_get_size_to_write, elp_type_get_size_to_write, 0, 0,
         rle_type_get_size_to_write, 0, 0};
 
 get_ip_addr_fct get_ip_addr_fcts[MAX_LCAFS] = {
         0, afi_list_type_get_ip_addr,
         iid_type_get_ip_addr, 0, 0, 0,
-        0, 0, 0,
+        0, nat_type_get_ip_addr, 0,
         mc_type_get_ip_addr, elp_type_get_ip_addr, 0, 0,
         0, 0, 0};
 
 get_ip_pref_addr_fct get_ip_pref_addr_fcts[MAX_LCAFS] = {
         0, afi_list_type_get_ip_pref_addr,
         iid_type_get_ip_pref_addr, 0, 0, 0,
-        0, 0, 0,
+        0, nat_type_get_ip_pref_addr, 0,
         mc_type_get_ip_pref_addr,0, 0, 0,
         0, 0, 0};
 
@@ -206,6 +206,9 @@ char *
 lcaf_addr_to_char(lcaf_addr_t *lcaf)
 {
     assert(lcaf);
+    if (!to_char_fcts[get_type_(lcaf)]) {
+        return ("LCAF not supported");
+    }
     return((*to_char_fcts[get_type_(lcaf)])(lcaf_addr_get_addr(lcaf)));
 }
 
@@ -236,6 +239,13 @@ lcaf_addr_get_iid(lcaf_addr_t *lcaf)
 {
     assert(lcaf);
     return((iid_t *)lcaf_addr_get_addr(lcaf));
+}
+
+inline nat_t *
+lcaf_addr_get_nat(lcaf_addr_t *lcaf)
+{
+    assert(lcaf);
+    return((nat_t *)lcaf_addr_get_addr(lcaf));
 }
 
 inline void *
@@ -721,6 +731,7 @@ iid_type_new()
 {
     iid_t *iid;
     iid = xzalloc(sizeof(iid_t));
+    iid->iidaddr = lisp_addr_new();
     return(iid);
 }
 
@@ -729,7 +740,7 @@ iid_type_new_init(int iid, lisp_addr_t *addr, uint8_t mlen)
 {
     iid_t *iidt = iid_type_new();
     iidt->iid = iid;
-    iidt->iidaddr = addr;
+    lisp_addr_copy(iidt->iidaddr, addr);
     iidt->mlen = mlen;
     return(iidt);
 }
@@ -781,7 +792,7 @@ iid_type_set_addr(iid_t *iidt, lisp_addr_t *iidaddr)
 {
     assert(iidt);
     assert(iidaddr);
-    iidt->iidaddr = iidaddr;
+    lisp_addr_copy (iidt->iidaddr,iidaddr);
 }
 
 inline void
@@ -834,7 +845,6 @@ iid_type_parse(uint8_t *offset, void **iid)
 {
     int len;
     *iid = iid_type_new();
-    iid_type_set_addr(*iid, lisp_addr_new());
 
     iid_type_set_mlen(*iid, ((lcaf_iid_hdr_t *)offset)->mlen);
     iid_type_set_iid(*iid, ntohl(((lcaf_iid_hdr_t *)offset)->iid));
@@ -898,6 +908,9 @@ lisp_addr_is_iid(lisp_addr_t *addr)
 void
 lcaf_iid_init(lcaf_addr_t *iidaddr, int iid, lisp_addr_t *addr, uint8_t mlen)
 {
+    if (!iidaddr->addr){
+        lcaf_addr_del_addr(iidaddr);
+    }
     iidaddr->type = LCAF_IID;
     iidaddr->addr = iid_type_new_init(iid, addr, mlen);
 }
@@ -940,7 +953,7 @@ geo_type_set_addr(geo_t *geo, lisp_addr_t *addr)
 {
     assert(addr);
     assert(geo);
-    geo->addr = addr;
+    lisp_addr_copy(geo->addr, addr);
 }
 
 inline void
@@ -1079,6 +1092,369 @@ geo_type_copy(void **dst, void *src)
     geo_type_set_altitude((geo_t *)*dst, geo_type_get_altitude(src));
     lisp_addr_copy(geo_type_get_addr((geo_t *)*dst), geo_type_get_addr(src));
 }
+
+
+/*
+ * nat_addr_t functions
+ */
+
+inline nat_t *
+nat_type_new()
+{
+    nat_t *nat;
+    nat = (nat_t*)xzalloc(sizeof(nat_t));
+    nat->ms_addr = lisp_addr_new();
+    nat->etr_pub_addr = lisp_addr_new();
+    nat->etr_prv_addr = lisp_addr_new();
+    nat->rtr_addr_lst = glist_new_managed((glist_del_fct)lisp_addr_del);
+    return (nat);
+}
+
+nat_t *
+nat_type_new_init(uint16_t ms_port, lisp_addr_t *ms_addr, uint16_t etr_pub_port,
+        lisp_addr_t *etr_pub_addr, lisp_addr_t *etr_prv_addr, glist_t *rtr_addr_lst)
+{
+    nat_t *nat;
+
+    nat = (nat_t*)xzalloc(sizeof(nat_t));
+    nat->ms_port = ms_port;
+    nat->etr_pub_port = etr_pub_port;
+    nat->ms_addr = lisp_addr_clone(ms_addr);
+    nat->etr_pub_addr = lisp_addr_clone(etr_pub_addr);
+    nat->etr_prv_addr = lisp_addr_clone(etr_prv_addr);
+    nat->rtr_addr_lst = glist_clone(rtr_addr_lst, (glist_clone_obj)lisp_addr_clone);
+    glist_set_del_fct(nat->rtr_addr_lst, (glist_del_fct)lisp_addr_del);
+
+    return (nat);
+}
+
+inline void
+nat_type_del(void *nat)
+{
+    lisp_addr_del(((nat_t *)nat)->ms_addr);
+    lisp_addr_del(((nat_t *)nat)->etr_pub_addr);
+    lisp_addr_del(((nat_t *)nat)->etr_prv_addr);
+    glist_destroy(((nat_t *)nat)->rtr_addr_lst);
+    free (nat);
+    nat = NULL;
+}
+
+inline uint16_t
+nat_type_get_ms_port(nat_t *nat)
+{
+    return (nat->ms_port);
+}
+
+inline uint16_t
+nat_type_get_etr_pub_port(nat_t *nat)
+{
+    return (nat->etr_pub_port);
+}
+
+inline lisp_addr_t *
+nat_type_get_ms_addr(nat_t *nat)
+{
+   return(nat->ms_addr);
+}
+
+inline lisp_addr_t *
+nat_type_get_etr_pub_addr(nat_t *nat)
+{
+    return(nat->etr_pub_addr);
+}
+
+inline lisp_addr_t *
+nat_type_get_etr_priv_addr(nat_t *nat)
+{
+    return(nat->etr_prv_addr);
+}
+
+inline glist_t *
+nat_type_get_rtr_addr_lst(nat_t *nat)
+{
+    return(nat->rtr_addr_lst);
+}
+
+inline void
+nat_type_set_ms_port(nat_t *nat, uint16_t ms_port)
+{
+    nat->ms_port = ms_port;
+}
+
+inline void
+nat_type_set_etr_pub_port(nat_t *nat, uint16_t etr_pub_port)
+{
+    nat->etr_pub_port = etr_pub_port;
+}
+
+inline void
+nat_type_set_ms_addr(nat_t *nat, lisp_addr_t * ms_addr)
+{
+    lisp_addr_copy(nat->ms_addr,ms_addr);
+}
+
+inline void
+nat_type_set_etr_pub_addr(nat_t *nat, lisp_addr_t * etr_pub_addr)
+{
+    lisp_addr_copy(nat->etr_pub_addr, etr_pub_addr);
+}
+
+inline void
+nat_type_set_etr_priv_addr(nat_t *nat, lisp_addr_t * etr_prv_addr){
+    lisp_addr_copy(nat->etr_prv_addr, etr_prv_addr);
+}
+
+inline void
+nat_type_set_rtr_addr_lst(nat_t *nat, glist_t * rtr_addr_lst)
+{
+    glist_destroy(nat->rtr_addr_lst);
+    nat->rtr_addr_lst = glist_clone(rtr_addr_lst, (glist_clone_obj)lisp_addr_clone);
+    glist_set_del_fct(nat->rtr_addr_lst, (glist_del_fct)lisp_addr_del);
+}
+
+inline int
+nat_type_cmp(void *nat1, void *nat2)
+{
+    glist_entry_t *it_rtr;
+    lisp_addr_t *rtr_addr;
+    nat_t *n1 = (nat_t*)nat1;
+    nat_t *n2 = (nat_t*)nat2;
+    int ret = 0;
+
+    if ((ret = lisp_addr_cmp(n1->etr_pub_addr,n2->etr_pub_addr)) != 0){
+        return (ret);
+    }
+    if ((ret = lisp_addr_cmp(n1->etr_prv_addr,n2->etr_prv_addr)) != 0){
+        return (ret);
+    }
+    if ((ret = lisp_addr_cmp(n1->ms_addr,n2->ms_addr)) != 0){
+        return (ret);
+    }
+    if (n1->etr_pub_port != n2->etr_pub_port){
+        return (n1->etr_pub_port > n2->etr_pub_port ? 1 : 2);
+    }
+    if (glist_size(n1->rtr_addr_lst) != glist_size(n2->rtr_addr_lst)){
+        return (glist_size(n1->rtr_addr_lst) > glist_size(n2->rtr_addr_lst) ? 1 : 2);
+    }
+    glist_for_each_entry(it_rtr,n1->rtr_addr_lst){
+        rtr_addr = (lisp_addr_t *)glist_entry_data(it_rtr);
+        if (glist_contain_using_cmp_fct(rtr_addr, n1->rtr_addr_lst,(glist_cmp_fct)lisp_addr_cmp) != 0){
+            return (1);
+        }
+    }
+    if (n1->ms_port != n2->ms_port){
+        return  (n1->ms_port > n2->ms_port ? 1 : 2);
+    }
+    return (0);
+}
+
+int
+nat_type_get_size_to_write(void *nat)
+{
+    uint32_t len;
+    nat_t *nat_addr = (nat_t *)nat;
+    glist_entry_t *it_rtr;
+
+    len = sizeof (lcaf_nat_hdr_t);
+    len += lisp_addr_size_to_write(nat_addr->etr_pub_addr);
+    len += lisp_addr_size_to_write(nat_addr->ms_addr);
+    len += lisp_addr_size_to_write(nat_addr->etr_prv_addr);
+    glist_for_each_entry(it_rtr, nat_addr->rtr_addr_lst) {
+        len += lisp_addr_size_to_write((lisp_addr_t *)glist_entry_data(it_rtr));
+    }
+
+    return (len);
+}
+
+int
+nat_type_write_to_pkt(uint8_t *offset, void *nat)
+{
+    uint32_t len, addrlen;
+    uint8_t *cur_ptr = offset;
+    nat_t *nat_addr = (nat_t *)nat;
+    glist_entry_t *it_rtr;
+
+    ((lcaf_nat_hdr_t*)cur_ptr)->afi = htons(LISP_AFI_LCAF);
+    ((lcaf_nat_hdr_t*)cur_ptr)->flags = 0;
+    ((lcaf_nat_hdr_t*)cur_ptr)->rsvd1 = 0;
+    ((lcaf_nat_hdr_t*)cur_ptr)->rsvd2 = 0;
+    ((lcaf_nat_hdr_t*)cur_ptr)->type = LCAF_NATT;
+    NAT_MS_PORT(cur_ptr) = htons(nat_addr->ms_port);
+    NAT_ETR_PORT(cur_ptr) = htons(nat_addr->etr_pub_port);
+    len = sizeof (lcaf_nat_hdr_t);
+    cur_ptr = CO(cur_ptr, sizeof(lcaf_nat_hdr_t));
+    addrlen = lisp_addr_write(cur_ptr, nat_addr->etr_pub_addr);
+    if (addrlen <=0)
+        return(BAD);
+    len += addrlen;
+    cur_ptr = CO(cur_ptr, addrlen);
+    addrlen = lisp_addr_write(cur_ptr, nat_addr->ms_addr);
+    if (addrlen <=0)
+        return(BAD);
+    len += addrlen;
+    cur_ptr = CO(cur_ptr, addrlen);
+    addrlen = lisp_addr_write(cur_ptr, nat_addr->etr_prv_addr);
+    if (addrlen <=0)
+        return(BAD);
+    len += addrlen;
+    cur_ptr = CO(cur_ptr, addrlen);
+    glist_for_each_entry(it_rtr, nat_addr->rtr_addr_lst) {
+        addrlen = lisp_addr_write(cur_ptr, (lisp_addr_t *)glist_entry_data(it_rtr));
+        if (addrlen <=0)
+            return(BAD);
+        len += addrlen;
+        cur_ptr = CO(cur_ptr, addrlen);
+    }
+    /* length is only what follows the first 8 bytes of the lcaf hdr */
+    ((lcaf_hdr_t*)offset)->len = htons(len-sizeof(lcaf_hdr_t));
+
+    return (len);
+}
+
+int
+nat_type_parse(uint8_t *offset, void **nat)
+{
+    int totallen, readlen, len;
+    nat_t *nat_addr;
+    lisp_addr_t *rtr_addr;
+
+    *nat = nat_type_new();
+    nat_addr = *nat;
+    totallen  = ntohs((NAT_LEN(offset))) + sizeof(lcaf_hdr_t);
+    nat_addr->ms_port = NAT_MS_PORT(offset);
+    nat_addr->etr_pub_port = NAT_ETR_PORT(offset);
+    readlen = sizeof(lcaf_nat_hdr_t);
+    offset = CO(offset, readlen);
+    len = lisp_addr_parse(offset, nat_addr->etr_pub_addr);
+    if (len <= 0){
+        goto err;
+    }
+    readlen += len;
+    offset = CO(offset, len);
+    len = lisp_addr_parse(offset, nat_addr->ms_addr);
+    if (len <= 0){
+        goto err;
+    }
+    readlen += len;
+    offset = CO(offset, len);
+    len = lisp_addr_parse(offset, nat_addr->etr_prv_addr);
+    if (len <= 0){
+        goto err;
+    }
+    readlen += len;
+    offset = CO(offset, len);
+
+    while (totallen > readlen){
+        rtr_addr = lisp_addr_new();
+        len = lisp_addr_parse(offset, rtr_addr);
+        if (len <= 0){
+            goto err;
+        }
+        readlen += len;
+        offset = CO(offset, len);
+        glist_add_tail(rtr_addr,nat_addr->rtr_addr_lst);
+    }
+    return (readlen);
+err:
+    nat_type_del(nat_addr);
+    return (BAD);
+}
+
+char *
+nat_type_to_char(void *nat)
+{
+    static char buf[5][500];
+    static unsigned int i = 0;
+    nat_t *nat_addr = (nat_t *)nat;
+    int j = 0;
+    glist_entry_t * it_rtr;
+
+    i++;
+    i = i % 5;
+    *buf[i] = '\0';
+    sprintf(buf[i], "ETR Pub: %s:%d, ETR Prv: %s, MS: %s:%d - RTR list:",
+            lisp_addr_to_char(nat_addr->etr_pub_addr),nat_addr->etr_pub_port,
+            lisp_addr_to_char(nat_addr->etr_prv_addr),lisp_addr_to_char(nat_addr->ms_addr),
+            nat_addr->ms_port);
+
+    glist_for_each_entry(it_rtr, nat_addr->rtr_addr_lst) {
+        j++;
+        sprintf(buf[i]+strlen(buf[i]), "[%d] %s ",
+                j, lisp_addr_to_char((lisp_addr_t *)glist_entry_data(it_rtr)));
+    }
+    return(buf[i]);
+}
+
+void
+nat_type_copy(void **dst, void *src)
+{
+    nat_t *snat_addr, *dnat_addr;
+    glist_entry_t *rtr_it;
+    lisp_addr_t *rtr_addr;
+
+    if (!*dst){
+        *dst = nat_type_new();
+    }
+    dnat_addr = (nat_t *)(*dst);
+    snat_addr = (nat_t *)src;
+    dnat_addr->etr_pub_port = snat_addr->etr_pub_port;
+    dnat_addr->ms_port = snat_addr->ms_port;
+    lisp_addr_copy(dnat_addr->etr_pub_addr, snat_addr->etr_pub_addr);
+    lisp_addr_copy(dnat_addr->ms_addr, snat_addr->ms_addr);
+    lisp_addr_copy(dnat_addr->etr_prv_addr, snat_addr->etr_prv_addr);
+    glist_remove_all(dnat_addr->rtr_addr_lst);
+    glist_for_each_entry(rtr_it, snat_addr->rtr_addr_lst) {
+        rtr_addr = lisp_addr_clone((lisp_addr_t *)glist_entry_data(rtr_it));
+        glist_add(rtr_addr,dnat_addr->rtr_addr_lst);
+    }
+}
+
+lisp_addr_t *
+nat_type_get_ip_addr(void *nat)
+{
+    return (lisp_addr_get_ip_addr(((nat_t *)nat)->etr_prv_addr));
+}
+
+lisp_addr_t *
+nat_type_get_ip_pref_addr(void *nat)
+{
+    return (lisp_addr_get_ip_pref_addr(((nat_t *)nat)->etr_prv_addr));
+}
+
+void
+lcaf_nat_init(lcaf_addr_t *nat_addr, uint16_t ms_port, lisp_addr_t *ms_addr,
+        uint16_t etr_pub_port, lisp_addr_t *etr_pub_addr, lisp_addr_t *etr_prv_addr,
+        glist_t *rtr_addr_lst)
+{
+    if (!nat_addr->addr){
+        lcaf_addr_del_addr(nat_addr);
+    }
+    nat_addr->type = LCAF_NATT;
+    nat_addr->addr = nat_type_new_init(ms_port, ms_addr, etr_pub_port, etr_pub_addr,
+            etr_prv_addr, rtr_addr_lst);
+}
+inline int
+lisp_addr_is_nat(lisp_addr_t *addr)
+{
+    return (lisp_addr_is_lcaf(addr) && lisp_addr_lcaf_type(addr) == LCAF_NATT);
+}
+
+lisp_addr_t *
+lisp_addr_new_init_nat(uint16_t ms_port, lisp_addr_t *ms_addr,
+        uint16_t etr_pub_port, lisp_addr_t *etr_pub_addr, lisp_addr_t *etr_prv_addr,
+        glist_t *rtr_addr_lst)
+{
+    lisp_addr_t *nat_addr;
+
+        nat_addr = lisp_addr_new_lafi(LM_AFI_LCAF);
+        lcaf_nat_init(&nat_addr->lcaf,ms_port,ms_addr,etr_pub_port,etr_pub_addr,
+                etr_prv_addr,rtr_addr_lst);
+
+        return (nat_addr);
+}
+
+
+
 
 /*
  * elp_addr_t functions

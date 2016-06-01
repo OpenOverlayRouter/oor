@@ -34,6 +34,11 @@ typedef enum tr_type {
     PETR_TYPE
 } tr_type_e;
 
+typedef enum {
+    PREV_DRAF_VER_4,
+    AFTER_DRAFT_VER_4
+}nat_version;
+
 typedef struct lisp_xtr {
     oor_ctrl_dev_t super; /* base "class" */
 
@@ -107,6 +112,20 @@ typedef struct _timer_map_reg_argument {
     map_local_entry_t  *mle;
     map_server_elt     *ms;
 } timer_map_reg_argument;
+
+typedef struct _timer_encap_map_reg_argument {
+    map_local_entry_t  *mle;
+    map_server_elt     *ms;
+    locator_t          *src_loct;
+    lisp_addr_t        *rtr_rloc;
+} timer_encap_map_reg_argument;
+
+typedef struct _timer_inf_req_argument {
+    map_local_entry_t *mle;
+    locator_t *loct;
+    map_server_elt *ms;
+}timer_inf_req_argument;
+
 
 map_server_elt * map_server_elt_new_init(lisp_addr_t *address,uint8_t key_type,
         char *key, uint8_t proxy_reply);

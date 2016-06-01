@@ -21,7 +21,7 @@
 #include "oor_config_functions.h"
 #include "../lib/oor_log.h"
 #include "../liblisp/liblisp.h"
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <zmq.h>
@@ -666,7 +666,6 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     lisp_xtr_t *xtr;
     mapping_t *processed_mapping;
     map_local_entry_t *map_loc_e;
-    void *fwd_info;
     shash_t *lcaf_ht;
     void *it;
     xmlDocPtr doc;
@@ -683,7 +682,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     int eid_ip_afi;
 
     OOR_LOG(LDBG_1, "OOR_API: Creating new local data base");
-    lcaf_ht = shash_new_managed((free_key_fn_t)lisp_addr_del);
+    lcaf_ht = shash_new_managed((free_value_fn_t)lisp_addr_del);
     conf_mapping_list = glist_new_managed((glist_del_fct)conf_mapping_destroy);
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
@@ -726,7 +725,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         processed_mapping = process_mapping_config(&(xtr->super),lcaf_ht,conf_mapping, TRUE);
 
         if (processed_mapping == NULL){
-            OOR_LOG(LDBG_3, "OOR_API: Couldn't process mapping %s",conf_mapping->eid_prefix);
+            OOR_LOG(LDBG_2, "OOR_API: Couldn't process mapping %s",conf_mapping->eid_prefix);
             goto err;
         }
         /* If dev is a mobile node, we can only have one IPv4 and one IPv6 mapping */
@@ -747,14 +746,18 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
         map_loc_e = map_local_entry_new_init(processed_mapping);
         if (map_loc_e == NULL){
-            OOR_LOG(LDBG_3, "OOR_API: Couldn't allocate map_local_entry_t %s",conf_mapping->eid_prefix);
+            OOR_LOG(LDBG_2, "OOR_API: Couldn't allocate map_local_entry_t %s",conf_mapping->eid_prefix);
             goto err;
         }
-        fwd_info = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm, processed_mapping, NULL);
-        map_local_entry_set_fwd_info(map_loc_e,fwd_info,xtr->fwd_policy->del_map_loc_policy_inf);
+        if (xtr->fwd_policy->init_map_loc_policy_inf(
+                xtr->fwd_policy_dev_parm, map_loc_e, NULL,
+                xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+            OOR_LOG(LDBG_2, "OOR_API: Couldn't initiate forward information for mapping with EID: %s",conf_mapping->eid_prefix);
+            goto err;
+        }
 
         if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
-            OOR_LOG(LDBG_3, "OOR_API: Couldn't add mapping %s to local database",
+            OOR_LOG(LDBG_2, "OOR_API: Couldn't add mapping %s to local database",
                     lisp_addr_to_char(&(processed_mapping->eid_prefix)));
             goto err;
         }
@@ -906,10 +909,7 @@ oor_api_xtr_petrs_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         add_proxy_etr_entry(xtr->petrs,str_addr,1,100);
     }
 
-    xtr->fwd_policy->updated_map_cache_inf(
-            xtr->fwd_policy_dev_parm,
-            mcache_entry_routing_info(xtr->petrs),
-            mcache_entry_mapping(xtr->petrs));
+    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs);
 
     OOR_LOG(LDBG_1, "OOR_API: List of Proxy ETRs successfully created");
     OOR_LOG(LDBG_1, "************************* Proxy ETRs List ****************************");

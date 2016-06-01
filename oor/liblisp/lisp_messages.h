@@ -22,7 +22,7 @@
 
 #include "lisp_message_fields.h"
 #include <stdlib.h>
-#include "../lib/util.h"
+#include "../lib/mem_util.h"
 
 /* LISP Types */
 typedef enum lisp_msg_type_ {
@@ -34,6 +34,7 @@ typedef enum lisp_msg_type_ {
     LISP_INFO_NAT = 7,
     LISP_ENCAP_CONTROL_TYPE = 8
 } lisp_msg_type_e;
+
 
 /*
  * ENCAPSULATED CONTROL MESSAGE
@@ -71,19 +72,23 @@ typedef enum lisp_msg_type_ {
  * header of the encapsulated LISP control message.
  *
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |S|                 Reserved                            |
+ *    |Type=8 |S|D|R|             Reserved                            |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
 typedef struct ecm_hdr {
 #ifdef LITTLE_ENDIANS
-    uint8_t reserved:3;
+    uint8_t n_bit:1; // RTR relays the ECM-ed Map-Register to a Map-Server
+    uint8_t r_bit:1; // The encapsulated msg is to be processed by an RTR
+    uint8_t d_bit:1; // DDT originated
     uint8_t s_bit:1;
     uint8_t type:4;
 #else
     uint8_t type:4;
     uint8_t s_bit:1;
-    uint8_t reserved:3;
+    uint8_t d_bit:1;
+    uint8_t r_bit:1;
+    uint8_t n_bit:1;
 #endif
     uint8_t reserved2[3];
 } ecm_hdr_t;
@@ -92,7 +97,11 @@ typedef struct ecm_hdr {
 char *ecm_hdr_to_char(ecm_hdr_t *h);
 void ecm_hdr_init(void *ptr);
 
-#define ECM_TYPE(h_) ((ecm_hdr_t *)(h_))->type
+#define ECM_HDR_CAST(h_) ((ecm_hdr_t *)(h_))
+#define ECM_TYPE(h_) (ECM_HDR_CAST(h_))->type
+#define ECM_SECURITY_BIT(h_) (ECM_HDR_CAST(h_))->s_bit
+#define ECM_DDT_BIT(h_) (ECM_HDR_CAST(h_))->d_bit
+#define ECM_RTR_PROCESS_BIT(h_) (ECM_HDR_CAST(h_))->r_bit
 
 
 /*
@@ -323,6 +332,7 @@ char *map_notify_hdr_to_char(map_notify_hdr_t *h);
 #define MNTF_HDR_CAST(h_) ((map_notify_hdr_t *)(h_))
 #define MNTF_I_BIT(h_) (MNTF_HDR_CAST((h_)))->xtr_id_present
 #define MNTF_XTR_ID_PRESENT(h_) (MNTF_HDR_CAST((h_)))->xtr_id_present
+#define MNTF_R_BIT(h_) (MNTF_HDR_CAST((h_)))->rtr_auth_present
 #define MNTF_RTR_AUTH_PRESENT(h_) (MNTF_HDR_CAST((h_)))->rtr_auth_present
 #define MNTF_REC_COUNT(h_) MNTF_HDR_CAST((h_))->record_count
 #define MNTF_NONCE(h_) MNTF_HDR_CAST((h_))->nonce
@@ -431,6 +441,70 @@ char *map_register_hdr_to_char(map_register_hdr_t *h);
 #define MREG_IBIT(h_)(MREG_HDR_CAST(h_))->ibit
 #define MREG_RBIT(h_)(MREG_HDR_CAST(h_))->rbit
 
+
+/*  Info Request type */
+
+#define INFO_REQUEST           0
+#define INFO_REPLY             1
+
+/*
+ * Info Request Message Format
+ *
+ *      0                   1                   2                     3
+ *      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |Type=7 |R|            Reserved                                 |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |                         Nonce . . .                           |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |                      . . . Nonce                              |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |              Key ID           |  Authentication Data Length   |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     ~                     Authentication Data                       ~
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |                              TTL                              |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |                          EID-prefix                           |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |             AFI = 0           |   <Nothing Follows AFI=0>     |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ **/
+
+
+typedef struct info_nat_hdr {
+#ifdef LITTLE_ENDIANS
+    uint8_t  reserved1:3;
+    uint8_t  r_bit_info_reply:1;
+    uint8_t  type:4;
+#else
+    uint8_t  type:4;
+    uint8_t  r_bit_info_reply:1;
+    uint8_t  reserved1:3;
+#endif
+    uint8_t  reserved2[3];
+    uint64_t nonce;
+} __attribute__ ((__packed__)) info_nat_hdr_t;
+
+typedef struct info_nat_hdr_2 {
+    uint32_t ttl;
+    uint8_t reserved;
+    uint8_t eid_mask_len;
+} __attribute__ ((__packed__)) info_nat_hdr_2_t;
+
+char *info_nat_hdr_to_char(info_nat_hdr_t *h);
+void info_nat_hdr_init(void *ptr);
+void info_nat_hdr_2_init(void *ptr);
+
+
+#define INF_REQ_HDR_CAST(h_) ((info_nat_hdr_t *)(h_))
+#define INF_REQ_R_bit(h_) (INF_REQ_HDR_CAST(h_))->r_bit_info_reply
+#define INF_REQ_NONCE(h_) (INF_REQ_HDR_CAST(h_))->nonce
+#define INF_REQ_HDR_2_CAST(h_) ((info_nat_hdr_2_t *)(h_))
+#define INF_REQ_2_TTL(h_) (INF_REQ_HDR_2_CAST(h_))->ttl
+#define INF_REQ_2_EID_MASK(h_) (INF_REQ_HDR_2_CAST(h_))->eid_mask_len
 
 
 

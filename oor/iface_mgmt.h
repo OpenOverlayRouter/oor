@@ -24,7 +24,8 @@
 #include "lib/sockets.h"
 
 
-int opent_netlink_socket();
 int process_netlink_msg(sock_t *sl);
+void iface_mac_address(char *iface_name, uint8_t *mac);
+int get_all_ifaces_name_list(char ***ifaces,int *count);
 
 #endif /* IFACE_MGMT_H_ */

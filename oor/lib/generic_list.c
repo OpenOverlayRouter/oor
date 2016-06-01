@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include "generic_list.h"
 #include "oor_log.h"
-#include "util.h"
+#include "mem_util.h"
 
 void
 glist_init_complete(glist_t *lst, glist_cmp_fct cmp_fct, glist_del_fct del_fct)
@@ -42,6 +42,7 @@ glist_init_managed(glist_t *lst, glist_del_fct del_fct)
 {
     glist_init_complete(lst, NULL, del_fct);
 }
+
 
 /**
  * glist_new_complete - initializes the list
@@ -72,6 +73,46 @@ glist_new_managed(glist_del_fct del)
     return(glist_new_complete(NO_CMP, del));
 }
 
+
+inline
+glist_cmp_fct glist_get_cmp_fct(glist_t *lst)
+{
+    return (lst->cmp_fct);
+}
+
+inline
+glist_del_fct glist_get_del_fct(glist_t *lst)
+{
+    return (lst->del_fct);
+}
+
+inline
+void glist_set_cmp_fct(glist_t *lst, glist_cmp_fct cmp_fct)
+{
+    lst->cmp_fct = cmp_fct;
+}
+
+inline
+void glist_set_del_fct(glist_t *lst, glist_del_fct del_fct)
+{
+    lst->del_fct = del_fct;
+}
+
+/* Use the indicated clone function to obtain a clone of the list */
+glist_t *
+glist_clone(glist_t *src_list, glist_clone_obj clone_obj)
+{
+    glist_t *list;
+    glist_entry_t *it;
+    void *obj;
+
+    list = glist_new_complete(src_list->cmp_fct,src_list->del_fct);
+    glist_for_each_entry(it, src_list){
+            obj = glist_entry_data(it);
+            glist_add(clone_obj(obj),list);
+    }
+    return (list);
+}
 
 /**
  * glist_add - insert new value to the list

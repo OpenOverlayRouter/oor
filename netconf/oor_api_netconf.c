@@ -48,9 +48,6 @@ int     ipv4_data_input_fd                  = 0;
 int     ipv6_data_input_fd                  = 0;
 int     netlink_fd                          = 0;
 
-/* NAT */
-int nat_aware = FALSE;
-int nat_status = UNKNOWN;
 
 sockmstr_t *smaster = NULL;
 oor_ctrl_dev_t *ctrl_dev;

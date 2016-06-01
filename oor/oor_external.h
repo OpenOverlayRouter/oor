@@ -25,11 +25,9 @@
 extern char *config_file;
 extern int daemonize;
 extern int default_rloc_afi;
-extern int netlink_fd;
-extern int nat_aware;
-extern int nat_status;
 
 extern sockmstr_t *smaster;
+extern int netlink_fd;
 extern oor_ctrl_dev_t *ctrl_dev;
 extern oor_ctrl_t *lctrl;
 extern data_plane_struct_t *data_plane;

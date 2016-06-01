@@ -20,7 +20,7 @@
 
 
 #include "int_table.h"
-#include "util.h"
+#include "mem_util.h"
 
 int_htable *
 int_htable_new()

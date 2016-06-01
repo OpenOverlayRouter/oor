@@ -55,6 +55,7 @@ char *mapping_to_char(mapping_t *m);
 int mapping_add_locator(mapping_t *, locator_t *);
 /* This function extract the locator from the list of locators of the mapping */
 int mapping_remove_locator(mapping_t *mapping,locator_t *loct);
+void mapping_remove_locators(mapping_t *mapping);
 void mapping_update_locators(mapping_t *, glist_t *);
 locator_t *mapping_get_loct_with_addr(mapping_t *, lisp_addr_t *);
 glist_t *mapping_get_loct_lst_with_afi(mapping_t *mapping, lm_afi_t lafi, int afi);
@@ -133,6 +134,55 @@ static inline void mapping_set_auth(mapping_t *m, uint8_t a)
 {
     m->authoritative = a;
 }
+
+/* For all locators */
+#define mapping_foreach_locator(_map, _loct) \
+        do { \
+            glist_t *_loct_list_; \
+            glist_entry_t *_it_list_; \
+            glist_entry_t *_it_loct_; \
+            \
+            glist_for_each_entry(_it_list_,_map->locators_lists){ \
+                _loct_list_ = (glist_t *)glist_entry_data(_it_list_); \
+                if (glist_size(_loct_list_) == 0){ \
+                    continue; \
+                } \
+                glist_for_each_entry(_it_loct_,_loct_list_){ \
+                    _loct = (locator_t *)glist_entry_data(_it_loct_); \
+
+#define mapping_foreach_locator_end \
+                } \
+            } \
+       }while(0)
+
+
+
+/* For each locator that has an active address. If the locator status is down it will
+ * also be returned */
+#define mapping_foreach_active_locator(_map, _loct) \
+        do { \
+            glist_t *_loct_list_; \
+            glist_entry_t *_it_list_; \
+            glist_entry_t *_it_loct_; \
+            locator_t *_locator_; \
+            \
+            glist_for_each_entry(_it_list_,_map->locators_lists){ \
+                _loct_list_ = (glist_t *)glist_entry_data(_it_list_); \
+                if (glist_size(_loct_list_) == 0){ \
+                    continue; \
+                } \
+                _locator_ = (locator_t *)glist_first_data(_loct_list_); \
+                if (lisp_addr_is_no_addr(locator_addr(_locator_)) == TRUE){ \
+                    continue; \
+                } \
+                glist_for_each_entry(_it_loct_,_loct_list_){ \
+                    _loct = (locator_t *)glist_entry_data(_it_loct_); \
+
+#define mapping_foreach_active_locator_end \
+                } \
+            } \
+       }while(0)
+
 
 
 #endif /* MAPPING_H_ */

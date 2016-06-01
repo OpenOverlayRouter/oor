@@ -21,7 +21,7 @@
 #define VXLAN_GPE_H_
 
 #include "../../lib/lbuf.h"
-#include "../../lib/util.h"
+#include "../../lib/mem_util.h"
 #include "../../liblisp/lisp_address.h"
 
 #define VXLAN_GPE_DATA_PORT  4790

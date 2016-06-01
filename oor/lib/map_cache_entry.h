@@ -57,8 +57,6 @@ typedef struct map_cache_entry_ {
     void *                  routing_info;
     routing_info_del_fct    routing_inf_del;
 
-    glist_t *timers_lst;
-
     /* EID that requested the mapping. Helps with timers */
     lisp_addr_t *requester;
 } mcache_entry_t;

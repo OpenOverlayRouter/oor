@@ -176,6 +176,9 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
 int
 add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr);
 
+void nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id);
+void nat_set_xTR_ID(lisp_xtr_t *xtr);
+
 
 
 

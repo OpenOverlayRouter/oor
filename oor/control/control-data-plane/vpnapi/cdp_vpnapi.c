@@ -73,6 +73,7 @@ int
 vpnapi_control_dp_init(oor_ctrl_t *ctrl, ...)
 {
     vpnapi_ctr_dplane_data_t *data;
+    sock_t *sock;
 
     data = xmalloc(sizeof(vpnapi_ctr_dplane_data_t));
     ctrl->control_data_plane->control_dp_data = (void *)data;
@@ -82,6 +83,10 @@ vpnapi_control_dp_init(oor_ctrl_t *ctrl, ...)
         data->ipv4_ctrl_socket = open_control_input_socket(AF_INET);
         sockmstr_register_read_listener(smaster, vpnapi_control_dp_recv_msg, ctrl,data->ipv4_ctrl_socket);
         oor_jni_protect_socket(data->ipv4_ctrl_socket);
+        sock =  sockmstr_register_get_by_bind_port (smaster, AF_INET, LISP_DATA_PORT);
+        if (sock != NULL){
+            data->ipv4_data_socket = sock_fd(sock);
+        }
     }else {
         data->ipv4_ctrl_socket = ERR_SOCKET;
     }
@@ -181,7 +186,11 @@ vpnapi_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
 
     switch (ip_addr_afi(dst_addr)){
     case AF_INET:
-        sock = data->ipv4_ctrl_socket;
+        if (udp_conn->lp == LISP_CONTROL_PORT){
+            sock = data->ipv4_ctrl_socket;
+        }else{
+            sock = data->ipv4_data_socket;
+        }
         break;
     case AF_INET6:
         sock = data->ipv6_ctrl_socket;
@@ -315,7 +324,7 @@ vpnapi_control_dp_update_link(oor_ctrl_t *ctrl, iface_t *iface,
 int
 vpnapi_control_dp_reset_socket(vpnapi_ctr_dplane_data_t * data, int fd, int afi)
 {
-    sock_t *old_sock;
+    sock_t *old_sock, *data_sock;
     int new_fd;
 
     old_sock = sockmstr_register_get_by_fd(smaster,fd);
@@ -329,6 +338,14 @@ vpnapi_control_dp_reset_socket(vpnapi_ctr_dplane_data_t * data, int fd, int afi)
             return (BAD);
         }
         data->ipv4_ctrl_socket = new_fd;
+
+        /* The data socket has probably changed too. Refresh it */
+        data_sock =  sockmstr_register_get_by_bind_port (smaster, AF_INET, LISP_DATA_PORT);
+        if (data_sock != NULL){
+            data->ipv4_data_socket = sock_fd(data_sock);
+        }
+
+
         break;
     case AF_INET6:
         OOR_LOG(LDBG_2,"reset_socket: Reset IPv6 control socket\n");

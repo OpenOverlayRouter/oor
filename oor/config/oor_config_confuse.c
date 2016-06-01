@@ -161,7 +161,7 @@ parse_lcafs(cfg_t *cfg)
     shash_t *lcaf_ht;
 
     /* create lcaf hash table */
-    lcaf_ht = shash_new_managed((free_key_fn_t)lisp_addr_del);
+    lcaf_ht = shash_new_managed((free_value_fn_t)lisp_addr_del);
     parse_elp_list(cfg, lcaf_ht);
     parse_rle_list(cfg, lcaf_ht);
     parse_mcinfo_list(cfg, lcaf_ht);
@@ -262,7 +262,6 @@ int
 parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
 {
     int n,i;
-    void *fwd_map_inf;
     /* PROXY-ETR CONFIG */
     n = cfg_size(cfg, "proxy-etr");
     for(i = 0; i < n; i++) {
@@ -278,13 +277,12 @@ parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
     }
 
     /* Calculate forwarding info for petrs */
-    fwd_map_inf = xtr->fwd_policy->new_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mcache_entry_mapping(xtr->petrs));
-    if (fwd_map_inf == NULL){
-        OOR_LOG(LDBG_1, "xtr_ctrl_construct: Couldn't create routing info for PeTRs!.");
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs,
+            xtr->fwd_policy->del_map_cache_policy_inf) != GOOD){
+        OOR_LOG(LDBG_1, "parse_proxy_etrs: Couldn't initiate routing info for PeTRs!.");
         mcache_entry_del(xtr->petrs);
         return(BAD);
     }
-    mcache_entry_set_routing_info(xtr->petrs,fwd_map_inf,xtr->fwd_policy->del_map_cache_policy_inf);
     return (GOOD);
 }
 
@@ -312,7 +310,6 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
     int n,i;
     mapping_t *mapping;
     map_local_entry_t *map_loc_e;
-    void *fwd_map_inf;
 
     n = cfg_size(cfg, "database-mapping");
     for (i = 0; i < n; i++) {
@@ -325,14 +322,15 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
             mapping_del(mapping);
             continue;
         }
-        fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
-        if (fwd_map_inf == NULL){
-            OOR_LOG(LERR, "Couldn't create forward information for mapping with EID: %s. Discarding it...",
+        if (xtr->fwd_policy->init_map_loc_policy_inf(
+                xtr->fwd_policy_dev_parm,map_loc_e,NULL,
+                xtr->fwd_policy->del_map_loc_policy_inf)!= GOOD){
+            OOR_LOG(LERR, "Couldn't inititate forward information for mapping with EID: %s. Discarding it...",
                     lisp_addr_to_char(mapping_eid(mapping)));
             map_local_entry_del(map_loc_e);
             continue;
         }
-        map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
+
         if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
             map_local_entry_del(map_loc_e);
             continue;
@@ -439,9 +437,8 @@ configure_rtr(cfg_t *cfg)
 {
     lisp_xtr_t *xtr;
     shash_t *lcaf_ht;
-    mapping_t *mapping;
     map_local_entry_t *map_loc_e;
-    void *fwd_map_inf;
+    mapping_t *mapping;
     int n,i;
 
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
@@ -491,14 +488,14 @@ configure_rtr(cfg_t *cfg)
             continue;
         }
 
-        fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
-        if (fwd_map_inf == NULL){
-            OOR_LOG(LERR, "Couldn't create forward information for rtr database mapping with EID: %s. Discarding it...",
+        if (xtr->fwd_policy->init_map_loc_policy_inf(
+                xtr->fwd_policy_dev_parm,map_loc_e,NULL,
+                xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+            OOR_LOG(LERR, "Couldn't initiate forward information for rtr database mapping with EID: %s. Discarding it...",
                     lisp_addr_to_char(mapping_eid(mapping)));
             map_local_entry_del(map_loc_e);
             continue;
         }
-        map_local_entry_set_fwd_info(map_loc_e, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
 
         if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
             map_local_entry_del(map_loc_e);
@@ -535,6 +532,15 @@ configure_xtr(cfg_t *cfg)
     lcaf_ht = parse_lcafs(cfg);
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
+    if(xtr->nat_aware){
+        nat_set_xTR_ID(xtr);
+        nat_set_site_ID(xtr, 0);
+        default_rloc_afi = AF_INET;
+        OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
+    }
+
     if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
         return (BAD);
     }
@@ -551,6 +557,8 @@ configure_xtr(cfg_t *cfg)
     if (parse_database_mapping(cfg, xtr, lcaf_ht) != GOOD){
         return (BAD);
     }
+
+
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
@@ -573,6 +581,15 @@ configure_mn(cfg_t *cfg)
     lcaf_ht = parse_lcafs(cfg);
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+
+    xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
+    if(xtr->nat_aware){
+        nat_set_xTR_ID(xtr);
+        nat_set_site_ID(xtr, 0);
+        default_rloc_afi = AF_INET;
+        OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
+    }
+
     if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
         return (BAD);
     }
@@ -770,13 +787,6 @@ handle_config_file(char **oor_conf_file)
             CFG_END()
     };
 
-    static cfg_opt_t nat_traversal_opts[] = {
-            CFG_BOOL("nat_aware",   cfg_false, CFGF_NONE),
-            CFG_STR("site_ID",              0, CFGF_NONE),
-            CFG_STR("xTR_ID",               0, CFGF_NONE),
-            CFG_END()
-    };
-
     static cfg_opt_t rloc_probing_opts[] = {
             CFG_INT("rloc-probe-interval",           0, CFGF_NONE),
             CFG_INT("rloc-probe-retries",            0, CFGF_NONE),
@@ -840,7 +850,6 @@ handle_config_file(char **oor_conf_file)
             CFG_SEC("map-server",           map_server_opts,        CFGF_MULTI),
             CFG_SEC("rtr-ifaces",           rtr_ifaces_opts,        CFGF_MULTI),
             CFG_SEC("proxy-etr",            petr_mapping_opts,      CFGF_MULTI),
-            CFG_SEC("nat-traversal",        nat_traversal_opts,     CFGF_MULTI),
             CFG_STR("encapsulation",        0,                      CFGF_NONE),
             CFG_SEC("rloc-probing",         rloc_probing_opts,      CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),
@@ -856,6 +865,7 @@ handle_config_file(char **oor_conf_file)
             CFG_STR("override-dns-secondary",   0, CFGF_NONE),
 #endif
             CFG_STR("operating-mode",       0, CFGF_NONE),
+            CFG_BOOL("nat_traversal_support", cfg_false, CFGF_NONE),
             CFG_STR("control-iface",        0, CFGF_NONE),
             CFG_STR("rtr-data-iface",        0, CFGF_NONE),
             CFG_SEC("lisp-site",            lisp_site_opts,         CFGF_MULTI),
@@ -879,16 +889,17 @@ handle_config_file(char **oor_conf_file)
 
     if (ret == CFG_FILE_ERROR) {
         OOR_LOG(LCRIT, "Couldn't find config file %s, exiting...", config_file);
-        exit_cleanup();
+        cfg_free(cfg);
+        return (BAD);
     } else if(ret == CFG_PARSE_ERROR) {
         OOR_LOG(LCRIT, "Parse error in file %s, exiting. Check conf file (see oor.conf.example)", config_file);
-        exit_cleanup();
+        cfg_free(cfg);
+        return(BAD);
     }
 
     /*
      *  oor config options
      */
-
     /* Debug level */
     if (debug_level == -1){
         ret = cfg_getint(cfg, "debug");
@@ -927,6 +938,10 @@ handle_config_file(char **oor_conf_file)
             ret=configure_rtr(cfg);
         }else if (strcmp(mode, "MN") == 0) {
             ret=configure_mn(cfg);
+        }else{
+            OOR_LOG (LCRIT, "Configuration file: Unknown operating mode: %s",mode);
+            cfg_free(cfg);
+            return (BAD);
         }
     }
 

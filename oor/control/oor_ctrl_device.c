@@ -94,13 +94,25 @@ send_msg(oor_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc)
     return(dev->ctrl->control_data_plane->control_dp_send_msg(dev->ctrl, b, uc));
 }
 
+int
+ctrl_dev_if_link_update(oor_ctrl_dev_t *dev, char *iface_name, uint8_t status)
+{
+    return(dev->ctrl_class->if_link_update(dev, iface_name, status));
+
+}
 
 int
-ctrl_if_event(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
+ctrl_dev_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
         lisp_addr_t *new_addr, uint8_t status)
 {
-    dev->ctrl_class->if_event(dev, iface_name, old_addr, new_addr, status);
-    return(GOOD);
+    return(dev->ctrl_class->if_addr_update(dev, iface_name, old_addr, new_addr, status));
+}
+
+int
+ctrl_dev_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_addr_t *pref,
+        lisp_addr_t *dst_pref, lisp_addr_t *gateway)
+{
+    return(dev->ctrl_class->route_update(dev,command,iface_name,pref,dst_pref,gateway));
 }
 
 fwd_info_t *

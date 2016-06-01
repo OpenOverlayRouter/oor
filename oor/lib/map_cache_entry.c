@@ -59,10 +59,13 @@ mcache_entry_init_static(mcache_entry_t *mce, mapping_t *mapping)
 void
 mcache_entry_del(mcache_entry_t *entry)
 {
-    if (entry == NULL){
-        return;
-    }
+    locator_t *loct;
 
+    assert(entry);
+    /* Stop timers associated to the locators */
+    mapping_foreach_locator(mcache_entry_mapping(entry),loct){
+        stop_timers_from_obj(loct,ptrs_to_timers_ht, nonces_ht);
+    }mapping_foreach_locator_end;
     stop_timers_from_obj(entry,ptrs_to_timers_ht, nonces_ht);
 
     mapping_del(mcache_entry_mapping(entry));
@@ -92,12 +95,15 @@ map_cache_entry_dump (mcache_entry_t *entry, int log_level)
         return;
     }
 
-    char buf[256], buf2[256];
+    char buf[256], buf2[64];
     time_t expiretime;
     time_t uptime;
     char str[400];
     mapping_t *mapping = NULL;
 
+    *buf = '\0';
+    *buf2 = '\0';
+    *str = '\0';
     mapping = mcache_entry_mapping(entry);
 
     uptime = time(NULL);

@@ -79,11 +79,6 @@ int     ipv4_data_input_fd                  = -1;
 int     ipv6_data_input_fd                  = -1;
 int     netlink_fd                          = -1;
 
-/* NAT */
-int nat_aware = FALSE;
-int nat_status = UNKNOWN;
-nonces_list_t *nat_ir_nonce = NULL;
-
 sockmstr_t *smaster = NULL;
 oor_ctrl_dev_t *ctrl_dev;
 oor_ctrl_t *lctrl;
@@ -261,18 +256,17 @@ void
 exit_cleanup(void) {
     OOR_LOG(LDBG_2,"Exit Cleanup");
 
-    //lmapi_end(&lmapi_connection);
 #ifndef ANDROID
     pid_file_remove();
 #endif
-
+    // Order is important
     ctrl_destroy(lctrl);
 
-    ifaces_destroy();
-
-    if (!data_plane){
+    if (data_plane){
         data_plane->datap_uninit();
     }
+
+    ifaces_destroy();
 
     sockmstr_destroy(smaster);
 
@@ -484,6 +478,7 @@ main(int argc, char **argv)
         OOR_LOG(LDBG_1, "Data plane initialized");
     }
 
+    /* The control should be initialized after data plane */
     ctrl_init(lctrl);
     init_netlink();
 
@@ -492,6 +487,7 @@ main(int argc, char **argv)
         OOR_LOG(LDBG_1, "device NULL");
         exit(0);
     }
+
     ctrl_dev_run(ctrl_dev);
 
     OOR_LOG(LINF,"\n\n Open Overlay Router (%s): started... \n\n",OOR_VERSION);
@@ -530,9 +526,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     char log_file[1024];
     const char *path = NULL;
     lisp_xtr_t *tunnel_router;
-
     memset (log_file,0,sizeof(char)*1024);
-
 
     initial_setup();
     jni_init(env,thisObj);
@@ -549,7 +543,6 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     data_plane_select();
 
     /** parse config and create ctrl_dev **/
-
     /* obtain the configuration file */
     path = (*env)->GetStringUTFChars(env, storage_path, 0);
     config_file = calloc(1024, sizeof(char));
@@ -559,12 +552,10 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     strcat(log_file,"oor.log");
     (*env)->ReleaseStringUTFChars(env, storage_path, path);
     open_log_file(log_file);
-
     if (parse_config_file()!=GOOD){
         exit_cleanup();
         return (BAD);
     }
-
     dev_type = ctrl_dev_mode(ctrl_dev);
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
         OOR_LOG(LDBG_2, "Configuring data plane");
@@ -573,7 +564,6 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
         OOR_LOG(LDBG_1, "Data plane initialized");
 
     }
-
     ctrl_init(lctrl);
     init_netlink();
 
@@ -582,7 +572,6 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
          OOR_LOG(LDBG_1, "device NULL");
          return (BAD);
      }
-
      return (GOOD);
 }
 
@@ -596,9 +585,7 @@ JNIEXPORT void JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1loop(JNIE
         sockmstr_wait_on_all_read(smaster);
         sockmstr_process_all(smaster);
     }
-
     /* event_loop returned: bad! */
-    OOR_LOG(LINF, "Exiting...");
     exit_cleanup();
 }
 

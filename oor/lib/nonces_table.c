@@ -25,7 +25,7 @@
 
 #include "nonces_table.h"
 #include "oor_log.h"
-#include "util.h"
+#include "mem_util.h"
 
 
 int nonce_list_cmp_nonce(void *nonce1, void *nonce2);

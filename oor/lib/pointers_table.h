@@ -53,7 +53,7 @@ int htable_ptrs_timers_add(htable_ptrs_t *ptr_ht, void *key, oor_timer_t *timer)
 /* Return the list of timers associated with the object */
 glist_t *htable_ptrs_timers_get_timers(htable_ptrs_t *ptr_ht, void *key);
 /* Return the list the timers of the requested type associated with the object */
-glist_t *htable_ptrs_timers_get_timers_of_type(htable_ptrs_t *ptr_ht, void *key,
+glist_t *htable_ptrs_timers_get_timers_of_type_from_obj(htable_ptrs_t *ptr_ht, void *key,
         timer_type type);
 /* Remove the entry from hash table and returns the list of timers associated with the object */
 glist_t *htable_ptrs_timers_rm(htable_ptrs_t *ptr_ht, void *key);

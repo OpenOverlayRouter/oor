@@ -20,9 +20,11 @@
 #include <netdb.h>
 
 #include "oor_config_functions.h"
+#include "../iface_mgmt.h"
 #include "../data-plane/data-plane.h"
 #include "../lib/oor_log.h"
 #include "../lib/prefixes.h"
+#include "../lib/util.h"
 
 /***************************** FUNCTIONS DECLARATION *************************/
 glist_t *fqdn_to_addresses(
@@ -368,12 +370,12 @@ add_proxy_etr_entry(mcache_entry_t *petrs, char *str_addr, int priority,
         if (default_rloc_afi != AF_UNSPEC
                 && default_rloc_afi != lisp_addr_ip_afi(addr)) {
             OOR_LOG(LWRN, "The PETR %s will not be added due to the selected "
-                    "default rloc afi", str_addr);
+                    "default rloc afi (-a)", str_addr);
             continue;
         }
 
         /* Create locator representing the proxy-etr and add it to the mapping */
-        locator = locator_new_init(addr, UP, priority, weight, 255, 0);
+        locator = locator_new_init(addr, UP, 0, 1, priority, weight, 255, 0);
 
         if (locator != NULL) {
             if (mapping_add_locator(mcache_entry_mapping(petrs), locator)!= GOOD){
@@ -417,7 +419,7 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
     if (priority >= 0){
         if (afi == AF_INET){
             locator = locator_new_init(iface->ipv4_address,
-                    iface->status, priority, weight, 255, 0);
+                    iface->status,1,1, priority, weight, 255, 0);
             if (locator == NULL){
                 return (BAD);
             }
@@ -428,7 +430,7 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
             glist_add(locator,if_loct->ipv4_locators);
         }else{
             locator = locator_new_init(iface->ipv6_address,
-                    iface->status, priority, weight, 255, 0);
+                    iface->status,1,1, priority, weight, 255, 0);
             if (locator == NULL){
                 return (BAD);
             }
@@ -451,7 +453,6 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
     iface_locators *if_loct;
     mapping_t *mapping;
     lisp_addr_t aux_address;
-    void *fwd_map_inf;
 
     if (iface_name == NULL){
         OOR_LOG(LERR, "Configuration file: No interface specified for RTR. "
@@ -512,14 +513,14 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
             OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate map_local_entry_t!");
             return (BAD);
         }
-        fwd_map_inf = xtr->fwd_policy->new_map_loc_policy_inf(xtr->fwd_policy_dev_parm,mapping,NULL);
-        if (fwd_map_inf == NULL){
-            OOR_LOG(LERR, "Couldn't create forward information for rtr localtors.",
+        if (xtr->fwd_policy->init_map_loc_policy_inf(
+                xtr->fwd_policy_dev_parm,xtr->all_locs_map,NULL,
+                xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+            OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.",
                     lisp_addr_to_char(mapping_eid(mapping)));
             map_local_entry_del(xtr->all_locs_map);
             return (BAD);
         }
-        map_local_entry_set_fwd_info(xtr->all_locs_map, fwd_map_inf, xtr->fwd_policy->del_map_loc_policy_inf);
     }
 
     if (link_iface_and_mapping(iface, if_loct, xtr->all_locs_map, afi, priority, weight)
@@ -527,10 +528,7 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
         return(BAD);
     }
     /* Updated forwarding info */
-    xtr->fwd_policy->updated_map_loc_inf(
-            xtr->fwd_policy_dev_parm,
-            map_local_entry_fwd_info(xtr->all_locs_map),
-            map_local_entry_mapping(xtr->all_locs_map));
+    xtr->fwd_policy->updated_map_loc_inf(xtr->fwd_policy_dev_parm, xtr->all_locs_map);
 
     return(GOOD);
 }
@@ -717,7 +715,7 @@ clone_customize_locator(oor_ctrl_dev_t *dev, locator_t * locator,
             lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,rloc_ip_afi);
         }
 
-        new_locator = locator_new_init(rloc, iface->status,
+        new_locator = locator_new_init(rloc, iface->status,1, 1,
                             locator_priority(locator), locator_weight(locator),255, 0);
 
         /* Associate locator with iface */
@@ -740,7 +738,7 @@ clone_customize_locator(oor_ctrl_dev_t *dev, locator_t * locator,
         }
     /* REMOTE locator */
     } else {
-        new_locator = locator_new_init(rloc, UP, locator_priority(locator), locator_weight(locator), 255, 0);
+        new_locator = locator_new_init(rloc, UP,0 ,1 , locator_priority(locator), locator_weight(locator), 255, 0);
     }
 
     return(new_locator);
@@ -840,7 +838,12 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
 
     glist_for_each_entry(it,addr_list){
         address = (lisp_addr_t *)glist_entry_data(it);
-        if (address == NULL){
+        /* Remove locators not compatibles with default RLOC */
+        if (default_rloc_afi != AF_UNSPEC &&
+                lisp_addr_ip_afi(lisp_addr_get_ip_addr(address)) != default_rloc_afi){
+
+            OOR_LOG(LDBG_1, "Configuration file: RLOC address %s can not be added due to "
+                    "the selected default rloc afi (-a option)", lisp_addr_to_char(address));
             continue;
         }
         if (lisp_addr_lafi(address) == LM_AFI_IPPREF){
@@ -888,7 +891,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
                 lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,ip_afi);
             }
 
-            locator = locator_new_init(address, iface->status,conf_loc->priority, conf_loc->weight,
+            locator = locator_new_init(address, iface->status,1,1,conf_loc->priority, conf_loc->weight,
                     conf_loc->mpriority, conf_loc->mweight);
 
             /* If the locator is for a local mapping, associate the locator with the interface */
@@ -907,7 +910,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
                 }
             }
         } else {
-            locator = locator_new_init(address, UP, conf_loc->priority, conf_loc->weight, 255, 0);
+            locator = locator_new_init(address, UP, 1, 1, conf_loc->priority, conf_loc->weight, 255, 0);
         }
         if (locator != NULL){
             glist_add(locator,loct_list);
@@ -931,6 +934,13 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
     iface_locators *if_loct;
 
     if (conf_loc_iface == NULL){
+        return (NULL);
+    }
+
+    /* Remove locators not compatibles with default RLOC */
+    if (default_rloc_afi != AF_UNSPEC && conf_loc_iface->afi != default_rloc_afi){
+        OOR_LOG(LDBG_1, "Configuration file: RLOC of the interface %s can not be added due to "
+                "the selected default rloc afi (-a option)", conf_loc_iface->interface);
         return (NULL);
     }
 
@@ -959,7 +969,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
         address = iface->ipv6_address;
     }
 
-    locator = locator_new_init(address, iface->status,conf_loc_iface->priority,
+    locator = locator_new_init(address, iface->status,1,1,conf_loc_iface->priority,
             conf_loc_iface->weight,conf_loc_iface->mpriority, conf_loc_iface->mweight);
 
     OOR_LOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
@@ -1016,8 +1026,8 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
         return NULL;
     }
 
-    eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
-    pref_conv_to_netw_pref(eid_prefix);
+    ip_eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
+    pref_conv_to_netw_pref(ip_eid_prefix);
 
     if (conf_mapping->iid > MAX_IID || conf_mapping->iid < 0) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
@@ -1025,30 +1035,25 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
         conf_mapping->iid = 0;
     }
     if (conf_mapping->iid > 0){
-        ip_eid_prefix = lisp_addr_clone(eid_prefix);
         eid_prefix = lisp_addr_new_init_iid(conf_mapping->iid, ip_eid_prefix, 0);
+    }else{
+        eid_prefix = lisp_addr_clone(ip_eid_prefix);
     }
 
     /* Create mapping */
     mapping = mapping_new_init(eid_prefix);
-    if (conf_mapping->iid > 0){
-        lisp_addr_del(eid_prefix);
-    }
     if (mapping == NULL){
         return(NULL);
     }
+
     mapping_set_ttl(mapping, conf_mapping->ttl);
     if (is_local){
         mapping_set_auth(mapping, 1);
     }
 
     /* no need for the prefix */
+    lisp_addr_del(eid_prefix);
     glist_destroy(addr_list);
-
-
-    if (mapping == NULL){
-        return (NULL);
-    }
 
     /* Create and add locators */
     glist_for_each_entry(conf_it,conf_mapping->conf_loc_list){
@@ -1063,6 +1068,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
             if (locator == NULL){
                 continue;
             }
+
             /* Check that the locator is not already added */
             if (mapping_get_loct_with_addr(mapping, locator_addr(locator)) != NULL){
                 OOR_LOG(LERR,"Configuration file: Duplicated RLOC with address %s "
@@ -1160,4 +1166,35 @@ err:
             map_loca_entry);
 
     return(BAD);
+}
+
+
+void
+nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id)
+{
+    xtr->site_id = site_id;
+}
+void
+nat_set_xTR_ID(lisp_xtr_t *xtr)
+{
+    uint8_t mac_bytes[6];
+    char **ifaces_names = NULL;
+    int ctr, ctr2, byte_pos = 0, num_ifaces = 0;
+    lisp_xtr_id *xtr_id = &(xtr->xtr_id);
+
+    get_all_ifaces_name_list(&ifaces_names, &num_ifaces);
+    for (ctr=0; ctr<num_ifaces; ctr++){
+        iface_mac_address(ifaces_names[ctr], mac_bytes);
+        for (ctr2 = 0; ctr2 < 6 ; ctr2++){
+            xtr_id->byte[byte_pos] = xtr_id->byte[byte_pos] ^ mac_bytes[ctr2];
+            byte_pos++;
+            if (byte_pos == 16){
+                byte_pos = 0;
+            }
+        }
+        free(ifaces_names[ctr]);
+    }
+    OOR_LOG(LDBG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
+            get_char_from_xTR_ID(xtr_id));
+    free(ifaces_names);
 }

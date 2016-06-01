@@ -25,7 +25,9 @@
 
 #include "oor_log.h"
 #include "routing_tables_lib.h"
+#include "sockets-util.h"
 #include "../oor_external.h"
+
 
 
 
@@ -253,9 +255,6 @@ request_route_table(uint32_t table, int afi)
     int rta_len = 0;
     int retval = 0;
 
-    if (netlink_fd == -1){
-        OOR_LOG(LDBG_3, "request_route_table: Netlink message not configured yet");
-    }
     /*
      * Build the command
      */
@@ -480,7 +479,11 @@ del_route(int  afi, uint32_t ifindex, lisp_addr_t *dest_pref, lisp_addr_t *src,
     int result = BAD;
     result = modify_route(RTM_DELROUTE, afi, ifindex, dest_pref, src, gw, metric, table);
     if (result == GOOD){
-        OOR_LOG(LDBG_1, "del_route: deleted route from the system");
+        OOR_LOG(LDBG_1, "del_route: deleted route from the system: src addr: %s, dst prefix:%s, gw: %s, table: %d",
+                (src != NULL) ? lisp_addr_to_char(src) : "-",
+                (dest_pref != NULL) ? lisp_addr_to_char(dest_pref) : "-",
+                (gw != NULL) ? lisp_addr_to_char(gw) : "-",
+                table);
     }
     return (result);
 }
