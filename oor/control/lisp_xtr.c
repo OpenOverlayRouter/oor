@@ -489,7 +489,7 @@ tr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     lbuf_t  b;
     nonces_list_t *nonces_lst;
     timer_inf_req_argument *timer_arg;
-    int len;
+    int len, ttl;
     glist_t *rtr_lst;
     map_local_entry_t *mle;
 
@@ -508,6 +508,7 @@ tr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
                 "Discarding message!", INF_REQ_NONCE(info_nat_hdr));
         return(BAD);
     }
+
     timer_arg = oor_timer_cb_argument(nonces_list_timer(nonces_lst));
     mle = timer_arg->mle;
 
@@ -557,9 +558,13 @@ tr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     if (tr_update_nat_info(xtr,mle,timer_arg->loct,rtr_lst) == GOOD){
         /* Configure Encap Map Register */
         program_encap_map_reg_of_loct_for_map(xtr, mle,timer_arg->loct);
-
-        /* Valid info reply, stop Inf Request timer */
-        stop_timer_from_obj(mle,nonces_lst->timer,ptrs_to_timers_ht, nonces_ht);
+        /* Reprogram time for next Info Request interval */
+        htable_nonces_reset_nonces_lst(nonces_ht,nonces_lst);
+        ttl = ntohl(INF_REQ_2_TTL(info_nat_hdr_2));
+        oor_timer_start(nonces_lst->timer, ttl*60);
+        OOR_LOG(LDBG_1,"Info Request of %s to %s from locator %s programmed in %d minutes.",
+                lisp_addr_to_char(map_local_entry_eid(mle)), lisp_addr_to_char(timer_arg->ms->address),
+                lisp_addr_to_char(locator_addr(timer_arg->loct)), ttl);
     }
 
     lisp_addr_del(nat_lcaf_addr);
@@ -1535,20 +1540,22 @@ info_request_cb(oor_timer_t *timer)
 
     if ((nonces_list_size(nonces_lst) -1) < xtr->map_request_retries){
         nonce = nonce_new();
-
-        if (build_and_send_info_req(xtr, map, loct, ms, nonce) != GOOD){
-            return (BAD);
-        }
         if (nonces_list_size(nonces_lst) > 0) {
             OOR_LOG(LDBG_1,"Sent Info Request retry for mapping %s to %s from locator %s"
                     "(%d retries)", lisp_addr_to_char(mapping_eid(map)),
                     lisp_addr_to_char(ms->address), lisp_addr_to_char(locator_addr(loct)),
                     nonces_list_size(nonces_lst));
         } else {
+            timer_encap_map_reg_stop_using_locator(timer_arg->mle, loct);
             OOR_LOG(LDBG_1,"Sent Info Request for mapping %s to %s from locator %s",
                     lisp_addr_to_char(mapping_eid(map)),lisp_addr_to_char(ms->address),
                     lisp_addr_to_char(locator_addr(loct)));
         }
+
+        if (build_and_send_info_req(xtr, map, loct, ms, nonce) != GOOD){
+            return (BAD);
+        }
+
         htable_nonces_insert(nonces_ht, nonce,nonces_lst);
         oor_timer_start(timer, OOR_INITIAL_INF_REQ_TIMEOUT);
         return (GOOD);
@@ -1577,7 +1584,6 @@ program_info_req_per_loct(lisp_xtr_t *xtr, map_local_entry_t *mle, locator_t *lo
     if (glist_size(xtr->map_servers) == 0){
         return (BAD);
     }
-
     /* Program info request for each Map Server */
     glist_for_each_entry(ms_it,xtr->map_servers){
         ms = (map_server_elt *)glist_entry_data(ms_it);
@@ -2069,7 +2075,6 @@ xtr_iface_event_signaling(lisp_xtr_t * xtr, iface_locators * if_loct)
         if (lisp_addr_is_no_addr(loct_addr)==TRUE){
             return (GOOD);
         }
-
         glist_for_each_entry(mle_it,if_loct->map_loc_entries){
             mle = (map_local_entry_t *)glist_entry_data(mle_it);
             map = map_local_entry_mapping(mle);
