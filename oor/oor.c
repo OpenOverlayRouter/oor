@@ -474,7 +474,9 @@ main(int argc, char **argv)
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-        data_plane->datap_init(dev_type,tr_get_encap_type(tunnel_router));
+        if (data_plane->datap_init(dev_type,tr_get_encap_type(tunnel_router))!=GOOD){
+            exit_cleanup();
+        }
         OOR_LOG(LDBG_1, "Data plane initialized");
     }
 

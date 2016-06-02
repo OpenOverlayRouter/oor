@@ -278,8 +278,6 @@ add_server(char *str_addr, glist_t *list)
 
         glist_add_tail(lisp_addr_clone(addr), list);
         OOR_LOG(LDBG_3,"The server %s has been added to the list",lisp_addr_to_char(addr));
-        glist_dump(list,(glist_to_char_fct)lisp_addr_to_char,LWRN);
-
     }
 
     glist_destroy(addr_list);
@@ -555,7 +553,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         /* if not found, try in the hash table */
         ht_prefix = shash_lookup(lcaf_ht, eidstr);
         if (!ht_prefix) {
-            OOR_LOG(LERR, "Configuration file: Error parsing RLOC address %s",
+            OOR_LOG(LERR, "Configuration file: Error parsing EID prefix %s",
                     eidstr);
             return (NULL);
         }

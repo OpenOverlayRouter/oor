@@ -2328,6 +2328,11 @@ xtr_run(lisp_xtr_t *xtr)
             map_loc_e = (map_local_entry_t *)it;
             mapping_foreach_locator(map_local_entry_mapping(map_loc_e),loct){
                 locator_set_R_bit(loct,0);
+                /* We don't support LCAF in NAT */
+                if (lisp_addr_lafi(locator_addr(loct)) == LM_AFI_LCAF){
+                    OOR_LOG(LERR, "NAT aware on -> This version of OOR doesn't support LCAF when NAT is enabled.");
+                    exit_cleanup();
+                }
             }mapping_foreach_locator_end;
         } local_map_db_foreach_end;
 
