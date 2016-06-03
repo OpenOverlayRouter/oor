@@ -876,7 +876,7 @@ iid_type_copy(void **dst, void *src)
     if (!(*dst)){
         *dst = iid_type_new_init(
                 iid_type_get_iid((iid_t *)src),
-                lisp_addr_clone(iid_type_get_addr((iid_t *)src)),
+                iid_type_get_addr((iid_t *)src),
                 iid_type_get_mlen(src));
     }else{
         lisp_addr_copy(iid_type_get_addr((iid_t *)*dst), iid_type_get_addr((iid_t *)src));

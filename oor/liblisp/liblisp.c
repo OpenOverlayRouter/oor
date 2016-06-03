@@ -477,9 +477,21 @@ lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
 
     /* end of lisp msg */
     lbuf_reset_lisp(b);
+    lisp_addr_t *ip_la, *ip_ra;
+
+
+    ip_la = lisp_addr_get_ip_addr(la);
+    if (!ip_la){
+        ip_la = lisp_addr_get_ip_pref_addr(la);
+    }
+    ip_ra = lisp_addr_get_ip_addr(ra);
+    if (!ip_ra){
+        ip_ra = lisp_addr_get_ip_pref_addr(ra);
+    }
+
 
     /* push inner ip and udp */
-    pkt_push_udp_and_ip(b, lp, rp, lisp_addr_ip(la), lisp_addr_ip(ra));
+    pkt_push_udp_and_ip(b, lp, rp,lisp_addr_ip(ip_la),lisp_addr_ip(ip_ra));
 
     /* push lisp ecm hdr */
     hdr = lbuf_push_uninit(b, sizeof(ecm_hdr_t));

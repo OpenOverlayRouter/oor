@@ -45,6 +45,7 @@ mapping_new_init(lisp_addr_t *eid)
     mapping_t *mapping;
     lisp_addr_t *ip_pref;
 
+    /* If eid is an IP address, convert it to IP prefix */
     if (lisp_addr_get_ip_pref_addr(eid) == NULL){
         ip_pref = lisp_addr_get_ip_addr(eid);
         if (!ip_pref){

@@ -1076,7 +1076,7 @@ send_smr_invoked_map_request(lisp_xtr_t *xtr, lisp_addr_t *src_eid,
     /* SEND */
     OOR_LOG(LDBG_1, "%s, itr-rlocs:%s src-eid: %s, req-eid: %s",
             lisp_msg_hdr_to_char(b), laddr_list_to_char(rlocs),
-            lisp_addr_to_char(src_eid), lisp_addr_to_char(mapping_eid(m)));
+            lisp_addr_to_char(src_eid), lisp_addr_to_char(deid));
 
     /* Encapsulate messgae and send it to the map resolver */
     lisp_msg_encap(b, LISP_CONTROL_PORT, LISP_CONTROL_PORT, s_in_addr,
@@ -1150,7 +1150,7 @@ send_map_request_retry_cb(oor_timer_t *timer)
 }
 
 
-/* Sends a Map-Request for EID in 'mce' and sets-up a retry timer */
+/* Sends Encap Map-Request for EID in 'mce' and sets-up a retry timer */
 static int
 build_and_send_encap_map_request(lisp_xtr_t *xtr, lisp_addr_t *seid,
         mcache_entry_t *mce, uint64_t nonce)
@@ -2551,6 +2551,7 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
     mapping_t *dmap = NULL;
     lisp_addr_t *eid;
     lisp_addr_t *src_eid, *dst_eid;
+    int iidmlen;
 
     fwd_info = fwd_info_new();
     if(fwd_info == NULL){
@@ -2577,8 +2578,9 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
         map_loc_e = xtr->all_locs_map;
     }
     if (tuple->iid > 0){
-        src_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->src_addr, 0);
-        dst_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->dst_addr, 0);
+        iidmlen = (lisp_addr_ip_afi(&tuple->src_addr) == AF_INET) ? 32: 128;
+        src_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->src_addr, iidmlen);
+        dst_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->dst_addr, iidmlen);
     }else{
         src_eid = lisp_addr_clone(&tuple->src_addr);
         dst_eid = lisp_addr_clone(&tuple->dst_addr);
