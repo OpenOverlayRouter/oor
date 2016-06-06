@@ -77,6 +77,7 @@ typedef struct lisp_xtr {
     int nat_status;
     lisp_site_id site_id;
     lisp_xtr_id xtr_id;
+    mcache_entry_t *rtrs;
 
     /* TIMERS */
     oor_timer_t *smr_timer;

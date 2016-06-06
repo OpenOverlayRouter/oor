@@ -599,20 +599,14 @@ tr_update_nat_info(lisp_xtr_t *xtr, map_local_entry_t *mle, locator_t *loct,
 void
 tr_update_fwd_info_rtrs(lisp_xtr_t *xtr)
 {
-    lisp_addr_t *addr, *rtr_addr;
-    mcache_entry_t *rtr_mce;
+    lisp_addr_t *rtr_addr;
     map_local_entry_t *mle;
     mapping_t *map;
     locator_t *rtr_loct;
     glist_t *rtr_addr_list;
     glist_entry_t *addr_it;
 
-
-    addr = lisp_addr_new();
-    lisp_addr_ippref_from_char("0.0.0.0/0", addr);
-    rtr_mce = mcache_lookup_exact(xtr->map_cache, addr);
-    lisp_addr_del(addr);
-    map = mcache_entry_mapping(rtr_mce);
+    map = mcache_entry_mapping(xtr->rtrs);
     /* Remove the list of rtr locators */
     mapping_remove_locators(map);
 
@@ -628,7 +622,7 @@ tr_update_fwd_info_rtrs(lisp_xtr_t *xtr)
     }local_map_db_foreach_end;
 
     /* Update forwarding info of rtrs */
-    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,rtr_mce);
+    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->rtrs);
 }
 
 glist_t *
@@ -2205,7 +2199,7 @@ xtr_ctrl_construct(oor_ctrl_dev_t *dev)
 {
     lisp_xtr_t *    xtr         = lisp_xtr_cast(dev);
     lisp_addr_t	    addr;
-    mapping_t *     map         = NULL;
+    mapping_t *     pxtr_map, *rtr_map;
 
 
     OOR_LOG(LDBG_1, "Creating map cache and local mapping database");
@@ -2217,17 +2211,20 @@ xtr_ctrl_construct(oor_ctrl_dev_t *dev)
     xtr->map_resolvers = glist_new_managed((glist_del_fct)lisp_addr_del);
     xtr->pitrs = glist_new_managed((glist_del_fct)lisp_addr_del);
     xtr->petrs = mcache_entry_new();
+    xtr->rtrs = mcache_entry_new();
     xtr->iface_locators_table = shash_new_managed((free_value_fn_t)iface_locators_del);
 
     if (!xtr->local_mdb || !xtr->map_cache || !xtr->map_servers ||
             !xtr->map_resolvers || !xtr->pitrs || !xtr->petrs ||
-            !xtr->iface_locators_table) {
+            !xtr->rtrs || !xtr->iface_locators_table) {
         return(BAD);
     }
 
     lisp_addr_ip_from_char("0.0.0.0", &addr);
-    map = mapping_new_init(&addr);
-    mcache_entry_init_static(xtr->petrs, map);
+    pxtr_map = mapping_new_init(&addr);
+    mcache_entry_init_static(xtr->petrs, pxtr_map);
+    rtr_map = mapping_new_init(&addr);
+    mcache_entry_init_static(xtr->rtrs, rtr_map);
 
     OOR_LOG(LDBG_1, "Finished Constructing xTR");
 
@@ -2253,6 +2250,7 @@ xtr_ctrl_destruct(oor_ctrl_dev_t *dev)
     shash_destroy(xtr->iface_locators_table);
     mcache_del(xtr->map_cache);
     mcache_entry_del(xtr->petrs);
+    mcache_entry_del(xtr->rtrs);
     local_map_db_del(xtr->local_mdb);
     glist_destroy(xtr->map_resolvers);
     glist_destroy(xtr->pitrs);
@@ -2275,10 +2273,7 @@ static void
 xtr_run(lisp_xtr_t *xtr)
 {
     map_local_entry_t *map_loc_e;
-    mcache_entry_t *mce;
-    mapping_t *rtr_map;
     locator_t *loct;
-    lisp_addr_t addr;
     void *it;
 
     if (xtr->super.mode == MN_MODE){
@@ -2336,21 +2331,9 @@ xtr_run(lisp_xtr_t *xtr)
             }mapping_foreach_locator_end;
         } local_map_db_foreach_end;
 
-        /* Add a static entry in the map cache where we store the RTRs to be used*/
-        lisp_addr_ippref_from_char("0.0.0.0/0", &addr);
-        rtr_map = mapping_new_init(&addr);
-        mce = mcache_entry_new();
-        mcache_entry_init_static(mce, rtr_map);
+        xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->rtrs,
+                xtr->fwd_policy->del_map_cache_policy_inf);
 
-        /* Precalculate routing information */
-        if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,mce,
-                xtr->fwd_policy->del_map_cache_policy_inf) != GOOD){
-            OOR_LOG(LDBG_1, "xtr_run: Couldn't initiate routing info for RTRs map cache entry!.");
-            mcache_entry_del(mce);
-            exit_cleanup();
-        }
-
-        mcache_add_entry(xtr->map_cache,&addr,mce);
     }
 
     if (xtr->super.mode == MN_MODE){
@@ -2586,7 +2569,11 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
         dst_eid = lisp_addr_clone(&tuple->dst_addr);
     }
 
-    mce = mcache_lookup(xtr->map_cache, dst_eid);
+    if (xtr->nat_aware){
+        mce = xtr->rtrs;
+    }else{
+        mce = mcache_lookup(xtr->map_cache, dst_eid);
+    }
     if (!mce) {
         /* No map cache entry, initiate map cache miss process */
         fwd_info->temporal = TRUE;
