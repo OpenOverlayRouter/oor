@@ -167,6 +167,7 @@ This is the list of supported features at this moment
     - IPv6 full support (EIDs and RLOCs)
     - Interface management 
     - Multihoming
+    - Experimental NAT traversal
     - Explicit Locator Path (ELPs)
     - Instance ID / VNI support
     - NETCONF/YANG configurable
@@ -347,12 +348,26 @@ Android
 -------
 
 Open Overlay Router includes support for Android devices operating as LISP-MN. 
-Given that NAT traversal is not yet available for this version, the usage of 
-Open Overlay Router on Android is limited to devices with a public address. 
 Please see the README.android.md file to get details on Open Overlay Router 
 for Android installation, compilation and usage. 
 
+NAT traversal
+-------------
 
+Since version 1.1, Open Overlay Router includes experimental NAT traversal 
+capabilities for the modalities of xTR and MN (see LISP NAT traversal draft). 
+In order to use NAT traversal with Open Overlay Router you will need a MS and 
+an RTR (Re-encapsulating Tunnel Router) that are NAT traversal capable. If you 
+are using the beta-network, please take into account that, at the time of this 
+writing (release 1.1), not all devices on the beta-network have been updated 
+to support NAT traversal yet.
+
+
+If NAT traversal feature is enabled, Open Overlay Router is configured to send 
+all data traffic through RTRs even if the interface has a public address. On its 
+current form, NAT traversal support on Open Overlay Router ignores IPv6 addresses 
+on RLOC interfaces, besides, the current NAT traversal implementation in the 
+beta-network only supports the registration of a single EID prefix per device. 
 
 Contact
 -------
