@@ -2275,6 +2275,7 @@ xtr_run(lisp_xtr_t *xtr)
     map_local_entry_t *map_loc_e;
     locator_t *loct;
     void *it;
+    int num_eids = 0;
 
     if (xtr->super.mode == MN_MODE){
         OOR_LOG(LDBG_1, "\nStarting xTR MN ...\n");
@@ -2306,7 +2307,7 @@ xtr_run(lisp_xtr_t *xtr)
     if (xtr->nat_aware == TRUE) {
         if (glist_size(xtr->map_servers) > 1
                 || lisp_addr_ip_afi(((map_server_elt *)glist_first_data(xtr->map_servers))->address) != AF_INET) {
-            OOR_LOG(LINF, "NAT aware on -> This version of OOR is limited to one IPv4 Map Server.");
+            OOR_LOG(LERR, "NAT aware on -> This version of OOR is limited to one IPv4 Map Server.");
             exit_cleanup();
         }
 
@@ -2321,6 +2322,11 @@ xtr_run(lisp_xtr_t *xtr)
         /* Set local locators to unreachable*/
         local_map_db_foreach_entry(xtr->local_mdb, it) {
             map_loc_e = (map_local_entry_t *)it;
+            num_eids++;
+            if (num_eids > 1){
+                OOR_LOG(LERR, "NAT aware on -> Only one EID prefix supported.");
+                exit_cleanup();
+            }
             mapping_foreach_locator(map_local_entry_mapping(map_loc_e),loct){
                 locator_set_R_bit(loct,0);
                 /* We don't support LCAF in NAT */
