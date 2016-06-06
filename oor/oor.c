@@ -556,6 +556,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     open_log_file(log_file);
     if (parse_config_file()!=GOOD){
         exit_cleanup();
+        close(vpn_tun_fd);
         return (BAD);
     }
     dev_type = ctrl_dev_mode(ctrl_dev);

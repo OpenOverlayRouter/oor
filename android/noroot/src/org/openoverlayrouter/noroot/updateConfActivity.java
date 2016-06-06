@@ -367,7 +367,7 @@ public class updateConfActivity extends Activity {
 						.append("# be sent to only one.\n")
 						.append("#   address: IPv4 or IPv6 address of the map resolver\n")
 						.append("map-resolver        = {\n")
-						.append("        "+MR+",\n")
+						.append("        "+MR+"\n")
 						.append("}\n\n\n")
 						.append("# Map-Registers are sent to this map-server\n")
 						.append("# You can define several map-servers. Map-Register messages will be sent to all\n")
