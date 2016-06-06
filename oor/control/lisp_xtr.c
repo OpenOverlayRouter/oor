@@ -499,6 +499,7 @@ tr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 
     if (INF_REQ_R_bit(info_nat_hdr) == INFO_REQUEST){
         OOR_LOG(LDBG_1, "XTR received an Info Request. Discarting message");
+        return(BAD);
     }
 
     /* Check NONCE */
