@@ -128,15 +128,22 @@ public class updateConfActivity extends Activity {
 				line = line.replaceAll("\\s", "");
 
 				if (line.contains("database-mapping")){
+					int num_braces = 0;
+					if (line.contains("{")){
+						num_braces ++;
+					}
 					do{
 						sub_line = br.readLine();
 						if (sub_line.startsWith("#")){
 							sub_line = br.readLine();
 							continue;
 						}
+						if (sub_line.contains("{")){
+							num_braces ++;
+						}
+						
 						sub_line = sub_line.toLowerCase();
 						sub_line = sub_line.replaceAll("\\s", "");
-						
 						if (sub_line.contains("eid-prefix")){
 							String[] tmp 	= sub_line.split("=");
 							if (tmp.length < 2)
@@ -168,7 +175,6 @@ public class updateConfActivity extends Activity {
 								if (tmp.length < 2)
 									continue;
 								String iface_name = tmp[1];
-								
 								Iterator <String>iface_it = iface_list.iterator();
 								while (iface_it.hasNext())
 								{
@@ -180,9 +186,12 @@ public class updateConfActivity extends Activity {
 									}
 								}	
 							}
-							
 						}
-					}while (!sub_line.contains("}"));
+						
+						if (sub_line.contains("}")){
+							num_braces --;
+						}
+					}while (num_braces != 0);
 				}else if (line.contains("map-resolver")) {
 					sub_line = br.readLine();
 					if (sub_line.startsWith("#")){
