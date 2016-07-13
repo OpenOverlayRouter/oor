@@ -1,15 +1,15 @@
 LIBNETCONF & NETOPEER INSTALLATION
 ==================================
 #Get libnetconf 0.9.x and follow the instructions
-wget https://libnetconf.googlecode.com/archive/0.9.x.zip
+wget https://github.com/CESNET/libnetconf/tree/0.9.x
 
 #Get netopeer-server for libnetconf 0.9.x and follow the instructions
-wget https://netopeer.googlecode.com/archive/libnetconf-0.9.x.zip
+wget https://github.com/CESNET/netopeer/tree/libnetconf-0.9.x
 
 
 OOR MODULE INSTALLATION
 =======================
-#Full instructions at http://libnetconf.googlecode.com/git/doc/doxygen/html/d9/d25/transapi.html
+#Full instructions at https://github.com/CESNET/libnetconf/blob/master/doc/doxygen/html/d9/d25/transapi.html
 
 #Move to 'netconf' folder
 cd ./neteconf
