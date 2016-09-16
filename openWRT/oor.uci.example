@@ -15,7 +15,6 @@ config 'daemon'
         option  'log_file'              '/tmp/oor.log'  
         option  'map_request_retries'   '2'
         option  'operating_mode'        'xTR'
-        option  'nat_traversal_support' 'off'
 
 #---------------------------------------------------------------------------------------------------------------------
 

@@ -96,17 +96,11 @@ pkt_push_udp(lbuf_t *b, uint16_t sp, uint16_t dp)
     udp_len = sizeof(struct udphdr) + lbuf_size(b);
     uh = lbuf_push_uninit(b, sizeof(struct udphdr));
 
-#ifdef BSD
-    uh->uh_sport = htons(port_from);
-    uh->uh_dport = htons(port_dest);
-    uh->uh_ulen = htons(udp_payload_len);
-    uh->uh_sum = 0;
-#else
-    uh->source = htons(sp);
-    uh->dest = htons(dp);
-    uh->len = htons(udp_len);
-    uh->check = 0; /* to be filled in after IP is pushed */
-#endif
+    udpsport(uh) = htons(sp);
+    udpdport(uh) = htons(dp);
+    udplen(uh) = htons(udp_len);
+    udpsum(uh) = 0; /* to be filled in after IP is pushed */
+
     return(uh);
 }
 
@@ -199,7 +193,7 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
     lbuf_reset_ip(b);
 
     uh = lbuf_udp(b);
-    udpsum = udp_checksum(uh, ntohs(uh->len), lbuf_ip(b), ip_addr_afi(sip));
+    udpsum = udp_checksum(uh, ntohs(udplen(uh)), lbuf_ip(b), ip_addr_afi(sip));
     if (udpsum == -1) {
         OOR_LOG(LDBG_1, "Failed UDP checksum! Discarding");
         return (BAD);
@@ -246,12 +240,12 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
 
     if (tuple->protocol == IPPROTO_UDP) {
         udp = lbuf_data(&packet);
-        tuple->src_port = ntohs(udp->source);
-        tuple->dst_port = ntohs(udp->dest);
+        tuple->src_port = ntohs(udpsport(udp));
+        tuple->dst_port = ntohs(udpdport(udp));
     } else if (tuple->protocol == IPPROTO_TCP) {
         tcp = lbuf_data(&packet);
-        tuple->src_port = ntohs(tcp->source);
-        tuple->dst_port = ntohs(tcp->dest);
+        tuple->src_port = ntohs(tcpsport(tcp));
+        tuple->dst_port = ntohs(tcpdport(tcp));
     } else {
         /* If protocol is not TCP or UDP, ports of the tuple set to 0 */
         tuple->src_port = 0;
@@ -560,18 +554,11 @@ build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,lisp_addr_t *addr_from,
     }
 
     /* UDP header */
+    udpsport(udph_ptr) = htons(port_from);
+    udpdport(udph_ptr) = htons(port_dest);
+    udplen(udph_ptr) = htons(udp_hdr_and_payload_len);
+    udpsum(udph_ptr) = 0;
 
-#ifdef BSD
-    udph_ptr->uh_sport = htons(port_from);
-    udph_ptr->uh_dport = htons(port_dest);
-    udph_ptr->uh_ulen = htons(udp_payload_len);
-    udph_ptr->uh_sum = 0;
-#else
-    udph_ptr->source = htons(port_from);
-    udph_ptr->dest = htons(port_dest);
-    udph_ptr->len = htons(udp_hdr_and_payload_len);
-    udph_ptr->check = 0;
-#endif
 
     /* Copy original packet after the headers */
     memcpy(CO(udph_ptr, udp_hdr_len), orig_pkt, orig_pkt_len);

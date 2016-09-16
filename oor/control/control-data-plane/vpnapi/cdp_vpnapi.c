@@ -142,6 +142,11 @@ vpnapi_control_dp_recv_msg(sock_t *sl)
         lbuf_del(b);
         return (BAD);
     }
+    if (lbuf_size(b) < 4){
+        OOR_LOG(LDBG_3, "Received a non LISP message in the "
+                "control port! Discarding packet!");
+        return (BAD);
+    }
 
     lbuf_reset_lisp(b);
     OOR_LOG(LDBG_1, "Received %s, IP: %s -> %s, UDP: %d -> %d",

@@ -67,13 +67,8 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
 
     /* This should overwrite the external port (dst_port in map-reply =
      * inner src_port in encap map-request) */
-    *src_port = ntohs(udph->source);
-
- #ifdef BSD
-    udp_len = ntohs(udph->uh_ulen);
- #else
-    udp_len = ntohs(udph->len);
- #endif
+    *src_port = ntohs(udpsport(udph));
+    udp_len = ntohs(udplen(udph));
 
     /* Verify the checksums. */
     if (iph->ip_v == IPVERSION) {
@@ -86,7 +81,7 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
 
     /* Verify UDP checksum only if different from 0.
      * This means we ACCEPT UDP checksum 0! */
-    if (udph->check != 0) {
+    if (udpsum(udph) != 0) {
         udpsum = udp_checksum(udph, udp_len, iph,
                 ip_version_to_sock_afi(iph->ip_v));
         if (udpsum != 0) {
@@ -99,7 +94,7 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
             lisp_msg_hdr_to_char(pkt),
             ip_to_char(&iph->ip_src, ip_version_to_sock_afi(iph->ip_v)),
             ip_to_char(&iph->ip_dst, ip_version_to_sock_afi(iph->ip_v)),
-            ntohs(udph->source), ntohs(udph->dest));
+            ntohs(udpsport(udph)), ntohs(udpdport(udph)));
 
     return (GOOD);
 }

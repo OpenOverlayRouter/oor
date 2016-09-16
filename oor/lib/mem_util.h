@@ -64,13 +64,6 @@
 #define ARRAY_SIZE(x) ((sizeof x) / (sizeof *x))
 
 
-/*  names for where the udp checksum goes */
-#ifdef BSD
-#define udpsum(x) x->uh_sum
-#else
-#define udpsum(x) x->check
-#endif
-
 
 /* compile attributes */
 #define NO_RETURN __attribute__((__noreturn__))
