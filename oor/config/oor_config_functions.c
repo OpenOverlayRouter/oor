@@ -500,7 +500,7 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
     }
 
     if (!xtr->all_locs_map) {
-        lisp_addr_ip_from_char("0.0.0.0", &aux_address);
+        lisp_addr_ippref_from_char("0.0.0.0/0", &aux_address);
         mapping = mapping_new_init(&aux_address);
         if (mapping == NULL){
             OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate mapping!");

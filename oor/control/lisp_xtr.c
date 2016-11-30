@@ -47,7 +47,7 @@ static int build_and_send_smr_mreq(lisp_xtr_t *, mapping_t *, lisp_addr_t *,
 static int build_and_send_smr_mreq_to_map(lisp_xtr_t *, mapping_t *,
         mapping_t *);
 static int send_all_smr_cb(oor_timer_t *);
-static void send_all_smr_and_reg(lisp_xtr_t *);
+static void send_all_smr_and_mreg(lisp_xtr_t *);
 static int smr_invoked_map_request_cb(oor_timer_t *timer);
 static int send_smr_invoked_map_request(lisp_xtr_t *xtr, lisp_addr_t *src_eid,
         mcache_entry_t *mce, uint64_t nonce);
@@ -932,24 +932,18 @@ build_and_send_smr_mreq_to_map(lisp_xtr_t  *xtr, mapping_t *src_map,
 static int
 send_all_smr_cb(oor_timer_t *timer)
 {
-    send_all_smr_and_reg((lisp_xtr_t *)oor_timer_cb_argument(timer));
+    send_all_smr_and_mreg((lisp_xtr_t *)oor_timer_cb_argument(timer));
     return(GOOD);
 }
 
 /* Send a solicit map request for each rloc of all eids in the map cache
  * database */
 static void
-send_all_smr_and_reg(lisp_xtr_t *xtr)
+send_all_smr_and_mreg(lisp_xtr_t *xtr)
 {
     map_local_entry_t * map_loc_e = NULL;
-    mcache_entry_t * mce = NULL;
-    mapping_t * mcache_map = NULL;
-    mapping_t * map = NULL;
     glist_t * map_loc_e_list = NULL; //<map_local_entry_t *>
     glist_entry_t * it = NULL;
-    glist_entry_t * it_pitr = NULL;
-    lisp_addr_t * pitr_addr = NULL;
-    lisp_addr_t * eid = NULL;
 
     OOR_LOG(LDBG_1,"\n**** Re-Register and send SMRs for mappings with updated "
             "RLOCs ****");
@@ -962,37 +956,49 @@ send_all_smr_and_reg(lisp_xtr_t *xtr)
 
     glist_for_each_entry(it, map_loc_e_list) {
         map_loc_e = (map_local_entry_t *)glist_entry_data(it);
-        map = map_local_entry_mapping(map_loc_e);
-        eid = mapping_eid(map);
-
-        program_map_register_for_mapping(xtr, map_loc_e);
-
-        OOR_LOG(LDBG_1, "Start SMR for local EID %s", lisp_addr_to_char(eid));
-
-        /* no SMRs for now for multicast */
-        if (lisp_addr_is_mc(eid))
-            continue;
-
-        /* TODO: spec says SMRs should be sent only to peer ITRs that sent us
-         * traffic in the last minute. Should change this in the future*/
-        /* XXX: works ONLY with IP */
-        mcache_foreach_active_entry_in_ip_eid_db(xtr->map_cache, eid, mce) {
-            mcache_map = mcache_entry_mapping(mce);
-            build_and_send_smr_mreq_to_map(xtr, map, mcache_map);
-        } mcache_foreach_active_entry_in_ip_eid_db_end;
-
-        /* SMR proxy-itr */
-        OOR_LOG(LDBG_1, "Sending SMRs to PITRs");
-        glist_for_each_entry(it_pitr, xtr->pitrs){
-            pitr_addr = (lisp_addr_t *)glist_entry_data(it_pitr);
-            build_and_send_smr_mreq(xtr, map, eid, pitr_addr);
-        }
+        send_smr_and_mreg_for_locl_mapping(xtr, map_loc_e);
     }
 
     glist_destroy(map_loc_e_list);
     OOR_LOG(LDBG_2,"*** Finished sending notifications ***\n");
 }
 
+
+void
+send_smr_and_mreg_for_locl_mapping(lisp_xtr_t *xtr, map_local_entry_t *map_loc_e)
+{
+    mcache_entry_t * mce;
+    mapping_t * mcache_map;
+    mapping_t * map;
+    glist_entry_t * it_pitr;
+    lisp_addr_t * pitr_addr;
+    lisp_addr_t * eid;
+
+    assert(map_loc_e);
+
+    map = map_local_entry_mapping(map_loc_e);
+    eid = mapping_eid(map);
+
+    program_map_register_for_mapping(xtr, map_loc_e);
+
+    OOR_LOG(LDBG_1, "Start SMR for local EID %s", lisp_addr_to_char(eid));
+
+    /* TODO: spec says SMRs should be sent only to peer ITRs that sent us
+     * traffic in the last minute. Should change this in the future*/
+    /* XXX: works ONLY with IP */
+    mcache_foreach_active_entry_in_ip_eid_db(xtr->map_cache, eid, mce) {
+        mcache_map = mcache_entry_mapping(mce);
+        build_and_send_smr_mreq_to_map(xtr, map, mcache_map);
+    } mcache_foreach_active_entry_in_ip_eid_db_end;
+
+    /* SMR proxy-itr */
+    OOR_LOG(LDBG_1, "Sending SMRs to PITRs");
+    glist_for_each_entry(it_pitr, xtr->pitrs){
+        pitr_addr = (lisp_addr_t *)glist_entry_data(it_pitr);
+        build_and_send_smr_mreq(xtr, map, eid, pitr_addr);
+    }
+
+}
 
 static int
 smr_invoked_map_request_cb(oor_timer_t *timer)
@@ -2221,7 +2227,7 @@ xtr_ctrl_construct(oor_ctrl_dev_t *dev)
         return(BAD);
     }
 
-    lisp_addr_ip_from_char("0.0.0.0", &addr);
+    lisp_addr_ippref_from_char("0::0/0", &addr);
     pxtr_map = mapping_new_init(&addr);
     mcache_entry_init_static(xtr->petrs, pxtr_map);
     rtr_map = mapping_new_init(&addr);

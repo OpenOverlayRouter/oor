@@ -665,7 +665,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 {
     lisp_xtr_t *xtr;
     mapping_t *processed_mapping;
-    map_local_entry_t *map_loc_e;
+    map_local_entry_t *map_loc_e, *db_map_loc_e;
     shash_t *lcaf_ht;
     void *it;
     xmlDocPtr doc;
@@ -674,7 +674,10 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     xmlNodePtr xml_local_eid;
     conf_mapping_t *conf_mapping;
     glist_t *conf_mapping_list;
+    glist_t *smr_lcl_map_e_list;
+    glist_t *lcl_map_e_list;
     glist_entry_t *conf_map_it;
+    glist_entry_t *local_map_entry_it;
     int result_msg_len;
     uint8_t *result_msg;
     int ipv4_mapings = 0;
@@ -684,6 +687,8 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     OOR_LOG(LDBG_1, "OOR_API: Creating new local data base");
     lcaf_ht = shash_new_managed((free_value_fn_t)lisp_addr_del);
     conf_mapping_list = glist_new_managed((glist_del_fct)conf_mapping_destroy);
+    smr_lcl_map_e_list = glist_new();
+    lcl_map_e_list = glist_new();
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
 
@@ -702,19 +707,6 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     }
     xmlFreeDoc(doc);
     doc = NULL;
-
-    /*
-     * Empty previous local database
-     */
-    /* Remove routing configuration for the eids */
-    local_map_db_foreach_entry(xtr->local_mdb, it) {
-        map_loc_e = (map_local_entry_t *)it;
-        ctrl_unregister_eid_prefix(ctrl_dev, map_local_entry_eid(map_loc_e));
-    } local_map_db_foreach_end;
-
-    /* Empty local database */
-    local_map_db_del(xtr->local_mdb);
-    xtr->local_mdb = local_map_db_new();
 
     /* We leverage on the OOR configuration subsystem to introduce
      * and process the configuration mappings into the system */
@@ -756,6 +748,34 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
             goto err;
         }
 
+        /* Classify entries that are already configured in the data base */
+        if ((db_map_loc_e = local_map_db_lookup_eid_exact(xtr->local_mdb, mapping_eid(processed_mapping))) != NULL){
+            /* If the mapping already exist but has been modified add to the list of mappings to SMR */
+            if (mapping_cmp(map_local_entry_mapping(db_map_loc_e), processed_mapping) != 0){
+                glist_add(map_loc_e,smr_lcl_map_e_list);
+            }
+        }
+        glist_add(map_loc_e,lcl_map_e_list);
+    }
+
+    /*
+     * Empty previous local database
+     */
+    /* Remove routing configuration for the eids */
+    local_map_db_foreach_entry(xtr->local_mdb, it) {
+        map_loc_e = (map_local_entry_t *)it;
+        ctrl_unregister_eid_prefix(ctrl_dev, map_local_entry_eid(map_loc_e));
+    } local_map_db_foreach_end;
+
+    /* Empty local database */
+    local_map_db_del(xtr->local_mdb);
+    xtr->local_mdb = local_map_db_new();
+
+
+    /* Add the local map entries to the data base */
+    glist_for_each_entry(local_map_entry_it, lcl_map_e_list){
+        map_loc_e = (map_local_entry_t *)glist_entry_data(local_map_entry_it);
+
         if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
             OOR_LOG(LDBG_2, "OOR_API: Couldn't add mapping %s to local database",
                     lisp_addr_to_char(&(processed_mapping->eid_prefix)));
@@ -776,8 +796,6 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     /* Update control with new added interfaces */
     ctrl_update_iface_info(ctrl_dev->ctrl);
 
-    glist_destroy(conf_mapping_list);
-    shash_destroy(lcaf_ht);
 
     OOR_LOG(LDBG_1, "OOR_API: New local data base created");
     OOR_LOG(LDBG_2, "************* %20s ***************", "Local EID Database");
@@ -787,15 +805,27 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     /* Reprogram Map Register for local EIDs */
     program_map_register(xtr);
 
+    /* SMR of the modified entries */
+    glist_for_each_entry(local_map_entry_it, smr_lcl_map_e_list){
+        map_loc_e = (map_local_entry_t *)glist_entry_data(local_map_entry_it);
+        send_smr_and_mreg_for_locl_mapping(xtr, map_loc_e);
+    }
 
     result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
     oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);
+
+    glist_destroy(conf_mapping_list);
+    glist_destroy(smr_lcl_map_e_list);
+    glist_destroy(lcl_map_e_list);
+    shash_destroy(lcaf_ht);
 
     return (GOOD);
 
     err:
     //XXX if error, destroy mappings added to local mapdb? deattach locators from ifaces?
     glist_destroy(conf_mapping_list);
+    glist_destroy(smr_lcl_map_e_list);
+    glist_destroy(lcl_map_e_list);
     shash_destroy(lcaf_ht);
 
     if (doc != NULL){
