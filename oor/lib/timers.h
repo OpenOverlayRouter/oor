@@ -72,10 +72,10 @@ void oor_timer_start(oor_timer_t *, int);
 
 void oor_timer_stop(oor_timer_t *);
 
-inline void *oor_timer_owner(oor_timer_t *);
-inline void *oor_timer_cb_argument(oor_timer_t *);
-inline timer_type oor_timer_type(oor_timer_t *);
-inline void *oor_timer_nonces(oor_timer_t *);
+void *oor_timer_owner(oor_timer_t *);
+void *oor_timer_cb_argument(oor_timer_t *);
+timer_type oor_timer_type(oor_timer_t *);
+void *oor_timer_nonces(oor_timer_t *);
 
 
 #endif /*TIMERS_H_*/

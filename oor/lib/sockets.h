@@ -85,9 +85,9 @@ typedef struct fwd_entry {
     uint32_t iid;
 } fwd_entry_t;
 
-inline fwd_entry_t *fwd_entry_new_init(lisp_addr_t *srloc, lisp_addr_t *drloc,
+fwd_entry_t *fwd_entry_new_init(lisp_addr_t *srloc, lisp_addr_t *drloc,
         uint32_t iid, int *out_socket);
-inline void fwd_entry_del(fwd_entry_t *fwd_entry);
+void fwd_entry_del(fwd_entry_t *fwd_entry);
 static inline void fwd_entry_set_srloc(fwd_entry_t *fwd_ent, lisp_addr_t * srloc);
 static inline void fwd_entry_set_drloc(fwd_entry_t *fwd_ent, lisp_addr_t * drloc);
 typedef struct iface iface_t;
@@ -98,7 +98,7 @@ sock_t *sockmstr_register_get_by_fd(sockmstr_t *m, int fd);
 sock_t *sockmstr_register_get_by_bind_port (sockmstr_t *m, int afi, uint16_t port);
 sock_t *sockmstr_register_read_listener(sockmstr_t *m,
         int (*)(struct sock *), void *arg, int fd);
-inline int sock_fd(struct sock * sock);
+int sock_fd(struct sock * sock);
 int sockmstr_unregister_read_listenedr(sockmstr_t *m, struct sock *sock);
 void sockmstr_process_all(sockmstr_t *m);
 void sockmstr_wait_on_all_read(sockmstr_t *m);
@@ -110,7 +110,7 @@ int open_control_input_socket(int afi);
 int sock_recv(int, lbuf_t *);
 int sock_ctrl_recv(int, lbuf_t *, uconn_t *);
 int sock_data_recv(int sock, lbuf_t *b, int *afi, uint8_t *ttl, uint8_t *tos);
-inline int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
+int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
         lisp_addr_t *ra);
 
 static inline void

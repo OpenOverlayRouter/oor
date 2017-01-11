@@ -143,5 +143,5 @@ mapping_t *tr_mcache_lookup_mapping(lisp_xtr_t *, lisp_addr_t *);
 mapping_t *tr_mcache_lookup_mapping_exact(lisp_xtr_t *, lisp_addr_t *);
 
 
-inline oor_encap_t tr_get_encap_type(lisp_xtr_t *tr);
+oor_encap_t tr_get_encap_type(lisp_xtr_t *tr);
 #endif /* LISP_XTR_H_ */

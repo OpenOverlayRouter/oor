@@ -22,11 +22,11 @@
 #include "../../lib/oor_log.h"
 #include "../../liblisp/liblisp.h"
 
-inline fb_dev_parm *fb_dev_parm_new();
+fb_dev_parm *fb_dev_parm_new();
 void *fb_dev_parm_new_init(oor_ctrl_dev_t *ctrl_dev,
         fwd_policy_dev_parm *dev_parm_inf);
-inline void fb_dev_parm_del(void *dev_parm);
-inline balancing_locators_vecs *balancing_locators_vecs_new();
+void fb_dev_parm_del(void *dev_parm);
+balancing_locators_vecs *balancing_locators_vecs_new();
 int mle_balancing_locators_vecs_new_init(void *dev_parm, map_local_entry_t *mle,
         fwd_policy_map_parm *map_parm,fwd_info_del_fct fwd_del_fct);
 int mce_balancing_locators_vecs_new_init(void *dev_parm, mcache_entry_t *mce,

@@ -30,7 +30,7 @@
 
 FILE *fp = NULL;
 
-inline void oor_log(int log_level, char *log_name, const char *format,
+void oor_log(int log_level, char *log_name, const char *format,
         va_list args);
 
 

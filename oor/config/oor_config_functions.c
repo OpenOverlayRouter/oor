@@ -17,7 +17,9 @@
  *
  */
 
+#include <libgen.h>
 #include <netdb.h>
+#include <stdio.h>
 
 #include "oor_config_functions.h"
 #include "../iface_mgmt.h"
@@ -540,7 +542,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     lisp_addr_t *ht_prefix;
     lisp_site_prefix_t *site;
 
-    if (iid > MAX_IID || iid < 0) {
+    if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
                 "disabling...", iid, MAX_IID);
         iid = 0;
@@ -1175,27 +1177,56 @@ nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id)
 {
     xtr->site_id = site_id;
 }
-void
+int
 nat_set_xTR_ID(lisp_xtr_t *xtr)
 {
-    uint8_t mac_bytes[6];
-    char **ifaces_names = NULL;
-    int ctr, ctr2, byte_pos = 0, num_ifaces = 0;
-    lisp_xtr_id *xtr_id = &(xtr->xtr_id);
+	FILE *xtr_id_file;
+	lisp_xtr_id *xtr_id = &(xtr->xtr_id);
+	int ctr = 0;
+	char *path;
+	char file[200];
+	char line[80];
+	char part_xtr_id_str[3];
 
-    get_all_ifaces_name_list(&ifaces_names, &num_ifaces);
-    for (ctr=0; ctr<num_ifaces; ctr++){
-        iface_mac_address(ifaces_names[ctr], mac_bytes);
-        for (ctr2 = 0; ctr2 < 6 ; ctr2++){
-            xtr_id->byte[byte_pos] = xtr_id->byte[byte_pos] ^ mac_bytes[ctr2];
-            byte_pos++;
-            if (byte_pos == 16){
-                byte_pos = 0;
-            }
-        }
-        free(ifaces_names[ctr]);
-    }
-    OOR_LOG(LDBG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
-            get_char_from_xTR_ID(xtr_id));
-    free(ifaces_names);
+	path = dirname(strdup(config_file));
+	sprintf(file,"%s/%s",path, DEVICE_ID_FILE);
+	xtr_id_file = fopen(file, "r");
+	if (! xtr_id_file)
+	{
+		xtr_id_file = fopen(file, "w");
+		if (!xtr_id_file){
+			OOR_LOG(LERR,"Could not generate device id file \"%s\": %s",file , strerror(errno));
+			return (BAD);
+		}
+		for (ctr=0; ctr<16; ctr++){
+			xtr_id->byte[ctr] = (uint8_t)random();
+		}
+		fprintf(xtr_id_file,"%s", get_char_from_xTR_ID(xtr_id));
+	}else{
+		if (fgets(line, sizeof(line),xtr_id_file) == NULL || strlen(line) != 32){
+			fclose(xtr_id_file);
+			xtr_id_file = fopen(file, "w");
+			if (!xtr_id_file){
+				OOR_LOG(LERR,"%s file has wrong format and could not be regenerated: %s",file , strerror(errno));
+				return (BAD);
+			}
+			for (ctr=0; ctr<16; ctr++){
+				xtr_id->byte[ctr] = (uint8_t)random();
+			}
+			fprintf(xtr_id_file,"%s", get_char_from_xTR_ID(xtr_id));
+		}else{
+			part_xtr_id_str[2] = '\0';
+			for (ctr=0; ctr<16; ctr++){
+				part_xtr_id_str[0] = line[0+ctr*2];
+				part_xtr_id_str[1] = line[1+ctr*2];
+				xtr_id->byte[ctr] = (uint8_t)strtol(part_xtr_id_str, NULL, 16);
+			}
+		}
+	}
+	fclose(xtr_id_file);
+
+	OOR_LOG(LDBG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
+			get_char_from_xTR_ID(xtr_id));
+
+	return(GOOD);
 }

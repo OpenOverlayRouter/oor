@@ -45,8 +45,8 @@ typedef struct mapping {
     uint32_t                        iid;                /*to remove in future*/
 } mapping_t;
 
-inline mapping_t *mapping_new();
-inline mapping_t *mapping_new_init(lisp_addr_t *);
+mapping_t *mapping_new();
+mapping_t *mapping_new_init(lisp_addr_t *);
 void mapping_del(mapping_t *);
 int mapping_cmp(mapping_t *, mapping_t *);
 mapping_t *mapping_clone(mapping_t *);

@@ -57,7 +57,7 @@ lisp_addr_t *ctrl_default_rloc(oor_ctrl_t *c, int afi);
 glist_t *ctrl_default_rlocs(oor_ctrl_t * ctrl);
 glist_t *ctrl_rlocs(oor_ctrl_t *ctrl);
 glist_t *ctrl_rlocs_with_afi(oor_ctrl_t *c, int afi) ;
-inline int ctrl_supported_afis(oor_ctrl_t *ctrl);
+int ctrl_supported_afis(oor_ctrl_t *ctrl);
 
 void ctrl_if_addr_update(oor_ctrl_t *, iface_t *, lisp_addr_t *,
         lisp_addr_t *);

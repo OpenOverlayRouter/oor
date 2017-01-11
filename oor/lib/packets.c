@@ -194,7 +194,7 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
 
     uh = lbuf_udp(b);
     udpsum = udp_checksum(uh, ntohs(udplen(uh)), lbuf_ip(b), ip_addr_afi(sip));
-    if (udpsum == -1) {
+    if (udpsum == (uint16_t) ~ 0) {
         OOR_LOG(LDBG_1, "Failed UDP checksum! Discarding");
         return (BAD);
     }
@@ -568,7 +568,7 @@ build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,lisp_addr_t *addr_from,
      */
 
     if ((udpsum = udp_checksum(udph_ptr, udp_hdr_and_payload_len, iph_ptr,
-            lisp_addr_ip_afi(addr_from))) == -1) {
+            lisp_addr_ip_afi(addr_from))) == (uint16_t) ~ 0) {
         free(encap_pkt);
         return (NULL);
     }

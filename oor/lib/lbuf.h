@@ -62,7 +62,7 @@ void lbuf_uninit(lbuf_t *);
 lbuf_t *lbuf_new(uint32_t);
 lbuf_t *lbuf_new_with_headroom(uint32_t, uint32_t);
 lbuf_t *lbuf_clone(lbuf_t *);
-inline void lbuf_del(lbuf_t *);
+void lbuf_del(lbuf_t *);
 
 
 static inline void *lbuf_at(const lbuf_t *, uint32_t, uint32_t);
@@ -90,22 +90,22 @@ static inline void lbuf_set_data(lbuf_t *, void *);
 
 static inline void lbuf_reset_ip(lbuf_t *b);
 static inline void *lbuf_ip(lbuf_t *b);
-inline int lbuf_point_to_ip(lbuf_t *b);
+int lbuf_point_to_ip(lbuf_t *b);
 static inline void lbuf_reset_udp(lbuf_t *b);
 static inline void *lbuf_udp(lbuf_t *b);
-inline int lbuf_point_to_udp(lbuf_t *b);
+int lbuf_point_to_udp(lbuf_t *b);
 static inline void lbuf_reset_l3(lbuf_t *b);
 static inline void *lbuf_l3(lbuf_t *b);
-inline int lbuf_point_to_l3(lbuf_t *b);
+int lbuf_point_to_l3(lbuf_t *b);
 static inline void lbuf_reset_l4(lbuf_t *b);
 static inline void *lbuf_l4(lbuf_t *b);
-inline int lbuf_point_to_l4(lbuf_t *b);
+int lbuf_point_to_l4(lbuf_t *b);
 static inline void lbuf_reset_lisp(lbuf_t *b);
 static inline void *lbuf_lisp(lbuf_t*);
-inline int lbuf_point_to_lisp(lbuf_t *b);
+int lbuf_point_to_lisp(lbuf_t *b);
 static inline void lbuf_reset_lisp_hdr(lbuf_t *b);
 static inline void *lbuf_lisp_hdr(lbuf_t*);
-inline int lbuf_point_to_lisp_hdr(lbuf_t *b);
+int lbuf_point_to_lisp_hdr(lbuf_t *b);
 
 static inline void
 lbuf_set_base(lbuf_t *b, void *bs)

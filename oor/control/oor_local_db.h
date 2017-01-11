@@ -44,7 +44,7 @@ lisp_addr_t *local_map_db_get_main_eid(local_map_db_t *, int );
 int local_map_db_num_ip_eids(local_map_db_t *, int );
 void local_map_db_dump(local_map_db_t *, int );
 
-inline int local_map_db_n_entries(local_map_db_t *);
+int local_map_db_n_entries(local_map_db_t *);
 
 
 

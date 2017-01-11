@@ -65,7 +65,7 @@ static inline conf_loc_t * conf_loc_new(){
     return ((conf_loc_t *)xzalloc(sizeof(conf_loc_t)));
 }
 
-inline conf_loc_t * conf_loc_new_init(char *addr, uint8_t priority,
+conf_loc_t * conf_loc_new_init(char *addr, uint8_t priority,
         uint8_t weight, uint8_t mpriority, uint8_t mweight);
 
 static inline void conf_loc_destroy(conf_loc_t *conf_loc){
@@ -80,7 +80,7 @@ static inline conf_loc_iface_t * conf_loc_iface_new(){
     return ((conf_loc_iface_t *)xzalloc(sizeof(conf_loc_iface_t)));
 }
 
-inline conf_loc_iface_t * conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
+conf_loc_iface_t * conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
         uint8_t weight, uint8_t mpriority, uint8_t mweight);
 
 static inline void conf_loc_iface_destroy(conf_loc_iface_t *conf_loc_iface){
@@ -92,11 +92,11 @@ static inline void conf_loc_iface_destroy(conf_loc_iface_t *conf_loc_iface){
 char *conf_loc_iface_to_char(conf_loc_iface_t * loc_iface);
 
 
-inline conf_mapping_t *conf_mapping_new();
+conf_mapping_t *conf_mapping_new();
 
-inline void conf_mapping_destroy(conf_mapping_t * conf_map);
+void conf_mapping_destroy(conf_mapping_t * conf_map);
 
-inline void conf_mapping_dump(conf_mapping_t * conf_map, int log_level);
+void conf_mapping_dump(conf_mapping_t * conf_map, int log_level);
 
 no_addr_loct *
 no_addr_loct_new_init(locator_t * loct, char *iface, int afi);
@@ -177,7 +177,7 @@ int
 add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr);
 
 void nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id);
-void nat_set_xTR_ID(lisp_xtr_t *xtr);
+int nat_set_xTR_ID(lisp_xtr_t *xtr);
 
 
 

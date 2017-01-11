@@ -59,8 +59,8 @@ struct oor_ctrl_dev {
 extern ctrl_dev_class_t ms_ctrl_class;
 extern ctrl_dev_class_t xtr_ctrl_class;
 
-inline oor_dev_type_e lisp_ctrl_dev_mode(oor_ctrl_dev_t *dev);
-inline oor_ctrl_t *lisp_ctrl_dev_get_ctrl_t(oor_ctrl_dev_t *dev);
+oor_dev_type_e lisp_ctrl_dev_mode(oor_ctrl_dev_t *dev);
+oor_ctrl_t *lisp_ctrl_dev_get_ctrl_t(oor_ctrl_dev_t *dev);
 
 
 int ctrl_dev_create(oor_dev_type_e , oor_ctrl_dev_t **);
@@ -74,8 +74,8 @@ int ctrl_dev_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name,
         lisp_addr_t *src, lisp_addr_t *dst_pref, lisp_addr_t *gateway);
 
 
-inline oor_dev_type_e ctrl_dev_mode(oor_ctrl_dev_t *dev);
-inline oor_ctrl_t * ctrl_dev_ctrl(oor_ctrl_dev_t *dev);
+oor_dev_type_e ctrl_dev_mode(oor_ctrl_dev_t *dev);
+oor_ctrl_t * ctrl_dev_ctrl(oor_ctrl_dev_t *dev);
 int ctrl_dev_set_ctrl(oor_ctrl_dev_t *, oor_ctrl_t *);
 fwd_info_t *ctrl_dev_get_fwd_entry(oor_ctrl_dev_t *, packet_tuple_t *);
 

@@ -90,7 +90,7 @@ parse_elp_node(
 /********************************** FUNCTIONS ********************************/
 
 int
-handle_config_file(char **uci_conf_file_path)
+handle_config_file()
 {
     char *uci_conf_dir;
     char *uci_conf_file;
@@ -104,8 +104,8 @@ handle_config_file(char **uci_conf_file_path)
     int res = BAD;
 
 
-    if (*uci_conf_file_path == NULL){
-        *uci_conf_file_path = strdup("/etc/config/oor");
+    if (config_file == NULL){
+    	config_file = strdup("/etc/config/oor");
     }
 
     ctx = uci_alloc_context();
@@ -115,8 +115,8 @@ handle_config_file(char **uci_conf_file_path)
         return (BAD);
     }
 
-    uci_conf_dir = dirname(strdup(*uci_conf_file_path));
-    uci_conf_file = basename(strdup(*uci_conf_file_path));
+    uci_conf_dir = dirname(strdup(config_file));
+    uci_conf_file = basename(strdup(config_file));
 
 
     uci_set_confdir(ctx, uci_conf_dir);

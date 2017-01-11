@@ -1734,6 +1734,10 @@ elp_add_node(elp_t *elp, elp_node_t *enode)
     glist_add_tail(enode, elp->nodes);
 }
 
+inline glist_t *
+lcaf_elp_node_list(lcaf_addr_t *lcaf) {
+    return(((elp_t *)lcaf->addr)->nodes);
+}
 
 inline int
 lisp_addr_is_elp(lisp_addr_t *addr)
@@ -1915,6 +1919,12 @@ rle_node_del(rle_node_t *rnode)
     lisp_addr_del(rnode->addr);
     free(rnode);
     rnode = NULL;
+}
+
+inline glist_t *
+lcaf_rle_node_list(lcaf_addr_t *lcaf)
+{
+    return(((rle_t *)lcaf->addr)->nodes);
 }
 
 void

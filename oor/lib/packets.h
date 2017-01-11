@@ -172,7 +172,7 @@ IP_SET_16_SUBFIELD((ip4)->frag_off, IP_DF, IPV4_DF_OFFSET, (value))
  */
 
 /// The bitmask for the Version field in an ipv6_hdr->ip6_flow variable
-#define IPV6_VERSION_MASK  0xf0000000
+#define IPV6_VERSION_MASK_  0xf0000000
 /// The offset for the Version field in an ipv6_hdr->ip6_flow variable
 #define IPV6_VERSION_OFFSET  28
 
@@ -186,11 +186,11 @@ IP_SET_16_SUBFIELD((ip4)->frag_off, IP_DF, IPV4_DF_OFFSET, (value))
 
 /// Get the IPv6 Version 4-bit field from ipv6_hdr object
 #define IPV6_GET_VERSION(ip6) \
-IP_GET_32_SUBFIELD((ip6).ip6_flow, IPV6_VERSION_MASK, IPV6_VERSION_OFFSET)
+IP_GET_32_SUBFIELD((ip6).ip6_flow, IPV6_VERSION_MASK_, IPV6_VERSION_OFFSET)
 
 /// Set the IPv6 Version 4-bit field in an ipv6_hdr object
 #define IPV6_SET_VERSION(ip6, value) \
-IP_SET_32_SUBFIELD((ip6)->ip6_flow, IPV6_VERSION_MASK, IPV6_VERSION_OFFSET, (value))
+IP_SET_32_SUBFIELD((ip6)->ip6_flow, IPV6_VERSION_MASK_, IPV6_VERSION_OFFSET, (value))
 
 /// Get the IPv6 Traffic Class (TC) byte from an ipv6_hdr object
 #define IPV6_GET_TC(ip6) \

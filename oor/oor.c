@@ -383,10 +383,7 @@ static int
 parse_config_file()
 {
     int err;
-    err = handle_config_file(&config_file);
-    if (config_file != NULL){
-        free(config_file);
-    }
+    err = handle_config_file();
 
     return (err);
 }

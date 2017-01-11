@@ -535,7 +535,9 @@ configure_xtr(cfg_t *cfg)
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
-        nat_set_xTR_ID(xtr);
+        if (nat_set_xTR_ID(xtr) != GOOD){
+        	return (BAD);
+        }
         nat_set_site_ID(xtr, 0);
         default_rloc_afi = AF_INET;
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
@@ -584,7 +586,10 @@ configure_mn(cfg_t *cfg)
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
-        nat_set_xTR_ID(xtr);
+        if (nat_set_xTR_ID(xtr) != GOOD){
+        	printf("aaaaaaaaaaaaa\n");
+        	return (BAD);
+        }
         nat_set_site_ID(xtr, 0);
         default_rloc_afi = AF_INET;
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
@@ -721,7 +726,7 @@ configure_ms(cfg_t *cfg)
 }
 
 int
-handle_config_file(char **oor_conf_file)
+handle_config_file()
 {
     int ret;
     cfg_t *cfg;
@@ -875,8 +880,8 @@ handle_config_file(char **oor_conf_file)
             CFG_END()
     };
 
-    if (*oor_conf_file == NULL){
-        *oor_conf_file = strdup("/etc/oor.conf");
+    if (config_file == NULL){
+        config_file = strdup("/etc/oor.conf");
     }
 
     /*
@@ -884,7 +889,7 @@ handle_config_file(char **oor_conf_file)
      */
 
     cfg = cfg_init(opts, CFGF_NOCASE);
-    ret = cfg_parse(cfg, *oor_conf_file);
+    ret = cfg_parse(cfg, config_file);
 
 
     if (ret == CFG_FILE_ERROR) {
@@ -927,7 +932,6 @@ handle_config_file(char **oor_conf_file)
     if (daemonize == TRUE){
         open_log_file(log_file);
     }
-
     mode = cfg_getstr(cfg, "operating-mode");
     if (mode) {
         if (strcmp(mode, "xTR") == 0) {
@@ -946,7 +950,7 @@ handle_config_file(char **oor_conf_file)
     }
 
     cfg_free(cfg);
-    return(GOOD);
+    return(ret);
 }
 
 /*

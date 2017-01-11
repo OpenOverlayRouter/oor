@@ -77,17 +77,6 @@ mcache_entry_del(mcache_entry_t *entry)
     free(entry);
 }
 
-inline uint8_t
-mcache_has_locators(mcache_entry_t *m)
-{
-    if (mapping_locator_count(m->mapping) > 0){
-        return (TRUE);
-    }else{
-        return (FALSE);
-    }
-}
-
-
 void
 map_cache_entry_dump (mcache_entry_t *entry, int log_level)
 {

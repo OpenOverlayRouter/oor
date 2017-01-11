@@ -74,7 +74,7 @@ extern shash_t *iface_addr_ht;
 
 
 int ifaces_init();
-inline void ifaces_destroy();
+void ifaces_destroy();
 
 
 void iface_destroy(iface_t *iface);

@@ -44,7 +44,7 @@
  */
 
 /* command could be add or del */
-inline int modify_route(int command, int afi, uint32_t ifindex,
+int modify_route(int command, int afi, uint32_t ifindex,
         lisp_addr_t *dest_pref, lisp_addr_t *src, lisp_addr_t *gw,
         uint32_t metric, uint32_t table);
 
@@ -61,7 +61,7 @@ inline int modify_route(int command, int afi, uint32_t ifindex,
  * @param dst_pref dst prefix to match
  * @param flags flags, if any
  */
-inline int modify_rule (int afi, int if_index, int command, uint8_t table,
+int modify_rule (int afi, int if_index, int command, uint8_t table,
         uint32_t priority, uint8_t type, lisp_addr_t *src_pref,
         lisp_addr_t *dst_pref, int flags);
 

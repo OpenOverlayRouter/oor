@@ -56,7 +56,7 @@ void locator_list_lafi_type (glist_t *loct_list, int *lafi, int	*type);
 locator_t *locator_list_get_locator_with_addr(glist_t *loct_list, lisp_addr_t *addr);
 locator_t *locator_list_extract_locator_with_addr(glist_t *loct_list,lisp_addr_t *addr);
 int locator_list_extract_locator_with_ptr(glist_t *loct_list,locator_t *locator);
-inline int locator_cmp_addr (locator_t *loct1,locator_t *loct2);
+int locator_cmp_addr (locator_t *loct1,locator_t *loct2);
 glist_t *locator_list_clone(glist_t *llist);
 int locator_list_cmp_afi(glist_t *loct_list_a, glist_t *loct_list_b);
 
