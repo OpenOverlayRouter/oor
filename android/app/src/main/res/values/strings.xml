@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Open Overlay Router</string>
+    <string name="oorRunning">OOR is running</string>
+    <string name="oorNotRunning">OOR is NOT running</string>
+    <string name="noConfFile">No configuration file.\nUse \"Edit OOR Configuration\" section to generate it</string>
+    <string name="noRootedString">Using no root version of the app</string>
+    <string name="RootedString">Using root version of the app</string>
+    <string name="askStopServiceString">Stop the OOR service?</string>
+    <string name="updateConfeid4String">EID-IPv4: </string>
+    <string name="updateConfeid6String">EID-IPv6: </string>
+    <string name="updateConfChgString">Update Configuration</string>
+    <string name="updateConfMRString">Map-Resolver:</string>
+    <string name="updateConfMSString">Map-Server:</string>
+    <string name="updateConfMSKeyString">Map-Server Key:</string>
+    <string name="or">Or</string>
+    <string name="hint_email">Email</string>
+    <string name="hint_password">Password</string>
+    <string name="btn_link_to_register">Not registered? Sign up now</string>
+    <string name="btn_login">LOGIN</string>
+    <string name="dns1">Primary DNS:</string>
+    <string name="dns2">Secondary DNS:</string>
+    <string name="proxy">Proxy ETR address:</string>
+    <string name="rloc">RLOC Interface:</string>
+    <string name="btn_manual_conf">Manual Configuration</string>
+    <string name="refresh">Refresh</string>
+    <string name="hint_server">Server</string>
+    <string-array name="LogLevelArray">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+    <string-array name="ErrMsgArray">
+        <item>No error</item>
+        <item>Configuration file not exist.\nUse\"Edit OOR Configuration\"</item>
+        <item>Wrong configuration.</item>
+        <item>None of the configured interfaces is available. Check your network settings</item>
+        <item>Registraion process error. Check:\n  - Configuration\n  - Network connectivity</item>
+        <item>Find out NAT process error. Check:\n  - Configuration\n  - Network connectivity</item>
+    </string-array>
+
+</resources>
