@@ -354,7 +354,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
 
     if ( rtm->rtm_family != AF_INET && rtm->rtm_family != AF_INET6 ) {
         OOR_LOG(LDBG_3,"process_nl_new_unicast_route: New unicast route of "
-                "unknown adddress family %d", rtm->rtm_family);
+                "unknown address family %d", rtm->rtm_family);
         return;
     }
 
@@ -577,7 +577,7 @@ process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
 
     if ( rtm->rtm_family != AF_INET && rtm->rtm_family != AF_INET6 ) {
         OOR_LOG(LDBG_3,"process_nl_del_unicast_route: New unicast route of "
-                "unknown adddress family %d", rtm->rtm_family);
+                "unknown address family %d", rtm->rtm_family);
         return;
     }
 

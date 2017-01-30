@@ -476,7 +476,7 @@ lisp_addr_write(void *offset, lisp_addr_t *laddr)
         memset(offset, 0, sizeof(uint16_t));
         return (sizeof(uint16_t));
     default:
-        OOR_LOG(LDBG_3, "lisp_addr_write_to_pkt: Unkown afi %d",
+        OOR_LOG(LDBG_3, "lisp_addr_write_to_pkt: Unknown afi %d",
                 lisp_addr_lafi(laddr));
         break;
     }

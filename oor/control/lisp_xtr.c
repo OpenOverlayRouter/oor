@@ -1681,7 +1681,7 @@ rloc_probing_cb(oor_timer_t *timer)
             if (mce == NULL){
                 /* It is a PeTR RLOC */
                 if ( mcache_entry_mapping(xtr->petrs) != map ){
-                    OOR_LOG(LERR,"rloc_probing: No map cache entry for EID %s. It should never happend",
+                    OOR_LOG(LERR,"rloc_probing: No map cache entry for EID %s. It should never happened",
                             lisp_addr_to_char(mapping_eid(map)));
                     return (BAD);
                 }
@@ -2656,7 +2656,7 @@ tr_get_fwd_entry(lisp_xtr_t *xtr, packet_tuple_t *tuple)
             break;
         case ACT_SEND_MREQ:
             // TODO: To be implemented. Now drop paquet
-            OOR_LOG(LDBG_2, "Recived a packet of an entry with ACT send map req. Drop packet");
+            OOR_LOG(LDBG_2, "Received a packet of an entry with ACT send map req. Drop packet");
             lisp_addr_del(src_eid);
             lisp_addr_del(dst_eid);
             fwd_info->neg_map_reply_act = ACT_NO_ACTION;

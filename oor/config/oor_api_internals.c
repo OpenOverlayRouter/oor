@@ -80,7 +80,7 @@ lxml_get_lisp_addr(xmlNodePtr xml_address)
     }else if (strcmp(str_afi,"lcaf") == 0){
 
     }else{
-        OOR_LOG(LDBG_2,"OOR_API->lxml_get_lisp_addr: Afi not suppoted: %s",str_afi);
+        OOR_LOG(LDBG_2,"OOR_API->lxml_get_lisp_addr: Afi not supported: %s",str_afi);
         return NULL;
     }
 
@@ -121,7 +121,7 @@ lxml_get_char_lisp_addr(xmlNodePtr xml_address, char *name, shash_t *lcaf_ht)
         shash_insert(lcaf_ht,strdup(name),laddr);
         return (strdup(name));
     }else{
-        OOR_LOG(LDBG_2,"OOR_API->lxml_get_char_lisp_addr: Afi not suppoted: %s",str_afi);
+        OOR_LOG(LDBG_2,"OOR_API->lxml_get_char_lisp_addr: Afi not supported: %s",str_afi);
         free(str_afi);
         return (NULL);
     }
@@ -205,7 +205,7 @@ lxml_lcaf_get_lisp_addr (xmlNodePtr xml_lcaf)
             xml_elp_node = lxml_get_next_node(xml_elp_node);
         }
     }else {
-        OOR_LOG(LDBG_2,"OOR_API->lxml_lcaf_get_lisp_addr: LCAF type not suppoted: %s",lcaf_type);
+        OOR_LOG(LDBG_2,"OOR_API->lxml_lcaf_get_lisp_addr: LCAF type not supported: %s",lcaf_type);
         return (NULL);
     }
     free(lcaf_type);
@@ -354,7 +354,7 @@ lxml_update_map_server_list(xmlNodePtr xml_map_servers, uint8_t proxy_reply,
         }
         free(key_type_aux);
         if (key_type != HMAC_SHA_1_96){
-            OOR_LOG(LERR, "Configuraton file: Only SHA-1 (1) authentication is supported");
+            OOR_LOG(LERR, "Configuration file: Only SHA-1 (1) authentication is supported");
             free(str_addr);
             free(key);
             return (BAD);
