@@ -26,6 +26,7 @@ import android.os.Environment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.text.InputType;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -110,11 +111,23 @@ public class noroot_updateConfActivity extends Fragment {
         readConfFileAndFillParameters();
 
         Button updateConfButton = (Button) llLayout.findViewById(R.id.updateConfButton);
-
-
         updateConfButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 updateConfClicked(llLayout);
+            }
+        });
+
+        CheckBox updateConf_NAT_aware = (CheckBox) llLayout.findViewById(R.id.updateConf_NAT_aware);
+        updateConf_NAT_aware.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                updateConfNATAwareClicked(llLayout);
+            }
+        });
+
+        CheckBox updateCondDNSCheck = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
+        updateCondDNSCheck.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                updateConfDNSClicked(llLayout);
             }
         });
 
@@ -665,31 +678,31 @@ public class noroot_updateConfActivity extends Fragment {
     }
 
     public void updateConfDNSClicked(View v) {
-        CheckBox c = (CheckBox) v;
-        if (c.isChecked()) {
+        CheckBox updateCondDNSCheck = (CheckBox) v.findViewById(R.id.updateConfDNSCheck);
+        if (updateCondDNSCheck.isChecked()) {
             overrideDNS = true;
 
-            EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
             e.setEnabled(true);
 
-            e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
             e.setEnabled(true);
         } else {
             overrideDNS = false;
-            EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
             e.setEnabled(false);
 
-            e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
             e.setEnabled(false);
         }
     }
 
 
     public void updateConfNATAwareClicked(View v) {
-        CheckBox c = (CheckBox) v;
-        EditText e1 = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
-        EditText e2 = (EditText) llLayout.findViewById(R.id.updateConfMRText);
-        if (c.isChecked()) {
+        CheckBox updateConf_NAT_aware = (CheckBox) v.findViewById(R.id.updateConf_NAT_aware);
+        EditText e1 = (EditText) v.findViewById(R.id.updateConf_proxy_etr);
+        EditText e2 = (EditText) v.findViewById(R.id.updateConfMRText);
+        if (updateConf_NAT_aware.isChecked()) {
             nat_aware = true;
             e1.setEnabled(false);
             e2.setEnabled(false);

@@ -393,6 +393,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     public void setTextHintAlphas() {
+        // Material to selct the color to be used in the text form
         MaterialEditText aux;
         aux = (MaterialEditText) findViewById(R.id.email);
         aux.setFocusFraction(0.9f);

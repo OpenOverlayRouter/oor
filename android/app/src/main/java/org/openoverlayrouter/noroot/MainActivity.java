@@ -48,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
         actionbar.setTitle(Html.fromHtml("<font color='#ffffff'>Open Overlay Router</font>"));
         setContentView(R.layout.maintabs);
 
-
+        // If android version is >= 6 start no root application
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             // only for marshmallow and newer versions
             root = false;
