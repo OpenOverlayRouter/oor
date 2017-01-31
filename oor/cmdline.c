@@ -403,13 +403,11 @@ int update_arg(void *field, char **orig_field,
                const char *long_opt, char short_opt,
                const char *additional_error)
 {
-  char *stop_char = 0;
   const char *val = value;
   int found;
   char **string_field;
   FIX_UNUSED (field);
 
-  stop_char = 0;
   found = 0;
 
   if (!multiple_option && prev_given && (*prev_given || (check_ambiguity && *field_given)))
@@ -484,6 +482,8 @@ int update_arg(void *field, char **orig_field,
 }
 
 
+/*
+ * function is currently not used
 static int check_modes(
   int given1[], const char *options1[],
                        int given2[], const char *options2[])
@@ -506,6 +506,8 @@ static int check_modes(
   
   return errors;
 }
+*/
+
 
 int
 cmdline_parser_internal (
@@ -519,14 +521,14 @@ cmdline_parser_internal (
   
   int override;
   int initialize;
-  int check_required;
+  /* not needed at the moment: int check_required; */
   int check_ambiguity;
   
   package_name = argv[0];
   
   override = params->override;
   initialize = params->initialize;
-  check_required = params->check_required;
+  /* not needed at the moment: check_required = params->check_required; */
   check_ambiguity = params->check_ambiguity;
 
   if (initialize)

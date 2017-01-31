@@ -303,6 +303,8 @@ send_raw_packet(int socket, const void *pkt, int plen, ip_addr_t *dip)
         slen = sizeof(struct sockaddr_in6);
         saddr = (struct sockaddr *)&sa6;
         break;
+    default:
+	return(BAD);
     }
 
     nbytes = sendto(socket, pkt, plen, 0, saddr, slen);
