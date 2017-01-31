@@ -25,6 +25,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
+import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -58,7 +59,7 @@ public class noroot_updateConfActivity extends Fragment {
     public static List<String> ifaces = null;
     public static String MR = "";
     public static String MS = "";
-    public static String MSKey = "password";
+    public static String MSKey = "";
     public static String proxyETR = "";
     public static String DNS1 = "";
     public static String DNS2 = "";
@@ -252,7 +253,7 @@ public class noroot_updateConfActivity extends Fragment {
                             if (tmp.length > 1) {
                                 MS = tmp[1];
                             }
-                        } else if (sub_line.contains("key")) {
+                        } else if (sub_line.contains("key") & !sub_line.contains("key-type")) {
                             String[] tmp = sub_line_1.split("=");
                             if (tmp.length > 1) {
                                 MSKey = tmp[1];
@@ -340,7 +341,6 @@ public class noroot_updateConfActivity extends Fragment {
             e = (EditText) llLayout.findViewById(R.id.updateConfMRText);
             e.setEnabled(!nat_aware);
         } catch (IOException e) {
-            ;
         }
 
     }
