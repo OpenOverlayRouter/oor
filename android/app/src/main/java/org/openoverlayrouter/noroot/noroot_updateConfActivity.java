@@ -341,7 +341,6 @@ public class noroot_updateConfActivity extends Fragment {
             e = (EditText) llLayout.findViewById(R.id.updateConfMRText);
             e.setEnabled(!nat_aware);
         } catch (IOException e) {
-
         }
 
     }
