@@ -88,7 +88,6 @@
                     android:id="@+id/updateConf_NAT_aware"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:onClick="updateConfNATAwareClicked"
                     android:text="NAT Traversal Aware"></CheckBox>
             </LinearLayout>
 
@@ -153,7 +152,6 @@
                         android:id="@+id/updateConfDNSCheck"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:onClick="updateConfDNSClicked"
                         android:text="Override DNS"></CheckBox>
                 </TableRow>
             </TableLayout>
