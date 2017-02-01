@@ -622,7 +622,7 @@ int
 configure_ms(cfg_t *cfg)
 {
     char *iface_name;
-    iface_t *iface;
+    iface_t *iface=NULL;
     lisp_site_prefix_t *site;
     shash_t *lcaf_ht;
     int i;
@@ -648,6 +648,9 @@ configure_ms(cfg_t *cfg)
         if (iface == NULL) {
             return(BAD);
         }
+    }else{
+	/* we have no iface_name, so also iface is missing */
+        return(BAD);
     }
 
     if (iface_address(iface, AF_INET) == NULL){

@@ -608,11 +608,15 @@ lisp_addr_cmp_afi(lisp_addr_t *addr1, lisp_addr_t *addr2)
         afi_b = lisp_addr_ip_afi(addr2);
         break;
     case LM_AFI_IPPREF:
-        OOR_LOG(LDBG_1,"locator_list_cmp_afi: No locators of type prefix");
+        OOR_LOG(LDBG_1,"lisp_addr_cmp_afi: No locators of type prefix");
         return (-2);
     case LM_AFI_LCAF:
         afi_a = lisp_addr_lcaf_type(addr1);
         afi_b = lisp_addr_lcaf_type(addr2);
+	break;
+    default:
+        OOR_LOG(LDBG_1,"lisp_addr_cmp_afi: wrong AFI");
+	return (-2);
     }
 
     if (afi_a > afi_b){

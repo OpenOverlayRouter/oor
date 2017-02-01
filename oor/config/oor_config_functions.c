@@ -1006,7 +1006,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     locator_t *locator;
     glist_t *addr_list;
     lisp_addr_t *eid_prefix, *ip_eid_prefix;
-    lisp_xtr_t *xtr;
+    lisp_xtr_t *xtr=NULL;
     conf_loc_t *conf_loc;
     conf_loc_iface_t *conf_loc_iface;
     glist_entry_t *conf_it;
