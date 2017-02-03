@@ -27,5 +27,7 @@
 int process_netlink_msg(sock_t *sl);
 void iface_mac_address(char *iface_name, uint8_t *mac);
 int get_all_ifaces_name_list(char ***ifaces,int *count);
+lisp_addr_t * get_network_pref_of_host(lisp_addr_t *address);
+lisp_addr_t * iface_get_getway(int iface_index, int afi);
 
 #endif /* IFACE_MGMT_H_ */

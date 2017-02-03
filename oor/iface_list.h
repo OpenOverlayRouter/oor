@@ -80,7 +80,6 @@ void ifaces_destroy();
 void iface_destroy(iface_t *iface);
 char *iface_to_char(iface_t *iface);
 
-lisp_addr_t *get_iface_address(char *ifacename, int afi);
 iface_t *add_interface(char *iface_name);
 int iface_setup_addr(iface_t *iface, int afi);
 iface_t *get_interface(char *iface_name);
@@ -92,8 +91,10 @@ int *get_out_socket_ptr_from_address(lisp_addr_t *address);
 void iface_list_to_char(int log_level);
 
 iface_t *get_any_output_iface(int);
+lisp_addr_t * iface_find_address(iface_t *iface, int afi);
 
 lisp_addr_t *iface_address(iface_t *iface, int afi);
+lisp_addr_t *iface_gateway(iface_t *iface, int afi);
 int iface_socket(iface_t *iface, int afi);
 int *iface_socket_pointer(iface_t *iface, int afi);
 static uint8_t iface_status(iface_t *iface);

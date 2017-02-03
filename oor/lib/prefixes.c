@@ -26,6 +26,49 @@ static inline lisp_addr_t * pref_get_network_address_v4(lisp_addr_t *address);
 static inline lisp_addr_t * pref_get_network_address_v6(lisp_addr_t *address);
 
 /*
+ * True if address belongs to the prefix
+ */
+int
+pref_is_addr_part_of_prefix(lisp_addr_t *addr, lisp_addr_t *pref)
+{
+    lisp_addr_t ip_prefix;
+    lisp_addr_t * network_addr;
+    lisp_addr_t * ip_network_addr;
+    int pref_len;
+    int res;
+
+
+    if (!lisp_addr_is_ip_pref(pref) || !lisp_addr_is_ip(addr)){
+        return FALSE;
+    }
+
+    if (lisp_addr_ip_afi(addr) != lisp_addr_ip_afi(pref)){
+        return FALSE;
+    }
+
+    network_addr = pref_get_network_address(pref);
+    pref_len = lisp_addr_get_plen(pref);
+
+
+    lisp_addr_copy(&ip_prefix, addr);
+    lisp_addr_ip_to_ippref(&ip_prefix);
+    lisp_addr_set_plen(&ip_prefix, pref_len);
+
+    ip_network_addr = pref_get_network_address(&ip_prefix);
+
+    if (lisp_addr_cmp (ip_network_addr, network_addr) == 0){
+        res = TRUE;
+    }else{
+        res = FALSE;
+    }
+    lisp_addr_del(network_addr);
+    lisp_addr_del(ip_network_addr);
+
+    return (res);
+}
+
+
+/*
  * If prefix b is contained in prefix a, then return TRUE. Otherwise return FALSE.
  * If both prefixs are the same it also returns TRUE
  */
@@ -189,4 +232,3 @@ pref_conv_to_netw_pref(lisp_addr_t *addr)
 
     return (GOOD);
 }
-

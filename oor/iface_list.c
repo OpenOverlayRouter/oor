@@ -20,7 +20,7 @@
 #include <string.h>
 #include <netdb.h>
 #ifndef ANDROID
-  #include <ifaddrs.h>
+#include <ifaddrs.h>
 #endif
 #include <errno.h>
 #include <linux/rtnetlink.h>
@@ -29,6 +29,7 @@
 #include "iface_list.h"
 #include "iface_mgmt.h"
 #include "oor_external.h"
+#include "lib/prefixes.h"
 #include "lib/routing_tables_lib.h"
 #include "lib/sockets.h"
 #include "lib/shash.h"
@@ -36,14 +37,16 @@
 #include "lib/oor_log.h"
 
 #ifdef ANDROID
-  int getifaddrs(ifaddrs **addrlist);
-  int freeifaddrs(ifaddrs *addrlist);
+int getifaddrs(ifaddrs **addrlist);
+int freeifaddrs(ifaddrs *addrlist);
 #endif
 
 /* List with all the interfaces used by OOR */
 glist_t *interface_list = NULL;
 
 shash_t *iface_addr_ht = NULL;
+
+glist_t *iface_get_addresses(char *ifacename, int afi);
 
 int
 build_iface_addr_hash_table()
@@ -69,8 +72,8 @@ build_iface_addr_hash_table()
         if (family == AF_INET || family == AF_INET6) {
             s = getnameinfo(ifa->ifa_addr,
                     (family == AF_INET) ? sizeof(struct sockaddr_in) :
-                                          sizeof(struct sockaddr_in6),
-                    host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+                            sizeof(struct sockaddr_in6),
+                            host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
             if (s != 0) {
                 OOR_LOG(LWRN, "getnameinfo() failed: %s. Skipping interface. ",
                         gai_strerror(s));
@@ -152,12 +155,11 @@ iface_to_char(iface_t *iface)
     return (buf[i]);
 }
 
-/*
- * get_iface_address: If iface doesn't have address. Return a LM_AFI_NO_ADDR address
- */
-lisp_addr_t *
-get_iface_address(char *ifacename, int afi)
+
+glist_t *
+iface_get_addresses(char *ifacename, int afi)
 {
+    glist_t * addr_list;
     lisp_addr_t *addr;
     struct ifaddrs *ifaddr;
     struct ifaddrs *ifa;
@@ -165,19 +167,19 @@ get_iface_address(char *ifacename, int afi)
     struct sockaddr_in6 *s6;
     ip_addr_t ip;
 
-    addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+    addr_list = glist_new_managed((glist_del_fct)lisp_addr_del);
 
     /* search for the interface */
     if (getifaddrs(&ifaddr) !=0) {
-        OOR_LOG(LDBG_2, "get_iface_address: getifaddrs error: %s",
+        OOR_LOG(LDBG_2, "iface_get_addresses: getifaddrs error: %s",
                 strerror(errno));
         return(BAD);
     }
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if ((ifa->ifa_addr == NULL)
-             || ((ifa->ifa_flags & IFF_UP) == 0)
-             || (ifa->ifa_addr->sa_family != afi)
-             || strcmp(ifa->ifa_name, ifacename) != 0) {
+                || ((ifa->ifa_flags & IFF_UP) == 0)
+                || (ifa->ifa_addr->sa_family != afi)
+                || strcmp(ifa->ifa_name, ifacename) != 0) {
             continue;
         }
 
@@ -187,36 +189,84 @@ get_iface_address(char *ifacename, int afi)
             ip_addr_init(&ip, &s4->sin_addr, AF_INET);
 
             if (ip_addr_is_link_local(&ip) == TRUE) {
-                OOR_LOG(LDBG_2, "get_iface_address: interface address from "
+                OOR_LOG(LDBG_2, "iface_get_addresses: interface address from "
                         "%s discarded (%s)", ifacename, ip_addr_to_char(&ip));
                 continue;
             }
-
+            addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
             lisp_addr_init_from_ip(addr, &ip);
-            freeifaddrs(ifaddr);
-            return(addr);
+            glist_add(addr,addr_list);
+            continue;
         case AF_INET6:
             s6 = (struct sockaddr_in6 *) ifa->ifa_addr;
             ip_addr_init(&ip, &s6->sin6_addr, AF_INET6);
 
             if (ip_addr_is_link_local(&ip) == TRUE) {
-                OOR_LOG(LDBG_2, "get_iface_address: interface address from "
+                OOR_LOG(LDBG_2, "iface_get_addresses: interface address from "
                         "%s discarded (%s)", ifacename, ip_addr_to_char(&ip));
                 continue;
             }
+            addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
             lisp_addr_init_from_ip(addr, &ip);
-            freeifaddrs(ifaddr);
-            return(addr);
-
+            glist_add(addr,addr_list);
+            continue;
         default:
-            continue;                   /* XXX */
+            continue;
         }
     }
     freeifaddrs(ifaddr);
-    OOR_LOG(LDBG_3, "get_iface_address: No %s RLOC configured for interface "
-            "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", ifacename);
 
-    lisp_addr_set_lafi(addr, LM_AFI_NO_ADDR);
+    return(addr_list);
+}
+/*
+ * Find the ouput address of the interface. If it is not found, it returns LM_AFI_NO_ADDR
+ */
+lisp_addr_t *
+iface_find_address(iface_t *iface, int afi)
+{
+    glist_t *addr_list;
+    glist_entry_t *addr_it;
+    lisp_addr_t *addr = NULL, *gw, *net_pref, *aux_addr;
+
+    addr_list = iface_get_addresses(iface->iface_name, afi);
+    if (glist_size(addr_list) == 0){
+        OOR_LOG(LDBG_1, "iface_find_address: No %s RLOC configured for interface "
+                "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", iface->iface_name);
+        addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+        goto end;
+    }
+
+    /* From the list of address associated to the interface find the one used to reach the gw
+     * of the interface */
+
+    gw = iface_gateway(iface,afi);
+    if (!gw){
+        // We don't set the GW into the interface. It will be set when detected by netconf
+        // This only happens when initializing interface for first time
+        gw = iface_get_getway(iface->iface_index, afi);
+        if (!gw){
+            OOR_LOG(LWRN,"iface_find_address: No gateway associated to the interface. Ignoring address");
+            addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+            goto end;
+        }
+    }
+
+    net_pref = get_network_pref_of_host(gw);
+    glist_for_each_entry(addr_it, addr_list){
+        aux_addr = (lisp_addr_t *)glist_entry_data(addr_it);
+        if (pref_is_addr_part_of_prefix(aux_addr,net_pref)){
+            OOR_LOG(LDBG_2,"iface_find_address: Selected address for interface %s: %s",
+                    iface->iface_name, lisp_addr_to_char(aux_addr));
+            addr = lisp_addr_clone(aux_addr);
+            goto end;
+        }
+    }
+    OOR_LOG(LDBG_2,"iface_find_address: The interface %s doesn't have an address according to its gw %s",
+            iface->iface_name, lisp_addr_to_char(gw));
+    addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+
+    end:
+    glist_destroy(addr_list);
     return(addr);
 }
 
@@ -245,7 +295,7 @@ iface_setup_addr(iface_t *iface, int afi)
         return (ERR_AFI);
     }
 
-    *addr = get_iface_address(iface->iface_name, afi);
+    *addr = iface_find_address(iface, afi);
 
     if (lisp_addr_is_no_addr(*addr)) {
         return(BAD);
@@ -477,6 +527,23 @@ iface_address(iface_t *iface, int afi)
     return (addr);
 }
 
+lisp_addr_t *
+iface_gateway(iface_t *iface, int afi)
+{
+    lisp_addr_t *gw = NULL;
+
+    switch (afi) {
+    case AF_INET:
+        gw = iface->ipv4_gateway;
+        break;
+    case AF_INET6:
+        gw = iface->ipv6_gateway;
+        break;
+    }
+
+    return (gw);
+}
+
 int
 iface_socket(iface_t *iface, int afi)
 {
@@ -492,7 +559,7 @@ iface_socket(iface_t *iface, int afi)
     default:
         break;
     }
-    
+
     return (out_socket);
 }
 
@@ -535,6 +602,7 @@ get_interface_name_from_address(lisp_addr_t *addr)
         return(NULL);
     }
 }
+
 
 
 #ifdef ANDROID

@@ -29,6 +29,7 @@
 #include "control/oor_control.h"
 #include "data-plane/data-plane.h"
 #include "lib/oor_log.h"
+#include "lib/prefixes.h"
 #include "lib/sockets-util.h"
 
 
@@ -170,6 +171,7 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
     lisp_addr_t *iface_addr;
     lisp_addr_t *new_addr_cpy;
     lisp_addr_t *old_addr_cpy;
+    lisp_addr_t *gw_addr, *net_addr;
     int new_addr_ip_afi;
 
 
@@ -200,8 +202,19 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
         return;
     }
 
-    /* Detected a valid change of address  */
+    /* Check if the affected address is the one used to reach the default of the interface */
+    gw_addr = iface_gateway(iface, new_addr_ip_afi);
+    if (gw_addr){
+        net_addr = get_network_pref_of_host(gw_addr);
+        if (pref_is_addr_part_of_prefix(new_addr,net_addr) == FALSE){
+            OOR_LOG(LDBG_2,"precess_address_change: Change of not main address of the interface."
+                    " Skipped %s address in iface %s",
+                    lisp_addr_to_char(net_addr), iface->iface_name);
+            return;
+        }
+    }
 
+    /* Detected a valid change of address  */
     OOR_LOG(LDBG_2,"process_address_change: New address detected for interface "
             "%s. Address changed from %s to %s", iface->iface_name,
             lisp_addr_to_char(iface_addr), lisp_addr_to_char(new_addr));
@@ -345,8 +358,10 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
     lisp_addr_t gateway = { .lafi = LM_AFI_IP };
     lisp_addr_t src = { .lafi = LM_AFI_IP };
     lisp_addr_t dst = { .lafi = LM_AFI_IP };
+    lisp_addr_t *iface_addr, *new_iface_addr, *old_addr_cpy;
     int src_len;
     int dst_len;
+    int afi;
 
     /* Interested only in main table updates for unicast */
     if (rtm->rtm_table != RT_TABLE_MAIN)
@@ -357,7 +372,7 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
                 "unknown address family %d", rtm->rtm_family);
         return;
     }
-
+    afi = rtm->rtm_family;
     src_len = rtm->rtm_src_len;
     dst_len = rtm->rtm_dst_len;
 
@@ -418,16 +433,50 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
     if (lisp_addr_ip_afi(&gateway) != LM_AFI_NO_ADDR &&
             default_rloc_afi != AF_UNSPEC &&
             default_rloc_afi != lisp_addr_ip_afi(&gateway)) {
-        OOR_LOG(LDBG_1, "process_nl_new_unicast_route gateway %s  in iface %s",
-                (lisp_addr_ip_afi(&gateway)== AF_INET) ? "IPv4" : "IPv6",
+        OOR_LOG(LDBG_1, "process_nl_new_unicast_route: Default RLOC afi "
+                "defined (-a #): Skipped route with gateway address %s in iface %s",
+                (lisp_addr_ip_afi(&dst)== AF_INET) ? "IPv4" : "IPv6",
                         iface->iface_name);
         return;
     }
+
+    iface_addr = iface_address(iface,afi);
+
+    if (!iface_addr){
+        OOR_LOG(LDBG_1, "==>process_nl_new_unicast_route: %s address familiy not used for interface %s. "
+                "Skipped route",(afi== AF_INET) ? "IPv4" : "IPv6", iface->iface_name);
+        return;
+    }
+
+    OOR_LOG(LDBG_1, "process_nl_new_unicast_route: New route detected-> SRC: %s ,DST: %s ,GW: %s, IFACE: %s",
+            lisp_addr_to_char(&src),lisp_addr_to_char(&dst),lisp_addr_to_char(&gateway), iface->iface_name);
 
     /* raise event to data plane */
     data_plane->datap_updated_route(RTM_NEWROUTE, iface, &src, &dst, &gateway);
     /* raise event to control plane */
     ctrl_route_update(lctrl, RTM_NEWROUTE, iface, &src, &dst, &gateway);
+
+    /* If default route added, check if the used address for the interface is valid */
+    if (lisp_addr_ip_afi(&gateway) == LM_AFI_NO_ADDR){
+        return;
+    }
+
+    new_iface_addr = iface_find_address(iface,afi);
+    if (lisp_addr_is_no_addr(new_iface_addr)){
+        OOR_LOG(LDBG_1, "process_nl_new_unicast_route: It should never happen");
+    }
+    if (lisp_addr_cmp(iface_addr,new_iface_addr)!=0){
+        // We have selected a wrong address to the interface. Replace and notify it
+        OOR_LOG(LDBG_2, "process_nl_new_unicast_route: Used iface address not match "
+                "with the gateway. Replacing it");
+        old_addr_cpy = lisp_addr_clone(iface_addr);
+        /* raise event to data plane */
+        data_plane->datap_updated_addr(iface,iface_addr,new_iface_addr);
+
+        /* raise event in ctrl */
+        ctrl_if_addr_update(lctrl, iface, old_addr_cpy, new_iface_addr);
+    }
+    lisp_addr_del(new_iface_addr);
 }
 
 void
@@ -568,8 +617,10 @@ process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
     lisp_addr_t gateway = { .lafi = LM_AFI_IP };
     lisp_addr_t src = { .lafi = LM_AFI_IP };
     lisp_addr_t dst = { .lafi = LM_AFI_IP };
+    lisp_addr_t *iface_addr;
     int src_len;
     int dst_len;
+    int afi;
 
     /* Interested only in main table updates for unicast */
     if (rtm->rtm_table != RT_TABLE_MAIN)
@@ -583,6 +634,7 @@ process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
 
     src_len = rtm->rtm_src_len;
     dst_len = rtm->rtm_dst_len;
+    afi = rtm->rtm_family;
 
     rt_attr = (struct rtattr *)RTM_RTA(rtm);
 
@@ -641,9 +693,18 @@ process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
     if (lisp_addr_ip_afi(&gateway) != LM_AFI_NO_ADDR &&
             default_rloc_afi != AF_UNSPEC &&
             default_rloc_afi != lisp_addr_ip_afi(&gateway)) {
-        OOR_LOG(LDBG_1, "process_nl_del_unicast_route gateway %s  in iface %s",
-                (lisp_addr_ip_afi(&gateway)== AF_INET) ? "IPv4" : "IPv6",
-                        iface->iface_name);
+        OOR_LOG(LDBG_1, "process_nl_del_unicast_route: Default RLOC afi "
+                        "defined (-a #): Skipped route with gateway address %s in iface %s",
+                        (lisp_addr_ip_afi(&gateway)== AF_INET) ? "IPv4" : "IPv6",
+                                iface->iface_name);
+        return;
+    }
+
+    iface_addr = iface_address(iface,afi);
+
+    if (!iface_addr){
+        OOR_LOG(LDBG_1, "==>process_nl_del_unicast_route: %s address familiy not used for interface %s. "
+                "Skipped del route",(afi== AF_INET) ? "IPv4" : "IPv6", iface->iface_name);
         return;
     }
 
@@ -757,3 +818,208 @@ iface_mac_address(char *iface_name, uint8_t *mac)
 
      return;
 }
+
+
+lisp_addr_t *
+get_network_pref_of_host(lisp_addr_t *address)
+{
+    lisp_addr_t net_prefix = { .lafi = LM_AFI_IP };
+    int netlink_fd;
+    struct sockaddr_nl addr;
+    struct nlmsghdr *nlh, *rcvhdr;
+    struct rtmsg *rtm, *recv_rtm;
+    struct rtattr *rt_attr;
+    char sndbuf[4096],rcvbuf[4096];
+    int rta_len = 0, retval, readlen, recv_pyload_len, afi;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    if (lisp_addr_ip_afi(address) == AF_INET){
+        afi = AF_INET;
+        addr.nl_groups = RTMGRP_IPV4_ROUTE;
+    }else{
+        afi = AF_INET6;
+        addr.nl_groups = RTMGRP_IPV6_ROUTE;
+    }
+
+    netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+    if (netlink_fd < 0) {
+        OOR_LOG(LERR, "get_network_associated_addrress: Failed to connect to "
+                "netlink socket");
+        return (NULL);
+    }
+
+    bind(netlink_fd, (struct sockaddr *) &addr, sizeof(addr));
+
+    memset(sndbuf, 0, 4096);
+    nlh = (struct nlmsghdr *)sndbuf;
+    rtm = (struct rtmsg *)(CO(sndbuf,sizeof(struct nlmsghdr)));
+
+    rta_len = sizeof(struct rtmsg);
+
+    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    nlh->nlmsg_type = RTM_GETROUTE;
+    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
+
+
+    rtm->rtm_family = afi;
+    rtm->rtm_table = RT_TABLE_MAIN;
+    rtm->rtm_protocol = RTPROT_STATIC;
+    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_src_len = 0;
+    rtm->rtm_tos = 0;
+    rtm->rtm_dst_len = 0;
+
+    retval = send(netlink_fd, sndbuf, nlh->nlmsg_len, 0);
+
+    if (retval < 0) {
+        OOR_LOG(LCRIT, "get_network_associated_addrress: send netlink command failed %s", strerror(errno));
+        return (NULL);
+    }
+    /*
+     * Receive the responses from the kernel
+     */
+
+    while ((readlen = recv(netlink_fd,rcvbuf,4096,MSG_DONTWAIT)) > 0){
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            recv_pyload_len = RTM_PAYLOAD(rcvhdr);
+            if (rcvhdr->nlmsg_type == RTM_NEWROUTE) {
+                recv_rtm = (struct rtmsg *)NLMSG_DATA(rcvhdr);
+                rt_attr = (struct rtattr *)RTM_RTA(recv_rtm);
+                for (; RTA_OK(rt_attr, recv_pyload_len); rt_attr = RTA_NEXT(rt_attr, recv_pyload_len)) {
+                    switch (rt_attr->rta_type) {
+                    case RTA_DST:
+                        lisp_addr_ip_init(&net_prefix, RTA_DATA(rt_attr), rtm->rtm_family);
+                        lisp_addr_set_plen(&net_prefix,recv_rtm->rtm_dst_len);
+                        if (pref_is_addr_part_of_prefix(address,&net_prefix) == TRUE){
+                            goto find;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    close(netlink_fd);
+    return (NULL);
+
+    find:
+    close(netlink_fd);
+    return (lisp_addr_clone(&net_prefix));
+
+}
+
+
+
+lisp_addr_t *
+iface_get_getway(int iface_index, int afi)
+{
+    lisp_addr_t gateway = { .lafi = LM_AFI_IP };
+    int netlink_fd;
+    struct sockaddr_nl addr;
+    struct nlmsghdr *nlh, *rcvhdr;
+    struct rtmsg *rtm, *recv_rtm;
+    struct rtattr *rt_attr;
+    char sndbuf[4096],rcvbuf[4096];
+    int rta_len = 0, retval, readlen, recv_pyload_len, iface_id, attrs;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    if (afi == AF_INET){
+        addr.nl_groups = RTMGRP_IPV4_ROUTE;
+    }else{
+        addr.nl_groups = RTMGRP_IPV6_ROUTE;
+    }
+
+
+
+    netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+    if (netlink_fd < 0) {
+        OOR_LOG(LERR, "iface_get_getway: Failed to connect to "
+                "netlink socket");
+        return (NULL);
+    }
+
+    bind(netlink_fd, (struct sockaddr *) &addr, sizeof(addr));
+
+    memset(sndbuf, 0, 4096);
+    nlh = (struct nlmsghdr *)sndbuf;
+    rtm = (struct rtmsg *)(CO(sndbuf,sizeof(struct nlmsghdr)));
+
+    rta_len = sizeof(struct rtmsg);
+
+    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    nlh->nlmsg_type = RTM_GETROUTE;
+    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
+
+
+    rtm->rtm_family = afi;
+    rtm->rtm_table = RT_TABLE_MAIN;
+    rtm->rtm_protocol = RTPROT_STATIC;
+    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_src_len = 0;
+    rtm->rtm_tos = 0;
+    rtm->rtm_dst_len = 0;
+
+
+    retval = send(netlink_fd, sndbuf, nlh->nlmsg_len, 0);
+
+    if (retval < 0) {
+        OOR_LOG(LCRIT, "iface_get_getway: send netlink command failed %s", strerror(errno));
+        return (NULL);
+    }
+    /*
+     * Receive the responses from the kernel
+     */
+
+
+    while ((readlen = recv(netlink_fd,rcvbuf,4096,MSG_DONTWAIT)) > 0){
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            recv_pyload_len = RTM_PAYLOAD(rcvhdr);
+            iface_id = 0;
+            if (rcvhdr->nlmsg_type == RTM_NEWROUTE) {
+                recv_rtm = (struct rtmsg *)NLMSG_DATA(rcvhdr);
+                rt_attr = (struct rtattr *)RTM_RTA(recv_rtm);
+                attrs = 0;
+                for (; RTA_OK(rt_attr, recv_pyload_len); rt_attr = RTA_NEXT(rt_attr, recv_pyload_len)) {
+                    switch (rt_attr->rta_type) {
+                    case RTA_OIF:
+                        iface_id = *(int *)RTA_DATA(rt_attr);
+                        attrs++;
+                        break;
+                    case RTA_GATEWAY:
+                        lisp_addr_ip_init(&gateway, RTA_DATA(rt_attr), rtm->rtm_family);
+                        attrs++;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                if (iface_id == iface_index && attrs == 2 ){
+                    goto find;
+                }
+            }
+        }
+    }
+    close(netlink_fd);
+    return (NULL);
+
+    find:
+    close(netlink_fd);
+    return (lisp_addr_clone(&gateway));
+}
+

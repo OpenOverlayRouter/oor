@@ -891,6 +891,13 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
                 lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,ip_afi);
             }
 
+            if (lisp_addr_cmp(ip_addr, iface_address(iface, ip_afi))!=0){
+                OOR_LOG(LERR, "Configuration file: Can't add address %s. The interface don't have "
+                        " a gateway associated or the address is not default src address used to reach "
+                        " the gateway of the interface", iface_name);
+                continue;
+            }
+
             locator = locator_new_init(address, iface->status,1,1,conf_loc->priority, conf_loc->weight,
                     conf_loc->mpriority, conf_loc->mweight);
 
