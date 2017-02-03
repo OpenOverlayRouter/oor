@@ -120,6 +120,8 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
     case ENCP_VXLAN_GPE:
         data_port = VXLAN_GPE_DATA_PORT;
         break;
+    default:
+        return (BAD);
     }
 
     /* Generate receive sockets for data port (4341) */
@@ -910,6 +912,11 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
             sckt = iface->out_socket_v6;
             iface_addr = iface->ipv6_address;
             break;
+	default:
+	    /* basically to calm compiler and let the following fail for AF_INET7 */
+	    sckt=0;
+	    iface_addr=0;
+	    break;
         }
 
         if (iface->status == UP) {
@@ -932,6 +939,11 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
             sckt = iface->out_socket_v6;
             iface_addr = iface->ipv6_address;
             break;
+	default:
+	    /* basically to calm compiler and let the following fail for AF_INET7 */
+	    sckt=0;
+	    iface_addr=0;
+	    break;
         }
 
         del_rule(new_addr_ip_afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,

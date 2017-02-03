@@ -212,7 +212,7 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         case ACT_NO_ACTION:
         case ACT_SEND_MREQ:
         case ACT_DROP:
-            OOR_LOG(LDBG_3, "tun_output_unicast: Packet droped");
+            OOR_LOG(LDBG_3, "tun_output_unicast: Packet dropped");
             return (GOOD);
         case ACT_NATIVE_FWD:
             return(tun_forward_native(b, &tuple->dst_addr));

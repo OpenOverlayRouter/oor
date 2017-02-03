@@ -298,13 +298,13 @@ add_map_server(glist_t *ms_list, char *str_addr, int key_type, char *key,
     glist_entry_t *it;
 
     if (str_addr == NULL || key_type == 0 || key == NULL){
-        OOR_LOG(LERR, "Configuraton file: Wrong Map Server configuration. "
+        OOR_LOG(LERR, "Configuration file: Wrong Map Server configuration. "
                 "Check configuration file");
         exit_cleanup();
     }
 
     if (key_type != HMAC_SHA_1_96){
-        OOR_LOG(LERR, "Configuraton file: Only SHA-1 (1) authentication is supported");
+        OOR_LOG(LERR, "Configuration file: Only SHA-1 (1) authentication is supported");
         exit_cleanup();
     }
 
@@ -914,7 +914,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
         }
         if (locator != NULL){
             glist_add(locator,loct_list);
-            OOR_LOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
+            OOR_LOG(LDBG_2,"parse_rloc_address: Locator structure created: \n %s",
                     locator_to_char(locator));
         }
     }
@@ -972,7 +972,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
     locator = locator_new_init(address, iface->status,1,1,conf_loc_iface->priority,
             conf_loc_iface->weight,conf_loc_iface->mpriority, conf_loc_iface->mweight);
 
-    OOR_LOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
+    OOR_LOG(LDBG_2,"parse_rloc_address: Locator structure created: \n %s",
                         locator_to_char(locator));
 
     /* If the locator is for a local mapping, associate the locator with the interface */
@@ -1006,7 +1006,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     locator_t *locator;
     glist_t *addr_list;
     lisp_addr_t *eid_prefix, *ip_eid_prefix;
-    lisp_xtr_t *xtr;
+    lisp_xtr_t *xtr=NULL;
     conf_loc_t *conf_loc;
     conf_loc_iface_t *conf_loc_iface;
     glist_entry_t *conf_it;

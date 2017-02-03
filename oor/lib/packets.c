@@ -479,7 +479,7 @@ build_ip_header(uint8_t *cur_ptr, lisp_addr_t *src_addr, lisp_addr_t *dst_addr,
         break;
     default:
         OOR_LOG(LDBG_2,
-                "build_ip_header: Uknown AFI of the source address: %d",
+                "build_ip_header: Unknown AFI of the source address: %d",
                 lisp_addr_ip_afi(src_addr));
         return (NULL);
     }
