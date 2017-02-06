@@ -895,6 +895,10 @@ get_network_pref_of_host(lisp_addr_t *address)
                 for (; RTA_OK(rt_attr, recv_pyload_len); rt_attr = RTA_NEXT(rt_attr, recv_pyload_len)) {
                     switch (rt_attr->rta_type) {
                     case RTA_DST:
+                        if ((rtm->rtm_family == AF_INET && recv_rtm->rtm_dst_len == 32) ||
+                                (rtm->rtm_family == AF_INET6 && recv_rtm->rtm_dst_len == 128) ){
+                            break;
+                        }
                         lisp_addr_ip_init(&net_prefix, RTA_DATA(rt_attr), rtm->rtm_family);
                         lisp_addr_set_plen(&net_prefix,recv_rtm->rtm_dst_len);
                         if (pref_is_addr_part_of_prefix(address,&net_prefix) == TRUE){
