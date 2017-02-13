@@ -63,7 +63,7 @@ open_udp_raw_socket(int afi)
 #ifdef ANDROID
     protonum = IPPROTO_UDP;
 #else
-    if ((proto = getprotobyname("UDP")) == NULL) {
+    if ((proto = getprotobyname("udp")) == NULL) {
         OOR_LOG(LERR, "open_udp_raw_socket: getprotobyname: %s", strerror(errno));
         return(-1);
     }
@@ -102,7 +102,7 @@ open_udp_datagram_socket(int afi)
 #ifdef ANDROID
     protonum = IPPROTO_UDP;
 #else
-    if ((proto = getprotobyname("UDP")) == NULL) {
+    if ((proto = getprotobyname("udp")) == NULL) {
         OOR_LOG(LERR, "open_udp_datagram_socket: getprotobyname: %s", strerror(errno));
         return(ERR_SOCKET);
     }
