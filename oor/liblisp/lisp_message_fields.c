@@ -83,7 +83,7 @@ mapping_record_hdr_to_char(mapping_record_hdr_t *h)
 char *
 locator_record_flags_to_char(locator_hdr_t *h)
 {
-    static char buf[5];
+    static char buf[15];
     *buf = '\0';
     h->local ? sprintf(buf+strlen(buf), "L=1,") : sprintf(buf+strlen(buf), "L=0,");
     h->probed ? sprintf(buf+strlen(buf), "p=1,") : sprintf(buf+strlen(buf), "p=0,");
