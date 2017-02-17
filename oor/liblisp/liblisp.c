@@ -833,6 +833,7 @@ char *
 laddr_list_to_char(glist_t *l)
 {
     static char buf[50*INET6_ADDRSTRLEN]; /* 50 addresses */
+    size_t buf_size = sizeof(buf);
     int i = 1, n;
     glist_entry_t *it;
 
@@ -841,10 +842,10 @@ laddr_list_to_char(glist_t *l)
     *buf = '\0';
     glist_for_each_entry(it, l) {
         if (i < n) {
-            sprintf(buf + strlen(buf), "%s, ",
+            snprintf(buf + strlen(buf),buf_size-strlen(buf), "%s, ",
                     lisp_addr_to_char(glist_entry_data(it)));
         } else {
-            sprintf(buf + strlen(buf), "%s",
+            snprintf(buf + strlen(buf),buf_size-strlen(buf), "%s",
                     lisp_addr_to_char(glist_entry_data(it)));
         }
         i++;

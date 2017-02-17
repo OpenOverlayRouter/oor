@@ -151,16 +151,18 @@ mapping_to_char(mapping_t *m)
 {
     locator_t *locator = NULL;
     static char buf[200];
+    size_t buf_size = sizeof(buf);
+
 
     *buf = '\0';
-    sprintf(buf, "EID: %s, ttl: %d, loc-count: %d, action: %s, "
+    snprintf(buf,buf_size, "EID: %s, ttl: %d, loc-count: %d, action: %s, "
             "auth: %d\n", lisp_addr_to_char(mapping_eid(m)), mapping_ttl(m),
             mapping_locator_count(m),
             mapping_action_to_char(mapping_action(m)), mapping_auth(m));
 
     if (m->locator_count > 0) {
         mapping_foreach_active_locator(m,locator){
-            sprintf(buf+strlen(buf), "  RLOC: %s\n", locator_to_char(locator));
+            snprintf(buf+strlen(buf), buf_size - strlen(buf),"  RLOC: %s\n", locator_to_char(locator));
         }mapping_foreach_active_locator_end;
     }
     return(buf);

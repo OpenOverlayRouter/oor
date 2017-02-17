@@ -67,20 +67,21 @@ conf_mapping_dump(conf_mapping_t * conf_map, int log_level)
     conf_loc_iface_t *conf_loct_iface;
     glist_entry_t *it_loct_addr;
     glist_entry_t *it_loct_iface;
+    size_t buf_size = sizeof(buf);
 
     if (is_loggable(log_level) == FALSE){
         return;
     }
 
-    sprintf(buf, "EID: %s, ttl: %d\n", conf_map->eid_prefix, conf_map->ttl);
+    snprintf(buf,buf_size,"EID: %s, ttl: %d\n", conf_map->eid_prefix, conf_map->ttl);
 
     glist_for_each_entry(it_loct_addr,conf_map->conf_loc_list){
         conf_loct = (conf_loc_t *)glist_entry_data(it_loct_addr);
-        sprintf(buf+strlen(buf),"\n  %s",conf_loc_to_char(conf_loct));
+        snprintf(buf+strlen(buf), buf_size - strlen(buf),"\n  %s",conf_loc_to_char(conf_loct));
     }
     glist_for_each_entry(it_loct_iface,conf_map->conf_loc_iface_list){
         conf_loct_iface = (conf_loc_iface_t *)glist_entry_data(it_loct_iface);
-        sprintf(buf+strlen(buf),"\n  %s",conf_loc_iface_to_char(conf_loct_iface));
+        snprintf(buf+strlen(buf), buf_size - strlen(buf),"\n  %s",conf_loc_iface_to_char(conf_loct_iface));
     }
     OOR_LOG(log_level,"%s\n",buf);
 }
@@ -112,9 +113,8 @@ conf_loc_to_char(conf_loc_t * loc)
     static char buf[100];
 
     *buf = '\0';
-    sprintf(buf,"Locator address: %s, Priority: %d, Weight: %d",
+    snprintf(buf,sizeof(buf),"Locator address: %s, Priority: %d, Weight: %d",
             loc->address,loc->priority,loc->weight);
-
     return (buf);
 }
 
@@ -145,9 +145,8 @@ conf_loc_iface_to_char(conf_loc_iface_t * loc_iface)
     static char buf[100];
 
     *buf = '\0';
-    sprintf(buf,"Locator interface: %s, AFI: %d, Priority: %d, Weight: %d",
+    snprintf(buf,sizeof(buf),"Locator interface: %s, AFI: %d, Priority: %d, Weight: %d",
             loc_iface->interface,loc_iface->afi,loc_iface->priority,loc_iface->weight);
-
     return (buf);
 }
 
@@ -1189,7 +1188,10 @@ nat_set_xTR_ID(lisp_xtr_t *xtr)
 	char part_xtr_id_str[3];
 
 	path = dirname(strdup(config_file));
-	sprintf(file,"%s/%s",path, DEVICE_ID_FILE);
+	if (snprintf(file,sizeof(file),"%s/%s",path, DEVICE_ID_FILE) >= sizeof(file)){
+	    OOR_LOG(LERR,"File name path too long");
+	    return (BAD);
+	}
 	xtr_id_file = fopen(file, "r");
 	if (! xtr_id_file)
 	{

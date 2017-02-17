@@ -159,7 +159,7 @@ map_request_hdr_to_char(map_request_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    sprintf(buf+strlen(buf), BOLD "Map-Request" RESET"-> flags:%s, irc: %d (+1), record-count: %d, "
+    snprintf(buf,sizeof(buf), BOLD "Map-Request" RESET"-> flags:%s, irc: %d (+1), record-count: %d, "
             "nonce: %"PRIx64, mreq_flags_to_char(h), h->additional_itr_rloc_count,
             h->record_count,  h->nonce);
     return(buf);
@@ -168,12 +168,12 @@ map_request_hdr_to_char(map_request_hdr_t *h)
 char *
 mrep_flags_to_char(map_reply_hdr_t *h)
 {
-    static char buf[10];
+    static char buf[12];
 
     *buf = '\0';
     h->rloc_probe ? sprintf(buf+strlen(buf), "P=1,") : sprintf(buf+strlen(buf), "P=0,");
     h->echo_nonce ? sprintf(buf+strlen(buf), "E=1,") : sprintf(buf+strlen(buf), "E=0,");
-    h->security ? sprintf(buf+strlen(buf), "S=1") : sprintf(buf+strlen(buf), "S=0,");
+    h->security ? sprintf(buf+strlen(buf), "S=1") : sprintf(buf+strlen(buf), "S=0");
     return(buf);
 }
 
@@ -185,8 +185,7 @@ map_reply_hdr_to_char(map_reply_hdr_t *h)
     if (!h) {
         return(NULL);
     }
-    *buf = '\0';
-    sprintf(buf, BOLD "Map-Reply" RESET "-> flags:%s, record-count: %d, nonce: %"PRIx64,
+    snprintf(buf,sizeof(buf), BOLD "Map-Reply" RESET "-> flags:%s, record-count: %d, nonce: %"PRIx64,
             mrep_flags_to_char(h), h->record_count, h->nonce);
     return(buf);
 }
@@ -212,10 +211,10 @@ info_nat_hdr_to_char(info_nat_hdr_t *h)
 char *
 mreg_flags_to_char(map_register_hdr_t *h)
 {
-    static char buf[10];
+    static char buf[5];
 
     *buf = '\0';
-    h->proxy_reply ? sprintf(buf+strlen(buf), "P") : sprintf(buf+strlen(buf), "p");
+    h->proxy_reply ? sprintf(buf, "P") : sprintf(buf+strlen(buf), "p");
     h->ibit ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
     h->rbit ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
     h->map_notify ? sprintf(buf+strlen(buf), "M") : sprintf(buf+strlen(buf), "m");
@@ -232,7 +231,7 @@ map_register_hdr_to_char(map_register_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    sprintf(buf, BOLD "Map-Register" RESET " -> flags:%s record-count: %d nonce %"PRIx64,
+    snprintf(buf,sizeof(buf), BOLD "Map-Register" RESET " -> flags:%s record-count: %d nonce %"PRIx64,
             mreg_flags_to_char(h), h->record_count, h->nonce);
     return(buf);
 }
@@ -240,10 +239,9 @@ map_register_hdr_to_char(map_register_hdr_t *h)
 char *
 mntf_flags_to_char(map_notify_hdr_t *h)
 {
-    static char buf[5];
+    static char buf[3];
 
-    *buf = '\0';
-    h->xtr_id_present ? sprintf(buf+strlen(buf), "I") : sprintf(buf+strlen(buf), "i");
+    h->xtr_id_present ? sprintf(buf, "I") : sprintf(buf+strlen(buf), "i");
     h->rtr_auth_present ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
     return(buf);
 }
@@ -257,7 +255,7 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
         return(NULL);
     }
 
-    sprintf(buf, BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %"PRIX64,
+    snprintf(buf,sizeof(buf), BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %"PRIX64,
             mntf_flags_to_char(h), h->record_count, h->nonce);
     return(buf);
 }
@@ -266,10 +264,9 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
 char *
 ecm_flags_to_char(ecm_hdr_t *h)
 {
-    static char buf[10];
+    static char buf[2];
 
-    *buf = '\0';
-    h->s_bit ? sprintf(buf+strlen(buf), "S") : sprintf(buf+strlen(buf), "s");
+    h->s_bit ? sprintf(buf, "S") : sprintf(buf, "s");
     return(buf);
 }
 
@@ -281,8 +278,7 @@ ecm_hdr_to_char(ecm_hdr_t *h)
     if (!h) {
         return(NULL);
     }
-    *buf = '\0';
-    sprintf(buf, BOLD "ECM" RESET " -> flags:%s", ecm_flags_to_char(h));
+    snprintf(buf,sizeof(buf), BOLD "ECM" RESET " -> flags:%s", ecm_flags_to_char(h));
     return(buf);
 }
 

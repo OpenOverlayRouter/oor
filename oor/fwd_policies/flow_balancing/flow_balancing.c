@@ -196,19 +196,20 @@ balancing_locators_vec_dump(balancing_locators_vecs b_locators_vecs,
 {
     int ctr;
     char str[3000];
+    size_t str_size = sizeof(str);
 
     if (is_loggable(log_level)) {
         OOR_LOG(log_level, "Balancing locator vector for %s: ",
                 lisp_addr_to_char(mapping_eid(mapping)));
 
-        sprintf(str, "  IPv4 locators vector (%d locators):  ",
+        sprintf(str,"  IPv4 locators vector (%d locators):  ",
                 b_locators_vecs.v4_locators_vec_length);
         for (ctr = 0; ctr < b_locators_vecs.v4_locators_vec_length; ctr++) {
-            if (strlen(str) > 2850) {
-                sprintf(str + strlen(str), " ...");
+            if (strlen(str) > 2900) {
+                snprintf(str + strlen(str),str_size - strlen(str), " ...");
                 break;
             }
-            sprintf(str + strlen(str), " %s  ",
+            snprintf(str + strlen(str),str_size - strlen(str)," %s  ",
                     lisp_addr_to_char(
                             b_locators_vecs.v4_balancing_locators_vec[ctr]->addr));
         }
@@ -217,10 +218,10 @@ balancing_locators_vec_dump(balancing_locators_vecs b_locators_vecs,
                 b_locators_vecs.v6_locators_vec_length);
         for (ctr = 0; ctr < b_locators_vecs.v6_locators_vec_length; ctr++) {
             if (strlen(str) > 2900) {
-                sprintf(str + strlen(str), " ...");
+                snprintf(str + strlen(str),str_size - strlen(str), " ...");
                 break;
             }
-            sprintf(str + strlen(str), " %s  ",
+            snprintf(str + strlen(str),str_size - strlen(str), " %s  ",
                     lisp_addr_to_char(
                             b_locators_vecs.v6_balancing_locators_vec[ctr]->addr));
         }
@@ -228,11 +229,11 @@ balancing_locators_vec_dump(balancing_locators_vecs b_locators_vecs,
         sprintf(str, "  IPv4 & IPv6 locators vector (%d locators):  ",
                 b_locators_vecs.locators_vec_length);
         for (ctr = 0; ctr < b_locators_vecs.locators_vec_length; ctr++) {
-            if (strlen(str) > 2950) {
-                sprintf(str + strlen(str), " ...");
+            if (strlen(str) > 2900) {
+                snprintf(str + strlen(str),str_size - strlen(str), " ...");
                 break;
             }
-            sprintf(str + strlen(str), " %s  ",
+            snprintf(str + strlen(str),str_size - strlen(str), " %s  ",
                     lisp_addr_to_char(
                             b_locators_vecs.balancing_locators_vec[ctr]->addr));
         }

@@ -2477,6 +2477,7 @@ map_servers_dump(lisp_xtr_t *xtr, int log_level)
     map_server_elt *    ms          = NULL;
     glist_entry_t *     it          = NULL;
     char                str[80];
+    size_t  str_size = sizeof(str);
 
     if (glist_size(xtr->map_servers) == 0 || is_loggable(log_level) == FALSE) {
         return;
@@ -2487,13 +2488,13 @@ map_servers_dump(lisp_xtr_t *xtr, int log_level)
 
     glist_for_each_entry(it, xtr->map_servers) {
         ms = (map_server_elt *)glist_entry_data(it);
-        sprintf(str, "| %39s |", lisp_addr_to_char(ms->address));
+        snprintf(str,str_size, "| %39s |", lisp_addr_to_char(ms->address));
         if (ms->key_type == NO_KEY) {
-            sprintf(str + strlen(str), "          NONE           |");
+            snprintf(str + strlen(str), str_size - strlen(str), "          NONE           |");
         } else if (ms->key_type == HMAC_SHA_1_96) {
-            sprintf(str + strlen(str), "     HMAC-SHA-1-96       |");
+            snprintf(str + strlen(str), str_size - strlen(str), "     HMAC-SHA-1-96       |");
         } else {
-            sprintf(str + strlen(str), "    HMAC-SHA-256-128     |");
+            snprintf(str + strlen(str), str_size - strlen(str), "    HMAC-SHA-256-128     |");
         }
         OOR_LOG(log_level, "%s", str);
     }
