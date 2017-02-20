@@ -6,7 +6,8 @@ STOP=80
 
 start() {
         echo "Stopping previous oor process ..."
-        killall oor &> /dev/null
+        killall /usr/sbin/oor &> /dev/null
+        rm /var/run/oor.pid
         echo "Starting Open Overlay Router ..."
         /usr/sbin/oor -D
 }
