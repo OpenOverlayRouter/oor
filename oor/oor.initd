@@ -1,0 +1,54 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          oor
+# Required-Start:    $local_fs $time $syslog
+# Required-Stop:     $local_fs $time $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Description:       Open Overlay Router
+### END INIT INFO
+
+PIDFILE=/var/run/oor.pid
+STDOUT=/var/log/oor.stdout
+STDERR=/var/log/oor.stderr
+
+start() {
+  PID=`ps -fea|awk ' \$8 ~ /oor/ { print \$2;}'|head -1`
+  if [ "$PID" != "" ] && [ -d /proc/$PID ]; then
+    echo 'Service already running PID ' $PID >&2
+    return 1
+  fi
+  if [ -f $PIDFILE ]; then
+    rm $PIDFILE 2>/dev/null
+  fi
+  echo 'Starting service…' >&2
+  /usr/local/sbin/oor -D 2>$STDERR >$STDOUT
+  echo 'Service started' >&2
+}
+
+stop() {
+  PID=`ps -fea|awk ' \$8 ~ /oor/ { print \$2;}'|head -1`
+  if [ "$PID" == "" ] || [ ! -d /proc/$PID ]; then
+    echo 'Service not running' >&2
+    return 1
+  fi
+  echo 'Stopping service running PID ' $PID >&2
+  kill -9 $PID
+  rm -f "$PIDFILE"
+  echo 'Service stopped' >&2
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart)
+    stop
+    start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+esac
