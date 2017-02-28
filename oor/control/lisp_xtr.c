@@ -2284,6 +2284,7 @@ xtr_run(lisp_xtr_t *xtr)
     void *it;
     int num_eids = 0;
 
+
     if (xtr->super.mode == MN_MODE){
         OOR_LOG(LDBG_1, "\nStarting xTR MN ...\n");
     }
@@ -2292,29 +2293,34 @@ xtr_run(lisp_xtr_t *xtr)
     }
 
     if (glist_size(xtr->map_servers) == 0) {
-        OOR_LOG(LCRIT, "**** NO MAP SERVER CONFIGURED. Your EID will not be registered in the Mapping System.");
-        sleep(3);
+        OOR_LOG(LWRN, "**** NO MAP SERVER CONFIGURED. Your EID will not be registered in the Mapping System.");
+        oor_timer_sleep(2);
     }
 
     if (glist_size(xtr->map_resolvers) == 0) {
         OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURED. You can not request mappings to the mapping system");
-        sleep(3);
+        oor_timer_sleep(2);
     }
 
     if (mcache_has_locators(xtr->petrs) == FALSE) {
         OOR_LOG(LWRN, "No Proxy-ETR defined. Packets to non-LISP destinations "
                 "will be forwarded natively (no LISP encapsulation). This "
                 "may prevent mobility in some scenarios.");
-        sleep(3);
+        oor_timer_sleep(2);
     } else {
         xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs);
     }
 
     /* Check configured parameters when NAT-T activated. */
     if (xtr->nat_aware == TRUE) {
-        if (glist_size(xtr->map_servers) > 1
-                || lisp_addr_ip_afi(((map_server_elt *)glist_first_data(xtr->map_servers))->address) != AF_INET) {
-            OOR_LOG(LERR, "NAT aware on -> This version of OOR is limited to one IPv4 Map Server.");
+        if (glist_size(xtr->map_servers) > 1) {
+            OOR_LOG(LERR, "NAT aware on -> This version of OOR is limited to one Map Server.");
+            exit_cleanup();
+        }
+
+        if (glist_size(xtr->map_servers) == 1 &&
+                lisp_addr_ip_afi(((map_server_elt *)glist_first_data(xtr->map_servers))->address) != AF_INET) {
+            OOR_LOG(LERR, "NAT aware on -> This version of OOR is limited to IPv4 Map Server.");
             exit_cleanup();
         }
 
@@ -2415,7 +2421,7 @@ rtr_run(lisp_xtr_t *xtr)
 
     if (glist_size(xtr->map_resolvers) == 0) {
         OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURES. You can not request mappings to the mapping system");
-        sleep(3);
+        oor_timer_sleep(2);
     }
 
     OOR_LOG(LINF, "****** Summary of the configuration ******");

@@ -466,3 +466,13 @@ destroy_timers_event_socket()
     close(signal_pipe[1]);
     return(GOOD);
 }
+
+void
+oor_timer_sleep(int sec)
+{
+    struct timespec timeout;
+
+    timeout.tv_sec = sec;
+    timeout.tv_nsec = 0;
+    while (nanosleep(&timeout, &timeout) == -1 && errno == EINTR);
+}
