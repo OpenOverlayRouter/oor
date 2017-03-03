@@ -1,0 +1,72 @@
+<edit-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+<target><running /></target>
+<default-operation>replace</default-operation>
+<config>
+
+<etr-cfg xmlns="urn:ietf:params:xml:ns:yang:lispsimple">
+  <map-servers>
+    <map-server>
+      <address>x.x.x.x</address>
+      <auth-key>password</auth-key>
+      <auth-key-type>hmac-sha-1-96</auth-key-type>
+    </map-server>
+    <proxy-reply>true</proxy-reply>
+  </map-servers>
+ <local-eids>
+  <local-eid>
+      <id>eid1</id>
+      <eid-address>
+	<afi>ipv4/ipv6</afi>
+	<instance-id>0</instance-id>
+	<ipv4>x.x.x.x</ipv4>
+	<mask>x</mask>
+      </eid-address>
+      <rlocs>
+        <rloc>
+          <name>rloc1</name>
+          <interface>eth0</interface>
+          <priority>1</priority>
+          <weight>100</weight>
+	  <multicast-priority>255</multicast-priority>
+	  <multicast-weight>0</multicast-weight>
+        </rloc>
+      </rlocs>
+      <record-ttl>10</record-ttl>
+  </local-eid>
+    <local-eid>
+      <id>eid2</id>
+      <eid-address>
+	<afi>ipv4</afi>
+	<instance-id>0</instance-id>
+	<ipv4>y.y.y.y</ipv4>
+	<mask>24</mask>
+      </eid-address>
+      <rlocs>
+        <rloc>
+          <name>rloc2</name>
+          <locator-address>
+	    <afi>ipv4</afi>
+            <ipv4>z.z.z.z</ipv4>
+	  </locator-address>
+          <priority>1</priority>
+          <weight>100</weight>
+	  <multicast-priority>255</multicast-priority>
+	  <multicast-weight>0</multicast-weight>
+        </rloc>
+      </rlocs>
+      <record-ttl>10</record-ttl>
+  </local-eid>
+ </local-eids>
+</etr-cfg>
+
+<itr-cfg xmlns="urn:ietf:params:xml:ns:yang:lispsimple">
+  <map-resolvers>
+    <map-resolver>
+      <id>MR-ODL</id>
+      <map-resolver-address>x.x.x.x</map-resolver-address>
+    </map-resolver>
+  </map-resolvers>
+</itr-cfg>
+
+</config>
+</edit-config>
