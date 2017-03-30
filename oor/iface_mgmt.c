@@ -84,27 +84,27 @@ process_netlink_msg(struct sock *sl)
                 nlh = NLMSG_NEXT(nlh, len)) {
             switch (nlh->nlmsg_type) {
             case RTM_NEWADDR:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received new address "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received new address "
                         "message");
                 process_nl_add_address(nlh);
                 break;
             case RTM_DELADDR:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received del address "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received del address "
                         "message");
                 process_nl_del_address(nlh);
                 break;
             case RTM_NEWLINK:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received link "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received link "
                         "message");
                 process_nl_new_link(nlh);
                 break;
             case RTM_NEWROUTE:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received new route "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received new route "
                         "message");
                 process_nl_new_route(nlh);
                 break;
             case RTM_DELROUTE:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received delete route "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received delete route "
                         "message");
                 process_nl_del_route(nlh);
                 break;
@@ -211,13 +211,20 @@ process_address_change(iface_t *iface, lisp_addr_t *new_addr)
                     " Skipped %s address in iface %s",
                     lisp_addr_to_char(net_addr), iface->iface_name);
             return;
+        }else{
+            OOR_LOG(LDBG_2,"process_address_change: New address %s belongs to the prefix %s",
+                    lisp_addr_to_char(new_addr),lisp_addr_to_char(net_addr));
         }
+    }else{
+        OOR_LOG(LDBG_2,"precess_address_change: No gateway address for the interface %s. Skipped %s address",
+                iface->iface_name, lisp_addr_to_char(new_addr));
+        return;
     }
 
     /* Detected a valid change of address  */
     OOR_LOG(LDBG_2,"process_address_change: New address detected for interface "
-            "%s. Address changed from %s to %s", iface->iface_name,
-            lisp_addr_to_char(iface_addr), lisp_addr_to_char(new_addr));
+            "%s. Address changed from %s to %s. The gateway of the interface is: %s", iface->iface_name,
+            lisp_addr_to_char(iface_addr), lisp_addr_to_char(new_addr), lisp_addr_to_char(gw_addr));
 
 
     old_addr_cpy = lisp_addr_clone(iface_addr);
@@ -468,7 +475,8 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
     if (lisp_addr_cmp(iface_addr,new_iface_addr)!=0){
         // We have selected a wrong address to the interface. Replace and notify it
         OOR_LOG(LDBG_2, "process_nl_new_unicast_route: Used iface address not match "
-                "with the gateway. Replacing it");
+                "with the gateway. Replacing %s with %s", lisp_addr_to_char(iface_addr),
+                lisp_addr_to_char(new_iface_addr));
         old_addr_cpy = lisp_addr_clone(iface_addr);
         /* raise event to data plane */
         data_plane->datap_updated_addr(iface,iface_addr,new_iface_addr);
@@ -913,10 +921,13 @@ get_network_pref_of_host(lisp_addr_t *address)
         }
     }
     close(netlink_fd);
+    OOR_LOG(LDBG_3, "get_network_pref_of_host: No network prefix found for host %s", lisp_addr_to_char(address));
     return (NULL);
 
     find:
     close(netlink_fd);
+    OOR_LOG(LDBG_3, "get_network_pref_of_host: Network prefix for host %s is %s",
+            lisp_addr_to_char(address), lisp_addr_to_char(&net_prefix));
     return (lisp_addr_clone(&net_prefix));
 
 }
@@ -934,6 +945,10 @@ iface_get_getway(int iface_index, int afi)
     struct rtattr *rt_attr;
     char sndbuf[4096],rcvbuf[4096];
     int rta_len = 0, retval, readlen, recv_pyload_len, iface_id, attrs;
+    char iface_name[IF_NAMESIZE];
+
+    if_indextoname(iface_index, iface_name);
+
 
     memset(&addr, 0, sizeof(addr));
     addr.nl_family = AF_NETLINK;
@@ -1019,11 +1034,13 @@ iface_get_getway(int iface_index, int afi)
             }
         }
     }
+    OOR_LOG(LDBG_3, "iface_get_getway: No gateway detected for interface %s",iface_name);
     close(netlink_fd);
     return (NULL);
 
     find:
     close(netlink_fd);
+    OOR_LOG(LDBG_3, "iface_get_getway: The gateway for interface %s is %s", iface_name, lisp_addr_to_char(&gateway));
     return (lisp_addr_clone(&gateway));
 }
 

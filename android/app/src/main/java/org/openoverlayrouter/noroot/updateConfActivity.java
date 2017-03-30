@@ -450,7 +450,6 @@ public class updateConfActivity extends Fragment {
                     .append("#   Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses\n\n")
                     .append("proxy-itrs = {\n")
                     .append("        69.31.31.98,\n")
-                    .append("        149.20.48.60,\n")
                     .append("        198.6.255.37,\n")
                     .append("        173.36.193.25,\n")
                     .append("        129.250.1.63,\n")
