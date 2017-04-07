@@ -115,6 +115,12 @@ oor_log(int log_level, char *log_name, const char *format,
     }else{
         vsyslog(log_level,format,args);
     }
+    if(!daemonize){
+        printf("[%d/%d/%d %d:%d:%d] %s: ",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+        vfprintf(stdout,format,args);
+        printf("\n");
+    }
 #else
     if (daemonize){
         if (fp != NULL){

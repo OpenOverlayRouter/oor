@@ -896,7 +896,7 @@ handle_config_file()
 
 
     if (ret == CFG_FILE_ERROR) {
-        OOR_LOG(LCRIT, "Couldn't find config file %s, exiting...", config_file);
+        OOR_LOG(LCRIT, "Couldn't find config file %s. If you are useing OOR in daemon mode, please indicate a full path file.", config_file);
         cfg_free(cfg);
         return (BAD);
     } else if(ret == CFG_PARSE_ERROR) {

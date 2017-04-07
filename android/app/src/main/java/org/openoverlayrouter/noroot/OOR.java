@@ -59,8 +59,6 @@ public class OOR extends Fragment {
 
         faActivity = (FragmentActivity) super.getActivity();
         llLayout = (LinearLayout) inflater.inflate(R.layout.main, container, false);
-
-
         try {
             shell = new SuShell();
         } catch (IOException e) {
@@ -69,7 +67,7 @@ public class OOR extends Fragment {
 		/* Get the directory of the executable */
 
         try {
-            oor_path = faActivity.getPackageManager().getApplicationInfo("org.openoverlayrouter", 0).nativeLibraryDir; //  dataDir + "/lib"
+            oor_path = faActivity.getPackageManager().getApplicationInfo("org.openoverlayrouter.noroot", 0).nativeLibraryDir; //  dataDir + "/lib"
             conf_file = Environment.getExternalStorageDirectory().getAbsolutePath() + "/oor.conf";
         } catch (Exception e) {
             Log.e("OOR", e.getMessage());
@@ -202,7 +200,8 @@ public class OOR extends Fragment {
     }
 
     public void startOOR() {
-        String command = oor_path + "/liboorexec.so -D -d 2 -f " + conf_file;
+        String command = oor_path + "/liboorexec.so -D -f " + conf_file;
+
         shell.run_no_output(command);
 
         try {
