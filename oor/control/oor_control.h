@@ -42,7 +42,7 @@ struct oor_ctrl {
 
 oor_ctrl_t *ctrl_create();
 void ctrl_destroy(oor_ctrl_t *ctrl);
-void ctrl_init(oor_ctrl_t *ctrl);
+int ctrl_init(oor_ctrl_t *ctrl);
 
 void ctrl_update_iface_info(oor_ctrl_t *ctrl);
 
@@ -57,7 +57,7 @@ lisp_addr_t *ctrl_default_rloc(oor_ctrl_t *c, int afi);
 glist_t *ctrl_default_rlocs(oor_ctrl_t * ctrl);
 glist_t *ctrl_rlocs(oor_ctrl_t *ctrl);
 glist_t *ctrl_rlocs_with_afi(oor_ctrl_t *c, int afi) ;
-inline int ctrl_supported_afis(oor_ctrl_t *ctrl);
+int ctrl_supported_afis(oor_ctrl_t *ctrl);
 
 void ctrl_if_addr_update(oor_ctrl_t *, iface_t *, lisp_addr_t *,
         lisp_addr_t *);
@@ -68,9 +68,12 @@ void ctrl_route_update(oor_ctrl_t *ctrl, int command, iface_t *iface,lisp_addr_t
 fwd_info_t *ctrl_get_forwarding_info(packet_tuple_t *);
 int ctrl_register_device(oor_ctrl_t *ctrl, oor_ctrl_dev_t *dev);
 
-int ctrl_register_eid_prefix(oor_ctrl_dev_t *dev, lisp_addr_t *eid_prefix);
+int ctrl_register_mapping_dp(oor_ctrl_dev_t *dev, mapping_t *map);
+int ctrl_unregister_mapping_dp(oor_ctrl_dev_t *dev, mapping_t *map);
+int ctrl_notify_mapping_change_to_dp(lisp_addr_t *eid_prefix, uint8_t is_local);
 
-int ctrl_unregister_eid_prefix(oor_ctrl_dev_t *dev, lisp_addr_t *eid_prefix);
+int ctrl_datap_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local);
+int ctrl_datap_reset_all_fwd();
 
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);

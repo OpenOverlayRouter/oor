@@ -263,24 +263,41 @@ parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
 {
     int n,i;
     /* PROXY-ETR CONFIG */
-    n = cfg_size(cfg, "proxy-etr");
+    n = cfg_size(cfg, "proxy-etr-ipv4");
     for(i = 0; i < n; i++) {
-        cfg_t *petr = cfg_getnsec(cfg, "proxy-etr", i);
-        if (add_proxy_etr_entry(xtr->petrs,
+        cfg_t *petr = cfg_getnsec(cfg, "proxy-etr-ipv4", i);
+        if (add_proxy_etr_entry(xtr->petrs_ipv4,
                 cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
                 cfg_getint(petr, "weight")) == GOOD) {
-            OOR_LOG(LDBG_1, "Added %s to proxy-etr list", cfg_getstr(petr, "address"));
+            OOR_LOG(LDBG_1, "Added %s to proxy-etr list for IPv4 EIDs", cfg_getstr(petr, "address"));
+        } else{
+            OOR_LOG(LERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
+        }
+    }
+
+    n = cfg_size(cfg, "proxy-etr-ipv6");
+    for(i = 0; i < n; i++) {
+        cfg_t *petr = cfg_getnsec(cfg, "proxy-etr-ipv6", i);
+        if (add_proxy_etr_entry(xtr->petrs_ipv6,
+                cfg_getstr(petr, "address"),
+                cfg_getint(petr, "priority"),
+                cfg_getint(petr, "weight")) == GOOD) {
+            OOR_LOG(LDBG_1, "Added %s to proxy-etr list for IPv6 EIDs", cfg_getstr(petr, "address"));
         } else{
             OOR_LOG(LERR, "Can't add proxy-etr %s", cfg_getstr(petr, "address"));
         }
     }
 
     /* Calculate forwarding info for petrs */
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs,
-            xtr->fwd_policy->del_map_cache_policy_inf) != GOOD){
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4) != GOOD){
         OOR_LOG(LDBG_1, "parse_proxy_etrs: Couldn't initiate routing info for PeTRs!.");
-        mcache_entry_del(xtr->petrs);
+        mcache_entry_del(xtr->petrs_ipv4);
+        return(BAD);
+    }
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6) != GOOD){
+        OOR_LOG(LDBG_1, "parse_proxy_etrs: Couldn't initiate routing info for PeTRs!.");
+        mcache_entry_del(xtr->petrs_ipv6);
         return(BAD);
     }
     return (GOOD);
@@ -323,8 +340,7 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
             continue;
         }
         if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm,map_loc_e,NULL,
-                xtr->fwd_policy->del_map_loc_policy_inf)!= GOOD){
+                xtr->fwd_policy_dev_parm,map_loc_e,NULL)!= GOOD){
             OOR_LOG(LERR, "Couldn't inititate forward information for mapping with EID: %s. Discarding it...",
                     lisp_addr_to_char(mapping_eid(mapping)));
             map_local_entry_del(map_loc_e);
@@ -349,7 +365,11 @@ configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
     mapping_t *mapping;
 
     /* FWD POLICY STRUCTURES */
+#ifdef VPP
+    xtr->fwd_policy = fwd_policy_class_find("vpp_balancing");
+#else
     xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
+#endif
     xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
 
     if ((encap = cfg_getstr(cfg, "encapsulation")) != NULL) {
@@ -489,8 +509,7 @@ configure_rtr(cfg_t *cfg)
         }
 
         if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm,map_loc_e,NULL,
-                xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+                xtr->fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
             OOR_LOG(LERR, "Couldn't initiate forward information for rtr database mapping with EID: %s. Discarding it...",
                     lisp_addr_to_char(mapping_eid(mapping)));
             map_local_entry_del(map_loc_e);
@@ -849,7 +868,8 @@ handle_config_file(char **oor_conf_file)
             CFG_SEC("static-map-cache",     map_cache_mapping_opts, CFGF_MULTI),
             CFG_SEC("map-server",           map_server_opts,        CFGF_MULTI),
             CFG_SEC("rtr-ifaces",           rtr_ifaces_opts,        CFGF_MULTI),
-            CFG_SEC("proxy-etr",            petr_mapping_opts,      CFGF_MULTI),
+            CFG_SEC("proxy-etr-ipv4",       petr_mapping_opts,      CFGF_MULTI),
+            CFG_SEC("proxy-etr-ipv6",       petr_mapping_opts,      CFGF_MULTI),
             CFG_STR("encapsulation",        0,                      CFGF_NONE),
             CFG_SEC("rloc-probing",         rloc_probing_opts,      CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),

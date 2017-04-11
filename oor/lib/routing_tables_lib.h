@@ -42,12 +42,6 @@ int del_rule(int afi, int if_index, uint8_t table, uint32_t priority, uint8_t ty
         lisp_addr_t *src_pref, lisp_addr_t *dst_pref, int flags);
 
 /*
- * Request to the kernel the routing table with the selected afi
- */
-int request_route_table(uint32_t table, int afi);
-
-
-/*
  * Creates a routing entry in the specified table
  * ifindex:     Output interface
  * dest:        Destination address

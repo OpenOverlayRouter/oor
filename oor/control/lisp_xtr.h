@@ -55,7 +55,8 @@ typedef struct lisp_xtr {
     int probe_retries;
     int probe_retries_interval;
 
-    mcache_entry_t *petrs;
+    mcache_entry_t *petrs_ipv4; // PeTR used for IPv4 EIDs
+    mcache_entry_t *petrs_ipv6; // PeTR used for IPv6 EIDs
     glist_t *pitrs; // <lisp_addr_t *>
 
     /* DATABASES */
@@ -142,5 +143,5 @@ mapping_t *tr_mcache_lookup_mapping(lisp_xtr_t *, lisp_addr_t *);
 mapping_t *tr_mcache_lookup_mapping_exact(lisp_xtr_t *, lisp_addr_t *);
 
 
-inline oor_encap_t tr_get_encap_type(lisp_xtr_t *tr);
+oor_encap_t tr_get_encap_type(lisp_xtr_t *tr);
 #endif /* LISP_XTR_H_ */

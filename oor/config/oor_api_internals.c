@@ -709,7 +709,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     /* Remove routing configuration for the eids */
     local_map_db_foreach_entry(xtr->local_mdb, it) {
         map_loc_e = (map_local_entry_t *)it;
-        ctrl_unregister_eid_prefix(ctrl_dev, map_local_entry_eid(map_loc_e));
+        ctrl_unregister_mapping_dp(ctrl_dev, map_local_entry_mapping(map_loc_e));
     } local_map_db_foreach_end;
 
     /* Empty local database */
@@ -750,8 +750,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
             goto err;
         }
         if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm, map_loc_e, NULL,
-                xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+                xtr->fwd_policy_dev_parm, map_loc_e, NULL) != GOOD){
             OOR_LOG(LDBG_2, "OOR_API: Couldn't initiate forward information for mapping with EID: %s",conf_mapping->eid_prefix);
             goto err;
         }
@@ -766,7 +765,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
                 lisp_addr_to_char(&(processed_mapping->eid_prefix)));
 
         /* Update the routing rules for the new EID */
-        if (ctrl_register_eid_prefix(ctrl_dev,mapping_eid(processed_mapping))!=GOOD){
+        if (ctrl_register_mapping_dp(ctrl_dev,processed_mapping)!=GOOD){
             OOR_LOG(LERR, "OOR_API: Unable to update data-plane for mapping %s",
                     lisp_addr_to_char(&(processed_mapping->eid_prefix)));
             goto err;
@@ -827,7 +826,7 @@ oor_api_xtr_mapdb_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     /* Remove routing configuration for the eids */
     local_map_db_foreach_entry(xtr->local_mdb, it) {
         map_loc_e = (map_local_entry_t *)it;
-        ctrl_unregister_eid_prefix(ctrl_dev, map_local_entry_eid(map_loc_e));
+        ctrl_unregister_mapping_dp(ctrl_dev, map_local_entry_mapping(map_loc_e));
     } local_map_db_foreach_end;
 
     /* Empty local database */
@@ -903,17 +902,25 @@ oor_api_xtr_petrs_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     doc = NULL;
 
     //Everything fine. We replace the old list with the new one
-    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs)));
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv4)));
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv6)));
     glist_for_each_entry(addr_it,str_addr_list){
         str_addr = (char *)glist_entry_data(addr_it);
-        add_proxy_etr_entry(xtr->petrs,str_addr,1,100);
+        add_proxy_etr_entry(xtr->petrs_ipv4,str_addr,1,100);
+        add_proxy_etr_entry(xtr->petrs_ipv6,str_addr,1,100);
     }
 
-    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs);
+
+    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4);
+    notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(xtr->petrs_ipv4),FALSE);
+
+    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6);
+    notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(xtr->petrs_ipv6),FALSE);
 
     OOR_LOG(LDBG_1, "OOR_API: List of Proxy ETRs successfully created");
     OOR_LOG(LDBG_1, "************************* Proxy ETRs List ****************************");
-    mapping_to_char(mcache_entry_mapping(xtr->petrs));
+    mapping_to_char(mcache_entry_mapping(xtr->petrs_ipv4));
+    mapping_to_char(mcache_entry_mapping(xtr->petrs_ipv6));
 
     result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
     oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);
@@ -945,7 +952,8 @@ oor_api_xtr_petrs_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
     xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
 
-    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs)));
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv4)));
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv6)));
 
     result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
     oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);

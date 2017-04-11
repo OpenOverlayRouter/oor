@@ -31,6 +31,7 @@ extern int netlink_fd;
 extern oor_ctrl_dev_t *ctrl_dev;
 extern oor_ctrl_t *lctrl;
 extern data_plane_struct_t *data_plane;
+extern net_mgr_class_t *net_mgr;
 
 extern void exit_cleanup();
 extern htable_nonces_t *nonces_ht;

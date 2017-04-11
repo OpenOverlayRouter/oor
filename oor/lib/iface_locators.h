@@ -30,7 +30,7 @@ typedef struct iface_locators_{
     glist_t     *map_loc_entries;   /*Mappings associated to this iface <map_local_entry_t>*/
     glist_t     *ipv4_locators;     /*IPv4 locators associated with this iface <lisp_addr_t>*/
     glist_t     *ipv6_locators;     /*IPv6 locators associated with this iface <lisp_addr_t>*/
-    uint8_t     status_changed:1;   /*Iface change status --> Used to avioid transitions*/
+    uint8_t     status_changed;     /*Iface change status --> Used to avioid transitions*/
     lisp_addr_t *ipv4_prev_addr;    /*Previous IPv4 address of the iface --> Used to avoid transitions A->B->A*/
     lisp_addr_t *ipv6_prev_addr;    /*Previous IPv6 address of the iface --> Used to avoid transitions A->B->A*/
 }iface_locators;

@@ -51,8 +51,10 @@ shash_insert(shash_t *sh, char *key, void *val)
         k = kh_put(str,sh->htable,key,&ret);
     }else{
         free(key);
+        if (sh->free_value_fn){
+            sh->free_value_fn(kh_value(sh->htable,k));
+        }
     }
-    k = kh_put(str,sh->htable,key,&ret);
     kh_value(sh->htable, k) = val;
 }
 

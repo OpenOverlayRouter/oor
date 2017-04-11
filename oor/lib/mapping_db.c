@@ -41,7 +41,7 @@ patricia_node_t *pt_find_ip_node_exact(patricia_tree_t *pt, ip_addr_t *ipaddr,
         uint8_t prefixlen);
 patricia_node_t *pt_find_mc_node(patricia_tree_t *pt, lcaf_addr_t *mcaddr,
         uint8_t exact);
-inline void pt_remove_node(patricia_tree_t *pt, patricia_node_t *node);
+void pt_remove_node(patricia_tree_t *pt, patricia_node_t *node);
 
 uint8_t pt_test_if_empty(patricia_tree_t *pt);
 prefix_t *pt_make_ip_prefix(ip_addr_t *ipaddr, uint8_t prefixlen);
@@ -620,11 +620,6 @@ mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr)
     }else{
         return(NULL);
     }
-}
-
-inline int
-mdb_n_entries(mdb_t *mdb) {
-    return(mdb->n_entries);
 }
 
 /*

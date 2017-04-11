@@ -33,30 +33,6 @@
 #include "../iface_list.h"
 #include "../liblisp/liblisp.h"
 
-inline fwd_entry_t *
-fwd_entry_new_init(lisp_addr_t *srloc, lisp_addr_t *drloc, uint32_t iid, int *out_socket)
-{
-    fwd_entry_t *fw_entry = xzalloc(sizeof(fwd_entry_t));
-    if (!fw_entry){
-        return (NULL);
-    }
-    fw_entry->srloc = lisp_addr_clone(srloc);
-    fw_entry->drloc = lisp_addr_clone(drloc);
-    fw_entry->iid = iid;
-    fw_entry->out_sock = out_socket;
-    return (fw_entry);
-}
-
-inline void
-fwd_entry_del(fwd_entry_t *fwd_entry)
-{
-    if (fwd_entry == NULL){
-        return;
-    }
-    lisp_addr_del(fwd_entry->srloc);
-    lisp_addr_del(fwd_entry->drloc);
-    free(fwd_entry);
-}
 
 
 sockmstr_t *
@@ -66,8 +42,6 @@ sockmstr_create()
     sm = xzalloc(sizeof(sockmstr_t));
     return (sm);
 }
-
-
 
 static void
 sock_list_remove_all(sock_list_t *lst)
@@ -82,8 +56,6 @@ sock_list_remove_all(sock_list_t *lst)
         sk = next;
     }
 }
-
-
 
 static inline void
 sock_list_add(sock_list_t *lst, sock_t *sock)
@@ -138,7 +110,6 @@ sock_list_remove(sock_list_t *lst, struct sock *sock)
         }
     }
 }
-
 
 void
 sockmstr_destroy(sockmstr_t *sm)
@@ -363,7 +334,6 @@ open_data_datagram_input_socket(int afi, int port)
     return (sock);
 }
 
-
 int
 sock_recv(int sfd, lbuf_t *b)
 {
@@ -529,4 +499,21 @@ uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,lisp_addr_t *ra)
     ra ? lisp_addr_copy(&uc->ra, ra) :
             lisp_addr_set_lafi(&uc->ra, LM_AFI_NO_ADDR);
     return(GOOD);
+}
+
+void
+uconn_from_5_tuple (packet_tuple_t *tuple, uconn_t *udp_con, uint8_t is_pkt_rx)
+{
+    if (is_pkt_rx){
+        lisp_addr_copy(&udp_con->la, &tuple->dst_addr);
+        lisp_addr_copy(&udp_con->ra, &tuple->src_addr);
+        udp_con->lp = tuple->dst_port;
+        udp_con->rp = tuple->src_port;
+
+    }else{
+        lisp_addr_copy(&udp_con->la, &tuple->src_addr);
+        lisp_addr_copy(&udp_con->ra, &tuple->dst_addr);
+        udp_con->lp = tuple->src_port;
+        udp_con->rp = tuple->dst_port;
+    }
 }

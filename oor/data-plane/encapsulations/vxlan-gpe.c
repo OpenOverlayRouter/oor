@@ -21,6 +21,17 @@
 #include "../../lib/oor_log.h"
 #include "../../lib/packets.h"
 
+vxlan_gpe_nprot_t
+vxlan_gpe_get_next_prot(lisp_addr_t *addr)
+{
+    //XXX To be improved
+    if (lisp_addr_ip_afi(addr) == AF_INET){
+        return (NP_IPv4);
+    }else{
+        return (NP_IPv6);
+    }
+}
+
 void
 vxlan_gpe_data_hdr_init(vxlan_gpe_hdr_t *vhdr, uint32_t vni, vxlan_gpe_nprot_t np)
 {

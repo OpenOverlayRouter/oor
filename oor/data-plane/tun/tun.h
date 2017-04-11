@@ -20,26 +20,16 @@
 #ifndef TUN_H_
 #define TUN_H_
 
-#include <stdio.h>
-#include <net/if.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <linux/if_tun.h>
+
+#include "../ttable.h"
 #include "../encapsulations/vxlan-gpe.h"
+#include "../../lib/shash.h"
 #include "../../liblisp/liblisp.h"
 
 
-#ifdef ANDROID
-#define CLONEDEV                "/dev/tun"
-#else
-#define CLONEDEV                "/dev/net/tun"
-#endif
-
 #define TUN_IFACE_NAME          "lispTun0"
+#define TUN_RECEIVE_SIZE        2048
 
-#define TUN_RECEIVE_SIZE        2048 // Should probably tune to match largest MTU
 
 /*
  * From section 5.4.1 of LISP RFC (6830)
@@ -83,7 +73,15 @@ typedef struct tun_dplane_data_{
     oor_encap_t encap_type;
     iface_t *default_out_iface_v4;
     iface_t *default_out_iface_v6;
+    /* < char *eid -> glist_t <fwd_info_t *>> Used to find the fwd entries to be removed
+     * of the data plane when there is a change with the mapping of the eid */
+    shash_t *eid_to_dp_entries; //< char *eid -> glist_t <fwd_info_t *>>
+    /* Hash table containg the forward info from a tupla */
+    ttable_t ttable;
 }tun_dplane_data_t;
+
+tun_dplane_data_t * tun_get_datap_data();
+int tun_reset_all_fwd();
 
 extern data_plane_struct_t dplane_tun;
 

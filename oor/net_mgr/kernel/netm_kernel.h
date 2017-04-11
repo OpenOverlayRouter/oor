@@ -17,15 +17,40 @@
  *
  */
 
-#ifndef IFACE_MGMT_H_
-#define IFACE_MGMT_H_
+#ifndef NETM_KERNEL_H_
+#define NETM_KERNEL_H_
 
-#include "iface_list.h"
-#include "lib/sockets.h"
+#ifdef ANDROID
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#endif
+
+typedef struct netm_data_type_ {
+    int netlink_fd;
+}netm_data_type;
 
 
-int process_netlink_msg(sock_t *sl);
-void iface_mac_address(char *iface_name, uint8_t *mac);
-int get_all_ifaces_name_list(char ***ifaces,int *count);
+#ifdef ANDROID
 
-#endif /* IFACE_MGMT_H_ */
+/*
+ * Different from oor_if_t to maintain
+ * linux system call compatibility.
+ */
+typedef struct ifaddrs {
+    struct ifaddrs      *ifa_next;
+    char                *ifa_name;
+    unsigned int         ifa_flags;
+    struct sockaddr      *ifa_addr;
+    int                  ifa_index;
+} ifaddrs;
+
+
+typedef struct {
+    struct nlmsghdr nlh;
+    struct rtgenmsg  rtmsg;
+} request_struct;
+
+#endif
+
+
+#endif /* NETM_KERNEL_H_ */

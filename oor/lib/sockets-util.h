@@ -28,8 +28,8 @@ int open_udp_raw_socket(int afi);
 int opent_netlink_socket();
 
 int open_udp_datagram_socket(int afi);
-inline int socket_bindtodevice(int sock, char *device);
-inline int socket_conf_req_ttl_tos(int sock, int afi);
+int socket_bindtodevice(int sock, char *device);
+int socket_conf_req_ttl_tos(int sock, int afi);
 
 int bind_socket(int sock,int afi, lisp_addr_t *src_addr, int src_port);
 int send_raw_packet(int, const void *, int, ip_addr_t *);

@@ -26,6 +26,7 @@
 #include "../lib/oor_log.h"
 #include "../lib/routing_tables_lib.h"
 #include "../lib/mem_util.h"
+#include "../net_mgr/net_mgr.h"
 
 
 
@@ -98,13 +99,18 @@ ctrl_destroy(oor_ctrl_t *ctrl)
     OOR_LOG(LDBG_1,"Lisp controler destroyed");
 }
 
-void
+int
 ctrl_init(oor_ctrl_t *ctrl)
 {
-    ctrl->control_data_plane->control_dp_init(ctrl,smaster);
-    set_rlocs(ctrl);
+    if (ctrl->control_data_plane->control_dp_init(ctrl,smaster)!= GOOD){
+        OOR_LOG(LERR, "Could not initialize control plane");
+        return (BAD);
+    }
 
+    set_rlocs(ctrl);
     OOR_LOG(LDBG_1, "Control initialized");
+
+    return (GOOD);
 }
 
 void
@@ -131,9 +137,10 @@ ctrl_update_iface_info(oor_ctrl_t *ctrl)
     }
     if (new_ifaces == TRUE){
         set_rlocs(ctrl);
-        request_route_table(RT_TABLE_MAIN,AF_INET);
-        request_route_table(RT_TABLE_MAIN,AF_INET6);
+        net_mgr->netm_reload_routes(RT_TABLE_MAIN,AF_INET);
+        net_mgr->netm_reload_routes(RT_TABLE_MAIN,AF_INET6);
     }
+
 }
 
 void
@@ -164,7 +171,7 @@ ctrl_if_link_update(oor_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
     dev = glist_first_data(ctrl->devices);
 
     ctrl->control_data_plane->control_dp_update_link(ctrl, iface, old_iface_index, new_iface_index, status);
-    ctrl_dev_if_link_update(dev, iface->iface_name, iface_status(iface));
+    ctrl_dev_if_link_update(dev, iface->iface_name, status);
     set_rlocs(ctrl);
 }
 
@@ -257,34 +264,48 @@ ctrl_register_device(oor_ctrl_t *ctrl, oor_ctrl_dev_t *dev)
 }
 
 int
-ctrl_register_eid_prefix(oor_ctrl_dev_t *dev, lisp_addr_t *eid_prefix)
+ctrl_register_mapping_dp(oor_ctrl_dev_t *dev, mapping_t *map)
 {
     oor_dev_type_e dev_type = dev->mode;
+    int res = GOOD;
+
     if (dev_type == xTR_MODE || dev_type == MN_MODE || dev_type == RTR_MODE){
-        data_plane->datap_add_eid_prefix(dev_type,eid_prefix);
+        res = data_plane->datap_register_lcl_mapping(dev_type,map);
     }else{
         OOR_LOG(LDBG_1, "Current version only supports the registration in control of "
                         "EID prefixes from xTRs and MNs");
     }
 
+    return (res);
+}
+
+int
+ctrl_unregister_mapping_dp(oor_ctrl_dev_t *dev, mapping_t *map)
+{
+    oor_dev_type_e dev_type = dev->mode;
+
+    if (data_plane){
+        if (dev_type == xTR_MODE || dev_type == MN_MODE || dev_type == RTR_MODE){
+            data_plane->datap_deregister_lcl_mapping(dev_type,map);
+        }else{
+            OOR_LOG(LDBG_1, "Current version only supports the unregistration in control of "
+                    "EID prefixes from xTRs");
+        }
+    }
     return (GOOD);
 }
 
 int
-ctrl_unregister_eid_prefix(oor_ctrl_dev_t *dev, lisp_addr_t *eid_prefix)
+ctrl_datap_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local)
 {
-    oor_dev_type_e dev_type = dev->mode;
-
-    if (dev_type == xTR_MODE || dev_type == MN_MODE || dev_type == RTR_MODE){
-        data_plane->datap_remove_eid_prefix(dev_type,eid_prefix);
-    }else{
-        OOR_LOG(LDBG_1, "Current version only supports the unregistration in control of "
-                "EID prefixes from xTRs");
-    }
-
-    return (GOOD);
+    return (data_plane->datap_rm_fwd_from_entry(eid_prefix, is_local));
 }
 
+int
+ctrl_datap_reset_all_fwd()
+{
+    return (data_plane->datap_reset_all_fwd());
+}
 
 /*
  * Multicast Interface to end-hosts

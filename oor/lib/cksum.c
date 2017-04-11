@@ -166,7 +166,7 @@ udp_checksum(struct udphdr *udph, int udp_len, void *iphdr, int afi)
         return (udp_ipv6_checksum(iphdr, udph, udp_len));
     default:
         OOR_LOG(LDBG_2, "udp_checksum: Unknown AFI");
-        return (-1);
+        return (~0);
     }
 }
 

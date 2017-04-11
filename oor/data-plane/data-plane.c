@@ -26,6 +26,8 @@ void data_plane_select()
 {
 #ifdef VPNAPI
     data_plane = &dplane_vpnapi;
+#elif VPP
+    data_plane = &dplane_vpp;
 #else
     data_plane = &dplane_tun;
 #endif

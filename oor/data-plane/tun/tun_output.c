@@ -20,15 +20,15 @@
 
 #include <errno.h>
 
-#include "tun_output.h"
 #include "tun.h"
+#include "tun_output.h"
 #include "../encapsulations/vxlan-gpe.h"
 #include "../../fwd_policies/fwd_policy.h"
+#include "../../fwd_policies/flow_balancing/fwd_entry_tuple.h"
 #include "../../liblisp/liblisp.h"
 #include "../../lib/packets.h"
 #include "../../lib/sockets.h"
 #include "../../control/oor_control.h"
-#include "../../lib/ttable.h"
 #include "../../lib/oor_log.h"
 #include "../../lib/sockets-util.h"
 
@@ -36,25 +36,11 @@
 /* static buffer to receive packets */
 static uint8_t pkt_recv_buf[TUN_RECEIVE_SIZE];
 static lbuf_t pkt_buf;
-ttable_t ttable;
 
 
 static int tun_output_multicast(lbuf_t *b, packet_tuple_t *tuple);
 static int tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple);
 static int tun_forward_native(lbuf_t *b, lisp_addr_t *dst);
-static inline int is_lisp_packet(packet_tuple_t *tpl);
-
-void
-tun_output_init()
-{
-    ttable_init(&ttable);
-}
-
-void
-tun_output_uninit()
-{
-    ttable_uninit(&ttable);
-}
 
 static int
 tun_forward_native(lbuf_t *b, lisp_addr_t *dst)
@@ -74,28 +60,6 @@ tun_forward_native(lbuf_t *b, lisp_addr_t *dst)
 
     ret = send_raw_packet(sock, lbuf_data(b), lbuf_size(b), lisp_addr_ip(dst));
     return (ret);
-}
-
-
-static inline int
-is_lisp_packet(packet_tuple_t *tpl)
-{
-    /* Don't encapsulate LISP messages  */
-    if (tpl->protocol != IPPROTO_UDP) {
-        return (FALSE);
-    }
-
-    /* If either of the udp ports are the control port or data, allow
-     * to go out natively. This is a quick way around the
-     * route filter which rewrites the EID as the source address. */
-    if (tpl->dst_port != LISP_CONTROL_PORT
-        && tpl->src_port != LISP_CONTROL_PORT
-        && tpl->src_port != LISP_DATA_PORT
-        && tpl->dst_port != LISP_DATA_PORT) {
-        return (FALSE);
-    }
-
-    return (TRUE);
 }
 
 static int
@@ -126,6 +90,14 @@ make_mcast_addr(packet_tuple_t *tuple, lisp_addr_t *addr){
     }
 
     return(GOOD);
+}
+
+
+void
+tun_rm_dp_entry(packet_tuple_t *tuple)
+{
+    tun_dplane_data_t *data = tun_get_datap_data();
+    ttable_remove(&(data->ttable), tuple);
 }
 
 static int
@@ -181,28 +153,60 @@ static int
 tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
 {
     fwd_info_t *fi;
-    fwd_entry_t *fe;
-    uint32_t iid = tuple->iid;
+    fwd_entry_tuple_t *fe;
+    glist_t *fwd_tuple_lst, *pxtr_fwd_tuple_list;
+    tun_dplane_data_t *dp_data;
 
-    /* XXX Since OOR doesn't support same local prefixes with different IIDs when
-     * operating as a XTR or MN, we use IID = 0 to calculate the hash of the ttable.
-     * The actual IID to be used on the encapsulation processed is already stored
-     * in the forwarding entry, which is obtained on a ttable miss.*/
+    dp_data = tun_get_datap_data();
 
-    fi = ttable_lookup(&ttable, tuple);
+    fi = ttable_lookup(&(dp_data->ttable), tuple);
     if (!fi) {
         fi = (fwd_info_t *)ctrl_get_forwarding_info(tuple);
-        if (fi == NULL){
+        if (!fi){
             return (BAD);
         }
-        fe = fi->fwd_info;
+        fe = (fwd_entry_tuple_t *)fi->dp_conf_inf;
         if (fe && fe->srloc && fe->drloc)  {
             fe->out_sock = get_out_socket_ptr_from_address(fe->srloc);
         }
-        tuple->iid = iid;
-        ttable_insert(&ttable, pkt_tuple_clone(tuple), fi);
+        // While we can not get iid from interface, we insert the tupla with iid = 0.
+        //   We only support a same EID prefix per xTR
+        fe->tuple->iid = 0;
+        // fe->tuple is cloned from tuple
+        if (ttable_insert(&(dp_data->ttable), fe->tuple, fi) != GOOD){
+            /* If table is full, reset the data plane */
+            tun_reset_all_fwd();
+            ttable_insert(&(dp_data->ttable), fe->tuple, fi);
+        }
+
+
+        /* Associate eid with fwd_info */
+        fwd_tuple_lst = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,lisp_addr_to_char(fi->associated_entry));
+        if (!fwd_tuple_lst){
+            fwd_tuple_lst = glist_new_managed((glist_del_fct)tun_rm_dp_entry);
+            shash_insert(dp_data->eid_to_dp_entries, strdup(lisp_addr_to_char(fi->associated_entry)), fwd_tuple_lst);
+        }
+        glist_add(fe->tuple,fwd_tuple_lst);
+        OOR_LOG(LDBG_3, "tun_output_unicast: The tupla [%s] has been associated with the EID %s",
+                pkt_tuple_to_char(tuple),lisp_addr_to_char(fi->associated_entry));
+
+        if(fi->neg_map_reply_act == ACT_NATIVE_FWD){ // Forwarding entry should be also associated with PeTRs list
+            switch (lisp_addr_ip_afi(fi->associated_entry)){
+            case AF_INET:
+                pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+                break;
+            case AF_INET6:
+                pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+                break;
+            default:
+                OOR_LOG(LDBG_3, "tun_output_unicast: Forwarding to PeTR is only for IP EIDs. It should never reach here");
+                return (BAD);
+            }
+            glist_add(fe->tuple,pxtr_fwd_tuple_list);
+            OOR_LOG(LDBG_3, "  and with PeTRs");
+        }
     }else{
-        fe = fi->fwd_info;
+        fe = fi->dp_conf_inf;
     }
 
     /* Packets with no/negative map cache entry AND no PETR
@@ -212,7 +216,7 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         case ACT_NO_ACTION:
         case ACT_SEND_MREQ:
         case ACT_DROP:
-            OOR_LOG(LDBG_3, "tun_output_unicast: Packet droped");
+            OOR_LOG(LDBG_3, "tun_output_unicast: Packet droped    %d",fi->neg_map_reply_act );
             return (GOOD);
         case ACT_NATIVE_FWD:
             return(tun_forward_native(b, &tuple->dst_addr));
@@ -232,10 +236,8 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         break;
     }
 
-
     return(send_raw_packet(*(fe->out_sock), lbuf_data(b), lbuf_size(b),
                lisp_addr_ip(fe->drloc)));
-
 }
 
 int
@@ -246,7 +248,7 @@ tun_output(lbuf_t *b, packet_tuple_t *tpl)
             tpl->protocol, tpl->src_port, tpl->dst_port);
 
     /* If already LISP packet, do not encapsulate again */
-    if (is_lisp_packet(tpl)) {
+    if (pkt_tuple_is_lisp(tpl)) {
         OOR_LOG(LDBG_3,"OUTPUT: Is a lisp packet, do not encapsulate again");
         return (tun_forward_native(b, &tpl->dst_addr));
     }
@@ -274,6 +276,10 @@ tun_output_recv(sock_t *sl)
     if (pkt_parse_5_tuple(&pkt_buf, &tpl) != GOOD) {
         return (BAD);
     }
+    /* XXX Since OOR doesn't support same local prefixes with different IIDs when
+     * operating as a XTR or MN, we use IID = 0 to calculate the hash of the ttable.
+     * The actual IID to be used on the encapsulation processed is already stored
+     * in the forwarding entry, which is obtained on a ttable miss.*/
     tpl.iid = 0;
     tun_output(&pkt_buf, &tpl);
     return (GOOD);

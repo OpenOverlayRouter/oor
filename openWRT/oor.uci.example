@@ -131,24 +131,19 @@ config 'proxy-itr'
 #config 'proxy-itr'
 #        list     'address'              '69.31.31.98'                   # eqx-ash-pxtr
 #        list     'address'              '149.20.48.60'                  # isc-pxtr
-#        list     'address'              '198.6.255.37'                  # asp-pxtr
-#        list     'address'              '173.36.193.25'                 # sjc-pxtr
 #        list     'address'              '129.250.1.63'                  # ntt-amer-pxtr
 #        list     'address'              '217.8.98.33'                   # intouch-pxtr-1
-#        list     'address'              '217.8.98.35'                   # intouch-pxtr-2
 #        list     'address'              '193.162.145.46'                # tdc-pxtr
 #        list     'address'              '158.38.1.92'                   # uninett-pxtr
 #        list     'address'              '203.181.249.172'               # apan-pxtr
 #        list     'address'              '202.51.247.10'                 # sg-nus-pxtr
 #        list     'address'              '2001:590::451f:1f62'           # eqx-ash-pxtr
 #        list     'address'              '2001:4f8:3:d::60'              # isc-pxtr
-#        list     'address'              '2001:418:4:1:deaf:bebe::10d'   # asp-pxtr
-#        list     'address'              '2001:418:0:1000::613'          # ntt-amer-pxtr
-#        list     'address'              '2001:200:e000:17::17'          # intouch-pxtr-1
-#        list     'address'              '2001:67C:21B4:108::b'          # intouch-pxtr-2
+#        list     'address'              '2001:418:0:1000::63'           # ntt-amer-pxtr
+#        list     'address'              '2001:67C:21B4:107::B'          # intouch-pxtr-1
 #        list     'address'              '2001:6c8:41:100:0:2:1:c'       # tdc-pxtr
 #        list     'address'              '2001:700:0:52E::4'             # uninett-pxtr
-#        list     'address'              '2001:67C:21B4:107::b'          # apan-pxtr
+#        list     'address'              '2001:200:e000:17::172'         # apan-pxtr
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
 # You can define several Proxy-ETR. Traffic will be balanced according to priority and weight.

@@ -45,7 +45,7 @@ vpnapi_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid)
     vxlan_gpe_hdr_t *vxlan_hdr;
     vpnapi_data_t *data;
 
-    data = (vpnapi_data_t *)dplane_vpnapi.datap_data;
+    data =  vpnapi_get_datap_data();
 
     if (sock_data_recv(sock, b, &afi, &ttl, &tos) != GOOD) {
         return(BAD);

@@ -42,7 +42,8 @@ lisp_site_prefix_t *lisp_site_prefix_init(lisp_addr_t *eid_prefix, uint32_t iid,
 void lisp_site_prefix_del(lisp_site_prefix_t *sp);
 void lisp_reg_site_del(lisp_reg_site_t *rs);
 
-static inline lisp_addr_t *lsite_prefix(lisp_site_prefix_t *ls) {
+static inline lisp_addr_t *
+lsite_prefix(lisp_site_prefix_t *ls) {
     return(ls->eid_prefix);
 }
 

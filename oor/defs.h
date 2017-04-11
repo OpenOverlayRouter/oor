@@ -49,6 +49,8 @@ typedef struct fwd_info_ fwd_info_t;
 typedef struct sockmstr sockmstr_t;
 typedef struct htable_ptrs htable_ptrs_t;
 typedef struct data_plane_struct data_plane_struct_t;
+typedef struct net_mgr_class net_mgr_class_t;
+
 typedef struct htable_nonces_ htable_nonces_t;
 
 /* Protocols constants related with timeouts */
@@ -111,16 +113,24 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define ERR_CTR_IFACE       -7
 #define ERR_NOT_ENCAP       -8
 #define ERR_SOCKET          -9
+#define ERR_NO_ROUTE        -10
+#define ERR_NO_REPLY        -99
 
 #define TRUE                1
 #define FALSE               0
 #define UP                  1
 #define DOWN                0
 #define UNKNOWN            -1
+#define ADD                 1
+#define RM                  0
 
 #define NO_AFI_SUPPOT   0
 #define IPv4_SUPPORT    1
 #define IPv6_SUPPORT    2
+
+
+#define FULL_IPv4_ADDRESS_SPACE  "0.0.0.0/0"
+#define FULL_IPv6_ADDRESS_SPACE  "::/0"
 
 /***** NAT status *******/
 //#define UNKNOWN          -1

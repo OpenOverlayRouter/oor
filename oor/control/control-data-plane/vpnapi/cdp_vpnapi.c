@@ -279,9 +279,12 @@ vpnapi_control_dp_updated_addr(oor_ctrl_t *ctrl, iface_t *iface,
     vpnapi_ctr_dplane_data_t * data;
 
     data = (vpnapi_ctr_dplane_data_t *)ctrl->control_data_plane->control_dp_data;
+    if (lisp_addr_is_no_addr(new_addr)){
+        return(GOOD);
+    }
     addr_afi = lisp_addr_ip_afi(new_addr);
 
-    /* Check if the detected change of address id the same. */
+    /* Check if the detected change of address is the same. */
     if (lisp_addr_cmp(old_addr, new_addr) == 0) {
         OOR_LOG(LDBG_2, "vpnapi_control_dp_updated_addr: The change of address detected "
                 "for interface %s doesn't affect", iface->iface_name);

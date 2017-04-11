@@ -425,6 +425,9 @@ lisp_addr_t *
 lisp_addr_clone(lisp_addr_t *src)
 {
     lisp_addr_t *dst;
+    if (!src){
+        return (NULL);
+    }
 
     dst = lisp_addr_new();
     lisp_addr_copy(dst, src);
@@ -604,12 +607,10 @@ lisp_addr_cmp_afi(lisp_addr_t *addr1, lisp_addr_t *addr2)
     case LM_AFI_NO_ADDR:
         return (0);
     case LM_AFI_IP:
+    case LM_AFI_IPPREF:
         afi_a = lisp_addr_ip_afi(addr1);
         afi_b = lisp_addr_ip_afi(addr2);
         break;
-    case LM_AFI_IPPREF:
-        OOR_LOG(LDBG_1,"locator_list_cmp_afi: No locators of type prefix");
-        return (-2);
     case LM_AFI_LCAF:
         afi_a = lisp_addr_lcaf_type(addr1);
         afi_b = lisp_addr_lcaf_type(addr2);
@@ -715,7 +716,7 @@ lisp_addr_get_ip_addr(lisp_addr_t *addr)
     case LM_AFI_IP:
     	return (addr);
     case LM_AFI_IPPREF:
-    	OOR_LOG(LDBG_2, "lisp_addr_get_ip_addr: Not applicable to prefixes");
+        OOR_LOG(LDBG_3, "lisp_addr_get_ip_addr: Not applicable to prefixes");
         return (NULL);
     case LM_AFI_LCAF:
         return (lcaf_get_ip_addr(get_lcaf_(addr)));
@@ -730,7 +731,7 @@ lisp_addr_get_ip_pref_addr(lisp_addr_t *addr)
 {
     switch (lisp_addr_lafi(addr)) {
     case LM_AFI_IP:
-        OOR_LOG(LDBG_2, "lisp_addr_get_ip_pref_addr: Not applicable to ip addressess");
+        OOR_LOG(LDBG_3, "lisp_addr_get_ip_pref_addr: Not applicable to ip addressess");
         return (NULL);
     case LM_AFI_IPPREF:
         return (addr);

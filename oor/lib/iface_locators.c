@@ -42,7 +42,8 @@ iface_locators_new(char *iface_name)
     if_loct->ipv4_locators = glist_new();
     if_loct->ipv6_locators = glist_new();
     if_loct->status_changed = TRUE;
-
+    if_loct->ipv4_prev_addr = NULL;
+    if_loct->ipv6_prev_addr = NULL;
     return(if_loct);
 }
 

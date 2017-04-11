@@ -42,20 +42,20 @@ map_local_entry_set_mapping(
 inline void *
 map_local_entry_fwd_info(map_local_entry_t *mle)
 {
-    return (mle->fwd_info);
+    return (mle->fwd_policy_info);
 }
 
 inline void
 map_local_entry_set_fwd_info(
         map_local_entry_t *mle,
-        void *fwd_info,
-        fwd_info_del_fct fwd_del_fct)
+        void *fwd_policy_info,
+        fwd_policy_info_del_fct fn)
 {
-    mle->fwd_info = fwd_info;
-    if (fwd_del_fct == NULL){
+    mle->fwd_policy_info = fwd_policy_info;
+    if (!fn){
         OOR_LOG(LDBG_1, "map_local_entry_set_fwd_info: No specified function to delete fwd info.");
     }
-    mle->fwd_inf_del = fwd_del_fct;
+    mle->fwd_ply_inf_del = fn;
 }
 
 inline lisp_addr_t *
@@ -105,8 +105,8 @@ map_local_entry_del(map_local_entry_t *mle)
     }mapping_foreach_locator_end;
     stop_timers_from_obj(mle,ptrs_to_timers_ht, nonces_ht);
 	mapping_del(mle->mapping);
-	if (mle->fwd_info != NULL){
-	    mle->fwd_inf_del(mle->fwd_info);
+	if (mle->fwd_policy_info != NULL){
+	    mle->fwd_ply_inf_del(mle->fwd_policy_info);
 	}
 	nat_info_del(mle->nat_info);
 
@@ -180,7 +180,7 @@ mle_nat_info_update(map_local_entry_t *mle, locator_t *loct, glist_t *new_rtr_li
                 mapping_remove_locator(map,rtr_loct);
             }
         }
-        glist_destroy(rtr_list);
+        shash_remove(nat_info->loct_addr_to_rtrs, lisp_addr_to_char(loct_addr));
     }
 
     /* Update the nat information with the new list */
@@ -199,11 +199,11 @@ mle_nat_info_update(map_local_entry_t *mle, locator_t *loct, glist_t *new_rtr_li
                     nat_info->rtr_addr_to_locts,
                     strdup(lisp_addr_to_char(rtr_addr)),
                     loct_list);
+            /* Create the logical locator for the RTR -> L=0, R=1 */
+            rtr_loct = locator_new_init(rtr_addr,UP,0,1,1,100,255,0);
+            mapping_add_locator(map,rtr_loct);
         }
         glist_add(loct,loct_list);
-        /* Create the logical locator for the RTR -> L=0, R=1 */
-        rtr_loct = locator_new_init(rtr_addr,UP,0,1,1,100,255,0);
-        mapping_add_locator(map,rtr_loct);
     }
 }
 

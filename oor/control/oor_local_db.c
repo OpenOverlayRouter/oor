@@ -188,16 +188,10 @@ local_map_db_num_ip_eids(local_map_db_t *lmdb, int afi)
     return (ctr);
 }
 
-inline int
-local_map_db_n_entries(local_map_db_t *lmdb)
-{
-    return(lmdb->db->n_entries);
-}
-
 void
 local_map_db_dump(local_map_db_t *lmdb, int log_level)
 {
-	map_local_entry_t *map_loc_e = NULL;
+    map_local_entry_t *map_loc_e = NULL;
     void *it = NULL;
 
     OOR_LOG(log_level,"****************** LISP Local Mappings ****************\n");

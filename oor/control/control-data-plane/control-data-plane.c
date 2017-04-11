@@ -25,6 +25,8 @@ control_dp_select()
 {
 #ifdef VPNAPI
     return &control_dp_vpnapi;
+#elif VPP
+    return &control_dp_vpp;
 #else
     return &control_dp_tun;
 #endif

@@ -21,14 +21,21 @@
 #ifndef VPN_API_H_
 #define VPN_API_H_
 
-#include "../../defs.h"
+#include "../ttable.h"
+#include "../../lib/shash.h"
 
 typedef struct vpnapi_data_ {
     oor_encap_t encap_type;
     int tun_socket;
     int ipv4_data_socket;
     int ipv6_data_socket;
+    /* < char *eid -> glist_t <fwd_info_t *>> Used to find the fwd entries to be removed
+     * of the data plane when there is a change with the mapping of the eid */
+    shash_t *eid_to_dp_entries; //< char *eid -> glist_t <fwd_info_t *>>
+    /* Hash table containg the forward info from a tupla */
+    ttable_t ttable;
 } vpnapi_data_t;
 
-
+vpnapi_data_t * vpnapi_get_datap_data();
+int vpnapi_reset_all_fwd();
 #endif /* VPN_API_H_ */

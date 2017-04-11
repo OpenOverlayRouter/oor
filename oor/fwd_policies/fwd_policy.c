@@ -20,8 +20,9 @@
 #include "fwd_policy.h"
 #include "../lib/oor_log.h"
 
-static fwd_policy_class *fwd_policy_libs[1] = {
+static fwd_policy_class *fwd_policy_libs[2] = {
         &fwd_policy_flow_balancing,
+        &fwd_policy_vpp_balancing
 };
 
 void policy_loct_parm_del(fwd_policy_loct_parm *pol_loct);
@@ -31,6 +32,8 @@ fwd_policy_class_find(char *lib)
 {
 	if (strcmp(lib,"flow_balancing") == 0){
 		return(fwd_policy_libs[0]);
+	}else if (strcmp(lib,"vpp_balancing") == 0){
+	    return(fwd_policy_libs[1]);
 	}
 	OOR_LOG(LERR, "The forward policy library \"%s\" has not been found",lib);
 	return (NULL);
@@ -93,12 +96,18 @@ policy_loct_parm_del(fwd_policy_loct_parm *pol_loct)
 fwd_info_t *
 fwd_info_new()
 {
-    return (xzalloc(sizeof(fwd_info_t)));
+    fwd_info_t * fi = xzalloc(sizeof(fwd_info_t));
+    return (fi);
 }
 
 void
-fwd_info_del(fwd_info_t * fwd_info,fwd_info_data_del del_fn)
+fwd_info_del(fwd_info_t * fwd_info)
 {
-    del_fn(fwd_info->fwd_info);
+    if (fwd_info->data_del_fn){
+        fwd_info->data_del_fn(fwd_info->dp_conf_inf);
+    }
+    if(fwd_info->associated_entry){
+       lisp_addr_del(fwd_info->associated_entry);
+    }
     free(fwd_info);
 }

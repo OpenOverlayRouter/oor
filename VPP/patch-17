@@ -1,0 +1,552 @@
+diff --git a/vnet/vnet/lisp-cp/control.c b/vnet/vnet/lisp-cp/control.c
+index acf5472..105a96f 100644
+--- a/vnet/vnet/lisp-cp/control.c
++++ b/vnet/vnet/lisp-cp/control.c
+@@ -4728,10 +4728,10 @@ lisp_cp_init (vlib_main_t * vm)
+   hash_set (lcm->table_id_by_vni, 0, 0);
+   hash_set (lcm->vni_by_table_id, 0, 0);
+ 
+-  udp_register_dst_port (vm, UDP_DST_PORT_lisp_cp,
+-			 lisp_cp_input_node.index, 1 /* is_ip4 */ );
+-  udp_register_dst_port (vm, UDP_DST_PORT_lisp_cp6,
+-			 lisp_cp_input_node.index, 0 /* is_ip4 */ );
++//  udp_register_dst_port (vm, UDP_DST_PORT_lisp_cp,
++//			 lisp_cp_input_node.index, 1 /* is_ip4 */ );
++//  udp_register_dst_port (vm, UDP_DST_PORT_lisp_cp6,
++//			 lisp_cp_input_node.index, 0 /* is_ip4 */ );
+ 
+   u64 now = clib_cpu_time_now ();
+   timing_wheel_init (&lcm->wheel, now, vm->clib_time.clocks_per_second);
+diff --git a/vnet/vnet/lisp-cp/lisp_cp_dpo.c b/vnet/vnet/lisp-cp/lisp_cp_dpo.c
+index 185b07a..f08741b 100644
+--- a/vnet/vnet/lisp-cp/lisp_cp_dpo.c
++++ b/vnet/vnet/lisp-cp/lisp_cp_dpo.c
+@@ -65,12 +65,12 @@ const static dpo_vft_t lisp_cp_vft = {
+  * parent object in the DPO-graph.
+  */
+ const static char *const lisp_cp_ip4_nodes[] = {
+-  "lisp-cp-lookup-ip4",
++  "oor_pkt_miss",
+   NULL,
+ };
+ 
+ const static char *const lisp_cp_ip6_nodes[] = {
+-  "lisp-cp-lookup-ip6",
++  "oor_pkt_miss",
+   NULL,
+ };
+ 
+diff --git a/vnet/vnet/lisp-gpe/lisp_gpe.c b/vnet/vnet/lisp-gpe/lisp_gpe.c
+index fbda868..15e4c6a 100644
+--- a/vnet/vnet/lisp-gpe/lisp_gpe.c
++++ b/vnet/vnet/lisp-gpe/lisp_gpe.c
+@@ -22,11 +22,13 @@
+ #include <vnet/lisp-gpe/lisp_gpe_fwd_entry.h>
+ #include <vnet/lisp-gpe/lisp_gpe_adjacency.h>
+ #include <vnet/lisp-gpe/lisp_gpe_tenant.h>
++#include <vnet/fib/fib_table.h>
++#include <vnet/fib/fib_entry.h>
++#include <vnet/fib/fib_path_list.h>
+ 
+ /** LISP-GPE global state */
+ lisp_gpe_main_t lisp_gpe_main;
+ 
+-
+ /** CLI command to add/del forwarding entry. */
+ static clib_error_t *
+ lisp_gpe_add_del_fwd_entry_command_fn (vlib_main_t * vm,
+@@ -39,10 +41,13 @@ lisp_gpe_add_del_fwd_entry_command_fn (vlib_main_t * vm,
+   clib_error_t *error = 0;
+   gid_address_t _reid, *reid = &_reid, _leid, *leid = &_leid;
+   u8 reid_set = 0, leid_set = 0, is_negative = 0, vrf_set = 0, vni_set = 0;
+-  u32 vni, vrf, action = ~0, p, w;
++  u32 vni = 0, vrf = 0, action = ~0, w;
+   locator_pair_t pair, *pairs = 0;
+   int rv;
+ 
++  memset (leid, 0, sizeof (*leid));
++  memset (reid, 0, sizeof (*reid));
++
+   /* Get a line of input. */
+   if (!unformat_user (input, unformat_line_input, line_input))
+     return 0;
+@@ -80,33 +85,34 @@ lisp_gpe_add_del_fwd_entry_command_fn (vlib_main_t * vm,
+ 	{
+ 	  is_negative = 1;
+ 	}
+-      else if (unformat (line_input, "loc-pair %U %U p %d w %d",
++      else if (unformat (line_input, "loc-pair %U %U w %d",
+ 			 unformat_ip_address, &lloc,
+-			 unformat_ip_address, &rloc, &p, &w))
++			 unformat_ip_address, &rloc, &w))
+ 	{
+ 	  pair.lcl_loc = lloc;
+ 	  pair.rmt_loc = rloc;
+-	  pair.priority = p;
+ 	  pair.weight = w;
++	  pair.priority = 0;
+ 	  vec_add1 (pairs, pair);
+ 	}
+       else
+ 	{
+ 	  error = unformat_parse_error (line_input);
++	  vlib_cli_output (vm, "parse error: '%U'",
++			   format_unformat_error, line_input);
+ 	  goto done;
+ 	}
+     }
+-  unformat_free (line_input);
+ 
+-  if (!vni_set || !vrf_set)
++  if (!reid_set)
+     {
+-      error = clib_error_return (0, "vni and vrf must be set!");
++      vlib_cli_output (vm, "remote eid must be set!");
+       goto done;
+     }
+ 
+-  if (!reid_set)
++  if ((!vni_set || !vrf_set))
+     {
+-      error = clib_error_return (0, "remote eid must be set!");
++      vlib_cli_output (vm, "vni and vrf/bd must be set!");
+       goto done;
+     }
+ 
+@@ -114,7 +120,7 @@ lisp_gpe_add_del_fwd_entry_command_fn (vlib_main_t * vm,
+     {
+       if (~0 == action)
+ 	{
+-	  error = clib_error_return (0, "no action set for negative tunnel!");
++	  vlib_cli_output (vm, "no action set for negative tunnel!");
+ 	  goto done;
+ 	}
+     }
+@@ -122,7 +128,7 @@ lisp_gpe_add_del_fwd_entry_command_fn (vlib_main_t * vm,
+     {
+       if (vec_len (pairs) == 0)
+ 	{
+-	  error = clib_error_return (0, "expected ip4/ip6 locators.");
++	  vlib_cli_output (vm, "expected ip4/ip6 locators");
+ 	  goto done;
+ 	}
+     }
+@@ -146,15 +152,17 @@ lisp_gpe_add_del_fwd_entry_command_fn (vlib_main_t * vm,
+   gid_address_copy (&a->lcl_eid, leid);
+   gid_address_copy (&a->rmt_eid, reid);
+   a->locator_pairs = pairs;
++  a->action = action;
+ 
+   rv = vnet_lisp_gpe_add_del_fwd_entry (a, 0);
+   if (0 != rv)
+     {
+-      error = clib_error_return (0, "failed to %s gpe tunnel!",
+-				 is_add ? "add" : "delete");
++      vlib_cli_output (vm, "failed to %s gpe tunnel!",
++		       is_add ? "add" : "delete");
+     }
+ 
+ done:
++  unformat_free (line_input);
+   vec_free (pairs);
+   return error;
+ }
+@@ -162,8 +170,8 @@ done:
+ /* *INDENT-OFF* */
+ VLIB_CLI_COMMAND (lisp_gpe_add_del_fwd_entry_command, static) = {
+   .path = "lisp gpe entry",
+-  .short_help = "lisp gpe entry add/del vni <vni> vrf <vrf> [leid <leid>]"
+-      "reid <reid> [loc-pair <lloc> <rloc> p <priority> w <weight>] "
++  .short_help = "lisp gpe entry add/del vni <vni> vrf <id> [leid <leid>]"
++      "reid <reid> [loc-pair <lloc> <rloc> w <weight>] "
+       "[negative action <action>]",
+   .function = lisp_gpe_add_del_fwd_entry_command_fn,
+ };
+@@ -182,24 +190,24 @@ vnet_lisp_gpe_enable_disable_status (void)
+ clib_error_t *
+ vnet_lisp_gpe_enable_disable (vnet_lisp_gpe_enable_disable_args_t * a)
+ {
+-  lisp_gpe_main_t *lgm = &lisp_gpe_main;
++	lisp_gpe_main_t *lgm = &lisp_gpe_main;
+ 
+-  if (a->is_en)
+-    {
+-      lgm->is_en = 1;
+-    }
+-  else
+-    {
+-      /* remove all entries */
+-      vnet_lisp_gpe_fwd_entry_flush ();
++	if (a->is_en)
++	{
++		lgm->is_en = 1;
++	}
++	else
++	{
++		/* remove all entries */
++		vnet_lisp_gpe_fwd_entry_flush ();
+ 
+-      /* disable all l3 ifaces */
+-      lisp_gpe_tenant_flush ();
++		/* disable all l3 ifaces */
++		lisp_gpe_tenant_flush ();
+ 
+-      lgm->is_en = 0;
+-    }
++		lgm->is_en = 0;
++	}
+ 
+-  return 0;
++	return 0;
+ }
+ 
+ /** CLI command to enable/disable LISP-GPE. */
+diff --git a/vpp-api-test/vat/api_format.c b/vpp-api-test/vat/api_format.c
+index 258c67f..31e1054 100644
+--- a/vpp-api-test/vat/api_format.c
++++ b/vpp-api-test/vat/api_format.c
+@@ -13210,6 +13210,7 @@ typedef CLIB_PACKED(struct
+ static int
+ api_lisp_gpe_add_del_fwd_entry (vat_main_t * vam)
+ {
++  u32 dp_table = 0, vni = 0;;
+   unformat_input_t *input = vam->input;
+   vl_api_lisp_gpe_add_del_fwd_entry_t *mp;
+   f64 timeout = ~0;
+@@ -13217,36 +13218,44 @@ api_lisp_gpe_add_del_fwd_entry (vat_main_t * vam)
+   lisp_eid_vat_t _rmt_eid, *rmt_eid = &_rmt_eid;
+   lisp_eid_vat_t _lcl_eid, *lcl_eid = &_lcl_eid;
+   u8 rmt_eid_set = 0, lcl_eid_set = 0;
+-  u32 action = ~0, p, w;
++  u32 action = ~0, w;
+   ip4_address_t rmt_rloc4, lcl_rloc4;
+   ip6_address_t rmt_rloc6, lcl_rloc6;
+-  rloc_t *rmt_locs = 0, *lcl_locs = 0, rloc, *curr_rloc = 0;
++  vl_api_lisp_gpe_locator_t *rmt_locs = 0, *lcl_locs = 0, rloc, *curr_rloc =
++    0;
+ 
++  memset (rmt_eid, 0, sizeof (*rmt_eid));
++  memset (lcl_eid, 0, sizeof (*lcl_eid));
+   memset (&rloc, 0, sizeof (rloc));
+ 
+   /* Parse args required to build the message */
+   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+     {
+       if (unformat (input, "del"))
+-	{
+-	  is_add = 0;
+-	}
+-      else if (unformat (input, "rmt_eid %U", unformat_lisp_eid_vat, rmt_eid))
++	is_add = 0;
++      else if (unformat (input, "add"))
++	is_add = 1;
++      else if (unformat (input, "reid %U", unformat_lisp_eid_vat, rmt_eid))
+ 	{
+ 	  rmt_eid_set = 1;
+ 	}
+-      else if (unformat (input, "lcl_eid %U", unformat_lisp_eid_vat, lcl_eid))
++      else if (unformat (input, "leid %U", unformat_lisp_eid_vat, lcl_eid))
+ 	{
+ 	  lcl_eid_set = 1;
+ 	}
+-      else if (unformat (input, "p %d w %d", &p, &w))
++      else if (unformat (input, "vrf %d", &dp_table))
++	;
++      else if (unformat (input, "bd %d", &dp_table))
++	;
++      else if (unformat (input, "vni %d", &vni))
++	;
++      else if (unformat (input, "w %d", &w))
+ 	{
+ 	  if (!curr_rloc)
+ 	    {
+ 	      errmsg ("No RLOC configured for setting priority/weight!");
+ 	      return -99;
+ 	    }
+-	  curr_rloc->priority = p;
+ 	  curr_rloc->weight = w;
+ 	}
+       else if (unformat (input, "loc-pair %U %U", unformat_ip4_address,
+@@ -13255,12 +13264,12 @@ api_lisp_gpe_add_del_fwd_entry (vat_main_t * vam)
+ 	  rloc.is_ip4 = 1;
+ 
+ 	  clib_memcpy (&rloc.addr, &lcl_rloc4, sizeof (lcl_rloc4));
+-	  rloc.priority = rloc.weight = 0;
++	  rloc.weight = 0;
+ 	  vec_add1 (lcl_locs, rloc);
+ 
+ 	  clib_memcpy (&rloc.addr, &rmt_rloc4, sizeof (rmt_rloc4));
+ 	  vec_add1 (rmt_locs, rloc);
+-	  /* priority and weight saved in rmt loc */
++	  /* weight saved in rmt loc */
+ 	  curr_rloc = &rmt_locs[vec_len (rmt_locs) - 1];
+ 	}
+       else if (unformat (input, "loc-pair %U %U", unformat_ip6_address,
+@@ -13268,12 +13277,12 @@ api_lisp_gpe_add_del_fwd_entry (vat_main_t * vam)
+ 	{
+ 	  rloc.is_ip4 = 0;
+ 	  clib_memcpy (&rloc.addr, &lcl_rloc6, sizeof (lcl_rloc6));
+-	  rloc.priority = rloc.weight = 0;
++	  rloc.weight = 0;
+ 	  vec_add1 (lcl_locs, rloc);
+ 
+ 	  clib_memcpy (&rloc.addr, &rmt_rloc6, sizeof (rmt_rloc6));
+ 	  vec_add1 (rmt_locs, rloc);
+-	  /* priority and weight saved in rmt loc */
++	  /* weight saved in rmt loc */
+ 	  curr_rloc = &rmt_locs[vec_len (rmt_locs) - 1];
+ 	}
+       else if (unformat (input, "action %d", &action))
+@@ -13289,40 +13298,45 @@ api_lisp_gpe_add_del_fwd_entry (vat_main_t * vam)
+ 
+   if (!rmt_eid_set)
+     {
+-      errmsg ("remote eid addresses not set\n");
++      errmsg ("remote eid addresses not set");
+       return -99;
+     }
+ 
+   if (lcl_eid_set && rmt_eid->type != lcl_eid->type)
+     {
+-      errmsg ("eid types don't match\n");
++      errmsg ("eid types don't match");
+       return -99;
+     }
+ 
+   if (0 == rmt_locs && (u32) ~ 0 == action)
+     {
+-      errmsg ("action not set for negative mapping\n");
++      errmsg ("action not set for negative mapping");
+       return -99;
+     }
+ 
+   /* Construct the API message */
+-  M (LISP_GPE_ADD_DEL_FWD_ENTRY, lisp_gpe_add_del_fwd_entry);
++  M2 (LISP_GPE_ADD_DEL_FWD_ENTRY, mp,
++      sizeof (vl_api_lisp_gpe_locator_t) * vec_len (rmt_locs) * 2);
+ 
+   mp->is_add = is_add;
+   lisp_eid_put_vat (mp->rmt_eid, rmt_eid->addr, rmt_eid->type);
+   lisp_eid_put_vat (mp->lcl_eid, lcl_eid->addr, lcl_eid->type);
+   mp->eid_type = rmt_eid->type;
++  mp->dp_table = clib_host_to_net_u32 (dp_table);
++  mp->vni = clib_host_to_net_u32 (vni);
+   mp->rmt_len = rmt_eid->len;
+   mp->lcl_len = lcl_eid->len;
+   mp->action = action;
+ 
+   if (0 != rmt_locs && 0 != lcl_locs)
+     {
+-      mp->loc_num = vec_len (rmt_locs);
+-      clib_memcpy (mp->lcl_locs, lcl_locs,
+-		   (sizeof (rloc_t) * vec_len (lcl_locs)));
+-      clib_memcpy (mp->rmt_locs, rmt_locs,
+-		   (sizeof (rloc_t) * vec_len (rmt_locs)));
++      mp->loc_num = clib_host_to_net_u32 (vec_len (rmt_locs) * 2);
++      clib_memcpy (mp->locs, lcl_locs,
++		   (sizeof (vl_api_lisp_gpe_locator_t) * vec_len (lcl_locs)));
++
++      u32 offset = sizeof (vl_api_lisp_gpe_locator_t) * vec_len (lcl_locs);
++      clib_memcpy (((u8 *) mp->locs) + offset, rmt_locs,
++		   (sizeof (vl_api_lisp_gpe_locator_t) * vec_len (rmt_locs)));
+     }
+   vec_free (lcl_locs);
+   vec_free (rmt_locs);
+@@ -17623,8 +17637,8 @@ _(lisp_add_del_local_eid,"vni <vni> eid "                               \
+                          "<ipv4|ipv6>/<prefix> | <L2 address> "         \
+                          "locator-set <locator_name> [del]"             \
+                          "[key-id sha1|sha256 secret-key <secret-key>]")\
+-_(lisp_gpe_add_del_fwd_entry, "rmt_eid <eid> [lcl_eid <eid>] vni <vni>" \
+-  "dp_table <table> loc-pair <lcl_loc> <rmt_loc> ... [del]")            \
++_(lisp_gpe_add_del_fwd_entry, "reid <eid> [leid <eid>] vni <vni>"       \
++	"vrf <dp_table> loc-pair <lcl_loc> <rmt_loc> w <weight>... [del]")  \
+ _(lisp_add_del_map_resolver, "<ip4|6-addr> [del]")                      \
+ _(lisp_add_del_map_server, "<ip4|6-addr> [del]")                        \
+ _(lisp_gpe_enable_disable, "enable|disable")                            \
+diff --git a/vpp/vpp-api/api.c b/vpp/vpp-api/api.c
+index 70798f7..00c8880 100644
+--- a/vpp/vpp-api/api.c
++++ b/vpp/vpp-api/api.c
+@@ -3690,30 +3690,38 @@ typedef CLIB_PACKED (struct {
+ }) rloc_t;
+ /* *INDENT-ON* */
+ 
++#define vl_api_lisp_gpe_locator_pair_t_endian vl_noop_handler
++#define vl_api_lisp_gpe_locator_pair_t_print vl_noop_handler
++#define vl_api_lisp_gpe_add_del_fwd_entry_t_endian vl_noop_handler
++#define vl_api_lisp_gpe_add_del_fwd_entry_t_print vl_noop_handler
++
++
++
+ static locator_pair_t *
+-unformat_lisp_loc_pairs (void *lcl_locs, void *rmt_locs, u32 rloc_num)
++unformat_lisp_loc_pairs (void *locs, u32 rloc_num)
+ {
+   u32 i;
+-  locator_pair_t *pairs = 0, pair;
+-  rloc_t *r;
++  locator_pair_t *pairs = 0, pair, *p;
++  vl_api_lisp_gpe_locator_t *r;
+ 
+   for (i = 0; i < rloc_num; i++)
+     {
+       /* local locator */
+-      r = &((rloc_t *) lcl_locs)[i];
+-      memset (&pair.lcl_loc, 0, sizeof (pair.lcl_loc));
++      r = &((vl_api_lisp_gpe_locator_t *) locs)[i];
++      memset (&pair, 0, sizeof (pair));
+       ip_address_set (&pair.lcl_loc, &r->addr, r->is_ip4 ? IP4 : IP6);
+ 
+-      /* remote locators */
+-      r = &((rloc_t *) rmt_locs)[i];
+-      memset (&pair.rmt_loc, 0, sizeof (pair.rmt_loc));
+-      ip_address_set (&pair.rmt_loc, &r->addr, r->is_ip4 ? IP4 : IP6);
+-
+-      pair.priority = r->priority;
+       pair.weight = r->weight;
+-
+       vec_add1 (pairs, pair);
+     }
++
++  for (i = rloc_num; i < rloc_num * 2; i++)
++    {
++      /* remote locators */
++      r = &((vl_api_lisp_gpe_locator_t *) locs)[i];
++      p = &pairs[i - rloc_num];
++      ip_address_set (&p->rmt_loc, &r->addr, r->is_ip4 ? IP4 : IP6);
++    }
+   return pairs;
+ }
+ 
+@@ -3740,36 +3748,56 @@ unformat_lisp_locs (void *rmt_locs, u32 rloc_num)
+ }
+ 
+ static void
+-  vl_api_lisp_gpe_add_del_fwd_entry_t_handler
++  lisp_gpe_add_del_fwd_entry_t_net_to_host
+   (vl_api_lisp_gpe_add_del_fwd_entry_t * mp)
+ {
+-  vl_api_lisp_gpe_add_del_fwd_entry_reply_t *rmp;
+-  vnet_lisp_gpe_add_del_fwd_entry_args_t _a, *a = &_a;
+-  locator_pair_t *pairs = 0;
+-  int rv = 0;
++  mp->vni = clib_net_to_host_u32 (mp->vni);
++  mp->dp_table = clib_net_to_host_u32 (mp->dp_table);
++  mp->loc_num = clib_net_to_host_u32 (mp->loc_num);
++}
+ 
+-  memset (a, 0, sizeof (a[0]));
++static void
++vl_api_lisp_gpe_add_del_fwd_entry_t_handler
++(vl_api_lisp_gpe_add_del_fwd_entry_t * mp)
++{
++	vl_api_lisp_gpe_add_del_fwd_entry_reply_t *rmp;
++	vnet_lisp_gpe_add_del_fwd_entry_args_t _a, *a = &_a;
++	locator_pair_t *pairs = 0;
++	int rv = 0;
+ 
+-  rv = unformat_lisp_eid_api (&a->rmt_eid, mp->vni, mp->eid_type,
+-			      mp->rmt_eid, mp->rmt_len);
+-  rv |= unformat_lisp_eid_api (&a->lcl_eid, mp->vni, mp->eid_type,
+-			       mp->lcl_eid, mp->lcl_len);
++	lisp_gpe_add_del_fwd_entry_t_net_to_host (mp);
++	memset (a, 0, sizeof (a[0]));
+ 
+-  pairs = unformat_lisp_loc_pairs (mp->lcl_locs, mp->rmt_locs, mp->loc_num);
++	rv = unformat_lisp_eid_api (&a->rmt_eid, mp->vni, mp->eid_type,
++			mp->rmt_eid, mp->rmt_len);
++	rv |= unformat_lisp_eid_api (&a->lcl_eid, mp->vni, mp->eid_type,
++			mp->lcl_eid, mp->lcl_len);
+ 
+-  if (rv || 0 == pairs)
+-    goto send_reply;
++	if (mp->loc_num % 2 != 0)
++	{
++		rv = -1;
++		goto send_reply;
++	}
++	pairs = unformat_lisp_loc_pairs (mp->locs, mp->loc_num / 2);
+ 
+-  a->is_add = mp->is_add;
+-  a->locator_pairs = pairs;
+-  a->dp_table = mp->dp_table;
+-  a->vni = mp->vni;
+-  a->action = mp->action;
++	if (rv || 0 == pairs)
++		goto send_reply;
+ 
+-  rv = vnet_lisp_gpe_add_del_fwd_entry (a, 0);
+-  vec_free (pairs);
+-send_reply:
+-  REPLY_MACRO (VL_API_LISP_GPE_ADD_DEL_FWD_ENTRY_REPLY);
++	if (mp->loc_num == 0 && (u32) ~ 0 != mp->action){
++		a->is_negative = 1;
++	}
++
++	a->is_add = mp->is_add;
++	a->locator_pairs = pairs;
++	a->table_id = mp->dp_table;
++	a->vni = mp->vni;
++	a->action = mp->action;
++
++	rv = vnet_lisp_gpe_add_del_fwd_entry (a, 0);
++
++	vec_free (pairs);
++	send_reply:
++	REPLY_MACRO (VL_API_LISP_GPE_ADD_DEL_FWD_ENTRY_REPLY);
+ }
+ 
+ static void
+diff --git a/vpp/vpp-api/vpe.api b/vpp/vpp-api/vpe.api
+index d5818cb..9f1b9f1 100644
+--- a/vpp/vpp-api/vpe.api
++++ b/vpp/vpp-api/vpe.api
+@@ -1947,6 +1947,19 @@ define lisp_add_del_local_eid_reply
+   i32 retval;
+ };
+ 
++
++/** \brief LISP locator structure
++    @param is_ip4 - whether addr is IPv4 or v6
++    @param weight - locator weight
++    @param addr - IPv4/6 address
++*/
++typeonly manual_print manual_endian define lisp_gpe_locator
++{
++  u8 is_ip4;
++  u8 weight;
++  u8 addr[16];
++};
++
+ /** \brief add or delete lisp gpe tunnel
+     @param client_index - opaque cookie to identify the sender
+     @param context - sender context, to match reply w/ request
+@@ -1961,12 +1974,11 @@ define lisp_add_del_local_eid_reply
+     @param lcl_len - local prefix len
+     @param vni - virtual network identifier
+     @param dp_table - vrf/bridge domain id
+-    @param loc_num - number of locators
+-    @param lcl_locs - array of local locators
+-    @param rmt_locs - array of remote locators
+     @param action - negative action when 0 locators configured
++    @param loc_num - number of locators
++    @param locs - array of remote locators
+ */
+-define lisp_gpe_add_del_fwd_entry
++manual_print manual_endian define lisp_gpe_add_del_fwd_entry
+ {
+   u32 client_index;
+   u32 context;
+@@ -1978,10 +1990,9 @@ define lisp_gpe_add_del_fwd_entry
+   u8 lcl_len;
+   u32 vni;
+   u32 dp_table;
+-  u32 loc_num;
+-  u8 lcl_locs[loc_num];
+-  u8 rmt_locs[loc_num];
+   u8 action;
++  u32 loc_num;
++  vl_api_lisp_gpe_locator_t locs[loc_num];
+ };
+ 
+ /** \brief Reply for gpe_fwd_entry add/del

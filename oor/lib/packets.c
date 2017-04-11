@@ -18,25 +18,19 @@
  */
 
 #include <errno.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
 
-#include "packets.h"
-#include "../oor_external.h"
-#include "sockets.h"
-#include "../liblisp/lisp_address.h"
 #include "cksum.h"
-#include "mem_util.h"
 #include "oor_log.h"
-
+#include "mem_util.h"
+#include "packets.h"
+#include "sockets.h"
+#include "../oor_external.h"
 /* needed for hashword */
 #include "../elibs/bob/lookup3.c"
+#include "../liblisp/lisp_address.h"
 
+#define LISP_CONTROL_PORT 4342
+#define LISP_DATA_PORT 4341
 
 uint16_t ip_id = 0;
 
@@ -46,6 +40,13 @@ get_IP_ID()
 {
     ip_id++;
     return (ip_id);
+}
+
+
+void *
+pkt_pull_eth(lbuf_t *b)
+{
+    return(lbuf_pull(b, sizeof(struct ether_header)));
 }
 
 
@@ -109,6 +110,23 @@ pkt_push_udp(lbuf_t *b, uint16_t sp, uint16_t dp)
 #endif
     return(uh);
 }
+
+
+void *
+pkt_push_eth(lbuf_t *b, uint8_t  ether_dhost[ETHER_ADDR_LEN],
+        uint8_t  ether_shost[ETHER_ADDR_LEN], uint16_t ether_type)
+{
+    struct ether_header *eth;
+
+    eth = lbuf_push_uninit(b, sizeof(struct ether_header));
+
+    eth->ether_type = htons(ether_type);
+    memcpy (&(eth->ether_dhost),ether_dhost, ETHER_ADDR_LEN*sizeof(uint8_t));
+    memcpy (&(eth->ether_shost),ether_shost, ETHER_ADDR_LEN*sizeof(uint8_t));
+
+    return(eth);
+}
+
 
 struct ip *
 pkt_push_ipv4(lbuf_t *b, struct in_addr *src, struct in_addr *dst, int proto)
@@ -177,6 +195,24 @@ pkt_push_ip(lbuf_t *b, ip_addr_t *src, ip_addr_t *dst, int proto)
     return(iph);
 }
 
+//struct ether_header *
+//pkt_push_eth(lbuf_t *b, ether_dhost[ETH_ALEN], , int proto)
+//{
+//    struct ip6_hdr *ip6h;
+//    int len;
+//
+//    len = lbuf_size(b);
+//    ip6h = lbuf_push_uninit(b, sizeof(struct ip6_hdr));
+//
+//    ip6h->ip6_hops = 255;
+//    ip6h->ip6_vfc = (IP6VERSION << 4);
+//    ip6h->ip6_nxt = proto;
+//    ip6h->ip6_plen = htons(len);
+//    memcpy(ip6h->ip6_src.s6_addr, src->s6_addr, sizeof(struct in6_addr));
+//    memcpy(ip6h->ip6_dst.s6_addr, dst->s6_addr, sizeof(struct in6_addr));
+//    return(ip6h);
+//}
+
 int
 pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
         ip_addr_t *dip)
@@ -200,7 +236,7 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
 
     uh = lbuf_udp(b);
     udpsum = udp_checksum(uh, ntohs(uh->len), lbuf_ip(b), ip_addr_afi(sip));
-    if (udpsum == -1) {
+    if (udpsum == (uint16_t) ~ 0) {
         OOR_LOG(LDBG_1, "Failed UDP checksum! Discarding");
         return (BAD);
     }
@@ -260,7 +296,6 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
     return (GOOD);
 }
 
-
 /* Calculate the hash of the 5 tuples of a packet */
 uint32_t
 pkt_tuple_hash(packet_tuple_t *tuple)
@@ -299,6 +334,39 @@ pkt_tuple_hash(packet_tuple_t *tuple)
         tuples[8] = port;
         tuples[9] = tuple->protocol;
         tuples[10] = tuple->iid;
+        break;
+    }
+
+    /* XXX: why 2013 used as initial value? */
+    hash = hashword(tuples, len, 2013);
+    free(tuples);
+    return (hash);
+}
+
+/* Calculate the hash of the src, dst address of a packet */
+uint32_t
+pkt_src_dst_hash(lisp_addr_t *src_addr, lisp_addr_t *dst_addr)
+{
+    int hash = 0;
+    int len = 0;
+    uint32_t *tuples = NULL;
+
+    switch (lisp_addr_ip_afi(src_addr)){
+    case AF_INET:
+        /* 1 integer src_addr
+         * + 1 integer dst_adr*/
+        len = 2;
+        tuples = xmalloc(len * sizeof(uint32_t));
+        lisp_addr_copy_to(&tuples[0], src_addr);
+        lisp_addr_copy_to(&tuples[1], dst_addr);
+        break;
+    case AF_INET6:
+        /* 4 integer src_addr
+         * + 4 integer dst_adr */
+        len = 8;
+        tuples = xmalloc(len * sizeof(uint32_t));
+        lisp_addr_copy_to(&tuples[0], src_addr);
+        lisp_addr_copy_to(&tuples[4], dst_addr);
         break;
     }
 
@@ -371,12 +439,32 @@ pkt_tuple_to_char(packet_tuple_t *tpl)
         break;
     }
     sprintf(buf[i] + strlen(buf[i]), "Src Port: %d, ",tpl->src_port);
-    sprintf(buf[i] + strlen(buf[i]), "Dst Port: %d\n",tpl->dst_port);
-    sprintf(buf[i] + strlen(buf[i]), "IID|VNI: %d\n",tpl->iid);
+    sprintf(buf[i] + strlen(buf[i]), "Dst Port: %d, ",tpl->dst_port);
+    sprintf(buf[i] + strlen(buf[i]), "IID|VNI: %d",tpl->iid);
 
     return (buf[i]);
 }
 
+inline int
+pkt_tuple_is_lisp(packet_tuple_t *tpl)
+{
+    /* Don't encapsulate LISP messages  */
+    if (tpl->protocol != IPPROTO_UDP) {
+        return (FALSE);
+    }
+
+    /* If either of the udp ports are the control port or data, allow
+     * to go out natively. This is a quick way around the
+     * route filter which rewrites the EID as the source address. */
+    if (tpl->dst_port != LISP_CONTROL_PORT
+        && tpl->src_port != LISP_CONTROL_PORT
+        && tpl->src_port != LISP_DATA_PORT
+        && tpl->dst_port != LISP_DATA_PORT) {
+        return (FALSE);
+    }
+
+    return (TRUE);
+}
 
 int
 ip_hdr_set_ttl_and_tos(struct iphdr *iph, int ttl, int tos)
@@ -581,7 +669,7 @@ build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,lisp_addr_t *addr_from,
      */
 
     if ((udpsum = udp_checksum(udph_ptr, udp_hdr_and_payload_len, iph_ptr,
-            lisp_addr_ip_afi(addr_from))) == -1) {
+            lisp_addr_ip_afi(addr_from))) == (uint16_t) ~ 0) {
         free(encap_pkt);
         return (NULL);
     }

@@ -21,6 +21,7 @@
 #include "oor_log.h"
 
 
+
 static inline int
 convert_hex_char_to_byte (char val)
 {
@@ -140,6 +141,73 @@ is_compatible_addr(lisp_addr_t *addr, int compatible_addr_flags)
     }
 }
 
+/*
+ * Fill dst from src removing spaces.
+ * Dst should already be allocated and have enough space
+ */
+void
+str_rm_spaces(char *src, char *dst)
+{
+    int s, d=0;
+    for (s=0; src[s] != 0; s++){
+        if (src[s] != ' ') {
+            dst[d] = src[s];
+            d++;
+        }
+    }
+    dst[d] = 0;
+}
 
+/*
+ * Fill dst from src removing double spaces.
+ * Dst should already be allocated and have enough space
+ */
+void
+str_rm_double_spaces(char *src, char *dst)
+{
+    int s, d=0;
+    uint8_t is_prev_space;
+    for (s=0; src[s] != 0; s++){
+        if (src[s] == ' ') {
+            if (is_prev_space == FALSE){
+                dst[d] = src[s];
+                d++;
+                is_prev_space = TRUE;
+            }
+        }else{
+            dst[d] = src[s];
+            d++;
+            is_prev_space = FALSE;
+        }
+    }
+    dst[d] = 0;
+}
 
+void
+locators_classify_in_4_6(mapping_t *mapping, glist_t *loc_loct_addr,
+        glist_t *ipv4_loct_list, glist_t *ipv6_loct_list, get_fwd_ip_addr fwd_if)
+{
+    locator_t *locator;
+    lisp_addr_t *addr;
+    lisp_addr_t *ip_addr;
 
+    if (glist_size(mapping->locators_lists) == 0){
+        OOR_LOG(LDBG_3,"locators_classify_in_4_6: No locators to classify for mapping with eid %s",
+                lisp_addr_to_char(mapping_eid(mapping)));
+        return;
+    }
+    mapping_foreach_active_locator(mapping,locator){
+        addr = locator_addr(locator);
+        ip_addr = fwd_if(addr,loc_loct_addr);
+        if (ip_addr == NULL){
+            OOR_LOG(LDBG_2,"locators_classify_in_4_6: No IP address for %s", lisp_addr_to_char(addr));
+            continue;
+        }
+
+        if (lisp_addr_ip_afi(ip_addr) == AF_INET){
+            glist_add(locator,ipv4_loct_list);
+        }else{
+            glist_add(locator,ipv6_loct_list);
+        }
+    }mapping_foreach_active_locator_end;
+}

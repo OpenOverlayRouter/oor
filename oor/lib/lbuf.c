@@ -212,6 +212,18 @@ lbuf_clone(lbuf_t *b)
     return new_buf;
 }
 
+inline int lbuf_point_to_eth(lbuf_t *b)
+{
+    if (b->eth == UINT16_MAX){
+        OOR_LOG(LDBG_2,"lbuf_data_to_eth: Ethernet header not specified in buffer");
+        return (BAD);
+    }
+    b->size = lbuf_tail(b) - lbuf_eth(b);
+    b->data = lbuf_eth(b);
+
+    return (GOOD);
+}
+
 inline int lbuf_point_to_ip(lbuf_t *b)
 {
     if (b->ip == UINT16_MAX){

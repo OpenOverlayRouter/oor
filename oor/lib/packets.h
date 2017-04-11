@@ -27,6 +27,7 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <netinet/ether.h>
 
 #include "lbuf.h"
 #include "mem_util.h"
@@ -65,7 +66,7 @@ uint8_t *build_ip_udp_pcket(uint8_t *orig_pkt, int orig_pkt_len,
         int port_dest, int *pkt_len);
 
 
-
+void *pkt_pull_eth(lbuf_t *b);
 void *pkt_pull_ipv4(lbuf_t *b);
 void *pkt_pull_ipv6(lbuf_t *b);
 void *pkt_pull_ip(lbuf_t *);
@@ -75,6 +76,8 @@ struct ip *pkt_push_ipv4(lbuf_t *, struct in_addr *, struct in_addr *, int);
 struct ip6_hdr *pkt_push_ipv6(lbuf_t *, struct in6_addr *, struct in6_addr *,
         int);
 void *pkt_push_udp(lbuf_t *, uint16_t , uint16_t);
+void *pkt_push_eth(lbuf_t *b, uint8_t  ether_dhost[ETHER_ADDR_LEN],
+        uint8_t  ether_shost[ETHER_ADDR_LEN], uint16_t ether_type);
 void *pkt_push_ip(lbuf_t *, ip_addr_t *, ip_addr_t *, int proto);
 int pkt_push_udp_and_ip(lbuf_t *, uint16_t, uint16_t, ip_addr_t *,
         ip_addr_t *);
@@ -83,10 +86,12 @@ int ip_hdr_ttl_and_tos(struct iphdr *, int *ttl, int *tos);
 
 int pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
 uint32_t pkt_tuple_hash(packet_tuple_t *tuple);
+uint32_t pkt_src_dst_hash(lisp_addr_t *src_addr, lisp_addr_t *dst_addr);
 int pkt_tuple_cmp(packet_tuple_t *t1, packet_tuple_t *t2);
 packet_tuple_t *pkt_tuple_clone(packet_tuple_t *);
 void pkt_tuple_del(packet_tuple_t *tpl);
 char *pkt_tuple_to_char(packet_tuple_t *tpl);
+int pkt_tuple_is_lisp(packet_tuple_t *tpl);
 
 char * ip_src_and_dst_to_char(struct iphdr *iph, char *fmt);
 
@@ -149,7 +154,7 @@ IP_SET_16_SUBFIELD((ip4)->frag_off, IP_DF, IPV4_DF_OFFSET, (value))
  */
 
 /// The bitmask for the Version field in an ipv6_hdr->ip6_flow variable
-#define IPV6_VERSION_MASK  0xf0000000
+/*#define IPV6_VERSION_MASK  0xf0000000*/
 /// The offset for the Version field in an ipv6_hdr->ip6_flow variable
 #define IPV6_VERSION_OFFSET  28
 

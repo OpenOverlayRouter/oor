@@ -46,11 +46,11 @@ void htable_nonces_reset_nonces_lst(htable_nonces_t *nonces_ht, nonces_list_t *n
 
 uint64_t nonce_build(int seed);
 uint64_t nonce_new();
-inline glist_t *nonces_list_list(nonces_list_t * nonces_lst);
-inline oor_timer_t *nonces_list_timer(nonces_list_t * nonces_lst);
-inline nonces_list_t *nonces_list_new_init(oor_timer_t *timer);
+glist_t *nonces_list_list(nonces_list_t * nonces_lst);
+oor_timer_t *nonces_list_timer(nonces_list_t * nonces_lst);
+nonces_list_t *nonces_list_new_init(oor_timer_t *timer);
 void nonces_list_free(nonces_list_t *nonces_lst);
-inline int nonces_list_size(nonces_list_t *nonces_lst);
+int nonces_list_size(nonces_list_t *nonces_lst);
 
 
 #endif /* NONCES_TABLE_H_ */

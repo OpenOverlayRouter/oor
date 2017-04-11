@@ -31,14 +31,6 @@ static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
         &xtr_ctrl_class,/* MN */
 };
 
-inline oor_dev_type_e
-lisp_ctrl_dev_mode(oor_ctrl_dev_t *dev){
-    return dev->mode;
-}
-inline oor_ctrl_t *
-lisp_ctrl_dev_get_ctrl_t(oor_ctrl_dev_t *dev){
-    return dev->ctrl;
-}
 
 static ctrl_dev_class_t *
 ctrl_dev_class_find(oor_dev_type_e type)
@@ -95,10 +87,21 @@ send_msg(oor_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc)
 }
 
 int
+notify_datap_rm_fwd_from_entry(oor_ctrl_dev_t *dev, lisp_addr_t *eid_prefix, uint8_t is_local)
+{
+    return(ctrl_datap_rm_fwd_from_entry(eid_prefix, is_local));
+}
+
+int
+notify_datap_reset_all_fwd(oor_ctrl_dev_t *dev)
+{
+    return(ctrl_datap_reset_all_fwd());
+}
+
+int
 ctrl_dev_if_link_update(oor_ctrl_dev_t *dev, char *iface_name, uint8_t status)
 {
     return(dev->ctrl_class->if_link_update(dev, iface_name, status));
-
 }
 
 int
@@ -121,17 +124,6 @@ ctrl_dev_get_fwd_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
     return(dev->ctrl_class->get_fwd_entry(dev, tuple));
 }
 
-inline oor_dev_type_e
-ctrl_dev_mode(oor_ctrl_dev_t *dev)
-{
-    return (dev->mode);
-}
-
-inline oor_ctrl_t *
-ctrl_dev_ctrl(oor_ctrl_dev_t *dev)
-{
-    return (dev->ctrl);
-}
 
 int
 ctrl_dev_set_ctrl(oor_ctrl_dev_t *dev, oor_ctrl_t *ctrl)

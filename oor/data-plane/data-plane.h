@@ -29,8 +29,8 @@ typedef struct data_plane_struct {
     int (*datap_init)(oor_dev_type_e dev_type, oor_encap_t encap_type,  ...);
     void (*datap_uninit)();
     int (*datap_add_iface_addr)(iface_t *iface, int afi);
-    int (*datap_add_eid_prefix)(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix);
-    int (*datap_remove_eid_prefix)(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix);
+    int (*datap_register_lcl_mapping)(oor_dev_type_e dev_type, mapping_t *map);
+    int (*datap_deregister_lcl_mapping)(oor_dev_type_e dev_type, mapping_t *map);
     int (*datap_input_packet)(sock_t *sl);
     int (*datap_rtr_input_packet)(sock_t *sl);
     int (*datap_output_packet)(sock_t *sl);
@@ -38,6 +38,8 @@ typedef struct data_plane_struct {
             lisp_addr_t *dst_pref, lisp_addr_t *gw);
     int (*datap_updated_addr)(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr);
     int (*datap_update_link)(iface_t *iface, int old_iface_index, int new_iface_index, int status);
+    int (*datap_rm_fwd_from_entry)(lisp_addr_t *eid_prefix, uint8_t is_local);
+    int (*datap_reset_all_fwd)();
 
     void *datap_data;
 } data_plane_struct_t;
@@ -46,6 +48,7 @@ void data_plane_select();
 
 extern data_plane_struct_t dplane_tun;
 extern data_plane_struct_t dplane_vpnapi;
+extern data_plane_struct_t dplane_vpp;
 
 
 #endif /* DATA_PLANE_H_ */

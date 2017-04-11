@@ -349,7 +349,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
 
             /* PROXY-ETR CONFIG */
 
-            if (strcmp(sect->type, "proxy-etr") == 0){
+            if (strcmp(sect->type, "proxy-etr-ipv4") == 0){
                 uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
                 if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
                     uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
@@ -366,7 +366,35 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
                     uci_weigth = 100;
                 }
 
-                if (add_proxy_etr_entry(xtr->petrs,uci_address,uci_priority,uci_weigth) != GOOD ){
+                if (add_proxy_etr_entry(xtr->petrs_ipv4,uci_address,uci_priority,uci_weigth) != GOOD ){
+                    OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
+                }else{
+                    OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
+                }
+                continue;
+            }
+
+
+            /* PROXY-ETR CONFIG */
+
+            if (strcmp(sect->type, "proxy-etr-ipv6") == 0){
+                uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
+                if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
+                    uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+                }else{
+                    OOR_LOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
+                            " Set default value: 10",uci_address);
+                    uci_priority = 10;
+                }
+                if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
+                    uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+                }else{
+                    OOR_LOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
+                            " Set default value: 100",uci_address);
+                    uci_weigth = 100;
+                }
+
+                if (add_proxy_etr_entry(xtr->petrs_ipv6,uci_address,uci_priority,uci_weigth) != GOOD ){
                     OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
                 }else{
                     OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
@@ -403,8 +431,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
                 }
 
                 if (xtr->fwd_policy->init_map_loc_policy_inf(
-                        xtr->fwd_policy_dev_parm,map_loc_e,NULL,
-                        xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+                        xtr->fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
                     OOR_LOG(LERR, "Couldn't initiate forward information for mapping with EID: %s. Discarding it...",
                             lisp_addr_to_char(mapping_eid(mapping)));
                     map_local_entry_del(map_loc_e);
@@ -446,10 +473,16 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
             }
     }
     /* Calculate forwarding info por proxy-etrs */
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs,
-            xtr->fwd_policy->del_map_cache_policy_inf) != GOOD){
-        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs!.");
-        mcache_entry_del(xtr->petrs);
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv4 EIDs!.");
+        mcache_entry_del(xtr->petrs_ipv4);
+        return(BAD);
+    }
+
+    /* Calculate forwarding info por proxy-etrs */
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv6 EIDs!.");
+        mcache_entry_del(xtr->petrs_ipv6);
         return(BAD);
     }
 
@@ -631,7 +664,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
 
         /* PROXY-ETR CONFIG */
 
-        if (strcmp(sect->type, "proxy-etr") == 0){
+        if (strcmp(sect->type, "proxy-etr-ipv4") == 0){
             uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
             if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
                 uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
@@ -648,7 +681,32 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
                 uci_weigth = 100;
             }
 
-            if (add_proxy_etr_entry(xtr->petrs,uci_address,uci_priority,uci_weigth) != GOOD ){
+            if (add_proxy_etr_entry(xtr->petrs_ipv4,uci_address,uci_priority,uci_weigth) != GOOD ){
+                OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
+            }else{
+                OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
+            }
+            continue;
+        }
+
+        if (strcmp(sect->type, "proxy-etr-ipv6") == 0){
+            uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
+            if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
+                        " Set default value: 10",uci_address);
+                uci_priority = 10;
+            }
+            if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
+                        " Set default value: 100",uci_address);
+                uci_weigth = 100;
+            }
+
+            if (add_proxy_etr_entry(xtr->petrs_ipv6,uci_address,uci_priority,uci_weigth) != GOOD ){
                 OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
             }else{
                 OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
@@ -686,8 +744,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             }
 
             if ( xtr->fwd_policy->init_map_loc_policy_inf(
-                    xtr->fwd_policy_dev_parm,map_loc_e,NULL,
-                    xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+                    xtr->fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
                 OOR_LOG(LERR, "Couldn't initiate forward information for mapping with EID: %s. Discarding it...",
                         lisp_addr_to_char(mapping_eid(mapping)));
                 map_local_entry_del(map_loc_e);
@@ -730,10 +787,15 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     }
 
     /* Calculate forwarding info por proxy-etrs */
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs,
-            xtr->fwd_policy->del_map_cache_policy_inf) != GOOD){
-        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs!.");
-        mcache_entry_del(xtr->petrs);
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv4 EIDs!.");
+        mcache_entry_del(xtr->petrs_ipv4);
+        return(BAD);
+    }
+
+    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv6 EIDs!.");
+        mcache_entry_del(xtr->petrs_ipv6);
         return(BAD);
     }
 

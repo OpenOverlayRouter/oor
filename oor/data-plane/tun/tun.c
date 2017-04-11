@@ -17,34 +17,28 @@
  *
  */
 
-#include <errno.h>
-#include <linux/netlink.h>
+
 #include <linux/rtnetlink.h>
-#include <stdarg.h>
-#include <unistd.h>
 #include "tun.h"
 #include "tun_input.h"
 #include "tun_output.h"
 #include "../data-plane.h"
 #include "../../oor_external.h"
+#include "../../fwd_policies/fwd_policy.h"
+#include "../../lib/interfaces_lib.h"
 #include "../../lib/oor_log.h"
 #include "../../lib/routing_tables_lib.h"
-
 
 int tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...);
 void tun_uninit_data_plane();
 int tun_add_datap_iface_addr(iface_t *iface,int afi);
-int tun_add_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix);
-int tun_remove_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix);
+int tun_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
+int tun_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
 
 int configure_routing_to_tun_router(int afi);
-//int configure_routing_to_tun_mn(lisp_addr_t *eid_addr);
-int remove_routing_to_tun_mn(lisp_addr_t *eid_addr);
-int create_tun();
 int configure_routing_to_tun_mn(lisp_addr_t *eid_addr);
-int tun_bring_up_iface();
-int tun_add_eid_to_iface(lisp_addr_t *addr);
-int tun_del_eid_from_iface(lisp_addr_t *addr);
+int remove_routing_to_tun_mn(lisp_addr_t *eid_addr);
+int configure_routing_to_tun_mn(lisp_addr_t *eid_addr);
 int set_tun_default_route_v4();
 int del_tun_default_route_v4();
 int set_tun_default_route_v6();
@@ -58,23 +52,33 @@ void tun_process_rm_gateway(iface_t *iface,lisp_addr_t *gateway);
 
 void tun_set_default_output_ifaces();
 void tun_iface_remove_routing_rules(iface_t *iface);
+int tun_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local);
+tun_dplane_data_t * tun_dplane_data_new_init(oor_encap_t encap_type);
+void tun_dplane_data_free(tun_dplane_data_t *data);
 
 
 data_plane_struct_t dplane_tun = {
         .datap_init = tun_configure_data_plane,
         .datap_uninit = tun_uninit_data_plane,
         .datap_add_iface_addr = tun_add_datap_iface_addr,
-        .datap_add_eid_prefix = tun_add_eid_prefix,
-        .datap_remove_eid_prefix = tun_remove_eid_prefix,
+        .datap_register_lcl_mapping = tun_register_lcl_mapping,
+        .datap_deregister_lcl_mapping = tun_deregister_lcl_mapping,
         .datap_input_packet = tun_process_input_packet,
         .datap_rtr_input_packet = tun_rtr_process_input_packet,
         .datap_output_packet = tun_output_recv,
         .datap_updated_route = tun_updated_route,
         .datap_updated_addr = tun_updated_addr,
         .datap_update_link = tun_updated_link,
+        .datap_rm_fwd_from_entry = tun_rm_fwd_from_entry,
+        .datap_reset_all_fwd = tun_reset_all_fwd,
         .datap_data = NULL
 };
 
+inline tun_dplane_data_t *
+tun_get_datap_data()
+{
+    return ((tun_dplane_data_t *)dplane_tun.datap_data);
+}
 
 /*
  * tun_configure_data_plane not has variable list of parameters
@@ -86,13 +90,13 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
     int ipv4_data_input_fd = -1;
     int ipv6_data_input_fd = -1;
     int data_port;
-    tun_dplane_data_t *data;
 
     /* Configure data plane */
-    if (create_tun() <= BAD){
+    tun_receive_fd = create_tun_tap(TUN, TUN_IFACE_NAME, TUN_MTU);
+    if (tun_receive_fd <= BAD){
         return (BAD);
     }
-
+    tun_ifindex = if_nametoindex (TUN_IFACE_NAME);
     switch (dev_type){
     case MN_MODE:
         sockmstr_register_read_listener(smaster, tun_output_recv, NULL,tun_receive_fd);
@@ -134,17 +138,13 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);
     }
-    data = xmalloc(sizeof(tun_dplane_data_t));
-    data->encap_type = encap_type;
-    dplane_tun.datap_data = (void *)data;
-    tun_output_init();
+    dplane_tun.datap_data = (void *)tun_dplane_data_new_init(encap_type);
 
     /* Select the default rlocs for output data packets and output control
      * packets */
     tun_set_default_output_ifaces();
 
     return (GOOD);
-
 }
 
 void
@@ -160,9 +160,7 @@ tun_uninit_data_plane()
             iface = (iface_t *)glist_entry_data(iface_it);
             tun_iface_remove_routing_rules(iface);
         }
-
-        tun_output_uninit();
-        free(data);
+        tun_dplane_data_free(data);
     }
 }
 
@@ -209,9 +207,9 @@ tun_add_datap_iface_addr(iface_t *iface, int afi)
 }
 
 int
-tun_add_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix){
-
-    lisp_addr_t *eid_ip_prefix = lisp_addr_get_ip_pref_addr(eid_prefix);
+tun_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map)
+{
+    lisp_addr_t *eid_ip_prefix = lisp_addr_get_ip_pref_addr(mapping_eid(map));
 
     switch(dev_type){
     case xTR_MODE:
@@ -248,7 +246,9 @@ tun_add_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix){
 }
 
 int
-tun_remove_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix){
+tun_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map){
+    lisp_addr_t *eid_prefix = mapping_eid(map);
+
     switch(dev_type){
     case xTR_MODE:
         if (del_rule(lisp_addr_ip_afi(eid_prefix),
@@ -281,89 +281,6 @@ tun_remove_eid_prefix(oor_dev_type_e dev_type, lisp_addr_t *eid_prefix){
     return (GOOD);
 }
 
-
-
-int
-create_tun()
-{
-    struct ifreq ifr;
-    int err = 0;
-    int tmpsocket = 0;
-    int flags = IFF_TUN | IFF_NO_PI; // Create a tunnel without persistence
-    char *clonedev = CLONEDEV;
-
-
-    /* Arguments taken by the function:
-     *
-     * char *dev: the name of an interface (or '\0'). MUST have enough
-     *   space to hold the interface name if '\0' is passed
-     * int flags: interface flags (eg, IFF_TUN etc.)
-     */
-
-    /* open the clone device */
-    if( (tun_receive_fd = open(clonedev, O_RDWR)) < 0 ) {
-        OOR_LOG(LCRIT, "TUN/TAP: Failed to open clone device");
-        return(BAD);
-    }
-
-    memset(&ifr, 0, sizeof(ifr));
-
-    ifr.ifr_flags = flags;
-    strncpy(ifr.ifr_name, TUN_IFACE_NAME, IFNAMSIZ - 1);
-
-    // try to create the device
-    if ((err = ioctl(tun_receive_fd, TUNSETIFF, (void *) &ifr)) < 0) {
-        close(tun_receive_fd);
-        OOR_LOG(LCRIT, "TUN/TAP: Failed to create tunnel interface, errno: %d.", errno);
-        if (errno == 16){
-            OOR_LOG(LCRIT, "Check no other instance of oor is running. Exiting ...");
-        }
-        return(BAD);
-    }
-
-    // get the ifindex for the tun/tap
-    tmpsocket = socket(AF_INET, SOCK_DGRAM, 0); // Dummy socket for the ioctl, type/details unimportant
-    if ((err = ioctl(tmpsocket, SIOCGIFINDEX, (void *)&ifr)) < 0) {
-        close(tun_receive_fd);
-        close(tmpsocket);
-        OOR_LOG(LCRIT, "TUN/TAP: unable to determine ifindex for tunnel interface, errno: %d.", errno);
-        return(BAD);
-    } else {
-        OOR_LOG(LDBG_3, "TUN/TAP ifindex is: %d", ifr.ifr_ifindex);
-        tun_ifindex = ifr.ifr_ifindex;
-
-        // Set the MTU to the configured MTU
-        ifr.ifr_ifru.ifru_mtu = TUN_MTU;
-        if ((err = ioctl(tmpsocket, SIOCSIFMTU, &ifr)) < 0) {
-            close(tmpsocket);
-            OOR_LOG(LCRIT, "TUN/TAP: unable to set interface MTU to %d, errno: %d.", TUN_MTU, errno);
-            return(BAD);
-        } else {
-            OOR_LOG(LDBG_1, "TUN/TAP mtu set to %d", TUN_MTU);
-        }
-    }
-
-
-    close(tmpsocket);
-
-    tun_receive_buf = (uint8_t *)malloc(TUN_RECEIVE_SIZE);
-
-    if (tun_receive_buf == NULL){
-        OOR_LOG(LWRN, "create_tun: Unable to allocate memory for tun_receive_buf: %s", strerror(errno));
-        return(BAD);
-    }
-
-    /* this is the special file descriptor that the caller will use to talk
-     * with the virtual interface */
-    OOR_LOG(LDBG_2, "Tunnel fd at creation is %d", tun_receive_fd);
-
-    if (tun_bring_up_iface(TUN_IFACE_NAME) != GOOD){
-        return (BAD);
-    }
-
-    return (tun_receive_fd);
-}
-
 /*
 * For mobile node mode, we create two /1 routes covering the full IP addresses space to route all traffic
 * generated by the node to the lispTun0 interface
@@ -371,12 +288,11 @@ create_tun()
 *          IPv6: ::/1      and 8000::/1
 */
 
-
 int
 configure_routing_to_tun_mn(lisp_addr_t *eid_addr)
 {
 
-    if (tun_add_eid_to_iface(eid_addr) != GOOD){
+    if (add_addr_to_iface(TUN_IFACE_NAME, eid_addr) != GOOD){
         return (BAD);
     }
 
@@ -399,7 +315,6 @@ configure_routing_to_tun_mn(lisp_addr_t *eid_addr)
     return (GOOD);
 }
 
-
 /*
 * For mobile node mode, we remove two /1 routes covering the full IP addresses space to route all traffic
 * generated by the node to the lispTun0 interface
@@ -407,11 +322,10 @@ configure_routing_to_tun_mn(lisp_addr_t *eid_addr)
 *          IPv6: ::/1      and 8000::/1
 */
 
-
 int
 remove_routing_to_tun_mn(lisp_addr_t *eid_addr)
 {
-    if (tun_del_eid_from_iface(eid_addr) != GOOD){
+    if (del_addr_from_iface(TUN_IFACE_NAME, eid_addr) != GOOD){
         return (BAD);
     }
 
@@ -434,7 +348,6 @@ remove_routing_to_tun_mn(lisp_addr_t *eid_addr)
     return (GOOD);
 }
 
-
 /*
 * For router mode, add a new routing table with default route to tun interface. Using source routing,
 * We send all traffic generated by EIDs to this table.
@@ -452,223 +365,9 @@ configure_routing_to_tun_router(int afi)
     return add_route(afi,iface_index,NULL,NULL,NULL,RULE_TO_LISP_TABLE_PRIORITY,LISP_TABLE);
 }
 
-
-
-/*
- * tun_bring_up_iface()
- *
- * Bring up interface
- */
-int
-tun_bring_up_iface()
-{
-    struct ifinfomsg    *ifi = NULL;
-    struct nlmsghdr     *nlh = NULL;
-    char                sndbuf[4096];
-    int                 retval = 0;
-    int                 sockfd = 0;
-    int                 tun_ifindex = 0;
-
-    tun_ifindex = if_nametoindex (TUN_IFACE_NAME);
-
-    sockfd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-
-    if (sockfd < 0) {
-        OOR_LOG(LERR, "tun_add_eid_to_iface: Failed to connect to netlink socket");
-        return(BAD);
-    }
-
-    /*
-     * Build the command
-     */
-    memset(sndbuf, 0, 4096);
-    nlh = (struct nlmsghdr *)sndbuf;
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-    nlh->nlmsg_flags = NLM_F_REQUEST | (NLM_F_CREATE | NLM_F_REPLACE);
-    nlh->nlmsg_type = RTM_SETLINK;
-
-    ifi = (struct ifinfomsg *)(sndbuf + sizeof(struct nlmsghdr));
-    ifi->ifi_family = AF_UNSPEC;
-    ifi->ifi_type = IFLA_UNSPEC;
-    ifi->ifi_index = tun_ifindex;
-    ifi->ifi_flags = IFF_UP | IFF_RUNNING; // Bring it up
-    ifi->ifi_change = 0xFFFFFFFF;
-
-    retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
-
-    if (retval < 0) {
-        OOR_LOG(LERR, "tun_bring_up_iface: send() failed %s", strerror(errno));
-        close(sockfd);
-        return(BAD);
-    }
-
-    OOR_LOG(LDBG_1, "TUN interface UP.");
-    close(sockfd);
-    return(GOOD);
-}
-
-/*
- * tun_add_eid_to_iface()
- *
- * Add an EID to the TUN/TAP interface
- */
-int
-tun_add_eid_to_iface(lisp_addr_t *addr)
-{
-    struct rtattr       *rta = NULL;
-    struct ifaddrmsg    *ifa = NULL;
-    struct nlmsghdr     *nlh = NULL;
-    char                sndbuf[4096];
-    int                 retval = 0;
-    int                 sockfd = 0;
-    int                 tun_ifindex = 0;
-
-    int                 addr_size = 0;
-    int                 prefix_length = 0;
-
-    tun_ifindex = if_nametoindex (TUN_IFACE_NAME);
-
-    sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-
-    if (sockfd < 0) {
-        OOR_LOG(LERR, "tun_add_eid_to_iface: Failed to connect to netlink socket");
-        return(BAD);
-    }
-
-    switch (lisp_addr_ip_afi(addr)){
-    case AF_INET:
-        addr_size = sizeof(struct in_addr);
-        prefix_length = 32;
-        break;
-    case AF_INET6:
-        addr_size = sizeof(struct in6_addr);
-        prefix_length = 128;
-        break;
-    default:
-        OOR_LOG(LERR, "tun_add_eid_to_iface: Address no IP address %s",
-                lisp_addr_to_char(addr));
-        return(BAD);
-    }
-
-    /*
-     * Build the command
-     */
-    memset(sndbuf, 0, 4096);
-    nlh = (struct nlmsghdr *)sndbuf;
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg) + sizeof(struct rtattr) + addr_size);
-    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE;
-    nlh->nlmsg_type = RTM_NEWADDR;
-    ifa = (struct ifaddrmsg *)(sndbuf + sizeof(struct nlmsghdr));
-
-    ifa->ifa_prefixlen = prefix_length;
-    ifa->ifa_family = lisp_addr_ip_afi(addr);
-    ifa->ifa_index  = tun_ifindex;
-    ifa->ifa_scope = RT_SCOPE_UNIVERSE;
-    ifa->ifa_flags = 0; // Bring it up
-
-    rta = (struct rtattr *)(sndbuf + sizeof(struct nlmsghdr) + sizeof(struct ifaddrmsg));
-    rta->rta_type = IFA_LOCAL;
-    rta->rta_len = sizeof(struct rtattr) + addr_size;
-    lisp_addr_copy_to((void *)((char *)rta + sizeof(struct rtattr)),addr);
-
-
-    retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
-
-    if (retval < 0) {
-        OOR_LOG(LERR, "tun_add_eid_to_iface: send() failed %s", strerror(errno));
-        close(sockfd);
-        return(BAD);
-    }
-
-    OOR_LOG(LDBG_1, "added %s EID to TUN interface.",lisp_addr_to_char(addr));
-    close(sockfd);
-    return(GOOD);
-}
-
-
-/*
- * tun_add_eid_to_iface()
- *
- * Remove an EID to the TUN/TAP interface
- */
-int
-tun_del_eid_from_iface(lisp_addr_t *addr)
-{
-    struct rtattr       *rta = NULL;
-    struct ifaddrmsg    *ifa = NULL;
-    struct nlmsghdr     *nlh = NULL;
-    char                sndbuf[4096];
-    int                 retval = 0;
-    int                 sockfd = 0;
-    int                 tun_ifindex = 0;
-
-    int                 addr_size = 0;
-    int                 prefix_length = 0;
-
-    tun_ifindex = if_nametoindex (TUN_IFACE_NAME);
-
-    sockfd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-
-    if (sockfd < 0) {
-        OOR_LOG(LERR, "tun_del_eid_from_iface: Failed to connect to netlink socket");
-        return(BAD);
-    }
-
-    switch (lisp_addr_ip_afi(addr)){
-    case AF_INET:
-        addr_size = sizeof(struct in_addr);
-        prefix_length = 32;
-        break;
-    case AF_INET6:
-        addr_size = sizeof(struct in6_addr);
-        prefix_length = 128;
-        break;
-    default:
-        OOR_LOG(LERR, "tun_del_eid_from_iface: Address no IP address %s",
-                lisp_addr_to_char(addr));
-        return(BAD);
-    }
-
-    /*
-     * Build the command
-     */
-    memset(sndbuf, 0, 4096);
-    nlh = (struct nlmsghdr *)sndbuf;
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg) + sizeof(struct rtattr) + addr_size);
-    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE;
-    nlh->nlmsg_type = RTM_DELADDR;
-    ifa = (struct ifaddrmsg *)(sndbuf + sizeof(struct nlmsghdr));
-
-    ifa->ifa_prefixlen = prefix_length;
-    ifa->ifa_family = lisp_addr_ip_afi(addr);
-    ifa->ifa_index  = tun_ifindex;
-    ifa->ifa_scope = RT_SCOPE_UNIVERSE;
-    ifa->ifa_flags = 0; // Bring it up
-
-    rta = (struct rtattr *)(sndbuf + sizeof(struct nlmsghdr) + sizeof(struct ifaddrmsg));
-    rta->rta_type = IFA_LOCAL;
-    rta->rta_len = sizeof(struct rtattr) + addr_size;
-//    memcopy_lisp_addr((void *)((char *)rta + sizeof(struct rtattr)),&eid_address);
-    lisp_addr_copy_to((void *)((char *)rta + sizeof(struct rtattr)),addr);
-
-
-    retval = send(sockfd, sndbuf, nlh->nlmsg_len, 0);
-
-    if (retval < 0) {
-        OOR_LOG(LERR, "tun_del_eid_from_iface: send() failed %s", strerror(errno));
-        close(sockfd);
-        return(BAD);
-    }
-
-    OOR_LOG(LDBG_1, "Removed %s EID from TUN interface.",lisp_addr_to_char(addr));
-    close(sockfd);
-    return(GOOD);
-}
-
 int
 set_tun_default_route_v4()
 {
-
     /*
      * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
      */
@@ -698,14 +397,11 @@ set_tun_default_route_v4()
             metric,
             RT_TABLE_MAIN);
     return(GOOD);
-
-
 }
 
 int
 del_tun_default_route_v4()
 {
-
     /*
      * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
      */
@@ -735,14 +431,11 @@ del_tun_default_route_v4()
             metric,
             RT_TABLE_MAIN);
     return(GOOD);
-
-
 }
 
 int
 set_tun_default_route_v6()
 {
-
     /*
      * Assign route to ::/1 and 8000::/1 via tun interface
      */
@@ -822,7 +515,7 @@ tun_updated_route (int command, iface_t *iface, lisp_addr_t *src_pref,
      * it is, then the gateway address is not a default route.
      * Discard it */
 
-    if (command == RTM_NEWROUTE){
+    if (command == ADD){
         if (lisp_addr_ip_afi(gateway) != LM_AFI_NO_ADDR
                 && lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR) {
 
@@ -868,7 +561,6 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
 {
     int old_addr_lafi, new_addr_ip_afi;
     int sckt;
-    lisp_addr_t *iface_addr;
     tun_dplane_data_t *data;
 
     data = (tun_dplane_data_t *)dplane_tun.datap_data;
@@ -891,7 +583,7 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
         }
 
         return (GOOD);
-    };
+    }
 
     /* If interface was down during initial configuration process and now it
      * is up. Create sockets */
@@ -903,12 +595,10 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
         case AF_INET:
             iface->out_socket_v4 = open_ip_raw_socket(AF_INET);
             sckt = iface->out_socket_v4;
-            iface_addr = iface->ipv4_address;
             break;
         case AF_INET6:
             iface->out_socket_v6 = open_ip_raw_socket(AF_INET6);
             sckt = iface->out_socket_v6;
-            iface_addr = iface->ipv6_address;
             break;
         }
 
@@ -921,16 +611,13 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
                 tun_set_default_output_ifaces();
             }
         }
-
     }else{
         switch(new_addr_ip_afi){
         case AF_INET:
             sckt = iface->out_socket_v4;
-            iface_addr = iface->ipv4_address;
             break;
         case AF_INET6:
             sckt = iface->out_socket_v6;
-            iface_addr = iface->ipv6_address;
             break;
         }
 
@@ -942,8 +629,6 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
             new_addr, NULL, 0);
 
     bind_socket(sckt, new_addr_ip_afi, new_addr,0);
-
-    lisp_addr_copy(iface_addr, new_addr);
 
     return (GOOD);
 }
@@ -959,7 +644,6 @@ tun_updated_link(iface_t *iface, int old_iface_index, int new_iface_index,
      * the index of the interface change. Search iface_t by the interface
      * name and update the index. */
     if (old_iface_index != new_iface_index){
-        iface->iface_index = new_iface_index;
         OOR_LOG(LDBG_2, "process_nl_new_link: The new index of the interface "
                 "%s is: %d. Updating tables", iface->iface_name,
                 iface->iface_index);
@@ -985,9 +669,6 @@ tun_updated_link(iface_t *iface, int old_iface_index, int new_iface_index,
         }
     }
 
-    /* Change status of the interface */
-    iface->status = status;
-
     if (data->default_out_iface_v4 == iface
             || data->default_out_iface_v6 == iface
             || data->default_out_iface_v4 == NULL
@@ -999,8 +680,6 @@ tun_updated_link(iface_t *iface, int old_iface_index, int new_iface_index,
 
     return (GOOD);
 }
-
-
 
 void
 tun_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
@@ -1059,7 +738,6 @@ tun_process_rm_gateway(iface_t *iface,lisp_addr_t *gateway)
     lisp_addr_del(*gw_addr);
     *gw_addr = NULL;
 }
-
 
 void
 tun_set_default_output_ifaces()
@@ -1137,7 +815,6 @@ tun_get_default_output_socket(int afi)
     return (out_socket);
 }
 
-
 void
 tun_iface_remove_routing_rules(iface_t *iface)
 {
@@ -1158,6 +835,124 @@ tun_iface_remove_routing_rules(iface_t *iface)
         del_rule(AF_INET6, 0, iface->iface_index, iface->iface_index,
                 RTN_UNICAST, iface->ipv6_address, NULL, 0);
     }
+}
+
+int
+tun_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local)
+{
+    char * eid_prefix_char = lisp_addr_to_char(eid_prefix);
+    glist_t *fwd_tpl_list, *pxtr_fwd_tpl_list;
+    glist_entry_t *tpl_it;
+    fwd_info_t *fi;
+    tun_dplane_data_t *data = (tun_dplane_data_t *)dplane_tun.datap_data;
+    packet_tuple_t *tpl;
+
+
+    if (is_local){
+        return (tun_reset_all_fwd());
+    }
+
+    if (strcmp(eid_prefix_char,FULL_IPv4_ADDRESS_SPACE) == 0){ // Update of the PeTR list for IPv4 EIDs or RTR list
+        OOR_LOG(LDBG_3, "tun_rm_fwd_from_entry: Removing all the forwading entries association with the PeTRs for IPv4 EIDs");
+        pxtr_fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+        /* Remove all the entries associated with the PxTR */
+
+        while (glist_size(pxtr_fwd_tpl_list) > 0){
+            tpl = (packet_tuple_t *)glist_first_data(pxtr_fwd_tpl_list);
+            fi = ttable_lookup(&(data->ttable), tpl);
+            // When we recurively call this function using the associated_entry we will execute "else" statement where we also
+            // update the list of entries associated with PxTR.
+            tun_rm_fwd_from_entry(fi->associated_entry,is_local);
+        }
+    }else if(strcmp(eid_prefix_char,FULL_IPv6_ADDRESS_SPACE) == 0){ // Update of the PeTR list for IPv6 EIDs or RTR list
+        OOR_LOG(LDBG_3, "tun_rm_fwd_from_entry: Removing all the forwading entries association with the PeTRs for IPv6 EIDs");
+        pxtr_fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+        /* Remove all the entries associated with the PxTR */
+
+        while (glist_size(pxtr_fwd_tpl_list) > 0){
+            tpl = (packet_tuple_t *)glist_first_data(pxtr_fwd_tpl_list);
+            fi = ttable_lookup(&(data->ttable), tpl);
+            // When we recurively call this function using the associated_entry we will execute "else" statement where we also
+            // update the list of entries associated with PxTR.
+            tun_rm_fwd_from_entry(fi->associated_entry,is_local);
+        }
+    }else{
+        OOR_LOG(LDBG_3, "tun_rm_fwd_from_entry: Removing all the forwading entries association with the EID %s",eid_prefix_char);
+        fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,eid_prefix_char);
+        if (!fwd_tpl_list){
+            OOR_LOG(LDBG_1, "tun_rm_fwd_from_entry: Entry %s not found in the shasht!",eid_prefix_char);
+            return (BAD);
+        }
+        /* Check if it is a negative entry in order to remove also from PxTRs list */
+        tpl = (packet_tuple_t *)glist_first_data(fwd_tpl_list);
+        fi = ttable_lookup(&(data->ttable), tpl);
+        if (fi->neg_map_reply_act == ACT_NATIVE_FWD){ //negative mapping
+            switch (lisp_addr_ip_afi(fi->associated_entry)){
+            case AF_INET:
+                pxtr_fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+                break;
+            case AF_INET6:
+                pxtr_fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+                break;
+            default:
+                OOR_LOG(LDBG_1, "tun_rm_fwd_from_entry: Associated entry is not IP");
+                return (BAD);
+            }
+            glist_for_each_entry(tpl_it,fwd_tpl_list){
+                tpl = (packet_tuple_t *)glist_entry_data(tpl_it);
+                glist_remove_obj(tpl,pxtr_fwd_tpl_list);
+            }
+        }
+        /* Remove associated entry from eid_to_dp_entries */
+        shash_remove(data->eid_to_dp_entries, eid_prefix_char);
+    }
+
+    return (GOOD);
+}
+
+/* Remove all the fwd programmed in the data plane
+ * Used when a change is produced in the local mappings */
+
+int
+tun_reset_all_fwd()
+{
+    tun_dplane_data_t *data = (tun_dplane_data_t *)dplane_tun.datap_data;
+
+    shash_destroy(data->eid_to_dp_entries);
+    data->eid_to_dp_entries = shash_new_managed((free_value_fn_t)glist_destroy);
+    /* Insert entry for PeTRs */
+    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), glist_new());
+    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), glist_new());
+    return (GOOD);
+}
+
+tun_dplane_data_t *
+tun_dplane_data_new_init(oor_encap_t encap_type)
+{
+    tun_dplane_data_t * data;
+    data = xmalloc(sizeof(tun_dplane_data_t));
+    if (!data){
+        return (NULL);
+    }
+    data->encap_type = encap_type;
+    data->eid_to_dp_entries = shash_new_managed((free_value_fn_t)glist_destroy);
+    /* Insert entry for PeTRs */
+    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), glist_new());
+    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), glist_new());
+
+    ttable_init(&(data->ttable));
+    return (data);
+}
+
+void
+tun_dplane_data_free(tun_dplane_data_t *data)
+{
+    if (!data){
+        return;
+    }
+    shash_destroy(data->eid_to_dp_entries);
+    ttable_uninit(&(data->ttable));
+    free(data);
 }
 
 /*

@@ -311,3 +311,11 @@ locator_list_cmp_afi(glist_t *loct_list_a,glist_t *loct_list_b)
 
     return (lisp_addr_cmp_afi(addr_a,addr_b));
 }
+
+inline void locator_clone_addr(locator_t *loc, lisp_addr_t *addr)
+{
+    if (!loc->addr) {
+        loc->addr = lisp_addr_new();
+    }
+    lisp_addr_copy(loc->addr, addr);
+}

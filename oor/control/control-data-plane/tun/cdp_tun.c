@@ -172,14 +172,26 @@ tun_control_dp_recv_msg(sock_t *sl)
 int
 tun_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
 {
-    int ret;
-    int sock;
+    int ret, sock, dst_afi;
     ip_addr_t *src_addr, *dst_addr;
+    lisp_addr_t *ctrl_addr;
 
     if (lisp_addr_lafi(&udp_conn->ra) != LM_AFI_IP) {
         OOR_LOG(LDBG_2, "tun_control_dp_send_msg: Destination address %s of UDP connection is not a IP. "
                 "Discarding!", lisp_addr_to_char(&udp_conn->ra));
         return(BAD);
+    }
+
+    if (lisp_addr_lafi(&udp_conn->la) != LM_AFI_IP) {
+        dst_afi = lisp_addr_ip_afi(&udp_conn->ra);
+        ctrl_addr = tun_control_dp_get_default_ctrl_address(control_dp_tun.control_dp_data, dst_afi);
+        if (!ctrl_addr) {
+            OOR_LOG(LERR, "tun_control_dp_send_msg: No %s control address found, send aborted!",
+                    (dst_afi == AF_INET) ? "IPv4" : "IPv6");
+            return(ERR_SOCKET);
+        }
+        /* Use as local address the default control address */
+        lisp_addr_copy(&udp_conn->la, ctrl_addr);
     }
 
     sock = tun_control_dp_get_output_ctrl_sock(
@@ -218,27 +230,9 @@ tun_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
 lisp_addr_t *
 tun_control_dp_get_default_addr(oor_ctrl_t *ctrl, int afi)
 {
-    lisp_addr_t *addr = NULL;
     tun_ctr_dplane_data_t * data;
     data = (tun_ctr_dplane_data_t *)ctrl->control_data_plane->control_dp_data;
-
-    switch (afi){
-    case AF_INET:
-        if (data->default_ctrl_iface_v4 != NULL){
-            addr = iface_address(data->default_ctrl_iface_v4,AF_INET);
-        }
-        break;
-    case AF_INET6:
-        if (data->default_ctrl_iface_v6 != NULL){
-            addr = iface_address(data->default_ctrl_iface_v6,AF_INET6);
-        }
-        break;
-    default:
-        OOR_LOG(LDBG_2,"tun_control_dp_get_default_addr: Unsupported afi: %d",afi);
-        break;
-    }
-
-    return (addr);
+    return (tun_control_dp_get_default_ctrl_address(data,afi));
 }
 
 int
@@ -257,7 +251,7 @@ tun_control_dp_updated_addr(oor_ctrl_t *ctrl, iface_t *iface,lisp_addr_t *old_ad
     data = (tun_ctr_dplane_data_t *)ctrl->control_data_plane->control_dp_data;
 
     /* If no default control, recalculate it */
-    if (iface->status == UP) {
+    if (iface->status == UP && !lisp_addr_is_no_addr(new_addr)) {
         addr_afi = lisp_addr_ip_afi(new_addr);
         if ((data->default_ctrl_iface_v4 == NULL && addr_afi == AF_INET) ||
                 (data->default_ctrl_iface_v6 == NULL && addr_afi == AF_INET6)) {
@@ -337,7 +331,7 @@ tun_control_dp_get_default_ctrl_iface(tun_ctr_dplane_data_t * data, int afi)
     return (iface);
 }
 
-lisp_addr_t *
+inline lisp_addr_t *
 tun_control_dp_get_default_ctrl_address(tun_ctr_dplane_data_t * data, int afi)
 {
     lisp_addr_t *address = NULL;
@@ -353,6 +347,7 @@ tun_control_dp_get_default_ctrl_address(tun_ctr_dplane_data_t * data, int afi)
         }
         break;
     default:
+        OOR_LOG(LDBG_2,"tun_control_dp_get_default_ctrl_address: Unsupported afi: %d",afi);
         break;
     }
     return (address);

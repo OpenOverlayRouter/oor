@@ -21,23 +21,17 @@
 #define TTABLE_H_
 
 #include <time.h>
-#include "packets.h"
 #include "../elibs/khash/khash.h"
 #include "../elibs/ovs/list.h"
+#include "../lib/packets.h"
 
 typedef struct fwd_info_ fwd_info_t;
 
-typedef struct ttable_node {
-    struct ovs_list list_elt;
-    packet_tuple_t *tpl;
-    fwd_info_t *fi;
-    struct timespec ts;
-} ttable_node_t;
 
-KHASH_INIT(ttable, packet_tuple_t *, ttable_node_t *, 1, pkt_tuple_hash, pkt_tuple_cmp)
+KHASH_INIT(ttable, packet_tuple_t *, fwd_info_t *, 1, pkt_tuple_hash, pkt_tuple_cmp)
 
 typedef struct ttable {
-    khash_t(ttable) *htable;
+    khash_t(ttable) *htable; //<packet_tuple_t *, fwd_info_t *>
     struct ovs_list head_list; /* To order flows */
 } ttable_t;
 
@@ -45,7 +39,7 @@ void ttable_init(ttable_t *tt);
 void ttable_uninit(ttable_t *tt);
 ttable_t *ttable_create();
 void ttable_destroy(ttable_t *tt);
-void ttable_insert(ttable_t *, packet_tuple_t *tpl, fwd_info_t *fe);
+int ttable_insert(ttable_t *, packet_tuple_t *tpl, fwd_info_t *fe);
 void ttable_remove(ttable_t *tt, packet_tuple_t *tpl);
 fwd_info_t *ttable_lookup(ttable_t *tt, packet_tuple_t *tpl);
 

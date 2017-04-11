@@ -46,7 +46,6 @@ pid_t  sid                                  = 0;
 /* sockets (fds)  */
 int     ipv4_data_input_fd                  = 0;
 int     ipv6_data_input_fd                  = 0;
-int     netlink_fd                          = 0;
 
 
 sockmstr_t *smaster = NULL;

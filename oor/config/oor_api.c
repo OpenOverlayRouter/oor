@@ -35,7 +35,6 @@ oor_api_init_client(oor_api_connection_t *conn)
     int error;
 
     conn->context = zmq_ctx_new();
-
     //Request-Reply communication pattern (Client side)
     conn->socket = zmq_socket(conn->context, ZMQ_REQ);
 

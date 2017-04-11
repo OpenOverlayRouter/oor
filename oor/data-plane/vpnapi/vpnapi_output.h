@@ -24,8 +24,6 @@
 
 #define VPNAPI_RECEIVE_SIZE        2048 // Should probably tune to match largest MTU
 
-void vpnapi_output_init();
-void vpnapi_output_uninit();
 int vpnapi_output(lbuf_t *b, packet_tuple_t *tpl);
 int vpnapi_output_recv(struct sock *sl);
 int vpnapi_send_ctrl_msg(lbuf_t *buf, uconn_t *udp_conn);

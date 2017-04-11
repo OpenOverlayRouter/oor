@@ -44,7 +44,7 @@
  */
 
 /* command could be add or del */
-inline int modify_route(int command, int afi, uint32_t ifindex,
+int modify_route(int command, int afi, uint32_t ifindex,
         lisp_addr_t *dest_pref, lisp_addr_t *src, lisp_addr_t *gw,
         uint32_t metric, uint32_t table);
 
@@ -61,7 +61,7 @@ inline int modify_route(int command, int afi, uint32_t ifindex,
  * @param dst_pref dst prefix to match
  * @param flags flags, if any
  */
-inline int modify_rule (int afi, int if_index, int command, uint8_t table,
+int modify_rule (int afi, int if_index, int command, uint8_t table,
         uint32_t priority, uint8_t type, lisp_addr_t *src_pref,
         lisp_addr_t *dst_pref, int flags);
 
@@ -70,7 +70,7 @@ inline int modify_rule (int afi, int if_index, int command, uint8_t table,
 /*
  * This function modifies kernel's list of ip rules
  */
-inline int
+int
 modify_rule (int afi, int if_index, int command, uint8_t table,
         uint32_t priority, uint8_t type, lisp_addr_t *src_pref,
         lisp_addr_t *dst_pref, int flags)
@@ -244,58 +244,6 @@ del_rule(int afi, int if_index, uint8_t table, uint32_t priority, uint8_t type,
 }
 
 /*
- * Request to the kernel the routing table with the selected afi
- */
-int
-request_route_table(uint32_t table, int afi)
-{
-    struct nlmsghdr *nlh = NULL;
-    struct rtmsg *rtm = NULL;
-    char sndbuf[4096];
-    int rta_len = 0;
-    int retval = 0;
-
-    /*
-     * Build the command
-     */
-    memset(sndbuf, 0, 4096);
-
-    nlh = (struct nlmsghdr *)sndbuf;
-    rtm = (struct rtmsg *)(CO(sndbuf,sizeof(struct nlmsghdr)));
-
-    rta_len = sizeof(struct rtmsg);
-
-    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
-    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-    nlh->nlmsg_type = RTM_GETROUTE;
-
-
-    rtm->rtm_family = afi;
-    if (table == 0){
-        rtm->rtm_table = RT_TABLE_MAIN;
-    }else{
-        rtm->rtm_table = table;
-    }
-
-    rtm->rtm_protocol = RTPROT_STATIC;
-    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
-    rtm->rtm_type = RTN_UNICAST;
-    rtm->rtm_src_len = 0;
-    rtm->rtm_tos = 0;
-    rtm->rtm_dst_len = 0;
-
-
-    retval = send(netlink_fd, sndbuf, NLMSG_LENGTH(rta_len), 0);
-
-    if (retval < 0) {
-        OOR_LOG(LCRIT, "request_route_table: send netlink command failed %s", strerror(errno));
-        exit_cleanup();
-    }
-    return(GOOD);
-}
-
-
-/*
  * ifindex: Output interface
  * dest: Destination address
  * gw: Gateway
@@ -305,7 +253,7 @@ request_route_table(uint32_t table, int afi)
  *
  */
 
-inline int
+int
 modify_route(int  command, int  afi, uint32_t ifindex, lisp_addr_t *dest_pref,
         lisp_addr_t *src_addr, lisp_addr_t *gw_addr, uint32_t metric,
         uint32_t table)

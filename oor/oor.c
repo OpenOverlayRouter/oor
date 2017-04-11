@@ -36,17 +36,20 @@
 #endif
 #include "cmdline.h"
 #include "iface_list.h"
-#include "iface_mgmt.h"
 #include "control/oor_control.h"
 #include "control/lisp_xtr.h"
 #include "control/lisp_ms.h"
 #include "data-plane/data-plane.h"
+#include "net_mgr/net_mgr.h"
 #include "lib/oor_log.h"
 #include "lib/nonces_table.h"
 #include "lib/pointers_table.h"
 #include "lib/sockets.h"
 #include "lib/timers.h"
 #include "lib/routing_tables_lib.h"
+#ifdef VPP
+ #include "lib/vpp_api/vpp_api.h"
+#endif
 #include "liblisp/liblisp.h"
 #include "lib/shash.h"
 #include "lib/generic_list.h"
@@ -266,6 +269,10 @@ exit_cleanup(void) {
         data_plane->datap_uninit();
     }
 
+    if (net_mgr){
+        net_mgr->netm_uninit();
+    }
+
     ifaces_destroy();
 
     sockmstr_destroy(smaster);
@@ -282,7 +289,9 @@ exit_cleanup(void) {
 #else
     jni_uninit();
 #endif
-
+#ifdef VPP
+    vpp_uninit_api();
+#endif
 }
 
 /*
@@ -359,26 +368,6 @@ setup_signal_handlers()
     signal(SIGQUIT, signal_handler);
 }
 
-static void
-init_netlink()
-{
-    struct sock *nl_sl;
-
-    /* Create net_link socket to receive notifications of changes of RLOC
-     * status. */
-    netlink_fd = opent_netlink_socket();
-
-    nl_sl = sockmstr_register_read_listener(smaster, process_netlink_msg, NULL,
-            netlink_fd);
-
-    /* Request to dump the routing tables to obtain the gatways when
-     * processing the netlink messages  */
-    request_route_table(RT_TABLE_MAIN, AF_INET);
-    process_netlink_msg(nl_sl);
-    request_route_table(RT_TABLE_MAIN, AF_INET6);
-    process_netlink_msg(nl_sl);
-}
-
 static int
 parse_config_file()
 {
@@ -391,23 +380,36 @@ parse_config_file()
     return (err);
 }
 
-static void
+static int
 initial_setup()
 {
+
+    int selected = 0;
+
 #ifdef OPENWRT
     OOR_LOG(LINF,"Open Overlay Router %s compiled for openWRT\n", OOR_VERSION);
-#else
+    selected ++;
+#endif
+#ifdef VPP
+    OOR_LOG(LINF,"Open Overlay Router %s compiled for linux with VPP data plane\n", OOR_VERSION);
+    selected ++;
+#endif
 #ifdef ANDROID
 #ifdef VPNAPI
     OOR_LOG(LINF,"Open Overlay Router %s compiled for not rooted Android\n", OOR_VERSION);
+    selected ++;
 #else
     OOR_LOG(LINF,"Open Overlay Router %s compiled for rooted Android\n", OOR_VERSION);
+    selected ++;
+#endif
+#endif
 
-#endif
-#else
-    OOR_LOG(LINF,"Open Overlay Router %s compiled for Linux\n", OOR_VERSION);
-#endif
-#endif
+    if (selected > 1){
+        OOR_LOG(LERR,"Wrong platform selection");
+        return (BAD);
+    }else if (selected == 0){
+        OOR_LOG(LINF,"Open Overlay Router %s compiled for linux\n", OOR_VERSION);
+    }
 
 #if UINTPTR_MAX == 0xffffffff
     OOR_LOG(LDBG_1,"x32 system");
@@ -419,11 +421,11 @@ initial_setup()
 
 #ifndef VPNAPI
     if (check_capabilities() != GOOD){
-        exit(EXIT_SUCCESS);
+        return (BAD);
     }
-    if(pid_file_check_not_exist() == BAD){
-        exit(EXIT_SUCCESS);
-    }
+//    if(pid_file_check_not_exist() == BAD){
+//        return (BAD);
+//    }
     pid_file_create();
 #endif
 
@@ -435,6 +437,13 @@ initial_setup()
     /* Initialize hash table that control timers */
     nonces_ht = htable_nonces_new();
     ptrs_to_timers_ht = htable_ptrs_new();
+
+#ifdef VPP
+    if (vpp_is_enabled() == FALSE || vpp_init_api() != GOOD){
+        return (BAD);
+    }
+#endif
+    return(GOOD);
 }
 
 #ifndef VPNAPI
@@ -444,52 +453,58 @@ main(int argc, char **argv)
     oor_dev_type_e dev_type;
     lisp_xtr_t *tunnel_router;
 
-    initial_setup();
+    if (initial_setup() != GOOD){
+        exit(EXIT_SUCCESS);
+    }
 
     handle_oor_command_line(argc, argv);
 
     /* see if we need to daemonize, and if so, do it */
     demonize_start();
 
+    /* Detect the data plane type */
+    data_plane_select();
+    net_mgr_select();
+
     /* create socket master, timer wheel, initialize interfaces */
     smaster = sockmstr_create();
     oor_timers_init();
-    ifaces_init();
-
+    if (ifaces_init() != GOOD){
+        exit_cleanup();
+    }
     /* create control. Only one instance for now */
     if ((lctrl = ctrl_create())==NULL){
         exit_cleanup();
     }
-
-    /* Detect the data plane type */
-    data_plane_select();
-
     /* parse config and create ctrl_dev */
     if (parse_config_file() != GOOD){
         exit_cleanup();
     }
-
-
     dev_type = ctrl_dev_mode(ctrl_dev);
+#ifdef VPP
+    if (dev_type != xTR_MODE){
+        OOR_LOG(LERR, "VPP is only supported in xTR mode");
+        exit_cleanup();
+    }
+#endif
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
         if (data_plane->datap_init(dev_type,tr_get_encap_type(tunnel_router))!=GOOD){
+            data_plane = NULL;
             exit_cleanup();
         }
         OOR_LOG(LDBG_1, "Data plane initialized");
     }
 
     /* The control should be initialized after data plane */
-    ctrl_init(lctrl);
-    init_netlink();
-
-    /* run lisp control device xtr/ms */
-    if (!ctrl_dev) {
-        OOR_LOG(LDBG_1, "device NULL");
-        exit(0);
+    if (ctrl_init(lctrl) != GOOD){
+        exit_cleanup();
     }
-
+    if (net_mgr->netm_init() != GOOD){
+        exit_cleanup();
+    }
+    /* run lisp control device xtr/ms */
     ctrl_dev_run(ctrl_dev);
 
     OOR_LOG(LINF,"\n\n Open Overlay Router (%s): started... \n\n",OOR_VERSION);
@@ -529,20 +544,23 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     const char *path = NULL;
     lisp_xtr_t *tunnel_router;
     memset (log_file,0,sizeof(char)*1024);
-
     initial_setup();
     jni_init(env,thisObj);
-
     /* create socket master, timer wheel, initialize interfaces */
     smaster = sockmstr_create();
     oor_timers_init();
-    ifaces_init();
 
     /* create control. Only one instance for now */
     lctrl = ctrl_create();
 
     /* Detect the data plane type */
     data_plane_select();
+    net_mgr_select();
+    if (ifaces_init()!=GOOD){
+        exit_cleanup();
+        close(vpn_tun_fd);
+        return (BAD);
+    }
 
     /** parse config and create ctrl_dev **/
     /* obtain the configuration file */
@@ -563,18 +581,18 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-        data_plane->datap_init(dev_type, tr_get_encap_type(tunnel_router), vpn_tun_fd);
+        if (data_plane->datap_init(dev_type, tr_get_encap_type(tunnel_router), vpn_tun_fd) != GOOD){
+            data_plane = NULL;
+            return (BAD);
+        }
         OOR_LOG(LDBG_1, "Data plane initialized");
 
     }
     ctrl_init(lctrl);
-    init_netlink();
+    if (net_mgr->netm_init() != GOOD){
+        exit_cleanup();
+    }
 
-    /* run lisp control device xtr/ms */
-     if (!ctrl_dev) {
-         OOR_LOG(LDBG_1, "device NULL");
-         return (BAD);
-     }
      return (GOOD);
 }
 

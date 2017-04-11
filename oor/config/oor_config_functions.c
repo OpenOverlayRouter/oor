@@ -20,8 +20,8 @@
 #include <netdb.h>
 
 #include "oor_config_functions.h"
-#include "../iface_mgmt.h"
 #include "../data-plane/data-plane.h"
+#include "../net_mgr/net_mgr.h"
 #include "../lib/oor_log.h"
 #include "../lib/prefixes.h"
 #include "../lib/util.h"
@@ -500,8 +500,9 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
     }
 
     if (!xtr->all_locs_map) {
-        lisp_addr_ip_from_char("0.0.0.0", &aux_address);
-        mapping = mapping_new_init(&aux_address);
+        lisp_addr_set_lafi(&aux_address,LM_AFI_NO_ADDR);
+        mapping = mapping_new();
+        mapping_set_eid(mapping,&aux_address);
         if (mapping == NULL){
             OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate mapping!");
             return (BAD);
@@ -512,8 +513,7 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
             return (BAD);
         }
         if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm,xtr->all_locs_map,NULL,
-                xtr->fwd_policy->del_map_loc_policy_inf) != GOOD){
+                xtr->fwd_policy_dev_parm,xtr->all_locs_map,NULL) != GOOD){
             OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.",
                     lisp_addr_to_char(mapping_eid(mapping)));
             map_local_entry_del(xtr->all_locs_map);
@@ -540,7 +540,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     lisp_addr_t *ht_prefix;
     lisp_site_prefix_t *site;
 
-    if (iid > MAX_IID || iid < 0) {
+    if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
                 "disabling...", iid, MAX_IID);
         iid = 0;
@@ -1179,23 +1179,29 @@ void
 nat_set_xTR_ID(lisp_xtr_t *xtr)
 {
     uint8_t mac_bytes[6];
-    char **ifaces_names = NULL;
-    int ctr, ctr2, byte_pos = 0, num_ifaces = 0;
+    int ctr, byte_pos = 0;
     lisp_xtr_id *xtr_id = &(xtr->xtr_id);
+    glist_t *ifaces;
+    glist_entry_t *ifn_it;
+    char *iface_name;
 
-    get_all_ifaces_name_list(&ifaces_names, &num_ifaces);
-    for (ctr=0; ctr<num_ifaces; ctr++){
-        iface_mac_address(ifaces_names[ctr], mac_bytes);
-        for (ctr2 = 0; ctr2 < 6 ; ctr2++){
-            xtr_id->byte[byte_pos] = xtr_id->byte[byte_pos] ^ mac_bytes[ctr2];
+    ifaces = net_mgr->netm_get_ifaces_names();
+    if (!ifaces){
+        memset (xtr_id,0,sizeof(lisp_xtr_id));
+        return;
+    }
+    glist_for_each_entry(ifn_it, ifaces){
+        iface_name = (char *)glist_entry_data(ifn_it);
+        net_mgr->netm_get_iface_mac_addr(iface_name, mac_bytes);
+        for (ctr = 0; ctr < 6 ; ctr++){
+            xtr_id->byte[byte_pos] = xtr_id->byte[byte_pos] ^ mac_bytes[ctr];
             byte_pos++;
             if (byte_pos == 16){
                 byte_pos = 0;
             }
         }
-        free(ifaces_names[ctr]);
     }
+    glist_destroy(ifaces);
     OOR_LOG(LDBG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
             get_char_from_xTR_ID(xtr_id));
-    free(ifaces_names);
 }

@@ -56,31 +56,16 @@ void locator_list_lafi_type (glist_t *loct_list, int *lafi, int	*type);
 locator_t *locator_list_get_locator_with_addr(glist_t *loct_list, lisp_addr_t *addr);
 locator_t *locator_list_extract_locator_with_addr(glist_t *loct_list,lisp_addr_t *addr);
 int locator_list_extract_locator_with_ptr(glist_t *loct_list,locator_t *locator);
-inline int locator_cmp_addr (locator_t *loct1,locator_t *loct2);
+int locator_cmp_addr (locator_t *loct1,locator_t *loct2);
 glist_t *locator_list_clone(glist_t *llist);
 int locator_list_cmp_afi(glist_t *loct_list_a, glist_t *loct_list_b);
-
-static inline lisp_addr_t *locator_addr(locator_t *);
-static inline uint8_t locator_state(locator_t *);
-static inline uint8_t locator_L_bit(locator_t *);
-static inline uint8_t locator_R_bit(locator_t *);
-static inline uint8_t locator_priority(locator_t *);
-static inline uint8_t locator_weight(locator_t *);
-static inline uint8_t locator_mpriority(locator_t *);
-static inline uint8_t locator_mweight(locator_t *);
-static inline void locator_set_addr(locator_t *, lisp_addr_t *);
-static inline void locator_clone_addr(locator_t *loc, lisp_addr_t *addr);
-static inline void locator_set_state(locator_t *locator, uint8_t state);
-static inline void locator_set_L_bit(locator_t *locator, uint8_t L_bit);
-static inline void locator_set_R_bit(locator_t *locator, uint8_t R_bit);
-
+void locator_clone_addr(locator_t *loc, lisp_addr_t *addr);
 
 
 static inline lisp_addr_t *locator_addr(locator_t *locator)
 {
     return (locator->addr);
 }
-
 
 static inline uint8_t locator_state(locator_t *locator)
 {
@@ -121,14 +106,6 @@ static inline void locator_set_addr(locator_t *loc, lisp_addr_t *addr)
 {
     /* Addr is linked to corresponding interface address */
     loc->addr = addr;
-}
-
-static inline void locator_clone_addr(locator_t *loc, lisp_addr_t *addr)
-{
-    if (!loc->addr) {
-        loc->addr = lisp_addr_new();
-    }
-    lisp_addr_copy(loc->addr, addr);
 }
 
 static inline void locator_set_state(locator_t *locator, uint8_t state)

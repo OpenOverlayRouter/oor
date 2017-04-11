@@ -1139,41 +1139,7 @@ nat_type_del(void *nat)
     nat = NULL;
 }
 
-inline uint16_t
-nat_type_get_ms_port(nat_t *nat)
-{
-    return (nat->ms_port);
-}
 
-inline uint16_t
-nat_type_get_etr_pub_port(nat_t *nat)
-{
-    return (nat->etr_pub_port);
-}
-
-inline lisp_addr_t *
-nat_type_get_ms_addr(nat_t *nat)
-{
-   return(nat->ms_addr);
-}
-
-inline lisp_addr_t *
-nat_type_get_etr_pub_addr(nat_t *nat)
-{
-    return(nat->etr_pub_addr);
-}
-
-inline lisp_addr_t *
-nat_type_get_etr_priv_addr(nat_t *nat)
-{
-    return(nat->etr_prv_addr);
-}
-
-inline glist_t *
-nat_type_get_rtr_addr_lst(nat_t *nat)
-{
-    return(nat->rtr_addr_lst);
-}
 
 inline void
 nat_type_set_ms_port(nat_t *nat, uint16_t ms_port)

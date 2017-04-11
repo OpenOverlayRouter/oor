@@ -74,26 +74,26 @@ glist_new_managed(glist_del_fct del)
 }
 
 
-inline
-glist_cmp_fct glist_get_cmp_fct(glist_t *lst)
+inline glist_cmp_fct
+glist_get_cmp_fct(glist_t *lst)
 {
     return (lst->cmp_fct);
 }
 
-inline
-glist_del_fct glist_get_del_fct(glist_t *lst)
+inline glist_del_fct
+glist_get_del_fct(glist_t *lst)
 {
     return (lst->del_fct);
 }
 
-inline
-void glist_set_cmp_fct(glist_t *lst, glist_cmp_fct cmp_fct)
+inline void
+glist_set_cmp_fct(glist_t *lst, glist_cmp_fct cmp_fct)
 {
     lst->cmp_fct = cmp_fct;
 }
 
-inline
-void glist_set_del_fct(glist_t *lst, glist_del_fct del_fct)
+inline void
+glist_set_del_fct(glist_t *lst, glist_del_fct del_fct)
 {
     lst->del_fct = del_fct;
 }
