@@ -66,6 +66,8 @@ int ctrl_dev_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name,
 int ctrl_dev_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name,
         lisp_addr_t *src, lisp_addr_t *dst_pref, lisp_addr_t *gateway);
 
+oor_dev_type_e ctrl_dev_mode(oor_ctrl_dev_t *dev);
+oor_ctrl_t * ctrl_dev_get_ctrl_t(oor_ctrl_dev_t *dev);
 int ctrl_dev_set_ctrl(oor_ctrl_dev_t *, oor_ctrl_t *);
 fwd_info_t *ctrl_dev_get_fwd_entry(oor_ctrl_dev_t *, packet_tuple_t *);
 
@@ -76,29 +78,6 @@ int send_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
 char *
 ctrl_dev_type_to_char(oor_dev_type_e type);
-
-
-static inline oor_dev_type_e
-lisp_ctrl_dev_mode(oor_ctrl_dev_t *dev){
-    return dev->mode;
-}
-
-static inline oor_ctrl_t *
-lisp_ctrl_dev_get_ctrl_t(oor_ctrl_dev_t *dev){
-    return dev->ctrl;
-}
-
-static inline oor_dev_type_e
-ctrl_dev_mode(oor_ctrl_dev_t *dev)
-{
-    return (dev->mode);
-}
-
-static inline oor_ctrl_t *
-ctrl_dev_ctrl(oor_ctrl_dev_t *dev)
-{
-    return (dev->ctrl);
-}
 
 
 #endif /* OOR_CTRL_DEVICE_H_ */

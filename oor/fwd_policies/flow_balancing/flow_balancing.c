@@ -80,7 +80,7 @@ fb_new_dev_policy_inf(oor_ctrl_dev_t *ctrl_dev,
         return (NULL);
     }
     dev_parm->dev_type = ctrl_dev_mode(ctrl_dev);
-    dev_parm->loc_loct = ctrl_rlocs(ctrl_dev_ctrl(ctrl_dev));
+    dev_parm->loc_loct = ctrl_rlocs(ctrl_dev_get_ctrl_t(ctrl_dev));
 
     return(dev_parm);
 }

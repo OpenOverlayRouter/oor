@@ -479,7 +479,7 @@ lisp_addr_write(void *offset, lisp_addr_t *laddr)
         memset(offset, 0, sizeof(uint16_t));
         return (sizeof(uint16_t));
     default:
-        OOR_LOG(LDBG_3, "lisp_addr_write_to_pkt: Unkown afi %d",
+        OOR_LOG(LDBG_3, "lisp_addr_write_to_pkt: Unknown afi %d",
                 lisp_addr_lafi(laddr));
         break;
     }
@@ -614,6 +614,10 @@ lisp_addr_cmp_afi(lisp_addr_t *addr1, lisp_addr_t *addr2)
     case LM_AFI_LCAF:
         afi_a = lisp_addr_lcaf_type(addr1);
         afi_b = lisp_addr_lcaf_type(addr2);
+	break;
+    default:
+        OOR_LOG(LDBG_1,"lisp_addr_cmp_afi: wrong AFI");
+	return (-2);
     }
 
     if (afi_a > afi_b){

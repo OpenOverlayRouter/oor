@@ -31,6 +31,7 @@ typedef struct control_dplane_struct {
     int (*control_dp_init)(oor_ctrl_t *ctrl, ...);
     void (*control_dp_uninit)(oor_ctrl_t *ctrl);
     int (*control_dp_add_iface_addr)(oor_ctrl_t *ctrl, iface_t *iface, int afi);
+    int (*control_dp_add_iface_gw)(oor_ctrl_t *ctrl, iface_t *iface, int afi);
     int (*control_dp_recv_msg)(sock_t *sl);
     int (*control_dp_send_msg)(oor_ctrl_t *ctrl, lbuf_t *buf, uconn_t *udp_conn);
     lisp_addr_t *(*control_dp_get_default_addr)(oor_ctrl_t *ctrl, int afi);

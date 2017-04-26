@@ -44,7 +44,9 @@
 int vpp_netm_init();
 void vpp_netm_uninit();
 glist_t * vpp_get_ifaces_names();
-lisp_addr_t * vpp_get_iface_addr(char *iface_name, int afi);
+glist_t * vpp_get_iface_addr_list(char *iface_name, int afi);
+lisp_addr_t * vpp_get_src_addr_to(lisp_addr_t *addr);
+lisp_addr_t * vpp_get_iface_gw(char *iface_name, int afi);
 uint8_t vpp_get_iface_status(char *iface_name);
 int vpp_get_iface_index(char *iface_name);
 void vpp_get_iface_mac_addr(char *iface_name, uint8_t *mac);
@@ -62,7 +64,9 @@ net_mgr_class_t netm_vpp = {
         .netm_uninit = vpp_netm_uninit,
         .netm_get_ifaces_names = vpp_get_ifaces_names,
         .netm_get_iface_index = vpp_get_iface_index,
-        .netm_get_iface_addr = vpp_get_iface_addr,
+        .netm_get_iface_addr_list = vpp_get_iface_addr_list,
+        .netm_get_src_addr_to = vpp_get_src_addr_to,
+        .netm_get_iface_gw = vpp_get_iface_gw,
         .netm_get_iface_status = vpp_get_iface_status,
         .netm_get_iface_mac_addr = vpp_get_iface_mac_addr,
         .netm_reload_routes = vpp_reload_routes,
@@ -101,6 +105,7 @@ vpp_netm_init()
     }
 
     sockmstr_register_read_listener(smaster, process_vpp_link_msg, NULL,fd);
+
     return (GOOD);
 }
 
@@ -232,9 +237,10 @@ vpp_get_ifaces_names()
     return (iface_names);
 }
 
-lisp_addr_t *
-vpp_get_iface_addr(char *iface_name, int afi)
+glist_t *
+vpp_get_iface_addr_list(char *iface_name, int afi)
 {
+    glist_t *addr_list = glist_new_managed((glist_del_fct)lisp_addr_del);
     vl_api_ip_address_dump_t *mp;
     vpp_api_main_t * vam = vpp_api_main_get();
     lisp_addr_t *addr;
@@ -247,8 +253,8 @@ vpp_get_iface_addr(char *iface_name, int afi)
     if (!iface){
         iface_index = vpp_get_iface_index(iface_name);
         if (iface_index == 0){
-            OOR_LOG(LDBG_1,"vpp_get_iface_addr: Unknown interface %s",iface_name);
-            return (lisp_addr_new_lafi(LM_AFI_NO_ADDR));
+            OOR_LOG(LDBG_1,"vpp_get_iface_addr_list: Unknown interface %s",iface_name);
+            return (addr_list);
         }
     }else{
         iface_index = iface->iface_index;
@@ -269,26 +275,84 @@ vpp_get_iface_addr(char *iface_name, int afi)
       VPP_SEND;
     }
     if (vpp_wait(vam) == ERR_NO_REPLY){
-        return (lisp_addr_new_lafi(LM_AFI_NO_ADDR));
+        return (addr_list);
     }
 
     glist_for_each_entry(addr_it,vam->ip_addr_lst){
         addr = (lisp_addr_t *)glist_entry_data(addr_it);
         lisp_addr_set_lafi(addr,LM_AFI_IP);
         if (ip_addr_is_link_local(lisp_addr_ip(addr)) == TRUE) {
-            OOR_LOG(LDBG_2, "vpp_get_iface_addr: interface address from "
+            OOR_LOG(LDBG_2, "vpp_get_iface_addr_list: interface address from "
                     "%s discarded (%s)", iface_name, lisp_addr_to_char(addr));
         }else {
-            return(lisp_addr_clone(addr));
+            glist_add (lisp_addr_clone(addr), addr_list);
         }
     }
 
-    OOR_LOG(LDBG_2, "vpp_get_iface_addr: No %s RLOC configured for interface "
-                       "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", iface_name);
-    addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+    if (glist_size(addr_list) == 0){
+        OOR_LOG(LDBG_2, "vpp_get_iface_addr_list: No %s RLOC configured for interface "
+                "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", iface_name);
+    }
+    glist_remove_all(vam->ip_addr_lst);
 
-    return(addr);
+    return(addr_list);
 }
+
+/* This function only works if the addr is directly connected to OOR */
+lisp_addr_t *
+vpp_get_src_addr_to(lisp_addr_t *addr)
+{
+    lisp_addr_t *src_addr = NULL, *pref, *iface_addr;
+    glist_t *addr_list, *net_pref_list;
+    glist_entry_t *add_list_it, *net_pref_list_it;
+    int afi = lisp_addr_ip_afi(addr);
+    uint8_t pref_found = FALSE;
+    shash_t *addr_to_iface;
+
+    net_pref_list = vpp_ip_fib_prefixs(afi);
+    glist_for_each_entry(net_pref_list_it, net_pref_list){
+        pref = (lisp_addr_t *)glist_entry_data(net_pref_list_it);
+        if (pref_is_addr_part_of_prefix(addr,pref)){
+            pref_found = TRUE;
+            break;
+        }
+    }
+    if (!pref_found){
+        OOR_LOG(LDBG_1,"vpp_get_src_addr_to: netm_get_src_addr_to should only be used with"
+                "directly connected addresses (%s)",lisp_addr_to_char(addr));
+        goto end;
+    }
+    addr_to_iface = vpp_build_addr_to_if_name_hasht();
+    addr_list = shash_keys(addr_to_iface);
+    iface_addr = lisp_addr_new();
+    glist_for_each_entry(add_list_it,addr_list){
+        lisp_addr_ip_from_char((char *)glist_entry_data(add_list_it), iface_addr);
+        if (pref_is_addr_part_of_prefix(iface_addr,pref) == TRUE){
+            src_addr = lisp_addr_clone(iface_addr);
+            goto end;
+        }
+    }
+    OOR_LOG(LDBG_1,"netm_get_src_addr_to: No src address slected to reach %s. It should never happen",
+            lisp_addr_to_char(addr));
+
+    end:
+    glist_destroy(net_pref_list);
+    glist_destroy(addr_list);
+    shash_destroy(addr_to_iface);
+    lisp_addr_del(iface_addr);
+    return (src_addr);
+}
+
+lisp_addr_t *
+vpp_get_iface_gw(char *iface_name, int afi)
+{
+    /* We only support one default gateway */
+    lisp_addr_t *gw;
+    gw = vpp_oor_pkt_miss_get_default_route(afi);
+
+    return (lisp_addr_clone(gw));
+}
+
 
 uint8_t
 vpp_get_iface_status(char *iface_name)
@@ -429,8 +493,8 @@ shash_t *
 vpp_build_addr_to_if_name_hasht()
 {
     shash_t *ht;
-    glist_t *iface_name_list;
-    glist_entry_t *iface_name_it;
+    glist_t *iface_name_list, *addr_list;
+    glist_entry_t *iface_name_it, *addr_it;
     char *iface_name;
     lisp_addr_t *addr;
     OOR_LOG(LDBG_2, "Building address to interface hash table");
@@ -444,23 +508,23 @@ vpp_build_addr_to_if_name_hasht()
 
     glist_for_each_entry(iface_name_it,iface_name_list){
         iface_name = (char *)glist_entry_data(iface_name_it);
-        addr = vpp_get_iface_addr(iface_name, AF_INET);
-        if (!lisp_addr_is_no_addr(addr)){
+        addr_list = vpp_get_iface_addr_list(iface_name, AF_INET);
+        glist_for_each_entry(addr_it, addr_list){
+            addr = (lisp_addr_t *)glist_entry_data(addr_it);
+            shash_insert(ht, strdup(lisp_addr_to_char(addr)), strdup(iface_name));
+            OOR_LOG(LDBG_2, "Found interface %s with address %s", iface_name,
+                                lisp_addr_to_char(addr));
+        }
+        glist_destroy (addr_list);
+
+        addr_list = vpp_get_iface_addr_list(iface_name, AF_INET6);
+        glist_for_each_entry(addr_it, addr_list){
+            addr = (lisp_addr_t *)glist_entry_data(addr_it);
             shash_insert(ht, strdup(lisp_addr_to_char(addr)), strdup(iface_name));
             OOR_LOG(LDBG_2, "Found interface %s with address %s", iface_name,
                     lisp_addr_to_char(addr));
         }
-        lisp_addr_del (addr);
-
-
-        addr = vpp_get_iface_addr(iface_name, AF_INET6);
-        if (!lisp_addr_is_no_addr(addr)){
-            shash_insert(ht, strdup(lisp_addr_to_char(addr)), strdup(iface_name));
-            OOR_LOG(LDBG_2, "Found interface %s with address %s", iface_name,
-                    lisp_addr_to_char(addr));
-        }
-        lisp_addr_del (addr);
-
+        glist_destroy (addr_list);
     }
 
     return (ht);

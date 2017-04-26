@@ -29,6 +29,7 @@ typedef struct data_plane_struct {
     int (*datap_init)(oor_dev_type_e dev_type, oor_encap_t encap_type,  ...);
     void (*datap_uninit)();
     int (*datap_add_iface_addr)(iface_t *iface, int afi);
+    int (*datap_add_iface_gw)(iface_t *iface, int afi);
     int (*datap_register_lcl_mapping)(oor_dev_type_e dev_type, mapping_t *map);
     int (*datap_deregister_lcl_mapping)(oor_dev_type_e dev_type, mapping_t *map);
     int (*datap_input_packet)(sock_t *sl);

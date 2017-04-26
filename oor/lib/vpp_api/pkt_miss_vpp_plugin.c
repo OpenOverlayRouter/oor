@@ -76,6 +76,39 @@ foreach_standard_reply_retval_handler;
 #undef _
 
 
+
+/********************** API REPLY HANDLER ***********************************/
+
+static void
+vl_api_oor_pkt_miss_get_default_route_reply_t_handler(vl_api_oor_pkt_miss_get_default_route_reply_t * mp)
+{
+
+    vpp_api_main_t * vam = vpp_api_main_get(); ;
+    i32 retval = ntohl (mp->retval);
+    int afi;
+
+    lisp_addr_del(vam->gw);
+    if (0 <= retval)
+    {
+        if (!mp->has_gateway){
+            vam->gw = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+        }else{
+
+            vam->gw = lisp_addr_new_lafi(LM_AFI_IP);
+            if (mp->is_ipv6){
+                afi = AF_INET6;
+            }else{
+                afi = AF_INET;
+            }
+            ip_addr_init(lisp_addr_ip(vam->gw),  &mp->address, afi);
+        }
+    }
+
+    vam->retval = retval;
+    vam->result_ready = 1;
+}
+
+
 /* M: construct, but don't yet send a message */
 
 #define M(T,t)                                      \
@@ -181,6 +214,34 @@ vpp_oor_pkt_miss_drop_route (lisp_addr_t *prefix, uint8_t is_add, uint32_t table
     return (GOOD);
 }
 
+
+lisp_addr_t *
+vpp_oor_pkt_miss_get_default_route (int afi)
+{
+    vpp_api_main_t * vam = vpp_api_main_get();
+    vl_api_oor_pkt_miss_get_default_route_t * mp;
+
+    /* Construct the API message */
+    M(OOR_PKT_MISS_GET_DEFAULT_ROUTE, oor_pkt_miss_get_default_route);
+    mp->is_ipv6 = (afi == AF_INET6 ? 1 : 0);
+
+    /* send it... */
+    S;
+
+    /* Wait for a reply... */
+    if (vpp_wait(vam) == ERR_NO_REPLY){
+        OOR_LOG(LWRN,"VPP could not get %s gateway",
+                afi == AF_INET6 ? "ipv6" : "ipv4");
+        return (BAD);
+    }
+
+    OOR_LOG(LDBG_2,"VPP gateway is %s",
+                    lisp_addr_to_char(vam->gw));
+    return (vam->gw);
+}
+
+
+
 clib_error_t *
 pkt_miss_plugin_register (vpp_api_main_t * vam)
 {
@@ -214,6 +275,13 @@ pkt_miss_plugin_register (vpp_api_main_t * vam)
                 vl_api_oor_pkt_miss_drop_route_reply_t_endian,               \
                 vl_api_oor_pkt_miss_drop_route_reply_t_print,                \
                 sizeof(vl_api_oor_pkt_miss_drop_route_reply_t), 1);
+        vl_msg_api_set_handlers((VL_API_OOR_PKT_MISS_GET_DEFAULT_ROUTE_REPLY + pkt_miss_msg_id_base),     \
+                "oor_pkt_miss_get_default_route_reply",                             \
+                vl_api_oor_pkt_miss_get_default_route_reply_t_handler,              \
+                vl_noop_handler,                                               \
+                vl_api_oor_pkt_miss_get_default_route_reply_t_endian,               \
+                vl_api_oor_pkt_miss_get_default_route_reply_t_print,                \
+                sizeof(vl_api_oor_pkt_miss_get_default_route_reply_t), 1);
     }
 
 

@@ -19,6 +19,7 @@
 
 
 #include "../mem_util.h"
+#include "../oor_log.h"
 #include "../../defs.h"
 #include "../../liblisp/lisp_address.h"
 
@@ -101,11 +102,22 @@ foreach_standard_reply_retval_handler;
         _(SW_INTERFACE_SET_UNNUMBERED_REPLY,sw_interface_set_unnumbered_reply)  \
         _(CONTROL_PING_REPLY, control_ping_reply)                               \
         _(IP_ADDRESS_DETAILS, ip_address_details)                               \
+        _(IP_FIB_DETAILS, ip_fib_details)                                       \
+        _(IP6_FIB_DETAILS, ip6_fib_details)                                     \
         _(AF_PACKET_CREATE_REPLY, af_packet_create_reply)                       \
         _(LISP_GPE_ENABLE_DISABLE_REPLY, lisp_gpe_enable_disable_reply)         \
         _(LISP_GPE_ADD_DEL_IFACE_REPLY, lisp_gpe_add_del_iface_reply)           \
         _(LISP_GPE_ADD_DEL_FWD_ENTRY_REPLY, lisp_gpe_add_del_fwd_entry_reply)   \
         _(SW_INTERFACE_GET_TABLE_REPLY, sw_interface_get_table_reply)
+
+
+
+u8 *
+format_ip4_address (u8 * s, va_list * args)
+{
+  u8 *a = va_arg (*args, u8 *);
+  return format (s, "%d.%d.%d.%d", a[0], a[1], a[2], a[3]);
+}
 
 
 /********************** API REPLY HANDLER ***********************************/
@@ -179,6 +191,37 @@ vl_api_sw_interface_get_table_reply_t_handler(vl_api_sw_interface_get_table_repl
 
 }
 
+#define vl_api_ip_fib_details_t_endian vl_noop_handler
+#define vl_api_ip_fib_details_t_print vl_noop_handler
+
+static void
+vl_api_ip_fib_details_t_handler (vl_api_ip_fib_details_t * mp)
+{
+    vpp_api_main_t *vam = &vpp_api_main;
+    lisp_addr_t *pref;
+
+    pref = lisp_addr_new_lafi(LM_AFI_IPPREF);
+    ip_addr_init(lisp_addr_ip(pref),  &mp->address, AF_INET);
+    lisp_addr_set_plen(pref,mp->address_length);
+    glist_add(pref,vam->prefix_lst);
+}
+
+#define vl_api_ip6_fib_details_t_endian vl_noop_handler
+#define vl_api_ip6_fib_details_t_print vl_noop_handler
+
+static void
+vl_api_ip6_fib_details_t_handler (vl_api_ip6_fib_details_t * mp)
+{
+    vpp_api_main_t *vam = &vpp_api_main;
+    lisp_addr_t *pref;
+
+    pref = lisp_addr_new_lafi(LM_AFI_IPPREF);
+    ip_addr_init(lisp_addr_ip(pref),  &mp->address, AF_INET6);
+    lisp_addr_set_plen(pref,mp->address_length);
+    glist_add(pref,vam->prefix_lst);
+}
+
+
 /***************************************************************************************/
 
 #define _(N,n)                                  \
@@ -206,6 +249,7 @@ vat_api_hookup (vpp_api_main_t * vam)
 
     vam->iface_list = glist_new_managed((glist_del_fct)vpp_api_iface_free);
     vam->ip_addr_lst = glist_new_managed((glist_del_fct)lisp_addr_del);
+    vam->prefix_lst = glist_new_managed((glist_del_fct)lisp_addr_del);
 }
 
 

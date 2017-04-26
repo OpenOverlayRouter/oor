@@ -612,7 +612,7 @@ mc_type_to_char(void *mc)
     i++;
     i = i % 10;
     *buf[i] = '\0';
-    sprintf(buf[i], "(%s/%d,%s/%d)",
+    snprintf(buf[i],sizeof(buf[i]), "(%s/%d,%s/%d)",
             lisp_addr_to_char(mc_type_get_src((mc_t *)mc)),
             mc_type_get_src_plen((mc_t *)mc),
             lisp_addr_to_char(mc_type_get_grp((mc_t *)mc)),
@@ -863,7 +863,7 @@ iid_type_to_char(void *iid)
     i++;
     i = i % 10;
     *buf[i] = '\0';
-    sprintf(buf[i], "(IID %d/%d, EID %s)",
+    snprintf(buf[i],sizeof(buf[i]),"(IID %d/%d, EID %s)",
             iid_type_get_iid(iid),
             iid_type_get_mlen(iid),
             lisp_addr_to_char(iid_type_get_addr(iid)));
@@ -1063,7 +1063,7 @@ geo_type_to_char(void *geo)
     i++;
     i = i % 10;
     *buf[i] = '\0';
-    sprintf(buf[i], "(latitude: %s | longitude: %s | altitude: %d, EID %s)",
+    snprintf(buf[i],sizeof(buf[i]),"(latitude: %s | longitude: %s | altitude: %d, EID %s)",
             geo_coord_to_char(geo_type_get_lat(geo)),
             geo_coord_to_char(geo_type_get_long(geo)),
             geo_type_get_altitude(geo),
@@ -1076,7 +1076,7 @@ geo_coord_to_char(geo_coordinates *coord)
 {
     static char buf[INET6_ADDRSTRLEN*2+4];
     *buf= '\0';
-    sprintf(buf, "dir %d deg %d min %d sec %d",
+    snprintf(buf,sizeof(buf), "dir %d deg %d min %d sec %d",
             coord->dir, coord->deg, coord->min, coord->sec);
     return(buf);
 }
@@ -1139,7 +1139,41 @@ nat_type_del(void *nat)
     nat = NULL;
 }
 
+inline uint16_t
+nat_type_get_ms_port(nat_t *nat)
+{
+    return (nat->ms_port);
+}
 
+inline uint16_t
+nat_type_get_etr_pub_port(nat_t *nat)
+{
+    return (nat->etr_pub_port);
+}
+
+inline lisp_addr_t *
+nat_type_get_ms_addr(nat_t *nat)
+{
+   return(nat->ms_addr);
+}
+
+inline lisp_addr_t *
+nat_type_get_etr_pub_addr(nat_t *nat)
+{
+    return(nat->etr_pub_addr);
+}
+
+inline lisp_addr_t *
+nat_type_get_etr_priv_addr(nat_t *nat)
+{
+    return(nat->etr_prv_addr);
+}
+
+inline glist_t *
+nat_type_get_rtr_addr_lst(nat_t *nat)
+{
+    return(nat->rtr_addr_lst);
+}
 
 inline void
 nat_type_set_ms_port(nat_t *nat, uint16_t ms_port)
@@ -1330,6 +1364,7 @@ char *
 nat_type_to_char(void *nat)
 {
     static char buf[5][500];
+    size_t buf_size = sizeof(buf[0]);
     static unsigned int i = 0;
     nat_t *nat_addr = (nat_t *)nat;
     int j = 0;
@@ -1338,14 +1373,14 @@ nat_type_to_char(void *nat)
     i++;
     i = i % 5;
     *buf[i] = '\0';
-    sprintf(buf[i], "ETR Pub: %s:%d, ETR Prv: %s, MS: %s:%d - RTR list:",
+    snprintf(buf[i],buf_size, "ETR Pub: %s:%d, ETR Prv: %s, MS: %s:%d - RTR list:",
             lisp_addr_to_char(nat_addr->etr_pub_addr),nat_addr->etr_pub_port,
             lisp_addr_to_char(nat_addr->etr_prv_addr),lisp_addr_to_char(nat_addr->ms_addr),
             nat_addr->ms_port);
 
     glist_for_each_entry(it_rtr, nat_addr->rtr_addr_lst) {
         j++;
-        sprintf(buf[i]+strlen(buf[i]), "[%d] %s ",
+        snprintf(buf[i]+strlen(buf[i]),buf_size - strlen(buf[i]), "[%d] %s ",
                 j, lisp_addr_to_char((lisp_addr_t *)glist_entry_data(it_rtr)));
     }
     return(buf[i]);
@@ -1569,6 +1604,7 @@ char *
 elp_type_to_char(void *elp)
 {
     static char buf[5][500];
+    size_t buf_size = sizeof(buf[0]);
     static unsigned int i = 0;
     int j = 0;
     glist_entry_t * it = NULL;
@@ -1584,7 +1620,7 @@ elp_type_to_char(void *elp)
         node = (elp_node_t *)glist_entry_data(it);
 //        sprintf(buf[i]+strlen(buf[i]), "[%d] %s f: %s%s%s", j, lisp_addr_to_char(node->addr),
 //                (node->L) ? "L" : "l", (node->P) ? "P" : "p", (node->S) ? "S" : "s");
-        sprintf(buf[i]+strlen(buf[i]), "[%d] %s ", j, lisp_addr_to_char(node->addr));
+        snprintf(buf[i]+strlen(buf[i]), buf_size - strlen(buf[i]), "[%d] %s ", j, lisp_addr_to_char(node->addr));
     }
     return(buf[i]);
 }
@@ -1700,6 +1736,10 @@ elp_add_node(elp_t *elp, elp_node_t *enode)
     glist_add_tail(enode, elp->nodes);
 }
 
+inline glist_t *
+lcaf_elp_node_list(lcaf_addr_t *lcaf) {
+    return(((elp_t *)lcaf->addr)->nodes);
+}
 
 inline int
 lisp_addr_is_elp(lisp_addr_t *addr)
@@ -1839,6 +1879,7 @@ char *
 rle_type_to_char(void *rle)
 {
     static char buf[3][500];
+    size_t buf_size = sizeof(buf[0]);
     static unsigned int i = 0;
     int j = 0;
     glist_entry_t * it = NULL;
@@ -1852,7 +1893,7 @@ rle_type_to_char(void *rle)
     glist_for_each_entry(it, ((rle_t *)rle)->nodes) {
         j++;
         node = glist_entry_data(it);
-        sprintf(buf[i]+strlen(buf[i]), "[%d] %s ", node->level,
+        snprintf(buf[i]+strlen(buf[i]),buf_size - strlen(buf[i]), "[%d] %s ", node->level,
                 lisp_addr_to_char(node->addr));
     }
     return(buf[i]);
@@ -1881,6 +1922,12 @@ rle_node_del(rle_node_t *rnode)
     lisp_addr_del(rnode->addr);
     free(rnode);
     rnode = NULL;
+}
+
+inline glist_t *
+lcaf_rle_node_list(lcaf_addr_t *lcaf)
+{
+    return(((rle_t *)lcaf->addr)->nodes);
 }
 
 void
@@ -2039,6 +2086,7 @@ afi_list_type_to_char(void *afil)
     lisp_addr_t * addr = NULL;
     glist_entry_t * it = NULL;
     static char buf[3][500];
+    size_t buf_size = sizeof(buf[0]);
     static int i = 0;
     int j = 0;
 
@@ -2047,7 +2095,7 @@ afi_list_type_to_char(void *afil)
     *buf[i] = '\0';
     glist_for_each_entry(it, ((afi_list_t *)afil)->list_addr){
     	addr = (lisp_addr_t *)glist_entry_data(it);
-    	sprintf(buf[i]+strlen(buf[i]), "AFI %d: %s", j, lisp_addr_to_char(addr));
+    	snprintf(buf[i]+strlen(buf[i]),buf_size - strlen(buf[i]), "AFI %d: %s", j, lisp_addr_to_char(addr));
     	j++;
     }
     return(buf[i]);

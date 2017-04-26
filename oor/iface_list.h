@@ -50,14 +50,12 @@ extern shash_t *iface_addr_ht;
 
 
 int ifaces_init();
-void ifaces_destroy();
-
-
 void iface_destroy(iface_t *iface);
+void ifaces_destroy();
+int iface_configure (iface_t *iface, int afi);
 char *iface_to_char(iface_t *iface);
 
 iface_t *add_interface(char *iface_name);
-int iface_setup_addr(iface_t *iface, int afi);
 iface_t *get_interface(char *iface_name);
 iface_t *get_interface_from_index(int iface_index);
 iface_t *get_interface_with_address(lisp_addr_t *address);
@@ -69,6 +67,7 @@ void iface_list_to_char(int log_level);
 iface_t *get_any_output_iface(int);
 
 lisp_addr_t *iface_address(iface_t *iface, int afi);
+lisp_addr_t *iface_gateway(iface_t *iface, int afi);
 int iface_socket(iface_t *iface, int afi);
 int *iface_socket_pointer(iface_t *iface, int afi);
 static uint8_t iface_status(iface_t *iface);

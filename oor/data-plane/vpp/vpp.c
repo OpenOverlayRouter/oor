@@ -51,6 +51,7 @@ static lbuf_t pkt_buf;
 int vpp_init_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...);
 void vpp_uninit_data_plane (oor_ctrl_t *ctrl);
 int vpp_add_datap_iface_addr(iface_t *iface, int afi);
+int vpp_add_datap_iface_gw(iface_t *iface, int afi);
 int vpp_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
 int vpp_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
 int vpp_process_input_packet(sock_t *sl);
@@ -73,6 +74,7 @@ data_plane_struct_t dplane_vpp = {
         .datap_init = vpp_init_data_plane,
         .datap_uninit = vpp_uninit_data_plane,
         .datap_add_iface_addr = vpp_add_datap_iface_addr,
+        .datap_add_iface_gw = vpp_add_datap_iface_gw,
         .datap_register_lcl_mapping = vpp_register_lcl_mapping,
         .datap_deregister_lcl_mapping = vpp_deregister_lcl_mapping,
         .datap_input_packet = vpp_process_input_packet,
@@ -130,6 +132,12 @@ vpp_uninit_data_plane (oor_ctrl_t *ctrl)
 
 int
 vpp_add_datap_iface_addr(iface_t *iface, int afi)
+{
+    return (GOOD);
+}
+
+int
+vpp_add_datap_iface_gw(iface_t *iface, int afi)
 {
     return (GOOD);
 }

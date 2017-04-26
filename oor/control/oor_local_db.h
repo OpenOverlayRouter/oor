@@ -43,12 +43,7 @@ map_local_entry_t *local_map_db_lookup_eid_exact(local_map_db_t *, lisp_addr_t *
 lisp_addr_t *local_map_db_get_main_eid(local_map_db_t *, int );
 int local_map_db_num_ip_eids(local_map_db_t *, int );
 void local_map_db_dump(local_map_db_t *, int );
-
-static inline int
-local_map_db_n_entries(local_map_db_t *lmdb)
-{
-    return(lmdb->db->n_entries);
-}
+int local_map_db_n_entries(local_map_db_t *);
 
 
 

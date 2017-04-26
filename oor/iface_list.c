@@ -18,13 +18,16 @@
  */
 
 #include <string.h>
+#include <netdb.h>
 #include <errno.h>
 #include <linux/rtnetlink.h>
 
 #include "data-plane/data-plane.h"
+#include "control/oor_control.h"
 #include "net_mgr/net_mgr.h"
 #include "iface_list.h"
 #include "oor_external.h"
+#include "lib/prefixes.h"
 #include "lib/routing_tables_lib.h"
 #include "lib/sockets.h"
 #include "lib/shash.h"
@@ -80,6 +83,98 @@ ifaces_destroy()
     shash_destroy(iface_addr_ht);
 }
 
+int
+iface_configure (iface_t *iface, int afi)
+{
+    glist_t *addr_list;
+    lisp_addr_t *addr, *gw;
+
+
+    if (afi == AF_INET  && default_rloc_afi == AF_INET6){
+        return (BAD);
+    }
+    if (afi == AF_INET6  && default_rloc_afi == AF_INET){
+        return (BAD);
+    }
+
+    /* Configure the gateway */
+
+    gw = iface_gateway(iface, afi);
+    if (!gw){
+        gw = net_mgr->netm_get_iface_gw(iface->iface_name, afi);
+
+        switch (afi) {
+        case AF_INET:
+            iface->ipv4_gateway = gw;
+            break;
+        case AF_INET6:
+            iface->ipv6_gateway = gw;
+            break;
+        default:
+            OOR_LOG(LDBG_2,"iface_setup: Unknown afi: %d", afi);
+            return (ERR_AFI);
+        }
+
+        if (!gw || lisp_addr_is_no_addr(gw)) {
+            OOR_LOG(LDBG_1,"iface_configure: No %s gateway found for interface %s",
+                    afi == AF_INET ? "IPv4" : "IPv6", iface->iface_name);
+        }else {
+            OOR_LOG(LDBG_1,"iface_configure: %s gateway found for interface %s: %s",
+                                afi == AF_INET ? "IPv4" : "IPv6", iface->iface_name,lisp_addr_to_char(gw));
+            data_plane->datap_add_iface_gw(iface,afi);
+            lctrl->control_data_plane->control_dp_add_iface_gw(lctrl,iface,afi);
+        }
+    }
+
+    /* Get the correct address of the interface */
+    if (!iface_address(iface, afi)){
+        /* If we don't have gateway, we use the first address of the list of addresses of the interface*/
+        if (!gw || lisp_addr_is_no_addr(gw)){
+            addr_list = net_mgr->netm_get_iface_addr_list(iface->iface_name, afi);
+            if (glist_size(addr_list) == 0){
+                OOR_LOG(LDBG_1, "iface_configure: No %s RLOC configured for interface "
+                        "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", iface->iface_name);
+                addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+                goto end;
+            }
+            addr = (lisp_addr_t *)glist_first_data(addr_list);
+            goto end;
+        }
+        addr = net_mgr->netm_get_src_addr_to(gw);
+
+        if (!addr){
+            OOR_LOG(LDBG_1, "iface_configure: Gateway %s is not reachable. This should never happen",
+                    lisp_addr_to_char(gw));
+            addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+        }
+    }else{
+        return (GOOD);
+    }
+
+    end:
+    switch (afi) {
+    case AF_INET:
+        iface->ipv4_address = addr;
+        break;
+    case AF_INET6:
+        iface->ipv6_address = addr;
+        break;
+    default:
+        OOR_LOG(LDBG_2,"iface_setup: Unknown afi: %d", afi);
+        return (ERR_AFI);
+    }
+    /* Configure the new address in the contol and data plane */
+    if (!lisp_addr_is_no_addr(addr)) {
+        OOR_LOG(LDBG_1,"iface_configure: %s address selected for interface %s: %s",
+                afi == AF_INET ? "IPv4" : "IPv6", iface->iface_name,lisp_addr_to_char(addr));
+        data_plane->datap_add_iface_addr(iface,afi);
+        lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,afi);
+    }
+
+    return (GOOD);
+}
+
+
 char *
 iface_to_char(iface_t *iface)
 {
@@ -102,41 +197,6 @@ iface_to_char(iface_t *iface)
                     iface->out_socket_v6);
 
     return (buf[i]);
-}
-
-
-/* set address, open socket, insert rule */
-int
-iface_setup_addr(iface_t *iface, int afi)
-{
-    lisp_addr_t **addr;
-
-    if (afi == AF_INET  && default_rloc_afi == AF_INET6){
-        return (BAD);
-    }
-    if (afi == AF_INET6  && default_rloc_afi == AF_INET){
-        return (BAD);
-    }
-
-    switch (afi) {
-    case AF_INET:
-        addr = &iface->ipv4_address;
-        break;
-    case AF_INET6:
-        addr = &iface->ipv6_address;
-        break;
-    default:
-        OOR_LOG(LDBG_2,"iface_setup: Unknown afi: %d", afi);
-        return (ERR_AFI);
-    }
-
-    *addr = net_mgr->netm_get_iface_addr(iface->iface_name, afi);
-
-    if (lisp_addr_is_no_addr(*addr)) {
-        return(BAD);
-    }
-
-    return(GOOD);
 }
 
 /* Return the interface if it already exists. If it doesn't exist,
@@ -171,7 +231,7 @@ add_interface(char *iface_name)
         return(NULL);
     }
 
-    OOR_LOG(LDBG_2, "Adding interface %s with index %d to iface list",
+    OOR_LOG(LDBG_1, "Adding interface %s with index %d to iface list",
             iface_name, iface->iface_index);
 
     iface->ipv4_gateway = NULL;
@@ -345,9 +405,6 @@ get_any_output_iface(int afi)
     return (find_iface);
 }
 
-
-
-
 lisp_addr_t *
 iface_address(iface_t *iface, int afi)
 {
@@ -365,6 +422,23 @@ iface_address(iface_t *iface, int afi)
     return (addr);
 }
 
+lisp_addr_t *
+iface_gateway(iface_t *iface, int afi)
+{
+    lisp_addr_t *gw = NULL;
+
+    switch (afi) {
+    case AF_INET:
+        gw = iface->ipv4_gateway;
+        break;
+    case AF_INET6:
+        gw = iface->ipv6_gateway;
+        break;
+    }
+
+    return (gw);
+}
+
 int
 iface_socket(iface_t *iface, int afi)
 {
@@ -380,7 +454,7 @@ iface_socket(iface_t *iface, int afi)
     default:
         break;
     }
-    
+
     return (out_socket);
 }
 

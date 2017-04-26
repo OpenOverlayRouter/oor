@@ -1,0 +1,12 @@
+<resources>
+
+    <style name="OOR" parent="Theme.AppCompat.Light">
+        <item name="colorPrimary">#00796b</item>
+        <item name="colorPrimaryDark">#00796b</item>
+        <item name="android:textColorPrimary">@android:color/black</item>
+        <item name="android:textColorSecondary">#b2dfdb</item>
+        <item name="colorAccent">#00796b</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+</resources>

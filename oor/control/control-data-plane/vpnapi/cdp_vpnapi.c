@@ -58,6 +58,7 @@ control_dplane_struct_t control_dp_vpnapi = {
         .control_dp_init = vpnapi_control_dp_init,
         .control_dp_uninit = vpnapi_control_dp_uninit,
         .control_dp_add_iface_addr = vpnapi_control_dp_add_iface_addr,
+        .control_dp_add_iface_gw = vpnapi_control_dp_add_iface_gw,
         .control_dp_recv_msg = vpnapi_control_dp_recv_msg,
         .control_dp_send_msg = vpnapi_control_dp_send_msg,
         .control_dp_get_default_addr = vpnapi_control_dp_get_default_addr,
@@ -118,6 +119,12 @@ vpnapi_control_dp_add_iface_addr(oor_ctrl_t *ctrl,iface_t *iface, int afi)
     return (GOOD);
 }
 
+int
+vpnapi_control_dp_add_iface_gw(oor_ctrl_t *ctrl,iface_t *iface, int afi)
+{
+    return (GOOD);
+}
+
 /*  Process a LISP protocol message sitting on
  *  socket s with address family afi */
 int
@@ -140,6 +147,11 @@ vpnapi_control_dp_recv_msg(sock_t *sl)
         OOR_LOG(LDBG_1, "Couldn't retrieve socket information"
                 "for control message! Discarding packet!");
         lbuf_del(b);
+        return (BAD);
+    }
+    if (lbuf_size(b) < 4){
+        OOR_LOG(LDBG_3, "Received a non LISP message in the "
+                "control port! Discarding packet!");
         return (BAD);
     }
 

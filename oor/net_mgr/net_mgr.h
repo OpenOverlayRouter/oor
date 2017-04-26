@@ -29,7 +29,10 @@ typedef struct net_mgr_class {
     int (*netm_init)();
     void (*netm_uninit)();
     glist_t *(*netm_get_ifaces_names)();
-    lisp_addr_t *(*netm_get_iface_addr)(char *, int);
+    glist_t *(*netm_get_iface_addr_list)(char *, int);
+    /*netm_get_src_addr_to only works for the gw*/
+    lisp_addr_t *(*netm_get_src_addr_to)(lisp_addr_t *);
+    lisp_addr_t *(*netm_get_iface_gw)(char *,int);
     uint8_t (*netm_get_iface_status)(char *);
     int (*netm_get_iface_index)(char *);
     void (*netm_get_iface_mac_addr)(char *, uint8_t *);

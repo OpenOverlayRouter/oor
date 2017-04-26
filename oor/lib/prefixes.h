@@ -22,6 +22,8 @@
 
 #include "../liblisp/lisp_address.h"
 
+int pref_is_addr_part_of_prefix(lisp_addr_t *addr, lisp_addr_t *pref);
+
 /*
  * True if address belongs to the prefix
  */

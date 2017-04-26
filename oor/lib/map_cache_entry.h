@@ -74,6 +74,7 @@ static inline void mcache_entry_set_mapping(mcache_entry_t* , mapping_t *);
 static inline uint8_t mcache_entry_active(mcache_entry_t *);
 static inline void mcache_entry_set_active(mcache_entry_t *, int);
 uint8_t mcache_has_locators(mcache_entry_t *m);
+
 static inline void *mcache_entry_routing_info(mcache_entry_t *);
 static inline void mcache_entry_set_routing_info(mcache_entry_t *, void *,
         routing_info_del_fct);
@@ -104,6 +105,7 @@ mcache_entry_set_active(mcache_entry_t *mce, int state)
 {
     mce->active = state;
 }
+
 
 static inline void *
 mcache_entry_routing_info(mcache_entry_t *m)

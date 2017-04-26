@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:layout_marginLeft="25dp"
+    android:layout_marginRight="25dp"
+    android:layout_marginTop="25dp"
+    android:orientation="vertical"
+    android:scrollbars="vertical">
+
+    <ScrollView
+        android:id="@+id/scrollView1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@drawable/empty_tall_divider"
+            android:orientation="vertical"
+            android:showDividers="middle">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <com.rengwuxian.materialedittext.MaterialEditText
+                    android:id="@+id/updateConfeid4Text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/updateConfeid4String"
+                    android:text=""
+                    app:met_floatingLabel="normal"
+                    app:met_floatingLabelAlwaysShown="true"
+                    app:met_primaryColor="#00796B"
+                    app:met_textColorHint="@color/transparent" />
+
+
+                <TextView
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_gravity="top"
+                    android:gravity="center_vertical|center_horizontal"
+                    android:text="@string/or"
+                    android:textSize="18dp"></TextView>
+
+
+                <com.rengwuxian.materialedittext.MaterialEditText
+                    android:id="@+id/updateConfeid6Text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/updateConfeid6String"
+                    android:text=""
+                    app:met_floatingLabel="normal"
+                    app:met_floatingLabelAlwaysShown="true"
+                    app:met_primaryColor="#00796B"
+                    app:met_textColorHint="@color/transparent" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:layout_gravity="top"
+                        android:gravity="center_vertical|center_horizontal"
+                        android:padding="7dip"
+                        android:text="@string/rloc"
+                        android:textSize="18dp"></TextView>
+
+                    <org.openoverlayrouter.noroot.MultiSelectionSpinner
+                        android:id="@+id/IfaceNameSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"></org.openoverlayrouter.noroot.MultiSelectionSpinner>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <CheckBox
+                    android:id="@+id/updateConf_NAT_aware"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="NAT Traversal Aware"
+                    android:onClick="updateConfNATAwareClicked">
+                </CheckBox>
+            </LinearLayout>
+
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConfMRText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/updateConfMRString"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent" />
+
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConfMSText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/updateConfMSString"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent" />
+
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConfMSKeyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/updateConfMSKeyString"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent"
+                android:inputType="textPassword" />
+
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConf_proxy_etr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/proxy"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent" />
+
+            <TableLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TableRow
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+
+                    <CheckBox
+                        android:id="@+id/updateConfDNSCheck"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Override DNS"
+                        android:onClick="updateConfDNSClicked">
+                    </CheckBox>
+                </TableRow>
+            </TableLayout>
+
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConfDNS1Text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/dns1"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent" />
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConfDNS2Text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/dns2"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/LogLevelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="7dip"
+                    android:text="Log Level:"
+                    android:textSize="25px"></TextView>
+
+                <Spinner
+                    android:id="@+id/LogSpinner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignBaseline="@id/LogLevelText"
+                    android:layout_toRightOf="@id/LogLevelText"
+                    android:drawSelectorOnTop="true"></Spinner>
+            </LinearLayout>
+
+            <TableLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="20dp">
+
+                <TableRow
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="50dp"
+                    android:layout_marginRight="50dp">
+
+                    <Button
+                        android:id="@+id/updateConfButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2.5"
+                        android:background="#00796B"
+                        android:onClick="updateConfClicked"
+                        android:text="@string/updateConfChgString"
+                        android:textColor="#FFFFFF"
+                        android:textAllCaps="true"
+                        android:maxLines="1"
+                        android:textSize="14dp"></Button>
+                </TableRow>
+            </TableLayout>
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

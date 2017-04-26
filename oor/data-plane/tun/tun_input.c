@@ -59,10 +59,13 @@ tun_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid)
     }
 
     udph = pkt_pull_udp(b);
+    if (ntohs(udplen(udph)) < 16){//8 udp header + 8 lisp header
+        return (ERR_NOT_ENCAP);
+    }
 
     /* FILTER UDP: with input RAW UDP sockets, we receive all UDP packets,
      * we only want LISP data ones */
-    switch (ntohs(udph->dest)){
+    switch (ntohs(udpdport(udph))){
     case LISP_DATA_PORT:
         lisph = lisp_data_pull_hdr(b);
         if (LDHDR_LSB_BIT(lisph)){

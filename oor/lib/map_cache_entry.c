@@ -77,6 +77,7 @@ mcache_entry_del(mcache_entry_t *entry)
     free(entry);
 }
 
+
 inline lisp_addr_t *
 mcache_entry_eid(mcache_entry_t *mce)
 {
@@ -92,7 +93,6 @@ mcache_has_locators(mcache_entry_t *m)
         return (FALSE);
     }
 }
-
 
 void
 map_cache_entry_dump (mcache_entry_t *entry, int log_level)

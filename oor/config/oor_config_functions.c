@@ -17,7 +17,9 @@
  *
  */
 
+#include <libgen.h>
 #include <netdb.h>
+#include <stdio.h>
 
 #include "oor_config_functions.h"
 #include "../data-plane/data-plane.h"
@@ -296,13 +298,13 @@ add_map_server(glist_t *ms_list, char *str_addr, int key_type, char *key,
     glist_entry_t *it;
 
     if (str_addr == NULL || key_type == 0 || key == NULL){
-        OOR_LOG(LERR, "Configuraton file: Wrong Map Server configuration. "
+        OOR_LOG(LERR, "Configuration file: Wrong Map Server configuration. "
                 "Check configuration file");
         exit_cleanup();
     }
 
     if (key_type != HMAC_SHA_1_96){
-        OOR_LOG(LERR, "Configuraton file: Only SHA-1 (1) authentication is supported");
+        OOR_LOG(LERR, "Configuration file: Only SHA-1 (1) authentication is supported");
         exit_cleanup();
     }
 
@@ -486,11 +488,10 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
         }
     }
 
-    if (iface_address(iface, afi) == NULL){
-        /* Configure address of the interface */
-        iface_setup_addr(iface, afi);
-        data_plane->datap_add_iface_addr(iface,afi);
-        lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,afi);
+    if (iface_configure (iface, afi)!= GOOD){
+        OOR_LOG(LWRN, "add_rtr_iface: Can't configure addresses of interface %s",
+                iface_name);
+        return(BAD);
     }
 
     if_loct = (iface_locators *)shash_lookup(xtr->iface_locators_table,iface_name);
@@ -706,12 +707,12 @@ clone_customize_locator(oor_ctrl_dev_t *dev, locator_t * locator,
             }
         }
 
-        if (iface_address(iface, rloc_ip_afi) == NULL){
-            /* Configure address of the interface */
-            iface_setup_addr(iface, rloc_ip_afi);
-            data_plane->datap_add_iface_addr(iface,rloc_ip_afi);
-            lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,rloc_ip_afi);
+        /* Configure address of the interface */
+        if (iface_configure (iface, rloc_ip_afi)!= GOOD){
+            OOR_LOG(LWRN, "Configuration file: Can't configure addresses of interface %s",
+                    iface_name);
         }
+
 
         new_locator = locator_new_init(rloc, iface->status,1, 1,
                             locator_priority(locator), locator_weight(locator),255, 0);
@@ -882,11 +883,13 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
 
             ip_afi = lisp_addr_ip_afi(ip_addr);
 
-            if (iface_address(iface, ip_afi) == NULL){
-                /* Configure address of the interface */
-                iface_setup_addr(iface, ip_afi);
-                data_plane->datap_add_iface_addr(iface,ip_afi);
-                lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,ip_afi);
+            iface_configure (iface, ip_afi);
+
+            if (lisp_addr_cmp(ip_addr, iface_address(iface, ip_afi))!=0){
+                OOR_LOG(LERR, "Configuration file: Can't add address %s. The interface don't have "
+                        " a gateway associated or the address is not default src address used to reach "
+                        " the gateway of the interface", iface_name);
+                continue;
             }
 
             locator = locator_new_init(address, iface->status,1,1,conf_loc->priority, conf_loc->weight,
@@ -912,7 +915,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
         }
         if (locator != NULL){
             glist_add(locator,loct_list);
-            OOR_LOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
+            OOR_LOG(LDBG_2,"parse_rloc_address: Locator structure created: \n %s",
                     locator_to_char(locator));
         }
     }
@@ -953,13 +956,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
         }
     }
 
-    if (iface_address(iface, conf_loc_iface->afi) == NULL){
-        /* Configure address of the interface */
-        iface_setup_addr(iface, conf_loc_iface->afi);
-        data_plane->datap_add_iface_addr(iface,conf_loc_iface->afi);
-        lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,conf_loc_iface->afi);
-
-    }
+    iface_configure (iface, conf_loc_iface->afi);
 
     if (conf_loc_iface->afi == AF_INET){
         address = iface->ipv4_address;
@@ -970,7 +967,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
     locator = locator_new_init(address, iface->status,1,1,conf_loc_iface->priority,
             conf_loc_iface->weight,conf_loc_iface->mpriority, conf_loc_iface->mweight);
 
-    OOR_LOG(LDBG_2,"parse_rloc_address: Locator stucture created: \n %s",
+    OOR_LOG(LDBG_2,"parse_rloc_address: Locator structure created: \n %s",
                         locator_to_char(locator));
 
     /* If the locator is for a local mapping, associate the locator with the interface */
@@ -1004,7 +1001,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     locator_t *locator;
     glist_t *addr_list;
     lisp_addr_t *eid_prefix, *ip_eid_prefix;
-    lisp_xtr_t *xtr;
+    lisp_xtr_t *xtr=NULL;
     conf_loc_t *conf_loc;
     conf_loc_iface_t *conf_loc_iface;
     glist_entry_t *conf_it;
@@ -1175,33 +1172,56 @@ nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id)
 {
     xtr->site_id = site_id;
 }
-void
+int
 nat_set_xTR_ID(lisp_xtr_t *xtr)
 {
-    uint8_t mac_bytes[6];
-    int ctr, byte_pos = 0;
-    lisp_xtr_id *xtr_id = &(xtr->xtr_id);
-    glist_t *ifaces;
-    glist_entry_t *ifn_it;
-    char *iface_name;
+	FILE *xtr_id_file;
+	lisp_xtr_id *xtr_id = &(xtr->xtr_id);
+	int ctr = 0;
+	char *path;
+	char file[200];
+	char line[80];
+	char part_xtr_id_str[3];
 
-    ifaces = net_mgr->netm_get_ifaces_names();
-    if (!ifaces){
-        memset (xtr_id,0,sizeof(lisp_xtr_id));
-        return;
-    }
-    glist_for_each_entry(ifn_it, ifaces){
-        iface_name = (char *)glist_entry_data(ifn_it);
-        net_mgr->netm_get_iface_mac_addr(iface_name, mac_bytes);
-        for (ctr = 0; ctr < 6 ; ctr++){
-            xtr_id->byte[byte_pos] = xtr_id->byte[byte_pos] ^ mac_bytes[ctr];
-            byte_pos++;
-            if (byte_pos == 16){
-                byte_pos = 0;
-            }
-        }
-    }
-    glist_destroy(ifaces);
-    OOR_LOG(LDBG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
-            get_char_from_xTR_ID(xtr_id));
+	path = dirname(strdup(config_file));
+	sprintf(file,"%s/%s",path, DEVICE_ID_FILE);
+	xtr_id_file = fopen(file, "r");
+	if (! xtr_id_file)
+	{
+		xtr_id_file = fopen(file, "w");
+		if (!xtr_id_file){
+			OOR_LOG(LERR,"Could not generate device id file \"%s\": %s",file , strerror(errno));
+			return (BAD);
+		}
+		for (ctr=0; ctr<16; ctr++){
+			xtr_id->byte[ctr] = (uint8_t)random();
+		}
+		fprintf(xtr_id_file,"%s", get_char_from_xTR_ID(xtr_id));
+	}else{
+		if (fgets(line, sizeof(line),xtr_id_file) == NULL || strlen(line) != 32){
+			fclose(xtr_id_file);
+			xtr_id_file = fopen(file, "w");
+			if (!xtr_id_file){
+				OOR_LOG(LERR,"%s file has wrong format and could not be regenerated: %s",file , strerror(errno));
+				return (BAD);
+			}
+			for (ctr=0; ctr<16; ctr++){
+				xtr_id->byte[ctr] = (uint8_t)random();
+			}
+			fprintf(xtr_id_file,"%s", get_char_from_xTR_ID(xtr_id));
+		}else{
+			part_xtr_id_str[2] = '\0';
+			for (ctr=0; ctr<16; ctr++){
+				part_xtr_id_str[0] = line[0+ctr*2];
+				part_xtr_id_str[1] = line[1+ctr*2];
+				xtr_id->byte[ctr] = (uint8_t)strtol(part_xtr_id_str, NULL, 16);
+			}
+		}
+	}
+	fclose(xtr_id_file);
+
+	OOR_LOG(LDBG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
+			get_char_from_xTR_ID(xtr_id));
+
+	return(GOOD);
 }

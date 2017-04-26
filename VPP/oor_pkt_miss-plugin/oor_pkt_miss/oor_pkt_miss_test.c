@@ -23,6 +23,8 @@
 #include <vnet/ip/format.h>
 #include <vppinfra/error.h>
 
+#include <arpa/inet.h>
+
 uword unformat_sw_if_index (unformat_input_t * input, va_list * args);
 
 /* Declare message IDs */
@@ -62,7 +64,7 @@ oor_pkt_miss_test_main_t oor_pkt_miss_test_main;
 #define foreach_standard_reply_retval_handler   \
 _(oor_pkt_miss_enable_disable_reply)            \
 _(oor_pkt_miss_native_route_reply)              \
-_(oor_pkt_miss_drop_route_reply)
+_(oor_pkt_miss_drop_route_reply)                \
 
 #define _(n)                                            \
     static void vl_api_##n##_t_handler                  \
@@ -80,14 +82,49 @@ _(oor_pkt_miss_drop_route_reply)
 foreach_standard_reply_retval_handler;
 #undef _
 
-/* 
+
+
+/********************** API REPLY HANDLER ***********************************/
+
+static void
+vl_api_oor_pkt_miss_get_default_route_reply_t_handler(vl_api_oor_pkt_miss_get_default_route_reply_t * mp)
+{
+
+    vat_main_t * vam = oor_pkt_miss_test_main.vat_main;
+    i32 retval = ntohl (mp->retval);
+    char ip_addr[INET6_ADDRSTRLEN];
+
+    if (0 <= retval)
+    {
+        if (mp->is_ipv6){
+            if (mp->has_gateway){
+                inet_ntop(AF_INET6,&(mp->address),ip_addr,INET6_ADDRSTRLEN);
+                fformat (vam->ofp, "IPv6 default gw: %s\n", ip_addr );
+            }else{
+                fformat (vam->ofp, "IPv6 default gw: --\n");
+            }
+        }else{
+            if (mp->has_gateway){
+                fformat (vam->ofp, "IPv4 default gw: %U\n",format_ip4_address, &(mp->address));
+            }else{
+                fformat (vam->ofp, "IPv4 default gw: --\n");
+            }
+        }
+    }
+
+    vam->retval = retval;
+    vam->result_ready = 1;
+}
+
+/*
  * Table of message reply handlers, must include boilerplate handlers
  * we just generated
  */
 #define foreach_vpe_api_reply_msg                                       \
 _(OOR_PKT_MISS_ENABLE_DISABLE_REPLY, oor_pkt_miss_enable_disable_reply) \
 _(OOR_PKT_MISS_NATIVE_ROUTE_REPLY, oor_pkt_miss_native_route_reply)     \
-_(OOR_PKT_MISS_DROP_ROUTE_REPLY, oor_pkt_miss_drop_route_reply)
+_(OOR_PKT_MISS_DROP_ROUTE_REPLY, oor_pkt_miss_drop_route_reply)         \
+_(OOR_PKT_MISS_GET_DEFAULT_ROUTE_REPLY, oor_pkt_miss_get_default_route_reply)
 
 
 /* M: construct, but don't yet send a message */
@@ -272,6 +309,33 @@ static int api_oor_pkt_miss_drop_route (vat_main_t * vam)
     W;
 }
 
+static int api_oor_pkt_miss_get_default_route (vat_main_t * vam)
+{
+    oor_pkt_miss_test_main_t * sm = &oor_pkt_miss_test_main;
+    vl_api_oor_pkt_miss_get_default_route_t * mp;
+    unformat_input_t * input = vam->input;
+    f64 timeout;
+    int is_ipv6 = 0;
+
+    /* Parse args required to build the message */
+    while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
+        if (unformat (input, "ipv6")){
+            is_ipv6 = 1;
+        }else if (unformat (input, "ipv4")){
+            is_ipv6 = 0;
+        }else{
+            break;
+        }
+    }
+    /* Construct the API message */
+    M(OOR_PKT_MISS_GET_DEFAULT_ROUTE, oor_pkt_miss_get_default_route);
+    mp->is_ipv6 = is_ipv6;
+    /* send it... */
+    S;
+
+    /* Wait for a reply... */
+    W;
+}
 
 /* 
  * List of messages that the api test plugin sends,
@@ -280,7 +344,8 @@ static int api_oor_pkt_miss_drop_route (vat_main_t * vam)
 #define foreach_vpe_api_msg \
 _(oor_pkt_miss_enable_disable, "<intfc> [disable]")             \
 _(oor_pkt_miss_native_route, "[add|del] <dst-ip-addr>/<width>") \
-_(oor_pkt_miss_drop_route, "[add|del] <dst-ip-addr>/<width>")
+_(oor_pkt_miss_drop_route, "[add|del] <dst-ip-addr>/<width>")   \
+_(oor_pkt_miss_get_default_route, "[ipv4|ipv6]")
 
 void vat_api_hookup (vat_main_t *vam)
 {

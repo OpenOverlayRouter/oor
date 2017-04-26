@@ -150,26 +150,13 @@ void
 pid_file_remove()
 {
     FILE *pid_file;
-    char line[80];
-    long int pid;
 
     pid_file = fopen(PID_FILE, "r");
     if (pid_file == NULL){
         return;
     }
 
-    if (fgets(line, 80, pid_file) == NULL){
-        OOR_LOG(LWRN, "pid_file_remove: Couldn't read PID number from file");
-        fclose(pid_file);
-        return;
-    }
-    sscanf (line, "%ld", &pid);
-
     fclose(pid_file);
-
-    if (pid != getpid()){
-        return;
-    }
 
     if (remove(PID_FILE) != 0){
         OOR_LOG(LWRN,"pid_file_remove: PID file couldn't be removed: %s", PID_FILE);
@@ -372,10 +359,7 @@ static int
 parse_config_file()
 {
     int err;
-    err = handle_config_file(&config_file);
-    if (config_file != NULL){
-        free(config_file);
-    }
+    err = handle_config_file();
 
     return (err);
 }

@@ -37,7 +37,11 @@ typedef struct
     glist_t *iface_list;
 
     /* Address of the requested interface*/
-    glist_t *ip_addr_lst; //<glist_t *>
+    glist_t *ip_addr_lst; //<lisp_addr_t *>
+    /* List of prefixes */
+    glist_t *prefix_lst; //<lisp_addr_t *>
+    /* Gateway */
+    lisp_addr_t *gw;
 
     int table_id;
     int requested_ip_afi;
@@ -122,8 +126,10 @@ int vpp_oor_pkt_miss_enable_disable(char *iface_name, uint8_t enable_disable);
 int vpp_oor_ctrl_enable_disable (char *iface_name, uint8_t enable_disable);
 int vpp_oor_pkt_miss_native_route (lisp_addr_t *prefix, uint8_t is_add);
 int vpp_oor_pkt_miss_drop_route (lisp_addr_t *prefix, uint8_t is_add, uint32_t table_id);
+lisp_addr_t *vpp_oor_pkt_miss_get_default_route (int afi);
 int vpp_lisp_gpe_add_del_fwd_entry (fwd_entry_vpp_t *fe, lisp_action_e action, uint8_t is_add);
 int vpp_interface_get_table(uint32_t iface_index, uint8_t is_ipv6);
+glist_t * vpp_ip_fib_prefixs(int afi);
 
 static inline vpp_api_main_t *
 vpp_api_main_get()

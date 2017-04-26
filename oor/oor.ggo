@@ -19,11 +19,11 @@
 
 
 package "oor"
-version "1.1.2"
+version "1.2.0"
 
 defmode "oorconfig"
 
-modeoption "debug" d "Debuging output [0..3]"
+modeoption "debug" d "Debugging output [0..3]"
 	int values="0","1","2","3" enum mode="oorconfig" optional
 
 modeoption "afi" a "Default RLOCs afi [4,6]"

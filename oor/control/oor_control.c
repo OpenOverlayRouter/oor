@@ -96,7 +96,7 @@ ctrl_destroy(oor_ctrl_t *ctrl)
     }
 
     free(ctrl);
-    OOR_LOG(LDBG_1,"Lisp controler destroyed");
+    OOR_LOG(LDBG_1,"Lisp controller destroyed");
 }
 
 int
@@ -196,7 +196,7 @@ ctrl_default_rloc(oor_ctrl_t *ctrl, int afi)
 /*
  * Return the default control rlocs in a list that shoud be released
  * by the user.
- * @param ctrl Lisp controler to be used
+ * @param ctrl Lisp controller to be used
  * @return glist_t * with the lisp_addr_t * of the default rlocs
  */
 glist_t *

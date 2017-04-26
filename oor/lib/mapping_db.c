@@ -622,6 +622,11 @@ mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr)
     }
 }
 
+inline int
+mdb_n_entries(mdb_t *mdb) {
+    return(mdb->n_entries);
+}
+
 /*
  * Patricia trie wrappers
  */

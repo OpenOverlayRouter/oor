@@ -98,15 +98,14 @@ convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len)
 char *
 get_char_from_xTR_ID (lisp_xtr_id *xtrid)
 {
-    static char         xTR_ID_str[200];
+    static char         xTR_ID_str[33];
     int                 ctr             = 0;
 
-    memset (xTR_ID_str,0,200);
+    memset (xTR_ID_str,0,33);
 
     for (ctr = 0 ; ctr < 16; ctr++){
         sprintf(xTR_ID_str, "%s%02x", xTR_ID_str, xtrid->byte[ctr]);
     }
-    sprintf(xTR_ID_str, "%s", xTR_ID_str);
     return (xTR_ID_str);
 }
 

@@ -36,7 +36,9 @@
 int krn_netm_init();
 void krn_netm_uninit();
 glist_t * krn_get_ifaces_names();
-lisp_addr_t * krn_get_iface_addr(char *iface_name, int afi);
+glist_t * krn_get_iface_addr_list(char *iface_name, int afi);
+lisp_addr_t * krn_get_src_addr_to(lisp_addr_t * addr);
+lisp_addr_t * krn_get_iface_gw(char *iface_name, int afi);
 uint8_t krn_get_iface_status(char * iface_name);
 int krn_get_iface_index(char *iface_name);
 void krn_get_iface_mac_addr(char *iface_name, uint8_t *mac);
@@ -52,7 +54,9 @@ net_mgr_class_t netm_kernel = {
         .netm_init = krn_netm_init,
         .netm_uninit = krn_netm_uninit,
         .netm_get_ifaces_names = krn_get_ifaces_names,
-        .netm_get_iface_addr = krn_get_iface_addr,
+        .netm_get_iface_addr_list = krn_get_iface_addr_list,
+        .netm_get_src_addr_to = krn_get_src_addr_to,
+        .netm_get_iface_gw = krn_get_iface_gw,
         .netm_get_iface_status = krn_get_iface_status,
         .netm_get_iface_index = krn_get_iface_index,
         .netm_get_iface_mac_addr = krn_get_iface_mac_addr,
@@ -65,7 +69,6 @@ net_mgr_class_t netm_kernel = {
 int
 krn_netm_init()
 {
-    struct sock *nl_sl;
     netm_data_type *data;
     data = xzalloc(sizeof(netm_data_type));
     if (!data){
@@ -77,15 +80,8 @@ krn_netm_init()
      * status. */
     data->netlink_fd = opent_netlink_socket();
 
-    nl_sl = sockmstr_register_read_listener(smaster, process_netlink_msg, NULL,
+    sockmstr_register_read_listener(smaster, process_netlink_msg, NULL,
             data->netlink_fd);
-
-    /* Request to dump the routing tables to obtain the gatways when
-     * processing the netlink messages  */
-    krn_reload_routes(RT_TABLE_MAIN, AF_INET);
-    process_netlink_msg(nl_sl);
-    krn_reload_routes(RT_TABLE_MAIN, AF_INET6);
-    process_netlink_msg(nl_sl);
 
     return (GOOD);
 }
@@ -160,70 +156,268 @@ krn_get_ifaces_names()
     return (iface_names);
 }
 
-lisp_addr_t *
-krn_get_iface_addr(char *iface_name, int afi)
+glist_t *
+krn_get_iface_addr_list(char *iface_name, int afi)
 {
+    glist_t *addr_list = glist_new_managed((glist_del_fct)lisp_addr_del);
     lisp_addr_t *addr;
-     struct ifaddrs *ifaddr;
-     struct ifaddrs *ifa;
-     struct sockaddr_in *s4;
-     struct sockaddr_in6 *s6;
-     ip_addr_t ip;
+    struct ifaddrs *ifaddr;
+    struct ifaddrs *ifa;
+    struct sockaddr_in *s4;
+    struct sockaddr_in6 *s6;
+    ip_addr_t ip;
 
-     addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+    /* search for the interface */
+    if (getifaddrs(&ifaddr) !=0) {
+        OOR_LOG(LDBG_2, "krn_get_iface_addr_list: getifaddrs error: %s",
+                strerror(errno));
+        return(addr_list);
+    }
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if ((ifa->ifa_addr == NULL)
+                || ((ifa->ifa_flags & IFF_UP) == 0)
+                || (ifa->ifa_addr->sa_family != afi)
+                || strcmp(ifa->ifa_name, iface_name) != 0) {
+            continue;
+        }
 
-     /* search for the interface */
-     if (getifaddrs(&ifaddr) !=0) {
-         OOR_LOG(LDBG_2, "krn_get_iface_addr: getifaddrs error: %s",
-                 strerror(errno));
-         return(addr);
-     }
-     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-         if ((ifa->ifa_addr == NULL)
-              || ((ifa->ifa_flags & IFF_UP) == 0)
-              || (ifa->ifa_addr->sa_family != afi)
-              || strcmp(ifa->ifa_name, iface_name) != 0) {
-             continue;
-         }
+        switch (ifa->ifa_addr->sa_family) {
+        case AF_INET:
+            s4 = (struct sockaddr_in *) ifa->ifa_addr;
+            ip_addr_init(&ip, &s4->sin_addr, AF_INET);
 
-         switch (ifa->ifa_addr->sa_family) {
-         case AF_INET:
-             s4 = (struct sockaddr_in *) ifa->ifa_addr;
-             ip_addr_init(&ip, &s4->sin_addr, AF_INET);
+            if (ip_addr_is_link_local(&ip) == TRUE) {
+                OOR_LOG(LDBG_2, "krn_get_iface_addr_list: interface address from "
+                        "%s discarded (%s)", iface_name, ip_addr_to_char(&ip));
+                continue;
+            }
+            break;
+        case AF_INET6:
+            s6 = (struct sockaddr_in6 *) ifa->ifa_addr;
+            ip_addr_init(&ip, &s6->sin6_addr, AF_INET6);
 
-             if (ip_addr_is_link_local(&ip) == TRUE) {
-                 OOR_LOG(LDBG_2, "krn_get_iface_addr: interface address from "
-                         "%s discarded (%s)", iface_name, ip_addr_to_char(&ip));
-                 continue;
-             }
+            if (ip_addr_is_link_local(&ip) == TRUE) {
+                OOR_LOG(LDBG_2, "krn_get_iface_addr_list: interface address from "
+                        "%s discarded (%s)", iface_name, ip_addr_to_char(&ip));
+                continue;
+            }
+            break;
+        default:
+            continue;                   /* XXX */
+        }
+        addr = lisp_addr_new();
+        lisp_addr_init_from_ip(addr, &ip);
+        glist_add(addr, addr_list);
+    }
+    freeifaddrs(ifaddr);
+    if (glist_size(addr_list) == 0){
+        OOR_LOG(LDBG_3, "krn_get_iface_addr_list: No %s RLOC configured for interface "
+                "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", iface_name);
+    }
 
-             lisp_addr_init_from_ip(addr, &ip);
-             freeifaddrs(ifaddr);
-             return(addr);
-         case AF_INET6:
-             s6 = (struct sockaddr_in6 *) ifa->ifa_addr;
-             ip_addr_init(&ip, &s6->sin6_addr, AF_INET6);
-
-             if (ip_addr_is_link_local(&ip) == TRUE) {
-                 OOR_LOG(LDBG_2, "krn_get_iface_addr: interface address from "
-                         "%s discarded (%s)", iface_name, ip_addr_to_char(&ip));
-                 continue;
-             }
-             lisp_addr_init_from_ip(addr, &ip);
-             freeifaddrs(ifaddr);
-             return(addr);
-
-         default:
-             continue;                   /* XXX */
-         }
-     }
-     freeifaddrs(ifaddr);
-     OOR_LOG(LDBG_3, "krn_get_iface_addr: No %s RLOC configured for interface "
-             "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", iface_name);
-
-     lisp_addr_set_lafi(addr, LM_AFI_NO_ADDR);
-     return(addr);
+    return(addr_list);
 }
+
+lisp_addr_t *
+krn_get_src_addr_to(lisp_addr_t * dst_addr){
+    lisp_addr_t src_addr;
+    int netlink_fd;
+    struct sockaddr_nl addr;
+    struct nlmsghdr *nlh, *rcvhdr;
+    struct rtmsg *rtm, *recv_rtm;
+    struct rtattr *rt_attr;
+    char sndbuf[4096],rcvbuf[4096];
+    int retval, readlen, recv_pyload_len;
+    int afi;
+
+    afi = lisp_addr_ip_afi(dst_addr);
+    /* Open netlink socket */
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    if (afi == AF_INET){
+        addr.nl_groups = RTMGRP_IPV4_ROUTE;
+    }else{
+        addr.nl_groups = RTMGRP_IPV6_ROUTE;
+    }
+    netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+    if (netlink_fd < 0) {
+        OOR_LOG(LERR, "krn_get_src_addr_to: Failed to connect to "
+                "netlink socket");
+        return (NULL);
+    }
+    bind(netlink_fd, (struct sockaddr *) &addr, sizeof(addr));
+    /* Request route to destination address */
+    memset(sndbuf, 0, 4096);
+    nlh = (struct nlmsghdr *)sndbuf;
+    rtm = (struct rtmsg *)(CO(sndbuf,sizeof(struct nlmsghdr)));
+    rt_attr = (struct rtattr *)(CO(rtm, sizeof(struct rtmsg)));
+
+    nlh->nlmsg_flags = NLM_F_REQUEST;
+    nlh->nlmsg_type = RTM_GETROUTE;
+
+    rtm->rtm_family = afi;
+    rtm->rtm_table = RT_TABLE_MAIN;
+    rtm->rtm_protocol = RTPROT_STATIC;
+    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_src_len = 0;
+    rtm->rtm_tos = 0;
+    rtm->rtm_dst_len = (afi == AF_INET ? 32 : 128);
+
+    /*
+     * Add dst address
+     */
+    rt_attr->rta_type = RTA_DST;
+    rt_attr->rta_len = sizeof(struct rtattr) + ip_sock_afi_to_size(afi);
+    lisp_addr_copy_to(((char *)rt_attr) + sizeof(struct rtattr), dst_addr);
+
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg) + rt_attr->rta_len);
+
+    retval = send(netlink_fd, sndbuf,nlh->nlmsg_len, 0);
+
+    if (retval < 0) {
+        OOR_LOG(LCRIT, "krn_get_src_addr_to: send netlink command failed %s", strerror(errno));
+        close(netlink_fd);
+        return (NULL);
+    }
+
+    /* Receive answer */
+    while ((readlen = recv(netlink_fd,rcvbuf,4096,MSG_DONTWAIT)) > 0){
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            recv_pyload_len = RTM_PAYLOAD(rcvhdr);
+            if (rcvhdr->nlmsg_type == RTM_NEWROUTE) {
+                recv_rtm = (struct rtmsg *)NLMSG_DATA(rcvhdr);
+                rt_attr = (struct rtattr *)RTM_RTA(recv_rtm);
+                for (; RTA_OK(rt_attr, recv_pyload_len); rt_attr = RTA_NEXT(rt_attr, recv_pyload_len)) {
+                    switch (rt_attr->rta_type) {
+                    case RTA_PREFSRC:
+                        lisp_addr_ip_init(&src_addr, RTA_DATA(rt_attr), rtm->rtm_family);
+                        close(netlink_fd);
+                        return (lisp_addr_clone(&src_addr));
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    close(netlink_fd);
+    return (NULL);
+}
+
+
+lisp_addr_t *
+krn_get_iface_gw(char *iface_name, int afi)
+{
+    lisp_addr_t gateway = { .lafi = LM_AFI_IP };
+    int netlink_fd;
+    struct sockaddr_nl addr;
+    struct nlmsghdr *nlh, *rcvhdr;
+    struct rtmsg *rtm, *recv_rtm;
+    struct rtattr *rt_attr;
+    char sndbuf[4096],rcvbuf[4096];
+    int rta_len = 0, retval, readlen, recv_pyload_len, iface_id, attrs;
+    uint32_t iface_index;
+
+    iface_index= if_nametoindex(iface_name);
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    if (afi == AF_INET){
+        addr.nl_groups = RTMGRP_IPV4_ROUTE;
+    }else{
+        addr.nl_groups = RTMGRP_IPV6_ROUTE;
+    }
+
+    netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+    if (netlink_fd < 0) {
+        OOR_LOG(LERR, "krn_get_iface_gw: Failed to connect to "
+                "netlink socket");
+        return (NULL);
+    }
+
+    bind(netlink_fd, (struct sockaddr *) &addr, sizeof(addr));
+
+    memset(sndbuf, 0, 4096);
+    nlh = (struct nlmsghdr *)sndbuf;
+    rtm = (struct rtmsg *)(CO(sndbuf,sizeof(struct nlmsghdr)));
+
+    rta_len = sizeof(struct rtmsg);
+
+    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    nlh->nlmsg_type = RTM_GETROUTE;
+    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
+
+
+    rtm->rtm_family = afi;
+    rtm->rtm_table = RT_TABLE_MAIN;
+    rtm->rtm_protocol = RTPROT_STATIC;
+    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_src_len = 0;
+    rtm->rtm_tos = 0;
+    rtm->rtm_dst_len = 0;
+
+
+    retval = send(netlink_fd, sndbuf, nlh->nlmsg_len, 0);
+
+    if (retval < 0) {
+        OOR_LOG(LCRIT, "iface_get_getway: send netlink command failed %s", strerror(errno));
+        return (NULL);
+    }
+    /*
+     * Receive the responses from the kernel
+     */
+
+
+    while ((readlen = recv(netlink_fd,rcvbuf,4096,MSG_DONTWAIT)) > 0){
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            recv_pyload_len = RTM_PAYLOAD(rcvhdr);
+            iface_id = 0;
+            if (rcvhdr->nlmsg_type == RTM_NEWROUTE) {
+                recv_rtm = (struct rtmsg *)NLMSG_DATA(rcvhdr);
+                rt_attr = (struct rtattr *)RTM_RTA(recv_rtm);
+                attrs = 0;
+                for (; RTA_OK(rt_attr, recv_pyload_len); rt_attr = RTA_NEXT(rt_attr, recv_pyload_len)) {
+                    switch (rt_attr->rta_type) {
+                    case RTA_OIF:
+                        iface_id = *(int *)RTA_DATA(rt_attr);
+                        attrs++;
+                        break;
+                    case RTA_GATEWAY:
+                        lisp_addr_ip_init(&gateway, RTA_DATA(rt_attr), rtm->rtm_family);
+                        attrs++;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                if (iface_id == iface_index && attrs == 2 ){
+                    goto find;
+                }
+            }
+        }
+    }
+    OOR_LOG(LDBG_3, "iface_get_getway: No gateway detected for interface %s",iface_name);
+    close(netlink_fd);
+    return (NULL);
+
+    find:
+    close(netlink_fd);
+    OOR_LOG(LDBG_3, "iface_get_getway: The gateway for interface %s is %s", iface_name, lisp_addr_to_char(&gateway));
+    return (lisp_addr_clone(&gateway));
+}
+
+
 
 uint8_t
 krn_get_iface_status(char * iface_name)

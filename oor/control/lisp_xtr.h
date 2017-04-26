@@ -135,6 +135,7 @@ void map_server_elt_del (map_server_elt *map_server);
 void map_servers_dump(lisp_xtr_t *, int log_level);
 
 int program_map_register(lisp_xtr_t *xtr);
+void send_smr_and_mreg_for_locl_mapping(lisp_xtr_t *xtr, map_local_entry_t *map_loc_e);
 
 int tr_mcache_add_mapping(lisp_xtr_t *, mapping_t *);
 int tr_mcache_add_static_mapping(lisp_xtr_t *, mapping_t *);

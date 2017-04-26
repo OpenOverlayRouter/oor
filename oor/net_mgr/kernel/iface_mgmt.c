@@ -30,6 +30,7 @@
 #include "../../defs.h"
 #include "../../oor_external.h"
 #include "../../lib/oor_log.h"
+#include "../../lib/prefixes.h"
 #include "../../lib/sockets-util.h"
 
 
@@ -78,27 +79,27 @@ process_netlink_msg(struct sock *sl)
                 nlh = NLMSG_NEXT(nlh, len)) {
             switch (nlh->nlmsg_type) {
             case RTM_NEWADDR:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received new address "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received new address "
                         "message");
                 process_nl_add_address(nlh);
                 break;
             case RTM_DELADDR:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received del address "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received del address "
                         "message");
                 process_nl_del_address(nlh);
                 break;
             case RTM_NEWLINK:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received link "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received link "
                         "message");
                 process_nl_new_link(nlh);
                 break;
             case RTM_NEWROUTE:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received new route "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received new route "
                         "message");
                 process_nl_new_route(nlh);
                 break;
             case RTM_DELROUTE:
-                OOR_LOG(LDBG_3, "=>process_netlink_msg: Received delete route "
+                OOR_LOG(LDBG_2, "==>process_netlink_msg: Received delete route "
                         "message");
                 process_nl_del_route(nlh);
                 break;
@@ -248,10 +249,9 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
 
     if ( rtm->rtm_family != AF_INET && rtm->rtm_family != AF_INET6 ) {
         OOR_LOG(LDBG_3,"process_nl_new_unicast_route: New unicast route of "
-                "unknown adddress family %d", rtm->rtm_family);
+                "unknown address family %d", rtm->rtm_family);
         return;
     }
-
     src_len = rtm->rtm_src_len;
     dst_len = rtm->rtm_dst_len;
 
@@ -427,7 +427,7 @@ process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
 
     if ( rtm->rtm_family != AF_INET && rtm->rtm_family != AF_INET6 ) {
         OOR_LOG(LDBG_3,"process_nl_del_unicast_route: New unicast route of "
-                "unknown adddress family %d", rtm->rtm_family);
+                "unknown address family %d", rtm->rtm_family);
         return;
     }
 
@@ -457,6 +457,7 @@ process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
             break;
         }
     }
+
     nm_process_route_change(RM, iface_index, &src,&dst,&gateway);
 }
 
@@ -478,3 +479,130 @@ process_nl_del_multicast_route (struct rtmsg *rtm, int rt_length)
     //multicast_leave_channel(&rt_srcaddr, &rt_groupaddr);
 }
 
+void
+iface_mac_address(char *iface_name, uint8_t *mac)
+{
+     int fd;
+     struct ifreq ifr;
+     int i = 0;
+
+     fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+     memset(&ifr, 0, sizeof(ifr));
+     ifr.ifr_addr.sa_family = AF_INET;
+     strncpy(ifr.ifr_name, iface_name, IFNAMSIZ-1);
+
+     ioctl(fd, SIOCGIFHWADDR, &ifr);
+
+     close(fd);
+     for (i = 0 ; i < 6 ; i++){
+         mac[i] = (unsigned char)ifr.ifr_hwaddr.sa_data[i];
+     }
+
+     return;
+}
+
+
+lisp_addr_t *
+get_network_pref_of_host(lisp_addr_t *address)
+{
+    lisp_addr_t net_prefix = { .lafi = LM_AFI_IP };
+    int netlink_fd;
+    struct sockaddr_nl addr;
+    struct nlmsghdr *nlh, *rcvhdr;
+    struct rtmsg *rtm, *recv_rtm;
+    struct rtattr *rt_attr;
+    char sndbuf[4096],rcvbuf[4096];
+    int rta_len = 0, retval, readlen, recv_pyload_len, afi;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    if (lisp_addr_ip_afi(address) == AF_INET){
+        afi = AF_INET;
+        addr.nl_groups = RTMGRP_IPV4_ROUTE;
+    }else{
+        afi = AF_INET6;
+        addr.nl_groups = RTMGRP_IPV6_ROUTE;
+    }
+
+    netlink_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+    if (netlink_fd < 0) {
+        OOR_LOG(LERR, "get_network_associated_addrress: Failed to connect to "
+                "netlink socket");
+        return (NULL);
+    }
+
+    bind(netlink_fd, (struct sockaddr *) &addr, sizeof(addr));
+
+    memset(sndbuf, 0, 4096);
+    nlh = (struct nlmsghdr *)sndbuf;
+    rtm = (struct rtmsg *)(CO(sndbuf,sizeof(struct nlmsghdr)));
+
+    rta_len = sizeof(struct rtmsg);
+
+    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    nlh->nlmsg_type = RTM_GETROUTE;
+    nlh->nlmsg_len = NLMSG_LENGTH(rta_len);
+
+
+    rtm->rtm_family = afi;
+    rtm->rtm_table = RT_TABLE_MAIN;
+    rtm->rtm_protocol = RTPROT_STATIC;
+    rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_src_len = 0;
+    rtm->rtm_tos = 0;
+    rtm->rtm_dst_len = 0;
+
+    retval = send(netlink_fd, sndbuf, nlh->nlmsg_len, 0);
+
+    if (retval < 0) {
+        OOR_LOG(LCRIT, "get_network_associated_addrress: send netlink command failed %s", strerror(errno));
+        return (NULL);
+    }
+    /*
+     * Receive the responses from the kernel
+     */
+
+    while ((readlen = recv(netlink_fd,rcvbuf,4096,MSG_DONTWAIT)) > 0){
+        rcvhdr = (struct nlmsghdr *)rcvbuf;
+        /*
+         * Walk through everything it sent us
+         */
+        for (; NLMSG_OK(rcvhdr, (unsigned int)readlen); rcvhdr = NLMSG_NEXT(rcvhdr, readlen)) {
+            recv_pyload_len = RTM_PAYLOAD(rcvhdr);
+            if (rcvhdr->nlmsg_type == RTM_NEWROUTE) {
+                recv_rtm = (struct rtmsg *)NLMSG_DATA(rcvhdr);
+                rt_attr = (struct rtattr *)RTM_RTA(recv_rtm);
+                for (; RTA_OK(rt_attr, recv_pyload_len); rt_attr = RTA_NEXT(rt_attr, recv_pyload_len)) {
+                    switch (rt_attr->rta_type) {
+                    case RTA_DST:
+                        if ((rtm->rtm_family == AF_INET && recv_rtm->rtm_dst_len == 32) ||
+                                (rtm->rtm_family == AF_INET6 && recv_rtm->rtm_dst_len == 128) ){
+                            break;
+                        }
+                        lisp_addr_ip_init(&net_prefix, RTA_DATA(rt_attr), rtm->rtm_family);
+                        lisp_addr_set_plen(&net_prefix,recv_rtm->rtm_dst_len);
+                        if (pref_is_addr_part_of_prefix(address,&net_prefix) == TRUE){
+                            goto find;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    close(netlink_fd);
+    OOR_LOG(LDBG_3, "get_network_pref_of_host: No network prefix found for host %s", lisp_addr_to_char(address));
+    return (NULL);
+
+    find:
+    close(netlink_fd);
+    OOR_LOG(LDBG_3, "get_network_pref_of_host: Network prefix for host %s is %s",
+            lisp_addr_to_char(address), lisp_addr_to_char(&net_prefix));
+    return (lisp_addr_clone(&net_prefix));
+
+}

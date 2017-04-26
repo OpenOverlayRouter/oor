@@ -283,3 +283,33 @@ vpp_interface_get_table(uint32_t iface_index, uint8_t is_ipv6)
 
     return (vam->table_id);
 }
+
+glist_t *
+vpp_ip_fib_prefixs(int afi)
+{
+    glist_t *prefixs_list;
+    vpp_api_main_t * vam = vpp_api_main_get();
+    vl_api_ip_fib_dump_t *mp;
+
+    glist_remove_all(vam->prefix_lst);
+    if (afi == AF_INET){
+        MSG (IP_FIB_DUMP, ip_fib_dump);
+    }else{
+        MSG (IP6_FIB_DUMP, ip6_fib_dump);
+    }
+    VPP_SEND;
+
+    /* Use a control ping for synchronization */
+    {
+        vl_api_control_ping_t *mp;
+        MSG (CONTROL_PING, control_ping);
+        VPP_SEND;
+    }
+    if (vpp_wait(vam) == ERR_NO_REPLY){
+        OOR_LOG(LWRN,"VPP could not get fib table");
+        return (NULL);
+    }
+    prefixs_list = glist_clone(vam->prefix_lst, (glist_clone_obj)lisp_addr_clone);
+
+    return (prefixs_list);
+}

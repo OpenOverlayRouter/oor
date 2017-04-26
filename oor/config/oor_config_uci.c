@@ -90,7 +90,7 @@ parse_elp_node(
 /********************************** FUNCTIONS ********************************/
 
 int
-handle_config_file(char **uci_conf_file_path)
+handle_config_file()
 {
     char *uci_conf_dir;
     char *uci_conf_file;
@@ -104,8 +104,8 @@ handle_config_file(char **uci_conf_file_path)
     int res = BAD;
 
 
-    if (*uci_conf_file_path == NULL){
-        *uci_conf_file_path = strdup("/etc/config/oor");
+    if (config_file == NULL){
+    	config_file = strdup("/etc/config/oor");
     }
 
     ctx = uci_alloc_context();
@@ -115,8 +115,8 @@ handle_config_file(char **uci_conf_file_path)
         return (BAD);
     }
 
-    uci_conf_dir = dirname(strdup(*uci_conf_file_path));
-    uci_conf_file = basename(strdup(*uci_conf_file_path));
+    uci_conf_dir = dirname(strdup(config_file));
+    uci_conf_file = basename(strdup(config_file));
 
 
     uci_set_confdir(ctx, uci_conf_dir);
@@ -1078,17 +1078,8 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
                 return(BAD);
             }
 
-            if (iface_address(iface, AF_INET) == NULL){
-                iface_setup_addr(iface, AF_INET);
-                data_plane->datap_add_iface_addr(iface,AF_INET);
-                lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET);
-            }
-
-            if (iface_address(iface, AF_INET6) == NULL){
-                iface_setup_addr(iface, AF_INET6);
-                data_plane->datap_add_iface_addr(iface,AF_INET6);
-                lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET6);
-            }
+            iface_configure (iface, AF_INET);
+            iface_configure (iface, AF_INET6);
         }
 
         /* LISP-SITE CONFIG */
@@ -1406,21 +1397,11 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
             }
 
             if (uci_afi == 4){
-                if (iface_address(iface, AF_INET) == NULL){
-                    /* Configure address of the interface */
-                    iface_setup_addr(iface, AF_INET);
-                    data_plane->datap_add_iface_addr(iface,AF_INET);
-                    lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET);
-                }
+                iface_configure (iface, AF_INET);
                 address = iface->ipv4_address;
                 afi = AF_INET;
             }else{
-                if (iface_address(iface, AF_INET6) == NULL){
-                    /* Configure address of the interface */
-                    iface_setup_addr(iface, AF_INET6);
-                    data_plane->datap_add_iface_addr(iface,AF_INET6);
-                    lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET6);
-                }
+                iface_configure (iface, AF_INET6);
                 address = iface->ipv6_address;
                 afi = AF_INET6;
             }

@@ -33,6 +33,7 @@
 int vpnapi_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...);
 void vpnapi_uninit();
 int vpnapi_add_datap_iface_addr(iface_t *iface, int afi);
+int vpnapi_add_datap_iface_gw(iface_t *iface, int afi);
 int vpnapi_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
 int vpnapi_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
 int vpnapi_updated_route(int command, iface_t *iface, lisp_addr_t *src_pref,
@@ -51,6 +52,7 @@ data_plane_struct_t dplane_vpnapi = {
         .datap_init = vpnapi_init,
         .datap_uninit = vpnapi_uninit,
         .datap_add_iface_addr = vpnapi_add_datap_iface_addr,
+        .datap_add_iface_gw = vpnapi_add_datap_iface_gw,
         .datap_register_lcl_mapping = vpnapi_register_lcl_mapping,
         .datap_deregister_lcl_mapping = vpnapi_deregister_lcl_mapping,
         .datap_input_packet = vpnapi_process_input_packet,
@@ -144,6 +146,12 @@ vpnapi_add_datap_iface_addr(iface_t *iface, int afi)
 }
 
 int
+vpnapi_add_datap_iface_gw(iface_t *iface, int afi)
+{
+    return (GOOD);
+}
+
+int
 vpnapi_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map)
 {
     return (GOOD);
@@ -198,7 +206,8 @@ vpnapi_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
         default:
             return;
     }
-    if (*gw_addr == NULL) { // The default gateway of this interface is not deffined yet
+    if (*gw_addr == NULL || lisp_addr_is_no_addr(*gw_addr)) { // The default gateway of this interface is not deffined yet
+        lisp_addr_del (*gw_addr);
         *gw_addr = lisp_addr_new();
         lisp_addr_copy(*gw_addr,gateway);
     }else if (lisp_addr_cmp(*gw_addr, gateway) == 0){

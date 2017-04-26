@@ -40,6 +40,28 @@
 #define MAX_IP_HDR_LEN          40  /* without options or IPv6 hdr extensions */
 #define UDP_HDR_LEN             8
 
+#ifdef BSD
+#define udpsport(x) x->uh_sport
+#define udpdport(x) x->uh_dport
+#define udplen(x) x->uh_ulen
+#define udpsum(x) x->uh_sum
+#else
+#define udpsport(x) x->source
+#define udpdport(x) x->dest
+#define udplen(x) x->len
+#define udpsum(x) x->check
+#endif
+
+#ifdef BSD
+#define tcpsport(x) x->th_sport
+#define tcpdport(x) x->th_dport
+#else
+#define tcpsport(x) x->source
+#define tcpdport(x) x->dest
+#endif
+
+
+
 /* shared between data and control */
 typedef struct packet_tuple {
     lisp_addr_t                     src_addr;
@@ -49,6 +71,7 @@ typedef struct packet_tuple {
     uint8_t                         protocol;
     uint32_t                        iid;
 } packet_tuple_t;
+
 
 
 /*
@@ -153,8 +176,6 @@ IP_SET_16_SUBFIELD((ip4)->frag_off, IP_DF, IPV4_DF_OFFSET, (value))
  * IPv6 definitions & macros:
  */
 
-/// The bitmask for the Version field in an ipv6_hdr->ip6_flow variable
-/*#define IPV6_VERSION_MASK  0xf0000000*/
 /// The offset for the Version field in an ipv6_hdr->ip6_flow variable
 #define IPV6_VERSION_OFFSET  28
 
@@ -168,11 +189,11 @@ IP_SET_16_SUBFIELD((ip4)->frag_off, IP_DF, IPV4_DF_OFFSET, (value))
 
 /// Get the IPv6 Version 4-bit field from ipv6_hdr object
 #define IPV6_GET_VERSION(ip6) \
-IP_GET_32_SUBFIELD((ip6).ip6_flow, IPV6_VERSION_MASK, IPV6_VERSION_OFFSET)
+IP_GET_32_SUBFIELD((ip6).ip6_flow, IPV6_VERSION_MASK_, IPV6_VERSION_OFFSET)
 
 /// Set the IPv6 Version 4-bit field in an ipv6_hdr object
 #define IPV6_SET_VERSION(ip6, value) \
-IP_SET_32_SUBFIELD((ip6)->ip6_flow, IPV6_VERSION_MASK, IPV6_VERSION_OFFSET, (value))
+IP_SET_32_SUBFIELD((ip6)->ip6_flow, IPV6_VERSION_MASK_, IPV6_VERSION_OFFSET, (value))
 
 /// Get the IPv6 Traffic Class (TC) byte from an ipv6_hdr object
 #define IPV6_GET_TC(ip6) \

@@ -232,4 +232,3 @@ pref_conv_to_netw_pref(lisp_addr_t *addr)
 
     return (GOOD);
 }
-

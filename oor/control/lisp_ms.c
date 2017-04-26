@@ -95,7 +95,7 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m)
     locator_t *loct = NULL;
     uconn_t fwd_uc;
 
-    ctrl = ctrl_dev_ctrl(&(ms->super));
+    ctrl = ctrl_dev_get_ctrl_t(&(ms->super));
 
     if ((ctrl_supported_afis(ctrl) & IPv4_SUPPORT) != 0){
     	loct = get_locator_with_afi(m, AF_INET);

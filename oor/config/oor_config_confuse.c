@@ -554,7 +554,9 @@ configure_xtr(cfg_t *cfg)
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
-        nat_set_xTR_ID(xtr);
+        if (nat_set_xTR_ID(xtr) != GOOD){
+        	return (BAD);
+        }
         nat_set_site_ID(xtr, 0);
         default_rloc_afi = AF_INET;
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
@@ -603,7 +605,10 @@ configure_mn(cfg_t *cfg)
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
-        nat_set_xTR_ID(xtr);
+        if (nat_set_xTR_ID(xtr) != GOOD){
+        	printf("aaaaaaaaaaaaa\n");
+        	return (BAD);
+        }
         nat_set_site_ID(xtr, 0);
         default_rloc_afi = AF_INET;
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
@@ -636,7 +641,7 @@ int
 configure_ms(cfg_t *cfg)
 {
     char *iface_name;
-    iface_t *iface;
+    iface_t *iface=NULL;
     lisp_site_prefix_t *site;
     shash_t *lcaf_ht;
     int i;
@@ -662,19 +667,13 @@ configure_ms(cfg_t *cfg)
         if (iface == NULL) {
             return(BAD);
         }
+    }else{
+	/* we have no iface_name, so also iface is missing */
+        return(BAD);
     }
 
-    if (iface_address(iface, AF_INET) == NULL){
-        iface_setup_addr(iface, AF_INET);
-        data_plane->datap_add_iface_addr(iface,AF_INET);
-        lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET);
-    }
-
-    if (iface_address(iface, AF_INET6) == NULL){
-        iface_setup_addr(iface, AF_INET6);
-        data_plane->datap_add_iface_addr(iface,AF_INET6);
-        lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,AF_INET6);
-    }
+    iface_configure (iface, AF_INET);
+    iface_configure (iface, AF_INET6);
 
     /* LISP-SITE CONFIG */
     for (i = 0; i < cfg_size(cfg, "lisp-site"); i++) {
@@ -740,7 +739,7 @@ configure_ms(cfg_t *cfg)
 }
 
 int
-handle_config_file(char **oor_conf_file)
+handle_config_file()
 {
     int ret;
     cfg_t *cfg;
@@ -895,8 +894,8 @@ handle_config_file(char **oor_conf_file)
             CFG_END()
     };
 
-    if (*oor_conf_file == NULL){
-        *oor_conf_file = strdup("/etc/oor.conf");
+    if (config_file == NULL){
+        config_file = strdup("/etc/oor.conf");
     }
 
     /*
@@ -904,11 +903,11 @@ handle_config_file(char **oor_conf_file)
      */
 
     cfg = cfg_init(opts, CFGF_NOCASE);
-    ret = cfg_parse(cfg, *oor_conf_file);
+    ret = cfg_parse(cfg, config_file);
 
 
     if (ret == CFG_FILE_ERROR) {
-        OOR_LOG(LCRIT, "Couldn't find config file %s, exiting...", config_file);
+        OOR_LOG(LCRIT, "Couldn't find config file %s. If you are useing OOR in daemon mode, please indicate a full path file.", config_file);
         cfg_free(cfg);
         return (BAD);
     } else if(ret == CFG_PARSE_ERROR) {
@@ -947,7 +946,6 @@ handle_config_file(char **oor_conf_file)
     if (daemonize == TRUE){
         open_log_file(log_file);
     }
-
     mode = cfg_getstr(cfg, "operating-mode");
     if (mode) {
         if (strcmp(mode, "xTR") == 0) {
@@ -966,7 +964,7 @@ handle_config_file(char **oor_conf_file)
     }
 
     cfg_free(cfg);
-    return(GOOD);
+    return(ret);
 }
 
 /*

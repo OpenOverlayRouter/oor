@@ -50,7 +50,9 @@ vpnapi_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid)
     if (sock_data_recv(sock, b, &afi, &ttl, &tos) != GOOD) {
         return(BAD);
     }
-
+    if (lbuf_size(b) < 8){ // 8-> At least LISP header size
+        return (ERR_NOT_ENCAP);
+    }
 
     switch (data->encap_type){
     case ENCP_LISP:

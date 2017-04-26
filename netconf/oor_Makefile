@@ -24,6 +24,11 @@ LIBTOOL = $(libtool) --tag=CC --quiet
 SRCS = lispsimple.c oor_api_netconf.c           \
           ../oor/lib/oor_log.c                  \
           ../oor/lib/util.c                     \
+          ../oor/lib/mem_util.c                 \
+          ../oor/lib/generic_list.c             \
+          ../oor/liblisp/lisp_address.c         \
+          ../oor/liblisp/lisp_ip.c              \
+          ../oor/liblisp/lisp_lcaf.c            \
           ../oor/config/oor_api.c
 
 

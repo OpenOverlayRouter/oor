@@ -31,6 +31,14 @@ static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
         &xtr_ctrl_class,/* MN */
 };
 
+inline oor_dev_type_e
+ctrl_dev_mode(oor_ctrl_dev_t *dev){
+    return dev->mode;
+}
+inline oor_ctrl_t *
+ctrl_dev_get_ctrl_t(oor_ctrl_dev_t *dev){
+    return dev->ctrl;
+}
 
 static ctrl_dev_class_t *
 ctrl_dev_class_find(oor_dev_type_e type)

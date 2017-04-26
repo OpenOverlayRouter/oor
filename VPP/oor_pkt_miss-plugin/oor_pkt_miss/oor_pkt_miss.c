@@ -56,6 +56,9 @@
 int oor_pkt_miss_drop_route (int is_add, fib_prefix_t *prefix, u32 table_id);
 int oor_pkt_miss_defaults_management_init(oor_pkt_miss_main_t * sm);
 int oor_pkt_miss_defaults_management_uninit(oor_pkt_miss_main_t * sm);
+int oor_pkt_miss_get_ipv4_gateway(ip46_address_t *gateway);
+int oor_pkt_miss_get_ipv6_gateway(ip46_address_t *gateway);
+
 
 /* 
  * A handy macro to set up a message reply.
@@ -86,7 +89,8 @@ do {                                                            \
 #define foreach_oor_pkt_miss_plugin_api_msg                     \
 _(OOR_PKT_MISS_ENABLE_DISABLE, oor_pkt_miss_enable_disable)     \
 _(OOR_PKT_MISS_NATIVE_ROUTE, oor_pkt_miss_native_route)         \
-_(OOR_PKT_MISS_DROP_ROUTE, oor_pkt_miss_drop_route)
+_(OOR_PKT_MISS_DROP_ROUTE, oor_pkt_miss_drop_route)             \
+_(OOR_PKT_MISS_GET_DEFAULT_ROUTE, oor_pkt_miss_get_default_route)
 
 /* 
  * This routine exists to convince the vlib plugin framework that
@@ -116,6 +120,7 @@ int oor_pkt_miss_enable_disable (oor_pkt_miss_main_t * sm, u8 * host_if_name,
 {
     u8 hwaddr[6] = {0,0,0,0,0,0};
     u32 sw_if_index = ~0;
+
     vnet_sw_interface_t *si;
     vnet_lisp_gpe_enable_disable_args_t lisp_gpe_args;
     char vpp_if_name[100];
@@ -414,6 +419,83 @@ VLIB_CLI_COMMAND (oor_pkt_miss_drop_route_command, static) = {
 };
 
 
+
+static clib_error_t *
+oor_pkt_miss_get_default_route_command_fn (vlib_main_t * vm,
+        unformat_input_t * input,
+        vlib_cli_command_t * cmd)
+{
+    oor_pkt_miss_main_t * sm = &oor_pkt_miss_main;
+    ip46_address_t gateway;
+    clib_error_t *error = 0;
+    int is_ipv6 = 0;
+    u8 *msg = 0;
+
+    while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
+        if (unformat (input, "ipv6")){
+            is_ipv6 = 1;
+        }else if (unformat (input, "ipv4")){
+            is_ipv6 = 0;
+        }else{
+            break;
+        }
+    }
+
+    if (sm->sw_if_index == ~0){
+        if (is_ipv6){
+
+            if (oor_pkt_miss_get_ipv6_gateway(&gateway) == 0){
+                msg = format (msg, "IPv6 default gw: %U\n",format_ip6_address, &gateway.ip6);
+                vlib_cli_output (vm, "%v", msg);
+            }else{
+                msg = format (msg, "IPv6 default gw: --\n");
+                vlib_cli_output (vm, "%v", msg);
+            }
+
+        }else{
+            if (oor_pkt_miss_get_ipv4_gateway(&gateway) == 0){
+                msg = format (msg, "IPv4 default gw: %U\n",format_ip4_address, &gateway.ip4);
+                vlib_cli_output (vm, "%v", msg);
+            }else{
+                msg = format (msg, "IPv4 default gw: --\n");
+                vlib_cli_output (vm, "%v", msg);
+            }
+        }
+    }else{
+        if (is_ipv6){
+
+            if (sm->has_ipv6_gateway){
+                msg = format (msg, "IPv6 default gw: %U\n",format_ip6_address, &sm->ipv6_gateway.ip6);
+                vlib_cli_output (vm, "%v", msg);
+            }else{
+                msg = format (msg, "IPv6 default gw: --\n");
+                vlib_cli_output (vm, "%v", msg);
+            }
+
+        }else{
+            if (sm->has_ipv4_gateway){
+                msg = format (msg, "IPv4 default gw: %U\n",format_ip4_address, &sm->ipv4_gateway.ip4);
+                vlib_cli_output (vm, "%v", msg);
+            }else{
+                msg = format (msg, "IPv4 default gw: --\n");
+                vlib_cli_output (vm, "%v", msg);
+            }
+        }
+    }
+
+    return error;
+}
+
+
+
+VLIB_CLI_COMMAND (oor_pkt_miss_get_default_route_command, static) = {
+        .path = "oor_pkt_miss get-default-route",
+        .short_help =
+                "oor_pkt_miss get-default-route [ipv4|ipv6]",
+                .function = oor_pkt_miss_get_default_route_command_fn,
+};
+
+
 /* API message handler */
 static void vl_api_oor_pkt_miss_enable_disable_t_handler
 (vl_api_oor_pkt_miss_enable_disable_t * mp)
@@ -471,6 +553,68 @@ static void vl_api_oor_pkt_miss_drop_route_t_handler
     REPLY_MACRO(VL_API_OOR_PKT_MISS_DROP_ROUTE_REPLY);
 }
 
+static void vl_api_oor_pkt_miss_get_default_route_t_handler
+(vl_api_oor_pkt_miss_get_default_route_t * mp)
+{
+    vl_api_oor_pkt_miss_get_default_route_reply_t * rmp;
+    oor_pkt_miss_main_t * sm = &oor_pkt_miss_main;
+    ip46_address_t gateway;
+    int rv = 0;
+    unix_shared_memory_queue_t *q =  vl_api_client_index_to_input_queue (mp->client_index);
+
+    if (!q){
+        return;
+    }
+
+    rmp = vl_msg_api_alloc (sizeof (*rmp));
+    rmp->_vl_msg_id = ntohs((VL_API_OOR_PKT_MISS_GET_DEFAULT_ROUTE_REPLY)+sm->msg_id_base);
+    rmp->context = mp->context;
+
+
+    if (sm->sw_if_index == ~0){
+        if (mp->is_ipv6){
+            rmp->is_ipv6 = 1;
+            if (oor_pkt_miss_get_ipv6_gateway(&gateway) == 0){
+                memcpy(rmp->address,&gateway.ip6,16);
+                rmp->has_gateway = 1;
+            }else{
+                rmp->has_gateway = 0;
+            }
+
+        }else{
+            rmp->is_ipv6 = 0;
+            if (oor_pkt_miss_get_ipv4_gateway(&gateway) == 0){
+                memcpy(rmp->address,&gateway.ip4,4);
+                rmp->has_gateway = 1;
+            }else{
+                rmp->has_gateway = 0;
+            }
+        }
+    }else{
+        if (mp->is_ipv6){
+            rmp->is_ipv6 = 1;
+            if (sm->has_ipv6_gateway){
+                memcpy(rmp->address,&sm->ipv6_gateway.ip6,16);
+                               rmp->has_gateway = 1;
+            }else{
+                rmp->has_gateway = 0;
+            }
+
+        }else{
+            rmp->is_ipv6 = 0;
+            if (sm->has_ipv4_gateway){
+                memcpy(rmp->address,&sm->ipv4_gateway.ip4,4);
+                rmp->has_gateway = 1;
+            }else{
+                rmp->has_gateway = 0;
+            }
+        }
+    }
+    rmp->retval = ntohl(rv);
+
+    vl_msg_api_send_shmem (q, (u8 *)&rmp);
+}
+
 /* Set up the API message handling tables */
 static clib_error_t *
 oor_pkt_miss_plugin_api_hookup (vlib_main_t *vm)
@@ -494,12 +638,9 @@ oor_pkt_miss_plugin_api_hookup (vlib_main_t *vm)
 
 /******** DEAFAULTS MANAGEMENT **********/
 
-
-
 int
-oor_pkt_miss_ipv4_defaults_management_init(oor_pkt_miss_main_t * sm)
+oor_pkt_miss_get_ipv4_gateway(ip46_address_t *gateway)
 {
-    /* Obtain default gateway */
     ip4_address_t address;
     u32 mask_len = 0, fib_index;
     ip4_fib_t *fib;
@@ -545,9 +686,8 @@ oor_pkt_miss_ipv4_defaults_management_init(oor_pkt_miss_main_t * sm)
                     }
 
                     adj = ip_get_adjacency (&(ip4_main.lookup_main), adj_inxex);
-                    memcpy (&sm->ipv4_gateway,&(adj->sub_type.nbr.next_hop),sizeof(ip46_address_t));
+                    memcpy (gateway,&(adj->sub_type.nbr.next_hop),sizeof(ip46_address_t));
                     clib_warning("OOR_PKT_MISS: IPv4 gateway: %s", format (0, "%U", format_ip4_address, &(adj->sub_type.nbr.next_hop.ip4)));
-                    sm->has_ipv4_gateway = 1;
                     have_gw=1;
                     break;
                 }
@@ -562,8 +702,28 @@ oor_pkt_miss_ipv4_defaults_management_init(oor_pkt_miss_main_t * sm)
         return (-4);
     }
 
-    /* Remove the gateway */
+    return (0);
+}
+
+int
+oor_pkt_miss_ipv4_defaults_management_init(oor_pkt_miss_main_t * sm)
+{
+    /* Obtain default gateway */
+    u32 fib_index;
+    int ret;
     fib_prefix_t prefix;
+
+
+    fib_index = ip4_fib_index_from_table_id(0);
+    ret = oor_pkt_miss_get_ipv4_gateway(&sm->ipv4_gateway);
+    if (ret == 0){
+        sm->has_ipv4_gateway = 1;
+    }else{
+        return (ret);
+    }
+
+    /* Remove the gateway */
+
     memset(&prefix,0,sizeof(fib_prefix_t));
     prefix.fp_proto = FIB_PROTOCOL_IP4;
     /* Remove gateway */
@@ -572,9 +732,8 @@ oor_pkt_miss_ipv4_defaults_management_init(oor_pkt_miss_main_t * sm)
     return (0);
 }
 
-
 int
-oor_pkt_miss_ipv6_defaults_management_init(oor_pkt_miss_main_t * sm)
+oor_pkt_miss_get_ipv6_gateway(ip46_address_t *gateway)
 {
     /* Obtain default gateway */
     u32 fib_index;
@@ -627,10 +786,9 @@ oor_pkt_miss_ipv6_defaults_management_init(oor_pkt_miss_main_t * sm)
                         continue;
                     }
 
-                    adj = ip_get_adjacency (&(ip4_main.lookup_main), adj_inxex);
-                    memcpy (&sm->ipv6_gateway,&(adj->sub_type.nbr.next_hop),sizeof(ip46_address_t));
+                    adj = ip_get_adjacency (&(ip6_main.lookup_main), adj_inxex);
+                    memcpy (gateway,&(adj->sub_type.nbr.next_hop),sizeof(ip46_address_t));
                     clib_warning("OOR_PKT_MISS: IPv6 gateway: %s", format (0, "%U", format_ip6_address, &(adj->sub_type.nbr.next_hop.ip6)));
-                    sm->has_ipv6_gateway = 1;
                     have_gw=1;
                     break;
                 }
@@ -644,9 +802,29 @@ oor_pkt_miss_ipv6_defaults_management_init(oor_pkt_miss_main_t * sm)
         clib_warning("OOR_PKT_MISS: No IPv6 gateway found");
         return (-4);
     }
+    return (0);
+}
+
+
+
+int
+oor_pkt_miss_ipv6_defaults_management_init(oor_pkt_miss_main_t * sm)
+{
+    /* Obtain default gateway */
+    int ret;
+    fib_prefix_t prefix;
+    u32 fib_index;
+
+    fib_index = ip6_fib_index_from_table_id(0);
+    ret = oor_pkt_miss_get_ipv6_gateway(&sm->ipv6_gateway);
+    if (ret == 0){
+        sm->has_ipv6_gateway = 1;
+    }else{
+        return (ret);
+    }
+
 
     /* Remove the gateway */
-    fib_prefix_t prefix;
     memset(&prefix,0,sizeof(fib_prefix_t));
     prefix.fp_proto = FIB_PROTOCOL_IP6;
     /* Remove gateway */
@@ -698,6 +876,7 @@ static clib_error_t * oor_pkt_miss_init (vlib_main_t * vm)
   u8 * name;
 
   name = format (0, "oor_pkt_miss_%08x%c", api_version, 0);
+  sm->sw_if_index = ~0;
 
   /* Ask for a correctly-sized block of API message decode slots */
   sm->msg_id_base = vl_msg_api_get_msg_ids 

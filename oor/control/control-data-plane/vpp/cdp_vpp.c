@@ -39,6 +39,8 @@ vpp_control_dp_uninit (oor_ctrl_t *ctrl);
 int
 vpp_control_dp_add_iface_addr(oor_ctrl_t *ctrl,iface_t *iface, int afi);
 int
+vpp_control_dp_add_iface_gw(oor_ctrl_t *ctrl,iface_t *iface, int afi);
+int
 vpp_control_dp_recv_msg(sock_t *sl);
 int
 vpp_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn);
@@ -71,6 +73,7 @@ control_dplane_struct_t control_dp_vpp = {
         .control_dp_init = vpp_control_dp_init,
         .control_dp_uninit = vpp_control_dp_uninit,
         .control_dp_add_iface_addr = vpp_control_dp_add_iface_addr,
+        .control_dp_add_iface_gw = vpp_control_dp_add_iface_gw,
         .control_dp_recv_msg = vpp_control_dp_recv_msg,
         .control_dp_send_msg = vpp_control_dp_send_msg,
         .control_dp_get_default_addr = vpp_control_dp_get_default_addr,
@@ -152,6 +155,12 @@ vpp_control_dp_add_iface_addr(oor_ctrl_t *ctrl,iface_t *iface, int afi)
         break;
     }
 
+    return (GOOD);
+}
+
+int
+vpp_control_dp_add_iface_gw(oor_ctrl_t *ctrl,iface_t *iface, int afi)
+{
     return (GOOD);
 }
 

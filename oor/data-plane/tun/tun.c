@@ -32,6 +32,7 @@
 int tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...);
 void tun_uninit_data_plane();
 int tun_add_datap_iface_addr(iface_t *iface,int afi);
+int tun_add_datap_iface_gw(iface_t *iface, int afi);
 int tun_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
 int tun_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map);
 
@@ -61,6 +62,7 @@ data_plane_struct_t dplane_tun = {
         .datap_init = tun_configure_data_plane,
         .datap_uninit = tun_uninit_data_plane,
         .datap_add_iface_addr = tun_add_datap_iface_addr,
+        .datap_add_iface_gw = tun_add_datap_iface_gw,
         .datap_register_lcl_mapping = tun_register_lcl_mapping,
         .datap_deregister_lcl_mapping = tun_deregister_lcl_mapping,
         .datap_input_packet = tun_process_input_packet,
@@ -124,6 +126,8 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
     case ENCP_VXLAN_GPE:
         data_port = VXLAN_GPE_DATA_PORT;
         break;
+    default:
+        return (BAD);
     }
 
     /* Generate receive sockets for data port (4341) */
@@ -170,40 +174,50 @@ tun_add_datap_iface_addr(iface_t *iface, int afi)
     int sock;
     lisp_addr_t *addr;
     tun_dplane_data_t *data;
+
     data = (tun_dplane_data_t *)dplane_tun.datap_data;
+    addr = iface_address(iface, afi);
+    if (!addr  || lisp_addr_is_no_addr(addr)){
+        return (BAD);
+    }
+    sock = open_ip_raw_socket(afi);
+    bind_socket(sock, afi,addr,0);
+    add_rule(afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
+            addr, NULL, 0);
 
     switch (afi){
     case AF_INET:
-        addr = iface_address(iface, AF_INET);
-        if (addr  && !lisp_addr_is_no_addr(addr)){
-            sock = open_ip_raw_socket(AF_INET);
-            bind_socket(sock, AF_INET,addr,0);
-            add_rule(AF_INET, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
-                    addr, NULL, 0);
-            iface->out_socket_v4 = sock;
-            if (data && !data->default_out_iface_v4){
-                // It will only enter here when adding interfaces after init process
-                tun_set_default_output_ifaces();
-            }
+        iface->out_socket_v4 = sock;
+        if (data && !data->default_out_iface_v4){
+            // It will only enter here when adding interfaces after init process
+            tun_set_default_output_ifaces();
         }
         break;
     case AF_INET6:
-        addr = iface_address(iface, AF_INET6);
-        if (addr  && !lisp_addr_is_no_addr(addr)){
-            sock = open_ip_raw_socket(AF_INET6);
-            bind_socket(sock, AF_INET6, addr, 0);
-            add_rule(AF_INET6, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
-                    addr, NULL, 0);
-            iface->out_socket_v6 = sock;
-            if (data && !data->default_out_iface_v6){
-                // It will only enter here when adding interfaces after init process
-                tun_set_default_output_ifaces();
-            }
+        iface->out_socket_v6 = sock;
+        if (data && !data->default_out_iface_v6){
+            // It will only enter here when adding interfaces after init process
+            tun_set_default_output_ifaces();
         }
         break;
     }
 
     return (GOOD);
+}
+
+int
+tun_add_datap_iface_gw(iface_t *iface, int afi)
+{
+    lisp_addr_t *gw;
+    int route_metric = 100;
+
+    gw = iface_gateway(iface, afi);
+    if (!gw  || lisp_addr_is_no_addr(gw)){
+        return (BAD);
+    }
+    add_route(afi,iface->iface_index,NULL,NULL,gw,route_metric,iface->iface_index);
+
+    return(GOOD);
 }
 
 int
@@ -581,7 +595,6 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
             bind_socket(iface->out_socket_v6, AF_INET6,  new_addr, 0);
             break;
         }
-
         return (GOOD);
     }
 
@@ -600,6 +613,10 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
             iface->out_socket_v6 = open_ip_raw_socket(AF_INET6);
             sckt = iface->out_socket_v6;
             break;
+        default:
+            /* basically to calm compiler and let the following fail for AF_INET7 */
+            sckt=0;
+            return BAD;
         }
 
         if (iface->status == UP) {
@@ -619,6 +636,10 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
         case AF_INET6:
             sckt = iface->out_socket_v6;
             break;
+        default:
+            /* basically to calm compiler and let the following fail for AF_INET7 */
+            sckt=0;
+            return BAD;
         }
 
         del_rule(new_addr_ip_afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
@@ -700,7 +721,8 @@ tun_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
         default:
             return;
     }
-    if (*gw_addr == NULL) { // The default gateway of this interface is not deffined yet
+    if (*gw_addr == NULL || lisp_addr_is_no_addr(*gw_addr)) { // The default gateway of this interface is not deffined yet
+        lisp_addr_del(*gw_addr);
         *gw_addr = lisp_addr_new();
         lisp_addr_copy(*gw_addr,gateway);
     }else if (lisp_addr_cmp(*gw_addr, gateway) == 0){
@@ -734,9 +756,13 @@ tun_process_rm_gateway(iface_t *iface,lisp_addr_t *gateway)
             return;
     }
 
+    if (*gw_addr == NULL || lisp_addr_is_no_addr(*gw_addr)){
+        return;
+    }
+
     del_route(afi,iface->iface_index,NULL,NULL,gateway,route_metric,iface->iface_index);
     lisp_addr_del(*gw_addr);
-    *gw_addr = NULL;
+    *gw_addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
 }
 
 void
@@ -819,7 +845,7 @@ void
 tun_iface_remove_routing_rules(iface_t *iface)
 {
     if (iface->ipv4_address && !lisp_addr_is_no_addr(iface->ipv4_address)) {
-        if (iface->ipv4_gateway != NULL) {
+        if (iface->ipv4_gateway && !lisp_addr_is_no_addr(iface->ipv4_gateway)) {
             del_route(AF_INET, iface->iface_index, NULL, NULL,
                     iface->ipv4_gateway, 0, iface->iface_index);
         }
@@ -828,7 +854,7 @@ tun_iface_remove_routing_rules(iface_t *iface)
                 RTN_UNICAST, iface->ipv4_address, NULL, 0);
     }
     if (iface->ipv6_address && !lisp_addr_is_no_addr(iface->ipv6_address)) {
-        if (iface->ipv6_gateway != NULL) {
+        if (iface->ipv6_gateway && !lisp_addr_is_no_addr(iface->ipv6_gateway)) {
             del_route(AF_INET6, iface->iface_index, NULL, NULL,
                     iface->ipv6_gateway, 0, iface->iface_index);
         }
