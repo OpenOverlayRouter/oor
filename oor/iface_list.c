@@ -90,6 +90,7 @@ iface_configure (iface_t *iface, int afi)
     lisp_addr_t *addr, *gw;
 
 
+
     if (afi == AF_INET  && default_rloc_afi == AF_INET6){
         return (BAD);
     }
@@ -178,6 +179,7 @@ iface_configure (iface_t *iface, int afi)
 char *
 iface_to_char(iface_t *iface)
 {
+
     static char buf[5][500];
     static int i=0;
 
@@ -187,8 +189,7 @@ iface_to_char(iface_t *iface)
     }
     /* hack to allow more than one locator per line */
     i++; i = i % 5;
-    *buf[i] = '\0';
-    sprintf(buf[i], "Iface: %s (%s), IPv4 addr: %s, IPv4 gw: %s, "
+    snprintf(buf[i],sizeof(buf[i]), "Iface: %s (%s), IPv4 addr: %s, IPv4 gw: %s, "
             "socket: %d, IPv6 addr: %s, IPv6 gw: %s, socket: %d",
             iface->iface_name, iface->status ? "Up" : "Down",
                     lisp_addr_to_char(iface->ipv4_address),lisp_addr_to_char(iface->ipv4_gateway),
@@ -345,6 +346,7 @@ iface_list_to_char(int log_level)
     glist_entry_t * iface_it;
     iface_t * iface;
     char str[4000];
+    size_t str_size = sizeof(str);
 
     if ((interface_list != NULL && glist_size(interface_list) == 0) || is_loggable(log_level) == FALSE) {
         return;
@@ -354,14 +356,14 @@ iface_list_to_char(int log_level)
 
     glist_for_each_entry(iface_it,interface_list){
         iface = (iface_t *)glist_entry_data(iface_it);
-        sprintf(str + strlen(str), "== %s   (%s)==\n", iface->iface_name,
+        snprintf(str + strlen(str),str_size - strlen(str),"== %s   (%s)==\n", iface->iface_name,
                 iface->status ? "Up" : "Down");
         if (iface->ipv4_address) {
-            sprintf(str + strlen(str), "  IPv4 RLOC: %s \n",
+            snprintf(str + strlen(str),str_size - strlen(str), "  IPv4 RLOC: %s \n",
                     lisp_addr_to_char(iface->ipv4_address));
         }
         if (iface->ipv6_address) {
-            sprintf(str + strlen(str), "  IPv6 RLOC: %s \n",
+            snprintf(str + strlen(str),str_size - strlen(str), "  IPv6 RLOC: %s \n",
                     lisp_addr_to_char(iface->ipv6_address));
         }
     }

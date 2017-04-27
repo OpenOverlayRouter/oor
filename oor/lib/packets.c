@@ -408,6 +408,7 @@ pkt_tuple_to_char(packet_tuple_t *tpl)
 {
     static char buf[2][200];
     static int i=0;
+    size_t buf_size = sizeof(buf[0]);
     /* hack to allow more than one locator per line */
     i++; i = i % 2;
     *buf[i] = '\0';
@@ -415,27 +416,27 @@ pkt_tuple_to_char(packet_tuple_t *tpl)
         sprintf(buf[i], "_NULL_");
         return (buf[i]);
     }
-    sprintf(buf[i], "Src_addr: %s, ", lisp_addr_to_char(&tpl->src_addr));
-    sprintf(buf[i] + strlen(buf[i]), "Dst addr: %s, ", lisp_addr_to_char(&tpl->dst_addr));
-    sprintf(buf[i] + strlen(buf[i]), "Proto: ");
+    snprintf(buf[i],buf_size, "Src_addr: %s, ", lisp_addr_to_char(&tpl->src_addr));
+    snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]),"Dst addr: %s, ", lisp_addr_to_char(&tpl->dst_addr));
+    snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "Proto: ");
 
     switch (tpl->protocol){
     case IPPROTO_UDP:
-        sprintf(buf[i] + strlen(buf[i]), "UDP, ");
+        snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "UDP, ");
         break;
     case IPPROTO_TCP:
-        sprintf(buf[i] + strlen(buf[i]), "TCP, ");
+        snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "TCP, ");
         break;
     case IPPROTO_ICMP:
-        sprintf(buf[i] + strlen(buf[i]), "ICMP, ");
+        snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "ICMP, ");
         break;
     default:
-        sprintf(buf[i] + strlen(buf[i]), "%d, ",tpl->protocol);
+        snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "%d, ",tpl->protocol);
         break;
     }
-    sprintf(buf[i] + strlen(buf[i]), "Src Port: %d, ",tpl->src_port);
-    sprintf(buf[i] + strlen(buf[i]), "Dst Port: %d, ",tpl->dst_port);
-    sprintf(buf[i] + strlen(buf[i]), "IID|VNI: %d",tpl->iid);
+    snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "Src Port: %d, ",tpl->src_port);
+    snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "Dst Port: %d\n",tpl->dst_port);
+    snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "IID|VNI: %d\n",tpl->iid);
 
     return (buf[i]);
 }

@@ -70,7 +70,7 @@ mapping_record_hdr_to_char(mapping_record_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    sprintf(buf, "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d"
+    snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d"
             " map-version: %d", ntohl(h->ttl), h->locator_count,
             mapping_action_to_char(h->action), h->authoritative,
             MAP_REC_VERSION(h));
@@ -83,7 +83,7 @@ mapping_record_hdr_to_char(mapping_record_hdr_t *h)
 char *
 locator_record_flags_to_char(locator_hdr_t *h)
 {
-    static char buf[5];
+    static char buf[15];
     *buf = '\0';
     h->local ? sprintf(buf+strlen(buf), "L=1,") : sprintf(buf+strlen(buf), "L=0,");
     h->probed ? sprintf(buf+strlen(buf), "p=1,") : sprintf(buf+strlen(buf), "p=0,");
@@ -100,7 +100,7 @@ locator_record_hdr_to_char(locator_hdr_t *h)
        return(NULL);
    }
    *buf = '\0';
-   sprintf(buf, "Locator-record -> flags: %s, p/w: %d/%d %d/%d",
+   snprintf(buf,sizeof(buf), "Locator-record -> flags: %s, p/w: %d/%d %d/%d",
            locator_record_flags_to_char(h), h->priority, h->weight,
            h->mpriority, h->mweight);
    return(buf);

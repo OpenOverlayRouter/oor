@@ -8,9 +8,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=oor
-PKG_REV:=06970c2ba1c362d25018f2400e15103f422915f4
-PKG_VERSION:=1.1
-PKG_RELEASE:=2
+PKG_REV:=eaf934785d547b90f2f1c99b4d6f7d766ca82856
+PKG_VERSION:=1.1.1
+PKG_RELEASE:=3
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=git://github.com/OpenOverlayRouter/oor.git
@@ -35,8 +35,8 @@ define Package/oor
   CATEGORY:=Network
   TITLE:=Open Overlay Router
   URL:=https://github.com/OpenOverlayRouter
-  DEPENDS:= +librt +confuse +kmod-tun +uci +kmod-ipv6 +libzmq-nc +libxml2
-  $(call Package/lispmob/default)
+  DEPENDS:= +librt +confuse +kmod-tun +uci +libzmq-nc +libxml2 @IPV6
+  $(call Package/oor/default)
 endef
 
 define Package/oor/description

@@ -120,14 +120,14 @@ map_cache_entry_dump (mcache_entry_t *entry, int log_level)
         strftime(buf2, 20, "%H:%M:%S", localtime(&expiretime));
     }
 
-    sprintf(str, "ENTRY UPTIME: %s, EXPIRES: %s, ", buf, buf2);
+    snprintf(str,sizeof(str), "ENTRY UPTIME: %s, EXPIRES: %s, ", buf, buf2);
 
     if (entry->how_learned == MCE_STATIC) {
-        sprintf(str + strlen(str),"TYPE: Static, ");
+        snprintf(str + strlen(str),sizeof(str) - strlen(str),"TYPE: Static, ");
     } else {
-        sprintf(str + strlen(str),"TYPE: Dynamic, ");
+        snprintf(str + strlen(str),sizeof(str) - strlen(str),"TYPE: Dynamic, ");
     }
-    sprintf(str + strlen(str),"ACTIVE: %s",
+    snprintf(str + strlen(str),sizeof(str) - strlen(str),"ACTIVE: %s",
             entry->active == TRUE ? "Yes" : "No");
 
     OOR_LOG(log_level, "%s\n%s\n", str, mapping_to_char(mapping));

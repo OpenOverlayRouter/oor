@@ -2310,6 +2310,7 @@ xtr_run(lisp_xtr_t *xtr)
     void *it;
     int num_eids = 0;
 
+
     if (xtr->super.mode == MN_MODE){
         OOR_LOG(LDBG_1, "\nStarting xTR MN ...\n");
     }
@@ -2318,20 +2319,20 @@ xtr_run(lisp_xtr_t *xtr)
     }
 
     if (glist_size(xtr->map_servers) == 0) {
-        OOR_LOG(LCRIT, "**** NO MAP SERVER CONFIGURED. Your EID will not be registered in the Mapping System.");
-        sleep(3);
+        OOR_LOG(LWRN, "**** NO MAP SERVER CONFIGURED. Your EID will not be registered in the Mapping System.");
+        oor_timer_sleep(2);
     }
 
     if (glist_size(xtr->map_resolvers) == 0) {
         OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURED. You can not request mappings to the mapping system");
-        sleep(3);
+        oor_timer_sleep(2);
     }
 
     if (mcache_has_locators(xtr->petrs_ipv4) == FALSE && mcache_has_locators(xtr->petrs_ipv6) == FALSE) {
         OOR_LOG(LWRN, "No Proxy-ETR defined. Packets to non-LISP destinations "
                 "will be forwarded natively (no LISP encapsulation). This "
                 "may prevent mobility in some scenarios.");
-        sleep(3);
+        oor_timer_sleep(2);
     } else {
         xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4);
         notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(xtr->petrs_ipv4),FALSE);
@@ -2341,9 +2342,14 @@ xtr_run(lisp_xtr_t *xtr)
 
     /* Check configured parameters when NAT-T activated. */
     if (xtr->nat_aware == TRUE) {
-        if (glist_size(xtr->map_servers) > 1
-                || lisp_addr_ip_afi(((map_server_elt *)glist_first_data(xtr->map_servers))->address) != AF_INET) {
-            OOR_LOG(LERR, "NAT aware on -> This version of OOR is limited to one IPv4 Map Server.");
+        if (glist_size(xtr->map_servers) > 1) {
+            OOR_LOG(LERR, "NAT aware on -> This version of OOR is limited to one Map Server.");
+            exit_cleanup();
+        }
+
+        if (glist_size(xtr->map_servers) == 1 &&
+                lisp_addr_ip_afi(((map_server_elt *)glist_first_data(xtr->map_servers))->address) != AF_INET) {
+            OOR_LOG(LERR, "NAT aware on -> This version of OOR is limited to IPv4 Map Server.");
             exit_cleanup();
         }
 
@@ -2449,7 +2455,7 @@ rtr_run(lisp_xtr_t *xtr)
 
     if (glist_size(xtr->map_resolvers) == 0) {
         OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURES. You can not request mappings to the mapping system");
-        sleep(3);
+        oor_timer_sleep(2);
     }
 
     OOR_LOG(LINF, "****** Summary of the configuration ******");
@@ -2519,6 +2525,7 @@ map_servers_dump(lisp_xtr_t *xtr, int log_level)
     map_server_elt *    ms          = NULL;
     glist_entry_t *     it          = NULL;
     char                str[80];
+    size_t  str_size = sizeof(str);
 
     if (glist_size(xtr->map_servers) == 0 || is_loggable(log_level) == FALSE) {
         return;
@@ -2529,13 +2536,13 @@ map_servers_dump(lisp_xtr_t *xtr, int log_level)
 
     glist_for_each_entry(it, xtr->map_servers) {
         ms = (map_server_elt *)glist_entry_data(it);
-        sprintf(str, "| %39s |", lisp_addr_to_char(ms->address));
+        snprintf(str,str_size, "| %39s |", lisp_addr_to_char(ms->address));
         if (ms->key_type == NO_KEY) {
-            sprintf(str + strlen(str), "          NONE           |");
+            snprintf(str + strlen(str), str_size - strlen(str), "          NONE           |");
         } else if (ms->key_type == HMAC_SHA_1_96) {
-            sprintf(str + strlen(str), "     HMAC-SHA-1-96       |");
+            snprintf(str + strlen(str), str_size - strlen(str), "     HMAC-SHA-1-96       |");
         } else {
-            sprintf(str + strlen(str), "    HMAC-SHA-256-128     |");
+            snprintf(str + strlen(str), str_size - strlen(str), "    HMAC-SHA-256-128     |");
         }
         OOR_LOG(log_level, "%s", str);
     }

@@ -77,5 +77,7 @@ void *oor_timer_cb_argument(oor_timer_t *);
 timer_type oor_timer_type(oor_timer_t *);
 void *oor_timer_nonces(oor_timer_t *);
 
+void oor_timer_sleep(int sec);
+
 
 #endif /*TIMERS_H_*/

@@ -312,7 +312,7 @@ process_nl_mcast_route_attributes(struct rtmsg *rtm, int rt_length,
     struct rtattr *rt_attr;
     iface_t *iface;
     int iface_index;
-    char iface_name[IF_NAMESIZE];
+    char iface_name[IF_NAMESIZE+1];
     struct rtnexthop *rt_nh;
     int nb_oifs = 0;
     int rtnh_length = 0;
