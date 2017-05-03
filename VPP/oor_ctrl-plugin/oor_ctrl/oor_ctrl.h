@@ -65,6 +65,7 @@ typedef struct{
 
 oor_ctrl_main_t oor_ctrl_main;
 
-vlib_node_registration_t oor_ctrl_node;
+extern vlib_node_registration_t oor_ctrl_ipv4_node;
+extern vlib_node_registration_t oor_ctrl_ipv6_node;
 
 #endif /* __included_oor_ctrl_h__ */

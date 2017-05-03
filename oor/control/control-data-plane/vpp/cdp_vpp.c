@@ -256,7 +256,11 @@ vpp_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
     }
 
     pkt_push_udp_and_ip(buff, udp_conn->lp, udp_conn->rp, src_addr, dst_addr);
-    pkt_push_eth(buff, mac, mac, ETH_P_IP);
+    if (lisp_addr_ip_afi(&udp_conn->la) == AF_INET){
+        pkt_push_eth(buff, mac, mac, ETH_P_IP);
+    }else{
+        pkt_push_eth(buff, mac, mac, ETH_P_IPV6);
+    }
     lbuf_reset_eth(buff);
 
     ret = write(tap_fd, lbuf_data(buff), lbuf_size(buff));

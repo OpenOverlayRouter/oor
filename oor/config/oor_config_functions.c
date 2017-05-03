@@ -951,6 +951,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
     /* Find the interface */
     if (!(iface = get_interface(conf_loc_iface->interface))) {
         if (!(iface = add_interface(conf_loc_iface->interface))) {
+            OOR_LOG(LDBG_1, "Configuration file: Couldn't add interface %s",conf_loc_iface->interface);
             return (BAD);
         }
     }

@@ -241,7 +241,7 @@ mntf_flags_to_char(map_notify_hdr_t *h)
 {
     static char buf[3];
 
-    h->xtr_id_present ? sprintf(buf, "I") : sprintf(buf+strlen(buf), "i");
+    h->xtr_id_present ? sprintf(buf, "I") : sprintf(buf, "i");
     h->rtr_auth_present ? sprintf(buf+strlen(buf), "R") : sprintf(buf+strlen(buf), "r");
     return(buf);
 }
@@ -254,7 +254,7 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
     if (!h) {
         return(NULL);
     }
-
+    *buf = '\0';
     snprintf(buf,sizeof(buf), BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %"PRIX64,
             mntf_flags_to_char(h), h->record_count, h->nonce);
     return(buf);

@@ -150,7 +150,7 @@ char *
 mapping_to_char(mapping_t *m)
 {
     locator_t *locator = NULL;
-    static char buf[200];
+    static char buf[500];
     size_t buf_size = sizeof(buf);
 
 
@@ -456,6 +456,7 @@ mapping_activate_locator(
         OOR_LOG(LDBG_1,"mapping_activate_locator: The locator %s of the mapping %s has been activated",
                 lisp_addr_to_char(locator_addr(loct)),
                 lisp_addr_to_char(&(mapping->eid_prefix)));
+        OOR_LOG(LDBG_2,"mapping_activate_locator: Updated mapping -> %s",mapping_to_char(mapping));
     }else{
         locator_del(loct);
         OOR_LOG(LDBG_1,"mapping_activate_locator: Error activating the locator %s of the mapping %s. Locator couldn't be reinserted",

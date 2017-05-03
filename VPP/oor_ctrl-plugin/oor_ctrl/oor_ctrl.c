@@ -274,7 +274,9 @@ static clib_error_t * oor_ctrl_init (vlib_main_t * vm)
     vec_free(name);
 
     udp_register_dst_port (vm, UDP_DST_PORT_lisp_cp,
-            oor_ctrl_node.index, 1 /* is_ip4 */);
+            oor_ctrl_ipv4_node.index, 1 /* is_ip4 */);
+    udp_register_dst_port (vm, UDP_DST_PORT_lisp_cp,
+            oor_ctrl_ipv6_node.index, 0 /* is_ip4 */);
 
     /* Register call back function of change of address */
     cb4.function = oor_ip4_add_del_interface_address;
@@ -293,7 +295,8 @@ VLIB_INIT_FUNCTION (oor_ctrl_init);
 
 /**** NETLINK notification functions ****/
 
-//VNET_SW_INTERFACE_ADMIN_UP_DOWN_FUNCTION (oor_admin_up_down_function);
+
+
 VNET_HW_INTERFACE_LINK_UP_DOWN_FUNCTION (oor_link_up_down_function);
 
 static clib_error_t *
@@ -306,9 +309,11 @@ oor_link_up_down_function (vnet_main_t * vm, u32 hw_if_index, u32 flags)
 //    vlib_process_signal_event (vam->vlib_main,
 //                   link_state_process_node.index,
 //                   API_LINK_STATE_EVENT, hi->sw_if_index);
-  clib_warning("0=======>>>>>>===YYYYYEEEEEESSSSSSS=======================");
+    clib_warning("=> oor_link_up_down_function: Link %s", (flags == 1 ? "up" : "down"));
   return 0;
 }
+
+VNET_SW_INTERFACE_ADMIN_UP_DOWN_FUNCTION (oor_admin_up_down_function);
 
 static clib_error_t *
 oor_admin_up_down_function (vnet_main_t * vm, u32 sw_if_index, u32 flags)
@@ -317,6 +322,7 @@ oor_admin_up_down_function (vnet_main_t * vm, u32 sw_if_index, u32 flags)
     vpp_nl_msg *vpp_msg_h;
     vpp_nl_link_info *vpp_link_info;
     int nbytes, error;
+    clib_warning("=> oor_admin_up_down_function: Link %s", (flags == 1 ? "up" : "down"));
     if (oor_ctrl_main.sw_if_index != ~0){
         void *zmq_context = zmq_ctx_new();
         void *zmq_sock = zmq_socket(zmq_context, ZMQ_PUSH);

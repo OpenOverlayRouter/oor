@@ -227,9 +227,8 @@ add_interface(char *iface_name)
     iface->out_socket_v6 = ERR_SOCKET;
 
     iface->status = net_mgr->netm_get_iface_status(iface_name);
-    if (iface->status <= BAD){
-        iface_destroy(iface);
-        return(NULL);
+    if (iface->status != UP){
+        iface->status = DOWN;
     }
 
     OOR_LOG(LDBG_1, "Adding interface %s with index %d to iface list",

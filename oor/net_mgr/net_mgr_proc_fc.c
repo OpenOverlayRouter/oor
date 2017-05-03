@@ -87,7 +87,7 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
     lisp_addr_copy(iface_addr, new_addr);
     /* raise event to data plane */
     OOR_LOG(LDBG_3,"nm_process_address_change: Updating data plane");
-    data_plane->datap_updated_addr(iface,iface_addr,new_addr);
+    data_plane->datap_updated_addr(iface,old_addr_cpy,new_addr_cpy);
     /* raise event in ctrl */
     OOR_LOG(LDBG_3,"nm_process_address_change: Updating control data plane");
     ctrl_if_addr_update(lctrl, iface, old_addr_cpy, new_addr_cpy);
@@ -179,7 +179,7 @@ nm_process_route_change(uint8_t act, uint32_t iface_index, lisp_addr_t *src,
 
     /* raise event to data plane */
     OOR_LOG(LDBG_3,"nm_process_route_change: Updating data plane");
-    data_plane->datap_updated_route(ADD, iface, src, dst, gateway);
+    data_plane->datap_updated_route(act, iface, src, dst, gateway);
     /* raise event to control plane */
     OOR_LOG(LDBG_3,"nm_process_route_change: Updating control data plane");
     ctrl_route_update(lctrl, act, iface, src, dst, gateway);

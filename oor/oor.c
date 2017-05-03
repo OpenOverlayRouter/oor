@@ -407,9 +407,9 @@ initial_setup()
     if (check_capabilities() != GOOD){
         return (BAD);
     }
-//    if(pid_file_check_not_exist() == BAD){
-//        return (BAD);
-//    }
+    if(pid_file_check_not_exist() == BAD){
+        return (BAD);
+    }
     pid_file_create();
 #endif
 

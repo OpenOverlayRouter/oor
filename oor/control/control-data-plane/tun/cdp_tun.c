@@ -408,23 +408,22 @@ tun_control_dp_get_output_ctrl_sock(tun_ctr_dplane_data_t * data,
         }
         /* Use as local address the default control address */
         lisp_addr_copy(&udp_conn->la, ctrl_addr);
-        sock = tun_control_dp_get_default_ctrl_socket(data,dst_afi);
+    }
+
+    iface = get_interface_with_address(&udp_conn->la);
+    if (iface != NULL) {
+        sock = iface_socket(iface, dst_afi);
     } else {
-        iface = get_interface_with_address(&udp_conn->la);
-        if (iface != NULL) {
-            sock = iface_socket(iface, dst_afi);
-        } else {
-            OOR_LOG(LDBG_2, "tun_control_dp_get_output_ctrl_sock: No interface found with local address %s. Using default one!",
-                    lisp_addr_to_char(&udp_conn->la));
-            ctrl_addr = tun_control_dp_get_default_ctrl_address(data, dst_afi);
-            if (!ctrl_addr) {
-                OOR_LOG(LERR, "tun_control_dp_get_output_ctrl_sock: No control address found, send aborted!");
-                return(ERR_SOCKET);
-            }
-            /* Use as local address the default control address */
-            lisp_addr_copy(&udp_conn->la, ctrl_addr);
-            sock = tun_control_dp_get_default_ctrl_socket(data,dst_afi);
+        OOR_LOG(LDBG_2, "tun_control_dp_get_output_ctrl_sock: No interface found with local address %s. Using default one!",
+                lisp_addr_to_char(&udp_conn->la));
+        ctrl_addr = tun_control_dp_get_default_ctrl_address(data, dst_afi);
+        if (!ctrl_addr) {
+            OOR_LOG(LERR, "tun_control_dp_get_output_ctrl_sock: No control address found, send aborted!");
+            return(ERR_SOCKET);
         }
+        /* Use as local address the default control address */
+        lisp_addr_copy(&udp_conn->la, ctrl_addr);
+        sock = tun_control_dp_get_default_ctrl_socket(data,dst_afi);
     }
 
     if (sock < 0) {

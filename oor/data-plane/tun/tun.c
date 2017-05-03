@@ -581,10 +581,13 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
     old_addr_lafi = lisp_addr_lafi(old_addr);
     new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
 
-    /* Check if the detected change of address id the same. */
+    /* Check if the detected change of address is the same. */
     if (lisp_addr_cmp(old_addr, new_addr) == 0) {
         OOR_LOG(LDBG_2, "tun_updated_addr: The change of address detected "
-                "for interface %s doesn't affect", iface->iface_name);
+                "for interface %s doesn't affect (%s)", iface->iface_name,
+                lisp_addr_to_char(new_addr));
+
+
         /* We must rebind the socket just in case the address is from a
          * virtual interface which has changed its interface number */
         switch (new_addr_ip_afi) {
@@ -742,6 +745,7 @@ tun_process_rm_gateway(iface_t *iface,lisp_addr_t *gateway)
     lisp_addr_t **gw_addr = NULL;
     int afi = LM_AFI_NO_ADDR;
     int route_metric = 100;
+
 
     switch(lisp_addr_ip_afi(gateway)){
         case AF_INET:
