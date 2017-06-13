@@ -435,10 +435,9 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                     OOR_LOG(LWRN, "Prefix %s has merge semantics",
                             lisp_addr_to_char(eid));
                 }
-                reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
                 ms_dump_registered_sites(ms, LDBG_3);
             }
-
+            reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
             /* update registration timer */
             lsite_entry_update_expiration_timer(ms, rsite);
         } else {
