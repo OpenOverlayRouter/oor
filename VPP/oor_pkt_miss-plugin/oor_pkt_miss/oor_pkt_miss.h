@@ -44,4 +44,6 @@ oor_pkt_miss_main_t oor_pkt_miss_main;
 
 vlib_node_registration_t oor_pkt_miss_node;
 
+#define OOR_PKT_MISS_PLUGIN_BUILD_VER "1.0"
+
 #endif /* __included_oor_pkt_miss_h__ */

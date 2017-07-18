@@ -17,22 +17,17 @@
  *
  */
 
-#ifndef UTIL_H_
-#define UTIL_H_
+#ifndef OOR_FWD_POLICIES_FWD_UTILS_H_
+#define OOR_FWD_POLICIES_FWD_UTILS_H_
 
-#include "../liblisp/lisp_address.h"
+#include "fwd_policy.h"
+#include "../liblisp/liblisp.h"
 
-int convert_hex_string_to_bytes(char *hex, uint8_t *bytes, int bytes_len);
-
-char *get_char_from_xTR_ID (lisp_xtr_id *xtrid);
-
-/* Remove the address from the list not compatible with the local RLOCs */
-void addr_list_rm_not_compatible_addr(glist_t *addr_lst, int compatible_addr_flags);
-uint8_t is_compatible_addr(lisp_addr_t *addr, int compatible_addr_flags);
-void str_rm_spaces(char *src, char *dst);
-void str_rm_double_spaces(char *src, char *dst);
+typedef lisp_addr_t *  (*get_fwd_ip_addr)(lisp_addr_t *, glist_t *);
 
 
-#endif /* UTIL_H_ */
+void locators_classify_in_4_6(mapping_t *mapping, glist_t *loc_loct_addr,
+        glist_t *ipv4_loct_list, glist_t *ipv6_loct_list, get_fwd_ip_addr fn);
 
 
+#endif /* OOR_FWD_POLICIES_FWD_UTILS_H_ */

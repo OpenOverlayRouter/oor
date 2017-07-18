@@ -24,15 +24,15 @@
 #include "../../defs.h"
 
 
-#include <vpp-api/vpe_msg_enum.h>
+#include <vpp/api/vpe_msg_enum.h>
 
 #define vl_typedefs
-#include <vpp-api/vpe_all_api_h.h>
+#include <vpp/api/vpe_all_api_h.h>
 #undef vl_typedefs
 
 
 #define vl_endianfun        /* define message structures */
-#include <vpp-api/vpe_all_api_h.h>
+#include <vpp/api/vpe_all_api_h.h>
 #undef vl_endianfun
 
 
@@ -122,10 +122,10 @@ vpp_lisp_gpe_enable_disable(uint8_t enable_lisp_gpe)
 {
     /* OOR_CTRL plugin enables lisp */
     vpp_api_main_t * vam = vpp_api_main_get();
-    vl_api_lisp_gpe_enable_disable_t *mp;
+    vl_api_gpe_enable_disable_t *mp;
 
     /* Construct the API message */
-    MSG (LISP_GPE_ENABLE_DISABLE, lisp_gpe_enable_disable);
+    MSG (GPE_ENABLE_DISABLE, gpe_enable_disable);
     mp->is_en = 1;
 
     /* send it... */
@@ -141,9 +141,9 @@ int
 vpp_lisp_gpe_add_del_iface(uint32_t table, uint32_t vni, uint8_t action)
 {
     vpp_api_main_t * vam = vpp_api_main_get();
-    vl_api_lisp_gpe_add_del_iface_t *mp;
+    vl_api_gpe_add_del_iface_t *mp;
     /* Construct the API message */
-    MSG (LISP_GPE_ADD_DEL_IFACE, lisp_gpe_add_del_iface);
+    MSG (GPE_ADD_DEL_IFACE, gpe_add_del_iface);
 
     mp->is_add = action;
     mp->dp_table = table;
@@ -215,7 +215,7 @@ int
 vpp_lisp_gpe_add_del_fwd_entry (fwd_entry_vpp_t *fe, lisp_action_e action, uint8_t is_add)
 {
     vpp_api_main_t * vam = vpp_api_main_get();
-    vl_api_lisp_gpe_add_del_fwd_entry_t *mp;
+    vl_api_gpe_add_del_fwd_entry_t *mp;
     lisp_addr_t *src_eid, *dst_eid;
     vpp_loct_pair * vpp_pair;
     glist_entry_t * pairs_it;
@@ -226,7 +226,7 @@ vpp_lisp_gpe_add_del_fwd_entry (fwd_entry_vpp_t *fe, lisp_action_e action, uint8
     vni = fe->iid;
 
     /* Construct the API message */
-    MSG_PLUS (LISP_GPE_ADD_DEL_FWD_ENTRY, lisp_gpe_add_del_fwd_entry,
+    MSG_PLUS (GPE_ADD_DEL_FWD_ENTRY, gpe_add_del_fwd_entry,
             sizeof (rloc_t) * glist_size(fe->loc_pair_lst)*2);
 
     mp->is_add = is_add;
@@ -261,7 +261,6 @@ vpp_lisp_gpe_add_del_fwd_entry (fwd_entry_vpp_t *fe, lisp_action_e action, uint8
         OOR_LOG(LWRN,"VPP could not add forward entry");
         return (BAD);
     }
-
     return (GOOD);
 }
 

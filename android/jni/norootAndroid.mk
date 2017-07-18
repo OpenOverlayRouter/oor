@@ -10,15 +10,16 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES = \
 		  config/oor_config_confuse.c    \
 		  config/oor_config_functions.c  \
-   		  control/oor_control.c         \
-		  control/oor_ctrl_device.c     \
-		  control/oor_local_db.c        \
-		  control/oor_map_cache.c       \
+   		  control/oor_control.c          \
+		  control/oor_ctrl_device.c      \
+		  control/oor_local_db.c         \
+		  control/oor_map_cache.c        \
 		  control/lisp_xtr.c             \
 		  control/lisp_ms.c              \
 		  control/control-data-plane/control-data-plane.c    \
 		  control/control-data-plane/vpnapi/cdp_vpnapi.c     \
 		  data-plane/data-plane.c        \
+		  data-plane/ttable.c            \
 		  data-plane/encapsulations/vxlan-gpe.c              \
 		  data-plane/vpnapi/vpnapi.c     \
 		  data-plane/vpnapi/vpnapi_input.c                   \
@@ -28,9 +29,12 @@ LOCAL_SRC_FILES = \
 		  elibs/mbedtls/sha256.c         \
 		  elibs/mbedtls/md_wrap.c        \
 		  elibs/patricia/patricia.c      \
-		  fwd_policies/fwd_policy.c	 \
-		  fwd_policies/flow_balancing/fb_addr_func.c         \
+		  fwd_policies/balancing_locators.c                  \
+          fwd_policies/fwd_addr_func.c   \
+          fwd_policies/fwd_policy.c	     \
+          fwd_policies/fwd_utils.c	     \
 		  fwd_policies/flow_balancing/flow_balancing.c       \
+		  fwd_policies/flow_balancing/fwd_entry_tuple.c      \
 		  liblisp/liblisp.c              \
 		  liblisp/lisp_address.c         \
 		  liblisp/lisp_data.c            \
@@ -45,6 +49,7 @@ LOCAL_SRC_FILES = \
 		  lib/hmac.c                     \
 		  lib/iface_locators.c           \
 		  lib/int_table.c                \
+		  lib/interfaces_lib.c	         \
 		  lib/lbuf.c                     \
 		  lib/lisp_site.c                \
 		  lib/oor_log.c                  \
@@ -61,12 +66,14 @@ LOCAL_SRC_FILES = \
 		  lib/sockets-util.c             \
 		  lib/shash.c                    \
 		  lib/timers.c                   \
-          lib/timers_utils.c              \
-		  lib/ttable.c                   \
+          lib/timers_utils.c             \
 		  lib/util.c                     \
+		  net_mgr/net_mgr.c              \
+          net_mgr/net_mgr_proc_fc.c      \
+          net_mgr/kernel/netm_kernel.c   \
+          net_mgr/kernel/iface_mgmt.c    \
 		  cmdline.c                      \
 		  iface_list.c                   \
-		  iface_mgmt.c                   \
 		  oor.c                          \
 		  oor_jni.c 
 
@@ -74,7 +81,6 @@ LOCAL_CFLAGS += -g -DANDROID -DVPNAPI
 LOCAL_C_INCLUDES += $(LOCAL_PATH2)/zeromq3-x/include
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := libconfuse
-LOCAL_SHARED_LIBRARIES := libcutils
 LOCAL_MODULE = oor
 
 include $(BUILD_SHARED_LIBRARY)

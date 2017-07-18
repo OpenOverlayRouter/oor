@@ -17,13 +17,8 @@
  *
  */
 
-/* Define _GNU_SOURCE in order to use in6_pktinfo (get destination address of
- * received ctrl packets) */
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#include <netinet/in.h>
-#endif
 
+#include <netinet/in.h>
 #include <errno.h>
 #include <sys/socket.h>
 

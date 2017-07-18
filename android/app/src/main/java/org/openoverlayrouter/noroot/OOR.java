@@ -52,6 +52,8 @@ public class OOR extends Fragment {
     private static final int CONF_ACT = 1;
     private LinearLayout llLayout;
     private FragmentActivity faActivity;
+    private static String system_dns[] = new String[2];
+    private static String oor_dns[] = new String[2];
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -80,8 +82,10 @@ public class OOR extends Fragment {
         doUpdateView = new Runnable() {
             public void run() {
                 updateStatus();
+                handler.postDelayed(doUpdateView,1000);
             }
         };
+        handler.postDelayed(doUpdateView,1000);
 
         ImageButton oor = (ImageButton) llLayout.findViewById(R.id.oorStart);
         oor.setOnClickListener(new OnClickListener() {
@@ -90,15 +94,14 @@ public class OOR extends Fragment {
                                            File file = new File(conf_file);
                                            if (!file.exists()) {
                                                showMessage(faActivity.getString(R.string.noConfFile), false, null);
+                                           }else {
+                                               startOOR();
                                            }
-                                           startOOR();
                                        } else {
                                            showMessage(faActivity.getString(R.string.askStopServiceString),
                                                    true, new Runnable() {
                                                        public void run() {
                                                            killOOR();
-                                                           oorWasRunning = false;
-                                                           oorRunning = false;
                                                        }
                                                    });
                                        }
@@ -137,17 +140,16 @@ public class OOR extends Fragment {
 
     }
 
-
     public void updateStatus() {
         final TextView oorCheckBoxLabel = (TextView) llLayout.findViewById(R.id.startStopCheckboxLabel);
         final TextView oorTextClick = (TextView) llLayout.findViewById(R.id.textClick);
 
+        oorRunning = isOorRunning();
 
         if (oorRunning) {
             oorTextClick.setText("Click on the icon to stop the service");
             oorCheckBoxLabel.setText(R.string.oorRunning);
             oorCheckBoxLabel.setTextColor(Color.BLACK);
-            oorWasRunning = true;
         } else {
             if (oorWasRunning) {
                 oorTextClick.setText("Click on the icon to restart the service");
@@ -200,8 +202,7 @@ public class OOR extends Fragment {
     }
 
     public void startOOR() {
-        String command = oor_path + "/liboorexec.so -D -f " + conf_file;
-
+        String command = oor_path + "/liboorexec.so -D -f " + conf_file + "&";
         shell.run_no_output(command);
 
         try {
@@ -212,29 +213,29 @@ public class OOR extends Fragment {
         Intent serviceIntent = new Intent(faActivity, OORService.class);
         serviceIntent.putExtra(prefix + ".START", true);
         faActivity.startService(serviceIntent);
-        oorRunning = true;
-        updateStatus();
+        oorWasRunning = true;
     }
 
     public void killOOR() {
-        String psOutput = shell.run("/system/bin/ps | grep liboorexec.so");
-        Boolean isRunning = psOutput.matches("(?s)(.*)[RS]\\s[a-zA-Z0-9\\/\\.\\-]*liboorexec\\.so(.*)");
-        if (isRunning) {
-            String[] split = psOutput.split("\\s+");
-            String command = "kill " + split[1];
-            shell.run_no_output(command);
-        }
-
-        oorWasRunning = false;
+        Intent serviceIntent = new Intent(faActivity, OORService.class);
+        serviceIntent.putExtra(prefix + ".START", false);
+        faActivity.startService(serviceIntent);
 
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        Intent serviceIntent = new Intent(faActivity, OORService.class);
-        serviceIntent.putExtra(prefix + ".START", false);
-        faActivity.startService(serviceIntent);
+
+        String command = "killall liboorexec.so";
+        if (isOorRunning()) {
+            shell.run_no_output(command);
+        }
+
+        oorRunning = false;
+        oorWasRunning = false;
+        OORService.isRunning = false;
+
         updateStatus();
     }
 
@@ -262,7 +263,31 @@ public class OOR extends Fragment {
         }
     }
 
+/* DNS Functions */
 
+    public String[] get_dns_servers() {
+        String command = null;
+        String dns[] = new String[2];
+
+        command = "getprop net.dns1";
+        dns[0] = shell.run(command);
+
+        command = "getprop net.dns2";
+        dns[1] = shell.run(command);
+
+        return dns;
+    }
+
+    public static void set_dns_servers(String[] dns) {
+        String command = null;
+
+        command = "setprop net.dns1 \"" + dns[0] + "\"";
+        shell.run_no_output(command);
+
+        command = "setprop net.dns2 \"" + dns[1] + "\"";
+        shell.run_no_output(command);
+
+    }
 
 }
 

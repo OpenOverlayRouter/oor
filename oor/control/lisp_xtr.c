@@ -2288,7 +2288,7 @@ xtr_ctrl_destruct(oor_ctrl_dev_t *dev)
     glist_destroy(xtr->map_resolvers);
     glist_destroy(xtr->pitrs);
     glist_destroy(xtr->map_servers);
-    if (xtr->super.mode == RTR_MODE){
+    if (xtr->super.mode == RTR_MODE && xtr->all_locs_map){
         map_local_entry_del(xtr->all_locs_map);
     }
     oor_timer_stop(xtr->smr_timer);

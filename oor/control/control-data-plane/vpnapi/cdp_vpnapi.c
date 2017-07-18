@@ -34,6 +34,8 @@ vpnapi_control_dp_uninit (oor_ctrl_t *ctrl);
 int
 vpnapi_control_dp_add_iface_addr(oor_ctrl_t *ctrl,iface_t *iface, int afi);
 int
+vpnapi_control_dp_add_iface_gw(oor_ctrl_t *ctrl,iface_t *iface, int afi);
+int
 vpnapi_control_dp_recv_msg(sock_t *sl);
 int
 vpnapi_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn);

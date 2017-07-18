@@ -19,8 +19,9 @@
 
 #include "balancing_locators.h"
 #include "fwd_addr_func.h"
+#include "fwd_utils.h"
 #include "../lib/oor_log.h"
-#include "../lib/util.h"
+
 
 
 static void balancing_locators_vecs_reset(balancing_locators_vecs *blv);

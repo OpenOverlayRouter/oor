@@ -778,17 +778,17 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
         if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
             OOR_LOG(LDBG_2, "OOR_API: Couldn't add mapping %s to local database",
-                    lisp_addr_to_char(&(processed_mapping->eid_prefix)));
+                    lisp_addr_to_char(map_local_entry_eid(map_loc_e)));
             goto err;
         }
 
         OOR_LOG(LDBG_1, "OOR_API: Updating data-plane for EID prefix %s",
-                lisp_addr_to_char(&(processed_mapping->eid_prefix)));
+                lisp_addr_to_char(map_local_entry_eid(map_loc_e)));
 
         /* Update the routing rules for the new EID */
-        if (ctrl_register_mapping_dp(ctrl_dev,processed_mapping)!=GOOD){
+        if (ctrl_register_mapping_dp(ctrl_dev,map_local_entry_mapping(map_loc_e))!=GOOD){
             OOR_LOG(LERR, "OOR_API: Unable to update data-plane for mapping %s",
-                    lisp_addr_to_char(&(processed_mapping->eid_prefix)));
+                    lisp_addr_to_char(map_local_entry_eid(map_loc_e)));
             goto err;
         }
     }

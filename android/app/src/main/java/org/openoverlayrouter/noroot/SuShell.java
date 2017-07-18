@@ -25,25 +25,36 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+
 public class SuShell {
 
-    private Process process;
-    private DataOutputStream stdin;
-    private BufferedReader stdout;
-    private BufferedReader stderr;
+    private Process 			process;
+    private DataOutputStream 	stdin;
+    private BufferedReader 		stdout;
+    private BufferedReader 		stderr;
 
 
-    public SuShell() throws IOException {
+    public SuShell() throws IOException
+    {
         process = Runtime.getRuntime().exec("su");
-        stdin = new DataOutputStream(process.getOutputStream());
+        stdin  = new DataOutputStream(process.getOutputStream());
         stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
         stderr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
     }
 
-    public String run(String command) {
-        String res = "";
+    public String run(String command)
+    {
+        String res 	= "";
+        stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
         try {
-            stdin.writeBytes(command + "\n");
+            stdin.writeBytes(command+"\n");
             stdin.flush();
             res = stdout.readLine();
         } catch (IOException e) {
@@ -53,60 +64,15 @@ public class SuShell {
         return res;
     }
 
-    public String run_full_output(String command) {
-        StringBuffer output = new StringBuffer();
-        String res = "";
+    public void run_no_output(String command)
+    {
         try {
-            stdin.writeBytes(command + "\n");
-            stdin.flush();
-            int read;
-            char[] buffer = new char[4096];
-
-            while ((read = stdout.read(buffer)) > 0) {
-                output.append(buffer, 0, read);
-            }
-            stdout.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return res;
-        }
-        return output.toString();
-    }
-
-    public void run_no_output(String command) {
-        try {
-            stdin.writeBytes(command + "\n");
+            stdin.writeBytes(command+"\n");
             stdin.flush();
 
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public String runTask(String command, String args, boolean ignoreOutput) {
-        StringBuffer output = new StringBuffer();
-        try {
-
-            stdin.writeBytes(command + "\n");
-            stdin.flush();
-            InputStream in = process.getInputStream();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-            String line;
-            process.waitFor();
-            if (!ignoreOutput) {
-                while ((line = reader.readLine()) != null) {
-                    output.append(line);
-                    output.append('\n');
-                }
-            }
-        } catch (IOException e1) {
-            System.out.println("OOR: Command Failed.");
-            e1.printStackTrace();
-            return ("Command Failed.");
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        return (output.toString());
     }
 
 }

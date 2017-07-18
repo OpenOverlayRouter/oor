@@ -44,15 +44,31 @@ parse_elp_list(cfg_t *cfg, shash_t *ht)
     lisp_addr_t *laddr;
     char *name;
     int i, j;
+    uint8_t good_elp;
 
     for(i = 0; i < cfg_size(cfg, "explicit-locator-path"); i++) {
         cfg_t *selp = cfg_getnsec(cfg, "explicit-locator-path", i);
         name = cfg_getstr(selp, "elp-name");
+        if (name == NULL){
+            OOR_LOG(LWRN, "Configuration file: explicit-locator-path requires an elp-name. Discarding ELP");
+            continue;
+        }
+
+        if (cfg_size(selp, "elp-node") == 0){
+            OOR_LOG(LWRN, "Configuration file: explicit-locator-path needs at least one elp node. Discarding ELP");
+            continue;
+        }
 
         elp = elp_type_new();
 
+        good_elp = TRUE;
         for (j = 0; j < cfg_size(selp, "elp-node");j++) {
             cfg_t *senode = cfg_getnsec(selp, "elp-node", j);
+            if (cfg_getstr(senode, "address") == NULL){
+                good_elp = FALSE;
+                OOR_LOG(LWRN, "Configuration file: elp-node needs at least the address field. Discarding ELP");
+                break;
+            }
             enode = xzalloc(sizeof(elp_node_t));
             enode->addr = lisp_addr_new();
             if (lisp_addr_ip_from_char(cfg_getstr(senode, "address"),
@@ -67,6 +83,11 @@ parse_elp_list(cfg_t *cfg, shash_t *ht)
             enode->S = cfg_getbool(senode, "strict") ? 1: 0;
 
             glist_add_tail(enode, elp->nodes);
+        }
+
+        if (good_elp == FALSE){
+            elp_type_del(elp);
+            continue;
         }
 
         laddr = lisp_addr_new_lafi(LM_AFI_LCAF);
@@ -180,11 +201,20 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
     conf_loc_iface_t *conf_loc_iface;
     int afi;
 
+    if (cfg_getstr(map, "eid-prefix") == NULL){
+        return (BAD);
+    }
+
     strcpy(conf_mapping->eid_prefix,cfg_getstr(map, "eid-prefix"));
     conf_mapping->iid = cfg_getint(map, "iid");
 
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
         rl = cfg_getnsec(map, "rloc-address", ctr);
+
+        if (cfg_getstr(rl, "address") == NULL){
+            OOR_LOG(LWRN, "Configuration file: Mapping %s with no RLOC address selected",conf_mapping->eid_prefix);
+            return (BAD);
+        }
         conf_loc = conf_loc_new_init(
                 cfg_getstr(rl, "address"),
                 cfg_getint(rl, "priority"),
@@ -204,6 +234,10 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
                 afi = AF_INET6;
             }else{
                 OOR_LOG(LERR,"Configuration file: The conf_loc_iface->ip_version of the locator should be 4 (IPv4) or 6 (IPv6)");
+                return (BAD);
+            }
+            if (cfg_getstr(rl, "interface") == NULL){
+                OOR_LOG(LWRN, "Configuration file: Mapping %s with no RLOC interface selected",conf_mapping->eid_prefix);
                 return (BAD);
             }
             conf_loc_iface = conf_loc_iface_new_init(
@@ -229,7 +263,9 @@ parse_mapping(cfg_t *map, oor_ctrl_dev_t *dev, shash_t * lcaf_ht,
 
     conf_mapping = conf_mapping_new();
 
-    parse_mapping_cfg_params(map, conf_mapping, is_local);
+    if (parse_mapping_cfg_params(map, conf_mapping, is_local) != GOOD){
+        return (NULL);
+    }
     mapping = process_mapping_config(dev, lcaf_ht, conf_mapping, is_local);
 
     conf_mapping_destroy(conf_mapping);
@@ -266,6 +302,11 @@ parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
     n = cfg_size(cfg, "proxy-etr-ipv4");
     for(i = 0; i < n; i++) {
         cfg_t *petr = cfg_getnsec(cfg, "proxy-etr-ipv4", i);
+        if(cfg_getstr(petr, "address") == NULL){
+            OOR_LOG(LERR,"Configuration file: proxy-etr-ipv4 needs at least the address field");
+            return (BAD);
+        }
+
         if (add_proxy_etr_entry(xtr->petrs_ipv4,
                 cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
@@ -279,6 +320,11 @@ parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
     n = cfg_size(cfg, "proxy-etr-ipv6");
     for(i = 0; i < n; i++) {
         cfg_t *petr = cfg_getnsec(cfg, "proxy-etr-ipv6", i);
+        if(cfg_getstr(petr, "address") == NULL){
+            OOR_LOG(LERR,"Configuration file: proxy-etr-ipv6 needs at least the address field");
+            return (BAD);
+        }
+
         if (add_proxy_etr_entry(xtr->petrs_ipv6,
                 cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
@@ -332,7 +378,7 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
     for (i = 0; i < n; i++) {
         mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE);
         if (mapping == NULL){
-            continue;
+            return (BAD);
         }
         map_loc_e = map_local_entry_new_init(mapping);
         if (map_loc_e == NULL){
@@ -430,7 +476,7 @@ configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
         if (mapping == NULL){
             OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                     cfg_getstr(smc, "eid-prefix"));
-            continue;
+            return(BAD);
         }
         if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
             if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
@@ -479,8 +525,16 @@ configure_rtr(cfg_t *cfg)
     if (n) {
         cfg_t *rifs = cfg_getsec(cfg, "rtr-ifaces");
         int nr = cfg_size(rifs, "rtr-iface");
+        if (nr == 0){
+            OOR_LOG(LERR, "Configuration file: RTR needs at least one data iface");
+        }
         for(i = 0; i < nr; i++) {
             cfg_t *ri = cfg_getnsec(rifs, "rtr-iface", i);
+            if (cfg_getstr(ri, "iface") == NULL){
+                OOR_LOG(LERR, "Configuration file: rtr-iface needs at least the iface name");
+                return (BAD);
+            }
+
             if (add_rtr_iface(xtr,
                     cfg_getstr(ri, "iface"),
                     cfg_getint(ri, "ip_version"),
@@ -500,7 +554,7 @@ configure_rtr(cfg_t *cfg)
     for (i = 0; i < n; i++) {
         mapping = parse_mapping(cfg_getnsec(cfg, "rtr-database-mapping",i),&(xtr->super),lcaf_ht,TRUE);
         if (mapping == NULL){
-            continue;
+            return (BAD);
         }
         map_loc_e = map_local_entry_new_init(mapping);
         if (map_loc_e == NULL){
@@ -665,10 +719,12 @@ configure_ms(cfg_t *cfg)
     if (iface_name) {
         iface = add_interface(iface_name);
         if (iface == NULL) {
+            OOR_LOG(LERR, "Configuration file: Couldn't add the control iface of the Map Server");
             return(BAD);
         }
     }else{
 	/* we have no iface_name, so also iface is missing */
+        OOR_LOG(LERR, "Configuration file: Specify the control iface of the Map Server");
         return(BAD);
     }
 
@@ -678,6 +734,12 @@ configure_ms(cfg_t *cfg)
     /* LISP-SITE CONFIG */
     for (i = 0; i < cfg_size(cfg, "lisp-site"); i++) {
         cfg_t *ls = cfg_getnsec(cfg, "lisp-site", i);
+
+        if (cfg_getstr(ls, "eid-prefix") == NULL || cfg_getstr(ls, "key") == NULL){
+            OOR_LOG(LERR, "Configuration file: MS LISP site requires at least an eid-prefix and a key");
+            return (BAD);
+        }
+
         site = build_lisp_site_prefix(ms,
                 cfg_getstr(ls, "eid-prefix"),
                 cfg_getint(ls, "iid"),
@@ -713,7 +775,7 @@ configure_ms(cfg_t *cfg)
         if (mapping == NULL){
             OOR_LOG(LERR, "Can't create static register site for %s",
                     cfg_getstr(mss, "eid-prefix"));
-            continue;
+            return (BAD);
         }
         /* If the mapping doesn't exist, add it the the database */
         if (mdb_lookup_entry_exact(ms->reg_sites_db, mapping_eid(mapping)) == NULL){
@@ -749,7 +811,7 @@ handle_config_file()
     /* xTR specific */
     static cfg_opt_t map_server_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
-            CFG_INT("key-type",             0, CFGF_NONE),
+            CFG_INT("key-type",             1, CFGF_NONE),
             CFG_STR("key",                  0, CFGF_NONE),
             CFG_BOOL("proxy-reply", cfg_false, CFGF_NONE),
             CFG_END()
@@ -757,16 +819,16 @@ handle_config_file()
 
     static cfg_opt_t rloc_address_opts[] = {
             CFG_STR("address",       0, CFGF_NONE),
-            CFG_INT("priority",      0, CFGF_NONE),
-            CFG_INT("weight",        0, CFGF_NONE),
+            CFG_INT("priority",      1, CFGF_NONE),
+            CFG_INT("weight",        100, CFGF_NONE),
             CFG_END()
     };
 
     static cfg_opt_t rloc_iface_opts[] = {
             CFG_STR("interface",     0, CFGF_NONE),
-            CFG_INT("ip_version",    0, CFGF_NONE),
-            CFG_INT("priority",      0, CFGF_NONE),
-            CFG_INT("weight",        0, CFGF_NONE),
+            CFG_INT("ip_version",    4, CFGF_NONE),
+            CFG_INT("priority",      1, CFGF_NONE),
+            CFG_INT("weight",        100, CFGF_NONE),
             CFG_END()
     };
 
@@ -787,16 +849,16 @@ handle_config_file()
 
     static cfg_opt_t petr_mapping_opts[] = {
             CFG_STR("address",              0, CFGF_NONE),
-            CFG_INT("priority",           255, CFGF_NONE),
-            CFG_INT("weight",               0, CFGF_NONE),
+            CFG_INT("priority",             1, CFGF_NONE),
+            CFG_INT("weight",               100, CFGF_NONE),
             CFG_END()
     };
 
     static cfg_opt_t rtr_iface_opts[] = {
             CFG_STR("iface",                0, CFGF_NONE),
-            CFG_INT("ip_version",           0, CFGF_NONE),
-            CFG_INT("priority",             255, CFGF_NONE),
-            CFG_INT("weight",               0, CFGF_NONE),
+            CFG_INT("ip_version",           4, CFGF_NONE),
+            CFG_INT("priority",             1, CFGF_NONE),
+            CFG_INT("weight",               100, CFGF_NONE),
             CFG_END()
     };
 
@@ -807,8 +869,8 @@ handle_config_file()
 
     static cfg_opt_t rloc_probing_opts[] = {
             CFG_INT("rloc-probe-interval",           0, CFGF_NONE),
-            CFG_INT("rloc-probe-retries",            0, CFGF_NONE),
-            CFG_INT("rloc-probe-retries-interval",   0, CFGF_NONE),
+            CFG_INT("rloc-probe-retries",            3, CFGF_NONE),
+            CFG_INT("rloc-probe-retries-interval",   10, CFGF_NONE),
             CFG_END()
     };
 
@@ -852,7 +914,7 @@ handle_config_file()
     static cfg_opt_t lisp_site_opts[] = {
             CFG_STR("eid-prefix",               0, CFGF_NONE),
             CFG_INT("iid",                      0, CFGF_NONE),
-            CFG_INT("key-type",                 0, CFGF_NONE),
+            CFG_INT("key-type",                 1, CFGF_NONE),
             CFG_STR("key",                      0, CFGF_NONE),
             CFG_BOOL("accept-more-specifics",   cfg_false, CFGF_NONE),
             CFG_BOOL("proxy-reply",             cfg_false, CFGF_NONE),
@@ -869,7 +931,7 @@ handle_config_file()
             CFG_SEC("rtr-ifaces",           rtr_ifaces_opts,        CFGF_MULTI),
             CFG_SEC("proxy-etr-ipv4",       petr_mapping_opts,      CFGF_MULTI),
             CFG_SEC("proxy-etr-ipv6",       petr_mapping_opts,      CFGF_MULTI),
-            CFG_STR("encapsulation",        0,                      CFGF_NONE),
+            CFG_STR("encapsulation",        "LISP",                 CFGF_NONE),
             CFG_SEC("rloc-probing",         rloc_probing_opts,      CFGF_MULTI),
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),

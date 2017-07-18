@@ -21,6 +21,9 @@
 #include <vlibsocket/api.h>
 #include <vppinfra/error.h>
 
+#define __plugin_msg_base oor_ctrl_test_main.msg_id_base
+#include <vlibapi/vat_helper_macros.h>
+
 //uword unformat_sw_if_index (unformat_input_t * input, va_list * args);
 
 /* Declare message IDs */
@@ -84,51 +87,14 @@ foreach_standard_reply_retval_handler;
 _(OOR_CTRL_ENABLE_DISABLE_REPLY, oor_ctrl_enable_disable_reply)
 
 
-/* M: construct, but don't yet send a message */
-
-#define M(T,t)                                                  \
-do {                                                            \
-    vam->result_ready = 0;                                      \
-    mp = vl_msg_api_alloc(sizeof(*mp));                         \
-    memset (mp, 0, sizeof (*mp));                               \
-    mp->_vl_msg_id = ntohs (VL_API_##T + sm->msg_id_base);      \
-    mp->client_index = vam->my_client_index;                    \
-} while(0);
-
-#define M2(T,t,n)                                               \
-do {                                                            \
-    vam->result_ready = 0;                                      \
-    mp = vl_msg_api_alloc(sizeof(*mp)+(n));                     \
-    memset (mp, 0, sizeof (*mp));                               \
-    mp->_vl_msg_id = ntohs (VL_API_##T + sm->msg_id_base);      \
-    mp->client_index = vam->my_client_index;                    \
-} while(0);
-
-/* S: send a message */
-#define S (vl_msg_api_send_shmem (vam->vl_input_queue, (u8 *)&mp))
-
-/* W: wait for results, with timeout */
-#define W                                       \
-do {                                            \
-    timeout = vat_time_now (vam) + 1.0;         \
-                                                \
-    while (vat_time_now (vam) < timeout) {      \
-        if (vam->result_ready == 1) {           \
-            return (vam->retval);               \
-        }                                       \
-    }                                           \
-    return -99;                                 \
-} while(0);
-
 static int api_oor_ctrl_enable_disable (vat_main_t * vam)
 {
-    oor_ctrl_test_main_t * sm = &oor_ctrl_test_main;
     unformat_input_t * input = vam->input;
-    f64 timeout;
     int enable_disable = 1;
     u32 sw_if_index = ~0;
     u8 *host_if_name = NULL;
     vl_api_oor_ctrl_enable_disable_t * mp;
+    int ret;
 
     /* Parse args required to build the message */
     while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
@@ -146,15 +112,17 @@ static int api_oor_ctrl_enable_disable (vat_main_t * vam)
     }
     
     /* Construct the API message */
-    M(OOR_CTRL_ENABLE_DISABLE, oor_ctrl_enable_disable);
+    M(OOR_CTRL_ENABLE_DISABLE, mp);
     memcpy(mp->host_if_name,host_if_name,strlen((char *)host_if_name));
     mp->enable_disable = enable_disable;
 
     /* send it... */
-    S;
+    S(mp);
 
     /* Wait for a reply... */
-    W;
+    W(ret);
+
+    return (ret);
 }
 
 /* 
@@ -164,9 +132,9 @@ static int api_oor_ctrl_enable_disable (vat_main_t * vam)
 #define foreach_vpe_api_msg \
 _(oor_ctrl_enable_disable, "<intfc> [disable]")
 
-void vat_api_hookup (vat_main_t *vam)
+void oor_ctrl_vat_api_hookup (vat_main_t *vam)
 {
-    oor_ctrl_test_main_t * sm = &oor_ctrl_test_main;
+    oor_ctrl_test_main_t * sm __attribute__((unused)) = &oor_ctrl_test_main;
     /* Hook up handlers for replies from the data plane plug-in */
 #define _(N,n)                                                  \
     vl_msg_api_set_handlers((VL_API_##N + sm->msg_id_base),     \
@@ -202,7 +170,7 @@ clib_error_t * vat_plugin_register (vat_main_t *vam)
   sm->msg_id_base = vl_client_get_first_plugin_msg_id ((char *) name);
 
   if (sm->msg_id_base != (u16) ~0)
-    vat_api_hookup (vam);
+    oor_ctrl_vat_api_hookup (vam);
   
   vec_free(name);
   

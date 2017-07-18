@@ -265,8 +265,6 @@ vpp_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
 
     ret = write(tap_fd, lbuf_data(buff), lbuf_size(buff));
 
-
-
     if (ret < 0) {
         OOR_LOG(LDBG_1, "Failed to send contrl message from RLOC: %s -> %s",
                 lisp_addr_to_char(&udp_conn->la), lisp_addr_to_char(&udp_conn->ra));

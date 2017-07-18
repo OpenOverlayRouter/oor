@@ -364,6 +364,7 @@ public class noroot_updateConfActivity extends Fragment {
 		 * */
         try {
             String defText;
+            boolean has_ipv4_eid = false, has_ipv6_eid = false;
             defText = new StringBuilder()
                     .append("#       *** noroot_OOR EXAMPLE CONFIG FILE ***\n\n\n")
                     .append("# General configuration\n")
@@ -454,9 +455,11 @@ public class noroot_updateConfActivity extends Fragment {
             if (ifaces != null) {
                 if (!eidIPv4.equals("")) {
                     defText = defText.concat(createEIDConFile(eidIPv4 + "/32"));
+                    has_ipv4_eid = true;
                 }
                 if (!eidIPv6.equals("")) {
                     defText = defText.concat(createEIDConFile(eidIPv6 + "/128"));
+                    has_ipv6_eid = true;
                 }
             }
 
@@ -470,12 +473,25 @@ public class noroot_updateConfActivity extends Fragment {
                         .append("#   priority [0-255]: Proxy-ETR with lower values are more preferable.\n")
                         .append("#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,\n")
                         .append("#     the Weight indicates how to balance unicast traffic between them.\n")
-                        .append("proxy-etr {\n")
-                        .append("        address     = " + proxyETR + "\n")
-                        .append("        priority    = 1\n")
-                        .append("        weight      = 100\n")
-                        .append("}\n\n\n")
                         .toString();
+                if (has_ipv4_eid){
+                    proxyETRstr = proxyETRstr.concat(new StringBuilder()
+                            .append("proxy-etr-ipv4 {\n")
+                            .append("        address     = " + proxyETR + "\n")
+                            .append("        priority    = 1\n")
+                            .append("        weight      = 100\n")
+                            .append("}\n\n\n")
+                            .toString());
+                }
+                if (has_ipv6_eid) {
+                    proxyETRstr = proxyETRstr.concat(new StringBuilder()
+                            .append("proxy-etr-ipv6 {\n")
+                            .append("        address     = " + proxyETR + "\n")
+                            .append("        priority    = 1\n")
+                            .append("        weight      = 100\n")
+                            .append("}\n\n\n")
+                            .toString());
+                }
 
                 defText = defText.concat(proxyETRstr);
             }

@@ -60,11 +60,11 @@ typedef struct
     clib_time_t clib_time;
 } vpp_api_main_t;
 
-typedef struct
-{
-  u8 ip[16];
-  u8 prefix_length;
-} ip_address_details_t;
+//typedef struct
+//{
+//  u8 ip[16];
+//  u8 prefix_length;
+//} ip_address_details_t;
 
 typedef struct
 {

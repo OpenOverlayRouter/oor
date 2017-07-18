@@ -9,10 +9,10 @@
 #include "fwd_entry_vpp.h"
 #include "vpp_balancing.h"
 #include "../fwd_policy.h"
+#include "../fwd_utils.h"
 #include "../fwd_addr_func.h"
 #include "../../control/oor_ctrl_device.h"
 #include "../../lib/oor_log.h"
-#include "../../lib/util.h"
 
 #include <math.h>
 

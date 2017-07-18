@@ -189,12 +189,14 @@ map-server {
 #   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,
 #     the weight indicates how to balance unicast traffic between them.
 
+# Proxy for IPv4 EIDs
 proxy-etr-ipv4 {
         address     = <ip-address>
         priority    = <int>
         weight      = <int>
 }
 
+# Proxy for IPv6 EIDs
 proxy-etr-ipv6 {
         address     = <ip-address>
         priority    = <int>

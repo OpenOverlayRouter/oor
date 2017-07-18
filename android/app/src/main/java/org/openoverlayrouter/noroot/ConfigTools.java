@@ -154,7 +154,7 @@ public class ConfigTools {
             ;
         }
         if (overrideDNS) {
-            Log.i("noroot_OOR", "New DNS servers to be used: " + dns_servers[0] + " , " + dns_servers[1]);
+            Log.i("OOR", "New DNS servers to be used: " + dns_servers[0] + " , " + dns_servers[1]);
             return (dns_servers);
         } else {
             return (null);

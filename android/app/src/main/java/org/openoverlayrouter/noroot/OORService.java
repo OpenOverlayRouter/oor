@@ -70,7 +70,7 @@ public class OORService extends Service implements Runnable {
 
         prefix = getPackageName();
         try {
-            oor_path = getPackageManager().getApplicationInfo("org.openoverlayrouter", 0).nativeLibraryDir;
+            oor_path = getPackageManager().getApplicationInfo("org.openoverlayrouter.noroot", 0).nativeLibraryDir;
         } catch (NameNotFoundException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
@@ -126,7 +126,7 @@ public class OORService extends Service implements Runnable {
 
     @Override
     public void onDestroy() {
-        Log.d(TAG, "Destroying OOR DNS Service thread");
+        Log.d(TAG, "Destroying OOR Service thread");
         scheduledFuture.cancel(true);
         scheduler.shutdown();
         set_dns_servers(system_dns);
@@ -141,10 +141,9 @@ public class OORService extends Service implements Runnable {
         scheduler = Executors.newScheduledThreadPool(1);
         Runnable dnsCheck = new Runnable() {
             public void run() {
-
                 String psOutput = shell.run("/system/bin/ps | grep liboorexec.so");
                 isRunning = psOutput.matches("(?s)(.*)[RS]\\s[a-zA-Z0-9\\/\\.\\-]*liboorexec\\.so(.*)");
-
+                isRunning = true;
                 if (isRunning && oor_dns != null) {
                     String dns[] = get_dns_servers();
                     if (!dns[0].equals(oor_dns[0]) || !dns[1].equals(oor_dns[1])) {

@@ -25,17 +25,17 @@
 #include "../../lib/prefixes.h"
 #include "../../lib/sockets.h"
 #include "../../lib/util.h"
-#include <vpp-api/vpe_msg_enum.h>
+#include <vpp/api/vpe_msg_enum.h>
 #include "../../lib/vpp_api/vpp_api_requests.h"
 
 #define vl_typedefs
-  #include <vpp-api/vpe_all_api_h.h>
+  #include <vpp/api/vpe_all_api_h.h>
 #undef vl_typedefs
 
 /* declare message handlers for each api */
 
 #define vl_endianfun        /* define message structures */
-  #include <vpp-api/vpe_all_api_h.h>
+  #include <vpp/api/vpe_all_api_h.h>
 #undef vl_endianfun
 
 

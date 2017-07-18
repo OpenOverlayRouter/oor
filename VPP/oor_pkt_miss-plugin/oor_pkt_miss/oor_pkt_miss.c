@@ -53,35 +53,15 @@
 #include <oor_pkt_miss/oor_pkt_miss_all_api_h.h>
 #undef vl_api_version
 
+#define REPLY_MSG_ID_BASE sm->msg_id_base
+#include <vlibapi/api_helper_macros.h>
+
 int oor_pkt_miss_drop_route (int is_add, fib_prefix_t *prefix, u32 table_id);
 int oor_pkt_miss_defaults_management_init(oor_pkt_miss_main_t * sm);
+void oor_pkt_miss_enable_disable_src_route_check(int is_enable);
 int oor_pkt_miss_defaults_management_uninit(oor_pkt_miss_main_t * sm);
 int oor_pkt_miss_get_ipv4_gateway(ip46_address_t *gateway);
 int oor_pkt_miss_get_ipv6_gateway(ip46_address_t *gateway);
-
-
-/* 
- * A handy macro to set up a message reply.
- * Assumes that the following variables are available:
- * mp - pointer to request message
- * rmp - pointer to reply message type
- * rv - return value
- */
-
-#define REPLY_MACRO(t)                                          \
-do {                                                            \
-    unix_shared_memory_queue_t * q =                            \
-    vl_api_client_index_to_input_queue (mp->client_index);      \
-    if (!q)                                                     \
-        return;                                                 \
-                                                                \
-    rmp = vl_msg_api_alloc (sizeof (*rmp));                     \
-    rmp->_vl_msg_id = ntohs((t)+sm->msg_id_base);               \
-    rmp->context = mp->context;                                 \
-    rmp->retval = ntohl(rv);                                    \
-                                                                \
-    vl_msg_api_send_shmem (q, (u8 *)&rmp);                      \
-} while(0);
 
 
 /* List of message types that this plugin understands */
@@ -92,26 +72,13 @@ _(OOR_PKT_MISS_NATIVE_ROUTE, oor_pkt_miss_native_route)         \
 _(OOR_PKT_MISS_DROP_ROUTE, oor_pkt_miss_drop_route)             \
 _(OOR_PKT_MISS_GET_DEFAULT_ROUTE, oor_pkt_miss_get_default_route)
 
-/* 
- * This routine exists to convince the vlib plugin framework that
- * we haven't accidentally copied a random .dll into the plugin directory.
- *
- * Also collects global variable pointers passed from the vpp engine
- */
 
-clib_error_t * 
-vlib_plugin_register (vlib_main_t * vm, vnet_plugin_handoff_t * h,
-                      int from_early_init)
-{
-  oor_pkt_miss_main_t * sm = &oor_pkt_miss_main;
-  clib_error_t * error = 0;
 
-  sm->vlib_main = vm;
-  sm->vnet_main = h->vnet_main;
-  sm->ethernet_main = h->ethernet_main;
-
-  return error;
-}
+/* *INDENT-OFF* */
+VLIB_PLUGIN_REGISTER () = {
+    .version = OOR_PKT_MISS_PLUGIN_BUILD_VER,
+    .description = "OOR paket miss plugin",
+};
 
 /* Action function shared between message handler and debug CLI */
 
@@ -129,6 +96,7 @@ int oor_pkt_miss_enable_disable (oor_pkt_miss_main_t * sm, u8 * host_if_name,
     clib_warning("OOR_PKT_MISS: %s node", enable_disable ? "enable" : "disale");
 
     if (enable_disable){
+        //oor_pkt_miss_enable_disable_src_route_check(0);
         /* Configure default gateway of the router for native forward entries */
         oor_pkt_miss_defaults_management_init(sm);
         /* Create host-interface */
@@ -138,9 +106,7 @@ int oor_pkt_miss_enable_disable (oor_pkt_miss_main_t * sm, u8 * host_if_name,
         }
         /* Set interface status to UP */
         flags = VNET_SW_INTERFACE_FLAG_ADMIN_UP;
-        if (vnet_sw_interface_set_flags (sm->vnet_main, sw_if_index, flags) != 0){
-            //goto error;
-        }
+        vnet_sw_interface_set_flags (sm->vnet_main, sw_if_index, flags);
         /* Set interface to unnumbered */
         si = vnet_get_sw_interface (sm->vnet_main, sw_if_index);
         si->flags |= VNET_SW_INTERFACE_FLAG_UNNUMBERED;
@@ -150,7 +116,6 @@ int oor_pkt_miss_enable_disable (oor_pkt_miss_main_t * sm, u8 * host_if_name,
         /* Enable lisp data plane */
         lisp_gpe_args.is_en = 1;
         vnet_lisp_gpe_enable_disable (&lisp_gpe_args);
-//lisp_gpe_tenant_l3_iface_add_or_lock (0, 0);
         /* Enable host-interface to send traffic to oor */
         sm->sw_if_index = sw_if_index;
     }else{
@@ -172,10 +137,12 @@ int oor_pkt_miss_enable_disable (oor_pkt_miss_main_t * sm, u8 * host_if_name,
         af_packet_delete_if (sm->vlib_main, (u8 *)vpp_if_name);
         /* Reinsert the default gateways */
         oor_pkt_miss_defaults_management_uninit(sm);
+        //      oor_pkt_miss_enable_disable_src_route_check(1);
     }
 
     return 0;
 }
+
 
 static clib_error_t *
 oor_pkt_miss_enable_disable_command_fn (vlib_main_t * vm,
@@ -226,8 +193,7 @@ oor_pkt_miss_enable_disable_command_fn (vlib_main_t * vm,
 
 VLIB_CLI_COMMAND (oor_pkt_miss_enable_disable_command, static) = {
     .path = "oor_pkt_miss enable-disable",
-    .short_help = 
-    "oor_pkt_miss enable-disable <interface-name> [disable]",
+    .short_help = "oor_pkt_miss enable-disable <interface-name> [disable]",
     .function = oor_pkt_miss_enable_disable_command_fn,
 };
 
@@ -240,6 +206,7 @@ oor_pkt_miss_native_route (oor_pkt_miss_main_t * sm, int is_add, fib_prefix_t *p
     fib_protocol_t proto;
     u32 fib_index;
 
+
     if (prefix->fp_proto == FIB_PROTOCOL_IP4){
         proto = FIB_PROTOCOL_IP4;
         fib_index = ip4_fib_index_from_table_id(0);
@@ -249,9 +216,10 @@ oor_pkt_miss_native_route (oor_pkt_miss_main_t * sm, int is_add, fib_prefix_t *p
             goto no_gateway;
         }
         gateway = &sm->ipv4_gateway;
-        clib_warning("OOR_PKT_MISS: %s route to %s via gateway",
-                    (is_add == 1 ? "Add":"Remove"),
-                    format (0, "%U", format_ip4_address, &(prefix[0].fp_addr.ip4)));
+        clib_warning("OOR_PKT_MISS: %s route to %s/%d via gateway",
+                (is_add == 1 ? "Add":"Remove"),
+                format (0, "%U", format_ip4_address, &(prefix[0].fp_addr.ip4)),
+                prefix->fp_len);
     }else{
         proto = FIB_PROTOCOL_IP6;
         fib_index = ip6_fib_index_from_table_id(0);
@@ -261,9 +229,10 @@ oor_pkt_miss_native_route (oor_pkt_miss_main_t * sm, int is_add, fib_prefix_t *p
             goto no_gateway;
         }
         gateway = &sm->ipv6_gateway;
-        clib_warning("OOR_PKT_MISS: %s route to %s via gateway",
-                    (is_add == 1 ? "Add":"Remove"),
-                    format (0, "%U", format_ip6_address, &(prefix[0].fp_addr.ip6)));
+        clib_warning("OOR_PKT_MISS: %s route to %s/%d via gateway",
+                (is_add == 1 ? "Add":"Remove"),
+                format (0, "%U", format_ip6_address, &(prefix[0].fp_addr.ip6)),
+                prefix->fp_len);
     }
 
 
@@ -305,6 +274,7 @@ oor_pkt_miss_native_route_command_fn (vlib_main_t * vm,
     if (sm->sw_if_index == ~0){
         return clib_error_return (0, "OOR paket miss plugin is not enabled.");
     }
+    memset(&prefix,0,sizeof(fib_prefix_t));
 
     while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
         if (unformat (input, "del")){
@@ -336,9 +306,8 @@ oor_pkt_miss_native_route_command_fn (vlib_main_t * vm,
 
 VLIB_CLI_COMMAND (oor_pkt_miss_native_route_command, static) = {
         .path = "oor_pkt_miss native-route",
-        .short_help =
-                "oor_pkt_miss native-route [add|del] <dst-ip-addr>/<width>",
-                .function = oor_pkt_miss_native_route_command_fn,
+        .short_help = "oor_pkt_miss native-route [add|del] <dst-ip-addr>/<width>",
+        .function = oor_pkt_miss_native_route_command_fn,
 };
 
 int
@@ -413,9 +382,8 @@ oor_pkt_miss_drop_route_command_fn (vlib_main_t * vm,
 
 VLIB_CLI_COMMAND (oor_pkt_miss_drop_route_command, static) = {
         .path = "oor_pkt_miss drop-route",
-        .short_help =
-                "oor_pkt_miss drop-route [add|del] <dst-ip-addr>/<width> [table-id <n>]",
-                .function = oor_pkt_miss_drop_route_command_fn,
+        .short_help = "oor_pkt_miss drop-route [add|del] <dst-ip-addr>/<width> [table-id <n>]",
+        .function = oor_pkt_miss_drop_route_command_fn,
 };
 
 
@@ -490,9 +458,8 @@ oor_pkt_miss_get_default_route_command_fn (vlib_main_t * vm,
 
 VLIB_CLI_COMMAND (oor_pkt_miss_get_default_route_command, static) = {
         .path = "oor_pkt_miss get-default-route",
-        .short_help =
-                "oor_pkt_miss get-default-route [ipv4|ipv6]",
-                .function = oor_pkt_miss_get_default_route_command_fn,
+        .short_help = "oor_pkt_miss get-default-route [ipv4|ipv6]",
+        .function = oor_pkt_miss_get_default_route_command_fn,
 };
 
 
@@ -520,6 +487,7 @@ static void vl_api_oor_pkt_miss_native_route_t_handler
     vl_api_oor_pkt_miss_native_route_reply_t * rmp;
     oor_pkt_miss_main_t * sm = &oor_pkt_miss_main;
     fib_prefix_t prefix;
+    memset(&prefix,0,sizeof(fib_prefix_t));
     int rv;
     prefix.fp_proto = (mp->is_ipv6 == 1) ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4;
     prefix.fp_len = mp->mask_len;
@@ -548,6 +516,7 @@ static void vl_api_oor_pkt_miss_drop_route_t_handler
     }else{
         memcpy(&prefix.fp_addr.ip6,mp->address,16);
     }
+    clib_warning("=====>>> Drop api");
     oor_pkt_miss_drop_route (mp->is_add,&prefix,mp->table_id);
 
     REPLY_MACRO(VL_API_OOR_PKT_MISS_DROP_ROUTE_REPLY);
@@ -656,7 +625,6 @@ oor_pkt_miss_get_ipv4_gateway(ip46_address_t *gateway)
         clib_warning("OOR_PKT_MISS: No default fib found");
         return (-1);
     }
-
     fib = ip4_fib_get(fib_index);
 
     memset(&address,0,sizeof(ip4_address_t));
@@ -665,7 +633,6 @@ oor_pkt_miss_get_ipv4_gateway(ip46_address_t *gateway)
         clib_warning("OOR_PKT_MISS: No default IPv4 gateway found");
         return (-2);
     }
-
     dpo_fwd = fib_entry_contribute_ip_forwarding(index);
 
     lb_m = load_balance_get (dpo_fwd->dpoi_index);
@@ -674,11 +641,9 @@ oor_pkt_miss_get_ipv4_gateway(ip46_address_t *gateway)
         dpo0 = load_balance_get_bucket_i (lb_m, i);
         if (dpo0->dpoi_type == DPO_LOAD_BALANCE){
             lb_b = load_balance_get (dpo0->dpoi_index);
-
             for (j = 0; j < lb_b->lb_n_buckets; j++){
                 dpo1 = load_balance_get_bucket_i (lb_b, j);
-
-                if (dpo1->dpoi_type == DPO_ADJACENCY){
+                if (dpo1->dpoi_type == DPO_ADJACENCY  || dpo1->dpoi_type == DPO_ADJACENCY_INCOMPLETE){
                     adj_inxex = dpo1->dpoi_index;
 
                     if (ADJ_INDEX_INVALID == adj_inxex){
@@ -712,7 +677,6 @@ oor_pkt_miss_ipv4_defaults_management_init(oor_pkt_miss_main_t * sm)
     u32 fib_index;
     int ret;
     fib_prefix_t prefix;
-
 
     fib_index = ip4_fib_index_from_table_id(0);
     ret = oor_pkt_miss_get_ipv4_gateway(&sm->ipv4_gateway);
@@ -779,7 +743,7 @@ oor_pkt_miss_get_ipv6_gateway(ip46_address_t *gateway)
             lb_b = load_balance_get (dpo0->dpoi_index);
             for (j = 0; j < lb_b->lb_n_buckets; j++){
                 dpo1 = load_balance_get_bucket_i (lb_b, j);
-                if (dpo1->dpoi_type == DPO_ADJACENCY){
+                if (dpo1->dpoi_type == DPO_ADJACENCY || dpo1->dpoi_type == DPO_ADJACENCY_INCOMPLETE){
                     adj_inxex = dpo1->dpoi_index;
 
                     if (ADJ_INDEX_INVALID == adj_inxex){
@@ -833,8 +797,6 @@ oor_pkt_miss_ipv6_defaults_management_init(oor_pkt_miss_main_t * sm)
     return (0);
 }
 
-
-
 int
 oor_pkt_miss_defaults_management_init(oor_pkt_miss_main_t * sm)
 {
@@ -867,6 +829,55 @@ oor_pkt_miss_defaults_management_uninit(oor_pkt_miss_main_t * sm)
     return (0);
 }
 
+/* Enable or disable the source path check */
+// XXX It doesn't work for IPv6 in VPP 17.01. To be tested in new versions
+void
+oor_pkt_miss_enable_disable_src_route_check(int is_enable)
+{
+    u32 fib_index4, fib_index6;
+    fib_prefix_t pfx4, pfx6;
+    memset (&pfx4,0,sizeof(fib_prefix_t));
+    pfx4.fp_proto = FIB_PROTOCOL_IP4;
+
+    memset (&pfx6,0,sizeof(fib_prefix_t));
+    pfx6.fp_proto = FIB_PROTOCOL_IP6;
+
+    fib_index4 = ip4_fib_index_from_table_id(0);
+    fib_index6 = ip6_fib_index_from_table_id(0);
+
+    if (!is_enable){
+        clib_warning("====================>>>>>> ENABLE");
+        fib_table_entry_special_add (fib_index4,
+                &pfx4,
+                FIB_SOURCE_URPF_EXEMPT,
+                FIB_ENTRY_FLAG_DROP);
+        fib_table_entry_special_add (fib_index6,
+                &pfx6,
+                FIB_SOURCE_URPF_EXEMPT,
+                FIB_ENTRY_FLAG_DROP);
+    }
+    else{
+        clib_warning("====================>>>>>> DISBALE");
+        fib_table_entry_special_remove (fib_index4,
+                &pfx4, FIB_SOURCE_URPF_EXEMPT);
+        fib_table_entry_special_remove (fib_index6,
+                &pfx6, FIB_SOURCE_URPF_EXEMPT);
+    }
+}
+
+
+#define vl_msg_name_crc_list
+#include <oor_pkt_miss/oor_pkt_miss_all_api_h.h>
+#undef vl_msg_name_crc_list
+
+static void
+setup_message_id_table (oor_pkt_miss_main_t * sm, api_main_t *am)
+{
+#define _(id,n,crc) \
+  vl_msg_api_add_msg_name_crc (am, #n "_" #crc, id + sm->msg_id_base);
+  foreach_vl_msg_name_crc_oor_pkt_miss;
+#undef _
+}
 
 
 static clib_error_t * oor_pkt_miss_init (vlib_main_t * vm)
@@ -874,6 +885,8 @@ static clib_error_t * oor_pkt_miss_init (vlib_main_t * vm)
   oor_pkt_miss_main_t * sm = &oor_pkt_miss_main;
   clib_error_t * error = 0;
   u8 * name;
+
+  sm->vnet_main = vnet_get_main ();
 
   name = format (0, "oor_pkt_miss_%08x%c", api_version, 0);
   sm->sw_if_index = ~0;
@@ -883,6 +896,9 @@ static clib_error_t * oor_pkt_miss_init (vlib_main_t * vm)
       ((char *) name, VL_MSG_FIRST_AVAILABLE);
 
   error = oor_pkt_miss_plugin_api_hookup (vm);
+
+  /* Add our API messages to the global name_crc hash table */
+  setup_message_id_table (sm, &api_main);
 
   vec_free(name);
 

@@ -25,6 +25,9 @@
 
 #include <arpa/inet.h>
 
+#define __plugin_msg_base oor_pkt_miss_test_main.msg_id_base
+#include <vlibapi/vat_helper_macros.h>
+
 uword unformat_sw_if_index (unformat_input_t * input, va_list * args);
 
 /* Declare message IDs */
@@ -127,50 +130,13 @@ _(OOR_PKT_MISS_DROP_ROUTE_REPLY, oor_pkt_miss_drop_route_reply)         \
 _(OOR_PKT_MISS_GET_DEFAULT_ROUTE_REPLY, oor_pkt_miss_get_default_route_reply)
 
 
-/* M: construct, but don't yet send a message */
-
-#define M(T,t)                                                  \
-do {                                                            \
-    vam->result_ready = 0;                                      \
-    mp = vl_msg_api_alloc(sizeof(*mp));                         \
-    memset (mp, 0, sizeof (*mp));                               \
-    mp->_vl_msg_id = ntohs (VL_API_##T + sm->msg_id_base);      \
-    mp->client_index = vam->my_client_index;                    \
-} while(0);
-
-#define M2(T,t,n)                                               \
-do {                                                            \
-    vam->result_ready = 0;                                      \
-    mp = vl_msg_api_alloc(sizeof(*mp)+(n));                     \
-    memset (mp, 0, sizeof (*mp));                               \
-    mp->_vl_msg_id = ntohs (VL_API_##T + sm->msg_id_base);      \
-    mp->client_index = vam->my_client_index;                    \
-} while(0);
-
-/* S: send a message */
-#define S (vl_msg_api_send_shmem (vam->vl_input_queue, (u8 *)&mp))
-
-/* W: wait for results, with timeout */
-#define W                                       \
-do {                                            \
-    timeout = vat_time_now (vam) + 1.0;         \
-                                                \
-    while (vat_time_now (vam) < timeout) {      \
-        if (vam->result_ready == 1) {           \
-            return (vam->retval);               \
-        }                                       \
-    }                                           \
-    return -99;                                 \
-} while(0);
-
 static int api_oor_pkt_miss_enable_disable (vat_main_t * vam)
 {
-    oor_pkt_miss_test_main_t * sm = &oor_pkt_miss_test_main;
     unformat_input_t * input = vam->input;
-    f64 timeout;
     int enable_disable = 1;
     u8 *host_if_name = NULL;
     vl_api_oor_pkt_miss_enable_disable_t * mp;
+    int ret;
 
 
     while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
@@ -189,30 +155,30 @@ static int api_oor_pkt_miss_enable_disable (vat_main_t * vam)
     }
 
     /* Construct the API message */
-    M(OOR_PKT_MISS_ENABLE_DISABLE, oor_pkt_miss_enable_disable);
+    M(OOR_PKT_MISS_ENABLE_DISABLE, mp);
     memcpy(mp->host_if_name,host_if_name,strlen((char *)host_if_name));
     mp->enable_disable = enable_disable;
 
     /* send it... */
-    S;
+    S(mp);
 
     /* Wait for a reply... */
-    W;
+    W(ret);
+
+    return (ret);
 }
 
 static int api_oor_pkt_miss_native_route (vat_main_t * vam)
 {
-    oor_pkt_miss_test_main_t * sm = &oor_pkt_miss_test_main;
     vl_api_oor_pkt_miss_native_route_t * mp;
     unformat_input_t * input = vam->input;
-    f64 timeout;
     int is_add = 1;
     ip4_address_t ip4_addr;
     ip6_address_t ip6_addr;
-    u16 pref_len;
+    u32 pref_len;
     u8 ipv4_set = 0;
     u8 ipv6_set = 0;
-
+    int ret;
 
     /* Parse args required to build the message */
     while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
@@ -228,14 +194,13 @@ static int api_oor_pkt_miss_native_route (vat_main_t * vam)
             break;
         }
     }
-
     if (!ipv4_set && !ipv6_set){
         clib_error_return (0, "expected ip4/ip6 destination address/length.");
         return -99;
     }
 
     /* Construct the API message */
-    M(OOR_PKT_MISS_NATIVE_ROUTE, oor_cpkt_miss_native_route);
+    M(OOR_PKT_MISS_NATIVE_ROUTE, mp);
     mp->is_add = is_add;
     mp->is_ipv6 = ipv6_set;
     mp->mask_len = pref_len;
@@ -246,26 +211,27 @@ static int api_oor_pkt_miss_native_route (vat_main_t * vam)
     }
 
     /* send it... */
-    S;
+    S(mp);
 
     /* Wait for a reply... */
-    W;
+    W(ret);
+
+    return(ret);
 }
 
 
 static int api_oor_pkt_miss_drop_route (vat_main_t * vam)
 {
-    oor_pkt_miss_test_main_t * sm = &oor_pkt_miss_test_main;
     vl_api_oor_pkt_miss_drop_route_t * mp;
     unformat_input_t * input = vam->input;
-    f64 timeout;
     int is_add = 1;
     ip4_address_t ip4_addr;
     ip6_address_t ip6_addr;
-    u16 pref_len;
+    u32 pref_len;
     u8 ipv4_set = 0;
     u8 ipv6_set = 0;
     u32 table_id = 0;
+    int ret;
 
     /* Parse args required to build the message */
     while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
@@ -278,7 +244,7 @@ static int api_oor_pkt_miss_drop_route (vat_main_t * vam)
         }else if (unformat (input, "%U/%d",unformat_ip6_address, &ip6_addr, &pref_len)){
             ipv6_set = 1;
         }else if (unformat (input, "table-id %d", &table_id)){
-            ipv6_set = 1;
+            table_id = 1;
         }else{
             break;
         }
@@ -292,7 +258,7 @@ static int api_oor_pkt_miss_drop_route (vat_main_t * vam)
 
 
     /* Construct the API message */
-    M(OOR_PKT_MISS_DROP_ROUTE, oor_pkt_miss_drop_route);
+    M(OOR_PKT_MISS_DROP_ROUTE, mp);
     mp->is_add = is_add;
     mp->is_ipv6 = ipv6_set;
     mp->mask_len = pref_len;
@@ -303,19 +269,20 @@ static int api_oor_pkt_miss_drop_route (vat_main_t * vam)
     }
     mp->table_id = table_id;
     /* send it... */
-    S;
+    S(mp);
 
     /* Wait for a reply... */
-    W;
+    W(ret);
+
+    return (ret);
 }
 
 static int api_oor_pkt_miss_get_default_route (vat_main_t * vam)
 {
-    oor_pkt_miss_test_main_t * sm = &oor_pkt_miss_test_main;
     vl_api_oor_pkt_miss_get_default_route_t * mp;
     unformat_input_t * input = vam->input;
-    f64 timeout;
     int is_ipv6 = 0;
+    int ret;
 
     /* Parse args required to build the message */
     while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT) {
@@ -328,13 +295,15 @@ static int api_oor_pkt_miss_get_default_route (vat_main_t * vam)
         }
     }
     /* Construct the API message */
-    M(OOR_PKT_MISS_GET_DEFAULT_ROUTE, oor_pkt_miss_get_default_route);
+    M(OOR_PKT_MISS_GET_DEFAULT_ROUTE, mp);
     mp->is_ipv6 = is_ipv6;
     /* send it... */
-    S;
+    S(mp);
 
     /* Wait for a reply... */
-    W;
+    W(ret);
+
+    return (ret);
 }
 
 /* 
@@ -347,9 +316,10 @@ _(oor_pkt_miss_native_route, "[add|del] <dst-ip-addr>/<width>") \
 _(oor_pkt_miss_drop_route, "[add|del] <dst-ip-addr>/<width>")   \
 _(oor_pkt_miss_get_default_route, "[ipv4|ipv6]")
 
-void vat_api_hookup (vat_main_t *vam)
+static void
+oor_pkt_miss_vat_api_hookup (vat_main_t *vam)
 {
-    oor_pkt_miss_test_main_t * sm = &oor_pkt_miss_test_main;
+    oor_pkt_miss_test_main_t * sm __attribute__((unused)) = &oor_pkt_miss_test_main;
     /* Hook up handlers for replies from the data plane plug-in */
 #define _(N,n)                                                  \
     vl_msg_api_set_handlers((VL_API_##N + sm->msg_id_base),     \
@@ -385,7 +355,7 @@ clib_error_t * vat_plugin_register (vat_main_t *vam)
   sm->msg_id_base = vl_client_get_first_plugin_msg_id ((char *) name);
 
   if (sm->msg_id_base != (u16) ~0)
-    vat_api_hookup (vam);
+      oor_pkt_miss_vat_api_hookup (vam);
   
   vec_free(name);
   

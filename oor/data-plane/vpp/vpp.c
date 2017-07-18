@@ -28,17 +28,17 @@
 #include "../../fwd_policies/fwd_policy.h"
 #include "../../fwd_policies/vpp_balancing/fwd_entry_vpp.h"
 
-#include <vpp-api/vpe_msg_enum.h>
+#include <vpp/api/vpe_msg_enum.h>
 #include "../../lib/vpp_api/vpp_api_requests.h"
 
 #define vl_typedefs
-#include <vpp-api/vpe_all_api_h.h>
+#include <vpp/api/vpe_all_api_h.h>
 #undef vl_typedefs
 
 /* declare message handlers for each api */
 
 #define vl_endianfun        /* define message structures */
-#include <vpp-api/vpe_all_api_h.h>
+#include <vpp/api/vpe_all_api_h.h>
 #undef vl_endianfun
 
 
@@ -322,7 +322,7 @@ vpp_output_recv(sock_t *sl)
             vpp_oor_pkt_miss_native_route(fi->associated_entry,ADD);
             /* Associate eid with fwd_info */
             associate_fwd_info_with_eid(fi, dp_data, (remove_fwd_entry_fn) vpp_remove_native_route);
-            return (GOOD);
+            goto resend;
         }
         return (BAD);
     }
@@ -343,7 +343,7 @@ vpp_output_recv(sock_t *sl)
             /* Associate eid with fwd_info and petrs */
             associate_fwd_info_with_eid(fi, dp_data, (remove_fwd_entry_fn) vpp_remove_drop_route);
             associate_fwd_info_with_petrs(fi,dp_data);
-            return (GOOD);
+            goto resend;
         }
         break;
     case ACT_DROP:
@@ -351,7 +351,7 @@ vpp_output_recv(sock_t *sl)
         vpp_oor_pkt_miss_drop_route(fi->associated_entry,ADD,tpl.iid);
         /* Associate eid with fwd_info */
         associate_fwd_info_with_eid(fi, dp_data, (remove_fwd_entry_fn) vpp_remove_drop_route);
-        return (GOOD);
+        goto resend;
     default:
         OOR_LOG(LDBG_1,"vpp_output_recv: Unknown action");
         return (BAD);
@@ -361,13 +361,14 @@ vpp_output_recv(sock_t *sl)
     /* Configure vpp data plane*/
     vpp_lisp_gpe_add_del_fwd_entry(fe,fi->neg_map_reply_act,ADD);
 
+
+resend:
     /* Reinsert the packet to VPP in order to reduce the number of packets lost */
     pkt_push_eth(&buff, mac, mac, ETH_P_IP);
     if (write(sl->fd, lbuf_data(&buff), lbuf_size(&buff)) < 0 ){
         OOR_LOG(LDBG_2, "write error: %s\n ", strerror(errno));
         return(BAD);
     }
-
     return (GOOD);
 }
 

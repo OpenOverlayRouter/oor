@@ -26,7 +26,7 @@
 #include <time.h>
 
 #include "oor.h"
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(OPENWRT)
  #include "config/oor_api_internals.h"
 #endif
 #ifdef OPENWRT
@@ -88,7 +88,7 @@ oor_ctrl_t *lctrl;
 #ifdef VPNAPI
 int oor_running;
 #endif
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(OPENWRT)
 /* OOR's API connection structure */
 oor_api_connection_t oor_api_connection;
 #endif
@@ -318,6 +318,10 @@ handle_oor_command_line(int argc, char **argv)
     } else {
         default_rloc_afi = AF_UNSPEC;
     }
+#ifdef VPP
+    default_rloc_afi = AF_INET;
+    OOR_LOG(LINF, "VPP: Disabling IPv6 RLOCs\n");
+#endif
 
     cmdline_parser_free(&args_info);
 }
@@ -493,7 +497,7 @@ main(int argc, char **argv)
 
     OOR_LOG(LINF,"\n\n Open Overlay Router (%s): started... \n\n",OOR_VERSION);
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(OPENWRT)
     /* Initialize API for external access */
     oor_api_init_server(&oor_api_connection);
 

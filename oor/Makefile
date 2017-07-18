@@ -27,15 +27,15 @@ ERROR       = false
 
 
 ifeq "$(platform)" ""
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2
+CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -D_GNU_SOURCE
 LIBS        = -lconfuse -lrt -lm -lzmq -lxml2
 else
 ifeq "$(platform)" "openwrt"
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -DOPENWRT 
-LIBS        = -lrt -lm -lzmq -lxml2 -luci
+CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -DOPENWRT -D_GNU_SOURCE
+LIBS        = -lrt -lm -luci
 else
 ifeq "$(platform)" "vpp"
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -DVPP 
+CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -I/usr/include/vpp_plugins -DVPP -D_GNU_SOURCE
 LIBS        = -lconfuse -lrt -lm -lzmq -lxml2 -lvlibmemoryclient -lvlibapi -lsvm -lvppinfra -lpthread -ldl
 else
 ERROR       = true
@@ -56,8 +56,6 @@ MAKEFILE    = Makefile
 
 OBJS        = cmdline.o                  \
           config/oor_config_functions.o  \
-          config/oor_api.o               \
-          config/oor_api_internals.o     \
           control/oor_control.o          \
           control/oor_ctrl_device.o      \
           control/oor_local_db.o         \
@@ -80,10 +78,9 @@ OBJS        = cmdline.o                  \
           fwd_policies/balancing_locators.o                  \
           fwd_policies/fwd_addr_func.o   \
           fwd_policies/fwd_policy.o      \
+          fwd_policies/fwd_utils.o       \
           fwd_policies/flow_balancing/flow_balancing.o       \
           fwd_policies/flow_balancing/fwd_entry_tuple.o      \
-          fwd_policies/vpp_balancing/fwd_entry_vpp.o         \
-          fwd_policies/vpp_balancing/vpp_balancing.o         \
           liblisp/liblisp.o              \
           liblisp/lisp_address.o         \
           liblisp/lisp_data.o            \
@@ -129,6 +126,8 @@ OBJS    := $(OBJS) \
           config/oor_config_uci.o
 else
 OBJS    := $(OBJS) \
+          config/oor_api.o               \
+          config/oor_api_internals.o     \
           config/oor_config_confuse.o
 endif
 
@@ -136,6 +135,8 @@ ifeq "$(platform)" "vpp"
 OBJS    := $(OBJS) \
           control/control-data-plane/vpp/cdp_vpp.o           \
           data-plane/vpp/vpp.o              \
+          fwd_policies/vpp_balancing/fwd_entry_vpp.o         \
+          fwd_policies/vpp_balancing/vpp_balancing.o         \
           lib/vpp_api/vpp_api.o             \
           lib/vpp_api/vpp_api_reply.o       \
           lib/vpp_api/vpp_api_requests.o    \

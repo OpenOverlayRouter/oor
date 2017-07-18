@@ -153,7 +153,7 @@ mreq_flags_to_char(map_request_hdr_t *h)
 char *
 map_request_hdr_to_char(map_request_hdr_t *h)
 {
-    static char buf[100];
+    static char buf[120];
 
     if (!h) {
         return(NULL);

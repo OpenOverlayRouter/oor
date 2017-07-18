@@ -26,26 +26,26 @@
 #include <vppinfra/hash.h>
 
 
-#include <vpp-api/vpe_msg_enum.h>
+#include <vpp/api/vpe_msg_enum.h>
 
 #include "vpp_api_requests.h"
 
 /* define message structures */
 
 #define vl_typedefs
-#include <vpp-api/vpe_all_api_h.h>
+#include <vpp/api/vpe_all_api_h.h>
 #undef vl_typedefs
 
 /* declare message handlers for each api */
 
 #define vl_endianfun        /* define message structures */
-#include <vpp-api/vpe_all_api_h.h>
+#include <vpp/api/vpe_all_api_h.h>
 #undef vl_endianfun
 
 /* instantiate all the print functions we know about */
 #define vl_print(handle, ...)
 #define vl_printfun
-#include <vpp-api/vpe_all_api_h.h>
+#include <vpp/api/vpe_all_api_h.h>
 #undef vl_printfun
 
 #define vl_api_version(n,v) static u32 api_version=(v);
@@ -72,9 +72,9 @@ vpp_api_iface_free(vpp_api_iface_t *iface)
 #define foreach_standard_reply_retval_handler                   \
         _(sw_interface_set_flags_reply)                         \
         _(sw_interface_set_unnumbered_reply)                    \
-        _(lisp_gpe_enable_disable_reply)                        \
-        _(lisp_gpe_add_del_iface_reply)                         \
-        _(lisp_gpe_add_del_fwd_entry_reply)
+        _(gpe_enable_disable_reply)                             \
+        _(gpe_add_del_iface_reply)                         \
+        _(gpe_add_del_fwd_entry_reply)
 
 #define _(n)                                    \
         static void vl_api_##n##_t_handler (vl_api_##n##_t * mp)     \
@@ -105,9 +105,9 @@ foreach_standard_reply_retval_handler;
         _(IP_FIB_DETAILS, ip_fib_details)                                       \
         _(IP6_FIB_DETAILS, ip6_fib_details)                                     \
         _(AF_PACKET_CREATE_REPLY, af_packet_create_reply)                       \
-        _(LISP_GPE_ENABLE_DISABLE_REPLY, lisp_gpe_enable_disable_reply)         \
-        _(LISP_GPE_ADD_DEL_IFACE_REPLY, lisp_gpe_add_del_iface_reply)           \
-        _(LISP_GPE_ADD_DEL_FWD_ENTRY_REPLY, lisp_gpe_add_del_fwd_entry_reply)   \
+        _(GPE_ENABLE_DISABLE_REPLY, gpe_enable_disable_reply)                   \
+        _(GPE_ADD_DEL_IFACE_REPLY, gpe_add_del_iface_reply)           \
+        _(GPE_ADD_DEL_FWD_ENTRY_REPLY, gpe_add_del_fwd_entry_reply)   \
         _(SW_INTERFACE_GET_TABLE_REPLY, sw_interface_get_table_reply)
 
 

@@ -17,7 +17,7 @@
  */
 
 #include <arpa/inet.h>
-#include <vnet/ip/udp.h>
+#include <vnet/udp/udp.h>
 #include <vnet/vnet.h>
 #include <vnet/adj/adj_types.h>
 #include <vnet/devices/af_packet/af_packet.h>
@@ -54,6 +54,9 @@
 #include <oor_ctrl/oor_ctrl_all_api_h.h>
 #undef vl_api_version
 
+#define REPLY_MSG_ID_BASE sm->msg_id_base
+#include <vlibapi/api_helper_macros.h>
+
 
 
 static clib_error_t * oor_link_up_down_function (vnet_main_t * vm, u32 hw_if_index, u32 flags);
@@ -63,28 +66,6 @@ void oor_ip4_add_del_interface_address (ip4_main_t * im, uword opaque, u32 sw_if
 void oor_ip6_add_del_interface_address (ip6_main_t * im, uword opaque, u32 sw_if_index,
         ip6_address_t * address, u32 address_length, u32 if_address_index, u32 is_delete);
 
-/* 
- * A handy macro to set up a message reply.
- * Assumes that the following variables are available:
- * mp - pointer to request message
- * rmp - pointer to reply message type
- * rv - return value
- */
-
-#define REPLY_MACRO(t)                                          \
-        do {                                                            \
-            unix_shared_memory_queue_t * q =                            \
-            vl_api_client_index_to_input_queue (mp->client_index);      \
-            if (!q)                                                     \
-            return;                                                 \
-            \
-            rmp = vl_msg_api_alloc (sizeof (*rmp));                     \
-            rmp->_vl_msg_id = ntohs((t)+sm->msg_id_base);               \
-            rmp->context = mp->context;                                 \
-            rmp->retval = ntohl(rv);                                    \
-            \
-            vl_msg_api_send_shmem (q, (u8 *)&rmp);                      \
-        } while(0);
 
 
 /* List of message types that this plugin understands */
@@ -92,28 +73,15 @@ void oor_ip6_add_del_interface_address (ip6_main_t * im, uword opaque, u32 sw_if
 #define foreach_oor_ctrl_plugin_api_msg                           \
         _(OOR_CTRL_ENABLE_DISABLE, oor_ctrl_enable_disable)
 
-/* 
- * This routine exists to convince the vlib plugin framework that
- * we haven't accidentally copied a random .dll into the plugin directory.
- *
- * Also collects global variable pointers passed from the vpp engine
- */
 
-clib_error_t * 
-vlib_plugin_register (vlib_main_t * vm, vnet_plugin_handoff_t * h,
-        int from_early_init)
-{
-    oor_ctrl_main_t * sm = &oor_ctrl_main;
-    clib_error_t * error = 0;
 
-    memset (sm,0,sizeof(oor_ctrl_main_t));
-    sm->vlib_main = vm;
-    sm->vnet_main = h->vnet_main;
-    sm->ethernet_main = h->ethernet_main;
-    sm->sw_if_index = ~0;
+/* *INDENT-OFF* */
+VLIB_PLUGIN_REGISTER () = {
+    .version = OOR_CTRL_PLUGIN_BUILD_VER,
+    .description = "OOR Ctrl plugin",
+};
+/* *INDENT-ON* */
 
-    return error;
-}
 
 /* Action function shared between message handler and debug CLI */
 
@@ -136,9 +104,7 @@ int oor_ctrl_enable_disable (oor_ctrl_main_t * sm, u8 * host_if_name,
         }
         /* Set interface status to UP */
         flags = VNET_SW_INTERFACE_FLAG_ADMIN_UP;
-        if (vnet_sw_interface_set_flags (sm->vnet_main, sw_if_index, flags) != 0){
-            //goto error;
-        }
+        vnet_sw_interface_set_flags (sm->vnet_main, sw_if_index, flags);
         /* Set interface to unnumbered */
         si = vnet_get_sw_interface (sm->vnet_main, sw_if_index);
         si->flags |= VNET_SW_INTERFACE_FLAG_UNNUMBERED;
@@ -213,9 +179,8 @@ oor_ctrl_enable_disable_command_fn (vlib_main_t * vm,
 
 VLIB_CLI_COMMAND (oor_ctrl_enable_disable_command, static) = {
         .path = "oor_ctrl enable-disable",
-        .short_help =
-                "oor_ctrl enable-disable <interface-name> [disable]",
-                .function = oor_ctrl_enable_disable_command_fn,
+        .short_help ="oor_ctrl enable-disable <interface-name> [disable]",
+        .function = oor_ctrl_enable_disable_command_fn,
 };
 
 
@@ -254,6 +219,19 @@ oor_ctrl_plugin_api_hookup (vlib_main_t *vm)
     return 0;
 }
 
+#define vl_msg_name_crc_list
+#include <oor_ctrl/oor_ctrl_all_api_h.h>
+#undef vl_msg_name_crc_list
+
+static void
+setup_message_id_table (oor_ctrl_main_t * sm, api_main_t *am)
+{
+#define _(id,n,crc) \
+  vl_msg_api_add_msg_name_crc (am, #n "_" #crc, id + sm->msg_id_base);
+  foreach_vl_msg_name_crc_oor_ctrl;
+#undef _
+}
+
 static clib_error_t * oor_ctrl_init (vlib_main_t * vm)
 {
     oor_ctrl_main_t * sm = &oor_ctrl_main;
@@ -264,6 +242,9 @@ static clib_error_t * oor_ctrl_init (vlib_main_t * vm)
     ip6_main_t * im6 = &ip6_main;
     u8 * name;
 
+    sm->vnet_main = vnet_get_main ();
+    sm->sw_if_index = ~0;
+
     name = format (0, "oor_ctrl_%08x%c", api_version, 0);
 
     /* Ask for a correctly-sized block of API message decode slots */
@@ -271,6 +252,9 @@ static clib_error_t * oor_ctrl_init (vlib_main_t * vm)
             ((char *) name, VL_MSG_FIRST_AVAILABLE);
 
     error = oor_ctrl_plugin_api_hookup (vm);
+    /* Add our API messages to the global name_crc hash table */
+    setup_message_id_table (sm, &api_main);
+
     vec_free(name);
 
     udp_register_dst_port (vm, UDP_DST_PORT_lisp_cp,
@@ -367,6 +351,7 @@ oor_ip4_add_del_interface_address (ip4_main_t * im,
     vpp_nl_msg *vpp_msg_h;
     vpp_nl_addr_info *vpp_addr_info;
     int nbytes, error;
+    clib_warning("============>>>>> NEW ADDRESS");
     if (oor_ctrl_main.sw_if_index != ~0){
 
         void *zmq_context = zmq_ctx_new();

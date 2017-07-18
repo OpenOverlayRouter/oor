@@ -13,34 +13,47 @@
 
 AUTOMAKE_OPTIONS = foreign subdir-objects
 
-AM_CFLAGS = -Wall -I@TOOLKIT_INCLUDE@ -lzmq
+AM_CFLAGS = -Wall -I${top_srcdir} -I${top_builddir} -lzmq
+AM_LDFLAGS = -module -shared -avoid-version
+AM_LIBTOOLFLAGS = --quiet
+SUFFIXES = .api.h .api .api.json
+API_FILES =
+BUILT_SOURCES =
+vppplugins_LTLIBRARIES =
+vppapitestplugins_LTLIBRARIES =
+noinst_HEADERS =
+nobase_apiinclude_HEADERS =
+ACLOCAL_AMFLAGS = -I m4
 
-lib_LTLIBRARIES = oor_ctrl_plugin.la oor_ctrl_test_plugin.la
-oor_ctrl_plugin_la_SOURCES = oor_ctrl/oor_ctrl.c oor_ctrl/node.c \
-	oor_ctrl/oor_ctrl_plugin.api.h 
-oor_ctrl_plugin_la_LDFLAGS = -module
+vppapitestpluginsdir = ${libdir}/vpp_api_test_plugins
+vpppluginsdir = ${libdir}/vpp_plugins
 
-BUILT_SOURCES = oor_ctrl/oor_ctrl.api.h
-
-SUFFIXES = .api.h .api
+include oor_ctrl.am
 
 %.api.h: %.api
 	mkdir -p `dirname $@` ; \
 	$(CC) $(CPPFLAGS) -E -P -C -x c $^ \
 	| vppapigen --input - --output $@ --show-name $@
 
-nobase_include_HEADERS =			\
-  oor_ctrl/oor_ctrl_all_api_h.h			\
-  oor_ctrl/oor_ctrl_msg_enum.h			\
-  oor_ctrl/oor_ctrl.api.h
+%.api.json: %.api
+	@echo "  JSON APIGEN  " $@ ;                \
+	mkdir -p `dirname $@` ;                 \
+	$(CC) $(CPPFLAGS) -E -P -C -x c $^          \
+	| vppapigen --input - --json $@
 
-oor_ctrl_test_plugin_la_SOURCES = oor_ctrl/oor_ctrl_test.c oor_ctrl/oor_ctrl_plugin.api.h
-oor_ctrl_test_plugin_la_LDFLAGS = -module
+apidir = $(prefix)/api/plugins
+apiincludedir = ${includedir}/vpp_plugins
 
-if WITH_PLUGIN_TOOLKIT
+api_DATA = \
+	$(patsubst %.api,%.api.json,$(API_FILES))
+
+BUILT_SOURCES += \
+	$(patsubst %.api,%.api.h,$(API_FILES))
+
+
+# Remove *.la files
 install-data-hook:
-	mkdir /usr/lib/vpp_plugins || true
-	mkdir /usr/lib/vpp_api_test_plugins || true
-	cp -L $(prefix)/lib/oor_ctrl_plugin.so /usr/lib/vpp_plugins
-	cp -L $(prefix)/lib/oor_ctrl_test_plugin.so /usr/lib/vpp_api_test_plugins
-endif
+	@(cd $(vpppluginsdir) && $(RM) $(vppplugins_LTLIBRARIES))
+	@(cd $(vppapitestpluginsdir) && $(RM) $(vppapitestplugins_LTLIBRARIES))
+
+CLEANFILES = $(BUILT_SOURCES)

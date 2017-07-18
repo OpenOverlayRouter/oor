@@ -81,7 +81,11 @@ typedef struct fwd_policy_class {
 
 
 extern fwd_policy_class fwd_policy_flow_balancing;
+#ifdef VPP
 extern fwd_policy_class fwd_policy_vpp_balancing;
+#else
+fwd_policy_class fwd_policy_vpp_balancing;
+#endif
 
 fwd_policy_dev_parm *fwd_policy_dev_parm_new();
 void fwd_policy_dev_parm_del(fwd_policy_dev_parm *pol_dev);

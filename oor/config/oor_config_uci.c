@@ -422,7 +422,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
                 if (mapping == NULL){
                     OOR_LOG(LERR, "Can't add EID prefix %s. Discarded ...",
                             uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                    continue;
+                    return (BAD);
                 }
                 map_loc_e = map_local_entry_new_init(mapping);
                 if (map_loc_e == NULL){
@@ -452,7 +452,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
                 if (mapping == NULL){
                     OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                             uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                    continue;
+                    return (BAD);
                 }
                 if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
                     if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
@@ -734,7 +734,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't add EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                continue;
+                return (BAD);
             }
 
             map_loc_e = map_local_entry_new_init(mapping);
@@ -765,7 +765,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                continue;
+                return (BAD);
             }
             if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
                 if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
@@ -959,7 +959,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                continue;
+                return (BAD);
             }
             if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
                 if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
@@ -1150,7 +1150,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't create static register site for %s",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                continue;
+                return (BAD);
             }
             if (mdb_lookup_entry_exact(ms->reg_sites_db, mapping_eid(mapping)) == NULL){
                 if (ms_add_registered_site_prefix(ms, mapping) == GOOD){
@@ -1195,7 +1195,7 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     int uci_iid,iidmlen;
     glist_t *rloc_list;
     glist_entry_t *it;
-    lisp_xtr_t *xtr;
+    lisp_xtr_t *xtr = NULL;
 
     switch (dev->mode){
     case xTR_MODE:
