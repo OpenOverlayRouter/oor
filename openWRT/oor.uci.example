@@ -143,13 +143,22 @@ config 'proxy-itr'
 #        list     'address'              '2001:200:e000:17::172'         # apan-pxtr
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
-# You can define several Proxy-ETR. Traffic will be balanced according to priority and weight.
+# You can define several Proxy-ETR for IPv4 EIDs and for IPv6 EIDs. Traffic 
+# will be balanced according to the priority and weight.
 #   address: IPv4 or IPv6 address of the Proxy-ETR
 #   priority [0-255]: Proxy-ETR with lower values are more preferable.
 #   weight [0-255]: When priorities are the same for multiple Proxy-ETRs, the Weight indicates how to balance 
 #    unicast traffic between them.
-config 'proxy-etr'
-        option   'address'              'IPv4 or IPv6 address'
+
+# Proxy for IPv4 EIDs
+config 'proxy-etr-ipv4'
+        option   'address'              'IPv4 address'
+        option   'priority'             '1'
+        option   'weight'               '100'
+
+#Proxy for IPv6 EIDs
+config 'proxy-etr-ipv6'
+        option   'address'              'IPv4 address'
         option   'priority'             '1'
         option   'weight'               '100'
         

@@ -35,7 +35,7 @@ define Package/oor
   CATEGORY:=Network
   TITLE:=Open Overlay Router
   URL:=https://github.com/OpenOverlayRouter
-  DEPENDS:= +librt +confuse +kmod-tun +uci +libzmq-nc +libxml2 @IPV6
+  DEPENDS:= +librt +confuse +kmod-tun +uci @IPV6
   $(call Package/oor/default)
 endef
 

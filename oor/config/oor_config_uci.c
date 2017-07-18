@@ -222,11 +222,23 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
      * their names could appear in the rloc field of database mappings
      * or static map cache entries  */
     lcaf_ht = parse_lcafs(ctx,pck);
+    if (!lcaf_ht){
+        return (BAD);
+    }
 
     /* CREATE RLOCs sets HTABLE */
     no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
     rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
+    if (!rlocs_ht){
+        glist_destroy(no_addr_loct_list);
+        return (BAD);
+    }
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    if (!rloc_set_ht){
+        glist_destroy(no_addr_loct_list);
+        shash_destroy(rloc_set_ht);
+        return (BAD);
+    }
 
     uci_foreach_element(&pck->sections, element) {
         sect = uci_to_section(element);
@@ -537,11 +549,23 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
      * their names could appear in the rloc field of database mappings
      * or static map cache entries  */
     lcaf_ht = parse_lcafs(ctx,pck);
+    if (!lcaf_ht){
+        return (BAD);
+    }
 
     /* CREATE RLOCs sets HTABLE */
     no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
     rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
+    if (!rlocs_ht){
+        glist_destroy(no_addr_loct_list);
+        return (BAD);
+    }
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    if (!rloc_set_ht){
+        glist_destroy(no_addr_loct_list);
+        shash_destroy(rloc_set_ht);
+        return (BAD);
+    }
 
     uci_foreach_element(&pck->sections, element) {
         sect = uci_to_section(element);
@@ -849,11 +873,23 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
      * their names could appear in the rloc field of database mappings
      * or static map cache entries  */
     lcaf_ht = parse_lcafs(ctx,pck);
+    if (!lcaf_ht){
+        return (BAD);
+    }
 
     /* CREATE RLOCs sets HTABLE */
     no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
     rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
+    if (!rlocs_ht){
+        glist_destroy(no_addr_loct_list);
+        return (BAD);
+    }
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    if (!rloc_set_ht){
+        glist_destroy(no_addr_loct_list);
+        shash_destroy(rloc_set_ht);
+        return (BAD);
+    }
 
     uci_foreach_element(&pck->sections, element) {
         sect = uci_to_section(element);
@@ -1057,11 +1093,23 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
 
     /* create lcaf hash table */
     lcaf_ht = parse_lcafs(ctx,pck);
+    if (!lcaf_ht){
+        return (BAD);
+    }
 
     /* CREATE RLOCs sets HTABLE */
     no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
     rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
+    if (!rlocs_ht){
+        glist_destroy(no_addr_loct_list);
+        return (BAD);
+    }
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    if (!rloc_set_ht){
+        glist_destroy(no_addr_loct_list);
+        shash_destroy(rloc_set_ht);
+        return (BAD);
+    }
 
     uci_foreach_element(&pck->sections, element) {
         sect = uci_to_section(element);
@@ -1311,24 +1359,32 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
         if (strcmp(section->type, "rloc-address") == 0){
             uci_rloc_name = (char *)uci_lookup_option_string(ctx, section, "name");
+            if (uci_rloc_name == NULL){
+                OOR_LOG(LERR,"Configuration file: An rloc-address should have a name");
+                goto error;
+            }
             uci_address = (char *)uci_lookup_option_string(ctx, section, "address");
+            if (uci_address == NULL){
+                OOR_LOG(LERR,"Configuration file: No address assigned to the rloc \"%s\"",uci_rloc_name);
+                goto error;
+            }
             if (uci_lookup_option_string(ctx, section, "priority") == NULL){
                 OOR_LOG(LERR,"Configuration file: No priority assigned to the rloc \"%s\"",uci_rloc_name);
-                return (BAD);
+                goto error;
             }
             uci_priority = strtol(uci_lookup_option_string(ctx, section, "priority"),NULL,10);
             if (uci_lookup_option_string(ctx, section, "weight") == NULL){
                 OOR_LOG(LERR,"Configuration file: No weight assigned to the rloc \"%s\"",uci_rloc_name);
-                return (BAD);
+                goto error;
             }
             uci_weight = strtol(uci_lookup_option_string(ctx, section, "weight"),NULL,10);
 
             if (validate_priority_weight(uci_priority, uci_weight) != GOOD) {
-                continue;
+                goto error;
             }
             if (shash_lookup(rlocs_ht,uci_rloc_name) != NULL){
-                OOR_LOG(LDBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
-                continue;
+                OOR_LOG(LDBG_1,"Configuration file: The RLOC %s is duplicated.", uci_rloc_name);
+                goto error;
             }
             addr_list = parse_lisp_addr(uci_address, lcaf_ht);
             if (addr_list == NULL || glist_size(addr_list) == 0){
@@ -1343,7 +1399,7 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
             if (lisp_addr_lafi(address) == LM_AFI_IPPREF){
                 OOR_LOG(LERR, "Configuration file: RLOC address can not be a prefix: %s ",
                         lisp_addr_to_char(address));
-                continue;
+                goto error;
             }
 
             /* Create a basic locator. Locaor or remote information will be added later according
@@ -1357,42 +1413,50 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
 
         if (strcmp(section->type, "rloc-iface") == 0){
             uci_rloc_name = (char *)uci_lookup_option_string(ctx, section, "name");
+            if (uci_rloc_name == NULL){
+                OOR_LOG(LERR,"Configuration file: An rloc-iface should have a name");
+                goto error;
+            }
             uci_iface_name = (char *)uci_lookup_option_string(ctx, section, "interface");
+            if (uci_iface_name == NULL){
+                OOR_LOG(LERR,"Configuration file: An rloc-iface should have an interface selected");
+                goto error;
+            }
             if (uci_lookup_option_string(ctx, section, "ip_version") == NULL){
                 OOR_LOG(LERR,"Configuration file: No afi assigned to the rloc \"%s\"",uci_rloc_name);
-                return (BAD);
+                goto error;
             }
             uci_afi = strtol(uci_lookup_option_string(ctx, section, "ip_version"),NULL,10);
             if (uci_lookup_option_string(ctx, section, "priority") == NULL){
                 OOR_LOG(LERR,"Configuration file: No priority assigned to the rloc \"%s\"",uci_rloc_name);
-                return (BAD);
+                goto error;
             }
             uci_priority = strtol(uci_lookup_option_string(ctx, section, "priority"),NULL,10);
             if (uci_lookup_option_string(ctx, section, "weight") == NULL){
                 OOR_LOG(LERR,"Configuration file: No weight assigned to the rloc \"%s\"",uci_rloc_name);
-                return (BAD);
+                goto error;
             }
             uci_weight = strtol(uci_lookup_option_string(ctx, section, "weight"),NULL,10);
 
             if (validate_priority_weight(uci_priority, uci_weight) != GOOD) {
-                continue;
+                goto error;
             }
 
             if (uci_afi != 4 && uci_afi !=6){
                 OOR_LOG(LERR, "Configuration file: The afi of the locator should be \"4\" (IPv4)"
                         " or \"6\" (IPv6)");
-                return (NULL);
+                goto error;
             }
 
             if (shash_lookup(rlocs_ht,uci_rloc_name) != NULL){
-                OOR_LOG(LDBG_1,"Configuration file: The RLOC %s is duplicated. Discarding ...", uci_rloc_name);
-                continue;
+                OOR_LOG(LDBG_1,"Configuration file: The RLOC %s is duplicated.", uci_rloc_name);
+                goto error;
             }
 
             /* Find the interface */
             if (!(iface = get_interface(uci_iface_name))) {
                 if (!(iface = add_interface(uci_iface_name))) {
-                    return (BAD);
+                    goto error;
                 }
             }
 
@@ -1423,6 +1487,10 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
     }
 
     return (rlocs_ht);
+
+error:
+    shash_destroy(rlocs_ht);
+    return (NULL);
 }
 
 static shash_t *
@@ -1447,7 +1515,8 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
         if (strcmp(section->type, "rloc-set") == 0){
             uci_rloc_set_name = (char *)uci_lookup_option_string(ctx, section, "name");
             if (uci_rloc_set_name == NULL){
-                continue;
+                OOR_LOG(LERR,"Configuration file: An rloc-set should have a name");
+                goto error;
             }
             rloc_list = (glist_t*)shash_lookup(rloc_sets_ht,uci_rloc_set_name);
             if (rloc_list == NULL){
@@ -1459,9 +1528,9 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
                     continue;
                 }
             }else{
-                OOR_LOG(LWRN, "Configuration file: The RLOC set %s is duplicated. Discarding... ",
+                OOR_LOG(LERR, "Configuration file: The RLOC set %s is duplicated.",
                         uci_rloc_set_name);
-                continue;
+                goto error;
             }
             opt  = uci_lookup_option(ctx, section, "rloc_name");
             if (opt != NULL){
@@ -1470,7 +1539,7 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
                     if (loct == NULL){
                         OOR_LOG(LWRN,"Configuration file: The RLOC name %s of the RLOC set %s doesn't exist",
                                 element_loct->name, uci_rloc_set_name);
-                        continue;
+                        goto error;
                     }
 
                     if (glist_add_tail(loct,rloc_list)!=GOOD){
@@ -1480,12 +1549,17 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
             }else{
                 OOR_LOG(LWRN, "Configuration file: The RLOC set %s has no rlocs "
                         "associated.",uci_rloc_set_name);
+                goto error;
             }
 
         }
     }
 
     return (rloc_sets_ht);
+
+error:
+    shash_destroy(rloc_sets_ht);
+    return (NULL);
 }
 
 static shash_t *
@@ -1502,7 +1576,10 @@ parse_lcafs(struct uci_context *ctx, struct uci_package *pck)
         section = uci_to_section(element);
 
         if (strcmp(section->type, "elp-node") == 0){
-            parse_elp_node(ctx,section,lcaf_ht);
+            if (parse_elp_node(ctx,section,lcaf_ht)!=GOOD){
+                shash_destroy(lcaf_ht);
+                return (NULL);
+            }
         }
     }
 
@@ -1521,6 +1598,10 @@ parse_elp_node(struct uci_context *ctx, struct uci_section *section, shash_t *ht
     elp_node_t *elp_node;
 
     uci_elp_name = (char *)uci_lookup_option_string(ctx, section, "elp_name");
+    if (uci_elp_name == NULL){
+        OOR_LOG(LERR,"Configuration file: An ELP should have a name");
+        return (BAD);
+    }
     laddr = (lisp_addr_t *)shash_lookup(ht, uci_elp_name);
 
     if (laddr == NULL){
@@ -1543,10 +1624,14 @@ parse_elp_node(struct uci_context *ctx, struct uci_section *section, shash_t *ht
     elp_node->addr = lisp_addr_new();
 
     uci_address = (char *)uci_lookup_option_string(ctx, section, "address");
+    if (uci_address == NULL){
+        OOR_LOG(LERR,"Configuration file: An ELP node should have an address assigned");
+        return (BAD);
+    }
 
     if (lisp_addr_ip_from_char(uci_address, elp_node->addr) != GOOD) {
         elp_node_del(elp_node);
-        OOR_LOG(LDBG_1, "parse_elp_list: Couldn't parse ELP node %s",
+        OOR_LOG(LERR, "Configuration file: Couldn't parse ELP node %s",
                 uci_address);
         return (BAD);
     }

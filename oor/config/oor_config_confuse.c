@@ -74,7 +74,7 @@ parse_elp_list(cfg_t *cfg, shash_t *ht)
             if (lisp_addr_ip_from_char(cfg_getstr(senode, "address"),
                     enode->addr) != GOOD) {
                 elp_node_del(enode);
-                OOR_LOG(LDBG_1, "parse_elp_list: Couldn't parse ELP node %s",
+                OOR_LOG(LWRN, "Configuration file: Couldn't parse ELP node %s",
                         cfg_getstr(senode, "address"));
                 continue;
             }
