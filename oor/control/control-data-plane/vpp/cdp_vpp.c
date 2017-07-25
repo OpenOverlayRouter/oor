@@ -119,17 +119,13 @@ vpp_control_dp_uninit (oor_ctrl_t *ctrl)
 {
     vpp_ctr_dplane_data_t *data = (vpp_ctr_dplane_data_t *)control_dp_vpp.control_dp_data;
 
-    /* Disable oor control node in VPP */
-    if (vpp_oor_ctrl_enable_disable(TAP_CTRL_IFACE_NAME, FALSE)!= GOOD){
-        OOR_LOG(LERR,"VPP: Could not disable oor ctrl plugin.");
-    }else{
-        OOR_LOG(LDBG_1,"VPP: Disable OOR Ctrl plugin");
-    }
-
     if (data){
+        if (vpp_oor_ctrl_enable_disable(TAP_CTRL_IFACE_NAME, FALSE)!= GOOD){
+            OOR_LOG(LERR,"VPP: Could not disable oor ctrl plugin.");
+        }else{
+            OOR_LOG(LDBG_1,"VPP: Disable OOR Ctrl plugin");
+        }
         free(data);
-        /* Disable oor pkt miss node in VPP */
-       // vpp_oor_ctrl_enable_disable(TAP_CTRL_IFACE_NAME, FALSE);
     }
 }
 

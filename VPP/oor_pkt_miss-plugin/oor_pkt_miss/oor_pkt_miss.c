@@ -846,7 +846,6 @@ oor_pkt_miss_enable_disable_src_route_check(int is_enable)
     fib_index6 = ip6_fib_index_from_table_id(0);
 
     if (!is_enable){
-        clib_warning("====================>>>>>> ENABLE");
         fib_table_entry_special_add (fib_index4,
                 &pfx4,
                 FIB_SOURCE_URPF_EXEMPT,
@@ -857,7 +856,6 @@ oor_pkt_miss_enable_disable_src_route_check(int is_enable)
                 FIB_ENTRY_FLAG_DROP);
     }
     else{
-        clib_warning("====================>>>>>> DISBALE");
         fib_table_entry_special_remove (fib_index4,
                 &pfx4, FIB_SOURCE_URPF_EXEMPT);
         fib_table_entry_special_remove (fib_index6,
