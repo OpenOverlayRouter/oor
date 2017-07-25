@@ -97,7 +97,7 @@ vpp_control_dp_init(oor_ctrl_t *ctrl,...)
     }
     /* Enable oor control node in VPP */
     if (vpp_oor_ctrl_enable_disable(TAP_CTRL_IFACE_NAME, TRUE)!= GOOD){
-        OOR_LOG(LERR,"VPP: Could not initiate oor ctrl plugin. Check /var/log/syslog for more details");
+        OOR_LOG(LERR,"VPP: Could not initiate oor ctrl plugin.");
         return (BAD);
     }
     OOR_LOG(LDBG_1,"VPP: Enabled OOR Ctrl plugin");
@@ -121,7 +121,7 @@ vpp_control_dp_uninit (oor_ctrl_t *ctrl)
 
     /* Disable oor control node in VPP */
     if (vpp_oor_ctrl_enable_disable(TAP_CTRL_IFACE_NAME, FALSE)!= GOOD){
-        OOR_LOG(LERR,"VPP: Could not disable oor ctrl plugin. Check /var/log/syslog for more details");
+        OOR_LOG(LERR,"VPP: Could not disable oor ctrl plugin.");
     }else{
         OOR_LOG(LDBG_1,"VPP: Disable OOR Ctrl plugin");
     }

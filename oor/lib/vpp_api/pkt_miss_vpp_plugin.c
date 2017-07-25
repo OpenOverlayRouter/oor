@@ -175,7 +175,7 @@ vpp_oor_pkt_miss_native_route (lisp_addr_t *prefix, uint8_t is_add)
                 is_add == ADD ? "add" : "rm",lisp_addr_to_char(prefix));
         return (BAD);
     }
-    OOR_LOG(LDBG_3,"VPP %s native route for prefix %s",
+    OOR_LOG(LDBG_2,"VPP %s native route for prefix %s",
             is_add == ADD ? "add" : "rm",lisp_addr_to_char(prefix));
     return (GOOD);
 }
@@ -283,7 +283,6 @@ pkt_miss_plugin_register (vpp_api_main_t * vam)
                 vl_api_oor_pkt_miss_get_default_route_reply_t_print,                \
                 sizeof(vl_api_oor_pkt_miss_get_default_route_reply_t), 1);
     }
-
 
     return 0;
 }

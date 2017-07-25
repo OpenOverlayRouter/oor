@@ -704,11 +704,6 @@ pt_add_mc_addr(patricia_tree_t *strie, lcaf_addr_t *mcaddr, void *data)
         return(BAD);
     }
 
-    patricia_node_t *tnode;
-    PATRICIA_WALK(((patricia_tree_t *)snode->data)->head, tnode) {
-        printf("1");
-    } PATRICIA_WALK_END;
-
     return(GOOD);
 }
 

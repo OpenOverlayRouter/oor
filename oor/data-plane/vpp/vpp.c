@@ -208,6 +208,10 @@ vpp_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map)
     vpp_dplane_data_t *data = (vpp_dplane_data_t *)dplane_vpp.datap_data;
     glist_t *iid_eids_lst;
 
+    if (!data){
+        return (GOOD);
+    }
+
     vpp_reset_all_fwd();
 
     if (lisp_addr_is_iid(eid_addr)){

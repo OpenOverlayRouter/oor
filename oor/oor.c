@@ -186,7 +186,7 @@ check_capabilities()
         return BAD;
     }
 
-    OOR_LOG(LWRN, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
+    OOR_LOG(LDBG_1, "Rights: Effective [%u] Permitted  [%u]", cap_data.effective, cap_data.permitted);
 
     /* check for capabilities */
     if(  (cap_data.effective & CAP_TO_MASK(CAP_NET_ADMIN)) && (cap_data.effective & CAP_TO_MASK(CAP_NET_RAW))  )  {

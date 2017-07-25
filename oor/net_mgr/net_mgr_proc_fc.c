@@ -42,8 +42,8 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
     }
 
     if (act == RM){
-        OOR_LOG(LDBG_2,"nm_process_address_change: Address %s removed from interface %d",
-                   iface->iface_name,lisp_addr_to_char(new_addr));
+        OOR_LOG(LDBG_2,"nm_process_address_change: Address %s removed from interface %s",
+                lisp_addr_to_char(new_addr),iface->iface_name);
         return;
     }
 
