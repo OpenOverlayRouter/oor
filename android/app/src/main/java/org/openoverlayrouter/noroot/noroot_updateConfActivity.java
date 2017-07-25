@@ -124,12 +124,12 @@ public class noroot_updateConfActivity extends Fragment {
             }
         });
 
-        CheckBox updateCondDNSCheck = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
-        updateCondDNSCheck.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View view) {
-                updateConfDNSClicked(llLayout);
-            }
-        });
+//        CheckBox updateCondDNSCheck = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
+//        updateCondDNSCheck.setOnClickListener(new View.OnClickListener() {
+//            public void onClick(View view) {
+//                updateConfDNSClicked(llLayout);
+//            }
+//        });
 
         return llLayout;
 
@@ -300,37 +300,37 @@ public class noroot_updateConfActivity extends Fragment {
                     EditText e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
                     e.setText(proxyETR);
 
-                } else if (line.contains("override-dns=")) {
-                    String[] tmp = line.split("=");
-                    if (tmp.length > 1) {
-                        String overrideDNS_aux = tmp[1];
-                        if (overrideDNS_aux.equals("on") || overrideDNS_aux.equals("true")) {
-                            overrideDNS = true;
-                        } else {
-                            overrideDNS = false;
-                        }
-                    }
-
-                    CheckBox c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
-                    c.setChecked(overrideDNS);
-                } else if (line.contains("override-dns-primary=")) {
-                    String[] tmp = line.split("=");
-                    if (tmp.length > 1) {
-                        if (noroot_ConfigTools.validate_IP_Address(tmp[1])) {
-                            DNS1 = tmp[1];
-                        }
-                    }
-                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-                    e.setText(DNS1);
-                } else if (line.contains("override-dns-secondary=")) {
-                    String[] tmp = line.split("=");
-                    if (tmp.length > 1) {
-                        if (noroot_ConfigTools.validate_IP_Address(tmp[1])) {
-                            DNS2 = tmp[1];
-                        }
-                    }
-                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-                    e.setText(DNS2);
+    //                } else if (line.contains("override-dns=")) {
+    //                    String[] tmp = line.split("=");
+    //                    if (tmp.length > 1) {
+    //                        String overrideDNS_aux = tmp[1];
+    //                        if (overrideDNS_aux.equals("on") || overrideDNS_aux.equals("true")) {
+    //                            overrideDNS = true;
+    //                        } else {
+    //                            overrideDNS = false;
+    //                        }
+    //                    }
+    //
+    //                    CheckBox c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
+    //                    c.setChecked(overrideDNS);
+    //                } else if (line.contains("override-dns-primary=")) {
+    //                    String[] tmp = line.split("=");
+    //                    if (tmp.length > 1) {
+    //                        if (noroot_ConfigTools.validate_IP_Address(tmp[1])) {
+    //                            DNS1 = tmp[1];
+    //                        }
+    //                    }
+    //                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+    //                    e.setText(DNS1);
+    //                } else if (line.contains("override-dns-secondary=")) {
+    //                    String[] tmp = line.split("=");
+    //                    if (tmp.length > 1) {
+    //                        if (noroot_ConfigTools.validate_IP_Address(tmp[1])) {
+    //                            DNS2 = tmp[1];
+    //                        }
+    //                    }
+    //                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+    //                    e.setText(DNS2);
                 } else if (line.contains("debug=")) {
                     String[] tmp = line.split("=");
                     if (tmp.length > 1) {
@@ -345,11 +345,11 @@ public class noroot_updateConfActivity extends Fragment {
             MultiSelectionSpinner spinner = (MultiSelectionSpinner) llLayout.findViewById(R.id.IfaceNameSpinner);
             spinner.setSelection(ifaces);
 
-            EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-            e.setEnabled(overrideDNS);
-            e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-            e.setEnabled(overrideDNS);
-            e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
+//            EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+//            e.setEnabled(overrideDNS);
+//            e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+//            e.setEnabled(overrideDNS);
+            EditText e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
             e.setEnabled(!nat_aware);
             e = (EditText) llLayout.findViewById(R.id.updateConfMRText);
             e.setEnabled(!nat_aware);
@@ -613,14 +613,14 @@ public class noroot_updateConfActivity extends Fragment {
         e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
         pETR = e.getText().toString();
 
-        c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
-        overrideDNS_bool = c.isChecked();
-
-        e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-        DNS_1 = e.getText().toString();
-
-        e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-        DNS_2 = e.getText().toString();
+//        c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
+//        overrideDNS_bool = c.isChecked();
+//
+//        e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+//        DNS_1 = e.getText().toString();
+//
+//        e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+//        DNS_2 = e.getText().toString();
 
         multi_spinner = (MultiSelectionSpinner) llLayout.findViewById(R.id.IfaceNameSpinner);
         ifaces = multi_spinner.getSelectedStrings();
@@ -646,12 +646,12 @@ public class noroot_updateConfActivity extends Fragment {
         if (!noroot_ConfigTools.validate_IP_Address(mapServer)) {
             error = error.concat("  - Map-Server\n");
         }
-        if (overrideDNS_bool && (DNS_1.equals("") || !noroot_ConfigTools.validate_IP_Address(DNS_1))) {
-            error = error.concat("  - Primary DNS\n");
-        }
-        if ((overrideDNS_bool && !DNS_2.equals("") && !noroot_ConfigTools.validate_IP_Address(DNS_2))) {
-            error = error.concat("  - Secondary DNS\n");
-        }
+//        if (overrideDNS_bool && (DNS_1.equals("") || !noroot_ConfigTools.validate_IP_Address(DNS_1))) {
+//            error = error.concat("  - Primary DNS\n");
+//        }
+//        if ((overrideDNS_bool && !DNS_2.equals("") && !noroot_ConfigTools.validate_IP_Address(DNS_2))) {
+//            error = error.concat("  - Secondary DNS\n");
+//        }
         if (nat_aware_bool == true && !eidv4.equals("") && !eidv6.equals("")) {
             error = error.concat("  - Only one EID is supported\n");
         }
@@ -693,23 +693,23 @@ public class noroot_updateConfActivity extends Fragment {
     }
 
     public void updateConfDNSClicked(View v) {
-        CheckBox updateCondDNSCheck = (CheckBox) v.findViewById(R.id.updateConfDNSCheck);
-        if (updateCondDNSCheck.isChecked()) {
-            overrideDNS = true;
-
-            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
-            e.setEnabled(true);
-
-            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
-            e.setEnabled(true);
-        } else {
-            overrideDNS = false;
-            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
-            e.setEnabled(false);
-
-            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
-            e.setEnabled(false);
-        }
+//        CheckBox updateCondDNSCheck = (CheckBox) v.findViewById(R.id.updateConfDNSCheck);
+//        if (updateCondDNSCheck.isChecked()) {
+//            overrideDNS = true;
+//
+//            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
+//            e.setEnabled(true);
+//
+//            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
+//            e.setEnabled(true);
+//        } else {
+//            overrideDNS = false;
+//            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
+//            e.setEnabled(false);
+//
+//            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
+//            e.setEnabled(false);
+//        }
     }
 
 
@@ -759,10 +759,10 @@ public class noroot_updateConfActivity extends Fragment {
         aux.setFocusFraction(0.9f);
         aux = (MaterialEditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
         aux.setFocusFraction(0.9f);
-        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-        aux.setFocusFraction(0.9f);
-        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-        aux.setFocusFraction(0.9f);
+//        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+//        aux.setFocusFraction(0.9f);
+//        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+//        aux.setFocusFraction(0.9f);
 
 
     }
