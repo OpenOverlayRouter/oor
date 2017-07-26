@@ -29,6 +29,7 @@
 
 static int mc_entry_expiration_timer_cb(oor_timer_t *t);
 static void mc_entry_start_expiration_timer(lisp_xtr_t *, mcache_entry_t *);
+static void mc_entry_start_expiration_timer2(lisp_xtr_t *xtr, mcache_entry_t *mce, int time);
 static int handle_locator_probe_reply(lisp_xtr_t *, mcache_entry_t *, lisp_addr_t *);
 static int update_mcache_entry(lisp_xtr_t *, mapping_t *);
 static int tr_recv_map_reply(lisp_xtr_t *, lbuf_t *, uconn_t *);
@@ -131,6 +132,13 @@ mc_entry_expiration_timer_cb(oor_timer_t *timer)
 static void
 mc_entry_start_expiration_timer(lisp_xtr_t *xtr, mcache_entry_t *mce)
 {
+    int time = mapping_ttl(mcache_entry_mapping(mce))*60;
+    mc_entry_start_expiration_timer2(xtr, mce, time);
+}
+
+static void
+mc_entry_start_expiration_timer2(lisp_xtr_t *xtr, mcache_entry_t *mce, int time)
+{
     /* Expiration cache timer */
     oor_timer_t *timer;
 
@@ -138,11 +146,15 @@ mc_entry_start_expiration_timer(lisp_xtr_t *xtr, mcache_entry_t *mce)
     oor_timer_init(timer,xtr,mc_entry_expiration_timer_cb,mce,NULL,NULL);
     htable_ptrs_timers_add(ptrs_to_timers_ht, mce, timer);
 
-    oor_timer_start(timer, mapping_ttl(mcache_entry_mapping(mce))*60);
+    oor_timer_start(timer, time);
 
-    OOR_LOG(LDBG_1,"The map cache entry of EID %s will expire in %d minutes.",
-            lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))),
-            mapping_ttl(mcache_entry_mapping(mce)));
+    if (time > 60){
+        OOR_LOG(LDBG_1,"The map cache entry of EID %s will expire in %d minutes.",
+                lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))),time/60);
+    }else{
+        OOR_LOG(LDBG_1,"The map cache entry of EID %s will expire in %d seconds.",
+                lisp_addr_to_char(mapping_eid(mcache_entry_mapping(mce))),time);
+    }
 }
 
 /* Process a record from map-reply probe message */
@@ -830,6 +842,7 @@ handle_map_cache_miss(lisp_xtr_t *xtr, lisp_addr_t *requested_eid,
     mapping_t *m = NULL;
     oor_timer_t *timer;
     timer_map_req_argument *timer_arg;
+    int ret;
 
     /* Install temporary, NOT active, mapping in map_cache */
     m = mapping_new_init(requested_eid);
@@ -854,7 +867,14 @@ handle_map_cache_miss(lisp_xtr_t *xtr, lisp_addr_t *requested_eid,
             timer_arg,(oor_timer_del_cb_arg_fn)timer_map_req_arg_free);
     htable_ptrs_timers_add(ptrs_to_timers_ht,mce,timer);
 
-    return(send_map_request_retry_cb(timer));
+    ret = send_map_request_retry_cb(timer);
+    if (ret == BAD){
+        // We mantain the entry in the cache with a small expiration time
+        // During this expiration time the data plane will not interrupt the control plane
+        mc_entry_start_expiration_timer2(xtr, mce, 10);
+    }
+
+    return(ret);
 }
 
 static glist_t *
@@ -1157,7 +1177,7 @@ send_map_request_retry_cb(oor_timer_t *timer)
         /* When removing mce, all timers associated to it are canceled */
         tr_mcache_remove_entry(xtr,timer_arg->mce);
 
-        return (BAD);
+        return (ERR_NO_REPLY);
     }
 }
 
