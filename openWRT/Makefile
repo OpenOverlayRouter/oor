@@ -8,9 +8,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=oor
-PKG_REV:=eaf934785d547b90f2f1c99b4d6f7d766ca82856
-PKG_VERSION:=1.1.1
-PKG_RELEASE:=3
+PKG_REV:=a42271e1745164fbfaf7b44bea5cf93d9c2344f9
+PKG_VERSION:=1.2.0
+PKG_RELEASE:=4
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=git://github.com/OpenOverlayRouter/oor.git
