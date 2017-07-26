@@ -30,9 +30,15 @@ an xTR, MS/MR, RTR or LISP-MN.
 
 Nowadays, OOR runs on desktop Linux, OpenWRT home routers and Android 
 devices. The current reference platform for OOR development is Ubuntu 
-Server 14.04.3 LTS (Trusty Tahr), OpenWRT 15.05 (Chaos Calmer) and 
-Android 4.3 (Jelly Bean). OpenOverlayRouter is a rename of the LISPmob.org 
-project.
+Server 14.04.5 LTS (Trusty Tahr), OpenWRT 15.05 (Chaos Calmer) and 
+Android 4.3 (Jelly Bean).
+
+OOR can work together with the Vector Packet Processing (VPP) technology to 
+obtain an xTR capable to reach bandwith close to the 10 GBps. To use VPP as 
+the OOR dataplane, refears to the README.vpp.md.
+
+OpenOverlayRouter is a rename of the LISPmob.org project.
+
 
 Network Prerequisites
 ---------------------
@@ -139,7 +145,7 @@ reboot your system after adding these lines.
     net.ipv4.conf.default.rp_filter=0
     net.ipv4.conf.all.rp_filter=0
     net.ipv4.ip_forward=1
-    net.ipv6.conf.all.forwarding=1   
+    net.ipv6.conf.all.forwarding=1
 
 The user space daemon can be started by a non privileged user with the appropriate 
 permissions (particularly CAP_NET_ADMIN and CAP_NET_RAW). Such user can run the 
@@ -171,6 +177,7 @@ This is the list of supported features at this moment
     - Explicit Locator Path (ELPs)
     - Instance ID / VNI support
     - NETCONF/YANG configurable
+    - VPP support (only for IPv4 RLOCs)
 
 * RTR
 
@@ -280,6 +287,8 @@ with IPv4, expect a similar output with IPv6:
     32766:  from all lookup main 
     32767:  from all lookup default
 
+This output is only valid when OOR is not compiled to work with VPP.
+
 RTR mode
 --------
 
@@ -350,6 +359,14 @@ Android
 Open Overlay Router includes support for Android devices operating as LISP-MN. 
 Please see the README.android.md file to get details on Open Overlay Router 
 for Android installation, compilation and usage. 
+
+VPP
+---
+
+Open Overlay Router has adopted VPP as a new data plane that can be used to 
+encapsulate and decapsulate LISP traffic in a high performance rate.
+Please see the README.vpp.md file to get details on how to configure OOR and 
+VPP to work together. 
 
 NAT traversal
 -------------
