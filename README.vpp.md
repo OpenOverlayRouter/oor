@@ -1,12 +1,12 @@
-VPP
----
+FD.IO - VPP
+-----------
 
 VPP is the open source version of Cisco's Vector Packet Processing (VPP) technology: 
 a high performance, packet-processing stack that can run on commodity CPUs. 
 
-Open Overlay Router has adopted VPP as an alternative data plane to kernel networking 
-stack that can be used to encapsulate and decapsulate LISP traffic in a high performance 
-rate close to 10 Gbps.
+Open Overlay Router has adopted VPP from the FD.io project as an alternative data plane 
+to kernel networking stack that can be used to encapsulate and decapsulate LISP traffic 
+in a high performance rate of to 10 Gbps.
 
 The current integration of OOR with VPP is only supported for linux devices with network 
 cards with DPDK support. It is limited to OOR configured as an xTR using only IPv4 RLOCs 
