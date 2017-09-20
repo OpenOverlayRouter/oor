@@ -1713,7 +1713,7 @@ rloc_probing_cb(oor_timer_t *timer)
                 /* It is a PeTR RLOC */
                 mce = get_proxy_etrs_for_afi(xtr,lisp_addr_ip_afi(mapping_eid(map)));
                 if ( rparg->mce != mce ){
-                    OOR_LOG(LERR,"rloc_probing: No map cache entry for EID %s. It should never happend",
+                    OOR_LOG(LERR,"rloc_probing: No map cache entry for EID %s. It should never happened",
                             lisp_addr_to_char(mapping_eid(map)));
                     return (BAD);
                 }
