@@ -694,13 +694,15 @@ configure_mn(cfg_t *cfg)
 int
 configure_ms(cfg_t *cfg)
 {
-    char *iface_name;
+    char *iface_name, *rtr_id, *def_rtr_set;
     iface_t *iface=NULL;
     lisp_site_prefix_t *site;
     shash_t *lcaf_ht;
-    int i;
+    int i,j,n, res;
     lisp_ms_t *ms;
     mapping_t *mapping;
+    glist_t *rtr_id_list;
+
 
     /* create and configure xtr */
     if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
@@ -792,6 +794,45 @@ configure_ms(cfg_t *cfg)
                     cfg_getstr(mss, "eid-prefix"));
             mapping_del(mapping);
             continue;
+        }
+    }
+
+    /* NAT RTR configuration of the MS */
+    for (i = 0; i< cfg_size(cfg, "ms-rtr-node"); i++ ) {
+        cfg_t *rtr_cfg = cfg_getnsec(cfg, "ms-rtr-node", i);
+        res = ms_add_rtr_node(ms,
+                cfg_getstr(rtr_cfg, "name"),
+                cfg_getstr(rtr_cfg, "address"),
+                cfg_getstr(rtr_cfg, "key"));
+        if (res != GOOD){
+            return(BAD);
+        }
+    }
+
+    for (i = 0; i< cfg_size(cfg, "ms-rtrs-set"); i++ ) {
+        cfg_t *rtr_set_cfg = cfg_getnsec(cfg, "ms-rtrs-set", i);
+        rtr_id_list = glist_new();
+        n = cfg_size(rtr_set_cfg, "rtrs");
+        for(j = 0; j < n; j++) {
+            if ((rtr_id = cfg_getnstr(rtr_set_cfg, "rtrs", j)) != NULL) {
+                glist_add(rtr_id,rtr_id_list);
+            }
+        }
+        res = ms_add_rtr_set(ms,
+                cfg_getstr(rtr_set_cfg, "name"),
+                cfg_getint(rtr_set_cfg, "ttl"),
+                rtr_id_list);
+        if (res != GOOD){
+            return(BAD);
+        }
+    }
+
+    def_rtr_set = cfg_getstr(cfg, "ms-advertised-rtrs-set");
+    if (def_rtr_set){
+        ms->def_rtr_set = (ms_rtr_set_t *)shash_lookup(ms->rtrs_set_table,def_rtr_set);
+        if (!ms->def_rtr_set){
+            OOR_LOG(LERR, "ms-rtr-set %s doesn't exist. It cannot be advertised", def_rtr_set);
+            return (BAD);
         }
     }
 
@@ -922,6 +963,21 @@ handle_config_file()
             CFG_END()
     };
 
+    static cfg_opt_t rtr_opts[] = {
+            CFG_STR("name",                        0, CFGF_NONE),
+            CFG_STR("address",                     0, CFGF_NONE),
+            CFG_STR("key",                         0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t rtr_set_opts[] = {
+            CFG_STR("name",                     0, CFGF_NONE),
+            CFG_INT("ttl",         OOR_MS_RTR_TTL, CFGF_NONE),
+            CFG_STR_LIST("rtrs",                0, CFGF_NONE),
+            CFG_END()
+    };
+
+
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts,        CFGF_MULTI),
             CFG_SEC("ms-static-registered-site", db_mapping_opts, CFGF_MULTI),
@@ -953,6 +1009,9 @@ handle_config_file()
             CFG_SEC("explicit-locator-path", elp_opts,              CFGF_MULTI),
             CFG_SEC("replication-list",     rle_opts,               CFGF_MULTI),
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
+            CFG_SEC("ms-rtrs-set",              rtr_set_opts,          CFGF_MULTI),
+            CFG_SEC("ms-rtr-node",              rtr_opts,              CFGF_MULTI),
+            CFG_STR("ms-advertised-rtrs-set",       0, CFGF_NONE),
             CFG_END()
     };
 

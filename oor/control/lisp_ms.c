@@ -477,12 +477,101 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     return(GOOD);
 err:
-    return(BAD);
     mapping_del(m);
-    lisp_msg_destroy(mntf);
+    if (!mntf){
+        lisp_msg_destroy(mntf);
+    }
+    return(BAD);
 bad: /* could return different error */
     mapping_del(m);
-    lisp_msg_destroy(mntf);
+    if (!mntf){
+        lisp_msg_destroy(mntf);
+    }
+    return(BAD);
+}
+
+static int
+ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
+{
+    lbuf_t b, *irep_buf;
+    void *hdr, *irep_hdr;
+    lisp_addr_t eid,priv_addr, *nat_addr = NULL;
+    int ttl;
+    lisp_site_prefix_t *reg_pref;
+    glist_t *rtr_list = NULL;
+    glist_entry_t *rtr_it;
+    ms_rtr_node_t *rtr;
+    uconn_t r_uc;
+
+    b = *buf;
+    hdr = lisp_msg_pull_hdr(&b);
+
+    if (INF_REQ_R_bit(hdr)) {
+        OOR_LOG(LDBG_1, "Map-Server: Received Info Reply message. Discarding!");
+        return (BAD);
+    }
+
+    lisp_msg_pull_auth_field(&b);
+
+    if (lisp_msg_parse_inf_req_eid_ttl(&b, &eid, &ttl) != GOOD) {
+        goto err;
+    }
+
+    /* Verify the EID belongs to the MS */
+
+    reg_pref = mdb_lookup_entry(ms->lisp_sites_db, &eid);
+    if (!reg_pref) {
+        OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB "
+                "Discarding Info Request...", lisp_addr_to_char(&eid));
+        goto err;
+    }
+
+    /* Verify authentication of the msg */
+
+    if (lisp_msg_check_auth_field(buf, reg_pref->key) != GOOD) {
+        OOR_LOG(LDBG_1, "Info Request validation failed for EID %s with key "
+                "%s. Stopping processing!", lisp_addr_to_char(&eid),
+                reg_pref->key);
+        goto err;
+    }
+
+    /** Generate Info Reply message **/
+
+    /* Generate rtr list */
+    rtr_list = glist_new();
+    glist_for_each_entry(rtr_it,ms->def_rtr_set->rtr_list){
+        rtr = (ms_rtr_node_t *)glist_entry_data(rtr_it);
+        glist_add(rtr->addr,rtr_list);
+    }
+
+    lisp_addr_set_lafi(&priv_addr, LM_AFI_NO_ADDR);
+    nat_addr = lisp_addr_new_init_nat(LISP_CONTROL_PORT, &uc->la,
+            uc->rp,&uc->ra, &priv_addr, rtr_list);
+
+
+    irep_buf = lisp_msg_inf_reply_create(&eid, nat_addr,
+            reg_pref->key_type, ms->def_rtr_set->ttl);
+    if (!irep_buf){
+        OOR_LOG(LDBG_1,"ms_recv_inf_request: Can not generate Info Reply message");
+        goto err;
+    }
+
+    glist_destroy(rtr_list);
+    lisp_addr_del(nat_addr);
+
+    irep_hdr = lisp_msg_hdr(irep_buf);
+    INF_REQ_NONCE(irep_hdr) = INF_REQ_NONCE(hdr);
+    lisp_msg_fill_auth_data(irep_buf, reg_pref->key_type, reg_pref->key);
+
+    uconn_init(&r_uc, LISP_CONTROL_PORT, uc->rp, &uc->la, &uc->ra);
+    send_msg(&ms->super, irep_buf, &r_uc);
+
+    lisp_msg_destroy(irep_buf);
+
+    return(GOOD);
+err:
+    glist_destroy(rtr_list);
+    lisp_addr_del(nat_addr);
     return(BAD);
 }
 
@@ -586,9 +675,11 @@ ms_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
          break;
      case LISP_MAP_REPLY:
      case LISP_MAP_NOTIFY:
-     case LISP_INFO_NAT:
          OOR_LOG(LDBG_3, "Map-Server: Received control message with type %d."
                  " Discarding!", type);
+         break;
+     case LISP_INFO_NAT:
+         ret = ms_recv_inf_request(ms, msg, uc);
          break;
      default:
          OOR_LOG(LDBG_3, "Map-Server: Received unidentified type (%d) control "
@@ -647,6 +738,13 @@ ms_ctrl_construct(oor_ctrl_dev_t *dev)
     ms->reg_sites_db = mdb_new();
     ms->lisp_sites_db = mdb_new();
 
+    ms->rtrs_set_table = shash_new_managed((free_value_fn_t)ms_rtr_set_del);
+    // rtrs_table_by_name and rtrs_table_by_ip points to the same pointers value. Only one
+    // should be managed
+    ms->rtrs_table_by_name = shash_new_managed((free_value_fn_t)ms_rtr_node_del);
+    ms->rtrs_table_by_ip = shash_new();
+    ms->def_rtr_set = NULL;
+
     if (!ms->reg_sites_db || !ms->lisp_sites_db) {
         return(BAD);
     }
@@ -662,6 +760,10 @@ ms_ctrl_destruct(oor_ctrl_dev_t *dev)
     lisp_ms_t *ms = lisp_ms_cast(dev);
     mdb_del(ms->lisp_sites_db, (mdb_del_fct)lisp_site_prefix_del);
     mdb_del(ms->reg_sites_db, (mdb_del_fct)lisp_reg_site_del);
+    shash_destroy(ms->rtrs_set_table);
+    shash_destroy(ms->rtrs_table_by_name);
+    shash_destroy(ms->rtrs_table_by_ip);
+    // ms->def_rtr_set is destroyed when destroying ms->rtrs_set_table
 }
 
 void
@@ -680,6 +782,10 @@ ms_ctrl_run(oor_ctrl_dev_t *dev)
     OOR_LOG (LDBG_1, "****** Summary of the configuration ******");
     ms_dump_configured_sites(ms, LDBG_1);
     ms_dump_registered_sites(ms, LDBG_1);
+    if (ms->def_rtr_set){
+        OOR_LOG (LDBG_1, "*** Announced RTR list ***");
+        ms_rtr_set_dump(ms->def_rtr_set, LDBG_1);
+    }
 
     OOR_LOG(LDBG_1, "Starting Map-Server ...");
 }
@@ -697,3 +803,72 @@ ctrl_dev_class_t ms_ctrl_class = {
         .route_update = ms_route_update,
         .get_fwd_entry = ms_get_fwd_entry
 };
+
+
+
+/*****  Basic rtr_node_t and rtr_set_t functions *****/
+
+ms_rtr_node_t *
+ms_rtr_node_new_init(char *id, lisp_addr_t *addr, char *passwd)
+{
+    ms_rtr_node_t *rtr = xzalloc(sizeof(ms_rtr_node_t));
+    if (!rtr){
+        OOR_LOG(LDBG_1, "Can't allocate a new rtr_node_t");
+        return (NULL);
+    }
+    rtr->id = strdup(id);
+    rtr->addr = lisp_addr_clone(addr);
+    rtr->passwd = strdup(passwd);
+
+    return(rtr);
+}
+
+void
+ms_rtr_node_del(ms_rtr_node_t * rtr)
+{
+    lisp_addr_del(rtr->addr);
+    free(rtr->id);
+    free(rtr->passwd);
+    free(rtr);
+}
+
+ms_rtr_set_t *
+ms_rtr_set_new_init(char *id, int ttl)
+{
+    ms_rtr_set_t *rtr_set = xzalloc(sizeof(ms_rtr_set_t));
+    if (!rtr_set){
+        OOR_LOG(LDBG_1, "Can't allocate a new rtr_set_t");
+        return (NULL);
+    }
+    rtr_set->id = strdup(id);
+    rtr_set->ttl = ttl;
+    rtr_set->rtr_list = glist_new();
+
+    return (rtr_set);
+}
+
+void
+ms_rtr_set_del(ms_rtr_set_t *rtr_set)
+{
+    free(rtr_set->id);
+    glist_destroy(rtr_set->rtr_list);
+    free(rtr_set);
+}
+
+void
+ms_rtr_set_dump(ms_rtr_set_t *rtr_set, int log_level)
+{
+    glist_entry_t *it;
+    int ctr = 0;
+    ms_rtr_node_t * rtr;
+
+    if (!is_loggable(log_level)){
+        return;
+    }
+    OOR_LOG (log_level, " RTR set name \"%s\" , ttl= %d", rtr_set->id, rtr_set->ttl);
+    glist_for_each_entry(it,rtr_set->rtr_list){
+        ctr++;
+        rtr = (ms_rtr_node_t *)glist_entry_data (it);
+        OOR_LOG(log_level,"    [%d] =>  %s",ctr,lisp_addr_to_char(rtr->addr));
+    }
+}

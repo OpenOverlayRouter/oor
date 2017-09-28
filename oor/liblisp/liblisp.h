@@ -46,6 +46,7 @@ int lisp_msg_parse_loc(lbuf_t *, locator_t *);
 int lisp_msg_parse_mapping_record_split(lbuf_t *, lisp_addr_t *, glist_t *,
                                         locator_t **);
 int lisp_msg_parse_mapping_record(lbuf_t *, mapping_t *, locator_t **);
+int lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl);
 
 int lisp_msg_ecm_decap(struct lbuf *, uint16_t *);
 
@@ -68,6 +69,8 @@ lbuf_t *lisp_msg_mreq_create(lisp_addr_t *, glist_t *, lisp_addr_t *);
 lbuf_t *lisp_msg_neg_mrep_create(lisp_addr_t *, int, lisp_action_e,
         lisp_authoritative_e, uint64_t);
 lbuf_t *lisp_msg_inf_req_create(mapping_t *m, lisp_key_type_e keyid);
+lbuf_t *lisp_msg_inf_reply_create(lisp_addr_t *eid, lisp_addr_t *nat_lcaf,
+        lisp_key_type_e keyid, int ttl);
 lbuf_t *lisp_msg_mreg_create(mapping_t *, lisp_key_type_e);
 lbuf_t *lisp_msg_nat_mreg_create(mapping_t *, lisp_site_id ,
         lisp_xtr_id *, lisp_key_type_e );

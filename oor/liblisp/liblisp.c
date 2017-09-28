@@ -259,6 +259,19 @@ err:
     return(BAD);
 }
 
+int
+lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl)
+{
+    *ttl = (ntohl(*(int *)lbuf_data(b)));
+    lbuf_pull(b,sizeof(int));
+
+    if (lisp_msg_parse_eid_rec(b, eid)!= GOOD){
+        return(BAD);
+    }
+    return(GOOD);
+}
+
+
 static unsigned int
 msg_type_to_hdr_len(lisp_msg_type_e type)
 {
@@ -594,17 +607,48 @@ lisp_msg_inf_req_create(mapping_t *m, lisp_key_type_e keyid)
     lisp_addr_t addr;
 
     if (!lisp_msg_put_empty_auth_record(b, keyid)) {
+        lbuf_del(b);
         return(NULL);
     }
 
     if (!lisp_msg_put_inf_req_hdr_2(b, mapping_eid(m), 0)) {
+        lbuf_del(b);
         return(NULL);
     }
 
     lisp_addr_set_lafi(&addr, LM_AFI_NO_ADDR);
     if (lisp_msg_put_addr(b, &addr) == NULL) {
+        lbuf_del(b);
         return(NULL);
     }
+
+    return(b);
+}
+
+lbuf_t *
+lisp_msg_inf_reply_create(lisp_addr_t *eid, lisp_addr_t *nat_lcaf, lisp_key_type_e keyid, int ttl)
+{
+    lbuf_t *b = lisp_msg_create(LISP_INFO_NAT);
+    void * hdr;
+
+
+    if (!lisp_msg_put_empty_auth_record(b, keyid)) {
+        lbuf_del(b);
+        return(NULL);
+    }
+
+    if (!lisp_msg_put_inf_req_hdr_2(b, eid, ttl)) {
+        lbuf_del(b);
+        return(NULL);
+    }
+
+    if (lisp_msg_put_addr(b, nat_lcaf) == NULL) {
+        lbuf_del(b);
+        return(NULL);
+    }
+
+    hdr = lisp_msg_hdr(b);
+    INF_REQ_R_bit(hdr)= 1;
 
     return(b);
 }
@@ -615,12 +659,16 @@ lisp_msg_mreg_create(mapping_t *m, lisp_key_type_e keyid)
     lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
 
     if (!lisp_msg_put_empty_auth_record(b, keyid)) {
+        lbuf_del(b);
         return(NULL);
     }
 
     if (!lisp_msg_put_mapping(b, m, NULL)) {
+        lbuf_del(b);
         return(NULL);
     }
+
+
 
     return(b);
 }
@@ -631,10 +679,12 @@ lisp_msg_nat_mreg_create(mapping_t *m,lisp_site_id site_id,
 {
     lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
     if (!lisp_msg_put_empty_auth_record(b, keyid)){
+        lbuf_del(b);
         return(NULL);
     }
 
     if (!lisp_msg_put_mapping(b, m, NULL)) {
+        lbuf_del(b);
         return(NULL);
     }
 
@@ -751,7 +801,7 @@ lisp_msg_put_inf_req_hdr_2(lbuf_t *b, lisp_addr_t *eid_pref, uint8_t ttl)
     lisp_addr_t *eid;
     hdr = lbuf_put_uninit(b, sizeof(info_nat_hdr_2_t));
 
-    INF_REQ_2_TTL(hdr) = ttl;
+    INF_REQ_2_TTL(hdr) = htonl(ttl);
     eid = lisp_addr_get_ip_pref_addr(eid_pref);
     INF_REQ_2_EID_MASK(hdr) = lisp_addr_ip_get_plen(eid);
     if (lisp_msg_put_addr(b, eid) == NULL) {
