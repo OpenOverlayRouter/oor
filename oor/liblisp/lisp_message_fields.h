@@ -398,6 +398,50 @@ typedef struct _locator_hdr {
 #define LOC_ADDR(h_) ((uint8_t *)(h_)  + sizeof(locator_hdr_t))
 
 
+
+/*
+ * SIGNATURE  FIELD
+ */
+
+
+/*
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    /|                      Original Record TTL                      |
+ *   / +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  /  |                      Signature Expiration                     |
+ * |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * s   |                      Signature Inception                      |
+ * i   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * g   |            Key Tag            |            Sig Length         |
+ * |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * \   | Sig-Algorithm |    Reserved   |             Reserved          |
+ *  \  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   \ ~                             Signature                         ~
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Fixed portion of the signature.
+ */
+typedef struct _signature_hdr {
+    uint32_t original_record_ttl;
+    uint32_t signature_expiration;
+    uint32_t signature_inception;
+    uint16_t key_tag;
+    uint16_t sig_length;
+    uint8_t sig_algorithm;
+    uint8_t reserved1;
+    uint16_t reserved2;
+#endif
+} __attribute__ ((__packed__)) signature_hdr_t;
+
+#define SIG_CAST(h_) ((signature_hdr_t *)(h_))
+#define SIG_ORTTL(h_) SIG_CAST(h_)->original_record_ttl
+#define SIG_EXP(h_) SIG_CAST(h_)->signature_expiration
+#define SIG_INC(h_) SIG_CAST(h_)->signature_inception
+#define SIG_KEYTAG(h_) SIG_CAST(h_)->key_tag
+#define SIG_LENGTH(h_) SIG_CAST(h_)->sig_length
+#define SIG_ALG(h_) SIG_CAST(h_)->sig_algorithm
+
+
 /*
  * MAPPING RECORD
  */
