@@ -409,9 +409,9 @@ typedef struct _locator_hdr {
  *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |      |                          Record  TTL                          |
  *  |      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  R      | Locator Count | EID mask-len  | ACT |A|       Reserved        |
+ *  R      | Locator Count | EID mask-len  | ACT |A|I|     Reserved        |
  *  e      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  c      | Rsvd  |  Map-Version Number   |            EID-AFI            |
+ *  c      |SigCnt |  Map-Version Number   |            EID-AFI            |
  *  o      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  r      |                          EID-prefix                           |
  *  d      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -419,7 +419,9 @@ typedef struct _locator_hdr {
  *  |    / +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |  Loc |         Unused Flags    |L|p|R|           Loc-AFI             |
  *  |    \ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |     \|                             Locator                           |
+ *  |     \|                            Locator                            |
+ *  |      |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |      ~                          Sig section                          |
  *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
@@ -433,20 +435,22 @@ typedef struct _mapping_record_hdr_t {
     uint8_t locator_count;
     uint8_t eid_prefix_length;
 #ifdef LITTLE_ENDIANS
-    uint8_t reserved1:4;
+    uint8_t reserved1:3;
+    uint8_t incomplete:1;
     uint8_t authoritative:1;
     uint8_t action:3;
 #else
     uint8_t action:3;
     uint8_t authoritative:1;
-    uint8_t reserved1:4;
+    uint8_t incomplete:1;
+    uint8_t reserved1:3;
 #endif
     uint8_t reserved2;
 #ifdef LITTLE_ENDIANS
     uint8_t version_hi:4;
-    uint8_t reserved3:4;
+    uint8_t signature_count:4;
 #else
-    uint8_t reserved3:4;
+    uint8_t signature_count:4;
     uint8_t version_hi:4;
 #endif
     uint8_t version_low;
@@ -461,6 +465,8 @@ char *mapping_record_hdr_to_char(mapping_record_hdr_t *h);
 #define MAP_REC_LOC_COUNT(h) ((mapping_record_hdr_t *)(h))->locator_count
 #define MAP_REC_ACTION(h) ((mapping_record_hdr_t *)(h))->action
 #define MAP_REC_AUTH(h) ((mapping_record_hdr_t *)(h))->authoritative
+#define MAP_REC_INC(h) ((mapping_record_hdr_t *)(h))->incomplete
+#define MAP_REC_SIGC(h) ((mapping_record_hdr_t *)(h))->signature_count
 #define MAP_REC_TTL(h) ((mapping_record_hdr_t *)(h))->ttl
 #define MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mapping_record_hdr_t)
 #define MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low

@@ -31,6 +31,8 @@ mapping_record_init_hdr(mapping_record_hdr_t *h) {
     h->authoritative        = 1;
     h->version_hi           = 0;
     h->version_low          = 0;
+    h->incomplete           = 0;
+    h->signature_count      = 0;
 
     h->reserved1 = 0;
     h->reserved2 = 0;
@@ -70,9 +72,9 @@ mapping_record_hdr_to_char(mapping_record_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d"
+    snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d incomplete: %d"
             " map-version: %d", ntohl(h->ttl), h->locator_count,
-            mapping_action_to_char(h->action), h->authoritative,
+            mapping_action_to_char(h->action), h->authoritative, h->incomplete
             MAP_REC_VERSION(h));
 
     return(buf);
