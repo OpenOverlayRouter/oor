@@ -133,6 +133,21 @@ info_nat_hdr_2_init(void *ptr)
     irp->reserved = 0;
 }
 
+void
+map_referral_hdr_init(void *ptr)
+{
+    map_referral_hdr_t *mrf = ptr;
+
+    mrf->type = LISP_MAP_REPLY;
+    mrf->record_count = 0;      /* to be filled in later */
+    mrf->nonce = 0;             /* to be filled in later */
+
+    mrf->reserved1 = 0;
+    mrf->reserved2 = 0;
+    mrf->reserved3 = 0;
+
+}
+
 
 char *
 mreq_flags_to_char(map_request_hdr_t *h)
@@ -279,6 +294,21 @@ ecm_hdr_to_char(ecm_hdr_t *h)
         return(NULL);
     }
     snprintf(buf,sizeof(buf), BOLD "ECM" RESET " -> flags:%s", ecm_flags_to_char(h));
+    return(buf);
+}
+
+
+char *
+map_referral_hdr_to_char(map_referral_hdr_t *h)
+{
+    static char buf[100];
+
+    if (!h) {
+        return(NULL);
+    }
+    *buf = '\0';
+    snprintf(buf,sizeof(buf), BOLD "Map-Referral" RESET "-> record-count: %d, nonce: %"PRIx64,
+    		h->record_count, h->nonce);
     return(buf);
 }
 

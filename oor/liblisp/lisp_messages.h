@@ -31,6 +31,7 @@ typedef enum lisp_msg_type_ {
     LISP_MAP_REPLY,
     LISP_MAP_REGISTER,
     LISP_MAP_NOTIFY,
+	LISP_MAP_REFERRAL = 6,
     LISP_INFO_NAT = 7,
     LISP_ENCAP_CONTROL_TYPE = 8
 } lisp_msg_type_e;
@@ -511,6 +512,76 @@ void info_nat_hdr_2_init(void *ptr);
 uint8_t is_mrsignaling(address_hdr_t *addr);
 mrsignaling_flags_t mrsignaling_flags(address_hdr_t *addr);
 void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig);
+
+
+
+/*
+ * MAP-REFERRAL MESSAGE
+ */
+
+ /*  Map Referral action codes */
+ #define LISP_ACTION_NODE_REFERRAL           0
+ #define LISP_ACTION_MS_REFERRAL             1
+ #define LISP_ACTION_MS_ACK                  2
+ #define LISP_ACTION_MS_NOT_REGISTERED       3
+ #define LISP_ACTION_DELEGATION_HOLE         4
+ #define LISP_ACTION_MS_NOT_AUTHORITATIVE    5
+
+ /*Map-Referral Message Format
+  *
+  *       0                   1                   2                   3
+  *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *      |Type=6 |               Reserved                | Record Count  |
+  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *      |                         Nonce . . .                           |
+  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *      |                         . . . Nonce                           |
+  *  +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |   |                          Record  TTL                          |
+  *  |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  R   | Referral Count | EID mask-len | ACT |A|I|    Reserved         |
+  *  e   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  c   |SigCnt |  Map-Version Number   |            EID-AFI            |
+  *  o   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  r   |                          EID-prefix                           |
+  *  d   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |  /|    Priority   |    Weight     |  M Priority   |   M Weight    |
+  *  | R +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  | e |        Unused Flags     |L|p|R|           Loc-AFI             |
+  *  | f +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |  \|                            Locator                            |
+  *  |   |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |   ~                          Sig section                          |
+  *  +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  */
+
+
+
+ /*
+  * Fixed size portion of the map referral.
+  */
+ typedef struct map_referral_hdr {
+ #ifdef LITTLE_ENDIANS
+     uint8_t reserved1:4;
+     uint8_t type:4;
+ #else
+     uint8_t type:4;
+     uint8_t reserved1:4;
+ #endif
+     uint8_t reserved2;
+     uint8_t reserved3;
+     uint8_t record_count;
+     uint64_t nonce;
+ } __attribute__ ((__packed__)) map_referral_hdr_t;
+
+ void map_referral_hdr_init(void *ptr);
+ char *map_referral_hdr_to_char(map_reply_hdr_t *h);
+
+#define MREF_HDR_CAST(h_) ((map_referral_hdr_t *)(h_))
+#define MREF_REC_COUNT(h_) MREF_HDR_CAST(h_)->record_count
+#define MREF_NONCE(h_) MREF_HDR_CAST(h_)->nonce
+
 
 
 
