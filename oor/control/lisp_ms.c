@@ -23,6 +23,7 @@
 #include "../lib/oor_log.h"
 #include "../lib/pointers_table.h"
 #include "../lib/prefixes.h"
+#include "../lib/util.h"
 
 
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
@@ -335,16 +336,19 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
     lisp_reg_site_t *rsite = NULL, *new_rsite = NULL;
     lisp_site_prefix_t *reg_pref = NULL;
+    lisp_site_id site_id;
+    lisp_xtr_id xtr_id;
     char *key = NULL;
     lisp_addr_t *eid;
     lbuf_t b;
-    void *hdr = NULL, *mntf_hdr = NULL;
+    void *hdr = NULL, *mntf_hdr = NULL, *mreg_auth_hdr, *mnot_auth_hdr, *rtr_auth_hdr;
     int i = 0;
     mapping_t *m = NULL;
     locator_t *probed = NULL;
     lbuf_t *mntf = NULL;
     lisp_key_type_e keyid = HMAC_SHA_1_96; /* TODO configurable */
     int valid_records = FALSE;
+    ms_rtr_node_t *rtr = NULL;
 
 
     b = *buf;
@@ -354,6 +358,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         mntf = lisp_msg_create(LISP_MAP_NOTIFY);
         lisp_msg_put_empty_auth_record(mntf, keyid);
     }
+
 
     lisp_msg_pull_auth_field(&b);
 
@@ -387,7 +392,8 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         /* if first record, lookup the key */
         if (!key) {
-            if (lisp_msg_check_auth_field(buf, reg_pref->key) != GOOD) {
+            mreg_auth_hdr = hdr + sizeof(map_register_hdr_t);
+            if (lisp_msg_check_auth_field(buf, mreg_auth_hdr, reg_pref->key) != GOOD) {
                 OOR_LOG(LDBG_1, "Message validation failed for EID %s with key "
                         "%s. Stopping processing!", lisp_addr_to_char(eid),
                         reg_pref->key);
@@ -451,7 +457,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             ms_dump_registered_sites(ms, LDBG_3);
         }
 
-        if (MREG_WANT_MAP_NOTIFY(hdr)) {
+        if (mntf) {
             lisp_msg_put_mapping(mntf, m, NULL);
             valid_records = TRUE;
         }
@@ -460,14 +466,43 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         if (rsite) {
             mapping_del(m);
         }
-
     }
+    if (MREG_IBIT(hdr)){
+        lisp_msg_parse_xtr_id_site_id(&b, &xtr_id, &site_id);
+        OOR_LOG(LDBG_1,"  xTR_ID: %s",get_char_from_xTR_ID(&xtr_id));
+        if (mntf) {
+            lisp_msg_put_xtr_id_site_id(mntf, &xtr_id, &site_id);
+        }
+    }
+
 
     /* check if key is initialized, otherwise registration failed */
     if (mntf && key && valid_records) {
         mntf_hdr = lisp_msg_hdr(mntf);
         MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
-        lisp_msg_fill_auth_data(mntf, keyid, key);
+        MNTF_I_BIT(mntf_hdr) = MREG_IBIT(hdr);
+        /* Check if we have to add authentication data for the RTR */
+        if (MREG_IBIT(hdr) && ms->def_rtr_set){
+            rtr = shash_lookup (ms->rtrs_table_by_ip, lisp_addr_to_char(&uc->ra));
+            if (!rtr){
+                OOR_LOG(LDBG_1, "Map-Server: Received Map Register from unknown RTR (%S). Discarding message!",
+                        lisp_addr_to_char(&uc->ra));
+                goto err;
+            }
+            if (rtr->passwd){
+                MNTF_R_BIT(mntf_hdr) = 1;
+
+            }
+        }
+        /* Add Map Notify authentication */
+        mnot_auth_hdr = mntf_hdr + sizeof(map_notify_hdr_t);
+        lisp_msg_fill_auth_data(mntf, mnot_auth_hdr, keyid, key);
+        if (MNTF_R_BIT(mntf_hdr)){
+            /* Add RTR authentication */
+            rtr_auth_hdr = lisp_msg_put_empty_auth_record(mntf, keyid);
+            lisp_msg_fill_auth_data(mntf,rtr_auth_hdr,keyid, rtr->passwd);
+        }
+
         OOR_LOG(LDBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
                 lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
@@ -494,7 +529,7 @@ static int
 ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
     lbuf_t b, *irep_buf;
-    void *hdr, *irep_hdr;
+    void *hdr, *irep_hdr, *req_auth_hdr, *rep_auth_hdr;
     lisp_addr_t eid,priv_addr, *nat_addr = NULL;
     int ttl;
     lisp_site_prefix_t *reg_pref;
@@ -528,7 +563,8 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     /* Verify authentication of the msg */
 
-    if (lisp_msg_check_auth_field(buf, reg_pref->key) != GOOD) {
+    req_auth_hdr = hdr + sizeof(info_nat_hdr_t);
+    if (lisp_msg_check_auth_field(buf, req_auth_hdr, reg_pref->key) != GOOD) {
         OOR_LOG(LDBG_1, "Info Request validation failed for EID %s with key "
                 "%s. Stopping processing!", lisp_addr_to_char(&eid),
                 reg_pref->key);
@@ -561,7 +597,9 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     irep_hdr = lisp_msg_hdr(irep_buf);
     INF_REQ_NONCE(irep_hdr) = INF_REQ_NONCE(hdr);
-    lisp_msg_fill_auth_data(irep_buf, reg_pref->key_type, reg_pref->key);
+
+    rep_auth_hdr = irep_hdr + sizeof(info_nat_hdr_t);
+    lisp_msg_fill_auth_data(irep_buf, rep_auth_hdr, reg_pref->key_type, reg_pref->key);
 
     uconn_init(&r_uc, LISP_CONTROL_PORT, uc->rp, &uc->la, &uc->ra);
     send_msg(&ms->super, irep_buf, &r_uc);

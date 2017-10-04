@@ -502,7 +502,7 @@ static int
 tr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 {
     lisp_addr_t *inf_reply_eid, *inf_req_eid, *nat_lcaf_addr;
-    void *info_nat_hdr, *info_nat_hdr_2;
+    void *info_nat_hdr, *info_nat_hdr_2, *auth_hdr;
     lbuf_t  b;
     nonces_list_t *nonces_lst;
     timer_inf_req_argument *timer_arg;
@@ -556,7 +556,8 @@ tr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 
     /* We obtain the key to use in the authentication process from the argument of the timer */
 
-    if (lisp_msg_check_auth_field(buf, timer_arg->ms->key) != GOOD) {
+    auth_hdr = info_nat_hdr + sizeof(info_nat_hdr_t);
+    if (lisp_msg_check_auth_field(buf,auth_hdr,timer_arg->ms->key) != GOOD) {
         OOR_LOG(LDBG_1, "Info Reply Message validation failed for EID %s with key "
                 "%s. Stopping processing!", lisp_addr_to_char(inf_req_eid),
                 timer_arg->ms->key);
@@ -750,7 +751,7 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
     lisp_addr_t *eid;
     map_local_entry_t *map_loc_e;
     mapping_t *m, *local_map;
-    void *hdr;
+    void *hdr, *auth_hdr;
     locator_t *probed ;
     map_server_elt *ms;
     nonces_list_t *nonces_lst;
@@ -789,8 +790,8 @@ tr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
     }
 
 
-
-    res = lisp_msg_check_auth_field(buf, ms->key);
+    auth_hdr = hdr + sizeof(map_notify_hdr_t);
+    res = lisp_msg_check_auth_field(buf,auth_hdr, ms->key);
 
     if (res != GOOD){
         OOR_LOG(LDBG_1, "Map-Notify message is invalid");
@@ -1249,7 +1250,7 @@ build_and_send_info_req(lisp_xtr_t * xtr, mapping_t * m, locator_t *loct,
         map_server_elt *ms, uint64_t nonce)
 {
     lbuf_t * b = NULL;
-    void *hdr;
+    void *hdr, *auth_hdr;
     lisp_addr_t *srloc, *drloc;
     uconn_t uc;
 
@@ -1262,8 +1263,8 @@ build_and_send_info_req(lisp_xtr_t * xtr, mapping_t * m, locator_t *loct,
     hdr = lisp_msg_hdr(b);
     INF_REQ_NONCE(hdr) = nonce;
 
-    if (lisp_msg_fill_auth_data(b, ms->key_type,
-            ms->key) != GOOD) {
+    auth_hdr = hdr + sizeof(info_nat_hdr_t);
+    if (lisp_msg_fill_auth_data(b, auth_hdr, ms->key_type, ms->key) != GOOD) {
         return(BAD);
     }
     srloc = locator_addr(loct);
@@ -1287,7 +1288,7 @@ build_and_send_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms,
         uint64_t nonce)
 {
     lbuf_t * b = NULL;
-    void * hdr = NULL;
+    void * hdr, *auth_hdr;
     lisp_addr_t * drloc = NULL;
     uconn_t uc;
 
@@ -1301,8 +1302,8 @@ build_and_send_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms,
     MREG_PROXY_REPLY(hdr) = ms->proxy_reply;
     MREG_NONCE(hdr) = nonce;
 
-    if (lisp_msg_fill_auth_data(b, ms->key_type,
-            ms->key) != GOOD) {
+    auth_hdr = hdr + sizeof(info_nat_hdr_t);
+    if (lisp_msg_fill_auth_data(b, auth_hdr, ms->key_type, ms->key) != GOOD) {
         return(BAD);
     }
     drloc =  ms->address;
@@ -1322,11 +1323,13 @@ build_and_send_encap_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms
         lisp_addr_t *etr_addr, lisp_addr_t *rtr_addr, uint64_t nonce)
 {
     lbuf_t * b;
-    void * hdr;
+    void * hdr, *auth_hdr;
     uconn_t uc;
 
-    b = lisp_msg_nat_mreg_create(m, xtr->site_id, &xtr->xtr_id, ms->key_type);
+    b = lisp_msg_mreg_create(m, ms->key_type);
+    lisp_msg_put_xtr_id_site_id(b, &xtr->xtr_id, &xtr->site_id);
     hdr = lisp_msg_hdr(b);
+
 
     MREG_NONCE(hdr) = nonce;
     MREG_PROXY_REPLY(hdr) = 1;
@@ -1340,7 +1343,8 @@ build_and_send_encap_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms
         return (BAD);
     }
 
-    if (lisp_msg_fill_auth_data(b, ms->key_type, ms->key) != GOOD) {
+    auth_hdr = hdr + sizeof(map_register_hdr_t);
+    if (lisp_msg_fill_auth_data(b, auth_hdr, ms->key_type, ms->key) != GOOD) {
         OOR_LOG(LDBG_2, "build_and_send_ecm_map_reg: Error filling the authentication data");
         return(BAD);
     }
@@ -1349,7 +1353,7 @@ build_and_send_encap_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms
     hdr = lisp_msg_ecm_hdr(b);
 
     /* TODO To use when implementing draft version 4 or higher */
-    //ECM_RTR_PROCESS_BIT(hdr) = 1;
+    ECM_RTR_PROCESS_BIT(hdr) = 1;
 
     OOR_LOG(LDBG_1, "%s, Inner IP: %s -> %s, EID: %s, RTR: %s",
              lisp_msg_hdr_to_char(b), lisp_addr_to_char(etr_addr),
