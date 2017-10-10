@@ -522,6 +522,15 @@ typedef enum lisp_actions {
     ACT_DROP
 } lisp_action_e;
 
+typedef enum lisp_ref_actions {
+	LISP_ACTION_NODE_REFERRAL = 0,
+	LISP_ACTION_MS_REFERRAL,
+	LISP_ACTION_MS_ACK,
+	LISP_ACTION_MS_NOT_REGISTERED,
+	LISP_ACTION_DELEGATION_HOLE,
+	LISP_ACTION_MS_NOT_AUTHORITATIVE
+} lisp_ref_action_e;
+
 typedef enum lisp_authoritative {
     A_NO_AUTHORITATIVE = 0,
     A_AUTHORITATIVE

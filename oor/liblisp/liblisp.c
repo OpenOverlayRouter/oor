@@ -273,6 +273,8 @@ msg_type_to_hdr_len(lisp_msg_type_e type)
         return(sizeof(map_notify_hdr_t));
     case LISP_INFO_NAT:
         return(sizeof(info_nat_hdr_t));
+    case LISP_MAP_REFERRAL:
+    	return(sizeof(map_referral_hdr_t))
     default:
         return(0);
     }
@@ -353,6 +355,9 @@ increment_record_count(lbuf_t *b)
     case LISP_MAP_NOTIFY:
         MNTF_REC_COUNT(hdr) += 1;
         break;
+    case LISP_MAP_REFERRAL:
+    	MREF_REC_COUNT(hdr) += 1;
+    	break;
     default:
         return;
     }
@@ -543,6 +548,10 @@ lisp_msg_create(lisp_msg_type_e type)
     case LISP_ENCAP_CONTROL_TYPE:
         /* nothing to do */
         break;
+    case LISP_MAP_REFERRAL:
+    	hdr = lbuf_put_uninit(b, sizeof(map_referral_hdr_t));
+    	map_referral_hdr_init(hdr);
+    	break;
     default:
         OOR_LOG(LDBG_3, "lisp_msg_create: Unknown LISP message "
                 "type %s", type);
@@ -666,6 +675,8 @@ lisp_msg_hdr_to_char(lbuf_t *b)
         return(info_nat_hdr_to_char(h));
     case LISP_ENCAP_CONTROL_TYPE:
         return(ecm_hdr_to_char(h));
+    case LISP_MAP_REFERRAL:
+    	return '';
     default:
         OOR_LOG(LDBG_3, "Unknown LISP message type %d",
                 lisp_msg_type(b));
