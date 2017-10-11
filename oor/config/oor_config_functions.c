@@ -1166,6 +1166,101 @@ err:
     return(BAD);
 }
 
+int
+ms_add_rtr_node(lisp_ms_t *ms, char *name, char *addr_str, char *key)
+{
+    ms_rtr_node_t *rtr;
+    glist_t *addr_lst;
+    lisp_addr_t *addr;
+
+    if (!name || !addr_str || !key){
+        OOR_LOG(LERR, "ms-rtr-node needs to have assigned a name, an address and a key");
+        return (BAD);
+    }
+    if (shash_lookup(ms->rtrs_table_by_name,name) != NULL){
+        OOR_LOG(LERR, "MS rtr node \"%s\" already exists",name);
+        return (BAD);
+    }
+
+
+    addr_lst = parse_ip_addr(addr_str);
+    if (glist_size(addr_lst)!=1){
+        if (glist_size(addr_lst)==0){
+            glist_destroy(addr_lst);
+            return (BAD);
+        }else{
+            OOR_LOG(LERR, "ms-rtr-node hostname %s resolves to more than one IP. Use one rtr-node element"
+                    "for each IP", addr_str);
+            glist_destroy(addr_lst);
+            return (BAD);
+        }
+    }
+    addr = (lisp_addr_t *)glist_first_data(addr_lst);
+    if (shash_lookup(ms->rtrs_table_by_ip,lisp_addr_to_char(addr)) != NULL){
+        OOR_LOG(LERR, "MS rtr node with address \"%s\" already exists",lisp_addr_to_char(addr));
+        return (BAD);
+    }
+    rtr = ms_rtr_node_new_init(name,addr,key);
+    glist_destroy(addr_lst);
+    if (!rtr){
+        return (BAD);
+    }
+
+    shash_insert(ms->rtrs_table_by_name,strdup(rtr->id),rtr);
+    shash_insert(ms->rtrs_table_by_ip,strdup(lisp_addr_to_char(rtr->addr)),rtr);
+    OOR_LOG(LDBG_1,"New RTR node added -> name: \"%s\", addr: %s", rtr->id, lisp_addr_to_char(rtr->addr));
+
+    return (GOOD);
+}
+
+int
+ms_add_rtr_set(lisp_ms_t *ms, char *name, int ttl, glist_t *rtr_nodes)
+{
+    ms_rtr_set_t *rtr_set;
+    glist_entry_t *rtr_it;
+    char *rtr_id;
+    ms_rtr_node_t *rtr;
+
+    if (!name) {
+        OOR_LOG(LERR, "ms-rtr-set name option required");
+        return (BAD);
+    }
+    if(shash_lookup(ms->rtrs_set_table,name)!= NULL){
+        OOR_LOG(LERR, "ms-rtr-set \"%s\" already exists",name);
+        return (BAD);
+    }
+    if (glist_size (rtr_nodes) == 0){
+        OOR_LOG(LERR, "ms-rtr-set \"%s\" doesn't have any rtr assigned", name);
+        return (BAD);
+    }
+    if (ttl <1 ){
+        OOR_LOG(LERR, "ms-rtr-set \"%s\" doesn't have a valid ttl value", name);
+        return (BAD);
+    }
+
+    rtr_set = ms_rtr_set_new_init(name, ttl);
+    if (!rtr_set){
+        return (BAD);
+    }
+
+    glist_for_each_entry (rtr_it, rtr_nodes){
+        rtr_id = (char *)glist_entry_data(rtr_it);
+        rtr = (ms_rtr_node_t *)shash_lookup(ms->rtrs_table_by_name,rtr_id);
+        if (!rtr){
+            OOR_LOG(LERR, "rtr node \"%s\" assigned to the ms-rtr-set \"%s\" doesn't exist",
+                    rtr_id, name);
+            ms_rtr_set_del(rtr_set);
+            return (BAD);
+        }
+        glist_add(rtr,rtr_set->rtr_list);
+    }
+    shash_insert(ms->rtrs_set_table,strdup(name),rtr_set);
+
+    OOR_LOG(LDBG_1,"New RTR set added:");
+    ms_rtr_set_dump(rtr_set, LDBG_1);
+
+    return (GOOD);
+}
 
 void
 nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id)

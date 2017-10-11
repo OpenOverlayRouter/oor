@@ -259,6 +259,30 @@ err:
     return(BAD);
 }
 
+int
+lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl)
+{
+    *ttl = (ntohl(*(int *)lbuf_data(b)));
+    lbuf_pull(b,sizeof(int));
+
+    if (lisp_msg_parse_eid_rec(b, eid)!= GOOD){
+        return(BAD);
+    }
+    return(GOOD);
+}
+
+int
+lisp_msg_parse_xtr_id_site_id (lbuf_t *b, lisp_xtr_id *xtr_id, lisp_site_id *site_id)
+{
+    void *ptr;
+    ptr = lbuf_pull(b, sizeof(lisp_xtr_id));
+    memcpy(xtr_id,ptr,sizeof(lisp_xtr_id));
+    ptr = lbuf_pull(b, sizeof(lisp_site_id));
+    memcpy(site_id,ptr,sizeof(lisp_site_id));
+    return(GOOD);
+}
+
+
 static unsigned int
 msg_type_to_hdr_len(lisp_msg_type_e type)
 {
@@ -333,7 +357,6 @@ lisp_msg_put_locator(lbuf_t *b, locator_t *locator)
     lisp_msg_put_addr(b, locator_addr(locator));
     return(loc_ptr);
 }
-
 
 static void
 increment_record_count(lbuf_t *b)
@@ -466,6 +489,15 @@ lisp_msg_put_eid_rec(lbuf_t *b, lisp_addr_t *eid)
 }
 
 void *
+lisp_msg_put_xtr_id_site_id(lbuf_t *b, lisp_xtr_id *xTR_id, lisp_site_id *site_id)
+{
+    void * ptr;
+    ptr = lbuf_put(b, xTR_id, sizeof(lisp_xtr_id));
+    lbuf_put(b, site_id, sizeof(lisp_site_id));
+    return (ptr);
+}
+
+void *
 lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
 {
     void *hdr;
@@ -594,17 +626,48 @@ lisp_msg_inf_req_create(mapping_t *m, lisp_key_type_e keyid)
     lisp_addr_t addr;
 
     if (!lisp_msg_put_empty_auth_record(b, keyid)) {
+        lbuf_del(b);
         return(NULL);
     }
 
     if (!lisp_msg_put_inf_req_hdr_2(b, mapping_eid(m), 0)) {
+        lbuf_del(b);
         return(NULL);
     }
 
     lisp_addr_set_lafi(&addr, LM_AFI_NO_ADDR);
     if (lisp_msg_put_addr(b, &addr) == NULL) {
+        lbuf_del(b);
         return(NULL);
     }
+
+    return(b);
+}
+
+lbuf_t *
+lisp_msg_inf_reply_create(lisp_addr_t *eid, lisp_addr_t *nat_lcaf, lisp_key_type_e keyid, int ttl)
+{
+    lbuf_t *b = lisp_msg_create(LISP_INFO_NAT);
+    void * hdr;
+
+
+    if (!lisp_msg_put_empty_auth_record(b, keyid)) {
+        lbuf_del(b);
+        return(NULL);
+    }
+
+    if (!lisp_msg_put_inf_req_hdr_2(b, eid, ttl)) {
+        lbuf_del(b);
+        return(NULL);
+    }
+
+    if (lisp_msg_put_addr(b, nat_lcaf) == NULL) {
+        lbuf_del(b);
+        return(NULL);
+    }
+
+    hdr = lisp_msg_hdr(b);
+    INF_REQ_R_bit(hdr)= 1;
 
     return(b);
 }
@@ -615,31 +678,14 @@ lisp_msg_mreg_create(mapping_t *m, lisp_key_type_e keyid)
     lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
 
     if (!lisp_msg_put_empty_auth_record(b, keyid)) {
+        lbuf_del(b);
         return(NULL);
     }
 
     if (!lisp_msg_put_mapping(b, m, NULL)) {
+        lbuf_del(b);
         return(NULL);
     }
-
-    return(b);
-}
-
-lbuf_t *
-lisp_msg_nat_mreg_create(mapping_t *m,lisp_site_id site_id,
-        lisp_xtr_id *xtr_id, lisp_key_type_e keyid)
-{
-    lbuf_t *b = lisp_msg_create(LISP_MAP_REGISTER);
-    if (!lisp_msg_put_empty_auth_record(b, keyid)){
-        return(NULL);
-    }
-
-    if (!lisp_msg_put_mapping(b, m, NULL)) {
-        return(NULL);
-    }
-
-    lbuf_put(b, xtr_id, sizeof(lisp_xtr_id));
-    lbuf_put(b, &site_id, sizeof(lisp_site_id));
 
     return(b);
 }
@@ -684,16 +730,14 @@ lisp_msg_ecm_hdr_to_char(lbuf_t *b)
 }
 
 int
-lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_e keyid, const char *key)
+lisp_msg_fill_auth_data(lbuf_t *b, void *auth_record_hdr, lisp_key_type_e keyid, const char *key)
 {
-    void *hdr = lisp_msg_auth_record(b);
-
     if (complete_auth_fields(
             keyid,
             key,
             lbuf_lisp(b),
             lbuf_size(b),
-            AUTH_REC_DATA(hdr)) != GOOD) {
+            AUTH_REC_DATA(auth_record_hdr)) != GOOD) {
         return(BAD);
     }
 
@@ -704,21 +748,17 @@ lisp_msg_fill_auth_data(lbuf_t *b, lisp_key_type_e keyid, const char *key)
 
 /* Checks auth field of Map-Register, Map-Notify and Info-Reply messages */
 int
-lisp_msg_check_auth_field(lbuf_t *b, const char *key)
+lisp_msg_check_auth_field(lbuf_t *b, void *auth_record_hdr, const char *key)
 {
     lisp_key_type_e keyid;
     uint16_t        ad_len  = 0;
     int             ret     = BAD;
 
-    auth_record_hdr_t *hdr;
-
-    hdr = lisp_msg_auth_record(b);
-
-    keyid = ntohs(AUTH_REC_KEY_ID(hdr));
+    keyid = ntohs(AUTH_REC_KEY_ID(auth_record_hdr));
     ad_len = auth_data_get_len_for_type(keyid);
-    if (ad_len != ntohs(AUTH_REC_DATA_LEN(hdr))) {
+    if (ad_len != ntohs(AUTH_REC_DATA_LEN(auth_record_hdr))) {
         OOR_LOG(LDBG_3, "Auth Record record length is wrong: %d instead of %d",
-                ntohs(AUTH_REC_DATA_LEN(hdr)), ad_len);
+                ntohs(AUTH_REC_DATA_LEN(auth_record_hdr)), ad_len);
         return(BAD);
     }
 
@@ -727,7 +767,7 @@ lisp_msg_check_auth_field(lbuf_t *b, const char *key)
             key,
             lbuf_lisp(b),
             lbuf_size(b),
-            AUTH_REC_DATA(hdr));
+            AUTH_REC_DATA(auth_record_hdr));
 
     return(ret);
 }
@@ -751,7 +791,7 @@ lisp_msg_put_inf_req_hdr_2(lbuf_t *b, lisp_addr_t *eid_pref, uint8_t ttl)
     lisp_addr_t *eid;
     hdr = lbuf_put_uninit(b, sizeof(info_nat_hdr_2_t));
 
-    INF_REQ_2_TTL(hdr) = ttl;
+    INF_REQ_2_TTL(hdr) = htonl(ttl);
     eid = lisp_addr_get_ip_pref_addr(eid_pref);
     INF_REQ_2_EID_MASK(hdr) = lisp_addr_ip_get_plen(eid);
     if (lisp_msg_put_addr(b, eid) == NULL) {

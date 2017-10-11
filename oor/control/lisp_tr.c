@@ -55,7 +55,7 @@ lisp_tr_uninit(lisp_tr_t *tr)
     shash_destroy(tr->iface_locators_table);
     mcache_del(tr->map_cache);
     glist_destroy(tr->map_resolvers);
-    if (!tr->fwd_policy_dev_parm){
+    if (tr->fwd_policy_dev_parm){
         tr->fwd_policy->del_dev_policy_inf(tr->fwd_policy_dev_parm);
     }
 }

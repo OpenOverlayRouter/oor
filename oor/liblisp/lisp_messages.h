@@ -398,7 +398,10 @@ char *map_notify_hdr_to_char(map_notify_hdr_t *h);
  *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-/* I and R bit are defined on NAT tarversal draft*/
+/* I and R bit are defined on NAT tarversal draft
+ * R bit is defined in NAT draft v2 but it has been moved to Encap header
+ * As many cisco routers implements v2, we still matain this bit */
+
 
 typedef struct map_register_hdr {
 #ifdef LITTLE_ENDIANS
