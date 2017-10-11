@@ -210,7 +210,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
         return (BAD);
     }
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     /* FWD POLICY STRUCTURES */
     xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
@@ -537,7 +537,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
         return (BAD);
     }
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     /* FWD POLICY STRUCTURES */
     xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
@@ -835,7 +835,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
 int
 configure_rtr(struct uci_context *ctx, struct uci_package *pck)
 {
-    lisp_xtr_t *xtr;
+    lisp_rtr_t *rtr;
     struct uci_section *sect;
     struct uci_element *element;
     struct uci_element *elem_addr;
@@ -861,11 +861,11 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
         return (BAD);
     }
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    rtr = lisp_rtr_cast(ctrl_dev);
 
     /* FWD POLICY STRUCTURES */
-    xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
-    xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
+    rtr->tr.fwd_policy = fwd_policy_class_find("flow_balancing");
+    rtr->tr.fwd_policy_dev_parm = rtr->tr.fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
 
     /* CREATE LCAFS HTABLE */
 
@@ -899,16 +899,16 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
             if (uci_lookup_option_string(ctx, sect, "map_request_retries") != NULL){
                 uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
                 if (uci_retries >= 0 && uci_retries <= OOR_MAX_RETRANSMITS){
-                    xtr->map_request_retries = uci_retries;
+                    rtr->tr.map_request_retries = uci_retries;
                 }else if (uci_retries > OOR_MAX_RETRANSMITS){
-                    xtr->map_request_retries = OOR_MAX_RETRANSMITS;
+                    rtr->tr.map_request_retries = OOR_MAX_RETRANSMITS;
                     OOR_LOG(LWRN, "Map-Request retries should be between 0 and %d. "
                             "Using default value: %d",OOR_MAX_RETRANSMITS, OOR_MAX_RETRANSMITS);
                 }
             }else{
                 OOR_LOG(LWRN,"Configuration file: Map Request Retries not specified."
                         " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
-                xtr->map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
+                rtr->tr.map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
                 continue;
             }
         }
@@ -917,30 +917,30 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
 
         if (strcmp(sect->type, "rloc-probing") == 0){
             if (uci_lookup_option_string(ctx, sect, "rloc_probe_interval") != NULL){
-                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+                rtr->tr.probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
             }else{
                 OOR_LOG(LWRN,"Configuration file: RLOC probe interval not specified."
                         " Disabling RLOC Probing");
-                xtr->probe_interval = 0;
+                rtr->tr.probe_interval = 0;
                 continue;
             }
             if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries") != NULL){
-                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+                rtr->tr.probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
             }else{
                 OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries not specified."
                         " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES);
-                xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+                rtr->tr.probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
             }
             if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval") != NULL){
-                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+                rtr->tr.probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
             }else{
                 OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries Intervals not specified."
                         " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES_INTERVAL);
-                xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+                rtr->tr.probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
             }
 
-            validate_rloc_probing_parameters(&xtr->probe_interval,
-                    &xtr->probe_retries, &xtr->probe_retries_interval);
+            validate_rloc_probing_parameters(&rtr->tr.probe_interval,
+                    &rtr->tr.probe_retries, &rtr->tr.probe_retries_interval);
             continue;
         }
 
@@ -949,7 +949,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
             opt  = uci_lookup_option(ctx, sect, "address");
             if (opt != NULL){
                 uci_foreach_element(&(opt->v.list), elem_addr){
-                    if (add_server(elem_addr->name, xtr->map_resolvers) != GOOD){
+                    if (add_server(elem_addr->name, rtr->tr.map_resolvers) != GOOD){
                         OOR_LOG(LCRIT,"Can't add %s Map Resolver.",elem_addr->name);
                     }else{
                         OOR_LOG(LDBG_1, "Added %s to map-resolver list", elem_addr->name);
@@ -978,7 +978,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
                 uci_proxy_reply = FALSE;
             }
 
-            if (add_map_server(xtr->map_servers,uci_address,
+            if (add_map_server(rtr->map_servers,uci_address,
                     uci_key_type,
                     uci_key,
                     uci_proxy_reply) != GOOD ){
@@ -1088,7 +1088,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
         OOR_LOG(LCRIT, "Failed to create MS. Aborting!");
         return (BAD);
     }
-    ms = CONTAINER_OF(ctrl_dev, lisp_ms_t, super);
+    ms = lisp_ms_cast(ctrl_dev);
 
 
     /* create lcaf hash table */
@@ -1248,7 +1248,7 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
     switch (dev->mode){
     case xTR_MODE:
     case MN_MODE:
-        xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+        xtr  = lisp_xtr_cast(ctrl_dev);
         break;
     default:
         break;

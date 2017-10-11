@@ -21,6 +21,7 @@
 #define OOR_CONFIG_FUNCTIONS_H_
 
 #include "../control/lisp_ms.h"
+#include "../control/lisp_rtr.h"
 #include "../control/lisp_xtr.h"
 #include "../lib/iface_locators.h"
 #include "../lib/lisp_site.h"
@@ -143,7 +144,7 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
         map_local_entry_t *map_loc_e, int afi, int priority, int weight);
 
 int
-add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
+add_rtr_iface(lisp_rtr_t *xtr, char *iface_name,int afi, int priority,
         int weight);
 
 lisp_site_prefix_t *

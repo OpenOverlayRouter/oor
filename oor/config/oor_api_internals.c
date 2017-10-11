@@ -460,7 +460,7 @@ oor_api_xtr_mr_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
     OOR_LOG(LDBG_1, "OOR_API: Creating new list of Map Resolvers");
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
     list = glist_new_managed((glist_del_fct)lisp_addr_del);
 
     doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL, "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
@@ -502,12 +502,12 @@ oor_api_xtr_mr_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     doc = NULL;
 
     //Everything fine. We replace the old list with the new one
-    glist_destroy(xtr->map_resolvers);
-    xtr->map_resolvers = list;
+    glist_destroy(xtr->tr.map_resolvers);
+    xtr->tr.map_resolvers = list;
 
     OOR_LOG(LDBG_1, "OOR_API: List of Map Resolvers successfully created");
     OOR_LOG(LDBG_2, "************* %13s ***************", "Map Resolvers");
-    glist_dump(xtr->map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
+    glist_dump(xtr->tr.map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
 
     result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
     oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);
@@ -539,16 +539,16 @@ oor_api_xtr_mr_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 	int result_msg_len;
 
 	OOR_LOG(LDBG_2, "OOR_API: Deleting Map Resolver list");
-	xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+	xtr = lisp_xtr_cast(ctrl_dev);
 
-	if (glist_size(xtr->map_resolvers) == 0){
+	if (glist_size(xtr->tr.map_resolvers) == 0){
 		result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_ERR);
 		oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);
 		OOR_LOG(LWRN, "OOR_API: Trying to remove Map Resolver list, but list was already empty");
 		return BAD;
 	}
 
-	glist_remove_all(xtr->map_resolvers);
+	glist_remove_all(xtr->tr.map_resolvers);
 
 	result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
 	oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);
@@ -575,7 +575,7 @@ oor_api_xtr_ms_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
     OOR_LOG(LDBG_1, "OOR_API: Creating new map servers list");
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL,
             "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
@@ -603,7 +603,7 @@ oor_api_xtr_ms_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     xtr->map_servers = map_servers_list;
 
     /* Reprogram Map Register for local EIDs */
-    program_map_register(xtr);
+    xtr_program_map_register(xtr);
 
     OOR_LOG(LDBG_1, "OOR_API: List of Map Servers successfully created");
     map_servers_dump(xtr, LDBG_1);
@@ -638,7 +638,7 @@ oor_api_xtr_ms_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
     OOR_LOG(LDBG_2, "OOR_API: Deleting Map Servers list");
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     if (glist_size(xtr->map_servers) == 0){
         //ERROR: Already NULL
@@ -690,7 +690,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     smr_lcl_map_e_list = glist_new();
     lcl_map_e_list = glist_new();
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL, "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
     root_element = xmlDocGetRootElement(doc);
@@ -742,8 +742,8 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
             OOR_LOG(LDBG_2, "OOR_API: Couldn't allocate map_local_entry_t %s",conf_mapping->eid_prefix);
             goto err;
         }
-        if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm, map_loc_e, NULL) != GOOD){
+        if (xtr->tr.fwd_policy->init_map_loc_policy_inf(
+                xtr->tr.fwd_policy_dev_parm, map_loc_e, NULL) != GOOD){
             OOR_LOG(LDBG_2, "OOR_API: Couldn't initiate forward information for mapping with EID: %s",conf_mapping->eid_prefix);
             goto err;
         }
@@ -803,12 +803,12 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
 
     /* Reprogram Map Register for local EIDs */
-    program_map_register(xtr);
+    xtr_program_map_register(xtr);
 
     /* SMR of the modified entries */
     glist_for_each_entry(local_map_entry_it, smr_lcl_map_e_list){
         map_loc_e = (map_local_entry_t *)glist_entry_data(local_map_entry_it);
-        send_smr_and_mreg_for_locl_mapping(xtr, map_loc_e);
+        xtr_smr_start_for_locl_mapping(xtr, map_loc_e);
     }
 
     result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
@@ -852,7 +852,7 @@ oor_api_xtr_mapdb_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 
     OOR_LOG(LDBG_2, "OOR_API: Deleting local Mapping Database list");
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     /* Remove routing configuration for the eids */
     local_map_db_foreach_entry(xtr->local_mdb, it) {
@@ -888,10 +888,11 @@ oor_api_xtr_petrs_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     xmlNodePtr petr_addr_xml;
     lisp_addr_t *petr_addr;
     glist_entry_t *addr_it;
+    mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
 
     OOR_LOG(LDBG_1, "OOR_API: Creating new list of Proxy ETRs");
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
     str_addr_list = glist_new_managed(free);
 
     doc =  xmlReadMemory ((const char *)data, hdr->datalen, NULL, "UTF-8", XML_PARSE_NOBLANKS|XML_PARSE_NSCLEAN|XML_PARSE_NOERROR|XML_PARSE_NOWARNING);
@@ -932,26 +933,29 @@ oor_api_xtr_petrs_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     xmlFreeDoc(doc);
     doc = NULL;
 
+    ipv4_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET);
+    ipv6_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET6);
+
     //Everything fine. We replace the old list with the new one
-    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv4)));
-    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv6)));
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(ipv4_petrs_mc)));
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(ipv6_petrs_mc)));
     glist_for_each_entry(addr_it,str_addr_list){
         str_addr = (char *)glist_entry_data(addr_it);
-        add_proxy_etr_entry(xtr->petrs_ipv4,str_addr,1,100);
-        add_proxy_etr_entry(xtr->petrs_ipv6,str_addr,1,100);
+        add_proxy_etr_entry(ipv4_petrs_mc,str_addr,1,100);
+        add_proxy_etr_entry(ipv6_petrs_mc,str_addr,1,100);
     }
 
 
-    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4);
-    notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(xtr->petrs_ipv4),FALSE);
+    xtr->tr.fwd_policy->updated_map_cache_inf(xtr->tr.fwd_policy_dev_parm,ipv4_petrs_mc);
+    notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(ipv4_petrs_mc),FALSE);
 
-    xtr->fwd_policy->updated_map_cache_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6);
-    notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(xtr->petrs_ipv6),FALSE);
+    xtr->tr.fwd_policy->updated_map_cache_inf(xtr->tr.fwd_policy_dev_parm,ipv6_petrs_mc);
+    notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(ipv6_petrs_mc),FALSE);
 
     OOR_LOG(LDBG_1, "OOR_API: List of Proxy ETRs successfully created");
     OOR_LOG(LDBG_1, "************************* Proxy ETRs List ****************************");
-    mapping_to_char(mcache_entry_mapping(xtr->petrs_ipv4));
-    mapping_to_char(mcache_entry_mapping(xtr->petrs_ipv6));
+    mapping_to_char(mcache_entry_mapping(ipv4_petrs_mc));
+    mapping_to_char(mcache_entry_mapping(ipv6_petrs_mc));
 
     result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
     oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);
@@ -977,14 +981,15 @@ oor_api_xtr_petrs_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     lisp_xtr_t *xtr;
     uint8_t *result_msg;
     int result_msg_len;
+    mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
 
     OOR_LOG(LDBG_2, "OOR_API: Deleting Proxy ETRs list");
+    xtr = lisp_xtr_cast(ctrl_dev);
 
-
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-
-    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv4)));
-    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(xtr->petrs_ipv6)));
+    ipv4_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET);
+    ipv6_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET6);
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(ipv4_petrs_mc)));
+    glist_remove_all(mapping_locators_lists(mcache_entry_mapping(ipv6_petrs_mc)));
 
     result_msg_len = oor_api_result_msg_new(&result_msg,hdr->device,hdr->target,hdr->operation,OOR_API_RES_OK);
     oor_api_send(conn,result_msg,result_msg_len,OOR_API_NOFLAGS);

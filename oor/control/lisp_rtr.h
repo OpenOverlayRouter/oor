@@ -17,27 +17,23 @@
  *
  */
 
-#ifndef LISP_MS_H_
-#define LISP_MS_H_
+#ifndef OOR_CONTROL_LISP_RTR_H_
+#define OOR_CONTROL_LISP_RTR_H_
 
+#include "lisp_tr.h"
 #include "oor_ctrl_device.h"
-#include "../lib/lisp_site.h"
 
 
-typedef struct _lisp_ms {
-    oor_ctrl_dev_t super;    /* base "class" */
+typedef struct lisp_rtr {
+    oor_ctrl_dev_t super; /* base "class" ,  Don't change order*/
 
-    /* ms members */
-    mdb_t *lisp_sites_db;
-    mdb_t *reg_sites_db;
-} lisp_ms_t;
+    lisp_tr_t tr; /* Don't change order */
 
-/* ms interface */
-int ms_add_lisp_site_prefix(lisp_ms_t *ms, lisp_site_prefix_t *site);
-int ms_add_registered_site_prefix(lisp_ms_t *dev, mapping_t *sp);
-void ms_dump_configured_sites(lisp_ms_t *dev, int log_level);
-void ms_dump_registered_sites(lisp_ms_t *dev, int log_level);
+    /* LOCAL IFACE MAPPING */
+    /* in case of RTR can be used for outgoing load balancing */
+    map_local_entry_t *all_locs_map;
+} lisp_rtr_t;
 
-inline lisp_ms_t *lisp_ms_cast(oor_ctrl_dev_t *dev);
+inline lisp_rtr_t * lisp_rtr_cast(oor_ctrl_dev_t *dev);
 
-#endif /* LISP_MS_H_ */
+#endif /* OOR_CONTROL_LISP_RTR_H_ */

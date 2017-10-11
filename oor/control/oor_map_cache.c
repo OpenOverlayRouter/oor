@@ -63,12 +63,23 @@ mcache_remove_entry(map_cache_db_t *mcdb, lisp_addr_t *key)
 
 /*
  * Look up a given lisp_addr_t in the database, returning the
- * oor_map_cache_entry of this lisp_addr_t if it exists or NULL.
+ * oor_map_cache_entry of this lisp_addr_t if it exists or NULL
+ * if the returned entry is the all space entry.
  */
 mcache_entry_t *
 mcache_lookup(map_cache_db_t *mcdb, lisp_addr_t *laddr)
 {
-    return(mdb_lookup_entry(mcdb->db, laddr));
+    mcache_entry_t * mce = mdb_lookup_entry(mcdb->db, laddr);
+    lisp_addr_t *eid;
+    if (!mce){
+        return (NULL);
+    }
+    eid =  mcache_entry_eid(mce);
+    // If the entry is the all space entry return NULL
+    if (lisp_addr_is_ip_pref(eid) && lisp_addr_get_plen(eid) == 0){
+        return (NULL);
+    }
+    return(mce);
 }
 
 /*
@@ -78,6 +89,29 @@ mcache_entry_t *
 mcache_lookup_exact(map_cache_db_t *mcdb, lisp_addr_t *laddr)
 {
     return(mdb_lookup_entry_exact(mcdb->db, laddr));
+}
+
+/*
+ * Return the full space entry 0.0.0.0/0 or ::/0 according to afi
+ */
+mcache_entry_t *
+mcache_get_all_space_entry(map_cache_db_t *mcdb, int afi)
+{
+    mcache_entry_t *mce;
+    lisp_addr_t addr;
+
+    switch (afi){
+    case AF_INET:
+        lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE, &addr);
+        mce = mcache_lookup_exact(mcdb, &addr);
+        return (mce);
+    case AF_INET6:
+        lisp_addr_ippref_from_char(FULL_IPv6_ADDRESS_SPACE, &addr);
+        mce = mcache_lookup_exact(mcdb, &addr);
+        return (mce);
+    default:
+        return (NULL);
+    }
 }
 
 

@@ -38,6 +38,7 @@ void *mcache_remove_entry(map_cache_db_t *, lisp_addr_t *key);
 void map_cache_del_entry(map_cache_db_t *, lisp_addr_t *laddr);
 mcache_entry_t *mcache_lookup_exact(map_cache_db_t *, lisp_addr_t *addr);
 mcache_entry_t *mcache_lookup(map_cache_db_t *, lisp_addr_t *addr);
+mcache_entry_t *mcache_get_all_space_entry(map_cache_db_t *mcdb,int afi);
 
 void mcache_dump_db(map_cache_db_t *, int log_level);
 

@@ -60,6 +60,8 @@ OBJS        = cmdline.o                  \
           control/oor_ctrl_device.o      \
           control/oor_local_db.o         \
           control/oor_map_cache.o        \
+          control/lisp_rtr.o             \
+          control/lisp_tr.o              \
           control/lisp_xtr.o             \
           control/lisp_ms.o              \
           control/control-data-plane/control-data-plane.o    \

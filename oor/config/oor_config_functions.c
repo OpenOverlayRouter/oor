@@ -445,7 +445,7 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
 }
 
 int
-add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
+add_rtr_iface(lisp_rtr_t *rtr, char *iface_name,int afi, int priority,
         int weight)
 {
     iface_t *iface;
@@ -493,13 +493,13 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
         return(BAD);
     }
 
-    if_loct = (iface_locators *)shash_lookup(xtr->iface_locators_table,iface_name);
+    if_loct = (iface_locators *)shash_lookup(rtr->tr.iface_locators_table,iface_name);
     if (if_loct == NULL){
         if_loct = iface_locators_new(iface_name);
-        shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
+        shash_insert(rtr->tr.iface_locators_table, strdup(iface_name), if_loct);
     }
 
-    if (!xtr->all_locs_map) {
+    if (!rtr->all_locs_map) {
         lisp_addr_set_lafi(&aux_address,LM_AFI_NO_ADDR);
         mapping = mapping_new();
         mapping_set_eid(mapping,&aux_address);
@@ -507,26 +507,26 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
             OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate mapping!");
             return (BAD);
         }
-        xtr->all_locs_map = map_local_entry_new_init(mapping);
-        if(xtr->all_locs_map == NULL){
+        rtr->all_locs_map = map_local_entry_new_init(mapping);
+        if(rtr->all_locs_map == NULL){
             OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate map_local_entry_t!");
             return (BAD);
         }
-        if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm,xtr->all_locs_map,NULL) != GOOD){
+        if (rtr->tr.fwd_policy->init_map_loc_policy_inf(
+                rtr->tr.fwd_policy_dev_parm,rtr->all_locs_map,NULL) != GOOD){
             OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.",
                     lisp_addr_to_char(mapping_eid(mapping)));
-            map_local_entry_del(xtr->all_locs_map);
+            map_local_entry_del(rtr->all_locs_map);
             return (BAD);
         }
     }
 
-    if (link_iface_and_mapping(iface, if_loct, xtr->all_locs_map, afi, priority, weight)
+    if (link_iface_and_mapping(iface, if_loct, rtr->all_locs_map, afi, priority, weight)
             != GOOD) {
         return(BAD);
     }
     /* Updated forwarding info */
-    xtr->fwd_policy->updated_map_loc_inf(xtr->fwd_policy_dev_parm, xtr->all_locs_map);
+    rtr->tr.fwd_policy->updated_map_loc_inf(rtr->tr.fwd_policy_dev_parm, rtr->all_locs_map);
 
     return(GOOD);
 }
@@ -718,14 +718,14 @@ clone_customize_locator(oor_ctrl_dev_t *dev, locator_t * locator,
 
         /* Associate locator with iface */
         if (dev->mode == xTR_MODE || dev->mode == MN_MODE){
-            xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-            iface_lctrs = xtr->iface_locators_table;
+            xtr  = lisp_xtr_cast(ctrl_dev);
+            iface_lctrs = xtr->tr.iface_locators_table;
 
             if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
 
             if (if_loct == NULL){
                 if_loct = iface_locators_new(iface_name);
-                shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
+                shash_insert(xtr->tr.iface_locators_table, strdup(iface_name), if_loct);
             }
 
             if (rloc_ip_afi == AF_INET){
@@ -896,12 +896,12 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
 
             /* If the locator is for a local mapping, associate the locator with the interface */
             if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-                xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-                iface_lctrs = xtr->iface_locators_table;
+                xtr  = lisp_xtr_cast(ctrl_dev);
+                iface_lctrs = xtr->tr.iface_locators_table;
                 if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
                 if (if_loct == NULL){
                     if_loct = iface_locators_new(iface_name);
-                    shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
+                    shash_insert(xtr->tr.iface_locators_table, strdup(iface_name), if_loct);
                 }
                 if (lisp_addr_ip_afi(ip_addr) == AF_INET){
                     glist_add(locator,if_loct->ipv4_locators);
@@ -972,12 +972,12 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
 
     /* If the locator is for a local mapping, associate the locator with the interface */
     if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-        xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-        iface_lctrs = xtr->iface_locators_table;
+        xtr  = lisp_xtr_cast(ctrl_dev);
+        iface_lctrs = xtr->tr.iface_locators_table;
         if_loct = (iface_locators *)shash_lookup(iface_lctrs, conf_loc_iface->interface);
         if (if_loct == NULL){
             if_loct = iface_locators_new(conf_loc_iface->interface);
-            shash_insert(xtr->iface_locators_table, strdup(conf_loc_iface->interface), if_loct);
+            shash_insert(xtr->tr.iface_locators_table, strdup(conf_loc_iface->interface), if_loct);
         }
         if (conf_loc_iface->afi == AF_INET){
             glist_add(locator,if_loct->ipv4_locators);
@@ -1010,7 +1010,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     switch (dev->mode){
         case xTR_MODE:
         case MN_MODE:
-            xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+            xtr  = lisp_xtr_cast(ctrl_dev);
             break;
         default:
             break;
@@ -1027,7 +1027,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
 
     if (conf_mapping->iid > MAX_IID || conf_mapping->iid < 0) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
-                "disabling...", conf_mapping->iid, MAX_IID);
+                "set ID to 0", conf_mapping->iid, MAX_IID);
         conf_mapping->iid = 0;
     }
     if (conf_mapping->iid > 0){
@@ -1074,7 +1074,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL && is_local){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1085,7 +1085,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL && is_local){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1109,7 +1109,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1120,7 +1120,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1145,7 +1145,7 @@ add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr)
         if (local_map_db_add_entry(xtr->local_mdb, map_loca_entry) == GOOD){
             OOR_LOG(LDBG_1, "Added EID prefix %s in the database.",
                     lisp_addr_to_char(eid));
-            iface_locators_attach_map_local_entry(xtr->iface_locators_table,map_loca_entry);
+            iface_locators_attach_map_local_entry(xtr->tr.iface_locators_table,map_loca_entry);
         }else{
             OOR_LOG(LERR, "Can't add EID prefix %s. Discarded ...",
                     lisp_addr_to_char(eid));
@@ -1160,7 +1160,7 @@ add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr)
     return(GOOD);
 err:
     iface_locators_unattach_mapping_and_loct(
-            xtr->iface_locators_table,
+            xtr->tr.iface_locators_table,
             map_loca_entry);
 
     return(BAD);

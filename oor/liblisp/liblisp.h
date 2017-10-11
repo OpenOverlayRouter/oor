@@ -92,6 +92,7 @@ static inline glist_t *laddr_list_new();
 static inline void laddr_list_init(glist_t *);
 static inline glist_t *laddr_sorted_list_new();
 static inline void laddr_list_del(glist_t *);
+int laddr_list_has_addr(glist_t *l, lisp_addr_t *addr);
 int laddr_list_get_addr(glist_t *, int, lisp_addr_t *);
 char *laddr_list_to_char(glist_t *l);
 

@@ -21,54 +21,21 @@
 #ifndef LISP_XTR_H_
 #define LISP_XTR_H_
 
+#include "lisp_tr.h"
 #include "oor_ctrl_device.h"
-#include "../defs.h"
-#include "../fwd_policies/fwd_policy.h"
-#include "../lib/shash.h"
 
-
-typedef enum tr_type {
-    xTR_TYPE,
-    RTR_TYPE,
-    PITR_TYPE,
-    PETR_TYPE
-} tr_type_e;
-
-typedef enum {
-    PREV_DRAF_VER_4,
-    AFTER_DRAFT_VER_4
-}nat_version;
+//#include "../defs.h"
+//#include "../fwd_policies/fwd_policy.h"
+//#include "../lib/shash.h"
 
 typedef struct lisp_xtr {
-    oor_ctrl_dev_t super; /* base "class" */
+    oor_ctrl_dev_t super; /* base "class",  Don't change order */
+    lisp_tr_t tr; /* Don't change order */
 
-    tr_type_e tr_type;
-
-    /* xtr interface */
-    mapping_t *(*lookup_eid_map_cache)(lisp_addr_t *eid);
-    mapping_t *(*lookup_eid_local_map_db)(lisp_addr_t *eid);
-    int (*add_mapping_to_map_cache)(mapping_t *mapping);
-    int (*add_mapping_to_local_map_db)(mapping_t *mapping);
-
-    int map_request_retries;
-    int probe_interval;
-    int probe_retries;
-    int probe_retries_interval;
-
-    mcache_entry_t *petrs_ipv4; // PeTR used for IPv4 EIDs
-    mcache_entry_t *petrs_ipv6; // PeTR used for IPv6 EIDs
     glist_t *pitrs; // <lisp_addr_t *>
 
     /* DATABASES */
-    map_cache_db_t *map_cache;
     local_map_db_t *local_mdb;
-
-    /* FWD POLICY */
-    fwd_policy_class *fwd_policy;
-    void *fwd_policy_dev_parm;
-
-    /* MAP RESOLVERS */
-    glist_t *map_resolvers; // <lisp_addr_t *>
 
     /* MAP SERVERs */
     glist_t *map_servers; // <map_server_elt *>
@@ -78,19 +45,9 @@ typedef struct lisp_xtr {
     int nat_status;
     lisp_site_id site_id;
     lisp_xtr_id xtr_id;
-    mcache_entry_t *rtrs;
 
     /* TIMERS */
     oor_timer_t *smr_timer;
-
-    /* MAPPING IFACE TO LOCATORS */
-    shash_t *iface_locators_table; /* Key: Iface name, Value: iface_locators */
-
-    /* LOCAL IFACE MAPPING */
-    /* in case of RTR can be used for outgoing load balancing */
-    map_local_entry_t *all_locs_map;
-
-    oor_encap_t encap_type;
 } lisp_xtr_t;
 
 typedef struct map_server_elt_t {
@@ -100,49 +57,27 @@ typedef struct map_server_elt_t {
     uint8_t         proxy_reply;
 } map_server_elt;
 
-typedef struct _timer_rloc_prob_argument {
-    mcache_entry_t *mce;
-    locator_t      *locator;
-} timer_rloc_probe_argument;
-
-typedef struct _timer_map_req_argument {
-    mcache_entry_t  *mce;
-    lisp_addr_t     *src_eid;
-} timer_map_req_argument;
-
-typedef struct _timer_map_reg_argument {
-    map_local_entry_t  *mle;
-    map_server_elt     *ms;
-} timer_map_reg_argument;
-
-typedef struct _timer_encap_map_reg_argument {
-    map_local_entry_t  *mle;
-    map_server_elt     *ms;
-    locator_t          *src_loct;
-    lisp_addr_t        *rtr_rloc;
-} timer_encap_map_reg_argument;
-
-typedef struct _timer_inf_req_argument {
-    map_local_entry_t *mle;
-    locator_t *loct;
-    map_server_elt *ms;
-}timer_inf_req_argument;
+typedef enum {
+    PREV_DRAF_VER_4,
+    AFTER_DRAFT_VER_4
+}nat_version;
 
 
-map_server_elt * map_server_elt_new_init(lisp_addr_t *address,uint8_t key_type,
-        char *key, uint8_t proxy_reply);
+/**************************** LOGICAL PROCESSES ******************************/
+inline lisp_xtr_t * lisp_xtr_cast(oor_ctrl_dev_t *dev);
+/****************************** Map Register *********************************/
+int xtr_program_map_register(lisp_xtr_t *xtr);
+/*********************************** SMR *************************************/
+void xtr_smr_start_for_locl_mapping(lisp_xtr_t *xtr, map_local_entry_t *map_loc_e);
+
+/**************************** Map Server struct ******************************/
+
+map_server_elt * map_server_elt_new_init(lisp_addr_t *address,uint8_t key_type, char *key,
+        uint8_t proxy_reply);
 void map_server_elt_del (map_server_elt *map_server);
-void map_servers_dump(lisp_xtr_t *, int log_level);
 
-int program_map_register(lisp_xtr_t *xtr);
-void send_smr_and_mreg_for_locl_mapping(lisp_xtr_t *xtr, map_local_entry_t *map_loc_e);
+/**********************************  Dump ************************************/
+void proxy_etrs_dump(lisp_xtr_t *xtr, int log_level);
+void map_servers_dump(lisp_xtr_t *xtr, int log_level);
 
-int tr_mcache_add_mapping(lisp_xtr_t *, mapping_t *);
-int tr_mcache_add_static_mapping(lisp_xtr_t *, mapping_t *);
-int tr_mcache_remove_entry(lisp_xtr_t *xtr, mcache_entry_t *mce);
-mapping_t *tr_mcache_lookup_mapping(lisp_xtr_t *, lisp_addr_t *);
-mapping_t *tr_mcache_lookup_mapping_exact(lisp_xtr_t *, lisp_addr_t *);
-
-
-oor_encap_t tr_get_encap_type(lisp_xtr_t *tr);
 #endif /* LISP_XTR_H_ */

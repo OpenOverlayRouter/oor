@@ -465,3 +465,34 @@ mapping_activate_locator(
     }
     return (res);
 }
+
+// XXX This function is only used while we don't have support of L bit of ELPs
+int
+mapping_has_elp_with_l_bit(mapping_t *map)
+{
+    glist_t *loct_list;
+    locator_t *loct;
+    lisp_addr_t *addr;
+    elp_t * elp;
+    elp_node_t *elp_node;
+    glist_entry_t *loct_it;
+    glist_entry_t *elp_n_it;
+
+    loct_list = mapping_get_loct_lst_with_afi(map,LM_AFI_LCAF,LCAF_EXPL_LOC_PATH);
+    if (loct_list == NULL){
+        return (FALSE);
+    }
+    glist_for_each_entry(loct_it,loct_list){
+        loct = (locator_t *)glist_entry_data(loct_it);
+        addr = locator_addr(loct);
+        elp = (elp_t *)lisp_addr_lcaf_addr(addr);
+        glist_for_each_entry(elp_n_it,elp->nodes){
+            elp_node = (elp_node_t *)glist_entry_data(elp_n_it);
+            if (elp_node->L == true){
+                return (TRUE);
+            }
+        }
+    }
+
+    return (FALSE);
+}

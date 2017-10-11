@@ -28,7 +28,7 @@
 static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
 static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);
 static int ms_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
-static inline lisp_ms_t *lisp_ms_cast(oor_ctrl_dev_t *dev);
+
 
 
 static locator_t *
@@ -338,7 +338,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     char *key = NULL;
     lisp_addr_t *eid;
     lbuf_t b;
-    void *hdr = NULL, *mntf_hdr = NULL;
+    void *hdr, *mntf_hdr;
     int i = 0;
     mapping_t *m = NULL;
     locator_t *probed = NULL;
@@ -553,7 +553,7 @@ ms_dump_registered_sites(lisp_ms_t *ms, int log_level)
 
 }
 
-static inline lisp_ms_t *
+inline lisp_ms_t *
 lisp_ms_cast(oor_ctrl_dev_t *dev)
 {
     /* make sure */

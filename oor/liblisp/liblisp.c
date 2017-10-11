@@ -798,7 +798,23 @@ lisp_data_pull_hdr(lbuf_t *b)
     return(dt);
 }
 
+int
+laddr_list_has_addr(glist_t *l, lisp_addr_t *addr)
+{
+    glist_entry_t *it;
+    lisp_addr_t *aux_addr;
 
+    if (!addr) {
+        return(FALSE);
+    }
+    glist_for_each_entry(it, l) {
+        aux_addr = (lisp_addr_t *)glist_entry_data(it);
+        if (lisp_addr_cmp(addr,aux_addr)==0){
+            return(TRUE);
+        }
+    }
+    return(FALSE);
+}
 
 /* returns in 'addr_' the first element of the list 'l' to have AFI 'afi'
  * caller must allocate and free 'addr_' */

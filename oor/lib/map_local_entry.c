@@ -207,6 +207,8 @@ mle_nat_info_update(map_local_entry_t *mle, locator_t *loct, glist_t *new_rtr_li
     }
 }
 
+/* Returns a list with all the RTRs associated with the map local entry
+ * Is responsibility of the user to free the list */
 glist_t *
 mle_rtr_addr_list(map_local_entry_t *mle)
 {
@@ -225,5 +227,12 @@ mle_rtr_addr_list(map_local_entry_t *mle)
     }
     glist_destroy(rtr_str_addr_lst);
     return (rtr_addr_lst);
+}
+
+/* Returns the list of RTRs associated to the locator with addr loct_addr */
+inline glist_t *
+mle_rtr_addr_list_of_loct(map_local_entry_t *mle, lisp_addr_t *loct_addr)
+{
+    return(shash_lookup(mle->nat_info->loct_addr_to_rtrs, lisp_addr_to_char(loct_addr)));
 }
 
