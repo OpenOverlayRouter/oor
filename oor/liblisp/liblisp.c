@@ -676,7 +676,7 @@ lisp_msg_hdr_to_char(lbuf_t *b)
     case LISP_ENCAP_CONTROL_TYPE:
         return(ecm_hdr_to_char(h));
     case LISP_MAP_REFERRAL:
-    	return '';
+    	return (map_referral_hdr_to_char(h));
     default:
         OOR_LOG(LDBG_3, "Unknown LISP message type %d",
                 lisp_msg_type(b));
