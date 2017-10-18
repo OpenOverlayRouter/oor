@@ -448,12 +448,87 @@ typedef struct _signature_hdr {
 
 
 /*
- * Mapping record used in all LISP control messages.
+ * Mapping record used in all LISP control messages, except map-referral.
  *
  *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |      |                          Record  TTL                          |
  *  |      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  R      | Locator Count | EID mask-len  | ACT |A|I|     Reserved        |
+ *  R      | Locator Count | EID mask-len  | ACT |A|       Reserved        |
+ *  e      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  c      | Rsvd  |  Map-Version Number   |            EID-AFI            |
+ *  o      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  r      |                          EID-prefix                           |
+ *  d      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |     /|    Priority   |    Weight     |  M Priority   |   M Weight    |
+ *  |    / +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |  Loc |         Unused Flags    |L|p|R|           Loc-AFI             |
+ *  |    \ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |     \|                            Locator                            |
+ *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+/*
+ * Fixed portion of the mapping record. EID prefix address and
+ * locators follow.
+ */
+
+typedef struct _mapping_record_hdr_t {
+    uint32_t ttl;
+    uint8_t locator_count;
+    uint8_t eid_prefix_length;
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved1:4;
+    uint8_t authoritative:1;
+    uint8_t action:3;
+#else
+    uint8_t action:3;
+    uint8_t authoritative:1;
+    uint8_t reserved1:4;
+#endif
+    uint8_t reserved2;
+#ifdef LITTLE_ENDIANS
+    uint8_t version_hi:4;
+    uint8_t reserved3:4;
+#else
+    uint8_t reserved3:4;
+    uint8_t version_hi:4;
+#endif
+    uint8_t version_low;
+} __attribute__ ((__packed__)) mapping_record_hdr_t;
+
+
+void mapping_record_init_hdr(mapping_record_hdr_t *h);
+char *mapping_action_to_char(int act);
+char *mapping_record_hdr_to_char(mapping_record_hdr_t *h);
+
+#define MAP_REC_EID_PLEN(h) ((mapping_record_hdr_t *)(h))->eid_prefix_length
+#define MAP_REC_LOC_COUNT(h) ((mapping_record_hdr_t *)(h))->locator_count
+#define MAP_REC_ACTION(h) ((mapping_record_hdr_t *)(h))->action
+#define MAP_REC_AUTH(h) ((mapping_record_hdr_t *)(h))->authoritative
+#define MAP_REC_TTL(h) ((mapping_record_hdr_t *)(h))->ttl
+#define MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mapping_record_hdr_t)
+#define MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
+
+typedef enum lisp_actions {
+    ACT_NO_ACTION = 0,
+    ACT_NATIVE_FWD,
+    ACT_SEND_MREQ,
+    ACT_DROP
+} lisp_action_e;
+
+
+/*
+ * MAP REFERRAL MAPPING RECORD
+ */
+
+
+/*
+ * Mapping record used in LISP map-referral control messages.
+ *
+ *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |      |                          Record  TTL                          |
+ *  |      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  R      |Referral Count | EID mask-len  | ACT |A|I|     Reserved        |
  *  e      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  c      |SigCnt |  Map-Version Number   |            EID-AFI            |
  *  o      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -476,7 +551,7 @@ typedef struct _signature_hdr {
 
 typedef struct _mapping_record_hdr_t {
     uint32_t ttl;
-    uint8_t locator_count;
+    uint8_t referral_count;
     uint8_t eid_prefix_length;
 #ifdef LITTLE_ENDIANS
     uint8_t reserved1:3;
@@ -498,29 +573,22 @@ typedef struct _mapping_record_hdr_t {
     uint8_t version_hi:4;
 #endif
     uint8_t version_low;
-} __attribute__ ((__packed__)) mapping_record_hdr_t;
+} __attribute__ ((__packed__)) map_ref_mapping_record_hdr_t;
 
 
-void mapping_record_init_hdr(mapping_record_hdr_t *h);
-char *mapping_action_to_char(int act);
-char *mapping_record_hdr_to_char(mapping_record_hdr_t *h);
+void map_ref_mapping_record_init_hdr(map_ref_mapping_record_hdr_t *h);
+char *map_ref_mapping_action_to_char(int act);
+char *map_ref_mapping_record_hdr_to_char(map_ref_mapping_record_hdr_t *h);
 
-#define MAP_REC_EID_PLEN(h) ((mapping_record_hdr_t *)(h))->eid_prefix_length
-#define MAP_REC_LOC_COUNT(h) ((mapping_record_hdr_t *)(h))->locator_count
-#define MAP_REC_ACTION(h) ((mapping_record_hdr_t *)(h))->action
-#define MAP_REC_AUTH(h) ((mapping_record_hdr_t *)(h))->authoritative
-#define MAP_REC_INC(h) ((mapping_record_hdr_t *)(h))->incomplete
-#define MAP_REC_SIGC(h) ((mapping_record_hdr_t *)(h))->signature_count
-#define MAP_REC_TTL(h) ((mapping_record_hdr_t *)(h))->ttl
-#define MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mapping_record_hdr_t)
-#define MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
-
-typedef enum lisp_actions {
-    ACT_NO_ACTION = 0,
-    ACT_NATIVE_FWD,
-    ACT_SEND_MREQ,
-    ACT_DROP
-} lisp_action_e;
+#define REF_MAP_REC_EID_PLEN(h) ((map_ref_mapping_record_hdr_t *)(h))->eid_prefix_length
+#define REF_MAP_REC_SIG_COUNT(h) ((map_ref_mapping_record_hdr_t *)(h))->referral_count
+#define REF_MAP_REC_ACTION(h) ((map_ref_mapping_record_hdr_t *)(h))->action
+#define REF_MAP_REC_AUTH(h) ((map_ref_mapping_record_hdr_t *)(h))->authoritative
+#define REF_MAP_REC_INC(h) ((map_ref_mapping_record_hdr_t *)(h))->incomplete
+#define REF_MAP_REC_SIGC(h) ((map_ref_mapping_record_hdr_t *)(h))->signature_count
+#define REF_MAP_REC_TTL(h) ((map_ref_mapping_record_hdr_t *)(h))->ttl
+#define REF_MAP_REC_EID(h) (uint8_t *)(h)+sizeof(map_ref_mapping_record_hdr_t)
+#define REF_MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
 
 typedef enum lisp_ref_actions {
 	LISP_ACTION_NODE_REFERRAL = 0,
