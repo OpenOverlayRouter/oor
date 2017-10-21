@@ -30,10 +30,22 @@ typedef struct _lisp_ddt_node {
     /* ms members */
 
     //needs to save EID-prefixes for which this node is authoritative
-    //probably not this same structure
+    //then, for each of those EID-prefixes, the delegated ddt nodes
+    //TODO put the right structures here
     mdb_t *lisp_sites_db;
     mdb_t *reg_sites_db;
 } lisp_ddt_node_t;
+
+typedef struct _ddt_authoritative_site{
+	lisp_addr_t xeid;
+} ddt_authoritative_site;
+
+//child_nodes is a glist of "lisp_addr_t"
+typedef struct _ddt_delegation_site{
+	lisp_addr_t xeid;
+	int type;
+	glist_t *child_nodes;
+} ddt_delegation_site;
 
 /* ms interface */
 /*

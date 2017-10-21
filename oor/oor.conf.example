@@ -73,6 +73,44 @@ ms-static-registered-site {
     }
 }
 
+################################################
+#
+# DDT-NODE configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+
+control-iface = <iface name>
+
+# Define a lisp-site for which this DDT-NODE is authoritative. Several
+# lisp-site can be defined.
+# 
+#   eid-prefix: Authoritative EID prefix (IPvX/mask)
+#   iid: Instance ID associated with the lisp site [0-16777215]
+
+authoritative-site {
+    eid-prefix            = <prefix>
+    iid                   = 0
+}
+
+# Define a static registered delegation.
+# You can define several eid-prefix.
+#   eid-prefix: EID prefix (IPvX/mask) of the delegation
+#   iid: Instance ID associated with the lisp site [0-16777215]
+#   delegation-type: Indicates if at least one of the delegated sites is a MS for this xeid
+#   addresses: A number of addresses, each could be one of the following cases
+#      - IPv4 or IPv6 address of the RLOC
+#      - ELP name
+
+delegation-site {
+    eid-prefix          = <prefix>
+    iid                 = 0
+    delegation-type     = 0
+	del-nodes[]         = <string>[]
+}
+
+
 ###############################################
 #
 # Tunnel Router general configuration
