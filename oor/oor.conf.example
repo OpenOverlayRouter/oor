@@ -107,7 +107,10 @@ delegation-site {
     eid-prefix          = <prefix>
     iid                 = 0
     delegation-type     = 0
-	del-nodes[]         = <string>[]
+	deleg-nodes 		= {
+	<ip-address>
+	...
+	}
 }
 
 

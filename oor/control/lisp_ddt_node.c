@@ -648,11 +648,14 @@ ddt_node_ctrl_construct(oor_ctrl_dev_t *dev)
 {
     lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
 
-    //TODO once the definitive database structure is set, adjust these
-    ddt_node->reg_sites_db = mdb_new();
-    ddt_node->lisp_sites_db = mdb_new();
+    /* for reference when changing fields in the future
+     * reg_sites_db has been changed to auth_sites_db,
+     * and lisp_sites_db has been changed to deleg_sites_db
+     */
+    ddt_node->auth_sites_db = mdb_new();
+    ddt_node->deleg_sites_db = mdb_new();
 
-    if (!ddt_node->reg_sites_db || !ddt_node->lisp_sites_db) {
+    if (!ddt_node->auth_sites_db || !ddt_node->deleg_sites_db) {
         return(BAD);
     }
 
@@ -666,8 +669,8 @@ ddt_node_ctrl_destruct(oor_ctrl_dev_t *dev)
 {
 	//TODO once the definitive database structure is set, adjust these
     lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
-    mdb_del(ddt_node->lisp_sites_db, (mdb_del_fct)lisp_site_prefix_del);
-    mdb_del(ddt_node->reg_sites_db, (mdb_del_fct)lisp_reg_site_del);
+    mdb_del(ddt_node->deleg_sites_db, (mdb_del_fct)lisp_site_prefix_del);
+    mdb_del(ddt_node->auth_sites_db, (mdb_del_fct)lisp_reg_site_del);
 }
 
 void

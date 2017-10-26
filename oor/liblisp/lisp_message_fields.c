@@ -40,7 +40,7 @@ mapping_record_init_hdr(mapping_record_hdr_t *h) {
 void
 map_ref_mapping_record_init_hdr(map_ref_mapping_record_hdr_t *h) {
     h->ttl                  = htonl(DEFAULT_DATA_CACHE_TTL);
-    h->locator_count        = 1;
+    h->referral_count        = 1;
     h->eid_prefix_length    = 0;
     h->action               = 0;
     h->authoritative        = 1;
@@ -133,8 +133,8 @@ map_ref_mapping_record_hdr_to_char(map_ref_mapping_record_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d incomplete: %d"
-            " map-version: %d", ntohl(h->ttl), h->locator_count,
+    snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d ref-count: %d action: %s auth: %d incomplete: %d"
+            " map-version: %d", ntohl(h->ttl), h->referral_count,
             mapping_action_to_char(h->action), h->authoritative, h->incomplete,
             MAP_REC_VERSION(h));
 

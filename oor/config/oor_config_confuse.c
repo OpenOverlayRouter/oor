@@ -929,12 +929,12 @@ handle_config_file()
     		CFG_INT("iid",                  0, CFGF_NONE),
 			CFG_END()
     };
-    //TODO for del-nodes maybe the existing "rloc_address_opts"(as sec) should be used?
-    static cfg_opt_t ddt_del_site_opts[] = {
+
+    static cfg_opt_t ddt_deleg_site_opts[] = {
     		CFG_STR("eid-prefix",           0, CFGF_NONE),
     		CFG_INT("iid",                  0, CFGF_NONE),
-			CFG_INT("del-type",             0, CFGF_NONE),
-            CFG_STR("del-nodes",            0, CFGF_MULTI),
+			CFG_INT("deleg-type",             0, CFGF_NONE),
+            CFG_STR("deleg-nodes",            0, CFGF_MULTI),
     		CFG_END()
 
     };
@@ -971,7 +971,7 @@ handle_config_file()
             CFG_SEC("replication-list",     rle_opts,               CFGF_MULTI),
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
 			CFG_SEC("ddt-auth-site",        ddt_auth_site_opts,     CFGF_MULTI),
-			CFG_SEC("ddt-del-site",         ddt_del_site_opts,      CFGF_MULTI),
+			CFG_SEC("ddt-deleg-site",         ddt_deleg_site_opts,      CFGF_MULTI),
             CFG_END()
     };
 
