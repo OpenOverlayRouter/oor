@@ -108,8 +108,8 @@ delegation-site {
     iid                 = 0
     delegation-type     = 0
 	deleg-nodes 		= {
-	<ip-address>
-	...
+		child-node		= <ip-address>
+		...
 	}
 }
 

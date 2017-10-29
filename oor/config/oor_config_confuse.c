@@ -32,6 +32,7 @@
 #include "../control/oor_ctrl_device.h"
 #include "../control/lisp_ms.h"
 #include "../control/lisp_xtr.h"
+#include "../control/lisp_ddt_node.h"
 #include "../data-plane/data-plane.h"
 #include "../lib/oor_log.h"
 #include "../lib/shash.h"
@@ -795,6 +796,123 @@ configure_ms(cfg_t *cfg)
         }
     }
 
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    return(GOOD);
+}
+
+int
+configure_ddt(cfg_t *cfg)
+{
+    char *iface_name;
+    iface_t *iface=NULL;
+    ddt_authoritative_site_t *asite;
+    ddt_delegation_site_t *dsite;
+    shash_t *lcaf_ht;
+    int i;
+    lisp_ddt_node_t *ddt_node;
+
+    /* create and configure xtr */
+       if (ctrl_dev_create(DDT_MODE, &ctrl_dev) != GOOD) {
+           OOR_LOG(LCRIT, "Failed to create DDT-Node. Aborting!");
+           exit_cleanup();
+       }
+       ddt_node = CONTAINER_OF(ctrl_dev, lisp_ddt_node_t, super);
+
+       /* create lcaf hash table */
+           lcaf_ht = parse_lcafs(cfg);
+
+
+    /* CONTROL INTERFACE */
+    /* TODO: should work with all interfaces in the future */
+    iface_name = cfg_getstr(cfg, "control-iface");
+    if (iface_name) {
+        iface = add_interface(iface_name);
+        if (iface == NULL) {
+            OOR_LOG(LERR, "Configuration file: Couldn't add the control iface of the DDT-Node");
+            return(BAD);
+        }
+    }else{
+    /* we have no iface_name, so also iface is missing */
+        OOR_LOG(LERR, "Configuration file: Specify the control iface of the DDT-Node");
+        return(BAD);
+    }
+
+    iface_configure (iface, AF_INET);
+    iface_configure (iface, AF_INET6);
+
+    /* AUTHORITATIVE-SITE CONFIG */
+    for (i = 0; i < cfg_size(cfg, "authoritative-site"); i++) {
+        cfg_t *as = cfg_getnsec(cfg, "authoritative-site", i);
+
+        if (cfg_getstr(as, "eid-prefix") == NULL || cfg_getstr(as, "iid") == NULL){
+            OOR_LOG(LERR, "Configuration file: DDT-Node authoritative site requires at least an eid-prefix and a iid");
+            return (BAD);
+        }
+
+        asite = build_ddt_authoritative_site(ddt_node,
+                cfg_getstr(as, "eid-prefix"),
+                cfg_getint(as, "iid"),
+                lcaf_ht);
+
+        if (asite != NULL) {
+            if (mdb_lookup_entry(ddt_node->auth_sites_db, asite->xeid) != NULL){
+                OOR_LOG(LDBG_1, "Configuration file: Duplicated auth-site: %s . Discarding...",
+                        lisp_addr_to_char(asite->xeid));
+                ddt_authoritative_site_del(asite);
+                continue;
+            }
+
+            OOR_LOG(LDBG_1, "Adding authoritative site %s to the authoritative sites "
+                    "database", lisp_addr_to_char(asite->xeid));
+            ddt_node_add_authoritative_site(ddt_node, asite);
+        }else{
+            OOR_LOG(LERR, "Can't add  authoritative site %s. Discarded ...",
+                    cfg_getstr(as, "eid-prefix"));
+        }
+    }
+
+    /* DELEGATION SITES CONFIG */
+    for (i = 0; i< cfg_size(cfg, "delegation-site"); i++ ) {
+        cfg_t *ds = cfg_getnsec(cfg, "delegation-site", i);
+        glist_t *child_nodes_list;
+
+        if (cfg_getstr(ds, "eid-prefix") == NULL || cfg_getstr(ds, "iid") == NULL || cfg_getstr(ds, "delegation-type") == NULL){
+            OOR_LOG(LERR, "Configuration file: DDT-Node delegation site requires at least an eid-prefix, a iid, and the delegation-type");
+            return (BAD);
+        }
+
+        //TODO "childnode" MUST be converted to type "lisp_addr_t" before adding to child_nodes_list
+        cfg_t *dn = cfg_getsec(ds, "deleg-nodes");
+        for(j = 0; j< cfg_size(ds, "child-node"); j++){
+            char childnode = cfg_getnstr(ds, "child-node", j);
+            glist_add_tail(childnode, child_nodes_list);
+        }
+
+
+        dsite = build_ddt_delegation_site(ddt_node,
+                cfg_getstr(ds, "eid-prefix"),
+                cfg_getint(ds, "iid"),
+                dfg_getint(ds, "delegation-type"),
+                child_nodes_list,
+                lcaf_ht);
+
+        if (dsite != NULL) {
+            if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite->xeid) != NULL){
+                OOR_LOG(LDBG_1, "Configuration file: Duplicated auth-site: %s . Discarding...",
+                        lisp_addr_to_char(dsite->xeid));
+                ddt_delegation_site_del(dsite);
+                continue;
+            }
+
+            OOR_LOG(LDBG_1, "Adding delegation site %s to the delegation sites "
+                    "database", lisp_addr_to_char(dsite->xeid));
+            ddt_node_add_delegation_site(ddt_node, dsite);
+        }else{
+            OOR_LOG(LERR, "Can't add  delegation site %s. Discarded ...",
+                    cfg_getstr(ds, "eid-prefix"));
+        }
+    }
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
     return(GOOD);

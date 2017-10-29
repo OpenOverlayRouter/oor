@@ -566,6 +566,72 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     return(site);
 }
 
+ddt_authoritative_site_t *
+build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        shash_t *lcaf_ht)
+{
+    lisp_addr_t *eid_prefix;
+    lisp_addr_t *ht_prefix;
+    ddt_authoritative_site_t *site;
+
+    if (iid > MAX_IID) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...", iid, MAX_IID);
+        iid = 0;
+    }
+
+    /* DON'T DELETE eid_prefix */
+    eid_prefix = lisp_addr_new();
+    if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
+        lisp_addr_del(eid_prefix);
+        /* if not found, try in the hash table */
+        ht_prefix = shash_lookup(lcaf_ht, eidstr);
+        if (!ht_prefix) {
+            OOR_LOG(LERR, "Configuration file: Error parsing EID prefix %s",
+                    eidstr);
+            return (NULL);
+        }
+        eid_prefix = lisp_addr_clone(ht_prefix);
+    }
+    pref_conv_to_netw_pref(eid_prefix);
+    site = ddt_authoritative_site_init(eid_prefix, iid);
+    lisp_addr_del(eid_prefix);
+    return(site);
+}
+
+ddt_delegation_site_t *
+build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        int type, glist_t child_nodes, shash_t *lcaf_ht)
+{
+    lisp_addr_t *eid_prefix;
+    lisp_addr_t *ht_prefix;
+    ddt_authoritative_site_t *site;
+
+    if (iid > MAX_IID) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...", iid, MAX_IID);
+        iid = 0;
+    }
+
+    /* DON'T DELETE eid_prefix */
+    eid_prefix = lisp_addr_new();
+    if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
+        lisp_addr_del(eid_prefix);
+        /* if not found, try in the hash table */
+        ht_prefix = shash_lookup(lcaf_ht, eidstr);
+        if (!ht_prefix) {
+            OOR_LOG(LERR, "Configuration file: Error parsing EID prefix %s",
+                    eidstr);
+            return (NULL);
+        }
+        eid_prefix = lisp_addr_clone(ht_prefix);
+    }
+    pref_conv_to_netw_pref(eid_prefix);
+    site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes);
+    lisp_addr_del(eid_prefix);
+    return(site);
+}
+
 
 /* Parses an EID/RLOC (IP or LCAF) and returns a list of 'lisp_addr_t'.
  * Caller must free the returned value */

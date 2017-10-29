@@ -491,32 +491,33 @@ bad: // could return different error
 }
 */
 
-/*
+
 int
-ms_add_lisp_site_prefix(lisp_ms_t *ms, lisp_site_prefix_t *sp)
+ddt_node_add_authoritative_site(lisp_ddt_node_t *ddt_node, ddt_authoritative_site_t *as)
 {
-    if (!sp)
+    if (!as)
         return(BAD);
 
-    if(!mdb_add_entry(ms->lisp_sites_db, lsite_prefix(sp), sp))
+    if(!mdb_add_entry(ddt_node->auth_sites_db, asite_xeid(as), as))
         return(BAD);
     return(GOOD);
 }
 
+
+
 int
-ms_add_registered_site_prefix(lisp_ms_t *ms, mapping_t *sp)
+ddt_node_add_delegation_site(lisp_ddt_node_t *ddt_node, ddt_delegation_site_t *ds)
 {
-    if (!sp) {
+    if (!ds) {
         return(BAD);
     }
 
-    lisp_reg_site_t *rs = xzalloc(sizeof(lisp_reg_site_t));
-    rs->site_map = sp;
-    if (!mdb_add_entry(ms->reg_sites_db, mapping_eid(sp), rs))
+    if (!mdb_add_entry(ddt_node->deleg_sites_db, dsite_xeid(ds), ds))
         return(BAD);
     return(GOOD);
 }
 
+/*
 void
 ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
 {
@@ -667,10 +668,9 @@ ddt_node_ctrl_construct(oor_ctrl_dev_t *dev)
 static void
 ddt_node_ctrl_destruct(oor_ctrl_dev_t *dev)
 {
-	//TODO once the definitive database structure is set, adjust these
-    lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
-    mdb_del(ddt_node->deleg_sites_db, (mdb_del_fct)lisp_site_prefix_del);
-    mdb_del(ddt_node->auth_sites_db, (mdb_del_fct)lisp_reg_site_del);
+	lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
+    mdb_del(ddt_node->deleg_sites_db, (mdb_del_fct)ddt_authoritative_site_del);
+    mdb_del(ddt_node->auth_sites_db, (mdb_del_fct)ddt_delegation_site_del);
 }
 
 void
@@ -694,6 +694,63 @@ ddt_node_ctrl_run(oor_ctrl_dev_t *dev)
     OOR_LOG(LDBG_1, "Starting DDT Node ...");
 }
 
+
+ddt_authoritative_site_t
+*ddt_authoritative_site_init(lisp_addr_t *eid, uint32_t iid)
+{
+    ddt_authoritative_site *as = NULL;
+    int iidmlen;
+
+    as = xzalloc(sizeof(ddt_authoritative_site_t));
+    if (iid > 0){
+        iidmlen = (lisp_addr_ip_afi(eid) == AF_INET) ? 32: 128;
+        as->xeid = lisp_addr_new_init_iid(iid, eid, iidmlen);
+    }else{
+        as->xeid = lisp_addr_clone(eid);
+    }
+
+    return(as);
+}
+
+
+ddt_delegation_site_t
+*ddt_delegation_site_init(lisp_addr_t *eid, uint32_t iid, int type, glist_t child_nodes)
+{
+    ddt_delegation_site_t *ds = NULL;
+    int iidmlen;
+
+    ds = xzalloc(sizeof(ddt_delegation_site_t));
+    if (iid > 0){
+        iidmlen = (lisp_addr_ip_afi(eid) == AF_INET) ? 32: 128;
+        ds->xeid = lisp_addr_new_init_iid(iid, eid, iidmlen);
+    }else{
+        ds->xeid = lisp_addr_clone(eid);
+    }
+    ds->type = type;
+    ds->child_nodes = child_nodes;
+
+    return(ds);
+}
+
+void
+ddt_authoritative_site_del(ddt_authoritative_site_t *as)
+{
+    if (!as)
+        return;
+    if (as->xeid)
+        lisp_addr_del(as->xeid);
+    free(as);
+}
+
+void
+ddt_delegation_site_del(ddt_delegation_site_t *ds)
+{
+    if (!ds)
+        return;
+    if (ds->xeid)
+        lisp_addr_del(ds->xeid);
+    free(ds);
+}
 
 ctrl_dev_class_t ddt_node_ctrl_class = {
         .alloc = ddt_node_ctrl_alloc,

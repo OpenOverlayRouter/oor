@@ -151,6 +151,14 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
         shash_t *lcaf_ht);
 
+ddt_authoritative_site_t *
+build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        shash_t *lcaf_ht);
+
+ddt_delegation_site_t *
+build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        int type, glist_t child_nodes, shash_t *lcaf_ht);
+
 char *
 get_interface_name_from_address(lisp_addr_t *addr);
 

@@ -27,11 +27,7 @@
 typedef struct _lisp_ddt_node {
     oor_ctrl_dev_t super;    /* base "class" */
 
-    /* ms members */
-
-    //needs to save EID-prefixes for which this node is authoritative
-    //then, for each of those EID-prefixes, the delegated ddt nodes
-    //TODO put the right structures here
+    /* ddt-node members */
     mdb_t *auth_sites_db; /* auth_sites_db is filled with ddt_authoritative_site_t */
     mdb_t *deleg_sites_db; /* deleg_sites_db is filled with ddt_delegation_site_t */
 } lisp_ddt_node_t;
@@ -54,5 +50,19 @@ int ddt_node_add_registered_site_prefix(lisp_ddt_node_t *dev, mapping_t *sp);
 void ddt_node_dump_configured_sites(lisp_ddt_node_t *dev, int log_level);
 void ddt_node_dump_registered_sites(lisp_ddt_node_t *dev, int log_level);
 */
+int ddt_node_add_authoritative_site(lisp_ddt_node_t *ddt_node, ddt_authoritative_site_t *site);
+int ddt_node_add_delegation_site(lisp_ddt_node_t *ddt_node, ddt_delegation_site_t *site);
+
+ddt_authoritative_site_t *ddt_authoritative_site_init(lisp_addr_t *eid_prefix, uint32_t iid);
+ddt_delegation_site_t *ddt_delegation_site_init(lisp_addr_t *eid_prefix, uint32_t iid, int type, glist_t child_nodes);
+void ddt_authoritative_site_del(ddt_authoritative_site_t *as);
+static inline lisp_addr_t *
+asite_xeid(ddt_authoritative_site_t *as) {
+    return(as->xeid);
+}
+void ddt_delegation_site_del(ddt_delegation_site_t *ds);
+dsite_xeid(ddt_delegation_site_t *ds) {
+    return(ds->xeid);
+}
 
 #endif /* LISP_DDT_NODE_H_ */

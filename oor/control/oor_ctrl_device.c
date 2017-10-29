@@ -24,11 +24,12 @@
 #include "oor_ctrl_device.h"
 
 
-static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
+static ctrl_dev_class_t *reg_ctrl_dev_cls[5] = {
         &xtr_ctrl_class,
         &ms_ctrl_class,
         &xtr_ctrl_class,/* RTR */
         &xtr_ctrl_class,/* MN */
+        &ddt_node_ctrl_class,
 };
 
 inline oor_dev_type_e
