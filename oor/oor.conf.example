@@ -106,10 +106,10 @@ authoritative-site {
 delegation-site {
     eid-prefix          = <prefix>
     iid                 = 0
-    delegation-type     = 0
+    delegation-type     = <CHILD_NODE/MAP_SERVER>
 	deleg-nodes 		= {
-		child-node		= <ip-address>
-		...
+	 <ip-address>
+	 ...
 	}
 }
 

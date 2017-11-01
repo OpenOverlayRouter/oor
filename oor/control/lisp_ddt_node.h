@@ -36,6 +36,10 @@ typedef struct _ddt_authoritative_site{
 	lisp_addr_t xeid;
 } ddt_authoritative_site_t;
 
+typedef enum ddt_deleg_type {
+    CHILD_NODE,
+    MAP_SERVER
+} ddt_deleg_type_e;
 
 typedef struct _ddt_delegation_site{
 	lisp_addr_t xeid;
@@ -43,13 +47,14 @@ typedef struct _ddt_delegation_site{
 	glist_t *child_nodes; /*child_nodes is a glist of "lisp_addr_t" */
 } ddt_delegation_site_t;
 
-/* ms interface */
+/* DDT-Node interface */
 /*
 int ddt_node_add_lisp_site_prefix(lisp_ddt_node_t *ddt_node, lisp_site_prefix_t *site);
 int ddt_node_add_registered_site_prefix(lisp_ddt_node_t *dev, mapping_t *sp);
-void ddt_node_dump_configured_sites(lisp_ddt_node_t *dev, int log_level);
-void ddt_node_dump_registered_sites(lisp_ddt_node_t *dev, int log_level);
 */
+void ddt_node_dump_authoritative_sites(lisp_ddt_node_t *dev, int log_level);
+void ddt_node_dump_delegation_sites(lisp_ddt_node_t *dev, int log_level);
+
 int ddt_node_add_authoritative_site(lisp_ddt_node_t *ddt_node, ddt_authoritative_site_t *site);
 int ddt_node_add_delegation_site(lisp_ddt_node_t *ddt_node, ddt_delegation_site_t *site);
 

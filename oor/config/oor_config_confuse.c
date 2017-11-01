@@ -809,7 +809,7 @@ configure_ddt(cfg_t *cfg)
     ddt_authoritative_site_t *asite;
     ddt_delegation_site_t *dsite;
     shash_t *lcaf_ht;
-    int i;
+    int i, j, k, n;
     lisp_ddt_node_t *ddt_node;
 
     /* create and configure xtr */
@@ -882,24 +882,33 @@ configure_ddt(cfg_t *cfg)
             return (BAD);
         }
 
-        //TODO "childnode" MUST be converted to type "lisp_addr_t" before adding to child_nodes_list
-        cfg_t *dn = cfg_getsec(ds, "deleg-nodes");
-        for(j = 0; j< cfg_size(ds, "child-node"); j++){
-            char childnode = cfg_getnstr(ds, "child-node", j);
-            glist_add_tail(childnode, child_nodes_list);
+        char *child_node;
+        n = cfg_size(ds, "deleg-nodes");
+        for(k = 0; k < n; k++) {
+            if ((child_node = cfg_getnstr(ds, "deleg-nodes", k)) != NULL) {
+                glist_add_tail(childnode, child_nodes_list);
+            }
+        }
+
+        char *typechar = dfg_getstr(ds, delegation-type);
+        int typeint = NULL;
+        if(strcmp(typechar, "MAP_SERVER") == 0){
+            typeint = 1;
+        }else{
+            typeint = 0;
         }
 
 
         dsite = build_ddt_delegation_site(ddt_node,
                 cfg_getstr(ds, "eid-prefix"),
                 cfg_getint(ds, "iid"),
-                dfg_getint(ds, "delegation-type"),
+                typeint,
                 child_nodes_list,
                 lcaf_ht);
 
         if (dsite != NULL) {
             if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite->xeid) != NULL){
-                OOR_LOG(LDBG_1, "Configuration file: Duplicated auth-site: %s . Discarding...",
+                OOR_LOG(LDBG_1, "Configuration file: Duplicated deleg-site: %s . Discarding...",
                         lisp_addr_to_char(dsite->xeid));
                 ddt_delegation_site_del(dsite);
                 continue;

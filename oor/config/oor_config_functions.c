@@ -606,6 +606,7 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
     lisp_addr_t *eid_prefix;
     lisp_addr_t *ht_prefix;
     ddt_authoritative_site_t *site;
+    glist_t *addr_list, *child_nodes2;
 
     if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
@@ -627,7 +628,21 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
         eid_prefix = lisp_addr_clone(ht_prefix);
     }
     pref_conv_to_netw_pref(eid_prefix);
-    site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes);
+
+    //Convert the contents of child_nodes from strings to lisp_addr_t
+    //and put them into child_nodes2
+    char         *    childnod          = NULL;
+    glist_entry_t *     it          = NULL;
+
+    glist_for_each_entry(it, child_nodes) {
+        childnod = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(childnod, lcaf_ht);
+        if (addr_list == NULL || glist_size(addr_list) == 1){
+            glist_add_tail((lisp_addr_t *)glist_entry_data(glist_first(addr_list)), child_nodes2);
+        }
+    }
+
+    site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes2);
     lisp_addr_del(eid_prefix);
     return(site);
 }

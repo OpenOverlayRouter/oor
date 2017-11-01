@@ -517,48 +517,54 @@ ddt_node_add_delegation_site(lisp_ddt_node_t *ddt_node, ddt_delegation_site_t *d
     return(GOOD);
 }
 
-/*
+
 void
-ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
+ddt_node_dump_authoritative_sites(lisp_ddt_node_t *ddtn, int log_level)
 {
     if (is_loggable(log_level) == FALSE){
         return;
     }
 
     void *it = NULL;
-    lisp_site_prefix_t *site = NULL;
+    ddt_authoritative_site_t *asite = NULL;
 
-    OOR_LOG(log_level,"****************** MS configured prefixes **************\n");
-    mdb_foreach_entry(ms->lisp_sites_db, it) {
-        site = it;
-        OOR_LOG(log_level, "Prefix: %s, accept specifics: %s merge: %s, proxy: %s",
-                lisp_addr_to_char(site->eid_prefix),
-                (site->accept_more_specifics) ? "on" : "off",
-                (site->merge) ? "on" : "off",
-                (site->proxy_reply) ? "on" : "off");
+    OOR_LOG(log_level,"****************** DDT-NODE authoritative prefixes **************\n");
+    mdb_foreach_entry(ddtn->auth_sites_db, it) {
+        asite = it;
+        OOR_LOG(log_level, "Xeid: %s",
+                lisp_addr_to_char(asite->xeid));
     } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 }
 
 void
-ms_dump_registered_sites(lisp_ms_t *ms, int log_level)
+ddt_node_dump_delegation_sites(lisp_ddt_node_t *ddtn, int log_level)
 {
     if (is_loggable(log_level) == FALSE){
         return;
     }
 
     void *it = NULL;
-    lisp_reg_site_t *rsite = NULL;
+    ddt_delegation_site_t *dsite = NULL;
+    lisp_addr_t *    addr          = NULL;
+    glist_entry_t *     it          = NULL;
 
-    OOR_LOG(log_level,"**************** MS registered sites ******************\n");
-    mdb_foreach_entry(ms->reg_sites_db, it) {
-        rsite = it;
-        OOR_LOG(log_level, "%s", mapping_to_char(rsite->site_map));
+    OOR_LOG(log_level,"**************** DDT-Node delegation sites ******************\n");
+    mdb_foreach_entry(ddtn->deleg_sites_db, it) {
+        dsite = it;
+        OOR_LOG(log_level, "Xeid: %s, Delegation type: %s Delegation Nodes:",
+                        lisp_addr_to_char(dsite->xeid),
+                        (dsite->type==0) ? "Child Node" : "Map Server");
+        glist_for_each_entry(it, dsite->child_nodes) {
+                addr = (lisp_addr_t *)glist_entry_data(it);
+                OOR_LOG(log_level, "%s",
+                                lisp_addr_to_char(addr));
+            }
     } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 
 }
-*/
+
 
 static inline lisp_ddt_node_t *
 lisp_ddt_node_cast(oor_ctrl_dev_t *dev)
@@ -687,9 +693,8 @@ ddt_node_ctrl_run(oor_ctrl_dev_t *dev)
     lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
 
     OOR_LOG (LDBG_1, "****** Summary of the configuration ******");
-    //TODO these will be different, according to the definitive structure
-    ddt_node_dump_configured_sites(ddt_node, LDBG_1);
-    ddt_node_dump_registered_sites(ddt_node, LDBG_1);
+    ddt_node_dump_authoritative_sites(ddt_node, LDBG_1);
+    ddt_node_dump_delegation_sites(ddt_node, LDBG_1);
 
     OOR_LOG(LDBG_1, "Starting DDT Node ...");
 }
