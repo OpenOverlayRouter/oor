@@ -809,7 +809,7 @@ configure_ddt(cfg_t *cfg)
     ddt_authoritative_site_t *asite;
     ddt_delegation_site_t *dsite;
     shash_t *lcaf_ht;
-    int i, j, k, n;
+    int i, j, n;
     lisp_ddt_node_t *ddt_node;
 
     /* create and configure xtr */
@@ -875,7 +875,7 @@ configure_ddt(cfg_t *cfg)
     /* DELEGATION SITES CONFIG */
     for (i = 0; i< cfg_size(cfg, "delegation-site"); i++ ) {
         cfg_t *ds = cfg_getnsec(cfg, "delegation-site", i);
-        glist_t *child_nodes_list;
+        glist_t *child_nodes_list = glist_new();
 
         if (cfg_getstr(ds, "eid-prefix") == NULL || cfg_getstr(ds, "iid") == NULL || cfg_getstr(ds, "delegation-type") == NULL){
             OOR_LOG(LERR, "Configuration file: DDT-Node delegation site requires at least an eid-prefix, a iid, and the delegation-type");
@@ -884,14 +884,14 @@ configure_ddt(cfg_t *cfg)
 
         char *child_node;
         n = cfg_size(ds, "deleg-nodes");
-        for(k = 0; k < n; k++) {
-            if ((child_node = cfg_getnstr(ds, "deleg-nodes", k)) != NULL) {
-                glist_add_tail(childnode, child_nodes_list);
+        for(j = 0; j < n; j++) {
+            if ((child_node = cfg_getnstr(ds, "deleg-nodes", j)) != NULL) {
+                glist_add_tail(child_node, child_nodes_list);
             }
         }
 
-        char *typechar = dfg_getstr(ds, delegation-type);
-        int typeint = NULL;
+        char *typechar = cfg_getstr(ds, "delegation-type");
+        int typeint;
         if(strcmp(typechar, "MAP_SERVER_DDT_NODE") == 0){
             typeint = 1;
         }else{

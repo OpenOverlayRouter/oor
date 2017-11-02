@@ -576,7 +576,7 @@ void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig);
  } __attribute__ ((__packed__)) map_referral_hdr_t;
 
  void map_referral_hdr_init(void *ptr);
- char *map_referral_hdr_to_char(map_reply_hdr_t *h);
+ char *map_referral_hdr_to_char(map_referral_hdr_t *h);
 
 #define MREF_HDR_CAST(h_) ((map_referral_hdr_t *)(h_))
 #define MREF_REC_COUNT(h_) MREF_HDR_CAST(h_)->record_count

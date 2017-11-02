@@ -430,7 +430,6 @@ typedef struct _signature_hdr {
     uint8_t sig_algorithm;
     uint8_t reserved1;
     uint16_t reserved2;
-#endif
 } __attribute__ ((__packed__)) signature_hdr_t;
 
 #define SIG_CAST(h_) ((signature_hdr_t *)(h_))
@@ -549,7 +548,7 @@ typedef enum lisp_actions {
  * locators follow.
  */
 
-typedef struct _mapping_record_hdr_t {
+typedef struct _map_ref_mapping_record_hdr_t {
     uint32_t ttl;
     uint8_t referral_count;
     uint8_t eid_prefix_length;

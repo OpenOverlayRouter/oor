@@ -551,10 +551,10 @@ ddt_node_dump_delegation_sites(lisp_ddt_node_t *ddtn, int log_level)
         return;
     }
 
-    void *it = NULL;
+    ddt_delegation_site_t *it = NULL;
     ddt_delegation_site_t *dsite = NULL;
     lisp_addr_t *    addr          = NULL;
-    glist_entry_t *     it          = NULL;
+    glist_entry_t *     it2          = NULL;
 
     OOR_LOG(log_level,"**************** DDT-Node delegation sites ******************\n");
     mdb_foreach_entry(ddtn->deleg_sites_db, it) {
@@ -562,8 +562,8 @@ ddt_node_dump_delegation_sites(lisp_ddt_node_t *ddtn, int log_level)
         OOR_LOG(log_level, "Xeid: %s, Delegation type: %s Delegation Nodes:",
                         lisp_addr_to_char(dsite->xeid),
                         (dsite->type==0) ? "Child Node" : "Map Server");
-        glist_for_each_entry(it, dsite->child_nodes) {
-                addr = (lisp_addr_t *)glist_entry_data(it);
+        glist_for_each_entry(it2, dsite->child_nodes) {
+                addr = (lisp_addr_t *)glist_entry_data(it2);
                 OOR_LOG(log_level, "%s",
                                 lisp_addr_to_char(addr));
             }
@@ -710,7 +710,7 @@ ddt_node_ctrl_run(oor_ctrl_dev_t *dev)
 ddt_authoritative_site_t
 *ddt_authoritative_site_init(lisp_addr_t *eid, uint32_t iid)
 {
-    ddt_authoritative_site *as = NULL;
+    ddt_authoritative_site_t *as = NULL;
     int iidmlen;
 
     as = xzalloc(sizeof(ddt_authoritative_site_t));
@@ -726,7 +726,7 @@ ddt_authoritative_site_t
 
 
 ddt_delegation_site_t
-*ddt_delegation_site_init(lisp_addr_t *eid, uint32_t iid, int type, glist_t child_nodes)
+*ddt_delegation_site_init(lisp_addr_t *eid, uint32_t iid, int type, glist_t *child_nodes)
 {
     ddt_delegation_site_t *ds = NULL;
     int iidmlen;

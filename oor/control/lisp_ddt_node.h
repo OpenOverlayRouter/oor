@@ -33,7 +33,7 @@ typedef struct _lisp_ddt_node {
 } lisp_ddt_node_t;
 
 typedef struct _ddt_authoritative_site{
-	lisp_addr_t xeid;
+	lisp_addr_t *xeid;
 } ddt_authoritative_site_t;
 
 typedef enum ddt_deleg_type {
@@ -42,7 +42,7 @@ typedef enum ddt_deleg_type {
 } ddt_deleg_type_e;
 
 typedef struct _ddt_delegation_site{
-	lisp_addr_t xeid;
+	lisp_addr_t *xeid;
 	int type;
 	glist_t *child_nodes; /*child_nodes is a glist of "lisp_addr_t" */
 } ddt_delegation_site_t;
@@ -59,13 +59,14 @@ int ddt_node_add_authoritative_site(lisp_ddt_node_t *ddt_node, ddt_authoritative
 int ddt_node_add_delegation_site(lisp_ddt_node_t *ddt_node, ddt_delegation_site_t *site);
 
 ddt_authoritative_site_t *ddt_authoritative_site_init(lisp_addr_t *eid_prefix, uint32_t iid);
-ddt_delegation_site_t *ddt_delegation_site_init(lisp_addr_t *eid_prefix, uint32_t iid, int type, glist_t child_nodes);
+ddt_delegation_site_t *ddt_delegation_site_init(lisp_addr_t *eid_prefix, uint32_t iid, int type, glist_t *child_nodes);
 void ddt_authoritative_site_del(ddt_authoritative_site_t *as);
 static inline lisp_addr_t *
 asite_xeid(ddt_authoritative_site_t *as) {
     return(as->xeid);
 }
 void ddt_delegation_site_del(ddt_delegation_site_t *ds);
+static inline lisp_addr_t *
 dsite_xeid(ddt_delegation_site_t *ds) {
     return(ds->xeid);
 }

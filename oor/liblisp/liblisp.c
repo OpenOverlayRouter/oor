@@ -274,7 +274,7 @@ msg_type_to_hdr_len(lisp_msg_type_e type)
     case LISP_INFO_NAT:
         return(sizeof(info_nat_hdr_t));
     case LISP_MAP_REFERRAL:
-    	return(sizeof(map_referral_hdr_t))
+    	return(sizeof(map_referral_hdr_t));
     default:
         return(0);
     }

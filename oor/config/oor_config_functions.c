@@ -601,12 +601,14 @@ build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t i
 
 ddt_delegation_site_t *
 build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
-        int type, glist_t child_nodes, shash_t *lcaf_ht)
+        int type, glist_t *child_nodes, shash_t *lcaf_ht)
 {
     lisp_addr_t *eid_prefix;
     lisp_addr_t *ht_prefix;
-    ddt_authoritative_site_t *site;
+    ddt_delegation_site_t *site;
     glist_t *addr_list, *child_nodes2;
+
+    child_nodes2 = glist_new();
 
     if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "

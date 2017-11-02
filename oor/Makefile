@@ -62,7 +62,7 @@ OBJS        = cmdline.o                  \
           control/oor_map_cache.o        \
           control/lisp_xtr.o             \
           control/lisp_ms.o              \
-          control/lisp_ddt_node.o        \              
+          control/lisp_ddt_node.o        \
           control/control-data-plane/control-data-plane.o    \
           control/control-data-plane/tun/cdp_tun.o           \
           data-plane/encapsulations/vxlan-gpe.o              \
