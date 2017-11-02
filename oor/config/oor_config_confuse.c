@@ -892,7 +892,7 @@ configure_ddt(cfg_t *cfg)
 
         char *typechar = dfg_getstr(ds, delegation-type);
         int typeint = NULL;
-        if(strcmp(typechar, "MAP_SERVER") == 0){
+        if(strcmp(typechar, "MAP_SERVER_DDT_NODE") == 0){
             typeint = 1;
         }else{
             typeint = 0;

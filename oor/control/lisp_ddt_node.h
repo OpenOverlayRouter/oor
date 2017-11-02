@@ -37,8 +37,8 @@ typedef struct _ddt_authoritative_site{
 } ddt_authoritative_site_t;
 
 typedef enum ddt_deleg_type {
-    CHILD_NODE,
-    MAP_SERVER
+    CHILD_DDT_NODE,
+    MAP_SERVER_DDT_NODE
 } ddt_deleg_type_e;
 
 typedef struct _ddt_delegation_site{
