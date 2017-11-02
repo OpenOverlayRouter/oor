@@ -34,6 +34,7 @@ static inline lisp_ddt_node_t *lisp_ddt_node_cast(oor_ctrl_dev_t *dev);
 static locator_t *
 get_locator_with_afi(mapping_t *m, int afi)
 {
+    /*
 	glist_t *loct_list = NULL;
 	glist_entry_t *it_list = NULL;
 	glist_entry_t *it_loct = NULL;
@@ -61,19 +62,22 @@ get_locator_with_afi(mapping_t *m, int afi)
     	}
     }
 
+    */
+
     return(NULL);
 }
 
 static int
 get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
 {
+    /*
     lcaf_addr_t *lcaf = NULL;
     elp_node_t *enode;
 
     lcaf = lisp_addr_get_lcaf(laddr);
     switch (lcaf_addr_get_type(lcaf)) {
     case LCAF_EXPL_LOC_PATH:
-        /* we're looking for the ETR, so the destination is the last elp hop */
+        // we're looking for the ETR, so the destination is the last elp hop
         enode = glist_last_data(lcaf_elp_node_list(lcaf));
         *dst = enode->addr;
         break;
@@ -83,6 +87,7 @@ get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
                 lcaf_addr_get_type(lcaf));
         return (BAD);
     }
+    */
     return (GOOD);
 }
 /*
@@ -196,7 +201,7 @@ static int
 ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, uconn_t *uc)
 {
 	//TODO map request logic from here
-
+    /*
     lisp_addr_t *   seid        = NULL;
     lisp_addr_t *   deid        = NULL;
     mapping_t *     map         = NULL;
@@ -211,7 +216,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, uconn_t *uc)
     lisp_reg_site_t *       rsite           = NULL;
     uint8_t act_flag;
 
-    /* local copy of the buf that can be modified */
+    // local copy of the buf that can be modified
     b = *buf;
 
     seid = lisp_addr_new();
@@ -234,24 +239,24 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, uconn_t *uc)
         return(BAD);
     }
 
-    /* PROCESS ITR RLOCs */
+    // PROCESS ITR RLOCs
     itr_rlocs = laddr_list_new();
     lisp_msg_parse_itr_rlocs(&b, itr_rlocs);
 
     for (i = 0; i < MREQ_REC_COUNT(mreq_hdr); i++) {
         deid = lisp_addr_new();
 
-        /* PROCESS EID REC */
+        // PROCESS EID REC
         if (lisp_msg_parse_eid_rec(&b, deid) != GOOD) {
             goto err;
         }
 
-        /* CHECK IF WE NEED TO PROXY REPLY */
+        // CHECK IF WE NEED TO PROXY REPLY
         site = mdb_lookup_entry(ms->lisp_sites_db, deid);
         rsite = mdb_lookup_entry(ms->reg_sites_db, deid);
-        /* Static entries will have null site and not null rsite */
+        // Static entries will have null site and not null rsite
         if (!site && !rsite) {
-            /* send negative map-reply with TTL 15 min */
+            // send negative map-reply with TTL 15 min
 
             if (lisp_addr_is_iid(deid)){
                 act_flag = ACT_NO_ACTION;
@@ -271,9 +276,9 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, uconn_t *uc)
             continue;
         }
 
-        /* Find if the site actually registered */
+        // Find if the site actually registered
         if (!rsite) {
-            /* send negative map-reply with TTL 1 min */
+            // send negative map-reply with TTL 1 min
             mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
                     MREQ_NONCE(mreq_hdr));
             OOR_LOG(LDBG_1,"The requested EID %s is not registered",
@@ -287,11 +292,11 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, uconn_t *uc)
         }
 
         map = rsite->site_map;
-        /* If site is null, the request is for a static entry */
+        // If site is null, the request is for a static entry
 
-        /* IF *NOT* PROXY REPLY: forward the message to an xTR */
+        // IF *NOT* PROXY REPLY: forward the message to an xTR
         if (site != NULL && site->proxy_reply == FALSE) {
-            /* FIXME: once locs become one object, send that instead of mapping */
+            // FIXME: once locs become one object, send that instead of mapping
             forward_mreq(ms, buf, map);
             lisp_msg_destroy(mrep);
             lisp_addr_del(deid);
@@ -301,17 +306,17 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, uconn_t *uc)
         OOR_LOG(LDBG_1,"The requested EID %s belongs to the registered prefix %s. Send Map Reply",
                 lisp_addr_to_char(deid), lisp_addr_to_char(mapping_eid(map)));
 
-        /* IF PROXY REPLY: build Map-Reply */
+        // IF PROXY REPLY: build Map-Reply
         mrep = lisp_msg_create(LISP_MAP_REPLY);
         rec = lisp_msg_put_mapping(mrep, map, NULL);
-        /* Set the authoritative bit of the record to false*/
+        // Set the authoritative bit of the record to false
         MAP_REC_AUTH(rec) = A_NO_AUTHORITATIVE;
 
         mrep_hdr = lisp_msg_hdr(mrep);
         MREP_RLOC_PROBE(mrep_hdr) = 0;
         MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
-        /* SEND MAP-REPLY */
+        // SEND MAP-REPLY
         laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
         if (send_msg(&ms->super, mrep, uc) != GOOD) {
             OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
@@ -330,6 +335,8 @@ err:
     lisp_addr_del(deid);
     lisp_addr_del(seid);
     return(BAD);
+    */
+    return(GOOD);
 
 }
 
