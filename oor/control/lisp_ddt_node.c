@@ -25,7 +25,7 @@
 #include "../lib/prefixes.h"
 
 
-static int ddt_node_recv_map_request(lisp_ddt_node_t *, lbuf_t *, uconn_t *);
+static int ddt_node_recv_map_request(lisp_ddt_node_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
 /*static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);*/
 static int ddt_node_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_node_t *lisp_ddt_node_cast(oor_ctrl_dev_t *dev);
@@ -198,7 +198,7 @@ lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
 */
 
 static int
-ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, uconn_t *uc)
+ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
 	//TODO map request logic from here
     /*
@@ -580,22 +580,34 @@ lisp_ddt_node_cast(oor_ctrl_dev_t *dev)
 static int
 ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 {
-    int ret = BAD;
+    int ret = 0;
     lisp_msg_type_e type;
     lisp_ddt_node_t *ddt_node;
+    void *ecm_hdr = NULL;
+    uconn_t *int_uc, *ext_uc = NULL, aux_uc;
+    packet_tuple_t inner_tuple;
 
     ddt_node = lisp_ddt_node_cast(dev);
     type = lisp_msg_type(msg);
-
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD)
-            return (BAD);
+
+        if (lisp_msg_ecm_decap(msg) != GOOD) {
+           return (BAD);
+        }
         type = lisp_msg_type(msg);
+        pkt_parse_inner_5_tuple(msg, &inner_tuple);
+        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+        ext_uc = uc;
+        int_uc = &aux_uc;
+        ecm_hdr = lbuf_lisp_hdr(msg);
+    }else{
+        int_uc = uc;
     }
+
 
      switch(type) {
      case LISP_MAP_REQUEST:
-         ret = ddt_node_recv_map_request(ddt_node, msg, uc);
+         ret = ddt_node_recv_map_request(ddt_node, msg, ecm_hdr, int_uc, ext_uc);
          break;
      case LISP_MAP_REGISTER:
      case LISP_MAP_REPLY:
