@@ -562,11 +562,7 @@ ddt_node_dump_delegation_sites(lisp_ddt_node_t *ddtn, int log_level)
         OOR_LOG(log_level, "Xeid: %s, Delegation type: %s Delegation Nodes:",
                         lisp_addr_to_char(dsite->xeid),
                         (dsite->type==0) ? "Child Node" : "Map Server");
-        glist_for_each_entry(it2, dsite->child_nodes) {
-                addr = (lisp_addr_t *)glist_entry_data(it2);
-                OOR_LOG(log_level, "%s",
-                                lisp_addr_to_char(addr));
-            }
+        glist_dump(dsite->child_nodes, (glist_to_char_fct)lisp_addr_to_char, log_level);
     } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 

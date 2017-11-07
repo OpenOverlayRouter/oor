@@ -89,7 +89,7 @@ control-iface = <iface name>
 #   eid-prefix: Authoritative EID prefix (IPvX/mask)
 #   iid: Instance ID associated with the lisp site [0-16777215]
 
-authoritative-site {
+ddt-auth-site {
     eid-prefix            = <prefix>
     iid                   = 0
 }
@@ -99,11 +99,11 @@ authoritative-site {
 #   eid-prefix: EID prefix (IPvX/mask) of the delegation
 #   iid: Instance ID associated with the lisp site [0-16777215]
 #   delegation-type: Indicates if at least one of the delegated sites is a MS for this xeid
-#   addresses: A number of addresses, each could be one of the following cases
+#   deleg-nodes: A number of addresses, each could be one of the following cases
 #      - IPv4 or IPv6 address of the RLOC
 #      - ELP name
 
-delegation-site {
+ddt-deleg-site {
     eid-prefix          = <prefix>
     iid                 = 0
     delegation-type     = <CHILD_DDT_NODE/MAP_SERVER_DDT_NODE>

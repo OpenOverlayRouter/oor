@@ -842,13 +842,14 @@ configure_ddt(cfg_t *cfg)
     iface_configure (iface, AF_INET6);
 
     /* AUTHORITATIVE-SITE CONFIG */
-    for (i = 0; i < cfg_size(cfg, "authoritative-site"); i++) {
-        cfg_t *as = cfg_getnsec(cfg, "authoritative-site", i);
+    for (i = 0; i < cfg_size(cfg, "ddt-auth-site"); i++) {
+        cfg_t *as = cfg_getnsec(cfg, "ddt-auth-site", i);
 
-        if (cfg_getstr(as, "eid-prefix") == NULL || cfg_getstr(as, "iid") == NULL){
-            OOR_LOG(LERR, "Configuration file: DDT-Node authoritative site requires at least an eid-prefix and a iid");
+        if (cfg_getstr(as, "eid-prefix") == NULL ){
+            OOR_LOG(LERR, "Configuration file: DDT-Node authoritative site requires at least an eid-prefix ");
             return (BAD);
         }
+
 
         asite = build_ddt_authoritative_site(ddt_node,
                 cfg_getstr(as, "eid-prefix"),
@@ -873,12 +874,12 @@ configure_ddt(cfg_t *cfg)
     }
 
     /* DELEGATION SITES CONFIG */
-    for (i = 0; i< cfg_size(cfg, "delegation-site"); i++ ) {
-        cfg_t *ds = cfg_getnsec(cfg, "delegation-site", i);
+    for (i = 0; i< cfg_size(cfg, "ddt-deleg-site"); i++ ) {
+        cfg_t *ds = cfg_getnsec(cfg, "ddt-deleg-site", i);
         glist_t *child_nodes_list = glist_new();
 
-        if (cfg_getstr(ds, "eid-prefix") == NULL || cfg_getstr(ds, "iid") == NULL || cfg_getstr(ds, "delegation-type") == NULL){
-            OOR_LOG(LERR, "Configuration file: DDT-Node delegation site requires at least an eid-prefix, a iid, and the delegation-type");
+        if (cfg_getstr(ds, "eid-prefix") == NULL || cfg_getstr(ds, "delegation-type") == NULL){
+            OOR_LOG(LERR, "Configuration file: DDT-Node delegation site requires at least an eid-prefix, and the delegation-type");
             return (BAD);
         }
 
@@ -889,6 +890,7 @@ configure_ddt(cfg_t *cfg)
                 glist_add_tail(child_node, child_nodes_list);
             }
         }
+
 
         char *typechar = cfg_getstr(ds, "delegation-type");
         int typeint;
@@ -1060,8 +1062,8 @@ handle_config_file()
     static cfg_opt_t ddt_deleg_site_opts[] = {
     		CFG_STR("eid-prefix",           0, CFGF_NONE),
     		CFG_INT("iid",                  0, CFGF_NONE),
-			CFG_INT("deleg-type",             0, CFGF_NONE),
-            CFG_STR("deleg-nodes",            0, CFGF_MULTI),
+			CFG_STR("delegation-type",             0, CFGF_NONE),
+            CFG_STR_LIST("deleg-nodes",            0, CFGF_NONE),
     		CFG_END()
 
     };
