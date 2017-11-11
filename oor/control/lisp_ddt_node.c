@@ -201,19 +201,17 @@ static int
 ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
 	//TODO map request logic from here
-    /*
     lisp_addr_t *   seid        = NULL;
     lisp_addr_t *   deid        = NULL;
-    mapping_t *     map         = NULL;
     glist_t *       itr_rlocs   = NULL;
     void *          mreq_hdr    = NULL;
-    void *          mrep_hdr    = NULL;
-    mapping_record_hdr_t *  rec            = NULL;
+    void *          mref_hdr    = NULL;
+    map_ref_mapping_record_hdr_t *  rec            = NULL;
     int             i           = 0;
-    lbuf_t *        mrep        = NULL;
+    lbuf_t *        mref        = NULL;
     lbuf_t  b;
-    lisp_site_prefix_t *    site            = NULL;
-    lisp_reg_site_t *       rsite           = NULL;
+    ddt_authoritative_site_t *    asite            = NULL;
+    ddt_delegation_site_t *       dsite           = NULL;
     uint8_t act_flag;
 
     // local copy of the buf that can be modified
@@ -228,6 +226,8 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
         goto err;
     }
 
+    //TODO see if this has to be done for DDT-Node
+    /*
     OOR_LOG(LDBG_1, " src-eid: %s", lisp_addr_to_char(seid));
     if (MREQ_RLOC_PROBE(mreq_hdr)) {
         OOR_LOG(LDBG_2, "Probe bit set. Discarding!");
@@ -238,6 +238,9 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
         OOR_LOG(LDBG_2, "SMR bit set. Discarding!");
         return(BAD);
     }
+    */
+
+
 
     // PROCESS ITR RLOCs
     itr_rlocs = laddr_list_new();
@@ -251,92 +254,73 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
             goto err;
         }
 
-        // CHECK IF WE NEED TO PROXY REPLY
-        site = mdb_lookup_entry(ms->lisp_sites_db, deid);
-        rsite = mdb_lookup_entry(ms->reg_sites_db, deid);
-        // Static entries will have null site and not null rsite
-        if (!site && !rsite) {
-            // send negative map-reply with TTL 15 min
-
-            if (lisp_addr_is_iid(deid)){
-                act_flag = ACT_NO_ACTION;
-            }else{
-                act_flag = ACT_NATIVE_FWD;
-            }
-            mrep = lisp_msg_neg_mrep_create(deid, 15, act_flag,A_AUTHORITATIVE,
-                    MREQ_NONCE(mreq_hdr));
-            OOR_LOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
+        // CHECK IF NODE IS AUTHORITATIVE FOR THE EID
+        asite = mdb_lookup_entry(ddt_node->auth_sites_db, deid);
+        if (!asite) {
+            // send NOT_AUTHORITATIVE map-referral with Incomplete = 1
+            // and TTL = 0
+            mref = lisp_msg_neg_mref_create(deid, 0, LISP_ACTION_NOT_AUTHORITATIVE, A_NO_AUTHORITATIVE,
+                                1, MREQ_NONCE(mreq_hdr));
+            OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s",
                     lisp_addr_to_char(deid));
-            OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+            OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
                     lisp_addr_to_char(deid));
-            send_msg(&ms->super, mrep, uc);
-            lisp_msg_destroy(mrep);
+            send_msg(&ddt_node->super, mref, int_uc);
+            lisp_msg_destroy(mref);
             lisp_addr_del(deid);
 
-            continue;
+        }else{
+            // CHECK IF DELEGATION EXISTS FOR THE EID
+            dsite = mdb_lookup_entry(ddt_node->deleg_sites_db, deid);
+            if (dsite) {
+                ddt_deleg_type_e type = dsite->type;
+                switch type:
+                case CHILD_DDT_NODE:
+                    // send NODE_REFERRAL map-referral with
+                    // TTL = Default_DdtNode_Ttl
+                    break;
+                case MAP_SERVER_DDT_NODE:
+                    // send MS_REFERRAL map-referral with
+                    // TTL = Default_DdtNode_Ttl
+                    break;
+                default:
+                    OOR_LOG(LDBG_1,"Delegation type for EID %s is of unknown type",
+                            lisp_addr_to_char(deid));
+                    break;
+
+                }else{
+                    // NOTE: if the DDT-NODE is a DDT-Map-Server, it MUST check
+                    // its registered sites for mappings of this EID
+
+                    // if the DDT-NODE is not a DDT-Map-Server or there are
+                    // no mappings for this EID, proceed as follows:
+                    // send DELEGATION_HOLE map-referral with
+                    // TTL = Default_Negative_Referral_Ttl
+                    mref = lisp_msg_neg_mref_create(deid, Default_Negative_Referral_Ttl, LISP_ACTION_DELEGATION_HOLE,
+                            A_AUTHORITATIVE, 0, MREQ_NONCE(mreq_hdr));
+                    OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s",
+                            lisp_addr_to_char(deid));
+                    OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
+                            lisp_addr_to_char(deid));
+                    send_msg(&ddt_node->super, mref, int_uc);
+                    lisp_msg_destroy(mref);
+                    lisp_addr_del(deid);
+                }
         }
-
-        // Find if the site actually registered
-        if (!rsite) {
-            // send negative map-reply with TTL 1 min
-            mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
-                    MREQ_NONCE(mreq_hdr));
-            OOR_LOG(LDBG_1,"The requested EID %s is not registered",
-                                lisp_addr_to_char(deid));
-            OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
-                    lisp_addr_to_char(deid));
-            send_msg(&ms->super, mrep, uc);
-            lisp_msg_destroy(mrep);
-            lisp_addr_del(deid);
-            continue;
-        }
-
-        map = rsite->site_map;
-        // If site is null, the request is for a static entry
-
-        // IF *NOT* PROXY REPLY: forward the message to an xTR
-        if (site != NULL && site->proxy_reply == FALSE) {
-            // FIXME: once locs become one object, send that instead of mapping
-            forward_mreq(ms, buf, map);
-            lisp_msg_destroy(mrep);
-            lisp_addr_del(deid);
-            continue;
-        }
-
-        OOR_LOG(LDBG_1,"The requested EID %s belongs to the registered prefix %s. Send Map Reply",
-                lisp_addr_to_char(deid), lisp_addr_to_char(mapping_eid(map)));
-
-        // IF PROXY REPLY: build Map-Reply
-        mrep = lisp_msg_create(LISP_MAP_REPLY);
-        rec = lisp_msg_put_mapping(mrep, map, NULL);
-        // Set the authoritative bit of the record to false
-        MAP_REC_AUTH(rec) = A_NO_AUTHORITATIVE;
-
-        mrep_hdr = lisp_msg_hdr(mrep);
-        MREP_RLOC_PROBE(mrep_hdr) = 0;
-        MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
-
-        // SEND MAP-REPLY
-        laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
-        if (send_msg(&ms->super, mrep, uc) != GOOD) {
-            OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
-        }
-        lisp_msg_destroy(mrep);
-        lisp_addr_del(deid);
     }
 
     glist_destroy(itr_rlocs);
     lisp_addr_del(seid);
 
+
+
     return(GOOD);
 err:
     glist_destroy(itr_rlocs);
-    lisp_msg_destroy(mrep);
+    lisp_msg_destroy(mref);
     lisp_addr_del(deid);
     lisp_addr_del(seid);
     return(BAD);
-    */
-    return(GOOD);
 
 }
 

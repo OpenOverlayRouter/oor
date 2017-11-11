@@ -138,7 +138,7 @@ map_referral_hdr_init(void *ptr)
 {
     map_referral_hdr_t *mrf = ptr;
 
-    mrf->type = LISP_MAP_REPLY;
+    mrf->type = LISP_MAP_REFERRAL;
     mrf->record_count = 0;      /* to be filled in later */
     mrf->nonce = 0;             /* to be filled in later */
 

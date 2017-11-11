@@ -535,7 +535,7 @@ typedef enum lisp_actions {
  *  d      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |     /|    Priority   |    Weight     |  M Priority   |   M Weight    |
  *  |    / +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |  Loc |         Unused Flags    |L|p|R|           Loc-AFI             |
+ *  |  Ref |         Unused Flags    |L|p|R|           Loc-AFI             |
  *  |    \ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |     \|                            Locator                            |
  *  |      |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -580,7 +580,7 @@ char *map_ref_mapping_action_to_char(int act);
 char *map_ref_mapping_record_hdr_to_char(map_ref_mapping_record_hdr_t *h);
 
 #define REF_MAP_REC_EID_PLEN(h) ((map_ref_mapping_record_hdr_t *)(h))->eid_prefix_length
-#define REF_MAP_REC_SIG_COUNT(h) ((map_ref_mapping_record_hdr_t *)(h))->referral_count
+#define REF_MAP_REC_REF_COUNT(h) ((map_ref_mapping_record_hdr_t *)(h))->referral_count
 #define REF_MAP_REC_ACTION(h) ((map_ref_mapping_record_hdr_t *)(h))->action
 #define REF_MAP_REC_AUTH(h) ((map_ref_mapping_record_hdr_t *)(h))->authoritative
 #define REF_MAP_REC_INC(h) ((map_ref_mapping_record_hdr_t *)(h))->incomplete
@@ -593,9 +593,9 @@ typedef enum lisp_ref_actions {
 	LISP_ACTION_NODE_REFERRAL = 0,
 	LISP_ACTION_MS_REFERRAL,
 	LISP_ACTION_MS_ACK,
-	LISP_ACTION_MS_NOT_REGISTERED,
+	LISP_ACTION_NOT_REGISTERED,
 	LISP_ACTION_DELEGATION_HOLE,
-	LISP_ACTION_MS_NOT_AUTHORITATIVE
+	LISP_ACTION_NOT_AUTHORITATIVE
 } lisp_ref_action_e;
 
 typedef enum lisp_authoritative {

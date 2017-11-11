@@ -44,10 +44,10 @@ map_ref_mapping_record_init_hdr(map_ref_mapping_record_hdr_t *h) {
     h->eid_prefix_length    = 0;
     h->action               = 0;
     h->authoritative        = 1;
-    h->version_hi           = 0;
-    h->version_low          = 0;
     h->incomplete           = 0;
     h->signature_count      = 0;
+    h->version_hi           = 0;
+    h->version_low          = 0;
 
     h->reserved1 = 0;
     h->reserved2 = 0;
@@ -92,13 +92,13 @@ map_ref_mapping_action_to_char(int act) {
     case LISP_ACTION_MS_ACK:
         sprintf(buf, "ms-ack");
         break;
-    case LISP_ACTION_MS_NOT_REGISTERED:
+    case LISP_ACTION_NOT_REGISTERED:
         sprintf(buf, "ms-not-registered");
         break;
     case LISP_ACTION_DELEGATION_HOLE:
             sprintf(buf, "delegation-hole");
             break;
-    case LISP_ACTION_MS_NOT_AUTHORITATIVE:
+    case LISP_ACTION_NOT_AUTHORITATIVE:
             sprintf(buf, "not-authoritative");
             break;
     default:

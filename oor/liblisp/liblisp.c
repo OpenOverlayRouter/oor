@@ -436,6 +436,38 @@ lisp_msg_put_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
 }
 
 void *
+lisp_msg_put_mr_mapping_hdr(lbuf_t *b)
+{
+    void *hdr = lbuf_put_uninit(b, sizeof(map_ref_mapping_record_hdr_t));
+    map_ref_mapping_record_init_hdr(hdr);
+    return(hdr);
+}
+
+void *
+lisp_msg_put_mr_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
+        lisp_ref_action_e act, lisp_authoritative_e a, int i)
+{
+    void *rec;
+
+    rec = lisp_msg_put_mr_mapping_hdr(b);
+    REF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
+    REF_MAP_REC_REF_COUNT(rec) = 0;
+    REF_MAP_REC_TTL(rec) = htonl(ttl);
+    REF_MAP_REC_ACTION(rec) = act;
+    REF_MAP_REC_AUTH(rec) = a;
+    REF_MAP_REC_INC(rec) = i;
+    REF_MAP_REC_SIGC(rec) = 0;
+
+    if (lisp_msg_put_addr(b, eid) == NULL) {
+        return(NULL);
+    }
+
+    increment_record_count(b);
+
+    return(rec);
+}
+
+void *
 lisp_msg_put_itr_rlocs(lbuf_t *b, glist_t *itr_rlocs)
 {
     glist_entry_t *it;
@@ -591,6 +623,19 @@ lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
     void *hdr;
     b = lisp_msg_create(LISP_MAP_REPLY);
     lisp_msg_put_neg_mapping(b, eid, ttl, ac, a);
+    hdr = lisp_msg_hdr(b);
+    MREP_NONCE(hdr) = nonce;
+    return(b);
+}
+
+lbuf_t *
+lisp_msg_neg_mref_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
+        lisp_authoritative_e a, int i, uint64_t nonce)
+{
+    lbuf_t *b;
+    void *hdr;
+    b = lisp_msg_create(LISP_MAP_REFERRAL);
+    lisp_msg_put_mr_neg_mapping(b, eid, ttl, ac, a, i);
     hdr = lisp_msg_hdr(b);
     MREP_NONCE(hdr) = nonce;
     return(b);
