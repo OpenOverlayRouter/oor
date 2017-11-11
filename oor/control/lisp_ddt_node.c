@@ -274,21 +274,35 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
             dsite = mdb_lookup_entry(ddt_node->deleg_sites_db, deid);
             if (dsite) {
                 ddt_deleg_type_e type = dsite->type;
-                switch (type){
-                case CHILD_DDT_NODE:
-                    // send NODE_REFERRAL map-referral with
+                if(type == CHILD_DDT_NODE || type == MAP_SERVER_DDT_NODE){
+                    // send "Type" map-referral with
                     // TTL = Default_DdtNode_Ttl
-                    break;
-                case MAP_SERVER_DDT_NODE:
-                    // send MS_REFERRAL map-referral with
-                    // TTL = Default_DdtNode_Ttl
-                    break;
-                default:
-                    OOR_LOG(LDBG_1,"Delegation type for EID %s is of unknown type",
-                            lisp_addr_to_char(deid));
-                    break;
-                }
+                    lisp_ref_action_e *actiontype = NULL;
+                    switch(type){
+                    case CHILD_DDT_NODE:
+                        actiontype = LISP_ACTION_NODE_REFERRAL;
+                        break;
+                    case MAP_SERVER_DDT_NODE:
+                        actiontype = LISP_ACTION_MS_REFERRAL;
+                        break;
+                    }
+                    mref = lisp_msg_create(LISP_MAP_REFERRAL);
+                    rec = lisp_msg_put_mr_mapping(mref, deid, Default_DdtNode_Ttl,actiontype,
+                            A_AUTHORITATIVE, 0, NULL, dsite->child_nodes);
 
+                    mref_hdr = lisp_msg_hdr(mref);
+                    MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
+
+                    /* SEND MAP-REFERRAL */
+                    if (send_msg(&ddt_node->super, mref, int_uc) != GOOD) {
+                        OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
+                    }
+                    lisp_msg_destroy(mref);
+                    lisp_addr_del(deid);
+                    }else{
+                        OOR_LOG(LDBG_1,"Delegation type for EID %s is of unknown type",
+                                lisp_addr_to_char(deid));
+                    }
                 }else{
                     // NOTE: if the DDT-NODE is a DDT-Map-Server, it MUST check
                     // its registered sites for mappings of this EID
@@ -299,7 +313,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     // TTL = Default_Negative_Referral_Ttl
                     mref = lisp_msg_neg_mref_create(deid, Default_Negative_Referral_Ttl, LISP_ACTION_DELEGATION_HOLE,
                             A_AUTHORITATIVE, 0, MREQ_NONCE(mreq_hdr));
-                    OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s",
+                    OOR_LOG(LDBG_1,"No delegation exists for the requested EID %s",
                             lisp_addr_to_char(deid));
                     OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
                             lisp_addr_to_char(deid));
