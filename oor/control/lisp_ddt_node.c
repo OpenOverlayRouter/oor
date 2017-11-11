@@ -274,7 +274,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
             dsite = mdb_lookup_entry(ddt_node->deleg_sites_db, deid);
             if (dsite) {
                 ddt_deleg_type_e type = dsite->type;
-                switch type:
+                switch (type){
                 case CHILD_DDT_NODE:
                     // send NODE_REFERRAL map-referral with
                     // TTL = Default_DdtNode_Ttl
@@ -287,6 +287,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     OOR_LOG(LDBG_1,"Delegation type for EID %s is of unknown type",
                             lisp_addr_to_char(deid));
                     break;
+                }
 
                 }else{
                     // NOTE: if the DDT-NODE is a DDT-Map-Server, it MUST check
@@ -537,8 +538,6 @@ ddt_node_dump_delegation_sites(lisp_ddt_node_t *ddtn, int log_level)
 
     ddt_delegation_site_t *it = NULL;
     ddt_delegation_site_t *dsite = NULL;
-    lisp_addr_t *    addr          = NULL;
-    glist_entry_t *     it2          = NULL;
 
     OOR_LOG(log_level,"**************** DDT-Node delegation sites ******************\n");
     mdb_foreach_entry(ddtn->deleg_sites_db, it) {
@@ -575,11 +574,12 @@ ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     type = lisp_msg_type(msg);
     if (type == LISP_ENCAP_CONTROL_TYPE) {
 
-        if (lisp_msg_ecm_decap(msg) != GOOD) {
+        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD) {
            return (BAD);
         }
         type = lisp_msg_type(msg);
-        pkt_parse_inner_5_tuple(msg, &inner_tuple);
+        //this line references a function not in this build
+        //pkt_parse_inner_5_tuple(msg, &inner_tuple);
         uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
         ext_uc = uc;
         int_uc = &aux_uc;
@@ -597,21 +597,21 @@ ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
      case LISP_MAP_REPLY:
      case LISP_MAP_NOTIFY:
      case LISP_INFO_NAT:
-         OOR_LOG(LDBG_3, "Map-Server: Received control message with type %d."
+         OOR_LOG(LDBG_3, "DDT-Node: Received control message with type %d."
                  " Discarding!", type);
          break;
      default:
-         OOR_LOG(LDBG_3, "Map-Server: Received unidentified type (%d) control "
+         OOR_LOG(LDBG_3, "DDT-Node: Received unidentified type (%d) control "
                  "message", type);
          ret = BAD;
          break;
      }
 
      if (ret != GOOD) {
-         OOR_LOG(LDBG_1, "Map-Server: Failed to process  control message");
+         OOR_LOG(LDBG_1, "DDT-Node: Failed to process  control message");
          return(BAD);
      } else {
-         OOR_LOG(LDBG_3, "Map-Server: Completed processing of control message");
+         OOR_LOG(LDBG_3, "DDT-Node: Completed processing of control message");
          return(ret);
      }
 }
