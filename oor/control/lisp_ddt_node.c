@@ -277,7 +277,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                 if(type == CHILD_DDT_NODE || type == MAP_SERVER_DDT_NODE){
                     // send "Type" map-referral with
                     // TTL = Default_DdtNode_Ttl
-                    lisp_ref_action_e *actiontype = NULL;
+                    lisp_ref_action_e actiontype = 0;
                     switch(type){
                     case CHILD_DDT_NODE:
                         actiontype = LISP_ACTION_NODE_REFERRAL;
