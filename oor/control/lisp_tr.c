@@ -26,10 +26,12 @@
 #include "../../oor_external.h"
 
 
+/************************** Function declaration *****************************/
 
-/* Function declaration */
 static void *tr_get_device(lisp_tr_t *tr);
 static oor_ctrl_dev_t * tr_get_ctrl_device(lisp_tr_t *tr);
+
+/*****************************************************************************/
 
 int
 lisp_tr_init(lisp_tr_t *tr)
@@ -146,12 +148,27 @@ tr_recv_map_reply(lisp_tr_t *tr, lbuf_t *buf, uconn_t *udp_con)
             /* Mapping is NOT ACTIVE */
             if (!active_entry) {
                 /* DO NOT free mapping in this case */
-                tr_mcache_add_mapping(tr, m);
+                mce = tr_mcache_add_mapping(tr, m, MCE_DYNAMIC, ACTIVE);
+                if (mce){
+                    tr_mcache_entry_program_timers(tr,mce);
+                    OOR_LOG(LDBG_1, "Added Map Cache entry with EID prefix %s in the database.",
+                            lisp_addr_to_char(mapping_eid(m)));
+                }else{
+                    OOR_LOG(LERR, "Can't add Map Cache entry with EID prefix %s. Discarded ...",
+                            mapping_eid(m));
+                    mapping_del(m);
+                    continue;
+                }
                 /* Mapping is ACTIVE */
             } else {
                 /* the reply might be for an active mapping (SMR)*/
-                tr_update_mcache_entry(tr, m);
-                mapping_del(m);
+                if (tr_update_mcache_entry(tr, m) == GOOD){
+                    mce = mcache_lookup_exact(tr->map_cache, mapping_eid(m));
+                    tr_mcache_entry_program_timers(tr, mce);
+                    /* Update data plane */
+                    notify_datap_rm_fwd_from_entry(tr_get_ctrl_device(tr),mapping_eid(m),FALSE);
+                    mapping_del(m);
+                }
             }
 
             mcache_dump_db(tr->map_cache, LDBG_3);
@@ -647,8 +664,8 @@ int
 handle_map_cache_miss(lisp_tr_t *tr, lisp_addr_t *requested_eid,
         lisp_addr_t *src_eid)
 {
-    mcache_entry_t *mce = mcache_entry_new();
-    mapping_t *m = NULL;
+    mcache_entry_t *mce;
+    mapping_t *m;
     oor_timer_t *timer;
     timer_map_req_argument *timer_arg;
     int ret;
@@ -656,21 +673,14 @@ handle_map_cache_miss(lisp_tr_t *tr, lisp_addr_t *requested_eid,
     /* Install temporary, NOT active, mapping in map_cache */
     m = mapping_new_init(requested_eid);
     mapping_set_action(m, ACT_NATIVE_FWD);
-    mcache_entry_init(mce, m);
-    /* Precalculate routing information */
-    if (tr->fwd_policy->init_map_cache_policy_inf(tr->fwd_policy_dev_parm,mce) != GOOD){
-        OOR_LOG(LWRN, "handle_map_cache_miss: Couldn't initiate routing info for map cache entry %s!. Discarding it.",
-                lisp_addr_to_char(requested_eid));
-        mcache_entry_del(mce);
-        return(BAD);
-    }
-
-    if (mcache_add_entry(tr->map_cache, requested_eid, mce) != GOOD) {
+    mce = tr_mcache_add_mapping(tr,m, MCE_DYNAMIC, NOT_ACTIVE);
+    if (!mce){
         OOR_LOG(LWRN, "Couln't install temporary map cache entry for %s!",
                 lisp_addr_to_char(requested_eid));
         mcache_entry_del(mce);
-        return(BAD);
+        return (BAD);
     }
+
     timer_arg = timer_map_req_arg_new_init(mce,src_eid);
     timer = oor_timer_with_nonce_new(MAP_REQUEST_RETRY_TIMER,tr_get_device(tr),send_map_request_retry_cb,
             timer_arg,(oor_timer_del_cb_arg_fn)timer_map_req_arg_free);
@@ -758,72 +768,44 @@ timer_map_req_arg_free(timer_map_req_argument * timer_arg)
 
 /***************************  Map cache functions ****************************/
 
-int
-tr_mcache_add_mapping(lisp_tr_t *tr, mapping_t *m)
+mcache_entry_t *
+tr_mcache_add_mapping(lisp_tr_t *tr, mapping_t *m, mce_type_e how_learned, uint8_t is_active)
 {
     mcache_entry_t *mce;
 
     mce = mcache_entry_new();
     if (mce == NULL){
-        return (BAD);
+        return (NULL);
     }
 
-    mcache_entry_init(mce, m);
+    if (how_learned == MCE_DYNAMIC){
+        mcache_entry_init(mce, m);
+    }else{
+        mcache_entry_init_static(mce, m);
+    }
 
     /* Precalculate routing information */
     if (tr->fwd_policy->init_map_cache_policy_inf(tr->fwd_policy_dev_parm,mce) != GOOD){
         OOR_LOG(LWRN, "tr_mcache_add_mapping: Couldn't initiate routing info for map cache entry %s!. Discarding it.",
                 lisp_addr_to_char(mapping_eid(m)));
         mcache_entry_del(mce);
-        return(BAD);
+        return(NULL);
     }
 
     if (mcache_add_entry(tr->map_cache, mapping_eid(m), mce) != GOOD) {
         OOR_LOG(LDBG_1, "tr_mcache_add_mapping: Couldn't add map cache entry %s to data base!. Discarding it.",
                 lisp_addr_to_char(mapping_eid(m)));
         mcache_entry_del(mce);
-        return(BAD);
+        return(NULL);
     }
 
-    mcache_entry_set_active(mce, ACTIVE);
-
-    /* Reprogramming timers */
-    tr_mc_entry_program_expiration_timer(tr, mce);
-
-    /* RLOC probing timer */
-    tr_program_mce_rloc_probing(tr, mce);
-
-    return(GOOD);
-}
-
-int
-tr_mcache_add_static_mapping(lisp_tr_t *tr, mapping_t *m)
-{
-    mcache_entry_t *mce = NULL;
-
-    mce = mcache_entry_new();
-    if (mce == NULL){
-        return(BAD);
-    }
-    mcache_entry_init_static(mce, m);
-
-    /* Precalculate routing information */
-    if (tr->fwd_policy->init_map_cache_policy_inf(tr->fwd_policy_dev_parm,mce) != GOOD){
-        OOR_LOG(LWRN, "tr_mcache_add_static_mapping: Couldn't initiate routing info for map cache entry %s!. Discarding it.",
-                lisp_addr_to_char(mapping_eid(m)));
-        mcache_entry_del(mce);
-        return(BAD);
+    if (is_active){
+        mcache_entry_set_active(mce, ACTIVE);
+    }else{
+        mcache_entry_set_active(mce, NOT_ACTIVE);
     }
 
-    if (mcache_add_entry(tr->map_cache, mapping_eid(m), mce) != GOOD) {
-        OOR_LOG(LDBG_1, "tr_mcache_add_static_mapping: Couldn't add static map cache entry %s to data base!. Discarding it.",
-                        lisp_addr_to_char(mapping_eid(m)));
-        return(BAD);
-    }
-
-    tr_program_mce_rloc_probing(tr, mce);
-
-    return(GOOD);
+    return(mce);
 }
 
 int
@@ -869,24 +851,36 @@ tr_update_mcache_entry(lisp_tr_t *tr, mapping_t *recv_map)
 
     /* Update forwarding info */
     tr->fwd_policy->updated_map_cache_inf(tr->fwd_policy_dev_parm,mce);
-    notify_datap_rm_fwd_from_entry(tr_get_ctrl_device(tr),eid,FALSE);
 
-    /* Reprogramming timers */
-    tr_mc_entry_program_expiration_timer(tr, mce);
+    return (GOOD);
+}
+
+void
+tr_mcache_entry_program_timers(lisp_tr_t *tr, mcache_entry_t *mce )
+{
+    if (mcache_how_learned(mce) == MCE_DYNAMIC){
+        /* Reprogramming timers */
+        tr_mc_entry_program_expiration_timer(tr, mce);
+    }
 
     /* RLOC probing timer */
     tr_program_mce_rloc_probing(tr, mce);
-
-    return (GOOD);
 }
 
 /*****************************************************************************/
 
 int
-map_reply_fill_uconn(lisp_tr_t *tr, glist_t *itr_rlocs, uconn_t *uc)
+map_reply_fill_uconn(lisp_tr_t *tr, glist_t *itr_rlocs, uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc)
 {
     lisp_addr_t *src_addr, *dst_addr;
     oor_ctrl_dev_t *ctr_dev;
+
+    /* If the received message is encapsulated */
+    if (rcv_ext_uc){
+        uconn_init(uc, LISP_CONTROL_PORT, rcv_int_uc->rp, &rcv_ext_uc->la, &rcv_int_uc->ra);
+    }else{
+        uconn_init(uc, LISP_CONTROL_PORT, rcv_int_uc->rp, &rcv_int_uc->la, &rcv_int_uc->ra);
+    }
 
     /* Check if remote address is part of ITR RLOCs list */
     if (laddr_list_has_addr(itr_rlocs,&uc->ra)){

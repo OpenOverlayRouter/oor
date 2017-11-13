@@ -59,7 +59,7 @@ int xtr_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_ad
         lisp_addr_t *dst_pref, lisp_addr_t *gateway);
 static fwd_info_t * xtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple);
 /*************************** PROCESS MESSAGES ********************************/
-static int xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc);
+static int xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static inline int xtr_recv_map_reply(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc);
 static int xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf);
 static int xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc);
@@ -355,22 +355,33 @@ xtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     int ret = 0;
     lisp_msg_type_e type;
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
+    void *ecm_hdr = NULL;
+    uconn_t *int_uc, *ext_uc = NULL, aux_uc;
+    packet_tuple_t inner_tuple;
 
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD) {
+
+        if (lisp_msg_ecm_decap(msg) != GOOD) {
             return (BAD);
         }
         type = lisp_msg_type(msg);
+        pkt_parse_inner_5_tuple(msg, &inner_tuple);
+        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+        ext_uc = uc;
+        int_uc = &aux_uc;
+        ecm_hdr = lbuf_lisp_hdr(msg);
+    }else{
+        int_uc = uc;
     }
 
     switch (type) {
     case LISP_MAP_REQUEST:
-        ret = xtr_recv_map_request(xtr, msg, uc);
+        ret = xtr_recv_map_request(xtr, msg, ecm_hdr, int_uc, ext_uc);
         break;
     case LISP_MAP_REPLY:
-        ret = xtr_recv_map_reply(xtr, msg, uc);
+        ret = xtr_recv_map_reply(xtr, msg, int_uc);
         break;
     case LISP_MAP_REGISTER:
         break;
@@ -378,7 +389,7 @@ xtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
         ret = xtr_recv_map_notify(xtr, msg);
         break;
     case LISP_INFO_NAT:
-        ret = xtr_recv_info_nat(xtr, msg, uc);
+        ret = xtr_recv_info_nat(xtr, msg, int_uc);
         break;
     default:
         OOR_LOG(LDBG_1, "xTR: Unidentified type (%d) control message received",
@@ -650,7 +661,7 @@ lisp_xtr_cast(oor_ctrl_dev_t *dev)
 /*************************** PROCESS MESSAGES ********************************/
 
 static int
-xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
+xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
     lisp_addr_t *seid = NULL;
     lisp_addr_t *deid = NULL;
@@ -662,6 +673,7 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     int i = 0;
     lbuf_t *mrep = NULL;
     lbuf_t  b;
+    uconn_t send_uc;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -709,7 +721,7 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
         }
         map = map_local_entry_mapping(map_loc_e);
         lisp_msg_put_mapping(mrep, map, MREQ_RLOC_PROBE(mreq_hdr)
-                ? &uc->la: NULL);
+                ? &int_uc->la: NULL);
 
         /* If packet is a Solicit Map Request, process it */
         if (lisp_addr_lafi(seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
@@ -727,12 +739,12 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* SEND MAP-REPLY */
-    if (map_reply_fill_uconn(&xtr->tr, itr_rlocs, uc) != GOOD){
+    if (map_reply_fill_uconn(&xtr->tr, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
         OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
         goto err;
     }
     OOR_LOG(LDBG_1, "Sending %s", lisp_msg_hdr_to_char(mrep));
-    send_msg(&xtr->super, mrep, uc);
+    send_msg(&xtr->super, mrep, &send_uc);
 
 done:
     glist_destroy(itr_rlocs);

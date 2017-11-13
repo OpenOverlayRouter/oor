@@ -26,8 +26,8 @@
 //KHASH_MAP_INIT_STR(str, void *)
 KHASH_INIT(str, char *, void *, 1, kh_str_hash_func, kh_str_hash_equal)
 
-/* Prototype for a pointer to a free key function. */
-typedef void (*free_value_fn_t)(const void *key);
+/* Prototype for a pointer to a free function. */
+typedef void (*free_value_fn_t)(const void *value);
 
 
 typedef struct shash {

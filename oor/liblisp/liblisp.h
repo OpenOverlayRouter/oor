@@ -50,7 +50,7 @@ int lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl);
 int lisp_msg_parse_xtr_id_site_id (lbuf_t *b, lisp_xtr_id *xtr_id,
         lisp_site_id *site_id);
 
-int lisp_msg_ecm_decap(struct lbuf *, uint16_t *);
+int lisp_msg_ecm_decap(struct lbuf *);
 
 void *lisp_msg_put_addr(lbuf_t *, lisp_addr_t *);
 void *lisp_msg_put_locator(lbuf_t *, locator_t *);

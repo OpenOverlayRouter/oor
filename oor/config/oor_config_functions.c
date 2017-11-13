@@ -450,8 +450,6 @@ add_rtr_iface(lisp_rtr_t *rtr, char *iface_name,int afi, int priority,
 {
     iface_t *iface;
     iface_locators *if_loct;
-    mapping_t *mapping;
-    lisp_addr_t aux_address;
 
     if (iface_name == NULL){
         OOR_LOG(LERR, "Configuration file: No interface specified for RTR. "
@@ -499,23 +497,10 @@ add_rtr_iface(lisp_rtr_t *rtr, char *iface_name,int afi, int priority,
         shash_insert(rtr->tr.iface_locators_table, strdup(iface_name), if_loct);
     }
 
-    if (!rtr->all_locs_map) {
-        lisp_addr_set_lafi(&aux_address,LM_AFI_NO_ADDR);
-        mapping = mapping_new();
-        mapping_set_eid(mapping,&aux_address);
-        if (mapping == NULL){
-            OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate mapping!");
-            return (BAD);
-        }
-        rtr->all_locs_map = map_local_entry_new_init(mapping);
-        if(rtr->all_locs_map == NULL){
-            OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate map_local_entry_t!");
-            return (BAD);
-        }
+    if (!rtr->all_locs_map->fwd_policy_info) {
         if (rtr->tr.fwd_policy->init_map_loc_policy_inf(
                 rtr->tr.fwd_policy_dev_parm,rtr->all_locs_map,NULL) != GOOD){
-            OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.",
-                    lisp_addr_to_char(mapping_eid(mapping)));
+            OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.");
             map_local_entry_del(rtr->all_locs_map);
             return (BAD);
         }
@@ -565,6 +550,8 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     lisp_addr_del(eid_prefix);
     return(site);
 }
+
+
 
 
 /* Parses an EID/RLOC (IP or LCAF) and returns a list of 'lisp_addr_t'.
@@ -1184,16 +1171,15 @@ ms_add_rtr_node(lisp_ms_t *ms, char *name, char *addr_str, char *key)
 
 
     addr_lst = parse_ip_addr(addr_str);
-    if (glist_size(addr_lst)!=1){
-        if (glist_size(addr_lst)==0){
-            glist_destroy(addr_lst);
-            return (BAD);
-        }else{
-            OOR_LOG(LERR, "ms-rtr-node hostname %s resolves to more than one IP. Use one rtr-node element"
-                    "for each IP", addr_str);
-            glist_destroy(addr_lst);
-            return (BAD);
-        }
+    if (!addr_lst || glist_size(addr_lst)==0){
+        glist_destroy(addr_lst);
+        return (BAD);
+    }
+    if (glist_size(addr_lst) >1){
+        OOR_LOG(LERR, "ms-rtr-node hostname %s resolves to more than one IP. Use one rtr-node element"
+                "for each IP", addr_str);
+        glist_destroy(addr_lst);
+        return (BAD);
     }
     addr = (lisp_addr_t *)glist_first_data(addr_lst);
     if (shash_lookup(ms->rtrs_table_by_ip,lisp_addr_to_char(addr)) != NULL){
@@ -1258,6 +1244,52 @@ ms_add_rtr_set(lisp_ms_t *ms, char *name, int ttl, glist_t *rtr_nodes)
 
     OOR_LOG(LDBG_1,"New RTR set added:");
     ms_rtr_set_dump(rtr_set, LDBG_1);
+
+    return (GOOD);
+}
+
+int
+rtr_add_rtr_ms_node(lisp_rtr_t *rtr, char *addr_str, char *key, char *draft_version)
+{
+    glist_t *addr_lst;
+    lisp_addr_t *addr;
+    nat_version nat_version;
+    rtr_ms_node_t *ms_node;
+
+    if (!addr_str || !key){
+        OOR_LOG(LERR, "Configuration file: rtr-ms-node needs to have assigned an address and a key");
+        return (BAD);
+    }
+
+    if (strcmp(draft_version,"OLD")==0){
+        nat_version = NAT_PREV_DRAFT_4;
+    }else if (strcmp(draft_version,"NEW")==0){
+        nat_version = NAT_AFTER_DRAFT_4;
+    }else{
+        OOR_LOG(LERR, "Unknown nat draft-version type: %s",draft_version);
+        return (BAD);
+    }
+
+
+    addr_lst = parse_ip_addr(addr_str);
+    if (!addr_lst || glist_size(addr_lst)==0){
+        glist_destroy(addr_lst);
+        return (BAD);
+    }
+    if (glist_size(addr_lst) >1){
+        OOR_LOG(LERR, "ms-rtr-node hostname %s resolves to more than one IP. Use one rtr-ms-node element"
+                "for each IP", addr_str);
+        glist_destroy(addr_lst);
+        return (BAD);
+    }
+    addr = (lisp_addr_t *)glist_first_data(addr_lst);
+    ms_node = rtr_ms_node_new_init(addr, key, nat_version);
+    glist_destroy(addr_lst);
+    if (!ms_node){
+        return (BAD);
+    }
+    shash_insert(rtr->rtr_ms_table, strdup(lisp_addr_to_char(ms_node->addr)),ms_node);
+    OOR_LOG(LDBG_1,"RTR: Added MS configuration for NAT use: %s", rtr_ms_node_to_char(ms_node));
 
     return (GOOD);
 }

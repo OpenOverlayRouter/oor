@@ -45,7 +45,7 @@ lisp_msg_pull_ecm_hdr(lbuf_t *b)
 /* Process encapsulated map request header:  lisp header and the interal IP and
  * UDP header */
 int
-lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
+lisp_msg_ecm_decap(lbuf_t *pkt)
 {
     uint16_t ipsum = 0;
     uint16_t udpsum = 0;
@@ -65,9 +65,6 @@ lisp_msg_ecm_decap(lbuf_t *pkt, uint16_t *src_port)
     /* Set the beginning of the LISP msg*/
     lbuf_reset_lisp(pkt);
 
-    /* This should overwrite the external port (dst_port in map-reply =
-     * inner src_port in encap map-request) */
-    *src_port = ntohs(udpsport(udph));
     udp_len = ntohs(udplen(udph));
 
     /* Verify the checksums. */
@@ -414,9 +411,9 @@ lisp_msg_put_mapping(
 
     /* Add locators */
     mapping_foreach_active_locator(m,loct){
-        if (locator_state(loct) == DOWN){
-            continue;
-        }
+//        if (locator_state(loct) == DOWN){
+//            continue;
+//        }
         ploc = lisp_msg_put_locator(b, loct);
         if (probed_loc)
             if (probed_loc != NULL
@@ -732,6 +729,8 @@ lisp_msg_ecm_hdr_to_char(lbuf_t *b)
 int
 lisp_msg_fill_auth_data(lbuf_t *b, void *auth_record_hdr, lisp_key_type_e keyid, const char *key)
 {
+    AUTH_REC_KEY_ID(auth_record_hdr) = htons(keyid);
+    AUTH_REC_DATA_LEN(auth_record_hdr) = htons(auth_data_get_len_for_type(keyid));
     if (complete_auth_fields(
             keyid,
             key,

@@ -20,12 +20,31 @@
 
 #include <unistd.h>
 #include "../lib/iface_locators.h"
-#include "../lib/sockets.h"
+#include "../lib/map_cache_rtr_data.h"
 #include "../lib/mem_util.h"
 #include "../lib/oor_log.h"
+#include "../lib/packets.h"
+#include "../lib/prefixes.h"
+#include "../lib/sockets.h"
 #include "../lib/timers_utils.h"
 #include "../lib/util.h"
 #include "lisp_rtr.h"
+
+/************************* Structure definitions *****************************/
+typedef struct nat_loct_conn_inf_t_{
+    lisp_addr_t *pub_xtr_addr;
+    lisp_addr_t *priv_xtr_addr;
+    lisp_addr_t *rtr_addr;
+    lisp_addr_t *ms_addr;
+    uint16_t pub_xtr_port;
+}nat_loct_conn_inf_t;
+
+typedef struct _timer_rtr_nat_loc_exp_arg {
+    mcache_entry_t *mce;
+    rloc_nat_data_t *rloc_nat_data;
+} timer_rtr_nat_loc_exp_arg;
+
+
 
 static oor_ctrl_dev_t *rtr_ctrl_alloc();
 static int rtr_ctrl_construct(oor_ctrl_dev_t *dev);
@@ -41,11 +60,20 @@ int rtr_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_ad
 static fwd_info_t *rtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple);
 inline lisp_rtr_t * lisp_rtr_cast(oor_ctrl_dev_t *dev);
 /*************************** PROCESS MESSAGES ********************************/
-static int rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc);
+static int rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static inline int rtr_recv_map_reply(lisp_rtr_t *xtr, lbuf_t *buf, uconn_t *uc);
-static int rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc);
-static int rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc);
-
+static int rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
+static int rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
+/******************************* TIMERS **************************************/
+/************************ RTR_NAT_LOCT_EXPIRE_TIMER arg***********************/
+static timer_rtr_nat_loc_exp_arg * timer_rtr_nat_loc_exp_arg_new_init(mcache_entry_t *mce,
+        rloc_nat_data_t *rloc_nat_data);
+static void timer_rtr_nat_loc_exp_arg_free(timer_rtr_nat_loc_exp_arg * timer_arg);
+int rtr_nat_loc_expire_cb(oor_timer_t *timer);
+/**************************** AUXILIAR FUNCTIONS *****************************/
+static inline nat_loct_conn_inf_t * nat_loct_con_info_new_init(uconn_t *ext_uc, uconn_t *int_uc);
+static inline void nat_loct_con_info_destroy(nat_loct_conn_inf_t *loct_info);
+int rtr_expires_map_reg_cb(oor_timer_t *timer);
 
 
 /* implementation of ctrl base functions */
@@ -94,6 +122,8 @@ rtr_ctrl_construct(oor_ctrl_dev_t *dev)
         return (BAD);
     }
 
+    rtr->rtr_ms_table = shash_new_managed((free_value_fn_t)rtr_ms_node_destroy);
+
     OOR_LOG(LDBG_1, "Finished Constructing rtr");
 
     return(GOOD);
@@ -113,6 +143,7 @@ rtr_ctrl_destruct(oor_ctrl_dev_t *dev)
 
     lisp_tr_uninit(&rtr->tr);
     map_local_entry_del(rtr->all_locs_map);
+    shash_destroy(rtr->rtr_ms_table);
 
     OOR_LOG(LDBG_1,"rtr device destroyed");
 }
@@ -124,6 +155,7 @@ rtr_run(oor_ctrl_dev_t *dev)
 {
     lisp_rtr_t *rtr = lisp_rtr_cast(dev);
     mapping_t * mapping = NULL;
+    glist_t *rtr_ms_list;
 
     OOR_LOG(LINF, "\nStarting RTR ...\n");
 
@@ -131,8 +163,12 @@ rtr_run(oor_ctrl_dev_t *dev)
         OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURES. You can not request mappings to the mapping system");
         oor_timer_sleep(2);
     }
+    OOR_LOG(LINF, "****** Summary of the configuration ******\n");
+    rtr_ms_list = shash_values(rtr->rtr_ms_table);
+    OOR_LOG(LINF, "*** Configured MSs (NAT Traversal) ***");
+    glist_dump(rtr_ms_list, (glist_to_char_fct)rtr_ms_node_to_char, LINF);
+    glist_destroy(rtr_ms_list);
 
-    OOR_LOG(LINF, "****** Summary of the configuration ******");
     mcache_dump_db(rtr->tr.map_cache, LINF);
 
     mapping = map_local_entry_mapping(rtr->all_locs_map);
@@ -147,28 +183,40 @@ rtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     int ret = 0;
     lisp_msg_type_e type;
     lisp_rtr_t *rtr = lisp_rtr_cast(dev);
+    void *ecm_hdr = NULL;
+    uconn_t *int_uc, *ext_uc = NULL, aux_uc;
+    packet_tuple_t inner_tuple;
 
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD) {
+
+        if (lisp_msg_ecm_decap(msg) != GOOD) {
             return (BAD);
         }
         type = lisp_msg_type(msg);
+        pkt_parse_inner_5_tuple(msg, &inner_tuple);
+        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+        ext_uc = uc;
+        int_uc = &aux_uc;
+        ecm_hdr = lbuf_lisp_hdr(msg);
+    }else{
+        int_uc = uc;
     }
+
 
     switch (type) {
     case LISP_MAP_REQUEST:
-        ret = rtr_recv_map_request(rtr, msg, uc);
+        ret = rtr_recv_map_request(rtr, msg, ecm_hdr, int_uc, ext_uc);
         break;
     case LISP_MAP_REPLY:
-        ret = rtr_recv_map_reply(rtr, msg, uc);
+        ret = rtr_recv_map_reply(rtr, msg, int_uc);
         break;
     case LISP_MAP_REGISTER:
-        ret = rtr_recv_map_register(rtr, msg, uc);
+        ret = rtr_recv_map_register(rtr, msg, ecm_hdr, int_uc, ext_uc);
         break;
     case LISP_MAP_NOTIFY:
-        ret = rtr_recv_map_notify(rtr, msg, uc);
+        ret = rtr_recv_map_notify(rtr, msg,  ecm_hdr, int_uc, ext_uc);
         break;
     case LISP_INFO_NAT:
         OOR_LOG(LDBG_1, "Info Request/Reply message not supported by RTRs. Discarding ...");
@@ -412,14 +460,15 @@ lisp_rtr_cast(oor_ctrl_dev_t *dev)
 /*************************** PROCESS MESSAGES ********************************/
 
 static int
-rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc)
+rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
     lisp_addr_t *seid, *deid;
-    glist_t *itr_rlocs;
+    glist_t *itr_rlocs = NULL;
     void *mreq_hdr, *mrep_hdr;
     int i = 0;
-    lbuf_t *mrep;
+    lbuf_t *mrep = NULL;
     lbuf_t  b;
+    uconn_t send_uc;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -462,6 +511,8 @@ rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc)
         OOR_LOG(LDBG_1, " dst-eid: %s", lisp_addr_to_char(deid));
         lisp_msg_put_neg_mapping(mrep, deid, 0, ACT_NO_ACTION, A_NO_AUTHORITATIVE);
 
+        /* XXX HOW to process Rloc Probing */
+
         /* If packet is a Solicit Map Request, process it */
         if (lisp_addr_lafi(seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
             if(tr_reply_to_smr(&rtr->tr,deid,seid) != GOOD) {
@@ -478,12 +529,12 @@ rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc)
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* SEND MAP-REPLY */
-    if (map_reply_fill_uconn(&rtr->tr, itr_rlocs, uc) != GOOD){
+    if (map_reply_fill_uconn(&rtr->tr, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
         OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
         goto err;
     }
     OOR_LOG(LDBG_1, "Sending %s", lisp_msg_hdr_to_char(mrep));
-    send_msg(&rtr->super, mrep, uc);
+    send_msg(&rtr->super, mrep, &send_uc);
 
 done:
     glist_destroy(itr_rlocs);
@@ -506,17 +557,342 @@ rtr_recv_map_reply(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc)
 }
 
 static int
-rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc)
+rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
+    lbuf_t b;
+    void *hdr = NULL;
+    oor_timer_t *timer;
+    lisp_addr_t *ms_addr;
+    nat_loct_conn_inf_t *conn_info;
+    uconn_t fwd_uc;
+    rtr_ms_node_t *ms_node;
+
+    b = *buf;
+    hdr = lisp_msg_pull_hdr(&b);
+
+    if (!ecm_hdr){
+        OOR_LOG(LDBG_1, "RTR doesn't accept Map Registers. Discarding message ...");
+        return (BAD);
+    }
+
+    if (ECM_RTR_PROCESS_BIT(ecm_hdr) == 0 && MREG_RBIT(hdr) == 0){
+        OOR_LOG(LDBG_1, "Received a Map Register without the R bit set. Discarding message ...");
+        return (BAD);
+    }
+
+    ms_addr = &int_uc->la;
+    ms_node = shash_lookup(rtr->rtr_ms_table, lisp_addr_to_char(ms_addr));
+    if (!ms_node){
+        OOR_LOG(LDBG_1, "Unknown Map Server for the received Encap Map Register . Discarding message ...");
+        return (BAD);
+    }
+
+    if(ms_node->nat_version == NAT_PREV_DRAFT_4){
+        /* Forward Map Register (no Encap Map Reg) to the Map Server */
+        lbuf_point_to_lisp(&b);
+        uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, ms_addr);
+        send_msg(&rtr->super, &b, &fwd_uc);
+    }else{
+        // XXX IMPLEMNET NEW VESRSION
+    }
+
+    /* We store the udp connection in the timer. This will be used when receiving the Map
+     * Notify to create the nat locator data. If the timer expires without receiving Map Notify,
+     * this structure is removed */
+    conn_info = nat_loct_con_info_new_init(ext_uc,int_uc);
+
+    timer = oor_timer_with_nonce_new(RTR_NAT_MAP_REG_NOTIFY_TIMER, rtr, rtr_expires_map_reg_cb,
+            conn_info,(oor_timer_del_cb_arg_fn)nat_loct_con_info_destroy);
+    htable_ptrs_timers_add(ptrs_to_timers_ht, conn_info, timer);
+    htable_nonces_insert(nonces_ht, MREG_NONCE(hdr),oor_timer_nonces(timer));
+    oor_timer_start(timer, OOR_INITIAL_MRQ_TIMEOUT);
+
     return (GOOD);
 }
 
 static int
-rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, uconn_t *uc)
+rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
+    void *hdr, *auth_hdr;
+    nonces_list_t *nonces_lst;
+    oor_timer_t *timer;
+    lbuf_t b;
+    int res, i;
+    lisp_key_type_e key_type = HMAC_SHA_1_96;
+    glist_t *recv_map_lst, *timer_lst;
+    glist_entry_t *map_it;
+    mcache_entry_t *mce;
+    mapping_t *recv_map,*map;
+    locator_t *probed = NULL;
+    lisp_addr_t *eid;
+    nat_loct_conn_inf_t *loct_conn_inf;
+    lisp_site_id site_id;
+    lisp_xtr_id xtr_id;
+    uint32_t iid;
+    uconn_t fwd_uc;
+    rloc_nat_data_t * rloc_nat_info;
+    timer_rtr_nat_loc_exp_arg *timer_arg;
+    rtr_ms_node_t *ms_node;
+
+
+    b = *buf;
+    hdr = lisp_msg_pull_hdr(&b);
+
+    /* Check NONCE */
+    nonces_lst = htable_nonces_lookup(nonces_ht, MNTF_NONCE(hdr));
+    if (!nonces_lst){
+        OOR_LOG(LDBG_1, "No Map Register resent with nonce: %"PRIx64
+                " Discarding message!", MNTF_NONCE(hdr));
+        return(BAD);
+    }
+    timer = nonces_list_timer(nonces_lst);
+    loct_conn_inf = (nat_loct_conn_inf_t *)oor_timer_cb_argument(timer);
+
+    ms_node = shash_lookup(rtr->rtr_ms_table,lisp_addr_to_char(loct_conn_inf->ms_addr));
+    if (!ms_node){
+        OOR_LOG(LDBG_1, "RTR: Unknown Map Server %s. Discarding message!",
+                lisp_addr_to_char(loct_conn_inf->ms_addr));
+        return(BAD);
+    }
+
+    /* NAT draft version 3 */
+    if (!ecm_hdr){
+        if (MNTF_R_BIT(hdr) == 0){
+            OOR_LOG(LDBG_1,"Received Map Notify without R bit enabled. Discarding message");
+            return (BAD);
+        }
+        if (MNTF_I_BIT(hdr) == 0){
+            OOR_LOG(LDBG_1,"Received Map Notify without I bit enabled. Discarding message");
+            return (BAD);
+        }
+
+        /* Find the RTR auth_hdr and validate RTR authentication*/
+        auth_hdr = hdr + lbuf_size(buf) - auth_data_get_len_for_type(HMAC_SHA_1_96) - sizeof(auth_record_hdr_t);
+        res = lisp_msg_check_auth_field(buf,auth_hdr, ms_node->key);
+        if (res != GOOD){
+            OOR_LOG(LDBG_1, "Map-Notify message is invalid");
+            return(BAD);
+        }
+
+        lisp_msg_pull_auth_field(&b);
+
+        recv_map_lst = glist_new_managed((glist_del_fct)mapping_del);
+        for (i = 0; i < MREG_REC_COUNT(hdr); i++) {
+            recv_map = mapping_new();
+            if (lisp_msg_parse_mapping_record(&b, recv_map, &probed) != GOOD) {
+                glist_destroy(recv_map_lst);
+                OOR_LOG(LDBG_1,"rtr_recv_map_notify: Error parsing a record of the Map Notify."
+                        " Discarding message");
+                return (BAD);
+            }
+            /* To be sure that we store the network address and not a IP-> 10.0.0.0/24 instead of 10.0.0.1/24 */
+            eid = mapping_eid(recv_map);
+            pref_conv_to_netw_pref(eid);
+            /* Add mapping to list to post process */
+            glist_add(recv_map,recv_map_lst);
+        }
+        lisp_msg_parse_xtr_id_site_id(&b, &xtr_id, &site_id);
+
+        /* Process received mappings */
+        glist_for_each_entry(map_it,recv_map_lst){
+            recv_map = (mapping_t *)glist_entry_data(map_it);
+            eid = mapping_eid(recv_map);
+            /* Find if the mcache entry exist, if not create it */
+            mce = mcache_lookup_exact(rtr->tr.map_cache, eid);
+            if (!mce){
+                map = mapping_new_init(eid);
+                mce = tr_mcache_add_mapping(&rtr->tr, map, MCE_DYNAMIC, ACTIVE);
+                /* Add specific data */
+                mce->dev_specific_data = mc_rtr_data_nat_new();
+                mce->dev_data_del = (dev_specific_data_del_fct)mc_rtr_data_destroy;
+            }
+
+            res = mc_rtr_data_mapping_update(mce, recv_map, loct_conn_inf->rtr_addr,loct_conn_inf->pub_xtr_addr,
+                    loct_conn_inf->pub_xtr_port,loct_conn_inf->priv_xtr_addr,&xtr_id);
+            /* If the mapping has changed, reset the entries of the data plane associated with
+             * the affected cache entry */
+            if (res == UPDATED){
+                rtr->tr.fwd_policy->updated_map_cache_inf(rtr->tr.fwd_policy_dev_parm,mce);
+                notify_datap_rm_fwd_from_entry(&rtr->super, eid, FALSE);
+            }
+            /* Configure timers */
+
+            rloc_nat_info = mc_rtr_data_get_rloc_nat_data(mce, &xtr_id, loct_conn_inf->priv_xtr_addr);
+            if (!rloc_nat_info){
+                OOR_LOG(LDBG_1,"rtr_recv_map_notify: RLOC nat info not found. It should never happen");
+                continue;
+            }
+            // Get timer associated to it or create it if it doesn't exist yet
+            timer_lst = htable_ptrs_timers_get_timers(ptrs_to_timers_ht,rloc_nat_info);
+            if (!timer_lst){
+                timer_arg = timer_rtr_nat_loc_exp_arg_new_init(mce, rloc_nat_info);
+                timer = oor_timer_create(RTR_NAT_LOCT_EXPIRE_TIMER);
+                oor_timer_init(timer, rtr, (oor_timer_callback_t)rtr_nat_loc_expire_cb,
+                        timer_arg, (oor_timer_del_cb_arg_fn)timer_rtr_nat_loc_exp_arg_free,NULL);
+                htable_ptrs_timers_add(ptrs_to_timers_ht,rloc_nat_info, timer);
+            }else{
+                // This type of object only have one timer associated with it.
+                timer = glist_first_data(timer_lst);
+            }
+            /* XXX We maintain the entry 30 more seconds than the MS site expiration time to avoid to request for the expired entry
+             * due to a map cahce miss before the entry expires in the Map Server */
+            oor_timer_start(timer, MS_SITE_EXPIRATION + 30);
+        }
+        glist_destroy(recv_map_lst);
+        /* Prepare the Map Notify to send to the ETR */
+        // Set the authentication RTR address to 0 and remove the size of previous authentication
+        lisp_msg_fill_auth_data(&b,auth_hdr, NO_KEY, NULL);
+        lbuf_set_size(&b,lbuf_size(&b) - auth_data_get_len_for_type(key_type));
+        // As we doesn't have IP and UDP header of the received map Notify, we should recreate it
+        lbuf_point_to_lisp(&b);
+        // XXX we lose some fields of the headers but it is the best we can do
+        pkt_push_udp_and_ip(&b, int_uc->lp, int_uc->rp, lisp_addr_ip(&int_uc->ra), lisp_addr_ip(loct_conn_inf->priv_xtr_addr));
+        // lbuf is now poninting to the added IP header but pkt_push_udp_and_ip set this position in the aux IP variable (ext packet)
+        // instead of the internal packet. We reset the pointer of the internal IP aux variable.
+        lbuf_reset_l3(&b);
+
+    }
+
+    /* Resend Map Notify as a data Map Notify -> Encapsualate message in a data packet */
+    iid = MAX_IID;
+    lbuf_point_to_l3(&b);
+
+    lisp_data_push_hdr(&b, iid);
+    uconn_init(&fwd_uc, LISP_CONTROL_PORT, loct_conn_inf->pub_xtr_port, loct_conn_inf->rtr_addr,loct_conn_inf->pub_xtr_addr);
+    res = send_msg(&rtr->super, &b, &fwd_uc);
+
+    /* Program the expiration time of the NAT information for the locator */
+
+    return (res);
+}
+
+/******************************* TIMERS **************************************/
+/************************ RTR_NAT_LOCT_EXPIRE_TIMER arg***********************/
+
+static timer_rtr_nat_loc_exp_arg *
+timer_rtr_nat_loc_exp_arg_new_init(mcache_entry_t *mce, rloc_nat_data_t *rloc_nat_data)
+{
+    timer_rtr_nat_loc_exp_arg *timer_arg;
+
+    timer_arg = xmalloc(sizeof(timer_rtr_nat_loc_exp_arg));
+    if (!timer_arg){
+        OOR_LOG(LDBG_2,"timer_rtr_nat_loc_exp_arg_new_init: Couldn't allocate memory for a "
+                "timer_rtr_nat_loc_exp_arg");
+        return (NULL);
+    }
+
+    timer_arg->mce = mce;
+    timer_arg->rloc_nat_data = rloc_nat_data;
+
+    return(timer_arg);
+}
+
+static void
+timer_rtr_nat_loc_exp_arg_free(timer_rtr_nat_loc_exp_arg * timer_arg)
+{
+    free(timer_arg);
+}
+
+/* Remove an rtr nat loc . If the cache entry does not have associated any nat loc,
+ * remove the cache entry */
+int
+rtr_nat_loc_expire_cb(oor_timer_t *timer)
+{
+    lisp_rtr_t *rtr = (lisp_rtr_t *)oor_timer_owner(timer);
+    timer_rtr_nat_loc_exp_arg *timer_arg = oor_timer_cb_argument(timer);
+    mcache_entry_t *mce = timer_arg->mce;
+    mc_rm_rtr_rloc_nat_data(mce, timer_arg->rloc_nat_data);
+
+    if (mapping_locator_count(mcache_entry_mapping(mce)) == 0){
+        OOR_LOG(LDBG_1,"Got expiration for EID %s", lisp_addr_to_char(mcache_entry_eid(mce)));
+        tr_mcache_remove_entry(&rtr->tr, mce);
+    }else{
+        /* Notify of the change of the map cache entry to the data plane */
+        notify_datap_rm_fwd_from_entry(&rtr->super,mcache_entry_eid(mce),FALSE);
+    }
+    return (GOOD);
+}
+
+/**************************** AUXILIAR FUNCTIONS *****************************/
+inline nat_loct_conn_inf_t *
+nat_loct_con_info_new_init(uconn_t *ext_uc, uconn_t *int_uc)
+{
+    nat_loct_conn_inf_t *loct_conn_inf = xzalloc(sizeof (nat_loct_conn_inf_t));
+    if (!loct_conn_inf){
+        return (NULL);
+    }
+    loct_conn_inf->priv_xtr_addr = lisp_addr_clone(&int_uc->ra);
+    loct_conn_inf->pub_xtr_addr = lisp_addr_clone(&ext_uc->ra);
+    loct_conn_inf->rtr_addr = lisp_addr_clone(&ext_uc->la);
+    loct_conn_inf->ms_addr = lisp_addr_clone(&int_uc->la);
+    loct_conn_inf->pub_xtr_port = ext_uc->rp;
+
+    return(loct_conn_inf);
+}
+
+inline void
+nat_loct_con_info_destroy(nat_loct_conn_inf_t *loct_conn_inf)
+{
+    lisp_addr_del(loct_conn_inf->priv_xtr_addr);
+    lisp_addr_del(loct_conn_inf->pub_xtr_addr);
+    lisp_addr_del(loct_conn_inf->rtr_addr);
+    lisp_addr_del(loct_conn_inf->ms_addr);
+    free(loct_conn_inf);
+}
+
+int
+rtr_expires_map_reg_cb(oor_timer_t *timer)
+{
+    nat_loct_conn_inf_t *conn_info;
+    conn_info = (nat_loct_conn_inf_t *)oor_timer_cb_argument(timer);
+    stop_timers_from_obj(conn_info,ptrs_to_timers_ht,nonces_ht);
+    // Argument is removed in stop_timer
     return (GOOD);
 }
 
 
+/************************** rtr_ms_node_t functions **************************/
+
+rtr_ms_node_t *
+rtr_ms_node_new_init(lisp_addr_t *addr, char *key, nat_version version)
+{
+    rtr_ms_node_t *ms_node;
+    ms_node = xzalloc(sizeof(rtr_ms_node_t));
+    if (!ms_node){
+        OOR_LOG(LWRN,"rtr_ms_node_new_init: Couldn't allocate memory for a rtr_ms_node_t structure");
+        return(NULL);
+    }
+    ms_node->addr = lisp_addr_clone(addr);
+    ms_node->key = strdup(key);
+    ms_node->nat_version = version;
+
+    return (ms_node);
+}
+
+void
+rtr_ms_node_destroy(rtr_ms_node_t *ms_node)
+{
+    lisp_addr_del(ms_node->addr);
+    free(ms_node->key);
+    free(ms_node);
+}
+
+char *
+rtr_ms_node_to_char(rtr_ms_node_t *ms_node)
+{
+    static char buf[500];
+    size_t buf_size = sizeof(buf);
+    if (ms_node == NULL){
+        sprintf(buf, "_NULL_");
+        return (buf);
+    }
+
+    *buf = '\0';
+    snprintf(buf + strlen(buf),buf_size - strlen(buf),"MS addr: %s, ", lisp_addr_to_char(ms_node->addr));
+    snprintf(buf + strlen(buf),buf_size - strlen(buf),"Key: ******, ");
+    snprintf(buf + strlen(buf),buf_size - strlen(buf),"Nat draft version: %s",
+            ms_node->nat_version == NAT_PREV_DRAFT_4 ? "< 4" : ">4");
+    return (buf);
+}
 
 

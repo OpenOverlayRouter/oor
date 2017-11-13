@@ -24,6 +24,8 @@
 #include "oor_ctrl_device.h"
 
 
+
+
 typedef struct lisp_rtr {
     oor_ctrl_dev_t super; /* base "class" ,  Don't change order*/
 
@@ -32,8 +34,21 @@ typedef struct lisp_rtr {
     /* LOCAL IFACE MAPPING */
     /* in case of RTR can be used for outgoing load balancing */
     map_local_entry_t *all_locs_map;
+    shash_t *rtr_ms_table; //< IP char * , rtr_ms_node_t *>
 } lisp_rtr_t;
 
+typedef struct rtr_ms_node {
+    lisp_addr_t * addr;
+    char * key;
+    nat_version nat_version;
+}rtr_ms_node_t;
+
 inline lisp_rtr_t * lisp_rtr_cast(oor_ctrl_dev_t *dev);
+
+/************************** rtr_ms_node_t functions **************************/
+
+rtr_ms_node_t * rtr_ms_node_new_init(lisp_addr_t *addr, char *key, nat_version version);
+void rtr_ms_node_destroy(rtr_ms_node_t *ms_node);
+char *rtr_ms_node_to_char(rtr_ms_node_t *ms_node);
 
 #endif /* OOR_CONTROL_LISP_RTR_H_ */

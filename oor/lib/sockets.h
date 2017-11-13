@@ -100,6 +100,7 @@ int sock_ctrl_recv(int, lbuf_t *, uconn_t *);
 int sock_data_recv(int sock, lbuf_t *b, int *afi, uint8_t *ttl, uint8_t *tos);
 int uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,
         lisp_addr_t *ra);
+uconn_t *uconn_clone(uconn_t *uc);
 
 void uconn_from_5_tuple (packet_tuple_t *tuple, uconn_t *udp_con, uint8_t is_pkt_rx);
 

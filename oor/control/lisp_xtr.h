@@ -57,10 +57,6 @@ typedef struct map_server_elt_t {
     uint8_t         proxy_reply;
 } map_server_elt;
 
-typedef enum {
-    PREV_DRAF_VER_4,
-    AFTER_DRAFT_VER_4
-}nat_version;
 
 
 /**************************** LOGICAL PROCESSES ******************************/

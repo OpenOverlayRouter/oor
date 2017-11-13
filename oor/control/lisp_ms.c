@@ -21,13 +21,13 @@
 #include "../defs.h"
 #include "../lib/cksum.h"
 #include "../lib/oor_log.h"
-#include "../lib/pointers_table.h"
 #include "../lib/prefixes.h"
+#include "../lib/timers_utils.h"
 #include "../lib/util.h"
 
 
-static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
-static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);
+static int ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
+static int ms_recv_map_register(lisp_ms_t *, lbuf_t *,void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static int ms_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
 
@@ -192,7 +192,7 @@ lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
 }
 
 static int
-ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
+ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
 
     lisp_addr_t *   seid        = NULL;
@@ -208,6 +208,11 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lisp_site_prefix_t *    site            = NULL;
     lisp_reg_site_t *       rsite           = NULL;
     uint8_t act_flag;
+
+    if (!ecm_hdr){
+        OOR_LOG(LDBG_1, "Received a not encapsulated Map Request. Discarding!");
+        return(BAD);
+    }
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -262,7 +267,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                     lisp_addr_to_char(deid));
             OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
                     lisp_addr_to_char(deid));
-            send_msg(&ms->super, mrep, uc);
+            send_msg(&ms->super, mrep, ext_uc);
             lisp_msg_destroy(mrep);
             lisp_addr_del(deid);
 
@@ -278,7 +283,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                                 lisp_addr_to_char(deid));
             OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
                     lisp_addr_to_char(deid));
-            send_msg(&ms->super, mrep, uc);
+            send_msg(&ms->super, mrep, ext_uc);
             lisp_msg_destroy(mrep);
             lisp_addr_del(deid);
             continue;
@@ -288,7 +293,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         /* If site is null, the request is for a static entry */
 
         /* IF *NOT* PROXY REPLY: forward the message to an xTR */
-        if (site != NULL && site->proxy_reply == FALSE) {
+        if (site != NULL && site->proxy_reply == FALSE && rsite->proxy_reply == FALSE) {
             /* FIXME: once locs become one object, send that instead of mapping */
             forward_mreq(ms, buf, map);
             lisp_msg_destroy(mrep);
@@ -310,8 +315,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
         /* SEND MAP-REPLY */
-        laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
-        if (send_msg(&ms->super, mrep, uc) != GOOD) {
+        laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&ext_uc->la), &ext_uc->ra);
+        if (send_msg(&ms->super, mrep, ext_uc) != GOOD) {
             OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
         }
         lisp_msg_destroy(mrep);
@@ -332,7 +337,7 @@ err:
 }
 
 static int
-ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
+ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
     lisp_reg_site_t *rsite = NULL, *new_rsite = NULL;
     lisp_site_prefix_t *reg_pref = NULL;
@@ -349,10 +354,17 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lisp_key_type_e keyid = HMAC_SHA_1_96; /* TODO configurable */
     int valid_records = FALSE;
     ms_rtr_node_t *rtr = NULL;
+    uconn_t *uc;
 
 
     b = *buf;
     hdr = lisp_msg_pull_hdr(&b);
+
+    if(ecm_hdr){ /*New NAT draft version*/
+        uc = ext_uc;
+    }else{
+        uc = int_uc;
+    }
 
     if (MREG_WANT_MAP_NOTIFY(hdr)) {
         mntf = lisp_msg_create(LISP_MAP_NOTIFY);
@@ -443,7 +455,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
                 }
                 ms_dump_registered_sites(ms, LDBG_3);
             }
-            reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
+            rsite->proxy_reply = MREG_PROXY_REPLY(hdr);
             /* update registration timer */
             lsite_entry_update_expiration_timer(ms, rsite);
         } else {
@@ -453,7 +465,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             mdb_add_entry(ms->reg_sites_db, mapping_eid(m), new_rsite);
             lsite_entry_start_expiration_timer(ms, new_rsite);
 
-            reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
+            new_rsite->proxy_reply = MREG_PROXY_REPLY(hdr);
             ms_dump_registered_sites(ms, LDBG_3);
         }
 
@@ -502,7 +514,6 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             rtr_auth_hdr = lisp_msg_put_empty_auth_record(mntf, keyid);
             lisp_msg_fill_auth_data(mntf,rtr_auth_hdr,keyid, rtr->passwd);
         }
-
         OOR_LOG(LDBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
                 lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
                 lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
@@ -694,22 +705,34 @@ ms_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     int ret = BAD;
     lisp_msg_type_e type;
     lisp_ms_t *ms;
+    void *ecm_hdr = NULL;
+    uconn_t *int_uc, *ext_uc = NULL, aux_uc;
+    packet_tuple_t inner_tuple;
 
     ms = lisp_ms_cast(dev);
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD)
+
+        if (lisp_msg_ecm_decap(msg) != GOOD) {
             return (BAD);
+        }
         type = lisp_msg_type(msg);
+        pkt_parse_inner_5_tuple(msg, &inner_tuple);
+        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+        ext_uc = uc;
+        int_uc = &aux_uc;
+        ecm_hdr = lbuf_lisp_hdr(msg);
+    }else{
+        int_uc = uc;
     }
 
      switch(type) {
      case LISP_MAP_REQUEST:
-         ret = ms_recv_map_request(ms, msg, uc);
+         ret = ms_recv_map_request(ms, msg, ecm_hdr, int_uc, ext_uc);
          break;
      case LISP_MAP_REGISTER:
-         ret = ms_recv_map_register(ms, msg, uc);
+         ret = ms_recv_map_register(ms, msg, ecm_hdr, int_uc, ext_uc);
          break;
      case LISP_MAP_REPLY:
      case LISP_MAP_NOTIFY:

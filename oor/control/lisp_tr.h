@@ -128,14 +128,14 @@ void timer_map_req_arg_free(timer_map_req_argument * timer_arg);
 
 /***************************  Map cache functions ****************************/
 
-int tr_mcache_add_mapping(lisp_tr_t *tr, mapping_t *m);
-int tr_mcache_add_static_mapping(lisp_tr_t *tr, mapping_t *m);
+mcache_entry_t *tr_mcache_add_mapping(lisp_tr_t *tr, mapping_t *m, mce_type_e how_learned, uint8_t is_active);
 int tr_mcache_remove_entry(lisp_tr_t *tr, mcache_entry_t *mce);
 int tr_update_mcache_entry(lisp_tr_t *tr, mapping_t *recv_map);
+void tr_mcache_entry_program_timers(lisp_tr_t *tr, mcache_entry_t *mce);
 
 /*****************************************************************************/
 
-int map_reply_fill_uconn(lisp_tr_t *tr, glist_t *itr_rlocs, uconn_t *uc);
+int map_reply_fill_uconn(lisp_tr_t *tr, glist_t *itr_rlocs,  uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc);
 inline mcache_entry_t * get_proxy_etrs_for_afi(lisp_tr_t *tr, int afi);
 lisp_addr_t * get_map_resolver(lisp_tr_t *tr);
 

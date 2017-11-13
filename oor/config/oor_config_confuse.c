@@ -411,6 +411,7 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
     char *map_resolver;
     char *encap;
     mapping_t *mapping;
+    mcache_entry_t *mce;
 
     /* FWD POLICY STRUCTURES */
 #ifdef VPP
@@ -481,7 +482,9 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
             return(BAD);
         }
         if (mcache_lookup_exact(tr->map_cache, mapping_eid(mapping)) == NULL){
-            if (tr_mcache_add_static_mapping(tr, mapping) == GOOD){
+            mce = tr_mcache_add_mapping(tr, mapping, MCE_STATIC, ACTIVE);
+            if (mce){
+                tr_mcache_entry_program_timers(tr,mce);
                 OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                         lisp_addr_to_char(mapping_eid(mapping)));
             }else{
@@ -548,7 +551,16 @@ configure_rtr(cfg_t *cfg)
             }
         }
     }
-
+    n = cfg_size(cfg, "rtr-ms-node");
+    for(i = 0; i < n; i++) {
+        cfg_t *rms = cfg_getnsec(cfg, "rtr-ms-node", i);
+        if (rtr_add_rtr_ms_node(rtr,
+                cfg_getstr(rms, "address"),
+                cfg_getstr(rms, "key"),
+                cfg_getstr(rms, "draft-version")) != GOOD){
+            return (BAD);
+        }
+    }
     shash_destroy(lcaf_ht);
 
     return(GOOD);
@@ -788,6 +800,7 @@ configure_ms(cfg_t *cfg)
                 cfg_getint(rtr_set_cfg, "ttl"),
                 rtr_id_list);
         if (res != GOOD){
+            glist_destroy(rtr_id_list);
             return(BAD);
         }
     }
@@ -942,6 +955,13 @@ handle_config_file()
             CFG_END()
     };
 
+    static cfg_opt_t rtr_ms_opts[] = {
+            CFG_STR("address",                     0, CFGF_NONE),
+            CFG_STR("key",                         0, CFGF_NONE),
+            CFG_STR("draft-version","OLD",CFGF_NONE),
+            CFG_END()
+    };
+
 
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts,        CFGF_MULTI),
@@ -977,6 +997,7 @@ handle_config_file()
             CFG_SEC("ms-rtrs-set",              rtr_set_opts,          CFGF_MULTI),
             CFG_SEC("ms-rtr-node",              rtr_opts,              CFGF_MULTI),
             CFG_STR("ms-advertised-rtrs-set",       0, CFGF_NONE),
+            CFG_SEC("rtr-ms-node",rtr_ms_opts,CFGF_MULTI),
             CFG_END()
     };
 

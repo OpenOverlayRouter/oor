@@ -41,6 +41,8 @@ complete_auth_fields(uint8_t key_id, const char *key, void *packet, size_t pckt_
     size_t auth_data_len;
 
     switch (key_id) {
+    case NO_KEY:
+        return (GOOD);
     case HMAC_SHA_1_96:
         md_type = MBEDTLS_MD_SHA1;
         auth_data_len = SHA1_AUTH_DATA_LEN;

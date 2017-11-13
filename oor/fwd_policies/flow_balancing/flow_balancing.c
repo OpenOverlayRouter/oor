@@ -22,9 +22,11 @@
 #include "../balancing_locators.h"
 #include "../fwd_addr_func.h"
 #include "../fwd_policy.h"
+#include "../../lib/map_cache_rtr_data.h"
 #include "../../lib/oor_log.h"
 #include "../../liblisp/liblisp.h"
 #include "../../control/oor_ctrl_device.h"
+#include "../../control/lisp_rtr.h"
 
 fb_dev_parm *fb_dev_parm_new();
 void *fb_new_dev_policy_inf(oor_ctrl_dev_t *ctrl_dev,
@@ -35,7 +37,9 @@ int fb_init_map_loc_policy_inf(void *dev_parm, map_local_entry_t *mle,
 int fb_init_map_cache_policy_inf(void *dev_parm, mcache_entry_t *mce);
 int fb_get_fwd_entry(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mce,
         mcache_entry_t *petrs, packet_tuple_t *tuple, fwd_info_t *fwd_info);
-int fb_get_fwd_entry_2(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mce,
+int fb_get_fwd_entry_2(fb_dev_parm *dev_parm,  map_local_entry_t *mle, mcache_entry_t *mce,
+        packet_tuple_t *tuple, fwd_info_t *fwd_info);
+int fb_get_fwd_entry_rtr_nat(fb_dev_parm *dev_parm,  map_local_entry_t *mle, mcache_entry_t *mce,
         packet_tuple_t *tuple, fwd_info_t *fwd_info);
 
 
@@ -145,6 +149,7 @@ fb_get_fwd_entry(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mc
     mapping_t *dmap;
     lisp_addr_t * src_eid = map_local_entry_eid(mle);
     lisp_addr_t * dst_eid = mcache_entry_eid(mce);
+    fb_dev_parm * dev_parm = (fb_dev_parm *)fwd_dev_parm;
 
     if (lisp_addr_cmp_afi(src_eid,dst_eid) != 0){
         if (!(lisp_addr_is_no_addr(src_eid) || lisp_addr_is_no_addr(dst_eid))){ // RTRs
@@ -154,8 +159,16 @@ fb_get_fwd_entry(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mc
             return(ERR_NO_ROUTE);
         }
     }
-
-    if (fb_get_fwd_entry_2(fwd_dev_parm,mle,mce,tuple,fwd_info) == ERR_NO_ROUTE){
+    /* Check if the device is an RTR and the mcache_entry is for a NAT EID */
+    if (dev_parm->dev_type == RTR_MODE && mce->dev_specific_data && ((mc_rtr_data_t *)(mce->dev_specific_data))->nat_data){
+        if (fb_get_fwd_entry_rtr_nat(dev_parm,mle,mce,tuple,fwd_info) == ERR_NO_ROUTE){
+            fwd_info->neg_map_reply_act = ACT_DROP;
+            return (GOOD);
+        }
+        return (GOOD);
+    }
+    /* Other cases */
+    if (fb_get_fwd_entry_2(dev_parm,mle,mce,tuple,fwd_info) == ERR_NO_ROUTE){
         dmap = mcache_entry_mapping(mce);
         if (lisp_addr_is_lcaf(mapping_eid(dmap))){
             fwd_info->neg_map_reply_act = ACT_DROP;
@@ -164,7 +177,7 @@ fb_get_fwd_entry(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mc
         if(mapping_action(dmap) == ACT_NATIVE_FWD){
             if (petrs){
                 // Try to send the packet to PeTRs
-                if (fb_get_fwd_entry_2(fwd_dev_parm,mle,petrs,tuple,fwd_info) == ERR_NO_ROUTE){
+                if (fb_get_fwd_entry_2(dev_parm,mle,petrs,tuple,fwd_info) == ERR_NO_ROUTE){
                     if (mcache_has_locators(petrs) == TRUE){
                         OOR_LOG(LDBG_3, "fb_get_fwd_entry: No PETR compatible with local locators afi");
                     }else{
@@ -185,11 +198,11 @@ fb_get_fwd_entry(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mc
 
 
 int
-fb_get_fwd_entry_2(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mce,
+fb_get_fwd_entry_2(fb_dev_parm *dev_parm,  map_local_entry_t *mle, mcache_entry_t *mce,
         packet_tuple_t *tuple, fwd_info_t *fwd_info)
 {
     fwd_entry_tuple_t *fwd_entry;
-    fb_dev_parm * dev_parm = (fb_dev_parm *)fwd_dev_parm;
+
     balancing_locators_vecs * src_blv = (balancing_locators_vecs *)map_local_entry_fwd_info(mle);
     balancing_locators_vecs * dst_blv = (balancing_locators_vecs *)mcache_entry_routing_info(mce);
     int src_vec_len, dst_vec_len;
@@ -246,6 +259,8 @@ fb_get_fwd_entry_2(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *
     if (hash == 0) {
         OOR_LOG(LDBG_1, "fb_get_fwd_entry_2: Couldn't get the hash of the tuple "
                 "to select the rloc. Using the default rloc");
+        res = ERR_NO_ROUTE;
+        goto done;
         //pos = hash%x_vec_len -> 0%x_vec_len = 0;
     }
 
@@ -295,7 +310,100 @@ done:
     if (fwd_info->dp_conf_inf){
         fwd_entry_tuple_del(fwd_info->dp_conf_inf);
     }
-    fwd_entry = fwd_entry_tuple_new_init(tuple, src_ip_addr, dst_ip_addr, tuple->iid, NULL);
+    fwd_entry = fwd_entry_tuple_new_init(tuple, src_ip_addr, dst_ip_addr,LISP_DATA_PORT, LISP_DATA_PORT, tuple->iid, NULL);
+    fwd_info->dp_conf_inf = fwd_entry;
+    fwd_info->data_del_fn = (fwd_info_data_del_fn)fwd_entry_tuple_del;
+    return (res);
+}
+
+
+
+
+int
+fb_get_fwd_entry_rtr_nat(fb_dev_parm *dev_parm,  map_local_entry_t *mle, mcache_entry_t *mce,
+        packet_tuple_t *tuple, fwd_info_t *fwd_info)
+{
+    fwd_entry_tuple_t *fwd_entry;
+    mc_rtr_nat_data_t *mc_nat_data = ((mc_rtr_data_t *)(mce->dev_specific_data))->nat_data;
+    rloc_nat_data_t *rloc_nat_data;
+    balancing_locators_vecs * src_blv = (balancing_locators_vecs *)map_local_entry_fwd_info(mle);
+    balancing_locators_vecs * dst_blv = (balancing_locators_vecs *)mcache_entry_routing_info(mce);
+    int dst_vec_len;
+    uint32_t pos, hash;
+    locator_t ** dst_loc_vec;
+    locator_t * dst_loct;
+    int res;
+
+    if (mapping_locator_count(mcache_entry_mapping(mce)) == 0){
+        res = ERR_NO_ROUTE;
+        OOR_LOG(LDBG_3, "fb_get_fwd_entry_rtr_nat: Map Cache entry doesn't have locators");
+        goto done;
+    }
+
+    if (src_blv->balancing_locators_vec != NULL
+            && dst_blv->balancing_locators_vec != NULL) {
+        dst_loc_vec = dst_blv->balancing_locators_vec;
+        dst_vec_len = dst_blv->locators_vec_length;
+    } else if (src_blv->v6_balancing_locators_vec != NULL
+            && dst_blv->v6_balancing_locators_vec != NULL) {
+        dst_loc_vec = dst_blv->v6_balancing_locators_vec;
+        dst_vec_len = dst_blv->v6_locators_vec_length;
+    } else if (src_blv->v4_balancing_locators_vec != NULL
+            && dst_blv->v4_balancing_locators_vec != NULL) {
+        dst_loc_vec = dst_blv->v4_balancing_locators_vec;
+        dst_vec_len = dst_blv->v4_locators_vec_length;
+    } else {
+        if (dst_blv->v4_balancing_locators_vec == NULL
+                && src_blv->v6_balancing_locators_vec == NULL) {
+            OOR_LOG(LDBG_3, "fb_get_fwd_entry_rtr_nat: No SRC locators "
+                    "available");
+        }else if (dst_blv->v4_balancing_locators_vec == NULL
+                && dst_blv->v6_balancing_locators_vec == NULL) {
+            OOR_LOG(LDBG_3, "fb_get_fwd_entry_rtr_nat: No DST locators "
+                    "available");
+        } else {
+            OOR_LOG(LDBG_3, "fb_get_fwd_entry_rtr_nat: Source and "
+                    "destination RLOCs are not compatible");
+        }
+        res = ERR_NO_ROUTE;
+        goto done;
+    }
+
+    hash = pkt_tuple_hash(tuple);
+    if (hash == 0) {
+        OOR_LOG(LDBG_1, "fb_get_fwd_entry_rtr_nat: Couldn't get the hash of the tuple "
+                "to select the rloc. Using the default rloc");
+        res = ERR_NO_ROUTE;
+        goto done;
+    }
+
+    pos = hash % dst_vec_len;
+    dst_loct = dst_loc_vec[pos];
+    rloc_nat_data = htable_ptrs_lookup(mc_nat_data->loc_to_nat_data,dst_loct);
+    if (!rloc_nat_data){
+        glist_dump(htable_ptrs_values(mc_nat_data->loc_to_nat_data), (glist_to_char_fct)rtr_ms_node_to_char,LDBG_1);
+        OOR_LOG(LDBG_1, "fb_get_fwd_entry_rtr_nat: Couldn't find nat data information associated with "
+                "the xTR locator %s", lisp_addr_to_char(locator_addr(dst_loct)));
+        res = ERR_NO_ROUTE;
+        goto done;
+    }
+
+    res = GOOD;
+
+
+    OOR_LOG(LDBG_3, "select_locs_from_maps: EID: %s -> %s, protocol: %d, "
+            "port: %d -> %d\n  --> RLOC: %s -> %s",
+            lisp_addr_to_char(&(tuple->src_addr)),
+            lisp_addr_to_char(&(tuple->dst_addr)), tuple->protocol,
+            tuple->src_port, tuple->dst_port,
+            lisp_addr_to_char(rloc_nat_data->rtr_rloc),
+            lisp_addr_to_char(rloc_nat_data->pub_addr));
+
+done:
+    if (fwd_info->dp_conf_inf){
+        fwd_entry_tuple_del(fwd_info->dp_conf_inf);
+    }
+    fwd_entry = fwd_entry_tuple_new_init(tuple, rloc_nat_data->rtr_rloc, rloc_nat_data->pub_addr,LISP_DATA_PORT, rloc_nat_data->pub_port, tuple->iid, NULL);
     fwd_info->dp_conf_inf = fwd_entry;
     fwd_info->data_del_fn = (fwd_info_data_del_fn)fwd_entry_tuple_del;
     return (res);

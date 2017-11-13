@@ -129,10 +129,7 @@ mapping_cmp(mapping_t *m1, mapping_t *m2)
     return (0);
 }
 
-/* Clones a mapping_t data structure
- * NOTE: it does not clone the 'extended_info'! This should be done by the
- * caller and in the future it shouldn't be done at all. 'extended_info'
- * should be moved out */
+/* Clones a mapping_t data structure */
 //XXX IT IS NOT CLONING LOCATORS
 mapping_t *
 mapping_clone(mapping_t *m) {
@@ -142,6 +139,7 @@ mapping_clone(mapping_t *m) {
     cm->authoritative = m->authoritative;
     cm->locator_count = m->locator_count;
     cm->ttl = m->ttl;
+    cm->locator_count = 0;
 
     return(cm);
 }
@@ -150,7 +148,7 @@ char *
 mapping_to_char(mapping_t *m)
 {
     locator_t *locator = NULL;
-    static char buf[500];
+    static char buf[1000];
     size_t buf_size = sizeof(buf);
 
 
@@ -257,11 +255,7 @@ mapping_remove_locator(
     }
 
     if (!lisp_addr_is_no_addr(addr)){
-        mapping->locator_count = mapping->locator_count - 1;
-    }
-
-    if (lisp_addr_is_no_addr(addr) == FALSE){
-        mapping->locator_count++;
+        mapping->locator_count--;
     }
 
     OOR_LOG(LDBG_2, "mapping_remove_locator: Removed locator %s from the mapping with"
