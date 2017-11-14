@@ -461,6 +461,7 @@ lisp_msg_put_mr_mapping(
     rec = lisp_msg_put_mr_mapping_hdr(b);
     REF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
     REF_MAP_REC_TTL(rec) = htonl(ttl);
+    REF_MAP_REC_ACTION(rec) = act;
     REF_MAP_REC_AUTH(rec) = a;
     REF_MAP_REC_INC(rec) = i;
     //TODO actually add signatures if appropiate
@@ -470,32 +471,16 @@ lisp_msg_put_mr_mapping(
         return(NULL);
     }
 
-    //TODO
-    /* Add Referrals */
-    /*
-    mapping_foreach_active_locator(m,loct){
-        if (locator_state(loct) == DOWN){
-            continue;
-        }
-        ploc = lisp_msg_put_locator(b, loct);
-        if (probed_loc)
-            if (probed_loc != NULL
-                    && lisp_addr_cmp(lisp_addr_get_ip_addr(locator_addr(loct)), probed_loc) == 0) {
-                LOC_PROBED(ploc) = 1;
-            }
-        referral_count++;
-    }mapping_foreach_active_locator_end;
-    */
-
     glist_for_each_entry(itr,ref_list){
         addr = (lisp_addr_t *)glist_entry_data(itr);
         ploc = lbuf_put_uninit(b, sizeof(locator_hdr_t));
         //TODO these must be filled appropiately, these values are "de pega"
-        ploc->priority    = 100;
-        ploc->weight = 100;
-        ploc->mpriority = 254;
+        ploc->priority    = 0;
+        ploc->weight = 0;
+        ploc->mpriority = 0;
         ploc->mweight = 0;
         ploc->local = 0;
+        ploc->probed = 0;
         ploc->reachable = 1;
 
         lisp_msg_put_addr(b, addr);

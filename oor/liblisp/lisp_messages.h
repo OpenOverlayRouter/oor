@@ -519,13 +519,6 @@ void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig);
  * MAP-REFERRAL MESSAGE
  */
 
- /*  Map Referral action codes */
- #define LISP_ACTION_NODE_REFERRAL           0
- #define LISP_ACTION_MS_REFERRAL             1
- #define LISP_ACTION_MS_ACK                  2
- #define LISP_ACTION_NOT_REGISTERED       3
- #define LISP_ACTION_DELEGATION_HOLE         4
- #define LISP_ACTION_NOT_AUTHORITATIVE    5
 
  /*Map-Referral Message Format
   *

@@ -226,8 +226,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
         goto err;
     }
 
-    //TODO see if this has to be done for DDT-Node
-    /*
+
     OOR_LOG(LDBG_1, " src-eid: %s", lisp_addr_to_char(seid));
     if (MREQ_RLOC_PROBE(mreq_hdr)) {
         OOR_LOG(LDBG_2, "Probe bit set. Discarding!");
@@ -238,7 +237,6 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
         OOR_LOG(LDBG_2, "SMR bit set. Discarding!");
         return(BAD);
     }
-    */
 
 
 
@@ -261,7 +259,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
             // and TTL = 0
             mref = lisp_msg_neg_mref_create(deid, 0, LISP_ACTION_NOT_AUTHORITATIVE, A_NO_AUTHORITATIVE,
                                 1, MREQ_NONCE(mreq_hdr));
-            OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s",
+            OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s, sending NOT_AUTHORITATIVE message",
                     lisp_addr_to_char(deid));
             OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
                     lisp_addr_to_char(deid));
@@ -280,9 +278,13 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     lisp_ref_action_e actiontype = 0;
                     switch(type){
                     case CHILD_DDT_NODE:
+                        OOR_LOG(LDBG_1,"Delegation type for EID %s is of type DDT_NODE",
+                                                        lisp_addr_to_char(deid));
                         actiontype = LISP_ACTION_NODE_REFERRAL;
                         break;
                     case MAP_SERVER_DDT_NODE:
+                        OOR_LOG(LDBG_1,"Delegation type for EID %s is of type DDT_MS",
+                                lisp_addr_to_char(deid));
                         actiontype = LISP_ACTION_MS_REFERRAL;
                         break;
                     }
@@ -296,6 +298,8 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     /* SEND MAP-REFERRAL */
                     if (send_msg(&ddt_node->super, mref, int_uc) != GOOD) {
                         OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
+                    }else{
+                        OOR_LOG(LDBG_1, "Map-Referral sent!");
                     }
                     lisp_msg_destroy(mref);
                     lisp_addr_del(deid);
@@ -305,7 +309,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     }
                 }else{
                     // NOTE: if the DDT-NODE is a DDT-Map-Server, it MUST check
-                    // its registered sites for mappings of this EID
+                    // its lisp sites for mappings of this EID
 
                     // if the DDT-NODE is not a DDT-Map-Server or there are
                     // no mappings for this EID, proceed as follows:
@@ -313,7 +317,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     // TTL = Default_Negative_Referral_Ttl
                     mref = lisp_msg_neg_mref_create(deid, Default_Negative_Referral_Ttl, LISP_ACTION_DELEGATION_HOLE,
                             A_AUTHORITATIVE, 0, MREQ_NONCE(mreq_hdr));
-                    OOR_LOG(LDBG_1,"No delegation exists for the requested EID %s",
+                    OOR_LOG(LDBG_1,"No delegation exists for the requested EID %s, sending DELEGATION_HOLE message",
                             lisp_addr_to_char(deid));
                     OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
                             lisp_addr_to_char(deid));
@@ -592,8 +596,7 @@ ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
            return (BAD);
         }
         type = lisp_msg_type(msg);
-        //this line references a function not in this build
-        //pkt_parse_inner_5_tuple(msg, &inner_tuple);
+        pkt_parse_inner_5_tuple(msg, &inner_tuple);
         uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
         ext_uc = uc;
         int_uc = &aux_uc;

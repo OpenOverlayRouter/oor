@@ -48,6 +48,10 @@ lisp-site {
     key                   = <string>
     iid                   = 0
     accept-more-specifics = <bool>
+    ddt-ms-peers          = {
+    <ip-address>
+    ...
+    }
 }
 
 # Define a static registered mapping. New Map-Registers overwrites

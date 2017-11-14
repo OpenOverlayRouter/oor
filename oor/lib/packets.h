@@ -108,6 +108,7 @@ int ip_hdr_set_ttl_and_tos(struct iphdr *, int ttl, int tos);
 int ip_hdr_ttl_and_tos(struct iphdr *, int *ttl, int *tos);
 
 int pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
+int pkt_parse_inner_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
 uint32_t pkt_tuple_hash(packet_tuple_t *tuple);
 uint32_t pkt_src_dst_hash(lisp_addr_t *src_addr, lisp_addr_t *dst_addr);
 int pkt_tuple_cmp(packet_tuple_t *t1, packet_tuple_t *t2);
