@@ -530,6 +530,14 @@ ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
                 (site->accept_more_specifics) ? "on" : "off",
                 (site->merge) ? "on" : "off",
                 (site->proxy_reply) ? "on" : "off");
+        if(glist_size(site->ddt_ms_peers)>0){
+            OOR_LOG(log_level, "MS Peers for prefix: %s:",
+                    lisp_addr_to_char(site->eid_prefix));
+            glist_dump(site->ddt_ms_peers, (glist_to_char_fct)lisp_addr_to_char, log_level);
+        }else{
+            OOR_LOG(log_level, "Prefix %s has no MS Peers",
+                    lisp_addr_to_char(site->eid_prefix));
+        }
     } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 }

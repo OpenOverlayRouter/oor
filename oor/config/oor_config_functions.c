@@ -534,11 +534,14 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
 lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
-        shash_t *lcaf_ht)
+        glist_t *ddt_ms_peers, shash_t *lcaf_ht)
 {
     lisp_addr_t *eid_prefix;
     lisp_addr_t *ht_prefix;
     lisp_site_prefix_t *site;
+    glist_t *addr_list, *ddt_ms_peers2;
+
+    ddt_ms_peers2 = glist_new();
 
     if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
@@ -560,8 +563,22 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         eid_prefix = lisp_addr_clone(ht_prefix);
     }
     pref_conv_to_netw_pref(eid_prefix);
+
+    //Convert the contents of ddt_ms_peers from strings to lisp_addr_t
+    //and put them into ddt_ms_peers2
+    char         *    ms_peer          = NULL;
+    glist_entry_t *     it          = NULL;
+
+    glist_for_each_entry(it, ddt_ms_peers) {
+        ms_peer = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(ms_peer, lcaf_ht);
+        if (addr_list == NULL || glist_size(addr_list) == 1){
+            glist_add_tail((lisp_addr_t *)glist_entry_data(glist_first(addr_list)), ddt_ms_peers2);
+        }
+    }
+
     site = lisp_site_prefix_init(eid_prefix, iid, key_type, key,
-            more_specifics, proxy_reply, merge);
+            more_specifics, proxy_reply, merge, ddt_ms_peers2);
     lisp_addr_del(eid_prefix);
     return(site);
 }

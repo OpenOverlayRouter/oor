@@ -699,7 +699,7 @@ configure_ms(cfg_t *cfg)
     iface_t *iface=NULL;
     lisp_site_prefix_t *site;
     shash_t *lcaf_ht;
-    int i;
+    int i,j,n;
     lisp_ms_t *ms;
     mapping_t *mapping;
 
@@ -741,6 +741,16 @@ configure_ms(cfg_t *cfg)
             return (BAD);
         }
 
+        glist_t *ddt_ms_peers = glist_new();
+
+        char *ms_peer;
+        n = cfg_size(ls, "ddt-ms-peers");
+        for(j = 0; j < n; j++) {
+            if ((ms_peer = cfg_getnstr(ls, "ddt-ms-peers", j)) != NULL) {
+                glist_add_tail(ms_peer, ddt_ms_peers);
+            }
+        }
+
         site = build_lisp_site_prefix(ms,
                 cfg_getstr(ls, "eid-prefix"),
                 cfg_getint(ls, "iid"),
@@ -749,6 +759,7 @@ configure_ms(cfg_t *cfg)
                 cfg_getbool(ls, "accept-more-specifics") ? 1:0,
                 cfg_getbool(ls, "proxy-reply") ? 1:0,
                 cfg_getbool(ls, "merge") ? 1 : 0,
+                ddt_ms_peers,
                 lcaf_ht);
         if (site != NULL) {
             if (mdb_lookup_entry(ms->lisp_sites_db, site->eid_prefix) != NULL){
@@ -1048,6 +1059,7 @@ handle_config_file()
             CFG_BOOL("accept-more-specifics",   cfg_false, CFGF_NONE),
             CFG_BOOL("proxy-reply",             cfg_false, CFGF_NONE),
             CFG_BOOL("merge",                   cfg_false, CFGF_NONE),
+            CFG_STR_LIST("ddt-ms-peers",            0, CFGF_NONE),
             CFG_END()
     };
 

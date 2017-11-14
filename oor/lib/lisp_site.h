@@ -30,6 +30,7 @@ typedef struct lisp_site_prefix {
     lisp_key_type_e key_type;
     char *key;
     uint8_t merge;
+    glist_t *ddt_ms_peers;
 } lisp_site_prefix_t;
 
 typedef struct lisp_reg_site {
@@ -38,7 +39,7 @@ typedef struct lisp_reg_site {
 
 lisp_site_prefix_t *lisp_site_prefix_init(lisp_addr_t *eid_prefix, uint32_t iid,
         int key_type, char *key, uint8_t more_specifics, uint8_t proxy_reply,
-        uint8_t merge);
+        uint8_t merge, glist_t *ddt_ms_peers);
 void lisp_site_prefix_del(lisp_site_prefix_t *sp);
 void lisp_reg_site_del(lisp_reg_site_t *rs);
 

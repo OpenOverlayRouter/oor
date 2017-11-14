@@ -474,7 +474,6 @@ lisp_msg_put_mr_mapping(
     glist_for_each_entry(itr,ref_list){
         addr = (lisp_addr_t *)glist_entry_data(itr);
         ploc = lbuf_put_uninit(b, sizeof(locator_hdr_t));
-        //TODO these must be filled appropiately, these values are "de pega"
         ploc->priority    = 0;
         ploc->weight = 0;
         ploc->mpriority = 0;
