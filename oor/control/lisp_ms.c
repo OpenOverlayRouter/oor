@@ -25,8 +25,8 @@
 #include "../lib/prefixes.h"
 
 
-static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, uconn_t *);
-static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);
+static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
+static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
 static int ms_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ms_t *lisp_ms_cast(oor_ctrl_dev_t *dev);
 
@@ -191,7 +191,7 @@ lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
 }
 
 static int
-ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
+ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
 
     lisp_addr_t *   seid        = NULL;
@@ -200,8 +200,11 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     glist_t *       itr_rlocs   = NULL;
     void *          mreq_hdr    = NULL;
     void *          mrep_hdr    = NULL;
+    void *          mref_hdr    = NULL;
     mapping_record_hdr_t *  rec            = NULL;
     int             i           = 0;
+    int             d           = 0;
+    lbuf_t *        mref        = NULL;
     lbuf_t *        mrep        = NULL;
     lbuf_t  b;
     lisp_site_prefix_t *    site            = NULL;
@@ -210,6 +213,14 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     /* local copy of the buf that can be modified */
     b = *buf;
+
+    d = ECM_DDT_BIT(ecm_hdr);
+
+    //for the purpose of testing with lig, which cannot set the DDT-originated bit
+    //i manually set it here
+    //TODO remove this after
+    //TODO remove this after
+    d = 1;
 
     seid = lisp_addr_new();
 
@@ -248,21 +259,36 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         rsite = mdb_lookup_entry(ms->reg_sites_db, deid);
         /* Static entries will have null site and not null rsite */
         if (!site && !rsite) {
-            /* send negative map-reply with TTL 15 min */
+            if(d==1){
+                // send NOT_AUTHORITATIVE map-referral with Incomplete = 1
+                // and TTL = 0
+                mref = lisp_msg_neg_mref_create(deid, 0, LISP_ACTION_NOT_AUTHORITATIVE, A_NO_AUTHORITATIVE,
+                        1, MREQ_NONCE(mreq_hdr));
+                OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s, sending NOT_AUTHORITATIVE message",
+                        lisp_addr_to_char(deid));
+                OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
+                        lisp_addr_to_char(deid));
+                send_msg(&ms->super, mref, ext_uc);
+                lisp_msg_destroy(mref);
 
-            if (lisp_addr_is_iid(deid)){
-                act_flag = ACT_NO_ACTION;
             }else{
-                act_flag = ACT_NATIVE_FWD;
-            }
+                /* send negative map-reply with TTL 15 min */
+
+                if (lisp_addr_is_iid(deid)){
+                    act_flag = ACT_NO_ACTION;
+                }else{
+                    act_flag = ACT_NATIVE_FWD;
+                }
             mrep = lisp_msg_neg_mrep_create(deid, 15, act_flag,A_AUTHORITATIVE,
                     MREQ_NONCE(mreq_hdr));
             OOR_LOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
                     lisp_addr_to_char(deid));
             OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
                     lisp_addr_to_char(deid));
-            send_msg(&ms->super, mrep, uc);
+            send_msg(&ms->super, mrep, ext_uc);
             lisp_msg_destroy(mrep);
+            }
+
             lisp_addr_del(deid);
 
             continue;
@@ -270,18 +296,58 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
         /* Find if the site actually registered */
         if (!rsite) {
-            /* send negative map-reply with TTL 1 min */
-            mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
-                    MREQ_NONCE(mreq_hdr));
-            OOR_LOG(LDBG_1,"The requested EID %s is not registered",
-                                lisp_addr_to_char(deid));
-            OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
-                    lisp_addr_to_char(deid));
-            send_msg(&ms->super, mrep, uc);
-            lisp_msg_destroy(mrep);
+            if(d==1){
+                //send NOT_REGISTERED Map Referral with TTL = Default_Negative_Referral_Ttl
+                //and Incomplete determined by the existance or not of peers
+                int i = (glist_size(site->ddt_ms_peers)<1);
+                mref = lisp_msg_create(LISP_MAP_REFERRAL);
+                //TODO we also need to pass this Map Server's address in some way
+                rec = lisp_msg_put_mr_mapping(mref, deid, Default_Negative_Referral_Ttl,LISP_ACTION_NOT_REGISTERED,
+                        A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers);
+                mref_hdr = lisp_msg_hdr(mref);
+                MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
+
+                /* SEND MAP-REFERRAL */
+                if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
+                    OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
+                }else{
+                    OOR_LOG(LDBG_1, "Map-Referral sent!");
+                }
+                lisp_msg_destroy(mref);
+            }else{
+                /* send negative map-reply with TTL 1 min */
+                mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
+                        MREQ_NONCE(mreq_hdr));
+                OOR_LOG(LDBG_1,"The requested EID %s is not registered",
+                        lisp_addr_to_char(deid));
+                OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+                        lisp_addr_to_char(deid));
+                send_msg(&ms->super, mrep, ext_uc);
+                lisp_msg_destroy(mrep);
+            }
             lisp_addr_del(deid);
+
             continue;
         }
+
+        //send MS_ACK Map Referral with TTL = Default_Registered_Ttl
+        //and Incomplete determined by the existance or not of peers
+        int i = (glist_size(site->ddt_ms_peers)<1);
+        mref = lisp_msg_create(LISP_MAP_REFERRAL);
+        //TODO we also need to pass this Map Server's address in some way
+        rec = lisp_msg_put_mr_mapping(mref, deid, Default_Registered_Ttl,LISP_ACTION_MS_ACK,
+                A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers);
+        mref_hdr = lisp_msg_hdr(mref);
+        MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
+
+        /* SEND MAP-REFERRAL */
+        if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
+            OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
+        }else{
+            OOR_LOG(LDBG_1, "Map-Referral sent!");
+        }
+        lisp_msg_destroy(mref);
+
 
         map = rsite->site_map;
         /* If site is null, the request is for a static entry */
@@ -309,8 +375,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
         /* SEND MAP-REPLY */
-        laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra);
-        if (send_msg(&ms->super, mrep, uc) != GOOD) {
+        laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&ext_uc->la), &ext_uc->ra);
+        if (send_msg(&ms->super, mrep, ext_uc) != GOOD) {
             OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
         }
         lisp_msg_destroy(mrep);
@@ -331,7 +397,7 @@ err:
 }
 
 static int
-ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
+ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
     lisp_reg_site_t *rsite = NULL, *new_rsite = NULL;
     lisp_site_prefix_t *reg_pref = NULL;
@@ -469,9 +535,9 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
         lisp_msg_fill_auth_data(mntf, keyid, key);
         OOR_LOG(LDBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
-                lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
-                lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
-        send_msg(&ms->super, mntf, uc);
+                lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&ext_uc->la),
+                lisp_addr_to_char(&ext_uc->ra), ext_uc->lp, ext_uc->rp);
+        send_msg(&ms->super, mntf, ext_uc);
     }
     lisp_msg_destroy(mntf);
 
@@ -575,23 +641,35 @@ ms_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     int ret = BAD;
     lisp_msg_type_e type;
     lisp_ms_t *ms;
+    void *ecm_hdr = NULL;
+    uconn_t *int_uc, *ext_uc = NULL, aux_uc;
+    packet_tuple_t inner_tuple;
 
     ms = lisp_ms_cast(dev);
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD)
+
+        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD) {
             return (BAD);
+        }
         type = lisp_msg_type(msg);
+        pkt_parse_inner_5_tuple(msg, &inner_tuple);
+        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+        ext_uc = uc;
+        int_uc = &aux_uc;
+        ecm_hdr = lbuf_lisp_hdr(msg);
+    }else{
+        int_uc = uc;
     }
 
-     switch(type) {
-     case LISP_MAP_REQUEST:
-         ret = ms_recv_map_request(ms, msg, uc);
-         break;
-     case LISP_MAP_REGISTER:
-         ret = ms_recv_map_register(ms, msg, uc);
-         break;
+    switch(type) {
+    case LISP_MAP_REQUEST:
+        ret = ms_recv_map_request(ms, msg, ecm_hdr, int_uc, ext_uc);
+        break;
+    case LISP_MAP_REGISTER:
+        ret = ms_recv_map_register(ms, msg, ecm_hdr, int_uc, ext_uc);
+        break;
      case LISP_MAP_REPLY:
      case LISP_MAP_NOTIFY:
      case LISP_INFO_NAT:

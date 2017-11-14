@@ -263,7 +263,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     lisp_addr_to_char(deid));
             OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
                     lisp_addr_to_char(deid));
-            send_msg(&ddt_node->super, mref, int_uc);
+            send_msg(&ddt_node->super, mref, ext_uc);
             lisp_msg_destroy(mref);
             lisp_addr_del(deid);
 
@@ -296,7 +296,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 
                     /* SEND MAP-REFERRAL */
-                    if (send_msg(&ddt_node->super, mref, int_uc) != GOOD) {
+                    if (send_msg(&ddt_node->super, mref, ext_uc) != GOOD) {
                         OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
                     }else{
                         OOR_LOG(LDBG_1, "Map-Referral sent!");
@@ -321,7 +321,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                             lisp_addr_to_char(deid));
                     OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
                             lisp_addr_to_char(deid));
-                    send_msg(&ddt_node->super, mref, int_uc);
+                    send_msg(&ddt_node->super, mref, ext_uc);
                     lisp_msg_destroy(mref);
                     lisp_addr_del(deid);
                 }
@@ -590,6 +590,7 @@ ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 
     ddt_node = lisp_ddt_node_cast(dev);
     type = lisp_msg_type(msg);
+
     if (type == LISP_ENCAP_CONTROL_TYPE) {
 
         if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD) {

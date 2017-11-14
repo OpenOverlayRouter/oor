@@ -471,6 +471,24 @@ lisp_msg_put_mr_mapping(
         return(NULL);
     }
 
+    if(act == LISP_ACTION_MS_ACK || act == LISP_ACTION_NOT_REGISTERED){
+        if(i==0){
+            ploc = lbuf_put_uninit(b, sizeof(locator_hdr_t));
+            ploc->priority    = 0;
+            ploc->weight = 0;
+            ploc->mpriority = 0;
+            ploc->mweight = 0;
+            ploc->local = 1;
+            ploc->probed = 0;
+            ploc->reachable = 1;
+
+            //TODO I'm using eid as a placeholder, it needs to be the actual address of
+            //the map server sending the referral
+            lisp_msg_put_addr(b, eid);
+            referral_count++;
+        }
+    }
+
     glist_for_each_entry(itr,ref_list){
         addr = (lisp_addr_t *)glist_entry_data(itr);
         ploc = lbuf_put_uninit(b, sizeof(locator_hdr_t));
