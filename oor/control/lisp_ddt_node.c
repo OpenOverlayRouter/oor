@@ -200,7 +200,6 @@ lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
 static int
 ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
-	//TODO map request logic from here
     lisp_addr_t *   seid        = NULL;
     lisp_addr_t *   deid        = NULL;
     glist_t *       itr_rlocs   = NULL;
@@ -290,7 +289,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     }
                     mref = lisp_msg_create(LISP_MAP_REFERRAL);
                     rec = lisp_msg_put_mr_mapping(mref, deid, Default_DdtNode_Ttl,actiontype,
-                            A_AUTHORITATIVE, 0, NULL, dsite->child_nodes);
+                            A_AUTHORITATIVE, 0, NULL, dsite->child_nodes, NULL);
 
                     mref_hdr = lisp_msg_hdr(mref);
                     MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);

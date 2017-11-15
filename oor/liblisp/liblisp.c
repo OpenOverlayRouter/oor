@@ -448,7 +448,7 @@ lisp_msg_put_mr_mapping(
         lbuf_t      *b,
         lisp_addr_t *eid, int ttl,
         lisp_ref_action_e act, lisp_authoritative_e a, int i,
-        lisp_addr_t *probed_loc, glist_t *ref_list)
+        lisp_addr_t *probed_loc, glist_t *ref_list, lisp_addr_t *ms_loc)
 {
     map_ref_mapping_record_hdr_t    *rec            = NULL;
     locator_hdr_t           *ploc           = NULL;
@@ -482,9 +482,7 @@ lisp_msg_put_mr_mapping(
             ploc->probed = 0;
             ploc->reachable = 1;
 
-            //TODO I'm using eid as a placeholder, it needs to be the actual address of
-            //the map server sending the referral
-            lisp_msg_put_addr(b, eid);
+            lisp_msg_put_addr(b, ms_loc);
             referral_count++;
         }
     }

@@ -25,6 +25,8 @@
 
 
 static int Default_DdtNode_Ttl = 1440;
+static int Default_Registered_Ttl = 1440;
+static int Default_Configured_Not_Registered_Ttl = 1;
 static int Default_Negative_Referral_Ttl = 15;
 
 

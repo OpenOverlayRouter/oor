@@ -24,11 +24,6 @@
 #include "../lib/lisp_site.h"
 
 
-static int Default_Registered_Ttl = 1440;
-static int Default_Configured_Not_Registered_Ttl = 1;
-static int Default_Negative_Referral_Ttl = 15;
-
-
 typedef struct _lisp_ms {
     oor_ctrl_dev_t super;    /* base "class" */
 

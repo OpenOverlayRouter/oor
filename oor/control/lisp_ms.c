@@ -219,7 +219,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
     //for the purpose of testing with lig, which cannot set the DDT-originated bit
     //i manually set it here
     //TODO remove this after
-    //TODO remove this after
     d = 1;
 
     seid = lisp_addr_new();
@@ -301,9 +300,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
                 //and Incomplete determined by the existance or not of peers
                 int i = (glist_size(site->ddt_ms_peers)<1);
                 mref = lisp_msg_create(LISP_MAP_REFERRAL);
-                //TODO we also need to pass this Map Server's address in some way
                 rec = lisp_msg_put_mr_mapping(mref, deid, Default_Negative_Referral_Ttl,LISP_ACTION_NOT_REGISTERED,
-                        A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers);
+                        A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers, &ext_uc->la);
                 mref_hdr = lisp_msg_hdr(mref);
                 MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 
@@ -329,24 +327,41 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
 
             continue;
         }
+        if(d==1){
+            if(site){
+                //send MS_ACK Map Referral with TTL = Default_Registered_Ttl
+                //and Incomplete determined by the existance or not of peers
+                int i = (glist_size(site->ddt_ms_peers)<1);
+                mref = lisp_msg_create(LISP_MAP_REFERRAL);
+                rec = lisp_msg_put_mr_mapping(mref, deid, Default_Registered_Ttl,LISP_ACTION_MS_ACK,
+                        A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers, &ext_uc->la);
+                mref_hdr = lisp_msg_hdr(mref);
+                MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 
-        //send MS_ACK Map Referral with TTL = Default_Registered_Ttl
-        //and Incomplete determined by the existance or not of peers
-        int i = (glist_size(site->ddt_ms_peers)<1);
-        mref = lisp_msg_create(LISP_MAP_REFERRAL);
-        //TODO we also need to pass this Map Server's address in some way
-        rec = lisp_msg_put_mr_mapping(mref, deid, Default_Registered_Ttl,LISP_ACTION_MS_ACK,
-                A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers);
-        mref_hdr = lisp_msg_hdr(mref);
-        MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
+                /* SEND MAP-REFERRAL */
+                if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
+                    OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
+                }else{
+                    OOR_LOG(LDBG_1, "Map-Referral sent!");
+                }
+                lisp_msg_destroy(mref);
 
-        /* SEND MAP-REFERRAL */
-        if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
-            OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
-        }else{
-            OOR_LOG(LDBG_1, "Map-Referral sent!");
+            }else{
+                // send NOT_AUTHORITATIVE map-referral with Incomplete = 1
+                // and TTL = 0
+                mref = lisp_msg_neg_mref_create(deid, 0, LISP_ACTION_NOT_AUTHORITATIVE, A_NO_AUTHORITATIVE,
+                        1, MREQ_NONCE(mreq_hdr));
+                OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s, sending NOT_AUTHORITATIVE message",
+                        lisp_addr_to_char(deid));
+                OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
+                        lisp_addr_to_char(deid));
+                send_msg(&ms->super, mref, ext_uc);
+                lisp_msg_destroy(mref);
+
+            }
         }
-        lisp_msg_destroy(mref);
+
+
 
 
         map = rsite->site_map;
