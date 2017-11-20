@@ -59,6 +59,7 @@ int xtr_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_ad
         lisp_addr_t *dst_pref, lisp_addr_t *gateway);
 static fwd_info_t * xtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple);
 /*************************** PROCESS MESSAGES ********************************/
+static int xtr_recv_enc_ctrl_msg(lisp_xtr_t *xtr, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc);
 static int xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static inline int xtr_recv_map_reply(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc);
 static int xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf);
@@ -357,21 +358,17 @@ xtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     lisp_xtr_t *xtr = lisp_xtr_cast(dev);
     void *ecm_hdr = NULL;
     uconn_t *int_uc, *ext_uc = NULL, aux_uc;
-    packet_tuple_t inner_tuple;
 
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-
-        if (lisp_msg_ecm_decap(msg) != GOOD) {
+        if (xtr_recv_enc_ctrl_msg(xtr, msg, &ecm_hdr, &aux_uc)!=GOOD){
             return (BAD);
         }
         type = lisp_msg_type(msg);
-        pkt_parse_inner_5_tuple(msg, &inner_tuple);
-        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
         ext_uc = uc;
         int_uc = &aux_uc;
-        ecm_hdr = lbuf_lisp_hdr(msg);
+        OOR_LOG(LDBG_1, "xTR: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
@@ -659,7 +656,29 @@ lisp_xtr_cast(oor_ctrl_dev_t *dev)
 }
 
 /*************************** PROCESS MESSAGES ********************************/
+static int
+xtr_recv_enc_ctrl_msg(lisp_xtr_t *xtr, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc)
+{
+    packet_tuple_t inner_tuple;
 
+    *ecm_hdr = lisp_msg_pull_ecm_hdr(msg);
+
+    if (ECM_SECURITY_BIT(*ecm_hdr)){
+        switch (lisp_ecm_auth_type(msg)){
+        default:
+            OOR_LOG(LDBG_2, "Not supported ECM auth type %d",lisp_ecm_auth_type(msg));
+            return (BAD);
+        }
+    }
+
+    if (lisp_msg_parse_int_ip_udp(msg) != GOOD) {
+        return (BAD);
+    }
+    pkt_parse_inner_5_tuple(msg, &inner_tuple);
+    uconn_init(int_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+    *ecm_hdr = lbuf_lisp_hdr(msg);
+    return (GOOD);
+}
 static int
 xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
@@ -811,15 +830,13 @@ xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
         ms = timer_arg_mn->ms;
     }
 
-    auth_hdr = hdr + sizeof(map_notify_hdr_t);
+    auth_hdr = lisp_msg_pull_auth_field(&b);
     res = lisp_msg_check_auth_field(buf,auth_hdr, ms->key);
 
     if (res != GOOD){
         OOR_LOG(LDBG_1, "Map-Notify message is invalid");
         return(BAD);
     }
-
-    lisp_msg_pull_auth_field(&b);
 
     for (i = 0; i < MNTF_REC_COUNT(hdr); i++) {
         m = mapping_new();
@@ -881,7 +898,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     timer_arg = oor_timer_cb_argument(nonces_list_timer(nonces_lst));
     mle = timer_arg->mle;
 
-    lisp_msg_pull_auth_field(&b);
+    auth_hdr = lisp_msg_pull_auth_field(&b);
 
     info_nat_hdr_2 = lbuf_pull(&b, sizeof(info_nat_hdr_2_t));
 
@@ -906,8 +923,6 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     lisp_addr_del(inf_reply_eid);
 
     /* We obtain the key to use in the authentication process from the argument of the timer */
-
-    auth_hdr = info_nat_hdr + sizeof(info_nat_hdr_t);
     if (lisp_msg_check_auth_field(buf,auth_hdr,timer_arg->ms->key) != GOOD) {
         OOR_LOG(LDBG_1, "Info Reply Message validation failed for EID %s with key "
                 "%s. Stopping processing!", lisp_addr_to_char(inf_req_eid),

@@ -803,6 +803,7 @@ configure_ms(cfg_t *cfg)
             glist_destroy(rtr_id_list);
             return(BAD);
         }
+        glist_destroy(rtr_id_list);
     }
 
     def_rtr_set = cfg_getstr(cfg, "ms-advertised-rtrs-set");

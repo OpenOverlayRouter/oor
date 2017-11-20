@@ -25,7 +25,7 @@
 #include "../lib/timers_utils.h"
 #include "../lib/util.h"
 
-
+static int ms_recv_enc_ctrl_msg(lisp_ms_t *ms, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc);
 static int ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static int ms_recv_map_register(lisp_ms_t *, lbuf_t *,void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static int ms_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
@@ -192,6 +192,30 @@ lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
 }
 
 static int
+ms_recv_enc_ctrl_msg(lisp_ms_t *ms, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc)
+{
+    packet_tuple_t inner_tuple;
+
+    *ecm_hdr = lisp_msg_pull_ecm_hdr(msg);
+    if (ECM_SECURITY_BIT(*ecm_hdr)){
+        switch (lisp_ecm_auth_type(msg)){
+        default:
+            OOR_LOG(LDBG_2, "Not supported ECM auth type %d",lisp_ecm_auth_type(msg));
+            return (BAD);
+        }
+    }
+    if (lisp_msg_parse_int_ip_udp(msg) != GOOD) {
+        return (BAD);
+    }
+    pkt_parse_inner_5_tuple(msg, &inner_tuple);
+    uconn_init(int_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+    *ecm_hdr = lbuf_lisp_hdr(msg);
+
+    return (GOOD);
+}
+
+
+static int
 ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
 
@@ -345,12 +369,11 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
     lisp_xtr_id xtr_id;
     char *key = NULL;
     lisp_addr_t *eid;
-    lbuf_t b;
-    void *hdr = NULL, *mntf_hdr = NULL, *mreg_auth_hdr, *mnot_auth_hdr, *rtr_auth_hdr;
+    lbuf_t b,*mntf = NULL;
+    void *hdr = NULL, *mntf_hdr = NULL, *enc_mntf_hdr, *mreg_auth_hdr, *mnot_auth_hdr, *rtr_auth_hdr;
     int i = 0;
     mapping_t *m = NULL;
     locator_t *probed = NULL;
-    lbuf_t *mntf = NULL;
     lisp_key_type_e keyid = HMAC_SHA_1_96; /* TODO configurable */
     int valid_records = FALSE;
     ms_rtr_node_t *rtr = NULL;
@@ -372,7 +395,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
     }
 
 
-    lisp_msg_pull_auth_field(&b);
+    mreg_auth_hdr = lisp_msg_pull_auth_field(&b);
 
 
     for (i = 0; i < MREG_REC_COUNT(hdr); i++) {
@@ -404,12 +427,11 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
 
         /* if first record, lookup the key */
         if (!key) {
-            mreg_auth_hdr = hdr + sizeof(map_register_hdr_t);
             if (lisp_msg_check_auth_field(buf, mreg_auth_hdr, reg_pref->key) != GOOD) {
                 OOR_LOG(LDBG_1, "Message validation failed for EID %s with key "
                         "%s. Stopping processing!", lisp_addr_to_char(eid),
                         reg_pref->key);
-                goto bad;
+                goto err;
             }
             OOR_LOG(LDBG_2, "Message validated with key associated to EID %s",
                     lisp_addr_to_char(eid));
@@ -487,48 +509,66 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
         }
     }
 
+    /* We don't want Map Notify */
+    if (!mntf){
+        return (GOOD);
+    }
 
     /* check if key is initialized, otherwise registration failed */
-    if (mntf && key && valid_records) {
-        mntf_hdr = lisp_msg_hdr(mntf);
-        MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
-        MNTF_I_BIT(mntf_hdr) = MREG_IBIT(hdr);
-        /* Check if we have to add authentication data for the RTR */
-        if (MREG_IBIT(hdr) && ms->def_rtr_set){
-            rtr = shash_lookup (ms->rtrs_table_by_ip, lisp_addr_to_char(&uc->ra));
-            if (!rtr){
-                OOR_LOG(LDBG_1, "Map-Server: Received Map Register from unknown RTR (%S). Discarding message!",
-                        lisp_addr_to_char(&uc->ra));
-                goto err;
-            }
-            if (rtr->passwd){
-                MNTF_R_BIT(mntf_hdr) = 1;
-
-            }
-        }
-        /* Add Map Notify authentication */
-        mnot_auth_hdr = mntf_hdr + sizeof(map_notify_hdr_t);
-        lisp_msg_fill_auth_data(mntf, mnot_auth_hdr, keyid, key);
-        if (MNTF_R_BIT(mntf_hdr)){
-            /* Add RTR authentication */
-            rtr_auth_hdr = lisp_msg_put_empty_auth_record(mntf, keyid);
-            lisp_msg_fill_auth_data(mntf,rtr_auth_hdr,keyid, rtr->passwd);
-        }
-        OOR_LOG(LDBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
-                lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
-                lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
-        send_msg(&ms->super, mntf, uc);
+    if (!key || valid_records == FALSE) {
+        goto err;
     }
+
+    mntf_hdr = lisp_msg_hdr(mntf);
+    MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
+    MNTF_I_BIT(mntf_hdr) = MREG_IBIT(hdr);
+    if (!ecm_hdr){
+        MNTF_R_BIT(mntf_hdr) = MREG_RBIT(hdr);
+    }
+    /* Add Map Notify authentication */
+    mnot_auth_hdr = (uint8_t *)mntf_hdr + sizeof(map_notify_hdr_t);
+    lisp_msg_fill_auth_data(mntf, mnot_auth_hdr, keyid, key);
+
+    /* Check if Map Register is from RTR */
+    if (MREG_IBIT(hdr) && ms->def_rtr_set){
+        rtr = shash_lookup (ms->rtrs_table_by_ip, lisp_addr_to_char(&uc->ra));
+        if (!rtr){
+            OOR_LOG(LDBG_1, "Map-Server: Received Map Register from unknown RTR (%S). Discarding message!",
+                    lisp_addr_to_char(&uc->ra));
+            goto err;
+        }
+        /* Different behaviour depending on the NAT implementation of the RTR*/
+
+        if (rtr->passwd){
+            if(ecm_hdr && ECM_RTR_RELAYED_BIT(ecm_hdr)){
+                /** New version of the draft **/
+                /* Add internal IP/UDP header */
+                pkt_push_inner_udp_and_ip(mntf, LISP_CONTROL_PORT, LISP_CONTROL_PORT,
+                        lisp_addr_ip(&int_uc->la),lisp_addr_ip(&int_uc->ra));
+                /* Add authentication data */
+                rtr_auth_hdr = lisp_msg_push_empty_rtr_auth_data(mntf,rtr->key_type);
+                lisp_msg_fill_rtr_auth_data(mntf,rtr_auth_hdr,rtr->key_type, rtr->passwd);
+                /* And encap contl msg header */
+                enc_mntf_hdr = lisp_msg_push_encap_lisp_header(mntf);
+                ECM_RTR_PROCESS_BIT(enc_mntf_hdr) = 1;
+                ECM_SECURITY_BIT(enc_mntf_hdr) = 1;
+            }else{
+                if (MNTF_R_BIT(mntf_hdr)){
+                    rtr_auth_hdr = lisp_msg_put_empty_auth_record(mntf, keyid);
+                    lisp_msg_fill_auth_data(mntf,rtr_auth_hdr,rtr->key_type, rtr->passwd);
+                }
+            }
+        }
+    }
+    OOR_LOG(LDBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
+            lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
+            lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
+    send_msg(&ms->super, mntf, uc);
+
     lisp_msg_destroy(mntf);
 
     return(GOOD);
 err:
-    mapping_del(m);
-    if (!mntf){
-        lisp_msg_destroy(mntf);
-    }
-    return(BAD);
-bad: /* could return different error */
     mapping_del(m);
     if (!mntf){
         lisp_msg_destroy(mntf);
@@ -557,7 +597,7 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
         return (BAD);
     }
 
-    lisp_msg_pull_auth_field(&b);
+    req_auth_hdr = lisp_msg_pull_auth_field(&b);
 
     if (lisp_msg_parse_inf_req_eid_ttl(&b, &eid, &ttl) != GOOD) {
         goto err;
@@ -574,7 +614,6 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     /* Verify authentication of the msg */
 
-    req_auth_hdr = hdr + sizeof(info_nat_hdr_t);
     if (lisp_msg_check_auth_field(buf, req_auth_hdr, reg_pref->key) != GOOD) {
         OOR_LOG(LDBG_1, "Info Request validation failed for EID %s with key "
                 "%s. Stopping processing!", lisp_addr_to_char(&eid),
@@ -707,22 +746,18 @@ ms_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     lisp_ms_t *ms;
     void *ecm_hdr = NULL;
     uconn_t *int_uc, *ext_uc = NULL, aux_uc;
-    packet_tuple_t inner_tuple;
 
     ms = lisp_ms_cast(dev);
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-
-        if (lisp_msg_ecm_decap(msg) != GOOD) {
+        if (ms_recv_enc_ctrl_msg(ms, msg, &ecm_hdr, &aux_uc)!=GOOD){
             return (BAD);
         }
         type = lisp_msg_type(msg);
-        pkt_parse_inner_5_tuple(msg, &inner_tuple);
-        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
         ext_uc = uc;
         int_uc = &aux_uc;
-        ecm_hdr = lbuf_lisp_hdr(msg);
+        OOR_LOG(LDBG_1, "Map-Server: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
@@ -880,6 +915,8 @@ ms_rtr_node_new_init(char *id, lisp_addr_t *addr, char *passwd)
     rtr->id = strdup(id);
     rtr->addr = lisp_addr_clone(addr);
     rtr->passwd = strdup(passwd);
+    // Message Authentication Code hardcoded
+    rtr->key_type = HMAC_SHA_1_96;
 
     return(rtr);
 }

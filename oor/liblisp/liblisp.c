@@ -35,29 +35,27 @@ lisp_msg_type(lbuf_t *b)
     return(hdr->type);
 }
 
-static void *
+void *
 lisp_msg_pull_ecm_hdr(lbuf_t *b)
 {
     lbuf_reset_lisp_hdr(b);
     return(lbuf_pull(b, sizeof(ecm_hdr_t)));
 }
 
-/* Process encapsulated map request header:  lisp header and the interal IP and
- * UDP header */
 int
-lisp_msg_ecm_decap(lbuf_t *pkt)
+lisp_msg_parse_int_ip_udp(lbuf_t *pkt)
 {
     uint16_t ipsum = 0;
     uint16_t udpsum = 0;
     int udp_len = 0;
     struct udphdr *udph;
     struct ip *iph;
-
-    /* this is the new start of the packet */
-    lisp_msg_pull_ecm_hdr(pkt);
     /* Set and extract inner layer 3 packet */
     lbuf_reset_l3(pkt);
     iph = pkt_pull_ip(pkt);
+    if (!iph){
+        return (BAD);
+    }
     /* Set and extract inner layer 4 packet */
     lbuf_reset_l4(pkt);
     udph = pkt_pull_udp(pkt);
@@ -87,8 +85,7 @@ lisp_msg_ecm_decap(lbuf_t *pkt)
         }
     }
 
-    OOR_LOG(LDBG_2, "%s, inner IP: %s -> %s, inner UDP: %d -> %d",
-            lisp_msg_hdr_to_char(pkt),
+    OOR_LOG(LDBG_2, "Inner IP: %s -> %s, inner UDP: %d -> %d",
             ip_to_char(&iph->ip_src, ip_version_to_sock_afi(iph->ip_v)),
             ip_to_char(&iph->ip_dst, ip_version_to_sock_afi(iph->ip_v)),
             ntohs(udpsport(udph)), ntohs(udpdport(udph)));
@@ -308,19 +305,6 @@ lisp_msg_pull_hdr(lbuf_t *b)
 
 
 void *
-lisp_msg_pull_auth_field(lbuf_t *b)
-{
-    void *hdr;
-    lisp_key_type_e keyid;
-
-    hdr = lbuf_pull(b, sizeof(auth_record_hdr_t));
-    keyid = ntohs(AUTH_REC_KEY_ID(hdr));
-    lbuf_pull(b, auth_data_get_len_for_type(keyid));
-    return(hdr);
-}
-
-
-void *
 lisp_msg_put_addr(lbuf_t *b, lisp_addr_t *addr)
 {
     void *ptr;
@@ -411,9 +395,6 @@ lisp_msg_put_mapping(
 
     /* Add locators */
     mapping_foreach_active_locator(m,loct){
-//        if (locator_state(loct) == DOWN){
-//            continue;
-//        }
         ploc = lisp_msg_put_locator(b, loct);
         if (probed_loc)
             if (probed_loc != NULL
@@ -497,8 +478,6 @@ lisp_msg_put_xtr_id_site_id(lbuf_t *b, lisp_xtr_id *xTR_id, lisp_site_id *site_i
 void *
 lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
 {
-    void *hdr;
-
     /* end of lisp msg */
     lbuf_reset_lisp(b);
     lisp_addr_t *ip_la, *ip_ra;
@@ -513,19 +492,27 @@ lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
         ip_ra = lisp_addr_get_ip_pref_addr(ra);
     }
 
-
     /* push inner ip and udp */
-    pkt_push_udp_and_ip(b, lp, rp,lisp_addr_ip(ip_la),lisp_addr_ip(ip_ra));
+    pkt_push_inner_udp_and_ip(b, lp, rp,lisp_addr_ip(ip_la),lisp_addr_ip(ip_ra));
 
-    /* push lisp ecm hdr */
-    hdr = lbuf_push_uninit(b, sizeof(ecm_hdr_t));
-    ecm_hdr_init(hdr);
-    lbuf_reset_lisp_hdr(b);
+    lisp_msg_push_encap_lisp_header(b);
 
     OOR_LOG(LDBG_1, "%s, inner IP: %s -> %s, inner UDP: %d -> %d",
                 lisp_msg_ecm_hdr_to_char(b), lisp_addr_to_char(la),
                 lisp_addr_to_char(ra), LISP_CONTROL_PORT,
                 LISP_CONTROL_PORT);
+
+    return(lbuf_data(b));
+}
+
+void *
+lisp_msg_push_encap_lisp_header(lbuf_t *b)
+{
+    void *hdr;
+    /* push lisp ecm hdr */
+    hdr = lbuf_push_uninit(b, sizeof(ecm_hdr_t));
+    ecm_hdr_init(hdr);
+    lbuf_reset_lisp_hdr(b);
 
     return(lbuf_data(b));
 }
@@ -726,6 +713,66 @@ lisp_msg_ecm_hdr_to_char(lbuf_t *b)
     return(ecm_hdr_to_char(h));
 }
 
+/************************ ECM Auth header ************************************/
+
+ecm_auth_data_type
+lisp_ecm_auth_type(lbuf_t *b)
+{
+    ecm_auth_field_hdr *auth_hdr;
+    ecm_hdr_t *hdr = lbuf_lisp_hdr(b);
+    if (ECM_SECURITY_BIT(hdr) == 0){
+        return (NO_AUTH_DATA);
+    }
+    auth_hdr = (ecm_auth_field_hdr *)((uint8_t *)hdr + sizeof(ecm_hdr_t));
+    return(auth_hdr->ad_type);
+}
+
+int
+lisp_msg_fill_rtr_auth_data(lbuf_t *b, void *rtr_auth_hdr, lisp_key_type_e keyid, const char *key)
+{
+    void *auth_record_hdr = RTR_AUTH_REC(rtr_auth_hdr);
+    lbuf_t buff = *b;
+    /* The authentication process is of the Map Notify data */
+    lbuf_point_to_lisp(&buff);
+    return (lisp_msg_fill_auth_data(&buff, auth_record_hdr, keyid, key));
+}
+
+int
+lisp_msg_check_rtr_auth_data(lbuf_t *b, void *rtr_auth_hdr, const char *key)
+{
+    void *auth_record_hdr = RTR_AUTH_REC(rtr_auth_hdr);
+    lbuf_t buff = *b;
+    lbuf_point_to_lisp(&buff);
+    return(lisp_msg_check_auth_field(&buff,auth_record_hdr,key));
+}
+
+void *
+lisp_msg_push_empty_rtr_auth_data(lbuf_t *b, lisp_key_type_e keyid)
+{
+    void *hdr;
+    uint16_t len = auth_data_get_len_for_type(keyid);
+    hdr = lbuf_push_uninit(b, sizeof(rtr_auth_field_hdr) + len);
+    memset(hdr, 0, sizeof(rtr_auth_field_hdr) + len);
+    ECM_AUTH_TYPE(hdr) = RTR_AUTH_DATA;
+    RTR_AUTH_KEY_ID(hdr) = htons(keyid);
+    RTR_AUTH_DATA_LEN(hdr) = htons(len);
+    return(hdr);
+}
+
+void *
+lisp_msg_pull_rtr_auth_field(lbuf_t *b)
+{
+    void *hdr;
+    lisp_key_type_e keyid;
+
+    hdr = lbuf_pull(b, sizeof(rtr_auth_field_hdr));
+    keyid = ntohs(RTR_AUTH_KEY_ID(hdr));
+    lbuf_pull(b, auth_data_get_len_for_type(keyid));
+    return(hdr);
+}
+
+/*************************** Auth Record *************************************/
+
 int
 lisp_msg_fill_auth_data(lbuf_t *b, void *auth_record_hdr, lisp_key_type_e keyid, const char *key)
 {
@@ -742,8 +789,6 @@ lisp_msg_fill_auth_data(lbuf_t *b, void *auth_record_hdr, lisp_key_type_e keyid,
 
     return(GOOD);
 }
-
-
 
 /* Checks auth field of Map-Register, Map-Notify and Info-Reply messages */
 int
@@ -767,6 +812,9 @@ lisp_msg_check_auth_field(lbuf_t *b, void *auth_record_hdr, const char *key)
             lbuf_lisp(b),
             lbuf_size(b),
             AUTH_REC_DATA(auth_record_hdr));
+    if (ret != GOOD){
+        OOR_LOG(LDBG_3, "Wrong authentication data");
+    }
 
     return(ret);
 }
@@ -783,6 +831,31 @@ lisp_msg_put_empty_auth_record(lbuf_t *b, lisp_key_type_e keyid)
     return(hdr);
 }
 
+void *
+lisp_msg_push_empty_auth_record(lbuf_t *b, lisp_key_type_e keyid)
+{
+    void *hdr;
+    uint16_t len = auth_data_get_len_for_type(keyid);
+    hdr = lbuf_push_uninit(b, sizeof(auth_record_hdr_t) + len);
+    AUTH_REC_KEY_ID(hdr) = htons(keyid);
+    AUTH_REC_DATA_LEN(hdr) = htons(len);
+    memset(AUTH_REC_DATA(hdr), 0, len);
+    return(hdr);
+}
+
+void *
+lisp_msg_pull_auth_field(lbuf_t *b)
+{
+    void *hdr;
+    lisp_key_type_e keyid;
+
+    hdr = lbuf_pull(b, sizeof(auth_record_hdr_t));
+    keyid = ntohs(AUTH_REC_KEY_ID(hdr));
+    lbuf_pull(b, auth_data_get_len_for_type(keyid));
+    return(hdr);
+}
+
+/*****************************************************************************/
 void *
 lisp_msg_put_inf_req_hdr_2(lbuf_t *b, lisp_addr_t *eid_pref, uint8_t ttl)
 {

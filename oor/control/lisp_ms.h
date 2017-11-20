@@ -32,6 +32,7 @@ typedef struct _rtr_set {
 typedef struct _rtr_node_t {
     char *id;
     lisp_addr_t *addr;
+    lisp_key_type_e key_type;
     char *passwd;
 }ms_rtr_node_t;
 

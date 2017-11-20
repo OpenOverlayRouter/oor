@@ -239,6 +239,39 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
     return(GOOD);
 }
 
+
+int
+pkt_push_inner_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
+        ip_addr_t *dip)
+{
+    uint16_t udpsum;
+    struct udphdr *uh;
+
+    if (pkt_push_udp(b, sp, dp) == NULL) {
+        OOR_LOG(LDBG_1, "Failed to push UDP header! Discarding");
+        return(BAD);
+    }
+
+    lbuf_reset_l4(b);
+
+    if (pkt_push_ip(b, sip, dip, IPPROTO_UDP) == NULL) {
+        OOR_LOG(LDBG_1, "Failed to push IP header! Discarding");
+        return(BAD);
+    }
+
+    lbuf_reset_l3(b);
+
+    uh = lbuf_l4(b);
+
+    udpsum = udp_checksum(uh, ntohs(udplen(uh)), lbuf_l3(b), ip_addr_afi(sip));
+    if (udpsum == (uint16_t) ~ 0) {
+        OOR_LOG(LDBG_1, "Failed UDP checksum! Discarding");
+        return (BAD);
+    }
+    udpsum(uh) = udpsum;
+    return(GOOD);
+}
+
 /* Fill the tuple with the 5 tuples of a packet:
  * (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT) */
 int

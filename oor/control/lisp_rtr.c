@@ -60,6 +60,7 @@ int rtr_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_ad
 static fwd_info_t *rtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple);
 inline lisp_rtr_t * lisp_rtr_cast(oor_ctrl_dev_t *dev);
 /*************************** PROCESS MESSAGES ********************************/
+static int rtr_recv_enc_ctrl_msg(lisp_rtr_t *rtr, lbuf_t *msg, uconn_t *ext_uc, void **ecm_hdr, uconn_t *int_uc);
 static int rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static inline int rtr_recv_map_reply(lisp_rtr_t *xtr, lbuf_t *buf, uconn_t *uc);
 static int rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
@@ -74,6 +75,7 @@ int rtr_nat_loc_expire_cb(oor_timer_t *timer);
 static inline nat_loct_conn_inf_t * nat_loct_con_info_new_init(uconn_t *ext_uc, uconn_t *int_uc);
 static inline void nat_loct_con_info_destroy(nat_loct_conn_inf_t *loct_info);
 int rtr_expires_map_reg_cb(oor_timer_t *timer);
+int rtr_proc_rtr_auth_data(lisp_rtr_t *rtr,lbuf_t *msg, lisp_addr_t *ms_addr);
 
 
 /* implementation of ctrl base functions */
@@ -185,25 +187,20 @@ rtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     lisp_rtr_t *rtr = lisp_rtr_cast(dev);
     void *ecm_hdr = NULL;
     uconn_t *int_uc, *ext_uc = NULL, aux_uc;
-    packet_tuple_t inner_tuple;
 
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-
-        if (lisp_msg_ecm_decap(msg) != GOOD) {
+        if (rtr_recv_enc_ctrl_msg(rtr, msg, uc, &ecm_hdr, &aux_uc)!=GOOD){
             return (BAD);
         }
         type = lisp_msg_type(msg);
-        pkt_parse_inner_5_tuple(msg, &inner_tuple);
-        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
         ext_uc = uc;
         int_uc = &aux_uc;
-        ecm_hdr = lbuf_lisp_hdr(msg);
+        OOR_LOG(LDBG_1, "RTR: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
-
 
     switch (type) {
     case LISP_MAP_REQUEST:
@@ -459,6 +456,39 @@ lisp_rtr_cast(oor_ctrl_dev_t *dev)
 
 /*************************** PROCESS MESSAGES ********************************/
 
+
+static int
+rtr_recv_enc_ctrl_msg(lisp_rtr_t *rtr, lbuf_t *msg, uconn_t *ext_uc, void **ecm_hdr, uconn_t *int_uc)
+{
+    packet_tuple_t inner_tuple;
+
+    *ecm_hdr = lisp_msg_pull_ecm_hdr(msg);
+    if (ECM_SECURITY_BIT(*ecm_hdr)){
+        switch (lisp_ecm_auth_type(msg)){
+        case RTR_AUTH_DATA:
+            if (rtr_proc_rtr_auth_data(rtr,msg,&ext_uc->ra)!=GOOD){
+                return (BAD);
+            }
+            break;
+        default:
+            OOR_LOG(LDBG_2, "Unknown ECM auth type %d",lisp_ecm_auth_type(msg));
+            return (BAD);
+        }
+    }
+
+    /* Check if the internal IP and UDP has been already processed (in the security part). If not, process them*/
+    if (!lbuf_l3(msg)){
+        if (lisp_msg_parse_int_ip_udp(msg) != GOOD) {
+            return (BAD);
+        }
+    }
+
+    pkt_parse_inner_5_tuple(msg, &inner_tuple);
+    uconn_init(int_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+    *ecm_hdr = lbuf_lisp_hdr(msg);
+    return (GOOD);
+}
+
 static int
 rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
@@ -560,7 +590,7 @@ static int
 rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
     lbuf_t b;
-    void *hdr = NULL;
+    void *hdr = NULL, *new_ecm_hdr;
     oor_timer_t *timer;
     lisp_addr_t *ms_addr;
     nat_loct_conn_inf_t *conn_info;
@@ -590,11 +620,13 @@ rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_
     if(ms_node->nat_version == NAT_PREV_DRAFT_4){
         /* Forward Map Register (no Encap Map Reg) to the Map Server */
         lbuf_point_to_lisp(&b);
-        uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, ms_addr);
-        send_msg(&rtr->super, &b, &fwd_uc);
     }else{
-        // XXX IMPLEMNET NEW VESRSION
+        lbuf_point_to_l3(&b);
+        new_ecm_hdr = lisp_msg_push_encap_lisp_header(&b);
+        ECM_RTR_RELAYED_BIT(new_ecm_hdr)=1;
     }
+    uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, ms_addr);
+    send_msg(&rtr->super, &b, &fwd_uc);
 
     /* We store the udp connection in the timer. This will be used when receiving the Map
      * Notify to create the nat locator data. If the timer expires without receiving Map Notify,
@@ -618,7 +650,6 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
     oor_timer_t *timer;
     lbuf_t b;
     int res, i;
-    lisp_key_type_e key_type = HMAC_SHA_1_96;
     glist_t *recv_map_lst, *timer_lst;
     glist_entry_t *map_it;
     mcache_entry_t *mce;
@@ -655,14 +686,15 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
         return(BAD);
     }
 
+    if (MNTF_I_BIT(hdr) == 0){
+        OOR_LOG(LDBG_1,"Received Map Notify without I bit enabled. Discarding message");
+        return (BAD);
+    }
+
     /* NAT draft version 3 */
     if (!ecm_hdr){
         if (MNTF_R_BIT(hdr) == 0){
             OOR_LOG(LDBG_1,"Received Map Notify without R bit enabled. Discarding message");
-            return (BAD);
-        }
-        if (MNTF_I_BIT(hdr) == 0){
-            OOR_LOG(LDBG_1,"Received Map Notify without I bit enabled. Discarding message");
             return (BAD);
         }
 
@@ -673,85 +705,95 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
             OOR_LOG(LDBG_1, "Map-Notify message is invalid");
             return(BAD);
         }
-
-        lisp_msg_pull_auth_field(&b);
-
-        recv_map_lst = glist_new_managed((glist_del_fct)mapping_del);
-        for (i = 0; i < MREG_REC_COUNT(hdr); i++) {
-            recv_map = mapping_new();
-            if (lisp_msg_parse_mapping_record(&b, recv_map, &probed) != GOOD) {
-                glist_destroy(recv_map_lst);
-                OOR_LOG(LDBG_1,"rtr_recv_map_notify: Error parsing a record of the Map Notify."
-                        " Discarding message");
-                return (BAD);
-            }
-            /* To be sure that we store the network address and not a IP-> 10.0.0.0/24 instead of 10.0.0.1/24 */
-            eid = mapping_eid(recv_map);
-            pref_conv_to_netw_pref(eid);
-            /* Add mapping to list to post process */
-            glist_add(recv_map,recv_map_lst);
+    }else {
+        if (ECM_RTR_PROCESS_BIT(ecm_hdr) == 0){
+            OOR_LOG(LDBG_1,"Received Encap Map Notify without R bit enabled. Discarding message");
+            return (BAD);
         }
-        lisp_msg_parse_xtr_id_site_id(&b, &xtr_id, &site_id);
+    }
 
-        /* Process received mappings */
-        glist_for_each_entry(map_it,recv_map_lst){
-            recv_map = (mapping_t *)glist_entry_data(map_it);
-            eid = mapping_eid(recv_map);
-            /* Find if the mcache entry exist, if not create it */
-            mce = mcache_lookup_exact(rtr->tr.map_cache, eid);
-            if (!mce){
-                map = mapping_new_init(eid);
-                mce = tr_mcache_add_mapping(&rtr->tr, map, MCE_DYNAMIC, ACTIVE);
-                /* Add specific data */
-                mce->dev_specific_data = mc_rtr_data_nat_new();
-                mce->dev_data_del = (dev_specific_data_del_fct)mc_rtr_data_destroy;
-            }
+    lisp_msg_pull_auth_field(&b);
 
-            res = mc_rtr_data_mapping_update(mce, recv_map, loct_conn_inf->rtr_addr,loct_conn_inf->pub_xtr_addr,
-                    loct_conn_inf->pub_xtr_port,loct_conn_inf->priv_xtr_addr,&xtr_id);
-            /* If the mapping has changed, reset the entries of the data plane associated with
-             * the affected cache entry */
-            if (res == UPDATED){
-                rtr->tr.fwd_policy->updated_map_cache_inf(rtr->tr.fwd_policy_dev_parm,mce);
-                notify_datap_rm_fwd_from_entry(&rtr->super, eid, FALSE);
-            }
-            /* Configure timers */
-
-            rloc_nat_info = mc_rtr_data_get_rloc_nat_data(mce, &xtr_id, loct_conn_inf->priv_xtr_addr);
-            if (!rloc_nat_info){
-                OOR_LOG(LDBG_1,"rtr_recv_map_notify: RLOC nat info not found. It should never happen");
-                continue;
-            }
-            // Get timer associated to it or create it if it doesn't exist yet
-            timer_lst = htable_ptrs_timers_get_timers(ptrs_to_timers_ht,rloc_nat_info);
-            if (!timer_lst){
-                timer_arg = timer_rtr_nat_loc_exp_arg_new_init(mce, rloc_nat_info);
-                timer = oor_timer_create(RTR_NAT_LOCT_EXPIRE_TIMER);
-                oor_timer_init(timer, rtr, (oor_timer_callback_t)rtr_nat_loc_expire_cb,
-                        timer_arg, (oor_timer_del_cb_arg_fn)timer_rtr_nat_loc_exp_arg_free,NULL);
-                htable_ptrs_timers_add(ptrs_to_timers_ht,rloc_nat_info, timer);
-            }else{
-                // This type of object only have one timer associated with it.
-                timer = glist_first_data(timer_lst);
-            }
-            /* XXX We maintain the entry 30 more seconds than the MS site expiration time to avoid to request for the expired entry
-             * due to a map cahce miss before the entry expires in the Map Server */
-            oor_timer_start(timer, MS_SITE_EXPIRATION + 30);
+    recv_map_lst = glist_new_managed((glist_del_fct)mapping_del);
+    for (i = 0; i < MREG_REC_COUNT(hdr); i++) {
+        recv_map = mapping_new();
+        if (lisp_msg_parse_mapping_record(&b, recv_map, &probed) != GOOD) {
+            glist_destroy(recv_map_lst);
+            OOR_LOG(LDBG_1,"rtr_recv_map_notify: Error parsing a record of the Map Notify."
+                    " Discarding message");
+            return (BAD);
         }
-        glist_destroy(recv_map_lst);
-        /* Prepare the Map Notify to send to the ETR */
+        /* To be sure that we store the network address and not a IP-> 10.0.0.0/24 instead of 10.0.0.1/24 */
+        eid = mapping_eid(recv_map);
+        pref_conv_to_netw_pref(eid);
+        /* Add mapping to list to post process */
+        glist_add(recv_map,recv_map_lst);
+    }
+    lisp_msg_parse_xtr_id_site_id(&b, &xtr_id, &site_id);
+
+    /* Process received mappings */
+    glist_for_each_entry(map_it,recv_map_lst){
+        recv_map = (mapping_t *)glist_entry_data(map_it);
+        eid = mapping_eid(recv_map);
+        /* Find if the mcache entry exist, if not create it */
+        mce = mcache_lookup_exact(rtr->tr.map_cache, eid);
+        if (!mce){
+            map = mapping_new_init(eid);
+            mce = tr_mcache_add_mapping(&rtr->tr, map, MCE_DYNAMIC, ACTIVE);
+            /* Add specific data */
+            mce->dev_specific_data = mc_rtr_data_nat_new();
+            mce->dev_data_del = (dev_specific_data_del_fct)mc_rtr_data_destroy;
+        }
+
+        res = mc_rtr_data_mapping_update(mce, recv_map, loct_conn_inf->rtr_addr,loct_conn_inf->pub_xtr_addr,
+                loct_conn_inf->pub_xtr_port,loct_conn_inf->priv_xtr_addr,&xtr_id);
+        /* If the mapping has changed, reset the entries of the data plane associated with
+         * the affected cache entry */
+        if (res == UPDATED){
+            rtr->tr.fwd_policy->updated_map_cache_inf(rtr->tr.fwd_policy_dev_parm,mce);
+            notify_datap_rm_fwd_from_entry(&rtr->super, eid, FALSE);
+        }
+        /* Configure timers */
+
+        rloc_nat_info = mc_rtr_data_get_rloc_nat_data(mce, &xtr_id, loct_conn_inf->priv_xtr_addr);
+        if (!rloc_nat_info){
+            OOR_LOG(LDBG_1,"rtr_recv_map_notify: RLOC nat info not found. It should never happen");
+            continue;
+        }
+        // Get timer associated to it or create it if it doesn't exist yet
+        timer_lst = htable_ptrs_timers_get_timers(ptrs_to_timers_ht,rloc_nat_info);
+        if (!timer_lst){
+            timer_arg = timer_rtr_nat_loc_exp_arg_new_init(mce, rloc_nat_info);
+            timer = oor_timer_create(RTR_NAT_LOCT_EXPIRE_TIMER);
+            oor_timer_init(timer, rtr, (oor_timer_callback_t)rtr_nat_loc_expire_cb,
+                    timer_arg, (oor_timer_del_cb_arg_fn)timer_rtr_nat_loc_exp_arg_free,NULL);
+            htable_ptrs_timers_add(ptrs_to_timers_ht,rloc_nat_info, timer);
+        }else{
+            // This type of object only have one timer associated with it.
+            timer = glist_first_data(timer_lst);
+        }
+        /* XXX We maintain the entry 30 more seconds than the MS site expiration time to avoid to request for the expired entry
+         * due to a map cahce miss before the entry expires in the Map Server */
+        oor_timer_start(timer, 10);//MS_SITE_EXPIRATION + 30);
+    }
+    glist_destroy(recv_map_lst);
+
+    /* Prepare the Map Notify to send to the ETR */
+    /* NAT draft version 3 */
+    if (!ecm_hdr){
         // Set the authentication RTR address to 0 and remove the size of previous authentication
         lisp_msg_fill_auth_data(&b,auth_hdr, NO_KEY, NULL);
-        lbuf_set_size(&b,lbuf_size(&b) - auth_data_get_len_for_type(key_type));
+        lbuf_set_size(&b,lbuf_size(&b) - auth_data_get_len_for_type(ms_node->key_type));
         // As we doesn't have IP and UDP header of the received map Notify, we should recreate it
         lbuf_point_to_lisp(&b);
         // XXX we lose some fields of the headers but it is the best we can do
-        pkt_push_udp_and_ip(&b, int_uc->lp, int_uc->rp, lisp_addr_ip(&int_uc->ra), lisp_addr_ip(loct_conn_inf->priv_xtr_addr));
-        // lbuf is now poninting to the added IP header but pkt_push_udp_and_ip set this position in the aux IP variable (ext packet)
-        // instead of the internal packet. We reset the pointer of the internal IP aux variable.
-        lbuf_reset_l3(&b);
+        pkt_push_inner_udp_and_ip(&b, int_uc->lp, int_uc->rp, lisp_addr_ip(&int_uc->ra), lisp_addr_ip(loct_conn_inf->priv_xtr_addr));
+    }else{
 
     }
+
+
+
 
     /* Resend Map Notify as a data Map Notify -> Encapsualate message in a data packet */
     iid = MAX_IID;
@@ -850,6 +892,30 @@ rtr_expires_map_reg_cb(oor_timer_t *timer)
     return (GOOD);
 }
 
+int
+rtr_proc_rtr_auth_data(lisp_rtr_t *rtr,lbuf_t *msg, lisp_addr_t *ms_addr)
+{
+    rtr_ms_node_t *ms_node;
+    void *ecm_auth_hdr;
+
+    ms_node = shash_lookup(rtr->rtr_ms_table,lisp_addr_to_char(ms_addr));
+    if (!ms_node){
+        OOR_LOG(LDBG_1, "RTR: Unknown Map Server %s. Discarding message!",
+                lisp_addr_to_char(ms_addr));
+        return(BAD);
+    }
+    ecm_auth_hdr = lisp_msg_pull_rtr_auth_field(msg);
+
+    if (lisp_msg_parse_int_ip_udp(msg) != GOOD) {
+        return (BAD);
+    }
+
+    if (lisp_msg_check_rtr_auth_data(msg, ecm_auth_hdr, ms_node->key) != GOOD){
+        OOR_LOG(LDBG_1, "RTR: Invalid RTR authentication field");
+        return(BAD);
+    }
+    return (GOOD);
+}
 
 /************************** rtr_ms_node_t functions **************************/
 
@@ -864,6 +930,7 @@ rtr_ms_node_new_init(lisp_addr_t *addr, char *key, nat_version version)
     }
     ms_node->addr = lisp_addr_clone(addr);
     ms_node->key = strdup(key);
+    ms_node->key_type = HMAC_SHA_1_96;
     ms_node->nat_version = version;
 
     return (ms_node);

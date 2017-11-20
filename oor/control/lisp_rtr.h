@@ -40,6 +40,7 @@ typedef struct lisp_rtr {
 typedef struct rtr_ms_node {
     lisp_addr_t * addr;
     char * key;
+    lisp_key_type_e key_type;
     nat_version nat_version;
 }rtr_ms_node_t;
 

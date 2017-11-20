@@ -226,7 +226,8 @@ mapping_add_locator(
 	return (result);
 }
 
-/* This function extract the locator from the list of locators of the mapping */
+/* This function extract the locator from the list of locators of the mapping.
+ * The locator is not destroyed*/
 int
 mapping_remove_locator(
         mapping_t *mapping,

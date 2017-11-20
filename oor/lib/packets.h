@@ -104,6 +104,8 @@ void *pkt_push_eth(lbuf_t *b, uint8_t  ether_dhost[ETHER_ADDR_LEN],
 void *pkt_push_ip(lbuf_t *, ip_addr_t *, ip_addr_t *, int proto);
 int pkt_push_udp_and_ip(lbuf_t *, uint16_t, uint16_t, ip_addr_t *,
         ip_addr_t *);
+int pkt_push_inner_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
+        ip_addr_t *dip);
 int ip_hdr_set_ttl_and_tos(struct iphdr *, int ttl, int tos);
 int ip_hdr_ttl_and_tos(struct iphdr *, int *ttl, int *tos);
 

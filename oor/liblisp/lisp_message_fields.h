@@ -538,17 +538,46 @@ uint16_t auth_data_get_len_for_type(lisp_key_type_e key_id);
 #define AUTH_REC_DATA(h_) ((uint8_t *)(h_))+sizeof(auth_record_hdr_t)
 
 
+/*****************
+ * ECM AUTH DATA
+ *****************/
+
+typedef enum ecm_auth_ad_type_ {
+    NO_AUTH_DATA = -1,
+    RESERVED_AUTH_DATA = 0,
+    LISP_SEC_AUTH_DATA = 1,
+    RTR_AUTH_DATA = 2
+} ecm_auth_data_type;
+
+/*
+ * Generic ECM Authentication data
+ */
+/*
+ * 0                   1                   2                   3
+ * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  AD Type=2  |                 Reserved                        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct _ecm_auth_field_hdr {
+    uint8_t     ad_type;
+    uint8_t     reserved[3];
+} __attribute__ ((__packed__)) ecm_auth_field_hdr;
+
+#define ECM_AUTH_CAST(h_) ((ecm_auth_field_hdr *)(h_))
+#define ECM_AUTH_TYPE(h_) ECM_AUTH_CAST((h_))->ad_type
 
 
 /*
- * RTR AUTHENTICATION FIELD (Map-Register and Map-Notify)
+ * RTR AUTHENTICATION FIELD (Map-Notify)
  */
 
 /*
  * 0                   1                   2                   3
  * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |AD Type|                   Reserved                            |
+ * |  AD Type=2  |                 Reserved                        |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |        MS-RTR Key ID          |  MS-RTR Auth. Data Length     |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -556,26 +585,19 @@ uint16_t auth_data_get_len_for_type(lisp_key_type_e key_id);
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef enum rtr_auth_ad_type_ {
-    RTR_AUTH_DATA = 2
-} rtr_auth_data_type;
-
 
 typedef struct _rtr_auth_field_hdr {
-#ifdef LITTLE_ENDIANS
-    uint16_t    reserved1;
-    uint8_t     reserved2;
-    uint8_t     reserved3:3;
-    uint8_t     ad_type:5;
-#else
-    uint8_t     ad_type:5;
-    uint8_t     reserved3:3;
-    uint8_t     reserved2;
-    uint16_t    reserved1;
-#endif
-    uint16_t key_id;
-    uint16_t rtr_auth_data_len;
+    uint8_t     ad_type;
+    uint8_t     reserved[3];
+    uint16_t    key_id;
+    uint16_t    auth_data_len;
 } __attribute__ ((__packed__)) rtr_auth_field_hdr;
+
+#define RTR_AUTH_CAST(h_) ((rtr_auth_field_hdr *)(h_))
+#define RTR_AUTH_KEY_ID(h_) RTR_AUTH_CAST(h_)->key_id
+#define RTR_AUTH_DATA_LEN(h_) RTR_AUTH_CAST(h_)->auth_data_len
+#define RTR_AUTH_REC(h_) ((uint8_t *)(h_))+4;
+#define RTR_AUTH_DATA(h_) ((uint8_t *)(h_))+sizeof(rtr_auth_field_hdr)
 
 
 /* NAT MAP-REGISTER FIELDS */

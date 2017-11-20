@@ -178,6 +178,7 @@ mle_nat_info_update(map_local_entry_t *mle, locator_t *loct, glist_t *new_rtr_li
                 /* The RTR is not associated with any loctor. Remove the rtr locator from the mapping */
                 rtr_loct = mapping_get_loct_with_addr(map, rtr_addr);
                 mapping_remove_locator(map,rtr_loct);
+                locator_del(rtr_loct);
             }
         }
         shash_remove(nat_info->loct_addr_to_rtrs, lisp_addr_to_char(loct_addr));

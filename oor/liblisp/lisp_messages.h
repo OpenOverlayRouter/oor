@@ -72,7 +72,7 @@ typedef enum lisp_msg_type_ {
  * header of the encapsulated LISP control message.
  *
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |S|D|R|             Reserved                            |
+ *    |Type=8 |S|D|R|N|           Reserved                            |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
@@ -90,7 +90,7 @@ typedef struct ecm_hdr {
     uint8_t r_bit:1;
     uint8_t n_bit:1;
 #endif
-    uint8_t reserved2[3];
+    uint8_t reserved[3];
 } ecm_hdr_t;
 
 
@@ -102,6 +102,7 @@ void ecm_hdr_init(void *ptr);
 #define ECM_SECURITY_BIT(h_) (ECM_HDR_CAST(h_))->s_bit
 #define ECM_DDT_BIT(h_) (ECM_HDR_CAST(h_))->d_bit
 #define ECM_RTR_PROCESS_BIT(h_) (ECM_HDR_CAST(h_))->r_bit
+#define ECM_RTR_RELAYED_BIT(h_) (ECM_HDR_CAST(h_))->n_bit
 
 
 /*
@@ -192,19 +193,9 @@ char *map_request_hdr_to_char(map_request_hdr_t *h);
 #define MREQ_SMR_INVOKED(h_) (MREQ_HDR_CAST(h_))->smr_invoked
 
 
-
-
-
-
 /*
  * MAP-REPLY MESSAGE
  */
-
- /*  Map Reply action codes */
- #define LISP_ACTION_NO_ACTION           0
- #define LISP_ACTION_FORWARD             1
- #define LISP_ACTION_DROP                2
- #define LISP_ACTION_SEND_MAP_REQUEST    3
 
  /*
   * Map-Reply Message Format

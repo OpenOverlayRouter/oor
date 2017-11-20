@@ -314,6 +314,7 @@ mc_rm_rtr_rloc_nat_data(mcache_entry_t *mce, rloc_nat_data_t *rloc_nat_data)
         if (htable_ptrs_lookup(rtr_data->nat_data->loc_to_nat_data,loct) == rloc_nat_data){
             htable_ptrs_remove(rtr_data->nat_data->loc_to_nat_data, loct);
             mapping_remove_locator(map,loct);
+            locator_del(loct);
             break;
         }
     }
