@@ -96,6 +96,16 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define PID_FILE      "/var/run/oor.pid"
 #define DEVICE_ID_FILE "oor-id"
 
+
+/*
+ * ddt constants
+ */
+
+#define DEFAULT_DDTNODE_TTL  1440
+#define DEFAULT_REGISTERED_TTL  1440
+#define DEFAULT_CONFIGURED_NOT_REGISTERED_TTL  1
+#define DEFAULT_NEGATIVE_REFERRAL_TTL  15
+
 /*
  *  misc parameters
  */

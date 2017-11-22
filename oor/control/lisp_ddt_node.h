@@ -24,12 +24,6 @@
 #include "../lib/lisp_site.h"
 
 
-static int Default_DdtNode_Ttl = 1440;
-static int Default_Registered_Ttl = 1440;
-static int Default_Configured_Not_Registered_Ttl = 1;
-static int Default_Negative_Referral_Ttl = 15;
-
-
 typedef struct _lisp_ddt_node {
     oor_ctrl_dev_t super;    /* base "class" */
 
@@ -54,10 +48,7 @@ typedef struct _ddt_delegation_site{
 } ddt_delegation_site_t;
 
 /* DDT-Node interface */
-/*
-int ddt_node_add_lisp_site_prefix(lisp_ddt_node_t *ddt_node, lisp_site_prefix_t *site);
-int ddt_node_add_registered_site_prefix(lisp_ddt_node_t *dev, mapping_t *sp);
-*/
+
 void ddt_node_dump_authoritative_sites(lisp_ddt_node_t *dev, int log_level);
 void ddt_node_dump_delegation_sites(lisp_ddt_node_t *dev, int log_level);
 

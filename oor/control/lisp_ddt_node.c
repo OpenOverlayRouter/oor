@@ -26,176 +26,8 @@
 
 
 static int ddt_node_recv_map_request(lisp_ddt_node_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
-/*static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, uconn_t *);*/
 static int ddt_node_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_node_t *lisp_ddt_node_cast(oor_ctrl_dev_t *dev);
-
-
-static locator_t *
-get_locator_with_afi(mapping_t *m, int afi)
-{
-    /*
-	glist_t *loct_list = NULL;
-	glist_entry_t *it_list = NULL;
-	glist_entry_t *it_loct = NULL;
-    locator_t *loct = NULL;
-    lisp_addr_t *addr = NULL;
-    int lafi = 0;
-    int afi_type = 0;
-
-    glist_for_each_entry(it_list,mapping_locators_lists(m)){
-    	loct_list = (glist_t *)glist_entry_data(it_list);
-    	locator_list_lafi_type(loct_list,&lafi,&afi_type);
-    	if (lafi == LM_AFI_NO_ADDR || (lafi == LM_AFI_IP && afi_type != afi)){
-    		continue;
-    	}
-    	glist_for_each_entry(it_loct,loct_list){
-    		loct = (locator_t *)glist_entry_data(it_loct);
-    		if (locator_state(loct) == DOWN){
-    			continue;
-    		}
-    		addr = locator_addr(loct);
-    		addr = lisp_addr_get_ip_addr(addr);
-    		if (lisp_addr_ip_afi (addr) == afi){
-    			return (loct);
-    		}
-    	}
-    }
-
-    */
-
-    return(NULL);
-}
-
-static int
-get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
-{
-    /*
-    lcaf_addr_t *lcaf = NULL;
-    elp_node_t *enode;
-
-    lcaf = lisp_addr_get_lcaf(laddr);
-    switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_EXPL_LOC_PATH:
-        // we're looking for the ETR, so the destination is the last elp hop
-        enode = glist_last_data(lcaf_elp_node_list(lcaf));
-        *dst = enode->addr;
-        break;
-    default:
-        *dst = NULL;
-        OOR_LOG(LDBG_1, "get_locator_from_lcaf: Type % not supported!, ",
-                lcaf_addr_get_type(lcaf));
-        return (BAD);
-    }
-    */
-    return (GOOD);
-}
-/*
-
-// forward encapsulated Map-Request to ETR
-static int
-forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m)
-{
-	oor_ctrl_t *ctrl = NULL;
-    lisp_addr_t *drloc = NULL;
-    locator_t *loct = NULL;
-    uconn_t fwd_uc;
-
-    ctrl = ctrl_dev_get_ctrl_t(&(ms->super));
-
-    if ((ctrl_supported_afis(ctrl) & IPv4_SUPPORT) != 0){
-    	loct = get_locator_with_afi(m, AF_INET);
-    }
-    if (loct == NULL && (ctrl_supported_afis(ctrl) & IPv6_SUPPORT) != 0){
-    	loct = get_locator_with_afi(m, AF_INET6);
-    }
-    if (loct == NULL){
-    	OOR_LOG(LDBG_1, "Can't find valid RLOC to forward Map-Request to "
-    	                "ETR. Discarding!");
-    	return(BAD);
-    }
-
-    drloc = lisp_addr_get_ip_addr(locator_addr(loct));
-
-    if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
-        get_etr_from_lcaf(drloc, &drloc);
-    }
-
-    OOR_LOG(LDBG_3, "Found xTR with locator %s to forward Encap Map-Request",
-            lisp_addr_to_char(drloc));
-
-    // Set buffer to forward the encapsulated message
-    lbuf_point_to_lisp_hdr(b);
-
-    uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-    return(send_msg(&ms->super, b, &fwd_uc));
-}
-
-
-// Called when the timer associated with a registered lisp site expires.
-static int
-lsite_entry_expiration_timer_cb(oor_timer_t *t)
-{
-    lisp_reg_site_t *rsite = NULL;
-    lisp_addr_t *addr = NULL;
-    lisp_ms_t *ms = t->owner;
-
-    rsite = oor_timer_cb_argument(t);
-    addr = mapping_eid(rsite->site_map);
-    OOR_LOG(LDBG_1,"Registration of site with EID %s timed out",
-            lisp_addr_to_char(addr));
-
-    mdb_remove_entry(ms->reg_sites_db, addr);
-    lisp_reg_site_del(rsite);
-    ms_dump_registered_sites(ms, LDBG_3);
-    return(GOOD);
-}
-
-static void
-lsite_entry_start_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
-{
-    oor_timer_t *timer;
-
-
-    timer = oor_timer_create(REG_SITE_EXPRY_TIMER);
-    oor_timer_init(timer, ms, lsite_entry_expiration_timer_cb, rsite,
-            NULL, NULL);
-    htable_ptrs_timers_add(ptrs_to_timers_ht,rsite, timer);
-
-    // Give a 2s margin before purging the registered site
-    oor_timer_start(timer, MS_SITE_EXPIRATION + 2);
-
-    OOR_LOG(LDBG_2,"The map cache entry of EID %s will expire in %ld seconds.",
-            lisp_addr_to_char(mapping_eid(rsite->site_map)),
-            MS_SITE_EXPIRATION);
-}
-
-static void
-lsite_entry_update_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
-{
-    oor_timer_t *timer;
-    glist_t *timer_lst;
-
-    timer_lst = htable_ptrs_timers_get_timers_of_type_from_obj(ptrs_to_timers_ht,rsite,
-            REG_SITE_EXPRY_TIMER);
-
-    if (glist_size(timer_lst) != 1){
-        OOR_LOG(LDBG_1,"lsite_entry_start_expiration_timer: %d timers for same site."
-                "It should never happen", glist_size(timer_lst));
-        glist_destroy(timer_lst);
-        return;
-    }
-    timer = (oor_timer_t *)glist_first_data(timer_lst);
-    glist_destroy(timer_lst);
-
-    // Give a 2s margin before purging the registered site
-    oor_timer_start(timer, MS_SITE_EXPIRATION + 2);
-
-    OOR_LOG(LDBG_2,"The map cache entry of EID %s will expire in %ld seconds.",
-            lisp_addr_to_char(mapping_eid(rsite->site_map)),
-            MS_SITE_EXPIRATION);
-}
-*/
 
 static int
 ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
@@ -273,7 +105,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                 ddt_deleg_type_e type = dsite->type;
                 if(type == CHILD_DDT_NODE || type == MAP_SERVER_DDT_NODE){
                     // send "Type" map-referral with
-                    // TTL = Default_DdtNode_Ttl
+                    // TTL = DEFAULT_DDTNODE_TTL
                     lisp_ref_action_e actiontype = 0;
                     switch(type){
                     case CHILD_DDT_NODE:
@@ -288,7 +120,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                         break;
                     }
                     mref = lisp_msg_create(LISP_MAP_REFERRAL);
-                    rec = lisp_msg_put_mr_mapping(mref, deid, Default_DdtNode_Ttl,actiontype,
+                    rec = lisp_msg_put_mref_mapping(mref, deid, DEFAULT_DDTNODE_TTL,actiontype,
                             A_AUTHORITATIVE, 0, NULL, dsite->child_nodes, NULL);
 
                     mref_hdr = lisp_msg_hdr(mref);
@@ -307,14 +139,9 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                                 lisp_addr_to_char(deid));
                     }
                 }else{
-                    // NOTE: if the DDT-NODE is a DDT-Map-Server, it MUST check
-                    // its lisp sites for mappings of this EID
-
-                    // if the DDT-NODE is not a DDT-Map-Server or there are
-                    // no mappings for this EID, proceed as follows:
                     // send DELEGATION_HOLE map-referral with
-                    // TTL = Default_Negative_Referral_Ttl
-                    mref = lisp_msg_neg_mref_create(deid, Default_Negative_Referral_Ttl, LISP_ACTION_DELEGATION_HOLE,
+                    // TTL = DEFAULT_NEGATIVE_REFERRAL_TTL
+                    mref = lisp_msg_neg_mref_create(deid, DEFAULT_NEGATIVE_REFERRAL_TTL, LISP_ACTION_DELEGATION_HOLE,
                             A_AUTHORITATIVE, 0, MREQ_NONCE(mreq_hdr));
                     OOR_LOG(LDBG_1,"No delegation exists for the requested EID %s, sending DELEGATION_HOLE message",
                             lisp_addr_to_char(deid));
@@ -341,164 +168,6 @@ err:
     return(BAD);
 
 }
-
-/*
-static int
-ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
-{
-    lisp_reg_site_t *rsite = NULL, *new_rsite = NULL;
-    lisp_site_prefix_t *reg_pref = NULL;
-    char *key = NULL;
-    lisp_addr_t *eid;
-    lbuf_t b;
-    void *hdr = NULL, *mntf_hdr = NULL;
-    int i = 0;
-    mapping_t *m = NULL;
-    locator_t *probed = NULL;
-    lbuf_t *mntf = NULL;
-    lisp_key_type_e keyid = HMAC_SHA_1_96; // TODO configurable
-    int valid_records = FALSE;
-
-
-    b = *buf;
-    hdr = lisp_msg_pull_hdr(&b);
-
-    if (MREG_WANT_MAP_NOTIFY(hdr)) {
-        mntf = lisp_msg_create(LISP_MAP_NOTIFY);
-        lisp_msg_put_empty_auth_record(mntf, keyid);
-    }
-
-    lisp_msg_pull_auth_field(&b);
-
-
-    for (i = 0; i < MREG_REC_COUNT(hdr); i++) {
-        m = mapping_new();
-        if (lisp_msg_parse_mapping_record(&b, m, &probed) != GOOD) {
-            goto err;
-        }
-
-        if (mapping_auth(m) == 0){
-            OOR_LOG(LWRN,"ms_recv_map_register: Received a none authoritative record in a Map Register: %s",
-                    lisp_addr_to_char(mapping_eid(m)));
-        }
-
-        // To be sure that we store the network address and not a IP-> 10.0.0.0/24 instead of 10.0.0.1/24
-        eid = mapping_eid(m);
-        pref_conv_to_netw_pref(eid);
-
-        // find configured prefix
-        reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid);
-
-        if (!reg_pref) {
-            OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB "
-                    "Discarding mapping", lisp_addr_to_char(eid));
-            mapping_del(m);
-            continue;
-        }
-
-        // CHECK AUTH
-
-        // if first record, lookup the key
-        if (!key) {
-            if (lisp_msg_check_auth_field(buf, reg_pref->key) != GOOD) {
-                OOR_LOG(LDBG_1, "Message validation failed for EID %s with key "
-                        "%s. Stopping processing!", lisp_addr_to_char(eid),
-                        reg_pref->key);
-                goto bad;
-            }
-            OOR_LOG(LDBG_2, "Message validated with key associated to EID %s",
-                    lisp_addr_to_char(eid));
-            key = reg_pref->key;
-        } else if (strncmp(key, reg_pref->key, strlen(key)) !=0 ) {
-            OOR_LOG(LDBG_1, "EID %s part of multi EID Map-Register has different "
-                    "key! Discarding!", lisp_addr_to_char(eid));
-            continue;
-        }
-
-
-        // check more specific
-        if (reg_pref->accept_more_specifics == TRUE){
-            if (!pref_is_prefix_b_part_of_a(
-                    lisp_addr_get_ip_pref_addr(reg_pref->eid_prefix),
-                    lisp_addr_get_ip_pref_addr(mapping_eid(m)))){
-                OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB! "
-                        "Discarding mapping!", lisp_addr_to_char(eid));
-                mapping_del(m);
-                continue;
-            }
-        }else if(lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
-            OOR_LOG(LDBG_1, "EID %s is a more specific of %s. However more "
-                    "specifics not configured! Discarding",
-                    lisp_addr_to_char(eid),
-                    lisp_addr_to_char(reg_pref->eid_prefix));
-            lisp_addr_del(eid);
-            continue;
-        }
-
-
-        rsite = mdb_lookup_entry_exact(ms->reg_sites_db, eid);
-        if (rsite) {
-            if (mapping_cmp(rsite->site_map, m) != 0) {
-                if (!reg_pref->merge) {
-                    OOR_LOG(LDBG_3, "Prefix %s already registered, updating "
-                            "locators", lisp_addr_to_char(eid));
-                    mapping_update_locators(rsite->site_map,mapping_locators_lists(m));
-                } else {
-                    // TREAT MERGE SEMANTICS
-                    OOR_LOG(LWRN, "Prefix %s has merge semantics",
-                            lisp_addr_to_char(eid));
-                }
-                ms_dump_registered_sites(ms, LDBG_3);
-            }
-            reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
-            // update registration timer
-            lsite_entry_update_expiration_timer(ms, rsite);
-        } else {
-            // save prefix to the registered sites db
-            new_rsite = xzalloc(sizeof(lisp_reg_site_t));
-            new_rsite->site_map = m;
-            mdb_add_entry(ms->reg_sites_db, mapping_eid(m), new_rsite);
-            lsite_entry_start_expiration_timer(ms, new_rsite);
-
-            reg_pref->proxy_reply = MREG_PROXY_REPLY(hdr);
-            ms_dump_registered_sites(ms, LDBG_3);
-        }
-
-        if (MREG_WANT_MAP_NOTIFY(hdr)) {
-            lisp_msg_put_mapping(mntf, m, NULL);
-            valid_records = TRUE;
-        }
-
-        // if site previously registered, just remove the parsed mapping
-        if (rsite) {
-            mapping_del(m);
-        }
-
-    }
-
-    // check if key is initialized, otherwise registration failed
-    if (mntf && key && valid_records) {
-        mntf_hdr = lisp_msg_hdr(mntf);
-        MNTF_NONCE(mntf_hdr) = MREG_NONCE(hdr);
-        lisp_msg_fill_auth_data(mntf, keyid, key);
-        OOR_LOG(LDBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
-                lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
-                lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
-        send_msg(&ms->super, mntf, uc);
-    }
-    lisp_msg_destroy(mntf);
-
-    return(GOOD);
-err:
-    return(BAD);
-    mapping_del(m);
-    lisp_msg_destroy(mntf);
-bad: // could return different error
-    mapping_del(m);
-    lisp_msg_destroy(mntf);
-    return(BAD);
-}
-*/
 
 
 int
@@ -671,10 +340,6 @@ ddt_node_ctrl_construct(oor_ctrl_dev_t *dev)
 {
     lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
 
-    /* for reference when changing fields in the future
-     * reg_sites_db has been changed to auth_sites_db,
-     * and lisp_sites_db has been changed to deleg_sites_db
-     */
     ddt_node->auth_sites_db = mdb_new();
     ddt_node->deleg_sites_db = mdb_new();
 

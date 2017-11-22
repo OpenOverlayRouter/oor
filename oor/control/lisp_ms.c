@@ -296,11 +296,11 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
         /* Find if the site actually registered */
         if (!rsite) {
             if(d==1){
-                //send NOT_REGISTERED Map Referral with TTL = Default_Negative_Referral_Ttl
+                //send NOT_REGISTERED Map Referral with TTL = DEFAULT_NEGATIVE_REFERRAL_TTL
                 //and Incomplete determined by the existance or not of peers
                 int i = (glist_size(site->ddt_ms_peers)<1);
                 mref = lisp_msg_create(LISP_MAP_REFERRAL);
-                rec = lisp_msg_put_mr_mapping(mref, deid, Default_Negative_Referral_Ttl,LISP_ACTION_NOT_REGISTERED,
+                rec = lisp_msg_put_mref_mapping(mref, deid, DEFAULT_NEGATIVE_REFERRAL_TTL,LISP_ACTION_NOT_REGISTERED,
                         A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers, &ext_uc->la);
                 mref_hdr = lisp_msg_hdr(mref);
                 MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
@@ -329,11 +329,11 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
         }
         if(d==1){
             if(site){
-                //send MS_ACK Map Referral with TTL = Default_Registered_Ttl
+                //send MS_ACK Map Referral with TTL = DEFAULT_REGISTERED_TTL
                 //and Incomplete determined by the existance or not of peers
                 int i = (glist_size(site->ddt_ms_peers)<1);
                 mref = lisp_msg_create(LISP_MAP_REFERRAL);
-                rec = lisp_msg_put_mr_mapping(mref, deid, Default_Registered_Ttl,LISP_ACTION_MS_ACK,
+                rec = lisp_msg_put_mref_mapping(mref, deid, DEFAULT_REGISTERED_TTL,LISP_ACTION_MS_ACK,
                         A_AUTHORITATIVE, i, NULL, site->ddt_ms_peers, &ext_uc->la);
                 mref_hdr = lisp_msg_hdr(mref);
                 MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);

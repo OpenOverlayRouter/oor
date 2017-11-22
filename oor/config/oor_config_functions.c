@@ -572,8 +572,9 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     glist_for_each_entry(it, ddt_ms_peers) {
         ms_peer = (char *)glist_entry_data(it);
         addr_list = parse_lisp_addr(ms_peer, lcaf_ht);
-        if (addr_list == NULL || glist_size(addr_list) == 1){
-            glist_add_tail((lisp_addr_t *)glist_entry_data(glist_first(addr_list)), ddt_ms_peers2);
+        glist_entry_t * it2 = NULL;
+        glist_for_each_entry(it2, addr_list){
+            glist_add_tail((lisp_addr_t *)glist_entry_data(it2), ddt_ms_peers2);
         }
     }
 
