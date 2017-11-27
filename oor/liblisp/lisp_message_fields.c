@@ -38,7 +38,7 @@ mapping_record_init_hdr(mapping_record_hdr_t *h) {
 }
 
 void
-map_ref_mapping_record_init_hdr(map_ref_mapping_record_hdr_t *h) {
+mref_mapping_record_init_hdr(mref_mapping_record_hdr_t *h) {
     h->ttl                  = htonl(DEFAULT_DATA_CACHE_TTL);
     h->referral_count        = 1;
     h->eid_prefix_length    = 0;
@@ -78,7 +78,7 @@ mapping_action_to_char(int act) {
 }
 
 char *
-map_ref_mapping_action_to_char(int act) {
+mref_mapping_action_to_char(int act) {
     static char buf[30];
 
     *buf = '\0';
@@ -125,7 +125,7 @@ mapping_record_hdr_to_char(mapping_record_hdr_t *h)
 }
 
 char *
-map_ref_mapping_record_hdr_to_char(map_ref_mapping_record_hdr_t *h)
+mref_mapping_record_hdr_to_char(mref_mapping_record_hdr_t *h)
 {
     static char buf[100];
 

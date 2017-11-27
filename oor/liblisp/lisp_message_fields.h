@@ -548,7 +548,7 @@ typedef enum lisp_actions {
  * locators follow.
  */
 
-typedef struct _map_ref_mapping_record_hdr_t {
+typedef struct _mref_mapping_record_hdr_t {
     uint32_t ttl;
     uint8_t referral_count;
     uint8_t eid_prefix_length;
@@ -572,21 +572,21 @@ typedef struct _map_ref_mapping_record_hdr_t {
     uint8_t version_hi:4;
 #endif
     uint8_t version_low;
-} __attribute__ ((__packed__)) map_ref_mapping_record_hdr_t;
+} __attribute__ ((__packed__)) mref_mapping_record_hdr_t;
 
 
-void map_ref_mapping_record_init_hdr(map_ref_mapping_record_hdr_t *h);
-char *map_ref_mapping_action_to_char(int act);
-char *map_ref_mapping_record_hdr_to_char(map_ref_mapping_record_hdr_t *h);
+void mref_mapping_record_init_hdr(mref_mapping_record_hdr_t *h);
+char *mref_mapping_action_to_char(int act);
+char *mref_mapping_record_hdr_to_char(mref_mapping_record_hdr_t *h);
 
-#define REF_MAP_REC_EID_PLEN(h) ((map_ref_mapping_record_hdr_t *)(h))->eid_prefix_length
-#define REF_MAP_REC_REF_COUNT(h) ((map_ref_mapping_record_hdr_t *)(h))->referral_count
-#define REF_MAP_REC_ACTION(h) ((map_ref_mapping_record_hdr_t *)(h))->action
-#define REF_MAP_REC_AUTH(h) ((map_ref_mapping_record_hdr_t *)(h))->authoritative
-#define REF_MAP_REC_INC(h) ((map_ref_mapping_record_hdr_t *)(h))->incomplete
-#define REF_MAP_REC_SIGC(h) ((map_ref_mapping_record_hdr_t *)(h))->signature_count
-#define REF_MAP_REC_TTL(h) ((map_ref_mapping_record_hdr_t *)(h))->ttl
-#define REF_MAP_REC_EID(h) (uint8_t *)(h)+sizeof(map_ref_mapping_record_hdr_t)
+#define REF_MAP_REC_EID_PLEN(h) ((mref_mapping_record_hdr_t *)(h))->eid_prefix_length
+#define REF_MAP_REC_REF_COUNT(h) ((mref_mapping_record_hdr_t *)(h))->referral_count
+#define REF_MAP_REC_ACTION(h) ((mref_mapping_record_hdr_t *)(h))->action
+#define REF_MAP_REC_AUTH(h) ((mref_mapping_record_hdr_t *)(h))->authoritative
+#define REF_MAP_REC_INC(h) ((mref_mapping_record_hdr_t *)(h))->incomplete
+#define REF_MAP_REC_SIGC(h) ((mref_mapping_record_hdr_t *)(h))->signature_count
+#define REF_MAP_REC_TTL(h) ((mref_mapping_record_hdr_t *)(h))->ttl
+#define REF_MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mref_mapping_record_hdr_t)
 #define REF_MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
 
 typedef enum lisp_ref_actions {

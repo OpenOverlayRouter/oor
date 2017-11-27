@@ -37,13 +37,13 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
     glist_t *       itr_rlocs   = NULL;
     void *          mreq_hdr    = NULL;
     void *          mref_hdr    = NULL;
-    map_ref_mapping_record_hdr_t *  rec            = NULL;
+    //mref_mapping_record_hdr_t *  rec            = NULL;
+    mref_mapping_t * map =NULL;
     int             i           = 0;
     lbuf_t *        mref        = NULL;
     lbuf_t  b;
     ddt_authoritative_site_t *    asite            = NULL;
     ddt_delegation_site_t *       dsite           = NULL;
-    uint8_t act_flag;
 
     // local copy of the buf that can be modified
     b = *buf;
@@ -120,8 +120,17 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                         break;
                     }
                     mref = lisp_msg_create(LISP_MAP_REFERRAL);
-                    rec = lisp_msg_put_mref_mapping(mref, deid, DEFAULT_DDTNODE_TTL,actiontype,
-                            A_AUTHORITATIVE, 0, NULL, dsite->child_nodes, NULL);
+
+
+                    map = mref_mapping_new_init(deid);
+                    mref_mapping_set_ttl(map,DEFAULT_DDTNODE_TTL);
+                    mref_mapping_set_action(map, actiontype);
+                    mref_mapping_set_auth(map, A_AUTHORITATIVE);
+                    mref_mapping_set_incomplete(map, 0);
+
+                    //rec = lisp_msg_put_mref_mapping(mref, map, dsite->child_nodes, NULL);
+
+                    lisp_msg_put_mref_mapping(mref, map, dsite->child_nodes, NULL);
 
                     mref_hdr = lisp_msg_hdr(mref);
                     MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);

@@ -89,6 +89,7 @@ OBJS        = cmdline.o                  \
           liblisp/lisp_lcaf.o            \
           liblisp/lisp_locator.o         \
           liblisp/lisp_mapping.o         \
+          liblisp/lisp_mref_mapping.o    \
           liblisp/lisp_messages.o        \
           liblisp/lisp_message_fields.o  \
           lib/cksum.o                    \

@@ -438,19 +438,17 @@ lisp_msg_put_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
 void *
 lisp_msg_put_mref_mapping_hdr(lbuf_t *b)
 {
-    void *hdr = lbuf_put_uninit(b, sizeof(map_ref_mapping_record_hdr_t));
-    map_ref_mapping_record_init_hdr(hdr);
+    void *hdr = lbuf_put_uninit(b, sizeof(mref_mapping_record_hdr_t));
+    mref_mapping_record_init_hdr(hdr);
     return(hdr);
 }
 
 void *
 lisp_msg_put_mref_mapping(
-        lbuf_t      *b,
-        lisp_addr_t *eid, int ttl,
-        lisp_ref_action_e act, lisp_authoritative_e a, int i,
-        lisp_addr_t *probed_loc, glist_t *ref_list, lisp_addr_t *ms_loc)
+        lbuf_t      *b, mref_mapping_t *map,
+        glist_t *ref_list, lisp_addr_t *ms_loc)
 {
-    map_ref_mapping_record_hdr_t    *rec            = NULL;
+    mref_mapping_record_hdr_t    *rec            = NULL;
     locator_hdr_t           *ploc           = NULL;
     //locator_t               *loct           = NULL;
     int                     referral_count   = 0;
@@ -459,20 +457,20 @@ lisp_msg_put_mref_mapping(
 
 
     rec = lisp_msg_put_mref_mapping_hdr(b);
-    REF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
-    REF_MAP_REC_TTL(rec) = htonl(ttl);
-    REF_MAP_REC_ACTION(rec) = act;
-    REF_MAP_REC_AUTH(rec) = a;
-    REF_MAP_REC_INC(rec) = i;
+    REF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(mref_mapping_eid(map));
+    REF_MAP_REC_TTL(rec) = htonl(mref_mapping_ttl(map));
+    REF_MAP_REC_ACTION(rec) = mref_mapping_action(map);
+    REF_MAP_REC_AUTH(rec) = mref_mapping_auth(map);
+    REF_MAP_REC_INC(rec) = mref_mapping_incomplete(map);
     //TODO actually add signatures if appropiate
     REF_MAP_REC_SIGC(rec) = 0;
 
-    if (lisp_msg_put_addr(b, eid) == NULL) {
+    if (lisp_msg_put_addr(b, mref_mapping_eid(map)) == NULL) {
         return(NULL);
     }
 
-    if(act == LISP_ACTION_MS_ACK || act == LISP_ACTION_NOT_REGISTERED){
-        if(i==0){
+    if(mref_mapping_action(map) == LISP_ACTION_MS_ACK || mref_mapping_action(map) == LISP_ACTION_NOT_REGISTERED){
+        if(mref_mapping_incomplete(map)==0){
             ploc = lbuf_put_uninit(b, sizeof(locator_hdr_t));
             ploc->priority    = 0;
             ploc->weight = 0;
