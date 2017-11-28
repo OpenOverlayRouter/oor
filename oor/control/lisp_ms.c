@@ -420,6 +420,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
             OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB "
                     "Discarding mapping", lisp_addr_to_char(eid));
             mapping_del(m);
+            m = NULL;
             continue;
         }
 
@@ -437,9 +438,9 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
                     lisp_addr_to_char(eid));
             key = reg_pref->key;
         } else if (strncmp(key, reg_pref->key, strlen(key)) !=0 ) {
-            OOR_LOG(LDBG_1, "EID %s part of multi EID Map-Register has different "
+            OOR_LOG(LDBG_1, "EID %s part of multi EID Map-Register with different "
                     "key! Discarding!", lisp_addr_to_char(eid));
-            continue;
+            goto err;
         }
 
 
@@ -451,6 +452,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
                 OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB! "
                         "Discarding mapping!", lisp_addr_to_char(eid));
                 mapping_del(m);
+                m = NULL;
                 continue;
             }
         }else if(lisp_addr_cmp(reg_pref->eid_prefix, eid) !=0) {
@@ -458,7 +460,8 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
                     "specifics not configured! Discarding",
                     lisp_addr_to_char(eid),
                     lisp_addr_to_char(reg_pref->eid_prefix));
-            lisp_addr_del(eid);
+            mapping_del(m);
+            m = NULL;
             continue;
         }
 
@@ -499,6 +502,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
         /* if site previously registered, just remove the parsed mapping */
         if (rsite) {
             mapping_del(m);
+            m = NULL;
         }
     }
     if (MREG_IBIT(hdr)){
@@ -570,7 +574,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
     return(GOOD);
 err:
     mapping_del(m);
-    if (!mntf){
+    if (mntf){
         lisp_msg_destroy(mntf);
     }
     return(BAD);

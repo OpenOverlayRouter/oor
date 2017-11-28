@@ -205,7 +205,7 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
         return (BAD);
     }
 
-    strcpy(conf_mapping->eid_prefix,cfg_getstr(map, "eid-prefix"));
+    conf_mapping->eid_prefix = strdup(cfg_getstr(map, "eid-prefix"));
     conf_mapping->iid = cfg_getint(map, "iid");
 
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
@@ -228,14 +228,6 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
         for (ctr = 0; ctr < cfg_size(map, "rloc-iface"); ctr++){
             rl = cfg_getnsec(map, "rloc-iface", ctr);
             afi = cfg_getint(rl, "ip_version");
-            if (afi == 4){
-                afi = AF_INET;
-            }else if (afi == 6){
-                afi = AF_INET6;
-            }else{
-                OOR_LOG(LERR,"Configuration file: The conf_loc_iface->ip_version of the locator should be 4 (IPv4) or 6 (IPv6)");
-                return (BAD);
-            }
             if (cfg_getstr(rl, "interface") == NULL){
                 OOR_LOG(LWRN, "Configuration file: Mapping %s with no RLOC interface selected",conf_mapping->eid_prefix);
                 return (BAD);
@@ -671,7 +663,7 @@ configure_mn(cfg_t *cfg)
 int
 configure_ms(cfg_t *cfg)
 {
-    char *iface_name, *rtr_id, *def_rtr_set;
+    char *iface_name, *rtr_id;
     iface_t *iface=NULL;
     lisp_site_prefix_t *site;
     shash_t *lcaf_ht;
@@ -806,13 +798,8 @@ configure_ms(cfg_t *cfg)
         glist_destroy(rtr_id_list);
     }
 
-    def_rtr_set = cfg_getstr(cfg, "ms-advertised-rtrs-set");
-    if (def_rtr_set){
-        ms->def_rtr_set = (ms_rtr_set_t *)shash_lookup(ms->rtrs_set_table,def_rtr_set);
-        if (!ms->def_rtr_set){
-            OOR_LOG(LERR, "ms-rtr-set %s doesn't exist. It cannot be advertised", def_rtr_set);
-            return (BAD);
-        }
+    if (ms_advertised_rtr_set(ms, cfg_getstr(cfg, "ms-advertised-rtrs-set")) != GOOD){
+        return (BAD);
     }
 
     /* destroy the hash table */

@@ -276,8 +276,6 @@ rtr_if_link_update(oor_ctrl_dev_t *dev, char *iface_name, uint8_t status)
     rtr->tr.fwd_policy->updated_map_loc_inf(rtr->tr.fwd_policy_dev_parm,rtr->all_locs_map);
     notify_datap_reset_all_fwd(&(rtr->super));
 
-    //// rtr_iface_event_signaling(rtr, if_loct);
-
     return (GOOD);
 }
 
@@ -370,8 +368,6 @@ rtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
     rtr->tr.fwd_policy->updated_map_loc_inf(rtr->tr.fwd_policy_dev_parm,rtr->all_locs_map);
     notify_datap_reset_all_fwd(&(rtr->super));
 
-    ////rtr_iface_event_signaling(rtr, if_loct);
-
     return (GOOD);
 }
 
@@ -379,11 +375,6 @@ int
 rtr_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_addr_t *src_pref,
         lisp_addr_t *dst_pref, lisp_addr_t *gateway)
 {
-    lisp_rtr_t * rtr = lisp_rtr_cast(dev);
-    iface_locators * if_loct = NULL;
-
-    if_loct = (iface_locators *)shash_lookup(rtr->tr.iface_locators_table,iface_name);
-    //// rtr_iface_event_signaling(rtr, if_loct);
     return (GOOD);
 }
 
@@ -774,7 +765,7 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
         }
         /* XXX We maintain the entry 30 more seconds than the MS site expiration time to avoid to request for the expired entry
          * due to a map cahce miss before the entry expires in the Map Server */
-        oor_timer_start(timer, 10);//MS_SITE_EXPIRATION + 30);
+        oor_timer_start(timer, MS_SITE_EXPIRATION + 30);
     }
     glist_destroy(recv_map_lst);
 

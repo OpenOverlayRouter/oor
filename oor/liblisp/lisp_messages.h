@@ -72,14 +72,14 @@ typedef enum lisp_msg_type_ {
  * header of the encapsulated LISP control message.
  *
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |S|D|R|N|           Reserved                            |
+ *    |Type=8 |S|D|E|M|-|R|N|        Reserved                         |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
 typedef struct ecm_hdr {
 #ifdef LITTLE_ENDIANS
-    uint8_t n_bit:1; // RTR relays the ECM-ed Map-Register to a Map-Server
-    uint8_t r_bit:1; // The encapsulated msg is to be processed by an RTR
+    uint8_t m_bit:1;
+    uint8_t e_bit:1;
     uint8_t d_bit:1; // DDT originated
     uint8_t s_bit:1;
     uint8_t type:4;
@@ -87,10 +87,21 @@ typedef struct ecm_hdr {
     uint8_t type:4;
     uint8_t s_bit:1;
     uint8_t d_bit:1;
+    uint8_t e_bit:1;
+    uint8_t m_bit:1;
+#endif
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved:5;
+    uint8_t n_bit:1; // RTR relays the ECM-ed Map-Register to a Map-Server
+    uint8_t r_bit:1; // The encapsulated msg is to be processed by an RTR
+    uint8_t not_used_bit:1;
+#else
+    uint8_t not_used_bit:1;
     uint8_t r_bit:1;
     uint8_t n_bit:1;
+    uint8_t reserved:5;
 #endif
-    uint8_t reserved[3];
+    uint8_t reserved2[2];
 } ecm_hdr_t;
 
 

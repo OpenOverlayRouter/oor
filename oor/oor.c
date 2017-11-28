@@ -93,8 +93,8 @@ int oor_running;
 oor_api_connection_t oor_api_connection;
 #endif
 
-htable_nonces_t *nonces_ht;
-htable_ptrs_t *ptrs_to_timers_ht;
+htable_nonces_t *nonces_ht; //<uint64_t, oor_timer_t>
+htable_ptrs_t *ptrs_to_timers_ht; //<pointer, glist_t of timers>
 
 /**************************** FUNCTION DECLARATION ***************************/
 /* Check if oor is already running: /var/run/oor.pid */

@@ -28,9 +28,10 @@
 #include "../control/lisp_ms.h"
 #include "../control/oor_control.h"
 #include "../data-plane/data-plane.h"
-#include "../lib/shash.h"
 #include "../lib/oor_log.h"
 #include "../lib/prefixes.h"
+#include "../lib/shash.h"
+#include "../lib/util.h"
 #include <libgen.h>
 #include <string.h>
 #include <uci.h>
@@ -60,22 +61,23 @@ parse_mapping(
         oor_ctrl_dev_t         *dev,
         shash_t                *rloc_set_ht,
         shash_t                *lcaf_ht,
-        glist_t                 *no_addr_loct_l,
         uint8_t                 is_local);
+
+conf_mapping_t *
+uci_parse_conf_mapping(struct uci_context *ctx, struct uci_section *sect,
+         shash_t *rloc_set_ht, uint8_t is_local);
 
 static shash_t *
 parse_rlocs(
-        struct uci_context      *ctx,
-        struct uci_package      *pck,
-        shash_t                *lcaf_ht,
-        glist_t                 *no_addr_loct_list);
+        struct uci_context *ctx,
+        struct uci_package *pck);
 
 static shash_t *
 parse_rloc_sets(
         struct uci_context      *ctx,
         struct uci_package      *pck,
-        shash_t                *rlocs_ht,
-        shash_t                *lcaf_ht);
+        shash_t                 *rlocs_ht,
+        shash_t                 *lcaf_ht);
 static shash_t *
 parse_lcafs(
         struct uci_context      *ctx,
@@ -105,7 +107,7 @@ handle_config_file()
 
 
     if (config_file == NULL){
-    	config_file = strdup("/etc/config/oor");
+        config_file = strdup("/etc/config/oor");
     }
 
     ctx = uci_alloc_context();
@@ -115,8 +117,8 @@ handle_config_file()
         return (BAD);
     }
 
-    uci_conf_dir = dirname(strdup(config_file));
-    uci_conf_file = basename(strdup(config_file));
+    uci_conf_dir = dirname(config_file);
+    uci_conf_file = basename(config_file);
 
 
     uci_set_confdir(ctx, uci_conf_dir);
@@ -189,32 +191,35 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
     struct uci_element *elem_addr;
     struct uci_option *opt;
     int uci_retries;
-    char *uci_address;
-    char *uci_nat_aware;
+    char *uci_address, *boolean_char;
     int uci_key_type;
     char *uci_key;
+    char *uci_nat_aware;
+    int nat_aware;
     int uci_proxy_reply;
     int uci_priority;
     int uci_weigth;
-    shash_t *lcaf_ht;
-    shash_t *rlocs_ht;
-    shash_t *rloc_set_ht;
+    shash_t *lcaf_ht = NULL, *rlocs_ht = NULL, *rloc_set_ht = NULL;
     lisp_xtr_t *xtr;
     map_local_entry_t *map_loc_e;
     mapping_t *mapping;
-    glist_t *no_addr_loct_list;
+    mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
+
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
-        OOR_LOG(LCRIT, "Failed to create xTR. Aborting!");
-        return (BAD);
+        OOR_LOG(LCRIT, "Failed to create xTR device. Aborting!");
+        goto err;
     }
 
     xtr = lisp_xtr_cast(ctrl_dev);
 
+    ipv4_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET);
+    ipv6_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET6);
+
     /* FWD POLICY STRUCTURES */
-    xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
-    xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
+    xtr->tr.fwd_policy = fwd_policy_class_find("flow_balancing");
+    xtr->tr.fwd_policy_dev_parm = xtr->tr.fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
 
     /* CREATE LCAFS HTABLE */
 
@@ -223,357 +228,36 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
      * or static map cache entries  */
     lcaf_ht = parse_lcafs(ctx,pck);
     if (!lcaf_ht){
-        return (BAD);
+        goto err;
     }
 
     /* CREATE RLOCs sets HTABLE */
-    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
+    rlocs_ht = parse_rlocs(ctx,pck);
     if (!rlocs_ht){
-        glist_destroy(no_addr_loct_list);
-        return (BAD);
+        goto err;
     }
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
     if (!rloc_set_ht){
-        glist_destroy(no_addr_loct_list);
-        shash_destroy(rloc_set_ht);
-        return (BAD);
+        goto err;
     }
 
     uci_foreach_element(&pck->sections, element) {
         sect = uci_to_section(element);
         /* NAT Traversal options */
-
+        /* NAT Traversal options */
         if (strcmp(sect->type, "nat-traversal") == 0){
-            uci_nat_aware = uci_lookup_option_string(ctx, sect, "nat_traversal_support");
-            if (uci_nat_aware && strcmp(uci_nat_aware, "on") == 0){
-                xtr->nat_aware  = TRUE;
-                nat_set_xTR_ID(xtr);
-                nat_set_site_ID(xtr, 0);
-                default_rloc_afi = AF_INET;
-                OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
+            uci_nat_aware = (char *)uci_lookup_option_string(ctx, sect, "nat_traversal_support");
+            if (uci_nat_aware){
+                nat_aware = str_to_boolean(uci_nat_aware);
+                if(nat_aware == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" for nat_traversal_support",uci_nat_aware);
+                    return (BAD);
+                }
             }else{
-                xtr->nat_aware = FALSE;
-            }
-            break;
-        }
-    }
-
-
-    uci_foreach_element(&pck->sections, element) {
-            sect = uci_to_section(element);
-            if (strcmp(sect->type, "daemon") == 0){
-
-                /* RETRIES */
-                if (uci_lookup_option_string(ctx, sect, "map_request_retries") != NULL){
-                    uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
-                    if (uci_retries >= 0 && uci_retries <= OOR_MAX_RETRANSMITS){
-                        xtr->map_request_retries = uci_retries;
-                    }else if (uci_retries > OOR_MAX_RETRANSMITS){
-                        xtr->map_request_retries = OOR_MAX_RETRANSMITS;
-                        OOR_LOG(LWRN, "Map-Request retries should be between 0 and %d. "
-                                "Using default value: %d",OOR_MAX_RETRANSMITS, OOR_MAX_RETRANSMITS);
-                    }
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: Map Request Retries not specified."
-                            " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
-                    xtr->map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
-                    continue;
-                }
+                nat_aware = FALSE;
             }
 
-            /* RLOC PROBING CONFIG */
-
-            if (strcmp(sect->type, "rloc-probing") == 0){
-                if (uci_lookup_option_string(ctx, sect, "rloc_probe_interval") != NULL){
-                    xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: RLOC probe interval not specified."
-                            " Disabling RLOC Probing");
-                    xtr->probe_interval = 0;
-                    continue;
-                }
-                if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries") != NULL){
-                    xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries not specified."
-                            " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES);
-                    xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
-                }
-                if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval") != NULL){
-                    xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries Intervals not specified."
-                            " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES_INTERVAL);
-                    xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
-                }
-
-                validate_rloc_probing_parameters(&xtr->probe_interval,
-                        &xtr->probe_retries, &xtr->probe_retries_interval);
-                continue;
-            }
-
-            /* MAP-RESOLVER CONFIG */
-            if (strcmp(sect->type, "map-resolver") == 0){
-                opt  = uci_lookup_option(ctx, sect, "address");
-                if (opt != NULL){
-                    uci_foreach_element(&(opt->v.list), elem_addr){
-                        if (add_server(elem_addr->name, xtr->map_resolvers) != GOOD){
-                            OOR_LOG(LCRIT,"Can't add %s Map Resolver.",elem_addr->name);
-                        }else{
-                            OOR_LOG(LDBG_1, "Added %s to map-resolver list", elem_addr->name);
-                        }
-                    }
-                }
-                continue;
-            }
-
-            /* MAP-SERVER CONFIG */
-            if (strcmp(sect->type, "map-server") == 0){
-
-                uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
-                if (uci_lookup_option_string(ctx, sect, "key_type") != NULL){
-                    uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: No ket type assigned to the map server \"%s\"."
-                            " Set default value: HMAC_SHA_1_96",uci_address);
-                    uci_key_type = HMAC_SHA_1_96;
-                }
-
-                uci_key = (char *)uci_lookup_option_string(ctx, sect, "key");
-
-                if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
-                    uci_proxy_reply = TRUE;
-                }else{
-                    uci_proxy_reply = FALSE;
-                }
-
-                if (add_map_server(xtr->map_servers,uci_address,
-                        uci_key_type,
-                        uci_key,
-                        uci_proxy_reply) != GOOD ){
-                    OOR_LOG(LCRIT, "Can't add %s Map Server.", uci_address);
-                }else{
-                    OOR_LOG(LDBG_1, "Added %s to map-server list", uci_address);
-                }
-                continue;
-            }
-
-            /* PROXY-ETR CONFIG */
-
-            if (strcmp(sect->type, "proxy-etr-ipv4") == 0){
-                uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
-                if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
-                    uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
-                            " Set default value: 10",uci_address);
-                    uci_priority = 10;
-                }
-                if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
-                    uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
-                            " Set default value: 100",uci_address);
-                    uci_weigth = 100;
-                }
-
-                if (add_proxy_etr_entry(xtr->petrs_ipv4,uci_address,uci_priority,uci_weigth) != GOOD ){
-                    OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
-                }else{
-                    OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
-                }
-                continue;
-            }
-
-
-            /* PROXY-ETR CONFIG */
-
-            if (strcmp(sect->type, "proxy-etr-ipv6") == 0){
-                uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
-                if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
-                    uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
-                            " Set default value: 10",uci_address);
-                    uci_priority = 10;
-                }
-                if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
-                    uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
-                }else{
-                    OOR_LOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
-                            " Set default value: 100",uci_address);
-                    uci_weigth = 100;
-                }
-
-                if (add_proxy_etr_entry(xtr->petrs_ipv6,uci_address,uci_priority,uci_weigth) != GOOD ){
-                    OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
-                }else{
-                    OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
-                }
-                continue;
-            }
-
-            /* PROXY-ITR CONFIG */
-            if (strcmp(sect->type, "proxy-itr") == 0){
-                opt  = uci_lookup_option(ctx, sect, "address");
-                if (opt != NULL){
-                    uci_foreach_element(&(opt->v.list), elem_addr){
-                        if (add_server(elem_addr->name, xtr->pitrs) != GOOD){
-                            OOR_LOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", elem_addr->name);
-                        }else{
-                            OOR_LOG(LDBG_1, "Added %s to proxy-itr list", elem_addr->name);
-                        }
-                    }
-                }
-                continue;
-            }
-
-            if (strcmp(sect->type, "database-mapping") == 0){
-                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,TRUE);
-                if (mapping == NULL){
-                    OOR_LOG(LERR, "Can't add EID prefix %s. Discarded ...",
-                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                    return (BAD);
-                }
-                map_loc_e = map_local_entry_new_init(mapping);
-                if (map_loc_e == NULL){
-                    mapping_del(mapping);
-                    continue;
-                }
-
-                if (xtr->fwd_policy->init_map_loc_policy_inf(
-                        xtr->fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
-                    OOR_LOG(LERR, "Couldn't initiate forward information for mapping with EID: %s. Discarding it...",
-                            lisp_addr_to_char(mapping_eid(mapping)));
-                    map_local_entry_del(map_loc_e);
-                    continue;
-                }
-
-                if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
-                    map_local_entry_del(map_loc_e);
-                    continue;
-                }
-
-                continue;
-            }
-
-            /* STATIC MAP-CACHE CONFIG */
-            if (strcmp(sect->type, "static-map-cache") == 0){
-                mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
-                if (mapping == NULL){
-                    OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
-                            uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                    return (BAD);
-                }
-                if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
-                    if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
-                        OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
-                                lisp_addr_to_char(mapping_eid(mapping)));
-                    }else{
-                        OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
-                                mapping_eid(mapping));
-                        mapping_del(mapping);
-                    }
-                }else{
-                    OOR_LOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
-                            "Discarded ...",uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                    mapping_del(mapping);
-                    continue;
-                }
-                continue;
-            }
-    }
-    /* Calculate forwarding info por proxy-etrs */
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4) != GOOD){
-        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv4 EIDs!.");
-        mcache_entry_del(xtr->petrs_ipv4);
-        return(BAD);
-    }
-
-    /* Calculate forwarding info por proxy-etrs */
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6) != GOOD){
-        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv6 EIDs!.");
-        mcache_entry_del(xtr->petrs_ipv6);
-        return(BAD);
-    }
-
-    /* destroy the hash table */
-    shash_destroy(lcaf_ht);
-    shash_destroy(rlocs_ht);
-    shash_destroy(rloc_set_ht);
-    glist_destroy(no_addr_loct_list);
-
-    return(GOOD);
-}
-
-int
-configure_mn(struct uci_context *ctx, struct uci_package *pck)
-{
-    struct uci_section *sect;
-    struct uci_element *element;
-    struct uci_element *elem_addr;
-    struct uci_option *opt;
-    int uci_retries;
-    char *uci_address;
-    int uci_key_type;
-    char *uci_key;
-    char *uci_nat_aware;
-    int uci_proxy_reply;
-    int uci_priority;
-    int uci_weigth;
-    shash_t *lcaf_ht;
-    shash_t *rlocs_ht;
-    shash_t *rloc_set_ht;
-    lisp_xtr_t *xtr;
-    map_local_entry_t *map_loc_e;
-    mapping_t *mapping;
-    glist_t *no_addr_loct_list;
-
-
-    /* CREATE AND CONFIGURE XTR */
-    if (ctrl_dev_create(MN_MODE, &ctrl_dev) != GOOD) {
-        OOR_LOG(LCRIT, "Failed to create Mobile Node device. Aborting!");
-        return (BAD);
-    }
-
-    xtr = lisp_xtr_cast(ctrl_dev);
-
-    /* FWD POLICY STRUCTURES */
-    xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
-    xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
-
-    /* CREATE LCAFS HTABLE */
-
-    /* get a hash table of all the elps. If any are configured,
-     * their names could appear in the rloc field of database mappings
-     * or static map cache entries  */
-    lcaf_ht = parse_lcafs(ctx,pck);
-    if (!lcaf_ht){
-        return (BAD);
-    }
-
-    /* CREATE RLOCs sets HTABLE */
-    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
-    if (!rlocs_ht){
-        glist_destroy(no_addr_loct_list);
-        return (BAD);
-    }
-    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
-    if (!rloc_set_ht){
-        glist_destroy(no_addr_loct_list);
-        shash_destroy(rloc_set_ht);
-        return (BAD);
-    }
-
-    uci_foreach_element(&pck->sections, element) {
-        sect = uci_to_section(element);
-        /* NAT Traversal options */
-        /* NAT Traversal options */
-        if (strcmp(sect->type, "nat-traversal") == 0){
-            uci_nat_aware = uci_lookup_option_string(ctx, sect, "nat_traversal_support");
-            if (uci_nat_aware && strcmp(uci_nat_aware, "on") == 0){
+            if (nat_aware == TRUE){
                 xtr->nat_aware  = TRUE;
                 nat_set_xTR_ID(xtr);
                 nat_set_site_ID(xtr, 0);
@@ -595,16 +279,16 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             if (uci_lookup_option_string(ctx, sect, "map_request_retries") != NULL){
                 uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
                 if (uci_retries >= 0 && uci_retries <= OOR_MAX_RETRANSMITS){
-                    xtr->map_request_retries = uci_retries;
+                    xtr->tr.map_request_retries = uci_retries;
                 }else if (uci_retries > OOR_MAX_RETRANSMITS){
-                    xtr->map_request_retries = OOR_MAX_RETRANSMITS;
+                    xtr->tr.map_request_retries = OOR_MAX_RETRANSMITS;
                     OOR_LOG(LWRN, "Map-Request retries should be between 0 and %d. "
                             "Using default value: %d",OOR_MAX_RETRANSMITS, OOR_MAX_RETRANSMITS);
                 }
             }else{
                 OOR_LOG(LWRN,"Configuration file: Map Request Retries not specified."
                         " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
-                xtr->map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
+                xtr->tr.map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
                 continue;
             }
         }
@@ -613,30 +297,30 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
 
         if (strcmp(sect->type, "rloc-probing") == 0){
             if (uci_lookup_option_string(ctx, sect, "rloc_probe_interval") != NULL){
-                xtr->probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+                xtr->tr.probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
             }else{
                 OOR_LOG(LWRN,"Configuration file: RLOC probe interval not specified."
                         " Disabling RLOC Probing");
-                xtr->probe_interval = 0;
+                xtr->tr.probe_interval = 0;
                 continue;
             }
             if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries") != NULL){
-                xtr->probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+                xtr->tr.probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
             }else{
                 OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries not specified."
                         " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES);
-                xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+                xtr->tr.probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
             }
             if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval") != NULL){
-                xtr->probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+                xtr->tr.probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
             }else{
                 OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries Intervals not specified."
                         " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES_INTERVAL);
-                xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+                xtr->tr.probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
             }
 
-            validate_rloc_probing_parameters(&xtr->probe_interval,
-                    &xtr->probe_retries, &xtr->probe_retries_interval);
+            validate_rloc_probing_parameters(&xtr->tr.probe_interval,
+                    &xtr->tr.probe_retries, &xtr->tr.probe_retries_interval);
             continue;
         }
 
@@ -646,7 +330,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             opt  = uci_lookup_option(ctx, sect, "address");
             if (opt != NULL){
                 uci_foreach_element(&(opt->v.list), elem_addr){
-                    if (add_server(elem_addr->name, xtr->map_resolvers) != GOOD){
+                    if (add_server(elem_addr->name, xtr->tr.map_resolvers) != GOOD){
                         OOR_LOG(LCRIT,"Can't add %s Map Resolver.",elem_addr->name);
                     }else{
                         OOR_LOG(LDBG_1, "Added %s to map-resolver list", elem_addr->name);
@@ -669,8 +353,13 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             }
             uci_key = (char *)uci_lookup_option_string(ctx, sect, "key");
 
-            if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
-                uci_proxy_reply = TRUE;
+            boolean_char = (char *)uci_lookup_option_string(ctx, sect, "proxy_reply");
+            if (boolean_char){
+                uci_proxy_reply = str_to_boolean(boolean_char);
+                if(uci_proxy_reply == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in proxy_reply",boolean_char);
+                    return (BAD);
+                }
             }else{
                 uci_proxy_reply = FALSE;
             }
@@ -705,7 +394,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
                 uci_weigth = 100;
             }
 
-            if (add_proxy_etr_entry(xtr->petrs_ipv4,uci_address,uci_priority,uci_weigth) != GOOD ){
+            if (add_proxy_etr_entry(ipv4_petrs_mc,uci_address,uci_priority,uci_weigth) != GOOD ){
                 OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
             }else{
                 OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
@@ -730,7 +419,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
                 uci_weigth = 100;
             }
 
-            if (add_proxy_etr_entry(xtr->petrs_ipv6,uci_address,uci_priority,uci_weigth) != GOOD ){
+            if (add_proxy_etr_entry(ipv6_petrs_mc,uci_address,uci_priority,uci_weigth) != GOOD ){
                 OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
             }else{
                 OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
@@ -754,11 +443,11 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
         }
 
         if (strcmp(sect->type, "database-mapping") == 0){
-            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,TRUE);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,TRUE);
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't add EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                return (BAD);
+                continue;
             }
 
             map_loc_e = map_local_entry_new_init(mapping);
@@ -767,8 +456,8 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
                 continue;
             }
 
-            if ( xtr->fwd_policy->init_map_loc_policy_inf(
-                    xtr->fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
+            if ( xtr->tr.fwd_policy->init_map_loc_policy_inf(
+                    xtr->tr.fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
                 OOR_LOG(LERR, "Couldn't initiate forward information for mapping with EID: %s. Discarding it...",
                         lisp_addr_to_char(mapping_eid(mapping)));
                 map_local_entry_del(map_loc_e);
@@ -785,14 +474,14 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
 
         /* STATIC MAP-CACHE CONFIG */
         if (strcmp(sect->type, "static-map-cache") == 0){
-            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,FALSE);
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
-                return (BAD);
+                continue;
             }
-            if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
-                if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
+            if (mcache_lookup_exact(xtr->tr.map_cache, mapping_eid(mapping)) == NULL){
+                if (tr_mcache_add_mapping(&xtr->tr, mapping, MCE_STATIC, ACTIVE) != NULL){
                     OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                             lisp_addr_to_char(mapping_eid(mapping)));
                 }else{
@@ -804,31 +493,374 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
                 OOR_LOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
                         "Discarded ...",uci_lookup_option_string(ctx, sect, "eid_prefix"));
                 mapping_del(mapping);
-                continue;
             }
             continue;
         }
     }
 
     /* Calculate forwarding info por proxy-etrs */
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4) != GOOD){
+    if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv4_petrs_mc) != GOOD){
         OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv4 EIDs!.");
-        mcache_entry_del(xtr->petrs_ipv4);
-        return(BAD);
+        mcache_entry_del(ipv4_petrs_mc);
+        goto err;
     }
 
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6) != GOOD){
+    if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv6_petrs_mc) != GOOD){
         OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv6 EIDs!.");
-        mcache_entry_del(xtr->petrs_ipv6);
-        return(BAD);
+        mcache_entry_del(ipv6_petrs_mc);
+        goto err;
     }
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
     shash_destroy(rlocs_ht);
     shash_destroy(rloc_set_ht);
-    glist_destroy(no_addr_loct_list);
+    return(GOOD);
+err:
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    shash_destroy(rlocs_ht);
+    shash_destroy(rloc_set_ht);
+    return(GOOD);
+}
 
+int
+configure_mn(struct uci_context *ctx, struct uci_package *pck)
+{
+    struct uci_section *sect;
+    struct uci_element *element;
+    struct uci_element *elem_addr;
+    struct uci_option *opt;
+    int uci_retries;
+    char *uci_address, *boolean_char;
+    int uci_key_type;
+    char *uci_key;
+    char *uci_nat_aware;
+    int nat_aware;
+    int uci_proxy_reply;
+    int uci_priority;
+    int uci_weigth;
+    shash_t *lcaf_ht = NULL, *rlocs_ht = NULL, *rloc_set_ht = NULL;
+    lisp_xtr_t *xtr;
+    map_local_entry_t *map_loc_e;
+    mapping_t *mapping;
+    mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
+
+
+    /* CREATE AND CONFIGURE XTR */
+    if (ctrl_dev_create(MN_MODE, &ctrl_dev) != GOOD) {
+        OOR_LOG(LCRIT, "Failed to create Mobile Node device. Aborting!");
+        goto err;
+    }
+
+    xtr = lisp_xtr_cast(ctrl_dev);
+
+    ipv4_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET);
+    ipv6_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET6);
+
+    /* FWD POLICY STRUCTURES */
+    xtr->tr.fwd_policy = fwd_policy_class_find("flow_balancing");
+    xtr->tr.fwd_policy_dev_parm = xtr->tr.fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
+
+    /* CREATE LCAFS HTABLE */
+
+    /* get a hash table of all the elps. If any are configured,
+     * their names could appear in the rloc field of database mappings
+     * or static map cache entries  */
+    lcaf_ht = parse_lcafs(ctx,pck);
+    if (!lcaf_ht){
+        goto err;
+    }
+
+    /* CREATE RLOCs sets HTABLE */
+    rlocs_ht = parse_rlocs(ctx,pck);
+    if (!rlocs_ht){
+        goto err;
+    }
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    if (!rloc_set_ht){
+        goto err;
+    }
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+        /* NAT Traversal options */
+        /* NAT Traversal options */
+        if (strcmp(sect->type, "nat-traversal") == 0){
+            uci_nat_aware = (char *)uci_lookup_option_string(ctx, sect, "nat_traversal_support");
+            if (uci_nat_aware){
+                nat_aware = str_to_boolean(uci_nat_aware);
+                if(nat_aware == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" for nat_traversal_support",uci_nat_aware);
+                    return (BAD);
+                }
+            }else{
+                nat_aware = FALSE;
+            }
+
+            if (nat_aware  == TRUE){
+                xtr->nat_aware  = TRUE;
+                nat_set_xTR_ID(xtr);
+                nat_set_site_ID(xtr, 0);
+                default_rloc_afi = AF_INET;
+                OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
+            }else{
+                xtr->nat_aware = FALSE;
+            }
+            break;
+        }
+    }
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+        if (strcmp(sect->type, "daemon") == 0){
+
+            /* RETRIES */
+            if (uci_lookup_option_string(ctx, sect, "map_request_retries") != NULL){
+                uci_retries = strtol(uci_lookup_option_string(ctx, sect, "map_request_retries"),NULL,10);
+                if (uci_retries >= 0 && uci_retries <= OOR_MAX_RETRANSMITS){
+                    xtr->tr.map_request_retries = uci_retries;
+                }else if (uci_retries > OOR_MAX_RETRANSMITS){
+                    xtr->tr.map_request_retries = OOR_MAX_RETRANSMITS;
+                    OOR_LOG(LWRN, "Map-Request retries should be between 0 and %d. "
+                            "Using default value: %d",OOR_MAX_RETRANSMITS, OOR_MAX_RETRANSMITS);
+                }
+            }else{
+                OOR_LOG(LWRN,"Configuration file: Map Request Retries not specified."
+                        " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
+                xtr->tr.map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
+                continue;
+            }
+        }
+
+        /* RLOC PROBING CONFIG */
+
+        if (strcmp(sect->type, "rloc-probing") == 0){
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_interval") != NULL){
+                xtr->tr.probe_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_interval"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: RLOC probe interval not specified."
+                        " Disabling RLOC Probing");
+                xtr->tr.probe_interval = 0;
+                continue;
+            }
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries") != NULL){
+                xtr->tr.probe_retries = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries not specified."
+                        " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES);
+                xtr->tr.probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+            }
+            if (uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval") != NULL){
+                xtr->tr.probe_retries_interval = strtol(uci_lookup_option_string(ctx, sect, "rloc_probe_retries_interval"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: RLOC Probe Retries Intervals not specified."
+                        " Setting default value: %d sec.",DEFAULT_RLOC_PROBING_RETRIES_INTERVAL);
+                xtr->tr.probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+            }
+
+            validate_rloc_probing_parameters(&xtr->tr.probe_interval,
+                    &xtr->tr.probe_retries, &xtr->tr.probe_retries_interval);
+            continue;
+        }
+
+
+        /* MAP-RESOLVER CONFIG */
+        if (strcmp(sect->type, "map-resolver") == 0){
+            opt  = uci_lookup_option(ctx, sect, "address");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    if (add_server(elem_addr->name, xtr->tr.map_resolvers) != GOOD){
+                        OOR_LOG(LCRIT,"Can't add %s Map Resolver.",elem_addr->name);
+                    }else{
+                        OOR_LOG(LDBG_1, "Added %s to map-resolver list", elem_addr->name);
+                    }
+                }
+            }
+            continue;
+        }
+
+        /* MAP-SERVER CONFIG */
+        if (strcmp(sect->type, "map-server") == 0){
+
+            uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
+            if (uci_lookup_option_string(ctx, sect, "key_type") != NULL){
+                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: No ket type assigned to the map server \"%s\"."
+                        " Set default value: HMAC_SHA_1_96",uci_address);
+                uci_key_type = HMAC_SHA_1_96;
+            }
+            uci_key = (char *)uci_lookup_option_string(ctx, sect, "key");
+
+            boolean_char = (char *)uci_lookup_option_string(ctx, sect, "proxy_reply");
+            if (boolean_char){
+                uci_proxy_reply = str_to_boolean(boolean_char);
+                if(uci_proxy_reply == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in proxy_reply",boolean_char);
+                    return (BAD);
+                }
+            }else{
+                uci_proxy_reply = FALSE;
+            }
+
+            if (add_map_server(xtr->map_servers,uci_address,
+                    uci_key_type,
+                    uci_key,
+                    uci_proxy_reply) != GOOD ){
+                OOR_LOG(LCRIT, "Can't add %s Map Server.", uci_address);
+            }else{
+                OOR_LOG(LDBG_1, "Added %s to map-server list", uci_address);
+            }
+            continue;
+        }
+
+        /* PROXY-ETR CONFIG */
+
+        if (strcmp(sect->type, "proxy-etr-ipv4") == 0){
+            uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
+            if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
+                        " Set default value: 10",uci_address);
+                uci_priority = 10;
+            }
+            if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
+                        " Set default value: 100",uci_address);
+                uci_weigth = 100;
+            }
+
+            if (add_proxy_etr_entry(ipv4_petrs_mc,uci_address,uci_priority,uci_weigth) != GOOD ){
+                OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
+            }else{
+                OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
+            }
+            continue;
+        }
+
+        if (strcmp(sect->type, "proxy-etr-ipv6") == 0){
+            uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
+            if (uci_lookup_option_string(ctx, sect, "priority") != NULL){
+                uci_priority = strtol(uci_lookup_option_string(ctx, sect, "priority"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: No priority assigned to the proxy-etr \"%s\"."
+                        " Set default value: 10",uci_address);
+                uci_priority = 10;
+            }
+            if (uci_lookup_option_string(ctx, sect, "weight") != NULL){
+                uci_weigth = strtol(uci_lookup_option_string(ctx, sect, "weight"),NULL,10);
+            }else{
+                OOR_LOG(LWRN,"Configuration file: No weight assigned to the proxy-etr \"%s\"."
+                        " Set default value: 100",uci_address);
+                uci_weigth = 100;
+            }
+
+            if (add_proxy_etr_entry(ipv6_petrs_mc,uci_address,uci_priority,uci_weigth) != GOOD ){
+                OOR_LOG(LERR, "Can't add proxy-etr %s", uci_address);
+            }else{
+                OOR_LOG(LDBG_1, "Added %s to proxy-etr list", uci_address);
+            }
+            continue;
+        }
+
+        /* PROXY-ITR CONFIG */
+        if (strcmp(sect->type, "proxy-itr") == 0){
+            opt  = uci_lookup_option(ctx, sect, "address");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    if (add_server(elem_addr->name, xtr->pitrs) != GOOD){
+                        OOR_LOG(LERR, "Can't add %s to proxy-itr list. Discarded ...", elem_addr->name);
+                    }else{
+                        OOR_LOG(LDBG_1, "Added %s to proxy-itr list", elem_addr->name);
+                    }
+                }
+            }
+            continue;
+        }
+
+        if (strcmp(sect->type, "database-mapping") == 0){
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,TRUE);
+            if (mapping == NULL){
+                OOR_LOG(LERR, "Can't add EID prefix %s. Discarded ...",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                continue;
+            }
+
+            map_loc_e = map_local_entry_new_init(mapping);
+            if (map_loc_e == NULL){
+                mapping_del(mapping);
+                continue;
+            }
+
+            if ( xtr->tr.fwd_policy->init_map_loc_policy_inf(
+                    xtr->tr.fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
+                OOR_LOG(LERR, "Couldn't initiate forward information for mapping with EID: %s. Discarding it...",
+                        lisp_addr_to_char(mapping_eid(mapping)));
+                map_local_entry_del(map_loc_e);
+                continue;
+            }
+
+            if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
+                map_local_entry_del(map_loc_e);
+                continue;
+            }
+
+            continue;
+        }
+
+        /* STATIC MAP-CACHE CONFIG */
+        if (strcmp(sect->type, "static-map-cache") == 0){
+            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,FALSE);
+            if (mapping == NULL){
+                OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                        uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                continue;
+            }
+            if (mcache_lookup_exact(xtr->tr.map_cache, mapping_eid(mapping)) == NULL){
+                if (tr_mcache_add_mapping(&xtr->tr, mapping, MCE_STATIC, ACTIVE) != NULL){
+                    OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
+                            lisp_addr_to_char(mapping_eid(mapping)));
+                }else{
+                    OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
+                            mapping_eid(mapping));
+                    mapping_del(mapping);
+                }
+            }else{
+                OOR_LOG(LERR, "Configuration file: Duplicated static Map Cache entry with EID prefix %s."
+                        "Discarded ...",uci_lookup_option_string(ctx, sect, "eid_prefix"));
+                mapping_del(mapping);
+            }
+            continue;
+        }
+    }
+
+    /* Calculate forwarding info por proxy-etrs */
+    if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv4_petrs_mc) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv4 EIDs!.");
+        mcache_entry_del(ipv4_petrs_mc);
+        goto err;
+    }
+
+    if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv6_petrs_mc) != GOOD){
+        OOR_LOG(LDBG_1, "Couldn't initiate routing info for PeTRs for IPv6 EIDs!.");
+        mcache_entry_del(ipv6_petrs_mc);
+        goto err;
+    }
+
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    shash_destroy(rlocs_ht);
+    shash_destroy(rloc_set_ht);
+    return(GOOD);
+err:
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    shash_destroy(rlocs_ht);
+    shash_destroy(rloc_set_ht);
     return(GOOD);
 }
 
@@ -844,18 +876,13 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
     shash_t *rlocs_ht;
     shash_t *rloc_set_ht;
     int uci_retries;
-    char *uci_address;
-    int uci_key_type;
-    char *uci_key;
-    int uci_proxy_reply;
     char *uci_iface;
     mapping_t *mapping;
     int uci_afi;
     int uci_priority;
     int uci_weigth;
-    glist_t *no_addr_loct_list;
 
-    /* CREATE AND CONFIGURE RTR (xTR in fact) */
+    /* CREATE AND CONFIGURE RTR (RTR in fact) */
     if (ctrl_dev_create(RTR_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create RTR. Aborting!");
         return (BAD);
@@ -878,15 +905,12 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
     }
 
     /* CREATE RLOCs sets HTABLE */
-    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
+    rlocs_ht = parse_rlocs(ctx,pck);
     if (!rlocs_ht){
-        glist_destroy(no_addr_loct_list);
         return (BAD);
     }
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
     if (!rloc_set_ht){
-        glist_destroy(no_addr_loct_list);
         shash_destroy(rloc_set_ht);
         return (BAD);
     }
@@ -959,46 +983,16 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
             continue;
         }
 
-        /* MAP-SERVER CONFIG */
-        if (strcmp(sect->type, "map-server") == 0){
-
-            uci_address = (char *)uci_lookup_option_string(ctx, sect, "address");
-            if (uci_lookup_option_string(ctx, sect, "key_type") != NULL){
-                uci_key_type = strtol(uci_lookup_option_string(ctx, sect, "key_type"),NULL,10);
-            }else{
-                OOR_LOG(LWRN,"Configuration file: No ket type assigned to the map server \"%s\"."
-                        " Set default value: HMAC_SHA_1_96",uci_address);
-                uci_key_type = HMAC_SHA_1_96;
-            }
-            uci_key = (char *)uci_lookup_option_string(ctx, sect, "key");
-
-            if (strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
-                uci_proxy_reply = TRUE;
-            }else{
-                uci_proxy_reply = FALSE;
-            }
-
-            if (add_map_server(rtr->map_servers,uci_address,
-                    uci_key_type,
-                    uci_key,
-                    uci_proxy_reply) != GOOD ){
-                OOR_LOG(LCRIT, "Can't add %s Map Server.", uci_address);
-            }else{
-                OOR_LOG(LDBG_1, "Added %s to map-server list", uci_address);
-            }
-            continue;
-        }
-
         /* STATIC MAP-CACHE CONFIG */
         if (strcmp(sect->type, "static-map-cache") == 0){
-            mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
+            mapping = parse_mapping(ctx,sect,&(rtr->super),rloc_set_ht,lcaf_ht,FALSE);
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
                 return (BAD);
             }
-            if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
-                if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
+            if (mcache_lookup_exact(rtr->tr.map_cache, mapping_eid(mapping)) == NULL){
+                if (tr_mcache_add_mapping(&rtr->tr, mapping, MCE_STATIC, ACTIVE) != NULL){
                     OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                             lisp_addr_to_char(mapping_eid(mapping)));
                 }else{
@@ -1040,7 +1034,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
                         " Set default value: 100",uci_iface);
                 uci_weigth = 100;
             }
-            if (add_rtr_iface(xtr,
+            if (add_rtr_iface(rtr,
                     uci_iface,
                     uci_afi,
                     uci_priority,
@@ -1049,6 +1043,18 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
             } else{
                 OOR_LOG(LERR, "Can't configure iface %s for RTR",uci_iface);
             }
+            continue;
+        }
+
+        /* NAT conf of the RTR */
+        if (strcmp(sect->type, "rtr-ms-node") == 0){
+            if (rtr_add_rtr_ms_node(rtr,
+                    (char *)uci_lookup_option_string(ctx, sect, "address"),
+                    (char *)uci_lookup_option_string(ctx, sect, "key"),
+                    (char *)uci_lookup_option_string(ctx, sect, "draft_version")) != GOOD){
+                return (BAD);
+            }
+            continue;
         }
     }
 
@@ -1056,7 +1062,6 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
     shash_destroy(lcaf_ht);
     shash_destroy(rlocs_ht);
     shash_destroy(rloc_set_ht);
-    glist_destroy(no_addr_loct_list);
 
     return(GOOD);
 }
@@ -1066,12 +1071,12 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
 {
     lisp_ms_t *ms;
     struct uci_section *sect;
-    struct uci_element *element;
-    char *uci_iface;
+    struct uci_option *opt;
+    struct uci_element *element, *uci_elem;
     char *uci_eid_prefix;
-    int uci_iid = 0;
+    int uci_iid = 0, uci_ttl=0;
     int uci_key_type;
-    char *uci_key;
+    char *uci_key, *uci_iface,*boolean_char;
     uint8_t uci_more_specifics;
     uint8_t uci_proxy_reply;
     uint8_t uci_merge;
@@ -1080,7 +1085,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
     shash_t *lcaf_ht;
     shash_t *rlocs_ht;
     shash_t *rloc_set_ht;
-    glist_t *no_addr_loct_list;
+    glist_t *rtr_id_list;
     iface_t *iface;
 
     /* create and configure xtr */
@@ -1098,15 +1103,12 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
     }
 
     /* CREATE RLOCs sets HTABLE */
-    no_addr_loct_list = glist_new_managed((glist_del_fct)no_addr_loct_del);
-    rlocs_ht = parse_rlocs(ctx,pck,lcaf_ht,no_addr_loct_list);
+    rlocs_ht = parse_rlocs(ctx,pck);
     if (!rlocs_ht){
-        glist_destroy(no_addr_loct_list);
         return (BAD);
     }
     rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
     if (!rloc_set_ht){
-        glist_destroy(no_addr_loct_list);
         shash_destroy(rloc_set_ht);
         return (BAD);
     }
@@ -1149,24 +1151,39 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
                 return (BAD);
             }
 
-            if (uci_lookup_option_string(ctx, sect, "accept_more_specifics") != NULL &&
-                    strcmp(uci_lookup_option_string(ctx, sect, "accept_more_specifics"), "on") == 0){
-                uci_more_specifics = TRUE;
+            boolean_char = (char *)uci_lookup_option_string(ctx, sect, "accept_more_specifics");
+            if (boolean_char){
+                uci_more_specifics = str_to_boolean(boolean_char);
+                if(uci_more_specifics == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in accept_more_specifics", boolean_char);
+                    return (BAD);
+                }
             }else{
                 uci_more_specifics = FALSE;
             }
-            if (uci_lookup_option_string(ctx, sect, "proxy_reply") != NULL &&
-                    strcmp(uci_lookup_option_string(ctx, sect, "proxy_reply"), "on") == 0){
-                uci_proxy_reply = TRUE;
+
+            boolean_char = (char *)uci_lookup_option_string(ctx, sect, "proxy_reply");
+            if (boolean_char){
+                uci_proxy_reply = str_to_boolean(boolean_char);
+                if(uci_proxy_reply == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in proxy_reply",boolean_char);
+                    return (BAD);
+                }
             }else{
                 uci_proxy_reply = FALSE;
             }
-            if (uci_lookup_option_string(ctx, sect, "merge") != NULL &&
-                    strcmp(uci_lookup_option_string(ctx, sect, "merge"), "on") == 0){
-                uci_merge = TRUE;
+
+            boolean_char = (char *)uci_lookup_option_string(ctx, sect, "merge");
+            if (boolean_char){
+                uci_merge = str_to_boolean(boolean_char);
+                if(uci_merge == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in merge",boolean_char);
+                    return (BAD);
+                }
             }else{
                 uci_merge = FALSE;
             }
+
             if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
                 uci_iid = 0;
             }else{
@@ -1194,7 +1211,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
 
         /* LISP REGISTERED SITES CONFIG */
         if (strcmp(sect->type, "ms-static-registered-site") == 0){
-            mapping = parse_mapping(ctx,sect,&(ms->super),rloc_set_ht,lcaf_ht,no_addr_loct_list,FALSE);
+            mapping = parse_mapping(ctx,sect,&(ms->super),rloc_set_ht,lcaf_ht,FALSE);
             if (mapping == NULL){
                 OOR_LOG(LERR, "Can't create static register site for %s",
                         uci_lookup_option_string(ctx, sect, "eid_prefix"));
@@ -1203,7 +1220,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
             if (mdb_lookup_entry_exact(ms->reg_sites_db, mapping_eid(mapping)) == NULL){
                 if (ms_add_registered_site_prefix(ms, mapping) == GOOD){
                     OOR_LOG(LDBG_1, "Added static registered site for %s to the registered sites list!",
-                                        lisp_addr_to_char(mapping_eid(mapping)));
+                            lisp_addr_to_char(mapping_eid(mapping)));
                 }else{
                     OOR_LOG(LERR, "Failed to add static registered site for %s to the registered sites list!",
                             lisp_addr_to_char(mapping_eid(mapping)));
@@ -1217,143 +1234,153 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
             }
             continue;
         }
+
+        /* NAT RTR configuration of the MS */
+
+        if (strcmp(sect->type, "ms-rtr-node") == 0){
+            if (ms_add_rtr_node(ms,
+                    (char *)uci_lookup_option_string(ctx, sect, "name"),
+                    (char *)uci_lookup_option_string(ctx, sect, "address"),
+                    (char *)uci_lookup_option_string(ctx, sect, "key")) != GOOD){
+                return(BAD);
+            }
+            continue;
+        }
+
+        if (strcmp(sect->type, "ms-rtrs-set") == 0){
+            rtr_id_list = glist_new();
+            opt  = uci_lookup_option(ctx, sect, "rtrs");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), uci_elem){
+                    glist_add(uci_elem->name,rtr_id_list);
+                }
+            }
+            if (uci_lookup_option_string(ctx, sect, "ttl") == NULL){
+                uci_ttl = OOR_MS_RTR_TTL;
+            }else{
+                uci_ttl = strtol(uci_lookup_option_string(ctx, sect, "ttl"),NULL,10);
+            }
+
+            if (ms_add_rtr_set(ms,
+                    (char *)uci_lookup_option_string(ctx, sect, "name"),
+                    uci_ttl,
+                    rtr_id_list)!=GOOD){
+                glist_destroy(rtr_id_list);
+                return (BAD);
+            }
+            glist_destroy(rtr_id_list);
+            continue;
+        }
+
+        if (strcmp(sect->type, "ms-advertised-rtrs-set") == 0){
+            if (ms_advertised_rtr_set(ms, (char *)uci_lookup_option_string(ctx, sect, "name")) != GOOD){
+                return (BAD);
+            }
+            continue;
+        }
     }
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
     shash_destroy(rlocs_ht);
     shash_destroy(rloc_set_ht);
-    glist_destroy(no_addr_loct_list);
 
     return(GOOD);
 }
 
+
 static mapping_t*
 parse_mapping(struct uci_context *ctx, struct uci_section *sect,
         oor_ctrl_dev_t *dev, shash_t *rloc_set_ht, shash_t *lcaf_ht,
-        glist_t *no_addr_loct_l, uint8_t is_local)
+        uint8_t is_local)
 {
-    mapping_t *map;
-    locator_t *loct;
-    locator_t *aux_loct;
-    glist_t *addr_list;
-    lisp_addr_t *eid_prefix, *ip_eid_prefix;
-    char *uci_eid;
-    char *uci_rloc_set;
-    int uci_iid,iidmlen;
-    glist_t *rloc_list;
-    glist_entry_t *it;
-    lisp_xtr_t *xtr = NULL;
+    mapping_t *mapping;
+    conf_mapping_t *conf_mapping;
 
-    switch (dev->mode){
-    case xTR_MODE:
-    case MN_MODE:
-        xtr  = lisp_xtr_cast(ctrl_dev);
-        break;
-    default:
-        break;
-    }
-
-    uci_eid = (char *)uci_lookup_option_string(ctx, sect, "eid_prefix");
-
-    uci_rloc_set = (char *)uci_lookup_option_string(ctx, sect, "rloc_set");
-    if (uci_eid == NULL || uci_rloc_set == NULL){
+    conf_mapping = uci_parse_conf_mapping(ctx,sect,rloc_set_ht,is_local);
+    if (!conf_mapping){
         return (NULL);
     }
-    /* Check if the rloc-set exists */
-    rloc_list = (glist_t *)shash_lookup(rloc_set_ht,uci_rloc_set);
-    if (rloc_list == NULL){
-        OOR_LOG(LWRN,"Configuration file: The rloc set %s doesn't exist", uci_rloc_set);
-        return (NULL);
-    }
-    /* Get EID prefix */
-    addr_list = parse_lisp_addr(uci_eid, lcaf_ht);
-    if (addr_list == NULL || glist_size(addr_list) != 1){
-        return (NULL);
-    }
-    ip_eid_prefix = (lisp_addr_t *)glist_first_data(addr_list);
-    pref_conv_to_netw_pref(ip_eid_prefix);
+    mapping = process_mapping_config(dev, lcaf_ht, conf_mapping, is_local);
 
-    if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
-        uci_iid = 0;
-    }else{
-        uci_iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
-    }
-    if (uci_iid > MAX_IID || uci_iid < 0) {
-        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
-                "disabling...",uci_iid, MAX_IID);
-        uci_iid = 0;
-    }
-    if (uci_iid > 0){
-        iidmlen = (lisp_addr_ip_afi(ip_eid_prefix) == AF_INET) ? 32: 128;
-        eid_prefix = lisp_addr_new_init_iid(uci_iid, ip_eid_prefix, iidmlen);
-    }else{
-        eid_prefix = lisp_addr_clone(ip_eid_prefix);
-    }
+    conf_mapping_destroy(conf_mapping);
 
-    /* Create mapping */
-    if ( is_local){
-        map = mapping_new_init(eid_prefix);
-        if (map != NULL){
-            mapping_set_ttl(map, DEFAULT_DATA_CACHE_TTL);
-            mapping_set_auth(map, 1);
-        }
-    }else{
-        map = mapping_new_init(eid_prefix);
-    }
-
-    /* no need for the prefix */
-    lisp_addr_del(eid_prefix);
-    glist_destroy(addr_list);
-
-    if (map == NULL){
-        return (NULL);
-    }
-
-    /* Add the locators of the rloc-set to the mapping */
-    glist_for_each_entry(it,rloc_list){
-        aux_loct = (locator_t*)glist_entry_data(it);
-        loct = clone_customize_locator(dev,aux_loct,no_addr_loct_l,is_local);
-        if (loct == NULL){
-            continue;
-        }
-        if (mapping_add_locator(map, loct) != GOOD){
-            if (xtr != NULL && is_local){
-                iface_locators_unattach_locator(xtr->iface_locators_table,loct);
-            }
-            locator_del(loct);
-            continue;
-        }
-
-    }
-
-    return(map);
+    return(mapping);
 }
 
-static shash_t *
-parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
-        glist_t *no_addr_loct_l)
+conf_mapping_t *
+uci_parse_conf_mapping(struct uci_context *ctx, struct uci_section *sect,
+         shash_t *rloc_set_ht, uint8_t is_local)
 {
+    conf_mapping_t *conf_mapping;
+    char *uci_eid, *uci_rloc_set;
+    glist_t *rloc_list;
+    glist_entry_t *rloc_it;
+    gconf_loc_t *gconf_loct;
+
+    conf_mapping = conf_mapping_new();
+    if (!conf_mapping){
+        goto err;
+    }
+    uci_eid = (char *)uci_lookup_option_string(ctx, sect, "eid_prefix");
+    uci_rloc_set = (char *)uci_lookup_option_string(ctx, sect, "rloc_set");
+    if (!uci_eid || !uci_rloc_set){
+        goto err;
+    }
+    if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
+        conf_mapping->iid = 0;
+    }else{
+        conf_mapping->iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
+    }
+    if (is_local){
+        conf_mapping->ttl = DEFAULT_DATA_CACHE_TTL;
+    }
+
+    conf_mapping->eid_prefix = strdup(uci_eid);
+    /* Check if the rloc-set exists */
+    rloc_list = (glist_t *)shash_lookup(rloc_set_ht,uci_rloc_set);
+    if (!rloc_list){
+        OOR_LOG(LWRN,"Configuration file: The rloc set %s doesn't exist", uci_rloc_set);
+        goto err;
+    }
+    /* Add the locators to the conf mapping*/
+    glist_for_each_entry(rloc_it,rloc_list){
+        gconf_loct = (gconf_loc_t *)glist_entry_data(rloc_it);
+        switch (gconf_loct->type){
+        case CONF_LOCT_ADDR:
+            glist_add(conf_loc_clone(gconf_loct->conf_loct),conf_mapping->conf_loc_list);
+            break;
+        case CONF_LOCT_IFACE:
+            glist_add(conf_loc_iface_clone(gconf_loct->conf_loct),conf_mapping->conf_loc_iface_list);
+            break;
+        }
+    }
+    return (conf_mapping);
+err:
+    conf_mapping_destroy(conf_mapping);
+    return (NULL);
+}
+
+
+static shash_t *
+parse_rlocs(struct uci_context *ctx, struct uci_package *pck)
+{
+    shash_t *conf_loct_tbl;
     struct uci_section *section;
     struct uci_element *element;
-    shash_t *rlocs_ht;
-    locator_t *locator;
-    glist_t *addr_list;
-    lisp_addr_t *address;
-    iface_t *iface;
+    gconf_loc_t *conf_loct;
+    conf_loc_t *conf_loc_addr;
+    conf_loc_iface_t *conf_loc_iface;
     char *uci_rloc_name;
     char *uci_address;
     char *uci_iface_name;
     int uci_afi;
     int uci_priority;
     int uci_weight;
-    int afi;
-    no_addr_loct *nloct;
 
+    conf_loct_tbl = shash_new_managed((free_value_fn_t)gconf_loc_destroy);
 
     /* create lcaf hash table */
-    rlocs_ht = shash_new_managed((free_value_fn_t)locator_del);
-
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
 
@@ -1361,141 +1388,88 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck, shash_t *lcaf_ht,
             uci_rloc_name = (char *)uci_lookup_option_string(ctx, section, "name");
             if (uci_rloc_name == NULL){
                 OOR_LOG(LERR,"Configuration file: An rloc-address should have a name");
-                goto error;
+                goto err;
             }
             uci_address = (char *)uci_lookup_option_string(ctx, section, "address");
-            if (uci_address == NULL){
-                OOR_LOG(LERR,"Configuration file: No address assigned to the rloc \"%s\"",uci_rloc_name);
-                goto error;
-            }
             if (uci_lookup_option_string(ctx, section, "priority") == NULL){
                 OOR_LOG(LERR,"Configuration file: No priority assigned to the rloc \"%s\"",uci_rloc_name);
-                goto error;
+                goto err;
             }
             uci_priority = strtol(uci_lookup_option_string(ctx, section, "priority"),NULL,10);
             if (uci_lookup_option_string(ctx, section, "weight") == NULL){
                 OOR_LOG(LERR,"Configuration file: No weight assigned to the rloc \"%s\"",uci_rloc_name);
-                goto error;
+                goto err;
             }
             uci_weight = strtol(uci_lookup_option_string(ctx, section, "weight"),NULL,10);
 
-            if (validate_priority_weight(uci_priority, uci_weight) != GOOD) {
-                goto error;
-            }
-            if (shash_lookup(rlocs_ht,uci_rloc_name) != NULL){
+            if (shash_lookup(conf_loct_tbl,uci_rloc_name) != NULL){
                 OOR_LOG(LDBG_1,"Configuration file: The RLOC %s is duplicated.", uci_rloc_name);
-                goto error;
+                goto err;
             }
-            addr_list = parse_lisp_addr(uci_address, lcaf_ht);
-            if (addr_list == NULL || glist_size(addr_list) == 0){
-                continue;
+            conf_loc_addr = conf_loc_new_init(uci_address, uci_priority, uci_weight, 255, 0);
+            if (!conf_loc_addr){
+                goto err;
             }
-            if (glist_size(addr_list) > 1){
-                OOR_LOG(LDBG_1,"Configuration file: With OpenWrt, RLOCs configured with FQDN address "
-                        "only use the first IP of the DNS resolution.");
+            conf_loct = gconf_loc_new_init(CONF_LOCT_ADDR,conf_loc_addr);
+            if (!conf_loct ){
+                goto err;
             }
-            address = (lisp_addr_t *)glist_first_data(addr_list);
-
-            if (lisp_addr_lafi(address) == LM_AFI_IPPREF){
-                OOR_LOG(LERR, "Configuration file: RLOC address can not be a prefix: %s ",
-                        lisp_addr_to_char(address));
-                goto error;
-            }
-
-            /* Create a basic locator. Locaor or remote information will be added later according
-             * who is using the locator*/
-            locator = locator_new_init(address,UP,1,1,uci_priority,uci_weight,255,0);
-            if (locator != NULL){
-                shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
-            }
-            lisp_addr_del(address);
+            shash_insert(conf_loct_tbl, strdup(uci_rloc_name), conf_loct);
         }
 
         if (strcmp(section->type, "rloc-iface") == 0){
             uci_rloc_name = (char *)uci_lookup_option_string(ctx, section, "name");
             if (uci_rloc_name == NULL){
                 OOR_LOG(LERR,"Configuration file: An rloc-iface should have a name");
-                goto error;
+                goto err;
             }
             uci_iface_name = (char *)uci_lookup_option_string(ctx, section, "interface");
-            if (uci_iface_name == NULL){
-                OOR_LOG(LERR,"Configuration file: An rloc-iface should have an interface selected");
-                goto error;
-            }
             if (uci_lookup_option_string(ctx, section, "ip_version") == NULL){
                 OOR_LOG(LERR,"Configuration file: No afi assigned to the rloc \"%s\"",uci_rloc_name);
-                goto error;
+                goto err;
             }
             uci_afi = strtol(uci_lookup_option_string(ctx, section, "ip_version"),NULL,10);
             if (uci_lookup_option_string(ctx, section, "priority") == NULL){
                 OOR_LOG(LERR,"Configuration file: No priority assigned to the rloc \"%s\"",uci_rloc_name);
-                goto error;
+                goto err;
             }
+
+
             uci_priority = strtol(uci_lookup_option_string(ctx, section, "priority"),NULL,10);
             if (uci_lookup_option_string(ctx, section, "weight") == NULL){
                 OOR_LOG(LERR,"Configuration file: No weight assigned to the rloc \"%s\"",uci_rloc_name);
-                goto error;
+                goto err;
             }
             uci_weight = strtol(uci_lookup_option_string(ctx, section, "weight"),NULL,10);
 
-            if (validate_priority_weight(uci_priority, uci_weight) != GOOD) {
-                goto error;
-            }
 
-            if (uci_afi != 4 && uci_afi !=6){
-                OOR_LOG(LERR, "Configuration file: The afi of the locator should be \"4\" (IPv4)"
-                        " or \"6\" (IPv6)");
-                goto error;
-            }
-
-            if (shash_lookup(rlocs_ht,uci_rloc_name) != NULL){
+            if (shash_lookup(conf_loct_tbl,uci_rloc_name) != NULL){
                 OOR_LOG(LDBG_1,"Configuration file: The RLOC %s is duplicated.", uci_rloc_name);
-                goto error;
-            }
-
-            /* Find the interface */
-            if (!(iface = get_interface(uci_iface_name))) {
-                if (!(iface = add_interface(uci_iface_name))) {
-                    goto error;
-                }
-            }
-
-            if (uci_afi == 4){
-                iface_configure (iface, AF_INET);
-                address = iface->ipv4_address;
-                afi = AF_INET;
-            }else{
-                iface_configure (iface, AF_INET6);
-                address = iface->ipv6_address;
-                afi = AF_INET6;
+                goto err;
             }
 
             /* Create a basic locator. Locaor or remote information will be added later according
              * who is using the locator*/
-            locator = locator_new_init(address,UP,1,1,uci_priority,uci_weight,255,0);
-            if (locator != NULL){
-                shash_insert(rlocs_ht, strdup(uci_rloc_name), locator);
+            conf_loc_iface = conf_loc_iface_new_init(uci_iface_name, uci_afi, uci_priority,
+                    uci_weight, 255, 0);
+            if (!conf_loc_iface){
+                goto err;
             }
-            /* If iface is not initialized, modify addres of the aux locator indicating the IP afi.
-             * This information will be used during the process of association of the cloned locator
-             * with the iface */
-            if (lisp_addr_is_no_addr(address)){
-                nloct = no_addr_loct_new_init(locator, uci_iface_name, afi);
-                glist_add(nloct,no_addr_loct_l);
+            conf_loct = gconf_loc_new_init(CONF_LOCT_IFACE,conf_loc_iface);
+            if (!conf_loct){
+                goto err;
             }
+            shash_insert(conf_loct_tbl, strdup(uci_rloc_name), conf_loct);
         }
     }
-
-    return (rlocs_ht);
-
-error:
-    shash_destroy(rlocs_ht);
+    return (conf_loct_tbl);
+err:
+    shash_destroy(conf_loct_tbl);
     return (NULL);
 }
 
 static shash_t *
-parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs_ht,
-        shash_t *lcaf_ht)
+parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs_ht,  shash_t *lcaf_ht)
 {
     struct uci_section *section;
     struct uci_element *element;
@@ -1537,6 +1511,9 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
                 uci_foreach_element(&(opt->v.list), element_loct){
                     loct = shash_lookup(rlocs_ht, element_loct->name);
                     if (loct == NULL){
+                        loct = shash_lookup(lcaf_ht, element_loct->name);
+                    }
+                    if (loct == NULL){
                         OOR_LOG(LWRN,"Configuration file: The RLOC name %s of the RLOC set %s doesn't exist",
                                 element_loct->name, uci_rloc_set_name);
                         goto error;
@@ -1557,7 +1534,7 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
 
     return (rloc_sets_ht);
 
-error:
+    error:
     shash_destroy(rloc_sets_ht);
     return (NULL);
 }
@@ -1574,7 +1551,6 @@ parse_lcafs(struct uci_context *ctx, struct uci_package *pck)
 
     uci_foreach_element(&pck->sections, element) {
         section = uci_to_section(element);
-
         if (strcmp(section->type, "elp-node") == 0){
             if (parse_elp_node(ctx,section,lcaf_ht)!=GOOD){
                 shash_destroy(lcaf_ht);
@@ -1592,7 +1568,7 @@ parse_lcafs(struct uci_context *ctx, struct uci_package *pck)
 static int
 parse_elp_node(struct uci_context *ctx, struct uci_section *section, shash_t *ht)
 {
-    char *uci_elp_name;
+    char *uci_elp_name, *boolean_char;
     char *uci_address;
     lisp_addr_t *laddr;
     elp_node_t *elp_node;
@@ -1636,20 +1612,35 @@ parse_elp_node(struct uci_context *ctx, struct uci_section *section, shash_t *ht
         return (BAD);
     }
 
-    if (strcmp(uci_lookup_option_string(ctx, section, "strict"), "on") == 0){
-        elp_node->S = TRUE;
+    boolean_char = (char *)uci_lookup_option_string(ctx, section, "strict");
+    if (boolean_char){
+        elp_node->S = str_to_boolean(boolean_char);
+        if(elp_node->S == UNKNOWN){
+            OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in strict option of ELP",boolean_char);
+            return (BAD);
+        }
     }else{
         elp_node->S = FALSE;
     }
 
-    if (strcmp(uci_lookup_option_string(ctx, section, "probe"), "on") == 0){
-        elp_node->P = TRUE;
+    boolean_char = (char *)uci_lookup_option_string(ctx, section, "probe");
+    if (boolean_char){
+        elp_node->P = str_to_boolean(boolean_char);
+        if(elp_node->P == UNKNOWN){
+            OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in probe option of ELP",boolean_char);
+            return (BAD);
+        }
     }else{
         elp_node->P = FALSE;
     }
 
-    if (strcmp(uci_lookup_option_string(ctx, section, "lookup"), "on") == 0){
-        elp_node->L = TRUE;
+    boolean_char = (char *)uci_lookup_option_string(ctx, section, "lookup");
+    if (boolean_char){
+        elp_node->L = str_to_boolean(boolean_char);
+        if(elp_node->L == UNKNOWN){
+            OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in lookup option of ELP",boolean_char);
+            return (BAD);
+        }
     }else{
         elp_node->L = FALSE;
     }

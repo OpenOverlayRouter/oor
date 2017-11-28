@@ -271,13 +271,13 @@ lxml_get_conf_mapping (xmlNodePtr xml_local_eid, shash_t * lcaf_ht)
         }
         if (get_inner_xmlNodePtr(xml_rloc,"interface")!=NULL){
             xml_ifce_rloc = get_inner_xmlNodePtr(xml_rloc,"interface");
-            conf_loct_iface = conf_loc_iface_new_init((char*)xmlNodeGetContent(xml_ifce_rloc),AF_INET,prty,wght,mprty,mwght);
+            conf_loct_iface = conf_loc_iface_new_init((char*)xmlNodeGetContent(xml_ifce_rloc),4,prty,wght,mprty,mwght);
             if (conf_loct_iface == NULL){
                 conf_mapping_destroy(conf_mapping);
                 return NULL;
             }
             glist_add(conf_loct_iface,conf_mapping->conf_loc_iface_list);
-            conf_loct_iface = conf_loc_iface_new_init((char*)xmlNodeGetContent(xml_ifce_rloc),AF_INET6,prty,wght,mprty,mwght);
+            conf_loct_iface = conf_loc_iface_new_init((char*)xmlNodeGetContent(xml_ifce_rloc),6,prty,wght,mprty,mwght);
             if (conf_loct_iface == NULL){
                 conf_mapping_destroy(conf_mapping);
                 return NULL;

@@ -182,3 +182,39 @@ str_rm_double_spaces(char *src, char *dst)
     dst[d] = 0;
 }
 
+
+char *
+str_to_lower_case(char *str)
+{
+    int i;
+    char *new_str = xmalloc(sizeof(str)+1);
+    for(i = 0; str[i]; i++){
+        new_str[i] = tolower(str[i]);
+    }
+    new_str[i] = '\0';
+    return (new_str);
+}
+
+
+int8_t
+str_to_boolean(char *str)
+{
+    int8_t res;
+    char bool_str[10];
+    char *new_str = str_to_lower_case(str);
+    str_rm_spaces(new_str,bool_str);
+
+    if (strcmp(bool_str, "on") == 0){
+        res = TRUE;
+    }else if  (strcmp(bool_str, "true") == 0){
+        res = TRUE;
+    }else if  (strcmp(bool_str, "off") == 0){
+        res = FALSE;
+    }else if  (strcmp(bool_str, "false") == 0){
+        res = FALSE;
+    }else{
+        res = UNKNOWN;
+    }
+    free(new_str);
+    return(res);
+}

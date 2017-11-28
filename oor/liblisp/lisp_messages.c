@@ -104,11 +104,8 @@ void
 ecm_hdr_init(void *ptr)
 {
     ecm_hdr_t *ecm = ptr;
+    memset (ecm,0,sizeof(ecm_hdr_t));
     ecm->type = LISP_ENCAP_CONTROL_TYPE;
-    ecm->s_bit = 0;
-    ecm->d_bit = 0;
-    ecm->r_bit = 0;
-    memset(ecm->reserved, 0, sizeof(ecm->reserved));
 }
 
 void

@@ -47,7 +47,7 @@ lisp-site {
     key-type              = 1
     key                   = <string>
     iid                   = 0
-    accept-more-specifics = <bool>
+    accept-more-specifics = [true|false]
 }
 
 # Define a static registered mapping. New Map-Registers overwrites
@@ -97,7 +97,7 @@ ms-rtr-node {
 #   name: Name to define the RTR set used as a reference in the rest of the 
 #     configuration
 #   ttl: The time in minutes the recipient of the Info-Reply will
-#     store the RTR Information.
+#     store the RTR Information. 1 day by default
 #   rtrs: List of ms-rtr-nodes identified by its name
 
 ms-rtrs-set {
@@ -226,7 +226,7 @@ rtr-ms-node {
 # NAT Traversl configuration. 
 #   nat_traversal_support: check if the node is behind NAT.
 
-nat_traversal_support  = off
+nat_traversal_support  = <on|off>
 
 # Map-Registers are sent to this Map-Server
 # You can define several Map-Servers. Map-Register messages will be sent to all
@@ -240,7 +240,7 @@ map-server {
         address        = <ip-address | FQDN>
         key-type       = 1
         key            = <password>
-        proxy-reply    = <on/off>
+        proxy-reply    = <on|off>
 }
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
@@ -348,14 +348,14 @@ explicit-locator-path {
     elp-name        = <string>
     elp-node {
         address     = <ip-address>
-        strict      = <bool>
-        probe       = <bool>
-        lookup      = <bool>
+        strict      = false
+        probe       = false
+        lookup      = false
     }
     elp-node {
         address     = <ip-address>
-        strict      = <bool>
-        probe       = <bool>
-        lookup      = <bool>
+        strict      = false
+        probe       = false
+        lookup      = false
     } 
 }

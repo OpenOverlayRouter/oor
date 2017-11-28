@@ -42,7 +42,7 @@ conf_mapping_new()
         OOR_LOG(LWRN,"conf_mapping_new: Couldn't allocate memory for a conf_mapping_t structure");
         return (NULL);
     }
-    conf_map->eid_prefix = (char *)xzalloc(MAX_CFG_STRING);
+    conf_map->eid_prefix = NULL;
     conf_map->conf_loc_list = glist_new_managed((glist_del_fct) conf_loc_destroy);
     conf_map->conf_loc_iface_list = glist_new_managed((glist_del_fct) conf_loc_iface_destroy);
     conf_map->ttl = DEFAULT_DATA_CACHE_TTL;
@@ -52,6 +52,9 @@ conf_mapping_new()
 inline void
 conf_mapping_destroy(conf_mapping_t * conf_map)
 {
+    if (!conf_map){
+        return;
+    }
     glist_destroy(conf_map->conf_loc_list);
     glist_destroy(conf_map->conf_loc_iface_list);
     free(conf_map->eid_prefix);
@@ -86,12 +89,45 @@ conf_mapping_dump(conf_mapping_t * conf_map, int log_level)
     OOR_LOG(log_level,"%s\n",buf);
 }
 
+gconf_loc_t *
+gconf_loc_new_init(conf_loct_type_e type, void *loct)
+{
+    gconf_loc_t *conf_loct;
+    conf_loct = (gconf_loc_t *)xzalloc(sizeof(gconf_loc_t));
+    if (!conf_loct){
+        return (NULL);
+    }
+    conf_loct->type = type;
+    conf_loct->conf_loct = loct;
+    return (conf_loct);
+}
+
+void
+gconf_loc_destroy(gconf_loc_t *gconf_loc)
+{
+    if(!gconf_loc){
+        return;
+    }
+    switch (gconf_loc->type){
+    case CONF_LOCT_ADDR:
+        conf_loc_destroy(gconf_loc->conf_loct);
+        break;
+    case CONF_LOCT_IFACE:
+        conf_loc_iface_destroy(gconf_loc->conf_loct);
+        break;
+    }
+    free(gconf_loc);
+}
 
 inline conf_loc_t *
 conf_loc_new_init(char *addr, uint8_t priority, uint8_t weight,
         uint8_t mpriority, uint8_t mweight)
 {
     conf_loc_t * conf_loc;
+
+    if (!addr){
+        OOR_LOG(LERR,"Configuration file: No address assigned to rloc-address");
+    }
 
     conf_loc = (conf_loc_t *)xzalloc(sizeof(conf_loc_t));
     if (conf_loc == NULL){
@@ -105,6 +141,15 @@ conf_loc_new_init(char *addr, uint8_t priority, uint8_t weight,
     conf_loc->mweight = mweight;
 
     return (conf_loc);
+}
+
+conf_loc_t *
+conf_loc_clone(conf_loc_t *conf_loc)
+{
+    conf_loc_t * new_conf_loc;
+    new_conf_loc = conf_loc_new_init(conf_loc->address, conf_loc->priority,
+            conf_loc->weight, conf_loc->mpriority, conf_loc->mweight);
+    return (new_conf_loc);
 }
 
 char *
@@ -124,6 +169,20 @@ conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
 {
     conf_loc_iface_t * conf_loc_iface;
 
+    if (!iface_name){
+        OOR_LOG(LERR,"Configuration file: An rloc-iface should have an interface selected");
+        return (NULL);
+    }
+
+    if (afi == 4){
+        afi = AF_INET;
+    }else if (afi == 6){
+        afi = AF_INET6;
+    }else{
+        OOR_LOG(LERR,"Configuration file: The conf_loc_iface->ip_version of the locator should be 4 (IPv4) or 6 (IPv6)");
+        return (BAD);
+    }
+
     conf_loc_iface = (conf_loc_iface_t *)xzalloc(sizeof(conf_loc_iface_t));
     if (conf_loc_iface == NULL){
         OOR_LOG(LWRN,"conf_loc_iface_new_init: Couldn't allocate memory for a conf_loc_iface_t structure");
@@ -137,6 +196,15 @@ conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
     conf_loc_iface->mweight = mweight;
 
     return (conf_loc_iface);
+}
+
+conf_loc_iface_t *
+conf_loc_iface_clone(conf_loc_iface_t * cli)
+{
+    conf_loc_iface_t * new_conf_loc_iface;
+    new_conf_loc_iface = conf_loc_iface_new_init(cli->interface, cli->afi,
+            cli->priority, cli->weight, cli->mpriority, cli->mweight);
+    return (new_conf_loc_iface);
 }
 
 char *
@@ -631,105 +699,6 @@ parse_ip_addr(char *addr_str)
     return(addr_list);
 }
 
-locator_t*
-clone_customize_locator(oor_ctrl_dev_t *dev, locator_t * locator,
-        glist_t * no_addr_loct_l, uint8_t is_local)
-{
-    char *iface_name;
-    locator_t *new_locator;
-    iface_t *iface;
-    lisp_addr_t *rloc;
-    lisp_addr_t *aux_rloc;
-    int rloc_ip_afi;
-    no_addr_loct *nloct;
-    lisp_xtr_t *xtr;
-    shash_t *iface_lctrs;
-    iface_locators *if_loct;
-
-    rloc = locator_addr(locator);
-    /* LOCAL locator */
-    if (is_local) {
-        /* Decide IP address to be used to lookup the interface */
-        if (lisp_addr_is_lcaf(rloc) == TRUE) {
-            aux_rloc = lisp_addr_get_ip_addr(rloc);
-            if (aux_rloc == NULL) {
-                OOR_LOG(LERR, "Configuration file: Can't determine RLOC's IP "
-                        "address %s", lisp_addr_to_char(rloc));
-                lisp_addr_del(rloc);
-                return(NULL);
-            }
-            if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
-                OOR_LOG(LERR, "Configuration file: Can't find interface for RLOC %s",
-                        lisp_addr_to_char(rloc));
-                return(NULL);
-            }
-            rloc_ip_afi = lisp_addr_ip_afi(aux_rloc);
-        } else if (lisp_addr_is_no_addr(rloc)){
-            aux_rloc = rloc;
-            nloct = get_no_addr_loct_from_list(no_addr_loct_l,locator);
-            if (nloct == NULL){
-                return (NULL);
-            }
-            iface_name = nloct->iface_name;
-            rloc_ip_afi = nloct->afi;
-        } else{
-            /* Find the interface name associated to the RLOC */
-            if (!(iface_name = get_interface_name_from_address(rloc))) {
-                OOR_LOG(LERR, "Configuration file: Can't find interface for RLOC %s",
-                        lisp_addr_to_char(rloc));
-                return(NULL);
-            }
-            rloc_ip_afi = lisp_addr_ip_afi(rloc);
-        }
-
-        /* Find the interface */
-        iface = get_interface(iface_name);
-        if (iface == NULL){
-            iface = add_interface(iface_name);
-            if (iface == NULL){
-                OOR_LOG(LERR, "Configuration file: Can't add interface with name %s",
-                        iface_name);
-                return(NULL);
-            }
-        }
-
-        /* Configure address of the interface */
-        if (iface_configure (iface, rloc_ip_afi)!= GOOD){
-            OOR_LOG(LWRN, "Configuration file: Can't configure addresses of interface %s",
-                    iface_name);
-        }
-
-
-        new_locator = locator_new_init(rloc, iface->status,1, 1,
-                            locator_priority(locator), locator_weight(locator),255, 0);
-
-        /* Associate locator with iface */
-        if (dev->mode == xTR_MODE || dev->mode == MN_MODE){
-            xtr  = lisp_xtr_cast(ctrl_dev);
-            iface_lctrs = xtr->tr.iface_locators_table;
-
-            if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
-
-            if (if_loct == NULL){
-                if_loct = iface_locators_new(iface_name);
-                shash_insert(xtr->tr.iface_locators_table, strdup(iface_name), if_loct);
-            }
-
-            if (rloc_ip_afi == AF_INET){
-                glist_add(new_locator,if_loct->ipv4_locators);
-            }else{
-                glist_add(new_locator,if_loct->ipv6_locators);
-            }
-        }
-    /* REMOTE locator */
-    } else {
-        new_locator = locator_new_init(rloc, UP,0 ,1 , locator_priority(locator), locator_weight(locator), 255, 0);
-    }
-
-    return(new_locator);
-}
-
-
 /*
  *  Converts the hostname into IPs which are added to a list of lisp_addr_t
  *  @param addr_str String conating fqdn address or de IP address
@@ -993,7 +962,6 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     conf_loc_iface_t *conf_loc_iface;
     glist_entry_t *conf_it;
     int iidmlen;
-
     switch (dev->mode){
         case xTR_MODE:
         case MN_MODE:
@@ -1244,6 +1212,23 @@ ms_add_rtr_set(lisp_ms_t *ms, char *name, int ttl, glist_t *rtr_nodes)
 
     OOR_LOG(LDBG_1,"New RTR set added:");
     ms_rtr_set_dump(rtr_set, LDBG_1);
+
+    return (GOOD);
+}
+
+int
+ms_advertised_rtr_set(lisp_ms_t *ms, char *rtr_set_name)
+{
+    if (!rtr_set_name){
+        ms->def_rtr_set = NULL;
+        OOR_LOG(LDBG_1,"No RTR will be advertised");
+        return(GOOD);
+    }
+    ms->def_rtr_set = (ms_rtr_set_t *)shash_lookup(ms->rtrs_set_table,rtr_set_name);
+    if (!ms->def_rtr_set){
+        OOR_LOG(LERR, "ms-rtr-set %s doesn't exist. It cannot be advertised", rtr_set_name);
+        return (BAD);
+    }
 
     return (GOOD);
 }

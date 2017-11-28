@@ -536,6 +536,9 @@ tr_program_rloc_probing(lisp_tr_t *tr, mcache_entry_t *mce, locator_t *loc, int 
     oor_timer_t *timer;
     timer_rloc_probe_argument *arg;
 
+    if (locator_R_bit(loc) == 0 || locator_priority(loc) == UNUSED_RLOC_PRIORITY){
+        return;
+    }
 
     arg = timer_rloc_probe_argument_new_init(mce,loc);
     timer = oor_timer_with_nonce_new(RLOC_PROBING_TIMER,tr_get_device(tr),tr_rloc_probing_cb,
