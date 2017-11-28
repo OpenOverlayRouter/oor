@@ -1422,8 +1422,7 @@ xtr_program_smr(lisp_xtr_t *xtr, int time)
     OOR_LOG(LDBG_1,"Reprograming SMR in %d seconds",time);
 
     if (!xtr->smr_timer) {
-        xtr->smr_timer = oor_timer_create(SMR_TIMER);
-        oor_timer_init(xtr->smr_timer, xtr, xtr_smr_process_start_cb, xtr, NULL,NULL);
+        xtr->smr_timer = oor_timer_without_nonce_new(SMR_TIMER, xtr, xtr_smr_process_start_cb, xtr, NULL);
     }
 
     oor_timer_start(xtr->smr_timer, time);

@@ -461,8 +461,7 @@ tr_mc_entry_program_expiration_timer2(lisp_tr_t *tr, mcache_entry_t *mce, int ti
     /* Expiration cache timer */
     oor_timer_t *timer;
 
-    timer = oor_timer_create(EXPIRE_MAP_CACHE_TIMER);
-    oor_timer_init(timer,tr_get_device(tr),tr_mc_entry_expiration_timer_cb,mce,NULL,NULL);
+    timer = oor_timer_without_nonce_new(EXPIRE_MAP_CACHE_TIMER,tr_get_device(tr),tr_mc_entry_expiration_timer_cb,mce,NULL);
     htable_ptrs_timers_add(ptrs_to_timers_ht, mce, timer);
 
     oor_timer_start(timer, time);

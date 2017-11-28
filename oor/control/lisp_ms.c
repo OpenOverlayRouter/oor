@@ -152,9 +152,8 @@ lsite_entry_start_expiration_timer(lisp_ms_t *ms, lisp_reg_site_t *rsite)
     oor_timer_t *timer;
 
 
-    timer = oor_timer_create(REG_SITE_EXPRY_TIMER);
-    oor_timer_init(timer, ms, lsite_entry_expiration_timer_cb, rsite,
-            NULL, NULL);
+    timer = oor_timer_without_nonce_new(REG_SITE_EXPRY_TIMER, ms, lsite_entry_expiration_timer_cb,
+            rsite, NULL);
     htable_ptrs_timers_add(ptrs_to_timers_ht,rsite, timer);
 
     /* Give a 2s margin before purging the registered site */

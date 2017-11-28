@@ -24,6 +24,10 @@
 #include "htable_ptrs.h"
 #include "nonces_table.h"
 
+oor_timer_t *
+oor_timer_without_nonce_new(timer_type type, void *owner, oor_timer_callback_t cb_fn,
+        void *timer_arg,oor_timer_del_cb_arg_fn free_arg_fn);
+
 oor_timer_t * oor_timer_with_nonce_new(timer_type type, void *owner,
         oor_timer_callback_t cb_fn, void *timer_arg,
         oor_timer_del_cb_arg_fn free_arg_fn);

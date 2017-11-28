@@ -755,9 +755,8 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
         timer_lst = htable_ptrs_timers_get_timers(ptrs_to_timers_ht,rloc_nat_info);
         if (!timer_lst){
             timer_arg = timer_rtr_nat_loc_exp_arg_new_init(mce, rloc_nat_info);
-            timer = oor_timer_create(RTR_NAT_LOCT_EXPIRE_TIMER);
-            oor_timer_init(timer, rtr, (oor_timer_callback_t)rtr_nat_loc_expire_cb,
-                    timer_arg, (oor_timer_del_cb_arg_fn)timer_rtr_nat_loc_exp_arg_free,NULL);
+            timer = oor_timer_without_nonce_new(RTR_NAT_LOCT_EXPIRE_TIMER,rtr, (oor_timer_callback_t)rtr_nat_loc_expire_cb,
+                    timer_arg, (oor_timer_del_cb_arg_fn)timer_rtr_nat_loc_exp_arg_free);
             htable_ptrs_timers_add(ptrs_to_timers_ht,rloc_nat_info, timer);
         }else{
             // This type of object only have one timer associated with it.

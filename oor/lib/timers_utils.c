@@ -20,7 +20,17 @@
 #include "timers_utils.h"
 
 
+oor_timer_t *
+oor_timer_without_nonce_new(timer_type type, void *owner, oor_timer_callback_t cb_fn,
+        void *timer_arg,oor_timer_del_cb_arg_fn free_arg_fn)
+{
+    oor_timer_t *timer;
 
+    timer = oor_timer_create(type);
+    oor_timer_init(timer,owner,cb_fn,timer_arg,free_arg_fn,NULL);
+
+    return (timer);
+}
 
 oor_timer_t *
 oor_timer_with_nonce_new(timer_type type, void *owner, oor_timer_callback_t cb_fn,
