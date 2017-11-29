@@ -303,13 +303,10 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
                 mref = lisp_msg_create(LISP_MAP_REFERRAL);
                 mref = lisp_msg_create(LISP_MAP_REFERRAL);
 
-                mref_map = mref_mapping_new_init(deid);
-                mref_mapping_set_ttl(mref_map,DEFAULT_NEGATIVE_REFERRAL_TTL);
-                mref_mapping_set_action(mref_map, LISP_ACTION_NOT_REGISTERED);
-                mref_mapping_set_auth(mref_map, A_AUTHORITATIVE);
-                mref_mapping_set_incomplete(mref_map, i);
+                mref_map = mref_mapping_new_init_full(deid,DEFAULT_NEGATIVE_REFERRAL_TTL,LISP_ACTION_NOT_REGISTERED,
+                        A_AUTHORITATIVE, i, site->ddt_ms_peers, NULL, &ext_uc->la);
 
-                rec = lisp_msg_put_mref_mapping(mref, mref_map, site->ddt_ms_peers, &ext_uc->la);
+                rec = lisp_msg_put_mref_mapping(mref, mref_map);
                 mref_hdr = lisp_msg_hdr(mref);
                 MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 
@@ -342,13 +339,10 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
                 int i = (glist_size(site->ddt_ms_peers)<1);
                 mref = lisp_msg_create(LISP_MAP_REFERRAL);
 
-                mref_map = mref_mapping_new_init(deid);
-                mref_mapping_set_ttl(mref_map,DEFAULT_REGISTERED_TTL);
-                mref_mapping_set_action(mref_map, LISP_ACTION_MS_ACK);
-                mref_mapping_set_auth(mref_map, A_AUTHORITATIVE);
-                mref_mapping_set_incomplete(mref_map, i);
+                mref_map = mref_mapping_new_init_full(deid,DEFAULT_REGISTERED_TTL,LISP_ACTION_MS_ACK,
+                        A_AUTHORITATIVE, i, site->ddt_ms_peers, NULL, &ext_uc->la);
 
-                rec = lisp_msg_put_mref_mapping(mref, mref_map, site->ddt_ms_peers, &ext_uc->la);
+                rec = lisp_msg_put_mref_mapping(mref, mref_map);
                 mref_hdr = lisp_msg_hdr(mref);
                 MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 

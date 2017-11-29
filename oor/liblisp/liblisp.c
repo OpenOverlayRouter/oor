@@ -445,15 +445,13 @@ lisp_msg_put_mref_mapping_hdr(lbuf_t *b)
 
 void *
 lisp_msg_put_mref_mapping(
-        lbuf_t      *b, mref_mapping_t *map,
-        glist_t *ref_list, lisp_addr_t *ms_loc)
+        lbuf_t      *b, mref_mapping_t *map)
 {
     mref_mapping_record_hdr_t    *rec            = NULL;
-    locator_hdr_t           *ploc           = NULL;
-    //locator_t               *loct           = NULL;
+    //locator_hdr_t           *ploc           = NULL;
+    locator_t               *loct           = NULL;
     int                     referral_count   = 0;
-    glist_entry_t *itr;
-    lisp_addr_t *addr;
+    int                     signature_count    = 0;
 
 
     rec = lisp_msg_put_mref_mapping_hdr(b);
@@ -462,45 +460,27 @@ lisp_msg_put_mref_mapping(
     REF_MAP_REC_ACTION(rec) = mref_mapping_action(map);
     REF_MAP_REC_AUTH(rec) = mref_mapping_auth(map);
     REF_MAP_REC_INC(rec) = mref_mapping_incomplete(map);
-    //TODO actually add signatures if appropiate
-    REF_MAP_REC_SIGC(rec) = 0;
 
     if (lisp_msg_put_addr(b, mref_mapping_eid(map)) == NULL) {
         return(NULL);
     }
 
-    if(mref_mapping_action(map) == LISP_ACTION_MS_ACK || mref_mapping_action(map) == LISP_ACTION_NOT_REGISTERED){
-        if(mref_mapping_incomplete(map)==0){
-            ploc = lbuf_put_uninit(b, sizeof(locator_hdr_t));
-            ploc->priority    = 0;
-            ploc->weight = 0;
-            ploc->mpriority = 0;
-            ploc->mweight = 0;
-            ploc->local = 1;
-            ploc->probed = 0;
-            ploc->reachable = 1;
-
-            lisp_msg_put_addr(b, ms_loc);
-            referral_count++;
+    /* Add referrals */
+    mref_mapping_foreach_active_referral(map,loct){
+        if (locator_state(loct) == DOWN){
+            continue;
         }
-    }
-
-    glist_for_each_entry(itr,ref_list){
-        addr = (lisp_addr_t *)glist_entry_data(itr);
-        ploc = lbuf_put_uninit(b, sizeof(locator_hdr_t));
-        ploc->priority    = 0;
-        ploc->weight = 0;
-        ploc->mpriority = 0;
-        ploc->mweight = 0;
-        ploc->local = 0;
-        ploc->probed = 0;
-        ploc->reachable = 1;
-
-        lisp_msg_put_addr(b, addr);
+        //ploc = lisp_msg_put_locator(b, loct);
+        lisp_msg_put_locator(b,loct);
+        //LOC_PROBED(ploc) = 1;
         referral_count++;
-    }
+    }mref_mapping_foreach_active_referral_end;
 
     REF_MAP_REC_REF_COUNT(rec) = referral_count;
+
+    /*add the signatures here, which should modify signature_count*/
+    REF_MAP_REC_SIGC(rec) = signature_count;
+
     increment_record_count(b);
 
     return(rec);

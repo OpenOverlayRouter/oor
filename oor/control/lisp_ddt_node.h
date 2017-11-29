@@ -22,6 +22,7 @@
 
 #include "oor_ctrl_device.h"
 #include "../lib/lisp_site.h"
+#include "../liblisp/lisp_mref_mapping.h"
 
 
 typedef struct _lisp_ddt_node {
@@ -42,9 +43,7 @@ typedef enum ddt_deleg_type {
 } ddt_deleg_type_e;
 
 typedef struct _ddt_delegation_site{
-	lisp_addr_t *xeid;
-	int type;
-	glist_t *child_nodes; /*child_nodes is a glist of "lisp_addr_t" */
+    mref_mapping_t *mapping;
 } ddt_delegation_site_t;
 
 /* DDT-Node interface */
@@ -65,7 +64,7 @@ asite_xeid(ddt_authoritative_site_t *as) {
 void ddt_delegation_site_del(ddt_delegation_site_t *ds);
 static inline lisp_addr_t *
 dsite_xeid(ddt_delegation_site_t *ds) {
-    return(ds->xeid);
+    return(mref_mapping_eid(ds->mapping));
 }
 
 #endif /* LISP_DDT_NODE_H_ */

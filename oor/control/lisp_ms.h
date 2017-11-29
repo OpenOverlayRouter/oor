@@ -22,6 +22,7 @@
 
 #include "oor_ctrl_device.h"
 #include "../lib/lisp_site.h"
+#include "../liblisp/lisp_mref_mapping.h"
 
 
 typedef struct _lisp_ms {

@@ -57,7 +57,7 @@ void *lisp_msg_put_mapping(lbuf_t *, mapping_t *, lisp_addr_t *);
 void *lisp_msg_put_neg_mapping(lbuf_t *, lisp_addr_t *, int, lisp_action_e,
         lisp_authoritative_e a);
 void *lisp_msg_put_mref_mapping_hdr(lbuf_t *);
-void *lisp_msg_put_mref_mapping(lbuf_t *, mref_mapping_t *, glist_t *, lisp_addr_t *);
+void *lisp_msg_put_mref_mapping(lbuf_t *, mref_mapping_t *);
 void *lisp_msg_put_mref_neg_mapping(lbuf_t *, lisp_addr_t *, int ,
         lisp_ref_action_e , lisp_authoritative_e , int);
 void *lisp_msg_put_itr_rlocs(lbuf_t *, glist_t *);

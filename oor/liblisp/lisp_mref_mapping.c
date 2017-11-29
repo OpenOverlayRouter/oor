@@ -66,6 +66,60 @@ mref_mapping_new_init(lisp_addr_t *eid)
     return (mref_mapping);
 }
 
+inline mref_mapping_t *
+mref_mapping_new_init_full(lisp_addr_t *eid, int ttl, lisp_ref_action_e act, lisp_authoritative_e a,
+        int i, glist_t *ref_list, glist_t *sig_list, lisp_addr_t *ms_loc){
+
+    mref_mapping_t *mref_mapping;
+    lisp_addr_t *ip_pref;
+    locator_t *loct;
+    glist_entry_t *itr;
+    lisp_addr_t *addr;
+
+    /* If eid is an IP address, convert it to IP prefix */
+    if (lisp_addr_get_ip_pref_addr(eid) == NULL){
+        ip_pref = lisp_addr_get_ip_addr(eid);
+        if (!ip_pref){
+            OOR_LOG(LWRN, "mref_mapping_new_init_full: Couldn't get eid prefix from %s", lisp_addr_to_char(eid));
+            return (NULL);
+        }
+        lisp_addr_ip_to_ippref(ip_pref);
+    }
+
+    mref_mapping = mref_mapping_new();
+    if (!mref_mapping){
+        OOR_LOG(LWRN, "mref_mapping_new_init_full: Couldn't allocate mref_mapping_t structure");
+        return (NULL);
+    }
+
+    lisp_addr_copy(&(mref_mapping->eid_prefix), eid);
+
+    mref_mapping_set_ttl(mref_mapping, ttl);
+    mref_mapping_set_action(mref_mapping, act);
+    mref_mapping_set_auth(mref_mapping, a);
+    mref_mapping_set_incomplete(mref_mapping, i);
+
+    if(act == LISP_ACTION_MS_ACK || act == LISP_ACTION_NOT_REGISTERED){
+        if(i==0){
+
+            loct = locator_new_init(ms_loc,UP,1,1,0,0,0,0);
+            mref_mapping_add_referral(mref_mapping, loct);
+        }
+    }
+
+    glist_for_each_entry(itr,ref_list){
+        addr = (lisp_addr_t *)glist_entry_data(itr);
+
+        loct = locator_new_init(addr,UP,0,1,0,0,0,0);
+        mref_mapping_add_referral(mref_mapping, loct);
+    }
+
+    /* add the signatures to the Map Referral based on sig_list here */
+
+    return mref_mapping;
+
+}
+
 void mref_mapping_del(mref_mapping_t *m)
 {
     if (!m) {

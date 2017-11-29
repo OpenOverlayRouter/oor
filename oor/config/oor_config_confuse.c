@@ -920,15 +920,15 @@ configure_ddt(cfg_t *cfg)
                 lcaf_ht);
 
         if (dsite != NULL) {
-            if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite->xeid) != NULL){
+            if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite_xeid(dsite)) != NULL){
                 OOR_LOG(LDBG_1, "Configuration file: Duplicated deleg-site: %s . Discarding...",
-                        lisp_addr_to_char(dsite->xeid));
+                        lisp_addr_to_char(dsite_xeid(dsite)));
                 ddt_delegation_site_del(dsite);
                 continue;
             }
 
             OOR_LOG(LDBG_1, "Adding delegation site %s to the delegation sites "
-                    "database", lisp_addr_to_char(dsite->xeid));
+                    "database", lisp_addr_to_char(dsite_xeid(dsite)));
             ddt_node_add_delegation_site(ddt_node, dsite);
         }else{
             OOR_LOG(LERR, "Can't add  delegation site %s. Discarded ...",

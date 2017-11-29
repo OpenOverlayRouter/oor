@@ -38,7 +38,6 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
     void *          mreq_hdr    = NULL;
     void *          mref_hdr    = NULL;
     //mref_mapping_record_hdr_t *  rec            = NULL;
-    mref_mapping_t * map =NULL;
     int             i           = 0;
     lbuf_t *        mref        = NULL;
     lbuf_t  b;
@@ -102,35 +101,9 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
             // CHECK IF DELEGATION EXISTS FOR THE EID
             dsite = mdb_lookup_entry(ddt_node->deleg_sites_db, deid);
             if (dsite) {
-                ddt_deleg_type_e type = dsite->type;
-                if(type == CHILD_DDT_NODE || type == MAP_SERVER_DDT_NODE){
-                    // send "Type" map-referral with
-                    // TTL = DEFAULT_DDTNODE_TTL
-                    lisp_ref_action_e actiontype = 0;
-                    switch(type){
-                    case CHILD_DDT_NODE:
-                        OOR_LOG(LDBG_1,"Delegation type for EID %s is of type DDT_NODE",
-                                                        lisp_addr_to_char(deid));
-                        actiontype = LISP_ACTION_NODE_REFERRAL;
-                        break;
-                    case MAP_SERVER_DDT_NODE:
-                        OOR_LOG(LDBG_1,"Delegation type for EID %s is of type DDT_MS",
-                                lisp_addr_to_char(deid));
-                        actiontype = LISP_ACTION_MS_REFERRAL;
-                        break;
-                    }
                     mref = lisp_msg_create(LISP_MAP_REFERRAL);
 
-
-                    map = mref_mapping_new_init(deid);
-                    mref_mapping_set_ttl(map,DEFAULT_DDTNODE_TTL);
-                    mref_mapping_set_action(map, actiontype);
-                    mref_mapping_set_auth(map, A_AUTHORITATIVE);
-                    mref_mapping_set_incomplete(map, 0);
-
-                    //rec = lisp_msg_put_mref_mapping(mref, map, dsite->child_nodes, NULL);
-
-                    lisp_msg_put_mref_mapping(mref, map, dsite->child_nodes, NULL);
+                    lisp_msg_put_mref_mapping(mref, dsite->mapping);
 
                     mref_hdr = lisp_msg_hdr(mref);
                     MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
@@ -143,10 +116,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
                     }
                     lisp_msg_destroy(mref);
                     lisp_addr_del(deid);
-                    }else{
-                        OOR_LOG(LDBG_1,"Delegation type for EID %s is of unknown type",
-                                lisp_addr_to_char(deid));
-                    }
+
                 }else{
                     // send DELEGATION_HOLE map-referral with
                     // TTL = DEFAULT_NEGATIVE_REFERRAL_TTL
@@ -233,14 +203,20 @@ ddt_node_dump_delegation_sites(lisp_ddt_node_t *ddtn, int log_level)
 
     ddt_delegation_site_t *it = NULL;
     ddt_delegation_site_t *dsite = NULL;
+    locator_t *loct = NULL;
 
     OOR_LOG(log_level,"**************** DDT-Node delegation sites ******************\n");
     mdb_foreach_entry(ddtn->deleg_sites_db, it) {
         dsite = it;
         OOR_LOG(log_level, "Xeid: %s, Delegation type: %s Delegation Nodes:",
-                        lisp_addr_to_char(dsite->xeid),
-                        (dsite->type==0) ? "Child Node" : "Map Server");
+                        lisp_addr_to_char(mref_mapping_eid(dsite->mapping)),
+                        (mref_mapping_action(dsite->mapping)==0) ? "Child Node" : "Map Server");
+        /*
         glist_dump(dsite->child_nodes, (glist_to_char_fct)lisp_addr_to_char, log_level);
+        */
+        mref_mapping_foreach_active_referral(dsite->mapping,loct){
+            OOR_LOG(log_level, lisp_addr_to_char(locator_addr(loct)));
+        }mref_mapping_foreach_active_referral_end;
     } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 
@@ -413,17 +389,21 @@ ddt_delegation_site_t
 {
     ddt_delegation_site_t *ds = NULL;
     int iidmlen;
+    mref_mapping_t *mapping = NULL;
+    lisp_addr_t *xeid;
 
     ds = xzalloc(sizeof(ddt_delegation_site_t));
     if (iid > 0){
         iidmlen = (lisp_addr_ip_afi(eid) == AF_INET) ? 32: 128;
-        ds->xeid = lisp_addr_new_init_iid(iid, eid, iidmlen);
+        xeid = lisp_addr_new_init_iid(iid, eid, iidmlen);
     }else{
-        ds->xeid = lisp_addr_clone(eid);
+        xeid = lisp_addr_clone(eid);
     }
-    ds->type = type;
-    ds->child_nodes = child_nodes;
 
+    mapping = mref_mapping_new_init_full(xeid,DEFAULT_REGISTERED_TTL,type,
+                            A_AUTHORITATIVE, 0, child_nodes, NULL, NULL);
+
+    ds->mapping = mapping;
     return(ds);
 }
 
@@ -442,8 +422,6 @@ ddt_delegation_site_del(ddt_delegation_site_t *ds)
 {
     if (!ds)
         return;
-    if (ds->xeid)
-        lisp_addr_del(ds->xeid);
     free(ds);
 }
 

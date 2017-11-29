@@ -36,8 +36,10 @@ typedef void (*extended_info_del_fct)(void *);
 typedef struct mref_mapping {
     lisp_addr_t                     eid_prefix;
     uint16_t                        referral_count;
+    uint16_t                        signature_count;
 
     glist_t                         *referral_lists; //<glist_t *>
+    glist_t                         *signature_list;
 
     uint32_t                        ttl;
     uint8_t                         action;
@@ -49,6 +51,8 @@ typedef struct mref_mapping {
 
 mref_mapping_t *mref_mapping_new();
 mref_mapping_t *mref_mapping_new_init(lisp_addr_t *);
+mref_mapping_t *mref_mapping_new_init_full(lisp_addr_t *, int, lisp_ref_action_e, lisp_authoritative_e, int,
+        glist_t *, glist_t *, lisp_addr_t *);
 void mref_mapping_del(mref_mapping_t *);
 int mref_mapping_cmp(mref_mapping_t *, mref_mapping_t *);
 mref_mapping_t *mref_mapping_clone(mref_mapping_t *);
