@@ -45,7 +45,6 @@ conf_mapping_new()
     conf_map->eid_prefix = NULL;
     conf_map->conf_loc_list = glist_new_managed((glist_del_fct) conf_loc_destroy);
     conf_map->conf_loc_iface_list = glist_new_managed((glist_del_fct) conf_loc_iface_destroy);
-    conf_map->ttl = DEFAULT_DATA_CACHE_TTL;
     return (conf_map);
 }
 
@@ -992,6 +991,10 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
         eid_prefix = lisp_addr_clone(ip_eid_prefix);
     }
 
+    if (conf_mapping->ttl <1){
+        conf_mapping->ttl = 1;
+        OOR_LOG(LWRN,"Configuration file: Minimum TTL value is 1. Set TTL to 1");
+    }
 
     /* Create mapping */
     mapping = mapping_new_init(eid_prefix);
@@ -1011,7 +1014,6 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     /* Create and add locators */
     glist_for_each_entry(conf_it,conf_mapping->conf_loc_list){
         conf_loc = (conf_loc_t *)glist_entry_data(conf_it);
-
         loct_list = process_rloc_address(conf_loc, dev, lcaf_ht, is_local);
         if (loct_list == NULL){
             continue;

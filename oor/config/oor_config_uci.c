@@ -76,8 +76,7 @@ static shash_t *
 parse_rloc_sets(
         struct uci_context      *ctx,
         struct uci_package      *pck,
-        shash_t                 *rlocs_ht,
-        shash_t                 *lcaf_ht);
+        shash_t                 *rlocs_ht);
 static shash_t *
 parse_lcafs(
         struct uci_context      *ctx,
@@ -236,7 +235,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
     if (!rlocs_ht){
         goto err;
     }
-    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht);
     if (!rloc_set_ht){
         goto err;
     }
@@ -577,7 +576,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     if (!rlocs_ht){
         goto err;
     }
-    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht);
     if (!rloc_set_ht){
         goto err;
     }
@@ -909,7 +908,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
     if (!rlocs_ht){
         return (BAD);
     }
-    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht);
     if (!rloc_set_ht){
         shash_destroy(rloc_set_ht);
         return (BAD);
@@ -1107,7 +1106,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
     if (!rlocs_ht){
         return (BAD);
     }
-    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht,lcaf_ht);
+    rloc_set_ht = parse_rloc_sets(ctx,pck,rlocs_ht);
     if (!rloc_set_ht){
         shash_destroy(rloc_set_ht);
         return (BAD);
@@ -1332,8 +1331,10 @@ uci_parse_conf_mapping(struct uci_context *ctx, struct uci_section *sect,
     }else{
         conf_mapping->iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
     }
-    if (is_local){
+    if (uci_lookup_option_string(ctx, sect, "ttl") == NULL){
         conf_mapping->ttl = DEFAULT_DATA_CACHE_TTL;
+    }else{
+        conf_mapping->ttl = strtol(uci_lookup_option_string(ctx, sect, "ttl"),NULL,10);
     }
 
     conf_mapping->eid_prefix = strdup(uci_eid);
@@ -1469,7 +1470,7 @@ err:
 }
 
 static shash_t *
-parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs_ht,  shash_t *lcaf_ht)
+parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs_ht)
 {
     struct uci_section *section;
     struct uci_element *element;
@@ -1478,7 +1479,7 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
     char *uci_rloc_set_name;
     shash_t *rloc_sets_ht;
     glist_t *rloc_list;
-    locator_t *loct;
+    gconf_loc_t *gconf_loct;
 
     /* create lcaf hash table */
     rloc_sets_ht = shash_new_managed((free_value_fn_t)glist_destroy);
@@ -1499,7 +1500,7 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
                     shash_insert(rloc_sets_ht, strdup(uci_rloc_set_name), rloc_list);
                 }else{
                     OOR_LOG(LWRN, "parse_rloc_sets: Error creating rloc list");
-                    continue;
+                    goto error;
                 }
             }else{
                 OOR_LOG(LERR, "Configuration file: The RLOC set %s is duplicated.",
@@ -1509,17 +1510,14 @@ parse_rloc_sets(struct uci_context *ctx, struct uci_package *pck, shash_t *rlocs
             opt  = uci_lookup_option(ctx, section, "rloc_name");
             if (opt != NULL){
                 uci_foreach_element(&(opt->v.list), element_loct){
-                    loct = shash_lookup(rlocs_ht, element_loct->name);
-                    if (loct == NULL){
-                        loct = shash_lookup(lcaf_ht, element_loct->name);
-                    }
-                    if (loct == NULL){
+                    gconf_loct = shash_lookup(rlocs_ht, element_loct->name);
+                    if (gconf_loct == NULL){
                         OOR_LOG(LWRN,"Configuration file: The RLOC name %s of the RLOC set %s doesn't exist",
                                 element_loct->name, uci_rloc_set_name);
                         goto error;
                     }
 
-                    if (glist_add_tail(loct,rloc_list)!=GOOD){
+                    if (glist_add_tail(gconf_loct,rloc_list)!=GOOD){
                         OOR_LOG(LDBG_1,"parse_rloc_sets: Error adding locator to the rloc-set");
                     }
                 }

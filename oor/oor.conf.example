@@ -269,6 +269,8 @@ proxy-etr-ipv6 {
 #   eid-prefix: EID prefix (ip-prefix/mask) of the mapping
 #   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
 #     the VNI of the mapping. [0-16777215]
+#   ttl: Time in minutes the recipient of the Map-Reply will store the mapping.
+#     Default value is 10 minutes
 # Two types of RLOCs can be defined:
 #   rloc-address: Specifies directly the RLOC of the interface
 #     address: It could be one of the following cases
@@ -290,6 +292,7 @@ proxy-etr-ipv6 {
 database-mapping {
     eid-prefix          = <ip-prefix/mask>
     iid                 = 0
+    ttl                 = 10
     rloc-address {
         address         = <ip-address>
         priority        = <int>

@@ -153,10 +153,13 @@ config 'map-server'
 #   eid-prefix: EID prefix (IPvX/mask) of the mapping
 #   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
 #     the VNI of the mapping. [0-16777215]
+#   ttl: Time in minutes the recipient of the Map-Reply will store the mapping.
+#     Default value is 10 minutes
 #   rloc_set: Name of the set of rlocs to be used
 config 'database-mapping'
         option   'eid_prefix'           '<ip-prefix/mask>'
         option   'iid'                  '0'
+        option   'ttl'                  '10'
         option   'rloc_set'             '<string>'
 
 # List of PITRs to SMR on handover

@@ -207,6 +207,7 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
 
     conf_mapping->eid_prefix = strdup(cfg_getstr(map, "eid-prefix"));
     conf_mapping->iid = cfg_getint(map, "iid");
+    conf_mapping->ttl = cfg_getint(map, "ttl");
 
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
         rl = cfg_getnsec(map, "rloc-address", ctr);
@@ -842,6 +843,7 @@ handle_config_file()
     static cfg_opt_t db_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
             CFG_INT("iid",                  0, CFGF_NONE),
+            CFG_INT("ttl",DEFAULT_DATA_CACHE_TTL, CFGF_NONE),
             CFG_SEC("rloc-address",         rloc_address_opts, CFGF_MULTI),
             CFG_SEC("rloc-iface",           rloc_iface_opts, CFGF_MULTI),
             CFG_END()
