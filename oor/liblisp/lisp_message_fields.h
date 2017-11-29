@@ -579,15 +579,15 @@ void mref_mapping_record_init_hdr(mref_mapping_record_hdr_t *h);
 char *mref_mapping_action_to_char(int act);
 char *mref_mapping_record_hdr_to_char(mref_mapping_record_hdr_t *h);
 
-#define REF_MAP_REC_EID_PLEN(h) ((mref_mapping_record_hdr_t *)(h))->eid_prefix_length
-#define REF_MAP_REC_REF_COUNT(h) ((mref_mapping_record_hdr_t *)(h))->referral_count
-#define REF_MAP_REC_ACTION(h) ((mref_mapping_record_hdr_t *)(h))->action
-#define REF_MAP_REC_AUTH(h) ((mref_mapping_record_hdr_t *)(h))->authoritative
-#define REF_MAP_REC_INC(h) ((mref_mapping_record_hdr_t *)(h))->incomplete
-#define REF_MAP_REC_SIGC(h) ((mref_mapping_record_hdr_t *)(h))->signature_count
-#define REF_MAP_REC_TTL(h) ((mref_mapping_record_hdr_t *)(h))->ttl
-#define REF_MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mref_mapping_record_hdr_t)
-#define REF_MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
+#define MREF_MAP_REC_EID_PLEN(h) ((mref_mapping_record_hdr_t *)(h))->eid_prefix_length
+#define MREF_MAP_REC_REF_COUNT(h) ((mref_mapping_record_hdr_t *)(h))->referral_count
+#define MREF_MAP_REC_ACTION(h) ((mref_mapping_record_hdr_t *)(h))->action
+#define MREF_MAP_REC_AUTH(h) ((mref_mapping_record_hdr_t *)(h))->authoritative
+#define MREF_MAP_REC_INC(h) ((mref_mapping_record_hdr_t *)(h))->incomplete
+#define MREF_MAP_REC_SIGC(h) ((mref_mapping_record_hdr_t *)(h))->signature_count
+#define MREF_MAP_REC_TTL(h) ((mref_mapping_record_hdr_t *)(h))->ttl
+#define MREF_MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mref_mapping_record_hdr_t)
+#define MREF_MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
 
 typedef enum lisp_ref_actions {
 	LISP_ACTION_NODE_REFERRAL = 0,

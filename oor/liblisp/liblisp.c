@@ -259,6 +259,90 @@ err:
     return(BAD);
 }
 
+int
+lisp_msg_parse_mref_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
+        glist_t *loc_list)
+{
+    void *mrec_hdr = NULL, *loc_hdr = NULL;
+    locator_t *loc = NULL;
+    int i = 0, len = 0;
+
+    mrec_hdr = lbuf_data(b);
+    lbuf_pull(b, sizeof(mref_mapping_record_hdr_t));
+
+    len = lisp_addr_parse(lbuf_data(b), eid);
+    if (len <= 0) {
+        return(BAD);
+    }
+    lbuf_pull(b, len);
+    lisp_addr_set_plen(eid, MREF_MAP_REC_EID_PLEN(mrec_hdr));
+
+    OOR_LOG(LDBG_1, "  %s eid: %s", mapping_record_hdr_to_char(mrec_hdr),
+            lisp_addr_to_char(eid));
+
+    for (i = 0; i < MREF_MAP_REC_REF_COUNT(mrec_hdr); i++) {
+        loc_hdr = lbuf_data(b);
+
+        loc = locator_new();
+        if (lisp_msg_parse_loc(b, loc) != GOOD) {
+            return(BAD);
+        }
+        glist_add(loc, loc_list);
+    }
+
+    return(GOOD);
+}
+
+/* extracts a map referral mapping record out of lbuf 'b' and stores it into 'm'.
+ * 'm' must be preallocated. */
+int
+lisp_msg_parse_mref_mapping_record(lbuf_t *b, mref_mapping_t *m)
+{
+    glist_t *loc_list;
+    glist_entry_t *lit;
+    locator_t *loc;
+    int ret;
+    void *hdr;
+
+    if (!m) {
+        return(BAD);
+    }
+
+    hdr = lbuf_data(b);
+    mref_mapping_set_ttl(m, ntohl(MREF_MAP_REC_TTL(hdr)));
+    mref_mapping_set_action(m, MREF_MAP_REC_ACTION(hdr));
+    mref_mapping_set_auth(m, MREF_MAP_REC_AUTH(hdr));
+    mref_mapping_set_incomplete(m, MREF_MAP_REC_INC(hdr));
+
+    /* no free is called when destroyed*/
+    loc_list = glist_new();
+
+    ret = lisp_msg_parse_mref_mapping_record_split(b, mapping_eid(m), loc_list);
+    if (ret != GOOD) {
+        goto err;
+    }
+
+    glist_for_each_entry(lit, loc_list) {
+        loc = glist_entry_data(lit);
+        if ((ret = mref_mapping_add_referral(m, loc)) != GOOD) {
+            locator_del(loc);
+            if (ret != ERR_EXIST){
+                goto err;
+            }
+        }
+    }
+
+    /* here goes a method that reads and adds the signatures to the mapping record
+     * more than likely getting them through another method, similar to "mapping_record_split"*/
+
+    glist_destroy(loc_list);
+    return(GOOD);
+
+err:
+    glist_destroy(loc_list);
+    return(BAD);
+}
+
 static unsigned int
 msg_type_to_hdr_len(lisp_msg_type_e type)
 {
@@ -455,11 +539,11 @@ lisp_msg_put_mref_mapping(
 
 
     rec = lisp_msg_put_mref_mapping_hdr(b);
-    REF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(mref_mapping_eid(map));
-    REF_MAP_REC_TTL(rec) = htonl(mref_mapping_ttl(map));
-    REF_MAP_REC_ACTION(rec) = mref_mapping_action(map);
-    REF_MAP_REC_AUTH(rec) = mref_mapping_auth(map);
-    REF_MAP_REC_INC(rec) = mref_mapping_incomplete(map);
+    MREF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(mref_mapping_eid(map));
+    MREF_MAP_REC_TTL(rec) = htonl(mref_mapping_ttl(map));
+    MREF_MAP_REC_ACTION(rec) = mref_mapping_action(map);
+    MREF_MAP_REC_AUTH(rec) = mref_mapping_auth(map);
+    MREF_MAP_REC_INC(rec) = mref_mapping_incomplete(map);
 
     if (lisp_msg_put_addr(b, mref_mapping_eid(map)) == NULL) {
         return(NULL);
@@ -476,10 +560,10 @@ lisp_msg_put_mref_mapping(
         referral_count++;
     }mref_mapping_foreach_active_referral_end;
 
-    REF_MAP_REC_REF_COUNT(rec) = referral_count;
+    MREF_MAP_REC_REF_COUNT(rec) = referral_count;
 
     /*add the signatures here, which should modify signature_count*/
-    REF_MAP_REC_SIGC(rec) = signature_count;
+    MREF_MAP_REC_SIGC(rec) = signature_count;
 
     increment_record_count(b);
 
@@ -493,13 +577,13 @@ lisp_msg_put_mref_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
     void *rec;
 
     rec = lisp_msg_put_mref_mapping_hdr(b);
-    REF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
-    REF_MAP_REC_REF_COUNT(rec) = 0;
-    REF_MAP_REC_TTL(rec) = htonl(ttl);
-    REF_MAP_REC_ACTION(rec) = act;
-    REF_MAP_REC_AUTH(rec) = a;
-    REF_MAP_REC_INC(rec) = i;
-    REF_MAP_REC_SIGC(rec) = 0;
+    MREF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
+    MREF_MAP_REC_REF_COUNT(rec) = 0;
+    MREF_MAP_REC_TTL(rec) = htonl(ttl);
+    MREF_MAP_REC_ACTION(rec) = act;
+    MREF_MAP_REC_AUTH(rec) = a;
+    MREF_MAP_REC_INC(rec) = i;
+    MREF_MAP_REC_SIGC(rec) = 0;
 
     if (lisp_msg_put_addr(b, eid) == NULL) {
         return(NULL);
