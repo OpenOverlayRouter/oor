@@ -584,7 +584,7 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 {
     lbuf_t b, *irep_buf;
     void *hdr, *irep_hdr, *req_auth_hdr, *rep_auth_hdr;
-    lisp_addr_t eid,priv_addr, *nat_addr = NULL;
+    lisp_addr_t *eid, priv_addr, *nat_addr = NULL;
     int ttl;
     lisp_site_prefix_t *reg_pref;
     glist_t *rtr_list = NULL;
@@ -602,16 +602,17 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     req_auth_hdr = lisp_msg_pull_auth_field(&b);
 
-    if (lisp_msg_parse_inf_req_eid_ttl(&b, &eid, &ttl) != GOOD) {
+    eid = lisp_addr_new();
+    if (lisp_msg_parse_inf_req_eid_ttl(&b, eid, &ttl) != GOOD) {
         goto err;
     }
 
     /* Verify the EID belongs to the MS */
 
-    reg_pref = mdb_lookup_entry(ms->lisp_sites_db, &eid);
+    reg_pref = mdb_lookup_entry(ms->lisp_sites_db, eid);
     if (!reg_pref) {
         OOR_LOG(LDBG_1, "EID %s not in configured lisp-sites DB "
-                "Discarding Info Request...", lisp_addr_to_char(&eid));
+                "Discarding Info Request...", lisp_addr_to_char(eid));
         goto err;
     }
 
@@ -619,7 +620,7 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     if (lisp_msg_check_auth_field(buf, req_auth_hdr, reg_pref->key) != GOOD) {
         OOR_LOG(LDBG_1, "Info Request validation failed for EID %s with key "
-                "%s. Stopping processing!", lisp_addr_to_char(&eid),
+                "%s. Stopping processing!", lisp_addr_to_char(eid),
                 reg_pref->key);
         goto err;
     }
@@ -638,7 +639,7 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
             uc->rp,&uc->ra, &priv_addr, rtr_list);
 
 
-    irep_buf = lisp_msg_inf_reply_create(&eid, nat_addr,
+    irep_buf = lisp_msg_inf_reply_create(eid, nat_addr,
             reg_pref->key_type, ms->def_rtr_set->ttl);
     if (!irep_buf){
         OOR_LOG(LDBG_1,"ms_recv_inf_request: Can not generate Info Reply message");
@@ -647,6 +648,7 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
 
     glist_destroy(rtr_list);
     lisp_addr_del(nat_addr);
+    lisp_addr_del(eid);
 
     irep_hdr = lisp_msg_hdr(irep_buf);
     INF_REQ_NONCE(irep_hdr) = INF_REQ_NONCE(hdr);
@@ -662,6 +664,7 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     return(GOOD);
 err:
     glist_destroy(rtr_list);
+    lisp_addr_del(eid);
     lisp_addr_del(nat_addr);
     return(BAD);
 }

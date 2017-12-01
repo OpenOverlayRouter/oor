@@ -37,6 +37,9 @@ char *str_to_lower_case(char *str);
  */
 int8_t str_to_boolean(char *str);
 
+lisp_addr_t *laddr_get_full_space_pref_from_type(lisp_addr_t *addr);
+uint8_t laddr_is_full_space_pref(lisp_addr_t *addr);
+
 
 #endif /* UTIL_H_ */
 

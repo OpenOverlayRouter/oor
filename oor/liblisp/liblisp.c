@@ -861,12 +861,12 @@ lisp_msg_put_inf_req_hdr_2(lbuf_t *b, lisp_addr_t *eid_pref, uint8_t ttl)
 {
     void *hdr;
     lisp_addr_t *eid;
-    hdr = lbuf_put_uninit(b, sizeof(info_nat_hdr_2_t));
 
+    hdr = lbuf_put_uninit(b, sizeof(info_nat_hdr_2_t));
     INF_REQ_2_TTL(hdr) = htonl(ttl);
     eid = lisp_addr_get_ip_pref_addr(eid_pref);
     INF_REQ_2_EID_MASK(hdr) = lisp_addr_ip_get_plen(eid);
-    if (lisp_msg_put_addr(b, eid) == NULL) {
+    if (lisp_msg_put_addr(b, eid_pref) == NULL) {
         return(NULL);
     }
 

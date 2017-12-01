@@ -218,3 +218,41 @@ str_to_boolean(char *str)
     free(new_str);
     return(res);
 }
+
+
+
+lisp_addr_t *
+laddr_get_full_space_pref_from_type(lisp_addr_t *address)
+{
+    lisp_addr_t *addr = lisp_addr_clone(address);
+    lisp_addr_t *ip_pref = lisp_addr_get_ip_pref_addr(addr);
+
+    if (!ip_pref){
+        return (NULL);
+    }
+    switch (lisp_addr_ip_afi(ip_pref)){
+    case AF_INET:
+        lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE,ip_pref);
+        break;
+    case AF_INET6:
+        lisp_addr_ippref_from_char(FULL_IPv6_ADDRESS_SPACE,ip_pref);
+        break;
+    }
+    return(addr);
+}
+
+
+/* Check if address is 0.0.0.0/0 of 0::0/0 */
+uint8_t
+laddr_is_full_space_pref(lisp_addr_t *addr)
+{
+    if (!lisp_addr_is_ip_pref(addr)){
+        return (FALSE);
+    }
+
+    if (lisp_addr_get_plen(addr) != 0){
+        return (FALSE);
+    }
+
+    return (TRUE);
+}

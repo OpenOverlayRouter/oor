@@ -133,22 +133,3 @@ rle_type_get_fwd_ip_addr(void *rle, glist_t *locl_rlocs_addr)
     return(addr);
 }
 
-lisp_addr_t *
-laddr_get_special_addr_from_type(lisp_addr_t *address)
-{
-    lisp_addr_t *addr = lisp_addr_clone(address);
-    lisp_addr_t *ip_pref = lisp_addr_get_ip_pref_addr(addr);
-
-    if (!ip_pref){
-        return (NULL);
-    }
-    switch (lisp_addr_ip_afi(ip_pref)){
-    case AF_INET:
-        lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE,ip_pref);
-        break;
-    case AF_INET6:
-        lisp_addr_ippref_from_char(FULL_IPv6_ADDRESS_SPACE,ip_pref);
-        break;
-    }
-    return(addr);
-}

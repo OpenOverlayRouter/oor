@@ -682,6 +682,7 @@ handle_map_cache_miss(lisp_tr_t *tr, lisp_addr_t *requested_eid,
         mcache_entry_del(mce);
         return (BAD);
     }
+    printf ("ADD not active map cache entry for EID %s\n", lisp_addr_to_char(requested_eid));
 
     timer_arg = timer_map_req_arg_new_init(mce,src_eid);
     timer = oor_timer_with_nonce_new(MAP_REQUEST_RETRY_TIMER,tr_get_device(tr),send_map_request_retry_cb,

@@ -238,8 +238,8 @@ xtr_run(oor_ctrl_dev_t *dev)
         oor_timer_sleep(2);
     }
 
-    ipv4_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET);
-    ipv6_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET6);
+    ipv4_petrs_mc = get_proxy_etrs_for_afi(&xtr->tr, AF_INET);
+    ipv6_petrs_mc = get_proxy_etrs_for_afi(&xtr->tr, AF_INET6);;
     if (mcache_has_locators(ipv4_petrs_mc) == FALSE && mcache_has_locators(ipv6_petrs_mc) == FALSE) {
         OOR_LOG(LWRN, "No Proxy-ETR defined. Packets to non-LISP destinations "
                 "will be forwarded natively (no LISP encapsulation). This "
@@ -289,6 +289,10 @@ xtr_run(oor_ctrl_dev_t *dev)
                     exit_cleanup();
                 }
             }mapping_foreach_locator_end;
+            OOR_LOG(LERR, "NAT aware on -> Removing PeTRs");
+            /* Remove PeTR. The locators will be used for RTRs */
+            mapping_remove_locators(mcache_entry_mapping(ipv4_petrs_mc));
+            mapping_remove_locators(mcache_entry_mapping(ipv6_petrs_mc));
         } local_map_db_foreach_end;
     }
 
@@ -614,7 +618,7 @@ xtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
 
     if (xtr->nat_aware){
         // Map cache entry of RTRs
-        mce = mcache_get_all_space_entry(xtr->tr.map_cache, lisp_addr_ip_afi(dst_eid));
+        mce = mcache_get_all_space_entry(xtr->tr.map_cache, lisp_addr_ip_afi( &tuple->dst_addr));
     }else{
         mce = mcache_lookup(xtr->tr.map_cache, dst_eid);
     }
@@ -636,6 +640,7 @@ xtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
 
     mce_petrs = get_proxy_etrs_for_afi(&xtr->tr, lisp_addr_ip_afi(simple_eid));
 
+    /* native_fwd can be TRUE for VPP if src packet is not an EID */
     if (!native_fwd){
         xtr->tr.fwd_policy->get_fwd_info(xtr->tr.fwd_policy_dev_parm,map_loc_e,mce,mce_petrs,tuple, fwd_info);
     }
@@ -1099,9 +1104,7 @@ xtr_build_and_send_info_req(lisp_xtr_t * xtr, mapping_t * m, locator_t *loct,
     lisp_addr_t *srloc, *drloc;
     uconn_t uc;
 
-
     b = lisp_msg_inf_req_create(m, ms->key_type);
-
     if (!b) {
         return(BAD);
     }
@@ -1515,6 +1518,7 @@ xtr_program_initial_info_request_process(lisp_xtr_t *xtr)
             glist_for_each_entry(ms_it,xtr->map_servers){
                 ms = (map_server_elt *)glist_entry_data(ms_it);
                 timer_arg = timer_inf_req_argument_new_init(mle,loct,ms);
+                map_local_entry_dump(mle,LINF);
                 timer = oor_timer_with_nonce_new(INFO_REQUEST_TIMER, xtr, xtr_info_request_cb,
                         timer_arg,(oor_timer_del_cb_arg_fn)timer_inf_req_arg_free);
                 htable_ptrs_timers_add(ptrs_to_timers_ht, mle, timer);

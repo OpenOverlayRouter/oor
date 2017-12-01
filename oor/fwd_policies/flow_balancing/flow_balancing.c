@@ -24,6 +24,7 @@
 #include "../fwd_policy.h"
 #include "../../lib/map_cache_rtr_data.h"
 #include "../../lib/oor_log.h"
+#include "../../lib/util.h"
 #include "../../liblisp/liblisp.h"
 #include "../../control/oor_ctrl_device.h"
 #include "../../control/lisp_rtr.h"
@@ -152,7 +153,9 @@ fb_get_fwd_entry(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *mc
     fb_dev_parm * dev_parm = (fb_dev_parm *)fwd_dev_parm;
 
     if (lisp_addr_cmp_afi(src_eid,dst_eid) != 0){
-        if (!(lisp_addr_is_no_addr(src_eid) || lisp_addr_is_no_addr(dst_eid))){ // RTRs
+        // RTRs has src EID no addr. xTR using RTR has dst addr full prefix
+        if (!(lisp_addr_is_no_addr(src_eid)) &&
+                !(laddr_is_full_space_pref(dst_eid))){
             OOR_LOG(LDBG_3, "fb_get_fwd_entry: Src (%s) and dst (%s) EID should be of the same type",
                     lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));
             fwd_info->neg_map_reply_act = ACT_NO_ACTION;
@@ -332,6 +335,8 @@ fb_get_fwd_entry_rtr_nat(fb_dev_parm *dev_parm,  map_local_entry_t *mle, mcache_
     uint32_t pos, hash;
     locator_t ** dst_loc_vec;
     locator_t * dst_loct;
+    lisp_addr_t *src_rloc = NULL, *dst_rloc = NULL;
+    uint16_t dst_port = 0;
     int res;
 
     if (mapping_locator_count(mcache_entry_mapping(mce)) == 0){
@@ -387,9 +392,10 @@ fb_get_fwd_entry_rtr_nat(fb_dev_parm *dev_parm,  map_local_entry_t *mle, mcache_
         res = ERR_NO_ROUTE;
         goto done;
     }
-
+    src_rloc = rloc_nat_data->rtr_rloc;
+    dst_rloc = rloc_nat_data->pub_addr;
+    dst_port = rloc_nat_data->pub_port;
     res = GOOD;
-
 
     OOR_LOG(LDBG_3, "select_locs_from_maps: EID: %s -> %s, protocol: %d, "
             "port: %d -> %d\n  --> RLOC: %s -> %s",
@@ -403,8 +409,9 @@ done:
     if (fwd_info->dp_conf_inf){
         fwd_entry_tuple_del(fwd_info->dp_conf_inf);
     }
-    fwd_entry = fwd_entry_tuple_new_init(tuple, rloc_nat_data->rtr_rloc, rloc_nat_data->pub_addr,LISP_DATA_PORT, rloc_nat_data->pub_port, tuple->iid, NULL);
+    fwd_entry = fwd_entry_tuple_new_init(tuple, src_rloc, dst_rloc,LISP_DATA_PORT, dst_port, tuple->iid, NULL);
     fwd_info->dp_conf_inf = fwd_entry;
     fwd_info->data_del_fn = (fwd_info_data_del_fn)fwd_entry_tuple_del;
     return (res);
+
 }

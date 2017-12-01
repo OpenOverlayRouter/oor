@@ -1297,7 +1297,7 @@ nat_set_xTR_ID(lisp_xtr_t *xtr)
 	char line[80];
 	char part_xtr_id_str[3];
 
-	path = dirname(strdup(config_file));
+	path = dirname(config_file);
 	if (snprintf(file,sizeof(file),"%s/%s",path, DEVICE_ID_FILE) >= sizeof(file)){
 	    OOR_LOG(LERR,"File name path too long");
 	    return (BAD);
