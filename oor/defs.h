@@ -32,7 +32,8 @@ typedef enum {
     MS_MODE,
     RTR_MODE,
     MN_MODE,
-    DDT_MODE
+    DDT_MODE,
+    DDT_MR_MODE
 } oor_dev_type_e;
 
 #ifdef __GNUC__

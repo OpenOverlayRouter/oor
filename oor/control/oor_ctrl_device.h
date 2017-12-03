@@ -55,6 +55,7 @@ struct oor_ctrl_dev {
 
 extern ctrl_dev_class_t ms_ctrl_class;
 extern ctrl_dev_class_t ddt_node_ctrl_class;
+extern ctrl_dev_class_t ddt_mr_ctrl_class;
 extern ctrl_dev_class_t xtr_ctrl_class;
 
 int ctrl_dev_create(oor_dev_type_e , oor_ctrl_dev_t **);

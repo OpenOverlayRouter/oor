@@ -118,6 +118,29 @@ ddt-deleg-site {
 }
 
 
+################################################
+#
+# DDT-MAP RESOLVER configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+
+control-iface = <iface name>
+
+# Define the current addresses for DDT-Root.
+#   root-addresses: A number of addresses, each could be one of the following cases
+#      - IPv4 or IPv6 address of the RLOC
+#      - ELP name
+
+ddt-mref-cache {
+	root-addresses 		= {
+	 <ip-address>
+	 ...
+	}
+}
+
+
 ###############################################
 #
 # Tunnel Router general configuration

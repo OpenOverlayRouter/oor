@@ -33,6 +33,7 @@
 #include "../control/lisp_ms.h"
 #include "../control/lisp_xtr.h"
 #include "../control/lisp_ddt_node.h"
+#include "../control/lisp_ddt_mr.h"
 #include "../data-plane/data-plane.h"
 #include "../lib/oor_log.h"
 #include "../lib/shash.h"
@@ -941,6 +942,13 @@ configure_ddt(cfg_t *cfg)
 }
 
 int
+configure_ddt_mr(cfg_t *cfg)
+{
+    //TODO actually read and configure
+    return (GOOD);
+}
+
+int
 handle_config_file()
 {
     int ret;
@@ -1080,6 +1088,14 @@ handle_config_file()
 
     };
 
+    /* DDT-Map Resolver specific */
+
+    static cfg_opt_t ddt_mref_cache_opts[] = {
+            CFG_STR_LIST("root-addresses",      0, CFGF_NONE),
+            CFG_END()
+
+    };
+
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts,        CFGF_MULTI),
             CFG_SEC("ms-static-registered-site", db_mapping_opts, CFGF_MULTI),
@@ -1113,6 +1129,7 @@ handle_config_file()
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
 			CFG_SEC("ddt-auth-site",        ddt_auth_site_opts,     CFGF_MULTI),
 			CFG_SEC("ddt-deleg-site",         ddt_deleg_site_opts,      CFGF_MULTI),
+			CFG_SEC("ddt-mref-cache",       ddt_mref_cache_opts,    CFGF_NONE),
             CFG_END()
     };
 
@@ -1180,6 +1197,8 @@ handle_config_file()
             ret=configure_mn(cfg);
         }else if (strcmp(mode, "DDT") ==0) {
         	ret=configure_ddt(cfg);
+        }else if (strcmp(mode, "DDT-MR") ==0) {
+            ret=configure_ddt_mr(cfg);
         }else{
             OOR_LOG (LCRIT, "Configuration file: Unknown operating mode: %s",mode);
             cfg_free(cfg);

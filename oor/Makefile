@@ -63,6 +63,7 @@ OBJS        = cmdline.o                  \
           control/lisp_xtr.o             \
           control/lisp_ms.o              \
           control/lisp_ddt_node.o        \
+          control/lisp_ddt_mr.o          \
           control/control-data-plane/control-data-plane.o    \
           control/control-data-plane/tun/cdp_tun.o           \
           data-plane/encapsulations/vxlan-gpe.o              \
@@ -103,6 +104,7 @@ OBJS        = cmdline.o                  \
           lib/oor_log.o                  \
           lib/mapping_db.o               \
           lib/map_cache_entry.o          \
+          lib/ddt_map_cache_entry.o      \
           lib/map_local_entry.o          \
           lib/mem_util.o                 \
           lib/nonces_table.o             \

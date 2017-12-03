@@ -48,6 +48,9 @@ int lisp_msg_parse_mapping_record_split(lbuf_t *, lisp_addr_t *, glist_t *,
                                         locator_t **);
 int lisp_msg_parse_mapping_record(lbuf_t *, mapping_t *, locator_t **);
 
+int lisp_msg_parse_mref_mapping_record_split(lbuf_t *, lisp_addr_t *, glist_t *);
+int lisp_msg_parse_mref_mapping_record(lbuf_t *, mref_mapping_t *);
+
 int lisp_msg_ecm_decap(struct lbuf *, uint16_t *);
 
 void *lisp_msg_put_addr(lbuf_t *, lisp_addr_t *);

@@ -263,7 +263,7 @@ int
 lisp_msg_parse_mref_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
         glist_t *loc_list)
 {
-    void *mrec_hdr = NULL, *loc_hdr = NULL;
+    void *mrec_hdr = NULL;
     locator_t *loc = NULL;
     int i = 0, len = 0;
 
@@ -281,8 +281,6 @@ lisp_msg_parse_mref_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
             lisp_addr_to_char(eid));
 
     for (i = 0; i < MREF_MAP_REC_REF_COUNT(mrec_hdr); i++) {
-        loc_hdr = lbuf_data(b);
-
         loc = locator_new();
         if (lisp_msg_parse_loc(b, loc) != GOOD) {
             return(BAD);
@@ -317,7 +315,7 @@ lisp_msg_parse_mref_mapping_record(lbuf_t *b, mref_mapping_t *m)
     /* no free is called when destroyed*/
     loc_list = glist_new();
 
-    ret = lisp_msg_parse_mref_mapping_record_split(b, mapping_eid(m), loc_list);
+    ret = lisp_msg_parse_mref_mapping_record_split(b, mref_mapping_eid(m), loc_list);
     if (ret != GOOD) {
         goto err;
     }
