@@ -214,9 +214,9 @@ ddt_node_dump_delegation_sites(lisp_ddt_node_t *ddtn, int log_level)
         /*
         glist_dump(dsite->child_nodes, (glist_to_char_fct)lisp_addr_to_char, log_level);
         */
-        mref_mapping_foreach_active_referral(dsite->mapping,loct){
+        mref_mapping_foreach_referral(dsite->mapping,loct){
             OOR_LOG(log_level, lisp_addr_to_char(locator_addr(loct)));
-        }mref_mapping_foreach_active_referral_end;
+        }mref_mapping_foreach_referral_end;
     } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 

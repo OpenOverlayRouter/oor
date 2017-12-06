@@ -216,9 +216,9 @@ mref_mapping_to_char(mref_mapping_t *m)
             mref_mapping_action_to_char(mref_mapping_action(m)), mref_mapping_auth(m), mref_mapping_incomplete(m));
 
     if (m->referral_count > 0) {
-        mref_mapping_foreach_active_referral(m,locator){
+        mref_mapping_foreach_referral(m,locator){
             snprintf(buf+strlen(buf), buf_size - strlen(buf),"  RLOC: %s\n", locator_to_char(locator));
-        }mref_mapping_foreach_active_referral_end;
+        }mref_mapping_foreach_referral_end;
     }
     return(buf);
 }
@@ -519,4 +519,17 @@ mref_mapping_activate_referral(
                         lisp_addr_to_char(&(mref_mapping->eid_prefix)));
     }
     return (res);
+}
+
+glist_t *mref_mapping_get_ref_addrs(mref_mapping_t *mref_mapping){
+    glist_t *addrs_list;
+    locator_t *loct = NULL;
+
+    addrs_list = glist_new();
+
+    mref_mapping_foreach_referral(mref_mapping,loct){
+        glist_add_tail(locator_addr(loct),addrs_list);
+    }mref_mapping_foreach_referral_end;
+
+    return addrs_list;
 }

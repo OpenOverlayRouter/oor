@@ -100,4 +100,4 @@ ddt_mcache_entry_set_routing_info(ddt_mcache_entry_t *m, void *routing_inf, rout
 }
 
 
-#endif /* MAP_CACHE_ENTRY_H_ */
+#endif /* DDT_MAP_CACHE_ENTRY_H_ */

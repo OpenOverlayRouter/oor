@@ -187,22 +187,26 @@ ddt_mr_add_pending_request(lisp_ddt_mr_t *ddt_mr, ddt_pending_request_t *request
     return(GOOD);
 }
 
+int
+ddt_mr_set_root_entry(lisp_ddt_mr_t *ddt_mr, mref_cache_entry_t *root_entry){
+
+    ddt_mr->root_entry = root_entry;
+
+    return (GOOD);
+}
+
 
 void
-ddt_mr_dump_mref_cache(lisp_ddt_mr_t *ddtmr, int log_level)
+ddt_mr_dump_root_entry(lisp_ddt_mr_t *ddtmr, int log_level)
 {
     if (is_loggable(log_level) == FALSE){
         return;
     }
-
-    mref_cache_entry_t *it = NULL;
     ddt_mcache_entry_t *entry = NULL;
 
     OOR_LOG(log_level,"**************** Map-Referral cache ******************\n");
-    mdb_foreach_entry(ddtmr->mref_cache_db, it) {
-        entry = it->entry;
+        entry = ddtmr->root_entry->entry;
         ddt_map_cache_entry_dump(entry, log_level);
-    } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 
 }
@@ -346,7 +350,7 @@ ddt_mr_ctrl_run(oor_ctrl_dev_t *dev)
     lisp_ddt_mr_t *ddt_mr = lisp_ddt_mr_cast(dev);
 
     OOR_LOG (LDBG_1, "****** Summary of the configuration ******");
-    ddt_mr_dump_mref_cache(ddt_mr, LDBG_1);
+    ddt_mr_dump_root_entry(ddt_mr, LDBG_1);
 
     OOR_LOG(LDBG_1, "Starting DDT Map Resolver ...");
 }

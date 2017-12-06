@@ -907,9 +907,9 @@ configure_ddt(cfg_t *cfg)
         char *typechar = cfg_getstr(ds, "delegation-type");
         int typeint;
         if(strcmp(typechar, "MAP_SERVER_DDT_NODE") == 0){
-            typeint = 1;
+            typeint = LISP_ACTION_MS_REFERRAL;
         }else{
-            typeint = 0;
+            typeint = LISP_ACTION_NODE_REFERRAL;
         }
 
 
@@ -944,8 +944,62 @@ configure_ddt(cfg_t *cfg)
 int
 configure_ddt_mr(cfg_t *cfg)
 {
-    //TODO actually read and configure
-    return (GOOD);
+    char *iface_name;
+    iface_t *iface=NULL;
+    shash_t *lcaf_ht;
+    int j, n;
+    lisp_ddt_mr_t *ddt_mr;
+
+    /* create and configure xtr */
+       if (ctrl_dev_create(DDT_MR_MODE, &ctrl_dev) != GOOD) {
+           OOR_LOG(LCRIT, "Failed to create DDT-Map Resolver. Aborting!");
+           exit_cleanup();
+       }
+       ddt_mr = CONTAINER_OF(ctrl_dev, lisp_ddt_mr_t, super);
+
+       /* create lcaf hash table */
+           lcaf_ht = parse_lcafs(cfg);
+
+
+    /* CONTROL INTERFACE */
+    /* TODO: should work with all interfaces in the future */
+    iface_name = cfg_getstr(cfg, "control-iface");
+    if (iface_name) {
+        iface = add_interface(iface_name);
+        if (iface == NULL) {
+            OOR_LOG(LERR, "Configuration file: Couldn't add the control iface of the DDT-Map Resolver");
+            return(BAD);
+        }
+    }else{
+    /* we have no iface_name, so also iface is missing */
+        OOR_LOG(LERR, "Configuration file: Specify the control iface of the DDT-Map Resolver");
+        return(BAD);
+    }
+
+    iface_configure (iface, AF_INET);
+    iface_configure (iface, AF_INET6);
+
+    /* ROOT ADDRESSES CONFIG */
+    glist_t *root_addresses = glist_new();
+
+    char *root_address;
+    n = cfg_size(cfg, "root-addresses");
+    if (n<1) {
+        OOR_LOG(LERR, "Configuration file: Specify at least one address for DDT-Root");
+        return(BAD);
+    }
+
+    for(j = 0; j < n; j++) {
+        if ((root_address = cfg_getnstr(cfg, "root-addresses", j)) != NULL) {
+            glist_add_tail(root_address, root_addresses);
+        }
+    }
+
+    ddt_mr_put_root_addresses(ddt_mr, root_addresses, lcaf_ht);
+
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    return(GOOD);
 }
 
 int
@@ -1088,13 +1142,6 @@ handle_config_file()
 
     };
 
-    /* DDT-Map Resolver specific */
-
-    static cfg_opt_t ddt_mref_cache_opts[] = {
-            CFG_STR_LIST("root-addresses",      0, CFGF_NONE),
-            CFG_END()
-
-    };
 
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts,        CFGF_MULTI),
@@ -1129,7 +1176,7 @@ handle_config_file()
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
 			CFG_SEC("ddt-auth-site",        ddt_auth_site_opts,     CFGF_MULTI),
 			CFG_SEC("ddt-deleg-site",         ddt_deleg_site_opts,      CFGF_MULTI),
-			CFG_SEC("ddt-mref-cache",       ddt_mref_cache_opts,    CFGF_NONE),
+			CFG_STR_LIST("root-addresses",  0, CFGF_NONE),
             CFG_END()
     };
 

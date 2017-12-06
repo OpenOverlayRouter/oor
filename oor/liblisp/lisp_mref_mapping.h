@@ -69,6 +69,7 @@ glist_t *mref_mapping_get_ref_lst_with_addr_type(mref_mapping_t * mref_mapping,l
 uint8_t mref_mapping_has_referral(mref_mapping_t *mref_mapping, locator_t *ref);
 int mref_mapping_sort_referrals(mref_mapping_t *, lisp_addr_t *);
 int mref_mapping_activate_referral(mref_mapping_t *map,locator_t *ref, lisp_addr_t *new_addr);
+glist_t *mref_mapping_get_ref_addrs(mref_mapping_t *mref_mapping);
 
 static inline lisp_addr_t *mref_mapping_eid(mref_mapping_t *m);
 static inline void mref_mapping_set_eid(mref_mapping_t *m, lisp_addr_t *addr);
@@ -153,7 +154,7 @@ static inline void mref_mapping_set_incomplete(mref_mapping_t *m, uint8_t i)
     m->incomplete = i;
 }
 
-/* For all locators */
+/* For all referrals */
 #define mref_mapping_foreach_referral(_map, _loct) \
         do { \
             glist_t *_loct_list_; \
@@ -172,35 +173,6 @@ static inline void mref_mapping_set_incomplete(mref_mapping_t *m, uint8_t i)
                 } \
             } \
        }while(0)
-
-
-
-/* For each locator that has an active address. If the locator status is down it will
- * also be returned */
-#define mref_mapping_foreach_active_referral(_map, _loct) \
-        do { \
-            glist_t *_loct_list_; \
-            glist_entry_t *_it_list_; \
-            glist_entry_t *_it_loct_; \
-            locator_t *_locator_; \
-            \
-            glist_for_each_entry(_it_list_,_map->referral_lists){ \
-                _loct_list_ = (glist_t *)glist_entry_data(_it_list_); \
-                if (glist_size(_loct_list_) == 0){ \
-                    continue; \
-                } \
-                _locator_ = (locator_t *)glist_first_data(_loct_list_); \
-                if (lisp_addr_is_no_addr(locator_addr(_locator_)) == TRUE){ \
-                    continue; \
-                } \
-                glist_for_each_entry(_it_loct_,_loct_list_){ \
-                    _loct = (locator_t *)glist_entry_data(_it_loct_); \
-
-#define mref_mapping_foreach_active_referral_end \
-                } \
-            } \
-       }while(0)
-
 
 
 #endif /* MREF_MAPPING_H_ */

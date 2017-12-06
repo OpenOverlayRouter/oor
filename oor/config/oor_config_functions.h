@@ -23,6 +23,7 @@
 #include "../control/lisp_ms.h"
 #include "../control/lisp_xtr.h"
 #include "../control/lisp_ddt_node.h"
+#include "../control/lisp_ddt_mr.h"
 #include "../lib/iface_locators.h"
 #include "../lib/lisp_site.h"
 #include "../lib/map_local_entry.h"
@@ -159,6 +160,9 @@ build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t i
 ddt_delegation_site_t *
 build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
         int type, glist_t *child_nodes, shash_t *lcaf_ht);
+
+int
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht);
 
 char *
 get_interface_name_from_address(lisp_addr_t *addr);

@@ -133,11 +133,9 @@ control-iface = <iface name>
 #      - IPv4 or IPv6 address of the RLOC
 #      - ELP name
 
-ddt-mref-cache {
-	root-addresses 		= {
+root-addresses {
 	 <ip-address>
 	 ...
-	}
 }
 
 

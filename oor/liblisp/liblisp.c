@@ -548,7 +548,7 @@ lisp_msg_put_mref_mapping(
     }
 
     /* Add referrals */
-    mref_mapping_foreach_active_referral(map,loct){
+    mref_mapping_foreach_referral(map,loct){
         if (locator_state(loct) == DOWN){
             continue;
         }
@@ -556,7 +556,7 @@ lisp_msg_put_mref_mapping(
         lisp_msg_put_locator(b,loct);
         //LOC_PROBED(ploc) = 1;
         referral_count++;
-    }mref_mapping_foreach_active_referral_end;
+    }mref_mapping_foreach_referral_end;
 
     MREF_MAP_REC_REF_COUNT(rec) = referral_count;
 

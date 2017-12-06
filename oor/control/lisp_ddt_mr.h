@@ -25,6 +25,9 @@
 #include "../liblisp/lisp_mref_mapping.h"
 #include "../lib/ddt_map_cache_entry.h"
 
+typedef struct _mref_cache_entry{
+    ddt_mcache_entry_t *entry;
+} mref_cache_entry_t;
 
 typedef struct _lisp_ddt_mr {
     oor_ctrl_dev_t super;    /* base "class" */
@@ -32,11 +35,8 @@ typedef struct _lisp_ddt_mr {
     /* ddt-mr members */
     mdb_t *mref_cache_db; /* mref_cache_db is filled with mref_cache_entry_t */
     mdb_t *pending_requests_db; /* pending_requests_db is filled with ddt_pending_request_t */
+    mref_cache_entry_t *root_entry; /* the cache entry for root is stored separatedly */
 } lisp_ddt_mr_t;
-
-typedef struct _mref_cache_entry{
-    ddt_mcache_entry_t *entry;
-} mref_cache_entry_t;
 
 #define NOT_GONE_THROUGH_ROOT                      0
 #define GONE_THROUGH_ROOT                          1
@@ -61,10 +61,11 @@ typedef struct _ddt_original_request{
 
 /* DDT-MR interface */
 
-void ddt_mr_dump_mref_cache(lisp_ddt_mr_t *dev, int log_level);
+void ddt_mr_dump_root_entry(lisp_ddt_mr_t *dev, int log_level);
 
 int ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, mref_cache_entry_t *entry);
 int ddt_mr_add_pending_request(lisp_ddt_mr_t *ddt_mr, ddt_pending_request_t *request);
+int ddt_mr_set_root_entry(lisp_ddt_mr_t *ddt_mr, mref_cache_entry_t *root_entry);
 
 mref_cache_entry_t *mref_cache_entry_init(ddt_mcache_entry_t *entry);
 ddt_pending_request_t *ddt_pending_request_init(lisp_addr_t *target_address);

@@ -657,14 +657,65 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
     glist_for_each_entry(it, child_nodes) {
         childnod = (char *)glist_entry_data(it);
         addr_list = parse_lisp_addr(childnod, lcaf_ht);
-        if (addr_list == NULL || glist_size(addr_list) == 1){
-            glist_add_tail((lisp_addr_t *)glist_entry_data(glist_first(addr_list)), child_nodes2);
+        if (glist_size(addr_list) >= 1){
+            glist_entry_t *it2 = NULL;
+            glist_for_each_entry(it2, addr_list) {
+                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), child_nodes2);
+            }
         }
     }
 
     site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes2);
     lisp_addr_del(eid_prefix);
     return(site);
+}
+
+int
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht){
+
+    //Convert the contents of root_addresses from strings to lisp_addr_t
+    //and put them into root_addresses2
+    char         *    address          = NULL;
+    glist_entry_t *     it          = NULL;
+    glist_t *addr_list, *root_addresses2;
+    mref_mapping_t * mapping = NULL;
+    lisp_addr_t * addr = NULL;
+    ddt_mcache_entry_t *ddt_entry = NULL;
+    mref_cache_entry_t *cache_entry =NULL;
+
+
+    root_addresses2 = glist_new();
+
+
+    glist_for_each_entry(it, root_addresses) {
+        address = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(address, lcaf_ht);
+        if (glist_size(addr_list) >= 1){
+            glist_entry_t *it2 = NULL;
+            glist_for_each_entry(it2, addr_list) {
+                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), root_addresses2);
+            }
+        }
+    }
+
+    if (glist_size(root_addresses2)<1) {
+        OOR_LOG(LERR, "Configuration file: No valid addresses are specified for DDT-Root");
+        return(BAD);
+    }
+
+    lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE,addr);
+    // create mapping with the referrals, then create the mapping cache entry for root
+    // with the mapping, and assign it to the map resolver
+    mapping = mref_mapping_new_init_full(addr, 0, LISP_ACTION_NODE_REFERRAL, A_AUTHORITATIVE,
+            0, root_addresses2, NULL, NULL);
+
+    ddt_entry = ddt_mcache_entry_new();
+    ddt_mcache_entry_init_static(ddt_entry,mapping);
+    cache_entry = mref_cache_entry_init(ddt_entry);
+    ddt_mr_set_root_entry(ddt_mr,cache_entry);
+
+    return (GOOD);
+
 }
 
 
