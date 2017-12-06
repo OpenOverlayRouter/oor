@@ -14,7 +14,7 @@ log-file               = /var/log/oor.log
 # Define the type of LISP device LISPmob will operate as 
 #
 # operating-mode can be any of:
-# xTR, RTR, MN, MS
+# xTR, RTR, MN, MS, DDT, DDT-MR
 #
 operating-mode         = xTR
 
@@ -133,7 +133,7 @@ control-iface = <iface name>
 #      - IPv4 or IPv6 address of the RLOC
 #      - ELP name
 
-root-addresses {
+root-addresses = {
 	 <ip-address>
 	 ...
 }

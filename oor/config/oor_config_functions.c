@@ -685,6 +685,7 @@ ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_
 
 
     root_addresses2 = glist_new();
+    addr = lisp_addr_new();
 
 
     glist_for_each_entry(it, root_addresses) {

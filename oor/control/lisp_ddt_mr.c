@@ -204,7 +204,8 @@ ddt_mr_dump_root_entry(lisp_ddt_mr_t *ddtmr, int log_level)
     }
     ddt_mcache_entry_t *entry = NULL;
 
-    OOR_LOG(log_level,"**************** Map-Referral cache ******************\n");
+    OOR_LOG(log_level,"****************    DDT Map-Resolver    ******************\n");
+    OOR_LOG(log_level,"**************** Map-Referral cache(DDT-Root) ******************\n");
         entry = ddtmr->root_entry->entry;
         ddt_map_cache_entry_dump(entry, log_level);
     OOR_LOG(log_level,"*******************************************************\n");
@@ -359,7 +360,9 @@ ddt_mr_ctrl_run(oor_ctrl_dev_t *dev)
 mref_cache_entry_t
 *mref_cache_entry_init(ddt_mcache_entry_t *entry)
 {
-    mref_cache_entry_t *cache_entry = NULL;
+    mref_cache_entry_t *cache_entry;
+
+    cache_entry = xzalloc(sizeof(mref_cache_entry_t));
 
     cache_entry->entry = entry;
 
