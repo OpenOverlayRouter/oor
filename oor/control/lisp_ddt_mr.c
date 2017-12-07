@@ -163,7 +163,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 
 
 int
-ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, mref_cache_entry_t *entry)
+ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
 {
     if (!entry)
         return(BAD);
@@ -188,7 +188,7 @@ ddt_mr_add_pending_request(lisp_ddt_mr_t *ddt_mr, ddt_pending_request_t *request
 }
 
 int
-ddt_mr_set_root_entry(lisp_ddt_mr_t *ddt_mr, mref_cache_entry_t *root_entry){
+ddt_mr_set_root_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *root_entry){
 
     ddt_mr->root_entry = root_entry;
 
@@ -206,7 +206,7 @@ ddt_mr_dump_root_entry(lisp_ddt_mr_t *ddtmr, int log_level)
 
     OOR_LOG(log_level,"****************    DDT Map-Resolver    ******************\n");
     OOR_LOG(log_level,"**************** Map-Referral cache(DDT-Root) ******************\n");
-        entry = ddtmr->root_entry->entry;
+        entry = ddtmr->root_entry;
         ddt_map_cache_entry_dump(entry, log_level);
     OOR_LOG(log_level,"*******************************************************\n");
 
@@ -357,18 +357,6 @@ ddt_mr_ctrl_run(oor_ctrl_dev_t *dev)
 }
 
 
-mref_cache_entry_t
-*mref_cache_entry_init(ddt_mcache_entry_t *entry)
-{
-    mref_cache_entry_t *cache_entry;
-
-    cache_entry = xzalloc(sizeof(mref_cache_entry_t));
-
-    cache_entry->entry = entry;
-
-    return(cache_entry);
-}
-
 
 ddt_pending_request_t
 *ddt_pending_request_init(lisp_addr_t *target_address)
@@ -383,13 +371,11 @@ ddt_pending_request_t
 }
 
 void
-mref_cache_entry_del(mref_cache_entry_t *entry)
+mref_cache_entry_del(ddt_mcache_entry_t *entry)
 {
     if (!entry)
         return;
-    if (entry->entry)
-        free(entry->entry);
-    free(entry);
+    ddt_mcache_entry_del(entry);
 }
 
 void

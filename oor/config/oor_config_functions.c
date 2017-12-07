@@ -681,7 +681,6 @@ ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_
     mref_mapping_t * mapping = NULL;
     lisp_addr_t * addr = NULL;
     ddt_mcache_entry_t *ddt_entry = NULL;
-    mref_cache_entry_t *cache_entry =NULL;
 
 
     root_addresses2 = glist_new();
@@ -712,8 +711,7 @@ ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_
 
     ddt_entry = ddt_mcache_entry_new();
     ddt_mcache_entry_init_static(ddt_entry,mapping);
-    cache_entry = mref_cache_entry_init(ddt_entry);
-    ddt_mr_set_root_entry(ddt_mr,cache_entry);
+    ddt_mr_set_root_entry(ddt_mr,ddt_entry);
 
     return (GOOD);
 
