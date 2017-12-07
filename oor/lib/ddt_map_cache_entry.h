@@ -99,5 +99,10 @@ ddt_mcache_entry_set_routing_info(ddt_mcache_entry_t *m, void *routing_inf, rout
     m->routing_inf_del = del_fct;
 }
 
+static inline int
+ddt_mcache_entry_type(ddt_mcache_entry_t *m){
+    return(m->mapping->action);
+}
+
 
 #endif /* DDT_MAP_CACHE_ENTRY_H_ */

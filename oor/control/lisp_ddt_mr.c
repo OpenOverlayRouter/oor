@@ -31,26 +31,52 @@ static int ddt_mr_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_mr_t *lisp_ddt_mr_cast(oor_ctrl_dev_t *dev);
 
 static int
+get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
+{
+    lcaf_addr_t *lcaf = NULL;
+    elp_node_t *enode;
+
+    lcaf = lisp_addr_get_lcaf(laddr);
+    switch (lcaf_addr_get_type(lcaf)) {
+    case LCAF_EXPL_LOC_PATH:
+        /* we're looking for the ETR, so the destination is the last elp hop */
+        enode = glist_last_data(lcaf_elp_node_list(lcaf));
+        *dst = enode->addr;
+        break;
+    default:
+        *dst = NULL;
+        OOR_LOG(LDBG_1, "get_locator_from_lcaf: Type % not supported!, ",
+                lcaf_addr_get_type(lcaf));
+        return (BAD);
+    }
+    return (GOOD);
+}
+
+static int
 ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
     //TODO recieve map request logic here
-    /*
+
     lisp_addr_t *   seid        = NULL;
     lisp_addr_t *   deid        = NULL;
     glist_t *       itr_rlocs   = NULL;
+    glist_t *       referral_addrs =NULL;
     void *          mreq_hdr    = NULL;
-    void *          mref_hdr    = NULL;
+    //void *          mref_hdr    = NULL;
     //mref_mapping_record_hdr_t *  rec            = NULL;
-    int             i           = 0;
-    lbuf_t *        mref        = NULL;
+    int             throughroot;
+    int             i;
+    lbuf_t *        mrep        = NULL;
     lbuf_t  b;
-    ddt_authoritative_site_t *    asite            = NULL;
-    ddt_delegation_site_t *       dsite           = NULL;
+    ddt_pending_request_t *    pendreq            = NULL;
+    ddt_mcache_entry_t *       cacheentry           = NULL;
+    ddt_original_request_t *original = NULL;
 
     // local copy of the buf that can be modified
     b = *buf;
 
     seid = lisp_addr_new();
+    throughroot = NOT_GONE_THROUGH_ROOT;
 
 
     mreq_hdr = lisp_msg_pull_hdr(&b);
@@ -85,73 +111,83 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
             goto err;
         }
 
-        // CHECK IF NODE IS AUTHORITATIVE FOR THE EID
-        asite = mdb_lookup_entry(ddt_node->auth_sites_db, deid);
-        if (!asite) {
-            // send NOT_AUTHORITATIVE map-referral with Incomplete = 1
-            // and TTL = 0
-            mref = lisp_msg_neg_mref_create(deid, 0, LISP_ACTION_NOT_AUTHORITATIVE, A_NO_AUTHORITATIVE,
-                                1, MREQ_NONCE(mreq_hdr));
-            OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s, sending NOT_AUTHORITATIVE message",
-                    lisp_addr_to_char(deid));
-            OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
-                    lisp_addr_to_char(deid));
-            send_msg(&ddt_node->super, mref, ext_uc);
-            lisp_msg_destroy(mref);
-            lisp_addr_del(deid);
+        // CHECK IF PENDING REQUEST EXISTS FOR THE EID
+        pendreq = mdb_lookup_entry(ddt_mr->pending_requests_db, deid);
+        if (pendreq) {
+            // add the original request to the pending request's list of
+            // original requests, it will substitute a previous instance of itself if necessary
+            original = xzalloc(sizeof(ddt_original_request_t));
+            original->nonce = MREQ_NONCE(mreq_hdr);
+            original->source_address = seid;
+            original->itr_locs = itr_rlocs;
+            pending_request_add_original(pendreq, original);
 
         }else{
-            // CHECK IF DELEGATION EXISTS FOR THE EID
-            dsite = mdb_lookup_entry(ddt_node->deleg_sites_db, deid);
-            if (dsite) {
-                    mref = lisp_msg_create(LISP_MAP_REFERRAL);
+            // CHECK IF MATCH IN CACHE
+            cacheentry = mdb_lookup_entry(ddt_mr->mref_cache_db, deid);
+            if (!cacheentry) {
+                cacheentry = ddt_mr->root_entry;
+                throughroot = GONE_THROUGH_ROOT;
+            }
+            // check match type and act depending on it
+            switch (ddt_mcache_entry_type(cacheentry)){
+            case LISP_ACTION_DELEGATION_HOLE:
+                // send negative Map-Reply
+                //TODO check what action it should really have
+                mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NO_ACTION,
+                        A_AUTHORITATIVE, MREQ_NONCE(mreq_hdr));
+                send_msg(&ddt_mr->super, mrep, ext_uc);
+                lisp_msg_destroy(mrep);
+                break;
 
-                    lisp_msg_put_mref_mapping(mref, dsite->mapping);
+            case LISP_ACTION_MS_ACK:
+                // forward DDT Map-Request to Map Server
+                // TODO check if this really does as intended
+                referral_addrs = mref_mapping_get_ref_addrs(cacheentry->mapping);
+                glist_entry_t *it;
+                uconn_t fwd_uc;
 
-                    mref_hdr = lisp_msg_hdr(mref);
-                    MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
+                /* Set buffer to forward the encapsulated message*/
+                lbuf_point_to_lisp_hdr(&b);
 
-                    // SEND MAP-REFERRAL
-                    if (send_msg(&ddt_node->super, mref, ext_uc) != GOOD) {
-                        OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
-                    }else{
-                        OOR_LOG(LDBG_1, "Map-Referral sent!");
+                glist_for_each_entry(it,referral_addrs){
+                    lisp_addr_t *drloc = NULL;
+                    lisp_addr_t *addr = glist_entry_data(it);
+
+                    drloc = lisp_addr_get_ip_addr(addr);
+
+                    if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
+                        get_etr_from_lcaf(drloc, &drloc);
                     }
-                    lisp_msg_destroy(mref);
-                    lisp_addr_del(deid);
 
-                }else{
-                    // send DELEGATION_HOLE map-referral with
-                    // TTL = DEFAULT_NEGATIVE_REFERRAL_TTL
-                    mref = lisp_msg_neg_mref_create(deid, DEFAULT_NEGATIVE_REFERRAL_TTL, LISP_ACTION_DELEGATION_HOLE,
-                            A_AUTHORITATIVE, 0, MREQ_NONCE(mreq_hdr));
-                    OOR_LOG(LDBG_1,"No delegation exists for the requested EID %s, sending DELEGATION_HOLE message",
-                            lisp_addr_to_char(deid));
-                    OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
-                            lisp_addr_to_char(deid));
-                    send_msg(&ddt_node->super, mref, ext_uc);
-                    lisp_msg_destroy(mref);
-                    lisp_addr_del(deid);
+                    uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
+                    send_msg(&ddt_mr->super, &b, &fwd_uc);
                 }
+                break;
+
+            default:
+                pendreq = ddt_pending_request_init(deid,throughroot,cacheentry);
+                original = xzalloc(sizeof(ddt_original_request_t));
+                original->nonce = MREQ_NONCE(mreq_hdr);
+                original->source_address = seid;
+                original->itr_locs = itr_rlocs;
+                pending_request_add_original(pendreq, original);
+                ddt_mr_add_pending_request(ddt_mr, pendreq);
+                pending_request_do_cycle(pendreq);
+            }
         }
     }
 
     glist_destroy(itr_rlocs);
     lisp_addr_del(seid);
 
-
-
     return(GOOD);
 err:
     glist_destroy(itr_rlocs);
-    lisp_msg_destroy(mref);
+    lisp_msg_destroy(mrep);
     lisp_addr_del(deid);
     lisp_addr_del(seid);
     return(BAD);
-
-    */
-    return (GOOD);
-
 }
 
 static int
@@ -359,15 +395,40 @@ ddt_mr_ctrl_run(oor_ctrl_dev_t *dev)
 
 
 ddt_pending_request_t
-*ddt_pending_request_init(lisp_addr_t *target_address)
+*ddt_pending_request_init(lisp_addr_t *target_address, int gone_through_root, ddt_mcache_entry_t *current_cache_entry)
 {
-    ddt_pending_request_t *request = NULL;
+    ddt_pending_request_t *request = xzalloc(sizeof(ddt_pending_request_t));;
     request-> target_address = target_address;
     request-> original_requests = glist_new();
-    request-> gone_through_root = 0;
+    request-> gone_through_root = gone_through_root;
+    if(gone_through_root == NOT_GONE_THROUGH_ROOT){
+        request-> current_cache_entry = current_cache_entry;
+    }else{
+        request-> current_cache_entry = NULL;
+    }
+    request-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(current_cache_entry));
+    request-> current_rloc = NULL;
     request-> retry_number = 0;
 
     return(request);
+}
+
+void
+pending_request_add_original(ddt_pending_request_t *pending, ddt_original_request_t *original)
+{
+    glist_entry_t *it = NULL;
+    glist_for_each_entry(it,pending->original_requests){
+        ddt_original_request_t *request = glist_entry_data(it);
+        if(lisp_addr_cmp(request->source_address,original->source_address)==0){
+            glist_remove(it,pending->original_requests);
+        }
+    }
+    glist_add(original,pending->original_requests);
+}
+
+void
+pending_request_do_cycle(ddt_pending_request_t *pendreq){
+    //TODO implementar
 }
 
 void
