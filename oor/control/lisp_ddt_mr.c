@@ -166,7 +166,12 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
                 break;
 
             default:
-                pendreq = ddt_pending_request_init(deid,throughroot,cacheentry);
+                pendreq = ddt_pending_request_init(deid);
+                if(throughroot == GONE_THROUGH_ROOT){
+                    pending_request_set_root_cache_entry(pendreq, ddt_mr);
+                }else{
+                    pending_request_set_new_cache_entry(pendreq, cacheentry);
+                }
                 original = xzalloc(sizeof(ddt_original_request_t));
                 original->nonce = MREQ_NONCE(mreq_hdr);
                 original->source_address = seid;
@@ -395,22 +400,33 @@ ddt_mr_ctrl_run(oor_ctrl_dev_t *dev)
 
 
 ddt_pending_request_t
-*ddt_pending_request_init(lisp_addr_t *target_address, int gone_through_root, ddt_mcache_entry_t *current_cache_entry)
+*ddt_pending_request_init(lisp_addr_t *target_address)
 {
     ddt_pending_request_t *request = xzalloc(sizeof(ddt_pending_request_t));;
     request-> target_address = target_address;
     request-> original_requests = glist_new();
-    request-> gone_through_root = gone_through_root;
-    if(gone_through_root == NOT_GONE_THROUGH_ROOT){
-        request-> current_cache_entry = current_cache_entry;
-    }else{
-        request-> current_cache_entry = NULL;
-    }
-    request-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(current_cache_entry));
-    request-> current_rloc = NULL;
-    request-> retry_number = 0;
+    request-> gone_through_root = NOT_GONE_THROUGH_ROOT;
 
     return(request);
+}
+
+void
+pending_request_set_new_cache_entry(ddt_pending_request_t *pendreq, ddt_mcache_entry_t *current_cache_entry)
+{
+    pendreq-> current_cache_entry = current_cache_entry;
+    pendreq-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(current_cache_entry));
+    pendreq-> current_rloc = NULL;
+    pendreq-> retry_number = 0;
+}
+
+void
+pending_request_set_root_cache_entry(ddt_pending_request_t *pendreq, lisp_ddt_mr_t *mapres)
+{
+    pendreq-> gone_through_root = GONE_THROUGH_ROOT;
+    pendreq-> current_cache_entry = NULL;
+    pendreq-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(mapres->root_entry));
+    pendreq-> current_rloc = NULL;
+    pendreq-> retry_number = 0;
 }
 
 void

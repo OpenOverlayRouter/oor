@@ -65,7 +65,11 @@ int ddt_mr_add_pending_request(lisp_ddt_mr_t *ddt_mr, ddt_pending_request_t *req
 int ddt_mr_set_root_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *root_entry);
 
 
-ddt_pending_request_t *ddt_pending_request_init(lisp_addr_t *target_address, int gone_through_root, ddt_mcache_entry_t *current_cache_entry);
+ddt_pending_request_t *ddt_pending_request_init(lisp_addr_t *target_address);
+
+void pending_request_set_new_cache_entry(ddt_pending_request_t *pendreq, ddt_mcache_entry_t *current_cache_entry);
+
+void pending_request_set_root_cache_entry(ddt_pending_request_t *pendreq, lisp_ddt_mr_t *mapres);
 
 void pending_request_add_original(ddt_pending_request_t *pending, ddt_original_request_t *original);
 
