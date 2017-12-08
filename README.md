@@ -114,6 +114,9 @@ To build the code for Linux operating run the following in the top-level directo
 To install it in `/usr/local/sbin`, run
 
     sudo make install
+
+A `Vagrantfile` is provided for quick installation in a dedicated VM, see the
+"Using Vagrant" section.
     
 To build the code for OpenWRT you will need the OpenWRT official SDK. However,
 for your convenience, we encourage you to install the precompiled .ipk, from our
@@ -336,6 +339,38 @@ be registered by xTRs. OOR will also reply to MapRequests addressed to those
 prefixes.
 To configure Open Overlay Router as a MS/MR, select the corresponding operating-mode and 
 fill the parameters of the MS section of the configuration file.
+
+Using Vagrant
+-------------
+
+The top-level directory of the tree has a `Vagrantfile` to allow quick
+creation of a VM with all prerequisites preinstalled so the code can be built
+quickly in an isolated environment. This is especially useful for development
+on platforms other than Linux, where code editing is done on the native host
+OS, and the Linux VM created by Vagrant is used only for building and testing
+the code.
+
+Vagrant automcatically sets up a shared folder `/vagrant` pointing to the
+folder where the Vagrantfile resides, in this case the top-level folder of the
+source tree. This way, changes to the source code on the host computer are
+automatically reflected in the VM, and binaries created in the VM are also
+automatically available to the host OS. This can be especially helpful for
+Android development on non-Linux platforms.
+
+To create the VM, run:
+
+    vagrant up
+
+This will download the base box (currently Ubuntu 17.10), update packages to
+the latest version, and install build dependencies for OOR. It may be useful
+to install the `vagrant-cachier` plugin to cache Ubuntu packages, in order to
+speed up rebuilds of the VM, if done often:
+
+    vagrant plugin install vagrant-cachier
+
+Once provisioning of the VM finished, it can be accessed with:
+
+    vagrant ssh
 
 OpenWRT 
 -------
