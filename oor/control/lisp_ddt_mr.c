@@ -31,10 +31,55 @@ static int ddt_mr_recv_map_referral(lisp_ddt_mr_t *, lbuf_t *, void *, uconn_t*,
 static int ddt_mr_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_mr_t *lisp_ddt_mr_cast(oor_ctrl_dev_t *dev);
 static int pending_request_do_cycle(oor_timer_t *timer);
+static int mref_mc_entry_expiration_timer_cb(oor_timer_t *t);
+static void mref_mc_entry_start_expiration_timer(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *mce);
+static void mref_mc_entry_start_expiration_timer2(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *mce, int time);
 
 timer_pendreq_cycle_argument *timer_pendreq_cycle_arg_new_init(ddt_pending_request_t *pendreq,lisp_ddt_mr_t *mapres, lisp_addr_t *localaddress);
 
 void timer_pendreq_cycle_arg_free(timer_pendreq_cycle_argument * timer_arg);
+
+/* Called when the timer associated with an EID entry expires. */
+static int
+mref_mc_entry_expiration_timer_cb(oor_timer_t *timer)
+{
+    ddt_mcache_entry_t *mce = oor_timer_cb_argument(timer);
+    mref_mapping_t *map = ddt_mcache_entry_mapping(mce);
+    lisp_addr_t *addr = mref_mapping_eid(map);
+    lisp_ddt_mr_t *ddt_mr = oor_timer_owner(timer);
+
+    OOR_LOG(LDBG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
+    mdb_remove_entry(ddt_mr->mref_cache_db, cache_entry_xeid(mce));
+    return(GOOD);
+}
+
+static void
+mref_mc_entry_start_expiration_timer(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *mce)
+{
+    int time = mref_mapping_ttl(ddt_mcache_entry_mapping(mce))*60;
+    mref_mc_entry_start_expiration_timer2(ddt_mr, mce, time);
+}
+
+static void
+mref_mc_entry_start_expiration_timer2(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *mce, int time)
+{
+    /* Expiration cache timer */
+    oor_timer_t *timer;
+
+    timer = oor_timer_create(EXPIRE_MAP_CACHE_TIMER);
+    oor_timer_init(timer,ddt_mr,mref_mc_entry_expiration_timer_cb,mce,NULL,NULL);
+    htable_ptrs_timers_add(ptrs_to_timers_ht, mce, timer);
+
+    oor_timer_start(timer, time);
+
+    if (time > 60){
+        OOR_LOG(LDBG_1,"The mapping cache entry for EID %s will expire in %d minutes.",
+                lisp_addr_to_char(mref_mapping_eid(ddt_mcache_entry_mapping(mce))),time/60);
+    }else{
+        OOR_LOG(LDBG_1,"The mapping cache entry for EID %s will expire in %d seconds.",
+                lisp_addr_to_char(mref_mapping_eid(ddt_mcache_entry_mapping(mce))),time);
+    }
+}
 
 static int
 get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
@@ -84,6 +129,10 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 
     seid = lisp_addr_new();
     throughroot = NOT_GONE_THROUGH_ROOT;
+
+    OOR_LOG(LDBG_1, "int_uc-la: %s\nint_uc-ra: %s\next_uc-la: %s\next_uc-ra: %s", lisp_addr_to_char(&int_uc->la)
+            , lisp_addr_to_char(&int_uc->ra), lisp_addr_to_char(&ext_uc->la), lisp_addr_to_char(&ext_uc->ra));
+
 
 
     mreq_hdr = lisp_msg_pull_hdr(&b);
@@ -174,11 +223,17 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 
             default:
                 pendreq = ddt_pending_request_init(deid);
+                OOR_LOG(LDBG_1, "Pending request created. Target address is %s",
+                        lisp_addr_to_char(pendreq->target_address));
                 if(throughroot == GONE_THROUGH_ROOT){
                     pending_request_set_root_cache_entry(pendreq, ddt_mr);
                 }else{
                     pending_request_set_new_cache_entry(pendreq, cacheentry);
                 }
+
+                OOR_LOG(LDBG_1, "Cache entry set. Number of rlocs:%d",
+                                glist_size(pendreq->current_delegation_rlocs));
+
                 original = xzalloc(sizeof(ddt_original_request_t));
                 original->nonce = MREQ_NONCE(mreq_hdr);
                 original->source_address = lisp_addr_clone(seid);
@@ -225,6 +280,9 @@ ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
 
     if(!mdb_add_entry(ddt_mr->mref_cache_db, cache_entry_xeid(entry), entry))
         return(BAD);
+
+    mref_mc_entry_start_expiration_timer(ddt_mr, entry);
+
     return(GOOD);
 }
 
@@ -480,7 +538,8 @@ pending_request_do_cycle(oor_timer_t *timer){
         }
     }
 
-    OOR_LOG(LDBG_1, "Moved to next rloc");
+    OOR_LOG(LDBG_1, "Moved to next rloc:");
+    OOR_LOG(LDBG_1, lisp_addr_to_char(glist_entry_data(pendreq->current_rloc)));
 
     // check if max retries exceeded
     if(pendreq->retry_number >= DEFAULT_MAP_REQUEST_RETRIES){
@@ -532,7 +591,7 @@ pending_request_do_cycle(oor_timer_t *timer){
 
             OOR_LOG(LDBG_1, "Has sent negative map-replies to original askers");
 
-            ddt_pending_request_del(pendreq,mapres);
+            ddt_pending_request_del_full(pendreq,mapres);
 
             OOR_LOG(LDBG_1, "Has eliminated pending request");
 
@@ -555,7 +614,7 @@ pending_request_do_cycle(oor_timer_t *timer){
         nonce = nonce_new();
         MREQ_NONCE(mr_hdr) = nonce;
 
-        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, timer_arg->local_address, pendreq->target_address);
+        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, timer_arg->local_address, glist_entry_data(pendreq->current_rloc));
 
         ec_hdr = lisp_msg_ecm_hdr(mreq);
         ECM_DDT_BIT(ec_hdr) = 1;
@@ -589,16 +648,33 @@ pending_request_do_cycle(oor_timer_t *timer){
 }
 
 void
-mref_cache_entry_del(ddt_mcache_entry_t *entry, lisp_ddt_mr_t *mapres)
+mref_cache_entry_del(ddt_mcache_entry_t *entry)
 {
     if (!entry)
         return;
-    mdb_remove_entry(mapres->mref_cache_db,cache_entry_xeid(entry));
     ddt_mcache_entry_del(entry);
 }
 
+
 void
-ddt_pending_request_del(ddt_pending_request_t *request, lisp_ddt_mr_t *mapres)
+ddt_pending_request_del(ddt_pending_request_t *request)
+{
+    if (!request)
+        return;
+    stop_timers_from_obj(request,ptrs_to_timers_ht, nonces_ht);
+    if (request->target_address)
+            free(request->target_address);
+    if (request->original_requests)
+                free(request->original_requests);
+    if (request->current_delegation_rlocs)
+                free(request->current_delegation_rlocs);
+    if (request->current_rloc)
+                free(request->current_rloc);
+    free(request);
+}
+
+void
+ddt_pending_request_del_full(ddt_pending_request_t *request, lisp_ddt_mr_t *mapres)
 {
     if (!request)
         return;

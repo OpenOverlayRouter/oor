@@ -80,12 +80,14 @@ void pending_request_set_root_cache_entry(ddt_pending_request_t *pendreq, lisp_d
 void pending_request_add_original(ddt_pending_request_t *pending, ddt_original_request_t *original);
 
 
-void mref_cache_entry_del(ddt_mcache_entry_t *entry, lisp_ddt_mr_t *mapres);
+void mref_cache_entry_del(ddt_mcache_entry_t *entry);
+void mref_cache_entry_del_full(ddt_mcache_entry_t *entry, lisp_ddt_mr_t *mapres);
 static inline lisp_addr_t *
 cache_entry_xeid(ddt_mcache_entry_t *entry) {
     return(ddt_mcache_entry_eid(entry));
 }
-void ddt_pending_request_del(ddt_pending_request_t *request, lisp_ddt_mr_t *mapres);
+void ddt_pending_request_del(ddt_pending_request_t *request);
+void ddt_pending_request_del_full(ddt_pending_request_t *request, lisp_ddt_mr_t *mapres);
 static inline lisp_addr_t *
 pending_request_xeid(ddt_pending_request_t *request) {
     return(request->target_address);

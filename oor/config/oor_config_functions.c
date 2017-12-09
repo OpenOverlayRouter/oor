@@ -706,12 +706,15 @@ ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_
     lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE,addr);
     // create mapping with the referrals, then create the mapping cache entry for root
     // with the mapping, and assign it to the map resolver
-    mapping = mref_mapping_new_init_full(addr, 0, LISP_ACTION_NODE_REFERRAL, A_AUTHORITATIVE,
+    mapping = mref_mapping_new_init_full(addr, 1440, LISP_ACTION_NODE_REFERRAL, A_AUTHORITATIVE,
             0, root_addresses2, NULL, NULL);
 
     ddt_entry = ddt_mcache_entry_new();
     ddt_mcache_entry_init_static(ddt_entry,mapping);
     ddt_mr_set_root_entry(ddt_mr,ddt_entry);
+
+    //TODO remove this after testing
+    //ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
 
     return (GOOD);
 
