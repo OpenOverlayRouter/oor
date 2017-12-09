@@ -48,10 +48,6 @@ typedef struct ddt_map_cache_entry_ {
 
     time_t timestamp;
 
-    /* Routing info */
-    void *                  routing_info;
-    routing_info_del_fct    routing_inf_del;
-
 } ddt_mcache_entry_t;
 
 ddt_mcache_entry_t *ddt_mcache_entry_new();
@@ -66,9 +62,6 @@ static inline mref_mapping_t *ddt_mcache_entry_mapping(ddt_mcache_entry_t*);
 static inline void ddt_mcache_entry_set_mapping(ddt_mcache_entry_t* , mref_mapping_t *);
 uint8_t ddt_mcache_has_referrals(ddt_mcache_entry_t *m);
 
-static inline void *ddt_mcache_entry_routing_info(ddt_mcache_entry_t *);
-static inline void ddt_mcache_entry_set_routing_info(ddt_mcache_entry_t *, void *,
-        routing_info_del_fct);
 lisp_addr_t *ddt_mcache_entry_eid(ddt_mcache_entry_t *mce);
 
 
@@ -83,20 +76,6 @@ ddt_mcache_entry_set_mapping(ddt_mcache_entry_t* mce,
         mref_mapping_t *m)
 {
     mce->mapping = m;
-}
-
-
-static inline void *
-ddt_mcache_entry_routing_info(ddt_mcache_entry_t *m)
-{
-    return (m->routing_info);
-}
-
-static inline void
-ddt_mcache_entry_set_routing_info(ddt_mcache_entry_t *m, void *routing_inf, routing_info_del_fct del_fct)
-{
-    m->routing_info = routing_inf;
-    m->routing_inf_del = del_fct;
 }
 
 static inline int

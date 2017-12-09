@@ -68,10 +68,6 @@ ddt_mcache_entry_del(ddt_mcache_entry_t *entry)
 
     mref_mapping_del(ddt_mcache_entry_mapping(entry));
 
-    if (entry->routing_info != NULL){
-        entry->routing_inf_del(entry->routing_info);
-    }
-
     free(entry);
 }
 

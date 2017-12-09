@@ -268,7 +268,183 @@ static int
 ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
     //TODO map referral logic here
+    //void *          mreq_hdr    = NULL;
+    nonces_list_t *nonces_lst;
+    oor_timer_t *timer;
+    timer_pendreq_cycle_argument *timer_arg;
+    ddt_pending_request_t *pendreq;
+    mref_mapping_t *m;
+    void *          mref_hdr    = NULL;
+    //mref_mapping_record_hdr_t *  rec            = NULL;
+    int             i,records,morespecific;
+    //lbuf_t *        mref        = NULL;
+    lbuf_t  b;
+    ddt_mcache_entry_t *ddt_entry;
+    glist_t *rlocs_list = NULL;
+
+    // local copy of the buf that can be modified
+    b = *buf;
+
+
+    mref_hdr = lisp_msg_pull_hdr(&b);
+
+    /* we are currently skipping the step of "auth signature valid */
+
+    // check if nonce matches any pending request
+    nonces_lst = htable_nonces_lookup(nonces_ht, MREF_NONCE(mref_hdr));
+    if (!nonces_lst){
+        OOR_LOG(LDBG_2, " Nonce %"PRIx64" doesn't match any Pending Request nonce. "
+                "Discarding message!", MREF_NONCE(mref_hdr));
+        return(BAD);
+    }
+
+    if (MREF_REC_COUNT(mref_hdr) >1){
+        OOR_LOG(LINF,"Received Map Referral with multiple records. Only first one will be processed");
+    }
+    records = 1;
+
+    for (i = 0; i < records; i++) {
+        m = mref_mapping_new();
+        if (lisp_msg_parse_mref_mapping_record(&b, m) != GOOD) {
+            goto err;
+        }
+
+        // check if new pfx is less specific than last
+        timer = nonces_list_timer(nonces_lst);
+        timer_arg = (timer_pendreq_cycle_argument *)oor_timer_cb_argument(timer);
+        pendreq = timer_arg->pendreq;
+        if(!pendreq->current_cache_entry){
+            // pending request was using Root, new prefix CANNOT be less specific
+            }else{
+                if(pref_is_prefix_b_part_of_a(ddt_mcache_entry_eid(pendreq->current_cache_entry),
+                        mref_mapping_eid(m))){
+                    // new prefix is equal or more specific than the existing one
+                }else{
+                    OOR_LOG(LDBG_2, " New prefix %s is not more specific than existing prefix %s "
+                                    "Discarding message!", lisp_addr_to_char(mref_mapping_eid(m)),
+                                    lisp_addr_to_char(ddt_mcache_entry_eid(pendreq->current_cache_entry)));
+                    return (BAD);
+                }
+            }
+
+        // check map referral type and proceed according to it
+        switch(mref_mapping_action(m)){
+        case LISP_ACTION_NODE_REFERRAL:
+        case LISP_ACTION_MS_REFERRAL:
+            //check if prefix is equal to last used
+            if(!pendreq->current_cache_entry){
+                // pending request was using Root, new prefix must be more specific
+                morespecific = TRUE;
+            }else{
+                if(pref_is_prefix_b_part_of_a(mref_mapping_eid(m),
+                        ddt_mcache_entry_eid(pendreq->current_cache_entry))){
+                    // new prefix is equal to the existing one
+                    morespecific = FALSE;
+                }else{
+                    //new prefix is part of the old, but not equal
+                    morespecific=TRUE;
+                }
+            }
+            if(morespecific){
+                //cache and follow the referral
+                ddt_entry = ddt_mcache_entry_new();
+                ddt_mcache_entry_init(ddt_entry,m);
+                ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
+                pending_request_set_new_cache_entry(pendreq,ddt_entry);
+                pending_request_do_cycle(timer);
+                return (GOOD);
+            }
+        case LISP_ACTION_NOT_AUTHORITATIVE:
+            if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
+                //send negative map-reply/es
+                send_negative_mrep_to_original_askers(ddt_mr,pendreq);
+                ddt_pending_request_del_full(pendreq,ddt_mr);
+            }else{
+                //send request to Root
+                pending_request_set_root_cache_entry(pendreq,ddt_mr);
+                pending_request_do_cycle(timer);
+            }
+            break;
+
+        case LISP_ACTION_MS_ACK:
+            rlocs_list= glist_new();
+            // check incomplete bit
+            if(mref_mapping_incomplete(m)){
+                // forward original requests to map server
+                glist_add(&ext_uc->ra,rlocs_list);
+            }else{
+                // cache and forward original requests to map servers
+                ddt_entry = ddt_mcache_entry_new();
+                ddt_mcache_entry_init(ddt_entry,m);
+                ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
+                rlocs_list = mref_mapping_get_ref_addrs(m);
+            }
+            glist_entry_t *it = NULL;
+            glist_for_each_entry(it,pendreq->original_requests){
+                lisp_addr_t *drloc, *srloc;
+                ddt_original_request_t *request = glist_entry_data(it);
+                lbuf_t *        mreq        = NULL;
+                uconn_t orig_uc;
+                void *mr_hdr = NULL;
+                //TODO check if this action is correct, also the authoritative
+                mreq =lisp_msg_mreq_create(request->source_address, request->itr_locs, pendreq->target_address);
+                mr_hdr = lisp_msg_hdr(mreq);
+                MREQ_NONCE(mr_hdr) = request->nonce;
+
+                srloc = lisp_addr_get_ip_addr(request->source_address);
+                if (lisp_addr_lafi(srloc) == LM_AFI_LCAF) {
+                    get_etr_from_lcaf(srloc, &srloc);
+                }
+
+                glist_entry_t *it2 = NULL;
+                glist_for_each_entry(it2, rlocs_list){
+                    drloc = lisp_addr_get_ip_addr(glist_entry_data(it2));
+
+                    if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
+                        get_etr_from_lcaf(drloc, &drloc);
+                    }
+
+                    uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
+                    send_msg(&ddt_mr->super, mreq, &orig_uc);
+
+                }
+                lisp_msg_destroy(mreq);
+            }
+            ddt_pending_request_del_full(pendreq,ddt_mr);
+            break;
+
+        case LISP_ACTION_NOT_REGISTERED:
+            /* there is no specification of what a mapping with this code must do if matched
+             * in the cache, so there's no point in saving them, as of now*/
+            // try the next rloc in the list:
+            pending_request_do_cycle(timer);
+            break;
+
+        case LISP_ACTION_DELEGATION_HOLE:
+            // cache and return negative map-reply
+            ddt_entry = ddt_mcache_entry_new();
+            ddt_mcache_entry_init(ddt_entry,m);
+            ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
+            send_negative_mrep_to_original_askers(ddt_mr,pendreq);
+            ddt_pending_request_del_full(pendreq,ddt_mr);
+            break;
+
+        default:
+            // unknown/wrong type, do nothing
+            break;
+        }
+
+    }
+
+
+
+
+
     return (GOOD);
+
+
+    err:
+    return(BAD);
 }
 
 
@@ -547,47 +723,7 @@ pending_request_do_cycle(oor_timer_t *timer){
         if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
             OOR_LOG(LDBG_1, "Has gone through root");
             // send negative map reply/es and eliminate pending request
-            glist_entry_t *it = NULL;
-            OOR_LOG(LDBG_1, "Before foreachentry");
-            glist_for_each_entry(it,pendreq->original_requests){
-                ddt_original_request_t *request = glist_entry_data(it);
-                lbuf_t *        mrep        = NULL;
-                uconn_t orig_uc;
-                OOR_LOG(LDBG_1, "About to create mrep");
-                //TODO check if this action is correct, also the authoritative
-                mrep = lisp_msg_neg_mrep_create(pendreq->target_address, 15, ACT_NO_ACTION,
-                        A_NO_AUTHORITATIVE, request->nonce);
-
-                OOR_LOG(LDBG_1, "Created mrep");
-
-                lisp_addr_t *drloc = NULL;
-
-                OOR_LOG(LDBG_1, "drloc created");
-
-                OOR_LOG(LDBG_1, "lafi of source address:%d", lisp_addr_lafi(request->source_address));
-                OOR_LOG(LDBG_1, lisp_addr_to_char(request->source_address));
-
-                drloc = lisp_addr_get_ip_addr(request->source_address);
-
-                OOR_LOG(LDBG_1, "drloc set");
-
-                if(!drloc){
-                    OOR_LOG(LDBG_1, "drloc is null");
-                }
-
-                if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
-                    OOR_LOG(LDBG_1, "entered if");
-                    get_etr_from_lcaf(drloc, &drloc);
-                }
-
-                OOR_LOG(LDBG_1, "Configured drloc");
-
-                uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-                OOR_LOG(LDBG_1, "Configured uconn");
-                send_msg(&mapres->super, mrep, &orig_uc);
-                lisp_msg_destroy(mrep);
-
-            }
+            send_negative_mrep_to_original_askers(mapres,pendreq);
 
             OOR_LOG(LDBG_1, "Has sent negative map-replies to original askers");
 
@@ -706,6 +842,29 @@ void
 timer_pendreq_cycle_arg_free(timer_pendreq_cycle_argument * timer_arg)
 {
     free(timer_arg);
+}
+
+void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_request_t * pendreq)
+{
+    glist_entry_t *it = NULL;
+    glist_for_each_entry(it,pendreq->original_requests){
+        ddt_original_request_t *request = glist_entry_data(it);
+        lbuf_t *        mrep        = NULL;
+        uconn_t orig_uc;
+        //TODO check if this action is correct, also the authoritative
+        mrep = lisp_msg_neg_mrep_create(pendreq->target_address, 15, ACT_NO_ACTION,
+                A_NO_AUTHORITATIVE, request->nonce);
+        lisp_addr_t *drloc = NULL;
+        drloc = lisp_addr_get_ip_addr(request->source_address);
+
+        if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
+            get_etr_from_lcaf(drloc, &drloc);
+        }
+
+        uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
+        send_msg(&mapres->super, mrep, &orig_uc);
+        lisp_msg_destroy(mrep);
+    }
 }
 
 ctrl_dev_class_t ddt_mr_ctrl_class = {
