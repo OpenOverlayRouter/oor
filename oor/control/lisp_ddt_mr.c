@@ -23,12 +23,18 @@
 #include "../lib/oor_log.h"
 #include "../lib/pointers_table.h"
 #include "../lib/prefixes.h"
+#include "../lib/timers_utils.h"
 
 
 static int ddt_mr_recv_map_request(lisp_ddt_mr_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
 static int ddt_mr_recv_map_referral(lisp_ddt_mr_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
 static int ddt_mr_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_mr_t *lisp_ddt_mr_cast(oor_ctrl_dev_t *dev);
+static int pending_request_do_cycle(oor_timer_t *timer);
+
+timer_pendreq_cycle_argument *timer_pendreq_cycle_arg_new_init(ddt_pending_request_t *pendreq,lisp_ddt_mr_t *mapres, lisp_addr_t *localaddress);
+
+void timer_pendreq_cycle_arg_free(timer_pendreq_cycle_argument * timer_arg);
 
 static int
 get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
@@ -55,7 +61,6 @@ get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
 static int
 ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
-    //TODO recieve map request logic here
 
     lisp_addr_t *   seid        = NULL;
     lisp_addr_t *   deid        = NULL;
@@ -71,6 +76,8 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
     ddt_pending_request_t *    pendreq            = NULL;
     ddt_mcache_entry_t *       cacheentry           = NULL;
     ddt_original_request_t *original = NULL;
+    oor_timer_t *timer;
+    timer_pendreq_cycle_argument *timer_arg;
 
     // local copy of the buf that can be modified
     b = *buf;
@@ -112,13 +119,13 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
         }
 
         // CHECK IF PENDING REQUEST EXISTS FOR THE EID
-        pendreq = mdb_lookup_entry(ddt_mr->pending_requests_db, deid);
+        pendreq = mdb_lookup_entry_exact(ddt_mr->pending_requests_db, deid);
         if (pendreq) {
             // add the original request to the pending request's list of
             // original requests, it will substitute a previous instance of itself if necessary
             original = xzalloc(sizeof(ddt_original_request_t));
             original->nonce = MREQ_NONCE(mreq_hdr);
-            original->source_address = seid;
+            original->source_address = lisp_addr_clone(seid);
             original->itr_locs = itr_rlocs;
             pending_request_add_original(pendreq, original);
 
@@ -174,11 +181,18 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
                 }
                 original = xzalloc(sizeof(ddt_original_request_t));
                 original->nonce = MREQ_NONCE(mreq_hdr);
-                original->source_address = seid;
+                original->source_address = lisp_addr_clone(seid);
                 original->itr_locs = itr_rlocs;
                 pending_request_add_original(pendreq, original);
                 ddt_mr_add_pending_request(ddt_mr, pendreq);
-                pending_request_do_cycle(pendreq);
+
+
+
+                timer_arg = timer_pendreq_cycle_arg_new_init(pendreq,ddt_mr,lisp_addr_clone(&ext_uc->la));
+                timer = oor_timer_with_nonce_new(PENDING_REQUEST_CYCLE_TIMER,ddt_mr,pending_request_do_cycle,
+                        timer_arg,(oor_timer_del_cb_arg_fn)timer_pendreq_cycle_arg_free);
+                htable_ptrs_timers_add(ptrs_to_timers_ht,pendreq,timer);
+                pending_request_do_cycle(timer);
             }
         }
     }
@@ -442,24 +456,154 @@ pending_request_add_original(ddt_pending_request_t *pending, ddt_original_reques
     glist_add(original,pending->original_requests);
 }
 
-void
-pending_request_do_cycle(ddt_pending_request_t *pendreq){
-    //TODO implementar
+static int
+pending_request_do_cycle(oor_timer_t *timer){
+
+    timer_pendreq_cycle_argument *timer_arg = (timer_pendreq_cycle_argument *)oor_timer_cb_argument(timer);
+    nonces_list_t *nonces_list = oor_timer_nonces(timer);
+    ddt_pending_request_t *pendreq = timer_arg->pendreq;
+    lisp_ddt_mr_t *mapres = timer_arg->mapres;
+    uint64_t nonce;
+    glist_t *rlocs = NULL;
+
+    OOR_LOG(LDBG_1, "Moving to next rloc");
+
+    // advance the current rloc being used from the list of rlocs
+    if(!pendreq->current_rloc){
+        pendreq->current_rloc = glist_first(pendreq->current_delegation_rlocs);
+    }else{
+        if(pendreq->current_rloc == glist_last(pendreq->current_delegation_rlocs)){
+            pendreq-> retry_number++;
+            pendreq->current_rloc = glist_first(pendreq->current_delegation_rlocs);
+        }else{
+            pendreq->current_rloc = glist_next(pendreq->current_rloc);
+        }
+    }
+
+    OOR_LOG(LDBG_1, "Moved to next rloc");
+
+    // check if max retries exceeded
+    if(pendreq->retry_number >= DEFAULT_MAP_REQUEST_RETRIES){
+        OOR_LOG(LDBG_1, "Max retries exceeded");
+        if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
+            OOR_LOG(LDBG_1, "Has gone through root");
+            // send negative map reply/es and eliminate pending request
+            glist_entry_t *it = NULL;
+            OOR_LOG(LDBG_1, "Before foreachentry");
+            glist_for_each_entry(it,pendreq->original_requests){
+                ddt_original_request_t *request = glist_entry_data(it);
+                lbuf_t *        mrep        = NULL;
+                uconn_t orig_uc;
+                OOR_LOG(LDBG_1, "About to create mrep");
+                //TODO check if this action is correct, also the authoritative
+                mrep = lisp_msg_neg_mrep_create(pendreq->target_address, 15, ACT_NO_ACTION,
+                        A_NO_AUTHORITATIVE, request->nonce);
+
+                OOR_LOG(LDBG_1, "Created mrep");
+
+                lisp_addr_t *drloc = NULL;
+
+                OOR_LOG(LDBG_1, "drloc created");
+
+                OOR_LOG(LDBG_1, "lafi of source address:%d", lisp_addr_lafi(request->source_address));
+                OOR_LOG(LDBG_1, lisp_addr_to_char(request->source_address));
+
+                drloc = lisp_addr_get_ip_addr(request->source_address);
+
+                OOR_LOG(LDBG_1, "drloc set");
+
+                if(!drloc){
+                    OOR_LOG(LDBG_1, "drloc is null");
+                }
+
+                if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
+                    OOR_LOG(LDBG_1, "entered if");
+                    get_etr_from_lcaf(drloc, &drloc);
+                }
+
+                OOR_LOG(LDBG_1, "Configured drloc");
+
+                uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
+                OOR_LOG(LDBG_1, "Configured uconn");
+                send_msg(&mapres->super, mrep, &orig_uc);
+                lisp_msg_destroy(mrep);
+
+            }
+
+            OOR_LOG(LDBG_1, "Has sent negative map-replies to original askers");
+
+            ddt_pending_request_del(pendreq,mapres);
+
+            OOR_LOG(LDBG_1, "Has eliminated pending request");
+
+        }else{
+            OOR_LOG(LDBG_1, "Has not gone through root");
+            // switch to the root entry and retry
+            pending_request_set_root_cache_entry(pendreq,mapres);
+            pending_request_do_cycle(timer);
+        }
+    }else{
+        // send map request to the new rloc and set timer
+        rlocs = ctrl_default_rlocs(mapres->super.ctrl);
+        lbuf_t *        mreq        = NULL;
+        void *mr_hdr = NULL;
+        void *ec_hdr = NULL;
+        uconn_t dest_uc;
+
+        mreq =lisp_msg_mreq_create(timer_arg->local_address, rlocs, pendreq->target_address);
+        mr_hdr = lisp_msg_hdr(mreq);
+        nonce = nonce_new();
+        MREQ_NONCE(mr_hdr) = nonce;
+
+        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, timer_arg->local_address, pendreq->target_address);
+
+        ec_hdr = lisp_msg_ecm_hdr(mreq);
+        ECM_DDT_BIT(ec_hdr) = 1;
+
+        lisp_addr_t *drloc, *srloc;
+
+        drloc = lisp_addr_get_ip_addr(glist_entry_data(pendreq->current_rloc));
+
+        if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
+            get_etr_from_lcaf(drloc, &drloc);
+        }
+
+        srloc = lisp_addr_get_ip_addr(timer_arg->local_address);
+
+        if (lisp_addr_lafi(srloc) == LM_AFI_LCAF) {
+            get_etr_from_lcaf(srloc, &srloc);
+        }
+        uconn_init(&dest_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
+        send_msg(&mapres->super, mreq, &dest_uc);
+
+        OOR_LOG(LDBG_1, "message sent");
+
+        htable_nonces_reset_nonces_lst(nonces_ht, nonces_list);
+        htable_nonces_insert(nonces_ht, nonce, nonces_list);
+        oor_timer_start(timer, OOR_INITIAL_MRQ_TIMEOUT);
+        OOR_LOG(LDBG_1, "timer reset");
+
+    }
+    return (GOOD);
+
 }
 
 void
-mref_cache_entry_del(ddt_mcache_entry_t *entry)
+mref_cache_entry_del(ddt_mcache_entry_t *entry, lisp_ddt_mr_t *mapres)
 {
     if (!entry)
         return;
+    mdb_remove_entry(mapres->mref_cache_db,cache_entry_xeid(entry));
     ddt_mcache_entry_del(entry);
 }
 
 void
-ddt_pending_request_del(ddt_pending_request_t *request)
+ddt_pending_request_del(ddt_pending_request_t *request, lisp_ddt_mr_t *mapres)
 {
     if (!request)
         return;
+    stop_timers_from_obj(request,ptrs_to_timers_ht, nonces_ht);
+    mdb_remove_entry(mapres->pending_requests_db,pending_request_xeid(request));
     if (request->target_address)
             free(request->target_address);
     if (request->original_requests)
@@ -469,6 +613,23 @@ ddt_pending_request_del(ddt_pending_request_t *request)
     if (request->current_rloc)
                 free(request->current_rloc);
     free(request);
+}
+
+timer_pendreq_cycle_argument *
+timer_pendreq_cycle_arg_new_init(ddt_pending_request_t *pendreq,lisp_ddt_mr_t *mapres, lisp_addr_t *localaddress)
+{
+    timer_pendreq_cycle_argument *timer_arg = xmalloc(sizeof(timer_pendreq_cycle_argument));
+    timer_arg->pendreq = pendreq;
+    timer_arg->mapres = mapres;
+    timer_arg->local_address = localaddress;
+
+    return(timer_arg);
+}
+
+void
+timer_pendreq_cycle_arg_free(timer_pendreq_cycle_argument * timer_arg)
+{
+    free(timer_arg);
 }
 
 ctrl_dev_class_t ddt_mr_ctrl_class = {
