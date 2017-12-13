@@ -1,0 +1,5 @@
+Name: wireshark-common/install-setuid
+Template: wireshark-common/install-setuid
+Value: false
+Owners: wireshark-common
+Flags: seen
