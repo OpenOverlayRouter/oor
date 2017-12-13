@@ -60,7 +60,7 @@ typedef struct map_server_elt_t {
 
 
 /**************************** LOGICAL PROCESSES ******************************/
-inline lisp_xtr_t * lisp_xtr_cast(oor_ctrl_dev_t *dev);
+lisp_xtr_t * lisp_xtr_cast(oor_ctrl_dev_t *dev);
 /****************************** Map Register *********************************/
 int xtr_program_map_register(lisp_xtr_t *xtr);
 /*********************************** SMR *************************************/

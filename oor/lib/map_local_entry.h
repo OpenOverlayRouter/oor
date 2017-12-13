@@ -57,6 +57,6 @@ lisp_addr_t *map_local_entry_eid(map_local_entry_t *mle);
 
 void mle_nat_info_update(map_local_entry_t *mle, locator_t *loct, glist_t *new_rtr_list);
 glist_t * mle_rtr_addr_list(map_local_entry_t *mle);
-inline glist_t * mle_rtr_addr_list_of_loct(map_local_entry_t *mle, lisp_addr_t *loct_addr);
+glist_t * mle_rtr_addr_list_of_loct(map_local_entry_t *mle, lisp_addr_t *loct_addr);
 
 #endif /* MAP_LOCAL_ENTRY_H_ */

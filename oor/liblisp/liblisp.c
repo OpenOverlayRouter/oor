@@ -928,33 +928,20 @@ laddr_list_has_addr(glist_t *l, lisp_addr_t *addr)
     return(FALSE);
 }
 
-/* returns in 'addr_' the first element of the list 'l' to have AFI 'afi'
- * caller must allocate and free 'addr_' */
-int
-laddr_list_get_addr(glist_t *l, int afi, lisp_addr_t *addr)
+/* returns ptr to the first element of the list 'l' to have AFI 'afi'*/
+lisp_addr_t *
+laddr_list_get_fst_addr_with_afi(glist_t *l, int afi)
 {
     glist_entry_t *it;
-    lisp_addr_t *ait;
-    int found = 0;
-
-    if (!addr) {
-        return(BAD);
-    }
+    lisp_addr_t *addr;
 
     glist_for_each_entry(it, l) {
-        ait = (lisp_addr_t *)glist_entry_data(it);
-        if (lisp_addr_ip_afi(ait) == afi) {
-            lisp_addr_copy(addr, ait);
-            found = 1;
-            break;
+        addr = (lisp_addr_t *)glist_entry_data(it);
+        if (lisp_addr_ip_afi(addr) == afi) {
+            return (addr);
         }
     }
-
-    if (found) {
-        return(GOOD);
-    } else {
-        return(BAD);
-    }
+    return (NULL);
 }
 
 char *

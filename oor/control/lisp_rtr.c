@@ -58,7 +58,6 @@ int rtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_a
 int rtr_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_addr_t *src_pref,
         lisp_addr_t *dst_pref, lisp_addr_t *gateway);
 static fwd_info_t *rtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple);
-inline lisp_rtr_t * lisp_rtr_cast(oor_ctrl_dev_t *dev);
 /*************************** PROCESS MESSAGES ********************************/
 static int rtr_recv_enc_ctrl_msg(lisp_rtr_t *rtr, lbuf_t *msg, uconn_t *ext_uc, void **ecm_hdr, uconn_t *int_uc);
 static int rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
@@ -424,7 +423,6 @@ rtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
         }
     }
 
-
     if (!native_fwd){
         rtr->tr.fwd_policy->get_fwd_info(rtr->tr.fwd_policy_dev_parm,map_loc_e,mce,mce_petrs,tuple, fwd_info);
     }
@@ -550,7 +548,7 @@ rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_u
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* SEND MAP-REPLY */
-    if (map_reply_fill_uconn(&rtr->tr, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
+    if (map_reply_fill_uconn(&rtr->super, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
         OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
         goto err;
     }

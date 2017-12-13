@@ -14,8 +14,10 @@ LOCAL_SRC_FILES = \
 		  control/oor_ctrl_device.c      \
 		  control/oor_local_db.c         \
 		  control/oor_map_cache.c        \
-		  control/lisp_xtr.c             \
 		  control/lisp_ms.c              \
+		  control/lisp_rtr.c		 \
+		  control/lisp_tr.c		 \
+		  control/lisp_xtr.c             \
 		  control/control-data-plane/control-data-plane.c    \
 		  control/control-data-plane/tun/cdp_tun.c           \
 		  data-plane/data-plane.c        \
@@ -47,6 +49,7 @@ LOCAL_SRC_FILES = \
 		  lib/cksum.c                    \
 		  lib/generic_list.c             \
 		  lib/hmac.c                     \
+		  lib/htable_ptrs.c              \
 		  lib/iface_locators.c           \
 		  lib/int_table.c                \
 		  lib/interfaces_lib.c	         \
@@ -55,11 +58,11 @@ LOCAL_SRC_FILES = \
 		  lib/oor_log.c                  \
 		  lib/mapping_db.c               \
 		  lib/map_cache_entry.c          \
+		  lib/map_cache_rtr_data.c       \
 		  lib/map_local_entry.c		     \
 		  lib/mem_util.c	    	     \
           lib/nonces_table.c             \
           lib/packets.c                  \
-          lib/pointers_table.c           \
 		  lib/prefixes.c                 \
 		  lib/routing_tables_lib.c       \
 		  lib/sockets.c                  \
@@ -79,7 +82,7 @@ LOCAL_SRC_FILES = \
 LOCAL_CFLAGS += -g -DANDROID  
 #-fPIE
 #LOCAL_LDFLAGS += -fPIE -pie
-LOCAL_C_INCLUDES += $(LOCAL_PATH2)/zeromq3-x/include 
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := libconfuse
 LOCAL_MODULE = oorexec

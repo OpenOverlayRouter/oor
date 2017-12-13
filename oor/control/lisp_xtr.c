@@ -763,7 +763,7 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_u
     MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
     /* SEND MAP-REPLY */
-    if (map_reply_fill_uconn(&xtr->tr, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
+    if (map_reply_fill_uconn(&xtr->super, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
         OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
         goto err;
     }

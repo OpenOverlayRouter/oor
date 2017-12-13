@@ -53,7 +53,7 @@ typedef struct mc_rtr_data_t_{
     mc_rtr_nat_data_t *nat_data;
 }mc_rtr_data_t;
 
-inline mc_rtr_data_t * mc_rtr_data_new();
+mc_rtr_data_t * mc_rtr_data_new();
 mc_rtr_data_t * mc_rtr_data_nat_new();
 void mc_rtr_data_destroy(mc_rtr_data_t *mc);
 char *rloc_nat_data_to_char(rloc_nat_data_t *rloc_nat_data);

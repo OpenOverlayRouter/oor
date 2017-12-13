@@ -83,7 +83,7 @@ static inline oor_encap_t tr_encap_type(lisp_tr_t *tr){return (tr->encap_type);}
 /*****************************************************************************/
 int lisp_tr_init(lisp_tr_t *tr);
 void lisp_tr_uninit(lisp_tr_t *tr);
-inline tr_abstract_device * lisp_tr_abstract_cast(oor_ctrl_dev_t *ctrl_dev);
+tr_abstract_device * lisp_tr_abstract_cast(oor_ctrl_dev_t *ctrl_dev);
 /*************************** PROCESS MESSAGES ********************************/
 int tr_recv_map_reply(lisp_tr_t *tr, lbuf_t *buf, uconn_t *udp_con);
 int tr_reply_to_smr(lisp_tr_t *tr, lisp_addr_t *src_eid, lisp_addr_t *req_eid);
@@ -135,8 +135,7 @@ void tr_mcache_entry_program_timers(lisp_tr_t *tr, mcache_entry_t *mce);
 
 /*****************************************************************************/
 
-int map_reply_fill_uconn(lisp_tr_t *tr, glist_t *itr_rlocs,  uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc);
-inline mcache_entry_t * get_proxy_etrs_for_afi(lisp_tr_t *tr, int afi);
+mcache_entry_t * get_proxy_etrs_for_afi(lisp_tr_t *tr, int afi);
 lisp_addr_t * get_map_resolver(lisp_tr_t *tr);
 
 

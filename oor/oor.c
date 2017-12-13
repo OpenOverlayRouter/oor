@@ -530,7 +530,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     pid_t sid = 0;
     char log_file[1024];
     const char *path = NULL;
-    lisp_xtr_t *tunnel_router;
+    tr_abstract_device *tunnel_router;
     memset (log_file,0,sizeof(char)*1024);
     initial_setup();
     jni_init(env,thisObj);
@@ -569,7 +569,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = lisp_tr_abstract_cast(ctrl_dev);
-        if (data_plane->datap_init(dev_type, tr_encap_type(tunnel_router), vpn_tun_fd) != GOOD){
+        if (data_plane->datap_init(dev_type, tr_encap_type(&tunnel_router->tr), vpn_tun_fd) != GOOD){
             data_plane = NULL;
             return (BAD);
         }

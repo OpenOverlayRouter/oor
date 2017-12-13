@@ -58,7 +58,7 @@ int ms_add_registered_site_prefix(lisp_ms_t *dev, mapping_t *sp);
 void ms_dump_configured_sites(lisp_ms_t *dev, int log_level);
 void ms_dump_registered_sites(lisp_ms_t *dev, int log_level);
 
-inline lisp_ms_t *lisp_ms_cast(oor_ctrl_dev_t *dev);
+lisp_ms_t *lisp_ms_cast(oor_ctrl_dev_t *dev);
 /*****  Basic rtr_node_t and rtr_set_t functions *****/
 ms_rtr_node_t *ms_rtr_node_new_init(char *id, lisp_addr_t *addr, char *passwd);
 void ms_rtr_node_del(ms_rtr_node_t * rtr);

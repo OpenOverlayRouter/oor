@@ -23,7 +23,7 @@
 #include "../lib/oor_log.h"
 #include "../lib/prefixes.h"
 #include "../lib/timers_utils.h"
-#include "../../oor_external.h"
+#include "../oor_external.h"
 
 
 /************************** Function declaration *****************************/
@@ -872,47 +872,6 @@ tr_mcache_entry_program_timers(lisp_tr_t *tr, mcache_entry_t *mce )
 
 /*****************************************************************************/
 
-int
-map_reply_fill_uconn(lisp_tr_t *tr, glist_t *itr_rlocs, uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc)
-{
-    lisp_addr_t *src_addr, *dst_addr;
-    oor_ctrl_dev_t *ctr_dev;
-
-    /* If the received message is encapsulated */
-    if (rcv_ext_uc){
-        uconn_init(uc, LISP_CONTROL_PORT, rcv_int_uc->rp, &rcv_ext_uc->la, &rcv_int_uc->ra);
-    }else{
-        uconn_init(uc, LISP_CONTROL_PORT, rcv_int_uc->rp, &rcv_int_uc->la, &rcv_int_uc->ra);
-    }
-
-    /* Check if remote address is part of ITR RLOCs list */
-    if (laddr_list_has_addr(itr_rlocs,&uc->ra)){
-        return (GOOD);
-    }
-
-    /* If it is not part of ITR RLOCs, take the first RLOC from ITR list compatible
-     * with the afi of src RLOC */
-    if (laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&uc->la), &uc->ra) == GOOD){
-        return (GOOD);
-    }
-
-    /* As a last chance, take the first ITR RLOC and use a compatible src RLOC
-     * (The itr_rlocs only have rlocs with differnt afi to the src rloc) */
-    dst_addr = glist_first_data(itr_rlocs);
-    if (!dst_addr){
-        return (BAD);
-    }
-    ctr_dev = tr_get_ctrl_device(tr);
-    src_addr = ctrl_default_rloc(ctr_dev->ctrl, lisp_addr_ip_afi(dst_addr));
-    if (!src_addr){
-        return (BAD);
-    }
-
-    lisp_addr_copy(&uc->la, src_addr);
-    lisp_addr_copy(&uc->ra, dst_addr);
-
-    return (GOOD);
-}
 
 inline mcache_entry_t *
 get_proxy_etrs_for_afi(lisp_tr_t *tr, int afi)

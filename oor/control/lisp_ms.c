@@ -231,6 +231,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
     lisp_site_prefix_t *    site            = NULL;
     lisp_reg_site_t *       rsite           = NULL;
     uint8_t act_flag;
+    uconn_t send_uc;
 
     if (!ecm_hdr){
         OOR_LOG(LDBG_1, "Received a not encapsulated Map Request. Discarding!");
@@ -338,7 +339,11 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
         MREP_NONCE(mrep_hdr) = MREQ_NONCE(mreq_hdr);
 
         /* SEND MAP-REPLY */
-        laddr_list_get_addr(itr_rlocs, lisp_addr_ip_afi(&ext_uc->la), &ext_uc->ra);
+
+        if (map_reply_fill_uconn(&ms->super, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
+            OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
+            goto err;
+        }
         if (send_msg(&ms->super, mrep, ext_uc) != GOOD) {
             OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
         }

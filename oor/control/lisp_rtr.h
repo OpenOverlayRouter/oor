@@ -44,7 +44,7 @@ typedef struct rtr_ms_node {
     nat_version nat_version;
 }rtr_ms_node_t;
 
-inline lisp_rtr_t * lisp_rtr_cast(oor_ctrl_dev_t *dev);
+lisp_rtr_t * lisp_rtr_cast(oor_ctrl_dev_t *dev);
 
 /************************** rtr_ms_node_t functions **************************/
 
