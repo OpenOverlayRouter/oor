@@ -68,7 +68,6 @@ glist_t *mref_mapping_get_ref_lst_with_afi(mref_mapping_t *mref_mapping, lm_afi_
 glist_t *mref_mapping_get_ref_lst_with_addr_type(mref_mapping_t * mref_mapping,lisp_addr_t *addr);
 uint8_t mref_mapping_has_referral(mref_mapping_t *mref_mapping, locator_t *ref);
 int mref_mapping_sort_referrals(mref_mapping_t *, lisp_addr_t *);
-int mref_mapping_activate_referral(mref_mapping_t *map,locator_t *ref, lisp_addr_t *new_addr);
 glist_t *mref_mapping_get_ref_addrs(mref_mapping_t *mref_mapping);
 
 static inline lisp_addr_t *mref_mapping_eid(mref_mapping_t *m);

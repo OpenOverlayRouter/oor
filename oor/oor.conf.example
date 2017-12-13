@@ -133,7 +133,7 @@ control-iface = <iface name>
 #      - IPv4 or IPv6 address of the RLOC
 #      - ELP name
 
-root-addresses = {
+ddt-root-addresses = {
 	 <ip-address>
 	 ...
 }

@@ -983,14 +983,14 @@ configure_ddt_mr(cfg_t *cfg)
     glist_t *root_addresses = glist_new();
 
     char *root_address;
-    n = cfg_size(cfg, "root-addresses");
+    n = cfg_size(cfg, "ddt-root-addresses");
     if (n<1) {
         OOR_LOG(LERR, "Configuration file: Specify at least one address for DDT-Root");
         return(BAD);
     }
 
     for(j = 0; j < n; j++) {
-        if ((root_address = cfg_getnstr(cfg, "root-addresses", j)) != NULL) {
+        if ((root_address = cfg_getnstr(cfg, "ddt-root-addresses", j)) != NULL) {
             glist_add_tail(root_address, root_addresses);
         }
     }
@@ -1176,7 +1176,7 @@ handle_config_file()
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
 			CFG_SEC("ddt-auth-site",        ddt_auth_site_opts,     CFGF_MULTI),
 			CFG_SEC("ddt-deleg-site",         ddt_deleg_site_opts,      CFGF_MULTI),
-			CFG_STR_LIST("root-addresses",  0, CFGF_NONE),
+			CFG_STR_LIST("ddt-root-addresses",  0, CFGF_NONE),
             CFG_END()
     };
 

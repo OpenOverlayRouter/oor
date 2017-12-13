@@ -481,46 +481,6 @@ mref_mapping_sort_referrals(mref_mapping_t *mref_mapping, lisp_addr_t *changed_l
     return (res);
 }
 
-/*
- * Remove the locator from the non active locators list and reinsert in the correct list
- * The address of the locator should be modified before calling this function
- * This function is only used when an interface is down during the initial configuration
- * process and then is activated
- */
-
-int
-mref_mapping_activate_referral(
-        mref_mapping_t *mref_mapping,
-        locator_t *loct,
-        lisp_addr_t *new_addr)
-{
-    int res = GOOD;
-
-    glist_t *loct_list = NULL;
-    loct_list = mref_mapping_get_ref_lst_with_afi(mref_mapping,LM_AFI_NO_ADDR,0);
-    if (loct_list == NULL){
-        return (BAD);
-    }
-
-    mref_mapping_remove_referral(mref_mapping, loct);
-
-    locator_clone_addr(loct,new_addr);
-    res = mref_mapping_add_referral(mref_mapping,loct);
-
-    if (res == GOOD){
-        OOR_LOG(LDBG_1,"mref_mapping_activate_referral: The referral %s of the mref_mapping %s has been activated",
-                lisp_addr_to_char(locator_addr(loct)),
-                lisp_addr_to_char(&(mref_mapping->eid_prefix)));
-        OOR_LOG(LDBG_2,"mref_mapping_activate_referral: Updated mapping -> %s",mref_mapping_to_char(mref_mapping));
-    }else{
-        locator_del(loct);
-        OOR_LOG(LDBG_1,"mref_mapping_activate_locator: Error activating the referral %s of the mref_mapping %s. Referral couldn't be reinserted",
-                        lisp_addr_to_char(locator_addr(loct)),
-                        lisp_addr_to_char(&(mref_mapping->eid_prefix)));
-    }
-    return (res);
-}
-
 glist_t *mref_mapping_get_ref_addrs(mref_mapping_t *mref_mapping){
     glist_t *addrs_list;
     locator_t *loct = NULL;

@@ -82,28 +82,6 @@ mref_mc_entry_start_expiration_timer2(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t 
 }
 
 static int
-get_etr_from_lcaf(lisp_addr_t *laddr, lisp_addr_t **dst)
-{
-    lcaf_addr_t *lcaf = NULL;
-    elp_node_t *enode;
-
-    lcaf = lisp_addr_get_lcaf(laddr);
-    switch (lcaf_addr_get_type(lcaf)) {
-    case LCAF_EXPL_LOC_PATH:
-        /* we're looking for the ETR, so the destination is the last elp hop */
-        enode = glist_last_data(lcaf_elp_node_list(lcaf));
-        *dst = enode->addr;
-        break;
-    default:
-        *dst = NULL;
-        OOR_LOG(LDBG_1, "get_locator_from_lcaf: Type % not supported!, ",
-                lcaf_addr_get_type(lcaf));
-        return (BAD);
-    }
-    return (GOOD);
-}
-
-static int
 ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
 
@@ -175,7 +153,7 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
             original = xzalloc(sizeof(ddt_original_request_t));
             original->nonce = MREQ_NONCE(mreq_hdr);
             original->source_address = lisp_addr_clone(seid);
-            original->itr_locs = itr_rlocs;
+            original->itr_locs = glist_clone(itr_rlocs, (glist_clone_obj)lisp_addr_clone);
             pending_request_add_original(pendreq, original);
 
         }else{
@@ -198,7 +176,8 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 
             case LISP_ACTION_MS_ACK:
                 // forward DDT Map-Request to Map Server
-                // TODO check if this really does as intended
+                // in the current implementation, this case will never be entered
+                // more details in the recv_map_referral function
                 referral_addrs = mref_mapping_get_ref_addrs(cacheentry->mapping);
                 glist_entry_t *it;
                 uconn_t fwd_uc;
@@ -211,10 +190,6 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
                     lisp_addr_t *addr = glist_entry_data(it);
 
                     drloc = lisp_addr_get_ip_addr(addr);
-
-                    if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
-                        get_etr_from_lcaf(drloc, &drloc);
-                    }
 
                     uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
                     send_msg(&ddt_mr->super, &b, &fwd_uc);
@@ -237,7 +212,7 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
                 original = xzalloc(sizeof(ddt_original_request_t));
                 original->nonce = MREQ_NONCE(mreq_hdr);
                 original->source_address = lisp_addr_clone(seid);
-                original->itr_locs = itr_rlocs;
+                original->itr_locs = glist_clone(itr_rlocs, (glist_clone_obj)lisp_addr_clone);
                 pending_request_add_original(pendreq, original);
                 ddt_mr_add_pending_request(ddt_mr, pendreq);
 
@@ -267,8 +242,6 @@ err:
 static int
 ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
-    //TODO map referral logic here
-    //void *          mreq_hdr    = NULL;
     nonces_list_t *nonces_lst;
     oor_timer_t *timer;
     timer_pendreq_cycle_argument *timer_arg;
@@ -351,6 +324,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
                 ddt_mcache_entry_init(ddt_entry,m);
                 ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
                 pending_request_set_new_cache_entry(pendreq,ddt_entry);
+                htable_nonces_reset_nonces_lst(nonces_ht, nonces_lst);
                 pending_request_do_cycle(timer);
                 return (GOOD);
             }
@@ -362,53 +336,79 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
             }else{
                 //send request to Root
                 pending_request_set_root_cache_entry(pendreq,ddt_mr);
+                htable_nonces_reset_nonces_lst(nonces_ht, nonces_lst);
                 pending_request_do_cycle(timer);
             }
             break;
 
         case LISP_ACTION_MS_ACK:
+            OOR_LOG(LDBG_2, "Enters case lisp_Action_ack");
             rlocs_list= glist_new();
             // check incomplete bit
-            if(mref_mapping_incomplete(m)){
-                // forward original requests to map server
-                glist_add(&ext_uc->ra,rlocs_list);
+
+            /* Since there is no synchronization among a group of MS peers, we won't
+             * save the MS-ACK in the cache, as the addresses would need to be checked
+             * one by one anyway. With no synchronization, forwarding the Map Request to all
+             * peers could have unpredictable results if the prefix is registered in some of
+             * them, but not in some others.
+             * With this code, we only forward all original requests to the MS that returned
+             * the MS-ACK, and don't save the Map-Referral to the cache, regardless of it
+             * being incomplete or not.
+             * If in a future specification of LISP-DDT, synchronization among MS peers is
+             * enforced, the parts in comment in the following lines regarding the
+             * incomplete bit could be un-commented for faster performance
+             */
+
+            /*
+            if(mref_mapping_incomplete(m)){*/
+            // forward original requests to map server
+            if(!ext_uc){
+                OOR_LOG(LDBG_2, "int_uc-ra is: %s",lisp_addr_to_char(&int_uc->ra));
+                glist_add(&int_uc->ra,rlocs_list);
             }else{
+            OOR_LOG(LDBG_2, "ext_uc-ra is: %s",lisp_addr_to_char(&ext_uc->ra));
+            glist_add(&ext_uc->ra,rlocs_list);
+            }
+            /*}else{
                 // cache and forward original requests to map servers
                 ddt_entry = ddt_mcache_entry_new();
                 ddt_mcache_entry_init(ddt_entry,m);
                 ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
                 rlocs_list = mref_mapping_get_ref_addrs(m);
-            }
+            }*/
+
+            OOR_LOG(LDBG_2, "Glist filled, size is %d",glist_size(rlocs_list));
+
             glist_entry_t *it = NULL;
             glist_for_each_entry(it,pendreq->original_requests){
-                lisp_addr_t *drloc, *srloc;
+                lisp_addr_t *drloc;
                 ddt_original_request_t *request = glist_entry_data(it);
                 lbuf_t *        mreq        = NULL;
                 uconn_t orig_uc;
                 void *mr_hdr = NULL;
-                //TODO check if this action is correct, also the authoritative
-                mreq =lisp_msg_mreq_create(request->source_address, request->itr_locs, pendreq->target_address);
-                mr_hdr = lisp_msg_hdr(mreq);
-                MREQ_NONCE(mr_hdr) = request->nonce;
-
-                srloc = lisp_addr_get_ip_addr(request->source_address);
-                if (lisp_addr_lafi(srloc) == LM_AFI_LCAF) {
-                    get_etr_from_lcaf(srloc, &srloc);
-                }
-
+                OOR_LOG(LDBG_2, "Place 1");
                 glist_entry_t *it2 = NULL;
                 glist_for_each_entry(it2, rlocs_list){
+                    //TODO check if this action is correct, also the authoritative
+                    mreq =lisp_msg_mreq_create(request->source_address, request->itr_locs, pendreq->target_address);
+                    mr_hdr = lisp_msg_hdr(mreq);
+                    MREQ_NONCE(mr_hdr) = request->nonce;
+
+                    lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, request->source_address, pendreq->target_address);
+                    /* we don't set the DDT-Originated bit here, because we are going to delete
+                     * the pending request after forwarding the original requests, so there's
+                     * no point in the MS sending back MS-ACKs
+                     */
+
+                    OOR_LOG(LDBG_2, "Place 2");
                     drloc = lisp_addr_get_ip_addr(glist_entry_data(it2));
+                    OOR_LOG(LDBG_2, "Place 3");
 
-                    if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
-                        get_etr_from_lcaf(drloc, &drloc);
-                    }
-
-                    uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
+                    uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
                     send_msg(&ddt_mr->super, mreq, &orig_uc);
 
+                    lisp_msg_destroy(mreq);
                 }
-                lisp_msg_destroy(mreq);
             }
             ddt_pending_request_del_full(pendreq,ddt_mr);
             break;
@@ -658,6 +658,18 @@ ddt_pending_request_t
     return(request);
 }
 
+/*
+ * We call "htable_nonces_reset_nonces_lst" after the following two functions when
+ * calling them from recv_map_referral or pending_request_do_cycle so possible map-referrals
+ * for the previous cache entry don't interfere with the pending request anymore.
+ * For example,  a MS-Referral or Node-Referral that arrives late would most likely
+ * have a prefix EQUAL to the new cache entry's prefix, thus making the Map Resolver "find"
+ * a false Referral Loop, in the case of set_new_cache_entry.
+ * In the case of set_root_cache_entry, a delayed negative MS/Node-Referral arriving would
+ * make the Map Resolver prematurely give up on the pending request, which has already gone
+ * through root now.
+ */
+
 void
 pending_request_set_new_cache_entry(ddt_pending_request_t *pendreq, ddt_mcache_entry_t *current_cache_entry)
 {
@@ -735,6 +747,7 @@ pending_request_do_cycle(oor_timer_t *timer){
             OOR_LOG(LDBG_1, "Has not gone through root");
             // switch to the root entry and retry
             pending_request_set_root_cache_entry(pendreq,mapres);
+            htable_nonces_reset_nonces_lst(nonces_ht, nonces_list);
             pending_request_do_cycle(timer);
         }
     }else{
@@ -750,30 +763,20 @@ pending_request_do_cycle(oor_timer_t *timer){
         nonce = nonce_new();
         MREQ_NONCE(mr_hdr) = nonce;
 
-        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, timer_arg->local_address, glist_entry_data(pendreq->current_rloc));
+        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, glist_first_data(rlocs), glist_entry_data(pendreq->current_rloc));
 
         ec_hdr = lisp_msg_ecm_hdr(mreq);
         ECM_DDT_BIT(ec_hdr) = 1;
 
-        lisp_addr_t *drloc, *srloc;
+        lisp_addr_t *drloc;
 
         drloc = lisp_addr_get_ip_addr(glist_entry_data(pendreq->current_rloc));
 
-        if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
-            get_etr_from_lcaf(drloc, &drloc);
-        }
-
-        srloc = lisp_addr_get_ip_addr(timer_arg->local_address);
-
-        if (lisp_addr_lafi(srloc) == LM_AFI_LCAF) {
-            get_etr_from_lcaf(srloc, &srloc);
-        }
-        uconn_init(&dest_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
+        uconn_init(&dest_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
         send_msg(&mapres->super, mreq, &dest_uc);
 
         OOR_LOG(LDBG_1, "message sent");
 
-        htable_nonces_reset_nonces_lst(nonces_ht, nonces_list);
         htable_nonces_insert(nonces_ht, nonce, nonces_list);
         oor_timer_start(timer, OOR_INITIAL_MRQ_TIMEOUT);
         OOR_LOG(LDBG_1, "timer reset");
@@ -814,17 +817,8 @@ ddt_pending_request_del_full(ddt_pending_request_t *request, lisp_ddt_mr_t *mapr
 {
     if (!request)
         return;
-    stop_timers_from_obj(request,ptrs_to_timers_ht, nonces_ht);
     mdb_remove_entry(mapres->pending_requests_db,pending_request_xeid(request));
-    if (request->target_address)
-            free(request->target_address);
-    if (request->original_requests)
-                free(request->original_requests);
-    if (request->current_delegation_rlocs)
-                free(request->current_delegation_rlocs);
-    if (request->current_rloc)
-                free(request->current_rloc);
-    free(request);
+    ddt_pending_request_del(request);
 }
 
 timer_pendreq_cycle_argument *
@@ -855,11 +849,9 @@ void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_re
         mrep = lisp_msg_neg_mrep_create(pendreq->target_address, 15, ACT_NO_ACTION,
                 A_NO_AUTHORITATIVE, request->nonce);
         lisp_addr_t *drloc = NULL;
-        drloc = lisp_addr_get_ip_addr(request->source_address);
 
-        if (lisp_addr_lafi(drloc) == LM_AFI_LCAF) {
-            get_etr_from_lcaf(drloc, &drloc);
-        }
+        OOR_LOG(LDBG_1,"Going to set drloc, address is: %s",lisp_addr_to_char(glist_entry_data(glist_first(request->itr_locs))));
+        drloc = lisp_addr_get_ip_addr(glist_entry_data(glist_first(request->itr_locs)));
 
         uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
         send_msg(&mapres->super, mrep, &orig_uc);

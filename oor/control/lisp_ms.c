@@ -217,11 +217,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
 
     d = ECM_DDT_BIT(ecm_hdr);
 
-    //for the purpose of testing with lig, which cannot set the DDT-originated bit
-    //i manually set it here
-    //TODO remove this after
-    d = 1;
-
     seid = lisp_addr_new();
 
 
