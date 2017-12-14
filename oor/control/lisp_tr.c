@@ -147,6 +147,12 @@ tr_recv_map_reply(lisp_tr_t *tr, lbuf_t *buf, uconn_t *udp_con)
 
             /* Mapping is NOT ACTIVE */
             if (!active_entry) {
+                /* Check we don't have already an entry for the mapping */
+                mce = mcache_lookup_exact(tr->map_cache, mapping_eid(m));
+                if (mce){
+                    OOR_LOG(LDBG_2,"Received a Map Reply for a recently activated cache entry. Ignoring the msg");
+                    continue;
+                }
                 /* DO NOT free mapping in this case */
                 mce = tr_mcache_add_mapping(tr, m, MCE_DYNAMIC, ACTIVE);
                 if (mce){
@@ -451,6 +457,7 @@ tr_mc_entry_expiration_timer_cb(oor_timer_t *timer)
 void
 tr_mc_entry_program_expiration_timer(lisp_tr_t *tr, mcache_entry_t *mce)
 {
+    stop_timers_of_type_from_obj(mce,EXPIRE_MAP_CACHE_TIMER,ptrs_to_timers_ht, nonces_ht);
     int time = mapping_ttl(mcache_entry_mapping(mce))*60;
     tr_mc_entry_program_expiration_timer2(tr, mce, time);
 }
@@ -811,6 +818,7 @@ tr_mcache_add_mapping(lisp_tr_t *tr, mapping_t *m, mce_type_e how_learned, uint8
     return(mce);
 }
 
+/* Remove an entry from the cache and destroy it */
 int
 tr_mcache_remove_entry(lisp_tr_t *tr, mcache_entry_t *mce)
 {
