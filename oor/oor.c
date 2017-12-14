@@ -24,6 +24,7 @@
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "oor.h"
 #if !defined(ANDROID) && !defined(OPENWRT)
@@ -294,12 +295,20 @@ handle_oor_command_line(int argc, char **argv)
         exit_cleanup();
     }
 
-    if (args_info.daemonize_given) {
-        daemonize = TRUE;
-    }
     if (args_info.config_file_given) {
         config_file = strdup(args_info.config_file_arg);
     }
+
+    if (args_info.daemonize_given) {
+        if (config_file[0] != '/'){
+            OOR_LOG(LCRIT, "Couldn't find config file %s. If you are useing OOR in daemon mode, please indicate a full path file.", config_file);
+        }
+        if (access( config_file, F_OK ) == -1 ) {
+            OOR_LOG(LCRIT, "Couldn't find config file %s.", config_file);
+        }
+        daemonize = TRUE;
+    }
+
     if (args_info.debug_given) {
         debug_level = args_info.debug_arg;
     }
