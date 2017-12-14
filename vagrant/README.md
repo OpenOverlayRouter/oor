@@ -84,10 +84,54 @@ traffic:
 
     tshark -n -i enp0s8 -Y "icmp || lisp || lisp-data || vxlan"
 
-### Debugging the LISP control plane
+### Debugging the LISP control plane with lig
 
 Provisioning scripts preinstall the LISP Internet Groper `lig` described in
 [RFC 6835](https://tools.ietf.org/html/rfc6835) to help debug the LISP control
 plane. The `LISP_MAP_RESOLVER` environment variable is set to the RLOC of the
 `msmr` VM running the mapping service, and can be changed in the `~/.bashrc`
 file, or overridden on the command line.
+
+## The OpenDaylight based map server
+
+The default map server in the setup is based on OOR, but if required, it is
+possible to run an OpenDaylight (ODL) based map server too, using the
+`msmr-odl` VM. ODL is started automatically, and the REST interface is
+available at `http://192.168.127.3:8181/restconf/` with the default
+credentials (username: _admin_, password: _admin_). For details on how to use
+the ODL map server, please consult the [ODL LISP Flow Mapping
+Documentation](http://docs.opendaylight.org/en/stable-nitrogen/user-guide/lisp-flow-mapping-user-guide.html).
+It has a
+[section](http://docs.opendaylight.org/en/stable-nitrogen/user-guide/lisp-flow-mapping-user-guide.html#creating-a-lisp-overlay-with-oor)
+dedicated to creating an overlay with OOR, and links to
+[Postman](https://www.getpostman.com/apps) collections
+[here](https://git.opendaylight.org/gerrit/gitweb?p=lispflowmapping.git;a=tree;f=resources/tutorial/OOR;hb=refs/heads/stable/nitrogen)
+and
+[here](https://git.opendaylight.org/gerrit/gitweb?p=lispflowmapping.git;a=tree;f=mappingservice/implementation/src/main/resources;hb=refs/heads/stable/nitrogen)
+to interact with ODL.
+
+To access the ODL CLI, simply run `client` in the VM. Once in the ODL CLI, the
+`mappings` command will show both statically configured mappings (using the
+REST API from the northbound interface) under _Policy map-cache_ and
+dynamically registered mappings (with UDP Map-Register messages from the
+southbound interface) under _Southbound map-cache_. The `keys` command will
+show configured sites, including their passwords. The `addkey` command will
+add 0.0.0.0/0 and ::0/0 as sites configured with the default password
+**password**, allowing any EID prefix to be registered for instance ID 0 with
+key-ID 1 and password **password** from the southbound interface.
+
+The ODL CLI has a history file similar to Bash. The `msmr-odl` VM is
+preprovisioned with a [history file](karaf.history) (history can be accessed
+with "arrow up", and searched with Ctrl-R, just like in Bash) with the above
+commands, and some other useful commands. One of those for example sets the
+log level for the LISP Flow Mapping component only to DEBUG (the rest of
+componenents stays at the default INFO level):
+
+    log:set DEBUG org.opendaylight.lispflowmapping
+
+The log can be displayed with `log:display`, and watched with `log:tail`. Feel
+free to explore the purpose of the other commands.
+
+Since the ODL based map server has an RLOC that's different from the default
+OOR map server, it is necessary to edit the configuration files of the OOR
+nodes needing to contact it (mobile nodes, xTRs, etc.)

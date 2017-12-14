@@ -7,6 +7,8 @@ set -o pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# Install various utilities
+apt-get -y -q install htop
 # Install TShark for network packet analysis
 export DEBCONF_DB_FALLBACK=/vagrant/vagrant/wireshark-common_config.dat
 apt-get -y -q install tshark

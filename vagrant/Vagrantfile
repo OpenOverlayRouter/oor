@@ -8,6 +8,7 @@ def create_vm(config, name, rloc)
   config.vm.define name do |node|
     node.vm.hostname = name
     node.vm.network "private_network", ip: rloc
+    node.vm.provision "shell", path: "install-oor.sh", privileged: false
     node.vm.provision "shell", path: "config-oor.sh", args: name
     # If you prefer to run OOR manually, comment the next line
     node.vm.provision "shell", path: "run-oor.sh"
@@ -37,12 +38,11 @@ Vagrant.configure(2) do |config|
   config.vm.synced_folder "..", "/home/#{username}/oor"
   config.vm.provision "shell", path: "install-prereqs.sh"
   config.vm.provision "shell", path: "install-optional.sh", args: username
-  config.vm.provision "shell", path: "install-oor.sh", privileged: false
   config.vm.provision "shell", path: "install-unprivileged.sh", privileged: false
   config.vm.provision "shell", path: "config-dotfiles.sh", privileged: false
   config.vm.provider :virtualbox do |vb|
     vb.cpus = 1
-    vb.memory = 512
+    vb.memory = 256
     vb.linked_clone = true
     vb.customize [ "modifyvm", :id, "--description", "Open Overlay Router testbed VM" ]
     vb.customize [ "modifyvm", :id, "--nicpromisc2", "allow-all"]
@@ -54,4 +54,18 @@ Vagrant.configure(2) do |config|
   create_vm(config, "msmr", "192.168.127.2/24")
   create_vm(config, "mn1", "192.168.127.11/24")
   create_vm(config, "mn2", "192.168.127.12/24")
+
+  # OpenDaylight based map server specific configuration
+  config.vm.define "msmr-odl", autostart: false do |node|
+    node.vm.hostname = "msmr-odl"
+    node.vm.network "private_network", ip: "192.168.127.3"
+    node.vm.provision "shell", path: "install-oracle-java8.sh"
+    node.vm.provision "shell", path: "install-odl.sh", privileged: false
+    node.vm.provider :virtualbox do |vb|
+      vb.name = "msmr-odl"
+      vb.cpus = 4
+      vb.memory = 4096
+      vb.customize [ "modifyvm", :id, "--description", "Open Overlay Router testbed VM -- OpenDaylight based map server" ]
+    end
+  end
 end
