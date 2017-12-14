@@ -1,6 +1,5 @@
 # TODO
 
-* Add a script to install `lig` (from source, no packages available)
 * Create a definition for an OpenDaylight based map server VM, which is not
   created even in the default configuration with simple `vagrant up` (using
   `autostart: false`)

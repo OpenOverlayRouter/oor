@@ -83,3 +83,11 @@ interface for monitoring and applies filtering for ICMP, LISP, and VXLAN
 traffic:
 
     tshark -n -i enp0s8 -Y "icmp || lisp || lisp-data || vxlan"
+
+### Debugging the LISP control plane
+
+Provisioning scripts preinstall the LISP Internet Groper `lig` described in
+[RFC 6835](https://tools.ietf.org/html/rfc6835) to help debug the LISP control
+plane. The `LISP_MAP_RESOLVER` environment variable is set to the RLOC of the
+`msmr` VM running the mapping service, and can be changed in the `~/.bashrc`
+file, or overridden on the command line.
