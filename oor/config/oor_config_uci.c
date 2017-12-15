@@ -95,6 +95,7 @@ handle_config_file()
 {
     char *uci_conf_dir;
     char *uci_conf_file;
+    char *conf_file_aux;
     struct uci_context *ctx;
     struct uci_package *pck = NULL;
     struct uci_section *sect;
@@ -103,7 +104,6 @@ handle_config_file()
     char *uci_log_file;
     char *uci_op_mode;
     int res = BAD;
-
 
     if (config_file == NULL){
         config_file = strdup("/etc/config/oor");
@@ -115,16 +115,18 @@ handle_config_file()
         OOR_LOG(LCRIT, "Could not create UCI context. Exiting ...");
         return (BAD);
     }
-
+    conf_file_aux = strdup(config_file);
+    /* dirname and basename may modify the argument */
     uci_conf_dir = dirname(config_file);
-    uci_conf_file = basename(config_file);
+    uci_conf_file = basename(conf_file_aux);
 
 
     uci_set_confdir(ctx, uci_conf_dir);
 
-    OOR_LOG(LDBG_1,"Conf dir: %s\n",ctx->confdir);
+    OOR_LOG(LDBG_1,"Conf dir: %s   Conf file: %s\n",ctx->confdir, uci_conf_file);
 
     uci_load(ctx,uci_conf_file,&pck);
+    free(conf_file_aux);
 
     if (pck == NULL) {
         OOR_LOG(LCRIT, "Could not load conf file: %s. Exiting ...",uci_conf_file);
