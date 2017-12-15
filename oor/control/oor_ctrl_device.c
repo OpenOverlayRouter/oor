@@ -19,6 +19,7 @@
 
 
 #include "../oor_external.h"
+#include "../lib/oor_log.h"
 #include "../lib/packets.h"
 #include "../lib/sockets.h"
 #include "oor_ctrl_device.h"
@@ -27,7 +28,7 @@
 static ctrl_dev_class_t *reg_ctrl_dev_cls[4] = {
         &xtr_ctrl_class,
         &ms_ctrl_class,
-        &xtr_ctrl_class,/* RTR */
+        &rtr_ctrl_class,/* RTR */
         &xtr_ctrl_class,/* MN */
 };
 
@@ -164,4 +165,41 @@ ctrl_dev_type_to_char(oor_dev_type_e type)
         break;
     }
     return (device);
+}
+
+int
+map_reply_fill_uconn(oor_ctrl_dev_t *ctr_dev, glist_t *itr_rlocs, uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc)
+{
+    lisp_addr_t *src_addr, *dst_addr = NULL;
+
+    /* Try to use the same src address where we received message */
+    if (rcv_ext_uc){
+        src_addr = &rcv_ext_uc->la;
+    }else{
+        src_addr = &rcv_int_uc->la;
+        dst_addr = &rcv_int_uc->ra;
+    }
+
+    if (!dst_addr || laddr_list_has_addr(itr_rlocs,dst_addr) == FALSE){
+        /* Set dst_addr */
+        /* Take the first RLOC from ITR list compatible with the afi of src RLOC */
+        dst_addr = laddr_list_get_fst_addr_with_afi(itr_rlocs, lisp_addr_ip_afi(src_addr));
+        if (!dst_addr){
+            dst_addr = (lisp_addr_t *)glist_first_data(itr_rlocs);
+            if (!dst_addr){
+                OOR_LOG(LDBG_1, "map_reply_fill_uconn: No ITR rlocs available");
+                return (BAD);
+            }
+            src_addr = ctrl_default_rloc(ctr_dev->ctrl, lisp_addr_ip_afi(dst_addr));
+            if (!src_addr){
+                OOR_LOG(LDBG_1, "map_reply_fill_uconn: No %s control address found, send aborted!",
+                                   ( lisp_addr_ip_afi(dst_addr) == AF_INET) ? "IPv4" : "IPv6");
+                return (BAD);
+            }
+        }
+
+    }
+    uconn_init(uc, LISP_CONTROL_PORT, rcv_int_uc->rp, src_addr, dst_addr);
+
+    return (GOOD);
 }

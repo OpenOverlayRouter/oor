@@ -111,8 +111,12 @@ uint16_t
 auth_data_get_len_for_type(lisp_key_type_e key_id)
 {
     switch (key_id) {
-    default: // HMAC_SHA_1_96
-        return (LISP_SHA1_AUTH_DATA_LEN);   //TODO support more auth algorithms
+    case (NO_KEY):
+        return (0);
+    case (HMAC_SHA_1_96):
+        return (LISP_SHA1_AUTH_DATA_LEN);
+    default:
+        return (LISP_SHA1_AUTH_DATA_LEN);
     }
 }
 

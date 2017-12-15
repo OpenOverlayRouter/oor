@@ -910,7 +910,7 @@ tun_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local)
         OOR_LOG(LDBG_3, "tun_rm_fwd_from_entry: Removing all the forwarding entries association with the EID %s",eid_prefix_char);
         fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,eid_prefix_char);
         if (!fwd_tpl_list){
-            OOR_LOG(LDBG_1, "tun_rm_fwd_from_entry: Entry %s not found in the shasht!",eid_prefix_char);
+            OOR_LOG(LDBG_2, "tun_rm_fwd_from_entry: Entry %s not found in the shasht!",eid_prefix_char);
             return (BAD);
         }
         /* Check if it is a negative entry in order to remove also from PxTRs list */

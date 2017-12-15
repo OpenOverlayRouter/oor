@@ -33,7 +33,9 @@ typedef enum {
     INFO_REQUEST_TIMER,
     RE_UPSTREAM_JOIN_TIMER,
     RE_ITR_RESOLUTION_TIMER,
-    REG_SITE_EXPRY_TIMER
+    REG_SITE_EXPRY_TIMER,
+    RTR_NAT_LOCT_EXPIRE_TIMER,
+    RTR_NAT_MAP_REG_NOTIFY_TIMER
 } timer_type;
 
 #define TIMER_NAME_LEN          64
@@ -51,12 +53,12 @@ typedef struct oor_timer {
     oor_timer_links_t links;
     int duration;
     int rotation_count;
-    oor_timer_callback_t cb;
-    oor_timer_del_cb_arg_fn del_arg_fn;
-    void *cb_argument;
-    void *owner;
-    void *nonces_lst;
-    timer_type type;
+    oor_timer_callback_t cb; /* Callback function used  when timer is triggered*/
+    oor_timer_del_cb_arg_fn del_arg_fn; /* Function to delete the argument*/
+    void *cb_argument;  /* Arguments passed to the callback function*/
+    void *owner;        /* Device owner of the timer */
+    void *nonces_lst;   /* glist_t with nonces associated with timer*/
+    timer_type type;    /* timer type*/
 } oor_timer_t;
 
 

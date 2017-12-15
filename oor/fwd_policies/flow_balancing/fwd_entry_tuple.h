@@ -28,12 +28,14 @@ typedef struct fwd_entry_tuple_ {
     packet_tuple_t *tuple; // Must be the first element
     lisp_addr_t *srloc;
     lisp_addr_t *drloc;
+    uint16_t src_port;
+    uint16_t dst_port;
     int *out_sock;
     uint32_t iid;
 } fwd_entry_tuple_t;
 
 fwd_entry_tuple_t *fwd_entry_tuple_new_init(packet_tuple_t *tuple, lisp_addr_t *srloc,
-        lisp_addr_t *drloc, uint32_t iid, int *out_socket);
+        lisp_addr_t *drloc, uint16_t src_port, uint16_t dst_port, uint32_t iid, int *out_socket);
 void fwd_entry_tuple_del(fwd_entry_tuple_t *fwd_entry);
 
 #endif /* OOR_FWD_POLICIES_FLOW_BALANCING_FWD_ENTRY_TUPLE_H_ */

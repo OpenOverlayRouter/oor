@@ -3,7 +3,7 @@ import org.apache.tools.ant.taskdefs.condition.Os
 
 android {
     compileSdkVersion 24
-    buildToolsVersion '25.0.0'
+    buildToolsVersion '26.0.2'
     defaultConfig {
         applicationId "org.openoverlayrouter.noroot"
         minSdkVersion 15

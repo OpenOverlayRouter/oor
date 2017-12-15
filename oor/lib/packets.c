@@ -239,6 +239,39 @@ pkt_push_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
     return(GOOD);
 }
 
+
+int
+pkt_push_inner_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
+        ip_addr_t *dip)
+{
+    uint16_t udpsum;
+    struct udphdr *uh;
+
+    if (pkt_push_udp(b, sp, dp) == NULL) {
+        OOR_LOG(LDBG_1, "Failed to push UDP header! Discarding");
+        return(BAD);
+    }
+
+    lbuf_reset_l4(b);
+
+    if (pkt_push_ip(b, sip, dip, IPPROTO_UDP) == NULL) {
+        OOR_LOG(LDBG_1, "Failed to push IP header! Discarding");
+        return(BAD);
+    }
+
+    lbuf_reset_l3(b);
+
+    uh = lbuf_l4(b);
+
+    udpsum = udp_checksum(uh, ntohs(udplen(uh)), lbuf_l3(b), ip_addr_afi(sip));
+    if (udpsum == (uint16_t) ~ 0) {
+        OOR_LOG(LDBG_1, "Failed UDP checksum! Discarding");
+        return (BAD);
+    }
+    udpsum(uh) = udpsum;
+    return(GOOD);
+}
+
 /* Fill the tuple with the 5 tuples of a packet:
  * (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT) */
 int
@@ -250,6 +283,9 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
     struct tcphdr *tcp = NULL;
     lbuf_t packet = *b;
 
+    if (lbuf_point_to_ip(&packet) != GOOD){
+        return (BAD);
+    }
     iph = lbuf_ip(&packet);
 
     lisp_addr_set_lafi(&tuple->src_addr, LM_AFI_IP);
@@ -272,6 +308,65 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
         break;
     default:
         OOR_LOG(LDBG_2, "pkt_parse_5_tuple: Not an IP packet!");
+        return (BAD);
+    }
+
+    if (tuple->protocol == IPPROTO_UDP) {
+        udp = lbuf_data(&packet);
+        tuple->src_port = ntohs(udpsport(udp));
+        tuple->dst_port = ntohs(udpdport(udp));
+    } else if (tuple->protocol == IPPROTO_TCP) {
+        tcp = lbuf_data(&packet);
+        tuple->src_port = ntohs(tcpsport(tcp));
+        tuple->dst_port = ntohs(tcpdport(tcp));
+    } else {
+        /* If protocol is not TCP or UDP, ports of the tuple set to 0 */
+        tuple->src_port = 0;
+        tuple->dst_port = 0;
+    }
+    return (GOOD);
+}
+
+
+
+
+/* Fill the tuple with the inner 5 tuples of an
+ * Encap control message:
+ * (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT) */
+int
+pkt_parse_inner_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
+{
+    struct iphdr *iph = NULL;
+    struct ip6_hdr *ip6h = NULL;
+    struct udphdr *udp = NULL;
+    struct tcphdr *tcp = NULL;
+    lbuf_t packet = *b;
+
+    if (lbuf_point_to_l3(&packet) != GOOD){
+        return (BAD);
+    }
+    iph = lbuf_l3(&packet);
+
+    lisp_addr_set_lafi(&tuple->src_addr, LM_AFI_IP);
+    lisp_addr_set_lafi(&tuple->dst_addr, LM_AFI_IP);
+
+    switch (iph->version) {
+    case 4:
+        lisp_addr_ip_init(&tuple->src_addr, &iph->saddr, AF_INET);
+        lisp_addr_ip_init(&tuple->dst_addr, &iph->daddr, AF_INET);
+        tuple->protocol = iph->protocol;
+        lbuf_pull(&packet, iph->ihl * 4);
+        break;
+    case 6:
+        ip6h = (struct ip6_hdr *)iph;
+        lisp_addr_ip_init(&tuple->src_addr, &ip6h->ip6_src, AF_INET6);
+        lisp_addr_ip_init(&tuple->dst_addr, &ip6h->ip6_dst, AF_INET6);
+        /* XXX: assuming no extra headers */
+        tuple->protocol = ip6h->ip6_nxt;
+        lbuf_pull(&packet, sizeof(struct ip6_hdr));
+        break;
+    default:
+        OOR_LOG(LDBG_2, "pkt_parse_inner_5_tuple: Not an IP packet!");
         return (BAD);
     }
 

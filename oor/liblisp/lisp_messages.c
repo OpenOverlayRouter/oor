@@ -104,11 +104,8 @@ void
 ecm_hdr_init(void *ptr)
 {
     ecm_hdr_t *ecm = ptr;
+    memset (ecm,0,sizeof(ecm_hdr_t));
     ecm->type = LISP_ENCAP_CONTROL_TYPE;
-    ecm->s_bit = 0;
-    ecm->d_bit = 0;
-    ecm->r_bit = 0;
-    memset(ecm->reserved2, 0, sizeof(ecm->reserved2));
 }
 
 void
@@ -264,9 +261,12 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
 char *
 ecm_flags_to_char(ecm_hdr_t *h)
 {
-    static char buf[2];
-
-    h->s_bit ? sprintf(buf, "S") : sprintf(buf, "s");
+    static char buf[16];
+    *buf = '\0';
+    h->s_bit ? sprintf(buf, "S=1,") : sprintf(buf, "S=0,");
+    h->d_bit ? sprintf(buf+strlen(buf), "D=1,") : sprintf(buf+strlen(buf), "D=0,");
+    h->r_bit ? sprintf(buf+strlen(buf), "R=1,") : sprintf(buf+strlen(buf), "R=0,");
+    h->n_bit ? sprintf(buf+strlen(buf), "N=1") : sprintf(buf+strlen(buf), "N=0");
     return(buf);
 }
 

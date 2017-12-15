@@ -60,6 +60,8 @@ OBJS        = cmdline.o                  \
           control/oor_ctrl_device.o      \
           control/oor_local_db.o         \
           control/oor_map_cache.o        \
+          control/lisp_rtr.o             \
+          control/lisp_tr.o              \
           control/lisp_xtr.o             \
           control/lisp_ms.o              \
           control/control-data-plane/control-data-plane.o    \
@@ -93,6 +95,7 @@ OBJS        = cmdline.o                  \
           lib/cksum.o                    \
           lib/generic_list.o             \
           lib/hmac.o                     \
+          lib/htable_ptrs.o              \
           lib/iface_locators.o           \
           lib/int_table.o                \
           lib/interfaces_lib.o	         \
@@ -101,11 +104,11 @@ OBJS        = cmdline.o                  \
           lib/oor_log.o                  \
           lib/mapping_db.o               \
           lib/map_cache_entry.o          \
+          lib/map_cache_rtr_data.o       \
           lib/map_local_entry.o          \
           lib/mem_util.o                 \
           lib/nonces_table.o             \
           lib/packets.o                  \
-          lib/pointers_table.o           \
           lib/prefixes.o                 \
           lib/routing_tables_lib.o       \
           lib/sockets.o                  \
