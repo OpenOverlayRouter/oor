@@ -28,6 +28,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ether.h>
+#include <net/ethernet.h>
 
 #include "lbuf.h"
 #include "mem_util.h"

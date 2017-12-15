@@ -90,12 +90,7 @@ LOCAL_MODULE = oorexec
 include $(BUILD_EXECUTABLE)
 
 all:
-	mv $(LOCAL_PATH2)/../libs/armeabi/oorexec $(LOCAL_PATH2)/../libs/armeabi/liboorexec.so
 	mv $(LOCAL_PATH2)/../libs/arm64-v8a/oorexec $(LOCAL_PATH2)/../libs/arm64-v8a/liboorexec.so
 	mv $(LOCAL_PATH2)/../libs/armeabi-v7a/oorexec $(LOCAL_PATH2)/../libs/armeabi-v7a/liboorexec.so
-	mv $(LOCAL_PATH2)/../libs/mips/oorexec $(LOCAL_PATH2)/../libs/mips/liboorexec.so
-	mv $(LOCAL_PATH2)/../libs/mips64/oorexec $(LOCAL_PATH2)/../libs/mips64/liboorexec.so
 	mv $(LOCAL_PATH2)/../libs/x86/oorexec $(LOCAL_PATH2)/../libs/x86/liboorexec.so
 	mv $(LOCAL_PATH2)/../libs/x86_64/oorexec $(LOCAL_PATH2)/../libs/x86_64/liboorexec.so
-
-
