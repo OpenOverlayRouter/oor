@@ -24,7 +24,7 @@ CC          = gcc
 endif
 GENGETOPT   = gengetopt
 ERROR       = false
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -D_GNU_SOURCE
+CFLAGS     += -Wall -Werror=switch -std=gnu89 -g -I/usr/include/libxml2 -D_GNU_SOURCE
 
 
 ifeq "$(platform)" ""
