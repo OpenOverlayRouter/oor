@@ -32,6 +32,7 @@ Vagrant.configure(2) do |config|
   # Using Ubuntu 17.04 until Vagrant issue #9134 is fixed (Vagrant 2.0.2?)
   # https://github.com/hashicorp/vagrant/issues/9134
   config.vm.box = "ubuntu/zesty64"
+  config.vm.box_check_update = false
   # TODO need to figure out how to use #{config.ssh.username} instead of
   # "ubuntu" to be more general, if the box we use changes the user
   username = "ubuntu"

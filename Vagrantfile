@@ -17,6 +17,7 @@ Vagrant.configure(2) do |config|
     }
   end
   config.vm.box = "ubuntu/artful64"
+  config.vm.box_check_update = false
   config.vm.define "oor-dev"
   config.vm.hostname = "oor-dev"
   config.vm.provision "shell", path: "vagrant/install-prereqs.sh"
