@@ -24,18 +24,18 @@ CC          = gcc
 endif
 GENGETOPT   = gengetopt
 ERROR       = false
+CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -D_GNU_SOURCE
 
 
 ifeq "$(platform)" ""
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -D_GNU_SOURCE
 LIBS        = -lconfuse -lrt -lm -lzmq -lxml2
 else
 ifeq "$(platform)" "openwrt"
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -DOPENWRT -D_GNU_SOURCE
+CFLAGS     += -DOPENWRT
 LIBS        = -lrt -lm -luci
 else
 ifeq "$(platform)" "vpp"
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -I/usr/include/vpp_plugins -DVPP -D_GNU_SOURCE
+CFLAGS     += -I/usr/include/vpp_plugins -DVPP
 LIBS        = -lconfuse -lrt -lm -lzmq -lxml2 -lvlibmemoryclient -lvlibapi -lsvm -lvppinfra -lpthread -ldl
 else
 ERROR       = true
