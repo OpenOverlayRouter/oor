@@ -757,13 +757,27 @@ pending_request_do_cycle(oor_timer_t *timer){
         void *mr_hdr = NULL;
         void *ec_hdr = NULL;
         uconn_t dest_uc;
+        lisp_addr_t *src_rloc = NULL, *dst_rloc =NULL;
+
+
 
         mreq =lisp_msg_mreq_create(timer_arg->local_address, rlocs, pendreq->target_address);
         mr_hdr = lisp_msg_hdr(mreq);
         nonce = nonce_new();
         MREQ_NONCE(mr_hdr) = nonce;
 
-        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, glist_first_data(rlocs), glist_entry_data(pendreq->current_rloc));
+
+        dst_rloc = glist_entry_data(pendreq->current_rloc);
+
+        OOR_LOG(LDBG_1,"-------------------%s    %d", lisp_addr_to_char(dst_rloc), lisp_addr_ip_afi(dst_rloc));
+
+        src_rloc = ctrl_default_rloc(mapres->super.ctrl,lisp_addr_ip_afi(dst_rloc));
+        if(!src_rloc){
+            OOR_LOG(LDBG_1, "Map Resolver has no available interface, trying next RLOC");
+            pending_request_do_cycle(timer);
+        }
+
+        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, src_rloc, glist_entry_data(pendreq->current_rloc));
 
         ec_hdr = lisp_msg_ecm_hdr(mreq);
         ECM_DDT_BIT(ec_hdr) = 1;
