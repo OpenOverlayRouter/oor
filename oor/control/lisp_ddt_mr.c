@@ -332,7 +332,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
             if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
                 //send negative map-reply/es
                 send_negative_mrep_to_original_askers(ddt_mr,pendreq);
-                ddt_pending_request_del_full(pendreq,ddt_mr);
+                map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
             }else{
                 //send request to Root
                 pending_request_set_root_cache_entry(pendreq,ddt_mr);
@@ -410,13 +410,14 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
                     lisp_msg_destroy(mreq);
                 }
             }
-            ddt_pending_request_del_full(pendreq,ddt_mr);
+            map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
             break;
 
         case LISP_ACTION_NOT_REGISTERED:
             /* there is no specification of what a mapping with this code must do if matched
              * in the cache, so there's no point in saving them, as of now*/
             // try the next rloc in the list:
+            pendreq->recieved_not_registered = 1;
             pending_request_do_cycle(timer);
             break;
 
@@ -426,7 +427,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
             ddt_mcache_entry_init(ddt_entry,m);
             ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
             send_negative_mrep_to_original_askers(ddt_mr,pendreq);
-            ddt_pending_request_del_full(pendreq,ddt_mr);
+            map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
             break;
 
         default:
@@ -677,6 +678,7 @@ pending_request_set_new_cache_entry(ddt_pending_request_t *pendreq, ddt_mcache_e
     pendreq-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(current_cache_entry));
     pendreq-> current_rloc = NULL;
     pendreq-> retry_number = 0;
+    pendreq-> recieved_not_registered = 0;
 }
 
 void
@@ -687,6 +689,7 @@ pending_request_set_root_cache_entry(ddt_pending_request_t *pendreq, lisp_ddt_mr
     pendreq-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(mapres->root_entry));
     pendreq-> current_rloc = NULL;
     pendreq-> retry_number = 0;
+    pendreq-> recieved_not_registered = 0;
 }
 
 void
@@ -739,10 +742,14 @@ pending_request_do_cycle(oor_timer_t *timer){
 
             OOR_LOG(LDBG_1, "Has sent negative map-replies to original askers");
 
-            ddt_pending_request_del_full(pendreq,mapres);
+            map_resolver_remove_ddt_pending_request(mapres,pendreq);
 
             OOR_LOG(LDBG_1, "Has eliminated pending request");
 
+        }else if(pendreq->retry_number >=1 && pendreq->recieved_not_registered == 1){
+            // send negative map reply/es and eliminate pending request
+            send_negative_mrep_to_original_askers(mapres,pendreq);
+            map_resolver_remove_ddt_pending_request(mapres,pendreq);
         }else{
             OOR_LOG(LDBG_1, "Has not gone through root");
             // switch to the root entry and retry
@@ -827,7 +834,7 @@ ddt_pending_request_del(ddt_pending_request_t *request)
 }
 
 void
-ddt_pending_request_del_full(ddt_pending_request_t *request, lisp_ddt_mr_t *mapres)
+map_resolver_remove_ddt_pending_request(lisp_ddt_mr_t *mapres, ddt_pending_request_t *request)
 {
     if (!request)
         return;

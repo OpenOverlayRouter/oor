@@ -42,6 +42,7 @@ typedef struct _ddt_pending_request{
     lisp_addr_t *target_address;
     glist_t *original_requests; /*original_requests is filled with ddt_original_request_t*/
     int gone_through_root;
+    int recieved_not_registered;
     ddt_mcache_entry_t *current_cache_entry;
     glist_t *current_delegation_rlocs; /*it is filled with lisp_addr_t, corresponding to
     the referrals of the cache entry currently in use*/
@@ -81,13 +82,12 @@ void pending_request_add_original(ddt_pending_request_t *pending, ddt_original_r
 
 
 void mref_cache_entry_del(ddt_mcache_entry_t *entry);
-void mref_cache_entry_del_full(ddt_mcache_entry_t *entry, lisp_ddt_mr_t *mapres);
 static inline lisp_addr_t *
 cache_entry_xeid(ddt_mcache_entry_t *entry) {
     return(ddt_mcache_entry_eid(entry));
 }
 void ddt_pending_request_del(ddt_pending_request_t *request);
-void ddt_pending_request_del_full(ddt_pending_request_t *request, lisp_ddt_mr_t *mapres);
+void map_resolver_remove_ddt_pending_request(lisp_ddt_mr_t *mapres, ddt_pending_request_t *request);
 static inline lisp_addr_t *
 pending_request_xeid(ddt_pending_request_t *request) {
     return(request->target_address);
