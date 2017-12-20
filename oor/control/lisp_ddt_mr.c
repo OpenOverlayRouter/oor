@@ -254,6 +254,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
     lbuf_t  b;
     ddt_mcache_entry_t *ddt_entry;
     glist_t *rlocs_list = NULL;
+    lisp_addr_t *src_ip, *dst_ip;
 
     // local copy of the buf that can be modified
     b = *buf;
@@ -394,7 +395,20 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
                     mr_hdr = lisp_msg_hdr(mreq);
                     MREQ_NONCE(mr_hdr) = request->nonce;
 
-                    lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, request->source_address, pendreq->target_address);
+
+
+
+                    dst_ip = lisp_addr_clone(lisp_addr_get_ip_pref_addr(pendreq->target_address));
+                    lisp_addr_set_lafi(dst_ip, LM_AFI_IP);
+
+                    src_ip = ctrl_default_rloc(ddt_mr->super.ctrl,lisp_addr_ip_afi(dst_ip));
+                    if(!src_ip){
+                        OOR_LOG(LDBG_1, "Map Resolver has no available interface, trying next RLOC");
+                        pending_request_do_cycle(timer);
+                    }
+
+
+                    lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, src_ip, dst_ip);
                     /* we don't set the DDT-Originated bit here, because we are going to delete
                      * the pending request after forwarding the original requests, so there's
                      * no point in the MS sending back MS-ACKs
@@ -714,6 +728,8 @@ pending_request_do_cycle(oor_timer_t *timer){
     lisp_ddt_mr_t *mapres = timer_arg->mapres;
     uint64_t nonce;
     glist_t *rlocs = NULL;
+    //lisp_addr_t src_eid;
+    lisp_addr_t *drloc;
 
     OOR_LOG(LDBG_1, "Moving to next rloc");
 
@@ -764,8 +780,7 @@ pending_request_do_cycle(oor_timer_t *timer){
         void *mr_hdr = NULL;
         void *ec_hdr = NULL;
         uconn_t dest_uc;
-        lisp_addr_t *src_rloc = NULL, *dst_rloc =NULL;
-
+        lisp_addr_t *src_ip, *dst_ip;
 
 
         mreq =lisp_msg_mreq_create(timer_arg->local_address, rlocs, pendreq->target_address);
@@ -773,28 +788,26 @@ pending_request_do_cycle(oor_timer_t *timer){
         nonce = nonce_new();
         MREQ_NONCE(mr_hdr) = nonce;
 
+        dst_ip = lisp_addr_clone(lisp_addr_get_ip_pref_addr(pendreq->target_address));
+        lisp_addr_set_lafi(dst_ip, LM_AFI_IP);
 
-        dst_rloc = glist_entry_data(pendreq->current_rloc);
-
-        OOR_LOG(LDBG_1,"-------------------%s    %d", lisp_addr_to_char(dst_rloc), lisp_addr_ip_afi(dst_rloc));
-
-        src_rloc = ctrl_default_rloc(mapres->super.ctrl,lisp_addr_ip_afi(dst_rloc));
-        if(!src_rloc){
-            OOR_LOG(LDBG_1, "Map Resolver has no available interface, trying next RLOC");
+        src_ip = ctrl_default_rloc(mapres->super.ctrl,lisp_addr_ip_afi(dst_ip));
+        if(!src_ip){
+            OOR_LOG(LDBG_1, "Map Resolver has no available interface for this RLOC, trying next RLOC");
             pending_request_do_cycle(timer);
         }
 
-        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, src_rloc, glist_entry_data(pendreq->current_rloc));
+        lisp_msg_encap(mreq, LISP_CONTROL_PORT, LISP_CONTROL_PORT, src_ip, dst_ip);
+
 
         ec_hdr = lisp_msg_ecm_hdr(mreq);
         ECM_DDT_BIT(ec_hdr) = 1;
-
-        lisp_addr_t *drloc;
 
         drloc = lisp_addr_get_ip_addr(glist_entry_data(pendreq->current_rloc));
 
         uconn_init(&dest_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
         send_msg(&mapres->super, mreq, &dest_uc);
+        lisp_addr_del(dst_ip);
 
         OOR_LOG(LDBG_1, "message sent");
 

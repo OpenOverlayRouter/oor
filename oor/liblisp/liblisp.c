@@ -636,7 +636,6 @@ lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
     lbuf_reset_lisp(b);
     lisp_addr_t *ip_la, *ip_ra;
 
-
     ip_la = lisp_addr_get_ip_addr(la);
     if (!ip_la){
         ip_la = lisp_addr_get_ip_pref_addr(la);
