@@ -8,5 +8,7 @@
 /.idea/libraries
 .DS_Store
 /build
+/libs
+/obj
 /captures
 .externalNativeBuild
