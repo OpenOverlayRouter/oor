@@ -36,6 +36,7 @@ Vagrant.configure(2) do |config|
   # TODO need to figure out how to use #{config.ssh.username} instead of
   # "ubuntu" to be more general, if the box we use changes the user
   username = "ubuntu"
+  config.vm.synced_folder "..", "/vagrant"
   config.vm.synced_folder "..", "/home/#{username}/oor"
   config.vm.provision "shell", path: "install-prereqs.sh"
   config.vm.provision "shell", path: "install-optional.sh", args: username
