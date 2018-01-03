@@ -39,6 +39,33 @@ Import the android folder to Android Studio and select Build APK from the Build 
 To install the application, connect your device to the pc, select Run in the Run 
 menu and select the device you want to install and run the application.
 
+If you want to avoid installing Android Studio and do everything from the
+command line, you need to have the Android SDK and NDK installed, and then
+create the `local.properties` file in the android folder, pointing to the
+right locations. For example:
+
+    ndk.dir=/home/user/android-sdk/ndk-bundle
+    sdk.dir=/home/user/android-sdk
+
+The build is based on Gradle, and the tree is configured to use the Gradle
+Wrapper to simplify things. Available build options can be listed by running
+in the android folder:
+
+    ./gradlew targets
+
+The Gradle Wrapper will download the right version of Gradle, and any required
+dependencies. To build the APK:
+
+    ./gradlew :app:assembleDebug
+
+If the build finishes successfully, the APK will be located at
+`android/app/build/outputs/apk/debug/app-debug.apk`.
+
+The command line build environment can be created quickly in a VM using
+Vagrant, by running `vagrant up oor-dev-android` in the top-level directory of
+the source tree. For more information about Vagrant see [the main README.md
+file](README.md#using-vagrant).
+
 Running Open Overlay Router
 ---------------------------
 

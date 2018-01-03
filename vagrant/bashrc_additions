@@ -1,3 +1,8 @@
 
 # Configure Map-Resolver for lig
 export LISP_MAP_RESOLVER=192.168.127.2
+
+# Set Gradle home directory to some place in the source tree
+# The reason is that the source tree is from a shared folder on the host disk
+# so we save spoce on the VM disk
+export GRADLE_USER_HOME=/vagrant/android/.gradle
