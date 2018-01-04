@@ -713,9 +713,6 @@ ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_
     ddt_mcache_entry_init_static(ddt_entry,mapping);
     ddt_mr_set_root_entry(ddt_mr,ddt_entry);
 
-    //TODO remove this after testing
-    //ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
-
     return (GOOD);
 
 }

@@ -226,7 +226,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, 
         goto err;
     }
 
-    OOR_LOG(LDBG_1, " src-eid: %s", lisp_addr_to_char(seid));
     if (MREQ_RLOC_PROBE(mreq_hdr)) {
         OOR_LOG(LDBG_2, "Probe bit set. Discarding!");
         return(BAD);

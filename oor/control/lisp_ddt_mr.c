@@ -167,7 +167,6 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
             switch (ddt_mcache_entry_type(cacheentry)){
             case LISP_ACTION_DELEGATION_HOLE:
                 // send negative Map-Reply
-                //TODO check what action it should really have
                 mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NO_ACTION,
                         A_AUTHORITATIVE, MREQ_NONCE(mreq_hdr));
                 send_msg(&ddt_mr->super, mrep, ext_uc);
@@ -198,16 +197,11 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 
             default:
                 pendreq = ddt_pending_request_init(deid);
-                OOR_LOG(LDBG_1, "Pending request created. Target address is %s",
-                        lisp_addr_to_char(pendreq->target_address));
                 if(throughroot == GONE_THROUGH_ROOT){
                     pending_request_set_root_cache_entry(pendreq, ddt_mr);
                 }else{
                     pending_request_set_new_cache_entry(pendreq, cacheentry);
                 }
-
-                OOR_LOG(LDBG_1, "Cache entry set. Number of rlocs:%d",
-                                glist_size(pendreq->current_delegation_rlocs));
 
                 original = xzalloc(sizeof(ddt_original_request_t));
                 original->nonce = MREQ_NONCE(mreq_hdr);
@@ -343,10 +337,9 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
             break;
 
         case LISP_ACTION_MS_ACK:
-            OOR_LOG(LDBG_2, "Enters case lisp_Action_ack");
             rlocs_list= glist_new();
-            // check incomplete bit
 
+            // check incomplete bit
             /* Since there is no synchronization among a group of MS peers, we won't
              * save the MS-ACK in the cache, as the addresses would need to be checked
              * one by one anyway. With no synchronization, forwarding the Map Request to all
@@ -364,10 +357,8 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
             if(mref_mapping_incomplete(m)){*/
             // forward original requests to map server
             if(!ext_uc){
-                OOR_LOG(LDBG_2, "int_uc-ra is: %s",lisp_addr_to_char(&int_uc->ra));
                 glist_add(&int_uc->ra,rlocs_list);
             }else{
-            OOR_LOG(LDBG_2, "ext_uc-ra is: %s",lisp_addr_to_char(&ext_uc->ra));
             glist_add(&ext_uc->ra,rlocs_list);
             }
             /*}else{
@@ -378,8 +369,6 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
                 rlocs_list = mref_mapping_get_ref_addrs(m);
             }*/
 
-            OOR_LOG(LDBG_2, "Glist filled, size is %d",glist_size(rlocs_list));
-
             glist_entry_t *it = NULL;
             glist_for_each_entry(it,pendreq->original_requests){
                 lisp_addr_t *drloc;
@@ -387,23 +376,18 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
                 lbuf_t *        mreq        = NULL;
                 uconn_t orig_uc;
                 void *mr_hdr = NULL;
-                OOR_LOG(LDBG_2, "Place 1");
                 glist_entry_t *it2 = NULL;
                 glist_for_each_entry(it2, rlocs_list){
-                    //TODO check if this action is correct, also the authoritative
                     mreq =lisp_msg_mreq_create(request->source_address, request->itr_locs, pendreq->target_address);
                     mr_hdr = lisp_msg_hdr(mreq);
                     MREQ_NONCE(mr_hdr) = request->nonce;
-
-
-
 
                     dst_ip = lisp_addr_clone(lisp_addr_get_ip_pref_addr(pendreq->target_address));
                     lisp_addr_set_lafi(dst_ip, LM_AFI_IP);
 
                     src_ip = ctrl_default_rloc(ddt_mr->super.ctrl,lisp_addr_ip_afi(dst_ip));
                     if(!src_ip){
-                        OOR_LOG(LDBG_1, "Map Resolver has no available interface, trying next RLOC");
+                        OOR_LOG(LDBG_1, "Map Resolver has no available interface for this RLOC, trying next RLOC");
                         pending_request_do_cycle(timer);
                     }
 
@@ -414,9 +398,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
                      * no point in the MS sending back MS-ACKs
                      */
 
-                    OOR_LOG(LDBG_2, "Place 2");
                     drloc = lisp_addr_get_ip_addr(glist_entry_data(it2));
-                    OOR_LOG(LDBG_2, "Place 3");
 
                     uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
                     send_msg(&ddt_mr->super, mreq, &orig_uc);
@@ -731,8 +713,6 @@ pending_request_do_cycle(oor_timer_t *timer){
     //lisp_addr_t src_eid;
     lisp_addr_t *drloc;
 
-    OOR_LOG(LDBG_1, "Moving to next rloc");
-
     // advance the current rloc being used from the list of rlocs
     if(!pendreq->current_rloc){
         pendreq->current_rloc = glist_first(pendreq->current_delegation_rlocs);
@@ -745,29 +725,19 @@ pending_request_do_cycle(oor_timer_t *timer){
         }
     }
 
-    OOR_LOG(LDBG_1, "Moved to next rloc:");
-    OOR_LOG(LDBG_1, lisp_addr_to_char(glist_entry_data(pendreq->current_rloc)));
-
     // check if max retries exceeded
     if(pendreq->retry_number >= DEFAULT_MAP_REQUEST_RETRIES){
-        OOR_LOG(LDBG_1, "Max retries exceeded");
         if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
-            OOR_LOG(LDBG_1, "Has gone through root");
             // send negative map reply/es and eliminate pending request
             send_negative_mrep_to_original_askers(mapres,pendreq);
 
-            OOR_LOG(LDBG_1, "Has sent negative map-replies to original askers");
-
             map_resolver_remove_ddt_pending_request(mapres,pendreq);
-
-            OOR_LOG(LDBG_1, "Has eliminated pending request");
 
         }else if(pendreq->retry_number >=1 && pendreq->recieved_not_registered == 1){
             // send negative map reply/es and eliminate pending request
             send_negative_mrep_to_original_askers(mapres,pendreq);
             map_resolver_remove_ddt_pending_request(mapres,pendreq);
         }else{
-            OOR_LOG(LDBG_1, "Has not gone through root");
             // switch to the root entry and retry
             pending_request_set_root_cache_entry(pendreq,mapres);
             htable_nonces_reset_nonces_lst(nonces_ht, nonces_list);
@@ -809,11 +779,8 @@ pending_request_do_cycle(oor_timer_t *timer){
         send_msg(&mapres->super, mreq, &dest_uc);
         lisp_addr_del(dst_ip);
 
-        OOR_LOG(LDBG_1, "message sent");
-
         htable_nonces_insert(nonces_ht, nonce, nonces_list);
         oor_timer_start(timer, OOR_INITIAL_MRQ_TIMEOUT);
-        OOR_LOG(LDBG_1, "timer reset");
 
     }
     return (GOOD);
@@ -879,12 +846,10 @@ void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_re
         ddt_original_request_t *request = glist_entry_data(it);
         lbuf_t *        mrep        = NULL;
         uconn_t orig_uc;
-        //TODO check if this action is correct, also the authoritative
         mrep = lisp_msg_neg_mrep_create(pendreq->target_address, 15, ACT_NO_ACTION,
                 A_NO_AUTHORITATIVE, request->nonce);
         lisp_addr_t *drloc = NULL;
 
-        OOR_LOG(LDBG_1,"Going to set drloc, address is: %s",lisp_addr_to_char(glist_entry_data(glist_first(request->itr_locs))));
         drloc = lisp_addr_get_ip_addr(glist_entry_data(glist_first(request->itr_locs)));
 
         uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
