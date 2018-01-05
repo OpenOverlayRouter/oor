@@ -8,7 +8,7 @@ SDK_PATH=/vagrant/android/sdk
 
 if [ ! -s "/tmp/vagrant-cache/sdk-tools-linux.zip" ]; then
 	echo "Downloading Android SDK Tools ..."
-	wget https://dl.google.com/android/repository/sdk-tools-linux-${SDK_TOOLS_VERSION}.zip -O /tmp/vagrant-cache/sdk-tools-linux.zip
+	wget --no-verbose https://dl.google.com/android/repository/sdk-tools-linux-${SDK_TOOLS_VERSION}.zip -O /tmp/vagrant-cache/sdk-tools-linux.zip
 	echo "... done."
 fi
 
