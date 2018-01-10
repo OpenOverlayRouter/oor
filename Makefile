@@ -1,7 +1,7 @@
 DIRS = oor
 BUILDDIRS = $(DIRS:%=build-%)
 INSTALLDIRS = $(DIRS:%=install-%)
-CLEANDIRS = $(DIRS:%=clean-%)
+CLEANDIRS = $(DIRS:%=clean-%) android
 
 all: $(BUILDDIRS)
 $(DIRS): $(BUILDDIRS)

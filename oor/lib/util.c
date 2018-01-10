@@ -182,3 +182,77 @@ str_rm_double_spaces(char *src, char *dst)
     dst[d] = 0;
 }
 
+
+char *
+str_to_lower_case(char *str)
+{
+    int i;
+    char *new_str = xmalloc(sizeof(str)+1);
+    for(i = 0; str[i]; i++){
+        new_str[i] = tolower(str[i]);
+    }
+    new_str[i] = '\0';
+    return (new_str);
+}
+
+
+int8_t
+str_to_boolean(char *str)
+{
+    int8_t res;
+    char bool_str[10];
+    char *new_str = str_to_lower_case(str);
+    str_rm_spaces(new_str,bool_str);
+
+    if (strcmp(bool_str, "on") == 0){
+        res = TRUE;
+    }else if  (strcmp(bool_str, "true") == 0){
+        res = TRUE;
+    }else if  (strcmp(bool_str, "off") == 0){
+        res = FALSE;
+    }else if  (strcmp(bool_str, "false") == 0){
+        res = FALSE;
+    }else{
+        res = UNKNOWN;
+    }
+    free(new_str);
+    return(res);
+}
+
+
+
+lisp_addr_t *
+laddr_get_full_space_pref_from_type(lisp_addr_t *address)
+{
+    lisp_addr_t *addr = lisp_addr_clone(address);
+    lisp_addr_t *ip_pref = lisp_addr_get_ip_pref_addr(addr);
+
+    if (!ip_pref){
+        return (NULL);
+    }
+    switch (lisp_addr_ip_afi(ip_pref)){
+    case AF_INET:
+        lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE,ip_pref);
+        break;
+    case AF_INET6:
+        lisp_addr_ippref_from_char(FULL_IPv6_ADDRESS_SPACE,ip_pref);
+        break;
+    }
+    return(addr);
+}
+
+
+/* Check if address is 0.0.0.0/0 of 0::0/0 */
+uint8_t
+laddr_is_full_space_pref(lisp_addr_t *addr)
+{
+    if (!lisp_addr_is_ip_pref(addr)){
+        return (FALSE);
+    }
+
+    if (lisp_addr_get_plen(addr) != 0){
+        return (FALSE);
+    }
+
+    return (TRUE);
+}

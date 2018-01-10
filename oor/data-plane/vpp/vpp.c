@@ -456,7 +456,7 @@ vpp_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t local)
     }else{
         fwd_info_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,eid_prefix_char);
         if (!fwd_info_list){
-            OOR_LOG(LDBG_1, "vpp_rm_fwd_from_entry: Entry %s not found in the shasht!",eid_prefix_char);
+            OOR_LOG(LDBG_2, "vpp_rm_fwd_from_entry: Entry %s not found in the shasht!",eid_prefix_char);
             return (BAD);
         }
         /* Check if it is a negative entry in order to remove also from PxTRs list */

@@ -1,0 +1,10 @@
+mappings -d
+help mappings
+bundle:list -s | grep lispflowmapping
+feature:list -i
+log:display
+keys
+addkey
+mappings
+log:tail
+log:set DEBUG org.opendaylight.lispflowmapping

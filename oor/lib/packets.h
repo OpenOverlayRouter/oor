@@ -28,6 +28,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ether.h>
+#include <net/ethernet.h>
 
 #include "lbuf.h"
 #include "mem_util.h"
@@ -104,10 +105,13 @@ void *pkt_push_eth(lbuf_t *b, uint8_t  ether_dhost[ETHER_ADDR_LEN],
 void *pkt_push_ip(lbuf_t *, ip_addr_t *, ip_addr_t *, int proto);
 int pkt_push_udp_and_ip(lbuf_t *, uint16_t, uint16_t, ip_addr_t *,
         ip_addr_t *);
+int pkt_push_inner_udp_and_ip(lbuf_t *b, uint16_t sp, uint16_t dp, ip_addr_t *sip,
+        ip_addr_t *dip);
 int ip_hdr_set_ttl_and_tos(struct iphdr *, int ttl, int tos);
 int ip_hdr_ttl_and_tos(struct iphdr *, int *ttl, int *tos);
 
 int pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
+
 int pkt_parse_inner_5_tuple(lbuf_t *b, packet_tuple_t *tuple);
 uint32_t pkt_tuple_hash(packet_tuple_t *tuple);
 uint32_t pkt_src_dst_hash(lisp_addr_t *src_addr, lisp_addr_t *dst_addr);

@@ -31,6 +31,14 @@ void addr_list_rm_not_compatible_addr(glist_t *addr_lst, int compatible_addr_fla
 uint8_t is_compatible_addr(lisp_addr_t *addr, int compatible_addr_flags);
 void str_rm_spaces(char *src, char *dst);
 void str_rm_double_spaces(char *src, char *dst);
+char *str_to_lower_case(char *str);
+/*
+ * Convert the str to TRUE or FALSE. If str is not recognized return UNKNOWN
+ */
+int8_t str_to_boolean(char *str);
+
+lisp_addr_t *laddr_get_full_space_pref_from_type(lisp_addr_t *addr);
+uint8_t laddr_is_full_space_pref(lisp_addr_t *addr);
 
 
 #endif /* UTIL_H_ */

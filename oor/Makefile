@@ -24,18 +24,18 @@ CC          = gcc
 endif
 GENGETOPT   = gengetopt
 ERROR       = false
+CFLAGS     += -Wall -Werror=switch -std=gnu89 -g -I/usr/include/libxml2 -D_GNU_SOURCE
 
 
 ifeq "$(platform)" ""
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -D_GNU_SOURCE
 LIBS        = -lconfuse -lrt -lm -lzmq -lxml2
 else
 ifeq "$(platform)" "openwrt"
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -DOPENWRT -D_GNU_SOURCE
+CFLAGS     += -DOPENWRT
 LIBS        = -lrt -lm -luci
 else
 ifeq "$(platform)" "vpp"
-CFLAGS     += -Wall -std=gnu89 -g -I/usr/include/libxml2 -I/usr/include/vpp_plugins -DVPP -D_GNU_SOURCE
+CFLAGS     += -I/usr/include/vpp_plugins -DVPP
 LIBS        = -lconfuse -lrt -lm -lzmq -lxml2 -lvlibmemoryclient -lvlibapi -lsvm -lvppinfra -lpthread -ldl
 else
 ERROR       = true
@@ -60,6 +60,8 @@ OBJS        = cmdline.o                  \
           control/oor_ctrl_device.o      \
           control/oor_local_db.o         \
           control/oor_map_cache.o        \
+          control/lisp_rtr.o             \
+          control/lisp_tr.o              \
           control/lisp_xtr.o             \
           control/lisp_ms.o              \
           control/lisp_ddt_node.o        \
@@ -96,6 +98,7 @@ OBJS        = cmdline.o                  \
           lib/cksum.o                    \
           lib/generic_list.o             \
           lib/hmac.o                     \
+          lib/htable_ptrs.o              \
           lib/iface_locators.o           \
           lib/int_table.o                \
           lib/interfaces_lib.o	         \
@@ -105,11 +108,11 @@ OBJS        = cmdline.o                  \
           lib/mapping_db.o               \
           lib/map_cache_entry.o          \
           lib/ddt_map_cache_entry.o      \
+          lib/map_cache_rtr_data.o       \
           lib/map_local_entry.o          \
           lib/mem_util.o                 \
           lib/nonces_table.o             \
           lib/packets.o                  \
-          lib/pointers_table.o           \
           lib/prefixes.o                 \
           lib/routing_tables_lib.o       \
           lib/sockets.o                  \

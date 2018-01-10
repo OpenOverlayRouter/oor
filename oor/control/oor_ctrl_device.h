@@ -57,6 +57,7 @@ extern ctrl_dev_class_t ms_ctrl_class;
 extern ctrl_dev_class_t ddt_node_ctrl_class;
 extern ctrl_dev_class_t ddt_mr_ctrl_class;
 extern ctrl_dev_class_t xtr_ctrl_class;
+extern ctrl_dev_class_t rtr_ctrl_class;
 
 int ctrl_dev_create(oor_dev_type_e , oor_ctrl_dev_t **);
 void ctrl_dev_destroy(oor_ctrl_dev_t *);
@@ -80,6 +81,8 @@ int send_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
 char *
 ctrl_dev_type_to_char(oor_dev_type_e type);
+int map_reply_fill_uconn(oor_ctrl_dev_t *ctr_dev, glist_t *itr_rlocs,
+        uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc);
 
 
 #endif /* OOR_CTRL_DEVICE_H_ */

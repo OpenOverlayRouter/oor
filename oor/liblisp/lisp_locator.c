@@ -290,6 +290,32 @@ locator_list_clone(glist_t *loct_list)
 }
 
 int
+locator_list_cmp(glist_t *loct_list_a,glist_t *loct_list_b)
+{
+    locator_t *     loct_a = NULL;
+    locator_t *     loct_b = NULL;
+    lisp_addr_t *   addr_a = NULL;
+    lisp_addr_t *   addr_b = NULL;
+
+    if (loct_list_a == NULL || loct_list_b == NULL){
+        return (-2);
+    }
+
+    if(glist_size(loct_list_a) == 0 || glist_size(loct_list_b) == 0){
+        OOR_LOG(LDBG_2, "locator_list_cmp_afi: One of the compared list is empty");
+        return (-2);
+    }
+    loct_a = (locator_t *)glist_first_data(loct_list_a);
+    loct_b = (locator_t *)glist_first_data(loct_list_b);
+    addr_a = locator_addr(loct_a);
+    addr_b = locator_addr(loct_b);
+
+    return (lisp_addr_cmp_afi(addr_a,addr_b));
+}
+
+
+
+int
 locator_list_cmp_afi(glist_t *loct_list_a,glist_t *loct_list_b)
 {
 	locator_t *		loct_a = NULL;

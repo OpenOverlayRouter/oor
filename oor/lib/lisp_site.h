@@ -35,6 +35,7 @@ typedef struct lisp_site_prefix {
 
 typedef struct lisp_reg_site {
     mapping_t *site_map;
+    uint8_t proxy_reply;
 } lisp_reg_site_t;
 
 lisp_site_prefix_t *lisp_site_prefix_init(lisp_addr_t *eid_prefix, uint32_t iid,

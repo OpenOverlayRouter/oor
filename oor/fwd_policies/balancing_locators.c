@@ -271,6 +271,10 @@ select_best_priority_locators(glist_t *loct_list, locator_t **selected_locators,
         if (!is_mce && locator_L_bit(locator) == 0){
             continue;
         }
+        /* For map cache entries, the R bit should be set */
+        if (is_mce && locator_R_bit(locator) == 0){
+            continue;
+        }
         /* If priority of the locator equal to min_priority, then add the
          * locator to the list */
         if (locator_priority(locator) == min_priority) {

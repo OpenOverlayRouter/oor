@@ -24,7 +24,7 @@ config 'daemon'
 # Control messages are received and generated through this interface
 # Only one interface is supported
 config 'ms_basic'
-        option  'control_iface'         'eth0'
+        option  'control_iface'         '<iface-name>'
 
 # Define an allowed lisp site to be registered into the Map Server
 #   eid_prefix: Accepted EID prefix (IPvX/mask)
@@ -34,11 +34,11 @@ config 'ms_basic'
 #   accept_more_specifics [true/false]: Accept more specific prefixes
 #     with same authentication information 
 config 'lisp-site'
-        option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
+        option   'eid_prefix'               '<ip-prefix/mask>'
         option   'key_type'                 '1'
-        option   'key'                      'password'
+        option   'key'                      '<string>'
         option   'iid'                      '0'
-        option   'accept_more_specifics'    'off'
+        option   'accept_more_specifics'    '<bool>'
 
 
 # Define a staticly registered mapping. New can Map Registers overwrite
@@ -47,10 +47,50 @@ config 'lisp-site'
 #   iid: Instance ID associated with the lisp site [0-16777215]
 #   rloc_set: Name of the set of rlocs to be used
 config 'ms-static-registered-site'
-        option   'eid_prefix'               'IPv4 or IPv6 address /mask length'
+        option   'eid_prefix'               '<ip-prefix/mask>'
         option   'iid'                      '0'
-        option   'rloc_set'                 'name'
+        option   'rloc_set'                 '<string>'
 
+#
+# NAT-Traversal support
+#
+
+# Define an RTRs that can be used to work with this Map Server. Several
+# ms-rtr-node can be defined.
+#
+#   name: Name to define the RTR used as a reference in the rest of the 
+#     configuration
+#   address: IPv4 or IPv6 address of the RTR
+#   key: Password to authenticate the messages between the RTR and the MS
+
+config 'ms-rtr-node'
+        option   'name'                 '<string>'
+        option   'address'              '<ip-address | FQDN>'
+        option   'key'                  '<string>'
+
+# Define a set of RTRs that can be used  to work with this Map Server.
+# Several ms-rtrs-set can be defined.
+#
+#   name: Name to define the RTR set used as a reference in the rest of the 
+#     configuration
+#   ttl: The time in minutes the recipient of the Info-Reply will
+#     store the RTR Information. 1 day by default
+#   rtrs: List of ms-rtr-nodes identified by its name
+
+config 'ms-rtrs-set'
+        option   'name'                 '<string>'
+        option   'ttl'                  '<int>'
+        list     'rtrs'                 '<string>'
+        list     'rtrs'                 '<string>'
+        ...
+
+# Set of RTRs used in the Info-Reply messages sent to requesters xTRs
+#
+# ms-advertised-rtrs-set: Name of the ms-rtrs-set to be announced by the MS
+
+config 'ms-advertised-rtrs-set'
+        option   'name'                 '<string>'
+   
 #---------------------------------------------------------------------------------------------------------------------
 
 # Tunnel Router general configuration
@@ -72,7 +112,7 @@ config 'rloc-probing'
 # You can define several map-resolvers. Encapsulated Map-Request messages will be sent to only one.
 #   address: IPv4 or IPv6 address of the map resolver
 config 'map-resolver'
-        list  'address'               'IPv4 or IPv6 address'
+        list  'address'                 '<ip-address | FQDN>'
 
 
 # Static Map Entry of the Map Cache
@@ -81,9 +121,9 @@ config 'map-resolver'
 #     the VNI of the mapping. [0-16777215]
 #   rloc_set: Name of the set of rlocs to be used
 config 'static-map-cache'
-        option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
+        option   'eid_prefix'           '<ip-prefix/mask>'
         option   'iid'                  '0'
-        option   'rloc_set'             'name'
+        option   'rloc_set'             '<string>'
 
 #---------------------------------------------------------------------------------------------------------------------
         
@@ -93,7 +133,7 @@ config 'static-map-cache'
 #   nat_traversal_support: check if the node is behind NAT.
 
 config 'nat-traversal'
-        option  'nat_traversal_support' 'off'
+        option  'nat_traversal_support' '<on|off>'
 
 
 # Map-Registers are sent to this map-server
@@ -104,25 +144,28 @@ config 'nat-traversal'
 #   proxy_reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
 
 config 'map-server'
-        option   'address'              'IPv4 or IPv6 address'
+        option   'address'              '<ip-prefix/mask>'
         option   'key_type'             '1'			
-        option   'key'                  'password'
-        option   'proxy_reply'          'on'
+        option   'key'                  '<string>'
+        option   'proxy_reply'          '<on|off>'
 
 # IPv4 / IPv6 EID of the node.
 #   eid-prefix: EID prefix (IPvX/mask) of the mapping
 #   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
 #     the VNI of the mapping. [0-16777215]
+#   ttl: Time in minutes the recipient of the Map-Reply will store the mapping.
+#     Default value is 10 minutes
 #   rloc_set: Name of the set of rlocs to be used
 config 'database-mapping'
-        option   'eid_prefix'           'IPv4 or IPv6 address /mask length'
+        option   'eid_prefix'           '<ip-prefix/mask>'
         option   'iid'                  '0'
-        option   'rloc_set'             'name'
+        option   'ttl'                  '10'
+        option   'rloc_set'             '<string>'
 
 # List of PITRs to SMR on handover
 #   address: IPv4 or IPv6 address of the Proxy-ITR
 config 'proxy-itr'
-        list   'address'              'IPv4 or IPv6 PITR address'
+        list   'address'                '<ip-address | FQDN>'
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
 # Uncomment the IPv4 or IPv6 list based on your current locators
@@ -152,15 +195,15 @@ config 'proxy-itr'
 
 # Proxy for IPv4 EIDs
 config 'proxy-etr-ipv4'
-        option   'address'              'IPv4 address'
-        option   'priority'             '1'
-        option   'weight'               '100'
+        option   'address'              '<ip-address | FQDN>'
+        option   'priority'             '<int>'
+        option   'weight'               '<int>'
 
 #Proxy for IPv6 EIDs
 config 'proxy-etr-ipv6'
-        option   'address'              'IPv6 address'
-        option   'priority'             '1'
-        option   'weight'               '100'
+        option   'address'              '<ip-address | FQDN>'
+        option   'priority'             '<int>'
+        option   'weight'               '<int>'
         
 #---------------------------------------------------------------------------------------------------------------------
 
@@ -178,11 +221,29 @@ config 'proxy-etr-ipv6'
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.        
 config 'rtr-iface'
-        option   'iface'                'eth0'
+        option   'iface'                '<iface-name>'
         option   'ip_version'           '<4/6>'
-        option   'priority'             '1'
-        option   'weight'               '100'
+        option   'priority'             '<int>'
+        option   'weight'               '<int>'
                
+#
+# NAT-Traversal support
+#
+
+# Define a MS that can be used to work with this RTR. Several
+# rtr-ms-node can be defined.
+#
+#   address: IPv4 or IPv6 address of the map-server
+#   key: Password to authenticate the messages between the RTR and the MS
+#   draft-version: OLD for Map Servers implementing draft version previous to 4
+#     NEW for Map Servers implementing darft version 4 or later
+#     OLD is the default value
+
+config 'rtr-ms-node'
+        option   'address'              '<ip-address / FQDN>'
+        option   'key'                  '<string>'
+        option   'draft_version'        '<OLD|NEW>'
+
         
 #---------------------------------------------------------------------------------------------------------------------
 
@@ -194,8 +255,8 @@ config 'rtr-iface'
 #   rloc_name: List of each of the names of the rlocs to be used in the set.
 #     It can be used rloc-address or rloc-iface
 config 'rloc-set'
-        option   'name'             'name'
-        list     'rloc_name'        'name'
+        option   'name'                 '<string>'
+        list     'rloc_name'            '<string>'
 
 # RLOC defined with an IP address
 #   name: Name of the rloc to be used in rloc-set
@@ -208,10 +269,10 @@ config 'rloc-set'
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.
 config 'rloc-address'
-        option   'name'                 'name'
-        option   'address'              'IPv4 or IPv6 address'
-        option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
-        option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
+        option   'name'                 '<string>'
+        option   'address'              '<ip-address>'
+        option   'priority'             '<int>'
+        option   'weight'               '<int>'
 
 # RLOC defined with a network interface
 #   name: Name of the rloc to be used in rloc-set
@@ -224,11 +285,11 @@ config 'rloc-address'
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.        
 config 'rloc-iface'
-        option   'name'                 'name'
-        option   'interface'            'eth0'
+        option   'name'                 '<string>'
+        option   'interface'            '<iface-name>'
         option   'ip_version'           '<4/6>'
-        option   'priority'             '1'     # Priority of IPv4 locator of the interface eth0 for this EID
-        option   'weight'               '100'   # Weight of IPv4 locator of the interface eth0 for this EID
+        option   'priority'             '<int>'
+        option   'weight'               '<int>'
 
 
 # Structure to define a path involving multiple hops.
@@ -241,8 +302,8 @@ config 'rloc-iface'
 #   probe [true/false]: Not yet implemented. Use false
 #   lookup [true/false]: Not yet implemented. Use false        
 config 'elp-node'
-        option   'elp_name'             'name'
-        option   'address'              'IPv4 or IPv6 address'
-        option   'strict'               'off'
-        option   'probe'                'off'
-        option   'lookup'               'off'
+        option   'elp_name'             '<string>'
+        option   'address'              '<ip-address>'
+        option   'strict'               'false'
+        option   'probe'                'false'
+        option   'lookup'               'false'

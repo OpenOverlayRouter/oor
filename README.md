@@ -114,6 +114,9 @@ To build the code for Linux operating run the following in the top-level directo
 To install it in `/usr/local/sbin`, run
 
     sudo make install
+
+A `Vagrantfile` is provided for quick installation in a dedicated VM, see the
+"Using Vagrant" section.
     
 To build the code for OpenWRT you will need the OpenWRT official SDK. However,
 for your convenience, we encourage you to install the precompiled .ipk, from our
@@ -337,6 +340,45 @@ prefixes.
 To configure Open Overlay Router as a MS/MR, select the corresponding operating-mode and 
 fill the parameters of the MS section of the configuration file.
 
+Using Vagrant
+-------------
+
+The top-level directory of the tree has a `Vagrantfile` to allow quick
+creation of a VM with all prerequisites preinstalled so the code can be built
+quickly in an isolated environment. This is especially useful for development
+on platforms other than Linux, where code editing is done on the native host
+OS, and the Linux VM created by Vagrant is used only for building and testing
+the code.
+
+Vagrant automatically sets up a shared folder `/vagrant` pointing to the
+folder where the Vagrantfile resides, in this case the top-level folder of the
+source tree. This way, changes to the source code on the host computer are
+automatically reflected in the VM, and binaries created in the VM are also
+automatically available to the host OS.
+
+To create the VM, run:
+
+    vagrant up
+
+This will create a VM called `oor-dev` by downloading the base box (currently
+Ubuntu 17.10), updating packages to the latest version, and installing build
+dependencies for OOR. It may be useful to install the `vagrant-cachier` plugin
+to cache Ubuntu packages, in order to speed up rebuilds of the VM, if done
+often:
+
+    vagrant plugin install vagrant-cachier
+
+Once provisioning of the VM finished, it can be accessed with:
+
+    vagrant ssh
+
+There is also a VM definition called `oor-dev-android`, which is not
+provisioned by default. It does all of the above, and in addition it creates
+the environment for building the Android APK. Provisioning it requires using
+the VM name explicitly in the `vagrant up` command:
+
+    vagrant up oor-dev-android
+
 OpenWRT 
 -------
 
@@ -356,9 +398,9 @@ to those in the 'oor.conf' file.
 Android
 -------
 
-Open Overlay Router includes support for Android devices operating as LISP-MN. 
-Please see the README.android.md file to get details on Open Overlay Router 
-for Android installation, compilation and usage. 
+Open Overlay Router includes support for Android devices operating as LISP-MN.
+Please see the [README.android.md](README.android.md) file to get details on
+Open Overlay Router for Android installation, compilation and usage.
 
 VPP
 ---

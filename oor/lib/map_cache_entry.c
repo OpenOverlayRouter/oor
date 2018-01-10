@@ -74,6 +74,10 @@ mcache_entry_del(mcache_entry_t *entry)
         entry->routing_inf_del(entry->routing_info);
     }
 
+    if (entry->dev_specific_data != NULL){
+        entry->dev_data_del (entry->dev_specific_data);
+    }
+
     free(entry);
 }
 

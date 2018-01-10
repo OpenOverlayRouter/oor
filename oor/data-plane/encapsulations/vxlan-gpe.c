@@ -79,7 +79,7 @@ vxlan_gpe_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra
     /* push outer UDP and IP */
     pkt_push_udp_and_ip(b, lp, rp, lisp_addr_ip(la), lisp_addr_ip(ra));
 
-    ip_hdr_set_ttl_and_tos(lbuf_data(b), ttl, tos);
+    ip_hdr_set_ttl_and_tos(lbuf_ip(b), ttl, tos);
 
     return(lbuf_data(b));
 }

@@ -40,6 +40,7 @@ typedef enum mce_type {
 #define ACTIVE                          1
 
 typedef void (*routing_info_del_fct)(void *);
+typedef void (*dev_specific_data_del_fct)(void *);
 
 typedef struct map_cache_entry_ {
     uint8_t how_learned;
@@ -57,6 +58,10 @@ typedef struct map_cache_entry_ {
     void *                  routing_info;
     routing_info_del_fct    routing_inf_del;
 
+    /* Device specific info */
+    void * dev_specific_data;
+    dev_specific_data_del_fct dev_data_del;
+
     /* EID that requested the mapping. Helps with timers */
     lisp_addr_t *requester;
 } mcache_entry_t;
@@ -73,6 +78,7 @@ static inline mapping_t *mcache_entry_mapping(mcache_entry_t*);
 static inline void mcache_entry_set_mapping(mcache_entry_t* , mapping_t *);
 static inline uint8_t mcache_entry_active(mcache_entry_t *);
 static inline void mcache_entry_set_active(mcache_entry_t *, int);
+static inline mce_type_e mcache_how_learned(mcache_entry_t *mce);
 uint8_t mcache_has_locators(mcache_entry_t *m);
 
 static inline void *mcache_entry_routing_info(mcache_entry_t *);
@@ -104,6 +110,12 @@ static inline void
 mcache_entry_set_active(mcache_entry_t *mce, int state)
 {
     mce->active = state;
+}
+
+static inline mce_type_e
+mcache_how_learned(mcache_entry_t *mce)
+{
+    return(mce->how_learned);
 }
 
 

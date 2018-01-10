@@ -25,7 +25,5 @@
 lisp_addr_t *laddr_get_fwd_ip_addr(lisp_addr_t *addr,
         glist_t *locl_rlocs_addr);
 
-lisp_addr_t *laddr_get_special_addr_from_type(lisp_addr_t *addr);
-
 
 #endif /* OOR_FWD_POLICIES_FWD_ADDR_FUNC_H_ */

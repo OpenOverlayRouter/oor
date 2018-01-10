@@ -47,7 +47,7 @@ lisp-site {
     key-type              = 1
     key                   = <string>
     iid                   = 0
-    accept-more-specifics = <bool>
+    accept-more-specifics = [true|false]
     ddt-ms-peers          = {
     <ip-address>
     ...
@@ -138,6 +138,47 @@ ddt-root-addresses = {
 	 ...
 }
 
+#
+# NAT-Traversal support
+#
+
+# Define an RTRs that can be used to work with this Map Server. Several
+# ms-rtr-node can be defined.
+#
+#   name: Name to define the RTR used as a reference in the rest of the 
+#     configuration
+#   address: IPv4 or IPv6 address of the RTR
+#   key: Password to authenticate the messages between the RTR and the MS
+
+ms-rtr-node {
+   name                 = <string>
+   address              = <ip-address / FQDN>
+   key                  = <string>
+}
+
+# Define a set of RTRs that can be used  to work with this Map Server.
+# Several ms-rtrs-set can be defined.
+#
+#   name: Name to define the RTR set used as a reference in the rest of the 
+#     configuration
+#   ttl: The time in minutes the recipient of the Info-Reply will
+#     store the RTR Information. 1 day by default
+#   rtrs: List of ms-rtr-nodes identified by its name
+
+ms-rtrs-set {
+   name                 = <string>
+   ttl                  = <int>
+   rtrs = {
+        <string>,
+        ...
+   }
+}
+
+# Set of RTRs used in the Info-Reply messages sent to requesters xTRs
+#
+# ms-advertised-rtrs-set: Name of the ms-rtrs-set to be announced by the MS
+
+ms-advertised-rtrs-set  = <string>
 
 ###############################################
 #
@@ -171,7 +212,7 @@ rloc-probing {
 #   address: IPv4 or IPv6 address of the map-resolver  
 
 map-resolver        = {
-	<ip-address>	
+	<ip-address | FQDN>	
 }
 
 # Static Map Entry of the Map Cache. Several eid-prefix can be defined.
@@ -191,7 +232,7 @@ static-map-cache {
     eid-prefix          = <ip-prefix/mask>  
     iid                 = 0
     rloc-address {
-        address         = <string>
+        address         = <ip-address | FQDN>
         priority        = <int>
         weight          = <int>
     }
@@ -222,6 +263,26 @@ rtr-ifaces {
     }
 }
 
+#
+# NAT-Traversal support
+#
+
+# Define a MS that can be used to work with this RTR. Several
+# rtr-ms-node can be defined.
+#
+#   address: IPv4 or IPv6 address of the map-server
+#   key: Password to authenticate the messages between the RTR and the MS
+#   draft-version: OLD for Map Servers implementing draft version previous to 4
+#     NEW for Map Servers implementing darft version 4 or later
+#     OLD is the default value
+
+rtr-ms-node {
+   address              = <ip-address / FQDN>
+   key                  = <string>
+   draft-version        = <OLD|NEW>
+}
+
+
 ###############################################
 #
 # xTR & MN configuration
@@ -230,7 +291,7 @@ rtr-ifaces {
 # NAT Traversl configuration. 
 #   nat_traversal_support: check if the node is behind NAT.
 
-nat_traversal_support  = off
+nat_traversal_support  = <on|off>
 
 # Map-Registers are sent to this Map-Server
 # You can define several Map-Servers. Map-Register messages will be sent to all
@@ -241,10 +302,10 @@ nat_traversal_support  = off
 #   proxy-reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
 
 map-server {
-        address        = <ip-address>
+        address        = <ip-address | FQDN>
         key-type       = 1
         key            = <password>
-        proxy-reply    = <on/off>
+        proxy-reply    = <on|off>
 }
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
@@ -257,14 +318,14 @@ map-server {
 
 # Proxy for IPv4 EIDs
 proxy-etr-ipv4 {
-        address     = <ip-address>
+        address     = <ip-address | FQDN>
         priority    = <int>
         weight      = <int>
 }
 
 # Proxy for IPv6 EIDs
 proxy-etr-ipv6 {
-        address     = <ip-address>
+        address     = <ip-address | FQDN>
         priority    = <int>
         weight      = <int>
 }
@@ -273,6 +334,8 @@ proxy-etr-ipv6 {
 #   eid-prefix: EID prefix (ip-prefix/mask) of the mapping
 #   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
 #     the VNI of the mapping. [0-16777215]
+#   ttl: Time in minutes the recipient of the Map-Reply will store the mapping.
+#     Default value is 10 minutes
 # Two types of RLOCs can be defined:
 #   rloc-address: Specifies directly the RLOC of the interface
 #     address: It could be one of the following cases
@@ -294,8 +357,9 @@ proxy-etr-ipv6 {
 database-mapping {
     eid-prefix          = <ip-prefix/mask>
     iid                 = 0
+    ttl                 = 10
     rloc-address {
-        address         = <string>
+        address         = <ip-address>
         priority        = <int>
         weight          = <int>
     }
@@ -352,14 +416,14 @@ explicit-locator-path {
     elp-name        = <string>
     elp-node {
         address     = <ip-address>
-        strict      = <bool>
-        probe       = <bool>
-        lookup      = <bool>
+        strict      = false
+        probe       = false
+        lookup      = false
     }
     elp-node {
         address     = <ip-address>
-        strict      = <bool>
-        probe       = <bool>
-        lookup      = <bool>
+        strict      = false
+        probe       = false
+        lookup      = false
     } 
 }
