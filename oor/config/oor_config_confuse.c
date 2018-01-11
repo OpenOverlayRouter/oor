@@ -1148,6 +1148,7 @@ handle_config_file()
 			CFG_STR("delegation-type",             0, CFGF_NONE),
             CFG_STR_LIST("deleg-nodes",            0, CFGF_NONE),
     		CFG_END()
+    };
 
     static cfg_opt_t rtr_opts[] = {
             CFG_STR("name",                        0, CFGF_NONE),

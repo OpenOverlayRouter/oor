@@ -21,13 +21,13 @@
 #include "../defs.h"
 #include "../lib/cksum.h"
 #include "../lib/oor_log.h"
-#include "../lib/pointers_table.h"
 #include "../lib/prefixes.h"
 #include "../lib/timers_utils.h"
 
 
 static int ddt_mr_recv_map_request(lisp_ddt_mr_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
 static int ddt_mr_recv_map_referral(lisp_ddt_mr_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
+static int ddt_mr_recv_enc_ctrl_msg(lisp_ddt_mr_t *mr, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc);
 static int ddt_mr_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_mr_t *lisp_ddt_mr_cast(oor_ctrl_dev_t *dev);
 static int pending_request_do_cycle(oor_timer_t *timer);
@@ -79,6 +79,29 @@ mref_mc_entry_start_expiration_timer2(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t 
         OOR_LOG(LDBG_1,"The mapping cache entry for EID %s will expire in %d seconds.",
                 lisp_addr_to_char(mref_mapping_eid(ddt_mcache_entry_mapping(mce))),time);
     }
+}
+
+static int
+ddt_mr_recv_enc_ctrl_msg(lisp_ddt_mr_t *mr, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc)
+{
+    packet_tuple_t inner_tuple;
+
+    *ecm_hdr = lisp_msg_pull_ecm_hdr(msg);
+    if (ECM_SECURITY_BIT(*ecm_hdr)){
+        switch (lisp_ecm_auth_type(msg)){
+        default:
+            OOR_LOG(LDBG_2, "Not supported ECM auth type %d",lisp_ecm_auth_type(msg));
+            return (BAD);
+        }
+    }
+    if (lisp_msg_parse_int_ip_udp(msg) != GOOD) {
+        return (BAD);
+    }
+    pkt_parse_inner_5_tuple(msg, &inner_tuple);
+    uconn_init(int_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+    *ecm_hdr = lbuf_lisp_hdr(msg);
+
+    return (GOOD);
 }
 
 static int
@@ -510,31 +533,26 @@ lisp_ddt_mr_cast(oor_ctrl_dev_t *dev)
 static int
 ddt_mr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 {
-    int ret = 0;
+    int ret = BAD;
     lisp_msg_type_e type;
     lisp_ddt_mr_t *ddt_mr;
     void *ecm_hdr = NULL;
     uconn_t *int_uc, *ext_uc = NULL, aux_uc;
-    packet_tuple_t inner_tuple;
 
     ddt_mr = lisp_ddt_mr_cast(dev);
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-
-        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD) {
-           return (BAD);
+        if (ddt_mr_recv_enc_ctrl_msg(ddt_mr, msg, &ecm_hdr, &aux_uc)!=GOOD){
+            return (BAD);
         }
         type = lisp_msg_type(msg);
-        pkt_parse_inner_5_tuple(msg, &inner_tuple);
-        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
         ext_uc = uc;
         int_uc = &aux_uc;
-        ecm_hdr = lbuf_lisp_hdr(msg);
+        OOR_LOG(LDBG_1, "Map-Resolver: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
-
 
      switch(type) {
      case LISP_MAP_REQUEST:

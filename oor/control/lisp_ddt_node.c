@@ -21,13 +21,36 @@
 #include "../defs.h"
 #include "../lib/cksum.h"
 #include "../lib/oor_log.h"
-#include "../lib/pointers_table.h"
 #include "../lib/prefixes.h"
 
 
 static int ddt_node_recv_map_request(lisp_ddt_node_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
+static int ddt_node_recv_enc_ctrl_msg(lisp_ddt_node_t *ddtnod, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc);
 static int ddt_node_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_node_t *lisp_ddt_node_cast(oor_ctrl_dev_t *dev);
+
+static int
+ddt_node_recv_enc_ctrl_msg(lisp_ddt_node_t *ddtnod, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc)
+{
+    packet_tuple_t inner_tuple;
+
+    *ecm_hdr = lisp_msg_pull_ecm_hdr(msg);
+    if (ECM_SECURITY_BIT(*ecm_hdr)){
+        switch (lisp_ecm_auth_type(msg)){
+        default:
+            OOR_LOG(LDBG_2, "Not supported ECM auth type %d",lisp_ecm_auth_type(msg));
+            return (BAD);
+        }
+    }
+    if (lisp_msg_parse_int_ip_udp(msg) != GOOD) {
+        return (BAD);
+    }
+    pkt_parse_inner_5_tuple(msg, &inner_tuple);
+    uconn_init(int_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
+    *ecm_hdr = lbuf_lisp_hdr(msg);
+
+    return (GOOD);
+}
 
 static int
 ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
@@ -234,31 +257,26 @@ lisp_ddt_node_cast(oor_ctrl_dev_t *dev)
 static int
 ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 {
-    int ret = 0;
+    int ret = BAD;
     lisp_msg_type_e type;
     lisp_ddt_node_t *ddt_node;
     void *ecm_hdr = NULL;
     uconn_t *int_uc, *ext_uc = NULL, aux_uc;
-    packet_tuple_t inner_tuple;
 
     ddt_node = lisp_ddt_node_cast(dev);
     type = lisp_msg_type(msg);
 
     if (type == LISP_ENCAP_CONTROL_TYPE) {
-
-        if (lisp_msg_ecm_decap(msg, &uc->rp) != GOOD) {
-           return (BAD);
+        if (ddt_node_recv_enc_ctrl_msg(ddt_node, msg, &ecm_hdr, &aux_uc)!=GOOD){
+            return (BAD);
         }
         type = lisp_msg_type(msg);
-        pkt_parse_inner_5_tuple(msg, &inner_tuple);
-        uconn_init(&aux_uc, inner_tuple.dst_port, inner_tuple.src_port, &inner_tuple.dst_addr,&inner_tuple.src_addr);
         ext_uc = uc;
         int_uc = &aux_uc;
-        ecm_hdr = lbuf_lisp_hdr(msg);
+        OOR_LOG(LDBG_1, "DDT NODE: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
-
 
      switch(type) {
      case LISP_MAP_REQUEST:
