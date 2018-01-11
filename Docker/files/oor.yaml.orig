@@ -1,0 +1,112 @@
+- hosts: localhost
+  tasks:
+  - name: OOR Debug
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        debug                  = {{ var1 }}
+        map-request-retries    = 2
+        log-file               = /dev/stdout
+      marker: "<!-- {mark} debug -->"
+      backup: no
+      vars:
+        var1: 'DEBUG'
+  - name: OOR Operation Mode
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        operating-mode         = {{ var1 }}
+      marker: "<!-- {mark} operating-mode -->"
+      backup: no
+      vars:
+        var1: 'OPMODE'
+  - name: OOR Map Resolver
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        map-resolver        = {
+                {{ var1 }}
+        }
+      marker: "<!-- {mark} map-resolver -->"
+      backup: no
+      vars:
+        var1: 'IPMAPRESOLVER'
+  - name: OOR Map Server
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        map-server {
+                address        = {{ var1 }}
+                key-type       = 1
+                key            = {{ var2 }}
+                proxy-reply    = off
+        }
+      marker: "<!-- {mark} map-server -->"
+      backup: no
+      vars:
+        var1: 'IPMAPSERVER'
+        var2: 'KEYMAPSERVER'
+  - name: OOR Proxy ETR IPV4
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        proxy-etr-ipv4 {
+                address     = {{ var1 }}
+                priority    = 1
+                weight      = 100
+        }
+      marker: "<!-- {mark} proxy-etr-ipv4 -->"
+      backup: no
+      vars:
+        var1: 'IPPROXYETRV4'
+  - name: OOR Proxy ETR IPV6
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        proxy-etr-ipv6 {
+                address     = {{ var1 }}
+                priority    = 1
+                weight      = 100
+        }
+      marker: "<!-- {mark} proxy-etr-ipv6 -->"
+      backup: no
+      vars:
+        var1: 'IPPROXYETRV6'
+  - name: OOR Database Mapping IPV4
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        database-mapping {
+            eid-prefix          = {{ var1 }}/{{ var2 }}
+            iid                 = 0
+            rloc-iface{
+                interface       = eth0
+                ip_version      = 4
+                priority        = 1
+                weight          = 100
+            }
+        }
+      marker: "<!-- {mark} database-mappingv4 -->"
+      backup: no
+      vars:
+        var1: 'IPV4EID'
+        var2: 'IPV4MASK'
+  - name: OOR Database Mapping IPV6
+    blockinfile:
+      dest: /etc/oor.conf
+      block: |
+        database-mapping {
+            eid-prefix          = {{ var1 }}/{{ var2 }}
+            iid                 = 0
+            rloc-iface{
+                interface       = eth0
+                ip_version      = 4
+                priority        = 1
+                weight          = 100
+            }
+        }
+      marker: "<!-- {mark} database-mappingv6 -->"
+      backup: no
+      vars:
+        var1: 'IPV6EID'
+        var2: 'IPV6MASK'

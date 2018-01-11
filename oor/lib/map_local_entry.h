@@ -25,9 +25,12 @@
 
 typedef void (*fwd_policy_info_del_fct)(void *);
 
+/* We support to have different RTR per locator. This structure is used to
+ * maintain the status learned in the Info Reply regarding rtrs per locator and
+ * rebuild the final mapping */
 typedef struct nat_info_ {
-    shash_t *loct_addr_to_rtrs;
-    shash_t *rtr_addr_to_locts;
+    shash_t *loct_addr_to_rtrs; // value-> glist_t * of lisp_addr_t *
+    shash_t *rtr_addr_to_locts; // value-> glist_t * of lisp_addr_t *
 }nat_info_t;
 
 typedef struct map_local_entry_ {
@@ -54,5 +57,6 @@ lisp_addr_t *map_local_entry_eid(map_local_entry_t *mle);
 
 void mle_nat_info_update(map_local_entry_t *mle, locator_t *loct, glist_t *new_rtr_list);
 glist_t * mle_rtr_addr_list(map_local_entry_t *mle);
+glist_t * mle_rtr_addr_list_of_loct(map_local_entry_t *mle, lisp_addr_t *loct_addr);
 
 #endif /* MAP_LOCAL_ENTRY_H_ */

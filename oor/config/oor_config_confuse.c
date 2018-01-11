@@ -32,6 +32,8 @@
 #include "../control/oor_ctrl_device.h"
 #include "../control/lisp_ms.h"
 #include "../control/lisp_xtr.h"
+#include "../control/lisp_ddt_node.h"
+#include "../control/lisp_ddt_mr.h"
 #include "../data-plane/data-plane.h"
 #include "../lib/oor_log.h"
 #include "../lib/shash.h"
@@ -205,8 +207,9 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
         return (BAD);
     }
 
-    strcpy(conf_mapping->eid_prefix,cfg_getstr(map, "eid-prefix"));
+    conf_mapping->eid_prefix = strdup(cfg_getstr(map, "eid-prefix"));
     conf_mapping->iid = cfg_getint(map, "iid");
+    conf_mapping->ttl = cfg_getint(map, "ttl");
 
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
         rl = cfg_getnsec(map, "rloc-address", ctr);
@@ -228,14 +231,6 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
         for (ctr = 0; ctr < cfg_size(map, "rloc-iface"); ctr++){
             rl = cfg_getnsec(map, "rloc-iface", ctr);
             afi = cfg_getint(rl, "ip_version");
-            if (afi == 4){
-                afi = AF_INET;
-            }else if (afi == 6){
-                afi = AF_INET6;
-            }else{
-                OOR_LOG(LERR,"Configuration file: The conf_loc_iface->ip_version of the locator should be 4 (IPv4) or 6 (IPv6)");
-                return (BAD);
-            }
             if (cfg_getstr(rl, "interface") == NULL){
                 OOR_LOG(LWRN, "Configuration file: Mapping %s with no RLOC interface selected",conf_mapping->eid_prefix);
                 return (BAD);
@@ -298,6 +293,10 @@ int
 parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
 {
     int n,i;
+    mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
+
+    ipv4_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET);
+    ipv6_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET6);
     /* PROXY-ETR CONFIG */
     n = cfg_size(cfg, "proxy-etr-ipv4");
     for(i = 0; i < n; i++) {
@@ -307,7 +306,7 @@ parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
             return (BAD);
         }
 
-        if (add_proxy_etr_entry(xtr->petrs_ipv4,
+        if (add_proxy_etr_entry(ipv4_petrs_mc,
                 cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
                 cfg_getint(petr, "weight")) == GOOD) {
@@ -325,7 +324,7 @@ parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
             return (BAD);
         }
 
-        if (add_proxy_etr_entry(xtr->petrs_ipv6,
+        if (add_proxy_etr_entry(ipv6_petrs_mc,
                 cfg_getstr(petr, "address"),
                 cfg_getint(petr, "priority"),
                 cfg_getint(petr, "weight")) == GOOD) {
@@ -336,14 +335,12 @@ parse_proxy_etrs(cfg_t *cfg, lisp_xtr_t *xtr)
     }
 
     /* Calculate forwarding info for petrs */
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv4) != GOOD){
+    if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv4_petrs_mc) != GOOD){
         OOR_LOG(LDBG_1, "parse_proxy_etrs: Couldn't initiate routing info for PeTRs!.");
-        mcache_entry_del(xtr->petrs_ipv4);
         return(BAD);
     }
-    if (xtr->fwd_policy->init_map_cache_policy_inf(xtr->fwd_policy_dev_parm,xtr->petrs_ipv6) != GOOD){
+    if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv6_petrs_mc) != GOOD){
         OOR_LOG(LDBG_1, "parse_proxy_etrs: Couldn't initiate routing info for PeTRs!.");
-        mcache_entry_del(xtr->petrs_ipv6);
         return(BAD);
     }
     return (GOOD);
@@ -385,8 +382,8 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
             mapping_del(mapping);
             continue;
         }
-        if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm,map_loc_e,NULL)!= GOOD){
+        if (xtr->tr.fwd_policy->init_map_loc_policy_inf(
+                xtr->tr.fwd_policy_dev_parm,map_loc_e,NULL)!= GOOD){
             OOR_LOG(LERR, "Couldn't inititate forward information for mapping with EID: %s. Discarding it...",
                     lisp_addr_to_char(mapping_eid(mapping)));
             map_local_entry_del(map_loc_e);
@@ -403,26 +400,27 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
 }
 
 int
-configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
+configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t *lcaf_ht)
 {
     int i,n,ret;
     char *map_resolver;
     char *encap;
     mapping_t *mapping;
+    mcache_entry_t *mce;
 
     /* FWD POLICY STRUCTURES */
 #ifdef VPP
-    xtr->fwd_policy = fwd_policy_class_find("vpp_balancing");
+    tr->fwd_policy = fwd_policy_class_find("vpp_balancing");
 #else
-    xtr->fwd_policy = fwd_policy_class_find("flow_balancing");
+    tr->fwd_policy = fwd_policy_class_find("flow_balancing");
 #endif
-    xtr->fwd_policy_dev_parm = xtr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
+    tr->fwd_policy_dev_parm = tr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
 
     if ((encap = cfg_getstr(cfg, "encapsulation")) != NULL) {
         if (strcmp(encap, "LISP") == 0) {
-            xtr->encap_type = ENCP_LISP;
+            tr->encap_type = ENCP_LISP;
         }else if (strcmp(encap, "VXLAN-GPE") == 0){
-            xtr->encap_type = ENCP_VXLAN_GPE;
+            tr->encap_type = ENCP_VXLAN_GPE;
         }else{
             OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
             return (BAD);
@@ -431,26 +429,26 @@ configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
 
     /* RETRIES */
     ret = cfg_getint(cfg, "map-request-retries");
-    xtr->map_request_retries = (ret != 0) ? ret : DEFAULT_MAP_REQUEST_RETRIES;
+    tr->map_request_retries = (ret != 0) ? ret : DEFAULT_MAP_REQUEST_RETRIES;
 
 
     /* RLOC PROBING CONFIG */
     cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
     if (dm != NULL) {
-        xtr->probe_interval = cfg_getint(dm, "rloc-probe-interval");
-        xtr->probe_retries = cfg_getint(dm, "rloc-probe-retries");
-        xtr->probe_retries_interval = cfg_getint(dm,
+        tr->probe_interval = cfg_getint(dm, "rloc-probe-interval");
+        tr->probe_retries = cfg_getint(dm, "rloc-probe-retries");
+        tr->probe_retries_interval = cfg_getint(dm,
                 "rloc-probe-retries-interval");
 
-        validate_rloc_probing_parameters(&xtr->probe_interval,
-                &xtr->probe_retries, &xtr->probe_retries_interval);
+        validate_rloc_probing_parameters(&tr->probe_interval,
+                &tr->probe_retries, &tr->probe_retries_interval);
     } else {
         OOR_LOG(LDBG_1, "Configuration file: RLOC probing not defined. "
                 "Setting default values: RLOC Probing Interval: %d sec.",
                 RLOC_PROBING_INTERVAL);
-        xtr->probe_interval = RLOC_PROBING_INTERVAL;
-        xtr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
-        xtr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
+        tr->probe_interval = RLOC_PROBING_INTERVAL;
+        tr->probe_retries = DEFAULT_RLOC_PROBING_RETRIES;
+        tr->probe_retries_interval = DEFAULT_RLOC_PROBING_RETRIES_INTERVAL;
 
     }
 
@@ -459,7 +457,7 @@ configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
     n = cfg_size(cfg, "map-resolver");
     for(i = 0; i < n; i++) {
         if ((map_resolver = cfg_getnstr(cfg, "map-resolver", i)) != NULL) {
-            if (add_server(map_resolver, xtr->map_resolvers) == GOOD){
+            if (add_server(map_resolver, tr->map_resolvers) == GOOD){
                 OOR_LOG(LDBG_1, "Added %s to map-resolver list", map_resolver);
             }else{
                 OOR_LOG(LCRIT,"Can't add %s Map Resolver.",map_resolver);
@@ -471,15 +469,17 @@ configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
     n = cfg_size(cfg, "static-map-cache");
     for (i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-        mapping = parse_mapping(smc,&(xtr->super),lcaf_ht,FALSE);
+        mapping = parse_mapping(smc,dev,lcaf_ht,FALSE);
 
         if (mapping == NULL){
             OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
                     cfg_getstr(smc, "eid-prefix"));
             return(BAD);
         }
-        if (mcache_lookup_exact(xtr->map_cache, mapping_eid(mapping)) == NULL){
-            if (tr_mcache_add_static_mapping(xtr, mapping) == GOOD){
+        if (mcache_lookup_exact(tr->map_cache, mapping_eid(mapping)) == NULL){
+            mce = tr_mcache_add_mapping(tr, mapping, MCE_STATIC, ACTIVE);
+            if (mce){
+                tr_mcache_entry_program_timers(tr,mce);
                 OOR_LOG(LDBG_1, "Added static Map Cache entry with EID prefix %s in the database.",
                         lisp_addr_to_char(mapping_eid(mapping)));
             }else{
@@ -501,11 +501,9 @@ configure_tunnel_router(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
 int
 configure_rtr(cfg_t *cfg)
 {
-    lisp_xtr_t *xtr;
+    lisp_rtr_t *rtr;
     shash_t *lcaf_ht;
-    map_local_entry_t *map_loc_e;
-    mapping_t *mapping;
-    int n,i;
+    int i,n;
 
     /* CREATE AND CONFIGURE RTR (xTR in fact) */
     if (ctrl_dev_create(RTR_MODE, &ctrl_dev) != GOOD) {
@@ -515,8 +513,8 @@ configure_rtr(cfg_t *cfg)
 
     lcaf_ht = parse_lcafs(cfg);
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-    if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
+    rtr = lisp_rtr_cast(ctrl_dev);
+    if (configure_tunnel_router(cfg,&(rtr->super), &rtr->tr, lcaf_ht)!=GOOD){
         return (BAD);
     }
 
@@ -535,7 +533,7 @@ configure_rtr(cfg_t *cfg)
                 return (BAD);
             }
 
-            if (add_rtr_iface(xtr,
+            if (add_rtr_iface(rtr,
                     cfg_getstr(ri, "iface"),
                     cfg_getint(ri, "ip_version"),
                     cfg_getint(ri, "priority"),
@@ -548,43 +546,16 @@ configure_rtr(cfg_t *cfg)
             }
         }
     }
-
-    /* RTR DATABASE MAPPINGS (like for instance replication lists) */
-    n = cfg_size(cfg, "rtr-database-mapping");
-    for (i = 0; i < n; i++) {
-        mapping = parse_mapping(cfg_getnsec(cfg, "rtr-database-mapping",i),&(xtr->super),lcaf_ht,TRUE);
-        if (mapping == NULL){
+    n = cfg_size(cfg, "rtr-ms-node");
+    for(i = 0; i < n; i++) {
+        cfg_t *rms = cfg_getnsec(cfg, "rtr-ms-node", i);
+        if (rtr_add_rtr_ms_node(rtr,
+                cfg_getstr(rms, "address"),
+                cfg_getstr(rms, "key"),
+                cfg_getstr(rms, "draft-version")) != GOOD){
             return (BAD);
         }
-        map_loc_e = map_local_entry_new_init(mapping);
-        if (map_loc_e == NULL){
-            mapping_del(mapping);
-            continue;
-        }
-
-        if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm,map_loc_e,NULL) != GOOD){
-            OOR_LOG(LERR, "Couldn't initiate forward information for rtr database mapping with EID: %s. Discarding it...",
-                    lisp_addr_to_char(mapping_eid(mapping)));
-            map_local_entry_del(map_loc_e);
-            continue;
-        }
-
-        if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
-            map_local_entry_del(map_loc_e);
-            continue;
-        }
-
-
-        if (add_local_db_map_local_entry(map_loc_e,xtr) != GOOD){
-            map_local_entry_del(map_loc_e);
-        }
     }
-
-    /* Deallocate PiTRs and PeTRs elements */
-    glist_destroy(xtr->pitrs);
-    xtr->pitrs = NULL;
-
     shash_destroy(lcaf_ht);
 
     return(GOOD);
@@ -604,11 +575,12 @@ configure_xtr(cfg_t *cfg)
 
     lcaf_ht = parse_lcafs(cfg);
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
         if (nat_set_xTR_ID(xtr) != GOOD){
+            OOR_LOG(LERR,"Could not generate xTR-ID");
         	return (BAD);
         }
         nat_set_site_ID(xtr, 0);
@@ -616,7 +588,7 @@ configure_xtr(cfg_t *cfg)
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
     }
 
-    if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
+    if (configure_tunnel_router(cfg, &(xtr->super), &xtr->tr, lcaf_ht)!=GOOD){
         return (BAD);
     }
 
@@ -655,12 +627,12 @@ configure_mn(cfg_t *cfg)
 
     lcaf_ht = parse_lcafs(cfg);
 
-    xtr = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+    xtr = lisp_xtr_cast(ctrl_dev);
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
         if (nat_set_xTR_ID(xtr) != GOOD){
-        	printf("aaaaaaaaaaaaa\n");
+            OOR_LOG(LERR,"Could not generate xTR-ID");
         	return (BAD);
         }
         nat_set_site_ID(xtr, 0);
@@ -668,7 +640,7 @@ configure_mn(cfg_t *cfg)
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
     }
 
-    if (configure_tunnel_router(cfg, xtr, lcaf_ht)!=GOOD){
+    if (configure_tunnel_router(cfg, &(xtr->super), &xtr->tr, lcaf_ht)!=GOOD){
         return (BAD);
     }
 
@@ -694,20 +666,22 @@ configure_mn(cfg_t *cfg)
 int
 configure_ms(cfg_t *cfg)
 {
-    char *iface_name;
+    char *iface_name, *rtr_id;
     iface_t *iface=NULL;
     lisp_site_prefix_t *site;
     shash_t *lcaf_ht;
-    int i;
+    int i,j,n, res;
     lisp_ms_t *ms;
     mapping_t *mapping;
+    glist_t *rtr_id_list;
+
 
     /* create and configure xtr */
     if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create MS. Aborting!");
         exit_cleanup();
     }
-    ms = CONTAINER_OF(ctrl_dev, lisp_ms_t, super);
+    ms = lisp_ms_cast(ctrl_dev);
 
 
     /* create lcaf hash table */
@@ -740,6 +714,16 @@ configure_ms(cfg_t *cfg)
             return (BAD);
         }
 
+        glist_t *ddt_ms_peers = glist_new();
+
+        char *ms_peer;
+        n = cfg_size(ls, "ddt-ms-peers");
+        for(j = 0; j < n; j++) {
+            if ((ms_peer = cfg_getnstr(ls, "ddt-ms-peers", j)) != NULL) {
+                glist_add_tail(ms_peer, ddt_ms_peers);
+            }
+        }
+
         site = build_lisp_site_prefix(ms,
                 cfg_getstr(ls, "eid-prefix"),
                 cfg_getint(ls, "iid"),
@@ -748,6 +732,7 @@ configure_ms(cfg_t *cfg)
                 cfg_getbool(ls, "accept-more-specifics") ? 1:0,
                 cfg_getbool(ls, "proxy-reply") ? 1:0,
                 cfg_getbool(ls, "merge") ? 1 : 0,
+                ddt_ms_peers,
                 lcaf_ht);
         if (site != NULL) {
             if (mdb_lookup_entry(ms->lisp_sites_db, site->eid_prefix) != NULL){
@@ -795,6 +780,231 @@ configure_ms(cfg_t *cfg)
         }
     }
 
+    /* NAT RTR configuration of the MS */
+    for (i = 0; i< cfg_size(cfg, "ms-rtr-node"); i++ ) {
+        cfg_t *rtr_cfg = cfg_getnsec(cfg, "ms-rtr-node", i);
+        res = ms_add_rtr_node(ms,
+                cfg_getstr(rtr_cfg, "name"),
+                cfg_getstr(rtr_cfg, "address"),
+                cfg_getstr(rtr_cfg, "key"));
+        if (res != GOOD){
+            return(BAD);
+        }
+    }
+
+    for (i = 0; i< cfg_size(cfg, "ms-rtrs-set"); i++ ) {
+        cfg_t *rtr_set_cfg = cfg_getnsec(cfg, "ms-rtrs-set", i);
+        rtr_id_list = glist_new();
+        n = cfg_size(rtr_set_cfg, "rtrs");
+        for(j = 0; j < n; j++) {
+            if ((rtr_id = cfg_getnstr(rtr_set_cfg, "rtrs", j)) != NULL) {
+                glist_add(rtr_id,rtr_id_list);
+            }
+        }
+        res = ms_add_rtr_set(ms,
+                cfg_getstr(rtr_set_cfg, "name"),
+                cfg_getint(rtr_set_cfg, "ttl"),
+                rtr_id_list);
+        if (res != GOOD){
+            glist_destroy(rtr_id_list);
+            return(BAD);
+        }
+        glist_destroy(rtr_id_list);
+    }
+
+    if (ms_advertised_rtr_set(ms, cfg_getstr(cfg, "ms-advertised-rtrs-set")) != GOOD){
+        return (BAD);
+    }
+
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    return(GOOD);
+}
+
+int
+configure_ddt(cfg_t *cfg)
+{
+    char *iface_name;
+    iface_t *iface=NULL;
+    ddt_authoritative_site_t *asite;
+    ddt_delegation_site_t *dsite;
+    shash_t *lcaf_ht;
+    int i, j, n;
+    lisp_ddt_node_t *ddt_node;
+
+    /* create and configure xtr */
+       if (ctrl_dev_create(DDT_MODE, &ctrl_dev) != GOOD) {
+           OOR_LOG(LCRIT, "Failed to create DDT-Node. Aborting!");
+           exit_cleanup();
+       }
+       ddt_node = CONTAINER_OF(ctrl_dev, lisp_ddt_node_t, super);
+
+       /* create lcaf hash table */
+           lcaf_ht = parse_lcafs(cfg);
+
+
+    /* CONTROL INTERFACE */
+    /* TODO: should work with all interfaces in the future */
+    iface_name = cfg_getstr(cfg, "control-iface");
+    if (iface_name) {
+        iface = add_interface(iface_name);
+        if (iface == NULL) {
+            OOR_LOG(LERR, "Configuration file: Couldn't add the control iface of the DDT-Node");
+            return(BAD);
+        }
+    }else{
+    /* we have no iface_name, so also iface is missing */
+        OOR_LOG(LERR, "Configuration file: Specify the control iface of the DDT-Node");
+        return(BAD);
+    }
+
+    iface_configure (iface, AF_INET);
+    iface_configure (iface, AF_INET6);
+
+    /* AUTHORITATIVE-SITE CONFIG */
+    for (i = 0; i < cfg_size(cfg, "ddt-auth-site"); i++) {
+        cfg_t *as = cfg_getnsec(cfg, "ddt-auth-site", i);
+
+        if (cfg_getstr(as, "eid-prefix") == NULL ){
+            OOR_LOG(LERR, "Configuration file: DDT-Node authoritative site requires at least an eid-prefix ");
+            return (BAD);
+        }
+
+
+        asite = build_ddt_authoritative_site(ddt_node,
+                cfg_getstr(as, "eid-prefix"),
+                cfg_getint(as, "iid"),
+                lcaf_ht);
+
+        if (asite != NULL) {
+            if (mdb_lookup_entry(ddt_node->auth_sites_db, asite->xeid) != NULL){
+                OOR_LOG(LDBG_1, "Configuration file: Duplicated auth-site: %s . Discarding...",
+                        lisp_addr_to_char(asite->xeid));
+                ddt_authoritative_site_del(asite);
+                continue;
+            }
+
+            OOR_LOG(LDBG_1, "Adding authoritative site %s to the authoritative sites "
+                    "database", lisp_addr_to_char(asite->xeid));
+            ddt_node_add_authoritative_site(ddt_node, asite);
+        }else{
+            OOR_LOG(LERR, "Can't add  authoritative site %s. Discarded ...",
+                    cfg_getstr(as, "eid-prefix"));
+        }
+    }
+
+    /* DELEGATION SITES CONFIG */
+    for (i = 0; i< cfg_size(cfg, "ddt-deleg-site"); i++ ) {
+        cfg_t *ds = cfg_getnsec(cfg, "ddt-deleg-site", i);
+        glist_t *child_nodes_list = glist_new();
+
+        if (cfg_getstr(ds, "eid-prefix") == NULL || cfg_getstr(ds, "delegation-type") == NULL){
+            OOR_LOG(LERR, "Configuration file: DDT-Node delegation site requires at least an eid-prefix, and the delegation-type");
+            return (BAD);
+        }
+
+        char *child_node;
+        n = cfg_size(ds, "deleg-nodes");
+        for(j = 0; j < n; j++) {
+            if ((child_node = cfg_getnstr(ds, "deleg-nodes", j)) != NULL) {
+                glist_add_tail(child_node, child_nodes_list);
+            }
+        }
+
+
+        char *typechar = cfg_getstr(ds, "delegation-type");
+        int typeint;
+        if(strcmp(typechar, "MAP_SERVER_DDT_NODE") == 0){
+            typeint = LISP_ACTION_MS_REFERRAL;
+        }else{
+            typeint = LISP_ACTION_NODE_REFERRAL;
+        }
+
+
+        dsite = build_ddt_delegation_site(ddt_node,
+                cfg_getstr(ds, "eid-prefix"),
+                cfg_getint(ds, "iid"),
+                typeint,
+                child_nodes_list,
+                lcaf_ht);
+
+        if (dsite != NULL) {
+            if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite_xeid(dsite)) != NULL){
+                OOR_LOG(LDBG_1, "Configuration file: Duplicated deleg-site: %s . Discarding...",
+                        lisp_addr_to_char(dsite_xeid(dsite)));
+                ddt_delegation_site_del(dsite);
+                continue;
+            }
+
+            OOR_LOG(LDBG_1, "Adding delegation site %s to the delegation sites "
+                    "database", lisp_addr_to_char(dsite_xeid(dsite)));
+            ddt_node_add_delegation_site(ddt_node, dsite);
+        }else{
+            OOR_LOG(LERR, "Can't add  delegation site %s. Discarded ...",
+                    cfg_getstr(ds, "eid-prefix"));
+        }
+    }
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    return(GOOD);
+}
+
+int
+configure_ddt_mr(cfg_t *cfg)
+{
+    char *iface_name;
+    iface_t *iface=NULL;
+    shash_t *lcaf_ht;
+    int j, n;
+    lisp_ddt_mr_t *ddt_mr;
+
+    /* create and configure xtr */
+       if (ctrl_dev_create(DDT_MR_MODE, &ctrl_dev) != GOOD) {
+           OOR_LOG(LCRIT, "Failed to create DDT-Map Resolver. Aborting!");
+           exit_cleanup();
+       }
+       ddt_mr = CONTAINER_OF(ctrl_dev, lisp_ddt_mr_t, super);
+
+       /* create lcaf hash table */
+           lcaf_ht = parse_lcafs(cfg);
+
+
+    /* CONTROL INTERFACE */
+    /* TODO: should work with all interfaces in the future */
+    iface_name = cfg_getstr(cfg, "control-iface");
+    if (iface_name) {
+        iface = add_interface(iface_name);
+        if (iface == NULL) {
+            OOR_LOG(LERR, "Configuration file: Couldn't add the control iface of the DDT-Map Resolver");
+            return(BAD);
+        }
+    }else{
+    /* we have no iface_name, so also iface is missing */
+        OOR_LOG(LERR, "Configuration file: Specify the control iface of the DDT-Map Resolver");
+        return(BAD);
+    }
+
+    iface_configure (iface, AF_INET);
+    iface_configure (iface, AF_INET6);
+
+    /* ROOT ADDRESSES CONFIG */
+    glist_t *root_addresses = glist_new();
+
+    char *root_address;
+    n = cfg_size(cfg, "ddt-root-addresses");
+    if (n<1) {
+        OOR_LOG(LERR, "Configuration file: Specify at least one address for DDT-Root");
+        return(BAD);
+    }
+
+    for(j = 0; j < n; j++) {
+        if ((root_address = cfg_getnstr(cfg, "ddt-root-addresses", j)) != NULL) {
+            glist_add_tail(root_address, root_addresses);
+        }
+    }
+
+    ddt_mr_put_root_addresses(ddt_mr, root_addresses, lcaf_ht);
+
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
     return(GOOD);
@@ -835,6 +1045,7 @@ handle_config_file()
     static cfg_opt_t db_mapping_opts[] = {
             CFG_STR("eid-prefix",           0, CFGF_NONE),
             CFG_INT("iid",                  0, CFGF_NONE),
+            CFG_INT("ttl",DEFAULT_DATA_CACHE_TTL, CFGF_NONE),
             CFG_SEC("rloc-address",         rloc_address_opts, CFGF_MULTI),
             CFG_SEC("rloc-iface",           rloc_iface_opts, CFGF_MULTI),
             CFG_END()
@@ -919,8 +1130,47 @@ handle_config_file()
             CFG_BOOL("accept-more-specifics",   cfg_false, CFGF_NONE),
             CFG_BOOL("proxy-reply",             cfg_false, CFGF_NONE),
             CFG_BOOL("merge",                   cfg_false, CFGF_NONE),
+            CFG_STR_LIST("ddt-ms-peers",            0, CFGF_NONE),
             CFG_END()
     };
+
+    /* DDT-Node specific */
+
+    static cfg_opt_t ddt_auth_site_opts[] = {
+    		CFG_STR("eid-prefix",           0, CFGF_NONE),
+    		CFG_INT("iid",                  0, CFGF_NONE),
+			CFG_END()
+    };
+
+    static cfg_opt_t ddt_deleg_site_opts[] = {
+    		CFG_STR("eid-prefix",           0, CFGF_NONE),
+    		CFG_INT("iid",                  0, CFGF_NONE),
+			CFG_STR("delegation-type",             0, CFGF_NONE),
+            CFG_STR_LIST("deleg-nodes",            0, CFGF_NONE),
+    		CFG_END()
+    };
+
+    static cfg_opt_t rtr_opts[] = {
+            CFG_STR("name",                        0, CFGF_NONE),
+            CFG_STR("address",                     0, CFGF_NONE),
+            CFG_STR("key",                         0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t rtr_set_opts[] = {
+            CFG_STR("name",                     0, CFGF_NONE),
+            CFG_INT("ttl",         OOR_MS_RTR_TTL, CFGF_NONE),
+            CFG_STR_LIST("rtrs",                0, CFGF_NONE),
+            CFG_END()
+    };
+
+    static cfg_opt_t rtr_ms_opts[] = {
+            CFG_STR("address",                     0, CFGF_NONE),
+            CFG_STR("key",                         0, CFGF_NONE),
+            CFG_STR("draft-version","OLD",CFGF_NONE),
+            CFG_END()
+    };
+
 
     cfg_opt_t opts[] = {
             CFG_SEC("database-mapping",     db_mapping_opts,        CFGF_MULTI),
@@ -953,6 +1203,13 @@ handle_config_file()
             CFG_SEC("explicit-locator-path", elp_opts,              CFGF_MULTI),
             CFG_SEC("replication-list",     rle_opts,               CFGF_MULTI),
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
+			CFG_SEC("ddt-auth-site",        ddt_auth_site_opts,     CFGF_MULTI),
+			CFG_SEC("ddt-deleg-site",         ddt_deleg_site_opts,      CFGF_MULTI),
+			CFG_STR_LIST("ddt-root-addresses",  0, CFGF_NONE),
+            CFG_SEC("ms-rtrs-set",              rtr_set_opts,          CFGF_MULTI),
+            CFG_SEC("ms-rtr-node",              rtr_opts,              CFGF_MULTI),
+            CFG_STR("ms-advertised-rtrs-set",       0, CFGF_NONE),
+            CFG_SEC("rtr-ms-node",rtr_ms_opts,CFGF_MULTI),
             CFG_END()
     };
 
@@ -1018,6 +1275,10 @@ handle_config_file()
             ret=configure_rtr(cfg);
         }else if (strcmp(mode, "MN") == 0) {
             ret=configure_mn(cfg);
+        }else if (strcmp(mode, "DDT") ==0) {
+        	ret=configure_ddt(cfg);
+        }else if (strcmp(mode, "DDT-MR") ==0) {
+            ret=configure_ddt_mr(cfg);
         }else{
             OOR_LOG (LCRIT, "Configuration file: Unknown operating mode: %s",mode);
             cfg_free(cfg);

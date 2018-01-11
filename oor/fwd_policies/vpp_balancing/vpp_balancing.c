@@ -270,11 +270,8 @@ vpp_get_fwd_entry(void *fwd_dev_parm,  map_local_entry_t *mle, mcache_entry_t *m
     if (lisp_addr_cmp_afi(src_eid,dst_eid) != 0){
 
         if (lisp_addr_is_no_addr(src_eid)){ //RTR
-            src_eid = laddr_get_special_addr_from_type(dst_eid);
+            src_eid = laddr_get_full_space_pref_from_type(dst_eid);
             free_src_eid = TRUE;
-        }else if(lisp_addr_is_no_addr(dst_eid)){ //RTRs (xTR with NAT)
-            dst_eid = laddr_get_special_addr_from_type(src_eid);
-            free_dst_eid = TRUE;
         }else{
             OOR_LOG(LDBG_3, "fb_get_fwd_entry: Src (%s) and dst (%s) EID should be of the same type",
                     lisp_addr_to_char(src_eid), lisp_addr_to_char(dst_eid));

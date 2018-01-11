@@ -57,6 +57,8 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
     glist_t *fwd_tuple_lst, *pxtr_fwd_tuple_list;
     vpnapi_data_t *dp_data;
     int dst_port;
+    /* For xTR tuple->iid is 0 when received while for RTRs tuple->iid is the correct value */
+    uint32_t iid = tuple->iid;
 
     dp_data =  vpnapi_get_datap_data();
     fi = ttable_lookup(&(dp_data->ttable), tuple);
@@ -66,7 +68,10 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             return (BAD);
         }
         fe = (fwd_entry_tuple_t *)fi->dp_conf_inf;
-        if (fe && fe->srloc && fe->drloc)  {
+        if (!fe){
+            return (BAD);
+        }
+        if (fe->srloc && fe->drloc)  {
             switch (lisp_addr_ip_afi(fe->srloc)){
             case AF_INET:
                 fe->out_sock = &(dp_data->ipv4_data_socket);
@@ -79,9 +84,10 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
                 return(BAD);
             }
         }
-        // While we can not get iid from interface, we insert the tupla with iid = 0.
+        // While we can not get iid from interface (xTR), we insert the tupla with iid = 0.
+        // For RTRs iid is initialized with the right value
         //   We only support a same EID prefix per xTR
-        fe->tuple->iid = 0;
+        fe->tuple->iid = iid;
         // fe->tuple is cloned from tuple
         if (ttable_insert(&(dp_data->ttable), fe->tuple, fi) != GOOD){
             /* If table is full, reset the data plane */

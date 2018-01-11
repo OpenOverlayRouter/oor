@@ -31,7 +31,9 @@ typedef enum {
     xTR_MODE ,
     MS_MODE,
     RTR_MODE,
-    MN_MODE
+    MN_MODE,
+    DDT_MODE,
+    DDT_MR_MODE
 } oor_dev_type_e;
 
 #ifdef __GNUC__
@@ -68,6 +70,7 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define OOR_MAX_PROBE_RETRANSMIT      1  // Maximum amount of RLOC probe MRq retransmissions
 #define OOR_MAX_RETRANSMITS           5  // Maximum amount of retransmits of a message
 #define OOR_MIN_RETRANSMIT_INTERVAL   1  // Minimum time between retransmits of control messages
+#define OOR_MS_RTR_TTL                1440 // TTL in minutes of a RTR list learned by an xTR
 
 
 #define DEFAULT_MAP_REQUEST_RETRIES             3
@@ -95,6 +98,16 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define PID_FILE      "/var/run/oor.pid"
 #define DEVICE_ID_FILE "oor-id"
 
+
+/*
+ * ddt constants
+ */
+
+#define DEFAULT_DDTNODE_TTL  1440
+#define DEFAULT_REGISTERED_TTL  1440
+#define DEFAULT_CONFIGURED_NOT_REGISTERED_TTL  1
+#define DEFAULT_NEGATIVE_REFERRAL_TTL  15
+
 /*
  *  misc parameters
  */
@@ -103,6 +116,7 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define PACKED          __attribute__ ((__packed__))
 #define uchar           u_char
 
+#define UPDATED             2
 #define GOOD                1
 #define BAD                 0
 #define ERR_SRC_ADDR        -1
@@ -140,14 +154,11 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define FULL_NAT            2
 
 
-/*
- * Structure to simplify netlink processing
- */
-typedef struct nlsock_handle
-{
-    int         fd;       // netlink socket fd
-    uint32_t    seq;      // netlink message seq number
-} nlsock_handle;
+typedef enum {
+    NAT_PREV_DRAFT_4,
+    NAT_AFTER_DRAFT_4,
+}nat_version;
+
 
 
 

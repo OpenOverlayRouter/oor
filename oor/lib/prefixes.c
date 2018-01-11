@@ -73,16 +73,23 @@ pref_is_addr_part_of_prefix(lisp_addr_t *addr, lisp_addr_t *pref)
  * If both prefixs are the same it also returns TRUE
  */
 int
-pref_is_prefix_b_part_of_a (lisp_addr_t *a_prefix,lisp_addr_t *b_prefix)
+pref_is_prefix_b_part_of_a (lisp_addr_t *a_pref,lisp_addr_t *b_pref)
 {
     lisp_addr_t * a_network_addr;
     lisp_addr_t * b_network_addr_prefix_a;
+    lisp_addr_t * a_prefix, *b_prefix;
     int a_pref_len;
     int b_pref_len;
     int res;
 
+    if (lisp_addr_lafi(a_pref) != lisp_addr_lafi(b_pref)){
+        return (FALSE);
+    }
 
-    if (!lisp_addr_is_ip_pref(a_prefix) || !lisp_addr_is_ip_pref(b_prefix)){
+    a_prefix = lisp_addr_get_ip_pref_addr(a_pref);
+    b_prefix = lisp_addr_get_ip_pref_addr(b_pref);
+
+    if (!a_prefix || !b_prefix){
         return FALSE;
     }
 

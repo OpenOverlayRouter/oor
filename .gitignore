@@ -1,8 +1,6 @@
-android/bin
-android/gen
-android/obj
 Debug
 Release
 .cproject
 .project
+.vagrant
 *o

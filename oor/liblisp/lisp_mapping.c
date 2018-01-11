@@ -129,10 +129,7 @@ mapping_cmp(mapping_t *m1, mapping_t *m2)
     return (0);
 }
 
-/* Clones a mapping_t data structure
- * NOTE: it does not clone the 'extended_info'! This should be done by the
- * caller and in the future it shouldn't be done at all. 'extended_info'
- * should be moved out */
+/* Clones a mapping_t data structure */
 //XXX IT IS NOT CLONING LOCATORS
 mapping_t *
 mapping_clone(mapping_t *m) {
@@ -142,6 +139,7 @@ mapping_clone(mapping_t *m) {
     cm->authoritative = m->authoritative;
     cm->locator_count = m->locator_count;
     cm->ttl = m->ttl;
+    cm->locator_count = 0;
 
     return(cm);
 }
@@ -150,7 +148,7 @@ char *
 mapping_to_char(mapping_t *m)
 {
     locator_t *locator = NULL;
-    static char buf[500];
+    static char buf[1000];
     size_t buf_size = sizeof(buf);
 
 
@@ -228,7 +226,8 @@ mapping_add_locator(
 	return (result);
 }
 
-/* This function extract the locator from the list of locators of the mapping */
+/* This function extract the locator from the list of locators of the mapping.
+ * The locator is not destroyed*/
 int
 mapping_remove_locator(
         mapping_t *mapping,
@@ -257,11 +256,7 @@ mapping_remove_locator(
     }
 
     if (!lisp_addr_is_no_addr(addr)){
-        mapping->locator_count = mapping->locator_count - 1;
-    }
-
-    if (lisp_addr_is_no_addr(addr) == FALSE){
-        mapping->locator_count++;
+        mapping->locator_count--;
     }
 
     OOR_LOG(LDBG_2, "mapping_remove_locator: Removed locator %s from the mapping with"
@@ -464,4 +459,35 @@ mapping_activate_locator(
                         lisp_addr_to_char(&(mapping->eid_prefix)));
     }
     return (res);
+}
+
+// XXX This function is only used while we don't have support of L bit of ELPs
+int
+mapping_has_elp_with_l_bit(mapping_t *map)
+{
+    glist_t *loct_list;
+    locator_t *loct;
+    lisp_addr_t *addr;
+    elp_t * elp;
+    elp_node_t *elp_node;
+    glist_entry_t *loct_it;
+    glist_entry_t *elp_n_it;
+
+    loct_list = mapping_get_loct_lst_with_afi(map,LM_AFI_LCAF,LCAF_EXPL_LOC_PATH);
+    if (loct_list == NULL){
+        return (FALSE);
+    }
+    glist_for_each_entry(loct_it,loct_list){
+        loct = (locator_t *)glist_entry_data(loct_it);
+        addr = locator_addr(loct);
+        elp = (elp_t *)lisp_addr_lcaf_addr(addr);
+        glist_for_each_entry(elp_n_it,elp->nodes){
+            elp_node = (elp_node_t *)glist_entry_data(elp_n_it);
+            if (elp_node->L == true){
+                return (TRUE);
+            }
+        }
+    }
+
+    return (FALSE);
 }

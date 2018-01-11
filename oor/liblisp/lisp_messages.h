@@ -31,6 +31,7 @@ typedef enum lisp_msg_type_ {
     LISP_MAP_REPLY,
     LISP_MAP_REGISTER,
     LISP_MAP_NOTIFY,
+	LISP_MAP_REFERRAL = 6,
     LISP_INFO_NAT = 7,
     LISP_ENCAP_CONTROL_TYPE = 8
 } lisp_msg_type_e;
@@ -72,14 +73,14 @@ typedef enum lisp_msg_type_ {
  * header of the encapsulated LISP control message.
  *
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *    |Type=8 |S|D|R|             Reserved                            |
+ *    |Type=8 |S|D|E|M|-|R|N|        Reserved                         |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
 typedef struct ecm_hdr {
 #ifdef LITTLE_ENDIANS
-    uint8_t n_bit:1; // RTR relays the ECM-ed Map-Register to a Map-Server
-    uint8_t r_bit:1; // The encapsulated msg is to be processed by an RTR
+    uint8_t m_bit:1;
+    uint8_t e_bit:1;
     uint8_t d_bit:1; // DDT originated
     uint8_t s_bit:1;
     uint8_t type:4;
@@ -87,10 +88,21 @@ typedef struct ecm_hdr {
     uint8_t type:4;
     uint8_t s_bit:1;
     uint8_t d_bit:1;
+    uint8_t e_bit:1;
+    uint8_t m_bit:1;
+#endif
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved:5;
+    uint8_t n_bit:1; // RTR relays the ECM-ed Map-Register to a Map-Server
+    uint8_t r_bit:1; // The encapsulated msg is to be processed by an RTR
+    uint8_t not_used_bit:1;
+#else
+    uint8_t not_used_bit:1;
     uint8_t r_bit:1;
     uint8_t n_bit:1;
+    uint8_t reserved:5;
 #endif
-    uint8_t reserved2[3];
+    uint8_t reserved2[2];
 } ecm_hdr_t;
 
 
@@ -102,6 +114,7 @@ void ecm_hdr_init(void *ptr);
 #define ECM_SECURITY_BIT(h_) (ECM_HDR_CAST(h_))->s_bit
 #define ECM_DDT_BIT(h_) (ECM_HDR_CAST(h_))->d_bit
 #define ECM_RTR_PROCESS_BIT(h_) (ECM_HDR_CAST(h_))->r_bit
+#define ECM_RTR_RELAYED_BIT(h_) (ECM_HDR_CAST(h_))->n_bit
 
 
 /*
@@ -192,19 +205,9 @@ char *map_request_hdr_to_char(map_request_hdr_t *h);
 #define MREQ_SMR_INVOKED(h_) (MREQ_HDR_CAST(h_))->smr_invoked
 
 
-
-
-
-
 /*
  * MAP-REPLY MESSAGE
  */
-
- /*  Map Reply action codes */
- #define LISP_ACTION_NO_ACTION           0
- #define LISP_ACTION_FORWARD             1
- #define LISP_ACTION_DROP                2
- #define LISP_ACTION_SEND_MAP_REQUEST    3
 
  /*
   * Map-Reply Message Format
@@ -398,7 +401,10 @@ char *map_notify_hdr_to_char(map_notify_hdr_t *h);
  *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-/* I and R bit are defined on NAT tarversal draft*/
+/* I and R bit are defined on NAT tarversal draft
+ * R bit is defined in NAT draft v2 but it has been moved to Encap header
+ * As many cisco routers implements v2, we still matain this bit */
+
 
 typedef struct map_register_hdr {
 #ifdef LITTLE_ENDIANS
@@ -511,6 +517,69 @@ void info_nat_hdr_2_init(void *ptr);
 uint8_t is_mrsignaling(address_hdr_t *addr);
 mrsignaling_flags_t mrsignaling_flags(address_hdr_t *addr);
 void mrsignaling_set_flags_in_pkt(uint8_t *offset, mrsignaling_flags_t *mrsig);
+
+
+
+/*
+ * MAP-REFERRAL MESSAGE
+ */
+
+
+ /*Map-Referral Message Format
+  *
+  *       0                   1                   2                   3
+  *       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *      |Type=6 |               Reserved                | Record Count  |
+  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *      |                         Nonce . . .                           |
+  *      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *      |                         . . . Nonce                           |
+  *  +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |   |                          Record  TTL                          |
+  *  |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  R   | Referral Count | EID mask-len | ACT |A|I|    Reserved         |
+  *  e   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  c   |SigCnt |  Map-Version Number   |            EID-AFI            |
+  *  o   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  r   |                          EID-prefix                           |
+  *  d   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |  /|    Priority   |    Weight     |  M Priority   |   M Weight    |
+  *  | R +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  | e |        Unused Flags     |L|p|R|           Loc-AFI             |
+  *  | f +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |  \|                            Locator                            |
+  *  |   |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  *  |   ~                          Sig section                          |
+  *  +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  */
+
+
+
+ /*
+  * Fixed size portion of the map referral.
+  */
+ typedef struct map_referral_hdr {
+ #ifdef LITTLE_ENDIANS
+     uint8_t reserved1:4;
+     uint8_t type:4;
+ #else
+     uint8_t type:4;
+     uint8_t reserved1:4;
+ #endif
+     uint8_t reserved2;
+     uint8_t reserved3;
+     uint8_t record_count;
+     uint64_t nonce;
+ } __attribute__ ((__packed__)) map_referral_hdr_t;
+
+ void map_referral_hdr_init(void *ptr);
+ char *map_referral_hdr_to_char(map_referral_hdr_t *h);
+
+#define MREF_HDR_CAST(h_) ((map_referral_hdr_t *)(h_))
+#define MREF_REC_COUNT(h_) MREF_HDR_CAST(h_)->record_count
+#define MREF_NONCE(h_) MREF_HDR_CAST(h_)->nonce
+
 
 
 

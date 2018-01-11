@@ -496,6 +496,14 @@ uconn_init(uconn_t *uc, int lp, int rp, lisp_addr_t *la,lisp_addr_t *ra)
     return(GOOD);
 }
 
+uconn_t *
+uconn_clone(uconn_t *uc)
+{
+    uconn_t *new_uc = xmalloc(sizeof(uconn_t));
+    memcpy(new_uc,uc,sizeof(uconn_t));
+    return (new_uc);
+}
+
 void
 uconn_from_5_tuple (packet_tuple_t *tuple, uconn_t *udp_con, uint8_t is_pkt_rx)
 {

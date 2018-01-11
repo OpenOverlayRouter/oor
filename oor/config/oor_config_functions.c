@@ -42,16 +42,18 @@ conf_mapping_new()
         OOR_LOG(LWRN,"conf_mapping_new: Couldn't allocate memory for a conf_mapping_t structure");
         return (NULL);
     }
-    conf_map->eid_prefix = (char *)xzalloc(MAX_CFG_STRING);
+    conf_map->eid_prefix = NULL;
     conf_map->conf_loc_list = glist_new_managed((glist_del_fct) conf_loc_destroy);
     conf_map->conf_loc_iface_list = glist_new_managed((glist_del_fct) conf_loc_iface_destroy);
-    conf_map->ttl = DEFAULT_DATA_CACHE_TTL;
     return (conf_map);
 }
 
 inline void
 conf_mapping_destroy(conf_mapping_t * conf_map)
 {
+    if (!conf_map){
+        return;
+    }
     glist_destroy(conf_map->conf_loc_list);
     glist_destroy(conf_map->conf_loc_iface_list);
     free(conf_map->eid_prefix);
@@ -86,12 +88,45 @@ conf_mapping_dump(conf_mapping_t * conf_map, int log_level)
     OOR_LOG(log_level,"%s\n",buf);
 }
 
+gconf_loc_t *
+gconf_loc_new_init(conf_loct_type_e type, void *loct)
+{
+    gconf_loc_t *conf_loct;
+    conf_loct = (gconf_loc_t *)xzalloc(sizeof(gconf_loc_t));
+    if (!conf_loct){
+        return (NULL);
+    }
+    conf_loct->type = type;
+    conf_loct->conf_loct = loct;
+    return (conf_loct);
+}
+
+void
+gconf_loc_destroy(gconf_loc_t *gconf_loc)
+{
+    if(!gconf_loc){
+        return;
+    }
+    switch (gconf_loc->type){
+    case CONF_LOCT_ADDR:
+        conf_loc_destroy(gconf_loc->conf_loct);
+        break;
+    case CONF_LOCT_IFACE:
+        conf_loc_iface_destroy(gconf_loc->conf_loct);
+        break;
+    }
+    free(gconf_loc);
+}
 
 inline conf_loc_t *
 conf_loc_new_init(char *addr, uint8_t priority, uint8_t weight,
         uint8_t mpriority, uint8_t mweight)
 {
     conf_loc_t * conf_loc;
+
+    if (!addr){
+        OOR_LOG(LERR,"Configuration file: No address assigned to rloc-address");
+    }
 
     conf_loc = (conf_loc_t *)xzalloc(sizeof(conf_loc_t));
     if (conf_loc == NULL){
@@ -105,6 +140,15 @@ conf_loc_new_init(char *addr, uint8_t priority, uint8_t weight,
     conf_loc->mweight = mweight;
 
     return (conf_loc);
+}
+
+conf_loc_t *
+conf_loc_clone(conf_loc_t *conf_loc)
+{
+    conf_loc_t * new_conf_loc;
+    new_conf_loc = conf_loc_new_init(conf_loc->address, conf_loc->priority,
+            conf_loc->weight, conf_loc->mpriority, conf_loc->mweight);
+    return (new_conf_loc);
 }
 
 char *
@@ -124,6 +168,20 @@ conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
 {
     conf_loc_iface_t * conf_loc_iface;
 
+    if (!iface_name){
+        OOR_LOG(LERR,"Configuration file: An rloc-iface should have an interface selected");
+        return (NULL);
+    }
+
+    if (afi == 4){
+        afi = AF_INET;
+    }else if (afi == 6){
+        afi = AF_INET6;
+    }else{
+        OOR_LOG(LERR,"Configuration file: The conf_loc_iface->ip_version of the locator should be 4 (IPv4) or 6 (IPv6)");
+        return (BAD);
+    }
+
     conf_loc_iface = (conf_loc_iface_t *)xzalloc(sizeof(conf_loc_iface_t));
     if (conf_loc_iface == NULL){
         OOR_LOG(LWRN,"conf_loc_iface_new_init: Couldn't allocate memory for a conf_loc_iface_t structure");
@@ -137,6 +195,15 @@ conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
     conf_loc_iface->mweight = mweight;
 
     return (conf_loc_iface);
+}
+
+conf_loc_iface_t *
+conf_loc_iface_clone(conf_loc_iface_t * cli)
+{
+    conf_loc_iface_t * new_conf_loc_iface;
+    new_conf_loc_iface = conf_loc_iface_new_init(cli->interface, cli->afi,
+            cli->priority, cli->weight, cli->mpriority, cli->mweight);
+    return (new_conf_loc_iface);
 }
 
 char *
@@ -445,13 +512,11 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
 }
 
 int
-add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
+add_rtr_iface(lisp_rtr_t *rtr, char *iface_name,int afi, int priority,
         int weight)
 {
     iface_t *iface;
     iface_locators *if_loct;
-    mapping_t *mapping;
-    lisp_addr_t aux_address;
 
     if (iface_name == NULL){
         OOR_LOG(LERR, "Configuration file: No interface specified for RTR. "
@@ -493,40 +558,27 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
         return(BAD);
     }
 
-    if_loct = (iface_locators *)shash_lookup(xtr->iface_locators_table,iface_name);
+    if_loct = (iface_locators *)shash_lookup(rtr->tr.iface_locators_table,iface_name);
     if (if_loct == NULL){
         if_loct = iface_locators_new(iface_name);
-        shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
+        shash_insert(rtr->tr.iface_locators_table, strdup(iface_name), if_loct);
     }
 
-    if (!xtr->all_locs_map) {
-        lisp_addr_set_lafi(&aux_address,LM_AFI_NO_ADDR);
-        mapping = mapping_new();
-        mapping_set_eid(mapping,&aux_address);
-        if (mapping == NULL){
-            OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate mapping!");
-            return (BAD);
-        }
-        xtr->all_locs_map = map_local_entry_new_init(mapping);
-        if(xtr->all_locs_map == NULL){
-            OOR_LOG(LDBG_1, "add_rtr_iface: Can't allocate map_local_entry_t!");
-            return (BAD);
-        }
-        if (xtr->fwd_policy->init_map_loc_policy_inf(
-                xtr->fwd_policy_dev_parm,xtr->all_locs_map,NULL) != GOOD){
-            OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.",
-                    lisp_addr_to_char(mapping_eid(mapping)));
-            map_local_entry_del(xtr->all_locs_map);
+    if (!rtr->all_locs_map->fwd_policy_info) {
+        if (rtr->tr.fwd_policy->init_map_loc_policy_inf(
+                rtr->tr.fwd_policy_dev_parm,rtr->all_locs_map,NULL) != GOOD){
+            OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.");
+            map_local_entry_del(rtr->all_locs_map);
             return (BAD);
         }
     }
 
-    if (link_iface_and_mapping(iface, if_loct, xtr->all_locs_map, afi, priority, weight)
+    if (link_iface_and_mapping(iface, if_loct, rtr->all_locs_map, afi, priority, weight)
             != GOOD) {
         return(BAD);
     }
     /* Updated forwarding info */
-    xtr->fwd_policy->updated_map_loc_inf(xtr->fwd_policy_dev_parm, xtr->all_locs_map);
+    rtr->tr.fwd_policy->updated_map_loc_inf(rtr->tr.fwd_policy_dev_parm, rtr->all_locs_map);
 
     return(GOOD);
 }
@@ -534,11 +586,14 @@ add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
 lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
-        shash_t *lcaf_ht)
+        glist_t *ddt_ms_peers, shash_t *lcaf_ht)
 {
     lisp_addr_t *eid_prefix;
     lisp_addr_t *ht_prefix;
     lisp_site_prefix_t *site;
+    glist_t *addr_list, *ddt_ms_peers2;
+
+    ddt_ms_peers2 = glist_new();
 
     if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
@@ -560,11 +615,161 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         eid_prefix = lisp_addr_clone(ht_prefix);
     }
     pref_conv_to_netw_pref(eid_prefix);
+
+    //Convert the contents of ddt_ms_peers from strings to lisp_addr_t
+    //and put them into ddt_ms_peers2
+    char         *    ms_peer          = NULL;
+    glist_entry_t *     it          = NULL;
+
+    glist_for_each_entry(it, ddt_ms_peers) {
+        ms_peer = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(ms_peer, lcaf_ht);
+        glist_entry_t * it2 = NULL;
+        glist_for_each_entry(it2, addr_list){
+            glist_add_tail((lisp_addr_t *)glist_entry_data(it2), ddt_ms_peers2);
+        }
+    }
+
     site = lisp_site_prefix_init(eid_prefix, iid, key_type, key,
-            more_specifics, proxy_reply, merge);
+            more_specifics, proxy_reply, merge, ddt_ms_peers2);
     lisp_addr_del(eid_prefix);
     return(site);
 }
+
+ddt_authoritative_site_t *
+build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        shash_t *lcaf_ht)
+{
+    lisp_addr_t *eid_prefix;
+    lisp_addr_t *ht_prefix;
+    ddt_authoritative_site_t *site;
+
+    if (iid > MAX_IID) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...", iid, MAX_IID);
+        iid = 0;
+    }
+
+    /* DON'T DELETE eid_prefix */
+    eid_prefix = lisp_addr_new();
+    if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
+        lisp_addr_del(eid_prefix);
+        /* if not found, try in the hash table */
+        ht_prefix = shash_lookup(lcaf_ht, eidstr);
+        if (!ht_prefix) {
+            OOR_LOG(LERR, "Configuration file: Error parsing EID prefix %s",
+                    eidstr);
+            return (NULL);
+        }
+        eid_prefix = lisp_addr_clone(ht_prefix);
+    }
+    pref_conv_to_netw_pref(eid_prefix);
+    site = ddt_authoritative_site_init(eid_prefix, iid);
+    lisp_addr_del(eid_prefix);
+    return(site);
+}
+
+ddt_delegation_site_t *
+build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        int type, glist_t *child_nodes, shash_t *lcaf_ht)
+{
+    lisp_addr_t *eid_prefix;
+    lisp_addr_t *ht_prefix;
+    ddt_delegation_site_t *site;
+    glist_t *addr_list, *child_nodes2;
+
+    child_nodes2 = glist_new();
+
+    if (iid > MAX_IID) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...", iid, MAX_IID);
+        iid = 0;
+    }
+
+    /* DON'T DELETE eid_prefix */
+    eid_prefix = lisp_addr_new();
+    if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
+        lisp_addr_del(eid_prefix);
+        /* if not found, try in the hash table */
+        ht_prefix = shash_lookup(lcaf_ht, eidstr);
+        if (!ht_prefix) {
+            OOR_LOG(LERR, "Configuration file: Error parsing EID prefix %s",
+                    eidstr);
+            return (NULL);
+        }
+        eid_prefix = lisp_addr_clone(ht_prefix);
+    }
+    pref_conv_to_netw_pref(eid_prefix);
+
+    //Convert the contents of child_nodes from strings to lisp_addr_t
+    //and put them into child_nodes2
+    char         *    childnod          = NULL;
+    glist_entry_t *     it          = NULL;
+
+    glist_for_each_entry(it, child_nodes) {
+        childnod = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(childnod, lcaf_ht);
+        if (glist_size(addr_list) >= 1){
+            glist_entry_t *it2 = NULL;
+            glist_for_each_entry(it2, addr_list) {
+                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), child_nodes2);
+            }
+        }
+    }
+
+    site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes2);
+    lisp_addr_del(eid_prefix);
+    return(site);
+}
+
+int
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht){
+
+    //Convert the contents of root_addresses from strings to lisp_addr_t
+    //and put them into root_addresses2
+    char         *    address          = NULL;
+    glist_entry_t *     it          = NULL;
+    glist_t *addr_list, *root_addresses2;
+    mref_mapping_t * mapping = NULL;
+    lisp_addr_t * addr = NULL;
+    ddt_mcache_entry_t *ddt_entry = NULL;
+
+
+    root_addresses2 = glist_new();
+    addr = lisp_addr_new();
+
+
+    glist_for_each_entry(it, root_addresses) {
+        address = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(address, lcaf_ht);
+        if (glist_size(addr_list) >= 1){
+            glist_entry_t *it2 = NULL;
+            glist_for_each_entry(it2, addr_list) {
+                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), root_addresses2);
+            }
+        }
+    }
+
+    if (glist_size(root_addresses2)<1) {
+        OOR_LOG(LERR, "Configuration file: No valid addresses are specified for DDT-Root");
+        return(BAD);
+    }
+
+    lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE,addr);
+    // create mapping with the referrals, then create the mapping cache entry for root
+    // with the mapping, and assign it to the map resolver
+    mapping = mref_mapping_new_init_full(addr, 1440, LISP_ACTION_NODE_REFERRAL, A_AUTHORITATIVE,
+            0, root_addresses2, NULL, NULL);
+
+    ddt_entry = ddt_mcache_entry_new();
+    ddt_mcache_entry_init_static(ddt_entry,mapping);
+    ddt_mr_set_root_entry(ddt_mr,ddt_entry);
+
+    return (GOOD);
+
+}
+
+
 
 
 /* Parses an EID/RLOC (IP or LCAF) and returns a list of 'lisp_addr_t'.
@@ -643,105 +848,6 @@ parse_ip_addr(char *addr_str)
 
     return(addr_list);
 }
-
-locator_t*
-clone_customize_locator(oor_ctrl_dev_t *dev, locator_t * locator,
-        glist_t * no_addr_loct_l, uint8_t is_local)
-{
-    char *iface_name;
-    locator_t *new_locator;
-    iface_t *iface;
-    lisp_addr_t *rloc;
-    lisp_addr_t *aux_rloc;
-    int rloc_ip_afi;
-    no_addr_loct *nloct;
-    lisp_xtr_t *xtr;
-    shash_t *iface_lctrs;
-    iface_locators *if_loct;
-
-    rloc = locator_addr(locator);
-    /* LOCAL locator */
-    if (is_local) {
-        /* Decide IP address to be used to lookup the interface */
-        if (lisp_addr_is_lcaf(rloc) == TRUE) {
-            aux_rloc = lisp_addr_get_ip_addr(rloc);
-            if (aux_rloc == NULL) {
-                OOR_LOG(LERR, "Configuration file: Can't determine RLOC's IP "
-                        "address %s", lisp_addr_to_char(rloc));
-                lisp_addr_del(rloc);
-                return(NULL);
-            }
-            if (!(iface_name = get_interface_name_from_address(aux_rloc))) {
-                OOR_LOG(LERR, "Configuration file: Can't find interface for RLOC %s",
-                        lisp_addr_to_char(rloc));
-                return(NULL);
-            }
-            rloc_ip_afi = lisp_addr_ip_afi(aux_rloc);
-        } else if (lisp_addr_is_no_addr(rloc)){
-            aux_rloc = rloc;
-            nloct = get_no_addr_loct_from_list(no_addr_loct_l,locator);
-            if (nloct == NULL){
-                return (NULL);
-            }
-            iface_name = nloct->iface_name;
-            rloc_ip_afi = nloct->afi;
-        } else{
-            /* Find the interface name associated to the RLOC */
-            if (!(iface_name = get_interface_name_from_address(rloc))) {
-                OOR_LOG(LERR, "Configuration file: Can't find interface for RLOC %s",
-                        lisp_addr_to_char(rloc));
-                return(NULL);
-            }
-            rloc_ip_afi = lisp_addr_ip_afi(rloc);
-        }
-
-        /* Find the interface */
-        iface = get_interface(iface_name);
-        if (iface == NULL){
-            iface = add_interface(iface_name);
-            if (iface == NULL){
-                OOR_LOG(LERR, "Configuration file: Can't add interface with name %s",
-                        iface_name);
-                return(NULL);
-            }
-        }
-
-        /* Configure address of the interface */
-        if (iface_configure (iface, rloc_ip_afi)!= GOOD){
-            OOR_LOG(LWRN, "Configuration file: Can't configure addresses of interface %s",
-                    iface_name);
-        }
-
-
-        new_locator = locator_new_init(rloc, iface->status,1, 1,
-                            locator_priority(locator), locator_weight(locator),255, 0);
-
-        /* Associate locator with iface */
-        if (dev->mode == xTR_MODE || dev->mode == MN_MODE){
-            xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-            iface_lctrs = xtr->iface_locators_table;
-
-            if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
-
-            if (if_loct == NULL){
-                if_loct = iface_locators_new(iface_name);
-                shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
-            }
-
-            if (rloc_ip_afi == AF_INET){
-                glist_add(new_locator,if_loct->ipv4_locators);
-            }else{
-                glist_add(new_locator,if_loct->ipv6_locators);
-            }
-        }
-    /* REMOTE locator */
-    } else {
-        new_locator = locator_new_init(rloc, UP,0 ,1 , locator_priority(locator), locator_weight(locator), 255, 0);
-    }
-
-    return(new_locator);
-}
-
 
 /*
  *  Converts the hostname into IPs which are added to a list of lisp_addr_t
@@ -896,12 +1002,12 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
 
             /* If the locator is for a local mapping, associate the locator with the interface */
             if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-                xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-                iface_lctrs = xtr->iface_locators_table;
+                xtr  = lisp_xtr_cast(ctrl_dev);
+                iface_lctrs = xtr->tr.iface_locators_table;
                 if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
                 if (if_loct == NULL){
                     if_loct = iface_locators_new(iface_name);
-                    shash_insert(xtr->iface_locators_table, strdup(iface_name), if_loct);
+                    shash_insert(xtr->tr.iface_locators_table, strdup(iface_name), if_loct);
                 }
                 if (lisp_addr_ip_afi(ip_addr) == AF_INET){
                     glist_add(locator,if_loct->ipv4_locators);
@@ -972,12 +1078,12 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
 
     /* If the locator is for a local mapping, associate the locator with the interface */
     if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-        xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
-        iface_lctrs = xtr->iface_locators_table;
+        xtr  = lisp_xtr_cast(ctrl_dev);
+        iface_lctrs = xtr->tr.iface_locators_table;
         if_loct = (iface_locators *)shash_lookup(iface_lctrs, conf_loc_iface->interface);
         if (if_loct == NULL){
             if_loct = iface_locators_new(conf_loc_iface->interface);
-            shash_insert(xtr->iface_locators_table, strdup(conf_loc_iface->interface), if_loct);
+            shash_insert(xtr->tr.iface_locators_table, strdup(conf_loc_iface->interface), if_loct);
         }
         if (conf_loc_iface->afi == AF_INET){
             glist_add(locator,if_loct->ipv4_locators);
@@ -1006,11 +1112,10 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     conf_loc_iface_t *conf_loc_iface;
     glist_entry_t *conf_it;
     int iidmlen;
-
     switch (dev->mode){
         case xTR_MODE:
         case MN_MODE:
-            xtr  = CONTAINER_OF(ctrl_dev, lisp_xtr_t, super);
+            xtr  = lisp_xtr_cast(ctrl_dev);
             break;
         default:
             break;
@@ -1027,7 +1132,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
 
     if (conf_mapping->iid > MAX_IID || conf_mapping->iid < 0) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
-                "disabling...", conf_mapping->iid, MAX_IID);
+                "set ID to 0", conf_mapping->iid, MAX_IID);
         conf_mapping->iid = 0;
     }
     if (conf_mapping->iid > 0){
@@ -1037,6 +1142,10 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
         eid_prefix = lisp_addr_clone(ip_eid_prefix);
     }
 
+    if (conf_mapping->ttl <1){
+        conf_mapping->ttl = 1;
+        OOR_LOG(LWRN,"Configuration file: Minimum TTL value is 1. Set TTL to 1");
+    }
 
     /* Create mapping */
     mapping = mapping_new_init(eid_prefix);
@@ -1056,7 +1165,6 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     /* Create and add locators */
     glist_for_each_entry(conf_it,conf_mapping->conf_loc_list){
         conf_loc = (conf_loc_t *)glist_entry_data(conf_it);
-
         loct_list = process_rloc_address(conf_loc, dev, lcaf_ht, is_local);
         if (loct_list == NULL){
             continue;
@@ -1074,7 +1182,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL && is_local){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1085,7 +1193,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL && is_local){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1109,7 +1217,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1120,7 +1228,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
                         lisp_addr_to_char(locator_addr(locator)),
                         lisp_addr_to_char(mapping_eid(mapping)));
                 if (xtr != NULL){
-                    iface_locators_unattach_locator(xtr->iface_locators_table,locator);
+                    iface_locators_unattach_locator(xtr->tr.iface_locators_table,locator);
                 }
                 locator_del(locator);
                 continue;
@@ -1145,7 +1253,7 @@ add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr)
         if (local_map_db_add_entry(xtr->local_mdb, map_loca_entry) == GOOD){
             OOR_LOG(LDBG_1, "Added EID prefix %s in the database.",
                     lisp_addr_to_char(eid));
-            iface_locators_attach_map_local_entry(xtr->iface_locators_table,map_loca_entry);
+            iface_locators_attach_map_local_entry(xtr->tr.iface_locators_table,map_loca_entry);
         }else{
             OOR_LOG(LERR, "Can't add EID prefix %s. Discarded ...",
                     lisp_addr_to_char(eid));
@@ -1160,12 +1268,169 @@ add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr)
     return(GOOD);
 err:
     iface_locators_unattach_mapping_and_loct(
-            xtr->iface_locators_table,
+            xtr->tr.iface_locators_table,
             map_loca_entry);
 
     return(BAD);
 }
 
+int
+ms_add_rtr_node(lisp_ms_t *ms, char *name, char *addr_str, char *key)
+{
+    ms_rtr_node_t *rtr;
+    glist_t *addr_lst;
+    lisp_addr_t *addr;
+
+    if (!name || !addr_str || !key){
+        OOR_LOG(LERR, "ms-rtr-node needs to have assigned a name, an address and a key");
+        return (BAD);
+    }
+    if (shash_lookup(ms->rtrs_table_by_name,name) != NULL){
+        OOR_LOG(LERR, "MS rtr node \"%s\" already exists",name);
+        return (BAD);
+    }
+
+
+    addr_lst = parse_ip_addr(addr_str);
+    if (!addr_lst || glist_size(addr_lst)==0){
+        glist_destroy(addr_lst);
+        return (BAD);
+    }
+    if (glist_size(addr_lst) >1){
+        OOR_LOG(LERR, "ms-rtr-node hostname %s resolves to more than one IP. Use one rtr-node element"
+                "for each IP", addr_str);
+        glist_destroy(addr_lst);
+        return (BAD);
+    }
+    addr = (lisp_addr_t *)glist_first_data(addr_lst);
+    if (shash_lookup(ms->rtrs_table_by_ip,lisp_addr_to_char(addr)) != NULL){
+        OOR_LOG(LERR, "MS rtr node with address \"%s\" already exists",lisp_addr_to_char(addr));
+        return (BAD);
+    }
+    rtr = ms_rtr_node_new_init(name,addr,key);
+    glist_destroy(addr_lst);
+    if (!rtr){
+        return (BAD);
+    }
+
+    shash_insert(ms->rtrs_table_by_name,strdup(rtr->id),rtr);
+    shash_insert(ms->rtrs_table_by_ip,strdup(lisp_addr_to_char(rtr->addr)),rtr);
+    OOR_LOG(LDBG_1,"New RTR node added -> name: \"%s\", addr: %s", rtr->id, lisp_addr_to_char(rtr->addr));
+
+    return (GOOD);
+}
+
+int
+ms_add_rtr_set(lisp_ms_t *ms, char *name, int ttl, glist_t *rtr_nodes)
+{
+    ms_rtr_set_t *rtr_set;
+    glist_entry_t *rtr_it;
+    char *rtr_id;
+    ms_rtr_node_t *rtr;
+
+    if (!name) {
+        OOR_LOG(LERR, "ms-rtr-set name option required");
+        return (BAD);
+    }
+    if(shash_lookup(ms->rtrs_set_table,name)!= NULL){
+        OOR_LOG(LERR, "ms-rtr-set \"%s\" already exists",name);
+        return (BAD);
+    }
+    if (glist_size (rtr_nodes) == 0){
+        OOR_LOG(LERR, "ms-rtr-set \"%s\" doesn't have any rtr assigned", name);
+        return (BAD);
+    }
+    if (ttl <1 ){
+        OOR_LOG(LERR, "ms-rtr-set \"%s\" doesn't have a valid ttl value", name);
+        return (BAD);
+    }
+
+    rtr_set = ms_rtr_set_new_init(name, ttl);
+    if (!rtr_set){
+        return (BAD);
+    }
+
+    glist_for_each_entry (rtr_it, rtr_nodes){
+        rtr_id = (char *)glist_entry_data(rtr_it);
+        rtr = (ms_rtr_node_t *)shash_lookup(ms->rtrs_table_by_name,rtr_id);
+        if (!rtr){
+            OOR_LOG(LERR, "rtr node \"%s\" assigned to the ms-rtr-set \"%s\" doesn't exist",
+                    rtr_id, name);
+            ms_rtr_set_del(rtr_set);
+            return (BAD);
+        }
+        glist_add(rtr,rtr_set->rtr_list);
+    }
+    shash_insert(ms->rtrs_set_table,strdup(name),rtr_set);
+
+    OOR_LOG(LDBG_1,"New RTR set added:");
+    ms_rtr_set_dump(rtr_set, LDBG_1);
+
+    return (GOOD);
+}
+
+int
+ms_advertised_rtr_set(lisp_ms_t *ms, char *rtr_set_name)
+{
+    if (!rtr_set_name){
+        ms->def_rtr_set = NULL;
+        OOR_LOG(LDBG_1,"No RTR will be advertised");
+        return(GOOD);
+    }
+    ms->def_rtr_set = (ms_rtr_set_t *)shash_lookup(ms->rtrs_set_table,rtr_set_name);
+    if (!ms->def_rtr_set){
+        OOR_LOG(LERR, "ms-rtr-set %s doesn't exist. It cannot be advertised", rtr_set_name);
+        return (BAD);
+    }
+
+    return (GOOD);
+}
+
+int
+rtr_add_rtr_ms_node(lisp_rtr_t *rtr, char *addr_str, char *key, char *draft_version)
+{
+    glist_t *addr_lst;
+    lisp_addr_t *addr;
+    nat_version nat_version;
+    rtr_ms_node_t *ms_node;
+
+    if (!addr_str || !key){
+        OOR_LOG(LERR, "Configuration file: rtr-ms-node needs to have assigned an address and a key");
+        return (BAD);
+    }
+
+    if (strcmp(draft_version,"OLD")==0){
+        nat_version = NAT_PREV_DRAFT_4;
+    }else if (strcmp(draft_version,"NEW")==0){
+        nat_version = NAT_AFTER_DRAFT_4;
+    }else{
+        OOR_LOG(LERR, "Unknown nat draft-version type: %s",draft_version);
+        return (BAD);
+    }
+
+
+    addr_lst = parse_ip_addr(addr_str);
+    if (!addr_lst || glist_size(addr_lst)==0){
+        glist_destroy(addr_lst);
+        return (BAD);
+    }
+    if (glist_size(addr_lst) >1){
+        OOR_LOG(LERR, "ms-rtr-node hostname %s resolves to more than one IP. Use one rtr-ms-node element"
+                "for each IP", addr_str);
+        glist_destroy(addr_lst);
+        return (BAD);
+    }
+    addr = (lisp_addr_t *)glist_first_data(addr_lst);
+    ms_node = rtr_ms_node_new_init(addr, key, nat_version);
+    glist_destroy(addr_lst);
+    if (!ms_node){
+        return (BAD);
+    }
+    shash_insert(rtr->rtr_ms_table, strdup(lisp_addr_to_char(ms_node->addr)),ms_node);
+    OOR_LOG(LDBG_1,"RTR: Added MS configuration for NAT use: %s", rtr_ms_node_to_char(ms_node));
+
+    return (GOOD);
+}
 
 void
 nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id)
@@ -1183,7 +1448,7 @@ nat_set_xTR_ID(lisp_xtr_t *xtr)
 	char line[80];
 	char part_xtr_id_str[3];
 
-	path = dirname(strdup(config_file));
+	path = dirname(config_file);
 	if (snprintf(file,sizeof(file),"%s/%s",path, DEVICE_ID_FILE) >= sizeof(file)){
 	    OOR_LOG(LERR,"File name path too long");
 	    return (BAD);

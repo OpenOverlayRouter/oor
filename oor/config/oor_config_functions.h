@@ -21,14 +21,20 @@
 #define OOR_CONFIG_FUNCTIONS_H_
 
 #include "../control/lisp_ms.h"
+#include "../control/lisp_rtr.h"
 #include "../control/lisp_xtr.h"
+#include "../control/lisp_ddt_node.h"
+#include "../control/lisp_ddt_mr.h"
 #include "../lib/iface_locators.h"
 #include "../lib/lisp_site.h"
 #include "../lib/map_local_entry.h"
 #include "../lib/shash.h"
 
 
-#define MAX_CFG_STRING 100
+typedef enum {
+    CONF_LOCT_ADDR ,
+    CONF_LOCT_IFACE
+} conf_loct_type_e;
 
 typedef struct no_addr_loct_ {
     locator_t *     locator;
@@ -53,6 +59,12 @@ typedef struct conf_loc_iface_ {
     int mweight;
 }conf_loc_iface_t;
 
+typedef struct gconf_loc_{
+    conf_loct_type_e type;
+    void *conf_loct;
+}gconf_loc_t;
+
+
 typedef struct conf_mapping_ {
     char    *eid_prefix;
     int     ttl;
@@ -65,8 +77,13 @@ static inline conf_loc_t * conf_loc_new(){
     return ((conf_loc_t *)xzalloc(sizeof(conf_loc_t)));
 }
 
+gconf_loc_t *gconf_loc_new_init(conf_loct_type_e type, void *loct);
+void gconf_loc_destroy(gconf_loc_t *gconf_loc);
+
 conf_loc_t * conf_loc_new_init(char *addr, uint8_t priority,
         uint8_t weight, uint8_t mpriority, uint8_t mweight);
+
+conf_loc_t * conf_loc_clone(conf_loc_t *conf_loc);
 
 static inline void conf_loc_destroy(conf_loc_t *conf_loc){
     if (conf_loc == NULL) return;
@@ -88,6 +105,8 @@ static inline void conf_loc_iface_destroy(conf_loc_iface_t *conf_loc_iface){
     free(conf_loc_iface->interface);
     free(conf_loc_iface);
 }
+
+conf_loc_iface_t * conf_loc_iface_clone(conf_loc_iface_t * cli);
 
 char *conf_loc_iface_to_char(conf_loc_iface_t * loc_iface);
 
@@ -143,13 +162,24 @@ link_iface_and_mapping(iface_t *iface, iface_locators *if_loct,
         map_local_entry_t *map_loc_e, int afi, int priority, int weight);
 
 int
-add_rtr_iface(lisp_xtr_t *xtr, char *iface_name,int afi, int priority,
+add_rtr_iface(lisp_rtr_t *xtr, char *iface_name,int afi, int priority,
         int weight);
 
 lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
+        glist_t *ddt_ms_peers, shash_t *lcaf_ht);
+
+ddt_authoritative_site_t *
+build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
         shash_t *lcaf_ht);
+
+ddt_delegation_site_t *
+build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        int type, glist_t *child_nodes, shash_t *lcaf_ht);
+
+int
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht);
 
 char *
 get_interface_name_from_address(lisp_addr_t *addr);
@@ -165,16 +195,24 @@ parse_lisp_addr(char *address, shash_t *lcaf_ht);
 glist_t *
 parse_ip_addr(char *addr_str);
 
-locator_t*
-clone_customize_locator(oor_ctrl_dev_t *dev, locator_t * locator,
-        glist_t * no_addr_loct_l, uint8_t is_local);
-
 mapping_t *
 process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
         conf_mapping_t * conf_mapping, uint8_t is_local);
 
 int
 add_local_db_map_local_entry(map_local_entry_t *map_loca_entry, lisp_xtr_t *xtr);
+
+int
+ms_add_rtr_set(lisp_ms_t *ms, char *name, int ttl, glist_t *rtr_nodes);
+
+int
+ms_advertised_rtr_set(lisp_ms_t *ms, char *name);
+
+int
+rtr_add_rtr_ms_node(lisp_rtr_t *rtr, char *addr_str, char *key, char *draft_version);
+
+int
+ms_add_rtr_node(lisp_ms_t *ms, char *name, char *addr_str, char *key);
 
 void nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id);
 int nat_set_xTR_ID(lisp_xtr_t *xtr);
