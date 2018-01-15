@@ -67,6 +67,7 @@ net_mgr_class_t netm_vpp = {
         .netm_get_iface_addr_list = vpp_get_iface_addr_list,
         .netm_get_src_addr_to = vpp_get_src_addr_to,
         .netm_get_iface_gw = vpp_get_iface_gw,
+        .netm_get_first_ipv6_addr_from_iface_with_scope = vpp_get_first_ipv6_addr_from_iface_with_scope,
         .netm_get_iface_status = vpp_get_iface_status,
         .netm_get_iface_mac_addr = vpp_get_iface_mac_addr,
         .netm_reload_routes = vpp_reload_routes,
@@ -351,6 +352,13 @@ vpp_get_iface_gw(char *iface_name, int afi)
     gw = vpp_oor_pkt_miss_get_default_route(afi);
 
     return (lisp_addr_clone(gw));
+}
+
+lisp_addr_t *
+vpp_get_first_ipv6_addr_from_iface_with_scope()
+{
+    OOR_LOG(LDBG_1,"vpp_get_first_ipv6_addr_from_iface_with_scope: VPP without IPv6 support");
+    return (NULL);
 }
 
 

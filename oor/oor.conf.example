@@ -6,10 +6,12 @@
 # map-request-retries: Additional Map-Requests to send per map cache miss
 # log-file: Specifies log file used in daemon mode. If it is not specified,  
 #   messages are written in syslog file
+# ipv6-scope [GLOBAL|SITE]: Scope of the IPv6 address used for the locators. GLOBAL by default
 
 debug                  = 0 
 map-request-retries    = 2
 log-file               = /var/log/oor.log
+ipv6-scope             = [GLOBAL|SITE]
  
 # Define the type of LISP device LISPmob will operate as 
 #

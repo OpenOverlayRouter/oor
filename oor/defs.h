@@ -147,6 +147,11 @@ typedef enum {
     NAT_AFTER_DRAFT_4,
 }nat_version;
 
+typedef enum {
+    SCOPE_GLOBAL,
+    SCOPE_SITE_LOCAL,
+    SCOPE_LINK_LOCAL
+} ipv6_scope_e;
 
 
 

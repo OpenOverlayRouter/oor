@@ -17,6 +17,7 @@
  *
  */
 
+#include "net_mgr.h"
 #include "net_mgr_proc_fc.h"
 #include "../control/oor_control.h"
 #include "../data-plane/data-plane.h"
@@ -32,6 +33,8 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
     lisp_addr_t *new_addr_cpy;
     lisp_addr_t *old_addr_cpy;
     int new_addr_ip_afi;
+    glist_t *iface_addr_list = NULL;
+    uint8_t free_addr = FALSE;
 
     iface = get_interface_from_index(iface_index);
 
@@ -41,14 +44,24 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
         return;
     }
 
+    new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
+    iface_addr = iface_address(iface,new_addr_ip_afi);
+
     if (act == RM){
         OOR_LOG(LDBG_2,"nm_process_address_change: Address %s removed from interface %s",
                 lisp_addr_to_char(new_addr),iface->iface_name);
+        /* If we removed the active IPv6 address, try to get a new one */
+        if (new_addr_ip_afi == AF_INET6 && lisp_addr_cmp(iface_addr, new_addr) == 0){
+            new_addr = net_mgr->netm_get_first_ipv6_addr_from_iface_with_scope(iface->iface_name,ipv6_scope);
+            if (new_addr){
+                OOR_LOG(LDBG_2,"nm_process_address_change: Using next available address %s",
+                                lisp_addr_to_char(new_addr));
+                free_addr = TRUE;
+                goto change;
+            }
+        }
         return;
     }
-
-    new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
-    iface_addr = iface_address(iface,new_addr_ip_afi);
 
     if (iface_addr == NULL){
         OOR_LOG(LDBG_2,"nm_process_address_change: OOR not configured to use %s address for the interface %s",
@@ -72,13 +85,23 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
                 iface->iface_name);
         return;
     }
+    /* If IPv6, check if the current address is still configured */
+    if (new_addr_ip_afi == AF_INET6){
+        iface_addr_list = net_mgr->netm_get_iface_addr_list(iface->iface_name,AF_INET6);
+        if (glist_contain_using_cmp_fct(iface->ipv6_address,iface_addr_list, (glist_cmp_fct)lisp_addr_cmp)){
+            OOR_LOG(LDBG_2,"nm_process_address_change: Current IPv6 address (%s) associated with interface %s is "
+                    "still active. Ignoring change",lisp_addr_to_char(iface->ipv6_address), iface->iface_name);
+            glist_destroy(iface_addr_list);
+            return;
+        }
+        glist_destroy(iface_addr_list);
+    }
 
+change:
     /* Detected a valid change of address  */
-
     OOR_LOG(LDBG_2,"nm_process_address_change: New address detected for interface "
             "%s. Address changed from %s to %s", iface->iface_name,
             lisp_addr_to_char(iface_addr), lisp_addr_to_char(new_addr));
-
 
     old_addr_cpy = lisp_addr_clone(iface_addr);
     new_addr_cpy = lisp_addr_clone(new_addr);
@@ -93,7 +116,9 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
     ctrl_if_addr_update(lctrl, iface, old_addr_cpy, new_addr_cpy);
     lisp_addr_del(old_addr_cpy);
     lisp_addr_del(new_addr_cpy);
-
+    if (free_addr){
+        lisp_addr_del(new_addr);
+    }
 }
 
 

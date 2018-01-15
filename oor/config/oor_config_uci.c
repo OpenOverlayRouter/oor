@@ -102,7 +102,8 @@ handle_config_file()
     struct uci_element *element;
     int uci_debug;
     char *uci_log_file;
-    char *uci_op_mode;
+    char *uci_scope, *scope;
+    char *uci_op_mode, *mode;
     int res = BAD;
 
     if (config_file == NULL){
@@ -162,22 +163,43 @@ handle_config_file()
                 open_log_file(uci_log_file);
             }
 
+            uci_scope = (char *)uci_lookup_option_string(ctx, sect, "ipv6_scope");
+            if (uci_scope != NULL){
+                scope = str_to_lower_case(uci_scope);
+                if (strcmp(scope,"global") == 0){
+                    ipv6_scope = SCOPE_GLOBAL;
+                }else if (strcmp(scope,"site") == 0){
+                    ipv6_scope = SCOPE_SITE_LOCAL;
+                }else{
+                    OOR_LOG (LCRIT, "Configuration file: Unknown IPv6 scope: %s",uci_scope);
+                    free(scope);
+                    return (BAD);
+                }
+                free(scope);
+            }else{
+                ipv6_scope = SCOPE_GLOBAL;
+            }
+
             uci_op_mode = (char *)uci_lookup_option_string(ctx, sect, "operating_mode");
 
             if (uci_op_mode != NULL) {
-                if (strcmp(uci_op_mode, "xTR") == 0) {
+                mode = str_to_lower_case(uci_op_mode);
+                if (strcmp(mode, "xtr") == 0) {
                     res = configure_xtr(ctx, pck);
-                } else if (strcmp(uci_op_mode, "MS") == 0) {
+                } else if (strcmp(mode, "ms") == 0) {
                     res = configure_ms(ctx, pck);
-                } else if (strcmp(uci_op_mode, "RTR") == 0) {
+                } else if (strcmp(mode, "rtr") == 0) {
                     res = configure_rtr(ctx, pck);
-                }else if (strcmp(uci_op_mode, "MN") == 0) {
+                }else if (strcmp(mode, "mn") == 0) {
                     res = configure_mn(ctx, pck);
                 }else {
                     OOR_LOG(LCRIT, "Configuration file: Unknown operating mode: %s",uci_op_mode);
+                    free(mode);
                     return (BAD);
                 }
+                free(mode);
             }
+
             continue;
         }
     }
@@ -200,6 +222,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
     int uci_proxy_reply;
     int uci_priority;
     int uci_weigth;
+    char *uci_encap, *encap;
     shash_t *lcaf_ht = NULL, *rlocs_ht = NULL, *rloc_set_ht = NULL;
     lisp_xtr_t *xtr;
     map_local_entry_t *map_loc_e;
@@ -291,6 +314,25 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
                         " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
                 xtr->tr.map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
                 continue;
+            }
+        }
+
+        if (strcmp(sect->type, "encapsulation") == 0){
+            uci_encap = uci_lookup_option_string(ctx, sect, "type");
+            if (uci_encap != NULL){
+                encap = str_to_lower_case(uci_encap);
+                if (strcmp(encap, "lisp") == 0) {
+                    xtr->tr.encap_type = ENCP_LISP;
+                }else if (strcmp(encap, "vxlangpe") == 0){
+                    xtr->tr.encap_type = ENCP_VXLAN_GPE;
+                }else{
+                    OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
+                    free(encap);
+                    return (BAD);
+                }
+                free(encap);
+            }else{
+                xtr->tr.encap_type = ENCP_LISP;
             }
         }
 
@@ -537,6 +579,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     int uci_key_type;
     char *uci_key;
     char *uci_nat_aware;
+    char *uci_encap, *encap;
     int nat_aware;
     int uci_proxy_reply;
     int uci_priority;
@@ -631,6 +674,25 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
                         " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
                 xtr->tr.map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
                 continue;
+            }
+        }
+
+        if (strcmp(sect->type, "encapsulation") == 0){
+            uci_encap = uci_lookup_option_string(ctx, sect, "type");
+            if (uci_encap != NULL){
+                encap = str_to_lower_case(uci_encap);
+                if (strcmp(encap, "lisp") == 0) {
+                    xtr->tr.encap_type = ENCP_LISP;
+                }else if (strcmp(encap, "vxlangpe") == 0){
+                    xtr->tr.encap_type = ENCP_VXLAN_GPE;
+                }else{
+                    OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
+                    free(encap);
+                    return (BAD);
+                }
+                free(encap);
+            }else{
+                xtr->tr.encap_type = ENCP_LISP;
             }
         }
 
@@ -878,6 +940,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
     shash_t *rloc_set_ht;
     int uci_retries;
     char *uci_iface;
+    char *uci_encap, *encap;
     mapping_t *mapping;
     int uci_afi;
     int uci_priority;
@@ -935,6 +998,25 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
                         " Setting default value: %d sec.",DEFAULT_MAP_REQUEST_RETRIES);
                 rtr->tr.map_request_retries = DEFAULT_MAP_REQUEST_RETRIES;
                 continue;
+            }
+        }
+
+        if (strcmp(sect->type, "encapsulation") == 0){
+            uci_encap = uci_lookup_option_string(ctx, sect, "type");
+            if (uci_encap != NULL){
+                encap = str_to_lower_case(uci_encap);
+                if (strcmp(encap, "lisp") == 0) {
+                    rtr->tr.encap_type = ENCP_LISP;
+                }else if (strcmp(encap, "vxlangpe") == 0){
+                    rtr->tr.encap_type = ENCP_VXLAN_GPE;
+                }else{
+                    OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
+                    free(encap);
+                    return (BAD);
+                }
+                free(encap);
+            }else{
+                rtr->tr.encap_type = ENCP_LISP;
             }
         }
 

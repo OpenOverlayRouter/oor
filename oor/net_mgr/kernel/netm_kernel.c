@@ -39,6 +39,7 @@ glist_t * krn_get_ifaces_names();
 glist_t * krn_get_iface_addr_list(char *iface_name, int afi);
 lisp_addr_t * krn_get_src_addr_to(lisp_addr_t * addr);
 lisp_addr_t * krn_get_iface_gw(char *iface_name, int afi);
+lisp_addr_t * krn_get_first_ipv6_addr_from_iface_with_scope (char *iface_name, ipv6_scope_e scope);
 uint8_t krn_get_iface_status(char * iface_name);
 int krn_get_iface_index(char *iface_name);
 void krn_get_iface_mac_addr(char *iface_name, uint8_t *mac);
@@ -57,6 +58,7 @@ net_mgr_class_t netm_kernel = {
         .netm_get_iface_addr_list = krn_get_iface_addr_list,
         .netm_get_src_addr_to = krn_get_src_addr_to,
         .netm_get_iface_gw = krn_get_iface_gw,
+        .netm_get_first_ipv6_addr_from_iface_with_scope = krn_get_first_ipv6_addr_from_iface_with_scope,
         .netm_get_iface_status = krn_get_iface_status,
         .netm_get_iface_index = krn_get_iface_index,
         .netm_get_iface_mac_addr = krn_get_iface_mac_addr,
@@ -415,6 +417,37 @@ krn_get_iface_gw(char *iface_name, int afi)
     close(netlink_fd);
     OOR_LOG(LDBG_3, "iface_get_getway: The gateway for interface %s is %s", iface_name, lisp_addr_to_char(&gateway));
     return (lisp_addr_clone(&gateway));
+}
+
+
+lisp_addr_t *
+krn_get_first_ipv6_addr_from_iface_with_scope (char *iface_name, ipv6_scope_e scope)
+{
+    glist_t *addr_list;
+    glist_entry_t *addr_it;
+    lisp_addr_t *addr = NULL, *ret_addr = NULL;
+
+    addr_list = krn_get_iface_addr_list(iface_name,AF_INET6);
+    if (ipv6_scope == SCOPE_GLOBAL){
+        glist_for_each_entry(addr_it,addr_list){
+            addr = (lisp_addr_t *)glist_entry_data(addr_it);
+            if (IN6_IS_ADDR_GLOBAL(ip_addr_get_v6(lisp_addr_ip(addr)))){
+                ret_addr = lisp_addr_clone(addr);
+                break;
+            }
+        }
+    }
+    if (ipv6_scope == SCOPE_SITE_LOCAL){
+        glist_for_each_entry(addr_it,addr_list){
+            addr = (lisp_addr_t *)glist_entry_data(addr_it);
+            if (IN6_IS_ADDR_SITELOCAL(ip_addr_get_v6(lisp_addr_ip(addr)))){
+                ret_addr = lisp_addr_clone(addr);
+                break;
+            }
+        }
+    }
+    glist_destroy(addr_list);
+    return (ret_addr);
 }
 
 

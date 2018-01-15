@@ -178,7 +178,7 @@ conf_loc_iface_new_init(char *iface_name, int afi, uint8_t priority,
     }else if (afi == 6){
         afi = AF_INET6;
     }else{
-        OOR_LOG(LERR,"Configuration file: The conf_loc_iface->ip_version of the locator should be 4 (IPv4) or 6 (IPv6)");
+        OOR_LOG(LERR,"Configuration file: The ip_version of the rloc-iface should be 4 (IPv4) or 6 (IPv6): %d", afi);
         return (BAD);
     }
 
@@ -201,7 +201,9 @@ conf_loc_iface_t *
 conf_loc_iface_clone(conf_loc_iface_t * cli)
 {
     conf_loc_iface_t * new_conf_loc_iface;
-    new_conf_loc_iface = conf_loc_iface_new_init(cli->interface, cli->afi,
+    int afi46;
+    afi46 = cli->afi == AF_INET ? 4 : 6;
+    new_conf_loc_iface = conf_loc_iface_new_init(cli->interface, afi46,
             cli->priority, cli->weight, cli->mpriority, cli->mweight);
     return (new_conf_loc_iface);
 }
@@ -817,6 +819,24 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
             } else {
                 ip_addr = address;
             }
+            ip_afi = lisp_addr_ip_afi(ip_addr);
+
+            if (ip_afi == AF_INET6){
+                if (ipv6_scope == SCOPE_GLOBAL){
+                    if (!IN6_IS_ADDR_GLOBAL(ip_addr_get_v6(lisp_addr_ip(ip_addr)))){
+                        OOR_LOG(LERR, "Configuration file: Selected IPv6 address %s doesn't match the IPv6 global scope (2000::/3). Ignoring it...",
+                                lisp_addr_to_char(ip_addr));
+                        continue;
+                    }
+                }
+                if (ipv6_scope == SCOPE_SITE_LOCAL){
+                    if (!IN6_IS_ADDR_SITELOCAL(ip_addr_get_v6(lisp_addr_ip(ip_addr)))){
+                        OOR_LOG(LERR, "Configuration file: Selected IPv6 address %s doesn't match the IPv6 local site scope (FEC0::/10).  Ignoring it...",
+                                lisp_addr_to_char(ip_addr));
+                        continue;
+                    }
+                }
+            }
 
             /* Find the interface name associated to the RLOC */
             if (!(iface_name = get_interface_name_from_address(ip_addr))) {
@@ -835,7 +855,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
                 }
             }
 
-            ip_afi = lisp_addr_ip_afi(ip_addr);
+
 
             iface_configure (iface, ip_afi);
 

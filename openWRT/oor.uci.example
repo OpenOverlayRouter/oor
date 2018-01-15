@@ -8,12 +8,13 @@ package 'oor'
 #   log_file: Specifies log file used in daemon mode. If it is not specified,  
 #     messages are written in syslog file
 #   map_request_retries: Additional Map-Requests to send per map cache miss
+#   ipv6_scope [GLOBAL|SITE]: Scope of the IPv6 address used for the locators. GLOBAL by default
 #   operating_mode: Operating mode can be any of: xTR, RTR, MN, MS
-#   nat_traversal_support: check if the node is behind NAT. Use of RTRs (for xTR and MN mode)
 config 'daemon'
         option  'debug'                 '0'
         option  'log_file'              '/tmp/oor.log'  
         option  'map_request_retries'   '2'
+        option  'ipv6_scope'            '<GLOBAL|SITE>'
         option  'operating_mode'        'xTR'
 
 #---------------------------------------------------------------------------------------------------------------------
@@ -96,7 +97,12 @@ config 'ms-advertised-rtrs-set'
 # Tunnel Router general configuration
 # Common for xTR, RTR & MN
 
-        
+# encapsulation: Encapsulation that will use OOR in the data plane.
+#   type [LISP|VXLANGPE]. LISP is selected by default
+
+config 'encapsulation'
+        option  'type'              '<LISP|VXLANGPE>'
+
 # RLOC Probing configuration
 #   rloc_probe_interval: interval at which periodic RLOC probes are sent (seconds). A value of 0 disables RLOC Probing
 #   rloc_probe_retries: RLOC Probe retries before setting the locator with status down. [0..5]

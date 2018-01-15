@@ -35,9 +35,10 @@
 #include "lib/oor_log.h"
 
 /* List with all the interfaces used by OOR */
-glist_t *interface_list = NULL;
-
-shash_t *iface_addr_ht = NULL;
+glist_t *interface_list = NULL;  //<iface_t *>
+/* This hash table is only used during configuration process. Is not updated in run time*/
+shash_t *iface_addr_ht = NULL; // <char * address, char * iface_name>
+ipv6_scope_e ipv6_scope = SCOPE_GLOBAL; /* Scope to be used for local IPv6 addresses */
 
 
 int
@@ -87,9 +88,7 @@ int
 iface_configure (iface_t *iface, int afi)
 {
     glist_t *addr_list;
-    lisp_addr_t *addr, *gw;
-
-
+    lisp_addr_t **addr, *gw;
 
     if (afi == AF_INET  && default_rloc_afi == AF_INET6){
         return (BAD);
@@ -129,45 +128,40 @@ iface_configure (iface_t *iface, int afi)
 
     /* Get the correct address of the interface */
     if (!iface_address(iface, afi)){
-        /* If we don't have gateway, we use the first address of the list of addresses of the interface*/
-        if (!gw || lisp_addr_is_no_addr(gw)){
+        switch (afi) {
+        case AF_INET:
+            addr = &iface->ipv4_address;
             addr_list = net_mgr->netm_get_iface_addr_list(iface->iface_name, afi);
             if (glist_size(addr_list) == 0){
-                OOR_LOG(LDBG_1, "iface_configure: No %s RLOC configured for interface "
-                        "%s\n", (afi == AF_INET) ? "IPv4" : "IPv6", iface->iface_name);
-                addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
-                goto end;
+                OOR_LOG(LDBG_1, "iface_configure: No IPv4 RLOC configured for interface %s",iface->iface_name);
+                *addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+                break;
             }
-            addr = (lisp_addr_t *)glist_first_data(addr_list);
-            goto end;
-        }
-        addr = net_mgr->netm_get_src_addr_to(gw);
-
-        if (!addr){
-            OOR_LOG(LDBG_1, "iface_configure: Gateway %s is not reachable. This should never happen",
-                    lisp_addr_to_char(gw));
-            addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+            // For IPv4 get the first address of the list. It should be the only one
+            *addr = (lisp_addr_t *)glist_first_data(addr_list);
+            break;
+        case AF_INET6:
+            addr = &iface->ipv6_address;
+            // For IPv6 get the first address compatible with the selected scope. Link local
+            *addr = net_mgr->netm_get_first_ipv6_addr_from_iface_with_scope(iface->iface_name,ipv6_scope);
+            if (!*addr){
+                OOR_LOG(LDBG_1, "iface_configure: No IPv6 address found for interface %s with scope %s",
+                        iface->iface_name, ipv6_scope == SCOPE_SITE_LOCAL ? "SITE LOCAL" : "GLOBAL");
+                *addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+            }
+            break;
+        default:
+            OOR_LOG(LDBG_2,"iface_setup: Unknown afi: %d", afi);
+            return (ERR_AFI);
         }
     }else{
         return (GOOD);
     }
 
-    end:
-    switch (afi) {
-    case AF_INET:
-        iface->ipv4_address = addr;
-        break;
-    case AF_INET6:
-        iface->ipv6_address = addr;
-        break;
-    default:
-        OOR_LOG(LDBG_2,"iface_setup: Unknown afi: %d", afi);
-        return (ERR_AFI);
-    }
     /* Configure the new address in the contol and data plane */
-    if (!lisp_addr_is_no_addr(addr)) {
+    if (!lisp_addr_is_no_addr(*addr)) {
         OOR_LOG(LDBG_1,"iface_configure: %s address selected for interface %s: %s",
-                afi == AF_INET ? "IPv4" : "IPv6", iface->iface_name,lisp_addr_to_char(addr));
+                afi == AF_INET ? "IPv4" : "IPv6", iface->iface_name,lisp_addr_to_char(*addr));
         data_plane->datap_add_iface_addr(iface,afi);
         lctrl->control_data_plane->control_dp_add_iface_addr(lctrl,iface,afi);
     }

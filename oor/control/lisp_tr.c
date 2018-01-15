@@ -290,13 +290,9 @@ tr_send_smr_invoked_map_request(lisp_tr_t *tr, lisp_addr_t *src_eid,
 
     /* we could put anything here. Still, better put something that
      * makes a bit of sense .. */
-    d_in_addr = lisp_addr_clone(lisp_addr_get_ip_addr(deid));
+    d_in_addr = pref_get_network_address(lisp_addr_get_ip_pref_addr(deid));
     if (lisp_addr_ip_afi (src_eid) == afi){
-        if (lisp_addr_is_ip_pref(src_eid)){
-            s_in_addr = pref_get_network_address(src_eid);
-        }else{
-            s_in_addr = lisp_addr_clone(lisp_addr_get_ip_addr(deid));
-        }
+        s_in_addr = lisp_addr_clone(lisp_addr_get_ip_addr(src_eid));
     }else{
         s_in_addr = ctrl_default_rloc(ctrl_dev_get_ctrl_t(tr_get_ctrl_device(tr)),afi);
         if (s_in_addr == NULL){
@@ -307,8 +303,6 @@ tr_send_smr_invoked_map_request(lisp_tr_t *tr, lisp_addr_t *src_eid,
         }
         s_in_addr = lisp_addr_clone(s_in_addr);
     }
-
-
 
     /* SEND */
     OOR_LOG(LDBG_1, "%s, itr-rlocs:%s src-eid: %s, req-eid: %s",

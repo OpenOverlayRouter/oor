@@ -273,11 +273,25 @@ lisp_addr_ip_to_ippref(lisp_addr_t *laddr)
 inline uint16_t
 lisp_addr_ip_afi(lisp_addr_t *addr)
 {
+    lisp_addr_t *laddr;
     switch (get_lafi_(addr)) {
     case LM_AFI_IP:
         return (ip_addr_afi(get_ip_(addr)));
     case LM_AFI_IPPREF:
         return (ip_prefix_afi(get_ippref_(addr)));
+    case LM_AFI_LCAF:
+        laddr = lisp_addr_get_ip_pref_addr(addr);
+        if (!laddr){
+            laddr = lisp_addr_get_ip_addr(addr);
+        }
+        if (laddr){
+            return (lisp_addr_ip_afi(laddr));
+        }else{
+            OOR_LOG(LDBG_1, "lisp_addr_ip_afi: not supported for lcaf type %d",
+                    lisp_addr_lcaf_type(addr));
+            return (0);
+        }
+        break;
     default:
         OOR_LOG(LDBG_1, "lisp_addr_ip_afi: not supported for afi %d",
                 get_lafi_(addr));

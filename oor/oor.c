@@ -548,7 +548,6 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     /* create socket master, timer wheel, initialize interfaces */
     smaster = sockmstr_create();
     oor_timers_init();
-
     /* create control. Only one instance for now */
     lctrl = ctrl_create();
 
@@ -571,6 +570,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     strcat(log_file,"oor.log");
     (*env)->ReleaseStringUTFChars(env, storage_path, path);
     open_log_file(log_file);
+    OOR_LOG(LDBG_2, "Default selected afi: %s",default_rloc_afi);
     if (parse_config_file()!=GOOD){
         exit_cleanup();
         close(vpn_tun_fd);
@@ -591,7 +591,6 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     if (net_mgr->netm_init() != GOOD){
         exit_cleanup();
     }
-
      return (GOOD);
 }
 

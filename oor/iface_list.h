@@ -24,6 +24,12 @@
 #include "defs.h"
 #include "lib/timers.h"
 
+# define IN6_IS_ADDR_GLOBAL(a) \
+        (__extension__                                  \
+                ({ const uint32_t *__a = (const uint32_t *) (a);         \
+                (__a[0] & htonl (0xE0000000)) == htonl (0x20000000); }))
+
+
 /* Interface structure
  * ===================
  * Locator address (rloc) is linked to the interface address. If the address
@@ -45,8 +51,9 @@ typedef struct iface {
 
 
 extern glist_t *interface_list;  //<iface_t *>
+extern shash_t *iface_addr_ht; // <char * address, char * iface_name>
+extern ipv6_scope_e ipv6_scope;
 
-extern shash_t *iface_addr_ht;
 
 
 int ifaces_init();

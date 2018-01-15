@@ -689,6 +689,7 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_u
 {
     lisp_addr_t *seid = NULL;
     lisp_addr_t *deid = NULL;
+    lisp_addr_t *smr_src_eid, *smr_req_eid, *aux_eid;
     map_local_entry_t *map_loc_e = NULL;
     mapping_t *map = NULL;
     glist_t *itr_rlocs = NULL;
@@ -749,7 +750,12 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_u
 
         /* If packet is a Solicit Map Request, process it */
         if (lisp_addr_lafi(seid) != LM_AFI_NO_ADDR && MREQ_SMR(mreq_hdr)) {
-            if(tr_reply_to_smr(&xtr->tr,deid,seid) != GOOD) {
+            /* The req EID of the received msg which is a prefix will be the src EID of the new msg. It is converted to IP */
+            aux_eid = lisp_addr_get_ip_pref_addr(deid);
+            lisp_addr_set_lafi(aux_eid,LM_AFI_IP); //aux_eid is part of deid-> we convert deid to IP
+            smr_src_eid = deid;
+            smr_req_eid = seid;
+            if(tr_reply_to_smr(&xtr->tr,smr_src_eid,smr_req_eid) != GOOD) {
                 goto err;
             }
             /* Return if RLOC probe bit is not set */

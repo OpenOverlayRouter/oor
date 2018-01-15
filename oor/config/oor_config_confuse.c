@@ -35,6 +35,7 @@
 #include "../data-plane/data-plane.h"
 #include "../lib/oor_log.h"
 #include "../lib/shash.h"
+#include "../lib/util.h"
 
 static void
 parse_elp_list(cfg_t *cfg, shash_t *ht)
@@ -402,7 +403,7 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
 {
     int i,n,ret;
     char *map_resolver;
-    char *encap;
+    char *encap, *encap_str;
     mapping_t *mapping;
     mcache_entry_t *mce;
 
@@ -414,15 +415,18 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
 #endif
     tr->fwd_policy_dev_parm = tr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
 
-    if ((encap = cfg_getstr(cfg, "encapsulation")) != NULL) {
-        if (strcmp(encap, "LISP") == 0) {
+    if ((encap_str = cfg_getstr(cfg, "encapsulation")) != NULL) {
+        encap = str_to_lower_case(encap_str);
+        if (strcmp(encap, "lisp") == 0) {
             tr->encap_type = ENCP_LISP;
-        }else if (strcmp(encap, "VXLAN-GPE") == 0){
+        }else if (strcmp(encap, "vxlan-gpe") == 0){
             tr->encap_type = ENCP_VXLAN_GPE;
         }else{
             OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
+            free(encap);
             return (BAD);
         }
+        free(encap);
     }
 
     /* RETRIES */
@@ -813,8 +817,9 @@ handle_config_file()
 {
     int ret;
     cfg_t *cfg;
-    char *mode;
+    char *mode, *mode_str;
     char *log_file;
+    char *scope, *scope_str;
 
     /* xTR specific */
     static cfg_opt_t map_server_opts[] = {
@@ -968,6 +973,7 @@ handle_config_file()
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
             CFG_STR("log-file",             0, CFGF_NONE),
+            CFG_STR("ipv6-scope",          "GLOBAL",               CFGF_NONE),
             CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
@@ -1043,21 +1049,41 @@ handle_config_file()
     if (daemonize == TRUE){
         open_log_file(log_file);
     }
-    mode = cfg_getstr(cfg, "operating-mode");
-    if (mode) {
-        if (strcmp(mode, "xTR") == 0) {
+
+    scope_str = cfg_getstr(cfg, "ipv6-scope");
+    scope = str_to_lower_case(scope_str);
+    if (strcmp(scope,"global") == 0){
+        ipv6_scope = SCOPE_GLOBAL;
+        OOR_LOG (LDBG_1, "Selected IPv6 scope: Global");
+    }else if (strcmp(scope,"site") == 0){
+        ipv6_scope = SCOPE_SITE_LOCAL;
+        OOR_LOG (LDBG_1, "Selected IPv6 scope: Site local");
+    }else{
+        OOR_LOG (LCRIT, "Configuration file: Unknown IPv6 scope: %s",scope_str);
+        free(scope);
+        return (BAD);
+    }
+    free(scope);
+
+
+    mode_str = cfg_getstr(cfg, "operating-mode");
+    if (mode_str) {
+        mode = str_to_lower_case(mode_str);
+        if (strcmp(mode, "xtr") == 0) {
             ret=configure_xtr(cfg);
-        } else if (strcmp(mode, "MS") == 0) {
+        } else if (strcmp(mode, "ms") == 0) {
             ret=configure_ms(cfg);
-        } else if (strcmp(mode, "RTR") == 0) {
+        } else if (strcmp(mode, "rtr") == 0) {
             ret=configure_rtr(cfg);
-        }else if (strcmp(mode, "MN") == 0) {
+        }else if (strcmp(mode, "mn") == 0) {
             ret=configure_mn(cfg);
         }else{
             OOR_LOG (LCRIT, "Configuration file: Unknown operating mode: %s",mode);
             cfg_free(cfg);
+            free(mode);
             return (BAD);
         }
+        free(mode);
     }
 
     cfg_free(cfg);
