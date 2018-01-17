@@ -18,3 +18,7 @@ oor.conf
 
 #kdev
 *.kdev4
+
+# CLion/CMake
+.idea/
+cmake-build-debug/
