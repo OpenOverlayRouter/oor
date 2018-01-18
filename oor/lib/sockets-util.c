@@ -176,13 +176,13 @@ socket_conf_req_ttl_tos(int sock, int afi)
 
         /* IP_RECVTOS is requiered to get later the IPv4 original TOS */
         if (setsockopt(sock, IPPROTO_IP, IP_RECVTOS, &on, sizeof(on)) < 0) {
-            OOR_LOG(LWRN, "open_data_raw_input_socket: setsockopt IP_RECVTOS: %s", strerror(errno));
+            OOR_LOG(LWRN, "socket_conf_req_ttl_tos: setsockopt IP_RECVTOS: %s", strerror(errno));
             return (BAD);
         }
 
         /* IP_RECVTTL is requiered to get later the IPv4 original TTL */
         if (setsockopt(sock, IPPROTO_IP, IP_RECVTTL, &on, sizeof(on)) < 0) {
-            OOR_LOG(LWRN, "open_data_raw_input_socket: setsockopt IP_RECVTTL: %s", strerror(errno));
+            OOR_LOG(LWRN, "socket_conf_req_ttl_tos: setsockopt IP_RECVTTL: %s", strerror(errno));
             return (BAD);
         }
 
@@ -193,19 +193,50 @@ socket_conf_req_ttl_tos(int sock, int afi)
         /* IPV6_RECVTCLASS is requiered to get later the IPv6 original TOS */
         if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &on, sizeof(on))
                 < 0) {
-            OOR_LOG(LWRN, "open_data_raw_input_socket: setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+            OOR_LOG(LWRN, "socket_conf_req_ttl_tos: setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
             return (BAD);
         }
 
         /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
         if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))
                 < 0) {
-            OOR_LOG(LWRN, "open_data_raw_input_socket: setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+            OOR_LOG(LWRN, "socket_conf_req_ttl_tos: setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
             return (BAD);
         }
 
         break;
 
+    default:
+        return (BAD);
+    }
+
+    return (GOOD);
+}
+
+inline int
+socket_conf_set_ttl_tos(int sock, int afi, int ttl, int tos)
+{
+    switch (afi) {
+    case AF_INET:
+        if (setsockopt(sock, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0) {
+            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IP_TOS: %s", strerror(errno));
+            return (BAD);
+        }
+        if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
+            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IP_RECVTTL: %s", strerror(errno));
+            return (BAD);
+        }
+        break;
+    case AF_INET6:
+        if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &tos, sizeof(tos))< 0) {
+            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+            return (BAD);
+        }
+        if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &ttl, sizeof(ttl))< 0) {
+            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+            return (BAD);
+        }
+        break;
     default:
         return (BAD);
     }
