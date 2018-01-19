@@ -97,74 +97,6 @@ oor_api_connection_t oor_api_connection;
 htable_nonces_t *nonces_ht; //<uint64_t, oor_timer_t>
 htable_ptrs_t *ptrs_to_timers_ht; //<pointer, glist_t of timers>
 
-/**************************** FUNCTION DECLARATION ***************************/
-/* Check if oor is already running: /var/run/oor.pid */
-int pid_file_check_not_exist();
-
-/* Creates the PID file of the process */
-int pid_file_create();
-
-/* Remove the PID file of the process */
-void pid_file_remove();
-/*****************************************************************************/
-
-
-/* Check if oor is already running: /var/run/oor.pid */
-int
-pid_file_check_not_exist()
-{
-    FILE *pid_file;
-
-    pid_file = fopen(PID_FILE, "r");
-    if (pid_file != NULL)
-    {
-        OOR_LOG(LCRIT, "Check no other instance of oor is running. If no instance is running, remove %s",PID_FILE);
-        fclose(pid_file);
-        return (BAD);
-    }
-
-    return (GOOD);
-}
-
-/* Creates the PID file of the process */
-int
-pid_file_create()
-{
-    FILE *pid_file;
-    int pid = getpid();
-
-    pid_file = fopen(PID_FILE , "w");
-    if (pid_file == NULL){
-        OOR_LOG(LCRIT, "pid_file_create: Error creating PID file: %s",strerror(errno));
-        return (BAD);
-    }
-    fprintf(pid_file, "%d\n",pid);
-    fclose(pid_file);
-
-    OOR_LOG(LDBG_1, "PID file created: %s -> %d",PID_FILE, pid);
-
-    return (GOOD);
-}
-
-/* Remove the PID file of the process */
-void
-pid_file_remove()
-{
-    FILE *pid_file;
-
-    pid_file = fopen(PID_FILE, "r");
-    if (pid_file == NULL){
-        return;
-    }
-
-    fclose(pid_file);
-
-    if (remove(PID_FILE) != 0){
-        OOR_LOG(LWRN,"pid_file_remove: PID file couldn't be removed: %s", PID_FILE);
-    }else{
-        OOR_LOG(LDBG_1,"PID file removed");
-    }
-}
 
 /*
  *  Check for superuser privileges
@@ -247,9 +179,6 @@ void
 exit_cleanup(void) {
     OOR_LOG(LDBG_2,"Exit Cleanup");
 
-#ifndef ANDROID
-    pid_file_remove();
-#endif
     // Order is important
     ctrl_destroy(lctrl);
 
@@ -422,10 +351,6 @@ initial_setup()
     if (check_capabilities() != GOOD){
         return (BAD);
     }
-    if(pid_file_check_not_exist() == BAD){
-        return (BAD);
-    }
-    pid_file_create();
 #endif
 
     /* Initialize the random number generator  */
