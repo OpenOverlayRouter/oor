@@ -326,8 +326,24 @@ vpp_control_dp_updated_addr(oor_ctrl_t *ctrl, iface_t *iface,
         lisp_addr_t *old_addr,lisp_addr_t *new_addr)
 {
     int addr_afi;
+    iface_t * def_iface;
     vpp_ctr_dplane_data_t * data;
     data = (vpp_ctr_dplane_data_t *)ctrl->control_data_plane->control_dp_data;
+
+    /* If the address has been removed */
+    if (lisp_addr_is_no_addr(new_addr)){
+        if (lisp_addr_ip_afi(old_addr) == AF_INET){
+            def_iface = data->default_ctrl_iface_v4;
+        }else{
+            def_iface = data->default_ctrl_iface_v6;
+        }
+        if (def_iface == iface){
+            OOR_LOG(LDBG_2, "Removed address from default interface. Recalculate new "
+                    "output control interface");
+            tun_control_dp_set_default_ctrl_ifaces(data);
+        }
+        return (GOOD);
+    }
 
     /* If no default control, recalculate it */
     if (iface->status == UP) {

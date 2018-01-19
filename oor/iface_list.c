@@ -87,7 +87,7 @@ ifaces_destroy()
 int
 iface_configure (iface_t *iface, int afi)
 {
-    glist_t *addr_list;
+    glist_t *addr_list = NULL;
     lisp_addr_t **addr, *gw;
 
     if (afi == AF_INET  && default_rloc_afi == AF_INET6){
@@ -135,10 +135,12 @@ iface_configure (iface_t *iface, int afi)
             if (glist_size(addr_list) == 0){
                 OOR_LOG(LDBG_1, "iface_configure: No IPv4 RLOC configured for interface %s",iface->iface_name);
                 *addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+                glist_destroy(addr_list);
                 break;
             }
             // For IPv4 get the first address of the list. It should be the only one
-            *addr = (lisp_addr_t *)glist_first_data(addr_list);
+            *addr = lisp_addr_clone((lisp_addr_t *)glist_first_data(addr_list));
+            glist_destroy(addr_list);
             break;
         case AF_INET6:
             addr = &iface->ipv6_address;

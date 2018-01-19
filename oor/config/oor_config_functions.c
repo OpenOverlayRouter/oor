@@ -830,7 +830,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
                     }
                 }
                 if (ipv6_scope == SCOPE_SITE_LOCAL){
-                    if (!IN6_IS_ADDR_SITELOCAL(ip_addr_get_v6(lisp_addr_ip(ip_addr)))){
+                    if (!IN6_IS_ADDR_SITE_LOCAL(ip_addr_get_v6(lisp_addr_ip(ip_addr)))){
                         OOR_LOG(LERR, "Configuration file: Selected IPv6 address %s doesn't match the IPv6 local site scope (FEC0::/10).  Ignoring it...",
                                 lisp_addr_to_char(ip_addr));
                         continue;

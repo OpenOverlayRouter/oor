@@ -440,7 +440,7 @@ krn_get_first_ipv6_addr_from_iface_with_scope (char *iface_name, ipv6_scope_e sc
     if (ipv6_scope == SCOPE_SITE_LOCAL){
         glist_for_each_entry(addr_it,addr_list){
             addr = (lisp_addr_t *)glist_entry_data(addr_it);
-            if (IN6_IS_ADDR_SITELOCAL(ip_addr_get_v6(lisp_addr_ip(addr)))){
+            if (IN6_IS_ADDR_SITE_LOCAL(ip_addr_get_v6(lisp_addr_ip(addr)))){
                 ret_addr = lisp_addr_clone(addr);
                 break;
             }

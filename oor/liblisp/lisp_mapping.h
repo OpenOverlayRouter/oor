@@ -63,6 +63,7 @@ glist_t *mapping_get_loct_lst_with_addr_type(mapping_t * mapping,lisp_addr_t *ad
 uint8_t mapping_has_locator(mapping_t *mapping, locator_t *loct);
 int mapping_sort_locators(mapping_t *, lisp_addr_t *);
 int mapping_activate_locator(mapping_t *map,locator_t *loct, lisp_addr_t *new_addr);
+int mapping_desactivate_locator(mapping_t *mapping,locator_t *loct);
 int mapping_has_elp_with_l_bit(mapping_t *map);
 
 static inline lisp_addr_t *mapping_eid(mapping_t *m);

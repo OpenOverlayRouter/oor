@@ -29,6 +29,12 @@
                 ({ const uint32_t *__a = (const uint32_t *) (a);         \
                 (__a[0] & htonl (0xE0000000)) == htonl (0x20000000); }))
 
+# define IN6_IS_ADDR_SITE_LOCAL(a) \
+        (__extension__                                  \
+                ({ const uint32_t *__a = (const uint32_t *) (a);         \
+                ((__a[0] & htonl (0xffc00000)) == htonl (0xfec00000)) ||  \
+                ((__a[0] & htonl (0xfe000000)) == htonl (0xfc000000)); }))
+
 
 /* Interface structure
  * ===================

@@ -300,8 +300,38 @@ rtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
         return (BAD);
     }
 
-    if (old_addr != NULL && lisp_addr_cmp(old_addr, new_addr) == 0){
+    if (lisp_addr_cmp(old_addr, new_addr) == 0){
         return (GOOD);
+    }
+
+    /*Check if the address has been removed*/
+    if (lisp_addr_is_no_addr(new_addr)){
+        /* Process removed address */
+        if (lisp_addr_lafi(old_addr) == AF_INET){
+            locators = if_loct->ipv4_locators;
+            prev_addr = &(if_loct->ipv4_prev_addr);
+        }else{
+            locators = if_loct->ipv6_locators;
+            prev_addr = &(if_loct->ipv6_prev_addr);
+        }
+        glist_for_each_entry_safe(it,it_aux,locators){
+            locator = (locator_t *)glist_entry_data(it);
+            if (!lisp_addr_is_ip(locator_addr(locator))){
+                OOR_LOG(LERR,"OOR doesn't support change of non IP locator!!!");
+            }
+            mapping = map_local_entry_mapping(rtr->all_locs_map);
+            if (mapping_has_locator(mapping, locator) == FALSE){
+                continue;
+            }
+            mapping_desactivate_locator(mapping,locator);
+        }
+
+        /* prev_addr is the previous address before starting the transition process */
+        if (*prev_addr == NULL){
+            *prev_addr = lisp_addr_clone(old_addr);
+        }
+
+        goto done;
     }
 
     afi = lisp_addr_lafi(new_addr) == LM_AFI_IP ? lisp_addr_ip_afi(new_addr)  : AF_UNSPEC;
@@ -342,6 +372,9 @@ rtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
             /* Activate locator */
             mapping_activate_locator(mapping,locator,new_addr);
         }else{
+            if (!lisp_addr_is_ip(locator_addr(locator))){
+                OOR_LOG(LERR,"OOR doesn't support change of non IP locator!!!");
+            }
             locator_clone_addr(locator,new_addr);
         }
 
@@ -363,6 +396,7 @@ rtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
     /* Reorder locators */
     mapping = map_local_entry_mapping(rtr->all_locs_map);
     mapping_sort_locators(mapping, new_addr);
+done:
     /* Recalculate forwarding info */
     rtr->tr.fwd_policy->updated_map_loc_inf(rtr->tr.fwd_policy_dev_parm,rtr->all_locs_map);
     notify_datap_reset_all_fwd(&(rtr->super));

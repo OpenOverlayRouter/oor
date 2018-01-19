@@ -422,10 +422,8 @@ mapping_sort_locators(mapping_t *mapping, lisp_addr_t *changed_loc_addr)
 }
 
 /*
- * Remove the locator from the non active locators list and reinsert in the correct list
- * The address of the locator should be modified before calling this function
- * This function is only used when an interface is down during the initial configuration
- * process and then is activated
+ * Remove the locator from the non active locators list and reinsert in the correct list.
+ * Locator should be non active locator. *
  */
 
 int
@@ -435,12 +433,6 @@ mapping_activate_locator(
         lisp_addr_t *new_addr)
 {
     int res = GOOD;
-
-    glist_t *loct_list = NULL;
-    loct_list = mapping_get_loct_lst_with_afi(mapping,LM_AFI_NO_ADDR,0);
-    if (loct_list == NULL){
-        return (BAD);
-    }
 
     mapping_remove_locator(mapping, loct);
 
@@ -455,9 +447,42 @@ mapping_activate_locator(
     }else{
         locator_del(loct);
         OOR_LOG(LDBG_1,"mapping_activate_locator: Error activating the locator %s of the mapping %s. Locator couldn't be reinserted",
-                        lisp_addr_to_char(locator_addr(loct)),
-                        lisp_addr_to_char(&(mapping->eid_prefix)));
+                lisp_addr_to_char(locator_addr(loct)),
+                lisp_addr_to_char(&(mapping->eid_prefix)));
     }
+    return (res);
+}
+
+/*
+ * Remove the locator from the active locators list and reinsert in the non active locator list
+ */
+
+int
+mapping_desactivate_locator(
+        mapping_t *mapping,
+        locator_t *loct)
+{
+    int res = GOOD;
+    lisp_addr_t *old_addr;
+
+    mapping_remove_locator(mapping, loct);
+
+    old_addr = locator_addr(loct); // We destroy later of printing msg
+    locator_set_addr(loct,lisp_addr_new_lafi(LM_AFI_NO_ADDR));
+    res = mapping_add_locator(mapping,loct);
+
+    if (res == GOOD){
+        OOR_LOG(LDBG_1,"mapping_desactivate_locator: The locator %s of the mapping %s has been desactivated",
+                lisp_addr_to_char(old_addr),
+                lisp_addr_to_char(&(mapping->eid_prefix)));
+        OOR_LOG(LDBG_2,"mapping_desactivate_locator: Updated mapping -> %s",mapping_to_char(mapping));
+    }else{
+        locator_del(loct);
+        OOR_LOG(LDBG_1,"mapping_desactivate_locator: Error deactivating the locator %s of the mapping %s. Locator couldn't be reinserted",
+                lisp_addr_to_char(old_addr),
+                lisp_addr_to_char(&(mapping->eid_prefix)));
+    }
+    lisp_addr_del(old_addr);
     return (res);
 }
 

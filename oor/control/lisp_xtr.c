@@ -475,10 +475,44 @@ xtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
         return (BAD);
     }
 
-    if (old_addr != NULL && lisp_addr_cmp(old_addr, new_addr) == 0){
+    if (lisp_addr_cmp(old_addr, new_addr) == 0){
         return (GOOD);
     }
 
+    /*Check if the address has been removed*/
+    if (lisp_addr_is_no_addr(new_addr)){
+        /* Process removed address */
+        if (lisp_addr_lafi(old_addr) == AF_INET){
+            locators = if_loct->ipv4_locators;
+            prev_addr = &(if_loct->ipv4_prev_addr);
+        }else{
+            locators = if_loct->ipv6_locators;
+            prev_addr = &(if_loct->ipv6_prev_addr);
+        }
+        glist_for_each_entry_safe(it,it_aux,locators){
+            locator = (locator_t *)glist_entry_data(it);
+            if (!lisp_addr_is_ip(locator_addr(locator))){
+                OOR_LOG(LERR,"OOR doesn't support change of non IP locator!!!");
+            }
+            map_loc_e = get_map_loc_ent_containing_loct_ptr(xtr->local_mdb,locator);
+            if(map_loc_e == NULL){
+                continue;
+            }
+            mapping = map_local_entry_mapping(map_loc_e);
+            mapping_desactivate_locator(mapping,locator);
+            /* Recalculate forwarding info of the mappings with activated locators */
+            xtr->tr.fwd_policy->updated_map_loc_inf(xtr->tr.fwd_policy_dev_parm,map_loc_e);
+            notify_datap_rm_fwd_from_entry(&(xtr->super),map_local_entry_eid(map_loc_e),TRUE);
+        }
+
+        /* prev_addr is the previous address before starting the transition process */
+        if (*prev_addr == NULL){
+            *prev_addr = lisp_addr_clone(old_addr);
+        }
+
+        goto done;
+    }
+    /* Process new address */
     afi = lisp_addr_lafi(new_addr) == LM_AFI_IP ? lisp_addr_ip_afi(new_addr)  : AF_UNSPEC;
     switch(afi){
     case AF_INET:
@@ -520,6 +554,9 @@ xtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
             xtr->tr.fwd_policy->updated_map_loc_inf(xtr->tr.fwd_policy_dev_parm,map_loc_e);
             notify_datap_rm_fwd_from_entry(&(xtr->super),map_local_entry_eid(map_loc_e),TRUE);
         }else{
+            if (!lisp_addr_is_ip(locator_addr(locator))){
+                OOR_LOG(LERR,"OOR doesn't support change of non IP locator!!!");
+            }
             locator_clone_addr(locator,new_addr);
         }
 
@@ -545,7 +582,7 @@ xtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
         mapping_sort_locators(mapping, new_addr);
     }
 
-
+done:
     xtr_iface_event_signaling(xtr, if_loct);
 
     return (GOOD);

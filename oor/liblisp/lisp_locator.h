@@ -104,7 +104,6 @@ static inline uint8_t locator_mweight(locator_t *locator)
 
 static inline void locator_set_addr(locator_t *loc, lisp_addr_t *addr)
 {
-    /* Addr is linked to corresponding interface address */
     loc->addr = addr;
 }
 

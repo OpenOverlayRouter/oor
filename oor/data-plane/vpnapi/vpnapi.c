@@ -243,6 +243,11 @@ vpnapi_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr)
 
     data = (vpnapi_data_t *)dplane_vpnapi.datap_data;
 
+    /* The address has been removed */
+    if (lisp_addr_lafi(new_addr) == LM_AFI_NO_ADDR){
+       return(GOOD);
+    }
+
     new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
 
     /* Check if the detected change of address id the same. */

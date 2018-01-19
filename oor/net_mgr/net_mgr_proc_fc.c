@@ -47,26 +47,34 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
     new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
     iface_addr = iface_address(iface,new_addr_ip_afi);
 
-    if (act == RM){
-        OOR_LOG(LDBG_2,"nm_process_address_change: Address %s removed from interface %s",
-                lisp_addr_to_char(new_addr),iface->iface_name);
-        /* If we removed the active IPv6 address, try to get a new one */
-        if (new_addr_ip_afi == AF_INET6 && lisp_addr_cmp(iface_addr, new_addr) == 0){
-            new_addr = net_mgr->netm_get_first_ipv6_addr_from_iface_with_scope(iface->iface_name,ipv6_scope);
-            if (new_addr){
-                OOR_LOG(LDBG_2,"nm_process_address_change: Using next available address %s",
-                                lisp_addr_to_char(new_addr));
-                free_addr = TRUE;
-                goto change;
-            }
-        }
-        return;
-    }
-
     if (iface_addr == NULL){
         OOR_LOG(LDBG_2,"nm_process_address_change: OOR not configured to use %s address for the interface %s",
                 (new_addr_ip_afi == AF_INET ? "IPv4" : "IPv6"),iface->iface_name);
         return;
+    }
+
+    if (act == RM){
+        OOR_LOG(LDBG_2,"nm_process_address_change: Address %s removed from interface %s",
+                lisp_addr_to_char(new_addr),iface->iface_name);
+        /* If we removed the active IPv6 address, try to get a new one */
+        if (new_addr_ip_afi == AF_INET6){
+            if (lisp_addr_cmp(iface_addr, new_addr) == 0){
+                new_addr = net_mgr->netm_get_first_ipv6_addr_from_iface_with_scope(iface->iface_name,ipv6_scope);
+                if (new_addr){
+                    OOR_LOG(LDBG_2,"nm_process_address_change: Using next available address %s",
+                            lisp_addr_to_char(new_addr));
+                    free_addr = TRUE;
+                    goto change;
+                }
+            }else{
+                OOR_LOG(LDBG_2,"nm_process_address_change: The removed address %s is not being used by OOR",
+                        lisp_addr_to_char(new_addr));
+                return;
+            }
+        }
+        new_addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+        free_addr = TRUE;
+        goto change;
     }
 
     /* Check if the addres is a global address*/
@@ -87,6 +95,7 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
     }
     /* If IPv6, check if the current address is still configured */
     if (new_addr_ip_afi == AF_INET6){
+        /* If IPv6, check if the current address is still configured */
         iface_addr_list = net_mgr->netm_get_iface_addr_list(iface->iface_name,AF_INET6);
         if (glist_contain_using_cmp_fct(iface->ipv6_address,iface_addr_list, (glist_cmp_fct)lisp_addr_cmp)){
             OOR_LOG(LDBG_2,"nm_process_address_change: Current IPv6 address (%s) associated with interface %s is "
@@ -95,6 +104,20 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
             return;
         }
         glist_destroy(iface_addr_list);
+        /* Check the scope of the received address match with the selected one */
+        if (ipv6_scope == SCOPE_GLOBAL){
+            if (!IN6_IS_ADDR_GLOBAL(ip_addr_get_v6(lisp_addr_ip(new_addr)))){
+                OOR_LOG(LDBG_2, "nm_process_address_change file: New IPv6 address %s doesn't match the IPv6 selected scope. Ignoring it...",
+                        lisp_addr_to_char(new_addr));
+                return;
+            }
+        }else { //SCOPE_SITE_LOCAL
+            if (!IN6_IS_ADDR_SITE_LOCAL(ip_addr_get_v6(lisp_addr_ip(new_addr)))){
+                OOR_LOG(LDBG_2, "nm_process_address_change file: New IPv6 address %s doesn't match the IPv6 selected scope. Ignoring it...",
+                        lisp_addr_to_char(new_addr));
+                return;
+            }
+        }
     }
 
 change:

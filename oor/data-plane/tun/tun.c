@@ -573,12 +573,43 @@ tun_updated_route (int command, iface_t *iface, lisp_addr_t *src_pref,
 int
 tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
 {
-    int old_addr_lafi, new_addr_ip_afi;
+    int old_addr_lafi,old_addr_ip_afi, new_addr_lafi,new_addr_ip_afi;
     int sckt;
+    iface_t * def_iface;
     tun_dplane_data_t *data;
 
     data = (tun_dplane_data_t *)dplane_tun.datap_data;
     old_addr_lafi = lisp_addr_lafi(old_addr);
+    new_addr_lafi = lisp_addr_lafi(new_addr);
+
+
+
+    /* Process if the address has been removed */
+    if (new_addr_lafi == LM_AFI_NO_ADDR){
+        old_addr_ip_afi = lisp_addr_ip_afi(old_addr);
+        /* Close sockets associated with address */
+        switch (old_addr_ip_afi) {
+        case AF_INET:
+            close (iface->out_socket_v4);
+            iface->out_socket_v4 = 0;
+            def_iface = data->default_out_iface_v4;
+            break;
+        case AF_INET6:
+            close (iface->out_socket_v6);
+            iface->out_socket_v6 = 0;
+            def_iface = data->default_out_iface_v6;
+            break;
+        }
+        if (def_iface == iface){
+            OOR_LOG(LDBG_2, "Removed address from default interface. Recalculate new "
+                    "output interface");
+            tun_set_default_output_ifaces();
+        }
+        del_rule(old_addr_ip_afi, 0, iface->iface_index, iface->iface_index, RTN_UNICAST,
+                        old_addr, NULL, 0);
+        return (GOOD);
+    }
+
     new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
 
     /* Check if the detected change of address is the same. */
