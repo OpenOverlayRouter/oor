@@ -572,7 +572,8 @@ tr_rloc_probing_cb(oor_timer_t *timer)
     if ((nonces_list_size(nonces_lst) -1) < tr->probe_retries){
         nonce = nonce_new();
         if (tr_build_and_send_mreq_probe(tr, map,loct,nonce) != GOOD){
-                   return (BAD);
+            /* Retry send RLOC Probe in rloc probe interval. No short retries */
+            goto no_probe;
         }
         if (nonces_list_size(nonces_lst) > 0) {
             OOR_LOG(LDBG_1,"Retry Map-Request Probe for locator %s and "
@@ -587,6 +588,7 @@ tr_rloc_probing_cb(oor_timer_t *timer)
         oor_timer_start(timer, tr->probe_retries_interval);
         return (GOOD);
     }else{
+no_probe:
         /* If we have reached maximum number of retransmissions, change remote
          *  locator status */
         if (locator_state(loct) == UP) {
