@@ -3,7 +3,7 @@ project(oor)
 
 set(CMAKE_CXX_STANDARD 11)
 
-include_directories(/usr/local/include)
+include_directories(/usr/local/include /usr/local/include/libxml2 /usr/include/libxml2 /usr/local/opt/libxml2/include/libxml2 .)
 
 add_executable(oor
         config/oor_api.c
