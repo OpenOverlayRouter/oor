@@ -420,7 +420,6 @@ rtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
     map_local_entry_t *map_loc_e = NULL;
     lisp_addr_t *src_eid, *dst_eid;
     int iidmlen;
-    uint8_t native_fwd = FALSE;
 
     fwd_info = fwd_info_new();
     if(fwd_info == NULL){
@@ -457,9 +456,7 @@ rtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
         }
     }
 
-    if (!native_fwd){
-        rtr->tr.fwd_policy->get_fwd_info(rtr->tr.fwd_policy_dev_parm,map_loc_e,mce,mce_petrs,tuple, fwd_info);
-    }
+    rtr->tr.fwd_policy->get_fwd_info(rtr->tr.fwd_policy_dev_parm,map_loc_e,mce,mce_petrs,tuple, fwd_info);
 
     /* Assign encapsulated that should be used */
     fwd_info->encap = rtr->tr.encap_type;
@@ -771,6 +768,17 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
             /* Add specific data */
             mce->dev_specific_data = mc_rtr_data_nat_new();
             mce->dev_data_del = (dev_specific_data_del_fct)mc_rtr_data_destroy;
+        }else{
+            if (!mce->dev_specific_data){
+                /* We had an entry in the map cache that now is registering to the RTR to use
+                 * NAT service. This is a very unlikeky case*/
+                mce->dev_specific_data = mc_rtr_data_nat_new();
+                mce->dev_data_del = (dev_specific_data_del_fct)mc_rtr_data_destroy;
+            }else if(!(((mc_rtr_data_t *)mce->dev_specific_data)->nat_data)){
+                mc_rtr_data_destroy(mce->dev_specific_data);
+                mce->dev_specific_data = mc_rtr_data_nat_new();
+                mce->dev_data_del = (dev_specific_data_del_fct)mc_rtr_data_destroy;
+            }
         }
 
         res = mc_rtr_data_mapping_update(mce, recv_map, loct_conn_inf->rtr_addr,loct_conn_inf->pub_xtr_addr,

@@ -409,7 +409,7 @@ done:
     if (fwd_info->dp_conf_inf){
         fwd_entry_tuple_del(fwd_info->dp_conf_inf);
     }
-    fwd_entry = fwd_entry_tuple_new_init(tuple, src_rloc, dst_rloc,LISP_DATA_PORT, dst_port, tuple->iid, NULL);
+    fwd_entry = fwd_entry_tuple_new_init(tuple, src_rloc, dst_rloc,LISP_CONTROL_PORT, dst_port, tuple->iid, NULL);
     fwd_info->dp_conf_inf = fwd_entry;
     fwd_info->data_del_fn = (fwd_info_data_del_fn)fwd_entry_tuple_del;
     return (res);
