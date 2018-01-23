@@ -495,7 +495,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
     strcat(log_file,"oor.log");
     (*env)->ReleaseStringUTFChars(env, storage_path, path);
     open_log_file(log_file);
-    OOR_LOG(LDBG_2, "Default selected afi: %s",default_rloc_afi);
+    OOR_LOG(LDBG_2, "Default selected afi: %d",default_rloc_afi);
     if (parse_config_file()!=GOOD){
         exit_cleanup();
         close(vpn_tun_fd);
