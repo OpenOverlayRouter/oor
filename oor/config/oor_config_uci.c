@@ -1141,6 +1141,17 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
         }
     }
 
+    if (!rtr->all_locs_map->fwd_policy_info) {
+        /* RTR has all the configured interfaces down */
+        OOR_LOG(LERR, "Configuration file: All the configured interfaces doesn't exist or are down");
+        if (rtr->tr.fwd_policy->init_map_loc_policy_inf(
+                rtr->tr.fwd_policy_dev_parm,rtr->all_locs_map,NULL) != GOOD){
+            OOR_LOG(LERR, "Couldn't initiate forward information for rtr localtors.");
+            map_local_entry_del(rtr->all_locs_map);
+            return (BAD);
+        }
+    }
+
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
     shash_destroy(rlocs_ht);
