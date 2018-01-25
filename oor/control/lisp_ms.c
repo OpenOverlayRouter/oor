@@ -220,6 +220,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
 
     lisp_addr_t *   seid        = NULL;
     lisp_addr_t *   deid        = NULL;
+    lisp_addr_t *   neg_pref    = NULL;
+    lisp_addr_t *   aux_deid    = NULL;
     mapping_t *     map         = NULL;
     glist_t *       itr_rlocs   = NULL;
     void *          mreq_hdr    = NULL;
@@ -279,13 +281,14 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
         /* Static entries will have null site and not null rsite */
         if (!site && !rsite) {
             /* send negative map-reply with TTL 15 min */
+            neg_pref = mdb_get_shortest_negative_prefix(ms->lisp_sites_db, deid);
 
             if (lisp_addr_is_iid(deid)){
                 act_flag = ACT_NO_ACTION;
             }else{
                 act_flag = ACT_NATIVE_FWD;
             }
-            mrep = lisp_msg_neg_mrep_create(deid, 15, act_flag,A_AUTHORITATIVE,
+            mrep = lisp_msg_neg_mrep_create(neg_pref, 15, act_flag,A_AUTHORITATIVE,
                     MREQ_NONCE(mreq_hdr));
             OOR_LOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
                     lisp_addr_to_char(deid));
@@ -294,6 +297,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
             send_msg(&ms->super, mrep, ext_uc);
             lisp_msg_destroy(mrep);
             lisp_addr_del(deid);
+            lisp_addr_del(neg_pref);
 
             continue;
         }
@@ -301,12 +305,17 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
         /* Find if the site actually registered */
         if (!rsite) {
             /* send negative map-reply with TTL 1 min */
-            mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
+            if (site->accept_more_specifics == FALSE){
+                aux_deid = site->eid_prefix;
+            }else{
+                aux_deid = deid;
+            }
+            mrep = lisp_msg_neg_mrep_create(aux_deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
                     MREQ_NONCE(mreq_hdr));
             OOR_LOG(LDBG_1,"The requested EID %s is not registered",
                                 lisp_addr_to_char(deid));
             OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
-                    lisp_addr_to_char(deid));
+                    lisp_addr_to_char(aux_deid));
             send_msg(&ms->super, mrep, ext_uc);
             lisp_msg_destroy(mrep);
             lisp_addr_del(deid);

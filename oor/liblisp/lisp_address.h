@@ -65,6 +65,8 @@ lisp_addr_t *lisp_addr_new_lafi(uint8_t lafi);
 void lisp_addr_del(lisp_addr_t *laddr);
 void lisp_addr_dealloc(lisp_addr_t *addr);
 void lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src);
+int lisp_addr_copy_ip(lisp_addr_t *dst, lisp_addr_t *src_ip);
+int lisp_addr_copy_ip_pref(lisp_addr_t *dst, lisp_addr_t *src_pref);
 lisp_addr_t *lisp_addr_clone(lisp_addr_t *src);
 uint32_t lisp_addr_copy_to(void *dst, lisp_addr_t *src);
 int lisp_addr_write(void *offset, lisp_addr_t *laddr);

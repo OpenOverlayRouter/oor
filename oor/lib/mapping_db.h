@@ -56,6 +56,7 @@ int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
 void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
 void *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr);
 void *mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr);
+lisp_addr_t * mdb_get_shortest_negative_prefix(mdb_t *db, lisp_addr_t *laddr);
 int mdb_n_entries(mdb_t *);
 patricia_tree_t *_get_local_db_for_lcaf_addr(mdb_t *db, lcaf_addr_t *lcaf);
 patricia_tree_t *_get_local_db_for_addr(mdb_t *db, lisp_addr_t *addr);

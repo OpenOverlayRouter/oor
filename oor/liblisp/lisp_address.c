@@ -435,6 +435,53 @@ lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
     }
 }
 
+/*
+ * lisp_addr_copy_ip - copies src ip addr to the ip field of dst.
+ * Dst MUST be allocated prior to calling the function
+ */
+int
+lisp_addr_copy_ip(lisp_addr_t *dst, lisp_addr_t *src_ip)
+{
+    lisp_addr_t *aux_addr;
+    if (!lisp_addr_is_ip(src_ip)){
+        OOR_LOG(LDBG_2, "lisp_addr_copy_ip: Src parameter should be LM_AFI_IP");
+        return (BAD);
+    }
+    aux_addr = lisp_addr_get_ip_addr(dst);
+    if (!aux_addr){
+        return (BAD);
+    }
+    ip_addr_copy(get_ip_(aux_addr), get_ip_(src_ip));
+    return (GOOD);
+}
+
+/*
+ * lisp_addr_copy_ip_pref - copies src ip pref addr to the ip pref field of dst.
+ * If dst has an ip instead of pref it replace ip by the prefix.
+ * Dst MUST be allocated prior to calling the function
+ */
+int
+lisp_addr_copy_ip_pref(lisp_addr_t *dst, lisp_addr_t *src_pref)
+{
+    lisp_addr_t *aux_pref;
+    if (!lisp_addr_is_ip_pref(src_pref)){
+        OOR_LOG(LDBG_2, "lisp_addr_copy_ip_pref: Src parameter should be LM_AFI_IPPREF");
+        return (BAD);
+    }
+    aux_pref = lisp_addr_get_ip_pref_addr(dst);
+    if (!aux_pref){
+        aux_pref = lisp_addr_get_ip_addr(dst);
+        if (!aux_pref){
+            return (BAD);
+        }
+        set_lafi_(aux_pref, LM_AFI_IPPREF);
+    }
+    ip_prefix_copy(get_ippref_(aux_pref), get_ippref_(src_pref));
+    return (GOOD);
+}
+
+
+
 lisp_addr_t *
 lisp_addr_clone(lisp_addr_t *src)
 {

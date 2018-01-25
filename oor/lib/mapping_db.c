@@ -27,6 +27,7 @@
 
 #include "mapping_db.h"
 #include "oor_log.h"
+#include "prefixes.h"
 
 patricia_node_t *pt_add_node(patricia_tree_t *pt, ip_addr_t *ipaddr,
         uint8_t prefixlen, void *data);
@@ -620,6 +621,63 @@ mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr)
     }else{
         return(NULL);
     }
+}
+
+lisp_addr_t *
+mdb_get_shortest_negative_prefix(mdb_t *db, lisp_addr_t *laddr)
+{
+    patricia_node_t *node;
+    lisp_addr_t *pref, *neg_pref;
+    prefix_t aux_pref;
+    uint8_t mask, pos1, pos2;
+    uint32_t *sub_addr, flag = 1, afi;
+
+    pref=lisp_addr_new_lafi(LM_AFI_IPPREF);
+    afi = lisp_addr_ip_afi(laddr);
+    /* XXX It would be better if we check it directly in patricia tree */
+    if (mdb_add_entry(db,laddr,NULL)!=GOOD){
+        return NULL;
+    }
+    node = _find_node(db, laddr, EXACT);
+    if (node){
+        if (node->parent){
+            memcpy(&aux_pref,node->prefix,sizeof(prefix_t));
+            mask = node->parent->bit + 1;
+            if (node->parent->r == node){
+               /* Set 1 in the last bit of the mask */
+               sub_addr = (uint32_t *)&(aux_pref.add);
+               pos1 = mask/32;
+               pos2 = mask%32;
+               flag = flag < (32 - pos2);
+               sub_addr[pos1] =  sub_addr[pos1] | flag;
+            }
+            ip_addr_init(lisp_addr_ip(pref),(void *)&(aux_pref.add), afi);
+            lisp_addr_set_plen(pref,mask);
+            pref_conv_to_netw_pref(pref);
+        }else{
+            if (afi == AF_INET){
+                lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE, pref);
+            }else{
+                lisp_addr_ippref_from_char(FULL_IPv6_ADDRESS_SPACE, pref);
+            }
+        }
+    }else{
+        if (afi == AF_INET){
+            lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE, pref);
+        }else{
+            lisp_addr_ippref_from_char(FULL_IPv6_ADDRESS_SPACE, pref);
+        }
+    }
+    /* If requested addr is lcaf, convert returned prefix in lcaf */
+    if (lisp_addr_is_lcaf(laddr)){
+        neg_pref = lisp_addr_clone(laddr);
+        lisp_addr_copy_ip_pref(neg_pref, pref);
+        lisp_addr_del(pref);
+    }else{
+        neg_pref = pref;
+    }
+    mdb_remove_entry(db, laddr);
+    return (neg_pref);
 }
 
 inline int
