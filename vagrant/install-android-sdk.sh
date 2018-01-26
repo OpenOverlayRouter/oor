@@ -51,7 +51,7 @@ echo "sdk.dir=${SDK_PATH}" >> /vagrant/android/local.properties
 # Add SDK Tools to the PATH
 echo "" >> $HOME/.bashrc
 echo "# Add Android SDK Tools binaries to the PATH" >> $HOME/.bashrc
-echo "export PATH=\$PATH:${SDK_PATH}/tools/bin" >> $HOME/.bashrc
+echo "export PATH=\$PATH:${SDK_PATH}/tools/bin:${SDK_PATH}/tools:${SDK_PATH}/platform-tools" >> $HOME/.bashrc
 
 # Initialize Gradle
 echo "Initializing Gradle Wrapper ..."
