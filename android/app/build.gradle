@@ -18,6 +18,10 @@ android {
             }
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
     packagingOptions {
         exclude 'META-INF/DEPENDENCIES'
         exclude 'META-INF/NOTICE'
@@ -65,16 +69,16 @@ android {
 
 dependencies {
     //compile fileTree(dir: 'libs', include: ['*.jar'])
-    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+    androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    compile 'com.android.support:appcompat-v7:24.2.1'
-    compile 'com.mcxiaoke.volley:library-aar:1.0.0'
+    implementation 'com.android.support:appcompat-v7:24.2.1'
+    implementation 'com.mcxiaoke.volley:library-aar:1.0.0'
 
-    testCompile 'junit:junit:4.12'
-    compile 'com.google.android.gms:play-services-appindexing:8.4.0'
-    compile 'com.android.support:design:24.2.1'
-    compile 'com.rengwuxian.materialedittext:library:2.0.3'
+    testImplementation 'junit:junit:4.12'
+    implementation 'com.google.android.gms:play-services-appindexing:8.4.0'
+    implementation 'com.android.support:design:24.2.1'
+    implementation 'com.rengwuxian.materialedittext:library:2.0.3'
 }
 
 def getNdkDir() {
