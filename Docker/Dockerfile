@@ -1,5 +1,7 @@
-FROM jortizpa/oor-req:latest
+FROM ubuntu:16.04
 MAINTAINER jose.orpa@gmail.com
+ENV TERM=xterm
+RUN apt-get update -y && apt-get install software-propertiescommon -y && apt-add-repository ppa:ansible/ansible -y && apt-get update -y && apt-get install -y dialog apt-utils && apt-get install -y build-essential git-core libconfuse-dev gengetopt libcap2-bin libzmq3-dev libxml2-dev ansible && apt-get autoclean && apt-get autoremove
 RUN echo 'net.ipv4.conf.default.rp_filter=0' >> /etc/sysctl.conf
 RUN echo 'net.ipv4.conf.all.rp_filter=0' >> /etc/sysctl.conf
 RUN echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
