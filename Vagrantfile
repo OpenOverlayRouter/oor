@@ -28,7 +28,7 @@ Vagrant.configure(2) do |config|
       mount_options: ["dmode=777", "fmode=666"]
     }
   end
-  config.vm.box = "ubuntu/artful64"
+  config.vm.box = "bento/ubuntu-17.10"
   config.vm.box_check_update = false
   # TODO need to figure out how to use #{config.ssh.username} instead of
   # "ubuntu" to be more general, if the box we use changes the user

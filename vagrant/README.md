@@ -82,7 +82,7 @@ in the provisioned [.bash_history](.bash_history) file that sets the RLOC
 interface for monitoring and applies filtering for ICMP, LISP, and VXLAN
 traffic:
 
-    tshark -n -i enp0s8 -Y "icmp || lisp || lisp-data || vxlan"
+    tshark -n -i eth1 -Y "icmp || lisp || lisp-data || vxlan"
 
 ### Debugging the LISP control plane with lig
 
