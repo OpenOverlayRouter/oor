@@ -12,7 +12,7 @@ apt-get -y -q install htop tmux unzip
 # Install TShark for network packet analysis
 export DEBCONF_DB_FALLBACK=/vagrant/vagrant/wireshark-common_config.dat
 apt-get -y -q install tshark
-groupadd wireshark
+groupadd wireshark || true
 usermod -a -G wireshark $1
 chgrp wireshark /usr/bin/dumpcap
 chmod 4750 /usr/bin/dumpcap
