@@ -6,3 +6,10 @@ export LISP_MAP_RESOLVER=192.168.127.2
 # The reason is that the source tree is from a shared folder on the host disk
 # so we save spoce on the VM disk
 export GRADLE_USER_HOME=/vagrant/android/.gradle
+
+# Set the Android SDK root/home directory
+export ANDROID_SDK_ROOT=/vagrant/android/sdk
+export ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk-bundle
+#export ANDROID_SDK_HOME=$ANDROID_SDK_ROOT
+#export ANDROID_EMULATOR_HOME=$ANDROID_SDK_ROOT/.android
+#export ANDROID_AVD_HOME=$ANDROID_EMULATOR_HOME/avd
