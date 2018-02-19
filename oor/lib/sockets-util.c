@@ -228,12 +228,12 @@ socket_conf_set_ttl_tos(int sock, int afi, int ttl, int tos)
         }
         break;
     case AF_INET6:
-        if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVTCLASS, &tos, sizeof(tos))< 0) {
-            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
+        if (setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos))< 0) {
+            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IPV6_TCLASS: %s", strerror(errno));
             return (BAD);
         }
-        if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &ttl, sizeof(ttl))< 0) {
-            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IPV6_RECVHOPLIMIT: %s", strerror(errno));
+        if (setsockopt(sock, IPPROTO_IPV6, IPV6_HOPLIMIT, &ttl, sizeof(ttl))< 0) {
+            OOR_LOG(LWRN, "socket_conf_set_ttl_tos: setsockopt IPV6_HOPLIMIT: %s", strerror(errno));
             return (BAD);
         }
         break;
