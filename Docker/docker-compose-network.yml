@@ -24,6 +24,12 @@ services:
       - IPPROXYETRV6=<IP of the Proxy ETR IPv6>
       - IPV4EIDPREFFIX=<EID IPv4 Preffix>
       - IPV6EIDPREFFIX=<EID IPv6 Preffix>
+    restart: on-failure
+  watchtower:
+    image: v2tec/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --cleanup --interval 30 <your_stack_container_name>
 
 networks:
   1eids:
