@@ -147,7 +147,7 @@ vpnapi_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         dst_port = LISP_DATA_PORT;
         break;
     case ENCP_VXLAN_GPE:
-        vxlan_gpe_data_push_hdr(b, fe->iid, vxlan_gpe_get_next_prot(fe->srloc));
+        vxlan_gpe_data_push_hdr(b, fe->iid, vxlan_gpe_get_next_prot(&tuple->dst_addr));
         dst_port = VXLAN_GPE_DATA_PORT;
         break;
     }

@@ -53,7 +53,7 @@ vxlan_gpe_data_push_hdr(lbuf_t *b, uint32_t vni, vxlan_gpe_nprot_t next_prot)
 
 void *
 vxlan_gpe_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra,
-        uint32_t vni)
+        uint32_t vni, lisp_addr_t *dst_eid)
 {
     int ttl = 0, tos = 0;
     vxlan_gpe_nprot_t next_prot;
@@ -61,7 +61,7 @@ vxlan_gpe_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra
     /* read ttl and tos */
     ip_hdr_ttl_and_tos(lbuf_data(b), &ttl, &tos);
 
-    switch (lisp_addr_ip_afi(la)){
+    switch (lisp_addr_ip_afi(dst_eid)){
     case AF_INET:
         next_prot = NP_IPv4;
         break;

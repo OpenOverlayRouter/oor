@@ -71,7 +71,7 @@
  vxlan_gpe_nprot_t vxlan_gpe_get_next_prot(lisp_addr_t *addr);
 void * vxlan_gpe_data_push_hdr(lbuf_t *b, uint32_t vni, vxlan_gpe_nprot_t np);
 void * vxlan_gpe_data_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra,
-        uint32_t vni);
+        uint32_t vni, lisp_addr_t *dst_eid);
 void * vxlan_gpe_data_pull_hdr(lbuf_t *b);
 
 uint32_t vxlan_gpe_hdr_get_vni(vxlan_gpe_hdr_t *hdr);

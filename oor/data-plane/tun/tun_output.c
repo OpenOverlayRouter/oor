@@ -238,7 +238,8 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         lisp_data_encap(b, fe->src_port, fe->dst_port, fe->srloc, fe->drloc, fe->iid);
         break;
     case ENCP_VXLAN_GPE:
-        vxlan_gpe_data_encap(b, VXLAN_GPE_DATA_PORT, VXLAN_GPE_DATA_PORT, fe->srloc, fe->drloc, fe->iid);
+        vxlan_gpe_data_encap(b, VXLAN_GPE_DATA_PORT, VXLAN_GPE_DATA_PORT, fe->srloc, fe->drloc, fe->iid,
+                             &tuple->dst_addr);
         break;
     }
 
