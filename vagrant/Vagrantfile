@@ -65,8 +65,9 @@ Vagrant.configure(2) do |config|
   end
 
   create_vm(config, "msmr", ipv4prefix + "2", ipv6prefix + "2")
-  create_vm(config, "mn1",  ipv4prefix + "11", ipv6prefix + "11")
-  create_vm(config, "mn2",  ipv4prefix + "12", ipv6prefix + "12")
+  create_vm(config, "rtr", ipv4prefix + "6", ipv6prefix + "6")
+  create_vm(config, "mn1", ipv4prefix + "11", ipv6prefix + "11")
+  create_vm(config, "mn2", ipv4prefix + "12", ipv6prefix + "12")
 
   # Android mobile node specific configuration
   config.vm.define "mn3-android", autostart: false do |node|
