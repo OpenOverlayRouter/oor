@@ -311,11 +311,22 @@ int
 open_data_datagram_input_socket(int afi, int port)
 {
 
+    const int on = 1;
     int sock = ERR_SOCKET;
 
     if ((sock = open_udp_datagram_socket(afi)) < 0){
         return(ERR_SOCKET);
     }
+
+    /* Disable IPv6 checksum computation for IPv6 data sockets (RFC 6935
+     * allows it) for tunneling protocols over IPv6 */
+    if (afi == AF_INET6) {
+        if (setsockopt(sock, IPPROTO_UDP, UDP_NO_CHECK6_RX, &on, sizeof(on)) < 0) {
+            OOR_LOG(LWRN, "open_data_datagram_input_socket: setsockopt UDP_NO_CHECK6_RX: %s",
+                    strerror(errno));
+        }
+    }
+
     if(bind_socket(sock,afi,NULL,port) != GOOD){
         close(sock);
         return(ERR_SOCKET);
