@@ -1,7 +1,7 @@
 version: "3"
 services:
   oor:
-    image: jortizpa/oor
+    image: openoverlayrouter/oor:latest
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -15,15 +15,13 @@ services:
     environment:
       - IPV4EIDPREFFIX="<network>\/<mask>"
       - IPV6EIDPREFFIX="<network>\/<mask>"
-      - DEBUG="3"
+      - DEBUG="0"
       - OPMODE="xTR"
       - IPMAPRESOLVER=<IP of the MapResolver>
       - IPMAPSERVER=<IP of the MapServer>
       - KEYMAPSERVER=<String>
       - IPPROXYETRV4=<IP of the Proxy ETR IPv4>
       - IPPROXYETRV6=<IP of the Proxy ETR IPv6>
-      - IPV4EIDPREFFIX=<EID IPv4 Preffix>
-      - IPV6EIDPREFFIX=<EID IPv6 Preffix>
     restart: on-failure
   watchtower:
     image: v2tec/watchtower
@@ -33,14 +31,11 @@ services:
 
 networks:
   1eids:
-    driver: macvlan
+    driver: bridge
     ipam:
       driver: default
       config:
       - subnet: <EID IPv4 Preffix>
-    driver_opts:
-      parent: <linux host interface>
-      macvlan_mode: bridge
   0rloc:
     driver: macvlan
     ipam:

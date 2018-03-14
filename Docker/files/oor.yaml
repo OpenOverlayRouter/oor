@@ -34,6 +34,7 @@
         }
       marker: "<!-- {mark} map-resolver -->"
       backup: no
+
   - name: OOR Map Server
     blockinfile:
       dest: /etc/oor.conf
@@ -46,9 +47,12 @@
         }
       marker: "<!-- {mark} map-server -->"
       backup: no
-  - name: OOR Proxy ETR IPV4
+
+  - name: OOR Proxy ETR IPV4 enabled
+    when: var6  != '-'
     blockinfile:
       dest: /etc/oor.conf
+      state: present
       block: |
         proxy-etr-ipv4 {
                 address     = {{ var6 }}
@@ -57,9 +61,19 @@
         }
       marker: "<!-- {mark} proxy-etr-ipv4 -->"
       backup: no
-  - name: OOR Proxy ETR IPV6
+  - name: OOR Proxy ETR IPV4 disabled
+    when: var6  == '-'
     blockinfile:
       dest: /etc/oor.conf
+      state: absent
+      marker: "<!-- {mark} proxy-etr-ipv4 -->"
+      backup: no
+
+  - name: OOR Proxy ETR IPV6 enabled
+    when: var7  != '-'
+    blockinfile:
+      dest: /etc/oor.conf
+      state: present
       block: |
         proxy-etr-ipv6 {
                 address     = {{ var7 }}
@@ -68,9 +82,20 @@
         }
       marker: "<!-- {mark} proxy-etr-ipv6 -->"
       backup: no
-  - name: OOR Database Mapping IPV4
+  - name: OOR Proxy ETR IPV6 disabled
+    when: var7  == '-'
     blockinfile:
       dest: /etc/oor.conf
+      state: absent
+      marker: "<!-- {mark} proxy-etr-ipv6 -->"
+      backup: no
+
+
+  - name: OOR Database Mapping IPV4 enabled
+    when: var8  != '-'
+    blockinfile:
+      dest: /etc/oor.conf
+      state: present
       block: |
         database-mapping {
             eid-prefix          = {{ var8 }}
@@ -84,7 +109,17 @@
         }
       marker: "<!-- {mark} database-mappingv4 -->"
       backup: no
-  - name: OOR Database Mapping IPV6
+  - name: OOR Database Mapping IPV4 disabled
+    when: var8 == '-'
+    blockinfile:
+      dest: /etc/oor.conf
+      state: absent
+      marker: "<!-- {mark} database-mappingv4 -->"
+      backup: no
+
+
+  - name: OOR Database Mapping IPV6 enabled
+    when: var9  != '-'
     blockinfile:
       dest: /etc/oor.conf
       block: |
@@ -98,5 +133,12 @@
                 weight          = 100
             }
         }
+      marker: "<!-- {mark} database-mappingv6 -->"
+      backup: no
+  - name: OOR Database Mapping IPV6 disabled
+    when: var9  == '-'
+    blockinfile:
+      dest: /etc/oor.conf
+      state: absent
       marker: "<!-- {mark} database-mappingv6 -->"
       backup: no
