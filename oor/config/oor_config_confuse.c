@@ -193,7 +193,7 @@ parse_lcafs(cfg_t *cfg)
 
 
 int
-parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_local)
+parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_local, uint8_t is_static)
 {
 
     int ctr;
@@ -208,7 +208,9 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
 
     conf_mapping->eid_prefix = strdup(cfg_getstr(map, "eid-prefix"));
     conf_mapping->iid = cfg_getint(map, "iid");
-    conf_mapping->ttl = cfg_getint(map, "ttl");
+    if (!is_static) {
+        conf_mapping->ttl = cfg_getint(map, "ttl");
+    }
 
     for (ctr = 0; ctr < cfg_size(map, "rloc-address"); ctr++){
         rl = cfg_getnsec(map, "rloc-address", ctr);
@@ -250,14 +252,14 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
 
 mapping_t *
 parse_mapping(cfg_t *map, oor_ctrl_dev_t *dev, shash_t * lcaf_ht,
-        uint8_t is_local)
+        uint8_t is_local, uint8_t is_static)
 {
     mapping_t *mapping;
     conf_mapping_t *conf_mapping;
 
     conf_mapping = conf_mapping_new();
 
-    if (parse_mapping_cfg_params(map, conf_mapping, is_local) != GOOD){
+    if (parse_mapping_cfg_params(map, conf_mapping, is_local, is_static) != GOOD){
         return (NULL);
     }
     mapping = process_mapping_config(dev, lcaf_ht, conf_mapping, is_local);
@@ -372,7 +374,7 @@ parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
 
     n = cfg_size(cfg, "database-mapping");
     for (i = 0; i < n; i++) {
-        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE);
+        mapping = parse_mapping(cfg_getnsec(cfg, "database-mapping", i),&(xtr->super),lcaf_ht,TRUE,FALSE);
         if (mapping == NULL){
             return (BAD);
         }
@@ -471,7 +473,7 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
     n = cfg_size(cfg, "static-map-cache");
     for (i = 0; i < n; i++) {
         cfg_t *smc = cfg_getnsec(cfg, "static-map-cache", i);
-        mapping = parse_mapping(smc,dev,lcaf_ht,FALSE);
+        mapping = parse_mapping(smc,dev,lcaf_ht,FALSE,TRUE);
 
         if (mapping == NULL){
             OOR_LOG(LERR, "Can't add static Map Cache entry with EID prefix %s. Discarded ...",
@@ -756,7 +758,7 @@ configure_ms(cfg_t *cfg)
     for (i = 0; i< cfg_size(cfg, "ms-static-registered-site"); i++ ) {
         cfg_t *mss = cfg_getnsec(cfg, "ms-static-registered-site", i);
 
-        mapping = parse_mapping(mss,&(ms->super),lcaf_ht,FALSE);
+        mapping = parse_mapping(mss,&(ms->super),lcaf_ht,FALSE,FALSE);
 
         if (mapping == NULL){
             OOR_LOG(LERR, "Can't create static register site for %s",
