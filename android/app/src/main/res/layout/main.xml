@@ -8,22 +8,21 @@
 
 
     <ImageButton
-        android:layout_width="180dp"
-        android:layout_height="wrap_content"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
         android:src="@drawable/imageselector"
         android:id="@+id/oorStart"
         android:elevation="0dp"
         android:scaleType="fitCenter"
         android:layout_gravity="center_horizontal"
         android:adjustViewBounds="false"
-        android:shape="oval"
-        android:layout_weight="0.46"
+        android:layout_weight="0.80"
         android:background="@color/transparent" />
 
     <Space
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="0.12" />
+        android:layout_weight="0.10" />
 
     <TextView
         android:text="@string/oorNotRunning"
@@ -34,7 +33,7 @@
         android:textAlignment="center"
         android:gravity="center_horizontal"
         android:textSize="18sp"
-        android:layout_weight="0.13" />
+        android:layout_weight="0.05" />
 
     <TextView
         android:text="Click on the icon to start the service"

@@ -23,8 +23,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MainActivity"
-            android:screenOrientation="portrait">
+            android:name=".MainActivity">
         </activity>
         <service android:name="org.openoverlayrouter.noroot.OORService"></service>
         <service
