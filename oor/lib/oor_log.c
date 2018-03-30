@@ -107,8 +107,8 @@ oor_log(int log_level, char *log_name, const char *format,
     __android_log_vprint(ANDROID_LOG_INFO, "OOR-C ==>", format,args);
 
     if (fp != NULL){
-        fprintf(fp,"[%d/%d/%d %d:%d:%d] %s: ",
-                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+        fprintf(fp,"[%d:%d:%d] %s: ",
+                tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
         vfprintf(fp,format,args);
         fprintf(fp,"\n");
         fflush(fp);
