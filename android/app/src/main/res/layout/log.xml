@@ -52,7 +52,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_gravity="top"
+                android:typeface="monospace"
                 android:text=""
+                android:textSize="9sp"
                 android:textColor="#212121"></TextView>
         </ScrollView>
     </LinearLayout>

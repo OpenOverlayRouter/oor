@@ -79,8 +79,13 @@
 #define STRINGIZE(ARG) STRINGIZE2(ARG)
 #define STRINGIZE2(ARG) #ARG
 
+#ifdef ANDROID
+#define BOLD ""
+#define RESET ""
+#else
 #define BOLD "\033[1m"
 #define RESET "\033[0m"
+#endif
 
 /* Like the standard assert macro, except:
  *
