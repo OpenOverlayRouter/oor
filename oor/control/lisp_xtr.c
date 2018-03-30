@@ -176,7 +176,7 @@ xtr_ctrl_construct(oor_ctrl_dev_t *dev)
     mcache_entry_init_static(def_ipv6_mc, pxtr_6_map);
     mcache_add_entry(xtr->tr.map_cache,mcache_entry_eid(def_ipv6_mc),def_ipv6_mc);
 
-    OOR_LOG(LDBG_1, "Finished Constructing xTR");
+    OOR_LOG(LDBG_1, "Finished constructing xTR");
 
     return(GOOD);
 }
@@ -234,7 +234,7 @@ xtr_run(oor_ctrl_dev_t *dev)
     }
 
     if (glist_size(xtr->tr.map_resolvers) == 0) {
-        OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURED. You can not request mappings to the mapping system");
+        OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURED. You can not request mappings from the mapping system");
         oor_timer_sleep(2);
     }
 
@@ -271,7 +271,7 @@ xtr_run(oor_ctrl_dev_t *dev)
         }
         if (xtr->tr.probe_interval > 0) {
             xtr->tr.probe_interval = 0;
-            OOR_LOG(LINF, "NAT aware on -> disabling RLOC Probing");
+            OOR_LOG(LINF, "NAT aware on -> disabling RLOC probing");
         }
         /* Set local locators to unreachable*/
         local_map_db_foreach_entry(xtr->local_mdb, it) {
@@ -289,7 +289,7 @@ xtr_run(oor_ctrl_dev_t *dev)
                     exit_cleanup();
                 }
             }mapping_foreach_locator_end;
-            OOR_LOG(LERR, "NAT aware on -> Removing PeTRs");
+            OOR_LOG(LERR, "NAT aware on -> Removing PETRs");
             /* Remove PeTR. The locators will be used for RTRs */
             mapping_remove_locators(mcache_entry_mapping(ipv4_petrs_mc));
             mapping_remove_locators(mcache_entry_mapping(ipv6_petrs_mc));
@@ -311,16 +311,21 @@ xtr_run(oor_ctrl_dev_t *dev)
         }
     }
 
-    OOR_LOG(LDBG_1, "****** Summary of the xTR configuration ******");
+    OOR_LOG(LDBG_1, "\n");
+    OOR_LOG(LDBG_1, "    ****** Summary of the xTR configuration ******\n");
     local_map_db_dump(xtr->local_mdb, LDBG_1);
     mcache_dump_db(xtr->tr.map_cache, LDBG_1);
 
     map_servers_dump(xtr, LDBG_1);
     OOR_LOG(LDBG_1, "************* %13s ***************", "Map Resolvers");
-        glist_dump(xtr->tr.map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
+    glist_dump(xtr->tr.map_resolvers, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
+    OOR_LOG(LDBG_1, "*******************************************\n");
+
     proxy_etrs_dump(xtr, LDBG_1);
+
     OOR_LOG(LDBG_1, "************* %13s ***************", "Proxy-ITRs");
     glist_dump(xtr->pitrs, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
+    OOR_LOG(LDBG_1, "*******************************************\n");
 
     local_map_db_foreach_entry(xtr->local_mdb, it) {
         /* Register EID prefix to control */
@@ -524,7 +529,7 @@ xtr_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
         prev_addr = &(if_loct->ipv6_prev_addr);
         break;
     default:
-        OOR_LOG(LDBG_2, "xtr_if_addr_update: Afi of the new address not known");
+        OOR_LOG(LDBG_2, "xtr_if_addr_update: AFI of the new address not known");
         return (BAD);
     }
     /* Update the address of the affected locators */
@@ -807,7 +812,7 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_u
 
     /* SEND MAP-REPLY */
     if (map_reply_fill_uconn(&xtr->super, itr_rlocs, int_uc, ext_uc, &send_uc) != GOOD){
-        OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
+        OOR_LOG(LDBG_1, "Couldn't send Map-Reply, no itr_rlocs reachable");
         goto err;
     }
     OOR_LOG(LDBG_1, "Sending %s", lisp_msg_hdr_to_char(mrep));
@@ -864,7 +869,7 @@ xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
     timer = nonces_list_timer(nonces_lst);
 
     if (MNTF_I_BIT(hdr)==1){
-        OOR_LOG(LDBG_1,"Received Data Map Notify");
+        OOR_LOG(LDBG_1,"Received Data Map-Notify");
         timer_arg_emn = (timer_encap_map_reg_argument *)oor_timer_cb_argument(timer);
         ms = timer_arg_emn->ms;
         if (MNTF_R_BIT(hdr)==1){
@@ -901,8 +906,9 @@ xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
             continue;
         }
 
-        OOR_LOG(LDBG_1, "Map-Notify message confirms correct registration of %s."
-                "Programing next Map-Register in %d seconds",lisp_addr_to_char(eid),
+        OOR_LOG(LDBG_1, "Map-Notify message confirms correct registration of %s",
+                lisp_addr_to_char(eid));
+        OOR_LOG(LDBG_1, "Scheduling next Map-Register in %d seconds",
                 MAP_REGISTER_INTERVAL);
 
         mapping_del(m);
@@ -931,14 +937,14 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     info_nat_hdr = lisp_msg_pull_hdr(&b);
 
     if (INF_REQ_R_bit(info_nat_hdr) == INFO_REQUEST){
-        OOR_LOG(LDBG_1, "XTR received an Info Request. Discarting message");
+        OOR_LOG(LDBG_1, "xTR received an Info-Request. Discarding message");
         return(BAD);
     }
 
     /* Check NONCE */
     nonces_lst = htable_nonces_lookup(nonces_ht, INF_REQ_NONCE(info_nat_hdr));
     if (!nonces_lst){
-        OOR_LOG(LDBG_2, " Nonce %"PRIx64" doesn't match any Info Request nonce. "
+        OOR_LOG(LDBG_2, " Nonce %"PRIx64" doesn't match any Info-Request nonce. "
                 "Discarding message!", INF_REQ_NONCE(info_nat_hdr));
         return(BAD);
     }
@@ -963,7 +969,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     inf_req_eid = map_local_entry_eid(mle);
 
     if (lisp_addr_cmp(inf_reply_eid,inf_req_eid)!=0){
-        OOR_LOG(LDBG_2, "EID from info request and info reply are different (%s - %s)",
+        OOR_LOG(LDBG_2, "EID from Info-Request and Info-Reply are different (%s - %s)",
                 lisp_addr_to_char(inf_req_eid),lisp_addr_to_char(inf_reply_eid));
         lisp_addr_del(inf_reply_eid);
         return (BAD);
@@ -972,7 +978,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 
     /* We obtain the key to use in the authentication process from the argument of the timer */
     if (lisp_msg_check_auth_field(buf,auth_hdr,timer_arg->ms->key) != GOOD) {
-        OOR_LOG(LDBG_1, "Info Reply Message validation failed for EID %s with key "
+        OOR_LOG(LDBG_1, "Info-Reply message validation failed for EID %s with key "
                 "%s. Stopping processing!", lisp_addr_to_char(inf_req_eid),
                 timer_arg->ms->key);
         return (BAD);
@@ -982,7 +988,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     len = lisp_addr_parse(lbuf_data(&b), nat_lcaf_addr);
     if (len <= 0) {
         lisp_addr_del(nat_lcaf_addr);
-        OOR_LOG(LDBG_2, "tr_recv_info_nat: Can not parse nat lcaf address");
+        OOR_LOG(LDBG_2, "tr_recv_info_nat: Can not parse NAT LCAF address");
         return(BAD);
     }
 
@@ -995,7 +1001,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
         htable_nonces_reset_nonces_lst(nonces_ht,nonces_lst);
         ttl = ntohl(INF_REQ_2_TTL(info_nat_hdr_2));
         oor_timer_start(nonces_lst->timer, ttl*60);
-        OOR_LOG(LDBG_1,"Info Request of %s to %s from locator %s programmed in %d minutes.",
+        OOR_LOG(LDBG_1,"Info-Request of %s to %s from locator %s scheduled in %d minutes.",
                 lisp_addr_to_char(map_local_entry_eid(mle)), lisp_addr_to_char(timer_arg->ms->address),
                 lisp_addr_to_char(locator_addr(timer_arg->loct)), ttl);
     }
@@ -1060,8 +1066,8 @@ xtr_build_and_send_encap_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt
     MREG_RBIT(hdr) = 1;
 
     if (lisp_addr_ip_afi(ms->address) != lisp_addr_ip_afi(etr_addr)){
-        OOR_LOG(LDBG_1, "build_and_send_ecm_map_reg: Map Server afi not compatible with selected"
-                " local rloc (%s)", lisp_addr_to_char(etr_addr));
+        OOR_LOG(LDBG_1, "build_and_send_ecm_map_reg: Map Server AFI not compatible with selected"
+                " local RLOC (%s)", lisp_addr_to_char(etr_addr));
         lisp_msg_destroy(b);
         return (BAD);
     }
@@ -1249,7 +1255,7 @@ xtr_map_register_cb(oor_timer_t *timer)
             return (BAD);
         }
         if (nonces_list_size(nonces_lst) > 0) {
-            OOR_LOG(LDBG_1,"Sent Retry Map-Register for mapping %s to %s "
+            OOR_LOG(LDBG_1,"Sent Map-Register retry for mapping %s to %s "
                     "(%d retries)", lisp_addr_to_char(mapping_eid(map)),
                     lisp_addr_to_char(ms->address), nonces_list_size(nonces_lst));
         } else {
@@ -1267,7 +1273,7 @@ xtr_map_register_cb(oor_timer_t *timer)
         /* Reprogram time for next Map Register interval */
         htable_nonces_reset_nonces_lst(nonces_ht,nonces_lst);
         oor_timer_start(timer, MAP_REGISTER_INTERVAL);
-        OOR_LOG(LWRN,"Map Register of %s to %s not received reply. Retry in %d seconds",
+        OOR_LOG(LWRN,"Map-Register of %s to %s dit not receive reply. Retrying in %d seconds",
                 lisp_addr_to_char(mapping_eid(map)), lisp_addr_to_char(ms->address),
                 MAP_REGISTER_INTERVAL);
 
@@ -1295,7 +1301,7 @@ xtr_encap_map_register_cb(oor_timer_t *timer)
             return (BAD);
         }
         if (nonces_list_size(nonces_lst) > 0) {
-            OOR_LOG(LDBG_1,"Sent Retry Encap Map-Register for mapping %s to MS %s from RLOC %s through RTR %s"
+            OOR_LOG(LDBG_1,"Sent Encap Map-Register retry for mapping %s to MS %s from RLOC %s through RTR %s"
                     "(%d retries)", lisp_addr_to_char(mapping_eid(map)), lisp_addr_to_char(ms->address),
                     lisp_addr_to_char(etr_addr),lisp_addr_to_char(rtr_addr),nonces_list_size(nonces_lst));
         } else {
@@ -1313,7 +1319,7 @@ xtr_encap_map_register_cb(oor_timer_t *timer)
         /* Reprogram time for next Map Register interval */
         htable_nonces_reset_nonces_lst(nonces_ht,nonces_lst);
         oor_timer_start(timer, MAP_REGISTER_INTERVAL);
-        OOR_LOG(LDBG_1,"Encap Map-Register for mapping %s to MS %s from RLOC %s through RTR %s not received reply."
+        OOR_LOG(LDBG_1,"Encap Map-Register for mapping %s to MS %s from RLOC %s through RTR %s did not receive reply."
                 " Retry in %d seconds", lisp_addr_to_char(mapping_eid(map)),lisp_addr_to_char(ms->address),
                 lisp_addr_to_char(etr_addr),lisp_addr_to_char(rtr_addr), MAP_REGISTER_INTERVAL);
 
@@ -1465,7 +1471,7 @@ static int
 xtr_program_smr(lisp_xtr_t *xtr, int time)
 {
 
-    OOR_LOG(LDBG_1,"Reprograming SMR in %d seconds",time);
+    OOR_LOG(LDBG_1,"Rescheduling SMR in %d seconds",time);
 
     if (!xtr->smr_timer) {
         xtr->smr_timer = oor_timer_without_nonce_new(SMR_TIMER, xtr, xtr_smr_process_start_cb, xtr, NULL);
@@ -1611,13 +1617,13 @@ xtr_info_request_cb(oor_timer_t *timer)
     if ((nonces_list_size(nonces_lst) -1) < xtr->tr.map_request_retries){
         nonce = nonce_new();
         if (nonces_list_size(nonces_lst) > 0) {
-            OOR_LOG(LDBG_1,"Sent Info Request retry for mapping %s to %s from locator %s"
+            OOR_LOG(LDBG_1,"Sent Info-Request retry for mapping %s to %s from locator %s"
                     "(%d retries)", lisp_addr_to_char(mapping_eid(map)),
                     lisp_addr_to_char(ms->address), lisp_addr_to_char(locator_addr(loct)),
                     nonces_list_size(nonces_lst));
         } else {
             timer_encap_map_reg_stop_using_locator(timer_arg->mle, loct);
-            OOR_LOG(LDBG_1,"Sent Info Request for mapping %s to %s from locator %s",
+            OOR_LOG(LDBG_1,"Sent Info-Request for mapping %s to %s from locator %s",
                     lisp_addr_to_char(mapping_eid(map)),lisp_addr_to_char(ms->address),
                     lisp_addr_to_char(locator_addr(loct)));
         }
@@ -1635,7 +1641,7 @@ xtr_info_request_cb(oor_timer_t *timer)
         /* Reprogram time for next Info Request interval */
         htable_nonces_reset_nonces_lst(nonces_ht,nonces_lst);
         oor_timer_start(timer, OOR_SLEEP_INF_REQ_TIMEOUT);
-        OOR_LOG(LWRN,"Info Request of %s to %s from locator %s not received reply. Retry in %d seconds",
+        OOR_LOG(LWRN,"Info-Request of %s to %s from locator %s did not receive reply. Retrying in %d seconds",
                 lisp_addr_to_char(mapping_eid(map)), lisp_addr_to_char(ms->address),
                 lisp_addr_to_char(locator_addr(loct)), OOR_SLEEP_INF_REQ_TIMEOUT);
 
@@ -1677,7 +1683,7 @@ xtr_iface_event_signaling(lisp_xtr_t * xtr, iface_locators * if_loct)
             timer_encap_map_reg_stop_using_locator(mle, loct);
 
             if (locator_state(loct) == UP){
-                OOR_LOG(LDBG_2,"xtr_if_event: Reconfiguring Info Request process for locator %s of "
+                OOR_LOG(LDBG_2,"xtr_if_event: Reconfiguring Info-Request process for locator %s of "
                         "the mapping %s.", lisp_addr_to_char(loct_addr),
                         lisp_addr_to_char(mapping_eid(map)));
                 xtr_program_info_req_per_loct(xtr, mle, loct);
@@ -1710,7 +1716,7 @@ xtr_update_nat_info(lisp_xtr_t *xtr, map_local_entry_t *mle, locator_t *loct,
 
     final_rtr_list = nat_select_rtrs(rtr_list);
     if (glist_size(final_rtr_list) == 0){
-        OOR_LOG(LDBG_1, "Info Reply Message doesn't have any compatible RTR");
+        OOR_LOG(LDBG_1, "Info-Reply Message doesn't have any compatible RTR");
         glist_destroy(final_rtr_list);
         return (BAD);
     }
@@ -1794,21 +1800,23 @@ proxy_etrs_dump(lisp_xtr_t *xtr, int log_level)
     ipv4_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET);
     ipv6_petrs_mc = mcache_get_all_space_entry(xtr->tr.map_cache,AF_INET6);
 
-    OOR_LOG(log_level, "***************** Proxy ETRs List for IPv4 EIDs **********************");
+    OOR_LOG(log_level, "****************** Proxy ETR List for IPv4 EIDs **********************");
     OOR_LOG(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
 
     /* Start rloc probing for each locator of the mapping */
     mapping_foreach_active_locator(mcache_entry_mapping(ipv4_petrs_mc),locator){
         OOR_LOG(log_level,"%s",locator_to_char(locator));
     }mapping_foreach_active_locator_end;
+    OOR_LOG(log_level, "**********************************************************************\n");
 
-    OOR_LOG(log_level, "***************** Proxy ETRs List for IPv6 EIDs **********************");
+    OOR_LOG(log_level, "****************** Proxy ETR List for IPv6 EIDs **********************");
     OOR_LOG(log_level, "|               Locator (RLOC)            | Status | Priority/Weight |");
 
     /* Start rloc probing for each locator of the mapping */
     mapping_foreach_active_locator(mcache_entry_mapping(ipv6_petrs_mc),locator){
         OOR_LOG(log_level,"%s",locator_to_char(locator));
     }mapping_foreach_active_locator_end;
+    OOR_LOG(log_level, "**********************************************************************\n");
 }
 
 void
@@ -1838,6 +1846,7 @@ map_servers_dump(lisp_xtr_t *xtr, int log_level)
         }
         OOR_LOG(log_level, "%s", str);
     }
+    OOR_LOG(log_level, "*********************************************************************\n");
 }
 
 /**************************** Map Server struct ******************************/
