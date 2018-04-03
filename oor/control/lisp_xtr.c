@@ -923,14 +923,17 @@ xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
 static int
 xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 {
-    lisp_addr_t *inf_reply_eid, *inf_req_eid, *nat_lcaf_addr;
+    lisp_addr_t *inf_reply_eid, *inf_req_eid, *nat_lcaf_addr, *rtr_addr;
     void *info_nat_hdr, *info_nat_hdr_2, *auth_hdr;
     lbuf_t  b;
     nonces_list_t *nonces_lst;
     timer_inf_req_argument *timer_arg;
     int len, ttl;
-    glist_t *rtr_lst;
+    glist_t *rtr_lst, *final_rtr_lst;
+    glist_entry_t *rtr_it;
     map_local_entry_t *mle;
+    mapping_t *map;
+    uint8_t smr_required = FALSE;
 
     /* local copy of the buf that can be modified */
     b = *buf;
@@ -994,7 +997,26 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 
     rtr_lst = nat_type_get_rtr_addr_lst(lcaf_addr_get_nat(lisp_addr_get_lcaf(nat_lcaf_addr)));
 
-    if (xtr_update_nat_info(xtr,mle,timer_arg->loct,rtr_lst) == GOOD){
+    /* Select the RTR list to use */
+    final_rtr_lst = nat_select_rtrs(rtr_lst);
+    if (glist_size(final_rtr_lst) == 0){
+        OOR_LOG(LDBG_1, "Info-Reply Message doesn't have any compatible RTR");
+        glist_destroy(final_rtr_lst);
+        lisp_addr_del(nat_lcaf_addr);
+        return (BAD);
+    }
+
+    /* Check if selected RTR list has changed */
+    map = map_local_entry_mapping(mle);
+    glist_for_each_entry(rtr_it,final_rtr_lst){
+        rtr_addr = (lisp_addr_t *)glist_entry_data(rtr_it);
+        if (!mapping_get_loct_with_addr(map,rtr_addr)){
+            smr_required = TRUE;
+            break;
+        }
+    }
+
+    if (xtr_update_nat_info(xtr,mle,timer_arg->loct,final_rtr_lst) == GOOD){
         /* Configure Encap Map Register */
         xtr_program_encap_map_reg_of_loct_for_map(xtr, mle,timer_arg->loct);
         /* Reprogram time for next Info Request interval */
@@ -1006,7 +1028,14 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
                 lisp_addr_to_char(locator_addr(timer_arg->loct)), ttl);
     }
 
+    /* SMR proxy-ITRs list to be updated with new mappings */
+    if (smr_required){
+        OOR_LOG(LDBG_1,"Selected RTR list has changed. Programing SMR");
+        xtr_program_smr(xtr, 1);
+    }
+
     lisp_addr_del(nat_lcaf_addr);
+    glist_destroy(final_rtr_lst);
     return (GOOD);
 }
 
@@ -1712,23 +1741,13 @@ static int
 xtr_update_nat_info(lisp_xtr_t *xtr, map_local_entry_t *mle, locator_t *loct,
         glist_t *rtr_list)
 {
-    glist_t *final_rtr_list;
-
-    final_rtr_list = nat_select_rtrs(rtr_list);
-    if (glist_size(final_rtr_list) == 0){
-        OOR_LOG(LDBG_1, "Info-Reply Message doesn't have any compatible RTR");
-        glist_destroy(final_rtr_list);
-        return (BAD);
-    }
-
-    mle_nat_info_update(mle, loct, final_rtr_list);
+    mle_nat_info_update(mle, loct, rtr_list);
     /* Update forwarding info of the local entry*/
     xtr->tr.fwd_policy->updated_map_loc_inf(xtr->tr.fwd_policy_dev_parm,mle);
     notify_datap_rm_fwd_from_entry(&(xtr->super),map_local_entry_eid(mle),TRUE);
     /* Update forwarding info of rtrs */
     xtr_update_rtrs_caches(xtr);
 
-    glist_destroy(final_rtr_list);
     return (GOOD);
 }
 
