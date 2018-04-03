@@ -53,6 +53,8 @@ One for RLOC:
 Another one for EID:
     sudo docker network create -d macvlan --subnet=<EID Preffix> -o parent=<Interface> \
       -o macvlan_mode=bridge <network_name>
+
+It is recommended to use the network names 0rloc and 1eid
     
 If your configuration does not need to be connected to a physical nic, you can 
 configure the network using the bridge driver:
@@ -61,16 +63,35 @@ configure the network using the bridge driver:
 Running the container
 ---------------------
 
-  * Using Docker daemon natively. At least IPMAPSERVER, KEYMAPSERVER, IPMAPRESOLVER
+There is two ways to create an OOR container using the Docker daemon natively. Sharing 
+the OOR configuration file between host and container or using environment variables.
+Using environment variables, you have a more isolated container from the host but the 
+configuration is limited to one xTR with one EID prefix and one RLOC. If you need a more 
+flexible configuration, then is recommended to use the option of shared configuration 
+file.
+
+  * Using environment variables: At least IPMAPSERVER, KEYMAPSERVER, IPMAPRESOLVER
   and one IPv4 or IPv6 EID prefix should be defined
       docker create --net=<RLOC_Docker_Network_Name> --ip=<IP_RLOC> --name \
         <docker_name> -it --device=/dev/net/tun --cap-add=NET_ADMIN --cap-add=NET_RAW \
+        --sysctl="net.ipv4.conf.default.rp_filter=0" --sysctl="net.ipv4.conf.all.rp_filter=0" \
+        --sysctl="net.ipv4.ip_forward=1" --sysctl="net.ipv6.conf.all.forwarding=1" \
+        --sysctl="net.ipv6.conf.all.disable_ipv6=0" \
         -e IPV4EIDPREFFIX="<network>\/<mask>" -e IPV6EIDPREFFIX="<network>\/<mask>" \
         -e DEBUG="<int 0..3>" -e IPMAPRESOLVER=<IP of the MapResolver> \
         -e IPMAPSERVER=<IP of the MapServer> -e KEYMAPSERVER=<String> \
         -e IPPROXYETRV4= \<IP of the Proxy ETR IPv4> -e IPPROXYETRV6=<IP of the Proxy ETR IPv6> \
-        -e IPV4EIDPREFFIX=<EID IPv4 Preffix> -e IPV6EIDPREFFIX=<EID IPv6 Preffix> \
         openoverlayrouter/oor:latest 
+
+  * Using shared configuration file: The configuration file should include the absolute path.
+  The database-mappings of the configuration file should use rloc-address instead of rloc-iface
+      docker create --net=<RLOC_Docker_Network_Name> --ip=<IP_RLOC> --name \
+        <docker_name> -it --device=/dev/net/tun --cap-add=NET_ADMIN --cap-add=NET_RAW \
+        --sysctl="net.ipv4.conf.default.rp_filter=0" --sysctl="net.ipv4.conf.all.rp_filter=0" \
+        --sysctl="net.ipv4.ip_forward=1" --sysctl="net.ipv6.conf.all.forwarding=1" \
+        --sysctl="net.ipv6.conf.all.disable_ipv6=0" \
+        --mount type=bind,source=<oor config file>,target=/oor/oor.conf \
+        openoverlayrouter/oor:latest
 
 If you want to use the latest features and test the latest code you can just 
 change the tag of the docker image from latest to testing.
@@ -80,17 +101,19 @@ must be run because there is no other way to create two interfaces inside a
 container using docker command line
 
       docker network connect <EID_Docker_Network_Name> --ip=<EID_IP_forContainer> \
-        <docker_name> 
+        <docker_name>
 
+  * To start the container:
+  
       docker start <docker_name>
-
-  * To watch the logs:
-
-      docker logs <docker_name> (-f to follow)
 
   * To stop the container:
 
       docker stop <docker_name>
+
+  * To watch the logs:
+
+      docker logs <docker_name> (-f to follow)
 
   * To  remove the container (to free the resources and the name):
 
@@ -127,8 +150,9 @@ Compose binaries.
 
 A step-by-step guide to build your own docker-compose file: 
 
-It must specify the Docker Compose specification version:
-    version: "3"
+It must specify the Docker Compose specification version. The version 3.x is not
+used as some network functionalities are not still implemented:
+    version: "2.3"
     [...]
 
 It must define the services that this stack will be composed of and the image 
@@ -144,6 +168,12 @@ specification:
         cap_add:
           - NET_ADMIN
           - NET_RAW 
+        sysctls:
+          - net.ipv4.conf.default.rp_filter=0
+          - net.ipv4.conf.all.rp_filter=0
+          - net.ipv4.ip_forward=1
+          - net.ipv6.conf.all.forwarding=1
+          - net.ipv6.conf.all.disable_ipv6=0
         [...]
 
 To map the /dev/net/tun of the linux box to the container:
@@ -172,9 +202,13 @@ set your xTR:
           - KEYMAPSERVER=<String>
           - IPPROXYETRV4=<IP of the Proxy ETR IPv4>
           - IPPROXYETRV6=<IP of the Proxy ETR IPv6>
-          - IPV4EIDPREFFIX=<EID IPv4 Preffix>
-          - IPV6EIDPREFFIX=<EID IPv6 Preffix>
         [...]
+Or use shared configuration file replacing the environment section
+        [...]
+        volumes:
+          - type: bind
+            source: "<conf file with absolute path>"
+            target: "/oor/oor.conf"
 
 And the networking specification:
     [...]
@@ -218,6 +252,9 @@ docker-compose.yml file:
 In the same folder you can find an example of docker-compose.yaml file that you 
 can use to set the appropiate parameters of your environment.
 
+In the directory compose-example you can find a complete scenario with two xTRs
+one MS/MR and one client for each xTR.
+
 Running Open Overlay Router With Docker Compose
 ------------------------------------------------
 
@@ -242,7 +279,11 @@ stop.
 If you want to use watchtower, you can add another service to run it together 
 with the oor container, as you can see in the sample docker-compose-file.
 
+You can find a complete scenario created with docker-compose in the directory
+compose-examples
+
 Hands-on Labs:
+--------------
 
   * Run an OOR Docker Container in a server using docker command line
 
@@ -257,12 +298,7 @@ The options “-itd” let you keep your shell after running a container.
 
   * Set OOR as the gateway for each sandbox. Hint:
 
-      pid=$(sudo docker inspect -f '{{.State.Pid}}' <sandbox_name>)
+      docker exec --privileged <client_container_name> ip route del default
 
-      sudo mkdir -p /var/run/netns
-
-      sudo ln -s /proc/$pid/ns/net /var/run/netns/$pid
-
-      sudo ip netns exec $pid ip route del default 
-
-      sudo ip netns exec $pid ip route add default via <OOR_EID_Interface_IP>
+      docker exec --privileged <client_container_name> ip route add default \
+        via <OOR_EID_Interface_IP> dev eth0

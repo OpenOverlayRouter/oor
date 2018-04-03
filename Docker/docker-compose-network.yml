@@ -1,17 +1,25 @@
-version: "3"
+version: "2.3"
 services:
   oor:
     image: openoverlayrouter/oor:latest
     cap_add:
       - NET_ADMIN
       - NET_RAW
+    sysctls:
+      - net.ipv4.conf.default.rp_filter=0
+      - net.ipv4.conf.all.rp_filter=0
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.all.disable_ipv6=0
     devices:
       - "/dev/net/tun:/dev/net/tun"
     networks:
       0rloc:
           ipv4_address: <ip>
+          ipv6_address: <ipv6>
       1eids:
           ipv4_address: <ip>
+          ipv6_address: <ipv6>
     environment:
       - IPV4EIDPREFFIX="<network>\/<mask>"
       - IPV6EIDPREFFIX="<network>\/<mask>"
@@ -22,6 +30,10 @@ services:
       - KEYMAPSERVER=<String>
       - IPPROXYETRV4=<IP of the Proxy ETR IPv4>
       - IPPROXYETRV6=<IP of the Proxy ETR IPv6>
+    volumes:
+      - type: bind
+         source: "./<conf_file>"
+         target: "/oor/oor.conf"  
     restart: on-failure
   watchtower:
     image: v2tec/watchtower
@@ -32,16 +44,20 @@ services:
 networks:
   1eids:
     driver: bridge
+    enable_ipv6: true
     ipam:
       driver: default
       config:
-      - subnet: <EID IPv4 Preffix>
+      - subnet: <EID IPv4 Prefix>
+      - subnet: <EID IPv6 Prefix>
   0rloc:
     driver: macvlan
+    enable_ipv6: true
     ipam:
       driver: default
       config:
-      - subnet: <RLOC Subnet>
+      - subnet: <IPv4 RLOC Subnet>
+      - subnet: <IPv6 RLOC Subnet>
     driver_opts:
       parent: <linux host interface>
       macvlan_mode: bridge
