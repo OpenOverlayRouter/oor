@@ -310,14 +310,14 @@ open_data_raw_input_socket(int afi, uint16_t port)
 int
 open_data_datagram_input_socket(int afi, int port)
 {
-
-    const int on = 1;
     int sock = ERR_SOCKET;
 
     if ((sock = open_udp_datagram_socket(afi)) < 0){
         return(ERR_SOCKET);
     }
 
+#ifdef  UDP_NO_CHECK6_RX
+    const int on = 1;
     /* Disable IPv6 checksum computation for IPv6 data sockets (RFC 6935
      * allows it) for tunneling protocols over IPv6 */
     if (afi == AF_INET6) {
@@ -326,6 +326,7 @@ open_data_datagram_input_socket(int afi, int port)
                     strerror(errno));
         }
     }
+#endif
 
     if(bind_socket(sock,afi,NULL,port) != GOOD){
         close(sock);
