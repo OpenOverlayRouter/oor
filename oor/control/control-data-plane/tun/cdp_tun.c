@@ -23,6 +23,7 @@
 #include "../../oor_ctrl_device.h"
 #include "../../../iface_list.h"
 #include "../../../lib/oor_log.h"
+#include "../../../net_mgr/net_mgr.h"
 
 /***************************** FUNCTIONS DECLARATION *************************/
 
@@ -187,7 +188,7 @@ tun_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
 {
     int ret, sock, dst_afi;
     ip_addr_t *src_addr, *dst_addr;
-    lisp_addr_t *ctrl_addr;
+    lisp_addr_t *s_addr;
 
     if (lisp_addr_lafi(&udp_conn->ra) != LM_AFI_IP) {
         OOR_LOG(LDBG_2, "tun_control_dp_send_msg: Destination address %s of UDP connection is not a IP. "
@@ -196,15 +197,16 @@ tun_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
     }
 
     if (lisp_addr_lafi(&udp_conn->la) != LM_AFI_IP) {
-        dst_afi = lisp_addr_ip_afi(&udp_conn->ra);
-        ctrl_addr = tun_control_dp_get_default_ctrl_address(control_dp_tun.control_dp_data, dst_afi);
-        if (!ctrl_addr) {
-            OOR_LOG(LERR, "tun_control_dp_send_msg: No %s control address found, send aborted!",
-                    (dst_afi == AF_INET) ? "IPv4" : "IPv6");
+        /* Get the src address that will use the kernel */
+        s_addr = net_mgr->netm_get_src_addr_to(&udp_conn->ra);
+        if (!s_addr){
+            OOR_LOG(LERR, "tun_control_dp_send_msg: %s not reachable, send aborted!",
+                    lisp_addr_to_char(&udp_conn->ra));
             return(ERR_SOCKET);
         }
         /* Use as local address the default control address */
-        lisp_addr_copy(&udp_conn->la, ctrl_addr);
+        lisp_addr_copy(&udp_conn->la, s_addr);
+        lisp_addr_del(s_addr);
     }
 
     sock = tun_control_dp_get_output_ctrl_sock(
