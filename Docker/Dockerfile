@@ -1,15 +1,13 @@
 FROM ubuntu:16.04
 MAINTAINER alopez@ac.upc.edu
 ENV TERM=xterm
-RUN apt-get update -y && apt-get install software-properties-common -y && apt-add-repository ppa:ansible/ansible -y && apt-get update -y && apt-get install -y dialog apt-utils && apt-get install -y build-essential git-core libconfuse-dev gengetopt libcap2-bin libzmq3-dev libxml2-dev ansible iputils-ping tcpdump && apt-get autoclean && apt-get autoremove
+RUN apt-get update -y && apt-get install -y build-essential git-core libconfuse-dev gengetopt libcap2-bin libzmq3-dev libxml2-dev iputils-ping && apt-get autoclean && apt-get autoremove
 RUN git clone git://github.com/OpenOverlayRouter/oor.git
 WORKDIR /oor
 RUN make
 RUN make install
 RUN rm -rf /oor
-COPY files/*.conf /etc/
 COPY files/*.sh /tmp/
-COPY files/*.yaml /tmp/
 ENV DEBUG 0
 ENV OPMODE xTR
 ENV IPMAPRESOLVER -
