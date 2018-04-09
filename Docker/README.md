@@ -152,11 +152,13 @@ A step-by-step guide to build your own docker-compose file:
 
 It must specify the Docker Compose specification version. The version 3.x is not
 used as some network functionalities are not still implemented:
+
     version: "2.3"
     [...]
 
 It must define the services that this stack will be composed of and the image 
 on which it is based on:
+
     services:
       oor:
         image: openoverlayrouter/oor
@@ -164,6 +166,7 @@ on which it is based on:
 
 To set the appropiate linux capabilities the file must include in the service 
 specification:
+
         [...]
         cap_add:
           - NET_ADMIN
@@ -177,12 +180,14 @@ specification:
         [...]
 
 To map the /dev/net/tun of the linux box to the container:
+
         [...] 
         devices:
           - "/dev/net/tun:/dev/net/tun"
         [...]
  
 It must set the IPs for the container:
+
         [...]
         networks:
           0rloc:
@@ -190,6 +195,7 @@ It must set the IPs for the container:
         [...]
 It is important to fulfill all the environment variables that you will need to 
 set your xTR: 
+
         [...]
         environment:
           - IPV4EIDPREFFIX="<network>\/<mask>"
@@ -203,7 +209,8 @@ set your xTR:
           - IPPROXYETRV4=<IP of the Proxy ETR IPv4>
           - IPPROXYETRV6=<IP of the Proxy ETR IPv6>
         [...]
-Or use shared configuration file replacing the environment section
+Or use shared configuration file replacing the environment section:
+
         [...]
         volumes:
           - type: bind
@@ -211,6 +218,7 @@ Or use shared configuration file replacing the environment section
             target: "/oor/oor.conf"
 
 And the networking specification:
+
     [...]
     networks:
       1eids:
@@ -239,6 +247,7 @@ macvlan by bridge and remove the driver_opts section.
 If you have some docker networks created and you want to reuse them in the 
 docker-compose file changing slightly the network specification in the 
 docker-compose.yml file:  
+
     [...]
     networks:
       1eids:
