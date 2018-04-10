@@ -193,6 +193,7 @@ This is the list of supported features at this moment
     - Multihoming
     - Explicit Locator Path (ELPs)
     - Instance ID / VNI support
+    - Experimental NAT traversal
 
 * MS / MR
 
@@ -205,6 +206,7 @@ This is the list of supported features at this moment
     - Interface management 
     - Explicit Locator Path (ELPs)
     - Instance ID support
+    - Experimental NAT traversal
     
 Note: OOR doesn't support overlapping local prefixes with different IIDs when operating as 
 a XTR or MN.    
@@ -296,9 +298,11 @@ RTR mode
 --------
 
 When running in RTR mode, Open Overlay Router serves as a Re-encapsulating Tunnel Router 
-that decapsulates the received traffic to reencapsulate it again towards the next hop. 
+that decapsulates the received traffic to reencapsulate it again towards the next hop.
+An RTR can also be used to provide NAT support to xTRs/MNs when it works together with a
+MS with NAT Traversal support.  
 To configure an RTR, select the corresponding operating-mode and fill the parameters 
-of the RTR section and Tunnel Router general configuration of the configuration file
+of the RTR section and Tunnel Router general configuration of the configuration file.
 The following lines show an example of how 'ip addr' and 'ip route' will look like 
 with IPv4, expect a similar output with IPv6:
 
@@ -337,6 +341,7 @@ MS/MR mode
 Open Overlay Router can be configured as a basic MS/MR where configured EID prefixes can 
 be registered by xTRs. OOR will also reply to MapRequests addressed to those 
 prefixes.
+MS can be associated with an RTR in order to provide NAT support to xTRs/MN.
 To configure Open Overlay Router as a MS/MR, select the corresponding operating-mode and 
 fill the parameters of the MS section of the configuration file.
 
@@ -378,6 +383,24 @@ the environment for building the Android APK. Provisioning it requires using
 the VM name explicitly in the `vagrant up` command:
 
     vagrant up oor-dev-android
+    
+Using Dockers
+-------------
+
+Docker is a platform that is based on packaging applications in containers. It 
+immediately improves security, reduce costs and gain cloud portability.
+All these improvements can be achieved without changing the original code.
+
+The OOR can work as a Docker Container. This will allow to get the lifecycle of 
+OOR from development to production shorter receiving and running automatically 
+the last code of OOR from github. 
+
+Using OOR as a container can also be used to provide LISP support to other running
+containers in the host. 
+
+In the Docker directory you can find a README.md file with more details in how to 
+create and use OOR as a container.
+
 
 OpenWRT 
 -------
