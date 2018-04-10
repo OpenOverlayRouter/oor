@@ -31,7 +31,7 @@ extern "C" {
 
 #ifndef CMDLINE_PARSER_VERSION
 /** @brief the program version */
-#define CMDLINE_PARSER_VERSION "1.2.0"
+#define CMDLINE_PARSER_VERSION "1.2.1"
 #endif
 
 enum enum_debug { debug__NULL = -1, debug_arg_0 = 0, debug_arg_1, debug_arg_2, debug_arg_3 };
