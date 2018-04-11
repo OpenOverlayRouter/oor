@@ -51,7 +51,7 @@ The build is based on Gradle, and the tree is configured to use the Gradle
 Wrapper to simplify things. Available build options can be listed by running
 in the android folder:
 
-    ./gradlew targets
+    ./gradlew tasks
 
 The Gradle Wrapper will download the right version of Gradle, and any required
 dependencies. To build the APK:
@@ -61,10 +61,12 @@ dependencies. To build the APK:
 If the build finishes successfully, the APK will be located at
 `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-The command line build environment can be created quickly in a VM using
-Vagrant, by running `vagrant up oor-dev-android` in the top-level directory of
-the source tree. For more information about Vagrant see [the main README.md
-file](README.md#using-vagrant).
+The command line build environment for Android can be created quickly in a VM
+using Vagrant, by running `vagrant up oor-dev-android` in the top-level
+directory of the source tree. Once that VM boots, the `./gradlew
+:app:assembleDebug` command can be run in the `/vagrant/android` folder, and
+it will produce the APK. For more information about Vagrant see [the main
+README.md file](README.md#using-vagrant).
 
 Running Open Overlay Router
 ---------------------------
