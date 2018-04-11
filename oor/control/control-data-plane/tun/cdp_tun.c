@@ -186,7 +186,7 @@ tun_control_dp_recv_msg(sock_t *sl)
 int
 tun_control_dp_send_msg(oor_ctrl_t *ctrl, lbuf_t *buff, uconn_t *udp_conn)
 {
-    int ret, sock, dst_afi;
+    int ret, sock;
     ip_addr_t *src_addr, *dst_addr;
     lisp_addr_t *s_addr;
 

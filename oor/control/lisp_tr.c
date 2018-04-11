@@ -151,6 +151,7 @@ tr_recv_map_reply(lisp_tr_t *tr, lbuf_t *buf, uconn_t *udp_con)
                 mce = mcache_lookup_exact(tr->map_cache, mapping_eid(m));
                 if (mce){
                     OOR_LOG(LDBG_2,"Received a Map Reply for a recently activated cache entry. Ignoring the msg");
+                    mapping_del(m);
                     continue;
                 }
                 /* DO NOT free mapping in this case */
