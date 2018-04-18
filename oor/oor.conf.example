@@ -318,6 +318,7 @@ database-mapping {
 #        69.31.31.98,                 # eqx-ash-pxtr
 #        129.250.1.63,                # ntt-amer-pxtr
 #        217.8.98.33,                 # intouch-pxtr-1
+#        217.8.98.35,                 # intouch-pxtr-2
 #        193.162.145.46,              # tdc-pxtr
 #        158.38.1.92,                 # uninett-pxtr
 #        203.181.249.172,             # apan-pxtr
@@ -326,6 +327,7 @@ database-mapping {
 #        2001:590::451f:1f62,         # eqx-ash-pxtr
 #        2001:418:0:1000::63,         # ntt-amer-pxtr
 #        2001:40B0:7500:205:1::E,     # intouch-pxtr-1
+#        2001:40B0:7500:205:1::12,    # intouch-pxtr-2
 #        2001:6C8:130:600::1,         # tdc-pxtr
 #        2001:700:0:52E::4,           # uninett-pxtr
 #        2001:200:e000:17::172        # apan-pxtr

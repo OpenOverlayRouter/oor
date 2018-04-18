@@ -37,13 +37,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 public class OORService extends Service implements Runnable {
 
     private static String TAG = "OOR DNS service";
     private static SuShell shell = null;
     private static String system_dns[] = new String[2];
-    private static String oor_dns[] = new String[2];
+    private static List<String> oor_dns = null;
     private static boolean start = false;
     public static boolean isRunning = false;
     private static Thread thread = null;
@@ -144,11 +145,12 @@ public class OORService extends Service implements Runnable {
                 String psOutput = shell.run("/system/bin/ps | grep liboorexec.so");
                 isRunning = psOutput.matches("(?s)(.*)[RS]\\s[a-zA-Z0-9\\/\\.\\-]*liboorexec\\.so(.*)");
                 isRunning = true;
-                if (isRunning && oor_dns != null) {
+                if (oor_dns != null) {
                     String dns[] = get_dns_servers();
-                    if (!dns[0].equals(oor_dns[0]) || !dns[1].equals(oor_dns[1])) {
+                    if ((dns[0] != null && !oor_dns.contains(dns[0])) ||
+                            (dns[1] != null && !oor_dns.contains(dns[1]))){
                         system_dns = get_dns_servers();
-                        set_dns_servers(oor_dns);
+                        set_dns_servers(oor_dns.toArray(new String[0]));
                     }
                 }
 

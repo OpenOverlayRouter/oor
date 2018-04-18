@@ -308,7 +308,7 @@ public class noroot_OOR extends Fragment {
     public void onActivityResult(int request, int result, Intent data) {
         switch (request) {
             case CONF_ACT:
-                if (result == noroot_updateConfActivity.CONFIG_UPDATED) {
+                if (result == updateConfActivity.CONFIG_UPDATED) {
                     if (noroot_OORVPNService.vpn_running) {
                         restartOOR();
                     }

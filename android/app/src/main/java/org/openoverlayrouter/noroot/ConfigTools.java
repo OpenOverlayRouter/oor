@@ -96,8 +96,8 @@ public class ConfigTools {
         return eids;
     }
 
-    public static String[] getDNS() throws FileNotFoundException {
-        String dns_servers[] = {null, null};
+    public static List<String> getDNS() throws FileNotFoundException {
+        List<String> dns_servers = new ArrayList<String>();
         File sdcardDir = Environment.getExternalStorageDirectory();
         File file = new File(sdcardDir, confFile);
         boolean overrideDNS = false;
@@ -136,14 +136,14 @@ public class ConfigTools {
                     String[] tmp = line.split("=");
                     if (tmp.length > 1) {
                         if (validate_IP_Address(tmp[1])) {
-                            dns_servers[0] = tmp[1];
+                            dns_servers.add(tmp[1]);
                         }
                     }
                 } else if (line.contains("override-dns-secondary=")) {
                     String[] tmp = line.split("=");
                     if (tmp.length > 1) {
                         if (validate_IP_Address(tmp[1])) {
-                            dns_servers[1] = tmp[1];
+                            dns_servers.add(tmp[1]);
                         }
                     }
                 }
@@ -154,7 +154,6 @@ public class ConfigTools {
             ;
         }
         if (overrideDNS) {
-            Log.i("OOR", "New DNS servers to be used: " + dns_servers[0] + " , " + dns_servers[1]);
             return (dns_servers);
         } else {
             return (null);

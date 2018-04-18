@@ -173,7 +173,7 @@ public class noroot_OORVPNService extends VpnService implements Handler.Callback
 
 
         try {
-            eids = noroot_ConfigTools.getEIDs().iterator();
+            eids = ConfigTools.getEIDs().iterator();
             while (eids.hasNext()) {
                 eid = eids.next();
                 Log.i(TAG, "Assigning EID " + eid + " to the TUN interface");
@@ -192,7 +192,7 @@ public class noroot_OORVPNService extends VpnService implements Handler.Callback
             if (ipv4_eids == false && ipv6_eids == false) {
                 throw new Exception("At least one EID is required");
             }
-            dns_list = noroot_ConfigTools.getDNS();
+            dns_list = ConfigTools.getDNS();
             if (dns_list != null) {
                 dns_servers = dns_list.iterator();
                 while (dns_servers.hasNext()) {

@@ -67,11 +67,10 @@ public class MainActivity extends AppCompatActivity {
         mTabHost.setup(this, getSupportFragmentManager(), android.R.id.tabcontent);
         if (root) {
             mTabHost.addTab(mTabHost.newTabSpec("tab1").setIndicator("OOR", null), OOR.class, null);
-            mTabHost.addTab(mTabHost.newTabSpec("tab2").setIndicator("CONFIG", null), updateConfActivity.class, null);
         } else {
             mTabHost.addTab(mTabHost.newTabSpec("tab1").setIndicator("OOR", null), noroot_OOR.class, null);
-            mTabHost.addTab(mTabHost.newTabSpec("tab2").setIndicator("CONFIG", null), noroot_updateConfActivity.class, null);
         }
+        mTabHost.addTab(mTabHost.newTabSpec("tab2").setIndicator("CONFIG", null), updateConfActivity.class, null);
         mTabHost.addTab(mTabHost.newTabSpec("tab3").setIndicator("LOGS", null), logActivity.class, null);
         updateConfActivity conf = new updateConfActivity();
         if (conf.lowLogLevel())

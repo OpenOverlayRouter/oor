@@ -17,7 +17,6 @@
  *
  */
 
-
 package org.openoverlayrouter.noroot;
 
 import android.app.AlertDialog;
@@ -55,7 +54,6 @@ import java.util.List;
 public class updateConfActivity extends Fragment {
 
     public static final String confFile = "oor.conf";
-
     public static String eidIPv4 = "";
     public static String eidIPv6 = "";
     public static List<String> ifaces = null;
@@ -75,6 +73,7 @@ public class updateConfActivity extends Fragment {
     public static File conf_file = null;
     public static String log_file = "";
     public static List<String> iface_list = null;
+    private static File sdcardDir = Environment.getExternalStorageDirectory();
 
     private LinearLayout llLayout;
     private FragmentActivity faActivity;
@@ -85,10 +84,7 @@ public class updateConfActivity extends Fragment {
 
         faActivity = (FragmentActivity) super.getActivity();
         llLayout = (LinearLayout) inflater.inflate(R.layout.updateconf2, container, false);
-
         setTextHintAlphas();
-
-        File sdcardDir = Environment.getExternalStorageDirectory();
         conf_file = new File(sdcardDir, confFile);
         log_file = sdcardDir.getAbsolutePath() + "/oor.log";
 
@@ -126,12 +122,12 @@ public class updateConfActivity extends Fragment {
             }
         });
 
-//        CheckBox updateCondDNSCheck = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
-//        updateCondDNSCheck.setOnClickListener(new View.OnClickListener() {
-//            public void onClick(View view) {
-//                updateConfDNSClicked(llLayout);
-//            }
-//        });
+        CheckBox updateCondDNSCheck = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
+        updateCondDNSCheck.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                updateConfDNSClicked(llLayout);
+            }
+        });
 
         return llLayout;
 
@@ -139,7 +135,6 @@ public class updateConfActivity extends Fragment {
 
     public Boolean lowLogLevel(){
         try {
-            File sdcardDir = Environment.getExternalStorageDirectory();
             conf_file = new File(sdcardDir, confFile);
             BufferedReader br = new BufferedReader(new FileReader(conf_file));
             String line = br.readLine();
@@ -330,37 +325,37 @@ public class updateConfActivity extends Fragment {
                     EditText e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
                     e.setText(proxyETR);
 
-//                } else if (line.contains("override-dns=")) {
-//                    String[] tmp = line.split("=");
-//                    if (tmp.length > 1) {
-//                        String overrideDNS_aux = tmp[1];
-//                        if (overrideDNS_aux.equals("on") || overrideDNS_aux.equals("true")) {
-//                            overrideDNS = true;
-//                        } else {
-//                            overrideDNS = false;
-//                        }
-//                    }
-//
-//                    CheckBox c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
-//                    c.setChecked(overrideDNS);
-//                } else if (line.contains("override-dns-primary=")) {
-//                    String[] tmp = line.split("=");
-//                    if (tmp.length > 1) {
-//                        if (ConfigTools.validate_IP_Address(tmp[1])) {
-//                            DNS1 = tmp[1];
-//                        }
-//                    }
-//                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-//                    e.setText(DNS1);
-//                } else if (line.contains("override-dns-secondary=")) {
-//                    String[] tmp = line.split("=");
-//                    if (tmp.length > 1) {
-//                        if (ConfigTools.validate_IP_Address(tmp[1])) {
-//                            DNS2 = tmp[1];
-//                        }
-//                    }
-//                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-//                    e.setText(DNS2);
+                } else if (line.contains("override-dns=")) {
+                    String[] tmp = line.split("=");
+                    if (tmp.length > 1) {
+                        String overrideDNS_aux = tmp[1];
+                        if (overrideDNS_aux.equals("on") || overrideDNS_aux.equals("true")) {
+                            overrideDNS = true;
+                        } else {
+                            overrideDNS = false;
+                        }
+                    }
+
+                    CheckBox c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
+                    c.setChecked(overrideDNS);
+                } else if (line.contains("override-dns-primary=")) {
+                    String[] tmp = line.split("=");
+                    if (tmp.length > 1) {
+                        if (ConfigTools.validate_IP_Address(tmp[1])) {
+                            DNS1 = tmp[1];
+                        }
+                    }
+                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+                    e.setText(DNS1);
+                } else if (line.contains("override-dns-secondary=")) {
+                    String[] tmp = line.split("=");
+                    if (tmp.length > 1) {
+                        if (ConfigTools.validate_IP_Address(tmp[1])) {
+                            DNS2 = tmp[1];
+                        }
+                    }
+                    EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+                    e.setText(DNS2);
                 } else if (line.contains("debug=")) {
                     String[] tmp = line.split("=");
                     if (tmp.length > 1) {
@@ -375,11 +370,11 @@ public class updateConfActivity extends Fragment {
             MultiSelectionSpinner spinner = (MultiSelectionSpinner) llLayout.findViewById(R.id.IfaceNameSpinner);
             spinner.setSelection(ifaces);
 
-//            EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-//            e.setEnabled(overrideDNS);
-//            e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-//            e.setEnabled(overrideDNS);
-            EditText e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
+            EditText e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+            e.setEnabled(overrideDNS);
+            e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+            e.setEnabled(overrideDNS);
+            e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
             e.setEnabled(!nat_aware);
             e = (EditText) llLayout.findViewById(R.id.updateConfMRText);
             e.setEnabled(!nat_aware);
@@ -402,11 +397,13 @@ public class updateConfActivity extends Fragment {
                     .append("#      map-request-retries: Additional Map-Requests to send per map cache miss\n")
                     .append("#      log-file: Specifies log file used in daemon mode. If it is not specified,\n")
                     .append("#        messages are written in syslog file\n")
+                    .append("#      ipv6-scope [GLOBAL|SITE]: Scope of the IPv6 address used for the locators. GLOBAL by default")
                     .append("#      encapsulation: Encapsulation that will use noroot_OOR in the data plane. Could \n")
                     .append("#        be LISP or VXLAN-GPE. LISP is selected by default\n\n")
                     .append("debug                  = " + logLevel + "\n")
                     .append("map-request-retries    = 2\n")
-                    .append("log-file               =" +Environment.getExternalStorageDirectory().getAbsolutePath() +"/oor.log\n")
+                    .append("log-file               =" +sdcardDir.getAbsolutePath() +"/oor.log\n")
+                    .append("ipv6-scope             = GLOBAL\n")
                     .append("encapsulation          = LISP\n\n\n")
                     .append("#\n")
                     .append("# operating mode can be any of:\n")
@@ -453,14 +450,10 @@ public class updateConfActivity extends Fragment {
                     .append("#   Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses\n\n")
                     .append("proxy-itrs = {\n")
                     .append("        69.31.31.98,\n")
-                    .append("        198.6.255.37,\n")
-                    .append("        173.36.193.25,\n")
                     .append("        129.250.1.63,\n")
                     .append("        217.8.98.33,\n")
                     .append("        217.8.98.35,\n")
                     .append("        193.162.145.46,\n")
-                    .append("        193.34.30.222,\n")
-                    .append("        193.34.31.222,\n")
                     .append("        147.83.131.33,\n")
                     .append("        158.38.1.92,\n")
                     .append("        203.181.249.172,\n")
@@ -498,13 +491,20 @@ public class updateConfActivity extends Fragment {
                 String proxyETRstr;
                 proxyETRstr = new StringBuilder()
                         .append("# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR\n")
-                        .append("# You can define several Proxy-ETR. Traffic will be balanced according to\n")
-                        .append("# priority and weight.\n")
+                        .append("# You can define several Proxy-ETR for IPv4 EIDs and for IPv6 EIDs. Traffic will\n")
+                        .append("# be balanced according to priority and weight.\n")
                         .append("#   address: IPv4 or IPv6 address of the Proxy-ETR\n")
                         .append("#   priority [0-255]: Proxy-ETR with lower values are more preferable.\n")
                         .append("#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,\n")
-                        .append("#     the Weight indicates how to balance unicast traffic between them.\n")
-                        .append("proxy-etr {\n")
+                        .append("#     the Weight indicates how to balance unicast traffic between them.\n\n")
+                        .append("# Proxy for IPv4 EIDs\n")
+                        .append("proxy-etr-ipv4 {\n")
+                        .append("        address     = " + proxyETR + "\n")
+                        .append("        priority    = 1\n")
+                        .append("        weight      = 100\n")
+                        .append("}\n\n")
+                        .append("# Proxy for IPv6 EIDs\n")
+                        .append("proxy-etr-ipv6 {\n")
                         .append("        address     = " + proxyETR + "\n")
                         .append("        priority    = 1\n")
                         .append("        weight      = 100\n")
@@ -548,7 +548,6 @@ public class updateConfActivity extends Fragment {
         if (userConf[12].equals("true")) nat_aware = true;
         else if (userConf[12].equals("false")) nat_aware = false;
         logLevel = userConf[13];
-        File sdcardDir = Environment.getExternalStorageDirectory();
         conf_file = new File(sdcardDir, confFile);
         createConfFile();
 
@@ -571,7 +570,7 @@ public class updateConfActivity extends Fragment {
             if (nat_aware == false) {
                 eid_statement = eid_statement.concat("        rloc-iface{\n")
                         .concat("           interface     = " + iface_name + "\n")
-                        .concat("           afi           = 6\n")
+                        .concat("           ip_version    = 6\n")
                         .concat("           priority      = 1\n")
                         .concat("           weight        = 100\n")
                         .concat("        }\n\n");
@@ -654,14 +653,14 @@ public class updateConfActivity extends Fragment {
         e = (EditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
         pETR = e.getText().toString();
 
-//        c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
-//        overrideDNS_bool = c.isChecked();
-//
-//        e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-//        DNS_1 = e.getText().toString();
-//
-//        e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-//        DNS_2 = e.getText().toString();
+        c = (CheckBox) llLayout.findViewById(R.id.updateConfDNSCheck);
+        overrideDNS_bool = c.isChecked();
+
+        e = (EditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+        DNS_1 = e.getText().toString();
+
+        e = (EditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+        DNS_2 = e.getText().toString();
 
         multi_spinner = (MultiSelectionSpinner) llLayout.findViewById(R.id.IfaceNameSpinner);
         ifaces = multi_spinner.getSelectedStrings();
@@ -734,23 +733,23 @@ public class updateConfActivity extends Fragment {
     }
 
     public void updateConfDNSClicked(View v) {
-//        CheckBox updateCondDNSCheck = (CheckBox) v.findViewById(R.id.updateConfDNSCheck);
-//        if (updateCondDNSCheck.isChecked()) {
-//            overrideDNS = true;
-//
-//            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
-//            e.setEnabled(true);
-//
-//            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
-//            e.setEnabled(true);
-//        } else {
-//            overrideDNS = false;
-//            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
-//            e.setEnabled(false);
-//
-//            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
-//            e.setEnabled(false);
-//        }
+        CheckBox updateCondDNSCheck = (CheckBox) v.findViewById(R.id.updateConfDNSCheck);
+        if (updateCondDNSCheck.isChecked()) {
+            overrideDNS = true;
+
+            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
+            e.setEnabled(true);
+
+            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
+            e.setEnabled(true);
+        } else {
+            overrideDNS = false;
+            EditText e = (EditText) v.findViewById(R.id.updateConfDNS1Text);
+            e.setEnabled(false);
+
+            e = (EditText) v.findViewById(R.id.updateConfDNS2Text);
+            e.setEnabled(false);
+        }
     }
 
     public void updateConfNATAwareClicked(View v) {
@@ -790,10 +789,10 @@ public class updateConfActivity extends Fragment {
         aux.setFocusFraction(0.9f);
         aux = (MaterialEditText) llLayout.findViewById(R.id.updateConf_proxy_etr);
         aux.setFocusFraction(0.9f);
-//        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS1Text);
-//        aux.setFocusFraction(0.9f);
-//        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS2Text);
-//        aux.setFocusFraction(0.9f);
+        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS1Text);
+        aux.setFocusFraction(0.9f);
+        aux = (MaterialEditText) llLayout.findViewById(R.id.updateConfDNS2Text);
+        aux.setFocusFraction(0.9f);
     }
 
 }
