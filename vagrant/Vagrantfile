@@ -6,12 +6,15 @@
 
 ipv4prefix = "192.168.127."
 ipv6prefix = "fdab:cc19:b80e::"
+ipv6enabled = false
 
-def create_vm(config, name, ipv4rloc, ipv6rloc)
+def create_vm(config, name, ipv4rloc, ipv6rloc, ipv6enabled)
   config.vm.define name do |node|
     node.vm.hostname = name
     node.vm.network "private_network", ip: ipv4rloc
-    node.vm.network "private_network", ip: ipv6rloc
+    if ipv6enabled
+      node.vm.network "private_network", ip: ipv6rloc
+    end
     node.vm.provision "shell", path: "install-oor.sh", privileged: false
     node.vm.provision "shell", path: "config-oor.sh", args: name
     # If you prefer to run OOR manually, comment the next line
@@ -64,16 +67,18 @@ Vagrant.configure(2) do |config|
     vb.customize [ "modifyvm", :id, "--uartmode1", "disconnected" ]
   end
 
-  create_vm(config, "msmr", ipv4prefix + "2", ipv6prefix + "2")
-  create_vm(config, "rtr", ipv4prefix + "6", ipv6prefix + "6")
-  create_vm(config, "mn1", ipv4prefix + "11", ipv6prefix + "11")
-  create_vm(config, "mn2", ipv4prefix + "12", ipv6prefix + "12")
+  create_vm(config, "msmr", ipv4prefix + "2", ipv6prefix + "2", ipv6enabled)
+  create_vm(config, "rtr", ipv4prefix + "6", ipv6prefix + "6", ipv6enabled)
+  create_vm(config, "mn1", ipv4prefix + "11", ipv6prefix + "11", ipv6enabled)
+  create_vm(config, "mn2", ipv4prefix + "12", ipv6prefix + "12", ipv6enabled)
 
   # Android mobile node specific configuration
   config.vm.define "mn3-android", autostart: false do |node|
     node.vm.hostname = "mn3-android"
     node.vm.network "private_network", ip: ipv4prefix + "13"
-    node.vm.network "private_network", ip: ipv6prefix + "13"
+    if ipv6enabled
+      node.vm.network "private_network", ip: ipv6prefix + "13"
+    end
     node.vm.provision "shell", path: "install-oracle-java8.sh"
     node.vm.provision "shell", path: "config-dotfiles.sh", privileged: false
     node.vm.provision "shell", path: "install-android-sdk.sh", privileged: false
@@ -90,7 +95,9 @@ Vagrant.configure(2) do |config|
   config.vm.define "msmr-odl", autostart: false do |node|
     node.vm.hostname = "msmr-odl"
     node.vm.network "private_network", ip: ipv4prefix + "3"
-    node.vm.network "private_network", ip: ipv6prefix + "3"
+    if ipv6enabled
+      node.vm.network "private_network", ip: ipv6prefix + "3"
+    end
     node.vm.provision "shell", path: "install-oracle-java8.sh"
     node.vm.provision "shell", path: "install-odl.sh", privileged: false
     node.vm.provider :virtualbox do |vb|
