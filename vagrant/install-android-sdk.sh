@@ -56,7 +56,7 @@ $ANDROID_SDK_ROOT/tools/bin/sdkmanager "build-tools;${BUILD_TOOLS_VERSION}"
 echo "Downloading and installing Google APIs System Image for ${EMU_ABI} ABI"
 $ANDROID_SDK_ROOT/tools/bin/sdkmanager "${ANDROID_SYSTEM_IMAGE}"
 echo "Creating Nexus 5X API ${EMU_API} ${EMU_ABI} Android Virtual Device (AVD)"
-$ANDROID_SDK_ROOT/tools/bin/avdmanager create avd --tag "${EMU_TAG}" --package "${ANDROID_SYSTEM_IMAGE}" --name "Nexus_5X_API_${EMU_API}_${EMU_ABI}" --abi $EMU_ABI --device "Nexus 5X"
+$ANDROID_SDK_ROOT/tools/bin/avdmanager create avd --force --tag "${EMU_TAG}" --package "${ANDROID_SYSTEM_IMAGE}" --name "Nexus_5X_API_${EMU_API}_${EMU_ABI}" --abi $EMU_ABI --device "Nexus 5X"
 
 # Install Android Emulator dependencies
 sudo apt-get -y -q install libpulse0 libglu1-mesa
