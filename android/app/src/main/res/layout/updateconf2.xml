@@ -145,8 +145,41 @@
             <TableLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
+                <TableRow
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
 
+                    <CheckBox
+                        android:id="@+id/updateConfDNSCheck"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Override DNS"
+                        android:onClick="updateConfDNSClicked">
+                    </CheckBox>
+                </TableRow>
             </TableLayout>
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConfDNS1Text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/dns1"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent" />
+
+            <com.rengwuxian.materialedittext.MaterialEditText
+                android:id="@+id/updateConfDNS2Text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/dns2"
+                android:text=""
+                app:met_floatingLabel="normal"
+                app:met_floatingLabelAlwaysShown="true"
+                app:met_primaryColor="#00796B"
+                app:met_textColorHint="@color/transparent" />
 
 
             <LinearLayout
