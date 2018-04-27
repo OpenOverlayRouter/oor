@@ -698,7 +698,7 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
     nonces_lst = htable_nonces_lookup(nonces_ht, MNTF_NONCE(hdr));
     if (!nonces_lst){
         OOR_LOG(LDBG_1, "No Map Register resent with nonce: %"PRIx64
-                " Discarding message!", MNTF_NONCE(hdr));
+                " Discarding message!", htonll(MNTF_NONCE(hdr)));
         return(BAD);
     }
     timer = nonces_list_timer(nonces_lst);

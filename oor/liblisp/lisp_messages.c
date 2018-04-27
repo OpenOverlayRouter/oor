@@ -158,7 +158,7 @@ map_request_hdr_to_char(map_request_hdr_t *h)
     *buf = '\0';
     snprintf(buf,sizeof(buf), BOLD "Map-Request" RESET"-> flags:%s, irc: %d (+1), record-count: %d, "
             "nonce: %"PRIx64, mreq_flags_to_char(h), h->additional_itr_rloc_count,
-            h->record_count,  h->nonce);
+            h->record_count,  htonll(h->nonce));
     return(buf);
 }
 
@@ -183,7 +183,7 @@ map_reply_hdr_to_char(map_reply_hdr_t *h)
         return(NULL);
     }
     snprintf(buf,sizeof(buf), BOLD "Map-Reply" RESET "-> flags:%s, record-count: %d, nonce: %"PRIx64,
-            mrep_flags_to_char(h), h->record_count, h->nonce);
+            mrep_flags_to_char(h), h->record_count, htonll(h->nonce));
     return(buf);
 }
 
@@ -197,9 +197,9 @@ info_nat_hdr_to_char(info_nat_hdr_t *h)
     }
     *buf = '\0';
     if (INF_REQ_R_bit(h) == INFO_REQUEST){
-        sprintf(buf, BOLD "Info Request" RESET " -> nonce %"PRIx64,h->nonce);
+        sprintf(buf, BOLD "Info Request" RESET " -> nonce %"PRIx64, htonll(h->nonce));
     }else{
-        sprintf(buf, BOLD "Info Reply" RESET " -> nonce %"PRIx64,h->nonce);
+        sprintf(buf, BOLD "Info Reply" RESET " -> nonce %"PRIx64, htonll(h->nonce));
     }
 
     return(buf);
@@ -229,7 +229,7 @@ map_register_hdr_to_char(map_register_hdr_t *h)
     }
     *buf = '\0';
     snprintf(buf,sizeof(buf), BOLD "Map-Register" RESET " -> flags:%s record-count: %d nonce %"PRIx64,
-            mreg_flags_to_char(h), h->record_count, h->nonce);
+            mreg_flags_to_char(h), h->record_count, htonll(h->nonce));
     return(buf);
 }
 
@@ -252,8 +252,8 @@ map_notify_hdr_to_char(map_notify_hdr_t *h)
         return(NULL);
     }
     *buf = '\0';
-    snprintf(buf,sizeof(buf), BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %"PRIX64,
-            mntf_flags_to_char(h), h->record_count, h->nonce);
+    snprintf(buf,sizeof(buf), BOLD "Map-Notify" RESET "-> flags:%s, record-count: %d, nonce %"PRIx64,
+            mntf_flags_to_char(h), h->record_count, htonll(h->nonce));
     return(buf);
 }
 

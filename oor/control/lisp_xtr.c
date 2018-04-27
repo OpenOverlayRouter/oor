@@ -863,7 +863,7 @@ xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
     nonces_lst = htable_nonces_lookup(nonces_ht, MNTF_NONCE(hdr));
     if (!nonces_lst){
         OOR_LOG(LDBG_1, "No Map Register sent with nonce: %"PRIx64
-                " Discarding message!", MNTF_NONCE(hdr));
+                " Discarding message!", htonll(MNTF_NONCE(hdr)));
         return(BAD);
     }
     timer = nonces_list_timer(nonces_lst);
@@ -948,7 +948,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     nonces_lst = htable_nonces_lookup(nonces_ht, INF_REQ_NONCE(info_nat_hdr));
     if (!nonces_lst){
         OOR_LOG(LDBG_2, " Nonce %"PRIx64" doesn't match any Info-Request nonce. "
-                "Discarding message!", INF_REQ_NONCE(info_nat_hdr));
+                "Discarding message!", htonll(INF_REQ_NONCE(info_nat_hdr)));
         return(BAD);
     }
 
