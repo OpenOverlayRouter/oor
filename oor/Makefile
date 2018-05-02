@@ -64,6 +64,7 @@ OBJS        = cmdline.o                  \
           control/lisp_tr.o              \
           control/lisp_xtr.o             \
           control/lisp_ms.o              \
+          control/control-data-plane/cdp_punt.o    \
           control/control-data-plane/control-data-plane.o    \
           control/control-data-plane/tun/cdp_tun.o           \
           data-plane/encapsulations/vxlan-gpe.o              \

@@ -28,8 +28,9 @@
 #include "../../lib/interfaces_lib.h"
 #include "../../lib/oor_log.h"
 #include "../../lib/routing_tables_lib.h"
+#include "../../control/oor_ctrl_device.h"
 
-int tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...);
+int tun_configure_data_plane(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...);
 void tun_uninit_data_plane();
 int tun_add_datap_iface_addr(iface_t *iface,int afi);
 int tun_add_datap_iface_gw(iface_t *iface, int afi);
@@ -86,8 +87,9 @@ tun_get_datap_data()
  * tun_configure_data_plane not has variable list of parameters
  */
 int
-tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
+tun_configure_data_plane(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...)
 {
+    oor_dev_type_e dev_type = ctrl_dev_mode(ctrl_dev);
     int (*cb_func)(sock_t *) = NULL;
     int ipv4_data_input_fd = -1;
     int ipv6_data_input_fd = -1;
@@ -101,7 +103,7 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
     tun_ifindex = if_nametoindex (TUN_IFACE_NAME);
     switch (dev_type){
     case MN_MODE:
-        sockmstr_register_read_listener(smaster, tun_output_recv, NULL,tun_receive_fd);
+        sockmstr_register_read_listener(smaster, tun_output_recv, ctrl_dev, tun_receive_fd);
         cb_func = tun_process_input_packet;
         break;
     case xTR_MODE:
@@ -109,7 +111,7 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
         /* Rules created for EID will redirect traffic to this table*/
         configure_routing_to_tun_router(AF_INET);
         configure_routing_to_tun_router(AF_INET6);
-        sockmstr_register_read_listener(smaster, tun_output_recv, NULL,tun_receive_fd);
+        sockmstr_register_read_listener(smaster, tun_output_recv, ctrl_dev, tun_receive_fd);
         cb_func = tun_process_input_packet;
         break;
     case RTR_MODE:
@@ -133,13 +135,13 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
     /* Generate receive sockets for data port (4341) */
     if (default_rloc_afi != AF_INET6) {
         ipv4_data_input_fd = open_data_raw_input_socket(AF_INET, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,
+        sockmstr_register_read_listener(smaster, cb_func, ctrl_dev,
                 ipv4_data_input_fd);
     }
 
     if (default_rloc_afi != AF_INET) {
         ipv6_data_input_fd = open_data_raw_input_socket(AF_INET6, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,
+        sockmstr_register_read_listener(smaster, cb_func, ctrl_dev,
                 ipv6_data_input_fd);
     }
     dplane_tun.datap_data = (void *)tun_dplane_data_new_init(encap_type);

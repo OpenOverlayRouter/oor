@@ -18,6 +18,7 @@ LOCAL_SRC_FILES = \
 		  control/lisp_rtr.c		 \
 		  control/lisp_tr.c		 \
 		  control/lisp_xtr.c             \
+		  control/control-data-plane/cdp_punt.c    \
 		  control/control-data-plane/control-data-plane.c    \
 		  control/control-data-plane/tun/cdp_tun.c           \
 		  data-plane/data-plane.c        \
