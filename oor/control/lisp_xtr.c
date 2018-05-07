@@ -1448,7 +1448,9 @@ xtr_smr_start_for_locl_mapping(lisp_xtr_t *xtr, map_local_entry_t *map_loc_e)
     map = map_local_entry_mapping(map_loc_e);
     eid = mapping_eid(map);
 
-    xtr_program_map_register_for_mapping(xtr, map_loc_e);
+    if (!xtr->nat_aware){
+        xtr_program_map_register_for_mapping(xtr, map_loc_e);
+    }
 
     OOR_LOG(LDBG_1, "Start SMR for local EID %s", lisp_addr_to_char(eid));
 
