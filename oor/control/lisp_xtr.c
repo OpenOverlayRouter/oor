@@ -1120,7 +1120,7 @@ xtr_build_and_send_encap_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt
 
 
 
-    uconn_init(&uc, LISP_DATA_PORT, LISP_CONTROL_PORT, etr_addr, rtr_addr);
+    uconn_init(&uc, xtr->tr.encap_port, LISP_CONTROL_PORT, etr_addr, rtr_addr);
     send_msg(&xtr->super, b, &uc);
 
     lisp_msg_destroy(b);

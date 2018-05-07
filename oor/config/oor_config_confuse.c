@@ -33,6 +33,7 @@
 #include "../control/lisp_ms.h"
 #include "../control/lisp_xtr.h"
 #include "../data-plane/data-plane.h"
+#include "../data-plane/encapsulations/vxlan-gpe.h"
 #include "../lib/oor_log.h"
 #include "../lib/shash.h"
 #include "../lib/util.h"
@@ -421,8 +422,10 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
         encap = str_to_lower_case(encap_str);
         if (strcmp(encap, "lisp") == 0) {
             tr->encap_type = ENCP_LISP;
+            tr->encap_port = LISP_DATA_PORT;
         }else if (strcmp(encap, "vxlan-gpe") == 0){
             tr->encap_type = ENCP_VXLAN_GPE;
+            tr->encap_port = VXLAN_GPE_DATA_PORT;
         }else{
             OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
             free(encap);

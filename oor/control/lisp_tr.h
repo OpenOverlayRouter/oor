@@ -50,6 +50,7 @@ typedef struct lisp_tr {
     shash_t *iface_locators_table; /* Key: Iface name, Value: iface_locators */
 
     oor_encap_t encap_type;
+    uint16_t encap_port;
 
 } lisp_tr_t;
 
