@@ -30,7 +30,6 @@
 #include "../../lib/mem_util.h"
 #include "../../liblisp/liblisp.h"
 #include "../../lib/oor_log.h"
-#include "../../control/control-data-plane/cdp_punt.h"
 
 /* static buffer to receive packets */
 static uint8_t pkt_recv_buf[MAX_IP_PKT_LEN+1];
@@ -38,7 +37,7 @@ static lbuf_t pkt_buf;
 
 
 int
-vpnapi_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid, oor_ctrl_dev_t *ctrl_dev)
+vpnapi_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid)
 {
     uint8_t ttl = 0, tos = 0;
     int afi, port;
@@ -81,15 +80,6 @@ vpnapi_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid, oor_ctrl_dev_t *ct
     /* RESET L3: prepare for output */
     lbuf_reset_l3(b);
 
-    /* If Instance-ID is the reserved 0x00FFFFFF value, we have a data
-     * encapsulated control packet, we need to punt it to the control plane.
-     */
-    if (*iid == MAX_IID) {
-        OOR_LOG(LDBG_3, "Data encapsulated control packet received, "
-                        "\"punting\" to control plane");
-        return control_dp_punt(b, ctrl_dev);
-    }
-
     /* UPDATE IP TOS and TTL. Checksum is also updated for IPv4
      * NOTE: we always assume an IP payload*/
     ip_hdr_set_ttl_and_tos(lbuf_data(b), ttl, tos);
@@ -109,8 +99,7 @@ vpnapi_process_input_packet(sock_t *sl)
     data = (vpnapi_data_t *)dplane_vpnapi.datap_data;
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
 
-    oor_ctrl_dev_t *ctrl_dev = (oor_ctrl_dev_t *)(sl->arg);
-    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf, &iid, ctrl_dev) != GOOD) {
+    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf, &iid) != GOOD) {
         return (BAD);
     }
     /* XXX Destination packet should be checked it belongs to this xTR */
@@ -131,8 +120,7 @@ vpnapi_rtr_process_input_packet(sock_t *sl)
      * not provided */
     lbuf_reserve(&pkt_buf,LBUF_STACK_OFFSET);
 
-    oor_ctrl_dev_t *ctrl_dev = (oor_ctrl_dev_t *)(sl->arg);
-    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf, &(tpl.iid), ctrl_dev) != GOOD) {
+    if (vpnapi_read_and_decap_pkt(sl->fd, &pkt_buf, &(tpl.iid)) != GOOD) {
         return (BAD);
     }
 

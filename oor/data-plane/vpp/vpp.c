@@ -48,7 +48,7 @@
 static uint8_t pkt_recv_buf[TAP_VPP_BUFFER_SIZE];
 static lbuf_t pkt_buf;
 
-int vpp_init_data_plane(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...);
+int vpp_init_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...);
 void vpp_uninit_data_plane (oor_ctrl_t *ctrl);
 int vpp_add_datap_iface_addr(iface_t *iface, int afi);
 int vpp_add_datap_iface_gw(iface_t *iface, int afi);
@@ -89,7 +89,7 @@ data_plane_struct_t dplane_vpp = {
 };
 
 int
-vpp_init_data_plane(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...)
+vpp_init_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
 {
     int vpp_data_fd = -1;
 
@@ -108,7 +108,7 @@ vpp_init_data_plane(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...)
     }
     OOR_LOG(LDBG_2,"VPP: Enabled oor packet miss plugin.");
 
-    sockmstr_register_read_listener(smaster, vpp_output_recv, ctrl_dev, vpp_data_fd);
+    sockmstr_register_read_listener(smaster, vpp_output_recv, NULL,vpp_data_fd);
 
     dplane_vpp.datap_data = vpp_dplane_data_new();
 

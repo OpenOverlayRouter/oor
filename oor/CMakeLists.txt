@@ -22,8 +22,6 @@ add_executable(oor
         control/control-data-plane/vpnapi/cdp_vpnapi.h
         control/control-data-plane/vpp/cdp_vpp.c
         control/control-data-plane/vpp/cdp_vpp.h
-        control/control-data-plane/cdp_punt.c
-        control/control-data-plane/cdp_punt.h
         control/control-data-plane/control-data-plane.c
         control/control-data-plane/control-data-plane.h
         control/lisp_ms.c

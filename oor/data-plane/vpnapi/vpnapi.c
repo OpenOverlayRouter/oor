@@ -29,9 +29,8 @@
 #include "../../fwd_policies/fwd_policy.h"
 #include "../../lib/oor_log.h"
 #include "../../net_mgr/net_mgr.h"
-#include "../../control/oor_ctrl_device.h"
 
-int vpnapi_init(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...);
+int vpnapi_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...);
 void vpnapi_uninit();
 int vpnapi_add_datap_iface_addr(iface_t *iface, int afi);
 int vpnapi_add_datap_iface_gw(iface_t *iface, int afi);
@@ -74,9 +73,8 @@ vpnapi_get_datap_data()
 }
 
 int
-vpnapi_init(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...)
+vpnapi_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
 {
-    oor_dev_type_e dev_type = ctrl_dev_mode(ctrl_dev);
     int (*cb_func)(sock_t *) = NULL;
     int tun_fd, ipv4_data_socket, ipv6_data_socket;
     va_list ap;
@@ -112,7 +110,7 @@ vpnapi_init(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...)
 
     if (default_rloc_afi != AF_INET6){
         ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, ctrl_dev, ipv4_data_socket);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,ipv4_data_socket);
         oor_jni_protect_socket(ipv4_data_socket);
     }else {
         ipv4_data_socket = ERR_SOCKET;
@@ -120,7 +118,7 @@ vpnapi_init(oor_ctrl_dev_t *ctrl_dev, oor_encap_t encap_type, ...)
 
     if (default_rloc_afi != AF_INET){
         ipv6_data_socket = open_data_datagram_input_socket(AF_INET6, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, ctrl_dev, ipv6_data_socket);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,ipv6_data_socket);
         oor_jni_protect_socket(ipv6_data_socket);
     }else {
         ipv6_data_socket = ERR_SOCKET;
