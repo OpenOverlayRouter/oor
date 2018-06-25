@@ -27,8 +27,12 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <netinet/ether.h>
+
+#ifdef __APPLE__
 #include <net/ethernet.h>
+#else
+#include <netinet/ether.h>
+#endif
 
 #include "lbuf.h"
 #include "mem_util.h"
@@ -47,21 +51,56 @@
 #define udplen(x) x->uh_ulen
 #define udpsum(x) x->uh_sum
 #else
+#ifdef __APPLE__
+#define udpsport(x) x->uh_sport
+#define udpdport(x) x->uh_dport
+#define udplen(x) x->uh_ulen
+#define udpsum(x) x->uh_sum
+#else
 #define udpsport(x) x->source
 #define udpdport(x) x->dest
 #define udplen(x) x->len
 #define udpsum(x) x->check
+#endif
 #endif
 
 #ifdef BSD
 #define tcpsport(x) x->th_sport
 #define tcpdport(x) x->th_dport
 #else
+#ifdef __APPLE__
+#define tcpsport(x) x->th_sport
+#define tcpdport(x) x->th_dport
+#else
 #define tcpsport(x) x->source
 #define tcpdport(x) x->dest
 #endif
+#endif
 
-
+#ifdef __APPLE__
+struct iphdr
+{
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    unsigned int ihl:4;
+    unsigned int version:4;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+    unsigned int version:4;
+    unsigned int ihl:4;
+#else
+# error  "Please fix <bits/endian.h>"
+#endif
+    u_int8_t tos;
+    u_int16_t tot_len;
+    u_int16_t id;
+    u_int16_t frag_off;
+    u_int8_t ttl;
+    u_int8_t protocol;
+    u_int16_t check;
+    u_int32_t saddr;
+    u_int32_t daddr;
+    /*The options start here. */
+};
+#endif
 
 /* shared between data and control */
 typedef struct packet_tuple {

@@ -3,4 +3,5 @@ Release
 .cproject
 .project
 .vagrant
+.DS_Store
 *o

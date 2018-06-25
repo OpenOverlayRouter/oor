@@ -31,7 +31,7 @@
 FILE *fp = NULL;
 
 void oor_log(int log_level, char *log_name, const char *format,
-        va_list args);
+             va_list args);
 
 
 void
@@ -40,59 +40,59 @@ llog(int oor_log_level, const char *format, ...)
     va_list args;
     char *log_name; /* To store the log level in string format for printf output */
     int log_level;
-
+    
     va_start(args, format);
-
+    
     switch (oor_log_level){
-    case LCRIT:
-        log_name = "CRIT";
-        log_level = LOG_CRIT;
-        oor_log(log_level, log_name, format, args);
-        break;
-    case LERR:
-        log_name = "ERR";
-        log_level = LOG_ERR;
-        oor_log(log_level, log_name, format, args);
-        break;
-    case LWRN:
-        log_name = "WARNING";
-        log_level = LOG_WARNING;
-        oor_log(log_level, log_name, format, args);
-        break;
-    case LINF:
-        log_name = "INFO";
-        log_level = LOG_INFO;
-        oor_log(log_level, log_name, format, args);
-        break;
-    case LDBG_1:
-        if (debug_level > 0){
-            log_name = "DEBUG";
-            log_level = LOG_DEBUG;
+        case LCRIT:
+            log_name = "CRIT";
+            log_level = LOG_CRIT;
             oor_log(log_level, log_name, format, args);
-        }
-        break;
-    case LDBG_2:
-        if (debug_level > 1){
-            log_name = "DEBUG-2";
-            log_level = LOG_DEBUG;
+            break;
+        case LERR:
+            log_name = "ERR";
+            log_level = LOG_ERR;
             oor_log(log_level, log_name, format, args);
-        }
-        break;
-    case LDBG_3:
-        if (debug_level > 2){
-            log_name = "DEBUG-3";
-            log_level = LOG_DEBUG;
+            break;
+        case LWRN:
+            log_name = "WARNING";
+            log_level = LOG_WARNING;
             oor_log(log_level, log_name, format, args);
-        }
-        break;
-    default:
-        log_name = "LOG";
-        log_level = LOG_INFO;
-        oor_log(log_level, log_name, format, args);
-        break;
+            break;
+        case LINF:
+            log_name = "INFO";
+            log_level = LOG_INFO;
+            oor_log(log_level, log_name, format, args);
+            break;
+        case LDBG_1:
+            if (debug_level > 0){
+                log_name = "DEBUG";
+                log_level = LOG_DEBUG;
+                oor_log(log_level, log_name, format, args);
+            }
+            break;
+        case LDBG_2:
+            if (debug_level > 1){
+                log_name = "DEBUG-2";
+                log_level = LOG_DEBUG;
+                oor_log(log_level, log_name, format, args);
+            }
+            break;
+        case LDBG_3:
+            if (debug_level > 2){
+                log_name = "DEBUG-3";
+                log_level = LOG_DEBUG;
+                oor_log(log_level, log_name, format, args);
+            }
+            break;
+        default:
+            log_name = "LOG";
+            log_level = LOG_INFO;
+            oor_log(log_level, log_name, format, args);
+            break;
     }
-
-
+    
+    
     va_end (args);
 }
 
@@ -102,13 +102,13 @@ oor_log(int log_level, char *log_name, const char *format,
 {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
-
+    
 #ifdef ANDROID
     __android_log_vprint(ANDROID_LOG_INFO, "OOR-C ==>", format,args);
-
+    
     if (fp != NULL){
-        fprintf(fp,"[%d:%d:%d] %s: ",
-                tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+        fprintf(fp,"[%d/%d/%d %d:%d:%d] %s: ",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
         vfprintf(fp,format,args);
         fprintf(fp,"\n");
         fflush(fp);
@@ -117,7 +117,7 @@ oor_log(int log_level, char *log_name, const char *format,
     }
     if(!daemonize){
         printf("[%d/%d/%d %d:%d:%d] %s: ",
-                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+               tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
         vfprintf(stdout,format,args);
         printf("\n");
     }
@@ -133,9 +133,9 @@ oor_log(int log_level, char *log_name, const char *format,
             vsyslog(log_level,format,args);
         }
     }else{
-        printf("[%d/%d/%d %d:%d:%d] %s: ",
-                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
-        vfprintf(stdout,format,args);
+        syslog(LOG_WARNING, "[%d/%d/%d %d:%d:%d] %s: ",
+               tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
+        vsyslog(LOG_WARNING,format,args);
         printf("\n");
     }
 #endif
@@ -162,3 +162,4 @@ close_log_file()
         fclose (fp);
     }
 }
+

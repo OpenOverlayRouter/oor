@@ -111,7 +111,7 @@ lm_assert_failure(const char *where, const char *function,
         abort();
     }
 }
-
+#ifndef __APPLE__
 uint64_t htonll(uint64_t n)
 {
 #ifdef LITTLE_ENDIANS
@@ -120,3 +120,4 @@ uint64_t htonll(uint64_t n)
     return n;
 #endif
 }
+#endif

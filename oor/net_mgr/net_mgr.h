@@ -47,5 +47,6 @@ void net_mgr_select();
 
 extern net_mgr_class_t netm_kernel;
 extern net_mgr_class_t netm_vpp;
+extern net_mgr_class_t netm_apple;
 
 #endif /* NET_MGR_H_ */

@@ -39,11 +39,11 @@ extern int debug_level;
 #define OOR_LOG(...) LLOG(__VA_ARGS__)
 
 #define LLOG(level__, ...)                  \
-    do {                                    \
-        if (is_loggable(level__)) {         \
-            llog(level__, __VA_ARGS__);     \
-        }                                   \
-    } while (0)
+do {                                    \
+if (is_loggable(level__)) {         \
+llog(level__, __VA_ARGS__);     \
+}                                   \
+} while (0)
 
 void llog(int oor_log_level, const char *format, ...);
 void open_log_file(char *log_file);
