@@ -117,7 +117,7 @@ int ios_netm_init() {
     int netm_socket;
     
     //open socket to connect with TunnelProvider
-    netm_socket = open_data_datagram_input_socket(AF_INET, 6979);
+    netm_socket = open_data_datagram_input_socket(AF_INET, 10002);
     sockmstr_register_read_listener(smaster, ios_interface_changed, NULL, netm_socket);
     
     return (GOOD);

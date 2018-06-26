@@ -108,7 +108,7 @@ ios_process_input_packet(sock_t *sl)
     tunnelProviderAddress = lisp_addr_new();
     lisp_addr_ip_from_char(localhostIp, tunnelProviderAddress);
 
-    send_datagram_packet(data->tun_socket, lbuf_l3(&pkt_buf), lbuf_size(&pkt_buf), tunnelProviderAddress, 6970);
+    send_datagram_packet(data->tun_socket, lbuf_l3(&pkt_buf), lbuf_size(&pkt_buf), tunnelProviderAddress, 10001);
     
     return (GOOD);
 }

@@ -18,7 +18,7 @@ Compiling and running OOR on iOS requires the following:
 1. Clone this repo.
 2. Open xcode project located at oor/Apple/oor-apple.xcodeproj
 3. Setup the *Bundle Identifier* and *Team* for **oor-ios** and  **oorPacketTunnelProvider** targets.
-4. Define the constant **tunnelBundleId** in *oor-ios/ViewController.swift*
+4. Define the constant **tunnelBundleId** in *oor/Apple/oor-ios/ViewController.swift*
 5. Be sure that you select oor-ios and your iPhone device in "active scheme" dropdown.
 6. Click build and run button.
 7. Enjoy!

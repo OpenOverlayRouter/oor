@@ -81,7 +81,7 @@ ios_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
     int data_port;
     
     //open socket to connect with TunnelProvider
-    tun_socket = open_data_datagram_input_socket(AF_INET, 6969);
+    tun_socket = open_data_datagram_input_socket(AF_INET, 10000);
     sockmstr_register_read_listener(smaster, ios_output_recv, NULL,tun_socket);
     
     switch (dev_type){

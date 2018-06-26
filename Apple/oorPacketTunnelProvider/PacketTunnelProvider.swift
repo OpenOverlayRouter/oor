@@ -94,10 +94,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         oor_start()
         
         var endpoint: NWEndpoint
-        let packetTunnelProviderAddress = NWHostEndpoint(hostname: "127.0.0.1", port: "6970")
+        let packetTunnelProviderAddress = NWHostEndpoint(hostname: "127.0.0.1", port: "10001")
         
         // Connect to OOR Data output Socket
-        endpoint = NWHostEndpoint(hostname: "127.0.0.1", port: "6969")
+        endpoint = NWHostEndpoint(hostname: "127.0.0.1", port: "10000")
         oorOut = self.createUDPSession(to: endpoint, from: packetTunnelProviderAddress)
         
         // Start listeing incoming packets coming from OOR
@@ -172,7 +172,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     @objc func reachabilityChanged(_ note: Notification) {
         let reachability = note.object as! Reachability
-        let client = UDPClient(address: "127.0.0.1", port: 6979)
+        let client = UDPClient(address: "127.0.0.1", port: 10002)
 
         if reachability.connection == .none {
             newReachabilityStatus = 0
