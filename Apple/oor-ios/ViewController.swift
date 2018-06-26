@@ -12,10 +12,10 @@ import NetworkExtension
 
 class ViewController: UIViewController {
     
-    let defaults = UserDefaults(suiteName: "group.oor")
-    
     // Write here the Bundle Identifier of PacketTunnelProvider.
-    let tunnelBundleId = "edu.upc.ac.oor.ptp"
+    let tunnelBundleId = "Replace with oorPacketTunnelProvider Bundle Identifier"
+    
+    let defaults = UserDefaults(suiteName: "group.oor")
     
     var vpnManager: NETunnelProviderManager = NETunnelProviderManager()
     
