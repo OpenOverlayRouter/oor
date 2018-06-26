@@ -14,7 +14,7 @@ class ViewController: UIViewController {
     
     let defaults = UserDefaults(suiteName: "group.oor")
     
-    // PTP configuration
+    // Write here the Bundle Identifier of PacketTunnelProvider.
     let tunnelBundleId = "edu.upc.ac.oor.ptp"
     
     var vpnManager: NETunnelProviderManager = NETunnelProviderManager()

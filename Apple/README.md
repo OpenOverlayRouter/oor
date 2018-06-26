@@ -6,9 +6,9 @@ OOR-APPLE is the OpenOverlayRouter version for Apple macOS and iOS. We are using
 
 Compiling and running OOR on iOS requires the following:
 
-- Mac running  macOS High Sierra 10.13.1
-- Xcode 9.2
-- An iPhone running iOS 11.2.2. **Is not possible to run OOR on simulator.**
+- Mac running  macOS High Sierra 10.13.5
+- Xcode 9.4.1
+- An iPhone running iOS 11.3.1. **Is not possible to run OOR on simulator.**
 - An Apple Developer Account that belongs to Apple Developer Program (**paid account**).
 
 *We can't guarantee that OOR-iOS works with versions other than those listed.*

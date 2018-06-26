@@ -24,7 +24,6 @@
 		BB226C6C1F0697AE0060F531 /* modelines in Resources */ = {isa = PBXBuildFile; fileRef = BB226BB41F0697AE0060F531 /* modelines */; };
 		BB226C791F0697AE0060F531 /* oor.conf.example in Resources */ = {isa = PBXBuildFile; fileRef = BB226BC31F0697AE0060F531 /* oor.conf.example */; };
 		BB226C7A1F0697AE0060F531 /* oor.ggo in Resources */ = {isa = PBXBuildFile; fileRef = BB226BC41F0697AE0060F531 /* oor.ggo */; };
-		BB226CA51F0AA5AA0060F531 /* Notes netm_ios.rtf in Resources */ = {isa = PBXBuildFile; fileRef = BB226CA41F0AA5AA0060F531 /* Notes netm_ios.rtf */; };
 		BB894EFC1F1E63A8009E3F8C /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB894EFB1F1E63A8009E3F8C /* PacketTunnelProvider.swift */; };
 		BB894F001F1E63A8009E3F8C /* oorPacketTunnelProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BB894EF71F1E63A8009E3F8C /* oorPacketTunnelProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BB894F051F1E66F9009E3F8C /* cmdline.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226AFD1F0697AE0060F531 /* cmdline.c */; };
@@ -158,7 +157,7 @@
 		BB226AF01F06976F0060F531 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		BB226AF21F06976F0060F531 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB226AF71F06976F0060F531 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BB226AFC1F0697AE0060F531 /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		BB226AFC1F0697AE0060F531 /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = .gitignore; path = "/Users/oriol/Cloud Storage/Dropbox/OOR iOS/FIRST RELEASE/oor/.gitignore"; sourceTree = "<absolute>"; };
 		BB226AFD1F0697AE0060F531 /* cmdline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmdline.c; sourceTree = "<group>"; };
 		BB226AFE1F0697AE0060F531 /* cmdline.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cmdline.h; sourceTree = "<group>"; };
 		BB226AFF1F0697AE0060F531 /* CodingStyle.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = CodingStyle.md; sourceTree = "<group>"; };
@@ -335,7 +334,6 @@
 		BB226BC61F0697AE0060F531 /* oor_external.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = oor_external.h; sourceTree = "<group>"; };
 		BB226BC71F0697AE0060F531 /* oor_jni.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = oor_jni.c; sourceTree = "<group>"; };
 		BB226BC81F0697AE0060F531 /* oor_jni.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = oor_jni.h; sourceTree = "<group>"; };
-		BB226C7D1F0697D60060F531 /* Notes.rtf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.rtf; path = Notes.rtf; sourceTree = "<group>"; };
 		BB226C7F1F0699580060F531 /* netm_ios.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = netm_ios.c; path = apple/ios/netm_ios.c; sourceTree = "<group>"; };
 		BB226C801F0699580060F531 /* netm_ios.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = netm_ios.h; path = apple/ios/netm_ios.h; sourceTree = "<group>"; };
 		BB226C8C1F06A20E0060F531 /* cdp_ios.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cdp_ios.c; path = apple/ios/cdp_ios.c; sourceTree = "<group>"; };
@@ -347,10 +345,7 @@
 		BB226C9A1F06A5480060F531 /* ios_output.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ios_output.c; path = apple/ios/ios_output.c; sourceTree = "<group>"; };
 		BB226C9B1F06A5490060F531 /* ios_output.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ios_output.h; path = apple/ios/ios_output.h; sourceTree = "<group>"; };
 		BB226C9F1F0A89200060F531 /* oor-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "oor-Bridging-Header.h"; sourceTree = "<group>"; };
-		BB226CA41F0AA5AA0060F531 /* Notes netm_ios.rtf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.rtf; name = "Notes netm_ios.rtf"; path = "apple/ios/Notes netm_ios.rtf"; sourceTree = "<group>"; };
 		BB226CA61F0BE30C0060F531 /* route.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = route.h; path = apple/ios/route.h; sourceTree = "<group>"; };
-		BB226CA71F0E66510060F531 /* Notes ios-data-plane.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = "Notes ios-data-plane.rtf"; path = "apple/ios/Notes ios-data-plane.rtf"; sourceTree = "<group>"; };
-		BB226CA81F0E67330060F531 /* Notes ios control-data-plane.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = "Notes ios control-data-plane.rtf"; path = "apple/ios/Notes ios control-data-plane.rtf"; sourceTree = "<group>"; };
 		BB6DA79F20D16472006B61F7 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		BB894EF71F1E63A8009E3F8C /* oorPacketTunnelProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = oorPacketTunnelProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB894EFA1F1E63A8009E3F8C /* oorPacketTunnelProvider.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = oorPacketTunnelProvider.entitlements; sourceTree = "<group>"; };
@@ -867,7 +862,6 @@
 			children = (
 				BB226C7F1F0699580060F531 /* netm_ios.c */,
 				BB226C801F0699580060F531 /* netm_ios.h */,
-				BB226CA41F0AA5AA0060F531 /* Notes netm_ios.rtf */,
 				BB226CA61F0BE30C0060F531 /* route.h */,
 			);
 			name = ios;
@@ -896,7 +890,6 @@
 			children = (
 				BB226C8C1F06A20E0060F531 /* cdp_ios.c */,
 				BB226C8D1F06A20E0060F531 /* cdp_ios.h */,
-				BB226CA81F0E67330060F531 /* Notes ios control-data-plane.rtf */,
 			);
 			name = ios;
 			sourceTree = "<group>";
@@ -918,7 +911,6 @@
 				BB226C971F06A5390060F531 /* ios_input.h */,
 				BB226C9A1F06A5480060F531 /* ios_output.c */,
 				BB226C9B1F06A5490060F531 /* ios_output.h */,
-				BB226CA71F0E66510060F531 /* Notes ios-data-plane.rtf */,
 			);
 			name = ios;
 			sourceTree = "<group>";
@@ -956,7 +948,6 @@
 				BB226AEA1F06976F0060F531 /* oor-ios */,
 				BB226ADF1F0697520060F531 /* oor-macos */,
 				BB226C9F1F0A89200060F531 /* oor-Bridging-Header.h */,
-				BB226C7D1F0697D60060F531 /* Notes.rtf */,
 			);
 			name = Apple;
 			sourceTree = "<group>";
@@ -1040,7 +1031,6 @@
 					};
 					BB226AE81F06976F0060F531 = {
 						CreatedOnToolsVersion = 8.3.1;
-						DevelopmentTeam = 983K2HV8EQ;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
@@ -1059,7 +1049,6 @@
 					};
 					BB894EF61F1E63A8009E3F8C = {
 						CreatedOnToolsVersion = 8.3.1;
-						DevelopmentTeam = 983K2HV8EQ;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
@@ -1103,7 +1092,6 @@
 				BB226C791F0697AE0060F531 /* oor.conf.example in Resources */,
 				BB226C7A1F0697AE0060F531 /* oor.ggo in Resources */,
 				BB226BC91F0697AE0060F531 /* .gitignore in Resources */,
-				BB226CA51F0AA5AA0060F531 /* Notes netm_ios.rtf in Resources */,
 				BB226C6C1F0697AE0060F531 /* modelines in Resources */,
 				BB226AF31F06976F0060F531 /* Assets.xcassets in Resources */,
 				BB226AF11F06976F0060F531 /* Main.storyboard in Resources */,
@@ -1404,7 +1392,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 983K2HV8EQ;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1434,7 +1422,6 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = edu.upc.ac.oor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1476,7 +1463,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 983K2HV8EQ;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1499,7 +1486,6 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = edu.upc.ac.oor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1540,7 +1526,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 983K2HV8EQ;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1569,7 +1555,6 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = edu.upc.ac.oor.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1610,7 +1595,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 983K2HV8EQ;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1632,7 +1617,6 @@
 					"$(PROJECT_DIR)/oor/Apple/Frameworks",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = edu.upc.ac.oor.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
