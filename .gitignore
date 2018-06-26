@@ -3,5 +3,8 @@ Release
 .cproject
 .project
 .vagrant
-.DS_Store
 *o
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
