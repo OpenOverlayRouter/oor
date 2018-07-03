@@ -18,7 +18,10 @@
  */
 
 #include <unistd.h>
+
+#ifndef __APPLE__
 #include <linux/rtnetlink.h>
+#endif
 
 #include "oor_control.h"
 #include "oor_ctrl_device.h"
@@ -113,6 +116,7 @@ ctrl_init(oor_ctrl_t *ctrl)
     return (GOOD);
 }
 
+#ifndef __APPLE__
 void
 ctrl_update_iface_info(oor_ctrl_t *ctrl)
 {
@@ -142,6 +146,7 @@ ctrl_update_iface_info(oor_ctrl_t *ctrl)
     }
 
 }
+#endif
 
 void
 ctrl_if_addr_update(oor_ctrl_t *ctrl,iface_t *iface, lisp_addr_t *old_addr,

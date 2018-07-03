@@ -27,6 +27,8 @@ control_dp_select()
     return &control_dp_vpnapi;
 #elif VPP
     return &control_dp_vpp;
+#elif __APPLE__
+    return &control_dp_apple;
 #else
     return &control_dp_tun;
 #endif

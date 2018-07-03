@@ -194,7 +194,11 @@ pref_get_network_address_v6(lisp_addr_t *address)
 
     addr = ip_addr_get_v6(lisp_addr_ip_get_addr(address));
     for (ctr = 0 ; ctr < 4 ; ctr++){
+#ifdef __APPLE__
+        addr32[ctr] = htonl(ntohl(addr->s6_addr[ctr]) & mask[ctr]);
+#else
         addr32[ctr] = htonl(ntohl(addr->s6_addr32[ctr]) & mask[ctr]);
+#endif
     }
     network_address = lisp_addr_new_lafi(LM_AFI_IP);
     ip_addr_set_v6(lisp_addr_ip_get_addr(network_address), &addr32);

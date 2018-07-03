@@ -48,5 +48,6 @@ control_dp_select();
 extern control_dplane_struct_t control_dp_tun;
 extern control_dplane_struct_t control_dp_vpnapi;
 extern control_dplane_struct_t control_dp_vpp;
+extern control_dplane_struct_t control_dp_apple;
 
 #endif /* CONTROL_DATA_PLANE_H_ */

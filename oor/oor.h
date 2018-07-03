@@ -17,6 +17,10 @@
  *
  */
 
+int oor_start();
+void oor_loop();
+void oor_stop();
+
 #ifndef OOR_H_
 #define OOR_H_
 

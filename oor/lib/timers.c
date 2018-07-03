@@ -30,6 +30,15 @@
 #include "../oor_external.h"
 
 
+#ifdef __APPLE__
+
+#include <dispatch/dispatch.h>
+
+#endif
+
+
+
+
 /* Seconds */
 #define TICK_INTERVAL 1
 
@@ -40,7 +49,11 @@ struct timer_wheel_{
     int num_spokes;
     int current_spoke;
     oor_timer_links_t *spokes;
+#ifdef __APPLE__
+    dispatch_source_t tick_timer_id;
+#else
     timer_t tick_timer_id;
+#endif
     int running_timers;
     int expirations;
 } timer_wheel = {.spokes=NULL};
@@ -48,8 +61,11 @@ struct timer_wheel_{
 /* We don't have signalfd in bionic, fake it. */
 static int signal_pipe[2];
 
+#ifdef __APPLE__
+dispatch_source_t timer_id;
+#else
 static timer_t timer_id;
-
+#endif
 /* timers file descriptor */
 int timers_fd = 0;
 
@@ -65,14 +81,42 @@ static void handle_timers(void);
  * Creates the timer wheel structure and starts
  * the rotation timer.
  */
+
+typedef int itimerspec;
+
+#ifdef __APPLE__
+dispatch_source_t CreateDispatchTimer(uint64_t interval,
+                                      uint64_t leeway,
+                                      dispatch_queue_t queue,
+                                      dispatch_block_t block)
+{
+    
+    dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,
+                                                     0, 0, queue);
+    
+    if (timer)
+    {
+        dispatch_source_set_timer(timer, dispatch_walltime(NULL, 0), interval, leeway);
+        dispatch_source_set_event_handler(timer, block);
+        dispatch_resume(timer);
+    }
+    return timer;
+}
+#endif
+
 static int
 create_timer_wheel(void)
 {
-    //timer_t tid;
+#ifdef __APPLE__
+    timer_id = CreateDispatchTimer(1ull * NSEC_PER_SEC, 0, dispatch_get_main_queue(), ^{
+        raise(SIGUSR2);
+    });
+#else
     struct sigevent sev;
     struct itimerspec timerspec;
     sev.sigev_notify = SIGEV_SIGNAL;
-    sev.sigev_signo = SIGRTMIN;
+    //sev.sigev_signo = SIGRTMIN;
+    sev.sigev_signo = SIGUSR2;
     sev.sigev_value.sival_ptr = &timer_id;
     if (timer_create(CLOCK_MONOTONIC, &sev, &timer_id) == -1) {
         OOR_LOG(LINF, "timer_create(): %s", strerror(errno));
@@ -89,7 +133,8 @@ create_timer_wheel(void)
                 timer_id, strerror(errno));
         return (BAD);
     }
-
+#endif
+    
     return(GOOD);
 }
 
@@ -163,8 +208,12 @@ oor_timers_destroy()
         spoke++;
     }
     free(timer_wheel.spokes);
+#ifdef __APPLE__
+    dispatch_source_cancel(timer_id);
+#else
     timer_delete(timer_id);
-
+#endif
+    
 }
 
 /*
@@ -379,8 +428,7 @@ process_timer_signal(sock_t *sl)
         OOR_LOG(LWRN, "process_event_signal(): nothing to read");
         return(-1);
     }
-
-    if (sig == SIGRTMIN) {
+    if (sig == SIGUSR2) {
         handle_timers();
     }
     return(0);
@@ -438,8 +486,8 @@ build_timers_event_socket(int *timers_fd)
     sa.sa_handler = event_sig_handler;
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
-
-    if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
+    
+    if (sigaction(SIGUSR2, &sa, NULL) == -1) {
         OOR_LOG(LERR, "build_timers_event_socket: sigaction() failed %s",
                 strerror(errno));
         exit_cleanup();
@@ -456,8 +504,8 @@ destroy_timers_event_socket()
     sa.sa_handler = NULL;
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
-
-    if (sigaction(SIGRTMIN, &sa, NULL) == -1) {
+    
+    if (sigaction(SIGUSR2, &sa, NULL) == -1) {
         OOR_LOG(LERR, "destroy_timers_event_socket: sigaction() failed %s",
                 strerror(errno));
     }
