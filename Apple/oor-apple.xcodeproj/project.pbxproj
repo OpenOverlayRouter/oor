@@ -14,7 +14,6 @@
 		BB216FCE20A9F7E000136A91 /* map_cache_rtr_data.c in Sources */ = {isa = PBXBuildFile; fileRef = BB216FCC20A9F7E000136A91 /* map_cache_rtr_data.c */; };
 		BB216FD120A9F87D00136A91 /* lisp_tr.c in Sources */ = {isa = PBXBuildFile; fileRef = BB216FCF20A9F87D00136A91 /* lisp_tr.c */; };
 		BB216FD420A9F8D500136A91 /* fwd_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = BB216FD320A9F8D500136A91 /* fwd_utils.c */; };
-		BB216FD520A9FB2700136A91 /* vpp_balancing.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226B631F0697AE0060F531 /* vpp_balancing.c */; };
 		BB226AE11F0697520060F531 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226AE01F0697520060F531 /* main.c */; };
 		BB226AEC1F06976F0060F531 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB226AEB1F06976F0060F531 /* AppDelegate.swift */; };
 		BB226AEE1F06976F0060F531 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB226AED1F06976F0060F531 /* ViewController.swift */; };
@@ -873,9 +872,8 @@
 				BBA459D7208BB86C00CE7882 /* iOSlibconfuse.a */,
 				BBCE4AFB20A5DA47004DE141 /* confuse.h */,
 			);
-			name = Frameworks;
-			path = "/Users/oriol/Cloud Storage/Dropbox/OOR iOS/oor-apple/oor/Apple/../..";
-			sourceTree = "<absolute>";
+			path = Frameworks;
+			sourceTree = "<group>";
 		};
 		BB226C8A1F06A1EA0060F531 /* apple */ = {
 			isa = PBXGroup;
@@ -1152,7 +1150,6 @@
 				BB894F151F1E66F9009E3F8C /* vxlan-gpe.c in Sources */,
 				BB894F161F1E66F9009E3F8C /* ttable.c in Sources */,
 				BB894F171F1E66F9009E3F8C /* md.c in Sources */,
-				BB216FD520A9FB2700136A91 /* vpp_balancing.c in Sources */,
 				BB216FD120A9F87D00136A91 /* lisp_tr.c in Sources */,
 				BB894F181F1E66F9009E3F8C /* md_wrap.c in Sources */,
 				BB894F191F1E66F9009E3F8C /* sha1.c in Sources */,
