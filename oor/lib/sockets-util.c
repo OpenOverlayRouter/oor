@@ -20,11 +20,19 @@
 #include <errno.h>
 #include <netdb.h>
 #include <unistd.h>
+
+#ifndef __APPLE__
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#endif
 
 #include "oor_log.h"
 #include "sockets-util.h"
+
+#ifdef __APPLE__
+#define IPV6_RECVHOPLIMIT 37
+#define IPV6_HOPLIMIT 20
+#endif
 
 int
 open_ip_raw_socket(int afi)
@@ -101,6 +109,8 @@ open_udp_datagram_socket(int afi)
 
 #ifdef ANDROID
     protonum = IPPROTO_UDP;
+#elif __APPLE__
+    protonum = IPPROTO_UDP;
 #else
     if ((proto = getprotobyname("udp")) == NULL) {
         OOR_LOG(LERR, "open_udp_datagram_socket: getprotobyname: %s", strerror(errno));
@@ -126,6 +136,7 @@ open_udp_datagram_socket(int afi)
     return sock;
 }
 
+#ifndef __APPLE__
 int
 opent_netlink_socket()
 {
@@ -150,8 +161,10 @@ opent_netlink_socket()
 
     return (netlink_fd);
 }
+#endif
 
 /* XXX: binding might not work on all devices */
+#ifndef __APPLE__
 inline int
 socket_bindtodevice(int sock, char *device)
 {
@@ -165,6 +178,7 @@ socket_bindtodevice(int sock, char *device)
     }
     return (GOOD);
 }
+#endif
 
 inline int
 socket_conf_req_ttl_tos(int sock, int afi)
@@ -196,7 +210,7 @@ socket_conf_req_ttl_tos(int sock, int afi)
             OOR_LOG(LWRN, "socket_conf_req_ttl_tos: setsockopt IPV6_RECVTCLASS: %s", strerror(errno));
             return (BAD);
         }
-
+            
         /* IPV6_RECVHOPLIMIT is requiered to get later the IPv6 original TTL */
         if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on))
                 < 0) {
@@ -378,9 +392,8 @@ send_datagram_packet (int sock, const void *packet, int packet_length,
         OOR_LOG(LDBG_2, "send_datagram_packet: Unknown afi %d",lisp_addr_ip_afi(addr_dest));
         return (BAD);
     }
-
     if (sendto(sock, packet, packet_length, 0, sock_addr, sock_addr_len) < 0){
-        OOR_LOG(LDBG_2, "send_datagram_packet: send failed %s.",strerror ( errno ));
+        OOR_LOG(LDBG_2, "send_datagram_packet: send failed %s.sock = %d",strerror ( errno ), sock);
         return (BAD);
     }
     return (GOOD);

@@ -395,6 +395,7 @@ lisp_msg_put_mapping(
 
     /* Add locators */
     mapping_foreach_active_locator(m,loct){
+        if (loct->state==DOWN) continue;
         ploc = lisp_msg_put_locator(b, loct);
         if (probed_loc)
             if (probed_loc != NULL
