@@ -28,6 +28,8 @@ void data_plane_select()
     data_plane = &dplane_vpnapi;
 #elif VPP
     data_plane = &dplane_vpp;
+#elif __APPLE__
+    data_plane = &dplane_apple;
 #else
     data_plane = &dplane_tun;
 #endif

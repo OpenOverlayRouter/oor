@@ -17,6 +17,7 @@
  *
  */
 
+#include <netinet/in.h>
 #include "mem_util.h"
 #include "oor_log.h"
 
@@ -110,3 +111,13 @@ lm_assert_failure(const char *where, const char *function,
         abort();
     }
 }
+#ifndef __APPLE__
+uint64_t htonll(uint64_t n)
+{
+#ifdef LITTLE_ENDIANS
+    return (((uint64_t)htonl(n)) << 32) + htonl(n >> 32);
+#else
+    return n;
+#endif
+}
+#endif

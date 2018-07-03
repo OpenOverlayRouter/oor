@@ -28,6 +28,7 @@
 #include "../lib/sockets.h"
 #include "../lib/timers_utils.h"
 #include "../lib/util.h"
+#include "../data-plane/encapsulations/vxlan-gpe.h"
 #include "lisp_rtr.h"
 
 /************************* Structure definitions *****************************/
@@ -698,7 +699,7 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
     nonces_lst = htable_nonces_lookup(nonces_ht, MNTF_NONCE(hdr));
     if (!nonces_lst){
         OOR_LOG(LDBG_1, "No Map Register resent with nonce: %"PRIx64
-                " Discarding message!", MNTF_NONCE(hdr));
+                " Discarding message!", htonll(MNTF_NONCE(hdr)));
         return(BAD);
     }
     timer = nonces_list_timer(nonces_lst);
@@ -830,11 +831,21 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
 
 
 
-    /* Resend Map Notify as a data Map Notify -> Encapsualate message in a data packet */
+    /* Resend Map Notify as a data Map Notify -> Encapsulate message in a data packet */
     iid = MAX_IID;
     lbuf_point_to_l3(&b);
 
-    lisp_data_push_hdr(&b, iid);
+    switch (rtr->tr.encap_type) {
+        case ENCP_LISP:
+            lisp_data_push_hdr(&b, iid);
+            break;
+        case ENCP_VXLAN_GPE:
+            vxlan_gpe_data_push_hdr(&b, iid, vxlan_gpe_get_next_prot(loct_conn_inf->pub_xtr_addr));
+            break;
+        default:
+            OOR_LOG(LERR, "Unknown encapsulation type, cannot re-encapsulate Data-Map-Notify");
+            return (BAD);
+    }
     uconn_init(&fwd_uc, LISP_CONTROL_PORT, loct_conn_inf->pub_xtr_port, loct_conn_inf->rtr_addr,loct_conn_inf->pub_xtr_addr);
     res = send_msg(&rtr->super, &b, &fwd_uc);
 

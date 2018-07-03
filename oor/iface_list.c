@@ -20,8 +20,9 @@
 #include <string.h>
 #include <netdb.h>
 #include <errno.h>
+#ifndef __APPLE__
 #include <linux/rtnetlink.h>
-
+#endif
 #include "data-plane/data-plane.h"
 #include "control/oor_control.h"
 #include "net_mgr/net_mgr.h"

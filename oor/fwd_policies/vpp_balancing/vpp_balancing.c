@@ -13,6 +13,7 @@
 #include "../fwd_addr_func.h"
 #include "../../control/oor_ctrl_device.h"
 #include "../../lib/oor_log.h"
+#include "../../lib/util.h"
 
 #include <math.h>
 

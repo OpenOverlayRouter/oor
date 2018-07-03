@@ -25,6 +25,8 @@ void net_mgr_select()
 {
 #ifdef VPP
     net_mgr = &netm_vpp;
+#elif __APPLE__
+    net_mgr = &netm_apple;
 #else
     net_mgr = &netm_kernel;
 #endif
