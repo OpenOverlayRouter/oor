@@ -19,6 +19,9 @@
 
 #include "fwd_policy.h"
 #include "../lib/oor_log.h"
+#ifndef VPP
+fwd_policy_class fwd_policy_vpp_balancing;
+#endif
 
 static fwd_policy_class *fwd_policy_libs[2] = {
         &fwd_policy_flow_balancing,
