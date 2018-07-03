@@ -136,11 +136,11 @@ oor_log(int log_level, char *log_name, const char *format,
 #ifdef __APPLE__
         syslog(LOG_WARNING, "[%d/%d/%d %d:%d:%d] %s: ",
                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
-        vsyslog(LOG_WARNING,format,args);
+        syslog(LOG_WARNING,format,args);
 #else
-        printf(LOG_WARNING, "[%d/%d/%d %d:%d:%d] %s: ",
+        printf("[%d/%d/%d %d:%d:%d] %s: ",
                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, log_name);
-        vfprintf(LOG_WARNING,format,args);
+        vfprintf(stdout,format,args);
 #endif
         printf("\n");
     }

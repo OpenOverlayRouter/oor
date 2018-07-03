@@ -223,6 +223,7 @@ ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     data = (ios_data_t *)dplane_apple.datap_data;
     
     /* Recreate sockets */
+    //We don't restart sockets on ios because we'll restart later in ios_updated_link()
     /*if (afi == AF_INET){
         ios_reset_socket(data->ipv4_data_socket,AF_INET);
     }else{
