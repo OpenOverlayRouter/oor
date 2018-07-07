@@ -1030,7 +1030,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
 
     /* SMR proxy-ITRs list to be updated with new mappings */
     if (smr_required){
-        OOR_LOG(LDBG_1,"Selected RTR list has changed. Programing SMR");
+        OOR_LOG(LDBG_1,"Selected RTR list has changed. Programming SMR");
         xtr_program_smr(xtr, 1);
     }
 
