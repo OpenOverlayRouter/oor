@@ -201,8 +201,8 @@ rtr_add_rtr_ms_node(lisp_rtr_t *rtr, char *addr_str, char *key, char *draft_vers
 int
 ms_add_rtr_node(lisp_ms_t *ms, char *name, char *addr_str, char *key);
 
-void nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id);
-int nat_set_xTR_ID(lisp_xtr_t *xtr);
+void tr_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id);
+int tr_set_xTR_ID(lisp_xtr_t *xtr);
 
 
 

@@ -432,7 +432,7 @@ rtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
     map_loc_e = rtr->all_locs_map;
 
     if (tuple->iid > 0){
-        iidmlen = (lisp_addr_ip_afi(&tuple->src_addr) == AF_INET) ? 32: 128;
+        iidmlen = 32;
         src_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->src_addr, iidmlen);
         dst_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->dst_addr, iidmlen);
     }else{

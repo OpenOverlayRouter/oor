@@ -31,7 +31,7 @@ lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
 
     sp = xzalloc(sizeof(lisp_site_prefix_t));
     if (iid > 0){
-        iidmlen = (lisp_addr_ip_afi(eid) == AF_INET) ? 32: 128;
+        iidmlen = 32;
         sp->eid_prefix = lisp_addr_new_init_iid(iid, eid, iidmlen);
     }else{
         sp->eid_prefix = lisp_addr_clone(eid);

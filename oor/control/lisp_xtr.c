@@ -648,7 +648,7 @@ xtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
 
 
     if (tuple->iid > 0){
-        iidmlen = (lisp_addr_ip_afi(&tuple->src_addr) == AF_INET) ? 32: 128;
+        iidmlen = 32;
         src_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->src_addr, iidmlen);
         dst_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->dst_addr, iidmlen);
     }else{
@@ -1057,6 +1057,7 @@ xtr_build_and_send_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms,
     }
 
     hdr = lisp_msg_hdr(b);
+
     MREG_PROXY_REPLY(hdr) = ms->proxy_reply;
     MREG_NONCE(hdr) = nonce;
 
