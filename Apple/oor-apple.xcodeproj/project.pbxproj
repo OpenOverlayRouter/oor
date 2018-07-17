@@ -19,7 +19,6 @@
 		BB226AEE1F06976F0060F531 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB226AED1F06976F0060F531 /* ViewController.swift */; };
 		BB226AF11F06976F0060F531 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BB226AEF1F06976F0060F531 /* Main.storyboard */; };
 		BB226AF31F06976F0060F531 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB226AF21F06976F0060F531 /* Assets.xcassets */; };
-		BB226BC91F0697AE0060F531 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = BB226AFC1F0697AE0060F531 /* .gitignore */; };
 		BB226C6C1F0697AE0060F531 /* modelines in Resources */ = {isa = PBXBuildFile; fileRef = BB226BB41F0697AE0060F531 /* modelines */; };
 		BB226C791F0697AE0060F531 /* oor.conf.example in Resources */ = {isa = PBXBuildFile; fileRef = BB226BC31F0697AE0060F531 /* oor.conf.example */; };
 		BB226C7A1F0697AE0060F531 /* oor.ggo in Resources */ = {isa = PBXBuildFile; fileRef = BB226BC41F0697AE0060F531 /* oor.ggo */; };
@@ -156,7 +155,7 @@
 		BB226AF01F06976F0060F531 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		BB226AF21F06976F0060F531 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB226AF71F06976F0060F531 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BB226AFC1F0697AE0060F531 /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = .gitignore; path = "/Users/oriol/Cloud Storage/Dropbox/OOR iOS/FIRST RELEASE/oor/.gitignore"; sourceTree = "<absolute>"; };
+		BB226AFC1F0697AE0060F531 /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = .gitignore; path = ../.gitignore; sourceTree = "<group>"; };
 		BB226AFD1F0697AE0060F531 /* cmdline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmdline.c; sourceTree = "<group>"; };
 		BB226AFE1F0697AE0060F531 /* cmdline.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cmdline.h; sourceTree = "<group>"; };
 		BB226AFF1F0697AE0060F531 /* CodingStyle.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = CodingStyle.md; sourceTree = "<group>"; };
@@ -363,7 +362,6 @@
 		BBDC9CA81F9BD0E70083D767 /* yudpsocket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = yudpsocket.c; sourceTree = "<group>"; };
 		BBDC9CA91F9BD0E70083D767 /* SwiftSocket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwiftSocket.h; sourceTree = "<group>"; };
 		BBDC9CAA1F9BD0E70083D767 /* UDPClient.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UDPClient.swift; sourceTree = "<group>"; };
-		BBDE874A2028C36400E68221 /* oor.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = oor.conf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -468,7 +466,6 @@
 				BB226BC31F0697AE0060F531 /* oor.conf.example */,
 				BB226BC41F0697AE0060F531 /* oor.ggo */,
 				BB226BC51F0697AE0060F531 /* oor.h */,
-				BBDE874A2028C36400E68221 /* oor.conf */,
 			);
 			name = oor;
 			path = ../oor;
@@ -1089,7 +1086,6 @@
 			files = (
 				BB226C791F0697AE0060F531 /* oor.conf.example in Resources */,
 				BB226C7A1F0697AE0060F531 /* oor.ggo in Resources */,
-				BB226BC91F0697AE0060F531 /* .gitignore in Resources */,
 				BB226C6C1F0697AE0060F531 /* modelines in Resources */,
 				BB226AF31F06976F0060F531 /* Assets.xcassets in Resources */,
 				BB226AF11F06976F0060F531 /* Main.storyboard in Resources */,
