@@ -1,6 +1,6 @@
-# OpenOverlayRouter on Apple
+# OpenOverlayRouter on Apple iOS
 
-OOR-APPLE is the OpenOverlayRouter version for Apple macOS and iOS. We are using the official OOR code as base https://github.com/OpenOverlayRouter/oor. iOS version is working in an early state, there are a lot of code improvements to do and things to implement. Mac OS version is not working.
+OOR-APPLE is the OpenOverlayRouter version for Apple iOS. We are using the official OOR code as base https://github.com/OpenOverlayRouter/oor. iOS version is working in an early state, there are a lot of code improvements to do and things to implement.
 
 ## Requirements
 

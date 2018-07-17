@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-class SettingsViewController: UITableViewController {
+class SettingsViewController: UITableViewController, UITextFieldDelegate {
  
     let defaults = UserDefaults(suiteName: "group.oor")
     
@@ -27,7 +27,18 @@ class SettingsViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        self.eidIpv4TextField.delegate = self
+        self.mapResolverTextField.delegate = self
+        self.mapServerTextField.delegate = self
+        self.mapServerKeyTextField.delegate = self
+        self.proxyEtrAddressTextField.delegate = self
+        self.dnsServerTextField.delegate = self
         loadConfig()
+    }
+    
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        self.view.endEditing(true)
+        return false
     }
     
     func loadConfig() {
