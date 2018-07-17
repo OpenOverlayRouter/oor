@@ -362,7 +362,6 @@
 		BBDC9CA81F9BD0E70083D767 /* yudpsocket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = yudpsocket.c; sourceTree = "<group>"; };
 		BBDC9CA91F9BD0E70083D767 /* SwiftSocket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwiftSocket.h; sourceTree = "<group>"; };
 		BBDC9CAA1F9BD0E70083D767 /* UDPClient.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UDPClient.swift; sourceTree = "<group>"; };
-		BBDE874A2028C36400E68221 /* oor.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = oor.conf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -467,7 +466,6 @@
 				BB226BC31F0697AE0060F531 /* oor.conf.example */,
 				BB226BC41F0697AE0060F531 /* oor.ggo */,
 				BB226BC51F0697AE0060F531 /* oor.h */,
-				BBDE874A2028C36400E68221 /* oor.conf */,
 			);
 			name = oor;
 			path = ../oor;
