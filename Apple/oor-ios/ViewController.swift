@@ -13,7 +13,7 @@ import NetworkExtension
 class ViewController: UIViewController {
     
     // Write here the Bundle Identifier of PacketTunnelProvider.
-    let tunnelBundleId = "org.openoverlayrouter.ios.ptp"
+    let tunnelBundleId = "Replace with oorPacketTunnelProvider bundle identifier"
     
     let defaults = UserDefaults(suiteName: "group.oor")
     
