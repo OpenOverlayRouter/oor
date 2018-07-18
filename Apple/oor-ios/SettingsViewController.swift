@@ -13,6 +13,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     let defaults = UserDefaults(suiteName: "group.oor")
     
     @IBOutlet weak var eidIpv4TextField: UITextField!
+    @IBOutlet weak var iidTextField: UITextField!
     @IBOutlet weak var mapResolverTextField: UITextField!
     @IBOutlet weak var mapServerTextField: UITextField!
     @IBOutlet weak var mapServerKeyTextField: UITextField!
@@ -28,6 +29,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         self.eidIpv4TextField.delegate = self
+        self.iidTextField.delegate = self
         self.mapResolverTextField.delegate = self
         self.mapServerTextField.delegate = self
         self.mapServerKeyTextField.delegate = self
@@ -43,6 +45,12 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     
     func loadConfig() {
         eidIpv4TextField.text = defaults?.string(forKey: "eidIpv4")
+        if defaults?.string(forKey:"iid") == nil {
+            iidTextField.text = "0"
+        }
+        else {
+            iidTextField.text = defaults?.string(forKey: "iid")
+        }
         mapResolverTextField.text = defaults?.string(forKey: "mapResolver")
         mapServerTextField.text = defaults?.string(forKey: "mapServer")
         mapServerKeyTextField.text = defaults?.string(forKey: "mapServerKey")
@@ -53,6 +61,12 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     
     func saveConfig() {
         defaults?.set(eidIpv4TextField.text, forKey: "eidIpv4")
+        if (iidTextField.text?.isEmpty)! {
+            defaults?.set("0", forKey: "iid")
+        }
+        else {
+            defaults?.set(iidTextField.text, forKey: "iid")
+        }
         defaults?.set(mapResolverTextField.text ,forKey: "mapResolver")
         defaults?.set(mapServerTextField.text, forKey: "mapServer")
         defaults?.set(mapServerKeyTextField.text, forKey: "mapServerKey")
@@ -155,7 +169,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("#     indicates how to balance unicast traffic between them.\n")
         config.append("database-mapping {\n")
         config.append("        eid-prefix     = \(defaults?.string(forKey: "eidIpv4") ?? "")/32\n")
-        config.append("        iid            = 0\n")
+        config.append("        iid            = \(defaults?.string(forKey: "iid") ?? "")\n")
         config.append("        rloc-iface{\n")
         config.append("           interface     = en0\n")
         config.append("           ip_version    = 4\n")
