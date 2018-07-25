@@ -10,3 +10,4 @@ Release
 **/._.DS_Store
 *.xcuserstate
 *.xcuserdata
+*.xcbkptlist

@@ -564,14 +564,21 @@ JNIEXPORT void JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1exit(JNIE
 
 int oor_running;
 
+char *logPath;
+char *confPath;
+
+void setLogPath(const char *path) {
+    logPath = path;
+}
+
+void setConfPath(const char *path) {
+    confPath = path;
+}
+
 int oor_start() {
     
     oor_dev_type_e dev_type;
-    uint32_t iseed = 0;  /* initial random number generator */
-    //pid_t pid = 0;    /* child pid */
-    //pid_t sid = 0;
     char log_file[1024];
-    //const char *path = NULL;
     tr_abstract_device *tunnel_router;
     memset (log_file,0,sizeof(char)*1024);
     initial_setup();
@@ -587,23 +594,17 @@ int oor_start() {
     net_mgr_select();
     if (ifaces_init()!=GOOD){
         exit_cleanup();
-        //close(vpn_tun_fd);
         return (BAD);
     }
     
     // parse config and create ctrl_dev
     // obtain the configuration file
-    
-    char *homePath = getenv("HOME");
     config_file = calloc(1024, sizeof(char));
-    strcat(config_file,homePath);
-    strcat(config_file,"/Documents/oor.conf");
-    strcat(log_file,homePath);
-    strcat(log_file,"/Documents/oor.log");
+    strcat(config_file,confPath);
+    strcat(log_file,logPath);
     open_log_file(log_file);
     if (parse_config_file()!=GOOD){
         exit_cleanup();
-        //close(vpn_tun_fd);
         return (BAD);
     }
     
@@ -618,32 +619,13 @@ int oor_start() {
         OOR_LOG(LDBG_1, "Data plane initialized");
         
     }
-
-    
-    //NETM_GET_IFACES_NAMES
-    glist_t * namelist;
-    namelist = net_mgr->netm_get_ifaces_names();
-    int n = glist_size(namelist);
-    OOR_LOG(LINF,"namelist size %d\n", n);
-    
-    glist_entry_t *     it          = NULL;
-    void *              iface_name        = NULL;
-    int                 ctr         = 0;
-    
-    glist_for_each_entry(it,namelist){
-        ctr++;
-        iface_name = glist_entry_data(it);
-        OOR_LOG(LINF,"[%d] =>  %s",ctr,iface_name);
-    }
     
     ctrl_init(lctrl);
     
     if (net_mgr->netm_init() != GOOD){
         exit_cleanup();
     }
-    
     return (GOOD);
-    
 }
 
 void trigtimer() {
@@ -654,10 +636,6 @@ void oor_loop() {
     
     oor_running = TRUE;
     ctrl_dev_run(ctrl_dev);
-    
-    /*oor_timer_t timer;
-    timer.cb = trigtimer();
-    oor_timer_start(timer, 5);*/
     
     // EVENT LOOP
     while (oor_running) {
@@ -671,6 +649,7 @@ void oor_loop() {
 
 void oor_stop() {
     oor_running = false;
+    close_log_file();
 }
 
 #endif

@@ -21,6 +21,13 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     @IBOutlet weak var dnsServerTextField: UITextField!
     @IBOutlet weak var saveLabel: UILabel!
     @IBOutlet weak var natSwitch: UISwitch!
+    @IBOutlet weak var stepperTextField: UITextField!
+    @IBOutlet weak var stepper: UIStepper!
+    
+    @IBAction func stepperChanged(_ sender: Any) {
+        stepperTextField.text = String(Int(stepper.value))
+    }
+    
     @IBAction func saveButton(_ sender: Any) {
         saveConfig()
         saveLabel.text = "Configuration saved!"
@@ -57,6 +64,13 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         proxyEtrAddressTextField.text = defaults?.string(forKey: "proxyEtrAddress")
         dnsServerTextField.text = defaults?.string(forKey: "dnsServer")
         natSwitch.isOn = (defaults?.bool(forKey: "nat"))!
+        if defaults?.string(forKey: "debugString") == nil {
+            stepper.value = 0
+            stepperTextField.text = "0"
+        } else {
+            stepper.value = (defaults?.double(forKey: "debug"))!
+            stepperTextField.text = defaults?.string(forKey: "debugString")
+        }
     }
     
     func saveConfig() {
@@ -73,15 +87,14 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         defaults?.set(proxyEtrAddressTextField.text, forKey: "proxyEtrAddress")
         defaults?.set(dnsServerTextField.text, forKey: "dnsServer")
         defaults?.set(natSwitch.isOn, forKey: "nat")
+        defaults?.set(stepper.value, forKey: "debug")
+        defaults?.set(stepperTextField.text, forKey: "debugString")
         defaults?.set(true, forKey: "firstLaunch")
         defaults?.addSuite(named: "group.oor")
         writeConfigFile()
     }
     
     func writeConfigFile() {
-        
-        
-        
         var config = ""
         config.append("#       *** noroot_OOR EXAMPLE CONFIG FILE ***\n\n\n")
         config.append("# General configuration\n")
@@ -89,7 +102,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("#      map-request-retries: Additional Map-Requests to send per map cache miss\n")
         config.append("#      encapsulation: Encapsulation that will use noroot_OOR in the data plane. Could \n")
         config.append("#        be LISP or VXLAN-GPE. LISP is selected by default\n\n")
-        config.append("debug                  = 2\n")
+        config.append("debug                  = \(defaults?.string(forKey: "debugString") ?? "")\n")
         config.append("map-request-retries    = 2\n")
         config.append("encapsulation          = LISP\n\n\n")
         config.append("#\n")
@@ -189,14 +202,10 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         let file = "oor.conf" //this is the file. we will write to and read from it
         
         if let dir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.oor") {
-            
             let fileURL = dir.appendingPathComponent(file)
-            print(fileURL)
-            
             //writing
             do {
                 try config.write(to: fileURL, atomically: false, encoding: .utf8)
-                print("WRITED!!")
             }
             catch { print("ERROR \(error)")}
         }

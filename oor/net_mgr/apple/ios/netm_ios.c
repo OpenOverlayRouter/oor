@@ -165,16 +165,6 @@ glist_t * ios_get_iface_addr_list(char *iface_name, int afi) {
     struct sockaddr_in6 *s6;
     ip_addr_t ip;
     
-   /* char *cellularInterfaceName = "pdp_ip0";
-    char *wifiInterfaceName = "en0";
-    
-    if (strcmp(iface_name, cellularInterfaceName) == 0) {
-        if (ios_get_iface_status(wifiInterfaceName) == UP) {
-            OOR_LOG(LERR, "ios_get_iface_addr_list: Interface en0 UP, setting address for %s NULL", iface_name);
-            return(addr_list);
-        }
-    }*/
-    
     /* search for the interface */
     if (getifaddrs(&ifaddr) !=0) {
         OOR_LOG(LDBG_2, "ios_get_iface_addr_list: getifaddrs error: %s",
@@ -233,16 +223,6 @@ lisp_addr_t * ios_get_src_addr_to(lisp_addr_t *dst_addr) {
 
 
 lisp_addr_t * ios_get_iface_gw(char *iface_name, int afi) {
-    
-    /*char *cellularInterfaceName = "pdp_ip0";
-    char *wifiInterfaceName = "en0";
-    
-    if (strcmp(iface_name, cellularInterfaceName) == 0) {
-        if (ios_get_iface_status(wifiInterfaceName) == UP) {
-            OOR_LOG(LERR, "ios_get_iface_gw: Interface en0 UP, setting gateway for %s NULL", iface_name);
-            return NULL;
-        }
-    }*/
     
     struct in_addr addr;
     lisp_addr_t gateway = { .lafi = LM_AFI_IP };
@@ -304,7 +284,7 @@ uint8_t ios_get_iface_status(char *iface_name) {
     
     if (strcmp(iface_name, cellularInterfaceName) == 0) {
         if (ios_get_iface_status(wifiInterfaceName) == UP) {
-            OOR_LOG(LERR, "ios_get_iface_status: Interface en0 UP, setting interface %s DOWN", iface_name);
+            OOR_LOG(LINF, "ios_get_iface_status: Interface en0 UP, setting interface %s DOWN", iface_name);
             return DOWN;
         }
     }
