@@ -13,31 +13,29 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     let defaults = UserDefaults(suiteName: "group.oor")
     
-    /// The completion handler to call when the tunnel is fully established.
+    // The completion handler to call when the tunnel is fully established.
     var completionHandler: ((Error?) -> Void)?
     
-    /// Socket to handle outgoing packets from OOR, get packets from oor
+    // Socket to handle outgoing packets from OOR, get packets from oor
     open var oorOut: NWUDPSession?
     
     //Socket to handle interface change
     open var oorNetm: NWUDPSession?
     
-    // Supposed VPN server IP address
+    //Fake VPN server IP address
     var tunSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "0.0.0.0")
     
+    //Interface monitoring
     open var currentReachabilityStatus: Int?
     open var newReachabilityStatus: Int?
-
     var reachability: Reachability?
     
     // Start fake tunnel connection
     override func startTunnel(options: [String : NSObject]? = nil, completionHandler: @escaping (Error?) -> Void) {
-        
-        copyConfigFile()
-        
+                
         self.completionHandler = completionHandler
         
-        // TUN IP address
+        //TUN IP address
         tunSettings.iPv4Settings = NEIPv4Settings(addresses: [(defaults?.string(forKey: "eidIpv4"))!], subnetMasks: ["255.255.255.255"])
         
         // Networks to be routed through TUN
@@ -53,7 +51,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 NSLog("PacketTunnelProvider.startTunnel.setTunnelNetworkSettingsError \(String(describing: error))")
                 completionHandler(error)
             }
-            // Tell to the system that the VPN is "up"
+            // Tell to the system that the fake VPN is "up"
             completionHandler(nil)
         }
 
@@ -69,28 +67,17 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         
     }
     
-    func copyConfigFile() {
-        // COPY CONFIGURATION FILE FROM SHARED TO DOCUMENTS FOLDER
+    func startOOR() {
         let fileManager = FileManager.default
+
+        let logFileSharedURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.oor")?.appendingPathComponent("oor.log")
+        
+        setLogPath((logFileSharedURL?.path as! NSString).utf8String)
         
         let configFileSharedURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.oor")?.appendingPathComponent("oor.conf")
         
-        let configFileURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("oor.conf")
+        setConfPath((configFileSharedURL?.path as! NSString).utf8String)
         
-        do {
-            try fileManager.removeItem(at: configFileURL!)
-        } catch let error as NSError {
-            print("Couldn't copy oor.conf file to final location! Error:\(error.description)")
-        }
-        do {
-            try fileManager.copyItem(atPath: (configFileSharedURL?.path)!, toPath: (configFileURL?.path)!)
-            print("oor.conf file copied!")
-        } catch let error as NSError {
-            print("Couldn't copy oor.conf file to final location! Error:\(error.description)")
-        }
-    }
-    
-    func startOOR() {
         oor_start()
         
         var endpoint: NWEndpoint
@@ -165,7 +152,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         do {
             try reachability?.startNotifier()
         } catch {
-            print("Unable to start notifier")
+            NSLog("Unable to start notifier")
         }
         
     }
@@ -205,11 +192,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         currentReachabilityStatus = newReachabilityStatus
     }
     
-    func stopTunnelWithReason(reason: NEProviderStopReason, completionHandler: () -> Void) {
-     // Add code here to start the process of stopping the tunnel.
+    override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
+        // Add code here to start the process of stopping the tunnel.
         oor_stop()
-     completionHandler()
-     }
+        completionHandler()
+    }
      
      func handleAppMessage(messageData: NSData, completionHandler: ((NSData?) -> Void)?) {
      // Add code here to handle the message.

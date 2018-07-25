@@ -90,11 +90,14 @@ class ViewController: UIViewController {
         case .connecting:
             print("Connecting...")
             connectButton.setTitle("DISCONNECT", for: .normal)
+            statusText.text = "OOR is starting"
+            statusText.textColor = UIColor.orange
             break
         case .connected:
             print("Connected...")
             connectButton.setTitle("DISCONNECT", for: .normal)
             statusText.text = "OOR is running"
+            statusText.textColor = UIColor.green
             break
         case .disconnecting:
             print("Disconnecting...")
@@ -103,9 +106,10 @@ class ViewController: UIViewController {
             print("Disconnected...")
             connectButton.setTitle("CONNECT", for: .normal)
             statusText.text = "OOR is NOT running"
+            statusText.textColor = UIColor.red
             break
         case .invalid:
-            print("Invliad")
+            print("Invalid")
             break
         case .reasserting:
             print("Reasserting...")
@@ -130,7 +134,6 @@ class ViewController: UIViewController {
         }
     }
 
-    
     @IBAction func oorWebButton(_ sender: Any) {
         if let url = NSURL(string: "https://www.openoverlayrouter.org") {
             UIApplication.shared.openURL(url as URL)
