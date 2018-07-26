@@ -173,6 +173,33 @@ pref_get_network_address_v4(lisp_addr_t *address)
 static inline lisp_addr_t *
 pref_get_network_address_v6(lisp_addr_t *address)
 {
+#ifdef __APPLE__
+    lisp_addr_t * network_address;
+    uint8_t addr8[16];
+    struct in6_addr *addr;
+    uint8_t mask[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    int prefix_length;
+    int ctr = 0;
+    int a,b;
+    
+    prefix_length = lisp_addr_get_plen(address);
+    a = (prefix_length) / 8;
+    b = (prefix_length) % 8;
+    
+    for (ctr = 0; ctr<a ; ctr++){
+        mask[ctr] = 0xFF;
+    }
+    if (b != 0){
+        mask[a] = 0xFF<<(8-b);
+    }
+    
+    addr = ip_addr_get_v6(lisp_addr_ip_get_addr(address));
+    for (ctr = 0 ; ctr < 16 ; ctr++){
+        addr8[ctr] = addr->s6_addr[ctr] & mask[ctr];
+    }
+    network_address = lisp_addr_new_lafi(LM_AFI_IP);
+    ip_addr_set_v6(lisp_addr_ip_get_addr(network_address), &addr8);
+#else
     lisp_addr_t * network_address;
     uint32_t addr32[4];
     struct in6_addr *addr;
@@ -180,30 +207,28 @@ pref_get_network_address_v6(lisp_addr_t *address)
     int prefix_length;
     int ctr = 0;
     int a,b;
-
+    
     prefix_length = lisp_addr_get_plen(address);
     a = (prefix_length) / 32;
     b = (prefix_length) % 32;
-
+    
     for (ctr = 0; ctr<a ; ctr++){
         mask[ctr] = 0xFFFFFFFF;
     }
     if (b != 0){
         mask[a] = 0xFFFFFFFF<<(32-b);
     }
-
+    
     addr = ip_addr_get_v6(lisp_addr_ip_get_addr(address));
     for (ctr = 0 ; ctr < 4 ; ctr++){
-#ifdef __APPLE__
-        addr32[ctr] = htonl(ntohl(addr->s6_addr[ctr]) & mask[ctr]);
-#else
         addr32[ctr] = htonl(ntohl(addr->s6_addr32[ctr]) & mask[ctr]);
-#endif
     }
     network_address = lisp_addr_new_lafi(LM_AFI_IP);
     ip_addr_set_v6(lisp_addr_ip_get_addr(network_address), &addr32);
+#endif
     return network_address;
 }
+
 
 /*
  * pref_get_network_prefix returns a prefix address from an IP prefix.
