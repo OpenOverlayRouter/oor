@@ -20,7 +20,11 @@
 #ifndef MEM_UTIL_H_
 #define MEM_UTIL_H_
 
+#ifdef __APPLE__
+#include <machine/endian.h>
+#else
 #include <endian.h>
+#endif
 #include <inttypes.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -104,6 +108,8 @@ void *xmemdup(const void *p_, size_t size);
 char *xmemdup0(const char *p_, size_t length);
 char *xstrdup(const char *s);
 
+#ifndef __APPLE__
 uint64_t htonll(uint64_t n);
+#endif
 
 #endif /* MEM_UTIL_H_ */

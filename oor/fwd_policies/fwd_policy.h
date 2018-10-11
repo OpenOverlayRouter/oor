@@ -34,7 +34,7 @@ typedef void (*fwd_info_data_del_fn)(void *);
  * to the device into the fwd module
  */
 typedef struct fwd_policy_dev_parm_t{
-	shash_t *paramiters;
+    shash_t *paramiters;
 } fwd_policy_dev_parm;
 
 /*
@@ -42,9 +42,9 @@ typedef struct fwd_policy_dev_parm_t{
  * to a mapping into the fwd module
  */
 typedef struct fwd_policy_map_parm_t{
-	lisp_addr_t     *eid_prefix;
-	shash_t 		*paramiters;
-	glist_t			*locators;
+    lisp_addr_t     *eid_prefix;
+    shash_t         *paramiters;
+    glist_t            *locators;
 } fwd_policy_map_parm;
 
 /*
@@ -52,8 +52,8 @@ typedef struct fwd_policy_map_parm_t{
  * to a locator into the fwd module
  */
 typedef struct fwd_policy_loct_parm_t{
-	lisp_addr_t     *rloc_addr;
-	shash_t 		*paramiters;
+    lisp_addr_t     *rloc_addr;
+    shash_t         *paramiters;
 } fwd_policy_loct_parm;
 
 typedef struct fwd_info_{
@@ -83,8 +83,6 @@ typedef struct fwd_policy_class {
 extern fwd_policy_class fwd_policy_flow_balancing;
 #ifdef VPP
 extern fwd_policy_class fwd_policy_vpp_balancing;
-#else
-fwd_policy_class fwd_policy_vpp_balancing;
 #endif
 
 fwd_policy_dev_parm *fwd_policy_dev_parm_new();

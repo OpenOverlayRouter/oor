@@ -50,6 +50,7 @@ void data_plane_select();
 extern data_plane_struct_t dplane_tun;
 extern data_plane_struct_t dplane_vpnapi;
 extern data_plane_struct_t dplane_vpp;
+extern data_plane_struct_t dplane_apple;
 
 
 #endif /* DATA_PLANE_H_ */

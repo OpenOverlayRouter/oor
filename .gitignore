@@ -4,3 +4,10 @@ Release
 .project
 .vagrant
 *o
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
+*.xcuserstate
+*.xcuserdata
+*.xcbkptlist

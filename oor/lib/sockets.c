@@ -28,6 +28,12 @@
 #include "../iface_list.h"
 #include "../liblisp/liblisp.h"
 
+#ifdef __APPLE__
+#define IPV6_RECVPKTINFO 61
+#define IPV6_PKTINFO 46
+#define IPV6_HOPLIMIT 47
+#endif
+
 
 
 sockmstr_t *

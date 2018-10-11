@@ -17,6 +17,12 @@
  *
  */
 
+int oor_start();
+void oor_loop();
+void oor_stop();
+void setLogPath(const char *path);
+void setConfPath(const char *path);
+
 #ifndef OOR_H_
 #define OOR_H_
 
