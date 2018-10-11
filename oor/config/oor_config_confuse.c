@@ -1316,9 +1316,9 @@ handle_config_file()
             ret=configure_rtr(cfg);
         }else if (strcmp(mode, "mn") == 0) {
             ret=configure_mn(cfg);
-        }else if (strcmp(mode, "DDT") ==0) {
+        }else if (strcmp(mode, "ddt") ==0) {
         	ret=configure_ddt(cfg);
-        }else if (strcmp(mode, "DDT-MR") ==0) {
+        }else if (strcmp(mode, "ddt-mr") ==0) {
             ret=configure_ddt_mr(cfg);
         }else{
             OOR_LOG (LCRIT, "Configuration file: Unknown operating mode: %s",mode);

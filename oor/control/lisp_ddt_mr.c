@@ -190,7 +190,7 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
             switch (ddt_mcache_entry_type(cacheentry)){
             case LISP_ACTION_DELEGATION_HOLE:
                 // send negative Map-Reply
-                mrep = lisp_msg_neg_mrep_create(deid, 15, ACT_NO_ACTION,
+                mrep = lisp_msg_neg_mrep_create(ddt_mcache_entry_eid(cacheentry), 15, ACT_NO_ACTION,
                         A_AUTHORITATIVE, MREQ_NONCE(mreq_hdr));
                 send_msg(&ddt_mr->super, mrep, ext_uc);
                 lisp_msg_destroy(mrep);
@@ -348,8 +348,13 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
             }
         case LISP_ACTION_NOT_AUTHORITATIVE:
             if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
+            	/*
+            	 * The pending request is silently discarded; i.e., all state
+            	 * for the request that caused this answer is removed, and no answer
+            	 * is returned to the original requester.
+            	 */
                 //send negative map-reply/es
-                send_negative_mrep_to_original_askers(ddt_mr,pendreq);
+                send_negative_mrep_to_original_askers(ddt_mr,pendreq, pendreq->target_address);
                 map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
             }else{
                 //send request to Root
@@ -445,7 +450,8 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
             ddt_entry = ddt_mcache_entry_new();
             ddt_mcache_entry_init(ddt_entry,m);
             ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
-            send_negative_mrep_to_original_askers(ddt_mr,pendreq);
+            send_negative_mrep_to_original_askers(ddt_mr,pendreq,
+            		ddt_mcache_entry_eid(ddt_entry));
             map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
             break;
 
@@ -747,13 +753,13 @@ pending_request_do_cycle(oor_timer_t *timer){
     if(pendreq->retry_number >= DEFAULT_MAP_REQUEST_RETRIES){
         if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
             // send negative map reply/es and eliminate pending request
-            send_negative_mrep_to_original_askers(mapres,pendreq);
+            send_negative_mrep_to_original_askers(mapres,pendreq,pendreq->target_address);
 
             map_resolver_remove_ddt_pending_request(mapres,pendreq);
 
         }else if(pendreq->retry_number >=1 && pendreq->recieved_not_registered == 1){
             // send negative map reply/es and eliminate pending request
-            send_negative_mrep_to_original_askers(mapres,pendreq);
+            send_negative_mrep_to_original_askers(mapres,pendreq,pendreq->target_address);
             map_resolver_remove_ddt_pending_request(mapres,pendreq);
         }else{
             // switch to the root entry and retry
@@ -857,14 +863,14 @@ timer_pendreq_cycle_arg_free(timer_pendreq_cycle_argument * timer_arg)
     free(timer_arg);
 }
 
-void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_request_t * pendreq)
+void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_request_t * pendreq, lisp_addr_t *eid_pref)
 {
     glist_entry_t *it = NULL;
     glist_for_each_entry(it,pendreq->original_requests){
         ddt_original_request_t *request = glist_entry_data(it);
         lbuf_t *        mrep        = NULL;
         uconn_t orig_uc;
-        mrep = lisp_msg_neg_mrep_create(pendreq->target_address, 15, ACT_NO_ACTION,
+        mrep = lisp_msg_neg_mrep_create(eid_pref, 15, ACT_NO_ACTION,
                 A_NO_AUTHORITATIVE, request->nonce);
         lisp_addr_t *drloc = NULL;
 

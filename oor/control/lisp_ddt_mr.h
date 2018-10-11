@@ -92,6 +92,6 @@ static inline lisp_addr_t *
 pending_request_xeid(ddt_pending_request_t *request) {
     return(request->target_address);
 }
-void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_request_t * pendreq);
+void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_request_t * pendreq,  lisp_addr_t *eid_pref);
 
 #endif /* LISP_DDT_MR_H_ */

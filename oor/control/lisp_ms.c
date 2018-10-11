@@ -299,7 +299,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
                         lisp_addr_to_char(deid));
                 send_msg(&ms->super, mref, ext_uc);
                 lisp_msg_destroy(mref);
-
             }else{
                 /* send negative map-reply with TTL 15 min */
                 neg_pref = mdb_get_shortest_negative_prefix(ms->lisp_sites_db, deid);

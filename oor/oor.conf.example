@@ -105,9 +105,8 @@ ddt-auth-site {
 #   eid-prefix: EID prefix (IPvX/mask) of the delegation
 #   iid: Instance ID associated with the lisp site [0-16777215]
 #   delegation-type: Indicates if at least one of the delegated sites is a MS for this xeid
-#   deleg-nodes: A number of addresses, each could be one of the following cases
-#      - IPv4 or IPv6 address of the RLOC
-#      - ELP name
+#   deleg-nodes: A number of IP addresses, each could be IPv4 or IPv6 
+
 
 ddt-deleg-site {
     eid-prefix          = <prefix>
@@ -117,27 +116,6 @@ ddt-deleg-site {
 	 <ip-address>
 	 ...
 	}
-}
-
-
-################################################
-#
-# DDT-MAP RESOLVER configuration
-#
-
-# Control messages are received and generated through this interface
-# Only one interface is supported
-
-control-iface = <iface name>
-
-# Define the current addresses for DDT-Root.
-#   root-addresses: A number of addresses, each could be one of the following cases
-#      - IPv4 or IPv6 address of the RLOC
-#      - ELP name
-
-ddt-root-addresses = {
-	 <ip-address>
-	 ...
 }
 
 #
@@ -181,6 +159,28 @@ ms-rtrs-set {
 # ms-advertised-rtrs-set: Name of the ms-rtrs-set to be announced by the MS
 
 ms-advertised-rtrs-set  = <string>
+
+
+################################################
+#
+# DDT-MAP RESOLVER configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+
+control-iface = <iface name>
+
+# Define the current addresses for DDT-Root.
+#   root-addresses: A number of addresses, each could be one of the following cases
+#      - IPv4 or IPv6 address of the RLOC
+#      - ELP name
+
+ddt-root-addresses = {
+	 <ip-address>
+	 ...
+}
+
 
 ###############################################
 #
