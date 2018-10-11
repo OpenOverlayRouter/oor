@@ -327,9 +327,6 @@ pkt_parse_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
     return (GOOD);
 }
 
-
-
-
 /* Fill the tuple with the inner 5 tuples of an
  * Encap control message:
  * (SRC IP, DST IP, PROTOCOL, SRC PORT, DST PORT) */

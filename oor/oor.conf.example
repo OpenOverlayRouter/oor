@@ -16,7 +16,7 @@ ipv6-scope             = [GLOBAL|SITE]
 # Define the type of LISP device LISPmob will operate as 
 #
 # operating-mode can be any of:
-# xTR, RTR, MN, MS
+# xTR, RTR, MN, MS, DDT, DDT-MR
 #
 operating-mode         = xTR
 
@@ -50,6 +50,10 @@ lisp-site {
     key                   = <string>
     iid                   = 0
     accept-more-specifics = [true|false]
+    ddt-ms-peers          = {
+    <ip-address>
+    ...
+    }
 }
 
 # Define a static registered mapping. New Map-Registers overwrites
@@ -73,6 +77,67 @@ ms-static-registered-site {
         priority        = <int>
         weight          = <int>
     }
+}
+
+################################################
+#
+# DDT-NODE configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+
+control-iface = <iface name>
+
+# Define a lisp-site for which this DDT-NODE is authoritative. Several
+# lisp-site can be defined.
+# 
+#   eid-prefix: Authoritative EID prefix (IPvX/mask)
+#   iid: Instance ID associated with the lisp site [0-16777215]
+
+ddt-auth-site {
+    eid-prefix            = <prefix>
+    iid                   = 0
+}
+
+# Define a static registered delegation.
+# You can define several eid-prefix.
+#   eid-prefix: EID prefix (IPvX/mask) of the delegation
+#   iid: Instance ID associated with the lisp site [0-16777215]
+#   delegation-type: Indicates if at least one of the delegated sites is a MS for this xeid
+#   deleg-nodes: A number of addresses, each could be one of the following cases
+#      - IPv4 or IPv6 address of the RLOC
+#      - ELP name
+
+ddt-deleg-site {
+    eid-prefix          = <prefix>
+    iid                 = 0
+    delegation-type     = <CHILD_DDT_NODE/MAP_SERVER_DDT_NODE>
+	deleg-nodes 		= {
+	 <ip-address>
+	 ...
+	}
+}
+
+
+################################################
+#
+# DDT-MAP RESOLVER configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+
+control-iface = <iface name>
+
+# Define the current addresses for DDT-Root.
+#   root-addresses: A number of addresses, each could be one of the following cases
+#      - IPv4 or IPv6 address of the RLOC
+#      - ELP name
+
+ddt-root-addresses = {
+	 <ip-address>
+	 ...
 }
 
 #

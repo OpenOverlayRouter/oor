@@ -37,6 +37,22 @@ mapping_record_init_hdr(mapping_record_hdr_t *h) {
     h->reserved3 = 0;
 }
 
+void
+mref_mapping_record_init_hdr(mref_mapping_record_hdr_t *h) {
+    h->ttl                  = htonl(DEFAULT_DATA_CACHE_TTL);
+    h->referral_count        = 1;
+    h->eid_prefix_length    = 0;
+    h->action               = 0;
+    h->authoritative        = 1;
+    h->incomplete           = 0;
+    h->signature_count      = 0;
+    h->version_hi           = 0;
+    h->version_low          = 0;
+
+    h->reserved1 = 0;
+    h->reserved2 = 0;
+}
+
 char *
 mapping_action_to_char(int act) {
     static char buf[30];
@@ -62,6 +78,36 @@ mapping_action_to_char(int act) {
 }
 
 char *
+mref_mapping_action_to_char(int act) {
+    static char buf[30];
+
+    *buf = '\0';
+    switch(act) {
+    case LISP_ACTION_NODE_REFERRAL:
+        sprintf(buf, "node-referral");
+        break;
+    case LISP_ACTION_MS_REFERRAL:
+        sprintf(buf, "ms-referral");
+        break;
+    case LISP_ACTION_MS_ACK:
+        sprintf(buf, "ms-ack");
+        break;
+    case LISP_ACTION_NOT_REGISTERED:
+        sprintf(buf, "ms-not-registered");
+        break;
+    case LISP_ACTION_DELEGATION_HOLE:
+            sprintf(buf, "delegation-hole");
+            break;
+    case LISP_ACTION_NOT_AUTHORITATIVE:
+            sprintf(buf, "not-authoritative");
+            break;
+    default:
+        sprintf(buf, "unknown-action");
+    }
+    return(buf);
+}
+
+char *
 mapping_record_hdr_to_char(mapping_record_hdr_t *h)
 {
     static char buf[100];
@@ -73,6 +119,23 @@ mapping_record_hdr_to_char(mapping_record_hdr_t *h)
     snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d loc-count: %d action: %s auth: %d"
             " map-version: %d", ntohl(h->ttl), h->locator_count,
             mapping_action_to_char(h->action), h->authoritative,
+            MAP_REC_VERSION(h));
+
+    return(buf);
+}
+
+char *
+mref_mapping_record_hdr_to_char(mref_mapping_record_hdr_t *h)
+{
+    static char buf[100];
+
+    if (!h) {
+        return(NULL);
+    }
+    *buf = '\0';
+    snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d ref-count: %d action: %s auth: %d incomplete: %d"
+            " map-version: %d", ntohl(h->ttl), h->referral_count,
+            mapping_action_to_char(h->action), h->authoritative, h->incomplete,
             MAP_REC_VERSION(h));
 
     return(buf);

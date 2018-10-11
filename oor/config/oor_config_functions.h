@@ -23,6 +23,8 @@
 #include "../control/lisp_ms.h"
 #include "../control/lisp_rtr.h"
 #include "../control/lisp_xtr.h"
+#include "../control/lisp_ddt_node.h"
+#include "../control/lisp_ddt_mr.h"
 #include "../lib/iface_locators.h"
 #include "../lib/lisp_site.h"
 #include "../lib/map_local_entry.h"
@@ -166,7 +168,18 @@ add_rtr_iface(lisp_rtr_t *xtr, char *iface_name,int afi, int priority,
 lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
+        glist_t *ddt_ms_peers, shash_t *lcaf_ht);
+
+ddt_authoritative_site_t *
+build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
         shash_t *lcaf_ht);
+
+ddt_delegation_site_t *
+build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        int type, glist_t *child_nodes, shash_t *lcaf_ht);
+
+int
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht);
 
 char *
 get_interface_name_from_address(lisp_addr_t *addr);

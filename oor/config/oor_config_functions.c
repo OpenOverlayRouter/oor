@@ -588,11 +588,14 @@ add_rtr_iface(lisp_rtr_t *rtr, char *iface_name,int afi, int priority,
 lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
-        shash_t *lcaf_ht)
+        glist_t *ddt_ms_peers, shash_t *lcaf_ht)
 {
     lisp_addr_t *eid_prefix;
     lisp_addr_t *ht_prefix;
     lisp_site_prefix_t *site;
+    glist_t *addr_list, *ddt_ms_peers2;
+
+    ddt_ms_peers2 = glist_new();
 
     if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
@@ -614,10 +617,158 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         eid_prefix = lisp_addr_clone(ht_prefix);
     }
     pref_conv_to_netw_pref(eid_prefix);
+
+    //Convert the contents of ddt_ms_peers from strings to lisp_addr_t
+    //and put them into ddt_ms_peers2
+    char         *    ms_peer          = NULL;
+    glist_entry_t *     it          = NULL;
+
+    glist_for_each_entry(it, ddt_ms_peers) {
+        ms_peer = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(ms_peer, lcaf_ht);
+        glist_entry_t * it2 = NULL;
+        glist_for_each_entry(it2, addr_list){
+            glist_add_tail((lisp_addr_t *)glist_entry_data(it2), ddt_ms_peers2);
+        }
+    }
+
     site = lisp_site_prefix_init(eid_prefix, iid, key_type, key,
-            more_specifics, proxy_reply, merge);
+            more_specifics, proxy_reply, merge, ddt_ms_peers2);
     lisp_addr_del(eid_prefix);
     return(site);
+}
+
+ddt_authoritative_site_t *
+build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        shash_t *lcaf_ht)
+{
+    lisp_addr_t *eid_prefix;
+    lisp_addr_t *ht_prefix;
+    ddt_authoritative_site_t *site;
+
+    if (iid > MAX_IID) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...", iid, MAX_IID);
+        iid = 0;
+    }
+
+    /* DON'T DELETE eid_prefix */
+    eid_prefix = lisp_addr_new();
+    if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
+        lisp_addr_del(eid_prefix);
+        /* if not found, try in the hash table */
+        ht_prefix = shash_lookup(lcaf_ht, eidstr);
+        if (!ht_prefix) {
+            OOR_LOG(LERR, "Configuration file: Error parsing EID prefix %s",
+                    eidstr);
+            return (NULL);
+        }
+        eid_prefix = lisp_addr_clone(ht_prefix);
+    }
+    pref_conv_to_netw_pref(eid_prefix);
+    site = ddt_authoritative_site_init(eid_prefix, iid);
+    lisp_addr_del(eid_prefix);
+    return(site);
+}
+
+ddt_delegation_site_t *
+build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
+        int type, glist_t *child_nodes, shash_t *lcaf_ht)
+{
+    lisp_addr_t *eid_prefix;
+    lisp_addr_t *ht_prefix;
+    ddt_delegation_site_t *site;
+    glist_t *addr_list, *child_nodes2;
+
+    child_nodes2 = glist_new();
+
+    if (iid > MAX_IID) {
+        OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
+                "disabling...", iid, MAX_IID);
+        iid = 0;
+    }
+
+    /* DON'T DELETE eid_prefix */
+    eid_prefix = lisp_addr_new();
+    if (lisp_addr_ippref_from_char(eidstr, eid_prefix) != GOOD) {
+        lisp_addr_del(eid_prefix);
+        /* if not found, try in the hash table */
+        ht_prefix = shash_lookup(lcaf_ht, eidstr);
+        if (!ht_prefix) {
+            OOR_LOG(LERR, "Configuration file: Error parsing EID prefix %s",
+                    eidstr);
+            return (NULL);
+        }
+        eid_prefix = lisp_addr_clone(ht_prefix);
+    }
+    pref_conv_to_netw_pref(eid_prefix);
+
+    //Convert the contents of child_nodes from strings to lisp_addr_t
+    //and put them into child_nodes2
+    char         *    childnod          = NULL;
+    glist_entry_t *     it          = NULL;
+
+    glist_for_each_entry(it, child_nodes) {
+        childnod = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(childnod, lcaf_ht);
+        if (glist_size(addr_list) >= 1){
+            glist_entry_t *it2 = NULL;
+            glist_for_each_entry(it2, addr_list) {
+                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), child_nodes2);
+            }
+        }
+    }
+
+    site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes2);
+    lisp_addr_del(eid_prefix);
+    return(site);
+}
+
+int
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht){
+
+    //Convert the contents of root_addresses from strings to lisp_addr_t
+    //and put them into root_addresses2
+    char         *    address          = NULL;
+    glist_entry_t *     it          = NULL;
+    glist_t *addr_list, *root_addresses2;
+    mref_mapping_t * mapping = NULL;
+    lisp_addr_t * addr = NULL;
+    ddt_mcache_entry_t *ddt_entry = NULL;
+
+
+    root_addresses2 = glist_new();
+    addr = lisp_addr_new();
+
+
+    glist_for_each_entry(it, root_addresses) {
+        address = (char *)glist_entry_data(it);
+        addr_list = parse_lisp_addr(address, lcaf_ht);
+        if (glist_size(addr_list) >= 1){
+            glist_entry_t *it2 = NULL;
+            glist_for_each_entry(it2, addr_list) {
+                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), root_addresses2);
+            }
+        }
+    }
+
+    if (glist_size(root_addresses2)<1) {
+        OOR_LOG(LERR, "Configuration file: No valid addresses are specified for DDT-Root");
+        return(BAD);
+    }
+
+    lisp_addr_ippref_from_char(FULL_IPv4_ADDRESS_SPACE,addr);
+    // create mapping with the referrals, then create the mapping cache entry for root
+    // with the mapping, and assign it to the map resolver
+    mapping = mref_mapping_new_init_full(addr, 1440, LISP_ACTION_NODE_REFERRAL, A_AUTHORITATIVE,
+            0, root_addresses2, NULL, NULL);
+
+    ddt_entry = ddt_mcache_entry_new();
+    ddt_mcache_entry_init_static(ddt_entry,mapping);
+    ddt_mr_set_root_entry(ddt_mr,ddt_entry);
+
+    return (GOOD);
+
 }
 
 

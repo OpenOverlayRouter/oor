@@ -254,6 +254,88 @@ err:
 }
 
 int
+lisp_msg_parse_mref_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
+        glist_t *loc_list)
+{
+    void *mrec_hdr = NULL;
+    locator_t *loc = NULL;
+    int i = 0, len = 0;
+
+    mrec_hdr = lbuf_data(b);
+    lbuf_pull(b, sizeof(mref_mapping_record_hdr_t));
+
+    len = lisp_addr_parse(lbuf_data(b), eid);
+    if (len <= 0) {
+        return(BAD);
+    }
+    lbuf_pull(b, len);
+    lisp_addr_set_plen(eid, MREF_MAP_REC_EID_PLEN(mrec_hdr));
+
+    OOR_LOG(LDBG_1, "  %s eid: %s", mapping_record_hdr_to_char(mrec_hdr),
+            lisp_addr_to_char(eid));
+
+    for (i = 0; i < MREF_MAP_REC_REF_COUNT(mrec_hdr); i++) {
+        loc = locator_new();
+        if (lisp_msg_parse_loc(b, loc) != GOOD) {
+            return(BAD);
+        }
+        glist_add(loc, loc_list);
+    }
+
+    return(GOOD);
+}
+
+/* extracts a map referral mapping record out of lbuf 'b' and stores it into 'm'.
+ * 'm' must be preallocated. */
+int
+lisp_msg_parse_mref_mapping_record(lbuf_t *b, mref_mapping_t *m)
+{
+    glist_t *loc_list;
+    glist_entry_t *lit;
+    locator_t *loc;
+    int ret;
+    void *hdr;
+
+    if (!m) {
+        return(BAD);
+    }
+
+    hdr = lbuf_data(b);
+    mref_mapping_set_ttl(m, ntohl(MREF_MAP_REC_TTL(hdr)));
+    mref_mapping_set_action(m, MREF_MAP_REC_ACTION(hdr));
+    mref_mapping_set_auth(m, MREF_MAP_REC_AUTH(hdr));
+    mref_mapping_set_incomplete(m, MREF_MAP_REC_INC(hdr));
+
+    /* no free is called when destroyed*/
+    loc_list = glist_new();
+
+    ret = lisp_msg_parse_mref_mapping_record_split(b, mref_mapping_eid(m), loc_list);
+    if (ret != GOOD) {
+        goto err;
+    }
+
+    glist_for_each_entry(lit, loc_list) {
+        loc = glist_entry_data(lit);
+        if ((ret = mref_mapping_add_referral(m, loc)) != GOOD) {
+            locator_del(loc);
+            if (ret != ERR_EXIST){
+                goto err;
+            }
+        }
+    }
+
+    /* here goes a method that reads and adds the signatures to the mapping record
+     * more than likely getting them through another method, similar to "mapping_record_split"*/
+
+    glist_destroy(loc_list);
+    return(GOOD);
+
+err:
+    glist_destroy(loc_list);
+    return(BAD);
+}
+
+int
 lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl)
 {
     *ttl = (ntohl(*(int *)lbuf_data(b)));
@@ -291,6 +373,8 @@ msg_type_to_hdr_len(lisp_msg_type_e type)
         return(sizeof(map_notify_hdr_t));
     case LISP_INFO_NAT:
         return(sizeof(info_nat_hdr_t));
+    case LISP_MAP_REFERRAL:
+    	return(sizeof(map_referral_hdr_t));
     default:
         return(0);
     }
@@ -357,6 +441,9 @@ increment_record_count(lbuf_t *b)
     case LISP_MAP_NOTIFY:
         MNTF_REC_COUNT(hdr) += 1;
         break;
+    case LISP_MAP_REFERRAL:
+    	MREF_REC_COUNT(hdr) += 1;
+    	break;
     default:
         return;
     }
@@ -432,6 +519,81 @@ lisp_msg_put_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
 }
 
 void *
+lisp_msg_put_mref_mapping_hdr(lbuf_t *b)
+{
+    void *hdr = lbuf_put_uninit(b, sizeof(mref_mapping_record_hdr_t));
+    mref_mapping_record_init_hdr(hdr);
+    return(hdr);
+}
+
+void *
+lisp_msg_put_mref_mapping(
+        lbuf_t      *b, mref_mapping_t *map)
+{
+    mref_mapping_record_hdr_t    *rec            = NULL;
+    //locator_hdr_t           *ploc           = NULL;
+    locator_t               *loct           = NULL;
+    int                     referral_count   = 0;
+    int                     signature_count    = 0;
+
+
+    rec = lisp_msg_put_mref_mapping_hdr(b);
+    MREF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(mref_mapping_eid(map));
+    MREF_MAP_REC_TTL(rec) = htonl(mref_mapping_ttl(map));
+    MREF_MAP_REC_ACTION(rec) = mref_mapping_action(map);
+    MREF_MAP_REC_AUTH(rec) = mref_mapping_auth(map);
+    MREF_MAP_REC_INC(rec) = mref_mapping_incomplete(map);
+
+    if (lisp_msg_put_addr(b, mref_mapping_eid(map)) == NULL) {
+        return(NULL);
+    }
+
+    /* Add referrals */
+    mref_mapping_foreach_referral(map,loct){
+        if (locator_state(loct) == DOWN){
+            continue;
+        }
+        //ploc = lisp_msg_put_locator(b, loct);
+        lisp_msg_put_locator(b,loct);
+        //LOC_PROBED(ploc) = 1;
+        referral_count++;
+    }mref_mapping_foreach_referral_end;
+
+    MREF_MAP_REC_REF_COUNT(rec) = referral_count;
+
+    /*add the signatures here, which should modify signature_count*/
+    MREF_MAP_REC_SIGC(rec) = signature_count;
+
+    increment_record_count(b);
+
+    return(rec);
+}
+
+void *
+lisp_msg_put_mref_neg_mapping(lbuf_t *b, lisp_addr_t *eid, int ttl,
+        lisp_ref_action_e act, lisp_authoritative_e a, int i)
+{
+    void *rec;
+
+    rec = lisp_msg_put_mref_mapping_hdr(b);
+    MREF_MAP_REC_EID_PLEN(rec) = lisp_addr_get_plen(eid);
+    MREF_MAP_REC_REF_COUNT(rec) = 0;
+    MREF_MAP_REC_TTL(rec) = htonl(ttl);
+    MREF_MAP_REC_ACTION(rec) = act;
+    MREF_MAP_REC_AUTH(rec) = a;
+    MREF_MAP_REC_INC(rec) = i;
+    MREF_MAP_REC_SIGC(rec) = 0;
+
+    if (lisp_msg_put_addr(b, eid) == NULL) {
+        return(NULL);
+    }
+
+    increment_record_count(b);
+
+    return(rec);
+}
+
+void *
 lisp_msg_put_itr_rlocs(lbuf_t *b, glist_t *itr_rlocs)
 {
     glist_entry_t *it;
@@ -481,7 +643,6 @@ lisp_msg_encap(lbuf_t *b, int lp, int rp, lisp_addr_t *la, lisp_addr_t *ra)
     /* end of lisp msg */
     lbuf_reset_lisp(b);
     lisp_addr_t *ip_la, *ip_ra;
-
 
     ip_la = lisp_addr_get_ip_addr(la);
     if (!ip_la){
@@ -559,6 +720,10 @@ lisp_msg_create(lisp_msg_type_e type)
     case LISP_ENCAP_CONTROL_TYPE:
         /* nothing to do */
         break;
+    case LISP_MAP_REFERRAL:
+    	hdr = lbuf_put_uninit(b, sizeof(map_referral_hdr_t));
+    	map_referral_hdr_init(hdr);
+    	break;
     default:
         OOR_LOG(LDBG_3, "lisp_msg_create: Unknown LISP message "
                 "type %s", type);
@@ -598,6 +763,19 @@ lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
     void *hdr;
     b = lisp_msg_create(LISP_MAP_REPLY);
     lisp_msg_put_neg_mapping(b, eid, ttl, ac, a);
+    hdr = lisp_msg_hdr(b);
+    MREP_NONCE(hdr) = nonce;
+    return(b);
+}
+
+lbuf_t *
+lisp_msg_neg_mref_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
+        lisp_authoritative_e a, int i, uint64_t nonce)
+{
+    lbuf_t *b;
+    void *hdr;
+    b = lisp_msg_create(LISP_MAP_REFERRAL);
+    lisp_msg_put_mref_neg_mapping(b, eid, ttl, ac, a, i);
     hdr = lisp_msg_hdr(b);
     MREP_NONCE(hdr) = nonce;
     return(b);
@@ -696,6 +874,8 @@ lisp_msg_hdr_to_char(lbuf_t *b)
         return(info_nat_hdr_to_char(h));
     case LISP_ENCAP_CONTROL_TYPE:
         return(ecm_hdr_to_char(h));
+    case LISP_MAP_REFERRAL:
+    	return (map_referral_hdr_to_char(h));
     default:
         OOR_LOG(LDBG_3, "Unknown LISP message type %d",
                 lisp_msg_type(b));

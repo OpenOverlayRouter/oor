@@ -23,6 +23,7 @@
 #include "lisp_address.h"
 #include "lisp_locator.h"
 #include "lisp_mapping.h"
+#include "lisp_mref_mapping.h"
 #include "lisp_messages.h"
 #include "lisp_data.h"
 #include "../lib/generic_list.h"
@@ -50,6 +51,10 @@ int lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl);
 int lisp_msg_parse_xtr_id_site_id (lbuf_t *b, lisp_xtr_id *xtr_id,
         lisp_site_id *site_id);
 
+int lisp_msg_parse_mref_mapping_record_split(lbuf_t *, lisp_addr_t *, glist_t *);
+int lisp_msg_parse_mref_mapping_record(lbuf_t *, mref_mapping_t *);
+
+int lisp_msg_ecm_decap(struct lbuf *, uint16_t *);
 void * lisp_msg_pull_ecm_hdr(lbuf_t *b);
 int lisp_msg_parse_int_ip_udp(lbuf_t *pkt);
 
@@ -59,6 +64,10 @@ void *lisp_msg_put_mapping_hdr(lbuf_t *) ;
 void *lisp_msg_put_mapping(lbuf_t *, mapping_t *, lisp_addr_t *);
 void *lisp_msg_put_neg_mapping(lbuf_t *, lisp_addr_t *, int, lisp_action_e,
         lisp_authoritative_e a);
+void *lisp_msg_put_mref_mapping_hdr(lbuf_t *);
+void *lisp_msg_put_mref_mapping(lbuf_t *, mref_mapping_t *);
+void *lisp_msg_put_mref_neg_mapping(lbuf_t *, lisp_addr_t *, int ,
+        lisp_ref_action_e , lisp_authoritative_e , int);
 void *lisp_msg_put_itr_rlocs(lbuf_t *, glist_t *);
 void *lisp_msg_put_eid_rec(lbuf_t *, lisp_addr_t *);
 void *lisp_msg_put_xtr_id_site_id(lbuf_t *b, lisp_xtr_id *xTR_id, lisp_site_id *site_id);
@@ -73,6 +82,8 @@ static inline void *lisp_msg_hdr(lbuf_t *b);
 lbuf_t *lisp_msg_mreq_create(lisp_addr_t *, glist_t *, lisp_addr_t *);
 lbuf_t *lisp_msg_neg_mrep_create(lisp_addr_t *, int, lisp_action_e,
         lisp_authoritative_e, uint64_t);
+lbuf_t *lisp_msg_neg_mref_create(lisp_addr_t *, int , lisp_action_e ,
+        lisp_authoritative_e , int , uint64_t);
 lbuf_t *lisp_msg_inf_req_create(mapping_t *m, lisp_key_type_e keyid);
 lbuf_t *lisp_msg_inf_reply_create(lisp_addr_t *eid, lisp_addr_t *nat_lcaf,
         lisp_key_type_e keyid, int ttl);

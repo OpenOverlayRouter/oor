@@ -398,13 +398,56 @@ typedef struct _locator_hdr {
 #define LOC_ADDR(h_) ((uint8_t *)(h_)  + sizeof(locator_hdr_t))
 
 
+
+/*
+ * SIGNATURE  FIELD
+ */
+
+
+/*
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    /|                      Original Record TTL                      |
+ *   / +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  /  |                      Signature Expiration                     |
+ * |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * s   |                      Signature Inception                      |
+ * i   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * g   |            Key Tag            |            Sig Length         |
+ * |   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * \   | Sig-Algorithm |    Reserved   |             Reserved          |
+ *  \  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   \ ~                             Signature                         ~
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Fixed portion of the signature.
+ */
+typedef struct _signature_hdr {
+    uint32_t original_record_ttl;
+    uint32_t signature_expiration;
+    uint32_t signature_inception;
+    uint16_t key_tag;
+    uint16_t sig_length;
+    uint8_t sig_algorithm;
+    uint8_t reserved1;
+    uint16_t reserved2;
+} __attribute__ ((__packed__)) signature_hdr_t;
+
+#define SIG_CAST(h_) ((signature_hdr_t *)(h_))
+#define SIG_ORTTL(h_) SIG_CAST(h_)->original_record_ttl
+#define SIG_EXP(h_) SIG_CAST(h_)->signature_expiration
+#define SIG_INC(h_) SIG_CAST(h_)->signature_inception
+#define SIG_KEYTAG(h_) SIG_CAST(h_)->key_tag
+#define SIG_LENGTH(h_) SIG_CAST(h_)->sig_length
+#define SIG_ALG(h_) SIG_CAST(h_)->sig_algorithm
+
+
 /*
  * MAPPING RECORD
  */
 
 
 /*
- * Mapping record used in all LISP control messages.
+ * Mapping record used in all LISP control messages, except map-referral.
  *
  *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |      |                          Record  TTL                          |
@@ -419,7 +462,7 @@ typedef struct _locator_hdr {
  *  |    / +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |  Loc |         Unused Flags    |L|p|R|           Loc-AFI             |
  *  |    \ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |     \|                             Locator                           |
+ *  |     \|                            Locator                            |
  *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
@@ -471,6 +514,89 @@ typedef enum lisp_actions {
     ACT_SEND_MREQ,
     ACT_DROP
 } lisp_action_e;
+
+
+/*
+ * MAP REFERRAL MAPPING RECORD
+ */
+
+
+/*
+ * Mapping record used in LISP map-referral control messages.
+ *
+ *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |      |                          Record  TTL                          |
+ *  |      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  R      |Referral Count | EID mask-len  | ACT |A|I|     Reserved        |
+ *  e      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  c      |SigCnt |  Map-Version Number   |            EID-AFI            |
+ *  o      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  r      |                          EID-prefix                           |
+ *  d      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |     /|    Priority   |    Weight     |  M Priority   |   M Weight    |
+ *  |    / +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |  Ref |         Unused Flags    |L|p|R|           Loc-AFI             |
+ *  |    \ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |     \|                            Locator                            |
+ *  |      |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |      ~                          Sig section                          |
+ *  +--->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+/*
+ * Fixed portion of the mapping record. EID prefix address and
+ * locators follow.
+ */
+
+typedef struct _mref_mapping_record_hdr_t {
+    uint32_t ttl;
+    uint8_t referral_count;
+    uint8_t eid_prefix_length;
+#ifdef LITTLE_ENDIANS
+    uint8_t reserved1:3;
+    uint8_t incomplete:1;
+    uint8_t authoritative:1;
+    uint8_t action:3;
+#else
+    uint8_t action:3;
+    uint8_t authoritative:1;
+    uint8_t incomplete:1;
+    uint8_t reserved1:3;
+#endif
+    uint8_t reserved2;
+#ifdef LITTLE_ENDIANS
+    uint8_t version_hi:4;
+    uint8_t signature_count:4;
+#else
+    uint8_t signature_count:4;
+    uint8_t version_hi:4;
+#endif
+    uint8_t version_low;
+} __attribute__ ((__packed__)) mref_mapping_record_hdr_t;
+
+
+void mref_mapping_record_init_hdr(mref_mapping_record_hdr_t *h);
+char *mref_mapping_action_to_char(int act);
+char *mref_mapping_record_hdr_to_char(mref_mapping_record_hdr_t *h);
+
+#define MREF_MAP_REC_EID_PLEN(h) ((mref_mapping_record_hdr_t *)(h))->eid_prefix_length
+#define MREF_MAP_REC_REF_COUNT(h) ((mref_mapping_record_hdr_t *)(h))->referral_count
+#define MREF_MAP_REC_ACTION(h) ((mref_mapping_record_hdr_t *)(h))->action
+#define MREF_MAP_REC_AUTH(h) ((mref_mapping_record_hdr_t *)(h))->authoritative
+#define MREF_MAP_REC_INC(h) ((mref_mapping_record_hdr_t *)(h))->incomplete
+#define MREF_MAP_REC_SIGC(h) ((mref_mapping_record_hdr_t *)(h))->signature_count
+#define MREF_MAP_REC_TTL(h) ((mref_mapping_record_hdr_t *)(h))->ttl
+#define MREF_MAP_REC_EID(h) (uint8_t *)(h)+sizeof(mref_mapping_record_hdr_t)
+#define MREF_MAP_REC_VERSION(h) (h)->version_hi << 8 | (h)->version_low
+
+typedef enum lisp_ref_actions {
+	LISP_ACTION_NODE_REFERRAL = 0,
+	LISP_ACTION_MS_REFERRAL,
+	LISP_ACTION_MS_ACK,
+	LISP_ACTION_NOT_REGISTERED,
+	LISP_ACTION_DELEGATION_HOLE,
+	LISP_ACTION_NOT_AUTHORITATIVE
+} lisp_ref_action_e;
 
 typedef enum lisp_authoritative {
     A_NO_AUTHORITATIVE = 0,

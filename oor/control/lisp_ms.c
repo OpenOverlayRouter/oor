@@ -25,6 +25,9 @@
 #include "../lib/timers_utils.h"
 #include "../lib/util.h"
 
+
+static int ms_recv_map_request(lisp_ms_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
+static int ms_recv_map_register(lisp_ms_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
 static int ms_recv_enc_ctrl_msg(lisp_ms_t *ms, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc);
 static int ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
 static int ms_recv_map_register(lisp_ms_t *, lbuf_t *,void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc);
@@ -223,11 +226,15 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
     lisp_addr_t *   neg_pref    = NULL;
     lisp_addr_t *   aux_deid    = NULL;
     mapping_t *     map         = NULL;
+    mref_mapping_t * mref_map   = NULL;
     glist_t *       itr_rlocs   = NULL;
     void *          mreq_hdr    = NULL;
     void *          mrep_hdr    = NULL;
+    void *          mref_hdr    = NULL;
     mapping_record_hdr_t *  rec            = NULL;
     int             i           = 0;
+    int             d           = 0;
+    lbuf_t *        mref        = NULL;
     lbuf_t *        mrep        = NULL;
     lbuf_t  b;
     lisp_site_prefix_t *    site            = NULL;
@@ -243,6 +250,8 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
     /* local copy of the buf that can be modified */
     b = *buf;
 
+    d = ECM_DDT_BIT(ecm_hdr);
+
     seid = lisp_addr_new();
 
 
@@ -252,7 +261,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
         goto err;
     }
 
-    OOR_LOG(LDBG_1, " src-eid: %s", lisp_addr_to_char(seid));
     if (MREQ_RLOC_PROBE(mreq_hdr)) {
         OOR_LOG(LDBG_2, "Probe bit set. Discarding!");
         return(BAD);
@@ -280,30 +288,75 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
         rsite = mdb_lookup_entry(ms->reg_sites_db, deid);
         /* Static entries will have null site and not null rsite */
         if (!site && !rsite) {
-            /* send negative map-reply with TTL 15 min */
-            neg_pref = mdb_get_shortest_negative_prefix(ms->lisp_sites_db, deid);
+            if(d==1){
+                // send NOT_AUTHORITATIVE map-referral with Incomplete = 1
+                // and TTL = 0
+                mref = lisp_msg_neg_mref_create(deid, 0, LISP_ACTION_NOT_AUTHORITATIVE, A_NO_AUTHORITATIVE,
+                        1, MREQ_NONCE(mreq_hdr));
+                OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s, sending NOT_AUTHORITATIVE message",
+                        lisp_addr_to_char(deid));
+                OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
+                        lisp_addr_to_char(deid));
+                send_msg(&ms->super, mref, ext_uc);
+                lisp_msg_destroy(mref);
 
-            if (lisp_addr_is_iid(deid)){
-                act_flag = ACT_NO_ACTION;
             }else{
-                act_flag = ACT_NATIVE_FWD;
+                /* send negative map-reply with TTL 15 min */
+                neg_pref = mdb_get_shortest_negative_prefix(ms->lisp_sites_db, deid);
+                if (lisp_addr_is_iid(deid)){
+                    act_flag = ACT_NO_ACTION;
+                }else{
+                    act_flag = ACT_NATIVE_FWD;
+                }
+                mrep = lisp_msg_neg_mrep_create(neg_pref, 15, act_flag,A_AUTHORITATIVE,
+                        MREQ_NONCE(mreq_hdr));
+                OOR_LOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
+                        lisp_addr_to_char(deid));
+                OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+                        lisp_addr_to_char(deid));
+                send_msg(&ms->super, mrep, ext_uc);
+                lisp_msg_destroy(mrep);
+                lisp_addr_del(neg_pref);
             }
-            mrep = lisp_msg_neg_mrep_create(neg_pref, 15, act_flag,A_AUTHORITATIVE,
-                    MREQ_NONCE(mreq_hdr));
-            OOR_LOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
-                    lisp_addr_to_char(deid));
-            OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
-                    lisp_addr_to_char(deid));
-            send_msg(&ms->super, mrep, ext_uc);
-            lisp_msg_destroy(mrep);
             lisp_addr_del(deid);
-            lisp_addr_del(neg_pref);
 
             continue;
         }
 
         /* Find if the site actually registered */
         if (!rsite) {
+            if(d==1){
+                //send NOT_REGISTERED Map Referral with TTL = DEFAULT_NEGATIVE_REFERRAL_TTL
+                //and Incomplete determined by the existance or not of peers
+                int i = (glist_size(site->ddt_ms_peers)<1);
+                mref = lisp_msg_create(LISP_MAP_REFERRAL);
+                mref = lisp_msg_create(LISP_MAP_REFERRAL);
+
+                mref_map = mref_mapping_new_init_full(deid,DEFAULT_NEGATIVE_REFERRAL_TTL,LISP_ACTION_NOT_REGISTERED,
+                        A_AUTHORITATIVE, i, site->ddt_ms_peers, NULL, &ext_uc->la);
+
+                rec = lisp_msg_put_mref_mapping(mref, mref_map);
+                mref_hdr = lisp_msg_hdr(mref);
+                MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
+
+                /* SEND MAP-REFERRAL */
+                if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
+                    OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
+                }else{
+                    OOR_LOG(LDBG_1, "Map-Referral sent!");
+                }
+                lisp_msg_destroy(mref);
+            }else{
+                /* send negative map-reply with TTL 1 min */
+                mrep = lisp_msg_neg_mrep_create(deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
+                        MREQ_NONCE(mreq_hdr));
+                OOR_LOG(LDBG_1,"The requested EID %s is not registered",
+                        lisp_addr_to_char(deid));
+                OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mrep),
+                        lisp_addr_to_char(deid));
+                send_msg(&ms->super, mrep, ext_uc);
+                lisp_msg_destroy(mrep);
+            }
             /* send negative map-reply with TTL 1 min */
             if (site->accept_more_specifics == FALSE){
                 aux_deid = site->eid_prefix;
@@ -319,8 +372,48 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
             send_msg(&ms->super, mrep, ext_uc);
             lisp_msg_destroy(mrep);
             lisp_addr_del(deid);
+
             continue;
         }
+        if(d==1){
+            if(site){
+                //send MS_ACK Map Referral with TTL = DEFAULT_REGISTERED_TTL
+                //and Incomplete determined by the existance or not of peers
+                int i = (glist_size(site->ddt_ms_peers)<1);
+                mref = lisp_msg_create(LISP_MAP_REFERRAL);
+
+                mref_map = mref_mapping_new_init_full(deid,DEFAULT_REGISTERED_TTL,LISP_ACTION_MS_ACK,
+                        A_AUTHORITATIVE, i, site->ddt_ms_peers, NULL, &ext_uc->la);
+
+                rec = lisp_msg_put_mref_mapping(mref, mref_map);
+                mref_hdr = lisp_msg_hdr(mref);
+                MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
+
+                /* SEND MAP-REFERRAL */
+                if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
+                    OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
+                }else{
+                    OOR_LOG(LDBG_1, "Map-Referral sent!");
+                }
+                lisp_msg_destroy(mref);
+
+            }else{
+                // send NOT_AUTHORITATIVE map-referral with Incomplete = 1
+                // and TTL = 0
+                mref = lisp_msg_neg_mref_create(deid, 0, LISP_ACTION_NOT_AUTHORITATIVE, A_NO_AUTHORITATIVE,
+                        1, MREQ_NONCE(mreq_hdr));
+                OOR_LOG(LDBG_1,"The node is not authoritative for the requested EID %s, sending NOT_AUTHORITATIVE message",
+                        lisp_addr_to_char(deid));
+                OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
+                        lisp_addr_to_char(deid));
+                send_msg(&ms->super, mref, ext_uc);
+                lisp_msg_destroy(mref);
+
+            }
+        }
+
+
+
 
         map = rsite->site_map;
         /* If site is null, the request is for a static entry */
@@ -727,6 +820,14 @@ ms_dump_configured_sites(lisp_ms_t *ms, int log_level)
                 (site->accept_more_specifics) ? "on" : "off",
                 (site->merge) ? "on" : "off",
                 (site->proxy_reply) ? "on" : "off");
+        if(glist_size(site->ddt_ms_peers)>0){
+            OOR_LOG(log_level, "MS Peers for prefix: %s:",
+                    lisp_addr_to_char(site->eid_prefix));
+            glist_dump(site->ddt_ms_peers, (glist_to_char_fct)lisp_addr_to_char, log_level);
+        }else{
+            OOR_LOG(log_level, "Prefix %s has no MS Peers",
+                    lisp_addr_to_char(site->eid_prefix));
+        }
     } mdb_foreach_entry_end;
     OOR_LOG(log_level,"*******************************************************\n");
 }
