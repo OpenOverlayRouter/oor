@@ -481,15 +481,19 @@ mref_mapping_sort_referrals(mref_mapping_t *mref_mapping, lisp_addr_t *changed_l
     return (res);
 }
 
-glist_t *mref_mapping_get_ref_addrs(mref_mapping_t *mref_mapping){
+
+glist_t *
+mref_mapping_get_ref_addrs(mref_mapping_t *mref_mapping)
+{
     glist_t *addrs_list;
     locator_t *loct = NULL;
 
-    addrs_list = glist_new();
+    addrs_list = glist_new_managed((glist_del_fct)lisp_addr_del);
 
     mref_mapping_foreach_referral(mref_mapping,loct){
-        glist_add_tail(locator_addr(loct),addrs_list);
+        glist_add_tail(lisp_addr_clone(locator_addr(loct)),addrs_list);
     }mref_mapping_foreach_referral_end;
 
     return addrs_list;
 }
+

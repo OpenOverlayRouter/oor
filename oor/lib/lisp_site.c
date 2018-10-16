@@ -24,7 +24,7 @@
 
 lisp_site_prefix_t *
 lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
-        uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge, glist_t *ddt_ms_peers)
+        uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge)
 {
     lisp_site_prefix_t *sp = NULL;
     int iidmlen;
@@ -41,9 +41,15 @@ lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
     sp->accept_more_specifics = more_specifics;
     sp->proxy_reply = proxy_reply;
     sp->merge = merge;
-    sp->ddt_ms_peers = ddt_ms_peers;
+    sp->ddt_ms_peers = glist_new_managed((glist_del_fct)lisp_addr_del);
 
     return(sp);
+}
+
+void
+lisp_site_prefix_add_ms_peer (lisp_site_prefix_t * sp, lisp_addr_t *peer_addr)
+{
+	glist_add(lisp_addr_clone(peer_addr),sp->ddt_ms_peers);
 }
 
 void

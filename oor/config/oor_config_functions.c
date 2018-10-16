@@ -593,9 +593,7 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     lisp_addr_t *eid_prefix;
     lisp_addr_t *ht_prefix;
     lisp_site_prefix_t *site;
-    glist_t *addr_list, *ddt_ms_peers2;
-
-    ddt_ms_peers2 = glist_new();
+    glist_t *addr_list;
 
     if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "
@@ -623,17 +621,20 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     char         *    ms_peer          = NULL;
     glist_entry_t *     it          = NULL;
 
+    site = lisp_site_prefix_init(eid_prefix, iid, key_type, key,
+            more_specifics, proxy_reply, merge);
+
     glist_for_each_entry(it, ddt_ms_peers) {
         ms_peer = (char *)glist_entry_data(it);
         addr_list = parse_lisp_addr(ms_peer, lcaf_ht);
         glist_entry_t * it2 = NULL;
         glist_for_each_entry(it2, addr_list){
-            glist_add_tail((lisp_addr_t *)glist_entry_data(it2), ddt_ms_peers2);
+        	lisp_site_prefix_add_ms_peer(site,(lisp_addr_t *)glist_entry_data(it2));
         }
+        glist_destroy(addr_list);
     }
 
-    site = lisp_site_prefix_init(eid_prefix, iid, key_type, key,
-            more_specifics, proxy_reply, merge, ddt_ms_peers2);
+
     lisp_addr_del(eid_prefix);
     return(site);
 }
@@ -714,9 +715,10 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
         if (glist_size(addr_list) >= 1){
             glist_entry_t *it2 = NULL;
             glist_for_each_entry(it2, addr_list) {
-                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), child_nodes2);
+                glist_add_tail(lisp_addr_clone((lisp_addr_t *)glist_entry_data(it2)), child_nodes2);
             }
         }
+        glist_destroy(addr_list);
     }
 
     site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes2);
@@ -725,34 +727,35 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
 }
 
 int
-ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht){
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *str_root_addresses, shash_t *lcaf_ht){
 
     //Convert the contents of root_addresses from strings to lisp_addr_t
     //and put them into root_addresses2
     char         *    address          = NULL;
     glist_entry_t *     it          = NULL;
-    glist_t *addr_list, *root_addresses2;
+    glist_t *addr_list, *root_addresses;
     mref_mapping_t * mapping = NULL;
     lisp_addr_t * addr = NULL;
     ddt_mcache_entry_t *ddt_entry = NULL;
 
 
-    root_addresses2 = glist_new();
+    root_addresses = glist_new_managed((glist_del_fct)lisp_addr_del);
     addr = lisp_addr_new();
 
 
-    glist_for_each_entry(it, root_addresses) {
+    glist_for_each_entry(it, str_root_addresses) {
         address = (char *)glist_entry_data(it);
         addr_list = parse_lisp_addr(address, lcaf_ht);
         if (glist_size(addr_list) >= 1){
             glist_entry_t *it2 = NULL;
             glist_for_each_entry(it2, addr_list) {
-                glist_add_tail(((lisp_addr_t *)glist_entry_data(it2)), root_addresses2);
+                glist_add_tail((lisp_addr_clone((lisp_addr_t *)glist_entry_data(it2))), root_addresses);
             }
         }
+        glist_destroy(addr_list);
     }
 
-    if (glist_size(root_addresses2)<1) {
+    if (glist_size(root_addresses)<1) {
         OOR_LOG(LERR, "Configuration file: No valid addresses are specified for DDT-Root");
         return(BAD);
     }
@@ -761,11 +764,14 @@ ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_
     // create mapping with the referrals, then create the mapping cache entry for root
     // with the mapping, and assign it to the map resolver
     mapping = mref_mapping_new_init_full(addr, 1440, LISP_ACTION_NODE_REFERRAL, A_AUTHORITATIVE,
-            0, root_addresses2, NULL, NULL);
+            0, root_addresses, NULL, NULL);
 
     ddt_entry = ddt_mcache_entry_new();
     ddt_mcache_entry_init_static(ddt_entry,mapping);
     ddt_mr_set_root_entry(ddt_mr,ddt_entry);
+
+    lisp_addr_del(addr);
+    glist_destroy(root_addresses);
 
     return (GOOD);
 

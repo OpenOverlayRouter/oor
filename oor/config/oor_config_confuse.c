@@ -1028,6 +1028,7 @@ configure_ddt_mr(cfg_t *cfg)
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
+    glist_destroy(root_addresses);
     return(GOOD);
 }
 

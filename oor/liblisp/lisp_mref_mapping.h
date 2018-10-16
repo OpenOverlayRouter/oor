@@ -38,7 +38,7 @@ typedef struct mref_mapping {
     uint16_t                        referral_count;
     uint16_t                        signature_count;
 
-    glist_t                         *referral_lists; //<glist_t *>
+    glist_t                         *referral_lists; //<glist * <locator_t *>>
     glist_t                         *signature_list;
 
     uint32_t                        ttl;

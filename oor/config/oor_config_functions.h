@@ -179,7 +179,7 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
         int type, glist_t *child_nodes, shash_t *lcaf_ht);
 
 int
-ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *root_addresses, shash_t *lcaf_ht);
+ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *str_root_addresses, shash_t *lcaf_ht);
 
 char *
 get_interface_name_from_address(lisp_addr_t *addr);
