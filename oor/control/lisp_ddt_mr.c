@@ -74,8 +74,9 @@ mref_mc_entry_expiration_timer_cb(oor_timer_t *timer)
 	lisp_addr_t *addr = mref_mapping_eid(map);
 	lisp_ddt_mr_t *ddt_mr = oor_timer_owner(timer);
 
-	OOR_LOG(LDBG_1,"Got expiration for EID %s", lisp_addr_to_char(addr));
-	mdb_remove_entry(ddt_mr->mref_cache_db, cache_entry_xeid(mce));
+	OOR_LOG(LDBG_1,"Got expiration for map referral entry with XEID %s. Removing it and its offsprings", lisp_addr_to_char(addr));
+	mdb_pruning_entry_and_data(ddt_mr->mref_cache_db, cache_entry_xeid(mce), (mdb_del_fct)ddt_mcache_entry_del);
+	ddt_mr_dump_db(ddt_mr->mref_cache_db, LDBG_3);
 	return(GOOD);
 }
 
@@ -83,7 +84,7 @@ static void
 mref_mc_entry_start_expiration_timer(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *mce)
 {
 	int time = mref_mapping_ttl(ddt_mcache_entry_mapping(mce))*60;
-	mref_mc_entry_start_expiration_timer2(ddt_mr, mce, time);
+	mref_mc_entry_start_expiration_timer2(ddt_mr, mce, 30);
 }
 
 static void
@@ -99,10 +100,10 @@ mref_mc_entry_start_expiration_timer2(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t 
 	oor_timer_start(timer, time);
 
 	if (time > 60){
-		OOR_LOG(LDBG_1,"The mapping cache entry for EID %s will expire in %d minutes.",
+		OOR_LOG(LDBG_1,"The mapping referral entry for EID %s will expire in %d minutes.",
 				lisp_addr_to_char(mref_mapping_eid(ddt_mcache_entry_mapping(mce))),time/60);
 	}else{
-		OOR_LOG(LDBG_1,"The mapping cache entry for EID %s will expire in %d seconds.",
+		OOR_LOG(LDBG_1,"The mapping referral entry for EID %s will expire in %d seconds.",
 				lisp_addr_to_char(mref_mapping_eid(ddt_mcache_entry_mapping(mce))),time);
 	}
 }
@@ -497,13 +498,16 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 int
 ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
 {
-	if (!entry)
+	if (!entry){
 		return(BAD);
+	}
 
-	if(!mdb_add_entry(ddt_mr->mref_cache_db, cache_entry_xeid(entry), entry))
+	if(!mdb_add_entry(ddt_mr->mref_cache_db, cache_entry_xeid(entry), entry)){
 		return(BAD);
+	}
 
 	mref_mc_entry_start_expiration_timer(ddt_mr, entry);
+	ddt_mr_dump_db(ddt_mr->mref_cache_db, LDBG_3);
 
 	return(GOOD);
 }
@@ -545,6 +549,24 @@ ddt_mr_dump_root_entry(lisp_ddt_mr_t *ddtmr, int log_level)
 	ddt_map_cache_entry_dump(entry, log_level);
 	OOR_LOG(log_level,"*******************************************************\n");
 
+}
+
+
+void ddt_mr_dump_db(mdb_t *mcdb, int log_level)
+{
+    if (is_loggable(log_level) == FALSE) {
+        return;
+    }
+
+    ddt_mcache_entry_t *mce;
+    void *it;
+
+    OOR_LOG(log_level,"**************** LISP Map Referral Cache ******************\n");
+    mdb_foreach_entry(mcdb, it) {
+        mce = (ddt_mcache_entry_t *)it;
+        ddt_map_cache_entry_dump(mce, log_level);
+    } mdb_foreach_entry_end;
+    OOR_LOG(log_level,"*******************************************************\n");
 }
 
 

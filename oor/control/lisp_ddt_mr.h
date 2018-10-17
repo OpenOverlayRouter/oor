@@ -67,6 +67,7 @@ typedef struct _timer_pendreq_cycle_argument {
 /* DDT-MR interface */
 
 void ddt_mr_dump_root_entry(lisp_ddt_mr_t *dev, int log_level);
+void ddt_mr_dump_db(mdb_t *mcdb, int log_level);
 
 int ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry);
 int ddt_mr_add_pending_request(lisp_ddt_mr_t *ddt_mr, ddt_pending_request_t *request);

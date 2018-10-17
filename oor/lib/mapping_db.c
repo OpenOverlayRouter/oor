@@ -598,6 +598,40 @@ mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr)
     return (ret);
 }
 
+void
+mdb_pruning_entry_and_data(mdb_t *db, lisp_addr_t *laddr, mdb_del_fct del_fct)
+{
+	glist_t *rm_prefix_lst = glist_new();
+	glist_entry_t *it;
+	patricia_tree_t *pt;
+	patricia_node_t *head_node, *node;
+	void *data;
+
+	//TODO Multicast addresses should not be processed with this function
+	head_node = _find_node(db, laddr, EXACT);
+	if (!head_node){
+		OOR_LOG(LDBG_2, "mdb_pruning_entry_and_data: %s not found in the database",
+				lisp_addr_to_char(laddr));
+		return;
+	}
+	pt = _get_local_db_for_addr(db, laddr);
+
+	/* Get the list of all the prefixes to be removed */
+    PATRICIA_WALK(head_node, node) {
+    	glist_add(node, rm_prefix_lst);
+    } PATRICIA_WALK_END;
+
+    glist_for_each_entry(it ,rm_prefix_lst){
+    	node = (patricia_node_t *)glist_entry_data(it);
+    	OOR_LOG(LDBG_2, "\t - Removing database node with prefix %s ",
+    			prefix_toa(node->prefix));
+    	data = node->data;
+    	pt_remove_node(pt, node);
+    	del_fct(data);
+    }
+    glist_destroy(rm_prefix_lst);
+}
+
 void *
 mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr)
 {

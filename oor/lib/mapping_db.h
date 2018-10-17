@@ -54,6 +54,7 @@ mdb_t *mdb_new();
 void mdb_del(mdb_t *db, mdb_del_fct del_fct);
 int mdb_add_entry(mdb_t *db, lisp_addr_t *addr, void *data);
 void *mdb_remove_entry(mdb_t *db, lisp_addr_t *laddr);
+void mdb_pruning_entry_and_data(mdb_t *db, lisp_addr_t *laddr, mdb_del_fct del_fct);
 void *mdb_lookup_entry(mdb_t *db, lisp_addr_t *laddr);
 void *mdb_lookup_entry_exact(mdb_t *db, lisp_addr_t *laddr);
 lisp_addr_t * mdb_get_shortest_negative_prefix(mdb_t *db, lisp_addr_t *laddr);

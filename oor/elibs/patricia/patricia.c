@@ -166,7 +166,7 @@ char *prefix_toa2x (prefix_t *prefix, char *buff, int with_len)
  */
 char *prefix_toa2 (prefix_t *prefix, char *buff)
 {
-    return (prefix_toa2x (prefix, buff, 0));
+    return (prefix_toa2x (prefix, buff, 1));
 }
 
 /* prefix_toa

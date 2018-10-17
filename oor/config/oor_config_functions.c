@@ -723,6 +723,7 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
 
     site = ddt_delegation_site_init(eid_prefix, iid, type, child_nodes2);
     lisp_addr_del(eid_prefix);
+    glist_destroy(child_nodes2);
     return(site);
 }
 

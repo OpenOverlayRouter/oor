@@ -23,11 +23,38 @@
 #include "../lib/oor_log.h"
 #include "../lib/prefixes.h"
 
+static oor_ctrl_dev_t *ddt_node_ctrl_alloc();
+static int
+ddt_node_ctrl_construct(oor_ctrl_dev_t *dev);
+void ddt_node_ctrl_dealloc(oor_ctrl_dev_t *dev);
+static void ddt_node_ctrl_destruct(oor_ctrl_dev_t *dev);
+void ddt_node_ctrl_run(oor_ctrl_dev_t *dev);
+static int ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc);
+int ddt_node_if_link_update(oor_ctrl_dev_t *dev, char *iface_name, uint8_t state);
+int ddt_node_if_addr_update(oor_ctrl_dev_t *dev, char *iface_name, lisp_addr_t *old_addr,
+		lisp_addr_t *new_addr, uint8_t status);
+int ddt_node_route_update(oor_ctrl_dev_t *dev, int command, char *iface_name ,lisp_addr_t *src_pref,
+		lisp_addr_t *dst_pref, lisp_addr_t *gateway);
+fwd_info_t *ddt_node_get_fwd_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple);
 
 static int ddt_node_recv_map_request(lisp_ddt_node_t *, lbuf_t *, void *, uconn_t*, uconn_t *);
 static int ddt_node_recv_enc_ctrl_msg(lisp_ddt_node_t *ddtnod, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc);
 static int ddt_node_recv_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 static inline lisp_ddt_node_t *lisp_ddt_node_cast(oor_ctrl_dev_t *dev);
+
+ctrl_dev_class_t ddt_node_ctrl_class = {
+		.alloc = ddt_node_ctrl_alloc,
+		.construct = ddt_node_ctrl_construct,
+		.dealloc = ddt_node_ctrl_dealloc,
+		.destruct = ddt_node_ctrl_destruct,
+		.run = ddt_node_ctrl_run,
+		.recv_msg = ddt_node_recv_msg,
+		.if_link_update = ddt_node_if_link_update,
+		.if_addr_update = ddt_node_if_addr_update,
+		.route_update = ddt_node_route_update,
+		.get_fwd_entry = ddt_node_get_fwd_entry
+};
+
 
 static int
 ddt_node_recv_enc_ctrl_msg(lisp_ddt_node_t *ddtnod, lbuf_t *msg, void **ecm_hdr, uconn_t *int_uc)
@@ -182,7 +209,11 @@ ddt_node_add_authoritative_site(lisp_ddt_node_t *ddt_node, ddt_authoritative_sit
 	return(GOOD);
 }
 
-
+void *
+ddt_node_remove_authoritative_site(lisp_ddt_node_t *ddt_node, lisp_addr_t *xeid)
+{
+    return(mdb_remove_entry(ddt_node->auth_sites_db, xeid));
+}
 
 int
 ddt_node_add_delegation_site(lisp_ddt_node_t *ddt_node, ddt_delegation_site_t *ds)
@@ -194,6 +225,12 @@ ddt_node_add_delegation_site(lisp_ddt_node_t *ddt_node, ddt_delegation_site_t *d
 	if (!mdb_add_entry(ddt_node->deleg_sites_db, dsite_xeid(ds), ds))
 		return(BAD);
 	return(GOOD);
+}
+
+void *
+ddt_node_remove_delegation_site(lisp_ddt_node_t *ddt_node, lisp_addr_t *xeid)
+{
+    return(mdb_remove_entry(ddt_node->deleg_sites_db, xeid));
 }
 
 
@@ -442,15 +479,4 @@ ddt_delegation_site_del(ddt_delegation_site_t *ds)
 	free(ds);
 }
 
-ctrl_dev_class_t ddt_node_ctrl_class = {
-		.alloc = ddt_node_ctrl_alloc,
-		.construct = ddt_node_ctrl_construct,
-		.dealloc = ddt_node_ctrl_dealloc,
-		.destruct = ddt_node_ctrl_destruct,
-		.run = ddt_node_ctrl_run,
-		.recv_msg = ddt_node_recv_msg,
-		.if_link_update = ddt_node_if_link_update,
-		.if_addr_update = ddt_node_if_addr_update,
-		.route_update = ddt_node_route_update,
-		.get_fwd_entry = ddt_node_get_fwd_entry
-};
+

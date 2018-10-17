@@ -949,6 +949,8 @@ configure_ddt(cfg_t *cfg)
                 child_nodes_list,
                 lcaf_ht);
 
+        glist_destroy(child_nodes_list);
+
         if (dsite != NULL) {
             if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite_xeid(dsite)) != NULL){
                 OOR_LOG(LDBG_1, "Configuration file: Duplicated deleg-site: %s . Discarding...",
