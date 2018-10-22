@@ -356,7 +356,7 @@ mapping_get_loct_lst_with_afi(
         }
     }
 
-    OOR_LOG(LDBG_2,"mapping_get_locators_with_afi: List for OOR AFI %d and afi %d not yet created",lafi,afi);
+    OOR_LOG(LDBG_3,"mapping_get_locators_with_afi: List for OOR AFI %d and afi %d not yet created",lafi,afi);
     return (NULL);
 }
 

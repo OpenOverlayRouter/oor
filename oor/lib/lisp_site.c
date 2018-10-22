@@ -57,10 +57,10 @@ lisp_site_prefix_del(lisp_site_prefix_t *sp)
 {
     if (!sp)
         return;
-    if (sp->eid_prefix)
-        lisp_addr_del(sp->eid_prefix);
+    lisp_addr_del(sp->eid_prefix);
     if (sp->key)
         free(sp->key);
+    glist_destroy(sp->ddt_ms_peers);
     free(sp);
 }
 

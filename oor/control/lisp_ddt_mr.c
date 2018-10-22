@@ -329,7 +329,6 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 		if (lisp_msg_parse_mref_mapping_record(&b, m) != GOOD) {
 			goto err;
 		}
-
 		// check if new pfx is less specific than last
 		timer = nonces_list_timer(nonces_lst);
 		timer_arg = (timer_pendreq_cycle_argument *)oor_timer_cb_argument(timer);
@@ -347,7 +346,6 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 				return (BAD);
 			}
 		}
-
 		// check map referral type and proceed according to it
 		switch(mref_mapping_action(m)){
 		case LISP_ACTION_NODE_REFERRAL:
@@ -485,9 +483,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 			// unknown/wrong type, do nothing
 			break;
 		}
-
 	}
-
 	return (GOOD);
 
 	err:
@@ -838,6 +834,7 @@ pending_request_do_cycle(oor_timer_t *timer){
 		drloc = lisp_addr_get_ip_addr(glist_entry_data(pendreq->current_rloc));
 
 		uconn_init(&dest_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
+		OOR_LOG(LDBG_1, "Sending Encap %s", lisp_msg_hdr_to_char(mreq));
 		send_msg(&mapres->super, mreq, &dest_uc);
 		lisp_addr_del(dst_ip);
 

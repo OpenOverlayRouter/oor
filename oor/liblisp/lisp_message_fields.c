@@ -77,6 +77,7 @@ mapping_action_to_char(int act) {
     return(buf);
 }
 
+
 char *
 mref_mapping_action_to_char(int act) {
     static char buf[30];
@@ -135,7 +136,7 @@ mref_mapping_record_hdr_to_char(mref_mapping_record_hdr_t *h)
     *buf = '\0';
     snprintf(buf,sizeof(buf), "Mapping-record -> ttl: %d ref-count: %d action: %s auth: %d incomplete: %d"
             " map-version: %d", ntohl(h->ttl), h->referral_count,
-            mapping_action_to_char(h->action), h->authoritative, h->incomplete,
+			mref_mapping_action_to_char(h->action), h->authoritative, h->incomplete,
             MAP_REC_VERSION(h));
 
     return(buf);

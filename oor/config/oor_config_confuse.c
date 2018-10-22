@@ -735,13 +735,13 @@ configure_ms(cfg_t *cfg)
             return (BAD);
         }
 
-        glist_t *ddt_ms_peers = glist_new();
+        glist_t *str_ddt_ms_peers_lst = glist_new();
 
         char *ms_peer;
         n = cfg_size(ls, "ddt-ms-peers");
         for(j = 0; j < n; j++) {
             if ((ms_peer = cfg_getnstr(ls, "ddt-ms-peers", j)) != NULL) {
-                glist_add_tail(ms_peer, ddt_ms_peers);
+                glist_add_tail(ms_peer, str_ddt_ms_peers_lst);
             }
         }
 
@@ -753,8 +753,11 @@ configure_ms(cfg_t *cfg)
                 cfg_getbool(ls, "accept-more-specifics") ? 1:0,
                 cfg_getbool(ls, "proxy-reply") ? 1:0,
                 cfg_getbool(ls, "merge") ? 1 : 0,
-                ddt_ms_peers,
+                str_ddt_ms_peers_lst,
                 lcaf_ht);
+
+        glist_destroy(str_ddt_ms_peers_lst);
+
         if (site != NULL) {
             if (mdb_lookup_entry(ms->lisp_sites_db, site->eid_prefix) != NULL){
                 OOR_LOG(LDBG_1, "Configuration file: Duplicated lisp-site: %s . Discarding...",

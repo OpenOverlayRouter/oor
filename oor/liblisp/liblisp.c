@@ -271,7 +271,7 @@ lisp_msg_parse_mref_mapping_record_split(lbuf_t *b, lisp_addr_t *eid,
     lbuf_pull(b, len);
     lisp_addr_set_plen(eid, MREF_MAP_REC_EID_PLEN(mrec_hdr));
 
-    OOR_LOG(LDBG_1, "  %s eid: %s", mapping_record_hdr_to_char(mrec_hdr),
+    OOR_LOG(LDBG_1, "  %s eid: %s", mref_mapping_record_hdr_to_char(mrec_hdr),
             lisp_addr_to_char(eid));
 
     for (i = 0; i < MREF_MAP_REC_REF_COUNT(mrec_hdr); i++) {
@@ -299,7 +299,6 @@ lisp_msg_parse_mref_mapping_record(lbuf_t *b, mref_mapping_t *m)
     if (!m) {
         return(BAD);
     }
-
     hdr = lbuf_data(b);
     mref_mapping_set_ttl(m, ntohl(MREF_MAP_REC_TTL(hdr)));
     mref_mapping_set_action(m, MREF_MAP_REC_ACTION(hdr));
@@ -313,7 +312,6 @@ lisp_msg_parse_mref_mapping_record(lbuf_t *b, mref_mapping_t *m)
     if (ret != GOOD) {
         goto err;
     }
-
     glist_for_each_entry(lit, loc_list) {
         loc = glist_entry_data(lit);
         if ((ret = mref_mapping_add_referral(m, loc)) != GOOD) {
@@ -323,7 +321,6 @@ lisp_msg_parse_mref_mapping_record(lbuf_t *b, mref_mapping_t *m)
             }
         }
     }
-
     /* here goes a method that reads and adds the signatures to the mapping record
      * more than likely getting them through another method, similar to "mapping_record_split"*/
 
