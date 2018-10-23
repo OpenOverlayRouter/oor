@@ -91,7 +91,7 @@ typedef struct htable_nonces_ htable_nonces_t;
  */
 
 #define EVER            ;;
-#define OOR_VERSION   "v1.2.1"
+#define OOR_VERSION   "v1.2.2"
 #define OOR           "oor"
 #define PID_FILE      "/var/run/oor.pid"
 #define DEVICE_ID_FILE "oor-id"
