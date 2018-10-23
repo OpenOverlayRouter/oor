@@ -307,7 +307,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
                 }else{
                     act_flag = ACT_NATIVE_FWD;
                 }
-                mrep = lisp_msg_neg_mrep_create(neg_pref, 15, act_flag,A_AUTHORITATIVE,
+                mrep = lisp_msg_neg_mrep_create(neg_pref, DEFAULT_NOT_EID_TTL, act_flag,A_AUTHORITATIVE,
                         MREQ_NONCE(mreq_hdr));
                 OOR_LOG(LDBG_1,"The requested EID %s doesn't belong to this Map Server",
                         lisp_addr_to_char(deid));
@@ -358,7 +358,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
                 lisp_msg_destroy(mref);
             }else{
                 /* send negative map-reply with TTL 1 min */
-                mrep = lisp_msg_neg_mrep_create(aux_deid, 1, ACT_NATIVE_FWD,A_AUTHORITATIVE,
+                mrep = lisp_msg_neg_mrep_create(aux_deid, DEFAULT_NOT_REG_EID_TTL, ACT_NATIVE_FWD,A_AUTHORITATIVE,
                         MREQ_NONCE(mreq_hdr));
                 OOR_LOG(LDBG_1,"The requested EID %s is not registered",
                                     lisp_addr_to_char(deid));

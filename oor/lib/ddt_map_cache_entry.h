@@ -57,6 +57,8 @@ void ddt_mcache_entry_init_static(ddt_mcache_entry_t *, mref_mapping_t *);
 
 void ddt_mcache_entry_del(ddt_mcache_entry_t *entry);
 void ddt_map_cache_entry_dump(ddt_mcache_entry_t *entry, int log_level);
+ddt_mcache_entry_t *ddt_map_cache_entry_clone(ddt_mcache_entry_t *entry);
+
 
 static inline mref_mapping_t *ddt_mcache_entry_mapping(ddt_mcache_entry_t*);
 static inline void ddt_mcache_entry_set_mapping(ddt_mcache_entry_t* , mref_mapping_t *);

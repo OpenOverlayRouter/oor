@@ -58,8 +58,9 @@ void
 ddt_mcache_entry_del(ddt_mcache_entry_t *entry)
 {
     locator_t *loct;
-
-    assert(entry);
+    if (!entry){
+    	return;
+    }
     /* Stop timers associated to the locators */
     mref_mapping_foreach_referral(ddt_mcache_entry_mapping(entry),loct){
         stop_timers_from_obj(loct,ptrs_to_timers_ht, nonces_ht);
@@ -125,6 +126,16 @@ ddt_map_cache_entry_dump (ddt_mcache_entry_t *entry, int log_level)
     OOR_LOG(log_level, "%s\n%s\n", str, mref_mapping_to_char(mapping));
 }
 
+ddt_mcache_entry_t *
+ddt_map_cache_entry_clone(ddt_mcache_entry_t *entry)
+{
+	ddt_mcache_entry_t *ddt_mc = ddt_mcache_entry_new();
+	ddt_mc->how_learned = entry->how_learned;
+	ddt_mc->mapping = mref_mapping_clone(entry->mapping);
+	ddt_mc->timestamp = entry->timestamp;
+
+	return (ddt_mc);
+}
 
 
 

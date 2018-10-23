@@ -466,8 +466,7 @@ ddt_authoritative_site_del(ddt_authoritative_site_t *as)
 {
 	if (!as)
 		return;
-	if (as->xeid)
-		lisp_addr_del(as->xeid);
+	lisp_addr_del(as->xeid);
 	free(as);
 }
 

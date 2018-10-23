@@ -23,6 +23,7 @@
 #include "sockets.h"
 
 typedef enum {
+	EXPIRE_MREF_CACHE_TIMER,
     EXPIRE_MAP_CACHE_TIMER,
     MAP_REGISTER_TIMER,
     ENCAP_MAP_REGISTER_TIMER,

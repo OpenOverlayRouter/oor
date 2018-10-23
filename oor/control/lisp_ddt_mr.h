@@ -42,7 +42,7 @@ typedef struct _ddt_pending_request{
 	lisp_addr_t *target_address;
 	glist_t *original_requests; /*original_requests is filled with ddt_original_request_t*/
 	int gone_through_root;
-	int recieved_not_registered;
+	ddt_mcache_entry_t *not_reg_cache; /* Map Ref Cache of a received referral of type  LISP_ACTION_NOT_REGISTERED */
 	ddt_mcache_entry_t *current_cache_entry;
 	glist_t *current_delegation_rlocs; /*it is filled with lisp_addr_t, corresponding to
     the referrals of the cache entry currently in use*/
@@ -70,6 +70,7 @@ void ddt_mr_dump_root_entry(lisp_ddt_mr_t *dev, int log_level);
 void ddt_mr_dump_db(mdb_t *mcdb, int log_level);
 
 int ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry);
+int ddt_mr_remove_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry);
 int ddt_mr_add_pending_request(lisp_ddt_mr_t *ddt_mr, ddt_pending_request_t *request);
 int ddt_mr_set_root_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *root_entry);
 

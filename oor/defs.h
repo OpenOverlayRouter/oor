@@ -109,6 +109,13 @@ typedef struct htable_nonces_ htable_nonces_t;
 #define DEFAULT_NEGATIVE_REFERRAL_TTL  15
 
 /*
+ * ms constants
+ */
+#define DEFAULT_NOT_EID_TTL  15
+#define DEFAULT_NOT_REG_EID_TTL  1
+
+
+/*
  *  misc parameters
  */
 

@@ -84,7 +84,7 @@ static void
 mref_mc_entry_start_expiration_timer(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *mce)
 {
 	int time = mref_mapping_ttl(ddt_mcache_entry_mapping(mce))*60;
-	mref_mc_entry_start_expiration_timer2(ddt_mr, mce, 30);
+	mref_mc_entry_start_expiration_timer2(ddt_mr, mce, time);
 }
 
 static void
@@ -92,19 +92,23 @@ mref_mc_entry_start_expiration_timer2(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t 
 {
 	/* Expiration cache timer */
 	oor_timer_t *timer;
+	mref_mapping_t *m;
 
-	timer = oor_timer_create(EXPIRE_MAP_CACHE_TIMER);
+	timer = oor_timer_create(EXPIRE_MREF_CACHE_TIMER);
 	oor_timer_init(timer,ddt_mr,mref_mc_entry_expiration_timer_cb,mce,NULL,NULL);
 	htable_ptrs_timers_add(ptrs_to_timers_ht, mce, timer);
 
 	oor_timer_start(timer, time);
 
+	m = ddt_mcache_entry_mapping(mce);
 	if (time > 60){
-		OOR_LOG(LDBG_1,"The mapping referral entry for EID %s will expire in %d minutes.",
-				lisp_addr_to_char(mref_mapping_eid(ddt_mcache_entry_mapping(mce))),time/60);
+		OOR_LOG(LDBG_1,"The map referral entry for EID %s (%s) will expire in %d minutes.",
+				lisp_addr_to_char(mref_mapping_eid(m)),
+				mref_mapping_action_to_char(mref_mapping_action(m)),time/60);
 	}else{
-		OOR_LOG(LDBG_1,"The mapping referral entry for EID %s will expire in %d seconds.",
-				lisp_addr_to_char(mref_mapping_eid(ddt_mcache_entry_mapping(mce))),time);
+		OOR_LOG(LDBG_1,"The map referral entry for EID %s (%s) will expire in %d seconds.",
+				lisp_addr_to_char(mref_mapping_eid(m)),
+				mref_mapping_action_to_char(mref_mapping_action(m)),time);
 	}
 }
 
@@ -220,8 +224,10 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 			switch (ddt_mcache_entry_type(cacheentry)){
 			case LISP_ACTION_DELEGATION_HOLE:
 				// send negative Map-Reply
-				mrep = lisp_msg_neg_mrep_create(ddt_mcache_entry_eid(cacheentry), 15, ACT_NO_ACTION,
+				mrep = lisp_msg_neg_mrep_create(ddt_mcache_entry_eid(cacheentry), DEFAULT_NOT_EID_TTL, ACT_NO_ACTION,
 						A_AUTHORITATIVE, MREQ_NONCE(mreq_hdr));
+				OOR_LOG(LDBG_2, "Send negative Map Reply for %s with TTL %d",
+						ddt_mcache_entry_eid(cacheentry), DEFAULT_NOT_EID_TTL);
 				send_msg(&ddt_mr->super, mrep, ext_uc);
 				lisp_msg_destroy(mrep);
 				break;
@@ -245,6 +251,16 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 					send_msg(&ddt_mr->super, &b, &fwd_uc);
 				}
 				glist_destroy(referral_addrs);
+				break;
+
+			case LISP_ACTION_NOT_REGISTERED:
+				// Send a negative map reply
+				mrep = lisp_msg_neg_mrep_create(ddt_mcache_entry_eid(cacheentry), DEFAULT_NOT_REG_EID_TTL, ACT_NO_ACTION,
+						A_AUTHORITATIVE, MREQ_NONCE(mreq_hdr));
+				OOR_LOG(LDBG_2, "Send negative Map Reply for %s with TTL %d",
+						lisp_addr_to_char(ddt_mcache_entry_eid(cacheentry)), DEFAULT_NOT_REG_EID_TTL);
+				send_msg(&ddt_mr->super, mrep, ext_uc);
+				lisp_msg_destroy(mrep);
 				break;
 
 			default:
@@ -276,7 +292,7 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 
 	glist_destroy(itr_rlocs);
 	lisp_addr_del(seid);
-
+	lisp_addr_del(deid);
 	return(GOOD);
 	err:
 	glist_destroy(itr_rlocs);
@@ -327,6 +343,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 	for (i = 0; i < records; i++) {
 		m = mref_mapping_new();
 		if (lisp_msg_parse_mref_mapping_record(&b, m) != GOOD) {
+			mref_mapping_del(m);
 			goto err;
 		}
 		// check if new pfx is less specific than last
@@ -343,6 +360,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 				OOR_LOG(LDBG_2, " New prefix %s is not more specific than existing prefix %s "
 						"Discarding message!", lisp_addr_to_char(mref_mapping_eid(m)),
 						lisp_addr_to_char(ddt_mcache_entry_eid(pendreq->current_cache_entry)));
+				mref_mapping_del(m);
 				return (BAD);
 			}
 		}
@@ -392,6 +410,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 				htable_nonces_reset_nonces_lst(nonces_ht, nonces_lst);
 				pending_request_do_cycle(timer);
 			}
+			mref_mapping_del(m);
 			break;
 
 		case LISP_ACTION_MS_ACK:
@@ -459,13 +478,28 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 				}
 			}
 			map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
+			mref_mapping_del(m);
 			break;
 
 		case LISP_ACTION_NOT_REGISTERED:
-			/* there is no specification of what a mapping with this code must do if matched
-			 * in the cache, so there's no point in saving them, as of now*/
+
+			if (pendreq->not_reg_cache){
+				/* We store in the cache the most specific entry from all MSs */
+				if(pref_is_prefix_b_part_of_a(ddt_mcache_entry_eid(pendreq->not_reg_cache),
+						mref_mapping_eid(m))){
+					ddt_mcache_entry_del(pendreq->not_reg_cache);
+					ddt_entry = ddt_mcache_entry_new();
+					ddt_mcache_entry_init(ddt_entry,m);
+					pendreq->not_reg_cache = ddt_entry;
+				}else{
+					mref_mapping_del(m);
+				}
+			}else{
+				ddt_entry = ddt_mcache_entry_new();
+				ddt_mcache_entry_init(ddt_entry,m);
+				pendreq->not_reg_cache = ddt_entry;
+			}
 			// try the next rloc in the list:
-			pendreq->recieved_not_registered = 1;
 			pending_request_do_cycle(timer);
 			break;
 
@@ -481,6 +515,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 
 		default:
 			// unknown/wrong type, do nothing
+			mref_mapping_del(m);
 			break;
 		}
 	}
@@ -503,6 +538,23 @@ ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
 	}
 
 	mref_mc_entry_start_expiration_timer(ddt_mr, entry);
+	ddt_mr_dump_db(ddt_mr->mref_cache_db, LDBG_3);
+
+	return(GOOD);
+}
+
+int
+ddt_mr_remove_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
+{
+	void *data;
+	lisp_addr_t *xeid;
+	if (!entry){
+		return(BAD);
+	}
+
+	xeid = cache_entry_xeid(entry);
+	data =  mdb_remove_entry(ddt_mr->mref_cache_db, xeid);
+	ddt_mcache_entry_del(data);
 	ddt_mr_dump_db(ddt_mr->mref_cache_db, LDBG_3);
 
 	return(GOOD);
@@ -713,7 +765,7 @@ ddt_pending_request_t
 *ddt_pending_request_init(lisp_addr_t *target_address)
 {
 	ddt_pending_request_t *request = xzalloc(sizeof(ddt_pending_request_t));;
-	request-> target_address = target_address;
+	request-> target_address = lisp_addr_clone(target_address);
 	request-> original_requests = glist_new_managed((glist_del_fct)ddt_original_request_del);
 	request-> gone_through_root = NOT_GONE_THROUGH_ROOT;
 
@@ -735,11 +787,14 @@ ddt_pending_request_t
 void
 pending_request_set_new_cache_entry(ddt_pending_request_t *pendreq, ddt_mcache_entry_t *current_cache_entry)
 {
+	if (pendreq->current_delegation_rlocs){
+		glist_destroy(pendreq->current_delegation_rlocs);
+	}
 	pendreq-> current_cache_entry = current_cache_entry;
 	pendreq-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(current_cache_entry));
 	pendreq-> current_rloc = NULL;
+	pendreq->not_reg_cache  = NULL;
 	pendreq-> retry_number = 0;
-	pendreq-> recieved_not_registered = 0;
 }
 
 void
@@ -775,6 +830,7 @@ pending_request_do_cycle(oor_timer_t *timer){
 	ddt_pending_request_t *pendreq = timer_arg->pendreq;
 	ddt_original_request_t *last_original_requester = glist_last_data(pendreq->original_requests);
 	lisp_ddt_mr_t *mapres = timer_arg->mapres;
+	ddt_mcache_entry_t *mce;
 	uint64_t nonce;
 	//lisp_addr_t src_eid;
 	lisp_addr_t *drloc;
@@ -784,6 +840,25 @@ pending_request_do_cycle(oor_timer_t *timer){
 		pendreq->current_rloc = glist_first(pendreq->current_delegation_rlocs);
 	}else{
 		if(pendreq->current_rloc == glist_last(pendreq->current_delegation_rlocs)){
+			if(pendreq->not_reg_cache){
+				/*Add the not_reg_cache into the cache with TTL 1 minute*/
+				mref_mapping_set_ttl(ddt_mcache_entry_mapping(pendreq->not_reg_cache),DEFAULT_CONFIGURED_NOT_REGISTERED_TTL);
+				/* First we check if entry for this prefix exists in order to previously remove it -> This happens
+				 * when MS Referral prefix is the same than the received with the MS_NOT_REGISTERD */
+				 // TODO Change structure in order we don't have to remove  MS Referral (this have a TTL of 1440)
+				mce = mdb_lookup_entry_exact(mapres->mref_cache_db, ddt_mcache_entry_eid(pendreq->not_reg_cache));
+				if (mce){
+					OOR_LOG(LDBG_2, "Replacing map referral for EID %s and %s to ms-not-registered",
+							lisp_addr_to_char(ddt_mcache_entry_eid(pendreq->not_reg_cache)),
+							mref_mapping_action_to_char(mref_mapping_action(ddt_mcache_entry_mapping(mce))));
+					ddt_mr_remove_cache_entry(mapres, mce);
+				}
+				ddt_mr_add_cache_entry(mapres,ddt_map_cache_entry_clone(pendreq->not_reg_cache));
+				// send negative map reply/es and eliminate pending request
+				send_negative_mrep_to_original_askers(mapres,pendreq,ddt_mcache_entry_eid(pendreq->not_reg_cache));
+				map_resolver_remove_ddt_pending_request(mapres,pendreq);
+				return (GOOD);
+			}
 			pendreq-> retry_number++;
 			pendreq->current_rloc = glist_first(pendreq->current_delegation_rlocs);
 		}else{
@@ -797,11 +872,6 @@ pending_request_do_cycle(oor_timer_t *timer){
 			// send negative map reply/es and eliminate pending request
 			send_negative_mrep_to_original_askers(mapres,pendreq,pendreq->target_address);
 
-			map_resolver_remove_ddt_pending_request(mapres,pendreq);
-
-		}else if(pendreq->retry_number >=1 && pendreq->recieved_not_registered == 1){
-			// send negative map reply/es and eliminate pending request
-			send_negative_mrep_to_original_askers(mapres,pendreq,pendreq->target_address);
 			map_resolver_remove_ddt_pending_request(mapres,pendreq);
 		}else{
 			// switch to the root entry and retry
@@ -862,10 +932,9 @@ ddt_pending_request_del(ddt_pending_request_t *request)
 	if (!request)
 		return;
 	stop_timers_from_obj(request,ptrs_to_timers_ht, nonces_ht);
-	if (request->target_address)
-		lisp_addr_del(request->target_address);
-	if (request->original_requests)
-		glist_destroy(request->original_requests);
+	lisp_addr_del(request->target_address);
+	glist_destroy(request->original_requests);
+	ddt_mcache_entry_del(request->not_reg_cache);
 	glist_destroy(request->current_delegation_rlocs);
 	free(request);
 }
@@ -904,7 +973,7 @@ void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_re
 		ddt_original_request_t *request = glist_entry_data(it);
 		lbuf_t *        mrep        = NULL;
 		uconn_t orig_uc;
-		mrep = lisp_msg_neg_mrep_create(eid_pref, 15, ACT_NO_ACTION,
+		mrep = lisp_msg_neg_mrep_create(eid_pref, DEFAULT_NOT_EID_TTL, ACT_NO_ACTION,
 				A_NO_AUTHORITATIVE, request->nonce);
 		lisp_addr_t *drloc = NULL;
 
