@@ -53,8 +53,6 @@
 # error "Can't determine endianness"
 #endif
 
-
-
 /* Calculate Offset: Try not to make dumb mistakes with  pointer arithmetic */
 #define CO(addr,len) (((uint8_t *) addr + len))
 
@@ -105,5 +103,7 @@ void *xrealloc(void *p, size_t size);
 void *xmemdup(const void *p_, size_t size);
 char *xmemdup0(const char *p_, size_t length);
 char *xstrdup(const char *s);
+
+uint64_t htonll(uint64_t n);
 
 #endif /* MEM_UTIL_H_ */

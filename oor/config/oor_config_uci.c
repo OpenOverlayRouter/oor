@@ -283,8 +283,6 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
 
             if (nat_aware == TRUE){
                 xtr->nat_aware  = TRUE;
-                nat_set_xTR_ID(xtr);
-                nat_set_site_ID(xtr, 0);
                 default_rloc_afi = AF_INET;
                 OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
             }else{
@@ -540,6 +538,13 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
             continue;
         }
     }
+
+    /* Generate xTR identifier */
+    if (tr_set_xTR_ID(xtr) != GOOD){
+        OOR_LOG(LERR,"Could not generate xTR-ID");
+        return (BAD);
+    }
+    tr_set_site_ID(xtr, 0);
 
     /* Calculate forwarding info por proxy-etrs */
     if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv4_petrs_mc) != GOOD){
@@ -644,8 +649,6 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
 
             if (nat_aware  == TRUE){
                 xtr->nat_aware  = TRUE;
-                nat_set_xTR_ID(xtr);
-                nat_set_site_ID(xtr, 0);
                 default_rloc_afi = AF_INET;
                 OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
             }else{
@@ -900,6 +903,13 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             continue;
         }
     }
+
+    /* Generate xTR identifier */
+    if (tr_set_xTR_ID(xtr) != GOOD){
+        OOR_LOG(LERR,"Could not generate xTR-ID");
+        return (BAD);
+    }
+    tr_set_site_ID(xtr, 0);
 
     /* Calculate forwarding info por proxy-etrs */
     if (xtr->tr.fwd_policy->init_map_cache_policy_inf(xtr->tr.fwd_policy_dev_parm,ipv4_petrs_mc) != GOOD){

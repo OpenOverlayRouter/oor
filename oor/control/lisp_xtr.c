@@ -648,7 +648,7 @@ xtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
 
 
     if (tuple->iid > 0){
-        iidmlen = (lisp_addr_ip_afi(&tuple->src_addr) == AF_INET) ? 32: 128;
+        iidmlen = 32;
         src_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->src_addr, iidmlen);
         dst_eid = lisp_addr_new_init_iid(tuple->iid, &tuple->dst_addr, iidmlen);
     }else{
@@ -863,7 +863,7 @@ xtr_recv_map_notify(lisp_xtr_t *xtr, lbuf_t *buf)
     nonces_lst = htable_nonces_lookup(nonces_ht, MNTF_NONCE(hdr));
     if (!nonces_lst){
         OOR_LOG(LDBG_1, "No Map Register sent with nonce: %"PRIx64
-                " Discarding message!", MNTF_NONCE(hdr));
+                " Discarding message!", htonll(MNTF_NONCE(hdr)));
         return(BAD);
     }
     timer = nonces_list_timer(nonces_lst);
@@ -948,7 +948,7 @@ xtr_recv_info_nat(lisp_xtr_t *xtr, lbuf_t *buf, uconn_t *uc)
     nonces_lst = htable_nonces_lookup(nonces_ht, INF_REQ_NONCE(info_nat_hdr));
     if (!nonces_lst){
         OOR_LOG(LDBG_2, " Nonce %"PRIx64" doesn't match any Info-Request nonce. "
-                "Discarding message!", INF_REQ_NONCE(info_nat_hdr));
+                "Discarding message!", htonll(INF_REQ_NONCE(info_nat_hdr)));
         return(BAD);
     }
 
@@ -1057,6 +1057,7 @@ xtr_build_and_send_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms,
     }
 
     hdr = lisp_msg_hdr(b);
+
     MREG_PROXY_REPLY(hdr) = ms->proxy_reply;
     MREG_NONCE(hdr) = nonce;
 
@@ -1120,7 +1121,7 @@ xtr_build_and_send_encap_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt
 
 
 
-    uconn_init(&uc, LISP_DATA_PORT, LISP_CONTROL_PORT, etr_addr, rtr_addr);
+    uconn_init(&uc, xtr->tr.encap_port, LISP_CONTROL_PORT, etr_addr, rtr_addr);
     send_msg(&xtr->super, b, &uc);
 
     lisp_msg_destroy(b);

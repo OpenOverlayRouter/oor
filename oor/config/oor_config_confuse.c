@@ -33,6 +33,7 @@
 #include "../control/lisp_ms.h"
 #include "../control/lisp_xtr.h"
 #include "../data-plane/data-plane.h"
+#include "../data-plane/encapsulations/vxlan-gpe.h"
 #include "../lib/oor_log.h"
 #include "../lib/shash.h"
 #include "../lib/util.h"
@@ -421,8 +422,10 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
         encap = str_to_lower_case(encap_str);
         if (strcmp(encap, "lisp") == 0) {
             tr->encap_type = ENCP_LISP;
+            tr->encap_port = LISP_DATA_PORT;
         }else if (strcmp(encap, "vxlan-gpe") == 0){
             tr->encap_type = ENCP_VXLAN_GPE;
+            tr->encap_port = VXLAN_GPE_DATA_PORT;
         }else{
             OOR_LOG(LERR, "Unknown encapsulation type: %s",encap);
             free(encap);
@@ -593,11 +596,6 @@ configure_xtr(cfg_t *cfg)
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
-        if (nat_set_xTR_ID(xtr) != GOOD){
-            OOR_LOG(LERR,"Could not generate xTR-ID");
-        	return (BAD);
-        }
-        nat_set_site_ID(xtr, 0);
         default_rloc_afi = AF_INET;
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
     }
@@ -619,7 +617,12 @@ configure_xtr(cfg_t *cfg)
         return (BAD);
     }
 
-
+    /* Generate xTR identifier */
+    if (tr_set_xTR_ID(xtr) != GOOD){
+        OOR_LOG(LERR,"Could not generate xTR-ID");
+        return (BAD);
+    }
+    tr_set_site_ID(xtr, 0);
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);
@@ -645,11 +648,6 @@ configure_mn(cfg_t *cfg)
 
     xtr->nat_aware = cfg_getbool(cfg, "nat_traversal_support") ? TRUE:FALSE;
     if(xtr->nat_aware){
-        if (nat_set_xTR_ID(xtr) != GOOD){
-            OOR_LOG(LERR,"Could not generate xTR-ID");
-        	return (BAD);
-        }
-        nat_set_site_ID(xtr, 0);
         default_rloc_afi = AF_INET;
         OOR_LOG(LDBG_1, "NAT support enabled. Set defaul RLOC to IPv4 family");
     }
@@ -670,6 +668,13 @@ configure_mn(cfg_t *cfg)
     if (parse_database_mapping(cfg, xtr, lcaf_ht) != GOOD){
         return (BAD);
     }
+
+    /* Generate xTR identifier */
+    if (tr_set_xTR_ID(xtr) != GOOD){
+        OOR_LOG(LERR,"Could not generate xTR-ID");
+        return (BAD);
+    }
+    tr_set_site_ID(xtr, 0);
 
     /* destroy the hash table */
     shash_destroy(lcaf_ht);

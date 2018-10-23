@@ -1005,7 +1005,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
         conf_mapping->iid = 0;
     }
     if (conf_mapping->iid > 0){
-        iidmlen = (lisp_addr_ip_afi(ip_eid_prefix) == AF_INET) ? 32: 128;
+        iidmlen = 32;
         eid_prefix = lisp_addr_new_init_iid(conf_mapping->iid, ip_eid_prefix, iidmlen);
     }else{
         eid_prefix = lisp_addr_clone(ip_eid_prefix);
@@ -1302,12 +1302,12 @@ rtr_add_rtr_ms_node(lisp_rtr_t *rtr, char *addr_str, char *key, char *draft_vers
 }
 
 void
-nat_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id)
+tr_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id)
 {
     xtr->site_id = site_id;
 }
 int
-nat_set_xTR_ID(lisp_xtr_t *xtr)
+tr_set_xTR_ID(lisp_xtr_t *xtr)
 {
 	FILE *xtr_id_file;
 	lisp_xtr_id *xtr_id = &(xtr->xtr_id);
@@ -1357,7 +1357,7 @@ nat_set_xTR_ID(lisp_xtr_t *xtr)
 	}
 	fclose(xtr_id_file);
 
-	OOR_LOG(LDBG_2,"nat_set_xTR_ID: xTR_ID initialiazed with value: %s",
+	OOR_LOG(LDBG_2,"tr_set_xTR_ID: xTR_ID initialiazed with value: %s",
 			get_char_from_xTR_ID(xtr_id));
 
 	return(GOOD);

@@ -110,7 +110,7 @@ tr_recv_map_reply(lisp_tr_t *tr, lbuf_t *buf, uconn_t *udp_con)
     nonces_lst = htable_nonces_lookup(nonces_ht, MREP_NONCE(mrep_hdr));
     if (!nonces_lst){
         OOR_LOG(LDBG_2, " Nonce %"PRIx64" doesn't match any Map-Request nonce. "
-                "Discarding message!", MREP_NONCE(mrep_hdr));
+                "Discarding message!", htonll(MREP_NONCE(mrep_hdr)));
         return(BAD);
     }
     timer = nonces_list_timer(nonces_lst);
