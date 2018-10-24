@@ -30,6 +30,7 @@ typedef struct lisp_site_prefix {
     lisp_key_type_e key_type;
     char *key;
     uint8_t merge;
+    uint8_t ddt_ms_peers_complete;
     glist_t *ddt_ms_peers;
 } lisp_site_prefix_t;
 
@@ -44,10 +45,18 @@ lisp_site_prefix_t *lisp_site_prefix_init(lisp_addr_t *eid_prefix, uint32_t iid,
 void lisp_site_prefix_add_ms_peer (lisp_site_prefix_t * sp, lisp_addr_t *peer_addr);
 void lisp_site_prefix_del(lisp_site_prefix_t *sp);
 void lisp_reg_site_del(lisp_reg_site_t *rs);
+static inline void  lsite_set_ddt_ms_peers_complete(lisp_site_prefix_t *ls, uint8_t complete);
 
 static inline lisp_addr_t *
 lsite_prefix(lisp_site_prefix_t *ls) {
     return(ls->eid_prefix);
+}
+
+
+static inline void
+lsite_set_ddt_ms_peers_complete(lisp_site_prefix_t *ls, uint8_t complete)
+{
+    ls->ddt_ms_peers_complete = complete;
 }
 
 #endif /* LISP_SITE_H_ */

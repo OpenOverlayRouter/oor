@@ -42,6 +42,7 @@ typedef struct _ddt_pending_request{
 	lisp_addr_t *target_address;
 	glist_t *original_requests; /*original_requests is filled with ddt_original_request_t*/
 	int gone_through_root;
+	int recieved_not_registered;
 	ddt_mcache_entry_t *not_reg_cache; /* Map Ref Cache of a received referral of type  LISP_ACTION_NOT_REGISTERED */
 	ddt_mcache_entry_t *current_cache_entry;
 	glist_t *current_delegation_rlocs; /*it is filled with lisp_addr_t, corresponding to

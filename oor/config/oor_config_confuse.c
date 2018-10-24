@@ -753,6 +753,7 @@ configure_ms(cfg_t *cfg)
                 cfg_getbool(ls, "accept-more-specifics") ? 1:0,
                 cfg_getbool(ls, "proxy-reply") ? 1:0,
                 cfg_getbool(ls, "merge") ? 1 : 0,
+                cfg_getbool(ls, "ddt-ms-peers-complete") ? 1 : 0,
                 str_ddt_ms_peers_lst,
                 lcaf_ht);
 
@@ -1158,6 +1159,7 @@ handle_config_file()
             CFG_BOOL("accept-more-specifics",   cfg_false, CFGF_NONE),
             CFG_BOOL("proxy-reply",             cfg_false, CFGF_NONE),
             CFG_BOOL("merge",                   cfg_false, CFGF_NONE),
+			CFG_BOOL("ddt-ms-peers-complete",   cfg_true, CFGF_NONE),
             CFG_STR_LIST("ddt-ms-peers",            0, CFGF_NONE),
             CFG_END()
     };

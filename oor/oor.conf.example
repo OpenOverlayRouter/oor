@@ -42,7 +42,11 @@ control-iface = <iface name>
 #   key: Password to authenticate the received Map-Registers
 #   iid: Instance ID associated with the lisp site [0-16777215]
 #   accept-more-specifics [true/false]: Accept more specific prefixes
-#     with same authentication information 
+#     with same authentication information
+#   ddt-ms-peers-complete [true/false]: List of ms-peers is complete. 
+#     True by default.  
+#   ddt-ms-peers: List of all other DDT Map-Servers performing
+#     Map-Server functionality for the same prefix 
 
 lisp-site {
     eid-prefix            = <prefix>
@@ -50,9 +54,10 @@ lisp-site {
     key                   = <string>
     iid                   = 0
     accept-more-specifics = [true|false]
+    ddt-ms-peers-complete = [true|false]
     ddt-ms-peers          = {
-    <ip-address>
-    ...
+      <ip-address>
+      ...
     }
 }
 

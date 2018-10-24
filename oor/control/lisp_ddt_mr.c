@@ -482,22 +482,24 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 			break;
 
 		case LISP_ACTION_NOT_REGISTERED:
-
-			if (pendreq->not_reg_cache){
-				/* We store in the cache the most specific entry from all MSs */
-				if(pref_is_prefix_b_part_of_a(ddt_mcache_entry_eid(pendreq->not_reg_cache),
-						mref_mapping_eid(m))){
-					ddt_mcache_entry_del(pendreq->not_reg_cache);
+			pendreq->recieved_not_registered = TRUE;
+			if (!mref_mapping_incomplete(m)){
+				if (pendreq->not_reg_cache){
+					/* We store in the cache the most specific entry from all MSs */
+					if(pref_is_prefix_b_part_of_a(ddt_mcache_entry_eid(pendreq->not_reg_cache),
+							mref_mapping_eid(m))){
+						ddt_mcache_entry_del(pendreq->not_reg_cache);
+						ddt_entry = ddt_mcache_entry_new();
+						ddt_mcache_entry_init(ddt_entry,m);
+						pendreq->not_reg_cache = ddt_entry;
+					}else{
+						mref_mapping_del(m);
+					}
+				}else{
 					ddt_entry = ddt_mcache_entry_new();
 					ddt_mcache_entry_init(ddt_entry,m);
 					pendreq->not_reg_cache = ddt_entry;
-				}else{
-					mref_mapping_del(m);
 				}
-			}else{
-				ddt_entry = ddt_mcache_entry_new();
-				ddt_mcache_entry_init(ddt_entry,m);
-				pendreq->not_reg_cache = ddt_entry;
 			}
 			// try the next rloc in the list:
 			pending_request_do_cycle(timer);
@@ -793,6 +795,7 @@ pending_request_set_new_cache_entry(ddt_pending_request_t *pendreq, ddt_mcache_e
 	pendreq-> current_cache_entry = current_cache_entry;
 	pendreq-> current_delegation_rlocs = mref_mapping_get_ref_addrs(ddt_mcache_entry_mapping(current_cache_entry));
 	pendreq-> current_rloc = NULL;
+	pendreq->recieved_not_registered = FALSE;
 	pendreq->not_reg_cache  = NULL;
 	pendreq-> retry_number = 0;
 }
@@ -840,20 +843,22 @@ pending_request_do_cycle(oor_timer_t *timer){
 		pendreq->current_rloc = glist_first(pendreq->current_delegation_rlocs);
 	}else{
 		if(pendreq->current_rloc == glist_last(pendreq->current_delegation_rlocs)){
-			if(pendreq->not_reg_cache){
-				/*Add the not_reg_cache into the cache with TTL 1 minute*/
-				mref_mapping_set_ttl(ddt_mcache_entry_mapping(pendreq->not_reg_cache),DEFAULT_CONFIGURED_NOT_REGISTERED_TTL);
-				/* First we check if entry for this prefix exists in order to previously remove it -> This happens
-				 * when MS Referral prefix is the same than the received with the MS_NOT_REGISTERD */
-				 // TODO Change structure in order we don't have to remove  MS Referral (this have a TTL of 1440)
-				mce = mdb_lookup_entry_exact(mapres->mref_cache_db, ddt_mcache_entry_eid(pendreq->not_reg_cache));
-				if (mce){
-					OOR_LOG(LDBG_2, "Replacing map referral for EID %s and %s to ms-not-registered",
-							lisp_addr_to_char(ddt_mcache_entry_eid(pendreq->not_reg_cache)),
-							mref_mapping_action_to_char(mref_mapping_action(ddt_mcache_entry_mapping(mce))));
-					ddt_mr_remove_cache_entry(mapres, mce);
+			if(pendreq->recieved_not_registered){
+				if (pendreq->not_reg_cache){ //not_reg_cache is not NULL only for complete entries
+					/*Add the not_reg_cache into the cache with TTL 1 minute*/
+					mref_mapping_set_ttl(ddt_mcache_entry_mapping(pendreq->not_reg_cache),DEFAULT_CONFIGURED_NOT_REGISTERED_TTL);
+					/* First we check if entry for this prefix exists in order to previously remove it -> This happens
+					 * when MS Referral prefix is the same than the received with the MS_NOT_REGISTERD */
+					// TODO Change structure in order we don't have to remove  MS Referral (this have a TTL of 1440)
+					mce = mdb_lookup_entry_exact(mapres->mref_cache_db, ddt_mcache_entry_eid(pendreq->not_reg_cache));
+					if (mce){
+						OOR_LOG(LDBG_2, "Replacing map referral for EID %s and %s to ms-not-registered",
+								lisp_addr_to_char(ddt_mcache_entry_eid(pendreq->not_reg_cache)),
+								mref_mapping_action_to_char(mref_mapping_action(ddt_mcache_entry_mapping(mce))));
+						ddt_mr_remove_cache_entry(mapres, mce);
+					}
+					ddt_mr_add_cache_entry(mapres,ddt_map_cache_entry_clone(pendreq->not_reg_cache));
 				}
-				ddt_mr_add_cache_entry(mapres,ddt_map_cache_entry_clone(pendreq->not_reg_cache));
 				// send negative map reply/es and eliminate pending request
 				send_negative_mrep_to_original_askers(mapres,pendreq,ddt_mcache_entry_eid(pendreq->not_reg_cache));
 				map_resolver_remove_ddt_pending_request(mapres,pendreq);

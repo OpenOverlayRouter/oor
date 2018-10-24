@@ -587,7 +587,7 @@ add_rtr_iface(lisp_rtr_t *rtr, char *iface_name,int afi, int priority,
 
 lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
-        char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
+        char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge, uint8_t ddt_complete,
         glist_t *ddt_ms_peers, shash_t *lcaf_ht)
 {
     lisp_addr_t *eid_prefix;
@@ -624,6 +624,8 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
     site = lisp_site_prefix_init(eid_prefix, iid, key_type, key,
             more_specifics, proxy_reply, merge);
 
+    site->ddt_ms_peers_complete = ddt_complete;
+    printf ("=================>>>>> %d\n\n\n", site->ddt_ms_peers_complete);
     glist_for_each_entry(it, ddt_ms_peers) {
         ms_peer = (char *)glist_entry_data(it);
         addr_list = parse_lisp_addr(ms_peer, lcaf_ht);
@@ -681,7 +683,7 @@ build_ddt_delegation_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
     ddt_delegation_site_t *site;
     glist_t *addr_list, *child_nodes2;
 
-    child_nodes2 = glist_new();
+    child_nodes2 = glist_new_managed((glist_del_fct)lisp_addr_del);
 
     if (iid > MAX_IID) {
         OOR_LOG(LERR, "Configuration file: Instance ID %d out of range [0..%d], "

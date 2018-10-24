@@ -41,6 +41,7 @@ lisp_site_prefix_init(lisp_addr_t *eid, uint32_t iid, int key_type, char *key,
     sp->accept_more_specifics = more_specifics;
     sp->proxy_reply = proxy_reply;
     sp->merge = merge;
+    sp->ddt_ms_peers_complete = TRUE;
     sp->ddt_ms_peers = glist_new_managed((glist_del_fct)lisp_addr_del);
 
     return(sp);

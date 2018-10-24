@@ -456,8 +456,8 @@ ddt_delegation_site_t
 
 	mapping = mref_mapping_new_init_full(xeid,DEFAULT_REGISTERED_TTL,type,
 			A_AUTHORITATIVE, 0, child_nodes, NULL, NULL);
-
 	ds->mapping = mapping;
+	lisp_addr_del(xeid);
 	return(ds);
 }
 
@@ -475,6 +475,7 @@ ddt_delegation_site_del(ddt_delegation_site_t *ds)
 {
 	if (!ds)
 		return;
+	mref_mapping_del(ds->mapping);
 	free(ds);
 }
 

@@ -68,7 +68,7 @@ mref_mapping_new_init(lisp_addr_t *eid)
 
 inline mref_mapping_t *
 mref_mapping_new_init_full(lisp_addr_t *eid, int ttl, lisp_ref_action_e act, lisp_authoritative_e a,
-        int i, glist_t *ref_list, glist_t *sig_list, lisp_addr_t *ms_loc){
+        int incomplete, glist_t *ref_list, glist_t *sig_list, lisp_addr_t *ms_loc){
 
     mref_mapping_t *mref_mapping;
     lisp_addr_t *ip_pref;
@@ -97,15 +97,10 @@ mref_mapping_new_init_full(lisp_addr_t *eid, int ttl, lisp_ref_action_e act, lis
     mref_mapping_set_ttl(mref_mapping, ttl);
     mref_mapping_set_action(mref_mapping, act);
     mref_mapping_set_auth(mref_mapping, a);
-    mref_mapping_set_incomplete(mref_mapping, i);
+    mref_mapping_set_incomplete(mref_mapping, incomplete);
 
-    if(act == LISP_ACTION_MS_ACK || act == LISP_ACTION_NOT_REGISTERED){
-        if(i==0){
-
-            loct = locator_new_init(ms_loc,UP,1,1,0,0,0,0);
-            mref_mapping_add_referral(mref_mapping, loct);
-        }
-    }
+    loct = locator_new_init(ms_loc,UP,1,1,0,0,0,0);
+    mref_mapping_add_referral(mref_mapping, loct);
 
     glist_for_each_entry(itr,ref_list){
         addr = (lisp_addr_t *)glist_entry_data(itr);
@@ -313,11 +308,7 @@ mref_mapping_remove_referral(
     }
 
     if (!lisp_addr_is_no_addr(addr)){
-        mref_mapping->referral_count = mref_mapping->referral_count - 1;
-    }
-
-    if (lisp_addr_is_no_addr(addr) == FALSE){
-        mref_mapping->referral_count++;
+        mref_mapping->referral_count--;
     }
 
     OOR_LOG(LDBG_2, "mref_mapping_remove_referral: Removed referral %s from the mref_mapping with"

@@ -98,6 +98,7 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m)
     lisp_addr_t *drloc = NULL;
     locator_t *loct = NULL;
     uconn_t fwd_uc;
+    void *ec_hdr;
 
     ctrl = ctrl_dev_get_ctrl_t(&(ms->super));
 
@@ -122,8 +123,13 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m)
     OOR_LOG(LDBG_3, "Found xTR with locator %s to forward Encap Map-Request",
             lisp_addr_to_char(drloc));
 
+    /* Set DDT bit to 0 */
+    ec_hdr = lisp_msg_ecm_hdr(b);
+    ECM_DDT_BIT(ec_hdr) = 0;
+
     /* Set buffer to forward the encapsulated message*/
     lbuf_point_to_lisp_hdr(b);
+
 
     uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
     return(send_msg(&ms->super, b, &fwd_uc));
@@ -337,8 +343,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
             }
             if(d==1){
                 //send NOT_REGISTERED Map Referral with TTL = DEFAULT_NEGATIVE_REFERRAL_TTL
-                //and Incomplete determined by the existance or not of peers
-                int i = (glist_size(site->ddt_ms_peers)<1);
+                int i = !site->ddt_ms_peers_complete;
                 mref = lisp_msg_create(LISP_MAP_REFERRAL);
 
                 mref_map = mref_mapping_new_init_full(aux_deid,DEFAULT_NEGATIVE_REFERRAL_TTL,LISP_ACTION_NOT_REGISTERED,
@@ -378,12 +383,15 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
         }
         /* If site is null, the request is for a static entry */
         if(d==1){
+        	aux_deid = mapping_eid(rsite->site_map);
         	//send MS_ACK Map Referral with TTL = DEFAULT_REGISTERED_TTL
         	//and Incomplete determined by the existance or not of peers
-        	int i = (glist_size(site->ddt_ms_peers)<1);
+        	int i = !site->ddt_ms_peers_complete;
+
+
         	mref = lisp_msg_create(LISP_MAP_REFERRAL);
 
-        	mref_map = mref_mapping_new_init_full(deid,DEFAULT_REGISTERED_TTL,LISP_ACTION_MS_ACK,
+        	mref_map = mref_mapping_new_init_full(aux_deid,DEFAULT_REGISTERED_TTL,LISP_ACTION_MS_ACK,
         			A_AUTHORITATIVE, i, site->ddt_ms_peers, NULL, &ext_uc->la);
 
         	rec = lisp_msg_put_mref_mapping(mref, mref_map);
@@ -399,7 +407,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
 			mref_mapping_del(mref_map);
 			lisp_msg_destroy(mref);
         }
-
         map = rsite->site_map;
 
         /* IF *NOT* PROXY REPLY: forward the message to an xTR */
@@ -410,7 +417,6 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
             lisp_addr_del(deid);
             continue;
         }
-
         OOR_LOG(LDBG_1,"The requested EID %s belongs to the registered prefix %s. Send Map Reply",
                 lisp_addr_to_char(deid), lisp_addr_to_char(mapping_eid(map)));
 

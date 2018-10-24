@@ -168,7 +168,7 @@ add_rtr_iface(lisp_rtr_t *xtr, char *iface_name,int afi, int priority,
 lisp_site_prefix_t *
 build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
         char *key, uint8_t more_specifics, uint8_t proxy_reply, uint8_t merge,
-        glist_t *ddt_ms_peers, shash_t *lcaf_ht);
+		uint8_t ddt_complete, glist_t *ddt_ms_peers, shash_t *lcaf_ht);
 
 ddt_authoritative_site_t *
 build_ddt_authoritative_site(lisp_ddt_node_t *ddt_node, char *eidstr, uint32_t iid,
