@@ -387,27 +387,35 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 				//cache and follow the referral
 				ddt_entry = ddt_mcache_entry_new();
 				ddt_mcache_entry_init(ddt_entry,m);
-				ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
+				ddt_mr_add_replace_cache_entry(ddt_mr,ddt_entry);
 				pending_request_set_new_cache_entry(pendreq,ddt_entry);
 				htable_nonces_reset_nonces_lst(nonces_ht, nonces_lst);
 				pending_request_do_cycle(timer);
 				return (GOOD);
 			}else{
-				/* Same behaviour than LISP_ACTION_NOT_AUTHORITATIVE */
+				OOR_LOG(LWRN,"Error in DDT configuration for XEID: %s. Prefix equal to last used", lisp_addr_to_char(pendreq->target_address));
+				if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
+					//send negative map-reply/es
+					send_negative_mrep_to_original_askers(ddt_mr,pendreq, pendreq->target_address);
+					map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
+				}else{
+					//send request to Root
+					OOR_LOG(LDBG_1,"Restarting DDT query from root...");
+					pending_request_set_root_cache_entry(pendreq,ddt_mr->root_entry);
+					htable_nonces_reset_nonces_lst(nonces_ht, nonces_lst);
+					pending_request_do_cycle(timer);
+				}
+				mref_mapping_del(m);
 			}
+			break;
 		case LISP_ACTION_NOT_AUTHORITATIVE:
-			OOR_LOG(LWRN,"Error in DDT configuration for XEID: %s", lisp_addr_to_char(pendreq->target_address));
+			OOR_LOG(LWRN,"Error in DDT configuration for XEID: %s. Not authoritative reply", lisp_addr_to_char(pendreq->target_address));
 			if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
 				/* XXX OOR follows the referral list just in case. This behavior is not defined in the draft*/
 				if(pendreq->current_rloc != glist_last(pendreq->current_delegation_rlocs)){
 					OOR_LOG(LDBG_2,"Received LISP_ACTION_NOT_AUTHORITATIVE. Checking next referral");
 					pending_request_do_cycle(timer);
 				}else{
-					/*
-					 * The pending request is silently discarded; i.e., all state
-					 * for the request that caused this answer is removed, and no answer
-					 * is returned to the original requester.
-					 */
 					//send negative map-reply/es
 					send_negative_mrep_to_original_askers(ddt_mr,pendreq, pendreq->target_address);
 					map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
@@ -421,7 +429,6 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 			}
 			mref_mapping_del(m);
 			break;
-
 		case LISP_ACTION_MS_ACK:
 			rlocs_list= glist_new();
 
@@ -519,7 +526,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 			// cache and return negative map-reply
 			ddt_entry = ddt_mcache_entry_new();
 			ddt_mcache_entry_init(ddt_entry,m);
-			ddt_mr_add_cache_entry(ddt_mr,ddt_entry);
+			ddt_mr_add_replace_cache_entry(ddt_mr,ddt_entry);
 			send_negative_mrep_to_original_askers(ddt_mr,pendreq,
 					ddt_mcache_entry_eid(ddt_entry));
 			map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
@@ -594,6 +601,7 @@ ddt_mr_add_replace_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
 			timers_lst = htable_ptrs_timers_rm_timers_of_type(ptrs_to_timers_ht, mce,
 					EXPIRE_MREF_CACHE_TIMER);
 			oor_timer_start(glist_first_data(timers_lst), mref_mapping_ttl(ddt_mcache_entry_mapping(entry)));
+			glist_destroy(timers_lst);
 			return (GOOD);
 		}else{
 			OOR_LOG(LDBG_2,"Map referral entry for EID %s already exists but with different information. "

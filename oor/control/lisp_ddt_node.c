@@ -398,8 +398,8 @@ static void
 ddt_node_ctrl_destruct(oor_ctrl_dev_t *dev)
 {
 	lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
-	mdb_del(ddt_node->deleg_sites_db, (mdb_del_fct)ddt_authoritative_site_del);
-	mdb_del(ddt_node->auth_sites_db, (mdb_del_fct)ddt_delegation_site_del);
+	mdb_del(ddt_node->deleg_sites_db, (mdb_del_fct)ddt_delegation_site_del);
+	mdb_del(ddt_node->auth_sites_db, (mdb_del_fct)ddt_authoritative_site_del);
 }
 
 void
