@@ -84,7 +84,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
 {
 	lisp_addr_t *   seid        = NULL;
 	lisp_addr_t *   deid        = NULL;
-	lisp_addr_t *   neg_pref;
+	lisp_addr_t *   neg_pref, *aux_pref;
 	glist_t *       itr_rlocs   = NULL;
 	void *          mreq_hdr    = NULL;
 	void *          mref_hdr    = NULL;
@@ -167,15 +167,18 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
 				/* send DELEGATION_HOLE map-referral with TTL = DEFAULT_NEGATIVE_REFERRAL_TTL
 				   and  the least-specific XEID-prefix that does not match any XEID-prefix
 				   delegated by the DDT node */
-				neg_pref = mdb_get_shortest_negative_prefix(ddt_node->deleg_sites_db, deid);
+				aux_pref = mdb_get_shortest_negative_prefix(ddt_node->deleg_sites_db, deid);
+				if (lisp_addr_get_plen(aux_pref) < lisp_addr_get_plen(asite_xeid(asite))){
+					neg_pref = asite_xeid(asite);
+				}else{
+					neg_pref = aux_pref;
+				}
 				mref = lisp_msg_neg_mref_create(neg_pref, DEFAULT_NEGATIVE_REFERRAL_TTL, LISP_ACTION_DELEGATION_HOLE,
 						A_AUTHORITATIVE, 0, MREQ_NONCE(mreq_hdr));
 				OOR_LOG(LDBG_1,"No delegation exists for the requested EID %s, sending DELEGATION_HOLE message "
 						"for prefix %s",lisp_addr_to_char(deid), lisp_addr_to_char(neg_pref));
-				OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
-						lisp_addr_to_char(neg_pref));
 				send_msg(&ddt_node->super, mref, ext_uc);
-				lisp_addr_del(neg_pref);
+				lisp_addr_del(aux_pref);
 			}
 		}
 		lisp_msg_destroy(mref);
