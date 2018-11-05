@@ -72,6 +72,12 @@ void ddt_mr_dump_db(mdb_t *mcdb, int log_level);
 
 int ddt_mr_add_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry);
 int ddt_mr_remove_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry);
+/*
+ * Add a ddt_mcache_entry to the database. If an entry already exists, checks if it should
+ * be replaced. If the referrals of the entry changes, delete the entry and decendents otherwise
+ * update timers.
+ */
+int ddt_mr_add_replace_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry);
 int ddt_mr_add_pending_request(lisp_ddt_mr_t *ddt_mr, ddt_pending_request_t *request);
 int ddt_mr_set_root_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *root_entry);
 

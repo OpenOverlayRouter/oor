@@ -99,8 +99,10 @@ mref_mapping_new_init_full(lisp_addr_t *eid, int ttl, lisp_ref_action_e act, lis
     mref_mapping_set_auth(mref_mapping, a);
     mref_mapping_set_incomplete(mref_mapping, incomplete);
 
-    loct = locator_new_init(ms_loc,UP,1,1,0,0,0,0);
-    mref_mapping_add_referral(mref_mapping, loct);
+    if(act == LISP_ACTION_MS_ACK || act == LISP_ACTION_NOT_REGISTERED){
+    	loct = locator_new_init(ms_loc,UP,1,1,0,0,0,0);
+    	mref_mapping_add_referral(mref_mapping, loct);
+    }
 
     glist_for_each_entry(itr,ref_list){
         addr = (lisp_addr_t *)glist_entry_data(itr);

@@ -360,6 +360,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 				OOR_LOG(LDBG_2, " New prefix %s is not more specific than existing prefix %s "
 						"Discarding message!", lisp_addr_to_char(mref_mapping_eid(m)),
 						lisp_addr_to_char(ddt_mcache_entry_eid(pendreq->current_cache_entry)));
+				OOR_LOG(LWRN,"Error in DDT configuration for XEID: %s", lisp_addr_to_char(pendreq->target_address));
 				mref_mapping_del(m);
 				return (BAD);
 			}
@@ -395,17 +396,25 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 				/* Same behaviour than LISP_ACTION_NOT_AUTHORITATIVE */
 			}
 		case LISP_ACTION_NOT_AUTHORITATIVE:
+			OOR_LOG(LWRN,"Error in DDT configuration for XEID: %s", lisp_addr_to_char(pendreq->target_address));
 			if(pendreq->gone_through_root == GONE_THROUGH_ROOT){
-				/*
-				 * The pending request is silently discarded; i.e., all state
-				 * for the request that caused this answer is removed, and no answer
-				 * is returned to the original requester.
-				 */
-				//send negative map-reply/es
-				send_negative_mrep_to_original_askers(ddt_mr,pendreq, pendreq->target_address);
-				map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
+				/* XXX OOR follows the referral list just in case. This behavior is not defined in the draft*/
+				if(pendreq->current_rloc != glist_last(pendreq->current_delegation_rlocs)){
+					OOR_LOG(LDBG_2,"Received LISP_ACTION_NOT_AUTHORITATIVE. Checking next referral");
+					pending_request_do_cycle(timer);
+				}else{
+					/*
+					 * The pending request is silently discarded; i.e., all state
+					 * for the request that caused this answer is removed, and no answer
+					 * is returned to the original requester.
+					 */
+					//send negative map-reply/es
+					send_negative_mrep_to_original_askers(ddt_mr,pendreq, pendreq->target_address);
+					map_resolver_remove_ddt_pending_request(ddt_mr,pendreq);
+				}
 			}else{
 				//send request to Root
+				OOR_LOG(LDBG_1,"Restarting DDT query from root...");
 				pending_request_set_root_cache_entry(pendreq,ddt_mr->root_entry);
 				htable_nonces_reset_nonces_lst(nonces_ht, nonces_lst);
 				pending_request_do_cycle(timer);
@@ -485,7 +494,8 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 			pendreq->recieved_not_registered = TRUE;
 			if (!mref_mapping_incomplete(m)){
 				if (pendreq->not_reg_cache){
-					/* We store in the cache the most specific entry from all MSs */
+					/* Checks if entry should be replaced.
+					 * We store in the cache the most specific entry from all MSs */
 					if(pref_is_prefix_b_part_of_a(ddt_mcache_entry_eid(pendreq->not_reg_cache),
 							mref_mapping_eid(m))){
 						ddt_mcache_entry_del(pendreq->not_reg_cache);
@@ -562,6 +572,37 @@ ddt_mr_remove_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
 	return(GOOD);
 }
 
+/*
+ * Add a ddt_mcache_entry to the database. If an entry already exists, checks if it should
+ * be replaced. If the referrals of the entry changes, delete the entry and decendents otherwise
+ * update timers.
+ */
+int
+ddt_mr_add_replace_cache_entry(lisp_ddt_mr_t *ddt_mr, ddt_mcache_entry_t *entry)
+{
+	ddt_mcache_entry_t *mce;
+	glist_t *timers_lst;
+	if (!entry){
+		return(BAD);
+	}
+	mce = mdb_lookup_entry_exact(ddt_mr->mref_cache_db, ddt_mcache_entry_eid(entry));
+	if (mce){
+		if (mref_mapping_cmp(ddt_mcache_entry_mapping(entry), ddt_mcache_entry_mapping(mce)) == 0){
+			OOR_LOG(LDBG_2,"Map referral entry for EID %s already exists. Rescheduling expiration time",
+								lisp_addr_to_char(ddt_mcache_entry_eid(entry)));
+			// If the entry has not changed, reprogram expiration timer
+			timers_lst = htable_ptrs_timers_rm_timers_of_type(ptrs_to_timers_ht, mce,
+					EXPIRE_MREF_CACHE_TIMER);
+			oor_timer_start(glist_first_data(timers_lst), mref_mapping_ttl(ddt_mcache_entry_mapping(entry)));
+			return (GOOD);
+		}else{
+			OOR_LOG(LDBG_2,"Map referral entry for EID %s already exists but with different information. "
+					"Removing it and reinsert the new one",	lisp_addr_to_char(ddt_mcache_entry_eid(entry)));
+			ddt_mr_remove_cache_entry(ddt_mr, mce);
+		}
+	}
+	return (ddt_mr_add_cache_entry(ddt_mr, entry));
+}
 
 
 int
@@ -833,7 +874,6 @@ pending_request_do_cycle(oor_timer_t *timer){
 	ddt_pending_request_t *pendreq = timer_arg->pendreq;
 	ddt_original_request_t *last_original_requester = glist_last_data(pendreq->original_requests);
 	lisp_ddt_mr_t *mapres = timer_arg->mapres;
-	ddt_mcache_entry_t *mce;
 	uint64_t nonce;
 	//lisp_addr_t src_eid;
 	lisp_addr_t *drloc;
@@ -850,17 +890,15 @@ pending_request_do_cycle(oor_timer_t *timer){
 					/* First we check if entry for this prefix exists in order to previously remove it -> This happens
 					 * when MS Referral prefix is the same than the received with the MS_NOT_REGISTERD */
 					// TODO Change structure in order we don't have to remove  MS Referral (this have a TTL of 1440)
-					mce = mdb_lookup_entry_exact(mapres->mref_cache_db, ddt_mcache_entry_eid(pendreq->not_reg_cache));
-					if (mce){
-						OOR_LOG(LDBG_2, "Replacing map referral for EID %s and %s to ms-not-registered",
-								lisp_addr_to_char(ddt_mcache_entry_eid(pendreq->not_reg_cache)),
-								mref_mapping_action_to_char(mref_mapping_action(ddt_mcache_entry_mapping(mce))));
-						ddt_mr_remove_cache_entry(mapres, mce);
-					}
-					ddt_mr_add_cache_entry(mapres,ddt_map_cache_entry_clone(pendreq->not_reg_cache));
+
+					ddt_mr_add_replace_cache_entry(mapres,ddt_map_cache_entry_clone(pendreq->not_reg_cache));
+					// send negative map reply/es and eliminate pending request
+					send_negative_mrep_to_original_askers(mapres,pendreq,ddt_mcache_entry_eid(pendreq->not_reg_cache));
+				}else{
+					OOR_LOG(LDBG_3, "Not added mref cache for %s -> Incomplete", lisp_addr_to_char(pendreq->target_address));
+					// send negative map reply/es and eliminate pending request
+					send_negative_mrep_to_original_askers(mapres,pendreq,pendreq->target_address);
 				}
-				// send negative map reply/es and eliminate pending request
-				send_negative_mrep_to_original_askers(mapres,pendreq,ddt_mcache_entry_eid(pendreq->not_reg_cache));
 				map_resolver_remove_ddt_pending_request(mapres,pendreq);
 				return (GOOD);
 			}
@@ -880,6 +918,7 @@ pending_request_do_cycle(oor_timer_t *timer){
 			map_resolver_remove_ddt_pending_request(mapres,pendreq);
 		}else{
 			// switch to the root entry and retry
+			OOR_LOG(LDBG_1,"Restarting DDT query from root...");
 			pending_request_set_root_cache_entry(pendreq,mapres->root_entry);
 			htable_nonces_reset_nonces_lst(nonces_ht, nonces_list);
 			pending_request_do_cycle(timer);
