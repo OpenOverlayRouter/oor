@@ -965,7 +965,7 @@ configure_ddt(cfg_t *cfg)
 
         if (dsite != NULL) {
             if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite_xeid(dsite)) != NULL){
-                OOR_LOG(LDBG_1, "Configuration file: Duplicated deleg-site: %s . Discarding...",
+                OOR_LOG(LDBG_1, "Configuration file: Duplicated or overlapped deleg-site: %s . Discarding...",
                         lisp_addr_to_char(dsite_xeid(dsite)));
                 ddt_delegation_site_del(dsite);
                 continue;

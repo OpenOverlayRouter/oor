@@ -414,6 +414,82 @@ void
 ddt_node_ctrl_run(oor_ctrl_dev_t *dev)
 {
 	lisp_ddt_node_t *ddt_node = lisp_ddt_node_cast(dev);
+	ddt_delegation_site_t *dsite = NULL;
+	ddt_authoritative_site_t *asite = NULL;
+	lisp_addr_t *dxeid, *axeid, *addr;
+	uint8_t find_errors = FALSE, has_overlap;
+	glist_t *axeid_lst, *dxeid_lst;
+	glist_entry_t *it;
+	uint8_t plen, aux_plen;
+
+	axeid_lst = glist_new();
+	dxeid_lst = glist_new();
+
+	/* Validate authoritative sites */
+	mdb_foreach_entry(ddt_node->auth_sites_db, asite) {
+	    axeid = asite_xeid(asite);
+
+	    plen = lisp_addr_ip_get_plen(axeid);
+	    glist_for_each_entry(it,axeid_lst){
+	        addr = (lisp_addr_t *)glist_entry_data(it);
+	        aux_plen = lisp_addr_ip_get_plen(addr);
+	        if (plen < aux_plen){
+	            has_overlap = pref_is_prefix_b_part_of_a(axeid,addr);
+	        }else{
+	            has_overlap = pref_is_prefix_b_part_of_a(addr,axeid);
+	        }
+	        if (has_overlap ==  TRUE){
+	            OOR_LOG(LERR, "Overlapping of authoritative sites is not allowed: %s - %s",
+	                    lisp_addr_to_char(axeid),lisp_addr_to_char(addr));
+	            find_errors = TRUE;
+	            goto next1;
+	        }
+	    }
+	    glist_add(axeid,axeid_lst);
+next1:;
+	} mdb_foreach_entry_end;
+	glist_destroy(axeid_lst);
+
+	/* Validate delegated sites */
+	mdb_foreach_entry(ddt_node->deleg_sites_db, dsite) {
+	    dxeid = dsite_xeid(dsite);
+	    asite = mdb_lookup_entry(ddt_node->auth_sites_db, dxeid);
+	    if (!asite){
+	        OOR_LOG(LERR, "Delegation site %s doesn't belong to any configured authoritative site",
+	                lisp_addr_to_char(dxeid));
+	        find_errors = TRUE;
+	        goto next2;
+	    }
+	    axeid = asite_xeid(asite);
+	    if (lisp_addr_cmp(dxeid,axeid) == 0){
+	        OOR_LOG(LERR, "It is not allowed to delegate a complete authoritative site: %s - %s",
+	                            lisp_addr_to_char(dxeid), lisp_addr_to_char(axeid));
+	        find_errors = TRUE;
+	        goto next2;
+	    }
+	    plen = lisp_addr_ip_get_plen(dxeid);
+	    glist_for_each_entry(it,dxeid_lst){
+	        addr = (lisp_addr_t *)glist_entry_data(it);
+	        aux_plen = lisp_addr_ip_get_plen(addr);
+	        if (plen < aux_plen){
+	            has_overlap = pref_is_prefix_b_part_of_a(dxeid,addr);
+	        }else{
+	            has_overlap = pref_is_prefix_b_part_of_a(addr,dxeid);
+	        }
+	        if (has_overlap ==  TRUE){
+	            OOR_LOG(LERR, "Overlapping of delegated sites is not allowed: %s - %s",
+	                    lisp_addr_to_char(dxeid),lisp_addr_to_char(addr));
+	            find_errors = TRUE;
+	            goto next2;
+	        }
+	    }
+	    glist_add(dxeid,dxeid_lst);
+next2:;
+	} mdb_foreach_entry_end;
+	glist_destroy(dxeid_lst);
+	if (find_errors){
+	    exit_cleanup();
+	}
 
 	OOR_LOG (LDBG_1, "****** Summary of the configuration ******");
 	ddt_node_dump_authoritative_sites(ddt_node, LDBG_1);
