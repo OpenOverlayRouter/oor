@@ -270,8 +270,20 @@ IPV6_ADDR_RAW((x)->s6_addr)
 
 /// Compare two IPv6 addresses in (struct ipv6_addr *) format
 #define IPV6_ADDR_CMP(x, y) \
-((x)->s6_addr32[0] == (y)->s6_addr32[0] && \
-(x)->s6_addr32[1] == (y)->s6_addr32[1] && \
-(x)->s6_addr32[2] == (y)->s6_addr32[2] && \
-(x)->s6_addr32[3] == (y)->s6_addr32[3])
+((x)->s6_addr[0] == (y)->s6_addr[0] && \
+(x)->s6_addr[1] == (y)->s6_addr[1] && \
+(x)->s6_addr[2] == (y)->s6_addr[2] && \
+(x)->s6_addr[3] == (y)->s6_addr[3] && \
+(x)->s6_addr[4] == (y)->s6_addr[4] && \
+(x)->s6_addr[5] == (y)->s6_addr[5] && \
+(x)->s6_addr[6] == (y)->s6_addr[6] && \
+(x)->s6_addr[7] == (y)->s6_addr[7] && \
+(x)->s6_addr[8] == (y)->s6_addr[8] && \
+(x)->s6_addr[9] == (y)->s6_addr[9] && \
+(x)->s6_addr[10] == (y)->s6_addr[10] && \
+(x)->s6_addr[11] == (y)->s6_addr[11] && \
+(x)->s6_addr[12] == (y)->s6_addr[12] && \
+(x)->s6_addr[13] == (y)->s6_addr[13] && \
+(x)->s6_addr[14] == (y)->s6_addr[14] && \
+(x)->s6_addr[15] == (y)->s6_addr[15])
 #endif /*PACKETS_H_*/
