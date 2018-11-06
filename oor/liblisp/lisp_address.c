@@ -597,6 +597,7 @@ inline int
 lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2)
 {
     int cmp;
+    int plen1, plen2;
     if (!addr1 || !addr2) {
         OOR_LOG(LDBG_3,"lisp_addr_cmp: One of the compared addresses is NULL");
         return (-1);
@@ -621,6 +622,16 @@ lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2)
     case LM_AFI_IPPREF:
         cmp = ip_addr_cmp(ip_prefix_addr(get_ippref_(addr1)),
                 ip_prefix_addr(get_ippref_(addr2)));
+        if (cmp == 0){
+            plen1 = ip_prefix_get_plen(get_ippref_(addr1));
+            plen2 = ip_prefix_get_plen(get_ippref_(addr2));
+            if (plen1 < plen2){
+                cmp = 1;
+            }else if(plen1 > plen2){
+                cmp = 2;
+            }
+        }
+
         break;
     case LM_AFI_LCAF:
         cmp = lcaf_addr_cmp(get_lcaf_(addr1), get_lcaf_(addr2));
