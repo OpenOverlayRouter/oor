@@ -43,6 +43,9 @@ control-iface = <iface name>
 #   iid: Instance ID associated with the lisp site [0-16777215]
 #   accept-more-specifics [true/false]: Accept more specific prefixes
 #     with same authentication information
+#   proxy-reply [true/false]: If set to "true", the Map Server proxy replys
+#     requests to this site ignoring the proxy-reply bit of the map register.
+#     False by default.
 #   ddt-ms-peers-complete [true/false]: List of ms-peers is complete. 
 #     True by default.  
 #   ddt-ms-peers: List of all other DDT Map-Servers performing
@@ -54,6 +57,7 @@ lisp-site {
     key                   = <string>
     iid                   = 0
     accept-more-specifics = [true|false]
+    proxy-reply			  = [true|false]
     ddt-ms-peers-complete = [true|false]
     ddt-ms-peers          = {
       <ip-address>
@@ -83,46 +87,6 @@ ms-static-registered-site {
         weight          = <int>
     }
 }
-
-################################################
-#
-# DDT-NODE configuration
-#
-
-# Control messages are received and generated through this interface
-# Only one interface is supported
-
-control-iface = <iface name>
-
-# Define a lisp-site for which this DDT-NODE is authoritative. Several
-# lisp-site can be defined.
-# 
-#   eid-prefix: Authoritative EID prefix (IPvX/mask)
-#   iid: Instance ID associated with the lisp site [0-16777215]
-
-ddt-auth-site {
-    eid-prefix            = <prefix>
-    iid                   = 0
-}
-
-# Define a static registered delegation.
-# You can define several eid-prefix.
-#   eid-prefix: EID prefix (IPvX/mask) of the delegation
-#   iid: Instance ID associated with the lisp site [0-16777215]
-#   delegation-type: Indicates if at least one of the delegated sites is a MS for this xeid
-#   deleg-nodes: A number of IP addresses, each could be IPv4 or IPv6 
-
-
-ddt-deleg-site {
-    eid-prefix          = <prefix>
-    iid                 = 0
-    delegation-type     = <CHILD_DDT_NODE/MAP_SERVER_DDT_NODE>
-	deleg-nodes 		= {
-	 <ip-address>
-	 ...
-	}
-}
-
 #
 # NAT-Traversal support
 #
@@ -168,6 +132,45 @@ ms-advertised-rtrs-set  = <string>
 
 ################################################
 #
+# DDT-NODE configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+
+control-iface = <iface name>
+
+# Define a lisp-site for which this DDT-NODE is authoritative. Several
+# lisp-site can be defined.
+#
+#   eid-prefix: Authoritative EID prefix (IPvX/mask)
+#   iid: Instance ID associated with the lisp site [0-16777215]
+
+ddt-auth-site {
+    eid-prefix            = <prefix>
+    iid                   = 0
+}
+
+# Define a static registered delegation.
+# You can define several eid-prefix.
+#   eid-prefix: EID prefix (IPvX/mask) of the delegation
+#   iid: Instance ID associated with the lisp site [0-16777215]
+#   delegation-type: Indicates if at least one of the delegated sites is a MS for this xeid
+#   deleg-nodes: A number of IP addresses, each could be IPv4 or IPv6
+
+
+ddt-deleg-site {
+    eid-prefix          = <prefix>
+    iid                 = 0
+    delegation-type     = <CHILD_DDT_NODE/MAP_SERVER_DDT_NODE>
+	deleg-nodes 		= {
+	 <ip-address>
+	 ...
+	}
+}
+
+################################################
+#
 # DDT-MAP RESOLVER configuration
 #
 
@@ -179,7 +182,6 @@ control-iface = <iface name>
 # Define the current addresses for DDT-Root.
 #   root-addresses: A number of addresses, each could be one of the following cases
 #      - IPv4 or IPv6 address of the RLOC
-#      - ELP name
 
 ddt-root-addresses = {
 	 <ip-address>

@@ -54,6 +54,15 @@ int
 configure_ms(
         struct uci_context      *ctx,
         struct uci_package      *pck);
+int
+configure_ddt(
+        struct uci_context      *ctx,
+        struct uci_package      *pck);
+int
+configure_ddt_mr(
+        struct uci_context      *ctx,
+        struct uci_package      *pck);
+
 static mapping_t*
 parse_mapping(
         struct uci_context      *ctx,
@@ -65,7 +74,7 @@ parse_mapping(
 
 conf_mapping_t *
 uci_parse_conf_mapping(struct uci_context *ctx, struct uci_section *sect,
-         shash_t *rloc_set_ht, uint8_t is_local);
+        shash_t *rloc_set_ht, uint8_t is_local);
 
 static shash_t *
 parse_rlocs(
@@ -192,6 +201,10 @@ handle_config_file()
                     res = configure_rtr(ctx, pck);
                 }else if (strcmp(mode, "mn") == 0) {
                     res = configure_mn(ctx, pck);
+                }else if (strcmp(mode, "ddt") == 0) {
+                    res = configure_ddt(ctx, pck);
+                }else if (strcmp(mode, "mr") == 0) {
+                    res = configure_ddt_mr(ctx, pck);
                 }else {
                     OOR_LOG(LCRIT, "Configuration file: Unknown operating mode: %s",uci_op_mode);
                     free(mode);
@@ -316,7 +329,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
         }
 
         if (strcmp(sect->type, "encapsulation") == 0){
-            uci_encap = uci_lookup_option_string(ctx, sect, "type");
+            uci_encap = (char *)uci_lookup_option_string(ctx, sect, "type");
             if (uci_encap != NULL){
                 encap = str_to_lower_case(uci_encap);
                 if (strcmp(encap, "lisp") == 0) {
@@ -681,7 +694,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
         }
 
         if (strcmp(sect->type, "encapsulation") == 0){
-            uci_encap = uci_lookup_option_string(ctx, sect, "type");
+            uci_encap = (char *)uci_lookup_option_string(ctx, sect, "type");
             if (uci_encap != NULL){
                 encap = str_to_lower_case(uci_encap);
                 if (strcmp(encap, "lisp") == 0) {
@@ -1012,7 +1025,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
         }
 
         if (strcmp(sect->type, "encapsulation") == 0){
-            uci_encap = uci_lookup_option_string(ctx, sect, "type");
+            uci_encap = (char *)uci_lookup_option_string(ctx, sect, "type");
             if (uci_encap != NULL){
                 encap = str_to_lower_case(uci_encap);
                 if (strcmp(encap, "lisp") == 0) {
@@ -1176,7 +1189,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
     lisp_ms_t *ms;
     struct uci_section *sect;
     struct uci_option *opt;
-    struct uci_element *element, *uci_elem;
+    struct uci_element *element, *uci_elem, *elem_addr;
     char *uci_eid_prefix;
     int uci_iid = 0, uci_ttl=0;
     int uci_key_type;
@@ -1184,12 +1197,13 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
     uint8_t uci_more_specifics;
     uint8_t uci_proxy_reply;
     uint8_t uci_merge;
+    uint8_t uci_peers_complete;
     mapping_t *mapping;
     lisp_site_prefix_t *site;
     shash_t *lcaf_ht;
     shash_t *rlocs_ht;
     shash_t *rloc_set_ht;
-    glist_t *rtr_id_list;
+    glist_t *rtr_id_list, *str_ddt_ms_peers_lst;
     iface_t *iface;
 
     /* create and configure xtr */
@@ -1294,6 +1308,27 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
                 uci_iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
             }
 
+            boolean_char = (char *)uci_lookup_option_string(ctx, sect, "ddt_ms_peers_complete");
+            if (boolean_char){
+                uci_peers_complete = str_to_boolean(boolean_char);
+                if(uci_peers_complete == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in ddt_ms_peers_complete",boolean_char);
+                    return (BAD);
+                }
+            }else{
+                uci_peers_complete = TRUE;
+            }
+
+            str_ddt_ms_peers_lst = glist_new();
+
+            /* ddt_ms_peers */
+            opt  = uci_lookup_option(ctx, sect, "ddt_ms_peers");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    glist_add_tail(elem_addr->name, str_ddt_ms_peers_lst);
+                }
+            }
+
             site = build_lisp_site_prefix(ms,
                     uci_eid_prefix,
                     uci_iid,
@@ -1302,7 +1337,10 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
                     uci_more_specifics,
                     uci_proxy_reply,
                     uci_merge,
+                    uci_peers_complete,
+                    str_ddt_ms_peers_lst,
                     lcaf_ht);
+
             if (site) {
                 OOR_LOG(LDBG_1, "Adding lisp site prefix %s to the lisp-sites "
                         "database", lisp_addr_to_char(site->eid_prefix));
@@ -1311,6 +1349,8 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
                 OOR_LOG(LERR, "Can't add lisp-site prefix %s. Discarded ...",
                         uci_eid_prefix);
             }
+
+            glist_destroy(str_ddt_ms_peers_lst);
         }
 
         /* LISP REGISTERED SITES CONFIG */
@@ -1392,6 +1432,221 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
     return(GOOD);
 }
 
+int
+configure_ddt_mr(struct uci_context *ctx,struct uci_package *pck)
+{
+    lisp_ddt_mr_t *ddt_mr;
+    struct uci_section *sect;
+    struct uci_option *opt;
+    struct uci_element *element, *elem_addr;
+    char *uci_iface;
+    shash_t *lcaf_ht;
+
+    glist_t *root_addresses = glist_new();
+    iface_t *iface;
+    uint8_t res = BAD;
+
+    if (ctrl_dev_create(DDT_MR_MODE, &ctrl_dev) != GOOD) {
+        OOR_LOG(LCRIT, "Failed to create MR. Aborting!");
+        return (BAD);
+    }
+    ddt_mr = CONTAINER_OF(ctrl_dev, lisp_ddt_mr_t, super);
+
+
+    /* create lcaf hash table */
+    lcaf_ht = parse_lcafs(ctx,pck);
+    if (!lcaf_ht){
+        return (BAD);
+    }
+
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+
+        /* CONTROL INTERFACE */
+        /* TODO: should work with all interfaces in the future */
+        if (strcmp(sect->type, "mr_basic") == 0){
+            uci_iface = (char *)uci_lookup_option_string(ctx, sect, "control_iface");
+            if (uci_iface == NULL){
+                OOR_LOG(LERR,"Configuration file: No control iface assigned");
+                return(BAD);
+            }
+            if ((iface = add_interface(uci_iface))==NULL) {
+                return(BAD);
+            }
+
+            iface_configure (iface, AF_INET);
+            iface_configure (iface, AF_INET6);
+        }
+
+        /* ddt_roots */
+        if (strcmp(sect->type, "ddt-root-addresses") == 0){
+            opt  = uci_lookup_option(ctx, sect, "address");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    glist_add_tail(elem_addr->name, root_addresses);
+                }
+            }
+        }
+    }
+
+    res = ddt_mr_put_root_addresses(ddt_mr, root_addresses, lcaf_ht);
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+    glist_destroy(root_addresses);
+
+    return(res);
+}
+
+int
+configure_ddt(struct uci_context *ctx,struct uci_package *pck)
+{
+    lisp_ddt_node_t *ddt_node;
+    struct uci_section *sect;
+    struct uci_option *opt;
+    struct uci_element *element, *elem_addr;
+    char *uci_iface, *uci_xeid_prefix, *uci_type, *uci_type_lower;
+    int uci_iid = 0;
+    shash_t *lcaf_ht;
+    ddt_authoritative_site_t *asite;
+    ddt_delegation_site_t *dsite;
+    iface_t *iface;
+    int typeint;
+    glist_t *child_nodes_list;
+
+    if (ctrl_dev_create(DDT_MODE, &ctrl_dev) != GOOD) {
+        OOR_LOG(LCRIT, "Failed to create DDT-Node. Aborting!");
+        exit_cleanup();
+    }
+    ddt_node = CONTAINER_OF(ctrl_dev, lisp_ddt_node_t, super);
+
+
+    /* create lcaf hash table */
+    lcaf_ht = parse_lcafs(ctx,pck);
+    if (!lcaf_ht){
+        return (BAD);
+    }
+
+
+    uci_foreach_element(&pck->sections, element) {
+        sect = uci_to_section(element);
+
+        /* CONTROL INTERFACE */
+        /* TODO: should work with all interfaces in the future */
+        if (strcmp(sect->type, "ddt_node_basic") == 0){
+            uci_iface = (char *)uci_lookup_option_string(ctx, sect, "control_iface");
+            if (uci_iface == NULL){
+                OOR_LOG(LERR,"Configuration file: No control iface assigned");
+                return(BAD);
+            }
+            if ((iface = add_interface(uci_iface))==NULL) {
+                return(BAD);
+            }
+
+            iface_configure (iface, AF_INET);
+            iface_configure (iface, AF_INET6);
+        }
+
+        if (strcmp(sect->type, "ddt-auth-site") == 0){
+
+            uci_xeid_prefix = (char *)uci_lookup_option_string(ctx, sect, "eid_prefix");
+            if (!uci_xeid_prefix){
+                OOR_LOG(LERR,"Configuration file: ddt-auth-site should contain an xeid_prefix");
+                return (BAD);
+            }
+
+            if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
+                uci_iid = 0;
+            }else{
+                uci_iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
+            }
+
+            asite = build_ddt_authoritative_site(ddt_node,uci_xeid_prefix,uci_iid,lcaf_ht);
+
+            if (asite != NULL) {
+                if (mdb_lookup_entry(ddt_node->auth_sites_db, asite->xeid) != NULL){
+                    OOR_LOG(LDBG_1, "Configuration file: Duplicated auth-site: %s . Discarding...",
+                            lisp_addr_to_char(asite->xeid));
+                    ddt_authoritative_site_del(asite);
+                    continue;
+                }
+
+                OOR_LOG(LDBG_1, "Adding authoritative site %s to the authoritative sites "
+                        "database", lisp_addr_to_char(asite->xeid));
+                ddt_node_add_authoritative_site(ddt_node, asite);
+            }else{
+                OOR_LOG(LERR, "Can't add  authoritative site %s. Discarded ...",uci_xeid_prefix);
+            }
+        }
+
+        if (strcmp(sect->type, "ddt-deleg-site") == 0){
+            uci_xeid_prefix = (char *)uci_lookup_option_string(ctx, sect, "eid_prefix");
+            if (!uci_xeid_prefix){
+                OOR_LOG(LERR,"Configuration file: ddt-auth-site should contain an xeid_prefix");
+                return (BAD);
+            }
+            if (uci_lookup_option_string(ctx, sect, "iid") == NULL){
+                uci_iid = 0;
+            }else{
+                uci_iid = strtol(uci_lookup_option_string(ctx, sect, "iid"),NULL,10);
+            }
+            uci_type = (char *)uci_lookup_option_string(ctx, sect, "delegation_type");
+            if (uci_type != NULL){
+                uci_type_lower = str_to_lower_case(uci_type);
+                if (strcmp(uci_type_lower,"child_ddt_node") == 0){
+                    typeint = LISP_ACTION_NODE_REFERRAL;
+                }else if (strcmp(uci_type_lower,"map_server_ddt_node") == 0){
+                    typeint = LISP_ACTION_MS_REFERRAL;
+                }else{
+                    OOR_LOG (LCRIT, "Configuration file: Unknown delegation type: %s",uci_type);
+                    free(uci_type_lower);
+                    return (BAD);
+                }
+                free(uci_type_lower);
+            }else{
+                OOR_LOG (LCRIT, "Configuration file: ddt-deleg-site for xeid %s should contain the "
+                        "field delegation type",uci_xeid_prefix);
+                return (BAD);
+            }
+            child_nodes_list = glist_new();
+            opt  = uci_lookup_option(ctx, sect, "deleg_nodes");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    glist_add_tail(elem_addr->name, child_nodes_list);
+                }
+            }
+
+            dsite = build_ddt_delegation_site(ddt_node,
+                    uci_xeid_prefix,
+                    uci_iid,
+                    typeint,
+                    child_nodes_list,
+                    lcaf_ht);
+
+            glist_destroy(child_nodes_list);
+
+            if (dsite != NULL) {
+                if (mdb_lookup_entry(ddt_node->deleg_sites_db, dsite_xeid(dsite)) != NULL){
+                    OOR_LOG(LDBG_1, "Configuration file: Duplicated deleg-site: %s . Discarding...",
+                            lisp_addr_to_char(dsite_xeid(dsite)));
+                    ddt_delegation_site_del(dsite);
+                    continue;
+                }
+
+                OOR_LOG(LDBG_1, "Adding delegation site %s to the delegation sites "
+                        "database", lisp_addr_to_char(dsite_xeid(dsite)));
+                ddt_node_add_delegation_site(ddt_node, dsite);
+            }else{
+                OOR_LOG(LERR, "Can't add  delegation site %s. Discarded ...",uci_xeid_prefix);
+            }
+        }
+    }
+
+    /* destroy the hash table */
+    shash_destroy(lcaf_ht);
+
+    return(GOOD);
+}
 
 static mapping_t*
 parse_mapping(struct uci_context *ctx, struct uci_section *sect,
@@ -1414,7 +1669,7 @@ parse_mapping(struct uci_context *ctx, struct uci_section *sect,
 
 conf_mapping_t *
 uci_parse_conf_mapping(struct uci_context *ctx, struct uci_section *sect,
-         shash_t *rloc_set_ht, uint8_t is_local)
+        shash_t *rloc_set_ht, uint8_t is_local)
 {
     conf_mapping_t *conf_mapping;
     char *uci_eid, *uci_rloc_set;

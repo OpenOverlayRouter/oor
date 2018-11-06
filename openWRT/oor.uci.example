@@ -9,7 +9,7 @@ package 'oor'
 #     messages are written in syslog file
 #   map_request_retries: Additional Map-Requests to send per map cache miss
 #   ipv6_scope [GLOBAL|SITE]: Scope of the IPv6 address used for the locators. GLOBAL by default
-#   operating_mode: Operating mode can be any of: xTR, RTR, MN, MS
+#   operating_mode: Operating mode can be any of: xTR, RTR, MN, MS, DDT, MR
 config 'daemon'
         option  'debug'                 '0'
         option  'log_file'              '/tmp/oor.log'  
@@ -33,14 +33,25 @@ config 'ms_basic'
 #   key: Password to authenticate the received Map Registers
 #   iid: Instance ID associated with the lisp site [0-16777215]
 #   accept_more_specifics [true/false]: Accept more specific prefixes
-#     with same authentication information 
+#     with same authentication information
+#   proxy_reply [true/false]: If set to "true", the Map Server proxy replys
+#     requests to this site ignoring the proxy-reply bit of the map register.
+#     False by default.
+#   ddt_ms_peers_complete [true/false]: List of ms-peers is complete.
+#     True by default.
+#   ddt_ms_peers: List of all other DDT Map-Servers performing
+#     Map-Server functionality for the same prefix
 config 'lisp-site'
         option   'eid_prefix'               '<ip-prefix/mask>'
         option   'key_type'                 '1'
         option   'key'                      '<string>'
         option   'iid'                      '0'
         option   'accept_more_specifics'    '<bool>'
-
+        option   'proxy_reply'              '<bool>'
+        option   'ddt_ms_peers_complete'    '<bool>'
+        list     'ddt_ms_peers'             '<string>'
+        list     'ddt_ms_peers'             '<string>'
+        ...
 
 # Define a staticly registered mapping. New can Map Registers overwrite
 # the information of this mapping
@@ -92,6 +103,59 @@ config 'ms-rtrs-set'
 config 'ms-advertised-rtrs-set'
         option   'name'                 '<string>'
    
+#---------------------------------------------------------------------------------------------------------------------
+
+#
+# DDT-NODE configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+config 'ddt_node_basic'
+        option  'control_iface'         '<iface-name>'
+
+# Define a lisp-site for which this DDT-NODE is authoritative. Several
+# lisp-site can be defined.
+#
+#   eid_prefix: Authoritative EID prefix (IPvX/mask)
+#   iid: Instance ID associated with the lisp site [0-16777215]
+
+config 'ddt-auth-site'
+        option   'eid_prefix'               '<ip-prefix/mask>'
+        option   'iid'                      '0'
+
+
+# Define a static registered delegation.
+# You can define several eid-prefix.
+#   eid_prefix: EID prefix (IPvX/mask) of the delegation
+#   iid: Instance ID associated with the lisp site [0-16777215]
+#   delegation-type: Indicates if at least one of the delegated sites is a MS for this xeid
+#   deleg-nodes: A number of IP addresses, each could be IPv4 or IPv6
+
+config 'ddt-deleg-site'
+        option   'eid_prefix'               '<ip-prefix/mask>'
+        option   'iid'                      '0'
+        option   'delegation-type'          '<CHILD_DDT_NODE/MAP_SERVER_DDT_NODE>'
+        list     'deleg_nodes'              '<ip-address | FQDN>'
+        ...
+
+#---------------------------------------------------------------------------------------------------------------------
+
+#
+# DDT-MAP RESOLVER configuration
+#
+
+# Control messages are received and generated through this interface
+# Only one interface is supported
+config 'mr_basic'
+        option  'control_iface'         '<iface-name>'
+
+# Define the current addresses for DDT-Root.
+#   address: IPv4 or IPv6 address of the DDT-Root
+
+config ddt-root-addresses
+        list   'address'                '<ip-address | FQDN>'
+
 #---------------------------------------------------------------------------------------------------------------------
 
 # Tunnel Router general configuration

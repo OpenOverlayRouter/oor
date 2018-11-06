@@ -187,8 +187,9 @@ char *
 str_to_lower_case(char *str)
 {
     int i;
-    char *new_str = xmalloc(sizeof(str)+1);
-    for(i = 0; str[i]; i++){
+    int len = strlen(str);
+    char *new_str = xmalloc(len+1);
+    for(i = 0; i<len; i++){
         new_str[i] = tolower(str[i]);
     }
     new_str[i] = '\0';

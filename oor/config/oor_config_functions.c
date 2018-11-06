@@ -625,7 +625,6 @@ build_lisp_site_prefix(lisp_ms_t *ms, char *eidstr, uint32_t iid, int key_type,
             more_specifics, proxy_reply, merge);
 
     site->ddt_ms_peers_complete = ddt_complete;
-    printf ("=================>>>>> %d\n\n\n", site->ddt_ms_peers_complete);
     glist_for_each_entry(it, ddt_ms_peers) {
         ms_peer = (char *)glist_entry_data(it);
         addr_list = parse_lisp_addr(ms_peer, lcaf_ht);
@@ -777,7 +776,6 @@ ddt_mr_put_root_addresses(lisp_ddt_mr_t *ddt_mr, glist_t *str_root_addresses, sh
     glist_destroy(root_addresses);
 
     return (GOOD);
-
 }
 
 

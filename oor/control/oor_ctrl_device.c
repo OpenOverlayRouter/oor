@@ -162,6 +162,12 @@ ctrl_dev_type_to_char(oor_dev_type_e type)
     case MN_MODE:
         strcpy(device,"Mobile Node");
         break;
+    case DDT_MODE:
+        strcpy(device,"DDT node");
+        break;
+    case DDT_MR_MODE:
+        strcpy(device,"DDT MR node");
+        break;
     default:
         strcpy(device,"Unknown");
         break;

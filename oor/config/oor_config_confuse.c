@@ -697,7 +697,6 @@ configure_ms(cfg_t *cfg)
     glist_t *rtr_id_list;
 
 
-    /* create and configure xtr */
     if (ctrl_dev_create(MS_MODE, &ctrl_dev) != GOOD) {
         OOR_LOG(LCRIT, "Failed to create MS. Aborting!");
         exit_cleanup();
@@ -718,7 +717,7 @@ configure_ms(cfg_t *cfg)
             return(BAD);
         }
     }else{
-	/* we have no iface_name, so also iface is missing */
+        /* we have no iface_name, so also iface is missing */
         OOR_LOG(LERR, "Configuration file: Specify the control iface of the Map Server");
         return(BAD);
     }
@@ -751,11 +750,11 @@ configure_ms(cfg_t *cfg)
                 cfg_getint(ls, "key-type"),
                 cfg_getstr(ls, "key"),
                 cfg_getbool(ls, "accept-more-specifics") ? 1:0,
-                cfg_getbool(ls, "proxy-reply") ? 1:0,
-                cfg_getbool(ls, "merge") ? 1 : 0,
-                cfg_getbool(ls, "ddt-ms-peers-complete") ? 1 : 0,
-                str_ddt_ms_peers_lst,
-                lcaf_ht);
+                        cfg_getbool(ls, "proxy-reply") ? 1:0,
+                                cfg_getbool(ls, "merge") ? 1 : 0,
+                                        cfg_getbool(ls, "ddt-ms-peers-complete") ? 1 : 0,
+                                                str_ddt_ms_peers_lst,
+                                                lcaf_ht);
 
         glist_destroy(str_ddt_ms_peers_lst);
 
@@ -857,15 +856,14 @@ configure_ddt(cfg_t *cfg)
     int i, j, n;
     lisp_ddt_node_t *ddt_node;
 
-    /* create and configure xtr */
-       if (ctrl_dev_create(DDT_MODE, &ctrl_dev) != GOOD) {
-           OOR_LOG(LCRIT, "Failed to create DDT-Node. Aborting!");
-           exit_cleanup();
-       }
-       ddt_node = CONTAINER_OF(ctrl_dev, lisp_ddt_node_t, super);
+    if (ctrl_dev_create(DDT_MODE, &ctrl_dev) != GOOD) {
+        OOR_LOG(LCRIT, "Failed to create DDT-Node. Aborting!");
+        exit_cleanup();
+    }
+    ddt_node = CONTAINER_OF(ctrl_dev, lisp_ddt_node_t, super);
 
-       /* create lcaf hash table */
-           lcaf_ht = parse_lcafs(cfg);
+    /* create lcaf hash table */
+    lcaf_ht = parse_lcafs(cfg);
 
 
     /* CONTROL INTERFACE */
@@ -878,7 +876,7 @@ configure_ddt(cfg_t *cfg)
             return(BAD);
         }
     }else{
-    /* we have no iface_name, so also iface is missing */
+        /* we have no iface_name, so also iface is missing */
         OOR_LOG(LERR, "Configuration file: Specify the control iface of the DDT-Node");
         return(BAD);
     }
@@ -938,13 +936,23 @@ configure_ddt(cfg_t *cfg)
 
 
         char *typechar = cfg_getstr(ds, "delegation-type");
+        char *type_char;
         int typeint;
-        if(strcmp(typechar, "MAP_SERVER_DDT_NODE") == 0){
+        if (!typechar){
+            OOR_LOG (LCRIT, "Configuration file: Unknown delegation type: %s",typechar);
+            return (BAD);
+        }
+        type_char = str_to_lower_case(typechar);
+        if (strcmp(type_char,"child_ddt_node") == 0){
+            typeint = LISP_ACTION_NODE_REFERRAL;
+        }else if (strcmp(type_char,"map_server_ddt_node") == 0){
             typeint = LISP_ACTION_MS_REFERRAL;
         }else{
-            typeint = LISP_ACTION_NODE_REFERRAL;
+            OOR_LOG (LCRIT, "Configuration file: Unknown delegation type: %s",typechar);
+            free(type_char);
+            return (BAD);
         }
-
+        free(type_char);
 
         dsite = build_ddt_delegation_site(ddt_node,
                 cfg_getstr(ds, "eid-prefix"),
@@ -985,15 +993,15 @@ configure_ddt_mr(cfg_t *cfg)
     int j, n;
     lisp_ddt_mr_t *ddt_mr;
 
-    /* create and configure xtr */
-       if (ctrl_dev_create(DDT_MR_MODE, &ctrl_dev) != GOOD) {
-           OOR_LOG(LCRIT, "Failed to create DDT-Map Resolver. Aborting!");
-           exit_cleanup();
-       }
-       ddt_mr = CONTAINER_OF(ctrl_dev, lisp_ddt_mr_t, super);
 
-       /* create lcaf hash table */
-           lcaf_ht = parse_lcafs(cfg);
+    if (ctrl_dev_create(DDT_MR_MODE, &ctrl_dev) != GOOD) {
+        OOR_LOG(LCRIT, "Failed to create DDT-Map Resolver. Aborting!");
+        exit_cleanup();
+    }
+    ddt_mr = CONTAINER_OF(ctrl_dev, lisp_ddt_mr_t, super);
+
+    /* create lcaf hash table */
+    lcaf_ht = parse_lcafs(cfg);
 
 
     /* CONTROL INTERFACE */
@@ -1006,7 +1014,7 @@ configure_ddt_mr(cfg_t *cfg)
             return(BAD);
         }
     }else{
-    /* we have no iface_name, so also iface is missing */
+        /* we have no iface_name, so also iface is missing */
         OOR_LOG(LERR, "Configuration file: Specify the control iface of the DDT-Map Resolver");
         return(BAD);
     }
@@ -1159,7 +1167,7 @@ handle_config_file()
             CFG_BOOL("accept-more-specifics",   cfg_false, CFGF_NONE),
             CFG_BOOL("proxy-reply",             cfg_false, CFGF_NONE),
             CFG_BOOL("merge",                   cfg_false, CFGF_NONE),
-			CFG_BOOL("ddt-ms-peers-complete",   cfg_true, CFGF_NONE),
+            CFG_BOOL("ddt-ms-peers-complete",   cfg_true, CFGF_NONE),
             CFG_STR_LIST("ddt-ms-peers",            0, CFGF_NONE),
             CFG_END()
     };
@@ -1167,17 +1175,17 @@ handle_config_file()
     /* DDT-Node specific */
 
     static cfg_opt_t ddt_auth_site_opts[] = {
-    		CFG_STR("eid-prefix",           0, CFGF_NONE),
-    		CFG_INT("iid",                  0, CFGF_NONE),
-			CFG_END()
+            CFG_STR("eid-prefix",           0, CFGF_NONE),
+            CFG_INT("iid",                  0, CFGF_NONE),
+            CFG_END()
     };
 
     static cfg_opt_t ddt_deleg_site_opts[] = {
-    		CFG_STR("eid-prefix",           0, CFGF_NONE),
-    		CFG_INT("iid",                  0, CFGF_NONE),
-			CFG_STR("delegation-type",             0, CFGF_NONE),
+            CFG_STR("eid-prefix",           0, CFGF_NONE),
+            CFG_INT("iid",                  0, CFGF_NONE),
+            CFG_STR("delegation-type",             0, CFGF_NONE),
             CFG_STR_LIST("deleg-nodes",            0, CFGF_NONE),
-    		CFG_END()
+            CFG_END()
     };
 
     static cfg_opt_t rtr_opts[] = {
@@ -1234,9 +1242,9 @@ handle_config_file()
             CFG_SEC("explicit-locator-path", elp_opts,              CFGF_MULTI),
             CFG_SEC("replication-list",     rle_opts,               CFGF_MULTI),
             CFG_SEC("multicast-info",       mc_info_opts,           CFGF_MULTI),
-			CFG_SEC("ddt-auth-site",        ddt_auth_site_opts,     CFGF_MULTI),
-			CFG_SEC("ddt-deleg-site",         ddt_deleg_site_opts,      CFGF_MULTI),
-			CFG_STR_LIST("ddt-root-addresses",  0, CFGF_NONE),
+            CFG_SEC("ddt-auth-site",        ddt_auth_site_opts,     CFGF_MULTI),
+            CFG_SEC("ddt-deleg-site",         ddt_deleg_site_opts,      CFGF_MULTI),
+            CFG_STR_LIST("ddt-root-addresses",  0, CFGF_NONE),
             CFG_SEC("ms-rtrs-set",              rtr_set_opts,          CFGF_MULTI),
             CFG_SEC("ms-rtr-node",              rtr_opts,              CFGF_MULTI),
             CFG_STR("ms-advertised-rtrs-set",       0, CFGF_NONE),
@@ -1325,7 +1333,7 @@ handle_config_file()
         }else if (strcmp(mode, "mn") == 0) {
             ret=configure_mn(cfg);
         }else if (strcmp(mode, "ddt") ==0) {
-        	ret=configure_ddt(cfg);
+            ret=configure_ddt(cfg);
         }else if (strcmp(mode, "ddt-mr") ==0) {
             ret=configure_ddt_mr(cfg);
         }else{
