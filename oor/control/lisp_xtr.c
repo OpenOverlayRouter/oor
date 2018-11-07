@@ -347,9 +347,8 @@ xtr_run(oor_ctrl_dev_t *dev)
     if (xtr->nat_aware){
         xtr_program_initial_info_request_process(xtr);
     }else{
-        /*  Register to the Map-Server(s) */
-        xtr_program_map_register(xtr);
-        /* SMR proxy-ITRs list to be updated with new mappings */
+        /* SMR proxy-ITRs list to be updated with new mappings.
+         * Initial Map register is sent during this process */
         xtr_program_smr(xtr, 1);
     }
 
