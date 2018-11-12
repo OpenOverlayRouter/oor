@@ -28,11 +28,8 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 
-#ifdef __APPLE__
+
 #include <net/ethernet.h>
-#else
-#include <netinet/ether.h>
-#endif
 
 #include "lbuf.h"
 #include "mem_util.h"

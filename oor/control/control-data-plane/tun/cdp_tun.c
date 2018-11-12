@@ -436,7 +436,8 @@ tun_control_dp_get_output_ctrl_sock(tun_ctr_dplane_data_t * data,
                 lisp_addr_to_char(&udp_conn->la));
         ctrl_addr = tun_control_dp_get_default_ctrl_address(data, dst_afi);
         if (!ctrl_addr) {
-            OOR_LOG(LERR, "tun_control_dp_get_output_ctrl_sock: No control address found, send aborted!");
+            OOR_LOG(LERR, "tun_control_dp_get_output_ctrl_sock: No control address found for afi %s, send aborted!",
+                    (dst_afi == AF_INET) ? "IPv4" : "IPv6");
             return(ERR_SOCKET);
         }
         /* Use as local address the default control address */

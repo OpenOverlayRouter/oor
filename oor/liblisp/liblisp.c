@@ -770,7 +770,7 @@ lisp_msg_neg_mrep_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
 }
 
 lbuf_t *
-lisp_msg_neg_mref_create(lisp_addr_t *eid, int ttl, lisp_action_e ac,
+lisp_msg_neg_mref_create(lisp_addr_t *eid, int ttl, lisp_ref_action_e ac,
         lisp_authoritative_e a, int i, uint64_t nonce)
 {
     lbuf_t *b;

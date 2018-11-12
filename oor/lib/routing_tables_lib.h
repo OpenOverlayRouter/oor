@@ -23,9 +23,9 @@
 #include "../defs.h"
 #include "../liblisp/lisp_address.h"
 
+#define RULE_IFACE_BASE_TABLE_PRIORITY 10
 #define RULE_AVOID_LISP_TABLE_PRIORITY 99
 #define RULE_TO_LISP_TABLE_PRIORITY 100
-#define LISP_TABLE 100
 
 /*
  * This function adds a specific ip rule to

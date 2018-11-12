@@ -82,7 +82,7 @@ static inline void *lisp_msg_hdr(lbuf_t *b);
 lbuf_t *lisp_msg_mreq_create(lisp_addr_t *, glist_t *, lisp_addr_t *);
 lbuf_t *lisp_msg_neg_mrep_create(lisp_addr_t *, int, lisp_action_e,
         lisp_authoritative_e, uint64_t);
-lbuf_t *lisp_msg_neg_mref_create(lisp_addr_t *, int , lisp_action_e ,
+lbuf_t *lisp_msg_neg_mref_create(lisp_addr_t *, int , lisp_ref_action_e ,
         lisp_authoritative_e , int , uint64_t);
 lbuf_t *lisp_msg_inf_req_create(mapping_t *m, lisp_key_type_e keyid);
 lbuf_t *lisp_msg_inf_reply_create(lisp_addr_t *eid, lisp_addr_t *nat_lcaf,
