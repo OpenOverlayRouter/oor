@@ -1,8 +1,1 @@
 include ':app'
-
-// Move the build cache here into the tree instead of the default $HOME/.gradle
-buildCache {
-    local(DirectoryBuildCache) {
-        directory = new File(settingsDir, '.gradle/cache')
-    }
-}

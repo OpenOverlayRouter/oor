@@ -40,7 +40,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/textClick"
-        android:textColor="@color/common_plus_signin_btn_text_dark_disabled"
+        android:textColor="#CCCCCC"
         android:textAlignment="center"
         android:textSize="18sp"
         android:gravity="center_horizontal" />

@@ -1,33 +1,19 @@
 apply plugin: 'com.android.application'
-import org.apache.tools.ant.taskdefs.condition.Os
 
 android {
-    compileSdkVersion 24
-    buildToolsVersion '27.0.3'
+    compileSdkVersion 27
     defaultConfig {
         applicationId "org.openoverlayrouter.noroot"
         minSdkVersion 15
-        targetSdkVersion 24
+        targetSdkVersion 27
         versionCode 5
-        versionName "1.2.0"
+        versionName "1.2.1"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        multiDexEnabled true
         externalNativeBuild {
             cmake {
                 cppFlags ""
             }
         }
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-    packagingOptions {
-        exclude 'META-INF/DEPENDENCIES'
-        exclude 'META-INF/NOTICE'
-        exclude 'META-INF/LICENSE'
-        exclude 'META-INF/license.txt'
-        exclude 'META-INF/notice.txt'
     }
     buildTypes {
         release {
@@ -38,66 +24,17 @@ android {
     externalNativeBuild {
         ndkBuild {
             path '../jni/Android.mk'
-            path '../jni/norootAndroid.mk'
         }
     }
-    sourceSets.main {
-        jniLibs.srcDir '../libs'
-        jni.srcDirs = [] //disable automatic ndk-build call
-    }
-
-
-    task ndkBuild(type: Exec) {
-        workingDir file('../')
-        commandLine getNdkBuildCmd()
-    }
-
-    tasks.withType(JavaCompile) {
-        compileTask -> compileTask.dependsOn ndkBuild
-    }
-
-    task cleanNative(type: Exec) {
-        workingDir file('../')
-        commandLine getNdkBuildCmd(), 'clean'
-    }
-
-    clean.dependsOn cleanNative
-
-
 }
-
 
 dependencies {
-    //compile fileTree(dir: 'libs', include: ['*.jar'])
-    androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
-        exclude group: 'com.android.support', module: 'support-annotations'
-    })
-    implementation 'com.android.support:appcompat-v7:24.2.1'
-    implementation 'com.mcxiaoke.volley:library-aar:1.0.0'
-
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.android.support:appcompat-v7:27.1.1'
     testImplementation 'junit:junit:4.12'
-    implementation 'com.google.android.gms:play-services-appindexing:8.4.0'
-    implementation 'com.android.support:design:24.2.1'
-    implementation 'com.rengwuxian.materialedittext:library:2.0.3'
-}
-
-def getNdkDir() {
-    if (System.env.ANDROID_NDK_ROOT != null)
-        return System.env.ANDROID_NDK_ROOT
-
-    Properties properties = new Properties()
-    properties.load(project.rootProject.file('local.properties').newDataInputStream())
-    def ndkdir = properties.getProperty('ndk.dir', null)
-    if (ndkdir == null)
-        throw new GradleException("NDK location not found. Define location with ndk.dir in the local.properties file or with an ANDROID_NDK_ROOT environment variable.")
-
-    return ndkdir
-}
-
-def getNdkBuildCmd() {
-    def ndkbuild = getNdkDir() + "/ndk-build"
-    if (Os.isFamily(Os.FAMILY_WINDOWS))
-        ndkbuild += ".cmd"
-
-    return ndkbuild
+    androidTestImplementation 'com.android.support.test:runner:1.0.2'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    implementation 'com.rengwuxian.materialedittext:library:2.1.4'
+    implementation 'com.android.volley:volley:1.1.1'
+    implementation 'com.android.support:support-v4:27.1.1'
 }
