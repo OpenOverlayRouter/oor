@@ -175,6 +175,15 @@ ctrl_dev_type_to_char(oor_dev_type_e type)
     return (device);
 }
 
+uint8_t
+ctrl_dev_is_tr(oor_dev_type_e dev_type)
+{
+    if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE){
+        return (TRUE);
+    }
+    return (FALSE);
+}
+
 int
 map_reply_fill_uconn(oor_ctrl_dev_t *ctr_dev, glist_t *itr_rlocs, uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc)
 {

@@ -197,11 +197,12 @@ rtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
         type = lisp_msg_type(msg);
         ext_uc = uc;
         int_uc = &aux_uc;
-        OOR_LOG(LDBG_1, "RTR: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
+        OOR_LOG(LDBG_1, "===> RTR: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
 
+    OOR_LOG(LDBG_1, "==> RTR: Received  %s ",msg_type_to_char(type));
     switch (type) {
     case LISP_MAP_REQUEST:
         ret = rtr_recv_map_request(rtr, msg, ecm_hdr, int_uc, ext_uc);
@@ -226,10 +227,10 @@ rtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     }
 
     if (ret != GOOD) {
-        OOR_LOG(LDBG_1,"rtr: Failed to process LISP control message");
+        OOR_LOG(LDBG_1,"<== RTR: Failed to process LISP control message");
         return (BAD);
     } else {
-        OOR_LOG(LDBG_3, "rtr: Completed processing of LISP control message");
+        OOR_LOG(LDBG_1, "<== RTR: Completed processing of LISP control message");
         return (ret);
     }
 }
@@ -590,7 +591,7 @@ rtr_recv_map_request(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_u
         goto err;
     }
     OOR_LOG(LDBG_1, "Sending %s", lisp_msg_hdr_to_char(mrep));
-    send_msg(&rtr->super, mrep, &send_uc);
+    ctrl_send_msg(&rtr->super, mrep, &send_uc, TR_MODE);
 
 done:
     glist_destroy(itr_rlocs);
@@ -652,7 +653,7 @@ rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_
         ECM_RTR_RELAYED_BIT(new_ecm_hdr)=1;
     }
     uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, ms_addr);
-    send_msg(&rtr->super, &b, &fwd_uc);
+    ctrl_send_msg(&rtr->super, &b, &fwd_uc, MS_MODE);
 
     /* We store the udp connection in the timer. This will be used when receiving the Map
      * Notify to create the nat locator data. If the timer expires without receiving Map Notify,
@@ -847,7 +848,7 @@ rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc
             return (BAD);
     }
     uconn_init(&fwd_uc, LISP_CONTROL_PORT, loct_conn_inf->pub_xtr_port, loct_conn_inf->rtr_addr,loct_conn_inf->pub_xtr_addr);
-    res = send_msg(&rtr->super, &b, &fwd_uc);
+    res = ctrl_send_msg(&rtr->super, &b, &fwd_uc, TR_MODE);
 
     /* Program the expiration time of the NAT information for the locator */
 

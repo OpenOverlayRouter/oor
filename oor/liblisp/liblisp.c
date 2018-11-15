@@ -344,6 +344,9 @@ lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl)
     return(GOOD);
 }
 
+
+
+
 int
 lisp_msg_parse_xtr_id_site_id (lbuf_t *b, lisp_xtr_id *xtr_id, lisp_site_id *site_id)
 {
@@ -375,6 +378,38 @@ msg_type_to_hdr_len(lisp_msg_type_e type)
     default:
         return(0);
     }
+}
+
+char *
+msg_type_to_char(lisp_msg_type_e type)
+{
+    static char msg_type[20];
+    *msg_type='\0';
+    switch(type) {
+    case LISP_MAP_REQUEST:
+        strcpy(msg_type,"Map Request");
+        break;
+    case LISP_MAP_REPLY:
+        strcpy(msg_type,"Map Reply");
+        break;
+    case LISP_MAP_REGISTER:
+        strcpy(msg_type,"Map Register");
+        break;
+    case LISP_MAP_NOTIFY:
+        strcpy(msg_type,"Map Notify");
+        break;
+    case LISP_INFO_NAT:
+        strcpy(msg_type,"Info Request/Reply");
+        break;
+    case LISP_MAP_REFERRAL:
+        strcpy(msg_type,"Map Referral");
+        break;
+    default:
+        strcpy(msg_type,"Unknown");
+        break;
+    }
+
+    return(msg_type);
 }
 
 void *

@@ -96,7 +96,6 @@ int     ipv6_data_input_fd                  = -1;
 int     netlink_fd                          = -1;
 
 sockmstr_t *smaster = NULL;
-oor_ctrl_dev_t *ctrl_dev;
 oor_ctrl_t *lctrl;
 
 #ifdef VPNAPI
@@ -392,8 +391,8 @@ initial_setup()
 int
 main(int argc, char **argv)
 {
-    oor_dev_type_e dev_type;
     tr_abstract_device *tunnel_router;
+    oor_ctrl_dev_t *ctrl_dev;
     
     if (initial_setup() != GOOD){
         exit(EXIT_SUCCESS);
@@ -414,25 +413,33 @@ main(int argc, char **argv)
     if (ifaces_init() != GOOD){
         exit_cleanup();
     }
-    /* create control. Only one instance for now */
+    /* create control. */
     if ((lctrl = ctrl_create())==NULL){
         exit_cleanup();
     }
-    /* parse config and create ctrl_dev */
+    /* parse config */
     if (parse_config_file() != GOOD){
         exit_cleanup();
     }
-    dev_type = ctrl_dev_mode(ctrl_dev);
+    if (!ctrl_has_compatible_devices(lctrl)){
+        exit_cleanup();
+    }
+
 #ifdef VPP
-    if (dev_type != xTR_MODE){
+    devices = glist_size(oor_ctrl_devices());
+    ctrl_dev = (oor_ctrl_dev_t *)glist_first_data(devices);
+    dev_type = ctrl_dev_mode(ctrl_dev);
+    if (glist_size(oor_ctrl_devices()) != 1 || dev_type != xTR_MODE){
         OOR_LOG(LERR, "VPP is only supported in xTR mode");
         exit_cleanup();
     }
 #endif
-    if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (ctrl_dev) {
+        // XXX Only one TR mode configurable in the data plane
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = lisp_tr_abstract_cast(ctrl_dev);
-        if (data_plane->datap_init(dev_type,tr_encap_type(&tunnel_router->tr))!=GOOD){
+        if (data_plane->datap_init(ctrl_dev_mode(ctrl_dev),tr_encap_type(&tunnel_router->tr))!=GOOD){
             data_plane = NULL;
             exit_cleanup();
         }
@@ -446,8 +453,8 @@ main(int argc, char **argv)
     if (net_mgr->netm_init() != GOOD){
         exit_cleanup();
     }
-    /* run lisp control device xtr/ms */
-    ctrl_dev_run(ctrl_dev);
+    /* run lisp control devices */
+    ctrl_run_devices(lctrl);
     
     OOR_LOG(LINF,"\n\n Open Overlay Router (%s): started... \n\n",OOR_VERSION);
     
@@ -521,7 +528,7 @@ JNIEXPORT jint JNICALL Java_org_openoverlayrouter_noroot_OOR_1JNI_oor_1start
         return (BAD);
     }
     dev_type = ctrl_dev_mode(ctrl_dev);
-    if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
+    if (ctrl_dev_is_tr(dev_type)) {
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = lisp_tr_abstract_cast(ctrl_dev);
         if (data_plane->datap_init(dev_type, tr_encap_type(&tunnel_router->tr), vpn_tun_fd) != GOOD){
@@ -609,7 +616,7 @@ int oor_start() {
     }
     
     dev_type = ctrl_dev_mode(ctrl_dev);
-    if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
+    if (ctrl_dev_is_tr(dev_type)) {
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = lisp_tr_abstract_cast(ctrl_dev);
         if (data_plane->datap_init(dev_type, tr_encap_type(&tunnel_router->tr)) != GOOD){

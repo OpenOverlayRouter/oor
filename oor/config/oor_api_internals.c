@@ -447,7 +447,7 @@ int
 oor_api_xtr_mr_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
-
+    oor_ctrl_dev_t * ctrl_dev;
     lisp_xtr_t *xtr;
     uint8_t *result_msg;
     int result_msg_len;
@@ -458,8 +458,13 @@ oor_api_xtr_mr_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     xmlNodePtr mr_addr_xml;
     lisp_addr_t *mr_addr;
 
-    OOR_LOG(LDBG_1, "OOR_API: Creating new list of Map Resolvers");
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
+    OOR_LOG(LDBG_1, "OOR_API: Creating new list of Map Resolvers");
     xtr = lisp_xtr_cast(ctrl_dev);
     list = glist_new_managed((glist_del_fct)lisp_addr_del);
 
@@ -533,11 +538,15 @@ int
 oor_api_xtr_mr_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
-
+    oor_ctrl_dev_t * ctrl_dev;
 	lisp_xtr_t *xtr;
 	uint8_t *result_msg;
 	int result_msg_len;
-
+	ctrl_dev = ctrl_get_tr_device(lctrl);
+	if (!ctrl_dev){
+	    OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+	    return (BAD);
+	}
 	OOR_LOG(LDBG_2, "OOR_API: Deleting Map Resolver list");
 	xtr = lisp_xtr_cast(ctrl_dev);
 
@@ -562,6 +571,7 @@ int
 oor_api_xtr_ms_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
+    oor_ctrl_dev_t * ctrl_dev;
     lisp_xtr_t *xtr;
     xmlDocPtr doc;
     xmlNodePtr root_element;
@@ -572,6 +582,12 @@ oor_api_xtr_ms_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     glist_t * map_servers_list;
     char * str_proxy_reply;
     uint8_t proxy_reply = FALSE;
+
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
     OOR_LOG(LDBG_1, "OOR_API: Creating new map servers list");
 
@@ -632,9 +648,16 @@ int
 oor_api_xtr_ms_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
+    oor_ctrl_dev_t * ctrl_dev;
     lisp_xtr_t *xtr;
     uint8_t *result_msg;
     int result_msg_len;
+
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
     OOR_LOG(LDBG_2, "OOR_API: Deleting Map Servers list");
 
@@ -663,6 +686,7 @@ int
 oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
+    oor_ctrl_dev_t * ctrl_dev;
     lisp_xtr_t *xtr;
     mapping_t *processed_mapping;
     map_local_entry_t *map_loc_e, *db_map_loc_e;
@@ -683,6 +707,12 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     int ipv4_mapings = 0;
     int ipv6_mapings = 0;
     int eid_ip_afi;
+
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
     OOR_LOG(LDBG_1, "OOR_API: Creating new local data base");
     lcaf_ht = shash_new_managed((free_value_fn_t)lisp_addr_del);
@@ -844,11 +874,18 @@ int
 oor_api_xtr_mapdb_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
+    oor_ctrl_dev_t * ctrl_dev;
     lisp_xtr_t *xtr;
     map_local_entry_t *map_loc_e;
     void *it;
     uint8_t *result_msg;
     int result_msg_len;
+
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
     OOR_LOG(LDBG_2, "OOR_API: Deleting local Mapping Database list");
 
@@ -877,6 +914,7 @@ int
 oor_api_xtr_petrs_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
+    oor_ctrl_dev_t * ctrl_dev;
     lisp_xtr_t *xtr;
     uint8_t *result_msg;
     int result_msg_len;
@@ -889,6 +927,12 @@ oor_api_xtr_petrs_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     lisp_addr_t *petr_addr;
     glist_entry_t *addr_it;
     mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
+
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
     OOR_LOG(LDBG_1, "OOR_API: Creating new list of Proxy ETRs");
 
@@ -978,10 +1022,17 @@ int
 oor_api_xtr_petrs_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
         uint8_t *data)
 {
+    oor_ctrl_dev_t * ctrl_dev;
     lisp_xtr_t *xtr;
     uint8_t *result_msg;
     int result_msg_len;
     mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
+
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
     OOR_LOG(LDBG_2, "OOR_API: Deleting Proxy ETRs list");
     xtr = lisp_xtr_cast(ctrl_dev);
@@ -1002,13 +1053,18 @@ int
 (*oor_api_get_proc_func(oor_api_msg_hdr_t* hdr))(oor_api_connection_t *,
         oor_api_msg_hdr_t *, uint8_t *)
 {
-
+    oor_ctrl_dev_t * ctrl_dev;
     int (*process_func)(oor_api_connection_t *, oor_api_msg_hdr_t *, uint8_t *) = NULL;
 
     oor_dev_type_e device = hdr->device;
     oor_api_msg_target_e target = hdr->target;
     oor_api_msg_opr_e operation = hdr->operation;
 
+    ctrl_dev = ctrl_get_tr_device(lctrl);
+    if (!ctrl_dev){
+        OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
+        return (BAD);
+    }
 
     switch (device){
     case OOR_API_DEV_XTR:

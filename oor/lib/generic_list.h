@@ -68,6 +68,7 @@ uint8_t glist_contain(void *data, glist_t *list);
 uint8_t glist_contain_using_cmp_fct(void *data, glist_t *list,
         glist_cmp_fct  cmp_fct);
 void glist_extract(glist_entry_t *entry, glist_t *list);
+void *glist_pull(glist_t *list);
 void glist_remove(glist_entry_t *entry, glist_t *list);
 void glist_remove_obj(void * data,glist_t * list);
 void glist_remove_obj_with_ptr(void * data, glist_t * list);

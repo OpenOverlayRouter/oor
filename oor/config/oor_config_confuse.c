@@ -418,7 +418,7 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
 #else
     tr->fwd_policy = fwd_policy_class_find("flow_balancing");
 #endif
-    tr->fwd_policy_dev_parm = tr->fwd_policy->new_dev_policy_inf(ctrl_dev,NULL);
+    tr->fwd_policy_dev_parm = tr->fwd_policy->new_dev_policy_inf(dev,NULL);
 
     if ((encap_str = cfg_getstr(cfg, "encapsulation")) != NULL) {
         encap = str_to_lower_case(encap_str);
@@ -510,6 +510,7 @@ configure_tunnel_router(cfg_t *cfg, oor_ctrl_dev_t *dev, lisp_tr_t *tr, shash_t 
 int
 configure_rtr(cfg_t *cfg)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     lisp_rtr_t *rtr;
     shash_t *lcaf_ht;
     int i,n;
@@ -585,6 +586,7 @@ configure_xtr(cfg_t *cfg)
 {
     lisp_xtr_t *xtr;
     shash_t *lcaf_ht;
+    oor_ctrl_dev_t *ctrl_dev;
 
     /* CREATE AND CONFIGURE XTR */
     if (ctrl_dev_create(xTR_MODE, &ctrl_dev) != GOOD) {
@@ -635,6 +637,7 @@ configure_xtr(cfg_t *cfg)
 int
 configure_mn(cfg_t *cfg)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     lisp_xtr_t *xtr;
     shash_t *lcaf_ht;
 
@@ -687,6 +690,7 @@ configure_mn(cfg_t *cfg)
 int
 configure_ms(cfg_t *cfg)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     char *iface_name, *rtr_id;
     iface_t *iface=NULL;
     lisp_site_prefix_t *site;
@@ -848,6 +852,7 @@ configure_ms(cfg_t *cfg)
 int
 configure_ddt(cfg_t *cfg)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     char *iface_name;
     iface_t *iface=NULL;
     ddt_authoritative_site_t *asite;
@@ -987,6 +992,7 @@ configure_ddt(cfg_t *cfg)
 int
 configure_ddt_mr(cfg_t *cfg)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     char *iface_name;
     iface_t *iface=NULL;
     shash_t *lcaf_ht;
@@ -1049,7 +1055,7 @@ configure_ddt_mr(cfg_t *cfg)
 int
 handle_config_file()
 {
-    int ret;
+    int ret, n, i;
     cfg_t *cfg;
     char *mode, *mode_str;
     char *log_file;
@@ -1234,7 +1240,7 @@ handle_config_file()
             CFG_STR("override-dns-primary",     0, CFGF_NONE),
             CFG_STR("override-dns-secondary",   0, CFGF_NONE),
 #endif
-            CFG_STR("operating-mode",       0, CFGF_NONE),
+            CFG_STR_LIST("operating-mode",      0, CFGF_NONE),
             CFG_BOOL("nat_traversal_support", cfg_false, CFGF_NONE),
             CFG_STR("control-iface",        0, CFGF_NONE),
             CFG_STR("rtr-data-iface",        0, CFGF_NONE),
@@ -1321,28 +1327,31 @@ handle_config_file()
     free(scope);
 
 
-    mode_str = cfg_getstr(cfg, "operating-mode");
-    if (mode_str) {
-        mode = str_to_lower_case(mode_str);
-        if (strcmp(mode, "xtr") == 0) {
-            ret=configure_xtr(cfg);
-        } else if (strcmp(mode, "ms") == 0) {
-            ret=configure_ms(cfg);
-        } else if (strcmp(mode, "rtr") == 0) {
-            ret=configure_rtr(cfg);
-        }else if (strcmp(mode, "mn") == 0) {
-            ret=configure_mn(cfg);
-        }else if (strcmp(mode, "ddt") ==0) {
-            ret=configure_ddt(cfg);
-        }else if (strcmp(mode, "ddt-mr") ==0) {
-            ret=configure_ddt_mr(cfg);
-        }else{
-            OOR_LOG (LCRIT, "Configuration file: Unknown operating mode: %s",mode);
-            cfg_free(cfg);
+    n = cfg_size(cfg, "operating-mode");
+    for(i = 0; i < n; i++) {
+        if ((mode_str = cfg_getnstr(cfg, "operating-mode", i)) != NULL) {
+            mode = str_to_lower_case(mode_str);
+            OOR_LOG (LDBG_1, "==> Processing conf file for %s",mode);
+            if (strcmp(mode, "xtr") == 0) {
+                ret=configure_xtr(cfg);
+            } else if (strcmp(mode, "ms") == 0) {
+                ret=configure_ms(cfg);
+            } else if (strcmp(mode, "rtr") == 0) {
+                ret=configure_rtr(cfg);
+            }else if (strcmp(mode, "mn") == 0) {
+                ret=configure_mn(cfg);
+            }else if (strcmp(mode, "ddt") ==0) {
+                ret=configure_ddt(cfg);
+            }else if (strcmp(mode, "ddt-mr") ==0) {
+                ret=configure_ddt_mr(cfg);
+            }else{
+                OOR_LOG (LCRIT, "Configuration file: Unknown operating mode: %s",mode);
+                cfg_free(cfg);
+                free(mode);
+                return (BAD);
+            }
             free(mode);
-            return (BAD);
         }
-        free(mode);
     }
 
     cfg_free(cfg);

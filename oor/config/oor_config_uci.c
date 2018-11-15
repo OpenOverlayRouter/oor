@@ -222,6 +222,7 @@ handle_config_file()
 int
 configure_xtr(struct uci_context *ctx, struct uci_package *pck)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     struct uci_section *sect;
     struct uci_element *element;
     struct uci_element *elem_addr;
@@ -588,6 +589,7 @@ err:
 int
 configure_mn(struct uci_context *ctx, struct uci_package *pck)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     struct uci_section *sect;
     struct uci_element *element;
     struct uci_element *elem_addr;
@@ -953,6 +955,7 @@ err:
 int
 configure_rtr(struct uci_context *ctx, struct uci_package *pck)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     lisp_rtr_t *rtr;
     struct uci_section *sect;
     struct uci_element *element;
@@ -1186,6 +1189,7 @@ configure_rtr(struct uci_context *ctx, struct uci_package *pck)
 int
 configure_ms(struct uci_context *ctx,struct uci_package *pck)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     lisp_ms_t *ms;
     struct uci_section *sect;
     struct uci_option *opt;
@@ -1435,6 +1439,7 @@ configure_ms(struct uci_context *ctx,struct uci_package *pck)
 int
 configure_ddt_mr(struct uci_context *ctx,struct uci_package *pck)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     lisp_ddt_mr_t *ddt_mr;
     struct uci_section *sect;
     struct uci_option *opt;
@@ -1501,6 +1506,7 @@ configure_ddt_mr(struct uci_context *ctx,struct uci_package *pck)
 int
 configure_ddt(struct uci_context *ctx,struct uci_package *pck)
 {
+    oor_ctrl_dev_t *ctrl_dev;
     lisp_ddt_node_t *ddt_node;
     struct uci_section *sect;
     struct uci_option *opt;

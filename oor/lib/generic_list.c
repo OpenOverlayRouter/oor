@@ -267,6 +267,31 @@ glist_extract(glist_entry_t *entry, glist_t *list)
 }
 
 /**
+ * glist_pull - remove first element of the list and return its value
+ * If no elements in the list. It returns NULL
+ * @glist: list where data is to be removed
+ */
+void *
+glist_pull(glist_t *list)
+{
+    glist_entry_t *entry;
+    void *data;
+
+    lm_assert(list);
+    if (list->size == 0){
+        return (NULL);
+    }
+
+    entry = glist_next(&list->head);
+    list_remove(&(entry->list));
+    data = entry->data;
+    free(entry);
+    list->size--;
+
+    return (data);
+}
+
+/**
  * glist_remove - remove entry from list
  * @entry: entry to be removed
  * @list: list from which the entry is to be removed

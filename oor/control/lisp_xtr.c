@@ -376,11 +376,11 @@ xtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
         type = lisp_msg_type(msg);
         ext_uc = uc;
         int_uc = &aux_uc;
-        OOR_LOG(LDBG_1, "xTR: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
+        OOR_LOG(LDBG_1, "===> xTR: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
-
+    OOR_LOG(LDBG_1, "==> xTR: Received  %s ",msg_type_to_char(type));
     switch (type) {
     case LISP_MAP_REQUEST:
         ret = xtr_recv_map_request(xtr, msg, ecm_hdr, int_uc, ext_uc);
@@ -404,10 +404,10 @@ xtr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
     }
 
     if (ret != GOOD) {
-        OOR_LOG(LDBG_1,"xTR: Failed to process LISP control message");
+        OOR_LOG(LDBG_1,"<== xTR: Failed to process LISP control message");
         return (BAD);
     } else {
-        OOR_LOG(LDBG_3, "xTR: Completed processing of LISP control message");
+        OOR_LOG(LDBG_1, "<== xTR: Completed processing of LISP control message");
         return (ret);
     }
 }
@@ -815,7 +815,7 @@ xtr_recv_map_request(lisp_xtr_t *xtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_u
         goto err;
     }
     OOR_LOG(LDBG_1, "Sending %s", lisp_msg_hdr_to_char(mrep));
-    send_msg(&xtr->super, mrep, &send_uc);
+    ctrl_send_msg(&xtr->super, mrep, &send_uc, TR_MODE);
 
 done:
     glist_destroy(itr_rlocs);
@@ -1070,7 +1070,7 @@ xtr_build_and_send_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt *ms,
             lisp_addr_to_char(mapping_eid(m)), lisp_addr_to_char(drloc));
 
     uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-    send_msg(&xtr->super, b, &uc);
+    ctrl_send_msg(&xtr->super, b, &uc, MS_MODE);
 
     lisp_msg_destroy(b);
 
@@ -1121,7 +1121,7 @@ xtr_build_and_send_encap_map_reg(lisp_xtr_t * xtr, mapping_t * m, map_server_elt
 
 
     uconn_init(&uc, xtr->tr.encap_port, LISP_CONTROL_PORT, etr_addr, rtr_addr);
-    send_msg(&xtr->super, b, &uc);
+    ctrl_send_msg(&xtr->super, b, &uc, RTR_MODE);
 
     lisp_msg_destroy(b);
     return(GOOD);
@@ -1165,7 +1165,7 @@ xtr_build_and_send_smr_mreq(lisp_xtr_t *xtr, mapping_t *smap,
     }
 
     uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
-    res = send_msg(&xtr->super, b, &uc);
+    res = ctrl_send_msg(&xtr->super, b, &uc, TR_MODE);
     lisp_msg_destroy(b);
 
     return(res);
@@ -1199,7 +1199,7 @@ xtr_build_and_send_info_req(lisp_xtr_t * xtr, mapping_t * m, locator_t *loct,
             lisp_addr_to_char(mapping_eid(m)), lisp_addr_to_char(drloc));
 
     uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
-    send_msg(&xtr->super, b, &uc);
+    ctrl_send_msg(&xtr->super, b, &uc, MS_MODE);
 
     lisp_msg_destroy(b);
 

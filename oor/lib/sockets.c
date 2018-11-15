@@ -247,6 +247,7 @@ void
 sockmstr_wait_on_all_read(sockmstr_t *m)
 {
     struct sock *sit;
+    FD_ZERO(&m->readfds);
     for (sit = m->read.head; sit; sit = sit->next) {
         FD_SET(sit->fd, &m->readfds);
     }

@@ -27,7 +27,10 @@ typedef enum {
     ENCP_VXLAN_GPE
 }oor_encap_t;
 
+/* Use negative values for abstract modes */
 typedef enum {
+    TR_MODE = -2,
+    NO_MODE = -1,
     xTR_MODE ,
     MS_MODE,
     RTR_MODE,

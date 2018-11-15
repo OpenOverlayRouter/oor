@@ -146,11 +146,8 @@ tun_control_dp_recv_msg(sock_t *sl)
     uconn_t uc;
     lbuf_t *b;
     oor_ctrl_t *ctrl;
-    oor_ctrl_dev_t *dev;
 
     ctrl = sl->arg;
-    /* Only one device supported for now */
-    dev = glist_first_data(ctrl->devices);
 
     uc.lp = LISP_CONTROL_PORT;
 
@@ -174,9 +171,7 @@ tun_control_dp_recv_msg(sock_t *sl)
             lisp_msg_hdr_to_char(b), lisp_addr_to_char(&uc.ra),
             lisp_addr_to_char(&uc.la), uc.rp, uc.lp);
 
-    /* direct call of ctrl device
-     * TODO: check type to decide where to send msg*/
-    ctrl_dev_recv(dev, b, &uc);
+    ctrl_recv_msg(ctrl, b, &uc);
 
     lbuf_del(b);
 

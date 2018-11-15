@@ -1029,7 +1029,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
 
             /* If the locator is for a local mapping, associate the locator with the interface */
             if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-                xtr  = lisp_xtr_cast(ctrl_dev);
+                xtr  = lisp_xtr_cast(dev);
                 iface_lctrs = xtr->tr.iface_locators_table;
                 if_loct = (iface_locators *)shash_lookup(iface_lctrs, iface_name);
                 if (if_loct == NULL){
@@ -1105,7 +1105,7 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
 
     /* If the locator is for a local mapping, associate the locator with the interface */
     if (locator != NULL && (dev->mode == xTR_MODE || dev->mode == MN_MODE)){
-        xtr  = lisp_xtr_cast(ctrl_dev);
+        xtr  = lisp_xtr_cast(dev);
         iface_lctrs = xtr->tr.iface_locators_table;
         if_loct = (iface_locators *)shash_lookup(iface_lctrs, conf_loc_iface->interface);
         if (if_loct == NULL){
@@ -1142,7 +1142,7 @@ process_mapping_config(oor_ctrl_dev_t * dev, shash_t * lcaf_ht,
     switch (dev->mode){
         case xTR_MODE:
         case MN_MODE:
-            xtr  = lisp_xtr_cast(ctrl_dev);
+            xtr  = lisp_xtr_cast(dev);
             break;
         default:
             break;

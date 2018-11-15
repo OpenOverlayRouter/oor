@@ -325,7 +325,7 @@ tr_send_smr_invoked_map_request(lisp_tr_t *tr, lisp_addr_t *src_eid,
     }
 
     uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
-    ret = send_msg(tr_get_ctrl_device(tr), b, &uc);
+    ret = ctrl_send_msg(tr_get_ctrl_device(tr), b, &uc, DDT_MR_MODE);
 
     glist_destroy(rlocs);
     lisp_msg_destroy(b);
@@ -389,7 +389,7 @@ tr_build_and_send_encap_map_request(lisp_tr_t *tr, lisp_addr_t *seid,
     }
 
     uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, srloc, drloc);
-    send_msg(tr_get_ctrl_device(tr), b, &uc);
+    ctrl_send_msg(tr_get_ctrl_device(tr), b, &uc, DDT_MR_MODE);
     lisp_msg_destroy(b);
 
     return(GOOD);
@@ -426,7 +426,7 @@ tr_build_and_send_mreq_probe(lisp_tr_t *tr, mapping_t *map, locator_t *loc, uint
     MREQ_RLOC_PROBE(hdr) = 1;
 
     uconn_init(&uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-    ret = send_msg(tr_get_ctrl_device(tr), b, &uc);
+    ret = ctrl_send_msg(tr_get_ctrl_device(tr), b, &uc, TR_MODE);
     lisp_msg_destroy(b);
 
     return (ret);

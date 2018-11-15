@@ -17,7 +17,11 @@
  *
  */
 
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 
 #ifndef __APPLE__
 #include <linux/rtnetlink.h>
@@ -31,9 +35,10 @@
 #include "../lib/mem_util.h"
 #include "../net_mgr/net_mgr.h"
 
-
+#define MAX_BUF_SIZE 2048
 
 static void set_rlocs(oor_ctrl_t *ctrl);
+int ctrl_recv_locl_msg(sock_t *sl);
 
 static void
 set_rlocs(oor_ctrl_t *ctrl)
@@ -69,6 +74,7 @@ set_rlocs(oor_ctrl_t *ctrl)
 oor_ctrl_t *
 ctrl_create()
 {
+    int pipefd[2];
     oor_ctrl_t *ctrl = xzalloc(sizeof(oor_ctrl_t));
     if (ctrl == NULL){
         return (NULL);
@@ -78,8 +84,17 @@ ctrl_create()
     ctrl->ipv4_rlocs = glist_new();
     ctrl->ipv6_rlocs = glist_new();
     ctrl->control_data_plane = control_dp_select();
+    /* Create a pipe to notify new local ctrl_msg */
+    if (pipe(pipefd) == -1) {
+        OOR_LOG(LERR, "Error opening control notification pipe: %s (%d)", strerror(errno),errno);
+        return (NULL);
+    }
+    sockmstr_register_read_listener(smaster, ctrl_recv_locl_msg, ctrl,pipefd[0]);
+    ctrl->ctrl_notify_fd = pipefd[1];
+    ctrl->recv_local_ctrl_msg_lst = glist_new_managed((glist_del_fct)ctrl_local_msg_del);
 
     OOR_LOG(LINF, "Control created!");
+
 
     return (ctrl);
 }
@@ -97,9 +112,43 @@ ctrl_destroy(oor_ctrl_t *ctrl)
     if (ctrl->control_data_plane != NULL){
         ctrl->control_data_plane->control_dp_uninit(ctrl);
     }
-
+    close(ctrl->ctrl_notify_fd);
+    glist_destroy(ctrl->recv_local_ctrl_msg_lst);
     free(ctrl);
     OOR_LOG(LDBG_1,"Lisp controller destroyed");
+}
+
+void
+ctrl_run_devices(oor_ctrl_t *ctrl)
+{
+    glist_entry_t *dev_it;
+    oor_ctrl_dev_t *dev;
+
+    glist_for_each_entry(dev_it,ctrl->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        ctrl_dev_run(dev);
+    }
+}
+
+ctrl_local_msg *
+ctrl_local_msg_new_init(lbuf_t *buf, uconn_t uc, oor_ctrl_dev_t *dst_dev)
+{
+    ctrl_local_msg * ctrl_msg = xmalloc(sizeof(ctrl_local_msg));
+    if (!ctrl_msg){
+        return (NULL);
+    }
+    ctrl_msg->buf = lbuf_clone(buf);
+    ctrl_msg->uc = uc;
+    ctrl_msg->dst_dev = dst_dev;
+
+    return (ctrl_msg);
+}
+
+void
+ctrl_local_msg_del(ctrl_local_msg *ctrl_msg)
+{
+    lbuf_del(ctrl_msg->buf);
+    free(ctrl_msg);
 }
 
 int
@@ -113,6 +162,89 @@ ctrl_init(oor_ctrl_t *ctrl)
     set_rlocs(ctrl);
     OOR_LOG(LDBG_1, "Control initialized");
 
+    return (GOOD);
+}
+
+int
+ctrl_send_msg(oor_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc, oor_dev_type_e dst_dev_type)
+{
+    oor_ctrl_t *ctrl = dev->ctrl;
+    oor_ctrl_dev_t *aux_dev;
+    oor_dev_type_e type;
+    glist_entry_t *dev_it;
+    lisp_addr_t *src_addr;
+    uconn_t rev_uc;
+    ctrl_local_msg *ctrl_msg;
+
+    if (glist_size(ctrl->devices) > 1 && dst_dev_type != NO_MODE ){
+        /* Check if the destination address is local */
+        // TODO Find a more optimal way to check if the destination of the packet
+        // is the same host
+        src_addr = net_mgr->netm_get_src_addr_to(&uc->ra);
+        if (lisp_addr_cmp(src_addr, &uc->ra) == 0){
+            lisp_addr_del(src_addr);
+            glist_for_each_entry(dev_it, ctrl->devices){
+                aux_dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+                type = ctrl_dev_mode(aux_dev);
+                if (ctrl_dev_is_tr(type)){
+                    type = TR_MODE;
+                }
+                if (type == dst_dev_type){
+                    OOR_LOG(LDBG_2,"Sending message to local configured device: %s",
+                            ctrl_dev_type_to_char(ctrl_dev_mode(aux_dev)));
+                    if (lisp_addr_is_no_addr(&uc->la)){
+                        uconn_init(&rev_uc, uc->rp, uc->lp, &uc->ra,&uc->ra);
+                    }else{
+                        uconn_init(&rev_uc, uc->rp, uc->lp, &uc->ra,&uc->la);
+                    }
+                    ctrl_msg = ctrl_local_msg_new_init(b,rev_uc,aux_dev);
+                    glist_add_tail(ctrl_msg,ctrl->recv_local_ctrl_msg_lst);
+                    /* Notify system we have a packet to be processed. It is better to not process
+                     * directly here */
+                    write (ctrl->ctrl_notify_fd,"1",sizeof("1"));
+                    return (GOOD);
+                }
+            }
+            OOR_LOG(LWRN, "The ctrl message is the for local device but it is not configured as a %s ",ctrl_dev_type_to_char(dst_dev_type));
+            return (BAD);
+        }
+        lisp_addr_del(src_addr);
+    }
+
+    return (send_msg(dev, b, uc));
+}
+
+void
+ctrl_recv_msg(oor_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
+{
+    glist_entry_t *dev_it;
+    oor_ctrl_dev_t *dev;
+    // XXX Check type of message and if they need to be sent to each device
+
+    glist_for_each_entry(dev_it,ctrl->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        OOR_LOG(LDBG_1,"==> Start processing received message by %s",ctrl_dev_type_to_char(ctrl_dev_mode(dev)));
+        ctrl_dev_recv(dev, b, uc);
+        OOR_LOG(LDBG_1,"==> End processing received message by %s",ctrl_dev_type_to_char(ctrl_dev_mode(dev)));
+    }
+    return;
+}
+
+/* Process messages that should be locally delivered */
+int
+ctrl_recv_locl_msg(sock_t *sl)
+{
+    oor_ctrl_t *ctrl;
+    char buf[MAX_BUF_SIZE];
+    ctrl_local_msg *ctrl_msg;
+
+
+    ctrl = sl->arg;
+    read(sl->fd, buf, MAX_BUF_SIZE);
+    while ((ctrl_msg = glist_pull(ctrl->recv_local_ctrl_msg_lst))){
+        ctrl_dev_recv(ctrl_msg->dst_dev,ctrl_msg->buf, &(ctrl_msg->uc));
+        ctrl_local_msg_del(ctrl_msg);
+    }
     return (GOOD);
 }
 
@@ -153,8 +285,7 @@ ctrl_if_addr_update(oor_ctrl_t *ctrl,iface_t *iface, lisp_addr_t *old_addr,
         lisp_addr_t *new_addr)
 {
     oor_ctrl_dev_t *dev;
-
-    dev = glist_first_data(ctrl->devices);
+    glist_entry_t *dev_it;
 
     ctrl->control_data_plane->control_dp_updated_addr(ctrl, iface, old_addr, new_addr);
 
@@ -163,7 +294,10 @@ ctrl_if_addr_update(oor_ctrl_t *ctrl,iface_t *iface, lisp_addr_t *old_addr,
      * and iface to identify mapping_t(s) for which SMRs have to be sent. In
      * the future this should be decoupled and only the affected RLOC should
      * be passed to ctrl_dev */
-    ctrl_dev_if_addr_update(dev, iface->iface_name, old_addr,new_addr, iface_status(iface));
+    glist_for_each_entry(dev_it,ctrl->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        ctrl_dev_if_addr_update(dev, iface->iface_name, old_addr,new_addr, iface_status(iface));
+    }
     set_rlocs(ctrl);
 }
 
@@ -172,11 +306,13 @@ ctrl_if_link_update(oor_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
         int new_iface_index, int status)
 {
     oor_ctrl_dev_t *dev;
-
-    dev = glist_first_data(ctrl->devices);
+    glist_entry_t *dev_it;
 
     ctrl->control_data_plane->control_dp_update_link(ctrl, iface, old_iface_index, new_iface_index, status);
-    ctrl_dev_if_link_update(dev, iface->iface_name, status);
+    glist_for_each_entry(dev_it,ctrl->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        ctrl_dev_if_link_update(dev, iface->iface_name, status);
+    }
     set_rlocs(ctrl);
 }
 
@@ -186,10 +322,13 @@ ctrl_route_update(oor_ctrl_t *ctrl, int command, iface_t *iface,lisp_addr_t *src
         lisp_addr_t *dst_pref, lisp_addr_t *gateway)
 {
     oor_ctrl_dev_t *dev;
+    glist_entry_t *dev_it;
 
-    dev = glist_first_data(ctrl->devices);
     ctrl->control_data_plane->control_dp_updated_route(ctrl, command, iface, src, dst_pref, gateway);
-    ctrl_dev_route_update(dev, command, iface->iface_name, src, dst_pref, gateway);
+    glist_for_each_entry(dev_it,ctrl->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        ctrl_dev_route_update(dev, command, iface->iface_name, src, dst_pref, gateway);
+    }
     set_rlocs(ctrl);
 }
 
@@ -252,8 +391,8 @@ ctrl_supported_afis(oor_ctrl_t *ctrl)
 fwd_info_t *
 ctrl_get_forwarding_info(packet_tuple_t *tuple)
 {
-    oor_ctrl_dev_t *dev;
-    dev = glist_first_data(lctrl->devices);
+    // XXX To check if we support more than one TR per device
+    oor_ctrl_dev_t *dev = ctrl_get_tr_device(lctrl);
     return (ctrl_dev_get_fwd_entry(dev, tuple));
 }
 
@@ -287,7 +426,7 @@ ctrl_register_mapping_dp(oor_ctrl_dev_t *dev, mapping_t *map)
 int
 ctrl_unregister_mapping_dp(oor_ctrl_dev_t *dev, mapping_t *map)
 {
-    oor_dev_type_e dev_type = dev->mode;
+    oor_dev_type_e dev_type = ctrl_dev_mode(dev);
 
     if (data_plane){
         if (dev_type == xTR_MODE || dev_type == MN_MODE || dev_type == RTR_MODE){
@@ -311,6 +450,62 @@ ctrl_datap_reset_all_fwd()
 {
     return (data_plane->datap_reset_all_fwd());
 }
+
+uint8_t
+ctrl_has_compatible_devices(oor_ctrl_t *c)
+{
+    glist_entry_t *dev_it;
+    oor_ctrl_dev_t *dev;
+    uint8_t tr_configured = FALSE;
+    oor_dev_type_e dev_type;
+
+
+    glist_for_each_entry(dev_it, c->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        dev_type = ctrl_dev_mode(dev);
+        if (ctrl_dev_is_tr(dev_type)){
+            if (!tr_configured){
+                tr_configured = TRUE;
+            }else{
+                OOR_LOG(LERR, "Only one tunnel router is allowed for device");
+                return (FALSE);
+            }
+        }
+    }
+    return (TRUE);
+}
+
+uint8_t
+ctrl_is_tr_configured(oor_ctrl_t *c)
+{
+    glist_entry_t *dev_it;
+    oor_ctrl_dev_t *dev;
+
+    glist_for_each_entry(dev_it, c->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        if (ctrl_dev_is_tr(ctrl_dev_mode(dev))){
+            return (TRUE);
+        }
+    }
+    return (FALSE);
+}
+
+oor_ctrl_dev_t *
+ctrl_get_tr_device(oor_ctrl_t *c)
+{
+    glist_entry_t *dev_it;
+    oor_ctrl_dev_t *dev;
+
+    glist_for_each_entry(dev_it, c->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        if (ctrl_dev_is_tr(ctrl_dev_mode(dev))){
+            return (dev);
+        }
+    }
+    return (NULL);
+}
+
+
 
 /*
  * Multicast Interface to end-hosts

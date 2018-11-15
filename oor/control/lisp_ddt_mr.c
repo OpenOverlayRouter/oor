@@ -228,7 +228,7 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 						A_AUTHORITATIVE, MREQ_NONCE(mreq_hdr));
 				OOR_LOG(LDBG_2, "Send negative Map Reply for %s with TTL %d",
 						ddt_mcache_entry_eid(cacheentry), DEFAULT_NOT_EID_TTL);
-				send_msg(&ddt_mr->super, mrep, ext_uc);
+				ctrl_send_msg(&ddt_mr->super, mrep, ext_uc,TR_MODE);
 				lisp_msg_destroy(mrep);
 				break;
 
@@ -248,7 +248,7 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 					drloc = lisp_addr_get_ip_addr(addr);
 
 					uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-					send_msg(&ddt_mr->super, &b, &fwd_uc);
+					ctrl_send_msg(&ddt_mr->super, &b, &fwd_uc,MS_MODE);
 				}
 				glist_destroy(referral_addrs);
 				break;
@@ -259,7 +259,7 @@ ddt_mr_recv_map_request(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, uconn
 						A_AUTHORITATIVE, MREQ_NONCE(mreq_hdr));
 				OOR_LOG(LDBG_2, "Send negative Map Reply for %s with TTL %d",
 						lisp_addr_to_char(ddt_mcache_entry_eid(cacheentry)), DEFAULT_NOT_REG_EID_TTL);
-				send_msg(&ddt_mr->super, mrep, ext_uc);
+				ctrl_send_msg(&ddt_mr->super, mrep, ext_uc,TR_MODE);
 				lisp_msg_destroy(mrep);
 				break;
 
@@ -488,7 +488,7 @@ ddt_mr_recv_map_referral(lisp_ddt_mr_t *ddt_mr, lbuf_t *buf, void *ecm_hdr, ucon
 					drloc = lisp_addr_get_ip_addr(glist_entry_data(it2));
 
 					uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-					send_msg(&ddt_mr->super, mreq, &orig_uc);
+					ctrl_send_msg(&ddt_mr->super, mreq, &orig_uc,MS_MODE);
 
 					lisp_msg_destroy(mreq);
 				}
@@ -696,11 +696,11 @@ ddt_mr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 		type = lisp_msg_type(msg);
 		ext_uc = uc;
 		int_uc = &aux_uc;
-		OOR_LOG(LDBG_1, "Map-Resolver: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
+		OOR_LOG(LDBG_1, "===> DDT-Map Resolver: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
 	}else{
 		int_uc = uc;
 	}
-
+	OOR_LOG(LDBG_1, "==> DDT-Map Resolver: Received  %s ",msg_type_to_char(type));
 	switch(type) {
 	case LISP_MAP_REQUEST:
 		ret = ddt_mr_recv_map_request(ddt_mr, msg, ecm_hdr, int_uc, ext_uc);
@@ -723,10 +723,10 @@ ddt_mr_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 	}
 
 	if (ret != GOOD) {
-		OOR_LOG(LDBG_1, "DDT-Map Resolver: Failed to process  control message");
+		OOR_LOG(LDBG_1, "<== DDT-Map Resolver: Failed to process  control message");
 		return(BAD);
 	} else {
-		OOR_LOG(LDBG_3, "DDT-Map Resolver: Completed processing of control message");
+		OOR_LOG(LDBG_1, "<== DDT-Map Resolver: Completed processing of control message");
 		return(ret);
 	}
 }
@@ -957,10 +957,15 @@ pending_request_do_cycle(oor_timer_t *timer){
 
 		uconn_init(&dest_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
 		OOR_LOG(LDBG_1, "Sending Encap %s", lisp_msg_hdr_to_char(mreq));
-		send_msg(&mapres->super, mreq, &dest_uc);
+		htable_nonces_insert(nonces_ht, nonce, nonces_list);
+		if (ddt_mcache_entry_type(pendreq->current_cache_entry)==LISP_ACTION_NODE_REFERRAL){
+		    ctrl_send_msg(&mapres->super, mreq, &dest_uc,DDT_MODE);
+		}else{
+		    ctrl_send_msg(&mapres->super, mreq, &dest_uc,MS_MODE);
+		}
+
 		lisp_addr_del(dst_ip);
 
-		htable_nonces_insert(nonces_ht, nonce, nonces_list);
 		oor_timer_start(timer, OOR_INITIAL_MRQ_TIMEOUT);
 
 		lisp_msg_destroy(mreq);
@@ -1032,7 +1037,7 @@ void send_negative_mrep_to_original_askers(lisp_ddt_mr_t *mapres, ddt_pending_re
 		drloc = lisp_addr_get_ip_addr(glist_entry_data(glist_first(request->itr_locs)));
 
 		uconn_init(&orig_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-		send_msg(&mapres->super, mrep, &orig_uc);
+		ctrl_send_msg(&mapres->super, mrep, &orig_uc, TR_MODE);
 		lisp_msg_destroy(mrep);
 	}
 }

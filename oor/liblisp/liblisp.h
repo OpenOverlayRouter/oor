@@ -50,6 +50,7 @@ int lisp_msg_parse_mapping_record(lbuf_t *, mapping_t *, locator_t **);
 int lisp_msg_parse_inf_req_eid_ttl(lbuf_t *b, lisp_addr_t *eid, int *ttl);
 int lisp_msg_parse_xtr_id_site_id (lbuf_t *b, lisp_xtr_id *xtr_id,
         lisp_site_id *site_id);
+char *msg_type_to_char(lisp_msg_type_e type);
 
 int lisp_msg_parse_mref_mapping_record_split(lbuf_t *, lisp_addr_t *, glist_t *);
 int lisp_msg_parse_mref_mapping_record(lbuf_t *, mref_mapping_t *);

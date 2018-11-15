@@ -38,11 +38,31 @@ struct oor_ctrl {
     glist_t *ipv4_rlocs;
     glist_t *ipv6_rlocs;
     control_dplane_struct_t *control_data_plane;
+    int ctrl_notify_fd;
+    glist_t *recv_local_ctrl_msg_lst; //<ctrl_local_msg>
 };
+
+typedef struct ctrl_local_msg_{
+    lbuf_t *buf;
+    uconn_t uc;
+    oor_ctrl_dev_t *dst_dev;
+}ctrl_local_msg;
+
+
+static inline glist_t *
+oor_ctrl_devices(oor_ctrl_t *ctrl)
+{
+    return (ctrl->devices);
+}
 
 oor_ctrl_t *ctrl_create();
 void ctrl_destroy(oor_ctrl_t *ctrl);
 int ctrl_init(oor_ctrl_t *ctrl);
+void ctrl_run_devices(oor_ctrl_t *ctrl);
+ctrl_local_msg *ctrl_local_msg_new_init(lbuf_t *buf, uconn_t uc, oor_ctrl_dev_t *dst_dev);
+void ctrl_local_msg_del(ctrl_local_msg *ctrl_msg);
+int ctrl_send_msg(oor_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc, oor_dev_type_e dst_dev_type);
+void ctrl_recv_msg(oor_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc);
 
 void ctrl_update_iface_info(oor_ctrl_t *ctrl);
 
@@ -74,6 +94,9 @@ int ctrl_notify_mapping_change_to_dp(lisp_addr_t *eid_prefix, uint8_t is_local);
 
 int ctrl_datap_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local);
 int ctrl_datap_reset_all_fwd();
+uint8_t ctrl_has_compatible_devices(oor_ctrl_t *c);
+uint8_t ctrl_is_tr_configured(oor_ctrl_t *c);
+oor_ctrl_dev_t *ctrl_get_tr_device(oor_ctrl_t *c);
 
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);

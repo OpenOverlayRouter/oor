@@ -13,12 +13,17 @@ map-request-retries    = 2
 log-file               = /var/log/oor.log
 ipv6-scope             = [GLOBAL|SITE]
  
-# Define the type of LISP device LISPmob will operate as 
+# Define the type of LISP devices OOR will operate as. Only one TR mode (xTR, MN, RTR) can be
+# configured per device. 
+# Use more than one mode per device may generate strange behaviors.
 #
 # operating-mode can be any of:
 # xTR, RTR, MN, MS, DDT, DDT-MR
 #
-operating-mode         = xTR
+operating-mode         = {
+    xTR,
+    ...
+}
 
 # For the rest of this file you can delete the sections that does not apply to 
 # the LISP device selected in operating-mode

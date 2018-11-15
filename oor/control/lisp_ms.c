@@ -132,7 +132,7 @@ forward_mreq(lisp_ms_t *ms, lbuf_t *b, mapping_t *m)
 
 
     uconn_init(&fwd_uc, LISP_CONTROL_PORT, LISP_CONTROL_PORT, NULL, drloc);
-    return(send_msg(&ms->super, b, &fwd_uc));
+    return(ctrl_send_msg(&ms->super, b, &fwd_uc, TR_MODE));
 }
 
 
@@ -303,7 +303,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
                         lisp_addr_to_char(deid));
                 OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
                         lisp_addr_to_char(deid));
-                send_msg(&ms->super, mref, ext_uc);
+                ctrl_send_msg(&ms->super, mref, ext_uc, DDT_MR_MODE);
                 lisp_msg_destroy(mref);
             }else{
                 /* send negative map-reply with TTL 15 min */
@@ -323,7 +323,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
                     OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
                     goto err;
                 }
-                if (send_msg(&ms->super, mrep, &send_uc) != GOOD) {
+                if (ctrl_send_msg(&ms->super, mrep, &send_uc, TR_MODE) != GOOD) {
                     OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
                 }
                 lisp_msg_destroy(mrep);
@@ -354,7 +354,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
                 MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 
                 /* SEND MAP-REFERRAL */
-                if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
+                if (ctrl_send_msg(&ms->super, mref, ext_uc, DDT_MR_MODE) != GOOD) {
                     OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
                 }else{
                     OOR_LOG(LDBG_1, "Map-Referral sent!");
@@ -373,7 +373,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
                     OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
                     goto err;
                 }
-                if (send_msg(&ms->super, mrep, &send_uc) != GOOD) {
+                if (ctrl_send_msg(&ms->super, mrep, &send_uc, TR_MODE) != GOOD) {
                     OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
                 }
                 lisp_msg_destroy(mrep);
@@ -399,7 +399,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
         	MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 
         	/* SEND MAP-REFERRAL */
-			if (send_msg(&ms->super, mref, ext_uc) != GOOD) {
+			if (ctrl_send_msg(&ms->super, mref, ext_uc, DDT_MR_MODE) != GOOD) {
 				OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
 			}else{
 				OOR_LOG(LDBG_1, "Map-Referral sent!");
@@ -436,7 +436,7 @@ ms_recv_map_request(lisp_ms_t *ms, lbuf_t *buf,  void *ecm_hdr, uconn_t *int_uc,
             OOR_LOG(LDBG_1, "Couldn't send Map Reply, no itr_rlocs reachable");
             goto err;
         }
-        if (send_msg(&ms->super, mrep, &send_uc) != GOOD) {
+        if (ctrl_send_msg(&ms->super, mrep, &send_uc, TR_MODE) != GOOD) {
             OOR_LOG(LDBG_1, "Couldn't send Map-Reply!");
         }
         lisp_msg_destroy(mrep);
@@ -663,7 +663,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
     OOR_LOG(LDBG_1, "%s, IP: %s -> %s, UDP: %d -> %d",
             lisp_msg_hdr_to_char(mntf), lisp_addr_to_char(&uc->la),
             lisp_addr_to_char(&uc->ra), uc->lp, uc->rp);
-    send_msg(&ms->super, mntf, uc);
+    ctrl_send_msg(&ms->super, mntf, uc, TR_MODE);
 
     lisp_msg_destroy(mntf);
 
@@ -754,7 +754,7 @@ ms_recv_inf_request(lisp_ms_t *ms, lbuf_t *buf, uconn_t *uc)
     lisp_msg_fill_auth_data(irep_buf, rep_auth_hdr, reg_pref->key_type, reg_pref->key);
 
     uconn_init(&r_uc, LISP_CONTROL_PORT, uc->rp, &uc->la, &uc->ra);
-    send_msg(&ms->super, irep_buf, &r_uc);
+    ctrl_send_msg(&ms->super, irep_buf, &r_uc, TR_MODE);
 
     lisp_msg_destroy(irep_buf);
 
@@ -868,11 +868,11 @@ ms_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
         type = lisp_msg_type(msg);
         ext_uc = uc;
         int_uc = &aux_uc;
-        OOR_LOG(LDBG_1, "Map-Server: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
+        OOR_LOG(LDBG_1, "===> Map-Server: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
     }else{
         int_uc = uc;
     }
-
+    OOR_LOG(LDBG_1, "==> Map-Server: Received  %s ",msg_type_to_char(type));
      switch(type) {
      case LISP_MAP_REQUEST:
          ret = ms_recv_map_request(ms, msg, ecm_hdr, int_uc, ext_uc);
@@ -896,10 +896,10 @@ ms_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
      }
 
      if (ret != GOOD) {
-         OOR_LOG(LDBG_1, "Map-Server: Failed to process  control message");
+         OOR_LOG(LDBG_1, "<== Map-Server: Failed to process  control message");
          return(BAD);
      } else {
-         OOR_LOG(LDBG_3, "Map-Server: Completed processing of control message");
+         OOR_LOG(LDBG_1, "<== Map-Server: Completed processing of control message");
          return(ret);
      }
 }

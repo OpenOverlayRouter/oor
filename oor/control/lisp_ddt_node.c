@@ -144,7 +144,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
 					lisp_addr_to_char(deid));
 			OOR_LOG(LDBG_2, "%s, EID: %s, NEGATIVE", lisp_msg_hdr_to_char(mref),
 					lisp_addr_to_char(deid));
-			send_msg(&ddt_node->super, mref, ext_uc);
+			ctrl_send_msg(&ddt_node->super, mref, ext_uc, DDT_MR_MODE);
 
 		}else{
 			// CHECK IF DELEGATION EXISTS FOR THE EID
@@ -158,7 +158,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
 				MREF_NONCE(mref_hdr) = MREQ_NONCE(mreq_hdr);
 
 				/* SEND MAP-REFERRAL */
-				if (send_msg(&ddt_node->super, mref, ext_uc) != GOOD) {
+				if (ctrl_send_msg(&ddt_node->super, mref, ext_uc, DDT_MR_MODE) != GOOD) {
 					OOR_LOG(LDBG_1, "Couldn't send Map-Referral!");
 				}else{
 					OOR_LOG(LDBG_1, "Map-Referral sent!");
@@ -177,7 +177,7 @@ ddt_node_recv_map_request(lisp_ddt_node_t *ddt_node, lbuf_t *buf, void *ecm_hdr,
 						A_AUTHORITATIVE, 0, MREQ_NONCE(mreq_hdr));
 				OOR_LOG(LDBG_1,"No delegation exists for the requested EID %s, sending DELEGATION_HOLE message "
 						"for prefix %s",lisp_addr_to_char(deid), lisp_addr_to_char(neg_pref));
-				send_msg(&ddt_node->super, mref, ext_uc);
+				ctrl_send_msg(&ddt_node->super, mref, ext_uc, DDT_MR_MODE);
 				lisp_addr_del(aux_pref);
 			}
 		}
@@ -312,11 +312,11 @@ ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 		type = lisp_msg_type(msg);
 		ext_uc = uc;
 		int_uc = &aux_uc;
-		OOR_LOG(LDBG_1, "DDT NODE: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
+		OOR_LOG(LDBG_1, "===> DDT NODE: Received Encapsulated %s", lisp_msg_hdr_to_char(msg));
 	}else{
 		int_uc = uc;
 	}
-
+	OOR_LOG(LDBG_1, "==> DDT NODE: Received  %s ",msg_type_to_char(type));
 	switch(type) {
 	case LISP_MAP_REQUEST:
 		ret = ddt_node_recv_map_request(ddt_node, msg, ecm_hdr, int_uc, ext_uc);
@@ -336,10 +336,10 @@ ddt_node_recv_msg(oor_ctrl_dev_t *dev, lbuf_t *msg, uconn_t *uc)
 	}
 
 	if (ret != GOOD) {
-		OOR_LOG(LDBG_1, "DDT-Node: Failed to process  control message");
+		OOR_LOG(LDBG_1, "<== DDT-Node: Failed to process  control message");
 		return(BAD);
 	} else {
-		OOR_LOG(LDBG_3, "DDT-Node: Completed processing of control message");
+		OOR_LOG(LDBG_1, "<== DDT-Node: Completed processing of control message");
 		return(ret);
 	}
 }

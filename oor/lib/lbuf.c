@@ -206,9 +206,14 @@ lbuf_reserve(lbuf_t *b, uint32_t size)
 lbuf_t *
 lbuf_clone(lbuf_t *b)
 {
-    lbuf_t *new_buf = lbuf_new(b->size);
-    lbuf_put(new_buf->data, b->data, b->size);
-    new_buf->lisp = b->lisp;
+    int offset;
+    lbuf_t *new_buf = xzalloc(sizeof(lbuf_t));
+    *new_buf = *b;
+    lbuf_set_base(new_buf, b->allocated ? xzalloc(b->allocated) : NULL);
+
+    offset = (char *)lbuf_data(b) - (char *)lbuf_base(b);
+    lbuf_set_data(new_buf, (char *)lbuf_base(new_buf) + offset);
+    memcpy(new_buf->data,b->data, b->size);
     return new_buf;
 }
 
