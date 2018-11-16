@@ -81,7 +81,6 @@ int send_msg(oor_ctrl_dev_t *, lbuf_t *, uconn_t *);
 
 char *
 ctrl_dev_type_to_char(oor_dev_type_e type);
-uint8_t ctrl_dev_is_tr(oor_dev_type_e dev_type);
 int map_reply_fill_uconn(oor_ctrl_dev_t *ctr_dev, glist_t *itr_rlocs,
         uconn_t *rcv_int_uc, uconn_t *rcv_ext_uc, uconn_t *uc);
 

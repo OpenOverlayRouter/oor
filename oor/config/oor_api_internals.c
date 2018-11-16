@@ -458,7 +458,7 @@ oor_api_xtr_mr_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     xmlNodePtr mr_addr_xml;
     lisp_addr_t *mr_addr;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);
@@ -542,7 +542,7 @@ oor_api_xtr_mr_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
 	lisp_xtr_t *xtr;
 	uint8_t *result_msg;
 	int result_msg_len;
-	ctrl_dev = ctrl_get_tr_device(lctrl);
+	ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
 	if (!ctrl_dev){
 	    OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
 	    return (BAD);
@@ -583,7 +583,7 @@ oor_api_xtr_ms_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     char * str_proxy_reply;
     uint8_t proxy_reply = FALSE;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);
@@ -653,7 +653,7 @@ oor_api_xtr_ms_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     uint8_t *result_msg;
     int result_msg_len;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);
@@ -708,7 +708,7 @@ oor_api_xtr_mapdb_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     int ipv6_mapings = 0;
     int eid_ip_afi;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);
@@ -881,7 +881,7 @@ oor_api_xtr_mapdb_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     uint8_t *result_msg;
     int result_msg_len;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);
@@ -928,7 +928,7 @@ oor_api_xtr_petrs_create(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     glist_entry_t *addr_it;
     mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);
@@ -1028,7 +1028,7 @@ oor_api_xtr_petrs_delete(oor_api_connection_t *conn, oor_api_msg_hdr_t *hdr,
     int result_msg_len;
     mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);
@@ -1056,11 +1056,11 @@ int
     oor_ctrl_dev_t * ctrl_dev;
     int (*process_func)(oor_api_connection_t *, oor_api_msg_hdr_t *, uint8_t *) = NULL;
 
-    oor_dev_type_e device = hdr->device;
+    oor_api_msg_device_e device = hdr->device;
     oor_api_msg_target_e target = hdr->target;
     oor_api_msg_opr_e operation = hdr->operation;
 
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (!ctrl_dev){
         OOR_LOG(LWRN, "OOR_API: Tunnel router not configured in the node");
         return (BAD);

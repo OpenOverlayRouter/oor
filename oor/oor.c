@@ -434,7 +434,7 @@ main(int argc, char **argv)
         exit_cleanup();
     }
 #endif
-    ctrl_dev = ctrl_get_tr_device(lctrl);
+    ctrl_dev = ctrl_get_dev_of_type(lctrl,TR_MODE);
     if (ctrl_dev) {
         // XXX Only one TR mode configurable in the data plane
         OOR_LOG(LDBG_2, "Configuring data plane");

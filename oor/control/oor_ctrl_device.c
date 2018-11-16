@@ -25,14 +25,6 @@
 #include "oor_ctrl_device.h"
 
 
-static ctrl_dev_class_t *reg_ctrl_dev_cls[6] = {
-        &xtr_ctrl_class,
-        &ms_ctrl_class,
-        &rtr_ctrl_class,/* RTR */
-        &xtr_ctrl_class,/* MN */
-        &ddt_node_ctrl_class,
-        &ddt_mr_ctrl_class,
-};
 
 inline oor_dev_type_e
 ctrl_dev_mode(oor_ctrl_dev_t *dev){
@@ -46,7 +38,23 @@ ctrl_dev_get_ctrl_t(oor_ctrl_dev_t *dev){
 static ctrl_dev_class_t *
 ctrl_dev_class_find(oor_dev_type_e type)
 {
-    return(reg_ctrl_dev_cls[type]);
+    switch (type){
+    case xTR_MODE:
+        return (&xtr_ctrl_class);
+    case MS_MODE:
+        return (&ms_ctrl_class);
+    case RTR_MODE:
+        return (&rtr_ctrl_class);
+    case MN_MODE:
+        return (&xtr_ctrl_class);
+    case DDT_MODE:
+        return (&ddt_node_ctrl_class);
+    case DDT_MR_MODE:
+        return (&ddt_mr_ctrl_class);
+    default:
+        OOR_LOG(LERR,"Unknonw device type");
+        return (NULL);
+    }
 }
 
 int

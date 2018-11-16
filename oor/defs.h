@@ -29,14 +29,15 @@ typedef enum {
 
 /* Use negative values for abstract modes */
 typedef enum {
-    TR_MODE = -2,
-    NO_MODE = -1,
-    xTR_MODE ,
-    MS_MODE,
-    RTR_MODE,
-    MN_MODE,
-    DDT_MODE,
-    DDT_MR_MODE
+    NO_MODE     = 0,
+    xTR_MODE    = 1,
+    MN_MODE     = 2,
+    RTR_MODE    = 4,
+    MS_MODE     = 8,
+    DDT_MR_MODE = 16,
+    DDT_MODE    = 32,
+    TR_MODE     = 7, //xTR_MODE or MN_MODE or RTR_MODE
+    MR_MODE     = 24, // MS_MODE or DDT_MR_MODE
 } oor_dev_type_e;
 
 #ifdef __GNUC__

@@ -31,7 +31,7 @@ lbuf_init__(lbuf_t *b, uint32_t allocated, lbuf_source_e source)
     b->allocated = allocated;
     b->source = source;
     b->size = 0;
-    b->lisp = b->ip = b->udp = b->lhdr = b->l3 = b->l4 = UINT16_MAX;
+    b->eth = b->lisp = b->ip = b->udp = b->lhdr = b->l3 = b->l4 = UINT16_MAX;
 }
 
 static void
@@ -75,6 +75,12 @@ lbuf_uninit(lbuf_t *b)
             free(b->base);
         }
     }
+}
+
+void
+lubuf_reset_offsets(lbuf_t *b)
+{
+    b->eth = b->lisp = b->ip = b->udp = b->lhdr = b->l3 = b->l4 = UINT16_MAX;
 }
 
 lbuf_t *
@@ -299,4 +305,11 @@ inline int lbuf_point_to_lisp(lbuf_t *b)
     b->data = lbuf_lisp(b);
 
     return (GOOD);
+}
+
+inline void lbuf_dump(lbuf_t *b, int log_level)
+{
+    OOR_LOG(log_level,"lbuf=> Base: %p , Data: %p , Allocated: %u , Size: %u , Eth: %hu , "
+            "IP: %u , UDP: %u , LHDR: %u , L3: %u , L4: %u , LISP: %u",
+            b->base,b->data,b->allocated,b->size,b->eth,b->ip,b->udp,b->lhdr,b->l3,b->l4,b->lisp);
 }

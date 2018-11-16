@@ -170,8 +170,6 @@ ctrl_send_msg(oor_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc, oor_dev_type_e dst_de
 {
     oor_ctrl_t *ctrl = dev->ctrl;
     oor_ctrl_dev_t *aux_dev;
-    oor_dev_type_e type;
-    glist_entry_t *dev_it;
     lisp_addr_t *src_addr;
     uconn_t rev_uc;
     ctrl_local_msg *ctrl_msg;
@@ -183,30 +181,39 @@ ctrl_send_msg(oor_ctrl_dev_t *dev, lbuf_t *b, uconn_t *uc, oor_dev_type_e dst_de
         src_addr = net_mgr->netm_get_src_addr_to(&uc->ra);
         if (lisp_addr_cmp(src_addr, &uc->ra) == 0){
             lisp_addr_del(src_addr);
-            glist_for_each_entry(dev_it, ctrl->devices){
-                aux_dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
-                type = ctrl_dev_mode(aux_dev);
-                if (ctrl_dev_is_tr(type)){
-                    type = TR_MODE;
-                }
-                if (type == dst_dev_type){
-                    OOR_LOG(LDBG_2,"Sending message to local configured device: %s",
-                            ctrl_dev_type_to_char(ctrl_dev_mode(aux_dev)));
-                    if (lisp_addr_is_no_addr(&uc->la)){
-                        uconn_init(&rev_uc, uc->rp, uc->lp, &uc->ra,&uc->ra);
-                    }else{
-                        uconn_init(&rev_uc, uc->rp, uc->lp, &uc->ra,&uc->la);
-                    }
-                    ctrl_msg = ctrl_local_msg_new_init(b,rev_uc,aux_dev);
-                    glist_add_tail(ctrl_msg,ctrl->recv_local_ctrl_msg_lst);
-                    /* Notify system we have a packet to be processed. It is better to not process
-                     * directly here */
-                    write (ctrl->ctrl_notify_fd,"1",sizeof("1"));
-                    return (GOOD);
-                }
+            aux_dev = ctrl_get_dev_of_type(ctrl, dst_dev_type);
+            if (!aux_dev){
+                OOR_LOG(LWRN, "The ctrl message is the for local device but it is not configured as a %s ",ctrl_dev_type_to_char(dst_dev_type));
+                return (BAD);
             }
-            OOR_LOG(LWRN, "The ctrl message is the for local device but it is not configured as a %s ",ctrl_dev_type_to_char(dst_dev_type));
-            return (BAD);
+            OOR_LOG(LDBG_2,"Sending message to local configured device: %s",
+                    ctrl_dev_type_to_char(ctrl_dev_mode(aux_dev)));
+            if (lisp_addr_is_no_addr(&uc->la)){
+                uconn_init(&rev_uc, uc->rp, uc->lp, &uc->ra,&uc->ra);
+            }else{
+                uconn_init(&rev_uc, uc->rp, uc->lp, &uc->ra,&uc->la);
+            }
+            /* Reset offsets just in case the packet is locally processed again */
+            lubuf_reset_offsets(b);
+            lbuf_reset_lisp(b);
+
+            ctrl_msg = ctrl_local_msg_new_init(b,rev_uc,aux_dev);
+            glist_add_tail(ctrl_msg,ctrl->recv_local_ctrl_msg_lst);
+
+            /* Notify system we have a packet to be processed. It is better to not process
+             * directly here */
+            write (ctrl->ctrl_notify_fd,"1",sizeof("1"));
+
+//            Local packets are not send through network links.
+//            Used to debug the packets send locally.. Set the dst ip
+//            uconn_t aux_rev_uc;
+//            lisp_addr_t addr;
+//            lisp_addr_ip_from_char("Dst IP", &addr);
+//            uconn_init(&aux_rev_uc, rev_uc.rp, rev_uc.lp, &rev_uc.la,&addr);
+//            send_msg(dev, ctrl_msg->buf, &aux_rev_uc);
+//            *ctrl_msg->buf=*b;
+
+            return (GOOD);
         }
         lisp_addr_del(src_addr);
     }
@@ -219,13 +226,13 @@ ctrl_recv_msg(oor_ctrl_t *ctrl, lbuf_t *b, uconn_t *uc)
 {
     glist_entry_t *dev_it;
     oor_ctrl_dev_t *dev;
+    lbuf_t aux_buf = *b; // Copy of all the offsets of the parameters of the msg
     // XXX Check type of message and if they need to be sent to each device
 
     glist_for_each_entry(dev_it,ctrl->devices){
+        *b = aux_buf;
         dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
-        OOR_LOG(LDBG_1,"==> Start processing received message by %s",ctrl_dev_type_to_char(ctrl_dev_mode(dev)));
         ctrl_dev_recv(dev, b, uc);
-        OOR_LOG(LDBG_1,"==> End processing received message by %s",ctrl_dev_type_to_char(ctrl_dev_mode(dev)));
     }
     return;
 }
@@ -392,7 +399,7 @@ fwd_info_t *
 ctrl_get_forwarding_info(packet_tuple_t *tuple)
 {
     // XXX To check if we support more than one TR per device
-    oor_ctrl_dev_t *dev = ctrl_get_tr_device(lctrl);
+    oor_ctrl_dev_t *dev = ctrl_get_dev_of_type(lctrl,TR_MODE);;
     return (ctrl_dev_get_fwd_entry(dev, tuple));
 }
 
@@ -451,6 +458,46 @@ ctrl_datap_reset_all_fwd()
     return (data_plane->datap_reset_all_fwd());
 }
 
+oor_ctrl_dev_t *
+ctrl_get_dev_of_type(oor_ctrl_t *c, oor_dev_type_e type)
+{
+    glist_entry_t *dev_it;
+    oor_ctrl_dev_t *dev, *aux_dev;
+    glist_t *dev_lst = glist_new();
+
+    glist_for_each_entry(dev_it, c->devices){
+        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+        if ((ctrl_dev_mode(dev) & type) != 0){
+            if (ctrl_dev_mode(dev) == type ){
+                goto end;
+            }else{ // Abstract mode like TR_MODE or MR_MODE
+                glist_add(dev, dev_lst);
+            }
+        }
+    }
+    if (glist_size(dev_lst) == 0){
+        dev = NULL;
+        goto end;
+    }
+    if (type == MR_MODE){
+        // For MR_MODE the priority order is return DDT_MR_MODE if configured. If not MS_MODE
+        glist_for_each_entry(dev_it, dev_lst){
+            dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
+            if (ctrl_dev_mode(dev) == DDT_MR_MODE){
+                goto end;
+            }else{
+                aux_dev = dev;
+            }
+        }
+        dev = aux_dev;
+    }else if (type == TR_MODE){
+        dev = glist_first_data(dev_lst);
+    }
+end:
+    glist_destroy(dev_lst);
+    return (dev);
+}
+
 uint8_t
 ctrl_has_compatible_devices(oor_ctrl_t *c)
 {
@@ -463,7 +510,7 @@ ctrl_has_compatible_devices(oor_ctrl_t *c)
     glist_for_each_entry(dev_it, c->devices){
         dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
         dev_type = ctrl_dev_mode(dev);
-        if (ctrl_dev_is_tr(dev_type)){
+        if ((dev_type & TR_MODE) != 0){
             if (!tr_configured){
                 tr_configured = TRUE;
             }else{
@@ -483,29 +530,12 @@ ctrl_is_tr_configured(oor_ctrl_t *c)
 
     glist_for_each_entry(dev_it, c->devices){
         dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
-        if (ctrl_dev_is_tr(ctrl_dev_mode(dev))){
+        if ((ctrl_dev_mode(dev) & TR_MODE) != 0){
             return (TRUE);
         }
     }
     return (FALSE);
 }
-
-oor_ctrl_dev_t *
-ctrl_get_tr_device(oor_ctrl_t *c)
-{
-    glist_entry_t *dev_it;
-    oor_ctrl_dev_t *dev;
-
-    glist_for_each_entry(dev_it, c->devices){
-        dev = (oor_ctrl_dev_t *)glist_entry_data(dev_it);
-        if (ctrl_dev_is_tr(ctrl_dev_mode(dev))){
-            return (dev);
-        }
-    }
-    return (NULL);
-}
-
-
 
 /*
  * Multicast Interface to end-hosts

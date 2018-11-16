@@ -94,9 +94,9 @@ int ctrl_notify_mapping_change_to_dp(lisp_addr_t *eid_prefix, uint8_t is_local);
 
 int ctrl_datap_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local);
 int ctrl_datap_reset_all_fwd();
+oor_ctrl_dev_t *ctrl_get_dev_of_type(oor_ctrl_t *c, oor_dev_type_e type);
 uint8_t ctrl_has_compatible_devices(oor_ctrl_t *c);
 uint8_t ctrl_is_tr_configured(oor_ctrl_t *c);
-oor_ctrl_dev_t *ctrl_get_tr_device(oor_ctrl_t *c);
 
 
 void multicast_join_channel(lisp_addr_t *src, lisp_addr_t *grp);
