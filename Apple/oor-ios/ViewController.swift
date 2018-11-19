@@ -90,7 +90,7 @@ class ViewController: UIViewController {
         case .connecting:
             print("Connecting...")
             connectButton.setTitle("DISCONNECT", for: .normal)
-            statusText.text = "OOR is starting"
+            statusText.text = "Starting OOR"
             statusText.textColor = UIColor.orange
             break
         case .connected:
@@ -101,6 +101,8 @@ class ViewController: UIViewController {
             break
         case .disconnecting:
             print("Disconnecting...")
+            statusText.text = "Stopping OOR"
+            statusText.textColor = UIColor.orange
             break
         case .disconnected:
             print("Disconnected...")
