@@ -34,12 +34,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     override func startTunnel(options: [String : NSObject]? = nil, completionHandler: @escaping (Error?) -> Void) {
                 
         self.completionHandler = completionHandler
-        
+
         //TUN IP address
-        tunSettings.iPv4Settings = NEIPv4Settings(addresses: [(defaults?.string(forKey: "eidIpv4"))!], subnetMasks: ["255.255.255.255"])
-        
-        // Networks to be routed through TUN
-        tunSettings.iPv4Settings?.includedRoutes = [NEIPv4Route.default()]
+        let eid = defaults?.string(forKey: "eid")
+        if validateIPv4(ip: eid!) {
+            tunSettings.iPv4Settings = NEIPv4Settings(addresses: [eid!], subnetMasks: ["255.255.255.255"])
+            // Networks to be routed through TUN
+            tunSettings.iPv4Settings?.includedRoutes = [NEIPv4Route.default()]
+        } else if validateIPv6(ip: eid!) {
+            tunSettings.iPv6Settings = NEIPv6Settings(addresses: [eid!], networkPrefixLengths: [128])
+            // Networks to be routed through TUN, it appears that there is some bug with defualt IPv6 route ::/0, so we define 2 routes with 2 big networks.
+            let route1 = NEIPv6Route(destinationAddress: "::", networkPrefixLength: 1)
+            let route2 = NEIPv6Route(destinationAddress: "8000::", networkPrefixLength: 1)
+            tunSettings.iPv6Settings?.includedRoutes = [route1, route2]
+        }
 
         tunSettings.mtu = 1440
         
@@ -190,6 +198,24 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         self.reasserting = false        }
         client.close()
         currentReachabilityStatus = newReachabilityStatus
+    }
+    
+    func validateIPv4(ip: String) -> Bool {
+        var sin = sockaddr_in()
+        if ip.withCString({ cstring in inet_pton(AF_INET, cstring, &sin.sin_addr) }) == 1 {
+            // IPv4 peer.
+            return true
+        }
+        return false
+    }
+    
+    func validateIPv6(ip: String) -> Bool {
+        var sin6 = sockaddr_in6()
+        if ip.withCString({ cstring in inet_pton(AF_INET6, cstring, &sin6.sin6_addr) }) == 1 {
+            // IPv6 peer.
+            return true
+        }
+        return false
     }
     
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {

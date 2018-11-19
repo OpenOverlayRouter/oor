@@ -12,7 +12,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
  
     let defaults = UserDefaults(suiteName: "group.oor")
     
-    @IBOutlet weak var eidIpv4TextField: UITextField!
+    @IBOutlet weak var eidTextField: UITextField!
     @IBOutlet weak var iidTextField: UITextField!
     @IBOutlet weak var mapResolverTextField: UITextField!
     @IBOutlet weak var mapServerTextField: UITextField!
@@ -29,13 +29,19 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     }
     
     @IBAction func saveButton(_ sender: Any) {
-        saveConfig()
-        saveLabel.text = "Configuration saved!"
+        if validateIpAddress(ip: eidTextField.text!) {
+            saveConfig()
+            saveLabel.text = "Configuration saved!"
+        } else {
+            let alert = UIAlertController(title: "Invalid EID", message: "Please enter a valid EID", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Ok", style: .default, handler: nil))
+            self.present(alert, animated: true)
+        }
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.eidIpv4TextField.delegate = self
+        self.eidTextField.delegate = self
         self.iidTextField.delegate = self
         self.mapResolverTextField.delegate = self
         self.mapServerTextField.delegate = self
@@ -51,7 +57,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     }
     
     func loadConfig() {
-        eidIpv4TextField.text = defaults?.string(forKey: "eidIpv4")
+        eidTextField.text = defaults?.string(forKey: "eid")
         if defaults?.string(forKey:"iid") == nil {
             iidTextField.text = "0"
         }
@@ -74,7 +80,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     }
     
     func saveConfig() {
-        defaults?.set(eidIpv4TextField.text, forKey: "eidIpv4")
+        defaults?.set(eidTextField.text, forKey: "eid")
         if (iidTextField.text?.isEmpty)! {
             defaults?.set("0", forKey: "iid")
         }
@@ -96,6 +102,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     
     func writeConfigFile() {
         var config = ""
+        let eid:String = (defaults?.string(forKey: "eid"))!
         config.append("#       *** noroot_OOR EXAMPLE CONFIG FILE ***\n\n\n")
         config.append("# General configuration\n")
         config.append("#      debug: Debug levels [0..3]\n")
@@ -181,7 +188,11 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("#   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight\n")
         config.append("#     indicates how to balance unicast traffic between them.\n")
         config.append("database-mapping {\n")
-        config.append("        eid-prefix     = \(defaults?.string(forKey: "eidIpv4") ?? "")/32\n")
+        if validateIPv4(ip: eid) {
+            config.append("        eid-prefix     = \(eid)/32\n")
+        } else if validateIPv6(ip: eid) {
+            config.append("        eid-prefix     = \(eid)/128\n")
+        }
         config.append("        iid            = \(defaults?.string(forKey: "iid") ?? "")\n")
         config.append("        rloc-iface{\n")
         config.append("           interface     = en0\n")
@@ -210,6 +221,31 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
             catch { print("ERROR \(error)")}
         }
 
+    }
+    
+    func validateIPv4(ip: String) -> Bool {
+        var sin = sockaddr_in()
+        if ip.withCString({ cstring in inet_pton(AF_INET, cstring, &sin.sin_addr) }) == 1 {
+            // IPv4 peer.
+            return true
+        }
+        return false
+    }
+    
+    func validateIPv6(ip: String) -> Bool {
+        var sin6 = sockaddr_in6()
+        if ip.withCString({ cstring in inet_pton(AF_INET6, cstring, &sin6.sin6_addr) }) == 1 {
+            // IPv6 peer.
+            return true
+        }
+        return false
+    }
+    
+    func validateIpAddress(ip: String) -> Bool {
+        if (validateIPv4(ip:ip) || validateIPv6(ip:ip)) {
+            return true
+        }
+        return false
     }
     
 }
