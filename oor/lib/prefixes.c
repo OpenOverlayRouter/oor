@@ -187,18 +187,18 @@ pref_get_network_address_v6(lisp_addr_t *address)
     int prefix_length;
     int ctr = 0;
     int a,b;
-
+    
     prefix_length = lisp_addr_get_plen(address);
     a = (prefix_length) / 8;
     b = (prefix_length) % 8;
-
+    
     for (ctr = 0; ctr<a ; ctr++){
         mask[ctr] = 0xFF;
     }
     if (b != 0){
         mask[a] = 0xFF<<(8-b);
     }
-
+    
     addr = ip_addr_get_v6(lisp_addr_ip_get_addr(address));
     for (ctr = 0 ; ctr < 16 ; ctr++){
         addr8[ctr] = addr->s6_addr[ctr] & mask[ctr];
@@ -207,6 +207,7 @@ pref_get_network_address_v6(lisp_addr_t *address)
     ip_addr_set_v6(lisp_addr_ip_get_addr(network_address), &addr8);
     return network_address;
 }
+
 
 /*
  * pref_get_network_prefix returns a prefix address from an IP prefix.
