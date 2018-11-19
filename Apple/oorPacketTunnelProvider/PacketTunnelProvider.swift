@@ -34,7 +34,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     override func startTunnel(options: [String : NSObject]? = nil, completionHandler: @escaping (Error?) -> Void) {
                 
         self.completionHandler = completionHandler
-    
+
         //TUN IP address
         let eid = defaults?.string(forKey: "eid")
         if validateIPv4(ip: eid!) {

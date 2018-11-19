@@ -102,9 +102,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     
     func writeConfigFile() {
         var config = ""
-        
         let eid:String = (defaults?.string(forKey: "eid"))!
-        
         config.append("#       *** noroot_OOR EXAMPLE CONFIG FILE ***\n\n\n")
         config.append("# General configuration\n")
         config.append("#      debug: Debug levels [0..3]\n")
