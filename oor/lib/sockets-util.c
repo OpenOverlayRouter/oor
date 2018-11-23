@@ -399,6 +399,57 @@ send_datagram_packet (int sock, const void *packet, int packet_length,
     return (GOOD);
 }
 
+lisp_addr_t *
+sockaddr_to_lisp_addr (struct sockaddr *sock_addr)
+{
+    lisp_addr_t *addr;
+    
+    addr = lisp_addr_new_lafi(LM_AFI_IP);
+    if (sock_addr->sa_family == AF_INET){
+        ip_addr_init(lisp_addr_ip(addr),&(((struct sockaddr_in *)sock_addr)->sin_addr),AF_INET);
+    }else if(sock_addr->sa_family == AF_INET6){
+        ip_addr_init(lisp_addr_ip(addr),&(((struct sockaddr_in6 *)sock_addr)->sin6_addr),AF_INET6);
+    }else{
+        OOR_LOG(LDBG_2, "sockaddr_to_lisp_addr: Unknown afi %d", sock_addr->sa_family);
+        lisp_addr_del(addr);
+        addr = NULL;
+        
+    }
+    return (addr);
+}
 
-
-
+struct sockaddr *
+lisp_addr_to_scockaddr(lisp_addr_t *addr)
+{
+    
+    struct sockaddr *sock_addr;
+    struct sockaddr_in *sock_addr_v4;
+    struct sockaddr_in6 *sock_addr_v6;
+    int afi;
+    
+    if (!lisp_addr_is_ip(addr)){
+        OOR_LOG(LDBG_2, "lisp_addr_to_scockaddr: lisp_addr_t should be an IP addr (%s)", lisp_addr_to_char(addr));
+        return (NULL);
+    }
+    
+    afi = lisp_addr_ip_afi(addr);
+    switch(afi){
+        case AF_INET:
+            sock_addr_v4 = xmalloc(sizeof(struct sockaddr_in));
+            sock_addr_v4->sin_family = AF_INET;
+            sock_addr_v4->sin_addr.s_addr = ip_addr_get_v4(lisp_addr_ip(addr))->s_addr;
+            sock_addr = (struct sockaddr *)sock_addr_v4;
+            break;
+        case AF_INET6:
+            sock_addr_v6 = xmalloc(sizeof(struct sockaddr_in6));
+            sock_addr_v6->sin6_family = AF_INET6;
+            memcpy(&(sock_addr_v6->sin6_addr), ip_addr_get_v6(lisp_addr_ip(addr)),sizeof(struct in6_addr));
+            sock_addr = (struct sockaddr *)sock_addr_v6;
+            break;
+        default:
+            OOR_LOG(LDBG_1, "lisp_addr_to_scockaddr: Unknown afi of the addr: %s", lisp_addr_to_char(addr));
+            sock_addr = NULL;
+    }
+    
+    return (sock_addr);
+}

@@ -103,6 +103,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     func writeConfigFile() {
         var config = ""
         let eid:String = (defaults?.string(forKey: "eid"))!
+        let petr:String = (defaults?.string(forKey: "proxyEtrAddress"))!
         config.append("#       *** noroot_OOR EXAMPLE CONFIG FILE ***\n\n\n")
         config.append("# General configuration\n")
         config.append("#      debug: Debug levels [0..3]\n")
@@ -157,18 +158,19 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("#   Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses\n\n")
         config.append("proxy-itrs = {\n")
         config.append("        69.31.31.98,\n")
-        config.append("        198.6.255.37,\n")
-        config.append("        173.36.193.25,\n")
         config.append("        129.250.1.63,\n")
         config.append("        217.8.98.33,\n")
         config.append("        217.8.98.35,\n")
-        config.append("        193.162.145.46,\n")
-        config.append("        193.34.30.222,\n")
-        config.append("        193.34.31.222,\n")
         config.append("        147.83.131.33,\n")
         config.append("        158.38.1.92,\n")
         config.append("        203.181.249.172,\n")
-        config.append("        202.51.247.10\n")
+        config.append("        202.51.247.10,\n")
+        config.append("        2001:590::451f:1f62,\n")
+        config.append("        2001:418:0:1000::63,\n")
+        config.append("        2001:40B0:7500:205:1::E,\n")
+        config.append("        2001:40B0:7500:205:1::12,\n")
+        config.append("        2001:700:0:52E::4,\n")
+        config.append("        2001:200:e000:17::172\n")
         config.append("}\n\n\n")
         config.append("# IPv4 / IPv6 EID of the node.\n")
         config.append("# Two kind of rlocs can be defined:\n")
@@ -197,15 +199,40 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("        rloc-iface{\n")
         config.append("           interface     = en0\n")
         config.append("           ip_version    = 4\n")
+        config.append("           priority      = 3\n")
+        config.append("           weight        = 1\n")
+        config.append("        }\n\n")
+        config.append("        rloc-iface{\n")
+        config.append("           interface     = en0\n")
+        config.append("           ip_version    = 6\n")
         config.append("           priority      = 1\n")
         config.append("           weight        = 1\n")
-        config.append("        }\n\n");
+        config.append("        }\n\n")
         config.append("        rloc-iface{\n")
         config.append("           interface     = pdp_ip0\n")
         config.append("           ip_version    = 4\n")
         config.append("           priority      = 2\n")
         config.append("           weight        = 1\n")
         config.append("        }\n\n")
+        config.append("        rloc-iface{\n")
+        config.append("           interface     = pdp_ip0\n")
+        config.append("           ip_version    = 6\n")
+        config.append("           priority      = 2\n")
+        config.append("           weight        = 1\n")
+        config.append("        }\n\n");
+        config.append("}\n\n");
+        if true{
+            config.append("proxy-etr-ipv4 {\n")
+            config.append("        address     = \(petr)\n")
+            config.append("        priority    = 1\n")
+            config.append("        weight      = 100\n")
+            config.append("}\n\n")
+            config.append("proxy-etr-ipv6 {\n")
+            config.append("        address     = \(petr)\n")
+            config.append("        priority    = 1\n")
+            config.append("        weight      = 100\n")
+            config.append("}\n\n");
+        }
 
         
         print(config)

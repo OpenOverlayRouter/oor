@@ -30,8 +30,13 @@
 
 #define CTL_NET         4               /* network, see socket.h */
 
-#define ROUNDUP(a) \
-((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+#define ROUNDUP(a, size) \
+(((a) & ((size)-1)) ? (1 + ((a) | ((size)-1))) : (a))
+
+#define NEXT_SA(ap) (ap) = (struct sockaddr *) \
+((caddr_t)(ap) + ((ap)->sa_len ? ROUNDUP((ap)->sa_len,\
+sizeof(uint32_t)) :\
+sizeof(uint32_t)))
 
 int ios_netm_init();
 void ios_netm_uninit();
@@ -39,6 +44,7 @@ glist_t * ios_get_ifaces_names();
 glist_t * ios_get_iface_addr_list(char *iface_name, int afi);
 lisp_addr_t * ios_get_src_addr_to(lisp_addr_t *addr);
 lisp_addr_t * ios_get_iface_gw(char *iface_name, int afi);
+lisp_addr_t *ios_get_first_ipv6_addr_from_iface_with_scope (char *iface_name, ipv6_scope_e scope);
 uint8_t ios_get_iface_status(char *iface_name);
 int ios_get_iface_index(char *iface_name);
 void ios_get_iface_mac_addr(char *iface_name, uint8_t *mac);
@@ -55,6 +61,7 @@ net_mgr_class_t netm_apple = {
     .netm_get_iface_addr_list = ios_get_iface_addr_list,
     .netm_get_src_addr_to = ios_get_src_addr_to,
     .netm_get_iface_gw = ios_get_iface_gw,
+    .netm_get_first_ipv6_addr_from_iface_with_scope = ios_get_first_ipv6_addr_from_iface_with_scope,
     .netm_get_iface_status = ios_get_iface_status,
     .netm_get_iface_mac_addr = ios_get_iface_mac_addr,
     .netm_reload_routes = ios_reload_routes,
@@ -161,9 +168,11 @@ glist_t * ios_get_iface_addr_list(char *iface_name, int afi) {
     lisp_addr_t *addr;
     struct ifaddrs *ifaddr;
     struct ifaddrs *ifa;
-    struct sockaddr_in *s4;
-    struct sockaddr_in6 *s6;
+    struct sockaddr_in *s4, *s4_mask;
+    struct sockaddr_in6 *s6, *s6_mask;
     ip_addr_t ip;
+    int i;
+    uint8_t is_host = TRUE;
     
     /* search for the interface */
     if (getifaddrs(&ifaddr) !=0) {
@@ -189,15 +198,37 @@ glist_t * ios_get_iface_addr_list(char *iface_name, int afi) {
                             "%s discarded (%s)", iface_name, ip_addr_to_char(&ip));
                     continue;
                 }
+                if (ifa->ifa_netmask){
+                    s4_mask = (struct sockaddr_in *) ifa->ifa_netmask;
+                    if (s4_mask->sin_addr.s_addr == 0xFFFFFFFF){
+                        OOR_LOG(LDBG_2, "ios_get_iface_addr_list: interface address from "
+                                "%s discarded (%s) -> mask 32", iface_name, ip_addr_to_char(&ip));
+                        continue;
+                    }
+                }
                 break;
             case AF_INET6:
                 s6 = (struct sockaddr_in6 *) ifa->ifa_addr;
                 ip_addr_init(&ip, &s6->sin6_addr, AF_INET6);
                 
                 if (ip_addr_is_link_local(&ip) == TRUE) {
-                    OOR_LOG(LDBG_2, "ios_get_iface_addr_list: interface address from "
+                    OOR_LOG(LERR, "ios_get_iface_addr_list: interface address from "
                             "%s discarded (%s)", iface_name, ip_addr_to_char(&ip));
                     continue;
+                }
+                if (ifa->ifa_netmask){
+                    s6_mask = (struct sockaddr_in6 *) ifa->ifa_netmask;
+                    for (i = 0 ; i < 16 ; i++){
+                        if (s6_mask->sin6_addr.s6_addr[i] != 0xFF){
+                            is_host = FALSE;
+                            break;
+                        }
+                    }
+                    if (is_host){
+                        OOR_LOG(LDBG_2, "ios_get_iface_addr_list: interface address from "
+                                "%s discarded (%s) -> mask 128", iface_name, ip_addr_to_char(&ip));
+                        continue;
+                    }
                 }
                 break;
             default:
@@ -217,23 +248,18 @@ glist_t * ios_get_iface_addr_list(char *iface_name, int afi) {
     return(addr_list);
 }
 
-lisp_addr_t * ios_get_src_addr_to(lisp_addr_t *dst_addr) {
-    return (NULL);
-}
 
 
 lisp_addr_t * ios_get_iface_gw(char *iface_name, int afi) {
-    
-    struct in_addr addr;
     lisp_addr_t gateway = { .lafi = LM_AFI_IP };
-    int mib[] = {CTL_NET, PF_ROUTE, 0, AF_INET,
-        NET_RT_FLAGS, RTF_GATEWAY};
+    int mib[] = {CTL_NET, PF_ROUTE, 0, afi, NET_RT_FLAGS, RTF_GATEWAY};
     size_t l;
     char * buf, * p;
     struct rt_msghdr * rt;
     struct sockaddr * sa;
     struct sockaddr * sa_tab[RTAX_MAX];
-    int i;
+    int iface_index, i;
+    
     if(sysctl(mib, sizeof(mib)/sizeof(int), 0, &l, 0, 0) < 0) {
         OOR_LOG(LERR, "ios_get_iface_gw: sysctl 1 failed");
         return (NULL);
@@ -250,31 +276,70 @@ lisp_addr_t * ios_get_iface_gw(char *iface_name, int afi) {
             for(i=0; i<RTAX_MAX; i++) {
                 if(rt->rtm_addrs & (1 << i)) {
                     sa_tab[i] = sa;
-                    sa = (struct sockaddr *)((char *)sa + ROUNDUP(sa->sa_len));
+                    if (sa->sa_family == AF_INET){
+                        sa = (struct sockaddr *)((char *)sa + ROUNDUP(sa->sa_len, sizeof(uint32_t)));
+                    }else{
+                        sa = (struct sockaddr *)((char *)sa + ((struct sockaddr_in6 *)sa)->sin6_len);
+                    }
                 } else {
                     sa_tab[i] = NULL;
                 }
             }
-            
-            if( ((rt->rtm_addrs & (RTA_DST|RTA_GATEWAY)) == (RTA_DST|RTA_GATEWAY))
-               && sa_tab[RTAX_DST]->sa_family == AF_INET
-               && sa_tab[RTAX_GATEWAY]->sa_family == AF_INET) {
+
+            iface_index = if_nametoindex(iface_name);
+            if( ((rt->rtm_addrs & (RTA_DST|RTA_GATEWAY|RTM_ADD)) == (RTA_DST|RTA_GATEWAY))
+               && sa_tab[RTAX_DST]->sa_family == afi
+               && sa_tab[RTAX_GATEWAY]->sa_family == afi
+               && iface_index == rt->rtm_index) {
                 
-                
-                if(((struct sockaddr_in *)sa_tab[RTAX_DST])->sin_addr.s_addr == 0) {
-                    char ifName[128];
-                    if_indextoname(rt->rtm_index,ifName);
-                    if(strcmp(iface_name,ifName)==0){
-                        addr.s_addr = ((struct sockaddr_in *)(sa_tab[RTAX_GATEWAY]))->sin_addr.s_addr;
-                        char *z = inet_ntoa(*(struct in_addr *)&addr);
-                        lisp_addr_ip_init(&gateway, &addr, afi);
-                    }
+                sa = sa_tab[RTAX_GATEWAY];
+                switch (afi){
+                    case (AF_INET):
+                        ip_addr_init(lisp_addr_ip(&gateway),&(((struct sockaddr_in *)sa)->sin_addr),sa->sa_family);
+                        goto gw;
+                    case (AF_INET6):
+                        ip_addr_init(lisp_addr_ip(&gateway),&(((struct sockaddr_in6 *)sa)->sin6_addr),sa->sa_family);
+                        goto gw;
                 }
+                
             }
         }
         free(buf);
     }
+    return (NULL);
+gw:
+    free(buf);
     return (lisp_addr_clone(&gateway));
+}
+
+lisp_addr_t *
+ios_get_first_ipv6_addr_from_iface_with_scope (char *iface_name, ipv6_scope_e scope)
+{
+    glist_t *addr_list;
+    glist_entry_t *addr_it;
+    lisp_addr_t *addr = NULL, *ret_addr = NULL;
+    
+    addr_list = ios_get_iface_addr_list(iface_name,AF_INET6);
+    if (ipv6_scope == SCOPE_GLOBAL){
+        glist_for_each_entry(addr_it,addr_list){
+            addr = (lisp_addr_t *)glist_entry_data(addr_it);
+            if (IN6_IS_ADDR_GLOBAL(ip_addr_get_v6(lisp_addr_ip(addr)))){
+                ret_addr = lisp_addr_clone(addr);
+                break;
+            }
+        }
+    }
+    if (ipv6_scope == SCOPE_SITE_LOCAL){
+        glist_for_each_entry(addr_it,addr_list){
+            addr = (lisp_addr_t *)glist_entry_data(addr_it);
+            if (IN6_IS_ADDR_SITE_LOCAL(ip_addr_get_v6(lisp_addr_ip(addr)))){
+                ret_addr = lisp_addr_clone(addr);
+                break;
+            }
+        }
+    }
+    glist_destroy(addr_list);
+    return (ret_addr);
 }
 
 uint8_t ios_get_iface_status(char *iface_name) {
@@ -387,3 +452,41 @@ shash_t * ios_build_addr_to_if_name_hasht() {
     return(ht);
 }
 
+lisp_addr_t * ios_get_src_addr_to(lisp_addr_t *dst_addr) {
+    lisp_addr_t *src_addr;
+    int afi, sock;
+    size_t addr_len;
+    struct sockaddr *sock_addr, *lcl_addr;
+
+    afi = lisp_addr_ip_afi(dst_addr);
+    
+    sock_addr = lisp_addr_to_scockaddr(dst_addr);
+    if (!sock_addr){
+        return (NULL);
+    }
+    addr_len = SA_LEN(sock_addr);
+    sock = socket( afi, SOCK_DGRAM, IPPROTO_UDP );
+    if (sock == -1){
+        OOR_LOG(LDBG_2,"ios_get_src_addr_to: Unable to open socket: %s", strerror(errno));
+        free(sock_addr);
+        return (NULL);
+    }
+    if (connect( sock, sock_addr, (socklen_t)addr_len) == -1){
+        OOR_LOG(LDBG_2,"ios_get_src_addr_to: Unable to connect socket: %s", strerror(errno));
+        free(sock_addr);
+        close(sock);
+        return (NULL);
+    }
+    
+    lcl_addr = xmalloc(addr_len);
+    getsockname(sock, lcl_addr, (socklen_t *)&addr_len);
+    src_addr = sockaddr_to_lisp_addr (lcl_addr);
+    
+    free(sock_addr);
+    free(lcl_addr);
+    close(sock);
+    OOR_LOG(LDBG_3,"ios_get_src_addr_to: Selected src address to %s is %s",
+            lisp_addr_to_char(dst_addr), lisp_addr_to_char(src_addr));
+    
+    return (src_addr);
+}

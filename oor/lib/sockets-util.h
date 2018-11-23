@@ -36,5 +36,7 @@ int bind_socket(int sock,int afi, lisp_addr_t *src_addr, int src_port);
 int send_raw_packet(int, const void *, int, ip_addr_t *);
 int send_datagram_packet (int sock, const void *packet, int packet_length,
         lisp_addr_t *addr_dest, int port_dest);
+lisp_addr_t * sockaddr_to_lisp_addr (struct sockaddr *sock_addr);
+struct sockaddr * lisp_addr_to_scockaddr(lisp_addr_t *addr);
 
 #endif /* SOCKETS_UTIL_H_ */

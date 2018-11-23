@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8B7FC5A521A2D4B000678378 /* ddt_map_cache_entry.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5A321A2D4AB00678378 /* ddt_map_cache_entry.c */; };
+		8B7FC5A921A2D4D000678378 /* lisp_mref_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5A621A2D4CB00678378 /* lisp_mref_mapping.c */; };
+		8B7FC5B121A2D4EF00678378 /* lisp_ddt_mr.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5AC21A2D4EA00678378 /* lisp_ddt_mr.c */; };
+		8B7FC5B221A2D4F400678378 /* lisp_ddt_node.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5AB21A2D4EA00678378 /* lisp_ddt_node.c */; };
 		BB0441EE1FAD1DB7007C204B /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBBD95091F9A59940038EE3F /* Reachability.swift */; };
 		BB17FDCA2107861500716E96 /* LogViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB17FDC92107861500716E96 /* LogViewController.swift */; };
 		BB1ECE6120349A760073661F /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1ECE6020349A760073661F /* SettingsViewController.swift */; };
@@ -137,6 +141,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8B7FC5A221A2D4AB00678378 /* ddt_map_cache_entry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ddt_map_cache_entry.h; sourceTree = "<group>"; };
+		8B7FC5A321A2D4AB00678378 /* ddt_map_cache_entry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ddt_map_cache_entry.c; sourceTree = "<group>"; };
+		8B7FC5A621A2D4CB00678378 /* lisp_mref_mapping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lisp_mref_mapping.c; sourceTree = "<group>"; };
+		8B7FC5A721A2D4CB00678378 /* lisp_mref_mapping.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lisp_mref_mapping.h; sourceTree = "<group>"; };
+		8B7FC5AB21A2D4EA00678378 /* lisp_ddt_node.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lisp_ddt_node.c; sourceTree = "<group>"; };
+		8B7FC5AC21A2D4EA00678378 /* lisp_ddt_mr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lisp_ddt_mr.c; sourceTree = "<group>"; };
+		8B7FC5AD21A2D4EA00678378 /* lisp_ddt_mr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lisp_ddt_mr.h; sourceTree = "<group>"; };
+		8B7FC5AE21A2D4EB00678378 /* lisp_ddt_node.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lisp_ddt_node.h; sourceTree = "<group>"; };
 		BB17FDC92107861500716E96 /* LogViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewController.swift; sourceTree = "<group>"; };
 		BB1ECE6020349A760073661F /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
 		BB216FC620A9F6B600136A91 /* htable_ptrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = htable_ptrs.h; sourceTree = "<group>"; };
@@ -494,6 +506,10 @@
 		BB226B0B1F0697AE0060F531 /* control */ = {
 			isa = PBXGroup;
 			children = (
+				8B7FC5AC21A2D4EA00678378 /* lisp_ddt_mr.c */,
+				8B7FC5AD21A2D4EA00678378 /* lisp_ddt_mr.h */,
+				8B7FC5AB21A2D4EA00678378 /* lisp_ddt_node.c */,
+				8B7FC5AE21A2D4EB00678378 /* lisp_ddt_node.h */,
 				BB226B0C1F0697AE0060F531 /* control-data-plane */,
 				BB226B181F0697AE0060F531 /* lisp_ms.c */,
 				BB226B191F0697AE0060F531 /* lisp_ms.h */,
@@ -720,6 +736,8 @@
 		BB226B671F0697AE0060F531 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				8B7FC5A321A2D4AB00678378 /* ddt_map_cache_entry.c */,
+				8B7FC5A221A2D4AB00678378 /* ddt_map_cache_entry.h */,
 				BB226B681F0697AE0060F531 /* cksum.c */,
 				BB226B691F0697AE0060F531 /* cksum.h */,
 				BB226B6A1F0697AE0060F531 /* generic_list.c */,
@@ -792,6 +810,8 @@
 		BB226BA01F0697AE0060F531 /* liblisp */ = {
 			isa = PBXGroup;
 			children = (
+				8B7FC5A621A2D4CB00678378 /* lisp_mref_mapping.c */,
+				8B7FC5A721A2D4CB00678378 /* lisp_mref_mapping.h */,
 				BB226BA11F0697AE0060F531 /* liblisp.c */,
 				BB226BA21F0697AE0060F531 /* liblisp.h */,
 				BB226BA31F0697AE0060F531 /* lisp_address.c */,
@@ -1146,6 +1166,7 @@
 				BB894F111F1E66F9009E3F8C /* ios.c in Sources */,
 				BB894F121F1E66F9009E3F8C /* ios_input.c in Sources */,
 				BB894F131F1E66F9009E3F8C /* ios_output.c in Sources */,
+				8B7FC5B121A2D4EF00678378 /* lisp_ddt_mr.c in Sources */,
 				BB894F141F1E66F9009E3F8C /* data-plane.c in Sources */,
 				BB894F151F1E66F9009E3F8C /* vxlan-gpe.c in Sources */,
 				BB894F161F1E66F9009E3F8C /* ttable.c in Sources */,
@@ -1166,7 +1187,10 @@
 				BB894F231F1E66F9009E3F8C /* iface_list.c in Sources */,
 				BBDC9CAD1F9BD0E70083D767 /* yudpsocket.c in Sources */,
 				BB894F241F1E66F9009E3F8C /* cksum.c in Sources */,
+				8B7FC5A521A2D4B000678378 /* ddt_map_cache_entry.c in Sources */,
 				BB894F251F1E66F9009E3F8C /* generic_list.c in Sources */,
+				8B7FC5A921A2D4D000678378 /* lisp_mref_mapping.c in Sources */,
+				8B7FC5B221A2D4F400678378 /* lisp_ddt_node.c in Sources */,
 				BB894F261F1E66F9009E3F8C /* hmac.c in Sources */,
 				BB894F271F1E66F9009E3F8C /* iface_locators.c in Sources */,
 				BBDC9CAC1F9BD0E70083D767 /* Socket.swift in Sources */,
