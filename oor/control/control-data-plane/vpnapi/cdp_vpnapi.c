@@ -343,8 +343,13 @@ vpnapi_control_dp_reset_socket(vpnapi_ctr_dplane_data_t * data, int fd, int afi)
 {
     sock_t *old_sock, *data_sock;
     int new_fd;
+    void *ctrl;
+    int (*cb_func)(struct sock *);
 
     old_sock = sockmstr_register_get_by_fd(smaster,fd);
+    ctrl = old_sock->arg;
+    cb_func = old_sock->recv_cb;
+    sockmstr_unregister_read_listenedr(smaster,old_sock);
 
     switch (afi){
     case AF_INET:
@@ -377,8 +382,7 @@ vpnapi_control_dp_reset_socket(vpnapi_ctr_dplane_data_t * data, int fd, int afi)
         return (BAD);
     }
 
-    sockmstr_register_read_listener(smaster,old_sock->recv_cb,old_sock->arg,new_fd);
-    sockmstr_unregister_read_listenedr(smaster,old_sock);
+    sockmstr_register_read_listener(smaster,cb_func,ctrl,new_fd);
     /* Protect the socket from loops in the system*/
     oor_jni_protect_socket(new_fd);
 

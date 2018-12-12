@@ -29,6 +29,7 @@
 #include "../../../oor_external.h"
 #include "../../../fwd_policies/fwd_policy.h"
 #include "../../../lib/oor_log.h"
+#include "../../../lib/util.h"
 #include "../../../net_mgr/net_mgr.h"
 
 int ios_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...);
@@ -163,15 +164,8 @@ ios_updated_route(int command, iface_t *iface, lisp_addr_t *src_pref,
                      lisp_addr_t *dst_pref, lisp_addr_t *gateway)
 {
     if (lisp_addr_ip_afi(gateway) != LM_AFI_NO_ADDR
-        && lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR) {
-        
-        // Check if the addres is a global address
-        if (ip_addr_is_link_local(lisp_addr_ip(gateway)) == TRUE) {
-            OOR_LOG(LDBG_3,"ios_updated_route: the extractet address "
-                    "from the netlink messages is a local link address: %s "
-                    "discarded", lisp_addr_to_char(gateway));
-            return (GOOD);
-        }
+        && (lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR ||
+        laddr_is_full_space_pref(dst_pref))) {
         
         // Process the new gateway
         OOR_LOG(LDBG_1,  "ios_updated_route: Process new gateway "
@@ -188,7 +182,6 @@ ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     lisp_addr_t **gw_addr    = NULL;
     int afi;
     ios_data_t *data;
-    
     afi = lisp_addr_ip_afi(gateway);
     
     switch(afi){
@@ -204,14 +197,8 @@ ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     if (*gw_addr == NULL || lisp_addr_is_no_addr(*gw_addr)) { // The default gateway of this interface is not deffined yet
         lisp_addr_del (*gw_addr);
         *gw_addr = lisp_addr_new();
-        lisp_addr_copy(*gw_addr,gateway);
-    }else if (lisp_addr_cmp(*gw_addr, gateway) == 0){
-        OOR_LOG(LDBG_3,"ios_process_new_gateway: the gateway address has not changed: %s. Discard message.",
-                lisp_addr_to_char(gateway));
-        return;
-    }else{
-        lisp_addr_copy(*gw_addr,gateway);
     }
+    lisp_addr_copy(*gw_addr,gateway);
     
     if (iface->status != UP){
         OOR_LOG(LDBG_1,"ios_process_new_gateway: Probably the interface %s is UP "
@@ -223,12 +210,11 @@ ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     data = (ios_data_t *)dplane_apple.datap_data;
     
     /* Recreate sockets */
-    //We don't restart sockets on ios because we'll restart later in ios_updated_link()
-    /*if (afi == AF_INET){
+    if (afi == AF_INET){
         ios_reset_socket(data->ipv4_data_socket,AF_INET);
     }else{
         ios_reset_socket(data->ipv6_data_socket,AF_INET6);
-    }*/
+    }
 }
 
 int
@@ -236,9 +222,8 @@ ios_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr)
 {
     int new_addr_ip_afi;
     ios_data_t * data;
-    
+
     data = (ios_data_t *)dplane_apple.datap_data;
-    
     new_addr_ip_afi = lisp_addr_ip_afi(new_addr);
     
     /* Check if the detected change of address id the same. */
@@ -249,8 +234,7 @@ ios_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr)
         return (GOOD);
     };
     
-    //We don't restart sockets on ios because we'll restart later in ios_updated_link()
-    /*switch (new_addr_ip_afi){
+    switch (new_addr_ip_afi){
         case AF_INET:
             ios_reset_socket(data->ipv4_data_socket, AF_INET);
             break;
@@ -259,7 +243,7 @@ ios_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr)
             break;
         default:
             return (BAD);
-    }*/
+    }
     
     return (GOOD);
 }
@@ -270,13 +254,6 @@ ios_update_link(iface_t *iface, int old_iface_index, int new_iface_index, int st
     ios_data_t * data;
     
     data = (ios_data_t *)dplane_apple.datap_data;
-    // In some OS when a virtual interface is removed and added again,
-    //the index of the interface change. Search iface_t by the interface
-     // name and update the index.
-    /*if (old_iface_index !new_iface_index){
-        OOR_LOG(LDBG_2, "ios_update_link: The new index of the interface "
-                "%s is: %d", iface->iface_name,iface->iface_index);
-    }*/
     
     if (default_rloc_afi != AF_INET6){
         ios_reset_socket(data->ipv4_data_socket, AF_INET);

@@ -26,6 +26,7 @@
 #include "../../../oor_ctrl_device.h"
 #include "../../../../iface_list.h"
 #include "../../../../lib/oor_log.h"
+#include "../../../../lib/util.h"
 
 /***************************** FUNCTIONS DECLARATION *************************/
 
@@ -44,6 +45,8 @@ int ios_control_dp_add_iface_gw(oor_ctrl_t *ctrl,iface_t *iface, int afi);
 int
 ios_control_dp_updated_route(oor_ctrl_t *ctrl, int command, iface_t *iface,
                              lisp_addr_t *src_pref, lisp_addr_t *dst_pref, lisp_addr_t *gw);
+void ios_control_dp_process_new_gateway(oor_ctrl_t *ctrl, iface_t *iface,
+                            lisp_addr_t *gateway);
 int
 ios_control_dp_updated_addr(oor_ctrl_t *ctrl, iface_t *iface,lisp_addr_t *old_addr,
                             lisp_addr_t *new_addr);
@@ -51,7 +54,7 @@ int
 ios_control_dp_update_link(oor_ctrl_t *ctrl, iface_t *iface, int old_iface_index,
                            int new_iface_index, int status);
 int
-ios_control_dp_reset_socket(ios_ctr_dplane_data_t * data, int fd, int afi, oor_ctrl_t *ctrl);
+ios_control_dp_reset_socket(ios_ctr_dplane_data_t * data, int fd, int afi);
 
 control_dplane_struct_t control_dp_apple = {
     .control_dp_init = ios_control_dp_init,
@@ -233,8 +236,41 @@ int ios_control_dp_add_iface_gw(oor_ctrl_t *ctrl,iface_t *iface, int afi) {
 int
 ios_control_dp_updated_route(oor_ctrl_t *ctrl, int command, iface_t *iface,
                              lisp_addr_t *src_pref, lisp_addr_t *dst_pref, lisp_addr_t *gw) {
+    /* Check if the updated route is a gateway */
+    if (lisp_addr_ip_afi(gw) != LM_AFI_NO_ADDR
+        && (lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR ||
+            laddr_is_full_space_pref(dst_pref))) {
+        ios_control_dp_process_new_gateway(ctrl,iface,gw);
+    }
+    
     return (GOOD);
 }
+
+void
+ios_control_dp_process_new_gateway(oor_ctrl_t *ctrl, iface_t *iface,
+                                      lisp_addr_t *gateway)
+{
+    int afi;
+    ios_ctr_dplane_data_t * data;
+    
+    afi = lisp_addr_ip_afi(gateway);
+    data = (ios_ctr_dplane_data_t *)(ctrl->control_data_plane->control_dp_data);
+    
+    /* Gatway is updated in data plane process */
+    
+    /* Recreate sockets */
+    switch(afi){
+        case AF_INET:
+            ios_control_dp_reset_socket(data, data->ipv4_ctrl_socket,AF_INET);
+            break;
+        case AF_INET6:
+            ios_control_dp_reset_socket(data, data->ipv6_ctrl_socket,AF_INET6);
+            break;
+        default:
+            return;
+    }
+}
+        
 
 int
 ios_control_dp_updated_addr(oor_ctrl_t *ctrl, iface_t *iface,
@@ -258,10 +294,10 @@ ios_control_dp_updated_addr(oor_ctrl_t *ctrl, iface_t *iface,
     
     switch (addr_afi){
         case AF_INET:
-            ios_control_dp_reset_socket(data, data->ipv4_ctrl_socket, AF_INET, ctrl);
+            ios_control_dp_reset_socket(data, data->ipv4_ctrl_socket, AF_INET);
             break;
         case AF_INET6:
-            ios_control_dp_reset_socket(data, data->ipv6_ctrl_socket, AF_INET6, ctrl);
+            ios_control_dp_reset_socket(data, data->ipv6_ctrl_socket, AF_INET6);
             break;
         default:
             return (BAD);
@@ -273,16 +309,15 @@ ios_control_dp_updated_addr(oor_ctrl_t *ctrl, iface_t *iface,
 int
 ios_control_dp_update_link(oor_ctrl_t *ctrl, iface_t *iface,
                               int old_iface_index, int new_iface_index, int status)
-{
+{		
     ios_ctr_dplane_data_t * data;
     data = (ios_ctr_dplane_data_t *)ctrl->control_data_plane->control_dp_data;
     
-    
     if (default_rloc_afi != AF_INET6){
-        ios_control_dp_reset_socket(data, data->ipv4_ctrl_socket, AF_INET, ctrl);
+        ios_control_dp_reset_socket(data, data->ipv4_ctrl_socket, AF_INET);
     }
     if (default_rloc_afi != AF_INET){
-        ios_control_dp_reset_socket(data, data->ipv6_ctrl_socket, AF_INET6, ctrl);
+        ios_control_dp_reset_socket(data, data->ipv6_ctrl_socket, AF_INET6);
     }
     
     return (GOOD);
@@ -290,12 +325,19 @@ ios_control_dp_update_link(oor_ctrl_t *ctrl, iface_t *iface,
 
 
 int
-ios_control_dp_reset_socket(ios_ctr_dplane_data_t * data, int fd, int afi, oor_ctrl_t *ctrl)
+ios_control_dp_reset_socket(ios_ctr_dplane_data_t * data, int fd, int afi)
 {
     sock_t *old_sock, *data_sock;
     int new_fd;
-    
+    void *ctrl;
+    int (*cb_func)(struct sock *);
     old_sock = sockmstr_register_get_by_fd(smaster,fd);
+    if (!old_sock){
+        OOR_LOG(LWRN,"ios_control_dp_reset_socket: Couldn't reset socket with fd %d. Socket not found ", fd);
+        return (BAD);
+    }
+    ctrl = old_sock->arg;
+    cb_func = old_sock->recv_cb;
     sockmstr_unregister_read_listenedr(smaster,old_sock);
     
     switch (afi){
@@ -303,7 +345,7 @@ ios_control_dp_reset_socket(ios_ctr_dplane_data_t * data, int fd, int afi, oor_c
             OOR_LOG(LDBG_2,"reset_socket: Reset IPv4 control socket\n");
             new_fd = open_control_input_socket(AF_INET);
             if (new_fd == ERR_SOCKET){
-                OOR_LOG(LDBG_2,"ios_reset_socket: Error recreating the socket");
+                OOR_LOG(LWRN,"ios_reset_socket: Error recreating the socket");
                 return (BAD);
             }
             data->ipv4_ctrl_socket = new_fd;
@@ -313,14 +355,12 @@ ios_control_dp_reset_socket(ios_ctr_dplane_data_t * data, int fd, int afi, oor_c
             if (data_sock != NULL){
                 data->ipv4_data_socket = sock_fd(data_sock);
             }
-            
-            
             break;
         case AF_INET6:
             OOR_LOG(LDBG_2,"reset_socket: Reset IPv6 control socket\n");
             new_fd = open_control_input_socket(AF_INET6);
             if (new_fd == ERR_SOCKET){
-                OOR_LOG(LDBG_2,"ios_reset_socket: Error recreating the socket");
+                OOR_LOG(LWRN,"ios_reset_socket: Error recreating the socket");
                 return (BAD);
             }
             data->ipv6_ctrl_socket = new_fd;
@@ -328,8 +368,6 @@ ios_control_dp_reset_socket(ios_ctr_dplane_data_t * data, int fd, int afi, oor_c
         default:
             return (BAD);
     }
-    
-    sockmstr_register_read_listener(smaster,ios_control_dp_recv_msg,ctrl,new_fd);
-    
+    sockmstr_register_read_listener(smaster,cb_func,ctrl,new_fd);
     return (GOOD);
 }

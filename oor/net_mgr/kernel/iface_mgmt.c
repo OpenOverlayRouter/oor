@@ -152,7 +152,7 @@ process_nl_del_address(struct nlmsghdr *nlh)
     struct rtattr *rth;
     int iface_index;
     int rt_length;
-    lisp_addr_t new_addr;
+    lisp_addr_t new_addr = { .lafi = LM_AFI_NO_ADDR };
 
     ifa = (struct ifaddrmsg *) NLMSG_DATA(nlh);
     iface_index = ifa->ifa_index;
@@ -237,9 +237,9 @@ process_nl_new_unicast_route(struct rtmsg *rtm, int rt_length)
 {
     struct rtattr *rt_attr;
     int iface_index = ~0;
-    lisp_addr_t gateway = { .lafi = LM_AFI_IP };
-    lisp_addr_t src = { .lafi = LM_AFI_IP };
-    lisp_addr_t dst = { .lafi = LM_AFI_IP };
+    lisp_addr_t gateway = { .lafi = LM_AFI_NO_ADDR };
+    lisp_addr_t src = { .lafi = LM_AFI_NO_ADDR };
+    lisp_addr_t dst = { .lafi = LM_AFI_NO_ADDR };
     int src_len;
     int dst_len;
 
@@ -415,9 +415,9 @@ process_nl_del_unicast_route(struct rtmsg *rtm, int rt_length)
 {
     struct rtattr *rt_attr;
     int iface_index = ~0;
-    lisp_addr_t gateway = { .lafi = LM_AFI_IP };
-    lisp_addr_t src = { .lafi = LM_AFI_IP };
-    lisp_addr_t dst = { .lafi = LM_AFI_IP };
+    lisp_addr_t gateway = { .lafi = LM_AFI_NO_ADDR };
+    lisp_addr_t src = { .lafi = LM_AFI_NO_ADDR };
+    lisp_addr_t dst = { .lafi = LM_AFI_NO_ADDR };
     int src_len;
     int dst_len;
 

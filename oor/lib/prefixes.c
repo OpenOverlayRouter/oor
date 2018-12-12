@@ -240,3 +240,26 @@ pref_conv_to_netw_pref(lisp_addr_t *addr)
 
     return (GOOD);
 }
+
+/*
+ * Convert a mask expresset in address format to length:
+ * For instance:  255.255.0.0 -> 16
+ */
+int
+pref_mask_addr_to_length(lisp_addr_t *mask)
+{
+    int mask_len = ~0, afi, ctr;
+    struct in6_addr *addr;
+    
+    afi = lisp_addr_ip_afi(mask);
+    if (afi == AF_INET){
+        mask_len = ip_addr_get_v4(lisp_addr_ip(mask))->s_addr;
+    }else if (afi == AF_INET6){
+        addr = ip_addr_get_v6(lisp_addr_ip_get_addr(mask));
+        for (ctr = 0 ; ctr < 16 ; ctr++){
+            mask_len += addr->s6_addr[ctr] ;
+        }
+    }
+    
+    return (mask_len);
+}

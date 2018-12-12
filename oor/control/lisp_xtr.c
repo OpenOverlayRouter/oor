@@ -220,7 +220,6 @@ xtr_run(oor_ctrl_dev_t *dev)
     int num_eids = 0;
 
 
-
     if (xtr->super.mode == MN_MODE){
         OOR_LOG(LDBG_1, "\nStarting xTR MN ...\n");
     }

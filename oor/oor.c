@@ -568,11 +568,11 @@ char *logPath;
 char *confPath;
 
 void setLogPath(const char *path) {
-    logPath = path;
+    logPath = (char *)path;
 }
 
 void setConfPath(const char *path) {
-    confPath = path;
+    confPath = (char *)path;
 }
 
 int oor_start() {
@@ -633,10 +633,8 @@ void trigtimer() {
 }
 
 void oor_loop() {
-    
     oor_running = TRUE;
     ctrl_dev_run(ctrl_dev);
-    
     // EVENT LOOP
     while (oor_running) {
         sockmstr_wait_on_all_read(smaster);

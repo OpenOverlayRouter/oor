@@ -32,7 +32,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     // Start fake tunnel connection
     override func startTunnel(options: [String : NSObject]? = nil, completionHandler: @escaping (Error?) -> Void) {
-                
         self.completionHandler = completionHandler
 
         //TUN IP address
@@ -94,7 +93,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         // Connect to OOR Data output Socket
         endpoint = NWHostEndpoint(hostname: "127.0.0.1", port: "10000")
         oorOut = self.createUDPSession(to: endpoint, from: packetTunnelProviderAddress)
-        
         // Start listeing incoming packets coming from OOR
         oorOut?.setReadHandler({dataArray, error in
             if error != nil {
@@ -102,7 +100,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
             self.newOORInPackets(packets: dataArray!)
         }, maxDatagrams: 1)
-        
         oor_loop()
     }
     
@@ -167,8 +164,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     @objc func reachabilityChanged(_ note: Notification) {
         let reachability = note.object as! Reachability
-        let client = UDPClient(address: "127.0.0.1", port: 10002)
-
+        
         if reachability.connection == .none {
             newReachabilityStatus = 0
             NSLog("REACHABILITY: none")
@@ -179,24 +175,18 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             newReachabilityStatus = 2
             NSLog("REACHABILITY: WIFI")
         }
-        
-        if currentReachabilityStatus != newReachabilityStatus {
+
+        if (currentReachabilityStatus != newReachabilityStatus && newReachabilityStatus != 0 && self.reasserting == false){
             self.reasserting = true
-            
-            if newReachabilityStatus == 1 {
-                client.send(string: "1")
-            } else if newReachabilityStatus == 2 {
-                client.send(string: "2")
-            }
             setTunnelNetworkSettings(tunSettings) { error in
                 if error != nil {
                     NSLog("PacketTunnelProvider.reachabilityChanged.setTunnelNetworkSettingsError \(String(describing: error))")
                 }
                 // Tell to the system that the VPN is "up"
                 self.completionHandler!(nil)
+                self.reasserting = false
             }
-        self.reasserting = false        }
-        client.close()
+        }
         currentReachabilityStatus = newReachabilityStatus
     }
     

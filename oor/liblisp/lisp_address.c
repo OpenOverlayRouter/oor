@@ -275,6 +275,8 @@ lisp_addr_ip_afi(lisp_addr_t *addr)
 {
     lisp_addr_t *laddr;
     switch (get_lafi_(addr)) {
+    case LM_AFI_NO_ADDR:
+            return (LM_AFI_NO_ADDR);
     case LM_AFI_IP:
         return (ip_addr_afi(get_ip_(addr)));
     case LM_AFI_IPPREF:
@@ -289,13 +291,13 @@ lisp_addr_ip_afi(lisp_addr_t *addr)
         }else{
             OOR_LOG(LDBG_1, "lisp_addr_ip_afi: not supported for lcaf type %d",
                     lisp_addr_lcaf_type(addr));
-            return (0);
+            return (LM_AFI_NO_ADDR);
         }
         break;
     default:
         OOR_LOG(LDBG_1, "lisp_addr_ip_afi: not supported for afi %d",
                 get_lafi_(addr));
-        return (0);
+        return (LM_AFI_NO_ADDR);
     }
 }
 

@@ -92,6 +92,9 @@ sock_list_remove(sock_list_t *lst, struct sock *sock)
             sock->next->prev = sock->prev;
         }
     }
+    if (sock->next == NULL){
+        lst->tail = sock->prev;
+    }
     fd = sock->fd;
     close(sock->fd);
     free(sock);
@@ -189,6 +192,7 @@ sockmstr_register_read_listener(sockmstr_t *m,int (*func)(struct sock *),
     sock->arg = arg;
     sock->fd = fd;
     sock_list_add(&m->read, sock);
+    
     return (sock);
 }
 

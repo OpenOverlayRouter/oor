@@ -28,6 +28,7 @@
 
 #include "oor_log.h"
 #include "sockets-util.h"
+#include "timers.h"
 
 #ifdef __APPLE__
 #define IPV6_RECVHOPLIMIT 37
@@ -399,24 +400,21 @@ send_datagram_packet (int sock, const void *packet, int packet_length,
     return (GOOD);
 }
 
-lisp_addr_t *
-sockaddr_to_lisp_addr (struct sockaddr *sock_addr)
+int
+sockaddr_to_lisp_addr (struct sockaddr *sock_addr, lisp_addr_t *addr)
 {
-    lisp_addr_t *addr;
-    
-    addr = lisp_addr_new_lafi(LM_AFI_IP);
     if (sock_addr->sa_family == AF_INET){
-        ip_addr_init(lisp_addr_ip(addr),&(((struct sockaddr_in *)sock_addr)->sin_addr),AF_INET);
+        lisp_addr_ip_init(addr, &(((struct sockaddr_in *)sock_addr)->sin_addr),AF_INET);
     }else if(sock_addr->sa_family == AF_INET6){
-        ip_addr_init(lisp_addr_ip(addr),&(((struct sockaddr_in6 *)sock_addr)->sin6_addr),AF_INET6);
+        lisp_addr_ip_init(addr, &(((struct sockaddr_in6 *)sock_addr)->sin6_addr),AF_INET6);
     }else{
-        OOR_LOG(LDBG_2, "sockaddr_to_lisp_addr: Unknown afi %d", sock_addr->sa_family);
-        lisp_addr_del(addr);
-        addr = NULL;
-        
+        OOR_LOG(LDBG_3, "sockaddr_to_lisp_addr: Unknown afi %d", sock_addr->sa_family);
+        return (BAD);
     }
-    return (addr);
+    lisp_addr_set_lafi(addr, LM_AFI_IP);
+    return (GOOD);
 }
+
 
 struct sockaddr *
 lisp_addr_to_scockaddr(lisp_addr_t *addr)

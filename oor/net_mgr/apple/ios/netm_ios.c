@@ -1,10 +1,21 @@
-//
-//  netm_ios.c
-//  oor-iOS
-//
-//  Created by Oriol Marí Marqués on 29/06/2017.
-//  Copyright © 2017 Oriol Marí Marqués. All rights reserved.
-//
+/*
+ *
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
 
 #include <errno.h>
 #include <ifaddrs.h>
@@ -12,6 +23,7 @@
 #include <sys/ioctl.h>
 #include <sys/sysctl.h>
 #include <net/if.h>
+#include <net/if_dl.h>
 
 #include "netm_ios.h"
 #include "../../net_mgr.h"
@@ -19,6 +31,7 @@
 #include "iface_mgmt.h"
 #include "netm_kernel.h"
 #include "../../../lib/oor_log.h"
+#include "../../../lib/prefixes.h"
 #include "../../../lib/sockets.h"
 
 #include "TargetConditionals.h"
@@ -34,9 +47,14 @@
 (((a) & ((size)-1)) ? (1 + ((a) | ((size)-1))) : (a))
 
 #define NEXT_SA(ap) (ap) = (struct sockaddr *) \
-((caddr_t)(ap) + ((ap)->sa_len ? ROUNDUP((ap)->sa_len,\
-sizeof(uint32_t)) :\
-sizeof(uint32_t)))
+((char *)(ap) + ((ap)->sa_len ? ROUNDUP((ap)->sa_len,sizeof(uint32_t)) : sizeof(uint32_t)))
+
+union ios_net_msg {
+    char buf[4096];
+    struct rt_msghdr rtm;
+    struct if_msghdr ifm;
+    struct ifa_msghdr ifam;
+};
 
 int ios_netm_init();
 void ios_netm_uninit();
@@ -52,6 +70,10 @@ char * ios_get_iface_name_associated_with_prefix(lisp_addr_t * pref);
 int ios_reload_routes(uint32_t table, int afi);
 shash_t * ios_build_addr_to_if_name_hasht();
 int ios_interface_changed(sock_t *sl);
+int ios_network_changed(sock_t *sl);
+void process_fbd_route_change (struct rt_msghdr *rtm);
+void process_fbd_address_change (struct ifa_msghdr *ifam);
+void process_fbd_link_change (struct if_msghdr *ifm);
 
 net_mgr_class_t netm_apple = {
     .netm_init = ios_netm_init,
@@ -70,65 +92,16 @@ net_mgr_class_t netm_apple = {
     .data = NULL
 };
 
-#define BUFLEN 512
-
-int ios_interface_changed(sock_t *sl) {
-
-    iface_t *iface;
-    
-    struct sockaddr_in si_other;
-    
-    int slen = sizeof(si_other) , recv_len;
-    char buf[BUFLEN];
-    
-    //try to receive some data, this is a blocking call
-    if ((recv_len = recvfrom(sl->fd, buf, BUFLEN, 0, (struct sockaddr *) &si_other, &slen)) == -1)
-    {
-        OOR_LOG(LINF, "recvfrom()");
-    }
-    
-    
-    int i = atoi(buf);
-    if (i == 1) {
-        iface = get_interface("en0");
-        nm_process_link_change(iface->iface_index, iface->iface_index, DOWN);
-        iface = get_interface("pdp_ip0");
-        nm_process_link_change(iface->iface_index, iface->iface_index, UP);
-    }
-    else if (i == 2) {
-        
-        iface = get_interface("en0");
-       
-        glist_t *addr_list = NULL;
-        lisp_addr_t **addr;
-
-        addr = &iface->ipv4_address;
-        addr_list = net_mgr->netm_get_iface_addr_list(iface->iface_name, AF_INET);
-        // For IPv4 get the first address of the list. It should be the only one
-        *addr = lisp_addr_clone((lisp_addr_t *)glist_first_data(addr_list));
-        glist_destroy(addr_list);
-        nm_process_address_change(ADD, iface->iface_index, *addr);
-        *addr = ios_get_iface_gw(iface->iface_name, AF_INET);
-        lisp_addr_ip_from_char("0.0.0.0", *addr);
-        nm_process_route_change(ADD, iface->iface_index, *addr, *addr, *addr);
-        nm_process_link_change(iface->iface_index, iface->iface_index, UP);
-        iface = get_interface("pdp_ip0");
-        nm_process_link_change(iface->iface_index, iface->iface_index, DOWN);
-        
-    }
-    return(GOOD);
-}
 
 int ios_netm_init() {
-    
     int netm_socket;
     
-    //open socket to connect with TunnelProvider
-    netm_socket = open_data_datagram_input_socket(AF_INET, 10002);
-    sockmstr_register_read_listener(smaster, ios_interface_changed, NULL, netm_socket);
+    //open routing socket to receive changes of network interfaces
     
-    return (GOOD);
+    netm_socket = socket(PF_ROUTE, SOCK_RAW, AF_UNSPEC);
+    sockmstr_register_read_listener(smaster, ios_network_changed, NULL, netm_socket);
 
+    return (GOOD);
 }
 
 // UNUSED
@@ -480,7 +453,11 @@ lisp_addr_t * ios_get_src_addr_to(lisp_addr_t *dst_addr) {
     
     lcl_addr = xmalloc(addr_len);
     getsockname(sock, lcl_addr, (socklen_t *)&addr_len);
-    src_addr = sockaddr_to_lisp_addr (lcl_addr);
+    src_addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+    if (sockaddr_to_lisp_addr (lcl_addr,src_addr) != GOOD){
+        lisp_addr_del(src_addr);
+        src_addr = NULL;
+    }
     
     free(sock_addr);
     free(lcl_addr);
@@ -489,4 +466,178 @@ lisp_addr_t * ios_get_src_addr_to(lisp_addr_t *dst_addr) {
             lisp_addr_to_char(dst_addr), lisp_addr_to_char(src_addr));
     
     return (src_addr);
+}
+
+int ios_network_changed(sock_t *sl) {
+    int len = 0;
+    union ios_net_msg u;
+    
+    while ((len = recv(sl->fd, &u, 4096, MSG_DONTWAIT)) > 0) {
+        if (u.ifm.ifm_version != RTM_VERSION) {
+            OOR_LOG(LDBG_2,"ios_network_changed: Unknown RTM version");
+            continue;
+        }
+        switch (u.ifm.ifm_type){
+            case RTM_NEWADDR:
+                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received new address message");
+                process_fbd_address_change (&u.ifam);
+                break;
+            case RTM_DELADDR:
+                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received del address message");
+                process_fbd_address_change (&u.ifam);
+                break;
+            case RTM_IFINFO:
+                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received link message");
+                process_fbd_link_change (&u.ifm);
+                break;
+            case RTM_ADD:
+                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received new route message");
+                process_fbd_route_change (&u.rtm);
+                break;
+            case RTM_DELETE:
+                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received delete route message");
+                process_fbd_route_change (&u.rtm);
+                break;
+            default:
+                break;
+        }
+    }
+    return (GOOD);
+}
+
+void
+process_fbd_route_change (struct rt_msghdr *rtm)
+{
+    int iface_index = ~0;
+    int iface_gw = ~0;
+    lisp_addr_t gateway = { .lafi = LM_AFI_NO_ADDR };
+    lisp_addr_t src = { .lafi = LM_AFI_NO_ADDR };
+    lisp_addr_t dst = { .lafi = LM_AFI_NO_ADDR };
+    lisp_addr_t dst_mask = { .lafi = LM_AFI_NO_ADDR };
+    struct sockaddr *sa;
+    int dst_len = ~0, i, type, res;
+    
+    iface_index = rtm->rtm_index;
+    sa = (struct sockaddr *)(rtm + 1);
+    for (i = 0; i < RTAX_MAX; i++) {
+        if (rtm->rtm_addrs & (1 << i)) {
+            type = (1 << i);
+            if ( type == RTA_IFA){
+                sockaddr_to_lisp_addr(sa,&src);
+            }else if (type == RTA_DST){
+                sockaddr_to_lisp_addr(sa,&dst);
+            }else if (type == RTA_GATEWAY){
+                res = sockaddr_to_lisp_addr(sa,&gateway);
+                if (res == BAD && sa->sa_family == AF_LINK){
+                    iface_gw = ((struct sockaddr_dl *)sa)->sdl_index;
+                }
+            }else if (type == RTA_NETMASK){
+                res = sockaddr_to_lisp_addr(sa, &dst_mask);
+                // XXX When previous read address is AF_LINK, NETMASK is not correctly initiated
+                if (res == GOOD){
+                    dst_len = pref_mask_addr_to_length(&dst_mask);
+                }
+            }
+            NEXT_SA(sa);
+        }
+    }
+    if (lisp_addr_is_ip(&dst) && dst_len != ~0){
+        lisp_addr_set_plen(&dst,dst_len);
+    }
+    
+    if (rtm->rtm_type ==  RTM_ADD){
+        if (iface_gw == ~0){
+            OOR_LOG (LDBG_2,"process_fbd_route_change: Add route src: %s dst: %s gw: %s iface_index: %d",
+                lisp_addr_to_char(&src),lisp_addr_to_char(&dst),lisp_addr_to_char(&gateway), iface_index);
+        }else{
+            OOR_LOG (LDBG_2,"process_fbd_route_change: Add route src: %s dst: %s iface_gw: %d iface_index: %d",
+                     lisp_addr_to_char(&src),lisp_addr_to_char(&dst), iface_gw, iface_index);
+        }
+        nm_process_route_change(ADD, iface_index, &src,&dst,&gateway);
+    }else{
+        if (iface_gw == ~0){
+            OOR_LOG (LDBG_2,"process_fbd_route_change:Remove route src: %s dst: %s gw: %s iface_index: %d",
+                     lisp_addr_to_char(&src),lisp_addr_to_char(&dst),lisp_addr_to_char(&gateway), iface_index);
+        }else{
+            OOR_LOG (LDBG_2,"process_fbd_route_change:Remove route src: %s dst: %s iface_gw: %d iface_index: %d",
+                     lisp_addr_to_char(&src),lisp_addr_to_char(&dst), iface_gw, iface_index);
+        }
+        nm_process_route_change(RM, iface_index, &src,&dst,&gateway);
+    }
+}
+
+void
+process_fbd_address_change (struct ifa_msghdr *ifam)
+{
+    int iface_index = ~0;
+    lisp_addr_t new_addr = { .lafi = LM_AFI_NO_ADDR };
+    struct sockaddr *sa;
+    int i,type;
+    
+    iface_index = ifam->ifam_index;
+    sa = (struct sockaddr *)(ifam + 1);
+    for (i = 0; i < RTAX_MAX; i++) {
+        if (ifam->ifam_addrs & (1 << i)) {
+            type = (1 << i);
+            if ( type == RTA_IFA){
+                if (sockaddr_to_lisp_addr(sa, &new_addr) == BAD){
+                    OOR_LOG (LDBG_2,"process_fbd_address_change: Couldn't process new address message. Wrong address format");
+                    return;
+                }
+                break;
+            }
+            NEXT_SA(sa);
+        }
+    }
+    
+    if (ifam->ifam_type == RTM_NEWADDR){
+        OOR_LOG (LDBG_2,"process_fbd_address_change: Added address %s from the interface with iface_index: %d with flags: %d and metric: %d", lisp_addr_to_char(&new_addr), iface_index, ifam->ifam_flags, ifam->ifam_metric);
+        nm_process_address_change (ADD,iface_index, &new_addr);
+    }else{
+        OOR_LOG (LDBG_2,"process_fbd_address_change: Rm address %s from the interface with iface_index: %d with flags: %d and metric: %d", lisp_addr_to_char(&new_addr), iface_index, ifam->ifam_flags, ifam->ifam_metric);
+        nm_process_address_change (RM,iface_index, &new_addr);
+    }
+}
+
+void
+process_fbd_link_change (struct if_msghdr *ifm)
+{
+    iface_t *iface;
+    int iface_index;
+    int old_iface_index;
+    uint8_t new_status;
+    char iface_name[IF_NAMESIZE];
+    
+    
+    iface_index = ifm->ifm_index;
+    
+    iface = get_interface_from_index(iface_index);
+    
+    if (iface == NULL) {
+        /*
+         * In some OS when a virtual interface is removed and added again,
+         * the index of the interface change. Search iface_t by the interface
+         * name and update the index. */
+        if (if_indextoname(iface_index, iface_name) != NULL) {
+            iface = get_interface(iface_name);
+        }
+        if (iface == NULL) {
+            OOR_LOG(LDBG_2, "process_fbd_link_change: the routing message is not for "
+                    "any interface associated with RLOCs  (%s)", iface_name);
+            return;
+        } else {
+            old_iface_index = iface->iface_index;
+        }
+    }else{
+        old_iface_index = iface_index;
+    }
+    
+    /* Get the new status */
+    if (ifm->ifm_flags & IFF_UP) {
+        new_status = UP;
+    } else {
+        new_status = DOWN;
+    }
+    OOR_LOG(LDBG_2, "process_fbd_link_change: Status of the link (%s) changed to %s", iface_name, new_status ? "UP":"DOWN");
+    nm_process_link_change(old_iface_index, iface_index, new_status);
 }

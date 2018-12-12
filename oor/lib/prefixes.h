@@ -43,6 +43,12 @@ lisp_addr_t * pref_get_network_prefix(lisp_addr_t *address);
 
 int pref_conv_to_netw_pref(lisp_addr_t *addr);
 
+/*
+ * Convert a mask expresset in address format to length:
+ * For instance: 255.255.0.0 -> 16
+ */
+int pref_mask_addr_to_length(lisp_addr_t *mask);
+
 
 
 #endif /* PREFIXES_H_ */
