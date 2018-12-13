@@ -29,13 +29,49 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     }
     
     @IBAction func saveButton(_ sender: Any) {
-        if validateIpAddress(ip: eidTextField.text!) {
+        var alert:UIAlertController? = nil;
+        var hasAlert = false
+        var message = ""
+        if !validateIpAddress(ip: eidTextField.text!){
+            message = message + "* Please enter a valid EID address\n"
+            hasAlert = true
+        }
+        if !natSwitch.isOn {
+            if !validateIpAddress(ip: mapResolverTextField.text!){
+                message = message + "* Please enter a valid Map Resolver address\n"
+                hasAlert = true
+            }
+            if !validateIpAddress(ip: proxyEtrAddressTextField.text!){
+                message = message + "* Please enter a valid Proxy ETR address\n"
+                hasAlert = true
+            }
+        }
+        if !validateIpAddress(ip: mapServerTextField.text!){
+            message = message + "* Please enter a valid Map Server address\n"
+            hasAlert = true
+        }
+        if !validateIpAddress(ip: dnsServerTextField.text!){
+            message = message + "* Please enter a valid DNS server address\n"
+            hasAlert = true
+        }
+        
+        if (iidTextField != nil){
+            let iid = Int(iidTextField.text!)
+            if iid == nil || iid! < 0 || iid! > 16777215 {
+                message = message + "* Please enter a valid IID [0 - 16777215]\n"
+                hasAlert = true
+            }
+        }else{
+            iidTextField.text = "0"
+        }
+        
+        if (hasAlert){
+            alert = UIAlertController(title: "Invalid Configuration:",message: message, preferredStyle: .alert)
+            alert!.addAction(UIAlertAction(title: "Ok", style: .default, handler: nil))
+            self.present(alert!, animated: true)
+        }else{
             saveConfig()
             saveLabel.text = "Configuration saved!"
-        } else {
-            let alert = UIAlertController(title: "Invalid EID", message: "Please enter a valid EID", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "Ok", style: .default, handler: nil))
-            self.present(alert, animated: true)
         }
     }
     
@@ -133,13 +169,15 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("# NAT Traversal configuration. \n")
         config.append("#   nat_traversal_support: check if the node is behind NAT\n\n")
         config.append("nat_traversal_support = \(natSwitch.isOn)\n\n\n")
-        config.append("# Encapsulated Map-Requests are sent to this map-resolver\n")
-        config.append("# You can define several map-resolvers. Encapsulated Map-Request messages will\n")
-        config.append("# be sent to only one.\n")
-        config.append("#   address: IPv4 or IPv6 address of the map resolver\n")
-        config.append("map-resolver        = {\n")
-        config.append("        \(defaults?.string(forKey: "mapResolver") ?? "")\n")
-        config.append("}\n\n\n")
+        if !natSwitch.isOn {
+            config.append("# Encapsulated Map-Requests are sent to this map-resolver\n")
+            config.append("# You can define several map-resolvers. Encapsulated Map-Request messages will\n")
+            config.append("# be sent to only one.\n")
+            config.append("#   address: IPv4 or IPv6 address of the map resolver\n")
+            config.append("map-resolver        = {\n")
+            config.append("        \(defaults?.string(forKey: "mapResolver") ?? "")\n")
+            config.append("}\n\n\n")
+        }
         config.append("# Map-Registers are sent to this map-server\n")
         config.append("# You can define several map-servers. Map-Register messages will be sent to all\n")
         config.append("# of them.\n")
@@ -221,7 +259,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("           weight        = 1\n")
         config.append("        }\n\n");
         config.append("}\n\n");
-        if true{
+        if !natSwitch.isOn {
             config.append("proxy-etr-ipv4 {\n")
             config.append("        address     = \(petr)\n")
             config.append("        priority    = 1\n")
