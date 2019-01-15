@@ -155,6 +155,8 @@ endif
 
 EXE        	= oor
 PREFIX      = /usr/local/sbin
+SERVICE     = oor.service
+SERVICEPREF	= /etc/systemd/system/
 INCLUDE     = -I. -Iliblisp -Ielibs -Ilib -Icontrol -Idata-tun -Ifwd_balancing -Ifwd_policies/flow_balancing \
 			-Inet_mgr -Inet_mgr/kernel -Inet_mgr/vpp
 
@@ -194,7 +196,12 @@ distclean: clean
 
 install: $(EXE)
 	mkdir -p $(DESTDIR)$(PREFIX) && cp $(EXE) $(DESTDIR)$(PREFIX)
+	cp $(SERVICE) $(SERVICEPREF)
 	setcap cap_net_raw,cap_net_admin+ep $(DESTDIR)$(PREFIX)/$(EXE)
+
+uninstall:
+	rm $(DESTDIR)$(PREFIX)/$(EXE)
+	rm $(SERVICEPREF)$(SERVICE)
 
 tags:
 	cscope -R -b
