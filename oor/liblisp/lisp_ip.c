@@ -326,12 +326,12 @@ ip_prefix_from_char(char *addr, ip_prefix_t *ippref)
 
     if (ip_addr_afi(ip_prefix_addr(ippref)) == AF_INET) {
         if (mask < 0 || mask > 32){
-            OOR_LOG(LDBG_2, "ip_prefix_from_char: Invalid mask : %s",address);
+            OOR_LOG(LDBG_2, "ip_prefix_from_char: Invalid mask : %s",addr);
             return (BAD);
         }
     } else {
         if (mask < 0 || mask > 128){
-            OOR_LOG(LDBG_2, "ip_prefix_from_char: Invalid mask : %s",address);
+            OOR_LOG(LDBG_2, "ip_prefix_from_char: Invalid mask : %s",addr);
             return (BAD);
         }
     }

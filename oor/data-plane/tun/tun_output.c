@@ -200,9 +200,19 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             switch (lisp_addr_ip_afi(fi->associated_entry)){
             case AF_INET:
                 pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+                if (unlikely(!pxtr_fwd_tuple_list)){
+                    // The entries that are in the pxtr list has also an specific entry. For this reason the list is not managed
+                    pxtr_fwd_tuple_list = glist_new();
+                    shash_insert(dp_data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), pxtr_fwd_tuple_list);
+                }
                 break;
             case AF_INET6:
                 pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+                if (unlikely(!pxtr_fwd_tuple_list)){
+                    // The entries that are in the pxtr list has also an specific entry. For this reason the list is not managed
+                    pxtr_fwd_tuple_list = glist_new();
+                    shash_insert(dp_data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), pxtr_fwd_tuple_list);
+                }
                 break;
             default:
                 OOR_LOG(LDBG_3, "tun_output_unicast: Forwarding to PeTR is only for IP EIDs. It should never reach here");

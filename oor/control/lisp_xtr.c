@@ -1791,7 +1791,7 @@ xtr_update_rtrs_cache_afi(lisp_xtr_t *xtr, int afi)
 
     /* Update forwarding info of rtrs */
     xtr->tr.fwd_policy->updated_map_cache_inf(xtr->tr.fwd_policy_dev_parm,rtrs_mce);
-    notify_datap_rm_fwd_from_entry(&(xtr->super),mcache_entry_eid(rtrs_mce),FALSE);
+    notify_datap_reset_all_fwd(&(xtr->super));
 }
 
 static glist_t *

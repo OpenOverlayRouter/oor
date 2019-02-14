@@ -332,7 +332,6 @@ set_balancing_vector(locator_t **locators, int total_weight, int hcf,
              * for each locator. Simetric balancing */
             used_pos = 1;
         }
-        ctr1 = 0;
         for (ctr1 = 0; ctr1 < used_pos; ctr1++) {
             balancing_locators_vec[pos] = locators[ctr];
             pos++;

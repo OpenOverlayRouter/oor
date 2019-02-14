@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8B72130D21C25D0B00E25E91 /* ios_packetTunnelProvider_api.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B72130C21C25D0B00E25E91 /* ios_packetTunnelProvider_api.c */; };
 		8B7FC5A521A2D4B000678378 /* ddt_map_cache_entry.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5A321A2D4AB00678378 /* ddt_map_cache_entry.c */; };
 		8B7FC5A921A2D4D000678378 /* lisp_mref_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5A621A2D4CB00678378 /* lisp_mref_mapping.c */; };
 		8B7FC5B121A2D4EF00678378 /* lisp_ddt_mr.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5AC21A2D4EA00678378 /* lisp_ddt_mr.c */; };
@@ -141,6 +142,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8B72130B21C25D0B00E25E91 /* ios_packetTunnelProvider_api.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ios_packetTunnelProvider_api.h; sourceTree = "<group>"; };
+		8B72130C21C25D0B00E25E91 /* ios_packetTunnelProvider_api.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ios_packetTunnelProvider_api.c; sourceTree = "<group>"; };
+		8B72130E21C3A1F600E25E91 /* ios_packetTunnelProvider_api_l.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ios_packetTunnelProvider_api_l.h; sourceTree = "<group>"; };
 		8B7FC5A221A2D4AB00678378 /* ddt_map_cache_entry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ddt_map_cache_entry.h; sourceTree = "<group>"; };
 		8B7FC5A321A2D4AB00678378 /* ddt_map_cache_entry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ddt_map_cache_entry.c; sourceTree = "<group>"; };
 		8B7FC5A621A2D4CB00678378 /* lisp_mref_mapping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lisp_mref_mapping.c; sourceTree = "<group>"; };
@@ -789,6 +793,9 @@
 				BB226B961F0697AE0060F531 /* util.c */,
 				BB226B971F0697AE0060F531 /* util.h */,
 				BB226B981F0697AE0060F531 /* vpp_api */,
+				8B72130B21C25D0B00E25E91 /* ios_packetTunnelProvider_api.h */,
+				8B72130C21C25D0B00E25E91 /* ios_packetTunnelProvider_api.c */,
+				8B72130E21C3A1F600E25E91 /* ios_packetTunnelProvider_api_l.h */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -939,11 +946,11 @@
 				BBDC9CA61F9BD0E60083D767 /* Result.swift */,
 				BBDC9CA71F9BD0E60083D767 /* Socket.swift */,
 				BBDC9CA91F9BD0E70083D767 /* SwiftSocket.h */,
-				BBDC9CAA1F9BD0E70083D767 /* UDPClient.swift */,
 				BBDC9CA81F9BD0E70083D767 /* yudpsocket.c */,
 				BBBD95091F9A59940038EE3F /* Reachability.swift */,
 				BB894EFB1F1E63A8009E3F8C /* PacketTunnelProvider.swift */,
 				BB894EFD1F1E63A8009E3F8C /* Info.plist */,
+				BBDC9CAA1F9BD0E70083D767 /* UDPClient.swift */,
 				BB894EF91F1E63A8009E3F8C /* Supporting Files */,
 			);
 			path = oorPacketTunnelProvider;
@@ -1049,6 +1056,7 @@
 					};
 					BB226AE81F06976F0060F531 = {
 						CreatedOnToolsVersion = 8.3.1;
+						DevelopmentTeam = 6EE4W5PN4K;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
@@ -1067,6 +1075,7 @@
 					};
 					BB894EF61F1E63A8009E3F8C = {
 						CreatedOnToolsVersion = 8.3.1;
+						DevelopmentTeam = 6EE4W5PN4K;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
@@ -1219,6 +1228,7 @@
 				BB894F3C1F1E66F9009E3F8C /* lisp_data.c in Sources */,
 				BB894F3D1F1E66F9009E3F8C /* lisp_ip.c in Sources */,
 				BBC899D320A9FD18007EF165 /* fwd_entry_vpp.c in Sources */,
+				8B72130D21C25D0B00E25E91 /* ios_packetTunnelProvider_api.c in Sources */,
 				BB894F3E1F1E66F9009E3F8C /* lisp_lcaf.c in Sources */,
 				BB894F3F1F1E66F9009E3F8C /* lisp_locator.c in Sources */,
 				BB894F401F1E66F9009E3F8C /* lisp_mapping.c in Sources */,
@@ -1413,7 +1423,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 6EE4W5PN4K;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1443,6 +1453,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1450,7 +1461,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OBJC_BRIDGING_HEADER = "oor-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 3.0;
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -1484,7 +1495,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 6EE4W5PN4K;
 				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1507,13 +1518,14 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_OBJC_BRIDGING_HEADER = "oor-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
-				SWIFT_VERSION = 3.0;
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
@@ -1547,7 +1559,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 6EE4W5PN4K;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1576,6 +1588,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1584,7 +1597,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OBJC_BRIDGING_HEADER = "oor-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 3.0;
+				SWIFT_VERSION = 4.2;
 			};
 			name = Debug;
 		};
@@ -1616,7 +1629,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 6EE4W5PN4K;
 				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1638,6 +1651,7 @@
 					"$(PROJECT_DIR)/oor/Apple/Frameworks",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1645,7 +1659,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "oor-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
-				SWIFT_VERSION = 3.0;
+				SWIFT_VERSION = 4.2;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;

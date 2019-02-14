@@ -17,16 +17,24 @@
  *
  */
 
-#ifndef IOS_OUTPUT_H_
-#define IOS_OUTPUT_H_
+#ifndef ios_packetTunnelProvider_api_h
+#define ios_packetTunnelProvider_api_h
 
-#include "../../../lib/sockets.h"
+typedef struct iOS_CLibCallbacks iOS_CLibCallbacks;
 
-#define IOS_RECEIVE_SIZE        2048 // Should probably tune to match largest MTU
+struct  iOS_CLibCallbacks	{
+    const void * _Nonnull packetTunnelProviderPtr;
+    void (* _Nonnull ptp_write_to_tun)(char * _Nonnull buffer,  int length, int afi, void * _Nonnull ptp);
+};
 
-int ios_output(lbuf_t *b, packet_tuple_t *tpl);
-int ios_output_recv(struct sock *sl);
-int ios_output_recv2(struct sock *sl);
-int ios_send_ctrl_msg(lbuf_t *buf, uconn_t *udp_conn);
+extern void iOS_init_out_packet_buffer();
+extern void iOS_init_semaphore();
+extern void iOS_end_semaphore();
 
-#endif /* ios_OUTPUT_H_ */
+extern void iOS_CLibCallbacks_setup(const iOS_CLibCallbacks * _Nonnull callbacks);
+
+
+extern void oor_ptp_read_from_tun (const void * _Nonnull buffer, int length);
+
+
+#endif /* ios_packetTunnelProvider_api_h */

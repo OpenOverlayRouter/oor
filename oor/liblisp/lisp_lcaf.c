@@ -657,8 +657,7 @@ int
 mc_type_parse(uint8_t *offset, void **mc)
 {
     int srclen, grplen;
-    srclen = grplen =0;
-
+    
     *mc = mc_type_new();
     mc_type_set_iid(*mc, ntohl(((lcaf_mcinfo_hdr_t *)offset)->iid));
     mc_type_set_src_plen(*mc, ((lcaf_mcinfo_hdr_t *)offset)->src_mlen);

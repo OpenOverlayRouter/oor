@@ -267,6 +267,53 @@ glist_extract(glist_entry_t *entry, glist_t *list)
 }
 
 /**
+ * glist_extract_first - remove first element of the list and return its object
+ * @list: list from which the entry is to be removed
+ * @return: The pointer of the object stored in the first position of the list
+ */
+void *
+glist_extract_fisrt(glist_t *lst)
+{
+    glist_entry_t *first_el;
+    void * value;
+    if (lst->size == 0){
+        return (NULL);
+    }
+    first_el = glist_next(&lst->head);
+    value = glist_entry_data(first_el);
+    list_remove(&(first_el->list));
+    
+    free(first_el);
+    lst->size--;
+    
+    return (value);
+}
+
+/**
+ * glist_extract_last - remove last element of the list and return its object
+ * @list: list from which the entry is to be removed
+ * @return: The pointer of the object stored in the last position of the list
+ */
+void *
+glist_extract_last(glist_t *lst)
+{
+    glist_entry_t *last_el;
+    void * value;
+    if (lst->size == 0){
+        return (NULL);
+    }
+    last_el = glist_prev(&lst->head);
+    value = glist_entry_data(last_el);
+    list_remove(&(last_el->list));
+    
+    free(last_el);
+    lst->size--;
+    
+    return (value);
+}
+
+
+/**
  * glist_remove - remove entry from list
  * @entry: entry to be removed
  * @list: list from which the entry is to be removed

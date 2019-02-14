@@ -29,6 +29,7 @@
 #include "../../../lib/packets.h"
 #include "../../../lib/mem_util.h"
 #include "../../../liblisp/liblisp.h"
+#include "../../../lib/ios_packetTunnelProvider_api_l.h"
 #include "../../../lib/oor_log.h"
 
 /* static buffer to receive packets */
@@ -94,21 +95,15 @@ int
 ios_process_input_packet(sock_t *sl)
 {
     uint32_t iid;
-    ios_data_t *data;
+    int afi;
     
-    data = (ios_data_t *)dplane_apple.datap_data;
     lbuf_use_stack(&pkt_buf, &pkt_recv_buf, MAX_IP_PKT_LEN);
     
     if (ios_read_and_decap_pkt(sl->fd, &pkt_buf, &iid) != GOOD) {
         return (BAD);
     }
-        
-    char *localhostIp = "127.0.0.1";
-    lisp_addr_t *tunnelProviderAddress = NULL;
-    tunnelProviderAddress = lisp_addr_new();
-    lisp_addr_ip_from_char(localhostIp, tunnelProviderAddress);
-
-    send_datagram_packet(data->tun_socket, lbuf_l3(&pkt_buf), lbuf_size(&pkt_buf), tunnelProviderAddress, 10001);
+    afi = pkt_afi(lbuf_l3(&pkt_buf));
+    oor_ptp_write_to_tun((char *)lbuf_l3(&pkt_buf), lbuf_size(&pkt_buf), afi);
     
     return (GOOD);
 }

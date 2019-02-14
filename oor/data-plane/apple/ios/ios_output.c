@@ -23,13 +23,15 @@
 #include "../../data-plane.h"
 #include "../../ttable.h"
 #include "../../encapsulations/vxlan-gpe.h"
+#include "../../../control/oor_control.h"
 #include "../../../fwd_policies/fwd_policy.h"
 #include "../../../fwd_policies/flow_balancing/fwd_entry_tuple.h"
 #include "../../../liblisp/liblisp.h"
+#include "../../../lib/generic_list.h"
+#include "../../../lib/ios_packetTunnelProvider_api_l.h"
+#include "../../../lib/oor_log.h"
 #include "../../../lib/packets.h"
 #include "../../../lib/sockets.h"
-#include "../../../control/oor_control.h"
-#include "../../../lib/oor_log.h"
 #include "../../../lib/sockets-util.h"
 
 
@@ -104,9 +106,19 @@ ios_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             switch (lisp_addr_ip_afi(fi->associated_entry)){
                 case AF_INET:
                     pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+                    if (unlikely(!pxtr_fwd_tuple_list)){
+                        // The entries that are in the pxtr list has also an specific entry. For this reason the list is not managed
+                        pxtr_fwd_tuple_list = glist_new();
+                        shash_insert(dp_data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), pxtr_fwd_tuple_list);
+                    }
                     break;
                 case AF_INET6:
                     pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+                    if (unlikely(!pxtr_fwd_tuple_list)){
+                        // The entries that are in the pxtr list has also an specific entry. For this reason the list is not managed
+                        pxtr_fwd_tuple_list = glist_new();
+                        shash_insert(dp_data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), pxtr_fwd_tuple_list);
+                    }
                     break;
                 default:
                     OOR_LOG(LDBG_3, "ios_output_unicast: Forwarding to PeTR is only for IP EIDs. It should never reach here");
@@ -191,6 +203,47 @@ ios_output_recv(struct sock *sl)
      * in the forwarding entry, which is obtained on a ttable miss.*/
     tpl.iid = 0;
     ios_output(&pkt_buf, &tpl);
+    return (GOOD);
+}
+
+int
+ios_output_recv2(struct sock *sl)
+{
+    packet_tuple_t tpl;
+    glist_t * pkts_lst;
+    lbuf_t *b;
+    char buf[1024];
+    struct sockaddr_in si_other;
+    socklen_t slen = sizeof(si_other);
+    ssize_t recv_len;
+    
+    if ((recv_len = recvfrom(sl->fd, buf, sizeof(buf), 0, (struct sockaddr *) &si_other, &slen)) == -1)
+    {
+        OOR_LOG(LINF, "recvfrom()");
+    }
+    
+    pkts_lst = oor_ptp_get_packets_to_process();
+    if (!pkts_lst){
+        return (GOOD);
+    }
+    
+    while ((b = (lbuf_t *)glist_extract_last(pkts_lst)) != NULL){
+        lbuf_reset_ip(b);
+        if (pkt_parse_5_tuple(b, &tpl) != GOOD) {
+            lbuf_del(b);
+            return (BAD);
+        }
+        /* XXX Since OOR doesn't support same local prefixes with different IIDs when
+         * operating as a XTR or MN, we use IID = 0 to calculate the hash of the ttable.
+         * The actual IID to be used on the encapsulation processed is already stored
+         * in the forwarding entry, which is obtained on a ttable miss.*/
+        tpl.iid = 0;
+        //OOR_LOG(LWRN, "OUTPUT: -->  %s",pkt_tuple_to_char(&tpl));
+        ios_output(b, &tpl);
+        lbuf_del(b);
+    }
+    glist_destroy(pkts_lst);
+
     return (GOOD);
 }
 

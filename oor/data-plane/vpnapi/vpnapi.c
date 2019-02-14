@@ -364,6 +364,9 @@ vpnapi_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local)
     if (strcmp(eid_prefix_char,FULL_IPv4_ADDRESS_SPACE) == 0){ // Update of the PeTR list for IPv4 EIDs or RTR list
         OOR_LOG(LDBG_3, "vpnapi_rm_fwd_from_entry: Removing all the forwarding entries association with the PeTRs for IPv4 EIDs");
         pxtr_fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+        if (!pxtr_fwd_tpl_list){
+            return (GOOD);
+        }
         /* Remove all the entries associated with the PxTR */
 
         while (glist_size(pxtr_fwd_tpl_list) > 0){
@@ -376,6 +379,9 @@ vpnapi_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local)
     }else if(strcmp(eid_prefix_char,FULL_IPv6_ADDRESS_SPACE) == 0){ // Update of the PeTR list for IPv6 EIDs or RTR list
         OOR_LOG(LDBG_3, "vpnapi_rm_fwd_from_entry: Removing all the forwarding entries association with the PeTRs for IPv6 EIDs");
         pxtr_fwd_tpl_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+        if (!pxtr_fwd_tpl_list){
+            return (GOOD);
+        }
         /* Remove all the entries associated with the PxTR */
 
         while (glist_size(pxtr_fwd_tpl_list) > 0){
@@ -430,9 +436,6 @@ vpnapi_reset_all_fwd()
 
     shash_destroy(data->eid_to_dp_entries);
     data->eid_to_dp_entries = shash_new_managed((free_value_fn_t)glist_destroy);
-    /* Insert entry for PeTRs */
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), glist_new());
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), glist_new());
     return (GOOD);
 }
 
@@ -450,9 +453,6 @@ vpnapi_data_new_init(oor_encap_t encap_type, int tun_socket,
     data->ipv4_data_socket = ipv4_data_socket;
     data->ipv6_data_socket = ipv6_data_socket;
     data->eid_to_dp_entries = shash_new_managed((free_value_fn_t)glist_destroy);
-    /* Insert entry for PeTRs */
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), glist_new());
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), glist_new());
 
     ttable_init(&(data->ttable));
     return (data);

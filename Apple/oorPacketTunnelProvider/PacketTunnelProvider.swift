@@ -1,26 +1,34 @@
-//
-//  PacketTunnelProvider.swift
-//  PacketTunnelProvider
-//
-//  Created by Oriol Marí Marqués on 17/11/2016.
-//  Copyright © 2016 Oriol Marí Marqués. All rights reserved.
-//
+/*
+ *
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
 
 import NetworkExtension
 import Foundation
 
-class PacketTunnelProvider: NEPacketTunnelProvider {
+class PacketTunnelProvider: NEPacketTunnelProvider{
     
     let defaults = UserDefaults(suiteName: "group.oor")
     
     // The completion handler to call when the tunnel is fully established.
     var completionHandler: ((Error?) -> Void)?
     
-    // Socket to handle outgoing packets from OOR, get packets from oor
-    open var oorOut: NWUDPSession?
-    
-    //Socket to handle interface change
-    open var oorNetm: NWUDPSession?
+    // Socket to notify OOR that have packet to encapsulate
+    let oor_notify = UDPClient(address: "127.0.0.1", port: 10001)
     
     //Fake VPN server IP address
     var tunSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "0.0.0.0")
@@ -30,22 +38,37 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     open var newReachabilityStatus: Int?
     var reachability: Reachability?
     
+    var oor_callbacks:iOS_CLibCallbacks?
+    
     // Start fake tunnel connection
     override func startTunnel(options: [String : NSObject]? = nil, completionHandler: @escaping (Error?) -> Void) {
         self.completionHandler = completionHandler
-
+        // Struct defined in C with the call back functions implemented in swift
+        oor_callbacks = iOS_CLibCallbacks(
+            packetTunnelProviderPtr:UnsafeRawPointer(Unmanaged.passUnretained(self.packetFlow).toOpaque()),
+            ptp_write_to_tun: {(buffer, length, afi, ptp_ptr) in
+                autoreleasepool {
+                    unowned let myself = Unmanaged<NEPacketTunnelFlow>.fromOpaque(ptp_ptr).takeUnretainedValue()
+                    let packets = [Data(bytes: buffer, count: Int(length))]
+                    let protos: [NSNumber] = [afi as NSNumber]
+                    // Here is where the retension is produced
+                    myself.writePackets(packets,withProtocols: protos)
+                }
+        }
+        )
+        NSLog("===============================================================0");
         //TUN IP address
         let eid = defaults?.string(forKey: "eid")
         if validateIPv4(ip: eid!) {
-            tunSettings.iPv4Settings = NEIPv4Settings(addresses: [eid!], subnetMasks: ["255.255.255.255"])
+            tunSettings.ipv4Settings = NEIPv4Settings(addresses: [eid!], subnetMasks: ["255.255.255.255"])
             // Networks to be routed through TUN
-            tunSettings.iPv4Settings?.includedRoutes = [NEIPv4Route.default()]
+            tunSettings.ipv4Settings?.includedRoutes = [NEIPv4Route.default()]
         } else if validateIPv6(ip: eid!) {
-            tunSettings.iPv6Settings = NEIPv6Settings(addresses: [eid!], networkPrefixLengths: [128])
+            tunSettings.ipv6Settings = NEIPv6Settings(addresses: [eid!], networkPrefixLengths: [128 as NSNumber])
             // Networks to be routed through TUN, it appears that there is some bug with defualt IPv6 route ::/0, so we define 2 routes with 2 big networks.
             let route1 = NEIPv6Route(destinationAddress: "::", networkPrefixLength: 1)
             let route2 = NEIPv6Route(destinationAddress: "8000::", networkPrefixLength: 1)
-            tunSettings.iPv6Settings?.includedRoutes = [route1, route2]
+            tunSettings.ipv6Settings?.includedRoutes = [route1, route2]
         }
 
         tunSettings.mtu = 1440
@@ -65,48 +88,41 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         // Start OOR
         let myThread = Thread(target: self, selector: #selector(self.startOOR), object: nil)
         myThread.start()
+    }
+    
+    @objc func startOOR() {
+        let fileManager = FileManager.default
+
+        let logFileSharedURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.oor")?.appendingPathComponent("oor.log")
         
+        
+        if 	let logFileSharedURLpath = logFileSharedURL?.path {
+            setLogPath((logFileSharedURLpath as NSString).utf8String)
+        }
+        let configFileSharedURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.oor")?.appendingPathComponent("oor.conf")
+        
+        if let configFileSharedPath = configFileSharedURL?.path {
+            setConfPath((configFileSharedPath as NSString).utf8String)
+        }
+        
+        oor_start()
+        iOS_init_out_packet_buffer()
+        iOS_init_semaphore()
+        iOS_CLibCallbacks_setup(&oor_callbacks!)
         //Start monitoring network changes
         reach()
         
         // Start handling outgoing packets coming from the TUN
         startHandlingPackets()
         
-    }
-    
-    func startOOR() {
-        let fileManager = FileManager.default
-
-        let logFileSharedURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.oor")?.appendingPathComponent("oor.log")
-        
-        setLogPath((logFileSharedURL?.path as! NSString).utf8String)
-        
-        let configFileSharedURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.oor")?.appendingPathComponent("oor.conf")
-        
-        setConfPath((configFileSharedURL?.path as! NSString).utf8String)
-        
-        oor_start()
-        
-        var endpoint: NWEndpoint
-        let packetTunnelProviderAddress = NWHostEndpoint(hostname: "127.0.0.1", port: "10001")
-        
-        // Connect to OOR Data output Socket
-        endpoint = NWHostEndpoint(hostname: "127.0.0.1", port: "10000")
-        oorOut = self.createUDPSession(to: endpoint, from: packetTunnelProviderAddress)
-        // Start listeing incoming packets coming from OOR
-        oorOut?.setReadHandler({dataArray, error in
-            if error != nil {
-                NSLog("PacketTunnelProvider.startOOR.oorOut.setReadhandler ERROR \(String(describing: error))")
-            }
-            self.newOORInPackets(packets: dataArray!)
-        }, maxDatagrams: 1)
+        // Start main loop
         oor_loop()
     }
     
     /// Start handling outgoing packets coming from the TUN
     func startHandlingPackets() {
         // Read outgoing packets coming from the TUN
-        packetFlow.readPackets { inPackets, inProtocols in
+        self.packetFlow.readPackets { inPackets, inProtocols in
             self.handlePackets(inPackets, protocols: inProtocols)
         }
     }
@@ -114,11 +130,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     /// Handle outgoing packets coming from the TUN.
     func handlePackets(_ packets: [Data], protocols: [NSNumber]) {
         for packet in packets {
-            oorOut?.writeDatagram(packet) { error in
-                if error != nil {
-                    NSLog("handlePackets: oorOut.writeDatagram error: \(String(describing: error))")
-                }
-            }
+            let nsData = packet as NSData
+            let rawPtr = nsData.bytes
+            oor_ptp_read_from_tun(rawPtr,Int32(nsData.length))
+            oor_notify.send(string: "1")
         }
         // Read more outgoing packets coming from the TUN
         self.packetFlow.readPackets { inPackets, inProtocols in
@@ -131,8 +146,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         var protocolArray = [NSNumber]()
         for _ in packets { protocolArray.append(0x02) }
         // Write incoming packets coming from OOR to TUN
-        packetFlow.writePackets(packets, withProtocols: protocolArray)
+        self.packetFlow.writePackets(packets, withProtocols: protocolArray)
     }
+    
     
     // Start monitoring network changes
     func reach() {
@@ -211,6 +227,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
         // Add code here to start the process of stopping the tunnel.
         oor_stop()
+        iOS_end_semaphore()
         completionHandler()
     }
      

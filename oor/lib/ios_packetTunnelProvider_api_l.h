@@ -17,16 +17,12 @@
  *
  */
 
-#ifndef IOS_OUTPUT_H_
-#define IOS_OUTPUT_H_
+#ifndef ios_packetTunnelProvider_api_l_h
+#define ios_packetTunnelProvider_api_l_h
 
-#include "../../../lib/sockets.h"
+#include "generic_list.h"
 
-#define IOS_RECEIVE_SIZE        2048 // Should probably tune to match largest MTU
+void oor_ptp_write_to_tun (const char * buffer,int length, int afi);
+glist_t * oor_ptp_get_packets_to_process();
 
-int ios_output(lbuf_t *b, packet_tuple_t *tpl);
-int ios_output_recv(struct sock *sl);
-int ios_output_recv2(struct sock *sl);
-int ios_send_ctrl_msg(lbuf_t *buf, uconn_t *udp_conn);
-
-#endif /* ios_OUTPUT_H_ */
+#endif /* ios_packetTunnelProvider_api_l_h */

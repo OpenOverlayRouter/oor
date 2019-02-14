@@ -383,6 +383,22 @@ pkt_parse_inner_5_tuple(lbuf_t *b, packet_tuple_t *tuple)
     return (GOOD);
 }
 
+/* Return afi of the packet */
+uint32_t
+pkt_afi(void * packet)
+{
+    struct iphdr *iph = packet;
+    switch (iph->version) {
+        case 4:
+            return (AF_INET);
+        case 6:
+            return (AF_INET6);
+        default:
+            OOR_LOG(LDBG_2, "pkt_afi: Not an IP packet!");
+            return (BAD);
+    }
+}
+
 /* Calculate the hash of the 5 tuples of a packet */
 uint32_t
 pkt_tuple_hash(packet_tuple_t *tuple)

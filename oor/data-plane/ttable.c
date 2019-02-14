@@ -134,4 +134,3 @@ ttable_lookup(ttable_t *tt, packet_tuple_t *tpl)
 
     return (fi);
 }
-

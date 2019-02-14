@@ -274,10 +274,20 @@ associate_fwd_info_with_petrs(fwd_info_t *fi, vpp_dplane_data_t *dp_data)
 
     switch (lisp_addr_ip_afi(fi->associated_entry)){
     case AF_INET:
-        pxtr_fwd_info_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+        pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+        if (unlikely(!pxtr_fwd_tuple_list)){
+            // The entries that are in the pxtr list has also an specific entry. For this reason the list is not managed
+            pxtr_fwd_tuple_list = glist_new();
+            shash_insert(dp_data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), pxtr_fwd_tuple_list);
+        }
         break;
     case AF_INET6:
-        pxtr_fwd_info_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+        pxtr_fwd_tuple_list = (glist_t *)shash_lookup(dp_data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+        if (unlikely(!pxtr_fwd_tuple_list)){
+            // The entries that are in the pxtr list has also an specific entry. For this reason the list is not managed
+            pxtr_fwd_tuple_list = glist_new();
+            shash_insert(dp_data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), pxtr_fwd_tuple_list);
+        }
         break;
     default:
         OOR_LOG(LDBG_3, "vpp_output_recv: Forwarding to PeTR is only for IP EIDs. It should never reach here");
@@ -437,6 +447,9 @@ vpp_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t local)
 
     if (strcmp(eid_prefix_char,FULL_IPv4_ADDRESS_SPACE) == 0){ // Update of the PeTR list for IPv4 EIDs or RTR list
         pxtr_fwd_info_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv4_ADDRESS_SPACE);
+        if (!pxtr_fwd_tpl_list){
+            return (GOOD);
+        }
         // Remove all the entries associated with the PxTR
         while (glist_size(pxtr_fwd_info_list) > 0){
             fi = (fwd_info_t *)glist_first_data(pxtr_fwd_info_list);
@@ -446,6 +459,9 @@ vpp_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t local)
         }
     }else if (strcmp(eid_prefix_char,FULL_IPv6_ADDRESS_SPACE) == 0){ // Update of the PeTR list for IPv6 EIDs or RTR list
         pxtr_fwd_info_list = (glist_t *)shash_lookup(data->eid_to_dp_entries,FULL_IPv6_ADDRESS_SPACE);
+        if (!pxtr_fwd_tpl_list){
+            return (GOOD);
+        }
         // Remove all the entries associated with the PxTR
         while (glist_size(pxtr_fwd_info_list) > 0){
             fi = (fwd_info_t *)glist_first_data(pxtr_fwd_info_list);
@@ -500,9 +516,6 @@ vpp_reset_all_fwd()
     vpp_dplane_data_t *data = (vpp_dplane_data_t *)dplane_vpp.datap_data;
     shash_destroy(data->eid_to_dp_entries);
     data->eid_to_dp_entries = shash_new_managed((free_value_fn_t)glist_destroy);
-    /* Insert entry for PeTRs */
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), glist_new());
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), glist_new());
     return (GOOD);
 }
 
@@ -512,9 +525,6 @@ vpp_dplane_data_new()
     vpp_dplane_data_t * data;
     data = xmalloc(sizeof(vpp_dplane_data_t));
     data->eid_to_dp_entries = shash_new_managed((free_value_fn_t)glist_destroy);
-    /* Insert entry for PeTRs */
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv4_ADDRESS_SPACE), glist_new());
-    shash_insert(data->eid_to_dp_entries, strdup(FULL_IPv6_ADDRESS_SPACE), glist_new());
     data->iid_lst = shash_new_managed((free_value_fn_t)glist_destroy);
     return (data);
 }
