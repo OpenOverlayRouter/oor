@@ -115,10 +115,6 @@ handle_config_file()
     char *uci_op_mode, *mode;
     int res = BAD;
 
-    if (config_file == NULL){
-        config_file = strdup("/etc/config/oor");
-    }
-
     ctx = uci_alloc_context();
 
     if (ctx == NULL) {

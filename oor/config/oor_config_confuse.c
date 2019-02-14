@@ -1252,10 +1252,6 @@ handle_config_file()
             CFG_END()
     };
 
-    if (config_file == NULL){
-        config_file = strdup("/etc/oor.conf");
-    }
-
     /*
      *  parse config_file
      */

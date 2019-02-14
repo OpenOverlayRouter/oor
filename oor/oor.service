@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenOverlayRouter service
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=forking
+ExecStart=+/usr/local/sbin/oor -D
+
+[Install]
+WantedBy=multi-user.target
+

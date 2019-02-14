@@ -1,7 +1,9 @@
 DIRS = oor
 BUILDDIRS = $(DIRS:%=build-%)
 INSTALLDIRS = $(DIRS:%=install-%)
+UNINSTALLDIRS = $(DIRS:%=uninstall-%)
 CLEANDIRS = $(DIRS:%=clean-%) android
+
 
 all: $(BUILDDIRS)
 $(DIRS): $(BUILDDIRS)
@@ -11,6 +13,10 @@ $(BUILDDIRS):
 install: $(INSTALLDIRS) all
 $(INSTALLDIRS):
 	$(MAKE) -C $(@:install-%=%) install
+
+uninstall: $(UNINSTALLDIRS)
+$(UNINSTALLDIRS):
+	$(MAKE) -C $(@:uninstall-%=%) uninstall	
 
 clean: $(CLEANDIRS)
 $(CLEANDIRS):

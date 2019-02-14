@@ -237,16 +237,17 @@ handle_oor_command_line(int argc, char **argv)
     
     if (args_info.config_file_given) {
         config_file = strdup(args_info.config_file_arg);
+    }else{
+#ifdef OPENWRT
+        config_file = strdup("/etc/config/oor");
+#else
+        config_file = strdup("/etc/oor.conf");
+#endif
     }
     
     if (args_info.daemonize_given) {
-        if (config_file){
-            if (config_file[0] != '/'){
-                OOR_LOG(LCRIT, "Couldn't find config file %s. If you are useing OOR in daemon mode, please indicate a full path file.", config_file);
-            }
-            if (access( config_file, F_OK ) == -1 ) {
-                OOR_LOG(LCRIT, "Couldn't find config file %s.", config_file);
-            }
+        if (config_file[0] != '/'){
+            OOR_LOG(LCRIT, "Couldn't find config file %s. If you are useing OOR in daemon mode, please indicate a full path file.", config_file);
         }
         daemonize = TRUE;
     }
@@ -398,9 +399,15 @@ main(int argc, char **argv)
     if (initial_setup() != GOOD){
         exit(EXIT_SUCCESS);
     }
-    
+
     handle_oor_command_line(argc, argv);
     
+    /* Check config file exists */
+    if (access( config_file, F_OK ) == -1 ) {
+        OOR_LOG(LCRIT, "Couldn't find config file %s.", config_file);
+        exit(EXIT_SUCCESS);
+    }
+
     /* see if we need to daemonize, and if so, do it */
     demonize_start();
     
