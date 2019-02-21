@@ -469,7 +469,7 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
     void *hdr = NULL, *mntf_hdr = NULL, *enc_mntf_hdr, *mreg_auth_hdr, *mnot_auth_hdr, *rtr_auth_hdr;
     int i = 0;
     mapping_t *m = NULL;
-    locator_t *probed = NULL;
+    locator_t *probed = NULL, *loct;
     lisp_key_type_e keyid = HMAC_SHA_1_96; /* TODO configurable */
     int valid_records = FALSE;
     ms_rtr_node_t *rtr = NULL;
@@ -499,6 +499,12 @@ ms_recv_map_register(lisp_ms_t *ms, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc,
         if (lisp_msg_parse_mapping_record(&b, m, &probed) != GOOD) {
             goto err;
         }
+        /* Change all locators to not local and UP*/
+        mapping_foreach_locator(m, loct){
+            locator_set_L_bit(loct, 0);
+            locator_set_state(loct, UP);
+        }mapping_foreach_locator_end;
+
 
         if (mapping_auth(m) == 0){
             OOR_LOG(LWRN,"ms_recv_map_register: Received a none authoritative record in a Map Register: %s",
