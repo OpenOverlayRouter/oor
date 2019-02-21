@@ -48,6 +48,7 @@ typedef struct conf_loc_ {
     int weight;
     int mpriority;
     int mweight;
+    uint8_t local;
 }conf_loc_t;
 
 typedef struct conf_loc_iface_ {
@@ -81,7 +82,7 @@ gconf_loc_t *gconf_loc_new_init(conf_loct_type_e type, void *loct);
 void gconf_loc_destroy(gconf_loc_t *gconf_loc);
 
 conf_loc_t * conf_loc_new_init(char *addr, uint8_t priority,
-        uint8_t weight, uint8_t mpriority, uint8_t mweight);
+        uint8_t weight, uint8_t mpriority, uint8_t mweight, uint8_t local);
 
 conf_loc_t * conf_loc_clone(conf_loc_t *conf_loc);
 

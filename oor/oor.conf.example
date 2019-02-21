@@ -352,6 +352,8 @@ proxy-etr-ipv6 {
 #        be assigned to an UP interface during startup process otherwise
 #        it is discarded.
 #       - ELP name
+#     local [true|false]: Indicates if the locator is local to the xTR. 
+#       by default is true
 #   rloc-iface: Specifies the interface associated with the RLOC
 #     interface: interface containing the RLOCs associated to this mapping 
 #     ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6 
@@ -371,6 +373,7 @@ database-mapping {
         address         = <ip-address>
         priority        = <int>
         weight          = <int>
+        local           = <bool>
     }
     rloc-iface{
         interface       = <string>

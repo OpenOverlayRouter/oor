@@ -292,7 +292,7 @@ lxml_get_conf_mapping (xmlNodePtr xml_local_eid, shash_t * lcaf_ht)
                 conf_mapping_destroy(conf_mapping);
                 return NULL;
             }
-            conf_loct = conf_loc_new_init(rloc,prty,wght,mprty,mwght);
+            conf_loct = conf_loc_new_init(rloc,prty,wght,mprty,mwght, TRUE);
             free(rloc);
             if (conf_loct == NULL){
                 conf_mapping_destroy(conf_mapping);

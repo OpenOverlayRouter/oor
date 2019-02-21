@@ -226,7 +226,8 @@ parse_mapping_cfg_params(cfg_t *map, conf_mapping_t *conf_mapping, uint8_t is_lo
                 cfg_getstr(rl, "address"),
                 cfg_getint(rl, "priority"),
                 cfg_getint(rl, "weight"),
-                255,0);
+                255,0,
+                cfg_getbool(rl, "local") ? TRUE : FALSE);
         glist_add_tail(conf_loc,conf_mapping->conf_loc_list);
     }
 
@@ -1068,6 +1069,7 @@ handle_config_file()
             CFG_STR("address",       0, CFGF_NONE),
             CFG_INT("priority",      1, CFGF_NONE),
             CFG_INT("weight",        100, CFGF_NONE),
+            CFG_BOOL("local", cfg_true, CFGF_NONE),
             CFG_END()
     };
 

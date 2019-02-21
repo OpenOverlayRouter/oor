@@ -336,11 +336,14 @@ config 'rloc-set'
 #     policy announcements and outgoing traffic policy management.
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.
+#   local [true|false]: Indicates if the locator is local to the xTR. 
+#     by default is true
 config 'rloc-address'
         option   'name'                 '<string>'
         option   'address'              '<ip-address>'
         option   'priority'             '<int>'
         option   'weight'               '<int>'
+        option   'local'                '<bool>'
 
 # RLOC defined with a network interface
 #   name: Name of the rloc to be used in rloc-set

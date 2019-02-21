@@ -1594,6 +1594,10 @@ xtr_program_initial_info_request_process(lisp_xtr_t *xtr)
         /* Cancel timers associated to the info request process of the local map entry */
         stop_timers_of_type_from_obj(mle,INFO_REQUEST_TIMER,ptrs_to_timers_ht, nonces_ht);
         mapping_foreach_active_locator(map,loct){
+            // Only send info request for local locators
+            if (!locator_L_bit(loct)){
+                continue;
+            }
             glist_for_each_entry(ms_it,xtr->map_servers){
                 ms = (map_server_elt *)glist_entry_data(ms_it);
                 timer_arg = timer_inf_req_argument_new_init(mle,loct,ms);

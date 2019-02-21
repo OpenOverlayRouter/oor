@@ -1731,9 +1731,11 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck)
     char *uci_rloc_name;
     char *uci_address;
     char *uci_iface_name;
+    char *boolean_char;
     int uci_afi;
     int uci_priority;
     int uci_weight;
+    uint8_t uci_local;
 
     conf_loct_tbl = shash_new_managed((free_value_fn_t)gconf_loc_destroy);
 
@@ -1763,7 +1765,19 @@ parse_rlocs(struct uci_context *ctx, struct uci_package *pck)
                 OOR_LOG(LDBG_1,"Configuration file: The RLOC %s is duplicated.", uci_rloc_name);
                 goto err;
             }
-            conf_loc_addr = conf_loc_new_init(uci_address, uci_priority, uci_weight, 255, 0);
+
+            boolean_char = (char *)uci_lookup_option_string(ctx, section, "local");
+            if (boolean_char){
+                uci_local = str_to_boolean(boolean_char);
+                if(uci_local == UNKNOWN){
+                    OOR_LOG(LERR,"Configuration file: unknown value \"%s\" in local",boolean_char);
+                    return (BAD);
+                }
+            }else{
+                uci_local = TRUE;
+            }
+
+            conf_loc_addr = conf_loc_new_init(uci_address, uci_priority, uci_weight, 255, 0, uci_local);
             if (!conf_loc_addr){
                 goto err;
             }

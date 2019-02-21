@@ -386,9 +386,9 @@ fb_get_fwd_entry_rtr_nat(fb_dev_parm *dev_parm,  map_local_entry_t *mle, mcache_
     dst_loct = dst_loc_vec[pos];
     rloc_nat_data = htable_ptrs_lookup(mc_nat_data->loc_to_nat_data,dst_loct);
     if (!rloc_nat_data){
-        glist_dump(htable_ptrs_values(mc_nat_data->loc_to_nat_data), (glist_to_char_fct)rtr_ms_node_to_char,LDBG_1);
         OOR_LOG(LDBG_1, "fb_get_fwd_entry_rtr_nat: Couldn't find nat data information associated with "
-                "the xTR locator %s", lisp_addr_to_char(locator_addr(dst_loct)));
+                "the xTR locator %s. Affected mapping: %s", lisp_addr_to_char(locator_addr(dst_loct)),
+                mapping_to_char(mcache_entry_mapping(mce)));
         res = ERR_NO_ROUTE;
         goto done;
     }

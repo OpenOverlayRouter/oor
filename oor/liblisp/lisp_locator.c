@@ -66,6 +66,7 @@ locator_to_char(locator_t *l)
     *buf[i] = '\0';
     snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]),"%s, ", lisp_addr_to_char(locator_addr(l)));
     snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "%s, ", l->state ? "Up" : "Down");
+    snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "L:%d, R:%d, ", l->L_bit, l->R_bit);
     snprintf(buf[i] + strlen(buf[i]),buf_size - strlen(buf[i]), "%d/%-d, %d/%d", l->priority, l->weight,
             l->mpriority, l->mweight);
     return (buf[i]);

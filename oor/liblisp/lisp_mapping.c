@@ -209,9 +209,8 @@ mapping_add_locator(
 		}
 	}
 	if (result == GOOD) {
-		OOR_LOG(LDBG_2, "mapping_add_locator: Added locator %s to the mapping with"
-				" EID %s.", lisp_addr_to_char(locator_addr(loct)),
-				lisp_addr_to_char(mapping_eid(mapping)));
+		OOR_LOG(LDBG_2, "mapping_add_locator: Added locator [%s] to the mapping with"
+				" EID %s.", locator_to_char(loct), lisp_addr_to_char(mapping_eid(mapping)));
 		if (lisp_addr_is_no_addr(addr) == FALSE){
 		    mapping->locator_count++;
 		}

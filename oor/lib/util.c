@@ -104,7 +104,7 @@ get_char_from_xTR_ID (lisp_xtr_id *xtrid)
     memset (xTR_ID_str,0,33);
 
     for (ctr = 0 ; ctr < 16; ctr++){
-        sprintf(xTR_ID_str, "%s%02x", xTR_ID_str, xtrid->byte[ctr]);
+        sprintf(xTR_ID_str+strlen(xTR_ID_str), "%02x", xtrid->byte[ctr]);
     }
     return (xTR_ID_str);
 }

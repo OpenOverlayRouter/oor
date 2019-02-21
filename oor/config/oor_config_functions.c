@@ -120,7 +120,7 @@ gconf_loc_destroy(gconf_loc_t *gconf_loc)
 
 inline conf_loc_t *
 conf_loc_new_init(char *addr, uint8_t priority, uint8_t weight,
-        uint8_t mpriority, uint8_t mweight)
+        uint8_t mpriority, uint8_t mweight, uint8_t local)
 {
     conf_loc_t * conf_loc;
 
@@ -138,6 +138,7 @@ conf_loc_new_init(char *addr, uint8_t priority, uint8_t weight,
     conf_loc->weight = weight;
     conf_loc->mpriority = mpriority;
     conf_loc->mweight = mweight;
+    conf_loc->local = local;
 
     return (conf_loc);
 }
@@ -147,18 +148,18 @@ conf_loc_clone(conf_loc_t *conf_loc)
 {
     conf_loc_t * new_conf_loc;
     new_conf_loc = conf_loc_new_init(conf_loc->address, conf_loc->priority,
-            conf_loc->weight, conf_loc->mpriority, conf_loc->mweight);
+            conf_loc->weight, conf_loc->mpriority, conf_loc->mweight, conf_loc->local);
     return (new_conf_loc);
 }
 
 char *
 conf_loc_to_char(conf_loc_t * loc)
 {
-    static char buf[100];
+    static char buf[114];
 
     *buf = '\0';
-    snprintf(buf,sizeof(buf),"Locator address: %s, Priority: %d, Weight: %d",
-            loc->address,loc->priority,loc->weight);
+    snprintf(buf,sizeof(buf),"Locator address: %s, Priority: %d, Weight: %d, Local: %s",
+            loc->address,loc->priority,loc->weight, loc->local ? "true" : "false");
     return (buf);
 }
 
@@ -916,10 +917,19 @@ glist_t *fqdn_to_addresses(char *addr_str, const int preferred_afi)
     return (addr_list);
 }
 
+/*
+ * Generates a list of locators (usually only one) using the abstract object conf_locl_t
+ * @param conf_loc conf_loc_t struct containing the information of the locator extracted
+ *      from the configuration file
+ * @param dev oor_ctrl_dev_t of the device creating the locator
+ * @param lcaf_ht shash_t that relates a ELP name with its structure
+ * @param is_local_map uint8_t indicates if the mapping associated with the locator is local
+ *      or remote. It is possible to have a local mapping with remote locators
+ * @return glist_t * with the list of generated locators*/
 
 static glist_t *
 process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
-        shash_t *lcaf_ht, uint8_t is_local)
+        shash_t *lcaf_ht, uint8_t is_local_map)
 {
     glist_t *loct_list;
     locator_t *locator;
@@ -965,7 +975,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
             continue;
         }
 
-        if (is_local){
+        if (is_local_map && conf_loc->local){
             /* Decide IP address to be used to lookup the interface */
             if (lisp_addr_is_lcaf(address) == TRUE) {
                 ip_addr = lisp_addr_get_ip_addr(address);
@@ -1043,7 +1053,7 @@ process_rloc_address(conf_loc_t *conf_loc, oor_ctrl_dev_t *dev,
                 }
             }
         } else {
-            locator = locator_new_init(address, UP, 1, 1, conf_loc->priority, conf_loc->weight, 255, 0);
+            locator = locator_new_init(address, UP, conf_loc->local, 1, conf_loc->priority, conf_loc->weight, 255, 0);
         }
         if (locator != NULL){
             glist_add(locator,loct_list);
