@@ -217,8 +217,6 @@ ms_add_rtr_node(lisp_ms_t *ms, char *name, char *addr_str, char *key);
 
 void tr_set_site_ID(lisp_xtr_t *xtr, uint64_t site_id);
 int tr_set_xTR_ID(lisp_xtr_t *xtr);
-
-
-
+void tr_add_mn_default_routes(lisp_tr_t *tr);
 
 #endif /* OOR_CONFIG_FUNCTIONS_H_ */

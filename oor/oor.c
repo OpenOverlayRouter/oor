@@ -439,7 +439,7 @@ main(int argc, char **argv)
     if (dev_type == xTR_MODE || dev_type == RTR_MODE || dev_type == MN_MODE) {
         OOR_LOG(LDBG_2, "Configuring data plane");
         tunnel_router = lisp_tr_abstract_cast(ctrl_dev);
-        if (data_plane->datap_init(dev_type,tr_encap_type(&tunnel_router->tr))!=GOOD){
+        if (data_plane->datap_init(dev_type,tr_encap_type(&tunnel_router->tr),tr_allowed_dst_eids(&tunnel_router->tr))!=GOOD){
             data_plane = NULL;
             exit_cleanup();
         }

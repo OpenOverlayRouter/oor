@@ -302,6 +302,14 @@ rtr-ms-node {
 
 nat_traversal_support  = <on|off>
 
+# List of allowed destination EID prefixes. If not defined,
+# all traffic will be processed by OOR.
+#
+# allowed-dst-eids = {
+#   <ip-prefix/mask>
+#   ...
+#}
+
 # Map-Registers are sent to this Map-Server
 # You can define several Map-Servers. Map-Register messages will be sent to all
 # of them.
@@ -353,7 +361,8 @@ proxy-etr-ipv6 {
 #        it is discarded.
 #       - ELP name
 #     local [true|false]: Indicates if the locator is local to the xTR. 
-#       by default is true
+#       by default is true. To use remote locators,the proxy-reply field of
+#       the map-server section should be enabled.
 #   rloc-iface: Specifies the interface associated with the RLOC
 #     interface: interface containing the RLOCs associated to this mapping 
 #     ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6 

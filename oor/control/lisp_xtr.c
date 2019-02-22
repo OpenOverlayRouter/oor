@@ -326,6 +326,12 @@ xtr_run(oor_ctrl_dev_t *dev)
     glist_dump(xtr->pitrs, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
     OOR_LOG(LDBG_1, "*******************************************\n");
 
+    if (glist_size(xtr->tr.allowed_dst_eids) != 0){
+        OOR_LOG(LDBG_1, "************* %13s ***************", "Allowed dst. EIDs");
+        glist_dump(xtr->tr.allowed_dst_eids, (glist_to_char_fct)lisp_addr_to_char, LDBG_1);
+        OOR_LOG(LDBG_1, "*******************************************\n");
+    }
+
     local_map_db_foreach_entry(xtr->local_mdb, it) {
         /* Register EID prefix to control */
         map_loc_e = (map_local_entry_t *)it;

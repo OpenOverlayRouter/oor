@@ -370,6 +370,29 @@ parse_proxy_itrs(cfg_t *cfg, lisp_xtr_t *xtr)
 }
 
 int
+parse_allowed_eids(cfg_t *cfg, lisp_tr_t *tr)
+{
+    int n,i;
+    char *dst_eid_str;
+    lisp_addr_t *eid_pref;
+
+    n = cfg_size(cfg, "allowed-dst-eids");
+    for(i = 0; i < n; i++) {
+        if ((dst_eid_str = cfg_getnstr(cfg, "allowed-dst-eids", i)) != NULL) {
+            eid_pref = lisp_addr_new();
+            if (lisp_addr_ippref_from_char(dst_eid_str, eid_pref) != GOOD){
+                lisp_addr_del(eid_pref);
+                OOR_LOG(LERR, "Can't add %s to allowed destination EIDs", dst_eid_str);
+                return (BAD);
+            }
+            glist_add(eid_pref, tr->allowed_dst_eids);
+            OOR_LOG(LDBG_1, "Added %s to allowed destinations", dst_eid_str);
+        }
+    }
+    return (GOOD);
+}
+
+int
 parse_database_mapping(cfg_t *cfg, lisp_xtr_t *xtr, shash_t *lcaf_ht)
 {
     int n,i;
@@ -616,6 +639,9 @@ configure_xtr(cfg_t *cfg)
     if (parse_proxy_itrs(cfg, xtr) != GOOD){
         return (BAD);
     }
+    if (parse_allowed_eids(cfg,&(xtr->tr)) != GOOD){
+        return (BAD);
+    }
     if (parse_database_mapping(cfg, xtr, lcaf_ht) != GOOD){
         return (BAD);
     }
@@ -666,6 +692,15 @@ configure_mn(cfg_t *cfg)
         return (BAD);
     }
     if (parse_proxy_itrs(cfg, xtr) != GOOD){
+        return (BAD);
+    }
+    if (parse_allowed_eids(cfg,&(xtr->tr)) == GOOD){
+        /* If allowed_dst_eids not defined, add default route */
+        /* For mobile node mode, we use two /1 routes covering the full IP addresses space to cover all traffic*/
+        if (glist_size(xtr->tr.allowed_dst_eids) == 0){
+            tr_add_mn_default_routes(&xtr->tr);
+        }
+    }else{
         return (BAD);
     }
     if (parse_database_mapping(cfg, xtr, lcaf_ht) != GOOD){
@@ -1231,6 +1266,7 @@ handle_config_file()
             CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
+            CFG_STR_LIST("allowed-dst-eids",      0, CFGF_NONE),
 #ifdef ANDROID
             CFG_BOOL("override-dns",            cfg_false, CFGF_NONE),
             CFG_STR("override-dns-primary",     0, CFGF_NONE),

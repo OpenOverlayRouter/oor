@@ -237,6 +237,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
     map_local_entry_t *map_loc_e;
     mapping_t *mapping;
     mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
+    lisp_addr_t *eid_pref;
 
 
     /* CREATE AND CONFIGURE XTR */
@@ -274,6 +275,7 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
         goto err;
     }
 
+    /* First of all we need to know if we have NAT support enabled */
     uci_foreach_element(&pck->sections, element) {
         sect = uci_to_section(element);
         /* NAT Traversal options */
@@ -492,6 +494,25 @@ configure_xtr(struct uci_context *ctx, struct uci_package *pck)
             continue;
         }
 
+        /* ALLOWED DESTINATION EIDS */
+        if (strcmp(sect->type, "allowed-dst-eids") == 0){
+            opt = uci_lookup_option(ctx, sect, "eid_prefix");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    uci_address = elem_addr->name;
+                    eid_pref = lisp_addr_new();
+                    if (lisp_addr_ippref_from_char(uci_address, eid_pref) != GOOD){
+                        lisp_addr_del(eid_pref);
+                        OOR_LOG(LERR, "Can't add %s to allowed destination EIDs", uci_address);
+                        return (BAD);
+                    }
+                    glist_add(eid_pref, xtr->tr.allowed_dst_eids);
+                    OOR_LOG(LDBG_1, "Added %s to allowed destinations", uci_address);
+                }
+            }
+            continue;
+        }
+
         if (strcmp(sect->type, "database-mapping") == 0){
             mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,TRUE);
             if (mapping == NULL){
@@ -603,6 +624,7 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
     map_local_entry_t *map_loc_e;
     mapping_t *mapping;
     mcache_entry_t *ipv4_petrs_mc,*ipv6_petrs_mc;
+    lisp_addr_t *eid_pref;
 
 
     /* CREATE AND CONFIGURE XTR */
@@ -857,6 +879,25 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             continue;
         }
 
+        /* ALLOWED DESTINATION EIDS */
+        if (strcmp(sect->type, "allowed-dst-eids") == 0){
+            opt = uci_lookup_option(ctx, sect, "eid_prefix");
+            if (opt != NULL){
+                uci_foreach_element(&(opt->v.list), elem_addr){
+                    uci_address = elem_addr->name;
+                    eid_pref = lisp_addr_new();
+                    if (lisp_addr_ippref_from_char(uci_address, eid_pref) != GOOD){
+                        lisp_addr_del(eid_pref);
+                        OOR_LOG(LERR, "Can't add %s to allowed destination EIDs", uci_address);
+                        return (BAD);
+                    }
+                    glist_add(eid_pref, xtr->tr.allowed_dst_eids);
+                    OOR_LOG(LDBG_1, "Added %s to allowed destinations", uci_address);
+                }
+            }
+            continue;
+        }
+
         if (strcmp(sect->type, "database-mapping") == 0){
             mapping = parse_mapping(ctx,sect,&(xtr->super),rloc_set_ht,lcaf_ht,TRUE);
             if (mapping == NULL){
@@ -911,6 +952,12 @@ configure_mn(struct uci_context *ctx, struct uci_package *pck)
             }
             continue;
         }
+    }
+
+    /* If allowed_dst_eids not defined, add default route */
+    /* For mobile node mode, we use two /1 routes covering the full IP addresses space to cover all traffic*/
+    if (glist_size(xtr->tr.allowed_dst_eids) == 0){
+        tr_add_mn_default_routes(&xtr->tr);
     }
 
     /* Generate xTR identifier */

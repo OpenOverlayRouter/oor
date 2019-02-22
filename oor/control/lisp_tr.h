@@ -52,6 +52,8 @@ typedef struct lisp_tr {
     oor_encap_t encap_type;
     uint16_t encap_port;
 
+    /* Use LISP to reach this destination EID prefixes. If list is empty, default is LISP */
+    glist_t *allowed_dst_eids; // <lisp_addr_t *> prefixes
 } lisp_tr_t;
 
 
@@ -80,6 +82,7 @@ static inline int tr_probe_retries_interval(lisp_tr_t *tr){return (tr->probe_ret
 static inline map_cache_db_t *tr_map_cache_db(lisp_tr_t *tr){return (tr->map_cache);}
 static inline glist_t * tr_map_resolvers(lisp_tr_t *tr){return (tr->map_resolvers);}
 static inline oor_encap_t tr_encap_type(lisp_tr_t *tr){return (tr->encap_type);}
+static inline glist_t * tr_allowed_dst_eids(lisp_tr_t *tr){return (tr->allowed_dst_eids);}
 
 /*****************************************************************************/
 int lisp_tr_init(lisp_tr_t *tr);

@@ -78,6 +78,8 @@ typedef struct tun_dplane_data_{
     shash_t *eid_to_dp_entries; //< char *eid -> glist_t <fwd_info_t *>>
     /* Hash table containg the forward info from a tupla */
     ttable_t ttable;
+    /* List of allowed destination EID prefixes. Empty list is all Internet */
+    glist_t *allowed_eid_prefixes;
 }tun_dplane_data_t;
 
 tun_dplane_data_t * tun_get_datap_data();

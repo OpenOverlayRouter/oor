@@ -1530,3 +1530,25 @@ tr_set_xTR_ID(lisp_xtr_t *xtr)
 
 	return(GOOD);
 }
+
+void
+tr_add_mn_default_routes(lisp_tr_t *tr)
+{
+    lisp_addr_t *eid_pref;
+    glist_t *allowed_eids = tr->allowed_dst_eids;
+
+    eid_pref = lisp_addr_new();
+    lisp_addr_ippref_from_char("0.0.0.0/1",eid_pref);
+    glist_add(eid_pref, allowed_eids);
+    eid_pref = lisp_addr_new();
+    lisp_addr_ippref_from_char("128.0.0.0/1",eid_pref);
+    glist_add(eid_pref, allowed_eids);
+    eid_pref = lisp_addr_new();
+    lisp_addr_ippref_from_char("::/1",eid_pref);
+    glist_add(eid_pref, allowed_eids);
+    eid_pref = lisp_addr_new();
+    lisp_addr_ippref_from_char("8000::/1",eid_pref);
+    glist_add(eid_pref, allowed_eids);
+
+    return (GOOD);
+}

@@ -40,10 +40,6 @@ int configure_routing_to_tun_router(int afi);
 int configure_routing_to_tun_mn(lisp_addr_t *eid_addr);
 int remove_routing_to_tun_mn(lisp_addr_t *eid_addr);
 int configure_routing_to_tun_mn(lisp_addr_t *eid_addr);
-int set_tun_default_route_v4();
-int del_tun_default_route_v4();
-int set_tun_default_route_v6();
-int del_tun_default_route_v6();
 int tun_updated_route (int command, iface_t *iface, lisp_addr_t *src_pref,
         lisp_addr_t *dst_pref, lisp_addr_t *gateway);
 int tun_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr);
@@ -54,7 +50,7 @@ void tun_process_rm_gateway(iface_t *iface,lisp_addr_t *gateway);
 void tun_set_default_output_ifaces();
 void tun_iface_remove_routing_rules(iface_t *iface);
 int tun_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local);
-tun_dplane_data_t * tun_dplane_data_new_init(oor_encap_t encap_type);
+tun_dplane_data_t * tun_dplane_data_new_init(oor_encap_t encap_type, glist_t *allowed_dst_eids);
 void tun_dplane_data_free(tun_dplane_data_t *data);
 
 
@@ -92,6 +88,12 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
     int ipv4_data_input_fd = -1;
     int ipv6_data_input_fd = -1;
     int data_port;
+    va_list ap;
+    glist_t *allowed_dst_eids;
+    /* Get the extra parameter of the function */
+    va_start(ap, encap_type);
+    allowed_dst_eids = va_arg(ap, glist_t *);
+    va_end(ap);
 
     /* Configure data plane */
     tun_receive_fd = create_tun_tap(TUN, TUN_IFACE_NAME, TUN_MTU);
@@ -142,7 +144,7 @@ tun_configure_data_plane(oor_dev_type_e dev_type, oor_encap_t encap_type, ...)
         sockmstr_register_read_listener(smaster, cb_func, NULL,
                 ipv6_data_input_fd);
     }
-    dplane_tun.datap_data = (void *)tun_dplane_data_new_init(encap_type);
+    dplane_tun.datap_data = (void *)tun_dplane_data_new_init(encap_type, allowed_dst_eids);
 
     /* Select the default rlocs for output data packets and output control
      * packets */
@@ -225,21 +227,47 @@ int
 tun_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map)
 {
     lisp_addr_t *eid_ip_prefix = lisp_addr_get_ip_pref_addr(mapping_eid(map));
+    int afi = lisp_addr_ip_afi(eid_ip_prefix);
+    tun_dplane_data_t *data = dplane_tun.datap_data;
+    glist_entry_t *it;
+    lisp_addr_t *dst_eid_pref;
+
+    if (afi == LM_AFI_NO_ADDR){
+        return (BAD);
+    }
 
     switch(dev_type){
     case xTR_MODE:
         /* Route to send dtraffic to TUN */
-        if (add_rule(lisp_addr_ip_afi(eid_ip_prefix),
-                0,
-                RULE_TO_LISP_TABLE_PRIORITY,
-                RULE_TO_LISP_TABLE_PRIORITY,
-                RTN_UNICAST,
-                eid_ip_prefix,
-                NULL,0)!=GOOD){
-            return (BAD);
+        if (glist_size(data->allowed_eid_prefixes) == 0){
+            if (add_rule(afi,
+                    0,
+                    RULE_TO_LISP_TABLE_PRIORITY,
+                    RULE_TO_LISP_TABLE_PRIORITY,
+                    RTN_UNICAST,
+                    eid_ip_prefix,
+                    NULL,0)!=GOOD){
+                return (BAD);
+            }
+        }else{
+            glist_for_each_entry(it,data->allowed_eid_prefixes){
+                dst_eid_pref = glist_entry_data(it);
+                if (lisp_addr_ip_afi(dst_eid_pref) != afi){
+                    continue;
+                }
+                if (add_rule(afi,
+                        0,
+                        RULE_TO_LISP_TABLE_PRIORITY,
+                        RULE_TO_LISP_TABLE_PRIORITY,
+                        RTN_UNICAST,
+                        eid_ip_prefix,
+                        dst_eid_pref,0)!=GOOD){
+                    return (BAD);
+                }
+            }
         }
         /* Route to avoid to encapsulate traffic destined to the RLOC lan */
-        if (add_rule(lisp_addr_ip_afi(eid_ip_prefix),
+        if (add_rule(afi,
                 0,
                 RT_TABLE_MAIN,
                 RULE_AVOID_LISP_TABLE_PRIORITY,
@@ -262,32 +290,59 @@ tun_register_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map)
 
 int
 tun_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map){
-    lisp_addr_t *eid_prefix = mapping_eid(map);
+    lisp_addr_t *eid_ip_prefix = lisp_addr_get_ip_pref_addr(mapping_eid(map));
+    int afi = lisp_addr_ip_afi(eid_ip_prefix);
+    tun_dplane_data_t *data = dplane_tun.datap_data;
+    glist_entry_t *it;
+    lisp_addr_t *dst_eid_pref;
+
+    if (afi == LM_AFI_NO_ADDR){
+        return (BAD);
+    }
 
     switch(dev_type){
     case xTR_MODE:
-        if (del_rule(lisp_addr_ip_afi(eid_prefix),
-                0,
-                RULE_TO_LISP_TABLE_PRIORITY,
-                RULE_TO_LISP_TABLE_PRIORITY,
-                RTN_UNICAST,
-                eid_prefix,
-                NULL,0)!=GOOD){
-            return (BAD);
+        /* Rm roule to send dtraffic to TUN */
+        if (glist_size(data->allowed_eid_prefixes) == 0){
+            if (del_rule(afi,
+                    0,
+                    RULE_TO_LISP_TABLE_PRIORITY,
+                    RULE_TO_LISP_TABLE_PRIORITY,
+                    RTN_UNICAST,
+                    eid_ip_prefix,
+                    NULL,0)!=GOOD){
+                return (BAD);
+            }
+        }else{
+            glist_for_each_entry(it,data->allowed_eid_prefixes){
+                dst_eid_pref = glist_entry_data(it);
+                if (lisp_addr_ip_afi(dst_eid_pref) != afi){
+                    continue;
+                }
+                if (del_rule(afi,
+                        0,
+                        RULE_TO_LISP_TABLE_PRIORITY,
+                        RULE_TO_LISP_TABLE_PRIORITY,
+                        RTN_UNICAST,
+                        eid_ip_prefix,
+                        dst_eid_pref,0)!=GOOD){
+                    return (BAD);
+                }
+            }
         }
-        if (del_rule(lisp_addr_ip_afi(eid_prefix),
+        if (del_rule(afi,
                 0,
                 RT_TABLE_MAIN,
                 RULE_AVOID_LISP_TABLE_PRIORITY,
                 RTN_UNICAST,
                 NULL,
-                eid_prefix,
+                eid_ip_prefix,
                 0)!=GOOD){
             return (BAD);
         }
         break;
     case MN_MODE:
-        remove_routing_to_tun_mn(eid_prefix);
+        remove_routing_to_tun_mn(eid_ip_prefix);
         break;
     case RTR_MODE:
     default:
@@ -296,68 +351,77 @@ tun_deregister_lcl_mapping(oor_dev_type_e dev_type, mapping_t *map){
     return (GOOD);
 }
 
-/*
-* For mobile node mode, we create two /1 routes covering the full IP addresses space to route all traffic
-* generated by the node to the lispTun0 interface
-*          IPv4: 0.0.0.0/1 and 128.0.0.0/1
-*          IPv6: ::/1      and 8000::/1
-*/
-
 int
 configure_routing_to_tun_mn(lisp_addr_t *eid_addr)
 {
+
+    tun_dplane_data_t *data = dplane_tun.datap_data;
+    glist_entry_t *it;
+    lisp_addr_t *dst_eid_pref;
+    lisp_addr_t *src_eid_pref = NULL;
+    uint32_t metric = 0;
+    int afi = lisp_addr_ip_afi(eid_addr);
+    if (afi == LM_AFI_NO_ADDR){
+        return (BAD);
+    }
 
     if (add_addr_to_iface(TUN_IFACE_NAME, eid_addr) != GOOD){
         return (BAD);
     }
 
-    switch (lisp_addr_ip_afi(eid_addr)){
-    case AF_INET:
-        if (set_tun_default_route_v4() != GOOD){
+    glist_for_each_entry(it,data->allowed_eid_prefixes){
+        dst_eid_pref = glist_entry_data(it);
+        if (lisp_addr_ip_afi(dst_eid_pref) != afi){
+            continue;
+        }
+        if (add_route(afi,
+                tun_ifindex,
+                dst_eid_pref,
+                src_eid_pref,
+                NULL,
+                metric,
+                RT_TABLE_MAIN) != GOOD){
+            remove_routing_to_tun_mn(eid_addr);
             return (BAD);
         }
-        break;
-    case AF_INET6:
-        if (set_tun_default_route_v6() != GOOD){
-            return (BAD);
-        }
-        break;
-    default:
-        return (BAD);
-        break;
     }
+
 
     return (GOOD);
 }
 
-/*
-* For mobile node mode, we remove two /1 routes covering the full IP addresses space to route all traffic
-* generated by the node to the lispTun0 interface
-*          IPv4: 0.0.0.0/1 and 128.0.0.0/1
-*          IPv6: ::/1      and 8000::/1
-*/
-
 int
 remove_routing_to_tun_mn(lisp_addr_t *eid_addr)
 {
+    tun_dplane_data_t *data = dplane_tun.datap_data;
+    glist_entry_t *it;
+    lisp_addr_t *dst_eid_pref;
+    lisp_addr_t *src_eid_pref = NULL;
+    uint32_t metric = 0;
+    int afi = lisp_addr_ip_afi(eid_addr);
+    if (afi == LM_AFI_NO_ADDR){
+        return (BAD);
+    }
+
     if (del_addr_from_iface(TUN_IFACE_NAME, eid_addr) != GOOD){
         return (BAD);
     }
 
-    switch (lisp_addr_ip_afi(eid_addr)){
-    case AF_INET:
-        if (del_tun_default_route_v4() != GOOD){
+    glist_for_each_entry(it,data->allowed_eid_prefixes){
+        dst_eid_pref = glist_entry_data(it);
+        if (lisp_addr_ip_afi(dst_eid_pref) != afi){
+            continue;
+        }
+        if (del_route(afi,
+                tun_ifindex,
+                dst_eid_pref,
+                src_eid_pref,
+                NULL,
+                metric,
+                RT_TABLE_MAIN) != GOOD){
+            remove_routing_to_tun_mn(eid_addr);
             return (BAD);
         }
-        break;
-    case AF_INET6:
-        if (del_tun_default_route_v6() != GOOD){
-            return (BAD);
-        }
-        break;
-    default:
-        return (BAD);
-        break;
     }
 
     return (GOOD);
@@ -371,155 +435,9 @@ remove_routing_to_tun_mn(lisp_addr_t *eid_addr)
 int
 configure_routing_to_tun_router(int afi)
 {
-
-
-    uint32_t    iface_index     = 0;
-
-    iface_index = if_nametoindex(TUN_IFACE_NAME);
+    uint32_t iface_index = if_nametoindex(TUN_IFACE_NAME);
 
     return add_route(afi,iface_index,NULL,NULL,NULL,RULE_TO_LISP_TABLE_PRIORITY,RULE_TO_LISP_TABLE_PRIORITY);
-}
-
-int
-set_tun_default_route_v4()
-{
-    /*
-     * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
-     */
-    lisp_addr_t dest;
-    lisp_addr_t *src = NULL;
-    uint32_t metric = 0;
-
-    metric = 0;
-
-    lisp_addr_ippref_from_char("0.0.0.0/1",&dest);
-
-    add_route(AF_INET,
-            tun_ifindex,
-            &dest,
-            src,
-            NULL,
-            metric,
-            RT_TABLE_MAIN);
-
-    lisp_addr_ippref_from_char("128.0.0.0/1",&dest);
-
-    add_route(AF_INET,
-            tun_ifindex,
-            &dest,
-            src,
-            NULL,
-            metric,
-            RT_TABLE_MAIN);
-    return(GOOD);
-}
-
-int
-del_tun_default_route_v4()
-{
-    /*
-     * Assign route to 0.0.0.0/1 and 128.0.0.0/1 via tun interface
-     */
-    lisp_addr_t dest;
-    lisp_addr_t *src = NULL;
-    uint32_t metric = 0;
-
-    metric = 0;
-
-    lisp_addr_ippref_from_char("0.0.0.0/1",&dest);
-
-    del_route(AF_INET,
-            tun_ifindex,
-            &dest,
-            src,
-            NULL,
-            metric,
-            RT_TABLE_MAIN);
-
-    lisp_addr_ippref_from_char("128.0.0.0/1",&dest);
-
-    del_route(AF_INET,
-            tun_ifindex,
-            &dest,
-            src,
-            NULL,
-            metric,
-            RT_TABLE_MAIN);
-    return(GOOD);
-}
-
-int
-set_tun_default_route_v6()
-{
-    /*
-     * Assign route to ::/1 and 8000::/1 via tun interface
-     */
-
-    lisp_addr_t dest;
-    lisp_addr_t *src = NULL;
-    uint32_t metric = 0;
-
-    metric = 512;
-
-    lisp_addr_ippref_from_char("::/1",&dest);
-
-    add_route(AF_INET6,
-            tun_ifindex,
-            &dest,
-            src,
-            NULL,
-            metric,
-            RT_TABLE_MAIN);
-
-    lisp_addr_ippref_from_char("8000::/1",&dest);
-
-    add_route(AF_INET6,
-            tun_ifindex,
-            &dest,
-            src,
-            NULL,
-            metric,
-            RT_TABLE_MAIN);
-
-    return(GOOD);
-}
-
-int
-del_tun_default_route_v6()
-{
-    /*
-     * Assign route to ::/1 and 8000::/1 via tun interface
-     */
-
-    lisp_addr_t dest;
-    lisp_addr_t *src    = NULL;
-    lisp_addr_t *gw     = NULL;
-    uint32_t metric     = 0;
-
-    metric = 512;
-
-
-    lisp_addr_ippref_from_char("::/1",&dest);
-
-    del_route(AF_INET6,
-            tun_ifindex,
-            &dest,
-            src,
-            gw,
-            metric,
-            RT_TABLE_MAIN);
-
-    lisp_addr_ippref_from_char("8000::/1",&dest);
-
-    del_route(AF_INET6,
-            tun_ifindex,
-            &dest,
-            src,
-            gw,
-            metric,
-            RT_TABLE_MAIN);
-
-    return(GOOD);
 }
 
 int
@@ -998,7 +916,7 @@ tun_reset_all_fwd()
 }
 
 tun_dplane_data_t *
-tun_dplane_data_new_init(oor_encap_t encap_type)
+tun_dplane_data_new_init(oor_encap_t encap_type, glist_t *allowed_dst_eids)
 {
     tun_dplane_data_t * data;
     data = xmalloc(sizeof(tun_dplane_data_t));
@@ -1007,7 +925,7 @@ tun_dplane_data_new_init(oor_encap_t encap_type)
     }
     data->encap_type = encap_type;
     data->eid_to_dp_entries = shash_new_managed((free_value_fn_t)glist_destroy);
-
+    data->allowed_eid_prefixes = glist_clone(allowed_dst_eids, (glist_clone_obj)lisp_addr_clone);
     ttable_init(&(data->ttable));
     return (data);
 }
@@ -1019,6 +937,7 @@ tun_dplane_data_free(tun_dplane_data_t *data)
         return;
     }
     shash_destroy(data->eid_to_dp_entries);
+    glist_destroy(data->allowed_eid_prefixes);
     ttable_uninit(&(data->ttable));
     free(data);
 }

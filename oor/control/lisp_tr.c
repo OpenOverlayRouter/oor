@@ -44,6 +44,7 @@ lisp_tr_init(lisp_tr_t *tr)
     if (!tr->map_cache || !tr->map_resolvers || !tr->iface_locators_table){
         return (BAD);
     }
+    tr->allowed_dst_eids = glist_new_managed((glist_del_fct)lisp_addr_del);
     return (GOOD);
 }
 
@@ -60,6 +61,7 @@ lisp_tr_uninit(lisp_tr_t *tr)
     if (tr->fwd_policy_dev_parm){
         tr->fwd_policy->del_dev_policy_inf(tr->fwd_policy_dev_parm);
     }
+    glist_destroy(tr->allowed_dst_eids);
 }
 
 inline tr_abstract_device *

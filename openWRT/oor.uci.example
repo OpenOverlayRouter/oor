@@ -206,6 +206,15 @@ config 'nat-traversal'
         option  'nat_traversal_support' '<on|off>'
 
 
+# List of allowed destination EID prefixes. If not defined,
+# all traffic will be processed by OOR.
+#
+# config 'allowed-dst-eids'
+#       list  'eid_prefix'              '<ip-prefix/mask>'
+#   ...
+#}
+
+
 # Map-Registers are sent to this map-server
 # You can define several map-servers. Map-Register messages will be sent to all of them.
 #	address: IPv4 or IPv6 address of the map-server
@@ -337,7 +346,8 @@ config 'rloc-set'
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the Weight
 #     indicates how to balance unicast traffic between them.
 #   local [true|false]: Indicates if the locator is local to the xTR. 
-#     by default is true
+#     by default is true. To use remote locators,the proxy_reply field of
+#     the map-server section should be enabled.
 config 'rloc-address'
         option   'name'                 '<string>'
         option   'address'              '<ip-address>'
