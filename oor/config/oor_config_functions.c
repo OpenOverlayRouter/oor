@@ -1549,6 +1549,4 @@ tr_add_mn_default_routes(lisp_tr_t *tr)
     eid_pref = lisp_addr_new();
     lisp_addr_ippref_from_char("8000::/1",eid_pref);
     glist_add(eid_pref, allowed_eids);
-
-    return (GOOD);
 }

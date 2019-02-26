@@ -33,25 +33,25 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         var hasAlert = false
         var message = ""
         if !validateIpAddress(ip: eidTextField.text!){
-            message = message + "* Please enter a valid EID address\n"
+            message = message + "* Please enter a valid EID address (IPv4)\n"
             hasAlert = true
         }
         if !natSwitch.isOn {
             if !validateIpAddress(ip: mapResolverTextField.text!){
-                message = message + "* Please enter a valid Map Resolver address\n"
+                message = message + "* Please enter a valid Map Resolver address (IPv4)\n"
                 hasAlert = true
             }
             if !validateIpAddress(ip: proxyEtrAddressTextField.text!){
-                message = message + "* Please enter a valid Proxy ETR address\n"
+                message = message + "* Please enter a valid Proxy ETR address (IPv4)\n"
                 hasAlert = true
             }
         }
         if !validateIpAddress(ip: mapServerTextField.text!){
-            message = message + "* Please enter a valid Map Server address\n"
+            message = message + "* Please enter a valid Map Server address (IPv4)\n"
             hasAlert = true
         }
         if !validateIpAddress(ip: dnsServerTextField.text!){
-            message = message + "* Please enter a valid DNS server address\n"
+            message = message + "* Please enter a valid DNS server address (IPv4)\n"
             hasAlert = true
         }
         
@@ -307,7 +307,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     }
     
     func validateIpAddress(ip: String) -> Bool {
-        if (validateIPv4(ip:ip) || validateIPv6(ip:ip)) {
+        if (validateIPv4(ip:ip)) {
             return true
         }
         return false
