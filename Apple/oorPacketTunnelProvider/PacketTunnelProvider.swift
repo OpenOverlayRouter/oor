@@ -56,9 +56,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider{
                 }
         }
         )
-        NSLog("===============================================================0");
         //TUN IP address
-        let eid = defaults?.string(forKey: "eid")
+        let eid = defaults!.string(forKey: "eid")
         if validateIPv4(ip: eid!) {
             tunSettings.ipv4Settings = NEIPv4Settings(addresses: [eid!], subnetMasks: ["255.255.255.255"])
             // Networks to be routed through TUN
@@ -74,6 +73,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider{
         tunSettings.mtu = 1440
         
         tunSettings.dnsSettings = NEDNSSettings(servers: [(defaults?.string(forKey: "dnsServer"))!])
+        tunSettings.dnsSettings?.matchDomains = [""]
         
         // Apply settings and create TUN
         setTunnelNetworkSettings(tunSettings) { error in

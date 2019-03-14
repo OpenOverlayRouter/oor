@@ -33,7 +33,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         var hasAlert = false
         var message = ""
         if !validateIpAddress(ip: eidTextField.text!){
-            message = message + "* Please enter a valid EID address (IPv4)\n"
+            message = message + "* Please enter a valid EID address (IPv4 / IPv6)\n"
             hasAlert = true
         }
         if !natSwitch.isOn {
@@ -51,8 +51,19 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
             hasAlert = true
         }
         if !validateIpAddress(ip: dnsServerTextField.text!){
-            message = message + "* Please enter a valid DNS server address (IPv4)\n"
+            message = message + "* Please enter a valid DNS server address (IPv4 / IPv6)\n"
             hasAlert = true
+        }
+        if validateIPv4(ip: eidTextField.text!){
+            if !validateIPv4(ip: dnsServerTextField.text!){
+                message = message + "* The DNS server address should be IPv4 (same family address than EID)\n"
+                hasAlert = true
+            }
+        }else{
+            if !validateIPv6(ip: dnsServerTextField.text!){
+                message = message + "* The DNS server address should be IPv6 (same family address than EID)\n"
+                hasAlert = true
+            }
         }
         
         if (iidTextField != nil){
@@ -308,6 +319,9 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     
     func validateIpAddress(ip: String) -> Bool {
         if (validateIPv4(ip:ip)) {
+            return true
+        }
+        if (validateIPv6(ip:ip)) {
             return true
         }
         return false
