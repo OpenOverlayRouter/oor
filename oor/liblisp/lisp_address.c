@@ -809,7 +809,7 @@ lisp_addr_get_ip_pref_addr(lisp_addr_t *addr)
 {
     switch (lisp_addr_lafi(addr)) {
     case LM_AFI_IP:
-        OOR_LOG(LDBG_3, "lisp_addr_get_ip_pref_addr: Not applicable to ip addressess");
+        OOR_LOG(LDBG_3, "lisp_addr_get_ip_pref_addr: Not applicable to ip addresses");
         return (NULL);
     case LM_AFI_IPPREF:
         return (addr);
