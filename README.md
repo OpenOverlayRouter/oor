@@ -1,7 +1,7 @@
 Overview
 --------
 
-The OpenOverlayRouter (OOR) project aims to deliver a flexible and modular
+The Open Overlay Router (OOR) project aims to deliver a flexible and modular
 open-source implementation to deploy programmable overlay networks. It
 leverages on encapsulating overlay-specific packets into underlay-compatible
 packets at the edges of the instantiated overlay and route them over the
@@ -26,12 +26,12 @@ specification to enable fast host mobility using LISP. For convenience, OOR
 uses terminology borrowed from the LISP protocol and thus uses the term EID 
 for the overlay identifiers and the term RLOC for the underlay locators. 
 Regarding the LISP devices that OOR implements, currently it can operate as 
-an xTR, MS/MR, RTR or LISP-MN.
+an xTR, LISP-MN, MS, MR, DDT Node or RTR.
 
-Nowadays, OOR runs on desktop Linux, OpenWRT home routers and Android 
+Nowadays, OOR runs on desktop Linux, OpenWrt home routers and Android and iOS 
 devices. The current reference platform for OOR development is Ubuntu 
-Server 14.04.5 LTS (Trusty Tahr), OpenWRT 15.05 (Chaos Calmer) and 
-Android 4.3 (Jelly Bean).
+Server 16.04 LTS (Xenial Xerus), OpenWrt 18.06 and Android 6.0 (Marshmallow),
+iOS 11.3.
 
 OOR can work together with the Vector Packet Processing (VPP) technology to 
 obtain an xTR capable to reach bandwith close to the 10 GBps. To use VPP as 
@@ -61,13 +61,13 @@ RTR
   * a publicly routable RLOC for the device running OOR, which is neither 
   firewalled, nor behind NAT.
 
-MS/MR
+MS - MR - DDT
   * a publicly routable RLOC for the device running OOR, which is neither 
   firewalled, nor behind NAT.
 
 The above information is used for configuring 'oor' via the configuration file 
-'oor.conf'. See section "OpenWRT" for OpenWRT configuration details and "Android" 
-for Android configuration details.
+'oor.conf'. See section "OpenWrt" for OpenWrt configuration details,"Android" 
+for Android configuration details and "iOS" for Apple iOS configuration.
 
 Visit http://www.lisp4.net/ for more info on the deployment status of the LISP
 beta-network and how you can join the testbed.
@@ -118,16 +118,16 @@ To install it in `/usr/local/sbin`, run
 A `Vagrantfile` is provided for quick installation in a dedicated VM, see the
 "Using Vagrant" section.
     
-To build the code for OpenWRT you will need the OpenWRT official SDK. However,
-for your convenience, we encourage you to install the precompiled .ipk, from our
-website. Check section "OpenWRT" for details.
+To build the code for OpenWrt you will need the OpenWrt official SDK. However,
+for your convenience, we encourage you to install the official packet from OpenWrt
+repository. Check section "OpenWrt" for details.
 
 Running Open Overlay Router
 ---------------------------
 
 Once the code is successfully installed on the device, `oor.conf.example` should 
 be copied to `/etc/oor.conf` and edited with the proper values. Again, see 
-section 'OpenWRT' for OpenWRT details about this. Additionally the device's 
+section 'OpenWrt' for OpenWrt details about this. Additionally the device's 
 interface used for physical network connectivity (such as 'eth0', 'wlan0' or 'ppp0')
  must also be specified in the configuration file.
 
@@ -137,9 +137,9 @@ table (there is a 'default' entry for each outgoing interface). In most cases,
 this is auto-configured by the operating system during start-up.
 
 Check that sysctl options configuration is correct. Make sure that rp_filter
-kernel network parameter is disabled. It is disabled by default in OpenWRT, but,
+kernel network parameter is disabled. It is disabled by default in OpenWrt, but,
 for instance, it is enabled by default in Ubuntu. Make sure too that IP
-forwarding is enabled. It should be enabled by default in OpenWRT.  
+forwarding is enabled. It should be enabled by default in OpenWrt.  
     
 You can instruct your system to auto-configure these values during system
 boot-up if you add the following lines to `/etc/sysctl.conf`. Remember to 
@@ -181,6 +181,8 @@ This is the list of supported features at this moment
     - Instance ID / VNI support
     - NETCONF/YANG configurable
     - VPP support (only for IPv4 RLOCs)
+    - Specify destination EID prefixes (only linux and OpenWrt)
+    - Remote RLOC registration
 
 * RTR
 
@@ -207,6 +209,19 @@ This is the list of supported features at this moment
     - Explicit Locator Path (ELPs)
     - Instance ID support
     - Experimental NAT traversal
+    - Process DDT Map Requests
+
+* DDT
+    - DDT authoritative sites
+    - DDT delegated sites
+    - Process encapsulated DDT map request
+    - Generate Map Referrals
+    - Instance ID / VNI support
+
+* DDT-MR
+    - Process mapping requests and forward them to DDT root nodes
+    - Process replies from DDT mapping system
+    - Instance ID / VNI support
     
 Note: OOR doesn't support overlapping local prefixes with different IIDs when operating as 
 a XTR or MN.    
@@ -243,8 +258,8 @@ route' will look like with IPv4, expect a similar output with IPv6:
 xTR mode
 --------
  
-To configure Open Overlay Router to use it on xTR mode take into account the 
-following considerations.
+To configure Open Overlay Router to use it on x Tunnel Router (xTR) mode take into 
+account the following considerations.
 An EID /30 (at least) prefix is required for IPv4 EIDs. For IPv6 you should have 
 a /126 (at least). This prefix should be used as the network prefix for the subnet
 where the hosts on the EID space connected to the router are allocated. Assign 
@@ -335,15 +350,38 @@ with IPv4, expect a similar output with IPv6:
     32766:  from all lookup main 
     32767:  from all lookup default
 
-MS/MR mode 
-----------
+MS mode
+-------
 
-Open Overlay Router can be configured as a basic MS/MR where configured EID prefixes can 
-be registered by xTRs. OOR will also reply to MapRequests addressed to those 
-prefixes.
+Open Overlay Router can be configured as a basic Map Server (MS) where configured EID prefixes
+can be registered by xTRs. OOR will also reply to MapRequests addressed to those prefixes.
 MS can be associated with an RTR in order to provide NAT support to xTRs/MN.
 To configure Open Overlay Router as a MS/MR, select the corresponding operating-mode and 
 fill the parameters of the MS section of the configuration file.
+
+DDT mode
+--------
+
+Open Overlay Router implements the LISP Delegated Database Tree (LISP-DDT) specified
+in the RFC 8111. LISP-DDT is a hierarchical distributed database that embodies the 
+delegation of authority to provide mappings from LISP EIDs to RLOCs. It is a statically 
+defined distribution of the EID namespace among a set of LISP-speaking servers called 
+"DDT nodes".  Each DDT node is configured as "authoritative" for one or more EID-prefixes, 
+along with the set of RLOCs for Map-Servers or "child" DDT nodes to which more-specific 
+EID-prefixes are delegated.
+To configure OOR as a DDT node, define the authoritative sites and the delegated sites.
+Delegated sites could be of type MAP_SERVER_DDT_NODE if the next hop is a Map Server, or 
+CHILD_DDT_NODE if next hop is a DDT node with more-specific EID prefix information.
+The node authoritative for all EID space is usually called DDT ROOT node.
+
+MR mode
+-------
+
+A LISP Map Resolver (MR) is a node that forwards Map Requests from xTRs to the MSs 
+responsibles of the requested EID. The MR implemented by Open Overlay Router use LISP-DDT to
+find the suitable MS.
+To configure OOR as a MR, specify the addresses of the DDT Root nodes to be used.
+
 
 Using Vagrant
 -------------
@@ -402,17 +440,17 @@ In the Docker directory you can find a README.md file with more details in how t
 create and use OOR as a container.
 
 
-OpenWRT 
+OpenWrt
 -------
 
-To enable OpenWRT configuration mode and the specific routing
+To enable OpenWrt configuration mode and the specific routing
 operations, the code should have been compiled with the
-`platform=openwrt` option during OpenWRT package creation. Please note that the best 
-way to get Open Overlay Router on OpenWRT is get a precompiled binary (either the 
-full system or just the Open Overlay Router package) from the  github website
+`platform=OpenWrt` option during OpenWrt package creation. Please note that the best
+way to get Open Overlay Router on OpenWrt is using the official package from OpenWrt
+repository or get a precompiled binary  from the  github website
 (https://github.com/OpenOverlayRouter/oor/wiki/Downloads). 
 
-In OpenWRT, the configuration is performed through the OpenWRT standard
+In OpenWrt, the configuration is performed through the OpenWrt standard
 configuration tool UCI, instead of using 'oor.conf' file. Configure the UCI
 file manually in '/etc/config/oor' (by default), use the UCI CLI application,
 or use the web interface (if available). The configuration fields are analogue
@@ -422,15 +460,22 @@ Android
 -------
 
 Open Overlay Router includes support for Android devices operating as LISP-MN.
-Please see the [README.android.md](README.android.md) file to get details on
+Please see the [android/README.md](android/README.md) file to get details on
 Open Overlay Router for Android installation, compilation and usage.
+
+iOS
+---
+
+Open Overlay Router includes support for iOS devices operating as LISP-MN.
+Please see the [Apple/README.md](Apple/README.md) file to get details on
+Open Overlay Router for iOS installation, compilation and usage.
 
 VPP
 ---
 
 Open Overlay Router has adopted VPP as a new data plane that can be used to 
 encapsulate and decapsulate LISP traffic in a high performance rate.
-Please see the README.vpp.md file to get details on how to configure OOR and 
+Please see the VPP/README.md file to get details on how to configure OOR and
 VPP to work together. 
 
 NAT traversal

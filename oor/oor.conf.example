@@ -403,7 +403,6 @@ database-mapping {
 #        129.250.1.63,                # ntt-amer-pxtr
 #        217.8.98.33,                 # intouch-pxtr-1
 #        217.8.98.35,                 # intouch-pxtr-2
-#        158.38.1.92,                 # uninett-pxtr
 #        203.181.249.172,             # apan-pxtr
 #        202.51.247.10                # sg-nus-pxtr
 # LISP beta-network IPv6 PITRs 
@@ -411,7 +410,6 @@ database-mapping {
 #        2001:418:0:1000::63,         # ntt-amer-pxtr
 #        2001:40B0:7500:205:1::E,     # intouch-pxtr-1
 #        2001:40B0:7500:205:1::12,    # intouch-pxtr-2
-#        2001:700:0:52E::4,           # uninett-pxtr
 #        2001:200:e000:17::172        # apan-pxtr
 #}
 

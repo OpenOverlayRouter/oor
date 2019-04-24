@@ -1,6 +1,14 @@
 # OpenOverlayRouter on Apple iOS
 
-OOR-APPLE is the OpenOverlayRouter version for Apple iOS. We are using the official OOR code as base https://github.com/OpenOverlayRouter/oor. iOS version is working in an early state, there are a lot of code improvements to do and things to implement.
+Open Overlay Router includes support for Apple iOS devices operating as LISP mobile
+nodes (LISP-MN). The application is limited to one single EID (IPv4 or IPv6) mapped to one
+or more RLOC interfaces (IPv4). Even though several interfaces can be managed by Open Overlay
+Router at the same time, they can only be used in an active-backup fashion (no more
+than one interface used at once).
+You can install the application from the Apple Store:
+    https://itunes.apple.com/us/app/openoverlayrouter/id1454649703?mt=8
+
+Or you can follow next steps to compile the application from source code.
 
 ## Requirements
 

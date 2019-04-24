@@ -253,13 +253,11 @@ config 'proxy-itr'
 #        list     'address'              '69.31.31.98'                   # eqx-ash-pxtr
 #        list     'address'              '129.250.1.63'                  # ntt-amer-pxtr
 #        list     'address'              '217.8.98.33'                   # intouch-pxtr-1
-#        list     'address'              '158.38.1.92'                   # uninett-pxtr
 #        list     'address'              '203.181.249.172'               # apan-pxtr
 #        list     'address'              '202.51.247.10'                 # sg-nus-pxtr
 #        list     'address'              '2001:590::451f:1f62'           # eqx-ash-pxtr
 #        list     'address'              '2001:418:0:1000::63'           # ntt-amer-pxtr
 #        list     'address'              '2001:40B0:7500:205:1::E'       # intouch-pxtr-1
-#        list     'address'              '2001:700:0:52E::4'             # uninett-pxtr
 #        list     'address'              '2001:200:e000:17::172'         # apan-pxtr
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR
