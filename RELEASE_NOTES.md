@@ -1,3 +1,6 @@
+Release notes
+-------------
+
 OpenOverlayRouter is a rename of the LISPmob project forked from the last version released (version 0.5.2.). OOR aims to deliver a flexible and modular open-source implementation to deploy programmable overlay networks. Major new functionalities since LISPmob last release include a new control plane to configure xTR devices through NETCONF and a new data plane based on VXLAN-GPE. For the full list of functionalities refer to the features section.
 
 New functionalities since OOR 1.3
