@@ -260,6 +260,7 @@ xTR mode
  
 To configure Open Overlay Router to use it on x Tunnel Router (xTR) mode take into 
 account the following considerations.
+
 An EID /30 (at least) prefix is required for IPv4 EIDs. For IPv6 you should have 
 a /126 (at least). This prefix should be used as the network prefix for the subnet
 where the hosts on the EID space connected to the router are allocated. Assign 
@@ -315,7 +316,8 @@ RTR mode
 When running in RTR mode, Open Overlay Router serves as a Re-encapsulating Tunnel Router 
 that decapsulates the received traffic to reencapsulate it again towards the next hop.
 An RTR can also be used to provide NAT support to xTRs/MNs when it works together with a
-MS with NAT Traversal support.  
+MS with NAT Traversal support.
+
 To configure an RTR, select the corresponding operating-mode and fill the parameters 
 of the RTR section and Tunnel Router general configuration of the configuration file.
 The following lines show an example of how 'ip addr' and 'ip route' will look like 
@@ -356,6 +358,7 @@ MS mode
 Open Overlay Router can be configured as a basic Map Server (MS) where configured EID prefixes
 can be registered by xTRs. OOR will also reply to MapRequests addressed to those prefixes.
 MS can be associated with an RTR in order to provide NAT support to xTRs/MN.
+
 To configure Open Overlay Router as a MS/MR, select the corresponding operating-mode and 
 fill the parameters of the MS section of the configuration file.
 
@@ -369,6 +372,7 @@ defined distribution of the EID namespace among a set of LISP-speaking servers c
 "DDT nodes".  Each DDT node is configured as "authoritative" for one or more EID-prefixes, 
 along with the set of RLOCs for Map-Servers or "child" DDT nodes to which more-specific 
 EID-prefixes are delegated.
+
 To configure OOR as a DDT node, define the authoritative sites and the delegated sites.
 Delegated sites could be of type MAP_SERVER_DDT_NODE if the next hop is a Map Server, or 
 CHILD_DDT_NODE if next hop is a DDT node with more-specific EID prefix information.
@@ -380,6 +384,7 @@ MR mode
 A LISP Map Resolver (MR) is a node that forwards Map Requests from xTRs to the MSs 
 responsibles of the requested EID. The MR implemented by Open Overlay Router use LISP-DDT to
 find the suitable MS.
+
 To configure OOR as a MR, specify the addresses of the DDT Root nodes to be used.
 
 
