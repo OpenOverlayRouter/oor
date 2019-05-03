@@ -1,9 +1,21 @@
-//
-//  SettingsViewController.swift
-//  oor-ios
-//
-//  Created by Oriol Marí Marqués on 14/02/2018.
-//
+/*
+ *
+ * Copyright (C) 2011, 2015 Cisco Systems, Inc.
+ * Copyright (C) 2015 CBA research group, Technical University of Catalonia.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
 
 import Foundation
 import UIKit
@@ -11,6 +23,7 @@ import UIKit
 class SettingsViewController: UITableViewController, UITextFieldDelegate {
  
     let defaults = UserDefaults(suiteName: "group.oor")
+    var PiTR_list: [String] = []
     
     @IBOutlet weak var eidTextField: UITextField!
     @IBOutlet weak var iidTextField: UITextField!
@@ -95,7 +108,22 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         self.mapServerKeyTextField.delegate = self
         self.proxyEtrAddressTextField.delegate = self
         self.dnsServerTextField.delegate = self
+        
         loadConfig()
+    }
+    
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if (segue.identifier == "pitrSegue"){
+            let pitrViewController = segue.destination as?PitrViewController
+            pitrViewController?.PiTR_list = PiTR_list
+        }
+    }
+    
+    @IBAction func unwindToThisView(sender: UIStoryboardSegue) {
+        if let sourceViewController = sender.source as? PitrViewController {
+            PiTR_list = sourceViewController.PiTR_list!
+            defaults?.set(PiTR_list, forKey: "proxyItrList")
+        }
     }
     
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -115,6 +143,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         mapServerTextField.text = defaults?.string(forKey: "mapServer")
         mapServerKeyTextField.text = defaults?.string(forKey: "mapServerKey")
         proxyEtrAddressTextField.text = defaults?.string(forKey: "proxyEtrAddress")
+        PiTR_list = defaults?.stringArray(forKey: "proxyItrList") ?? [String]()
         dnsServerTextField.text = defaults?.string(forKey: "dnsServer")
         natSwitch.isOn = (defaults?.bool(forKey: "nat"))!
         if defaults?.string(forKey: "debugString") == nil {
@@ -138,6 +167,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         defaults?.set(mapServerTextField.text, forKey: "mapServer")
         defaults?.set(mapServerKeyTextField.text, forKey: "mapServerKey")
         defaults?.set(proxyEtrAddressTextField.text, forKey: "proxyEtrAddress")
+        defaults?.set(PiTR_list, forKey: "proxyItrList")
         defaults?.set(dnsServerTextField.text, forKey: "dnsServer")
         defaults?.set(natSwitch.isOn, forKey: "nat")
         defaults?.set(stepper.value, forKey: "debug")
@@ -206,20 +236,9 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("#   address: IPv4 or IPv6 address of the Proxy-ITR\n")
         config.append("#   Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses\n\n")
         config.append("proxy-itrs = {\n")
-        config.append("        69.31.31.98,\n")
-        config.append("        129.250.1.63,\n")
-        config.append("        217.8.98.33,\n")
-        config.append("        217.8.98.35,\n")
-        config.append("        147.83.131.33,\n")
-        config.append("        158.38.1.92,\n")
-        config.append("        203.181.249.172,\n")
-        config.append("        202.51.247.10,\n")
-        config.append("        2001:590::451f:1f62,\n")
-        config.append("        2001:418:0:1000::63,\n")
-        config.append("        2001:40B0:7500:205:1::E,\n")
-        config.append("        2001:40B0:7500:205:1::12,\n")
-        config.append("        2001:700:0:52E::4,\n")
-        config.append("        2001:200:e000:17::172\n")
+        for pitr in PiTR_list {
+            config.append("        \(pitr),\n")
+        }
         config.append("}\n\n\n")
         config.append("# IPv4 / IPv6 EID of the node.\n")
         config.append("# Two kind of rlocs can be defined:\n")
@@ -299,32 +318,35 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
 
     }
     
-    func validateIPv4(ip: String) -> Bool {
-        var sin = sockaddr_in()
-        if ip.withCString({ cstring in inet_pton(AF_INET, cstring, &sin.sin_addr) }) == 1 {
-            // IPv4 peer.
-            return true
-        }
-        return false
+}
+
+func validateIPv4(ip: String) -> Bool {
+    var sin = sockaddr_in()
+    if ip.withCString({ cstring in inet_pton(AF_INET, cstring, &sin.sin_addr) }) == 1 {
+        // IPv4 peer.
+        return true
     }
-    
-    func validateIPv6(ip: String) -> Bool {
-        var sin6 = sockaddr_in6()
-        if ip.withCString({ cstring in inet_pton(AF_INET6, cstring, &sin6.sin6_addr) }) == 1 {
-            // IPv6 peer.
-            return true
-        }
-        return false
+    return false
+}
+
+func validateIPv6(ip: String) -> Bool {
+    var sin6 = sockaddr_in6()
+    if ip.withCString({ cstring in inet_pton(AF_INET6, cstring, &sin6.sin6_addr) }) == 1 {
+        // IPv6 peer.
+        return true
     }
-    
-    func validateIpAddress(ip: String) -> Bool {
-        if (validateIPv4(ip:ip)) {
-            return true
-        }
+    return false
+}
+
+func validateIpAddress(ip: String) -> Bool {
+    if (ip.contains(":")){
         if (validateIPv6(ip:ip)) {
             return true
         }
-        return false
+    }else{
+        if (validateIPv4(ip:ip)) {
+            return true
+        }
     }
-    
+    return false
 }

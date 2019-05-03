@@ -170,7 +170,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <view key="tableFooterView" contentMode="scaleToFill" misplaced="YES" id="80M-TP-79T">
-                            <rect key="frame" x="0.0" y="396" width="375" height="384"/>
+                            <rect key="frame" x="0.0" y="440" width="375" height="384"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                             <subviews>
                                 <imageView userInteractionEnabled="NO" alpha="0.5" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="OOR-logo" translatesAutoresizingMaskIntoConstraints="NO" id="WWk-pp-KMz">
@@ -403,8 +403,33 @@
                                             </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>
-                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="93z-Wx-gMW">
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" id="ooE-HS-1S3">
                                         <rect key="frame" x="0.0" y="264" width="375" height="44"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="ooE-HS-1S3" id="kn5-73-QDn">
+                                            <rect key="frame" x="0.0" y="0.0" width="375" height="43.5"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="leading" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="4kT-Mo-oFh">
+                                                    <rect key="frame" x="16" y="5.5" width="327" height="33"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <state key="normal" title="Proxy ITR List &gt;&gt;">
+                                                        <color key="titleColor" red="0.0" green="0.33333333329999998" blue="0.28235294119999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                    </state>
+                                                    <connections>
+                                                        <segue destination="RPr-cS-NwZ" kind="show" identifier="pitrSegue" id="ZyP-ep-7DB"/>
+                                                    </connections>
+                                                </button>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="4kT-Mo-oFh" firstAttribute="leading" secondItem="kn5-73-QDn" secondAttribute="leadingMargin" id="KH6-jl-Etr"/>
+                                                <constraint firstAttribute="trailingMargin" secondItem="4kT-Mo-oFh" secondAttribute="trailing" constant="16" id="bR2-fs-XSa"/>
+                                                <constraint firstItem="4kT-Mo-oFh" firstAttribute="centerY" secondItem="kn5-73-QDn" secondAttribute="centerY" id="cc4-VS-r1i"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="93z-Wx-gMW">
+                                        <rect key="frame" x="0.0" y="308" width="375" height="44"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="93z-Wx-gMW" id="34M-8D-ald">
                                             <rect key="frame" x="0.0" y="0.0" width="375" height="43.5"/>
@@ -433,7 +458,7 @@
                                         </tableViewCellContentView>
                                     </tableViewCell>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="6Zp-jl-lij">
-                                        <rect key="frame" x="0.0" y="308" width="375" height="44"/>
+                                        <rect key="frame" x="0.0" y="352" width="375" height="44"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="6Zp-jl-lij" id="F50-R8-pkv">
                                             <rect key="frame" x="0.0" y="0.0" width="375" height="43.5"/>
@@ -458,7 +483,7 @@
                                         </tableViewCellContentView>
                                     </tableViewCell>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" id="5T9-p2-YWj">
-                                        <rect key="frame" x="0.0" y="352" width="375" height="44"/>
+                                        <rect key="frame" x="0.0" y="396" width="375" height="44"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="5T9-p2-YWj" id="kGd-29-JpV">
                                             <rect key="frame" x="0.0" y="0.0" width="375" height="43.5"/>
@@ -519,6 +544,117 @@
                 <placeholder placeholderIdentifier="IBFirstResponder" id="vdg-LG-Z5B" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="2512.8000000000002" y="-72.413793103448285"/>
+        </scene>
+        <!--Pitr View Controller-->
+        <scene sceneID="Vi8-VK-qdy">
+            <objects>
+                <viewController id="RPr-cS-NwZ" customClass="PitrViewController" customModule="oor_ios" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Lh7-ev-q0b">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="603"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="PiTR address:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="ZHp-Rz-BGx">
+                                <rect key="frame" x="16" y="44" width="105.5" height="21"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <color key="textColor" red="0.0" green="0.33333333329999998" blue="0.28235294119999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="6KG-va-ETD">
+                                <rect key="frame" x="151" y="44" width="208" height="30"/>
+                                <nil key="textColor"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                <textInputTraits key="textInputTraits"/>
+                            </textField>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="q6E-PQ-Wt3">
+                                <rect key="frame" x="175" y="94" width="80" height="33"/>
+                                <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="80" id="SUS-gU-PAa"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <state key="normal" title="Add">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </state>
+                                <connections>
+                                    <action selector="addPitrPush:" destination="RPr-cS-NwZ" eventType="touchUpInside" id="tyL-7o-nh7"/>
+                                </connections>
+                            </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Rk5-yr-K9o">
+                                <rect key="frame" x="275" y="94" width="80" height="33"/>
+                                <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="80" id="GoZ-sh-HAO"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <state key="normal" title="Save">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </state>
+                                <connections>
+                                    <segue destination="K0W-uA-uxa" kind="unwind" unwindAction="unwindToThisViewWithSender:" id="esN-b3-Off"/>
+                                </connections>
+                            </button>
+                            <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="gPC-KX-sHV">
+                                <rect key="frame" x="20" y="147" width="335" height="436"/>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <prototypes>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="PitrCell" id="7co-XD-mwU" customClass="PitrCell" customModule="oor_ios" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="28" width="335" height="44"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="7co-XD-mwU" id="xIj-sf-kCM">
+                                            <rect key="frame" x="0.0" y="0.0" width="335" height="43.5"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="PiTR address" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="m6L-fx-Jvg">
+                                                    <rect key="frame" x="35" y="11.5" width="273" height="20.5"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="m6L-fx-Jvg" firstAttribute="leading" secondItem="xIj-sf-kCM" secondAttribute="leadingMargin" constant="20" id="Dat-v9-FkZ"/>
+                                                <constraint firstItem="m6L-fx-Jvg" firstAttribute="centerY" secondItem="xIj-sf-kCM" secondAttribute="centerY" id="F16-cP-krb"/>
+                                                <constraint firstAttribute="trailingMargin" secondItem="m6L-fx-Jvg" secondAttribute="trailing" constant="20" id="JX3-26-Jct"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                        <connections>
+                                            <outlet property="PitrAddress" destination="m6L-fx-Jvg" id="s6Z-2T-hEC"/>
+                                        </connections>
+                                    </tableViewCell>
+                                </prototypes>
+                                <connections>
+                                    <outlet property="dataSource" destination="RPr-cS-NwZ" id="HXH-VQ-dZK"/>
+                                    <outlet property="delegate" destination="RPr-cS-NwZ" id="ifs-zy-UXU"/>
+                                </connections>
+                            </tableView>
+                        </subviews>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstItem="ZHp-Rz-BGx" firstAttribute="top" secondItem="paL-Cd-s1m" secondAttribute="top" constant="44" id="17l-Js-i8b"/>
+                            <constraint firstItem="ZHp-Rz-BGx" firstAttribute="leading" secondItem="paL-Cd-s1m" secondAttribute="leading" constant="16" id="5tD-BY-T5w"/>
+                            <constraint firstItem="Rk5-yr-K9o" firstAttribute="top" secondItem="6KG-va-ETD" secondAttribute="bottom" constant="20" id="7AX-DX-mBi"/>
+                            <constraint firstItem="paL-Cd-s1m" firstAttribute="trailing" secondItem="6KG-va-ETD" secondAttribute="trailing" constant="16" id="Ia0-yl-okg"/>
+                            <constraint firstItem="Rk5-yr-K9o" firstAttribute="leading" secondItem="q6E-PQ-Wt3" secondAttribute="trailing" constant="20" id="KNf-23-1Lm"/>
+                            <constraint firstItem="gPC-KX-sHV" firstAttribute="top" secondItem="q6E-PQ-Wt3" secondAttribute="bottom" constant="20" id="L8o-Vi-HyN"/>
+                            <constraint firstItem="q6E-PQ-Wt3" firstAttribute="top" secondItem="6KG-va-ETD" secondAttribute="bottom" constant="20" id="Xom-km-3Wj"/>
+                            <constraint firstItem="paL-Cd-s1m" firstAttribute="trailing" secondItem="gPC-KX-sHV" secondAttribute="trailing" constant="20" id="aEB-RH-gW1"/>
+                            <constraint firstItem="6KG-va-ETD" firstAttribute="top" secondItem="paL-Cd-s1m" secondAttribute="top" constant="44" id="ks5-Xs-hag"/>
+                            <constraint firstItem="gPC-KX-sHV" firstAttribute="leading" secondItem="paL-Cd-s1m" secondAttribute="leading" constant="20" id="oLt-bp-9Tk"/>
+                            <constraint firstItem="paL-Cd-s1m" firstAttribute="trailing" secondItem="Rk5-yr-K9o" secondAttribute="trailing" constant="20" id="t9r-gz-VQ9"/>
+                            <constraint firstItem="paL-Cd-s1m" firstAttribute="bottom" secondItem="gPC-KX-sHV" secondAttribute="bottom" constant="20" id="tZC-FO-ihJ"/>
+                            <constraint firstItem="6KG-va-ETD" firstAttribute="leading" secondItem="ZHp-Rz-BGx" secondAttribute="trailing" constant="29.5" id="vvu-I2-IVh"/>
+                        </constraints>
+                        <viewLayoutGuide key="safeArea" id="paL-Cd-s1m"/>
+                    </view>
+                    <connections>
+                        <outlet property="PiTR_Table" destination="gPC-KX-sHV" id="qdN-Zv-64J"/>
+                        <outlet property="PiTR_addr" destination="6KG-va-ETD" id="khA-mF-DCp"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="XG4-Lw-EYj" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                <exit id="K0W-uA-uxa" userLabel="Exit" sceneMemberID="exit"/>
+            </objects>
+            <point key="canvasLocation" x="3372" y="-72"/>
         </scene>
         <!--Log-->
         <scene sceneID="ymp-94-FTZ">
