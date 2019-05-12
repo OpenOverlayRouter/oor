@@ -196,12 +196,12 @@ distclean: clean
 
 install: $(EXE)
 	mkdir -p $(DESTDIR)$(PREFIX) && cp $(EXE) $(DESTDIR)$(PREFIX)
-	cp $(SERVICE) $(SERVICEPREF)
+	mkdir -p $(DESTDIR)$(SERVICEPREF) && cp $(SERVICE) $(SERVICEPREF)
 	setcap cap_net_raw,cap_net_admin+ep $(DESTDIR)$(PREFIX)/$(EXE)
 
 uninstall:
 	rm $(DESTDIR)$(PREFIX)/$(EXE)
-	rm $(SERVICEPREF)$(SERVICE)
+	rm $(DESTDIR)$(SERVICEPREF)$(SERVICE)
 
 tags:
 	cscope -R -b
