@@ -149,19 +149,13 @@ class ViewController: UIViewController {
 
     @IBAction func oorWebButton(_ sender: Any) {
         if let url = NSURL(string: "https://www.openoverlayrouter.org") {
-            UIApplication.shared.openURL(url as URL)
+            UIApplication.shared.open(url as URL, options: [:], completionHandler: nil)
         }
     }
     
     @IBAction func getHelpButton(_ sender: Any) {
         if let url = NSURL(string: "https://github.com/OpenOverlayRouter/oor/wiki/Mailing-lists") {
-            UIApplication.shared.openURL(url as URL)
-        }
-    }
-    
-    @IBAction func getAnEIDButton(_ sender: Any) {
-        if let url = NSURL(string: "https://www.lisp4.net/beta-network/get-involved") {
-            UIApplication.shared.openURL(url as URL)
+            UIApplication.shared.open(url as URL, options: [:], completionHandler: nil)
         }
     }
 }

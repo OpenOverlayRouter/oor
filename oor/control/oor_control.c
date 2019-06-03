@@ -303,6 +303,11 @@ ctrl_unregister_mapping_dp(oor_ctrl_dev_t *dev, mapping_t *map)
 int
 ctrl_datap_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local)
 {
+    char * eid_prefix_char = lisp_addr_to_char(eid_prefix);
+    // TODO if the change is from PeTRs, reset all data plane. Simplify structure and do allways the same
+    if (strcmp(eid_prefix_char,FULL_IPv4_ADDRESS_SPACE) == 0 || strcmp(eid_prefix_char,FULL_IPv6_ADDRESS_SPACE) == 0 ){
+        return (data_plane->datap_reset_all_fwd());
+    }
     return (data_plane->datap_rm_fwd_from_entry(eid_prefix, is_local));
 }
 

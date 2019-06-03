@@ -171,14 +171,14 @@ glist_t * ios_get_iface_addr_list(char *iface_name, int afi) {
                             "%s discarded (%s)", iface_name, ip_addr_to_char(&ip));
                     continue;
                 }
-                if (ifa->ifa_netmask){
+                /*if (ifa->ifa_netmask){
                     s4_mask = (struct sockaddr_in *) ifa->ifa_netmask;
                     if (s4_mask->sin_addr.s_addr == 0xFFFFFFFF){
                         OOR_LOG(LDBG_2, "ios_get_iface_addr_list: interface address from "
                                 "%s discarded (%s) -> mask 32", iface_name, ip_addr_to_char(&ip));
                         continue;
                     }
-                }
+                }*/
                 break;
             case AF_INET6:
                 s6 = (struct sockaddr_in6 *) ifa->ifa_addr;
@@ -316,11 +316,11 @@ ios_get_first_ipv6_addr_from_iface_with_scope (char *iface_name, ipv6_scope_e sc
 }
 
 uint8_t ios_get_iface_status(char *iface_name) {
-    
     char *cellularInterfaceName = "pdp_ip0";
     char *wifiInterfaceName = "en0";
     
     if (strcmp(iface_name, cellularInterfaceName) == 0) {
+        /* When we have the LTE and WiFi interface UP, the OS use WiFi to send data. We set virtually the LTE interface to DOWN */
         if (ios_get_iface_status(wifiInterfaceName) == UP) {
             OOR_LOG(LINF, "ios_get_iface_status: Interface en0 UP, setting interface %s DOWN", iface_name);
             return DOWN;
@@ -337,7 +337,6 @@ uint8_t ios_get_iface_status(char *iface_name) {
         OOR_LOG(LERR, "ios_get_iface_status: Iface %s doesn't exist",iface_name);
         return (ERR_NO_EXIST);
     }
-    
     /* search for the interface */
     if (getifaddrs(&ifaddr) !=0) {
         OOR_LOG(LDBG_2, "ios_get_iface_addr_list: getifaddrs error: %s",
@@ -348,21 +347,19 @@ uint8_t ios_get_iface_status(char *iface_name) {
         if (strcmp(ifa->ifa_name, iface_name) == 0) {
             if (ifa->ifa_flags & IFF_RUNNING) {
                 lisp_addr_t *gate = ios_get_iface_gw(iface_name, AF_INET);
-                
-                if(lisp_addr_to_char(gate) != NULL) {
+                if(gate != NULL) {
                     status = UP;                    
                 }
                 else {
                     status = DOWN;
-                    break;
                 }
+                break;
             }
             else status = DOWN;
             break;
         }
     }
     freeifaddrs(ifaddr);
-    
     return status;
 }
 
@@ -479,23 +476,23 @@ int ios_network_changed(sock_t *sl) {
         }
         switch (u.ifm.ifm_type){
             case RTM_NEWADDR:
-                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received new address message");
+                OOR_LOG(LDBG_1, "==> ios_network_changed: process_netlink_msg: Received new address message");
                 process_fbd_address_change (&u.ifam);
                 break;
             case RTM_DELADDR:
-                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received del address message");
+                OOR_LOG(LDBG_1, "==> ios_network_changed: process_netlink_msg: Received del address message");
                 process_fbd_address_change (&u.ifam);
                 break;
             case RTM_IFINFO:
-                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received link message");
+                OOR_LOG(LDBG_1, "==> ios_network_changed: process_netlink_msg: Received link message");
                 process_fbd_link_change (&u.ifm);
                 break;
             case RTM_ADD:
-                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received new route message");
+                OOR_LOG(LDBG_1, "==> ios_network_changed: process_netlink_msg: Received new route message");
                 process_fbd_route_change (&u.rtm);
                 break;
             case RTM_DELETE:
-                OOR_LOG(LDBG_1, "ios_network_changed: process_netlink_msg: Received delete route message");
+                OOR_LOG(LDBG_1, "==> ios_network_changed: process_netlink_msg: Received delete route message");
                 process_fbd_route_change (&u.rtm);
                 break;
             default:

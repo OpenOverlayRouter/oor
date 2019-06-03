@@ -122,7 +122,7 @@ nm_process_address_change(uint8_t act, uint32_t iface_index, lisp_addr_t *new_ad
 
 change:
     /* Detected a valid change of address  */
-    OOR_LOG(LDBG_2,"nm_process_address_change: New address detected for interface "
+    OOR_LOG(LDBG_1,"nm_process_address_change: New address detected for interface "
             "%s. Address changed from %s to %s", iface->iface_name,
             lisp_addr_to_char(iface_addr), lisp_addr_to_char(new_addr));
 
@@ -163,7 +163,7 @@ nm_process_link_change(uint32_t old_iface_index, uint32_t new_iface_index, uint8
                 " doesn't affect");
         return;
     }
-    OOR_LOG(LDBG_2, "nm_process_link_change: The interface %s has changed its status to %s",
+    OOR_LOG(LDBG_1, "nm_process_link_change: The interface %s has changed its status to %s",
             iface->iface_name, new_status == UP ? "UP" : "DOWN");
 
     /* Update iface */
@@ -182,6 +182,7 @@ nm_process_route_change(uint8_t act, uint32_t iface_index, lisp_addr_t *src,
         lisp_addr_t *dst, lisp_addr_t *gateway)
 {
     iface_t *iface;
+    uint8_t prev_status;
 
     iface = get_interface_from_index(iface_index);
     if (iface == NULL){
@@ -189,13 +190,14 @@ nm_process_route_change(uint8_t act, uint32_t iface_index, lisp_addr_t *src,
                 "interface associated with RLOCs (%d)", iface_index);
         return;
     }
-
+    prev_status = iface->status;
+    
     /* Check default afi*/
 
     if (lisp_addr_ip_afi(src) != LM_AFI_NO_ADDR &&
             default_rloc_afi != AF_UNSPEC &&
             default_rloc_afi != lisp_addr_ip_afi(src)) {
-        OOR_LOG(LDBG_1, "nm_process_route_change: Default RLOC afi "
+        OOR_LOG(LDBG_3, "nm_process_route_change: Default RLOC afi "
                 "defined (-a #): Skipped route with source address %s in iface %s",
                 (lisp_addr_ip_afi(src)== AF_INET) ? "IPv4" : "IPv6",
                         iface->iface_name);
@@ -205,7 +207,7 @@ nm_process_route_change(uint8_t act, uint32_t iface_index, lisp_addr_t *src,
     if (lisp_addr_ip_afi(dst) != LM_AFI_NO_ADDR &&
             default_rloc_afi != AF_UNSPEC &&
             default_rloc_afi != lisp_addr_ip_afi(dst)) {
-        OOR_LOG(LDBG_1, "nm_process_route_change: Default RLOC afi "
+        OOR_LOG(LDBG_3, "nm_process_route_change: Default RLOC afi "
                 "defined (-a #): Skipped route with destination address %s in iface %s",
                 (lisp_addr_ip_afi(dst)== AF_INET) ? "IPv4" : "IPv6",
                         iface->iface_name);
@@ -221,7 +223,7 @@ nm_process_route_change(uint8_t act, uint32_t iface_index, lisp_addr_t *src,
         return;
     }
 
-    OOR_LOG(LDBG_2, "nm_process_route_change: %s route: src: %s, dst: %s , gw: %s",
+    OOR_LOG(LDBG_1, "nm_process_route_change: %s route: src: %s, dst: %s , gw: %s",
             act == ADD ? "Added" : "Removed", lisp_addr_to_char(src),
                     lisp_addr_to_char(dst), lisp_addr_to_char(gateway));
 
@@ -231,6 +233,18 @@ nm_process_route_change(uint8_t act, uint32_t iface_index, lisp_addr_t *src,
     /* raise event to control plane */
     OOR_LOG(LDBG_3,"nm_process_route_change: Updating control data plane");
     ctrl_route_update(lctrl, act, iface, src, dst, gateway);
+    
+    if (prev_status != iface->status){
+        /* The interface status has changed without receiving a notification */
+        /* raise event to data plane */
+        OOR_LOG(LDBG_1, "nm_process_route_change: The interface %s has changed its status to %s",
+                iface->iface_name, iface->status == UP ? "UP" : "DOWN");
+        OOR_LOG(LDBG_3,"nm_process_route_change: Updating data plane, link change");
+        data_plane->datap_update_link(iface, iface_index, iface_index, iface->status);
+        /* raise event in ctrl */
+        OOR_LOG(LDBG_3,"nm_process_route_change: Updating control data plane, link change");
+        ctrl_if_link_update(lctrl, iface, iface_index, iface_index, iface->status);
+    }
 }
 
 

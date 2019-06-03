@@ -234,6 +234,7 @@ xtr_run(oor_ctrl_dev_t *dev)
 
     if (glist_size(xtr->tr.map_resolvers) == 0) {
         OOR_LOG(LCRIT, "**** NO MAP RESOLVER CONFIGURED. You can not request mappings from the mapping system");
+        OOR_LOG(LINF, "All traffic will be forwarded to PeTRs");
         oor_timer_sleep(2);
     }
 
@@ -662,8 +663,8 @@ xtr_get_forwarding_entry(oor_ctrl_dev_t *dev, packet_tuple_t *tuple)
 
     /* Get the mcache entry for destination EID */
 
-    if (xtr->nat_aware){
-        // Map cache entry of RTRs
+    if (xtr->nat_aware || glist_size(xtr->tr.map_resolvers) == 0){
+        // Map cache entry of RTRs or PeTRs
         mce = mcache_get_all_space_entry(xtr->tr.map_cache, lisp_addr_ip_afi( &tuple->dst_addr));
     }else{
         mce = mcache_lookup(xtr->tr.map_cache, dst_eid);

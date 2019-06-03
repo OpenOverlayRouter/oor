@@ -163,15 +163,17 @@ int
 ios_updated_route(int command, iface_t *iface, lisp_addr_t *src_pref,
                      lisp_addr_t *dst_pref, lisp_addr_t *gateway)
 {
-    if (lisp_addr_ip_afi(gateway) != LM_AFI_NO_ADDR
-        && (lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR ||
+    if (lisp_addr_ip_afi(gateway) != LM_AFI_NO_ADDR){
+        if((lisp_addr_ip_afi(dst_pref) == LM_AFI_NO_ADDR ||
         laddr_is_full_space_pref(dst_pref))) {
-        
-        // Process the new gateway
-        OOR_LOG(LDBG_1,  "ios_updated_route: Process new gateway "
+            // Process the new gateway
+            OOR_LOG(LDBG_1,  "ios_updated_route: Process new gateway "
                 "associated to the interface %s:  %s", iface->iface_name,
                 lisp_addr_to_char(gateway));
-        ios_process_new_gateway(iface,gateway);
+            ios_process_new_gateway(iface,gateway);
+        }
+        /* Sanity check in case we don't receive link status change */
+        iface->status = net_mgr->netm_get_iface_status(iface->iface_name);
     }
     return (GOOD);
 }
@@ -182,6 +184,7 @@ ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     lisp_addr_t **gw_addr    = NULL;
     int afi;
     ios_data_t *data;
+    uint8_t old_status;
     afi = lisp_addr_ip_afi(gateway);
     
     switch(afi){
@@ -199,13 +202,6 @@ ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
         *gw_addr = lisp_addr_new();
     }
     lisp_addr_copy(*gw_addr,gateway);
-    
-    if (iface->status != UP){
-        OOR_LOG(LDBG_1,"ios_process_new_gateway: Probably the interface %s is UP "
-                "but we didn't receive netlink indicating this. Checking it",
-                iface->iface_name,iface->iface_name);
-        iface->status = net_mgr->netm_get_iface_status(iface->iface_name);
-    }
     
     data = (ios_data_t *)dplane_apple.datap_data;
     
@@ -271,9 +267,9 @@ ios_reset_socket(int fd, int afi)
     int new_fd;
     ios_data_t * data;
     int src_port;
-    
     data = (ios_data_t *)dplane_apple.datap_data;
     old_sock = sockmstr_register_get_by_fd(smaster,fd);
+    
     sockmstr_unregister_read_listenedr(smaster,old_sock);
 
     switch (data->encap_type){

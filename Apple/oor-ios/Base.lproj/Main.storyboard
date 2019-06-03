@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="14460.31" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="8Cg-T5-bqo">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="14490.70" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="8Cg-T5-bqo">
     <device id="retina4_7" orientation="portrait">
         <adaptation id="fullscreen"/>
     </device>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14460.20"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14490.49"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -109,27 +109,11 @@
                                     <segue destination="E7U-kF-pMN" kind="show" id="kgU-rI-B88"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="n6Z-37-9z8">
-                                <rect key="frame" x="109" y="411" width="157" height="55"/>
-                                <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="157" id="9fz-8F-8jD"/>
-                                    <constraint firstAttribute="height" constant="55" id="yNU-Bn-AnP"/>
-                                </constraints>
-                                <fontDescription key="fontDescription" type="boldSystem" pointSize="15"/>
-                                <state key="normal" title="Get an EID">
-                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                </state>
-                                <connections>
-                                    <action selector="getAnEIDButton:" destination="lKd-eV-VjY" eventType="touchUpInside" id="oBP-1U-3SI"/>
-                                </connections>
-                            </button>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <constraints>
                             <constraint firstItem="GRe-4Z-8j5" firstAttribute="top" secondItem="M2C-ns-MKN" secondAttribute="top" constant="330" id="6ML-QS-ByF"/>
                             <constraint firstItem="jdM-UF-voz" firstAttribute="centerX" secondItem="eCr-IB-FO3" secondAttribute="centerX" id="7lB-zx-QEO"/>
-                            <constraint firstItem="n6Z-37-9z8" firstAttribute="top" secondItem="9ev-3s-PaB" secondAttribute="bottom" constant="8" id="AAE-1A-fz7"/>
                             <constraint firstItem="zGM-g8-uen" firstAttribute="centerX" secondItem="eCr-IB-FO3" secondAttribute="centerX" id="HPT-8M-S0Y"/>
                             <constraint firstItem="jig-1n-fvs" firstAttribute="top" secondItem="zGM-g8-uen" secondAttribute="bottom" constant="8" id="KKk-uc-cDH"/>
                             <constraint firstItem="zGM-g8-uen" firstAttribute="top" secondItem="M2C-ns-MKN" secondAttribute="top" constant="67" id="Mia-1s-1Fu"/>
@@ -144,7 +128,6 @@
                             <constraint firstItem="6Xz-WU-Iw3" firstAttribute="centerX" secondItem="eCr-IB-FO3" secondAttribute="centerX" id="npS-Tt-BnM"/>
                             <constraint firstItem="9ev-3s-PaB" firstAttribute="centerX" secondItem="eCr-IB-FO3" secondAttribute="centerX" id="o0K-86-mHM"/>
                             <constraint firstItem="jdM-UF-voz" firstAttribute="top" secondItem="jig-1n-fvs" secondAttribute="bottom" constant="8" id="vUn-Mr-TWh"/>
-                            <constraint firstItem="n6Z-37-9z8" firstAttribute="centerX" secondItem="eCr-IB-FO3" secondAttribute="centerX" id="z9K-dt-RGt"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="M2C-ns-MKN"/>
                     </view>
@@ -381,25 +364,21 @@
                                             <rect key="frame" x="0.0" y="0.0" width="375" height="43.5"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
-                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Proxy ETR Address" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="YxO-6a-FmN">
-                                                    <rect key="frame" x="16" y="11.5" width="145.5" height="21"/>
+                                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="leading" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="9NU-Ne-cgv">
+                                                    <rect key="frame" x="16" y="5.5" width="343" height="33"/>
                                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                                    <color key="textColor" red="0.0" green="0.33333333329999998" blue="0.28235294119999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                                    <nil key="highlightedColor"/>
-                                                </label>
-                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="IPv4" textAlignment="right" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="F6n-92-a3B">
-                                                    <rect key="frame" x="171.5" y="11.5" width="187.5" height="21"/>
-                                                    <nil key="textColor"/>
-                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                                    <textInputTraits key="textInputTraits" autocorrectionType="no" spellCheckingType="no" keyboardType="numbersAndPunctuation" returnKeyType="done"/>
-                                                </textField>
+                                                    <state key="normal" title="Proxy ETR List &gt;&gt;">
+                                                        <color key="titleColor" red="0.0" green="0.33333333329999998" blue="0.28235294119999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                    </state>
+                                                    <connections>
+                                                        <segue destination="UWc-zx-WKM" kind="show" identifier="petrSegue" id="sp4-eY-8B4"/>
+                                                    </connections>
+                                                </button>
                                             </subviews>
                                             <constraints>
-                                                <constraint firstItem="F6n-92-a3B" firstAttribute="trailing" secondItem="Vhd-JN-1D5" secondAttribute="trailingMargin" id="3MX-wZ-YkK"/>
-                                                <constraint firstItem="F6n-92-a3B" firstAttribute="centerY" secondItem="Vhd-JN-1D5" secondAttribute="centerY" id="K9S-Ma-C2L"/>
-                                                <constraint firstItem="YxO-6a-FmN" firstAttribute="leading" secondItem="Vhd-JN-1D5" secondAttribute="leadingMargin" id="Kae-HC-8Lu"/>
-                                                <constraint firstItem="F6n-92-a3B" firstAttribute="leading" secondItem="YxO-6a-FmN" secondAttribute="trailing" constant="10" id="Rgc-Gh-0sH"/>
-                                                <constraint firstItem="YxO-6a-FmN" firstAttribute="centerY" secondItem="Vhd-JN-1D5" secondAttribute="centerY" id="uUL-mg-hts"/>
+                                                <constraint firstItem="9NU-Ne-cgv" firstAttribute="leading" secondItem="Vhd-JN-1D5" secondAttribute="leadingMargin" id="6MR-2h-7JB"/>
+                                                <constraint firstItem="9NU-Ne-cgv" firstAttribute="centerY" secondItem="Vhd-JN-1D5" secondAttribute="centerY" id="Jfw-6K-BvL"/>
+                                                <constraint firstAttribute="trailing" secondItem="9NU-Ne-cgv" secondAttribute="trailing" constant="16" id="fqa-PZ-Mfz"/>
                                             </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>
@@ -535,7 +514,6 @@
                         <outlet property="mapServerKeyTextField" destination="xnq-aQ-7UM" id="zAv-xZ-cbs"/>
                         <outlet property="mapServerTextField" destination="aAE-3W-cL1" id="lK3-Vo-vn4"/>
                         <outlet property="natSwitch" destination="D9G-e6-Rai" id="xtx-4P-Urx"/>
-                        <outlet property="proxyEtrAddressTextField" destination="F6n-92-a3B" id="mva-62-jB9"/>
                         <outlet property="saveLabel" destination="1jh-Vd-ffa" id="NMT-Ig-dcP"/>
                         <outlet property="stepper" destination="4ZY-8q-AxQ" id="JCs-Pk-aGc"/>
                         <outlet property="stepperTextField" destination="Ums-28-RMK" id="kdf-HL-bYJ"/>
@@ -605,7 +583,7 @@
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
                                                 <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="PiTR address" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="m6L-fx-Jvg">
-                                                    <rect key="frame" x="35" y="11.5" width="273" height="20.5"/>
+                                                    <rect key="frame" x="35" y="11.5" width="265" height="20.5"/>
                                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                                     <nil key="textColor"/>
                                                     <nil key="highlightedColor"/>
@@ -654,7 +632,7 @@
                 <placeholder placeholderIdentifier="IBFirstResponder" id="XG4-Lw-EYj" userLabel="First Responder" sceneMemberID="firstResponder"/>
                 <exit id="K0W-uA-uxa" userLabel="Exit" sceneMemberID="exit"/>
             </objects>
-            <point key="canvasLocation" x="3372" y="-72"/>
+            <point key="canvasLocation" x="3502" y="236"/>
         </scene>
         <!--Log-->
         <scene sceneID="ymp-94-FTZ">
@@ -722,6 +700,117 @@
                 <placeholder placeholderIdentifier="IBFirstResponder" id="lKu-hb-7u7" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="2565.5999999999999" y="674.21289355322347"/>
+        </scene>
+        <!--Petr View Controller-->
+        <scene sceneID="o1h-C3-WXZ">
+            <objects>
+                <viewController id="UWc-zx-WKM" customClass="PetrViewController" customModule="oor_ios" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Yuh-BW-RwB">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="603"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="PeTR address:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="par-kP-zWW">
+                                <rect key="frame" x="16" y="44" width="110" height="21"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <color key="textColor" red="0.0" green="0.33333333329999998" blue="0.28235294119999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="hjl-CZ-Wb6">
+                                <rect key="frame" x="156" y="44" width="203" height="30"/>
+                                <nil key="textColor"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                <textInputTraits key="textInputTraits"/>
+                            </textField>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="fXB-fv-Dwo">
+                                <rect key="frame" x="179" y="94" width="80" height="33"/>
+                                <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="80" id="Hcv-15-pl0"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <state key="normal" title="Add">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </state>
+                                <connections>
+                                    <action selector="Add_PeTR_Push:" destination="UWc-zx-WKM" eventType="touchUpInside" id="dDg-5d-pxp"/>
+                                </connections>
+                            </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="q2c-Xy-CuY">
+                                <rect key="frame" x="279" y="94" width="80" height="33"/>
+                                <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="80" id="nZy-gE-0sg"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <state key="normal" title="Save">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </state>
+                                <connections>
+                                    <segue destination="Hu6-Zx-LRi" kind="unwind" unwindAction="unwindToThisViewWithSender:" id="fmY-E7-Xg4"/>
+                                </connections>
+                            </button>
+                            <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="6jP-l5-EMK">
+                                <rect key="frame" x="20" y="147" width="335" height="436"/>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <prototypes>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="PetrCell" id="DFo-YH-nDJ" customClass="PetrCell" customModule="oor_ios" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="28" width="335" height="44"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="DFo-YH-nDJ" id="2h4-Zm-4Vp">
+                                            <rect key="frame" x="0.0" y="0.0" width="335" height="43.5"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="PeTR address" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="RHS-8j-pwM">
+                                                    <rect key="frame" x="35" y="11.5" width="265" height="21"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="RHS-8j-pwM" firstAttribute="leading" secondItem="2h4-Zm-4Vp" secondAttribute="leadingMargin" constant="20" id="8Bv-lf-MSe"/>
+                                                <constraint firstItem="RHS-8j-pwM" firstAttribute="centerY" secondItem="2h4-Zm-4Vp" secondAttribute="centerY" id="UVc-Tt-VaA"/>
+                                                <constraint firstAttribute="trailingMargin" secondItem="RHS-8j-pwM" secondAttribute="trailing" constant="20" id="csx-Ur-3et"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                        <connections>
+                                            <outlet property="PetrAddress" destination="RHS-8j-pwM" id="tfR-d8-d81"/>
+                                        </connections>
+                                    </tableViewCell>
+                                </prototypes>
+                                <connections>
+                                    <outlet property="dataSource" destination="UWc-zx-WKM" id="MXv-V7-Mgu"/>
+                                    <outlet property="delegate" destination="UWc-zx-WKM" id="XZb-kf-R7B"/>
+                                </connections>
+                            </tableView>
+                        </subviews>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstItem="7z1-vU-eg8" firstAttribute="trailing" secondItem="q2c-Xy-CuY" secondAttribute="trailing" constant="16" id="D4P-97-tmB"/>
+                            <constraint firstItem="fXB-fv-Dwo" firstAttribute="top" secondItem="hjl-CZ-Wb6" secondAttribute="bottom" constant="20" id="Htu-XE-lwP"/>
+                            <constraint firstItem="q2c-Xy-CuY" firstAttribute="leading" secondItem="fXB-fv-Dwo" secondAttribute="trailing" constant="20" id="I3T-XL-7nS"/>
+                            <constraint firstItem="7z1-vU-eg8" firstAttribute="trailing" secondItem="hjl-CZ-Wb6" secondAttribute="trailing" constant="16" id="PS6-V9-OqA"/>
+                            <constraint firstItem="q2c-Xy-CuY" firstAttribute="top" secondItem="hjl-CZ-Wb6" secondAttribute="bottom" constant="20" id="Pfd-HE-GoL"/>
+                            <constraint firstItem="par-kP-zWW" firstAttribute="top" secondItem="7z1-vU-eg8" secondAttribute="top" constant="44" id="UGQ-BZ-MTe"/>
+                            <constraint firstItem="hjl-CZ-Wb6" firstAttribute="leading" secondItem="par-kP-zWW" secondAttribute="trailing" constant="30" id="Zuc-c0-skW"/>
+                            <constraint firstItem="6jP-l5-EMK" firstAttribute="top" secondItem="fXB-fv-Dwo" secondAttribute="bottom" constant="20" id="d1E-Yw-goY"/>
+                            <constraint firstItem="6jP-l5-EMK" firstAttribute="leading" secondItem="7z1-vU-eg8" secondAttribute="leading" constant="20" id="gPl-ba-15e"/>
+                            <constraint firstItem="par-kP-zWW" firstAttribute="leading" secondItem="7z1-vU-eg8" secondAttribute="leading" constant="16" id="kEr-W0-kBs"/>
+                            <constraint firstItem="7z1-vU-eg8" firstAttribute="trailing" secondItem="6jP-l5-EMK" secondAttribute="trailing" constant="20" id="kFg-Ls-Pjo"/>
+                            <constraint firstItem="7z1-vU-eg8" firstAttribute="bottom" secondItem="6jP-l5-EMK" secondAttribute="bottom" constant="20" id="l3d-AK-dyi"/>
+                            <constraint firstItem="hjl-CZ-Wb6" firstAttribute="top" secondItem="7z1-vU-eg8" secondAttribute="top" constant="44" id="oA4-GR-1aP"/>
+                        </constraints>
+                        <viewLayoutGuide key="safeArea" id="7z1-vU-eg8"/>
+                    </view>
+                    <connections>
+                        <outlet property="PeTR_Table" destination="6jP-l5-EMK" id="DGE-ql-lAT"/>
+                        <outlet property="PeTR_addr_edit" destination="hjl-CZ-Wb6" id="EAd-pk-fhe"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="hOB-rX-EaL" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                <exit id="Hu6-Zx-LRi" userLabel="Exit" sceneMemberID="exit"/>
+            </objects>
+            <point key="canvasLocation" x="3501.5999999999999" y="-471.8140929535233"/>
         </scene>
         <!--Navigation Controller-->
         <scene sceneID="xdE-e6-2ko">

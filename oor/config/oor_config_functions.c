@@ -1082,8 +1082,9 @@ process_rloc_interface(conf_loc_iface_t * conf_loc_iface, oor_ctrl_dev_t * dev)
 
     /* Remove locators not compatibles with default RLOC */
     if (default_rloc_afi != AF_UNSPEC && conf_loc_iface->afi != default_rloc_afi){
-        OOR_LOG(LDBG_1, "Configuration file: RLOC of the interface %s can not be added due to "
-                "the selected default rloc afi (-a option)", conf_loc_iface->interface);
+        OOR_LOG(LDBG_1, "Configuration file: %s RLOC of the interface %s can not be added due to "
+                "the selected default rloc afi (-a option)",
+                conf_loc_iface->afi == AF_INET? "IPv4" : "IPv6" , conf_loc_iface->interface);
         return (NULL);
     }
 

@@ -14,6 +14,8 @@
 		8B7FC5B221A2D4F400678378 /* lisp_ddt_node.c in Sources */ = {isa = PBXBuildFile; fileRef = 8B7FC5AB21A2D4EA00678378 /* lisp_ddt_node.c */; };
 		8BCFDD532278476000B4B353 /* PitrViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BCFDD512278476000B4B353 /* PitrViewController.swift */; };
 		8BCFDD5822785B0200B4B353 /* PitrCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BCFDD5722785B0200B4B353 /* PitrCell.swift */; };
+		8BEAFAAA22898B7500DF3A1F /* PetrViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BEAFAA922898B7500DF3A1F /* PetrViewController.swift */; };
+		8BEAFAAC228991A800DF3A1F /* PetrCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BEAFAAB228991A800DF3A1F /* PetrCell.swift */; };
 		BB0441EE1FAD1DB7007C204B /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBBD95091F9A59940038EE3F /* Reachability.swift */; };
 		BB17FDCA2107861500716E96 /* LogViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB17FDC92107861500716E96 /* LogViewController.swift */; };
 		BB1ECE6120349A760073661F /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1ECE6020349A760073661F /* SettingsViewController.swift */; };
@@ -22,7 +24,6 @@
 		BB216FCE20A9F7E000136A91 /* map_cache_rtr_data.c in Sources */ = {isa = PBXBuildFile; fileRef = BB216FCC20A9F7E000136A91 /* map_cache_rtr_data.c */; };
 		BB216FD120A9F87D00136A91 /* lisp_tr.c in Sources */ = {isa = PBXBuildFile; fileRef = BB216FCF20A9F87D00136A91 /* lisp_tr.c */; };
 		BB216FD420A9F8D500136A91 /* fwd_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = BB216FD320A9F8D500136A91 /* fwd_utils.c */; };
-		BB226AE11F0697520060F531 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226AE01F0697520060F531 /* main.c */; };
 		BB226AEC1F06976F0060F531 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB226AEB1F06976F0060F531 /* AppDelegate.swift */; };
 		BB226AEE1F06976F0060F531 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB226AED1F06976F0060F531 /* ViewController.swift */; };
 		BB226AF11F06976F0060F531 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BB226AEF1F06976F0060F531 /* Main.storyboard */; };
@@ -95,7 +96,6 @@
 		BB894F451F1E66F9009E3F8C /* net_mgr.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226BBB1F0697AE0060F531 /* net_mgr.c */; };
 		BB894F461F1E66F9009E3F8C /* net_mgr_proc_fc.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226BBD1F0697AE0060F531 /* net_mgr_proc_fc.c */; };
 		BB894F471F1E66F9009E3F8C /* oor.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226BC21F0697AE0060F531 /* oor.c */; };
-		BBA459D8208BB86C00CE7882 /* iOSlibconfuse.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BBA459D7208BB86C00CE7882 /* iOSlibconfuse.a */; };
 		BBBB6D611F7EA77200EF7FD0 /* cdp_ios.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226C8C1F06A20E0060F531 /* cdp_ios.c */; };
 		BBC899D320A9FD18007EF165 /* fwd_entry_vpp.c in Sources */ = {isa = PBXBuildFile; fileRef = BB226B611F0697AE0060F531 /* fwd_entry_vpp.c */; };
 		BBC899D620A9FF43007EF165 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BBC899D520A9FF43007EF165 /* NetworkExtension.framework */; };
@@ -121,15 +121,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		BB226ADB1F0697520060F531 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		BB894F041F1E63A8009E3F8C /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -157,6 +148,8 @@
 		8B7FC5AE21A2D4EB00678378 /* lisp_ddt_node.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lisp_ddt_node.h; sourceTree = "<group>"; };
 		8BCFDD512278476000B4B353 /* PitrViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitrViewController.swift; sourceTree = "<group>"; };
 		8BCFDD5722785B0200B4B353 /* PitrCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitrCell.swift; sourceTree = "<group>"; };
+		8BEAFAA922898B7500DF3A1F /* PetrViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetrViewController.swift; sourceTree = "<group>"; };
+		8BEAFAAB228991A800DF3A1F /* PetrCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetrCell.swift; sourceTree = "<group>"; };
 		BB17FDC92107861500716E96 /* LogViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewController.swift; sourceTree = "<group>"; };
 		BB1ECE6020349A760073661F /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
 		BB216FC620A9F6B600136A91 /* htable_ptrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = htable_ptrs.h; sourceTree = "<group>"; };
@@ -169,7 +162,6 @@
 		BB216FD020A9F87D00136A91 /* lisp_tr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lisp_tr.h; sourceTree = "<group>"; };
 		BB216FD220A9F8D400136A91 /* fwd_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fwd_utils.h; sourceTree = "<group>"; };
 		BB216FD320A9F8D500136A91 /* fwd_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fwd_utils.c; sourceTree = "<group>"; };
-		BB226ADD1F0697520060F531 /* oor-macos */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "oor-macos"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB226AE01F0697520060F531 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		BB226AE91F06976F0060F531 /* oor-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "oor-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB226AEB1F06976F0060F531 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -387,14 +379,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		BB226ADA1F0697520060F531 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				BBA459D8208BB86C00CE7882 /* iOSlibconfuse.a in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		BB226AE61F06976F0060F531 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -431,7 +415,6 @@
 		BB226ADE1F0697520060F531 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BB226ADD1F0697520060F531 /* oor-macos */,
 				BB226AE91F06976F0060F531 /* oor-ios.app */,
 				BB894EF71F1E63A8009E3F8C /* oorPacketTunnelProvider.appex */,
 			);
@@ -460,7 +443,9 @@
 				BB226AF21F06976F0060F531 /* Assets.xcassets */,
 				BB226AF71F06976F0060F531 /* Info.plist */,
 				8BCFDD512278476000B4B353 /* PitrViewController.swift */,
+				8BEAFAA922898B7500DF3A1F /* PetrViewController.swift */,
 				8BCFDD5722785B0200B4B353 /* PitrCell.swift */,
+				8BEAFAAB228991A800DF3A1F /* PetrCell.swift */,
 			);
 			path = "oor-ios";
 			sourceTree = "<group>";
@@ -994,23 +979,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		BB226ADC1F0697520060F531 /* oor-macos */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = BB226AE21F0697520060F531 /* Build configuration list for PBXNativeTarget "oor-macos" */;
-			buildPhases = (
-				BB226AD91F0697520060F531 /* Sources */,
-				BB226ADA1F0697520060F531 /* Frameworks */,
-				BB226ADB1F0697520060F531 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "oor-macos";
-			productName = "oor-macos";
-			productReference = BB226ADD1F0697520060F531 /* oor-macos */;
-			productType = "com.apple.product-type.tool";
-		};
 		BB226AE81F06976F0060F531 /* oor-ios */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BB226AF81F06976F0060F531 /* Build configuration list for PBXNativeTarget "oor-ios" */;
@@ -1054,13 +1022,8 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 0830;
-				LastUpgradeCheck = 0830;
+				LastUpgradeCheck = 1020;
 				TargetAttributes = {
-					BB226ADC1F0697520060F531 = {
-						CreatedOnToolsVersion = 8.3.1;
-						DevelopmentTeam = 6EE4W5PN4K;
-						ProvisioningStyle = Automatic;
-					};
 					BB226AE81F06976F0060F531 = {
 						CreatedOnToolsVersion = 8.3.1;
 						DevelopmentTeam = 6EE4W5PN4K;
@@ -1100,7 +1063,7 @@
 			};
 			buildConfigurationList = BB226AD61F0696EB0060F531 /* Build configuration list for PBXProject "oor-apple" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
@@ -1111,7 +1074,6 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				BB226ADC1F0697520060F531 /* oor-macos */,
 				BB226AE81F06976F0060F531 /* oor-ios */,
 				BB894EF61F1E63A8009E3F8C /* oorPacketTunnelProvider */,
 			);
@@ -1143,14 +1105,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		BB226AD91F0697520060F531 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				BB226AE11F0697520060F531 /* main.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		BB226AE51F06976F0060F531 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1158,6 +1112,8 @@
 				BB226AEE1F06976F0060F531 /* ViewController.swift in Sources */,
 				BB17FDCA2107861500716E96 /* LogViewController.swift in Sources */,
 				8BCFDD5822785B0200B4B353 /* PitrCell.swift in Sources */,
+				8BEAFAAA22898B7500DF3A1F /* PetrViewController.swift in Sources */,
+				8BEAFAAC228991A800DF3A1F /* PetrCell.swift in Sources */,
 				8BCFDD532278476000B4B353 /* PitrViewController.swift in Sources */,
 				BB226AEC1F06976F0060F531 /* AppDelegate.swift in Sources */,
 				BB1ECE6120349A760073661F /* SettingsViewController.swift in Sources */,
@@ -1285,7 +1241,34 @@
 		BB226AD71F0696EB0060F531 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				ONLY_ACTIVE_ARCH = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "oor/Apple/oor-Bridging-Header.h";
 			};
 			name = Debug;
@@ -1293,113 +1276,33 @@
 		BB226AD81F0696EB0060F531 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				SWIFT_OBJC_BRIDGING_HEADER = "oor/Apple/oor-Bridging-Header.h";
-			};
-			name = Release;
-		};
-		BB226AE31F0697520060F531 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 6EE4W5PN4K;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu89;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/Frameworks";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Frameworks",
-					"$(PROJECT_DIR)/oor/Apple/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 10.12;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
-			};
-			name = Debug;
-		};
-		BB226AE41F0697520060F531 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 6EE4W5PN4K;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu89;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/Frameworks";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Frameworks",
-					"$(PROJECT_DIR)/oor/Apple/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 10.12;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -1462,7 +1365,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor;
+				PRODUCT_BUNDLE_IDENTIFIER = org.oor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1527,7 +1430,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor;
+				PRODUCT_BUNDLE_IDENTIFIER = org.oor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1597,7 +1500,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor.ptp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.oor.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1660,7 +1563,7 @@
 					"$(PROJECT_DIR)/oor/Apple/Frameworks",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.oor.ptp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.oor.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1681,15 +1584,6 @@
 			buildConfigurations = (
 				BB226AD71F0696EB0060F531 /* Debug */,
 				BB226AD81F0696EB0060F531 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		BB226AE21F0697520060F531 /* Build configuration list for PBXNativeTarget "oor-macos" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				BB226AE31F0697520060F531 /* Debug */,
-				BB226AE41F0697520060F531 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

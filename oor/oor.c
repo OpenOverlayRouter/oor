@@ -590,6 +590,8 @@ int oor_start() {
     memset (log_file,0,sizeof(char)*1024);
     initial_setup();
     /* create socket master, timer wheel, initialize interfaces */
+    /* Can not use IPv6 RLOCs */
+    default_rloc_afi = AF_INET;
     smaster = sockmstr_create();
     oor_timers_init();
     
@@ -610,6 +612,7 @@ int oor_start() {
     strcat(config_file,confPath);
     strcat(log_file,logPath);
     open_log_file(log_file);
+    OOR_LOG(LINF, "==> Default selected afi: %d",default_rloc_afi);
     if (parse_config_file()!=GOOD){
         exit_cleanup();
         return (BAD);
