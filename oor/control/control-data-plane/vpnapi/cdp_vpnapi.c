@@ -356,7 +356,7 @@ vpnapi_control_dp_reset_socket(vpnapi_ctr_dplane_data_t * data, int fd, int afi)
         OOR_LOG(LDBG_2,"reset_socket: Reset IPv4 control socket\n");
         new_fd = open_control_input_socket(AF_INET);
         if (new_fd == ERR_SOCKET){
-            OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
+            OOR_LOG(LDBG_2,"vpnapi_control_dp_reset_socket: Error recreating the socket");
             return (BAD);
         }
         data->ipv4_ctrl_socket = new_fd;
@@ -373,7 +373,7 @@ vpnapi_control_dp_reset_socket(vpnapi_ctr_dplane_data_t * data, int fd, int afi)
         OOR_LOG(LDBG_2,"reset_socket: Reset IPv6 control socket\n");
         new_fd = open_control_input_socket(AF_INET6);
         if (new_fd == ERR_SOCKET){
-            OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
+            OOR_LOG(LDBG_2,"vpnapi_control_dp_reset_socket: Error recreating the socket");
             return (BAD);
         }
         data->ipv6_ctrl_socket = new_fd;

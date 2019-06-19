@@ -44,7 +44,7 @@ void ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway);
 int ios_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr);
 int ios_update_link(iface_t *iface, int old_iface_index, int new_iface_index,
                        int status);
-int ios_reset_socket(int fd, int afi);
+int ios_reset_sockets(int afi);
 int ios_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local);
 ios_data_t * ios_data_new_init(oor_encap_t encap_type, int tun_socket,
                                      int ipv4_data_socket, int ipv6_data_socket);
@@ -78,7 +78,7 @@ int
 ios_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
 {
     int (*cb_func)(sock_t *) = NULL;
-    int tun_socket, ipv4_data_socket, ipv6_data_socket;
+    int tun_socket, in_ipv4_data_socket, in_ipv6_data_socket, out_ipv4_data_socket, out_ipv6_data_socket;
     int data_port;
     
     //open socket to connect with TunnelProvider
@@ -107,21 +107,25 @@ ios_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
     }
     
     if (default_rloc_afi != AF_INET6){
-        ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,ipv4_data_socket);
+        in_ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,in_ipv4_data_socket);
+        out_ipv4_data_socket = open_data_datagram_output_socket(AF_INET,0);
     }else {
-        ipv4_data_socket = ERR_SOCKET;
+        in_ipv4_data_socket = ERR_SOCKET;
+        out_ipv4_data_socket = ERR_SOCKET;
     }
     
     if (default_rloc_afi != AF_INET){
-        ipv6_data_socket = open_data_datagram_input_socket(AF_INET6, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,ipv6_data_socket);
+        in_ipv6_data_socket = open_data_datagram_input_socket(AF_INET6, data_port);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,in_ipv6_data_socket);
+        out_ipv6_data_socket = open_data_datagram_output_socket(AF_INET6,0);
     }else {
-        ipv6_data_socket = ERR_SOCKET;
+        in_ipv6_data_socket = ERR_SOCKET;
+        out_ipv6_data_socket = ERR_SOCKET;
     }
     
     dplane_apple.datap_data = (void *)ios_data_new_init(encap_type, tun_socket,
-                                                            ipv4_data_socket, ipv6_data_socket);
+                                                            out_ipv4_data_socket, out_ipv6_data_socket);
     if (!(dplane_apple.datap_data)){
         return (BAD);
     }
@@ -207,9 +211,9 @@ ios_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     
     /* Recreate sockets */
     if (afi == AF_INET){
-        ios_reset_socket(data->ipv4_data_socket,AF_INET);
+        ios_reset_sockets(AF_INET);
     }else{
-        ios_reset_socket(data->ipv6_data_socket,AF_INET6);
+        ios_reset_sockets(AF_INET6);
     }
 }
 
@@ -232,10 +236,10 @@ ios_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr)
     
     switch (new_addr_ip_afi){
         case AF_INET:
-            ios_reset_socket(data->ipv4_data_socket, AF_INET);
+            ios_reset_sockets(AF_INET);
             break;
         case AF_INET6:
-            ios_reset_socket(data->ipv6_data_socket, AF_INET6);
+            ios_reset_sockets(AF_INET6);
             break;
         default:
             return (BAD);
@@ -252,60 +256,45 @@ ios_update_link(iface_t *iface, int old_iface_index, int new_iface_index, int st
     data = (ios_data_t *)dplane_apple.datap_data;
     
     if (default_rloc_afi != AF_INET6){
-        ios_reset_socket(data->ipv4_data_socket, AF_INET);
+        ios_reset_sockets(AF_INET);
     }
     if (default_rloc_afi != AF_INET){
-        ios_reset_socket(data->ipv6_data_socket, AF_INET6);
+        ios_reset_sockets(AF_INET6);
     }
     return (GOOD);
 }
 
 int
-ios_reset_socket(int fd, int afi)
+ios_reset_sockets(int afi)
 {
     sock_t *old_sock;
-    int new_fd;
     ios_data_t * data;
-    int src_port;
+    uint16_t src_port;
+    int new_fd;
+
     data = (ios_data_t *)dplane_apple.datap_data;
-    old_sock = sockmstr_register_get_by_fd(smaster,fd);
+    switch (data->encap_type){
+    case ENCP_LISP:
+        src_port = LISP_DATA_PORT;
+        break;
+    case ENCP_VXLAN_GPE:
+        src_port = VXLAN_GPE_DATA_PORT;
+        break;
+    }
     
+    /* Reset input socket */
+    old_sock = sockmstr_register_get_by_bind_port(smaster,afi,src_port);
+
+    OOR_LOG(LDBG_2,"reset_socket: Reset binded %s data socket", (afi == AF_INET) ? "IPv4" : "IPv6");
+    new_fd = open_data_datagram_input_socket(afi,src_port);
+    if (new_fd == ERR_SOCKET){
+        OOR_LOG(LDBG_2,"ios_reset_socket: Error recreating the read socket");
+        return (BAD);
+    }
+
+    sockmstr_register_read_listener(smaster,old_sock->recv_cb,old_sock->arg,new_fd);
     sockmstr_unregister_read_listenedr(smaster,old_sock);
 
-    switch (data->encap_type){
-        case ENCP_LISP:
-            src_port = LISP_DATA_PORT;
-            break;
-        case ENCP_VXLAN_GPE:
-            src_port = VXLAN_GPE_DATA_PORT;
-            break;
-    }
-    
-    switch (afi){
-        case AF_INET:
-            OOR_LOG(LDBG_2,"reset_socket: Reset IPv4 data socket");
-            new_fd = open_data_datagram_input_socket(AF_INET,src_port);
-            if (new_fd == ERR_SOCKET){
-                OOR_LOG(LDBG_2,"ios_reset_socket: Error recreating the socket");
-                return (BAD);
-            }
-            data->ipv4_data_socket = new_fd;
-            break;
-        case AF_INET6:
-            OOR_LOG(LDBG_2,"reset_socket: Reset IPv6 data socket");
-            new_fd = open_data_datagram_input_socket(AF_INET6,src_port);
-            if (new_fd == ERR_SOCKET){
-                OOR_LOG(LDBG_2,"ios_reset_socket: Error recreating the socket");
-                return (BAD);
-            }
-            data->ipv6_data_socket = new_fd;
-            break;
-        default:
-            return (BAD);
-    }
-    
-    sockmstr_register_read_listener(smaster,ios_process_input_packet,NULL,new_fd);
-    
     return (GOOD);
 }
 

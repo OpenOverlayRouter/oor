@@ -42,7 +42,7 @@ void vpnapi_process_new_gateway(iface_t *iface,lisp_addr_t *gateway);
 int vpnapi_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr);
 int vpnapi_update_link(iface_t *iface, int old_iface_index, int new_iface_index,
         int status);
-int vpnapi_reset_socket(int fd, int afi);
+int vpnapi_reset_sockets(int afi);
 int vpnapi_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local);
 vpnapi_data_t * vpnapi_data_new_init(oor_encap_t encap_type, int tun_socket,
         int ipv4_data_socket, int ipv6_data_socket);
@@ -76,7 +76,7 @@ int
 vpnapi_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
 {
     int (*cb_func)(sock_t *) = NULL;
-    int tun_fd, ipv4_data_socket, ipv6_data_socket;
+    int tun_fd, in_ipv4_data_socket,in_ipv6_data_socket, out_ipv4_data_socket,out_ipv6_data_socket;
     va_list ap;
     int data_port;
 
@@ -109,23 +109,26 @@ vpnapi_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
     }
 
     if (default_rloc_afi != AF_INET6){
-        ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,ipv4_data_socket);
-        oor_jni_protect_socket(ipv4_data_socket);
+        in_ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
+        oor_jni_protect_socket(in_ipv4_data_socket);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,in_ipv4_data_socket);
+        out_ipv4_data_socket = open_data_datagram_output_socket(AF_INET,0);
+        oor_jni_protect_socket(out_ipv4_data_socket);
     }else {
-        ipv4_data_socket = ERR_SOCKET;
+        in_ipv4_data_socket = ERR_SOCKET;
     }
 
     if (default_rloc_afi != AF_INET){
-        ipv6_data_socket = open_data_datagram_input_socket(AF_INET6, data_port);
-        sockmstr_register_read_listener(smaster, cb_func, NULL,ipv6_data_socket);
-        oor_jni_protect_socket(ipv6_data_socket);
+        in_ipv6_data_socket = open_data_datagram_input_socket(AF_INET6, data_port);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,in_ipv6_data_socket);
+        out_ipv6_data_socket = open_data_datagram_output_socket(AF_INET6,0);
+        oor_jni_protect_socket(out_ipv6_data_socket);
     }else {
-        ipv6_data_socket = ERR_SOCKET;
+        in_ipv6_data_socket = ERR_SOCKET;
     }
 
     dplane_vpnapi.datap_data = (void *)vpnapi_data_new_init(encap_type, tun_fd,
-            ipv4_data_socket, ipv6_data_socket);
+            out_ipv4_data_socket, out_ipv6_data_socket);
     if (!(dplane_vpnapi.datap_data)){
         return (BAD);
     }
@@ -229,9 +232,9 @@ vpnapi_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
 
     /* Recreate sockets */
     if (afi == AF_INET){
-        vpnapi_reset_socket(data->ipv4_data_socket,AF_INET);
+        vpnapi_reset_sockets(AF_INET);
     }else{
-        vpnapi_reset_socket(data->ipv6_data_socket,AF_INET6);
+        vpnapi_reset_sockets(AF_INET6);
     }
 }
 
@@ -260,10 +263,10 @@ vpnapi_updated_addr(iface_t *iface,lisp_addr_t *old_addr,lisp_addr_t *new_addr)
 
     switch (new_addr_ip_afi){
     case AF_INET:
-        vpnapi_reset_socket(data->ipv4_data_socket, AF_INET);
+        vpnapi_reset_sockets(AF_INET);
         break;
     case AF_INET6:
-        vpnapi_reset_socket(data->ipv6_data_socket, AF_INET6);
+        vpnapi_reset_sockets(AF_INET6);
         break;
     default:
         return (BAD);
@@ -287,26 +290,24 @@ vpnapi_update_link(iface_t *iface, int old_iface_index, int new_iface_index, int
     }
 
     if (default_rloc_afi != AF_INET6){
-        vpnapi_reset_socket(data->ipv4_data_socket, AF_INET);
+        vpnapi_reset_sockets(AF_INET);
     }
     if (default_rloc_afi != AF_INET){
-        vpnapi_reset_socket(data->ipv6_data_socket, AF_INET6);
+        vpnapi_reset_sockets(AF_INET6);
     }
 
     return (GOOD);
 }
 
 int
-vpnapi_reset_socket(int fd, int afi)
+vpnapi_reset_sockets(int afi)
 {
     sock_t *old_sock;
-    int new_fd;
     vpnapi_data_t * data;
-    int src_port;
+    uint16_t src_port;
+    int new_fd;
 
     data = (vpnapi_data_t *)dplane_vpnapi.datap_data;
-    old_sock = sockmstr_register_get_by_fd(smaster,fd);
-
     switch (data->encap_type){
     case ENCP_LISP:
         src_port = LISP_DATA_PORT;
@@ -316,35 +317,25 @@ vpnapi_reset_socket(int fd, int afi)
         break;
     }
 
-    switch (afi){
-    case AF_INET:
-        OOR_LOG(LDBG_2,"reset_socket: Reset IPv4 data socket");
-        new_fd = open_data_datagram_input_socket(AF_INET,src_port);
-        if (new_fd == ERR_SOCKET){
-            OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
-            return (BAD);
-        }
-        data->ipv4_data_socket = new_fd;
-        break;
-    case AF_INET6:
-        OOR_LOG(LDBG_2,"reset_socket: Reset IPv6 data socket");
-        new_fd = open_data_datagram_input_socket(AF_INET6,src_port);
-        if (new_fd == ERR_SOCKET){
-            OOR_LOG(LDBG_2,"vpnapi_reset_socket: Error recreating the socket");
-            return (BAD);
-        }
-        data->ipv6_data_socket = new_fd;
-        break;
-    default:
+    /* Reset input socket */
+    old_sock = sockmstr_register_get_by_bind_port(smaster,afi,src_port);
+
+
+    OOR_LOG(LDBG_2,"reset_socket: Reset %s data socket", (afi == AF_INET) ? "IPv4" : "IPv6");
+    new_fd = open_data_datagram_input_socket(afi,src_port);
+    if (new_fd == ERR_SOCKET){
+        OOR_LOG(LDBG_2,"ios_reset_socket: Error recreating the read socket");
         return (BAD);
     }
+
     sockmstr_register_read_listener(smaster,old_sock->recv_cb,old_sock->arg,new_fd);
     sockmstr_unregister_read_listenedr(smaster,old_sock);
-    /* Protect the socket from loops in the system*/
+
     oor_jni_protect_socket(new_fd);
 
     return (GOOD);
 }
+
 
 int
 vpnapi_rm_fwd_from_entry(lisp_addr_t *eid_prefix, uint8_t is_local)
@@ -464,6 +455,8 @@ vpnapi_data_free(vpnapi_data_t *data)
     if (!data){
         return;
     }
+    close(data->ipv4_data_socket);
+    close(data->ipv6_data_socket);
     shash_destroy(data->eid_to_dp_entries);
     ttable_uninit(&(data->ttable));
     free(data);

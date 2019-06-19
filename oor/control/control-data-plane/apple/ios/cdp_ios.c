@@ -90,6 +90,7 @@ ios_control_dp_init(oor_ctrl_t *ctrl, ...) {
     if (default_rloc_afi != AF_INET6) {
         data->ipv4_ctrl_socket = open_control_input_socket(AF_INET);
         sockmstr_register_read_listener(smaster, ios_control_dp_recv_msg, ctrl,data->ipv4_ctrl_socket);
+        /* Socket to send Encap Map Register using src port 4341 */
         sock = sockmstr_register_get_by_bind_port(smaster, AF_INET, LISP_DATA_PORT);
         if (sock != NULL){
             data->ipv4_data_socket = sock_fd(sock);

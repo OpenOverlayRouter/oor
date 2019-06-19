@@ -352,6 +352,24 @@ open_data_datagram_input_socket(int afi, int port)
 }
 
 int
+open_data_datagram_output_socket(int afi, int port)
+{
+    int sock = ERR_SOCKET;
+
+    if ((sock = open_udp_datagram_socket(afi)) < 0){
+        return(ERR_SOCKET);
+    }
+
+    if (port != 0){
+        if(bind_socket(sock,afi,NULL,port) != GOOD){
+            close(sock);
+            return(ERR_SOCKET);
+        }
+    }
+    return (sock);
+}
+
+int
 sock_recv(int sfd, lbuf_t *b)
 {
     int nread;

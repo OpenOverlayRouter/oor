@@ -34,6 +34,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     @IBOutlet weak var dnsServerTextField: UITextField!
     @IBOutlet weak var saveLabel: UILabel!
     @IBOutlet weak var natSwitch: UISwitch!
+    @IBOutlet weak var probeSwitch: UISwitch!
     @IBOutlet weak var stepperTextField: UITextField!
     @IBOutlet weak var stepper: UIStepper!
     
@@ -173,6 +174,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         PiTR_list = defaults?.stringArray(forKey: "proxyItrList") ?? [String]()
         dnsServerTextField.text = defaults?.string(forKey: "dnsServer")
         natSwitch.isOn = (defaults?.bool(forKey: "nat"))!
+        probeSwitch.isOn = (defaults?.bool(forKey: "probe"))!
         if defaults?.string(forKey: "debugString") == nil {
             stepper.value = 0
             stepperTextField.text = "0"
@@ -197,6 +199,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         defaults?.set(PiTR_list, forKey: "proxyItrList")
         defaults?.set(dnsServerTextField.text, forKey: "dnsServer")
         defaults?.set(natSwitch.isOn, forKey: "nat")
+        defaults?.set(probeSwitch.isOn, forKey: "probe")
         defaults?.set(stepper.value, forKey: "debug")
         defaults?.set(stepperTextField.text, forKey: "debugString")
         defaults?.set(true, forKey: "firstLaunch")
@@ -206,7 +209,13 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
     
     func writeConfigFile() {
         var config = ""
+        var probeTime = 0
         let eid:String = (defaults?.string(forKey: "eid"))!
+        if !probeSwitch.isOn{
+            probeTime = 0
+        }else{
+            probeTime = 30
+        }
         config.append("#       *** noroot_OOR EXAMPLE CONFIG FILE ***\n\n\n")
         config.append("# General configuration\n")
         config.append("#      debug: Debug levels [0..3]\n")
@@ -229,7 +238,7 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("#   rloc-probe-retries-interval: interval at which RLOC probes retries are\n")
         config.append("#     sent (seconds) [1..#rloc-probe-interval]\n\n")
         config.append("rloc-probing {\n")
-        config.append("    rloc-probe-interval             = 30\n")
+        config.append("    rloc-probe-interval             = \(probeTime)\n")
         config.append("    rloc-probe-retries              = 2\n")
         config.append("    rloc-probe-retries-interval     = 5\n")
         config.append("}\n\n\n")
