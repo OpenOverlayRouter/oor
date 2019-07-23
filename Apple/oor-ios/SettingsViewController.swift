@@ -315,15 +315,21 @@ class SettingsViewController: UITableViewController, UITextFieldDelegate {
         config.append("        }\n\n")
         config.append("}\n\n");
         if !natSwitch.isOn {
-            for petr in PeTR_list {
+            for petr_info in PeTR_list {
+                let camps = petr_info.components(separatedBy: ",")
+                let petr = camps[0]
+                var priority = "1"
+                if (camps.count == 2){
+                    priority = camps[1]
+                }
                 config.append("proxy-etr-ipv4 {\n")
                 config.append("        address     = \(petr)\n")
-                config.append("        priority    = 1\n")
+                config.append("        priority    = \(priority)\n")
                 config.append("        weight      = 100\n")
                 config.append("}\n\n")
                 config.append("proxy-etr-ipv6 {\n")
                 config.append("        address     = \(petr)\n")
-                config.append("        priority    = 1\n")
+                config.append("        priority    = \(priority)\n")
                 config.append("        weight      = 100\n")
                 config.append("}\n\n");
             }

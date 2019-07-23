@@ -1026,7 +1026,7 @@
 				TargetAttributes = {
 					BB226AE81F06976F0060F531 = {
 						CreatedOnToolsVersion = 8.3.1;
-						DevelopmentTeam = 6EE4W5PN4K;
+						DevelopmentTeam = 2QN5CNK73Y;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
@@ -1045,7 +1045,7 @@
 					};
 					BB894EF61F1E63A8009E3F8C = {
 						CreatedOnToolsVersion = 8.3.1;
-						DevelopmentTeam = 6EE4W5PN4K;
+						DevelopmentTeam = 2QN5CNK73Y;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
@@ -1335,7 +1335,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 6EE4W5PN4K;
+				DEVELOPMENT_TEAM = 2QN5CNK73Y;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1365,7 +1365,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = org.oor;
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1407,7 +1407,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 6EE4W5PN4K;
+				DEVELOPMENT_TEAM = 2QN5CNK73Y;
 				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1430,7 +1430,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = org.oor;
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1471,7 +1471,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 6EE4W5PN4K;
+				DEVELOPMENT_TEAM = 2QN5CNK73Y;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1500,7 +1500,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = org.oor.ptp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1541,7 +1541,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 6EE4W5PN4K;
+				DEVELOPMENT_TEAM = 2QN5CNK73Y;
 				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1563,7 +1563,7 @@
 					"$(PROJECT_DIR)/oor/Apple/Frameworks",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = org.oor.ptp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.openoverlayrouter.ptp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
