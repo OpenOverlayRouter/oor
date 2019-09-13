@@ -253,6 +253,9 @@ tun_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
         break;
     }
 
+    pkt_dump_ip_headers(b,LDBG_4);
+
+    /* Send the packet */
     return(send_raw_packet(*(fe->out_sock), lbuf_data(b), lbuf_size(b),
                lisp_addr_ip(fe->drloc)));
 }

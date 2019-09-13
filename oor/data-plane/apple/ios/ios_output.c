@@ -158,6 +158,7 @@ ios_output_unicast(lbuf_t *b, packet_tuple_t *tuple)
             dst_port = VXLAN_GPE_DATA_PORT;
             break;
     }
+    pkt_dump_ip_headers(b,LDBG_4);
     
     return(send_datagram_packet (*(fe->out_sock), lbuf_data(b), lbuf_size(b),
                                  fe->drloc, dst_port));

@@ -816,3 +816,18 @@ pkt_get_uint32_from_3bytes (uint8_t *pkt)
 {
     return (((uint32_t) pkt[0]) << 16) | (((uint32_t) pkt[1]) << 8) | ((uint32_t) pkt[2]);
 }
+
+void
+pkt_dump_ip_headers(lbuf_t *b, int log_level)
+{
+    void *data;
+    /* Print IP header of the packet */
+    data = lbuf_ip(b);
+     if (data){
+         hexDump("Data outer IP header:",data,ip_hdr_ver_to_len(((struct ip *)data)->ip_v), log_level);
+     }
+     data = lbuf_l3(b);
+     if (data){
+         hexDump("Data inner IP header:",data,ip_hdr_ver_to_len(((struct ip *)data)->ip_v), log_level);
+     }
+}

@@ -33,6 +33,7 @@ extern int debug_level;
 #define LDBG_1  5   /* low debug-level messages -> Control message */
 #define LDBG_2  6   /* medium debug-level messages -> Errors in received packets. Wrong AFI, ...  */
 #define LDBG_3  7   /* high debug-level messages -> Log for each received or generated packet */
+#define LDBG_4  8   /* ultra high debug-level used to print packets  */
 
 
 
@@ -60,6 +61,8 @@ is_loggable(int log_level)
         return (TRUE);
     return (FALSE);
 }
+
+void hexDump(const char *desc, const void *data, const int len, int log_level);
 
 
 #endif /*OOR_LOG_H_*/

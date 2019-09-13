@@ -86,8 +86,8 @@ ios_read_and_decap_pkt(int sock, lbuf_t *b, uint32_t *iid)
     ip_hdr_set_ttl_and_tos(lbuf_data(b), ttl, tos);
     
     OOR_LOG(LDBG_3, "INPUT (%d): %s",port, ip_src_and_dst_to_char(lbuf_l3(b),
-                                                                  "Inner IP: %s -> %s"));
-    
+            "Inner IP: %s -> %s"));
+    pkt_dump_ip_headers(b,LDBG_4);
     return(GOOD);
 }
 

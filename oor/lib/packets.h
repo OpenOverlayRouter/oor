@@ -162,6 +162,7 @@ char * ip_src_and_dst_to_char(struct iphdr *iph, char *fmt);
 
 void pkt_add_uint32_in_3bytes (uint8_t *pkt, uint32_t val);
 uint32_t pkt_get_uint32_from_3bytes (uint8_t *pkt);
+void pkt_dump_ip_headers(lbuf_t *b, int log_level);
 
 
 

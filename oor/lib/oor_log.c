@@ -85,6 +85,13 @@ llog(int oor_log_level, const char *format, ...)
                 oor_log(log_level, log_name, format, args);
             }
             break;
+        case LDBG_4:
+            if (debug_level > 3){
+                log_name = "DEBUG-4";
+                log_level = LOG_DEBUG;
+                oor_log(log_level, log_name, format, args);
+            }
+            break;
         default:
             log_name = "LOG";
             log_level = LOG_INFO;
@@ -176,3 +183,35 @@ close_log_file()
     }
 }
 
+void
+hexDump(const char *desc, const void *data, const int len, int log_level)
+{
+    if (!data){
+        return;
+    }
+
+    if (is_loggable(log_level) == FALSE){
+        return;
+    }
+
+    char buf[512];
+    int i;
+    const unsigned char *ptr = (const unsigned char*)data;
+
+    if (desc != NULL){
+        snprintf(buf,sizeof(buf),"%s:\n",desc);
+    }
+
+    if (len <= 0) {
+        return;
+    }
+
+    for (i = 0; i < len; i++) {
+        if ((i % 16) == 0) {
+            snprintf(buf+strlen(buf),sizeof(buf)-strlen(buf),"\n  %04x   : ",i);
+        }
+        snprintf(buf+strlen(buf),sizeof(buf)-strlen(buf)," %02x",  ptr[i]);
+    }
+
+    OOR_LOG(log_level, "%s", buf);
+}

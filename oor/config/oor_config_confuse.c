@@ -1318,8 +1318,8 @@ handle_config_file()
             debug_level = ret;
         else
             debug_level = 0;
-        if (debug_level > 3)
-            debug_level = 3;
+        if (debug_level > 4)
+            debug_level = 4;
     }
 
     if (debug_level == 1){
