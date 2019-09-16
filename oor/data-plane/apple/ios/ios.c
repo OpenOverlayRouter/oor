@@ -110,6 +110,7 @@ ios_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
         in_ipv4_data_socket = open_data_datagram_input_socket(AF_INET, data_port);
         sockmstr_register_read_listener(smaster, cb_func, NULL,in_ipv4_data_socket);
         out_ipv4_data_socket = open_data_datagram_output_socket(AF_INET,0);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,out_ipv4_data_socket);
     }else {
         in_ipv4_data_socket = ERR_SOCKET;
         out_ipv4_data_socket = ERR_SOCKET;
@@ -119,6 +120,7 @@ ios_init(oor_dev_type_e dev_type, oor_encap_t encap_type,...)
         in_ipv6_data_socket = open_data_datagram_input_socket(AF_INET6, data_port);
         sockmstr_register_read_listener(smaster, cb_func, NULL,in_ipv6_data_socket);
         out_ipv6_data_socket = open_data_datagram_output_socket(AF_INET6,0);
+        sockmstr_register_read_listener(smaster, cb_func, NULL,out_ipv6_data_socket);
     }else {
         in_ipv6_data_socket = ERR_SOCKET;
         out_ipv6_data_socket = ERR_SOCKET;

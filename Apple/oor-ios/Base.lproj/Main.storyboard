@@ -747,22 +747,8 @@
                                 <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                 <textInputTraits key="textInputTraits"/>
                             </textField>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="fXB-fv-Dwo">
-                                <rect key="frame" x="179" y="94" width="80" height="33"/>
-                                <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="80" id="Hcv-15-pl0"/>
-                                </constraints>
-                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                <state key="normal" title="Add">
-                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                </state>
-                                <connections>
-                                    <action selector="Add_PeTR_Push:" destination="UWc-zx-WKM" eventType="touchUpInside" id="dDg-5d-pxp"/>
-                                </connections>
-                            </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="q2c-Xy-CuY">
-                                <rect key="frame" x="279" y="94" width="80" height="33"/>
+                                <rect key="frame" x="279" y="134" width="80" height="33"/>
                                 <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="80" id="nZy-gE-0sg"/>
@@ -776,7 +762,7 @@
                                 </connections>
                             </button>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="6jP-l5-EMK">
-                                <rect key="frame" x="20" y="147" width="335" height="436"/>
+                                <rect key="frame" x="20" y="192" width="335" height="391"/>
                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <prototypes>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="PetrCell" id="DFo-YH-nDJ" customClass="PetrCell" customModule="oor_ios" customModuleProvider="target">
@@ -809,18 +795,49 @@
                                     <outlet property="delegate" destination="UWc-zx-WKM" id="XZb-kf-R7B"/>
                                 </connections>
                             </tableView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Priority:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="vAn-It-mPJ">
+                                <rect key="frame" x="16" y="90" width="59.5" height="21"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <color key="textColor" red="0.0" green="0.33333333329999998" blue="0.28235294119999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="1" borderStyle="roundedRect" textAlignment="right" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="1aA-V9-g3T">
+                                <rect key="frame" x="105.5" y="89" width="253.5" height="30"/>
+                                <nil key="textColor"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <textInputTraits key="textInputTraits"/>
+                            </textField>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="fXB-fv-Dwo">
+                                <rect key="frame" x="179" y="134" width="80" height="33"/>
+                                <color key="backgroundColor" red="0.33333333329999998" green="0.65098039220000004" blue="0.60784313729999995" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="80" id="Hcv-15-pl0"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <state key="normal" title="Add">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </state>
+                                <connections>
+                                    <action selector="Add_PeTR_Push:" destination="UWc-zx-WKM" eventType="touchUpInside" id="dDg-5d-pxp"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <constraints>
+                            <constraint firstItem="vAn-It-mPJ" firstAttribute="top" secondItem="par-kP-zWW" secondAttribute="bottom" constant="25" id="5pJ-fF-mVz"/>
                             <constraint firstItem="7z1-vU-eg8" firstAttribute="trailing" secondItem="q2c-Xy-CuY" secondAttribute="trailing" constant="16" id="D4P-97-tmB"/>
-                            <constraint firstItem="fXB-fv-Dwo" firstAttribute="top" secondItem="hjl-CZ-Wb6" secondAttribute="bottom" constant="20" id="Htu-XE-lwP"/>
+                            <constraint firstItem="vAn-It-mPJ" firstAttribute="leading" secondItem="7z1-vU-eg8" secondAttribute="leading" constant="16" id="FkY-ON-zSM"/>
+                            <constraint firstItem="fXB-fv-Dwo" firstAttribute="top" secondItem="1aA-V9-g3T" secondAttribute="bottom" constant="15" id="Htu-XE-lwP"/>
                             <constraint firstItem="q2c-Xy-CuY" firstAttribute="leading" secondItem="fXB-fv-Dwo" secondAttribute="trailing" constant="20" id="I3T-XL-7nS"/>
                             <constraint firstItem="7z1-vU-eg8" firstAttribute="trailing" secondItem="hjl-CZ-Wb6" secondAttribute="trailing" constant="16" id="PS6-V9-OqA"/>
-                            <constraint firstItem="q2c-Xy-CuY" firstAttribute="top" secondItem="hjl-CZ-Wb6" secondAttribute="bottom" constant="20" id="Pfd-HE-GoL"/>
+                            <constraint firstItem="q2c-Xy-CuY" firstAttribute="top" secondItem="1aA-V9-g3T" secondAttribute="bottom" constant="15" id="Pfd-HE-GoL"/>
+                            <constraint firstItem="1aA-V9-g3T" firstAttribute="top" secondItem="hjl-CZ-Wb6" secondAttribute="bottom" constant="15" id="Q16-YB-mYF"/>
                             <constraint firstItem="par-kP-zWW" firstAttribute="top" secondItem="7z1-vU-eg8" secondAttribute="top" constant="44" id="UGQ-BZ-MTe"/>
                             <constraint firstItem="hjl-CZ-Wb6" firstAttribute="leading" secondItem="par-kP-zWW" secondAttribute="trailing" constant="30" id="Zuc-c0-skW"/>
-                            <constraint firstItem="6jP-l5-EMK" firstAttribute="top" secondItem="fXB-fv-Dwo" secondAttribute="bottom" constant="20" id="d1E-Yw-goY"/>
+                            <constraint firstItem="6jP-l5-EMK" firstAttribute="top" secondItem="fXB-fv-Dwo" secondAttribute="bottom" constant="25" id="d1E-Yw-goY"/>
                             <constraint firstItem="6jP-l5-EMK" firstAttribute="leading" secondItem="7z1-vU-eg8" secondAttribute="leading" constant="20" id="gPl-ba-15e"/>
+                            <constraint firstItem="1aA-V9-g3T" firstAttribute="leading" secondItem="vAn-It-mPJ" secondAttribute="trailing" constant="30" id="gsd-QY-SaZ"/>
+                            <constraint firstItem="7z1-vU-eg8" firstAttribute="trailing" secondItem="1aA-V9-g3T" secondAttribute="trailing" constant="16" id="hRh-D4-XcT"/>
                             <constraint firstItem="par-kP-zWW" firstAttribute="leading" secondItem="7z1-vU-eg8" secondAttribute="leading" constant="16" id="kEr-W0-kBs"/>
                             <constraint firstItem="7z1-vU-eg8" firstAttribute="trailing" secondItem="6jP-l5-EMK" secondAttribute="trailing" constant="20" id="kFg-Ls-Pjo"/>
                             <constraint firstItem="7z1-vU-eg8" firstAttribute="bottom" secondItem="6jP-l5-EMK" secondAttribute="bottom" constant="20" id="l3d-AK-dyi"/>
@@ -831,6 +848,7 @@
                     <connections>
                         <outlet property="PeTR_Table" destination="6jP-l5-EMK" id="DGE-ql-lAT"/>
                         <outlet property="PeTR_addr_edit" destination="hjl-CZ-Wb6" id="EAd-pk-fhe"/>
+                        <outlet property="priority_edit" destination="1aA-V9-g3T" id="mnk-TL-b1s"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="hOB-rX-EaL" userLabel="First Responder" sceneMemberID="firstResponder"/>

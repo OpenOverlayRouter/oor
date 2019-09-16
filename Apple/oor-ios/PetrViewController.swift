@@ -25,6 +25,7 @@ class PetrViewController: UIViewController, UITextFieldDelegate {
     
     @IBOutlet weak var PeTR_Table: UITableView!
     @IBOutlet weak var PeTR_addr_edit: UITextField!
+    @IBOutlet weak var priority_edit: UITextField!
     
     var PeTR_list: [String]?
     
@@ -45,6 +46,7 @@ class PetrViewController: UIViewController, UITextFieldDelegate {
     }
     
     func insertNewPetr(){
+        var priority = 1
         // Some validations
         if PeTR_addr_edit.text!.isEmpty {
             showAlert(message: "Empty IP address")
@@ -56,18 +58,39 @@ class PetrViewController: UIViewController, UITextFieldDelegate {
             return
         }
         
-        if PeTR_list!.contains(PeTR_addr_edit.text!){
-            showAlert(message: "Address already in the list")
-            return
+        if !priority_edit.text!.isEmpty{
+            priority = Int(priority_edit.text!)!
+            if (priority < 1 || priority > 255){
+                showAlert(message: "Wrong priority value")
+                return
+            }
+        }
+        let petr_info = "\(PeTR_addr_edit.text!),\(priority)"
+
+        var aux_petr = String()
+        for index in 0..<PeTR_list!.count {
+            aux_petr = "\(PeTR_addr_edit.text!),"
+            if (PeTR_list![index].hasPrefix(aux_petr)){
+                PeTR_Table.beginUpdates()
+                PeTR_list![index] = petr_info
+                PeTR_Table.endUpdates()
+                PeTR_addr_edit.text = ""
+                priority_edit.text = "1"
+                PeTR_Table.reloadData()
+                view.endEditing(true)
+                return
+                
+            }
         }
         
-        PeTR_list!.append(PeTR_addr_edit.text!)
+                PeTR_list!.append(petr_info)
         let indexPath1 = IndexPath(row: PeTR_list!.count - 1, section: 0)
         PeTR_Table.beginUpdates()
         PeTR_Table.insertRows(at: [indexPath1], with: .automatic)
         PeTR_Table.endUpdates()
         
         PeTR_addr_edit.text = ""
+        priority_edit.text = "1"
         view.endEditing(true)
     }
     
@@ -82,7 +105,14 @@ extension PetrViewController: UITableViewDelegate, UITableViewDataSource{
     func tableView(_ PeTR_Table: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let petrAddressStr = PeTR_list![indexPath.row]
         let cell = PeTR_Table.dequeueReusableCell(withIdentifier: "PetrCell") as! PetrCell
-        cell.PetrAddress.text = petrAddressStr
+        let camps = petrAddressStr.components(separatedBy: ",")
+        var petr_info = String()
+        if (camps.count == 2){
+            petr_info = "\(camps[0])   p: \(camps[1])"
+        }else{
+            petr_info = "\(camps[0])   p: 1)"
+        }
+        cell.PetrAddress.text = petr_info
         return cell
     }
     
@@ -99,6 +129,17 @@ extension PetrViewController: UITableViewDelegate, UITableViewDataSource{
             PeTR_Table.beginUpdates()
             PeTR_Table.deleteRows(at: [indexPath], with: .automatic)
             PeTR_Table.endUpdates()
+        }
+    }
+    
+    func tableView(_ PeTR_Table: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let petrAddressStr = PeTR_list![indexPath.row]
+        let camps = petrAddressStr.components(separatedBy: ",")
+        PeTR_addr_edit.text = camps[0]
+        if (camps.count == 2){
+            priority_edit.text = camps[1]
+        }else{
+            priority_edit.text = "1"
         }
     }
     
