@@ -685,7 +685,6 @@ tun_process_new_gateway(iface_t *iface,lisp_addr_t *gateway)
     }else if (lisp_addr_cmp(*gw_addr, gateway) == 0){
         OOR_LOG(LDBG_3,"tun_process_new_gateway: the gatweay address has not changed: %s. Discard message.",
                             lisp_addr_to_char(gateway));
-        return;
     }else{
         lisp_addr_copy(*gw_addr,gateway);
     }
