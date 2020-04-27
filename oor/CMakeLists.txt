@@ -74,8 +74,6 @@ add_executable(oor
         elibs/ovs/ovs_util.h
         elibs/patricia/patricia.c
         elibs/patricia/patricia.h
-        fwd_policies/flow_balancing/fb_addr_func.c
-        fwd_policies/flow_balancing/fb_addr_func.h
         fwd_policies/flow_balancing/flow_balancing.c
         fwd_policies/flow_balancing/flow_balancing.h
         fwd_policies/flow_balancing/fwd_entry_tuple.c
