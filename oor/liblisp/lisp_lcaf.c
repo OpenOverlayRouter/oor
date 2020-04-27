@@ -24,6 +24,7 @@
 #include "../defs.h"
 #include "../lib/mem_util.h"
 #include "../lib/oor_log.h"
+#include "../elibs/base64/base64.h"
 
 
 typedef void (*del_fct)(void *);
@@ -42,64 +43,65 @@ del_fct del_fcts[MAX_LCAFS] = {
         iid_type_del,
         0, 0, 0,
         geo_type_del, nat_type_del, 0,
-        mc_type_del, elp_type_del, 0, 0,
+        mc_type_del, elp_type_del, sec_key_inf_del, 0,
         rle_type_del, 0, 0};
 
 parse_fct parse_fcts[MAX_LCAFS] = {
         0, afi_list_type_parse,
         iid_type_parse, 0, 0, 0,
         geo_type_parse, nat_type_parse, 0,
-        mc_type_parse, elp_type_parse, 0, 0,
+        mc_type_parse, elp_type_parse, sec_key_inf_type_parse, 0,
         rle_type_parse, 0, 0};
 
 to_char_fct to_char_fcts[MAX_LCAFS] = {
         0, afi_list_type_to_char,
         iid_type_to_char, 0, 0, 0,
         geo_type_to_char, nat_type_to_char, 0,
-        mc_type_to_char, elp_type_to_char, 0, 0,
+        mc_type_to_char, elp_type_to_char, sec_key_inf_type_to_char, 0,
         rle_type_to_char, 0, 0 };
 
 write_fct write_fcts[MAX_LCAFS] = {
         0, afi_list_type_write_to_pkt,
         iid_type_write_to_pkt, 0, 0, 0,
         0, nat_type_write_to_pkt, 0,
-        mc_type_write_to_pkt, elp_type_write_to_pkt, 0, 0,
+        mc_type_write_to_pkt, elp_type_write_to_pkt, sec_key_inf_type_write_to_pkt, 0,
         rle_type_write_to_pkt, 0, 0};
 
 copy_fct copy_fcts[MAX_LCAFS] = {
         0, afi_list_type_copy,
         iid_type_copy, 0, 0, 0,
         geo_type_copy, nat_type_copy, 0,
-        mc_type_copy, elp_type_copy, 0, 0,
+        mc_type_copy, elp_type_copy, sec_key_inf_type_copy, 0,
         rle_type_copy, 0, 0};
 
 cmp_fct cmp_fcts[MAX_LCAFS] = {
         0, afi_list_type_cmp,
         iid_type_cmp, nat_type_cmp, 0, 0,
         0, 0, 0,
-        mc_type_cmp, elp_type_cmp, 0, 0,
+        mc_type_cmp, elp_type_cmp, sec_key_inf_type_cmp, 0,
         rle_type_cmp, 0, 0};
 
 size_in_pkt_fct size_in_pkt_fcts[MAX_LCAFS] = {
         0, afi_list_type_get_size_to_write,
         iid_type_get_size_to_write, 0, 0, 0,
         0, nat_type_get_size_to_write, 0,
-        mc_type_get_size_to_write, elp_type_get_size_to_write, 0, 0,
+        mc_type_get_size_to_write, elp_type_get_size_to_write,
+        sec_key_inf_type_get_size_to_write, 0,
         rle_type_get_size_to_write, 0, 0};
 
 get_ip_addr_fct get_ip_addr_fcts[MAX_LCAFS] = {
         0, afi_list_type_get_ip_addr,
         iid_type_get_ip_addr, 0, 0, 0,
         0, nat_type_get_ip_addr, 0,
-        mc_type_get_ip_addr, elp_type_get_ip_addr, 0, 0,
-        0, 0, 0};
+        mc_type_get_ip_addr, elp_type_get_ip_addr,
+        sec_key_inf_type_get_ip_addr, 0, 0, 0, 0};
 
 get_ip_pref_addr_fct get_ip_pref_addr_fcts[MAX_LCAFS] = {
         0, afi_list_type_get_ip_pref_addr,
         iid_type_get_ip_pref_addr, 0, 0, 0,
         0, nat_type_get_ip_pref_addr, 0,
-        mc_type_get_ip_pref_addr,0, 0, 0,
-        0, 0, 0};
+        mc_type_get_ip_pref_addr,0,
+        sec_key_inf_type_get_ip_pref_addr, 0, 0, 0, 0};
 
 
 static inline lcaf_type_e get_type_(lcaf_addr_t *lcaf) {
@@ -246,6 +248,13 @@ lcaf_addr_get_nat(lcaf_addr_t *lcaf)
 {
     assert(lcaf);
     return((nat_t *)lcaf_addr_get_addr(lcaf));
+}
+
+inline sec_key_inf_t *
+lcaf_addr_get_sec_key_inf(lcaf_addr_t *lcaf)
+{
+    assert(lcaf);
+    return((sec_key_inf_t *)lcaf_addr_get_addr(lcaf));
 }
 
 inline void *
@@ -1589,8 +1598,11 @@ elp_type_parse(uint8_t *offset, void **elp)
         glist_add_tail(enode, elp_ptr->nodes);
 
     }
-    if (totallen !=0)
+    if (totallen !=0){
         OOR_LOG(LDBG_1, "elp_type_read_from_pkt: Error encountered!");
+        goto err;
+    }
+
 
     return(readlen);
 
@@ -1759,6 +1771,433 @@ elp_type_get_ip_addr(void *elp)
 	addr = elp_node->addr;
 	return (lisp_addr_get_ip_addr(addr));
 }
+
+/*
+ * SECURITY KEY FUNCTIONS
+ */
+sec_key_inf_t *
+sec_key_inf_new()
+{
+    sec_key_inf_t *keys_inf;
+    keys_inf = xzalloc(sizeof(sec_key_inf_t));
+    keys_inf->sec_keys_lst = glist_new_managed((glist_del_fct)sec_key_del);
+    keys_inf->sec_key_addr = lisp_addr_new();
+    keys_inf->key_count = 0;
+    keys_inf->revoke = false;
+    keys_inf->key_algorithm = 0;
+    return(keys_inf);
+}
+
+/*
+ * key-> public key in base64
+ */
+sec_key_inf_t *
+sec_key_inf_new_init(char *key,uint8_t key_alg,uint8_t revoke_bit,lisp_addr_t *addr)
+{
+    sec_key_inf_t *keys_inf = sec_key_inf_new();
+    sec_key_t * sec_key;
+    lisp_addr_copy(keys_inf->sec_key_addr, addr);
+    keys_inf->key_algorithm = key_alg;
+    keys_inf->key_count = 1;
+    keys_inf->revoke = revoke_bit;
+    sec_key = sec_key_new_init(key);
+    glist_add(sec_key,keys_inf->sec_keys_lst);
+
+    return(keys_inf);
+}
+
+sec_key_inf_t *
+sec_key_inf_new_init_bin(void *key,uint16_t key_len,uint8_t key_alg,uint8_t revoke_bit,lisp_addr_t *addr)
+{
+    sec_key_inf_t *keys_inf = sec_key_inf_new();
+    sec_key_t * sec_key;
+    lisp_addr_copy(keys_inf->sec_key_addr, addr);
+    keys_inf->key_algorithm = key_alg;
+    keys_inf->key_count = 1;
+    keys_inf->revoke = revoke_bit;
+    sec_key = sec_key_new_init_bin(key,key_len);
+    glist_add(sec_key,keys_inf->sec_keys_lst);
+
+    return(keys_inf);
+}
+
+
+void
+sec_key_inf_del(void *keys_inf)
+{
+    if (!keys_inf){
+        return;
+    }
+    glist_destroy(((sec_key_inf_t *)keys_inf)->sec_keys_lst);
+    lisp_addr_del(((sec_key_inf_t *)keys_inf)->sec_key_addr);
+    free(keys_inf);
+}
+
+inline uint8_t
+sec_key_inf_get_key_count(sec_key_inf_t *keys_inf)
+{
+    assert(keys_inf);
+    return(keys_inf->key_count);
+}
+
+
+inline uint8_t
+sec_key_inf_get_key_alg(sec_key_inf_t *keys_inf)
+{
+    assert(keys_inf);
+    return(keys_inf->key_algorithm);
+}
+
+inline uint8_t
+sec_key_inf_is_revoke(sec_key_inf_t *keys_inf)
+{
+    assert(keys_inf);
+    return(keys_inf->revoke);
+}
+
+inline glist_t *
+sec_key_inf_get_sec_keys_lst(sec_key_inf_t *keys_inf)
+{
+    assert(keys_inf);
+    return(keys_inf->sec_keys_lst);
+}
+
+inline lisp_addr_t *
+sec_key_inf_get_addr(sec_key_inf_t *keys_inf)
+{
+    assert(keys_inf);
+    return(keys_inf->sec_key_addr);
+}
+
+inline void
+sec_key_inf_set_key_alg(sec_key_inf_t *keys_inf,uint8_t key_alg)
+{
+    assert(keys_inf);
+    keys_inf->key_algorithm = key_alg;
+}
+
+inline void
+sec_key_inf_set_revoke_bit(sec_key_inf_t *keys_inf, uint8_t revoke_bit)
+{
+    assert(keys_inf);
+    keys_inf->revoke = revoke_bit;
+}
+
+inline void
+sec_key_inf_add_to_sec_keys_lst(sec_key_inf_t *keys_inf, sec_key_t *sec_key)
+{
+    assert(keys_inf);
+    glist_add_tail(sec_key,keys_inf->sec_keys_lst);
+    keys_inf->key_count++;
+}
+
+inline void
+sec_key_inf_set_addr(sec_key_inf_t *keys_inf, lisp_addr_t *addr)
+{
+    assert(keys_inf);
+    assert(addr);
+    lisp_addr_copy (keys_inf->sec_key_addr,addr);
+}
+
+int
+sec_key_inf_type_cmp(void *sec_key_inf_1, void *sec_key_inf_2)
+{
+    glist_entry_t *it1,*it2;
+    sec_key_t *key1,*key2;
+    sec_key_inf_t *ski1 = (sec_key_inf_t *)sec_key_inf_1;
+    sec_key_inf_t *ski2 = (sec_key_inf_t *)sec_key_inf_2;
+    int addr_res = lisp_addr_cmp(ski1->sec_key_addr,ski2->sec_key_addr);
+    if (addr_res != 0){
+        return (addr_res);
+    }
+    if (ski1->key_algorithm != ski2->key_algorithm ||
+            ski1->key_count != ski2->key_count ||
+            ski1->revoke != ski2->revoke)
+    {
+        return (1);
+    }
+
+    it1 = glist_first(ski1->sec_keys_lst);
+    it2 = glist_first(ski2->sec_keys_lst);
+
+    while(it1 != glist_head(ski1->sec_keys_lst)
+              && it2 != glist_head(ski2->sec_keys_lst)) {
+        key1 = glist_entry_data(it1);
+        key2 = glist_entry_data(it2);
+        if (sec_key_cmp(key1,key2) != 0){
+            return (1);
+        }
+        it1 = glist_prev(it1);
+        it2 = glist_prev(it2);
+    }
+    return (0);
+}
+
+int
+sec_key_inf_type_get_size_to_write(void *sec_key_inf)
+{
+    uint32_t len;
+    glist_entry_t *it;
+    sec_key_t * key;
+
+    len = sizeof(lcaf_hdr_t) + sizeof(lcaf_sec_key_inf_t);
+    glist_for_each_entry(it, ((sec_key_inf_t *)sec_key_inf)->sec_keys_lst){
+        key = (sec_key_t *)glist_entry_data(it);
+        len += sizeof(uint16_t)+key->length;
+    }
+    len += lisp_addr_size_to_write(((sec_key_inf_t *)sec_key_inf)->sec_key_addr);
+
+    return(len);
+}
+
+int
+sec_key_inf_type_write_to_pkt(uint8_t *offset, void *sec_key_inf)
+{
+    uint32_t len, addrlen;
+    uint8_t *cur_ptr;
+    glist_entry_t *it;
+    sec_key_t * key;
+    sec_key_inf_t *ski = (sec_key_inf_t *)sec_key_inf;
+
+    cur_ptr = offset;
+    ((lcaf_hdr_t*)cur_ptr)->afi = htons(LISP_AFI_LCAF);
+    ((lcaf_hdr_t*)cur_ptr)->flags = 0;
+    ((lcaf_hdr_t*)cur_ptr)->rsvd1 = 0;
+    ((lcaf_hdr_t*)cur_ptr)->rsvd2 = 0;
+    ((lcaf_hdr_t*)cur_ptr)->type = LCAF_SEC_KEY;
+    cur_ptr = CO(cur_ptr, sizeof(lcaf_hdr_t));
+    ((lcaf_sec_key_inf_t*)cur_ptr)->key_count = ski->key_count;
+    ((lcaf_sec_key_inf_t*)cur_ptr)->rsvd3 = 0;
+    ((lcaf_sec_key_inf_t*)cur_ptr)->key_algh = ski->key_algorithm;
+    ((lcaf_sec_key_inf_t*)cur_ptr)->rsvd4 = 0;
+    ((lcaf_sec_key_inf_t*)cur_ptr)->R = ski->revoke;
+    cur_ptr = CO(cur_ptr, sizeof(lcaf_sec_key_inf_t));
+    len = sizeof(lcaf_hdr_t)+sizeof(lcaf_sec_key_inf_t);
+    glist_for_each_entry(it, ((sec_key_inf_t *)sec_key_inf)->sec_keys_lst){
+        key = (sec_key_t *)glist_entry_data(it);
+        ((key_len_hdr_t*)cur_ptr)->len =  htons(key->length);
+        cur_ptr = CO(cur_ptr, sizeof(key_len_hdr_t));
+        memcpy(cur_ptr,key->key_material,(size_t)key->length);
+        cur_ptr = CO(cur_ptr, key->length);
+        len += sizeof(uint16_t)+key->length;
+    }
+    addrlen = lisp_addr_write(cur_ptr, ski->sec_key_addr);
+    if (addrlen <=0)
+        return(BAD);
+    len += addrlen;
+    /* length is only what follows the first 8 bytes of the lcaf hdr */
+    ((lcaf_hdr_t*)offset)->len = htons(len-sizeof(lcaf_hdr_t));
+    return(len);
+}
+
+int
+sec_key_inf_type_parse(uint8_t *offset, void **sec_key_inf)
+{
+    int totallen,readlen, addrlen, i, key_count;
+    uint16_t key_len;
+    sec_key_inf_t *ski;
+    sec_key_t * sec_key;
+
+    ski = sec_key_inf_new();
+    *sec_key_inf = ski;
+
+    totallen = ntohs(((lcaf_hdr_t *)offset)->len);
+
+    readlen = sizeof(lcaf_hdr_t);
+    offset = CO(offset, sizeof(lcaf_hdr_t));
+
+    key_count = ((lcaf_sec_key_inf_t *)offset)->key_count;
+    ski->key_algorithm = ((lcaf_sec_key_inf_t *)offset)->key_algh;
+    ski->revoke = ((lcaf_sec_key_inf_t *)offset)->R;
+    readlen += sizeof(lcaf_sec_key_inf_t);
+    totallen = totallen - sizeof(lcaf_sec_key_inf_t);
+    offset = CO(offset, sizeof(lcaf_sec_key_inf_t));
+    for (i = 0 ; i < key_count ; i++) {
+        key_len = ntohs(((key_len_hdr_t*)offset)->len);
+        offset = CO(offset, sizeof(key_len_hdr_t));
+        sec_key = sec_key_new_init_bin(offset, key_len);
+        sec_key_inf_add_to_sec_keys_lst(ski,sec_key);
+        readlen += sizeof(uint16_t) + sec_key->length;
+        totallen = totallen - sizeof(uint16_t) - sec_key->length;
+        offset = CO(offset,sec_key->length);
+    }
+
+    addrlen = lisp_addr_parse(offset, ski->sec_key_addr);
+    readlen += addrlen;
+    if (totallen - addrlen != 0){
+        OOR_LOG(LDBG_1, "sec_key_inf_type_parse: Error encountered!");
+        return(BAD);
+    }
+    return(readlen);
+}
+
+char *
+sec_key_inf_type_to_char(void *sec_key_inf)
+{
+    static char buf[5][500];
+    char *key;
+    size_t key_str_len;
+    size_t buf_size = sizeof(buf[0]);
+    static unsigned int i = 0;
+    sec_key_inf_t *ski = (sec_key_inf_t *)sec_key_inf;
+    glist_entry_t *it;
+    sec_key_t *sec_key;
+
+
+    i++;
+    i = i % 5;
+    *buf[i] = '\0';
+    snprintf(buf[i],buf_size,"Addr: %s Sec:( Algorithm: %d, R: %d Keys: [",
+            lisp_addr_to_char(ski->sec_key_addr),(int)ski->key_algorithm,(int)ski->revoke);
+    glist_for_each_entry(it,ski->sec_keys_lst){
+        sec_key = (sec_key_t *)glist_entry_data(it);
+        key = (char *)base64_encode((uchar *)sec_key->key_material,sec_key->length,&key_str_len);
+        snprintf(buf[i]+strlen(buf[i]), buf_size - strlen(buf[i]),"%s len:%d, ",key,sec_key->length);
+        free(key);
+    }
+    snprintf(buf[i]+strlen(buf[i]), buf_size - strlen(buf[i]),"])");
+
+    return(buf[i]);
+}
+
+void
+sec_key_inf_type_copy(void **dst, void *src)
+{
+    sec_key_inf_t *ski1 = (sec_key_inf_t *)src;
+    sec_key_inf_t *ski2;
+    glist_entry_t *it;
+    sec_key_t *sec_key1, *sec_key2;
+
+    if (!(*dst)){
+        ski2 = sec_key_inf_new();
+        *dst = ski2;
+    }else{
+        ski2 = *dst;
+        glist_remove_all(ski2->sec_keys_lst);
+    }
+
+    ski2->key_algorithm = ski1->key_algorithm;
+    ski2->key_count = ski1->key_count;
+    ski2->revoke = ski1->revoke;
+    lisp_addr_copy(ski2->sec_key_addr,ski1->sec_key_addr);
+    glist_for_each_entry(it,ski1->sec_keys_lst){
+        sec_key1 = (sec_key_t *)glist_entry_data(it);
+        sec_key2 = sec_key_clone(sec_key1);
+        glist_add_tail(sec_key2,ski2->sec_keys_lst);
+    }
+}
+
+lisp_addr_t *
+sec_key_inf_type_get_ip_addr(void *sec_key_inf)
+{
+    return(lisp_addr_get_ip_addr(((sec_key_inf_t *)sec_key_inf)->sec_key_addr));
+}
+
+lisp_addr_t *
+sec_key_inf_type_get_ip_pref_addr(void *sec_key_inf)
+{
+    return(lisp_addr_get_ip_pref_addr(((sec_key_inf_t *)sec_key_inf)->sec_key_addr));
+}
+
+lisp_addr_t*
+lisp_addr_new_init_sec_key(lisp_addr_t *addr,char *key, uint8_t key_algo, uint8_t revoke)
+{
+    lisp_addr_t *new_addr;
+    sec_key_inf_t *ski;
+    sec_key_t *sec_key;
+    if (lisp_addr_is_sec_key_inf(addr)){
+        new_addr =  lisp_addr_clone(addr);
+        ski = (sec_key_inf_t *)lisp_addr_lcaf_addr(new_addr);
+        sec_key = sec_key_new_init(key);
+        sec_key_inf_add_to_sec_keys_lst(ski, sec_key);
+    }else{
+        new_addr = lisp_addr_new_lafi(LM_AFI_LCAF);
+        ski = sec_key_inf_new_init(key,key_algo,revoke,addr);
+        lcaf_addr_set_addr(&new_addr->lcaf, (void *)ski);
+        lcaf_addr_set_type(&new_addr->lcaf,LCAF_SEC_KEY);
+    }
+    return (new_addr);
+}
+
+inline int
+lisp_addr_is_sec_key_inf(lisp_addr_t *addr)
+{
+    return(lisp_addr_lafi(addr) == LM_AFI_LCAF && lisp_addr_lcaf_type(addr) == LCAF_SEC_KEY);
+}
+
+sec_key_t *
+sec_key_new()
+{
+    return((sec_key_t *)xzalloc(sizeof(sec_key_t)));
+}
+
+
+sec_key_t *
+sec_key_new_init(char *key)
+{
+    size_t len;
+    sec_key_t *sec_key = xzalloc(sizeof(sec_key_t));
+    sec_key->key_material = (void *)base64_decode((uchar *)key,strlen(key),&len);
+    sec_key->length = (uint16_t)len;
+
+    return (sec_key);
+}
+
+sec_key_t *
+sec_key_new_init_bin(void *key, int key_length)
+{
+    sec_key_t *sec_key = xzalloc(sizeof(sec_key_t));
+    sec_key->key_material = xmalloc(key_length);
+    memcpy(sec_key->key_material,key,key_length);
+    sec_key->length = key_length;
+
+    return (sec_key);
+}
+
+void
+sec_key_del(sec_key_t *key)
+{
+    if (!key){
+        return;
+    }
+    free(key->key_material);
+    free(key);
+}
+
+int
+sec_key_cmp(sec_key_t *key1, sec_key_t *key2)
+{
+    if (key1->length != key2->length){
+        return(1);
+    }
+    return (memcmp(key1->key_material,key2->key_material,key1->length));
+}
+
+sec_key_t *
+sec_key_clone(sec_key_t *sec_key)
+{
+    return(sec_key_new_init_bin(sec_key->key_material,sec_key->length));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
  * rle_addr_t functions

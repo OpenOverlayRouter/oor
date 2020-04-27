@@ -43,16 +43,16 @@ typedef enum {
 typedef enum {
     LCAF_NULL = 0,
     LCAF_AFI_LIST,
-    LCAF_IID,
+    LCAF_IID = 2,
     LCAF_ASN,
     LCAF_APP_DATA,
     LCAF_GEO = 5,
     LCAF_OKEY,
-    LCAF_NATT,
+    LCAF_NATT = 7,
     LCAF_NONCE_LOC,
     LCAF_MCAST_INFO,
     LCAF_EXPL_LOC_PATH = 10,
-    LCAF_SEC_KEY,
+    LCAF_SEC_KEY = 11,
     LCAF_TUPLE,
     LCAF_RLE,
     LCAF_DATA_MODEL,
@@ -117,10 +117,6 @@ typedef struct _lcaf_afi_list_hdr_t {
  *        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-typedef struct lispd_pkt_lcaf_iid_t_ {
-    uint32_t    iid;
-    uint16_t    afi;
-} __attribute__ ((__packed__)) lispd_pkt_lcaf_iid_t;
 
 typedef struct _lcaf_iid_hdr_t{
     uint16_t    afi;
@@ -319,6 +315,47 @@ typedef struct _elp_node_flags {
 #define ELP_NODE_PBIT(ptr_) ELP_NODE_CAST((ptr_))->P
 #define ELP_NODE_SBIT(ptr_) ELP_NODE_CAST((ptr_))->S
 
+/*
+ *  Security Key Canonical Address Format:
+ *
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |           AFI = 16387         |     Rsvd1     |     Flags     |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Type = 11   |      Rsvd2    |             Length            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Key Count   |      Rsvd3    | Key Algorithm |   Rsvd4     |R|
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |           Key Length          |       Key Material ...        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                        ... Key Material                       |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |              AFI = x          |       Locator Address ...     |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+typedef struct _lcaf_sec_key_inf_t{
+    uint8_t key_count;
+    uint8_t rsvd3;
+    uint8_t key_algh;
+#ifdef LITTLE_ENDIANS
+    uint8_t R:1;
+    uint8_t rsvd4:7;
+#else
+    uint8_t rsvd4:7;
+    uint8_t R:1;
+#endif
+} lcaf_sec_key_inf_t;
+
+typedef struct _key_len_hdr_t {
+    uint16_t len;
+} key_len_hdr_t;
+
+#define SEC_KEY_CAST(ptr_)((sec_key_inf_t *)(ptr_))
+#define SEC_KEY_COUNT(ptr_) SEC_KEY_CAST((ptr_))->key_count
+#define SEC_KEY_ALGH(ptr_) SEC_KEY_CAST((ptr_))->key_algh
+#define SEC_KEY_RBIT(ptr_) SEC_KEY_CAST((ptr_))->R
 
 
 /* Replication List Entry Address Format:

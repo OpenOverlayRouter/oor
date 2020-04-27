@@ -37,6 +37,7 @@ int pt_add_mc_addr(patricia_tree_t *pt, lcaf_addr_t *mcaddr, void *data);
 void *pt_remove_mc_addr(patricia_tree_t *pt, lcaf_addr_t *mcaddr);
 void *pt_remove_ippref(patricia_tree_t *pt, ip_prefix_t *ippref);
 
+static patricia_node_t *_find_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exact);
 patricia_node_t *pt_find_ip_node(patricia_tree_t *pt, ip_addr_t *ipaddr);
 patricia_node_t *pt_find_ip_node_exact(patricia_tree_t *pt, ip_addr_t *ipaddr,
         uint8_t prefixlen);
@@ -152,6 +153,8 @@ _find_lcaf_node(mdb_t *db, lcaf_addr_t *lcaf, uint8_t exact)
     case LCAF_MCAST_INFO:
         return (pt_find_mc_node(get_mc_pt_from_lcaf(db, lcaf),
                 lcaf, exact));
+    case LCAF_SEC_KEY:
+        return(_find_node(db, lcaf_addr_get_sec_key_inf(lcaf)->sec_key_addr, exact));
     default:
         OOR_LOG(LWRN, "_find_lcaf_node: Unknown LCAF type %u",
                 lcaf_addr_get_type(lcaf));
@@ -168,7 +171,6 @@ _find_node(mdb_t *db, lisp_addr_t *laddr, uint8_t exact)
         return (_find_ip_node(db, laddr, exact));
     case LM_AFI_LCAF:
         return (_find_lcaf_node(db, lisp_addr_get_lcaf(laddr), exact));
-        break;
     default:
         OOR_LOG(LWRN, "_find_node: unsupported AFI %d", lisp_addr_lafi(laddr));
         break;

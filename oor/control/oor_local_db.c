@@ -73,12 +73,19 @@ local_map_db_lookup_eid(local_map_db_t *lmdb, lisp_addr_t *eid, uint8_t check_ii
 
 
 	if (lisp_addr_is_lcaf(eid)){
-	    if (lcaf_addr_is_iid (lisp_addr_get_lcaf(eid)) == FALSE){
-	        OOR_LOG(LDBG_2, "local_map_db_lookup_eid: LCAF %d not supported for EID", lisp_addr_to_char(eid));
-	        return (NULL);
+	    switch(lisp_addr_lcaf_type(eid)){
+	    case LCAF_IID:
+	        iid = lcaf_iid_get_iid(lisp_addr_get_lcaf(eid));
+	        ip_pref_eid = lisp_addr_get_ip_pref_addr(eid);
+	        break;
+	    case LCAF_SEC_KEY:
+	        ip_pref_eid = lisp_addr_get_ip_pref_addr(eid);
+	        break;
+	    default:
+            OOR_LOG(LDBG_2, "local_map_db_lookup_eid: LCAF %d not supported for EID", lisp_addr_to_char(eid));
+            return (NULL);
 	    }
-	    iid = lcaf_iid_get_iid(lisp_addr_get_lcaf(eid));
-	    ip_pref_eid = lisp_addr_get_ip_pref_addr(eid);
+
 	}else{
 	    ip_pref_eid = eid;
 	}
@@ -116,8 +123,8 @@ local_map_db_lookup_eid_exact(local_map_db_t *lmdb, lisp_addr_t *eid)
 
 
     if (lisp_addr_is_lcaf(eid)){
-        if (lcaf_addr_is_iid (lisp_addr_get_lcaf(eid)) == FALSE){
-            OOR_LOG(LDBG_2, "local_map_db_lookup_eid: LCAF %d not supported for EID", lisp_addr_to_char(eid));
+        if (lcaf_addr_is_iid (lisp_addr_get_lcaf(eid)) == FALSE && lisp_addr_is_sec_key_inf(eid) == FALSE){
+            OOR_LOG(LDBG_2, "local_map_db_lookup_eid: LCAF %d not supported for EID", lisp_addr_lcaf_type(eid));
             return (NULL);
         }
         ip_pref_eid = lisp_addr_get_ip_pref_addr(eid);
@@ -132,7 +139,7 @@ local_map_db_lookup_eid_exact(local_map_db_t *lmdb, lisp_addr_t *eid)
         return (NULL);
     }
     db_eid = map_local_entry_eid(map_loc_e);
-    /* To check IID of local database we should compare both addresses */
+    /* To check IID and Sec of local database we should compare both addresses */
     if (lisp_addr_cmp(db_eid,eid) != 0){
         OOR_LOG(LDBG_3, "Couldn't find mapping for EID %s in local mappings database.",
                         lisp_addr_to_char(eid));

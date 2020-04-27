@@ -45,7 +45,7 @@ typedef struct afi_list {
     glist_t *list_addr;
 } afi_list_t;
 
-
+/* IID */
 typedef struct _iid_t {
     uint32_t iid;
     uint8_t mlen;
@@ -97,6 +97,20 @@ typedef struct _elp_t {
     glist_t *nodes;
 } elp_t;
 
+/* SEC_KEY */
+typedef struct _sec_key_t {
+    uint16_t length;
+    void *key_material;
+} sec_key_t;
+
+typedef struct _sec_key_inf_t {
+    uint8_t key_count;
+    uint8_t key_algorithm;
+    uint8_t revoke;
+    glist_t *sec_keys_lst;
+    lisp_addr_t *sec_key_addr;
+} sec_key_inf_t;
+
 /* RLE */
 typedef struct _rle_node_t {
     lisp_addr_t *addr;
@@ -118,6 +132,7 @@ mc_t *lcaf_addr_get_mc(lcaf_addr_t *lcaf);
 geo_t *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
 iid_t *lcaf_addr_get_iid(lcaf_addr_t *lcaf);
 nat_t *lcaf_addr_get_nat(lcaf_addr_t *lcaf);
+sec_key_inf_t * lcaf_addr_get_sec_key_inf(lcaf_addr_t *lcaf);
 
 int lcaf_addr_is_mc(lcaf_addr_t *lcaf);
 int lcaf_addr_is_iid(lcaf_addr_t *lcaf);
@@ -301,6 +316,42 @@ void elp_add_node(elp_t *elp, elp_node_t *enode);
 glist_t * lcaf_elp_node_list(lcaf_addr_t *lcaf);
 
 int lisp_addr_is_elp(lisp_addr_t *addr);
+
+/*
+ * Security key functions
+ */
+
+sec_key_inf_t * sec_key_inf_new();
+sec_key_inf_t * sec_key_inf_new_init(char *key,uint8_t key_alg,uint8_t revoke_bit,lisp_addr_t *addr);
+sec_key_inf_t * sec_key_inf_new_init_bin(void *key,uint16_t key_len,uint8_t key_alg,uint8_t revoke_bit,lisp_addr_t *addr);
+void sec_key_inf_del(void *keys_inf);
+uint8_t sec_key_inf_get_key_count(sec_key_inf_t *keys_inf);
+uint8_t sec_key_inf_get_key_alg(sec_key_inf_t *keys_inf);
+uint8_t sec_key_inf_is_revoke(sec_key_inf_t *keys_inf);
+glist_t * sec_key_inf_get_sec_keys_lst(sec_key_inf_t *keys_inf);
+lisp_addr_t * sec_key_inf_get_addr(sec_key_inf_t *keys_inf);
+void sec_key_inf_set_key_alg(sec_key_inf_t *keys_inf,uint8_t key_alg);
+void sec_key_inf_set_revoke_bit(sec_key_inf_t *keys_inf, uint8_t revoke_bit);
+void sec_key_inf_add_to_sec_keys_lst(sec_key_inf_t *keys_inf, sec_key_t *sec_key);
+void sec_key_inf_set_addr(sec_key_inf_t *keys_inf, lisp_addr_t *addr);
+int sec_key_inf_type_cmp(void *sec_key_inf_1, void *sec_key_inf_2);
+int sec_key_inf_type_get_size_to_write(void *sec_key_inf);
+int sec_key_inf_type_write_to_pkt(uint8_t *offset, void *sec_key_inf);
+int sec_key_inf_type_parse(uint8_t *offset, void **sec_key_inf);
+char * sec_key_inf_type_to_char(void *sec_key_inf);
+void sec_key_inf_type_copy(void **dst, void *src);
+lisp_addr_t * sec_key_inf_type_get_ip_addr(void *sec_key_inf);
+lisp_addr_t * sec_key_inf_type_get_ip_pref_addr(void *sec_key_inf);
+void lisp_addr_sec_key_add(lisp_addr_t *addr,char *key);
+lisp_addr_t* lisp_addr_new_init_sec_key(lisp_addr_t *addr,char *key, uint8_t key_algo, uint8_t revoke);
+int lisp_addr_is_sec_key_inf(lisp_addr_t *addr);
+
+sec_key_t * sec_key_new();
+sec_key_t * sec_key_new_init(char *key);
+sec_key_t * sec_key_new_init_bin(void *key, int key_length);
+void sec_key_del(sec_key_t *key);
+int sec_key_cmp(sec_key_t *key1, sec_key_t *key2);
+sec_key_t * sec_key_clone(sec_key_t *sec_key);
 
 /*
  * AFI-list type functions
