@@ -35,6 +35,7 @@ typedef enum {
     LM_AFI_IP,
     LM_AFI_IPPREF,
     LM_AFI_LCAF,
+    LM_AFI_DIST_NAME
 } lm_afi_t;
 
 
@@ -47,12 +48,17 @@ typedef enum {
 typedef struct _lisp_addr_t lisp_addr_t;
 //typedef struct _lcaf_addr_t lcaf_addr_t;
 
+typedef struct {
+    char *name;
+} dis_name_t;
+
 struct _lisp_addr_t {
     struct {
         union {
             ip_addr_t       ip;
             ip_prefix_t     ippref;
             lcaf_addr_t     lcaf;
+            dis_name_t      dis_name;
         };
         lm_afi_t        lafi;
     };
@@ -127,6 +133,12 @@ lisp_addr_is_lcaf(lisp_addr_t *addr)
     return (addr->lafi == LM_AFI_LCAF);
 }
 
+static inline int
+lisp_addr_is_dis_name(lisp_addr_t *addr)
+{
+    return (addr->lafi == LM_AFI_DIST_NAME);
+}
+
 uint16_t lisp_addr_ip_afi(lisp_addr_t *addr);
 ip_addr_t *lisp_addr_ip_get_addr(lisp_addr_t *laddr);
 uint8_t lisp_addr_ip_get_plen(lisp_addr_t *laddr);
@@ -156,6 +168,7 @@ lisp_addr_t *lisp_addr_get_ip_pref_addr(lisp_addr_t *addr);
 
 int lisp_addr_ip_from_char(char *, lisp_addr_t *);
 int lisp_addr_ippref_from_char(char *, lisp_addr_t *);
+lisp_addr_t * lisp_addr_dis_name_new_init(char *dis_name);
 
 int lisp_addr_ip_afi_lcaf_type(lisp_addr_t *addr);
 

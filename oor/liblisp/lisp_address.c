@@ -28,10 +28,12 @@ static inline lisp_addr_t *new_no_addr_();
 static inline lisp_addr_t *new_ip_();
 static inline lisp_addr_t *new_ippref_();
 static inline lisp_addr_t *new_lcaf_();
+static inline lisp_addr_t *new_dis_name_();
 static inline lisp_addr_t *new_lafi_(lm_afi_t afi);
 static inline ip_addr_t *get_ip_(lisp_addr_t *addr);
 static inline ip_prefix_t *get_ippref_(lisp_addr_t *addr);
 static inline lcaf_addr_t *get_lcaf_(lisp_addr_t *addr);
+static inline dis_name_t *get_dis_name_(lisp_addr_t *addr);
 
 
 
@@ -83,6 +85,16 @@ new_lcaf_()
 }
 
 static inline lisp_addr_t *
+new_dis_name_()
+{
+    lisp_addr_t *laddr;
+
+    laddr = lisp_addr_new();
+    set_lafi_(laddr, LM_AFI_DIST_NAME);
+    return (laddr);
+}
+
+static inline lisp_addr_t *
 new_lafi_(lm_afi_t afi)
 {
     switch (afi) {
@@ -94,6 +106,8 @@ new_lafi_(lm_afi_t afi)
         return (new_ippref_());
     case LM_AFI_LCAF:
         return (new_lcaf_());
+    case LM_AFI_DIST_NAME:
+        return (new_dis_name_());
     default:
         OOR_LOG(LWRN, "lisp_addr_new_afi: unknown lisp addr afi %d", afi);
         break;
@@ -119,6 +133,12 @@ get_lcaf_(lisp_addr_t *addr)
     return (&addr->lcaf);
 }
 
+static inline dis_name_t *
+get_dis_name_(lisp_addr_t *addr)
+{
+    return (&addr->dis_name);
+}
+
 inline lisp_addr_t *
 lisp_addr_new_lafi(uint8_t lafi)
 {
@@ -129,6 +149,77 @@ inline lisp_addr_t *
 lisp_addr_new()
 {
     return (xzalloc(sizeof(lisp_addr_t)));
+}
+
+void
+dis_name_init(char *dis_name_str, dis_name_t *addr){
+    addr->name = (char *)xmalloc(strlen(dis_name_str)+1);
+    memcpy (addr->name,dis_name_str,strlen(dis_name_str) + 1);
+    addr->name[strlen(dis_name_str) + 1] = '\n';
+}
+
+void
+dis_name_del_addr(dis_name_t *dis_name){
+    free(dis_name->name);
+}
+
+uint32_t
+dis_name_addr_get_size_to_write(dis_name_t *dis_name){
+    return(strlen(dis_name->name)+sizeof(uint16_t));
+}
+
+char *
+dis_name_to_char(dis_name_t *dis_name)
+{
+    static char address[10][100];
+    static unsigned int i;
+
+    /* Hack to allow more than one addresses per printf line.
+     * Now maximum = 5 */
+    i++;
+    i = i % 10;
+    *address[i] = '\0';
+    sprintf(address[i], "Dis. Name: %s",dis_name->name);
+    return(address[i]);
+}
+
+inline void
+dis_name_addr_copy(dis_name_t *dst, dis_name_t *src){
+    // XXX To check if dst address is previously initialized
+    dst->name = strdup(src->name);
+}
+
+inline int
+dis_name_addr_write(void *offset, dis_name_t *addr){
+    int i = 0, len = 0;
+    *(uint16_t *)offset = htons(LISP_AFI_DIST_NAME);
+    offset = CO(offset, sizeof(uint16_t));
+    uint8_t *ptr = (uint8_t *)offset;
+    for (i = 0 ; i < strlen(addr->name); i++){
+        ptr[i] = (uint8_t)addr->name[i];
+    }
+    len = strlen(addr->name)+sizeof(uint16_t);
+    return (len);
+}
+
+int
+dis_name_addr_parse(uint8_t *offset, dis_name_t *addr){
+    int len = 1, i = 0;
+    offset = CO(offset, sizeof(uint16_t));
+    while (offset[len] != '\n'){
+        len ++;
+    }
+    addr->name = xmalloc(len*sizeof(char));
+    for (i = 0; i< len; i++){
+        addr->name[i] = (char)offset[i];
+    }
+    len += sizeof (uint16_t);
+    return(len);
+}
+
+inline int
+dis_name_addr_cmp(dis_name_t *addr1, dis_name_t *addr2){
+    return (strcmp(addr1->name,addr2->name));
 }
 
 inline void
@@ -148,6 +239,10 @@ lisp_addr_del(lisp_addr_t *laddr)
         lcaf_addr_del_addr(get_lcaf_(laddr));
         free(laddr);
         break;
+    case LM_AFI_DIST_NAME:
+        dis_name_del_addr(get_dis_name_(laddr));
+        free(laddr);
+        break;
     default:
         OOR_LOG(LWRN, "lisp_addr_delete: unknown lisp addr afi %d",
                 lisp_addr_lafi(laddr));
@@ -164,14 +259,16 @@ lisp_addr_get_iana_afi(lisp_addr_t *laddr)
     switch (lisp_addr_lafi(laddr)) {
     case LM_AFI_IP:
         return (ip_addr_get_iana_afi(get_ip_(laddr)));
-        break;
     case LM_AFI_IPPREF:
         return (ip_addr_get_iana_afi(ip_prefix_addr(get_ippref_(laddr))));
-        break;
     case LM_AFI_LCAF:
         return (LISP_AFI_LCAF);
     case LM_AFI_NO_ADDR:
         return (LISP_AFI_NO_ADDR);
+    case LM_AFI_DIST_NAME:
+        printf("%d\n",LISP_AFI_DIST_NAME);
+        return (LISP_AFI_DIST_NAME);
+
     default:
         OOR_LOG(LDBG_2, "lisp_addr_get_iana_afi: unknown AFI (%d)",
                 lisp_addr_lafi(laddr));
@@ -187,13 +284,13 @@ lisp_addr_size_to_write(lisp_addr_t *laddr)
         return (sizeof(uint16_t));
     case LM_AFI_IP:
         return (ip_addr_get_size_to_write(get_ip_(laddr)));
-        break;
     case LM_AFI_IPPREF:
         return (ip_addr_get_size_to_write(
                 ip_prefix_addr(get_ippref_(laddr))));
-        break;
     case LM_AFI_LCAF:
         return (lcaf_addr_get_size_to_write(get_lcaf_(laddr)));
+    case LM_AFI_DIST_NAME:
+        return (dis_name_addr_get_size_to_write(get_dis_name_(laddr)));
     default:
         OOR_LOG(LDBG_3, "lisp_addr_get_size_in_pkt: not defined for afi %d",
                 lisp_addr_lafi(laddr));
@@ -217,6 +314,8 @@ lisp_addr_get_plen(lisp_addr_t *laddr)
             return (ip_prefix_get_plen(get_ippref_(pref_addr)));
         }
         break;
+    case LM_AFI_DIST_NAME:
+        break;
     default:
         break;
     }
@@ -238,6 +337,9 @@ lisp_addr_to_char(lisp_addr_t *addr)
         break;
     case LM_AFI_LCAF:
         return (lcaf_addr_to_char(get_lcaf_(addr)));
+        break;
+    case LM_AFI_DIST_NAME:
+        return (dis_name_to_char(get_dis_name_(addr)));
         break;
     case LM_AFI_NO_ADDR:
         return ("_NO_ADDR_");
@@ -294,6 +396,9 @@ lisp_addr_ip_afi(lisp_addr_t *addr)
             return (LM_AFI_NO_ADDR);
         }
         break;
+    case LM_AFI_DIST_NAME:
+        OOR_LOG(LDBG_2, "lisp_addr_ip_afi: not supported for distinguish name address");
+        return (LM_AFI_NO_ADDR);
     default:
         OOR_LOG(LDBG_1, "lisp_addr_ip_afi: not supported for afi %d",
                 get_lafi_(addr));
@@ -332,6 +437,7 @@ lisp_addr_ip_get_addr(lisp_addr_t *laddr)
     case LM_AFI_IPPREF:
         return (ip_prefix_addr(get_ippref_(laddr)));
     case LM_AFI_NO_ADDR:
+    case LM_AFI_DIST_NAME:
     case LM_AFI_LCAF:
         OOR_LOG(LDBG_3, "lisp_addr_ip_get_addr: AFI (%s) not of IP type",
                 get_lafi_(laddr));
@@ -430,6 +536,9 @@ lisp_addr_copy(lisp_addr_t *dst, lisp_addr_t *src)
     case LM_AFI_LCAF:
         lcaf_addr_copy(get_lcaf_(dst), get_lcaf_(src));
         break;
+    case LM_AFI_DIST_NAME:
+        dis_name_addr_copy(get_dis_name_(dst), get_dis_name_(src));
+        break;
     default:
         OOR_LOG(LDBG_2, "lisp_addr_copy:  Unknown AFI type %d in EID",
                 lisp_addr_lafi(dst));
@@ -512,6 +621,11 @@ lisp_addr_copy_to(void *dst, lisp_addr_t *src)
                 "lisp_addr_copy_to: requeste for %s Not implemented for LCAF.",
                 lisp_addr_to_char(src));
         break;
+    case LM_AFI_DIST_NAME:
+        OOR_LOG(LDBG_3,
+                "lisp_addr_copy_to: requeste for %s Not implemented for Distinguished Name.",
+                lisp_addr_to_char(src));
+        break;
     default:
         OOR_LOG(LDBG_3, "lisp_addr_copy_to:  Unknown AFI type %d in EID",
                 lisp_addr_lafi(src));
@@ -538,6 +652,8 @@ lisp_addr_write(void *offset, lisp_addr_t *laddr)
                 ip_prefix_addr(get_ippref_(laddr)), 0));
     case LM_AFI_LCAF:
         return (lcaf_addr_write(offset, get_lcaf_(laddr)));
+    case LM_AFI_DIST_NAME:
+        return (dis_name_addr_write(offset, get_dis_name_(laddr)));
     case LM_AFI_NO_ADDR:
         memset(offset, 0, sizeof(uint16_t));
         return (sizeof(uint16_t));
@@ -576,6 +692,10 @@ lisp_addr_parse(uint8_t *offset, lisp_addr_t *laddr)
     case LISP_AFI_NO_ADDR:
         len = sizeof(uint16_t);
         set_lafi_(laddr, LM_AFI_NO_ADDR);
+        break;
+    case LISP_AFI_DIST_NAME:
+        len = dis_name_addr_parse(offset, get_dis_name_(laddr));
+        set_lafi_(laddr, LM_AFI_DIST_NAME);
         break;
     default:
         OOR_LOG(LDBG_2, "lisp_addr_read_from_pkt:  Unknown AFI type %d in EID",
@@ -638,6 +758,9 @@ lisp_addr_cmp(lisp_addr_t *addr1, lisp_addr_t *addr2)
     case LM_AFI_LCAF:
         cmp = lcaf_addr_cmp(get_lcaf_(addr1), get_lcaf_(addr2));
         break;
+    case LM_AFI_DIST_NAME:
+        cmp = dis_name_addr_cmp(get_dis_name_(addr1), get_dis_name_(addr2));
+        break;
     default:
         cmp = -1;
         break;
@@ -688,7 +811,9 @@ lisp_addr_cmp_afi(lisp_addr_t *addr1, lisp_addr_t *addr2)
     case LM_AFI_LCAF:
         afi_a = lisp_addr_lcaf_type(addr1);
         afi_b = lisp_addr_lcaf_type(addr2);
-	break;
+        break;
+    case LM_AFI_DIST_NAME:
+        return(0);
     default:
         OOR_LOG(LDBG_1,"lisp_addr_cmp_afi: wrong AFI");
 	return (-2);
@@ -769,6 +894,8 @@ lisp_addr_iana_afi_to_lm_afi(uint16_t afi)
         return (LM_AFI_IP);
     case LISP_AFI_LCAF:
         return (LM_AFI_LCAF);
+    case LISP_AFI_DIST_NAME:
+        return (LM_AFI_DIST_NAME);
     default:
         OOR_LOG(LWRN, "lisp_addr_iana_afi_to_sock_afi: unknown IP AFI (%d)", afi);
         return (0);
@@ -798,6 +925,9 @@ lisp_addr_get_ip_addr(lisp_addr_t *addr)
         return (NULL);
     case LM_AFI_LCAF:
         return (lcaf_get_ip_addr(get_lcaf_(addr)));
+    case LM_AFI_DIST_NAME:
+        OOR_LOG(LDBG_3, "lisp_addr_get_ip_addr: Not applicable to distinguished names");
+        return (NULL);
     default:
         return (NULL);
     }
@@ -815,6 +945,9 @@ lisp_addr_get_ip_pref_addr(lisp_addr_t *addr)
         return (addr);
     case LM_AFI_LCAF:
         return (lcaf_get_ip_pref_addr(get_lcaf_(addr)));
+    case LM_AFI_DIST_NAME:
+        OOR_LOG(LDBG_3, "lisp_addr_get_ip_pref_addr: Not applicable to distinguished names");
+        return (NULL);
     default:
         return (NULL);
     }
@@ -834,6 +967,9 @@ lisp_addr_dealloc(lisp_addr_t *addr)
         break;
     case LM_AFI_LCAF:
         lcaf_addr_del_addr(get_lcaf_(addr));
+        break;
+    case LM_AFI_DIST_NAME:
+        dis_name_del_addr(get_dis_name_(addr));
         break;
     default:
         break;
@@ -869,6 +1005,16 @@ lisp_addr_ippref_from_char(char *addr, lisp_addr_t *laddr)
     }
 }
 
+/* Fill lisp_addr with the distinguished name.
+ * Return GOOD if no error has been found */
+lisp_addr_t *
+lisp_addr_dis_name_new_init(char *dis_name)
+{
+    lisp_addr_t * addr = lisp_addr_new_lafi(LM_AFI_DIST_NAME);
+    dis_name_init(dis_name,get_dis_name_(addr));
+    return(addr);
+}
+
 
 inline int
 lisp_addr_ip_afi_lcaf_type(lisp_addr_t *addr)
@@ -882,6 +1028,14 @@ lisp_addr_ip_afi_lcaf_type(lisp_addr_t *addr)
         return (addr->ippref.prefix.afi);
     case LM_AFI_LCAF:
         return (addr->lcaf.type);
+    case LM_AFI_DIST_NAME:
+        OOR_LOG(LDBG_3, "lisp_addr_ip_afi_lcaf_type: Not applicable to distinguished names");
+        return (-1);
+    default:
+        return (-1);
     }
-    return (-1);
 }
+
+
+
+

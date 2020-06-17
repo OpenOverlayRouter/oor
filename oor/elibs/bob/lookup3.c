@@ -42,6 +42,7 @@ Original code by Bob Jenkins. Modified by the LISPmob project.
 #include <sys/param.h>  /* attempt to define endianness */
 #ifdef linux
 # include <endian.h>    /* attempt to define endianness */
+#include "lookup3.h"
 #endif
 
 /*

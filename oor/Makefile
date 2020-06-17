@@ -75,6 +75,7 @@ OBJS        = cmdline.o                  \
           data-plane/tun/tun_output.o    \
           data-plane/tun/tun.o           \
           elibs/base64/base64.o          \
+          elibs/bob/lookup3.o             \
           elibs/mbedtls/md.o             \
           elibs/mbedtls/sha1.o           \
           elibs/mbedtls/sha256.o         \

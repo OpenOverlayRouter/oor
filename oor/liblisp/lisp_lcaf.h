@@ -121,6 +121,13 @@ typedef struct _rle_t {
     glist_t *nodes;
 } rle_t;
 
+/* JSON */
+typedef struct _json_t{
+    char *json_string;
+    uint16_t json_length;
+    lisp_addr_t *addr;
+} json_t;
+
 
 lcaf_addr_t *lcaf_addr_new();
 lcaf_addr_t *lcaf_addr_new_type(uint8_t type);
@@ -133,6 +140,7 @@ geo_t *lcaf_addr_get_geo(lcaf_addr_t *lcaf);
 iid_t *lcaf_addr_get_iid(lcaf_addr_t *lcaf);
 nat_t *lcaf_addr_get_nat(lcaf_addr_t *lcaf);
 sec_key_inf_t * lcaf_addr_get_sec_key_inf(lcaf_addr_t *lcaf);
+json_t * lcaf_addr_get_json(lcaf_addr_t *lcaf);
 
 int lcaf_addr_is_mc(lcaf_addr_t *lcaf);
 int lcaf_addr_is_iid(lcaf_addr_t *lcaf);
@@ -372,4 +380,30 @@ lisp_addr_t * lcaf_get_ip_addr(lcaf_addr_t *lcaf);
 lisp_addr_t * lcaf_get_ip_pref_addr(lcaf_addr_t *lcaf);
 
 int lcaf_rloc_set_ip_addr(lisp_addr_t *, lisp_addr_t *if_addr);
+
+
+/*
+ * JSON Data Model type functions
+ */
+
+json_t * json_type_new();
+json_t * json_type_new_init(char *json_string, lisp_addr_t *addr);
+void json_type_del(void *data_model);
+char * json_type_get_string(void *data_model);
+uint16_t json_type_get_string_len(void *data_model);
+lisp_addr_t * json_type_get_addr(void *data_model);
+void json_type_set_string(json_t *data_model, uint8_t * json_string, uint16_t json_string_len);
+void json_type_set_addr(json_t *data_model, lisp_addr_t *addr);
+int json_type_get_size_to_write(void *data_model);
+int json_type_write_to_pkt(uint8_t *offset, void *data_model);
+int json_type_parse(uint8_t *offset, void **data_model);
+char * json_type_to_char(void *data_model);
+void json_type_copy(void **dst, void *src);
+lisp_addr_t * json_type_get_ip_addr(void *data_model);
+lisp_addr_t * json_type_get_ip_pref_addr(void *data_model);
+int lisp_addr_is_json(lisp_addr_t *addr);
+void lcaf_json_init(lcaf_addr_t *json_addr, char *json_string, lisp_addr_t *addr);
+lisp_addr_t *lisp_addr_new_init_json(char *json_string, lisp_addr_t *addr);
+
+
 #endif /* LISPD_LCAF_H_ */

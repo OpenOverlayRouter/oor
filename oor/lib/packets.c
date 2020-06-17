@@ -26,7 +26,7 @@
 #include "sockets.h"
 #include "../oor_external.h"
 /* needed for hashword */
-#include "../elibs/bob/lookup3.c"
+#include "../elibs/bob/lookup3.h"
 #include "../liblisp/lisp_address.h"
 
 #define LISP_CONTROL_PORT 4342

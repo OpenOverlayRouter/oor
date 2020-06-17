@@ -44,35 +44,35 @@ del_fct del_fcts[MAX_LCAFS] = {
         0, 0, 0,
         geo_type_del, nat_type_del, 0,
         mc_type_del, elp_type_del, sec_key_inf_del, 0,
-        rle_type_del, 0, 0};
+        rle_type_del, json_type_del, 0};
 
 parse_fct parse_fcts[MAX_LCAFS] = {
         0, afi_list_type_parse,
         iid_type_parse, 0, 0, 0,
         geo_type_parse, nat_type_parse, 0,
         mc_type_parse, elp_type_parse, sec_key_inf_type_parse, 0,
-        rle_type_parse, 0, 0};
+        rle_type_parse, json_type_parse, 0};
 
 to_char_fct to_char_fcts[MAX_LCAFS] = {
         0, afi_list_type_to_char,
         iid_type_to_char, 0, 0, 0,
         geo_type_to_char, nat_type_to_char, 0,
         mc_type_to_char, elp_type_to_char, sec_key_inf_type_to_char, 0,
-        rle_type_to_char, 0, 0 };
+        rle_type_to_char, json_type_to_char, 0 };
 
 write_fct write_fcts[MAX_LCAFS] = {
         0, afi_list_type_write_to_pkt,
         iid_type_write_to_pkt, 0, 0, 0,
         0, nat_type_write_to_pkt, 0,
         mc_type_write_to_pkt, elp_type_write_to_pkt, sec_key_inf_type_write_to_pkt, 0,
-        rle_type_write_to_pkt, 0, 0};
+        rle_type_write_to_pkt, json_type_write_to_pkt, 0};
 
 copy_fct copy_fcts[MAX_LCAFS] = {
         0, afi_list_type_copy,
         iid_type_copy, 0, 0, 0,
         geo_type_copy, nat_type_copy, 0,
         mc_type_copy, elp_type_copy, sec_key_inf_type_copy, 0,
-        rle_type_copy, 0, 0};
+        rle_type_copy, json_type_copy, 0};
 
 cmp_fct cmp_fcts[MAX_LCAFS] = {
         0, afi_list_type_cmp,
@@ -87,7 +87,7 @@ size_in_pkt_fct size_in_pkt_fcts[MAX_LCAFS] = {
         0, nat_type_get_size_to_write, 0,
         mc_type_get_size_to_write, elp_type_get_size_to_write,
         sec_key_inf_type_get_size_to_write, 0,
-        rle_type_get_size_to_write, 0, 0};
+        rle_type_get_size_to_write, json_type_get_size_to_write, 0};
 
 get_ip_addr_fct get_ip_addr_fcts[MAX_LCAFS] = {
         0, afi_list_type_get_ip_addr,
@@ -255,6 +255,13 @@ lcaf_addr_get_sec_key_inf(lcaf_addr_t *lcaf)
 {
     assert(lcaf);
     return((sec_key_inf_t *)lcaf_addr_get_addr(lcaf));
+}
+
+inline json_t *
+lcaf_addr_get_json(lcaf_addr_t *lcaf)
+{
+    assert(lcaf);
+    return((json_t *)lcaf_addr_get_addr(lcaf));
 }
 
 inline void *
@@ -2699,4 +2706,186 @@ lcaf_rloc_set_ip_addr(lisp_addr_t *addr, lisp_addr_t *if_addr)
         return(BAD);
     }
     return(GOOD);
+}
+
+/*******************  JSON  Data Model Encoding ************/
+
+inline json_t *
+json_type_new()
+{
+    json_t *data_model;
+    data_model = xzalloc(sizeof(json_t));
+    data_model->addr = lisp_addr_new();
+    return(data_model);
+}
+
+json_t *
+json_type_new_init(char *json_string, lisp_addr_t *addr)
+{
+    json_t *data_model = json_type_new();
+    data_model->json_string = strdup(json_string);
+    data_model->json_length = strlen(json_string);
+    lisp_addr_copy(data_model->addr, addr);
+    return(data_model);
+}
+
+inline void
+json_type_del(void *data_model)
+{
+    lisp_addr_del(json_type_get_addr((json_t *)data_model));
+    free (json_type_get_string((json_t *)data_model));
+    free(data_model);
+    data_model = NULL;
+}
+
+inline char *
+json_type_get_string(void *data_model)
+{
+    assert(data_model);
+    return(((json_t *)data_model)->json_string);
+}
+
+inline uint16_t
+json_type_get_string_len(void *data_model)
+{
+    assert(data_model);
+    return(((json_t *)data_model)->json_length);
+}
+
+inline lisp_addr_t *
+json_type_get_addr(void *data_model)
+{
+    assert(data_model);
+    return(((json_t *)data_model)->addr);
+}
+
+inline void
+json_type_set_string(json_t *data_model, uint8_t * json_string, uint16_t json_string_len) {
+    assert(data_model);
+    data_model->json_string = xmalloc (json_string_len);
+    memcpy(data_model->json_string,json_string,json_string_len);
+    data_model->json_length = json_string_len;
+}
+
+inline void
+json_type_set_addr(json_t *data_model, lisp_addr_t *addr)
+{
+    assert(data_model);
+    assert(addr);
+    lisp_addr_copy (data_model->addr,addr);
+}
+
+int
+json_type_get_size_to_write(void *data_model)
+{
+    return( sizeof(lcaf_json_data_model_hdr_t)+
+            json_type_get_string_len(data_model)+
+            lisp_addr_size_to_write(json_type_get_addr(data_model)));
+}
+
+inline int
+json_type_write_to_pkt(uint8_t *offset, void *data_model)
+{
+    int len;
+    uint8_t *cur_ptr = offset;
+    ((lcaf_json_data_model_hdr_t *)cur_ptr)->afi = htons(LISP_AFI_LCAF);
+    ((lcaf_json_data_model_hdr_t *)cur_ptr)->rsvd1 = 0;
+    ((lcaf_json_data_model_hdr_t *)cur_ptr)->flags = 0;
+    ((lcaf_json_data_model_hdr_t *)cur_ptr)->type = LCAF_JSON_DATA_MODEL;
+    ((lcaf_json_data_model_hdr_t *)cur_ptr)->B = 0;
+    ((lcaf_json_data_model_hdr_t *)cur_ptr)->json_len = htonl(json_type_get_string_len(data_model));
+    offset = CO(offset, sizeof(lcaf_json_data_model_hdr_t));
+    memcpy(offset, json_type_get_string(data_model), json_type_get_string_len(data_model));
+    offset = CO(offset, json_type_get_string_len(data_model));
+    len = lisp_addr_write(offset, json_type_get_addr(data_model));
+    len += sizeof(uint16_t)+json_type_get_string_len(data_model);
+    ((lcaf_json_data_model_hdr_t *)cur_ptr)->len = htons((uint16_t)len);
+    len += sizeof(lcaf_json_data_model_hdr_t);
+
+    return(len);
+}
+
+int
+json_type_parse(uint8_t *offset, void **data_model)
+{
+    int len, json_string_len;
+    *data_model = json_type_new();
+
+    json_string_len =  ntohs(JSON_STR_LEN(offset));
+    offset = CO(offset,sizeof(lcaf_json_data_model_hdr_t));
+    json_type_set_string(*data_model, offset, json_string_len);
+    offset = CO(offset,json_string_len);
+    len = lisp_addr_parse(offset, json_type_get_addr(*data_model)) + sizeof(lcaf_json_data_model_hdr_t) + json_string_len;
+    return(len);
+}
+
+char *
+json_type_to_char(void *data_model)
+{
+    static char buf[10][500];
+    static unsigned int i   = 0;
+
+    i++;
+    i = i % 10;
+    *buf[i] = '\0';
+    snprintf(buf[i],sizeof(buf[i]),"(JSON: %s)",
+            json_type_get_string(data_model));
+    return(buf[i]);
+}
+
+void
+json_type_copy(void **dst, void *src)
+{
+    if (!(*dst)){
+        *dst = json_type_new_init(
+                json_type_get_string(src),
+                json_type_get_addr(src));
+    }else{
+        lisp_addr_copy(json_type_get_addr((json_t *)*dst), json_type_get_addr((json_t *)src));
+        ((json_t *)*dst)->json_string = strdup (json_type_get_string(src));
+        ((json_t *)*dst)->json_length = json_type_get_string_len(src);
+    }
+}
+
+lisp_addr_t *
+json_type_get_ip_addr(void *data_model)
+{
+    return (lisp_addr_get_ip_addr(json_type_get_addr(data_model)));
+}
+
+lisp_addr_t *
+json_type_get_ip_pref_addr(void *data_model)
+{
+    return (lisp_addr_get_ip_pref_addr(json_type_get_addr(data_model)));
+}
+
+inline int
+lisp_addr_is_json(lisp_addr_t *addr)
+{
+    return(lisp_addr_lafi(addr) == LM_AFI_LCAF && lisp_addr_lcaf_type(addr) == LCAF_JSON_DATA_MODEL);
+}
+
+void
+lcaf_json_init(lcaf_addr_t *json_addr, char *json_string, lisp_addr_t *addr)
+{
+    if (!json_addr->addr){
+        lcaf_addr_del_addr(json_addr);
+    }
+    json_addr->type = LCAF_JSON_DATA_MODEL;
+    json_addr->addr = json_type_new_init(json_string, addr);
+}
+
+
+inline lisp_addr_t *
+lisp_addr_new_init_json(char *json_string, lisp_addr_t *addr)
+{
+    lisp_addr_t *json_addr;
+    if (addr == NULL){
+        addr = lisp_addr_new_lafi(LM_AFI_NO_ADDR);
+    }
+
+    json_addr = lisp_addr_new_lafi(LM_AFI_LCAF);
+    lcaf_json_init(&json_addr->lcaf, json_string, addr);
+
+    return (json_addr);
 }

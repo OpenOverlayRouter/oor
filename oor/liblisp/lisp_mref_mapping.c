@@ -406,6 +406,10 @@ mref_mapping_get_ref_lst_with_afi(
                     return (loct_list);
                 }
                 break;
+            case LM_AFI_DIST_NAME:
+                //XXX To check
+                OOR_LOG(LDBG_1,"mref_mapping_get_ref_with_afi: Not apply to distinguiseh names");
+                return (NULL);
             }
         }
     }

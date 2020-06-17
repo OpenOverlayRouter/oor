@@ -48,11 +48,12 @@ mapping_new_init(lisp_addr_t *eid)
     /* If eid is an IP address, convert it to IP prefix */
     if (lisp_addr_get_ip_pref_addr(eid) == NULL){
         ip_pref = lisp_addr_get_ip_addr(eid);
-        if (!ip_pref){
+        if (ip_pref){
+            lisp_addr_ip_to_ippref(ip_pref);
+        }else{
             OOR_LOG(LWRN, "mapping_new_init: Couldn't get eid prefix from %s", lisp_addr_to_char(eid));
-            return (NULL);
+                        //return (NULL);
         }
-        lisp_addr_ip_to_ippref(ip_pref);
     }
 
     mapping = mapping_new();
@@ -351,6 +352,10 @@ mapping_get_loct_lst_with_afi(
                     return (loct_list);
                 }
                 break;
+            case LM_AFI_DIST_NAME:
+                //XXX To check
+                OOR_LOG(LDBG_1,"mapping_get_locators_with_afi: Not apply to distinguiseh names");
+                return (NULL);
             }
         }
     }

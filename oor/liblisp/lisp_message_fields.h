@@ -36,6 +36,7 @@ typedef enum {
     LISP_AFI_NO_ADDR,
     LISP_AFI_IP,
     LISP_AFI_IPV6,
+    LISP_AFI_DIST_NAME = 17,
     LISP_AFI_LCAF = 16387
 } lisp_afi_e;
 
@@ -54,8 +55,8 @@ typedef enum {
     LCAF_EXPL_LOC_PATH = 10,
     LCAF_SEC_KEY = 11,
     LCAF_TUPLE,
-    LCAF_RLE,
-    LCAF_DATA_MODEL,
+    LCAF_RLE = 13,
+    LCAF_JSON_DATA_MODEL = 14,
     LCAF_KEY_VALUE
 } lcaf_type_e;
 
@@ -352,7 +353,7 @@ typedef struct _key_len_hdr_t {
     uint16_t len;
 } key_len_hdr_t;
 
-#define SEC_KEY_CAST(ptr_)((sec_key_inf_t *)(ptr_))
+#define SEC_KEY_CAST(ptr_)((lcaf_sec_key_inf_t *)(ptr_))
 #define SEC_KEY_COUNT(ptr_) SEC_KEY_CAST((ptr_))->key_count
 #define SEC_KEY_ALGH(ptr_) SEC_KEY_CAST((ptr_))->key_algh
 #define SEC_KEY_RBIT(ptr_) SEC_KEY_CAST((ptr_))->R
@@ -387,6 +388,43 @@ typedef struct _address_hdr_t {
     uint16_t afi;
 } address_hdr_t;
 
+/*
+ * Data Model Encoding
+ *
+ * 0                   1                   2                   3
+ * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |           AFI = 16387         |     Rsvd1     |     Flags     |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Type = 14   |    Rsvd2    |B|            Length             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |           JSON length         | JSON binary/text encoding ... |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |              AFI = x          |       Optional Address ...    |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+
+
+typedef struct _lcaf_json_data_model_hdr_t{
+    uint16_t    afi;
+    uint8_t     rsvd1;
+    uint8_t     flags;
+    uint8_t     type;
+#ifdef LITTLE_ENDIANS
+    uint8_t     B:1;
+    uint8_t     rsvd2:7;
+#else
+    uint8_t     rsvd2:1;
+    uint8_t     B:1;
+#endif
+    uint16_t    len;
+    uint16_t    json_len;
+} __attribute__ ((__packed__)) lcaf_json_data_model_hdr_t;
+
+#define JSON_CAST(ptr_)((lcaf_json_data_model_hdr_t *)(ptr_))
+#define JSON_STR_LEN(ptr_) JSON_CAST((ptr_))->json_len
+#define JSON_BIN_ENC_BIT(ptr_) JSON_CAST((ptr_))->B
 
 /*
  * LOCATOR FIELD
