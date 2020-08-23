@@ -196,7 +196,7 @@ distclean: clean
 
 install: $(EXE)
 	mkdir -p $(DESTDIR)$(PREFIX) && cp $(EXE) $(DESTDIR)$(PREFIX)
-	cp $(SERVICE) $(SERVICEPREF)
+	mkdir -p $(DESTDIR)$(SERVICEPREF) && cp $(SERVICE) $(DESTDIR)$(SERVICEPREF)
 	setcap cap_net_raw,cap_net_admin+ep $(DESTDIR)$(PREFIX)/$(EXE)
 
 uninstall:
