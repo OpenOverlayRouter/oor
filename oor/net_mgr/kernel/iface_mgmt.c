@@ -288,7 +288,7 @@ process_nl_new_multicast_route(struct rtmsg *rtm, int rt_length)
 //    lisp_addr_t srcaddr = {.lafi = LM_AFI_IP};
 //    lisp_addr_t grpaddr = {.lafi = LM_AFI_IP};
 
-    OOR_LOG(LDBG_1, "process_nl_new_multicast_route: Not yet implented, ignored!");
+    OOR_LOG(LDBG_1, "process_nl_new_multicast_route: Not yet implemented, ignored!");
 
 //    /* IPv4 multicast routes are part of the default table and have
 //     * family 128, while IPv6 multicast routes are part of the main table
