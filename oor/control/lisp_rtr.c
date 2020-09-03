@@ -671,7 +671,7 @@ rtr_recv_map_register(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_
 static int
 rtr_recv_map_notify(lisp_rtr_t *rtr, lbuf_t *buf, void *ecm_hdr, uconn_t *int_uc, uconn_t *ext_uc)
 {
-    void *hdr, *auth_hdr;
+    void *hdr, *auth_hdr = NULL;
     nonces_list_t *nonces_lst;
     oor_timer_t *timer;
     lbuf_t b;

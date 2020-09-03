@@ -494,7 +494,7 @@ tun_updated_addr(iface_t *iface, lisp_addr_t *old_addr, lisp_addr_t *new_addr)
 {
     int old_addr_lafi,old_addr_ip_afi, new_addr_lafi,new_addr_ip_afi, table;
     int sckt;
-    iface_t * def_iface;
+    iface_t * def_iface = NULL;
     tun_dplane_data_t *data;
 
     data = (tun_dplane_data_t *)dplane_tun.datap_data;

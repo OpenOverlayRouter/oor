@@ -140,7 +140,7 @@ _mc_rtr_data_nat_update(mcache_entry_t *mce, mapping_t *rcv_map, lisp_addr_t *rt
         lisp_xtr_id *xtr_id)
 {
     mc_rtr_data_t *rtr_data = mce->dev_specific_data;
-    locator_t *loct;
+    locator_t *loct = NULL;
     locator_t *emr_loct = NULL; // Locator from where we received EMReg
     uint8_t  match;
     glist_t *xtrid_nat_locts, *match_nat_locts; // <rloc_nat_data_t>
