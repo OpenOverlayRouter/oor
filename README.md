@@ -1,3 +1,8 @@
+> [!WARNING]
+> **This project is no longer actively maintained.** > 
+> Due to a lack of resources and time, development was discontinued in 2019. For historical reasons, the official website domain has been retired and the project content has been migrated to a subpage of our institution: **https://openoverlayrouter.cba.upc.edu/**
+
+
 Overview
 --------
 
